@@ -11,6 +11,7 @@ import java.util.Set;
 
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.simpleapi.sql.mysql.queries.Query;
+import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 
 import lombok.Getter;
 
@@ -166,6 +167,33 @@ public abstract class ProxyVoteCacheTable {
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setInt(1, id);
+			ps.executeUpdate();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public void removeVotesByServerAndUUID(String server, String uuid) {
+		String sql = "DELETE FROM `" + tableName + "` WHERE `server` = ? AND `uuid` = ?;";
+		try (Connection conn = mysql.getConnectionManager().getConnection();
+				PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setString(1, server);
+			ps.setString(2, uuid);
+			ps.executeUpdate();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public void removeVote(OfflineBungeeVote vote, String server) {
+		String sql = "DELETE FROM `" + tableName
+				+ "` WHERE `uuid` = ? AND `service` = ? AND `time` = ? AND `server` = ?;";
+		try (Connection conn = mysql.getConnectionManager().getConnection();
+				PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setString(1, vote.getUuid());
+			ps.setString(2, vote.getService());
+			ps.setLong(3, vote.getTime());
+			ps.setString(4, server);
 			ps.executeUpdate();
 		} catch (SQLException e) {
 			e.printStackTrace();

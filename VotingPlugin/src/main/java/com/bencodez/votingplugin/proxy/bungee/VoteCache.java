@@ -126,4 +126,51 @@ public class VoteCache extends BungeeJsonFile implements IVoteCache {
 	public void reload() {
 		super.reload();
 	}
+
+	@Override
+	public void removeOnlineVotes(String player) {
+		setString("OnlineCache." + player, null);
+	}
+
+	@Override
+	public void removeServerVotes(String server) {
+		setString("VoteCache." + server, null);
+	}
+
+	@Override
+	public void removeServerVote(String server, String uuid) {
+		// search for vote with uuid and remove it
+		for (String num : getServerVotes(server)) {
+			if (getServerVotes(server, num).get("UUID").asString().equals(uuid)) {
+				setString("VoteCache." + server + "." + num, null);
+			}
+		}
+	}
+
+	@Override
+	public void removeVote(String server, OfflineBungeeVote vote) {
+		for (String num : getServerVotes(server)) {
+			GsonDataNode node = getServerVotes(server, num);
+			if (node.get("UUID").asString().equals(vote.getUuid())
+					&& node.get("Service").asString().equals(vote.getService())
+					&& node.get("Time").asLong() == vote.getTime()) {
+				setString("VoteCache." + server + "." + num, null);
+			}
+		}
+	}
+
+	@Override
+	public void removeOnlineVote(OfflineBungeeVote vote) {
+		for (String player : getPlayers()) {
+			for (String num : getOnlineVotes(player)) {
+				GsonDataNode node = getOnlineVotes(player, num);
+				if (node.get("UUID").asString().equals(vote.getUuid())
+						&& node.get("Service").asString().equals(vote.getService())
+						&& node.get("Time").asLong() == vote.getTime()) {
+					setString("OnlineCache." + player + "." + num, null);
+				}
+			}
+		}
+	}
+
 }

@@ -270,10 +270,9 @@ public abstract class VotingPluginProxy {
 		int delay = 1;
 		if (isServerValid(server)) {
 			if (isSomeoneOnlineServer(server)) {
-				if (getVoteCacheHandler().getCachedVotes().containsKey(server)
-						&& !getConfig().getBlockedServers().contains(server)) {
-					ArrayList<OfflineBungeeVote> c = getVoteCacheHandler().getCachedVotes().get(server);
-					ArrayList<OfflineBungeeVote> newSet = new ArrayList<>();
+				if (getVoteCacheHandler().hasVotes(server) && !getConfig().getBlockedServers().contains(server)) {
+					ArrayList<OfflineBungeeVote> c = getVoteCacheHandler().getVotes(server);
+					ArrayList<OfflineBungeeVote> removed = new ArrayList<>();
 					if (!c.isEmpty()) {
 						int num = 1;
 						int numberOfVotes = c.size();
@@ -297,21 +296,20 @@ public abstract class VotingPluginProxy {
 										"" + num, "" + numberOfVotes);
 								delay++;
 								num++;
+								removed.add(cache);
 							} else {
 								debug("Not sending vote because user isn't on server " + server + ": "
 										+ cache.toString());
-								newSet.add(cache);
+
 							}
 						}
-						getVoteCacheHandler().getCachedVotes().put(server, newSet);
+						getVoteCacheHandler().removeServerVotes(server, removed);
 					} else {
 						debug("No cached votes for server: " + server);
 					}
 				} else {
 					debug("No cached votes for server: " + server);
 				}
-			} else {
-				debug("No one online on server: " + server);
 			}
 		} else {
 			debug("Server not valid: " + server);
@@ -1146,8 +1144,8 @@ public abstract class VotingPluginProxy {
 		}
 
 		// Check cached votes
-		for (ArrayList<OfflineBungeeVote> votes : getVoteCacheHandler().getCachedVotes().values()) {
-			for (OfflineBungeeVote vote : votes) {
+		for (String server : getAllAvailableServers()) {
+			for (OfflineBungeeVote vote : getVoteCacheHandler().getVotes(server)) {
 				if (vote.getUuid().equals(uuid) && vote.getService().equalsIgnoreCase(service)) {
 					mostRecentTime = Math.max(mostRecentTime, vote.getTime());
 				}
@@ -1377,13 +1375,9 @@ public abstract class VotingPluginProxy {
 						globalMessageProxyHandler.sendMessage(s, 1, "VoteBroadcast", uuid, player, service);
 					}
 					if ((!isSomeoneOnlineServer(s) && method.requiresPlayerOnline()) || forceCache) {
-						// cache
-						if (!getVoteCacheHandler().getCachedVotes().containsKey(s)) {
-							getVoteCacheHandler().getCachedVotes().put(s, new ArrayList<>());
-						}
-						ArrayList<OfflineBungeeVote> list = getVoteCacheHandler().getCachedVotes().get(s);
-						list.add(new OfflineBungeeVote(player, uuid, service, time, realVote, text.toString()));
-						getVoteCacheHandler().getCachedVotes().put(s, list);
+
+						getVoteCacheHandler().addServerVote(s,
+								new OfflineBungeeVote(player, uuid, service, time, realVote, text.toString()));
 
 						debug("Caching vote for " + player + " on " + service + " for " + s);
 

@@ -10,11 +10,13 @@ public class ConfigDataNode implements DataNode {
 		this.node = node;
 	}
 
+	@SuppressWarnings("deprecation")
 	@Override
 	public boolean isObject() {
 		return node.hasMapChildren();
 	}
 
+	@SuppressWarnings("deprecation")
 	@Override
 	public boolean isArray() {
 		return node.hasListChildren();

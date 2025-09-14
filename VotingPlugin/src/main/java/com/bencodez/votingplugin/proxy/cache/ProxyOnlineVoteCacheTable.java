@@ -9,6 +9,7 @@ import java.util.List;
 
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.simpleapi.sql.mysql.queries.Query;
+import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 
 public abstract class ProxyOnlineVoteCacheTable {
 
@@ -173,6 +174,19 @@ public abstract class ProxyOnlineVoteCacheTable {
 			e.printStackTrace();
 		}
 		return list;
+	}
+
+	public void removeOnlineVote(OfflineBungeeVote vote) {
+		String sql = "DELETE FROM `" + tableName + "` WHERE `uuid` = ? AND `service` = ? AND `time` = ?;";
+		try (Connection conn = mysql.getConnectionManager().getConnection();
+				PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setString(1, vote.getUuid());
+			ps.setString(2, vote.getService());
+			ps.setLong(3, vote.getTime());
+			ps.executeUpdate();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
 	}
 
 	public static class OnlineVoteRow {

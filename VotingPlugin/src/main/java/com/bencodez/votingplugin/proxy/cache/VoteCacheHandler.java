@@ -16,7 +16,6 @@ import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
 import lombok.Getter;
-import lombok.Setter;
 
 public abstract class VoteCacheHandler {
 
@@ -26,10 +25,51 @@ public abstract class VoteCacheHandler {
 	// uuid based
 	private ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>> cachedOnlineVotes = new ConcurrentHashMap<>();
 
-	@Getter
-	@Setter
 	// server based
 	private ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>> cachedVotes = new ConcurrentHashMap<>();
+
+	public boolean hasVotes(String server) {
+		return cachedVotes.containsKey(server);
+	}
+
+	public ArrayList<OfflineBungeeVote> getVotes(String server) {
+		return cachedVotes.getOrDefault(server, new ArrayList<>());
+	}
+
+	public void addServerVote(String server, OfflineBungeeVote vote) {
+		cachedVotes.putIfAbsent(server, new ArrayList<>());
+		cachedVotes.get(server).add(vote);
+		if (useMySQL) {
+			voteCacheTable.insertVote(vote.getUuid(), vote.getPlayerName(), vote.getService(), vote.getTime(),
+					vote.isRealVote(), vote.getText(), server);
+		} else {
+			jsonStorage.addVote(server, cachedVotes.get(server).size() - 1, vote);
+			jsonStorage.save();
+		}
+	}
+
+	public void removeVote(String server, String uuid) {
+		if (cachedVotes.containsKey(server)) {
+			ArrayList<OfflineBungeeVote> votes = cachedVotes.get(server);
+			votes.removeIf(vote -> vote.getUuid().equals(uuid));
+			if (useMySQL) {
+				voteCacheTable.removeVotesByServerAndUUID(server, uuid);
+			} else {
+				jsonStorage.removeServerVote(server, uuid);
+				jsonStorage.save();
+			}
+		}
+	}
+
+	public void removeVotes(String server) {
+		cachedVotes.remove(server);
+		if (useMySQL) {
+			voteCacheTable.removeVotesByServer(server);
+		} else {
+			jsonStorage.removeServerVotes(server);
+			jsonStorage.save();
+		}
+	}
 
 	public boolean hasOnlineVotes(String uuid) {
 		return cachedOnlineVotes.containsKey(uuid);
@@ -42,32 +82,55 @@ public abstract class VoteCacheHandler {
 	public void addOnlineVote(String uuid, OfflineBungeeVote vote) {
 		cachedOnlineVotes.putIfAbsent(uuid, new ArrayList<>());
 		cachedOnlineVotes.get(uuid).add(vote);
+		if (useMySQL) {
+			onlineVoteCacheTable.insertOnlineVote(vote.getUuid(), vote.getPlayerName(), vote.getService(),
+					vote.getTime(), vote.isRealVote(), vote.getText());
+		} else {
+			jsonStorage.addVoteOnline(uuid, cachedOnlineVotes.get(uuid).size() - 1, vote);
+			jsonStorage.save();
+		}
 	}
 
 	public void removeOnlineVotes(String uuid) {
 		cachedOnlineVotes.remove(uuid);
+		if (useMySQL) {
+			onlineVoteCacheTable.removeVotesForUUID(uuid);
+		} else {
+			jsonStorage.removeOnlineVotes(uuid);
+			jsonStorage.save();
+		}
 	}
 
 	public void checkVoteCacheTime(int voteCacheTime) {
 		long cTime = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+
+		// Collect expired online votes
+		ArrayList<OfflineBungeeVote> expiredOnlineVotes = new ArrayList<>();
 		for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedOnlineVotes.entrySet()) {
 			ArrayList<OfflineBungeeVote> votes = entry.getValue();
-			for (int i = votes.size() - 1; i >= 0; i--) {
-				if (votes.get(i).getTime() + (voteCacheTime * 24 * 60 * 60 * 1000) < cTime) {
-					debug1("Removing vote from cache: " + votes.get(i).toString());
-					votes.remove(i);
+			for (OfflineBungeeVote vote : votes) {
+				if (vote.getTime() + (voteCacheTime * 24 * 60 * 60 * 1000) < cTime) {
+					debug1("Removing vote from cache: " + vote.toString());
+					expiredOnlineVotes.add(vote);
+				}
+			}
+		}
+		removeOnlineVotes(expiredOnlineVotes);
+
+		// Collect expired server votes
+		ArrayList<OfflineBungeeVote> expiredServerVotes = new ArrayList<>();
+		for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedVotes.entrySet()) {
+			ArrayList<OfflineBungeeVote> votes = entry.getValue();
+			for (OfflineBungeeVote vote : votes) {
+				if (vote.getTime() + (voteCacheTime * 24 * 60 * 60 * 1000) < cTime) {
+					debug1("Removing vote from cache: " + vote.toString());
+					expiredServerVotes.add(vote);
 				}
 			}
 		}
 
-		for (Entry<String, ArrayList<OfflineBungeeVote>> entry : getCachedVotes().entrySet()) {
-			ArrayList<OfflineBungeeVote> votes = entry.getValue();
-			for (int i = votes.size() - 1; i >= 0; i--) {
-				if (votes.get(i).getTime() + (voteCacheTime * 24 * 60 * 60 * 1000) < cTime) {
-					debug1("Removing vote from cache: " + votes.get(i).toString());
-					votes.remove(i);
-				}
-			}
+		for (String server : cachedVotes.keySet()) {
+			removeServerVotes(server, expiredServerVotes);
 		}
 	}
 
@@ -99,23 +162,6 @@ public abstract class VoteCacheHandler {
 
 	public void saveVoteCache() {
 		if (useMySQL) {
-			for (Entry<String, ArrayList<OfflineBungeeVote>> entry : getCachedVotes().entrySet()) {
-				String server = entry.getKey();
-				if (!entry.getValue().isEmpty()) {
-					for (OfflineBungeeVote voteData : entry.getValue()) {
-						voteCacheTable.insertVote(voteData.getUuid(), voteData.getPlayerName(), voteData.getService(),
-								voteData.getTime(), voteData.isRealVote(), voteData.getText(), server);
-					}
-				}
-			}
-			for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedOnlineVotes.entrySet()) {
-				if (!entry.getValue().isEmpty()) {
-					for (OfflineBungeeVote voteData : entry.getValue()) {
-						onlineVoteCacheTable.insertOnlineVote(voteData.getUuid(), voteData.getPlayerName(),
-								voteData.getService(), voteData.getTime(), voteData.isRealVote(), voteData.getText());
-					}
-				}
-			}
 
 			if (!getTimeChangeQueue().isEmpty()) {
 				for (VoteTimeQueue vote : getTimeChangeQueue()) {
@@ -123,27 +169,6 @@ public abstract class VoteCacheHandler {
 				}
 			}
 		} else {
-			if (!getCachedVotes().isEmpty()) {
-				for (Entry<String, ArrayList<OfflineBungeeVote>> entry : getCachedVotes().entrySet()) {
-					String server = entry.getKey();
-					int num = 0;
-					for (OfflineBungeeVote voteData : entry.getValue()) {
-						jsonStorage.addVote(server, num, voteData);
-						num++;
-					}
-				}
-			}
-
-			if (!cachedOnlineVotes.isEmpty()) {
-				for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedOnlineVotes.entrySet()) {
-					String name = entry.getKey();
-					int num = 0;
-					for (OfflineBungeeVote voteData : entry.getValue()) {
-						jsonStorage.addVoteOnline(name, num, voteData);
-						num++;
-					}
-				}
-			}
 
 			if (!getTimeChangeQueue().isEmpty()) {
 				int num = 0;
@@ -154,16 +179,6 @@ public abstract class VoteCacheHandler {
 			}
 			jsonStorage.save();
 		}
-	}
-
-	public void addVoteToCache(String server, OfflineBungeeVote vote) {
-		cachedVotes.putIfAbsent(server, new ArrayList<>());
-		cachedVotes.get(server).add(vote);
-	}
-
-	public void addOnlineVoteToCache(String player, OfflineBungeeVote vote) {
-		cachedOnlineVotes.putIfAbsent(player, new ArrayList<>());
-		cachedOnlineVotes.get(player).add(vote);
 	}
 
 	public void addTimeVoteToCache(VoteTimeQueue vote) {
@@ -181,8 +196,6 @@ public abstract class VoteCacheHandler {
 				cachedVotes.get(server).add(vote);
 			});
 
-			voteCacheTable.clearTable();
-
 			// Load online votes from MySQL
 			onlineVoteCacheTable.getAllVotes().forEach(voteRow -> {
 				OfflineBungeeVote vote = new OfflineBungeeVote(voteRow.getPlayerName(), voteRow.getUuid(),
@@ -191,8 +204,6 @@ public abstract class VoteCacheHandler {
 				cachedOnlineVotes.putIfAbsent(player, new ArrayList<>());
 				cachedOnlineVotes.get(player).add(vote);
 			});
-
-			onlineVoteCacheTable.clearTable();
 
 			// Load timed votes from MySQL
 			ArrayList<VoteTimeQueue> timedVotes = new ArrayList<>();
@@ -241,7 +252,7 @@ public abstract class VoteCacheHandler {
 							votes.add(new OfflineBungeeVote(name, uuid, service, time, real, text));
 						}
 					}
-					getCachedVotes().put(server, votes);
+					cachedVotes.put(server, votes);
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -271,8 +282,20 @@ public abstract class VoteCacheHandler {
 				e.printStackTrace();
 			}
 
-			jsonStorage.clearData();
 		}
+
+		// log vote cache load summary
+
+		debug1("Loaded " + cachedVotes.size() + " server vote caches.");
+		int totalServerVotes = cachedVotes.values().stream().mapToInt(ArrayList::size).sum();
+		debug1("Loaded " + totalServerVotes + " total server votes.");
+
+		debug1("Loaded " + cachedOnlineVotes.size() + " online vote caches.");
+		int totalOnlineVotes = cachedOnlineVotes.values().stream().mapToInt(ArrayList::size).sum();
+		debug1("Loaded " + totalOnlineVotes + " total online votes.");
+
+		debug1("Loaded " + timeChangeQueue.size() + " timed votes.");
+
 	}
 
 	private final boolean useMySQL;
@@ -287,7 +310,7 @@ public abstract class VoteCacheHandler {
 	public abstract void logSevere1(String msg);
 
 	public abstract void debug1(Exception e);
-	
+
 	public abstract void debug1(String msg);
 
 	public VoteCacheHandler(MysqlConfig mysqlConfig, boolean useMySQL, boolean useExistingConnection, MySQL mysql,
@@ -408,6 +431,42 @@ public abstract class VoteCacheHandler {
 			}
 		} else {
 			this.jsonStorage = jsonStorage;
+		}
+	}
+
+	public String[] getCachedVotesServers() {
+		return cachedVotes.keySet().toArray(new String[0]);
+	}
+
+	public void removeServerVotes(String server, ArrayList<OfflineBungeeVote> removed) {
+		for (OfflineBungeeVote vote : removed) {
+			for (Map.Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedVotes.entrySet()) {
+				if (entry.getKey().equals(server)) {
+					entry.getValue().removeIf(v -> v.getUuid().equals(vote.getUuid())
+							&& v.getService().equals(vote.getService()) && v.getTime() == vote.getTime());
+				}
+			}
+			if (useMySQL) {
+				voteCacheTable.removeVote(vote, server);
+			} else {
+				jsonStorage.removeVote(server, vote);
+				jsonStorage.save();
+			}
+		}
+	}
+
+	public void removeOnlineVotes(ArrayList<OfflineBungeeVote> removed) {
+		for (OfflineBungeeVote vote : removed) {
+			for (Map.Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedOnlineVotes.entrySet()) {
+				entry.getValue().removeIf(v -> v.getUuid().equals(vote.getUuid())
+						&& v.getService().equals(vote.getService()) && v.getTime() == vote.getTime());
+			}
+			if (useMySQL) {
+				onlineVoteCacheTable.removeOnlineVote(vote);
+			} else {
+				jsonStorage.removeOnlineVote(vote);
+				jsonStorage.save();
+			}
 		}
 	}
 

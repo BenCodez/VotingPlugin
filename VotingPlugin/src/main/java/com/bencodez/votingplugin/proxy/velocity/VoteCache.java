@@ -119,4 +119,51 @@ public class VoteCache extends VelocityJSONFile implements IVoteCache {
 	public void setVotePartyInreaseVotesRequired(int amount) {
 		getNode("VoteParty", "IncreaseVotes").setValue(amount);
 	}
+
+	@Override
+	public void removeOnlineVotes(String player) {
+		getNode("OnlineCache", player).setValue(null);
+	}
+
+	@Override
+	public void removeServerVotes(String server) {
+		getNode("VoteCache", server).setValue(null);
+	}
+
+	@Override
+	public void removeServerVote(String server, String uuid) {
+		// search for vote with uuid and remove it
+		for (String num : getServerVotes(server)) {
+			if (getServerVotes(server, num).get("UUID").asString().equals(uuid)) {
+				getNode("VoteCache", server, num).setValue(null);
+			}
+		}
+
+	}
+
+	@Override
+	public void removeVote(String server, OfflineBungeeVote vote) {
+		for (String num : getServerVotes(server)) {
+			ConfigDataNode node = getServerVotes(server, num);
+			if (node.get("UUID").asString().equals(vote.getUuid())
+					&& node.get("Service").asString().equals(vote.getService())
+					&& node.get("Time").asLong() == vote.getTime()) {
+				getNode("VoteCache", server, num).setValue(null);
+			}
+		}
+	}
+
+	@Override
+	public void removeOnlineVote(OfflineBungeeVote vote) {
+		for (String player : getPlayers()) {
+			for (String num : getOnlineVotes(player)) {
+				ConfigDataNode node = getOnlineVotes(player, num);
+				if (node.get("UUID").asString().equals(vote.getUuid())
+						&& node.get("Service").asString().equals(vote.getService())
+						&& node.get("Time").asLong() == vote.getTime()) {
+					getNode("OnlineCache", player, num).setValue(null);
+				}
+			}
+		}
+	}
 }

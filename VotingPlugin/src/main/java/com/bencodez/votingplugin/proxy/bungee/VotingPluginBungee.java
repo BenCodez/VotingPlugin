@@ -667,7 +667,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				@Override
 				public void run() {
 
-					for (String server : getVotingPluginProxy().getVoteCacheHandler().getCachedVotes().keySet()) {
+					for (String server : getVotingPluginProxy().getVoteCacheHandler().getCachedVotesServers()) {
 						getVotingPluginProxy().checkCachedVotes(server);
 					}
 

@@ -46,4 +46,14 @@ public interface IVoteCache {
 	void save();
 
 	void reload();
+
+	void removeOnlineVotes(String player);
+
+	void removeServerVotes(String server);
+
+	void removeServerVote(String server, String uuid);
+
+	void removeVote(String server, OfflineBungeeVote vote);
+
+	void removeOnlineVote(OfflineBungeeVote vote);
 }

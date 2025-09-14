@@ -787,7 +787,7 @@ public class VotingPluginVelocity {
 			voteCheckTask = server.getScheduler().buildTask(this, () -> {
 				if (getVotingPluginProxy().getGlobalDataHandler() == null
 						|| !getVotingPluginProxy().getGlobalDataHandler().isTimeChangedHappened()) {
-					for (String server : getVotingPluginProxy().getVoteCacheHandler().getCachedVotes().keySet()) {
+					for (String server : getVotingPluginProxy().getVoteCacheHandler().getCachedVotesServers()) {
 						getVotingPluginProxy().checkCachedVotes(server);
 					}
 
