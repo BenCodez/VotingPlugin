@@ -482,9 +482,8 @@ public abstract class VotingPluginProxy {
 		bungeeTimeChecker.setTimeChangeFailSafeBypass(getConfig().getTimeChangeFailSafeBypass());
 		bungeeTimeChecker.loadTimer();
 
-		// todo mysql
 		voteCacheHandler = new VoteCacheHandler(getVoteCacheMySQLConfig(), getConfig().getVoteCacheUseMySQL(),
-				getConfig().getDebug(), getProxyMySQL().getMysql(), getConfig().getVoteCacheUseMainMySQL(),
+				getConfig().getVoteCacheUseMainMySQL(), getProxyMySQL().getMysql(), getConfig().getDebug(),
 				jsonStorage) {
 
 			@Override
