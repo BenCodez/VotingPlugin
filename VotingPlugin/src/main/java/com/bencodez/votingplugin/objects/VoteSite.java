@@ -109,6 +109,11 @@ public class VoteSite {
 		if (plugin.getConfigFile().isFormatAlternateBroadcastEnabled()) {
 			return;
 		}
+		if (isHidden()) {
+			plugin.debug("Not broadcasting for " + user.getPlayerName() + ", site is hidden");
+			return;
+		}
+		
 		if (!user.isVanished()) {
 			String playerName = user.getPlayerName();
 			if (plugin.getConfigFile().getVotingBroadcastBlacklist().contains(playerName)) {
