@@ -3,8 +3,7 @@
 
 # This workflow uses actions that are not certified by GitHub.
 # They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
+# separate terms of service, privacy policy, and support documentation.
 
 name: Java CI with Maven
 
@@ -13,6 +12,9 @@ on:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
+
+permissions:
+  contents: write   # required for dependency submission
 
 jobs:
   build:
@@ -30,8 +32,10 @@ jobs:
       - name: Build with Maven
         run: mvn -B -f VotingPlugin/pom.xml package
 
+      # Only submit dependency snapshot on push (not on pull_request)
       - name: Submit Dependency Snapshot
+        if: github.event_name == 'push'
         uses: advanced-security/maven-dependency-submission-action@v5
         with:
-          directory: VotingPlugin   # <-- tell the action where pom.xml is
+          directory: VotingPlugin   # path to pom.xml
           # optional: maven-args: "-DskipTests"
