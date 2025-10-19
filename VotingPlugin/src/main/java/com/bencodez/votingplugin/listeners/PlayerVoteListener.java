@@ -11,6 +11,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
+import com.bencodez.advancedcore.api.bedrock.BedrockNameResolver;
 import com.bencodez.advancedcore.api.misc.PlayerManager;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -52,35 +53,32 @@ public class PlayerVoteListener implements Listener {
 		plugin.debug("Processing PlayerVoteEvent: " + playerName + "/" + event.getServiceSite());
 
 		// check for name casing
-		playerName = plugin.getUserManager().getProperName(playerName);
+		final String properName = plugin.getUserManager().getProperName(playerName);
 
-		boolean notValid = false;
-		if (!PlayerManager.getInstance().isValidUser(playerName, plugin.getConfigFile().isAllowUnJoinedCheckServer())) {
-			if (!playerName.startsWith(plugin.getOptions().getBedrockPlayerPrefix())
-					&& !plugin.getOptions().getBedrockPlayerPrefix().isEmpty()) {
-				if (!event.isBungee() && PlayerManager.getInstance().isValidUser(
-						plugin.getOptions().getBedrockPlayerPrefix() + playerName,
-						plugin.getConfigFile().isAllowUnJoinedCheckServer())) {
-					plugin.debug("Detected a bedrock user without bedrock prefix, adjusting");
-					playerName = plugin.getOptions().getBedrockPlayerPrefix() + playerName;
-				} else {
-					notValid = true;
-				}
-			} else {
-				notValid = true;
-			}
-		}
+		// Resolve Bedrock/Java + add prefix only when appropriate
+		BedrockNameResolver.Result rn = plugin.getBedrockHandle().resolve(properName);
+		String creditedName = rn.finalName;
 
-		if (notValid) {
+		plugin.debug("Vote name resolved: " + properName + " -> " + creditedName + " (" + rn.rationale + ")");
+
+		// Single validity check on the final name
+		boolean allowUnJoinedCheckServer = plugin.getConfigFile().isAllowUnJoinedCheckServer();
+		boolean isValid = PlayerManager.getInstance().isValidUser(creditedName, allowUnJoinedCheckServer);
+
+		// Handle not-valid the same way you did before
+		if (!isValid) {
 			if (!plugin.getConfigFile().isAllowUnjoined()) {
-				plugin.getLogger().warning("Player " + playerName
-						+ " has not joined before, disregarding vote, set AllowUnjoined to true to prevent this");
+				plugin.getLogger().warning("Player " + creditedName + " has not joined before, disregarding vote. "
+						+ "Set AllowUnjoined to true to accept.");
 				if (event.isBungee() && plugin.getBungeeSettings().isRemoveInvalidUsers()) {
-					plugin.getVotingPluginUserManager().getVotingPluginUser(playerName).remove();
+					plugin.getVotingPluginUserManager().getVotingPluginUser(creditedName).remove();
 				}
 				return;
 			}
 		}
+
+		// If we get here, use the resolved/possibly-prefixed name going forward
+		playerName = creditedName;
 
 		if (playerName.isEmpty()) {
 			plugin.getLogger().warning("Empty player name from vote, ignoring");
