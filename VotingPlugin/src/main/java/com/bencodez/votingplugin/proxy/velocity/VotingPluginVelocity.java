@@ -266,6 +266,12 @@ public class VotingPluginVelocity {
 						if (type.equals(TimeType.MONTH)) {
 							getVotingPluginProxy().getProxyMySQL().copyColumnData(TopVoter.Monthly.getColumnName(),
 									"LastMonthTotal");
+							if (getVotingPluginProxy().getConfig().getResetMilestonesMonthly()) {
+								getVotingPluginProxy().getProxyMySQL().wipeColumnData("MilestoneCount",
+										DataType.INTEGER);
+								getVotingPluginProxy().getProxyMySQL().wipeColumnData("GottenMileStones",
+										DataType.STRING);
+							}
 						}
 						getVotingPluginProxy().getProxyMySQL().wipeColumnData(TopVoter.of(type).getColumnName(),
 								DataType.INTEGER);
@@ -326,6 +332,12 @@ public class VotingPluginVelocity {
 						if (type.equals(TimeType.MONTH)) {
 							getVotingPluginProxy().getProxyMySQL().copyColumnData(TopVoter.Monthly.getColumnName(),
 									"LastMonthTotal");
+							if (getVotingPluginProxy().getConfig().getResetMilestonesMonthly()) {
+								getVotingPluginProxy().getProxyMySQL().wipeColumnData("MilestoneCount",
+										DataType.INTEGER);
+								getVotingPluginProxy().getProxyMySQL().wipeColumnData("GottenMileStones",
+										DataType.STRING);
+							}
 						}
 						getVotingPluginProxy().getProxyMySQL().wipeColumnData(TopVoter.of(type).getColumnName(),
 								DataType.INTEGER);
