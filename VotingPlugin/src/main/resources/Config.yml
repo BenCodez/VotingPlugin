@@ -634,7 +634,7 @@ DiscordSRV:
       Channel: 1234565 # Replace with your channel ID
     
       Title: 'All Time Top Voters'
-      RankDisplay: '%rank%: &6%player% - %votes% Votes'
+      RankDisplay: '%rank%: %player% - %votes% Votes'
     
     Monthly:
       # If true, will send top voter messages to discord
@@ -645,7 +645,7 @@ DiscordSRV:
       Channel: 1234565 # Replace with your channel ID
     
       Title: 'Top Voters of the Month'
-      RankDisplay: '%rank%: &6%player% - %votes% Votes'
+      RankDisplay: '%rank%: %player% - %votes% Votes'
     
     Weekly:
       # If true, will send top voter messages to discord
@@ -656,7 +656,7 @@ DiscordSRV:
       Channel: 1234565 # Replace with your channel ID
     
       Title: 'Top Voters of the Week'
-      RankDisplay: '%rank%: &6%player% - %votes% Votes'
+      RankDisplay: '%rank%: %player% - %votes% Votes'
     
     Daily:
       # If true, will send top voter messages to discord
@@ -667,7 +667,7 @@ DiscordSRV:
       Channel: 1234565 # Replace with your channel ID
     
       Title: 'Top Voters of the Day'
-      RankDisplay: '%rank%: &6%player% - %votes% Votes'
+      RankDisplay: '%rank%: %player% - %votes% Votes'
   
 
 
@@ -868,4 +868,5 @@ ExtraVoteShopCheck: true
 RequestAPI:
   DefaultMethod: 'Anvil'
   DisabledMethods: []
+
 
