@@ -86,7 +86,7 @@ public class Config extends YMLFile {
 
 	@ConfigDataString(path = "DiscordSRV.TopVoter.AllTime.RankDisplay")
 	@Getter
-	private String discordSRVTopVoterAllTimeRankDisplay = "%rank%: &6%player% - %votes% Votes";
+	private String discordSRVTopVoterAllTimeRankDisplay = "%rank%: %player% - %votes% Votes";
 
 	@ConfigDataBoolean(path = "DiscordSRV.TopVoter.Monthly.Enabled")
 	@Getter
@@ -102,7 +102,7 @@ public class Config extends YMLFile {
 
 	@ConfigDataString(path = "DiscordSRV.TopVoter.Monthly.RankDisplay")
 	@Getter
-	private String discordSRVTopVoterMonthlyRankDisplay = "%rank%: &6%player% - %votes% Votes";
+	private String discordSRVTopVoterMonthlyRankDisplay = "%rank%: %player% - %votes% Votes";
 
 	@ConfigDataBoolean(path = "DiscordSRV.TopVoter.Weekly.Enabled")
 	@Getter
@@ -118,7 +118,7 @@ public class Config extends YMLFile {
 
 	@ConfigDataString(path = "DiscordSRV.TopVoter.Weekly.RankDisplay")
 	@Getter
-	private String discordSRVTopVoterWeeklyRankDisplay = "%rank%: &6%player% - %votes% Votes";
+	private String discordSRVTopVoterWeeklyRankDisplay = "%rank%: %player% - %votes% Votes";
 
 	@ConfigDataBoolean(path = "DiscordSRV.TopVoter.Daily.Enabled")
 	@Getter
@@ -134,7 +134,7 @@ public class Config extends YMLFile {
 
 	@ConfigDataString(path = "DiscordSRV.TopVoter.Daily.RankDisplay")
 	@Getter
-	private String discordSRVTopVoterDailyRankDisplay = "%rank%: &6%player% - %votes% Votes";
+	private String discordSRVTopVoterDailyRankDisplay = "%rank%: %player% - %votes% Votes";
 
 	public boolean isDiscordSRVTopVoterEnabled(TopVoter topVoter) {
 		switch (topVoter) {
@@ -867,3 +867,4 @@ public class Config extends YMLFile {
 	}
 
 }
+
