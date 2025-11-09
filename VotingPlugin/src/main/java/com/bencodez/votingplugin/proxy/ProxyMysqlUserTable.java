@@ -59,6 +59,9 @@ public abstract class ProxyMysqlUserTable {
 		if (config.getTablePrefix() != null) {
 			name = config.getTablePrefix() + tableName;
 		}
+		if (config.getPoolName().isEmpty()) {
+			config.setPoolName("VotingPlugin" + "-" + tableName);
+		}
 		mysql = new com.bencodez.simpleapi.sql.mysql.MySQL(config.getMaxThreads()) {
 
 			@Override

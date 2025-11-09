@@ -3,21 +3,45 @@
 #
 # MYSQL Required on all setups
 # MYSQL INFO --------------------------
+# MYSQL INFO --------------------------
 Host: ''
 # Default port is 3306
-Port: 3306 
+Port: 3306
 Database: ''
 Username: ''
 Password: ''
-# Max number of connections
+
+# Max number of connections in the pool
 MaxConnections: 1
-# Table name prefix, for use with mutliple servers
-# Don't use with PLUGINMESSAGING bungee setup
+
+# Optional explicit table name override (leave empty to let the plugin choose)
+# Name: ''
+
+# Table name prefix, for use with multiple servers
+# Don't use with proxy setups unless you know what you're doing
 Prefix: ''
-#UseSSL: true
-#PublicKeyRetrieval: false
-#Attempt to use mariadb driver
-#UseMariaDB: false
+
+# --- Driver / security options ---
+# UseSSL: false
+# PublicKeyRetrieval: false          # Needed on some MySQL setups with caching_sha2_password
+# UseMariaDB: false                  # Attempt to use MariaDB driver instead of MySQL
+
+# --- Connection / lifecycle tuning ---
+# MaxLifeTime: -1                    # ms; <=0 uses plugin's safe default (e.g., 25m)
+# MinimumIdle: 2                     # keep a small warm pool (2 is a good starting point)
+# IdleTimeoutMs: 600000              # 10 minutes; retire idle connections before server kills them
+# KeepaliveMs: 300000                # 5 minutes; lightweight ping to prevent NAT/idle drops
+# ValidationMs: 5000                 # 5 seconds; timeout for connection validation
+# LeakDetectMs: 20000                # 20 seconds; logs if a connection is held too long (0 disables)
+# ConnectionTimeout: 50000           # 50 seconds; wait for a free connection before failing
+
+# --- Additional JDBC parameters appended to the URL ---
+# Example: "&connectionCollation=utf8mb4_unicode_ci"
+# Line: ''
+
+# Optional pool name (useful if you run multiple DB pools)
+# PoolName: 'VotingPlugin-Hikari'
+
 
 
 ####################################################################################
