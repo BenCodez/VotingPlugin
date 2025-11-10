@@ -19,6 +19,7 @@ com.bencodez.votingplugin.objects
 com.bencodez.votingplugin.placeholders
 com.bencodez.votingplugin.proxy
 com.bencodez.votingplugin.proxy.bungee
+com.bencodez.votingplugin.proxy.cache
 com.bencodez.votingplugin.proxy.multiproxy
 com.bencodez.votingplugin.proxy.velocity
 com.bencodez.votingplugin.servicesites
