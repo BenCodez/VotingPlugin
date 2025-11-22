@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.commands;
 
+import java.lang.reflect.Field;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -14,6 +15,7 @@ import java.util.regex.Pattern;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.command.CommandMap;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.ConfigurationSection;
@@ -1876,14 +1878,14 @@ public class CommandLoader {
 
 	}
 
-	/**
-	 * Load aliases.
-	 */
 	public void loadAliases() {
 		commands = new HashMap<>();
 
-		// If false: still wire permissions, but disable / hide alias commands.
+		// If false: still wire permissions, but remove alias commands from the command map.
 		final boolean enableAliases = plugin.getConfigFile().isLoadCommandAliases();
+
+		// Only needed when aliases are disabled
+		final CommandMap commandMap = enableAliases ? null : getCommandMapSafe();
 
 		// ---------------------------
 		// /vote aliases
@@ -1928,7 +1930,7 @@ public class CommandLoader {
 							continue;
 						}
 
-						// Always ensure the base permission is set, even if aliases are disabled.
+						// Always ensure the base permission is set (so perms exist and are visible to LP/etc).
 						String currentPerm = command.getPermission();
 						if (currentPerm == null || currentPerm.length() > basePerm.length()) {
 							command.setPermission(basePerm);
@@ -1938,24 +1940,28 @@ public class CommandLoader {
 							// Normal behavior: executor + tab completer
 							command.setExecutor(new CommandAliases(cmdHandle, false));
 							command.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle, false));
+
+							for (String str : command.getAliases()) {
+								commands.put(str, cmdHandle);
+							}
 						} else {
-							// Aliases disabled: keep perms, disable execution, hide from tab-complete
-							command.setExecutor((sender, cmd, label, args1) -> {
-								sender.sendMessage(ChatColor.RED + "This command is currently disabled.");
-								return true;
-							});
-
-							// Returning null hides it from tab-complete
-							command.setTabCompleter((sender, cmd, alias, args1) -> null);
-						}
-
-						// Track aliases from plugin.yml too
-						for (String str : command.getAliases()) {
-							commands.put(str, cmdHandle);
+							// Aliases disabled: keep permissions wired, but completely remove the command
+							// from the command map so it doesn't show up or work at all.
+							if (commandMap != null) {
+								command.unregister(commandMap);
+								plugin.devDebug("Unregistered disabled alias command /" + commandName);
+							} else {
+								// Fallback: if we failed to get commandMap, at least block usage & hide completions.
+								command.setExecutor((sender, cmd, label, args1) -> {
+									sender.sendMessage(ChatColor.RED + "This command is currently disabled.");
+									return true;
+								});
+								command.setTabCompleter((sender, cmd, alias, args1) -> null);
+								plugin.devDebug("Failed to access commandMap, falling back to disabled executor for /" + commandName);
+							}
 						}
 					} catch (Exception ex) {
-						plugin.devDebug(
-								"Failed to load command and tab completer for /vote" + arg + ": " + ex.getMessage());
+						plugin.devDebug("Failed to load command and tab completer for /vote" + arg + ": " + ex.getMessage());
 					}
 				}
 			}
@@ -2004,7 +2010,7 @@ public class CommandLoader {
 							continue;
 						}
 
-						// Always ensure the base permission is set, even if aliases are disabled.
+						// Always ensure the base permission is set.
 						String currentPerm = command.getPermission();
 						if (currentPerm == null || currentPerm.length() > basePerm.length()) {
 							command.setPermission(basePerm);
@@ -2014,27 +2020,44 @@ public class CommandLoader {
 							// Normal behavior
 							command.setExecutor(new CommandAliases(cmdHandle, true));
 							command.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle, true));
+
+							for (String str : command.getAliases()) {
+								commands.put(str, cmdHandle);
+							}
 						} else {
-							// Aliases disabled: keep perms, disable execution, hide from tab-complete
-							command.setExecutor((sender, cmd, label, args1) -> {
-								sender.sendMessage(ChatColor.RED + "This command is currently disabled.");
-								return true;
-							});
-
-							// Returning null hides it from tab-complete
-							command.setTabCompleter((sender, cmd, alias, args1) -> null);
-						}
-
-						// Track aliases from plugin.yml too
-						for (String str : command.getAliases()) {
-							commands.put(str, cmdHandle);
+							// Aliases disabled: unregister from command map
+							if (commandMap != null) {
+								command.unregister(commandMap);
+								plugin.devDebug("Unregistered disabled alias command /" + commandName);
+							} else {
+								// Fallback: block usage & hide completions
+								command.setExecutor((sender, cmd, label, args1) -> {
+									sender.sendMessage(ChatColor.RED + "This command is currently disabled.");
+									return true;
+								});
+								command.setTabCompleter((sender, cmd, alias, args1) -> null);
+								plugin.devDebug("Failed to access commandMap, falling back to disabled executor for /" + commandName);
+							}
 						}
 					} catch (Exception ex) {
-						plugin.devDebug("Failed to load command and tab completer for /adminvote" + arg + ": "
-								+ ex.getMessage());
+						plugin.devDebug("Failed to load command and tab completer for /adminvote" + arg + ": " + ex.getMessage());
 					}
 				}
 			}
+		}
+	}
+
+	/**
+	 * Reflection helper to get the Bukkit CommandMap.
+	 */
+	private CommandMap getCommandMapSafe() {
+		try {
+			Field f = Bukkit.getServer().getClass().getDeclaredField("commandMap");
+			f.setAccessible(true);
+			return (CommandMap) f.get(Bukkit.getServer());
+		} catch (Exception e) {
+			plugin.getLogger().warning("Could not access commandMap via reflection: " + e.getMessage());
+			return null;
 		}
 	}
 
