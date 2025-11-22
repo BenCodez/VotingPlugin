@@ -66,6 +66,7 @@ import com.bencodez.votingplugin.commands.executers.CommandAdminVote;
 import com.bencodez.votingplugin.commands.executers.CommandVote;
 import com.bencodez.votingplugin.commands.gui.AdminGUI;
 import com.bencodez.votingplugin.commands.tabcompleter.AdminVoteTabCompleter;
+import com.bencodez.votingplugin.commands.tabcompleter.AliasCommandFilterListener;
 import com.bencodez.votingplugin.commands.tabcompleter.VoteTabCompleter;
 import com.bencodez.votingplugin.config.BungeeSettings;
 import com.bencodez.votingplugin.config.Config;
@@ -1499,6 +1500,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		 */
 		coolDownCheck = new CoolDownCheck(this);
 		pm.registerEvents(coolDownCheck, this);
+
+		pm.registerEvents(new AliasCommandFilterListener(this), this);
 
 		plugin.debug("Loaded Events");
 

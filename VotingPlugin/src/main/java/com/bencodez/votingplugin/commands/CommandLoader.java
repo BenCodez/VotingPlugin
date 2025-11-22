@@ -1,10 +1,11 @@
 package com.bencodez.votingplugin.commands;
 
-import java.lang.reflect.Field;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.Locale;
 import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.Set;
@@ -15,7 +16,6 @@ import java.util.regex.Pattern;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
-import org.bukkit.command.CommandMap;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.ConfigurationSection;
@@ -1878,14 +1878,22 @@ public class CommandLoader {
 
 	}
 
+	private final Set<String> aliasCommandNames = new HashSet<>();
+
+	public Set<String> getAliasCommandNames() {
+		return aliasCommandNames;
+	}
+
+	/**
+	 * Load aliases.
+	 */
 	public void loadAliases() {
 		commands = new HashMap<>();
+		aliasCommandNames.clear();
 
-		// If false: still wire permissions, but remove alias commands from the command map.
+		// If false: still wire permissions, but don't wire alias executors/tab
+		// completers.
 		final boolean enableAliases = plugin.getConfigFile().isLoadCommandAliases();
-
-		// Only needed when aliases are disabled
-		final CommandMap commandMap = enableAliases ? null : getCommandMapSafe();
 
 		// ---------------------------
 		// /vote aliases
@@ -1900,7 +1908,7 @@ public class CommandLoader {
 			String[] perms = cmdHandle.getPerm().split(Pattern.quote("|"));
 			String basePerm = perms[0];
 
-			// Parent/child permission wiring (always done, even when aliases are disabled)
+			// Parent/child permission wiring (always done)
 			try {
 				if (perms.length > 1) {
 					plugin.devDebug("Adding child perm " + perms[0] + " to " + perms[1] + " from /vote" + arg0);
@@ -1922,6 +1930,7 @@ public class CommandLoader {
 				for (String arg : args) {
 					String commandName = "vote" + arg;
 					commands.put(commandName, cmdHandle);
+					aliasCommandNames.add(commandName.toLowerCase(Locale.ROOT));
 
 					try {
 						PluginCommand command = plugin.getCommand(commandName);
@@ -1930,7 +1939,7 @@ public class CommandLoader {
 							continue;
 						}
 
-						// Always ensure the base permission is set (so perms exist and are visible to LP/etc).
+						// Ensure the base permission is set on the command
 						String currentPerm = command.getPermission();
 						if (currentPerm == null || currentPerm.length() > basePerm.length()) {
 							command.setPermission(basePerm);
@@ -1941,27 +1950,23 @@ public class CommandLoader {
 							command.setExecutor(new CommandAliases(cmdHandle, false));
 							command.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle, false));
 
+							// Track aliases from plugin.yml too
 							for (String str : command.getAliases()) {
 								commands.put(str, cmdHandle);
+								aliasCommandNames.add(str.toLowerCase(Locale.ROOT));
 							}
 						} else {
-							// Aliases disabled: keep permissions wired, but completely remove the command
-							// from the command map so it doesn't show up or work at all.
-							if (commandMap != null) {
-								command.unregister(commandMap);
-								plugin.devDebug("Unregistered disabled alias command /" + commandName);
-							} else {
-								// Fallback: if we failed to get commandMap, at least block usage & hide completions.
-								command.setExecutor((sender, cmd, label, args1) -> {
-									sender.sendMessage(ChatColor.RED + "This command is currently disabled.");
-									return true;
-								});
-								command.setTabCompleter((sender, cmd, alias, args1) -> null);
-								plugin.devDebug("Failed to access commandMap, falling back to disabled executor for /" + commandName);
-							}
+							// Disabled: keep perms, but stub executor.
+							// Tab hiding is done in PlayerCommandSendEvent.
+							command.setExecutor((sender, cmd, label, args1) -> {
+								sender.sendMessage(ChatColor.RED + "This command is currently disabled.");
+								return true;
+							});
+							command.setTabCompleter(null);
 						}
 					} catch (Exception ex) {
-						plugin.devDebug("Failed to load command and tab completer for /vote" + arg + ": " + ex.getMessage());
+						plugin.devDebug(
+								"Failed to load command and tab completer for /vote" + arg + ": " + ex.getMessage());
 					}
 				}
 			}
@@ -2002,6 +2007,7 @@ public class CommandLoader {
 				for (String arg : args) {
 					String commandName = "adminvote" + arg;
 					commands.put(commandName, cmdHandle);
+					aliasCommandNames.add(commandName.toLowerCase(Locale.ROOT));
 
 					try {
 						PluginCommand command = plugin.getCommand(commandName);
@@ -2010,7 +2016,7 @@ public class CommandLoader {
 							continue;
 						}
 
-						// Always ensure the base permission is set.
+						// Ensure the base permission is set on the command
 						String currentPerm = command.getPermission();
 						if (currentPerm == null || currentPerm.length() > basePerm.length()) {
 							command.setPermission(basePerm);
@@ -2021,43 +2027,25 @@ public class CommandLoader {
 							command.setExecutor(new CommandAliases(cmdHandle, true));
 							command.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle, true));
 
+							// Track aliases from plugin.yml too
 							for (String str : command.getAliases()) {
 								commands.put(str, cmdHandle);
+								aliasCommandNames.add(str.toLowerCase(Locale.ROOT));
 							}
 						} else {
-							// Aliases disabled: unregister from command map
-							if (commandMap != null) {
-								command.unregister(commandMap);
-								plugin.devDebug("Unregistered disabled alias command /" + commandName);
-							} else {
-								// Fallback: block usage & hide completions
-								command.setExecutor((sender, cmd, label, args1) -> {
-									sender.sendMessage(ChatColor.RED + "This command is currently disabled.");
-									return true;
-								});
-								command.setTabCompleter((sender, cmd, alias, args1) -> null);
-								plugin.devDebug("Failed to access commandMap, falling back to disabled executor for /" + commandName);
-							}
+							// Disabled: stub executor; hiding from tab is done by listener
+							command.setExecutor((sender, cmd, label, args1) -> {
+								sender.sendMessage(ChatColor.RED + "This command is currently disabled.");
+								return true;
+							});
+							command.setTabCompleter(null);
 						}
 					} catch (Exception ex) {
-						plugin.devDebug("Failed to load command and tab completer for /adminvote" + arg + ": " + ex.getMessage());
+						plugin.devDebug("Failed to load command and tab completer for /adminvote" + arg + ": "
+								+ ex.getMessage());
 					}
 				}
 			}
-		}
-	}
-
-	/**
-	 * Reflection helper to get the Bukkit CommandMap.
-	 */
-	private CommandMap getCommandMapSafe() {
-		try {
-			Field f = Bukkit.getServer().getClass().getDeclaredField("commandMap");
-			f.setAccessible(true);
-			return (CommandMap) f.get(Bukkit.getServer());
-		} catch (Exception e) {
-			plugin.getLogger().warning("Could not access commandMap via reflection: " + e.getMessage());
-			return null;
 		}
 	}
 
