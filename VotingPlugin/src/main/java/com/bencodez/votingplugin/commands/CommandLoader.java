@@ -15,6 +15,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -1880,68 +1881,110 @@ public class CommandLoader {
 	 */
 	public void loadAliases() {
 		commands = new HashMap<>();
-		if (!plugin.getConfigFile().isLoadCommandAliases()) {
-			return;
-		}
+
+		// If false: still wire permissions, but disable / hide alias commands.
+		final boolean enableAliases = plugin.getConfigFile().isLoadCommandAliases();
+
+		// ---------------------------
+		// /vote aliases
+		// ---------------------------
 		for (CommandHandler cmdHandle : plugin.getVoteCommand()) {
 			int argLength = cmdHandle.getArgs().length;
 			String arg0 = "";
 			if (argLength > 0) {
 				arg0 = cmdHandle.getArgs()[0];
 			}
+
 			String[] perms = cmdHandle.getPerm().split(Pattern.quote("|"));
+			String basePerm = perms[0];
+
+			// Parent/child permission wiring (always done, even when aliases are disabled)
 			try {
 				if (perms.length > 1) {
-					// has another perm
 					plugin.devDebug("Adding child perm " + perms[0] + " to " + perms[1] + " from /vote" + arg0);
 					Permission p = Bukkit.getPluginManager().getPermission(perms[1]);
-					p.getChildren().put(perms[0], true);
-					p.recalculatePermissibles();
+					if (p != null) {
+						p.getChildren().put(perms[0], true);
+						p.recalculatePermissibles();
+					} else {
+						plugin.debug("Parent permission " + perms[1] + " not found for /vote" + arg0);
+					}
 				}
 			} catch (Exception e) {
 				plugin.debug("Failed to set permission for /vote" + arg0);
 			}
+
 			if (argLength > 0) {
 				String[] args = cmdHandle.getArgs()[0].split("&");
 
 				for (String arg : args) {
-					commands.put("vote" + arg, cmdHandle);
+					String commandName = "vote" + arg;
+					commands.put(commandName, cmdHandle);
 
 					try {
-						plugin.getCommand("vote" + arg).setExecutor(new CommandAliases(cmdHandle, false));
-
-						plugin.getCommand("vote" + arg)
-								.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle, false));
-
-						String currentPerm = plugin.getCommand("vote" + arg).getPermission();
-						if (currentPerm == null || currentPerm.length() > perms[0].length()) {
-							plugin.getCommand("vote" + arg).setPermission(perms[0]);
+						PluginCommand command = plugin.getCommand(commandName);
+						if (command == null) {
+							plugin.devDebug("Command " + commandName + " not found in plugin.yml");
+							continue;
 						}
 
-						for (String str : plugin.getCommand("vote" + arg).getAliases()) {
+						// Always ensure the base permission is set, even if aliases are disabled.
+						String currentPerm = command.getPermission();
+						if (currentPerm == null || currentPerm.length() > basePerm.length()) {
+							command.setPermission(basePerm);
+						}
+
+						if (enableAliases) {
+							// Normal behavior: executor + tab completer
+							command.setExecutor(new CommandAliases(cmdHandle, false));
+							command.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle, false));
+						} else {
+							// Aliases disabled: keep perms, disable execution, hide from tab-complete
+							command.setExecutor((sender, cmd, label, args1) -> {
+								sender.sendMessage(ChatColor.RED + "This command is currently disabled.");
+								return true;
+							});
+
+							// Returning null hides it from tab-complete
+							command.setTabCompleter((sender, cmd, alias, args1) -> null);
+						}
+
+						// Track aliases from plugin.yml too
+						for (String str : command.getAliases()) {
 							commands.put(str, cmdHandle);
 						}
 					} catch (Exception ex) {
-						plugin.devDebug("Failed to load command and tab completer for /vote" + arg);
+						plugin.devDebug(
+								"Failed to load command and tab completer for /vote" + arg + ": " + ex.getMessage());
 					}
 				}
 			}
 		}
 
+		// ---------------------------
+		// /adminvote aliases
+		// ---------------------------
 		for (CommandHandler cmdHandle : plugin.getAdminVoteCommand()) {
 			int argLength = cmdHandle.getArgs().length;
 			String arg0 = "";
 			if (argLength > 0) {
 				arg0 = cmdHandle.getArgs()[0];
 			}
+
 			String[] perms = cmdHandle.getPerm().split(Pattern.quote("|"));
+			String basePerm = perms[0];
+
+			// Parent/child permission wiring (always done)
 			try {
 				if (perms.length > 1) {
-					// has another perm
 					plugin.devDebug("Adding child perm " + perms[0] + " to " + perms[1] + " from /adminvote" + arg0);
 					Permission p = Bukkit.getPluginManager().getPermission(perms[1]);
-					p.getChildren().put(perms[0], true);
-					p.recalculatePermissibles();
+					if (p != null) {
+						p.getChildren().put(perms[0], true);
+						p.recalculatePermissibles();
+					} else {
+						plugin.debug("Parent permission " + perms[1] + " not found for /adminvote" + arg0);
+					}
 				}
 			} catch (Exception e) {
 				plugin.debug("Failed to set permission for /adminvote" + arg0);
@@ -1949,27 +1992,46 @@ public class CommandLoader {
 
 			if (argLength > 0) {
 				String[] args = cmdHandle.getArgs()[0].split("&");
+
 				for (String arg : args) {
-					commands.put("adminvote" + arg, cmdHandle);
+					String commandName = "adminvote" + arg;
+					commands.put(commandName, cmdHandle);
 
 					try {
-						plugin.getCommand("adminvote" + arg).setExecutor(new CommandAliases(cmdHandle, true));
-
-						plugin.getCommand("adminvote" + arg)
-								.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle, true));
-
-						String currentPerm = plugin.getCommand("adminvote" + arg).getPermission();
-						if (currentPerm == null || currentPerm.length() > perms[0].length()) {
-							plugin.getCommand("adminvote" + arg).setPermission(perms[0]);
+						PluginCommand command = plugin.getCommand(commandName);
+						if (command == null) {
+							plugin.devDebug("Command " + commandName + " not found in plugin.yml");
+							continue;
 						}
 
-						for (String str : plugin.getCommand("adminvote" + arg).getAliases()) {
+						// Always ensure the base permission is set, even if aliases are disabled.
+						String currentPerm = command.getPermission();
+						if (currentPerm == null || currentPerm.length() > basePerm.length()) {
+							command.setPermission(basePerm);
+						}
+
+						if (enableAliases) {
+							// Normal behavior
+							command.setExecutor(new CommandAliases(cmdHandle, true));
+							command.setTabCompleter(new AliasesTabCompleter().setCMDHandle(cmdHandle, true));
+						} else {
+							// Aliases disabled: keep perms, disable execution, hide from tab-complete
+							command.setExecutor((sender, cmd, label, args1) -> {
+								sender.sendMessage(ChatColor.RED + "This command is currently disabled.");
+								return true;
+							});
+
+							// Returning null hides it from tab-complete
+							command.setTabCompleter((sender, cmd, alias, args1) -> null);
+						}
+
+						// Track aliases from plugin.yml too
+						for (String str : command.getAliases()) {
 							commands.put(str, cmdHandle);
 						}
 					} catch (Exception ex) {
 						plugin.devDebug("Failed to load command and tab completer for /adminvote" + arg + ": "
 								+ ex.getMessage());
-
 					}
 				}
 			}
