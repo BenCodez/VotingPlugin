@@ -136,6 +136,7 @@ public abstract class ProxyMysqlUserTable {
 		// Quick metadata check: if it's already OK, don't ALTER.
 		try (Connection conn = mysql.getConnectionManager().getConnection()) {
 			if (!columnNeedsAlter(conn, column, newType)) {
+				mysql.debug("ProxyMySQL: Column `" + column + "` already matches " + newType + ", skipping ALTER");
 				// Already the desired type/length/default – nothing to do.
 				return;
 			}
