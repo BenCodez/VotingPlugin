@@ -16,12 +16,12 @@ import net.md_5.bungee.config.Configuration;
 import net.md_5.bungee.config.ConfigurationProvider;
 import net.md_5.bungee.config.YamlConfiguration;
 
-public class Config implements VotingPluginProxyConfig {
+public class BungeeConfig implements VotingPluginProxyConfig {
 	private VotingPluginBungee bungee;
 	@Getter
 	private Configuration data;
 
-	public Config(VotingPluginBungee bungee) {
+	public BungeeConfig(VotingPluginBungee bungee) {
 		this.bungee = bungee;
 	}
 
@@ -422,6 +422,16 @@ public class Config implements VotingPluginProxyConfig {
 	@Override
 	public int getTimeWeekOffSet() {
 		return getData().getInt("TimeWeekOffSet");
+	}
+
+	@Override
+	public boolean getNonVotedCacheUseMySQL() {
+		return getData().getBoolean("NonVotedCache.UseMySQL", false);
+	}
+
+	@Override
+	public boolean getNonVotedCacheUseMainMySQL() {
+		return getData().getBoolean("NonVotedCache.UseMainMySQL", true);
 	}
 
 }

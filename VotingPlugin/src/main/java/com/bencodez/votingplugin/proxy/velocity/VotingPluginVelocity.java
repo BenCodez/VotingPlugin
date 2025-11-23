@@ -71,18 +71,18 @@ public class VotingPluginVelocity {
 	private ChannelIdentifier CHANNEL;
 
 	@Getter
-	private Config config;
+	private VelocityConfig config;
 	private final Path dataDirectory;
 	@Getter
 	private final Logger logger;
 
 	private final Metrics.Factory metricsFactory;
 
-	private NonVotedPlayersCache nonVotedPlayersCache;
+	private VelocityJsonNonVotedPlayersCache nonVotedPlayersCache;
 
 	private final ProxyServer server;
 
-	private VoteCache voteCacheFile;
+	private VelocityJsonVoteCache voteCacheFile;
 
 	private String version = "";
 
@@ -473,7 +473,7 @@ public class VotingPluginVelocity {
 			}
 		}
 
-		config = new Config(configFile);
+		config = new VelocityConfig(configFile);
 		String[] channel = config.getPluginMessageChannel().split(":");
 		CHANNEL = MinecraftChannelIdentifier.create(channel[0].toLowerCase(), channel[1].toLowerCase());
 		server.getChannelRegistrar().register(CHANNEL);
@@ -485,11 +485,6 @@ public class VotingPluginVelocity {
 		server.getCommandManager().register(meta, new VotingPluginVelocityCommand(this));
 
 		votingPluginProxy = new VotingPluginProxy() {
-
-			@Override
-			public void addNonVotedPlayer(String uuid, String playerName) {
-				nonVotedPlayersCache.addPlayer(uuid, playerName);
-			}
 
 			@Override
 			public void broadcast(String message) {
@@ -569,10 +564,7 @@ public class VotingPluginVelocity {
 						return str;
 					}
 				}
-				if (nonVotedPlayersCache != null) {
-					return nonVotedPlayersCache.playerExists(playerName);
-				}
-				return "";
+				return getVotingPluginProxy().getNonVotedPlayersCache().getUUID(playerName);
 
 			}
 
@@ -735,6 +727,11 @@ public class VotingPluginVelocity {
 				return new MysqlConfigVelocity("VoteCache", config);
 			}
 
+			@Override
+			public MysqlConfig getNonVotedCacheMySQLConfig() {
+				return new MysqlConfigVelocity("NonVotedCache", config);
+			}
+
 		};
 
 		try {
@@ -765,7 +762,7 @@ public class VotingPluginVelocity {
 
 		if (mysqlLoaded) {
 
-			voteCacheFile = new VoteCache(new File(dataDirectory.toFile(), "votecache.json"));
+			voteCacheFile = new VelocityJsonVoteCache(new File(dataDirectory.toFile(), "votecache.json"));
 
 			// convert yml file if exists
 			File yamlVoteCacheFile = new File(dataDirectory.toFile(), "votecache.yml");
@@ -779,8 +776,8 @@ public class VotingPluginVelocity {
 				voteCacheFile.save();
 			}
 
-			nonVotedPlayersCache = new NonVotedPlayersCache(
-					new File(dataDirectory.toFile(), "nonvotedplayerscache.json"), this);
+			nonVotedPlayersCache = new VelocityJsonNonVotedPlayersCache(
+					new File(dataDirectory.toFile(), "nonvotedplayerscache.json"));
 
 			// convert yml file if exists
 			File yamlnonVotedPlayersCacheFile = new File(dataDirectory.toFile(), "nonvotedplayerscache.yml");
@@ -794,7 +791,7 @@ public class VotingPluginVelocity {
 				voteCacheFile.save();
 			}
 
-			getVotingPluginProxy().load(voteCacheFile);
+			getVotingPluginProxy().load(voteCacheFile, nonVotedPlayersCache);
 
 			voteCheckTask = server.getScheduler().buildTask(this, () -> {
 				if (getVotingPluginProxy().getGlobalDataHandler() == null
@@ -815,7 +812,7 @@ public class VotingPluginVelocity {
 			cacheSaveTask = server.getScheduler().buildTask(this, () -> {
 				if (nonVotedPlayersCache != null) {
 					debug("Checking nonvotedplayerscache.yml...");
-					nonVotedPlayersCache.check();
+					getVotingPluginProxy().getNonVotedPlayersCache().check();
 				}
 				if (voteCacheFile != null) {
 					voteCacheFile.save();

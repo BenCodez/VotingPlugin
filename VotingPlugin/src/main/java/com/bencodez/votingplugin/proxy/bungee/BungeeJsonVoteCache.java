@@ -10,10 +10,10 @@ import com.bencodez.votingplugin.proxy.cache.GsonDataNode;
 import com.bencodez.votingplugin.proxy.cache.IVoteCache;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
-public class VoteCache extends BungeeJsonFile implements IVoteCache {
+public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 	private VotingPluginBungee bungee;
 
-	public VoteCache(VotingPluginBungee bungee) {
+	public BungeeJsonVoteCache(VotingPluginBungee bungee) {
 		super(new File(bungee.getDataFolder(), "votecache.json"));
 		this.bungee = bungee;
 		initialize();

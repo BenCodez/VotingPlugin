@@ -27,10 +27,14 @@ public interface VotingPluginProxyConfig {
 	public boolean getPluginMessageEncryption();
 
 	public boolean getDebug();
-	
+
 	public boolean getVoteCacheUseMySQL();
-	
+
 	public boolean getVoteCacheUseMainMySQL();
+
+	public boolean getNonVotedCacheUseMySQL();
+
+	public boolean getNonVotedCacheUseMainMySQL();
 
 	public String getMqttClientID();
 
@@ -107,7 +111,7 @@ public interface VotingPluginProxyConfig {
 	public boolean getTimeChangeFailSafeBypass();
 
 	public int getTimeHourOffSet();
-	
+
 	public int getTimeWeekOffSet();
 
 	public String getTimeZone();
@@ -143,7 +147,7 @@ public interface VotingPluginProxyConfig {
 	public int getWaitUntilVoteDelayVoteDelay(String site);
 
 	public int getWaitUntilVoteDelayVoteDelayMin(String site);
-	
+
 	public boolean getResetMilestonesMonthly();
 
 	public int getWaitUntilVoteDelayVoteDelayHour(String site);

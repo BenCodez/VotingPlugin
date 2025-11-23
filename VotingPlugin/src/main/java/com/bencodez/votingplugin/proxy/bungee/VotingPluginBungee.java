@@ -48,11 +48,11 @@ import net.md_5.bungee.event.EventHandler;
 public class VotingPluginBungee extends Plugin implements Listener {
 
 	@Getter
-	private Config config;
+	private BungeeConfig config;
 
-	private NonVotedPlayersCache nonVotedPlayersCache;
+	private BungeeJsonNonVotedPlayersCache nonVotedPlayersCache;
 
-	private VoteCache voteCacheFile;
+	private BungeeJsonVoteCache voteCacheFile;
 
 	private String buildNumber = "NOTSET";
 
@@ -403,17 +403,12 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 		getProxy().getPluginManager().registerListener(this, this);
 
-		config = new Config(this);
+		config = new BungeeConfig(this);
 		config.load();
 
 		getProxy().getPluginManager().registerCommand(this, new VotingPluginBungeeCommand(this));
 
 		votingPluginProxy = new VotingPluginProxy() {
-
-			@Override
-			public void addNonVotedPlayer(String uuid, String playerName) {
-				nonVotedPlayersCache.addPlayer(uuid, playerName);
-			}
 
 			@Override
 			public void broadcast(String message) {
@@ -479,11 +474,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						return str;
 					}
 				}
-				if (nonVotedPlayersCache != null) {
-					return nonVotedPlayersCache.playerExists(playerName);
-				}
-
-				return "";
+				return getVotingPluginProxy().getNonVotedPlayersCache().getUUID(playerName);
 
 			}
 
@@ -634,6 +625,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				return new MysqlConfigBungee(config.getData().getSection("VoteCache"));
 			}
 
+			@Override
+			public MysqlConfig getNonVotedCacheMySQLConfig() {
+				return new MysqlConfigBungee(config.getData().getSection("NonVotedCache"));
+			}
+
 		};
 		try {
 			Class.forName("com.vexsoftware.votifier.bungee.events.VotifierEvent");
@@ -666,13 +662,13 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 		if (mysqlLoaded) {
 
-			voteCacheFile = new VoteCache(this);
+			voteCacheFile = new BungeeJsonVoteCache(this);
 			// voteCacheFile.load();
 
-			nonVotedPlayersCache = new NonVotedPlayersCache(this);
-			// nonVotedPlayersCache.load();
+			nonVotedPlayersCache = new BungeeJsonNonVotedPlayersCache(
+					new File(getDataFolder(), "nonvotedplayerscache.json"));
 
-			getVotingPluginProxy().load(voteCacheFile);
+			getVotingPluginProxy().load(voteCacheFile, nonVotedPlayersCache);
 
 			getProxy().getScheduler().schedule(this, new Runnable() {
 
@@ -696,7 +692,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				public void run() {
 					if (nonVotedPlayersCache != null) {
 						debug("Checking nonvotedplayers.yml...");
-						nonVotedPlayersCache.check();
+						getVotingPluginProxy().getNonVotedPlayersCache().check();
 					}
 					if (voteCacheFile != null) {
 						voteCacheFile.save();

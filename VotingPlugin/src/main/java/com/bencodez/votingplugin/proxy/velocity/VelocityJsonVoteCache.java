@@ -10,9 +10,9 @@ import com.bencodez.votingplugin.proxy.cache.DataNode;
 import com.bencodez.votingplugin.proxy.cache.IVoteCache;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
-public class VoteCache extends VelocityJSONFile implements IVoteCache {
+public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCache {
 
-	public VoteCache(File file) {
+	public VelocityJsonVoteCache(File file) {
 		super(file);
 	}
 

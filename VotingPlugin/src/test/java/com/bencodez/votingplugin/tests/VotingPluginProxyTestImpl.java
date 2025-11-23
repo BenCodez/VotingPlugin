@@ -12,6 +12,7 @@ import org.mockito.Mockito;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
+import com.bencodez.votingplugin.proxy.cache.nonvoted.INonVotedPlayersStorage;
 
 public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
@@ -209,6 +210,12 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	@Override
 	public MysqlConfig getVoteCacheMySQLConfig() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public MysqlConfig getNonVotedCacheMySQLConfig() {
 		// TODO Auto-generated method stub
 		return null;
 	}

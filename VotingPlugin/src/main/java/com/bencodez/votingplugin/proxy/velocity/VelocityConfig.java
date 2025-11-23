@@ -14,9 +14,9 @@ import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 
 import ninja.leaping.configurate.ConfigurationNode;
 
-public class Config extends VelocityYMLFile implements VotingPluginProxyConfig {
+public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxyConfig {
 
-	public Config(File file) {
+	public VelocityConfig(File file) {
 		super(file);
 	}
 
@@ -413,6 +413,16 @@ public class Config extends VelocityYMLFile implements VotingPluginProxyConfig {
 	@Override
 	public int getTimeWeekOffSet() {
 		return getInt(getNode("TimeWeekOffSet"), 0);
+	}
+
+	@Override
+	public boolean getNonVotedCacheUseMySQL() {
+		return getBoolean(getNode("NonVotedCache", "UseMySQL"), false);
+	}
+
+	@Override
+	public boolean getNonVotedCacheUseMainMySQL() {
+		return getBoolean(getNode("NonVotedCache", "UseMainMySQL"), true);
 	}
 
 }

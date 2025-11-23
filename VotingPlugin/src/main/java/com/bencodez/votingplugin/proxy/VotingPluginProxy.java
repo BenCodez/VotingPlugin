@@ -53,6 +53,8 @@ import com.bencodez.simpleapi.sql.data.DataValueString;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.votingplugin.proxy.cache.IVoteCache;
 import com.bencodez.votingplugin.proxy.cache.VoteCacheHandler;
+import com.bencodez.votingplugin.proxy.cache.nonvoted.INonVotedPlayersStorage;
+import com.bencodez.votingplugin.proxy.cache.nonvoted.NonVotedPlayersCache;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyHandler;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyMethod;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyServerSocketConfiguration;
@@ -121,6 +123,9 @@ public abstract class VotingPluginProxy {
 
 	@Getter
 	private VoteCacheHandler voteCacheHandler;
+
+	@Getter
+	private NonVotedPlayersCache nonVotedPlayersCache;
 
 	public VotingPluginProxy() {
 		enabled = true;
@@ -254,7 +259,9 @@ public abstract class VotingPluginProxy {
 		debug("Current vote party total: " + votePartyVotes);
 	}
 
-	public abstract void addNonVotedPlayer(String uuid, String playerName);
+	public  void addNonVotedPlayer(String uuid, String playerName) {
+		nonVotedPlayersCache.addPlayer(uuid, playerName);
+	}
 
 	public void addVoteParty() {
 		if (getConfig().getVotePartyEnabled()) {
@@ -476,7 +483,9 @@ public abstract class VotingPluginProxy {
 
 	public abstract MysqlConfig getVoteCacheMySQLConfig();
 
-	public void load(IVoteCache jsonStorage) {
+	public abstract MysqlConfig getNonVotedCacheMySQLConfig();
+
+	public void load(IVoteCache jsonStorage, INonVotedPlayersStorage nonVotedCacheJson) {
 		uuidPlayerNameCache = getProxyMySQL().getRowsUUIDNameQuery();
 
 		bungeeTimeChecker.setTimeChangeFailSafeBypass(getConfig().getTimeChangeFailSafeBypass());
@@ -512,6 +521,44 @@ public abstract class VotingPluginProxy {
 		};
 		voteCacheHandler.load();
 
+		nonVotedPlayersCache = new NonVotedPlayersCache(getNonVotedCacheMySQLConfig(),
+				getConfig().getNonVotedCacheUseMySQL(), getConfig().getNonVotedCacheUseMainMySQL(),
+				getProxyMySQL().getMysql(), nonVotedCacheJson, getConfig().getDebug()) {
+
+			@Override
+			public boolean userExists(String uuid) {
+				return getProxyMySQL().containsKeyQuery(uuid);
+			}
+
+			@Override
+			public void logInfo1(String msg) {
+				logInfo(msg);
+			}
+
+			@Override
+			public void logSevere1(String msg) {
+				logSevere(msg);
+			}
+
+			@Override
+			public void debug1(Exception e) {
+				if (getConfig().getDebug()) {
+					e.printStackTrace();
+				}
+			}
+
+			@Override
+			public void debug1(String msg) {
+				if (getConfig().getDebug()) {
+					debug(msg);
+				}
+			}
+
+			@Override
+			public Set<String> getAllUUIDs() {
+				return getProxyMySQL().getUuids();
+			}
+		};
 		method = BungeeMethod.getByName(getConfig().getBungeeMethod());
 		if (getMethod() == null) {
 			method = BungeeMethod.PLUGINMESSAGING;

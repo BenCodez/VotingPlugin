@@ -130,21 +130,107 @@ public abstract class ProxyMysqlUserTable {
 	}
 
 	public void alterColumnType(String column, String newType) {
+		// Keep your existing behavior (create column if needed, etc.)
 		checkColumn(column, DataType.STRING);
 
+		// Quick metadata check: if it's already OK, don't ALTER.
+		try (Connection conn = mysql.getConnectionManager().getConnection()) {
+			if (!columnNeedsAlter(conn, column, newType)) {
+				// Already the desired type/length/default – nothing to do.
+				return;
+			}
+		} catch (SQLException e) {
+			// If the metadata check fails, be conservative and *do* the ALTER.
+			mysql.debug("Failed to inspect column " + getName() + "." + column + " – running ALTER anyway");
+			mysql.debug(e);
+		}
+
+		// Only reach here when we *actually* need to change the column.
 		try {
-			new Query(mysql, "ALTER TABLE " + getName() + " MODIFY `" + column + "` " + newType + ";")
+			new Query(mysql, "ALTER TABLE `" + getName() + "` MODIFY `" + column + "` " + newType + ";")
 					.executeUpdateAsync();
 		} catch (SQLException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		if (newType.contains("INT")) {
+
+		if (newType.toUpperCase().contains("INT")) {
 			if (!intColumns.contains(column)) {
 				intColumns.add(column);
 			}
 		}
+	}
 
+	private boolean columnNeedsAlter(Connection conn, String column, String newType) throws SQLException {
+		String sql = "SELECT DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, COLUMN_DEFAULT " + "FROM information_schema.COLUMNS "
+				+ "WHERE TABLE_SCHEMA = DATABASE() " + "AND TABLE_NAME = ? " + "AND COLUMN_NAME = ?";
+
+		try (PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setString(1, getName()); // or tableName, whatever you use
+			ps.setString(2, column);
+			try (ResultSet rs = ps.executeQuery()) {
+				if (!rs.next()) {
+					// Column doesn't exist yet -> we definitely need to ALTER/create
+					return true;
+				}
+
+				String dataType = rs.getString("DATA_TYPE"); // e.g. "varchar", "int", "mediumtext"
+				Object lenObj = rs.getObject("CHARACTER_MAXIMUM_LENGTH");
+				Long length = null;
+				if (lenObj instanceof Number) {
+					length = ((Number) lenObj).longValue(); // works for BigInteger, Long, Integer, etc.
+				}
+				String defaultVal = rs.getString("COLUMN_DEFAULT");
+
+				String typeUpper = newType.toUpperCase().trim();
+
+				// MEDIUMTEXT
+				if (typeUpper.equals("MEDIUMTEXT")) {
+					return !dataType.equalsIgnoreCase("mediumtext");
+				}
+
+				// VARCHAR(N)
+				if (typeUpper.startsWith("VARCHAR(")) {
+					int open = typeUpper.indexOf('(');
+					int close = typeUpper.indexOf(')', open + 1);
+					if (open != -1 && close != -1) {
+						String lenStr = typeUpper.substring(open + 1, close);
+						int expectedLen;
+						try {
+							expectedLen = Integer.parseInt(lenStr);
+						} catch (NumberFormatException ex) {
+							// if we can't parse, be safe and ALTER
+							return true;
+						}
+
+						boolean typeMatches = dataType.equalsIgnoreCase("varchar");
+						boolean lengthMatches = (length != null && length == expectedLen);
+						return !(typeMatches && lengthMatches);
+					}
+					// malformed definition, fallback to altering
+					return true;
+				}
+
+				// INT [DEFAULT '0'] style
+				if (typeUpper.startsWith("INT")) {
+					boolean isIntFamily = dataType.equalsIgnoreCase("int") || dataType.equalsIgnoreCase("integer")
+							|| dataType.equalsIgnoreCase("mediumint") || dataType.equalsIgnoreCase("smallint")
+							|| dataType.equalsIgnoreCase("tinyint") || dataType.equalsIgnoreCase("bigint");
+
+					boolean expectDefaultZero = typeUpper.contains("DEFAULT '0'") || typeUpper.contains("DEFAULT 0");
+
+					if (!expectDefaultZero) {
+						// Only care that it's some INT-like type
+						return !isIntFamily;
+					} else {
+						boolean defaultIsZero = defaultVal != null && defaultVal.trim().equals("0");
+						return !(isIntFamily && defaultIsZero);
+					}
+				}
+
+				// For any types we don't explicitly handle, be conservative and ALTER.
+				return true;
+			}
+		}
 	}
 
 	public void checkColumn(String column, DataType dataType) {

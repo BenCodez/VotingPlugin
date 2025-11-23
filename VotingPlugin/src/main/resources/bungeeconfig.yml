@@ -86,6 +86,12 @@ VoteCache:
   UseMySQL: false
   UseMainMySQL: true
   # Mysql settings only used if above is false
+  
+NonVotedCache:
+    # If enabled, will cache non voted players in mysql instead of json
+  UseMySQL: false
+  UseMainMySQL: true
+  # Mysql settings only used if above is false
 
 
 ####################################################################################
