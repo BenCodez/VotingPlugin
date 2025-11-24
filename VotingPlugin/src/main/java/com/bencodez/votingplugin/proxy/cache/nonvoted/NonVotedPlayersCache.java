@@ -6,16 +6,6 @@ import java.util.concurrent.TimeUnit;
 import com.bencodez.simpleapi.sql.mysql.MySQL;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 
-/**
- * Proxy-agnostic non-voted players cache.
- *
- * - Storage is provided by INonVotedPlayersStorage (JSON or MySQL). - Vote
- * existence check is provided via Predicate<String> (uuid -> hasVotes). - Debug
- * logging via Consumer<String>.
- *
- * Works for both Bungee and Velocity since only uuid + playerName are passed
- * in.
- */
 public abstract class NonVotedPlayersCache {
 
 	private INonVotedPlayersStorage storage;
