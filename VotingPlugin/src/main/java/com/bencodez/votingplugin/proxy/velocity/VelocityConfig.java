@@ -204,6 +204,11 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	public int getRedisPort() {
 		return getInt(getNode("Redis", "Port"), 6379);
 	}
+	
+	@Override
+	public int getRedisDbIndex() {
+		return getInt(getNode("Redis", "Db-Index"), 0);
+	}
 
 	@Override
 	public String getRedisPrefix() {

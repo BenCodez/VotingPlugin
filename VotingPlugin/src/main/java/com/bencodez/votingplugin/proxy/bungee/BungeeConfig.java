@@ -202,6 +202,11 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 	public int getRedisPort() {
 		return getData().getInt("Redis.Port", 6379);
 	}
+	
+	@Override
+	public int getRedisDbIndex() {
+		return getData().getInt("Redis.Db-Index", 0);
+	}
 
 	@Override
 	public String getRedisPrefix() {

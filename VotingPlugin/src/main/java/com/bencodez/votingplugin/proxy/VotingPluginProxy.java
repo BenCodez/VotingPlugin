@@ -259,7 +259,7 @@ public abstract class VotingPluginProxy {
 		debug("Current vote party total: " + votePartyVotes);
 	}
 
-	public  void addNonVotedPlayer(String uuid, String playerName) {
+	public void addNonVotedPlayer(String uuid, String playerName) {
 		nonVotedPlayersCache.addPlayer(uuid, playerName);
 	}
 
@@ -625,7 +625,7 @@ public abstract class VotingPluginProxy {
 			}
 		} else if (method.equals(BungeeMethod.REDIS)) {
 			redisHandler = new RedisHandler(getConfig().getRedisHost(), getConfig().getRedisPort(),
-					getConfig().getRedisUsername(), getConfig().getRedisPassword()) {
+					getConfig().getRedisUsername(), getConfig().getRedisPassword(), getConfig().getRedisDbIndex()) {
 
 				@Override
 				public void debug(String message) {

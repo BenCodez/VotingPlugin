@@ -33,32 +33,36 @@ public class BungeeSettings extends YMLFile {
 
 	@ConfigDataString(path = "Redis.Host")
 	@Getter
-	private String RedisHost = "";
+	private String redisHost = "";
 
 	@ConfigDataString(path = "Redis.Username")
 	@Getter
-	private String RedisUsername = "";
+	private String redisUsername = "";
+
+	@ConfigDataString(path = "Redis.Db-Index")
+	@Getter
+	private int redisdbindex = 0;
 
 	@ConfigDataString(path = "PluginMessageChannel")
 	@Getter
 	private String pluginMessagingChannel = "vp:vp";
-	
+
 	@ConfigDataBoolean(path = "PluginMessageEncryption")
 	@Getter
 	private boolean pluginMessageEncryption = false;
 
 	@ConfigDataString(path = "Redis.Prefix")
 	@Getter
-	private String RedisPrefix = "";
+	private String redisPrefix = "";
 
 	@ConfigDataString(path = "Redis.Password")
 	@Getter
-	private String RedisPassword = "";
+	private String redisPassword = "";
 
 	@ConfigDataInt(path = "Redis.Port")
 	@Getter
-	private int RedisPort = 6379;
-	
+	private int redisPort = 6379;
+
 	@ConfigDataString(path = "MQTT.ClientID")
 	@Getter
 	private String mqttClientID = "";

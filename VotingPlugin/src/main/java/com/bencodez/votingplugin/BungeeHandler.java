@@ -574,7 +574,7 @@ public class BungeeHandler implements Listener {
 		} else if (method.equals(BungeeMethod.REDIS)) {
 			redisHandler = new RedisHandler(plugin.getBungeeSettings().getRedisHost(),
 					plugin.getBungeeSettings().getRedisPort(), plugin.getBungeeSettings().getRedisUsername(),
-					plugin.getBungeeSettings().getRedisPassword()) {
+					plugin.getBungeeSettings().getRedisPassword(), plugin.getBungeeSettings().getRedisdbindex()) {
 
 				@Override
 				public void debug(String message) {

@@ -153,6 +153,7 @@ Redis:
   Password: ''
   # Set a prefix from an entire proxy network if using mutli-proxy setup below
   Prefix: ''
+  #Db-Index: 0
   
 ###########################################
 # SOCKETS Settings

@@ -95,6 +95,8 @@ public interface VotingPluginProxyConfig {
 	public String getRedisPassword();
 
 	public int getRedisPort();
+	
+	public int getRedisDbIndex();
 
 	public String getRedisPrefix();
 

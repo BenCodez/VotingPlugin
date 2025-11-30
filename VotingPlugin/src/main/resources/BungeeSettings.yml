@@ -27,6 +27,7 @@ Redis:
   Password: ''
   # Set a prefix from an entire proxy network if using multi-proxy setup below
   Prefix: ''
+  #Db-Index: 0
   
 MQTT:
   # clientid must be unique on each server
