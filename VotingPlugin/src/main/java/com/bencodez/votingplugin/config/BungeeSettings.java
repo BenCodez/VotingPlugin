@@ -39,7 +39,7 @@ public class BungeeSettings extends YMLFile {
 	@Getter
 	private String redisUsername = "";
 
-	@ConfigDataString(path = "Redis.Db-Index")
+	@ConfigDataInt(path = "Redis.Db-Index")
 	@Getter
 	private int redisdbindex = 0;
 
