@@ -98,8 +98,6 @@ public class CommandLoader {
 
 	private VotingPluginMain plugin;
 
-	private Object pointLock = new Object();
-
 	public CommandLoader(VotingPluginMain plugin) {
 		this.plugin = plugin;
 	}
@@ -275,6 +273,7 @@ public class CommandLoader {
 									plugin.getBungeeSettings().isUseBungeecoord());
 						}
 						sender.sendMessage(MessageAPI.colorize("&cDone setting all players points to " + args[3]));
+						plugin.getPlaceholders().onUpdate();
 					}
 
 					@Override
@@ -282,6 +281,7 @@ public class CommandLoader {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 						user.setPoints(Integer.parseInt(args[3]));
 						sender.sendMessage(MessageAPI.colorize("&cSet " + args[1] + " points to " + args[3]));
+						plugin.getPlaceholders().onUpdate(user, false);
 					}
 				});
 
@@ -434,6 +434,7 @@ public class CommandLoader {
 						plugin.getUserManager().removeAllKeyValues("Points", DataType.INTEGER);
 						plugin.getUserManager().getDataManager().clearCache();
 						sendMessage(sender, "&cFinished");
+						plugin.setUpdate(true);
 
 					}
 				});
@@ -472,32 +473,55 @@ public class CommandLoader {
 									plugin.getBungeeSettings().isUseBungeecoord());
 						}
 						sender.sendMessage(MessageAPI.colorize("&cGave " + "all players" + " " + args[3] + " points"));
+
+						plugin.getPlaceholders().onUpdate();
 					}
 
 					@Override
 					public void executeSinglePlayer(CommandSender sender, String[] args) {
-						synchronized (pointLock) {
-							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-							user.cache();
-							int newTotal = 0;
-							newTotal = user.addPoints(Integer.parseInt(args[3]));
-							sender.sendMessage(MessageAPI.colorize("&cGave " + args[1] + " " + args[3] + " points"
-									+ ", " + args[1] + " now has " + newTotal + " points"));
-						}
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
+						user.cache();
+						int newTotal = 0;
+						newTotal = user.addPoints(Integer.parseInt(args[3]));
+						sender.sendMessage(MessageAPI.colorize("&cGave " + args[1] + " " + args[3] + " points" + ", "
+								+ args[1] + " now has " + newTotal + " points"));
+
+						plugin.getPlaceholders().onUpdate(user, false);
+
 					}
 				});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "User", "(player)", "RemovePoints", "(number)" },
+				.add(new PlayerCommandHandler(plugin, new String[] { "User", "(player)", "RemovePoints", "(number)" },
 						"VotingPlugin.Commands.AdminVote.RemovePoints|" + adminPerm, "Remove voting points") {
 
 					@Override
-					public void execute(CommandSender sender, String[] args) {
+					public void executeAll(CommandSender sender, String[] args) {
+						int num = Integer.parseInt(args[3]);
+
+						sender.sendMessage(
+								MessageAPI.colorize("&cGiving " + "all players" + " " + args[3] + " points"));
+						for (String uuidStr : plugin.getUserManager().getAllUUIDs()) {
+							UUID uuid = UUID.fromString(uuidStr);
+							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
+							user.dontCache();
+							user.removePoints(num);
+							plugin.getSpecialRewards().checkMilestone(user, null,
+									plugin.getBungeeSettings().isUseBungeecoord());
+						}
+						sender.sendMessage(MessageAPI.colorize("&cGave " + "all players" + " " + args[3] + " points"));
+
+						plugin.getPlaceholders().onUpdate();
+					}
+
+					@Override
+					public void executeSinglePlayer(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 						user.cache();
 						user.removePoints(Integer.parseInt(args[3]));
 						sender.sendMessage(MessageAPI.colorize("&cRemoved " + args[3] + " points from " + args[1] + ", "
 								+ args[1] + " now has " + user.getPoints() + " points"));
+						plugin.getPlaceholders().onUpdate(user, false);
 					}
 				});
 
