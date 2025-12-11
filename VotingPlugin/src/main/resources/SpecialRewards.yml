@@ -102,8 +102,8 @@ VoteParty:
   # List of commands to execute, these only execute once.
   # %player% does not work here
   GlobalCommands: []
-  # List of commands to execute once
-  # Only run will run
+  # List of commands to execute once (picks one randomly)
+  # Only runs once, %player% does not work here
   GlobalRandomCommand: []
   # Rewards to give per player
   Rewards: 
