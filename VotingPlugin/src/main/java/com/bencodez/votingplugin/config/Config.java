@@ -732,6 +732,7 @@ public class Config extends YMLFile {
 
 	public Config(VotingPluginMain plugin) {
 		super(plugin, new File(plugin.getDataFolder(), "Config.yml"));
+		setIgnoreCase(true);
 	}
 
 	/**

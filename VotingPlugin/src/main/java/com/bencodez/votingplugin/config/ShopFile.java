@@ -70,6 +70,7 @@ public class ShopFile extends YMLFile {
 
 	public ShopFile(VotingPluginMain plugin) {
 		super(plugin, new File(plugin.getDataFolder(), "Shop.yml"));
+		setIgnoreCase(true);
 		this.plugin = plugin;
 	}
 

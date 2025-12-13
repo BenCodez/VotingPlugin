@@ -185,6 +185,7 @@ public class SpecialRewardsConfig extends YMLFile {
 
 	public SpecialRewardsConfig(VotingPluginMain plugin) {
 		super(plugin, new File(plugin.getDataFolder(), "SpecialRewards.yml"));
+		setIgnoreCase(true);
 		this.plugin = plugin;
 	}
 
