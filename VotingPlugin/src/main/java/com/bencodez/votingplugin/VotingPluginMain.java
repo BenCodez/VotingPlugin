@@ -1212,7 +1212,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			discordHandler.load();
 			debug("DiscordSRV enabled, loading DiscordSRV handler");
 		}
-		
+
 		// load vote logging if enabled
 		loadVoteLoggingMySQL();
 
@@ -1801,6 +1801,14 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					}
 				};
 			}
+
+			getTimer().scheduleAtFixedRate(new Runnable() {
+
+				@Override
+				public void run() {
+					voteLogMysqlTable.purgeOlderThanDays(getConfigFile().getVoteLoggingPurgeDays(), 100);
+				}
+			}, 60, 60 * 60, TimeUnit.SECONDS); // Purge old logs every hour
 
 			debug("Vote logging MySQL enabled");
 		} else {

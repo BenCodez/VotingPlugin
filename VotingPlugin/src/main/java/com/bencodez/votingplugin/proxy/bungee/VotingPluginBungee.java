@@ -635,6 +635,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				return new MysqlConfigBungee(config.getData().getSection("VoteLogging"));
 			}
 
+			@Override
+			public void loadTaskTimer(Runnable runnable, long delaySeconds, long repeatSeconds) {
+				timer.scheduleAtFixedRate(runnable, delaySeconds, repeatSeconds, TimeUnit.SECONDS);
+			}
+
 		};
 		try {
 			Class.forName("com.vexsoftware.votifier.bungee.events.VotifierEvent");

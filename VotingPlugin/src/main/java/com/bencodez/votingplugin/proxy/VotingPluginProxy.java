@@ -819,11 +819,19 @@ public abstract class VotingPluginProxy {
 				};
 			}
 
+			if (getConfig().getVoteLoggingPurgeDays() > 0) {
+				loadTaskTimer(() -> {
+					voteLogMysqlTable.purgeOlderThanDays(getConfig().getVoteLoggingPurgeDays(), 100);
+				}, 60,  60 * 60);
+			}
+
 			debug("Vote logging MySQL enabled");
 		} else {
 			debug("Vote logging MySQL disabled");
 		}
 	}
+
+	public abstract void loadTaskTimer(Runnable runnable, long delaySeconds, long repeatSeconds);
 
 	public void loadMultiProxySupport() {
 		if (multiProxyHandler != null) {
@@ -1527,7 +1535,8 @@ public abstract class VotingPluginProxy {
 			}
 
 			if (voteLogMysqlTable != null && getConfig().getVoteLoggingEnabled()) {
-				voteLogMysqlTable.logVote(voteId, voteStatus, service, uuid, player, time, getVoteCacheHandler().getProxyCachedTotal(uuid));
+				voteLogMysqlTable.logVote(voteId, voteStatus, service, uuid, player, time,
+						getVoteCacheHandler().getProxyCachedTotal(uuid));
 			}
 
 			if (getConfig().getMultiProxySupport() && getConfig().getPrimaryServer()) {

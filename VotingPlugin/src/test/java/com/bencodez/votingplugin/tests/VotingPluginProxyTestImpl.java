@@ -225,4 +225,10 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 		// TODO Auto-generated method stub
 		return null;
 	}
+
+	@Override
+	public void loadTaskTimer(Runnable runnable, long delaySeconds, long repeatSeconds) {
+		// TODO Auto-generated method stub
+		
+	}
 }

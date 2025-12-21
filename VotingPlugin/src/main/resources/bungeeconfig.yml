@@ -98,6 +98,7 @@ VoteLogging:
   # Enable on backend servers to access commands
   Enabled: false
   # Purge votes older than X days
+  # Set to -1 to disable automatic purging
   PurgeDays: 30
   UseMainMySQL: true
   # Mysql settings only used if above is false

@@ -737,6 +737,11 @@ public class VotingPluginVelocity {
 				return new MysqlConfigVelocity("VoteLogging", config);
 			}
 
+			@Override
+			public void loadTaskTimer(Runnable runnable, long delaySeconds, long repeatSeconds) {
+				timer.scheduleAtFixedRate(runnable, delaySeconds, repeatSeconds, TimeUnit.SECONDS);
+			}
+
 		};
 
 		try {
