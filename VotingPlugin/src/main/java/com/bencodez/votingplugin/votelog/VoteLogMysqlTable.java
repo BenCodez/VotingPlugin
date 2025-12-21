@@ -20,8 +20,8 @@ import com.bencodez.simpleapi.sql.mysql.queries.Query;
  *
  * Columns: - vote_id (generated UUID string) - vote_time (LONG millis, explicit
  * time vote happened) - event (VOTE_RECEIVED default) - status
- * (IMMEDIATE/CACHED) - cached_total (int, proxy only snapshot; can be 0
- * on backend) - service - player_uuid - player_name
+ * (IMMEDIATE/CACHED) - cached_total (int, proxy only snapshot; can be 0 on
+ * backend) - service - player_uuid - player_name
  */
 public abstract class VoteLogMysqlTable {
 
@@ -206,15 +206,44 @@ public abstract class VoteLogMysqlTable {
 		}
 	}
 
-	private void tryCreateIndex(String indexName, String cols) {
-		String sql = "CREATE INDEX `" + indexName + "` ON `" + getName() + "` " + cols + ";";
-		try {
-			new Query(mysql, sql).executeUpdateAsync();
-		} catch (SQLException e) {
-			// likely exists
-			if (debug) {
-				mysql.debug("Index create failed (likely exists) " + indexName + ": " + e.getMessage());
+	private boolean hasIndex(String indexName) {
+		String sql = "SHOW INDEX FROM `" + getName() + "` WHERE Key_name = ?;";
+		try (Connection conn = mysql.getConnectionManager().getConnection();
+				PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setString(1, indexName);
+			try (ResultSet rs = ps.executeQuery()) {
+				return rs.next();
 			}
+		} catch (SQLException e) {
+			debug1(e);
+			// If we can't determine, act conservative: assume it exists to avoid spam
+			return true;
+		}
+	}
+
+	private static boolean isDuplicateIndexName(SQLException e) {
+		// MySQL: 1061 = Duplicate key name
+		return e != null && e.getErrorCode() == 1061;
+	}
+
+	private void tryCreateIndex(String indexName, String cols) {
+		// Avoid obvious duplicates
+		if (hasIndex(indexName)) {
+			return;
+		}
+
+		String sql = "CREATE INDEX `" + indexName + "` ON `" + getName() + "` " + cols + ";";
+
+		// Important: execute synchronously so we can catch duplicate errors here.
+		// Index creation is a one-time startup cost and usually very fast.
+		try {
+			new Query(mysql, sql).executeUpdate();
+		} catch (SQLException e) {
+			// Race case: another instance created it after our hasIndex() check
+			if (isDuplicateIndexName(e)) {
+				return;
+			}
+			debug1(e);
 		}
 	}
 
