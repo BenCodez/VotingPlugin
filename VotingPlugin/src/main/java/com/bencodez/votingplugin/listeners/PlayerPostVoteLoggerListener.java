@@ -38,7 +38,7 @@ public class PlayerPostVoteLoggerListener implements Listener {
 		if (event.isCached()) {
 			status = VoteLogStatus.CACHED;
 		}
-		if (plugin.getConfigFile().isVoteLoggingEnabled()) {
+		if (plugin.getConfigFile().isVoteLoggingEnabled() && !event.isBungee()) {
 			plugin.getVoteLogMysqlTable().logVote(UUID.randomUUID(), status, event.getService(),
 					event.getUuid().toString(), event.getPlayerName(), event.getVoteTime(),
 					event.getUser().getOfflineVotes().size());
