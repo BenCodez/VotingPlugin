@@ -59,6 +59,10 @@ import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVoteParty;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVotePlayer;
 import com.bencodez.votingplugin.commands.gui.admin.cumulative.AdminVoteCumulative;
 import com.bencodez.votingplugin.commands.gui.admin.milestones.AdminVoteMilestones;
+import com.bencodez.votingplugin.commands.gui.admin.votelog.AdminVoteLogPlayer;
+import com.bencodez.votingplugin.commands.gui.admin.votelog.AdminVoteLogRecent;
+import com.bencodez.votingplugin.commands.gui.admin.votelog.AdminVoteLogService;
+import com.bencodez.votingplugin.commands.gui.admin.votelog.AdminVoteLogStats;
 import com.bencodez.votingplugin.commands.gui.admin.voteshop.AdminVoteVoteShop;
 import com.bencodez.votingplugin.commands.gui.player.VoteBest;
 import com.bencodez.votingplugin.commands.gui.player.VoteGUI;
@@ -1883,6 +1887,46 @@ public class CommandLoader {
 						sendMessage(sender, "&cCleared discord message ID for " + top.toString());
 					}
 				});
+
+		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "VoteLog", "Recent" },
+				"VotingPlugin.Commands.AdminVote.VoteLog.Recent|" + adminPerm, "See recent vote logs") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				new AdminVoteLogRecent(plugin, sender, plugin.getVoteLogMysqlTable(), null, 0).open(GUIMethod.CHEST);
+
+			}
+		});
+
+		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "VoteLog", "Player", "(player)" },
+				"VotingPlugin.Commands.AdminVote.VoteLog.Player|" + adminPerm, "See vote logs for a player") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				new AdminVoteLogPlayer(plugin, sender, plugin.getVoteLogMysqlTable(), args[2], 1000, 0)
+						.open(GUIMethod.CHEST);
+			}
+		});
+
+		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "VoteLog", "Service", "(Text)" },
+				"VotingPlugin.Commands.AdminVote.VoteLog.Service|" + adminPerm, "See vote logs for a service site") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				// args: 0=VoteLog, 1=Service, 2=(Text)
+				new AdminVoteLogService(plugin, sender, plugin.getVoteLogMysqlTable(), args[2], 1000, 0)
+						.open(GUIMethod.CHEST);
+			}
+		});
+
+		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "VoteLog", "Stats" },
+				"VotingPlugin.Commands.AdminVote.VoteLog.Stats|" + adminPerm, "View VoteLog statistics") {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				new AdminVoteLogStats(plugin, sender, plugin.getVoteLogMysqlTable(), 0).open(GUIMethod.CHEST);
+			}
+		});
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] {},
 				"VotingPlugin.Commands.AdminVote|" + adminPerm, "Base command") {

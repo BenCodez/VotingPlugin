@@ -20,7 +20,7 @@ import com.bencodez.simpleapi.sql.mysql.queries.Query;
  *
  * Columns: - vote_id (generated UUID string) - vote_time (LONG millis, explicit
  * time vote happened) - event (VOTE_RECEIVED default) - status
- * (IMMEDIATE/CACHED) - proxy_cached_total (int, proxy only snapshot; can be 0
+ * (IMMEDIATE/CACHED) - cached_total (int, proxy only snapshot; can be 0
  * on backend) - service - player_uuid - player_name
  */
 public abstract class VoteLogMysqlTable {
@@ -341,7 +341,7 @@ public abstract class VoteLogMysqlTable {
 	// -------------------------
 
 	public VoteLogEntry getByVoteId(String voteId) {
-		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, proxy_cached_total "
+		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, cached_total "
 				+ "FROM `" + getName() + "` WHERE vote_id=? LIMIT 1;";
 		List<VoteLogEntry> rows = query(sql, new Object[] { voteId });
 		return rows.isEmpty() ? null : rows.get(0);
@@ -351,7 +351,7 @@ public abstract class VoteLogMysqlTable {
 		if (limit <= 0) {
 			limit = 10;
 		}
-		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, proxy_cached_total "
+		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, cached_total "
 				+ "FROM `" + getName() + "` ORDER BY vote_time DESC LIMIT " + limit + ";";
 		return query(sql, new Object[] {});
 	}
@@ -364,7 +364,7 @@ public abstract class VoteLogMysqlTable {
 			return getRecent(limit);
 		}
 		long cutoff = System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L);
-		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, proxy_cached_total "
+		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, cached_total "
 				+ "FROM `" + getName() + "` WHERE vote_time >= ? ORDER BY vote_time DESC LIMIT " + limit + ";";
 		return query(sql, new Object[] { cutoff });
 	}
@@ -377,7 +377,7 @@ public abstract class VoteLogMysqlTable {
 		if (limit <= 0) {
 			limit = 10;
 		}
-		String base = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, proxy_cached_total "
+		String base = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, cached_total "
 				+ "FROM `" + getName() + "` WHERE player_uuid=? ";
 		if (days > 0) {
 			long cutoff = System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L);
@@ -393,7 +393,7 @@ public abstract class VoteLogMysqlTable {
 		if (limit <= 0) {
 			limit = 10;
 		}
-		String base = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, proxy_cached_total "
+		String base = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, cached_total "
 				+ "FROM `" + getName() + "` WHERE player_name=? ";
 		if (days > 0) {
 			long cutoff = System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L);
@@ -409,7 +409,7 @@ public abstract class VoteLogMysqlTable {
 		if (limit <= 0) {
 			limit = 10;
 		}
-		String base = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, proxy_cached_total "
+		String base = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, cached_total "
 				+ "FROM `" + getName() + "` WHERE service=? ";
 		if (days > 0) {
 			long cutoff = System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L);
@@ -425,7 +425,7 @@ public abstract class VoteLogMysqlTable {
 		if (limit <= 0) {
 			limit = 10;
 		}
-		String base = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, proxy_cached_total "
+		String base = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, cached_total "
 				+ "FROM `" + getName() + "` WHERE status=? ";
 		if (days > 0) {
 			long cutoff = System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L);
@@ -444,7 +444,7 @@ public abstract class VoteLogMysqlTable {
 		if (event == null) {
 			event = VoteLogEvent.VOTE_RECEIVED;
 		}
-		String base = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, proxy_cached_total "
+		String base = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, cached_total "
 				+ "FROM `" + getName() + "` WHERE event=? ";
 		if (days > 0) {
 			long cutoff = System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L);
@@ -569,7 +569,7 @@ public abstract class VoteLogMysqlTable {
 		if (limit <= 0) {
 			limit = 10;
 		}
-		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, proxy_cached_total "
+		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, cached_total "
 				+ "FROM `" + getName() + "` WHERE vote_time < ? ORDER BY vote_time DESC LIMIT " + limit + ";";
 		return query(sql, new Object[] { beforeVoteTimeMillis });
 	}
@@ -588,7 +588,7 @@ public abstract class VoteLogMysqlTable {
 			cutoff = System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L);
 		}
 
-		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, proxy_cached_total "
+		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, cached_total "
 				+ "FROM `" + getName() + "` WHERE player_uuid=? AND vote_time < ? "
 				+ (useCutoff ? "AND vote_time >= ? " : "") + "ORDER BY vote_time DESC LIMIT " + limit + ";";
 
@@ -627,7 +627,7 @@ public abstract class VoteLogMysqlTable {
 			while (rs.next()) {
 				out.add(new VoteLogEntry(rs.getString("vote_id"), rs.getLong("vote_time"), rs.getString("player_uuid"),
 						rs.getString("player_name"), rs.getString("service"), rs.getString("event"),
-						rs.getString("status"), rs.getInt("proxy_cached_total")));
+						rs.getString("status"), rs.getInt("cached_total")));
 			}
 			rs.close();
 			return out;
