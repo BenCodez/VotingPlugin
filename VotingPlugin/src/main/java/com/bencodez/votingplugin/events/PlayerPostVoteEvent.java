@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.events;
 
+import java.util.UUID;
+
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
@@ -62,16 +64,31 @@ public class PlayerPostVoteEvent extends Event {
 
 	@Getter
 	@Setter
-	private VotingPluginUser votingPluginUser;
+	private boolean cached;
+
+	@Getter
+	@Setter
+	private String service;
+
+	@Getter
+	@Setter
+	private UUID uuid;
+	@Getter
+	@Setter
+	private String playerName;
 
 	public PlayerPostVoteEvent(VoteSite voteSite, VotingPluginUser user, boolean realVote, boolean forceBungee,
-			long voteTime) {
+			long voteTime, boolean cached, String service, UUID uuid, String playerName) {
 		super(true);
 		this.user = user;
 		this.voteSite = voteSite;
 		this.realVote = realVote;
 		this.forceBungee = forceBungee;
 		this.voteTime = voteTime;
+		this.cached = cached;
+		this.service = service;
+		this.uuid = uuid;
+		this.playerName = playerName;
 	}
 
 	/*

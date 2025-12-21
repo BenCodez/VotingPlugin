@@ -135,6 +135,26 @@ public class Config extends YMLFile {
 	@ConfigDataString(path = "DiscordSRV.TopVoter.Daily.RankDisplay")
 	@Getter
 	private String discordSRVTopVoterDailyRankDisplay = "%rank%: %player% - %votes% Votes";
+	
+	// VoteLogging configuration section - minimal options mirror Config.yml
+	@ConfigDataBoolean(path = "VoteLogging.Enabled")
+	@Getter
+	private boolean voteLoggingEnabled = false;
+
+	@ConfigDataInt(path = "VoteLogging.PurgeDays")
+	@Getter
+	private int voteLoggingPurgeDays = 30;
+
+	@ConfigDataBoolean(path = "VoteLogging.UseMainMySQL")
+	@Getter
+	private boolean voteLoggingUseMainMySQL = true;
+
+	public ConfigurationSection getVoteLoggingSection() {
+		if (!getData().isConfigurationSection("VoteLogging")) {
+			getData().createSection("VoteLogging");
+		}
+		return getData().getConfigurationSection("VoteLogging");
+	}
 
 	public boolean isDiscordSRVTopVoterEnabled(TopVoter topVoter) {
 		switch (topVoter) {

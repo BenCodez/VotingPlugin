@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.simpleapi.sql.mysql.queries.Query;
@@ -35,13 +36,49 @@ public abstract class ProxyVoteCacheTable {
 
 		// Create table if not exists
 		String sql = "CREATE TABLE IF NOT EXISTS `" + tableName + "` (" + "id INT AUTO_INCREMENT PRIMARY KEY,"
-				+ "uuid VARCHAR(36)," + "playerName VARCHAR(100)," + "service VARCHAR(100)," + "`time` BIGINT,"
-				+ "realVote TINYINT(1)," + "`text` TEXT," + "`server` VARCHAR(100)," + "INDEX idx_server (`server`),"
-				+ "INDEX idx_uuid (`uuid`)," + "INDEX idx_time (`time`)" + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+				+ "uuid VARCHAR(36)," + "voteid VARCHAR(36)," + "playerName VARCHAR(100)," + "service VARCHAR(100),"
+				+ "`time` BIGINT," + "realVote TINYINT(1)," + "`text` TEXT," + "`server` VARCHAR(100),"
+				+ "INDEX idx_server (`server`)," + "INDEX idx_uuid (`uuid`)," + "INDEX idx_time (`time`)"
+				+ ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
 		try {
 			new Query(mysql, sql).executeUpdate();
 		} catch (SQLException e) {
 			e.printStackTrace();
+		}
+		addVoteIdColumnIfMissing();
+	}
+
+	// Add this method anywhere in the class (e.g., near getTableName()).
+	private void addVoteIdColumnIfMissing() {
+		// If you can’t assume the configured database, just read the current one from
+		// the connection.
+		final String checkSql = "SELECT 1 " + "FROM INFORMATION_SCHEMA.COLUMNS " + "WHERE TABLE_SCHEMA = DATABASE() "
+				+ "  AND TABLE_NAME = ? " + "  AND COLUMN_NAME = 'voteid' " + "LIMIT 1;";
+
+		try (Connection conn = mysql.getConnectionManager().getConnection();
+				PreparedStatement ps = conn.prepareStatement(checkSql)) {
+
+			ps.setString(1, tableName);
+
+			try (ResultSet rs = ps.executeQuery()) {
+				if (rs.next()) {
+					return; // column exists
+				}
+			}
+
+			// Column missing -> add it.
+			// Put it after uuid for readability; adjust if you want.
+			String alterSql = "ALTER TABLE `" + tableName + "` ADD COLUMN `voteid` VARCHAR(36) NULL AFTER `uuid`;";
+			new Query(mysql, alterSql).executeUpdate();
+
+			// Optional: add an index if you’ll query by voteid later
+			// new Query(mysql, "ALTER TABLE `" + tableName + "` ADD INDEX idx_voteid
+			// (`voteid`);").executeUpdate();
+
+		} catch (SQLException e) {
+			// Don’t hard-fail startup for a migration; log it.
+			logSevere("Failed to add voteid column to " + tableName + ": " + e.getMessage());
+			debug(e);
 		}
 	}
 
@@ -81,16 +118,16 @@ public abstract class ProxyVoteCacheTable {
 		}
 
 		String sql = "CREATE TABLE IF NOT EXISTS `" + tableName + "` (" + "id INT AUTO_INCREMENT PRIMARY KEY,"
-				+ "uuid VARCHAR(36)," + "playerName VARCHAR(100)," + "service VARCHAR(100)," + "`time` BIGINT," // epoch
-																												// millis
-				+ "realVote TINYINT(1)," // boolean
-				+ "`text` TEXT," + "`server` VARCHAR(100)," + "INDEX idx_server (`server`),"
-				+ "INDEX idx_uuid (`uuid`)," + "INDEX idx_time (`time`)" + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+				+ "uuid VARCHAR(36)," + "voteid VARCHAR(36)," + "playerName VARCHAR(100)," + "service VARCHAR(100),"
+				+ "`time` BIGINT," + "realVote TINYINT(1)," + "`text` TEXT," + "`server` VARCHAR(100),"
+				+ "INDEX idx_server (`server`)," + "INDEX idx_uuid (`uuid`)," + "INDEX idx_time (`time`)"
+				+ ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
 		try {
 			new Query(mysql, sql).executeUpdate();
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
+		addVoteIdColumnIfMissing();
 	}
 
 	public String getTableName() {
@@ -98,19 +135,21 @@ public abstract class ProxyVoteCacheTable {
 	}
 
 	// --- INSERT ---
-	public void insertVote(String uuid, String playerName, String service, long time, boolean real, String text,
-			String server) {
-		String sql = "INSERT INTO `" + tableName + "` (uuid, playerName, service, `time`, realVote, `text`, `server`) "
-				+ "VALUES (?, ?, ?, ?, ?, ?, ?);";
+	public void insertVote(UUID voteId, String uuid, String playerName, String service, long time, boolean real,
+			String text, String server) {
+		String sql = "INSERT INTO `" + tableName
+				+ "` (uuid, voteid, playerName, service, `time`, realVote, `text`, `server`) "
+				+ "VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setString(1, uuid);
-			ps.setString(2, playerName);
-			ps.setString(3, service);
-			ps.setLong(4, time);
-			ps.setBoolean(5, real);
-			ps.setString(6, text);
-			ps.setString(7, server);
+			ps.setString(2, voteId.toString());
+			ps.setString(3, playerName);
+			ps.setString(4, service);
+			ps.setLong(5, time);
+			ps.setBoolean(6, real);
+			ps.setString(7, text);
+			ps.setString(8, server);
 			ps.executeUpdate();
 		} catch (SQLException e) {
 			e.printStackTrace();
@@ -234,9 +273,9 @@ public abstract class ProxyVoteCacheTable {
 			}
 			try (ResultSet rs = ps.executeQuery()) {
 				while (rs.next()) {
-					VoteRow v = new VoteRow(rs.getInt("id"), rs.getString("uuid"), rs.getString("playerName"),
-							rs.getString("service"), rs.getLong("time"), rs.getBoolean("realVote"),
-							rs.getString("text"), rs.getString("server"));
+					VoteRow v = new VoteRow(rs.getInt("id"), rs.getString("voteid"), rs.getString("uuid"),
+							rs.getString("playerName"), rs.getString("service"), rs.getLong("time"),
+							rs.getBoolean("realVote"), rs.getString("text"), rs.getString("server"));
 					list.add(v);
 				}
 			}
@@ -255,9 +294,10 @@ public abstract class ProxyVoteCacheTable {
 		private final boolean realVote;
 		private final String text;
 		private final String server;
+		private final String voteId;
 
-		public VoteRow(int id, String uuid, String playerName, String service, long time, boolean realVote, String text,
-				String server) {
+		public VoteRow(int id, String voteId, String uuid, String playerName, String service, long time,
+				boolean realVote, String text, String server) {
 			this.id = id;
 			this.uuid = uuid;
 			this.playerName = playerName;
@@ -266,10 +306,15 @@ public abstract class ProxyVoteCacheTable {
 			this.realVote = realVote;
 			this.text = text;
 			this.server = server;
+			this.voteId = voteId;
 		}
 
 		public int getId() {
 			return id;
+		}
+
+		public String getVoteId() {
+			return voteId;
 		}
 
 		public String getUuid() {

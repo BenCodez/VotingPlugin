@@ -630,6 +630,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				return new MysqlConfigBungee(config.getData().getSection("NonVotedCache"));
 			}
 
+			@Override
+			public MysqlConfig getVoteLoggingMySQLConfig() {
+				return new MysqlConfigBungee(config.getData().getSection("VoteLogging"));
+			}
+
 		};
 		try {
 			Class.forName("com.vexsoftware.votifier.bungee.events.VotifierEvent");

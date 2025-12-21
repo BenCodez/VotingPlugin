@@ -202,7 +202,7 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 	public int getRedisPort() {
 		return getData().getInt("Redis.Port", 6379);
 	}
-	
+
 	@Override
 	public int getRedisDbIndex() {
 		return getData().getInt("Redis.Db-Index", 0);
@@ -437,6 +437,21 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 	@Override
 	public boolean getNonVotedCacheUseMainMySQL() {
 		return getData().getBoolean("NonVotedCache.UseMainMySQL", true);
+	}
+
+	@Override
+	public boolean getVoteLoggingEnabled() {
+		return getData().getBoolean("VoteLogging.Enabled", false);
+	}
+
+	@Override
+	public int getVoteLoggingPurgeDays() {
+		return getData().getInt("VoteLogging.PurgeDays", 30);
+	}
+
+	@Override
+	public boolean getVoteLoggingUseMainMySQL() {
+		return getData().getBoolean("VoteLogging.UseMainMySQL", true);
 	}
 
 }

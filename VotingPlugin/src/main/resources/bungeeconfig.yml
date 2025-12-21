@@ -92,7 +92,15 @@ NonVotedCache:
   UseMySQL: false
   UseMainMySQL: true
   # Mysql settings only used if above is false
-
+  
+VoteLogging:
+  # If enabled, will log votes in mysql
+  # Enable on backend servers to access commands
+  Enabled: false
+  # Purge votes older than X days
+  PurgeDays: 30
+  UseMainMySQL: true
+  # Mysql settings only used if above is false
 
 ####################################################################################
 

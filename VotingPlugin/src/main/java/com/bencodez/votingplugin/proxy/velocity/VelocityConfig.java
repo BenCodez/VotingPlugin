@@ -204,7 +204,7 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	public int getRedisPort() {
 		return getInt(getNode("Redis", "Port"), 6379);
 	}
-	
+
 	@Override
 	public int getRedisDbIndex() {
 		return getInt(getNode("Redis", "Db-Index"), 0);
@@ -428,6 +428,21 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	@Override
 	public boolean getNonVotedCacheUseMainMySQL() {
 		return getBoolean(getNode("NonVotedCache", "UseMainMySQL"), true);
+	}
+
+	@Override
+	public boolean getVoteLoggingEnabled() {
+		return getBoolean(getNode("VoteLogging", "Enabled"), false);
+	}
+
+	@Override
+	public int getVoteLoggingPurgeDays() {
+		return getInt(getNode("VoteLogging", "PurgeDays"), 30);
+	}
+
+	@Override
+	public boolean getVoteLoggingUseMainMySQL() {
+		return getBoolean(getNode("VoteLogging", "UseMainMySQL"), true);
 	}
 
 }

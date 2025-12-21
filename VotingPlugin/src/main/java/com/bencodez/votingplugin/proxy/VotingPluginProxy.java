@@ -60,6 +60,8 @@ import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyMethod;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyServerSocketConfiguration;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyServerSocketConfigurationBungee;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
+import com.bencodez.votingplugin.votelog.VoteLogMysqlTable;
+import com.bencodez.votingplugin.votelog.VoteLogMysqlTable.VoteLogStatus;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
@@ -485,6 +487,8 @@ public abstract class VotingPluginProxy {
 
 	public abstract MysqlConfig getNonVotedCacheMySQLConfig();
 
+	public abstract MysqlConfig getVoteLoggingMySQLConfig();
+
 	public void load(IVoteCache jsonStorage, INonVotedPlayersStorage nonVotedCacheJson) {
 		uuidPlayerNameCache = getProxyMySQL().getRowsUUIDNameQuery();
 
@@ -763,6 +767,62 @@ public abstract class VotingPluginProxy {
 		});
 
 		loadMultiProxySupport();
+		loadVoteLoggingMySQL();
+	}
+
+	private VoteLogMysqlTable voteLogMysqlTable;
+
+	public void loadVoteLoggingMySQL() {
+		if (getConfig().getVoteLoggingEnabled()) {
+			if (getConfig().getVoteLoggingUseMainMySQL()) {
+				voteLogMysqlTable = new VoteLogMysqlTable("votingplugin_votelog", getProxyMySQL().getMysql(),
+						getVoteLoggingMySQLConfig(), getConfig().getDebug()) {
+
+					@Override
+					public void logSevere1(String string) {
+						logSevere(string);
+					}
+
+					@Override
+					public void logInfo1(String string) {
+						logInfo(string);
+					}
+
+					@Override
+					public void debug1(SQLException e) {
+						if (getConfig().getDebug()) {
+							e.printStackTrace();
+						}
+					}
+				};
+			} else {
+				voteLogMysqlTable = new VoteLogMysqlTable("votingplugin_votelog", getVoteLoggingMySQLConfig(),
+						getConfig().getDebug()) {
+
+					@Override
+					public void logSevere1(String string) {
+						logSevere(string);
+					}
+
+					@Override
+					public void logInfo1(String string) {
+						logInfo(string);
+					}
+
+					@Override
+					public void debug1(SQLException e) {
+						if (getConfig().getDebug()) {
+							e.printStackTrace();
+						}
+					}
+
+				};
+			}
+
+			debug("Vote logging MySQL enabled");
+		} else {
+			debug("Vote logging MySQL disabled");
+		}
 	}
 
 	public void loadMultiProxySupport() {
@@ -1410,6 +1470,9 @@ public abstract class VotingPluginProxy {
 				time = queueTime;
 			}
 
+			VoteLogStatus voteStatus = VoteLogStatus.IMMEDIATE;
+			UUID voteId = UUID.randomUUID();
+
 			if (getConfig().getSendVotesToAllServers()) {
 				for (String s : getAllAvailableServers()) {
 					boolean forceCache = false;
@@ -1421,9 +1484,9 @@ public abstract class VotingPluginProxy {
 						globalMessageProxyHandler.sendMessage(s, 1, "VoteBroadcast", uuid, player, service);
 					}
 					if ((!isSomeoneOnlineServer(s) && method.requiresPlayerOnline()) || forceCache) {
-
+						voteStatus = VoteLogStatus.CACHED;
 						getVoteCacheHandler().addServerVote(s,
-								new OfflineBungeeVote(player, uuid, service, time, realVote, text.toString()));
+								new OfflineBungeeVote(voteId, player, uuid, service, time, realVote, text.toString()));
 
 						debug("Caching vote for " + player + " on " + service + " for " + s);
 
@@ -1446,8 +1509,9 @@ public abstract class VotingPluginProxy {
 						multiProxyHandler.sendMultiProxyServerMessage("ClearVote", player, uuid);
 					}
 				} else {
+					voteStatus = VoteLogStatus.CACHED;
 					getVoteCacheHandler().addOnlineVote(uuid,
-							new OfflineBungeeVote(player, uuid, service, time, realVote, text.toString()));
+							new OfflineBungeeVote(voteId, player, uuid, service, time, realVote, text.toString()));
 					debug("Caching online vote for " + player + " on " + service);
 				}
 				int delay = 2;
@@ -1460,6 +1524,10 @@ public abstract class VotingPluginProxy {
 					delay += 2;
 
 				}
+			}
+
+			if (voteLogMysqlTable != null && getConfig().getVoteLoggingEnabled()) {
+				voteLogMysqlTable.logVote(voteId, voteStatus, service, uuid, player, time, getVoteCacheHandler().getProxyCachedTotal(uuid));
 			}
 
 			if (getConfig().getMultiProxySupport() && getConfig().getPrimaryServer()) {

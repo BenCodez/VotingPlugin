@@ -31,6 +31,8 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 		getNode("VoteCache", server, String.valueOf(num), "Time").setValue(voteData.getTime());
 		getNode("VoteCache", server, String.valueOf(num), "Real").setValue(voteData.isRealVote());
 		getNode("VoteCache", server, String.valueOf(num), "Text").setValue(voteData.getText());
+		getNode("VoteCache", server, String.valueOf(num), "VoteID")
+				.setValue(voteData.getVoteId() != null ? voteData.getVoteId().toString() : null);
 	}
 
 	@Override
@@ -41,6 +43,8 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 		getNode("OnlineCache", player, String.valueOf(num), "Time").setValue(voteData.getTime());
 		getNode("OnlineCache", player, String.valueOf(num), "Real").setValue(voteData.isRealVote());
 		getNode("OnlineCache", player, String.valueOf(num), "Text").setValue(voteData.getText());
+		getNode("OnlineCache", player, String.valueOf(num), "VoteID")
+				.setValue(voteData.getVoteId() != null ? voteData.getVoteId().toString() : null);
 	}
 
 	@Override

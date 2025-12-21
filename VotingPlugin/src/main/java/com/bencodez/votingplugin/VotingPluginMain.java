@@ -5,6 +5,7 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.URL;
 import java.security.CodeSource;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -59,6 +60,7 @@ import com.bencodez.advancedcore.logger.Logger;
 import com.bencodez.simpleapi.file.YMLConfig;
 import com.bencodez.simpleapi.skull.SkullCache;
 import com.bencodez.simpleapi.sql.Column;
+import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigSpigot;
 import com.bencodez.simpleapi.updater.Updater;
 import com.bencodez.votingplugin.broadcast.BroadcastHandler;
 import com.bencodez.votingplugin.commands.CommandLoader;
@@ -80,6 +82,7 @@ import com.bencodez.votingplugin.discord.DiscordHandler;
 import com.bencodez.votingplugin.listeners.BlockBreak;
 import com.bencodez.votingplugin.listeners.PlayerInteract;
 import com.bencodez.votingplugin.listeners.PlayerJoinEvent;
+import com.bencodez.votingplugin.listeners.PlayerPostVoteLoggerListener;
 import com.bencodez.votingplugin.listeners.PlayerVoteListener;
 import com.bencodez.votingplugin.listeners.SignChange;
 import com.bencodez.votingplugin.listeners.VotiferEvent;
@@ -99,6 +102,7 @@ import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
 import com.bencodez.votingplugin.updater.CheckUpdate;
 import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.votelog.VoteLogMysqlTable;
 import com.bencodez.votingplugin.voteparty.VoteParty;
 import com.bencodez.votingplugin.votereminding.VoteReminding;
 
@@ -1208,6 +1212,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			discordHandler.load();
 			debug("DiscordSRV enabled, loading DiscordSRV handler");
 		}
+		
+		// load vote logging if enabled
+		loadVoteLoggingMySQL();
 
 		// Add rewards
 		getRewardHandler().addInjectedReward(new RewardInjectInt("Points", 0) {
@@ -1483,6 +1490,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			pm.registerEvents(new VotiferEvent(this), this);
 		}
 		pm.registerEvents(new PlayerVoteListener(this), this);
+		pm.registerEvents(new PlayerPostVoteLoggerListener(this), this);
 		pm.registerEvents(new SignChange(this), this);
 		pm.registerEvents(new BlockBreak(this), this);
 		if (!plugin.getConfigFile().isDisableInteractEvent()) {
@@ -1744,6 +1752,59 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					updateStarted = false;
 				}
 			}
+		}
+	}
+
+	@Getter
+	private VoteLogMysqlTable voteLogMysqlTable;
+
+	public void loadVoteLoggingMySQL() {
+		if (getConfigFile().isVoteLoggingEnabled()) {
+			if (getConfigFile().isVoteLoggingUseMainMySQL()) {
+				voteLogMysqlTable = new VoteLogMysqlTable("votingplugin_votelog", getMysql().getMysql(),
+						new MysqlConfigSpigot(getConfigFile().getVoteLoggingSection()),
+						getOptions().getDebug().isDebug()) {
+
+					@Override
+					public void logSevere1(String string) {
+						plugin.getLogger().severe(string);
+					}
+
+					@Override
+					public void logInfo1(String string) {
+						plugin.getLogger().info(string);
+					}
+
+					@Override
+					public void debug1(SQLException e) {
+						debug(e);
+					}
+				};
+			} else {
+				voteLogMysqlTable = new VoteLogMysqlTable("votingplugin_votelog",
+						new MysqlConfigSpigot(getConfigFile().getVoteLoggingSection()),
+						getOptions().getDebug().isDebug()) {
+
+					@Override
+					public void logSevere1(String string) {
+						plugin.getLogger().severe(string);
+					}
+
+					@Override
+					public void logInfo1(String string) {
+						plugin.getLogger().info(string);
+					}
+
+					@Override
+					public void debug1(SQLException e) {
+						debug(e);
+					}
+				};
+			}
+
+			debug("Vote logging MySQL enabled");
+		} else {
+			debug("Vote logging MySQL disabled");
 		}
 	}
 

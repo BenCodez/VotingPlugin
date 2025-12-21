@@ -198,6 +198,7 @@ public class PlayerVoteListener implements Listener {
 			user.setReminded(false);
 		}
 
+		boolean cached = false;
 		// check if player has voted on all sites in one day
 		if (((user.isOnline() || voteSite.isGiveOffline()) && plugin.getOptions().isProcessRewards())
 				|| event.isBungee()) {
@@ -216,6 +217,7 @@ public class PlayerVoteListener implements Listener {
 			if (!plugin.getConfigFile().isOfflineVotesLimitEnabled()
 					|| user.getNumberOfOfflineVotes(voteSite) <= plugin.getConfigFile().getOfflineVotesLimitAmount()) {
 				user.addOfflineVote(voteSite.getKey());
+				cached = true;
 				plugin.debug(
 						"Offline vote set for " + playerName + " (" + user.getUUID() + ") on " + voteSite.getKey());
 			} else {
@@ -261,7 +263,7 @@ public class PlayerVoteListener implements Listener {
 		plugin.getCoolDownCheck().vote(user, voteSite);
 
 		PlayerPostVoteEvent postVoteEvent = new PlayerPostVoteEvent(voteSite, user, event.isRealVote(),
-				event.isForceBungee(), voteTime);
+				event.isForceBungee(), voteTime, cached, voteSite.getServiceSite(), user.getJavaUUID(), playerName);
 		plugin.getServer().getPluginManager().callEvent(postVoteEvent);
 
 		if (user.isOnline()) {

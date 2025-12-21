@@ -95,7 +95,7 @@ public interface VotingPluginProxyConfig {
 	public String getRedisPassword();
 
 	public int getRedisPort();
-	
+
 	public int getRedisDbIndex();
 
 	public String getRedisPrefix();
@@ -159,5 +159,11 @@ public interface VotingPluginProxyConfig {
 	public void load();
 
 	public void save();
+
+	public boolean getVoteLoggingEnabled();
+
+	public int getVoteLoggingPurgeDays();
+
+	public boolean getVoteLoggingUseMainMySQL();
 
 }

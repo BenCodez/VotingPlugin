@@ -370,6 +370,19 @@ VotingBroadcastBlacklist: []
 BroadcastBlacklist: []
 
 ###########################################
+# Vote Logging
+##########################################
+
+VoteLogging:
+  # If enabled, will log votes in mysql
+  # Enable on backend servers to access commands
+  Enabled: false
+  # Purge votes older than X days
+  PurgeDays: 30
+  UseMainMySQL: true
+  # Mysql settings only used if above is false
+
+###########################################
 # Top Voter
 # Top voter rewards available in specialrewards.yml
 ###########################################

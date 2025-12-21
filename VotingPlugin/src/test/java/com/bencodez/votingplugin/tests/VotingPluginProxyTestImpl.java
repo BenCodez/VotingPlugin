@@ -219,4 +219,10 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 		// TODO Auto-generated method stub
 		return null;
 	}
+
+	@Override
+	public MysqlConfig getVoteLoggingMySQLConfig() {
+		// TODO Auto-generated method stub
+		return null;
+	}
 }

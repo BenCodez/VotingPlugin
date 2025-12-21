@@ -732,6 +732,11 @@ public class VotingPluginVelocity {
 				return new MysqlConfigVelocity("NonVotedCache", config);
 			}
 
+			@Override
+			public MysqlConfig getVoteLoggingMySQLConfig() {
+				return new MysqlConfigVelocity("VoteLogging", config);
+			}
+
 		};
 
 		try {
