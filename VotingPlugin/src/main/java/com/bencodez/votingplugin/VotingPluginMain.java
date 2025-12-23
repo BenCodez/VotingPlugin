@@ -105,6 +105,7 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable;
 import com.bencodez.votingplugin.voteparty.VoteParty;
 import com.bencodez.votingplugin.votereminding.VoteReminding;
+import com.bencodez.votingplugin.votestreak.VoteStreakHandler;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -484,6 +485,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 	}
 
+	@Getter
+	private VoteStreakHandler voteStreakHandler;
+
 	public void loadDirectlyDefined() {
 		getRewardHandler().getDirectlyDefinedRewards().clear();
 		// AllSites reward
@@ -847,7 +851,33 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			});
 		}
 
-		// vote streaks
+		for (String streak : plugin.getSpecialRewardsConfig().getData().getConfigurationSection("VoteStreaks")
+				.getKeys(false)) {
+			plugin.addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteStreaks." + streak + ".Rewards") {
+
+				@Override
+				public void setData(String path, Object value) {
+					plugin.getSpecialRewardsConfig().getData().set(path, value);
+				}
+
+				@Override
+				public void createSection(String key) {
+					plugin.getSpecialRewardsConfig().getData().createSection(key);
+				}
+
+				@Override
+				public ConfigurationSection getFileData() {
+					return getSpecialRewardsConfig().getData();
+				}
+
+				@Override
+				public void save() {
+					plugin.getSpecialRewardsConfig().saveData();
+				}
+			});
+		}
+
+		// vote streaks, old way
 		String[] types = new String[] { "Day", "Week", "Month" };
 		for (String type : types) {
 			for (String str : plugin.getSpecialRewardsConfig().getVoteStreakVotes(type)) {
@@ -1216,6 +1246,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		// load vote logging if enabled
 		loadVoteLoggingMySQL();
 
+		voteStreakHandler = new VoteStreakHandler(this);
+		voteStreakHandler.reload();
+
 		// Add rewards
 		getRewardHandler().addInjectedReward(new RewardInjectInt("Points", 0) {
 
@@ -1579,6 +1612,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		voteReminding.loadRemindChecking();
 		coolDownCheck.checkEnabled();
+
+		getVoteStreakHandler().reload();
+
 		loadDirectlyDefined();
 
 		setUpdate(true);

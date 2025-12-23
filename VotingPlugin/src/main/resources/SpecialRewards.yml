@@ -130,7 +130,30 @@ MileStones:
     Rewards: 
       Messages:
         Player: '&aYou got %milestone% milestone votes!'
+        
+        
+# Vote streak rewards
+# This is the new vote streak system
+# Data for this is stored separately from the old VoteStreak system
+# stored for each votestreak by the id name
+VoteStreaks:
+  # Id name, data is stored under this name
+  # On proxy setups keep different for each server unless you want one global streak
+  Daily3Votes: 
+    Type: DAILY
+    Enabled: false
+    Requirements:
+      Amount: 3
+      VotesRequired: 3   # need 3 votes in the day for the day to count
+    AllowMissedAmount: 1 # Allows one missed vote within 7 days
+    AllowMissedPeriod: 7
+    Rewards:
+      Commands:
+      - say test
+
    
+# To be replaced with new VoteStreams system later
+# Recommended to not use at this time as it's less reliable'
 VoteStreak:
   # Valid options: Day, Week, Month
   Day:

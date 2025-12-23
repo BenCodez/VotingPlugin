@@ -3,7 +3,6 @@ package com.bencodez.votingplugin.listeners;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.Map.Entry;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -261,6 +260,8 @@ public class PlayerVoteListener implements Listener {
 		plugin.getSpecialRewards().checkCumualativeVotes(user, event.getBungeeTextTotals(), event.isForceBungee());
 		plugin.getSpecialRewards().checkMilestone(user, event.getBungeeTextTotals(), event.isForceBungee());
 		plugin.getCoolDownCheck().vote(user, voteSite);
+
+		plugin.getVoteStreakHandler().processVote(user, voteTime);
 
 		PlayerPostVoteEvent postVoteEvent = new PlayerPostVoteEvent(voteSite, user, event.isRealVote(),
 				event.isForceBungee(), voteTime, cached, voteSite.getServiceSite(), user.getJavaUUID(), playerName);
