@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 import org.bukkit.Bukkit;
 
@@ -29,7 +30,7 @@ public class SpecialRewards {
 		this.plugin = plugin;
 	}
 
-	public void bungeeAllSitesCheck(VotingPluginUser user, int numberOfVotes, int num) {
+	public void bungeeAllSitesCheck(UUID voteUUID, VotingPluginUser user, int numberOfVotes, int num) {
 		if (plugin.getBungeeSettings().isGiveExtraAllSitesRewards()) {
 			int numberOfSites = plugin.getVoteSitesEnabled().size();
 			if (numberOfVotes >= numberOfSites * 2) {
@@ -38,7 +39,7 @@ public class SpecialRewards {
 						// should give extra allsites?
 						if (user.checkAllVotes()) {
 							plugin.debug("Giving extra allsites reward from bungee");
-							giveAllSitesRewards(user, user.isOnline(), true);
+							giveAllSitesRewards(voteUUID, user, user.isOnline(), true);
 						}
 					}
 				}
@@ -46,7 +47,7 @@ public class SpecialRewards {
 		}
 	}
 
-	public boolean checkAllSites(VotingPluginUser user, boolean forceBungee) {
+	public boolean checkAllSites(UUID voteUUID, VotingPluginUser user, boolean forceBungee) {
 		boolean checkAllVotes = user.checkAllVotes();
 		if (checkAllVotes
 				&& (plugin.getConfigFile().isExtraAllSitesCheck() || plugin.getBungeeSettings().isUseBungeecoord())) {
@@ -61,12 +62,12 @@ public class SpecialRewards {
 
 		}
 		if (checkAllVotes) {
-			giveAllSitesRewards(user, user.isOnline(), forceBungee);
+			giveAllSitesRewards(voteUUID, user, user.isOnline(), forceBungee);
 		}
 		return checkAllVotes;
 	}
 
-	public boolean checkAlmostAllSites(VotingPluginUser user, boolean forceBungee) {
+	public boolean checkAlmostAllSites(UUID voteUUID, VotingPluginUser user, boolean forceBungee) {
 		boolean checkAllVotes = user.checkAlmostAllVotes();
 		plugin.extraDebug("Checking almostallsites reward: " + checkAllVotes + "/" + user.getSitesNotVotedOn());
 		if (checkAllVotes) {
@@ -77,13 +78,13 @@ public class SpecialRewards {
 				plugin.debug("Not giving almostallsites, already gotten today");
 			} else {
 				user.setGottenAlmostAllSitesDay(currentDay);
-				giveAlmostAllSitesRewards(user, user.isOnline(), forceBungee);
+				giveAlmostAllSitesRewards(voteUUID, user, user.isOnline(), forceBungee);
 			}
 		}
 		return checkAllVotes;
 	}
 
-	public boolean checkCumualativeVotes(VotingPluginUser user, BungeeMessageData bungeeMessageData,
+	public boolean checkCumualativeVotes(UUID voteUUID, VotingPluginUser user, BungeeMessageData bungeeMessageData,
 			boolean forceBungee) {
 		boolean gotCumulativeAny = false;
 		Set<String> votes = plugin.getSpecialRewardsConfig().getCumulativeVotes();
@@ -153,7 +154,7 @@ public class SpecialRewards {
 								gotCumulativeAny = true;
 								plugin.debug(user.getPlayerName() + " got cumulative " + votesRequired + ", total: "
 										+ top.toString() + ", current total: " + total);
-								giveCumulativeVoteReward(user, user.isOnline(), votesRequired, forceBungee);
+								giveCumulativeVoteReward(voteUUID, user, user.isOnline(), votesRequired, forceBungee);
 							} else {
 								plugin.debug("Already got one cumulative");
 							}
@@ -171,11 +172,11 @@ public class SpecialRewards {
 
 	}
 
-	public boolean checkFirstVote(VotingPluginUser user, boolean forceBungee) {
+	public boolean checkFirstVote(UUID voteUUID, VotingPluginUser user, boolean forceBungee) {
 		if (plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getFirstVoteRewardsPath())) {
 			if (!user.hasGottenFirstVote()) {
-				giveFirstVoteRewards(user, user.isOnline(), forceBungee);
+				giveFirstVoteRewards(voteUUID, user, user.isOnline(), forceBungee);
 				return true;
 			}
 
@@ -183,11 +184,11 @@ public class SpecialRewards {
 		return false;
 	}
 
-	public boolean checkFirstVoteToday(VotingPluginUser user, boolean forceBungee) {
+	public boolean checkFirstVoteToday(UUID voteUUID, VotingPluginUser user, boolean forceBungee) {
 		if (plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getFirstVoteRewardsPath())) {
 			if (!user.hasGottenFirstVoteToday()) {
-				giveFirstVoteTodayRewards(user, user.isOnline(), forceBungee);
+				giveFirstVoteTodayRewards(voteUUID, user, user.isOnline(), forceBungee);
 				return true;
 			}
 
@@ -195,7 +196,8 @@ public class SpecialRewards {
 		return false;
 	}
 
-	public boolean checkMilestone(VotingPluginUser user, BungeeMessageData bungeeMessageData, boolean forceBungee) {
+	public boolean checkMilestone(UUID voteUUID, VotingPluginUser user, BungeeMessageData bungeeMessageData,
+			boolean forceBungee) {
 		int milestoneCount = user.getMilestoneCount();
 		if (bungeeMessageData != null) {
 			try {
@@ -242,7 +244,7 @@ public class SpecialRewards {
 
 						int userVotesTotal = milestoneCount;
 						if (userVotesTotal >= votesRequired && !user.hasGottenMilestone(votesRequired)) {
-							giveMilestoneVoteReward(user, user.isOnline(), votesRequired, forceBungee);
+							giveMilestoneVoteReward(voteUUID, user, user.isOnline(), votesRequired, forceBungee);
 							user.setHasGotteMilestone(votesRequired, true);
 							plugin.debug(user.getPlayerName() + " got milestone " + votesRequired);
 
@@ -258,7 +260,7 @@ public class SpecialRewards {
 		return gotMilestone;
 	}
 
-	public boolean checkVoteStreak(VotingPluginUser user, String type, boolean forceBungee) {
+	public boolean checkVoteStreak(UUID voteUUID, VotingPluginUser user, String type, boolean forceBungee) {
 		boolean gotReward = false;
 
 		Set<String> streaks = plugin.getSpecialRewardsConfig().getVoteStreakVotes(type);
@@ -288,15 +290,16 @@ public class SpecialRewards {
 						}
 						if (!multiple) {
 							if (curStreak == streakRequired) {
-								giveVoteStreakReward(user, user.isOnline(), type, "" + streakRequired, curStreak,
-										forceBungee);
+								giveVoteStreakReward(voteUUID, user, user.isOnline(), type, "" + streakRequired,
+										curStreak, forceBungee);
 								gotReward = true;
 								plugin.debug(
 										user.getPlayerName() + " got VoteStreak " + streakRequired + " for " + type);
 							}
 						} else {
 							if (curStreak != 0 && curStreak % streakRequired == 0) {
-								giveVoteStreakReward(user, user.isOnline(), type, streak, curStreak, forceBungee);
+								giveVoteStreakReward(voteUUID, user, user.isOnline(), type, streak, curStreak,
+										forceBungee);
 								gotReward = true;
 								plugin.debug(
 										user.getPlayerName() + " got VoteStreak " + streakRequired + "* for " + type);
@@ -312,8 +315,8 @@ public class SpecialRewards {
 
 	}
 
-	public void giveAllSitesRewards(VotingPluginUser user, boolean online, boolean forceBungee) {
-		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user, SpecialRewardType.ALLSITE);
+	public void giveAllSitesRewards(UUID voteUUID, VotingPluginUser user, boolean online, boolean forceBungee) {
+		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user, SpecialRewardType.ALLSITE, voteUUID);
 		Bukkit.getPluginManager().callEvent(event);
 
 		if (event.isCancelled()) {
@@ -324,8 +327,8 @@ public class SpecialRewards {
 				new RewardOptions().setServer(forceBungee).setOnline(online));
 	}
 
-	public void giveAlmostAllSitesRewards(VotingPluginUser user, boolean online, boolean forceBungee) {
-		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user, SpecialRewardType.ALMOSTALLSITES);
+	public void giveAlmostAllSitesRewards(UUID voteUUID, VotingPluginUser user, boolean online, boolean forceBungee) {
+		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user, SpecialRewardType.ALMOSTALLSITES, voteUUID);
 		Bukkit.getPluginManager().callEvent(event);
 
 		if (event.isCancelled()) {
@@ -336,9 +339,10 @@ public class SpecialRewards {
 				new RewardOptions().setServer(forceBungee).setOnline(online));
 	}
 
-	public void giveCumulativeVoteReward(VotingPluginUser user, boolean online, int cumulative, boolean forceBungee) {
+	public void giveCumulativeVoteReward(UUID voteUUID, VotingPluginUser user, boolean online, int cumulative,
+			boolean forceBungee) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user,
-				SpecialRewardType.CUMMULATIVE.setAmount(cumulative));
+				SpecialRewardType.CUMMULATIVE.setAmount(cumulative), voteUUID);
 		Bukkit.getPluginManager().callEvent(event);
 
 		if (event.isCancelled()) {
@@ -350,8 +354,8 @@ public class SpecialRewards {
 				.setOnline(online).withPlaceHolder("Cumulative", "" + cumulative).send(user);
 	}
 
-	public void giveFirstVoteRewards(VotingPluginUser user, boolean online, boolean forceBungee) {
-		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user, SpecialRewardType.FIRSTVOTE);
+	public void giveFirstVoteRewards(UUID voteUUID, VotingPluginUser user, boolean online, boolean forceBungee) {
+		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user, SpecialRewardType.FIRSTVOTE, voteUUID);
 		Bukkit.getPluginManager().callEvent(event);
 
 		if (event.isCancelled()) {
@@ -362,8 +366,8 @@ public class SpecialRewards {
 				new RewardOptions().setServer(forceBungee).setOnline(online));
 	}
 
-	public void giveFirstVoteTodayRewards(VotingPluginUser user, boolean online, boolean forceBungee) {
-		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user, SpecialRewardType.FIRSTVOTETODAY);
+	public void giveFirstVoteTodayRewards(UUID voteUUID, VotingPluginUser user, boolean online, boolean forceBungee) {
+		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user, SpecialRewardType.FIRSTVOTETODAY, voteUUID);
 		Bukkit.getPluginManager().callEvent(event);
 
 		if (event.isCancelled()) {
@@ -374,9 +378,10 @@ public class SpecialRewards {
 				new RewardOptions().setServer(forceBungee).setOnline(online));
 	}
 
-	public void giveMilestoneVoteReward(VotingPluginUser user, boolean online, int milestone, boolean forceBungee) {
+	public void giveMilestoneVoteReward(UUID voteUUID, VotingPluginUser user, boolean online, int milestone,
+			boolean forceBungee) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user,
-				SpecialRewardType.MILESTONE.setAmount(milestone));
+				SpecialRewardType.MILESTONE.setAmount(milestone), voteUUID);
 		Bukkit.getPluginManager().callEvent(event);
 
 		if (event.isCancelled()) {
@@ -387,10 +392,10 @@ public class SpecialRewards {
 				.withPlaceHolder("Milestone", "" + milestone).setServer(forceBungee).send(user);
 	}
 
-	public void giveVoteStreakReward(VotingPluginUser user, boolean online, String type, String string, int votes,
-			boolean forceBungee) {
+	public void giveVoteStreakReward(UUID voteUUID, VotingPluginUser user, boolean online, String type, String string,
+			int votes, boolean forceBungee) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user,
-				SpecialRewardType.VOTESTREAK.setType(type).setAmount(votes));
+				SpecialRewardType.VOTESTREAK.setType(type).setAmount(votes), voteUUID);
 		Bukkit.getPluginManager().callEvent(event);
 
 		if (event.isCancelled()) {

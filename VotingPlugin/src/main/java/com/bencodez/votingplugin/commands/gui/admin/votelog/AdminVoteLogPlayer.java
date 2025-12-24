@@ -1,8 +1,6 @@
 package com.bencodez.votingplugin.commands.gui.admin.votelog;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 import org.bukkit.Material;
@@ -16,7 +14,6 @@ import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable;
 
 /**
@@ -31,7 +28,6 @@ public class AdminVoteLogPlayer extends GUIHandler {
 
 	private final VotingPluginMain plugin;
 	private final VoteLogMysqlTable table;
-	private VotingPluginUser user;
 	private final int page;
 
 	private final String playerName;
@@ -49,18 +45,6 @@ public class AdminVoteLogPlayer extends GUIHandler {
 		this.days = days;
 		this.page = Math.max(0, page);
 
-		if (sender instanceof Player) {
-			this.user = plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender);
-		}
-	}
-
-	public AdminVoteLogPlayer(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table,
-			VotingPluginUser user, String playerName, int days, int page) {
-		this(plugin, sender, table, playerName, days, page);
-		this.user = user;
-		if (this.user == null && sender instanceof Player) {
-			this.user = plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender);
-		}
 	}
 
 	@Override
@@ -85,7 +69,7 @@ public class AdminVoteLogPlayer extends GUIHandler {
 			}
 
 			BInventory inv = new BInventory(title);
-			inv.requirePermission("VotingPlugin.Commands.AdminVote.VoteLog.Player");
+			inv.requirePermission("VotingPlugin.Commands.AdminVote.VoteLog");
 
 			if (!plugin.getConfigFile().isAlwaysCloseInventory()) {
 				inv.dontClose();
@@ -129,11 +113,6 @@ public class AdminVoteLogPlayer extends GUIHandler {
 				}
 			}
 
-			// back button
-			if (user != null && plugin.getGui().isChestVoteTopBackButton()) {
-				inv.getPageButtons().add(plugin.getCommandLoader().getBackButton(user).setSlot(7));
-			}
-
 			inv.setPages(true);
 			inv.setMaxInvSize(54);
 			inv.openInventory(player);
@@ -142,49 +121,46 @@ public class AdminVoteLogPlayer extends GUIHandler {
 		}
 	}
 
-	private BInventoryButton makeEntryButton(VoteLogMysqlTable.VoteLogEntry entry) {
+	private BInventoryButton makeEntryButton(final VoteLogMysqlTable.VoteLogEntry entry) {
 		Material mat = "CACHED".equalsIgnoreCase(entry.status) ? Material.CHEST : Material.EMERALD;
 
-		String timeStr = formatTime(entry.voteTime);
-		String uuidShort = shortUuid(entry.playerUuid);
+		String timeStr = AdminVoteLogHelpers.formatTime(entry.voteTime);
+		String uuidShort = AdminVoteLogHelpers.shortUuid(entry.playerUuid);
+		String voteShort = AdminVoteLogHelpers.shortUuid(entry.voteId);
 
-		ItemBuilder item = new ItemBuilder(mat).setName("&a" + safe(entry.playerName) + " &7(" + uuidShort + ")")
-				.addLoreLine("&7Time: &f" + timeStr).addLoreLine("&7Service: &f" + safe(entry.service))
-				.addLoreLine("&7Status: &f" + safe(entry.status))
-				.addLoreLine("&7Cached Total: &f" + entry.proxyCachedTotal);
+		// keep same name/lore layout you already have
+		ItemBuilder item = new ItemBuilder(mat)
+				.setName("&a" + AdminVoteLogHelpers.safe(entry.event) + " &7(" + voteShort + ")");
 
-		try {
-			String event = (String) entry.getClass().getField("event").get(entry);
-			item.addLoreLine("&7Event: &f" + safe(event));
-		} catch (Throwable ignored) {
+		if (AdminVoteLogHelpers.notEmpty(entry.playerName) || AdminVoteLogHelpers.notEmpty(entry.playerUuid)) {
+			item.addLoreLine("&7Player: &f" + AdminVoteLogHelpers.safe(entry.playerName) + " &7(" + uuidShort + ")");
+		}
+		if (entry.voteTime > 0) {
+			item.addLoreLine("&7Time: &f" + timeStr);
+		}
+		if (AdminVoteLogHelpers.notEmpty(entry.service)) {
+			item.addLoreLine("&7Service: &f" + AdminVoteLogHelpers.safe(entry.service));
+		}
+		if (AdminVoteLogHelpers.notEmpty(entry.context)) {
+			item.addLoreLine("&7Context: &f" + AdminVoteLogHelpers.safe(entry.context));
+		}
+		if (AdminVoteLogHelpers.notEmpty(entry.status)) {
+			item.addLoreLine("&7Status: &f" + AdminVoteLogHelpers.safe(entry.status));
+		}
+		if (entry.proxyCachedTotal != 0) {
+			item.addLoreLine("&7Cached Total: &f" + entry.proxyCachedTotal);
+		}
+		if (AdminVoteLogHelpers.notEmpty(entry.voteId)) {
+			item.addLoreLine("&7VoteId: &f" + AdminVoteLogHelpers.safe(entry.voteId));
 		}
 
 		return new BInventoryButton(item) {
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				// read-only
+				// vote_id is now the correlation id entry.voteId
+				new AdminVoteLogVoteId(plugin, clickEvent.getPlayer(), table, entry.voteId, days, 0).open();
 			}
 		};
-	}
-
-	private String formatTime(long millis) {
-		try {
-			SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-			return sdf.format(new Date(millis));
-		} catch (Exception e) {
-			return String.valueOf(millis);
-		}
-	}
-
-	private String shortUuid(String uuid) {
-		if (uuid == null || uuid.isEmpty()) {
-			return "unknown";
-		}
-		return uuid.length() > 8 ? uuid.substring(0, 8) : uuid;
-	}
-
-	private String safe(String s) {
-		return s == null ? "" : s;
 	}
 
 	@Override

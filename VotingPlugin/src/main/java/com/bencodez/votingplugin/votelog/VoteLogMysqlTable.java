@@ -18,21 +18,25 @@ import com.bencodez.simpleapi.sql.mysql.queries.Query;
  *
  * LOG ONLY table (not the offline queue).
  *
- * Columns:
- * - id (auto increment primary key)
- * - vote_id (correlation id / vote uuid; NOT UNIQUE; may repeat for other events)
- * - vote_time (LONG millis, explicit time vote happened)
- * - event (VOTE_RECEIVED default)
- * - status (IMMEDIATE/CACHED)
- * - cached_total (int, proxy only snapshot; can be 0 on backend)
- * - service
- * - player_uuid
- * - player_name
+ * Records the "main reward triggers" (not every command executed).
+ *
+ * Columns: - id (auto increment primary key) - vote_id (correlation id / vote
+ * uuid; NOT UNIQUE; may repeat for other events) - vote_time (LONG millis,
+ * explicit time event happened) - event (VOTE_RECEIVED default; includes
+ * reward-trigger events) - context (which reward/config fired + any extra info
+ * like TimeType, ex: "TopVoter:MONTH") - status (IMMEDIATE/CACHED) -
+ * cached_total (int, proxy only snapshot; can be 0 on backend) - service -
+ * player_uuid - player_name
  */
 public abstract class VoteLogMysqlTable {
 
 	public enum VoteLogEvent {
-		VOTE_RECEIVED
+		// Core
+		VOTE_RECEIVED,
+
+		// Reward triggers
+		ALL_SITES_REWARD, ALMOST_ALL_SITES_REWARD, FIRST_VOTE_REWARD, FIRST_VOTE_TODAY_REWARD, CUMULATIVE_REWARD,
+		MILESTONE_REWARD, VOTE_STREAK_REWARD, TOP_VOTER_REWARD
 	}
 
 	public enum VoteLogStatus {
@@ -151,18 +155,9 @@ public abstract class VoteLogMysqlTable {
 		}
 	}
 
-	// -------------------------
-	// Init / schema
-	// -------------------------
-
 	private void createTable() {
-		// New schema: id auto-increment PK, vote_id NOT unique (can repeat).
-		// vote_id can be NULL to allow future event types not tied to a vote correlation id.
-		String sql = "CREATE TABLE IF NOT EXISTS `" + getName() + "` ("
-				+ "`id` BIGINT NOT NULL AUTO_INCREMENT,"
-				+ "`vote_id` VARCHAR(36) NULL,"
-				+ "PRIMARY KEY (`id`)"
-				+ ");";
+		String sql = "CREATE TABLE IF NOT EXISTS `" + getName() + "` (" + "`id` BIGINT NOT NULL AUTO_INCREMENT,"
+				+ "`vote_id` VARCHAR(36) NULL," + "PRIMARY KEY (`id`)" + ");";
 		try {
 			new Query(mysql, sql).executeUpdate();
 		} catch (SQLException e) {
@@ -173,14 +168,11 @@ public abstract class VoteLogMysqlTable {
 	private void ensureColumns() {
 		synchronized (initLock) {
 
-			// Make sure the PK is id before other work.
 			ensureIdPrimaryKey();
 
-			// vote_id column must exist and be non-unique; ensure type/nullable
 			checkColumn("vote_id", DataType.STRING);
 			alterColumnType("vote_id", "VARCHAR(36) NULL");
 
-			// vote_time is stored as millis since epoch
 			checkColumn("vote_time", DataType.INTEGER);
 			alterColumnType("vote_time", "BIGINT NOT NULL DEFAULT '0'");
 
@@ -194,7 +186,10 @@ public abstract class VoteLogMysqlTable {
 			alterColumnType("service", "VARCHAR(64)");
 
 			checkColumn("event", DataType.STRING);
-			alterColumnType("event", "VARCHAR(32) NOT NULL DEFAULT '" + VoteLogEvent.VOTE_RECEIVED.name() + "'");
+			alterColumnType("event", "VARCHAR(64) NOT NULL DEFAULT '" + VoteLogEvent.VOTE_RECEIVED.name() + "'");
+
+			checkColumn("context", DataType.STRING);
+			alterColumnType("context", "VARCHAR(128) NULL");
 
 			checkColumn("status", DataType.STRING);
 			alterColumnType("status", "VARCHAR(16)");
@@ -202,58 +197,130 @@ public abstract class VoteLogMysqlTable {
 			checkColumn("cached_total", DataType.INTEGER);
 			alterColumnType("cached_total", "INT NOT NULL DEFAULT '0'");
 
-			// indexes (safe to attempt)
 			tryCreateIndex("idx_vote_time", "(`vote_time`)");
 			tryCreateIndex("idx_uuid_time", "(`player_uuid`,`vote_time`)");
 			tryCreateIndex("idx_service_time", "(`service`,`vote_time`)");
 			tryCreateIndex("idx_status_time", "(`status`,`vote_time`)");
 			tryCreateIndex("idx_event_time", "(`event`,`vote_time`)");
+			tryCreateIndex("idx_context_time", "(`context`,`vote_time`)");
+			tryCreateIndex("idx_event_context_time", "(`event`,`context`,`vote_time`)");
 
-			// NEW: helpful for correlation lookups / chains of events
 			tryCreateIndex("idx_vote_id", "(`vote_id`)");
 			tryCreateIndex("idx_vote_id_time", "(`vote_id`,`vote_time`)");
 		}
 	}
 
-	/**
-	 * Migration:
-	 * - Old schema had vote_id as PRIMARY KEY (or even UNIQUE).
-	 * - New schema wants id BIGINT AUTO_INCREMENT as PRIMARY KEY and vote_id NON-UNIQUE (may repeat).
-	 *
-	 * This method:
-	 * - Adds `id` if missing, and makes it PRIMARY KEY.
-	 * - If vote_id is currently a UNIQUE index/constraint, attempts to drop it.
-	 */
+	public List<String> getDistinctServices(int days, int limit) {
+		if (limit <= 0) {
+			limit = 45;
+		}
+
+		boolean useCutoff = days > 0;
+		long cutoff = useCutoff ? System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L) : 0;
+
+		String sql = "SELECT DISTINCT service FROM `" + getName() + "` WHERE service IS NOT NULL AND service != '' "
+				+ (useCutoff ? "AND vote_time >= ? " : "") + "ORDER BY service ASC LIMIT " + limit + ";";
+
+		try (Connection conn = mysql.getConnectionManager().getConnection();
+				PreparedStatement ps = conn.prepareStatement(sql)) {
+
+			if (useCutoff) {
+				ps.setLong(1, cutoff);
+			}
+
+			try (ResultSet rs = ps.executeQuery()) {
+				List<String> out = new java.util.ArrayList<>();
+				while (rs.next()) {
+					out.add(rs.getString("service"));
+				}
+				return out;
+			}
+		} catch (SQLException e) {
+			debug1(e);
+			return java.util.Collections.emptyList();
+		}
+	}
+
+	public List<VoteLogEntry> getRecentAll(int days, int limit) {
+		if (limit <= 0) {
+			limit = 10;
+		}
+
+		boolean useCutoff = days > 0;
+		long cutoff = useCutoff ? System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L) : 0;
+
+		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, context, status, cached_total "
+				+ "FROM `" + getName() + "` " + (useCutoff ? "WHERE vote_time >= ? " : "")
+				+ "ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
+
+		if (useCutoff) {
+			return query(sql, new Object[] { cutoff });
+		}
+		return query(sql, new Object[] {});
+	}
+
+	public List<VoteLogEntry> getRecentByEvent(VoteLogEvent event, int days, int limit) {
+		if (event == null) {
+			return (days > 0) ? getRecentAll(days, limit) : getRecent(limit);
+		}
+		if (limit <= 0) {
+			limit = 10;
+		}
+
+		boolean useCutoff = days > 0;
+		long cutoff = useCutoff ? System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L) : 0;
+
+		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, context, status, cached_total "
+				+ "FROM `" + getName() + "` WHERE event=? " + (useCutoff ? "AND vote_time >= ? " : "")
+				+ "ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
+
+		if (useCutoff) {
+			return query(sql, new Object[] { event.name(), cutoff });
+		}
+		return query(sql, new Object[] { event.name() });
+	}
+
+	public List<VoteLogEntry> getRecent(int days, VoteLogEvent eventFilter, int limit) {
+		if (limit <= 0) {
+			limit = 10;
+		}
+
+		boolean useCutoff = days > 0;
+		long cutoff = useCutoff ? System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L) : 0;
+
+		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, context, status, cached_total "
+				+ "FROM `" + getName() + "` WHERE 1=1 " + (eventFilter != null ? "AND event=? " : "")
+				+ (useCutoff ? "AND vote_time >= ? " : "") + "ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
+
+		if (eventFilter != null && useCutoff) {
+			return query(sql, new Object[] { eventFilter.name(), cutoff });
+		} else if (eventFilter != null) {
+			return query(sql, new Object[] { eventFilter.name() });
+		} else if (useCutoff) {
+			return query(sql, new Object[] { cutoff });
+		}
+		return query(sql, new Object[] {});
+	}
+
 	private void ensureIdPrimaryKey() {
 		try {
 			boolean hasId = hasColumnQuery("id");
 			boolean pkIsId = hasPrimaryKeyOn("id");
 
-			// If id exists and is already PK, still ensure no uniqueness on vote_id.
 			if (hasId && pkIsId) {
 				dropUniqueVoteIdIfPresent();
 				return;
 			}
 
 			if (!hasId) {
-				// Convert old -> new:
-				// - Drop old primary (likely vote_id)
-				// - Add id auto increment
-				// - Make id primary
-				String migrate = "ALTER TABLE `" + getName() + "` "
-						+ "DROP PRIMARY KEY, "
-						+ "ADD COLUMN `id` BIGINT NOT NULL AUTO_INCREMENT FIRST, "
-						+ "ADD PRIMARY KEY (`id`);";
+				String migrate = "ALTER TABLE `" + getName() + "` " + "DROP PRIMARY KEY, "
+						+ "ADD COLUMN `id` BIGINT NOT NULL AUTO_INCREMENT FIRST, " + "ADD PRIMARY KEY (`id`);";
 				new Query(mysql, migrate).executeUpdate();
 			} else {
-				// id exists but isn't PK: move primary to id
-				String migrate2 = "ALTER TABLE `" + getName() + "` "
-						+ "DROP PRIMARY KEY, "
-						+ "ADD PRIMARY KEY (`id`);";
+				String migrate2 = "ALTER TABLE `" + getName() + "` " + "DROP PRIMARY KEY, " + "ADD PRIMARY KEY (`id`);";
 				new Query(mysql, migrate2).executeUpdate();
 			}
 
-			// Ensure any leftover UNIQUE on vote_id is removed
 			dropUniqueVoteIdIfPresent();
 
 		} catch (SQLException e) {
@@ -263,16 +330,13 @@ public abstract class VoteLogMysqlTable {
 
 	private void dropUniqueVoteIdIfPresent() {
 		try {
-			// Drop common names you may have used
 			dropIndexIfExists("uk_vote_id");
-			// If you ever had vote_id as PRIMARY, that was dropped above.
-			// If there is some other unique index on vote_id with a different name, try to detect and drop it:
 			String idx = findUniqueIndexOnColumn("vote_id");
 			if (idx != null && !idx.isEmpty() && !"PRIMARY".equalsIgnoreCase(idx)) {
 				dropIndexIfExists(idx);
 			}
 		} catch (Exception e) {
-			// don't fail startup
+			// ignore
 		}
 	}
 
@@ -306,7 +370,6 @@ public abstract class VoteLogMysqlTable {
 		try {
 			new Query(mysql, "DROP INDEX `" + indexName + "` ON `" + getName() + "`;").executeUpdate();
 		} catch (SQLException e) {
-			// If it fails, ignore (permissions/engine/etc). We just don't want startup spam.
 			debug1(e);
 		}
 	}
@@ -326,7 +389,6 @@ public abstract class VoteLogMysqlTable {
 			return false;
 		} catch (SQLException e) {
 			debug1(e);
-			// Conservative: if we can't tell, assume it's fine to avoid loops.
 			return true;
 		}
 	}
@@ -341,14 +403,12 @@ public abstract class VoteLogMysqlTable {
 			}
 		} catch (SQLException e) {
 			debug1(e);
-			// If we can't determine, act conservative: assume it exists to avoid spam
 			return true;
 		}
 	}
 
 	private static boolean isDuplicateIndexName(SQLException e) {
-		// MySQL: 1061 = Duplicate key name
-		return e != null && e.getErrorCode() == 1061;
+		return e != null && e.getErrorCode() == 1061; // Duplicate key name
 	}
 
 	private void tryCreateIndex(String indexName, String cols) {
@@ -412,35 +472,65 @@ public abstract class VoteLogMysqlTable {
 		return in.replace("\\", "\\\\").replace("'", "''");
 	}
 
-	// -------------------------
-	// Writes
-	// -------------------------
+	private static String safeStr(String s) {
+		return s == null ? "" : s;
+	}
+
+	public static String withTimeType(String baseContext, String timeType) {
+		baseContext = safeStr(baseContext);
+		timeType = safeStr(timeType);
+		if (baseContext.isEmpty()) {
+			return timeType.isEmpty() ? "" : timeType;
+		}
+		if (timeType.isEmpty()) {
+			return baseContext;
+		}
+		return baseContext + ":" + timeType;
+	}
 
 	public String logVote(UUID voteUUID, VoteLogStatus status, String service, String playerUuid, String playerName,
 			long voteTimeMillis, int proxyCachedTotal) {
 
-		return logVote(voteUUID, VoteLogEvent.VOTE_RECEIVED, status, service, playerUuid, playerName, voteTimeMillis,
-				proxyCachedTotal);
+		return logEvent(voteUUID, VoteLogEvent.VOTE_RECEIVED, null, status, service, playerUuid, playerName,
+				voteTimeMillis, proxyCachedTotal);
 	}
 
-	public String logVote(UUID voteUUID, VoteLogEvent event, VoteLogStatus status, String service, String playerUuid,
-			String playerName, long voteTimeMillis, int proxyCachedTotal) {
+	public String logEvent(UUID voteUUID, VoteLogEvent event, String context, VoteLogStatus status, String service,
+			String playerUuid, String playerName, long timeMillis, int proxyCachedTotal) {
 
 		String voteId = voteUUID != null ? voteUUID.toString() : null;
 
+		if (event == null) {
+			event = VoteLogEvent.VOTE_RECEIVED;
+		}
+		if (status == null) {
+			status = VoteLogStatus.IMMEDIATE;
+		}
+		if (service == null) {
+			service = "";
+		}
+
 		StringBuilder sb = new StringBuilder();
 		sb.append("INSERT INTO `").append(getName()).append("` SET ");
-		// NOTE: no `id` here; AUTO_INCREMENT
+
 		if (voteId != null) {
 			sb.append("`vote_id`='").append(voteId).append("', ");
 		} else {
 			sb.append("`vote_id`=NULL, ");
 		}
-		sb.append("`vote_time`='").append(voteTimeMillis).append("', ");
+
+		sb.append("`vote_time`='").append(timeMillis).append("', ");
 		sb.append("`player_uuid`='").append(playerUuid.toString()).append("', ");
 		sb.append("`player_name`='").append(escape(playerName)).append("', ");
 		sb.append("`service`='").append(escape(service)).append("', ");
-		sb.append("`event`='").append(event == null ? VoteLogEvent.VOTE_RECEIVED.name() : event.name()).append("', ");
+		sb.append("`event`='").append(event.name()).append("', ");
+
+		if (context != null && !context.isEmpty()) {
+			sb.append("`context`='").append(escape(context)).append("', ");
+		} else {
+			sb.append("`context`=NULL, ");
+		}
+
 		sb.append("`status`='").append(status.name()).append("', ");
 		sb.append("`cached_total`='").append(proxyCachedTotal).append("';");
 
@@ -453,9 +543,104 @@ public abstract class VoteLogMysqlTable {
 		return voteId;
 	}
 
-	// -------------------------
-	// Purge
-	// -------------------------
+	public String logEvent(UUID voteUUID, VoteLogEvent event, String context, String playerUuid, String playerName,
+			long timeMillis) {
+
+		String voteId = voteUUID != null ? voteUUID.toString() : null;
+
+		if (event == null) {
+			event = VoteLogEvent.VOTE_RECEIVED;
+		}
+
+		StringBuilder sb = new StringBuilder();
+		sb.append("INSERT INTO `").append(getName()).append("` SET ");
+
+		if (voteId != null) {
+			sb.append("`vote_id`='").append(voteId).append("', ");
+		} else {
+			sb.append("`vote_id`=NULL, ");
+		}
+
+		sb.append("`vote_time`='").append(timeMillis).append("', ");
+		sb.append("`player_uuid`='").append(playerUuid.toString()).append("', ");
+		sb.append("`player_name`='").append(escape(playerName)).append("', ");
+
+		// Not needed for these: keep them stable/default
+		sb.append("`service`='', ");
+		sb.append("`event`='").append(event.name()).append("', ");
+
+		if (context != null && !context.isEmpty()) {
+			sb.append("`context`='").append(escape(context)).append("', ");
+		} else {
+			sb.append("`context`=NULL, ");
+		}
+
+		// Not needed for these: keep them stable/default
+		sb.append("`status`='', ");
+		sb.append("`cached_total`='0';");
+
+		try {
+			new Query(mysql, sb.toString()).executeUpdateAsync();
+		} catch (SQLException e) {
+			debug1(e);
+		}
+
+		return voteId;
+	}
+
+	public String logEventNow(UUID voteUUID, VoteLogEvent event, String context, String playerUuid, String playerName) {
+		return logEvent(voteUUID, event, context, playerUuid, playerName, System.currentTimeMillis());
+	}
+
+	public void logAllSitesReward(UUID voteUUID, String playerUuid, String playerName, long timeMillis,
+			String rewardKey) {
+		logEvent(voteUUID, VoteLogEvent.ALL_SITES_REWARD, safeStr(rewardKey), playerUuid, playerName, timeMillis);
+	}
+
+	public void logAlmostAllSitesReward(UUID voteUUID, String playerUuid, String playerName, long timeMillis,
+			String rewardKey) {
+		logEvent(voteUUID, VoteLogEvent.ALMOST_ALL_SITES_REWARD, safeStr(rewardKey), playerUuid, playerName,
+				timeMillis);
+	}
+
+	public void logFirstVoteReward(UUID voteUUID, String playerUuid, String playerName, long timeMillis,
+			String rewardKey) {
+		logEvent(voteUUID, VoteLogEvent.FIRST_VOTE_REWARD, safeStr(rewardKey), playerUuid, playerName, timeMillis);
+	}
+
+	public void logFirstVoteTodayReward(UUID voteUUID, String playerUuid, String playerName, long timeMillis,
+			String rewardKey) {
+		logEvent(voteUUID, VoteLogEvent.FIRST_VOTE_TODAY_REWARD, safeStr(rewardKey), playerUuid, playerName,
+				timeMillis);
+	}
+
+	public void logCumulativeReward(UUID voteUUID, String playerUuid, String playerName, long timeMillis,
+			String cumulativeKeyWithTimeType) {
+		logEvent(voteUUID, VoteLogEvent.CUMULATIVE_REWARD, safeStr(cumulativeKeyWithTimeType), playerUuid, playerName,
+				timeMillis);
+	}
+
+	/**
+	 * Milestone reward: include reset time type if applicable (ex:
+	 * "Milestone50:MONTH").
+	 */
+	public void logMilestoneReward(UUID voteUUID, String playerUuid, String playerName, long timeMillis,
+			String milestoneKeyWithTimeType) {
+		logEvent(voteUUID, VoteLogEvent.MILESTONE_REWARD, safeStr(milestoneKeyWithTimeType), playerUuid, playerName,
+				timeMillis);
+	}
+
+	public void logVoteStreakReward(UUID voteUUID, String playerUuid, String playerName, long timeMillis,
+			String streakKeyWithTimeType) {
+		logEvent(voteUUID, VoteLogEvent.VOTE_STREAK_REWARD, safeStr(streakKeyWithTimeType), playerUuid, playerName,
+				timeMillis);
+	}
+
+	public void logTopVoterReward(UUID voteUUID, String playerUuid, String playerName, long timeMillis,
+			String topVoterKeyWithTimeType) {
+		logEvent(voteUUID, VoteLogEvent.TOP_VOTER_REWARD, safeStr(topVoterKeyWithTimeType), playerUuid, playerName,
+				timeMillis);
+	}
 
 	public void purgeOlderThanDays(int days, int batchSize) {
 		if (days <= 0) {
@@ -475,146 +660,118 @@ public abstract class VoteLogMysqlTable {
 		}
 	}
 
-	// -------------------------
-	// Reads
-	// -------------------------
-
-	/**
-	 * vote_id is NOT unique. This returns the most recent row for that vote_id.
-	 */
 	public VoteLogEntry getByVoteId(String voteId) {
-		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, cached_total "
+		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, context, status, cached_total "
 				+ "FROM `" + getName() + "` WHERE vote_id=? ORDER BY vote_time DESC, id DESC LIMIT 1;";
 		List<VoteLogEntry> rows = query(sql, new Object[] { voteId });
 		return rows.isEmpty() ? null : rows.get(0);
+	}
+
+	public List<VoteLogEntry> getByVoteIdAll(String voteId, int days, int limit) {
+		if (limit <= 0) {
+			limit = 10;
+		}
+		boolean useCutoff = days > 0;
+		long cutoff = useCutoff ? System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L) : 0;
+
+		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, context, status, cached_total "
+				+ "FROM `" + getName() + "` WHERE vote_id=? " + (useCutoff ? "AND vote_time >= ? " : "")
+				+ "ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
+
+		if (useCutoff) {
+			return query(sql, new Object[] { voteId, cutoff });
+		}
+		return query(sql, new Object[] { voteId });
 	}
 
 	public List<VoteLogEntry> getRecent(int limit) {
 		if (limit <= 0) {
 			limit = 10;
 		}
-		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, cached_total "
+		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, context, status, cached_total "
 				+ "FROM `" + getName() + "` ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
 		return query(sql, new Object[] {});
 	}
 
-	public List<VoteLogEntry> getRecentSinceDays(int days, int limit) {
+	public List<VoteLogEntry> getByService(String service, int days, int limit) {
+		return getByService(service, null, days, limit);
+	}
+
+	public List<VoteLogEntry> getByServiceVotesOnly(String service, int days, int limit) {
+		return getByService(service, VoteLogEvent.VOTE_RECEIVED, days, limit);
+	}
+
+	public List<VoteLogEntry> getByService(String service, VoteLogEvent event, int days, int limit) {
 		if (limit <= 0) {
 			limit = 10;
 		}
-		if (days <= 0) {
-			return getRecent(limit);
-		}
-		long cutoff = System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L);
-		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, cached_total "
-				+ "FROM `" + getName() + "` WHERE vote_time >= ? ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
-		return query(sql, new Object[] { cutoff });
-	}
+		boolean useCutoff = days > 0;
+		long cutoff = useCutoff ? System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L) : 0;
 
-	public List<VoteLogEntry> getByPlayer(UUID uuid, int days, int limit) {
-		return getByPlayer(uuid.toString(), days, limit);
-	}
+		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, context, status, cached_total "
+				+ "FROM `" + getName() + "` WHERE service=? " + (event != null ? "AND event=? " : "")
+				+ (useCutoff ? "AND vote_time >= ? " : "") + "ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
 
-	public List<VoteLogEntry> getByPlayer(String uuid, int days, int limit) {
-		if (limit <= 0) {
-			limit = 10;
+		if (event != null && useCutoff) {
+			return query(sql, new Object[] { service, event.name(), cutoff });
+		} else if (event != null) {
+			return query(sql, new Object[] { service, event.name() });
+		} else if (useCutoff) {
+			return query(sql, new Object[] { service, cutoff });
 		}
-		String base = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, cached_total "
-				+ "FROM `" + getName() + "` WHERE player_uuid=? ";
-		if (days > 0) {
-			long cutoff = System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L);
-			base += "AND vote_time >= ? ";
-			base += "ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
-			return query(base, new Object[] { uuid, cutoff });
-		}
-		base += "ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
-		return query(base, new Object[] { uuid });
+		return query(sql, new Object[] { service });
 	}
 
 	public List<VoteLogEntry> getByPlayerName(String playerName, int days, int limit) {
-		if (limit <= 0) {
-			limit = 10;
-		}
-		String base = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, cached_total "
-				+ "FROM `" + getName() + "` WHERE player_name=? ";
-		if (days > 0) {
-			long cutoff = System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L);
-			base += "AND vote_time >= ? ";
-			base += "ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
-			return query(base, new Object[] { playerName, cutoff });
-		}
-		base += "ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
-		return query(base, new Object[] { playerName });
+		return getByPlayerName(playerName, null, days, limit);
 	}
 
-	public List<VoteLogEntry> getByService(String service, int days, int limit) {
-		if (limit <= 0) {
-			limit = 10;
-		}
-		String base = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, cached_total "
-				+ "FROM `" + getName() + "` WHERE service=? ";
-		if (days > 0) {
-			long cutoff = System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L);
-			base += "AND vote_time >= ? ";
-			base += "ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
-			return query(base, new Object[] { service, cutoff });
-		}
-		base += "ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
-		return query(base, new Object[] { service });
+	public List<VoteLogEntry> getByPlayerNameVotesOnly(String playerName, int days, int limit) {
+		return getByPlayerName(playerName, VoteLogEvent.VOTE_RECEIVED, days, limit);
 	}
 
-	public List<VoteLogEntry> getByStatus(VoteLogStatus status, int days, int limit) {
+	public List<VoteLogEntry> getByPlayerName(String playerName, VoteLogEvent event, int days, int limit) {
 		if (limit <= 0) {
 			limit = 10;
 		}
-		String base = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, cached_total "
-				+ "FROM `" + getName() + "` WHERE status=? ";
-		if (days > 0) {
-			long cutoff = System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L);
-			base += "AND vote_time >= ? ";
-			base += "ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
-			return query(base, new Object[] { status.name(), cutoff });
-		}
-		base += "ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
-		return query(base, new Object[] { status.name() });
-	}
+		boolean useCutoff = days > 0;
+		long cutoff = useCutoff ? System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L) : 0;
 
-	public List<VoteLogEntry> getByEvent(VoteLogEvent event, int days, int limit) {
-		if (limit <= 0) {
-			limit = 10;
+		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, context, status, cached_total "
+				+ "FROM `" + getName() + "` WHERE player_name=? " + (event != null ? "AND event=? " : "")
+				+ (useCutoff ? "AND vote_time >= ? " : "") + "ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
+
+		if (event != null && useCutoff) {
+			return query(sql, new Object[] { playerName, event.name(), cutoff });
+		} else if (event != null) {
+			return query(sql, new Object[] { playerName, event.name() });
+		} else if (useCutoff) {
+			return query(sql, new Object[] { playerName, cutoff });
 		}
-		if (event == null) {
-			event = VoteLogEvent.VOTE_RECEIVED;
-		}
-		String base = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, cached_total "
-				+ "FROM `" + getName() + "` WHERE event=? ";
-		if (days > 0) {
-			long cutoff = System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L);
-			base += "AND vote_time >= ? ";
-			base += "ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
-			return query(base, new Object[] { event.name(), cutoff });
-		}
-		base += "ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
-		return query(base, new Object[] { event.name() });
+		return query(sql, new Object[] { playerName });
 	}
 
 	public VoteLogCounts getCounts(int days) {
-		String sql;
-		boolean useCutoff = days > 0;
-		long cutoff = 0;
-		if (useCutoff) {
-			cutoff = System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L);
-		}
+		return getCounts(days, VoteLogEvent.VOTE_RECEIVED);
+	}
 
-		sql = "SELECT " + "COUNT(*) AS total, " + "SUM(status='IMMEDIATE') AS immediate, "
-				+ "SUM(status='CACHED') AS cached " + "FROM `" + getName() + "` "
-				+ (useCutoff ? "WHERE vote_time >= ?" : "") + ";";
+	public VoteLogCounts getCounts(int days, VoteLogEvent eventFilter) {
+		boolean useCutoff = days > 0;
+		long cutoff = useCutoff ? System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L) : 0;
+
+		String sql = "SELECT " + "COUNT(*) AS total, " + "SUM(status='IMMEDIATE') AS immediate, "
+				+ "SUM(status='CACHED') AS cached " + "FROM `" + getName() + "` " + "WHERE 1=1 "
+				+ (eventFilter != null ? "AND event=? " : "") + (useCutoff ? "AND vote_time >= ? " : "") + ";";
 
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
 
+			int idx = 1;
+			if (eventFilter != null) {
+				ps.setString(idx++, eventFilter.name());
+			}
 			if (useCutoff) {
-				ps.setLong(1, cutoff);
+				ps.setLong(idx++, cutoff);
 			}
 
 			try (ResultSet rs = ps.executeQuery()) {
@@ -632,56 +789,26 @@ public abstract class VoteLogMysqlTable {
 		return new VoteLogCounts(0, 0, 0);
 	}
 
-	public List<ServiceCount> getTopServices(int days, int limit) {
-		if (limit <= 0) {
-			limit = 10;
-		}
-
-		boolean useCutoff = days > 0;
-		long cutoff = 0;
-		if (useCutoff) {
-			cutoff = System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L);
-		}
-
-		String sql = "SELECT service, COUNT(*) AS votes " + "FROM `" + getName() + "` "
-				+ (useCutoff ? "WHERE vote_time >= ? " : "") + "GROUP BY service ORDER BY votes DESC LIMIT " + limit
-				+ ";";
-
-		try (Connection conn = mysql.getConnectionManager().getConnection();
-				PreparedStatement ps = conn.prepareStatement(sql)) {
-
-			if (useCutoff) {
-				ps.setLong(1, cutoff);
-			}
-
-			ResultSet rs = ps.executeQuery();
-			List<ServiceCount> out = Collections.synchronizedList(new java.util.ArrayList<>());
-			while (rs.next()) {
-				out.add(new ServiceCount(rs.getString("service"), rs.getLong("votes")));
-			}
-			rs.close();
-			return out;
-		} catch (SQLException e) {
-			debug1(e);
-			return java.util.Collections.emptyList();
-		}
+	public long getUniqueVoters(int days) {
+		return getUniqueVoters(days, VoteLogEvent.VOTE_RECEIVED);
 	}
 
-	public long getUniqueVoters(int days) {
+	public long getUniqueVoters(int days, VoteLogEvent eventFilter) {
 		boolean useCutoff = days > 0;
-		long cutoff = 0;
-		if (useCutoff) {
-			cutoff = System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L);
-		}
+		long cutoff = useCutoff ? System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L) : 0;
 
-		String sql = "SELECT COUNT(DISTINCT player_uuid) AS uniques FROM `" + getName() + "` "
-				+ (useCutoff ? "WHERE vote_time >= ?" : "") + ";";
+		String sql = "SELECT COUNT(DISTINCT player_uuid) AS uniques " + "FROM `" + getName() + "` " + "WHERE 1=1 "
+				+ (eventFilter != null ? "AND event=? " : "") + (useCutoff ? "AND vote_time >= ? " : "") + ";";
 
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
 
+			int idx = 1;
+			if (eventFilter != null) {
+				ps.setString(idx++, eventFilter.name());
+			}
 			if (useCutoff) {
-				ps.setLong(1, cutoff);
+				ps.setLong(idx++, cutoff);
 			}
 
 			try (ResultSet rs = ps.executeQuery()) {
@@ -695,34 +822,44 @@ public abstract class VoteLogMysqlTable {
 		return 0;
 	}
 
-	public List<VoteLogEntry> getRecentBefore(long beforeVoteTimeMillis, int limit) {
-		if (limit <= 0) {
-			limit = 10;
-		}
-		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, cached_total "
-				+ "FROM `" + getName() + "` WHERE vote_time < ? ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
-		return query(sql, new Object[] { beforeVoteTimeMillis });
+	public List<ServiceCount> getTopServices(int days, int limit) {
+		return getTopServices(days, limit, VoteLogEvent.VOTE_RECEIVED);
 	}
 
-	public List<VoteLogEntry> getByPlayerBefore(String uuid, long beforeVoteTimeMillis, int days, int limit) {
+	public List<ServiceCount> getTopServices(int days, int limit, VoteLogEvent eventFilter) {
 		if (limit <= 0) {
 			limit = 10;
 		}
 
 		boolean useCutoff = days > 0;
-		long cutoff = 0;
-		if (useCutoff) {
-			cutoff = System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L);
-		}
+		long cutoff = useCutoff ? System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L) : 0;
 
-		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, status, cached_total "
-				+ "FROM `" + getName() + "` WHERE player_uuid=? AND vote_time < ? "
-				+ (useCutoff ? "AND vote_time >= ? " : "") + "ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
+		String sql = "SELECT service, COUNT(*) AS votes " + "FROM `" + getName() + "` " + "WHERE 1=1 "
+				+ (eventFilter != null ? "AND event=? " : "") + (useCutoff ? "AND vote_time >= ? " : "")
+				+ "GROUP BY service " + "ORDER BY votes DESC " + "LIMIT " + limit + ";";
 
-		if (useCutoff) {
-			return query(sql, new Object[] { uuid, beforeVoteTimeMillis, cutoff });
+		try (Connection conn = mysql.getConnectionManager().getConnection();
+				PreparedStatement ps = conn.prepareStatement(sql)) {
+
+			int idx = 1;
+			if (eventFilter != null) {
+				ps.setString(idx++, eventFilter.name());
+			}
+			if (useCutoff) {
+				ps.setLong(idx++, cutoff);
+			}
+
+			ResultSet rs = ps.executeQuery();
+			List<ServiceCount> out = Collections.synchronizedList(new java.util.ArrayList<>());
+			while (rs.next()) {
+				out.add(new ServiceCount(rs.getString("service"), rs.getLong("votes")));
+			}
+			rs.close();
+			return out;
+		} catch (SQLException e) {
+			debug1(e);
+			return java.util.Collections.emptyList();
 		}
-		return query(sql, new Object[] { uuid, beforeVoteTimeMillis });
 	}
 
 	private List<VoteLogEntry> query(String sql, Object[] params) {
@@ -750,7 +887,7 @@ public abstract class VoteLogMysqlTable {
 			while (rs.next()) {
 				out.add(new VoteLogEntry(rs.getString("vote_id"), rs.getLong("vote_time"), rs.getString("player_uuid"),
 						rs.getString("player_name"), rs.getString("service"), rs.getString("event"),
-						rs.getString("status"), rs.getInt("cached_total")));
+						rs.getString("context"), rs.getString("status"), rs.getInt("cached_total")));
 			}
 			rs.close();
 			return out;
@@ -767,17 +904,19 @@ public abstract class VoteLogMysqlTable {
 		public final String playerName;
 		public final String service;
 		public final String event;
+		public final String context;
 		public final String status;
 		public final int proxyCachedTotal;
 
 		public VoteLogEntry(String voteId, long voteTime, String playerUuid, String playerName, String service,
-				String event, String status, int proxyCachedTotal) {
+				String event, String context, String status, int proxyCachedTotal) {
 			this.voteId = voteId;
 			this.voteTime = voteTime;
 			this.playerUuid = playerUuid;
 			this.playerName = playerName;
 			this.service = service;
 			this.event = event;
+			this.context = context;
 			this.status = status;
 			this.proxyCachedTotal = proxyCachedTotal;
 		}

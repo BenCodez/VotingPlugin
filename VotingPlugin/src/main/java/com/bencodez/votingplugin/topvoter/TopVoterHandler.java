@@ -405,7 +405,7 @@ public class TopVoterHandler implements Listener {
 											plugin.getSpecialRewardsConfig().getVoteStreakRequirementMonth(),
 											lastMonthTime)) {
 								user.addMonthVoteStreak();
-								plugin.getSpecialRewards().checkVoteStreak(user, "Month",
+								plugin.getSpecialRewards().checkVoteStreak(null, user, "Month",
 										plugin.getBungeeSettings().isUseBungeecoord());
 							}
 						}
@@ -540,7 +540,7 @@ public class TopVoterHandler implements Listener {
 									|| user.hasPercentageTotal(TopVoter.Weekly,
 											plugin.getSpecialRewardsConfig().getVoteStreakRequirementWeek(), null)) {
 								user.addWeekVoteStreak();
-								plugin.getSpecialRewards().checkVoteStreak(user, "Week",
+								plugin.getSpecialRewards().checkVoteStreak(null, user, "Week",
 										plugin.getBungeeSettings().isUseBungeecoord());
 							}
 						}

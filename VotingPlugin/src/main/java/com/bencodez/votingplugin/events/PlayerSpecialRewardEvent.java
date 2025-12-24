@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.events;
 
+import java.util.UUID;
+
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
@@ -38,10 +40,15 @@ public class PlayerSpecialRewardEvent extends Event {
 	@Setter
 	private VotingPluginUser user;
 
-	public PlayerSpecialRewardEvent(VotingPluginUser user, SpecialRewardType type) {
+	@Getter
+	@Setter
+	private UUID voteUUID;
+
+	public PlayerSpecialRewardEvent(VotingPluginUser user, SpecialRewardType type, UUID voteUUID) {
 		super(true);
 		this.type = type;
 		this.user = user;
+		this.voteUUID = voteUUID;
 	}
 
 	/*

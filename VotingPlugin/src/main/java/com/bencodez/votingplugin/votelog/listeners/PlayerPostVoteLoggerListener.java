@@ -1,6 +1,4 @@
-package com.bencodez.votingplugin.listeners;
-
-import java.util.UUID;
+package com.bencodez.votingplugin.votelog.listeners;
 
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -31,7 +29,6 @@ public class PlayerPostVoteLoggerListener implements Listener {
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onplayerVote(PlayerPostVoteEvent event) {
 		if (!plugin.isEnabled()) {
-			plugin.getLogger().warning("Plugin disabled, ignoring vote");
 			return;
 		}
 		VoteLogStatus status = VoteLogStatus.IMMEDIATE;
@@ -39,7 +36,7 @@ public class PlayerPostVoteLoggerListener implements Listener {
 			status = VoteLogStatus.CACHED;
 		}
 		if (plugin.getConfigFile().isVoteLoggingEnabled() && !event.isBungee()) {
-			plugin.getVoteLogMysqlTable().logVote(UUID.randomUUID(), status, event.getService(),
+			plugin.getVoteLogMysqlTable().logVote(event.getVoteUUID(), status, event.getService(),
 					event.getUuid().toString(), event.getPlayerName(), event.getVoteTime(),
 					event.getUser().getOfflineVotes().size());
 		}

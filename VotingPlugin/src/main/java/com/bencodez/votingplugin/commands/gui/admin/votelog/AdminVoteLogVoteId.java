@@ -1,6 +1,8 @@
 package com.bencodez.votingplugin.commands.gui.admin.votelog;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import org.bukkit.Material;
@@ -18,28 +20,28 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable;
 
 /**
- * Admin GUI: VoteLog entries for a given service/site (paged).
+ * Admin GUI: VoteLog entries for a given voteId (paged).
  *
- * Uses VoteLogMysqlTable instance passed in from CommandLoader.
+ * vote_id is NOT unique; this shows ALL rows for the correlation id.
  */
-public class AdminVoteLogService extends GUIHandler {
+public class AdminVoteLogVoteId extends GUIHandler {
 
 	private final VotingPluginMain plugin;
 	private final VoteLogMysqlTable table;
 	private VotingPluginUser user;
 	private final int page;
 
-	private final String service;
+	private final String voteId;
 	private final int days;
 
 	private static final int PAGE_SIZE = 45;
 
-	public AdminVoteLogService(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table, String service,
+	public AdminVoteLogVoteId(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table, String voteId,
 			int days, int page) {
 		super(plugin, sender);
 		this.plugin = plugin;
 		this.table = table;
-		this.service = service;
+		this.voteId = voteId;
 		this.days = days;
 		this.page = Math.max(0, page);
 
@@ -48,9 +50,9 @@ public class AdminVoteLogService extends GUIHandler {
 		}
 	}
 
-	public AdminVoteLogService(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table,
-			VotingPluginUser user, String service, int days, int page) {
-		this(plugin, sender, table, service, days, page);
+	public AdminVoteLogVoteId(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table,
+			VotingPluginUser user, String voteId, int days, int page) {
+		this(plugin, sender, table, voteId, days, page);
 		this.user = user;
 		if (this.user == null && sender instanceof Player) {
 			this.user = plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender);
@@ -73,7 +75,12 @@ public class AdminVoteLogService extends GUIHandler {
 	@Override
 	public void onChest(Player player) {
 		try {
-			BInventory inv = new BInventory("&aVoteLog - Service &7(" + AdminVoteLogHelpers.safe(service) + ")");
+			String title = "&aVoteLog - VoteId";
+			if (voteId != null && !voteId.isEmpty()) {
+				title += " &7(" + shortId(voteId) + ")";
+			}
+
+			BInventory inv = new BInventory(title);
 			inv.requirePermission("VotingPlugin.Commands.AdminVote.VoteLog");
 
 			if (!plugin.getConfigFile().isAlwaysCloseInventory()) {
@@ -83,7 +90,21 @@ public class AdminVoteLogService extends GUIHandler {
 			if (table == null) {
 				inv.addButton(new BInventoryButton(new ItemBuilder(Material.BARRIER).setName("&cVoteLog unavailable")
 						.addLoreLine("&7VoteLog MySQL table is not loaded/enabled.")) {
+					@Override
+					public void onClick(ClickEvent clickEvent) {
+						// no-op
+					}
+				});
 
+				inv.setPages(true);
+				inv.setMaxInvSize(54);
+				inv.openInventory(player);
+				return;
+			}
+
+			if (voteId == null || voteId.isEmpty()) {
+				inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER).setName("&eNo voteId provided")
+						.addLoreLine("&7Missing voteId.")) {
 					@Override
 					public void onClick(ClickEvent clickEvent) {
 						// no-op
@@ -97,7 +118,9 @@ public class AdminVoteLogService extends GUIHandler {
 			}
 
 			int needed = (page + 1) * PAGE_SIZE;
-			List<VoteLogMysqlTable.VoteLogEntry> rows = table.getByService(service, days, needed);
+
+			// vote_id is not unique -> show ALL rows for it (paged)
+			List<VoteLogMysqlTable.VoteLogEntry> rows = table.getByVoteIdAll(voteId, days, needed);
 
 			int start = page * PAGE_SIZE;
 			int end = Math.min(rows.size(), start + PAGE_SIZE);
@@ -105,7 +128,6 @@ public class AdminVoteLogService extends GUIHandler {
 			if (start >= rows.size()) {
 				inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER).setName("&eNo entries")
 						.addLoreLine("&7No vote log entries on this page.").addLoreLine("&7Try going back a page.")) {
-
 					@Override
 					public void onClick(ClickEvent clickEvent) {
 						// no-op
@@ -125,50 +147,81 @@ public class AdminVoteLogService extends GUIHandler {
 		}
 	}
 
-	private BInventoryButton makeEntryButton(final VoteLogMysqlTable.VoteLogEntry entry) {
-		VoteLogMysqlTable.VoteLogEvent event =
-				entry.event != null ? VoteLogMysqlTable.VoteLogEvent.valueOf(entry.event) : null;
+	private BInventoryButton makeEntryButton(VoteLogMysqlTable.VoteLogEntry entry) {
+		VoteLogMysqlTable.VoteLogEvent event = entry.event != null ? VoteLogMysqlTable.VoteLogEvent.valueOf(entry.event)
+				: null;
 
 		Material mat = AdminVoteLogHelpers.getMaterialForEvent(event, entry.status);
 
 		String eventColor = AdminVoteLogHelpers.getEventColor(event);
 
-		String timeStr = AdminVoteLogHelpers.formatTime(entry.voteTime);
-		String uuidShort = AdminVoteLogHelpers.shortUuid(entry.playerUuid);
-		String voteShort = AdminVoteLogHelpers.shortUuid(entry.voteId);
+		String timeStr = formatTime(entry.voteTime);
+		String uuidShort = shortId(entry.playerUuid);
+		String voteShort = shortId(entry.voteId);
 
 		ItemBuilder item = new ItemBuilder(mat)
 				.setName(eventColor + AdminVoteLogHelpers.safe(entry.event) + " &7(" + voteShort + ")");
 
-		if (AdminVoteLogHelpers.notEmpty(entry.playerName) || AdminVoteLogHelpers.notEmpty(entry.playerUuid)) {
-			item.addLoreLine("&7Player: &f" + AdminVoteLogHelpers.safe(entry.playerName) + " &7(" + uuidShort + ")");
+		// Only add lore lines when the value is actually set / meaningful
+		// (prevents blank/0/default noise)
+		if (notEmpty(entry.playerName) || notEmpty(entry.playerUuid)) {
+			item.addLoreLine("&7Player: &f" + safe(entry.playerName) + " &7(" + uuidShort + ")");
 		}
+
 		if (entry.voteTime > 0) {
 			item.addLoreLine("&7Time: &f" + timeStr);
 		}
-		if (AdminVoteLogHelpers.notEmpty(entry.service)) {
-			item.addLoreLine("&7Service: &f" + AdminVoteLogHelpers.safe(entry.service));
+
+		if (notEmpty(entry.service)) {
+			item.addLoreLine("&7Service: &f" + safe(entry.service));
 		}
-		if (AdminVoteLogHelpers.notEmpty(entry.context)) {
-			item.addLoreLine("&7Context: &f" + AdminVoteLogHelpers.safe(entry.context));
+
+		if (notEmpty(entry.context)) {
+			item.addLoreLine("&7Context: &f" + safe(entry.context));
 		}
-		if (AdminVoteLogHelpers.notEmpty(entry.status)) {
-			item.addLoreLine("&7Status: &f" + AdminVoteLogHelpers.safe(entry.status));
+
+		if (notEmpty(entry.status)) {
+			item.addLoreLine("&7Status: &f" + safe(entry.status));
 		}
+
 		if (entry.proxyCachedTotal != 0) {
 			item.addLoreLine("&7Cached Total: &f" + entry.proxyCachedTotal);
 		}
-		if (AdminVoteLogHelpers.notEmpty(entry.voteId)) {
-			item.addLoreLine("&7VoteId: &f" + AdminVoteLogHelpers.safe(entry.voteId));
+
+		if (notEmpty(entry.voteId)) {
+			item.addLoreLine("&7VoteId: &f" + safe(entry.voteId));
 		}
 
 		return new BInventoryButton(item) {
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				// vote_id is the correlation id
-				new AdminVoteLogVoteId(plugin, clickEvent.getPlayer(), table, entry.voteId, days, 0).open();
+				// read-only
 			}
 		};
+	}
+
+	private String formatTime(long millis) {
+		try {
+			SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			return sdf.format(new Date(millis));
+		} catch (Exception e) {
+			return String.valueOf(millis);
+		}
+	}
+
+	private boolean notEmpty(String s) {
+		return s != null && !s.trim().isEmpty();
+	}
+
+	private String shortId(String s) {
+		if (s == null || s.isEmpty()) {
+			return "unknown";
+		}
+		return s.length() > 8 ? s.substring(0, 8) : s;
+	}
+
+	private String safe(String s) {
+		return s == null ? "" : s;
 	}
 
 	@Override

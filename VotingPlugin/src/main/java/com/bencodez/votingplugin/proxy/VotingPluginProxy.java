@@ -822,7 +822,7 @@ public abstract class VotingPluginProxy {
 			if (getConfig().getVoteLoggingPurgeDays() > 0) {
 				loadTaskTimer(() -> {
 					voteLogMysqlTable.purgeOlderThanDays(getConfig().getVoteLoggingPurgeDays(), 100);
-				}, 60,  60 * 60);
+				}, 60, 60 * 60);
 			}
 
 			debug("Vote logging MySQL enabled");
@@ -1403,6 +1403,8 @@ public abstract class VotingPluginProxy {
 
 			player = getProperName(uuid, player);
 
+			UUID voteId = UUID.randomUUID();
+
 			addVoteParty();
 			if (getConfig().getPrimaryServer() || !getConfig().getMultiProxySupport()) {
 				if (getConfig().getBungeeManageTotals()) {
@@ -1455,7 +1457,7 @@ public abstract class VotingPluginProxy {
 						}
 					}
 					text = new BungeeMessageData(allTimeTotal, monthTotal, weeklyTotal, dailyTotal, points,
-							milestoneCount, votePartyVotes, currentVotePartyVotesRequired, dateMonthTotal);
+							milestoneCount, votePartyVotes, currentVotePartyVotesRequired, dateMonthTotal, voteId);
 					ArrayList<Column> update = new ArrayList<>();
 					update.add(new Column("AllTimeTotal", new DataValueInt(allTimeTotal)));
 					update.add(new Column("MonthTotal", new DataValueInt(monthTotal)));
@@ -1469,7 +1471,8 @@ public abstract class VotingPluginProxy {
 					debug("Setting totals " + text.toString());
 					getProxyMySQL().update(uuid, update);
 				} else {
-					text = new BungeeMessageData(0, 0, 0, 0, 0, 0, votePartyVotes, currentVotePartyVotesRequired, 0);
+					text = new BungeeMessageData(0, 0, 0, 0, 0, 0, votePartyVotes, currentVotePartyVotesRequired, 0,
+							voteId);
 				}
 			}
 
@@ -1479,7 +1482,6 @@ public abstract class VotingPluginProxy {
 			}
 
 			VoteLogStatus voteStatus = VoteLogStatus.IMMEDIATE;
-			UUID voteId = UUID.randomUUID();
 
 			if (getConfig().getSendVotesToAllServers()) {
 				for (String s : getAllAvailableServers()) {

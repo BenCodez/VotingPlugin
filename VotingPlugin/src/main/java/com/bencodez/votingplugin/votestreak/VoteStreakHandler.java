@@ -12,14 +12,18 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
+import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
 
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.time.TimeChecker;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.events.PlayerSpecialRewardEvent;
+import com.bencodez.votingplugin.events.SpecialRewardType;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 /**
@@ -74,7 +78,7 @@ public class VoteStreakHandler {
 	 * @param user           voting plugin user
 	 * @param voteTimeMillis vote time
 	 */
-	public void processVote(VotingPluginUser user, long voteTimeMillis) {
+	public void processVote(VotingPluginUser user, long voteTimeMillis, UUID voteUUID) {
 		if (user == null) {
 			plugin.extraDebug("[VoteStreak] processVote: user is null, returning");
 			return;
@@ -95,7 +99,7 @@ public class VoteStreakHandler {
 			}
 
 			try {
-				processVoteForDefinition(user, def, voteTimeMillis);
+				processVoteForDefinition(user, def, voteTimeMillis, voteUUID);
 			} catch (Exception e) {
 				plugin.getLogger().warning("VoteStreak processing failed for '" + def.getId() + "': " + e.getMessage());
 				plugin.debug(e);
@@ -103,7 +107,8 @@ public class VoteStreakHandler {
 		}
 	}
 
-	private void processVoteForDefinition(VotingPluginUser user, VoteStreakDefinition def, long voteTimeMillis) {
+	private void processVoteForDefinition(VotingPluginUser user, VoteStreakDefinition def, long voteTimeMillis,
+			UUID voteUUID) {
 		final String col = getColumnName(def);
 		final String rawBefore = readStateString(user, col);
 		StreakState state = StreakState.deserialize(rawBefore);
@@ -155,7 +160,7 @@ public class VoteStreakHandler {
 
 				if (shouldReward) {
 					plugin.extraDebug("[VoteStreak] giving rewards for idKey=" + def.getId());
-					giveRewards(user, def);
+					giveRewards(user, def, voteUUID);
 				}
 			}
 		} else {
@@ -375,7 +380,15 @@ public class VoteStreakHandler {
 		}
 	}
 
-	private void giveRewards(VotingPluginUser user, VoteStreakDefinition def) {
+	private void giveRewards(VotingPluginUser user, VoteStreakDefinition def, UUID voteUUID) {
+		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user,
+				SpecialRewardType.VOTESTREAK.setType(def.getType().toString()).setAmount(def.getVotesRequired()),
+				voteUUID);
+		Bukkit.getPluginManager().callEvent(event);
+
+		if (event.isCancelled()) {
+			return;
+		}
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(), "VoteStreaks." + def.getId() + ".Rewards")
 				.withPlaceHolder("id", def.getId()).send(user);
 	}

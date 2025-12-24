@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.proxy;
 
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 import lombok.Getter;
@@ -38,8 +39,12 @@ public class BungeeMessageData {
 	@Setter
 	private int votePartyRequired = 0;
 
+	@Getter
+	@Setter
+	private UUID voteUUID;
+
 	public BungeeMessageData(int allTimeTotal, int monthTotal, int weeklyTotal, int dailyTotal, int points,
-			int milestoneCount, int votePartyCurrent, int votePartyRequired, int dateMonthTotal) {
+			int milestoneCount, int votePartyCurrent, int votePartyRequired, int dateMonthTotal, UUID voteUUID) {
 		this.allTimeTotal = allTimeTotal;
 		this.monthTotal = monthTotal;
 		this.weeklyTotal = weeklyTotal;
@@ -49,6 +54,7 @@ public class BungeeMessageData {
 		this.votePartyCurrent = votePartyCurrent;
 		this.votePartyRequired = votePartyRequired;
 		this.dateMonthTotal = dateMonthTotal;
+		this.voteUUID = voteUUID;
 	}
 
 	public BungeeMessageData(String str) {
@@ -68,12 +74,16 @@ public class BungeeMessageData {
 		if (data.length >= 9) {
 			dateMonthTotal = Integer.parseInt(data[8]);
 		}
+		if (data.length >= 10) {
+			voteUUID = UUID.fromString(data[9]);
+		}
 	}
 
 	@Override
 	public String toString() {
 		return allTimeTotal + "//" + monthTotal + "//" + weeklyTotal + "//" + dailyTotal + "//" + points + "//"
-				+ milestoneCount + "//" + votePartyCurrent + "//" + votePartyRequired;
+				+ milestoneCount + "//" + votePartyCurrent + "//" + votePartyRequired + "//" + dateMonthTotal + "//"
+				+ voteUUID;
 	}
 
 }

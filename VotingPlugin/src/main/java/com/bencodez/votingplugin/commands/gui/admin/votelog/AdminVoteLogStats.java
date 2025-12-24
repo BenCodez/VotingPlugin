@@ -21,10 +21,8 @@ import com.bencodez.votingplugin.votelog.VoteLogMysqlTable;
  *
  * Uses VoteLogMysqlTable instance passed in from CommandLoader.
  *
- * Shows:
- * - total / immediate / cached counts (VoteLogCounts)
- * - unique voters
- * - top services
+ * Shows: - total / immediate / cached counts (VoteLogCounts) - unique voters -
+ * top services
  */
 public class AdminVoteLogStats extends GUIHandler {
 
@@ -39,8 +37,8 @@ public class AdminVoteLogStats extends GUIHandler {
 		this(plugin, sender, table, null, days, 10);
 	}
 
-	public AdminVoteLogStats(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table, VotingPluginUser user,
-			int days, int topServicesLimit) {
+	public AdminVoteLogStats(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table,
+			VotingPluginUser user, int days, int topServicesLimit) {
 		super(plugin, sender);
 		this.plugin = plugin;
 		this.table = table;
@@ -74,7 +72,7 @@ public class AdminVoteLogStats extends GUIHandler {
 			}
 
 			BInventory inv = new BInventory(title);
-			inv.requirePermission("VotingPlugin.Commands.AdminVote.VoteLog.Stats");
+			inv.requirePermission("VotingPlugin.Commands.AdminVote.VoteLog");
 
 			if (!plugin.getConfigFile().isAlwaysCloseInventory()) {
 				inv.dontClose();
@@ -101,10 +99,8 @@ public class AdminVoteLogStats extends GUIHandler {
 			long uniques = table.getUniqueVoters(days);
 
 			inv.addButton(new BInventoryButton(new ItemBuilder(Material.BOOK).setName("&aOverview")
-					.addLoreLine("&7Total Votes: &f" + counts.total)
-					.addLoreLine("&7Immediate: &f" + counts.immediate)
-					.addLoreLine("&7Cached: &f" + counts.cached)
-					.addLoreLine("&7Unique Voters: &f" + uniques)
+					.addLoreLine("&7Total Votes: &f" + counts.total).addLoreLine("&7Immediate: &f" + counts.immediate)
+					.addLoreLine("&7Cached: &f" + counts.cached).addLoreLine("&7Unique Voters: &f" + uniques)
 					.addLoreLine(days > 0 ? "&7Window: &fLast " + days + " days" : "&7Window: &fAll time")) {
 
 				@Override
@@ -127,7 +123,8 @@ public class AdminVoteLogStats extends GUIHandler {
 			int shown = 0;
 			for (VoteLogMysqlTable.ServiceCount sc : table.getTopServices(days, topServicesLimit)) {
 				shown++;
-				inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER).setName("&a#" + shown + " &f" + safe(sc.service))
+				inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER)
+						.setName("&a#" + shown + " &f" + AdminVoteLogHelpers.safe(sc.service))
 						.addLoreLine("&7Votes: &f" + sc.votes)
 						.addLoreLine(days > 0 ? "&7Window: &fLast " + days + " days" : "&7Window: &fAll time")) {
 
@@ -149,21 +146,13 @@ public class AdminVoteLogStats extends GUIHandler {
 				});
 			}
 
-			if (user != null && plugin.getGui().isChestVoteTopBackButton()) {
-				inv.getPageButtons().add(plugin.getCommandLoader().getBackButton(user).setSlot(7));
-			}
 
-			// Use pages so the bottom bar is consistent with other GUIs (even if not needed)
 			inv.setPages(true);
 			inv.setMaxInvSize(54);
 			inv.openInventory(player);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-	}
-
-	private String safe(String s) {
-		return s == null ? "" : s;
 	}
 
 	@Override

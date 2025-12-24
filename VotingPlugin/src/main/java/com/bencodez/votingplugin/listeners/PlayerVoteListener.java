@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.listeners;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.UUID;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -145,6 +146,8 @@ public class PlayerVoteListener implements Listener {
 			}
 		}
 
+		UUID voteUUID = UUID.randomUUID();
+
 		final String uuid = user.getUUID();
 
 		// reupdate cache
@@ -190,8 +193,8 @@ public class PlayerVoteListener implements Listener {
 		}
 
 		// check first vote rewards
-		plugin.getSpecialRewards().checkFirstVote(user, event.isForceBungee());
-		plugin.getSpecialRewards().checkFirstVoteToday(user, event.isForceBungee());
+		plugin.getSpecialRewards().checkFirstVote(voteUUID, user, event.isForceBungee());
+		plugin.getSpecialRewards().checkFirstVoteToday(voteUUID, user, event.isForceBungee());
 
 		if (user.isReminded() && plugin.getConfigFile().isVoteRemindingRemindOnlyOnce()) {
 			user.setReminded(false);
@@ -255,16 +258,18 @@ public class PlayerVoteListener implements Listener {
 		}
 
 		// other rewards
-		plugin.getSpecialRewards().checkAllSites(user, event.isForceBungee());
-		plugin.getSpecialRewards().checkAlmostAllSites(user, event.isForceBungee());
-		plugin.getSpecialRewards().checkCumualativeVotes(user, event.getBungeeTextTotals(), event.isForceBungee());
-		plugin.getSpecialRewards().checkMilestone(user, event.getBungeeTextTotals(), event.isForceBungee());
+		plugin.getSpecialRewards().checkAllSites(voteUUID, user, event.isForceBungee());
+		plugin.getSpecialRewards().checkAlmostAllSites(voteUUID, user, event.isForceBungee());
+		plugin.getSpecialRewards().checkCumualativeVotes(voteUUID, user, event.getBungeeTextTotals(),
+				event.isForceBungee());
+		plugin.getSpecialRewards().checkMilestone(voteUUID, user, event.getBungeeTextTotals(), event.isForceBungee());
 		plugin.getCoolDownCheck().vote(user, voteSite);
 
-		plugin.getVoteStreakHandler().processVote(user, voteTime);
+		plugin.getVoteStreakHandler().processVote(user, voteTime, voteUUID);
 
 		PlayerPostVoteEvent postVoteEvent = new PlayerPostVoteEvent(voteSite, user, event.isRealVote(),
-				event.isForceBungee(), voteTime, cached, voteSite.getServiceSite(), user.getJavaUUID(), playerName);
+				event.isForceBungee(), voteTime, cached, voteSite.getServiceSite(), user.getJavaUUID(), playerName,
+				voteUUID);
 		plugin.getServer().getPluginManager().callEvent(postVoteEvent);
 
 		if (user.isOnline()) {

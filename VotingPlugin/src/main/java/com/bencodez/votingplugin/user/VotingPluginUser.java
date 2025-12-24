@@ -29,7 +29,9 @@ import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.simpleapi.sql.data.DataValueInt;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerReceivePointsEvent;
+import com.bencodez.votingplugin.events.PlayerSpecialRewardEvent;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
+import com.bencodez.votingplugin.events.SpecialRewardType;
 import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.proxy.BungeeMessageData;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
@@ -462,7 +464,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 						+ hasPercentageTotal(TopVoter.Daily,
 								plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(), null));
 				addDayVoteStreak();
-				plugin.getSpecialRewards().checkVoteStreak(this, "Day", forceBungee);
+				plugin.getSpecialRewards().checkVoteStreak(null, this, "Day", forceBungee);
 				setDayVoteStreakLastUpdate(System.currentTimeMillis());
 			}
 		}
@@ -1155,6 +1157,15 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param path  the path to the reward configuration
 	 */
 	public void giveDailyTopVoterAward(int place, String path) {
+		SpecialRewardType type = SpecialRewardType.TOPVOTER;
+		type.setType("Daily");
+		type.setAmount(1);
+		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(this, type, null);
+		Bukkit.getPluginManager().callEvent(event);
+
+		if (event.isCancelled()) {
+			return;
+		}
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getDailyAwardRewardsPath(path)).withPlaceHolder("place", "" + place)
 				.withPlaceHolder("topvoter", "Daily").withPlaceHolder("votes", "" + getTotal(TopVoter.Daily))
@@ -1168,6 +1179,15 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param path  the path to the reward configuration
 	 */
 	public void giveMonthlyTopVoterAward(int place, String path) {
+		SpecialRewardType type = SpecialRewardType.TOPVOTER;
+		type.setType("Monthly");
+		type.setAmount(1);
+		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(this, type, null);
+		Bukkit.getPluginManager().callEvent(event);
+
+		if (event.isCancelled()) {
+			return;
+		}
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getMonthlyAwardRewardsPath(path)).withPlaceHolder("place", "" + place)
 				.withPlaceHolder("topvoter", "Monthly").withPlaceHolder("votes", "" + getTotal(TopVoter.Monthly))
@@ -1181,6 +1201,15 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param path  the path to the reward configuration
 	 */
 	public void giveWeeklyTopVoterAward(int place, String path) {
+		SpecialRewardType type = SpecialRewardType.TOPVOTER;
+		type.setType("Weekly");
+		type.setAmount(1);
+		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(this, type, null);
+		Bukkit.getPluginManager().callEvent(event);
+
+		if (event.isCancelled()) {
+			return;
+		}
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getWeeklyAwardRewardsPath(path)).withPlaceHolder("place", "" + place)
 				.withPlaceHolder("topvoter", "Weekly").withPlaceHolder("votes", "" + getTotal(TopVoter.Weekly))

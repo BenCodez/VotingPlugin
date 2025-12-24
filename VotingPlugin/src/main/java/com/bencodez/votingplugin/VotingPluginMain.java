@@ -82,7 +82,6 @@ import com.bencodez.votingplugin.discord.DiscordHandler;
 import com.bencodez.votingplugin.listeners.BlockBreak;
 import com.bencodez.votingplugin.listeners.PlayerInteract;
 import com.bencodez.votingplugin.listeners.PlayerJoinEvent;
-import com.bencodez.votingplugin.listeners.PlayerPostVoteLoggerListener;
 import com.bencodez.votingplugin.listeners.PlayerVoteListener;
 import com.bencodez.votingplugin.listeners.SignChange;
 import com.bencodez.votingplugin.listeners.VotiferEvent;
@@ -103,6 +102,8 @@ import com.bencodez.votingplugin.updater.CheckUpdate;
 import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable;
+import com.bencodez.votingplugin.votelog.listeners.PlayerPostVoteLoggerListener;
+import com.bencodez.votingplugin.votelog.listeners.PlayerSpecialRewardLoggerListener;
 import com.bencodez.votingplugin.voteparty.VoteParty;
 import com.bencodez.votingplugin.votereminding.VoteReminding;
 import com.bencodez.votingplugin.votestreak.VoteStreakHandler;
@@ -1524,6 +1525,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 		pm.registerEvents(new PlayerVoteListener(this), this);
 		pm.registerEvents(new PlayerPostVoteLoggerListener(this), this);
+		pm.registerEvents(new PlayerSpecialRewardLoggerListener(this), this);
 		pm.registerEvents(new SignChange(this), this);
 		pm.registerEvents(new BlockBreak(this), this);
 		if (!plugin.getConfigFile().isDisableInteractEvent()) {

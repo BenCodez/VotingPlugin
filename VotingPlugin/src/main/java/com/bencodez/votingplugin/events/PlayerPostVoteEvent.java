@@ -77,8 +77,12 @@ public class PlayerPostVoteEvent extends Event {
 	@Setter
 	private String playerName;
 
+	@Getter
+	@Setter
+	private UUID voteUUID;
+
 	public PlayerPostVoteEvent(VoteSite voteSite, VotingPluginUser user, boolean realVote, boolean forceBungee,
-			long voteTime, boolean cached, String service, UUID uuid, String playerName) {
+			long voteTime, boolean cached, String service, UUID uuid, String playerName, UUID voteUUID) {
 		super(true);
 		this.user = user;
 		this.voteSite = voteSite;
@@ -89,6 +93,7 @@ public class PlayerPostVoteEvent extends Event {
 		this.service = service;
 		this.uuid = uuid;
 		this.playerName = playerName;
+		this.voteUUID = voteUUID;
 	}
 
 	/*

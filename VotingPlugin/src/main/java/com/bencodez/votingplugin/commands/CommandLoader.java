@@ -59,6 +59,7 @@ import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVoteParty;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVotePlayer;
 import com.bencodez.votingplugin.commands.gui.admin.cumulative.AdminVoteCumulative;
 import com.bencodez.votingplugin.commands.gui.admin.milestones.AdminVoteMilestones;
+import com.bencodez.votingplugin.commands.gui.admin.votelog.AdminVoteLogMenu;
 import com.bencodez.votingplugin.commands.gui.admin.votelog.AdminVoteLogPlayer;
 import com.bencodez.votingplugin.commands.gui.admin.votelog.AdminVoteLogRecent;
 import com.bencodez.votingplugin.commands.gui.admin.votelog.AdminVoteLogService;
@@ -273,7 +274,7 @@ public class CommandLoader {
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
 							user.dontCache();
 							user.setPoints(num);
-							plugin.getSpecialRewards().checkMilestone(user, null,
+							plugin.getSpecialRewards().checkMilestone(null, user, null,
 									plugin.getBungeeSettings().isUseBungeecoord());
 						}
 						sender.sendMessage(MessageAPI.colorize("&cDone setting all players points to " + args[3]));
@@ -473,7 +474,7 @@ public class CommandLoader {
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
 							user.dontCache();
 							user.addPoints(num);
-							plugin.getSpecialRewards().checkMilestone(user, null,
+							plugin.getSpecialRewards().checkMilestone(null, user, null,
 									plugin.getBungeeSettings().isUseBungeecoord());
 						}
 						sender.sendMessage(MessageAPI.colorize("&cGave " + "all players" + " " + args[3] + " points"));
@@ -510,7 +511,7 @@ public class CommandLoader {
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
 							user.dontCache();
 							user.removePoints(num);
-							plugin.getSpecialRewards().checkMilestone(user, null,
+							plugin.getSpecialRewards().checkMilestone(null, user, null,
 									plugin.getBungeeSettings().isUseBungeecoord());
 						}
 						sender.sendMessage(MessageAPI.colorize("&cGave " + "all players" + " " + args[3] + " points"));
@@ -1057,7 +1058,7 @@ public class CommandLoader {
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
 							user.dontCache();
 							user.setMilestoneCount(user.getMilestoneCount() + toAdd);
-							plugin.getSpecialRewards().checkMilestone(user, null,
+							plugin.getSpecialRewards().checkMilestone(null, user, null,
 									plugin.getBungeeSettings().isUseBungeecoord());
 						}
 						sender.sendMessage(MessageAPI.colorize("&cFinished adding milestonecount for all players"));
@@ -1067,7 +1068,7 @@ public class CommandLoader {
 					public void executeSinglePlayer(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 						user.setMilestoneCount(user.getMilestoneCount() + Integer.parseInt(args[3]));
-						plugin.getSpecialRewards().checkMilestone(user, null,
+						plugin.getSpecialRewards().checkMilestone(null, user, null,
 								plugin.getBungeeSettings().isUseBungeecoord());
 						sender.sendMessage(MessageAPI.colorize("&cAdded milestonecount for " + args[1]));
 					}
@@ -1643,8 +1644,8 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-						plugin.getSpecialRewards().giveMilestoneVoteReward(user, user.isOnline(), parseInt(args[3]),
-								plugin.getBungeeSettings().isUseBungeecoord());
+						plugin.getSpecialRewards().giveMilestoneVoteReward(null, user, user.isOnline(),
+								parseInt(args[3]), plugin.getBungeeSettings().isUseBungeecoord());
 						sendMessage(sender, "&cMilestone " + args[3] + " forced");
 					}
 				});
@@ -1709,7 +1710,7 @@ public class CommandLoader {
 								num = num.replaceAll("-", "");
 							}
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-							plugin.getSpecialRewards().giveVoteStreakReward(user, user.isOnline(), str, args[4],
+							plugin.getSpecialRewards().giveVoteStreakReward(null, user, user.isOnline(), str, args[4],
 									parseInt(num), plugin.getBungeeSettings().isUseBungeecoord());
 							sendMessage(sender, "&cVoteStreak " + str + " " + args[4] + " forced");
 						}
@@ -1723,8 +1724,8 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-						plugin.getSpecialRewards().giveCumulativeVoteReward(user, user.isOnline(), parseInt(args[3]),
-								plugin.getBungeeSettings().isUseBungeecoord());
+						plugin.getSpecialRewards().giveCumulativeVoteReward(null, user, user.isOnline(),
+								parseInt(args[3]), plugin.getBungeeSettings().isUseBungeecoord());
 						sendMessage(sender, "&cCumulative " + args[3] + " forced");
 					}
 				});
@@ -1736,7 +1737,7 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-						plugin.getSpecialRewards().giveAllSitesRewards(user, user.isOnline(),
+						plugin.getSpecialRewards().giveAllSitesRewards(null, user, user.isOnline(),
 								plugin.getBungeeSettings().isUseBungeecoord());
 						sendMessage(sender, "&cAllSites forced");
 					}
@@ -1749,7 +1750,7 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-						plugin.getSpecialRewards().giveAlmostAllSitesRewards(user, user.isOnline(),
+						plugin.getSpecialRewards().giveAlmostAllSitesRewards(null, user, user.isOnline(),
 								plugin.getBungeeSettings().isUseBungeecoord());
 						sendMessage(sender, "&cAlmostAllSites forced");
 					}
@@ -1762,7 +1763,7 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-						plugin.getSpecialRewards().giveFirstVoteRewards(user, user.isOnline(),
+						plugin.getSpecialRewards().giveFirstVoteRewards(null, user, user.isOnline(),
 								plugin.getBungeeSettings().isUseBungeecoord());
 						sendMessage(sender, "&cFirstVote forced");
 					}
@@ -1776,7 +1777,7 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-						plugin.getSpecialRewards().giveFirstVoteTodayRewards(user, user.isOnline(),
+						plugin.getSpecialRewards().giveFirstVoteTodayRewards(null, user, user.isOnline(),
 								plugin.getBungeeSettings().isUseBungeecoord());
 						sendMessage(sender, "&cFirstVoteToday forced");
 					}
@@ -1888,43 +1889,21 @@ public class CommandLoader {
 					}
 				});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "VoteLog", "Recent" },
-				"VotingPlugin.Commands.AdminVote.VoteLog.Recent|" + adminPerm, "See recent vote logs") {
+		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "VoteLog" },
+				"VotingPlugin.Commands.AdminVote.VoteLog|" + adminPerm, "See vote logs") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				new AdminVoteLogRecent(plugin, sender, plugin.getVoteLogMysqlTable(), null, 0).open(GUIMethod.CHEST);
-
+				new AdminVoteLogMenu(plugin, sender, plugin.getVoteLogMysqlTable(), 60).open();
 			}
 		});
 
-		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "VoteLog", "Player", "(player)" },
-				"VotingPlugin.Commands.AdminVote.VoteLog.Player|" + adminPerm, "See vote logs for a player") {
+		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "VoteLog", "(Number)" },
+				"VotingPlugin.Commands.AdminVote.VoteLog|" + adminPerm, "See vote logs") {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				new AdminVoteLogPlayer(plugin, sender, plugin.getVoteLogMysqlTable(), args[2], 1000, 0)
-						.open(GUIMethod.CHEST);
-			}
-		});
-
-		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "VoteLog", "Service", "(Text)" },
-				"VotingPlugin.Commands.AdminVote.VoteLog.Service|" + adminPerm, "See vote logs for a service site") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				// args: 0=VoteLog, 1=Service, 2=(Text)
-				new AdminVoteLogService(plugin, sender, plugin.getVoteLogMysqlTable(), args[2], 1000, 0)
-						.open(GUIMethod.CHEST);
-			}
-		});
-
-		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "VoteLog", "Stats" },
-				"VotingPlugin.Commands.AdminVote.VoteLog.Stats|" + adminPerm, "View VoteLog statistics") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				new AdminVoteLogStats(plugin, sender, plugin.getVoteLogMysqlTable(), 0).open(GUIMethod.CHEST);
+				new AdminVoteLogMenu(plugin, sender, plugin.getVoteLogMysqlTable(), Integer.parseInt(args[1])).open();
 			}
 		});
 
