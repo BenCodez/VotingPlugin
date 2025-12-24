@@ -14,6 +14,7 @@ import java.util.Collection;
 import java.util.Collections;
 
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Server;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
@@ -129,7 +130,7 @@ public class VotePartyTest {
 
 		voteParty.commandVoteParty(sender);
 
-		verify(sender).sendMessage("§cVoteParty not enabled");
+		verify(sender).sendMessage(ChatColor.translateAlternateColorCodes('&', "&cVoteParty not enabled"));
 	}
 
 	@Test
