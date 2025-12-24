@@ -26,18 +26,6 @@ import com.bencodez.votingplugin.events.PlayerSpecialRewardEvent;
 import com.bencodez.votingplugin.events.SpecialRewardType;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
-/**
- * Vote streak handler: loads definitions + processes votes.
- *
- * Config format (Option B):
- *
- * VoteStreaks: Daily3Votes: Type: DAILY Enabled: true Requirements: Amount: 3
- * VotesRequired: 3 AllowMissedAmount: 1 AllowMissedPeriod: 7 Rewards: Commands:
- * - say test
- *
- * RewardBuilder expects: <VoteStreaksSection>.<idKey>.<reward keys> We pass the
- * VoteStreaks section and def.getId() (lowercase).
- */
 public class VoteStreakHandler {
 
 	private final VotingPluginMain plugin;
@@ -77,6 +65,7 @@ public class VoteStreakHandler {
 	 *
 	 * @param user           voting plugin user
 	 * @param voteTimeMillis vote time
+	 * @param voteUUID       vote unique id
 	 */
 	public void processVote(VotingPluginUser user, long voteTimeMillis, UUID voteUUID) {
 		if (user == null) {
