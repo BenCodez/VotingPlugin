@@ -5,6 +5,7 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.SimpleCommand;
 
 import net.kyori.adventure.text.Component;
+import net.md_5.bungee.api.ChatColor;
 
 public class VotingPluginVelocityCommand implements SimpleCommand {
 	private VotingPluginVelocity plugin;
@@ -21,7 +22,7 @@ public class VotingPluginVelocityCommand implements SimpleCommand {
 
 		String result = new VotingPluginProxyCommand(plugin.getVotingPluginProxy()).execute(args);
 		if (result != null) {
-			source.sendMessage(Component.text(result.replace("&", "§")));
+			source.sendMessage(Component.text(result.replace("&", "" + ChatColor.COLOR_CHAR)));
 		}
 
 	}

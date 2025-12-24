@@ -25,7 +25,7 @@ public abstract class ProxyOnlineVoteCacheTable {
 	
 	// Add this method anywhere in the class (e.g., near getTableName()).
 	private void addVoteIdColumnIfMissing() {
-		// If you can’t assume the configured database, just read the current one from the connection.
+		// If you can't assume the configured database, just read the current one from the connection.
 		final String checkSql =
 				"SELECT 1 " +
 				"FROM INFORMATION_SCHEMA.COLUMNS " +
@@ -50,11 +50,11 @@ public abstract class ProxyOnlineVoteCacheTable {
 			String alterSql = "ALTER TABLE `" + tableName + "` ADD COLUMN `voteid` VARCHAR(36) NULL AFTER `uuid`;";
 			new Query(mysql, alterSql).executeUpdate();
 
-			// Optional: add an index if you’ll query by voteid later
+			// Optional: add an index if you'll query by voteid later
 			// new Query(mysql, "ALTER TABLE `" + tableName + "` ADD INDEX idx_voteid (`voteid`);").executeUpdate();
 
 		} catch (SQLException e) {
-			// Don’t hard-fail startup for a migration; log it.
+			// Don't hard-fail startup for a migration; log it.
 			logSevere("Failed to add voteid column to " + tableName + ": " + e.getMessage());
 			debug(e);
 		}

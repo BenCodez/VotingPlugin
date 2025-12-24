@@ -66,7 +66,7 @@ public class GsonDataNode implements DataNode {
 			return prim.getAsLong();
 		}
 
-		// Try parsing from string if it’s not a number
+		// Try parsing from string if it's not a number
 		try {
 			return Long.parseLong(prim.getAsString());
 		} catch (NumberFormatException e) {

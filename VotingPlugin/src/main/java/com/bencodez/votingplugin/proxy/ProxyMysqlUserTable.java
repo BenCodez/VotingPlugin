@@ -137,12 +137,12 @@ public abstract class ProxyMysqlUserTable {
 		try (Connection conn = mysql.getConnectionManager().getConnection()) {
 			if (!columnNeedsAlter(conn, column, newType)) {
 				mysql.debug("ProxyMySQL: Column `" + column + "` already matches " + newType + ", skipping ALTER");
-				// Already the desired type/length/default – nothing to do.
+				// Already the desired type/length/default nothing to do.
 				return;
 			}
 		} catch (SQLException e) {
 			// If the metadata check fails, be conservative and *do* the ALTER.
-			mysql.debug("Failed to inspect column " + getName() + "." + column + " – running ALTER anyway");
+			mysql.debug("Failed to inspect column " + getName() + "." + column + " running ALTER anyway");
 			mysql.debug(e);
 		}
 
