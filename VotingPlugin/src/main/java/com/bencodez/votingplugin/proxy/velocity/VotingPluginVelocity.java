@@ -214,6 +214,13 @@ public class VotingPluginVelocity {
 					public void logInfo(String string) {
 						logger.info(string);
 					}
+
+					@Override
+					public void debug(Throwable t) {
+						if (config.getDebug()) {
+							t.printStackTrace();
+						}
+					}
 				});
 
 		ArrayList<String> servers = new ArrayList<>();

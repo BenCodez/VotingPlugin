@@ -7,88 +7,75 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.bencodez.simpleapi.sql.mysql.AbstractSqlTable;
+import com.bencodez.simpleapi.sql.mysql.DbType;
+import com.bencodez.simpleapi.sql.mysql.MySQL;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.simpleapi.sql.mysql.queries.Query;
 
-public abstract class ProxyTimedVoteCacheTable {
+public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 
-	protected com.bencodez.simpleapi.sql.mysql.MySQL mysql;
-	private final String tableName;
+	@Override
+	public String getPrimaryKeyColumn() {
+		return "id";
+	}
 
+	@Override
+	public String buildCreateTableSql(DbType dbType) {
+		if (dbType == DbType.POSTGRESQL) {
+			return "CREATE TABLE IF NOT EXISTS " + qi(getTableName()) + " ("
+					+ qi("id") + " BIGSERIAL PRIMARY KEY, "
+					+ qi("playerName") + " VARCHAR(100), "
+					+ qi("service") + " VARCHAR(100), "
+					+ qi("time") + " BIGINT"
+					+ ");";
+		}
+
+		return "CREATE TABLE IF NOT EXISTS " + qi(getTableName()) + " ("
+				+ qi("id") + " INT AUTO_INCREMENT PRIMARY KEY,"
+				+ qi("playerName") + " VARCHAR(100),"
+				+ qi("service") + " VARCHAR(100),"
+				+ qi("time") + " BIGINT,"
+				+ "INDEX idx_time (" + qi("time") + ")"
+				+ ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+	}
+
+	@Override
 	public abstract void logSevere(String msg);
 
+	@Override
 	public abstract void logInfo(String msg);
 
-	public abstract void debug(Exception e);
+	@Override
+	public abstract void debug(Throwable t);
 
-	public ProxyTimedVoteCacheTable(com.bencodez.simpleapi.sql.mysql.MySQL existingMysql, String tablePrefix,
-			boolean debug) {
-		this.tableName = (tablePrefix != null ? tablePrefix : "") + "votingplugin_timedvotecache";
-
-		this.mysql = existingMysql;
-
-		// Create table if not exists
-		String sql = "CREATE TABLE IF NOT EXISTS `" + tableName + "` (" + "id INT AUTO_INCREMENT PRIMARY KEY,"
-				+ "playerName VARCHAR(100)," + "service VARCHAR(100)," + "time BIGINT," + "INDEX idx_time (time)"
-				+ ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
-		try {
-			new Query(mysql, sql).executeUpdate();
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
+	public ProxyTimedVoteCacheTable(MySQL existingMysql, String tablePrefix, boolean debug) {
+		super((tablePrefix != null ? tablePrefix : "") + "votingplugin_timedvotecache",
+				existingMysql,
+				existingMysql.getConnectionManager().getDbType());
+		ensureIndexes();
 	}
 
 	public ProxyTimedVoteCacheTable(MysqlConfig config, boolean debug) {
-		String prefix = config.getTablePrefix() != null ? config.getTablePrefix() : "";
-		this.tableName = prefix + "votingplugin_timedvotecache";
-
-		mysql = new com.bencodez.simpleapi.sql.mysql.MySQL(config.getMaxThreads()) {
-			@Override
-			public void debug(SQLException e) {
-				if (debug)
-					e.printStackTrace();
-			}
-
-			@Override
-			public void severe(String msg) {
-				logSevere(msg);
-			}
-
-			@Override
-			public void debug(String msg) {
-				if (debug)
-					logInfo("MYSQL DEBUG: " + msg);
-			}
-		};
-
-		if (!mysql.connect(config)) {
-			logSevere("Failed to connect to MySQL for timed vote cache!");
-		}
-		try {
-			new Query(mysql, "USE `" + config.getDatabase() + "`;").executeUpdate();
-		} catch (SQLException e) {
-			logSevere("Failed to select database: " + config.getDatabase());
-			debug(e);
-		}
-
-		// Updated table creation without uuid, server, realVote
-		String sql = "CREATE TABLE IF NOT EXISTS `" + tableName + "` (" + "id INT AUTO_INCREMENT PRIMARY KEY,"
-				+ "playerName VARCHAR(100)," + "service VARCHAR(100)," + "time BIGINT," + "INDEX idx_time (time)"
-				+ ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
-		try {
-			new Query(mysql, sql).executeUpdate();
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
+		super("votingplugin_timedvotecache", config, debug);
+		ensureIndexes();
 	}
 
-	public String getTableName() {
-		return tableName;
+	private void ensureIndexes() {
+		if (getDbType() == DbType.POSTGRESQL) {
+			try {
+				new Query(mysql, "CREATE INDEX IF NOT EXISTS idx_time ON " + qi(getTableName()) + " (" + qi("time")
+						+ ");").executeUpdate();
+			} catch (SQLException e) {
+				debug(e);
+			}
+		}
 	}
 
 	// --- INSERT ---
 	public void insertTimedVote(String playerName, String service, long time) {
-		String sql = "INSERT INTO `" + tableName + "` (playerName, service, time) VALUES (?, ?, ?);";
+		String sql = "INSERT INTO " + qi(getTableName()) + " (" + qi("playerName") + ", " + qi("service") + ", "
+				+ qi("time") + ") VALUES (?, ?, ?);";
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setString(1, playerName);
@@ -96,74 +83,78 @@ public abstract class ProxyTimedVoteCacheTable {
 			ps.setLong(3, time);
 			ps.executeUpdate();
 		} catch (SQLException e) {
-			e.printStackTrace();
+			debug(e);
 		}
 	}
 
 	// --- GET ---
 	public List<TimedVoteRow> getAllVotes() {
-		String sql = "SELECT * FROM `" + tableName + "`;";
-		return selectVotes(sql, null);
+		return selectVotes("SELECT * FROM " + qi(getTableName()) + ";", null);
 	}
 
 	public List<TimedVoteRow> getExpiredVotes(long now) {
-		String sql = "SELECT * FROM `" + tableName + "` WHERE time <= ?;";
-		return selectVotes(sql, new Object[] { now });
+		return selectVotes("SELECT * FROM " + qi(getTableName()) + " WHERE " + qi("time") + " <= ?;",
+				new Object[] { now });
 	}
 
 	// --- DELETE ---
 	public void removeVoteById(int id) {
-		String sql = "DELETE FROM `" + tableName + "` WHERE id = ?;";
+		String sql = "DELETE FROM " + qi(getTableName()) + " WHERE " + qi("id") + " = ?;";
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setInt(1, id);
 			ps.executeUpdate();
 		} catch (SQLException e) {
-			e.printStackTrace();
+			debug(e);
 		}
 	}
 
 	public void removeExpiredVotes(long now) {
-		String sql = "DELETE FROM `" + tableName + "` WHERE time <= ?;";
+		String sql = "DELETE FROM " + qi(getTableName()) + " WHERE " + qi("time") + " <= ?;";
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setLong(1, now);
 			ps.executeUpdate();
 		} catch (SQLException e) {
-			e.printStackTrace();
+			debug(e);
 		}
 	}
 
 	public void clearTable() {
 		try {
-			new Query(mysql, "TRUNCATE TABLE `" + tableName + "`;").executeUpdate();
+			if (getDbType() == DbType.POSTGRESQL) {
+				new Query(mysql, "TRUNCATE TABLE " + qi(getTableName()) + " RESTART IDENTITY;").executeUpdate();
+			} else {
+				new Query(mysql, "TRUNCATE TABLE " + qi(getTableName()) + ";").executeUpdate();
+			}
 		} catch (SQLException e) {
-			e.printStackTrace();
+			debug(e);
 		}
-	}
-
-	public void close() {
-		mysql.disconnect();
 	}
 
 	private List<TimedVoteRow> selectVotes(String sql, Object[] params) {
 		List<TimedVoteRow> list = new ArrayList<>();
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
+
 			if (params != null) {
 				for (int i = 0; i < params.length; i++) {
 					ps.setObject(i + 1, params[i]);
 				}
 			}
+
 			try (ResultSet rs = ps.executeQuery()) {
 				while (rs.next()) {
-					TimedVoteRow v = new TimedVoteRow(rs.getInt("id"), rs.getString("playerName"),
-							rs.getString("service"), rs.getLong("time"));
-					list.add(v);
+					list.add(new TimedVoteRow(
+							rs.getInt("id"),
+							rs.getString("playerName"),
+							rs.getString("service"),
+							rs.getLong("time")
+					));
 				}
 			}
 		} catch (SQLException e) {
-			e.printStackTrace();
+			debug(e);
 		}
 		return list;
 	}

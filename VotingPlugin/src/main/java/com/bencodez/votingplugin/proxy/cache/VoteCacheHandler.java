@@ -116,8 +116,8 @@ public abstract class VoteCacheHandler {
 		cachedOnlineVotes.putIfAbsent(uuid, new ArrayList<>());
 		cachedOnlineVotes.get(uuid).add(vote);
 		if (useMySQL) {
-			onlineVoteCacheTable.insertOnlineVote(vote.getVoteId(), vote.getUuid(), vote.getPlayerName(),
-					vote.getService(), vote.getTime(), vote.isRealVote(), vote.getText());
+			onlineVoteCacheTable.insertVote(vote.getVoteId(), vote.getUuid(), vote.getPlayerName(), vote.getService(),
+					vote.getTime(), vote.isRealVote(), vote.getText());
 		} else {
 			jsonStorage.addVoteOnline(uuid, cachedOnlineVotes.get(uuid).size() - 1, vote);
 			jsonStorage.save();
@@ -127,7 +127,7 @@ public abstract class VoteCacheHandler {
 	public void removeOnlineVotes(String uuid) {
 		cachedOnlineVotes.remove(uuid);
 		if (useMySQL) {
-			onlineVoteCacheTable.removeVotesForUUID(uuid);
+			onlineVoteCacheTable.removeVotesByUuid(uuid);
 		} else {
 			jsonStorage.removeOnlineVotes(uuid);
 			jsonStorage.save();
@@ -233,7 +233,7 @@ public abstract class VoteCacheHandler {
 			// Load online votes from MySQL
 			onlineVoteCacheTable.getAllVotes().forEach(voteRow -> {
 				OfflineBungeeVote vote = new OfflineBungeeVote(voteRow.getVoteId(), voteRow.getPlayerName(),
-						voteRow.getUuid(), voteRow.getService(), voteRow.getTime(), voteRow.isRealvote(),
+						voteRow.getUuid(), voteRow.getService(), voteRow.getTime(), voteRow.isRealVote(),
 						voteRow.getText());
 				String player = vote.getUuid();
 				cachedOnlineVotes.putIfAbsent(player, new ArrayList<>());
@@ -348,6 +348,8 @@ public abstract class VoteCacheHandler {
 
 	public abstract void debug1(Exception e);
 
+	public abstract void debug1(Throwable e);
+
 	public abstract void debug1(String msg);
 
 	public VoteCacheHandler(MysqlConfig mysqlConfig, boolean useMySQL, boolean useExistingConnection, MySQL mysql,
@@ -368,9 +370,9 @@ public abstract class VoteCacheHandler {
 					}
 
 					@Override
-					public void debug(Exception e) {
+					public void debug(Throwable t) {
 						if (debug)
-							debug1(e);
+							debug1(t);
 					}
 				};
 
@@ -386,9 +388,9 @@ public abstract class VoteCacheHandler {
 					}
 
 					@Override
-					public void debug(Exception e) {
+					public void debug(Throwable t) {
 						if (debug)
-							debug1(e);
+							debug1(t);
 					}
 				};
 
@@ -404,9 +406,9 @@ public abstract class VoteCacheHandler {
 					}
 
 					@Override
-					public void debug(Exception e) {
+					public void debug(Throwable t) {
 						if (debug)
-							debug1(e);
+							debug1(t);
 					}
 				};
 			} else {
@@ -422,9 +424,9 @@ public abstract class VoteCacheHandler {
 					}
 
 					@Override
-					public void debug(Exception e) {
+					public void debug(Throwable t) {
 						if (debug)
-							debug1(e);
+							debug1(t);
 					}
 				};
 
@@ -441,9 +443,9 @@ public abstract class VoteCacheHandler {
 					}
 
 					@Override
-					public void debug(Exception e) {
+					public void debug(Throwable t) {
 						if (debug)
-							debug1(e);
+							debug1(t);
 					}
 				};
 
@@ -460,9 +462,9 @@ public abstract class VoteCacheHandler {
 					}
 
 					@Override
-					public void debug(Exception e) {
+					public void debug(Throwable t) {
 						if (debug)
-							debug1(e);
+							debug1(t);
 					}
 				};
 			}
@@ -499,7 +501,7 @@ public abstract class VoteCacheHandler {
 						&& v.getService().equals(vote.getService()) && v.getTime() == vote.getTime());
 			}
 			if (useMySQL) {
-				onlineVoteCacheTable.removeOnlineVote(vote);
+				onlineVoteCacheTable.removeVote(vote);
 			} else {
 				jsonStorage.removeOnlineVote(vote);
 				jsonStorage.save();

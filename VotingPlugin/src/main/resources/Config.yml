@@ -36,7 +36,20 @@ MySQL:
   # --- Driver / security options ---
   # UseSSL: false
   # PublicKeyRetrieval: false          # Needed on some MySQL setups with caching_sha2_password
-  # UseMariaDB: false                  # Attempt to use MariaDB driver instead of MySQL
+  
+  # --- Database type ---
+  # Options:
+  # - MYSQL
+  # - MARIADB
+  # - POSTGRESQL
+  DbType: MYSQL
+  
+  
+  #Driver: ''                       # Optional custom driver class name
+  
+  
+  # OUTDATED OPTIONS - kept for backwards compatibility
+  # UseMariaDB: false                  # Attempt to use MariaDB driver instead of MySQL (set DbType instead)
 
   # --- Connection / lifecycle tuning ---
   # MaxLifeTime: -1                    # ms; <=0 uses plugin's safe default (e.g., 25m)

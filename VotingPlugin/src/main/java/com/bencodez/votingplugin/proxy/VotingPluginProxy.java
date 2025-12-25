@@ -522,6 +522,13 @@ public abstract class VotingPluginProxy {
 					debug(msg);
 				}
 			}
+
+			@Override
+			public void debug1(Throwable e) {
+				if (getConfig().getDebug()) {
+					e.printStackTrace();
+				}
+			}
 		};
 		voteCacheHandler.load();
 

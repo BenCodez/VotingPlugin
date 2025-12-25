@@ -21,6 +21,20 @@ MaxConnections: 1
 # Don't use with proxy setups unless you know what you're doing
 Prefix: ''
 
+# --- Database type ---
+# Options:
+# - MYSQL
+# - MARIADB
+# - POSTGRESQL
+DbType: MYSQL
+
+
+#Driver: ''                       # Optional custom driver class name
+
+
+# OUTDATED OPTIONS - kept for backwards compatibility
+# UseMariaDB: false                  # Attempt to use MariaDB driver instead of MySQL (set DbType instead)
+
 # --- Driver / security options ---
 # UseSSL: false
 # PublicKeyRetrieval: false          # Needed on some MySQL setups with caching_sha2_password
