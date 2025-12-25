@@ -852,30 +852,32 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			});
 		}
 
-		for (String streak : plugin.getSpecialRewardsConfig().getData().getConfigurationSection("VoteStreaks")
-				.getKeys(false)) {
-			plugin.addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteStreaks." + streak + ".Rewards") {
+		if (plugin.getSpecialRewardsConfig().getData().getConfigurationSection("VoteStreaks") != null) {
+			for (String streak : plugin.getSpecialRewardsConfig().getData().getConfigurationSection("VoteStreaks")
+					.getKeys(false)) {
+				plugin.addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteStreaks." + streak + ".Rewards") {
 
-				@Override
-				public void setData(String path, Object value) {
-					plugin.getSpecialRewardsConfig().getData().set(path, value);
-				}
+					@Override
+					public void setData(String path, Object value) {
+						plugin.getSpecialRewardsConfig().getData().set(path, value);
+					}
 
-				@Override
-				public void createSection(String key) {
-					plugin.getSpecialRewardsConfig().getData().createSection(key);
-				}
+					@Override
+					public void createSection(String key) {
+						plugin.getSpecialRewardsConfig().getData().createSection(key);
+					}
 
-				@Override
-				public ConfigurationSection getFileData() {
-					return getSpecialRewardsConfig().getData();
-				}
+					@Override
+					public ConfigurationSection getFileData() {
+						return getSpecialRewardsConfig().getData();
+					}
 
-				@Override
-				public void save() {
-					plugin.getSpecialRewardsConfig().saveData();
-				}
-			});
+					@Override
+					public void save() {
+						plugin.getSpecialRewardsConfig().saveData();
+					}
+				});
+			}
 		}
 
 		// vote streaks, old way
