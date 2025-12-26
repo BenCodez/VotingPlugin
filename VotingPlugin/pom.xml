@@ -29,6 +29,11 @@
 			<resource>
 				<directory>src/main/resources</directory>
 				<filtering>false</filtering>
+				<excludes>
+                    <exclude>plugin.yml</exclude>
+                    <exclude>bungee.yml</exclude>
+                    <exclude>votingpluginversion.yml</exclude>
+                </excludes>
 			</resource>
 		</resources>
 		<sourceDirectory>src/main/java</sourceDirectory>
