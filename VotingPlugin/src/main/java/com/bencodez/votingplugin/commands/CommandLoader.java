@@ -780,36 +780,30 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (sender instanceof Player) {
-					Player player = (Player) sender;
-					plugin.getBukkitScheduler().runTask(plugin, new Runnable() {
 
-						@Override
-						public void run() {
-							player.performCommand("bukkit:version " + plugin.getName());
-						}
-					});
+				StringBuilder msg = new StringBuilder();
 
-				} else {
-					plugin.getBukkitScheduler().runTask(plugin, new Runnable() {
+				// ---- VotingPlugin ----
+				msg.append("VotingPlugin ").append(plugin.getDescription().getVersion());
 
-						@Override
-						public void run() {
-							Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(),
-									"bukkit:version " + plugin.getName());
-						}
-					});
-
+				String vpBuild = plugin.getBuildNumber();
+				if (vpBuild != null && !vpBuild.isEmpty() && !vpBuild.equalsIgnoreCase("NOTSET")) {
+					msg.append(" (build ").append(vpBuild).append(")");
 				}
 
-				sendMessage(sender,
-						"Using AdvancedCore " + plugin.getVersion() + "' built on '" + plugin.getBuildTime());
-				if (!plugin.getAdvancedCoreBuildNumber().equals("NOTSET")) {
-					sendMessage(sender, "AdvancedCore Jenkins build number: " + plugin.getAdvancedCoreBuildNumber());
+				msg.append(" | ");
+
+				// ---- AdvancedCore ----
+				String acVersion = plugin.getAdvancedCoreVersion();
+				msg.append("AdvancedCore ");
+				msg.append((acVersion != null && !acVersion.isEmpty()) ? acVersion : "unknown");
+
+				String acBuild = plugin.getAdvancedCoreBuildNumber();
+				if (acBuild != null && !acBuild.isEmpty() && !acBuild.equalsIgnoreCase("NOTSET")) {
+					msg.append(" (build ").append(acBuild).append(")");
 				}
-				if (!plugin.getBuildNumber().equals("NOTSET")) {
-					sendMessage(sender, "Using VotingPlugin jenkins build: " + plugin.getBuildNumber());
-				}
+
+				sendMessage(sender, msg.toString());
 			}
 		});
 
