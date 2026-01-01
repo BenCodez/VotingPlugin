@@ -508,6 +508,9 @@ public abstract class VoteLogMysqlTable {
 	 * Context format (stable-ish, parseable): VShop:<identifier>:cost=<cost>
 	 *
 	 * Example: VShop:daily_reward:cost=50
+	 * 
+	 * @param identifier Shop item identifier
+	 * @param cost       Cost in points
 	 */
 	public static String voteShopContext(String identifier, int cost) {
 
