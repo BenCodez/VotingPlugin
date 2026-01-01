@@ -1444,7 +1444,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		votingPluginUserManager = new UserManager(this);
 		votingPluginUserManager.addCachingKeys();
 
-		setJenkinsSite("bencodez.com");
 		updateAdvancedCoreHook();
 
 	}

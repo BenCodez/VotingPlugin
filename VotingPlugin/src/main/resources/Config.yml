@@ -597,12 +597,6 @@ BedrockPlayerPrefix: '.'
 # Whether or not to create daily backups. (Only the most recent ones get kept)
 CreateBackups: true
 
-# Automaticly download the latest version
-# Will require a restart to actually update
-# Note: It takes 30-40 minutes before being able to download the latest build
-# You can also use /av download
-AutoDownload: false
-
 # If false plugin will use offline player UUIDs
 # Keep enabled when mixing uuids (Premium and cracked)
 # More info: https://github.com/BenCodez/VotingPlugin/wiki/Online-Offline-Mode
