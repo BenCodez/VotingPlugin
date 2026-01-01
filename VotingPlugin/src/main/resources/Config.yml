@@ -386,6 +386,16 @@ BroadcastBlacklist: []
 # Vote Logging
 ##########################################
 
+# Currently logs:
+# - votes
+# - vote shop purchases
+# - AllSite rewards
+# - Almost AllSite rewards
+# - Top Voter rewards
+# - Milestone rewards
+# - Cumulative rewards
+# - VoteStreaks (not the old version)
+
 VoteLogging:
   # If enabled, will log votes in mysql
   # Enable on backend servers to access commands

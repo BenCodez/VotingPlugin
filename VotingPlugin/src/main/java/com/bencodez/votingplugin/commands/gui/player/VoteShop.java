@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.commands.gui.player;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -17,6 +18,7 @@ import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.events.VoteShopPurchaseEvent;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class VoteShop extends GUIHandler {
@@ -146,6 +148,12 @@ public class VoteShop extends GUIHandler {
 											user.sendMessage(PlaceholderUtils.replacePlaceHolder(
 													plugin.getShopFile().getVoteShopPurchase(identifier),
 													placeholders));
+
+											VoteShopPurchaseEvent purcahseEvent = new VoteShopPurchaseEvent(
+													player.getUniqueId(), player.getName(), user, identifier, points);
+
+											Bukkit.getPluginManager().callEvent(purcahseEvent);
+
 											if (limit > 0) {
 												user.setVoteShopIdentifierLimit(identifier,
 														user.getVoteShopIdentifierLimit(identifier) + 1);

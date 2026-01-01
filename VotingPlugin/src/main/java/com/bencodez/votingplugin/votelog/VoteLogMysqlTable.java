@@ -36,7 +36,10 @@ public abstract class VoteLogMysqlTable {
 
 		// Reward triggers
 		ALL_SITES_REWARD, ALMOST_ALL_SITES_REWARD, FIRST_VOTE_REWARD, FIRST_VOTE_TODAY_REWARD, CUMULATIVE_REWARD,
-		MILESTONE_REWARD, VOTE_STREAK_REWARD, TOP_VOTER_REWARD
+		MILESTONE_REWARD, VOTE_STREAK_REWARD, TOP_VOTER_REWARD,
+
+		// VoteShop
+		VOTESHOP_PURCHASE
 	}
 
 	public enum VoteLogStatus {
@@ -189,7 +192,8 @@ public abstract class VoteLogMysqlTable {
 			alterColumnType("event", "VARCHAR(64) NOT NULL DEFAULT '" + VoteLogEvent.VOTE_RECEIVED.name() + "'");
 
 			checkColumn("context", DataType.STRING);
-			alterColumnType("context", "VARCHAR(128) NULL");
+			// CHANGED: allow more space for voteshop purchase metadata
+			alterColumnType("context", "VARCHAR(255) NULL");
 
 			checkColumn("status", DataType.STRING);
 			alterColumnType("status", "VARCHAR(16)");
@@ -486,6 +490,42 @@ public abstract class VoteLogMysqlTable {
 			return baseContext;
 		}
 		return baseContext + ":" + timeType;
+	}
+
+	// ---- VoteShop helpers ----
+
+	private static String limit(String s, int max) {
+		if (s == null) {
+			return "";
+		}
+		if (s.length() <= max) {
+			return s;
+		}
+		return s.substring(0, max);
+	}
+
+	/**
+	 * Context format (stable-ish, parseable): VShop:<identifier>:cost=<cost>
+	 *
+	 * Example: VShop:daily_reward:cost=50
+	 */
+	public static String voteShopContext(String identifier, int cost) {
+
+		identifier = safeStr(identifier);
+
+		StringBuilder sb = new StringBuilder();
+		sb.append("VShop:").append(identifier.replace(":", "_")).append(":cost=").append(cost);
+
+		return limit(sb.toString(), 240);
+	}
+
+	public void logVoteShopPurchase(String playerUuid, String playerName, long timeMillis, String identifier,
+			int cost) {
+
+		String ctx = voteShopContext(identifier, cost);
+
+		logEvent(null, VoteLogEvent.VOTESHOP_PURCHASE, ctx, VoteLogStatus.IMMEDIATE, "", playerUuid, playerName,
+				timeMillis, 0);
 	}
 
 	public String logVote(UUID voteUUID, VoteLogStatus status, String service, String playerUuid, String playerName,
