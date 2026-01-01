@@ -76,6 +76,22 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean discordSRVTopVoterAllTimeEnabled = false;
 
+	@ConfigDataBoolean(path = "DiscordSRV.TopVoter.AllTime.NewMessageOnUpdate")
+	@Getter
+	private boolean discordSRVTopVoterAllTimeNewMessageOnUpdate = false;
+
+	@ConfigDataBoolean(path = "DiscordSRV.TopVoter.Monthly.NewMessageOnUpdate")
+	@Getter
+	private boolean discordSRVTopVoterMonthlyNewMessageOnUpdate = false;
+
+	@ConfigDataBoolean(path = "DiscordSRV.TopVoter.Weekly.NewMessageOnUpdate")
+	@Getter
+	private boolean discordSRVTopVoterWeeklyNewMessageOnUpdate = false;
+
+	@ConfigDataBoolean(path = "DiscordSRV.TopVoter.Daily.NewMessageOnUpdate")
+	@Getter
+	private boolean discordSRVTopVoterDailyNewMessageOnUpdate = false;
+
 	@ConfigDataLong(path = "DiscordSRV.TopVoter.AllTime.Channel")
 	@Getter
 	private long discordSRVTopVoterAllTimeChannel = 0;
@@ -135,7 +151,7 @@ public class Config extends YMLFile {
 	@ConfigDataString(path = "DiscordSRV.TopVoter.Daily.RankDisplay")
 	@Getter
 	private String discordSRVTopVoterDailyRankDisplay = "%rank%: %player% - %votes% Votes";
-	
+
 	// VoteLogging configuration section - minimal options mirror Config.yml
 	@ConfigDataBoolean(path = "VoteLogging.Enabled")
 	@Getter
@@ -166,6 +182,21 @@ public class Config extends YMLFile {
 			return isDiscordSRVTopVoterWeeklyEnabled();
 		case Daily:
 			return isDiscordSRVTopVoterDailyEnabled();
+		default:
+			return false;
+		}
+	}
+
+	public boolean isDiscordSRVTopVoterNewMessageOnUpdate(TopVoter topVoter) {
+		switch (topVoter) {
+		case AllTime:
+			return isDiscordSRVTopVoterAllTimeNewMessageOnUpdate();
+		case Monthly:
+			return isDiscordSRVTopVoterMonthlyNewMessageOnUpdate();
+		case Weekly:
+			return isDiscordSRVTopVoterWeeklyNewMessageOnUpdate();
+		case Daily:
+			return isDiscordSRVTopVoterDailyNewMessageOnUpdate();
 		default:
 			return false;
 		}
@@ -888,4 +919,3 @@ public class Config extends YMLFile {
 	}
 
 }
-

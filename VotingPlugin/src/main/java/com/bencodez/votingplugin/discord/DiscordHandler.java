@@ -98,6 +98,7 @@ public class DiscordHandler {
 
 		String title = plugin.getConfigFile().getDiscordSRVTopVoterTitle(top);
 		String rankDisplay = plugin.getConfigFile().getDiscordSRVTopVoterRankDisplay(top);
+		boolean newMessage = plugin.getConfigFile().isDiscordSRVTopVoterNewMessageOnUpdate(top);
 
 		EmbedBuilder eb = new EmbedBuilder().setTitle(title).setColor(Color.CYAN).setTimestamp(Instant.now());
 
@@ -118,11 +119,13 @@ public class DiscordHandler {
 			return;
 		}
 
-		if (topVoterMessageIds.get(top) <= 0) {
+		if (topVoterMessageIds.get(top) <= 0 || newMessage) {
 			channel.sendMessageEmbeds(eb.build()).queue(msg -> {
 				long newId = msg.getIdLong();
 				topVoterMessageIds.put(top, newId);
-				plugin.getServerData().setTopVoterMessageId(top, newId);
+				if (!newMessage) {
+					plugin.getServerData().setTopVoterMessageId(top, newId);
+				}
 				plugin.getLogger().info("Posted new Top Voters  " + top.toString() + " (ID: " + newId + ")");
 			}, err -> plugin.getLogger()
 					.warning("Error sending Top Voters " + top.toString() + ": " + err.getMessage()));

@@ -669,6 +669,9 @@ DiscordSRV:
       # If true, will send top voter messages to discord
       # Will send a message show top 10 voters
       Enabled: false
+      # When true, will only send a message when there is a new top voter
+      # If false, will update previous message
+      NewMessageOnUpdate: false
     
       # DiscordSRV channel to send messages to
       Channel: 1234565 # Replace with your channel ID
@@ -680,6 +683,9 @@ DiscordSRV:
       # If true, will send top voter messages to discord
       # Will send a message show top 10 voters
       Enabled: false
+      # When true, will only send a message when there is a new top voter
+      # If false, will update previous message
+      NewMessageOnUpdate: false
     
       # DiscordSRV channel to send messages to
       Channel: 1234565 # Replace with your channel ID
@@ -691,6 +697,9 @@ DiscordSRV:
       # If true, will send top voter messages to discord
       # Will send a message show top 10 voters
       Enabled: false
+      # When true, will only send a message when there is a new top voter
+      # If false, will update previous message
+      NewMessageOnUpdate: false
     
       # DiscordSRV channel to send messages to
       Channel: 1234565 # Replace with your channel ID
@@ -702,6 +711,9 @@ DiscordSRV:
       # If true, will send top voter messages to discord
       # Will send a message show top 10 voters
       Enabled: false
+      # When true, will only send a message when there is a new top voter
+      # If false, will update previous message
+      NewMessageOnUpdate: false
     
       # DiscordSRV channel to send messages to
       Channel: 1234565 # Replace with your channel ID
