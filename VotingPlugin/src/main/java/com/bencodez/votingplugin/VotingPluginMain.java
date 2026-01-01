@@ -1527,7 +1527,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		pm.registerEvents(new PlayerVoteListener(this), this);
 		pm.registerEvents(new PlayerPostVoteLoggerListener(this), this);
 		pm.registerEvents(new PlayerSpecialRewardLoggerListener(this), this);
-		pm.registerEvents(new new VoteShopPurchaseLoggerListener(this), this);
+		pm.registerEvents(new VoteShopPurchaseLoggerListener(this), this);
 		pm.registerEvents(new SignChange(this), this);
 		pm.registerEvents(new BlockBreak(this), this);
 		if (!plugin.getConfigFile().isDisableInteractEvent()) {
