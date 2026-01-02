@@ -73,9 +73,6 @@ public class AdminVotePlaceholdersPlayer extends GUIHandler {
 		ArrayList<String> msg = new ArrayList<>();
 		msg.add("&cPlaceholders:");
 		VotingPluginUser placeholderUser = user;
-		if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
-			placeholderUser = plugin.getVotingPluginUserManager().getVotingPluginUser(user.getPrimaryAccount());
-		}
 		for (PlaceHolder<VotingPluginUser> placeholder : plugin.getPlaceholders().getPlaceholders()) {
 			String identifier = placeholder.getIdentifier().toLowerCase();
 			if (identifier.endsWith("_")) {

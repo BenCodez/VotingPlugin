@@ -981,19 +981,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	/**
-	 * Gets the primary account UUID.
-	 *
-	 * @return the primary account UUID
-	 */
-	public java.util.UUID getPrimaryAccount() {
-		String s = getData().getString("PrimaryAccount", isCacheData(), isWaitForCache());
-		if (s != null && !s.isEmpty()) {
-			return java.util.UUID.fromString(s);
-		}
-		return null;
-	}
-
-	/**
 	 * Gets the number of sites not voted on.
 	 *
 	 * @return the number of sites not voted on
@@ -1278,15 +1265,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		default:
 			return false;
 		}
-	}
-
-	/**
-	 * Checks if the user has a primary account.
-	 *
-	 * @return true if the user has a primary account, false otherwise
-	 */
-	public boolean hasPrimaryAccount() {
-		return getPrimaryAccount() != null;
 	}
 
 	/**
@@ -1814,19 +1792,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public void setPoints(int value, boolean async) {
 		getUserData().setInt(getPointsPath(), value, false, async);
-	}
-
-	/**
-	 * Sets the primary account UUID.
-	 *
-	 * @param uuid the primary account UUID
-	 */
-	public void setPrimaryAccount(java.util.UUID uuid) {
-		if (uuid != null) {
-			getData().setString("PrimaryAccount", uuid.toString());
-		} else {
-			getData().setString("PrimaryAccount", "");
-		}
 	}
 
 	/**

@@ -477,13 +477,6 @@ LogVotesToFile: false
 # Placeholderapi placeholders settings
 ###########################################
 
-# When enabled the command /vote setprimaryaccount (playername)
-# will be shown (after restart)
-# Primary account will be used instead of the players account to get
-# placeholder and other data such as vote reminding
-# Mainly to be used for alts and such
-UsePrimaryAccountForPlaceholders: false
-
 # Valid Options:
 # AUTOALL - Auto cache placeholders after they have been used and cache all players placeholder all the time
 # AUTO - Auto cache after they have been used and cache online players placeholders (Recommended)
@@ -593,6 +586,8 @@ AddTotals: true
 AddTotalsOffline: true
 
 # If false, votestreaks will be disabled
+# This only applies to the old votestreak system
+# the new system only is more efficient
 UseVoteStreaks: true
 
 # If false, storing best totals will be disabled
@@ -605,6 +600,7 @@ UseHighestTotals: true
 BedrockPlayerPrefix: '.'
 
 # Whether or not to create daily backups. (Only the most recent ones get kept)
+# Does not backup mysql data
 CreateBackups: true
 
 # If false plugin will use offline player UUIDs
@@ -920,15 +916,5 @@ PurgeMin: 90
 # If enabled, data is repulled from storage on vote shop purchase
 # This prevents possible exploits with vote shop
 ExtraVoteShopCheck: true
-
-# Options for request api
-# Current methods:
-# ANVIL
-# BOOK
-# CHAT
-# This is mainly used for admin gui's to type in values
-RequestAPI:
-  DefaultMethod: 'Anvil'
-  DisabledMethods: []
 
 

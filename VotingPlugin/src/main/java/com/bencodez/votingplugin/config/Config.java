@@ -503,10 +503,6 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean useJavascriptPlaceholders = false;
 
-	@ConfigDataBoolean(path = "UsePrimaryAccountForPlaceholders")
-	@Getter
-	private boolean usePrimaryAccountForPlaceholders = false;
-
 	@ConfigDataBoolean(path = "UseVoteGUIMainCommand")
 	@Getter
 	private boolean useVoteGUIMainCommand = false;

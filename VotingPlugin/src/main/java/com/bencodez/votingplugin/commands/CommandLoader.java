@@ -2266,29 +2266,6 @@ public class CommandLoader {
 	 */
 	private void loadVoteCommand() {
 		plugin.setVoteCommand(new ArrayList<>());
-		if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders()) {
-			plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "SetPrimaryAccount", "(player)" },
-					"VotingPlugin.Commands.Vote.SetPrimaryAccount|" + modPerm, "Set primary account", false) {
-
-				@Override
-				public void execute(CommandSender sender, String[] args) {
-					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(sender.getName());
-					if (args[1].equals("none")) {
-						user.setPrimaryAccount(null);
-						sendMessage(sender, "&cRemoved primary account");
-					} else {
-						try {
-							user.setPrimaryAccount(
-									java.util.UUID.fromString(PlayerManager.getInstance().getUUID(args[1])));
-							sendMessage(sender, "&cPrimary account set");
-						} catch (Exception e) {
-							e.printStackTrace();
-							sendMessage(sender, "Failed to set primary account: " + e.getMessage());
-						}
-					}
-				}
-			});
-		}
 		plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "Help&?" },
 				"VotingPlugin.Commands.Vote.Help|" + playerPerm, "View help page") {
 

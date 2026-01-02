@@ -42,11 +42,7 @@ public class MVdWPlaceholders {
 								public String onPlaceholderReplace(PlaceholderReplaceEvent event) {
 									VotingPluginUser user = plugin.getVotingPluginUserManager()
 											.getVotingPluginUser(event.getOfflinePlayer());
-									if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders()
-											&& user.hasPrimaryAccount()) {
-										user = plugin.getVotingPluginUserManager()
-												.getVotingPluginUser(user.getPrimaryAccount());
-									}
+
 									return place.placeholderRequest(user,
 											event.getPlaceholder().substring("VotingPlugin_".length()));
 								}

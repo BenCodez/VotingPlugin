@@ -43,11 +43,6 @@ public class VoteURL extends GUIHandler {
 		if (user == null && player instanceof Player) {
 			this.user = plugin.getVotingPluginUserManager().getVotingPluginUser((Player) player);
 		}
-		if (player != null && user != null && player.getName().equals(user.getPlayerName())) {
-			if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders() && user.hasPrimaryAccount()) {
-				user = plugin.getVotingPluginUserManager().getVotingPluginUser(user.getPrimaryAccount());
-			}
-		}
 	}
 
 	@Override

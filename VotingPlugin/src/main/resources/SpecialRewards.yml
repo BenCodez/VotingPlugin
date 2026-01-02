@@ -138,7 +138,7 @@ MileStones:
 # stored for each votestreak by the id name
 VoteStreaks:
   # Id name, data is stored under this name
-  # On proxy setups keep different for each server unless you want one global streak
+  # On proxy setups keep different for each server unless you want one global streak/reward
   Daily3Votes: 
     Type: DAILY
     Enabled: false
@@ -152,8 +152,8 @@ VoteStreaks:
       - say test
 
    
-# To be replaced with new VoteStreams system later
-# Recommended to not use at this time as it's less reliable'
+# To be replaced with new VoteStreams system above
+# Recommended to not use at this time as it's less reliable
 VoteStreak:
   # Valid options: Day, Week, Month
   Day:

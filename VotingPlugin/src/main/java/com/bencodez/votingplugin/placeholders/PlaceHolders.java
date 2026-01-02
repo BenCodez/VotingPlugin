@@ -174,11 +174,6 @@ public class PlaceHolders {
 				}
 			}
 		}
-		if (plugin.getConfigFile().isUsePrimaryAccountForPlaceholders()) {
-			if (user.hasPrimaryAccount()) {
-				user = plugin.getVotingPluginUserManager().getVotingPluginUser(user.getPrimaryAccount());
-			}
-		}
 
 		UUID uuid = user.getJavaUUID();
 
