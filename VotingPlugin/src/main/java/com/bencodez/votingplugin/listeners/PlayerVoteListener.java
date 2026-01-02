@@ -147,6 +147,12 @@ public class PlayerVoteListener implements Listener {
 		}
 
 		UUID voteUUID = UUID.randomUUID();
+		if (event.isBungee() && event.getBungeeTextTotals() != null) {
+			voteUUID = event.getBungeeTextTotals().getVoteUUID();
+			if (voteUUID == null) {
+				voteUUID = UUID.randomUUID();
+			}
+		}
 
 		final String uuid = user.getUUID();
 
