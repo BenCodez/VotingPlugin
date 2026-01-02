@@ -20,13 +20,18 @@ import com.bencodez.simpleapi.sql.mysql.queries.Query;
  *
  * Records the "main reward triggers" (not every command executed).
  *
- * Columns: - id (auto increment primary key) - vote_id (correlation id / vote
- * uuid; NOT UNIQUE; may repeat for other events) - vote_time (LONG millis,
- * explicit time event happened) - event (VOTE_RECEIVED default; includes
- * reward-trigger events) - context (which reward/config fired + any extra info
- * like TimeType, ex: "TopVoter:MONTH") - status (IMMEDIATE/CACHED) -
- * cached_total (int, proxy only snapshot; can be 0 on backend) - service -
- * player_uuid - player_name
+ * Columns:
+ * - id (auto increment primary key)
+ * - vote_id (correlation id / vote uuid; NOT UNIQUE; may repeat for other events)
+ * - vote_time (LONG millis, explicit time event happened)
+ * - event (VOTE_RECEIVED default; includes reward-trigger events)
+ * - context (which reward/config fired + any extra info like TimeType, ex: "TopVoter:MONTH")
+ * - status (IMMEDIATE/CACHED)
+ * - cached_total (int, proxy only snapshot; can be 0 on backend)
+ * - service
+ * - server (server name, provided by getServerName())
+ * - player_uuid
+ * - player_name
  */
 public abstract class VoteLogMysqlTable {
 
@@ -61,6 +66,14 @@ public abstract class VoteLogMysqlTable {
 	public abstract void logInfo1(String string);
 
 	public abstract void debug1(SQLException e);
+
+	/**
+	 * Server name to store in the vote log for ALL writes.
+	 * (Typically: plugin.getOptions().getServer())
+	 *
+	 * @return server name (may be blank)
+	 */
+	public abstract String getServerName();
 
 	public VoteLogMysqlTable(String tableName, MysqlConfig config, boolean debug) {
 		this.debug = debug;
@@ -188,6 +201,10 @@ public abstract class VoteLogMysqlTable {
 			checkColumn("service", DataType.STRING);
 			alterColumnType("service", "VARCHAR(64)");
 
+			// NEW: server column (from getServerName())
+			checkColumn("server", DataType.STRING);
+			alterColumnType("server", "VARCHAR(64)");
+
 			checkColumn("event", DataType.STRING);
 			alterColumnType("event", "VARCHAR(64) NOT NULL DEFAULT '" + VoteLogEvent.VOTE_RECEIVED.name() + "'");
 
@@ -204,6 +221,7 @@ public abstract class VoteLogMysqlTable {
 			tryCreateIndex("idx_vote_time", "(`vote_time`)");
 			tryCreateIndex("idx_uuid_time", "(`player_uuid`,`vote_time`)");
 			tryCreateIndex("idx_service_time", "(`service`,`vote_time`)");
+			tryCreateIndex("idx_server_time", "(`server`,`vote_time`)");
 			tryCreateIndex("idx_status_time", "(`status`,`vote_time`)");
 			tryCreateIndex("idx_event_time", "(`event`,`vote_time`)");
 			tryCreateIndex("idx_context_time", "(`context`,`vote_time`)");
@@ -253,7 +271,7 @@ public abstract class VoteLogMysqlTable {
 		boolean useCutoff = days > 0;
 		long cutoff = useCutoff ? System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L) : 0;
 
-		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, context, status, cached_total "
+		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, server, event, context, status, cached_total "
 				+ "FROM `" + getName() + "` " + (useCutoff ? "WHERE vote_time >= ? " : "")
 				+ "ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
 
@@ -274,7 +292,7 @@ public abstract class VoteLogMysqlTable {
 		boolean useCutoff = days > 0;
 		long cutoff = useCutoff ? System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L) : 0;
 
-		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, context, status, cached_total "
+		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, server, event, context, status, cached_total "
 				+ "FROM `" + getName() + "` WHERE event=? " + (useCutoff ? "AND vote_time >= ? " : "")
 				+ "ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
 
@@ -292,7 +310,7 @@ public abstract class VoteLogMysqlTable {
 		boolean useCutoff = days > 0;
 		long cutoff = useCutoff ? System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L) : 0;
 
-		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, context, status, cached_total "
+		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, server, event, context, status, cached_total "
 				+ "FROM `" + getName() + "` WHERE 1=1 " + (eventFilter != null ? "AND event=? " : "")
 				+ (useCutoff ? "AND vote_time >= ? " : "") + "ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
 
@@ -480,6 +498,15 @@ public abstract class VoteLogMysqlTable {
 		return s == null ? "" : s;
 	}
 
+	private String resolveServerName() {
+		try {
+			return safeStr(getServerName());
+		} catch (Exception e) {
+			// Be defensive: vote logging should never crash caller if server name lookup fails
+			return "";
+		}
+	}
+
 	public static String withTimeType(String baseContext, String timeType) {
 		baseContext = safeStr(baseContext);
 		timeType = safeStr(timeType);
@@ -507,7 +534,7 @@ public abstract class VoteLogMysqlTable {
 	/**
 	 *
 	 * Example: VShop:daily_reward:cost=50
-	 * 
+	 *
 	 * @param identifier Shop item identifier
 	 * @param cost       Cost in points
 	 * @return Context string
@@ -522,11 +549,9 @@ public abstract class VoteLogMysqlTable {
 		return limit(sb.toString(), 240);
 	}
 
-	public void logVoteShopPurchase(String playerUuid, String playerName, long timeMillis, String identifier,
-			int cost) {
-
+	public void logVoteShopPurchase(String playerUuid, String playerName, long timeMillis, String identifier, int cost) {
 		String ctx = voteShopContext(identifier, cost);
-
+		// server always comes from getServerName() during write
 		logEvent(null, VoteLogEvent.VOTESHOP_PURCHASE, ctx, VoteLogStatus.IMMEDIATE, "", playerUuid, playerName,
 				timeMillis, 0);
 	}
@@ -553,6 +578,9 @@ public abstract class VoteLogMysqlTable {
 			service = "";
 		}
 
+		// IMPORTANT: server for ALL writes comes from getServerName()
+		String server = resolveServerName();
+
 		StringBuilder sb = new StringBuilder();
 		sb.append("INSERT INTO `").append(getName()).append("` SET ");
 
@@ -566,6 +594,7 @@ public abstract class VoteLogMysqlTable {
 		sb.append("`player_uuid`='").append(playerUuid.toString()).append("', ");
 		sb.append("`player_name`='").append(escape(playerName)).append("', ");
 		sb.append("`service`='").append(escape(service)).append("', ");
+		sb.append("`server`='").append(escape(server)).append("', ");
 		sb.append("`event`='").append(event.name()).append("', ");
 
 		if (context != null && !context.isEmpty()) {
@@ -595,6 +624,9 @@ public abstract class VoteLogMysqlTable {
 			event = VoteLogEvent.VOTE_RECEIVED;
 		}
 
+		// IMPORTANT: server for ALL writes comes from getServerName()
+		String server = resolveServerName();
+
 		StringBuilder sb = new StringBuilder();
 		sb.append("INSERT INTO `").append(getName()).append("` SET ");
 
@@ -610,6 +642,7 @@ public abstract class VoteLogMysqlTable {
 
 		// Not needed for these: keep them stable/default
 		sb.append("`service`='', ");
+		sb.append("`server`='").append(escape(server)).append("', ");
 		sb.append("`event`='").append(event.name()).append("', ");
 
 		if (context != null && !context.isEmpty()) {
@@ -653,8 +686,7 @@ public abstract class VoteLogMysqlTable {
 
 	public void logFirstVoteTodayReward(UUID voteUUID, String playerUuid, String playerName, long timeMillis,
 			String rewardKey) {
-		logEvent(voteUUID, VoteLogEvent.FIRST_VOTE_TODAY_REWARD, safeStr(rewardKey), playerUuid, playerName,
-				timeMillis);
+		logEvent(voteUUID, VoteLogEvent.FIRST_VOTE_TODAY_REWARD, safeStr(rewardKey), playerUuid, playerName, timeMillis);
 	}
 
 	public void logCumulativeReward(UUID voteUUID, String playerUuid, String playerName, long timeMillis,
@@ -704,7 +736,7 @@ public abstract class VoteLogMysqlTable {
 	}
 
 	public VoteLogEntry getByVoteId(String voteId) {
-		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, context, status, cached_total "
+		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, server, event, context, status, cached_total "
 				+ "FROM `" + getName() + "` WHERE vote_id=? ORDER BY vote_time DESC, id DESC LIMIT 1;";
 		List<VoteLogEntry> rows = query(sql, new Object[] { voteId });
 		return rows.isEmpty() ? null : rows.get(0);
@@ -717,7 +749,7 @@ public abstract class VoteLogMysqlTable {
 		boolean useCutoff = days > 0;
 		long cutoff = useCutoff ? System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L) : 0;
 
-		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, context, status, cached_total "
+		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, server, event, context, status, cached_total "
 				+ "FROM `" + getName() + "` WHERE vote_id=? " + (useCutoff ? "AND vote_time >= ? " : "")
 				+ "ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
 
@@ -731,7 +763,7 @@ public abstract class VoteLogMysqlTable {
 		if (limit <= 0) {
 			limit = 10;
 		}
-		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, context, status, cached_total "
+		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, server, event, context, status, cached_total "
 				+ "FROM `" + getName() + "` ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
 		return query(sql, new Object[] {});
 	}
@@ -751,7 +783,7 @@ public abstract class VoteLogMysqlTable {
 		boolean useCutoff = days > 0;
 		long cutoff = useCutoff ? System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L) : 0;
 
-		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, context, status, cached_total "
+		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, server, event, context, status, cached_total "
 				+ "FROM `" + getName() + "` WHERE service=? " + (event != null ? "AND event=? " : "")
 				+ (useCutoff ? "AND vote_time >= ? " : "") + "ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
 
@@ -780,7 +812,7 @@ public abstract class VoteLogMysqlTable {
 		boolean useCutoff = days > 0;
 		long cutoff = useCutoff ? System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L) : 0;
 
-		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, event, context, status, cached_total "
+		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, server, event, context, status, cached_total "
 				+ "FROM `" + getName() + "` WHERE player_name=? " + (event != null ? "AND event=? " : "")
 				+ (useCutoff ? "AND vote_time >= ? " : "") + "ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
 
@@ -929,8 +961,9 @@ public abstract class VoteLogMysqlTable {
 
 			while (rs.next()) {
 				out.add(new VoteLogEntry(rs.getString("vote_id"), rs.getLong("vote_time"), rs.getString("player_uuid"),
-						rs.getString("player_name"), rs.getString("service"), rs.getString("event"),
-						rs.getString("context"), rs.getString("status"), rs.getInt("cached_total")));
+						rs.getString("player_name"), rs.getString("service"), rs.getString("server"),
+						rs.getString("event"), rs.getString("context"), rs.getString("status"),
+						rs.getInt("cached_total")));
 			}
 			rs.close();
 			return out;
@@ -946,18 +979,20 @@ public abstract class VoteLogMysqlTable {
 		public final String playerUuid;
 		public final String playerName;
 		public final String service;
+		public final String server;
 		public final String event;
 		public final String context;
 		public final String status;
 		public final int proxyCachedTotal;
 
 		public VoteLogEntry(String voteId, long voteTime, String playerUuid, String playerName, String service,
-				String event, String context, String status, int proxyCachedTotal) {
+				String server, String event, String context, String status, int proxyCachedTotal) {
 			this.voteId = voteId;
 			this.voteTime = voteTime;
 			this.playerUuid = playerUuid;
 			this.playerName = playerName;
 			this.service = service;
+			this.server = server;
 			this.event = event;
 			this.context = context;
 			this.status = status;

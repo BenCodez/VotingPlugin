@@ -1827,6 +1827,15 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					public void debug1(SQLException e) {
 						debug(e);
 					}
+
+					@Override
+					public String getServerName() {
+						if (plugin.getBungeeSettings().isUseBungeecoord()) {
+							return plugin.getBungeeSettings().getServer();
+						} else {
+							return "";
+						}
+					}
 				};
 			} else {
 				voteLogMysqlTable = new VoteLogMysqlTable("votingplugin_votelog",
@@ -1846,6 +1855,15 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					@Override
 					public void debug1(SQLException e) {
 						debug(e);
+					}
+
+					@Override
+					public String getServerName() {
+						if (plugin.getBungeeSettings().isUseBungeecoord()) {
+							return plugin.getBungeeSettings().getServer();
+						} else {
+							return "";
+						}
 					}
 				};
 			}

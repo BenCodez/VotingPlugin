@@ -501,21 +501,6 @@ public class VoteStreakHandler {
 		}
 	}
 
-	private ConfigurationSection getOrCreateVoteStreakSection(String idKey) {
-		ConfigurationSection root = plugin.getSpecialRewardsConfig().getData();
-
-		ConfigurationSection voteStreaks = root.getConfigurationSection("VoteStreaks");
-		if (voteStreaks == null) {
-			voteStreaks = root.createSection("VoteStreaks");
-		}
-
-		ConfigurationSection sec = voteStreaks.getConfigurationSection(idKey);
-		if (sec == null) {
-			sec = voteStreaks.createSection(idKey);
-		}
-		return sec;
-	}
-
 	public final class VoteStreakConfigLoader {
 
 		private final Pattern idPattern = Pattern.compile("^[A-Za-z0-9_\\-]+$"); // no spaces
@@ -585,7 +570,7 @@ public class VoteStreakHandler {
 				int allowMissedAmount = Math.max(0, defSec.getInt("AllowMissedAmount", 0));
 				int allowMissedPeriod = Math.max(0, defSec.getInt("AllowMissedPeriod", 0));
 
-				ConfigurationSection editableTarget = getOrCreateVoteStreakSection(id);
+				//ConfigurationSection editableTarget = getOrCreateVoteStreakSection(id);
 
 				VoteStreakDefinition def = new VoteStreakDefinition(id, type, enabled, amountInterval, votesRequired,
 						allowMissedAmount, allowMissedPeriod);

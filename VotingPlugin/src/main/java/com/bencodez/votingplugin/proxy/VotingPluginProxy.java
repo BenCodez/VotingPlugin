@@ -801,6 +801,11 @@ public abstract class VotingPluginProxy {
 							e.printStackTrace();
 						}
 					}
+
+					@Override
+					public String getServerName() {
+						return "Proxy";
+					}
 				};
 			} else {
 				voteLogMysqlTable = new VoteLogMysqlTable("votingplugin_votelog", getVoteLoggingMySQLConfig(),
@@ -821,6 +826,11 @@ public abstract class VotingPluginProxy {
 						if (getConfig().getDebug()) {
 							e.printStackTrace();
 						}
+					}
+
+					@Override
+					public String getServerName() {
+						return "Proxy";
 					}
 
 				};

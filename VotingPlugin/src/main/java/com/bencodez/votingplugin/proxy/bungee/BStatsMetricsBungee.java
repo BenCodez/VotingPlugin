@@ -622,7 +622,6 @@ public class BStatsMetricsBungee {
 	 *
 	 * @return The server specific data.
 	 */
-	@SuppressWarnings("deprecation")
 	private JsonObject getServerData() {
 		// Minecraft specific data
 		int playerAmount = Math.min(plugin.getProxy().getOnlineCount(), 500);
