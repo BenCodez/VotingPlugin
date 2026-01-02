@@ -1,20 +1,105 @@
-# VotingPlugin by BenCodez
-# Main Config
-# See wiki for help: 
-# https://github.com/BenCodez/VotingPlugin/wiki
-# Config is sorted in sections
-# Use Control + F to search with Notepad++
-
+####################################################################################################
+# VotingPlugin – Main Config (Config.yml)
+# Author: BenCodez
+#
+# This is the main configuration file for VotingPlugin.
+# It controls storage, reminders, top voter tracking, formatting/messages,
+# and advanced plugin behavior.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 📑 Config Index (matches this file)
+# ─────────────────────────────────────────────────────────────────────────────
+#  • User storage (SQLite / MySQL)
+#  • Basic settings
+#  • VoteReminding
+#  • Vote Logging
+#  • Top Voter
+#  • Login options
+#  • Extra features
+#  • Month Date Totals
+#  • Skull settings
+#  • Extra checks
+#  • Purge settings
+#  • DiscordSRV settings
+#  • Format options
+#  • Background task settings
+#  • Command / Permission settings
+#  • Inventory controls
+#  • PlaceholderAPI settings
+#  • Additional / advanced settings
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# ✅ Rewards Setup (Inline & Special Rewards)
+# ─────────────────────────────────────────────────────────────────────────────
+# • Reward files/folders are OPTIONAL and never required.
+# • MOST vote rewards are configured INLINE per site in votesites.yml:
+#     Rewards:
+#       Commands:
+#         - 'eco give %player% 100'
+#
+# • Advanced reward systems (Top Voter, Milestones, Cumulative, AllSite, etc.)
+#   can also be fully configured in specialrewards.yml.
+#
+# Inline rewards documentation:
+#   https://github.com/BenCodez/VotingPlugin/wiki/Rewards
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 🌐 Proxy / Network Setups (Velocity / Bungee / Multi-server)
+# ─────────────────────────────────────────────────────────────────────────────
+# • Use MYSQL for shared data across servers.
+# • Avoid using MySQL Prefix in proxy setups unless you know exactly why
+#   (it can split data per server / cause unexpected behavior in shared setups).
+# • Each backend server MUST have a unique ServerName set in BungeeSettings.yml.
+#   This is used to correctly identify which server processed the vote/reward.
+# • Rewards are typically processed on BACKEND servers, not the proxy.
+# • Enable VoteLogging on backend servers if you plan to use log-related commands.
+# • Keep configs consistent across backend servers to avoid confusing behavior.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 📁 File Layout / Where Things Live
+# ─────────────────────────────────────────────────────────────────────────────
+# VotingPlugin uses multiple files for organization:
+# • config.yml             – Core plugin behavior (this file)
+# • votesites.yml          – Vote sites + inline vote rewards
+# • specialrewards.yml     – Top voter, milestone, cumulative, and special rewards
+# • rewards/ (optional)    – Optional reward organization only
+#
+# File layout overview:
+#   https://github.com/BenCodez/VotingPlugin/wiki/File-Layout
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 🧠 Editing Tips
+# ─────────────────────────────────────────────────────────────────────────────
+# • Use Ctrl + F to search quickly.
+# • Most options are simple true / false toggles.
+# • Setting a message to '' disables it (empty string).
+# • Removing a config entry causes the plugin to fall back to its internal default.
+#   (Only remove entries intentionally, as defaults may change between versions.)
+# • If you want to keep your place in the file, comment out a line instead of deleting it.
+# • Some options require a restart (comments will mention this).
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 📘 Documentation
+# ─────────────────────────────────────────────────────────────────────────────
+# GitHub Wiki (primary):
+#   https://github.com/BenCodez/VotingPlugin/wiki
+#
+# Second / New Wiki (WIP):
+#   https://wiki.bencodez.com/en/VotingPlugin
+#
+####################################################################################################
 
 ###########################################
-# User storage
+# User Storage
+# Controls where player vote data is stored
 ###########################################
+
 # Valid Options:
-# - SQLITE 
+# - SQLITE
 # - MYSQL
 DataStorage: SQLITE
 
-# Information for mysql
+# Information for MySQL
 MySQL:
   Host: ''
   # Default port is 3306
@@ -30,24 +115,22 @@ MySQL:
   #Name: ''
 
   # Table name prefix (useful when multiple servers share one DB)
-  # Don't use with proxy setups
+  # Don't use with proxy setups (see header notes above)
   Prefix: ''
 
   # --- Driver / security options ---
   # UseSSL: false
   # PublicKeyRetrieval: false          # Needed on some MySQL setups with caching_sha2_password
-  
+
   # --- Database type ---
   # Options:
   # - MYSQL
   # - MARIADB
   # - POSTGRESQL
   DbType: MYSQL
-  
-  
+
   #Driver: ''                       # Optional custom driver class name
-  
-  
+
   # OUTDATED OPTIONS - kept for backwards compatibility
   # UseMariaDB: false                  # Attempt to use MariaDB driver instead of MySQL (set DbType instead)
 
@@ -68,26 +151,70 @@ MySQL:
   # PoolName: 'VotingPlugin-Hikari'
 
 
+###########################################
+# Basic Settings
+# General plugin behavior and defaults
+###########################################
+
+# Debug levels:
+# NONE
+# INFO
+# EXTRA
+DebugLevel: NONE
+
+# Give VotingPlugin.Player by default
+# Requires restart to take effect
+GiveDefaultPermission: true
+
+# If true, plugin will automatically generate votesites upon getting a vote
+AutoCreateVoteSites: true
+
+# Geyser/Bedrock player support
+# Set prefix used for voting
+# Players should vote with prefix
+# https://github.com/BenCodez/VotingPlugin/wiki/Bedrock-Player-Support
+BedrockPlayerPrefix: '.'
+
+# If false plugin will use offline player UUIDs
+# Keep enabled when mixing UUIDs (Premium and cracked)
+# More info: https://github.com/BenCodez/VotingPlugin/wiki/Online-Offline-Mode
+OnlineMode: true
+
+# If true, /vote will open /vote gui by default
+UseVoteGUIMainCommand: false
+
+# Whether or not to create daily backups. (Only the most recent ones get kept)
+# Does not backup MySQL data
+CreateBackups: true
+
+# Load command aliases, such as /avgui
+# Requires restart to take effect
+LoadCommandAliases: true
+
+# Number of points to give on vote
+# Set to 0 to give no points
+PointsOnVote: 1
 
 ###########################################
-# VoteReminding
+# Vote Reminding
+# Reminds players when they are able to vote again
 ###########################################
 
 # Configuration for VoteReminding
-# By default this should be all setup to work
+# By default this should be all set up to work
 # as long as vote delays are done properly in votesites.yml
 VoteReminding:
   # Enable vote reminding
-  # This will remind player when he can vote on all sites
-  # Requires VoteDelays to be setup properly
+  # This will remind player when they can vote on all sites
+  # Requires VoteDelays to be set up properly
   # Use /vote next to see when you can be reminded
   # Players require the perm "VotingPlugin.Login.RemindVotes" or "VotingPlugin.Player"
   # To remind if all votesites are available (rather than any) use the permission "VotingPlugin.Login.RemindVotes.All"
   Enabled: true
 
-  # Will remind player on login if he can vote
+  # Will remind player on login if they can vote
   RemindOnLogin: true
-  
+
   # Whether or not to remind only once when the player can vote
   # Does not apply to login reminds.
   RemindOnlyOnce: true
@@ -96,8 +223,7 @@ VoteReminding:
   # Set to -1 to disable
   RemindDelay: 30
 
-  # Run rewards
-  # and have the default message
+  # Run rewards and have the default message
   # Can add titles and more in the reward
   # This can also be edited via /av gui
   Rewards:
@@ -113,14 +239,312 @@ VoteReminding:
     ActionBar:
       Message: '&cRemember to vote'
       Delay: 30
-    
+
 ###########################################
-# Format options
+# Vote Logging
+# Optional logging of votes and rewards (MySQL only)
 ###########################################
-    
-# Common PlacesHolders:
-# Special PlaceHolders will be commented where available
-# %player% = player name  
+
+# Currently logs:
+# - votes
+# - vote shop purchases
+# - AllSite rewards
+# - Almost AllSite rewards
+# - Top Voter rewards
+# - Milestone rewards
+# - Cumulative rewards
+# - VoteStreaks (not the old version)
+
+VoteLogging:
+  # If enabled, will log votes in MySQL
+  # Enable on backend servers to access commands
+  Enabled: false
+  # Purge votes older than X days
+  # Set to -1 to disable automatic purging
+  PurgeDays: 30
+  UseMainMySQL: true
+  # MySQL settings only used if above is false
+
+###########################################
+# Top Voter
+# Tracks and displays top voters by time period
+###########################################
+
+# Top voter blacklist
+# Hide these names from top voter lists
+BlackList:
+- 'Notch'
+
+# If true players with the permission 'VotingPlugin.TopVoter.Ignore' will act
+# as if their name was added on the blacklist above
+# This also applies for players with OP
+TopVoterIgnorePermission: false
+
+# /vote top default data displayed
+# Valid Options: AllTime, Monthly, Weekly, Daily
+VoteTopDefault: Monthly
+
+# Whether or not to have ties on top voter rewards
+TopVoterAwardsTies: true
+
+# These are required to be enabled in order for top voter awards to work and for /vote top
+LoadTopVoter:
+  AllTime: true
+  Monthly: true
+  Weekly: false
+  Daily: false
+
+# Maximum number of players to show on top voter
+# Set to -1 for no limit
+MaxiumNumberOfTopVotersToLoad: 1000
+
+# When top voter awards are given (even if there are none listed) it will store top voters
+# Files will created in TopVoters folder.
+# Monthly top voters are always saved by default now
+StoreTopVoters:
+  Weekly: false
+  Daily: false
+
+# Limit monthly votes to number of days of a month multiplied by the number of sites
+LimitMonthlyVotes: false
+
+###########################################
+# Login Options
+# Controls vote handling during player login
+###########################################
+
+# If true vanished players are treated as if they are offline
+TreatVanishAsOffline: false
+
+# Delays login event, delays vote reminding and more
+# In milliseconds, 1000 = 1 second
+DelayLoginEvent: 0
+
+# Wait until user is logged in with AuthMe or NLogin
+# Requires AuthMe or LoginSecurity or NLogin
+WaitUntilLoggedIn: true
+
+###########################################
+# Extra Features
+# Optional and advanced voting functionality
+###########################################
+
+# Enable per site cooldown events & rewards, requires more resources to use
+# Requires restart
+PerSiteCoolDownEvents: false
+
+# Queue votes during a time change (doesn't apply to bungee voting)
+# Votes will be given when time change is completed
+QueueVotesDuringTimeChange: false
+
+# Experimental feature
+# Uses https://github.com/BenCodez/VotingPlugin/wiki/Minecraft-Server-Lists
+# Not all voting sites use the domain name as the service sites
+# This feature is an attempt to ease setup for new users by matching domain name to actual service site
+AdvancedServiceSiteHandling: false
+
+# If false, votestreaks will be disabled
+# This only applies to the old votestreak system
+# The new system is more efficient
+UseVoteStreaks: true
+
+# If false, storing best totals will be disabled
+UseHighestTotals: true
+
+# Disable checking on world change
+# May improve performance
+#DisableCheckOnWorldChange: false
+
+# Disable javascript processing in messages/rewards
+DisableJavascript: false
+
+# Enable command /av javascript (javascript)
+EnableJavascriptCommand: false
+
+# Limits amount of offline votesites
+# Does not currently work with bungee votes from votingplugin
+OfflineVotesLimit:
+  # Enable or disable
+  Enabled: false
+  # Limit of votes per votesite
+  Amount: 5
+
+# Maximum amount of vote points possible, -1 to disable
+LimitVotePoints: -1
+
+# Default worlds set for all rewards
+DefaultRewardWorlds: []
+
+# Default blacklisted worlds set for all rewards
+DefaultRewardBlackListedWorlds: []
+
+###########################################
+# Month Date Totals
+# Experimental month-based vote tracking
+# https://github.com/BenCodez/VotingPlugin/wiki/Month-Date-Totals
+###########################################
+
+# Experimental
+# Stores month votes with date formatting
+# MonthTotal-MONTH-YEAR
+# This setting only enables storing totals in this format, but does not actively use them
+# Enabling this is pretty safe and harmless with just this setting
+# Essentially will just copy MonthTotal to MonthTotal-MONTH-YEAR
+# Can use command /vote PreviousMonthstotals after this is enabled
+StoreMonthTotalsWithDate: false
+
+# This setting uses month votes with date formatting
+# If using this StoreMonthTotalsWithDate must be enabled
+# This setting may be very buggy as it's in early stages
+UseMonthDateTotalsAsPrimaryTotal: false
+
+###########################################
+# Skull Settings
+# Controls player skull caching for GUIs
+###########################################
+
+# Preload skulls to improve performance for vote top
+# when using skulls as the item to display players
+# If false, skulls will be cached as they are used
+PreloadSkulls: true
+
+# Number of milliseconds between skull caching
+# Default about 4 seconds is good for most servers
+# Used to avoid rate limit, increase if needed
+# If rate limit is hit caching will pause for 15 minutes
+SkullLoadDelay: 4000
+
+# Set a skull profile URL
+# This is what gets used to cache skulls
+# Default: https://sessionserver.mojang.com/session/minecraft/profile/
+# Other examples: https://crafthead.net/profile/
+SkullProfileAPIURL: ''
+
+###########################################
+# Extra Checks
+# Additional safety and duplicate-prevention checks
+###########################################
+
+# If true, allsites will have an extra check to prevent duplicate allsites from being given
+ExtraAllSitesCheck: false
+
+# This is an extra safeguard to prevent milestones
+# from being executed more than once
+# Shouldn't be needed, but enable if you have trouble with milestones
+PreventRepeatMilestones: false
+
+# May need to enable this for bungee setups
+# Let players who never joined before vote
+# Recommend: False (Will prevent creating random user data)
+AllowUnjoined: false
+
+# Use server lookup for when allowunjoined is set to false
+# Recommend leaving enabled unless you face issues
+AllowUnJoinedCheckServer: true
+
+# If enabled, data is re-pulled from storage on vote shop purchase
+# This prevents possible exploits with vote shop
+ExtraVoteShopCheck: true
+
+###########################################
+# Purge Settings
+# Controls automatic and manual data cleanup
+###########################################
+
+# Remove old player files
+# Recommend leaving this disabled
+# When disabled it also disables the commands to manually purge
+PurgeOldData: false
+
+# Enable auto purging data on startup
+# Do not enable unless you know what you are doing
+# Purges players with vote totals
+# Requires PurgeOldData to be enabled
+PurgeDataOnStartup: false
+
+# Same as above, but checks players have no vote total before purging
+# Requires PurgeOldData to be enabled
+PurgeNoDataOnStartup: false
+
+# Minimum number of days offline in order to purge
+PurgeMin: 90
+
+###########################################
+# DiscordSRV Settings
+# Discord integration for voting information
+###########################################
+
+DiscordSRV:
+  # Enable DiscordSRV support
+  # Also enables using rewards in discord
+  Enabled: false
+
+  # Show live top voter counts in discord
+  TopVoter:
+    AllTime:
+      # If true, will send top voter messages to discord
+      # Will send a message show top 10 voters
+      Enabled: false
+      # When true, will only send a message when there is a new top voter
+      # If false, will update previous message
+      NewMessageOnUpdate: false
+
+      # DiscordSRV channel to send messages to
+      Channel: 1234565 # Replace with your channel ID
+
+      Title: 'All Time Top Voters'
+      RankDisplay: '%rank%: %player% - %votes% Votes'
+
+    Monthly:
+      # If true, will send top voter messages to discord
+      # Will send a message show top 10 voters
+      Enabled: false
+      # When true, will only send a message when there is a new top voter
+      # If false, will update previous message
+      NewMessageOnUpdate: false
+
+      # DiscordSRV channel to send messages to
+      Channel: 1234565 # Replace with your channel ID
+
+      Title: 'Top Voters of the Month'
+      RankDisplay: '%rank%: %player% - %votes% Votes'
+
+    Weekly:
+      # If true, will send top voter messages to discord
+      # Will send a message show top 10 voters
+      Enabled: false
+      # When true, will only send a message when there is a new top voter
+      # If false, will update previous message
+      NewMessageOnUpdate: false
+
+      # DiscordSRV channel to send messages to
+      Channel: 1234565 # Replace with your channel ID
+
+      Title: 'Top Voters of the Week'
+      RankDisplay: '%rank%: %player% - %votes% Votes'
+
+    Daily:
+      # If true, will send top voter messages to discord
+      # Will send a message show top 10 voters
+      Enabled: false
+      # When true, will only send a message when there is a new top voter
+      # If false, will update previous message
+      NewMessageOnUpdate: false
+
+      # DiscordSRV channel to send messages to
+      Channel: 1234565 # Replace with your channel ID
+
+      Title: 'Top Voters of the Day'
+      RankDisplay: '%rank%: %player% - %votes% Votes'
+
+###########################################
+# Format Options
+# Controls messages, commands, and display formatting
+###########################################
+
+# Common Placeholders:
+# Special Placeholders will be commented where available
+# %player% = player name
 # %SiteName% = vote site name
 #
 # Set Message to '' (2 ') to disable message
@@ -137,10 +561,10 @@ Format:
   # If true uses broadcast setting below for offline votes
   OnlyOneOfflineBroadcast: false
   OfflineBroadcast: '&6[&4Broadcast&6] &2Thanks &c%player% &2for voting on %numberofvotes% times!'
-  
+
   # Broadcast only when player is online
   BroadcastWhenOnline: false
-  
+
   # Broadcast every x number of minutes with number of players that voted
   AlternateBroadcast:
     Enabled: false
@@ -149,19 +573,19 @@ Format:
     Broadcast: '&6[&4Broadcast&6] &2%numberofplayers% voted in the last half hour! /vote'
     # Delay in minutes
     Delay: 30
-  
+
   Commands:
     # Format for /vote
     # %num% = the number of the site, for a numbered list
     # %url% = site URL
-    Vote: 
+    Vote:
       Text:
       - '&3&lVote for our server!'
-      
-      # If you want to want to use the feature below where the plugin will
-      # automaticly list the sites then set the message in the text above
+
+      # If you want to use the feature below where the plugin will
+      # automatically list the sites then set the message in the text above
       AutoInputSites: true
-      
+
       # If true only show links on all urls that need to be voted on still
       OnlyShowSitesToVote: false
       # For each VoteSite
@@ -169,20 +593,20 @@ Format:
       # Requires above to be true
       # Text will be sent before this
       Sites: '&3%num%: &6&l%SiteName% &6- %url%'
-      
+
       # If true, links will always be forced as urls
       ForceLinks: true
-      
+
       # Format for /vote next
-      Next: 
+      Next:
         # First line
         Title: '&3&l%player% Next Votes:'
-        
+
         # How each line is setup for each vote site
-        # %info% = Info - See Below 
+        # %info% = Info - See Below
         # %SiteName% = site name from vote
         Layout: '&3%SiteName%: &6%info%'
-        
+
         Info:
           # Message when player can vote
           CanVote: 'Go Vote!'
@@ -191,11 +615,11 @@ Format:
           # %minutes% = minutes until next vote
           TimeUntilVote: '%hours% Hours and %minutes% Minutes'
           # If there is an error finding out time until next vote
-          Error: '&cCould not caculate time until next vote!'
+          Error: '&cCould not calculate time until next vote!'
           # For sites that have this, requires votedelaydaily to be set to true in the site
           VoteDelayDaily: '%hours% Hours and %minutes% Minutes'
-          
-       # Format for /vote last
+
+      # Format for /vote last
       Last:
         # First line
         Title: '&3&l%player% Last Vote Times:'
@@ -209,7 +633,7 @@ Format:
         NeverVoted: 'Never voted'
         # Whether or not to include seconds into last voted time
         IncludeSeconds: true
-        
+
       # Format for /vote total
       Total:
       - '&3&l%player% Total Votes:'
@@ -217,15 +641,15 @@ Format:
       - '&3&lWeekly Total: &6&l%WeeklyTotal%'
       - '&3&lMonthly Total: &6&l%MonthlyTotal%'
       - '&3&lAllTime Total: &6&l%AllTimeTotal%'
-        
-      # Format for /vote total all  
+
+      # Format for /vote total all
       TotalAll:
       - '&3&lServer Total Votes:'
       - '&3&lDaily Total: &6&l%DailyTotal%'
       - '&3&lWeekly Total: &6&l%WeeklyTotal%'
       - '&3&lMonthly Total: &6&l%MonthlyTotal%'
       - '&3&lAllTime Total: &6&l%AllTimeTotal%'
-        
+
       # Format for /vote top
       Top:
         # First line
@@ -235,7 +659,7 @@ Format:
         Title: '&3Top %Top% Voters %page%/%maxpages%'
         # Line for each player in that page
         Line: '&c%num%: &6%player%, %votes%'
-        
+
       # Format for /vote help
       Help:
         # Title of /vote help
@@ -247,14 +671,14 @@ Format:
         HoverColor: AQUA
         # Require permission to see command in /v help or /av help
         RequirePermission: true
-        
+
       Best:
         Title: '&3&l%player% Best Votes'
         Lines:
         - '&3Highest Daily Total: &3&l%HighestDailyTotal%'
         - '&3Highest Week Total: &3&l%HighestWeeklyTotal%'
         - '&3Highest Month Total: &3&l%HighestMonthlyTotal%'
-        
+
       Streak:
         Title: '&3&l%player% Vote Streak'
         Lines:
@@ -265,23 +689,23 @@ Format:
         - '&3Highest Daily Streak: &3&l%BestDailyStreak%'
         - '&3Highest Week Streak: &3&l%BestWeeklyStreak%'
         - '&3Highest Month Streak: &3&l%BestMonthlyStreak%'
-        
+
       Today:
         Title:
         - "&cToday's Votes %page%/%maxpage%"
         - '&cPlayerName : VoteSite : Time'
         Line: '&6%player% : %VoteSite% : %Time%'
-        
+
       # PlaceHolders:
       # %VotesRequired% = VotesRequired
       # %NeededVotes% = Number of votes needed to reach VotesRequired
       # %Votes% = Number of votes
       Party:
       - '&cCurrently at &6%Votes%&c, &6%NeededVotes% &cmore votes to go to reach &6%VotesRequired%'
-      
+
       # %Points% = player points
       Points: '&a%Player% currently has &a&l%Points%&a Points!'
-      
+
       # /vote givepoints command
       # Transfer between players command
       # Enable command below
@@ -291,26 +715,26 @@ Format:
         NumberLowerThanZero: '&cNumber of points needs to be greater than 0'
         TransferFrom: '&c%transfer% points given to %touser%'
         TransferTo: '&cYou received %transfer% points from %fromuser%'
-      
+
       ToggleBroadcasts:
         Enabled: '&cYou will now see vote broadcasts'
         Disabled: '&cYou will no longer see vote broadcasts'
-        
+
       ToggleReminders:
         Enabled: '&cVote reminders enabled'
         Disabled: '&cVote reminders disabled'
-  
+
   # Msg on top voter award, will only send message if that place has a reward set
   # %place% = place - 1,2,3,etc
   TopVoterAwardMsg: '&aYou came in %place% in top voters of the month! Here is an award!'
-  
+
   # Time Format
   # See https://docs.oracle.com/javase/7/docs/api/java/text/SimpleDateFormat.html
   TimeFormat: 'EEE, d MMM yyyy HH:mm'
-  
+
   # Reward time format for %date% placeholder (Time of giving reward)
   RewardTimeFormat: 'EEE, d MMM yyyy HH:mm'
-  
+
   TimeFormats:
     Day: 'Day'
     Days: 'Days'
@@ -320,7 +744,7 @@ Format:
     Minutes: 'Minutes'
     Second: 'Second'
     Seconds: 'Seconds'
-  
+
   # Format for signs
   # SiteName may be all, depending on sign
   # %position% = position of player, set by sign
@@ -333,34 +757,34 @@ Format:
       Line4: '%votes% Votes'
     # Message when right clicking sign, uses same placeholders as above
     RightClickMessage: '&c&l%player% &cis &c&l%position% &cwith &c&l%votes% &cvotes in &c&l%SiteName%'
-      
+
   # Message when player tries to run command without required permissions
   NoPerms: '&cYou do not have enough permission!'
-  
+
   # Message when player types a command but does not input a number where needed
   NotNumber: '&cError on &6%arg%&c, number expected!'
-  
+
   # Shop messages when using the /vote shop
   ShopPurchase: '&aYou bought the %Identifier% for %Points% Points!'
   ShopFailed: '&cYou do not have %Points% points to purchase this!'
   ShopNotPurchasable: '&cThis item is not buyable!'
-  
+
   # User not exist message, from commands such as /vote next (player)
   UserNotExist: '&cUser does not exist: %player%'
-  
-  # Prev/Next page tems in GUIs
+
+  # Prev/Next page items in GUIs
   PrevItem:
     Material: 'BLACK_STAINED_GLASS_PANE'
     Amount: 1
     Name: '&aPrevious Page'
-    
+
   NextItem:
     Material: 'BLACK_STAINED_GLASS_PANE'
     Amount: 1
     Name: '&aNext Page'
-  
+
   InvFull: '&cInventory full'
-  
+
   # Display text
   # Used in /vote top (GUI)
   TopVoter:
@@ -368,12 +792,12 @@ Format:
     Weekly: 'Weekly'
     Monthly: 'Monthly'
     AllTime: 'AllTime'
-  
+
   # Invalid command messages
   InvalidCommand:
     Vote: '&4No valid arguments, see /vote help!'
     AdminVote: '&4No valid arguments, see /adminvote help!'
-    
+
 # Playernames to not be broadcasted when voting
 # case sensitive
 VotingBroadcastBlacklist: []
@@ -383,420 +807,33 @@ VotingBroadcastBlacklist: []
 BroadcastBlacklist: []
 
 ###########################################
-# Vote Logging
-##########################################
-
-# Currently logs:
-# - votes
-# - vote shop purchases
-# - AllSite rewards
-# - Almost AllSite rewards
-# - Top Voter rewards
-# - Milestone rewards
-# - Cumulative rewards
-# - VoteStreaks (not the old version)
-
-VoteLogging:
-  # If enabled, will log votes in mysql
-  # Enable on backend servers to access commands
-  Enabled: false
-  # Purge votes older than X days
-  # Set to -1 to disable automatic purging
-  PurgeDays: 30
-  UseMainMySQL: true
-  # Mysql settings only used if above is false
-
-###########################################
-# Top Voter
-# Top voter rewards available in specialrewards.yml
+# Background Task Settings
+# Controls async updates and performance behavior
 ###########################################
 
-# Top voter blacklist
-# Hide these names from top voter lists
-BlackList:
-- 'Notch'
+# Only update in the background when needed when set to false
+AlwaysUpdate: false
 
-# If true players with the permission 'VotingPlugin.TopVoter.Ignore' will act 
-# as if there name was added on the the blacklist above
-# This also applies for players with op
-TopVoterIgnorePermission: false
+# Update in the background only if players are online
+UpdateWithPlayersOnlineOnly: false
 
-# /vote top default data displayed
-# Valid Options: AllTime, Monthly, Weekly, Daily
-VoteTopDefault: Monthly
+# Delay between background updates like signs and more
+# Default: 3 Minutes
+# Longer times result in longer wait in stuff updating after a vote, like topvoter
+DelayBetweenUpdates: 3
 
-# Whether or not to have ties on top voter rewards
-TopVoterAwardsTies: true
-
-# These are required to be enabled in order for top voter awards to work
-LoadTopVoter:
-  AllTime: true
-  Monthly: true
-  Weekly: false
-  Daily: false
-  
-# Maxium number of players to show on top voter
-# Set to -1 for no limit
-MaxiumNumberOfTopVotersToLoad: 1000
-
-# When top voter awards are given (even if there are none listed) it will store top voters
-# Files will created in TopVoters folder.
-# Monthly top voters are always saved by default now
-StoreTopVoters:
-  Weekly: false
-  Daily: false
-  
-# Limit monthly votes to number of days of a month multipled by the number of sites
-LimitMonthlyVotes: false
+# Enable to true for extra player checks
+# Recommend leaving this to false
+ExtraBackgroundUpdate: false
 
 ###########################################
-# Debug
+# Command & Permission Settings
+# Controls permissions, commands, and access
 ###########################################
-
-# Debug levels:
-# NONE
-# INFO
-# EXTRA
-DebugLevel: NONE
-
-# Debug info ingame
-# Players with permission "VotingPlugin.Debug"
-# will see debug info if debug is true
-DebugInGame: false
-
-# Will log debug messages to VotingPlugin/Log/log.txt
-# Only needed for extreme cases
-#LogDebugToFile: false
-  
-# Whether or not to log every vote to a file
-# Use this if you wanna track player votes
-# Not recommended though
-LogVotesToFile: false
-
-###########################################
-# Placeholderapi placeholders settings
-###########################################
-
-# Valid Options:
-# AUTOALL - Auto cache placeholders after they have been used and cache all players placeholder all the time
-# AUTO - Auto cache after they have been used and cache online players placeholders (Recommended)
-# SPECIFIC - Only cache certain placeholders for online players
-# SPECIFICALL - Only cache certain placeholders for all players
-# NONE - Don't cache any placeholders
-PlaceholderCacheLevel: AUTO
-
-# Placeholder controls
-# Add _process to end of placeholder to force a return value rather than . or .. if no cached value is ready
-# Add _nocache to end of placeholder to skip cache and retrive a live value, uses a direct mysql connection, do not use on main thread
-#
-
-# Set which placeholders to cache at all times
-# Use for placeholders to are pulled constantly or on the main thread
-# Mainly aimed for scoreboards that pull placeholders often
-# Placeholders may auto cache in certain conditions (if enabled above)
-# Will use additional memory, but not a lot
-# Still in early stages, please report bugs
-# Please remove VotingPlugin_ from the placeholder listed here
-CachedPlaceholders: []
-#- Total_AllTime
-
-# When enabled, javascript will be parsed on placeholders (from placeholderapi)
-# allows more fancy placeholders with math for example
-UseJavascriptPlaceholders: false
-
-# Custom placeholder returns
-# For the example below use %votingplugin_custom_enoughpoints_5%
-# DO NOT USE ON MAIN THREAD IF POSSIBLE
-# Keep everything lowercase
-# Example:
-#CustomPlaceholderReturns:
-#  'enoughpoints_5':
-#    'true': 'User has enough points'
-#    'false': 'User does not have enough points'
-CustomPlaceholderReturns: {}
-
-# Load votingplugin internal expansion
-LoadInteralExpansion: true
-
-###########################################
-# Login options
-###########################################
-
-# If true vanished players are treated as if they are offline
-TreatVanishAsOffline: false
-
-# Delays login event, delays vote reminding and more
-# In miliseconds, 1000 = 1 second
-DelayLoginEvent: 0
-
-# Wait until user is logged in with AuthMe or NLogin
-# Requires AuthMe or LoginSecurity or NLogin
-WaitUntilLoggedIn: true
-
-###########################################
-# Disable/Enable features
-###########################################
-
-# If true, cooldown check is disabled
-DisableCoolDownCheck: false
-
-# If true, disable PlayerInteractEvent (for clicking signs and skulls)
-DisableInteractEvent: false
-
-# Disable this on a hub server for example
-# Still processes rewards for offline rewards (just won't give any)
-ProcessRewards: true
-
-# Set to true to disable no service site message on voting
-# You should never have to touch this if everything is setup properly
-# Will also disable a few other warnings about vote sites
-DisableNoServiceSiteMessage: false
-
-# Count fake votes
-# If true fake votes will give points and totals
-CountFakeVotes: true
-
-# Whether or not to disable update checks
-DisableUpdateChecking: false
-
-# Enable per site cooldown events, requires more resources to use
-# Requires restart
-PerSiteCoolDownEvents: false
-
-# Queue votes during a time change (doesn't apply to bungee voting)
-# Votes will be given when time change is completed
-QueueVotesDuringTimeChange: false
-
-# If true, plugin will automaticly generate votesites
-# Disable this if you experience issues with sites being created randomly
-# Most cases this will work all the time
-AutoCreateVoteSites: true
-
-# Experiemtental feature
-# Uses https://github.com/BenCodez/VotingPlugin/wiki/Minecraft-Server-Lists
-# Not all voting sites use the domain name as the service sites
-# This feature is an attempt to ease setup for new users by matching domain name to actual service site
-AdvancedServiceSiteHandling: false
-
-# Set this to false to disable the plugin adding totals
-# Not really recommended
-AddTotals: true
-
-# Disabling this prevents offline votes from adding totals to users
-AddTotalsOffline: true
-
-# If false, votestreaks will be disabled
-# This only applies to the old votestreak system
-# the new system only is more efficient
-UseVoteStreaks: true
-
-# If false, storing best totals will be disabled
-UseHighestTotals: true
-
-# Geyser/Bedrock player support
-# Set prefix used for voting
-# Players should vote with prefix
-# https://github.com/BenCodez/VotingPlugin/wiki/Bedrock-Player-Support
-BedrockPlayerPrefix: '.'
-
-# Whether or not to create daily backups. (Only the most recent ones get kept)
-# Does not backup mysql data
-CreateBackups: true
-
-# If false plugin will use offline player UUIDs
-# Keep enabled when mixing uuids (Premium and cracked)
-# More info: https://github.com/BenCodez/VotingPlugin/wiki/Online-Offline-Mode
-OnlineMode: true
-
-# Disable checking on world change
-# May improve performance
-#DisableCheckOnWorldChange: false
-
-# Disable javascript processing in messages/rewards
-DisableJavascript: false
-
-# Enable command /av javascript (javascript)
-EnableJavascriptCommand: false
-
-# If true, number of vote shop purchases will be tracked
-# Data will be tracked in serverdata.yml, may change in the future
-# No commands to view data currently 
-TrackShopPurchases: false
-
-# Limits about of offline votesites
-# Does not currently work with bungee votes from votingplugin
-OfflineVotesLimit:
-  # Enable or disable
-  Enabled: false
-  # Limit of votes per votesite
-  Amount: 5
-  
-# Maxium amount of vote points possible, -1 to disable
-LimitVotePoints: -1
-  
-# Default worlds set for all rewards
-DefaultRewardWorlds: []
-
-# Default blackedlisted worlds set for all rewards
-DefaultRewardBlackListedWorlds: []
-
-###########################################
-# Month Date Totals
-# Experimental feature
-###########################################
-
-# Experimental
-# Stores month votes with date formatting
-# MonthTotal-MONTH-YEAR
-# This setting only enables setting totals, not using them
-# Enabling this is pretty safe and harmless with just this setting
-# Essentially will just copy MonthTotal to MonthTotal-MONTH-YEAR
-# Can use command /vote PreviousMonthstotals after this is enabled
-StoreMonthTotalsWithDate: false
-
-# Experimental
-# This setting uses month votes with date formatting
-# If using this StoreMonthTotalsWithDate must be enabled
-# This setting may be very buggy as it's in early stages
-UseMonthDateTotalsAsPrimaryTotal: false
-
-###########################################
-# DiscordSRV settings
-###########################################
-
-DiscordSRV:
-  # Enable DiscordSRV support
-  # Also enables using rewards in discord
-  Enabled: false
-  
-  # Show live top voter counts in discord
-  TopVoter:
-    AllTime:
-      # If true, will send top voter messages to discord
-      # Will send a message show top 10 voters
-      Enabled: false
-      # When true, will only send a message when there is a new top voter
-      # If false, will update previous message
-      NewMessageOnUpdate: false
-    
-      # DiscordSRV channel to send messages to
-      Channel: 1234565 # Replace with your channel ID
-    
-      Title: 'All Time Top Voters'
-      RankDisplay: '%rank%: %player% - %votes% Votes'
-    
-    Monthly:
-      # If true, will send top voter messages to discord
-      # Will send a message show top 10 voters
-      Enabled: false
-      # When true, will only send a message when there is a new top voter
-      # If false, will update previous message
-      NewMessageOnUpdate: false
-    
-      # DiscordSRV channel to send messages to
-      Channel: 1234565 # Replace with your channel ID
-    
-      Title: 'Top Voters of the Month'
-      RankDisplay: '%rank%: %player% - %votes% Votes'
-    
-    Weekly:
-      # If true, will send top voter messages to discord
-      # Will send a message show top 10 voters
-      Enabled: false
-      # When true, will only send a message when there is a new top voter
-      # If false, will update previous message
-      NewMessageOnUpdate: false
-    
-      # DiscordSRV channel to send messages to
-      Channel: 1234565 # Replace with your channel ID
-    
-      Title: 'Top Voters of the Week'
-      RankDisplay: '%rank%: %player% - %votes% Votes'
-    
-    Daily:
-      # If true, will send top voter messages to discord
-      # Will send a message show top 10 voters
-      Enabled: false
-      # When true, will only send a message when there is a new top voter
-      # If false, will update previous message
-      NewMessageOnUpdate: false
-    
-      # DiscordSRV channel to send messages to
-      Channel: 1234565 # Replace with your channel ID
-    
-      Title: 'Top Voters of the Day'
-      RankDisplay: '%rank%: %player% - %votes% Votes'
-  
-
-
-###########################################
-# Skull settings
-###########################################
-
-# Preload skulls to improve performance for vote top
-# when using skulls as the item to display players
-# If false, skulls will be cached as they are used
-PreloadSkulls: true
-
-# Number of miliseconds between skull caching
-# Default about 4 seconds is good for most servers
-# Used to avoid rate limit, increase if needed
-# If rate limit is hit caching will pause for 15 minutes
-SkullLoadDelay: 4000
-
-# Set a skull profile URL
-# This is what gets used to cache skulls
-# Default: https://sessionserver.mojang.com/session/minecraft/profile/
-# Other examples: https://crafthead.net/profile/
-SkullProfileAPIURL: ''
-
-###########################################
-# Extra checks on vote
-###########################################
-
-# If true, allsites will have an extra check to prevent duplicate allsites from being given
-ExtraAllSitesCheck: false
-
-# This is an extra safe guard to prevent milestones 
-# from being executed more than once
-# Shoudn't be needed, but enable if you have trouble with milestones
-PreventRepeatMilestones: false
-
-# Number of points to give on vote
-# Set to 0 to give no points
-PointsOnVote: 1
-
-# May need to enable this for bungee setups
-# Let players who never joined before vote
-# Recommend: False (Will prevent creating random user data)
-AllowUnjoined: false
-
-# Use server lookup for when allowunjoined is set to false
-# Recommend leaving enabled unless you face issues
-AllowUnJoinedCheckServer: true
-
-##############################################
-# Command/Permission settings
-##############################################
-
-# Give VotingPlugin.Player by default
-# Requires restart to take affect
-GiveDefaultPermission: true
 
 # Permissions given by VotingPlugin.Player by default
-# Permissions listed here will no be accessible with the default permission
+# Permissions listed here will not be accessible with the default permission
 DisabledDefaultPermissions: []
-
-# If true, /vote will open /vote gui by default
-UseVoteGUIMainCommand: false
-
-# Disable checking permissions on tab complete
-# Could increase performance slightly, but probably not
-DisableAdvancedTab: false
-
-# Load command aliases, such as /avgui
-# Requires restart to take effect
-LoadCommandAliases: true
 
 # Use vault for permission checks
 # May not work on some plugins
@@ -835,32 +872,14 @@ CustomCommands:
     Commands:
     - tokencommand
 
-##############################################
-# Background task settings
-##############################################
-
-# Only update in the background when needed when set to false
-AlwaysUpdate: false
-
-# Update in the background only if players are online
-UpdateWithPlayersOnlineOnly: false
-
-# Delay between background updates like signs and more
-# Default: 3 Minutes
-# Longer times result in longer wait in stuff updating after a vote, like topvoter
-DelayBetweenUpdates: 3
-
-# Enable to true for extra player checks
-# Recommend leaving this to false
-ExtraBackgroundUpdate: false
-
-##########################################
-# Inventory controls
-##########################################
+###########################################
+# Inventory Controls
+# GUI interaction and inventory safety options
+###########################################
 
 # Click sound when using gui
 # Set to none for no sound
-ClickSound: 
+ClickSound:
   Sound: 'ui.button.click'
   Volume: 1.0
   Pitch: 1.0
@@ -888,33 +907,86 @@ CloseInventoryOnVote: true
 CloseGUIOnShiftClick: false
 
 ###########################################
-# Purge settings
+# PlaceholderAPI Settings
+# Placeholder caching and custom placeholder behavior
 ###########################################
-# Remove old player files
-# Recommend leaving this disabled
-# When disabled it also disables the commands to manually purge
-PurgeOldData: false
 
-# Enable auto purging data on startup
-# Do not enable unless you know what you are doing
-# Purges players with vote totals
-# Requires PurgeOldData to be enabled
-PurgeDataOnStartup: false
+# Valid Options:
+# AUTOALL - Auto cache placeholders after they have been used and cache all players placeholder all the time
+# AUTO - Auto cache after they have been used and cache online players placeholders (Recommended)
+# SPECIFIC - Only cache certain placeholders for online players
+# SPECIFICALL - Only cache certain placeholders for all players
+# NONE - Don't cache any placeholders
+PlaceholderCacheLevel: AUTO
 
-# Same as above, but checks players have no vote total before purging
-# Requires PurgeOldData to be enabled
-PurgeNoDataOnStartup: false
+# Placeholder controls
+# Add _process to end of placeholder to force a return value rather than . or .. if no cached value is ready
+# Add _nocache to end of placeholder to skip cache and retrieve a live value, uses a direct mysql connection, do not use on main thread
+#
 
-# Minimum number of days offline in order to purge
-PurgeMin: 90
+# Set which placeholders to cache at all times
+# Use for placeholders to are pulled constantly or on the main thread
+# Mainly aimed for scoreboards that pull placeholders often
+# Placeholders may auto cache in certain conditions (if enabled above)
+# Will use additional memory, but not a lot
+# Still in early stages, please report bugs
+# Please remove VotingPlugin_ from the placeholder listed here
+CachedPlaceholders: []
+#- Total_AllTime
 
-##########################################
-# Extra options
-# Options below don't need to be touched
-##########################################
+# When enabled, javascript will be parsed on placeholders (from placeholderapi)
+# allows more fancy placeholders with math for example
+UseJavascriptPlaceholders: false
 
-# If enabled, data is repulled from storage on vote shop purchase
-# This prevents possible exploits with vote shop
-ExtraVoteShopCheck: true
+# Custom placeholder returns
+# For the example below use %votingplugin_custom_enoughpoints_5%
+# DO NOT USE ON MAIN THREAD IF POSSIBLE
+# Keep everything lowercase
+# Example:
+#CustomPlaceholderReturns:
+#  'enoughpoints_5':
+#    'true': 'User has enough points'
+#    'false': 'User does not have enough points'
+CustomPlaceholderReturns: {}
 
+# Load votingplugin internal expansion for placeholderapi
+LoadInteralExpansion: true
 
+###########################################
+# Additional / Advanced Settings
+# Rarely needed options for special setups
+###########################################
+
+# If true, cooldown check is disabled
+DisableCoolDownCheck: false
+
+# If true, disable PlayerInteractEvent (for clicking signs and skulls)
+DisableInteractEvent: false
+
+# Disable this on a hub server for example
+# Still processes rewards for offline rewards (just won't give any)
+# Generally not needed in proxy setups
+ProcessRewards: true
+
+# Set to true to disable no service site message on voting
+# You should never have to touch this if everything is set up properly
+# Will also disable a few other warnings about vote sites
+DisableNoServiceSiteMessage: false
+
+# Set this to false to disable the plugin adding totals
+# Not really recommended
+AddTotals: true
+
+# Disabling this prevents offline votes from adding totals to users
+AddTotalsOffline: true
+
+# Count fake votes
+# If true fake votes will give points and totals
+CountFakeVotes: true
+
+# Whether or not to disable update checks
+DisableUpdateChecking: false
+
+# Disable checking permissions on tab complete
+# Could increase performance slightly, but probably not
+DisableAdvancedTab: false

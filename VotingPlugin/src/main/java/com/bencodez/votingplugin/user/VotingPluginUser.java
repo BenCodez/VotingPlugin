@@ -2177,4 +2177,12 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return MiscUtils.getInstance().getTime(getDayVoteStreakLastUpdate()).getDayOfYear() == time.getDayOfYear();
 	}
 
+	public String getVoteStreakState(String columnName) {
+		return getData().getString(columnName, isCacheData(), isWaitForCache());
+	}
+
+	public void setVoteStreakState(String columnName, String value) {
+		getData().setString(columnName, value);
+	}
+
 }

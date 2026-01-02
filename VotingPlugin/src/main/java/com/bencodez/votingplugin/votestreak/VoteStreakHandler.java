@@ -382,26 +382,26 @@ public class VoteStreakHandler {
 				.withPlaceHolder("id", def.getId()).send(user);
 	}
 
-	private String getColumnName(VoteStreakDefinition def) {
+	public String getColumnName(VoteStreakDefinition def) {
 		return "VoteStreak_" + def.getId();
 	}
 
-	private StreakState readState(VotingPluginUser user, VoteStreakDefinition def) {
+	public StreakState readState(VotingPluginUser user, VoteStreakDefinition def) {
 		String raw = readStateString(user, getColumnName(def));
 		return StreakState.deserialize(raw);
 	}
 
-	private void writeState(VotingPluginUser user, VoteStreakDefinition def, StreakState state) {
+	public void writeState(VotingPluginUser user, VoteStreakDefinition def, StreakState state) {
 		writeStateString(user, getColumnName(def), state.serialize());
 	}
 
-	private String readStateString(VotingPluginUser user, String columnName) {
-		String val = user.getData().getString(columnName);
+	public String readStateString(VotingPluginUser user, String columnName) {
+		String val = user.getVoteStreakState(columnName);
 		return val == null ? "" : val;
 	}
 
 	private void writeStateString(VotingPluginUser user, String columnName, String value) {
-		user.getData().setString(columnName, value);
+		user.setVoteStreakState(columnName, value);
 	}
 
 	private static String safeUser(VotingPluginUser user) {
@@ -570,7 +570,7 @@ public class VoteStreakHandler {
 				int allowMissedAmount = Math.max(0, defSec.getInt("AllowMissedAmount", 0));
 				int allowMissedPeriod = Math.max(0, defSec.getInt("AllowMissedPeriod", 0));
 
-				//ConfigurationSection editableTarget = getOrCreateVoteStreakSection(id);
+				// ConfigurationSection editableTarget = getOrCreateVoteStreakSection(id);
 
 				VoteStreakDefinition def = new VoteStreakDefinition(id, type, enabled, amountInterval, votesRequired,
 						allowMissedAmount, allowMissedPeriod);

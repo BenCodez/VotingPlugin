@@ -267,10 +267,6 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean extraVoteShopCheck = true;
 
-	@ConfigDataBoolean(path = "TrackShopPurchases")
-	@Getter
-	private boolean trackShopPurchases = false;
-
 	@ConfigDataBoolean(path = "AlwaysUpdate")
 	@Getter
 	private boolean alwaysUpdate = false;
@@ -466,10 +462,6 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "LoadCommandAliases")
 	@Getter
 	private boolean loadCommandAliases = true;
-
-	@ConfigDataBoolean(path = "LogVotesToFile")
-	@Getter
-	private boolean logVotesToFile = false;
 
 	@ConfigDataInt(path = "MaxiumNumberOfTopVotersToLoad")
 	@Getter

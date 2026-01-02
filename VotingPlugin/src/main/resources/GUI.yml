@@ -1,3 +1,46 @@
+####################################################################################################
+# VotingPlugin – GUI Configuration (GUI.yml)
+# Author: BenCodez
+#
+# This file controls VotingPlugin GUIs (how /vote menus are displayed).
+# You can choose how each GUI opens (CHEST / BOOK / CHAT) and customize
+# items, names, lore, slots, and extra clickable items.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 📑 Config Index (matches this file)
+# ─────────────────────────────────────────────────────────────────────────────
+#  • GUI Method selection (CHEST / BOOK / CHAT)
+#  • LastMonthGUI toggle
+#  • CHEST GUIs (most common)
+#     - VoteGUI (main /vote gui)
+#     - VoteURL (/vote url)
+#     - VoteLast, VoteNext, VoteToday, VoteTop, VoteTotal, VoteBest, VoteStreak
+#     - BackButton defaults
+#  • BOOK GUIs (limited, where supported)
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 🧠 Tips
+# ─────────────────────────────────────────────────────────────────────────────
+# • Slots start at 0 (not 1). Max slot is 53 for a 6-row chest GUI.
+#   Example: first row last slot is 8.
+# • Don't go over 53 or the GUI may error or render incorrectly.
+# • Setting a message/text to '' disables it (empty string).
+# • Removing a config entry causes the plugin to fall back to its internal default.
+#   (Only remove entries intentionally, as defaults may change between versions.)
+# • Materials list (Spigot):
+#   https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Material.html
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 📘 Documentation
+# ─────────────────────────────────────────────────────────────────────────────
+# GitHub Wiki (primary):
+#   https://github.com/BenCodez/VotingPlugin/wiki
+#
+# Second / New Wiki (WIP):
+#   https://wiki.bencodez.com/en/VotingPlugin
+#
+####################################################################################################
+
 # Configure GUI's here
 # Note: Slots start at 0 instead of 1, max slot is 53 (don't go over) (E.g: last slot in first row of inventory is 8)
 # Item Material's can be found here: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Material.html
@@ -10,18 +53,18 @@ GUIMethod:
   Today: CHEST #BOOK not available (future update?)
   TopVoter: CHEST #BOOK not available (future update?)
   Last: CHEST #BOOK not available (future update?)
-  Next: CHEST 
+  Next: CHEST
   Total: CHEST #BOOK not available (future update?)
   # GUI for /vote
   URL: CHEST
   Best: CHEST #BOOK not available (future update?)
   Streak: CHEST #BOOK not available (future update?)
   GUI: CHEST #CHAT/BOOK not availabe for this (future update?)
-  
+
 # Enable command for last month gui
 # Requires restart to take effect
 LastMonthGUI: false
-  
+
 CHEST:
   # GUI for /vote gui, /vgui, /votegui
   VoteGUI:
@@ -29,7 +72,7 @@ CHEST:
     # You can add items following this format, even set slots
     # See extra item below. GUI will auto resize to what is needed
     URL:
-      # Standard item format, lore is automaticly applied 
+      # Standard item format, lore is automaticly applied
       Item:
         Material: 'BOW'
         Amount: 1
@@ -73,15 +116,15 @@ CHEST:
         - '&aYou currently have %points% points'
     # 'ExtraItem' below is an identifier, can be whatever
     # ExtraItem:
-      # Item:
-        # Material: 'DIRT'
-        # Amount: 1
-        # Name: 'Extra item'
-        ## Works on most GUI items
-        # Slot: 10
-      ## Send rewards on click, run commands, check conditions, etc
-      # Rewards: []
-        
+    #   Item:
+    #     Material: 'DIRT'
+    #     Amount: 1
+    #     Name: 'Extra item'
+    #     # Works on most GUI items
+    #     Slot: 10
+    #   # Send rewards on click, run commands, check conditions, etc
+    #   Rewards: []
+
   # GUI for /vote url, /vote
   VoteURL:
     # GUI Name
@@ -100,7 +143,7 @@ CHEST:
       RequireAllSitesVoted: true
       AlreadyVotedItem:
         Material: 'REDSTONE_BLOCK'
-        Data: 0 
+        Data: 0
         Amount: 1
         Name: '&4All Voting Sites'
         Lore:
@@ -114,7 +157,7 @@ CHEST:
         - '&cClick Me'
     AlreadyVotedItem:
       Material: 'REDSTONE_BLOCK'
-      Data: 0 
+      Data: 0
       Amount: 1
     CanVoteItem:
       Material: 'EMERALD_BLOCK'
@@ -125,13 +168,13 @@ CHEST:
     # #Add Extra items
     # This extra item format works across other gui settings below
     # ExtraItems:
-      # Item1:
-        # Material: DIRT
-        # Amount: 1
-        # Slot: 1
-        # #Can run commands or effects
-        # Rewards: []
-    
+    #   Item1:
+    #     Material: DIRT
+    #     Amount: 1
+    #     Slot: 1
+    #     #Can run commands or effects
+    #     Rewards: []
+
   VoteLast:
     Name: 'VoteLast: %player%'
     BackButton: true
@@ -140,6 +183,7 @@ CHEST:
     # %timesince% = time since vote
     Line: '&6%timeSince%'
     ClickableLinks: true
+
   VoteNext:
     Name: 'VoteNext: %player%'
     BackButton: true
@@ -147,6 +191,7 @@ CHEST:
     #CustomSiteNamesDisplays:
     #  Site1: site name display
     LoreLine: '%time%'
+
   VoteToday:
     Name: 'VoteToday'
     Line: '&6%VoteSite% : %Time%'
@@ -157,6 +202,7 @@ CHEST:
     PlayerItem:
       Material: 'PAPER'
       Amount: 1
+
   VoteTop:
     Name: 'VoteTop %topvoter%'
     BackButton: true
@@ -196,6 +242,7 @@ CHEST:
       RemoveBottomBar: false
       # Set slot for backbutton
       BackButtonSlot: 0
+
   VoteTotal:
     Name: 'VoteTotal: %player%'
     BackButton: true
@@ -223,6 +270,7 @@ CHEST:
         Name: '&cAllTime Total'
         Lore: '&c&lTotal: &c%Total%'
         Amount: 1
+
   VoteBest:
     Name: 'VoteBest: %player%'
     BackButton: true
@@ -244,6 +292,7 @@ CHEST:
         Name: '&cMonthly Best'
         Lore: '&c&lBest: &c%Best%'
         Amount: 1
+
   VoteStreak:
     Name: 'VoteStreak: %player%'
     BackButton: false
@@ -283,11 +332,13 @@ CHEST:
         Name: '&cHighest Monthly Streak'
         Lore: '&c&lStreak: &c%Streak%'
         Amount: 1
+
   VoteURLSite:
     Name: 'VoteSite: %site%'
+
   VoteGUIName: '&cVoteGUI: &c&l%player%'
   VoteRewardName: 'VoteReward'
-  
+
   BackButton:
     Material: 'BARRIER'
     Data: 0
@@ -299,10 +350,9 @@ CHEST:
     EndOfGUI: false
     # If true, this item will become an exit button instead
     Exit: false
-    
+
   # VoteShop settings moved to Shop.yml for 6.17 (To be released)
-    
-            
+
 BOOK:
   VoteURLBookGUI:
     Title: '&cVoteURL'
@@ -310,11 +360,10 @@ BOOK:
     CanVoteColor: 'GREEN'
     AlreadyVotedText: 'Click me'
     AlreadyVotedColor: 'RED'
-    # If true the layout below is the full book text 
+    # If true the layout below is the full book text
     Manual: false
     # Only works if Manual is enabled
     TopLayout: []
     Layout:
     - '&3&l%Sitename%'
     - '[UrlText]'
-  

@@ -242,8 +242,6 @@ permissions:
     description: Allows mod commands
   VotingPlugin.Admin:
     description: Allows admincommands
-  VotingPlugin.Admin.Debug:
-    description: Permission to view debug info ingame
   VotingPlugin.TopVoter.Ignore:
     description: Allows you to be exempt from top voter
   VotingPlugin.NoRemind:

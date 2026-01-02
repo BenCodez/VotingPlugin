@@ -1,3 +1,60 @@
+####################################################################################################
+# VotingPlugin – VoteSites Configuration (VoteSites.yml)
+# Author: BenCodez
+#
+# This file defines:
+#  • Vote sites (matching the incoming ServiceSite / serviceName)
+#  • Vote URLs shown by /vote
+#  • Vote delays used by /vote next (and optional vote-delay enforcement)
+#  • INLINE rewards per site (no reward files required)
+#  • Optional “EverySiteReward” (reward on every configured site vote)
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 📑 Quick Notes
+# ─────────────────────────────────────────────────────────────────────────────
+# • The VoteSites key name (example: ExampleVoteSite) is the internal identifier:
+#   - Used for saving vote-site specific data
+#   - Keep it short: NO spaces, NO dots
+#
+# • ServiceSite MUST match the incoming vote “serviceName” exactly.
+#   - If votes aren’t being detected, check your console logs after voting.
+#
+# • Inline rewards are the normal setup for most servers:
+#   - You do NOT need reward files/folders to run rewards.
+#   - Reward files are optional organization only.
+#   - Inline reward docs:
+#       https://github.com/BenCodez/VotingPlugin/wiki/Rewards
+#
+# • Advanced reward systems (Top Voter, Milestones, Cumulative, AllSite, etc.)
+#   are configured in specialrewards.yml (not here).
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 🌐 Proxy / Network Setups (Velocity / Bungee / Multi-server)
+# ─────────────────────────────────────────────────────────────────────────────
+# • Votes are typically received at the proxy and then forwarded to backend servers.
+# • Rewards are usually processed on BACKEND servers.
+# • Make sure each backend has a unique ServerName in BungeeSettings.yml.
+# • Keep votesites.yml consistent across all backend servers (recommended).
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 🧠 Editing Tips
+# ─────────────────────────────────────────────────────────────────────────────
+# • Use Ctrl + F to search.
+# • Setting a message to '' disables it (empty string).
+# • Removing a config entry causes the plugin to fall back to its internal default.
+#   (Only remove entries intentionally, as defaults may change between versions.)
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 📘 Documentation
+# ─────────────────────────────────────────────────────────────────────────────
+# GitHub Wiki (primary):
+#   https://github.com/BenCodez/VotingPlugin/wiki
+#
+# Second / New Wiki (WIP):
+#   https://wiki.bencodez.com/en/VotingPlugin
+#
+####################################################################################################
+
 VoteSites:
   # VoteSite key
   # Used for saving data for votesites
@@ -8,25 +65,25 @@ VoteSites:
     # If false, votesite will not be loaded by plugin
     # Default: false
     Enabled: false
-    
+
     # Display name of voting site
     Name: 'ExampleVoteSite'
-          
+
     # Priority of this site
     # Used for sorted list
-    # High prority, higher on the list
+    # High priority, higher on the list
     Priority: 5
-    
-    # If true, voteside will be hidden from some GUI's, similar to being disabled
+
+    # If true, votesite will be hidden from some GUI's, similar to being disabled
     Hidden: false
-          
+
     # The serviceName from the vote, has to be correct to work correctly
     # Gotten from voting on the site (will be in console/log)
     # Usually is the main part of the url(e.g. PlanetMinecraft.com), but not always
-    # See console when you vote (it will notify you if the plugin didn't find a votingsite matching the service site
+    # See console when you vote (it will notify you if the plugin didn't find a votingsite matching the service site)
     ServiceSite: 'PlanetMinecraft.com'
 
-    # vote url for /vote
+    # Vote url for /vote
     # Format for this can be set in Config.yml
     # Do not include colors here
     # If you need to force a url set the url as this:
@@ -36,48 +93,48 @@ VoteSites:
     # Time between votes in hours (used for /vote next)
     # Most sites are 24 hours
     VoteDelay: 24
-    
+
     # Use to have a minute votedelay
     # Must set a value on VoteDelay if you plan on only using this setting
     #VoteDelayMin: 30
-    
-    # Require waiting until votedelay time has pasted in order to accept vote
+
+    # Require waiting until votedelay time has passed in order to accept vote
     # Recommend: false
     WaitUntilVoteDelay: false
-    
+
     # Reset vote delay each day (for certain sites that do this)
     # Recommend: false
     VoteDelayDaily: false
-    
+
     # Replaces offset, set the exact hour based on server time
     # Include server time offset when setting this
     # 2 = 2 am server time
     # Use 1-24
     #VoteDelayDailyHour: 14
-    
+
     # If true, rewards can be executed offline (requires ForceOffline to be true in the reward)
     # Setting this to true will execute the reward offline while the player is offline
-    # This basiclly disables offline voting if set to true, don't misinterpret this option
+    # This basically disables offline voting if set to true, don't misinterpret this option
     ForceOffline: false
-    
-    # Requrie a permission to view site in GUI
+
+    # Require a permission to view site in GUI
     # If empty or not set anyone can view (default)
     #PermissionToView: 'Perm.here'
-    
+
     # VoteSite Material for some GUI's
     # Removing this may result in an error, required on each site
     DisplayItem:
       Material: 'DIAMOND'
       Amount: 1
-      
+
     # Reward to run when cooldown ends for this votesite
     # Enable PerSiteCoolDownEvents in Config.yml to use this
     #CoolDownEndRewards:
     #  Messages:
     #    Player: '&aTime to go vote on site1'
 
-    # Rewards to give
-    # https://github.com/BenCodez/AdvancedCore/wiki/Rewards
+    # Rewards to give (INLINE)
+    # Most servers will configure rewards here without any reward files.
     Rewards:
       # Execute console commands
       Commands:
@@ -85,6 +142,7 @@ VoteSites:
       # Send player a message
       Messages:
         Player: 'You voted'
+
   # Site 2 example
   Site2:
     Enabled: false
@@ -98,6 +156,7 @@ VoteSites:
     Rewards:
       Commands:
       - 'say hello'
+
       # Advanced example
       # 50% chance for reward1, if reward1 not given then 20% chance to get reward2, if reward2 not given then fallback
       AdvancedPriority:
@@ -122,7 +181,7 @@ VoteSites:
         Fallback:
           Messages:
             Player: 'You got unlucky'
-            
+
       # Give 1 diamond regardless of above
       Items:
         item1:
@@ -131,7 +190,7 @@ VoteSites:
 
       Messages:
         Player: 'You voted'
-    
+
 # Reward for any site
 # Similar to AnySiteReward
 # This requires the site to be configured in order to get the reward.

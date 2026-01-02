@@ -1,3 +1,47 @@
+####################################################################################################
+# VotingPlugin – VoteShop Configuration (shop.yml)
+# Author: BenCodez
+#
+# This file controls the /vote shop GUI (VoteShop) and all purchasable items.
+# Players spend vote points to buy rewards (items/commands/messages/etc).
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 📑 Config Index (matches this file)
+# ─────────────────────────────────────────────────────────────────────────────
+#  • VoteShop (GUI settings)
+#  • Shop (items for sale)
+#  • ExtraItems (optional display-only items)
+#  • ShopConfirmPurchase (confirmation GUI layout)
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 🧠 Tips
+# ─────────────────────────────────────────────────────────────────────────────
+# • To disable an entire section, set it to {} or remove it.
+# • Setting a message to '' disables it (empty string).
+# • Removing a config entry causes the plugin to fall back to its internal default.
+#   (Only remove entries intentionally, as defaults may change between versions.)
+# • Identifiers should be unique and contain no spaces.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 🎁 Rewards
+# ─────────────────────────────────────────────────────────────────────────────
+# Shop items use the same reward format as the rest of VotingPlugin
+# (Commands, Items, Messages, etc).
+#
+# Rewards docs:
+#   https://github.com/BenCodez/VotingPlugin/wiki/Rewards
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 📘 Documentation
+# ─────────────────────────────────────────────────────────────────────────────
+# GitHub Wiki (primary):
+#   https://github.com/BenCodez/VotingPlugin/wiki
+#
+# Second / New Wiki (WIP):
+#   https://wiki.bencodez.com/en/VotingPlugin
+#
+####################################################################################################
+
 VoteShop:
   Enabled: true
   Name: 'VoteShop'
@@ -10,7 +54,7 @@ VoteShop:
   Disabled: '&cVote shop disabled'
   # If true, shop gui will reopen, updating all placeholders
   ReopenGUIOnPurchase: false
-  
+
 Shop:
   # Identifier
   # Used in placeholders for formats
@@ -43,9 +87,9 @@ Shop:
     #Limit: 3
     # Reset limit daily/weekly/monthly
     #Reset:
-      #Daily: false
-      #Weekly: false
-      #Monthly: false
+    #  Daily: false
+    #  Weekly: false
+    #  Monthly: false
     # If true, item is not buyable
     #NotBuyable: false
     # Rewards to run if player buys successfully
@@ -56,13 +100,13 @@ Shop:
       Items:
         Diamond:
           Material: 'DIAMOND'
-          Amount: 1    
-            
+          Amount: 1
+
 # VoteShop extra items for display only
 #ExtraItems:
-  #ItemIdentifier:
-    #...
-      
+#  ItemIdentifier:
+#    #...
+
 ShopConfirmPurchase:
   Title: 'Confirm Purchase?'
   YesItem:
@@ -73,5 +117,3 @@ ShopConfirmPurchase:
     Material: BARRIER
     Amount: 1
     Name: '&cNo'
-      
-      

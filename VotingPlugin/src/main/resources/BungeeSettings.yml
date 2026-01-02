@@ -1,6 +1,56 @@
+####################################################################################################
+# VotingPlugin – Proxy / Bungee Settings (BungeeSettings.yml)
+# Author: BenCodez
+#
+# This file configures multi-server / proxy networking features for VotingPlugin.
+# It is ONLY needed if you're using a proxy setup (Velocity/Bungee) or sending votes
+# across multiple backend servers (network-wide totals, points, broadcasts, etc.).
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 📑 Config Index (matches this file)
+# ─────────────────────────────────────────────────────────────────────────────
+#  • Core proxy toggle (UseBungeecord) + method selection (BungeeMethod)
+#  • Method configs (PLUGINMESSAGING / REDIS / MQTT / MYSQL / SOCKETS)
+#  • Broadcast behavior (BungeeBroadcast / DisableBroadcast / Always)
+#  • Per-server behavior (PerServerRewards / Milestones / Points)
+#  • VoteParty (proxy rewards + global commands)
+#  • Plugin messaging security (channel + optional encryption)
+#  • GlobalData (WIP, optional MySQL coordination)
+#  • SOCKETS (advanced, not recommended)
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 🌐 Proxy / Network Notes (important)
+# ─────────────────────────────────────────────────────────────────────────────
+# • PLUGINMESSAGING is the recommended method for most networks.
+# • Use MYSQL in config.yml for shared player storage across backend servers.
+# • Each BACKEND server MUST have a unique server name set below:
+#     Server: <UniqueName>
+#   This is used to identify which backend processed a vote/reward/log entry.
+# • In proxy setups, avoid using MySQL Prefix in config.yml unless you know why.
+# • If you see duplicate broadcasts, review BungeeBroadcast / DisableBroadcast.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 🧠 Editing Tips
+# ─────────────────────────────────────────────────────────────────────────────
+# • Restart is required for changes to take effect (see header below).
+# • Setting a section to {} disables it / clears it.
+# • Removing a config entry causes the plugin to fall back to its internal default.
+#   (Only remove entries intentionally, as defaults may change between versions.)
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 📘 Documentation
+# ─────────────────────────────────────────────────────────────────────────────
+# Bungeecord setups (methods + diagrams):
+#   https://github.com/BenCodez/VotingPlugin/wiki/Bungeecord-Setups
+#
+# Second / New Wiki (WIP):
+#   https://wiki.bencodez.com/en/VotingPlugin
+#
+####################################################################################################
+
 ##########################################
-# Bungee Setup 
-# Only if using votingplugin bungee to send votes
+# Bungee Setup
+# Only if using VotingPlugin proxy features / bungee vote forwarding
 # REQUIRES RESTART FOR CHANGES TO TAKE EFFECT
 ##########################################
 
@@ -22,13 +72,15 @@ BungeeMethod: PLUGINMESSAGING
 Redis:
   Host: localhost
   Port: 6379
-# To get the user name, run redis-cli, if you set a password, run "auth <your password>" and if the out put is "OK" run "ACL USERS"
+  # To get the user name, run redis-cli
+  # If you set a password, run "auth <your password>"
+  # If the output is "OK" run "ACL USERS"
   Username: 'default'
   Password: ''
   # Set a prefix from an entire proxy network if using multi-proxy setup below
   Prefix: ''
   #Db-Index: 0
-  
+
 MQTT:
   # clientid must be unique on each server
   # Default will use the server name below
@@ -44,7 +96,7 @@ MQTT:
 BungeeDebug: false
 
 # Get the plugin to broadcast to all servers
-# If false you need to enable 
+# If false you need to enable
 # Only use for global rewards (one per network), otherwise you will get double broadcasts
 BungeeBroadcast: false
 
@@ -82,8 +134,9 @@ TriggerVotifierEvent: false
 # Recommend enabling ExtraAllSitesCheck in config.yml as well
 GiveExtraAllSitesRewards: false
 
-# What server this is in bungee (must match)
+# What server this is in bungee (must match across your backend servers)
 # Also can be applied to rewards
+# IMPORTANT: Each backend server MUST have a unique value here.
 Server: PleaseSet
 
 # Rewards from bungee vote party
@@ -115,7 +168,7 @@ PluginMessageEncryption: false
 #
 # If you use this you need to enable this on BungeeSettings.yml on each server with votingplugin
 # Make sure server name is set correctly in BungeeSettings.yml or this will not work correctly
-# 
+#
 # Please use PLUGINMESSAGING for this, SOCKETS should work as well, but not fully tested
 #
 # This will make votes cache until time change has finished processing
@@ -129,7 +182,7 @@ GlobalData:
   # Mysql settings only used if above is false
   Host: ''
   # Default port is 3306
-  Port: 3306 
+  Port: 3306
   Database: ''
   Username: ''
   Password: ''

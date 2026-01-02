@@ -188,16 +188,6 @@ public class PlayerVoteListener implements Listener {
 			voteTime = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
 		}
 
-		// try logging to file
-		if (plugin.getConfigFile().isLogVotesToFile()) {
-			try {
-				plugin.logVote(LocalDateTime.now().atZone(ZoneId.systemDefault()).toLocalDateTime(), playerName,
-						voteSite.getKey());
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-		}
-
 		// check first vote rewards
 		plugin.getSpecialRewards().checkFirstVote(voteUUID, user, event.isForceBungee());
 		plugin.getSpecialRewards().checkFirstVoteToday(voteUUID, user, event.isForceBungee());

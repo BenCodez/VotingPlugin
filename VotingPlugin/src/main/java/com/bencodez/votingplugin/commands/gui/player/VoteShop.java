@@ -137,9 +137,6 @@ public class VoteShop extends GUIHandler {
 										if (user.removePoints(points, true)) {
 											plugin.getLogger().info("VoteShop: " + user.getPlayerName() + "/"
 													+ user.getUUID() + " bought " + identifier + " for " + points);
-											if (plugin.getConfigFile().isTrackShopPurchases()) {
-												plugin.getServerData().addVoteShopPurchase(identifier);
-											}
 
 											plugin.getRewardHandler().giveReward(user, plugin.getShopFile().getData(),
 													plugin.getShopFile().getShopIdentifierRewardsPath(identifier),

@@ -1,3 +1,61 @@
+####################################################################################################
+# VotingPlugin – Special Rewards Configuration (SpecialRewards.yml)
+# Author: BenCodez
+#
+# This file controls "special" reward systems that are NOT tied to a single vote site:
+#  • First vote rewards (ever / today)
+#  • AllSites / AlmostAllSites daily rewards
+#  • Cumulative vote rewards (every X votes)
+#  • VoteParty rewards (server-wide goal)
+#  • Milestones (one-time totals)
+#  • Vote streak rewards (new + legacy)
+#  • AnySiteRewards / LoginRewards / LogoutRewards
+#  • Top Voter awards (monthly/weekly/daily)
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# ✅ Rewards Enabled / Disabled
+# ─────────────────────────────────────────────────────────────────────────────
+# • To disable a reward section, set it to {} or remove it entirely.
+#     Example: FirstVote: {}     (all in one line)
+# • Rewards are only executed if there is something to give (commands/items/messages/etc).
+#   Empty / missing sections are ignored.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 🎁 Reward Formats
+# ─────────────────────────────────────────────────────────────────────────────
+# Rewards use AdvancedCore's reward format (Commands, Messages, Items, etc).
+# Most servers can configure everything here without any extra reward files.
+#
+# Reward docs:
+#   https://github.com/BenCodez/VotingPlugin/wiki/Rewards
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 🌐 Proxy / Network Setups (Velocity / Bungee / Multi-server)
+# ─────────────────────────────────────────────────────────────────────────────
+# • Decide whether rewards/streaks should be GLOBAL or PER-SERVER.
+#   - Some sections (like VoteStreaks) can be shared or split based on IDs and server setup.
+# • Make sure each backend has a unique ServerName in BungeeSettings.yml.
+# • Rewards are typically processed on BACKEND servers, not the proxy.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 🧠 Tips
+# ─────────────────────────────────────────────────────────────────────────────
+# • Use Ctrl + F to search quickly.
+# • Setting a message to '' disables it (empty string).
+# • Removing a config entry causes the plugin to fall back to its internal default.
+#   (Only remove entries intentionally, as defaults may change between versions.)
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 📘 Documentation
+# ─────────────────────────────────────────────────────────────────────────────
+# GitHub Wiki (primary):
+#   https://github.com/BenCodez/VotingPlugin/wiki
+#
+# Second / New Wiki (WIP):
+#   https://wiki.bencodez.com/en/VotingPlugin
+#
+####################################################################################################
+
 # To disable reward set value to {}
 # or remove entirely
 # Eg:
@@ -5,33 +63,32 @@
 # Rewards will be given if there is a reward to give, otherwise they will be ignored
 
 # First vote rewards
-FirstVote: 
+FirstVote:
   Messages:
     Player: '&aYou voted for your first time!'
-    
+
 # First vote of the day reward
 FirstVoteToday: {}
 
 # All vote rewards
 # One time reward for voting on all sites in one day
 # Enable ExtraAllSitesCheck if you get double rewards
-AllSites: 
+AllSites:
   Messages:
     Player: '&aYou voted on all sites in 1 day!'
-    
+
 # Give a reward for voting on all sites minus 1
 # Similar to allsites
 #AlmostAllSites:
 #  Messages:
 #    Player: '&aYou almost voted on all sites in 1 day!'
 
-
 # If true only cumulative reward at a time can be given
 # The cumulative rewards will go in order as listed under Cumulative, so if true
 # the first cumulative (in the order as listed) that can be given will, then will ignore the rest
 OnlyOneCumulative: false
 # NOTE: This is not a 1 time reward, that's what milestones are for!
-# If total votes (Can be changed) divided by cumulative amount 
+# If total votes (Can be changed) divided by cumulative amount
 # and with no remainder (So divides perfectly) then a reward is given
 Cumulative:
   # Number of votes required
@@ -54,20 +111,20 @@ Cumulative:
     #- 40
     # Whether or not to gives cumulative reward for every x number of votes, default: true
     #Recurring: true
-    Rewards: 
+    Rewards:
       Messages:
         Player: '&aYou got %cumulative% cumulative votes!'
 
 # Vote party configuration
 VoteParty:
-  # Wether or not vote party is enabled
+  # Whether or not vote party is enabled
   Enabled: false
   # Number of votes required to give rewards
   VotesRequired: 20
   # Increase the amount of votes required on each vote party reached
   #IncreaseVotesRequired: 10
-  # If true, players who did not vote to reach the votes required will 
-  # recieve the reward
+  # If true, players who did not vote to reach the votes required will
+  # receive the reward
   # If false, only players who voted get rewards
   GiveAllPlayers: false
   # If true, give online players the vote party reward
@@ -106,7 +163,7 @@ VoteParty:
   # Only runs once, %player% does not work here
   GlobalRandomCommand: []
   # Rewards to give per player
-  Rewards: 
+  Rewards:
     # Uncomment below for online players to be rewarded only
     #RewardType: ONLINE
     Commands:
@@ -115,10 +172,10 @@ VoteParty:
       DIAMOND:
         Material: 'DIAMOND'
         Amount: 1
-  
+
 # Reset milestones at end of the month
 ResetMilestonesMonthly: false
-  
+
 # One time reward to be given (unless you reset it somehow)
 MileStones:
   # Number of votes required
@@ -127,11 +184,10 @@ MileStones:
   # Can have multiple listed here
   '20':
     Enabled: false
-    Rewards: 
+    Rewards:
       Messages:
         Player: '&aYou got %milestone% milestone votes!'
-        
-        
+
 # Vote streak rewards
 # This is the new vote streak system
 # Data for this is stored separately from the old VoteStreak system
@@ -139,7 +195,7 @@ MileStones:
 VoteStreaks:
   # Id name, data is stored under this name
   # On proxy setups keep different for each server unless you want one global streak/reward
-  Daily3Votes: 
+  Daily3Votes:
     Type: DAILY
     Enabled: false
     Requirements:
@@ -151,7 +207,6 @@ VoteStreaks:
       Commands:
       - say test
 
-   
 # To be replaced with new VoteStreams system above
 # Recommended to not use at this time as it's less reliable
 VoteStreak:
@@ -170,21 +225,17 @@ VoteStreak:
           Player: "&aYou voted for %Streak% %Type%'s in a row!"
   Week:
     # Number of weeks in a row
-    # Requires atleast one vote per week
+    # Requires at least one vote per week
     '2':
-      # Enabled or not
       Enabled: false
-      # Rewards to give
       Rewards:
         Messages:
           Player: "&aYou voted for %Streak% %Type%'s in a row!"
   Month:
     # Number of months in a row
-    # Requires atleast 1 vote per month
+    # Requires at least 1 vote per month
     '2':
-      # Enabled or not
       Enabled: false
-      # Rewards to give
       Rewards:
         Messages:
           Player: "&aYou voted for %Streak% %Type%'s in a row!"
@@ -196,7 +247,7 @@ VoteStreak:
     Day: 50
     Week: 50
     Month: 50
-    
+
 # Reward given when all votesites are available to vote on
 # Don't use this unless you really need it
 # Little performance intensive
@@ -227,8 +278,6 @@ EnableMonthlyAwards: true
 
 # Rewards to give
 MonthlyAwards:
-  # Position. 1 is first in top voter, 2 is second, etc...
-  # Using 1-10 will reward players in first to tenth place with the same reward
   1:
     Rewards:
       Messages:
@@ -237,11 +286,9 @@ MonthlyAwards:
     Rewards:
       Messages:
         Player: '&aYou came in second place in %TopVoter%!'
-    
+
 EnableWeeklyAwards: false
-# Rewards to give on weekly top voter
 WeeklyAwards:
-  # Position. 1 is first in top voter, 2 is second, etc...
   1:
     Rewards:
       Messages:
@@ -250,13 +297,10 @@ WeeklyAwards:
     Rewards:
       Messages:
         Player: '&aYou came in second place in %TopVoter%!'
-    
+
 EnableDailyRewards: false
-# Rewards to give on daily top voter
 DailyAwards:
-  # Position. 1 is first in top voter, 2 is second, etc...
   1:
-    # Reward files to give
     Rewards:
       Messages:
         Player: '&aYou came in first place in %TopVoter%!'

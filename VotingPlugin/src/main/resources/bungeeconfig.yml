@@ -1,3 +1,70 @@
+####################################################################################################
+# VotingPlugin – Proxy Config (bungeeconfig.yml / proxy-side)
+# Author: BenCodez
+#
+# This file configures the PROXY (Velocity/Bungee) side of VotingPlugin.
+# It controls how votes are received/forwarded across your network, how totals/points
+# are managed, vote caching, vote party behavior, and multi-proxy support.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 📑 Config Index (matches this file)
+# ─────────────────────────────────────────────────────────────────────────────
+#  • Core requirements / MySQL connection
+#  • Optional MySQL features (GlobalData / VoteCache / NonVotedCache / VoteLogging)
+#  • Network routing (SendVotesToAllServers / BlockedServers / Whitelist)
+#  • Transport method (BungeeMethod + settings per method)
+#  • Vote handling (WaitForUserOnline / AllowUnJoined / Totals / Broadcast)
+#  • Bedrock prefix + vote limits + time offset
+#  • Proxy VoteParty
+#  • Month Date Totals (experimental)
+#  • Multi-proxy support (WIP)
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# ✅ Setup Checklist (quick)
+# ─────────────────────────────────────────────────────────────────────────────
+#  1) Set Bungee settings on EACH backend server:
+#     - In BungeeSettings.yml: UseBungeecord: true
+#     - In BungeeSettings.yml: Server: <unique backend name>
+#
+#  2) Configure this proxy file:
+#     - MySQL details (required)
+#     - BungeeMethod (PLUGINMESSAGING recommended)
+#     - SendVotesToAllServers / BlockedServers / WhiteListedServers as needed
+#
+#  3) For shared player data across servers:
+#     - Use MYSQL in config.yml on backend servers (recommended in networks)
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 🧠 Editing Tips
+# ─────────────────────────────────────────────────────────────────────────────
+# • {} disables a reward/section or clears it.
+# • Removing a config entry causes the plugin to fall back to its internal default.
+#   (Only remove entries intentionally, as defaults may change between versions.)
+# • Many networking changes require a restart.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 📘 Documentation
+# ─────────────────────────────────────────────────────────────────────────────
+# Bungeecord setups (methods + diagrams):
+#   https://github.com/BenCodez/VotingPlugin/wiki/Bungeecord-Setups
+#
+# Bedrock / Geyser support:
+#   https://github.com/BenCodez/VotingPlugin/wiki/Bedrock-Player-Support
+#
+# Online/Offline mode (UUIDs):
+#   https://github.com/BenCodez/VotingPlugin/wiki/Online-Offline-Mode
+#
+# Month Date Totals:
+#   https://github.com/BenCodez/VotingPlugin/wiki/Month-Date-Totals
+#
+# SOCKETS setup:
+#   https://github.com/BenCodez/VotingPlugin/wiki/Bungee-Setup-SOCKETS
+#
+# Second / New Wiki (WIP):
+#   https://wiki.bencodez.com/en/VotingPlugin
+#
+####################################################################################################
+
 # Set bungeecoord to true on servers on the network (In VotingPlugin)
 # Set server name in each server related to what it is on bungee
 #
@@ -28,9 +95,7 @@ Prefix: ''
 # - POSTGRESQL
 DbType: MYSQL
 
-
 #Driver: ''                       # Optional custom driver class name
-
 
 # OUTDATED OPTIONS - kept for backwards compatibility
 # UseMariaDB: false                  # Attempt to use MariaDB driver instead of MySQL (set DbType instead)
@@ -56,17 +121,15 @@ DbType: MYSQL
 # Optional pool name (useful if you run multiple DB pools)
 # PoolName: 'VotingPlugin-Hikari'
 
-
-
 ####################################################################################
 # Global mysql data handle for between server commmunications
-# This is NOT required for bungee voting to work
+# This is NOT required for proxy voting to work
 # This is still a WIP, use with caution
 # This will create a different table then from users storing server info to process
 #
 # If you use this you need to enable this on BungeeSettings.yml on each server with votingplugin
 # Make sure server name is set correctly in BungeeSettings.yml or this will not work correctly
-# 
+#
 # Please use PLUGINMESSAGING for this, SOCKETS should work as well, but not fully tested
 #
 # This will make votes cache until time change has finished processing
@@ -80,7 +143,7 @@ GlobalData:
   # Mysql settings only used if above is false
   Host: ''
   # Default port is 3306
-  Port: 3306 
+  Port: 3306
   Database: ''
   Username: ''
   Password: ''
@@ -100,13 +163,13 @@ VoteCache:
   UseMySQL: false
   UseMainMySQL: true
   # Mysql settings only used if above is false
-  
+
 NonVotedCache:
-    # If enabled, will cache non voted players in mysql instead of json
+  # If enabled, will cache non voted players in mysql instead of json
   UseMySQL: false
   UseMainMySQL: true
   # Mysql settings only used if above is false
-  
+
 VoteLogging:
   # If enabled, will log votes in mysql
   # Enable on backend servers to access commands
@@ -128,7 +191,6 @@ SendVotesToAllServers: true
 BlockedServers:
 - hub
 
-
 # Similar to BlockServers
 # If a server is listed then blockedservers is ignored
 WhiteListedServers: []
@@ -140,11 +202,9 @@ WhiteListedServers: []
 # PLUGINMESSAGING (Recommended)
 # REDIS
 # MQTT
-# SOCKETS 
+# SOCKETS
 # MYSQL (Not recommended)
 BungeeMethod: PLUGINMESSAGING
-
-
 
 ######################################################################################
 # Settings for each setup below
@@ -177,7 +237,7 @@ Redis:
   # Set a prefix from an entire proxy network if using mutli-proxy setup below
   Prefix: ''
   #Db-Index: 0
-  
+
 ###########################################
 # SOCKETS Settings
 ###########################################
@@ -197,7 +257,7 @@ MQTT:
   Password: ''
   # Set a prefix from an entire proxy network if using mutli-proxy setup below
   Prefix: ''
-  
+
 ######################################################################################
 
 # Votes will be forwarded when specific player is online
@@ -247,7 +307,7 @@ LimitVotePoints: -1
 TimeHourOffSet: 0
 
 VoteParty:
-  # If enabled, will trigger vote party reward 
+  # If enabled, will trigger vote party reward
   # in BungeeSettings.yml under BungeeVotePartyReward
   # Only runs rewards for online players
   Enabled: false
@@ -263,7 +323,7 @@ VoteParty:
   # Set spigot commands in BungeeSettings.yml
   BungeeCommands: []
   Broadcast: '&aVote party has been reached!'
-  
+
 # Online mode for UUIDS
 # More details here: https://github.com/BenCodez/VotingPlugin/wiki/Online-Offline-Mode
 OnlineMode: true
@@ -306,7 +366,6 @@ StoreMonthTotalsWithDate: false
 # This setting may be very buggy as it's in early stages
 UseMonthDateTotalsAsPrimaryTotal: false
 
-
 ##########################################
 # Multi-proxy setup
 # This is still a WIP, use with caution
@@ -344,7 +403,7 @@ MultiProxyRedis:
   Port: 6379
   Username: ''
   Password: ''
-  
+
 # Set each server it's own proxy name here (can be anything)
 ProxyServerName: proxy1
 

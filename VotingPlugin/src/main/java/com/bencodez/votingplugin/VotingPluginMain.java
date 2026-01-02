@@ -1,6 +1,5 @@
 package com.bencodez.votingplugin;
 
-import java.io.File;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.URL;
@@ -11,7 +10,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -56,7 +54,6 @@ import com.bencodez.advancedcore.api.rewards.injected.RewardInjectInt;
 import com.bencodez.advancedcore.api.rewards.injected.RewardInjectValidator;
 import com.bencodez.advancedcore.api.rewards.injectedrequirement.RequirementInjectConfigurationSection;
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
-import com.bencodez.advancedcore.logger.Logger;
 import com.bencodez.simpleapi.file.YMLConfig;
 import com.bencodez.simpleapi.skull.SkullCache;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigSpigot;
@@ -215,9 +212,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	@Setter
 	private ArrayList<CommandHandler> voteCommand;
-
-	@Getter
-	private Logger voteLog;
 
 	@Getter
 	private VoteParty voteParty;
@@ -1099,21 +1093,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	/**
-	 * Log vote.
-	 *
-	 * @param date       the date
-	 * @param playerName the player name
-	 * @param voteSite   the vote site
-	 */
-	public void logVote(LocalDateTime date, String playerName, String voteSite) {
-		if (configFile.isLogVotesToFile()) {
-			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-			String str = formatter.format(date);
-			voteLog.logToFile(str + ": " + playerName + " voted on " + voteSite);
-		}
-	}
-
-	/**
 	 * Metrics.
 	 */
 	private void metrics() {
@@ -1199,7 +1178,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			topVoter.put(top, new LinkedHashMap<>());
 		}
 		voteToday = new LinkedHashMap<>();
-		voteLog = new Logger(plugin, new File(plugin.getDataFolder() + File.separator + "Log", "votelog.txt"));
+		
 
 		new AdminGUI(this).loadHook();
 
