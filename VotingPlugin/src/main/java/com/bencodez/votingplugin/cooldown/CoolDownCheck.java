@@ -1,6 +1,9 @@
 package com.bencodez.votingplugin.cooldown;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -25,16 +28,15 @@ import lombok.Getter;
 
 public class CoolDownCheck implements Listener {
 
-	private VotingPluginMain plugin;
+	private final VotingPluginMain plugin;
 
-	private HashMap<UUID, ScheduledFuture<?>> perSiteTasks = new HashMap<>();
-
-	private HashMap<UUID, ScheduledFuture<?>> allSiteTasks = new HashMap<>();
+	private final Map<UUID, ScheduledFuture<?>> perSiteTasks = new HashMap<>();
+	private final Map<UUID, ScheduledFuture<?>> allSiteTasks = new HashMap<>();
 
 	@Getter
-	private ScheduledExecutorService timer;
+	private final ScheduledExecutorService timer;
 
-	private boolean cooldownCheckEnabled = false;
+	private volatile boolean cooldownCheckEnabled = false;
 
 	public CoolDownCheck(VotingPluginMain plugin) {
 		this.plugin = plugin;
@@ -50,24 +52,33 @@ public class CoolDownCheck implements Listener {
 	}
 
 	public synchronized void check(VotingPluginUser user) {
-		boolean coolDownCheck = user.getCoolDownCheck();
-		if (coolDownCheck) {
-			if (user.canVoteAll()) {
-				user.setCoolDownCheck(false);
-				PlayerVoteCoolDownEndEvent event = new PlayerVoteCoolDownEndEvent(user);
-				plugin.getServer().getPluginManager().callEvent(event);
-				allSiteTasks.remove(user.getJavaUUID());
-			} else {
-				schedulePerSite(user, false);
-			}
+		if (!user.getCoolDownCheck()) {
+			return;
 		}
+
+		if (user.canVoteAll()) {
+			user.setCoolDownCheck(false);
+			PlayerVoteCoolDownEndEvent event = new PlayerVoteCoolDownEndEvent(user);
+			plugin.getServer().getPluginManager().callEvent(event);
+			allSiteTasks.remove(user.getJavaUUID());
+			return;
+		}
+
+		schedulePerSite(user, false);
 	}
 
+	/**
+	 * Check ONLY a specific votesite for all users (uses streaming keys/cols).
+	 */
 	public void checkAllVoteSite(VoteSite site) {
+		if (site == null) {
+			return;
+		}
+
 		plugin.getLogger().info("Checking vote cooldown rewards for all players: " + site.getKey());
 
 		plugin.getUserManager().forEachUserKeys((uuid, cols) -> {
-			if (plugin == null || !plugin.isEnabled() || uuid == null) {
+			if (!plugin.isEnabled() || uuid == null) {
 				return;
 			}
 
@@ -79,29 +90,22 @@ public class CoolDownCheck implements Listener {
 			user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
 
 			try {
-				// Populate temp cache from the provided columns (no persistent loads)
 				if (cols != null) {
 					user.updateTempCacheWithColumns(cols);
-					cols.clear(); // help GC a bit
+					cols.clear(); // help GC
 				}
 
-				checkPerSite(user);
+				checkPerSite(site, user);
 			} finally {
 				user.clearTempCache();
 			}
-		}, (count) -> {
-			plugin.getLogger().info(
-					"Finished checking vote cooldown rewards for all players: " + site.getKey() + " (processed: " + count + ")");
-		});
+		}, (count) -> plugin.getLogger().info("Finished checking vote cooldown rewards for all players: "
+				+ site.getKey() + " (processed: " + count + ")"));
 	}
 
 	public void checkEnabled() {
-		if (!plugin.getConfigFile().isDisableCoolDownCheck() && plugin.getRewardHandler()
-				.hasRewards(plugin.getSpecialRewardsConfig().getData(), "VoteCoolDownEndedReward")) {
-			cooldownCheckEnabled = true;
-		} else {
-			cooldownCheckEnabled = false;
-		}
+		cooldownCheckEnabled = !plugin.getConfigFile().isDisableCoolDownCheck() && plugin.getRewardHandler()
+				.hasRewards(plugin.getSpecialRewardsConfig().getData(), "VoteCoolDownEndedReward");
 	}
 
 	public void checkPerSite(UUID uuid) {
@@ -113,27 +117,57 @@ public class CoolDownCheck implements Listener {
 	}
 
 	public synchronized void checkPerSite(VotingPluginUser user) {
-		if (plugin.getConfigFile().isPerSiteCoolDownEvents()) {
-			HashMap<String, Boolean> coolDownChecks = user.getCoolDownCheckSiteList();
-			boolean changed = false;
-			for (VoteSite site : plugin.getVoteSitesEnabled()) {
-				if (!coolDownChecks.containsKey(site.getKey()) || !coolDownChecks.get(site.getKey()).booleanValue()) {
-					if (user.canVoteSite(site)) {
-						coolDownChecks.put(site.getKey(), Boolean.TRUE);
-						changed = true;
-						plugin.extraDebug("Triggering votesitecooldownend event for " + user.getUUID());
-						PlayerVoteSiteCoolDownEndEvent event = new PlayerVoteSiteCoolDownEndEvent(user, site);
-						plugin.getServer().getPluginManager().callEvent(event);
-					}
-				}
-			}
-			if (changed) {
-				user.setCoolDownCheckSite(coolDownChecks);
-			}
-
-			schedulePerSite(user, false);
+		if (!plugin.getConfigFile().isPerSiteCoolDownEvents()) {
+			return;
 		}
 
+		HashMap<String, Boolean> coolDownChecks = user.getCoolDownCheckSiteList();
+		boolean changed = false;
+
+		for (VoteSite site : plugin.getVoteSitesEnabled()) {
+			if (site == null) {
+				continue;
+			}
+
+			if (!Boolean.TRUE.equals(coolDownChecks.get(site.getKey()))) {
+				if (user.canVoteSite(site)) {
+					coolDownChecks.put(site.getKey(), Boolean.TRUE);
+					changed = true;
+					plugin.extraDebug("Triggering votesitecooldownend event for " + user.getUUID());
+					PlayerVoteSiteCoolDownEndEvent event = new PlayerVoteSiteCoolDownEndEvent(user, site);
+					plugin.getServer().getPluginManager().callEvent(event);
+				}
+			}
+		}
+
+		if (changed) {
+			user.setCoolDownCheckSite(coolDownChecks);
+		}
+
+		schedulePerSite(user, false);
+	}
+
+	/**
+	 * Site-specific version used by batch checks / checkAllVoteSite.
+	 */
+	private void checkPerSite(VoteSite site, VotingPluginUser user) {
+		if (!plugin.getConfigFile().isPerSiteCoolDownEvents() || site == null) {
+			return;
+		}
+
+		HashMap<String, Boolean> coolDownChecks = user.getCoolDownCheckSiteList();
+		if (Boolean.TRUE.equals(coolDownChecks.get(site.getKey()))) {
+			return;
+		}
+
+		if (user.canVoteSite(site)) {
+			coolDownChecks.put(site.getKey(), Boolean.TRUE);
+			user.setCoolDownCheckSite(coolDownChecks);
+
+			plugin.extraDebug("Triggering votesitecooldownend event for " + user.getUUID());
+			PlayerVoteSiteCoolDownEndEvent event = new PlayerVoteSiteCoolDownEndEvent(user, site);
+			plugin.getServer().getPluginManager().callEvent(event);
+		}
 	}
 
 	public void load() {
@@ -141,18 +175,18 @@ public class CoolDownCheck implements Listener {
 
 			@Override
 			public void onFinish() {
-
+				checkAllVoteSites();
 			}
 
 			@Override
 			public void onStart() {
-
 			}
 
 			@Override
 			public void onStartUp(AdvancedCoreUser advancedcoreUser) {
 				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(advancedcoreUser);
 				user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
+
 				if (cooldownCheckEnabled) {
 					check(user);
 				}
@@ -161,7 +195,6 @@ public class CoolDownCheck implements Listener {
 				}
 			}
 		});
-
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -178,55 +211,54 @@ public class CoolDownCheck implements Listener {
 	}
 
 	public void schedule(VotingPluginUser user, boolean force) {
-		if (user.getSitesVotedOn() > 0 || force) {
-			final UUID uuid = UUID.fromString(user.getUUID());
-			long time = user.getNextTimeAllSitesAvailable();
-			if (allSiteTasks.containsKey(uuid)) {
-				allSiteTasks.get(uuid).cancel(false);
-				allSiteTasks.remove(uuid);
-			}
-			if (time > 0) {
-				user.setCoolDownCheck(true);
-				ScheduledFuture<?> scheduledFuture = timer.schedule(new Runnable() {
-
-					@Override
-					public void run() {
-						if (plugin != null && plugin.isEnabled()) {
-							check(uuid);
-						}
-					}
-				}, time + 2, TimeUnit.SECONDS);
-				allSiteTasks.put(uuid, scheduledFuture);
-			} else {
-				plugin.extraDebug(user.getUUID() + "/" + user.getPlayerName() + " not scheduling cooldown check");
-			}
+		if (user.getSitesVotedOn() <= 0 && !force) {
+			return;
 		}
 
+		final UUID uuid = UUID.fromString(user.getUUID());
+		final long time = user.getNextTimeAllSitesAvailable();
+
+		ScheduledFuture<?> existing = allSiteTasks.remove(uuid);
+		if (existing != null) {
+			existing.cancel(false);
+		}
+
+		if (time > 0) {
+			user.setCoolDownCheck(true);
+			ScheduledFuture<?> scheduledFuture = timer.schedule(() -> {
+				if (plugin.isEnabled()) {
+					check(uuid);
+				}
+			}, time + 2, TimeUnit.SECONDS);
+			allSiteTasks.put(uuid, scheduledFuture);
+		} else {
+			plugin.extraDebug(user.getUUID() + "/" + user.getPlayerName() + " not scheduling cooldown check");
+		}
 	}
 
 	public void schedulePerSite(VotingPluginUser user, boolean force) {
-		if (user.getSitesVotedOn() > 0 || force) {
-			final UUID uuid = UUID.fromString(user.getUUID());
-			long time = user.getNextTimeFirstSiteAvailable();
-			if (perSiteTasks.containsKey(uuid)) {
-				perSiteTasks.get(uuid).cancel(false);
-				perSiteTasks.remove(uuid);
-			}
-			if (time > 0) {
-				plugin.devDebug("PerSiteCoolDownEvent schedule time: " + time + " seconds");
-				ScheduledFuture<?> scheduledFuture = timer.schedule(new Runnable() {
+		if (user.getSitesVotedOn() <= 0 && !force) {
+			return;
+		}
 
-					@Override
-					public void run() {
-						if (plugin != null && plugin.isEnabled()) {
-							checkPerSite(uuid);
-						}
-					}
-				}, time + 2, TimeUnit.SECONDS);
-				perSiteTasks.put(uuid, scheduledFuture);
-			} else {
-				plugin.extraDebug(user.getUUID() + "/" + user.getPlayerName() + " not scheduling cooldown check");
-			}
+		final UUID uuid = UUID.fromString(user.getUUID());
+		final long time = user.getNextTimeFirstSiteAvailable();
+
+		ScheduledFuture<?> existing = perSiteTasks.remove(uuid);
+		if (existing != null) {
+			existing.cancel(false);
+		}
+
+		if (time > 0) {
+			plugin.devDebug("PerSiteCoolDownEvent schedule time: " + time + " seconds");
+			ScheduledFuture<?> scheduledFuture = timer.schedule(() -> {
+				if (plugin.isEnabled()) {
+					checkPerSite(uuid);
+				}
+			}, time + 2, TimeUnit.SECONDS);
+			perSiteTasks.put(uuid, scheduledFuture);
+		} else {
+			plugin.extraDebug(user.getUUID() + "/" + user.getPlayerName() + " not scheduling cooldown check");
 		}
 	}
 
@@ -241,4 +273,55 @@ public class CoolDownCheck implements Listener {
 		}
 	}
 
+	/**
+	 * Performance-optimized: scan users ONCE, process all daily-delay sites.
+	 */
+	public void checkAllVoteSites() {
+		final List<VoteSite> sites = plugin.getVoteSites();
+		if (sites == null || sites.isEmpty()) {
+			return;
+		}
+
+		final ArrayList<VoteSite> dailySites = new ArrayList<>();
+		for (int i = 0; i < sites.size(); i++) {
+			VoteSite site = sites.get(i);
+			if (site != null && site.isVoteDelayDaily()) {
+				dailySites.add(site);
+			}
+		}
+
+		if (dailySites.isEmpty()) {
+			return;
+		}
+
+		plugin.getLogger()
+				.info("Checking vote cooldown rewards for all players across " + dailySites.size() + " sites...");
+
+		plugin.getUserManager().forEachUserKeys((uuid, cols) -> {
+			if (!plugin.isEnabled() || uuid == null) {
+				return;
+			}
+
+			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
+			if (user == null) {
+				return;
+			}
+
+			user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
+
+			try {
+				if (cols != null) {
+					user.updateTempCacheWithColumns(cols);
+					cols.clear();
+				}
+
+				for (int i = 0; i < dailySites.size(); i++) {
+					checkPerSite(dailySites.get(i), user);
+				}
+			} finally {
+				user.clearTempCache();
+			}
+		}, (count) -> plugin.getLogger()
+				.info("Finished checking vote cooldown rewards (processed: " + count + " users)"));
+	}
 }
