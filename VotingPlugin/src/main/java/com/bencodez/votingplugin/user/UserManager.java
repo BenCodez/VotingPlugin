@@ -2,8 +2,6 @@ package com.bencodez.votingplugin.user;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map.Entry;
 import java.util.UUID;
 
 import org.bukkit.OfflinePlayer;
@@ -15,7 +13,6 @@ import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
 import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKeyBoolean;
 import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKeyInt;
 import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKeyString;
-import com.bencodez.simpleapi.sql.Column;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 
@@ -188,38 +185,34 @@ public class UserManager {
 	}
 
 	public void purgeOldPlayersNowNoData() {
-		HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager().getAllKeys();
-		for (Entry<UUID, ArrayList<Column>> playerData : cols.entrySet()) {
-			String uuid = playerData.getKey().toString();
+		plugin.getUserManager().forEachUserKeys((uuid, columns) -> {
 			if (plugin.isEnabled()) {
-				if (uuid != null) {
-					VotingPluginUser user = getVotingPluginUser(UUID.fromString(uuid), false);
-					if (user != null) {
-						user.dontCache();
-						user.updateTempCacheWithColumns(playerData.getValue());
-						int daysOld = plugin.getOptions().getPurgeMinimumDays();
-						int days = user.getNumberOfDaysSinceLogin();
-						if (days == -1) {
-							// fix ones with no last online
-							user.setLastOnline(System.currentTimeMillis());
-						} else if (days > daysOld) {
-							if (user.getTotal(TopVoter.AllTime) == 0 && user.getMilestoneCount() == 0
-									&& user.getTotal(TopVoter.Monthly) == 0 && user.getTotal(TopVoter.Weekly) == 0
-									&& user.getTotal(TopVoter.Daily) == 0) {
-								plugin.debug("Removing " + user.getUUID() + " because of no data purge");
-							}
+				VotingPluginUser user = getVotingPluginUser(uuid, false);
+				if (user != null) {
+					user.dontCache();
+					user.updateTempCacheWithColumns(columns);
+					int daysOld = plugin.getOptions().getPurgeMinimumDays();
+					int days = user.getNumberOfDaysSinceLogin();
+					if (days == -1) {
+						// fix ones with no last online
+						user.setLastOnline(System.currentTimeMillis());
+					} else if (days > daysOld) {
+						if (user.getTotal(TopVoter.AllTime) == 0 && user.getMilestoneCount() == 0
+								&& user.getTotal(TopVoter.Monthly) == 0 && user.getTotal(TopVoter.Weekly) == 0
+								&& user.getTotal(TopVoter.Daily) == 0) {
+							plugin.debug("Removing " + user.getUUID() + " because of no data purge");
 							user.remove();
 						}
-
-						user.clearTempCache();
-						cols.put(playerData.getKey(), null);
-						user = null;
 					}
+
+					user.clearTempCache();
+					user = null;
 				}
 			}
-		}
-		cols.clear();
-		cols = null;
+
+		}, (count) -> {
+
+		});
 
 		plugin.getUserManager().getDataManager().clearCache();
 		plugin.setUpdate(true);

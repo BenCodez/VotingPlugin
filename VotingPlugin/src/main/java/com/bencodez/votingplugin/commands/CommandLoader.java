@@ -60,10 +60,6 @@ import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVotePlayer;
 import com.bencodez.votingplugin.commands.gui.admin.cumulative.AdminVoteCumulative;
 import com.bencodez.votingplugin.commands.gui.admin.milestones.AdminVoteMilestones;
 import com.bencodez.votingplugin.commands.gui.admin.votelog.AdminVoteLogMenu;
-import com.bencodez.votingplugin.commands.gui.admin.votelog.AdminVoteLogPlayer;
-import com.bencodez.votingplugin.commands.gui.admin.votelog.AdminVoteLogRecent;
-import com.bencodez.votingplugin.commands.gui.admin.votelog.AdminVoteLogService;
-import com.bencodez.votingplugin.commands.gui.admin.votelog.AdminVoteLogStats;
 import com.bencodez.votingplugin.commands.gui.admin.voteshop.AdminVoteVoteShop;
 import com.bencodez.votingplugin.commands.gui.player.VoteBest;
 import com.bencodez.votingplugin.commands.gui.player.VoteGUI;
@@ -383,17 +379,15 @@ public class CommandLoader {
 								plugin.getLogger().warning("Failed to get number from " + str);
 							}
 						}
-						HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager().getAllKeys();
-						for (Entry<UUID, ArrayList<Column>> playerData : cols.entrySet()) {
 
-							String uuid = playerData.getKey().toString();
+						plugin.getUserManager().forEachUserKeys((uuid, columns) -> {
+							String uuidStr = uuid.toString();
 							if (plugin != null && plugin.isEnabled()) {
-								if (uuid != null && !uuid.isEmpty()) {
+								if (uuidStr != null && !uuidStr.isEmpty()) {
 									VotingPluginUser user = plugin.getVotingPluginUserManager()
-											.getVotingPluginUser(UUID.fromString(uuid));
+											.getVotingPluginUser(uuid);
 									user.dontCache();
-									user.updateTempCacheWithColumns(playerData.getValue());
-									cols.put(playerData.getKey(), null);
+									user.updateTempCacheWithColumns(columns);
 									int milestoneCount = user.getMilestoneCount();
 									for (int num : nums) {
 										if (milestoneCount >= num) {
@@ -420,10 +414,9 @@ public class CommandLoader {
 									user.clearTempCache();
 								}
 							}
-						}
-						cols.clear();
-						cols = null;
-						sendMessage(sender, "&cFinished");
+						}, (count) -> {
+							sendMessage(sender, "&cFinished");
+						});
 
 					}
 				});
