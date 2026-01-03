@@ -1164,16 +1164,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		topVoterHandler = new TopVoterHandler(this);
 		lastMonthTopVoter = new LinkedHashMap<>();
 		previousMonthsTopVoters = new LinkedHashMap<>();
-		plugin.getBukkitScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
 
-			@Override
-			public void run() {
-				topVoterHandler.loadLastMonth();
-				debug("Loaded last month top voters");
-
-				topVoterHandler.loadPreviousMonthTopVoters();
-			}
-		}, 20 * 120);
 		topVoter = new LinkedHashMap<>();
 		for (TopVoter top : TopVoter.values()) {
 			topVoter.put(top, new LinkedHashMap<>());
@@ -1440,7 +1431,18 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 			@Override
 			public void onFinish() {
-				setUpdate(true);
+				plugin.getBukkitScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+
+					@Override
+					public void run() {
+						topVoterHandler.loadLastMonth();
+
+						topVoterHandler.loadPreviousMonthTopVoters();
+						
+						setUpdate(true);
+						update();
+					}
+				}, 3);
 			}
 		});
 

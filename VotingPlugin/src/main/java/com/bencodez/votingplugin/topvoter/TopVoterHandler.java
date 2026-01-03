@@ -312,7 +312,7 @@ public class TopVoterHandler implements Listener {
 
 				// Read MonthTotal-* columns directly (FAST)
 				for (int i = 0; i < monthColsArr.length; i++) {
-					final int total = user.getData().getInt(monthColsArr[i], false, true); // adjust if your signature differs
+					final int total = user.getData().getIntTempOnly(monthColsArr[i], 0);
 					if (total > 0) {
 						if (tvp == null) {
 							tvp = user.getTopVoterPlayer();

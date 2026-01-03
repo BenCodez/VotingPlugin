@@ -183,41 +183,40 @@ public abstract class VoteLogMysqlTable {
 
 	private void ensureColumns() {
 		synchronized (initLock) {
-
 			ensureIdPrimaryKey();
 
+			// 1) Ensure columns exist (fast)
 			checkColumn("vote_id", DataType.STRING);
-			alterColumnType("vote_id", "VARCHAR(36) NULL");
-
 			checkColumn("vote_time", DataType.INTEGER);
-			alterColumnType("vote_time", "BIGINT NOT NULL DEFAULT '0'");
-
 			checkColumn("player_uuid", DataType.STRING);
-			alterColumnType("player_uuid", "VARCHAR(37)");
-
 			checkColumn("player_name", DataType.STRING);
-			alterColumnType("player_name", "VARCHAR(16)");
-
 			checkColumn("service", DataType.STRING);
-			alterColumnType("service", "VARCHAR(64)");
-
-			// NEW: server column (from getServerName())
 			checkColumn("server", DataType.STRING);
-			alterColumnType("server", "VARCHAR(64)");
-
 			checkColumn("event", DataType.STRING);
-			alterColumnType("event", "VARCHAR(64) NOT NULL DEFAULT '" + VoteLogEvent.VOTE_RECEIVED.name() + "'");
-
 			checkColumn("context", DataType.STRING);
-			// CHANGED: allow more space for voteshop purchase metadata
-			alterColumnType("context", "VARCHAR(255) NULL");
-
 			checkColumn("status", DataType.STRING);
-			alterColumnType("status", "VARCHAR(16)");
-
 			checkColumn("cached_total", DataType.INTEGER);
-			alterColumnType("cached_total", "INT NOT NULL DEFAULT '0'");
 
+			// 2) Normalize column types in ONE ALTER (reduces DDL churn / connection hold time)
+			String alter = "ALTER TABLE `" + getName() + "` "
+					+ "MODIFY `vote_id` VARCHAR(36) NULL, "
+					+ "MODIFY `vote_time` BIGINT NOT NULL DEFAULT '0', "
+					+ "MODIFY `player_uuid` VARCHAR(37), "
+					+ "MODIFY `player_name` VARCHAR(16), "
+					+ "MODIFY `service` VARCHAR(64), "
+					+ "MODIFY `server` VARCHAR(64), "
+					+ "MODIFY `event` VARCHAR(64) NOT NULL DEFAULT '" + VoteLogEvent.VOTE_RECEIVED.name() + "', "
+					+ "MODIFY `context` VARCHAR(255) NULL, "
+					+ "MODIFY `status` VARCHAR(16), "
+					+ "MODIFY `cached_total` INT NOT NULL DEFAULT '0';";
+
+			try {
+				new Query(mysql, alter).executeUpdate();
+			} catch (SQLException e) {
+				debug1(e);
+			}
+
+			// 3) Indexes (still separate, but only created if missing)
 			tryCreateIndex("idx_vote_time", "(`vote_time`)");
 			tryCreateIndex("idx_uuid_time", "(`player_uuid`,`vote_time`)");
 			tryCreateIndex("idx_service_time", "(`service`,`vote_time`)");
@@ -226,11 +225,11 @@ public abstract class VoteLogMysqlTable {
 			tryCreateIndex("idx_event_time", "(`event`,`vote_time`)");
 			tryCreateIndex("idx_context_time", "(`context`,`vote_time`)");
 			tryCreateIndex("idx_event_context_time", "(`event`,`context`,`vote_time`)");
-
 			tryCreateIndex("idx_vote_id", "(`vote_id`)");
 			tryCreateIndex("idx_vote_id_time", "(`vote_id`,`vote_time`)");
 		}
 	}
+
 
 	public List<String> getDistinctServices(int days, int limit) {
 		if (limit <= 0) {
@@ -478,6 +477,7 @@ public abstract class VoteLogMysqlTable {
 		}
 	}
 
+	@SuppressWarnings("unused")
 	private void alterColumnType(String column, String newType) {
 		try {
 			new Query(mysql, "ALTER TABLE `" + getName() + "` MODIFY `" + column + "` " + newType + ";")
