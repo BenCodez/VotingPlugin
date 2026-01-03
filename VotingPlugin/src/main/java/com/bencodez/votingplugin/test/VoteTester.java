@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import com.bencodez.advancedcore.api.rewards.Reward;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
+import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.topvoter.TopVoter;
@@ -31,7 +32,7 @@ public class VoteTester {
 					if (!plugin.getUserManager().userExist(playerName)) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid,
 								playerName);
-						user.dontCache();
+						user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 						user.setPoints(random.nextInt(100));
 						for (TopVoter top : TopVoter.values()) {
 							user.setTotal(top, random.nextInt(1000));

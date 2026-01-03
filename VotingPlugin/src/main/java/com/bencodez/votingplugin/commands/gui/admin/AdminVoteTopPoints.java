@@ -21,6 +21,7 @@ import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
+import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.commands.gui.player.VoteGUI;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
@@ -63,7 +64,7 @@ public class AdminVoteTopPoints extends GUIHandler {
 			for (String uuid : plugin.getVotingPluginUserManager().getAllUUIDs()) {
 				VotingPluginUser vpUser = plugin.getVotingPluginUserManager()
 						.getVotingPluginUser(UUID.fromString(uuid));
-				vpUser.dontCache();
+				vpUser.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 				int points = vpUser.getPoints();
 				if (points > 0) {
 					topPoints1.put(vpUser.getTopVoterPlayer(), points);

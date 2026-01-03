@@ -6,6 +6,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 
+import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.listeners.AdvancedCoreLoginEvent;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -81,7 +82,7 @@ public class PlayerJoinEvent implements Listener {
 					VotingPluginMain.plugin.getAdvancedTab().remove(player.getUniqueId());
 
 					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
-					user.dontCache();
+					user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 					user.logoutRewards();
 					plugin.getPlaceholders().onLogout(user);
 				}

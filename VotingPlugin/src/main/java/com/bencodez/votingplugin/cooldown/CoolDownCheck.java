@@ -1,8 +1,6 @@
 package com.bencodez.votingplugin.cooldown;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -15,8 +13,8 @@ import org.bukkit.event.Listener;
 
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
+import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.UserStartup;
-import com.bencodez.simpleapi.sql.Column;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteCoolDownEndEvent;
 import com.bencodez.votingplugin.events.PlayerVoteSiteCoolDownEndEvent;
@@ -46,7 +44,7 @@ public class CoolDownCheck implements Listener {
 	public void check(UUID uuid) {
 		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
 		if (!user.isOnline()) {
-			user.dontCache();
+			user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 		}
 		check(user);
 	}
@@ -67,27 +65,34 @@ public class CoolDownCheck implements Listener {
 
 	public void checkAllVoteSite(VoteSite site) {
 		plugin.getLogger().info("Checking vote cooldown rewards for all players: " + site.getKey());
-		HashMap<UUID, ArrayList<Column>> cols = plugin.getUserManager().getAllKeys();
-		for (Entry<UUID, ArrayList<Column>> playerData : cols.entrySet()) {
 
-			String uuid = playerData.getKey().toString();
-			if (plugin != null && plugin.isEnabled()) {
-				if (uuid != null && !uuid.isEmpty()) {
-					VotingPluginUser user = plugin.getVotingPluginUserManager()
-							.getVotingPluginUser(UUID.fromString(uuid), false);
-					user.dontCache();
-					user.updateTempCacheWithColumns(playerData.getValue());
-					cols.put(playerData.getKey(), null);
-					checkPerSite(user);
-					user.clearTempCache();
-					user = null;
-				}
+		plugin.getUserManager().forEachUserKeys((uuid, cols) -> {
+			if (plugin == null || !plugin.isEnabled() || uuid == null) {
+				return;
 			}
-		}
-		cols.clear();
-		cols = null;
 
-		plugin.getLogger().info("Finished checking vote cooldown rewards for all players: " + site.getKey());
+			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
+			if (user == null) {
+				return;
+			}
+
+			user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
+
+			try {
+				// Populate temp cache from the provided columns (no persistent loads)
+				if (cols != null) {
+					user.updateTempCacheWithColumns(cols);
+					cols.clear(); // help GC a bit
+				}
+
+				checkPerSite(user);
+			} finally {
+				user.clearTempCache();
+			}
+		}, (count) -> {
+			plugin.getLogger().info(
+					"Finished checking vote cooldown rewards for all players: " + site.getKey() + " (processed: " + count + ")");
+		});
 	}
 
 	public void checkEnabled() {
@@ -102,7 +107,7 @@ public class CoolDownCheck implements Listener {
 	public void checkPerSite(UUID uuid) {
 		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
 		if (!user.isOnline()) {
-			user.dontCache();
+			user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 		}
 		checkPerSite(user);
 	}
@@ -147,7 +152,7 @@ public class CoolDownCheck implements Listener {
 			@Override
 			public void onStartUp(AdvancedCoreUser advancedcoreUser) {
 				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(advancedcoreUser);
-				user.dontCache();
+				user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 				if (cooldownCheckEnabled) {
 					check(user);
 				}

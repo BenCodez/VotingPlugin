@@ -33,6 +33,7 @@ import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.misc.PlayerManager;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
+import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequest;
 import com.bencodez.advancedcore.api.valuerequest.listeners.BooleanListener;
@@ -268,7 +269,7 @@ public class CommandLoader {
 						for (String uuidStr : plugin.getUserManager().getAllUUIDs()) {
 							UUID uuid = UUID.fromString(uuidStr);
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
-							user.dontCache();
+							user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 							user.setPoints(num);
 							plugin.getSpecialRewards().checkMilestone(null, user, null,
 									plugin.getBungeeSettings().isUseBungeecoord());
@@ -386,7 +387,7 @@ public class CommandLoader {
 								if (uuidStr != null && !uuidStr.isEmpty()) {
 									VotingPluginUser user = plugin.getVotingPluginUserManager()
 											.getVotingPluginUser(uuid);
-									user.dontCache();
+									user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
 									user.updateTempCacheWithColumns(columns);
 									int milestoneCount = user.getMilestoneCount();
 									for (int num : nums) {
@@ -465,7 +466,7 @@ public class CommandLoader {
 						for (String uuidStr : plugin.getUserManager().getAllUUIDs()) {
 							UUID uuid = UUID.fromString(uuidStr);
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
-							user.dontCache();
+							user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 							user.addPoints(num);
 							plugin.getSpecialRewards().checkMilestone(null, user, null,
 									plugin.getBungeeSettings().isUseBungeecoord());
@@ -502,7 +503,7 @@ public class CommandLoader {
 						for (String uuidStr : plugin.getUserManager().getAllUUIDs()) {
 							UUID uuid = UUID.fromString(uuidStr);
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
-							user.dontCache();
+							user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 							user.removePoints(num);
 							plugin.getSpecialRewards().checkMilestone(null, user, null,
 									plugin.getBungeeSettings().isUseBungeecoord());
@@ -1043,7 +1044,7 @@ public class CommandLoader {
 						for (String uuidStr : plugin.getUserManager().getAllUUIDs()) {
 							UUID uuid = UUID.fromString(uuidStr);
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
-							user.dontCache();
+							user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 							user.setMilestoneCount(user.getMilestoneCount() + toAdd);
 							plugin.getSpecialRewards().checkMilestone(null, user, null,
 									plugin.getBungeeSettings().isUseBungeecoord());
@@ -1839,7 +1840,7 @@ public class CommandLoader {
 							Entry<UUID, ArrayList<Column>> entry = players.poll();
 							VotingPluginUser user = plugin.getVotingPluginUserManager()
 									.getVotingPluginUser(entry.getKey(), false);
-							user.dontCache();
+							user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 							if (uuids.contains(entry.getKey().toString())) {
 								user.mergeData(user.getData().convert(entry.getValue()));
 							} else {
@@ -2798,7 +2799,7 @@ public class CommandLoader {
 									VotingPluginUser user = plugin.getVotingPluginUserManager()
 											.getVotingPluginUser(args[1]);
 									if (!user.isOnline()) {
-										user.dontCache();
+										user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 									}
 									int pointsToGive = Integer.parseInt(args[2]);
 									if (pointsToGive > 0) {

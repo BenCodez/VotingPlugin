@@ -8,6 +8,7 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
+import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.UserStartup;
 import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
 import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKeyBoolean;
@@ -161,7 +162,7 @@ public class UserManager {
 				@Override
 				public void onStartUp(AdvancedCoreUser acUser) {
 					VotingPluginUser user = getVotingPluginUser(acUser);
-					user.dontCache();
+					user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 					int daysOld = plugin.getOptions().getPurgeMinimumDays();
 					int days = user.getNumberOfDaysSinceLogin();
 					if (days == -1) {
@@ -189,7 +190,7 @@ public class UserManager {
 			if (plugin.isEnabled()) {
 				VotingPluginUser user = getVotingPluginUser(uuid, false);
 				if (user != null) {
-					user.dontCache();
+					user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
 					user.updateTempCacheWithColumns(columns);
 					int daysOld = plugin.getOptions().getPurgeMinimumDays();
 					int days = user.getNumberOfDaysSinceLogin();

@@ -54,6 +54,7 @@ import com.bencodez.advancedcore.api.rewards.injected.RewardInjectInt;
 import com.bencodez.advancedcore.api.rewards.injected.RewardInjectValidator;
 import com.bencodez.advancedcore.api.rewards.injectedrequirement.RequirementInjectConfigurationSection;
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
+import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.UserStartup;
 import com.bencodez.simpleapi.file.YMLConfig;
 import com.bencodez.simpleapi.skull.SkullCache;
@@ -1438,9 +1439,21 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 						topVoterHandler.loadLastMonth();
 
 						topVoterHandler.loadPreviousMonthTopVoters();
-						
+
 						setUpdate(true);
 						update();
+
+						getCoolDownCheck().getTimer().schedule(new Runnable() {
+
+							@Override
+							public void run() {
+								for (VoteSite site : plugin.getVoteSites()) {
+									if (site.isVoteDelayDaily()) {
+										getCoolDownCheck().checkAllVoteSite(site);
+									}
+								}
+							}
+						}, 5, TimeUnit.SECONDS);
 					}
 				}, 3);
 			}
@@ -1599,18 +1612,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		if (userStorage) {
 			placeholders.load();
 			placeholders.reload();
-			getCoolDownCheck().getTimer().schedule(new Runnable() {
-
-				@Override
-				public void run() {
-					for (VoteSite site : plugin.getVoteSites()) {
-						if (site.isVoteDelayDaily()) {
-							getCoolDownCheck().checkAllVoteSite(site);
-						}
-					}
-				}
-			}, 5, TimeUnit.SECONDS);
-
 		}
 
 		voteReminding.loadRemindChecking();
@@ -1716,7 +1717,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					}
 
 					VotingPluginUser user = getVotingPluginUserManager().getVotingPluginUser(uuid, false);
-					user.dontCache();
+					user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
 					user.updateTempCacheWithColumns(columns);
 
 					try {

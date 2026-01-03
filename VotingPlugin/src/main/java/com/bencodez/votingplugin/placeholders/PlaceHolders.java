@@ -25,6 +25,7 @@ import com.bencodez.advancedcore.api.placeholder.NonPlayerPlaceHolder;
 import com.bencodez.advancedcore.api.placeholder.PlaceHolder;
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.UserDataChanged;
+import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.objects.VoteSite;
@@ -1116,7 +1117,7 @@ public class PlaceHolders {
 			public void onChange(AdvancedCoreUser user, String... keys) {
 				VotingPluginUser vpUser = plugin.getVotingPluginUserManager().getVotingPluginUser(user);
 				if (!vpUser.isCached()) {
-					vpUser.dontCache();
+					vpUser.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 				}
 				for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
 					if (placeholder.isUsesCache()) {

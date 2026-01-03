@@ -20,6 +20,7 @@ import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.time.events.DayChangeEvent;
 import com.bencodez.advancedcore.api.time.events.MonthChangeEvent;
 import com.bencodez.advancedcore.api.time.events.WeekChangeEvent;
+import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.simpleapi.sql.DataType;
@@ -260,7 +261,7 @@ public class VoteParty implements Listener {
 					user = orgUser;
 				} else {
 					user = plugin.getVotingPluginUserManager().getVotingPluginUser(p);
-					user.dontCache();
+					user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 				}
 
 				if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
@@ -275,7 +276,7 @@ public class VoteParty implements Listener {
 						user = orgUser;
 					} else {
 						user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid));
-						user.dontCache();
+						user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 					}
 
 					if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
@@ -294,7 +295,7 @@ public class VoteParty implements Listener {
 					user = orgUser;
 				} else {
 					user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid));
-					user.dontCache();
+					user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 				}
 				if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
 					giveReward(user, forceBungee);

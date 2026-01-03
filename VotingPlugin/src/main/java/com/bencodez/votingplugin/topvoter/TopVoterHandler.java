@@ -29,6 +29,7 @@ import com.bencodez.advancedcore.api.time.events.DayChangeEvent;
 import com.bencodez.advancedcore.api.time.events.MonthChangeEvent;
 import com.bencodez.advancedcore.api.time.events.PreDateChangedEvent;
 import com.bencodez.advancedcore.api.time.events.WeekChangeEvent;
+import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.file.YMLFileHandler;
@@ -76,7 +77,7 @@ public class TopVoterHandler implements Listener {
 		plugin.getUserManager().forEachUserKeys((uuid, columns) -> {
 			if (plugin != null && plugin.isEnabled() && uuid != null) {
 				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
-				user.dontCache();
+				user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
 				user.updateTempCacheWithColumns(columns);
 
 				int total = user.getTotal(TopVoter.Monthly, atTime);
@@ -115,7 +116,7 @@ public class TopVoterHandler implements Listener {
 			if (uuid != null && !uuid.isEmpty()) {
 				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid),
 						false);
-				user.dontCache();
+				user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
 				user.updateTempCacheWithColumns(playerData.getValue());
 				int total = 0;
 				total = user.getTotal(TopVoter.Monthly, atTime);
@@ -188,7 +189,7 @@ public class TopVoterHandler implements Listener {
 			}
 
 			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
-			user.dontCache();
+			user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
 			user.updateTempCacheWithColumns(columns);
 
 			try {
@@ -228,7 +229,7 @@ public class TopVoterHandler implements Listener {
 
 			// Expected: MonthTotal-MONTH-YEAR (ex: MonthTotal-JANUARY-2025)
 			// Faster than split("-") (regex)
-			final int firstDash = column.indexOf('-');              // after MonthTotal
+			final int firstDash = column.indexOf('-'); // after MonthTotal
 			final int secondDash = column.indexOf('-', firstDash + 1); // after MONTH
 			if (firstDash < 0 || secondDash < 0) {
 				continue;
@@ -262,7 +263,8 @@ public class TopVoterHandler implements Listener {
 		// Sort months AND keep monthColumns aligned
 		{
 			final Integer[] idx = new Integer[months.size()];
-			for (int i = 0; i < idx.length; i++) idx[i] = i;
+			for (int i = 0; i < idx.length; i++)
+				idx[i] = i;
 
 			java.util.Arrays.sort(idx, (a, b) -> months.get(a).compareTo(months.get(b)));
 
@@ -281,7 +283,8 @@ public class TopVoterHandler implements Listener {
 		}
 
 		// Prepare destination maps once
-		final LinkedHashMap<YearMonth, LinkedHashMap<TopVoterPlayer, Integer>> prev = plugin.getPreviousMonthsTopVoters();
+		final LinkedHashMap<YearMonth, LinkedHashMap<TopVoterPlayer, Integer>> prev = plugin
+				.getPreviousMonthsTopVoters();
 		prev.clear();
 
 		for (YearMonth ym : months) {
@@ -304,7 +307,7 @@ public class TopVoterHandler implements Listener {
 			}
 
 			final VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
-			user.dontCache();
+			user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
 			user.updateTempCacheWithColumns(columns);
 
 			try {
@@ -312,7 +315,7 @@ public class TopVoterHandler implements Listener {
 
 				// Read MonthTotal-* columns directly (FAST)
 				for (int i = 0; i < monthColsArr.length; i++) {
-					final int total = user.getData().getIntTempOnly(monthColsArr[i], 0);
+					final int total = user.getData().getInt(monthColsArr[i], 0, UserDataFetchMode.TEMP_ONLY);
 					if (total > 0) {
 						if (tvp == null) {
 							tvp = user.getTopVoterPlayer();
@@ -334,7 +337,6 @@ public class TopVoterHandler implements Listener {
 			plugin.extraDebug("Previous Months: " + prev.keySet());
 		});
 	}
-
 
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onDateChanged(DateChangedEvent event) {
@@ -361,7 +363,7 @@ public class TopVoterHandler implements Listener {
 			if (plugin.getConfigFile().isUseVoteStreaks() || plugin.getConfigFile().isUseHighestTotals()) {
 				plugin.getUserManager().forEachUserKeys((uuid, columns) -> {
 					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
-					user.dontCache();
+					user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
 					user.updateTempCacheWithColumns(columns);
 
 					if (plugin.getConfigFile().isUseVoteStreaks()) {
@@ -402,7 +404,7 @@ public class TopVoterHandler implements Listener {
 						}
 						if (places.containsKey(i)) {
 							VotingPluginUser user = entry.getKey().getUser();
-							user.dontCache();
+							user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
 							if (!plugin.getConfigFile().isTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
 								user.giveDailyTopVoterAward(i, places.get(i));
 								plugin.getLogger().info(
@@ -458,7 +460,7 @@ public class TopVoterHandler implements Listener {
 			if (plugin.getConfigFile().isUseHighestTotals() || plugin.getConfigFile().isUseVoteStreaks()) {
 				plugin.getUserManager().forEachUserKeys((uuid, columns) -> {
 					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
-					user.dontCache();
+					user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
 					user.updateTempCacheWithColumns(columns);
 
 					if (plugin.getConfigFile().isUseVoteStreaks()) {
@@ -519,7 +521,7 @@ public class TopVoterHandler implements Listener {
 
 						if (places.containsKey(i)) {
 							VotingPluginUser user = entry.getKey().getUser();
-							user.dontCache();
+							user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
 							if (!plugin.getConfigFile().isTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
 								user.giveMonthlyTopVoterAward(i, places.get(i));
 								plugin.getLogger().info("Giving Monthly top voter reward " + i + " to "
@@ -592,7 +594,7 @@ public class TopVoterHandler implements Listener {
 			if (plugin.getConfigFile().isUseVoteStreaks() || plugin.getConfigFile().isUseHighestTotals()) {
 				plugin.getUserManager().forEachUserKeys((uuid, columns) -> {
 					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
-					user.dontCache();
+					user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
 					user.updateTempCacheWithColumns(columns);
 
 					if (plugin.getConfigFile().isUseVoteStreaks()) {
@@ -639,7 +641,7 @@ public class TopVoterHandler implements Listener {
 						}
 						if (places.containsKey(i)) {
 							VotingPluginUser user = entry.getKey().getUser();
-							user.dontCache();
+							user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
 							if (!plugin.getConfigFile().isTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
 								user.giveWeeklyTopVoterAward(i, places.get(i));
 								plugin.getLogger().info("Giving weekly top voter reward " + i + " to "

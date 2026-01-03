@@ -504,7 +504,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return the best day vote streak
 	 */
 	public int getBestDayVoteStreak() {
-		return getData().getInt("BestDayVoteStreak", isCacheData(), isWaitForCache());
+		return getData().getInt("BestDayVoteStreak");
 	}
 
 	/**
@@ -513,7 +513,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return the best month vote streak
 	 */
 	public int getBestMonthVoteStreak() {
-		return getData().getInt("BestMonthVoteStreak", isCacheData(), isWaitForCache());
+		return getData().getInt("BestMonthVoteStreak");
 	}
 
 	/**
@@ -522,7 +522,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return the best week vote streak
 	 */
 	public int getBestWeekVoteStreak() {
-		return getData().getInt("BestWeekVoteStreak", isCacheData(), isWaitForCache());
+		return getData().getInt("BestWeekVoteStreak");
 	}
 
 	/**
@@ -531,7 +531,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return true, if the cooldown check is enabled
 	 */
 	public boolean getCoolDownCheck() {
-		return getData().getBoolean(getCoolDownCheckPath(), isCacheData(), isWaitForCache());
+		return getData().getBoolean(getCoolDownCheckPath());
 	}
 
 	/**
@@ -567,8 +567,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public HashMap<String, Boolean> getCoolDownCheckSiteList() {
 		HashMap<String, Boolean> coolDownChecks = new HashMap<>();
-		ArrayList<String> coolDownCheck = getData().getStringList(getCoolDownCheckSitePath(), isCacheData(),
-				isWaitForCache());
+		ArrayList<String> coolDownCheck = getData().getStringList(getCoolDownCheckSitePath());
 		for (String str : coolDownCheck) {
 			String[] data = str.split("//");
 			if (data.length > 1 && plugin.hasVoteSite(data[0])) {
@@ -611,7 +610,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return the day vote streak
 	 */
 	public int getDayVoteStreak() {
-		return getData().getInt("DayVoteStreak", isCacheData(), isWaitForCache());
+		return getData().getInt("DayVoteStreak");
 	}
 
 	/**
@@ -620,7 +619,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return the last update time for the day vote streak
 	 */
 	public long getDayVoteStreakLastUpdate() {
-		String str = getData().getString("DayVoteStreakLastUpdate", isCacheData(), isWaitForCache());
+		String str = getData().getString("DayVoteStreakLastUpdate");
 		if (str == null || str.isEmpty() || str.equals("null")) {
 			return 0;
 		}
@@ -637,7 +636,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return true if the broadcast is disabled, false otherwise
 	 */
 	public boolean getDisableBroadcast() {
-		return getUserData().getBoolean("DisableBroadcast", isCacheData(), isWaitForCache());
+		return getUserData().getBoolean("DisableBroadcast");
 	}
 
 	/**
@@ -646,7 +645,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return the day when the user has gotten all sites
 	 */
 	public int getGottenAllSitesDay() {
-		return getData().getInt(plugin.getVotingPluginUserManager().getGottenAllSitesDayPath(), 0, isWaitForCache());
+		return getData().getInt(plugin.getVotingPluginUserManager().getGottenAllSitesDayPath(), 0);
 	}
 
 	/**
@@ -655,8 +654,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return the day when the user has gotten almost all sites
 	 */
 	public int getGottenAlmostAllSitesDay() {
-		return getData().getInt(plugin.getVotingPluginUserManager().getGottenAlmostAllSitesDayPath(), 0,
-				isWaitForCache());
+		return getData().getInt(plugin.getVotingPluginUserManager().getGottenAlmostAllSitesDayPath(), 0);
 	}
 
 	/**
@@ -695,7 +693,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return the highest daily total votes
 	 */
 	public int getHighestDailyTotal() {
-		return getData().getInt("HighestDailyTotal", isCacheData(), isWaitForCache());
+		return getData().getInt("HighestDailyTotal");
 	}
 
 	/**
@@ -704,7 +702,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return the highest monthly total votes
 	 */
 	public int getHighestMonthlyTotal() {
-		return getData().getInt("HighestMonthlyTotal", isCacheData(), isWaitForCache());
+		return getData().getInt("HighestMonthlyTotal");
 	}
 
 	/**
@@ -713,7 +711,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return the highest weekly total votes
 	 */
 	public int getHighestWeeklyTotal() {
-		return getData().getInt("HighestWeeklyTotal", isCacheData(), isWaitForCache());
+		return getData().getInt("HighestWeeklyTotal");
 	}
 
 	/**
@@ -753,7 +751,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return the total votes for the last month
 	 */
 	public int getLastMonthTotal() {
-		return getData().getInt("LastMonthTotal", isCacheData(), isWaitForCache());
+		return getData().getInt("LastMonthTotal");
 	}
 
 	/**
@@ -836,7 +834,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return the milestone count
 	 */
 	public int getMilestoneCount() {
-		return getData().getInt("MilestoneCount", getAllTimeTotal(), isCacheData(), isWaitForCache());
+		return getData().getInt("MilestoneCount", getAllTimeTotal());
 	}
 
 	/**
@@ -856,7 +854,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return the month vote streak
 	 */
 	public int getMonthVoteStreak() {
-		return getData().getInt("MonthVoteStreak", isCacheData(), isWaitForCache());
+		return getData().getInt("MonthVoteStreak");
 	}
 
 	/**
@@ -956,7 +954,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return the list of offline votes
 	 */
 	public ArrayList<String> getOfflineVotes() {
-		return getUserData().getStringList("OfflineVotes", isCacheData(), isWaitForCache());
+		return getUserData().getStringList("OfflineVotes");
 	}
 
 	/**
@@ -965,7 +963,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return the points of the user
 	 */
 	public int getPoints() {
-		return getUserData().getInt(getPointsPath(), isCacheData(), isWaitForCache());
+		return getUserData().getInt(getPointsPath());
 	}
 
 	/**
@@ -1053,17 +1051,16 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public int getTotal(TopVoter top) {
 		switch (top) {
 		case AllTime:
-			return getUserData().getInt("AllTimeTotal", isCacheData(), isWaitForCache());
+			return getUserData().getInt("AllTimeTotal");
 		case Daily:
-			return getUserData().getInt("DailyTotal", isCacheData(), isWaitForCache());
+			return getUserData().getInt("DailyTotal");
 		case Monthly:
 			if (plugin.getConfigFile().isUseMonthDateTotalsAsPrimaryTotal()) {
-				return getData().getInt(plugin.getVotingPluginUserManager().getMonthTotalsWithDatePath(), isCacheData(),
-						isWaitForCache());
+				return getData().getInt(plugin.getVotingPluginUserManager().getMonthTotalsWithDatePath());
 			}
-			return getData().getInt("MonthTotal", isCacheData(), isWaitForCache());
+			return getData().getInt("MonthTotal");
 		case Weekly:
-			return getUserData().getInt("WeeklyTotal", isCacheData(), isWaitForCache());
+			return getUserData().getInt("WeeklyTotal");
 		default:
 			break;
 		}
@@ -1081,17 +1078,16 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public int getTotal(TopVoter top, LocalDateTime atTime) {
 		switch (top) {
 		case AllTime:
-			return getUserData().getInt("AllTimeTotal", isCacheData(), isWaitForCache());
+			return getUserData().getInt("AllTimeTotal");
 		case Daily:
-			return getUserData().getInt("DailyTotal", isCacheData(), isWaitForCache());
+			return getUserData().getInt("DailyTotal");
 		case Monthly:
 			if (plugin.getConfigFile().isUseMonthDateTotalsAsPrimaryTotal()) {
-				return getData().getInt(plugin.getVotingPluginUserManager().getMonthTotalsWithDatePath(atTime),
-						isCacheData(), isWaitForCache());
+				return getData().getInt(plugin.getVotingPluginUserManager().getMonthTotalsWithDatePath(atTime));
 			}
-			return getData().getInt("MonthTotal", isCacheData(), isWaitForCache());
+			return getData().getInt("MonthTotal");
 		case Weekly:
-			return getUserData().getInt("WeeklyTotal", isCacheData(), isWaitForCache());
+			return getUserData().getInt("WeeklyTotal");
 		default:
 			break;
 		}
@@ -1104,7 +1100,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return the number of votes for the vote party
 	 */
 	public int getVotePartyVotes() {
-		return getUserData().getInt("VotePartyVotes", isCacheData(), isWaitForCache());
+		return getUserData().getInt("VotePartyVotes");
 	}
 
 	/**
@@ -1114,7 +1110,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return the vote shop identifier limit
 	 */
 	public int getVoteShopIdentifierLimit(String identifier) {
-		return getData().getInt("VoteShopLimit" + identifier, isCacheData(), isWaitForCache());
+		return getData().getInt("VoteShopLimit" + identifier);
 	}
 
 	/**
@@ -1134,7 +1130,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return the week vote streak
 	 */
 	public int getWeekVoteStreak() {
-		return getData().getInt("WeekVoteStreak", isCacheData(), isWaitForCache());
+		return getData().getInt("WeekVoteStreak");
 	}
 
 	/**
@@ -2178,7 +2174,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public String getVoteStreakState(String columnName) {
-		return getData().getString(columnName, isCacheData(), isWaitForCache());
+		return getData().getString(columnName);
 	}
 
 	public void setVoteStreakState(String columnName, String value) {
