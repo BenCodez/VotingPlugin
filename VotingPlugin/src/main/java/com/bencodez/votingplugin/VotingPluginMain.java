@@ -54,6 +54,7 @@ import com.bencodez.advancedcore.api.rewards.injected.RewardInjectInt;
 import com.bencodez.advancedcore.api.rewards.injected.RewardInjectValidator;
 import com.bencodez.advancedcore.api.rewards.injectedrequirement.RequirementInjectConfigurationSection;
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
+import com.bencodez.advancedcore.api.user.UserStartup;
 import com.bencodez.simpleapi.file.YMLConfig;
 import com.bencodez.simpleapi.skull.SkullCache;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigSpigot;
@@ -200,7 +201,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	@Setter
-	private boolean update = true;
+	private boolean update = false;
 
 	@Getter
 	@Setter
@@ -1163,7 +1164,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		topVoterHandler = new TopVoterHandler(this);
 		lastMonthTopVoter = new LinkedHashMap<>();
 		previousMonthsTopVoters = new LinkedHashMap<>();
-		plugin.getBukkitScheduler().runTaskAsynchronously(plugin, new Runnable() {
+		plugin.getBukkitScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
 
 			@Override
 			public void run() {
@@ -1172,13 +1173,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 				topVoterHandler.loadPreviousMonthTopVoters();
 			}
-		});
+		}, 20 * 120);
 		topVoter = new LinkedHashMap<>();
 		for (TopVoter top : TopVoter.values()) {
 			topVoter.put(top, new LinkedHashMap<>());
 		}
 		voteToday = new LinkedHashMap<>();
-		
 
 		new AdminGUI(this).loadHook();
 
@@ -1425,6 +1425,24 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		votingPluginUserManager.addCachingKeys();
 
 		updateAdvancedCoreHook();
+
+		addUserStartup(new UserStartup() {
+
+			@Override
+			public void onStartUp(AdvancedCoreUser user) {
+
+			}
+
+			@Override
+			public void onStart() {
+
+			}
+
+			@Override
+			public void onFinish() {
+				setUpdate(true);
+			}
+		});
 
 	}
 

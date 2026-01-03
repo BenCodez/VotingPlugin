@@ -99,8 +99,8 @@
 # - MYSQL
 DataStorage: SQLITE
 
-# Information for MySQL
-MySQL:
+# Information for MySQL storage
+Database:
   Host: ''
   # Default port is 3306
   Port: 3306
