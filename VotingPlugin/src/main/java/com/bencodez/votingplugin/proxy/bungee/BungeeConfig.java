@@ -454,4 +454,22 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 		return getData().getBoolean("VoteLogging.UseMainMySQL", true);
 	}
 
+	public Configuration sectionOrNull(Configuration root, String key) {
+		Object v = root.get(key);
+		return (v instanceof Configuration) ? (Configuration) v : null;
+	}
+
+	@Override
+	public boolean hasDatabaseConfigured() {
+		// New-style: Database: { Host: ..., ... }
+		Configuration db = sectionOrNull(data, "Database");
+		if (db != null) {
+			return db.getString("Host", "") != null && !db.getString("Host", "").isEmpty();
+		}
+
+		// Legacy-style: Host/Port/... at root
+		String host = data.getString("Host", "");
+		return host != null && !host.isEmpty();
+	}
+
 }

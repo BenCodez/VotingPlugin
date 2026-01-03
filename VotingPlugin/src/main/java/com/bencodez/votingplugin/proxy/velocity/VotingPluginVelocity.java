@@ -190,38 +190,47 @@ public class VotingPluginVelocity {
 	}
 
 	private void loadMysql() {
-		votingPluginProxy.setProxyMySQL(
-				new ProxyMysqlUserTable("VotingPlugin_Users", new MysqlConfigVelocity(config), config.getDebug()) {
+		MysqlConfig mysqlConfig = new MysqlConfigVelocity("Database", config);
+		if (!config.getData().getNode("Database").isMap()) {
+			mysqlConfig = new MysqlConfigVelocity(config);
+		}
 
-					@Override
-					public void debug(SQLException e) {
-						if (config.getDebug()) {
-							e.printStackTrace();
-						}
-					}
+		votingPluginProxy.setProxyMySQL(new ProxyMysqlUserTable("VotingPlugin_Users", mysqlConfig, config.getDebug()) {
 
-					@Override
-					public void severe(String str) {
-						getLogger().error(str);
-					}
+			@Override
+			public void debug(SQLException e) {
+				if (config.getDebug()) {
+					e.printStackTrace();
+				}
+			}
 
-					@Override
-					public void logSevere(String string) {
-						logger.error(string);
-					}
+			@Override
+			public void severe(String str) {
+				getLogger().error(str);
+			}
 
-					@Override
-					public void logInfo(String string) {
-						logger.info(string);
-					}
+			@Override
+			public void logSevere(String string) {
+				logger.error(string);
+			}
 
-					@Override
-					public void debug(Throwable t) {
-						if (config.getDebug()) {
-							t.printStackTrace();
-						}
-					}
-				});
+			@Override
+			public void logInfo(String string) {
+				logger.info(string);
+			}
+
+			@Override
+			public void debug(Throwable t) {
+				if (config.getDebug()) {
+					t.printStackTrace();
+				}
+			}
+
+			@Override
+			public void debug(String str) {
+				debug2(str);
+			}
+		});
 
 		ArrayList<String> servers = new ArrayList<>();
 		for (String s : getAvailableAllServers()) {
@@ -766,7 +775,7 @@ public class VotingPluginVelocity {
 
 		boolean mysqlLoaded = true;
 		try {
-			if (!config.getString(config.getNode("Host"), "").isEmpty()) {
+			if (config.hasDatabaseConfigured()) {
 				loadMysql();
 			} else {
 				mysqlLoaded = false;
@@ -896,7 +905,7 @@ public class VotingPluginVelocity {
 		config.reload();
 		if (loadMysql) {
 			try {
-				if (!config.getString(config.getNode("Host"), "").isEmpty()) {
+				if (config.hasDatabaseConfigured()) {
 					loadMysql();
 				} else {
 					logger.error("MySQL settings not set in bungeeconfig.yml");

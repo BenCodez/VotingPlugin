@@ -165,5 +165,7 @@ public interface VotingPluginProxyConfig {
 	public int getVoteLoggingPurgeDays();
 
 	public boolean getVoteLoggingUseMainMySQL();
+	
+	public boolean hasDatabaseConfigured();
 
 }

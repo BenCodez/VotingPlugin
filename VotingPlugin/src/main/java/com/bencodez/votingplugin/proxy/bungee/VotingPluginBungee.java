@@ -137,8 +137,18 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	}
 
 	private void loadMysql() {
-		votingPluginProxy.setProxyMySQL(new ProxyMysqlUserTable("VotingPlugin_Users",
-				new MysqlConfigBungee(config.getData()), config.getDebug()) {
+		MysqlConfig mysqlConfig = null;
+		Configuration data = config.getData();
+		Configuration db = config.sectionOrNull(data, "Database");
+
+		if (db != null) {
+			mysqlConfig = new MysqlConfigBungee(db);
+		} else {
+			// legacy root keys
+			mysqlConfig = new MysqlConfigBungee(data);
+		}
+
+		votingPluginProxy.setProxyMySQL(new ProxyMysqlUserTable("VotingPlugin_Users", mysqlConfig, config.getDebug()) {
 
 			@Override
 			public void debug(SQLException e) {
@@ -168,6 +178,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				if (config.getDebug()) {
 					t.printStackTrace();
 				}
+			}
+
+			@Override
+			public void debug(String text) {
+				debug2(text);
 			}
 
 		});
@@ -664,7 +679,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 		boolean mysqlLoaded = true;
 		try {
-			if (!config.getData().getString("Host", "").isEmpty()) {
+			if (config.hasDatabaseConfigured()) {
 				loadMysql();
 			} else {
 				mysqlLoaded = false;
@@ -796,7 +811,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		config.load();
 		if (loadMysql) {
 			try {
-				if (!config.getData().getString("Host", "").isEmpty()) {
+				if (config.hasDatabaseConfigured()) {
 					loadMysql();
 				} else {
 					getLogger().severe("MySQL settings not set in bungeeconfig.yml");

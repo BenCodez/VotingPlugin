@@ -374,6 +374,11 @@ public abstract class VoteCacheHandler {
 						if (debug)
 							debug1(t);
 					}
+
+					@Override
+					public void debug(String text) {
+						debug1(text);
+					}
 				};
 
 				timedVoteCacheTable = new ProxyTimedVoteCacheTable(mysql, mysqlConfig.getTablePrefix(), debug) {
@@ -391,6 +396,11 @@ public abstract class VoteCacheHandler {
 					public void debug(Throwable t) {
 						if (debug)
 							debug1(t);
+					}
+
+					@Override
+					public void debug(String text) {
+						debug1(text);
 					}
 				};
 
@@ -410,6 +420,11 @@ public abstract class VoteCacheHandler {
 						if (debug)
 							debug1(t);
 					}
+
+					@Override
+					public void debug(String text) {
+						debug1(text);
+					}
 				};
 			} else {
 				voteCacheTable = new ProxyVoteCacheTable(mysqlConfig, debug) {
@@ -427,6 +442,11 @@ public abstract class VoteCacheHandler {
 					public void debug(Throwable t) {
 						if (debug)
 							debug1(t);
+					}
+
+					@Override
+					public void debug(String text) {
+						debug1(text);
 					}
 				};
 
@@ -447,6 +467,11 @@ public abstract class VoteCacheHandler {
 						if (debug)
 							debug1(t);
 					}
+
+					@Override
+					public void debug(String text) {
+						debug1(text);
+					}
 				};
 
 				onlineVoteCacheTable = new ProxyOnlineVoteCacheTable(voteCacheTable.getMysql(),
@@ -465,6 +490,11 @@ public abstract class VoteCacheHandler {
 					public void debug(Throwable t) {
 						if (debug)
 							debug1(t);
+					}
+
+					@Override
+					public void debug(String text) {
+						debug1(text);
 					}
 				};
 			}
