@@ -62,8 +62,6 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 
 	public abstract void logInfo1(String string);
 
-	public abstract void debug1(SQLException e);
-
 	/**
 	 * Server name to store in the vote log for ALL writes. (Typically:
 	 * plugin.getOptions().getServer())
@@ -81,7 +79,7 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 	}
 
 	public VoteLogMysqlTable(String baseTableName, MySQL existingMysql, MysqlConfig config, boolean debug) {
-		super(resolveName(baseTableName, config), existingMysql, resolveType(config), true);
+		super(resolveName(baseTableName, config), existingMysql, true);
 		this.debugEnabled = debug;
 		ensureColumnsAndIndexes();
 	}
@@ -118,6 +116,121 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 		return "id";
 	}
 
+	public List<String> getDistinctServers(int days, int limit) {
+		if (limit <= 0) {
+			limit = 45;
+		}
+
+		boolean useCutoff = days > 0;
+		long cutoff = useCutoff ? System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L) : 0;
+
+		String sql = "SELECT DISTINCT server FROM " + qi(getTableName()) + " WHERE server IS NOT NULL AND server != '' "
+				+ (useCutoff ? "AND vote_time >= ? " : "") + "ORDER BY server ASC LIMIT " + limit + ";";
+
+		try (Connection conn = mysql.getConnectionManager().getConnection();
+				PreparedStatement ps = conn.prepareStatement(sql)) {
+
+			if (useCutoff) {
+				ps.setLong(1, cutoff);
+			}
+
+			try (ResultSet rs = ps.executeQuery()) {
+				List<String> out = new java.util.ArrayList<>();
+				while (rs.next()) {
+					out.add(rs.getString("server"));
+				}
+				return out;
+			}
+		} catch (SQLException e) {
+			debug(e);
+			return java.util.Collections.emptyList();
+		}
+	}
+
+	public List<VoteLogEntry> getByServer(String server, int days, int limit) {
+		return getByServer(server, null, days, limit);
+	}
+
+	public List<VoteLogEntry> getByServerVotesOnly(String server, int days, int limit) {
+		return getByServer(server, VoteLogEvent.VOTE_RECEIVED, days, limit);
+	}
+
+	public List<ServerCount> getTopServers(int days, int limit) {
+		return getTopServers(days, limit, VoteLogEvent.VOTE_RECEIVED);
+	}
+
+	public List<ServerCount> getTopServers(int days, int limit, VoteLogEvent eventFilter) {
+		if (limit <= 0) {
+			limit = 10;
+		}
+
+		boolean useCutoff = days > 0;
+		long cutoff = useCutoff ? System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L) : 0;
+
+		String sql = "SELECT server, COUNT(*) AS votes " + "FROM " + qi(getTableName()) + " WHERE 1=1 "
+				+ "AND server IS NOT NULL AND server != '' " + (eventFilter != null ? "AND event=? " : "")
+				+ (useCutoff ? "AND vote_time >= ? " : "") + "GROUP BY server " + "ORDER BY votes DESC " + "LIMIT "
+				+ limit + ";";
+
+		try (Connection conn = mysql.getConnectionManager().getConnection();
+				PreparedStatement ps = conn.prepareStatement(sql)) {
+
+			int idx = 1;
+			if (eventFilter != null) {
+				ps.setString(idx++, eventFilter.name());
+			}
+			if (useCutoff) {
+				ps.setLong(idx++, cutoff);
+			}
+
+			ResultSet rs = ps.executeQuery();
+			List<ServerCount> out = Collections.synchronizedList(new java.util.ArrayList<>());
+			while (rs.next()) {
+				out.add(new ServerCount(rs.getString("server"), rs.getLong("votes")));
+			}
+			rs.close();
+			return out;
+		} catch (SQLException e) {
+			debug(e);
+			return java.util.Collections.emptyList();
+		}
+	}
+
+	public static class ServerCount {
+		public final String server;
+		public final long votes;
+
+		public ServerCount(String server, long votes) {
+			this.server = server;
+			this.votes = votes;
+		}
+	}
+
+	public List<VoteLogEntry> getByServer(String server, VoteLogEvent event, int days, int limit) {
+		if (limit <= 0) {
+			limit = 10;
+		}
+		if (server == null) {
+			server = "";
+		}
+
+		boolean useCutoff = days > 0;
+		long cutoff = useCutoff ? System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L) : 0;
+
+		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, server, event, context, status, cached_total "
+				+ "FROM " + qi(getTableName()) + " WHERE server=? " + (event != null ? "AND event=? " : "")
+				+ (useCutoff ? "AND vote_time >= ? " : "") + "ORDER BY vote_time DESC, id DESC LIMIT " + limit + ";";
+
+		if (event != null && useCutoff) {
+			return query(sql, new Object[] { server, event.name(), cutoff });
+		} else if (event != null) {
+			return query(sql, new Object[] { server, event.name() });
+		} else if (useCutoff) {
+			return query(sql, new Object[] { server, cutoff });
+		}
+		return query(sql, new Object[] { server });
+	}
+
 	@Override
 	public String buildCreateTableSql(DbType dbType) {
 		// Minimal create. Columns/types are normalized in ensureColumnsAndIndexes().
@@ -141,18 +254,6 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 	@Override
 	public void logInfo(String msg) {
 		logInfo1(msg);
-	}
-
-	@Override
-	public void debug(Throwable t) {
-		if (!debugEnabled) {
-			return;
-		}
-		if (t instanceof SQLException) {
-			debug1((SQLException) t);
-		} else {
-			t.printStackTrace();
-		}
 	}
 
 	@Override
@@ -545,7 +646,7 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 		if (dbType == DbType.POSTGRESQL) {
 			// Postgres has no LIMIT in DELETE directly; use ctid batch
 			sql = "DELETE FROM " + qi(getTableName()) + " WHERE ctid IN (SELECT ctid FROM " + qi(getTableName())
-					+ " WHERE " + qi("vote_time") + " < ? LIMIT " + batchSize + ");";
+					+ " WHERE (" + qi("vote_time") + ")::bigint < ? LIMIT " + batchSize + ");";
 		} else {
 			sql = "DELETE FROM " + qi(getTableName()) + " WHERE " + qi("vote_time") + " < ? LIMIT " + batchSize + ";";
 		}

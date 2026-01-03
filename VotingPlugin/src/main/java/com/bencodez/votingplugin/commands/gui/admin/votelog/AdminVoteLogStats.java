@@ -21,8 +21,11 @@ import com.bencodez.votingplugin.votelog.VoteLogMysqlTable;
  *
  * Uses VoteLogMysqlTable instance passed in from CommandLoader.
  *
- * Shows: - total / immediate / cached counts (VoteLogCounts) - unique voters -
- * top services
+ * Shows:
+ * - total / immediate / cached counts (VoteLogCounts)
+ * - unique voters
+ * - top services
+ * - top servers
  */
 public class AdminVoteLogStats extends GUIHandler {
 
@@ -31,14 +34,21 @@ public class AdminVoteLogStats extends GUIHandler {
 	private VotingPluginUser user;
 
 	private final int days;
+
 	private final int topServicesLimit;
+	private final int topServersLimit;
 
 	public AdminVoteLogStats(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table, int days) {
-		this(plugin, sender, table, null, days, 10);
+		this(plugin, sender, table, null, days, 10, 10);
 	}
 
 	public AdminVoteLogStats(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table,
 			VotingPluginUser user, int days, int topServicesLimit) {
+		this(plugin, sender, table, user, days, topServicesLimit, 10);
+	}
+
+	public AdminVoteLogStats(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table,
+			VotingPluginUser user, int days, int topServicesLimit, int topServersLimit) {
 		super(plugin, sender);
 		this.plugin = plugin;
 		this.table = table;
@@ -46,8 +56,9 @@ public class AdminVoteLogStats extends GUIHandler {
 		if (this.user == null && sender instanceof Player) {
 			this.user = plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender);
 		}
-		this.days = days;
+		this.days = Math.max(0, days);
 		this.topServicesLimit = topServicesLimit <= 0 ? 10 : topServicesLimit;
+		this.topServersLimit = topServersLimit <= 0 ? 10 : topServersLimit;
 	}
 
 	@Override
@@ -99,8 +110,10 @@ public class AdminVoteLogStats extends GUIHandler {
 			long uniques = table.getUniqueVoters(days);
 
 			inv.addButton(new BInventoryButton(new ItemBuilder(Material.BOOK).setName("&aOverview")
-					.addLoreLine("&7Total Votes: &f" + counts.total).addLoreLine("&7Immediate: &f" + counts.immediate)
-					.addLoreLine("&7Cached: &f" + counts.cached).addLoreLine("&7Unique Voters: &f" + uniques)
+					.addLoreLine("&7Total Votes: &f" + counts.total)
+					.addLoreLine("&7Immediate: &f" + counts.immediate)
+					.addLoreLine("&7Cached: &f" + counts.cached)
+					.addLoreLine("&7Unique Voters: &f" + uniques)
 					.addLoreLine(days > 0 ? "&7Window: &fLast " + days + " days" : "&7Window: &fAll time")) {
 
 				@Override
@@ -109,7 +122,7 @@ public class AdminVoteLogStats extends GUIHandler {
 				}
 			});
 
-			// top services
+			// top services header
 			inv.addButton(new BInventoryButton(new ItemBuilder(Material.MAP).setName("&aTop Services")
 					.addLoreLine("&7Top " + topServicesLimit + " services/sites:")
 					.addLoreLine("&8(Click does nothing)")) {
@@ -120,11 +133,11 @@ public class AdminVoteLogStats extends GUIHandler {
 				}
 			});
 
-			int shown = 0;
+			int shownServices = 0;
 			for (VoteLogMysqlTable.ServiceCount sc : table.getTopServices(days, topServicesLimit)) {
-				shown++;
+				shownServices++;
 				inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER)
-						.setName("&a#" + shown + " &f" + AdminVoteLogHelpers.safe(sc.service))
+						.setName("&a#" + shownServices + " &f" + AdminVoteLogHelpers.safe(sc.service))
 						.addLoreLine("&7Votes: &f" + sc.votes)
 						.addLoreLine(days > 0 ? "&7Window: &fLast " + days + " days" : "&7Window: &fAll time")) {
 
@@ -135,7 +148,7 @@ public class AdminVoteLogStats extends GUIHandler {
 				});
 			}
 
-			if (shown == 0) {
+			if (shownServices == 0) {
 				inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER).setName("&eNo service data")
 						.addLoreLine("&7No services found in the log.")) {
 
@@ -146,6 +159,42 @@ public class AdminVoteLogStats extends GUIHandler {
 				});
 			}
 
+			// top servers header
+			inv.addButton(new BInventoryButton(new ItemBuilder(Material.COMPASS).setName("&aTop Servers")
+					.addLoreLine("&7Top " + topServersLimit + " servers:")
+					.addLoreLine("&8(Click does nothing)")) {
+
+				@Override
+				public void onClick(ClickEvent clickEvent) {
+					// no-op
+				}
+			});
+
+			int shownServers = 0;
+			for (VoteLogMysqlTable.ServerCount sc : table.getTopServers(days, topServersLimit)) {
+				shownServers++;
+				inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER)
+						.setName("&a#" + shownServers + " &f" + AdminVoteLogHelpers.safe(sc.server))
+						.addLoreLine("&7Votes: &f" + sc.votes)
+						.addLoreLine(days > 0 ? "&7Window: &fLast " + days + " days" : "&7Window: &fAll time")) {
+
+					@Override
+					public void onClick(ClickEvent clickEvent) {
+						// no-op (could open AdminVoteLogServer in future)
+					}
+				});
+			}
+
+			if (shownServers == 0) {
+				inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER).setName("&eNo server data")
+						.addLoreLine("&7No servers found in the log.")) {
+
+					@Override
+					public void onClick(ClickEvent clickEvent) {
+						// no-op
+					}
+				});
+			}
 
 			inv.setPages(true);
 			inv.setMaxInvSize(54);

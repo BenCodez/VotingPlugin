@@ -95,7 +95,7 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 
 	public ProxyVoteCacheTable(MySQL existingMysql, String tablePrefix, boolean debug) {
 		super((tablePrefix != null ? tablePrefix : "") + "votingplugin_votecache", existingMysql,
-				existingMysql.getConnectionManager().getDbType());
+				debug);
 
 		// best-effort migrations
 		alterColumnType("uuid", bestUuidType());

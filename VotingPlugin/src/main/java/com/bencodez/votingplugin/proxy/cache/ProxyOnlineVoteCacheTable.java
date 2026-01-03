@@ -25,32 +25,19 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 	@Override
 	public String buildCreateTableSql(DbType dbType) {
 		if (dbType == DbType.POSTGRESQL) {
-			return "CREATE TABLE IF NOT EXISTS " + qi(getTableName()) + " ("
-					+ qi("id") + " BIGSERIAL PRIMARY KEY, "
-					+ qi("uuid") + " " + bestUuidType() + ", "
-					+ qi("voteid") + " VARCHAR(36), "
-					+ qi("playerName") + " VARCHAR(100), "
-					+ qi("service") + " VARCHAR(100), "
-					+ qi("time") + " BIGINT, "
-					+ qi("realVote") + " BOOLEAN, "
-					+ qi("text") + " TEXT"
-					+ ");";
+			return "CREATE TABLE IF NOT EXISTS " + qi(getTableName()) + " (" + qi("id") + " BIGSERIAL PRIMARY KEY, "
+					+ qi("uuid") + " " + bestUuidType() + ", " + qi("voteid") + " VARCHAR(36), " + qi("playerName")
+					+ " VARCHAR(100), " + qi("service") + " VARCHAR(100), " + qi("time") + " BIGINT, " + qi("realVote")
+					+ " BOOLEAN, " + qi("text") + " TEXT" + ");";
 		}
 
-		return "CREATE TABLE IF NOT EXISTS " + qi(getTableName()) + " ("
-				+ qi("id") + " INT AUTO_INCREMENT PRIMARY KEY,"
-				+ qi("uuid") + " VARCHAR(37),"
-				+ qi("voteid") + " VARCHAR(36),"
-				+ qi("playerName") + " VARCHAR(100),"
-				+ qi("service") + " VARCHAR(100),"
-				+ qi("time") + " BIGINT,"
-				+ qi("realVote") + " TINYINT(1),"
-				+ qi("text") + " TEXT,"
-				+ "INDEX idx_uuid (" + qi("uuid") + "),"
-				+ "INDEX idx_time (" + qi("time") + ")"
+		return "CREATE TABLE IF NOT EXISTS " + qi(getTableName()) + " (" + qi("id") + " INT AUTO_INCREMENT PRIMARY KEY,"
+				+ qi("uuid") + " VARCHAR(37)," + qi("voteid") + " VARCHAR(36)," + qi("playerName") + " VARCHAR(100),"
+				+ qi("service") + " VARCHAR(100)," + qi("time") + " BIGINT," + qi("realVote") + " TINYINT(1),"
+				+ qi("text") + " TEXT," + "INDEX idx_uuid (" + qi("uuid") + ")," + "INDEX idx_time (" + qi("time") + ")"
 				+ ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
 	}
-	
+
 	public void removeVotesByUuid(String uuid) {
 		String sql = "DELETE FROM " + qi(getTableName()) + " WHERE " + qi("uuid") + " = ?;";
 		try (Connection conn = mysql.getConnectionManager().getConnection();
@@ -68,7 +55,6 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 		}
 	}
 
-
 	@Override
 	public abstract void logSevere(String msg);
 
@@ -79,9 +65,7 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 	public abstract void debug(Throwable t);
 
 	public ProxyOnlineVoteCacheTable(MySQL existingMysql, String tablePrefix, boolean debug) {
-		super((tablePrefix != null ? tablePrefix : "") + "votingplugin_onlinevotecache",
-				existingMysql,
-				existingMysql.getConnectionManager().getDbType());
+		super((tablePrefix != null ? tablePrefix : "") + "votingplugin_onlinevotecache", existingMysql, debug);
 
 		alterColumnType("uuid", bestUuidType());
 		addVoteIdColumnIfMissing();
@@ -99,10 +83,12 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 	private void ensureIndexes() {
 		if (getDbType() == DbType.POSTGRESQL) {
 			try {
-				new Query(mysql, "CREATE INDEX IF NOT EXISTS idx_uuid ON " + qi(getTableName()) + " (" + qi("uuid")
-						+ ");").executeUpdate();
-				new Query(mysql, "CREATE INDEX IF NOT EXISTS idx_time ON " + qi(getTableName()) + " (" + qi("time")
-						+ ");").executeUpdate();
+				new Query(mysql,
+						"CREATE INDEX IF NOT EXISTS idx_uuid ON " + qi(getTableName()) + " (" + qi("uuid") + ");")
+						.executeUpdate();
+				new Query(mysql,
+						"CREATE INDEX IF NOT EXISTS idx_time ON " + qi(getTableName()) + " (" + qi("time") + ");")
+						.executeUpdate();
 			} catch (SQLException e) {
 				debug(e);
 			}
@@ -146,10 +132,9 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 	public void insertVote(UUID voteId, String uuid, String playerName, String service, long time, boolean real,
 			String text) {
 
-		String sql = "INSERT INTO " + qi(getTableName())
-				+ " (" + qi("uuid") + ", " + qi("voteid") + ", " + qi("playerName") + ", " + qi("service") + ", "
-				+ qi("time") + ", " + qi("realVote") + ", " + qi("text") + ") "
-				+ "VALUES (?, ?, ?, ?, ?, ?, ?);";
+		String sql = "INSERT INTO " + qi(getTableName()) + " (" + qi("uuid") + ", " + qi("voteid") + ", "
+				+ qi("playerName") + ", " + qi("service") + ", " + qi("time") + ", " + qi("realVote") + ", "
+				+ qi("text") + ") " + "VALUES (?, ?, ?, ?, ?, ?, ?);";
 
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -205,8 +190,8 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 	}
 
 	public void removeVote(OfflineBungeeVote vote) {
-		String sql = "DELETE FROM " + qi(getTableName())
-				+ " WHERE " + qi("uuid") + " = ? AND " + qi("service") + " = ? AND " + qi("time") + " = ?;";
+		String sql = "DELETE FROM " + qi(getTableName()) + " WHERE " + qi("uuid") + " = ? AND " + qi("service")
+				+ " = ? AND " + qi("time") + " = ?;";
 
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -253,16 +238,10 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 
 			try (ResultSet rs = ps.executeQuery()) {
 				while (rs.next()) {
-					list.add(new VoteRow(
-							rs.getInt("id"),
-							rs.getString("voteid"),
-							rs.getString("uuid"),
-							rs.getString("playerName"),
-							rs.getString("service"),
-							rs.getLong("time"),
+					list.add(new VoteRow(rs.getInt("id"), rs.getString("voteid"), rs.getString("uuid"),
+							rs.getString("playerName"), rs.getString("service"), rs.getLong("time"),
 							(getDbType() == DbType.POSTGRESQL ? rs.getBoolean("realVote") : rs.getInt("realVote") == 1),
-							rs.getString("text")
-					));
+							rs.getString("text")));
 				}
 			}
 		} catch (SQLException e) {

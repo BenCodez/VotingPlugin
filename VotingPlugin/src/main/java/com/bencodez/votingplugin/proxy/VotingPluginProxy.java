@@ -796,7 +796,7 @@ public abstract class VotingPluginProxy {
 					}
 
 					@Override
-					public void debug1(SQLException e) {
+					public void debug(Throwable e) {
 						if (getConfig().getDebug()) {
 							e.printStackTrace();
 						}
@@ -822,7 +822,7 @@ public abstract class VotingPluginProxy {
 					}
 
 					@Override
-					public void debug1(SQLException e) {
+					public void debug(Throwable e) {
 						if (getConfig().getDebug()) {
 							e.printStackTrace();
 						}

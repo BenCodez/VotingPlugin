@@ -93,8 +93,8 @@ public abstract class ProxyMysqlUserTable extends AbstractSqlTable {
 	/**
 	 * Use an already-connected pool (shared).
 	 */
-	public ProxyMysqlUserTable(String tableName, MySQL existingMysql, DbType dbType) {
-		super(tableName, existingMysql, dbType);
+	public ProxyMysqlUserTable(String tableName, MySQL existingMysql, boolean debug) {
+		super(tableName, existingMysql, debug);
 
 		this.name = super.getTableName();
 		this.uuidsView = super.getPrimaryKeys();

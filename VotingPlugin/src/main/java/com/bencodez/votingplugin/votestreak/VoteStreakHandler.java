@@ -20,16 +20,20 @@ import org.bukkit.configuration.ConfigurationSection;
 
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.time.TimeChecker;
+import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKeyString;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerSpecialRewardEvent;
 import com.bencodez.votingplugin.events.SpecialRewardType;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
+import lombok.Getter;
+
 public class VoteStreakHandler {
 
 	private final VotingPluginMain plugin;
 
+	@Getter
 	private final Map<String, VoteStreakDefinition> byId = new LinkedHashMap<>();
 	private final List<VoteStreakDefinition> ordered = new ArrayList<>();
 
@@ -371,7 +375,7 @@ public class VoteStreakHandler {
 
 	private void giveRewards(VotingPluginUser user, VoteStreakDefinition def, UUID voteUUID) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user,
-				SpecialRewardType.VOTESTREAK.setType(def.getType().toString()).setAmount(def.getVotesRequired()),
+				SpecialRewardType.VOTESTREAKS.setType(def.getType().toString()).setAmount(def.getVotesRequired()),
 				voteUUID);
 		Bukkit.getPluginManager().callEvent(event);
 
@@ -574,6 +578,10 @@ public class VoteStreakHandler {
 
 				VoteStreakDefinition def = new VoteStreakDefinition(id, type, enabled, amountInterval, votesRequired,
 						allowMissedAmount, allowMissedPeriod);
+
+				plugin.getUserManager().getDataManager()
+						.addKey(new UserDataKeyString(plugin.getVoteStreakHandler().getColumnName(def))
+								.setColumnType("MEDIUMTEXT"));
 
 				byId.put(id, def);
 				ordered.add(def);

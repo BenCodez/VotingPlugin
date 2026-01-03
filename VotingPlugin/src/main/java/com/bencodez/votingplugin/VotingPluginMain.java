@@ -1048,18 +1048,19 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 							update();
 						}
 					}
-				}, 1000, 1000 * 60 * configFile.getDelayBetweenUpdates(), TimeUnit.MILLISECONDS);
+				}, 1000 * 60 * 4, 1000 * 60 * configFile.getDelayBetweenUpdates(), TimeUnit.MILLISECONDS);
 
-				getTimer().scheduleWithFixedDelay(new Runnable() {
+				if (configFile.isExtraBackgroundUpdate()) {
+					getTimer().scheduleWithFixedDelay(new Runnable() {
 
-					@Override
-					public void run() {
-						if (plugin != null && configFile.isExtraBackgroundUpdate()) {
-							basicBungeeUpdate();
+						@Override
+						public void run() {
+							if (plugin != null && configFile.isExtraBackgroundUpdate()) {
+								basicBungeeUpdate();
+							}
 						}
-					}
-				}, 1000, 1000 * 30, TimeUnit.MILLISECONDS);
-
+					}, 1000, 1000 * 30, TimeUnit.MILLISECONDS);
+				}
 			}
 		}, 2);
 
@@ -1812,16 +1813,18 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					}
 
 					@Override
-					public void debug1(SQLException e) {
-						debug(e);
-					}
-
-					@Override
 					public String getServerName() {
 						if (plugin.getBungeeSettings().isUseBungeecoord()) {
 							return plugin.getBungeeSettings().getServer();
 						} else {
 							return "";
+						}
+					}
+
+					@Override
+					public void debug(Throwable t) {
+						if (getOptions().getDebug().isDebug()) {
+							plugin.debug(t);
 						}
 					}
 				};
@@ -1841,8 +1844,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					}
 
 					@Override
-					public void debug1(SQLException e) {
-						debug(e);
+					public void debug(Throwable t) {
+						if (getOptions().getDebug().isDebug()) {
+							plugin.debug(t);
+						}
 					}
 
 					@Override

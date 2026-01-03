@@ -70,6 +70,7 @@ public class UserManager {
 			manager.addKey(new UserDataKeyInt(getGottenAllSitesDayPath()));
 		}
 		manager.addKey(new UserDataKeyInt(getGottenAlmostAllSitesDayPath()));
+
 	}
 
 	public ArrayList<String> getAllUUIDs() {

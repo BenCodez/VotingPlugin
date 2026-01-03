@@ -40,7 +40,7 @@ public class AdminVoteLogMenu extends GUIHandler {
 		if (this.user == null && sender instanceof Player) {
 			this.user = plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender);
 		}
-		this.days = days;
+		this.days = Math.max(0, days);
 	}
 
 	@Override
@@ -86,7 +86,8 @@ public class AdminVoteLogMenu extends GUIHandler {
 			}
 
 			inv.addButton(new BInventoryButton(new ItemBuilder(Material.NAME_TAG).setName("&aVotes by Player")
-					.addLoreLine("&7List online players").addLoreLine("&7Click a player to view their votelog")) {
+					.addLoreLine("&7List stored player names")
+					.addLoreLine("&7Click a player to view their votelog")) {
 				@Override
 				public void onClick(ClickEvent clickEvent) {
 					new AdminVoteLogPlayerSelect(plugin, clickEvent.getPlayer(), table, user, days, 0).open();
@@ -94,7 +95,8 @@ public class AdminVoteLogMenu extends GUIHandler {
 			});
 
 			inv.addButton(new BInventoryButton(new ItemBuilder(Material.NAME_TAG).setName("&aVotes by Player (Online)")
-					.addLoreLine("&7List online players").addLoreLine("&7Click a player to view their votelog")) {
+					.addLoreLine("&7List online players")
+					.addLoreLine("&7Click a player to view their votelog")) {
 				@Override
 				public void onClick(ClickEvent clickEvent) {
 					new AdminVoteLogPlayerSelectOnline(plugin, clickEvent.getPlayer(), table, user, days, 0).open();
@@ -102,10 +104,21 @@ public class AdminVoteLogMenu extends GUIHandler {
 			});
 
 			inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER).setName("&aVotes by Service")
-					.addLoreLine("&7List all services found").addLoreLine("&7Click a service to view votelog")) {
+					.addLoreLine("&7List all services found")
+					.addLoreLine("&7Click a service to view votelog")) {
 				@Override
 				public void onClick(ClickEvent clickEvent) {
 					new AdminVoteLogServiceSelect(plugin, clickEvent.getPlayer(), table, user, days, 0).open();
+				}
+			});
+
+			// NEW: Votes by Server
+			inv.addButton(new BInventoryButton(new ItemBuilder(Material.COMPASS).setName("&aVotes by Server")
+					.addLoreLine("&7List all servers found")
+					.addLoreLine("&7Click a server to view votelog")) {
+				@Override
+				public void onClick(ClickEvent clickEvent) {
+					new AdminVoteLogServerSelect(plugin, clickEvent.getPlayer(), table, user, days, 0).open();
 				}
 			});
 
@@ -119,7 +132,8 @@ public class AdminVoteLogMenu extends GUIHandler {
 			});
 
 			inv.addButton(new BInventoryButton(new ItemBuilder(Material.CLOCK).setName("&aRecent Logs")
-					.addLoreLine("&7Recent logs filtered by event").addLoreLine("&7Default: &f" + defaultEvent.name())
+					.addLoreLine("&7Recent logs filtered by event")
+					.addLoreLine("&7Default: &f" + defaultEvent.name())
 					.addLoreLine("&8(Use bottom buttons to switch event)")) {
 				@Override
 				public void onClick(ClickEvent clickEvent) {

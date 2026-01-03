@@ -52,7 +52,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 	public ProxyTimedVoteCacheTable(MySQL existingMysql, String tablePrefix, boolean debug) {
 		super((tablePrefix != null ? tablePrefix : "") + "votingplugin_timedvotecache",
 				existingMysql,
-				existingMysql.getConnectionManager().getDbType());
+				debug);
 		ensureIndexes();
 	}
 
