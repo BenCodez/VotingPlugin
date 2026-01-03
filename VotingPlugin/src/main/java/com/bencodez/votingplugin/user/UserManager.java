@@ -211,10 +211,8 @@ public class UserManager {
 			}
 
 		}, (count) -> {
-
+			plugin.getUserManager().getDataManager().clearCache();
+			plugin.setUpdate(true);
 		});
-
-		plugin.getUserManager().getDataManager().clearCache();
-		plugin.setUpdate(true);
 	}
 }
