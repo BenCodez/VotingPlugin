@@ -83,13 +83,14 @@ public class DiscordHandler {
 
 			@Override
 			public void onPostFinish() {
+
 				plugin.getTimer().scheduleAtFixedRate(new Runnable() {
 
 					@Override
 					public void run() {
 						updateDiscordLeaderboard();
 					}
-				}, 130, 60 * 10, TimeUnit.SECONDS); // 10-minute interval
+				}, 130, 60 * 60, TimeUnit.SECONDS); // 10-minute interval
 			}
 
 			@Override
@@ -126,49 +127,64 @@ public class DiscordHandler {
 	}
 
 	public void updateTopVoterMessageId(TopVoter top) {
-		plugin.extraDebug("Updating Discord Top Voter message for: " + top.toString());
+		plugin.extraDebug("Updating Discord Top Voter message for: " + top);
+
 		long channelId = plugin.getConfigFile().getDiscordSRVTopVoterChannel(top);
 		LinkedHashMap<TopVoterPlayer, Integer> topVoters = plugin.getTopVoter(top);
 
 		String title = plugin.getConfigFile().getDiscordSRVTopVoterTitle(top);
-		String rankDisplay = plugin.getConfigFile().getDiscordSRVTopVoterRankDisplay(top);
 		boolean newMessage = plugin.getConfigFile().isDiscordSRVTopVoterNewMessageOnUpdate(top);
 
 		EmbedBuilder eb = new EmbedBuilder().setTitle(title).setColor(Color.CYAN).setTimestamp(Instant.now());
 
-		int rank = 1;
-		for (Entry<TopVoterPlayer, Integer> entry : topVoters.entrySet()) {
-			if (rank > 10)
-				break;
-			String line = rankDisplay.replace("%rank%", String.valueOf(rank))
-					.replace("%player%", entry.getKey().getPlayerName())
-					.replace("%votes%", String.valueOf(entry.getValue()));
-			eb.addField("", line, false);
-			rank++;
+		if (topVoters == null || topVoters.isEmpty()) {
+			eb.setDescription("No votes recorded yet.");
+		} else {
+			StringBuilder sb = new StringBuilder();
+			sb.append("```");
+			int rank = 1;
+
+			for (Entry<TopVoterPlayer, Integer> entry : topVoters.entrySet()) {
+				if (rank > 10)
+					break;
+
+				String prefix = rank <= 3 ? new String[] { "🥇", "🥈", "🥉" }[rank - 1] : rank + ".";
+
+				String player = entry.getKey().getPlayerName();
+				int votes = entry.getValue();
+
+				// simple alignment: trim long names, pad to 16 chars
+				if (player.length() > 16)
+					player = player.substring(0, 16);
+
+				sb.append(String.format("%-3s %-16s %4d votes%n", prefix, player, votes));
+				rank++;
+			}
+			sb.append("```");
+
+			eb.setDescription(sb.toString()).setFooter("Top 10 • Updated");
 		}
 
 		TextChannel channel = DiscordUtil.getJda().getTextChannelById(channelId);
 		if (channel == null) {
-			plugin.getLogger().warning("Discord channel ID " + channelId + " not found: " + top.toString());
+			plugin.getLogger().warning("Discord channel ID " + channelId + " not found: " + top);
 			return;
 		}
 
-		if (topVoterMessageIds.get(top) <= 0 || newMessage) {
+		long existingId = topVoterMessageIds.getOrDefault(top, 0L);
+
+		if (existingId <= 0 || newMessage) {
 			channel.sendMessageEmbeds(eb.build()).queue(msg -> {
 				long newId = msg.getIdLong();
 				topVoterMessageIds.put(top, newId);
-				if (!newMessage) {
+				if (!newMessage)
 					plugin.getServerData().setTopVoterMessageId(top, newId);
-				}
-				plugin.getLogger().info("Posted new Top Voters  " + top.toString() + " (ID: " + newId + ")");
-			}, err -> plugin.getLogger()
-					.warning("Error sending Top Voters " + top.toString() + ": " + err.getMessage()));
+				plugin.getLogger().info("Posted new Top Voters " + top + " (ID: " + newId + ")");
+			}, err -> plugin.getLogger().warning("Error sending Top Voters " + top + ": " + err.getMessage()));
 		} else {
-			channel.editMessageEmbedsById(topVoterMessageIds.get(top), eb.build())
-					.queue(m -> plugin.getLogger()
-							.info("Edited Top Voters " + top.toString() + " (ID: " + topVoterMessageIds.get(top) + ")"),
-							err -> plugin.getLogger()
-									.warning("Error editing Top Voters" + top.toString() + ": " + err.getMessage()));
+			channel.editMessageEmbedsById(existingId, eb.build()).queue(
+					m -> plugin.getLogger().info("Edited Top Voters " + top + " (ID: " + existingId + ")"),
+					err -> plugin.getLogger().warning("Error editing Top Voters " + top + ": " + err.getMessage()));
 		}
 	}
 

@@ -97,7 +97,7 @@ public class PlaceHolders {
 		boolean useCache = true;
 		String identifier = identifier1.toLowerCase();
 		boolean custom = false;
-		if (identifier.endsWith("_process")) {
+		if (identifier.endsWith("_process") || !Bukkit.isPrimaryThread()) {
 			forceProcess = true;
 			identifier = identifier.replaceAll("_process", "");
 		}

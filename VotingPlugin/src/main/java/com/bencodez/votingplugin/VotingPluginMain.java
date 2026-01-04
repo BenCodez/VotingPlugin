@@ -1764,6 +1764,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 				checkFirstTimeLoaded();
 
+				for (TopVoter top : TopVoter.values()) {
+					if (!plugin.getConfigFile().isDiscordSRVTopVoterNewMessageOnUpdate(top)) {
+						getDiscordHandler().updateTopVoterMessageId(top);
+					}
+				}
+
 				plugin.getUserManager().getDataManager().clearNonNeededCachedUsers();
 				plugin.extraDebug("Current cached users: "
 						+ plugin.getUserManager().getDataManager().getUserDataCache().keySet().size());
