@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map.Entry;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.bukkit.configuration.ConfigurationSection;
@@ -12,6 +13,8 @@ import org.bukkit.configuration.ConfigurationSection;
 import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.rewards.Reward;
 import com.bencodez.advancedcore.api.rewards.injected.RewardInjectConfigurationSection;
+import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
+import com.bencodez.advancedcore.api.user.UserStartup;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
@@ -65,6 +68,36 @@ public class DiscordHandler {
 				return null;
 			}
 		});
+
+		plugin.addUserStartup(new UserStartup() {
+
+			@Override
+			public void onStartUp(AdvancedCoreUser user) {
+
+			}
+
+			@Override
+			public void onStart() {
+
+			}
+
+			@Override
+			public void onPostFinish() {
+				plugin.getTimer().scheduleAtFixedRate(new Runnable() {
+
+					@Override
+					public void run() {
+						updateDiscordLeaderboard();
+					}
+				}, 130, 60 * 10, TimeUnit.SECONDS); // 10-minute interval
+			}
+
+			@Override
+			public void onFinish() {
+
+			}
+		});
+
 	}
 
 	/** Fired once JDA is fully initialized */
@@ -93,6 +126,7 @@ public class DiscordHandler {
 	}
 
 	public void updateTopVoterMessageId(TopVoter top) {
+		plugin.extraDebug("Updating Discord Top Voter message for: " + top.toString());
 		long channelId = plugin.getConfigFile().getDiscordSRVTopVoterChannel(top);
 		LinkedHashMap<TopVoterPlayer, Integer> topVoters = plugin.getTopVoter(top);
 
