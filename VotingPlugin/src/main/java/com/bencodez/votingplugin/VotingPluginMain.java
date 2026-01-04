@@ -1764,9 +1764,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 				checkFirstTimeLoaded();
 
-				for (TopVoter top : TopVoter.values()) {
-					if (!plugin.getConfigFile().isDiscordSRVTopVoterNewMessageOnUpdate(top)) {
-						getDiscordHandler().updateTopVoterMessageId(top);
+				if (plugin.getConfigFile().isDiscordSRVEnabled() && getDiscordHandler() != null) {
+					for (TopVoter top : TopVoter.values()) {
+						if (!plugin.getConfigFile().isDiscordSRVTopVoterNewMessageOnUpdate(top)) {
+							getDiscordHandler().updateTopVoterMessageId(top);
+						}
 					}
 				}
 
