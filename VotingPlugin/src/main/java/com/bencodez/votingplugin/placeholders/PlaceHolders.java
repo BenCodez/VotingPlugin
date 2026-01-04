@@ -97,7 +97,8 @@ public class PlaceHolders {
 		boolean useCache = true;
 		String identifier = identifier1.toLowerCase();
 		boolean custom = false;
-		if (identifier.endsWith("_process") || !Bukkit.isPrimaryThread()) {
+		if (identifier.endsWith("_process")
+				|| (!Bukkit.isPrimaryThread() && plugin.getConfigFile().isAlwaysProcessAsyncPlaceholders())) {
 			forceProcess = true;
 			identifier = identifier.replaceAll("_process", "");
 		}

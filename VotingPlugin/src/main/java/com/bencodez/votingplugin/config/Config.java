@@ -772,6 +772,10 @@ public class Config extends YMLFile {
 	@ConfigDataString(path = "VoteTopDefault")
 	@Getter
 	private String voteTopDefault = "Monthly";
+	
+	@ConfigDataBoolean(path = "AlwaysProcessAsyncPlaceholders")
+	@Getter
+	private boolean alwaysProcessAsyncPlaceholders = true;
 
 	public Config(VotingPluginMain plugin) {
 		super(plugin, new File(plugin.getDataFolder(), "Config.yml"));

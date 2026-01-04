@@ -926,6 +926,9 @@ CloseGUIOnShiftClick: false
 # NONE - Don't cache any placeholders
 PlaceholderCacheLevel: AUTO
 
+# Attempt to get placeholder while not on main thread, works the same as _process
+AlwaysProcessAsyncPlaceholders: true
+
 # Placeholder controls
 # Add _process to end of placeholder to force a return value rather than . or .. if no cached value is ready
 # Add _nocache to end of placeholder to skip cache and retrieve a live value, uses a direct mysql connection, do not use on main thread
