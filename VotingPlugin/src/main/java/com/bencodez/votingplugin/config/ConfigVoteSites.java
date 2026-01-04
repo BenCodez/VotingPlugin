@@ -30,7 +30,7 @@ public class ConfigVoteSites extends YMLFile {
 
 	public ConfigVoteSites(VotingPluginMain plugin) {
 		super(plugin, new File(plugin.getDataFolder(), "VoteSites.yml"));
-		setIgnoreCase(true);
+		setIgnoreCase(plugin.getConfigFile().isCaseInsensitiveYMLFiles());
 		this.plugin = plugin;
 	}
 

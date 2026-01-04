@@ -195,6 +195,13 @@ LoadCommandAliases: true
 # Set to 0 to give no points
 PointsOnVote: 1
 
+# Whether or not YML files are case insensitive
+# If true, YML files will be treated as case insensitive
+# This means that keys like "VoteSites" and "votesites" will be treated as the same key, reducing human error
+# Requires restart to take effect
+# Default value is false if this option doesn't exist in the config
+CaseInsensitiveYMLFiles: true
+
 ###########################################
 # Vote Reminding
 # Reminds players when they are able to vote again

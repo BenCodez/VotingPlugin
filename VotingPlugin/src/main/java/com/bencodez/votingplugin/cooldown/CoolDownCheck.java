@@ -164,7 +164,8 @@ public class CoolDownCheck implements Listener {
 			coolDownChecks.put(site.getKey(), Boolean.TRUE);
 			user.setCoolDownCheckSite(coolDownChecks);
 
-			plugin.extraDebug("Triggering votesitecooldownend event for " + user.getUUID());
+			plugin.extraDebug(
+					"Triggering votesitecooldownend event on site " + site.getKey() + " for " + user.getUUID());
 			PlayerVoteSiteCoolDownEndEvent event = new PlayerVoteSiteCoolDownEndEvent(user, site);
 			plugin.getServer().getPluginManager().callEvent(event);
 		}
@@ -184,15 +185,6 @@ public class CoolDownCheck implements Listener {
 
 			@Override
 			public void onStartUp(AdvancedCoreUser advancedcoreUser) {
-				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(advancedcoreUser);
-				user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
-
-				if (cooldownCheckEnabled) {
-					check(user);
-				}
-				if (plugin.getConfigFile().isPerSiteCoolDownEvents()) {
-					checkPerSite(user);
-				}
 			}
 		});
 	}
@@ -294,8 +286,7 @@ public class CoolDownCheck implements Listener {
 			return;
 		}
 
-		plugin.getLogger()
-				.info("Checking vote cooldown rewards for all players across " + dailySites.size() + " sites...");
+		plugin.debug("Checking vote cooldown rewards for all players across " + dailySites.size() + " sites...");
 
 		plugin.getUserManager().forEachUserKeys((uuid, cols) -> {
 			if (!plugin.isEnabled() || uuid == null) {
@@ -318,10 +309,11 @@ public class CoolDownCheck implements Listener {
 				for (int i = 0; i < dailySites.size(); i++) {
 					checkPerSite(dailySites.get(i), user);
 				}
+
+				check(user);
 			} finally {
 				user.clearTempCache();
 			}
-		}, (count) -> plugin.getLogger()
-				.info("Finished checking vote cooldown rewards (processed: " + count + " users)"));
+		}, (count) -> plugin.debug("Finished checking vote cooldown rewards (processed: " + count + " users)"));
 	}
 }

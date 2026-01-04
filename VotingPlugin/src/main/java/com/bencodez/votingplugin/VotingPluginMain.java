@@ -4,7 +4,6 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.URL;
 import java.security.CodeSource;
-import java.sql.SQLException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -1433,18 +1432,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 			@Override
 			public void onFinish() {
-				plugin.getBukkitScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
+				topVoterHandler.loadLastMonth();
 
-					@Override
-					public void run() {
-						topVoterHandler.loadLastMonth();
+				topVoterHandler.loadPreviousMonthTopVoters();
 
-						topVoterHandler.loadPreviousMonthTopVoters();
-
-						setUpdate(true);
-						update();
-					}
-				}, 3);
+				setUpdate(true);
+				update();
 			}
 		});
 
@@ -1616,6 +1609,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private void setupFiles() {
 		configFile = new Config(this);
 		configFile.setup();
+		configFile.setIgnoreCase(plugin.getConfigFile().isCaseInsensitiveYMLFiles());
+		configFile.reloadData();
 
 		configVoteSites = new ConfigVoteSites(this);
 		configVoteSites.setup();
@@ -1639,7 +1634,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		plugin.debug("Loaded Files");
 	}
 
-	public void update() {
+	public synchronized void update() {
 		if (!(update || configFile.isAlwaysUpdate())) {
 			return;
 		}
@@ -1656,8 +1651,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		updateStarted = true;
 		update = false;
 
-		// Keeping your existing lock; ideally replace with a dedicated
-		// lock/AtomicBoolean gate later.
 		synchronized (plugin) {
 			try {
 				if (plugin == null || !plugin.isEnabled()) {
@@ -1878,7 +1871,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	public void updateAdvancedCoreHook() {
 		getJavascriptEngine().put("VotingPlugin", this);
 		allowDownloadingFromSpigot(15358);
-		setConfigData(new YMLConfig(this, configFile.getData()) {
+		setConfigData(new YMLConfig(this, null) {
+			@Override
+			public ConfigurationSection getData() {
+				return configFile.getData();
+			}
 
 			@Override
 			public void createSection(String key) {

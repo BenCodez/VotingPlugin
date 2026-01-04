@@ -360,7 +360,7 @@ public class GUI extends YMLFile {
 
 	public GUI(VotingPluginMain plugin) {
 		super(plugin, new File(plugin.getDataFolder(), "GUI.yml"));
-		setIgnoreCase(true);
+		setIgnoreCase(plugin.getConfigFile().isCaseInsensitiveYMLFiles());
 		this.plugin = plugin;
 	}
 

@@ -97,19 +97,14 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 		return resolved;
 	}
 
-	private static DbType resolveType(MysqlConfig config) {
-		if (config == null || config.getDbType() == null) {
-			return DbType.MYSQL;
-		}
-		return config.getDbType();
-	}
-
 	// ---- AbstractSqlTable required hooks ----
 
 	/**
 	 * We intentionally DO NOT use a real primary key for caching in this log table.
 	 * Returning "id" keeps queries sane if anything calls containsKeyQuery, but we
 	 * override caching methods to avoid loading it.
+	 * 
+	 * @return primary key column name
 	 */
 	@Override
 	public String getPrimaryKeyColumn() {

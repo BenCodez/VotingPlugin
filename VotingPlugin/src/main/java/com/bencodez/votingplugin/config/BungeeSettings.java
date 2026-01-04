@@ -153,7 +153,7 @@ public class BungeeSettings extends YMLFile {
 
 	public BungeeSettings(VotingPluginMain plugin) {
 		super(plugin, new File(plugin.getDataFolder(), "BungeeSettings.yml"));
-		setIgnoreCase(true);
+		setIgnoreCase(plugin.getConfigFile().isCaseInsensitiveYMLFiles());
 	}
 
 	public String getServerNameStorage() {

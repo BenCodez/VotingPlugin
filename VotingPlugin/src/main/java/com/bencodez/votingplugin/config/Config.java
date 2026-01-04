@@ -52,6 +52,10 @@ public class Config extends YMLFile {
 	@Getter
 	private int limitVotePoints = -1;
 
+	@ConfigDataBoolean(path = "CaseInsensitiveYMLFiles")
+	@Getter
+	public boolean caseInsensitiveYMLFiles = false;
+
 	@ConfigDataBoolean(path = "QueueVotesDuringTimeChange")
 	@Getter
 	private boolean queueVotesDuringTimeChange = false;
