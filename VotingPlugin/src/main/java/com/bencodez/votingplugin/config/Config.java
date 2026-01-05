@@ -775,7 +775,7 @@ public class Config extends YMLFile {
 	
 	@ConfigDataBoolean(path = "AlwaysProcessAsyncPlaceholders")
 	@Getter
-	private boolean alwaysProcessAsyncPlaceholders = true;
+	private boolean alwaysProcessAsyncPlaceholders = false;
 
 	public Config(VotingPluginMain plugin) {
 		super(plugin, new File(plugin.getDataFolder(), "Config.yml"));
