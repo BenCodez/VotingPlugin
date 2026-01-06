@@ -43,12 +43,10 @@ public abstract class VoteCacheHandler {
 	 * @param uuid player UUID (string form)
 	 * @return total cached votes across all proxy caches
 	 */
-	public int getProxyCachedTotal(String uuid) {
-		if (uuid == null || uuid.isEmpty()) {
+	public int getProxyCachedTotal(String u) {
+		if (u == null || u.isEmpty()) {
 			return 0;
 		}
-
-		String u = uuid.toLowerCase();
 		int total = 0;
 
 		// 1) UUID-based cache (fast lookup)
@@ -72,11 +70,15 @@ public abstract class VoteCacheHandler {
 	public void addServerVote(String server, OfflineBungeeVote vote) {
 		cachedVotes.putIfAbsent(server, new ArrayList<>());
 		cachedVotes.get(server).add(vote);
+
 		if (useMySQL) {
 			voteCacheTable.insertVote(vote.getVoteId(), vote.getUuid(), vote.getPlayerName(), vote.getService(),
 					vote.getTime(), vote.isRealVote(), vote.getText(), server);
 		} else {
-			jsonStorage.addVote(server, cachedVotes.get(server).size() - 1, vote);
+			// IMPORTANT: index must come from JSON, not from cachedVotes (cache can be out
+			// of sync with JSON)
+			int idx = jsonStorage.getServerVotes(server).size();
+			jsonStorage.addVote(server, idx, vote);
 			jsonStorage.save();
 		}
 	}
@@ -85,6 +87,7 @@ public abstract class VoteCacheHandler {
 		if (cachedVotes.containsKey(server)) {
 			ArrayList<OfflineBungeeVote> votes = cachedVotes.get(server);
 			votes.removeIf(vote -> vote.getUuid().equals(uuid));
+
 			if (useMySQL) {
 				voteCacheTable.removeVotesByServerAndUUID(server, uuid);
 			} else {
@@ -115,11 +118,15 @@ public abstract class VoteCacheHandler {
 	public void addOnlineVote(String uuid, OfflineBungeeVote vote) {
 		cachedOnlineVotes.putIfAbsent(uuid, new ArrayList<>());
 		cachedOnlineVotes.get(uuid).add(vote);
+
 		if (useMySQL) {
 			onlineVoteCacheTable.insertVote(vote.getVoteId(), vote.getUuid(), vote.getPlayerName(), vote.getService(),
 					vote.getTime(), vote.isRealVote(), vote.getText());
 		} else {
-			jsonStorage.addVoteOnline(uuid, cachedOnlineVotes.get(uuid).size() - 1, vote);
+			// IMPORTANT: index must come from JSON, not from cachedOnlineVotes (cache can
+			// be out of sync with JSON)
+			int idx = jsonStorage.getOnlineVotes(uuid).size();
+			jsonStorage.addVoteOnline(uuid, idx, vote);
 			jsonStorage.save();
 		}
 	}
@@ -142,7 +149,7 @@ public abstract class VoteCacheHandler {
 		for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedOnlineVotes.entrySet()) {
 			ArrayList<OfflineBungeeVote> votes = entry.getValue();
 			for (OfflineBungeeVote vote : votes) {
-				if (vote.getTime() + (voteCacheTime * 24 * 60 * 60 * 1000) < cTime) {
+				if (vote.getTime() + (voteCacheTime * 24 * 60 * 60 * 1000L) < cTime) {
 					debug1("Removing vote from cache: " + vote.toString());
 					expiredOnlineVotes.add(vote);
 				}
@@ -155,7 +162,7 @@ public abstract class VoteCacheHandler {
 		for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedVotes.entrySet()) {
 			ArrayList<OfflineBungeeVote> votes = entry.getValue();
 			for (OfflineBungeeVote vote : votes) {
-				if (vote.getTime() + (voteCacheTime * 24 * 60 * 60 * 1000) < cTime) {
+				if (vote.getTime() + (voteCacheTime * 24 * 60 * 60 * 1000L) < cTime) {
 					debug1("Removing vote from cache: " + vote.toString());
 					expiredServerVotes.add(vote);
 				}
@@ -167,23 +174,80 @@ public abstract class VoteCacheHandler {
 		}
 	}
 
+	/**
+	 * Reset milestone count inside vote payload text for all cached votes.
+	 *
+	 * - MySQL mode: updates DB rows via UPDATE - JSON mode: delete + re-add updated
+	 * vote (append), then save once at the end
+	 *
+	 * NOTE: IVoteCache only supports addVote/addVoteOnline with an index. We append
+	 * using jsonStorage size, not cachedVotes size.
+	 */
 	public void resetMilestoneCountInVotes() {
-		// Iterate through cached online votes
+		boolean changedAny = false;
+
+		// ---- Online votes ----
 		for (Map.Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedOnlineVotes.entrySet()) {
+			String uuidKey = entry.getKey();
 			ArrayList<OfflineBungeeVote> votes = entry.getValue();
+
 			for (OfflineBungeeVote vote : votes) {
-				String updatedText = updateMilestoneCount(vote.getText());
-				vote.setText(updatedText);
+				if (vote == null) {
+					continue;
+				}
+
+				String oldText = vote.getText();
+				String updatedText = updateMilestoneCount(oldText);
+
+				if (updatedText != null && !updatedText.equals(oldText)) {
+					vote.setText(updatedText);
+					changedAny = true;
+
+					if (useMySQL) {
+						onlineVoteCacheTable.updateVoteText(vote, updatedText);
+					} else {
+						// JSON: delete and re-add (append using JSON size)
+						jsonStorage.removeOnlineVote(vote);
+
+						int idx = jsonStorage.getOnlineVotes(uuidKey).size();
+						jsonStorage.addVoteOnline(uuidKey, idx, vote);
+					}
+				}
 			}
 		}
 
-		// Iterate through cached votes
+		// ---- Server votes ----
 		for (Map.Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedVotes.entrySet()) {
+			String server = entry.getKey();
 			ArrayList<OfflineBungeeVote> votes = entry.getValue();
+
 			for (OfflineBungeeVote vote : votes) {
-				String updatedText = updateMilestoneCount(vote.getText());
-				vote.setText(updatedText);
+				if (vote == null) {
+					continue;
+				}
+
+				String oldText = vote.getText();
+				String updatedText = updateMilestoneCount(oldText);
+
+				if (updatedText != null && !updatedText.equals(oldText)) {
+					vote.setText(updatedText);
+					changedAny = true;
+
+					if (useMySQL) {
+						voteCacheTable.updateVoteText(vote, server, updatedText);
+					} else {
+						// JSON: delete and re-add (append using JSON size)
+						jsonStorage.removeVote(server, vote);
+
+						int idx = jsonStorage.getServerVotes(server).size();
+						jsonStorage.addVote(server, idx, vote);
+					}
+				}
 			}
+		}
+
+		if (!useMySQL && changedAny) {
+			jsonStorage.save();
 		}
 	}
 

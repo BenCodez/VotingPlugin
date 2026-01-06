@@ -927,7 +927,7 @@ CloseGUIOnShiftClick: false
 PlaceholderCacheLevel: AUTO
 
 # Attempt to get placeholder while not on main thread, works the same as _process
-AlwaysProcessAsyncPlaceholders: true
+AlwaysProcessAsyncPlaceholders: false
 
 # Placeholder controls
 # Add _process to end of placeholder to force a return value rather than . or .. if no cached value is ready

@@ -72,6 +72,34 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 		ensureIndexes();
 	}
 
+	public void updateVoteText(OfflineBungeeVote vote, String newText) {
+		if (vote == null) {
+			return;
+		}
+
+		String sql = "UPDATE " + qi(getTableName()) + " SET " + qi("text") + " = ?" + " WHERE " + qi("uuid")
+				+ " = ? AND " + qi("service") + " = ? AND " + qi("time") + " = ?;";
+
+		try (Connection conn = mysql.getConnectionManager().getConnection();
+				PreparedStatement ps = conn.prepareStatement(sql)) {
+
+			ps.setString(1, newText);
+
+			if (getDbType() == DbType.POSTGRESQL) {
+				ps.setObject(2, UUID.fromString(vote.getUuid()));
+			} else {
+				ps.setString(2, vote.getUuid());
+			}
+
+			ps.setString(3, vote.getService());
+			ps.setLong(4, vote.getTime());
+
+			ps.executeUpdate();
+		} catch (SQLException | IllegalArgumentException e) {
+			debug(e);
+		}
+	}
+
 	public ProxyOnlineVoteCacheTable(MysqlConfig config, boolean debug) {
 		super("votingplugin_onlinevotecache", config, debug);
 
