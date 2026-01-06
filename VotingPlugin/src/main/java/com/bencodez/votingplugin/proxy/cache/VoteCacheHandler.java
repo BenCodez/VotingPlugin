@@ -43,14 +43,14 @@ public abstract class VoteCacheHandler {
 	 * @param uuid player UUID (string form)
 	 * @return total cached votes across all proxy caches
 	 */
-	public int getProxyCachedTotal(String u) {
-		if (u == null || u.isEmpty()) {
+	public int getProxyCachedTotal(String uuid) {
+		if (uuid == null || uuid.isEmpty()) {
 			return 0;
 		}
 		int total = 0;
 
 		// 1) UUID-based cache (fast lookup)
-		ArrayList<OfflineBungeeVote> onlineVotes = cachedOnlineVotes.get(u);
+		ArrayList<OfflineBungeeVote> onlineVotes = cachedOnlineVotes.get(uuid);
 		if (onlineVotes != null) {
 			total += onlineVotes.size();
 		}
@@ -58,7 +58,7 @@ public abstract class VoteCacheHandler {
 		// 2) Server-based caches (scan)
 		for (ArrayList<OfflineBungeeVote> serverVotes : cachedVotes.values()) {
 			for (OfflineBungeeVote vote : serverVotes) {
-				if (vote != null && vote.getUuid() != null && vote.getUuid().equalsIgnoreCase(u)) {
+				if (vote != null && vote.getUuid() != null && vote.getUuid().equalsIgnoreCase(uuid)) {
 					total++;
 				}
 			}
