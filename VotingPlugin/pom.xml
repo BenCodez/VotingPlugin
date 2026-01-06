@@ -388,6 +388,8 @@
                                 </goals>
                                 <phase>deploy</phase>
                                 <configuration>
+                                    <failOnError>false</failOnError>
+                                    <doclint>none</doclint>
                                     <sourcepath>
                                         ${project.basedir}/target/delombok</sourcepath>
                                 </configuration>
