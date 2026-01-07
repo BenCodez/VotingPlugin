@@ -179,11 +179,11 @@ public class DiscordHandler {
 				topVoterMessageIds.put(top, newId);
 				if (!newMessage)
 					plugin.getServerData().setTopVoterMessageId(top, newId);
-				plugin.getLogger().info("Posted new Top Voters " + top + " (ID: " + newId + ")");
+				plugin.debug("Posted new Top Voters " + top + " (ID: " + newId + ")");
 			}, err -> plugin.getLogger().warning("Error sending Top Voters " + top + ": " + err.getMessage()));
 		} else {
 			channel.editMessageEmbedsById(existingId, eb.build()).queue(
-					m -> plugin.getLogger().info("Edited Top Voters " + top + " (ID: " + existingId + ")"),
+					m -> plugin.debug("Edited Top Voters " + top + " (ID: " + existingId + ")"),
 					err -> plugin.getLogger().warning("Error editing Top Voters " + top + ": " + err.getMessage()));
 		}
 	}
