@@ -13,7 +13,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -219,7 +218,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * Adds one to the total votes.
 	 */
 	public void addTotal() {
-		setMilestoneCount(getMilestoneCount() + 1);
 		addMonthTotal();
 		addAllTimeTotal();
 	}
@@ -659,36 +657,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	/**
-	 * Gets the path for the gotten milestones.
-	 *
-	 * @return the path for the gotten milestones
-	 */
-	public String getGottenMilestonesPath() {
-		if (plugin.getBungeeSettings().isPerServerMilestones()) {
-			return plugin.getBungeeSettings().getServerNameStorage() + "_" + "GottenMilestones";
-		}
-		return "GottenMileStones";
-	}
-
-	/**
-	 * Gets the milestones that the user has gotten.
-	 *
-	 * @return a map of milestones and whether they have been gotten
-	 */
-	public HashMap<String, Boolean> getHasGottenMilestone() {
-		HashMap<String, Boolean> hasGottenMilestone = new HashMap<>();
-		ArrayList<String> milestoneList = getUserData().getStringList(getGottenMilestonesPath());
-		for (String str : milestoneList) {
-			String[] data = str.split("//");
-			if (data.length > 1) {
-				boolean gotten = Boolean.parseBoolean(data[1]);
-				hasGottenMilestone.put(data[0], gotten);
-			}
-		}
-		return hasGottenMilestone;
-	}
-
-	/**
 	 * Gets the highest daily total votes.
 	 *
 	 * @return the highest daily total votes
@@ -713,37 +681,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public int getHighestWeeklyTotal() {
 		return getData().getInt("HighestWeeklyTotal");
-	}
-
-	/**
-	 * Gets the last milestone that the user has gotten.
-	 *
-	 * @return the last milestone that the user has gotten
-	 */
-	public int getLastGottenMilestone() {
-		Set<String> mVotes = plugin.getSpecialRewardsConfig().getMilestoneVotes();
-		ArrayList<Integer> nums = new ArrayList<>();
-		int mileStoneCount = getMilestoneCount();
-		for (String vote : mVotes) {
-			if (MessageAPI.isInt(vote)) {
-				final int num = Integer.parseInt(vote);
-				if (plugin.getSpecialRewardsConfig().getMilestoneRewardEnabled(num)) {
-					nums.add(Integer.valueOf(num));
-				}
-			}
-		}
-
-		int highestNum = -1;
-
-		for (Integer num : nums) {
-			if (mileStoneCount > num.intValue()) {
-				if (highestNum == -1 || num.intValue() > highestNum) {
-					highestNum = num.intValue();
-				}
-			}
-		}
-
-		return highestNum;
 	}
 
 	/**
@@ -830,15 +767,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	/**
-	 * Gets the milestone count.
-	 *
-	 * @return the milestone count
-	 */
-	public int getMilestoneCount() {
-		return getData().getInt("MilestoneCount", getAllTimeTotal());
-	}
-
-	/**
 	 * Gets the total votes for the month.
 	 *
 	 * @return the total votes for the month
@@ -856,44 +784,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public int getMonthVoteStreak() {
 		return getData().getInt("MonthVoteStreak");
-	}
-
-	/**
-	 * Gets the next available milestone.
-	 *
-	 * @return the next available milestone
-	 */
-	public int getNextAvailableMileStone() {
-		Set<String> mVotes = plugin.getSpecialRewardsConfig().getMilestoneVotes();
-		ArrayList<Integer> nums = new ArrayList<>();
-		int mileStoneCount = getMilestoneCount();
-		HashMap<String, Boolean> gottenMileStones = getHasGottenMilestone();
-		for (String vote : mVotes) {
-			if (MessageAPI.isInt(vote)) {
-				final int num = Integer.parseInt(vote);
-				if (plugin.getSpecialRewardsConfig().getMilestoneRewardEnabled(num)) {
-					if (gottenMileStones.containsKey("" + num)) {
-						if (!gottenMileStones.get("" + num).booleanValue()) {
-							nums.add(Integer.valueOf(num));
-						}
-					} else {
-						nums.add(Integer.valueOf(num));
-					}
-				}
-			}
-		}
-
-		int lowestNum = -1;
-
-		for (Integer num : nums) {
-			if (mileStoneCount < num.intValue()) {
-				if (lowestNum == -1 || num.intValue() < lowestNum) {
-					lowestNum = num.intValue();
-				}
-			}
-		}
-
-		return lowestNum;
 	}
 
 	/**
@@ -1198,49 +1088,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				plugin.getSpecialRewardsConfig().getWeeklyAwardRewardsPath(path)).withPlaceHolder("place", "" + place)
 				.withPlaceHolder("topvoter", "Weekly").withPlaceHolder("votes", "" + getTotal(TopVoter.Weekly))
 				.setOnline(isOnline()).send(this);
-	}
-
-	/**
-	 * Checks if the user has gotten their first vote.
-	 *
-	 * @return true if the user has gotten their first vote, false otherwise
-	 */
-	@Deprecated
-	public boolean hasGottenFirstVote() {
-		if (plugin.getBungeeSettings().isUseBungeecoord()
-				&& plugin.getBungeeHandler().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
-			return getTotal(TopVoter.AllTime) > 1;
-		}
-		return getTotal(TopVoter.AllTime) != 0;
-	}
-
-	/**
-	 * Checks if the user has gotten their first vote today.
-	 *
-	 * @return true if the user has gotten their first vote today, false otherwise
-	 */
-	@Deprecated
-	public boolean hasGottenFirstVoteToday() {
-		if (plugin.getBungeeSettings().isUseBungeecoord()
-				&& plugin.getBungeeHandler().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
-			return getTotal(TopVoter.Daily) > 1;
-		}
-		return getTotal(TopVoter.Daily) != 0;
-	}
-
-	/**
-	 * Checks if the user has gotten a milestone.
-	 *
-	 * @param votesRequired the number of votes required for the milestone
-	 * @return true if the user has gotten the milestone, false otherwise
-	 */
-	@Deprecated
-	public boolean hasGottenMilestone(int votesRequired) {
-		HashMap<String, Boolean> hasGottenMilestone = getHasGottenMilestone();
-		if (hasGottenMilestone.containsKey("" + votesRequired)) {
-			return hasGottenMilestone.get("" + votesRequired);
-		}
-		return false;
 	}
 	
 	/**
@@ -1694,34 +1541,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	/**
-	 * Sets whether the user has gotten a milestone.
-	 *
-	 * @param votesRequired the number of votes required for the milestone
-	 * @param b             true if the user has gotten the milestone, false
-	 *                      otherwise
-	 */
-	public void setHasGotteMilestone(int votesRequired, boolean b) {
-		HashMap<String, Boolean> hasGottenMilestone = getHasGottenMilestone();
-		hasGottenMilestone.put("" + votesRequired, b);
-		setHasGottenMilestone(hasGottenMilestone);
-	}
-
-	/**
-	 * Sets the milestones that the user has gotten.
-	 *
-	 * @param hasGottenMilestone a map of milestones and whether they have been
-	 *                           gotten
-	 */
-	public void setHasGottenMilestone(HashMap<String, Boolean> hasGottenMilestone) {
-		ArrayList<String> data = new ArrayList<>();
-		for (Entry<String, Boolean> entry : hasGottenMilestone.entrySet()) {
-			String str = entry.getKey() + "//" + entry.getValue().booleanValue();
-			data.add(str);
-		}
-		getUserData().setStringList(getGottenMilestonesPath(), data);
-	}
-
-	/**
 	 * Sets the highest daily total votes.
 	 *
 	 * @param total the highest daily total votes
@@ -1769,15 +1588,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			data.add(str);
 		}
 		getUserData().setStringList("LastVotes", data);
-	}
-
-	/**
-	 * Sets the milestone count.
-	 *
-	 * @param value the milestone count
-	 */
-	public void setMilestoneCount(int value) {
-		getData().setInt("MilestoneCount", value);
 	}
 
 	/**

@@ -546,23 +546,33 @@ public class VotingPluginVelocity {
 
 			@Override
 			public String getUUID(String playerName) {
+				if (playerName == null || playerName.isEmpty() || playerName.equalsIgnoreCase("null")) {
+					return "";
+				}
+
+				// 1) Correct casing if player is currently connected (optional but nice)
+				if (server.getPlayer(playerName).isPresent()) {
+					Player p = server.getPlayer(playerName).get();
+					if (p != null && p.isActive()) {
+						playerName = p.getUsername(); // canonical case
+					}
+				}
+
+				// 2) Correct casing using cache (uuid -> name) so OfflinePlayer:NAME matches
+				// historical casing
+				// This prevents OfflinePlayer:Se7seS vs OfflinePlayer:se7ses splitting UUIDs.
+				for (Entry<UUID, String> entry : getVotingPluginProxy().getUuidPlayerNameCache().entrySet()) {
+					if (entry.getValue() != null && entry.getValue().equalsIgnoreCase(playerName)) {
+						playerName = entry.getValue(); // canonical case stored in cache
+						break;
+					}
+				}
 
 				if (!config.getOnlineMode()) {
-					// correct case
-					if (server.getPlayer(playerName).isPresent()) {
-						Player p = server.getPlayer(playerName).get();
-						if (p != null && p.isActive()) {
-							playerName = p.getUsername();
-						}
-					}
-					for (Entry<UUID, String> entry : getVotingPluginProxy().getUuidPlayerNameCache().entrySet()) {
-						if (entry.getValue().equalsIgnoreCase(playerName)) {
-							playerName = entry.getValue();
-						}
-					}
 					return UUID.nameUUIDFromBytes(("OfflinePlayer:" + playerName).getBytes(StandardCharsets.UTF_8))
 							.toString();
 				}
+
 				if (server.getPlayer(playerName).isPresent()) {
 					Player p = server.getPlayer(playerName).get();
 					if (p != null && p.isActive()) {
@@ -570,7 +580,7 @@ public class VotingPluginVelocity {
 					}
 				}
 				for (Entry<UUID, String> entry : getVotingPluginProxy().getUuidPlayerNameCache().entrySet()) {
-					if (entry.getValue().equalsIgnoreCase(playerName)) {
+					if (entry.getValue() != null && entry.getValue().equalsIgnoreCase(playerName)) {
 						return entry.getKey().toString();
 					}
 				}
@@ -581,7 +591,6 @@ public class VotingPluginVelocity {
 					}
 				}
 				return getVotingPluginProxy().getNonVotedPlayersCache().getUUID(playerName);
-
 			}
 
 			@Override

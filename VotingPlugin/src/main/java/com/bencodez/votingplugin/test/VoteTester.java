@@ -37,7 +37,6 @@ public class VoteTester {
 						for (TopVoter top : TopVoter.values()) {
 							user.setTotal(top, random.nextInt(1000));
 						}
-						user.setMilestoneCount(random.nextInt(100));
 						user.setPlayerName(playerName);
 						user.updateName(true);
 						num++;

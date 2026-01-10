@@ -202,11 +202,6 @@ public abstract class VotingPluginProxy {
 
 			@Override
 			public void timeChanged(TimeType type, boolean fake, boolean pre, boolean post) {
-				if (type.equals(TimeType.MONTH) && getConfig().getResetMilestonesMonthly()) {
-					debug("Resetting milestones for month change");
-					getVoteCacheHandler().resetMilestoneCountInVotes();
-				}
-
 				if (getConfig().getVoteCacheTime() > 0) {
 					getVoteCacheHandler().checkVoteCacheTime(getConfig().getVoteCacheTime());
 				}
@@ -778,6 +773,8 @@ public abstract class VotingPluginProxy {
 
 		loadMultiProxySupport();
 		loadVoteLoggingMySQL();
+
+		debug("VotingPluginProxy loaded, ONLINEMODE: " + getConfig().getOnlineMode());
 	}
 
 	private VoteLogMysqlTable voteLogMysqlTable;
@@ -1461,7 +1458,6 @@ public abstract class VotingPluginProxy {
 					int weeklyTotal = getValue(data, "WeeklyTotal", 1);
 					int dailyTotal = getValue(data, "DailyTotal", 1);
 					int points = getValue(data, "Points", getConfig().getPointsOnVote());
-					int milestoneCount = getValue(data, "MilestoneCount", 1);
 
 					int maxVotes = getConfig().getMaxAmountOfVotesPerDay();
 					if (maxVotes > 0) {
@@ -1478,7 +1474,7 @@ public abstract class VotingPluginProxy {
 						}
 					}
 					text = new BungeeMessageData(allTimeTotal, monthTotal, weeklyTotal, dailyTotal, points,
-							milestoneCount, votePartyVotes, currentVotePartyVotesRequired, dateMonthTotal, voteId);
+							votePartyVotes, currentVotePartyVotesRequired, dateMonthTotal, voteId);
 					ArrayList<Column> update = new ArrayList<>();
 					update.add(new Column("AllTimeTotal", new DataValueInt(allTimeTotal)));
 					update.add(new Column("MonthTotal", new DataValueInt(monthTotal)));
@@ -1488,11 +1484,10 @@ public abstract class VotingPluginProxy {
 					update.add(new Column("WeeklyTotal", new DataValueInt(weeklyTotal)));
 					update.add(new Column("DailyTotal", new DataValueInt(dailyTotal)));
 					update.add(new Column("Points", new DataValueInt(points)));
-					update.add(new Column("MilestoneCount", new DataValueInt(milestoneCount)));
 					debug("Setting totals " + text.toString());
 					getProxyMySQL().update(uuid, update);
 				} else {
-					text = new BungeeMessageData(0, 0, 0, 0, 0, 0, votePartyVotes, currentVotePartyVotesRequired, 0,
+					text = new BungeeMessageData(0, 0, 0, 0, 0, votePartyVotes, currentVotePartyVotesRequired, 0,
 							voteId);
 				}
 			}

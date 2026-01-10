@@ -390,21 +390,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		}
 	}
 
-	public void login(ProxiedPlayer p) {
-		if (p != null && p.getServer() != null && p.getServer().getInfo() != null) {
-			final ProxiedPlayer proxiedPlayer = p;
-			getProxy().getScheduler().schedule(this, new Runnable() {
-
-				@Override
-				public void run() {
-					getVotingPluginProxy().login(proxiedPlayer.getName(), proxiedPlayer.getUniqueId().toString(),
-							proxiedPlayer.getServer().getInfo().getName());
-				}
-			}, 1, TimeUnit.SECONDS);
-		}
-
-	}
-
 	@Override
 	public void onDisable() {
 		getVotingPluginProxy().onDisable();
@@ -469,23 +454,34 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 			@Override
 			public String getUUID(String playerName) {
+				if (playerName == null || playerName.isEmpty() || playerName.equalsIgnoreCase("null")) {
+					return "";
+				}
+
+				ProxiedPlayer p = getProxy().getPlayer(playerName);
+				if (p != null && p.isConnected()) {
+					playerName = p.getName();
+				}
+
+				for (Entry<UUID, String> entry : getVotingPluginProxy().getUuidPlayerNameCache().entrySet()) {
+					String cachedName = entry.getValue();
+					if (cachedName != null && cachedName.equalsIgnoreCase(playerName)) {
+						playerName = cachedName; // canonical case from cache
+						break;
+					}
+				}
 
 				if (!config.getOnlineMode()) {
-					// correct casing
-					ProxiedPlayer p = getProxy().getPlayer(playerName);
-					if (p != null && p.isConnected()) {
-						playerName = p.getName();
-					}
 					return UUID.nameUUIDFromBytes(("OfflinePlayer:" + playerName).getBytes(StandardCharsets.UTF_8))
 							.toString();
 				}
-				ProxiedPlayer p = getProxy().getPlayer(playerName);
+
 				if (p != null && p.isConnected()) {
 					return p.getUniqueId().toString();
 				}
 
 				for (Entry<UUID, String> entry : getVotingPluginProxy().getUuidPlayerNameCache().entrySet()) {
-					if (entry.getValue().equalsIgnoreCase(playerName)) {
+					if (entry.getValue() != null && entry.getValue().equalsIgnoreCase(playerName)) {
 						return entry.getKey().toString();
 					}
 				}
@@ -496,8 +492,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						return str;
 					}
 				}
-				return getVotingPluginProxy().getNonVotedPlayersCache().getUUID(playerName);
 
+				return getVotingPluginProxy().getNonVotedPlayersCache().getUUID(playerName);
 			}
 
 			@Override

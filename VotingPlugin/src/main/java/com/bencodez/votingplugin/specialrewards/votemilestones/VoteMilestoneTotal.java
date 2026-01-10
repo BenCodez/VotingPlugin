@@ -62,17 +62,6 @@ public enum VoteMilestoneTotal {
 			return user.getPoints();
 		}
 	},
-
-	// ---- Legacy milestone counter ----
-	LEGACY_MILESTONE_COUNT {
-		@Override
-		public long getValue(VotingPluginUser user, BungeeMessageData bungeeMessageData) {
-			if (bungeeMessageData != null) {
-				return bungeeMessageData.getMilestoneCount();
-			}
-			return user.getMilestoneCount();
-		}
-	},
 	ALLSITES_TODAY {
 		@Override
 		public long getValue(VotingPluginUser user, BungeeMessageData bungeeMessageData) {
@@ -139,13 +128,6 @@ public enum VoteMilestoneTotal {
 		case "VOTEPOINT":
 		case "VOTEPOINTS":
 			return POINTS;
-
-		// Legacy
-		case "LEGACY":
-		case "LEGACY_MILESTONE":
-		case "LEGACY_MILESTONE_COUNT":
-		case "MILESTONECOUNT":
-			return LEGACY_MILESTONE_COUNT;
 
 		case "SITES_TODAY":
 		case "ALLSITES_TODAY":

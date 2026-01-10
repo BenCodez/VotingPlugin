@@ -170,9 +170,8 @@ public class UserManager {
 						// fix ones with no last online
 						user.setLastOnline(System.currentTimeMillis());
 					} else if (days > daysOld) {
-						if (user.getTotal(TopVoter.AllTime) == 0 && user.getMilestoneCount() == 0
-								&& user.getTotal(TopVoter.Monthly) == 0 && user.getTotal(TopVoter.Weekly) == 0
-								&& user.getTotal(TopVoter.Daily) == 0) {
+						if (user.getTotal(TopVoter.AllTime) == 0 && user.getTotal(TopVoter.Monthly) == 0
+								&& user.getTotal(TopVoter.Weekly) == 0 && user.getTotal(TopVoter.Daily) == 0) {
 							plugin.debug("Removing " + user.getUUID() + " because of no data purge");
 							user.remove();
 						}
@@ -199,9 +198,8 @@ public class UserManager {
 						// fix ones with no last online
 						user.setLastOnline(System.currentTimeMillis());
 					} else if (days > daysOld) {
-						if (user.getTotal(TopVoter.AllTime) == 0 && user.getMilestoneCount() == 0
-								&& user.getTotal(TopVoter.Monthly) == 0 && user.getTotal(TopVoter.Weekly) == 0
-								&& user.getTotal(TopVoter.Daily) == 0) {
+						if (user.getTotal(TopVoter.AllTime) == 0 && user.getTotal(TopVoter.Monthly) == 0
+								&& user.getTotal(TopVoter.Weekly) == 0 && user.getTotal(TopVoter.Daily) == 0) {
 							plugin.debug("Removing " + user.getUUID() + " because of no data purge");
 							user.remove();
 						}

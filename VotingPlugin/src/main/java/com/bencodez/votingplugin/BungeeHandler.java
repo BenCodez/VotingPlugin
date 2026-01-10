@@ -319,8 +319,6 @@ public class BungeeHandler implements Listener {
 						user.addPoints(plugin.getConfigFile().getPointsOnVote());
 					}
 
-					plugin.getSpecialRewards().bungeeAllSitesCheck(text.getVoteUUID(), user, numberOfVotes, num);
-
 					if (Boolean.valueOf(args.get(5))) {
 						plugin.getServerData().addServiceSite(service);
 					}
@@ -408,8 +406,6 @@ public class BungeeHandler implements Listener {
 						user.addPoints(plugin.getConfigFile().getPointsOnVote());
 					}
 
-					plugin.getSpecialRewards().bungeeAllSitesCheck(text.getVoteUUID(), user, numberOfVotes, num);
-
 					if (Boolean.valueOf(args.get(5))) {
 						plugin.getServerData().addServiceSite(service);
 					}
@@ -437,11 +433,6 @@ public class BungeeHandler implements Listener {
 					bungeeVotePartyRequired = Integer.parseInt(args.get(2));
 					plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);
 					plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
-				}
-
-				if (args.size() > 3 && plugin.getBungeeSettings().isPerServerMilestones()) {
-					BungeeMessageData text = new BungeeMessageData(args.get(3));
-					plugin.getSpecialRewards().checkMilestone(text.getVoteUUID(), user, text, true);
 				}
 
 				if (args.size() > 5) {

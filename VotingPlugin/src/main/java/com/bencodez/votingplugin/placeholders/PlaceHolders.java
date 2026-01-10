@@ -316,67 +316,6 @@ public class PlaceHolders {
 			}
 		}.withDescription("Returns true/false if user has reminders disabled"));
 
-		placeholders.add(new PlaceHolder<VotingPluginUser>("MilestoneCount") {
-
-			@Override
-			public String placeholderRequest(VotingPluginUser user, String identifier) {
-				return "" + user.getMilestoneCount();
-			}
-		}.withDescription("User milestonecount").updateDataKey("MilestoneCount"));
-
-		Set<String> mVotes = plugin.getSpecialRewardsConfig().getMilestoneVotes();
-		for (String vote : mVotes) {
-			if (MessageAPI.isInt(vote)) {
-
-				final int num = Integer.parseInt(vote);
-				if (plugin.getSpecialRewardsConfig().getMilestoneRewardEnabled(num)) {
-					placeholders.add(new PlaceHolder<VotingPluginUser>("milestone_numberofvotesuntil_" + num) {
-
-						@Override
-						public String placeholderRequest(VotingPluginUser user, String identifier) {
-							int toGo = num - user.getMilestoneCount();
-							if (toGo >= 0) {
-								return "" + toGo;
-							}
-							return "0";
-						}
-					}.withDescription("Get number of votes until milestone").updateDataKey("MilestoneCount"));
-				}
-			}
-		}
-
-		placeholders.add(new PlaceHolder<VotingPluginUser>("nextmilestone_votes_required") {
-
-			@Override
-			public String placeholderRequest(VotingPluginUser user, String identifier) {
-				return "" + user.getNextAvailableMileStone();
-			}
-		}.withDescription("Get number of votes required for next available milestone").updateDataKey("MilestoneCount"));
-
-		placeholders.add(new PlaceHolder<VotingPluginUser>("nextmilestone_votes_until") {
-
-			@Override
-			public String placeholderRequest(VotingPluginUser user, String identifier) {
-				int toGo = user.getNextAvailableMileStone() - user.getMilestoneCount();
-				if (toGo >= 0) {
-					return "" + toGo;
-				}
-				return "0";
-			}
-		}.withDescription("Get number of votes until next available milestone").updateDataKey("MilestoneCount"));
-
-		placeholders.add(new PlaceHolder<VotingPluginUser>("lastmilestone_votes_since") {
-
-			@Override
-			public String placeholderRequest(VotingPluginUser user, String identifier) {
-				int toGo = user.getMilestoneCount() - user.getLastGottenMilestone();
-				if (toGo >= 0) {
-					return "" + toGo;
-				}
-				return "0";
-			}
-		}.withDescription("Get number of votes since last milestone").updateDataKey("MilestoneCount"));
-
 		for (final String identifier : plugin.getShopFile().getShopIdentifiers()) {
 			if (plugin.getShopFile().getShopIdentifierLimit(identifier) > 0) {
 				placeholders.add(new PlaceHolder<VotingPluginUser>("VoteShopLimit_" + identifier) {

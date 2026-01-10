@@ -1332,23 +1332,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					}
 				}
 
-				int milestoneCountRequired = section.getInt("MilestoneCount", -1);
-				if (milestoneCountRequired >= 0) {
-					int milestoneCount = user.getMilestoneCount();
-					if (atleast) {
-						if (milestoneCount < milestoneCountRequired) {
-							debug("Failed requirement milestonecount " + milestoneCount + "/" + milestoneCountRequired);
-							return false;
-						}
-					} else {
-						if (milestoneCount != milestoneCountRequired) {
-							debug("Failed requirement milestonecount " + milestoneCount + "!="
-									+ milestoneCountRequired);
-							return false;
-						}
-					}
-				}
-
 				int pointsRequired = section.getInt("Points", -1);
 				if (pointsRequired >= 0) {
 					int points = user.getPoints();

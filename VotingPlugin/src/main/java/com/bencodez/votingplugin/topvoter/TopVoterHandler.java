@@ -57,13 +57,6 @@ public class TopVoterHandler implements Listener {
 		return false;
 	}
 
-	public String getGottenMilestonesPath() {
-		if (plugin.getBungeeSettings().isPerServerMilestones()) {
-			return plugin.getBungeeSettings().getServerNameStorage() + "_" + "GottenMilestones";
-		}
-		return "GottenMileStones";
-	}
-
 	public LinkedHashMap<TopVoterPlayer, Integer> getMonthlyTopVotersAtTime(LocalDateTime atTime) {
 		// int limitSize = plugin.getConfigFile().getMaxiumNumberOfTopVotersToLoad();
 
@@ -536,11 +529,6 @@ public class TopVoterHandler implements Listener {
 				e.printStackTrace();
 			}
 
-			if (plugin.getSpecialRewardsConfig().isResetMilestonesMonthly()) {
-				resetMilestoneCount();
-				resetGottenMilestones();
-			}
-
 			for (String shopIdent : plugin.getShopFile().getShopIdentifiers()) {
 				if (plugin.getShopFile().getVoteShopResetMonthly(shopIdent)) {
 					resetVoteShopLimit(shopIdent);
@@ -685,14 +673,6 @@ public class TopVoterHandler implements Listener {
 
 	public void register() {
 		plugin.getServer().getPluginManager().registerEvents(this, plugin);
-	}
-
-	public void resetGottenMilestones() {
-		plugin.getUserManager().removeAllKeyValues(getGottenMilestonesPath(), DataType.STRING);
-	}
-
-	public void resetMilestoneCount() {
-		plugin.getUserManager().removeAllKeyValues("MilestoneCount", DataType.INTEGER);
 	}
 
 	public void resetTotals(TopVoter topVoter) {

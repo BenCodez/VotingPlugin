@@ -11,7 +11,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 import com.bencodez.simpleapi.sql.mysql.MySQL;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
-import com.bencodez.votingplugin.proxy.BungeeMessageData;
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
@@ -172,89 +171,6 @@ public abstract class VoteCacheHandler {
 		for (String server : cachedVotes.keySet()) {
 			removeServerVotes(server, expiredServerVotes);
 		}
-	}
-
-	/**
-	 * Reset milestone count inside vote payload text for all cached votes.
-	 *
-	 * - MySQL mode: updates DB rows via UPDATE - JSON mode: delete + re-add updated
-	 * vote (append), then save once at the end
-	 *
-	 * NOTE: IVoteCache only supports addVote/addVoteOnline with an index. We append
-	 * using jsonStorage size, not cachedVotes size.
-	 */
-	public void resetMilestoneCountInVotes() {
-		boolean changedAny = false;
-
-		// ---- Online votes ----
-		for (Map.Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedOnlineVotes.entrySet()) {
-			String uuidKey = entry.getKey();
-			ArrayList<OfflineBungeeVote> votes = entry.getValue();
-
-			for (OfflineBungeeVote vote : votes) {
-				if (vote == null) {
-					continue;
-				}
-
-				String oldText = vote.getText();
-				String updatedText = updateMilestoneCount(oldText);
-
-				if (updatedText != null && !updatedText.equals(oldText)) {
-					vote.setText(updatedText);
-					changedAny = true;
-
-					if (useMySQL) {
-						onlineVoteCacheTable.updateVoteText(vote, updatedText);
-					} else {
-						// JSON: delete and re-add (append using JSON size)
-						jsonStorage.removeOnlineVote(vote);
-
-						int idx = jsonStorage.getOnlineVotes(uuidKey).size();
-						jsonStorage.addVoteOnline(uuidKey, idx, vote);
-					}
-				}
-			}
-		}
-
-		// ---- Server votes ----
-		for (Map.Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedVotes.entrySet()) {
-			String server = entry.getKey();
-			ArrayList<OfflineBungeeVote> votes = entry.getValue();
-
-			for (OfflineBungeeVote vote : votes) {
-				if (vote == null) {
-					continue;
-				}
-
-				String oldText = vote.getText();
-				String updatedText = updateMilestoneCount(oldText);
-
-				if (updatedText != null && !updatedText.equals(oldText)) {
-					vote.setText(updatedText);
-					changedAny = true;
-
-					if (useMySQL) {
-						voteCacheTable.updateVoteText(vote, server, updatedText);
-					} else {
-						// JSON: delete and re-add (append using JSON size)
-						jsonStorage.removeVote(server, vote);
-
-						int idx = jsonStorage.getServerVotes(server).size();
-						jsonStorage.addVote(server, idx, vote);
-					}
-				}
-			}
-		}
-
-		if (!useMySQL && changedAny) {
-			jsonStorage.save();
-		}
-	}
-
-	private String updateMilestoneCount(String text) {
-		BungeeMessageData data = new BungeeMessageData(text);
-		data.setMilestoneCount(0); // Reset milestone count to 0
-		return data.toString();
 	}
 
 	public void saveVoteCache() {
