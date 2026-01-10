@@ -6,19 +6,19 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 
+import com.bencodez.advancedcore.api.player.UuidLookup;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.listeners.AdvancedCoreLoginEvent;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
-// TODO: Auto-generated Javadoc
 /**
  * The Class PlayerJoinEvent.
  */
 public class PlayerJoinEvent implements Listener {
 
 	/** The plugin. */
-	private VotingPluginMain plugin;
+	private final VotingPluginMain plugin;
 
 	/**
 	 * Instantiates a new player join event.
@@ -29,21 +29,51 @@ public class PlayerJoinEvent implements Listener {
 		this.plugin = plugin;
 	}
 
-	private void login(Player player) {
-		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
-		if (player.isOp() && plugin.isYmlError()) {
+	private static boolean isBlank(String s) {
+		return s == null || s.trim().isEmpty() || "null".equalsIgnoreCase(s.trim());
+	}
+
+	/**
+	 * On AdvancedCore login event (post-auth / delayed login).
+	 *
+	 * @param event the event
+	 */
+	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+	public void onPlayerLogin(AdvancedCoreLoginEvent event) {
+		if (event == null || !plugin.isMySQLOkay() || event.isCancelled() || event.getUser() == null) {
+			return;
+		}
+
+		// UUID is authoritative here (String)
+		String uuid = event.getUuid();
+		if (isBlank(uuid)) {
+			return;
+		}
+
+		// "Has data" should come from AdvancedCore event (storage presence)
+		boolean hasData = event.isUserInStorage();
+
+		// Resolve VotingPluginUser by the storage UUID string (offline-mode
+		// name-derived UUID)
+		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
+		if (user == null) {
+			return;
+		}
+
+		Player player = user.getPlayer();
+
+		if (player != null && player.isOp() && plugin.isYmlError()) {
 			user.sendMessage("&cVotingPlugin: Detected yml error, please check console for details");
 		}
 
-		boolean data = user.getData().hasData();
 		// run remind
 		user.loginMessage();
 
-		if (data) {
+		if (hasData) {
 			// give offline vote (if they voted offline)
 			user.offVote();
 		} else {
-			plugin.debug("No data detected for " + player.getUniqueId().toString() + "/" + player.getName());
+			plugin.debug("No data detected for " + user.getUUID() + "/" + user.getPlayerName());
 		}
 
 		user.loginRewards();
@@ -56,37 +86,39 @@ public class PlayerJoinEvent implements Listener {
 		}
 	}
 
-	/**
-	 * On player login.
-	 *
-	 * @param event the event
-	 */
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-	public void onPlayerLogin(AdvancedCoreLoginEvent event) {
-		if (event.getPlayer() == null || !plugin.isMySQLOkay()) {
+	public void onPlayerQuit(PlayerQuitEvent event) {
+		if (plugin == null || !plugin.isEnabled() || event == null) {
 			return;
 		}
 
-		login(event.getPlayer());
-
-	}
-
-	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-	public void onPlayerQuit(PlayerQuitEvent event) {
-		if (plugin != null && plugin.isEnabled()) {
-			final Player player = event.getPlayer();
-			plugin.getLoginTimer().execute(new Runnable() {
-
-				@Override
-				public void run() {
-					VotingPluginMain.plugin.getAdvancedTab().remove(player.getUniqueId());
-
-					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
-					user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
-					user.logoutRewards();
-					plugin.getPlaceholders().onLogout(user);
-				}
-			});
+		final Player player = event.getPlayer();
+		if (player == null) {
+			return;
 		}
+
+		plugin.getLoginTimer().execute(new Runnable() {
+
+			@Override
+			public void run() {
+				VotingPluginMain.plugin.getAdvancedTab().remove(player.getUniqueId());
+
+				// Use AdvancedCore UUIDLookup to derive the correct UUID (online/offline aware)
+				String uuid = UuidLookup.getInstance().getUUID(player.getName());
+				if (isBlank(uuid)) {
+					// Fallback to online UUID if lookup fails
+					uuid = player.getUniqueId().toString();
+				}
+
+				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
+				if (user == null) {
+					return;
+				}
+
+				user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
+				user.logoutRewards();
+				plugin.getPlaceholders().onLogout(user);
+			}
+		});
 	}
 }
