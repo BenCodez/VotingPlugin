@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.votestreak;
+package com.bencodez.votingplugin.specialrewards.votestreak;
 
 public enum VoteStreakType {
 	DAILY,

@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.votestreak;
+package com.bencodez.votingplugin.specialrewards.votestreak;
 
 import java.lang.reflect.Method;
 import java.time.LocalDate;
@@ -580,8 +580,7 @@ public class VoteStreakHandler {
 						allowMissedAmount, allowMissedPeriod);
 
 				plugin.getUserManager().getDataManager()
-						.addKey(new UserDataKeyString(plugin.getVoteStreakHandler().getColumnName(def))
-								.setColumnType("MEDIUMTEXT"));
+						.addKey(new UserDataKeyString(getColumnName(def)).setColumnType("MEDIUMTEXT"));
 
 				byId.put(id, def);
 				ordered.add(def);

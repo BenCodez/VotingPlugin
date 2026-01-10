@@ -91,6 +91,7 @@ import com.bencodez.votingplugin.servicesites.ServiceSiteHandler;
 import com.bencodez.votingplugin.signs.Signs;
 import com.bencodez.votingplugin.specialrewards.SpecialRewards;
 import com.bencodez.votingplugin.specialrewards.votemilestones.VoteMilestonesManager;
+import com.bencodez.votingplugin.specialrewards.votestreak.VoteStreakHandler;
 import com.bencodez.votingplugin.test.VoteTester;
 import com.bencodez.votingplugin.timequeue.TimeQueueHandler;
 import com.bencodez.votingplugin.topvoter.TopVoter;
@@ -106,7 +107,6 @@ import com.bencodez.votingplugin.votelog.listeners.VoteMilestoneVoteLogListener;
 import com.bencodez.votingplugin.votelog.listeners.VoteShopPurchaseLoggerListener;
 import com.bencodez.votingplugin.voteparty.VoteParty;
 import com.bencodez.votingplugin.votereminding.VoteReminding;
-import com.bencodez.votingplugin.votestreak.VoteStreakHandler;
 
 import lombok.Getter;
 import lombok.Setter;
