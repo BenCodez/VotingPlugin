@@ -22,23 +22,7 @@ public class AdminVoteLogHelpers {
 		case VOTE_RECEIVED:
 			return Material.EMERALD;
 
-		// Reward triggers
-		case ALL_SITES_REWARD:
-			return Material.DIAMOND;
-
-		case ALMOST_ALL_SITES_REWARD:
-			return Material.LAPIS_LAZULI;
-
-		case FIRST_VOTE_REWARD:
-			return Material.NETHER_STAR;
-
-		case FIRST_VOTE_TODAY_REWARD:
-			return Material.SUNFLOWER;
-
-		case CUMULATIVE_REWARD:
-			return Material.GOLD_INGOT;
-
-		case MILESTONE_REWARD:
+		case VOTEMILESTONE:
 			return Material.ANVIL;
 
 		case VOTE_STREAK_REWARD:
@@ -60,17 +44,7 @@ public class AdminVoteLogHelpers {
 		switch (event) {
 		case VOTE_RECEIVED:
 			return "&a";
-
-		case ALL_SITES_REWARD:
-		case ALMOST_ALL_SITES_REWARD:
-			return "&b";
-
-		case FIRST_VOTE_REWARD:
-		case FIRST_VOTE_TODAY_REWARD:
-			return "&e";
-
-		case CUMULATIVE_REWARD:
-		case MILESTONE_REWARD:
+		case VOTEMILESTONE:
 			return "&6";
 
 		case VOTE_STREAK_REWARD:

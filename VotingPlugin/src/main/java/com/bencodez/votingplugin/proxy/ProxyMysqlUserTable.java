@@ -265,7 +265,12 @@ public abstract class ProxyMysqlUserTable extends AbstractSqlTable {
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(query)) {
 
-			ps.setString(1, column.getValue().getString());
+			String v = column.getValue() == null ? null : column.getValue().getString();
+			if (getDbType() == DbType.POSTGRESQL && "uuid".equalsIgnoreCase(column.getName()) && v != null) {
+				ps.setObject(1, UUID.fromString(v));
+			} else {
+				ps.setString(1, v);
+			}
 
 			try (ResultSet rs = ps.executeQuery()) {
 				if (rs.next()) {
@@ -407,7 +412,7 @@ public abstract class ProxyMysqlUserTable extends AbstractSqlTable {
 
 				int p = 1;
 				for (Column col : cols) {
-					ps.setString(p++, col.getValue().toString());
+					bindValue(ps, p++, col);
 				}
 
 				if (getDbType() == DbType.POSTGRESQL) {
@@ -416,11 +421,24 @@ public abstract class ProxyMysqlUserTable extends AbstractSqlTable {
 					ps.setString(p, index);
 				}
 
-				ps.executeUpdate();
+				int updated = ps.executeUpdate();
+				if (updated == 0) {
+				    // row missing (wiped) even though uuid cache thought it existed
+				    insertQuery(index, cols);
+				}
 			} catch (SQLException | IllegalArgumentException e) {
 				debug(e);
 			}
 		}
+	}
+
+	private void bindValue(PreparedStatement ps, int index, Column col) throws SQLException {
+		DataValue v = col.getValue();
+		if (getDbType() == DbType.POSTGRESQL && v != null && v.isInt()) {
+			ps.setInt(index, v.getInt());
+			return;
+		}
+		ps.setString(index, v == null ? null : v.toString());
 	}
 
 	public void update(String index, String column, DataValue value) {
@@ -436,7 +454,11 @@ public abstract class ProxyMysqlUserTable extends AbstractSqlTable {
 			try (Connection conn = mysql.getConnectionManager().getConnection();
 					PreparedStatement ps = conn.prepareStatement(sql)) {
 
-				ps.setString(1, value.toString());
+				if (getDbType() == DbType.POSTGRESQL && value != null && value.isInt()) {
+					ps.setInt(1, value.getInt());
+				} else {
+					ps.setString(1, value == null ? null : value.toString());
+				}
 
 				if (getDbType() == DbType.POSTGRESQL) {
 					ps.setObject(2, UUID.fromString(index));

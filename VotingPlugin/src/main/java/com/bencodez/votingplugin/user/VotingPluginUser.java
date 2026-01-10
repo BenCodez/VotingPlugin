@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.user;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -1204,6 +1205,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 *
 	 * @return true if the user has gotten their first vote, false otherwise
 	 */
+	@Deprecated
 	public boolean hasGottenFirstVote() {
 		if (plugin.getBungeeSettings().isUseBungeecoord()
 				&& plugin.getBungeeHandler().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
@@ -1217,6 +1219,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 *
 	 * @return true if the user has gotten their first vote today, false otherwise
 	 */
+	@Deprecated
 	public boolean hasGottenFirstVoteToday() {
 		if (plugin.getBungeeSettings().isUseBungeecoord()
 				&& plugin.getBungeeHandler().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
@@ -1231,6 +1234,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param votesRequired the number of votes required for the milestone
 	 * @return true if the user has gotten the milestone, false otherwise
 	 */
+	@Deprecated
 	public boolean hasGottenMilestone(int votesRequired) {
 		HashMap<String, Boolean> hasGottenMilestone = getHasGottenMilestone();
 		if (hasGottenMilestone.containsKey("" + votesRequired)) {
@@ -1238,6 +1242,43 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 		return false;
 	}
+	
+	/**
+	 * Gets how many unique vote sites this user has voted on today.
+	 *
+	 * Uses existing LastVotes data (no storage). A site counts if its last-vote
+	 * timestamp falls on "today" using VotingPlugin's time offset.
+	 *
+	 * @return number of unique sites voted on today
+	 */
+	public long getUniqueVoteSitesToday() {
+		LocalDateTime now = plugin.getTimeChecker().getTime();
+		LocalDate today = now.toLocalDate();
+
+		long count = 0;
+
+		for (VoteSite site : plugin.getVoteSitesEnabled()) {
+			if (site == null || !site.isEnabled() || site.isHidden()) {
+				continue;
+			}
+
+			long time = getTime(site);
+			if (time <= 0) {
+				continue;
+			}
+
+			// Match the same offset handling as canVoteSite()
+			LocalDateTime lastVote = LocalDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
+					.plusHours(plugin.getOptions().getTimeHourOffSet());
+
+			if (lastVote.toLocalDate().equals(today)) {
+				count++;
+			}
+		}
+
+		return count;
+	}
+
 
 	/**
 	 * Checks if the user has a percentage of the total votes.

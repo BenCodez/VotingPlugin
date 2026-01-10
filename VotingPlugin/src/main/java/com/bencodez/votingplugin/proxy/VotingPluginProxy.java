@@ -447,6 +447,9 @@ public abstract class VotingPluginProxy {
 
 				DataValue value = d.getValue();
 				int num = 0;
+				if (value == null) {
+					return toAdd;
+				}
 				if (value.isInt()) {
 					num = value.getInt();
 				} else if (value.isString()) {
@@ -786,13 +789,13 @@ public abstract class VotingPluginProxy {
 						getVoteLoggingMySQLConfig(), getConfig().getDebug()) {
 
 					@Override
-					public void logSevere1(String string) {
-						logSevere(string);
+					public void logSevere(String string) {
+						VotingPluginProxy.this.logSevere(string);
 					}
 
 					@Override
-					public void logInfo1(String string) {
-						logInfo(string);
+					public void logInfo(String string) {
+						VotingPluginProxy.this.logInfo(string);
 					}
 
 					@Override
@@ -812,13 +815,13 @@ public abstract class VotingPluginProxy {
 						getConfig().getDebug()) {
 
 					@Override
-					public void logSevere1(String string) {
-						logSevere(string);
+					public void logSevere(String string) {
+						VotingPluginProxy.this.logSevere(string);
 					}
 
 					@Override
-					public void logInfo1(String string) {
-						logInfo(string);
+					public void logInfo(String string) {
+						VotingPluginProxy.this.logInfo(string);
 					}
 
 					@Override
@@ -1432,8 +1435,9 @@ public abstract class VotingPluginProxy {
 					}
 
 					// one time query to insert player
-					if (!getProxyMySQL().getUuids().contains(uuid)) {
+					if (!getProxyMySQL().containsKeyQuery(uuid)) {
 						getProxyMySQL().update(uuid, "PlayerName", new DataValueString(player));
+						getProxyMySQL().getUuids().add(uuid);
 					}
 
 					ArrayList<Column> data = getProxyMySQL()

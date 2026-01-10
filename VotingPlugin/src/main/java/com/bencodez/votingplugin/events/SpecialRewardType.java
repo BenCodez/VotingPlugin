@@ -3,7 +3,13 @@ package com.bencodez.votingplugin.events;
 import lombok.Getter;
 
 public enum SpecialRewardType {
-	ALLSITE, CUMMULATIVE, FIRSTVOTE, FIRSTVOTETODAY, MILESTONE, VOTESTREAK, ALMOSTALLSITES, TOPVOTER, VOTESTREAKS;
+	@Deprecated
+	ALLSITE, @Deprecated
+	CUMMULATIVE, @Deprecated
+	FIRSTVOTE, @Deprecated
+	FIRSTVOTETODAY, @Deprecated
+	MILESTONE, VOTESTREAK, @Deprecated
+	ALMOSTALLSITES, TOPVOTER, VOTESTREAKS;
 
 	@Getter
 	private int amount = -1;

@@ -36,34 +36,6 @@ public class PlayerSpecialRewardLoggerListener implements Listener {
 
 		if (plugin.getConfigFile().isVoteLoggingEnabled()) {
 			switch (event.getType()) {
-			case ALLSITE:
-				plugin.getVoteLogMysqlTable().logAllSitesReward(event.getVoteUUID(), event.getUser().getUUID(),
-						event.getUser().getPlayerName(),
-						LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
-						event.getType().toString());
-				break;
-			case ALMOSTALLSITES:
-				plugin.getVoteLogMysqlTable().logAlmostAllSitesReward(event.getVoteUUID(), event.getUser().getUUID(),
-						event.getUser().getPlayerName(),
-						LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
-						event.getType().toString());
-				break;
-			case CUMMULATIVE:
-				plugin.getVoteLogMysqlTable().logCumulativeReward(event.getVoteUUID(), event.getUser().getUUID(),
-						event.getUser().getPlayerName(),
-						LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
-						event.getType().toString());
-				break;
-			case FIRSTVOTE:
-				break;
-			case FIRSTVOTETODAY:
-				break;
-			case MILESTONE:
-				plugin.getVoteLogMysqlTable().logMilestoneReward(event.getVoteUUID(), event.getUser().getUUID(),
-						event.getUser().getPlayerName(),
-						LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
-						event.getType().toString());
-				break;
 			case VOTESTREAK:
 				plugin.getVoteLogMysqlTable().logVoteStreakReward(event.getVoteUUID(), event.getUser().getUUID(),
 						event.getUser().getPlayerName(),

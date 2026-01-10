@@ -90,6 +90,7 @@ import com.bencodez.votingplugin.placeholders.VotingPluginExpansion;
 import com.bencodez.votingplugin.servicesites.ServiceSiteHandler;
 import com.bencodez.votingplugin.signs.Signs;
 import com.bencodez.votingplugin.specialrewards.SpecialRewards;
+import com.bencodez.votingplugin.specialrewards.votemilestones.VoteMilestonesManager;
 import com.bencodez.votingplugin.test.VoteTester;
 import com.bencodez.votingplugin.timequeue.TimeQueueHandler;
 import com.bencodez.votingplugin.topvoter.TopVoter;
@@ -101,6 +102,7 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable;
 import com.bencodez.votingplugin.votelog.listeners.PlayerPostVoteLoggerListener;
 import com.bencodez.votingplugin.votelog.listeners.PlayerSpecialRewardLoggerListener;
+import com.bencodez.votingplugin.votelog.listeners.VoteMilestoneVoteLogListener;
 import com.bencodez.votingplugin.votelog.listeners.VoteShopPurchaseLoggerListener;
 import com.bencodez.votingplugin.voteparty.VoteParty;
 import com.bencodez.votingplugin.votereminding.VoteReminding;
@@ -875,6 +877,39 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 		}
 
+		// VoteMilestones (NEW system)
+		ConfigurationSection voteMilestonesSection = plugin.getSpecialRewardsConfig().getData()
+				.getConfigurationSection("VoteMilestones");
+
+		if (voteMilestonesSection != null) {
+			for (String milestoneId : voteMilestonesSection.getKeys(false)) {
+
+				// Direct edit path: VoteMilestones.<id>.Rewards
+				addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteMilestones." + milestoneId + ".Rewards") {
+
+					@Override
+					public void setData(String path, Object value) {
+						plugin.getSpecialRewardsConfig().getData().set(path, value);
+					}
+
+					@Override
+					public void createSection(String key) {
+						plugin.getSpecialRewardsConfig().getData().createSection(key);
+					}
+
+					@Override
+					public ConfigurationSection getFileData() {
+						return plugin.getSpecialRewardsConfig().getData();
+					}
+
+					@Override
+					public void save() {
+						plugin.getSpecialRewardsConfig().saveData();
+					}
+				});
+			}
+		}
+
 		// vote streaks, old way
 		String[] types = new String[] { "Day", "Week", "Month" };
 		for (String type : types) {
@@ -1179,6 +1214,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		voteParty.register();
 
 		topVoterHandler.register();
+
+		voteMilestonesManager = new VoteMilestonesManager(this);
 
 		plugin.getBukkitScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
@@ -1522,6 +1559,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		pm.registerEvents(new PlayerPostVoteLoggerListener(this), this);
 		pm.registerEvents(new PlayerSpecialRewardLoggerListener(this), this);
 		pm.registerEvents(new VoteShopPurchaseLoggerListener(this), this);
+		pm.registerEvents(new VoteMilestoneVoteLogListener(this), this);
 		pm.registerEvents(new SignChange(this), this);
 		pm.registerEvents(new BlockBreak(this), this);
 		if (!plugin.getConfigFile().isDisableInteractEvent()) {
@@ -1565,6 +1603,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		configVoteSites.reloadData();
 
 		specialRewardsConfig.reloadData();
+
+		voteMilestonesManager.reload();
 
 		gui.reloadData();
 		shopFile.reloadData();
@@ -1796,6 +1836,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private VoteLogMysqlTable voteLogMysqlTable;
 
+	@Getter
+	private VoteMilestonesManager voteMilestonesManager;
+
 	public void loadVoteLoggingMySQL() {
 		if (getConfigFile().isVoteLoggingEnabled()) {
 			if (getConfigFile().isVoteLoggingUseMainMySQL()) {
@@ -1804,12 +1847,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 						getOptions().getDebug().isDebug()) {
 
 					@Override
-					public void logSevere1(String string) {
+					public void logSevere(String string) {
 						plugin.getLogger().severe(string);
 					}
 
 					@Override
-					public void logInfo1(String string) {
+					public void logInfo(String string) {
 						plugin.getLogger().info(string);
 					}
 
@@ -1835,12 +1878,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 						getOptions().getDebug().isDebug()) {
 
 					@Override
-					public void logSevere1(String string) {
+					public void logSevere(String string) {
 						plugin.getLogger().severe(string);
 					}
 
 					@Override
-					public void logInfo1(String string) {
+					public void logInfo(String string) {
 						plugin.getLogger().info(string);
 					}
 

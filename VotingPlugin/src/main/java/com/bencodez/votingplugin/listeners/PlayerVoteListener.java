@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.listeners;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.UUID;
 
 import org.bukkit.Bukkit;
@@ -189,8 +190,10 @@ public class PlayerVoteListener implements Listener {
 		}
 
 		// check first vote rewards
-		plugin.getSpecialRewards().checkFirstVote(voteUUID, user, event.isForceBungee());
-		plugin.getSpecialRewards().checkFirstVoteToday(voteUUID, user, event.isForceBungee());
+		// plugin.getSpecialRewards().checkFirstVote(voteUUID, user,
+		// event.isForceBungee());
+		// plugin.getSpecialRewards().checkFirstVoteToday(voteUUID, user,
+		// event.isForceBungee());
 
 		if (user.isReminded() && plugin.getConfigFile().isVoteRemindingRemindOnlyOnce()) {
 			user.setReminded(false);
@@ -253,12 +256,19 @@ public class PlayerVoteListener implements Listener {
 			}
 		}
 
+		plugin.getVoteMilestonesManager().handleVote(user, event.getBungeeTextTotals(), event.isForceBungee(), voteUUID,
+				new HashMap<String, String>());
+
 		// other rewards
-		plugin.getSpecialRewards().checkAllSites(voteUUID, user, event.isForceBungee());
-		plugin.getSpecialRewards().checkAlmostAllSites(voteUUID, user, event.isForceBungee());
-		plugin.getSpecialRewards().checkCumualativeVotes(voteUUID, user, event.getBungeeTextTotals(),
-				event.isForceBungee());
-		plugin.getSpecialRewards().checkMilestone(voteUUID, user, event.getBungeeTextTotals(), event.isForceBungee());
+		// plugin.getSpecialRewards().checkAllSites(voteUUID, user,
+		// event.isForceBungee());
+		// plugin.getSpecialRewards().checkAlmostAllSites(voteUUID, user,
+		// event.isForceBungee());
+		// plugin.getSpecialRewards().checkCumualativeVotes(voteUUID, user,
+		// event.getBungeeTextTotals(),
+		// event.isForceBungee());
+		// plugin.getSpecialRewards().checkMilestone(voteUUID, user,
+		// event.getBungeeTextTotals(), event.isForceBungee());
 		plugin.getCoolDownCheck().vote(user, voteSite);
 
 		plugin.getVoteStreakHandler().processVote(user, voteTime, voteUUID);
