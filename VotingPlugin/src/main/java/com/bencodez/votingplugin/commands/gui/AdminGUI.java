@@ -249,7 +249,6 @@ public class AdminGUI {
 			lore.add("ServiceSite: " + voteSite.getServiceSite());
 			lore.add("VoteURL: " + voteSite.getVoteURL());
 			lore.add("VoteDelay: " + voteSite.getVoteDelay());
-			lore.add("VoteDelayMin: " + voteSite.getVoteDelayMin());
 
 			inv.addButton(count,
 					new BInventoryButton(voteSite.getKey(), ArrayUtils.convert(lore), new ItemStack(Material.STONE)) {
@@ -349,24 +348,13 @@ public class AdminGUI {
 			}
 		}));
 
-		inv.addButton(new EditGUIButton(new EditGUIValueNumber("VoteDelay", voteSite.getVoteDelay()) {
+		inv.addButton(new EditGUIButton(new EditGUIValueString("VoteDelay", voteSite.getVoteDelay()) {
 
 			@Override
-			public void setValue(Player player, Number num) {
+			public void setValue(Player player, String value) {
 				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
 				String siteName = voteSite.getKey();
-				plugin.getConfigVoteSites().setVoteDelay(siteName, num.intValue());
-				plugin.reload();
-			}
-		}));
-
-		inv.addButton(new EditGUIButton(new EditGUIValueNumber("VoteDelayMin", voteSite.getVoteDelay()) {
-
-			@Override
-			public void setValue(Player player, Number num) {
-				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
-				String siteName = voteSite.getKey();
-				plugin.getConfigVoteSites().setVoteDelay(siteName, num.intValue());
+				plugin.getConfigVoteSites().setVoteDelay(siteName, value);
 				plugin.reload();
 			}
 		}));
@@ -377,7 +365,7 @@ public class AdminGUI {
 			public void setValue(Player player, Number num) {
 				VoteSite voteSite = (VoteSite) getInv().getMeta(player, "VoteSite");
 				String siteName = voteSite.getKey();
-				plugin.getConfigVoteSites().setVoteDelay(siteName, num.intValue());
+				plugin.getConfigVoteSites().setVoteDelayDailyHour(siteName, num.intValue());
 				plugin.reload();
 			}
 		}));

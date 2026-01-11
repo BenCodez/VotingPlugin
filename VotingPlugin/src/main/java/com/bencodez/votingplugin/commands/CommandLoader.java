@@ -1225,16 +1225,15 @@ public class CommandLoader {
 				});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "VoteSite", "(sitename)", "SetVoteDelay", "(number)" },
+				.add(new CommandHandler(plugin, new String[] { "VoteSite", "(sitename)", "SetVoteDelay", "(TEXT)" },
 						"VotingPlugin.Commands.AdminVote.VoteSite.Edit|" + adminPerm, "Set VoteSite VoteDelay") {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						String voteSite = plugin.getVoteSiteManager().getVoteSiteName(true, args[1]);
-						int delay = Integer.parseInt(args[3]);
-						plugin.getConfigVoteSites().setVoteDelay(voteSite, delay);
+						plugin.getConfigVoteSites().setVoteDelay(voteSite, args[3]);
 						sender.sendMessage(
-								MessageAPI.colorize("&cSet VoteDelay to &c&l" + delay + "&c on &c&l" + voteSite));
+								MessageAPI.colorize("&cSet VoteDelay to &c&l" + args[3] + "&c on &c&l" + voteSite));
 
 					}
 				});

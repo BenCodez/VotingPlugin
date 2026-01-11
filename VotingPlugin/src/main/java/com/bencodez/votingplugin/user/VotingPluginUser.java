@@ -27,6 +27,7 @@ import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.simpleapi.sql.data.DataValueInt;
+import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerReceivePointsEvent;
 import com.bencodez.votingplugin.events.PlayerSpecialRewardEvent;
@@ -369,28 +370,26 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 					.plusHours(plugin.getOptions().getTimeHourOffSet());
 
 			if (!voteSite.isVoteDelayDaily()) {
-				double votedelay = voteSite.getVoteDelay();
-				double voteDelayMin = voteSite.getVoteDelayMin();
+				ParsedDuration voteDelay = voteSite.getVoteDelay();
 
-				if (votedelay == 0 && voteDelayMin == 0) {
+				// Preserve old behavior: if delay is 0, you can never vote again (unless daily
+				// reset mode)
+				if (voteDelay == null || voteDelay.isEmpty() || voteDelay.getMillis() == 0L) {
 					return false;
 				}
 
-				LocalDateTime nextvote = lastVote.plusHours((long) votedelay).plusMinutes((long) voteDelayMin);
-
-				return now.isAfter(nextvote);
+				LocalDateTime nextVote = lastVote.plus(Duration.ofMillis(voteDelay.getMillis()));
+				return now.isAfter(nextVote);
 			}
+
+			// Daily reset logic unchanged
 			LocalDateTime resetTime = lastVote.withHour(voteSite.getVoteDelayDailyHour()).withMinute(0).withSecond(0);
 			LocalDateTime resetTimeTomorrow = resetTime.plusHours(24);
 
 			if (lastVote.isBefore(resetTime)) {
-				if (now.isAfter(resetTime)) {
-					return true;
-				}
+				return now.isAfter(resetTime);
 			} else {
-				if (now.isAfter(resetTimeTomorrow)) {
-					return true;
-				}
+				return now.isAfter(resetTimeTomorrow);
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -1974,7 +1973,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * Gets the next available vote duration time for the specified vote site.
 	 *
 	 * @param voteSite the vote site
-	 * @param time     the current time
+	 * @param time     the last vote time (epoch millis)
 	 * @return the next available vote duration time in seconds
 	 */
 	public long voteNextDurationTime(VoteSite voteSite, long time) {
@@ -1984,31 +1983,34 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				.plusHours(plugin.getOptions().getTimeHourOffSet());
 
 		if (!voteSite.isVoteDelayDaily()) {
-			double votedelay = voteSite.getVoteDelay();
-			if (votedelay == 0 && voteSite.getVoteDelayMin() == 0) {
-				return 0;
-			}
-			LocalDateTime nextvote = lastVote.plusHours((long) votedelay)
-					.plusMinutes((long) voteSite.getVoteDelayMin());
+			ParsedDuration voteDelay = voteSite.getVoteDelay();
 
-			if (time == 0 || now.isAfter(nextvote)) {
+			if (time == 0 || voteDelay == null || voteDelay.isEmpty()) {
 				return 0;
-			} else {
-				Duration dur = Duration.between(now, nextvote);
-				return dur.getSeconds();
 			}
+
+			// Ignore months, use fixed duration only
+			LocalDateTime nextVote = lastVote.plus(Duration.ofMillis(voteDelay.getMillis()));
+
+			if (now.isAfter(nextVote)) {
+				return 0;
+			}
+
+			return Duration.between(now, nextVote).getSeconds();
 		}
+
+		// Daily reset logic (unchanged)
 		LocalDateTime resetTime = lastVote.withHour(voteSite.getVoteDelayDailyHour()).withMinute(0).withSecond(0);
+
 		LocalDateTime resetTimeTomorrow = resetTime.plusHours(24);
+
 		if (lastVote.isBefore(resetTime)) {
 			if (now.isBefore(resetTime)) {
-				Duration dur = Duration.between(now, resetTime);
-				return dur.getSeconds();
+				return Duration.between(now, resetTime).getSeconds();
 			}
 		} else {
 			if (now.isBefore(resetTimeTomorrow)) {
-				Duration dur = Duration.between(now, resetTimeTomorrow);
-				return dur.getSeconds();
+				return Duration.between(now, resetTimeTomorrow).getSeconds();
 			}
 		}
 

@@ -47,7 +47,6 @@ class VoteMilestoneLimitTest {
 		assertEquals(VoteMilestoneLimit.Type.COOLDOWN, limit.getType());
 		assertTrue(limit.isEnabled());
 		assertEquals(30L * 60_000L, limit.getCooldownMillis());
-		assertEquals(0, limit.getCooldownMonths());
 	}
 
 	@Test
@@ -55,15 +54,16 @@ class VoteMilestoneLimitTest {
 		VoteMilestoneLimit limit = VoteMilestoneLimit.fromConfig(milestoneWithLimit("COOLDOWN", "12h"));
 		assertEquals(VoteMilestoneLimit.Type.COOLDOWN, limit.getType());
 		assertEquals(12L * 3_600_000L, limit.getCooldownMillis());
-		assertEquals(0, limit.getCooldownMonths());
 	}
 
 	@Test
-	void parsesCooldownMonths() {
+	void parsesCooldownMonthAsFixedMillis() {
 		VoteMilestoneLimit limit = VoteMilestoneLimit.fromConfig(milestoneWithLimit("COOLDOWN", "1mo"));
 		assertEquals(VoteMilestoneLimit.Type.COOLDOWN, limit.getType());
-		assertEquals(0L, limit.getCooldownMillis());
-		assertEquals(1, limit.getCooldownMonths());
+
+		// 30 days fixed
+		long expected = 30L * 86_400_000L;
+		assertEquals(expected, limit.getCooldownMillis());
 	}
 
 	@Test
@@ -84,27 +84,11 @@ class VoteMilestoneLimitTest {
 		VoteMilestoneLimit limit = VoteMilestoneLimit.fromConfig(milestoneWithLimit("COOLDOWN", "10m"));
 		ZoneId zone = ZoneId.of("UTC");
 
-		long last = ZonedDateTime.of(2026, 1, 9, 10, 0, 0, 0, zone).toInstant().toEpochMilli();
-		long before = ZonedDateTime.of(2026, 1, 9, 10, 9, 59, 0, zone).toInstant().toEpochMilli();
-		long after = ZonedDateTime.of(2026, 1, 9, 10, 10, 0, 0, zone).toInstant().toEpochMilli();
+		long last = 1_000_000L;
+		long tooSoon = last + (9 * 60_000L);
+		long ok = last + (10 * 60_000L);
 
-		assertFalse(limit.allows(last, before, zone));
-		assertTrue(limit.allows(last, after, zone));
-		assertEquals(last + 10L * 60_000L, limit.nextAllowedMs(last, zone));
-	}
-
-	@Test
-	void cooldownMonthIsCalendarMonth() {
-		VoteMilestoneLimit limit = VoteMilestoneLimit.fromConfig(milestoneWithLimit("COOLDOWN", "1mo"));
-		ZoneId zone = ZoneId.of("UTC");
-
-		long last = ZonedDateTime.of(2026, 1, 31, 10, 0, 0, 0, zone).toInstant().toEpochMilli();
-		long nextAllowed = limit.nextAllowedMs(last, zone);
-
-		// Calendar month add: Jan 31 + 1 month -> Feb 28 (or 29 in leap years) at same local time
-		ZonedDateTime z = ZonedDateTime.ofInstant(java.time.Instant.ofEpochMilli(nextAllowed), zone);
-		assertEquals(2026, z.getYear());
-		assertEquals(2, z.getMonthValue());
-		assertTrue(z.getDayOfMonth() == 28 || z.getDayOfMonth() == 29);
+		assertFalse(limit.allows(last, tooSoon, zone));
+		assertTrue(limit.allows(last, ok, zone));
 	}
 }

@@ -21,17 +21,15 @@ public final class VoteMilestoneLimit {
 	}
 
 	private final Type type;
-	private final long cooldownMillis; // for COOLDOWN when not using months
-	private final int cooldownMonths; // for COOLDOWN when Duration uses "mo"
+	private final long cooldownMillis; // fixed millis cooldown
 
-	public VoteMilestoneLimit(Type type, long cooldownMillis, int cooldownMonths) {
+	public VoteMilestoneLimit(Type type, long cooldownMillis) {
 		this.type = type == null ? Type.NONE : type;
 		this.cooldownMillis = Math.max(0L, cooldownMillis);
-		this.cooldownMonths = Math.max(0, cooldownMonths);
 	}
 
 	public static VoteMilestoneLimit none() {
-		return new VoteMilestoneLimit(Type.NONE, 0L, 0);
+		return new VoteMilestoneLimit(Type.NONE, 0L);
 	}
 
 	public Type getType() {
@@ -40,10 +38,6 @@ public final class VoteMilestoneLimit {
 
 	public long getCooldownMillis() {
 		return cooldownMillis;
-	}
-
-	public int getCooldownMonths() {
-		return cooldownMonths;
 	}
 
 	public boolean isEnabled() {
@@ -74,24 +68,26 @@ public final class VoteMilestoneLimit {
 			if (pd.isEmpty()) {
 				long minutes = sec.getLong("Minutes", 0L);
 				if (minutes > 0) {
-					return new VoteMilestoneLimit(Type.COOLDOWN, minutes * 60_000L, 0);
+					return new VoteMilestoneLimit(Type.COOLDOWN, minutes * 60_000L);
 				}
 				return none(); // cooldown with no duration => treat as NONE
 			}
 
-			return new VoteMilestoneLimit(Type.COOLDOWN, pd.getMillis(), pd.getMonths());
+			return new VoteMilestoneLimit(Type.COOLDOWN, pd.getMillis());
 		}
 
 		// window types or none
-		return new VoteMilestoneLimit(type, 0L, 0);
+		return new VoteMilestoneLimit(type, 0L);
 	}
 
 	private static Type parseType(String raw) {
-		if (raw == null)
+		if (raw == null) {
 			return Type.NONE;
+		}
 		String v = raw.trim().toUpperCase();
-		if (v.isEmpty())
+		if (v.isEmpty()) {
 			return Type.NONE;
+		}
 
 		// Allow friendly aliases
 		switch (v) {
@@ -137,27 +133,16 @@ public final class VoteMilestoneLimit {
 		case WINDOW_MONTH:
 			return !sameMonth(lastTriggeredMs, nowMs, zone);
 		case COOLDOWN:
-			return nowMs >= nextAllowedMs(lastTriggeredMs, zone);
+			return nowMs >= nextAllowedMs(lastTriggeredMs);
 		default:
 			return true;
 		}
 	}
 
-	public long nextAllowedMs(long lastTriggeredMs, ZoneId zone) {
+	public long nextAllowedMs(long lastTriggeredMs) {
 		if (type != Type.COOLDOWN || lastTriggeredMs <= 0) {
 			return 0L;
 		}
-		if (zone == null) {
-			zone = ZoneId.systemDefault();
-		}
-
-		// Month-aware cooldown: add calendar months
-		if (cooldownMonths > 0) {
-			ZonedDateTime zdt = Instant.ofEpochMilli(lastTriggeredMs).atZone(zone);
-			return zdt.plusMonths(cooldownMonths).toInstant().toEpochMilli();
-		}
-
-		// Fixed millis cooldown
 		return lastTriggeredMs + cooldownMillis;
 	}
 

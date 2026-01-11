@@ -17,6 +17,7 @@ import com.bencodez.advancedcore.api.rewards.DirectlyDefinedReward;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.file.YMLFile;
 import com.bencodez.simpleapi.messages.MessageAPI;
+import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
@@ -48,7 +49,7 @@ public class ConfigVoteSites extends YMLFile {
 			setEnabled(siteName, true);
 			setServiceSite(siteName, org);
 			setVoteURL(siteName, "VoteURL");
-			setVoteDelay(siteName, 24);
+			setVoteDelay(siteName, "24h");
 			set(siteName, "DisplayItem.Material", "STONE");
 			set(siteName, "DisplayItem.Amount", 1);
 			set(siteName, "Rewards.Messages.Player", "&aThanks for voting on %ServiceSite%!");
@@ -173,22 +174,25 @@ public class ConfigVoteSites extends YMLFile {
 		return getData(siteName).getString("ServiceSite");
 	}
 
-	/**
-	 * Gets the vote delay.
-	 *
-	 * @param siteName the site name
-	 * @return the vote delay
-	 */
-	public double getVoteDelay(String siteName) {
-		return getData(siteName).getDouble("VoteDelay", 24);
+	public ParsedDuration getVoteDelay(String site) {
+		ConfigurationSection sec = getData(site);
+
+		// NEW FORMAT (string)
+		if (sec.isString("VoteDelay")) {
+			return ParsedDuration.parse(sec.getString("VoteDelay"));
+		}
+
+		// LEGACY FORMAT (numbers)
+		double hours = sec.getDouble("VoteDelay", 0);
+		double minutes = sec.getDouble("VoteDelayMin", 0);
+
+		long millis = (long) (hours * 60 * 60 * 1000) + (long) (minutes * 60 * 1000);
+
+		return ParsedDuration.ofMillis(millis);
 	}
 
 	public int getVoteDelayDailyHour(String siteName) {
 		return getData(siteName).getInt("VoteDelayDailyHour", 0);
-	}
-
-	public double getVoteDelayMin(String siteName) {
-		return getData(siteName).getDouble("VoteDelayMin", 0);
 	}
 
 	/**
@@ -448,12 +452,8 @@ public class ConfigVoteSites extends YMLFile {
 	 * @param siteName  the site name
 	 * @param voteDelay the vote delay
 	 */
-	public void setVoteDelay(String siteName, double voteDelay) {
+	public void setVoteDelay(String siteName, String voteDelay) {
 		set(siteName, "VoteDelay", voteDelay);
-	}
-
-	public void setVoteDelayDaily(String siteName, boolean value) {
-		set(siteName, "VoteDelayDaily", value);
 	}
 
 	/**
@@ -482,6 +482,14 @@ public class ConfigVoteSites extends YMLFile {
 			plugin.getLogger().warning("Issue with VoteURL in site " + siteName);
 		}
 		return pass;
+	}
+
+	public void setVoteDelayDailyHour(String siteName, int intValue) {
+		set(siteName, "VoteDelayDailyHour", intValue);
+	}
+
+	public void setVoteDelayDaily(String siteName, boolean value) {
+		set(siteName, "VoteDelayDaily", value);
 	}
 
 }

@@ -147,7 +147,7 @@ public final class VoteMilestonesMigrator {
 
 		// IMPORTANT: ALLSITES_TODAY stays true after you hit it, so legacy AllSites
 		// must be once-per-day
-		VoteMilestoneLimit limit = new VoteMilestoneLimit(VoteMilestoneLimit.Type.WINDOW_DAY, 0L, 0);
+		VoteMilestoneLimit limit = new VoteMilestoneLimit(VoteMilestoneLimit.Type.WINDOW_DAY, 0L);
 
 		VoteMilestone vm = VoteMilestoneFactory.atExact("Legacy_" + name, true, VoteMilestoneTotal.ALLSITES_TODAY, at,
 				name, VoteMilestoneGroupSelect.ALL, "Default", limit);
@@ -163,7 +163,7 @@ public final class VoteMilestonesMigrator {
 
 		// Same issue as AllSites: once reached for the day, it would keep matching
 		// without a limiter
-		VoteMilestoneLimit limit = new VoteMilestoneLimit(VoteMilestoneLimit.Type.WINDOW_DAY, 0L, 0);
+		VoteMilestoneLimit limit = new VoteMilestoneLimit(VoteMilestoneLimit.Type.WINDOW_DAY, 0L);
 
 		VoteMilestone vm = VoteMilestoneFactory.atExact("Legacy_" + name, true, VoteMilestoneTotal.ALLSITES_TODAY, at,
 				name, VoteMilestoneGroupSelect.ALL, "Default", limit);

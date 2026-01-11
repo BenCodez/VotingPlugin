@@ -42,76 +42,79 @@ import com.bencodez.votingplugin.specialrewards.votemilestones.VoteMilestonesCon
 import com.bencodez.votingplugin.specialrewards.votemilestones.VoteMilestonesManager;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
-import com.bencodez.votingplugin.votesites.VoteSite;
+import com.bencodez.votingplugin.votesites.VoteSiteManager;
 
 import lombok.var;
 
-class VoteMilestonesManagerHandleVoteTest {
-
-	private AutoCloseable mocks;
-	private TimeZone oldTz;
+public class VoteMilestonesManagerHandleVoteTest {
 
 	@Mock
 	private VotingPluginMain plugin;
 
 	@Mock
+	private SpecialRewardsConfig srConfig;
+
+	@Mock
 	private VotingPluginUser user;
 
+	private AutoCloseable mocks;
+
+	private TimeZone originalTz;
+
 	@BeforeEach
-	void setUp() throws Exception {
+	void setup() throws Exception {
 		mocks = MockitoAnnotations.openMocks(this);
 
-		oldTz = TimeZone.getDefault();
+		originalTz = TimeZone.getDefault();
 		TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
 
-		// Provide a FileConfiguration instance (avoid MemoryConfiguration vs
-		// FileConfiguration mismatch)
-		SpecialRewardsConfig rewardsConfig = mock(SpecialRewardsConfig.class);
-		when(plugin.getSpecialRewardsConfig()).thenReturn(rewardsConfig);
-		when(rewardsConfig.getData()).thenReturn(new YamlConfiguration());
+		when(plugin.getSpecialRewardsConfig()).thenReturn(srConfig);
+		when(srConfig.getData()).thenReturn(new YamlConfiguration());
 
-		// Silence debug output
+		// Avoid RewardHandler / Bukkit calls by ensuring reward path is empty in tests.
 		doNothing().when(plugin).debug(anyString());
 
-		// Common user basics
+		when(user.getPlayerName()).thenReturn("Test");
 		when(user.getJavaUUID()).thenReturn(java.util.UUID.randomUUID());
-		when(user.getPlayerName()).thenReturn("TestPlayer");
 		
-		when(plugin.getVoteSiteManager()).thenReturn(mock(com.bencodez.votingplugin.votesites.VoteSiteManager.class));
-		
-		when(plugin.getVoteSiteManager().getVoteSitesEnabled()).thenReturn(new ArrayList<VoteSite>());
+		VoteSiteManager vsm = mock(VoteSiteManager.class);
+		when(plugin.getVoteSiteManager()).thenReturn(vsm);
+		when(vsm.getVoteSitesEnabled()).thenReturn(new ArrayList<>());
+
 	}
 
 	@AfterEach
-	void tearDown() throws Exception {
-		TimeZone.setDefault(oldTz);
-		mocks.close();
+	void teardown() throws Exception {
+		if (mocks != null) {
+			mocks.close();
+		}
+		if (originalTz != null) {
+			TimeZone.setDefault(originalTz);
+		}
 	}
 
 	@Test
-	void handleVote_groupHighest_executesOnlyBestMatch_viaLimitStoreWrite() throws Exception {
+	void handleVote_groupHighest_prefersAtOverEvery_viaLimitStoreWrite() throws Exception {
 		VoteMilestonesManager mgr = new VoteMilestonesManager(plugin);
 
-		// Group modes: group "g" uses HIGHEST selection
 		Map<String, VoteMilestoneGroupSelect> modes = new LinkedHashMap<>();
 		modes.put("g", VoteMilestoneGroupSelect.HIGHEST);
 		modes.put("default", VoteMilestoneGroupSelect.ALL);
 		setField(mgr, "groupModes", modes);
 
-		// Total value used by VoteMilestoneTotal.ALLTIME_VOTES
-		when(user.getTotal(TopVoter.AllTime)).thenReturn(5);
+		when(user.getTotal(TopVoter.AllTime)).thenReturn(10);
 
 		UserData ud = mock(UserData.class);
 		when(user.getUserData()).thenReturn(ud);
 		when(ud.getString("VoteMilestoneLimits")).thenReturn(null);
 
-		AtMatcher at5 = atMatcherSingle(5);
+		AtMatcher at10 = atMatcherSingle(10);
 
 		// Use a limit so we can observe execution via blob write; rewardPath is empty
 		// to avoid RewardHandler init.
-		VoteMilestoneLimit cooldown = new VoteMilestoneLimit(VoteMilestoneLimit.Type.COOLDOWN, 60_000L, 0);
+		VoteMilestoneLimit cooldown = new VoteMilestoneLimit(VoteMilestoneLimit.Type.COOLDOWN, 60_000L);
 
-		VoteMilestone A = new VoteMilestone("A", true, VoteMilestoneTotal.ALLTIME_VOTES, at5, null, "",
+		VoteMilestone A = new VoteMilestone("A", true, VoteMilestoneTotal.ALLTIME_VOTES, at10, null, "",
 				VoteMilestoneGroupSelect.ALL, "g", cooldown);
 
 		VoteMilestone B = new VoteMilestone("B", true, VoteMilestoneTotal.ALLTIME_VOTES, null, 5, "",
@@ -144,7 +147,7 @@ class VoteMilestonesManagerHandleVoteTest {
 
 		AtMatcher at5 = atMatcherSingle(5);
 
-		VoteMilestoneLimit day = new VoteMilestoneLimit(VoteMilestoneLimit.Type.WINDOW_DAY, 0L, 0);
+		VoteMilestoneLimit day = new VoteMilestoneLimit(VoteMilestoneLimit.Type.WINDOW_DAY, 0L);
 
 		VoteMilestone C = new VoteMilestone("C", true, VoteMilestoneTotal.ALLTIME_VOTES, at5, null, "",
 				VoteMilestoneGroupSelect.ALL, "default", day);
@@ -176,7 +179,7 @@ class VoteMilestonesManagerHandleVoteTest {
 		when(user.getUserData()).thenReturn(ud);
 		when(ud.getString("VoteMilestoneLimits")).thenReturn(null);
 
-		VoteMilestoneLimit cd = new VoteMilestoneLimit(VoteMilestoneLimit.Type.COOLDOWN, 60_000L, 0);
+		VoteMilestoneLimit cd = new VoteMilestoneLimit(VoteMilestoneLimit.Type.COOLDOWN, 60_000L);
 
 		// Both match: EVERY 5 at total 10. FIRST should pick the first encountered
 		// ("First").
@@ -214,7 +217,7 @@ class VoteMilestonesManagerHandleVoteTest {
 		when(user.getUserData()).thenReturn(ud);
 		when(ud.getString("VoteMilestoneLimits")).thenReturn(null);
 
-		VoteMilestoneLimit cd = new VoteMilestoneLimit(VoteMilestoneLimit.Type.COOLDOWN, 60_000L, 0);
+		VoteMilestoneLimit cd = new VoteMilestoneLimit(VoteMilestoneLimit.Type.COOLDOWN, 60_000L);
 
 		VoteMilestone m1 = new VoteMilestone("M1", true, VoteMilestoneTotal.ALLTIME_VOTES, null, 5, "",
 				VoteMilestoneGroupSelect.ALL, "g1", cd);
@@ -249,7 +252,7 @@ class VoteMilestonesManagerHandleVoteTest {
 
 		AtMatcher at5 = atMatcherSingle(5);
 
-		VoteMilestoneLimit cd = new VoteMilestoneLimit(VoteMilestoneLimit.Type.COOLDOWN, 60_000L, 0);
+		VoteMilestoneLimit cd = new VoteMilestoneLimit(VoteMilestoneLimit.Type.COOLDOWN, 60_000L);
 
 		VoteMilestone m = new VoteMilestone("CD", true, VoteMilestoneTotal.ALLTIME_VOTES, at5, null, "",
 				VoteMilestoneGroupSelect.ALL, "default", cd);
@@ -293,7 +296,7 @@ class VoteMilestonesManagerHandleVoteTest {
 
 		AtMatcher at5 = atMatcherSingle(5);
 
-		VoteMilestoneLimit day = new VoteMilestoneLimit(VoteMilestoneLimit.Type.WINDOW_DAY, 0L, 0);
+		VoteMilestoneLimit day = new VoteMilestoneLimit(VoteMilestoneLimit.Type.WINDOW_DAY, 0L);
 
 		VoteMilestone C = new VoteMilestone("C", true, VoteMilestoneTotal.ALLTIME_VOTES, at5, null, "",
 				VoteMilestoneGroupSelect.ALL, "default", day);

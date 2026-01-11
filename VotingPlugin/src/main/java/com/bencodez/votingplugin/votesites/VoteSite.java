@@ -15,6 +15,7 @@ import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.messages.MessageAPI;
+import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
@@ -68,15 +69,10 @@ public class VoteSite {
 
 	@Getter
 	@Setter
-	private double voteDelay;
-
-	@Getter
-	@Setter
 	private boolean voteDelayDaily;
 
 	@Getter
-	@Setter
-	private double voteDelayMin;
+	private ParsedDuration voteDelay;
 
 	@Setter
 	private String voteURL;
@@ -113,7 +109,7 @@ public class VoteSite {
 			plugin.debug("Not broadcasting for " + user.getPlayerName() + ", site is hidden");
 			return;
 		}
-		
+
 		if (!user.isVanished()) {
 			String playerName = user.getPlayerName();
 			if (plugin.getConfigFile().getVotingBroadcastBlacklist().contains(playerName)) {
@@ -219,8 +215,7 @@ public class VoteSite {
 	public void init() {
 		setVoteURL(plugin.getConfigVoteSites().getVoteURL(key));
 		setServiceSite(plugin.getConfigVoteSites().getServiceSite(key));
-		setVoteDelay(plugin.getConfigVoteSites().getVoteDelay(key));
-		setVoteDelayMin(plugin.getConfigVoteSites().getVoteDelayMin(key));
+		this.voteDelay = plugin.getConfigVoteSites().getVoteDelay(key);
 		setEnabled(plugin.getConfigVoteSites().getVoteSiteEnabled(key));
 		setPriority(plugin.getConfigVoteSites().getPriority(key));
 		displayName = plugin.getConfigVoteSites().getDisplayName(key);
@@ -245,7 +240,6 @@ public class VoteSite {
 		String str = "Loading votesite key: " + key;
 		str += ", Displayname: " + displayName;
 		str += ", VoteDelay: " + getVoteDelay();
-		str += ", VoteDelayMin: " + getVoteDelayMin();
 		str += ", VoteDelayDaily: " + isVoteDelayDaily();
 		str += ", IsWaitUntilVoteDelay: " + isWaitUntilVoteDelay();
 		str += ", ServiceSite: " + getServiceSite();

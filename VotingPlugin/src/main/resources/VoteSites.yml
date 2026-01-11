@@ -92,11 +92,8 @@ VoteSites:
 
     # Time between votes in hours (used for /vote next)
     # Most sites are 24 hours
-    VoteDelay: 24
+    VoteDelay: 24h
 
-    # Use to have a minute votedelay
-    # Must set a value on VoteDelay if you plan on only using this setting
-    #VoteDelayMin: 30
 
     # Require waiting until votedelay time has passed in order to accept vote
     # Recommend: false
@@ -149,7 +146,7 @@ VoteSites:
     Name: 'Site2'
     ServiceSite: 'Crafty.gg'
     VoteURL: 'link to vote URL here, used in /vote'
-    VoteDelay: 24
+    VoteDelay: 24h
     DisplayItem:
       Material: 'DIAMOND'
       Amount: 1
