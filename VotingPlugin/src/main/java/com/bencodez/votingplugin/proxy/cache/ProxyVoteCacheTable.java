@@ -4,11 +4,13 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.bencodez.simpleapi.sql.mysql.AbstractSqlTable;
 import com.bencodez.simpleapi.sql.mysql.DbType;
@@ -27,6 +29,11 @@ import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
  * Indexes: - server - uuid - time
  */
 public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
+
+	// Ensure we don't run the same migration repeatedly during startup (or for each
+	// subclass).
+	private static final Set<String> MIGRATED_VOTEID = ConcurrentHashMap.newKeySet();
+	private static final Set<String> ENSURED_INDEXES = ConcurrentHashMap.newKeySet();
 
 	// ---- Required hooks ----
 
@@ -105,62 +112,69 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 	public ProxyVoteCacheTable(MySQL existingMysql, String tablePrefix, boolean debug) {
 		super((tablePrefix != null ? tablePrefix : "") + "votingplugin_votecache", existingMysql, debug);
 
-		// best-effort migrations
+		// best-effort migrations (safe for pool size 1; no nested connections)
 		alterColumnType("uuid", bestUuidType());
-		addVoteIdColumnIfMissing();
-		ensureIndexes();
+		addVoteIdColumnIfMissingOnce();
+		ensureIndexesOnce();
 	}
 
 	public ProxyVoteCacheTable(MysqlConfig config, boolean debug) {
 		super("votingplugin_votecache", config, debug);
 
 		alterColumnType("uuid", bestUuidType());
-		addVoteIdColumnIfMissing();
-		ensureIndexes();
+		addVoteIdColumnIfMissingOnce();
+		ensureIndexesOnce();
 	}
 
 	// ---- Migrations / indexes ----
 
-	private void ensureIndexes() {
-		// Postgres doesn't support index defs inside CREATE TABLE the same way we do
-		// for MySQL.
-		// Create them best-effort; ignore duplicate errors on MySQL.
-		if (getDbType() == DbType.POSTGRESQL) {
-			try {
-				new Query(mysql,
-						"CREATE INDEX IF NOT EXISTS idx_server ON " + qi(getTableName()) + " (" + qi("server") + ");")
-						.executeUpdate();
-				new Query(mysql,
-						"CREATE INDEX IF NOT EXISTS idx_uuid ON " + qi(getTableName()) + " (" + qi("uuid") + ");")
-						.executeUpdate();
-				new Query(mysql,
-						"CREATE INDEX IF NOT EXISTS idx_time ON " + qi(getTableName()) + " (" + qi("time") + ");")
-						.executeUpdate();
-			} catch (SQLException e) {
-				debug(e);
-			}
-		} else {
-			// MySQL indexes are already in CREATE TABLE; nothing required here.
+	private void ensureIndexesOnce() {
+		if (getDbType() != DbType.POSTGRESQL) {
+			return; // MySQL indexes are already in CREATE TABLE
+		}
+
+		final String key = getDbType() + ":" + getTableName();
+		if (!ENSURED_INDEXES.add(key)) {
+			return;
+		}
+
+		// Use ONE connection for all index statements (no pool churn).
+		try (Connection conn = mysql.getConnectionManager().getConnection(); Statement st = conn.createStatement()) {
+
+			st.executeUpdate(
+					"CREATE INDEX IF NOT EXISTS idx_server ON " + qi(getTableName()) + " (" + qi("server") + ");");
+			st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_uuid ON " + qi(getTableName()) + " (" + qi("uuid") + ");");
+			st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_time ON " + qi(getTableName()) + " (" + qi("time") + ");");
+
+		} catch (SQLException e) {
+			debug(e);
 		}
 	}
 
-	private void addVoteIdColumnIfMissing() {
-		// Works in both MySQL and Postgres using information_schema
-		String schemaFilter;
-		if (getDbType() == DbType.POSTGRESQL) {
-			schemaFilter = "table_schema = current_schema()";
-		} else {
-			schemaFilter = "TABLE_SCHEMA = DATABASE()";
+	private void addVoteIdColumnIfMissingOnce() {
+		final String key = getDbType() + ":" + getTableName() + ":voteid";
+		if (!MIGRATED_VOTEID.add(key)) {
+			return;
 		}
+		addVoteIdColumnIfMissing();
+	}
 
-		String checkSql = "SELECT 1 FROM information_schema.columns WHERE " + schemaFilter
-				+ " AND table_name = ? AND column_name = ? LIMIT 1;";
+	private void addVoteIdColumnIfMissing() {
+		// Avoid nested connections: do check + alter using the SAME connection.
+		final boolean pg = getDbType() == DbType.POSTGRESQL;
+
+		final String schemaFilter = pg ? "table_schema = current_schema()" : "TABLE_SCHEMA = DATABASE()";
+
+		// Case-insensitive match helps with MySQL lower_case_table_names / quoting
+		// differences.
+		final String checkSql = "SELECT 1 FROM information_schema.columns WHERE " + schemaFilter
+				+ " AND LOWER(table_name) = LOWER(?) AND LOWER(column_name) = LOWER(?) LIMIT 1;";
 
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(checkSql)) {
 
 			ps.setString(1, getTableName());
-			ps.setString(2, getDbType() == DbType.POSTGRESQL ? "voteid" : "voteid");
+			ps.setString(2, "voteid");
 
 			try (ResultSet rs = ps.executeQuery()) {
 				if (rs.next()) {
@@ -168,8 +182,13 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 				}
 			}
 
-			String alter = "ALTER TABLE " + qi(getTableName()) + " ADD COLUMN " + qi("voteid") + " VARCHAR(36);";
-			new Query(mysql, alter).executeUpdate();
+			// Execute ALTER using same connection to avoid deadlock when pool size is
+			// small.
+			final String alter = "ALTER TABLE " + qi(getTableName()) + " ADD COLUMN " + qi("voteid") + " VARCHAR(36);";
+
+			try (Statement st = conn.createStatement()) {
+				st.executeUpdate(alter);
+			}
 
 		} catch (SQLException e) {
 			// don't hard fail startup
@@ -185,7 +204,7 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 
 		String sql = "INSERT INTO " + qi(getTableName()) + " (" + qi("uuid") + ", " + qi("voteid") + ", "
 				+ qi("playerName") + ", " + qi("service") + ", " + qi("time") + ", " + qi("realVote") + ", "
-				+ qi("text") + ", " + qi("server") + ") " + "VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
+				+ qi("text") + ", " + qi("server") + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
 
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -234,17 +253,9 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 	}
 
 	public List<VoteRow> getVotesByUUID(String uuid) {
-		String sql;
-		Object[] params;
-
-		if (getDbType() == DbType.POSTGRESQL) {
-			sql = "SELECT * FROM " + qi(getTableName()) + " WHERE " + qi("uuid") + " = ?;";
-			params = new Object[] { UUID.fromString(uuid) };
-		} else {
-			sql = "SELECT * FROM " + qi(getTableName()) + " WHERE " + qi("uuid") + " = ?;";
-			params = new Object[] { uuid };
-		}
-
+		String sql = "SELECT * FROM " + qi(getTableName()) + " WHERE " + qi("uuid") + " = ?;";
+		Object[] params = (getDbType() == DbType.POSTGRESQL) ? new Object[] { UUID.fromString(uuid) }
+				: new Object[] { uuid };
 		return selectVotes(sql, params);
 	}
 
