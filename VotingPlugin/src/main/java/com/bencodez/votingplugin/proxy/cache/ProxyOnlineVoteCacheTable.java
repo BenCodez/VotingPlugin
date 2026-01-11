@@ -4,9 +4,12 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement; // NEW
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set; // NEW
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap; // NEW
 
 import com.bencodez.simpleapi.sql.mysql.AbstractSqlTable;
 import com.bencodez.simpleapi.sql.mysql.DbType;
@@ -16,6 +19,10 @@ import com.bencodez.simpleapi.sql.mysql.queries.Query;
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 
 public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
+
+	// Prevent repeated startup DDL across multiple instances/subclasses
+	private static final Set<String> MIGRATED_VOTEID = ConcurrentHashMap.newKeySet();
+	private static final Set<String> ENSURED_INDEXES = ConcurrentHashMap.newKeySet();
 
 	@Override
 	public String getPrimaryKeyColumn() {
@@ -67,9 +74,18 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 	public ProxyOnlineVoteCacheTable(MySQL existingMysql, String tablePrefix, boolean debug) {
 		super((tablePrefix != null ? tablePrefix : "") + "votingplugin_onlinevotecache", existingMysql, debug);
 
+		// best-effort migrations (no nested connections)
 		alterColumnType("uuid", bestUuidType());
-		addVoteIdColumnIfMissing();
-		ensureIndexes();
+		addVoteIdColumnIfMissingOnce();
+		ensureIndexesOnce();
+	}
+
+	public ProxyOnlineVoteCacheTable(MysqlConfig config, boolean debug) {
+		super("votingplugin_onlinevotecache", config, debug);
+
+		alterColumnType("uuid", bestUuidType());
+		addVoteIdColumnIfMissingOnce();
+		ensureIndexesOnce();
 	}
 
 	public void updateVoteText(OfflineBungeeVote vote, String newText) {
@@ -100,40 +116,46 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 		}
 	}
 
-	public ProxyOnlineVoteCacheTable(MysqlConfig config, boolean debug) {
-		super("votingplugin_onlinevotecache", config, debug);
+	private void ensureIndexesOnce() {
+		if (getDbType() != DbType.POSTGRESQL) {
+			return;
+		}
 
-		alterColumnType("uuid", bestUuidType());
-		addVoteIdColumnIfMissing();
-		ensureIndexes();
+		String key = getDbType() + ":" + getTableName() + ":indexes";
+		if (!ENSURED_INDEXES.add(key)) {
+			return;
+		}
+
+		// Use ONE connection for all index DDL to avoid pool starvation (pool=1 safe)
+		try (Connection conn = mysql.getConnectionManager().getConnection(); Statement st = conn.createStatement()) {
+
+			st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_uuid ON " + qi(getTableName()) + " (" + qi("uuid") + ");");
+			st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_time ON " + qi(getTableName()) + " (" + qi("time") + ");");
+
+		} catch (SQLException e) {
+			debug(e);
+		}
 	}
 
-	private void ensureIndexes() {
-		if (getDbType() == DbType.POSTGRESQL) {
-			try {
-				new Query(mysql,
-						"CREATE INDEX IF NOT EXISTS idx_uuid ON " + qi(getTableName()) + " (" + qi("uuid") + ");")
-						.executeUpdate();
-				new Query(mysql,
-						"CREATE INDEX IF NOT EXISTS idx_time ON " + qi(getTableName()) + " (" + qi("time") + ");")
-						.executeUpdate();
-			} catch (SQLException e) {
-				debug(e);
-			}
+	private void addVoteIdColumnIfMissingOnce() {
+		String key = getDbType() + ":" + getTableName() + ":voteid";
+		if (!MIGRATED_VOTEID.add(key)) {
+			return;
 		}
+		addVoteIdColumnIfMissing();
 	}
 
 	private void addVoteIdColumnIfMissing() {
-		String schemaFilter;
-		if (getDbType() == DbType.POSTGRESQL) {
-			schemaFilter = "table_schema = current_schema()";
-		} else {
-			schemaFilter = "TABLE_SCHEMA = DATABASE()";
-		}
+		final boolean pg = getDbType() == DbType.POSTGRESQL;
 
-		String checkSql = "SELECT 1 FROM information_schema.columns WHERE " + schemaFilter
-				+ " AND table_name = ? AND column_name = ? LIMIT 1;";
+		final String schemaFilter = pg ? "table_schema = current_schema()" : "TABLE_SCHEMA = DATABASE()";
 
+		// Lowercase compare avoids casing issues on some setups
+		final String checkSql = "SELECT 1 FROM information_schema.columns WHERE " + schemaFilter
+				+ " AND LOWER(table_name) = LOWER(?) AND LOWER(column_name) = LOWER(?) LIMIT 1;";
+
+		// IMPORTANT: do check + alter on SAME connection to avoid deadlock when
+		// poolSize=1
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(checkSql)) {
 
@@ -142,12 +164,14 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 
 			try (ResultSet rs = ps.executeQuery()) {
 				if (rs.next()) {
-					return;
+					return; // exists
 				}
 			}
 
 			String alter = "ALTER TABLE " + qi(getTableName()) + " ADD COLUMN " + qi("voteid") + " VARCHAR(36);";
-			new Query(mysql, alter).executeUpdate();
+			try (Statement st = conn.createStatement()) {
+				st.executeUpdate(alter);
+			}
 
 		} catch (SQLException e) {
 			logSevere("Failed to add voteid column to " + getTableName() + ": " + e.getMessage());
@@ -162,7 +186,7 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 
 		String sql = "INSERT INTO " + qi(getTableName()) + " (" + qi("uuid") + ", " + qi("voteid") + ", "
 				+ qi("playerName") + ", " + qi("service") + ", " + qi("time") + ", " + qi("realVote") + ", "
-				+ qi("text") + ") " + "VALUES (?, ?, ?, ?, ?, ?, ?);";
+				+ qi("text") + ") VALUES (?, ?, ?, ?, ?, ?, ?);";
 
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
