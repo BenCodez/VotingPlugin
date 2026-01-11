@@ -154,7 +154,7 @@ public class VotingPluginMetrics {
 
 			@Override
 			public String call() throws Exception {
-				return "" + plugin.getVoteSitesEnabled().size();
+				return "" + plugin.getVoteSiteManager().getVoteSitesEnabled().size();
 			}
 		}));
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofrewards", new Callable<String>() {

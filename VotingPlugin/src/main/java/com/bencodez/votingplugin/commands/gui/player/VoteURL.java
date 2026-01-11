@@ -23,9 +23,9 @@ import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.votesites.VoteSite;
 
 import xyz.upperlevel.spigot.book.BookUtil;
 
@@ -59,7 +59,7 @@ public class VoteURL extends GUIHandler {
 		}
 		if (plugin.getConfigFile().isFormatCommandsVoteAutoInputSites()) {
 			int counter = 0;
-			for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
+			for (VoteSite voteSite : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 				if (!voteSite.isHidden()) {
 					if (voteSite.getPermissionToView().isEmpty()
 							|| sender.hasPermission(voteSite.getPermissionToView())) {
@@ -149,7 +149,7 @@ public class VoteURL extends GUIHandler {
 			book.addLayout(layout);
 		}
 		int i = 1;
-		for (VoteSite site : plugin.getVoteSitesEnabled()) {
+		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 			if (!site.isHidden()) {
 				if (site.getPermissionToView().isEmpty() || player.hasPermission(site.getPermissionToView())) {
 					Layout layout = new Layout(plugin.getGui().getBookVoteURLBookGUILayout())
@@ -227,7 +227,7 @@ public class VoteURL extends GUIHandler {
 		}
 
 		int startSlot = plugin.getGui().getChestVoteURLAllUrlsButtonStartSlot();
-		for (final VoteSite voteSite : plugin.getVoteSitesEnabled()) {
+		for (final VoteSite voteSite : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 			if (!voteSite.isHidden()) {
 				if (voteSite.getPermissionToView().isEmpty() || player.hasPermission(voteSite.getPermissionToView())) {
 					ItemBuilder builder = getItemVoteSite(voteSite);

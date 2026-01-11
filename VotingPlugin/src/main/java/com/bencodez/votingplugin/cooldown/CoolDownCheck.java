@@ -21,8 +21,8 @@ import com.bencodez.advancedcore.api.user.UserStartup;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteCoolDownEndEvent;
 import com.bencodez.votingplugin.events.PlayerVoteSiteCoolDownEndEvent;
-import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.votesites.VoteSite;
 
 import lombok.Getter;
 
@@ -124,7 +124,7 @@ public class CoolDownCheck implements Listener {
 		HashMap<String, Boolean> coolDownChecks = user.getCoolDownCheckSiteList();
 		boolean changed = false;
 
-		for (VoteSite site : plugin.getVoteSitesEnabled()) {
+		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 			if (site == null) {
 				continue;
 			}
@@ -269,7 +269,7 @@ public class CoolDownCheck implements Listener {
 	 * Performance-optimized: scan users ONCE, process all daily-delay sites.
 	 */
 	public void checkAllVoteSites() {
-		final List<VoteSite> sites = plugin.getVoteSites();
+		final List<VoteSite> sites = plugin.getVoteSiteManager().getVoteSites();
 		if (sites == null || sites.isEmpty()) {
 			return;
 		}

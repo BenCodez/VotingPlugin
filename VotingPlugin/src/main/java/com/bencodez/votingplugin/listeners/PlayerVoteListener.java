@@ -18,9 +18,9 @@ import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerPostVoteEvent;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
-import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.votesites.VoteSite;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -98,7 +98,7 @@ public class PlayerVoteListener implements Listener {
 		VoteSite voteSite = event.getVoteSite();
 
 		if (voteSite == null) {
-			voteSite = plugin.getVoteSite(plugin.getVoteSiteName(true, event.getServiceSite()), true);
+			voteSite = plugin.getVoteSiteManager().getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, event.getServiceSite()), true);
 		}
 
 		// check valid service sites
@@ -107,7 +107,7 @@ public class PlayerVoteListener implements Listener {
 				plugin.getLogger().warning("No voting site with the service site: '" + event.getServiceSite() + "'");
 
 				ArrayList<String> services = new ArrayList<>();
-				for (VoteSite site : plugin.getVoteSites()) {
+				for (VoteSite site : plugin.getVoteSiteManager().getVoteSites()) {
 					services.add(site.getServiceSite());
 				}
 				plugin.getLogger().warning("Currently set service sites: " + ArrayUtils.makeStringList(services));
@@ -249,10 +249,10 @@ public class PlayerVoteListener implements Listener {
 			LocalDateTime cTime = plugin.getTimeChecker().getTime();
 			int days = cTime.getDayOfMonth();
 			plugin.extraDebug("Current day of month: " + days + " Current total: " + value);
-			if (value >= days * plugin.getVoteSitesEnabled().size()) {
+			if (value >= days * plugin.getVoteSiteManager().getVoteSitesEnabled().size()) {
 				plugin.debug("Detected higher month total, changing. Current Total: " + value + " Days: " + days
-						+ " New Total: " + days * plugin.getVoteSitesEnabled().size());
-				user.setTotal(TopVoter.Monthly, days * plugin.getVoteSitesEnabled().size());
+						+ " New Total: " + days * plugin.getVoteSiteManager().getVoteSitesEnabled().size());
+				user.setTotal(TopVoter.Monthly, days * plugin.getVoteSiteManager().getVoteSitesEnabled().size());
 			}
 		}
 

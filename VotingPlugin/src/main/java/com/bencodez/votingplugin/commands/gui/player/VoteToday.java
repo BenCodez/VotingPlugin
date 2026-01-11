@@ -21,9 +21,9 @@ import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.nms.NMSManager;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.votesites.VoteSite;
 
 public class VoteToday extends GUIHandler {
 

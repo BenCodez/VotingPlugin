@@ -33,7 +33,7 @@ import com.bencodez.votingplugin.commands.gui.admin.cumulative.AdminVoteCumulati
 import com.bencodez.votingplugin.commands.gui.admin.milestones.AdminVoteMilestones;
 import com.bencodez.votingplugin.commands.gui.admin.voteshop.AdminVoteVoteShop;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
-import com.bencodez.votingplugin.objects.VoteSite;
+import com.bencodez.votingplugin.votesites.VoteSite;
 
 public class AdminGUI {
 
@@ -65,7 +65,7 @@ public class AdminGUI {
 							plugin.getConfigVoteSites().generateVoteSite(value);
 							player.sendMessage("Generated site");
 							plugin.reload();
-							openAdminGUIVoteSiteSite(player, plugin.getVoteSite(value, true));
+							openAdminGUIVoteSiteSite(player, plugin.getVoteSiteManager().getVoteSite(value, true));
 						}
 					});
 				} else {
@@ -240,7 +240,7 @@ public class AdminGUI {
 	public void openAdminGUIVoteSites(Player player) {
 		BInventory inv = new BInventory("VoteSites");
 		int count = 0;
-		for (VoteSite voteSite : plugin.getVoteSites()) {
+		for (VoteSite voteSite : plugin.getVoteSiteManager().getVoteSites()) {
 			ArrayList<String> lore = new ArrayList<>();
 			lore.add("Enabled: " + voteSite.isEnabled());
 			lore.add("Priority: " + voteSite.getPriority());

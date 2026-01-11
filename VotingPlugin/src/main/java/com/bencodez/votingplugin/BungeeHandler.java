@@ -41,11 +41,11 @@ import com.bencodez.simpleapi.servercomm.sockets.SocketReceiver;
 import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.simpleapi.sql.data.DataValueBoolean;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigSpigot;
-import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.proxy.BungeeMessageData;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.proxy.BungeeVersion;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.votesites.VoteSite;
 
 import lombok.Getter;
 
@@ -299,7 +299,7 @@ public class BungeeHandler implements Listener {
 												numberOfVotes);
 									}
 								} else {
-									VoteSite site = plugin.getVoteSite(service, true);
+									VoteSite site = plugin.getVoteSiteManager().getVoteSite(service, true);
 									if (site != null) {
 										site.broadcastVote(user, false);
 										broadcast = false;
@@ -386,7 +386,7 @@ public class BungeeHandler implements Listener {
 												numberOfVotes);
 									}
 								} else {
-									VoteSite site = plugin.getVoteSite(service, true);
+									VoteSite site = plugin.getVoteSiteManager().getVoteSite(service, true);
 									if (site != null) {
 										site.broadcastVote(user, false);
 										broadcast = false;
@@ -441,7 +441,7 @@ public class BungeeHandler implements Listener {
 					if (MessageAPI.isLong(data)) {
 						long time = Long.valueOf(data);
 						if (time > 0) {
-							user.setTime(plugin.getVoteSite(service, true), time);
+							user.setTime(plugin.getVoteSiteManager().getVoteSite(service, true), time);
 						} else {
 							if (plugin.getBungeeSettings().isBungeeDebug()) {
 								plugin.debug("Invalid last vote time received from bungee: " + time);
@@ -471,7 +471,7 @@ public class BungeeHandler implements Listener {
 					String service = args.get(2);
 					VotingPluginUser user = plugin.getVotingPluginUserManager()
 							.getVotingPluginUser(UUID.fromString(uuid), args.get(1));
-					VoteSite site = plugin.getVoteSite(service, true);
+					VoteSite site = plugin.getVoteSiteManager().getVoteSite(service, true);
 					if (site != null) {
 						site.broadcastVote(user, false);
 					} else {

@@ -19,8 +19,8 @@ import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.votesites.VoteSite;
 
 import xyz.upperlevel.spigot.book.BookUtil;
 
@@ -44,7 +44,7 @@ public class VoteNext extends GUIHandler {
 		msg.add(MessageAPI.colorize(MessageAPI
 				.replaceIgnoreCase(plugin.getConfigFile().getFormatCommandsVoteNextTitle(), "%player%", playerName)));
 
-		for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
+		for (VoteSite voteSite : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 			if (!voteSite.isHidden()) {
 				String msgLine = plugin.getConfigFile().getFormatCommandsVoteNextLayout();
 
@@ -62,7 +62,7 @@ public class VoteNext extends GUIHandler {
 		BookWrapper book = new BookWrapper(plugin.getGui().getBookVoteURLBookGUITitle());
 
 		// add colors/config options
-		for (VoteSite site : plugin.getVoteSitesEnabled()) {
+		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 			if (!site.isHidden()) {
 				Layout nextLayout = new Layout(new ArrayList<>(Arrays.asList("[Json]")));
 				nextLayout.replaceTextComponent("[Json]",
@@ -86,7 +86,7 @@ public class VoteNext extends GUIHandler {
 	public void onChest(Player player) {
 		BInventory inv = new BInventory(plugin.getGui().getChestVoteNextName());
 		inv.addPlaceholder("player", user.getPlayerName());
-		for (VoteSite site : plugin.getVoteSitesEnabled()) {
+		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 			if (!site.isHidden()) {
 				String siteNameDisplay = plugin.getGui().getChestVoteNextCustomSiteNamesDisplays(site.getKey());
 				if (siteNameDisplay.isEmpty()) {

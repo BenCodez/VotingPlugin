@@ -64,7 +64,7 @@ public class TimeQueueHandler implements Listener {
 		while (getTimeChangeQueue().size() > 0) {
 			VoteTimeQueue vote = getTimeChangeQueue().remove();
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(
-					plugin.getVoteSite(plugin.getVoteSiteName(true, vote.getService()), true), vote.getName(),
+					plugin.getVoteSiteManager().getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, vote.getService()), true), vote.getName(),
 					vote.getService(), true);
 			voteEvent.setTime(voteEvent.getTime());
 			plugin.getServer().getPluginManager().callEvent(voteEvent);

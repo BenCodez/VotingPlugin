@@ -18,7 +18,7 @@ import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.file.YMLFile;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.objects.VoteSite;
+import com.bencodez.votingplugin.votesites.VoteSite;
 
 // TODO: Auto-generated Javadoc
 /**

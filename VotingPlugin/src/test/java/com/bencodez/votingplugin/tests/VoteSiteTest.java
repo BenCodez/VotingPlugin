@@ -16,7 +16,7 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.config.ConfigVoteSites;
 import com.bencodez.votingplugin.data.ServerData;
-import com.bencodez.votingplugin.objects.VoteSite;
+import com.bencodez.votingplugin.votesites.VoteSite;
 
 public class VoteSiteTest {
 

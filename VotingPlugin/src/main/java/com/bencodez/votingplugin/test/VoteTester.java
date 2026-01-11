@@ -108,8 +108,8 @@ public class VoteTester {
 
 						@Override
 						public void run() {
-							PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(site, false), name,
-									plugin.getVoteSiteServiceSite(site), false);
+							PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSiteManager().getVoteSite(site, false), name,
+									plugin.getVoteSiteManager().getVoteSiteServiceSite(site), false);
 							plugin.getServer().getPluginManager().callEvent(voteEvent);
 						}
 					});
@@ -128,8 +128,8 @@ public class VoteTester {
 				ArrayList<Long> timesPerVote = new ArrayList<>();
 				for (int i = 0; i < amount; i++) {
 					long start1 = System.currentTimeMillis();
-					PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(site, false), name,
-							plugin.getVoteSiteServiceSite(site), false);
+					PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSiteManager().getVoteSite(site, false), name,
+							plugin.getVoteSiteManager().getVoteSiteServiceSite(site), false);
 					plugin.getServer().getPluginManager().callEvent(voteEvent);
 					long start2 = System.currentTimeMillis();
 					timesPerVote.add(start2 - start1);
@@ -145,7 +145,7 @@ public class VoteTester {
 						.info("Time to process votes (" + amount + "): " + time + " ms, average per vote "
 								+ timePerVoteAvg + " ms. " + VotingPluginMain.plugin.getStorageType() + ", "
 								+ plugin.getVotingPluginUserManager().getAllUUIDs().size() + " users. "
-								+ plugin.getVoteSitesEnabled().size() + " votesites");
+								+ plugin.getVoteSiteManager().getVoteSitesEnabled().size() + " votesites");
 			}
 
 		});

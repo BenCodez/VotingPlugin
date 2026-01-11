@@ -5,9 +5,9 @@ import java.util.UUID;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.proxy.BungeeMessageData;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.votesites.VoteSite;
 
 import lombok.Getter;
 import lombok.Setter;

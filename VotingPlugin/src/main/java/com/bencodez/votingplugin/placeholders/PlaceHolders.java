@@ -28,10 +28,11 @@ import com.bencodez.advancedcore.api.user.UserDataChanged;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.objects.VoteSite;
+import com.bencodez.votingplugin.specialrewards.votemilestones.VoteMilestone;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.votesites.VoteSite;
 
 import lombok.Getter;
 
@@ -452,7 +453,7 @@ public class PlaceHolders {
 				}
 				long smallest = -1;
 				HashMap<Long, VoteSite> times = new HashMap<>();
-				for (VoteSite site : plugin.getVoteSitesEnabled()) {
+				for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 					long t = user.voteNextDurationTime(site);
 					if (smallest == -1) {
 						smallest = t;
@@ -488,7 +489,7 @@ public class PlaceHolders {
 			}
 		}.withDescription("Get total number of sites available to be voted on"));
 
-		for (final VoteSite voteSite : plugin.getVoteSitesEnabled()) {
+		for (final VoteSite voteSite : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 			placeholders.add(new CalculatingPlaceholder<VotingPluginUser>("Next_" + voteSite.getKey()) {
 
 				@Override
@@ -555,6 +556,71 @@ public class PlaceHolders {
 				return "false";
 			}
 		}.withDescription("Return true/false if player has said points").updateDataKey("Points").useStartsWith());
+
+		// VoteMilestones placeholders (explicit per group, like
+		// VoteShopLimit_<identifier>)
+		// Base/default (no group suffix)
+		placeholders.add(new PlaceHolder<VotingPluginUser>("VoteMilestoneNext") {
+			@Override
+			public String placeholderRequest(VotingPluginUser user, String ident) {
+				Long next = plugin.getVoteMilestonesManager().getNextMilestoneValue("default", user);
+				return next == null ? "none" : Long.toString(next);
+			}
+		}.withDescription("Next VoteMilestone value for default group").updateDataKey("LastVotes"));
+
+		placeholders.add(new PlaceHolder<VotingPluginUser>("VoteMilestoneLast") {
+			@Override
+			public String placeholderRequest(VotingPluginUser user, String ident) {
+				Long last = plugin.getVoteMilestonesManager().getLastMilestoneValue("default", user);
+				return last == null ? "none" : Long.toString(last);
+			}
+		}.withDescription("Last achieved VoteMilestone value for default group").updateDataKey("LastVotes"));
+
+		placeholders.add(new PlaceHolder<VotingPluginUser>("VoteMilestoneVotesUntilNext") {
+			@Override
+			public String placeholderRequest(VotingPluginUser user, String ident) {
+				return Long.toString(plugin.getVoteMilestonesManager().getVotesUntilNextMilestone("default", user));
+			}
+		}.withDescription("Votes until next VoteMilestone for default group").updateDataKey("LastVotes"));
+
+		Set<String> groups = new HashSet<>();
+		groups.add("default");
+
+		for (VoteMilestone m : plugin.getVoteMilestonesManager().getConfig().getMilestones().values()) {
+			String g = m.getGroupKey();
+			if (g == null)
+				continue;
+			g = g.trim().toLowerCase(Locale.ROOT);
+			if (!g.isEmpty())
+				groups.add(g);
+		}
+
+		for (final String groupIdRaw : groups) {
+			final String groupId = (groupIdRaw == null || groupIdRaw.trim().isEmpty()) ? "default" : groupIdRaw.trim();
+
+			placeholders.add(new PlaceHolder<VotingPluginUser>("VoteMilestoneNext_" + groupId) {
+				@Override
+				public String placeholderRequest(VotingPluginUser user, String ident) {
+					Long next = plugin.getVoteMilestonesManager().getNextMilestoneValue(groupId, user);
+					return next == null ? "none" : Long.toString(next);
+				}
+			}.withDescription("Next VoteMilestone value for group " + groupId).updateDataKey("LastVotes"));
+
+			placeholders.add(new PlaceHolder<VotingPluginUser>("VoteMilestoneLast_" + groupId) {
+				@Override
+				public String placeholderRequest(VotingPluginUser user, String ident) {
+					Long last = plugin.getVoteMilestonesManager().getLastMilestoneValue(groupId, user);
+					return last == null ? "none" : Long.toString(last);
+				}
+			}.withDescription("Last achieved VoteMilestone value for group " + groupId).updateDataKey("LastVotes"));
+
+			placeholders.add(new PlaceHolder<VotingPluginUser>("VoteMilestoneVotesUntilNext_" + groupId) {
+				@Override
+				public String placeholderRequest(VotingPluginUser user, String ident) {
+					return Long.toString(plugin.getVoteMilestonesManager().getVotesUntilNextMilestone(groupId, user));
+				}
+			}.withDescription("Votes until next VoteMilestone for group " + groupId).updateDataKey("LastVotes"));
+		}
 
 		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("Top_AllVotes_") {
 

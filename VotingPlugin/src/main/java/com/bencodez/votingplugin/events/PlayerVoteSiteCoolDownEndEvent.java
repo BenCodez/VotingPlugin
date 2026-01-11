@@ -3,8 +3,8 @@ package com.bencodez.votingplugin.events;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.votesites.VoteSite;
 
 import lombok.Getter;
 import lombok.Setter;

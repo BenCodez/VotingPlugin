@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 import java.util.UUID;
 
 import org.bukkit.Bukkit;
@@ -32,6 +33,7 @@ import lombok.Getter;
  */
 public class VoteMilestonesManager {
 
+	@Getter
 	private static final String LIMITS_STORAGE_KEY = "VoteMilestoneLimits";
 
 	private final VotingPluginMain plugin;
@@ -230,33 +232,14 @@ public class VoteMilestonesManager {
 		}
 	}
 
-	/**
-	 * Reads a string from the user's persistent storage.
-	 *
-	 * @param user user
-	 * @param key  storage key
-	 * @return stored value or null
-	 */
 	private static String getUserString(VotingPluginUser user, String key) {
 		return user.getUserData().getString(key);
 	}
 
-	/**
-	 * Writes a string to the user's persistent storage.
-	 *
-	 * @param user  user
-	 * @param key   storage key
-	 * @param value value to store
-	 */
 	private static void setUserString(VotingPluginUser user, String key, String value) {
 		user.getUserData().setString(key, value);
 	}
 
-	/**
-	 * Time zone used for calendar-based window limits.
-	 *
-	 * @return zone id
-	 */
 	private ZoneId getLimitZone() {
 		return ZoneId.systemDefault();
 	}
@@ -334,22 +317,6 @@ public class VoteMilestonesManager {
 		return def == null ? VoteMilestoneGroupSelect.ALL : def;
 	}
 
-	/**
-	 * Resolves group select for a milestone and returns the select plus the source.
-	 *
-	 * <p>
-	 * Priority:
-	 * </p>
-	 * <ol>
-	 * <li>Explicit group override in config (VoteMilestonesOptions.Groups.&lt;group&gt;)</li>
-	 * <li>Milestone's own groupSelect</li>
-	 * <li>Config default group mode (VoteMilestonesOptions.Groups.default)</li>
-	 * <li>ALL</li>
-	 * </ol>
-	 *
-	 * @param milestone milestone
-	 * @return resolved select
-	 */
 	private ResolvedGroupSelect resolveGroupSelectWithSource(VoteMilestone milestone) {
 		String groupId = safeGroupId(milestone);
 
@@ -371,12 +338,6 @@ public class VoteMilestonesManager {
 		return new ResolvedGroupSelect(VoteMilestoneGroupSelect.ALL, GroupSelectSource.FALLBACK_ALL, "");
 	}
 
-	/**
-	 * Looks up a group mode by key, case-insensitive.
-	 *
-	 * @param key group key
-	 * @return mode or null
-	 */
 	private VoteMilestoneGroupSelect getGroupModeCaseInsensitive(String key) {
 		if (groupModes == null || groupModes.isEmpty() || key == null) {
 			return null;
@@ -443,8 +404,7 @@ public class VoteMilestonesManager {
 		return sb.toString();
 	}
 
-	public void handleVote(VotingPluginUser user, BungeeMessageData bungeeMessageData,
-			Map<String, String> contextPlaceholders) {
+	public void handleVote(VotingPluginUser user, BungeeMessageData bungeeMessageData, Map<String, String> contextPlaceholders) {
 		handleVote(user, bungeeMessageData, false, null, contextPlaceholders);
 	}
 
@@ -520,8 +480,7 @@ public class VoteMilestonesManager {
 
 			plugin.debug("[VoteMilestones] VoteCheck player=" + playerName + "/" + uuid + " id=" + m.getId() + " group="
 					+ groupId + " enabled=true total=" + (m.getTotal() == null ? "null" : m.getTotal().name())
-					+ " trigger=" + trigger + " path=" + safe(m.getRewardPath()) + " value=" + value + " match="
-					+ matched);
+					+ " trigger=" + trigger + " path=" + safe(m.getRewardPath()) + " value=" + value + " match=" + matched);
 
 			if (!matched) {
 				continue;
@@ -545,8 +504,7 @@ public class VoteMilestonesManager {
 			plugin.debug("[VoteMilestones] GroupResolve player=" + playerName + "/" + uuid + " group=" + groupId
 					+ " select=" + (select == null ? "null" : select.name()) + " source="
 					+ (resolved.source == null ? "null" : resolved.source.name())
-					+ (resolved.sourceKey != null && !resolved.sourceKey.isEmpty() ? " sourceKey=" + resolved.sourceKey
-							: "")
+					+ (resolved.sourceKey != null && !resolved.sourceKey.isEmpty() ? " sourceKey=" + resolved.sourceKey : "")
 					+ " matched=" + matches.size() + " execute=" + toExecute.size());
 
 			for (MatchResult mr : toExecute) {
@@ -572,7 +530,6 @@ public class VoteMilestonesManager {
 				if (contextPlaceholders != null) {
 					placeholders.putAll(contextPlaceholders);
 				}
-
 				placeholders.putAll(buildPlaceholders(m, value));
 
 				try {
@@ -591,8 +548,7 @@ public class VoteMilestonesManager {
 				} catch (Exception ex) {
 					plugin.debug("[VoteMilestones] Execute fail player=" + playerName + "/" + uuid + " group=" + groupId
 							+ " id=" + m.getId() + " value=" + value + " matchedBy=" + mr.matchedBy.name() + " path="
-							+ safe(m.getRewardPath()) + " error=" + ex.getClass().getSimpleName() + ":"
-							+ safe(ex.getMessage()));
+							+ safe(m.getRewardPath()) + " error=" + ex.getClass().getSimpleName() + ":" + safe(ex.getMessage()));
 				}
 			}
 		}
@@ -683,8 +639,7 @@ public class VoteMilestonesManager {
 		return executed;
 	}
 
-	public boolean forceMilestone(VotingPluginUser user, String milestoneId, boolean bypassLimits,
-			BungeeMessageData bungeeData) {
+	public boolean forceMilestone(VotingPluginUser user, String milestoneId, boolean bypassLimits, BungeeMessageData bungeeData) {
 		if (user == null || milestoneId == null || milestoneId.trim().isEmpty()) {
 			return false;
 		}
@@ -739,9 +694,30 @@ public class VoteMilestonesManager {
 		}
 	}
 
+	
+
+	/**
+	 * Resolve a milestone's configured group id by milestone id (case-insensitive).
+	 *
+	 * @return group id, or null if milestone not found
+	 */
+	public String getGroupForMilestoneId(String milestoneId) {
+		VoteMilestone m = getMilestoneByIdCaseInsensitive(milestoneId);
+		return m == null ? null : safeGroupId(m);
+	}
+
+	/**
+	 * Returns true if a milestone id exists (case-insensitive) and is enabled.
+	 */
+	public boolean isMilestoneEnabled(String milestoneId) {
+		VoteMilestone m = getMilestoneByIdCaseInsensitive(milestoneId);
+		return m != null && m.isEnabled();
+	}
+
 	/* =======================================================================
 	 * PREVIEW / DEBUG / STATUS
 	 * ======================================================================= */
+
 
 	public List<String> previewGroup(VotingPluginUser user, String groupId, BungeeMessageData bungeeData) {
 		List<String> out = new ArrayList<>();
@@ -752,7 +728,20 @@ public class VoteMilestonesManager {
 			return out;
 		}
 
+		// load limit info (if you have limits enabled, this tells you what is currently blocked)
+		MilestoneLimitStore store = MilestoneLimitStore.loadFromUser(user);
+		long nowMs = System.currentTimeMillis();
+		ZoneId zone = ZoneId.systemDefault();
+
+		// gather matches (what would fire "right now")
+		List<MatchResult> matches = new ArrayList<>();
+		int order = 0;
+
+		// find current total for this group (all milestones in a group should use the same total type, but we don't assume)
+		Long firstValue = null;
+
 		for (VoteMilestone m : config.getMilestones().values()) {
+			order++;
 			if (m == null || !m.isEnabled()) {
 				continue;
 			}
@@ -761,24 +750,112 @@ public class VoteMilestonesManager {
 			}
 
 			long value = safeTotalValue(user, m, bungeeData);
-			boolean matched = getMatchedTriggerType(m, value) != TriggerType.NONE;
+			if (firstValue == null) {
+				firstValue = value;
+			}
 
-			out.add(m.getId() + " value=" + value + " matched=" + matched);
+			TriggerType matchedBy = getMatchedTriggerType(m, value);
+			boolean matched = matchedBy != TriggerType.NONE;
+			if (matched) {
+				matches.add(new MatchResult(m, value, order, matchedBy));
+			}
+		}
+
+		ResolvedGroupSelect resolved = (matches.isEmpty() ? null : resolveGroupSelectWithSource(matches.get(0).m));
+		VoteMilestoneGroupSelect select = resolved == null ? VoteMilestoneGroupSelect.ALL : resolved.select;
+		List<MatchResult> toExecute = matches.isEmpty() ? java.util.Collections.emptyList() : selectMatches(select, matches);
+
+		out.add("group=" + groupId + " total=" + (firstValue == null ? 0 : firstValue.longValue()) + " matched="
+				+ matches.size() + " execute=" + toExecute.size() + " select=" + (select == null ? "null" : select.name())
+				+ (resolved == null ? "" : " source=" + resolved.source.name()
+						+ (resolved.sourceKey != null && !resolved.sourceKey.isEmpty() ? " sourceKey=" + resolved.sourceKey : "")));
+
+		// show per-milestone details
+		for (VoteMilestone m : config.getMilestones().values()) {
+			if (m == null || !safeGroupId(m).equalsIgnoreCase(groupId)) {
+				continue;
+			}
+			long value = safeTotalValue(user, m, bungeeData);
+
+			TriggerType matchedBy = (m.isEnabled() ? getMatchedTriggerType(m, value) : TriggerType.NONE);
+			boolean matched = matchedBy != TriggerType.NONE;
+
+			Long lastPoint = lastTriggerForMilestone(m, value);
+			Long nextPoint = nextTriggerForMilestone(m, value);
+
+			// limit info (if enabled)
+			VoteMilestoneLimit limit = m.getLimit();
+			long lastMs = store.getLastTriggeredMs(m.getId());
+			boolean limitEnabled = limit != null && limit.isEnabled();
+			boolean allowedNow = !limitEnabled || limit.allows(lastMs, nowMs, zone);
+			Long nextAllowed = (limitEnabled && !allowedNow) ? limit.nextAllowedMs(lastMs, zone) : null;
+
+			boolean executedNow = false;
+			for (MatchResult mr : toExecute) {
+				if (mr != null && mr.m != null && (mr.m.getId() != null && m.getId() != null && mr.m.getId().equalsIgnoreCase(m.getId()))) {
+					executedNow = true;
+					break;
+				}
+			}
+
+			StringBuilder sb = new StringBuilder();
+			sb.append(m.getId())
+					.append(" enabled=").append(m.isEnabled())
+					.append(" totalType=").append(m.getTotal() == null ? "null" : m.getTotal().name())
+					.append(" value=").append(value)
+					.append(" match=").append(matched ? matchedBy.name() : "false")
+					.append(" lastPoint=").append(lastPoint == null ? "?" : lastPoint.longValue())
+					.append(" nextPoint=").append(nextPoint == null ? "?" : nextPoint.longValue());
+
+			if (limitEnabled) {
+				sb.append(" limit=").append(limit.getType().name());
+				sb.append(" lastTriggered=").append(lastMs <= 0 ? "never" : formatEpochMs(lastMs, zone));
+				if (!allowedNow) {
+					sb.append(" BLOCKED");
+					if (nextAllowed != null) {
+						sb.append(" nextAllowed=").append(formatEpochMs(nextAllowed.longValue(), zone))
+								.append(" (").append(formatDeltaMs(nextAllowed.longValue() - nowMs)).append(")");
+					}
+				} else {
+					sb.append(" allowed=true");
+				}
+			}
+
+			if (executedNow) {
+				sb.append(" [EXECUTE]");
+			} else if (matched) {
+				sb.append(" [MATCH]");
+			}
+
+			out.add(sb.toString());
 		}
 
 		return out;
 	}
 
-	public String status(VotingPluginUser user, String groupId, BungeeMessageData bungeeData) {
+	/**
+	 * Detailed status for a group: shows what has already been given (based on
+	 * limiter storage) and what should have been given given the current total.
+	 */
+	public List<String> statusGroup(VotingPluginUser user, String groupId, BungeeMessageData bungeeData) {
+		List<String> out = new ArrayList<>();
 		if (user == null) {
-			return "No user";
+			out.add("No user");
+			return out;
 		}
 		if (config == null || config.getMilestones() == null) {
-			return "No config";
+			out.add("No milestones configured");
+			return out;
 		}
 
+		MilestoneLimitStore store = MilestoneLimitStore.loadFromUser(user);
+		long nowMs = System.currentTimeMillis();
+		ZoneId zone = ZoneId.systemDefault();
+
+		out.add("group=" + groupId + " uuid=" + user.getUUID());
+
 		for (VoteMilestone m : config.getMilestones().values()) {
-			if (m == null || !m.isEnabled()) {
+			if (m == null) {
 				continue;
 			}
 			if (!safeGroupId(m).equalsIgnoreCase(groupId)) {
@@ -786,10 +863,110 @@ public class VoteMilestonesManager {
 			}
 
 			long value = safeTotalValue(user, m, bungeeData);
-			return "group=" + groupId + " total=" + value;
+			Long lastPoint = lastTriggerForMilestone(m, value);
+			Long nextPoint = nextTriggerForMilestone(m, value);
+			TriggerType matchedBy = (m.isEnabled() ? getMatchedTriggerType(m, value) : TriggerType.NONE);
+
+			VoteMilestoneLimit limit = m.getLimit();
+			boolean limitEnabled = limit != null && limit.isEnabled();
+			long lastMs = store.getLastTriggeredMs(m.getId());
+
+			boolean alreadyGiven = lastMs > 0;
+			// If totals are monotonic, reaching current value implies we've passed every trigger point <= value.
+			boolean shouldHaveBeenGiven = !alreadyGiven && m.isEnabled() && lastPoint != null && lastPoint.longValue() > 0
+					&& value >= lastPoint.longValue() && (matchedBy != TriggerType.NONE || value > lastPoint.longValue());
+
+			boolean allowedNow = !limitEnabled || limit.allows(lastMs, nowMs, zone);
+			Long nextAllowed = (limitEnabled && !allowedNow) ? limit.nextAllowedMs(lastMs, zone) : null;
+
+			String state;
+			if (!m.isEnabled()) {
+				state = "DISABLED";
+			} else if (alreadyGiven) {
+				state = "GIVEN";
+			} else if (shouldHaveBeenGiven) {
+				state = "MISSING";
+			} else if (matchedBy != TriggerType.NONE) {
+				state = "DUE_NOW";
+			} else {
+				state = "PENDING";
+			}
+
+			StringBuilder sb = new StringBuilder();
+			sb.append(m.getId())
+					.append(" state=").append(state)
+					.append(" value=").append(value)
+					.append(" lastPoint=").append(lastPoint == null ? "?" : lastPoint.longValue())
+					.append(" nextPoint=").append(nextPoint == null ? "?" : nextPoint.longValue());
+
+			if (matchedBy != TriggerType.NONE) {
+				sb.append(" matchBy=").append(matchedBy.name());
+			}
+
+			if (limitEnabled) {
+				sb.append(" limit=").append(limit.getType().name());
+				sb.append(" lastTriggered=").append(lastMs <= 0 ? "never" : formatEpochMs(lastMs, zone));
+				if (!allowedNow) {
+					sb.append(" BLOCKED");
+					if (nextAllowed != null) {
+						sb.append(" nextAllowed=").append(formatEpochMs(nextAllowed.longValue(), zone))
+								.append(" (").append(formatDeltaMs(nextAllowed.longValue() - nowMs)).append(")");
+					}
+				}
+			}
+
+			out.add(sb.toString());
 		}
-		return "group not found";
+
+		return out;
 	}
+
+	/**
+	 * Backwards-compatible one-line status (keeps existing callers).
+	 */
+	public String status(VotingPluginUser user, String groupId, BungeeMessageData bungeeData) {
+		List<String> lines = statusGroup(user, groupId, bungeeData);
+		if (lines.isEmpty()) {
+			return "No data";
+		}
+		// keep it short: group=... total=...
+		String first = lines.get(0);
+		long total = 0;
+		for (VoteMilestone m : (config == null || config.getMilestones() == null) ? java.util.Collections.<VoteMilestone>emptyList()
+				: config.getMilestones().values()) {
+			if (m != null && safeGroupId(m).equalsIgnoreCase(groupId)) {
+				total = safeTotalValue(user, m, bungeeData);
+				break;
+			}
+		}
+		return "group=" + groupId + " total=" + total + " (" + first + ")";
+	}
+
+	private String formatEpochMs(long ms, ZoneId zone) {
+		try {
+			java.time.ZonedDateTime zdt = java.time.ZonedDateTime.ofInstant(java.time.Instant.ofEpochMilli(ms), zone);
+			return zdt.toLocalDateTime().toString().replace('T', ' ');
+		} catch (Exception e) {
+			return String.valueOf(ms);
+		}
+	}
+
+	private String formatDeltaMs(long deltaMs) {
+		long s = Math.max(0, deltaMs) / 1000L;
+		long days = s / 86400L;
+		s %= 86400L;
+		long hours = s / 3600L;
+		s %= 3600L;
+		long mins = s / 60L;
+		long secs = s % 60L;
+		StringBuilder sb = new StringBuilder();
+		if (days > 0) sb.append(days).append("d ");
+		if (hours > 0 || days > 0) sb.append(hours).append("h ");
+		if (mins > 0 || hours > 0 || days > 0) sb.append(mins).append("m ");
+		sb.append(secs).append("s");
+		return sb.toString().trim();
+	}
+
 
 	public List<String> list(String groupId) {
 		List<String> out = new ArrayList<>();
@@ -841,6 +1018,221 @@ public class VoteMilestonesManager {
 			store.saveToUser(user);
 		}
 		return removed;
+	}
+
+	/* =======================================================================
+	 * PLACEHOLDER HELPERS (NEXT/LAST/UNTIL)
+	 * ======================================================================= */
+
+	/**
+	 * Returns the next VoteMilestone trigger value for the given group (or default),
+	 * based on enabled milestones in that group.
+	 *
+	 * @return next trigger value, or null if none can be determined
+	 */
+	public Long getNextMilestoneValue(String groupId, VotingPluginUser user) {
+		if (user == null || config == null || config.getMilestones() == null || config.getMilestones().isEmpty()) {
+			return null;
+		}
+		String g = (groupId == null || groupId.trim().isEmpty()) ? "default" : groupId.trim();
+
+		Long best = null;
+		for (VoteMilestone m : config.getMilestones().values()) {
+			if (m == null || !m.isEnabled()) {
+				continue;
+			}
+			String mg = safeGroupId(m);
+			if (!mg.equalsIgnoreCase(g)) {
+				continue;
+			}
+			long current = safeTotalValue(user, m, null);
+			Long next = nextTriggerForMilestone(m, current);
+			if (next == null) {
+				continue;
+			}
+			if (best == null || next.longValue() < best.longValue()) {
+				best = next;
+			}
+		}
+		return best;
+	}
+
+	/**
+	 * Returns the last (most recent) VoteMilestone trigger value for the given group
+	 * (or default), based on enabled milestones in that group.
+	 *
+	 * @return last trigger value, or null if none can be determined
+	 */
+	public Long getLastMilestoneValue(String groupId, VotingPluginUser user) {
+		if (user == null || config == null || config.getMilestones() == null || config.getMilestones().isEmpty()) {
+			return null;
+		}
+		String g = (groupId == null || groupId.trim().isEmpty()) ? "default" : groupId.trim();
+
+		Long best = null;
+		for (VoteMilestone m : config.getMilestones().values()) {
+			if (m == null || !m.isEnabled()) {
+				continue;
+			}
+			String mg = safeGroupId(m);
+			if (!mg.equalsIgnoreCase(g)) {
+				continue;
+			}
+			long current = safeTotalValue(user, m, null);
+			Long last = lastTriggerForMilestone(m, current);
+			if (last == null) {
+				continue;
+			}
+			if (best == null || last.longValue() > best.longValue()) {
+				best = last;
+			}
+		}
+		return best;
+	}
+
+	/**
+	 * Returns how many votes (in the same counter used by the next milestone) until
+	 * the next milestone. If no next milestone exists (or can't be determined),
+	 * returns 0.
+	 */
+	public long getVotesUntilNextMilestone(String groupId, VotingPluginUser user) {
+		if (user == null || config == null || config.getMilestones() == null || config.getMilestones().isEmpty()) {
+			return 0;
+		}
+		String g = (groupId == null || groupId.trim().isEmpty()) ? "default" : groupId.trim();
+
+		Long bestNext = null;
+		Long bestCurrent = null;
+
+		for (VoteMilestone m : config.getMilestones().values()) {
+			if (m == null || !m.isEnabled()) {
+				continue;
+			}
+			String mg = safeGroupId(m);
+			if (!mg.equalsIgnoreCase(g)) {
+				continue;
+			}
+			long current = safeTotalValue(user, m, null);
+			Long next = nextTriggerForMilestone(m, current);
+			if (next == null) {
+				continue;
+			}
+			if (bestNext == null || next.longValue() < bestNext.longValue()) {
+				bestNext = next;
+				bestCurrent = current;
+			}
+		}
+
+		if (bestNext == null || bestCurrent == null) {
+			return 0;
+		}
+		long diff = bestNext.longValue() - bestCurrent.longValue();
+		return Math.max(0, diff);
+	}
+
+	private Long nextTriggerForMilestone(VoteMilestone m, long currentValue) {
+		if (m == null) {
+			return null;
+		}
+
+		Long best = null;
+
+		// every=N => next multiple
+		Integer every = m.getEvery();
+		if (every != null && every > 0) {
+			long nextEvery = ((currentValue / every) + 1L) * every;
+			if (nextEvery > currentValue) {
+				best = nextEvery;
+			}
+		}
+
+		// atMatcher exact totals => next > current
+		AtMatcher at = m.getAtMatcher();
+		Long nextAt = nextFromAtMatcher(at, currentValue);
+		if (nextAt != null && (best == null || nextAt.longValue() < best.longValue())) {
+			best = nextAt;
+		}
+
+		return best;
+	}
+
+	private Long lastTriggerForMilestone(VoteMilestone m, long currentValue) {
+		if (m == null) {
+			return null;
+		}
+
+		Long best = null;
+
+		Integer every = m.getEvery();
+		if (every != null && every > 0) {
+			long lastEvery = (currentValue / every) * every;
+			if (lastEvery > 0 && lastEvery <= currentValue) {
+				best = lastEvery;
+			}
+		}
+
+		AtMatcher at = m.getAtMatcher();
+		Long lastAt = lastFromAtMatcher(at, currentValue);
+		if (lastAt != null && (best == null || lastAt.longValue() > best.longValue())) {
+			best = lastAt;
+		}
+
+		return best;
+	}
+
+	private List<Long> extractAtCandidates(AtMatcher atMatcher) {
+		if (atMatcher == null) {
+			return java.util.Collections.emptyList();
+		}
+
+		TreeSet<Long> sorted = new TreeSet<>();
+
+		// At: 0 means "first vote", which corresponds to newTotal == 1
+		if (atMatcher.hasZero()) {
+			sorted.add(1L);
+		}
+
+		for (Long v : atMatcher.getExactTotals()) {
+			if (v != null && v.longValue() > 0) {
+				sorted.add(v);
+			}
+		}
+
+		if (sorted.isEmpty()) {
+			return java.util.Collections.emptyList();
+		}
+		return new ArrayList<>(sorted);
+	}
+
+	private Long nextFromAtMatcher(AtMatcher atMatcher, long currentValue) {
+		List<Long> vals = extractAtCandidates(atMatcher);
+		if (vals.isEmpty()) {
+			return null;
+		}
+		for (Long v : vals) {
+			if (v != null && v.longValue() > currentValue) {
+				return v;
+			}
+		}
+		return null;
+	}
+
+	private Long lastFromAtMatcher(AtMatcher atMatcher, long currentValue) {
+		List<Long> vals = extractAtCandidates(atMatcher);
+		if (vals.isEmpty()) {
+			return null;
+		}
+		Long best = null;
+		for (Long v : vals) {
+			if (v == null) {
+				continue;
+			}
+			long lv = v.longValue();
+			if (lv <= currentValue && (best == null || lv > best.longValue())) {
+				best = v;
+			}
+		}
+		return best;
 	}
 
 	/* =======================================================================
@@ -1061,8 +1453,7 @@ public class VoteMilestonesManager {
 		return hasAny ? sb.toString() : "NONE";
 	}
 
-	private void executeRewards(VotingPluginUser user, VoteMilestone m, HashMap<String, String> placeholders,
-			boolean forceBungee) {
+	private void executeRewards(VotingPluginUser user, VoteMilestone m, HashMap<String, String> placeholders, boolean forceBungee) {
 		String path = m.getRewardPath();
 		if (path == null || path.trim().isEmpty()) {
 			return;

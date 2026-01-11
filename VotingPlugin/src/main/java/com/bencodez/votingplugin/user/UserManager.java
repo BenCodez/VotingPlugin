@@ -15,6 +15,7 @@ import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKeyBoolean;
 import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKeyInt;
 import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKeyString;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.specialrewards.votemilestones.VoteMilestonesManager;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 
 public class UserManager {
@@ -31,7 +32,7 @@ public class UserManager {
 		manager.addKey(new UserDataKeyString("LastVotes"));
 		manager.addKey(new UserDataKeyBoolean(getCoolDownCheckPath()));
 		manager.addKey(new UserDataKeyString("OfflineVotes").setColumnType("MEDIUMTEXT"));
-		manager.addKey(new UserDataKeyInt("MilestoneCount"));
+		//manager.addKey(new UserDataKeyInt("MilestoneCount"));
 		manager.addKey(new UserDataKeyInt("MonthTotal"));
 
 		if (plugin.getConfigFile().isUseMonthDateTotalsAsPrimaryTotal()) {
@@ -48,7 +49,7 @@ public class UserManager {
 		manager.addKey(new UserDataKeyInt("DayVoteStreak"));
 		manager.addKey(new UserDataKeyInt("BestDayVoteStreak"));
 		manager.addKey(new UserDataKeyString("DayVoteStreakLastUpdate").setColumnType("MEDIUMTEXT"));
-		manager.addKey(new UserDataKeyString("GottenMileStones").setColumnType("LONGTEXT"));
+		manager.addKey(new UserDataKeyString(VoteMilestonesManager.getLIMITS_STORAGE_KEY()).setColumnType("LONGTEXT"));
 		manager.addKey(new UserDataKeyBoolean("Reminded"));
 		manager.addKey(new UserDataKeyBoolean("DisableBroadcast"));
 		manager.addKey(new UserDataKeyInt("WeekVoteStreak"));

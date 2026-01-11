@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.objects;
+package com.bencodez.votingplugin.votesites;
 
 import java.util.ArrayList;
 import java.util.HashMap;

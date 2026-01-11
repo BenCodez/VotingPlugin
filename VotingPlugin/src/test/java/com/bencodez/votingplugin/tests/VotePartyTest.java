@@ -32,8 +32,8 @@ import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.config.SpecialRewardsConfig;
 import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.placeholders.PlaceHolders;
+import com.bencodez.votingplugin.specialrewards.voteparty.VoteParty;
 import com.bencodez.votingplugin.user.VotingPluginUser;
-import com.bencodez.votingplugin.voteparty.VoteParty;
 
 public class VotePartyTest {
 

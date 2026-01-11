@@ -77,10 +77,10 @@ import com.bencodez.votingplugin.commands.gui.player.VoteURLVoteSite;
 import com.bencodez.votingplugin.commands.tabcompleter.AliasesTabCompleter;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.events.PlayerVoteSiteCoolDownEndEvent;
-import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.specialrewards.votemilestones.VoteMilestonesManager;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.votesites.VoteSite;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -450,9 +450,9 @@ public class CommandLoader {
 						if (!serviceSites.isEmpty()) {
 							sendMessage(sender, "&cEvery service site the server has gotten from votifier:");
 							for (String serviceSite : serviceSites) {
-								boolean hasSite = plugin.hasVoteSite(serviceSite);
+								boolean hasSite = plugin.getVoteSiteManager().hasVoteSite(serviceSite);
 								if (hasSite) {
-									String siteName = plugin.getVoteSiteName(true, serviceSite);
+									String siteName = plugin.getVoteSiteManager().getVoteSiteName(true, serviceSite);
 									sendMessage(sender, serviceSite + " : Current site = " + siteName);
 								} else {
 									sendMessage(sender, serviceSite
@@ -474,7 +474,7 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						int invalid = 0;
 						int fixed = 0;
-						for (VoteSite site : plugin.getVoteSitesEnabled()) {
+						for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 							if (!site.isVaidServiceSite()) {
 								invalid++;
 								if (plugin.getServiceSiteHandler().contains(site.getServiceSite())) {
@@ -732,7 +732,8 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (sender instanceof Player) {
-					new AdminGUI(plugin).openAdminGUIVoteSiteSite((Player) sender, plugin.getVoteSite(args[1], false));
+					new AdminGUI(plugin).openAdminGUIVoteSiteSite((Player) sender,
+							plugin.getVoteSiteManager().getVoteSite(args[1], false));
 				} else {
 					sender.sendMessage("Must be a player to do this");
 				}
@@ -928,7 +929,7 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-						user.resetLastVoted(plugin.getVoteSite(args[3], false));
+						user.resetLastVoted(plugin.getVoteSiteManager().getVoteSite(args[3], false));
 						plugin.getCoolDownCheck().checkPerSite(user);
 						sender.sendMessage(
 								MessageAPI.colorize("&cVoted site reset for '" + args[1] + "'" + " on " + args[3]));
@@ -941,7 +942,7 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				sendMessage(sender, "&cTriggering vote for all voting sites...");
-				for (VoteSite site : plugin.getVoteSitesEnabled()) {
+				for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 					plugin.getVoteTimer().submit(new Runnable() {
 
 						@Override
@@ -973,8 +974,8 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(args[2], true), args[1], args[2],
-						false);
+				PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSiteManager().getVoteSite(args[2], true),
+						args[1], args[2], false);
 				if (voteEvent.getVoteSite() != null) {
 					if (!voteEvent.getVoteSite().isVaidServiceSite()
 							&& !plugin.getConfigFile().isDisableNoServiceSiteMessage()) {
@@ -1008,8 +1009,8 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(args[2], true), args[1],
-								args[2], false);
+						PlayerVoteEvent voteEvent = new PlayerVoteEvent(
+								plugin.getVoteSiteManager().getVoteSite(args[2], true), args[1], args[2], false);
 						if (!plugin.getConfigFile().isDisableNoServiceSiteMessage() && !isPlayer(sender)) {
 							sendMessage(sender, "&cTriggering vote...");
 						}
@@ -1061,7 +1062,7 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						sendMessage(sender, "&cTriggering vote for all voting sites...");
-						for (VoteSite site : plugin.getVoteSitesEnabled()) {
+						for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 							PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, args[1], site.getServiceSite(),
 									false);
 							if (voteEvent.getVoteSite() != null) {
@@ -1088,8 +1089,8 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(args[3], true), args[1],
-								args[3], false);
+						PlayerVoteEvent voteEvent = new PlayerVoteEvent(
+								plugin.getVoteSiteManager().getVoteSite(args[3], true), args[1], args[3], false);
 						if (!plugin.getConfigFile().isDisableNoServiceSiteMessage() && !isPlayer(sender)) {
 							sendMessage(sender, "&cTriggering vote...");
 						}
@@ -1116,7 +1117,7 @@ public class CommandLoader {
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 						PlayerVoteSiteCoolDownEndEvent event = new PlayerVoteSiteCoolDownEndEvent(user,
-								plugin.getVoteSite(args[3], true));
+								plugin.getVoteSiteManager().getVoteSite(args[3], true));
 						plugin.getServer().getPluginManager().callEvent(event);
 						sendMessage(sender, "&cCoolDownEndRewards forced on votesite " + args[3]);
 
@@ -1164,7 +1165,7 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						String voteSite = plugin.getVoteSiteName(true, args[1]);
+						String voteSite = plugin.getVoteSiteManager().getVoteSiteName(true, args[1]);
 						String serviceSite = args[3];
 						plugin.getConfigVoteSites().setServiceSite(voteSite, serviceSite);
 						sender.sendMessage(MessageAPI
@@ -1183,7 +1184,7 @@ public class CommandLoader {
 
 							@Override
 							public void run() {
-								for (VoteSite site : plugin.getVoteSitesEnabled()) {
+								for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 									if (site.isVoteDelayDaily()) {
 										plugin.getCoolDownCheck().checkAllVoteSite(site);
 									}
@@ -1200,7 +1201,7 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						String voteSite = plugin.getVoteSiteName(true, args[1]);
+						String voteSite = plugin.getVoteSiteManager().getVoteSiteName(true, args[1]);
 						String url = args[3];
 						plugin.getConfigVoteSites().setVoteURL(voteSite, url);
 						sender.sendMessage(
@@ -1214,7 +1215,7 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						String voteSite = plugin.getVoteSiteName(true, args[1]);
+						String voteSite = plugin.getVoteSiteManager().getVoteSiteName(true, args[1]);
 						int value = Integer.parseInt(args[3]);
 						plugin.getConfigVoteSites().setPriority(voteSite, value);
 						sender.sendMessage(
@@ -1229,7 +1230,7 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						String voteSite = plugin.getVoteSiteName(true, args[1]);
+						String voteSite = plugin.getVoteSiteManager().getVoteSiteName(true, args[1]);
 						int delay = Integer.parseInt(args[3]);
 						plugin.getConfigVoteSites().setVoteDelay(voteSite, delay);
 						sender.sendMessage(
@@ -1285,7 +1286,7 @@ public class CommandLoader {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
-						String voteSite = plugin.getVoteSiteName(false, args[1]);
+						String voteSite = plugin.getVoteSiteManager().getVoteSiteName(false, args[1]);
 						boolean value = Boolean.parseBoolean(args[3]);
 
 						plugin.getConfigVoteSites().setEnabled(voteSite, value);
@@ -1524,11 +1525,11 @@ public class CommandLoader {
 					});
 		}
 
-		// /av votemilestone force <player> <group>
+		// /av votemilestone forcegroup <player> <group>
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(plugin,
-						new String[] { "VoteMilestone&VM", "Force", "(player)", "(milestonegroup)" },
-						"VotingPlugin.Commands.AdminVote.VoteMilestone.Force|" + adminPerm,
+						new String[] { "VoteMilestone&VM", "ForceGroup", "(player)", "(milestonegroup)" },
+						"VotingPlugin.Commands.AdminVote.VoteMilestone.ForceGroup|" + adminPerm,
 						"Force execute VoteMilestones for a group (skips totals, respects limits)") {
 
 					@Override
@@ -1545,16 +1546,16 @@ public class CommandLoader {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
 						int executed = vm.forceGroup(user, group, false, null);
 
-						sendMessage(sender, "&aForced VoteMilestones (limits ON) for &e" + player + "&a group=&e"
+						sendMessage(sender, "&aForced VoteMilestonesGroup (limits ON) for &e" + player + "&a group=&e"
 								+ group + "&a executed=&e" + executed);
 					}
 				});
 
-		// /av votemilestone forcenolimits <player> <group>
+		// /av votemilestone forcegroupnolimits <player> <group>
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(plugin,
-						new String[] { "VoteMilestone&VM", "ForceNoLimits", "(player)", "(milestonegroup)" },
-						"VotingPlugin.Commands.AdminVote.VoteMilestone.ForceNoLimits|" + adminPerm,
+						new String[] { "VoteMilestone&VM", "ForceGroupNoLimits", "(player)", "(milestonegroup)" },
+						"VotingPlugin.Commands.AdminVote.VoteMilestone.ForceGroupNoLimits|" + adminPerm,
 						"Force execute VoteMilestones for a group (skips totals, bypasses limits)") {
 
 					@Override
@@ -1571,8 +1572,141 @@ public class CommandLoader {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
 						int executed = vm.forceGroup(user, group, true, null);
 
-						sendMessage(sender, "&aForced VoteMilestones (limits OFF) for &e" + player + "&a group=&e"
+						sendMessage(sender, "&aForced VoteMilestonesGroup (limits OFF) for &e" + player + "&a group=&e"
 								+ group + "&a executed=&e" + executed);
+					}
+				});
+
+		// /av votemilestone force <player> <milestoneId>
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin, new String[] { "VoteMilestone&VM", "Force", "(player)", "(milestone)" },
+						"VotingPlugin.Commands.AdminVote.VoteMilestone.Force|" + adminPerm,
+						"Force execute a specific VoteMilestone (skips totals, respects limits)") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VoteMilestonesManager vm = plugin.getVoteMilestonesManager();
+						if (vm == null) {
+							sendMessage(sender, "&cVoteMilestonesManager is not available");
+							return;
+						}
+
+						String player = args[2];
+						String milestoneId = args[3];
+
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
+						boolean ok = vm.forceMilestone(user, milestoneId, false, null);
+
+						sendMessage(sender,
+								ok ? "&aForced VoteMilestone (limits ON) for &e" + player + "&a milestone=&e"
+										+ milestoneId
+										: "&cFailed to force milestone (not found/disabled/blocked by limit): &e"
+												+ milestoneId);
+					}
+				});
+
+		// /av votemilestone forcenolimits <player> <milestoneId>
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin,
+						new String[] { "VoteMilestone&VM", "ForceNoLimits", "(player)", "(milestone)" },
+						"VotingPlugin.Commands.AdminVote.VoteMilestone.ForceNoLimits|" + adminPerm,
+						"Force execute a specific VoteMilestone (skips totals, bypasses limits)") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VoteMilestonesManager vm = plugin.getVoteMilestonesManager();
+						if (vm == null) {
+							sendMessage(sender, "&cVoteMilestonesManager is not available");
+							return;
+						}
+
+						String player = args[2];
+						String milestoneId = args[3];
+
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
+						boolean ok = vm.forceMilestone(user, milestoneId, true, null);
+
+						sendMessage(sender,
+								ok ? "&aForced VoteMilestone (limits OFF) for &e" + player + "&a milestone=&e"
+										+ milestoneId
+										: "&cFailed to force milestone (not found/disabled): &e" + milestoneId);
+					}
+				});
+
+		// /av votemilestone previewmilestone <player> <milestoneId>
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin,
+						new String[] { "VoteMilestone&VM", "PreviewMilestone", "(player)", "(milestone)" },
+						"VotingPlugin.Commands.AdminVote.VoteMilestone.PreviewMilestone|" + adminPerm,
+						"Preview a specific VoteMilestone (shows total/match/limit; does not execute)") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VoteMilestonesManager vm = plugin.getVoteMilestonesManager();
+						if (vm == null) {
+							sendMessage(sender, "&cVoteMilestonesManager is not available");
+							return;
+						}
+
+						String player = args[2];
+						String milestoneId = args[3];
+
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
+						String group = vm.getGroupForMilestoneId(milestoneId);
+						if (group == null) {
+							sendMessage(sender, "&cUnknown milestone: &e" + milestoneId);
+							return;
+						}
+
+						sendMessage(sender, "&aVoteMilestone preview for &e" + player + "&a milestone=&e" + milestoneId
+								+ "&a (group=&e" + group + "&a)");
+						for (String line : vm.previewGroup(user, group, null)) {
+							if (line == null) {
+								continue;
+							}
+							if (line.startsWith("group=") || line.toLowerCase().startsWith(milestoneId.toLowerCase())) {
+								sendMessage(sender, "&7- &f" + line);
+							}
+						}
+					}
+				});
+
+		// /av votemilestone statusmilestone <player> <milestoneId>
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin,
+						new String[] { "VoteMilestone&VM", "StatusMilestone", "(player)", "(milestone)" },
+						"VotingPlugin.Commands.AdminVote.VoteMilestone.StatusMilestone|" + adminPerm,
+						"Show status for a specific VoteMilestone (given/missing/due/pending; does not execute)") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VoteMilestonesManager vm = plugin.getVoteMilestonesManager();
+						if (vm == null) {
+							sendMessage(sender, "&cVoteMilestonesManager is not available");
+							return;
+						}
+
+						String player = args[2];
+						String milestoneId = args[3];
+
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
+						String group = vm.getGroupForMilestoneId(milestoneId);
+						if (group == null) {
+							sendMessage(sender, "&cUnknown milestone: &e" + milestoneId);
+							return;
+						}
+
+						sendMessage(sender, "&aVoteMilestone status for &e" + player + "&a milestone=&e" + milestoneId
+								+ "&a (group=&e" + group + "&a)");
+						java.util.List<String> lines = vm.statusGroup(user, group, null);
+						for (String line : lines) {
+							if (line == null) {
+								continue;
+							}
+							if (line.toLowerCase().startsWith(milestoneId.toLowerCase())) {
+								sendMessage(sender, "&7- &f" + line);
+							}
+						}
 					}
 				});
 
@@ -1730,8 +1864,11 @@ public class CommandLoader {
 
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
 
-						String status = vm.status(user, group, null);
-						sendMessage(sender, "&aVoteMilestone status for &e" + player + "&a: &f" + status);
+						java.util.List<String> lines = vm.statusGroup(user, group, null);
+						sendMessage(sender, "&aVoteMilestone status for &e" + player + "&a group=&e" + group);
+						for (String line : lines) {
+							sendMessage(sender, "&7- &f" + line);
+						}
 					}
 				});
 
@@ -2127,7 +2264,7 @@ public class CommandLoader {
 							public void onClick(ClickEvent clickEvent) {
 								Player player = clickEvent.getPlayer();
 								ArrayList<String> voteSites = new ArrayList<>();
-								for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
+								for (VoteSite voteSite : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 									voteSites.add(voteSite.getKey());
 								}
 								new ValueRequest().requestString(player, "", ArrayUtils.convert(voteSites), true,
@@ -2136,9 +2273,10 @@ public class CommandLoader {
 											@Override
 											public void onInput(Player player, String value) {
 												PlayerVoteEvent voteEvent = new PlayerVoteEvent(
-														plugin.getVoteSite(value, true),
+														plugin.getVoteSiteManager().getVoteSite(value, true),
 														UserGUI.getInstance().getCurrentPlayer(player),
-														plugin.getVoteSiteServiceSite(value), false);
+														plugin.getVoteSiteManager().getVoteSiteServiceSite(value),
+														false);
 												plugin.getServer().getPluginManager().callEvent(voteEvent);
 
 												player.sendMessage("Forced vote for "
@@ -2161,7 +2299,7 @@ public class CommandLoader {
 	 */
 	public void loadTabComplete() {
 		ArrayList<String> sites = new ArrayList<>();
-		for (VoteSite site : plugin.getVoteSitesEnabled()) {
+		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 			sites.add(site.getKey());
 		}
 
@@ -2170,7 +2308,7 @@ public class CommandLoader {
 			@Override
 			public void reload() {
 				ArrayList<String> sites = new ArrayList<>();
-				for (VoteSite site : plugin.getVoteSitesEnabled()) {
+				for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 					sites.add(site.getKey());
 				}
 				setReplace(sites);

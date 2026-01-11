@@ -56,7 +56,7 @@ public class VoteMilestonesConfig {
 
 		// Merge legacy compiled milestones (new format wins on ID collision)
 		ConfigurationSection legacyRoot = plugin.getSpecialRewardsConfig().getData();
-		int totalSites = plugin.getVoteSitesEnabled() != null ? plugin.getVoteSitesEnabled().size() : 0;
+		int totalSites = plugin.getVoteSiteManager().getVoteSitesEnabled() != null ? plugin.getVoteSiteManager().getVoteSitesEnabled().size() : 0;
 
 		Map<String, VoteMilestone> legacy = VoteMilestonesMigrator.compileLegacy(legacyRoot, totalSites,
 				plugin.getSpecialRewardsConfig().isOnlyOneCumulative(),

@@ -86,7 +86,7 @@ public class VotiferEvent implements Listener {
 						}
 					}
 
-					String voteSiteNameStr = plugin.getVoteSiteName(false, voteSite, matchSite);
+					String voteSiteNameStr = plugin.getVoteSiteManager().getVoteSiteName(false, voteSite, matchSite);
 
 					ArrayList<String> sites = plugin.getConfigVoteSites().getVoteSitesNames(false);
 					boolean createSite = false;
@@ -118,9 +118,9 @@ public class VotiferEvent implements Listener {
 						return;
 					}
 
-					String voteSiteName = plugin.getVoteSiteName(true, serviceSite, matchSite);
+					String voteSiteName = plugin.getVoteSiteManager().getVoteSiteName(true, serviceSite, matchSite);
 
-					PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(voteSiteName, true),
+					PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSiteManager().getVoteSite(voteSiteName, true),
 							voteUsername, voteSite, true);
 					plugin.getServer().getPluginManager().callEvent(voteEvent);
 

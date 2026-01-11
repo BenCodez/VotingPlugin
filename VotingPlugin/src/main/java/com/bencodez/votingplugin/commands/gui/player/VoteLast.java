@@ -17,8 +17,8 @@ import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.votesites.VoteSite;
 
 public class VoteLast extends GUIHandler {
 
@@ -40,7 +40,7 @@ public class VoteLast extends GUIHandler {
 		msg.add(MessageAPI.replaceIgnoreCase(plugin.getConfigFile().getFormatCommandsVoteLastTitle(), "%player%",
 				playerName));
 
-		for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
+		for (VoteSite voteSite : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 			if (!voteSite.isHidden()) {
 				msg.add(user.voteCommandLastLine(voteSite));
 			}
@@ -63,7 +63,7 @@ public class VoteLast extends GUIHandler {
 	public void onChest(Player player) {
 		BInventory inv = new BInventory(plugin.getGui().getChestVoteLastName());
 		inv.addPlaceholder("player", user.getPlayerName());
-		for (VoteSite site : plugin.getVoteSitesEnabled()) {
+		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 			if (!site.isHidden()) {
 				inv.addButton(inv.getNextSlot(),
 						new UpdatingBInventoryButton(plugin, site.getItem().setName(site.getDisplayName())

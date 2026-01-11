@@ -14,8 +14,8 @@ import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.UpdatingBInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.votesites.VoteSite;
 
 public class VoteURLVoteSite extends GUIHandler {
 
@@ -47,11 +47,11 @@ public class VoteURLVoteSite extends GUIHandler {
 
 	@Override
 	public void onChest(Player player) {
-		if (!plugin.isVoteSite(voteSite)) {
+		if (!plugin.getVoteSiteManager().isVoteSite(voteSite)) {
 			player.sendMessage("Not a valid votesite");
 			return;
 		}
-		VoteSite site = plugin.getVoteSite(voteSite, true);
+		VoteSite site = plugin.getVoteSiteManager().getVoteSite(voteSite, true);
 		BInventory inv = new BInventory(plugin.getGui().getChestVoteURLSiteName());
 		inv.addPlaceholder("site", site.getDisplayName());
 		inv.setMeta(player, "VoteSite", site);

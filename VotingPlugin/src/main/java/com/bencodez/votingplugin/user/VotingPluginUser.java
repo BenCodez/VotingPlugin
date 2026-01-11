@@ -32,11 +32,11 @@ import com.bencodez.votingplugin.events.PlayerReceivePointsEvent;
 import com.bencodez.votingplugin.events.PlayerSpecialRewardEvent;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.events.SpecialRewardType;
-import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.proxy.BungeeMessageData;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
+import com.bencodez.votingplugin.votesites.VoteSite;
 
 /**
  * The Class VotingPluginUser. This class represents a user in the VotingPlugin
@@ -254,8 +254,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			plugin.debug("Bungee vote for " + getPlayerName() + " on " + service);
 
-			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service, true), getPlayerName(), service,
-					true);
+			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSiteManager().getVoteSite(service, true),
+					getPlayerName(), service, true);
 			voteEvent.setBungee(true);
 			voteEvent.setForceBungee(true);
 			voteEvent.setAddTotals(setTotals);
@@ -276,8 +276,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			plugin.debug("Bungee online vote for " + getPlayerName() + " on " + service);
 
-			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service, true), getPlayerName(), service,
-					true);
+			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSiteManager().getVoteSite(service, true),
+					getPlayerName(), service, true);
 			voteEvent.setBungee(true);
 			voteEvent.setForceBungee(true);
 			voteEvent.setAddTotals(setTotals);
@@ -303,8 +303,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
 
-			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSite(service, true), getPlayerName(), service,
-					true);
+			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSiteManager().getVoteSite(service, true),
+					getPlayerName(), service, true);
 			voteEvent.setBungee(true);
 			voteEvent.setVotingPluginUser(this);
 			voteEvent.setForceBungee(true);
@@ -324,7 +324,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return true, if the user can vote on all sites
 	 */
 	public boolean canVoteAll() {
-		for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
+		for (VoteSite voteSite : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 			if (!voteSite.isHidden()) {
 				boolean canVote = canVoteSite(voteSite);
 				if (!canVote) {
@@ -341,7 +341,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return true, if the user can vote on any site
 	 */
 	public boolean canVoteAny() {
-		for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
+		for (VoteSite voteSite : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 			if (!voteSite.isIgnoreCanVote() && !voteSite.isHidden()) {
 				boolean canVote = canVoteSite(voteSite);
 				if (canVote) {
@@ -409,7 +409,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		ArrayList<Integer> months = new ArrayList<>();
 		ArrayList<Integer> days = new ArrayList<>();
 
-		for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
+		for (VoteSite voteSite : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 			if (voteSite.isEnabled() && !voteSite.isHidden()) {
 				long time = user.getTime(voteSite);
 				if (time == 0) {
@@ -569,8 +569,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		ArrayList<String> coolDownCheck = getData().getStringList(getCoolDownCheckSitePath());
 		for (String str : coolDownCheck) {
 			String[] data = str.split("//");
-			if (data.length > 1 && plugin.hasVoteSite(data[0])) {
-				VoteSite site = plugin.getVoteSite(data[0], true);
+			if (data.length > 1 && plugin.getVoteSiteManager().hasVoteSite(data[0])) {
+				VoteSite site = plugin.getVoteSiteManager().getVoteSite(data[0], true);
 				if (site != null) {
 					Boolean b = Boolean.valueOf(data[1]);
 					coolDownChecks.put(site.getKey(), b);
@@ -702,8 +702,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		ArrayList<String> LastVotesList = getUserData().getStringList("LastVotes");
 		for (String str : LastVotesList) {
 			String[] data = str.split("//");
-			if (data.length > 1 && plugin.hasVoteSite(data[0])) {
-				VoteSite site = plugin.getVoteSite(data[0], true);
+			if (data.length > 1 && plugin.getVoteSiteManager().hasVoteSite(data[0])) {
+				VoteSite site = plugin.getVoteSiteManager().getVoteSite(data[0], true);
 				if (site != null) {
 					long time = 0;
 					try {
@@ -757,7 +757,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public HashMap<VoteSite, Long> getLastVoteTimesSorted() {
 		LinkedHashMap<VoteSite, Long> times = new LinkedHashMap<>();
 
-		for (VoteSite voteSite : plugin.getVoteSitesEnabled()) {
+		for (VoteSite voteSite : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 			times.put(voteSite, getTime(voteSite));
 		}
 		LinkedHashMap<VoteSite, Long> sorted = new LinkedHashMap<>(
@@ -793,7 +793,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public long getNextTimeAllSitesAvailable() {
 		long longest = 0;
-		for (VoteSite site : plugin.getVoteSitesEnabled()) {
+		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 			long seconds = voteNextDurationTime(site);
 			if (seconds > longest) {
 				longest = seconds;
@@ -810,7 +810,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public long getNextTimeFirstSiteAvailable() {
 		long shortest = 0;
-		for (VoteSite site : plugin.getVoteSitesEnabled()) {
+		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 			if (!canVoteSite(site)) {
 				long seconds = voteNextDurationTime(site);
 				if (shortest == 0 || seconds < shortest) {
@@ -876,7 +876,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public int getSitesNotVotedOn() {
 		int amount = 0;
-		for (VoteSite site : plugin.getVoteSitesEnabled()) {
+		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 			if (!site.isHidden()) {
 				if (site.getPermissionToView().isEmpty() || hasPermission(site.getPermissionToView(), false)) {
 					if (canVoteSite(site)) {
@@ -890,7 +890,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public int getTotalNumberOfSites() {
 		int amount = 0;
-		for (VoteSite site : plugin.getVoteSitesEnabled()) {
+		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 			if (!site.isHidden()) {
 				if (site.getPermissionToView().isEmpty() || hasPermission(site.getPermissionToView(), false)) {
 					amount++;
@@ -902,7 +902,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public int getSitesVotedOn() {
 		int amount = 0;
-		for (VoteSite site : plugin.getVoteSitesEnabled()) {
+		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 			if (!canVoteSite(site)) {
 				amount++;
 			}
@@ -1089,7 +1089,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				.withPlaceHolder("topvoter", "Weekly").withPlaceHolder("votes", "" + getTotal(TopVoter.Weekly))
 				.setOnline(isOnline()).send(this);
 	}
-	
+
 	/**
 	 * Gets how many unique vote sites this user has voted on today.
 	 *
@@ -1104,7 +1104,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 		long count = 0;
 
-		for (VoteSite site : plugin.getVoteSitesEnabled()) {
+		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 			if (site == null || !site.isEnabled() || site.isHidden()) {
 				continue;
 			}
@@ -1126,7 +1126,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return count;
 	}
 
-
 	/**
 	 * Checks if the user has a percentage of the total votes.
 	 *
@@ -1140,12 +1139,13 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		int total = getTotal(top, time);
 		switch (top) {
 		case Daily:
-			return (double) total / (double) plugin.getVoteSitesEnabled().size() * 100 > percentage;
-		case Monthly:
-			return total / ((double) plugin.getVoteSitesEnabled().size() * time.getMonth().length(false))
+			return (double) total / (double) plugin.getVoteSiteManager().getVoteSitesEnabled().size()
 					* 100 > percentage;
+		case Monthly:
+			return total / ((double) plugin.getVoteSiteManager().getVoteSitesEnabled().size()
+					* time.getMonth().length(false)) * 100 > percentage;
 		case Weekly:
-			return total / ((double) plugin.getVoteSitesEnabled().size() * 7) * 100 > percentage;
+			return total / ((double) plugin.getVoteSiteManager().getVoteSitesEnabled().size() * 7) * 100 > percentage;
 		default:
 			return false;
 		}
@@ -1313,9 +1313,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 		// Process each offline vote.
 		for (String voteSiteName : offlineVotes) {
-			if (plugin.hasVoteSite(voteSiteName)) {
+			if (plugin.getVoteSiteManager().hasVoteSite(voteSiteName)) {
 				plugin.debug("Giving offline site reward: " + voteSiteName);
-				playerVote(plugin.getVoteSite(voteSiteName, true), false, !offlineBroadcastEnabled, false);
+				playerVote(plugin.getVoteSiteManager().getVoteSite(voteSiteName, true), false, !offlineBroadcastEnabled,
+						false);
 			} else {
 				plugin.debug("Site doesn't exist: " + voteSiteName);
 			}
@@ -1704,8 +1705,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			if (plugin.getConfigFile().isLimitMonthlyVotes()) {
 				LocalDateTime time = plugin.getTimeChecker().getTime();
 				int days = time.getDayOfMonth();
-				if (value >= days * plugin.getVoteSitesEnabled().size()) {
-					value = days * plugin.getVoteSitesEnabled().size();
+				if (value >= days * plugin.getVoteSiteManager().getVoteSitesEnabled().size()) {
+					value = days * plugin.getVoteSiteManager().getVoteSitesEnabled().size();
 				}
 			}
 			getData().setInt("MonthTotal", value);

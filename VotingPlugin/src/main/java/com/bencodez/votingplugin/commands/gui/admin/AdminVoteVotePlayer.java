@@ -12,7 +12,7 @@ import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.editgui.EditGUI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
-import com.bencodez.votingplugin.objects.VoteSite;
+import com.bencodez.votingplugin.votesites.VoteSite;
 
 public class AdminVoteVotePlayer extends GUIHandler {
 
@@ -44,7 +44,7 @@ public class AdminVoteVotePlayer extends GUIHandler {
 		EditGUI inv = new EditGUI("Trigger vote for " + playerName);
 		inv.requirePermission("VotingPlugin.Commands.AdminVote.Vote|VotingPlugin.Admin");
 
-		for (VoteSite site : plugin.getVoteSitesEnabled()) {
+		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 			inv.addButton(new BInventoryButton(site.getItem().setName(site.getKey())) {
 
 				@Override

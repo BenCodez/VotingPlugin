@@ -1,5 +1,5 @@
 
-package com.bencodez.votingplugin.voteparty;
+package com.bencodez.votingplugin.specialrewards.voteparty;
 
 import java.util.ArrayList;
 import java.util.HashMap;

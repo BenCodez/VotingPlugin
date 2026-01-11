@@ -10,7 +10,6 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -83,7 +82,6 @@ import com.bencodez.votingplugin.listeners.PlayerVoteListener;
 import com.bencodez.votingplugin.listeners.SignChange;
 import com.bencodez.votingplugin.listeners.VotiferEvent;
 import com.bencodez.votingplugin.listeners.VotingPluginUpdateEvent;
-import com.bencodez.votingplugin.objects.VoteSite;
 import com.bencodez.votingplugin.placeholders.MVdWPlaceholders;
 import com.bencodez.votingplugin.placeholders.PlaceHolders;
 import com.bencodez.votingplugin.placeholders.VotingPluginExpansion;
@@ -91,6 +89,7 @@ import com.bencodez.votingplugin.servicesites.ServiceSiteHandler;
 import com.bencodez.votingplugin.signs.Signs;
 import com.bencodez.votingplugin.specialrewards.SpecialRewards;
 import com.bencodez.votingplugin.specialrewards.votemilestones.VoteMilestonesManager;
+import com.bencodez.votingplugin.specialrewards.voteparty.VoteParty;
 import com.bencodez.votingplugin.specialrewards.votestreak.VoteStreakHandler;
 import com.bencodez.votingplugin.test.VoteTester;
 import com.bencodez.votingplugin.timequeue.TimeQueueHandler;
@@ -105,8 +104,9 @@ import com.bencodez.votingplugin.votelog.listeners.PlayerPostVoteLoggerListener;
 import com.bencodez.votingplugin.votelog.listeners.PlayerSpecialRewardLoggerListener;
 import com.bencodez.votingplugin.votelog.listeners.VoteMilestoneVoteLogListener;
 import com.bencodez.votingplugin.votelog.listeners.VoteShopPurchaseLoggerListener;
-import com.bencodez.votingplugin.voteparty.VoteParty;
 import com.bencodez.votingplugin.votereminding.VoteReminding;
+import com.bencodez.votingplugin.votesites.VoteSite;
+import com.bencodez.votingplugin.votesites.VoteSiteManager;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -223,7 +223,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private VoteReminding voteReminding;
 
 	@Getter
-	private List<VoteSite> voteSites;
+	private VoteSiteManager voteSiteManager;
 
 	@Getter
 	@Setter
@@ -379,99 +379,34 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		return null;
 	}
 
+	@Deprecated
 	public VoteSite getVoteSite(String site, boolean checkEnabled) {
-		String siteName = getVoteSiteName(checkEnabled, site);
-		for (VoteSite voteSite : getVoteSites()) {
-			if (voteSite.getKey().equalsIgnoreCase(siteName) || voteSite.getDisplayName().equals(siteName)) {
-				return voteSite;
-			}
-		}
-		if (configFile.isAutoCreateVoteSites() && !configVoteSites.getVoteSitesNames(false).contains(siteName)) {
-			configVoteSites.generateVoteSite(siteName);
-			return new VoteSite(plugin, siteName.replace(".", "_"));
-		}
-		return null;
-
+		return voteSiteManager.getVoteSite(site, checkEnabled);
 	}
 
+	@Deprecated
 	public String getVoteSiteName(boolean checkEnabled, String... urls) {
-		ArrayList<String> sites = getConfigVoteSites().getVoteSitesNames(checkEnabled);
-
-		for (String url : urls) {
-			if (url == null) {
-				return null;
-			}
-			if (!url.isEmpty()) {
-				if (sites != null) {
-					for (String siteName : sites) {
-						String URL = getConfigVoteSites().getServiceSite(siteName);
-						if (URL != null) {
-							if (URL.equalsIgnoreCase(url)) {
-								return siteName;
-							}
-						}
-						if (siteName.equalsIgnoreCase(url)) {
-							return siteName;
-						}
-
-					}
-				}
-			}
-		}
-
-		for (String url : urls) {
-			return url;
-		}
-		return "";
-
+		return voteSiteManager.getVoteSiteName(checkEnabled, urls);
 	}
 
+	@Deprecated
 	public ArrayList<VoteSite> getVoteSitesEnabled() {
-		ArrayList<VoteSite> sites = new ArrayList<>();
-		for (VoteSite site : getVoteSites()) {
-			if (site.isEnabled()) {
-				sites.add(site);
-			}
-		}
-		return sites;
+		return voteSiteManager.getVoteSitesEnabled();
 	}
 
+	@Deprecated
 	public String getVoteSiteServiceSite(String name) {
-		ArrayList<String> sites = getConfigVoteSites().getVoteSitesNames(true);
-		if (name == null) {
-			return null;
-		}
-		if (sites != null) {
-			for (String siteName : sites) {
-				String URL = getConfigVoteSites().getServiceSite(siteName);
-				if (URL != null) {
-					if (URL.equalsIgnoreCase(name) || name.equalsIgnoreCase(siteName)) {
-						return URL;
-					}
-				}
-			}
-		}
-		return name;
-
+		return voteSiteManager.getVoteSiteServiceSite(name);
 	}
 
+	@Deprecated
 	public boolean hasVoteSite(String site) {
-		String siteName = getVoteSiteName(false, site);
-		for (VoteSite voteSite : getVoteSites()) {
-			if (voteSite.getKey().equalsIgnoreCase(siteName) || voteSite.getDisplayName().equals(siteName)) {
-				return true;
-			}
-		}
-		return false;
+		return voteSiteManager.hasVoteSite(site);
 	}
 
+	@Deprecated
 	public boolean isVoteSite(String voteSite) {
-		for (VoteSite site : getVoteSites()) {
-			if (site.getKey().equalsIgnoreCase(voteSite)) {
-				return true;
-			}
-		}
-		return false;
+		return voteSiteManager.isVoteSite(voteSite);
 	}
 
 	private void loadBungeeHandler() {
@@ -801,7 +736,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 
 		// VoteSites
-		for (VoteSite site : plugin.getVoteSites()) {
+		for (VoteSite site : plugin.getVoteSiteManager().getVoteSites()) {
 			addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteSites." + site.getKey() + ".Rewards") {
 
 				@Override
@@ -1109,24 +1044,21 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 	}
 
-	/**
-	 * Load vote sites.
-	 */
 	public void loadVoteSites() {
 		configVoteSites.setup();
-		voteSites = Collections.synchronizedList(new ArrayList<VoteSite>());
-		voteSites.addAll(configVoteSites.getVoteSitesLoad());
-
-		if (voteSites.size() == 0) {
-			plugin.getLogger().warning("Detected no voting sites, this may mean something isn't properly setup");
-		}
+		voteSiteManager = new VoteSiteManager(this);
+		voteSiteManager.loadVoteSites();
 
 		plugin.debug("Loaded VoteSites");
-
 	}
 
 	private void loadVoteTimer() {
 		voteTimer = Executors.newSingleThreadScheduledExecutor();
+	}
+
+	@Deprecated
+	public List<VoteSite> getVoteSites() {
+		return voteSiteManager.getVoteSites();
 	}
 
 	/**

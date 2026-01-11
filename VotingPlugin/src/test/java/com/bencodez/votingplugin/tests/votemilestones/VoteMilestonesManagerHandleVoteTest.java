@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 import java.lang.reflect.Field;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TimeZone;
@@ -41,6 +42,7 @@ import com.bencodez.votingplugin.specialrewards.votemilestones.VoteMilestonesCon
 import com.bencodez.votingplugin.specialrewards.votemilestones.VoteMilestonesManager;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.votesites.VoteSite;
 
 import lombok.var;
 
@@ -74,6 +76,10 @@ class VoteMilestonesManagerHandleVoteTest {
 		// Common user basics
 		when(user.getJavaUUID()).thenReturn(java.util.UUID.randomUUID());
 		when(user.getPlayerName()).thenReturn("TestPlayer");
+		
+		when(plugin.getVoteSiteManager()).thenReturn(mock(com.bencodez.votingplugin.votesites.VoteSiteManager.class));
+		
+		when(plugin.getVoteSiteManager().getVoteSitesEnabled()).thenReturn(new ArrayList<VoteSite>());
 	}
 
 	@AfterEach

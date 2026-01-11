@@ -1,11 +1,13 @@
 package com.bencodez.votingplugin.specialrewards.votemilestones;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
 import org.bukkit.configuration.ConfigurationSection;
+
+import com.bencodez.simpleapi.time.ParsedDuration;
+import com.bencodez.simpleapi.time.ParsedDuration.Unit;
 
 /**
  * Per-milestone retrigger limiter.
@@ -15,11 +17,7 @@ import org.bukkit.configuration.ConfigurationSection;
 public final class VoteMilestoneLimit {
 
 	public enum Type {
-		NONE,
-		WINDOW_DAY,
-		WINDOW_WEEK,
-		WINDOW_MONTH,
-		COOLDOWN
+		NONE, WINDOW_DAY, WINDOW_WEEK, WINDOW_MONTH, COOLDOWN
 	}
 
 	private final Type type;
@@ -67,10 +65,12 @@ public final class VoteMilestoneLimit {
 
 		if (type == Type.COOLDOWN) {
 			String durRaw = sec.getString("Duration", "");
-			ParsedDuration pd = parseDurationFlexible(durRaw);
 
-			// Allow alternate numeric key if you want later:
-			// if no duration provided but CooldownMinutes exists, etc.
+			// Old behavior: number-only means MINUTES
+			ParsedDuration pd = ParsedDuration.parse(durRaw, Unit.MINUTES);
+
+			// Optional legacy support:
+			// if no duration provided but Minutes exists
 			if (pd.isEmpty()) {
 				long minutes = sec.getLong("Minutes", 0L);
 				if (minutes > 0) {
@@ -79,7 +79,7 @@ public final class VoteMilestoneLimit {
 				return none(); // cooldown with no duration => treat as NONE
 			}
 
-			return new VoteMilestoneLimit(Type.COOLDOWN, pd.millis, pd.months);
+			return new VoteMilestoneLimit(Type.COOLDOWN, pd.getMillis(), pd.getMonths());
 		}
 
 		// window types or none
@@ -113,93 +113,6 @@ public final class VoteMilestoneLimit {
 			return Type.valueOf(v);
 		} catch (Exception ignored) {
 			return Type.NONE;
-		}
-	}
-
-	private static final class ParsedDuration {
-		final long millis;
-		final int months;
-
-		ParsedDuration(long millis, int months) {
-			this.millis = millis;
-			this.months = months;
-		}
-
-		boolean isEmpty() {
-			return millis <= 0 && months <= 0;
-		}
-	}
-
-	/**
-	 * Parses a duration like: 30m, 12h, 1d, 2w, 1mo, 5000ms, 60s.
-	 *
-	 * If raw is just a number, it's interpreted as MINUTES.
-	 */
-	private static ParsedDuration parseDurationFlexible(String raw) {
-		if (raw == null)
-			return new ParsedDuration(0L, 0);
-
-		String s = raw.trim().toLowerCase();
-		if (s.isEmpty())
-			return new ParsedDuration(0L, 0);
-
-		// ISO-8601 duration support as a bonus: PT30M, PT12H, P1D, etc.
-		// (Months in ISO are "P1M" which is ambiguous vs minutes. We'll not parse that here.)
-		if (s.startsWith("p")) {
-			try {
-				Duration d = Duration.parse(s.toUpperCase());
-				return new ParsedDuration(Math.max(0L, d.toMillis()), 0);
-			} catch (Exception ignored) {
-			}
-		}
-
-		// number-only => minutes
-		if (s.matches("^[0-9]+$")) {
-			long minutes = safeParseLong(s);
-			return new ParsedDuration(minutes * 60_000L, 0);
-		}
-
-		// months: "1mo"
-		if (s.endsWith("mo")) {
-			String n = s.substring(0, s.length() - 2).trim();
-			int months = (int) Math.max(0, safeParseLong(n));
-			return new ParsedDuration(0L, months);
-		}
-
-		// ms: "5000ms"
-		if (s.endsWith("ms")) {
-			String n = s.substring(0, s.length() - 2).trim();
-			long ms = Math.max(0L, safeParseLong(n));
-			return new ParsedDuration(ms, 0);
-		}
-
-		// single-unit suffix
-		char unit = s.charAt(s.length() - 1);
-		String n = s.substring(0, s.length() - 1).trim();
-		long val = Math.max(0L, safeParseLong(n));
-
-		switch (unit) {
-		case 's':
-			return new ParsedDuration(val * 1000L, 0);
-		case 'm':
-			return new ParsedDuration(val * 60_000L, 0);
-		case 'h':
-			return new ParsedDuration(val * 3_600_000L, 0);
-		case 'd':
-			return new ParsedDuration(val * 86_400_000L, 0);
-		case 'w':
-			return new ParsedDuration(val * 604_800_000L, 0);
-		default:
-			// unknown => treat as minutes (safe fallback)
-			return new ParsedDuration(val * 60_000L, 0);
-		}
-	}
-
-	private static long safeParseLong(String s) {
-		try {
-			return Long.parseLong(s);
-		} catch (Exception e) {
-			return 0L;
 		}
 	}
 
