@@ -40,7 +40,6 @@ public class VoteSiteTest {
 
 		Config dummyConfigFile = mock(Config.class);
 		when(dummyConfigFile.isFormatCommandsVoteForceLinks()).thenReturn(true);
-		when(dummyConfigFile.getFormatBroadCastMsg()).thenReturn("Broadcast: {player} voted on {sitename}");
 
 		ServerData dummyServerData = mock(ServerData.class);
 		when(dummyServerData.getServiceSites())

@@ -98,7 +98,8 @@ public class PlayerVoteListener implements Listener {
 		VoteSite voteSite = event.getVoteSite();
 
 		if (voteSite == null) {
-			voteSite = plugin.getVoteSiteManager().getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, event.getServiceSite()), true);
+			voteSite = plugin.getVoteSiteManager()
+					.getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, event.getServiceSite()), true);
 		}
 
 		// check valid service sites
@@ -166,17 +167,18 @@ public class PlayerVoteListener implements Listener {
 		plugin.getVoteParty().vote(user, event.isRealVote(), event.isForceBungee());
 
 		if (event.isBroadcast() && !plugin.getBungeeSettings().isDisableBroadcast()) {
-			// broadcast vote if enabled in config
-			if (plugin.getConfigFile().isBroadcastVotesEnabled()
-					&& (plugin.getBungeeSettings().isBungeeBroadcast() || !event.isBungee())) {
-				if (!plugin.getConfigFile().isFormatBroadcastWhenOnline() || user.isOnline()) {
-					voteSite.broadcastVote(user);
+			if (plugin.getBroadcastHandler() != null) {
+				boolean online = user.isOnline();
+				if (event.isBungee()) {
+					online = event.isWasOnline();
+				}
+				if (!user.isVanished()) {
+					plugin.getBroadcastHandler().broadcastVote(user.getJavaUUID(), playerName,
+							voteSite.getDisplayName(), online);
+				} else {
+					plugin.debug("Not broadcasting vote for vanished user: " + user.getPlayerName());
 				}
 			}
-		}
-
-		if (plugin.getBroadcastHandler() != null) {
-			plugin.getBroadcastHandler().onVote(playerName);
 		}
 
 		long voteTime = 0;
@@ -207,7 +209,7 @@ public class PlayerVoteListener implements Listener {
 			if (event.isBungee()) {
 				online = event.isWasOnline();
 			}
-			user.playerVote(voteSite, online, false, event.isForceBungee());
+			user.playerVote(voteSite, online, event.isForceBungee());
 			if (event.getVoteNumber() == 1) {
 				user.sendVoteEffects(online);
 			}

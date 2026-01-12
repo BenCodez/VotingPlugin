@@ -59,6 +59,7 @@ import com.bencodez.simpleapi.skull.SkullCache;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigSpigot;
 import com.bencodez.simpleapi.updater.Updater;
 import com.bencodez.votingplugin.broadcast.BroadcastHandler;
+import com.bencodez.votingplugin.broadcast.BroadcastSettings;
 import com.bencodez.votingplugin.commands.CommandLoader;
 import com.bencodez.votingplugin.commands.executers.CommandAdminVote;
 import com.bencodez.votingplugin.commands.executers.CommandVote;
@@ -1109,6 +1110,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		registerCommands();
 		checkVotifier();
 		registerEvents();
+
+		loadVoteBroadcast();
+
 		loadDirectlyDefined();
 		checkUpdate = new CheckUpdate(this);
 		checkUpdate.startUp();
@@ -1295,11 +1299,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			});
 		}
 
-		if (plugin.getConfigFile().isFormatAlternateBroadcastEnabled()) {
-			broadcastHandler = new BroadcastHandler(plugin, plugin.getConfigFile().getFormatAlternateBroadcastDelay());
-			plugin.debug("Using alternate broadcast method");
-		}
-
 		plugin.getLogger().info("Enabled VotingPlugin " + plugin.getDescription().getVersion());
 		if (plugin.getDescription().getVersion().contains("SNAPSHOT")) {
 			plugin.getLogger().info(
@@ -1350,6 +1349,57 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}, 10);
 		}
 
+	}
+
+	private void migrateVoteBroadcast(Config configFile) {
+		ConfigurationSection cfg = configFile.getData();
+		// If new section exists, do nothing
+		if (cfg.isConfigurationSection("VoteBroadcast")) {
+			return;
+		}
+
+		// Create VoteBroadcast section
+		org.bukkit.configuration.ConfigurationSection vb = cfg.createSection("VoteBroadcast");
+
+		// Detect old AlternateBroadcast
+		boolean altEnabled = cfg.getBoolean("Format.AlternateBroadcast.Enabled", false);
+		int altDelay = cfg.getInt("Format.AlternateBroadcast.Delay", 30);
+		String altMsg = cfg.getString("Format.AlternateBroadcast.Broadcast",
+				"&6[Vote] &a%numberofplayers% voted recently! /vote");
+
+		// Old single vote message
+		String oldBroadcastMsg = cfg.getString("Format.BroadcastMsg",
+				"&6[Vote] &aThanks &e%player% &afor voting on &e%SiteName%");
+
+		// Map old -> new
+		if (altEnabled) {
+			vb.set("Type", "INTERVAL_SUMMARY_GLOBAL");
+			vb.set("Duration", altDelay + "m");
+			vb.set("MaxSitesListed", 0);
+
+			org.bukkit.configuration.ConfigurationSection fmt = vb.createSection("Format");
+
+			// Header uses the old interval broadcast line (make it clearer + include new
+			// placeholders)
+			fmt.set("Header", altMsg.replace("%numberofplayers%", "%numberofplayers%").replace("%players%", "%players%")
+					.replace("%numberofsites%", "%numberofsites%").replace("%sites%", "%sites%"));
+
+			// Default: list entries like "Player (N)" (the handler feeds that as item text)
+			fmt.set("ListLine", "&7 - &6%site%");
+			fmt.set("BroadcastMsg", "&6[Vote] &aThanks &e%player% &afor voting on &e%site%&a!");
+
+		} else {
+			vb.set("Type", "EVERY_VOTE");
+			vb.set("Duration", "2m");
+			vb.set("MaxSitesListed", 0);
+
+			org.bukkit.configuration.ConfigurationSection fmt = vb.createSection("Format");
+			fmt.set("BroadcastMsg", oldBroadcastMsg.replace("%SiteName%", "%site%")); // convert placeholder name
+			fmt.set("Header", "&6[Vote] &aThanks &e%player% &afor voting on &e%sites_count% &asites:");
+			fmt.set("ListLine", "&7 - &e%site%");
+		}
+		plugin.getLogger().info("Migrated vote broadcast settings to new format.");
+		configFile.saveData();
 	}
 
 	/*
@@ -1539,10 +1589,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 		checkYMLError();
 
-		if (broadcastHandler != null) {
-			broadcastHandler.schedule(getConfigFile().getFormatAlternateBroadcastDelay());
-		}
-
 		plugin.loadVoteSites();
 
 		getOptions().setServer(bungeeSettings.getServer());
@@ -1556,9 +1602,24 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		getVoteStreakHandler().reload();
 
+		loadVoteBroadcast();
+
 		loadDirectlyDefined();
 
 		setUpdate(true);
+	}
+
+	private void loadVoteBroadcast() {
+		ConfigurationSection sec = getConfigFile().getData().getConfigurationSection("VoteBroadcast");
+		BroadcastSettings settings = BroadcastSettings.load(sec);
+
+		if (broadcastHandler == null) {
+			// Backend servers only: create once
+			broadcastHandler = new BroadcastHandler(this, settings, ZoneId.systemDefault());
+		} else {
+			// Reload-safe: just update settings + reschedule interval if needed
+			broadcastHandler.setSettings(settings);
+		}
 	}
 
 	private void setupFiles() {
@@ -1566,6 +1627,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		configFile.setup();
 		configFile.setIgnoreCase(plugin.getConfigFile().isCaseInsensitiveYMLFiles());
 		configFile.reloadData();
+
+		migrateVoteBroadcast(configFile);
 
 		configVoteSites = new ConfigVoteSites(this);
 		configVoteSites.setup();

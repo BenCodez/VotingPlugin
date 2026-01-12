@@ -246,6 +246,95 @@ VoteReminding:
     ActionBar:
       Message: '&cRemember to vote'
       Delay: 30
+      
+###########################################
+# Vote Broadcast (NEW)
+# Controls how vote broadcasts are handled
+###########################################
+#
+# Type options (WHEN to broadcast):
+# - NONE
+#     Disables vote broadcasts entirely.
+#
+# - EVERY_VOTE
+#     Broadcast every vote (includes offline votes if your server processes them).
+#     Uses Format.BroadcastMsg.
+#
+# - EVERY_VOTE_ONLINE_ONLY
+#     Broadcast every vote ONLY if the VOTING player is currently online.
+#     (Still broadcasts to eligible online viewers.)
+#     Uses Format.BroadcastMsg.
+#
+# - COOLDOWN_PER_PLAYER
+#     Broadcast at most once per Duration per player (prevents spam).
+#     Uses Format.BroadcastMsg.
+#
+# - BATCH_WINDOW_PER_PLAYER
+#     Collect votes for a player for Duration, then broadcast once with a list.
+#     Uses Format.Header + Format.ListLine (or BroadcastMsg if only one site).
+#
+# - FIRST_VOTE_OF_DAY
+#     Broadcast only the first vote of the day per player (calendar day).
+#     Uses Format.BroadcastMsg.
+#
+# - INTERVAL_SUMMARY_GLOBAL
+#     Every Duration, broadcast a global summary of who voted during that interval.
+#     Uses Format.Header + Format.ListLine.
+#
+# Duration:
+# - Used by COOLDOWN_PER_PLAYER, BATCH_WINDOW_PER_PLAYER, INTERVAL_SUMMARY_GLOBAL
+# - Examples: 30s, 2m, 10m, 1h, 1d, 1w
+# - NOTE: No months. (No "mo" support)
+#
+# MaxSitesListed:
+# - If > 0, limits how many sites/items are listed in multi-line formats.
+# - 0 = unlimited.
+#
+# Format (WHAT to print):
+# - BroadcastMsg: used when there is EXACTLY ONE item (single vote OR single-item batch)
+# - Header: used ONCE when there are MULTIPLE items (batch/interval)
+# - ListLine: used ONCE PER ITEM when there are MULTIPLE items
+#
+# Common placeholders:
+# - %player%      : player name (or "Server" for interval summaries)
+# - %site%        : the site/item for this line
+# - %sites_count% : number of items in this message (after MaxSitesListed is applied)
+# - %sites%       : csv list of items (after MaxSitesListed is applied)
+# - %reason%      : internal reason ("vote", "vote_online_only", "cooldown", "batch", "interval", "first_day")
+#
+# Interval summary extra placeholders (only meaningful for INTERVAL_SUMMARY_GLOBAL):
+# - %players% / %numberofplayers%   : who voted during the interval + count
+# - %sites%   / %numberofsites%     : unique sites voted on during the interval + count
+#
+VoteBroadcast:
+  Type: EVERY_VOTE
+  Duration: 2m
+  MaxSitesListed: 0
+  Format:
+    # Used for:
+    # - EVERY_VOTE
+    # - EVERY_VOTE_ONLINE_ONLY
+    # - COOLDOWN_PER_PLAYER
+    # - FIRST_VOTE_OF_DAY
+    # Also used for BATCH_WINDOW_PER_PLAYER if only 1 site exists in the batch.
+    BroadcastMsg: '&6[&4Vote&6] &aThanks &e%player% &afor voting on &e%site%&a!'
+
+    # Used for:
+    # - BATCH_WINDOW_PER_PLAYER (when the batch contains 2+ sites)
+    # - INTERVAL_SUMMARY_GLOBAL (every interval)
+    #
+    # Tip: For interval summaries, %player% will be "Server".
+    # Use %numberofplayers%/%players% if you want a player-focused header.
+    Header: '&6[&4Vote&6] &a%player% voted on &e%sites_count% &asites:'
+
+    # Used once per item for:
+    # - BATCH_WINDOW_PER_PLAYER
+    # - INTERVAL_SUMMARY_GLOBAL
+    #
+    # For INTERVAL_SUMMARY_GLOBAL, the "items" are entries like "PlayerName (N)" by default.
+    ListLine: '&7 - &e%site%'
+
+
 
 ###########################################
 # Vote Logging

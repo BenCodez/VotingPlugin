@@ -279,10 +279,6 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean autoCreateVoteSites = true;
 
-	@ConfigDataBoolean(path = "Format.BroadcastVote")
-	@Getter
-	private boolean broadcastVotesEnabled = true;
-
 	@ConfigDataBoolean(path = "CountFakeVotes")
 	@Getter
 	private boolean countFakeVotes = true;
@@ -334,26 +330,6 @@ public class Config extends YMLFile {
 	@ConfigDataBoolean(path = "ExtraBackgroundUpdate")
 	@Getter
 	private boolean extraBackgroundUpdate = false;
-
-	@ConfigDataString(path = "Format.AlternateBroadcast.Broadcast")
-	@Getter
-	private String formatAlternateBroadcastBroadcast = "&6[&4Broadcast&6] &2%numberofplayers% voted in the last half hour! /vote";
-
-	@ConfigDataInt(path = "Format.AlternateBroadcast.Delay")
-	@Getter
-	private int formatAlternateBroadcastDelay = 30;
-
-	@ConfigDataBoolean(path = "Format.AlternateBroadcast.Enabled")
-	@Getter
-	private boolean formatAlternateBroadcastEnabled = false;
-
-	@ConfigDataBoolean(path = "Format.OnlyOneOfflineBroadcast")
-	@Getter
-	private boolean formatOnlyOneOfflineBroadcast = false;
-
-	@ConfigDataString(path = "Format.OfflineBroadcast")
-	@Getter
-	private String formatOfflineBroadcast = "&6[&4Broadcast&6] &2Thanks &c%player% &2for voting on %numberofvotes% times!";
 
 	@ConfigDataBoolean(path = "Format.Commands.Vote.ForceLinks")
 	@Getter
@@ -518,14 +494,6 @@ public class Config extends YMLFile {
 	@ConfigDataKeys(path = "CustomPlaceholderReturns")
 	@Getter
 	private Set<String> customPlaceholderReturns = new HashSet<>();
-
-	@ConfigDataString(path = "Format.BroadcastMsg")
-	@Getter
-	private String formatBroadCastMsg = "&6[&4Broadcast&6] &2Thanks &c%player% &2for voting on %SiteName%";
-
-	@ConfigDataBoolean(path = "Format.BroadcastWhenOnline")
-	@Getter
-	private boolean formatBroadcastWhenOnline = false;
 
 	@ConfigDataBoolean(path = "Format.Commands.Vote.AutoInputSites")
 	@Getter

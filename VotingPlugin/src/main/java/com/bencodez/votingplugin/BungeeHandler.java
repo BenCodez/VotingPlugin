@@ -293,21 +293,14 @@ public class BungeeHandler implements Listener {
 						if (!plugin.getBungeeSettings().isBungeeBroadcast()
 								&& !plugin.getBungeeSettings().isDisableBroadcast()) {
 							if (wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
-								if (plugin.getConfigFile().isFormatOnlyOneOfflineBroadcast() && !wasOnline) {
-									if (num == 1) {
-										user.offlineBroadcast(user, plugin.getBungeeSettings().isUseBungeecoord(),
-												numberOfVotes);
-									}
+								VoteSite site = plugin.getVoteSiteManager().getVoteSite(service, true);
+								if (site != null) {
+									plugin.getBroadcastHandler().broadcastVote(user.getJavaUUID(), user.getPlayerName(),
+											site.getDisplayName(), false);
+									broadcast = false;
 								} else {
-									VoteSite site = plugin.getVoteSiteManager().getVoteSite(service, true);
-									if (site != null) {
-										site.broadcastVote(user, false);
-										broadcast = false;
-									} else {
-										plugin.getLogger().warning("No votesite for " + service);
-									}
+									plugin.getLogger().warning("No votesite for " + service);
 								}
-
 							}
 						}
 					} else {
@@ -380,21 +373,14 @@ public class BungeeHandler implements Listener {
 						if (!plugin.getBungeeSettings().isBungeeBroadcast()
 								&& !plugin.getBungeeSettings().isDisableBroadcast()) {
 							if (wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
-								if (plugin.getConfigFile().isFormatOnlyOneOfflineBroadcast() && !wasOnline) {
-									if (num == 1) {
-										user.offlineBroadcast(user, plugin.getBungeeSettings().isUseBungeecoord(),
-												numberOfVotes);
-									}
+								VoteSite site = plugin.getVoteSiteManager().getVoteSite(service, true);
+								if (site != null) {
+									plugin.getBroadcastHandler().broadcastVote(user.getJavaUUID(), user.getPlayerName(),
+											site.getDisplayName(), false);
+									broadcast = false;
 								} else {
-									VoteSite site = plugin.getVoteSiteManager().getVoteSite(service, true);
-									if (site != null) {
-										site.broadcastVote(user, false);
-										broadcast = false;
-									} else {
-										plugin.getLogger().warning("No votesite for " + service);
-									}
+									plugin.getLogger().warning("No votesite for " + service);
 								}
-
 							}
 						}
 					} else {
@@ -473,7 +459,8 @@ public class BungeeHandler implements Listener {
 							.getVotingPluginUser(UUID.fromString(uuid), args.get(1));
 					VoteSite site = plugin.getVoteSiteManager().getVoteSite(service, true);
 					if (site != null) {
-						site.broadcastVote(user, false);
+						plugin.getBroadcastHandler().broadcastVote(user.getJavaUUID(), user.getPlayerName(),
+								site.getDisplayName(), false);
 					} else {
 						plugin.getLogger().warning("No votesite for " + service);
 					}
@@ -489,7 +476,7 @@ public class BungeeHandler implements Listener {
 					String votes = args.get(2);
 					VotingPluginUser user = plugin.getVotingPluginUserManager()
 							.getVotingPluginUser(UUID.fromString(uuid), args.get(1));
-					user.offlineBroadcast(user, false, Integer.parseInt(votes));
+					//user.offlineBroadcast(user, false, Integer.parseInt(votes));
 				}
 			}
 		});

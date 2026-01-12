@@ -34,7 +34,6 @@ import com.bencodez.votingplugin.events.PlayerSpecialRewardEvent;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.events.SpecialRewardType;
 import com.bencodez.votingplugin.proxy.BungeeMessageData;
-import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
 import com.bencodez.votingplugin.votesites.VoteSite;
@@ -1217,59 +1216,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	/**
-	 * Broadcasts an offline vote.
-	 *
-	 * @param user          the user
-	 * @param checkBungee   whether to check bungee
-	 * @param numberOfVotes the number of votes
-	 */
-	public void offlineBroadcast(VotingPluginUser user, boolean checkBungee, int numberOfVotes) {
-		if (plugin.getConfigFile().isFormatAlternateBroadcastEnabled()) {
-			return;
-		}
-		if (!user.isVanished()) {
-			String playerName = user.getPlayerName();
-			if (plugin.getConfigFile().getVotingBroadcastBlacklist().contains(playerName)) {
-				plugin.getLogger().info("Not broadcasting for " + playerName + ", in blacklist");
-				return;
-			}
-			if (checkBungee && plugin.getBungeeSettings().isBungeeBroadcast()
-					&& plugin.getBungeeSettings().isUseBungeecoord()) {
-				if (plugin.getBungeeHandler().getMethod().equals(BungeeMethod.SOCKETS)) {
-					plugin.getBungeeHandler().sendData("BroadcastOffline", "" + numberOfVotes, user.getPlayerName());
-				} else if (plugin.getBungeeHandler().getMethod().equals(BungeeMethod.MYSQL)
-						|| plugin.getBungeeHandler().getMethod().equals(BungeeMethod.PLUGINMESSAGING)) {
-					String uuid = user.getUUID();
-
-					if (Bukkit.getOnlinePlayers().size() > 0) {
-						plugin.getPluginMessaging().sendPluginMessage("VoteBroadcastOffline", uuid, "" + numberOfVotes);
-					}
-				}
-
-			} else {
-				String bc = MessageAPI.colorize(plugin.getConfigFile().getFormatOfflineBroadcast());
-				HashMap<String, String> placeholders = new HashMap<>();
-				placeholders.put("player", playerName);
-				placeholders.put("nickname",
-						(user.getPlayer() != null) ? user.getPlayer().getDisplayName() : user.getPlayerName());
-				placeholders.put("numberofvotes", "" + numberOfVotes);
-				bc = PlaceholderUtils.replacePlaceHolder(bc, placeholders);
-				bc = PlaceholderUtils.replacePlaceHolders(user.getOfflinePlayer(), bc);
-				ArrayList<Player> players = new ArrayList<>();
-				for (Player p : Bukkit.getOnlinePlayers()) {
-					if (!plugin.getVotingPluginUserManager().getVotingPluginUser(p).getDisableBroadcast()) {
-						players.add(p);
-					}
-				}
-
-				MiscUtils.getInstance().broadcast(bc, players);
-			}
-		} else {
-			plugin.debug(user.getPlayerName() + " is vanished, not broadcasting");
-		}
-	}
-
-	/**
 	 * Processes offline votes.
 	 */
 	public void offVote() {
@@ -1303,19 +1249,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		sendVoteEffects(false);
 		setOfflineVotes(new ArrayList<>());
 
-		boolean offlineBroadcastEnabled = plugin.getConfigFile().isFormatOnlyOneOfflineBroadcast();
-
-		// If broadcast is enabled, do it using the local vote count.
-		if (offlineBroadcastEnabled) {
-			offlineBroadcast(this, plugin.getBungeeSettings().isUseBungeecoord(), offlineVotes.size());
-		}
-
 		// Process each offline vote.
 		for (String voteSiteName : offlineVotes) {
 			if (plugin.getVoteSiteManager().hasVoteSite(voteSiteName)) {
 				plugin.debug("Giving offline site reward: " + voteSiteName);
-				playerVote(plugin.getVoteSiteManager().getVoteSite(voteSiteName, true), false, !offlineBroadcastEnabled,
-						false);
+				playerVote(plugin.getVoteSiteManager().getVoteSite(voteSiteName, true), false, false);
 			} else {
 				plugin.debug("Site doesn't exist: " + voteSiteName);
 			}
@@ -1330,11 +1268,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param broadcast whether to broadcast the vote
 	 * @param bungee    whether to use bungee
 	 */
-	public void playerVote(VoteSite voteSite, boolean online, boolean broadcast, boolean bungee) {
-		if (plugin.getConfigFile().isFormatBroadcastWhenOnline() && plugin.getConfigFile().isBroadcastVotesEnabled()
-				&& broadcast && !plugin.getBungeeSettings().isDisableBroadcast()) {
-			voteSite.broadcastVote(this);
-		}
+	public void playerVote(VoteSite voteSite, boolean online, boolean bungee) {
 		voteSite.giveRewards(this, online, bungee);
 	}
 

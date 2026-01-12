@@ -1,17 +1,11 @@
 package com.bencodez.votingplugin.votesites;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.entity.Player;
 
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
-import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.messages.MessageAPI;
@@ -89,63 +83,6 @@ public class VoteSite {
 		this.plugin = plugin;
 		key = siteName.replace(".", "_");
 		init();
-	}
-
-	public void broadcastVote(VotingPluginUser user) {
-		broadcastVote(user, true);
-	}
-
-	/**
-	 * Broadcast vote.
-	 *
-	 * @param user        the user
-	 * @param checkBungee check bungee broadcast
-	 */
-	public void broadcastVote(VotingPluginUser user, boolean checkBungee) {
-		if (plugin.getConfigFile().isFormatAlternateBroadcastEnabled()) {
-			return;
-		}
-		if (isHidden()) {
-			plugin.debug("Not broadcasting for " + user.getPlayerName() + ", site is hidden");
-			return;
-		}
-
-		if (!user.isVanished()) {
-			String playerName = user.getPlayerName();
-			if (plugin.getConfigFile().getVotingBroadcastBlacklist().contains(playerName)) {
-				plugin.getLogger().info("Not broadcasting for " + playerName + ", in blacklist");
-				return;
-			}
-			if (checkBungee && plugin.getBungeeSettings().isBungeeBroadcast()
-					&& plugin.getBungeeSettings().isUseBungeecoord()) {
-				String uuid = user.getUUID();
-				String service = getServiceSite();
-				plugin.getBungeeHandler().getGlobalMessageHandler().sendMessage("VoteBroadcast", uuid, service);
-
-			} else {
-				String bc = MessageAPI.colorize(plugin.getConfigFile().getFormatBroadCastMsg());
-				HashMap<String, String> placeholders = new HashMap<>();
-				placeholders.put("player", playerName);
-				placeholders.put("nickname",
-						(user.getPlayer() != null) ? user.getPlayer().getDisplayName() : user.getPlayerName());
-				placeholders.put("sitename", getDisplayName());
-				placeholders.put("servicesite", getServiceSite());
-				placeholders.put("votesrequired", "" + plugin.getVoteParty().getVotesRequired());
-				placeholders.put("neededvotes", "" + plugin.getVoteParty().getNeededVotes());
-				bc = PlaceholderUtils.replacePlaceHolder(bc, placeholders);
-				bc = PlaceholderUtils.replacePlaceHolders(user.getOfflinePlayer(), bc);
-				ArrayList<Player> players = new ArrayList<>();
-				for (Player p : Bukkit.getOnlinePlayers()) {
-					if (!plugin.getVotingPluginUserManager().getVotingPluginUser(p).getDisableBroadcast()) {
-						players.add(p);
-					}
-				}
-
-				MiscUtils.getInstance().broadcast(bc, players);
-			}
-		} else {
-			plugin.debug(user.getPlayerName() + " is vanished, not broadcasting");
-		}
 	}
 
 	/**
