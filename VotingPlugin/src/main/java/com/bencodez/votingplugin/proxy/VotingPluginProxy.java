@@ -989,6 +989,21 @@ public abstract class VotingPluginProxy {
 	public abstract void log(String message);
 
 	public void login(String playerName, String uuid, String serverName) {
+		// Offline-mode safety: always derive UUID from name using the proxy's UUID
+		// lookup
+		if (!getConfig().getOnlineMode()) {
+			uuid = getUUID(playerName);
+		}
+
+		// Canonicalize UUID string (lowercase dashed) to prevent cache/key splits
+		try {
+			if (uuid != null && !uuid.isEmpty() && !uuid.equalsIgnoreCase("null")) {
+				uuid = UUID.fromString(uuid.trim()).toString();
+			}
+		} catch (Exception ignored) {
+			// leave as-is; downstream may handle empty/invalid
+		}
+
 		if (getConfig().getOnlineMode()) { // no need to cache in offline mode
 			addNonVotedPlayer(uuid, playerName);
 		}
@@ -1374,6 +1389,13 @@ public abstract class VotingPluginProxy {
 				}
 			}
 
+			// Offline-mode safety: always derive UUID deterministically from the
+			// (normalized) player name
+			// This prevents duplicate UUIDs caused by name casing differences
+			if (!getConfig().getOnlineMode()) {
+				uuid = getUUID(player);
+			}
+
 			if (uuid == null || uuid.isEmpty()) {
 				uuid = getUUID(player);
 				if (uuid.isEmpty() && !getConfig().getBedrockPlayerPrefix().isEmpty()
@@ -1416,6 +1438,15 @@ public abstract class VotingPluginProxy {
 					return;
 				}
 				uuid = u.toString();
+			}
+
+			// Canonicalize UUID string (lowercase dashed) to prevent cache/key splits
+			try {
+				if (uuid != null && !uuid.isEmpty() && !uuid.equalsIgnoreCase("null")) {
+					uuid = UUID.fromString(uuid.trim()).toString();
+				}
+			} catch (Exception ignored) {
+				// handled below by uuid empty checks
 			}
 
 			player = getProperName(uuid, player);

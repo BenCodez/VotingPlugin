@@ -15,6 +15,7 @@ import java.util.HashSet;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
+import java.util.Locale;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -458,6 +459,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 					return "";
 				}
 
+				if (!config.getOnlineMode()) {
+					return UUID.nameUUIDFromBytes(("OfflinePlayer:" + playerName.toLowerCase(Locale.ROOT).trim())
+							.getBytes(StandardCharsets.UTF_8)).toString();
+				}
+
 				ProxiedPlayer p = getProxy().getPlayer(playerName);
 				if (p != null && p.isConnected()) {
 					playerName = p.getName();
@@ -469,11 +475,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						playerName = cachedName; // canonical case from cache
 						break;
 					}
-				}
-
-				if (!config.getOnlineMode()) {
-					return UUID.nameUUIDFromBytes(("OfflinePlayer:" + playerName).getBytes(StandardCharsets.UTF_8))
-							.toString();
 				}
 
 				if (p != null && p.isConnected()) {

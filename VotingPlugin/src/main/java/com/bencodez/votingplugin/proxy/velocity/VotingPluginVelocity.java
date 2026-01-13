@@ -20,6 +20,7 @@ import java.util.HashSet;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
+import java.util.Locale;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -550,6 +551,11 @@ public class VotingPluginVelocity {
 					return "";
 				}
 
+				if (!config.getOnlineMode()) {
+					return UUID.nameUUIDFromBytes(("OfflinePlayer:" + playerName.toLowerCase(Locale.ROOT).trim())
+							.getBytes(StandardCharsets.UTF_8)).toString();
+				}
+
 				// 1) Correct casing if player is currently connected (optional but nice)
 				if (server.getPlayer(playerName).isPresent()) {
 					Player p = server.getPlayer(playerName).get();
@@ -558,19 +564,12 @@ public class VotingPluginVelocity {
 					}
 				}
 
-				// 2) Correct casing using cache (uuid -> name) so OfflinePlayer:NAME matches
-				// historical casing
-				// This prevents OfflinePlayer:Se7seS vs OfflinePlayer:se7ses splitting UUIDs.
+				// 2) Correct casing using cache (uuid -> name)
 				for (Entry<UUID, String> entry : getVotingPluginProxy().getUuidPlayerNameCache().entrySet()) {
 					if (entry.getValue() != null && entry.getValue().equalsIgnoreCase(playerName)) {
 						playerName = entry.getValue(); // canonical case stored in cache
 						break;
 					}
-				}
-
-				if (!config.getOnlineMode()) {
-					return UUID.nameUUIDFromBytes(("OfflinePlayer:" + playerName).getBytes(StandardCharsets.UTF_8))
-							.toString();
 				}
 
 				if (server.getPlayer(playerName).isPresent()) {

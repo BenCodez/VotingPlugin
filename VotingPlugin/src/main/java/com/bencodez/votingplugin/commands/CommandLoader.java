@@ -5,7 +5,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.Set;
@@ -81,6 +83,8 @@ import com.bencodez.votingplugin.specialrewards.votemilestones.VoteMilestonesMan
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votesites.VoteSite;
+
+import lombok.var;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -1977,6 +1981,249 @@ public class CommandLoader {
 
 					}
 				});
+
+		// /av MergeOfflineUUIDs [true/false]
+		// - false (default) = dry run (prints what would change)
+		// - true = perform fixes + merges
+		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "MergeOfflineUUIDs", "(Boolean)" },
+				"VotingPlugin.Commands.AdminVote.MergeOfflineUUIDs|" + adminPerm,
+				"Offline-mode data repair: fixes incorrect UUIDs for names, merges duplicates, and normalizes PlayerName casing. Use /av MergeOfflineUUIDs true to apply.",
+				true, true) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				boolean apply = args.length > 1 && args[1] != null && args[1].equalsIgnoreCase("true");
+
+				if (plugin.getOptions().isOnlineMode()) {
+					sendMessage(sender,
+							"&cServer is in online-mode. This command is intended for offline-mode UUID repairs.");
+					return;
+				}
+
+				ArrayList<String> allUuids = plugin.getUserManager().getAllUUIDs();
+
+				int scanned = 0;
+				int invalidUuidStrings = 0;
+
+				int rowsNeedingMove = 0; // uuid doesn't match expected offline uuid for name
+				int duplicateGroups = 0; // multiple uuids for the same normalized name
+				int rowsRemoved = 0; // rows deleted
+				int canonicalEnsured = 0; // canonical rows created/ensured
+				int groupsApplied = 0; // groups repaired
+
+				// normName -> list of uuids (as strings) that claim to be that player
+				Map<String, List<String>> byNormName = new HashMap<>();
+
+				for (String uuid : allUuids) {
+					if (uuid == null) {
+						continue;
+					}
+					uuid = uuid.trim();
+					if (uuid.isEmpty()) {
+						continue;
+					}
+					scanned++;
+
+					UUID parsed;
+					try {
+						parsed = UUID.fromString(uuid);
+					} catch (Exception e) {
+						invalidUuidStrings++;
+						continue;
+					}
+
+					// Load user and read PlayerName
+					var user = plugin.getUserManager().getUser(parsed);
+					if (user == null) {
+						continue;
+					}
+
+					user.userDataFetechMode(com.bencodez.advancedcore.api.user.UserDataFetchMode.NO_CACHE);
+
+					String name = user.getData().getString("PlayerName",
+							com.bencodez.advancedcore.api.user.UserDataFetchMode.NO_CACHE);
+					if (name == null) {
+						name = "";
+					}
+					name = name.trim();
+					if (name.isEmpty()) {
+						continue;
+					}
+
+					String norm = name.toLowerCase(java.util.Locale.ROOT);
+
+					byNormName.computeIfAbsent(norm, k -> new ArrayList<>()).add(uuid);
+				}
+
+				// Helpers
+				java.util.function.Function<String, String> offlineUuidForNormName = (normName) -> java.util.UUID
+						.nameUUIDFromBytes(
+								("OfflinePlayer:" + normName).getBytes(java.nio.charset.StandardCharsets.UTF_8))
+						.toString();
+
+				java.util.function.Function<String, Integer> getIntSafe = (s) -> {
+					try {
+						return Integer.parseInt(s);
+					} catch (Exception e) {
+						return 0;
+					}
+				};
+
+				for (Map.Entry<String, List<String>> entry : byNormName.entrySet()) {
+					String normName = entry.getKey();
+					List<String> uuids = entry.getValue();
+					if (uuids == null || uuids.isEmpty()) {
+						continue;
+					}
+
+					String canonicalUuid = offlineUuidForNormName.apply(normName);
+
+					// Count groups with dupes (for reporting)
+					if (uuids.size() > 1) {
+						duplicateGroups++;
+					}
+
+					// Determine if any uuid in this name-group is NOT the canonical uuid
+					boolean needsFix = false;
+					for (String u : uuids) {
+						if (!u.equalsIgnoreCase(canonicalUuid)) {
+							needsFix = true;
+							break;
+						}
+					}
+
+					if (!needsFix) {
+						// Still optionally normalize PlayerName casing to match normName (optional)
+						// but we won't touch anything if dry run and no changes needed.
+						continue;
+					}
+
+					// This group has either duplicates or "wrong uuid for name"
+					rowsNeedingMove += (int) uuids.stream().filter(u -> !u.equalsIgnoreCase(canonicalUuid)).count();
+
+					if (!apply) {
+						sendMessage(sender, "&e[DRY] &7Repair for &f" + normName + "&7 -> canonical &a" + canonicalUuid
+								+ "&7, found &f" + uuids.size() + "&7 rows: &f" + uuids);
+						continue;
+					}
+
+					try {
+						// Ensure canonical user exists/loaded
+						var canonicalUser = plugin.getUserManager().getUser(UUID.fromString(canonicalUuid));
+						canonicalUser.userDataFetechMode(com.bencodez.advancedcore.api.user.UserDataFetchMode.NO_CACHE);
+						canonicalEnsured++;
+
+						// Merge accumulators
+						int allTime = 0, month = 0, week = 0, day = 0, points = 0;
+						Map<String, Long> lastVotes = new HashMap<>();
+
+						// Merge ALL rows in this group into canonical (including canonical if present)
+						for (String u : uuids) {
+							UUID uid;
+							try {
+								uid = UUID.fromString(u);
+							} catch (Exception e) {
+								continue;
+							}
+
+							var fromUser = plugin.getUserManager().getUser(uid);
+							if (fromUser == null) {
+								continue;
+							}
+							fromUser.userDataFetechMode(com.bencodez.advancedcore.api.user.UserDataFetchMode.NO_CACHE);
+
+							allTime += fromUser.getData().getInt("AllTimeTotal",
+									com.bencodez.advancedcore.api.user.UserDataFetchMode.NO_CACHE);
+							month += fromUser.getData().getInt("MonthTotal",
+									com.bencodez.advancedcore.api.user.UserDataFetchMode.NO_CACHE);
+							week += fromUser.getData().getInt("WeeklyTotal",
+									com.bencodez.advancedcore.api.user.UserDataFetchMode.NO_CACHE);
+							day += fromUser.getData().getInt("DailyTotal",
+									com.bencodez.advancedcore.api.user.UserDataFetchMode.NO_CACHE);
+							points += fromUser.getData().getInt("Points",
+									com.bencodez.advancedcore.api.user.UserDataFetchMode.NO_CACHE);
+
+							String lv = fromUser.getData().getString("LastVotes",
+									com.bencodez.advancedcore.api.user.UserDataFetchMode.NO_CACHE);
+							if (lv != null && !lv.trim().isEmpty()) {
+								for (String line : lv.split(java.util.regex.Pattern.quote("%line%"))) {
+									String[] parts = line.split(java.util.regex.Pattern.quote("//"));
+									if (parts.length != 2) {
+										continue;
+									}
+									String site = parts[0];
+									long t;
+									try {
+										t = Long.parseLong(parts[1]);
+									} catch (Exception ex) {
+										continue;
+									}
+									lastVotes.merge(site, t, Math::max);
+								}
+							}
+						}
+
+						// Write merged values into canonical
+						canonicalUser.getData().setInt("AllTimeTotal", allTime);
+						canonicalUser.getData().setInt("MonthTotal", month);
+						canonicalUser.getData().setInt("WeeklyTotal", week);
+						canonicalUser.getData().setInt("DailyTotal", day);
+						canonicalUser.getData().setInt("Points", points);
+
+						// Rebuild LastVotes string
+						if (!lastVotes.isEmpty()) {
+							StringBuilder sb = new StringBuilder();
+							boolean first = true;
+							for (Map.Entry<String, Long> lv : lastVotes.entrySet()) {
+								if (!first) {
+									sb.append("%line%");
+								}
+								first = false;
+								sb.append(lv.getKey()).append("//").append(lv.getValue());
+							}
+							canonicalUser.getData().setString("LastVotes", sb.toString());
+						} else {
+							// optional: clear if none
+							// canonicalUser.getData().setString("LastVotes", "");
+						}
+
+						// Normalize stored PlayerName (your choice):
+						// - If you want to preserve "nice" casing, you could pick a representative name
+						// instead.
+						// - For strict consistency, store lowercased (normName) so future comparisons
+						// are stable.
+						canonicalUser.getData().setString("PlayerName", normName);
+
+						// Delete ALL non-canonical UUID rows for this normName
+						for (String u : uuids) {
+							if (u.equalsIgnoreCase(canonicalUuid)) {
+								continue;
+							}
+							try {
+								plugin.getUserManager().removeUUID(UUID.fromString(u));
+								rowsRemoved++;
+							} catch (Exception e) {
+								plugin.debug(e);
+							}
+						}
+
+						groupsApplied++;
+						sendMessage(sender, "&aRepaired &f" + normName + " &a-> &f" + canonicalUuid + " &a(merged "
+								+ uuids.size() + " rows, removed " + (uuids.size() - 1) + ")");
+
+					} catch (Exception e) {
+						sendMessage(sender, "&cFailed repairing group for &f" + normName + "&c: " + e.getMessage());
+						plugin.debug(e);
+					}
+				}
+
+				sendMessage(sender,
+						"&7Scanned: &f" + scanned + " &7InvalidUUIDStrings: &f" + invalidUuidStrings
+								+ " &7GroupsWithDupes: &f" + duplicateGroups + " &7RowsNeedingMove: &f"
+								+ rowsNeedingMove + " &7CanonicalEnsured: &f" + canonicalEnsured + " &7RowsRemoved: &f"
+								+ rowsRemoved + " &7GroupsApplied: &f" + groupsApplied + (apply ? "" : " &e(DRY RUN)"));
+			}
+		});
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(plugin, new String[] { "MergeDataFrom", "(UserStorage)" },
