@@ -216,13 +216,6 @@ public class VotingPluginMetrics {
 				return "" + plugin.getOptions().isDisableCheckOnWorldChange();
 			}
 		}));
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("votereminding_enabled", new Callable<String>() {
-
-			@Override
-			public String call() throws Exception {
-				return "" + plugin.getConfigFile().isVoteRemindingEnabled();
-			}
-		}));
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("LoadTopVoter_Monthly", new Callable<String>() {
 
 			@Override

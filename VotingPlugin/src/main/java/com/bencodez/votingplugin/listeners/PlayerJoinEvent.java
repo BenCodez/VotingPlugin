@@ -60,14 +60,11 @@ public class PlayerJoinEvent implements Listener {
 			return;
 		}
 
-		Player player = user.getPlayer();
+		Player player = event.getPlayer();
 
 		if (player != null && player.isOp() && plugin.isYmlError()) {
 			user.sendMessage("&cVotingPlugin: Detected yml error, please check console for details");
 		}
-
-		// run remind
-		user.loginMessage();
 
 		if (hasData) {
 			// give offline vote (if they voted offline)

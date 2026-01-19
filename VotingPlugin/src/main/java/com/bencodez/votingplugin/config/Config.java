@@ -721,22 +721,6 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean topVoterIgnorePermission = false;
 
-	@ConfigDataBoolean(path = "VoteReminding.Enabled")
-	@Getter
-	private boolean voteRemindingEnabled = true;
-
-	@ConfigDataInt(path = "VoteReminding.RemindDelay")
-	@Getter
-	private int voteRemindingRemindDelay = 30;
-
-	@ConfigDataBoolean(path = "VoteReminding.RemindOnLogin")
-	@Getter
-	private boolean voteRemindingRemindOnLogin = false;
-
-	@ConfigDataBoolean(path = "VoteReminding.RemindOnlyOnce")
-	@Getter
-	private boolean voteRemindingRemindOnlyOnce = false;
-
 	@ConfigDataString(path = "VoteTopDefault")
 	@Getter
 	private String voteTopDefault = "Monthly";
@@ -861,15 +845,6 @@ public class Config extends YMLFile {
 
 	public PlaceholderCacheLevel getPlaceholderCacheLevel() {
 		return PlaceholderCacheLevel.getCache(getPlaceholderCacheLevelString());
-	}
-
-	/**
-	 * Gets the rewards.
-	 *
-	 * @return the rewards
-	 */
-	public String getVoteRemindingRewardsPath() {
-		return "VoteReminding.Rewards";
 	}
 
 	@Override

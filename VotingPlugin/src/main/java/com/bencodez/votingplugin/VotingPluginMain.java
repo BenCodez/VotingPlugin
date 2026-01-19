@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin;
 
+import java.io.File;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.URL;
@@ -105,7 +106,10 @@ import com.bencodez.votingplugin.votelog.listeners.PlayerPostVoteLoggerListener;
 import com.bencodez.votingplugin.votelog.listeners.PlayerSpecialRewardLoggerListener;
 import com.bencodez.votingplugin.votelog.listeners.VoteMilestoneVoteLogListener;
 import com.bencodez.votingplugin.votelog.listeners.VoteShopPurchaseLoggerListener;
-import com.bencodez.votingplugin.votereminding.VoteReminding;
+import com.bencodez.votingplugin.votereminding.VoteRemindersLegacyMigrator;
+import com.bencodez.votingplugin.votereminding.VoteRemindersListener;
+import com.bencodez.votingplugin.votereminding.VoteRemindersManager;
+import com.bencodez.votingplugin.votereminding.store.UserDataVoteReminderCooldownStore;
 import com.bencodez.votingplugin.votesites.VoteSite;
 import com.bencodez.votingplugin.votesites.VoteSiteManager;
 
@@ -221,7 +225,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private VoteParty voteParty;
 
 	@Getter
-	private VoteReminding voteReminding;
+	private VoteRemindersManager voteRemindersManager;
 
 	@Getter
 	private VoteSiteManager voteSiteManager;
@@ -518,7 +522,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 		});
 
-		addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteReminding.Rewards") {
+		addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteReminderOptions.Defaults.Rewards") {
 
 			@Override
 			public void createSection(String key) {
@@ -540,6 +544,35 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				getConfigFile().setValue(path, value);
 			}
 		});
+
+		ConfigurationSection sec = getConfigFile().getData().getConfigurationSection("VoteReminders");
+
+		if (sec != null) {
+			for (String key : sec.getKeys(false)) {
+				addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteReminders." + key + ".Rewards") {
+
+					@Override
+					public void createSection(String key) {
+						getConfigFile().saveData();
+					}
+
+					@Override
+					public ConfigurationSection getFileData() {
+						return getConfigFile().getData();
+					}
+
+					@Override
+					public void save() {
+						getConfigFile().saveData();
+					}
+
+					@Override
+					public void setData(String path, Object value) {
+						getConfigFile().setValue(path, value);
+					}
+				});
+			}
+		}
 
 		// vote cooldown ended
 		addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteCoolDownEndedReward") {
@@ -1082,6 +1115,13 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			getServerData().setShopConverted(true);
 		}
 
+		// vote reminder migration
+		VoteRemindersLegacyMigrator.migrateIfNeeded(this, new File(getDataFolder(), "Config.yml"),
+				getConfigFile().getData());
+
+		voteRemindersManager = new VoteRemindersManager(this, new UserDataVoteReminderCooldownStore(this));
+		voteRemindersManager.reload();
+
 		loadVersionFile();
 		getOptions().setServer(bungeeSettings.getServer());
 
@@ -1116,9 +1156,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		loadDirectlyDefined();
 		checkUpdate = new CheckUpdate(this);
 		checkUpdate.startUp();
-		voteReminding = new VoteReminding(this);
-		voteReminding.loadRemindChecking();
-		voteReminding.loadReminds();
 		specialRewards = new SpecialRewards(this);
 		signs = new Signs(this);
 
@@ -1469,6 +1506,17 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		if (timeQueueHandler != null) {
 			timeQueueHandler.save();
 		}
+
+		if (voteRemindersManager != null) {
+			voteRemindersManager.shutdown();
+			voteRemindersManager = null;
+		}
+
+		if (coolDownCheck != null) {
+			coolDownCheck.shutdown();
+			coolDownCheck = null;
+		}
+
 		getSigns().storeSigns();
 		HandlerList.unregisterAll(plugin);
 		plugin = null;
@@ -1527,6 +1575,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		pm.registerEvents(new VoteMilestoneVoteLogListener(this), this);
 		pm.registerEvents(new SignChange(this), this);
 		pm.registerEvents(new BlockBreak(this), this);
+
+		pm.registerEvents(new VoteRemindersListener(this), this);
+
 		if (!plugin.getConfigFile().isDisableInteractEvent()) {
 			pm.registerEvents(new PlayerInteract(this), this);
 		}
@@ -1597,7 +1648,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			placeholders.reload();
 		}
 
-		voteReminding.loadRemindChecking();
+		if (voteRemindersManager != null) {
+			voteRemindersManager.reload();
+		}
+
 		coolDownCheck.checkEnabled();
 
 		getVoteStreakHandler().reload();

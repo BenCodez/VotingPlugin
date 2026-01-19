@@ -71,6 +71,10 @@ public class UserManager {
 			manager.addKey(new UserDataKeyInt(getGottenAllSitesDayPath()));
 		}
 		manager.addKey(new UserDataKeyInt(getGottenAlmostAllSitesDayPath()));
+		
+		manager.addKey(new UserDataKeyString("VoteRemindersLast").setColumnType("BIGINT"));
+		
+		manager.addKey(new UserDataKeyString("VoteRemindersMap").setColumnType("LONGTEXT"));
 
 	}
 

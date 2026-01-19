@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
@@ -36,6 +37,7 @@ import com.bencodez.votingplugin.events.SpecialRewardType;
 import com.bencodez.votingplugin.proxy.BungeeMessageData;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
+import com.bencodez.votingplugin.votesites.NextSite;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
 /**
@@ -804,20 +806,61 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	/**
 	 * Gets the next time the first site is available for voting.
 	 *
-	 * @return the next time the first site is available for voting
+	 * @return seconds until first site is available, or 0 if none
 	 */
 	public long getNextTimeFirstSiteAvailable() {
-		long shortest = 0;
-		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
-			if (!canVoteSite(site)) {
-				long seconds = voteNextDurationTime(site);
-				if (shortest == 0 || seconds < shortest) {
-					shortest = seconds;
-				}
+		NextSite next = getNextSiteAvailable();
+		return next == null ? 0 : next.getSecondsUntilAvailable();
+	}
+
+	/**
+	 * Returns the next VoteSite that will become available, and how many seconds
+	 * until it is available.
+	 *
+	 * - Only considers enabled sites. - Skips hidden sites (matching
+	 * canVoteAll/canVoteAny intent for player-facing voting). - Only considers
+	 * sites the player CANNOT currently vote on (seconds > 0).
+	 *
+	 * @return NextSite or null if there is no upcoming site (i.e. can vote all, or
+	 *         no delays)
+	 */
+	public NextSite getNextSiteAvailable() {
+		List<VoteSite> sites = plugin.getVoteSiteManager().getVoteSitesEnabled();
+		if (sites == null || sites.isEmpty()) {
+			return null;
+		}
+
+		VoteSite bestSite = null;
+		long bestSeconds = 0;
+
+		for (int i = 0; i < sites.size(); i++) {
+			VoteSite site = sites.get(i);
+			if (site == null) {
+				continue;
+			}
+
+			// Match the same "don't care" sites as your other checks generally do
+			if (!site.isEnabled() || site.isHidden()) {
+				continue;
+			}
+
+			// If you can already vote, it isn't "next"
+			if (canVoteSite(site)) {
+				continue;
+			}
+
+			long seconds = voteNextDurationTime(site); // uses getTime(site) internally
+			if (seconds <= 0) {
+				continue;
+			}
+
+			if (bestSite == null || seconds < bestSeconds) {
+				bestSite = site;
+				bestSeconds = seconds;
 			}
 		}
 
-		return shortest;
+		return bestSite == null ? null : new NextSite(bestSite, bestSeconds);
 	}
 
 	/**
@@ -1150,30 +1193,12 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	/**
-	 * Checks if the user is reminded.
-	 *
-	 * @return true if the user is reminded, false otherwise
-	 */
-	public boolean isReminded() {
-		return getUserData().getBoolean("Reminded");
-	}
-
-	/**
 	 * Checks if the user is ignored for top voter.
 	 *
 	 * @return true if the user is ignored for top voter, false otherwise
 	 */
 	public boolean isTopVoterIgnore() {
 		return getUserData().getBoolean("TopVoterIgnore");
-	}
-
-	/**
-	 * Sends a login message to the user.
-	 */
-	public void loginMessage() {
-		if (plugin.getConfigFile().isVoteRemindingRemindOnLogin()) {
-			plugin.getVoteReminding().runRemindLogin(this);
-		}
 	}
 
 	/**
@@ -1573,15 +1598,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public void setPoints(int value, boolean async) {
 		getUserData().setInt(getPointsPath(), value, false, async);
-	}
-
-	/**
-	 * Sets whether the user is reminded.
-	 *
-	 * @param reminded true if the user is reminded, false otherwise
-	 */
-	public void setReminded(boolean reminded) {
-		getUserData().setString("Reminded", "" + reminded);
 	}
 
 	/**

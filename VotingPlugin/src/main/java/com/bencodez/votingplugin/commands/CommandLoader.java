@@ -2061,14 +2061,6 @@ public class CommandLoader {
 								("OfflinePlayer:" + normName).getBytes(java.nio.charset.StandardCharsets.UTF_8))
 						.toString();
 
-				java.util.function.Function<String, Integer> getIntSafe = (s) -> {
-					try {
-						return Integer.parseInt(s);
-					} catch (Exception e) {
-						return 0;
-					}
-				};
-
 				for (Map.Entry<String, List<String>> entry : byNormName.entrySet()) {
 					String normName = entry.getKey();
 					List<String> uuids = entry.getValue();
@@ -2667,29 +2659,6 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				new VoteHelp(plugin, sender, Integer.parseInt(args[1])).open();
-			}
-		});
-
-		plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "ToggleReminders" },
-				"VotingPlugin.Commands.Vote.ToggleReminders", "Enable/disable vote reminders", false) {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				Player p = (Player) sender;
-				boolean value = false;
-				if (plugin.getVoteReminding().getRemindersEnabled().containsKey(p.getUniqueId())) {
-					value = !plugin.getVoteReminding().getRemindersEnabled().get(p.getUniqueId());
-				}
-				plugin.getVoteReminding().getRemindersEnabled().put(p.getUniqueId(), value);
-				plugin.getPlaceholders().onUpdate(
-						plugin.getVotingPluginUserManager().getVotingPluginUser(p.getUniqueId(), p.getName()), true);
-				plugin.getVoteReminding().saveReminds();
-
-				if (value) {
-					sendMessage(sender, plugin.getConfigFile().getFormatCommandsVoteToggleRemindersEnabled());
-				} else {
-					sendMessage(sender, plugin.getConfigFile().getFormatCommandsVoteToggleRemindersDisabled());
-				}
 			}
 		});
 

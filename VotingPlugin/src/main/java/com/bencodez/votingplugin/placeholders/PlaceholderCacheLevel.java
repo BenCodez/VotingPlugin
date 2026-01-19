@@ -36,4 +36,11 @@ public enum PlaceholderCacheLevel {
 		}
 	}
 
+	public boolean isCacheAlways() {
+		if ((this == AUTOALL) || (this == SPECIFICALL)) {
+			return true;
+		}
+		return false;
+	}
+
 }

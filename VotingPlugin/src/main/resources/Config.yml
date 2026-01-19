@@ -203,49 +203,104 @@ PointsOnVote: 1
 CaseInsensitiveYMLFiles: true
 
 ###########################################
-# Vote Reminding
+# Vote Reminders (New System)
 # Reminds players when they are able to vote again
 ###########################################
 
-# Configuration for VoteReminding
-# By default this should be all set up to work
-# as long as vote delays are done properly in votesites.yml
-VoteReminding:
-  # Enable vote reminding
-  # This will remind player when they can vote on all sites
-  # Requires VoteDelays to be set up properly
-  # Use /vote next to see when you can be reminded
-  # Players require the perm "VotingPlugin.Login.RemindVotes" or "VotingPlugin.Player"
-  # To remind if all votesites are available (rather than any) use the permission "VotingPlugin.Login.RemindVotes.All"
+VoteReminderOptions:
   Enabled: true
+  StopAfterMatch: true
 
-  # Will remind player on login if they can vote
-  RemindOnLogin: true
+  # Global cooldown across ALL reminders (per player).
+  # If set, once ANY reminder fires, no other reminder can fire until this expires.
+  GlobalCooldown: 10m
 
-  # Whether or not to remind only once when the player can vote
-  # Does not apply to login reminds.
-  RemindOnlyOnce: true
+  # If a reminder doesn't define Priority, it uses this.
+  # Higher runs first.
+  DefaultPriority: 0
 
-  # Delay to remind votes in minutes
-  # Set to -1 to disable
-  RemindDelay: 30
+  Defaults:
+    # If a reminder doesn't define Cooldown/Delay/Conditions, these defaults apply.
+    Cooldown: 0
+    Delay: 0
+    Conditions:
+      # If set, reminder only fires when player can vote on ANY site
+      # CanVoteAny: true
 
-  # Run rewards and have the default message
-  # Can add titles and more in the reward
-  # This can also be edited via /av gui
-  Rewards:
-    Messages:
-      Player: '&aYou have %sitesavailable% sites to vote on still!'
-    Title:
-      Enabled: false
-      Title: '&cRemember to vote!'
-      SubTitle: '&aType /vote'
-      FadeIn: 10
-      ShowTime: 50
-      FadeOut: 10
-    ActionBar:
-      Message: '&cRemember to vote'
-      Delay: 30
+      # If set, reminder only fires when player can vote on ALL sites
+      # CanVoteAll: true
+
+      # Require player to be online for at least this long before reminder can fire
+      #MinOnlineTime: 2m
+
+      # Only true for first-ever join (same as !player.hasPlayedBefore())
+      # FirstJoin: true
+
+    Rewards:
+      # Default rewards if a reminder doesn't have its own Rewards section
+      Messages:
+        Player: "&aYou can vote! Sites left: %sitesavailable%"
+
+VoteReminders:
+  # Fires after login (queue+flush) and waits 3s, then evaluates conditions/cooldowns.
+  OnLogin:
+    Type: LOGIN
+    Priority: 50
+    Delay: 3s
+    Cooldown: 6h
+    Conditions:
+      CanVoteAny: true
+    Rewards:
+      Messages:
+        Player: "&aWelcome back! You can vote now on &e%sitesavailable%&a sites."
+
+  # Only on first join ever. This will be queued along with LOGIN.
+  # With StopAfterMatch=true, whichever matches first (by Priority) wins.
+  FirstJoinWelcome:
+    Type: FIRST_JOIN
+    Priority: 60
+    Delay: 2s
+    Cooldown: 0
+    Rewards:
+      Messages:
+        Player: "&bWelcome! Type &e/vote &bto see vote sites."
+
+  # Interval reminder: every 30 minutes, but per-player cooldown is 2 hours.
+  # Note: interval also gates firing via max(Cooldown, Interval).
+  IntervalPing:
+    Type: INTERVAL
+    Priority: 10
+    Interval: 30m
+    Cooldown: 2h
+    Conditions:
+      CanVoteAny: true
+      MinOnlineTime: 10m
+    Rewards:
+      Messages:
+        Player: "&eReminder: you can vote on &6%sitesavailable% &esites."
+
+  # Send a player a message on a votesite is available again
+  # Requires per-site cooldown events to be enabled
+  CooldownAnySite:
+    Type: COOLDOWN_END_ANY_SITE
+    Priority: 35
+    Cooldown: 1h
+    Conditions:
+      CanVoteAny: true
+    Rewards:
+      Messages:
+        Player: "&bA vote site is available again!"
+
+  # Send a player a message when ALL votesites are available again
+  CooldownAllSites:
+    Type: COOLDOWN_END_ALL_SITES
+    Priority: 45
+    Cooldown: 2h
+    Conditions:
+      CanVoteAll: true
+    Rewards:
+      Messages:
+        Player: "&dAll vote sites are available again!"
       
 ###########################################
 # Vote Broadcast (NEW)

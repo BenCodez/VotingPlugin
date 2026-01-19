@@ -303,19 +303,19 @@ public class PlaceHolders {
 			}
 		}.withDescription("Returns true/false if user has broadcast disabled").updateDataKey("DisableBroadcast"));
 
-		placeholders.add(new PlaceHolder<VotingPluginUser>("DisableReminders") {
-
-			@Override
-			public String placeholderRequest(VotingPluginUser user, String identifier) {
-				if (plugin.getVoteReminding().getRemindersEnabled().containsKey(user.getJavaUUID())) {
-					if (!plugin.getVoteReminding().getRemindersEnabled().get(user.getJavaUUID()).booleanValue()) {
-
-						return "True";
-					}
-				}
-				return "False";
-			}
-		}.withDescription("Returns true/false if user has reminders disabled"));
+		/*
+		 * placeholders.add(new PlaceHolder<VotingPluginUser>("DisableReminders") {
+		 * 
+		 * @Override public String placeholderRequest(VotingPluginUser user, String
+		 * identifier) { if
+		 * (plugin.getVoteReminding().getRemindersEnabled().containsKey(user.getJavaUUID
+		 * ())) { if
+		 * (!plugin.getVoteReminding().getRemindersEnabled().get(user.getJavaUUID()).
+		 * booleanValue()) {
+		 * 
+		 * return "True"; } } return "False"; }
+		 * }.withDescription("Returns true/false if user has reminders disabled"));
+		 */
 
 		for (final String identifier : plugin.getShopFile().getShopIdentifiers()) {
 			if (plugin.getShopFile().getShopIdentifierLimit(identifier) > 0) {

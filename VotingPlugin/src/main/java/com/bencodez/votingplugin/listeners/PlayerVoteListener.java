@@ -191,16 +191,6 @@ public class PlayerVoteListener implements Listener {
 			voteTime = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
 		}
 
-		// check first vote rewards
-		// plugin.getSpecialRewards().checkFirstVote(voteUUID, user,
-		// event.isForceBungee());
-		// plugin.getSpecialRewards().checkFirstVoteToday(voteUUID, user,
-		// event.isForceBungee());
-
-		if (user.isReminded() && plugin.getConfigFile().isVoteRemindingRemindOnlyOnce()) {
-			user.setReminded(false);
-		}
-
 		boolean cached = false;
 		// check if player has voted on all sites in one day
 		if (((user.isOnline() || voteSite.isGiveOffline()) && plugin.getOptions().isProcessRewards())
@@ -280,7 +270,7 @@ public class PlayerVoteListener implements Listener {
 				voteUUID);
 		plugin.getServer().getPluginManager().callEvent(postVoteEvent);
 
-		if (user.isOnline()) {
+		if (user.isOnline() || plugin.getConfigFile().getPlaceholderCacheLevel().isCacheAlways()) {
 			plugin.getPlaceholders().onUpdate(user, true);
 		}
 
