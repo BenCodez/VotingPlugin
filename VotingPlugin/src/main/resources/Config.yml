@@ -247,7 +247,7 @@ VoteReminders:
     Type: LOGIN
     Priority: 50
     Delay: 3s
-    Cooldown: 6h
+    Cooldown: 3m
     Conditions:
       CanVoteAny: true
     Rewards:

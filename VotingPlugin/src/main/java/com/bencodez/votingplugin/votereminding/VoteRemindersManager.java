@@ -10,6 +10,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -21,19 +27,13 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votereminding.store.VoteReminderCooldownStore;
 
 /**
- * VoteReminders core manager (no Bukkit Listener).
+ * VoteReminders core manager (no Bukkit repeating tasks).
  *
- * Goals:
- * - Single top-level config section: VoteReminderOptions + VoteReminders (map keys)
- * - Map-based reminders (no lists)
- * - Unified trigger model: "Type" is the trigger (no separate event enum)
- * - Global + per-reminder cooldowns stored in user data (1 global, 1 map column)
- * - StopAfterMatch behaves correctly when multiple triggers happen at once via queue+flush
- * - Delay: schedules a delayed evaluation (delay counts as match for StopAfterMatch)
- * - Conditions: CanVoteAny / CanVoteAll / MinOnlineTime / FirstJoin
+ * Uses ScheduledExecutorService for: - interval tick (aligned to minute
+ * boundary) - flush coalescing - delayed evaluations
  *
- * NOTE: COOLDOWN_END_* triggers are intended to be called from your existing CoolDownCheck
- * listener events (PlayerVoteCoolDownEndEvent / PlayerVoteSiteCoolDownEndEvent).
+ * Assumptions (per your note): - VotingPluginUser lookup + Reward giving are
+ * safe off-thread for your implementation.
  */
 public final class VoteRemindersManager {
 
@@ -41,20 +41,15 @@ public final class VoteRemindersManager {
 	 * ========================= Enums / Models =========================
 	 */
 
-	/**
-	 * "Type" is the trigger. No separate Event enum.
-	 */
 	public enum VoteReminderType {
 		// Player lifecycle
-		LOGIN,
-		FIRST_JOIN,
+		LOGIN, FIRST_JOIN,
 
 		// Voting lifecycle
 		VOTE_CAST,
 
 		// Cooldown-driven (from CoolDownCheck)
-		COOLDOWN_END_ANY_SITE,
-		COOLDOWN_END_ALL_SITES,
+		COOLDOWN_END_ANY_SITE, COOLDOWN_END_ALL_SITES,
 
 		// Time-driven
 		INTERVAL
@@ -110,7 +105,6 @@ public final class VoteRemindersManager {
 		private final ParsedDuration defaultDelay;
 		private final VoteReminderConditions defaultsConditions;
 
-		// Full path that RewardBuilder can use for defaults
 		private final String defaultRewardsPath;
 
 		public VoteReminderOptions(boolean enabled, boolean stopAfterMatch, ParsedDuration globalCooldown,
@@ -284,11 +278,13 @@ public final class VoteRemindersManager {
 
 	private final ConcurrentHashMap<UUID, Long> joinTimes = new ConcurrentHashMap<>();
 
-	// Task ids
-	private int minuteTaskId = -1;
-
 	// Trigger queue (smart flush so StopAfterMatch works across multiple triggers)
 	private final ConcurrentHashMap<UUID, PendingTriggers> pending = new ConcurrentHashMap<>();
+
+	// Scheduler (timing + coalescing + delayed eval)
+	private final ScheduledExecutorService scheduler;
+	private volatile ScheduledFuture<?> minuteFuture;
+	private final ConcurrentHashMap<UUID, ScheduledFuture<?>> flushFutures = new ConcurrentHashMap<>();
 
 	private static final class PendingTriggers {
 		volatile boolean login;
@@ -332,6 +328,17 @@ public final class VoteRemindersManager {
 	public VoteRemindersManager(VotingPluginMain plugin, VoteReminderCooldownStore store) {
 		this.plugin = plugin;
 		this.store = store;
+
+		this.scheduler = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
+			private final AtomicInteger n = new AtomicInteger();
+
+			@Override
+			public Thread newThread(Runnable r) {
+				Thread t = new Thread(r, "VotingPlugin-VoteReminders-" + n.incrementAndGet());
+				t.setDaemon(true);
+				return t;
+			}
+		});
 	}
 
 	/*
@@ -349,13 +356,18 @@ public final class VoteRemindersManager {
 
 	public void shutdown() {
 		stopTasks();
+
 		joinTimes.clear();
 		pending.clear();
+		flushFutures.clear();
+
+		scheduler.shutdownNow();
 	}
 
 	private boolean isEnabled() {
 		return options != null && options.isEnabled();
 	}
+
 	/*
 	 * ========================= Entry points (called by ONE listener)
 	 * =========================
@@ -375,10 +387,10 @@ public final class VoteRemindersManager {
 		UUID uuid = player.getUniqueId();
 		joinTimes.put(uuid, System.currentTimeMillis());
 
-		queueTrigger(user, player, VoteReminderType.LOGIN, null);
+		queueTrigger(user, VoteReminderType.LOGIN, null);
 
 		if (!player.hasPlayedBefore()) {
-			queueTrigger(user, player, VoteReminderType.FIRST_JOIN, null);
+			queueTrigger(user, VoteReminderType.FIRST_JOIN, null);
 		}
 
 		flushSoon(uuid, user.getPlayerName());
@@ -391,6 +403,11 @@ public final class VoteRemindersManager {
 		UUID uuid = player.getUniqueId();
 		joinTimes.remove(uuid);
 		pending.remove(uuid);
+
+		ScheduledFuture<?> f = flushFutures.remove(uuid);
+		if (f != null) {
+			f.cancel(false);
+		}
 	}
 
 	public void onVoteCast(VotingPluginUser user, String siteKey) {
@@ -411,15 +428,10 @@ public final class VoteRemindersManager {
 			ph.put("site", siteKey);
 		}
 
-		queueTrigger(user, player, VoteReminderType.VOTE_CAST, ph);
+		queueTrigger(user, VoteReminderType.VOTE_CAST, ph);
 		flushSoon(user.getJavaUUID(), user.getPlayerName());
 	}
 
-	/**
-	 * Call this from your existing CoolDownCheck events:
-	 * - PlayerVoteSiteCoolDownEndEvent -> COOLDOWN_END_ANY_SITE (include sitename/url placeholders)
-	 * - PlayerVoteCoolDownEndEvent     -> COOLDOWN_END_ALL_SITES
-	 */
 	public void onCooldownTrigger(VotingPluginUser user, VoteReminderType type, Map<String, String> placeholders) {
 		if (!isEnabled() || user == null) {
 			return;
@@ -436,12 +448,12 @@ public final class VoteRemindersManager {
 			return;
 		}
 
-		queueTrigger(user, player, type, placeholders);
+		queueTrigger(user, type, placeholders);
 		flushSoon(user.getJavaUUID(), user.getPlayerName());
 	}
 
 	/*
-	 * ========================= Tasks
+	 * ========================= Tasks (ScheduledExecutorService)
 	 * =========================
 	 */
 
@@ -450,41 +462,51 @@ public final class VoteRemindersManager {
 			return;
 		}
 
-		// Every minute tick: interval detection
-		minuteTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, new Runnable() {
-			@Override
-			public void run() {
-				if (!isEnabled()) {
-					return;
-				}
-				fireIntervalTick();
+		// If no INTERVAL reminders exist, don't schedule anything.
+		boolean hasInterval = false;
+		for (VoteReminderDefinition def : reminders) {
+			if (def.getType() == VoteReminderType.INTERVAL) {
+				hasInterval = true;
+				break;
 			}
-		}, 20L, 20L * 60L);
+		}
+		if (!hasInterval) {
+			return;
+		}
+
+		// Align to minute boundary to keep behavior stable.
+		long now = System.currentTimeMillis();
+		long initialDelayMs = 60_000L - (now % 60_000L);
+		if (initialDelayMs <= 0L || initialDelayMs > 60_000L) {
+			initialDelayMs = 60_000L;
+		}
+
+		minuteFuture = scheduler.scheduleAtFixedRate(() -> {
+			if (!isEnabled() || plugin == null || !plugin.isEnabled()) {
+				return;
+			}
+			fireIntervalTick();
+		}, initialDelayMs, 60_000L, TimeUnit.MILLISECONDS);
 	}
 
 	private void stopTasks() {
-		if (minuteTaskId != -1) {
-			Bukkit.getScheduler().cancelTask(minuteTaskId);
-			minuteTaskId = -1;
+		ScheduledFuture<?> mf = minuteFuture;
+		if (mf != null) {
+			mf.cancel(false);
+			minuteFuture = null;
 		}
+
+		for (ScheduledFuture<?> f : flushFutures.values()) {
+			if (f != null) {
+				f.cancel(false);
+			}
+		}
+		flushFutures.clear();
 	}
 
 	private void fireIntervalTick() {
 		long nowMs = System.currentTimeMillis();
 		long nowMinute = nowMs / 60000L;
-
-		boolean anyIntervalMatched = false;
-
-		// Quick scan: if no INTERVAL reminders exist, skip entirely
-		for (VoteReminderDefinition def : reminders) {
-			if (def.getType() == VoteReminderType.INTERVAL) {
-				anyIntervalMatched = true;
-				break;
-			}
-		}
-		if (!anyIntervalMatched) {
-			return;
-		}
 
 		for (VoteReminderDefinition def : reminders) {
 			if (def.getType() != VoteReminderType.INTERVAL) {
@@ -510,7 +532,7 @@ public final class VoteRemindersManager {
 					continue;
 				}
 
-				queueTrigger(u, p, VoteReminderType.INTERVAL, null);
+				queueTrigger(u, VoteReminderType.INTERVAL, null);
 				flushSoon(u.getJavaUUID(), u.getPlayerName());
 			}
 		}
@@ -521,8 +543,7 @@ public final class VoteRemindersManager {
 	 * =========================
 	 */
 
-	private void queueTrigger(VotingPluginUser user, Player player, VoteReminderType type,
-			Map<String, String> placeholders) {
+	private void queueTrigger(VotingPluginUser user, VoteReminderType type, Map<String, String> placeholders) {
 		UUID uuid = user.getJavaUUID();
 
 		PendingTriggers pt = pending.computeIfAbsent(uuid, k -> new PendingTriggers());
@@ -552,8 +573,19 @@ public final class VoteRemindersManager {
 	}
 
 	private void flushSoon(UUID uuid, String playerName) {
-		// one-tick coalesce
-		Bukkit.getScheduler().runTask(plugin, () -> flush(uuid, playerName));
+		// ~1 tick coalesce without Bukkit scheduler
+		flushFutures.compute(uuid, (k, existing) -> {
+			if (existing != null && !existing.isDone() && !existing.isCancelled()) {
+				return existing;
+			}
+			return scheduler.schedule(() -> {
+				try {
+					flush(uuid, playerName);
+				} finally {
+					flushFutures.remove(uuid);
+				}
+			}, 50L, TimeUnit.MILLISECONDS);
+		});
 	}
 
 	private void flush(UUID uuid, String playerName) {
@@ -585,7 +617,6 @@ public final class VoteRemindersManager {
 		List<VoteReminderType> types = pt.snapshotTypes();
 		plugin.extraDebug("[VoteReminders] flush " + user.getPlayerName() + " triggers=" + types);
 
-		// Evaluate reminders in priority order, but only those whose type exists in this flush.
 		for (VoteReminderDefinition def : reminders) {
 			if (!types.contains(def.getType())) {
 				continue;
@@ -594,8 +625,8 @@ public final class VoteRemindersManager {
 			boolean matched = attemptOrSchedule(user, player, def, pt.placeholders);
 
 			if (matched) {
-				plugin.extraDebug("[VoteReminders] matched " + def.getName() + " for " + user.getPlayerName()
-						+ " type=" + def.getType() + " stopAfterMatch=" + options.isStopAfterMatch());
+				plugin.extraDebug("[VoteReminders] matched " + def.getName() + " for " + user.getPlayerName() + " type="
+						+ def.getType() + " stopAfterMatch=" + options.isStopAfterMatch());
 				if (options.isStopAfterMatch()) {
 					return;
 				}
@@ -604,12 +635,10 @@ public final class VoteRemindersManager {
 	}
 
 	/*
-	 * ========================= Config parsing
-	 * =========================
+	 * ========================= Config parsing =========================
 	 */
 
 	private void loadConfig() {
-		// VoteReminderOptions
 		boolean enabled = plugin.getConfig().getBoolean("VoteReminderOptions.Enabled", true);
 		boolean stopAfterMatch = plugin.getConfig().getBoolean("VoteReminderOptions.StopAfterMatch", true);
 		ParsedDuration globalCooldown = ParsedDuration
@@ -624,29 +653,27 @@ public final class VoteRemindersManager {
 		VoteReminderConditions defaultsConditions = new VoteReminderConditions();
 
 		if (plugin.getConfig().contains("VoteReminderOptions.Defaults.Conditions.CanVoteAny")) {
-			defaultsConditions.setCanVoteAny(
-					plugin.getConfig().getBoolean("VoteReminderOptions.Defaults.Conditions.CanVoteAny"));
+			defaultsConditions
+					.setCanVoteAny(plugin.getConfig().getBoolean("VoteReminderOptions.Defaults.Conditions.CanVoteAny"));
 		}
 		if (plugin.getConfig().contains("VoteReminderOptions.Defaults.Conditions.CanVoteAll")) {
-			defaultsConditions.setCanVoteAll(
-					plugin.getConfig().getBoolean("VoteReminderOptions.Defaults.Conditions.CanVoteAll"));
+			defaultsConditions
+					.setCanVoteAll(plugin.getConfig().getBoolean("VoteReminderOptions.Defaults.Conditions.CanVoteAll"));
 		}
 		if (plugin.getConfig().contains("VoteReminderOptions.Defaults.Conditions.MinOnlineTime")) {
-			defaultsConditions.setMinOnlineTime(ParsedDuration.parse(
-					plugin.getConfig().getString("VoteReminderOptions.Defaults.Conditions.MinOnlineTime", "")));
+			defaultsConditions.setMinOnlineTime(ParsedDuration
+					.parse(plugin.getConfig().getString("VoteReminderOptions.Defaults.Conditions.MinOnlineTime", "")));
 		}
 		if (plugin.getConfig().contains("VoteReminderOptions.Defaults.Conditions.FirstJoin")) {
-			defaultsConditions.setFirstJoin(
-					plugin.getConfig().getBoolean("VoteReminderOptions.Defaults.Conditions.FirstJoin"));
+			defaultsConditions
+					.setFirstJoin(plugin.getConfig().getBoolean("VoteReminderOptions.Defaults.Conditions.FirstJoin"));
 		}
 
-		// Default rewards full path (RewardBuilder path)
 		String defaultRewardsPath = "VoteReminderOptions.Defaults.Rewards";
 
-		this.options = new VoteReminderOptions(enabled, stopAfterMatch, globalCooldown, defaultPriority, defaultCooldown,
-				defaultDelay, defaultsConditions, defaultRewardsPath);
+		this.options = new VoteReminderOptions(enabled, stopAfterMatch, globalCooldown, defaultPriority,
+				defaultCooldown, defaultDelay, defaultsConditions, defaultRewardsPath);
 
-		// VoteReminders (map)
 		List<VoteReminderDefinition> defs = new ArrayList<>();
 		Map<String, VoteReminderDefinition> by = new HashMap<>();
 
@@ -704,11 +731,12 @@ public final class VoteRemindersManager {
 			return null;
 		}
 
-		VoteReminderConditions cond = mergeConditions(options.getDefaultsConditions(), loadConditions(base + "Conditions."));
+		VoteReminderConditions cond = mergeConditions(options.getDefaultsConditions(),
+				loadConditions(base + "Conditions."));
 
-		// Full rewards path (if reminder has Rewards section/list, use it; else defaults path)
 		String rewardsPath = options.getDefaultRewardsPath();
-		if (plugin.getConfig().isConfigurationSection(base + "Rewards") || plugin.getConfig().isList(base + "Rewards")) {
+		if (plugin.getConfig().isConfigurationSection(base + "Rewards")
+				|| plugin.getConfig().isList(base + "Rewards")) {
 			rewardsPath = base + "Rewards";
 		}
 
@@ -754,13 +782,9 @@ public final class VoteRemindersManager {
 	}
 
 	/*
-	 * ========================= Trigger processing
-	 * =========================
+	 * ========================= Trigger processing =========================
 	 */
 
-	/**
-	 * Delay scheduling counts as a match for StopAfterMatch.
-	 */
 	private boolean attemptOrSchedule(VotingPluginUser user, Player player, VoteReminderDefinition def,
 			Map<String, String> placeholders) {
 
@@ -793,10 +817,9 @@ public final class VoteRemindersManager {
 
 	private void scheduleDelayedEvaluation(UUID uuid, String reminderName, Map<String, String> placeholders,
 			long delayMs) {
-		long ticks = Math.max(1L, delayMs / 50L);
 		Map<String, String> ph = placeholders == null ? null : new HashMap<>(placeholders);
 
-		Bukkit.getScheduler().runTaskLater(plugin, () -> {
+		scheduler.schedule(() -> {
 			Player p = Bukkit.getPlayer(uuid);
 			if (p == null || !p.isOnline()) {
 				return;
@@ -817,45 +840,41 @@ public final class VoteRemindersManager {
 
 			plugin.extraDebug("[VoteReminders] delayed eval " + def.getName() + " for " + u.getPlayerName());
 			attemptFireNow(u, p, def, ph);
-		}, ticks);
+		}, Math.max(1L, delayMs), TimeUnit.MILLISECONDS);
 	}
 
 	private boolean attemptFireNow(VotingPluginUser user, Player player, VoteReminderDefinition def,
 			Map<String, String> placeholders) {
 
-		// Old VoteReminding behaviour gates
 		if (!user.shouldBeReminded()) {
-			plugin.extraDebug("[VoteReminders] gate shouldBeReminded=false " + user.getPlayerName() + " def="
-					+ def.getName());
+			plugin.extraDebug(
+					"[VoteReminders] gate shouldBeReminded=false " + user.getPlayerName() + " def=" + def.getName());
 			return false;
 		}
 
-		// Conditions
 		if (!passesConditions(user, player, def.getConditions())) {
-			plugin.extraDebug("[VoteReminders] gate conditions=false " + user.getPlayerName() + " def=" + def.getName());
+			plugin.extraDebug(
+					"[VoteReminders] gate conditions=false " + user.getPlayerName() + " def=" + def.getName());
 			return false;
 		}
 
 		long now = System.currentTimeMillis();
 
-		// Global gate (proxy-friendly-ish)
 		if (!cooldowns.tryAcquireGlobal(user.getJavaUUID(), now)) {
 			plugin.extraDebug("[VoteReminders] gate globalCooldown " + user.getPlayerName() + " def=" + def.getName());
 			return false;
 		}
 
-		// Per reminder gate (max of cooldown+interval)
 		if (!cooldowns.canFireReminder(user.getJavaUUID(), def.getName(), now, def.getCooldown(), def.getInterval())) {
-			plugin.extraDebug("[VoteReminders] gate perReminderCooldown " + user.getPlayerName() + " def=" + def.getName());
+			plugin.extraDebug(
+					"[VoteReminders] gate perReminderCooldown " + user.getPlayerName() + " def=" + def.getName());
 			return false;
 		}
 
-		// Fire
 		plugin.extraDebug("[VoteReminders] FIRE " + def.getName() + " -> rewardsPath=" + def.getRewardsPath() + " user="
 				+ user.getPlayerName());
 		giveRewardFromPath(user, def.getRewardsPath(), placeholders);
 
-		// Mark fired
 		cooldowns.markFired(user.getJavaUUID(), def.getName(), now);
 
 		plugin.extraDebug("[VoteReminders] fired " + user.getPlayerName() + " via " + def.getName());
@@ -863,8 +882,7 @@ public final class VoteRemindersManager {
 	}
 
 	/*
-	 * ========================= Rewards
-	 * =========================
+	 * ========================= Rewards =========================
 	 */
 
 	private void giveRewardFromPath(VotingPluginUser user, String rewardsPath, Map<String, String> placeholders) {
@@ -883,12 +901,10 @@ public final class VoteRemindersManager {
 	}
 
 	/*
-	 * ========================= Conditions
-	 * =========================
+	 * ========================= Conditions =========================
 	 */
 
 	private boolean passesConditions(VotingPluginUser user, Player player, VoteReminderConditions c) {
-		// CanVoteAny
 		if (c.getCanVoteAny() != null) {
 			boolean canAny = user.canVoteAny();
 			if (c.getCanVoteAny().booleanValue() != canAny) {
@@ -898,7 +914,6 @@ public final class VoteRemindersManager {
 			}
 		}
 
-		// CanVoteAll
 		if (c.getCanVoteAll() != null) {
 			boolean canAll = user.canVoteAll();
 			if (c.getCanVoteAll().booleanValue() != canAll) {
@@ -908,7 +923,6 @@ public final class VoteRemindersManager {
 			}
 		}
 
-		// MinOnlineTime
 		ParsedDuration mot = c.getMinOnlineTime();
 		if (mot != null && !mot.isEmpty()) {
 			Long join = joinTimes.get(user.getJavaUUID());
@@ -923,12 +937,11 @@ public final class VoteRemindersManager {
 			}
 		}
 
-		// FirstJoin
 		if (c.getFirstJoin() != null) {
 			boolean first = !player.hasPlayedBefore();
 			if (c.getFirstJoin().booleanValue() != first) {
-				plugin.extraDebug("[VoteReminders] gate FirstJoin " + user.getPlayerName() + " required=" + c.getFirstJoin()
-						+ " actual=" + first);
+				plugin.extraDebug("[VoteReminders] gate FirstJoin " + user.getPlayerName() + " required="
+						+ c.getFirstJoin() + " actual=" + first);
 				return false;
 			}
 		}
@@ -937,8 +950,7 @@ public final class VoteRemindersManager {
 	}
 
 	/*
-	 * ========================= Permission logic (matches old VoteReminding)
-	 * =========================
+	 * ========================= Permission logic =========================
 	 */
 
 	private boolean hasBaseReminderPermission(VotingPluginUser user) {
@@ -946,13 +958,11 @@ public final class VoteRemindersManager {
 	}
 
 	private boolean isUserReminderEnabled(VotingPluginUser user) {
-		// use later?
 		return true;
 	}
 
 	/*
-	 * ========================= Helpers
-	 * =========================
+	 * ========================= Helpers =========================
 	 */
 
 	private long safeMs(ParsedDuration d) {
