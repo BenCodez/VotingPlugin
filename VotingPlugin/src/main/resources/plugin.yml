@@ -166,9 +166,6 @@ commands:
   adminvotepermsplayer:
     description: Command Alias
     aliases: avpermsplayer
-  adminvoteresyncmilestonesalreadygiven:
-    description: Command Alias
-    aliases: avresyncmilestonesalreadygiven
   adminvoteclearofflinevotes:
     description: Command Alias
     aliases: avclearofflinevotes
@@ -184,9 +181,6 @@ commands:
   adminvoteplayername:
     description: Command Alias
     aliases: avplayername
-  adminvoteresyncmilestones:
-    description: Command Alias
-    aliases: avresyncmilestones
   adminvoteclearofflinerewards:
     description: Command Alias
     aliases: avclearofflinerewards
@@ -196,9 +190,6 @@ commands:
   adminvotepurge:
     description: Command Alias
     aliases: avpurge
-  adminvotejavascript:
-    description: Command Alias
-    aliases: avjavascript
   adminvotestatus:
     description: Command Alias
     aliases: avstatus
@@ -208,9 +199,6 @@ commands:
   adminvoteplaceholders:
     description: Command Alias
     aliases: avplaceholders
-  adminvotedownloadjenkins:
-    description: Command Alias
-    aliases: avdownloadjenkins
   adminvotesetrequestmethod:
     description: Command Alias
     aliases: avsetrequestmethod
@@ -232,9 +220,6 @@ commands:
   adminvoteedit:
     description: Command Alias
     aliases: avedit
-  adminvoteresetmilestonecount:
-    description: Command Alias
-    aliases: avresetmilestonecount
 permissions:
   VotingPlugin.Player:
     description: Allows basic access player commands
