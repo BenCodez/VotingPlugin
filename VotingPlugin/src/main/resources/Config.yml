@@ -705,26 +705,6 @@ Format:
   # Mainly used in admin help page, see below for /vote help
   HelpLine: '&6%Command% - &6%HelpMessage%'
 
-  # Broadcast vote message
-  # Set to an empty message to disable
-  # Use %NewLine% for a new line
-  BroadcastMsg: '&6[&4Broadcast&6] &2Thanks &c%player% &2for voting on %SiteName%'
-  # If true uses broadcast setting below for offline votes
-  OnlyOneOfflineBroadcast: false
-  OfflineBroadcast: '&6[&4Broadcast&6] &2Thanks &c%player% &2for voting on %numberofvotes% times!'
-
-  # Broadcast only when player is online
-  BroadcastWhenOnline: false
-
-  # Broadcast every x number of minutes with number of players that voted
-  AlternateBroadcast:
-    Enabled: false
-    # Use %players% for all players names
-    # Use %numberofplayers% for number of players that voted
-    Broadcast: '&6[&4Broadcast&6] &2%numberofplayers% voted in the last half hour! /vote'
-    # Delay in minutes
-    Delay: 30
-
   Commands:
     # Format for /vote
     # %num% = the number of the site, for a numbered list
