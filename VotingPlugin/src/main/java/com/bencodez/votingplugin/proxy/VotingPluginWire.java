@@ -267,7 +267,7 @@ public final class VotingPluginWire {
 
 	private static JsonEnvelope.Builder base(String subChannel) {
 		int ver = SCHEMA_VERSION;
-		return JsonEnvelope.builder(subChannel).schema(ver).put(K_VERSION, ver);
+		return JsonEnvelope.builder(subChannel).schema(ver);
 	}
 
 	private static String safe(String s) {

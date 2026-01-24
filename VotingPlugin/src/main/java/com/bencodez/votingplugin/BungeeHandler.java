@@ -205,8 +205,7 @@ public class BungeeHandler implements Listener {
 				} else if (method.equals(BungeeMethod.SOCKETS)) {
 					sendEnvelopeSocket(envelope);
 				} else if (method.equals(BungeeMethod.REDIS)) {
-					redisHandler.publishEnvelope(plugin.getBungeeSettings().getRedisPrefix() + "VotingPlugin_"
-							+ plugin.getBungeeSettings().getServer(), envelope);
+					redisHandler.publishEnvelope(plugin.getBungeeSettings().getRedisPrefix() + "VotingPlugin", envelope);
 				} else if (method.equals(BungeeMethod.MQTT)) {
 					try {
 						mqttHandler.publishEnvelope(
