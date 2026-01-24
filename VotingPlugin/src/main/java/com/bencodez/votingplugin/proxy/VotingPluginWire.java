@@ -8,19 +8,21 @@ import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 /**
  * Canonical wire format for proxy <-> backend messages.
  *
- * Rules:
- * - Only JsonEnvelope is sent over the wire (no legacy String[] / delimiters).
- * - All fields are named keys (no numeric indices).
- * - Versioning uses the JsonEnvelope schema as the source of truth.
- * - A "bungeeVersion" field is also included for legacy compatibility checks.
- * - Values are written as native types where possible, but readers tolerate Strings.
+ * Rules: - Only JsonEnvelope is sent over the wire (no legacy String[] /
+ * delimiters). - All fields are named keys (no numeric indices). - Versioning
+ * uses the JsonEnvelope schema as the source of truth. - A "bungeeVersion"
+ * field is also included for legacy compatibility checks. - Values are written
+ * as native types where possible, but readers tolerate Strings.
  *
- * Note: Some keys are public because other classes (e.g. MultiProxyHandler) reference them directly.
+ * Note: Some keys are public because other classes (e.g. MultiProxyHandler)
+ * reference them directly.
  */
 public final class VotingPluginWire {
 
 	private VotingPluginWire() {
 	}
+
+	public static final int SCHEMA_VERSION = 1;
 
 	// =========================
 	// Subchannels (canonical)
@@ -49,7 +51,7 @@ public final class VotingPluginWire {
 	// =========================
 	// Field keys (public where referenced externally)
 	// =========================
-	public static final String K_BUNGEE_VERSION = "bungeeVersion";
+	public static final String K_VERSION = "version";
 
 	public static final String K_PLAYER = "player";
 	public static final String K_UUID = "uuid";
@@ -85,63 +87,36 @@ public final class VotingPluginWire {
 			boolean realVote, String totals, boolean manageTotals, boolean bungeeBroadcast, int num,
 			int numberOfVotes) {
 
-		return base(SUB_VOTE)
-				.put(K_PLAYER, safe(player))
-				.put(K_UUID, safe(uuid))
-				.put(K_SERVICE, safe(service))
-				.put(K_TIME, time)
-				.put(K_WAS_ONLINE, wasOnline)
-				.put(K_REAL_VOTE, realVote)
-				.put(K_TOTALS, safe(totals))
+		return base(SUB_VOTE).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid)).put(K_SERVICE, safe(service))
+				.put(K_TIME, time).put(K_WAS_ONLINE, wasOnline).put(K_REAL_VOTE, realVote).put(K_TOTALS, safe(totals))
 				.put(K_SET_TOTALS, true) // backend historically defaulted to true
-				.put(K_MANAGE_TOTALS, manageTotals)
-				.put(K_BUNGEE_BROADCAST, bungeeBroadcast)
-				.put(K_NUM, num)
-				.put(K_NUMBER_OF_VOTES, numberOfVotes)
-				.build();
+				.put(K_MANAGE_TOTALS, manageTotals).put(K_BUNGEE_BROADCAST, bungeeBroadcast).put(K_NUM, num)
+				.put(K_NUMBER_OF_VOTES, numberOfVotes).build();
 	}
 
 	public static JsonEnvelope voteOnline(String player, String uuid, String service, long time, boolean wasOnline,
 			boolean realVote, String totals, boolean manageTotals, boolean bungeeBroadcast, int num,
 			int numberOfVotes) {
 
-		return base(SUB_VOTE_ONLINE)
-				.put(K_PLAYER, safe(player))
-				.put(K_UUID, safe(uuid))
-				.put(K_SERVICE, safe(service))
-				.put(K_TIME, time)
-				.put(K_WAS_ONLINE, wasOnline)
-				.put(K_REAL_VOTE, realVote)
-				.put(K_TOTALS, safe(totals))
-				.put(K_SET_TOTALS, true)
-				.put(K_MANAGE_TOTALS, manageTotals)
-				.put(K_BUNGEE_BROADCAST, bungeeBroadcast)
-				.put(K_NUM, num)
-				.put(K_NUMBER_OF_VOTES, numberOfVotes)
-				.build();
+		return base(SUB_VOTE_ONLINE).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid)).put(K_SERVICE, safe(service))
+				.put(K_TIME, time).put(K_WAS_ONLINE, wasOnline).put(K_REAL_VOTE, realVote).put(K_TOTALS, safe(totals))
+				.put(K_SET_TOTALS, true).put(K_MANAGE_TOTALS, manageTotals).put(K_BUNGEE_BROADCAST, bungeeBroadcast)
+				.put(K_NUM, num).put(K_NUMBER_OF_VOTES, numberOfVotes).build();
 	}
 
 	public static JsonEnvelope voteBroadcast(String uuid, String player, String service) {
-		return base(SUB_VOTE_BROADCAST)
-				.put(K_UUID, safe(uuid))
-				.put(K_PLAYER, safe(player))
-				.put(K_SERVICE, safe(service))
-				.build();
+		return base(SUB_VOTE_BROADCAST).put(K_UUID, safe(uuid)).put(K_PLAYER, safe(player))
+				.put(K_SERVICE, safe(service)).build();
 	}
 
 	public static JsonEnvelope voteUpdate(String playerUuid, int votePartyCurrent, int votePartyRequired,
 			String service, long lastVoteTime, String totals) {
 
 		final String u = safe(playerUuid);
-		return base(SUB_VOTE_UPDATE)
-				.put(K_PLAYER_UUID, u)
-				.put(K_PLAYER, u) // legacy fallback key used by older handlers
-				.put(K_VOTE_PARTY_CURRENT, votePartyCurrent)
-				.put(K_VOTE_PARTY_REQUIRED, votePartyRequired)
-				.put(K_SERVICE, safe(service))
-				.put(K_LAST_VOTE_TIME, lastVoteTime)
-				.put(K_TOTALS, safe(totals))
-				.build();
+		return base(SUB_VOTE_UPDATE).put(K_PLAYER_UUID, u).put(K_PLAYER, u) // legacy fallback key used by older
+																			// handlers
+				.put(K_VOTE_PARTY_CURRENT, votePartyCurrent).put(K_VOTE_PARTY_REQUIRED, votePartyRequired)
+				.put(K_SERVICE, safe(service)).put(K_LAST_VOTE_TIME, lastVoteTime).put(K_TOTALS, safe(totals)).build();
 	}
 
 	public static JsonEnvelope votePartyBungee() {
@@ -161,11 +136,7 @@ public final class VotingPluginWire {
 	}
 
 	public static JsonEnvelope login(String player, String uuid, String server) {
-		return base(SUB_LOGIN)
-				.put(K_PLAYER, safe(player))
-				.put(K_UUID, safe(uuid))
-				.put(K_SERVER, safe(server))
-				.build();
+		return base(SUB_LOGIN).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid)).put(K_SERVER, safe(server)).build();
 	}
 
 	// =========================
@@ -173,14 +144,11 @@ public final class VotingPluginWire {
 	// =========================
 
 	/**
-	 * Sent by non-primary servers to ask the primary to clear vote state.
-	 * Primary responds by broadcasting ClearVotePrimary.
+	 * Sent by non-primary servers to ask the primary to clear vote state. Primary
+	 * responds by broadcasting ClearVotePrimary.
 	 */
 	public static JsonEnvelope clearVote(String uuid, String player, String server) {
-		return base(SUB_CLEAR_VOTE)
-				.put(K_UUID, safe(uuid))
-				.put(K_PLAYER, safe(player))
-				.put(K_SERVER, safe(server))
+		return base(SUB_CLEAR_VOTE).put(K_UUID, safe(uuid)).put(K_PLAYER, safe(player)).put(K_SERVER, safe(server))
 				.build();
 	}
 
@@ -188,11 +156,8 @@ public final class VotingPluginWire {
 	 * Broadcast by the primary server so all proxies clear vote state.
 	 */
 	public static JsonEnvelope clearVotePrimary(String uuid, String player, String server) {
-		return base(SUB_CLEAR_VOTE_PRIMARY)
-				.put(K_UUID, safe(uuid))
-				.put(K_PLAYER, safe(player))
-				.put(K_SERVER, safe(server))
-				.build();
+		return base(SUB_CLEAR_VOTE_PRIMARY).put(K_UUID, safe(uuid)).put(K_PLAYER, safe(player))
+				.put(K_SERVER, safe(server)).build();
 	}
 
 	// =========================
@@ -256,8 +221,8 @@ public final class VotingPluginWire {
 		final int num = readInt(f, K_NUM, 1);
 		final int numberOfVotes = readInt(f, K_NUMBER_OF_VOTES, 1);
 
-		return new Vote(sub, player, uuid, service, time, wasOnline, realVote, totals, setTotals, manageTotals, broadcast,
-				num, numberOfVotes);
+		return new Vote(sub, player, uuid, service, time, wasOnline, realVote, totals, setTotals, manageTotals,
+				broadcast, num, numberOfVotes);
 	}
 
 	public static final class VoteUpdate {
@@ -301,10 +266,8 @@ public final class VotingPluginWire {
 	// =========================
 
 	private static JsonEnvelope.Builder base(String subChannel) {
-		int ver = BungeeVersion.getPluginMessageVersion();
-		return JsonEnvelope.builder(subChannel)
-				.schema(ver)
-				.put(K_BUNGEE_VERSION, ver);
+		int ver = SCHEMA_VERSION;
+		return JsonEnvelope.builder(subChannel).schema(ver).put(K_VERSION, ver);
 	}
 
 	private static String safe(String s) {

@@ -41,7 +41,6 @@ import com.bencodez.simpleapi.sql.data.DataValueBoolean;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigSpigot;
 import com.bencodez.votingplugin.proxy.BungeeMessageData;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
-import com.bencodez.votingplugin.proxy.BungeeVersion;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votesites.VoteSite;
@@ -486,9 +485,9 @@ public class BungeeHandler implements Listener {
 	private void handleWireVote(JsonEnvelope msg) {
 		// Strict schema check (wire uses envelope schema, not a "bungeeVersion" field)
 		int schema = msg.getSchema();
-		if (schema != BungeeVersion.getPluginMessageVersion()) {
+		if (schema != VotingPluginWire.SCHEMA_VERSION) {
 			plugin.getLogger().warning("Incompatible version with bungee/proxy, please update all servers: " + schema
-					+ " != " + BungeeVersion.getPluginMessageVersion());
+					+ " != " + VotingPluginWire.SCHEMA_VERSION);
 			return;
 		}
 
@@ -668,7 +667,7 @@ public class BungeeHandler implements Listener {
 	}
 
 	private void sendSubChannel(String subChannel, HashMap<String, Object> fields) {
-		JsonEnvelope.Builder b = JsonEnvelope.builder(subChannel).schema(BungeeVersion.getPluginMessageVersion());
+		JsonEnvelope.Builder b = JsonEnvelope.builder(subChannel).schema(VotingPluginWire.SCHEMA_VERSION);
 		if (fields != null) {
 			for (Map.Entry<String, Object> e : fields.entrySet()) {
 				b.put(e.getKey(), e.getValue());

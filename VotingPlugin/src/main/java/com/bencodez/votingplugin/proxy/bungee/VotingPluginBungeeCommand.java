@@ -11,13 +11,13 @@ public class VotingPluginBungeeCommand extends Command {
 	private VotingPluginBungee bungee;
 
 	public VotingPluginBungeeCommand(VotingPluginBungee bungee) {
-		super("votingpluginbungee", "votingplugin.admin");
+		super("votingpluginproxy", "votingpluginproxy.admin");
 		this.bungee = bungee;
 	}
 
 	@Override
 	public void execute(CommandSender sender, String[] args) {
-		if (sender.hasPermission("votingplugin.admin")) {
+		if (sender.hasPermission("votingpluginproxy.admin")) {
 			String result = new VotingPluginProxyCommand(bungee.getVotingPluginProxy()).execute(args);
 			if (result != null) {
 				sender.sendMessage(new TextComponent(result.replace("&", "" + ChatColor.COLOR_CHAR)));

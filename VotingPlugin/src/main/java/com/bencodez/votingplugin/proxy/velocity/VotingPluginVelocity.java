@@ -38,7 +38,6 @@ import com.bencodez.simpleapi.file.velocity.VelocityYMLFile;
 import com.bencodez.simpleapi.sql.DataType;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigVelocity;
-import com.bencodez.votingplugin.proxy.BungeeVersion;
 import com.bencodez.votingplugin.proxy.ProxyMysqlUserTable;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
@@ -495,9 +494,8 @@ public class VotingPluginVelocity {
 		CHANNEL = MinecraftChannelIdentifier.create(channel[0].toLowerCase(), channel[1].toLowerCase());
 		server.getChannelRegistrar().register(CHANNEL);
 
-		CommandMeta meta = server.getCommandManager().metaBuilder("votingpluginbungee")
-				// Specify other aliases (optional)
-				.aliases("vpb").build();
+		CommandMeta meta = server.getCommandManager().metaBuilder("votingpluginproxy")
+				.aliases("vpp").build();
 
 		server.getCommandManager().register(meta, new VotingPluginVelocityCommand(this));
 
@@ -901,7 +899,7 @@ public class VotingPluginVelocity {
 		}
 
 		logger.info("VotingPlugin velocity loaded, method: " + getVotingPluginProxy().getMethod().toString()
-				+ ", PluginMessagingVersion: " + BungeeVersion.getPluginMessageVersion() + ", Internal Jar Version: "
+				+ ", Internal Jar Version: "
 				+ version);
 		if (!buildNumber.equals("NOTSET")) {
 			logger.info("Detected using dev build number: " + buildNumber);

@@ -28,7 +28,6 @@ import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
 import com.bencodez.simpleapi.sql.DataType;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigBungee;
-import com.bencodez.votingplugin.proxy.BungeeVersion;
 import com.bencodez.votingplugin.proxy.ProxyMysqlUserTable;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
@@ -255,7 +254,8 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						}
 						for (String s : getAvailableAllServers()) {
 							getVotingPluginProxy().getGlobalDataHandler().setBoolean(s, "ForceUpdate", true);
-							getVotingPluginProxy().getGlobalMessageProxyHandler().sendMessage(s, 1, VotingPluginWire.bungeeTimeChange());
+							getVotingPluginProxy().getGlobalMessageProxyHandler().sendMessage(s, 1,
+									VotingPluginWire.bungeeTimeChange());
 						}
 
 						getVotingPluginProxy().processQueue();
@@ -773,8 +773,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 		loadVersionFile();
 
-		getLogger().info("VotingPlugin loaded, using method: " + getVotingPluginProxy().getMethod().toString()
-				+ ", PluginMessagingVersion: " + BungeeVersion.getPluginMessageVersion());
+		getLogger().info("VotingPlugin loaded, using method: " + getVotingPluginProxy().getMethod().toString());
 		if (!buildNumber.equals("NOTSET")) {
 			getLogger().info("Detected using dev build number: " + buildNumber);
 		}

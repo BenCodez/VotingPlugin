@@ -29,7 +29,7 @@ public class VotingPluginVelocityCommand implements SimpleCommand {
 
 	@Override
 	public boolean hasPermission(final Invocation invocation) {
-		return invocation.source().hasPermission("votingpluginbungee.admin");
+		return invocation.source().hasPermission("votingpluginproxy.admin");
 	}
 
 	public boolean isInt(String st) {
