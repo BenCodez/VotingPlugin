@@ -39,7 +39,7 @@ import com.bencodez.simpleapi.servercomm.global.GlobalMessageListener;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler;
 import com.bencodez.simpleapi.servercomm.mqtt.MqttHandler;
 import com.bencodez.simpleapi.servercomm.mqtt.MqttServerComm;
-import com.bencodez.simpleapi.servercomm.mysql.ProxyMessenger;
+import com.bencodez.simpleapi.servercomm.mysql.MySqlMessenger;
 import com.bencodez.simpleapi.servercomm.redis.RedisHandler;
 import com.bencodez.simpleapi.servercomm.redis.RedisListener;
 import com.bencodez.simpleapi.servercomm.sockets.ClientHandler;
@@ -121,7 +121,7 @@ public abstract class VotingPluginProxy {
 	private GlobalMessageProxyHandler globalMessageProxyHandler;
 
 	@Getter
-	private ProxyMessenger proxyMysqlMessenger;
+	private MySqlMessenger proxyMysqlMessenger;
 
 	@Getter
 	private VoteCacheHandler voteCacheHandler;
@@ -567,10 +567,12 @@ public abstract class VotingPluginProxy {
 
 		if (method.equals(BungeeMethod.MYSQL)) {
 			try {
-				proxyMysqlMessenger = new ProxyMessenger("VotingPlugin",
-						getProxyMySQL().getMysql().getConnectionManager().getDataSource(), msg -> {
+				proxyMysqlMessenger = new MySqlMessenger("VotingPlugin",
+						getProxyMySQL().getMysql().getConnectionManager().getDataSource(), MySqlMessenger.Mode.PROXY,
+						null, // no serverId in PROXY mode
+						msg -> {
 							if (getConfig().getDebug()) {
-								debug("Got from " + msg.sourceServerId + ": " + msg.envelope.getSubChannel() + " "
+								debug("Got from " + msg.source + ": " + msg.envelope.getSubChannel() + " "
 										+ msg.envelope.getFields());
 							}
 							globalMessageProxyHandler.onMessage(msg.envelope);
@@ -578,7 +580,6 @@ public abstract class VotingPluginProxy {
 			} catch (SQLException e) {
 				e.printStackTrace();
 			}
-
 		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 			if (getConfig().getPluginMessageEncryption()) {
 				encryptionHandler = new EncryptionHandler("VotingPlugin",

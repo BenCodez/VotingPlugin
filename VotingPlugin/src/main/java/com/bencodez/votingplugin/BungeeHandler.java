@@ -29,7 +29,7 @@ import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageListener;
 import com.bencodez.simpleapi.servercomm.mqtt.MqttHandler;
 import com.bencodez.simpleapi.servercomm.mqtt.MqttServerComm;
-import com.bencodez.simpleapi.servercomm.mysql.BackendMessenger;
+import com.bencodez.simpleapi.servercomm.mysql.MySqlMessenger;
 import com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessageHandler;
 import com.bencodez.simpleapi.servercomm.redis.RedisHandler;
 import com.bencodez.simpleapi.servercomm.redis.RedisListener;
@@ -81,7 +81,7 @@ public class BungeeHandler implements Listener {
 	private Thread redisThread;
 
 	@Getter
-	private BackendMessenger backendMysqlMessenger;
+	private MySqlMessenger backendMysqlMessenger;
 
 	@Getter
 	private MqttHandler mqttHandler;
@@ -363,23 +363,27 @@ public class BungeeHandler implements Listener {
 		});
 
 		if (method.equals(BungeeMethod.MYSQL)) {
-			plugin.registerBungeeChannels(plugin.getBungeeSettings().getPluginMessagingChannel());
+		    plugin.registerBungeeChannels(plugin.getBungeeSettings().getPluginMessagingChannel());
 
-			try {
-				backendMysqlMessenger = new BackendMessenger("VotingPlugin",
-						plugin.getMysql().getMysql().getConnectionManager().getDataSource(),
-						plugin.getOptions().getServer(), msg -> {
-							if (plugin.getBungeeSettings().isBungeeDebug()) {
-								plugin.debug("Proxy sent envelope: " + msg.envelope.getSubChannel() + " "
-										+ msg.envelope.getFields());
-							}
-							globalMessageHandler.onMessage(msg.envelope);
-						});
-			} catch (SQLException e) {
-				e.printStackTrace();
-			}
-
-		} else if (method.equals(BungeeMethod.REDIS)) {
+		    try {
+		        backendMysqlMessenger = new MySqlMessenger(
+		                "VotingPlugin",
+		                plugin.getMysql().getMysql().getConnectionManager().getDataSource(),
+		                MySqlMessenger.Mode.BACKEND,
+		                plugin.getOptions().getServer(),
+		                msg -> {
+		                    if (plugin.getBungeeSettings().isBungeeDebug()) {
+		                        plugin.debug("Proxy sent envelope: " + msg.envelope.getSubChannel() + " "
+		                                + msg.envelope.getFields());
+		                    }
+		                    globalMessageHandler.onMessage(msg.envelope);
+		                }
+		        );
+		    } catch (SQLException e) {
+		        e.printStackTrace();
+		    }
+		}
+ else if (method.equals(BungeeMethod.REDIS)) {
 			redisHandler = new RedisHandler(plugin.getBungeeSettings().getRedisHost(),
 					plugin.getBungeeSettings().getRedisPort(), plugin.getBungeeSettings().getRedisUsername(),
 					plugin.getBungeeSettings().getRedisPassword(), plugin.getBungeeSettings().getRedisdbindex()) {
