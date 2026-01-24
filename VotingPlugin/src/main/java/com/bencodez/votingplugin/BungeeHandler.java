@@ -1,16 +1,16 @@
+// File: com/bencodez/votingplugin/BungeeHandler.java
 package com.bencodez.votingplugin;
 
 import java.io.File;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -23,13 +23,11 @@ import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandler;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
-import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.encryption.EncryptionHandler;
-import com.bencodez.simpleapi.messages.MessageAPI;
+import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageListener;
 import com.bencodez.simpleapi.servercomm.mqtt.MqttHandler;
-import com.bencodez.simpleapi.servercomm.mqtt.MqttHandler.MessageHandler;
 import com.bencodez.simpleapi.servercomm.mqtt.MqttServerComm;
 import com.bencodez.simpleapi.servercomm.mysql.BackendMessenger;
 import com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessageHandler;
@@ -44,6 +42,7 @@ import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigSpigot;
 import com.bencodez.votingplugin.proxy.BungeeMessageData;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.proxy.BungeeVersion;
+import com.bencodez.votingplugin.proxy.VotingPluginWire;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
@@ -85,13 +84,15 @@ public class BungeeHandler implements Listener {
 	@Getter
 	private BackendMessenger backendMysqlMessenger;
 
+	@Getter
+	private MqttHandler mqttHandler;
+
 	public BungeeHandler(VotingPluginMain plugin) {
 		this.plugin = plugin;
 	}
 
 	public void checkGlobalData() {
 		HashMap<String, DataValue> data = globalDataHandler.getExact(plugin.getBungeeSettings().getServer());
-		// plugin.debug(data.toString());
 
 		if (data.containsKey("ForceUpdate")) {
 			boolean b = checkGlobalDataTimeValue(data.get("ForceUpdate"));
@@ -126,15 +127,6 @@ public class BungeeHandler implements Listener {
 		}
 	}
 
-	/*
-	 * @EventHandler public void onDateChange(DateChangedEvent event) { if
-	 * (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-	 * plugin.getPluginMessaging().sendPluginMessage("timeupdate",
-	 * plugin.getServerDataFile().getPrevMonth() + "//" +
-	 * plugin.getServerDataFile().getPrevDay() + "//" +
-	 * plugin.getServerDataFile().getPrevWeekDay()); } }
-	 */
-
 	public boolean checkGlobalDataTime(TimeType type, HashMap<String, DataValue> data) {
 		boolean isProcessing = false;
 		if (data.containsKey(type.toString())) {
@@ -157,8 +149,10 @@ public class BungeeHandler implements Listener {
 				plugin.debug("Detected time change from bungee: " + type.toString());
 				plugin.getTimeChecker().forceChanged(type, false, true, true);
 				globalDataHandler.setBoolean(plugin.getBungeeSettings().getServer(), type.toString(), false);
-				getGlobalMessageHandler().sendMessage("TimeChangeFinished",
-						"" + plugin.getBungeeSettings().getServer());
+
+				HashMap<String, Object> fields = new HashMap<>();
+				fields.put("server", plugin.getBungeeSettings().getServer());
+				sendSubChannel("TimeChangeFinished", fields);
 			}
 		}
 		return isProcessing;
@@ -199,317 +193,161 @@ public class BungeeHandler implements Listener {
 		loadGlobalMysql();
 
 		globalMessageHandler = new GlobalMessageHandler() {
-
 			@Override
-			public void sendMessage(String subChannel, String... messageData) {
+			public void sendMessage(JsonEnvelope envelope) {
 				if (method.equals(BungeeMethod.MYSQL)) {
-					// plugin.getPluginMessaging().sendPluginMessage(subChannel, messageData);
-
 					try {
-						backendMysqlMessenger.sendToProxy(subChannel + "%l%" + String.join("%l%", messageData));
+						backendMysqlMessenger.sendToProxy(envelope);
 					} catch (SQLException e) {
 						e.printStackTrace();
 					}
-
 				} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
-					plugin.getPluginMessaging().sendPluginMessage(subChannel, messageData);
+					plugin.getPluginMessaging().sendEnvelope(envelope);
 				} else if (method.equals(BungeeMethod.SOCKETS)) {
-					ArrayList<String> list = new ArrayList<>();
-					list.add(subChannel);
-					list.addAll(ArrayUtils.convert(messageData));
-					sendData(ArrayUtils.convert(list));
+					sendEnvelopeSocket(envelope);
 				} else if (method.equals(BungeeMethod.REDIS)) {
-					ArrayList<String> list = new ArrayList<>();
-					list.add(subChannel);
-					list.addAll(ArrayUtils.convert(messageData));
-					redisHandler.sendMessage(plugin.getBungeeSettings().getRedisPrefix() + "VotingPlugin",
-							ArrayUtils.convert(list));
+					redisHandler.publishEnvelope(plugin.getBungeeSettings().getRedisPrefix() + "VotingPlugin_"
+							+ plugin.getBungeeSettings().getServer(), envelope);
 				} else if (method.equals(BungeeMethod.MQTT)) {
-					ArrayList<String> list = new ArrayList<>();
-					list.add(subChannel);
-					list.addAll(ArrayUtils.convert(messageData));
 					try {
-						mqttHandler.publish(plugin.getBungeeSettings().getMqttPrefix() + "votingplugin/servers/proxy",
-								String.join(":", list));
+						mqttHandler.publishEnvelope(
+								plugin.getBungeeSettings().getMqttPrefix() + "votingplugin/servers/proxy", envelope);
 					} catch (Exception e) {
 						e.printStackTrace();
 					}
-
 				}
 			}
 		};
 
-		globalMessageHandler.addListener(new GlobalMessageListener("Vote") {
+		// ==========================
+		// Vote / VoteOnline (wire decode)
+		// ==========================
 
+		globalMessageHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_VOTE) {
 			@Override
-			public void onReceive(ArrayList<String> args) {
-				if (args.size() > 8) {
-					int bungeeVersion = Integer.parseInt(args.get(8));
-					if (bungeeVersion != BungeeVersion.getPluginMessageVersion()) {
-						plugin.getLogger().warning("Incompatible version with bungee, please update all servers"
-								+ bungeeVersion + ":" + BungeeVersion.getPluginMessageVersion());
-						return;
-					}
-
-					String player = args.get(0);
-					String uuid = args.get(1);
-					String service = args.get(2);
-					long time = Long.parseLong(args.get(3));
-					plugin.debug("pluginmessaging vote received from " + player + "/" + uuid + " on " + service);
-					VotingPluginUser user = plugin.getVotingPluginUserManager()
-							.getVotingPluginUser(UUID.fromString(uuid), player);
-
-					boolean wasOnline = Boolean.valueOf(args.get(4));
-
-					BungeeMessageData text = new BungeeMessageData(args.get(6));
-
-					bungeeVotePartyCurrent = text.getVotePartyCurrent();
-					bungeeVotePartyRequired = text.getVotePartyRequired();
-					plugin.getPlaceholders().onBungeeVotePartyUpdate();
-					plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);
-					plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
-
-					boolean setTotals = Boolean.valueOf(args.get(7));
-
-					user.cache();
-
-					boolean broadcast = true;
-					boolean bungeeBroadcast = false;
-
-					if (args.size() > 9) {
-						bungeeBroadcast = Boolean.valueOf(args.get(9));
-					}
-
-					int num = 1;
-					if (args.size() > 10) {
-						num = Integer.valueOf(args.get(10));
-					}
-					int numberOfVotes = 1;
-					if (args.size() > 11) {
-						numberOfVotes = Integer.valueOf(args.get(11));
-					}
-
-					if (!bungeeBroadcast) {
-						if (!plugin.getBungeeSettings().isBungeeBroadcast()
-								&& !plugin.getBungeeSettings().isDisableBroadcast()) {
-							if (wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
-								VoteSite site = plugin.getVoteSiteManager().getVoteSite(service, true);
-								if (site != null) {
-									plugin.getBroadcastHandler().broadcastVote(user.getJavaUUID(), user.getPlayerName(),
-											site.getDisplayName(), false);
-									broadcast = false;
-								} else {
-									plugin.getLogger().warning("No votesite for " + service);
-								}
-							}
-						}
-					} else {
-						broadcast = false;
-					}
-
-					user.bungeeVotePluginMessaging(service, time, text, !setTotals, wasOnline, broadcast, num);
-					if (plugin.getBungeeSettings().isPerServerPoints()) {
-						user.addPoints(plugin.getConfigFile().getPointsOnVote());
-					}
-
-					if (Boolean.valueOf(args.get(5))) {
-						plugin.getServerData().addServiceSite(service);
-					}
-				} else {
-					plugin.getLogger().warning("Incompatible version with bungee, please update all servers");
-				}
+			public void onReceive(JsonEnvelope msg) {
+				handleWireVote(msg);
 			}
 		});
 
-		globalMessageHandler.addListener(new GlobalMessageListener("VoteOnline") {
-
+		globalMessageHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_VOTE_ONLINE) {
 			@Override
-			public void onReceive(ArrayList<String> args) {
-				if (args.size() > 8) {
-					int bungeeVersion = Integer.parseInt(args.get(8));
-					if (bungeeVersion != BungeeVersion.getPluginMessageVersion()) {
-						plugin.getLogger().warning("Incompatible version with bungee, please update all servers");
-						return;
-					}
-					String player = args.get(0);
-					String uuid = args.get(1);
-					String service = args.get(2);
-					long time = Long.parseLong(args.get(3));
-					BungeeMessageData text = new BungeeMessageData(args.get(6));
-
-					bungeeVotePartyCurrent = text.getVotePartyCurrent();
-					bungeeVotePartyRequired = text.getVotePartyRequired();
-					plugin.getPlaceholders().onBungeeVotePartyUpdate();
-					plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);
-					plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
-
-					plugin.debug("pluginmessaging voteonline received from " + player + "/" + uuid + " on " + service);
-					VotingPluginUser user = plugin.getVotingPluginUserManager()
-							.getVotingPluginUser(UUID.fromString(uuid), player);
-					user.cache();
-
-					boolean setTotals = Boolean.valueOf(args.get(7));
-
-					boolean wasOnline = Boolean.valueOf(args.get(4));
-
-					boolean broadcast = true;
-					boolean bungeeBroadcast = false;
-
-					if (args.size() > 9) {
-						bungeeBroadcast = Boolean.valueOf(args.get(9));
-					}
-
-					int num = 1;
-					if (args.size() > 10) {
-						num = Integer.valueOf(args.get(10));
-					}
-
-					int numberOfVotes = 1;
-					if (args.size() > 11) {
-						numberOfVotes = Integer.valueOf(args.get(11));
-					}
-
-					if (!bungeeBroadcast) {
-						if (!plugin.getBungeeSettings().isBungeeBroadcast()
-								&& !plugin.getBungeeSettings().isDisableBroadcast()) {
-							if (wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
-								VoteSite site = plugin.getVoteSiteManager().getVoteSite(service, true);
-								if (site != null) {
-									plugin.getBroadcastHandler().broadcastVote(user.getJavaUUID(), user.getPlayerName(),
-											site.getDisplayName(), false);
-									broadcast = false;
-								} else {
-									plugin.getLogger().warning("No votesite for " + service);
-								}
-							}
-						}
-					} else {
-						broadcast = false;
-					}
-
-					user.bungeeVotePluginMessaging(service, time, text, !setTotals, wasOnline, broadcast, num);
-					if (plugin.getBungeeSettings().isPerServerPoints()) {
-						user.addPoints(plugin.getConfigFile().getPointsOnVote());
-					}
-
-					if (Boolean.valueOf(args.get(5))) {
-						plugin.getServerData().addServiceSite(service);
-					}
-				} else {
-					plugin.getLogger().warning("Incompatible version with bungee, please update all servers");
-				}
-
+			public void onReceive(JsonEnvelope msg) {
+				handleWireVote(msg);
 			}
 		});
 
-		globalMessageHandler.addListener(new GlobalMessageListener("VoteUpdate") {
-
+		globalMessageHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_VOTE_UPDATE) {
 			@Override
-			public void onReceive(ArrayList<String> args) {
-				String player = args.get(0);
-				plugin.debug("pluginmessaging voteupdate received for " + player);
+			public void onReceive(JsonEnvelope msg) {
+				// Wire decode
+				VotingPluginWire.VoteUpdate v = VotingPluginWire.readVoteUpdate(msg);
+
+				String playerUuid = v.uuid;
+				if (playerUuid == null || playerUuid.isEmpty()) {
+					return;
+				}
+
+				plugin.debug("pluginmessaging voteupdate received for " + playerUuid);
 				VotingPluginUser user = plugin.getVotingPluginUserManager()
-						.getVotingPluginUser(UUID.fromString(player));
+						.getVotingPluginUser(UUID.fromString(playerUuid));
 				user.cache();
 
 				user.offVote();
 
-				if (args.size() > 2) {
-					bungeeVotePartyCurrent = Integer.parseInt(args.get(1));
-					bungeeVotePartyRequired = Integer.parseInt(args.get(2));
-					plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);
-					plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
+				// Vote party cache update
+				if (v.votePartyCurrent != 0 || bungeeVotePartyCurrent == -2) {
+					bungeeVotePartyCurrent = v.votePartyCurrent;
 				}
+				if (v.votePartyRequired != 0 || bungeeVotePartyRequired == -2) {
+					bungeeVotePartyRequired = v.votePartyRequired;
+				}
+				plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);
+				plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
 
-				if (args.size() > 5) {
-					String service = args.get(4);
-					String data = args.get(5);
-					if (MessageAPI.isLong(data)) {
-						long time = Long.valueOf(data);
-						if (time > 0) {
-							user.setTime(plugin.getVoteSiteManager().getVoteSite(service, true), time);
-						} else {
-							if (plugin.getBungeeSettings().isBungeeDebug()) {
-								plugin.debug("Invalid last vote time received from bungee: " + time);
-							}
-						}
-					}
+				// Optional: update last vote time for a service
+				String service = v.service;
+				long time = v.time;
+
+				if (service != null && !service.isEmpty() && time > 0) {
+					user.setTime(plugin.getVoteSiteManager().getVoteSite(service, true), time);
+				} else if (service != null && !service.isEmpty() && time <= 0
+						&& plugin.getBungeeSettings().isBungeeDebug()) {
+					plugin.debug("Invalid last vote time received from bungee: " + time);
 				}
 
 				plugin.setUpdate(true);
 			}
 		});
 
-		globalMessageHandler.addListener(new GlobalMessageListener("BungeeTimeChange") {
-
+		globalMessageHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_BUNGEE_TIME_CHANGE) {
 			@Override
-			public void onReceive(ArrayList<String> args) {
+			public void onReceive(JsonEnvelope msg) {
 				checkGlobalData();
 			}
 		});
 
+		// Keeping these as-is (not vote decode related)
 		globalMessageHandler.addListener(new GlobalMessageListener("VoteBroadcast") {
-
 			@Override
-			public void onReceive(ArrayList<String> args) {
-				if (args.size() > 2) {
-					String uuid = args.get(0);
-					String service = args.get(2);
-					VotingPluginUser user = plugin.getVotingPluginUserManager()
-							.getVotingPluginUser(UUID.fromString(uuid), args.get(1));
-					VoteSite site = plugin.getVoteSiteManager().getVoteSite(service, true);
-					if (site != null) {
-						plugin.getBroadcastHandler().broadcastVote(user.getJavaUUID(), user.getPlayerName(),
-								site.getDisplayName(), false);
-					} else {
-						plugin.getLogger().warning("No votesite for " + service);
-					}
+			public void onReceive(JsonEnvelope msg) {
+				Map<String, String> f = msg.getFields();
+
+				String uuidStr = nvl(f.get("uuid"));
+				String playerName = nvl(f.get("player"));
+				String service = nvl(f.get("service"));
+				if (uuidStr.isEmpty() || service.isEmpty()) {
+					return;
+				}
+
+				VotingPluginUser user = plugin.getVotingPluginUserManager()
+						.getVotingPluginUser(UUID.fromString(uuidStr), playerName);
+				VoteSite site = plugin.getVoteSiteManager().getVoteSite(service, true);
+				if (site != null) {
+					plugin.getBroadcastHandler().broadcastVote(user.getJavaUUID(), user.getPlayerName(),
+							site.getDisplayName(), false);
+				} else {
+					plugin.getLogger().warning("No votesite for " + service);
 				}
 			}
 		});
+
 		globalMessageHandler.addListener(new GlobalMessageListener("VoteBroadcastOffline") {
-
 			@Override
-			public void onReceive(ArrayList<String> args) {
-				if (args.size() > 2) {
-					String uuid = args.get(0);
-					String votes = args.get(2);
-					VotingPluginUser user = plugin.getVotingPluginUserManager()
-							.getVotingPluginUser(UUID.fromString(uuid), args.get(1));
-					//user.offlineBroadcast(user, false, Integer.parseInt(votes));
-				}
+			public void onReceive(JsonEnvelope msg) {
+				// kept (no-op) for future use
 			}
 		});
+
 		globalMessageHandler.addListener(new GlobalMessageListener("Status") {
-
 			@Override
-			public void onReceive(ArrayList<String> args) {
-				String server = args.get(0);
-				sendMessage(globalMessageHandler, "statusokay", server);
+			public void onReceive(JsonEnvelope msg) {
+				String server = nvl(msg.getFields().get("server"));
+				HashMap<String, Object> out = new HashMap<>();
+				out.put("server", server);
+				sendSubChannel("statusokay", out);
 			}
 		});
-		globalMessageHandler.addListener(new GlobalMessageListener("ServerName") {
 
+		globalMessageHandler.addListener(new GlobalMessageListener("ServerName") {
 			@Override
-			public void onReceive(ArrayList<String> args) {
-				String server = args.get(0);
+			public void onReceive(JsonEnvelope msg) {
+				String server = nvl(msg.getFields().get("server"));
 				if (!plugin.getOptions().getServer().equals(server)) {
 					plugin.getLogger().warning("Server name doesn't match in BungeeSettings.yml, should be " + server);
 				}
 			}
 		});
-		globalMessageHandler.addListener(new GlobalMessageListener("VotePartyBungee") {
 
+		globalMessageHandler.addListener(new GlobalMessageListener("VotePartyBungee") {
 			@Override
-			public void onReceive(ArrayList<String> args) {
+			public void onReceive(JsonEnvelope msg) {
 				for (final String cmd : plugin.getBungeeSettings().getBungeeVotePartyGlobalCommands()) {
 					plugin.getBukkitScheduler().runTask(plugin, new Runnable() {
-
 						@Override
 						public void run() {
 							Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(), cmd);
 						}
-
 					});
 				}
 				for (Player p : Bukkit.getOnlinePlayers()) {
@@ -517,11 +355,11 @@ public class BungeeHandler implements Listener {
 				}
 			}
 		});
-		globalMessageHandler.addListener(new GlobalMessageListener("VotePartyBroadcast") {
 
+		globalMessageHandler.addListener(new GlobalMessageListener("VotePartyBroadcast") {
 			@Override
-			public void onReceive(ArrayList<String> args) {
-				String broadcast = args.get(0);
+			public void onReceive(JsonEnvelope msg) {
+				String broadcast = nvl(msg.getFields().get("broadcast"));
 				MiscUtils.getInstance().broadcast(broadcast);
 			}
 		});
@@ -533,17 +371,11 @@ public class BungeeHandler implements Listener {
 				backendMysqlMessenger = new BackendMessenger("VotingPlugin",
 						plugin.getMysql().getMysql().getConnectionManager().getDataSource(),
 						plugin.getOptions().getServer(), msg -> {
-							plugin.debug("Proxy sent: " + msg.payload);
-
-							String[] message = msg.payload.split(Pattern.quote("%l%"));
-							if (message.length > 0) {
-								ArrayList<String> list = new ArrayList<>();
-								for (int i = 1; i < message.length; i++) {
-									list.add(message[i]);
-								}
-								globalMessageHandler.onMessage(message[0], list);
+							if (plugin.getBungeeSettings().isBungeeDebug()) {
+								plugin.debug("Proxy sent envelope: " + msg.envelope.getSubChannel() + " "
+										+ msg.envelope.getFields());
 							}
-
+							globalMessageHandler.onMessage(msg.envelope);
 						});
 			} catch (SQLException e) {
 				e.printStackTrace();
@@ -560,29 +392,17 @@ public class BungeeHandler implements Listener {
 						plugin.debug(message);
 					}
 				}
-
-				@Override
-				protected void onMessage(String channel, String[] message) {
-					if (plugin.getBungeeSettings().isBungeeDebug()) {
-						plugin.debug(channel + " " + ArrayUtils.makeStringList(ArrayUtils.convert(message)));
-					}
-					if (message.length > 0) {
-						ArrayList<String> list = new ArrayList<>();
-						for (int i = 1; i < message.length; i++) {
-							list.add(message[i]);
-						}
-						globalMessageHandler.onMessage(message[0], list);
-					}
-				}
 			};
-			redisThread = new Thread(new Runnable() {
 
+			redisThread = new Thread(new Runnable() {
 				@Override
 				public void run() {
 					if (plugin.isEnabled()) {
-						redisHandler.loadListener(
-								new RedisListener(redisHandler, plugin.getBungeeSettings().getRedisPrefix()
-										+ "VotingPlugin_" + plugin.getBungeeSettings().getServer()));
+						RedisListener listener = redisHandler.createEnvelopeListener(
+								plugin.getBungeeSettings().getRedisPrefix() + "VotingPlugin_"
+										+ plugin.getBungeeSettings().getServer(),
+								(ch, env) -> globalMessageHandler.onMessage(env));
+						redisHandler.loadListener(listener);
 					}
 				}
 			});
@@ -601,9 +421,8 @@ public class BungeeHandler implements Listener {
 
 			plugin.getPluginMessaging().add(new PluginMessageHandler() {
 				@Override
-				public void onRecieve(String subChannel, ArrayList<String> args) {
-					globalMessageHandler.onMessage(subChannel, args);
-
+				public void onReceive(JsonEnvelope envelope) {
+					globalMessageHandler.onMessage(envelope);
 				}
 			});
 
@@ -626,10 +445,9 @@ public class BungeeHandler implements Listener {
 			};
 
 			socketHandler.add(new SocketReceiver() {
-
 				@Override
-				public void onReceive(String[] data) {
-					globalMessageHandler.onMessage(data[0], ArrayUtils.convertAndRemoveFirst(data));
+				public void onReceiveEnvelope(JsonEnvelope envelope) {
+					globalMessageHandler.onMessage(envelope);
 				}
 			});
 
@@ -639,26 +457,17 @@ public class BungeeHandler implements Listener {
 				if (id.isEmpty()) {
 					id = plugin.getOptions().getServer();
 				}
-				mqttHandler = new MqttHandler(new MqttServerComm(plugin.getBungeeSettings().getMqttClientID(),
-						plugin.getBungeeSettings().getMqttBrokerURL(), plugin.getBungeeSettings().getMqttUsername(),
-						plugin.getBungeeSettings().getMqttPassword()), 2);
-				mqttHandler.subscribe(plugin.getBungeeSettings().getMqttPrefix() + "votingplugin/servers/"
-						+ plugin.getOptions().getServer(), new MessageHandler() {
+				mqttHandler = new MqttHandler(new MqttServerComm(id, plugin.getBungeeSettings().getMqttBrokerURL(),
+						plugin.getBungeeSettings().getMqttUsername(), plugin.getBungeeSettings().getMqttPassword()), 2);
 
-							@Override
-							public void onMessage(String topic, String payload) {
-								String[] message = payload.split(":");
+				mqttHandler.subscribeEnvelopes(
+						plugin.getBungeeSettings().getMqttPrefix() + "votingplugin/servers/"
+								+ plugin.getOptions().getServer(),
+						(topic, envelope) -> globalMessageHandler.onMessage(envelope));
 
-								if (message.length > 0) {
-									globalMessageHandler.onMessage(message[0],
-											ArrayUtils.convertAndRemoveFirst(message));
-								}
-							}
-						});
 			} catch (MqttException e) {
 				e.printStackTrace();
 			} catch (Exception e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
@@ -671,8 +480,84 @@ public class BungeeHandler implements Listener {
 		}
 	}
 
-	@Getter
-	private MqttHandler mqttHandler;
+	/**
+	 * Wire vote handler (Vote + VoteOnline).
+	 */
+	private void handleWireVote(JsonEnvelope msg) {
+		// Strict schema check (wire uses envelope schema, not a "bungeeVersion" field)
+		int schema = msg.getSchema();
+		if (schema != BungeeVersion.getPluginMessageVersion()) {
+			plugin.getLogger().warning("Incompatible version with bungee/proxy, please update all servers: " + schema
+					+ " != " + BungeeVersion.getPluginMessageVersion());
+			return;
+		}
+
+		VotingPluginWire.Vote v = VotingPluginWire.readVote(msg);
+
+		String uuidStr = v.uuid;
+		String player = v.player;
+		String service = v.service;
+
+		if (uuidStr == null || uuidStr.isEmpty()) {
+			return;
+		}
+
+		plugin.debug("wire vote received from " + player + "/" + uuidStr + " on " + service);
+
+		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuidStr),
+				player);
+
+		// Totals payload is still the compact BungeeMessageData string (that’s fine)
+		BungeeMessageData text = new BungeeMessageData(v.totals == null ? "" : v.totals);
+
+		bungeeVotePartyCurrent = text.getVotePartyCurrent();
+		bungeeVotePartyRequired = text.getVotePartyRequired();
+		plugin.getPlaceholders().onBungeeVotePartyUpdate();
+		plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);
+		plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
+
+		user.cache();
+
+		// Wire meaning:
+		// - v.broadcast == "already broadcasted / bungeeBroadcast" signal from proxy
+		// side
+		boolean broadcast = true;
+		boolean bungeeBroadcast = v.broadcast;
+
+		if (!bungeeBroadcast) {
+			if (!plugin.getBungeeSettings().isBungeeBroadcast() && !plugin.getBungeeSettings().isDisableBroadcast()) {
+				if (v.wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
+					VoteSite site = plugin.getVoteSiteManager().getVoteSite(service, true);
+					if (site != null) {
+						plugin.getBroadcastHandler().broadcastVote(user.getJavaUUID(), user.getPlayerName(),
+								site.getDisplayName(), false);
+						broadcast = false;
+					} else {
+						plugin.getLogger().warning("No votesite for " + service);
+					}
+				}
+			}
+		} else {
+			broadcast = false;
+		}
+
+		// Wire has no "setTotals" flag; treat as always true (so doNotSetTotals =
+		// false)
+		boolean doNotSetTotals = false;
+
+		user.bungeeVotePluginMessaging(service, v.time, text, doNotSetTotals, v.wasOnline, broadcast, v.num);
+
+		if (plugin.getBungeeSettings().isPerServerPoints()) {
+			user.addPoints(plugin.getConfigFile().getPointsOnVote());
+		}
+
+		if (v.manageTotals) {
+			plugin.getServerData().addServiceSite(service);
+		}
+
+		@SuppressWarnings("unused")
+		int _ignored = v.numberOfVotes;
+	}
 
 	public void loadGlobalMysql() {
 		if (plugin.getBungeeSettings().isGloblalDataEnabled()) {
@@ -687,28 +572,27 @@ public class BungeeHandler implements Listener {
 			}
 			timer = Executors.newScheduledThreadPool(1);
 			timer.scheduleWithFixedDelay(new Runnable() {
-
 				@Override
 				public void run() {
 					checkGlobalData();
 				}
 			}, 60, 10, TimeUnit.SECONDS);
 			timer.scheduleWithFixedDelay(new Runnable() {
-
 				@Override
 				public void run() {
 					globalDataHandler.setString(plugin.getBungeeSettings().getServer(), "LastOnline",
 							"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli());
 				}
 			}, 1, 60, TimeUnit.MINUTES);
+
 			if (globalDataHandler != null) {
 				globalDataHandler.getGlobalMysql().close();
 			}
+
 			if (plugin.getBungeeSettings().isGloblalDataUseMainMySQL()
 					&& plugin.getStorageType().equals(UserStorage.MYSQL)) {
 				globalDataHandler = new GlobalDataHandler(
 						new GlobalMySQL("VotingPlugin_GlobalData", plugin.getMysql().getMysql()) {
-
 							@Override
 							public void debugEx(Exception e) {
 								plugin.debug(e);
@@ -738,7 +622,6 @@ public class BungeeHandler implements Listener {
 				globalDataHandler = new GlobalDataHandler(
 						new GlobalMySQL("VotingPlugin_GlobalData", new MysqlConfigSpigot(
 								plugin.getBungeeSettings().getData().getConfigurationSection("GlobalData"))) {
-
 							@Override
 							public void debugEx(Exception e) {
 								plugin.debug(e);
@@ -765,6 +648,7 @@ public class BungeeHandler implements Listener {
 							}
 						});
 			}
+
 			globalDataHandler.getGlobalMysql().alterColumnType("IgnoreTime", "VARCHAR(5)");
 			globalDataHandler.getGlobalMysql().alterColumnType("MONTH", "VARCHAR(5)");
 			globalDataHandler.getGlobalMysql().alterColumnType("WEEK", "VARCHAR(5)");
@@ -777,7 +661,23 @@ public class BungeeHandler implements Listener {
 		}
 	}
 
-	public void sendData(String... strings) {
-		clientHandler.sendMessage(strings);
+	private void sendEnvelopeSocket(JsonEnvelope envelope) {
+		if (clientHandler != null) {
+			clientHandler.sendEnvelope(envelope);
+		}
+	}
+
+	private void sendSubChannel(String subChannel, HashMap<String, Object> fields) {
+		JsonEnvelope.Builder b = JsonEnvelope.builder(subChannel).schema(BungeeVersion.getPluginMessageVersion());
+		if (fields != null) {
+			for (Map.Entry<String, Object> e : fields.entrySet()) {
+				b.put(e.getKey(), e.getValue());
+			}
+		}
+		globalMessageHandler.sendMessage(b.build());
+	}
+
+	private static String nvl(String s) {
+		return s == null ? "" : s;
 	}
 }

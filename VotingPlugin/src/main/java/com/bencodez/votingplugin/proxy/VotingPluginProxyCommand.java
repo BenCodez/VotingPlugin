@@ -48,7 +48,7 @@ public class VotingPluginProxyCommand {
 			return handleStatusCommand();
 
 		case "multiproxystatus":
-			plugin.getMultiProxyHandler().sendMultiProxyServerMessage("Status");
+			plugin.getMultiProxyHandler().sendStatus();
 			return "&aSent status message across multi-proxy";
 
 		case "help":
@@ -64,21 +64,9 @@ public class VotingPluginProxyCommand {
 
 	private String handleStatusCommand() {
 		BungeeMethod method = plugin.getMethod();
-		switch (method) {
-		case SOCKETS:
-			plugin.status();
-			return "&aChecking status via sockets. Check console for details.";
-
-		case PLUGINMESSAGING:
-		case MYSQL:
-		case REDIS:
-			plugin.status();
-			plugin.sendServerNameMessage();
-			return "&aChecking status with method: " + method.toString().toLowerCase();
-
-		default:
-			return "&cStatus command unavailable for the current connection method.";
-		}
+		plugin.status();
+		plugin.sendServerNameMessage();
+		return "&aChecking status with method: " + method.toString().toLowerCase();
 	}
 
 	private String handleVotePartyCommand(String[] args) {

@@ -115,6 +115,11 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	public int getMultiProxyRedisPort() {
 		return getInt(getNode("MultiProxyRedis", "Port"), 6379);
 	}
+	
+	@Override
+	public int getMultiProxyRedisDbIndex() {
+		return getInt(getNode("MultiProxyRedis", "Db-Index"), 0);
+	}
 
 	@Override
 	public boolean getMultiProxyRedisUseExistingConnection() {

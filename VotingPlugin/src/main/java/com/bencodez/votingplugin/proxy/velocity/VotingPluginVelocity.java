@@ -17,10 +17,10 @@ import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
-import java.util.Locale;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -42,6 +42,7 @@ import com.bencodez.votingplugin.proxy.BungeeVersion;
 import com.bencodez.votingplugin.proxy.ProxyMysqlUserTable;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
+import com.bencodez.votingplugin.proxy.VotingPluginWire;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.google.inject.Inject;
 import com.velocitypowered.api.command.CommandMeta;
@@ -298,8 +299,7 @@ public class VotingPluginVelocity {
 						}
 						for (String s : getAvailableAllServers()) {
 							getVotingPluginProxy().getGlobalDataHandler().setBoolean(s, "ForceUpdate", true);
-							getVotingPluginProxy().getGlobalMessageProxyHandler().sendMessage(s, 1, "BungeeTimeChange",
-									"");
+							getVotingPluginProxy().getGlobalMessageProxyHandler().sendMessage(s, 1, VotingPluginWire.bungeeTimeChange());
 						}
 
 						getVotingPluginProxy().processQueue();
@@ -364,8 +364,8 @@ public class VotingPluginVelocity {
 						}
 						for (String s : getAvailableAllServers()) {
 							getVotingPluginProxy().getGlobalDataHandler().setBoolean(s, "ForceUpdate", true);
-							getVotingPluginProxy().getGlobalMessageProxyHandler().sendMessage(s, 1, "BungeeTimeChange",
-									"");
+							getVotingPluginProxy().getGlobalMessageProxyHandler().sendMessage(s, 1, VotingPluginWire.bungeeTimeChange());
+
 						}
 
 						getVotingPluginProxy().processQueue();

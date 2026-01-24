@@ -168,4 +168,6 @@ public interface VotingPluginProxyConfig {
 	
 	public boolean hasDatabaseConfigured();
 
+	public int getMultiProxyRedisDbIndex();
+
 }

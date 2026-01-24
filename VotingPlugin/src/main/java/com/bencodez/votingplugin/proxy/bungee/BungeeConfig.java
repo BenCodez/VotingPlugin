@@ -129,6 +129,11 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 	}
 
 	@Override
+	public int getMultiProxyRedisDbIndex() {
+		return getData().getInt("MultiProxyRedis.Db-Index", 0);
+	}
+
+	@Override
 	public boolean getMultiProxyRedisUseExistingConnection() {
 		return getData().getBoolean("MultiProxyRedis.UseExistingConnection", false);
 	}
