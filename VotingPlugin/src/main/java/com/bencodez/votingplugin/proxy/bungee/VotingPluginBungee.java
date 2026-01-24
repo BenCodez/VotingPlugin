@@ -239,12 +239,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 						if (type.equals(TimeType.MONTH)) {
 							getVotingPluginProxy().getProxyMySQL().copyColumnData(TopVoter.Monthly.getColumnName(),
 									"LastMonthTotal");
-							if (getVotingPluginProxy().getConfig().getResetMilestonesMonthly()) {
-								getVotingPluginProxy().getProxyMySQL().wipeColumnData("MilestoneCount",
-										DataType.INTEGER);
-								getVotingPluginProxy().getProxyMySQL().wipeColumnData("GottenMileStones",
-										DataType.STRING);
-							}
 						}
 						getVotingPluginProxy().getProxyMySQL().wipeColumnData(TopVoter.of(type).getColumnName(),
 								DataType.INTEGER);
@@ -310,12 +304,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 								if (type.equals(TimeType.MONTH)) {
 									getVotingPluginProxy().getProxyMySQL()
 											.copyColumnData(TopVoter.Monthly.getColumnName(), "LastMonthTotal");
-									if (getVotingPluginProxy().getConfig().getResetMilestonesMonthly()) {
-										getVotingPluginProxy().getProxyMySQL().wipeColumnData("MilestoneCount",
-												DataType.INTEGER);
-										getVotingPluginProxy().getProxyMySQL().wipeColumnData("GottenMileStones",
-												DataType.STRING);
-									}
 								}
 								getVotingPluginProxy().getProxyMySQL().wipeColumnData(TopVoter.of(type).getColumnName(),
 										DataType.INTEGER);
@@ -364,7 +352,6 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		getVotingPluginProxy().getProxyMySQL().alterColumnType("HighestDailyTotal", "INT DEFAULT '0'");
 		getVotingPluginProxy().getProxyMySQL().alterColumnType("AllTimeTotal", "INT DEFAULT '0'");
 		getVotingPluginProxy().getProxyMySQL().alterColumnType("HighestMonthlyTotal", "INT DEFAULT '0'");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("MilestoneCount", "INT DEFAULT '0'");
 		getVotingPluginProxy().getProxyMySQL().alterColumnType("MonthTotal", "INT DEFAULT '0'");
 		getVotingPluginProxy().getProxyMySQL().alterColumnType("HighestWeeklyTotal", "INT DEFAULT '0'");
 		getVotingPluginProxy().getProxyMySQL().alterColumnType("LastMonthTotal", "INT DEFAULT '0'");

@@ -39,7 +39,7 @@ import com.bencodez.simpleapi.servercomm.sockets.SocketReceiver;
 import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.simpleapi.sql.data.DataValueBoolean;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigSpigot;
-import com.bencodez.votingplugin.proxy.BungeeMessageData;
+import com.bencodez.votingplugin.proxy.VoteTotalsSnapshot;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -205,7 +205,8 @@ public class BungeeHandler implements Listener {
 				} else if (method.equals(BungeeMethod.SOCKETS)) {
 					sendEnvelopeSocket(envelope);
 				} else if (method.equals(BungeeMethod.REDIS)) {
-					redisHandler.publishEnvelope(plugin.getBungeeSettings().getRedisPrefix() + "VotingPlugin", envelope);
+					redisHandler.publishEnvelope(plugin.getBungeeSettings().getRedisPrefix() + "VotingPlugin",
+							envelope);
 				} else if (method.equals(BungeeMethod.MQTT)) {
 					try {
 						mqttHandler.publishEnvelope(
@@ -363,27 +364,22 @@ public class BungeeHandler implements Listener {
 		});
 
 		if (method.equals(BungeeMethod.MYSQL)) {
-		    plugin.registerBungeeChannels(plugin.getBungeeSettings().getPluginMessagingChannel());
+			plugin.registerBungeeChannels(plugin.getBungeeSettings().getPluginMessagingChannel());
 
-		    try {
-		        backendMysqlMessenger = new MySqlMessenger(
-		                "VotingPlugin",
-		                plugin.getMysql().getMysql().getConnectionManager().getDataSource(),
-		                MySqlMessenger.Mode.BACKEND,
-		                plugin.getOptions().getServer(),
-		                msg -> {
-		                    if (plugin.getBungeeSettings().isBungeeDebug()) {
-		                        plugin.debug("Proxy sent envelope: " + msg.envelope.getSubChannel() + " "
-		                                + msg.envelope.getFields());
-		                    }
-		                    globalMessageHandler.onMessage(msg.envelope);
-		                }
-		        );
-		    } catch (SQLException e) {
-		        e.printStackTrace();
-		    }
-		}
- else if (method.equals(BungeeMethod.REDIS)) {
+			try {
+				backendMysqlMessenger = new MySqlMessenger("VotingPlugin",
+						plugin.getMysql().getMysql().getConnectionManager().getDataSource(),
+						MySqlMessenger.Mode.BACKEND, plugin.getOptions().getServer(), msg -> {
+							if (plugin.getBungeeSettings().isBungeeDebug()) {
+								plugin.debug("Proxy sent envelope: " + msg.envelope.getSubChannel() + " "
+										+ msg.envelope.getFields());
+							}
+							globalMessageHandler.onMessage(msg.envelope);
+						});
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		} else if (method.equals(BungeeMethod.REDIS)) {
 			redisHandler = new RedisHandler(plugin.getBungeeSettings().getRedisHost(),
 					plugin.getBungeeSettings().getRedisPort(), plugin.getBungeeSettings().getRedisUsername(),
 					plugin.getBungeeSettings().getRedisPassword(), plugin.getBungeeSettings().getRedisdbindex()) {
@@ -509,8 +505,7 @@ public class BungeeHandler implements Listener {
 		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuidStr),
 				player);
 
-		// Totals payload is still the compact BungeeMessageData string (that’s fine)
-		BungeeMessageData text = new BungeeMessageData(v.totals == null ? "" : v.totals);
+		VoteTotalsSnapshot text = VoteTotalsSnapshot.parseStorage(v.totals == null ? "" : v.totals);
 
 		bungeeVotePartyCurrent = text.getVotePartyCurrent();
 		bungeeVotePartyRequired = text.getVotePartyRequired();

@@ -283,12 +283,7 @@ public class VotingPluginVelocity {
 						if (type.equals(TimeType.MONTH)) {
 							getVotingPluginProxy().getProxyMySQL().copyColumnData(TopVoter.Monthly.getColumnName(),
 									"LastMonthTotal");
-							if (getVotingPluginProxy().getConfig().getResetMilestonesMonthly()) {
-								getVotingPluginProxy().getProxyMySQL().wipeColumnData("MilestoneCount",
-										DataType.INTEGER);
-								getVotingPluginProxy().getProxyMySQL().wipeColumnData("GottenMileStones",
-										DataType.STRING);
-							}
+
 						}
 						getVotingPluginProxy().getProxyMySQL().wipeColumnData(TopVoter.of(type).getColumnName(),
 								DataType.INTEGER);
@@ -298,7 +293,8 @@ public class VotingPluginVelocity {
 						}
 						for (String s : getAvailableAllServers()) {
 							getVotingPluginProxy().getGlobalDataHandler().setBoolean(s, "ForceUpdate", true);
-							getVotingPluginProxy().getGlobalMessageProxyHandler().sendMessage(s, 1, VotingPluginWire.bungeeTimeChange());
+							getVotingPluginProxy().getGlobalMessageProxyHandler().sendMessage(s, 1,
+									VotingPluginWire.bungeeTimeChange());
 						}
 
 						getVotingPluginProxy().processQueue();
@@ -348,12 +344,6 @@ public class VotingPluginVelocity {
 						if (type.equals(TimeType.MONTH)) {
 							getVotingPluginProxy().getProxyMySQL().copyColumnData(TopVoter.Monthly.getColumnName(),
 									"LastMonthTotal");
-							if (getVotingPluginProxy().getConfig().getResetMilestonesMonthly()) {
-								getVotingPluginProxy().getProxyMySQL().wipeColumnData("MilestoneCount",
-										DataType.INTEGER);
-								getVotingPluginProxy().getProxyMySQL().wipeColumnData("GottenMileStones",
-										DataType.STRING);
-							}
 						}
 						getVotingPluginProxy().getProxyMySQL().wipeColumnData(TopVoter.of(type).getColumnName(),
 								DataType.INTEGER);
@@ -363,7 +353,8 @@ public class VotingPluginVelocity {
 						}
 						for (String s : getAvailableAllServers()) {
 							getVotingPluginProxy().getGlobalDataHandler().setBoolean(s, "ForceUpdate", true);
-							getVotingPluginProxy().getGlobalMessageProxyHandler().sendMessage(s, 1, VotingPluginWire.bungeeTimeChange());
+							getVotingPluginProxy().getGlobalMessageProxyHandler().sendMessage(s, 1,
+									VotingPluginWire.bungeeTimeChange());
 
 						}
 
@@ -402,7 +393,6 @@ public class VotingPluginVelocity {
 		getVotingPluginProxy().getProxyMySQL().alterColumnType("HighestDailyTotal", "INT DEFAULT '0'");
 		getVotingPluginProxy().getProxyMySQL().alterColumnType("AllTimeTotal", "INT DEFAULT '0'");
 		getVotingPluginProxy().getProxyMySQL().alterColumnType("HighestMonthlyTotal", "INT DEFAULT '0'");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("MilestoneCount", "INT DEFAULT '0'");
 		getVotingPluginProxy().getProxyMySQL().alterColumnType("MonthTotal", "INT DEFAULT '0'");
 		getVotingPluginProxy().getProxyMySQL().alterColumnType("HighestWeeklyTotal", "INT DEFAULT '0'");
 		getVotingPluginProxy().getProxyMySQL().alterColumnType("LastMonthTotal", "INT DEFAULT '0'");
@@ -494,8 +484,7 @@ public class VotingPluginVelocity {
 		CHANNEL = MinecraftChannelIdentifier.create(channel[0].toLowerCase(), channel[1].toLowerCase());
 		server.getChannelRegistrar().register(CHANNEL);
 
-		CommandMeta meta = server.getCommandManager().metaBuilder("votingpluginproxy")
-				.aliases("vpp").build();
+		CommandMeta meta = server.getCommandManager().metaBuilder("votingpluginproxy").aliases("vpp").build();
 
 		server.getCommandManager().register(meta, new VotingPluginVelocityCommand(this));
 
@@ -899,8 +888,7 @@ public class VotingPluginVelocity {
 		}
 
 		logger.info("VotingPlugin velocity loaded, method: " + getVotingPluginProxy().getMethod().toString()
-				+ ", Internal Jar Version: "
-				+ version);
+				+ ", Internal Jar Version: " + version);
 		if (!buildNumber.equals("NOTSET")) {
 			logger.info("Detected using dev build number: " + buildNumber);
 		}

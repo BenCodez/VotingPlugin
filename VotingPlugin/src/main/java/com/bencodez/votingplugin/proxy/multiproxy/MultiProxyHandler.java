@@ -14,7 +14,7 @@ import com.bencodez.simpleapi.servercomm.redis.RedisListener;
 import com.bencodez.simpleapi.servercomm.sockets.ClientHandler;
 import com.bencodez.simpleapi.servercomm.sockets.SocketHandler;
 import com.bencodez.simpleapi.servercomm.sockets.SocketReceiver;
-import com.bencodez.votingplugin.proxy.BungeeMessageData;
+import com.bencodez.votingplugin.proxy.VoteTotalsSnapshot;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
 
 import lombok.Getter;
@@ -90,7 +90,7 @@ public abstract class MultiProxyHandler {
 	public abstract void setEncryptionHandler(EncryptionHandler encryptionHandler);
 
 	public abstract void triggerVote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
-			BungeeMessageData text, String uuid);
+			VoteTotalsSnapshot text, String uuid);
 
 	public void loadMultiProxySupport() {
 		if (!getMultiProxySupportEnabled()) {
@@ -254,7 +254,7 @@ public abstract class MultiProxyHandler {
 			final boolean realVote = Boolean.parseBoolean(f.getOrDefault(VotingPluginWire.K_REAL_VOTE, "false"));
 
 			if (!player.isEmpty() && !uuid.isEmpty() && !service.isEmpty()) {
-				triggerVote(player, service, realVote, true, 0L, new BungeeMessageData(totals), uuid);
+				triggerVote(player, service, realVote, true, 0L, VoteTotalsSnapshot.parseStorage(totals), uuid);
 			}
 			return;
 		}

@@ -14,7 +14,7 @@ import org.bukkit.Bukkit;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.VoteMilestoneRewardEvent;
-import com.bencodez.votingplugin.proxy.BungeeMessageData;
+import com.bencodez.votingplugin.proxy.VoteTotalsSnapshot;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import lombok.Getter;
@@ -409,12 +409,12 @@ public class VoteMilestonesManager {
 		return sb.toString();
 	}
 
-	public void handleVote(VotingPluginUser user, BungeeMessageData bungeeMessageData,
+	public void handleVote(VotingPluginUser user, VoteTotalsSnapshot bungeeMessageData,
 			Map<String, String> contextPlaceholders) {
 		handleVote(user, bungeeMessageData, false, null, contextPlaceholders);
 	}
 
-	public void handleVote(VotingPluginUser user, BungeeMessageData bungeeMessageData, boolean forceBungee,
+	public void handleVote(VotingPluginUser user, VoteTotalsSnapshot bungeeMessageData, boolean forceBungee,
 			UUID voteUUID, Map<String, String> contextPlaceholders) {
 		if (config == null || config.getMilestones() == null || config.getMilestones().isEmpty()) {
 			return;
@@ -578,7 +578,7 @@ public class VoteMilestonesManager {
 	 * =======================================================================
 	 */
 
-	public int forceGroup(VotingPluginUser user, String groupId, boolean bypassLimits, BungeeMessageData bungeeData) {
+	public int forceGroup(VotingPluginUser user, String groupId, boolean bypassLimits, VoteTotalsSnapshot bungeeData) {
 		if (user == null || groupId == null || groupId.trim().isEmpty()) {
 			return 0;
 		}
@@ -651,7 +651,7 @@ public class VoteMilestonesManager {
 	}
 
 	public boolean forceMilestone(VotingPluginUser user, String milestoneId, boolean bypassLimits,
-			BungeeMessageData bungeeData) {
+			VoteTotalsSnapshot bungeeData) {
 		if (user == null || milestoneId == null || milestoneId.trim().isEmpty()) {
 			return false;
 		}
@@ -730,7 +730,7 @@ public class VoteMilestonesManager {
 	 * =======================================================================
 	 */
 
-	public List<String> previewGroup(VotingPluginUser user, String groupId, BungeeMessageData bungeeData) {
+	public List<String> previewGroup(VotingPluginUser user, String groupId, VoteTotalsSnapshot bungeeData) {
 		List<String> out = new ArrayList<>();
 		if (user == null) {
 			return out;
@@ -854,7 +854,7 @@ public class VoteMilestonesManager {
 	 * Detailed status for a group: shows what has already been given (based on
 	 * limiter storage) and what should have been given given the current total.
 	 */
-	public List<String> statusGroup(VotingPluginUser user, String groupId, BungeeMessageData bungeeData) {
+	public List<String> statusGroup(VotingPluginUser user, String groupId, VoteTotalsSnapshot bungeeData) {
 		List<String> out = new ArrayList<>();
 		if (user == null) {
 			out.add("No user");
@@ -941,7 +941,7 @@ public class VoteMilestonesManager {
 	/**
 	 * Backwards-compatible one-line status (keeps existing callers).
 	 */
-	public String status(VotingPluginUser user, String groupId, BungeeMessageData bungeeData) {
+	public String status(VotingPluginUser user, String groupId, VoteTotalsSnapshot bungeeData) {
 		List<String> lines = statusGroup(user, groupId, bungeeData);
 		if (lines.isEmpty()) {
 			return "No data";
@@ -1264,7 +1264,7 @@ public class VoteMilestonesManager {
 	 * =======================================================================
 	 */
 
-	private long safeTotalValue(VotingPluginUser user, VoteMilestone m, BungeeMessageData data) {
+	private long safeTotalValue(VotingPluginUser user, VoteMilestone m, VoteTotalsSnapshot data) {
 		try {
 			return m.getTotal() == null ? 0 : m.getTotal().getValue(user, data);
 		} catch (Exception e) {

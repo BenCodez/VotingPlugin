@@ -5,7 +5,7 @@ import java.util.UUID;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-import com.bencodez.votingplugin.proxy.BungeeMessageData;
+import com.bencodez.votingplugin.proxy.VoteTotalsSnapshot;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
@@ -36,7 +36,7 @@ public class PlayerPostVoteEvent extends Event {
 
 	@Getter
 	@Setter
-	private BungeeMessageData bungeeTextTotals;
+	private VoteTotalsSnapshot bungeeTextTotals;
 
 	@Getter
 	@Setter

@@ -415,11 +415,6 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 	}
 
 	@Override
-	public boolean getResetMilestonesMonthly() {
-		return getData().getBoolean("ResetMilestonesMonthly", false);
-	}
-
-	@Override
 	public boolean getVoteCacheUseMySQL() {
 		return getData().getBoolean("VoteCache.UseMySQL", false);
 	}

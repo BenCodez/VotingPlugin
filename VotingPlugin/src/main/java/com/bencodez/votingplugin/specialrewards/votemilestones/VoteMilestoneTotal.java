@@ -2,7 +2,7 @@ package com.bencodez.votingplugin.specialrewards.votemilestones;
 
 import java.util.Locale;
 
-import com.bencodez.votingplugin.proxy.BungeeMessageData;
+import com.bencodez.votingplugin.proxy.VoteTotalsSnapshot;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
@@ -14,7 +14,7 @@ public enum VoteMilestoneTotal {
 	// ---- Vote totals (TopVoter-based) ----
 	ALLTIME_VOTES {
 		@Override
-		public long getValue(VotingPluginUser user, BungeeMessageData bungeeMessageData) {
+		public long getValue(VotingPluginUser user, VoteTotalsSnapshot bungeeMessageData) {
 			if (bungeeMessageData != null) {
 				return bungeeMessageData.getAllTimeTotal();
 			}
@@ -24,7 +24,7 @@ public enum VoteMilestoneTotal {
 
 	DAILY_VOTES {
 		@Override
-		public long getValue(VotingPluginUser user, BungeeMessageData bungeeMessageData) {
+		public long getValue(VotingPluginUser user, VoteTotalsSnapshot bungeeMessageData) {
 			if (bungeeMessageData != null) {
 				return bungeeMessageData.getDailyTotal();
 			}
@@ -34,7 +34,7 @@ public enum VoteMilestoneTotal {
 
 	WEEKLY_VOTES {
 		@Override
-		public long getValue(VotingPluginUser user, BungeeMessageData bungeeMessageData) {
+		public long getValue(VotingPluginUser user, VoteTotalsSnapshot bungeeMessageData) {
 			if (bungeeMessageData != null) {
 				return bungeeMessageData.getWeeklyTotal();
 			}
@@ -44,7 +44,7 @@ public enum VoteMilestoneTotal {
 
 	MONTHLY_VOTES {
 		@Override
-		public long getValue(VotingPluginUser user, BungeeMessageData bungeeMessageData) {
+		public long getValue(VotingPluginUser user, VoteTotalsSnapshot bungeeMessageData) {
 			if (bungeeMessageData != null) {
 				return bungeeMessageData.getMonthTotal();
 			}
@@ -55,7 +55,7 @@ public enum VoteMilestoneTotal {
 	// ---- Global points (single value only) ----
 	POINTS {
 		@Override
-		public long getValue(VotingPluginUser user, BungeeMessageData bungeeMessageData) {
+		public long getValue(VotingPluginUser user, VoteTotalsSnapshot bungeeMessageData) {
 			if (bungeeMessageData != null) {
 				return bungeeMessageData.getPoints();
 			}
@@ -64,12 +64,12 @@ public enum VoteMilestoneTotal {
 	},
 	ALLSITES_TODAY {
 		@Override
-		public long getValue(VotingPluginUser user, BungeeMessageData bungeeMessageData) {
+		public long getValue(VotingPluginUser user, VoteTotalsSnapshot bungeeMessageData) {
 			return user.getUniqueVoteSitesToday();
 		}
 	};
 
-	public abstract long getValue(VotingPluginUser user, BungeeMessageData bungeeMessageData);
+	public abstract long getValue(VotingPluginUser user, VoteTotalsSnapshot bungeeMessageData);
 
 	/**
 	 * Parse config values flexibly.

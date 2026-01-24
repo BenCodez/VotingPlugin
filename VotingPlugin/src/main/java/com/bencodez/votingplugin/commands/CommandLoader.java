@@ -34,6 +34,7 @@ import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.player.UuidLookup;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
+import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequest;
@@ -83,8 +84,6 @@ import com.bencodez.votingplugin.specialrewards.votemilestones.VoteMilestonesMan
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votesites.VoteSite;
-
-import lombok.var;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -2033,7 +2032,7 @@ public class CommandLoader {
 					}
 
 					// Load user and read PlayerName
-					var user = plugin.getUserManager().getUser(parsed);
+					AdvancedCoreUser user = plugin.getUserManager().getUser(parsed);
 					if (user == null) {
 						continue;
 					}
@@ -2101,7 +2100,7 @@ public class CommandLoader {
 
 					try {
 						// Ensure canonical user exists/loaded
-						var canonicalUser = plugin.getUserManager().getUser(UUID.fromString(canonicalUuid));
+						AdvancedCoreUser canonicalUser = plugin.getUserManager().getUser(UUID.fromString(canonicalUuid));
 						canonicalUser.userDataFetechMode(com.bencodez.advancedcore.api.user.UserDataFetchMode.NO_CACHE);
 						canonicalEnsured++;
 
@@ -2118,7 +2117,7 @@ public class CommandLoader {
 								continue;
 							}
 
-							var fromUser = plugin.getUserManager().getUser(uid);
+							AdvancedCoreUser fromUser = plugin.getUserManager().getUser(uid);
 							if (fromUser == null) {
 								continue;
 							}

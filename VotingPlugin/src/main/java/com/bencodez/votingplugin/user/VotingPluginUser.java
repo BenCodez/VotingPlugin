@@ -34,7 +34,7 @@ import com.bencodez.votingplugin.events.PlayerReceivePointsEvent;
 import com.bencodez.votingplugin.events.PlayerSpecialRewardEvent;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.events.SpecialRewardType;
-import com.bencodez.votingplugin.proxy.BungeeMessageData;
+import com.bencodez.votingplugin.proxy.VoteTotalsSnapshot;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
 import com.bencodez.votingplugin.votesites.NextSite;
@@ -252,7 +252,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param text      the bungee message data
 	 * @param setTotals whether to set the totals
 	 */
-	public void bungeeVote(String service, BungeeMessageData text, boolean setTotals) {
+	public void bungeeVote(String service, VoteTotalsSnapshot text, boolean setTotals) {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			plugin.debug("Bungee vote for " + getPlayerName() + " on " + service);
 
@@ -274,7 +274,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param text      the bungee message data
 	 * @param setTotals whether to set the totals
 	 */
-	public void bungeeVoteOnline(String service, BungeeMessageData text, boolean setTotals) {
+	public void bungeeVoteOnline(String service, VoteTotalsSnapshot text, boolean setTotals) {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			plugin.debug("Bungee online vote for " + getPlayerName() + " on " + service);
 
@@ -300,7 +300,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param broadcast whether to broadcast the vote
 	 * @param num       the vote number
 	 */
-	public void bungeeVotePluginMessaging(String service, long time, BungeeMessageData text, boolean setTotals,
+	public void bungeeVotePluginMessaging(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
 			boolean wasOnline, boolean broadcast, int num) {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);

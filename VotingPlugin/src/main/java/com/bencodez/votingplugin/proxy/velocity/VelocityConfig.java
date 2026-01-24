@@ -406,11 +406,6 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	}
 
 	@Override
-	public boolean getResetMilestonesMonthly() {
-		return getBoolean(getNode("ResetMilestonesMonthly"), false);
-	}
-
-	@Override
 	public boolean getVoteCacheUseMySQL() {
 		return getBoolean(getNode("VoteCache", "UseMySQL"), false);
 	}

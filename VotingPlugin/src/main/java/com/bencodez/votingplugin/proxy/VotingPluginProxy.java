@@ -934,7 +934,7 @@ public abstract class VotingPluginProxy {
 
 			@Override
 			public void triggerVote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
-					BungeeMessageData text, String uuid) {
+					VoteTotalsSnapshot text, String uuid) {
 				vote(player, service, realVote, timeQueue, queueTime, text, uuid);
 			}
 		};
@@ -1326,7 +1326,7 @@ public abstract class VotingPluginProxy {
 	}
 
 	public synchronized void vote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
-			BungeeMessageData text, String uuid) {
+			VoteTotalsSnapshot text, String uuid) {
 		try {
 			if (player == null || player.isEmpty()) {
 				log("No name from vote on " + service);
@@ -1455,7 +1455,7 @@ public abstract class VotingPluginProxy {
 							points = getConfig().getLimitVotePoints();
 						}
 					}
-					text = new BungeeMessageData(allTimeTotal, monthTotal, weeklyTotal, dailyTotal, points,
+					text = new VoteTotalsSnapshot(allTimeTotal, monthTotal, weeklyTotal, dailyTotal, points,
 							votePartyVotes, currentVotePartyVotesRequired, dateMonthTotal, voteId);
 
 					ArrayList<Column> update = new ArrayList<>();
@@ -1471,7 +1471,7 @@ public abstract class VotingPluginProxy {
 					debug("Setting totals " + text.toString());
 					getProxyMySQL().update(uuid, update);
 				} else {
-					text = new BungeeMessageData(0, 0, 0, 0, 0, votePartyVotes, currentVotePartyVotesRequired, 0,
+					text = new VoteTotalsSnapshot(0, 0, 0, 0, 0, votePartyVotes, currentVotePartyVotesRequired, 0,
 							voteId);
 				}
 			}
