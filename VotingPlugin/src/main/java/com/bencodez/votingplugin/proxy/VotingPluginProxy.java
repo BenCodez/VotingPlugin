@@ -1,4 +1,3 @@
-// File: com/bencodez/votingplugin/proxy/VotingPluginProxy.java
 package com.bencodez.votingplugin.proxy;
 
 import java.io.BufferedReader;
@@ -51,6 +50,7 @@ import com.bencodez.simpleapi.sql.data.DataValueBoolean;
 import com.bencodez.simpleapi.sql.data.DataValueInt;
 import com.bencodez.simpleapi.sql.data.DataValueString;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
+import com.bencodez.votingplugin.proxy.broadcast.ProxyBroadcastDecider;
 import com.bencodez.votingplugin.proxy.cache.IVoteCache;
 import com.bencodez.votingplugin.proxy.cache.VoteCacheHandler;
 import com.bencodez.votingplugin.proxy.cache.nonvoted.INonVotedPlayersStorage;
@@ -288,11 +288,22 @@ public abstract class VotingPluginProxy {
 								}
 							}
 							if (toSend) {
+								boolean broadcastHere = true;
+								if (getConfig().getProxyBroadcastEnabled()) {
+									boolean playerOnline = isPlayerOnline(cache.getPlayerName());
+									String playerServer = playerOnline ? getCurrentPlayerServer(cache.getPlayerName())
+											: null;
+
+									Set<String> targets = proxyBroadcastDecider.resolveTargets(playerOnline,
+											playerServer);
+									broadcastHere = proxyBroadcastDecider.shouldBroadcast(server, targets);
+								}
+
 								globalMessageProxyHandler.sendMessage(server, delay,
 										VotingPluginWire.vote(cache.getPlayerName(), cache.getUuid(),
 												cache.getService(), cache.getTime(), false, cache.isRealVote(),
-												cache.getText(), getConfig().getBungeeManageTotals(),
-												getConfig().getBroadcast(), num, numberOfVotes));
+												cache.getText(), getConfig().getBungeeManageTotals(), broadcastHere,
+												num, numberOfVotes));
 								delay++;
 								num++;
 								removed.add(cache);
@@ -326,11 +337,18 @@ public abstract class VotingPluginProxy {
 					int num = 1;
 					int numberOfVotes = c.size();
 					for (OfflineBungeeVote cache : c) {
+						boolean broadcastHere = true;
+						if (getConfig().getProxyBroadcastEnabled()) {
+							String playerServer = (server != null) ? server : getCurrentPlayerServer(player);
+
+							Set<String> targets = proxyBroadcastDecider.resolveTargets(true, playerServer);
+							broadcastHere = proxyBroadcastDecider.shouldBroadcast(server, targets);
+						}
+
 						globalMessageProxyHandler.sendMessage(server, delay,
 								VotingPluginWire.voteOnline(cache.getPlayerName(), cache.getUuid(), cache.getService(),
 										cache.getTime(), false, cache.isRealVote(), cache.getText(),
-										getConfig().getBungeeManageTotals(), getConfig().getBroadcast(), num,
-										numberOfVotes));
+										getConfig().getBungeeManageTotals(), broadcastHere, num, numberOfVotes));
 						delay++;
 						num++;
 					}
@@ -723,6 +741,10 @@ public abstract class VotingPluginProxy {
 			}
 		});
 
+		proxyBroadcastDecider = new ProxyBroadcastDecider(() -> getConfig(), () -> getAllAvailableServers(),
+				s -> isServerValid(s),
+				s -> getConfig().getBlockedServers() != null && getConfig().getBlockedServers().contains(s));
+
 		loadMultiProxySupport();
 		loadVoteLoggingMySQL();
 
@@ -730,6 +752,9 @@ public abstract class VotingPluginProxy {
 	}
 
 	private VoteLogMysqlTable voteLogMysqlTable;
+
+	@Getter
+	private ProxyBroadcastDecider proxyBroadcastDecider;
 
 	public void loadVoteLoggingMySQL() {
 		if (getConfig().getVoteLoggingEnabled()) {
@@ -1332,25 +1357,30 @@ public abstract class VotingPluginProxy {
 				log("No name from vote on " + service);
 				return;
 			}
+
+			// Handle time change queue
 			if (getConfig().getGlobalDataEnabled()) {
 				if (getGlobalDataHandler().isTimeChangedHappened()) {
 					getGlobalDataHandler().checkForFinishedTimeChanges();
 					if (timeQueue && getGlobalDataHandler().isTimeChangedHappened()) {
 						getVoteCacheHandler().getTimeChangeQueue().add(new VoteTimeQueue(player, service,
 								LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()));
-						log("Cachcing vote from " + player + "/" + service
+						log("Caching vote from " + player + "/" + service
 								+ " because time change is happening right now");
 						return;
 					}
 				}
 			}
 
+			// UUID resolution
 			if (!getConfig().getOnlineMode()) {
 				uuid = getUUID(player);
 			}
 
 			if (uuid == null || uuid.isEmpty()) {
 				uuid = getUUID(player);
+
+				// Bedrock prefix auto-detect
 				if (uuid.isEmpty() && !getConfig().getBedrockPlayerPrefix().isEmpty()
 						&& !player.startsWith(getConfig().getBedrockPlayerPrefix())) {
 					String uuid1 = getUUID(getConfig().getBedrockPlayerPrefix() + player);
@@ -1375,6 +1405,7 @@ public abstract class VotingPluginProxy {
 					log("Failed to get uuid for " + player);
 					return;
 				}
+
 				debug("Fetching UUID online, since allowunjoined is enabled");
 				UUID u = null;
 				try {
@@ -1393,6 +1424,7 @@ public abstract class VotingPluginProxy {
 				uuid = u.toString();
 			}
 
+			// Normalize UUID string if possible
 			try {
 				if (uuid != null && !uuid.isEmpty() && !uuid.equalsIgnoreCase("null")) {
 					uuid = UUID.fromString(uuid.trim()).toString();
@@ -1403,9 +1435,15 @@ public abstract class VotingPluginProxy {
 
 			player = getProperName(uuid, player);
 
-			UUID voteId = UUID.randomUUID();
+			// Cache online state/server once (IMPORTANT for broadcast logic correctness)
+			final boolean playerOnline = isPlayerOnline(player);
+			final String playerServer = playerOnline ? getCurrentPlayerServer(player) : null;
+
+			final UUID voteId = UUID.randomUUID();
 
 			addVoteParty();
+
+			// Totals processing (primary server OR no multiproxy)
 			if (getConfig().getPrimaryServer() || !getConfig().getMultiProxySupport()) {
 				if (getConfig().getBungeeManageTotals()) {
 
@@ -1429,6 +1467,7 @@ public abstract class VotingPluginProxy {
 
 					int allTimeTotal = getValue(data, "AllTimeTotal", 1);
 					int monthTotal = getValue(data, "MonthTotal", 1);
+
 					int dateMonthTotal = -1;
 					if (getConfig().getStoreMonthTotalsWithDate()) {
 						if (getConfig().getUseMonthDateTotalsAsPrimaryTotal()) {
@@ -1437,6 +1476,7 @@ public abstract class VotingPluginProxy {
 							dateMonthTotal = monthTotal;
 						}
 					}
+
 					int weeklyTotal = getValue(data, "WeeklyTotal", 1);
 					int dailyTotal = getValue(data, "DailyTotal", 1);
 					int points = getValue(data, "Points", getConfig().getPointsOnVote());
@@ -1450,11 +1490,10 @@ public abstract class VotingPluginProxy {
 						}
 					}
 
-					if (getConfig().getLimitVotePoints() > 0) {
-						if (points > getConfig().getLimitVotePoints()) {
-							points = getConfig().getLimitVotePoints();
-						}
+					if (getConfig().getLimitVotePoints() > 0 && points > getConfig().getLimitVotePoints()) {
+						points = getConfig().getLimitVotePoints();
 					}
+
 					text = new VoteTotalsSnapshot(allTimeTotal, monthTotal, weeklyTotal, dailyTotal, points,
 							votePartyVotes, currentVotePartyVotesRequired, dateMonthTotal, voteId);
 
@@ -1483,35 +1522,69 @@ public abstract class VotingPluginProxy {
 
 			VoteLogStatus voteStatus = VoteLogStatus.IMMEDIATE;
 
+			// ===========================
+			// Send vote(s) to backend(s)
+			// ===========================
 			if (getConfig().getSendVotesToAllServers()) {
 				for (String s : getAllAvailableServers()) {
+
 					boolean forceCache = false;
-					if (!isPlayerOnline(player) && getConfig().getWaitForUserOnline()) {
+					if (!playerOnline && getConfig().getWaitForUserOnline()) {
 						forceCache = true;
 						debug("Forcing vote to cache");
 					}
-					if (getConfig().getBroadcast()) {
-						globalMessageProxyHandler.sendMessage(s, 1,
-								VotingPluginWire.voteBroadcast(uuid, player, service));
-					}
+
 					if ((!isSomeoneOnlineServer(s) && method.requiresPlayerOnline()) || forceCache) {
 						voteStatus = VoteLogStatus.CACHED;
 						getVoteCacheHandler().addServerVote(s,
 								new OfflineBungeeVote(voteId, player, uuid, service, time, realVote, text.toString()));
-
 						debug("Caching vote for " + player + " on " + service + " for " + s);
-
 					} else {
+						boolean broadcastHere = true;
+						if (getConfig().getProxyBroadcastEnabled()) {
+							Set<String> targets = proxyBroadcastDecider.resolveTargets(playerOnline, playerServer);
+							broadcastHere = proxyBroadcastDecider.shouldBroadcast(s, targets);
+						}
+
 						globalMessageProxyHandler.sendMessage(s, 2,
 								VotingPluginWire.vote(player, uuid, service, time, true, realVote, text.toString(),
-										getConfig().getBungeeManageTotals(), getConfig().getBroadcast(), 1, 1));
+										!getConfig().getBungeeManageTotals(), broadcastHere, 1, 1));
 					}
 				}
 			} else {
-				if (isPlayerOnline(player) && getAllAvailableServers().contains(getCurrentPlayerServer(player))) {
-					globalMessageProxyHandler.sendMessage(getCurrentPlayerServer(player), 1,
+				// Single-server mode: online goes to player server; otherwise queue as "online
+				// vote"
+				if (playerOnline && playerServer != null && getAllAvailableServers().contains(playerServer)) {
+					String server = playerServer;
+
+					boolean broadcastHere = true;
+					if (getConfig().getProxyBroadcastEnabled()) {
+						Set<String> targets = proxyBroadcastDecider.resolveTargets(true, playerServer);
+						broadcastHere = proxyBroadcastDecider.shouldBroadcast(server, targets);
+					}
+
+					globalMessageProxyHandler.sendMessage(server, 1,
 							VotingPluginWire.voteOnline(player, uuid, service, time, true, realVote, text.toString(),
-									getConfig().getBungeeManageTotals(), getConfig().getBroadcast(), 1, 1));
+									!getConfig().getBungeeManageTotals(), broadcastHere, 1, 1));
+
+					if (getConfig().getProxyBroadcastEnabled()) {
+						Set<String> targets = proxyBroadcastDecider.resolveTargets(true, playerServer);
+
+						int bDelay = 2;
+						for (String targetServer : targets) {
+							// avoid double-broadcast on the same server that already got the voteOnline
+							if (targetServer.equalsIgnoreCase(server)) {
+								continue;
+							}
+							if (getConfig().getBlockedServers().contains(targetServer)) {
+								continue;
+							}
+
+							globalMessageProxyHandler.sendMessage(targetServer, bDelay, VotingPluginWire
+									.voteBroadcast(uuid, player, service, time, text == null ? "" : text.toString()));
+							bDelay++;
+						}
+					}
 
 					// multiproxy: envelope-only clear vote
 					if (getConfig().getMultiProxySupport() && getConfig().getMultiProxyOneGlobalReward()) {
@@ -1523,32 +1596,40 @@ public abstract class VotingPluginProxy {
 							new OfflineBungeeVote(voteId, player, uuid, service, time, realVote, text.toString()));
 					debug("Caching online vote for " + player + " on " + service);
 				}
+
 				int delay = 2;
 				for (String s : getAllAvailableServers()) {
-					if (getConfig().getBroadcast()) {
-						globalMessageProxyHandler.sendMessage(s, delay,
-								VotingPluginWire.voteBroadcast(uuid, player, service));
-					}
 					globalMessageProxyHandler.sendMessage(s, delay + 1, VotingPluginWire.voteUpdate(uuid,
 							votePartyVotes, currentVotePartyVotesRequired, service, time, text.toString()));
 					delay += 2;
 				}
 			}
 
+			// Vote logging
 			if (voteLogMysqlTable != null && getConfig().getVoteLoggingEnabled()) {
 				voteLogMysqlTable.logVote(voteId, voteStatus, service, uuid, player, time,
 						getVoteCacheHandler().getProxyCachedTotal(uuid));
 			}
 
-			// === UPDATED (multiproxy): send JsonEnvelope only ===
+			// ===========================
+			// Multiproxy forwarding
+			// ===========================
 			if (getConfig().getMultiProxySupport() && getConfig().getPrimaryServer()) {
 				if (!getConfig().getMultiProxyOneGlobalReward()) {
 					debug("Sending global proxy vote envelope");
 					multiProxyHandler.sendMultiProxyEnvelope(VotingPluginWire.vote(player, uuid, service, time, false,
 							realVote, text == null ? "" : text.toString(), false, false, 1, 1));
 				} else {
-					if (!(isPlayerOnline(player)
-							&& !getConfig().getBlockedServers().contains(getCurrentPlayerServer(player)))) {
+					// Only send to other proxies if the player DID NOT already receive reward on a
+					// backend
+					boolean shouldSend = true;
+					if (playerOnline && playerServer != null) {
+						if (!getConfig().getBlockedServers().contains(playerServer)) {
+							shouldSend = false;
+						}
+					}
+
+					if (shouldSend) {
 						debug("Sending global proxy voteonline envelope");
 						multiProxyHandler.sendMultiProxyEnvelope(VotingPluginWire.voteOnline(player, uuid, service,
 								time, false, realVote, text == null ? "" : text.toString(), false, false, 1, 1));

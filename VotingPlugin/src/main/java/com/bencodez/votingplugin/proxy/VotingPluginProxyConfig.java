@@ -1,18 +1,56 @@
 package com.bencodez.votingplugin.proxy;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 public interface VotingPluginProxyConfig {
+
+	default boolean getProxyBroadcastEnabled() {
+		return false;
+	}
+
+	/**
+	 * Routing scope mode.
+	 *
+	 * Expected values: PLAYER_SERVER | ALL_SERVERS | SERVERS | ALL_EXCEPT
+	 */
+	default String getProxyBroadcastScopeMode() {
+		return "ALL_SERVERS";
+	}
+
+	/**
+	 * Optional server list used by scope modes SERVERS and ALL_EXCEPT.
+	 */
+	default List<String> getProxyBroadcastScopeServers() {
+		return Collections.emptyList();
+	}
+
+	/**
+	 * What to do when the voting player is offline and scope is PLAYER_SERVER.
+	 *
+	 * Expected values: NONE | QUEUE | FORWARD
+	 */
+	default String getProxyBroadcastOfflineMode() {
+		return "QUEUE";
+	}
+
+	/**
+	 * Backend server list used when OfflineMode is FORWARD and Scope.Mode is
+	 * PLAYER_SERVER.
+	 *
+	 * Ignored when Scope.Mode is ALL_SERVERS or ALL_EXCEPT.
+	 */
+	default List<String> getProxyBroadcastOfflineForwardServers() {
+		return Collections.emptyList();
+	}
 
 	public boolean getAllowUnJoined();
 
 	public String getBedrockPlayerPrefix();
 
 	public List<String> getBlockedServers();
-
-	public boolean getBroadcast();
 
 	public String getBungeeHost();
 
@@ -163,7 +201,7 @@ public interface VotingPluginProxyConfig {
 	public int getVoteLoggingPurgeDays();
 
 	public boolean getVoteLoggingUseMainMySQL();
-	
+
 	public boolean hasDatabaseConfigured();
 
 	public int getMultiProxyRedisDbIndex();

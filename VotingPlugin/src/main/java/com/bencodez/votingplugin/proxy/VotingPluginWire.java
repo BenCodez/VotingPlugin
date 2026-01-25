@@ -104,9 +104,9 @@ public final class VotingPluginWire {
 				.put(K_NUM, num).put(K_NUMBER_OF_VOTES, numberOfVotes).build();
 	}
 
-	public static JsonEnvelope voteBroadcast(String uuid, String player, String service) {
+	public static JsonEnvelope voteBroadcast(String uuid, String player, String service, long time, String totals) {
 		return base(SUB_VOTE_BROADCAST).put(K_UUID, safe(uuid)).put(K_PLAYER, safe(player))
-				.put(K_SERVICE, safe(service)).build();
+				.put(K_SERVICE, safe(service)).put(K_TIME, time).put(K_TOTALS, safe(totals)).build();
 	}
 
 	public static JsonEnvelope voteUpdate(String playerUuid, int votePartyCurrent, int votePartyRequired,

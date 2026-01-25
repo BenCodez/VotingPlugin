@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.proxy.velocity;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,8 +38,30 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	}
 
 	@Override
-	public boolean getBroadcast() {
-		return getBoolean(getNode("Broadcast"), false);
+	public boolean getProxyBroadcastEnabled() {
+		return getBoolean(getNode("ProxyBroadcast", "Enabled"), false);
+	}
+
+	@Override
+	public String getProxyBroadcastScopeMode() {
+		return getString(getNode("ProxyBroadcast", "Scope", "Mode"), "ALL_SERVERS");
+	}
+
+	@Override
+	public List<String> getProxyBroadcastScopeServers() {
+		List<String> list = getStringList(getNode("ProxyBroadcast", "Scope", "Servers"), new ArrayList<>());
+		return list != null ? list : Collections.emptyList();
+	}
+
+	@Override
+	public String getProxyBroadcastOfflineMode() {
+		return getString(getNode("ProxyBroadcast", "OfflineMode"), "QUEUE");
+	}
+
+	@Override
+	public List<String> getProxyBroadcastOfflineForwardServers() {
+		List<String> list = getStringList(getNode("ProxyBroadcast", "OfflineForward", "Servers"), new ArrayList<>());
+		return list != null ? list : Collections.emptyList();
 	}
 
 	@Override
@@ -115,7 +138,7 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	public int getMultiProxyRedisPort() {
 		return getInt(getNode("MultiProxyRedis", "Port"), 6379);
 	}
-	
+
 	@Override
 	public int getMultiProxyRedisDbIndex() {
 		return getInt(getNode("MultiProxyRedis", "Db-Index"), 0);

@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +35,34 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 	}
 
 	@Override
+	public boolean getProxyBroadcastEnabled() {
+		return getData().getBoolean("ProxyBroadcast.Enabled", false);
+	}
+
+	@Override
+	public String getProxyBroadcastScopeMode() {
+		return getData().getString("ProxyBroadcast.Scope.Mode", "ALL_SERVERS");
+	}
+
+	@Override
+	public List<String> getProxyBroadcastScopeServers() {
+		List<String> list = getData().getStringList("ProxyBroadcast.Scope.Servers");
+		return list != null ? list : Collections.emptyList();
+	}
+
+	@Override
+	public String getProxyBroadcastOfflineMode() {
+		return getData().getString("ProxyBroadcast.OfflineMode", "QUEUE");
+	}
+
+	@Override
+	public List<String> getProxyBroadcastOfflineForwardServers() {
+		List<String> list = getData().getStringList("ProxyBroadcast.OfflineForward.Servers");
+		return list != null ? list : Collections.emptyList();
+	}
+
+
+	@Override
 	public boolean getAllowUnJoined() {
 		return getData().getBoolean("AllowUnJoined", false);
 	}
@@ -46,11 +75,6 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 	@Override
 	public List<String> getBlockedServers() {
 		return getData().getStringList("BlockedServers");
-	}
-
-	@Override
-	public boolean getBroadcast() {
-		return getData().getBoolean("Broadcast", false);
 	}
 
 	@Override

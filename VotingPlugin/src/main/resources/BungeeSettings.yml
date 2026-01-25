@@ -95,19 +95,6 @@ MQTT:
 # Use /votingpluginbungee status for testing communication
 BungeeDebug: false
 
-# Get the plugin to broadcast to all servers
-# If false you need to enable
-# Only use for global rewards (one per network), otherwise you will get double broadcasts
-BungeeBroadcast: false
-
-# For pluginmessaging method only
-# Whether to broadcast on cached votes
-BungeeBroadcastAlways: false
-
-# If true, the server won't broadcast votes
-# To be used in conjuction with Broadcast setting on bungee
-DisableBroadcast: false
-
 # If true, offline rewards will be stored per server, rather than global
 # This shouldn't need to be set unless you get alot of cross server rewards issues
 # You can also specify the server within the rewards

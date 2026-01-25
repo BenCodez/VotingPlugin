@@ -39,8 +39,8 @@ import com.bencodez.simpleapi.servercomm.sockets.SocketReceiver;
 import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.simpleapi.sql.data.DataValueBoolean;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigSpigot;
-import com.bencodez.votingplugin.proxy.VoteTotalsSnapshot;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
+import com.bencodez.votingplugin.proxy.VoteTotalsSnapshot;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votesites.VoteSite;
@@ -286,35 +286,66 @@ public class BungeeHandler implements Listener {
 			}
 		});
 
-		// Keeping these as-is (not vote decode related)
-		globalMessageHandler.addListener(new GlobalMessageListener("VoteBroadcast") {
+		globalMessageHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_VOTE_BROADCAST) {
 			@Override
 			public void onReceive(JsonEnvelope msg) {
 				Map<String, String> f = msg.getFields();
 
-				String uuidStr = nvl(f.get("uuid"));
-				String playerName = nvl(f.get("player"));
-				String service = nvl(f.get("service"));
+				final String uuidStr = nvl(f.get(VotingPluginWire.K_UUID));
+				final String playerNameRaw = nvl(f.get(VotingPluginWire.K_PLAYER));
+				final String service = nvl(f.get(VotingPluginWire.K_SERVICE));
+
 				if (uuidStr.isEmpty() || service.isEmpty()) {
 					return;
 				}
 
-				VotingPluginUser user = plugin.getVotingPluginUserManager()
-						.getVotingPluginUser(UUID.fromString(uuidStr), playerName);
-				VoteSite site = plugin.getVoteSiteManager().getVoteSite(service, true);
-				if (site != null) {
-					plugin.getBroadcastHandler().broadcastVote(user.getJavaUUID(), user.getPlayerName(),
-							site.getDisplayName(), false);
-				} else {
-					plugin.getLogger().warning("No votesite for " + service);
+				UUID javaUuid;
+				try {
+					javaUuid = UUID.fromString(uuidStr);
+				} catch (Exception e) {
+					plugin.getLogger().warning("Invalid UUID in VoteBroadcast: " + uuidStr);
+					return;
 				}
-			}
-		});
 
-		globalMessageHandler.addListener(new GlobalMessageListener("VoteBroadcastOffline") {
-			@Override
-			public void onReceive(JsonEnvelope msg) {
-				// kept (no-op) for future use
+				// New fields (May use later)
+				@SuppressWarnings("unused")
+				final long time = readLongSafe(f.get(VotingPluginWire.K_TIME), 0L);
+				@SuppressWarnings("unused")
+				final String totals = nvl(f.get(VotingPluginWire.K_TOTALS));
+
+				VoteSite voteSite = plugin.getVoteSiteManager()
+						.getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, service), true);
+
+				if (voteSite == null) {
+					plugin.getLogger().warning("No voting site with the service site: '" + service + "'");
+					return;
+				}
+				if (!voteSite.isEnabled()) {
+					plugin.debug("Votesite: " + voteSite.getKey() + " is not enabled (VoteBroadcast)");
+					return;
+				}
+
+				// Same user retrieval strategy: UUID + (possibly empty) name
+				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(javaUuid,
+						playerNameRaw);
+
+				// Keep cache/name current like normal vote path does
+				user.cache();
+				user.updateName(true);
+
+				// Same broadcast logic as PlayerVoteListener
+				if (plugin.getBroadcastHandler() == null) {
+					return;
+				}
+
+				if (user.isVanished()) {
+					plugin.debug("Not broadcasting vote for vanished user: " + user.getPlayerName());
+					return;
+				}
+
+				final boolean online = user.isOnline(); // same behavior as non-bungee vote path
+				plugin.getBroadcastHandler().broadcastVote(user.getJavaUUID(), user.getPlayerName(),
+						voteSite.getDisplayName(), online);
 			}
 		});
 
@@ -478,6 +509,16 @@ public class BungeeHandler implements Listener {
 		}
 	}
 
+	private static long readLongSafe(String v, long def) {
+		if (v == null)
+			return def;
+		try {
+			return Long.parseLong(v);
+		} catch (Exception ignored) {
+			return def;
+		}
+	}
+
 	/**
 	 * Wire vote handler (Vote + VoteOnline).
 	 */
@@ -515,34 +556,13 @@ public class BungeeHandler implements Listener {
 
 		user.cache();
 
-		// Wire meaning:
-		// - v.broadcast == "already broadcasted / bungeeBroadcast" signal from proxy
-		// side
-		boolean broadcast = true;
 		boolean bungeeBroadcast = v.broadcast;
-
-		if (!bungeeBroadcast) {
-			if (!plugin.getBungeeSettings().isBungeeBroadcast() && !plugin.getBungeeSettings().isDisableBroadcast()) {
-				if (v.wasOnline || plugin.getBungeeSettings().isBungeeBroadcastAlways()) {
-					VoteSite site = plugin.getVoteSiteManager().getVoteSite(service, true);
-					if (site != null) {
-						plugin.getBroadcastHandler().broadcastVote(user.getJavaUUID(), user.getPlayerName(),
-								site.getDisplayName(), false);
-						broadcast = false;
-					} else {
-						plugin.getLogger().warning("No votesite for " + service);
-					}
-				}
-			}
-		} else {
-			broadcast = false;
-		}
 
 		// Wire has no "setTotals" flag; treat as always true (so doNotSetTotals =
 		// false)
 		boolean doNotSetTotals = false;
 
-		user.bungeeVotePluginMessaging(service, v.time, text, doNotSetTotals, v.wasOnline, broadcast, v.num);
+		user.bungeeVotePluginMessaging(service, v.time, text, doNotSetTotals, v.wasOnline, bungeeBroadcast, v.num);
 
 		if (plugin.getBungeeSettings().isPerServerPoints()) {
 			user.addPoints(plugin.getConfigFile().getPointsOnVote());

@@ -248,21 +248,6 @@ public class VotingPluginMetrics {
 			}
 		}));
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
-			metrics.addCustomChart(new BStatsMetrics.SimplePie("bungeebroadcast", new Callable<String>() {
-
-				@Override
-				public String call() throws Exception {
-					return "" + plugin.getBungeeSettings().isBungeeBroadcast();
-				}
-			}));
-			metrics.addCustomChart(new BStatsMetrics.SimplePie("bungeebroadcastalways", new Callable<String>() {
-
-				@Override
-				public String call() throws Exception {
-					return "" + plugin.getBungeeSettings().isBungeeBroadcastAlways();
-				}
-			}));
-
 			metrics.addCustomChart(new BStatsMetrics.SimplePie("perserverrewards", new Callable<String>() {
 
 				@Override

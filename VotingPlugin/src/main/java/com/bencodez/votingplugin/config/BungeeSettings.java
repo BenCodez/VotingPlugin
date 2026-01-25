@@ -15,14 +15,6 @@ import lombok.Getter;
 
 public class BungeeSettings extends YMLFile {
 
-	@ConfigDataBoolean(path = "BungeeBroadcast")
-	@Getter
-	private boolean bungeeBroadcast = false;
-
-	@ConfigDataBoolean(path = "BungeeBroadcastAlways")
-	@Getter
-	private boolean bungeeBroadcastAlways = false;
-
 	@ConfigDataBoolean(path = "BungeeDebug")
 	@Getter
 	private boolean bungeeDebug = false;
@@ -130,10 +122,6 @@ public class BungeeSettings extends YMLFile {
 	@ConfigDataBoolean(path = "VotifierBypass")
 	@Getter
 	private boolean votifierBypass = false;
-
-	@ConfigDataBoolean(path = "DisableBroadcast")
-	@Getter
-	private boolean disableBroadcast = false;
 
 	@ConfigDataBoolean(path = "GlobalData.UseMainMySQL")
 	@Getter

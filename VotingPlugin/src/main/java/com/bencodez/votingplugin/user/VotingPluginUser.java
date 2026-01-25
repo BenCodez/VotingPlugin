@@ -246,50 +246,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	/**
-	 * Handles a bungee vote.
-	 *
-	 * @param service   the service name
-	 * @param text      the bungee message data
-	 * @param setTotals whether to set the totals
-	 */
-	public void bungeeVote(String service, VoteTotalsSnapshot text, boolean setTotals) {
-		if (plugin.getBungeeSettings().isUseBungeecoord()) {
-			plugin.debug("Bungee vote for " + getPlayerName() + " on " + service);
-
-			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSiteManager().getVoteSite(service, true),
-					getPlayerName(), service, true);
-			voteEvent.setBungee(true);
-			voteEvent.setForceBungee(true);
-			voteEvent.setAddTotals(setTotals);
-			voteEvent.setBungeeTextTotals(text);
-			voteEvent.setVotingPluginUser(this);
-			plugin.getServer().getPluginManager().callEvent(voteEvent);
-		}
-	}
-
-	/**
-	 * Handles an online bungee vote.
-	 *
-	 * @param service   the service name
-	 * @param text      the bungee message data
-	 * @param setTotals whether to set the totals
-	 */
-	public void bungeeVoteOnline(String service, VoteTotalsSnapshot text, boolean setTotals) {
-		if (plugin.getBungeeSettings().isUseBungeecoord()) {
-			plugin.debug("Bungee online vote for " + getPlayerName() + " on " + service);
-
-			PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSiteManager().getVoteSite(service, true),
-					getPlayerName(), service, true);
-			voteEvent.setBungee(true);
-			voteEvent.setForceBungee(true);
-			voteEvent.setAddTotals(setTotals);
-			voteEvent.setBungeeTextTotals(text);
-			voteEvent.setVotingPluginUser(this);
-			plugin.getServer().getPluginManager().callEvent(voteEvent);
-		}
-	}
-
-	/**
 	 * Handles a plugin messaging bungee vote.
 	 *
 	 * @param service   the service name

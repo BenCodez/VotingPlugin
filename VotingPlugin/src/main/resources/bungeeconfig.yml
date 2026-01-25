@@ -182,6 +182,32 @@ VoteLogging:
 
 ####################################################################################
 
+###########################################
+# Proxy Broadcast Routing
+###########################################
+ProxyBroadcast:
+  Enabled: false
+
+  Scope:
+    Mode: ALL_SERVERS
+    # PLAYER_SERVER | ALL_SERVERS | SERVERS | ALL_EXCEPT
+    Servers: []
+
+  # What to do if the voting player is offline
+  # NONE    : drop broadcast
+  # QUEUE   : queue broadcast and fire when the player logs back in
+  # FORWARD : broadcast immediately on a backend server we can choose
+  OfflineMode: FORWARD
+
+  # Used ONLY when OfflineMode = FORWARD
+  OfflineForward:
+    # Backend server(s) to forward to when the player is offline
+    # Ignored if Scope.Mode is ALL_SERVERS or ALL_EXCEPT
+    Servers:
+    - lobby
+
+#####################################################################################
+
 Debug: false
 # Have a reward on each server
 # If false, will send to online server only
@@ -278,10 +304,6 @@ PointsOnVote: 1
 # If false, AllowUnJoined should be enabled on bungee, spigot servers will handle that
 # Recommeneded to leave enabled, setups with this disabled are currently unsupported
 BungeeManageTotals: true
-
-# Tell servers to broadcast
-# Set DisableBroadcast to true on spigot servers (BungeeSettings.yml) as well
-Broadcast: false
 
 # Geyser/bedrock player settings
 # https://github.com/BenCodez/VotingPlugin/wiki/Bedrock-Player-Support
