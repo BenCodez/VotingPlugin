@@ -101,11 +101,6 @@ BungeeDebug: false
 # Requires server name below to be correct
 PerServerRewards: false
 
-# If true, milestones work per server
-# Please note totals still sync, but milestones can be claimed on each server
-# Needs to be set across all needed servers
-PerServerMilestones: false
-
 # If true, points will be given on a per server level
 # Points will be added when server gets vote from bungee
 PerServerPoints: false
