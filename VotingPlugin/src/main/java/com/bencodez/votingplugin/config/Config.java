@@ -283,9 +283,9 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean countFakeVotes = true;
 
-	@ConfigDataInt(path = "DelayBetweenUpdates")
+	@ConfigDataString(path = "DelayBetweenUpdates")
 	@Getter
-	private int delayBetweenUpdates = 3;
+	private String delayBetweenUpdates = "3m";
 
 	@ConfigDataBoolean(path = "DisableAdvancedTab")
 	@Getter
@@ -724,7 +724,7 @@ public class Config extends YMLFile {
 	@ConfigDataString(path = "VoteTopDefault")
 	@Getter
 	private String voteTopDefault = "Monthly";
-	
+
 	@ConfigDataBoolean(path = "AlwaysProcessAsyncPlaceholders")
 	@Getter
 	private boolean alwaysProcessAsyncPlaceholders = false;

@@ -468,8 +468,7 @@ LimitMonthlyVotes: false
 TreatVanishAsOffline: false
 
 # Delays login event, delays vote reminding and more
-# In milliseconds, 1000 = 1 second
-DelayLoginEvent: 0
+DelayLoginEvent: 0s
 
 # Wait until user is logged in with AuthMe or NLogin
 # Requires AuthMe or LoginSecurity or NLogin
@@ -563,7 +562,7 @@ PreloadSkulls: true
 # Default about 4 seconds is good for most servers
 # Used to avoid rate limit, increase if needed
 # If rate limit is hit caching will pause for 15 minutes
-SkullLoadDelay: 4000
+SkullLoadDelay: 4s
 
 # Set a skull profile URL
 # This is what gets used to cache skulls
@@ -951,7 +950,7 @@ UpdateWithPlayersOnlineOnly: false
 # Delay between background updates like signs and more
 # Default: 3 Minutes
 # Longer times result in longer wait in stuff updating after a vote, like topvoter
-DelayBetweenUpdates: 3
+DelayBetweenUpdates: 3m
 
 # Enable to true for extra player checks
 # Recommend leaving this to false
@@ -1021,7 +1020,7 @@ DropOnFullInv: true
 
 # This will prevent spam clicking GUI's to prevent exploits
 # Number is time in between clicking in milliseconds
-SpamClickTime: 100
+SpamClickTime: 100ms
 # Message to send when inventory forced closed when spam clicking
 # Uncomment to use
 #SpamClickMessage: '&cDetected spam clicking GUI, closing to prevent exploits'

@@ -58,6 +58,7 @@ import com.bencodez.advancedcore.api.user.UserStartup;
 import com.bencodez.simpleapi.file.YMLConfig;
 import com.bencodez.simpleapi.skull.SkullCache;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigSpigot;
+import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.simpleapi.updater.Updater;
 import com.bencodez.votingplugin.broadcast.BroadcastHandler;
 import com.bencodez.votingplugin.broadcast.BroadcastSettings;
@@ -1051,7 +1052,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 							update();
 						}
 					}
-				}, 1000 * 60 * 4, 1000 * 60 * configFile.getDelayBetweenUpdates(), TimeUnit.MILLISECONDS);
+				}, 1000 * 60 * 4,
+						ParsedDuration.parse(configFile.getDelayBetweenUpdates(), TimeUnit.MINUTES).getMillis(),
+						TimeUnit.MILLISECONDS);
 
 				if (configFile.isExtraBackgroundUpdate()) {
 					getTimer().scheduleWithFixedDelay(new Runnable() {
