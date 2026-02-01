@@ -148,7 +148,14 @@
                             <shadedPattern>
                                 ${project.groupId}.votingplugin.advancedcore.xyz.upperlevel.spigot</shadedPattern>
                         </relocation>
-
+                        <relocation>
+                            <pattern>org.spongepowered.configurate</pattern>
+                            <shadedPattern>${project.groupId}.simpleapi.configurate</shadedPattern>
+                        </relocation>
+                        <relocation>
+                            <pattern>io.leangen.geantyref</pattern>
+                            <shadedPattern>${project.groupId}.simpleapi.geantyref</shadedPattern>
+                        </relocation>
                     </relocations>
                 </configuration>
                 <executions>
@@ -258,7 +265,7 @@
         <dependency>
             <groupId>com.velocitypowered</groupId>
             <artifactId>velocity-api</artifactId>
-            <version>3.1.2-SNAPSHOT</version>
+            <version>3.4.0</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -297,19 +304,32 @@
             <version>5.12.2</version>
             <scope>test</scope>
         </dependency>
-
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-junit-jupiter</artifactId>
             <version>5.15.2</version>
             <scope>test</scope>
         </dependency>
-
         <dependency>
             <groupId>com.discordsrv</groupId>
             <artifactId>discordsrv</artifactId>
             <version>1.30.4</version>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.spongepowered</groupId>
+            <artifactId>configurate-core</artifactId>
+            <version>4.1.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.spongepowered</groupId>
+            <artifactId>configurate-yaml</artifactId>
+            <version>4.1.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.spongepowered</groupId>
+            <artifactId>configurate-gson</artifactId>
+            <version>4.1.2</version>
         </dependency>
     </dependencies>
     <profiles>

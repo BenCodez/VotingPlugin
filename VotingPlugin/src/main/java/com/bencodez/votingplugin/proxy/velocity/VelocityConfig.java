@@ -13,7 +13,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 import com.bencodez.simpleapi.file.velocity.VelocityYMLFile;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 
-import ninja.leaping.configurate.ConfigurationNode;
+import org.spongepowered.configurate.ConfigurationNode;
 
 public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxyConfig {
 
@@ -162,7 +162,7 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	public List<String> getChildrenAsList(ConfigurationNode config) {
 		List<String> children = new ArrayList<>();
 		if (config != null) {
-			for (Map.Entry<Object, ? extends ConfigurationNode> entry : config.getChildrenMap().entrySet()) {
+			for (Map.Entry<Object, ? extends ConfigurationNode> entry : config.childrenMap().entrySet()) {
 				children.add(entry.getKey().toString());
 			}
 		}
@@ -286,8 +286,8 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	public Map<String, Object> configToMap(ConfigurationNode config) {
 		Map<String, Object> map = new HashMap<>();
 		if (config != null) {
-			for (Map.Entry<Object, ? extends ConfigurationNode> entry : config.getChildrenMap().entrySet()) {
-				map.put(entry.getKey().toString(), entry.getValue().getValue());
+			for (Map.Entry<Object, ? extends ConfigurationNode> entry : config.childrenMap().entrySet()) {
+				map.put(entry.getKey().toString(), entry.getValue().raw());
 			}
 		}
 		return map;
@@ -325,22 +325,22 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 
 	@Override
 	public String getVotePartyBroadcast() {
-		return getString(getVotePartyNode().getNode("Broadcast"), "");
+		return getString(getVotePartyNode().node("Broadcast"), "");
 	}
 
 	@Override
 	public List<String> getVotePartyBungeeCommands() {
-		return getStringList(getVotePartyNode().getNode("BungeeCommands"), new ArrayList<>());
+		return getStringList(getVotePartyNode().node("BungeeCommands"), new ArrayList<>());
 	}
 
 	@Override
 	public boolean getVotePartyEnabled() {
-		return getBoolean(getVotePartyNode().getNode("Enabled"), false);
+		return getBoolean(getVotePartyNode().node("Enabled"), false);
 	}
 
 	@Override
 	public int getVotePartyIncreaseVotesRequired() {
-		return getInt(getVotePartyNode().getNode("IncreaseVotesRequired"), 0);
+		return getInt(getVotePartyNode().node("IncreaseVotesRequired"), 0);
 	}
 
 	public ConfigurationNode getVotePartyNode() {
@@ -349,17 +349,17 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 
 	@Override
 	public boolean getVotePartySendToAllServers() {
-		return getBoolean(getVotePartyNode().getNode("SendToAllServers"), false);
+		return getBoolean(getVotePartyNode().node("SendToAllServers"), false);
 	}
 
 	@Override
 	public List<String> getVotePartyServersToSend() {
-		return getStringList(getVotePartyNode().getNode("ServersToSend"), new ArrayList<>());
+		return getStringList(getVotePartyNode().node("ServersToSend"), new ArrayList<>());
 	}
 
 	@Override
 	public int getVotePartyVotesRequired() {
-		return getInt(getVotePartyNode().getNode("VotesRequired"), 100);
+		return getInt(getVotePartyNode().node("VotesRequired"), 100);
 	}
 
 	@Override
@@ -469,7 +469,7 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	}
 
 	private boolean isSection(ConfigurationNode node) {
-		return node != null && node.getValue() instanceof Map;
+		return node != null && node.raw() instanceof Map;
 	}
 
 	@Override

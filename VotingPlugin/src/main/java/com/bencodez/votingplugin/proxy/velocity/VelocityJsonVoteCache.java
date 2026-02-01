@@ -18,40 +18,38 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 
 	@Override
 	public void addTimedVote(int num, VoteTimeQueue voteTimedQueue) {
-		getNode("TimedVoteCache", String.valueOf(num), "Name").setValue(voteTimedQueue.getName());
-		getNode("TimedVoteCache", String.valueOf(num), "Service").setValue(voteTimedQueue.getService());
-		getNode("TimedVoteCache", String.valueOf(num), "Time").setValue(voteTimedQueue.getTime());
+		setPath(voteTimedQueue.getName(), "TimedVoteCache", String.valueOf(num), "Name");
+		setPath(voteTimedQueue.getService(), "TimedVoteCache", String.valueOf(num), "Service");
+		setPath(voteTimedQueue.getTime(), "TimedVoteCache", String.valueOf(num), "Time");
 	}
 
 	@Override
 	public void addVote(String server, int num, OfflineBungeeVote voteData) {
-		getNode("VoteCache", server, String.valueOf(num), "Name").setValue(voteData.getPlayerName());
-		getNode("VoteCache", server, String.valueOf(num), "Service").setValue(voteData.getService());
-		getNode("VoteCache", server, String.valueOf(num), "UUID").setValue(voteData.getUuid());
-		getNode("VoteCache", server, String.valueOf(num), "Time").setValue(voteData.getTime());
-		getNode("VoteCache", server, String.valueOf(num), "Real").setValue(voteData.isRealVote());
-		getNode("VoteCache", server, String.valueOf(num), "Text").setValue(voteData.getText());
-		getNode("VoteCache", server, String.valueOf(num), "VoteID")
-				.setValue(voteData.getVoteId() != null ? voteData.getVoteId().toString() : null);
+		setPath(voteData.getPlayerName(), "VoteCache", server, String.valueOf(num), "Name");
+		setPath(voteData.getService(), "VoteCache", server, String.valueOf(num), "Service");
+		setPath(voteData.getUuid(), "VoteCache", server, String.valueOf(num), "UUID");
+		setPath(voteData.getTime(), "VoteCache", server, String.valueOf(num), "Time");
+		setPath(voteData.isRealVote(), "VoteCache", server, String.valueOf(num), "Real");
+		setPath(voteData.getText(), "VoteCache", server, String.valueOf(num), "Text");
+		setPath(voteData.getVoteId() != null ? voteData.getVoteId().toString() : null, "VoteCache", server, String.valueOf(num), "VoteID");
 	}
 
 	@Override
 	public void addVoteOnline(String player, int num, OfflineBungeeVote voteData) {
-		getNode("OnlineCache", player, String.valueOf(num), "Name").setValue(voteData.getPlayerName());
-		getNode("OnlineCache", player, String.valueOf(num), "Service").setValue(voteData.getService());
-		getNode("OnlineCache", player, String.valueOf(num), "UUID").setValue(voteData.getUuid());
-		getNode("OnlineCache", player, String.valueOf(num), "Time").setValue(voteData.getTime());
-		getNode("OnlineCache", player, String.valueOf(num), "Real").setValue(voteData.isRealVote());
-		getNode("OnlineCache", player, String.valueOf(num), "Text").setValue(voteData.getText());
-		getNode("OnlineCache", player, String.valueOf(num), "VoteID")
-				.setValue(voteData.getVoteId() != null ? voteData.getVoteId().toString() : null);
+		setPath(voteData.getPlayerName(), "OnlineCache", player, String.valueOf(num), "Name");
+		setPath(voteData.getService(), "OnlineCache", player, String.valueOf(num), "Service");
+		setPath(voteData.getUuid(), "OnlineCache", player, String.valueOf(num), "UUID");
+		setPath(voteData.getTime(), "OnlineCache", player, String.valueOf(num), "Time");
+		setPath(voteData.isRealVote(), "OnlineCache", player, String.valueOf(num), "Real");
+		setPath(voteData.getText(), "OnlineCache", player, String.valueOf(num), "Text");
+		setPath(voteData.getVoteId() != null ? voteData.getVoteId().toString() : null, "OnlineCache", player, String.valueOf(num), "VoteID");
 	}
 
 	@Override
 	public void clearData() {
-		getNode("VoteCache").setValue(null);
-		getNode("OnlineCache").setValue(null);
-		getNode("TimedVoteCache").setValue(null);
+		remove("VoteCache");
+		remove("OnlineCache");
+		remove("TimedVoteCache");
 		save();
 	}
 
@@ -112,27 +110,27 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 
 	@Override
 	public void setVotePartyCache(String server, int amount) {
-		getNode("VoteParty", "Cache", server).setValue(amount);
+		setPath(amount, "VoteParty", "Cache", server);
 	}
 
 	@Override
 	public void setVotePartyCurrentVotes(int amount) {
-		getNode("VoteParty", "CurrentVotes").setValue(amount);
+		setPath(amount, "VoteParty", "CurrentVotes");
 	}
 
 	@Override
 	public void setVotePartyInreaseVotesRequired(int amount) {
-		getNode("VoteParty", "IncreaseVotes").setValue(amount);
+		setPath(amount, "VoteParty", "IncreaseVotes");
 	}
 
 	@Override
 	public void removeOnlineVotes(String player) {
-		getNode("OnlineCache", player).setValue(null);
+		remove("OnlineCache", player);
 	}
 
 	@Override
 	public void removeServerVotes(String server) {
-		getNode("VoteCache", server).setValue(null);
+		remove("VoteCache", server);
 	}
 
 	@Override
@@ -153,7 +151,7 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 			}
 			String nodeUuid = uuidNode.asString();
 			if (nodeUuid != null && nodeUuid.equals(uuid)) {
-				getNode("VoteCache", server, num).setValue(null);
+				remove("VoteCache", server, num);
 			}
 		}
 
@@ -182,7 +180,7 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 
 			if (nodeUuid != null && nodeService != null && nodeTime != null && nodeUuid.equals(vote.getUuid())
 					&& nodeService.equals(vote.getService()) && nodeTime.longValue() == vote.getTime()) {
-				getNode("VoteCache", server, num).setValue(null);
+				remove("VoteCache", server, num);
 			}
 		}
 	}
@@ -215,9 +213,14 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 
 				if (nodeUuid != null && nodeService != null && nodeTime != null && nodeUuid.equals(vote.getUuid())
 						&& nodeService.equals(vote.getService()) && nodeTime.longValue() == vote.getTime()) {
-					getNode("OnlineCache", player, num).setValue(null);
+					remove("OnlineCache", player, num);
 				}
 			}
 		}
 	}
+
+	private void setPath(Object value, Object... path) {
+		set(path, value);
+	}
+
 }

@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.proxy.cache;
 
-import ninja.leaping.configurate.ConfigurationNode;
+import org.spongepowered.configurate.ConfigurationNode;
+import org.spongepowered.configurate.serialize.SerializationException;
 
 public class ConfigDataNode implements DataNode {
 
@@ -10,16 +11,14 @@ public class ConfigDataNode implements DataNode {
 		this.node = node;
 	}
 
-	@SuppressWarnings("deprecation")
 	@Override
 	public boolean isObject() {
-		return node.hasMapChildren();
+		return node.isMap();
 	}
 
-	@SuppressWarnings("deprecation")
 	@Override
 	public boolean isArray() {
-		return node.hasListChildren();
+		return node.isList();
 	}
 
 	@Override
@@ -29,7 +28,7 @@ public class ConfigDataNode implements DataNode {
 
 	@Override
 	public DataNode get(String key) {
-		return new ConfigDataNode(node.getNode((Object) key));
+		return new ConfigDataNode(node.node((Object) key));
 	}
 	
 	@Override
@@ -40,34 +39,42 @@ public class ConfigDataNode implements DataNode {
 	
     @Override
     public boolean has(String key) {
-        ConfigurationNode child = node.getNode((Object) key);
-        return child != null && child.getValue() != null;
+        ConfigurationNode child = node.node((Object) key);
+        return child != null && child.raw() != null;
     }
 
     @Override
     public boolean has(int index) {
-        ConfigurationNode child = node.getNode(index);
-        return child != null && child.getValue() != null;
+        ConfigurationNode child = node.node(index);
+        return child != null && child.raw() != null;
     }
 
 	@Override
 	public DataNode get(int index) {
-		return new ConfigDataNode(node.getNode(index));
+		return new ConfigDataNode(node.node(index));
 	}
 
 	@Override
 	public void set(String key, Object value) {
-		node.getNode((Object) key).setValue(value);
+		try {
+			node.node((Object) key).set(value);
+		} catch (SerializationException e) {
+			e.printStackTrace();
+		}
 	}
 
 	@Override
 	public void set(int index, Object value) {
-		node.getNode(index).setValue(value);
+		try {
+			node.node(index).set(value);
+		} catch (SerializationException e) {
+			e.printStackTrace();
+		}
 	}
 
 	@Override
 	public Object asPrimitive() {
-		return node.getValue();
+		return node.raw();
 	}
 
 	@Override

@@ -30,6 +30,7 @@ import java.util.zip.ZipInputStream;
 import org.bstats.charts.SimplePie;
 import org.bstats.velocity.Metrics;
 import org.slf4j.Logger;
+import org.spongepowered.configurate.ConfigurationNode;
 
 import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
@@ -62,8 +63,7 @@ import com.velocitypowered.api.scheduler.ScheduledTask;
 
 import lombok.Getter;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import ninja.leaping.configurate.ConfigurationNode;
-import ninja.leaping.configurate.yaml.YAMLConfigurationLoader;
+import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
 
 @Plugin(id = "votingplugin", name = "VotingPlugin", version = "1.0", url = "https://www.spigotmc.org/resources/votingplugin.15358/", description = "VotingPlugin Velocity Version", authors = {
 		"BenCodez" }, dependencies = { @Dependency(id = "nuvotifier", optional = true) })
@@ -171,13 +171,12 @@ public class VotingPluginVelocity {
 								}
 
 								fileWriter.close();
-								YAMLConfigurationLoader loader = YAMLConfigurationLoader.builder().setFile(versionFile)
-										.build();
+								YamlConfigurationLoader loader = YamlConfigurationLoader.builder().path(versionFile.toPath()).build();
 								defConfigStream.close();
 								ConfigurationNode node = loader.load();
 								if (node != null) {
-									version = node.getNode("version").getString("");
-									buildNumber = node.getNode("buildnumber").getString("NOTSET");
+									version = node.node("version").getString("");
+									buildNumber = node.node("buildnumber").getString("NOTSET");
 								}
 								return;
 							}
@@ -192,7 +191,7 @@ public class VotingPluginVelocity {
 
 	private void loadMysql() {
 		MysqlConfig mysqlConfig = new MysqlConfigVelocity("Database", config);
-		if (!config.getData().getNode("Database").isMap()) {
+		if (!config.getData().node("Database").isMap()) {
 			mysqlConfig = new MysqlConfigVelocity(config);
 		}
 
@@ -679,31 +678,31 @@ public class VotingPluginVelocity {
 
 			@Override
 			public void setVoteCacheLastUpdated() {
-				voteCacheFile.getNode("Time", "LastUpdated").setValue(System.currentTimeMillis());
+				voteCacheFile.set(new Object[] { "Time", "LastUpdated" }, System.currentTimeMillis());
 				voteCacheFile.save();
 			}
 
 			@Override
 			public void setVoteCachePrevDay(int day) {
-				voteCacheFile.getNode("Time", "Day").setValue(day);
+				voteCacheFile.set(new Object[] { "Time", "Day" }, day);
 				voteCacheFile.save();
 			}
 
 			@Override
 			public void setVoteCachePrevMonth(String text) {
-				voteCacheFile.getNode("Time", "Month").setValue(text);
+				voteCacheFile.set(new Object[] { "Time", "Month" }, text);
 				voteCacheFile.save();
 			}
 
 			@Override
 			public void setVoteCachePrevWeek(int week) {
-				voteCacheFile.getNode("Time", "Week").setValue(week);
+				voteCacheFile.set(new Object[] { "Time", "Week" }, week);
 				voteCacheFile.save();
 			}
 
 			@Override
 			public void setVoteCacheVoteCacheIgnoreTime(boolean ignore) {
-				voteCacheFile.getNode("Time", "IgnoreTime").setValue(ignore);
+				voteCacheFile.set(new Object[] { "Time", "IgnoreTime" }, ignore);
 				voteCacheFile.save();
 			}
 

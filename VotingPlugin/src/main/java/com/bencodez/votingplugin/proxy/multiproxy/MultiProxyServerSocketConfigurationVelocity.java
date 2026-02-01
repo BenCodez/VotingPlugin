@@ -1,6 +1,6 @@
 package com.bencodez.votingplugin.proxy.multiproxy;
 
-import ninja.leaping.configurate.ConfigurationNode;
+import org.spongepowered.configurate.ConfigurationNode;
 
 public class MultiProxyServerSocketConfigurationVelocity implements MultiProxyServerSocketConfiguration {
 
@@ -10,8 +10,8 @@ public class MultiProxyServerSocketConfigurationVelocity implements MultiProxySe
 
 	public MultiProxyServerSocketConfigurationVelocity(String s, ConfigurationNode config) {
 		server = s;
-		host = config.getNode("Host").getString("0.0.0.0");
-		port = config.getNode("Port").getInt(1298);
+		host = config.node("Host").getString("0.0.0.0");
+		port = config.node("Port").getInt(1298);
 
 	}
 
