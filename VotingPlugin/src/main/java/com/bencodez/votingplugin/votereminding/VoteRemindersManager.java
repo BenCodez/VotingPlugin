@@ -107,6 +107,7 @@ public final class VoteRemindersManager {
 
 		private final String defaultRewardsPath;
 
+		@SuppressWarnings("deprecation")
 		public VoteReminderOptions(boolean enabled, boolean stopAfterMatch, ParsedDuration globalCooldown,
 				int defaultPriority, ParsedDuration defaultCooldown, ParsedDuration defaultDelay,
 				VoteReminderConditions defaultsConditions, String defaultRewardsPath) {
@@ -166,6 +167,7 @@ public final class VoteRemindersManager {
 
 		private final ParsedDuration interval;
 
+		@SuppressWarnings("deprecation")
 		public VoteReminderDefinition(String name, VoteReminderType type, int priority, ParsedDuration cooldown,
 				ParsedDuration delay, String rewardsPath, VoteReminderConditions conditions, ParsedDuration interval) {
 			this.name = name;
@@ -219,6 +221,7 @@ public final class VoteRemindersManager {
 		private final VoteReminderCooldownStore store;
 		private final ParsedDuration globalCooldown;
 
+		@SuppressWarnings("deprecation")
 		public VoteReminderCooldowns(VoteReminderCooldownStore store, ParsedDuration globalCooldown) {
 			this.store = store;
 			this.globalCooldown = globalCooldown == null ? ParsedDuration.parse("") : globalCooldown;
@@ -642,13 +645,13 @@ public final class VoteRemindersManager {
 		boolean enabled = plugin.getConfig().getBoolean("VoteReminderOptions.Enabled", true);
 		boolean stopAfterMatch = plugin.getConfig().getBoolean("VoteReminderOptions.StopAfterMatch", true);
 		ParsedDuration globalCooldown = ParsedDuration
-				.parse(plugin.getConfig().getString("VoteReminderOptions.GlobalCooldown", ""));
+				.parse(plugin.getConfig().getString("VoteReminderOptions.GlobalCooldown", ""), TimeUnit.MINUTES);
 		int defaultPriority = plugin.getConfig().getInt("VoteReminderOptions.DefaultPriority", 0);
 
 		ParsedDuration defaultCooldown = ParsedDuration
-				.parse(plugin.getConfig().getString("VoteReminderOptions.Defaults.Cooldown", ""));
+				.parse(plugin.getConfig().getString("VoteReminderOptions.Defaults.Cooldown", ""), TimeUnit.MINUTES);
 		ParsedDuration defaultDelay = ParsedDuration
-				.parse(plugin.getConfig().getString("VoteReminderOptions.Defaults.Delay", ""));
+				.parse(plugin.getConfig().getString("VoteReminderOptions.Defaults.Delay", ""), TimeUnit.SECONDS);
 
 		VoteReminderConditions defaultsConditions = new VoteReminderConditions();
 
@@ -661,8 +664,9 @@ public final class VoteRemindersManager {
 					.setCanVoteAll(plugin.getConfig().getBoolean("VoteReminderOptions.Defaults.Conditions.CanVoteAll"));
 		}
 		if (plugin.getConfig().contains("VoteReminderOptions.Defaults.Conditions.MinOnlineTime")) {
-			defaultsConditions.setMinOnlineTime(ParsedDuration
-					.parse(plugin.getConfig().getString("VoteReminderOptions.Defaults.Conditions.MinOnlineTime", "")));
+			defaultsConditions.setMinOnlineTime(ParsedDuration.parse(
+					plugin.getConfig().getString("VoteReminderOptions.Defaults.Conditions.MinOnlineTime", ""),
+					TimeUnit.MINUTES));
 		}
 		if (plugin.getConfig().contains("VoteReminderOptions.Defaults.Conditions.FirstJoin")) {
 			defaultsConditions
@@ -714,17 +718,19 @@ public final class VoteRemindersManager {
 		int priority = plugin.getConfig().contains(base + "Priority") ? plugin.getConfig().getInt(base + "Priority")
 				: options.getDefaultPriority();
 
-		ParsedDuration cooldown = ParsedDuration.parse(plugin.getConfig().getString(base + "Cooldown", ""));
+		ParsedDuration cooldown = ParsedDuration.parse(plugin.getConfig().getString(base + "Cooldown", ""),
+				TimeUnit.MINUTES);
 		if (cooldown.isEmpty()) {
 			cooldown = options.getDefaultCooldown();
 		}
 
-		ParsedDuration delay = ParsedDuration.parse(plugin.getConfig().getString(base + "Delay", ""));
+		ParsedDuration delay = ParsedDuration.parse(plugin.getConfig().getString(base + "Delay", ""), TimeUnit.SECONDS);
 		if (delay.isEmpty()) {
 			delay = options.getDefaultDelay();
 		}
 
-		ParsedDuration interval = ParsedDuration.parse(plugin.getConfig().getString(base + "Interval", ""));
+		ParsedDuration interval = ParsedDuration.parse(plugin.getConfig().getString(base + "Interval", ""),
+				TimeUnit.MINUTES);
 
 		if (type == VoteReminderType.INTERVAL && (interval == null || interval.isEmpty())) {
 			plugin.getLogger().warning("[VoteReminders] INTERVAL reminder missing Interval: " + name);
@@ -756,7 +762,8 @@ public final class VoteRemindersManager {
 			c.setCanVoteAll(plugin.getConfig().getBoolean(base + "CanVoteAll"));
 		}
 		if (plugin.getConfig().contains(base + "MinOnlineTime")) {
-			c.setMinOnlineTime(ParsedDuration.parse(plugin.getConfig().getString(base + "MinOnlineTime", "")));
+			c.setMinOnlineTime(
+					ParsedDuration.parse(plugin.getConfig().getString(base + "MinOnlineTime", ""), TimeUnit.MINUTES));
 		}
 		if (plugin.getConfig().contains(base + "FirstJoin")) {
 			c.setFirstJoin(plugin.getConfig().getBoolean(base + "FirstJoin"));
