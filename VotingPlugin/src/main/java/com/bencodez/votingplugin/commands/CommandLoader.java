@@ -381,6 +381,9 @@ public class CommandLoader {
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
 							user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 							user.addPoints(num);
+							if (user.isOnline()) {
+								user.sendMessage("&cYou have been given " + args[3] + " voting points");
+							}
 						}
 						sender.sendMessage(MessageAPI.colorize("&cGave " + "all players" + " " + args[3] + " points"));
 
@@ -393,6 +396,9 @@ public class CommandLoader {
 						user.cache();
 						int newTotal = 0;
 						newTotal = user.addPoints(Integer.parseInt(args[3]));
+						if (user.isOnline()) {
+							user.sendMessage("&cYou have been given " + args[3] + " voting points");
+						}
 						sender.sendMessage(MessageAPI.colorize("&cGave " + args[1] + " " + args[3] + " points" + ", "
 								+ args[1] + " now has " + newTotal + " points"));
 
@@ -416,8 +422,12 @@ public class CommandLoader {
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
 							user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 							user.removePoints(num);
+							if (user.isOnline()) {
+								user.sendMessage("&cYou have been removed " + args[3] + " voting points");
+							}
 						}
-						sender.sendMessage(MessageAPI.colorize("&cGave " + "all players" + " " + args[3] + " points"));
+						sender.sendMessage(
+								MessageAPI.colorize("&cRemoved " + "all players" + " " + args[3] + " points"));
 
 						plugin.getPlaceholders().onUpdate();
 					}
@@ -427,6 +437,9 @@ public class CommandLoader {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 						user.cache();
 						user.removePoints(Integer.parseInt(args[3]));
+						if (user.isOnline()) {
+							user.sendMessage("&cYou have been removed " + args[3] + " voting points");
+						}
 						sender.sendMessage(MessageAPI.colorize("&cRemoved " + args[3] + " points from " + args[1] + ", "
 								+ args[1] + " now has " + user.getPoints() + " points"));
 						plugin.getPlaceholders().onUpdate(user, false);
@@ -2100,7 +2113,8 @@ public class CommandLoader {
 
 					try {
 						// Ensure canonical user exists/loaded
-						AdvancedCoreUser canonicalUser = plugin.getUserManager().getUser(UUID.fromString(canonicalUuid));
+						AdvancedCoreUser canonicalUser = plugin.getUserManager()
+								.getUser(UUID.fromString(canonicalUuid));
 						canonicalUser.userDataFetechMode(com.bencodez.advancedcore.api.user.UserDataFetchMode.NO_CACHE);
 						canonicalEnsured++;
 
