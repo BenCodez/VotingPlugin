@@ -1085,6 +1085,36 @@ CustomPlaceholderReturns: {}
 # Load votingplugin internal expansion for placeholderapi
 LoadInteralExpansion: true
 
+
+###########################################
+# Webhooks
+# Webhook settings and definitions
+# https://wiki.bencodez.com/en/VotingPlugin/webhooks
+###########################################
+
+Webhooks:
+  Enabled: false
+  Definitions:
+    discord-staff:
+      Enabled: false
+      Url: "https://discord.com/api/webhooks/XXXX/XXXX"
+      Method: POST
+      ContentType: "application/json"
+      TimeoutMs: 8000
+      Headers:
+        X-Server: "{SERVER}"
+      HandleDiscordRateLimits: true
+      Retry:
+        Enabled: true
+        MaxAttempts: 5
+        BackoffMs: 1500
+        MaxBackoffMs: 15000
+      Signature:
+        Enabled: false
+        Algo: "HMAC_SHA256"
+        Header: "X-Signature"
+        Secret: "change-me"
+
 ###########################################
 # Additional / Advanced Settings
 # Rarely needed options for special setups

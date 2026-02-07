@@ -113,6 +113,9 @@ import com.bencodez.votingplugin.votereminding.VoteRemindersManager;
 import com.bencodez.votingplugin.votereminding.store.UserDataVoteReminderCooldownStore;
 import com.bencodez.votingplugin.votesites.VoteSite;
 import com.bencodez.votingplugin.votesites.VoteSiteManager;
+import com.bencodez.votingplugin.webhook.VotingPluginWebhooks;
+import com.bencodez.votingplugin.webhook.WebhookRewardEntry;
+import com.bencodez.votingplugin.webhook.WebhookRewardParser;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -1236,6 +1239,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		voteStreakHandler = new VoteStreakHandler(this);
 		voteStreakHandler.reload();
 
+		webhooks = new VotingPluginWebhooks(this);
+		webhooks.reload(getConfig().getConfigurationSection("Webhooks"));
+
 		// Add rewards
 		getRewardHandler().addInjectedReward(new RewardInjectInt("Points", 0) {
 
@@ -1278,6 +1284,31 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 									/ plugin.getVoteSites().size(),
 							section.getInt("Delay", 30));
 				}
+				return null;
+			}
+		});
+
+		getRewardHandler().addInjectedReward(new RewardInjectConfigurationSection("WebhookReward") {
+
+			@Override
+			public String onRewardRequested(Reward reward, AdvancedCoreUser user, ConfigurationSection section,
+					HashMap<String, String> placeholders) {
+
+				if (section == null || webhooks == null) {
+					return null;
+				}
+
+				// Parse list from inside this section
+				List<WebhookRewardEntry> entries = WebhookRewardParser.parse(section);
+
+				if (entries == null || entries.isEmpty()) {
+					return null;
+				}
+
+				webhooks.createExecutor().executeAll(entries, (input) -> {
+					return PlaceholderUtils.replacePlaceHolder(input, placeholders);
+				});
+
 				return null;
 			}
 		});
@@ -1499,6 +1530,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				debug(e);
 			}
 		}
+		if (webhooks != null) {
+			webhooks.shutdown();
+			webhooks = null;
+		}
 		voteTimer.shutdown();
 		try {
 			voteTimer.awaitTermination(1, TimeUnit.SECONDS);
@@ -1654,6 +1689,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		if (voteRemindersManager != null) {
 			voteRemindersManager.reload();
 		}
+
+		webhooks.reload(getConfig().getConfigurationSection("Webhooks"));
 
 		coolDownCheck.checkEnabled();
 
@@ -1873,6 +1910,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private VoteMilestonesManager voteMilestonesManager;
+
+	@Getter
+	private VotingPluginWebhooks webhooks;
 
 	public void loadVoteLoggingMySQL() {
 		if (getConfigFile().isVoteLoggingEnabled()) {
