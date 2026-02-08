@@ -315,6 +315,14 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean disableNoServiceSiteMessage = false;
 
+	@ConfigDataString(path = "Format.Commands.AdminVote.Points.PlayerRemoved")
+	@Getter
+	private String formatCommandsAdminVotePointsPlayerRemoved = "&c%amount% voting points have been removed from you";
+
+	@ConfigDataString(path = "Format.Commands.AdminVote.Points.PlayerGiven")
+	@Getter
+	private String formatCommandsAdminVotePointsPlayerGiven = "&cYou have been given %amount% voting points";
+
 	@ConfigDataBoolean(path = "DisableUpdateChecking")
 	@Getter
 	private boolean disableUpdateChecking = false;

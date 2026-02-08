@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.concurrent.TimeUnit;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -179,7 +180,7 @@ public class ConfigVoteSites extends YMLFile {
 
 		// NEW FORMAT (string)
 		if (sec.isString("VoteDelay")) {
-			return ParsedDuration.parse(sec.getString("VoteDelay"));
+			return ParsedDuration.parse(sec.getString("VoteDelay"), TimeUnit.HOURS);
 		}
 
 		// LEGACY FORMAT (numbers)

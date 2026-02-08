@@ -853,6 +853,12 @@ Format:
       ToggleReminders:
         Enabled: '&cVote reminders enabled'
         Disabled: '&cVote reminders disabled'
+        
+    AdminVote:
+      Points:
+        # Message sent to the target player (only if online)
+        PlayerGiven: '&cYou have been given %amount% voting points'
+        PlayerRemoved: '&cYou have been removed %amount% voting points'
 
   # Msg on top voter award, will only send message if that place has a reward set
   # %place% = place - 1,2,3,etc

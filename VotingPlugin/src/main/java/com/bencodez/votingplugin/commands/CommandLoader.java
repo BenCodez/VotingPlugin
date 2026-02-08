@@ -382,7 +382,8 @@ public class CommandLoader {
 							user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 							user.addPoints(num);
 							if (user.isOnline()) {
-								user.sendMessage("&cYou have been given " + args[3] + " voting points");
+								user.sendMessage(plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerGiven(),
+										"amount", args[3]);
 							}
 						}
 						sender.sendMessage(MessageAPI.colorize("&cGave " + "all players" + " " + args[3] + " points"));
@@ -397,7 +398,8 @@ public class CommandLoader {
 						int newTotal = 0;
 						newTotal = user.addPoints(Integer.parseInt(args[3]));
 						if (user.isOnline()) {
-							user.sendMessage("&cYou have been given " + args[3] + " voting points");
+							user.sendMessage(plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerGiven(),
+									"amount", args[3]);
 						}
 						sender.sendMessage(MessageAPI.colorize("&cGave " + args[1] + " " + args[3] + " points" + ", "
 								+ args[1] + " now has " + newTotal + " points"));
@@ -423,7 +425,8 @@ public class CommandLoader {
 							user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 							user.removePoints(num);
 							if (user.isOnline()) {
-								user.sendMessage("&cYou have been removed " + args[3] + " voting points");
+								user.sendMessage(plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerRemoved(),
+										"amount", args[3]);
 							}
 						}
 						sender.sendMessage(
@@ -438,7 +441,8 @@ public class CommandLoader {
 						user.cache();
 						user.removePoints(Integer.parseInt(args[3]));
 						if (user.isOnline()) {
-							user.sendMessage("&cYou have been removed " + args[3] + " voting points");
+							user.sendMessage(plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerRemoved(),
+									"amount", args[3]);
 						}
 						sender.sendMessage(MessageAPI.colorize("&cRemoved " + args[3] + " points from " + args[1] + ", "
 								+ args[1] + " now has " + user.getPoints() + " points"));
