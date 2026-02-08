@@ -22,6 +22,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+import org.bstats.charts.SimplePie;
+
 import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
@@ -729,6 +731,9 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		metrics.addCustomChart(
 				new BStatsMetricsBungee.SimplePie("bungee_method", () -> getConfig().getBungeeMethod().toString()));
 
+		metrics.addCustomChart(
+				new BStatsMetricsBungee.SimplePie("config_onlinemode", () -> "" + getConfig().getOnlineMode()));
+
 		metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("sendtoallservers",
 				() -> "" + getConfig().getSendVotesToAllServers()));
 
@@ -756,6 +761,54 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 		if (!buildNumber.equals("NOTSET")) {
 			metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("dev_build_number", () -> "" + buildNumber));
+		}
+
+		// -----------------------------------------------------------------
+		// Proxy broadcast metrics
+		// Always log whether proxy broadcasts are enabled. Use additional charts
+		// only when enabled to avoid unnecessary "Unknown" values.
+		metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("proxybroadcast_enabled",
+				() -> "" + getConfig().getProxyBroadcastEnabled()));
+		if (getConfig().getProxyBroadcastEnabled()) {
+			// Broadcast scope mode (PLAYER_SERVER | ALL_SERVERS | SERVERS | ALL_EXCEPT)
+			metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("proxybroadcast_scope_mode", () -> {
+				return "" + getConfig().getProxyBroadcastScopeMode();
+			}));
+			// Broadcast offline mode (NONE | QUEUE | FORWARD)
+			metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("proxybroadcast_offline_mode", () -> {
+				return "" + getConfig().getProxyBroadcastOfflineMode();
+			}));
+			// If scope uses a server list, bucket the number of servers
+			if (getConfig().getProxyBroadcastScopeMode().equalsIgnoreCase("SERVERS")
+					|| getConfig().getProxyBroadcastScopeMode().equalsIgnoreCase("ALL_EXCEPT")) {
+				metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("proxybroadcast_scope_count", () -> {
+					int count = getConfig().getProxyBroadcastScopeServers().size();
+					return bucketCount(count);
+				}));
+			}
+			// If offline mode forwards broadcasts to other servers, bucket the count
+			if (getConfig().getProxyBroadcastOfflineMode().equalsIgnoreCase("FORWARD")) {
+				metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("proxybroadcast_offline_forward_count", () -> {
+					int count = getConfig().getProxyBroadcastOfflineForwardServers().size();
+					return bucketCount(count);
+				}));
+			}
+		}
+
+		// -----------------------------------------------------------------
+		// Proxy vote logging metrics
+		// Always log whether proxy vote logging is enabled
+		metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("proxyvotelogging_enabled",
+				() -> "" + getConfig().getVoteLoggingEnabled()));
+		if (getConfig().getVoteLoggingEnabled()) {
+			// Purge days is bucketed to avoid high cardinality
+			metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("proxyvotelogging_purgedays", () -> {
+				int purge = getConfig().getVoteLoggingPurgeDays();
+				return bucketPurgeDays(purge);
+			}));
+			metrics.addCustomChart(new BStatsMetricsBungee.SimplePie("proxyvotelogging_usemainmysql", () -> {
+				return "" + getConfig().getVoteLoggingUseMainMySQL();
+			}));
 		}
 
 		loadVersionFile();
@@ -808,6 +861,59 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 	private void runAsyncNow(Runnable runnable) {
 		getProxy().getScheduler().runAsync(this, runnable);
+	}
+
+	/**
+	 * Bucket a count into ranges to avoid high-cardinality bStats values.
+	 *
+	 * @param count number of items
+	 * @return string bucket label
+	 */
+	private String bucketCount(int count) {
+		if (count <= 0) {
+			return "0";
+		}
+		if (count == 1) {
+			return "1";
+		}
+		if (count <= 5) {
+			return "2-5";
+		}
+		if (count <= 10) {
+			return "6-10";
+		}
+		if (count <= 25) {
+			return "11-25";
+		}
+		return ">25";
+	}
+
+	/**
+	 * Bucket purge days into ranges for vote logging metrics.
+	 *
+	 * @param purgeDays number of days before purge or negative for disabled
+	 * @return string bucket label
+	 */
+	private String bucketPurgeDays(int purgeDays) {
+		if (purgeDays < 0) {
+			return "disabled";
+		}
+		if (purgeDays == 0) {
+			return "0";
+		}
+		if (purgeDays <= 7) {
+			return "1-7";
+		}
+		if (purgeDays <= 30) {
+			return "8-30";
+		}
+		if (purgeDays <= 90) {
+			return "31-90";
+		}
+		if (purgeDays <= 365) {
+			return "91-365";
+		}
+		return ">365";
 	}
 
 }

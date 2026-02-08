@@ -171,7 +171,8 @@ public class VotingPluginVelocity {
 								}
 
 								fileWriter.close();
-								YamlConfigurationLoader loader = YamlConfigurationLoader.builder().path(versionFile.toPath()).build();
+								YamlConfigurationLoader loader = YamlConfigurationLoader.builder()
+										.path(versionFile.toPath()).build();
 								defConfigStream.close();
 								ConfigurationNode node = loader.load();
 								if (node != null) {
@@ -861,6 +862,8 @@ public class VotingPluginVelocity {
 
 		metrics.addCustomChart(new SimplePie("bungee_method", () -> getConfig().getBungeeMethod().toString()));
 
+		metrics.addCustomChart(new SimplePie("config_onlinemode", () -> "" + getConfig().getOnlineMode()));
+
 		metrics.addCustomChart(new SimplePie("sendtoallservers", () -> "" + getConfig().getSendVotesToAllServers()));
 
 		metrics.addCustomChart(new SimplePie("allowunjoined", () -> "" + getConfig().getAllowUnJoined()));
@@ -884,6 +887,58 @@ public class VotingPluginVelocity {
 
 		if (!buildNumber.equals("NOTSET")) {
 			metrics.addCustomChart(new SimplePie("dev_build_number", () -> "" + buildNumber));
+		}
+
+		// -----------------------------------------------------------------
+		// Proxy broadcast metrics
+		// Always log whether proxy broadcasts are enabled.
+		metrics.addCustomChart(new SimplePie("proxybroadcast_enabled", () -> {
+			return "" + getConfig().getProxyBroadcastEnabled();
+		}));
+		if (getConfig().getProxyBroadcastEnabled()) {
+			// Broadcast scope mode (PLAYER_SERVER | ALL_SERVERS | SERVERS | ALL_EXCEPT)
+			metrics.addCustomChart(new SimplePie("proxybroadcast_scope_mode", () -> {
+				return "" + getConfig().getProxyBroadcastScopeMode();
+			}));
+
+			// Broadcast offline mode (NONE | QUEUE | FORWARD)
+			metrics.addCustomChart(new SimplePie("proxybroadcast_offline_mode", () -> {
+				return "" + getConfig().getProxyBroadcastOfflineMode();
+			}));
+
+			// If scope uses a server list, bucket the number of servers
+			if (getConfig().getProxyBroadcastScopeMode().equalsIgnoreCase("SERVERS")
+					|| getConfig().getProxyBroadcastScopeMode().equalsIgnoreCase("ALL_EXCEPT")) {
+				metrics.addCustomChart(new SimplePie("proxybroadcast_scope_count", () -> {
+					int count = getConfig().getProxyBroadcastScopeServers().size();
+					return bucketCount(count);
+				}));
+			}
+
+			// If offline mode forwards broadcasts to other servers, bucket the count
+			if (getConfig().getProxyBroadcastOfflineMode().equalsIgnoreCase("FORWARD")) {
+				metrics.addCustomChart(new SimplePie("proxybroadcast_offline_forward_count", () -> {
+					int count = getConfig().getProxyBroadcastOfflineForwardServers().size();
+					return bucketCount(count);
+				}));
+			}
+		}
+
+		// -----------------------------------------------------------------
+		// Proxy vote logging metrics
+		// Always log whether proxy vote logging is enabled.
+		metrics.addCustomChart(new SimplePie("proxyvotelogging_enabled", () -> {
+			return "" + getConfig().getVoteLoggingEnabled();
+		}));
+		if (getConfig().getVoteLoggingEnabled()) {
+			// Purge days is bucketed to avoid high cardinality
+			metrics.addCustomChart(new SimplePie("proxyvotelogging_purgedays", () -> {
+				int purge = getConfig().getVoteLoggingPurgeDays();
+				return bucketPurgeDays(purge);
+			}));
+			metrics.addCustomChart(new SimplePie("proxyvotelogging_usemainmysql", () -> {
+				return "" + getConfig().getVoteLoggingUseMainMySQL();
+			}));
 		}
 
 		logger.info("VotingPlugin velocity loaded, method: " + getVotingPluginProxy().getMethod().toString()
@@ -912,6 +967,60 @@ public class VotingPluginVelocity {
 
 	private void runAsyncNow(Runnable runnable) {
 		server.getScheduler().buildTask(this, runnable).schedule();
+	}
+
+	/**
+	 * Buckets a count into a low-cardinality string.
+	 *
+	 * @param count the count to bucket
+	 * @return a bucket label (e.g., "0", "1", "2-5", "6-10", "11-25", ">25")
+	 */
+	private String bucketCount(final int count) {
+		if (count <= 0) {
+			return "0";
+		}
+		if (count == 1) {
+			return "1";
+		}
+		if (count <= 5) {
+			return "2-5";
+		}
+		if (count <= 10) {
+			return "6-10";
+		}
+		if (count <= 25) {
+			return "11-25";
+		}
+		return ">25";
+	}
+
+	/**
+	 * Buckets a purge days value into a low-cardinality string.
+	 *
+	 * @param purgeDays purge days (negative means disabled)
+	 * @return a bucket label (e.g., "disabled", "0", "1-7", "8-30", "31-90",
+	 *         "91-365", ">365")
+	 */
+	private String bucketPurgeDays(final int purgeDays) {
+		if (purgeDays < 0) {
+			return "disabled";
+		}
+		if (purgeDays == 0) {
+			return "0";
+		}
+		if (purgeDays <= 7) {
+			return "1-7";
+		}
+		if (purgeDays <= 30) {
+			return "8-30";
+		}
+		if (purgeDays <= 90) {
+			return "31-90";
+		}
+		if (purgeDays <= 365) {
+			return "91-365";
+		}
+		return ">365";
 	}
 
 }
