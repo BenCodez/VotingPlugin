@@ -29,8 +29,7 @@ import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.player.PlayerUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVoteParty;
-import com.bencodez.votingplugin.commands.gui.admin.cumulative.AdminVoteCumulative;
-import com.bencodez.votingplugin.commands.gui.admin.milestones.AdminVoteMilestones;
+import com.bencodez.votingplugin.commands.gui.admin.milestones.AdminVoteVoteMilestones;
 import com.bencodez.votingplugin.commands.gui.admin.voteshop.AdminVoteVoteShop;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.votesites.VoteSite;
@@ -82,19 +81,11 @@ public class AdminGUI {
 			}
 		});
 
-		buttons.add(new BInventoryButton(new ItemBuilder(Material.DIAMOND_BLOCK, 1).setName("&cEdit Milestones")) {
+		buttons.add(new BInventoryButton(new ItemBuilder(Material.DIAMOND_BLOCK, 1).setName("&cEdit VoteMilestones")) {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				new AdminVoteMilestones(plugin, clickEvent.getPlayer()).open(GUIMethod.CHEST);
-			}
-		});
-
-		buttons.add(new BInventoryButton(new ItemBuilder(Material.COBBLESTONE, 1).setName("&cEdit Cumulative")) {
-
-			@Override
-			public void onClick(ClickEvent clickEvent) {
-				new AdminVoteCumulative(plugin, clickEvent.getPlayer()).open(GUIMethod.CHEST);
+				new AdminVoteVoteMilestones(plugin, clickEvent.getPlayer()).open(GUIMethod.CHEST);
 			}
 		});
 

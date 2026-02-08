@@ -3,7 +3,6 @@ package com.bencodez.votingplugin.config;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 import com.bencodez.simpleapi.file.YMLFile;
@@ -16,17 +15,10 @@ import com.bencodez.simpleapi.file.annotation.ConfigDataListInt;
 import com.bencodez.simpleapi.file.annotation.ConfigDataListString;
 import com.bencodez.simpleapi.file.annotation.ConfigDataString;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.topvoter.TopVoter;
 
 import lombok.Getter;
 
 public class SpecialRewardsConfig extends YMLFile {
-
-	@Getter
-	private String allSitesRewardPath = "AllSites";
-
-	@Getter
-	private String almostAllSitesRewardPath = "AlmostAllSites";
 
 	@Getter
 	private String anySiteRewardsPath = "AnySiteRewards";
@@ -42,16 +34,6 @@ public class SpecialRewardsConfig extends YMLFile {
 	@ConfigDataBoolean(path = "EnableWeeklyAwards")
 	@Getter
 	private boolean enableWeeklyAwards = false;
-
-	@ConfigDataBoolean(path = "OnlyOneCumulative")
-	@Getter
-	private boolean onlyOneCumulative = false;
-
-	@Getter
-	private String firstVoteRewardsPath = "FirstVote";
-
-	@Getter
-	private String firstVoteTodayRewardsPath = "FirstVoteToday";
 
 	/** The plugin. */
 	private VotingPluginMain plugin;
@@ -103,21 +85,9 @@ public class SpecialRewardsConfig extends YMLFile {
 	@Getter
 	private double voteStreakRequirementWeek = 50;
 
-	@ConfigDataKeys(path = "Cumulative")
-	@Getter
-	private Set<String> cumulativeVotes = new HashSet<>();
-
 	@ConfigDataKeys(path = "DailyAwards")
 	@Getter
 	private Set<String> dailyPossibleRewardPlaces = new HashSet<>();
-
-	@ConfigDataKeys(path = "MileStones")
-	@Getter
-	private Set<String> milestoneVotes = new HashSet<>();
-
-	@ConfigDataBoolean(path = "ResetMilestonesMonthly")
-	@Getter
-	private boolean resetMilestonesMonthly = false;
 
 	@ConfigDataString(path = "VoteParty.Broadcast")
 	@Getter
@@ -189,75 +159,8 @@ public class SpecialRewardsConfig extends YMLFile {
 		this.plugin = plugin;
 	}
 
-	public List<Integer> getCumulativeBlackList(int cumulative) {
-		return getData().getIntegerList("Cumulative." + cumulative + ".BlackList");
-	}
-
-	public boolean getCumulativeRecurring(int cumulative) {
-		return getData().getBoolean("Cumulative." + cumulative + ".Recurring", true);
-	}
-
-	public boolean getCumulativeRewardEnabled(int cumulative) {
-		return getData().getBoolean("Cumulative." + cumulative + ".Enabled");
-	}
-
-	public String getCumulativeRewardsPath(int cumulative) {
-		return "Cumulative." + cumulative + ".Rewards";
-	}
-
-	@Deprecated
-	public boolean getCumulativeVotesInSameDay(int cumulative) {
-		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameDay");
-	}
-
-	@Deprecated
-	public boolean getCumulativeVotesInSameMonth(int cumulative) {
-		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameMonth");
-	}
-
-	@Deprecated
-	public boolean getCumulativeVotesInSameWeek(int cumulative) {
-		return getData().getBoolean("Cumulative." + cumulative + ".VotesInSameWeek");
-	}
-
-	public String getCumulativeVotesTotal(int cumulative) {
-		String str = getData().getString("Cumulative." + cumulative + ".TotalToUse", "");
-		if (str.isEmpty()) {
-			if (getCumulativeVotesInSameMonth(cumulative)) {
-				return TopVoter.Monthly.toString();
-			}
-			if (getCumulativeVotesInSameWeek(cumulative)) {
-				return TopVoter.Weekly.toString();
-			}
-			if (getCumulativeVotesInSameDay(cumulative)) {
-				return TopVoter.Daily.toString();
-			}
-		}
-		return str;
-	}
-
 	public String getDailyAwardRewardsPath(String path) {
 		return "DailyAwards." + path + ".Rewards";
-	}
-
-	/**
-	 * Gets the milestone reward enabled.
-	 *
-	 * @param milestones the milestones
-	 * @return the milestone reward enabled
-	 */
-	public boolean getMilestoneRewardEnabled(int milestones) {
-		return getData().getBoolean("MileStones." + milestones + ".Enabled");
-	}
-
-	/**
-	 * Gets the milestone rewards.
-	 *
-	 * @param milestones the milestones
-	 * @return the milestone rewards
-	 */
-	public String getMilestoneRewardsPath(int milestones) {
-		return "MileStones." + milestones + ".Rewards";
 	}
 
 	public String getMonthlyAwardRewardsPath(String path) {
@@ -319,27 +222,15 @@ public class SpecialRewardsConfig extends YMLFile {
 		plugin.saveResource("SpecialRewards.yml", true);
 	}
 
-	public void removeCumulative(String votes) {
-		getData().set("Cumulative." + votes, null);
+	public void removeVoteMilestone(String votes) {
+		getData().set("VoteMilestones." + votes, null);
 		saveData();
 	}
 
-	public void removeMilestone(String votes) {
-		getData().set("MileStones." + votes, null);
-		saveData();
-	}
-
-	public void setCumulative(int intValue) {
-		getData().set("Cumulative." + intValue + ".Enabled", true);
-		getData().set("Cumulative." + intValue + ".TotalToUse", "AllTime");
-		getData().set("Cumulative." + intValue + ".Rewards.Messages.Player",
-				"&aYou got %cumulative% cumulative votes!");
-		saveData();
-	}
-
-	public void setMilestone(int intValue) {
-		getData().set("MileStones." + intValue + ".Enabled", true);
-		getData().set("MileStones." + intValue + ".Rewards.Messages.Player", "&aYou got %milestone% milestone votes!");
+	public void setVoteMilestone(int intValue) {
+		getData().set("VoteMilestones." + intValue + ".Enabled", true);
+		getData().set("VoteMilestones." + intValue + ".Rewards.Messages.Player",
+				"&aYou got %milestone% milestone votes!");
 		saveData();
 	}
 }

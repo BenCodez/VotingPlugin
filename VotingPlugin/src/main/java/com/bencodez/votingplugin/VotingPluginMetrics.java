@@ -9,17 +9,6 @@ public class VotingPluginMetrics {
 	public void load(VotingPluginMain plugin) {
 		BStatsMetrics metrics = new BStatsMetrics(plugin, 38);
 
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_firstvote", new Callable<String>() {
-
-			@Override
-			public String call() throws Exception {
-				if (plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(),
-						plugin.getSpecialRewardsConfig().getFirstVoteRewardsPath())) {
-					return "True";
-				}
-				return "False";
-			}
-		}));
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_everysite", new Callable<String>() {
 
 			@Override
@@ -31,32 +20,7 @@ public class VotingPluginMetrics {
 				return "False";
 			}
 		}));
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_allsites", new Callable<String>() {
 
-			@Override
-			public String call() throws Exception {
-				if (plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(),
-						plugin.getSpecialRewardsConfig().getAllSitesRewardPath())) {
-					return "True";
-				}
-				return "False";
-			}
-		}));
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_cumulative", new Callable<String>() {
-
-			@Override
-			public String call() throws Exception {
-				if (plugin.getSpecialRewardsConfig().getCumulativeVotes().size() == 0) {
-					return "False";
-				}
-				for (String cum : plugin.getSpecialRewardsConfig().getCumulativeVotes()) {
-					if (plugin.getSpecialRewardsConfig().getCumulativeRewardEnabled(Integer.parseInt(cum))) {
-						return "True";
-					}
-				}
-				return "False";
-			}
-		}));
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_voteparty", new Callable<String>() {
 
 			@Override
@@ -74,19 +38,11 @@ public class VotingPluginMetrics {
 				return plugin.getPlaceholders().getCacheLevel().toString();
 			}
 		}));
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_milestone", new Callable<String>() {
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_votemilestones", new Callable<String>() {
 
 			@Override
 			public String call() throws Exception {
-				if (plugin.getSpecialRewardsConfig().getMilestoneVotes().size() == 0) {
-					return "False";
-				}
-				for (String milestone : plugin.getSpecialRewardsConfig().getMilestoneVotes()) {
-					if (plugin.getSpecialRewardsConfig().getMilestoneRewardEnabled(Integer.parseInt(milestone))) {
-						return "True";
-					}
-				}
-				return "False";
+				return "" + plugin.getVoteMilestonesManager().getConfig().getMilestones().size();
 			}
 		}));
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_anysitereward", new Callable<String>() {
@@ -100,56 +56,7 @@ public class VotingPluginMetrics {
 				return "False";
 			}
 		}));
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_votestreakday", new Callable<String>() {
 
-			@Override
-			public String call() throws Exception {
-				for (String s : plugin.getSpecialRewardsConfig().getVoteStreakVotes("Day")) {
-
-					if (plugin.getSpecialRewardsConfig().getVoteStreakRewardEnabled("Day", s)
-							&& plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(),
-									plugin.getSpecialRewardsConfig().getVoteStreakRewardsPath("Day", s))) {
-						return "True";
-					}
-
-				}
-				return "False";
-			}
-		}));
-
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_votestreakweek", new Callable<String>() {
-
-			@Override
-			public String call() throws Exception {
-				for (String s : plugin.getSpecialRewardsConfig().getVoteStreakVotes("Week")) {
-
-					if (plugin.getSpecialRewardsConfig().getVoteStreakRewardEnabled("Week", s)
-							&& plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(),
-									plugin.getSpecialRewardsConfig().getVoteStreakRewardsPath("Week", s))) {
-						return "True";
-					}
-				}
-
-				return "False";
-			}
-		}));
-
-		metrics.addCustomChart(new BStatsMetrics.SimplePie("extrarewards_votestreakmonth", new Callable<String>() {
-
-			@Override
-			public String call() throws Exception {
-				for (String s : plugin.getSpecialRewardsConfig().getVoteStreakVotes("Month")) {
-
-					if (plugin.getSpecialRewardsConfig().getVoteStreakRewardEnabled("Month", s)
-							&& plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(),
-									plugin.getSpecialRewardsConfig().getVoteStreakRewardsPath("Month", s))) {
-						return "True";
-					}
-				}
-
-				return "False";
-			}
-		}));
 		metrics.addCustomChart(new BStatsMetrics.SimplePie("numberofsites", new Callable<String>() {
 
 			@Override
@@ -169,6 +76,14 @@ public class VotingPluginMetrics {
 			@Override
 			public String call() throws Exception {
 				return "" + plugin.getConfigFile().isAutoCreateVoteSites();
+			}
+		}));
+
+		metrics.addCustomChart(new BStatsMetrics.SimplePie("config_onlinemode", new Callable<String>() {
+
+			@Override
+			public String call() throws Exception {
+				return "" + plugin.getOptions().isOnlineMode();
 			}
 		}));
 

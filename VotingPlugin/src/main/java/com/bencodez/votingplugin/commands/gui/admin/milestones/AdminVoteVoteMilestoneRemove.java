@@ -15,11 +15,11 @@ import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVoteConfirmation;
 
-public class AdminVoteMilestoneRemove extends GUIHandler {
+public class AdminVoteVoteMilestoneRemove extends GUIHandler {
 
 	private VotingPluginMain plugin;
 
-	public AdminVoteMilestoneRemove(VotingPluginMain plugin, CommandSender player) {
+	public AdminVoteVoteMilestoneRemove(VotingPluginMain plugin, CommandSender player) {
 		super(plugin, player);
 		this.plugin = plugin;
 	}
@@ -40,9 +40,9 @@ public class AdminVoteMilestoneRemove extends GUIHandler {
 
 	@Override
 	public void onChest(Player player) {
-		BInventory inv = new BInventory("Remove milestones");
-		inv.requirePermission("VotingPlugin.Commands.AdminVote.Edit.MileStones");
-		for (final String votes : plugin.getSpecialRewardsConfig().getMilestoneVotes()) {
+		BInventory inv = new BInventory("Remove VoteMilestones");
+		inv.requirePermission("VotingPlugin.Commands.AdminVote.Edit.VoteMilestones");
+		for (final String votes : plugin.getVoteMilestonesManager().getConfig().getMilestones().keySet()) {
 			inv.addButton(new BInventoryButton(
 					new ItemBuilder(Material.PAPER, 1).setName(votes).addLoreLine("&c&lClick to remove")) {
 
@@ -52,14 +52,14 @@ public class AdminVoteMilestoneRemove extends GUIHandler {
 
 						@Override
 						public void onConfirm(Player p) {
-							plugin.getSpecialRewardsConfig().removeMilestone(votes);
+							plugin.getSpecialRewardsConfig().removeVoteMilestone(votes);
 							p.sendMessage("Removed milestone " + votes);
 							plugin.reload();
 						}
 
 						@Override
 						public void onDeny(Player p) {
-							new AdminVoteMilestones(plugin, p);
+							new AdminVoteVoteMilestones(plugin, p);
 						}
 					}.open();
 

@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.commands.gui.admin.milestones;
 
 import java.util.ArrayList;
+import java.util.Set;
 
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
@@ -16,15 +17,16 @@ import com.bencodez.advancedcore.api.valuerequest.InputMethod;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequest;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequestBuilder;
 import com.bencodez.advancedcore.api.valuerequest.listeners.NumberListener;
+import com.bencodez.advancedcore.api.valuerequest.listeners.StringListener;
 import com.bencodez.advancedcore.command.gui.RewardEditGUI;
-import com.bencodez.simpleapi.messages.MessageAPI;
+import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 
-public class AdminVoteMilestones extends GUIHandler {
+public class AdminVoteVoteMilestones extends GUIHandler {
 
 	private VotingPluginMain plugin;
 
-	public AdminVoteMilestones(VotingPluginMain plugin, CommandSender player) {
+	public AdminVoteVoteMilestones(VotingPluginMain plugin, CommandSender player) {
 		super(plugin, player);
 		this.plugin = plugin;
 	}
@@ -45,36 +47,31 @@ public class AdminVoteMilestones extends GUIHandler {
 
 	@Override
 	public void onChest(Player player) {
-		BInventory inv = new BInventory("Edit MileStones");
-		inv.requirePermission("VotingPlugin.Commands.AdminVote.Edit.MileStones");
-		inv.addButton(
-				new BInventoryButton(new ItemBuilder(Material.PAPER).setName("&cEdit existing milestone rewards")) {
+		BInventory inv = new BInventory("Edit VoteMilestones");
+		inv.requirePermission("VotingPlugin.Commands.AdminVote.Edit.VoteMilestones");
+		inv.addButton(new BInventoryButton(new ItemBuilder(Material.PAPER)
+				.setName("&cEdit existing vote milestone rewards (Legacy milestones not included)")) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				Set<String> keys = plugin.getVoteMilestonesManager().getConfig().getMilestones().keySet();
+				for (String key : keys) {
+					if (key.startsWith("Legacy_")) {
+						keys.remove(key);
+					}
+				}
+				new ValueRequestBuilder(new StringListener() {
 
 					@Override
-					public void onClick(ClickEvent clickEvent) {
-						ArrayList<Integer> nums = new ArrayList<>();
-						for (String num : plugin.getSpecialRewardsConfig().getMilestoneVotes()) {
-							if (MessageAPI.isInt(num)) {
-								nums.add(Integer.parseInt(num));
-							}
-						}
-						Number[] options = new Number[nums.size()];
-						for (int i = 0; i < nums.size(); i++) {
-							options[i] = nums.get(i);
-						}
-						new ValueRequestBuilder(new NumberListener() {
-
-							@Override
-							public void onInput(Player player, Number value) {
-								RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(),
-										plugin.getRewardHandler()
-												.getDirectlyDefined("MileStones." + value.intValue() + ".Rewards"));
-							}
-						}, options).allowCustomOption(false).usingMethod(InputMethod.INVENTORY)
-								.request(clickEvent.getPlayer());
-
+					public void onInput(Player player, String value) {
+						RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(),
+								plugin.getRewardHandler().getDirectlyDefined("VoteMilestones." + value + ".Rewards"));
 					}
-				});
+				}, ArrayUtils.convertSet(keys)).allowCustomOption(false).usingMethod(InputMethod.INVENTORY)
+						.request(clickEvent.getPlayer());
+
+			}
+		});
 
 		inv.addButton(new BInventoryButton(new ItemBuilder(Material.EMERALD_BLOCK).setName("&aAdd milestone")) {
 
@@ -84,7 +81,7 @@ public class AdminVoteMilestones extends GUIHandler {
 
 					@Override
 					public void onInput(Player player, Number value) {
-						plugin.getSpecialRewardsConfig().setMilestone(value.intValue());
+						plugin.getSpecialRewardsConfig().setVoteMilestone(value.intValue());
 						plugin.reload();
 					}
 				});
@@ -95,7 +92,7 @@ public class AdminVoteMilestones extends GUIHandler {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				new AdminVoteMilestoneRemove(plugin, clickEvent.getPlayer()).open();
+				new AdminVoteVoteMilestoneRemove(plugin, clickEvent.getPlayer()).open();
 			}
 		});
 		inv.openInventory(player);

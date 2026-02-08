@@ -56,12 +56,15 @@ public class VoteMilestonesConfig {
 
 		// Merge legacy compiled milestones (new format wins on ID collision)
 		ConfigurationSection legacyRoot = plugin.getSpecialRewardsConfig().getData();
-		int totalSites = plugin.getVoteSiteManager().getVoteSitesEnabled() != null ? plugin.getVoteSiteManager().getVoteSitesEnabled().size() : 0;
+		int totalSites = plugin.getVoteSiteManager().getVoteSitesEnabled() != null
+				? plugin.getVoteSiteManager().getVoteSitesEnabled().size()
+				: 0;
 
 		Map<String, VoteMilestone> legacy = VoteMilestonesMigrator.compileLegacy(legacyRoot, totalSites,
-				plugin.getSpecialRewardsConfig().isOnlyOneCumulative(),
-				plugin.getSpecialRewardsConfig().isResetMilestonesMonthly());
-		plugin.debug(plugin.getSpecialRewardsConfig().isOnlyOneCumulative() + " Only one cumulative");
+				plugin.getSpecialRewardsConfig().getData().getBoolean("OnlyOneCumulative", false),
+				plugin.getSpecialRewardsConfig().getData().getBoolean("ResetMilestonesMonthly", false));
+		plugin.debug(plugin.getSpecialRewardsConfig().getData().getBoolean("OnlyOneCumulative", false)
+				+ " Only one cumulative");
 		for (Map.Entry<String, VoteMilestone> e : legacy.entrySet()) {
 			out.putIfAbsent(e.getKey(), e.getValue());
 		}

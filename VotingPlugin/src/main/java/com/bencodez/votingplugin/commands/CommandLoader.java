@@ -59,8 +59,7 @@ import com.bencodez.votingplugin.commands.gui.admin.AdminVotePlaceholdersPlayer;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVoteTopPoints;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVoteParty;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVotePlayer;
-import com.bencodez.votingplugin.commands.gui.admin.cumulative.AdminVoteCumulative;
-import com.bencodez.votingplugin.commands.gui.admin.milestones.AdminVoteMilestones;
+import com.bencodez.votingplugin.commands.gui.admin.milestones.AdminVoteVoteMilestones;
 import com.bencodez.votingplugin.commands.gui.admin.votelog.AdminVoteLogMenu;
 import com.bencodez.votingplugin.commands.gui.admin.voteshop.AdminVoteVoteShop;
 import com.bencodez.votingplugin.commands.gui.player.VoteBest;
@@ -547,21 +546,12 @@ public class CommandLoader {
 				new AdminVoteVoteShop(plugin, sender).open(GUIMethod.CHEST);
 			}
 		});
-		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "Edit", "MileStones" },
-				"VotingPlugin.Commands.AdminVote.Edit.MileStones", "Edit milestones rewards", false) {
+		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "Edit", "VoteMilestones" },
+				"VotingPlugin.Commands.AdminVote.Edit.VoteMilestones", "Edit VoteMilestones rewards", false) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				new AdminVoteMilestones(plugin, sender).open(GUIMethod.CHEST);
-			}
-		});
-
-		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "Edit", "Cumulative" },
-				"VotingPlugin.Commands.AdminVote.Edit.Cumulative", "Edit cumulative rewards", false) {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				new AdminVoteCumulative(plugin, sender).open(GUIMethod.CHEST);
+				new AdminVoteVoteMilestones(plugin, sender).open(GUIMethod.CHEST);
 			}
 		});
 
