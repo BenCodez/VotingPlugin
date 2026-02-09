@@ -1116,6 +1116,46 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		new VotingPluginMetrics().load(plugin);
 	}
 
+	private void migrateVotePartyTimestamps() {
+		// Migrate old VoteParty.Voted list to timestamps map if needed
+		List<String> votedList = getServerData().getData().getStringList("VoteParty.Voted");
+		ConfigurationSection timestampsSection = getServerData().getData()
+				.getConfigurationSection("VoteParty.VotedTimestamps");
+
+		// Only migrate if we have old data but no timestamps
+		if (votedList != null && !votedList.isEmpty() && timestampsSection == null) {
+			getLogger().info("[VoteParty] Migrating old VoteParty.Voted list to timestamps map...");
+			long currentTime = System.currentTimeMillis();
+
+			// Try to get actual last vote time from user data, otherwise use current time
+			for (String uuid : votedList) {
+				try {
+					VotingPluginUser user = getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid));
+					long lastVoteTime = user.getLastVoteTime();
+					// If user has a valid last vote time, use it; otherwise use current time
+					long timestamp = (lastVoteTime > 0) ? lastVoteTime : currentTime;
+					getServerData().setVotePartyVotedTimestamp(uuid, timestamp);
+				} catch (Exception e) {
+					// If we can't get user data, use current time as fallback
+					getServerData().setVotePartyVotedTimestamp(uuid, currentTime);
+					debug("Could not get last vote time for " + uuid + ", using current time");
+				}
+			}
+
+			getLogger().info("[VoteParty] Migration complete. Migrated " + votedList.size() + " players.");
+		}
+
+		// Cleanup old timestamps on startup (older than 24h) if rolling window mode is enabled
+		if (getSpecialRewardsConfig().isVotePartyRollingWindow24h() && timestampsSection != null) {
+			long currentTime = System.currentTimeMillis();
+			long cutoffTime = currentTime - (24 * 60 * 60 * 1000L); // 24 hours ago
+			int removedCount = getServerData().removeOldVotePartyVotedTimestamps(cutoffTime);
+			if (removedCount > 0) {
+				getLogger().info("[VoteParty] Cleaned up " + removedCount + " old timestamps on startup (older than 24h)");
+			}
+		}
+	}
+
 	@Override
 	public void onPostLoad() {
 		// auto conversion for Shop.yml
@@ -1132,6 +1172,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		// vote reminder migration
 		VoteRemindersLegacyMigrator.migrateIfNeeded(this, new File(getDataFolder(), "Config.yml"),
 				getConfigFile().getData());
+
+		// migrate VoteParty timestamps from old Voted list
+		migrateVotePartyTimestamps();
 
 		voteRemindersManager = new VoteRemindersManager(this, new UserDataVoteReminderCooldownStore(this));
 		voteRemindersManager.reload();

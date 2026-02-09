@@ -2,9 +2,11 @@ package com.bencodez.votingplugin.data;
 
 import java.time.temporal.WeekFields;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -368,6 +370,89 @@ public class ServerData {
 		getData().set("LastVotePartyWeek",
 				plugin.getTimeChecker().getTime().get(WeekFields.of(Locale.getDefault()).weekOfYear()));
 		saveData();
+	}
+
+	/**
+	 * Sets the vote party voted timestamp for a player.
+	 *
+	 * @param uuid      the player uuid
+	 * @param timestamp the timestamp in milliseconds
+	 */
+	public void setVotePartyVotedTimestamp(String uuid, long timestamp) {
+		getData().set("VoteParty.VotedTimestamps." + uuid, timestamp);
+		saveData();
+	}
+
+	/**
+	 * Gets the vote party voted timestamp for a player.
+	 *
+	 * @param uuid the player uuid
+	 * @return the timestamp in milliseconds, or 0 if not found
+	 */
+	public long getVotePartyVotedTimestamp(String uuid) {
+		return getData().getLong("VoteParty.VotedTimestamps." + uuid, 0);
+	}
+
+	/**
+	 * Gets all vote party voted timestamps.
+	 *
+	 * @return a map of uuid to timestamp
+	 */
+	public Map<String, Long> getVotePartyVotedTimestamps() {
+		Map<String, Long> timestamps = new HashMap<>();
+		ConfigurationSection section = getData().getConfigurationSection("VoteParty.VotedTimestamps");
+		if (section != null) {
+			for (String uuid : section.getKeys(false)) {
+				timestamps.put(uuid, section.getLong(uuid, 0));
+			}
+		}
+		return timestamps;
+	}
+
+	/**
+	 * Clears all vote party voted timestamps.
+	 */
+	public void clearVotePartyVotedTimestamps() {
+		getData().set("VoteParty.VotedTimestamps", null);
+		saveData();
+	}
+
+	/**
+	 * Removes old vote party voted timestamps that are older than the specified cutoff time.
+	 * Optimized for performance: batches all removals before saving.
+	 *
+	 * @param cutoffTime the cutoff time in milliseconds (timestamps older than this will be removed)
+	 * @return the number of timestamps removed
+	 */
+	public int removeOldVotePartyVotedTimestamps(long cutoffTime) {
+		ConfigurationSection section = getData().getConfigurationSection("VoteParty.VotedTimestamps");
+		if (section == null) {
+			return 0;
+		}
+
+		// Collect all UUIDs to remove first (avoid concurrent modification)
+		List<String> toRemove = new ArrayList<>();
+		for (String uuid : section.getKeys(false)) {
+			long timestamp = section.getLong(uuid, 0);
+			if (timestamp < cutoffTime) {
+				toRemove.add(uuid);
+			}
+		}
+
+		// Batch remove all at once (more efficient than one-by-one)
+		if (toRemove.isEmpty()) {
+			return 0;
+		}
+
+		// Remove all keys in batch
+		for (String uuid : toRemove) {
+			getData().set("VoteParty.VotedTimestamps." + uuid, null);
+		}
+
+		// Save only once after all removals (reduces I/O operations)
+		saveData();
+
+		return toRemove.size();
 	}
 
 	public void updatePlaceholders() {

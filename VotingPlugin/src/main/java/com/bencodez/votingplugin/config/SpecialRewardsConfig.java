@@ -142,6 +142,10 @@ public class SpecialRewardsConfig extends YMLFile {
 	@Getter
 	private boolean votePartyResetWeekly = false;
 
+	@ConfigDataBoolean(path = "VoteParty.RollingWindow24h")
+	@Getter
+	private boolean votePartyRollingWindow24h = false;
+
 	@ConfigDataInt(path = "VoteParty.UserVotesRequired")
 	@Getter
 	private int votePartyUserVotesRequired = 0;

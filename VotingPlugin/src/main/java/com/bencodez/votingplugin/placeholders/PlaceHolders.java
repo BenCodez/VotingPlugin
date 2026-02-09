@@ -855,6 +855,19 @@ public class PlaceHolders {
 			}
 		}.useStartsWith().withDescription("See vote party placeholders contributed").updateDataKey("VotePartyVotes"));
 
+		placeholders.add(new PlaceHolder<VotingPluginUser>("HasVotedLast24Hours") {
+
+			@Override
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
+				long lastVoteTime = user.getLastVoteTime();
+				if (lastVoteTime == 0) {
+					return "false";
+				}
+				long cutoff = System.currentTimeMillis() - (24 * 60 * 60 * 1000L);
+				return (lastVoteTime >= cutoff) ? "true" : "false";
+			}
+		}.withDescription("Returns true if player voted in last 24 hours").updateDataKey("LastVoteTime"));
+
 		nonPlayerPlaceholders.add(new NonPlayerPlaceHolder<VotingPluginUser>("Top_DailyVotes_") {
 
 			@Override

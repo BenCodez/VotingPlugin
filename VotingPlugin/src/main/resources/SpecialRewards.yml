@@ -144,6 +144,10 @@ VoteParty:
   ResetExtraVotesWeekly: false
   # Reset extra votes monthly
   ResetExtraVotesMonthly: false
+  # Enable 24h rolling window mode
+  # If true, only players who voted in last 24h get rewards when VoteParty triggers
+  # If false, use old behavior (all voted players or all players)
+  RollingWindow24h: false
   # Count votes from /av vote?
   CountFakeVotes: true
   # Number of user votes that apply to vote party total the user needs to get rewards

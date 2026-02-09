@@ -4,6 +4,7 @@ package com.bencodez.votingplugin.specialrewards.voteparty;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -61,6 +62,11 @@ public class VoteParty implements Listener {
 			voted.add(uuid);
 			setVotedUsers(voted);
 		}
+		// Update timestamp for rolling window mode
+		long timestamp = System.currentTimeMillis();
+		plugin.getServerData().setVotePartyVotedTimestamp(uuid, timestamp);
+		plugin.debug("[VoteParty] Updated timestamp for " + uuid + ": " + timestamp + " ("
+				+ new java.util.Date(timestamp) + ")");
 	}
 
 	public void check(VotingPluginUser user, boolean forceBungee) {
@@ -89,7 +95,18 @@ public class VoteParty implements Listener {
 			return;
 		}
 
+		plugin.debug("[VoteParty] ========== VOTEPARTY TRIGGERED ==========");
+		plugin.debug("[VoteParty] Total votes: " + getTotalVotes() + ", Required: " + getVotesRequired());
+		plugin.debug("[VoteParty] RollingWindow24h: " + plugin.getSpecialRewardsConfig().isVotePartyRollingWindow24h());
+		plugin.debug("[VoteParty] GiveAllPlayers: " + plugin.getSpecialRewardsConfig().isVotePartyGiveAllPlayers());
+		plugin.debug("[VoteParty] Timestamps map size BEFORE giveRewards: " + plugin.getServerData().getVotePartyVotedTimestamps().size());
+		plugin.debug("[VoteParty] VotedUsers list size BEFORE giveRewards: " + getVotedUsers().size());
+
 		giveRewards(user, forceBungee);
+
+		plugin.debug("[VoteParty] Timestamps map size AFTER giveRewards: " + plugin.getServerData().getVotePartyVotedTimestamps().size());
+		plugin.debug("[VoteParty] VotedUsers list size AFTER giveRewards: " + getVotedUsers().size());
+		plugin.debug("[VoteParty] =========================================");
 
 		if (plugin.getSpecialRewardsConfig().getVotePartyIncreaseVotesRequired() > 0) {
 			plugin.getServerData().setVotePartyExtraRequired(plugin.getServerData().getVotePartyExtraRequired()
@@ -287,20 +304,99 @@ public class VoteParty implements Listener {
 		} else {
 			plugin.debug("Trying to give all voted players vote party");
 			plugin.debug(ArrayUtils.makeStringList(getVotedUsers()));
-			for (String uuid :
 
-			getVotedUsers()) {
-				VotingPluginUser user;
-				if (orgUser != null && orgUser.getJavaUUID().toString().equals(uuid)) {
-					user = orgUser;
+			// Check if rolling window 24h mode is enabled
+			if (plugin.getSpecialRewardsConfig().isVotePartyRollingWindow24h()) {
+				plugin.debug("[VoteParty] Using 24h rolling window mode for VoteParty rewards");
+				long currentTime = System.currentTimeMillis();
+				long cutoffTime = currentTime - (24 * 60 * 60 * 1000L); // 24 hours ago
+				Map<String, Long> timestamps = plugin.getServerData().getVotePartyVotedTimestamps();
+
+				plugin.debug("[VoteParty] Current time: " + currentTime + " (" + new java.util.Date(currentTime) + ")");
+				plugin.debug("[VoteParty] Cutoff time (24h ago): " + cutoffTime + " (" + new java.util.Date(cutoffTime) + ")");
+				plugin.debug("[VoteParty] Total timestamps in map: " + timestamps.size());
+
+				// Filter players who voted within last 24 hours
+				List<String> validUuids = new ArrayList<>();
+				for (Map.Entry<String, Long> entry : timestamps.entrySet()) {
+					long voteTime = entry.getValue();
+					boolean isValid = voteTime >= cutoffTime;
+					plugin.debug("[VoteParty] Player " + entry.getKey() + ": voteTime=" + voteTime + " ("
+							+ new java.util.Date(voteTime) + "), valid=" + isValid + ", hoursAgo="
+							+ ((currentTime - voteTime) / (60 * 60 * 1000.0)));
+					if (isValid) {
+						validUuids.add(entry.getKey());
+					}
+				}
+
+				plugin.debug("[VoteParty] Found " + validUuids.size() + " players who voted in last 24h out of "
+						+ timestamps.size() + " total");
+
+				// Cleanup old timestamps (older than 24h) to prevent data accumulation
+				// Only cleanup if there are many timestamps to avoid lag on large servers
+				// Cleanup async to not block the main thread
+				if (timestamps.size() > 50) {
+					final long finalCutoffTime = cutoffTime;
+					plugin.getBukkitScheduler().runTaskAsynchronously(plugin, new Runnable() {
+						@Override
+						public void run() {
+							int removedCount = plugin.getServerData().removeOldVotePartyVotedTimestamps(finalCutoffTime);
+							if (removedCount > 0) {
+								plugin.debug("[VoteParty] Cleaned up " + removedCount + " old timestamps (older than 24h) [ASYNC]");
+							}
+						}
+					});
 				} else {
-					user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid));
-					user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
-				}
-				if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
-					giveReward(user, forceBungee);
+					// For small servers, cleanup sync is fine
+					int removedCount = plugin.getServerData().removeOldVotePartyVotedTimestamps(cutoffTime);
+					if (removedCount > 0) {
+						plugin.debug("[VoteParty] Cleaned up " + removedCount + " old timestamps (older than 24h)");
+					}
 				}
 
+				if (validUuids.isEmpty()) {
+					plugin.debug("[VoteParty] WARNING: No valid players found in 24h window! This might indicate a problem.");
+					plugin.debug("[VoteParty] All timestamps in map:");
+					for (Map.Entry<String, Long> entry : timestamps.entrySet()) {
+						double hoursAgo = (currentTime - entry.getValue()) / (60.0 * 60.0 * 1000.0);
+						plugin.debug("[VoteParty]   - " + entry.getKey() + ": " + hoursAgo + " hours ago ("
+								+ new java.util.Date(entry.getValue()) + ")");
+					}
+				}
+
+				for (String uuid : validUuids) {
+					VotingPluginUser user;
+					if (orgUser != null && orgUser.getJavaUUID().toString().equals(uuid)) {
+						user = orgUser;
+					} else {
+						user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid));
+						user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
+					}
+					plugin.debug("[VoteParty] Processing reward for " + uuid + " (online=" + user.isOnline()
+							+ ", name=" + user.getPlayerName() + ")");
+					if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
+						plugin.debug("[VoteParty] ✓ Giving reward to " + uuid + " (" + user.getPlayerName() + ")");
+						giveReward(user, forceBungee);
+					} else {
+						plugin.debug("[VoteParty] ✗ Skipping " + uuid + " (GiveOnlinePlayersOnly=true and player offline)");
+					}
+				}
+
+				plugin.debug("[VoteParty] Finished giving rewards to " + validUuids.size() + " players");
+			} else {
+				// Old behavior: give rewards to all voted players
+				for (String uuid : getVotedUsers()) {
+					VotingPluginUser user;
+					if (orgUser != null && orgUser.getJavaUUID().toString().equals(uuid)) {
+						user = orgUser;
+					} else {
+						user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid));
+						user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
+					}
+					if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
+						giveReward(user, forceBungee);
+					}
+				}
 			}
 		}
 
@@ -341,10 +437,36 @@ public class VoteParty implements Listener {
 	}
 
 	public void reset(boolean override) {
+		plugin.debug("[VoteParty] reset() called with override=" + override);
+		Map<String, Long> timestampsBeforeReset = plugin.getServerData().getVotePartyVotedTimestamps();
+		long currentTime = System.currentTimeMillis();
+		plugin.debug("[VoteParty] Timestamps BEFORE reset: " + timestampsBeforeReset.size() + " entries");
+		for (Map.Entry<String, Long> entry : timestampsBeforeReset.entrySet()) {
+			long hoursAgo = (currentTime - entry.getValue()) / (60 * 60 * 1000L);
+			long minutesAgo = (currentTime - entry.getValue()) / (60 * 1000L);
+			plugin.debug("[VoteParty]   - " + entry.getKey() + ": " + hoursAgo + " hours ago (" + minutesAgo
+					+ " minutes ago, " + new java.util.Date(entry.getValue()) + ")");
+		}
+
 		if (override) {
 			setTotalVotes(0);
 		}
 		setVotedUsers(new ArrayList<>());
+		// Only clear timestamps if override is true (full reset)
+		// If override is false, we keep timestamps for rolling window mode
+		if (override) {
+			plugin.debug("[VoteParty] Clearing timestamps (override=true)");
+			plugin.getServerData().clearVotePartyVotedTimestamps();
+		} else {
+			plugin.debug("[VoteParty] Keeping timestamps for rolling window mode (override=false)");
+			Map<String, Long> timestampsAfterReset = plugin.getServerData().getVotePartyVotedTimestamps();
+			plugin.debug("[VoteParty] Timestamps AFTER reset (kept): " + timestampsAfterReset.size() + " entries");
+			// Verify timestamps are still there
+			if (timestampsAfterReset.size() != timestampsBeforeReset.size()) {
+				plugin.getLogger().warning("[VoteParty] WARNING: Timestamp count changed after reset! Before: "
+						+ timestampsBeforeReset.size() + ", After: " + timestampsAfterReset.size());
+			}
+		}
 		resetVotePartyCount();
 
 	}
