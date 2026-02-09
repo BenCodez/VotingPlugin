@@ -15,7 +15,6 @@ import com.bencodez.advancedcore.api.inventory.editgui.EditGUIButton;
 import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueBoolean;
 import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueList;
 import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueNumber;
-import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueString;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.valuerequest.ValueRequestBuilder;
 import com.bencodez.advancedcore.api.valuerequest.listeners.NumberListener;
@@ -187,11 +186,11 @@ public class AdminVoteVoteParty extends GUIHandler {
 		}));
 
 		inv.addButton(new EditGUIButton(new ItemBuilder(Material.PAPER, 1),
-				new EditGUIValueString("Broadcast", plugin.getSpecialRewardsConfig().getVotePartyBroadcast()) {
+				new EditGUIValueList("Broadcast", plugin.getSpecialRewardsConfig().getVotePartyBroadcast()) {
 
 					@Override
-					public void setValue(Player player, String name) {
-						setPathData(getKey(), name);
+					public void setValue(Player player, ArrayList<String> value) {
+						setPathData(getKey(), value);
 					}
 				}));
 

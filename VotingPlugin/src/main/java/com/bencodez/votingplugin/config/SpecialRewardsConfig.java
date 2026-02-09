@@ -13,7 +13,6 @@ import com.bencodez.simpleapi.file.annotation.ConfigDataInt;
 import com.bencodez.simpleapi.file.annotation.ConfigDataKeys;
 import com.bencodez.simpleapi.file.annotation.ConfigDataListInt;
 import com.bencodez.simpleapi.file.annotation.ConfigDataListString;
-import com.bencodez.simpleapi.file.annotation.ConfigDataString;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 import lombok.Getter;
@@ -54,9 +53,9 @@ public class SpecialRewardsConfig extends YMLFile {
 	@Getter
 	private boolean votePartyResetExtraVotesWeekly = false;
 
-	@ConfigDataString(path = "VoteParty.VoteReminderBroadcast")
+	@ConfigDataListString(path = "VoteParty.VoteReminderBroadcast")
 	@Getter
-	private String votePartyVoteReminderBroadcast = "%votesrequired% left to go, go vote!";
+	private ArrayList<String> votePartyVoteReminderBroadcast = new ArrayList<>();
 
 	@ConfigDataListInt(path = "VoteParty.VoteReminderAtVotes")
 	@Getter
@@ -89,9 +88,9 @@ public class SpecialRewardsConfig extends YMLFile {
 	@Getter
 	private Set<String> dailyPossibleRewardPlaces = new HashSet<>();
 
-	@ConfigDataString(path = "VoteParty.Broadcast")
+	@ConfigDataListString(path = "VoteParty.Broadcast")
 	@Getter
-	private String votePartyBroadcast = "";
+	private ArrayList<String> votePartyBroadcast = new ArrayList<>();
 
 	@ConfigDataListString(path = "VoteParty.GlobalCommands", secondPath = "VoteParty.Commands")
 	@Getter

@@ -128,12 +128,14 @@ public class VoteParty implements Listener {
 			for (Integer num1 : plugin.getSpecialRewardsConfig().getVotePartyVoteReminderAtVotes()) {
 				int num = num1.intValue();
 				if (neededVotes == num) {
-					String broadcastMessage = plugin.getSpecialRewardsConfig().getVotePartyVoteReminderBroadcast();
+					ArrayList<String> broadcastMessages = plugin.getSpecialRewardsConfig().getVotePartyVoteReminderBroadcast();
 					HashMap<String, String> placeholders = new HashMap<>();
 					placeholders.put("player", user.getPlayerName());
 					placeholders.put("votesrequired", "" + neededVotes);
-					MiscUtils.getInstance()
-							.broadcast(PlaceholderUtils.replacePlaceHolder(broadcastMessage, placeholders));
+					for (String broadcastMessage : broadcastMessages) {
+						MiscUtils.getInstance()
+								.broadcast(PlaceholderUtils.replacePlaceHolder(broadcastMessage, placeholders));
+					}
 				}
 			}
 		}
@@ -240,7 +242,10 @@ public class VoteParty implements Listener {
 	}
 
 	public void giveRewards(VotingPluginUser orgUser, boolean forceBungee) {
-		MiscUtils.getInstance().broadcast(plugin.getSpecialRewardsConfig().getVotePartyBroadcast());
+		ArrayList<String> broadcastMessages = plugin.getSpecialRewardsConfig().getVotePartyBroadcast();
+		for (String broadcastMessage : broadcastMessages) {
+			MiscUtils.getInstance().broadcast(broadcastMessage);
+		}
 
 		String player = getRandomPlayerName();
 		for (final String cmd : plugin.getSpecialRewardsConfig().getVotePartyGlobalCommands()) {

@@ -154,10 +154,12 @@ VoteParty:
   UserVotesRequired: 0
   # Count offline votes
   CountOfflineVotes: true
-  # Broadcast when vote party reached
-  Broadcast: '&cReached the vote party amount!'
-  # Send a broadcast at a certain number of votes left and send a vote reminder
-  VoteReminderBroadcast: '%votesrequired% left to go, go vote!'
+  # Broadcast when vote party reached (supports multi-line)
+  Broadcast:
+    - '&cReached the vote party amount!'
+  # Send a broadcast at a certain number of votes left and send a vote reminder (supports multi-line)
+  VoteReminderBroadcast:
+    - '%votesrequired% left to go, go vote!'
   # Send vote reminder at number of votes to go
   VoteReminderAtVotes: []
   # List of commands to execute, these only execute once.
