@@ -71,8 +71,6 @@ public abstract class ProxyMysqlUserTable extends AbstractSqlTable {
 	// subclasses
 	public abstract void debug(SQLException e);
 
-	public abstract void severe(String str);
-
 	// ---- Constructors ----
 
 	public ProxyMysqlUserTable(String tableName, MysqlConfig config, boolean debug) {
@@ -423,8 +421,8 @@ public abstract class ProxyMysqlUserTable extends AbstractSqlTable {
 
 				int updated = ps.executeUpdate();
 				if (updated == 0) {
-				    // row missing (wiped) even though uuid cache thought it existed
-				    insertQuery(index, cols);
+					// row missing (wiped) even though uuid cache thought it existed
+					insertQuery(index, cols);
 				}
 			} catch (SQLException | IllegalArgumentException e) {
 				debug(e);

@@ -12,7 +12,6 @@ import org.mockito.Mockito;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
-import com.bencodez.votingplugin.proxy.cache.nonvoted.INonVotedPlayersStorage;
 
 public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 

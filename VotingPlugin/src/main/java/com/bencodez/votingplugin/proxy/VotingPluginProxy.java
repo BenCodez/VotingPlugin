@@ -29,6 +29,7 @@ import org.eclipse.paho.client.mqttv3.MqttException;
 
 import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
+import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
 import com.bencodez.advancedcore.bungeeapi.time.BungeeTimeChecker;
 import com.bencodez.simpleapi.encryption.EncryptionHandler;
 import com.bencodez.simpleapi.json.JsonParser;
@@ -45,6 +46,7 @@ import com.bencodez.simpleapi.servercomm.sockets.ClientHandler;
 import com.bencodez.simpleapi.servercomm.sockets.SocketHandler;
 import com.bencodez.simpleapi.servercomm.sockets.SocketReceiver;
 import com.bencodez.simpleapi.sql.Column;
+import com.bencodez.simpleapi.sql.DataType;
 import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.simpleapi.sql.data.DataValueBoolean;
 import com.bencodez.simpleapi.sql.data.DataValueInt;
@@ -60,6 +62,7 @@ import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyMethod;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyServerSocketConfiguration;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyServerSocketConfigurationBungee;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
+import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable.VoteLogStatus;
 import com.google.gson.JsonElement;
@@ -121,6 +124,7 @@ public abstract class VotingPluginProxy {
 	private GlobalMessageProxyHandler globalMessageProxyHandler;
 
 	@Getter
+	@Setter
 	private MySqlMessenger proxyMysqlMessenger;
 
 	@Getter
@@ -246,6 +250,207 @@ public abstract class VotingPluginProxy {
 				warn(text);
 			}
 		};
+	}
+
+	public void onTimeChangedFailed(String srv, TimeType type) {
+		getGlobalDataHandler().setBoolean(srv, type.toString(), false);
+		getGlobalDataHandler().setBoolean(srv, "FinishedProcessing", true);
+		getGlobalDataHandler().setBoolean(srv, "Processing", false);
+	}
+
+	public void onTimeChangedFinished(TimeType type) {
+		if (type.equals(TimeType.MONTH)) {
+			getProxyMySQL().copyColumnData(TopVoter.Monthly.getColumnName(), "LastMonthTotal");
+		}
+		getProxyMySQL().wipeColumnData(TopVoter.of(type).getColumnName(), DataType.INTEGER);
+
+		if (!getConfig().getGlobalDataEnabled()) {
+			return;
+		}
+		for (String s : getAllAvailableServers()) {
+			getGlobalDataHandler().setBoolean(s, "ForceUpdate", true);
+			getGlobalMessageProxyHandler().sendMessage(s, 1, VotingPluginWire.bungeeTimeChange());
+		}
+		processQueue();
+	}
+
+	/**
+	 * Load MySQL + global data handler.
+	 */
+	public void loadMysql(MysqlConfig mysqlConfig, MysqlConfig globalDataMysqlConfig) {
+		if (mysqlConfig.getHostName().isEmpty() || mysqlConfig.getDatabase().isEmpty()) {
+			logSevere("MySQL is not configured correctly. " + "Missing host/database. host="
+					+ mysqlConfig.getHostName() + " db=" + mysqlConfig.getDatabase());
+			setProxyMySQL(null);
+			return;
+		}
+
+		setProxyMySQL(new ProxyMysqlUserTable("VotingPlugin_Users", mysqlConfig, getConfig().getDebug()) {
+
+			@Override
+			public void debug(SQLException e) {
+				if (getConfig().getDebug()) {
+					e.printStackTrace();
+				}
+			}
+
+			@Override
+			public void logSevere(String string) {
+				VotingPluginProxy.this.logSevere(string);
+			}
+
+			@Override
+			public void logInfo(String string) {
+				VotingPluginProxy.this.logInfo(string);
+			}
+
+			@Override
+			public void debug(Throwable t) {
+				if (getConfig().getDebug()) {
+					t.printStackTrace();
+				}
+			}
+
+			@Override
+			public void debug(String str) {
+				debug2(str);
+			}
+		});
+
+		ArrayList<String> servers = new ArrayList<String>(getAllAvailableServers());
+
+		if (getConfig().getGlobalDataEnabled()) {
+			if (getConfig().getGlobalDataUseMainMySQL()) {
+				setGlobalDataHandler(new GlobalDataHandlerProxy(
+						new GlobalMySQL("VotingPlugin_GlobalData", getProxyMySQL().getMysql()) {
+
+							@Override
+							public void debugEx(Exception e) {
+								if (getConfig().getDebug()) {
+									e.printStackTrace();
+								}
+							}
+
+							@Override
+							public void debugLog(String text) {
+								debug(text);
+							}
+
+							@Override
+							public void info(String text) {
+								logInfo(text);
+							}
+
+							@Override
+							public void logSevere(String text) {
+								VotingPluginProxy.this.logSevere(text);
+							}
+
+							@Override
+							public void warning(String text) {
+								warn(text);
+							}
+						}, servers) {
+
+					@Override
+					public void onTimeChangedFailed(String srv, TimeType type) {
+						VotingPluginProxy.this.onTimeChangedFailed(srv, type);
+					}
+
+					@Override
+					public void onTimeChangedFinished(TimeType type) {
+						VotingPluginProxy.this.onTimeChangedFinished(type);
+					}
+				});
+			} else {
+				setGlobalDataHandler(
+						new GlobalDataHandlerProxy(new GlobalMySQL("VotingPlugin_GlobalData", globalDataMysqlConfig) {
+
+							@Override
+							public void debugEx(Exception e) {
+								if (getConfig().getDebug()) {
+									e.printStackTrace();
+								}
+							}
+
+							@Override
+							public void debugLog(String text) {
+								debug(text);
+							}
+
+							@Override
+							public void info(String text) {
+								logInfo(text);
+							}
+
+							@Override
+							public void logSevere(String text) {
+								VotingPluginProxy.this.logSevere(text);
+							}
+
+							@Override
+							public void warning(String text) {
+								warn(text);
+							}
+						}, servers) {
+
+							@Override
+							public void onTimeChangedFailed(String srv, TimeType type) {
+								VotingPluginProxy.this.onTimeChangedFailed(srv, type);
+							}
+
+							@Override
+							public void onTimeChangedFinished(TimeType type) {
+								VotingPluginProxy.this.onTimeChangedFinished(type);
+							}
+						});
+			}
+
+			// update global schema columns (unchanged from original)
+			getGlobalDataHandler().getGlobalMysql().alterColumnType("IgnoreTime", "VARCHAR(5)");
+			getGlobalDataHandler().getGlobalMysql().alterColumnType("MONTH", "VARCHAR(5)");
+			getGlobalDataHandler().getGlobalMysql().alterColumnType("WEEK", "VARCHAR(5)");
+			getGlobalDataHandler().getGlobalMysql().alterColumnType("DAY", "VARCHAR(5)");
+			getGlobalDataHandler().getGlobalMysql().alterColumnType("FinishedProcessing", "VARCHAR(5)");
+			getGlobalDataHandler().getGlobalMysql().alterColumnType("Processing", "VARCHAR(5)");
+			getGlobalDataHandler().getGlobalMysql().alterColumnType("ForceUpdate", "VARCHAR(5)");
+			getGlobalDataHandler().getGlobalMysql().alterColumnType("LastUpdated", "MEDIUMTEXT");
+		}
+
+		// column types (unchanged from original)
+		getProxyMySQL().alterColumnType("TopVoterIgnore", "VARCHAR(5)");
+		getProxyMySQL().alterColumnType("CheckWorld", "VARCHAR(5)");
+		getProxyMySQL().alterColumnType("Reminded", "VARCHAR(5)");
+		getProxyMySQL().alterColumnType("DisableBroadcast", "VARCHAR(5)");
+		getProxyMySQL().alterColumnType("LastOnline", "VARCHAR(20)");
+		getProxyMySQL().alterColumnType("PlayerName", "VARCHAR(30)");
+		getProxyMySQL().alterColumnType("DailyTotal", "INT DEFAULT '0'");
+		getProxyMySQL().alterColumnType("WeeklyTotal", "INT DEFAULT '0'");
+		getProxyMySQL().alterColumnType("DayVoteStreak", "INT DEFAULT '0'");
+		getProxyMySQL().alterColumnType("BestDayVoteStreak", "INT DEFAULT '0'");
+		getProxyMySQL().alterColumnType("WeekVoteStreak", "INT DEFAULT '0'");
+		getProxyMySQL().alterColumnType("BestWeekVoteStreak", "INT DEFAULT '0'");
+		getProxyMySQL().alterColumnType("VotePartyVotes", "INT DEFAULT '0'");
+		getProxyMySQL().alterColumnType("MonthVoteStreak", "INT DEFAULT '0'");
+		getProxyMySQL().alterColumnType("Points", "INT DEFAULT '0'");
+		getProxyMySQL().alterColumnType("HighestDailyTotal", "INT DEFAULT '0'");
+		getProxyMySQL().alterColumnType("AllTimeTotal", "INT DEFAULT '0'");
+		getProxyMySQL().alterColumnType("HighestMonthlyTotal", "INT DEFAULT '0'");
+		getProxyMySQL().alterColumnType("MonthTotal", "INT DEFAULT '0'");
+		getProxyMySQL().alterColumnType("HighestWeeklyTotal", "INT DEFAULT '0'");
+		getProxyMySQL().alterColumnType("LastMonthTotal", "INT DEFAULT '0'");
+		getProxyMySQL().alterColumnType("LastWeeklyTotal", "INT DEFAULT '0'");
+		getProxyMySQL().alterColumnType("LastDailyTotal", "INT DEFAULT '0'");
+		getProxyMySQL().alterColumnType("OfflineRewards", "MEDIUMTEXT");
+		getProxyMySQL().alterColumnType("DayVoteStreakLastUpdate", "MEDIUMTEXT");
+
+		if (getConfig().getStoreMonthTotalsWithDate()) {
+			getProxyMySQL().alterColumnType(getMonthTotalsWithDatePath(LocalDateTime.now()), "INT DEFAULT '0'");
+			getProxyMySQL().alterColumnType(getMonthTotalsWithDatePath(LocalDateTime.now().plusMonths(1)),
+					"INT DEFAULT '0'");
+			getProxyMySQL().alterColumnType(getMonthTotalsWithDatePath(LocalDateTime.now().plusMonths(2)),
+					"INT DEFAULT '0'");
+		}
 	}
 
 	public void addCurrentVotePartyVotes(int amount) {
@@ -495,6 +700,22 @@ public abstract class VotingPluginProxy {
 	public abstract MysqlConfig getNonVotedCacheMySQLConfig();
 
 	public abstract MysqlConfig getVoteLoggingMySQLConfig();
+	
+	/**
+	 * Shutdown MySQL-related resources safely.
+	 */
+	public void shutdownMySql() {
+	    if (getProxyMysqlMessenger() != null) {
+	        getProxyMysqlMessenger().shutdown();
+	        setProxyMysqlMessenger(null);
+	    }
+
+	    if (getProxyMySQL() != null) {
+	        getProxyMySQL().shutdown();
+	        setProxyMySQL(null);
+	    }
+	}
+
 
 	public void load(IVoteCache jsonStorage, INonVotedPlayersStorage nonVotedCacheJson) {
 		uuidPlayerNameCache = getProxyMySQL().getRowsUUIDNameQuery();

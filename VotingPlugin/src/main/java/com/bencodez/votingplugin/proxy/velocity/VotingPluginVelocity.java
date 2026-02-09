@@ -13,14 +13,13 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.security.CodeSource;
-import java.sql.SQLException;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map.Entry;
+import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -31,19 +30,13 @@ import org.bstats.charts.SimplePie;
 import org.bstats.velocity.Metrics;
 import org.slf4j.Logger;
 import org.spongepowered.configurate.ConfigurationNode;
+import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
 
-import com.bencodez.advancedcore.api.time.TimeType;
-import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
-import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
 import com.bencodez.simpleapi.file.velocity.VelocityYMLFile;
-import com.bencodez.simpleapi.sql.DataType;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigVelocity;
-import com.bencodez.votingplugin.proxy.ProxyMysqlUserTable;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
-import com.bencodez.votingplugin.proxy.VotingPluginWire;
-import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.google.inject.Inject;
 import com.velocitypowered.api.command.CommandMeta;
 import com.velocitypowered.api.event.Subscribe;
@@ -63,36 +56,75 @@ import com.velocitypowered.api.scheduler.ScheduledTask;
 
 import lombok.Getter;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
 
+/**
+ * VotingPlugin proxy implementation for Velocity.
+ * <p>
+ * Reload behavior:
+ * <ul>
+ * <li><b>/vpp reload</b> = small reload (config.reload +
+ * votingPluginProxy.reload)</li>
+ * <li><b>/vpp reloadall</b> = full reload (rebuild runtime, reload mysql,
+ * reload caches/tasks)</li>
+ * </ul>
+ * </p>
+ */
 @Plugin(id = "votingplugin", name = "VotingPlugin", version = "1.0", url = "https://www.spigotmc.org/resources/votingplugin.15358/", description = "VotingPlugin Velocity Version", authors = {
 		"BenCodez" }, dependencies = { @Dependency(id = "nuvotifier", optional = true) })
 public class VotingPluginVelocity {
 
-	private ChannelIdentifier CHANNEL;
+	/**
+	 * Current plugin message channel.
+	 */
+	private volatile ChannelIdentifier channel;
 
 	@Getter
 	private VelocityConfig config;
+
 	private final Path dataDirectory;
+
 	@Getter
 	private final Logger logger;
 
 	private final Metrics.Factory metricsFactory;
 
-	private VelocityJsonNonVotedPlayersCache nonVotedPlayersCache;
-
 	private final ProxyServer server;
 
-	private VelocityJsonVoteCache voteCacheFile;
-
 	private String version = "";
-
-	private File versionFile;
-
 	private String buildNumber = "NOTSET";
+	private File versionFile;
 
 	@Getter
 	private ScheduledExecutorService timer;
+
+	@Getter
+	private volatile VotingPluginProxy votingPluginProxy;
+
+	private VelocityJsonVoteCache voteCacheFile;
+	private VelocityJsonNonVotedPlayersCache nonVotedPlayersCache;
+
+	private ScheduledTask voteCheckTask;
+	private ScheduledTask cacheSaveTask;
+
+	/**
+	 * Register votifier listener only once.
+	 */
+	private VoteEventVelocity voteEventVelocity;
+
+	/**
+	 * Reload lock.
+	 */
+	private final Object reloadLock = new Object();
+
+	/**
+	 * True while reloadall is happening.
+	 */
+	private volatile boolean reloading = false;
+
+	/**
+	 * Plugin messages received during reload are queued.
+	 */
+	private final Queue<byte[]> queuedPluginMessages = new ConcurrentLinkedQueue<byte[]>();
 
 	@Inject
 	public VotingPluginVelocity(ProxyServer server, Logger logger, Metrics.Factory metricsFactory,
@@ -101,358 +133,188 @@ public class VotingPluginVelocity {
 		this.logger = logger;
 		this.dataDirectory = dataDirectory;
 		this.metricsFactory = metricsFactory;
-		timer = Executors.newScheduledThreadPool(1);
+		this.timer = Executors.newScheduledThreadPool(1);
 	}
 
+	/**
+	 * Debug logger.
+	 *
+	 * @param msg message
+	 */
 	public void debug(String msg) {
-		if (config.getDebug()) {
+		if (config != null && config.getDebug()) {
 			logger.info("Debug: " + msg);
 		}
 	}
 
+	/**
+	 * Alias used by older code.
+	 *
+	 * @param msg message
+	 */
 	public void debug2(String msg) {
 		debug(msg);
 	}
 
+	/**
+	 * Get list of eligible servers.
+	 *
+	 * @return servers
+	 */
 	public Set<String> getAvailableAllServers() {
-		Set<String> servers = new HashSet<>();
+		Set<String> servers = new HashSet<String>();
 		if (config.getWhiteListedServers().isEmpty()) {
 			for (RegisteredServer s : server.getAllServers()) {
-				if (!config.getBlockedServers().contains(s.getServerInfo().getName())) {
-					servers.add(s.getServerInfo().getName());
+				String name = s.getServerInfo().getName();
+				if (!config.getBlockedServers().contains(name)) {
+					servers.add(name);
 				}
 			}
 		} else {
 			for (RegisteredServer s : server.getAllServers()) {
-				if (config.getWhiteListedServers().contains(s.getServerInfo().getName())) {
-					servers.add(s.getServerInfo().getName());
+				String name = s.getServerInfo().getName();
+				if (config.getWhiteListedServers().contains(name)) {
+					servers.add(name);
 				}
 			}
 		}
-
 		return servers;
 	}
 
+	/**
+	 * Prefer online name if possible.
+	 *
+	 * @param uuid        uuid string
+	 * @param currentName current stored name
+	 * @return name
+	 */
 	public String getProperPlayerName(String uuid, String currentName) {
-		if (server.getPlayer(UUID.fromString(uuid)).isPresent()) {
-			Player p = server.getPlayer(UUID.fromString(uuid)).get();
-			if (p != null && p.isActive()) {
-				return p.getUsername();
+		try {
+			UUID id = UUID.fromString(uuid);
+			if (server.getPlayer(id).isPresent()) {
+				Player p = server.getPlayer(id).get();
+				if (p != null && p.isActive()) {
+					return p.getUsername();
+				}
 			}
+		} catch (Exception ignored) {
 		}
 		return currentName;
 	}
 
+	/**
+	 * Extracts internal version file.
+	 */
 	private void getVersionFile() {
 		try {
 			CodeSource src = this.getClass().getProtectionDomain().getCodeSource();
 			if (src != null) {
 				URL jar = src.getLocation();
-				ZipInputStream zip = null;
-				zip = new ZipInputStream(jar.openStream());
+				ZipInputStream zip = new ZipInputStream(jar.openStream());
 				while (true) {
 					ZipEntry e = zip.getNextEntry();
-					if (e != null) {
-						String name = e.getName();
-						if (name.equals("votingpluginversion.yml")) {
-							Reader defConfigStream = new InputStreamReader(zip);
-							if (defConfigStream != null) {
-								versionFile = new File(dataDirectory.toFile(),
-										"tmp" + File.separator + "votingpluginversion.yml");
-								if (!versionFile.exists()) {
-									versionFile.getParentFile().mkdirs();
-									versionFile.createNewFile();
-								}
-								FileWriter fileWriter = new FileWriter(versionFile);
-
-								int charVal;
-								while ((charVal = defConfigStream.read()) != -1) {
-									fileWriter.append((char) charVal);
-								}
-
-								fileWriter.close();
-								YamlConfigurationLoader loader = YamlConfigurationLoader.builder()
-										.path(versionFile.toPath()).build();
-								defConfigStream.close();
-								ConfigurationNode node = loader.load();
-								if (node != null) {
-									version = node.node("version").getString("");
-									buildNumber = node.node("buildnumber").getString("NOTSET");
-								}
-								return;
-							}
+					if (e == null) {
+						break;
+					}
+					if ("votingpluginversion.yml".equals(e.getName())) {
+						Reader defConfigStream = new InputStreamReader(zip, StandardCharsets.UTF_8);
+						versionFile = new File(dataDirectory.toFile(),
+								"tmp" + File.separator + "votingpluginversion.yml");
+						if (!versionFile.exists()) {
+							versionFile.getParentFile().mkdirs();
+							versionFile.createNewFile();
 						}
+						FileWriter fileWriter = new FileWriter(versionFile);
+						int charVal;
+						while ((charVal = defConfigStream.read()) != -1) {
+							fileWriter.append((char) charVal);
+						}
+						fileWriter.close();
+						defConfigStream.close();
+
+						YamlConfigurationLoader loader = YamlConfigurationLoader.builder().path(versionFile.toPath())
+								.build();
+						ConfigurationNode node = loader.load();
+						if (node != null) {
+							version = node.node("version").getString("");
+							buildNumber = node.node("buildnumber").getString("NOTSET");
+						}
+						return;
 					}
 				}
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
-
-	private void loadMysql() {
-		MysqlConfig mysqlConfig = new MysqlConfigVelocity("Database", config);
-		if (!config.getData().node("Database").isMap()) {
-			mysqlConfig = new MysqlConfigVelocity(config);
-		}
-
-		votingPluginProxy.setProxyMySQL(new ProxyMysqlUserTable("VotingPlugin_Users", mysqlConfig, config.getDebug()) {
-
-			@Override
-			public void debug(SQLException e) {
-				if (config.getDebug()) {
-					e.printStackTrace();
-				}
-			}
-
-			@Override
-			public void severe(String str) {
-				getLogger().error(str);
-			}
-
-			@Override
-			public void logSevere(String string) {
-				logger.error(string);
-			}
-
-			@Override
-			public void logInfo(String string) {
-				logger.info(string);
-			}
-
-			@Override
-			public void debug(Throwable t) {
-				if (config.getDebug()) {
-					t.printStackTrace();
-				}
-			}
-
-			@Override
-			public void debug(String str) {
-				debug2(str);
-			}
-		});
-
-		ArrayList<String> servers = new ArrayList<>();
-		for (String s : getAvailableAllServers()) {
-			servers.add(s);
-		}
-
-		if (config.getGlobalDataEnabled()) {
-			if (config.getGlobalDataUseMainMySQL()) {
-				votingPluginProxy.setGlobalDataHandler(new GlobalDataHandlerProxy(
-						new GlobalMySQL("VotingPlugin_GlobalData", getVotingPluginProxy().getProxyMySQL().getMysql()) {
-
-							@Override
-							public void debugEx(Exception e) {
-								if (config.getDebug()) {
-									e.printStackTrace();
-								}
-							}
-
-							@Override
-							public void debugLog(String text) {
-								debug2(text);
-							}
-
-							@Override
-							public void info(String text) {
-								logger.info(text);
-							}
-
-							@Override
-							public void logSevere(String text) {
-								logger.error(text);
-							}
-
-							@Override
-							public void warning(String text) {
-								logger.warn(text);
-							}
-						}, servers) {
-
-					@Override
-					public void onTimeChangedFailed(String server, TimeType type) {
-						getVotingPluginProxy().getGlobalDataHandler().setBoolean(server, type.toString(), false);
-						getVotingPluginProxy().getGlobalDataHandler().setBoolean(server, "FinishedProcessing", true);
-						getVotingPluginProxy().getGlobalDataHandler().setBoolean(server, "Processing", false);
-					}
-
-					@Override
-					public void onTimeChangedFinished(TimeType type) {
-						if (type.equals(TimeType.MONTH)) {
-							getVotingPluginProxy().getProxyMySQL().copyColumnData(TopVoter.Monthly.getColumnName(),
-									"LastMonthTotal");
-
-						}
-						getVotingPluginProxy().getProxyMySQL().wipeColumnData(TopVoter.of(type).getColumnName(),
-								DataType.INTEGER);
-
-						if (!config.getGlobalDataEnabled()) {
-							return;
-						}
-						for (String s : getAvailableAllServers()) {
-							getVotingPluginProxy().getGlobalDataHandler().setBoolean(s, "ForceUpdate", true);
-							getVotingPluginProxy().getGlobalMessageProxyHandler().sendMessage(s, 1,
-									VotingPluginWire.bungeeTimeChange());
-						}
-
-						getVotingPluginProxy().processQueue();
-					}
-				});
-			} else {
-				votingPluginProxy.setGlobalDataHandler(new GlobalDataHandlerProxy(
-						new GlobalMySQL("VotingPlugin_GlobalData", new MysqlConfigVelocity("GlobalData", config)) {
-
-							@Override
-							public void debugEx(Exception e) {
-								if (config.getDebug()) {
-									e.printStackTrace();
-								}
-							}
-
-							@Override
-							public void debugLog(String text) {
-								debug2(text);
-							}
-
-							@Override
-							public void info(String text) {
-								logger.info(text);
-							}
-
-							@Override
-							public void logSevere(String text) {
-								logger.error(text);
-							}
-
-							@Override
-							public void warning(String text) {
-								logger.warn(text);
-							}
-						}, servers) {
-
-					@Override
-					public void onTimeChangedFailed(String server, TimeType type) {
-						getVotingPluginProxy().getGlobalDataHandler().setBoolean(server, type.toString(), false);
-						getVotingPluginProxy().getGlobalDataHandler().setBoolean(server, "FinishedProcessing", true);
-						getVotingPluginProxy().getGlobalDataHandler().setBoolean(server, "Processing", false);
-					}
-
-					@Override
-					public void onTimeChangedFinished(TimeType type) {
-						if (type.equals(TimeType.MONTH)) {
-							getVotingPluginProxy().getProxyMySQL().copyColumnData(TopVoter.Monthly.getColumnName(),
-									"LastMonthTotal");
-						}
-						getVotingPluginProxy().getProxyMySQL().wipeColumnData(TopVoter.of(type).getColumnName(),
-								DataType.INTEGER);
-
-						if (!config.getGlobalDataEnabled()) {
-							return;
-						}
-						for (String s : getAvailableAllServers()) {
-							getVotingPluginProxy().getGlobalDataHandler().setBoolean(s, "ForceUpdate", true);
-							getVotingPluginProxy().getGlobalMessageProxyHandler().sendMessage(s, 1,
-									VotingPluginWire.bungeeTimeChange());
-
-						}
-
-						getVotingPluginProxy().processQueue();
-					}
-
-				});
-			}
-			getVotingPluginProxy().getGlobalDataHandler().getGlobalMysql().alterColumnType("IgnoreTime", "VARCHAR(5)");
-			getVotingPluginProxy().getGlobalDataHandler().getGlobalMysql().alterColumnType("MONTH", "VARCHAR(5)");
-			getVotingPluginProxy().getGlobalDataHandler().getGlobalMysql().alterColumnType("WEEK", "VARCHAR(5)");
-			getVotingPluginProxy().getGlobalDataHandler().getGlobalMysql().alterColumnType("DAY", "VARCHAR(5)");
-			getVotingPluginProxy().getGlobalDataHandler().getGlobalMysql().alterColumnType("FinishedProcessing",
-					"VARCHAR(5)");
-			getVotingPluginProxy().getGlobalDataHandler().getGlobalMysql().alterColumnType("Processing", "VARCHAR(5)");
-			getVotingPluginProxy().getGlobalDataHandler().getGlobalMysql().alterColumnType("ForceUpdate", "VARCHAR(5)");
-			getVotingPluginProxy().getGlobalDataHandler().getGlobalMysql().alterColumnType("LastUpdated", "MEDIUMTEXT");
-		}
-
-		// column types
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("TopVoterIgnore", "VARCHAR(5)");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("CheckWorld", "VARCHAR(5)");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("Reminded", "VARCHAR(5)");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("DisableBroadcast", "VARCHAR(5)");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("LastOnline", "VARCHAR(20)");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("PlayerName", "VARCHAR(30)");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("DailyTotal", "INT DEFAULT '0'");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("WeeklyTotal", "INT DEFAULT '0'");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("DayVoteStreak", "INT DEFAULT '0'");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("BestDayVoteStreak", "INT DEFAULT '0'");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("WeekVoteStreak", "INT DEFAULT '0'");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("BestWeekVoteStreak", "INT DEFAULT '0'");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("VotePartyVotes", "INT DEFAULT '0'");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("MonthVoteStreak", "INT DEFAULT '0'");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("Points", "INT DEFAULT '0'");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("HighestDailyTotal", "INT DEFAULT '0'");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("AllTimeTotal", "INT DEFAULT '0'");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("HighestMonthlyTotal", "INT DEFAULT '0'");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("MonthTotal", "INT DEFAULT '0'");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("HighestWeeklyTotal", "INT DEFAULT '0'");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("LastMonthTotal", "INT DEFAULT '0'");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("LastWeeklyTotal", "INT DEFAULT '0'");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("LastDailyTotal", "INT DEFAULT '0'");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("OfflineRewards", "MEDIUMTEXT");
-		getVotingPluginProxy().getProxyMySQL().alterColumnType("DayVoteStreakLastUpdate", "MEDIUMTEXT");
-		if (config.getStoreMonthTotalsWithDate()) {
-			getVotingPluginProxy().getProxyMySQL().alterColumnType(
-					getVotingPluginProxy().getMonthTotalsWithDatePath(LocalDateTime.now()), "INT DEFAULT '0'");
-			getVotingPluginProxy().getProxyMySQL().alterColumnType(
-					getVotingPluginProxy().getMonthTotalsWithDatePath(LocalDateTime.now().plusMonths(1)),
-					"INT DEFAULT '0'");
-			getVotingPluginProxy().getProxyMySQL().alterColumnType(
-					getVotingPluginProxy().getMonthTotalsWithDatePath(LocalDateTime.now().plusMonths(2)),
-					"INT DEFAULT '0'");
-		}
-	}
-
-	@Subscribe
-	public void onPluginMessagingReceived(PluginMessageEvent event) {
-		if (event.getIdentifier().getId().equals(CHANNEL.getId())) {
-			event.setResult(PluginMessageEvent.ForwardResult.handled());
-
-			if (!(event.getSource() instanceof ServerConnection)) {
-				return;
-			}
-
-			ByteArrayInputStream instream = new ByteArrayInputStream(event.getData());
-			DataInputStream in = new DataInputStream(instream);
-			try {
-				getVotingPluginProxy().onPluginMessageReceived(in);
-			} catch (Exception e) {
+			if (config != null && config.getDebug()) {
 				e.printStackTrace();
 			}
 		}
 	}
 
 	@Subscribe
-	public void onProxyDisable(ProxyShutdownEvent event) {
+	public void onPluginMessagingReceived(PluginMessageEvent event) {
+		ChannelIdentifier ch = channel;
+		if (ch == null) {
+			return;
+		}
+		if (!event.getIdentifier().equals(ch)) {
+			return;
+		}
 
-		voteCacheFile.save();
-		nonVotedPlayersCache.save();
+		event.setResult(PluginMessageEvent.ForwardResult.handled());
 
-		getVotingPluginProxy().onDisable();
+		if (!(event.getSource() instanceof ServerConnection)) {
+			return;
+		}
 
-		if (voteCheckTask != null)
-			voteCheckTask.cancel();
-		if (cacheSaveTask != null)
-			cacheSaveTask.cancel();
+		if (reloading) {
+			byte[] copy = new byte[event.getData().length];
+			System.arraycopy(event.getData(), 0, copy, 0, event.getData().length);
+			queuedPluginMessages.add(copy);
+			return;
+		}
 
-		timer.shutdownNow();
-		logger.info("VotingPlugin disabled");
+		handlePluginMessageBytes(event.getData());
 	}
 
-	@Getter
-	public VotingPluginProxy votingPluginProxy;
+	@Subscribe
+	public void onProxyDisable(ProxyShutdownEvent event) {
+		synchronized (reloadLock) {
+			reloading = true;
 
-	private ScheduledTask voteCheckTask;
-	private ScheduledTask cacheSaveTask;
+			cancelTasks();
+
+			try {
+				if (voteCacheFile != null) {
+					voteCacheFile.save();
+				}
+			} catch (Exception ignored) {
+			}
+			try {
+				if (nonVotedPlayersCache != null) {
+					nonVotedPlayersCache.save();
+				}
+			} catch (Exception ignored) {
+			}
+
+			try {
+				if (votingPluginProxy != null) {
+					votingPluginProxy.onDisable();
+				}
+			} catch (Exception ignored) {
+			}
+
+			try {
+				if (timer != null) {
+					timer.shutdownNow();
+				}
+			} catch (Exception ignored) {
+			}
+
+			reloading = false;
+		}
+
+		logger.info("VotingPlugin disabled");
+	}
 
 	@Subscribe
 	public void onProxyInitialization(ProxyInitializeEvent event) {
@@ -467,28 +329,237 @@ public class VotingPluginVelocity {
 
 			InputStream toCopyStream = VotingPluginVelocity.class.getClassLoader()
 					.getResourceAsStream("bungeeconfig.yml");
-
-			try (FileOutputStream fos = new FileOutputStream(configFile)) {
-				byte[] buf = new byte[2048];
-				int r;
-				while (-1 != (r = toCopyStream.read(buf))) {
-					fos.write(buf, 0, r);
+			if (toCopyStream != null) {
+				try (FileOutputStream fos = new FileOutputStream(configFile)) {
+					byte[] buf = new byte[2048];
+					int r;
+					while (-1 != (r = toCopyStream.read(buf))) {
+						fos.write(buf, 0, r);
+					}
+				} catch (IOException e) {
+					e.printStackTrace();
 				}
-			} catch (IOException e) {
-				e.printStackTrace();
 			}
 		}
 
 		config = new VelocityConfig(configFile);
-		String[] channel = config.getPluginMessageChannel().split(":");
-		CHANNEL = MinecraftChannelIdentifier.create(channel[0].toLowerCase(), channel[1].toLowerCase());
-		server.getChannelRegistrar().register(CHANNEL);
+
+		channel = buildChannelIdentifier(config.getPluginMessageChannel());
+		server.getChannelRegistrar().register(channel);
 
 		CommandMeta meta = server.getCommandManager().metaBuilder("votingpluginproxy").aliases("vpp").build();
-
 		server.getCommandManager().register(meta, new VotingPluginVelocityCommand(this));
 
-		votingPluginProxy = new VotingPluginProxy() {
+		// create runtime
+		votingPluginProxy = createProxyRuntime();
+
+		// full init
+		reloadAllInternal(true);
+
+		// version
+		try {
+			getVersionFile();
+			if (versionFile != null) {
+				versionFile.delete();
+				if (versionFile.getParentFile() != null) {
+					versionFile.getParentFile().delete();
+				}
+			}
+		} catch (Exception ignored) {
+		}
+
+		// metrics (same as your original, shortened)
+		Metrics metrics = metricsFactory.make(this, 11547);
+		metrics.addCustomChart(new SimplePie("bungee_method", () -> getConfig().getBungeeMethod().toString()));
+		metrics.addCustomChart(new SimplePie("config_onlinemode", () -> "" + getConfig().getOnlineMode()));
+		metrics.addCustomChart(new SimplePie("sendtoallservers", () -> "" + getConfig().getSendVotesToAllServers()));
+		metrics.addCustomChart(new SimplePie("allowunjoined", () -> "" + getConfig().getAllowUnJoined()));
+		metrics.addCustomChart(new SimplePie("pointsonvote", () -> "" + getConfig().getPointsOnVote()));
+		metrics.addCustomChart(new SimplePie("bungeemanagetotals", () -> "" + getConfig().getBungeeManageTotals()));
+		metrics.addCustomChart(new SimplePie("waitforuseronline", () -> "" + getConfig().getWaitForUserOnline()));
+		metrics.addCustomChart(new SimplePie("plugin_version", () -> "" + version));
+
+		logger.info("VotingPlugin velocity loaded, method: " + getVotingPluginProxy().getMethod().toString()
+				+ ", Internal Jar Version: " + version);
+		if (!"NOTSET".equals(buildNumber)) {
+			logger.info("Detected using dev build number: " + buildNumber);
+		}
+	}
+
+	/**
+	 * Reloads VotingPluginProxy on Velocity.
+	 *
+	 * <p>
+	 * Two modes:
+	 * </p>
+	 * <ul>
+	 * <li><b>Full reload</b> ({@code loadMysql=true}): shuts down the old runtime,
+	 * recreates the proxy, reconnects MySQL, then loads caches and handlers.</li>
+	 * <li><b>Soft reload</b> ({@code loadMysql=false}): does NOT recreate the proxy
+	 * instance (because it owns MySQL). Only reloads config and applies
+	 * runtime-only settings via {@link VotingPluginProxy#reload()}.</li>
+	 * </ul>
+	 *
+	 * @param loadMysql whether to rebuild MySQL and fully reinitialize the proxy
+	 */
+	public void reloadAllInternal(boolean loadMysql) {
+		synchronized (reloadLock) {
+			reloading = true;
+
+			// Always stop repeating tasks while we touch state
+			cancelTasks();
+
+			// Always reload config first
+			try {
+				config.reload(); // or config.load() - whichever your VelocityConfig provides
+			} catch (Exception e) {
+				logger.error("Failed to reload bungeeconfig.yml", e);
+			}
+
+			// Update plugin message channel (safe for both modes)
+			try {
+				ChannelIdentifier old = channel;
+				ChannelIdentifier next = buildChannelIdentifier(config.getPluginMessageChannel());
+
+				if (old != null && !old.equals(next)) {
+					try {
+						server.getChannelRegistrar().unregister(old);
+					} catch (Exception ignored) {
+					}
+				}
+
+				try {
+					server.getChannelRegistrar().register(next);
+				} catch (Exception ignored) {
+				}
+
+				channel = next;
+			} catch (Exception e) {
+				logger.error("Failed to update plugin message channel", e);
+			}
+
+			// =========================
+			// SOFT RELOAD (NO MYSQL)
+			// =========================
+			if (!loadMysql) {
+				// We intentionally do NOT call onDisable()/shutdown, because that would stop
+				// MySQL.
+				// We also do NOT recreate the proxy instance, because it owns the MySQL
+				// pool/table.
+				try {
+					if (votingPluginProxy != null) {
+						votingPluginProxy.reload();
+					}
+				} catch (Throwable t) {
+					logger.error("Error while applying soft reload", t);
+				}
+
+				// Restart tasks that don't depend on rebuilding the proxy
+				scheduleTasks();
+
+				reloading = false;
+			} else {
+
+				// =========================
+				// FULL RELOAD (WITH MYSQL)
+				// =========================
+
+				// Best-effort save caches before shutdown
+				try {
+					if (voteCacheFile != null) {
+						voteCacheFile.save();
+					}
+				} catch (Exception ignored) {
+				}
+				try {
+					if (nonVotedPlayersCache != null) {
+						nonVotedPlayersCache.save();
+					}
+				} catch (Exception ignored) {
+				}
+
+				// Shutdown old runtime completely (this stops old MySQL pool)
+				try {
+					if (votingPluginProxy != null) {
+						votingPluginProxy.onDisable();
+					}
+				} catch (Exception ignored) {
+				}
+
+				// Recreate runtime
+				votingPluginProxy = createProxyRuntime();
+
+				// Init MySQL BEFORE calling proxy.load(...)
+				try {
+					if (config.hasDatabaseConfigured()) {
+						votingPluginProxy.loadMysql(getMysqlConfig(), getGlobalDataMysqlConfig());
+					} else {
+						logger.error("MySQL settings not set in bungeeconfig.yml");
+						votingPluginProxy.setProxyMySQL(null);
+					}
+				} catch (Throwable t) {
+					logger.error("Failed to initialize MySQL during reload", t);
+					votingPluginProxy.setProxyMySQL(null);
+				}
+
+				// If MySQL is required (your proxy.load assumes it), abort cleanly
+				if (votingPluginProxy.getProxyMySQL() == null) {
+					logger.error("Reload aborted: Proxy MySQL is not initialized.");
+					reloading = false;
+					return;
+				}
+
+				// Recreate storages (or keep existing if you prefer)
+				voteCacheFile = new VelocityJsonVoteCache(new File(dataDirectory.toFile(), "votecache.json"));
+				nonVotedPlayersCache = new VelocityJsonNonVotedPlayersCache(
+						new File(dataDirectory.toFile(), "nonvotedplayerscache.json"));
+
+				convertYamlCachesIfPresent();
+
+				// Load proxy state (requires MySQL)
+				try {
+					votingPluginProxy.load(voteCacheFile, nonVotedPlayersCache);
+				} catch (Throwable t) {
+					logger.error("Reload aborted while loading proxy state", t);
+					reloading = false;
+					return;
+				}
+
+				// Restart tasks
+				scheduleTasks();
+
+				// Apply runtime-only config
+				try {
+					votingPluginProxy.reload();
+				} catch (Throwable t) {
+					logger.error("Error while reloading proxy internals", t);
+				}
+
+				reloading = false;
+			}
+		}
+
+		// Out of lock: flush queued messages (optional)
+		drainQueuedPluginMessages();
+
+		initVotifierListenerIfNeeded();
+
+		// Optional: re-announce server names
+		try {
+			if (votingPluginProxy != null) {
+				votingPluginProxy.sendServerNameMessage();
+			}
+		} catch (Exception ignored) {
+		}
+	}
+
+	/**
+	 * Create proxy runtime.
+	 *
+	 * @return runtime
+	 */
+	private VotingPluginProxy createProxyRuntime() {
+		return new VotingPluginProxy() {
 
 			@Override
 			public void broadcast(String message) {
@@ -514,9 +585,9 @@ public class VotingPluginVelocity {
 			@Override
 			public String getCurrentPlayerServer(String player) {
 				if (server.getPlayer(player).isPresent()) {
-					if (server.getPlayer(player).get().getCurrentServer().isPresent()) {
-						return server.getPlayer(player).get().getCurrentServer().get().getServer().getServerInfo()
-								.getName();
+					Player p = server.getPlayer(player).get();
+					if (p.getCurrentServer().isPresent()) {
+						return p.getCurrentServer().get().getServer().getServerInfo().getName();
 					}
 				}
 				return "";
@@ -534,7 +605,7 @@ public class VotingPluginVelocity {
 
 			@Override
 			public String getUUID(String playerName) {
-				if (playerName == null || playerName.isEmpty() || playerName.equalsIgnoreCase("null")) {
+				if (playerName == null || playerName.isEmpty() || "null".equalsIgnoreCase(playerName)) {
 					return "";
 				}
 
@@ -543,18 +614,16 @@ public class VotingPluginVelocity {
 							.getBytes(StandardCharsets.UTF_8)).toString();
 				}
 
-				// 1) Correct casing if player is currently connected (optional but nice)
 				if (server.getPlayer(playerName).isPresent()) {
 					Player p = server.getPlayer(playerName).get();
 					if (p != null && p.isActive()) {
-						playerName = p.getUsername(); // canonical case
+						playerName = p.getUsername();
 					}
 				}
 
-				// 2) Correct casing using cache (uuid -> name)
 				for (Entry<UUID, String> entry : getVotingPluginProxy().getUuidPlayerNameCache().entrySet()) {
 					if (entry.getValue() != null && entry.getValue().equalsIgnoreCase(playerName)) {
-						playerName = entry.getValue(); // canonical case stored in cache
+						playerName = entry.getValue();
 						break;
 					}
 				}
@@ -565,17 +634,20 @@ public class VotingPluginVelocity {
 						return p.getUniqueId().toString();
 					}
 				}
+
 				for (Entry<UUID, String> entry : getVotingPluginProxy().getUuidPlayerNameCache().entrySet()) {
 					if (entry.getValue() != null && entry.getValue().equalsIgnoreCase(playerName)) {
 						return entry.getKey().toString();
 					}
 				}
+
 				if (getVotingPluginProxy().getProxyMySQL() != null) {
 					String str = getVotingPluginProxy().getProxyMySQL().getUUID(playerName);
 					if (str != null) {
 						return str;
 					}
 				}
+
 				return getVotingPluginProxy().getNonVotedPlayersCache().getUUID(playerName);
 			}
 
@@ -615,66 +687,8 @@ public class VotingPluginVelocity {
 			}
 
 			@Override
-			public boolean isPlayerOnline(String playerName) {
-				if (playerName == null) {
-					return false;
-				}
-				if (server.getPlayer(playerName).isPresent()) {
-					return server.getPlayer(playerName).get().isActive();
-				}
-				return false;
-			}
-
-			@Override
-			public boolean isServerValid(String serverName) {
-				return server.getServer(serverName).isPresent();
-			}
-
-			@Override
-			public boolean isSomeoneOnlineServer(String serverName) {
-				if (server.getServer(serverName).isPresent()) {
-					return !server.getServer(serverName).get().getPlayersConnected().isEmpty();
-				}
-				return false;
-			}
-
-			@Override
 			public boolean isVoteCacheIgnoreTime() {
 				return voteCacheFile.getNode("Time", "IgnoreTime").getBoolean();
-			}
-
-			@Override
-			public void log(String message) {
-				getLogger().info(message);
-			}
-
-			@Override
-			public void logSevere(String message) {
-				logger.error(message);
-			}
-
-			@Override
-			public void runAsync(Runnable run) {
-				runAsyncNow(run);
-			}
-
-			@Override
-			public void runConsoleCommand(String command) {
-				server.getCommandManager().executeAsync(server.getConsoleCommandSource(), command);
-			}
-
-			@Override
-			public void saveVoteCacheFile() {
-				voteCacheFile.save();
-			}
-
-			@Override
-			public void sendPluginMessageData(String serverName, String channel, byte[] data, boolean queue) {
-				if (!server.getServer(serverName).isPresent()) {
-					return;
-				}
-				RegisteredServer send = server.getServer(serverName).get();
-				send.sendPluginMessage(CHANNEL, data);
 			}
 
 			@Override
@@ -715,7 +729,61 @@ public class VotingPluginVelocity {
 			@Override
 			public void setVoteCacheVotePartyIncreaseVotesRequired(int votes) {
 				voteCacheFile.setVotePartyInreaseVotesRequired(votes);
+			}
 
+			@Override
+			public boolean isPlayerOnline(String playerName) {
+				if (playerName == null) {
+					return false;
+				}
+				return server.getPlayer(playerName).map(Player::isActive).orElse(false);
+			}
+
+			@Override
+			public boolean isServerValid(String serverName) {
+				return server.getServer(serverName).isPresent();
+			}
+
+			@Override
+			public boolean isSomeoneOnlineServer(String serverName) {
+				if (server.getServer(serverName).isPresent()) {
+					return !server.getServer(serverName).get().getPlayersConnected().isEmpty();
+				}
+				return false;
+			}
+
+			@Override
+			public void log(String message) {
+				logger.info(message);
+			}
+
+			@Override
+			public void logSevere(String message) {
+				logger.error(message);
+			}
+
+			@Override
+			public void runAsync(Runnable run) {
+				runAsyncNow(run);
+			}
+
+			@Override
+			public void runConsoleCommand(String command) {
+				server.getCommandManager().executeAsync(server.getConsoleCommandSource(), command);
+			}
+
+			@Override
+			public void saveVoteCacheFile() {
+				voteCacheFile.save();
+			}
+
+			@Override
+			public void sendPluginMessageData(String serverName, String channelName, byte[] data, boolean queue) {
+				if (!server.getServer(serverName).isPresent()) {
+					return;
+				}
+				RegisteredServer send = server.getServer(serverName).get();
+				send.sendPluginMessage(channel, data);
 			}
 
 			@Override
@@ -725,7 +793,8 @@ public class VotingPluginVelocity {
 
 			@Override
 			public void reloadCore(boolean mysql) {
-				reloadPlugin(mysql);
+				// mysql=true is reloadall behavior
+				reloadAllInternal(mysql);
 			}
 
 			@Override
@@ -752,275 +821,180 @@ public class VotingPluginVelocity {
 			public void loadTaskTimer(Runnable runnable, long delaySeconds, long repeatSeconds) {
 				timer.scheduleAtFixedRate(runnable, delaySeconds, repeatSeconds, TimeUnit.SECONDS);
 			}
-
 		};
+	}
 
+	/**
+	 * Gets the MySQL configuration.
+	 *
+	 * <p>
+	 * Prefers the "Database" section if it exists and is usable. If the "Database"
+	 * section is missing, not a map, or has no keys, falls back to legacy/root
+	 * configuration parsing.
+	 * </p>
+	 *
+	 * @return mysql config (never null)
+	 */
+	public MysqlConfig getMysqlConfig() {
+		final ConfigurationNode root = config.getData();
+		final ConfigurationNode db = root.node("Database");
+
+		// If Database section doesn't exist (virtual), isn't a section/map, or is empty
+		// -> fallback
+		if (isMissingOrEmptySection(db)) {
+			return new MysqlConfigVelocity(config);
+		}
+
+		return new MysqlConfigVelocity("Database", config);
+	}
+
+	/**
+	 * Checks whether a configuration node represents a missing or empty section.
+	 *
+	 * @param node configuration node
+	 * @return true if the node is missing/virtual, not a map/section, or contains
+	 *         no keys
+	 */
+	private boolean isMissingOrEmptySection(ConfigurationNode node) {
+		if (node == null) {
+			return true;
+		}
+
+		// "virtual" typically means it doesn't exist in the file
+		try {
+			if (node.virtual()) {
+				return true;
+			}
+		} catch (Throwable ignored) {
+			// Some shaded/older configurate nodes may not expose virtual() consistently.
+		}
+
+		// If it's not a map/section, it's not a usable "Database:" block
+		if (!node.isMap()) {
+			return true;
+		}
+
+		// Treat an empty map (Database: with no keys) as missing -> fallback
+		return node.childrenMap() == null || node.childrenMap().isEmpty();
+	}
+
+	public MysqlConfig getGlobalDataMysqlConfig() {
+		return new MysqlConfigVelocity("GlobalData", config);
+	}
+
+	/**
+	 * Register votifier listener once.
+	 */
+	private void initVotifierListenerIfNeeded() {
 		try {
 			Class.forName("com.vexsoftware.votifier.velocity.event.VotifierEvent");
 		} catch (ClassNotFoundException e) {
 			getVotingPluginProxy().setVotifierEnabled(false);
+			return;
 		}
+
 		if (getVotingPluginProxy().isVotifierEnabled()) {
-			try {
-				server.getEventManager().register(this, new VoteEventVelocity(this));
-			} catch (Exception e) {
-				getVotingPluginProxy().setVotifierEnabled(false);
-			}
-		}
-
-		boolean mysqlLoaded = true;
-		try {
-			if (config.hasDatabaseConfigured()) {
-				loadMysql();
-			} else {
-				mysqlLoaded = false;
-				logger.error("MySQL settings not set in bungeeconfig.yml");
-			}
-		} catch (Exception e) {
-			mysqlLoaded = false;
-			e.printStackTrace();
-		}
-
-		if (mysqlLoaded) {
-
-			voteCacheFile = new VelocityJsonVoteCache(new File(dataDirectory.toFile(), "votecache.json"));
-
-			// convert yml file if exists
-			File yamlVoteCacheFile = new File(dataDirectory.toFile(), "votecache.yml");
-			if (yamlVoteCacheFile.exists()) {
-				VelocityYMLFile yamlVoteCache = new VelocityYMLFile(yamlVoteCacheFile);
-				voteCacheFile.setConf(yamlVoteCache.getData());
-				yamlVoteCacheFile.renameTo(new File(dataDirectory.toFile(), "oldvotecache.yml"));
-				VelocityYMLFile oldYamlVoteCache = new VelocityYMLFile(
-						new File(dataDirectory.toFile(), "oldvotecache.yml"));
-				oldYamlVoteCache.setConf(yamlVoteCache.getData());
-				voteCacheFile.save();
-			}
-
-			nonVotedPlayersCache = new VelocityJsonNonVotedPlayersCache(
-					new File(dataDirectory.toFile(), "nonvotedplayerscache.json"));
-
-			// convert yml file if exists
-			File yamlnonVotedPlayersCacheFile = new File(dataDirectory.toFile(), "nonvotedplayerscache.yml");
-			if (yamlnonVotedPlayersCacheFile.exists()) {
-				VelocityYMLFile yamlnonVotedPlayersCache = new VelocityYMLFile(yamlnonVotedPlayersCacheFile);
-				voteCacheFile.setConf(yamlnonVotedPlayersCache.getData());
-				yamlnonVotedPlayersCacheFile.renameTo(new File(dataDirectory.toFile(), "oldnonvotedplayerscache.yml"));
-				VelocityYMLFile oldYamlnonVotedPlayersCache = new VelocityYMLFile(
-						new File(dataDirectory.toFile(), "oldnonvotedplayerscache.yml"));
-				oldYamlnonVotedPlayersCache.setConf(yamlnonVotedPlayersCache.getData());
-				voteCacheFile.save();
-			}
-
-			getVotingPluginProxy().load(voteCacheFile, nonVotedPlayersCache);
-
-			voteCheckTask = server.getScheduler().buildTask(this, () -> {
-				if (getVotingPluginProxy().getGlobalDataHandler() == null
-						|| !getVotingPluginProxy().getGlobalDataHandler().isTimeChangedHappened()) {
-					for (String server : getVotingPluginProxy().getVoteCacheHandler().getCachedVotesServers()) {
-						getVotingPluginProxy().checkCachedVotes(server);
-					}
-
-					for (Player player : server.getAllPlayers()) {
-
-						getVotingPluginProxy().checkOnlineVotes(player.getUsername(), player.getUniqueId().toString(),
-								null);
-
-					}
+			if (voteEventVelocity == null) {
+				try {
+					voteEventVelocity = new VoteEventVelocity(this);
+					server.getEventManager().register(this, voteEventVelocity);
+				} catch (Exception e) {
+					getVotingPluginProxy().setVotifierEnabled(false);
 				}
-			}).delay(120, TimeUnit.SECONDS).repeat(60, TimeUnit.SECONDS).schedule();
-
-			cacheSaveTask = server.getScheduler().buildTask(this, () -> {
-				if (nonVotedPlayersCache != null) {
-					debug("Checking nonvotedplayerscache.yml...");
-					getVotingPluginProxy().getNonVotedPlayersCache().check();
-				}
-				if (voteCacheFile != null) {
-					voteCacheFile.save();
-				}
-			}).delay(1L, TimeUnit.MINUTES).repeat(60l, TimeUnit.MINUTES).schedule();
-
-		}
-
-		try {
-			getVersionFile();
-			if (versionFile != null) {
-				versionFile.delete();
-				versionFile.getParentFile().delete();
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-
-		if (!getVotingPluginProxy().isVotifierEnabled()) {
-			if (!(getConfig().getMultiProxySupport() && !getConfig().getPrimaryServer())) {
-				getLogger().warn("Votifier event not found, not loading votifier event");
 			}
 		}
-
-		Metrics metrics = metricsFactory.make(this, 11547);
-
-		metrics.addCustomChart(new SimplePie("bungee_method", () -> getConfig().getBungeeMethod().toString()));
-
-		metrics.addCustomChart(new SimplePie("config_onlinemode", () -> "" + getConfig().getOnlineMode()));
-
-		metrics.addCustomChart(new SimplePie("sendtoallservers", () -> "" + getConfig().getSendVotesToAllServers()));
-
-		metrics.addCustomChart(new SimplePie("allowunjoined", () -> "" + getConfig().getAllowUnJoined()));
-
-		metrics.addCustomChart(new SimplePie("pointsonvote", () -> "" + getConfig().getPointsOnVote()));
-
-		metrics.addCustomChart(new SimplePie("bungeemanagetotals", () -> "" + getConfig().getBungeeManageTotals()));
-
-		metrics.addCustomChart(new SimplePie("waitforuseronline", () -> "" + getConfig().getWaitForUserOnline()));
-
-		metrics.addCustomChart(new SimplePie("plugin_version", () -> "" + version));
-
-		metrics.addCustomChart(new SimplePie("globaldata_enabled", () -> "" + getConfig().getGlobalDataEnabled()));
-		if (getConfig().getGlobalDataEnabled()) {
-			metrics.addCustomChart(
-					new SimplePie("globaldata_usemainmysql", () -> "" + getConfig().getGlobalDataUseMainMySQL()));
-		}
-
-		metrics.addCustomChart(
-				new SimplePie("multi_proxy_support_enabled", () -> "" + getConfig().getMultiProxySupport()));
-
-		if (!buildNumber.equals("NOTSET")) {
-			metrics.addCustomChart(new SimplePie("dev_build_number", () -> "" + buildNumber));
-		}
-
-		// -----------------------------------------------------------------
-		// Proxy broadcast metrics
-		// Always log whether proxy broadcasts are enabled.
-		metrics.addCustomChart(new SimplePie("proxybroadcast_enabled", () -> {
-			return "" + getConfig().getProxyBroadcastEnabled();
-		}));
-		if (getConfig().getProxyBroadcastEnabled()) {
-			// Broadcast scope mode (PLAYER_SERVER | ALL_SERVERS | SERVERS | ALL_EXCEPT)
-			metrics.addCustomChart(new SimplePie("proxybroadcast_scope_mode", () -> {
-				return "" + getConfig().getProxyBroadcastScopeMode();
-			}));
-
-			// Broadcast offline mode (NONE | QUEUE | FORWARD)
-			metrics.addCustomChart(new SimplePie("proxybroadcast_offline_mode", () -> {
-				return "" + getConfig().getProxyBroadcastOfflineMode();
-			}));
-
-			// If scope uses a server list, bucket the number of servers
-			if (getConfig().getProxyBroadcastScopeMode().equalsIgnoreCase("SERVERS")
-					|| getConfig().getProxyBroadcastScopeMode().equalsIgnoreCase("ALL_EXCEPT")) {
-				metrics.addCustomChart(new SimplePie("proxybroadcast_scope_count", () -> {
-					int count = getConfig().getProxyBroadcastScopeServers().size();
-					return bucketCount(count);
-				}));
-			}
-
-			// If offline mode forwards broadcasts to other servers, bucket the count
-			if (getConfig().getProxyBroadcastOfflineMode().equalsIgnoreCase("FORWARD")) {
-				metrics.addCustomChart(new SimplePie("proxybroadcast_offline_forward_count", () -> {
-					int count = getConfig().getProxyBroadcastOfflineForwardServers().size();
-					return bucketCount(count);
-				}));
-			}
-		}
-
-		// -----------------------------------------------------------------
-		// Proxy vote logging metrics
-		// Always log whether proxy vote logging is enabled.
-		metrics.addCustomChart(new SimplePie("proxyvotelogging_enabled", () -> {
-			return "" + getConfig().getVoteLoggingEnabled();
-		}));
-		if (getConfig().getVoteLoggingEnabled()) {
-			// Purge days is bucketed to avoid high cardinality
-			metrics.addCustomChart(new SimplePie("proxyvotelogging_purgedays", () -> {
-				int purge = getConfig().getVoteLoggingPurgeDays();
-				return bucketPurgeDays(purge);
-			}));
-			metrics.addCustomChart(new SimplePie("proxyvotelogging_usemainmysql", () -> {
-				return "" + getConfig().getVoteLoggingUseMainMySQL();
-			}));
-		}
-
-		logger.info("VotingPlugin velocity loaded, method: " + getVotingPluginProxy().getMethod().toString()
-				+ ", Internal Jar Version: " + version);
-		if (!buildNumber.equals("NOTSET")) {
-			logger.info("Detected using dev build number: " + buildNumber);
-		}
-		getVotingPluginProxy().sendServerNameMessage();
 	}
 
-	public void reloadPlugin(boolean loadMysql) {
-		config.reload();
-		if (loadMysql) {
-			try {
-				if (config.hasDatabaseConfigured()) {
-					loadMysql();
-				} else {
-					logger.error("MySQL settings not set in bungeeconfig.yml");
-				}
-			} catch (Exception e) {
-				e.printStackTrace();
+	private void cancelTasks() {
+		try {
+			if (voteCheckTask != null) {
+				voteCheckTask.cancel();
+				voteCheckTask = null;
 			}
+		} catch (Exception ignored) {
 		}
-		getVotingPluginProxy().reload();
+		try {
+			if (cacheSaveTask != null) {
+				cacheSaveTask.cancel();
+				cacheSaveTask = null;
+			}
+		} catch (Exception ignored) {
+		}
+	}
+
+	private void scheduleTasks() {
+		voteCheckTask = server.getScheduler().buildTask(this, () -> {
+			if (getVotingPluginProxy().getGlobalDataHandler() == null
+					|| !getVotingPluginProxy().getGlobalDataHandler().isTimeChangedHappened()) {
+
+				for (String srv : getVotingPluginProxy().getVoteCacheHandler().getCachedVotesServers()) {
+					getVotingPluginProxy().checkCachedVotes(srv);
+				}
+
+				for (Player player : server.getAllPlayers()) {
+					getVotingPluginProxy().checkOnlineVotes(player.getUsername(), player.getUniqueId().toString(),
+							null);
+				}
+			}
+		}).delay(120, TimeUnit.SECONDS).repeat(60, TimeUnit.SECONDS).schedule();
+
+		cacheSaveTask = server.getScheduler().buildTask(this, () -> {
+			if (nonVotedPlayersCache != null) {
+				debug("Checking nonvotedplayerscache...");
+				getVotingPluginProxy().getNonVotedPlayersCache().check();
+			}
+			if (voteCacheFile != null) {
+				voteCacheFile.save();
+			}
+		}).delay(1L, TimeUnit.MINUTES).repeat(60L, TimeUnit.MINUTES).schedule();
 	}
 
 	private void runAsyncNow(Runnable runnable) {
 		server.getScheduler().buildTask(this, runnable).schedule();
 	}
 
-	/**
-	 * Buckets a count into a low-cardinality string.
-	 *
-	 * @param count the count to bucket
-	 * @return a bucket label (e.g., "0", "1", "2-5", "6-10", "11-25", ">25")
-	 */
-	private String bucketCount(final int count) {
-		if (count <= 0) {
-			return "0";
+	private void handlePluginMessageBytes(byte[] data) {
+		ByteArrayInputStream instream = new ByteArrayInputStream(data);
+		DataInputStream in = new DataInputStream(instream);
+		try {
+			getVotingPluginProxy().onPluginMessageReceived(in);
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
-		if (count == 1) {
-			return "1";
+	}
+
+	private void drainQueuedPluginMessages() {
+		byte[] msg;
+		while ((msg = queuedPluginMessages.poll()) != null) {
+			handlePluginMessageBytes(msg);
 		}
-		if (count <= 5) {
-			return "2-5";
-		}
-		if (count <= 10) {
-			return "6-10";
-		}
-		if (count <= 25) {
-			return "11-25";
-		}
-		return ">25";
 	}
 
 	/**
-	 * Buckets a purge days value into a low-cardinality string.
-	 *
-	 * @param purgeDays purge days (negative means disabled)
-	 * @return a bucket label (e.g., "disabled", "0", "1-7", "8-30", "31-90",
-	 *         "91-365", ">365")
+	 * Convert old YAML cache files to JSON.
 	 */
-	private String bucketPurgeDays(final int purgeDays) {
-		if (purgeDays < 0) {
-			return "disabled";
+	private void convertYamlCachesIfPresent() {
+		// vote cache
+		File yamlVoteCacheFile = new File(dataDirectory.toFile(), "votecache.yml");
+		if (yamlVoteCacheFile.exists()) {
+			VelocityYMLFile yamlVoteCache = new VelocityYMLFile(yamlVoteCacheFile);
+			voteCacheFile.setConf(yamlVoteCache.getData());
+			yamlVoteCacheFile.renameTo(new File(dataDirectory.toFile(), "oldvotecache.yml"));
+			voteCacheFile.save();
 		}
-		if (purgeDays == 0) {
-			return "0";
+
+		// non-voted cache (FIX: write to nonVotedPlayersCache, not voteCacheFile)
+		File yamlNonVotedFile = new File(dataDirectory.toFile(), "nonvotedplayerscache.yml");
+		if (yamlNonVotedFile.exists()) {
+			VelocityYMLFile yamlNonVoted = new VelocityYMLFile(yamlNonVotedFile);
+			nonVotedPlayersCache.setConf(yamlNonVoted.getData());
+			yamlNonVotedFile.renameTo(new File(dataDirectory.toFile(), "oldnonvotedplayerscache.yml"));
+			nonVotedPlayersCache.save();
 		}
-		if (purgeDays <= 7) {
-			return "1-7";
-		}
-		if (purgeDays <= 30) {
-			return "8-30";
-		}
-		if (purgeDays <= 90) {
-			return "31-90";
-		}
-		if (purgeDays <= 365) {
-			return "91-365";
-		}
-		return ">365";
 	}
 
+	private MinecraftChannelIdentifier buildChannelIdentifier(String raw) {
+		String[] parts = raw.split(":");
+		return MinecraftChannelIdentifier.create(parts[0].toLowerCase(Locale.ROOT), parts[1].toLowerCase(Locale.ROOT));
+	}
 }

@@ -22,11 +22,11 @@ public class VotingPluginProxyCommand {
 		switch (args[0].toLowerCase()) {
 		case "reload":
 			plugin.reloadCore(false);
-			return "&aReloading VotingPlugin";
+			return "&aReloading VotingPluginProxy (basic settings)";
 
-		case "reloadmysql":
+		case "reloadall":
 			plugin.reloadCore(true);
-			return "&aReloading VotingPlugin including MySQL";
+			return "&aReloading VotingPluginProxy (full reload incl. MySQL/GlobalData)";
 
 		case "vote":
 			if (args.length >= 3) {
