@@ -3,11 +3,11 @@ package com.bencodez.votingplugin.specialrewards.votemilestones;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.concurrent.TimeUnit;
 
 import org.bukkit.configuration.ConfigurationSection;
 
 import com.bencodez.simpleapi.time.ParsedDuration;
-import com.bencodez.simpleapi.time.ParsedDuration.Unit;
 
 /**
  * Per-milestone retrigger limiter.
@@ -61,7 +61,7 @@ public final class VoteMilestoneLimit {
 			String durRaw = sec.getString("Duration", "");
 
 			// Old behavior: number-only means MINUTES
-			ParsedDuration pd = ParsedDuration.parse(durRaw, Unit.MINUTES);
+			ParsedDuration pd = ParsedDuration.parse(durRaw, TimeUnit.MINUTES);
 
 			// Optional legacy support:
 			// if no duration provided but Minutes exists

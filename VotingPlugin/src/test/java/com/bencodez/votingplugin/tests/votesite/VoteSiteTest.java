@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.tests;
+package com.bencodez.votingplugin.tests.votesite;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.MemoryConfiguration;
@@ -32,7 +33,7 @@ public class VoteSiteTest {
 		ConfigVoteSites dummyConfigVoteSites = mock(ConfigVoteSites.class);
 		when(dummyConfigVoteSites.getVoteURL(anyString())).thenReturn("example.com");
 		when(dummyConfigVoteSites.getServiceSite(anyString())).thenReturn("ServiceSite");
-		when(dummyConfigVoteSites.getVoteDelay(anyString())).thenReturn(ParsedDuration.parse("12h"));
+		when(dummyConfigVoteSites.getVoteDelay(anyString())).thenReturn(ParsedDuration.parse("12h", TimeUnit.HOURS));
 		when(dummyConfigVoteSites.getVoteSiteEnabled(anyString())).thenReturn(true);
 		when(dummyConfigVoteSites.getPriority(anyString())).thenReturn(1);
 		when(dummyConfigVoteSites.getDisplayName(anyString())).thenReturn("DisplayName");
@@ -174,7 +175,7 @@ public class VoteSiteTest {
 			if (s == null || s.trim().isEmpty()) {
 				return ParsedDuration.ofMillis(0);
 			}
-			return ParsedDuration.parse(s);
+			return ParsedDuration.parse(s, TimeUnit.HOURS);
 		}
 
 		// Legacy numeric style

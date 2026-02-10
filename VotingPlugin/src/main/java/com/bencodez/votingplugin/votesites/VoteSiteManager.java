@@ -7,12 +7,14 @@ import java.util.List;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 import lombok.Getter;
+import lombok.Setter;
 
 public class VoteSiteManager {
 
 	private final VotingPluginMain plugin;
 
 	@Getter
+	@Setter
 	private List<VoteSite> voteSites = Collections.synchronizedList(new ArrayList<>());
 
 	public VoteSiteManager(VotingPluginMain plugin) {
