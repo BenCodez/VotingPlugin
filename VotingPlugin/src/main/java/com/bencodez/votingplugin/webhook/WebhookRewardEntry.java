@@ -3,14 +3,14 @@ package com.bencodez.votingplugin.webhook;
 /**
  * Represents one webhook entry under a reward's "Webhooks:" list.
  *
- * <p>Two payload styles:
+ * Two payload styles:
  * <ul>
- *   <li>Raw JSON: {@link #getJson()}</li>
- *   <li>Discord convenience payload: content + optional embed fields</li>
+ * <li>Raw JSON: {@link #getJson()}</li>
+ * <li>Discord convenience payload: content + optional embed fields</li>
  * </ul>
- * </p>
+ * 
  *
- * <p>All fields may contain placeholders and are expanded at execution time.</p>
+ * All fields may contain placeholders and are expanded at execution time.
  */
 public final class WebhookRewardEntry {
 
@@ -34,19 +34,20 @@ public final class WebhookRewardEntry {
 	/**
 	 * Creates a reward entry.
 	 *
-	 * @param webhookId webhook definition id
-	 * @param json raw json payload (nullable)
-	 * @param content discord content (nullable)
-	 * @param embedEnabled embed enabled
-	 * @param embedTitle embed title
-	 * @param embedDescription embed description
-	 * @param embedColorHex hex color #RRGGBB (nullable)
+	 * @param webhookId         webhook definition id
+	 * @param json              raw json payload (nullable)
+	 * @param content           discord content (nullable)
+	 * @param embedEnabled      embed enabled
+	 * @param embedTitle        embed title
+	 * @param embedDescription  embed description
+	 * @param embedColorHex     hex color #RRGGBB (nullable)
 	 * @param embedThumbnailUrl thumbnail url (nullable)
-	 * @param footerEnabled footer enabled
-	 * @param footerText footer text (nullable)
+	 * @param footerEnabled     footer enabled
+	 * @param footerText        footer text (nullable)
 	 */
 	public WebhookRewardEntry(String webhookId, String json, String content, boolean embedEnabled, String embedTitle,
-			String embedDescription, String embedColorHex, String embedThumbnailUrl, boolean footerEnabled, String footerText) {
+			String embedDescription, String embedColorHex, String embedThumbnailUrl, boolean footerEnabled,
+			String footerText) {
 		this.webhookId = webhookId;
 		this.json = json;
 		this.content = content;

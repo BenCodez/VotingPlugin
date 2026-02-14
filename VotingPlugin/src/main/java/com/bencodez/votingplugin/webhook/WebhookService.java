@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Asynchronous webhook dispatcher.
  *
- * <p>
+ * 
  * This service queues webhook requests and sends them off the main thread to
  * avoid blocking server ticks. It supports:
  * <ul>
@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
  * <li>Discord 429 retry_after handling</li>
  * <li>retry/backoff for transient failures</li>
  * </ul>
- * </p>
+ * 
  */
 public final class WebhookService {
 

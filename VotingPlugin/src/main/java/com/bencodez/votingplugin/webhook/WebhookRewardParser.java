@@ -9,12 +9,12 @@ import org.bukkit.configuration.ConfigurationSection;
 /**
  * Parses reward "Webhooks:" entries from a Bukkit {@link ConfigurationSection}.
  *
- * <p>
+ * 
  * This is intentionally tolerant of missing fields, so presets won't hard-crash
  * reward parsing.
- * </p>
+ * 
  *
- * <p>
+ * 
  * Supported YAML examples:
  * 
  * <pre>
@@ -37,7 +37,7 @@ import org.bukkit.configuration.ConfigurationSection;
  *         enabled: true
  *         message: "{TIMESTAMP}"
  * </pre>
- * </p>
+ * 
  */
 public final class WebhookRewardParser {
 

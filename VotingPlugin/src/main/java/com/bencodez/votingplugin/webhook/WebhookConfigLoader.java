@@ -9,7 +9,7 @@ import org.bukkit.configuration.ConfigurationSection;
 /**
  * Loads webhook definitions from VotingPlugin's Config.yml section.
  *
- * <p>Expected structure under the root section you pass:
+ * Expected structure under the root section you pass:
  * <pre>
  * Enabled: true
  * Definitions:
@@ -33,7 +33,7 @@ import org.bukkit.configuration.ConfigurationSection;
  *       Header: "X-Signature"
  *       Secret: "secret"
  * </pre>
- * </p>
+ * 
  */
 public final class WebhookConfigLoader {
 

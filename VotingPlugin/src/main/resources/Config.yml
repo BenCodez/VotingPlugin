@@ -397,13 +397,10 @@ VoteBroadcast:
 ###########################################
 
 # Currently logs:
-# - votes
-# - vote shop purchases
-# - AllSite rewards
-# - Almost AllSite rewards
+# - Votes
+# - Vote shop purchases
 # - Top Voter rewards
-# - Milestone rewards
-# - Cumulative rewards
+# - VoteMilestones rewards
 # - VoteStreaks (not the old version)
 
 VoteLogging:

@@ -59,7 +59,7 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 /**
  * VotingPlugin proxy implementation for Velocity.
- * <p>
+ * 
  * Reload behavior:
  * <ul>
  * <li><b>/vpp reload</b> = small reload (config.reload +
@@ -67,7 +67,7 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
  * <li><b>/vpp reloadall</b> = full reload (rebuild runtime, reload mysql,
  * reload caches/tasks)</li>
  * </ul>
- * </p>
+ * 
  */
 @Plugin(id = "votingplugin", name = "VotingPlugin", version = "1.0", url = "https://www.spigotmc.org/resources/votingplugin.15358/", description = "VotingPlugin Velocity Version", authors = {
 		"BenCodez" }, dependencies = { @Dependency(id = "nuvotifier", optional = true) })

@@ -40,7 +40,7 @@ import net.md_5.bungee.event.EventHandler;
 
 /**
  * VotingPlugin proxy implementation for BungeeCord.
- * <p>
+ * 
  * Supports a true hot reload (no proxy restart required) by:
  * <ul>
  * <li>Stopping the old {@link VotingPluginProxy} runtime</li>
@@ -50,7 +50,7 @@ import net.md_5.bungee.event.EventHandler;
  * state refreshed)</li>
  * <li>Re-initializing caches and rescheduling tasks</li>
  * </ul>
- * </p>
+ * 
  */
 public class VotingPluginBungee extends Plugin implements Listener {
 

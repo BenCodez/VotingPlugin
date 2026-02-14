@@ -9,14 +9,14 @@ import java.util.Objects;
 /**
  * Executes webhook rewards using configured definitions.
  *
- * <p>
+ * 
  * This class:
  * <ul>
  * <li>expands placeholders for payloads/headers/secrets</li>
  * <li>builds either raw JSON payloads or Discord-friendly payloads</li>
  * <li>queues requests on {@link WebhookService}</li>
  * </ul>
- * </p>
+ * 
  */
 public final class WebhookRewardExecutor {
 

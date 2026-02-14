@@ -6,7 +6,7 @@ import java.util.Map;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 
 /**
- * Canonical wire format for proxy <-> backend messages.
+ * Canonical wire format for proxy - backend messages.
  *
  * Rules: - Only JsonEnvelope is sent over the wire (no legacy String[] /
  * delimiters). - All fields are named keys (no numeric indices). - Versioning

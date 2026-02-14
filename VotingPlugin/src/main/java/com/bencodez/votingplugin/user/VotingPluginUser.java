@@ -1246,7 +1246,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 *
 	 * @param voteSite  the vote site
 	 * @param online    whether the player is online
-	 * @param broadcast whether to broadcast the vote
 	 * @param bungee    whether to use bungee
 	 */
 	public void playerVote(VoteSite voteSite, boolean online, boolean bungee) {
