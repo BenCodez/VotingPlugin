@@ -192,12 +192,6 @@ VoteStreaks:
       Commands:
       - say test
 
-  AnySiteRewards: {}
-  LoginRewards: {}
-  LogoutRewards: {}
-  VoteCoolDownEndedReward: []
-
-
 # -----------------------------
 # Legacy vote rewards (DEPRECATED)
 # -----------------------------

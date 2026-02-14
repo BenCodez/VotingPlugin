@@ -1,9 +1,7 @@
 package com.bencodez.votingplugin.specialrewards.votestreak;
 
 public enum VoteStreakType {
-	DAILY,
-	WEEKLY,
-	MONTHLY;
+	DAILY, WEEKLY, MONTHLY;
 
 	public static VoteStreakType from(String s) {
 		try {

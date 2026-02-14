@@ -545,7 +545,13 @@ public class VoteStreakHandler {
 				}
 
 				String typeStr = defSec.getString("Type");
-				VoteStreakType type = VoteStreakType.from(typeStr);
+				VoteStreakType type = null;
+				try {
+					type = VoteStreakType.from(typeStr);
+				} catch (Exception e) {
+					plugin.getLogger()
+							.warning("VoteStreaks '" + id + "' has invalid Type '" + typeStr + "'; skipping.");
+				}
 				if (type == null) {
 					plugin.getLogger()
 							.warning("VoteStreaks '" + id + "' has invalid Type '" + typeStr + "'; skipping.");
