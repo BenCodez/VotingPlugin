@@ -88,7 +88,7 @@ public class VotingPluginProxyCommand {
 	private String getHelpMessage() {
 		StringBuilder helpBuilder = new StringBuilder("&aVotingPlugin Commands:\n");
 		helpBuilder.append("/votingplugin reload - Reload the plugin\n");
-		helpBuilder.append("/votingplugin reloadmysql - Reload the plugin including MySQL\n");
+		helpBuilder.append("/votingplugin reloadall - Reload everything\n");
 		helpBuilder.append("/votingplugin vote <player> <site> - Send a vote\n");
 		helpBuilder.append("/votingplugin forcetimechange <TimeType> - Force a time change\n");
 		helpBuilder.append("/votingplugin status - Check connection status\n");
