@@ -153,6 +153,12 @@ public class BStatsMetricsBungee {
 			this.chartId = chartId;
 		}
 
+		/**
+		 * Gets the chart data to be sent.
+		 *
+		 * @return the chart data as a JsonObject
+		 * @throws Exception if an error occurs while getting the data
+		 */
 		protected abstract JsonObject getChartData() throws Exception;
 
 		private JsonObject getRequestJsonObject(Logger logger, boolean logFailedRequests) {
@@ -371,7 +377,9 @@ public class BStatsMetricsBungee {
 
 	}
 
-	// The version of this bStats class
+	/**
+	 * The version of this bStats class.
+	 */
 	public static final int B_STATS_VERSION = 1;
 
 	// A list with all known metrics class objects including this one

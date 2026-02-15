@@ -18,6 +18,14 @@ public final class BroadcastSettings {
 	private final int maxSitesListed;
 	private final BroadcastFormat format;
 
+	/**
+	 * Constructs a BroadcastSettings with the specified parameters.
+	 *
+	 * @param type           the broadcast type
+	 * @param duration       the broadcast duration
+	 * @param maxSitesListed the maximum number of sites to list
+	 * @param format         the broadcast format
+	 */
 	public BroadcastSettings(VoteBroadcastType type, ParsedDuration duration, int maxSitesListed,
 			BroadcastFormat format) {
 		this.type = type == null ? VoteBroadcastType.NONE : type;
@@ -26,22 +34,47 @@ public final class BroadcastSettings {
 		this.format = format == null ? new BroadcastFormat("", "", "") : format;
 	}
 
+	/**
+	 * Returns the broadcast type.
+	 *
+	 * @return the broadcast type
+	 */
 	public VoteBroadcastType getType() {
 		return type;
 	}
 
+	/**
+	 * Returns the broadcast duration.
+	 *
+	 * @return the broadcast duration
+	 */
 	public ParsedDuration getDuration() {
 		return duration;
 	}
 
+	/**
+	 * Returns the maximum number of sites to list.
+	 *
+	 * @return the maximum number of sites to list
+	 */
 	public int getMaxSitesListed() {
 		return maxSitesListed;
 	}
 
+	/**
+	 * Returns the broadcast format.
+	 *
+	 * @return the broadcast format
+	 */
 	public BroadcastFormat getFormat() {
 		return format;
 	}
 
+	/**
+	 * Returns whether broadcasting is disabled.
+	 *
+	 * @return true if broadcasting is disabled
+	 */
 	public boolean isDisabled() {
 		return type == VoteBroadcastType.NONE;
 	}
@@ -51,6 +84,9 @@ public final class BroadcastSettings {
 	 *
 	 * Expected structure: VoteBroadcast: Type: EVERY_VOTE Duration: 2m
 	 * MaxSitesListed: 0 Format: BroadcastMsg: '...' Header: '...' ListLine: '...'
+	 *
+	 * @param sec the configuration section to load from
+	 * @return the loaded broadcast settings
 	 */
 	public static BroadcastSettings load(ConfigurationSection sec) {
 		VoteBroadcastType type = VoteBroadcastType.parse(sec == null ? null : sec.getString("Type"),
