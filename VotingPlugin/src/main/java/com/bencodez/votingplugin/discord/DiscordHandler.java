@@ -28,6 +28,9 @@ import github.scarsz.discordsrv.dependencies.jda.api.entities.TextChannel;
 import github.scarsz.discordsrv.util.DiscordUtil;
 import lombok.Getter;
 
+/**
+ * Handler for Discord integration.
+ */
 public class DiscordHandler {
 
 	private final VotingPluginMain plugin;
@@ -35,6 +38,11 @@ public class DiscordHandler {
 	private final HashMap<TopVoter, Long> topVoterMessageIds = new HashMap<TopVoter, Long>();
 	private final AtomicBoolean discordReady = new AtomicBoolean(false);
 
+	/**
+	 * Constructs a new Discord handler.
+	 *
+	 * @param plugin the plugin instance
+	 */
 	public DiscordHandler(VotingPluginMain plugin) {
 		this.plugin = plugin;
 		for (TopVoter top : TopVoter.values()) {
@@ -101,7 +109,11 @@ public class DiscordHandler {
 
 	}
 
-	/** Fired once JDA is fully initialized */
+	/**
+	 * Fired once JDA is fully initialized.
+	 *
+	 * @param event the Discord ready event
+	 */
 	@Subscribe
 	public void onDiscordReady(DiscordReadyEvent event) {
 		discordReady.set(true);
@@ -126,6 +138,11 @@ public class DiscordHandler {
 		}
 	}
 
+	/**
+	 * Updates the top voter message ID for the specified top voter.
+	 *
+	 * @param top the top voter
+	 */
 	public void updateTopVoterMessageId(TopVoter top) {
 		plugin.extraDebug("Updating Discord Top Voter message for: " + top);
 
@@ -188,6 +205,12 @@ public class DiscordHandler {
 		}
 	}
 
+	/**
+	 * Sends a reward message to a Discord channel.
+	 *
+	 * @param message the message to send
+	 * @param channelId the Discord channel ID
+	 */
 	public void sendRewardMessage(String message, String channelId) {
 		TextChannel channel = DiscordUtil.getJda().getTextChannelById(channelId);
 		if (channel != null) {

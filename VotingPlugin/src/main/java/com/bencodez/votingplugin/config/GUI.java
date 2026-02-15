@@ -21,6 +21,9 @@ import com.bencodez.votingplugin.topvoter.TopVoter;
 
 import lombok.Getter;
 
+/**
+ * GUI configuration.
+ */
 public class GUI extends YMLFile {
 
 	@ConfigDataString(path = "BOOK.VoteURLBookGUI.AlreadyVotedColor")
@@ -358,12 +361,23 @@ public class GUI extends YMLFile {
 	@Getter
 	private boolean chestVoteURLViewAllUrlsButtonEnabled = false;
 
+	/**
+	 * Constructs a new GUI configuration.
+	 *
+	 * @param plugin the plugin instance
+	 */
 	public GUI(VotingPluginMain plugin) {
 		super(plugin, new File(plugin.getDataFolder(), "GUI.yml"));
 		setIgnoreCase(plugin.getConfigFile().isCaseInsensitiveYMLFiles());
 		this.plugin = plugin;
 	}
 
+	/**
+	 * Gets the extra items for a chest GUI.
+	 *
+	 * @param gui the GUI name
+	 * @return the extra items
+	 */
 	public Set<String> getChestGUIExtraItems(String gui) {
 		if (getData().isConfigurationSection("CHEST." + gui + ".ExtraItems")) {
 			return getData().getConfigurationSection("CHEST." + gui + ".ExtraItems").getKeys(false);
@@ -371,6 +385,13 @@ public class GUI extends YMLFile {
 		return new HashSet<>();
 	}
 
+	/**
+	 * Gets an extra item configuration for a chest GUI.
+	 *
+	 * @param gui the GUI name
+	 * @param item the item name
+	 * @return the item configuration
+	 */
 	public ConfigurationSection getChestGUIExtraItemsItem(String gui, String item) {
 		return getData().getConfigurationSection("CHEST." + gui + ".ExtraItems." + item);
 	}
@@ -397,10 +418,23 @@ public class GUI extends YMLFile {
 		return (ArrayList<String>) getData().getList("CHEST.VoteGUI." + slot + ".Item.Lore", new ArrayList<>());
 	}
 
+	/**
+	 * Gets the rewards path for a chest vote GUI slot.
+	 *
+	 * @param slot the slot
+	 * @param lastPath the last path segment
+	 * @return the rewards path
+	 */
 	public String getChestVoteGUISlotRewardsPath(String slot, String lastPath) {
 		return "CHEST.VoteGUI." + slot + "." + lastPath;
 	}
 
+	/**
+	 * Gets the configuration section for a chest vote GUI slot.
+	 *
+	 * @param slot the slot
+	 * @return the configuration section
+	 */
 	public ConfigurationSection getChestVoteGUISlotSection(String slot) {
 		return getData().getConfigurationSection("CHEST.VoteGUI." + slot + ".Item");
 	}
@@ -415,10 +449,22 @@ public class GUI extends YMLFile {
 		return getData().getInt("CHEST.VoteGUI." + slot + ".Slot", -1);
 	}
 
+	/**
+	 * Gets the custom site name display for a vote next GUI.
+	 *
+	 * @param site the site name
+	 * @return the custom display name
+	 */
 	public String getChestVoteNextCustomSiteNamesDisplays(String site) {
 		return getData().getString("CHEST.VoteNext.CustomSiteNamesDisplays." + site, "");
 	}
 
+	/**
+	 * Gets the total item configuration for a top voter.
+	 *
+	 * @param top the top voter
+	 * @return the item configuration
+	 */
 	public ConfigurationSection getChestVoteTotalItem(TopVoter top) {
 		switch (top) {
 		case AllTime:
@@ -435,6 +481,12 @@ public class GUI extends YMLFile {
 		}
 	}
 
+	/**
+	 * Gets an extra item configuration for a vote URL GUI.
+	 *
+	 * @param item the item name
+	 * @return the item configuration
+	 */
 	public ConfigurationSection getChestVoteURLExtraItemsItem(String item) {
 		return getData().getConfigurationSection("CHEST.VoteURL.ExtraItems." + item);
 	}

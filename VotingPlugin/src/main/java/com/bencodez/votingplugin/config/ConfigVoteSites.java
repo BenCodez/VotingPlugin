@@ -30,6 +30,11 @@ public class ConfigVoteSites extends YMLFile {
 
 	private VotingPluginMain plugin;
 
+	/**
+	 * Constructs a new ConfigVoteSites.
+	 *
+	 * @param plugin the plugin instance
+	 */
 	public ConfigVoteSites(VotingPluginMain plugin) {
 		super(plugin, new File(plugin.getDataFolder(), "VoteSites.yml"));
 		setIgnoreCase(plugin.getConfigFile().isCaseInsensitiveYMLFiles());
@@ -126,14 +131,31 @@ public class ConfigVoteSites extends YMLFile {
 		return getData().getConfigurationSection("VoteSites." + siteName);
 	}
 
+	/**
+	 * Gets the display name for a site.
+	 *
+	 * @param site the site name
+	 * @return the display name
+	 */
 	public String getDisplayName(String site) {
 		return getData(site).getString("Name");
 	}
 
+	/**
+	 * Gets the path to the every site reward.
+	 *
+	 * @return the every site reward path
+	 */
 	public String getEverySiteRewardPath() {
 		return "EverySiteReward";
 	}
 
+	/**
+	 * Gets the item configuration for a site.
+	 *
+	 * @param site the site name
+	 * @return the item configuration
+	 */
 	public ConfigurationSection getItem(String site) {
 		if (getData(site).isConfigurationSection("DisplayItem")) {
 			return getData(site).getConfigurationSection("DisplayItem");
@@ -141,6 +163,12 @@ public class ConfigVoteSites extends YMLFile {
 		return getData(site).getConfigurationSection("Item");
 	}
 
+	/**
+	 * Gets the permission required to view a site.
+	 *
+	 * @param siteName the site name
+	 * @return the permission to view
+	 */
 	public String getPermissionToView(String siteName) {
 		return getData(siteName).getString("PermissionToView", "");
 	}
@@ -175,6 +203,12 @@ public class ConfigVoteSites extends YMLFile {
 		return getData(siteName).getString("ServiceSite");
 	}
 
+	/**
+	 * Gets the vote delay for a site.
+	 *
+	 * @param site the site name
+	 * @return the vote delay
+	 */
 	public ParsedDuration getVoteDelay(String site) {
 		ConfigurationSection sec = getData(site);
 
@@ -192,6 +226,12 @@ public class ConfigVoteSites extends YMLFile {
 		return ParsedDuration.ofMillis(millis);
 	}
 
+	/**
+	 * Gets the vote delay daily hour for a site.
+	 *
+	 * @param siteName the site name
+	 * @return the vote delay daily hour
+	 */
 	public int getVoteDelayDailyHour(String siteName) {
 		return getData(siteName).getInt("VoteDelayDailyHour", 0);
 	}
@@ -227,18 +267,42 @@ public class ConfigVoteSites extends YMLFile {
 
 	}
 
+	/**
+	 * Gets whether to give rewards offline for a site.
+	 *
+	 * @param site the site name
+	 * @return true if rewards should be given offline
+	 */
 	public boolean getVoteSiteGiveOffline(String site) {
 		return getData(site).getBoolean("ForceOffline", getData(site).getBoolean("GiveOffline"));
 	}
 
+	/**
+	 * Gets whether a site is hidden.
+	 *
+	 * @param siteName the site name
+	 * @return true if the site is hidden
+	 */
 	public boolean getVoteSiteHidden(String siteName) {
 		return getData(siteName).getBoolean("Hidden");
 	}
 
+	/**
+	 * Gets whether to ignore can vote check for a site.
+	 *
+	 * @param siteName the site name
+	 * @return true if can vote check should be ignored
+	 */
 	public boolean getVoteSiteIgnoreCanVote(String siteName) {
 		return getData(siteName).getBoolean("IgnoreCanVote");
 	}
 
+	/**
+	 * Gets whether vote delay resets daily for a site.
+	 *
+	 * @param siteName the site name
+	 * @return true if vote delay resets daily
+	 */
 	public boolean getVoteSiteResetVoteDelayDaily(String siteName) {
 		return getData(siteName).getBoolean("VoteDelayDaily");
 	}
@@ -285,6 +349,12 @@ public class ConfigVoteSites extends YMLFile {
 		return voteSites;
 	}
 
+	/**
+	 * Gets the names of vote sites.
+	 *
+	 * @param checkEnabled whether to check if sites are enabled
+	 * @return the list of vote site names
+	 */
 	public ArrayList<String> getVoteSitesNames(boolean checkEnabled) {
 		ArrayList<String> siteNames = new ArrayList<>();
 		if (getData().isConfigurationSection("VoteSites")) {
@@ -318,6 +388,12 @@ public class ConfigVoteSites extends YMLFile {
 		return getData(siteName).getString("VoteURL", "");
 	}
 
+	/**
+	 * Gets whether to wait until vote delay for a site.
+	 *
+	 * @param siteName the site name
+	 * @return true if should wait until vote delay
+	 */
 	public boolean getWaitUntilVoteDelay(String siteName) {
 		return getData(siteName).getBoolean("WaitUntilVoteDelay", false);
 	}
@@ -394,10 +470,22 @@ public class ConfigVoteSites extends YMLFile {
 		set(siteName, "Cumulative.Rewards", value);
 	}
 
+	/**
+	 * Sets the cumulative votes for a site.
+	 *
+	 * @param siteName the site name
+	 * @param value the value
+	 */
 	public void setCumulativeVotes(String siteName, int value) {
 		set(siteName, "Cumulative.Votes", value);
 	}
 
+	/**
+	 * Sets the display name for a site.
+	 *
+	 * @param siteName the site name
+	 * @param value the value
+	 */
 	public void setDisplayName(String siteName, String value) {
 		set(siteName, "Name", value);
 	}
@@ -412,6 +500,12 @@ public class ConfigVoteSites extends YMLFile {
 		set(siteName, "Enabled", disabled);
 	}
 
+	/**
+	 * Sets whether to force offline for a site.
+	 *
+	 * @param siteName the site name
+	 * @param value the value
+	 */
 	public void setForceOffline(String siteName, boolean value) {
 		set(siteName, "ForceOffline", value);
 
@@ -485,10 +579,22 @@ public class ConfigVoteSites extends YMLFile {
 		return pass;
 	}
 
+	/**
+	 * Sets the vote delay daily hour for a site.
+	 *
+	 * @param siteName the site name
+	 * @param intValue the value
+	 */
 	public void setVoteDelayDailyHour(String siteName, int intValue) {
 		set(siteName, "VoteDelayDailyHour", intValue);
 	}
 
+	/**
+	 * Sets whether vote delay is daily for a site.
+	 *
+	 * @param siteName the site name
+	 * @param value the value
+	 */
 	public void setVoteDelayDaily(String siteName, boolean value) {
 		set(siteName, "VoteDelayDaily", value);
 	}

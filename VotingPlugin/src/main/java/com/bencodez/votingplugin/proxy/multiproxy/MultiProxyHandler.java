@@ -19,6 +19,9 @@ import com.bencodez.votingplugin.proxy.VotingPluginWire;
 
 import lombok.Getter;
 
+/**
+ * Abstract handler for multi-proxy support.
+ */
 public abstract class MultiProxyHandler {
 	private HashMap<String, ClientHandler> multiproxyClientHandles;
 	private SocketHandler multiproxySocketHandler;
@@ -26,13 +29,30 @@ public abstract class MultiProxyHandler {
 	@Getter
 	private RedisHandler multiProxyRedis;
 
+	/**
+	 * Constructs a new multi-proxy handler.
+	 */
 	public MultiProxyHandler() {
 	}
 
+	/**
+	 * Adds a non-voted player to the cache.
+	 *
+	 * @param uuid the player UUID
+	 * @param playerName the player name
+	 */
 	public abstract void addNonVotedPlayerCache(String uuid, String playerName);
 
+	/**
+	 * Clears a vote for a player.
+	 *
+	 * @param uuid the player UUID
+	 */
 	public abstract void clearVote(String uuid);
 
+	/**
+	 * Closes the multi-proxy handler.
+	 */
 	public void close() {
 		if (multiproxySocketHandler != null) {
 			multiproxySocketHandler.closeConnection();
@@ -43,55 +63,185 @@ public abstract class MultiProxyHandler {
 		}
 	}
 
+	/**
+	 * Gets whether debug mode is enabled.
+	 *
+	 * @return true if debug mode is enabled
+	 */
 	public abstract boolean getDebug();
 
+	/**
+	 * Gets the encryption handler.
+	 *
+	 * @return the encryption handler
+	 */
 	public abstract EncryptionHandler getEncryptionHandler();
 
+	/**
+	 * Gets the multi-proxy method.
+	 *
+	 * @return the multi-proxy method
+	 */
 	public abstract MultiProxyMethod getMultiProxyMethod();
 
+	/**
+	 * Gets the multi-proxy password.
+	 *
+	 * @return the password
+	 */
 	public abstract String getMultiProxyPassword();
 
+	/**
+	 * Gets the multi-proxy Redis host.
+	 *
+	 * @return the Redis host
+	 */
 	public abstract String getMultiProxyRedisHost();
 
+	/**
+	 * Gets the multi-proxy Redis port.
+	 *
+	 * @return the Redis port
+	 */
 	public abstract int getMultiProxyRedisPort();
 
+	/**
+	 * Gets the multi-proxy Redis database index.
+	 *
+	 * @return the database index
+	 */
 	public abstract int getMultiProxyRedisDbIndex();
 
+	/**
+	 * Gets whether to use an existing Redis connection.
+	 *
+	 * @return true if using existing connection
+	 */
 	public abstract boolean getMultiProxyRedisUseExistingConnection();
 
+	/**
+	 * Gets the multi-proxy server name.
+	 *
+	 * @return the server name
+	 */
 	public abstract String getMultiProxyServerName();
 
+	/**
+	 * Gets the multi-proxy servers.
+	 *
+	 * @return the servers
+	 */
 	public abstract Collection<String> getMultiProxyServers();
 
+	/**
+	 * Gets the configuration for a multi-proxy server.
+	 *
+	 * @param s the server name
+	 * @return the server configuration
+	 */
 	public abstract MultiProxyServerSocketConfiguration getMultiProxyServersConfiguration(String s);
 
+	/**
+	 * Gets the multi-proxy socket host.
+	 *
+	 * @return the socket host
+	 */
 	public abstract String getMultiProxySocketHostHost();
 
+	/**
+	 * Gets the multi-proxy socket host port.
+	 *
+	 * @return the socket host port
+	 */
 	public abstract int getMultiProxySocketHostPort();
 
+	/**
+	 * Gets whether multi-proxy support is enabled.
+	 *
+	 * @return true if multi-proxy support is enabled
+	 */
 	public abstract boolean getMultiProxySupportEnabled();
 
+	/**
+	 * Gets the multi-proxy username.
+	 *
+	 * @return the username
+	 */
 	public abstract String getMultiProxyUsername();
 
+	/**
+	 * Gets the plugin data folder.
+	 *
+	 * @return the plugin data folder
+	 */
 	public abstract File getPluginDataFolder();
 
+	/**
+	 * Gets whether this is the primary server.
+	 *
+	 * @return true if this is the primary server
+	 */
 	public abstract boolean getPrimaryServer();
 
+	/**
+	 * Gets the proxy servers.
+	 *
+	 * @return the proxy servers
+	 */
 	public abstract List<String> getProxyServers();
 
+	/**
+	 * Gets the Redis handler.
+	 *
+	 * @return the Redis handler
+	 */
 	public abstract RedisHandler getRedisHandler();
 
+	/**
+	 * Gets the version.
+	 *
+	 * @return the version
+	 */
 	public abstract String getVersion();
 
+	/**
+	 * Logs an info message.
+	 *
+	 * @param msg the message to log
+	 */
 	public abstract void logInfo(String msg);
 
+	/**
+	 * Runs a task asynchronously.
+	 *
+	 * @param runnable the task to run
+	 */
 	public abstract void runAsnc(Runnable runnable);
 
+	/**
+	 * Sets the encryption handler.
+	 *
+	 * @param encryptionHandler the encryption handler
+	 */
 	public abstract void setEncryptionHandler(EncryptionHandler encryptionHandler);
 
+	/**
+	 * Triggers a vote.
+	 *
+	 * @param player the player name
+	 * @param service the service name
+	 * @param realVote whether this is a real vote
+	 * @param timeQueue whether to queue by time
+	 * @param queueTime the queue time
+	 * @param text the vote totals snapshot
+	 * @param uuid the player UUID
+	 */
 	public abstract void triggerVote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
 			VoteTotalsSnapshot text, String uuid);
 
+	/**
+	 * Loads multi-proxy support.
+	 */
 	public void loadMultiProxySupport() {
 		if (!getMultiProxySupportEnabled()) {
 			return;
@@ -156,6 +306,12 @@ public abstract class MultiProxyHandler {
 		logInfo("Loaded multi-proxy support: " + getMultiProxyMethod().toString());
 	}
 
+	/**
+	 * Handles player login.
+	 *
+	 * @param uuid the player UUID
+	 * @param playerName the player name
+	 */
 	public void login(String uuid, String playerName) {
 		if (!getMultiProxySupportEnabled() || getPrimaryServer()) {
 			return;
@@ -163,6 +319,12 @@ public abstract class MultiProxyHandler {
 		sendMultiProxyEnvelope(VotingPluginWire.login(playerName, uuid, getMultiProxyServerName()));
 	}
 
+	/**
+	 * Sends a clear vote message.
+	 *
+	 * @param uuid the player UUID
+	 * @param playerName the player name
+	 */
 	public void sendClearVote(String uuid, String playerName) {
 		if (!getMultiProxySupportEnabled()) {
 			return;
@@ -170,6 +332,9 @@ public abstract class MultiProxyHandler {
 		sendMultiProxyEnvelope(VotingPluginWire.clearVote(uuid, playerName, getMultiProxyServerName()));
 	}
 
+	/**
+	 * Sends a status message.
+	 */
 	public void sendStatus() {
 		if (!getMultiProxySupportEnabled()) {
 			return;
@@ -177,6 +342,11 @@ public abstract class MultiProxyHandler {
 		sendMultiProxyEnvelope(VotingPluginWire.status(getMultiProxyServerName()));
 	}
 
+	/**
+	 * Sends a multi-proxy envelope.
+	 *
+	 * @param envelope the envelope to send
+	 */
 	public void sendMultiProxyEnvelope(JsonEnvelope envelope) {
 		if (envelope == null) {
 			return;

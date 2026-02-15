@@ -52,9 +52,9 @@ public class Config extends YMLFile {
 	@Getter
 	private int limitVotePoints = -1;
 
+	/** Whether YAML files should be case insensitive. */
 	@ConfigDataBoolean(path = "CaseInsensitiveYMLFiles")
 	@Getter
-	/** Whether YAML files should be case insensitive. */
 	public boolean caseInsensitiveYMLFiles = false;
 
 	@ConfigDataBoolean(path = "QueueVotesDuringTimeChange")

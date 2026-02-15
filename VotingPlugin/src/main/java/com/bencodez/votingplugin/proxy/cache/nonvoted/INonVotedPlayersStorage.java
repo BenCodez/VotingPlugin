@@ -41,25 +41,50 @@ public interface INonVotedPlayersStorage {
     /** Close resources if needed (MySQL); no-op for JSON. */
     void close();
 
+    /**
+     * Entry for a non-voted player.
+     */
     final class NonVotedPlayerEntry {
         private final String playerName;
         private final String uuid;
         private final long lastTime;
 
+        /**
+         * Constructs a new non-voted player entry.
+         *
+         * @param playerName the player name
+         * @param uuid the UUID
+         * @param lastTime the last time
+         */
         public NonVotedPlayerEntry(String playerName, String uuid, long lastTime) {
             this.playerName = playerName;
             this.uuid = uuid;
             this.lastTime = lastTime;
         }
 
+        /**
+         * Gets the player name.
+         *
+         * @return the player name
+         */
         public String getPlayerName() {
             return playerName;
         }
 
+        /**
+         * Gets the UUID.
+         *
+         * @return the UUID
+         */
         public String getUuid() {
             return uuid;
         }
 
+        /**
+         * Gets the last time.
+         *
+         * @return the last time
+         */
         public long getLastTime() {
             return lastTime;
         }
