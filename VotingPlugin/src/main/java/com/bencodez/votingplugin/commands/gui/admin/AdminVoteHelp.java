@@ -15,11 +15,21 @@ import com.bencodez.votingplugin.VotingPluginMain;
 
 import net.md_5.bungee.api.chat.TextComponent;
 
+/**
+ * Admin help GUI handler.
+ */
 public class AdminVoteHelp extends GUIHandler {
 
 	private int page;
 	private VotingPluginMain plugin;
 
+	/**
+	 * Constructor for AdminVoteHelp.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 * @param player the command sender
+	 * @param page the page number to display
+	 */
 	public AdminVoteHelp(VotingPluginMain plugin, CommandSender player, int page) {
 		super(plugin, player);
 		this.plugin = plugin;

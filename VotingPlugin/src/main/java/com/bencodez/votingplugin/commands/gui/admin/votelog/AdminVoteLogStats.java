@@ -38,15 +38,44 @@ public class AdminVoteLogStats extends GUIHandler {
 	private final int topServicesLimit;
 	private final int topServersLimit;
 
+	/**
+	 * Constructor for AdminVoteLogStats.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 * @param sender the command sender
+	 * @param table the vote log table
+	 * @param days the number of days to filter
+	 */
 	public AdminVoteLogStats(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table, int days) {
 		this(plugin, sender, table, null, days, 10, 10);
 	}
 
+	/**
+	 * Constructor for AdminVoteLogStats with user and top services limit.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 * @param sender the command sender
+	 * @param table the vote log table
+	 * @param user the voting plugin user
+	 * @param days the number of days to filter
+	 * @param topServicesLimit the maximum number of top services to display
+	 */
 	public AdminVoteLogStats(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table,
 			VotingPluginUser user, int days, int topServicesLimit) {
 		this(plugin, sender, table, user, days, topServicesLimit, 10);
 	}
 
+	/**
+	 * Constructor for AdminVoteLogStats with full parameters.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 * @param sender the command sender
+	 * @param table the vote log table
+	 * @param user the voting plugin user
+	 * @param days the number of days to filter
+	 * @param topServicesLimit the maximum number of top services to display
+	 * @param topServersLimit the maximum number of top servers to display
+	 */
 	public AdminVoteLogStats(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table,
 			VotingPluginUser user, int days, int topServicesLimit, int topServersLimit) {
 		super(plugin, sender);

@@ -22,10 +22,19 @@ import com.bencodez.advancedcore.command.gui.RewardEditGUI;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 
+/**
+ * Admin vote milestones GUI handler.
+ */
 public class AdminVoteVoteMilestones extends GUIHandler {
 
 	private VotingPluginMain plugin;
 
+	/**
+	 * Constructor for AdminVoteVoteMilestones.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 * @param player the command sender
+	 */
 	public AdminVoteVoteMilestones(VotingPluginMain plugin, CommandSender player) {
 		super(plugin, player);
 		this.plugin = plugin;

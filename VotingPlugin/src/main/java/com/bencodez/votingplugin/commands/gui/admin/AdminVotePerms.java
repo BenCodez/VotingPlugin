@@ -15,18 +15,36 @@ import com.bencodez.advancedcore.api.gui.GUIMethod;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 
+/**
+ * Admin permissions GUI handler.
+ */
 public class AdminVotePerms extends GUIHandler {
 
 	private int page;
 	private String playerName;
 	private VotingPluginMain plugin;
 
+	/**
+	 * Constructor for AdminVotePerms.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 * @param player the command sender
+	 * @param page the page number
+	 */
 	public AdminVotePerms(VotingPluginMain plugin, CommandSender player, int page) {
 		super(plugin, player);
 		this.plugin = plugin;
 		this.page = page;
 	}
 
+	/**
+	 * Constructor for AdminVotePerms with player name.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 * @param player the command sender
+	 * @param page the page number
+	 * @param playerName the player name to check
+	 */
 	public AdminVotePerms(VotingPluginMain plugin, CommandSender player, int page, String playerName) {
 		super(plugin, player);
 		this.plugin = plugin;
@@ -39,6 +57,12 @@ public class AdminVotePerms extends GUIHandler {
 		return null;
 	}
 
+	/**
+	 * List permissions for a sender.
+	 *
+	 * @param sender the command sender
+	 * @return array of permission strings
+	 */
 	public String[] listPerms(CommandSender sender) {
 		ArrayList<String> msg = new ArrayList<>();
 
@@ -113,6 +137,14 @@ public class AdminVotePerms extends GUIHandler {
 		return ArrayUtils.convert(text);
 	}
 
+	/**
+	 * List permissions for a specific player.
+	 *
+	 * @param sender the command sender
+	 * @param player the player name
+	 * @param page the page number
+	 * @return list of permission strings
+	 */
 	public ArrayList<String> listPerms(CommandSender sender, String player, int page) {
 		Player p = Bukkit.getPlayer(player);
 		ArrayList<String> text = new ArrayList<>();
@@ -179,6 +211,12 @@ public class AdminVotePerms extends GUIHandler {
 
 	}
 
+	/**
+	 * List permissions in developer format.
+	 *
+	 * @param sender the command sender
+	 * @return array of permission strings in developer format
+	 */
 	public String[] listPermsDev(CommandSender sender) {
 		ArrayList<String> msg = new ArrayList<>();
 		msg.add("Command");

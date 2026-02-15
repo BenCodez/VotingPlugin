@@ -98,6 +98,13 @@ public class AliasesTabCompleter implements TabCompleter {
 		return tab;
 	}
 
+	/**
+	 * Set the command handler for this tab completer.
+	 *
+	 * @param cmd the command handler
+	 * @param adminCommand whether this is an admin command
+	 * @return this tab completer instance
+	 */
 	public AliasesTabCompleter setCMDHandle(CommandHandler cmd, boolean adminCommand) {
 		cmdHandle = cmd;
 		this.adminCommand = adminCommand;

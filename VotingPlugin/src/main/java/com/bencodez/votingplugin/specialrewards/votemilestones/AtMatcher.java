@@ -24,6 +24,12 @@ public class AtMatcher {
 		this.exactTotals = exactTotals;
 	}
 
+	/**
+	 * Checks if a new total matches the criteria.
+	 *
+	 * @param newTotal the new total to check
+	 * @return true if the total matches
+	 */
 	public boolean matches(long newTotal) {
 		// At: 0 => first vote in that period => newTotal == 1
 		if (hasZero && newTotal == 1) {
@@ -36,20 +42,37 @@ public class AtMatcher {
 	 * Human-friendly debug string.
 	 *
 	 * Examples: - "0" - "20,50,100" - "0 + 10 values: [10,20,30,...,980,990,1000]"
+	 *
+	 * @return the debug string representation
 	 */
 	public String toDebugString() {
 		return toDebugString(8, 3);
 	}
 
+	/**
+	 * Check if the matcher has zero.
+	 *
+	 * @return true if zero is included
+	 */
 	public boolean hasZero() {
 		return hasZero;
 	}
 
+	/**
+	 * Get the exact totals.
+	 *
+	 * @return an unmodifiable set of exact totals
+	 */
 	public Set<Long> getExactTotals() {
 		return java.util.Collections.unmodifiableSet(exactTotals);
 	}
 
-	/** Returns a compact string for logs. */
+	/**
+	 * Returns a compact string for logs.
+	 *
+	 * @param maxValues the maximum number of values to display
+	 * @return the debug string representation
+	 */
 	public String toDebugString(int maxValues) {
 		StringBuilder sb = new StringBuilder();
 		boolean first = true;
@@ -80,8 +103,11 @@ public class AtMatcher {
 	}
 
 	/**
+	 * Generate debug string with head and tail values.
+	 *
 	 * @param head how many smallest values to show
 	 * @param tail how many largest values to show when truncating
+	 * @return the debug string representation
 	 */
 	public String toDebugString(int head, int tail) {
 		head = Math.max(0, head);
@@ -168,6 +194,13 @@ public class AtMatcher {
 		return toDebugString();
 	}
 
+	/**
+	 * Create an AtMatcher from a configuration section.
+	 *
+	 * @param sec the configuration section
+	 * @param path the configuration path
+	 * @return the AtMatcher instance or null
+	 */
 	public static AtMatcher fromConfig(ConfigurationSection sec, String path) {
 		if (sec == null || !sec.contains(path)) {
 			return null;

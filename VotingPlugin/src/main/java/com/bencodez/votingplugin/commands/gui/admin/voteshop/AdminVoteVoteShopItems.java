@@ -13,10 +13,19 @@ import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
 
+/**
+ * Admin vote shop items GUI handler.
+ */
 public class AdminVoteVoteShopItems extends GUIHandler {
 
 	private VotingPluginMain plugin;
 
+	/**
+	 * Constructor for AdminVoteVoteShopItems.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 * @param player the command sender
+	 */
 	public AdminVoteVoteShopItems(VotingPluginMain plugin, CommandSender player) {
 		super(plugin, player);
 		this.plugin = plugin;

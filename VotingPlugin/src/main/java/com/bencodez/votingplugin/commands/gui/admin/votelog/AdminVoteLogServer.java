@@ -34,6 +34,16 @@ public class AdminVoteLogServer extends GUIHandler {
 
 	private static final int PAGE_SIZE = 45;
 
+	/**
+	 * Constructor for AdminVoteLogServer.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 * @param sender the command sender
+	 * @param table the vote log table
+	 * @param server the server name
+	 * @param days the number of days to filter
+	 * @param page the page number
+	 */
 	public AdminVoteLogServer(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table, String server,
 			int days, int page) {
 		super(plugin, sender);
@@ -48,6 +58,17 @@ public class AdminVoteLogServer extends GUIHandler {
 		}
 	}
 
+	/**
+	 * Constructor for AdminVoteLogServer with user.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 * @param sender the command sender
+	 * @param table the vote log table
+	 * @param user the voting plugin user
+	 * @param server the server name
+	 * @param days the number of days to filter
+	 * @param page the page number
+	 */
 	public AdminVoteLogServer(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table,
 			VotingPluginUser user, String server, int days, int page) {
 		this(plugin, sender, table, server, days, page);

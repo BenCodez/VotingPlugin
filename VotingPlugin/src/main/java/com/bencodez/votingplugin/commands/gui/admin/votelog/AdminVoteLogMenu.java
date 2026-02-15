@@ -16,6 +16,9 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable;
 
+/**
+ * Admin vote log menu GUI handler.
+ */
 public class AdminVoteLogMenu extends GUIHandler {
 
 	private final VotingPluginMain plugin;
@@ -27,10 +30,27 @@ public class AdminVoteLogMenu extends GUIHandler {
 	// Default to "voting" (Vote received)
 	private final VoteLogMysqlTable.VoteLogEvent defaultEvent = VoteLogMysqlTable.VoteLogEvent.VOTE_RECEIVED;
 
+	/**
+	 * Constructor for AdminVoteLogMenu.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 * @param sender the command sender
+	 * @param table the vote log table
+	 * @param days the number of days to filter
+	 */
 	public AdminVoteLogMenu(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table, int days) {
 		this(plugin, sender, table, null, days);
 	}
 
+	/**
+	 * Constructor for AdminVoteLogMenu with user.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 * @param sender the command sender
+	 * @param table the vote log table
+	 * @param user the voting plugin user
+	 * @param days the number of days to filter
+	 */
 	public AdminVoteLogMenu(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table,
 			VotingPluginUser user, int days) {
 		super(plugin, sender);

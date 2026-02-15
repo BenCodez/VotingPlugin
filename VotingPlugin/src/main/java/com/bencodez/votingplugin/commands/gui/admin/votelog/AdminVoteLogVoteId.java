@@ -36,6 +36,16 @@ public class AdminVoteLogVoteId extends GUIHandler {
 
 	private static final int PAGE_SIZE = 45;
 
+	/**
+	 * Constructor for AdminVoteLogVoteId.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 * @param sender the command sender
+	 * @param table the vote log table
+	 * @param voteId the vote ID to filter
+	 * @param days the number of days to filter
+	 * @param page the page number
+	 */
 	public AdminVoteLogVoteId(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table, String voteId,
 			int days, int page) {
 		super(plugin, sender);
@@ -50,6 +60,17 @@ public class AdminVoteLogVoteId extends GUIHandler {
 		}
 	}
 
+	/**
+	 * Constructor for AdminVoteLogVoteId with user.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 * @param sender the command sender
+	 * @param table the vote log table
+	 * @param user the voting plugin user
+	 * @param voteId the vote ID to filter
+	 * @param days the number of days to filter
+	 * @param page the page number
+	 */
 	public AdminVoteLogVoteId(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table,
 			VotingPluginUser user, String voteId, int days, int page) {
 		this(plugin, sender, table, voteId, days, page);

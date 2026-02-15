@@ -27,6 +27,9 @@ import com.bencodez.votingplugin.commands.gui.player.VoteGUI;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
+/**
+ * Admin top points GUI handler.
+ */
 public class AdminVoteTopPoints extends GUIHandler {
 
 	@SuppressWarnings("unused")
@@ -34,6 +37,14 @@ public class AdminVoteTopPoints extends GUIHandler {
 	private VotingPluginMain plugin;
 	private VotingPluginUser user;
 
+	/**
+	 * Constructor for AdminVoteTopPoints.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 * @param player the command sender
+	 * @param user the voting plugin user
+	 * @param page the page number
+	 */
 	public AdminVoteTopPoints(VotingPluginMain plugin, CommandSender player, VotingPluginUser user, int page) {
 		super(plugin, player);
 		this.plugin = plugin;

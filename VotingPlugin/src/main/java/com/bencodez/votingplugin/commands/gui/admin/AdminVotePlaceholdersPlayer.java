@@ -18,11 +18,21 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import xyz.upperlevel.spigot.book.BookUtil;
 
+/**
+ * Admin placeholders player GUI handler.
+ */
 public class AdminVotePlaceholdersPlayer extends GUIHandler {
 
 	private VotingPluginMain plugin;
 	private VotingPluginUser user;
 
+	/**
+	 * Constructor for AdminVotePlaceholdersPlayer.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 * @param player the command sender
+	 * @param user the voting plugin user
+	 */
 	public AdminVotePlaceholdersPlayer(VotingPluginMain plugin, CommandSender player, VotingPluginUser user) {
 		super(plugin, player);
 		this.plugin = plugin;

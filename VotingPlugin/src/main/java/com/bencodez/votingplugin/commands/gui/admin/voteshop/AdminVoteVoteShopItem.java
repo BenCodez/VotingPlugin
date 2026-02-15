@@ -22,11 +22,21 @@ import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.command.gui.RewardEditGUI;
 import com.bencodez.votingplugin.VotingPluginMain;
 
+/**
+ * Admin vote shop item GUI handler.
+ */
 public class AdminVoteVoteShopItem extends GUIHandler {
 
 	private String identifier;
 	private VotingPluginMain plugin;
 
+	/**
+	 * Constructor for AdminVoteVoteShopItem.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 * @param player the command sender
+	 * @param identifier the item identifier
+	 */
 	public AdminVoteVoteShopItem(VotingPluginMain plugin, CommandSender player, String identifier) {
 		super(plugin, player);
 		this.plugin = plugin;

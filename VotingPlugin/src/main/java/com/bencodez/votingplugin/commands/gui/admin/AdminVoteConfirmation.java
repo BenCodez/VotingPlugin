@@ -14,12 +14,22 @@ import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
 
+/**
+ * Abstract class for admin vote confirmation dialogs.
+ */
 public abstract class AdminVoteConfirmation extends GUIHandler {
 
 	@SuppressWarnings("unused")
 	private VotingPluginMain plugin;
 	private String title;
 
+	/**
+	 * Constructor for AdminVoteConfirmation.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 * @param player the command sender
+	 * @param title the title of the confirmation dialog
+	 */
 	public AdminVoteConfirmation(VotingPluginMain plugin, CommandSender player, String title) {
 		super(plugin, player);
 		this.plugin = plugin;
@@ -60,8 +70,18 @@ public abstract class AdminVoteConfirmation extends GUIHandler {
 		inv.openInventory(player);
 	}
 
+	/**
+	 * Called when the user confirms the action.
+	 *
+	 * @param p the player who confirmed
+	 */
 	public abstract void onConfirm(Player p);
 
+	/**
+	 * Called when the user denies the action.
+	 *
+	 * @param p the player who denied
+	 */
 	public abstract void onDeny(Player p);
 
 	@Override
