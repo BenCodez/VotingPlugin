@@ -31,16 +31,40 @@ public final class BroadcastFormat {
 	private final String header;
 	private final String listLine;
 
+	/**
+	 * Constructor for BroadcastFormat.
+	 *
+	 * @param broadcastMsg the broadcast message template
+	 * @param header the header template
+	 * @param listLine the list line template
+	 */
 	public BroadcastFormat(String broadcastMsg, String header, String listLine) {
 		this.broadcastMsg = broadcastMsg == null ? "" : broadcastMsg;
 		this.header = header == null ? "" : header;
 		this.listLine = listLine == null ? "" : listLine;
 	}
 
+	/**
+	 * Render the broadcast with player name, items, and reason.
+	 *
+	 * @param playerName the player name
+	 * @param items the list of items
+	 * @param reason the reason string
+	 * @return the rendered list of strings
+	 */
 	public List<String> render(String playerName, List<String> items, String reason) {
 		return render(playerName, items, reason, Collections.<String, String>emptyMap());
 	}
 
+	/**
+	 * Render the broadcast with player name, items, reason, and context.
+	 *
+	 * @param playerName the player name
+	 * @param items the list of items
+	 * @param reason the reason string
+	 * @param context additional context placeholders
+	 * @return the rendered list of strings
+	 */
 	public List<String> render(String playerName, List<String> items, String reason, Map<String, String> context) {
 		List<String> output = new ArrayList<String>();
 		int count = items == null ? 0 : items.size();

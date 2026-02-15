@@ -15,10 +15,19 @@ import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVoteConfirmation;
 
+/**
+ * Admin vote milestone remove GUI handler.
+ */
 public class AdminVoteVoteMilestoneRemove extends GUIHandler {
 
 	private VotingPluginMain plugin;
 
+	/**
+	 * Constructor for AdminVoteVoteMilestoneRemove.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 * @param player the command sender
+	 */
 	public AdminVoteVoteMilestoneRemove(VotingPluginMain plugin, CommandSender player) {
 		super(plugin, player);
 		this.plugin = plugin;

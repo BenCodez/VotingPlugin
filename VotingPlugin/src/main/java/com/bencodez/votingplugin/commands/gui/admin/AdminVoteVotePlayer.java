@@ -14,11 +14,21 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
+/**
+ * Admin vote player GUI handler.
+ */
 public class AdminVoteVotePlayer extends GUIHandler {
 
 	private String playerName;
 	private VotingPluginMain plugin;
 
+	/**
+	 * Constructor for AdminVoteVotePlayer.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 * @param player the command sender
+	 * @param playerName the player name
+	 */
 	public AdminVoteVotePlayer(VotingPluginMain plugin, CommandSender player, String playerName) {
 		super(plugin, player);
 		this.plugin = plugin;

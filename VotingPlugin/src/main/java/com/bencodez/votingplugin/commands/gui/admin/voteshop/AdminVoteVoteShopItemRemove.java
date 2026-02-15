@@ -14,10 +14,19 @@ import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVoteConfirmation;
 
+/**
+ * Admin vote shop item remove GUI handler.
+ */
 public class AdminVoteVoteShopItemRemove extends GUIHandler {
 
 	private VotingPluginMain plugin;
 
+	/**
+	 * Constructor for AdminVoteVoteShopItemRemove.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 * @param player the command sender
+	 */
 	public AdminVoteVoteShopItemRemove(VotingPluginMain plugin, CommandSender player) {
 		super(plugin, player);
 		this.plugin = plugin;

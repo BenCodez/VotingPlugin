@@ -36,6 +36,16 @@ public class AdminVoteLogPlayer extends GUIHandler {
 
 	private static final int PAGE_SIZE = 45;
 
+	/**
+	 * Constructor for AdminVoteLogPlayer.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 * @param sender the command sender
+	 * @param table the vote log table
+	 * @param playerName the player name or UUID
+	 * @param days the number of days to filter
+	 * @param page the page number
+	 */
 	public AdminVoteLogPlayer(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table, String playerName,
 			int days, int page) {
 		super(plugin, sender);

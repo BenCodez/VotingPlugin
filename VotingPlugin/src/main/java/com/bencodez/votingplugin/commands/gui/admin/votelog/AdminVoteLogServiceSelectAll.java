@@ -32,6 +32,16 @@ public class AdminVoteLogServiceSelectAll extends GUIHandler {
 
 	private static final int PAGE_SIZE = 45;
 
+	/**
+	 * Constructor for AdminVoteLogServiceSelectAll.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 * @param sender the command sender
+	 * @param table the vote log table
+	 * @param user the voting plugin user
+	 * @param days the number of days to filter
+	 * @param page the page number
+	 */
 	public AdminVoteLogServiceSelectAll(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table,
 			VotingPluginUser user, int days, int page) {
 		super(plugin, sender);

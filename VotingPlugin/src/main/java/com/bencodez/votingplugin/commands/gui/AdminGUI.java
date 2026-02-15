@@ -34,10 +34,18 @@ import com.bencodez.votingplugin.commands.gui.admin.voteshop.AdminVoteVoteShop;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
+/**
+ * Admin GUI handler for the voting plugin.
+ */
 public class AdminGUI {
 
 	private VotingPluginMain plugin;
 
+	/**
+	 * Constructor for AdminGUI.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 */
 	public AdminGUI(VotingPluginMain plugin) {
 		this.plugin = plugin;
 	}
@@ -217,6 +225,9 @@ public class AdminGUI {
 		return buttons;
 	}
 
+	/**
+	 * Load hook to add admin GUI buttons.
+	 */
 	public void loadHook() {
 		for (BInventoryButton b : adminGUIButtons()) {
 			com.bencodez.advancedcore.command.gui.AdminGUI.getInstance().addButton(b);

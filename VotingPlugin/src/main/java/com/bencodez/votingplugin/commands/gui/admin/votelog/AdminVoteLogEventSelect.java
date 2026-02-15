@@ -32,11 +32,30 @@ public class AdminVoteLogEventSelect extends GUIHandler {
 
 	private static final int PAGE_SIZE = 45;
 
+	/**
+	 * Constructor for AdminVoteLogEventSelect.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 * @param sender the command sender
+	 * @param table the vote log table
+	 * @param user the voting plugin user
+	 * @param days the number of days to filter
+	 */
 	public AdminVoteLogEventSelect(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table,
 			VotingPluginUser user, int days) {
 		this(plugin, sender, table, user, days, 0);
 	}
 
+	/**
+	 * Constructor for AdminVoteLogEventSelect with page.
+	 *
+	 * @param plugin the VotingPluginMain instance
+	 * @param sender the command sender
+	 * @param table the vote log table
+	 * @param user the voting plugin user
+	 * @param days the number of days to filter
+	 * @param page the page number
+	 */
 	public AdminVoteLogEventSelect(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table,
 			VotingPluginUser user, int days, int page) {
 		super(plugin, sender);
