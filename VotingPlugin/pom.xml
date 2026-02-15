@@ -319,17 +319,17 @@
         <dependency>
             <groupId>org.spongepowered</groupId>
             <artifactId>configurate-core</artifactId>
-            <version>4.1.2</version>
+            <version>4.2.0</version>
         </dependency>
         <dependency>
             <groupId>org.spongepowered</groupId>
             <artifactId>configurate-yaml</artifactId>
-            <version>4.1.2</version>
+            <version>4.2.0</version>
         </dependency>
         <dependency>
             <groupId>org.spongepowered</groupId>
             <artifactId>configurate-gson</artifactId>
-            <version>4.1.2</version>
+            <version>4.2.0</version>
         </dependency>
     </dependencies>
     <profiles>
