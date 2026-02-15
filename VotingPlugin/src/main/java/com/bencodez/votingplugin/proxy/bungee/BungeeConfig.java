@@ -492,6 +492,13 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 		return getData().getBoolean("VoteLogging.UseMainMySQL", true);
 	}
 
+	/**
+	 * Returns a configuration section if the key exists, otherwise null.
+	 *
+	 * @param root the root configuration
+	 * @param key the key to check
+	 * @return the configuration section or null
+	 */
 	public Configuration sectionOrNull(Configuration root, String key) {
 		Object v = root.get(key);
 		return (v instanceof Configuration) ? (Configuration) v : null;

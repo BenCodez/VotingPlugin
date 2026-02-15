@@ -3,10 +3,18 @@ package com.bencodez.votingplugin.proxy.cache;
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.serialize.SerializationException;
 
+/**
+ * ConfigurationNode-based implementation of DataNode.
+ */
 public class ConfigDataNode implements DataNode {
 
 	private final ConfigurationNode node;
 
+	/**
+	 * Constructs a new ConfigDataNode.
+	 *
+	 * @param node the configuration node
+	 */
 	public ConfigDataNode(ConfigurationNode node) {
 		this.node = node;
 	}

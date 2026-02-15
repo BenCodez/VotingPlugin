@@ -14,6 +14,11 @@ public class CheckUpdate {
 
 	private VotingPluginMain plugin;
 
+	/**
+	 * Constructs a new CheckUpdate instance.
+	 *
+	 * @param plugin the main plugin instance
+	 */
 	public CheckUpdate(VotingPluginMain plugin) {
 		this.plugin = plugin;
 	}
@@ -48,6 +53,9 @@ public class CheckUpdate {
 		}
 	}
 
+	/**
+	 * Performs a basic update check without downloading.
+	 */
 	public void checkUpdateBasic() {
 		if (plugin.getConfigFile().isDisableUpdateChecking()) {
 			return;

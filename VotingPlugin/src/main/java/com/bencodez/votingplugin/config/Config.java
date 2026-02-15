@@ -54,6 +54,7 @@ public class Config extends YMLFile {
 
 	@ConfigDataBoolean(path = "CaseInsensitiveYMLFiles")
 	@Getter
+	/** Whether YAML files should be case insensitive. */
 	public boolean caseInsensitiveYMLFiles = false;
 
 	@ConfigDataBoolean(path = "QueueVotesDuringTimeChange")
@@ -169,6 +170,11 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean voteLoggingUseMainMySQL = true;
 
+	/**
+	 * Gets the vote logging configuration section.
+	 *
+	 * @return the vote logging configuration section
+	 */
 	public ConfigurationSection getVoteLoggingSection() {
 		if (!getData().isConfigurationSection("VoteLogging")) {
 			getData().createSection("VoteLogging");
@@ -176,6 +182,12 @@ public class Config extends YMLFile {
 		return getData().getConfigurationSection("VoteLogging");
 	}
 
+	/**
+	 * Checks if DiscordSRV top voter is enabled.
+	 *
+	 * @param topVoter the top voter type
+	 * @return true if enabled
+	 */
 	public boolean isDiscordSRVTopVoterEnabled(TopVoter topVoter) {
 		switch (topVoter) {
 		case AllTime:
@@ -191,6 +203,12 @@ public class Config extends YMLFile {
 		}
 	}
 
+	/**
+	 * Checks if DiscordSRV top voter should send a new message on update.
+	 *
+	 * @param topVoter the top voter type
+	 * @return true if new message should be sent
+	 */
 	public boolean isDiscordSRVTopVoterNewMessageOnUpdate(TopVoter topVoter) {
 		switch (topVoter) {
 		case AllTime:
@@ -206,6 +224,12 @@ public class Config extends YMLFile {
 		}
 	}
 
+	/**
+	 * Gets the DiscordSRV top voter channel ID.
+	 *
+	 * @param topVoter the top voter type
+	 * @return the channel ID
+	 */
 	public long getDiscordSRVTopVoterChannel(TopVoter topVoter) {
 		switch (topVoter) {
 		case AllTime:
@@ -221,6 +245,12 @@ public class Config extends YMLFile {
 		}
 	}
 
+	/**
+	 * Gets the DiscordSRV top voter title.
+	 *
+	 * @param topVoter the top voter type
+	 * @return the title
+	 */
 	public String getDiscordSRVTopVoterTitle(TopVoter topVoter) {
 		switch (topVoter) {
 		case AllTime:
@@ -236,6 +266,12 @@ public class Config extends YMLFile {
 		}
 	}
 
+	/**
+	 * Gets the DiscordSRV top voter rank display format.
+	 *
+	 * @param topVoter the top voter type
+	 * @return the rank display format
+	 */
 	public String getDiscordSRVTopVoterRankDisplay(TopVoter topVoter) {
 		switch (topVoter) {
 		case AllTime:
@@ -737,6 +773,11 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean alwaysProcessAsyncPlaceholders = false;
 
+	/**
+	 * Constructs a new Config.
+	 *
+	 * @param plugin the main plugin instance
+	 */
 	public Config(VotingPluginMain plugin) {
 		super(plugin, new File(plugin.getDataFolder(), "Config.yml"));
 		setIgnoreCase(true);
@@ -752,10 +793,22 @@ public class Config extends YMLFile {
 		return (ArrayList<String>) getData().getList("BlackList", new ArrayList<>());
 	}
 
+	/**
+	 * Gets the custom commands configuration section.
+	 *
+	 * @param ident the command identifier
+	 * @return the configuration section
+	 */
 	public ConfigurationSection getCustomCommands(String ident) {
 		return getData().getConfigurationSection("CustomCommands." + ident);
 	}
 
+	/**
+	 * Gets the custom placeholder return keys.
+	 *
+	 * @param placeholder the placeholder name
+	 * @return set of return keys
+	 */
 	public Set<String> getCustomPlaceholderReturns(String placeholder) {
 		Set<String> str = getData().getConfigurationSection("CustomPlaceholderReturns." + placeholder).getKeys(false);
 		if (str == null) {
@@ -764,6 +817,13 @@ public class Config extends YMLFile {
 		return str;
 	}
 
+	/**
+	 * Gets a custom placeholder return value.
+	 *
+	 * @param placeholder the placeholder name
+	 * @param returnString the return key
+	 * @return the return value
+	 */
 	public String getCustomPlaceholderReturns(String placeholder, String returnString) {
 		return getData().getString("CustomPlaceholderReturns." + placeholder + "." + returnString, "");
 	}
@@ -781,6 +841,11 @@ public class Config extends YMLFile {
 
 	}
 
+	/**
+	 * Gets the vote streak lines format.
+	 *
+	 * @return list of format lines
+	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getFormatCommandsVoteStreakLines() {
 		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Streak.Lines", new ArrayList<>());
@@ -798,6 +863,11 @@ public class Config extends YMLFile {
 		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Text", str);
 	}
 
+	/**
+	 * Gets the vote total format lines.
+	 *
+	 * @return list of format lines
+	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getFormatCommandsVoteTotal() {
 		ArrayList<String> list = (ArrayList<String>) getData().getList("Format.Commands.Vote.Total", new ArrayList<>());
@@ -811,6 +881,11 @@ public class Config extends YMLFile {
 		return list;
 	}
 
+	/**
+	 * Gets the vote total all format lines.
+	 *
+	 * @return list of format lines
+	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getFormatCommandsVoteTotalAll() {
 
@@ -836,6 +911,12 @@ public class Config extends YMLFile {
 		return (ArrayList<String>) getData().getList("Format.Commands.Vote.Help.Lines", new ArrayList<>());
 	}
 
+	/**
+	 * Checks if a top voter type should be loaded.
+	 *
+	 * @param top the top voter type
+	 * @return true if should be loaded
+	 */
 	public boolean getLoadTopVoter(TopVoter top) {
 		switch (top) {
 		case AllTime:
@@ -851,6 +932,11 @@ public class Config extends YMLFile {
 		}
 	}
 
+	/**
+	 * Gets the placeholder cache level.
+	 *
+	 * @return the cache level
+	 */
 	public PlaceholderCacheLevel getPlaceholderCacheLevel() {
 		return PlaceholderCacheLevel.getCache(getPlaceholderCacheLevelString());
 	}

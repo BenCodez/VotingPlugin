@@ -47,6 +47,9 @@ import com.bencodez.votingplugin.votesites.VoteSite;
 
 import lombok.Getter;
 
+/**
+ * Handler for Bungee/proxy server integration.
+ */
 public class BungeeHandler implements Listener {
 	@Getter
 	private ClientHandler clientHandler;
@@ -86,10 +89,18 @@ public class BungeeHandler implements Listener {
 	@Getter
 	private MqttHandler mqttHandler;
 
+	/**
+	 * Constructs a new BungeeHandler.
+	 *
+	 * @param plugin the main plugin instance
+	 */
 	public BungeeHandler(VotingPluginMain plugin) {
 		this.plugin = plugin;
 	}
 
+	/**
+	 * Checks and processes global data from the global data handler.
+	 */
 	public void checkGlobalData() {
 		HashMap<String, DataValue> data = globalDataHandler.getExact(plugin.getBungeeSettings().getServer());
 
@@ -126,6 +137,13 @@ public class BungeeHandler implements Listener {
 		}
 	}
 
+	/**
+	 * Checks global data for a time type change.
+	 *
+	 * @param type the time type to check
+	 * @param data the global data map
+	 * @return true if currently processing a time change
+	 */
 	public boolean checkGlobalDataTime(TimeType type, HashMap<String, DataValue> data) {
 		boolean isProcessing = false;
 		if (data.containsKey(type.toString())) {
@@ -157,6 +175,12 @@ public class BungeeHandler implements Listener {
 		return isProcessing;
 	}
 
+	/**
+	 * Checks and extracts the boolean value from a DataValue.
+	 *
+	 * @param data the data value
+	 * @return the boolean value
+	 */
 	public boolean checkGlobalDataTimeValue(DataValue data) {
 		if (data.isBoolean()) {
 			return data.getBoolean();
@@ -164,6 +188,9 @@ public class BungeeHandler implements Listener {
 		return Boolean.valueOf(data.getString());
 	}
 
+	/**
+	 * Closes and cleans up all handlers and connections.
+	 */
 	public void close() {
 		if (backendMysqlMessenger != null) {
 			backendMysqlMessenger.shutdown();
@@ -182,6 +209,9 @@ public class BungeeHandler implements Listener {
 		}
 	}
 
+	/**
+	 * Loads and initializes the bungee handler with the configured method.
+	 */
 	public void load() {
 		plugin.debug("Loading bungee handler");
 
@@ -576,6 +606,9 @@ public class BungeeHandler implements Listener {
 		int _ignored = v.numberOfVotes;
 	}
 
+	/**
+	 * Loads the global MySQL handler for cross-server data synchronization.
+	 */
 	public void loadGlobalMysql() {
 		if (plugin.getBungeeSettings().isGloblalDataEnabled()) {
 			if (timer != null) {

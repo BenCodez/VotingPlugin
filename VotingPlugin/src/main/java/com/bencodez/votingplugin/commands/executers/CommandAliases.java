@@ -25,6 +25,12 @@ public class CommandAliases implements CommandExecutor {
 	/** The plugin. */
 	private VotingPluginMain plugin = VotingPluginMain.plugin;
 
+	/**
+	 * Constructs a new CommandAliases instance.
+	 *
+	 * @param cmdHandle the command handler
+	 * @param adminCommand whether this is an admin command
+	 */
 	public CommandAliases(CommandHandler cmdHandle, boolean adminCommand) {
 		this.cmdHandle = cmdHandle;
 		this.adminCommand = adminCommand;

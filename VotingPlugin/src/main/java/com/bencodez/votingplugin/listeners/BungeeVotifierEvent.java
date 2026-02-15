@@ -5,7 +5,16 @@ import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.vexsoftware.votifier.model.Vote;
 import com.vexsoftware.votifier.model.VotifierEvent;
 
+/**
+ * Handler for triggering Bungee Votifier events.
+ */
 public class BungeeVotifierEvent {
+	/**
+	 * Sends a Votifier event for a player vote.
+	 *
+	 * @param plugin the main plugin instance
+	 * @param event the player vote event
+	 */
 	public void send(VotingPluginMain plugin, PlayerVoteEvent event) {
 		plugin.debug("Triggering vote event");
 		plugin.getBukkitScheduler().runTask(plugin, new Runnable() {
