@@ -25,6 +25,13 @@ public final class ProxyBroadcastDecider {
 	private final Predicate<String> isServerValid;
 	private final Predicate<String> isBlockedServer;
 
+	/**
+	 * Constructor for ProxyBroadcastDecider.
+	 * @param config configuration supplier
+	 * @param allServers all servers supplier
+	 * @param isServerValid server validation predicate
+	 * @param isBlockedServer blocked server predicate
+	 */
 	public ProxyBroadcastDecider(Supplier<VotingPluginProxyConfig> config,
 			Supplier<Set<String>> allServers,
 			Predicate<String> isServerValid,
@@ -40,6 +47,7 @@ public final class ProxyBroadcastDecider {
 	 *
 	 * @param playerOnline whether the voting player is currently online
 	 * @param currentPlayerServer the server the player is on (only used when playerOnline=true)
+	 * @return set of target servers
 	 */
 	public Set<String> resolveTargets(boolean playerOnline, String currentPlayerServer) {
 		VotingPluginProxyConfig cfg = config.get();
@@ -89,6 +97,9 @@ public final class ProxyBroadcastDecider {
 
 	/**
 	 * Convenience check for "should this specific server broadcast?"
+	 * @param server the server name
+	 * @param targets the target servers
+	 * @return true if should broadcast
 	 */
 	public boolean shouldBroadcast(String server, Set<String> targets) {
 		return targets != null && server != null && targets.contains(server);

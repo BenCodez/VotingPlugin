@@ -86,6 +86,12 @@ public abstract class ProxyNonVotedPlayersTable {
 		return tableName;
 	}
 
+	/**
+	 * Upsert player record.
+	 * @param uuid the player UUID
+	 * @param playerName the player name
+	 * @param lastTime the last time
+	 */
 	public void upsertPlayer(String uuid, String playerName, long lastTime) {
 		String sql = "INSERT INTO `" + tableName + "` (uuid, playerName, lastTime) " + "VALUES (?, ?, ?) "
 				+ "ON DUPLICATE KEY UPDATE uuid = VALUES(uuid), lastTime = VALUES(lastTime);";
@@ -100,6 +106,11 @@ public abstract class ProxyNonVotedPlayersTable {
 		}
 	}
 
+	/**
+	 * Get UUID by player name.
+	 * @param playerName the player name
+	 * @return the UUID or empty string
+	 */
 	public String getUuidByPlayerName(String playerName) {
 		String sql = "SELECT uuid FROM `" + tableName + "` WHERE playerName = ?;";
 		try (Connection conn = mysql.getConnectionManager().getConnection();
@@ -117,6 +128,10 @@ public abstract class ProxyNonVotedPlayersTable {
 		return "";
 	}
 
+	/**
+	 * Remove player by name.
+	 * @param playerName the player name
+	 */
 	public void removeByPlayerName(String playerName) {
 		String sql = "DELETE FROM `" + tableName + "` WHERE playerName = ?;";
 		try (Connection conn = mysql.getConnectionManager().getConnection();

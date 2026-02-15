@@ -5,6 +5,9 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
+/**
+ * Represents an offline bungee vote.
+ */
 public class OfflineBungeeVote {
 
 	@Getter
@@ -23,6 +26,16 @@ public class OfflineBungeeVote {
 	@Getter
 	private UUID voteId;
 
+	/**
+	 * Constructor with UUID voteId.
+	 * @param voteId the vote ID
+	 * @param playerName the player name
+	 * @param uuid the player UUID
+	 * @param service the vote service
+	 * @param time the vote time
+	 * @param realVote whether this is a real vote
+	 * @param text additional text
+	 */
 	public OfflineBungeeVote(UUID voteId, String playerName, String uuid, String service, long time, boolean realVote,
 			String text) {
 		this.playerName = playerName;
@@ -34,6 +47,16 @@ public class OfflineBungeeVote {
 		this.voteId = voteId;
 	}
 	
+	/**
+	 * Constructor with String voteId.
+	 * @param voteId the vote ID as string
+	 * @param playerName the player name
+	 * @param uuid the player UUID
+	 * @param service the vote service
+	 * @param time the vote time
+	 * @param realVote whether this is a real vote
+	 * @param text additional text
+	 */
 	public OfflineBungeeVote(String voteId, String playerName, String uuid, String service, long time, boolean realVote,
 			String text) {
 		this.playerName = playerName;

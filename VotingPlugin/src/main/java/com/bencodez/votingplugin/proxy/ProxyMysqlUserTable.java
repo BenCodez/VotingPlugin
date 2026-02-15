@@ -22,6 +22,9 @@ import com.bencodez.simpleapi.sql.mysql.MySQL;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.simpleapi.sql.mysql.queries.Query;
 
+/**
+ * Proxy MySQL user table for managing voting plugin user data.
+ */
 public abstract class ProxyMysqlUserTable extends AbstractSqlTable {
 
 	// Keep this so existing callers relying on getName() still work
@@ -69,10 +72,20 @@ public abstract class ProxyMysqlUserTable extends AbstractSqlTable {
 
 	// Keep these existing abstract methods for compatibility with your old
 	// subclasses
+	/**
+	 * Debug log for SQL exceptions.
+	 * @param e the SQL exception
+	 */
 	public abstract void debug(SQLException e);
 
 	// ---- Constructors ----
 
+	/**
+	 * Constructor with new MySQL connection.
+	 * @param tableName the table name
+	 * @param config the MySQL configuration
+	 * @param debug enable debug mode
+	 */
 	public ProxyMysqlUserTable(String tableName, MysqlConfig config, boolean debug) {
 		super(tableName, config, debug);
 
@@ -90,6 +103,9 @@ public abstract class ProxyMysqlUserTable extends AbstractSqlTable {
 
 	/**
 	 * Use an already-connected pool (shared).
+	 * @param tableName the table name
+	 * @param existingMysql existing MySQL connection
+	 * @param debug enable debug mode
 	 */
 	public ProxyMysqlUserTable(String tableName, MySQL existingMysql, boolean debug) {
 		super(tableName, existingMysql, debug);
@@ -102,12 +118,17 @@ public abstract class ProxyMysqlUserTable extends AbstractSqlTable {
 
 	// ---- Backwards-compatible API ----
 
+	/**
+	 * Get table name.
+	 * @return the table name
+	 */
 	public String getName() {
 		return name;
 	}
 
 	/**
 	 * Keep old method name and behavior.
+	 * @return set of UUIDs
 	 */
 	public Set<String> getUuids() {
 		return getPrimaryKeys();
@@ -115,24 +136,37 @@ public abstract class ProxyMysqlUserTable extends AbstractSqlTable {
 
 	/**
 	 * Keep old behavior: query uuids fresh.
+	 * @return list of UUIDs from database
 	 */
 	public ArrayList<String> getUuidsQuery() {
 		return new ArrayList<>(getPrimaryKeysQuery());
 	}
 
+	/**
+	 * Load data from database.
+	 */
 	public void loadData() {
 		// old name -> new behavior
 		loadBasicCaches();
 	}
 
+	/**
+	 * Clear cache.
+	 */
 	public void clearCache() {
 		clearCacheBasic();
 	}
 
+	/**
+	 * Clear basic cache.
+	 */
 	public void clearCacheBasic() {
 		clearCaches();
 	}
 
+	/**
+	 * Shutdown and close connections.
+	 */
 	public void shutdown() {
 		close();
 	}
@@ -144,10 +178,18 @@ public abstract class ProxyMysqlUserTable extends AbstractSqlTable {
 
 	// ---- Required old utility methods (kept) ----
 
+	/**
+	 * Get columns from query.
+	 * @return list of column names
+	 */
 	public ArrayList<String> getColumnsQueury() {
 		return new ArrayList<>(getColumnsQuery());
 	}
 
+	/**
+	 * Get rows with player names from query.
+	 * @return list of columns with player names
+	 */
 	public ArrayList<Column> getRowsNameQuery() {
 		ArrayList<Column> result = new ArrayList<>();
 		checkColumn("PlayerName", DataType.STRING);
@@ -166,6 +208,10 @@ public abstract class ProxyMysqlUserTable extends AbstractSqlTable {
 		return result;
 	}
 
+	/**
+	 * Get player names from query.
+	 * @return list of player names
+	 */
 	public ArrayList<String> getNamesQuery() {
 		ArrayList<String> names = new ArrayList<>();
 		checkColumn("PlayerName", DataType.STRING);
@@ -184,6 +230,10 @@ public abstract class ProxyMysqlUserTable extends AbstractSqlTable {
 		return names;
 	}
 
+	/**
+	 * Get all rows from query.
+	 * @return list of columns with UUID data
+	 */
 	public ArrayList<Column> getRowsQuery() {
 		ArrayList<Column> result = new ArrayList<>();
 		String sqlStr = "SELECT " + qi("uuid") + " FROM " + qi(getTableName()) + ";";
@@ -202,6 +252,10 @@ public abstract class ProxyMysqlUserTable extends AbstractSqlTable {
 		return result;
 	}
 
+	/**
+	 * Get UUID to name mapping from query.
+	 * @return map of UUID to player name
+	 */
 	public ConcurrentHashMap<UUID, String> getRowsUUIDNameQuery() {
 		ConcurrentHashMap<UUID, String> uuidNames = new ConcurrentHashMap<>();
 
@@ -230,6 +284,11 @@ public abstract class ProxyMysqlUserTable extends AbstractSqlTable {
 		return uuidNames;
 	}
 
+	/**
+	 * Get UUID by player name.
+	 * @param playerName the player name
+	 * @return the UUID or null if not found
+	 */
 	public String getUUID(String playerName) {
 		checkColumn("PlayerName", DataType.STRING);
 
@@ -255,6 +314,11 @@ public abstract class ProxyMysqlUserTable extends AbstractSqlTable {
 		return null;
 	}
 
+	/**
+	 * Get exact match query.
+	 * @param column the column to match
+	 * @return list of matching columns
+	 */
 	public ArrayList<Column> getExactQuery(Column column) {
 		ArrayList<Column> result = new ArrayList<>();
 
@@ -298,16 +362,32 @@ public abstract class ProxyMysqlUserTable extends AbstractSqlTable {
 		return result;
 	}
 
+	/**
+	 * Check if column is integer type.
+	 * @param key the column name
+	 * @return true if integer column
+	 */
 	public boolean isIntColumn(String key) {
 		return intColumns.contains(key);
 	}
 
 	// ---- INSERT/UPDATE/WIPE (kept similar to your existing behavior) ----
 
+	/**
+	 * Insert a value.
+	 * @param index the UUID
+	 * @param column the column name
+	 * @param value the value to insert
+	 */
 	public void insert(String index, String column, DataValue value) {
 		insertQuery(index, Arrays.asList(new Column(column, value)));
 	}
 
+	/**
+	 * Insert multiple columns.
+	 * @param index the UUID
+	 * @param cols the columns to insert
+	 */
 	public void insertQuery(String index, List<Column> cols) {
 		for (Column c : cols) {
 			checkColumn(c.getName(), c.getDataType());
@@ -380,6 +460,11 @@ public abstract class ProxyMysqlUserTable extends AbstractSqlTable {
 		}
 	}
 
+	/**
+	 * Update multiple columns.
+	 * @param index the UUID
+	 * @param cols the columns to update
+	 */
 	public void update(String index, List<Column> cols) {
 		for (Column col : cols) {
 			checkColumn(col.getName(), col.getDataType());
@@ -439,6 +524,12 @@ public abstract class ProxyMysqlUserTable extends AbstractSqlTable {
 		ps.setString(index, v == null ? null : v.toString());
 	}
 
+	/**
+	 * Update a single column value.
+	 * @param index the UUID
+	 * @param column the column name
+	 * @param value the value to update
+	 */
 	public void update(String index, String column, DataValue value) {
 		checkColumn(column, value.getType());
 
@@ -471,6 +562,11 @@ public abstract class ProxyMysqlUserTable extends AbstractSqlTable {
 		}
 	}
 
+	/**
+	 * Wipe all data from a column.
+	 * @param columnName the column name
+	 * @param dataType the data type
+	 */
 	public void wipeColumnData(String columnName, DataType dataType) {
 		checkColumn(columnName, dataType);
 

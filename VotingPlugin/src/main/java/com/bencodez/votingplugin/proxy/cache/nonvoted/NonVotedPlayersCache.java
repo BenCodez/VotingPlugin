@@ -6,6 +6,9 @@ import java.util.concurrent.TimeUnit;
 import com.bencodez.simpleapi.sql.mysql.MySQL;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 
+/**
+ * Cache for players who haven't voted yet.
+ */
 public abstract class NonVotedPlayersCache {
 
 	private INonVotedPlayersStorage storage;
@@ -13,6 +16,15 @@ public abstract class NonVotedPlayersCache {
 	// 5 days in millis (same as your current logic)
 	private static final long MAX_AGE_MILLIS = TimeUnit.DAYS.toMillis(5);
 
+	/**
+	 * Constructor for NonVotedPlayersCache.
+	 * @param mysqlConfig MySQL configuration
+	 * @param useMysql whether to use MySQL
+	 * @param useExistingConnection whether to use existing connection
+	 * @param mysql existing MySQL connection
+	 * @param storage storage implementation
+	 * @param debug enable debug mode
+	 */
 	public NonVotedPlayersCache(MysqlConfig mysqlConfig, boolean useMysql, boolean useExistingConnection, MySQL mysql,
 			INonVotedPlayersStorage storage, boolean debug) {
 		if (useMysql) {
@@ -61,10 +73,17 @@ public abstract class NonVotedPlayersCache {
 		}
 	}
 
+	/**
+	 * Check if user exists.
+	 * @param uuid the player UUID
+	 * @return true if user exists
+	 */
 	public abstract boolean userExists(String uuid);
 
 	/**
 	 * Add a player directly by uuid + name, only if they don't already have votes.
+	 * @param uuid the player UUID
+	 * @param playerName the player name
 	 */
 	public void addPlayer(String uuid, String playerName) {
 		if (uuid == null || uuid.isEmpty()) {
@@ -76,6 +95,10 @@ public abstract class NonVotedPlayersCache {
 		}
 	}
 
+	/**
+	 * Get all UUIDs in cache.
+	 * @return set of UUIDs
+	 */
 	public abstract Set<String> getAllUUIDs();
 
 	/**
@@ -113,20 +136,41 @@ public abstract class NonVotedPlayersCache {
 	/**
 	 * Returns the UUID for a cached non-voted player, or empty string if not
 	 * present.
+	 * @param playerName the player name
+	 * @return the UUID or empty string
 	 */
 	public String getUUID(String playerName) {
 		return storage.getUuidByPlayerName(playerName);
 	}
 
+	/**
+	 * Close storage connections.
+	 */
 	public void close() {
 		storage.close();
 	}
 
+	/**
+	 * Log info message.
+	 * @param msg the message
+	 */
 	public abstract void logInfo1(String msg);
 
+	/**
+	 * Log severe message.
+	 * @param msg the message
+	 */
 	public abstract void logSevere1(String msg);
 
+	/**
+	 * Debug log exception.
+	 * @param e the exception
+	 */
 	public abstract void debug1(Exception e);
 
+	/**
+	 * Debug log message.
+	 * @param msg the message
+	 */
 	public abstract void debug1(String msg);
 }

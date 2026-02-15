@@ -57,11 +57,18 @@ public class PlaceHolders {
 	@Getter
 	private PlaceholderCacheLevel cacheLevel;
 
+	/**
+	 * Constructor for PlaceHolders.
+	 * @param plugin the voting plugin instance
+	 */
 	public PlaceHolders(VotingPluginMain plugin) {
 		this.plugin = plugin;
 		cacheLevel = plugin.getConfigFile().getPlaceholderCacheLevel();
 	}
 
+	/**
+	 * Check for placeholders that need caching.
+	 */
 	public void checkNonCachedPlaceholders() {
 		while (!placeholdersToSetCacheOn.isEmpty()) {
 			String toCache = placeholdersToSetCacheOn.poll().toLowerCase();
@@ -89,10 +96,23 @@ public class PlaceHolders {
 		}
 	}
 
+	/**
+	 * Get placeholder value for offline player.
+	 * @param p the offline player
+	 * @param identifier the placeholder identifier
+	 * @return the placeholder value
+	 */
 	public String getPlaceHolder(OfflinePlayer p, String identifier) {
 		return getPlaceHolder(p, identifier, true);
 	}
 
+	/**
+	 * Get placeholder value for offline player with javascript support.
+	 * @param p the offline player
+	 * @param identifier1 the placeholder identifier
+	 * @param javascript enable javascript processing
+	 * @return the placeholder value
+	 */
 	public String getPlaceHolder(OfflinePlayer p, String identifier1, boolean javascript) {
 		boolean forceProcess = false;
 		boolean useCache = true;
@@ -128,6 +148,12 @@ public class PlaceHolders {
 
 	}
 
+	/**
+	 * Get placeholder value for online player.
+	 * @param p the player
+	 * @param identifier the placeholder identifier
+	 * @return the placeholder value
+	 */
 	public String getPlaceHolder(Player p, String identifier) {
 		if (plugin.getConfigFile().isUseJavascriptPlaceholders()) {
 			identifier = PlaceholderUtils.replaceJavascript(p, identifier);
@@ -135,6 +161,15 @@ public class PlaceHolders {
 		return getPlaceHolder(p, identifier, false);
 	}
 
+	/**
+	 * Get placeholder value with options.
+	 * @param p the offline player
+	 * @param identifier the placeholder identifier
+	 * @param javascript enable javascript processing
+	 * @param forceProcess force processing of placeholder
+	 * @param useCache use cached value if available
+	 * @return the placeholder value
+	 */
 	public String getPlaceholderValue(OfflinePlayer p, String identifier, boolean javascript, boolean forceProcess,
 			boolean useCache) {
 		if (plugin.getConfigFile().isUseJavascriptPlaceholders() && javascript && p != null) {
@@ -264,6 +299,9 @@ public class PlaceHolders {
 		return "Not a valid placeholder";
 	}
 
+	/**
+	 * Load all placeholders.
+	 */
 	public void load() {
 		placeholders.clear();
 		nonPlayerPlaceholders.clear();
@@ -1168,6 +1206,9 @@ public class PlaceHolders {
 		});
 	}
 
+	/**
+	 * Handle bungee vote party update.
+	 */
 	public void onBungeeVotePartyUpdate() {
 		/*
 		 * for (NonPlayerPlaceHolder<VotingPluginUser> placeholder :
@@ -1178,6 +1219,10 @@ public class PlaceHolders {
 		 */
 	}
 
+	/**
+	 * Handle player logout.
+	 * @param user the voting plugin user
+	 */
 	public void onLogout(VotingPluginUser user) {
 		if (plugin.getPlaceholders().getCacheLevel().onlineOnly()) {
 			for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
@@ -1188,6 +1233,9 @@ public class PlaceHolders {
 		}
 	}
 
+	/**
+	 * Update all placeholders.
+	 */
 	public void onUpdate() {
 		checkNonCachedPlaceholders();
 		for (Player p : Bukkit.getOnlinePlayers()) {
@@ -1204,6 +1252,11 @@ public class PlaceHolders {
 
 	}
 
+	/**
+	 * Update placeholders for specific user.
+	 * @param user the voting plugin user
+	 * @param login whether this is a login update
+	 */
 	public void onUpdate(VotingPluginUser user, boolean login) {
 		for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
 			if (placeholder.isUsesCache()) {
@@ -1233,6 +1286,9 @@ public class PlaceHolders {
 		}
 	}
 
+	/**
+	 * Handle vote party update.
+	 */
 	public void onVotePartyUpdate() {
 		/*
 		 * for (NonPlayerPlaceHolder<VotingPluginUser> placeholder :
@@ -1243,6 +1299,9 @@ public class PlaceHolders {
 		 */
 	}
 
+	/**
+	 * Reload placeholders.
+	 */
 	public void reload() {
 		cacheLevel = plugin.getConfigFile().getPlaceholderCacheLevel();
 		onUpdate();
@@ -1253,6 +1312,10 @@ public class PlaceHolders {
 		}
 	}
 
+	/**
+	 * Schedule placeholder check for user.
+	 * @param user the voting plugin user
+	 */
 	public void schedulePlaceholderCheck(VotingPluginUser user) {
 		plugin.getTimer().execute(new Runnable() {
 
