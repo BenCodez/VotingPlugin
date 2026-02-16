@@ -13,24 +13,50 @@ import com.bencodez.simpleapi.sql.mysql.queries.Query;
 
 import lombok.Getter;
 
+/**
+ * Table for tracking non-voted players in the proxy cache.
+ */
 public abstract class ProxyNonVotedPlayersTable {
 
 	@Getter
 	private final MySQL mysql;
 	private final String tableName;
 
+	/**
+	 * Logs a severe message.
+	 * @param msg the message to log
+	 */
 	public abstract void logSevere(String msg);
 
+	/**
+	 * Logs an info message.
+	 * @param msg the message to log
+	 */
 	public abstract void logInfo(String msg);
 
+	/**
+	 * Logs debug information for an exception.
+	 * @param e the exception to debug
+	 */
 	public abstract void debug(Exception e);
 
+	/**
+	 * Constructor using an existing MySQL connection.
+	 * @param existingMysql the existing MySQL instance
+	 * @param tablePrefix the table prefix
+	 * @param debug whether debug mode is enabled
+	 */
 	public ProxyNonVotedPlayersTable(MySQL existingMysql, String tablePrefix, boolean debug) {
 		this.mysql = existingMysql;
 		this.tableName = (tablePrefix != null ? tablePrefix : "") + "votingplugin_nonvotedplayers";
 		createTableIfNeeded();
 	}
 
+	/**
+	 * Constructor using a MySQL configuration.
+	 * @param config the MySQL configuration
+	 * @param debug whether debug mode is enabled
+	 */
 	public ProxyNonVotedPlayersTable(MysqlConfig config, boolean debug) {
 		String prefix = config.getTablePrefix() != null ? config.getTablePrefix() : "";
 		this.tableName = prefix + "votingplugin_nonvotedplayers";
@@ -82,6 +108,10 @@ public abstract class ProxyNonVotedPlayersTable {
 		}
 	}
 
+	/**
+	 * Gets the table name.
+	 * @return the table name
+	 */
 	public String getTableName() {
 		return tableName;
 	}
@@ -143,6 +173,10 @@ public abstract class ProxyNonVotedPlayersTable {
 		}
 	}
 
+	/**
+	 * Gets all rows from the table.
+	 * @return list of all non-voted player rows
+	 */
 	public List<NonVotedPlayerRow> getAllRows() {
 		List<NonVotedPlayerRow> list = new ArrayList<>();
 		String sql = "SELECT id, uuid, playerName, lastTime FROM `" + tableName + "`;";
@@ -159,6 +193,9 @@ public abstract class ProxyNonVotedPlayersTable {
 		return list;
 	}
 
+	/**
+	 * Clears all rows from the table.
+	 */
 	public void clearAll() {
 		try {
 			new Query(mysql, "TRUNCATE TABLE `" + tableName + "`;").executeUpdate();
@@ -167,12 +204,22 @@ public abstract class ProxyNonVotedPlayersTable {
 		}
 	}
 
+	/**
+	 * Represents a row in the non-voted players table.
+	 */
 	public static class NonVotedPlayerRow {
 		private final int id;
 		private final String uuid;
 		private final String playerName;
 		private final long lastTime;
 
+		/**
+		 * Constructor for NonVotedPlayerRow.
+		 * @param id the row ID
+		 * @param uuid the player UUID
+		 * @param playerName the player name
+		 * @param lastTime the last time
+		 */
 		public NonVotedPlayerRow(int id, String uuid, String playerName, long lastTime) {
 			this.id = id;
 			this.uuid = uuid;
@@ -180,18 +227,34 @@ public abstract class ProxyNonVotedPlayersTable {
 			this.lastTime = lastTime;
 		}
 
+		/**
+		 * Gets the row ID.
+		 * @return the ID
+		 */
 		public int getId() {
 			return id;
 		}
 
+		/**
+		 * Gets the player UUID.
+		 * @return the UUID
+		 */
 		public String getUuid() {
 			return uuid;
 		}
 
+		/**
+		 * Gets the player name.
+		 * @return the player name
+		 */
 		public String getPlayerName() {
 			return playerName;
 		}
 
+		/**
+		 * Gets the last time.
+		 * @return the last time
+		 */
 		public long getLastTime() {
 			return lastTime;
 		}

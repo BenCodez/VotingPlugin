@@ -13,6 +13,9 @@ import com.bencodez.simpleapi.sql.mysql.MySQL;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.simpleapi.sql.mysql.queries.Query;
 
+/**
+ * Table for caching timed votes in the proxy.
+ */
 public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 
 	@Override
@@ -49,6 +52,12 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 	@Override
 	public abstract void debug(Throwable t);
 
+	/**
+	 * Constructor using an existing MySQL connection.
+	 * @param existingMysql the existing MySQL instance
+	 * @param tablePrefix the table prefix
+	 * @param debug whether debug mode is enabled
+	 */
 	public ProxyTimedVoteCacheTable(MySQL existingMysql, String tablePrefix, boolean debug) {
 		super((tablePrefix != null ? tablePrefix : "") + "votingplugin_timedvotecache",
 				existingMysql,
@@ -56,6 +65,11 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 		ensureIndexes();
 	}
 
+	/**
+	 * Constructor using a MySQL configuration.
+	 * @param config the MySQL configuration
+	 * @param debug whether debug mode is enabled
+	 */
 	public ProxyTimedVoteCacheTable(MysqlConfig config, boolean debug) {
 		super("votingplugin_timedvotecache", config, debug);
 		ensureIndexes();
@@ -73,6 +87,12 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 	}
 
 	// --- INSERT ---
+	/**
+	 * Inserts a timed vote.
+	 * @param playerName the player name
+	 * @param service the voting service
+	 * @param time the vote time
+	 */
 	public void insertTimedVote(String playerName, String service, long time) {
 		String sql = "INSERT INTO " + qi(getTableName()) + " (" + qi("playerName") + ", " + qi("service") + ", "
 				+ qi("time") + ") VALUES (?, ?, ?);";
@@ -88,16 +108,29 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 	}
 
 	// --- GET ---
+	/**
+	 * Gets all timed votes.
+	 * @return list of all timed vote rows
+	 */
 	public List<TimedVoteRow> getAllVotes() {
 		return selectVotes("SELECT * FROM " + qi(getTableName()) + ";", null);
 	}
 
+	/**
+	 * Gets expired votes before a given time.
+	 * @param now the current time in milliseconds
+	 * @return list of expired vote rows
+	 */
 	public List<TimedVoteRow> getExpiredVotes(long now) {
 		return selectVotes("SELECT * FROM " + qi(getTableName()) + " WHERE " + qi("time") + " <= ?;",
 				new Object[] { now });
 	}
 
 	// --- DELETE ---
+	/**
+	 * Removes a vote by its ID.
+	 * @param id the vote ID
+	 */
 	public void removeVoteById(int id) {
 		String sql = "DELETE FROM " + qi(getTableName()) + " WHERE " + qi("id") + " = ?;";
 		try (Connection conn = mysql.getConnectionManager().getConnection();
@@ -109,6 +142,10 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 		}
 	}
 
+	/**
+	 * Removes expired votes before a given time.
+	 * @param now the current time in milliseconds
+	 */
 	public void removeExpiredVotes(long now) {
 		String sql = "DELETE FROM " + qi(getTableName()) + " WHERE " + qi("time") + " <= ?;";
 		try (Connection conn = mysql.getConnectionManager().getConnection();
@@ -120,6 +157,9 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 		}
 	}
 
+	/**
+	 * Clears all votes from the table.
+	 */
 	public void clearTable() {
 		try {
 			if (getDbType() == DbType.POSTGRESQL) {
@@ -159,12 +199,22 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 		return list;
 	}
 
+	/**
+	 * Represents a row in the timed vote cache table.
+	 */
 	public static class TimedVoteRow {
 		private final int id;
 		private final String playerName;
 		private final String service;
 		private final long time;
 
+		/**
+		 * Constructor for TimedVoteRow.
+		 * @param id the row ID
+		 * @param playerName the player name
+		 * @param service the voting service
+		 * @param time the vote time
+		 */
 		public TimedVoteRow(int id, String playerName, String service, long time) {
 			this.id = id;
 			this.playerName = playerName;
@@ -172,18 +222,34 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 			this.time = time;
 		}
 
+		/**
+		 * Gets the row ID.
+		 * @return the ID
+		 */
 		public int getId() {
 			return id;
 		}
 
+		/**
+		 * Gets the player name.
+		 * @return the player name
+		 */
 		public String getPlayerName() {
 			return playerName;
 		}
 
+		/**
+		 * Gets the voting service.
+		 * @return the service name
+		 */
 		public String getService() {
 			return service;
 		}
 
+		/**
+		 * Gets the vote time.
+		 * @return the time in milliseconds
+		 */
 		public long getTime() {
 			return time;
 		}
