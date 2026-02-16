@@ -62,14 +62,29 @@ public class VoteMilestoneRewardEvent extends Event {
 		}
 	}
 
+	/**
+	 * Gets the voting plugin user associated with this event.
+	 *
+	 * @return the voting plugin user
+	 */
 	public VotingPluginUser getUser() {
 		return user;
 	}
 
+	/**
+	 * Gets the player UUID.
+	 *
+	 * @return the player UUID
+	 */
 	public UUID getUuid() {
 		return uuid;
 	}
 
+	/**
+	 * Gets the player name.
+	 *
+	 * @return the player name
+	 */
 	public String getPlayerName() {
 		return playerName;
 	}
@@ -92,6 +107,11 @@ public class VoteMilestoneRewardEvent extends Event {
 		return milestone == null ? null : milestone.getId();
 	}
 
+	/**
+	 * Gets the value that triggered the milestone.
+	 *
+	 * @return the milestone value
+	 */
 	public long getValue() {
 		return value;
 	}
@@ -105,10 +125,20 @@ public class VoteMilestoneRewardEvent extends Event {
 		return groupId;
 	}
 
+	/**
+	 * Gets the configuration path for the rewards.
+	 *
+	 * @return the reward path
+	 */
 	public String getRewardPath() {
 		return rewardPath;
 	}
 
+	/**
+	 * Gets the placeholders map for this milestone reward.
+	 *
+	 * @return map of placeholder names to values
+	 */
 	public Map<String, String> getPlaceholders() {
 		return placeholders;
 	}
