@@ -36,10 +36,20 @@ public class VoteParty implements Listener {
 
 	private VotingPluginMain plugin;
 
+	/**
+	 * Constructs a new VoteParty.
+	 *
+	 * @param plugin the main plugin instance
+	 */
 	public VoteParty(VotingPluginMain plugin) {
 		this.plugin = plugin;
 	}
 
+	/**
+	 * Adds a vote total for the user.
+	 *
+	 * @param user the voting plugin user
+	 */
 	public void addTotal(VotingPluginUser user) {
 		setTotalVotes(getTotalVotes() + 1);
 		user.setVotePartyVotes(user.getVotePartyVotes() + 1);
@@ -63,6 +73,12 @@ public class VoteParty implements Listener {
 		}
 	}
 
+	/**
+	 * Checks if vote party requirements are met and triggers if appropriate.
+	 *
+	 * @param user the voting plugin user
+	 * @param forceBungee whether to force Bungee processing
+	 */
 	public void check(VotingPluginUser user, boolean forceBungee) {
 		if (getTotalVotes() < getVotesRequired()) {
 			plugin.extraDebug("Not enough votes for vote party: " + getTotalVotes() + " / " + getVotesRequired());
@@ -104,6 +120,11 @@ public class VoteParty implements Listener {
 
 	}
 
+	/**
+	 * Checks and sends vote reminders if requirements are met.
+	 *
+	 * @param user the voting plugin user
+	 */
 	public void checkVoteReminder(VotingPluginUser user) {
 		if (!user.isVanished()) {
 			int neededVotes = getNeededVotes();
@@ -162,6 +183,11 @@ public class VoteParty implements Listener {
 		return neededVotes;
 	}
 
+	/**
+	 * Gets a random player name from voted users.
+	 *
+	 * @return random player name or "No Player" if none available
+	 */
 	public String getRandomPlayerName() {
 		ArrayList<String> allPlayers = new ArrayList<>();
 		for (Player players : Bukkit.getOnlinePlayers()) {
@@ -196,6 +222,11 @@ public class VoteParty implements Listener {
 		return new ArrayList<>();
 	}
 
+	/**
+	 * Gets the number of votes required for the vote party.
+	 *
+	 * @return votes required including extra requirements
+	 */
 	public int getVotesRequired() {
 		int required = plugin.getSpecialRewardsConfig().getVotePartyVotesRequired();
 		int extra = plugin.getServerData().getVotePartyExtraRequired();
@@ -205,6 +236,12 @@ public class VoteParty implements Listener {
 		return required;
 	}
 
+	/**
+	 * Gives vote party reward to a user.
+	 *
+	 * @param user the voting plugin user
+	 * @param useBungee whether to use Bungee processing
+	 */
 	public void giveReward(VotingPluginUser user, boolean useBungee) {
 		if (plugin.getSpecialRewardsConfig().getVotePartyUserVotesRequired() > 0) {
 			if (user.getVotePartyVotes() < plugin.getSpecialRewardsConfig().getVotePartyUserVotesRequired()) {
@@ -214,6 +251,13 @@ public class VoteParty implements Listener {
 		giveReward(user, user.isOnline(), useBungee);
 	}
 
+	/**
+	 * Gives vote party reward to a user with online status.
+	 *
+	 * @param user the voting plugin user
+	 * @param online whether the user is online
+	 * @param useBungee whether to use Bungee processing
+	 */
 	public void giveReward(VotingPluginUser user, boolean online, boolean useBungee) {
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getVotePartyRewardsPath()).setOnline(online)
@@ -222,6 +266,12 @@ public class VoteParty implements Listener {
 				.setServer(useBungee).send(user);
 	}
 
+	/**
+	 * Gives rewards to all eligible players for the vote party.
+	 *
+	 * @param orgUser the original voting user who triggered the party
+	 * @param forceBungee whether to force Bungee processing
+	 */
 	public void giveRewards(VotingPluginUser orgUser, boolean forceBungee) {
 		MiscUtils.getInstance().broadcast(plugin.getSpecialRewardsConfig().getVotePartyBroadcast());
 
@@ -307,6 +357,11 @@ public class VoteParty implements Listener {
 		reset(false);
 	}
 
+	/**
+	 * Handles day change events to reset vote party if configured.
+	 *
+	 * @param event the day change event
+	 */
 	@EventHandler
 	public void onDayChange(DayChangeEvent event) {
 		if (plugin.getSpecialRewardsConfig().isVotePartyResetEachDay()) {
@@ -314,6 +369,11 @@ public class VoteParty implements Listener {
 		}
 	}
 
+	/**
+	 * Handles month change events to reset vote party if configured.
+	 *
+	 * @param event the month change event
+	 */
 	@EventHandler
 	public void onMonthChange(MonthChangeEvent event) {
 		if (plugin.getSpecialRewardsConfig().isVotePartyResetMonthly()) {
@@ -325,6 +385,11 @@ public class VoteParty implements Listener {
 		}
 	}
 
+	/**
+	 * Handles week change events to reset vote party if configured.
+	 *
+	 * @param event the week change event
+	 */
 	@EventHandler
 	public void onWeekChange(WeekChangeEvent event) {
 		if (plugin.getSpecialRewardsConfig().isVotePartyResetWeekly()) {
@@ -336,10 +401,18 @@ public class VoteParty implements Listener {
 		}
 	}
 
+	/**
+	 * Registers this class as an event listener.
+	 */
 	public void register() {
 		plugin.getServer().getPluginManager().registerEvents(this, plugin);
 	}
 
+	/**
+	 * Resets the vote party state.
+	 *
+	 * @param override whether to override total votes to zero
+	 */
 	public void reset(boolean override) {
 		if (override) {
 			setTotalVotes(0);
@@ -349,6 +422,9 @@ public class VoteParty implements Listener {
 
 	}
 
+	/**
+	 * Resets the vote party count for all users.
+	 */
 	public void resetVotePartyCount() {
 		plugin.getUserManager().removeAllKeyValues("VotePartyVotes", DataType.INTEGER);
 	}
@@ -373,6 +449,13 @@ public class VoteParty implements Listener {
 		plugin.getServerData().saveData();
 	}
 
+	/**
+	 * Processes a vote for the vote party system.
+	 *
+	 * @param user the voting plugin user
+	 * @param realVote whether this is a real vote
+	 * @param forceBungee whether to force Bungee processing
+	 */
 	public synchronized void vote(VotingPluginUser user, boolean realVote, boolean forceBungee) {
 		if (plugin.getSpecialRewardsConfig().isVotePartyEnabled()) {
 			if (plugin.getSpecialRewardsConfig().isVotePartyCountFakeVotes() || realVote) {
