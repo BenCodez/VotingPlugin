@@ -29,6 +29,9 @@ public class MVdWPlaceholders {
 		this.plugin = plugin;
 	}
 
+	/**
+	 * Loads MVdW placeholders if the MVdWPlaceholderAPI plugin is enabled.
+	 */
 	public void loadMVdWPlaceholders() {
 		if (Bukkit.getPluginManager().isPluginEnabled("MVdWPlaceholderAPI")) {
 			// The plugin is enabled

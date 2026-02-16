@@ -81,6 +81,20 @@ public class PlayerPostVoteEvent extends Event {
 	@Setter
 	private UUID voteUUID;
 
+	/**
+	 * Constructs a new PlayerPostVoteEvent.
+	 *
+	 * @param voteSite the vote site
+	 * @param user the voting plugin user
+	 * @param realVote whether this is a real vote
+	 * @param forceBungee whether to force Bungee processing
+	 * @param voteTime the vote timestamp
+	 * @param cached whether the vote was cached
+	 * @param service the service name
+	 * @param uuid the player UUID
+	 * @param playerName the player name
+	 * @param voteUUID the vote UUID
+	 */
 	public PlayerPostVoteEvent(VoteSite voteSite, VotingPluginUser user, boolean realVote, boolean forceBungee,
 			long voteTime, boolean cached, String service, UUID uuid, String playerName, UUID voteUUID) {
 		super(true);

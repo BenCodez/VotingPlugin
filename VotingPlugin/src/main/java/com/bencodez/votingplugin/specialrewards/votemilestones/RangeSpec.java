@@ -10,16 +10,32 @@ import java.util.List;
  */
 public final class RangeSpec {
 
+	/** The start value of the range. */
 	public final long start;
+	/** The end value of the range. */
 	public final long end;
+	/** The step increment for the range. */
 	public final long step;
 
+	/**
+	 * Constructs a new RangeSpec.
+	 *
+	 * @param start the start value
+	 * @param end the end value
+	 * @param step the step increment
+	 */
 	public RangeSpec(long start, long end, long step) {
 		this.start = start;
 		this.end = end;
 		this.step = step;
 	}
 
+	/**
+	 * Attempts to parse a range specification string.
+	 *
+	 * @param s the string to parse
+	 * @return the parsed RangeSpec or null if parsing fails
+	 */
 	public static RangeSpec tryParse(String s) {
 		// Normalize whitespace
 		String str = s.trim().replaceAll("\\s+", " ");
@@ -74,6 +90,11 @@ public final class RangeSpec {
 		return new RangeSpec(start, end, step);
 	}
 
+	/**
+	 * Expands the range into a list of discrete values.
+	 *
+	 * @return the list of values in the range
+	 */
 	public List<Long> expand() {
 		List<Long> out = new ArrayList<>();
 		// Safety: avoid accidental huge expansions

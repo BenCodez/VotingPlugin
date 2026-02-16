@@ -26,10 +26,20 @@ public class ServerData {
 
 	private VotingPluginMain plugin = VotingPluginMain.plugin;
 
+	/**
+	 * Constructs a new ServerData.
+	 *
+	 * @param plugin the main plugin instance
+	 */
 	public ServerData(VotingPluginMain plugin) {
 		this.plugin = plugin;
 	}
 
+	/**
+	 * Adds an auto-cached placeholder.
+	 *
+	 * @param placeholder the placeholder to add
+	 */
 	public void addAutoCachedPlaceholder(String placeholder) {
 		List<String> p = getAutoCachedPlaceholder();
 
@@ -39,6 +49,11 @@ public class ServerData {
 		}
 	}
 
+	/**
+	 * Adds a service site to the list.
+	 *
+	 * @param site the service site to add
+	 */
 	public synchronized void addServiceSite(String site) {
 		ArrayList<String> l = getServiceSites();
 		if (!getServiceSites().contains(site)) {
@@ -69,6 +84,12 @@ public class ServerData {
 				getSignSkullLocation("" + count), getSignData("" + count), getSignPosition("" + count)));
 	}
 
+	/**
+	 * Adds a timed vote to the cache.
+	 *
+	 * @param num the vote number
+	 * @param vote the vote time queue entry
+	 */
 	public void addTimeVoted(int num, VoteTimeQueue vote) {
 		getData().set("TimedVoteCache." + num + ".Name", vote.getName());
 		getData().set("TimedVoteCache." + num + ".Service", vote.getService());
@@ -76,6 +97,11 @@ public class ServerData {
 		saveData();
 	}
 
+	/**
+	 * Adds a vote shop purchase for the specified identifier.
+	 *
+	 * @param ident the vote shop identifier
+	 */
 	public void addVoteShopPurchase(String ident) {
 		setVoteShopPurchases(ident, (getVoteShopPurchases(ident) + 1));
 	}

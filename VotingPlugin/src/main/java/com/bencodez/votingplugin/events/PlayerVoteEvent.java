@@ -84,6 +84,14 @@ public class PlayerVoteEvent extends Event {
 	@Setter
 	private int voteNumber = 1;
 
+	/**
+	 * Constructs a new PlayerVoteEvent.
+	 *
+	 * @param voteSite the vote site
+	 * @param voteUsername the username of the voter
+	 * @param serviceSite the service site name
+	 * @param realVote whether this is a real vote
+	 */
 	public PlayerVoteEvent(VoteSite voteSite, String voteUsername, String serviceSite, boolean realVote) {
 		super(true);
 		this.player = voteUsername;

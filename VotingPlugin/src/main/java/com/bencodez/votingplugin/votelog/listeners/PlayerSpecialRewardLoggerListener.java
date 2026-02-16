@@ -10,6 +10,9 @@ import org.bukkit.event.Listener;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerSpecialRewardEvent;
 
+/**
+ * Listener for logging player special reward events.
+ */
 public class PlayerSpecialRewardLoggerListener implements Listener {
 
 	private VotingPluginMain plugin;

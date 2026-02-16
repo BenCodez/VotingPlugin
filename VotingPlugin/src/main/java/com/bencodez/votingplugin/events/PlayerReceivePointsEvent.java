@@ -42,6 +42,12 @@ public class PlayerReceivePointsEvent extends Event {
 	@Setter
 	private String serviceSite = "";
 
+	/**
+	 * Constructs a new PlayerReceivePointsEvent.
+	 *
+	 * @param user the voting plugin user
+	 * @param points the points received
+	 */
 	public PlayerReceivePointsEvent(VotingPluginUser user, int points) {
 		super(true);
 		this.player = user;

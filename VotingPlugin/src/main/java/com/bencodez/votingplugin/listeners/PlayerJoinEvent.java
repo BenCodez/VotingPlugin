@@ -84,6 +84,11 @@ public class PlayerJoinEvent implements Listener {
 		}
 	}
 
+	/**
+	 * Handles player quit events.
+	 *
+	 * @param event the player quit event
+	 */
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void onPlayerQuit(PlayerQuitEvent event) {
 		if (plugin == null || !plugin.isEnabled() || event == null) {

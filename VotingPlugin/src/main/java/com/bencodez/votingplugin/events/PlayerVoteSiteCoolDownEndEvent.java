@@ -39,6 +39,12 @@ public class PlayerVoteSiteCoolDownEndEvent extends Event {
 	@Setter
 	private VoteSite site;
 
+	/**
+	 * Constructs a new PlayerVoteSiteCoolDownEndEvent.
+	 *
+	 * @param user the voting plugin user
+	 * @param site the vote site
+	 */
 	public PlayerVoteSiteCoolDownEndEvent(VotingPluginUser user, VoteSite site) {
 		super(true);
 		player = user;
