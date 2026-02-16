@@ -20,6 +20,11 @@ public class Signs {
 	@Setter
 	private ArrayList<SignHandler> signs;
 
+	/**
+	 * Constructs a new Signs manager.
+	 *
+	 * @param plugin the main plugin instance
+	 */
 	public Signs(VotingPluginMain plugin) {
 		this.plugin = plugin;
 		this.signs = new ArrayList<>();

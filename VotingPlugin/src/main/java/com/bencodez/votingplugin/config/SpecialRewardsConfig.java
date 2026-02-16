@@ -18,6 +18,9 @@ import com.bencodez.votingplugin.VotingPluginMain;
 
 import lombok.Getter;
 
+/**
+ * The SpecialRewardsConfig class manages special rewards configuration.
+ */
 public class SpecialRewardsConfig extends YMLFile {
 
 	@Getter
@@ -153,16 +156,33 @@ public class SpecialRewardsConfig extends YMLFile {
 	@Getter
 	private Set<String> weeklyPossibleRewardPlaces = new HashSet<>();
 
+	/**
+	 * Constructs a new SpecialRewardsConfig.
+	 *
+	 * @param plugin the main plugin instance
+	 */
 	public SpecialRewardsConfig(VotingPluginMain plugin) {
 		super(plugin, new File(plugin.getDataFolder(), "SpecialRewards.yml"));
 		setIgnoreCase(plugin.getConfigFile().isCaseInsensitiveYMLFiles());
 		this.plugin = plugin;
 	}
 
+	/**
+	 * Gets the rewards path for a daily award.
+	 *
+	 * @param path the award path
+	 * @return the daily award rewards path
+	 */
 	public String getDailyAwardRewardsPath(String path) {
 		return "DailyAwards." + path + ".Rewards";
 	}
 
+	/**
+	 * Gets the rewards path for a monthly award.
+	 *
+	 * @param path the award path
+	 * @return the monthly award rewards path
+	 */
 	public String getMonthlyAwardRewardsPath(String path) {
 		return "MonthlyAwards." + path + ".Rewards";
 	}
@@ -180,6 +200,12 @@ public class SpecialRewardsConfig extends YMLFile {
 		}
 	}
 
+	/**
+	 * Gets the increase votes required with the old typo field.
+	 *
+	 * @return the increase votes required
+	 * @deprecated Use getVotePartyIncreaseVotesRequired instead
+	 */
 	public int getVotePartyIncreaseVotesRequiredWithTypo() {
 		int increase = getVotePartyIncreaseVotesRequired();
 		if (increase > 0) {
@@ -188,14 +214,34 @@ public class SpecialRewardsConfig extends YMLFile {
 		return getVotePartyIncreaseVotesRquired();
 	}
 
+	/**
+	 * Checks if a vote streak reward is enabled.
+	 *
+	 * @param type the streak type
+	 * @param s the streak value
+	 * @return true if enabled
+	 */
 	public boolean getVoteStreakRewardEnabled(String type, String s) {
 		return getData().getBoolean("VoteStreak." + type + "." + s + ".Enabled");
 	}
 
+	/**
+	 * Gets the rewards path for a vote streak.
+	 *
+	 * @param type the streak type
+	 * @param string the streak value
+	 * @return the vote streak rewards path
+	 */
 	public String getVoteStreakRewardsPath(String type, String string) {
 		return "VoteStreak." + type + "." + string + ".Rewards";
 	}
 
+	/**
+	 * Gets all vote streak values for a type.
+	 *
+	 * @param type the streak type
+	 * @return the set of vote streak values
+	 */
 	public Set<String> getVoteStreakVotes(String type) {
 		try {
 			Set<String> set = getData().getConfigurationSection("VoteStreak." + type).getKeys(false);
@@ -208,6 +254,12 @@ public class SpecialRewardsConfig extends YMLFile {
 		}
 	}
 
+	/**
+	 * Gets the rewards path for a weekly award.
+	 *
+	 * @param path the award path
+	 * @return the weekly award rewards path
+	 */
 	public String getWeeklyAwardRewardsPath(String path) {
 		return "WeeklyAwards." + path + ".Rewards";
 	}
@@ -222,11 +274,21 @@ public class SpecialRewardsConfig extends YMLFile {
 		plugin.saveResource("SpecialRewards.yml", true);
 	}
 
+	/**
+	 * Removes a vote milestone.
+	 *
+	 * @param votes the milestone votes value
+	 */
 	public void removeVoteMilestone(String votes) {
 		getData().set("VoteMilestones." + votes, null);
 		saveData();
 	}
 
+	/**
+	 * Sets a vote milestone with default values.
+	 *
+	 * @param intValue the milestone votes value
+	 */
 	public void setVoteMilestone(int intValue) {
 		getData().set("VoteMilestones." + intValue + ".Enabled", true);
 		getData().set("VoteMilestones." + intValue + ".Rewards.Messages.Player",

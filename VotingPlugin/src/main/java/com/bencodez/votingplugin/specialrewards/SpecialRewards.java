@@ -20,10 +20,24 @@ public class SpecialRewards {
 
 	private VotingPluginMain plugin;
 
+	/**
+	 * Constructs a new SpecialRewards handler.
+	 *
+	 * @param plugin the main plugin instance
+	 */
 	public SpecialRewards(VotingPluginMain plugin) {
 		this.plugin = plugin;
 	}
 
+	/**
+	 * Checks and processes vote streak rewards for a user.
+	 *
+	 * @param voteUUID the vote UUID
+	 * @param user the voting user
+	 * @param type the streak type (day/week/month)
+	 * @param forceBungee whether to force bungee mode
+	 * @return true if a reward was given
+	 */
 	public boolean checkVoteStreak(UUID voteUUID, VotingPluginUser user, String type, boolean forceBungee) {
 		boolean gotReward = false;
 
@@ -79,6 +93,17 @@ public class SpecialRewards {
 
 	}
 
+	/**
+	 * Gives a vote streak reward to a user.
+	 *
+	 * @param voteUUID the vote UUID
+	 * @param user the voting user
+	 * @param online whether the user is online
+	 * @param type the streak type
+	 * @param string the streak value
+	 * @param votes the current streak count
+	 * @param forceBungee whether to force bungee mode
+	 */
 	public void giveVoteStreakReward(UUID voteUUID, VotingPluginUser user, boolean online, String type, String string,
 			int votes, boolean forceBungee) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user,

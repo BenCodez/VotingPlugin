@@ -2,14 +2,34 @@ package com.bencodez.votingplugin.events;
 
 import lombok.Getter;
 
+/**
+ * Enumeration for different special reward types.
+ */
 public enum SpecialRewardType {
+	/** @deprecated All site reward. */
 	@Deprecated
-	ALLSITE, @Deprecated
-	CUMMULATIVE, @Deprecated
-	FIRSTVOTE, @Deprecated
-	FIRSTVOTETODAY, @Deprecated
-	MILESTONE, VOTESTREAK, @Deprecated
-	ALMOSTALLSITES, TOPVOTER, VOTESTREAKS;
+	ALLSITE, 
+	/** @deprecated Cumulative reward. */
+	@Deprecated
+	CUMMULATIVE, 
+	/** @deprecated First vote reward. */
+	@Deprecated
+	FIRSTVOTE, 
+	/** @deprecated First vote today reward. */
+	@Deprecated
+	FIRSTVOTETODAY, 
+	/** @deprecated Milestone reward. */
+	@Deprecated
+	MILESTONE, 
+	/** Vote streak reward. */
+	VOTESTREAK, 
+	/** @deprecated Almost all sites reward. */
+	@Deprecated
+	ALMOSTALLSITES, 
+	/** Top voter reward. */
+	TOPVOTER, 
+	/** Vote streaks reward. */
+	VOTESTREAKS;
 
 	@Getter
 	private int amount = -1;
@@ -17,11 +37,23 @@ public enum SpecialRewardType {
 	@Getter
 	private String type = "";
 
+	/**
+	 * Sets the amount for this special reward.
+	 *
+	 * @param num the amount
+	 * @return this special reward type
+	 */
 	public SpecialRewardType setAmount(int num) {
 		amount = num;
 		return this;
 	}
 
+	/**
+	 * Sets the type for this special reward.
+	 *
+	 * @param type the type
+	 * @return this special reward type
+	 */
 	public SpecialRewardType setType(String type) {
 		this.type = type;
 		return this;
