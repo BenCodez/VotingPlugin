@@ -19,7 +19,13 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
  */
 public final class UserDataVoteReminderCooldownStore implements VoteReminderCooldownStore {
 
+	/**
+	 * Storage key for global last reminder time.
+	 */
 	public static final String KEY_GLOBAL_LAST = "VoteRemindersLast";
+	/**
+	 * Storage key for per-reminder map.
+	 */
 	public static final String KEY_MAP = "VoteRemindersMap";
 
 	private final VotingPluginMain plugin;
@@ -27,6 +33,10 @@ public final class UserDataVoteReminderCooldownStore implements VoteReminderCool
 	private final ConcurrentHashMap<UUID, Map<String, Long>> mapCache = new ConcurrentHashMap<>();
 	private final ConcurrentHashMap<UUID, Object> locks = new ConcurrentHashMap<>();
 
+	/**
+	 * Constructs a new user data vote reminder cooldown store.
+	 * @param plugin the plugin instance
+	 */
 	public UserDataVoteReminderCooldownStore(VotingPluginMain plugin) {
 		this.plugin = plugin;
 	}
@@ -108,6 +118,10 @@ public final class UserDataVoteReminderCooldownStore implements VoteReminderCool
 		return user.getData().hasData();
 	}
 
+	/**
+	 * Clears cache for a specific player.
+	 * @param uuid the player UUID
+	 */
 	public void clearCache(UUID uuid) {
 		mapCache.remove(uuid);
 		locks.remove(uuid);

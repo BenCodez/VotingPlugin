@@ -9,6 +9,9 @@ import java.util.Locale;
  */
 public enum VoteBroadcastType {
 
+	/**
+	 * No vote broadcasting.
+	 */
 	NONE,
 
 	/**
@@ -47,6 +50,12 @@ public enum VoteBroadcastType {
 	 */
 	INTERVAL_SUMMARY_GLOBAL;
 
+	/**
+	 * Parses a vote broadcast type from a string.
+	 * @param s the string to parse
+	 * @param def the default value if parsing fails
+	 * @return the parsed broadcast type or default
+	 */
 	public static VoteBroadcastType parse(String s, VoteBroadcastType def) {
 		if (s == null || s.trim().isEmpty()) {
 			return def;

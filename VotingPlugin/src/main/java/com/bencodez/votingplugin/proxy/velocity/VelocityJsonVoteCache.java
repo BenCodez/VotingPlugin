@@ -10,8 +10,15 @@ import com.bencodez.votingplugin.proxy.cache.DataNode;
 import com.bencodez.votingplugin.proxy.cache.IVoteCache;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
+/**
+ * JSON-based vote cache implementation for Velocity proxy.
+ */
 public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCache {
 
+	/**
+	 * Constructs a new Velocity JSON vote cache.
+	 * @param file the file to store cache data
+	 */
 	public VelocityJsonVoteCache(File file) {
 		super(file);
 	}
@@ -219,6 +226,11 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 		}
 	}
 
+	/**
+	 * Sets a value at a specific path.
+	 * @param value the value to set
+	 * @param path the path elements
+	 */
 	private void setPath(Object value, Object... path) {
 		set(path, value);
 	}
