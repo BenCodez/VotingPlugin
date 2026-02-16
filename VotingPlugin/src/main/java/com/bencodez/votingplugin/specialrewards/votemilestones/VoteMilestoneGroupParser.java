@@ -5,11 +5,20 @@ import java.util.Map;
 
 import org.bukkit.configuration.ConfigurationSection;
 
+/**
+ * Utility class for parsing vote milestone group configuration.
+ */
 public final class VoteMilestoneGroupParser {
 
 	private VoteMilestoneGroupParser() {
 	}
 
+	/**
+	 * Parses group selection modes from configuration.
+	 *
+	 * @param root root configuration section
+	 * @return map of group id to selection mode
+	 */
 	public static Map<String, VoteMilestoneGroupSelect> parseGroups(ConfigurationSection root) {
 		HashMap<String, VoteMilestoneGroupSelect> out = new HashMap<>();
 

@@ -37,22 +37,49 @@ import com.bencodez.simpleapi.sql.mysql.queries.Query;
  */
 public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 
+	/**
+	 * Event types that can be logged in the vote log.
+	 */
 	public enum VoteLogEvent {
-		// Core
+		/**
+		 * A vote was received.
+		 */
 		VOTE_RECEIVED,
 
+		/**
+		 * A vote milestone reward was triggered.
+		 */
 		VOTEMILESTONE,
 
+		/**
+		 * A vote streak reward was triggered.
+		 */
 		VOTE_STREAK_REWARD,
 
+		/**
+		 * A top voter reward was triggered.
+		 */
 		TOP_VOTER_REWARD,
 
+		/**
+		 * A vote shop purchase was made.
+		 */
 		VOTESHOP_PURCHASE
 
 	}
 
+	/**
+	 * Status types for vote processing.
+	 */
 	public enum VoteLogStatus {
-		IMMEDIATE, CACHED
+		/**
+		 * Vote was processed immediately.
+		 */
+		IMMEDIATE,
+		/**
+		 * Vote was cached for later processing.
+		 */
+		CACHED
 	}
 
 	private final boolean debugEnabled;
@@ -66,12 +93,27 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 
 	// ---- Constructors ----
 
+	/**
+	 * Creates a new vote log table.
+	 *
+	 * @param baseTableName base name for the table
+	 * @param config mysql configuration
+	 * @param debug whether debug logging is enabled
+	 */
 	public VoteLogMysqlTable(String baseTableName, MysqlConfig config, boolean debug) {
 		super(baseTableName, config, debug, true);
 		this.debugEnabled = debug;
 		ensureColumnsAndIndexes();
 	}
 
+	/**
+	 * Creates a new vote log table using an existing MySQL connection.
+	 *
+	 * @param baseTableName base name for the table
+	 * @param existingMysql existing MySQL connection
+	 * @param config mysql configuration
+	 * @param debug whether debug logging is enabled
+	 */
 	public VoteLogMysqlTable(String baseTableName, MySQL existingMysql, MysqlConfig config, boolean debug) {
 		super(resolveName(baseTableName, config), existingMysql, true);
 		this.debugEnabled = debug;
@@ -103,6 +145,13 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 		return "id";
 	}
 
+	/**
+	 * Gets distinct server names from the vote log.
+	 *
+	 * @param days number of days to look back (0 for all)
+	 * @param limit maximum number of results
+	 * @return list of distinct server names
+	 */
 	public List<String> getDistinctServers(int days, int limit) {
 		if (limit <= 0) {
 			limit = 45;
@@ -134,18 +183,49 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 		}
 	}
 
+	/**
+	 * Gets vote log entries for a specific server.
+	 *
+	 * @param server server name to filter by
+	 * @param days number of days to look back (0 for all)
+	 * @param limit maximum number of results
+	 * @return list of vote log entries
+	 */
 	public List<VoteLogEntry> getByServer(String server, int days, int limit) {
 		return getByServer(server, null, days, limit);
 	}
 
+	/**
+	 * Gets vote log entries for a specific server, votes only.
+	 *
+	 * @param server server name to filter by
+	 * @param days number of days to look back (0 for all)
+	 * @param limit maximum number of results
+	 * @return list of vote log entries
+	 */
 	public List<VoteLogEntry> getByServerVotesOnly(String server, int days, int limit) {
 		return getByServer(server, VoteLogEvent.VOTE_RECEIVED, days, limit);
 	}
 
+	/**
+	 * Gets top servers by vote count.
+	 *
+	 * @param days number of days to look back (0 for all)
+	 * @param limit maximum number of results
+	 * @return list of server counts
+	 */
 	public List<ServerCount> getTopServers(int days, int limit) {
 		return getTopServers(days, limit, VoteLogEvent.VOTE_RECEIVED);
 	}
 
+	/**
+	 * Gets top servers by vote count with event filtering.
+	 *
+	 * @param days number of days to look back (0 for all)
+	 * @param limit maximum number of results
+	 * @param eventFilter event type to filter by
+	 * @return list of server counts
+	 */
 	public List<ServerCount> getTopServers(int days, int limit, VoteLogEvent eventFilter) {
 		if (limit <= 0) {
 			limit = 10;
@@ -183,16 +263,40 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 		}
 	}
 
+	/**
+	 * Holds server name and vote count.
+	 */
 	public static class ServerCount {
+		/**
+		 * Server name.
+		 */
 		public final String server;
+		/**
+		 * Vote count for this server.
+		 */
 		public final long votes;
 
+		/**
+		 * Constructs a new ServerCount.
+		 *
+		 * @param server server name
+		 * @param votes vote count
+		 */
 		public ServerCount(String server, long votes) {
 			this.server = server;
 			this.votes = votes;
 		}
 	}
 
+	/**
+	 * Gets vote log entries for a specific server with event filtering.
+	 *
+	 * @param server server name to filter by
+	 * @param event event type to filter by (null for all)
+	 * @param days number of days to look back (0 for all)
+	 * @param limit maximum number of results
+	 * @return list of vote log entries
+	 */
 	public List<VoteLogEntry> getByServer(String server, VoteLogEvent event, int days, int limit) {
 		if (limit <= 0) {
 			limit = 10;
@@ -400,6 +504,13 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 		}
 	}
 
+	/**
+	 * Appends a time type to a context string.
+	 *
+	 * @param baseContext base context string
+	 * @param timeType time type to append
+	 * @return combined context string
+	 */
 	public static String withTimeType(String baseContext, String timeType) {
 		baseContext = safeStr(baseContext);
 		timeType = safeStr(timeType);
@@ -424,6 +535,13 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 
 	// ---- VoteShop helpers ----
 
+	/**
+	 * Creates a context string for a vote shop purchase.
+	 *
+	 * @param identifier shop item identifier
+	 * @param cost cost of the item
+	 * @return formatted context string
+	 */
 	public static String voteShopContext(String identifier, int cost) {
 		identifier = safeStr(identifier);
 
@@ -524,6 +642,15 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 		return logEvent(voteUUID, VoteLogEvent.VOTEMILESTONE, context, playerUuid, playerName, timeMillis);
 	}
 
+	/**
+	 * Logs a vote shop purchase event.
+	 *
+	 * @param playerUuid player UUID as string
+	 * @param playerName player name
+	 * @param timeMillis event time in millis
+	 * @param identifier shop item identifier
+	 * @param cost cost of the item
+	 */
 	public void logVoteShopPurchase(String playerUuid, String playerName, long timeMillis, String identifier,
 			int cost) {
 		String ctx = voteShopContext(identifier, cost);
@@ -531,6 +658,18 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 				timeMillis, 0);
 	}
 
+	/**
+	 * Logs a vote event.
+	 *
+	 * @param voteUUID correlation vote UUID (may be null)
+	 * @param status processing status
+	 * @param service vote service name
+	 * @param playerUuid player UUID as string
+	 * @param playerName player name
+	 * @param voteTimeMillis vote time in millis
+	 * @param proxyCachedTotal cached total from proxy
+	 * @return vote id string (may be null)
+	 */
 	public String logVote(UUID voteUUID, VoteLogStatus status, String service, String playerUuid, String playerName,
 			long voteTimeMillis, int proxyCachedTotal) {
 
@@ -538,6 +677,20 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 				voteTimeMillis, proxyCachedTotal);
 	}
 
+	/**
+	 * Logs a generic event.
+	 *
+	 * @param voteUUID correlation vote UUID (may be null)
+	 * @param event event type
+	 * @param context event context string
+	 * @param status processing status
+	 * @param service vote service name
+	 * @param playerUuid player UUID as string
+	 * @param playerName player name
+	 * @param timeMillis event time in millis
+	 * @param proxyCachedTotal cached total from proxy
+	 * @return vote id string (may be null)
+	 */
 	public String logEvent(UUID voteUUID, VoteLogEvent event, String context, VoteLogStatus status, String service,
 			String playerUuid, String playerName, long timeMillis, int proxyCachedTotal) {
 
@@ -560,6 +713,17 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 		return voteId;
 	}
 
+	/**
+	 * Logs a generic event without service or status.
+	 *
+	 * @param voteUUID correlation vote UUID (may be null)
+	 * @param event event type
+	 * @param context event context string
+	 * @param playerUuid player UUID as string
+	 * @param playerName player name
+	 * @param timeMillis event time in millis
+	 * @return vote id string (may be null)
+	 */
 	public String logEvent(UUID voteUUID, VoteLogEvent event, String context, String playerUuid, String playerName,
 			long timeMillis) {
 
@@ -576,16 +740,44 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 		return voteId;
 	}
 
+	/**
+	 * Logs a generic event using current time.
+	 *
+	 * @param voteUUID correlation vote UUID (may be null)
+	 * @param event event type
+	 * @param context event context string
+	 * @param playerUuid player UUID as string
+	 * @param playerName player name
+	 * @return vote id string (may be null)
+	 */
 	public String logEventNow(UUID voteUUID, VoteLogEvent event, String context, String playerUuid, String playerName) {
 		return logEvent(voteUUID, event, context, playerUuid, playerName, System.currentTimeMillis());
 	}
 
+	/**
+	 * Logs a vote streak reward event.
+	 *
+	 * @param voteUUID correlation vote UUID (may be null)
+	 * @param playerUuid player UUID as string
+	 * @param playerName player name
+	 * @param timeMillis event time in millis
+	 * @param streakKeyWithTimeType streak key with time type suffix
+	 */
 	public void logVoteStreakReward(UUID voteUUID, String playerUuid, String playerName, long timeMillis,
 			String streakKeyWithTimeType) {
 		logEvent(voteUUID, VoteLogEvent.VOTE_STREAK_REWARD, safeStr(streakKeyWithTimeType), playerUuid, playerName,
 				timeMillis);
 	}
 
+	/**
+	 * Logs a top voter reward event.
+	 *
+	 * @param voteUUID correlation vote UUID (may be null)
+	 * @param playerUuid player UUID as string
+	 * @param playerName player name
+	 * @param timeMillis event time in millis
+	 * @param topVoterKeyWithTimeType top voter key with time type suffix
+	 */
 	public void logTopVoterReward(UUID voteUUID, String playerUuid, String playerName, long timeMillis,
 			String topVoterKeyWithTimeType) {
 		logEvent(voteUUID, VoteLogEvent.TOP_VOTER_REWARD, safeStr(topVoterKeyWithTimeType), playerUuid, playerName,
@@ -594,6 +786,12 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 
 	// ---- Purge ----
 
+	/**
+	 * Purges vote log entries older than the specified number of days.
+	 *
+	 * @param days number of days to keep
+	 * @param batchSize number of rows to delete per batch
+	 */
 	public void purgeOlderThanDays(int days, int batchSize) {
 		if (days <= 0) {
 			return;
@@ -623,6 +821,13 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 
 	// ---- Queries ----
 
+	/**
+	 * Gets distinct service names from the vote log.
+	 *
+	 * @param days number of days to look back (0 for all)
+	 * @param limit maximum number of results
+	 * @return list of distinct service names
+	 */
 	public List<String> getDistinctServices(int days, int limit) {
 		if (limit <= 0) {
 			limit = 45;
@@ -655,6 +860,13 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 		}
 	}
 
+	/**
+	 * Gets recent vote log entries for all events.
+	 *
+	 * @param days number of days to look back (0 for all)
+	 * @param limit maximum number of results
+	 * @return list of vote log entries
+	 */
 	public List<VoteLogEntry> getRecentAll(int days, int limit) {
 		if (limit <= 0) {
 			limit = 10;
@@ -673,6 +885,14 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 		return query(sql, new Object[] {});
 	}
 
+	/**
+	 * Gets recent vote log entries filtered by event type.
+	 *
+	 * @param event event type to filter by
+	 * @param days number of days to look back (0 for all)
+	 * @param limit maximum number of results
+	 * @return list of vote log entries
+	 */
 	public List<VoteLogEntry> getRecentByEvent(VoteLogEvent event, int days, int limit) {
 		if (event == null) {
 			return (days > 0) ? getRecentAll(days, limit) : getRecent(limit);
@@ -694,6 +914,14 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 		return query(sql, new Object[] { event.name() });
 	}
 
+	/**
+	 * Gets recent vote log entries with optional event filtering.
+	 *
+	 * @param days number of days to look back (0 for all)
+	 * @param eventFilter event type to filter by (null for all)
+	 * @param limit maximum number of results
+	 * @return list of vote log entries
+	 */
 	public List<VoteLogEntry> getRecent(int days, VoteLogEvent eventFilter, int limit) {
 		if (limit <= 0) {
 			limit = 10;
@@ -716,6 +944,12 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 		return query(sql, new Object[] {});
 	}
 
+	/**
+	 * Gets the most recent vote log entry for a vote ID.
+	 *
+	 * @param voteId vote ID to find
+	 * @return vote log entry or null if not found
+	 */
 	public VoteLogEntry getByVoteId(String voteId) {
 		String sql = "SELECT vote_id, vote_time, player_uuid, player_name, service, server, event, context, status, cached_total "
 				+ "FROM " + qi(getTableName()) + " WHERE vote_id=? ORDER BY vote_time DESC, id DESC LIMIT 1;";
@@ -723,6 +957,14 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 		return rows.isEmpty() ? null : rows.get(0);
 	}
 
+	/**
+	 * Gets all vote log entries for a vote ID.
+	 *
+	 * @param voteId vote ID to find
+	 * @param days number of days to look back (0 for all)
+	 * @param limit maximum number of results
+	 * @return list of vote log entries
+	 */
 	public List<VoteLogEntry> getByVoteIdAll(String voteId, int days, int limit) {
 		if (limit <= 0) {
 			limit = 10;
@@ -740,6 +982,12 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 		return query(sql, new Object[] { voteId });
 	}
 
+	/**
+	 * Gets the most recent vote log entries.
+	 *
+	 * @param limit maximum number of results
+	 * @return list of vote log entries
+	 */
 	public List<VoteLogEntry> getRecent(int limit) {
 		if (limit <= 0) {
 			limit = 10;
@@ -749,14 +997,39 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 		return query(sql, new Object[] {});
 	}
 
+	/**
+	 * Gets vote log entries for a specific service.
+	 *
+	 * @param service service name to filter by
+	 * @param days number of days to look back (0 for all)
+	 * @param limit maximum number of results
+	 * @return list of vote log entries
+	 */
 	public List<VoteLogEntry> getByService(String service, int days, int limit) {
 		return getByService(service, null, days, limit);
 	}
 
+	/**
+	 * Gets vote log entries for a specific service, votes only.
+	 *
+	 * @param service service name to filter by
+	 * @param days number of days to look back (0 for all)
+	 * @param limit maximum number of results
+	 * @return list of vote log entries
+	 */
 	public List<VoteLogEntry> getByServiceVotesOnly(String service, int days, int limit) {
 		return getByService(service, VoteLogEvent.VOTE_RECEIVED, days, limit);
 	}
 
+	/**
+	 * Gets vote log entries for a specific service with event filtering.
+	 *
+	 * @param service service name to filter by
+	 * @param event event type to filter by (null for all)
+	 * @param days number of days to look back (0 for all)
+	 * @param limit maximum number of results
+	 * @return list of vote log entries
+	 */
 	public List<VoteLogEntry> getByService(String service, VoteLogEvent event, int days, int limit) {
 		if (limit <= 0) {
 			limit = 10;
@@ -778,14 +1051,39 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 		return query(sql, new Object[] { service });
 	}
 
+	/**
+	 * Gets vote log entries for a specific player.
+	 *
+	 * @param playerName player name to filter by
+	 * @param days number of days to look back (0 for all)
+	 * @param limit maximum number of results
+	 * @return list of vote log entries
+	 */
 	public List<VoteLogEntry> getByPlayerName(String playerName, int days, int limit) {
 		return getByPlayerName(playerName, null, days, limit);
 	}
 
+	/**
+	 * Gets vote log entries for a specific player, votes only.
+	 *
+	 * @param playerName player name to filter by
+	 * @param days number of days to look back (0 for all)
+	 * @param limit maximum number of results
+	 * @return list of vote log entries
+	 */
 	public List<VoteLogEntry> getByPlayerNameVotesOnly(String playerName, int days, int limit) {
 		return getByPlayerName(playerName, VoteLogEvent.VOTE_RECEIVED, days, limit);
 	}
 
+	/**
+	 * Gets vote log entries for a specific player with event filtering.
+	 *
+	 * @param playerName player name to filter by
+	 * @param event event type to filter by (null for all)
+	 * @param days number of days to look back (0 for all)
+	 * @param limit maximum number of results
+	 * @return list of vote log entries
+	 */
 	public List<VoteLogEntry> getByPlayerName(String playerName, VoteLogEvent event, int days, int limit) {
 		if (limit <= 0) {
 			limit = 10;
@@ -807,10 +1105,23 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 		return query(sql, new Object[] { playerName });
 	}
 
+	/**
+	 * Gets vote counts (total, immediate, cached).
+	 *
+	 * @param days number of days to look back (0 for all)
+	 * @return vote log counts
+	 */
 	public VoteLogCounts getCounts(int days) {
 		return getCounts(days, VoteLogEvent.VOTE_RECEIVED);
 	}
 
+	/**
+	 * Gets vote counts with event filtering.
+	 *
+	 * @param days number of days to look back (0 for all)
+	 * @param eventFilter event type to filter by
+	 * @return vote log counts
+	 */
 	public VoteLogCounts getCounts(int days, VoteLogEvent eventFilter) {
 		boolean useCutoff = days > 0;
 		long cutoff = useCutoff ? System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L) : 0;
@@ -847,10 +1158,23 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 		return new VoteLogCounts(0, 0, 0);
 	}
 
+	/**
+	 * Gets the number of unique voters.
+	 *
+	 * @param days number of days to look back (0 for all)
+	 * @return count of unique voters
+	 */
 	public long getUniqueVoters(int days) {
 		return getUniqueVoters(days, VoteLogEvent.VOTE_RECEIVED);
 	}
 
+	/**
+	 * Gets the number of unique voters with event filtering.
+	 *
+	 * @param days number of days to look back (0 for all)
+	 * @param eventFilter event type to filter by
+	 * @return count of unique voters
+	 */
 	public long getUniqueVoters(int days, VoteLogEvent eventFilter) {
 		boolean useCutoff = days > 0;
 		long cutoff = useCutoff ? System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L) : 0;
@@ -880,10 +1204,25 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 		return 0;
 	}
 
+	/**
+	 * Gets top services by vote count.
+	 *
+	 * @param days number of days to look back (0 for all)
+	 * @param limit maximum number of results
+	 * @return list of service counts
+	 */
 	public List<ServiceCount> getTopServices(int days, int limit) {
 		return getTopServices(days, limit, VoteLogEvent.VOTE_RECEIVED);
 	}
 
+	/**
+	 * Gets top services by vote count with event filtering.
+	 *
+	 * @param days number of days to look back (0 for all)
+	 * @param limit maximum number of results
+	 * @param eventFilter event type to filter by
+	 * @return list of service counts
+	 */
 	public List<ServiceCount> getTopServices(int days, int limit, VoteLogEvent eventFilter) {
 		if (limit <= 0) {
 			limit = 10;
@@ -958,18 +1297,65 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 
 	// ---- DTOs ----
 
+	/**
+	 * Represents a single vote log entry from the database.
+	 */
 	public static class VoteLogEntry {
+		/**
+		 * Vote ID (correlation id).
+		 */
 		public final String voteId;
+		/**
+		 * Vote time in milliseconds.
+		 */
 		public final long voteTime;
+		/**
+		 * Player UUID as string.
+		 */
 		public final String playerUuid;
+		/**
+		 * Player name.
+		 */
 		public final String playerName;
+		/**
+		 * Service name.
+		 */
 		public final String service;
+		/**
+		 * Server name.
+		 */
 		public final String server;
+		/**
+		 * Event type name.
+		 */
 		public final String event;
+		/**
+		 * Event context string.
+		 */
 		public final String context;
+		/**
+		 * Processing status.
+		 */
 		public final String status;
+		/**
+		 * Cached total from proxy.
+		 */
 		public final int proxyCachedTotal;
 
+		/**
+		 * Constructs a new VoteLogEntry.
+		 *
+		 * @param voteId vote ID
+		 * @param voteTime vote time in milliseconds
+		 * @param playerUuid player UUID as string
+		 * @param playerName player name
+		 * @param service service name
+		 * @param server server name
+		 * @param event event type name
+		 * @param context event context
+		 * @param status processing status
+		 * @param proxyCachedTotal cached total from proxy
+		 */
 		public VoteLogEntry(String voteId, long voteTime, String playerUuid, String playerName, String service,
 				String server, String event, String context, String status, int proxyCachedTotal) {
 			this.voteId = voteId;
@@ -985,11 +1371,30 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 		}
 	}
 
+	/**
+	 * Holds vote count statistics.
+	 */
 	public static class VoteLogCounts {
+		/**
+		 * Total vote count.
+		 */
 		public final long total;
+		/**
+		 * Immediate vote count.
+		 */
 		public final long immediate;
+		/**
+		 * Cached vote count.
+		 */
 		public final long cached;
 
+		/**
+		 * Constructs a new VoteLogCounts.
+		 *
+		 * @param total total count
+		 * @param immediate immediate count
+		 * @param cached cached count
+		 */
 		public VoteLogCounts(long total, long immediate, long cached) {
 			this.total = total;
 			this.immediate = immediate;
@@ -997,10 +1402,25 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 		}
 	}
 
+	/**
+	 * Holds service name and vote count.
+	 */
 	public static class ServiceCount {
+		/**
+		 * Service name.
+		 */
 		public final String service;
+		/**
+		 * Vote count for this service.
+		 */
 		public final long votes;
 
+		/**
+		 * Constructs a new ServiceCount.
+		 *
+		 * @param service service name
+		 * @param votes vote count
+		 */
 		public ServiceCount(String service, long votes) {
 			this.service = service;
 			this.votes = votes;

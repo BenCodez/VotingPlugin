@@ -367,6 +367,11 @@ public class TopVoterHandler implements Listener {
 		});
 	}
 
+	/**
+	 * Handles date change events.
+	 *
+	 * @param event date changed event
+	 */
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onDateChanged(DateChangedEvent event) {
 		plugin.setUpdate(true);
@@ -616,6 +621,11 @@ public class TopVoterHandler implements Listener {
 		plugin.update();
 	}
 
+	/**
+	 * Handles week change events.
+	 *
+	 * @param event week change event
+	 */
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onWeekChange(WeekChangeEvent event) {
 		long startTime = System.currentTimeMillis();
