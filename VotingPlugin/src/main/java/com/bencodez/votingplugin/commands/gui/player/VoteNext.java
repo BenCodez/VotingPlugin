@@ -24,11 +24,21 @@ import com.bencodez.votingplugin.votesites.VoteSite;
 
 import xyz.upperlevel.spigot.book.BookUtil;
 
+/**
+ * GUI handler for displaying next vote information.
+ */
 public class VoteNext extends GUIHandler {
 
 	private VotingPluginMain plugin;
 	private VotingPluginUser user;
 
+	/**
+	 * Constructs a new VoteNext GUI handler.
+	 *
+	 * @param plugin the main plugin instance
+	 * @param player the command sender
+	 * @param user the voting plugin user
+	 */
 	public VoteNext(VotingPluginMain plugin, CommandSender player, VotingPluginUser user) {
 		super(plugin, player);
 		this.plugin = plugin;

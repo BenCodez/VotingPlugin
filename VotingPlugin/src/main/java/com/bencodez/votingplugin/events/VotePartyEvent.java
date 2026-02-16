@@ -28,6 +28,9 @@ public class VotePartyEvent extends Event {
 	@Setter
 	private boolean cancelled;
 
+	/**
+	 * Constructs a new VotePartyEvent.
+	 */
 	public VotePartyEvent() {
 		super(true);
 	}

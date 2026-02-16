@@ -1,5 +1,8 @@
 package com.bencodez.votingplugin.specialrewards.votemilestones;
 
+/**
+ * Enum for selecting which milestones to trigger when multiple match in a group.
+ */
 public enum VoteMilestoneGroupSelect {
 	/**
 	 * Trigger every matching milestone in the group.

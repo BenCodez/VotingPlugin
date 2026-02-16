@@ -20,11 +20,21 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
+/**
+ * GUI handler for displaying last vote information.
+ */
 public class VoteLast extends GUIHandler {
 
 	private VotingPluginMain plugin;
 	private VotingPluginUser user;
 
+	/**
+	 * Constructs a new VoteLast GUI handler.
+	 *
+	 * @param plugin the main plugin instance
+	 * @param player the command sender
+	 * @param user the voting plugin user
+	 */
 	public VoteLast(VotingPluginMain plugin, CommandSender player, VotingPluginUser user) {
 		super(plugin, player);
 		this.plugin = plugin;

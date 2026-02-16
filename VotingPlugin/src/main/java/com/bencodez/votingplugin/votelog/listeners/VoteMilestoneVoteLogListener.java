@@ -14,10 +14,20 @@ public class VoteMilestoneVoteLogListener implements Listener {
 
 	private final VotingPluginMain plugin;
 
+	/**
+	 * Constructs a new VoteMilestoneVoteLogListener.
+	 *
+	 * @param plugin the main plugin instance
+	 */
 	public VoteMilestoneVoteLogListener(VotingPluginMain plugin) {
 		this.plugin = plugin;
 	}
 
+	/**
+	 * Handles vote milestone reward events and logs them.
+	 *
+	 * @param e the vote milestone reward event
+	 */
 	@EventHandler
 	public void onVoteMilestoneReward(VoteMilestoneRewardEvent e) {
 		if (e == null || e.getUser() == null || e.getMilestone() == null) {
