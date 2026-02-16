@@ -7,6 +7,9 @@ import org.bukkit.configuration.ConfigurationSection;
 
 import com.bencodez.votingplugin.VotingPluginMain;
 
+/**
+ * Configuration for vote milestones.
+ */
 public class VoteMilestonesConfig {
 
 	private final Map<String, VoteMilestone> milestones;
@@ -15,10 +18,23 @@ public class VoteMilestonesConfig {
 		this.milestones = milestones;
 	}
 
+	/**
+	 * Gets the map of milestones.
+	 *
+	 * @return the milestones map
+	 */
 	public Map<String, VoteMilestone> getMilestones() {
 		return milestones;
 	}
 
+	/**
+	 * Loads vote milestones configuration from the configuration section.
+	 *
+	 * @param plugin the main plugin instance
+	 * @param manager the vote milestones manager
+	 * @param root the root configuration section
+	 * @return the loaded vote milestones configuration
+	 */
 	public static VoteMilestonesConfig load(VotingPluginMain plugin, VoteMilestonesManager manager,
 			ConfigurationSection root) {
 		Map<String, VoteMilestone> out = new LinkedHashMap<>();

@@ -26,6 +26,13 @@ public enum ScopeMode {
 	 */
 	ALL_EXCEPT;
 
+	/**
+	 * Parses a string value to a ScopeMode with a default fallback.
+	 *
+	 * @param value the string value to parse
+	 * @param def the default value if parsing fails
+	 * @return the parsed ScopeMode or the default
+	 */
 	public static ScopeMode parse(String value, ScopeMode def) {
 		if (value == null) {
 			return def;
@@ -51,6 +58,12 @@ public enum ScopeMode {
 		}
 	}
 
+	/**
+	 * Parses a string value to a ScopeMode with ALL_SERVERS as default.
+	 *
+	 * @param value the string value to parse
+	 * @return the parsed ScopeMode or ALL_SERVERS
+	 */
 	public static ScopeMode parse(String value) {
 		return parse(value, ALL_SERVERS);
 	}

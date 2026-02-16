@@ -17,11 +17,20 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.chat.TextComponent;
 
+/**
+ * GUI handler for vote help display.
+ */
 public class VoteHelp extends GUIHandler {
 
 	private int page;
 	private VotingPluginMain plugin;
 
+	/**
+	 * Constructs a new vote help GUI.
+	 * @param plugin the plugin instance
+	 * @param player the command sender
+	 * @param page the page number
+	 */
 	public VoteHelp(VotingPluginMain plugin, CommandSender player, int page) {
 		super(plugin, player);
 		this.plugin = plugin;
@@ -33,6 +42,11 @@ public class VoteHelp extends GUIHandler {
 		return null;
 	}
 
+	/**
+	 * Generates help text with hover support.
+	 * @param sender the command sender
+	 * @return list of text components for help
+	 */
 	public ArrayList<TextComponent> helpText(CommandSender sender) {
 		ArrayList<TextComponent> msg = new ArrayList<>();
 		HashMap<String, TextComponent> unsorted = new HashMap<>();
@@ -64,6 +78,11 @@ public class VoteHelp extends GUIHandler {
 		return msg;
 	}
 
+	/**
+	 * Generates legacy help text without hover support.
+	 * @param sender the command sender
+	 * @return list of text components for help
+	 */
 	public ArrayList<TextComponent> helpTextLegacy(CommandSender sender) {
 		ArrayList<TextComponent> msg = new ArrayList<>();
 		HashMap<String, TextComponent> unsorted = new HashMap<>();
@@ -106,6 +125,11 @@ public class VoteHelp extends GUIHandler {
 		open(GUIMethod.CHAT);
 	}
 
+	/**
+	 * Generates vote help text with pagination.
+	 * @param sender the command sender
+	 * @return list of text components for help
+	 */
 	public ArrayList<TextComponent> voteHelpText(CommandSender sender) {
 		int pagesize = plugin.getConfigFile().getFormatPageSize();
 		ArrayList<TextComponent> msg = new ArrayList<>();

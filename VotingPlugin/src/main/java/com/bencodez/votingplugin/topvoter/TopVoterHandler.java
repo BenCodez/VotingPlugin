@@ -39,14 +39,25 @@ import com.bencodez.simpleapi.sql.DataType;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
+/**
+ * Handles top voter rankings and statistics.
+ */
 public class TopVoterHandler implements Listener {
 
 	private VotingPluginMain plugin;
 
+	/**
+	 * Constructs a new top voter handler.
+	 * @param plugin the plugin instance
+	 */
 	public TopVoterHandler(VotingPluginMain plugin) {
 		this.plugin = plugin;
 	}
 
+	/**
+	 * Checks if bungee should handle resets.
+	 * @return true if bungee handles resets
+	 */
 	public boolean bungeeHandleResets() {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			if (plugin.getBungeeSettings().isGloblalDataEnabled()) {
@@ -57,6 +68,11 @@ public class TopVoterHandler implements Listener {
 		return false;
 	}
 
+	/**
+	 * Gets monthly top voters at a specific time.
+	 * @param atTime the time to check
+	 * @return map of top voters and their vote counts
+	 */
 	public LinkedHashMap<TopVoterPlayer, Integer> getMonthlyTopVotersAtTime(LocalDateTime atTime) {
 		// int limitSize = plugin.getConfigFile().getMaxiumNumberOfTopVotersToLoad();
 
@@ -94,10 +110,20 @@ public class TopVoterHandler implements Listener {
 
 	}
 
+	/**
+	 * Gets the top voter blacklist.
+	 * @return list of blacklisted players
+	 */
 	public ArrayList<String> getTopVoterBlackList() {
 		return plugin.getConfigFile().getBlackList();
 	}
 
+	/**
+	 * Gets top voters for a specific month.
+	 * @param month the year-month to check
+	 * @param cols player data columns
+	 * @return map of top voters and their vote counts
+	 */
 	public LinkedHashMap<TopVoterPlayer, Integer> getTopVotersOfMonth(YearMonth month,
 			HashMap<UUID, ArrayList<Column>> cols) {
 
@@ -130,6 +156,10 @@ public class TopVoterHandler implements Listener {
 	 * @return the string[]
 	 */
 
+	/**
+	 * Gets weekly top voters as formatted strings.
+	 * @return array of formatted top voter lines
+	 */
 	public String[] getTopVotersWeekly() {
 		ArrayList<String> msg = new ArrayList<>();
 		ArrayList<TopVoterPlayer> users = plugin.convertSet(plugin.getTopVoter(TopVoter.Weekly).keySet());
@@ -163,6 +193,9 @@ public class TopVoterHandler implements Listener {
 		return place;
 	}
 
+	/**
+	 * Loads last month's top voter data.
+	 */
 	public void loadLastMonth() {
 		if (!plugin.getGui().isLastMonthGUI()) {
 			return;
@@ -203,6 +236,9 @@ public class TopVoterHandler implements Listener {
 		});
 	}
 
+	/**
+	 * Loads previous month top voters for all configured months.
+	 */
 	public void loadPreviousMonthTopVoters() {
 		if (!plugin.getConfigFile().isStoreMonthTotalsWithDate()) {
 			return;
@@ -331,6 +367,11 @@ public class TopVoterHandler implements Listener {
 		});
 	}
 
+	/**
+	 * Handles date change events.
+	 *
+	 * @param event date changed event
+	 */
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onDateChanged(DateChangedEvent event) {
 		plugin.setUpdate(true);
@@ -343,6 +384,10 @@ public class TopVoterHandler implements Listener {
 		}
 	}
 
+	/**
+	 * Handles day change events.
+	 * @param event the day change event
+	 */
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onDayChange(DayChangeEvent event) {
 		synchronized (VotingPluginMain.plugin) {
@@ -439,6 +484,10 @@ public class TopVoterHandler implements Listener {
 		}
 	}
 
+	/**
+	 * Handles month change events.
+	 * @param event the month change event
+	 */
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onMonthChange(MonthChangeEvent event) {
 		long startTime = System.currentTimeMillis();
@@ -556,6 +605,10 @@ public class TopVoterHandler implements Listener {
 		}
 	}
 
+	/**
+	 * Handles pre-date change events.
+	 * @param event the pre-date changed event
+	 */
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onPreDateChanged(PreDateChangedEvent event) {
 		if (event.getTimeType().equals(TimeType.DAY)) {
@@ -568,6 +621,11 @@ public class TopVoterHandler implements Listener {
 		plugin.update();
 	}
 
+	/**
+	 * Handles week change events.
+	 *
+	 * @param event week change event
+	 */
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onWeekChange(WeekChangeEvent event) {
 		long startTime = System.currentTimeMillis();
@@ -671,18 +729,35 @@ public class TopVoterHandler implements Listener {
 		}
 	}
 
+	/**
+	 * Registers this handler as a listener.
+	 */
 	public void register() {
 		plugin.getServer().getPluginManager().registerEvents(this, plugin);
 	}
 
+	/**
+	 * Resets vote totals for a specific period.
+	 * @param topVoter the top voter period to reset
+	 */
 	public void resetTotals(TopVoter topVoter) {
 		plugin.getUserManager().removeAllKeyValues(topVoter.getColumnName(), DataType.INTEGER);
 	}
 
+	/**
+	 * Resets vote shop limits for a specific shop.
+	 * @param shopIdent the shop identifier
+	 */
 	public void resetVoteShopLimit(String shopIdent) {
 		plugin.getUserManager().removeAllKeyValues("VoteShopLimit" + shopIdent, DataType.INTEGER);
 	}
 
+	/**
+	 * Sorts top voters by their vote counts.
+	 * @param map the map to sort
+	 * @param order true for ascending order, false for descending
+	 * @return sorted map of top voters
+	 */
 	public LinkedHashMap<TopVoterPlayer, Integer> sortByValues(LinkedHashMap<TopVoterPlayer, Integer> map,
 			final boolean order) {
 
@@ -716,6 +791,10 @@ public class TopVoterHandler implements Listener {
 		return sortedMap;
 	}
 
+	/**
+	 * Stores top voter data to file.
+	 * @param top the top voter period to store
+	 */
 	public void storeTopVoters(TopVoter top) {
 		LocalDateTime time = LocalDateTime.now().minusDays(1);
 		String month = time.getMonth().toString();
@@ -799,10 +878,9 @@ public class TopVoterHandler implements Listener {
 	}
 
 	/**
-	 * Top voter weekly.
-	 *
-	 * @param page the page
-	 * @return the string[]
+	 * Gets daily top voters with pagination.
+	 * @param page the page number
+	 * @return array of formatted top voter lines
 	 */
 	public String[] topVoterDaily(int page) {
 		int pagesize = plugin.getConfigFile().getFormatPageSize();
@@ -838,10 +916,9 @@ public class TopVoterHandler implements Listener {
 	}
 
 	/**
-	 * Top voter monthly
-	 *
-	 * @param page the page
-	 * @return the string[]
+	 * Gets monthly top voters with pagination.
+	 * @param page the page number
+	 * @return array of formatted top voter lines
 	 */
 	public String[] topVoterMonthly(int page) {
 		int pagesize = plugin.getConfigFile().getFormatPageSize();
@@ -877,9 +954,8 @@ public class TopVoterHandler implements Listener {
 	}
 
 	/**
-	 * Top voters all time
-	 *
-	 * @return the string[]
+	 * Gets all-time top voters as formatted strings.
+	 * @return array of formatted top voter lines
 	 */
 	public String[] topVotersAllTime() {
 		ArrayList<String> msg = new ArrayList<>();
@@ -904,11 +980,9 @@ public class TopVoterHandler implements Listener {
 	}
 
 	/**
-	 * Top voters daily.
-	 *
-	 * @return the string[]
+	 * Gets daily top voters as formatted strings.
+	 * @return array of formatted top voter lines
 	 */
-
 	public String[] topVotersDaily() {
 		ArrayList<String> msg = new ArrayList<>();
 		ArrayList<TopVoterPlayer> users = plugin.convertSet(plugin.getTopVoter(TopVoter.Daily).keySet());
@@ -929,9 +1003,8 @@ public class TopVoterHandler implements Listener {
 	}
 
 	/**
-	 * Top voters.
-	 *
-	 * @return the string[]
+	 * Gets monthly top voters as formatted strings.
+	 * @return array of formatted top voter lines
 	 */
 	public String[] topVotersMonthly() {
 		ArrayList<String> msg = new ArrayList<>();
@@ -956,10 +1029,9 @@ public class TopVoterHandler implements Listener {
 	}
 
 	/**
-	 * Top voter weekly.
-	 *
-	 * @param page the page
-	 * @return the string[]
+	 * Gets weekly top voters with pagination.
+	 * @param page the page number
+	 * @return array of formatted top voter lines
 	 */
 	public String[] topVoterWeekly(int page) {
 		int pagesize = plugin.getConfigFile().getFormatPageSize();
@@ -994,6 +1066,10 @@ public class TopVoterHandler implements Listener {
 		return ArrayUtils.convert(msg);
 	}
 
+	/**
+	 * Updates top voter rankings for a specific period.
+	 * @param tempTopVoter map of top voter periods to player rankings
+	 */
 	public synchronized void updateTopVoters(
 			LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>> tempTopVoter) {
 

@@ -18,11 +18,20 @@ import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
+/**
+ * GUI handler for vote best/streak display.
+ */
 public class VoteBest extends GUIHandler {
 
 	private VotingPluginMain plugin;
 	private VotingPluginUser user;
 
+	/**
+	 * Constructs a new vote best GUI.
+	 * @param plugin the plugin instance
+	 * @param player the command sender
+	 * @param user the voting plugin user
+	 */
 	public VoteBest(VotingPluginMain plugin, CommandSender player, VotingPluginUser user) {
 		super(plugin, player);
 		this.plugin = plugin;

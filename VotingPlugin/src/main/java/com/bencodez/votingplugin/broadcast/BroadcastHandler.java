@@ -58,6 +58,13 @@ public final class BroadcastHandler {
 	private final ConcurrentHashMap<UUID, LinkedHashSet<String>> intervalSites = new ConcurrentHashMap<UUID, LinkedHashSet<String>>();
 	private volatile BukkitTask intervalTask;
 
+	/**
+	 * Constructs a new BroadcastHandler.
+	 *
+	 * @param plugin   the main plugin instance
+	 * @param settings the broadcast settings
+	 * @param zoneId   the time zone ID, or null to use system default
+	 */
 	public BroadcastHandler(VotingPluginMain plugin, BroadcastSettings settings, ZoneId zoneId) {
 		this.plugin = plugin;
 		this.settings = settings;
@@ -66,6 +73,11 @@ public final class BroadcastHandler {
 		rescheduleIntervalIfNeeded();
 	}
 
+	/**
+	 * Updates the broadcast settings and reschedules interval task if needed.
+	 *
+	 * @param settings the new broadcast settings
+	 */
 	public void setSettings(BroadcastSettings settings) {
 		this.settings = settings;
 		rescheduleIntervalIfNeeded();
@@ -77,6 +89,7 @@ public final class BroadcastHandler {
 	 * @param uuid       player's uuid
 	 * @param playerName player name (optional; if null/empty, resolved from Bukkit)
 	 * @param siteName   vote site name (display name)
+	 * @param wasOnline  whether the player was online when the vote was received
 	 */
 	public void broadcastVote(UUID uuid, String playerName, String siteName, boolean wasOnline) {
 		BroadcastSettings s = settings;

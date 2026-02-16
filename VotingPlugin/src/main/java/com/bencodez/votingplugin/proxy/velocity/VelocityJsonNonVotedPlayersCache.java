@@ -6,8 +6,15 @@ import java.util.function.Consumer;
 import com.bencodez.simpleapi.file.velocity.VelocityJSONFile;
 import com.bencodez.votingplugin.proxy.cache.nonvoted.INonVotedPlayersStorage;
 
+/**
+ * JSON-based non-voted players cache for Velocity proxy.
+ */
 public class VelocityJsonNonVotedPlayersCache extends VelocityJSONFile implements INonVotedPlayersStorage {
 
+	/**
+	 * Constructs a new Velocity JSON non-voted players cache.
+	 * @param file the file to store cache data
+	 */
 	public VelocityJsonNonVotedPlayersCache(File file) {
 		super(file);
 	}
@@ -49,6 +56,11 @@ public class VelocityJsonNonVotedPlayersCache extends VelocityJSONFile implement
 
 	}
 
+	/**
+	 * Sets a value at a specific path.
+	 * @param value the value to set
+	 * @param path the path elements
+	 */
 	private void setPath(Object value, Object... path) {
 		set(path, value);
 	}

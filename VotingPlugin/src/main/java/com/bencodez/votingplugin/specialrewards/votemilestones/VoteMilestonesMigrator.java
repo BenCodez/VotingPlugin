@@ -19,6 +19,15 @@ public final class VoteMilestonesMigrator {
 	private VoteMilestonesMigrator() {
 	}
 
+	/**
+	 * Compiles legacy milestone configuration into the new format.
+	 *
+	 * @param root the configuration section containing legacy milestones
+	 * @param totalSites the total number of vote sites
+	 * @param onlyOneCumulative whether only one cumulative milestone should trigger
+	 * @param resetMilestonesMonthly whether milestones reset monthly
+	 * @return map of milestone names to VoteMilestone objects
+	 */
 	public static Map<String, VoteMilestone> compileLegacy(ConfigurationSection root, int totalSites,
 			boolean onlyOneCumulative, boolean resetMilestonesMonthly) {
 		Map<String, VoteMilestone> out = new LinkedHashMap<>();

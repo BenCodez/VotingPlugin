@@ -101,6 +101,11 @@ public class CommandLoader {
 
 	private VotingPluginMain plugin;
 
+	/**
+	 * Constructs a new CommandLoader.
+	 *
+	 * @param plugin the main plugin instance
+	 */
 	public CommandLoader(VotingPluginMain plugin) {
 		this.plugin = plugin;
 	}
@@ -112,6 +117,12 @@ public class CommandLoader {
 		return adminPerm;
 	}
 
+	/**
+	 * Gets the back button for inventory navigation.
+	 *
+	 * @param user the voting plugin user
+	 * @return the back button
+	 */
 	public BInventoryButton getBackButton(VotingPluginUser user) {
 		ConfigurationSection sec = plugin.getGui().getCHESTBackButton();
 		boolean a = false;
@@ -181,6 +192,13 @@ public class CommandLoader {
 		return playerPerm;
 	}
 
+	/**
+	 * Checks if a player has permission for a command.
+	 *
+	 * @param player the player
+	 * @param cmd the command
+	 * @return true if player has permission
+	 */
 	public boolean hasPermission(Player player, String cmd) {
 		if (cmd.startsWith("votingplugin:")) {
 			cmd = cmd.substring("votingplugin:".length());
@@ -230,6 +248,13 @@ public class CommandLoader {
 		return false;
 	}
 
+	/**
+	 * Checks if a command belongs to the VotingPlugin.
+	 *
+	 * @param player the player
+	 * @param cmd the command
+	 * @return true if it's a VotingPlugin command
+	 */
 	public boolean isVotingPluginCommand(Player player, String cmd) {
 		if (plugin.getCommand(cmd) != null || cmd.startsWith("votingplugin")) {
 			return true;
@@ -2321,6 +2346,11 @@ public class CommandLoader {
 
 	private final Set<String> aliasCommandNames = new HashSet<>();
 
+	/**
+	 * Gets the set of alias command names.
+	 *
+	 * @return set of alias command names
+	 */
 	public Set<String> getAliasCommandNames() {
 		return aliasCommandNames;
 	}
@@ -3300,6 +3330,13 @@ public class CommandLoader {
 		}
 	}
 
+	/**
+	 * Processes a slot click action from a GUI.
+	 *
+	 * @param player the player
+	 * @param user the voting plugin user
+	 * @param slot the slot identifier
+	 */
 	public void processSlotClick(Player player, VotingPluginUser user, String slot) {
 		if (MessageAPI.startsWithIgnoreCase(slot, "url")) {
 			new VoteURL(plugin, player, user, true).open();

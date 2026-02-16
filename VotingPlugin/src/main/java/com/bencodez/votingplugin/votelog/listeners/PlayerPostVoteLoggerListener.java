@@ -8,6 +8,9 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerPostVoteEvent;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable.VoteLogStatus;
 
+/**
+ * Listener for logging player post-vote events.
+ */
 public class PlayerPostVoteLoggerListener implements Listener {
 
 	private VotingPluginMain plugin;

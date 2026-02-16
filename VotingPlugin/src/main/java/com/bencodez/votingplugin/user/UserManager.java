@@ -18,13 +18,23 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.specialrewards.votemilestones.VoteMilestonesManager;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 
+/**
+ * Manages VotingPlugin user operations and data.
+ */
 public class UserManager {
 	private VotingPluginMain plugin;
 
+	/**
+	 * Constructs a new user manager.
+	 * @param plugin the plugin instance
+	 */
 	public UserManager(VotingPluginMain plugin) {
 		this.plugin = plugin;
 	}
 
+	/**
+	 * Adds caching keys to the user data manager.
+	 */
 	public void addCachingKeys() {
 		UserDataManager manager = plugin.getUserManager().getDataManager();
 		manager.addKey(new UserDataKeyBoolean("TopVoterIgnore"));
@@ -78,10 +88,18 @@ public class UserManager {
 
 	}
 
+	/**
+	 * Gets all user UUIDs.
+	 * @return list of all UUIDs
+	 */
 	public ArrayList<String> getAllUUIDs() {
 		return plugin.getUserManager().getAllUUIDs();
 	}
 
+	/**
+	 * Gets the cooldown check path based on server configuration.
+	 * @return the cooldown check path
+	 */
 	public String getCoolDownCheckPath() {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			return "CoolDownCheck_" + plugin.getBungeeSettings().getServerNameStorage();
@@ -89,6 +107,10 @@ public class UserManager {
 		return "CoolDownCheck";
 	}
 
+	/**
+	 * Gets the cooldown check site path based on server configuration.
+	 * @return the cooldown check site path
+	 */
 	public String getCoolDownCheckSitePath() {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			return "CoolDownCheck_" + plugin.getBungeeSettings().getServerNameStorage() + "_Sites";
@@ -96,6 +118,10 @@ public class UserManager {
 		return "CoolDownCheck" + "_Sites";
 	}
 
+	/**
+	 * Gets the path for tracking when all sites were voted on.
+	 * @return the all sites day path
+	 */
 	public String getGottenAllSitesDayPath() {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			return "AllSitesLast_" + plugin.getBungeeSettings().getServerNameStorage();
@@ -103,6 +129,10 @@ public class UserManager {
 		return "AllSitesLast";
 	}
 
+	/**
+	 * Gets the path for tracking when almost all sites were voted on.
+	 * @return the almost all sites day path
+	 */
 	public String getGottenAlmostAllSitesDayPath() {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			return "AlmostAllSitesLast_" + plugin.getBungeeSettings().getServerNameStorage();
@@ -110,47 +140,96 @@ public class UserManager {
 		return "AlmostAllSitesLast";
 	}
 
+	/**
+	 * Gets the monthly totals path for the current time.
+	 * @return the month totals path
+	 */
 	public String getMonthTotalsWithDatePath() {
 		LocalDateTime cTime = plugin.getTimeChecker().getTime();
 		return getMonthTotalsWithDatePath(cTime);
 	}
 
+	/**
+	 * Gets the monthly totals path for a specific time.
+	 * @param cTime the time to get the path for
+	 * @return the month totals path
+	 */
 	public String getMonthTotalsWithDatePath(LocalDateTime cTime) {
 		return "MonthTotal-" + cTime.getMonth().toString() + "-" + cTime.getYear();
 	}
 
+	/**
+	 * Gets a VotingPluginUser from an AdvancedCoreUser.
+	 * @param user the AdvancedCoreUser
+	 * @return the VotingPluginUser
+	 */
 	public VotingPluginUser getVotingPluginUser(com.bencodez.advancedcore.api.user.AdvancedCoreUser user) {
 		return new VotingPluginUser(plugin, user);
 	}
 
+	/**
+	 * Gets a VotingPluginUser from an offline player.
+	 * @param player the offline player
+	 * @return the VotingPluginUser
+	 */
 	public VotingPluginUser getVotingPluginUser(OfflinePlayer player) {
 		return getVotingPluginUser(player.getUniqueId(), player.getName());
 	}
 
+	/**
+	 * Gets a VotingPluginUser from an online player.
+	 * @param player the online player
+	 * @return the VotingPluginUser
+	 */
 	public VotingPluginUser getVotingPluginUser(Player player) {
 		return getVotingPluginUser(player.getUniqueId(), player.getName());
 	}
 
+	/**
+	 * Gets a VotingPluginUser by player name.
+	 * @param playerName the player name
+	 * @return the VotingPluginUser
+	 */
 	@SuppressWarnings("deprecation")
 	public VotingPluginUser getVotingPluginUser(String playerName) {
 		return new VotingPluginUser(plugin, plugin.getUserManager().getProperName(playerName));
 	}
 
+	/**
+	 * Gets a VotingPluginUser by UUID.
+	 * @param uuid the player UUID
+	 * @return the VotingPluginUser
+	 */
 	@SuppressWarnings("deprecation")
 	public VotingPluginUser getVotingPluginUser(UUID uuid) {
 		return new VotingPluginUser(plugin, uuid);
 	}
 
+	/**
+	 * Gets a VotingPluginUser by UUID with optional name loading.
+	 * @param uuid the player UUID
+	 * @param loadName whether to load the player name
+	 * @return the VotingPluginUser
+	 */
 	@SuppressWarnings("deprecation")
 	public VotingPluginUser getVotingPluginUser(UUID uuid, boolean loadName) {
 		return new VotingPluginUser(plugin, uuid, loadName);
 	}
 
+	/**
+	 * Gets a VotingPluginUser by UUID and player name.
+	 * @param uuid the player UUID
+	 * @param playerName the player name
+	 * @return the VotingPluginUser
+	 */
 	@SuppressWarnings("deprecation")
 	public VotingPluginUser getVotingPluginUser(UUID uuid, String playerName) {
 		return new VotingPluginUser(plugin, uuid, playerName);
 	}
 
+	/**
+	 * Purges old players with no voting data.
+	 */
 	public void purgeOldPlayersNoData() {
 		if (plugin.getOptions().isPurgeOldData() && plugin.getConfigFile().isPurgeNoDataOnStartup()) {
 			plugin.addUserStartup(new UserStartup() {
@@ -190,6 +269,9 @@ public class UserManager {
 		plugin.getUserManager().getDataManager().clearCache();
 	}
 
+	/**
+	 * Immediately purges old players with no voting data.
+	 */
 	public void purgeOldPlayersNowNoData() {
 		plugin.getUserManager().forEachUserKeys((uuid, columns) -> {
 			if (plugin.isEnabled()) {

@@ -17,22 +17,39 @@ import com.bencodez.votingplugin.events.PlayerVoteEvent;
 
 import lombok.Getter;
 
+/**
+ * The TimeQueueHandler class manages time-based vote queue processing.
+ */
 public class TimeQueueHandler implements Listener {
 	@Getter
 	private Queue<VoteTimeQueue> timeChangeQueue = new ConcurrentLinkedQueue<>();
 
 	private VotingPluginMain plugin;
 
+	/**
+	 * Constructs a new TimeQueueHandler.
+	 *
+	 * @param plugin the main plugin instance
+	 */
 	public TimeQueueHandler(VotingPluginMain plugin) {
 		this.plugin = plugin;
 		load();
 	}
 
+	/**
+	 * Adds a vote to the time change queue.
+	 *
+	 * @param voteUsername the voter username
+	 * @param voteSiteName the vote site name
+	 */
 	public void addVote(String voteUsername, String voteSiteName) {
 		timeChangeQueue.add(new VoteTimeQueue(voteUsername, voteSiteName,
 				LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()));
 	}
 
+	/**
+	 * Loads cached votes from server data and schedules queue processing.
+	 */
 	public void load() {
 		for (String str : plugin.getServerData().getTimedVoteCacheKeys()) {
 			ConfigurationSection data = plugin.getServerData().getTimedVoteCacheSection(str);
@@ -49,6 +66,11 @@ public class TimeQueueHandler implements Listener {
 		}, 120, TimeUnit.SECONDS);
 	}
 
+	/**
+	 * Handles date change event and schedules queue processing.
+	 *
+	 * @param event the date changed event
+	 */
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void postTimeChange(DateChangedEvent event) {
 		plugin.getVoteTimer().schedule(new Runnable() {
@@ -60,6 +82,9 @@ public class TimeQueueHandler implements Listener {
 		}, 5, TimeUnit.SECONDS);
 	}
 
+	/**
+	 * Processes all votes in the queue.
+	 */
 	public void processQueue() {
 		while (getTimeChangeQueue().size() > 0) {
 			VoteTimeQueue vote = getTimeChangeQueue().remove();
@@ -76,6 +101,9 @@ public class TimeQueueHandler implements Listener {
 		}
 	}
 
+	/**
+	 * Saves pending votes to server data.
+	 */
 	public void save() {
 		if (!timeChangeQueue.isEmpty()) {
 			int num = 0;

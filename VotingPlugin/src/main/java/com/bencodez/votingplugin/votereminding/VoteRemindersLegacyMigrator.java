@@ -8,6 +8,9 @@ import org.bukkit.configuration.file.FileConfiguration;
 
 import com.bencodez.votingplugin.VotingPluginMain;
 
+/**
+ * Utility class for migrating legacy vote reminding configuration to the new format.
+ */
 public final class VoteRemindersLegacyMigrator {
 
 	private VoteRemindersLegacyMigrator() {
@@ -20,6 +23,11 @@ public final class VoteRemindersLegacyMigrator {
 	 * - NO BACKUPS (per request) - Runs once
 	 * (VoteReminderOptions.MigratedFromLegacy) - Skips if new sections already
 	 * exist
+	 *
+	 * @param plugin the main plugin instance
+	 * @param configYmlFile the config.yml file
+	 * @param cfg the file configuration
+	 * @return true if migration was performed, false if skipped
 	 */
 	public static boolean migrateIfNeeded(VotingPluginMain plugin, File configYmlFile, FileConfiguration cfg) {
 		// already migrated

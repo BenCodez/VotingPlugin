@@ -13,6 +13,9 @@ import com.bencodez.votingplugin.VotingPluginMain;
 
 import lombok.Getter;
 
+/**
+ * Configuration file for Bungee/proxy settings.
+ */
 public class BungeeSettings extends YMLFile {
 
 	@ConfigDataBoolean(path = "BungeeDebug")
@@ -135,11 +138,21 @@ public class BungeeSettings extends YMLFile {
 	@Getter
 	private ArrayList<String> bungeeVotePartyGlobalCommands = new ArrayList<>();
 
+	/**
+	 * Constructs a new BungeeSettings.
+	 *
+	 * @param plugin the main plugin instance
+	 */
 	public BungeeSettings(VotingPluginMain plugin) {
 		super(plugin, new File(plugin.getDataFolder(), "BungeeSettings.yml"));
 		setIgnoreCase(plugin.getConfigFile().isCaseInsensitiveYMLFiles());
 	}
 
+	/**
+	 * Gets the server name formatted for storage.
+	 *
+	 * @return the formatted server name
+	 */
 	public String getServerNameStorage() {
 		return getServer().replace("-", "_");
 	}

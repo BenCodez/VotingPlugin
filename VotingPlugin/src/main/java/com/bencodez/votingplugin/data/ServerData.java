@@ -26,10 +26,20 @@ public class ServerData {
 
 	private VotingPluginMain plugin = VotingPluginMain.plugin;
 
+	/**
+	 * Constructs a new ServerData.
+	 *
+	 * @param plugin the main plugin instance
+	 */
 	public ServerData(VotingPluginMain plugin) {
 		this.plugin = plugin;
 	}
 
+	/**
+	 * Adds an auto-cached placeholder.
+	 *
+	 * @param placeholder the placeholder to add
+	 */
 	public void addAutoCachedPlaceholder(String placeholder) {
 		List<String> p = getAutoCachedPlaceholder();
 
@@ -39,6 +49,11 @@ public class ServerData {
 		}
 	}
 
+	/**
+	 * Adds a service site to the list.
+	 *
+	 * @param site the service site to add
+	 */
 	public synchronized void addServiceSite(String site) {
 		ArrayList<String> l = getServiceSites();
 		if (!getServiceSites().contains(site)) {
@@ -69,6 +84,12 @@ public class ServerData {
 				getSignSkullLocation("" + count), getSignData("" + count), getSignPosition("" + count)));
 	}
 
+	/**
+	 * Adds a timed vote to the cache.
+	 *
+	 * @param num the vote number
+	 * @param vote the vote time queue entry
+	 */
 	public void addTimeVoted(int num, VoteTimeQueue vote) {
 		getData().set("TimedVoteCache." + num + ".Name", vote.getName());
 		getData().set("TimedVoteCache." + num + ".Service", vote.getService());
@@ -76,23 +97,46 @@ public class ServerData {
 		saveData();
 	}
 
+	/**
+	 * Adds a vote shop purchase for the specified identifier.
+	 *
+	 * @param ident the vote shop identifier
+	 */
 	public void addVoteShopPurchase(String ident) {
 		setVoteShopPurchases(ident, (getVoteShopPurchases(ident) + 1));
 	}
 
+	/**
+	 * Clears the timed vote cache.
+	 */
 	public void clearTimedVoteCache() {
 		getData().set("TimedVoteCache", null);
 		saveData();
 	}
 
+	/**
+	 * Gets the auto cached placeholders.
+	 *
+	 * @return the auto cached placeholder list
+	 */
 	public List<String> getAutoCachedPlaceholder() {
 		return getData().getStringList("AutoCachePlaceholders");
 	}
 
+	/**
+	 * Gets the current bungee vote party count.
+	 *
+	 * @return the bungee vote party current count
+	 */
 	public int getBungeeVotePartyCurrent() {
 		return getData().getInt("BungeeVotePartyCurrent");
 	}
 
+	/**
+	 * Gets the required votes for bungee vote party.
+	 *
+	 * @return the bungee vote party required votes
+	 */
 	public int getBungeeVotePartyRequired() {
 		return getData().getInt("BungeeVotePartyRequired");
 	}
@@ -111,10 +155,20 @@ public class ServerData {
 		return data;
 	}
 
+	/**
+	 * Gets the list of disabled reminders.
+	 *
+	 * @return the disabled reminders
+	 */
 	public List<String> getDisabledReminders() {
 		return getData().getStringList("DisabledReminders");
 	}
 
+	/**
+	 * Gets the service sites list.
+	 *
+	 * @return the service sites
+	 */
 	@SuppressWarnings("unchecked")
 	public ArrayList<String> getServiceSites() {
 		return (ArrayList<String>) getData().getList("ServiceSites", new ArrayList<>());
@@ -180,6 +234,11 @@ public class ServerData {
 				getData().getDouble("Signs." + sign + ".Skull.Z"));
 	}
 
+	/**
+	 * Gets the timed vote cache keys.
+	 *
+	 * @return the timed vote cache keys
+	 */
 	public Set<String> getTimedVoteCacheKeys() {
 		if (getData().isConfigurationSection("TimedVoteCache")) {
 			return getData().getConfigurationSection("TimedVoteCache").getKeys(false);
@@ -187,18 +246,40 @@ public class ServerData {
 		return new HashSet<>();
 	}
 
+	/**
+	 * Gets the timed vote cache section for the given number.
+	 *
+	 * @param num the cache entry number
+	 * @return the timed vote cache section
+	 */
 	public ConfigurationSection getTimedVoteCacheSection(String num) {
 		return getData().getConfigurationSection("TimedVoteCache." + num);
 	}
 
+	/**
+	 * Gets the extra required votes for vote party.
+	 *
+	 * @return the vote party extra required votes
+	 */
 	public int getVotePartyExtraRequired() {
 		return getData().getInt("VotePartyExtraRequired", 0);
 	}
 
+	/**
+	 * Gets the number of purchases for a vote shop item.
+	 *
+	 * @param ident the vote shop identifier
+	 * @return the vote shop purchases
+	 */
 	public int getVoteShopPurchases(String ident) {
 		return getData().getInt("VoteShopPurchases." + ident);
 	}
 
+	/**
+	 * Checks if the last vote party was on the same day.
+	 *
+	 * @return true if same day
+	 */
 	public boolean isLastVotePartySameDay() {
 		int num = getData().getInt("LastVoteParty", 0);
 		if (num == plugin.getTimeChecker().getTime().getDayOfYear()) {
@@ -207,6 +288,11 @@ public class ServerData {
 		return false;
 	}
 
+	/**
+	 * Checks if the last vote party was in the same week.
+	 *
+	 * @return true if same week
+	 */
 	public boolean isLastVotePartySameWeek() {
 		int num = getData().getInt("LastVotePartyWeek", -1);
 		if (num == plugin.getTimeChecker().getTime().get(WeekFields.of(Locale.getDefault()).weekOfYear())
@@ -216,6 +302,11 @@ public class ServerData {
 		return false;
 	}
 
+	/**
+	 * Checks if the vote shop has been converted.
+	 *
+	 * @return true if converted
+	 */
 	public boolean isVoteShopConverted() {
 		return getData().getBoolean("VoteShopConverted");
 	}
@@ -245,10 +336,22 @@ public class ServerData {
 		plugin.getServerDataFile().reloadData();
 	}
 
+	/**
+	 * Gets the Discord message ID for the top voter.
+	 *
+	 * @param top the top voter type
+	 * @return the top voter message ID
+	 */
 	public long getTopVoterMessageId(TopVoter top) {
 		return getData().getLong("DiscordSRV.TopVoterMessageId." + top.toString(), 0);
 	}
 
+	/**
+	 * Sets the Discord message ID for the top voter.
+	 *
+	 * @param top the top voter type
+	 * @param messageId the message ID
+	 */
 	public void setTopVoterMessageId(TopVoter top, long messageId) {
 		getData().set("DiscordSRV.TopVoterMessageId." + top.toString(), messageId);
 		saveData();
@@ -281,6 +384,11 @@ public class ServerData {
 		plugin.getServerDataFile().saveData();
 	}
 
+	/**
+	 * Saves the disabled reminders list.
+	 *
+	 * @param disabledReminders the list of UUIDs with disabled reminders
+	 */
 	public void saveDisabledReminders(ArrayList<UUID> disabledReminders) {
 		ArrayList<String> uuids = new ArrayList<>();
 		for (UUID uuid : disabledReminders) {
@@ -290,31 +398,65 @@ public class ServerData {
 		saveData();
 	}
 
+	/**
+	 * Sets the auto cached placeholders.
+	 *
+	 * @param placeholders the list of placeholders
+	 */
 	public void setAutoCachedPlaceholder(List<String> placeholders) {
 		getData().set("AutoCachePlaceholders", placeholders);
 		saveData();
 	}
 
+	/**
+	 * Sets the current bungee vote party count.
+	 *
+	 * @param current the current vote count
+	 */
 	public void setBungeeVotePartyCurrent(int current) {
 		getData().set("BungeeVotePartyCurrent", current);
 		saveData();
 	}
 
+	/**
+	 * Sets the required votes for bungee vote party.
+	 *
+	 * @param required the required vote count
+	 */
 	public void setBungeeVotePartyRequired(int required) {
 		getData().set("BungeeVotePartyRequired", required);
 		saveData();
 	}
 
+	/**
+	 * Sets the service sites list.
+	 *
+	 * @param list the service sites list
+	 */
 	public void setServiceSites(ArrayList<String> list) {
 		getData().set("ServiceSites", list);
 		saveData();
 	}
 
+	/**
+	 * Sets the vote shop converted status.
+	 *
+	 * @param value the converted status
+	 */
 	public void setShopConverted(boolean value) {
 		getData().set("VoteShopConverted", value);
 		saveData();
 	}
 
+	/**
+	 * Sets sign data.
+	 *
+	 * @param count the sign count
+	 * @param location the sign location
+	 * @param skullLocation the skull location
+	 * @param data the sign data
+	 * @param position the sign position
+	 */
 	public void setSign(String count, Location location, Location skullLocation, String data, int position) {
 
 		getData().set("Signs." + count + ".World", location.getWorld().getName());
@@ -332,6 +474,12 @@ public class ServerData {
 		saveData();
 	}
 
+	/**
+	 * Sets the skull location for a sign.
+	 *
+	 * @param count the sign count
+	 * @param skullLocation the skull location
+	 */
 	public void setSkullLocation(String count, Location skullLocation) {
 		if (skullLocation != null) {
 			getData().set("Signs." + count + ".Skull.World", skullLocation.getWorld().getName());
@@ -349,27 +497,47 @@ public class ServerData {
 		saveData();
 	}
 
+	/**
+	 * Sets the extra required votes for vote party.
+	 *
+	 * @param value the extra required votes
+	 */
 	public void setVotePartyExtraRequired(int value) {
 		getData().set("VotePartyExtraRequired", value);
 		saveData();
 	}
 
+	/**
+	 * Sets the number of purchases for a vote shop item.
+	 *
+	 * @param ident the vote shop identifier
+	 * @param amount the purchase amount
+	 */
 	public void setVoteShopPurchases(String ident, int amount) {
 		getData().set("VoteShopPurchases." + ident, amount);
 		saveData();
 	}
 
+	/**
+	 * Updates the last vote party timestamp to today.
+	 */
 	public void updateLastVoteParty() {
 		getData().set("LastVoteParty", plugin.getTimeChecker().getTime().getDayOfYear());
 		saveData();
 	}
 
+	/**
+	 * Updates the last vote party week timestamp to this week.
+	 */
 	public void updateLastVotePartyWeek() {
 		getData().set("LastVotePartyWeek",
 				plugin.getTimeChecker().getTime().get(WeekFields.of(Locale.getDefault()).weekOfYear()));
 		saveData();
 	}
 
+	/**
+	 * Updates placeholders to lowercase format.
+	 */
 	public void updatePlaceholders() {
 		boolean data = getData().getBoolean("AutoCacheUpdated", false);
 		if (!data) {

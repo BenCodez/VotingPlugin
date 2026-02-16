@@ -44,6 +44,13 @@ public class PlayerSpecialRewardEvent extends Event {
 	@Setter
 	private UUID voteUUID;
 
+	/**
+	 * Constructs a new PlayerSpecialRewardEvent.
+	 *
+	 * @param user the voting plugin user
+	 * @param type the special reward type
+	 * @param voteUUID the vote UUID
+	 */
 	public PlayerSpecialRewardEvent(VotingPluginUser user, SpecialRewardType type, UUID voteUUID) {
 		super(true);
 		this.type = type;

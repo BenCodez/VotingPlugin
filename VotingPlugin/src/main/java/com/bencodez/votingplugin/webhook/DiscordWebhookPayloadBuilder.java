@@ -30,19 +30,34 @@ public final class DiscordWebhookPayloadBuilder {
 		// builder
 	}
 
-	/** @param username username override */
+	/**
+	 * Sets the username override.
+	 *
+	 * @param username username override
+	 * @return this builder
+	 */
 	public DiscordWebhookPayloadBuilder username(String username) {
 		this.username = username;
 		return this;
 	}
 
-	/** @param avatarUrl avatar URL override */
+	/**
+	 * Sets the avatar URL override.
+	 *
+	 * @param avatarUrl avatar URL override
+	 * @return this builder
+	 */
 	public DiscordWebhookPayloadBuilder avatarUrl(String avatarUrl) {
 		this.avatarUrl = avatarUrl;
 		return this;
 	}
 
-	/** @param content message content (plain text/markdown) */
+	/**
+	 * Sets the message content.
+	 *
+	 * @param content message content (plain text/markdown)
+	 * @return this builder
+	 */
 	public DiscordWebhookPayloadBuilder content(String content) {
 		this.content = content;
 		return this;

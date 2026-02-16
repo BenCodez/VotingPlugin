@@ -69,6 +69,12 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 		return sb.toString();
 	}
 
+	/**
+	 * Updates the text field of a vote.
+	 * @param vote the vote to update
+	 * @param server the server name
+	 * @param newText the new text
+	 */
 	public void updateVoteText(OfflineBungeeVote vote, String server, String newText) {
 		if (vote == null || server == null) {
 			return;
@@ -109,6 +115,12 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 
 	// ---- Constructors ----
 
+	/**
+	 * Constructor using an existing MySQL connection.
+	 * @param existingMysql the existing MySQL instance
+	 * @param tablePrefix the table prefix
+	 * @param debug whether debug mode is enabled
+	 */
 	public ProxyVoteCacheTable(MySQL existingMysql, String tablePrefix, boolean debug) {
 		super((tablePrefix != null ? tablePrefix : "") + "votingplugin_votecache", existingMysql, debug);
 
@@ -118,6 +130,11 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 		ensureIndexesOnce();
 	}
 
+	/**
+	 * Constructor using a MySQL configuration.
+	 * @param config the MySQL configuration
+	 * @param debug whether debug mode is enabled
+	 */
 	public ProxyVoteCacheTable(MysqlConfig config, boolean debug) {
 		super("votingplugin_votecache", config, debug);
 
@@ -199,6 +216,17 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 
 	// ---- INSERT ----
 
+	/**
+	 * Inserts a new vote into the cache.
+	 * @param voteId the vote ID
+	 * @param uuid the player UUID
+	 * @param playerName the player name
+	 * @param service the voting service
+	 * @param time the vote time
+	 * @param real whether this is a real vote
+	 * @param text the vote text/payload
+	 * @param server the server name
+	 */
 	public void insertVote(UUID voteId, String uuid, String playerName, String service, long time, boolean real,
 			String text, String server) {
 
@@ -237,21 +265,40 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 
 	// ---- GET ----
 
+	/**
+	 * Gets all votes from the table.
+	 * @return list of all vote rows
+	 */
 	public List<VoteRow> getAllVotes() {
 		return selectVotes("SELECT * FROM " + qi(getTableName()) + ";", null);
 	}
 
+	/**
+	 * Gets all votes for a specific server.
+	 * @param server the server name
+	 * @return list of vote rows
+	 */
 	public List<VoteRow> getVotesForServer(String server) {
 		return selectVotes("SELECT * FROM " + qi(getTableName()) + " WHERE " + qi("server") + " = ?;",
 				new Object[] { server });
 	}
 
+	/**
+	 * Gets a vote by its ID.
+	 * @param id the vote ID
+	 * @return the vote row or null if not found
+	 */
 	public VoteRow getVoteById(int id) {
 		List<VoteRow> list = selectVotes("SELECT * FROM " + qi(getTableName()) + " WHERE " + qi("id") + " = ?;",
 				new Object[] { id });
 		return list.isEmpty() ? null : list.get(0);
 	}
 
+	/**
+	 * Gets all votes for a specific UUID.
+	 * @param uuid the player UUID
+	 * @return list of vote rows
+	 */
 	public List<VoteRow> getVotesByUUID(String uuid) {
 		String sql = "SELECT * FROM " + qi(getTableName()) + " WHERE " + qi("uuid") + " = ?;";
 		Object[] params = (getDbType() == DbType.POSTGRESQL) ? new Object[] { UUID.fromString(uuid) }
@@ -259,11 +306,20 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 		return selectVotes(sql, params);
 	}
 
+	/**
+	 * Gets all votes for a specific player name.
+	 * @param playerName the player name
+	 * @return list of vote rows
+	 */
 	public List<VoteRow> getVotesByPlayerName(String playerName) {
 		return selectVotes("SELECT * FROM " + qi(getTableName()) + " WHERE " + qi("playerName") + " = ?;",
 				new Object[] { playerName });
 	}
 
+	/**
+	 * Gets all distinct servers that have votes.
+	 * @return set of server names
+	 */
 	public Set<String> getServers() {
 		Set<String> servers = new HashSet<>();
 		String sql = "SELECT DISTINCT " + qi("server") + " FROM " + qi(getTableName()) + " WHERE " + qi("server")
@@ -286,6 +342,10 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 
 	// ---- DELETE ----
 
+	/**
+	 * Removes a vote by its ID.
+	 * @param id the vote ID
+	 */
 	public void removeVoteById(int id) {
 		String sql = "DELETE FROM " + qi(getTableName()) + " WHERE " + qi("id") + " = ?;";
 		try (Connection conn = mysql.getConnectionManager().getConnection();
@@ -297,6 +357,11 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 		}
 	}
 
+	/**
+	 * Removes all votes for a specific server and UUID.
+	 * @param server the server name
+	 * @param uuid the player UUID
+	 */
 	public void removeVotesByServerAndUUID(String server, String uuid) {
 		String sql = "DELETE FROM " + qi(getTableName()) + " WHERE " + qi("server") + " = ? AND " + qi("uuid")
 				+ " = ?;";
@@ -316,6 +381,11 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 		}
 	}
 
+	/**
+	 * Removes a specific vote.
+	 * @param vote the vote to remove
+	 * @param server the server name
+	 */
 	public void removeVote(OfflineBungeeVote vote, String server) {
 		String sql = "DELETE FROM " + qi(getTableName()) + " WHERE " + qi("uuid") + " = ? AND " + qi("service")
 				+ " = ? AND " + qi("time") + " = ? AND " + qi("server") + " = ?;";
@@ -339,6 +409,10 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 		}
 	}
 
+	/**
+	 * Removes all votes for a specific server.
+	 * @param server the server name
+	 */
 	public void removeVotesByServer(String server) {
 		String sql = "DELETE FROM " + qi(getTableName()) + " WHERE " + qi("server") + " = ?;";
 		try (Connection conn = mysql.getConnectionManager().getConnection();
@@ -350,6 +424,9 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 		}
 	}
 
+	/**
+	 * Clears all votes from the table.
+	 */
 	public void clearTable() {
 		try {
 			if (getDbType() == DbType.POSTGRESQL) {
@@ -390,6 +467,9 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 		return list;
 	}
 
+	/**
+	 * Represents a row in the vote cache table.
+	 */
 	public static class VoteRow {
 		private final int id;
 		private final String voteId;
@@ -401,6 +481,18 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 		private final String text;
 		private final String server;
 
+		/**
+		 * Constructor for VoteRow.
+		 * @param id the row ID
+		 * @param voteId the vote ID
+		 * @param uuid the player UUID
+		 * @param playerName the player name
+		 * @param service the voting service
+		 * @param time the vote time
+		 * @param realVote whether this is a real vote
+		 * @param text the vote text
+		 * @param server the server name
+		 */
 		public VoteRow(int id, String voteId, String uuid, String playerName, String service, long time,
 				boolean realVote, String text, String server) {
 			this.id = id;
@@ -414,38 +506,74 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 			this.server = server;
 		}
 
+		/**
+		 * Gets the row ID.
+		 * @return the ID
+		 */
 		public int getId() {
 			return id;
 		}
 
+		/**
+		 * Gets the vote ID.
+		 * @return the vote ID
+		 */
 		public String getVoteId() {
 			return voteId;
 		}
 
+		/**
+		 * Gets the player UUID.
+		 * @return the UUID
+		 */
 		public String getUuid() {
 			return uuid;
 		}
 
+		/**
+		 * Gets the player name.
+		 * @return the player name
+		 */
 		public String getPlayerName() {
 			return playerName;
 		}
 
+		/**
+		 * Gets the voting service.
+		 * @return the service name
+		 */
 		public String getService() {
 			return service;
 		}
 
+		/**
+		 * Gets the vote time.
+		 * @return the time in milliseconds
+		 */
 		public long getTime() {
 			return time;
 		}
 
+		/**
+		 * Checks if this is a real vote.
+		 * @return true if real vote
+		 */
 		public boolean isRealVote() {
 			return realVote;
 		}
 
+		/**
+		 * Gets the vote text.
+		 * @return the text/payload
+		 */
 		public String getText() {
 			return text;
 		}
 
+		/**
+		 * Gets the server name.
+		 * @return the server name
+		 */
 		public String getServer() {
 			return server;
 		}

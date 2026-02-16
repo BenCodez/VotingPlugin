@@ -19,11 +19,20 @@ import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
+/**
+ * GUI handler for vote interface.
+ */
 public class VoteGUI extends GUIHandler {
 
 	private VotingPluginMain plugin;
 	private VotingPluginUser user;
 
+	/**
+	 * Constructs a new vote GUI.
+	 * @param plugin the plugin instance
+	 * @param player the command sender
+	 * @param user the voting plugin user
+	 */
 	public VoteGUI(VotingPluginMain plugin, CommandSender player, VotingPluginUser user) {
 		super(plugin, player);
 		this.plugin = plugin;
@@ -35,6 +44,12 @@ public class VoteGUI extends GUIHandler {
 		return null;
 	}
 
+	/**
+	 * Gets the item for a specific GUI slot.
+	 * @param slot the slot name
+	 * @param player the player
+	 * @return the item builder for the slot
+	 */
 	private ItemBuilder getItemSlot(String slot, Player player) {
 		ItemBuilder builder = new ItemBuilder(plugin.getGui().getChestVoteGUISlotSection(slot));
 

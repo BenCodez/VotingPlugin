@@ -28,6 +28,9 @@ import com.bencodez.votingplugin.votesites.VoteSite;
 
 import lombok.Getter;
 
+/**
+ * Manages cooldown checks for vote rewards.
+ */
 public class CoolDownCheck implements Listener {
 
 	private final VotingPluginMain plugin;
@@ -40,6 +43,11 @@ public class CoolDownCheck implements Listener {
 
 	private volatile boolean cooldownCheckEnabled = false;
 
+	/**
+	 * Constructs a new cooldown check manager.
+	 *
+	 * @param plugin the plugin instance
+	 */
 	public CoolDownCheck(VotingPluginMain plugin) {
 		this.plugin = plugin;
 
@@ -49,6 +57,11 @@ public class CoolDownCheck implements Listener {
 		this.timer = exec;
 	}
 
+	/**
+	 * Checks the cooldown for a player by UUID.
+	 *
+	 * @param uuid the player UUID
+	 */
 	public void check(UUID uuid) {
 		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
 		if (!user.isOnline()) {
@@ -57,6 +70,9 @@ public class CoolDownCheck implements Listener {
 		check(user);
 	}
 
+	/**
+	 * Shuts down the cooldown check timer.
+	 */
 	public void shutdown() {
 		timer.shutdownNow();
 
@@ -75,6 +91,11 @@ public class CoolDownCheck implements Listener {
 		allSiteTasks.clear();
 	}
 
+	/**
+	 * Checks the cooldown for a user.
+	 *
+	 * @param user the voting plugin user
+	 */
 	public synchronized void check(VotingPluginUser user) {
 		if (!user.getCoolDownCheck()) {
 			return;
@@ -99,6 +120,8 @@ public class CoolDownCheck implements Listener {
 
 	/**
 	 * Check ONLY a specific votesite for all users (uses streaming keys/cols).
+	 *
+	 * @param site the vote site to check
 	 */
 	public void checkAllVoteSite(VoteSite site) {
 		if (site == null) {
@@ -133,12 +156,20 @@ public class CoolDownCheck implements Listener {
 				+ " (processed: " + count + ")"));
 	}
 
+	/**
+	 * Checks if cooldown check is enabled.
+	 */
 	public void checkEnabled() {
 		cooldownCheckEnabled = !plugin.getConfigFile().isDisableCoolDownCheck()
 				&& plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(),
 						"VoteCoolDownEndedReward");
 	}
 
+	/**
+	 * Checks per-site cooldown for a player by UUID.
+	 *
+	 * @param uuid the player UUID
+	 */
 	public void checkPerSite(UUID uuid) {
 		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
 		if (!user.isOnline()) {
@@ -147,6 +178,11 @@ public class CoolDownCheck implements Listener {
 		checkPerSite(user);
 	}
 
+	/**
+	 * Checks per-site cooldown for a user.
+	 *
+	 * @param user the voting plugin user
+	 */
 	public synchronized void checkPerSite(VotingPluginUser user) {
 		if (!plugin.getConfigFile().isPerSiteCoolDownEvents()) {
 			return;
@@ -203,6 +239,9 @@ public class CoolDownCheck implements Listener {
 		}
 	}
 
+	/**
+	 * Loads the cooldown check system.
+	 */
 	public void load() {
 		plugin.addUserStartup(new UserStartup() {
 
@@ -221,12 +260,22 @@ public class CoolDownCheck implements Listener {
 		});
 	}
 
+	/**
+	 * Handles the cooldown end event.
+	 *
+	 * @param event the cooldown end event
+	 */
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onCoolDownEnd(PlayerVoteCoolDownEndEvent event) {
 		plugin.getRewardHandler().giveReward(event.getPlayer(), plugin.getSpecialRewardsConfig().getData(),
 				"VoteCoolDownEndedReward", new RewardOptions());
 	}
 
+	/**
+	 * Handles the per-site cooldown end event.
+	 *
+	 * @param event the per-site cooldown end event
+	 */
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onCoolDownEnd(PlayerVoteSiteCoolDownEndEvent event) {
 		plugin.getRewardHandler().giveReward(event.getPlayer(), event.getSite().getSiteData(), "CoolDownEndRewards",
@@ -234,6 +283,12 @@ public class CoolDownCheck implements Listener {
 						.addPlaceholder("url", event.getSite().getVoteURL(false)));
 	}
 
+	/**
+	 * Schedules a cooldown check for a user.
+	 *
+	 * @param user the voting plugin user
+	 * @param force whether to force the schedule
+	 */
 	public void schedule(VotingPluginUser user, boolean force) {
 		if (user.getSitesVotedOn() <= 0 && !force) {
 			return;
@@ -262,6 +317,12 @@ public class CoolDownCheck implements Listener {
 		});
 	}
 
+	/**
+	 * Schedules per-site cooldown checks for a user.
+	 *
+	 * @param user the voting plugin user
+	 * @param force whether to force the schedule
+	 */
 	public void schedulePerSite(VotingPluginUser user, boolean force) {
 		if (!plugin.getConfigFile().isPerSiteCoolDownEvents()) {
 			return;
@@ -303,6 +364,12 @@ public class CoolDownCheck implements Listener {
 		});
 	}
 
+	/**
+	 * Handles a vote event for cooldown scheduling.
+	 *
+	 * @param user the voting plugin user
+	 * @param site the vote site
+	 */
 	public void vote(VotingPluginUser user, VoteSite site) {
 		if (cooldownCheckEnabled) {
 			schedule(user, true);

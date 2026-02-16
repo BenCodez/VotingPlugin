@@ -16,6 +16,11 @@ public class CommandAdminVote implements CommandExecutor {
 
 	private VotingPluginMain plugin;
 
+	/**
+	 * Constructs a new CommandAdminVote instance.
+	 *
+	 * @param plugin the main plugin instance
+	 */
 	public CommandAdminVote(VotingPluginMain plugin) {
 		this.plugin = plugin;
 	}

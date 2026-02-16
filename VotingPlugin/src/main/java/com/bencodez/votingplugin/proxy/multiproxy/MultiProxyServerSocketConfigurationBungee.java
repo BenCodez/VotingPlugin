@@ -2,11 +2,19 @@ package com.bencodez.votingplugin.proxy.multiproxy;
 
 import java.util.Map;
 
+/**
+ * Multi-proxy server socket configuration for Bungee.
+ */
 public class MultiProxyServerSocketConfigurationBungee implements MultiProxyServerSocketConfiguration {
 	private String server;
 	private String host = "";
 	private int port;
 
+	/**
+	 * Constructor for Bungee configuration.
+	 * @param s the server name
+	 * @param config the configuration map
+	 */
 	public MultiProxyServerSocketConfigurationBungee(String s, Map<String, Object> config) {
 		server = s;
 		if (config.containsKey("Host")) {

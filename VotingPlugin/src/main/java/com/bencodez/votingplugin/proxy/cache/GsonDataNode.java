@@ -4,10 +4,18 @@ import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
 
+/**
+ * Implementation of DataNode using Google Gson.
+ */
 public class GsonDataNode implements DataNode {
 
 	private final JsonElement element;
 
+	/**
+	 * Constructs a new GsonDataNode.
+	 *
+	 * @param element the JSON element to wrap
+	 */
 	public GsonDataNode(JsonElement element) {
 		this.element = element;
 	}

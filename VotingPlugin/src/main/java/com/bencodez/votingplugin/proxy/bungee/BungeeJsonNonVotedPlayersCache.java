@@ -6,9 +6,17 @@ import java.util.function.Consumer;
 import com.bencodez.simpleapi.file.BungeeJsonFile;
 import com.bencodez.votingplugin.proxy.cache.nonvoted.INonVotedPlayersStorage;
 
+/**
+ * JSON file-based storage for non-voted players cache on Bungee.
+ */
 public class BungeeJsonNonVotedPlayersCache extends BungeeJsonFile
         implements INonVotedPlayersStorage {
 
+    /**
+     * Constructs a new BungeeJsonNonVotedPlayersCache.
+     *
+     * @param file the file to store data in
+     */
     public BungeeJsonNonVotedPlayersCache(File file) {
         super(file);
     }

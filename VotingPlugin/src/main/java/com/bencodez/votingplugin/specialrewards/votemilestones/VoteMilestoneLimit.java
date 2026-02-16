@@ -16,34 +16,88 @@ import com.bencodez.simpleapi.time.ParsedDuration;
  */
 public final class VoteMilestoneLimit {
 
+	/**
+	 * Limit types for milestone retriggering.
+	 */
 	public enum Type {
-		NONE, WINDOW_DAY, WINDOW_WEEK, WINDOW_MONTH, COOLDOWN
+		/**
+		 * No limit.
+		 */
+		NONE,
+		/**
+		 * Once per calendar day window.
+		 */
+		WINDOW_DAY,
+		/**
+		 * Once per week window.
+		 */
+		WINDOW_WEEK,
+		/**
+		 * Once per month window.
+		 */
+		WINDOW_MONTH,
+		/**
+		 * Fixed cooldown duration.
+		 */
+		COOLDOWN
 	}
 
 	private final Type type;
 	private final long cooldownMillis; // fixed millis cooldown
 
+	/**
+	 * Constructs a new VoteMilestoneLimit.
+	 *
+	 * @param type limit type
+	 * @param cooldownMillis cooldown duration in milliseconds
+	 */
 	public VoteMilestoneLimit(Type type, long cooldownMillis) {
 		this.type = type == null ? Type.NONE : type;
 		this.cooldownMillis = Math.max(0L, cooldownMillis);
 	}
 
+	/**
+	 * Creates a VoteMilestoneLimit with no restrictions.
+	 *
+	 * @return limit with NONE type
+	 */
 	public static VoteMilestoneLimit none() {
 		return new VoteMilestoneLimit(Type.NONE, 0L);
 	}
 
+	/**
+	 * Gets the limit type.
+	 *
+	 * @return limit type
+	 */
 	public Type getType() {
 		return type;
 	}
 
+	/**
+	 * Gets the cooldown duration in milliseconds.
+	 *
+	 * @return cooldown milliseconds
+	 */
 	public long getCooldownMillis() {
 		return cooldownMillis;
 	}
 
+	/**
+	 * Checks if the limit is enabled.
+	 *
+	 * @return true if limit is enabled
+	 */
 	public boolean isEnabled() {
 		return type != Type.NONE;
 	}
 
+	/**
+	 * Parses a VoteMilestoneLimit from configuration.
+	 *
+	 * @param milestoneSection milestone configuration section
+	 * @return parsed limit or none()
+	 */
 	public static VoteMilestoneLimit fromConfig(ConfigurationSection milestoneSection) {
 		if (milestoneSection == null) {
 			return none();
@@ -114,6 +168,14 @@ public final class VoteMilestoneLimit {
 
 	/* ---------------- enforcement ---------------- */
 
+	/**
+	 * Checks if the limit allows retriggering at the given time.
+	 *
+	 * @param lastTriggeredMs last triggered time in milliseconds
+	 * @param nowMs current time in milliseconds
+	 * @param zone time zone for window calculations
+	 * @return true if retriggering is allowed
+	 */
 	public boolean allows(long lastTriggeredMs, long nowMs, ZoneId zone) {
 		if (type == Type.NONE) {
 			return true;
@@ -139,6 +201,12 @@ public final class VoteMilestoneLimit {
 		}
 	}
 
+	/**
+	 * Calculates the next allowed trigger time in milliseconds.
+	 *
+	 * @param lastTriggeredMs last triggered time in milliseconds
+	 * @return next allowed time or 0 if not applicable
+	 */
 	public long nextAllowedMs(long lastTriggeredMs) {
 		if (type != Type.COOLDOWN || lastTriggeredMs <= 0) {
 			return 0L;

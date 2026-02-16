@@ -17,15 +17,29 @@ import net.md_5.bungee.config.Configuration;
 import net.md_5.bungee.config.ConfigurationProvider;
 import net.md_5.bungee.config.YamlConfiguration;
 
+/**
+ * Configuration implementation for Bungee proxy server.
+ */
 public class BungeeConfig implements VotingPluginProxyConfig {
 	private VotingPluginBungee bungee;
 	@Getter
 	private Configuration data;
 
+	/**
+	 * Constructs a new BungeeConfig.
+	 *
+	 * @param bungee the VotingPluginBungee instance
+	 */
 	public BungeeConfig(VotingPluginBungee bungee) {
 		this.bungee = bungee;
 	}
 
+	/**
+	 * Converts a Configuration object to a Map.
+	 *
+	 * @param config the configuration to convert
+	 * @return a map representation of the configuration
+	 */
 	public Map<String, Object> configToMap(Configuration config) {
 		Map<String, Object> map = new HashMap<>();
 		if (config != null) {
@@ -478,6 +492,13 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 		return getData().getBoolean("VoteLogging.UseMainMySQL", true);
 	}
 
+	/**
+	 * Returns a configuration section if the key exists, otherwise null.
+	 *
+	 * @param root the root configuration
+	 * @param key the key to check
+	 * @return the configuration section or null
+	 */
 	public Configuration sectionOrNull(Configuration root, String key) {
 		Object v = root.get(key);
 		return (v instanceof Configuration) ? (Configuration) v : null;

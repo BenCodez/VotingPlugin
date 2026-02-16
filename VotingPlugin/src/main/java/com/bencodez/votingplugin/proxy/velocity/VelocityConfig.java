@@ -15,8 +15,15 @@ import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 
 import org.spongepowered.configurate.ConfigurationNode;
 
+/**
+ * Configuration file handler for Velocity proxy.
+ */
 public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxyConfig {
 
+	/**
+	 * Constructs a new Velocity configuration.
+	 * @param file the configuration file
+	 */
 	public VelocityConfig(File file) {
 		super(file);
 	}
@@ -159,6 +166,11 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 		return getChildrenAsList(getNode("MultiProxyServers"));
 	}
 
+	/**
+	 * Gets children of a configuration node as a list.
+	 * @param config the configuration node
+	 * @return list of child keys
+	 */
 	public List<String> getChildrenAsList(ConfigurationNode config) {
 		List<String> children = new ArrayList<>();
 		if (config != null) {
@@ -189,6 +201,10 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 		return getBoolean(getNode("MultiProxySupport"), false);
 	}
 
+	/**
+	 * Gets the MySQL configuration node.
+	 * @return the MySQL configuration node
+	 */
 	public ConfigurationNode getMysqlNode() {
 		return getNode("MySQL");
 	}
@@ -283,6 +299,11 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 		return getString(getNode("MQTT", "Prefix"), "");
 	}
 
+	/**
+	 * Converts a configuration node to a map.
+	 * @param config the configuration node
+	 * @return map of configuration values
+	 */
 	public Map<String, Object> configToMap(ConfigurationNode config) {
 		Map<String, Object> map = new HashMap<>();
 		if (config != null) {
@@ -343,6 +364,10 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 		return getInt(getVotePartyNode().node("IncreaseVotesRequired"), 0);
 	}
 
+	/**
+	 * Gets the vote party configuration node.
+	 * @return the vote party configuration node
+	 */
 	public ConfigurationNode getVotePartyNode() {
 		return getNode("VoteParty");
 	}
@@ -468,6 +493,11 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 		return getBoolean(getNode("VoteLogging", "UseMainMySQL"), true);
 	}
 
+	/**
+	 * Checks if a node is a configuration section.
+	 * @param node the node to check
+	 * @return true if the node is a section
+	 */
 	private boolean isSection(ConfigurationNode node) {
 		return node != null && node.raw() instanceof Map;
 	}

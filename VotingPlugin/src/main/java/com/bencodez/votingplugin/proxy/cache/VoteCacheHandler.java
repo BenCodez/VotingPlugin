@@ -16,8 +16,14 @@ import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
 import lombok.Getter;
 
+/**
+ * Handles caching of votes for proxy servers.
+ */
 public abstract class VoteCacheHandler {
 
+	/**
+	 * Queue of timed votes for time change processing.
+	 */
 	@Getter
 	private Queue<VoteTimeQueue> timeChangeQueue = new ConcurrentLinkedQueue<>();
 
@@ -27,10 +33,20 @@ public abstract class VoteCacheHandler {
 	// server based
 	private ConcurrentHashMap<String, ArrayList<OfflineBungeeVote>> cachedVotes = new ConcurrentHashMap<>();
 
+	/**
+	 * Checks if a server has cached votes.
+	 * @param server the server name
+	 * @return true if the server has cached votes
+	 */
 	public boolean hasVotes(String server) {
 		return cachedVotes.containsKey(server);
 	}
 
+	/**
+	 * Gets cached votes for a server.
+	 * @param server the server name
+	 * @return list of cached votes
+	 */
 	public ArrayList<OfflineBungeeVote> getVotes(String server) {
 		return cachedVotes.getOrDefault(server, new ArrayList<>());
 	}
@@ -66,6 +82,11 @@ public abstract class VoteCacheHandler {
 		return total;
 	}
 
+	/**
+	 * Adds a vote to the server cache.
+	 * @param server the server name
+	 * @param vote the vote to add
+	 */
 	public void addServerVote(String server, OfflineBungeeVote vote) {
 		cachedVotes.putIfAbsent(server, new ArrayList<>());
 		cachedVotes.get(server).add(vote);
@@ -82,6 +103,11 @@ public abstract class VoteCacheHandler {
 		}
 	}
 
+	/**
+	 * Removes a vote for a specific player from a server cache.
+	 * @param server the server name
+	 * @param uuid the player UUID
+	 */
 	public void removeVote(String server, String uuid) {
 		if (cachedVotes.containsKey(server)) {
 			ArrayList<OfflineBungeeVote> votes = cachedVotes.get(server);
@@ -96,6 +122,10 @@ public abstract class VoteCacheHandler {
 		}
 	}
 
+	/**
+	 * Removes all cached votes for a server.
+	 * @param server the server name
+	 */
 	public void removeVotes(String server) {
 		cachedVotes.remove(server);
 		if (useMySQL) {
@@ -106,14 +136,29 @@ public abstract class VoteCacheHandler {
 		}
 	}
 
+	/**
+	 * Checks if a player has cached online votes.
+	 * @param uuid the player UUID
+	 * @return true if the player has cached online votes
+	 */
 	public boolean hasOnlineVotes(String uuid) {
 		return cachedOnlineVotes.containsKey(uuid);
 	}
 
+	/**
+	 * Gets cached online votes for a player.
+	 * @param uuid the player UUID
+	 * @return list of cached online votes
+	 */
 	public ArrayList<OfflineBungeeVote> getOnlineVotes(String uuid) {
 		return cachedOnlineVotes.getOrDefault(uuid, new ArrayList<>());
 	}
 
+	/**
+	 * Adds a vote to the online vote cache for a player.
+	 * @param uuid the player UUID
+	 * @param vote the vote to add
+	 */
 	public void addOnlineVote(String uuid, OfflineBungeeVote vote) {
 		cachedOnlineVotes.putIfAbsent(uuid, new ArrayList<>());
 		cachedOnlineVotes.get(uuid).add(vote);
@@ -130,6 +175,10 @@ public abstract class VoteCacheHandler {
 		}
 	}
 
+	/**
+	 * Removes all cached online votes for a player.
+	 * @param uuid the player UUID
+	 */
 	public void removeOnlineVotes(String uuid) {
 		cachedOnlineVotes.remove(uuid);
 		if (useMySQL) {
@@ -140,6 +189,10 @@ public abstract class VoteCacheHandler {
 		}
 	}
 
+	/**
+	 * Checks and removes expired votes from cache.
+	 * @param voteCacheTime cache time in days
+	 */
 	public void checkVoteCacheTime(int voteCacheTime) {
 		long cTime = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
 
@@ -173,6 +226,9 @@ public abstract class VoteCacheHandler {
 		}
 	}
 
+	/**
+	 * Saves the vote cache to storage.
+	 */
 	public void saveVoteCache() {
 		if (useMySQL) {
 
@@ -194,10 +250,17 @@ public abstract class VoteCacheHandler {
 		}
 	}
 
+	/**
+	 * Adds a timed vote to the cache queue.
+	 * @param vote the timed vote to add
+	 */
 	public void addTimeVoteToCache(VoteTimeQueue vote) {
 		timeChangeQueue.add(vote);
 	}
 
+	/**
+	 * Loads vote cache from storage.
+	 */
 	public void load() {
 		if (useMySQL) {
 			// Load votes from MySQL
@@ -322,16 +385,45 @@ public abstract class VoteCacheHandler {
 
 	private IVoteCache jsonStorage;
 
+	/**
+	 * Logs an info message.
+	 * @param msg the message to log
+	 */
 	public abstract void logInfo1(String msg);
 
+	/**
+	 * Logs a severe message.
+	 * @param msg the message to log
+	 */
 	public abstract void logSevere1(String msg);
 
+	/**
+	 * Logs a debug exception.
+	 * @param e the exception to log
+	 */
 	public abstract void debug1(Exception e);
 
+	/**
+	 * Logs a debug throwable.
+	 * @param e the throwable to log
+	 */
 	public abstract void debug1(Throwable e);
 
+	/**
+	 * Logs a debug message.
+	 * @param msg the message to log
+	 */
 	public abstract void debug1(String msg);
 
+	/**
+	 * Constructs a new vote cache handler.
+	 * @param mysqlConfig MySQL configuration
+	 * @param useMySQL whether to use MySQL
+	 * @param useExistingConnection whether to use an existing connection
+	 * @param mysql existing MySQL connection
+	 * @param debug whether debug mode is enabled
+	 * @param jsonStorage JSON storage implementation
+	 */
 	public VoteCacheHandler(MysqlConfig mysqlConfig, boolean useMySQL, boolean useExistingConnection, MySQL mysql,
 			boolean debug, IVoteCache jsonStorage) {
 		this.useMySQL = useMySQL;
@@ -483,10 +575,19 @@ public abstract class VoteCacheHandler {
 		}
 	}
 
+	/**
+	 * Gets all servers with cached votes.
+	 * @return array of server names
+	 */
 	public String[] getCachedVotesServers() {
 		return cachedVotes.keySet().toArray(new String[0]);
 	}
 
+	/**
+	 * Removes specific votes from a server cache.
+	 * @param server the server name
+	 * @param removed list of votes to remove
+	 */
 	public void removeServerVotes(String server, ArrayList<OfflineBungeeVote> removed) {
 		for (OfflineBungeeVote vote : removed) {
 			for (Map.Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedVotes.entrySet()) {
@@ -504,6 +605,10 @@ public abstract class VoteCacheHandler {
 		}
 	}
 
+	/**
+	 * Removes specific votes from the online vote cache.
+	 * @param removed list of votes to remove
+	 */
 	public void removeOnlineVotes(ArrayList<OfflineBungeeVote> removed) {
 		for (OfflineBungeeVote vote : removed) {
 			for (Map.Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedOnlineVotes.entrySet()) {

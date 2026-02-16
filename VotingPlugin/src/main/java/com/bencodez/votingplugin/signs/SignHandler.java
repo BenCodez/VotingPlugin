@@ -61,6 +61,16 @@ public class SignHandler {
 
 	private int votes;
 
+	/**
+	 * Constructs a new SignHandler.
+	 *
+	 * @param plugin the main plugin instance
+	 * @param sign the sign identifier
+	 * @param location the sign location
+	 * @param skullLocation the skull location
+	 * @param data the sign data
+	 * @param position the sign position
+	 */
 	public SignHandler(VotingPluginMain plugin, String sign, Location location, Location skullLocation, String data,
 			int position) {
 		this.plugin = plugin;
@@ -157,10 +167,20 @@ public class SignHandler {
 		return loc.equals(getLocation());
 	}
 
+	/**
+	 * Checks if skull location is set.
+	 *
+	 * @return true if skull is set
+	 */
 	public boolean isSkullSet() {
 		return skullLocation != null;
 	}
 
+	/**
+	 * Checks if no player name is available.
+	 *
+	 * @return true if no name available
+	 */
 	public boolean noNameAvailable() {
 		return playerName.equalsIgnoreCase("No Player") || playerName.equals("");
 	}
@@ -274,6 +294,12 @@ public class SignHandler {
 		}, delay, getLocation());
 	}
 
+	/**
+	 * Updates skulls in the specified region.
+	 *
+	 * @param loc1 the first location
+	 * @param loc2 the second location
+	 */
 	public void updateSkulls(Location loc1, Location loc2) {
 		if (!NMSManager.getInstance().isVersion("1.12")) {
 			BlockState state = getLocation().getBlock().getState();

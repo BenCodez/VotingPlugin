@@ -18,6 +18,9 @@ import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.simpleapi.sql.mysql.queries.Query;
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 
+/**
+ * Table for caching online votes in the proxy.
+ */
 public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 
 	// Prevent repeated startup DDL across multiple instances/subclasses
@@ -45,6 +48,10 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 				+ ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
 	}
 
+	/**
+	 * Removes all votes for a specific UUID.
+	 * @param uuid the player UUID
+	 */
 	public void removeVotesByUuid(String uuid) {
 		String sql = "DELETE FROM " + qi(getTableName()) + " WHERE " + qi("uuid") + " = ?;";
 		try (Connection conn = mysql.getConnectionManager().getConnection();
@@ -71,6 +78,12 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 	@Override
 	public abstract void debug(Throwable t);
 
+	/**
+	 * Constructor using an existing MySQL connection.
+	 * @param existingMysql the existing MySQL instance
+	 * @param tablePrefix the table prefix
+	 * @param debug whether debug mode is enabled
+	 */
 	public ProxyOnlineVoteCacheTable(MySQL existingMysql, String tablePrefix, boolean debug) {
 		super((tablePrefix != null ? tablePrefix : "") + "votingplugin_onlinevotecache", existingMysql, debug);
 
@@ -80,6 +93,11 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 		ensureIndexesOnce();
 	}
 
+	/**
+	 * Constructor using a MySQL configuration.
+	 * @param config the MySQL configuration
+	 * @param debug whether debug mode is enabled
+	 */
 	public ProxyOnlineVoteCacheTable(MysqlConfig config, boolean debug) {
 		super("votingplugin_onlinevotecache", config, debug);
 
@@ -88,6 +106,11 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 		ensureIndexesOnce();
 	}
 
+	/**
+	 * Updates the text field of a vote.
+	 * @param vote the vote to update
+	 * @param newText the new text
+	 */
 	public void updateVoteText(OfflineBungeeVote vote, String newText) {
 		if (vote == null) {
 			return;
@@ -181,6 +204,16 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 
 	// --- INSERT ---
 
+	/**
+	 * Inserts a new vote into the cache.
+	 * @param voteId the vote ID
+	 * @param uuid the player UUID
+	 * @param playerName the player name
+	 * @param service the voting service
+	 * @param time the vote time
+	 * @param real whether this is a real vote
+	 * @param text the vote text/payload
+	 */
 	public void insertVote(UUID voteId, String uuid, String playerName, String service, long time, boolean real,
 			String text) {
 
@@ -218,10 +251,19 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 
 	// --- GET ---
 
+	/**
+	 * Gets all votes from the table.
+	 * @return list of all vote rows
+	 */
 	public List<VoteRow> getAllVotes() {
 		return selectVotes("SELECT * FROM " + qi(getTableName()) + ";", null);
 	}
 
+	/**
+	 * Gets all votes for a specific UUID.
+	 * @param uuid the player UUID
+	 * @return list of vote rows
+	 */
 	public List<VoteRow> getVotesByUUID(String uuid) {
 		String sql = "SELECT * FROM " + qi(getTableName()) + " WHERE " + qi("uuid") + " = ?;";
 		Object param = (getDbType() == DbType.POSTGRESQL) ? UUID.fromString(uuid) : uuid;
@@ -230,6 +272,10 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 
 	// --- DELETE ---
 
+	/**
+	 * Removes a vote by its ID.
+	 * @param id the vote ID
+	 */
 	public void removeVoteById(int id) {
 		String sql = "DELETE FROM " + qi(getTableName()) + " WHERE " + qi("id") + " = ?;";
 		try (Connection conn = mysql.getConnectionManager().getConnection();
@@ -241,6 +287,10 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 		}
 	}
 
+	/**
+	 * Removes a specific vote.
+	 * @param vote the vote to remove
+	 */
 	public void removeVote(OfflineBungeeVote vote) {
 		String sql = "DELETE FROM " + qi(getTableName()) + " WHERE " + qi("uuid") + " = ? AND " + qi("service")
 				+ " = ? AND " + qi("time") + " = ?;";
@@ -263,6 +313,9 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 		}
 	}
 
+	/**
+	 * Clears all votes from the table.
+	 */
 	public void clearTable() {
 		try {
 			if (getDbType() == DbType.POSTGRESQL) {
@@ -302,6 +355,9 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 		return list;
 	}
 
+	/**
+	 * Represents a row in the online vote cache table.
+	 */
 	public static class VoteRow {
 		private final int id;
 		private final String voteId;
@@ -312,6 +368,17 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 		private final boolean realVote;
 		private final String text;
 
+		/**
+		 * Constructor for VoteRow.
+		 * @param id the row ID
+		 * @param voteId the vote ID
+		 * @param uuid the player UUID
+		 * @param playerName the player name
+		 * @param service the voting service
+		 * @param time the vote time
+		 * @param realVote whether this is a real vote
+		 * @param text the vote text
+		 */
 		public VoteRow(int id, String voteId, String uuid, String playerName, String service, long time,
 				boolean realVote, String text) {
 			this.id = id;
@@ -324,34 +391,66 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 			this.text = text;
 		}
 
+		/**
+		 * Gets the row ID.
+		 * @return the ID
+		 */
 		public int getId() {
 			return id;
 		}
 
+		/**
+		 * Gets the vote ID.
+		 * @return the vote ID
+		 */
 		public String getVoteId() {
 			return voteId;
 		}
 
+		/**
+		 * Gets the player UUID.
+		 * @return the UUID
+		 */
 		public String getUuid() {
 			return uuid;
 		}
 
+		/**
+		 * Gets the player name.
+		 * @return the player name
+		 */
 		public String getPlayerName() {
 			return playerName;
 		}
 
+		/**
+		 * Gets the voting service.
+		 * @return the service name
+		 */
 		public String getService() {
 			return service;
 		}
 
+		/**
+		 * Gets the vote time.
+		 * @return the time in milliseconds
+		 */
 		public long getTime() {
 			return time;
 		}
 
+		/**
+		 * Checks if this is a real vote.
+		 * @return true if real vote
+		 */
 		public boolean isRealVote() {
 			return realVote;
 		}
 
+		/**
+		 * Gets the vote text.
+		 * @return the text/payload
+		 */
 		public String getText() {
 			return text;
 		}
