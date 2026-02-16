@@ -12,6 +12,7 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 public enum VoteMilestoneTotal {
 
 	// ---- Vote totals (TopVoter-based) ----
+	/** All-time votes total. */
 	ALLTIME_VOTES {
 		@Override
 		public long getValue(VotingPluginUser user, VoteTotalsSnapshot bungeeMessageData) {
@@ -22,6 +23,7 @@ public enum VoteMilestoneTotal {
 		}
 	},
 
+	/** Daily votes total. */
 	DAILY_VOTES {
 		@Override
 		public long getValue(VotingPluginUser user, VoteTotalsSnapshot bungeeMessageData) {
@@ -32,6 +34,7 @@ public enum VoteMilestoneTotal {
 		}
 	},
 
+	/** Weekly votes total. */
 	WEEKLY_VOTES {
 		@Override
 		public long getValue(VotingPluginUser user, VoteTotalsSnapshot bungeeMessageData) {
@@ -42,6 +45,7 @@ public enum VoteMilestoneTotal {
 		}
 	},
 
+	/** Monthly votes total. */
 	MONTHLY_VOTES {
 		@Override
 		public long getValue(VotingPluginUser user, VoteTotalsSnapshot bungeeMessageData) {
@@ -53,6 +57,7 @@ public enum VoteMilestoneTotal {
 	},
 
 	// ---- Global points (single value only) ----
+	/** Player points total. */
 	POINTS {
 		@Override
 		public long getValue(VotingPluginUser user, VoteTotalsSnapshot bungeeMessageData) {
@@ -62,6 +67,7 @@ public enum VoteMilestoneTotal {
 			return user.getPoints();
 		}
 	},
+	/** All unique sites voted today. */
 	ALLSITES_TODAY {
 		@Override
 		public long getValue(VotingPluginUser user, VoteTotalsSnapshot bungeeMessageData) {
@@ -69,6 +75,13 @@ public enum VoteMilestoneTotal {
 		}
 	};
 
+	/**
+	 * Gets the value for this total type.
+	 *
+	 * @param user the voting plugin user
+	 * @param bungeeMessageData the bungee message data snapshot
+	 * @return the total value
+	 */
 	public abstract long getValue(VotingPluginUser user, VoteTotalsSnapshot bungeeMessageData);
 
 	/**
@@ -76,6 +89,9 @@ public enum VoteMilestoneTotal {
 	 *
 	 * Supported examples: - ALLTIME_VOTES - AllTime - ALLTIME - Daily / Weekly /
 	 * Monthly - Points / VotePoints - Legacy_Milestone_Count
+	 *
+	 * @param input the input string to parse
+	 * @return the parsed VoteMilestoneTotal, or ALLTIME_VOTES as default
 	 */
 	public static VoteMilestoneTotal parse(String input) {
 		if (input == null || input.trim().isEmpty()) {
