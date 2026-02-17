@@ -68,11 +68,23 @@
 # Set bungeecoord to true on servers on the network (In VotingPlugin)
 # Set server name in each server related to what it is on bungee
 #
-# MYSQL Required on all setups
+# MYSQL IS REQUIRED on all proxy/network setups.
+# A compatible JDBC driver MUST be installed.
+#
+# Supported drivers:
+# - MySQL:      com.mysql.cj.jdbc.Driver
+# - MariaDB:    org.mariadb.jdbc.Driver
+# - PostgreSQL: org.postgresql.Driver
+#
+# NOTE:
+# If your platform does not already include these drivers,
+# you can install this jar which bundles all three:
+# https://bencodez.com/job/MySQLDriver/
+#
 # MYSQL INFO --------------------------
 Database:
   Host: ''
-  # Default port is 3306
+  # Default port is 3306 (MySQL/MariaDB) or 5432 (PostgreSQL)
   Port: 3306
   Database: ''
   Username: ''
@@ -93,17 +105,23 @@ Database:
   # - MYSQL
   # - MARIADB
   # - POSTGRESQL
+  #
+  # IMPORTANT:
+  # A matching JDBC driver for the selected DbType MUST be installed
+  # or the plugin will fail to connect.
   DbType: MYSQL
 
-  #Driver: ''                       # Optional custom driver class name
-
-  # OUTDATED OPTIONS - kept for backwards compatibility
-  # UseMariaDB: false                  # Attempt to use MariaDB driver instead of MySQL (set DbType instead)
+  # Optional custom driver class name.
+  # If set, this driver MUST exist on the classpath or the connection will fail.
+  # Example:
+  # Driver: 'com.mysql.cj.jdbc.Driver'
+  # Driver: 'org.mariadb.jdbc.Driver'
+  # Driver: 'org.postgresql.Driver'
+  #Driver: ''
 
   # --- Driver / security options ---
   # UseSSL: false
   # PublicKeyRetrieval: false          # Needed on some MySQL setups with caching_sha2_password
-  # UseMariaDB: false                  # Attempt to use MariaDB driver instead of MySQL
 
   # --- Connection / lifecycle tuning ---
   # MaxLifeTime: -1                    # ms; <=0 uses plugin's safe default (e.g., 25m)
@@ -120,6 +138,7 @@ Database:
 
   # Optional pool name (useful if you run multiple DB pools)
   # PoolName: 'VotingPlugin-Hikari'
+
 
 ####################################################################################
 # Global mysql data handle for between server commmunications

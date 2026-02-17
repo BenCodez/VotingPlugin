@@ -97,12 +97,25 @@
 # Valid Options:
 # - SQLITE
 # - MYSQL
+#
+# If using MYSQL:
+# - You MUST have a compatible JDBC driver present on the server.
+# - MySQL:      com.mysql.cj.jdbc.Driver
+# - MariaDB:    org.mariadb.jdbc.Driver
+# - PostgreSQL: org.postgresql.Driver
+#
+# NOTE:
+# If your server does not already provide these drivers, you can install this jar:
+# https://bencodez.com/job/MySQLDriver/
+# It bundles MySQL, MariaDB, and PostgreSQL drivers together.
+#
+# Only install the driver jar if your platform does not already include one.
 DataStorage: SQLITE
 
 # Information for MySQL storage
 Database:
   Host: ''
-  # Default port is 3306
+  # Default port is 3306 (MySQL/MariaDB) or 5432 (PostgreSQL)
   Port: 3306
   Database: ''
   Username: ''
@@ -127,12 +140,19 @@ Database:
   # - MYSQL
   # - MARIADB
   # - POSTGRESQL
+  #
+  # IMPORTANT:
+  # A matching JDBC driver for the selected DbType MUST be installed.
+  # If the driver is missing, the plugin will fail to connect.
   DbType: MYSQL
 
-  #Driver: ''                       # Optional custom driver class name
-
-  # OUTDATED OPTIONS - kept for backwards compatibility
-  # UseMariaDB: false                  # Attempt to use MariaDB driver instead of MySQL (set DbType instead)
+  # Optional custom driver class name.
+  # If set, this driver MUST exist on the classpath or the connection will fail.
+  # Example:
+  # Driver: 'com.mysql.cj.jdbc.Driver'
+  # Driver: 'org.mariadb.jdbc.Driver'
+  # Driver: 'org.postgresql.Driver'
+  #Driver: ''
 
   # --- Connection / lifecycle tuning ---
   # MaxLifeTime: -1                    # ms; <=0 uses plugin's safe default (e.g., 25m)
@@ -149,6 +169,7 @@ Database:
 
   # Optional pool name (useful if you run multiple DB pools)
   # PoolName: 'VotingPlugin-Hikari'
+
 
 
 ###########################################
