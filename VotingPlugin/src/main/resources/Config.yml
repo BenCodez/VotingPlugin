@@ -601,7 +601,7 @@ ExtraAllSitesCheck: false
 # Shouldn't be needed, but enable if you have trouble with milestones
 PreventRepeatMilestones: false
 
-# May need to enable this for bungee setups
+# Enable on proxy setups as proxy will handle this instead
 # Let players who never joined before vote
 # Recommend: False (Will prevent creating random user data)
 AllowUnjoined: false

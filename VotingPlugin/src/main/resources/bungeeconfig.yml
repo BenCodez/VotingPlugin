@@ -311,7 +311,6 @@ MQTT:
 WaitForUserOnline: true
 
 # If false, votes will be checked if user is a valid player that has joined to server
-# Works for PLUGINMESSAGING and SOCKETS methods only
 # This requires spigot servers AllowUnJoined to be set to true in Config.yml
 AllowUnJoined: false
 
