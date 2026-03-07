@@ -85,28 +85,38 @@ public class VoteToday extends GUIHandler {
 		if (!plugin.getConfigFile().isAlwaysCloseInventory()) {
 			inv.dontClose();
 		}
-		for (TopVoterPlayer user : plugin.getVoteToday().keySet()) {
 
+		for (TopVoterPlayer user : plugin.getVoteToday().keySet()) {
 			for (VoteSite voteSite : plugin.getVoteToday().get(user).keySet()) {
 				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(plugin.getConfigFile().getFormatTimeFormat());
 				String timeString = plugin.getVoteToday().get(user).get(voteSite).format(formatter);
-				String msg = plugin.getGui().getChestVoteTodayLine();
+
 				HashMap<String, String> placeholders = new HashMap<>();
+				placeholders.put("player", user.getPlayerName());
+				placeholders.put("votesite", voteSite.getKey());
+				placeholders.put("sitename", voteSite.getDisplayName());
+				placeholders.put("SiteName", voteSite.getDisplayName());
 				placeholders.put("VoteSite", voteSite.getDisplayName());
+				placeholders.put("time", timeString);
 				placeholders.put("Time", timeString);
-				msg = PlaceholderUtils.replacePlaceHolder(msg, placeholders);
-				ItemBuilder item = null;
+
+				ItemBuilder item;
 				if (plugin.getGui().isChestVoteTodayUseSkull() && !NMSManager.getInstance().isVersion("1.12")) {
 					item = new ItemBuilder(user.getPlayerHead());
 				} else {
 					item = new ItemBuilder(plugin.getGui().getChestVoteTodayPlayerItem());
 				}
-				item.setName(PlaceholderUtils.replacePlaceHolder(plugin.getGui().getChestVoteTodayIconTitle(), "player",
-						user.getPlayerName()));
-				item.setLore(msg);
+
+				String title = PlaceholderUtils.replacePlaceHolder(plugin.getGui().getChestVoteTodayIconTitle(),
+						placeholders);
+				String lore = PlaceholderUtils.replacePlaceHolder(plugin.getGui().getChestVoteTodayLine(),
+						placeholders);
+
+				item.setName(title);
+				item.setLore(lore);
+
 				final UUID uuid = user.getUuid();
 				inv.addButton(inv.getNextSlot(), new BInventoryButton(item) {
-
 					@Override
 					public void onClick(ClickEvent clickEvent) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
@@ -121,16 +131,13 @@ public class VoteToday extends GUIHandler {
 		for (final String str : plugin.getGui().getChestGUIExtraItems(guiPath)) {
 			inv.addButton(
 					new BInventoryButton(new ItemBuilder(plugin.getGui().getChestGUIExtraItemsItem(guiPath, str))) {
-
 						@Override
 						public void onClick(ClickEvent clickEvent) {
 							new RewardBuilder(plugin.getGui().getData(),
 									"CHEST." + guiPath + ".ExtraItems." + str + "."
 											+ clickEvent.getButton().getLastRewardsPath(player))
 									.setGiveOffline(false).send(clickEvent.getPlayer());
-
 						}
-
 					});
 		}
 
@@ -155,7 +162,7 @@ public class VoteToday extends GUIHandler {
 				HashMap<String, String> placeholders = new HashMap<>();
 				placeholders.put("player", user.getPlayerName());
 				placeholders.put("votesite", voteSite.getKey());
-                                placeholders.put("sitename", voteSite.getDisplayName());
+				placeholders.put("sitename", voteSite.getDisplayName());
 				placeholders.put("time", timeString);
 				msg.add(PlaceholderUtils.replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteTodayLine(),
 						placeholders));
@@ -185,7 +192,7 @@ public class VoteToday extends GUIHandler {
 				HashMap<String, String> placeholders = new HashMap<>();
 				placeholders.put("player", user.getPlayerName());
 				placeholders.put("votesite", mostRecentSite.getKey());
-                                placeholders.put("sitename", mostRecentSite.getDisplayName());
+				placeholders.put("sitename", mostRecentSite.getDisplayName());
 				placeholders.put("time", timeString);
 				msg.add(PlaceholderUtils.replacePlaceHolder(plugin.getConfigFile().getFormatCommandsVoteTodayLine(),
 						placeholders));

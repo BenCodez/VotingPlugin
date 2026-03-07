@@ -655,23 +655,36 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public HashMap<VoteSite, Long> getLastVotes() {
 		HashMap<VoteSite, Long> lastVotes = new HashMap<>();
-		ArrayList<String> LastVotesList = getUserData().getStringList("LastVotes");
-		for (String str : LastVotesList) {
+		ArrayList<String> lastVotesList = getUserData().getStringList("LastVotes");
+
+		for (String str : lastVotesList) {
 			String[] data = str.split("//");
-			if (data.length > 1 && plugin.getVoteSiteManager().hasVoteSite(data[0])) {
-				VoteSite site = plugin.getVoteSiteManager().getVoteSite(data[0], true);
-				if (site != null) {
-					long time = 0;
-					try {
-						time = Long.parseLong(data[1]);
-					} catch (NumberFormatException e) {
-						time = 0;
-						plugin.debug("Not long: " + data[1]);
-					}
-					lastVotes.put(site, time);
-				}
+			if (data.length <= 1) {
+				continue;
 			}
+
+			String rawSiteKey = data[0];
+			String rawTime = data[1];
+
+			if (!plugin.getVoteSiteManager().hasVoteSite(rawSiteKey)) {
+				continue;
+			}
+
+			VoteSite site = plugin.getVoteSiteManager().getVoteSite(rawSiteKey, true);
+			if (site == null) {
+				continue;
+			}
+
+			long time = 0;
+			try {
+				time = Long.parseLong(rawTime);
+			} catch (NumberFormatException ignored) {
+				time = 0;
+			}
+
+			lastVotes.put(site, time);
 		}
+
 		return lastVotes;
 	}
 
@@ -1244,9 +1257,9 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	/**
 	 * Processes a player vote.
 	 *
-	 * @param voteSite  the vote site
-	 * @param online    whether the player is online
-	 * @param bungee    whether to use bungee
+	 * @param voteSite the vote site
+	 * @param online   whether the player is online
+	 * @param bungee   whether to use bungee
 	 */
 	public void playerVote(VoteSite voteSite, boolean online, boolean bungee) {
 		voteSite.giveRewards(this, online, bungee);
