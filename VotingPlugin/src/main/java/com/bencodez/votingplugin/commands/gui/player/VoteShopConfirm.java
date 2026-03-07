@@ -51,6 +51,8 @@ public class VoteShopConfirm extends GUIHandler {
 		PlayerUtils.setPlayerMeta(plugin, player, "ident", identifier);
 		BInventory inv = new BInventory(plugin.getShopFile().getShopConfirmPurchaseTitle());
 		inv.dontClose();
+		inv.addPlaceholder("shop", plugin.getShopFile().getShopIdentifierIdentifierName(identifier));
+		inv.addPlaceholder("identifier", identifier);
 		inv.addButton(new BInventoryButton(new ItemBuilder(plugin.getShopFile().getShopConfirmPurchaseYesItem())) {
 
 			@Override
