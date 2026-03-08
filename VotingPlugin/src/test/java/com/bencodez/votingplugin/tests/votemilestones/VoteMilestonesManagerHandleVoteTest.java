@@ -13,6 +13,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -43,8 +44,6 @@ import com.bencodez.votingplugin.specialrewards.votemilestones.VoteMilestonesMan
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votesites.VoteSiteManager;
-
-import lombok.var;
 
 public class VoteMilestonesManagerHandleVoteTest {
 
@@ -321,7 +320,7 @@ public class VoteMilestonesManagerHandleVoteTest {
 	}
 
 	private static VoteMilestonesConfig configWith(VoteMilestone... milestones) throws Exception {
-		var ctor = VoteMilestonesConfig.class.getDeclaredConstructor(Map.class);
+		Constructor<VoteMilestonesConfig> ctor = VoteMilestonesConfig.class.getDeclaredConstructor(Map.class);
 		ctor.setAccessible(true);
 
 		Map<String, VoteMilestone> map = new LinkedHashMap<>();
