@@ -15,61 +15,52 @@ import com.bencodez.simpleapi.file.annotation.ConfigDataString;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 import lombok.Getter;
+import lombok.Setter;
 
 /**
  * The ShopFile class manages the vote shop configuration.
  */
+@Getter
+@Setter
 public class ShopFile extends YMLFile {
 
-	@Getter
 	@ConfigDataConfigurationSection(path = "ShopConfirmPurchase.NoItem")
 	private ConfigurationSection shopConfirmPurchaseNoItem;
 
-	@Getter
 	@ConfigDataString(path = "ShopConfirmPurchase.Title")
 	private String shopConfirmPurchaseTitle = "Confirm Purchase?";
 
-	@Getter
 	@ConfigDataConfigurationSection(path = "ShopConfirmPurchase.YesItem")
 	private ConfigurationSection shopConfirmPurchaseYesItem;
 
-	@Getter
 	@ConfigDataString(path = "VoteShop.Disabled")
 	private String voteShopDisabled = "&cVote shop disabled";
 
 	@ConfigDataBoolean(path = "VoteShop.HideLimitedReached")
-	@Getter
 	private boolean voteShopHideLimitedReached = true;
 
 	@ConfigDataString(path = "VoteShop.LimitReached")
-	@Getter
 	private String voteShopLimitReached = "&aYou reached your limit";
 
 	@ConfigDataBoolean(path = "VoteShop.RequireConfirmation")
-	@Getter
 	private boolean voteShopRequireConfirmation = false;
 
 	private VotingPluginMain plugin;
 
 	@ConfigDataBoolean(path = "VoteShop.BackButton")
-	@Getter
 	private boolean voteShopBackButton = true;
 
 	@ConfigDataBoolean(path = "VoteShop.ReopenGUIOnPurchase")
-	@Getter
-	private boolean voteShopReopenGUIOnPurchase = true;
+	private boolean voteShopReopenGuiOnPurchase = true;
 
 	@ConfigDataBoolean(path = "VoteShop.Enabled")
-	@Getter
 	private boolean voteShopEnabled = true;
 
 	@ConfigDataString(path = "VoteShop.Name")
-	@Getter
 	private String voteShopName = "VoteShop";
 
 	@ConfigDataKeys(path = "ExtraItems")
-	@Getter
-	private Set<String> voteShopExtraItems = new HashSet<>();
+	private Set<String> voteShopExtraItems = new HashSet<String>();
 
 	/**
 	 * Constructs a new ShopFile.
@@ -86,7 +77,6 @@ public class ShopFile extends YMLFile {
 	 * Converts vote shop data from the GUI file to this shop file.
 	 */
 	public void convertFromGUIFile() {
-		// booleans
 		setValue("VoteShop.Enabled", plugin.getGui().getData().getBoolean("CHEST.VoteShopEnabled"));
 		setValue("VoteShop.BackButton", plugin.getGui().getData().getBoolean("CHEST.VoteShopBackButton"));
 		setValue("VoteShop.HideLimitReached", plugin.getGui().getData().getBoolean("CHEST.VoteShopHideLimitedReached"));
@@ -94,24 +84,19 @@ public class ShopFile extends YMLFile {
 				plugin.getGui().getData().getBoolean("CHEST.VoteShopRequireConfirmation"));
 		setValue("VoteShop.ReopenGUIOnPurchase",
 				plugin.getGui().getData().getBoolean("CHEST.VoteShopReopenGUIOnPurchase"));
-
-		// strings
 		setValue("VoteShop.Name", plugin.getGui().getData().getString("CHEST.VoteShopName"));
 		setValue("VoteShop.LimitReached", plugin.getGui().getData().getString("CHEST.VoteShopLimitReached"));
 		setValue("VoteShop.Disabled", plugin.getGui().getData().getString("CHEST.VoteShopDisabled"));
-
-		// sections
 		setValue("Shop", plugin.getGui().getData().getConfigurationSection("CHEST.Shop"));
 		setValue("ExtraItems", plugin.getGui().getData().getConfigurationSection("CHEST.VoteShopExtraItems"));
 		setValue("ShopConfirmPurchase", plugin.getGui().getData().getConfigurationSection("CHEST.ShopConfirmPurchase"));
 		saveData();
-
 	}
 
 	/**
-	 * Creates a new shop item with default values.
+	 * Creates a new legacy shop item.
 	 *
-	 * @param value the shop identifier
+	 * @param value the identifier
 	 */
 	public void createShop(String value) {
 		ConfigurationSection shopData = getData().createSection("Shop." + value);
@@ -123,10 +108,93 @@ public class ShopFile extends YMLFile {
 		shopData.set("Permission", "");
 		shopData.set("CloseGUI", true);
 		shopData.set("RequireConfirmation", false);
-
 		shopData.set("Rewards.Items.Item1.Material", "STONE");
 		shopData.set("Rewards.Items.Item1.Amount", 1);
 		saveData();
+	}
+
+	/**
+	 * Gets the categories section.
+	 *
+	 * @return the categories section
+	 */
+	public ConfigurationSection getCategoriesSection() {
+		return getData().getConfigurationSection("Categories");
+	}
+
+	/**
+	 * Gets a category section.
+	 *
+	 * @param categoryId the category id
+	 * @return the category section
+	 */
+	public ConfigurationSection getCategorySection(String categoryId) {
+		return getData().getConfigurationSection("Categories." + categoryId);
+	}
+
+	/**
+	 * Gets a category shop section.
+	 *
+	 * @param categoryId the category id
+	 * @return the category shop section
+	 */
+	public ConfigurationSection getCategoryShopSection(String categoryId) {
+		return getData().getConfigurationSection("Categories." + categoryId + ".Shop");
+	}
+
+	/**
+	 * Checks if a category back button is enabled.
+	 *
+	 * @param category the category id
+	 * @return true if enabled
+	 */
+	public boolean isCategoryBackButtonEnabled(String category) {
+		return getData().getBoolean("Categories." + category + ".BackButton", false);
+	}
+
+	/**
+	 * Gets the category back button item section.
+	 *
+	 * @param category the category id
+	 * @return configuration section or null
+	 */
+	public ConfigurationSection getCategoryBackButtonItem(String category) {
+		String path = "Categories." + category + ".BackButtonItem";
+
+		if (getData().isConfigurationSection(path)) {
+			return getData().getConfigurationSection(path);
+		}
+
+		return null;
+	}
+
+	/**
+	 * Gets the default VoteShop back button item.
+	 *
+	 * @return configuration section or null
+	 */
+	public ConfigurationSection getDefaultBackButtonItem() {
+		if (getData().isConfigurationSection("VoteShop.BackButtonItem")) {
+			return getData().getConfigurationSection("VoteShop.BackButtonItem");
+		}
+		return null;
+	}
+
+	/**
+	 * Gets the display section for an entry, preferring DisplayItem when present.
+	 *
+	 * @param section the entry section
+	 * @return the display section
+	 */
+	public ConfigurationSection getDisplaySection(ConfigurationSection section) {
+		if (section == null) {
+			return null;
+		}
+		ConfigurationSection displaySection = section.getConfigurationSection("DisplayItem");
+		if (displaySection != null) {
+			return displaySection;
+		}
+		return section;
 	}
 
 	/**
@@ -189,7 +257,16 @@ public class ShopFile extends YMLFile {
 		if (shop != null) {
 			return shop.getKeys(false);
 		}
-		return new HashSet<>();
+		return new HashSet<String>();
+	}
+
+	/**
+	 * Gets the shop root section.
+	 *
+	 * @return the shop section
+	 */
+	public ConfigurationSection getShopSection() {
+		return getData().getConfigurationSection("Shop");
 	}
 
 	/**

@@ -1,9 +1,7 @@
 package com.bencodez.votingplugin.commands.gui.player;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 
-import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -13,19 +11,35 @@ import com.bencodez.advancedcore.api.inventory.BInventory;
 import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
-import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
-import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.events.VoteShopPurchaseEvent;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.voteshop.VoteShopManager;
+import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseResult;
+import com.bencodez.votingplugin.voteshop.shop.VoteShopCategory;
+import com.bencodez.votingplugin.voteshop.shop.VoteShopCategoryButton;
+import com.bencodez.votingplugin.voteshop.shop.VoteShopDefinition;
+import com.bencodez.votingplugin.voteshop.shop.VoteShopEntry;
+import com.bencodez.votingplugin.voteshop.shop.VoteShopExtraItem;
+import com.bencodez.votingplugin.voteshop.shop.VoteShopItem;
 
+/**
+ * Main vote shop GUI.
+ */
 public class VoteShop extends GUIHandler {
 
 	private VotingPluginMain plugin;
+
 	private VotingPluginUser user;
 
+	/**
+	 * Creates the GUI.
+	 *
+	 * @param plugin the plugin
+	 * @param player the sender
+	 * @param user the user
+	 */
 	public VoteShop(VotingPluginMain plugin, CommandSender player, VotingPluginUser user) {
 		super(plugin, player);
 		this.plugin = plugin;
@@ -33,7 +47,7 @@ public class VoteShop extends GUIHandler {
 	}
 
 	@Override
-	public ArrayList<String> getChat(CommandSender arg0) {
+	public ArrayList<String> getChat(CommandSender sender) {
 		return null;
 	}
 
@@ -43,184 +57,192 @@ public class VoteShop extends GUIHandler {
 
 	@Override
 	public void onChat(CommandSender sender) {
-
 	}
 
 	@Override
 	public void onChest(Player player) {
-		if (!plugin.getShopFile().isVoteShopEnabled()) {
-			player.sendMessage(MessageAPI.colorize(plugin.getShopFile().getVoteShopDisabled()));
+		VoteShopManager manager = plugin.getVoteShopManager();
+		VoteShopDefinition definition = manager.getDefinition();
+
+		if (!definition.isEnabled()) {
+			player.sendMessage(MessageAPI.colorize(definition.getDisabledMessage()));
 			return;
 		}
 
-		if (this.user == null) {
-			user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
-		}
-		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
-		/*
-		 * if (!plugin.getConfigFile().isExtraVoteShopCheck()) { user.cacheAsync(); }
-		 */
-		BInventory inv = new BInventory(plugin.getShopFile().getVoteShopName());
-		inv.addPlaceholder("points", "" + user.getPoints());
-		inv.addPlaceholder("sitesavailable", "" + user.getSitesNotVotedOn());
+		VotingPluginUser currentUser = getUser(player);
+		BInventory inv = new BInventory(definition.getTitle());
+		inv.addPlaceholder("points", String.valueOf(currentUser.getPoints()));
+		inv.addPlaceholder("sitesavailable", String.valueOf(currentUser.getSitesNotVotedOn()));
 		inv.dontClose();
 
-		for (final String identifier : plugin.getShopFile().getShopIdentifiers()) {
-
-			String perm = plugin.getShopFile().getVoteShopPermission(identifier);
-			boolean hasPerm = false;
-			if (perm.isEmpty()) {
-				hasPerm = true;
-			} else {
-				String p = "";
-				if (perm.startsWith("!")) {
-					p = PlaceholderUtils.replacePlaceHolders(player, perm.substring(1));
-					hasPerm = !player.hasPermission(p);
-				} else {
-					p = PlaceholderUtils.replacePlaceHolders(player, perm);
-					hasPerm = player.hasPermission(p);
-				}
-				if (!hasPerm) {
-					plugin.extraDebug("VoteShop: " + player.getName() + "/" + player.getUniqueId()
-							+ " does not have permission `" + p + "` for " + identifier);
-				}
-			}
-
-			int limit = plugin.getShopFile().getShopIdentifierLimit(identifier);
-
-			boolean limitPass = true;
-			if (limit > 0) {
-				if (user.getVoteShopIdentifierLimit(identifier) >= limit) {
-					limitPass = false;
-				}
-			}
-
-			if (!plugin.getShopFile().getVoteShopNotBuyable(identifier)) {
-				if ((hasPerm || !plugin.getShopFile().getVoteShopHideOnNoPermission(identifier))
-						&& (limitPass || !plugin.getShopFile().isVoteShopHideLimitedReached())) {
-					ItemBuilder builder = new ItemBuilder(plugin.getShopFile().getShopIdentifierSection(identifier));
-
-					inv.addButton(new BInventoryButton(builder) {
-
-						@Override
-						public void onClick(ClickEvent event) {
-							Player player = event.getWhoClicked();
-
-							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
-							if (plugin.getConfigFile().isExtraVoteShopCheck()) {
-								user.cache();
-							}
-
-							String identifier = (String) getData("identifier");
-							int limit = (int) getData("Limit");
-							int points = plugin.getShopFile().getShopIdentifierCost(identifier);
-							if (identifier != null) {
-								// if (plugin.getGui().getChestVoteShopCloseGUI(identifier)) {
-								// event.closeInventory();
-								// }
-
-								// limit fail-safe, should never be needed, except in rare cases
-								boolean limitPass = true;
-								if (limit > 0) {
-									if (user.getVoteShopIdentifierLimit(identifier) >= limit) {
-										limitPass = false;
-									}
-								}
-
-								if (limitPass) {
-									if (!plugin.getShopFile().isVoteShopRequireConfirmation(identifier)) {
-										HashMap<String, String> placeholders = new HashMap<>();
-										placeholders.put("identifier",
-												plugin.getShopFile().getShopIdentifierIdentifierName(identifier));
-										placeholders.put("points", "" + points);
-										placeholders.put("limit", "" + limit);
-										placeholders.put("shop", plugin.getShopFile().getVoteShopName());
-										if (user.removePoints(points, true)) {
-											plugin.getLogger().info("VoteShop: " + user.getPlayerName() + "/"
-													+ user.getUUID() + " bought " + identifier + " for " + points);
-
-											plugin.getRewardHandler().giveReward(user, plugin.getShopFile().getData(),
-													plugin.getShopFile().getShopIdentifierRewardsPath(identifier),
-													new RewardOptions().setPlaceholders(placeholders));
-
-											user.sendMessage(PlaceholderUtils.replacePlaceHolder(
-													plugin.getShopFile().getVoteShopPurchase(identifier),
-													placeholders));
-
-											VoteShopPurchaseEvent purcahseEvent = new VoteShopPurchaseEvent(
-													player.getUniqueId(), player.getName(), user, identifier, points);
-
-											Bukkit.getPluginManager().callEvent(purcahseEvent);
-
-											if (limit > 0) {
-												user.setVoteShopIdentifierLimit(identifier,
-														user.getVoteShopIdentifierLimit(identifier) + 1);
-											}
-										} else {
-											user.sendMessage(PlaceholderUtils.replacePlaceHolder(
-													plugin.getConfigFile().getFormatShopFailedMsg(), placeholders));
-										}
-									} else {
-										plugin.getBukkitScheduler().runTask(plugin, new Runnable() {
-
-											@Override
-											public void run() {
-												new VoteShopConfirm(plugin, player, user, identifier)
-														.open(GUIMethod.CHEST);
-											}
-										});
-
-									}
-								} else {
-									user.sendMessage(plugin.getShopFile().getVoteShopLimitReached());
-								}
-								plugin.getCommandLoader().processSlotClick(player, user, identifier);
-								if (plugin.getShopFile().isVoteShopReopenGUIOnPurchase()) {
-									plugin.getCommandLoader().processSlotClick(player, user, "shop");
-								}
-							}
-						}
-
-					}.addData("identifier", identifier).addData("Limit", limit));
-				}
-			} else {
-				if (hasPerm) {
-					ItemBuilder builder = new ItemBuilder(plugin.getShopFile().getShopIdentifierSection(identifier));
-					inv.addButton(new BInventoryButton(builder) {
-
-						@Override
-						public void onClick(ClickEvent event) {
-							user.sendMessage(plugin.getConfigFile().getFormatShopNotPurchasable());
-						}
-
-					}.addData("identifier", identifier).addData("Limit", limit));
-				}
+		for (VoteShopEntry entry : definition.getMainEntries().values()) {
+			if (entry instanceof VoteShopItem) {
+				addItemButton(inv, player, currentUser, (VoteShopItem) entry, null);
+			} else if (entry instanceof VoteShopCategoryButton) {
+				addCategoryButton(inv, player, currentUser, (VoteShopCategoryButton) entry);
 			}
 		}
 
-		for (final String str : plugin.getShopFile().getVoteShopExtraItems()) {
-			inv.addButton(new BInventoryButton(new ItemBuilder(plugin.getShopFile().getGUIVoteShopExtraItems(str))) {
-
-				@Override
-				public void onClick(ClickEvent clickEvent) {
-					plugin.getCommandLoader().processSlotClick(player, user, str);
-					new RewardBuilder(plugin.getShopFile().getData(),
-							"ExtraItems." + str + "." + clickEvent.getButton().getLastRewardsPath(player))
-							.setGiveOffline(false).send(clickEvent.getPlayer());
-				}
-			});
+		for (VoteShopExtraItem extraItem : definition.getExtraItems().values()) {
+			addExtraItemButton(inv, player, currentUser, extraItem);
 		}
 
-		if (plugin.getShopFile().isVoteShopBackButton()) {
-			inv.addButton(plugin.getCommandLoader().getBackButton(user));
+		if (definition.isBackButton()) {
+			inv.addButton(plugin.getCommandLoader().getBackButton(currentUser));
 		}
 
 		inv.openInventory(player);
+	}
+
+	/**
+	 * Adds an item button.
+	 *
+	 * @param inv the inventory
+	 * @param player the player
+	 * @param currentUser the user
+	 * @param item the item
+	 * @param category the category, null for main shop
+	 */
+	protected void addItemButton(BInventory inv, final Player player, final VotingPluginUser currentUser,
+			final VoteShopItem item, final VoteShopCategory category) {
+		VoteShopPurchaseResult validation = plugin.getVoteShopManager().getPurchaseService().validatePurchase(player,
+				currentUser, item);
+		boolean hasPermission = plugin.getVoteShopManager().getPurchaseService().hasPermission(player,
+				item.getPermission());
+
+		if ((!hasPermission && item.isHideOnNoPermission())
+				|| (validation == VoteShopPurchaseResult.LIMIT_REACHED
+						&& plugin.getVoteShopManager().getDefinition().isHideLimitedReached())) {
+			return;
+		}
+
+		inv.addButton(new BInventoryButton(new ItemBuilder(item.getDisplaySection())) {
+
+			@Override
+			public void onClick(ClickEvent event) {
+				VotingPluginUser clickedUser = getUser(event.getPlayer());
+				if (plugin.getConfigFile().isExtraVoteShopCheck()) {
+					clickedUser.cache();
+				}
+
+				if (item.isNotBuyable()) {
+					clickedUser.sendMessage(plugin.getConfigFile().getFormatShopNotPurchasable());
+					return;
+				}
+
+				VoteShopPurchaseResult clickValidation = plugin.getVoteShopManager().getPurchaseService()
+						.validatePurchase(event.getPlayer(), clickedUser, item);
+				if (clickValidation != VoteShopPurchaseResult.SUCCESS) {
+					plugin.getVoteShopManager().getPurchaseService().sendFailureMessage(event.getPlayer(), clickedUser,
+							item, clickValidation);
+					return;
+				}
+
+				if (item.isRequireConfirmation()) {
+					new VoteShopConfirm(plugin, event.getPlayer(), clickedUser, item, category).open(GUIMethod.CHEST);
+					return;
+				}
+
+				handlePurchase(event.getPlayer(), clickedUser, item, category);
+			}
+		}.addData("identifier", item.getIdentifier()));
+	}
+
+	/**
+	 * Adds a category button.
+	 *
+	 * @param inv the inventory
+	 * @param player the player
+	 * @param currentUser the user
+	 * @param button the button
+	 */
+	protected void addCategoryButton(BInventory inv, final Player player, final VotingPluginUser currentUser,
+			final VoteShopCategoryButton button) {
+		boolean hasPermission = plugin.getVoteShopManager().getPurchaseService().hasPermission(player,
+				button.getPermission());
+		if (!hasPermission && button.isHideOnNoPermission()) {
+			return;
+		}
+
+		final VoteShopCategory category = plugin.getVoteShopManager().getCategory(button.getCategoryId());
+		if (category == null) {
+			plugin.extraDebug("VoteShop: missing category '" + button.getCategoryId() + "' for entry "
+					+ button.getIdentifier());
+			return;
+		}
+
+		inv.addButton(new BInventoryButton(new ItemBuilder(button.getDisplaySection())) {
+
+			@Override
+			public void onClick(ClickEvent event) {
+				new VoteShopCategoryMenu(plugin, event.getPlayer(), currentUser, category).open(GUIMethod.CHEST);
+			}
+		}.addData("identifier", button.getIdentifier()));
+	}
+
+	/**
+	 * Adds an extra item button.
+	 *
+	 * @param inv the inventory
+	 * @param player the player
+	 * @param currentUser the user
+	 * @param extraItem the extra item
+	 */
+	protected void addExtraItemButton(BInventory inv, final Player player, final VotingPluginUser currentUser,
+			final VoteShopExtraItem extraItem) {
+		inv.addButton(new BInventoryButton(new ItemBuilder(extraItem.getDisplaySection())) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				plugin.getCommandLoader().processSlotClick(player, currentUser, extraItem.getIdentifier());
+				new RewardBuilder(plugin.getShopFile().getData(),
+						"ExtraItems." + extraItem.getIdentifier() + "."
+								+ clickEvent.getButton().getLastRewardsPath(player))
+						.setGiveOffline(false).send(clickEvent.getPlayer());
+			}
+		});
+	}
+
+	/**
+	 * Handles a completed purchase.
+	 *
+	 * @param player the player
+	 * @param currentUser the user
+	 * @param item the item
+	 * @param category the category or null
+	 */
+	protected void handlePurchase(Player player, VotingPluginUser currentUser, VoteShopItem item, VoteShopCategory category) {
+		VoteShopPurchaseResult result = plugin.getVoteShopManager().purchase(player, currentUser, item);
+		if (result != VoteShopPurchaseResult.SUCCESS) {
+			plugin.getVoteShopManager().getPurchaseService().sendFailureMessage(player, currentUser, item, result);
+			return;
+		}
+
+		plugin.getCommandLoader().processSlotClick(player, currentUser, item.getIdentifier());
+		if (plugin.getVoteShopManager().getDefinition().isReopenGuiOnPurchase()) {
+			if (category != null) {
+				new VoteShopCategoryMenu(plugin, player, currentUser, category).open(GUIMethod.CHEST);
+			} else {
+				plugin.getCommandLoader().processSlotClick(player, currentUser, "shop");
+			}
+		}
+	}
+
+	/**
+	 * Gets the current user.
+	 *
+	 * @param player the player
+	 * @return the user
+	 */
+	protected VotingPluginUser getUser(Player player) {
+		if (user == null) {
+			user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
+		}
+		return plugin.getVotingPluginUserManager().getVotingPluginUser(player);
 	}
 
 	@Override
 	public void open() {
 		open(GUIMethod.CHEST);
 	}
-
 }

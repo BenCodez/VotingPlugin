@@ -111,6 +111,7 @@ import com.bencodez.votingplugin.votereminding.VoteRemindersLegacyMigrator;
 import com.bencodez.votingplugin.votereminding.VoteRemindersListener;
 import com.bencodez.votingplugin.votereminding.VoteRemindersManager;
 import com.bencodez.votingplugin.votereminding.store.UserDataVoteReminderCooldownStore;
+import com.bencodez.votingplugin.voteshop.VoteShopManager;
 import com.bencodez.votingplugin.votesites.VoteSite;
 import com.bencodez.votingplugin.votesites.VoteSiteManager;
 import com.bencodez.votingplugin.webhook.VotingPluginWebhooks;
@@ -223,6 +224,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	@Setter
+	private VoteShopManager voteShopManager;
+
+	@Getter
+	@Setter
 	private ArrayList<CommandHandler> voteCommand;
 
 	@Getter
@@ -330,6 +335,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				}
 			}, 1);
 		}
+	}
+
+	public void loadVoteShopManager() {
+		voteShopManager = new VoteShopManager(this);
 	}
 
 	public ArrayList<TopVoterPlayer> convertSet(Set<TopVoterPlayer> set) {
@@ -1167,6 +1176,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		loadVoteBroadcast();
 
+		loadVoteShopManager();
+
 		loadDirectlyDefined();
 		checkUpdate = new CheckUpdate(this);
 		checkUpdate.startUp();
@@ -1705,6 +1716,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		getVoteStreakHandler().reload();
 
 		loadVoteBroadcast();
+
+		voteShopManager.reload();
 
 		loadDirectlyDefined();
 

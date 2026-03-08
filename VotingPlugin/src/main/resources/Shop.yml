@@ -1,5 +1,5 @@
 ####################################################################################################
-# VotingPlugin – VoteShop Configuration (shop.yml)
+# VotingPlugin – VoteShop Configuration (Shop.yml)
 # Author: BenCodez
 #
 # This file controls the /vote shop GUI (VoteShop) and all purchasable items.
@@ -9,7 +9,8 @@
 # 📑 Config Index (matches this file)
 # ─────────────────────────────────────────────────────────────────────────────
 #  • VoteShop (GUI settings)
-#  • Shop (items for sale)
+#  • Shop (items for sale + category buttons)
+#  • Categories (optional extra shop pages)
 #  • ExtraItems (optional display-only items)
 #  • ShopConfirmPurchase (confirmation GUI layout)
 #
@@ -23,89 +24,155 @@
 # • Identifiers should be unique and contain no spaces.
 #
 # ─────────────────────────────────────────────────────────────────────────────
-# 🎁 Rewards
+# 🗂 Categories
 # ─────────────────────────────────────────────────────────────────────────────
-# Shop items use the same reward format as the rest of VotingPlugin
-# (Commands, Items, Messages, etc).
+# Categories are optional and extend the existing VoteShop.
+# Old shop configs still work exactly the same.
 #
-# Rewards docs:
-#   https://github.com/BenCodez/VotingPlugin/wiki/Rewards
+# To create a category button in the main shop:
+#
+# Shop:
+#   Blocks:
+#     Category: 'Blocks'
+#     DisplayItem:
+#       Material: CHEST
+#       Name: '&bBlocks'
+#
+# Then define the category contents under:
+#
+# Categories:
+#   Blocks:
+#     Name: '&bBlocks'
+#     Shop:
+#       ItemIdentifier:
+#         ...
+#
+# If a Shop entry has Category set, clicking it will open that category
+# instead of purchasing an item.
 #
 # ─────────────────────────────────────────────────────────────────────────────
-# 📘 Documentation
+# 🖼 DisplayItem
 # ─────────────────────────────────────────────────────────────────────────────
-# GitHub Wiki (primary):
-#   https://github.com/BenCodez/VotingPlugin/wiki
+# DisplayItem is the preferred place for GUI item display settings.
 #
-# Second / New Wiki (WIP):
-#   https://wiki.bencodez.com/en/VotingPlugin
+# Example:
+#
+# DisplayItem:
+#   Material: DIAMOND
+#   Amount: 1
+#   Name: '&4Buy A Diamond'
+#   Lore:
+#     - '&c&lCost: &c3 Voting Points'
+#
+# Older style is still supported:
+#
+# Material: DIAMOND
+# Amount: 1
+# Name: '&4Buy A Diamond'
+# Lore:
+#   - '&c&lCost: &c3 Voting Points'
+#
+# If DisplayItem is missing the plugin will automatically fall back
+# to the older format.
 #
 ####################################################################################################
 
 VoteShop:
   Enabled: true
   Name: 'VoteShop'
+  # Backbutton for main voteshop
   BackButton: true
-  # Hide items in vote shop which user can not buy
   HideLimitedReached: true
-  # Requires above to be false
   LimitReached: '&aYou reached your limit'
   RequireConfirmation: false
   Disabled: '&cVote shop disabled'
-  # If true, shop gui will reopen, updating all placeholders
   ReopenGUIOnPurchase: false
+  # Default back button for category pages (can be overridden per category)
+  BackButtonItem:
+    Material: BARRIER
+    Amount: 1
+    Name: '&cBack'
+    Slot: -2 # Sets to last slot
 
 Shop:
-  # Identifier
-  # Used in placeholders for formats
-  # Do not have spaces in the identifier
-  # Change the identifier for each shop item
   Diamond:
     Identifier_Name: 'Diamond'
-    # Item
-    Material: 'DIAMOND'
-    Amount: 1
-    Name: '&4Buy A Diamond'
-    # You can set skulls of the player using the following
-    # Remove the # to enable
-    #Skull: '%Player%'
-    Lore:
-    - '&c&lCost: &c3 Voting Points'
-    # Number of voting points this cost
+    DisplayItem:
+      Material: DIAMOND
+      Amount: 1
+      Name: '&4Buy A Diamond'
+      Lore:
+        - '&c&lCost: &c3 Voting Points'
     Cost: 3
-    # Permission required, leave blank for no permission
     Permission: ''
-    # Hide if player doesn't have permission (only if permission is set)
     HideOnNoPermission: true
-    # Whether or not to keep GUI open after purchase
     CloseGUI: true
-    # Require confirmation on purchase, overrides global option above
     RequireConfirmation: false
-    # Overrides other purchase message
-    #PurchaseMessage: 'Thanks for the purchase'
-    # Limit how many times you can buy this
-    #Limit: 3
-    # Reset limit daily/weekly/monthly
-    #Reset:
-    #  Daily: false
-    #  Weekly: false
-    #  Monthly: false
-    # If true, item is not buyable
-    #NotBuyable: false
-    # Rewards to run if player buys successfully
     Rewards:
-      # Run command on purchase
-      #Commands:
-      #- 'command here'
       Items:
         Diamond:
-          Material: 'DIAMOND'
+          Material: DIAMOND
           Amount: 1
 
-# VoteShop extra items for display only
-#ExtraItems:
-#  ItemIdentifier:
-#    #...
+  Blocks:
+    Category: 'Blocks'
+    DisplayItem:
+      Material: CHEST
+      Amount: 1
+      Name: '&bBlocks'
+      Lore:
+        - '&7Open block rewards'
+    Permission: ''
+    HideOnNoPermission: true
+
+Categories:
+  Blocks:
+    Name: '&bBlocks'
+    BackButton: true
+    BackButtonItem:
+      Material: BARRIER
+      Amount: 1
+      Slot: -2 # Sets to last slot
+      Name: '&cBack'
+      Lore:
+        - '&7Return to VoteShop'
+    Shop:
+      Emerald:
+        Identifier_Name: 'Emerald'
+        DisplayItem:
+          Material: EMERALD
+          Amount: 1
+          Name: '&aBuy An Emerald'
+          Lore:
+            - '&c&lCost: &c5 Voting Points'
+        Cost: 5
+        Permission: ''
+        HideOnNoPermission: true
+        CloseGUI: true
+        RequireConfirmation: false
+        Rewards:
+          Items:
+            Emerald:
+              Material: EMERALD
+              Amount: 1
+
+      Stone:
+        Identifier_Name: 'Stone'
+        Material: STONE
+        Amount: 16
+        Name: '&7Buy Stone'
+        Lore:
+          - '&c&lCost: &c1 Voting Point'
+        Cost: 1
+        Permission: ''
+        HideOnNoPermission: true
+        CloseGUI: true
+        RequireConfirmation: false
+        Rewards:
+          Items:
+            Stone:
+              Material: STONE
+              Amount: 16
 
 ShopConfirmPurchase:
   Title: 'Confirm Purchase?'

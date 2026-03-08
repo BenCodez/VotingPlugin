@@ -1,9 +1,7 @@
 package com.bencodez.votingplugin.commands.gui.player;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 
-import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -13,28 +11,46 @@ import com.bencodez.advancedcore.api.inventory.BInventory;
 import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
-import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
-import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.simpleapi.player.PlayerUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.events.VoteShopPurchaseEvent;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseResult;
+import com.bencodez.votingplugin.voteshop.shop.VoteShopCategory;
+import com.bencodez.votingplugin.voteshop.shop.VoteShopItem;
 
+/**
+ * Confirmation GUI for vote shop purchases.
+ */
 public class VoteShopConfirm extends GUIHandler {
 
-	private String identifier;
+	private VoteShopCategory category;
+
+	private VoteShopItem item;
+
 	private VotingPluginMain plugin;
+
 	private VotingPluginUser user;
 
-	public VoteShopConfirm(VotingPluginMain plugin, CommandSender player, VotingPluginUser user, String identifier) {
+	/**
+	 * Creates the GUI.
+	 *
+	 * @param plugin the plugin
+	 * @param player the sender
+	 * @param user the user
+	 * @param item the item
+	 * @param category the category or null
+	 */
+	public VoteShopConfirm(VotingPluginMain plugin, CommandSender player, VotingPluginUser user, VoteShopItem item,
+			VoteShopCategory category) {
 		super(plugin, player);
 		this.plugin = plugin;
 		this.user = user;
-		this.identifier = identifier;
+		this.item = item;
+		this.category = category;
 	}
 
 	@Override
-	public ArrayList<String> getChat(CommandSender arg0) {
+	public ArrayList<String> getChat(CommandSender sender) {
 		return null;
 	}
 
@@ -47,71 +63,58 @@ public class VoteShopConfirm extends GUIHandler {
 	}
 
 	@Override
-	public void onChest(Player player) {
-		PlayerUtils.setPlayerMeta(plugin, player, "ident", identifier);
+	public void onChest(final Player player) {
+		PlayerUtils.setPlayerMeta(plugin, player, "ident", item.getIdentifier());
 		BInventory inv = new BInventory(plugin.getShopFile().getShopConfirmPurchaseTitle());
 		inv.dontClose();
-		inv.addPlaceholder("shop", plugin.getShopFile().getShopIdentifierIdentifierName(identifier));
-		inv.addPlaceholder("identifier", identifier);
 		inv.addButton(new BInventoryButton(new ItemBuilder(plugin.getShopFile().getShopConfirmPurchaseYesItem())) {
 
 			@Override
 			public void onClick(ClickEvent event) {
 				user.cache();
-				int points = plugin.getShopFile().getShopIdentifierCost(identifier);
-				int limit = plugin.getShopFile().getShopIdentifierLimit(identifier);
-				HashMap<String, String> placeholders = new HashMap<>();
-				placeholders.put("identifier", identifier);
-				placeholders.put("points", "" + points);
-				placeholders.put("limit", "" + limit);
-				placeholders.put("shop", plugin.getShopFile().getVoteShopName());
-				if (user.removePoints(points, true)) {
-					plugin.getLogger().info("VoteShop: " + user.getPlayerName() + "/" + user.getUUID() + " bought "
-							+ identifier + " for " + points);
-
-					plugin.getRewardHandler().giveReward(user, plugin.getShopFile().getData(),
-							plugin.getShopFile().getShopIdentifierRewardsPath(identifier),
-							new RewardOptions().setPlaceholders(placeholders));
-
-					user.sendMessage(PlaceholderUtils
-							.replacePlaceHolder(plugin.getShopFile().getVoteShopPurchase(identifier), placeholders));
-
-					VoteShopPurchaseEvent purcahseEvent = new VoteShopPurchaseEvent(player.getUniqueId(),
-							player.getName(), user, identifier, points);
-
-					Bukkit.getPluginManager().callEvent(purcahseEvent);
-					if (limit > 0) {
-						user.setVoteShopIdentifierLimit(identifier, user.getVoteShopIdentifierLimit(identifier) + 1);
-					}
-				} else {
-					user.sendMessage(PlaceholderUtils
-							.replacePlaceHolder(plugin.getConfigFile().getFormatShopFailedMsg(), placeholders));
+				VoteShopPurchaseResult result = plugin.getVoteShopManager().purchase(player, user, item);
+				if (result != VoteShopPurchaseResult.SUCCESS) {
+					plugin.getVoteShopManager().getPurchaseService().sendFailureMessage(player, user, item, result);
+					returnToPrevious(event.getPlayer());
+					return;
 				}
-				if (plugin.getShopFile().getVoteShopCloseGUI(identifier)) {
+
+				plugin.getCommandLoader().processSlotClick(player, user, item.getIdentifier());
+				if (item.isCloseGUI()) {
 					event.getButton().getInv().closeInv(player, null);
 				} else {
-					new VoteShop(plugin, event.getPlayer(), user).open();
+					returnToPrevious(event.getPlayer());
 				}
-
 			}
 		});
 		inv.addButton(new BInventoryButton(new ItemBuilder(plugin.getShopFile().getShopConfirmPurchaseNoItem())) {
 
 			@Override
 			public void onClick(ClickEvent event) {
-				if (plugin.getShopFile().getVoteShopCloseGUI(identifier)) {
-					event.getButton().getInv().closeInv(player, null);
-				} else {
-					new VoteShop(plugin, event.getPlayer(), user).open();
-				}
+				returnToPrevious(event.getPlayer());
 			}
 		});
 		inv.openInventory(player);
+	}
+
+	/**
+	 * Returns to the previous GUI.
+	 *
+	 * @param player the player
+	 */
+	protected void returnToPrevious(Player player) {
+		if (item.isCloseGUI()) {
+			return;
+		}
+		if (category != null) {
+			new VoteShopCategoryMenu(plugin, player, user, category).open(GUIMethod.CHEST);
+		} else {
+			new VoteShop(plugin, player, user).open(GUIMethod.CHEST);
+		}
 	}
 
 	@Override
 	public void open() {
 		open(GUIMethod.CHEST);
 	}
-
 }
