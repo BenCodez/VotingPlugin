@@ -41,10 +41,10 @@ public class AdminVoteLogVoteId extends GUIHandler {
 	 *
 	 * @param plugin the VotingPluginMain instance
 	 * @param sender the command sender
-	 * @param table the vote log table
+	 * @param table  the vote log table
 	 * @param voteId the vote ID to filter
-	 * @param days the number of days to filter
-	 * @param page the page number
+	 * @param days   the number of days to filter
+	 * @param page   the page number
 	 */
 	public AdminVoteLogVoteId(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table, String voteId,
 			int days, int page) {
@@ -65,11 +65,11 @@ public class AdminVoteLogVoteId extends GUIHandler {
 	 *
 	 * @param plugin the VotingPluginMain instance
 	 * @param sender the command sender
-	 * @param table the vote log table
-	 * @param user the voting plugin user
+	 * @param table  the vote log table
+	 * @param user   the voting plugin user
 	 * @param voteId the vote ID to filter
-	 * @param days the number of days to filter
-	 * @param page the page number
+	 * @param days   the number of days to filter
+	 * @param page   the page number
 	 */
 	public AdminVoteLogVoteId(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table,
 			VotingPluginUser user, String voteId, int days, int page) {
@@ -91,6 +91,11 @@ public class AdminVoteLogVoteId extends GUIHandler {
 
 	@Override
 	public void onChat(CommandSender sender) {
+	}
+
+	@Override
+	public void onDialog(Player player) {
+
 	}
 
 	@Override

@@ -61,6 +61,10 @@ public class VoteShopCategoryMenu extends GUIHandler {
 	@Override
 	public void onChat(CommandSender sender) {
 	}
+	@Override
+	public void onDialog(Player player) {
+		
+	}
 
 	@Override
 	public void onChest(Player player) {

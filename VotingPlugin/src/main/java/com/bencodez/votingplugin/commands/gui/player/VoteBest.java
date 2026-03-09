@@ -28,9 +28,10 @@ public class VoteBest extends GUIHandler {
 
 	/**
 	 * Constructs a new vote best GUI.
+	 * 
 	 * @param plugin the plugin instance
 	 * @param player the command sender
-	 * @param user the voting plugin user
+	 * @param user   the voting plugin user
 	 */
 	public VoteBest(VotingPluginMain plugin, CommandSender player, VotingPluginUser user) {
 		super(plugin, player);
@@ -54,6 +55,41 @@ public class VoteBest extends GUIHandler {
 		msg = PlaceholderUtils.replacePlaceHolder(msg, placeholders);
 
 		return ArrayUtils.colorize(msg);
+	}
+
+	@Override
+	public void onDialog(Player player) {
+		plugin.getDialogService().multiAction(player)
+				.placeholder("player", user.getPlayerName())
+				.placeholder("HighestDailyTotal", "" + user.getHighestDailyTotal())
+				.placeholder("HighestWeeklyTotal", "" + user.getHighestWeeklyTotal())
+				.placeholder("HighestMonthlyTotal", "" + user.getHighestMonthlyTotal())
+				.title(plugin.getGui().getChestVoteBestName())
+				.body(plugin.getConfigFile().getFormatCommandsVoteBestTitle())
+				.columns(2)
+				.button(plugin.getGui().getChestVoteBestDayBestItem().getName(),
+						"&7Best daily total: &e%HighestDailyTotal%",
+						payload -> {
+						})
+				.button(plugin.getGui().getChestVoteBestWeekBestItem().getName(),
+						"&7Best weekly total: &e%HighestWeeklyTotal%",
+						payload -> {
+						})
+				.button(plugin.getGui().getChestVoteBestMonthBestItem().getName(),
+						"&7Best monthly total: &e%HighestMonthlyTotal%",
+						payload -> {
+						})
+				.button(plugin.getGui().isChestVoteBestBackButton() ? "&eBack" : "",
+						plugin.getGui().isChestVoteBestBackButton() ? "&7Return to previous menu" : "",
+						payload -> {
+							if (plugin.getGui().isChestVoteBestBackButton()) {
+								Player clicked = player.getServer().getPlayer(payload.owner());
+								if (clicked != null) {
+									new VoteGUI(plugin, clicked, user).open();
+								}
+							}
+						})
+				.open();
 	}
 
 	@Override

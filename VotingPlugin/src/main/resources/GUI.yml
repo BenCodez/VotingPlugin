@@ -9,7 +9,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # 📑 Config Index (matches this file)
 # ─────────────────────────────────────────────────────────────────────────────
-#  • GUI Method selection (CHEST / BOOK / CHAT)
+#  • GUI Method selection (CHEST / BOOK / CHAT / DIALOG)
 #  • LastMonthGUI toggle
 #  • CHEST GUIs (most common)
 #     - VoteGUI (main /vote gui)
@@ -48,6 +48,7 @@
 # GUI Methods:
 # - BOOK
 # - CHEST
+# - DIALOG
 # - CHAT (Disables GUI)
 GUIMethod:
   Today: CHEST #BOOK not available (future update?)

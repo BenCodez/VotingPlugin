@@ -37,13 +37,18 @@ public class AdminVoteLogEventSelect extends GUIHandler {
 	 *
 	 * @param plugin the VotingPluginMain instance
 	 * @param sender the command sender
-	 * @param table the vote log table
-	 * @param user the voting plugin user
-	 * @param days the number of days to filter
+	 * @param table  the vote log table
+	 * @param user   the voting plugin user
+	 * @param days   the number of days to filter
 	 */
 	public AdminVoteLogEventSelect(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table,
 			VotingPluginUser user, int days) {
 		this(plugin, sender, table, user, days, 0);
+	}
+
+	@Override
+	public void onDialog(Player player) {
+
 	}
 
 	/**
@@ -51,10 +56,10 @@ public class AdminVoteLogEventSelect extends GUIHandler {
 	 *
 	 * @param plugin the VotingPluginMain instance
 	 * @param sender the command sender
-	 * @param table the vote log table
-	 * @param user the voting plugin user
-	 * @param days the number of days to filter
-	 * @param page the page number
+	 * @param table  the vote log table
+	 * @param user   the voting plugin user
+	 * @param days   the number of days to filter
+	 * @param page   the page number
 	 */
 	public AdminVoteLogEventSelect(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table,
 			VotingPluginUser user, int days, int page) {

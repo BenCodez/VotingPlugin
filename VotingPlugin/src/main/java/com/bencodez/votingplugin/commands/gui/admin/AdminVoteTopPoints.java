@@ -42,8 +42,8 @@ public class AdminVoteTopPoints extends GUIHandler {
 	 *
 	 * @param plugin the VotingPluginMain instance
 	 * @param player the command sender
-	 * @param user the voting plugin user
-	 * @param page the page number
+	 * @param user   the voting plugin user
+	 * @param page   the page number
 	 */
 	public AdminVoteTopPoints(VotingPluginMain plugin, CommandSender player, VotingPluginUser user, int page) {
 		super(plugin, player);
@@ -55,6 +55,11 @@ public class AdminVoteTopPoints extends GUIHandler {
 	@Override
 	public ArrayList<String> getChat(CommandSender sender) {
 		return null;
+	}
+
+	@Override
+	public void onDialog(Player player) {
+
 	}
 
 	@Override

@@ -40,6 +40,11 @@ public class AdminVoteVoteShop extends GUIHandler {
 	}
 
 	@Override
+	public void onDialog(Player player) {
+
+	}
+
+	@Override
 	public void onBook(Player player) {
 	}
 

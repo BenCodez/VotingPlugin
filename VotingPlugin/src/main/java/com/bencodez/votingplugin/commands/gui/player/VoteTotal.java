@@ -31,6 +31,42 @@ public class VoteTotal extends GUIHandler {
 	}
 
 	@Override
+	public void onDialog(Player player) {
+
+		com.bencodez.simpleapi.dialog.MultiActionDialogBuilder dialog = plugin.getDialogService().multiAction(player)
+				.placeholder("player", user.getPlayerName())
+				.placeholder("DailyTotal", "" + user.getTotal(TopVoter.Daily))
+				.placeholder("WeeklyTotal", "" + user.getTotal(TopVoter.Weekly))
+				.placeholder("MonthlyTotal", "" + user.getTotal(TopVoter.Monthly))
+				.placeholder("AllTimeTotal", "" + user.getTotal(TopVoter.AllTime))
+				.title(plugin.getGui().getChestVoteTotalName()).body("&7Vote totals for %player%").columns(2);
+
+		for (final TopVoter top : TopVoter.values()) {
+
+			dialog.placeholder("topvoter", top.getName()).placeholder("Total", "" + user.getTotal(top))
+					.button("%topvoter%", "&7Total: &e%Total%", payload -> {
+
+						Player clicked = player.getServer().getPlayer(payload.owner());
+
+						if (clicked != null) {
+							clicked.sendMessage("&e" + top.getName() + ": &a" + user.getTotal(top));
+						}
+					});
+		}
+
+		if (plugin.getGui().isChestVoteTotalBackButton()) {
+			dialog.button("&eBack", "&7Return to previous menu", payload -> {
+				Player clicked = player.getServer().getPlayer(payload.owner());
+				if (clicked != null) {
+					new VoteGUI(plugin, clicked, user).open();
+				}
+			});
+		}
+
+		dialog.open();
+	}
+
+	@Override
 	public ArrayList<String> getChat(CommandSender arg0) {
 		ArrayList<String> msg = new ArrayList<>();
 

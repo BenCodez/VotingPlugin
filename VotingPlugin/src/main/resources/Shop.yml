@@ -175,6 +175,8 @@ Categories:
               Amount: 16
 
 ShopConfirmPurchase:
+  # Use dialog instead of GUI
+  UseDialog: false
   Title: 'Confirm Purchase?'
   YesItem:
     Material: EMERALD_BLOCK

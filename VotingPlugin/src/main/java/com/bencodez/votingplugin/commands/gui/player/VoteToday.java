@@ -37,6 +37,55 @@ public class VoteToday extends GUIHandler {
 		this.user = user;
 		this.page = page;
 	}
+	
+	@Override
+	public void onDialog(Player player) {
+		com.bencodez.simpleapi.dialog.MultiActionDialogBuilder dialog = plugin.getDialogService().multiAction(player)
+				.placeholder("player", user.getPlayerName())
+				.placeholder("page", "" + page)
+				.title(plugin.getGui().getChestVoteTodayName())
+				.body(String.join("\n", plugin.getConfigFile().getFormatCommandsVoteTodayTitle()))
+				.columns(2);
+
+		for (TopVoterPlayer topPlayer : plugin.getVoteToday().keySet()) {
+			for (VoteSite voteSite : plugin.getVoteToday().get(topPlayer).keySet()) {
+				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(plugin.getConfigFile().getFormatTimeFormat());
+				String timeString = plugin.getVoteToday().get(topPlayer).get(voteSite).format(formatter);
+
+				final UUID uuid = topPlayer.getUuid();
+
+				dialog.placeholder("player", topPlayer.getPlayerName())
+						.placeholder("votesite", voteSite.getKey())
+						.placeholder("sitename", voteSite.getDisplayName())
+						.placeholder("SiteName", voteSite.getDisplayName())
+						.placeholder("VoteSite", voteSite.getDisplayName())
+						.placeholder("time", timeString)
+						.placeholder("Time", timeString)
+						.button("&e" + topPlayer.getPlayerName(),
+								plugin.getConfigFile().getFormatCommandsVoteTodayLine(),
+								payload -> {
+									Player clicked = player.getServer().getPlayer(payload.owner());
+									if (clicked != null) {
+										VotingPluginUser clickedUser = plugin.getVotingPluginUserManager()
+												.getVotingPluginUser(uuid);
+										new VoteGUI(plugin, clicked, clickedUser)
+												.open(GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
+									}
+								});
+			}
+		}
+
+		if (plugin.getGui().isChestVoteTodayBackButton()) {
+			dialog.button("&eBack", "&7Return to previous menu", payload -> {
+				Player clicked = player.getServer().getPlayer(payload.owner());
+				if (clicked != null) {
+					new VoteGUI(plugin, clicked, user).open();
+				}
+			});
+		}
+
+		dialog.open();
+	}
 
 	@Override
 	public ArrayList<String> getChat(CommandSender arg0) {

@@ -55,6 +55,11 @@ public class AdminVoteVoteParty extends GUIHandler {
 	}
 
 	@Override
+	public void onDialog(Player player) {
+
+	}
+
+	@Override
 	public void onChest(Player player) {
 		EditGUI inv = new EditGUI("Edit VoteParty");
 		inv.requirePermission("VotingPlugin.Commands.AdminVote.Edit.VoteParty");

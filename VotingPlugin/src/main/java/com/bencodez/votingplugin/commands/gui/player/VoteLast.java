@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.commands.gui.player;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -33,7 +34,7 @@ public class VoteLast extends GUIHandler {
 	 *
 	 * @param plugin the main plugin instance
 	 * @param player the command sender
-	 * @param user the voting plugin user
+	 * @param user   the voting plugin user
 	 */
 	public VoteLast(VotingPluginMain plugin, CommandSender player, VotingPluginUser user) {
 		super(plugin, player);
@@ -57,6 +58,50 @@ public class VoteLast extends GUIHandler {
 		}
 
 		return ArrayUtils.colorize(msg);
+	}
+
+	@Override
+	public void onDialog(Player player) {
+		com.bencodez.simpleapi.dialog.MultiActionDialogBuilder dialog = plugin.getDialogService().multiAction(player)
+				.placeholder("player", user.getPlayerName()).title(plugin.getGui().getChestVoteLastName())
+				.body(plugin.getConfigFile().getFormatCommandsVoteLastTitle()).columns(2);
+
+		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
+			if (site.isHidden()) {
+				continue;
+			}
+
+			dialog.placeholder("sitename", site.getDisplayName()).button(site.getDisplayName(),
+					user.voteCommandLastLine(site), payload -> {
+
+						if (plugin.getGui().isChestVoteLastClickableLinks()) {
+							Player clicked = player.getServer().getPlayer(payload.owner());
+
+							if (clicked != null) {
+								VotingPluginUser clickedUser = plugin.getVotingPluginUserManager()
+										.getVotingPluginUser(clicked);
+
+								HashMap<String, String> placeholders = new HashMap<String, String>();
+								placeholders.put("voteurl", site.getVoteURL());
+								placeholders.put("sitename", site.getDisplayName());
+								placeholders.put("player", clicked.getName());
+
+								clickedUser.sendMessage(plugin.getGui().getChestVoteURLURLText(), placeholders);
+							}
+						}
+					});
+		}
+
+		if (plugin.getGui().isChestVoteLastBackButton()) {
+			dialog.button("&eBack", "&7Return to previous menu", payload -> {
+				Player clicked = player.getServer().getPlayer(payload.owner());
+				if (clicked != null) {
+					new VoteGUI(plugin, clicked, user).open();
+				}
+			});
+		}
+
+		dialog.open();
 	}
 
 	@Override

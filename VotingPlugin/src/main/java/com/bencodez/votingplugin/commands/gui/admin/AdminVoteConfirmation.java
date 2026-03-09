@@ -28,7 +28,7 @@ public abstract class AdminVoteConfirmation extends GUIHandler {
 	 *
 	 * @param plugin the VotingPluginMain instance
 	 * @param player the command sender
-	 * @param title the title of the confirmation dialog
+	 * @param title  the title of the confirmation dialog
 	 */
 	public AdminVoteConfirmation(VotingPluginMain plugin, CommandSender player, String title) {
 		super(plugin, player);
@@ -39,6 +39,11 @@ public abstract class AdminVoteConfirmation extends GUIHandler {
 	@Override
 	public ArrayList<String> getChat(CommandSender sender) {
 		return null;
+	}
+
+	@Override
+	public void onDialog(Player player) {
+
 	}
 
 	@Override

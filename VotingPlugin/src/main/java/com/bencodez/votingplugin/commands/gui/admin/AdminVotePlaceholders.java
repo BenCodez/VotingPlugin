@@ -42,6 +42,11 @@ public class AdminVotePlaceholders extends GUIHandler {
 	}
 
 	@Override
+	public void onDialog(Player player) {
+
+	}
+
+	@Override
 	public void onBook(Player player) {
 		BookWrapper book = new BookWrapper("Placeholders");
 

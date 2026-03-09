@@ -28,7 +28,7 @@ public class AdminVoteHelp extends GUIHandler {
 	 *
 	 * @param plugin the VotingPluginMain instance
 	 * @param player the command sender
-	 * @param page the page number to display
+	 * @param page   the page number to display
 	 */
 	public AdminVoteHelp(VotingPluginMain plugin, CommandSender player, int page) {
 		super(plugin, player);
@@ -62,6 +62,11 @@ public class AdminVoteHelp extends GUIHandler {
 		}
 
 		return msg;
+	}
+
+	@Override
+	public void onDialog(Player player) {
+
 	}
 
 	/**

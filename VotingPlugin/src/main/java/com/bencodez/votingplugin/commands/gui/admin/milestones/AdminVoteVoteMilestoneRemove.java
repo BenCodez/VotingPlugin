@@ -48,6 +48,11 @@ public class AdminVoteVoteMilestoneRemove extends GUIHandler {
 	}
 
 	@Override
+	public void onDialog(Player player) {
+
+	}
+
+	@Override
 	public void onChest(Player player) {
 		BInventory inv = new BInventory("Remove VoteMilestones");
 		inv.requirePermission("VotingPlugin.Commands.AdminVote.Edit.VoteMilestones");

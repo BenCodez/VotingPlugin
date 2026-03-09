@@ -27,6 +27,9 @@ public class ShopFile extends YMLFile {
 	@ConfigDataConfigurationSection(path = "ShopConfirmPurchase.NoItem")
 	private ConfigurationSection shopConfirmPurchaseNoItem;
 
+	@ConfigDataBoolean(path = "ShopConfirmPurchase.UseDialog")
+	private boolean shopConfirmPurchaseUseDialog = false;
+
 	@ConfigDataString(path = "ShopConfirmPurchase.Title")
 	private String shopConfirmPurchaseTitle = "Confirm Purchase?";
 

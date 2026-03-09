@@ -36,10 +36,10 @@ public class AdminVoteLogServiceSelect extends GUIHandler {
 	 *
 	 * @param plugin the VotingPluginMain instance
 	 * @param sender the command sender
-	 * @param table the vote log table
-	 * @param user the voting plugin user
-	 * @param days the number of days to filter
-	 * @param page the page number
+	 * @param table  the vote log table
+	 * @param user   the voting plugin user
+	 * @param days   the number of days to filter
+	 * @param page   the page number
 	 */
 	public AdminVoteLogServiceSelect(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table,
 			VotingPluginUser user, int days, int page) {
@@ -66,6 +66,11 @@ public class AdminVoteLogServiceSelect extends GUIHandler {
 
 	@Override
 	public void onChat(CommandSender sender) {
+	}
+
+	@Override
+	public void onDialog(Player player) {
+
 	}
 
 	@Override

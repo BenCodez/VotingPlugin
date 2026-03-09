@@ -33,14 +33,19 @@ public class AdminVoteVoteShopItem extends GUIHandler {
 	/**
 	 * Constructor for AdminVoteVoteShopItem.
 	 *
-	 * @param plugin the VotingPluginMain instance
-	 * @param player the command sender
+	 * @param plugin     the VotingPluginMain instance
+	 * @param player     the command sender
 	 * @param identifier the item identifier
 	 */
 	public AdminVoteVoteShopItem(VotingPluginMain plugin, CommandSender player, String identifier) {
 		super(plugin, player);
 		this.plugin = plugin;
 		this.identifier = identifier;
+	}
+
+	@Override
+	public void onDialog(Player player) {
+
 	}
 
 	@Override

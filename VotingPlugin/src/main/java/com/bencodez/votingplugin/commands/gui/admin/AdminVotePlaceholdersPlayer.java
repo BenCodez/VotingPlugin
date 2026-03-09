@@ -31,7 +31,7 @@ public class AdminVotePlaceholdersPlayer extends GUIHandler {
 	 *
 	 * @param plugin the VotingPluginMain instance
 	 * @param player the command sender
-	 * @param user the voting plugin user
+	 * @param user   the voting plugin user
 	 */
 	public AdminVotePlaceholdersPlayer(VotingPluginMain plugin, CommandSender player, VotingPluginUser user) {
 		super(plugin, player);
@@ -42,6 +42,11 @@ public class AdminVotePlaceholdersPlayer extends GUIHandler {
 	@Override
 	public ArrayList<String> getChat(CommandSender sender) {
 		return null;
+	}
+
+	@Override
+	public void onDialog(Player player) {
+
 	}
 
 	@Override

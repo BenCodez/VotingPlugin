@@ -29,6 +29,57 @@ public class VoteStreak extends GUIHandler {
 		this.plugin = plugin;
 		this.user = user;
 	}
+	
+	@Override
+	public void onDialog(Player player) {
+		com.bencodez.simpleapi.dialog.MultiActionDialogBuilder dialog = plugin.getDialogService().multiAction(player)
+				.placeholder("player", user.getPlayerName())
+				.placeholder("DailyStreak", "" + user.getDayVoteStreak())
+				.placeholder("WeeklyStreak", "" + user.getWeekVoteStreak())
+				.placeholder("MonthlyStreak", "" + user.getMonthVoteStreak())
+				.placeholder("BestDailyStreak", "" + user.getBestDayVoteStreak())
+				.placeholder("BestWeeklyStreak", "" + user.getBestWeekVoteStreak())
+				.placeholder("BestMonthlyStreak", "" + user.getBestMonthVoteStreak())
+				.title(plugin.getGui().getChestVoteStreakName())
+				.body(plugin.getConfigFile().getFormatCommandsVoteStreakTitle())
+				.columns(2);
+
+		dialog.button(plugin.getGui().getChestVoteStreakCurrentDayStreakItem().getName(),
+				"&7Current daily streak: &e%DailyStreak%",
+				payload -> {
+				});
+		dialog.button(plugin.getGui().getChestVoteStreakCurrentWeekStreakItem().getName(),
+				"&7Current weekly streak: &e%WeeklyStreak%",
+				payload -> {
+				});
+		dialog.button(plugin.getGui().getChestVoteStreakCurrentMonthStreakItem().getName(),
+				"&7Current monthly streak: &e%MonthlyStreak%",
+				payload -> {
+				});
+		dialog.button(plugin.getGui().getChestVoteStreakHighestDayStreakItem().getName(),
+				"&7Best daily streak: &e%BestDailyStreak%",
+				payload -> {
+				});
+		dialog.button(plugin.getGui().getChestVoteStreakHighestWeekStreakItem().getName(),
+				"&7Best weekly streak: &e%BestWeeklyStreak%",
+				payload -> {
+				});
+		dialog.button(plugin.getGui().getChestVoteStreakHighestMonthStreakItem().getName(),
+				"&7Best monthly streak: &e%BestMonthlyStreak%",
+				payload -> {
+				});
+
+		if (plugin.getGui().isChestVoteStreakBackButton()) {
+			dialog.button("&eBack", "&7Return to previous menu", payload -> {
+				Player clicked = player.getServer().getPlayer(payload.owner());
+				if (clicked != null) {
+					new VoteGUI(plugin, clicked, user).open();
+				}
+			});
+		}
+
+		dialog.open();
+	}
 
 	@Override
 	public ArrayList<String> getChat(CommandSender sender) {

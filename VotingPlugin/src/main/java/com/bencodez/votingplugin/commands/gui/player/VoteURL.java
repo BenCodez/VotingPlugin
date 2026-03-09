@@ -22,6 +22,7 @@ import com.bencodez.advancedcore.api.messages.MessageBuilder;
 import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.simpleapi.array.ArrayUtils;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -94,6 +95,93 @@ public class VoteURL extends GUIHandler {
 		}
 
 		return ArrayUtils.colorize(sites);
+	}
+
+	@Override
+	public void onDialog(Player player) {
+
+		VotingPluginUser currentUser = this.user;
+
+		if (currentUser == null) {
+			currentUser = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
+		}
+
+		String body = "&7Select a vote site";
+
+		if (plugin.getConfigFile().getFormatCommandsVoteText() != null
+				&& !plugin.getConfigFile().getFormatCommandsVoteText().isEmpty()) {
+			body = String.join("\n", plugin.getConfigFile().getFormatCommandsVoteText());
+		}
+
+		final VotingPluginUser finalUser = currentUser;
+
+		com.bencodez.simpleapi.dialog.MultiActionDialogBuilder dialog = plugin.getDialogService().multiAction(player)
+				.placeholder("player", finalUser.getPlayerName())
+				.placeholder("DailyTotal", "" + finalUser.getTotal(TopVoter.Daily))
+				.placeholder("WeekTotal", "" + finalUser.getTotal(TopVoter.Weekly))
+				.placeholder("MonthTotal", "" + finalUser.getTotal(TopVoter.Monthly))
+				.placeholder("Total", "" + finalUser.getTotal(TopVoter.AllTime))
+				.title(plugin.getGui().getChestVoteURLName()).body(body).columns(2);
+
+		if (plugin.getGui().isChestVoteURLViewAllUrlsButtonEnabled()) {
+			boolean canViewAll;
+			if (plugin.getGui().isChestVoteURLAllUrlsButtonrequireAllSitesVoted()) {
+				canViewAll = finalUser.canVoteAny();
+			} else {
+				canViewAll = finalUser.canVoteAll();
+			}
+
+			String allColor = canViewAll ? "&a" : "&c";
+
+			dialog.button(allColor + "All Voting Sites", "&7Show all vote URLs", payload -> {
+				VotingPluginUser payloadUser = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
+				json = true;
+				payloadUser.sendMessage(getChat(player, false));
+			});
+		}
+
+		for (final VoteSite voteSite : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
+			if (voteSite.isHidden()) {
+				continue;
+			}
+			if (!voteSite.getPermissionToView().isEmpty() && !player.hasPermission(voteSite.getPermissionToView())) {
+				continue;
+			}
+
+			boolean canVote = finalUser.canVoteSite(voteSite);
+			String color = canVote ? "&a" : "&c";
+
+			dialog.placeholder("sitename", voteSite.getDisplayName())
+					.placeholder("SiteName", voteSite.getDisplayName())
+					.placeholder("servicesite", voteSite.getServiceSite())
+					.placeholder("ServiceSite", voteSite.getServiceSite())
+					.placeholder("VoteDelay", "" + voteSite.getVoteDelay())
+					.placeholder("VoteHour", "" + voteSite.getVoteDelayDailyHour())
+					.placeholder("Next", finalUser.voteCommandNextInfo(voteSite))
+					.button(color + voteSite.getDisplayName(),
+							canVote ? "&aClick to view vote link" : "&c" + finalUser.voteCommandNextInfo(voteSite),
+							payload -> {
+								Player clicked = player.getServer().getPlayer(payload.owner());
+								if (clicked != null) {
+									VotingPluginUser clickedUser = plugin.getVotingPluginUserManager()
+											.getVotingPluginUser(clicked);
+									HashMap<String, String> placeholders = new HashMap<String, String>();
+									placeholders.put("voteurl", voteSite.getVoteURL());
+									placeholders.put("sitename", voteSite.getDisplayName());
+									placeholders.put("player", clicked.getName());
+									placeholders.put("servicesite", voteSite.getServiceSite());
+									placeholders.put("VoteDelay", "" + voteSite.getVoteDelay());
+									placeholders.put("VoteHour", "" + voteSite.getVoteDelayDailyHour());
+									clickedUser.sendMessage(plugin.getGui().getChestVoteURLURLText(), placeholders);
+								}
+							});
+		}
+
+		if (plugin.getGui().isChestVoteURLBackButton()) {
+			dialog.button("&eBack", "&7Return to previous menu", payload -> player.performCommand("vote gui"));
+		}
+
+		dialog.open();
 	}
 
 	private ItemBuilder getItemAll() {

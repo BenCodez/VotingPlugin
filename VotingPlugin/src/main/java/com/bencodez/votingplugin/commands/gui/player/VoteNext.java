@@ -37,7 +37,7 @@ public class VoteNext extends GUIHandler {
 	 *
 	 * @param plugin the main plugin instance
 	 * @param player the command sender
-	 * @param user the voting plugin user
+	 * @param user   the voting plugin user
 	 */
 	public VoteNext(VotingPluginMain plugin, CommandSender player, VotingPluginUser user) {
 		super(plugin, player);
@@ -65,6 +65,47 @@ public class VoteNext extends GUIHandler {
 			}
 		}
 		return msg;
+	}
+
+	@Override
+	public void onDialog(Player player) {
+		com.bencodez.simpleapi.dialog.MultiActionDialogBuilder dialog = plugin.getDialogService().multiAction(player)
+				.placeholder("player", user.getPlayerName()).title(plugin.getGui().getChestVoteNextName())
+				.body(plugin.getConfigFile().getFormatCommandsVoteNextTitle()).columns(2);
+
+		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
+			if (site.isHidden()) {
+				continue;
+			}
+
+			String siteNameDisplay = plugin.getGui().getChestVoteNextCustomSiteNamesDisplays(site.getKey());
+
+			if (siteNameDisplay.isEmpty()) {
+				siteNameDisplay = site.getDisplayName();
+			}
+
+			dialog.placeholder("sitename", site.getDisplayName()).placeholder("SiteName", site.getDisplayName())
+					.placeholder("info", user.voteCommandNextInfo(site))
+					.button(siteNameDisplay, user.voteCommandNextInfo(site), payload -> {
+
+						Player clicked = player.getServer().getPlayer(payload.owner());
+
+						if (clicked != null) {
+							clicked.sendMessage(user.voteCommandNextInfo(site));
+						}
+					});
+		}
+
+		if (plugin.getGui().isChestVoteNextBackButton()) {
+			dialog.button("&eBack", "&7Return to previous menu", payload -> {
+				Player clicked = player.getServer().getPlayer(payload.owner());
+				if (clicked != null) {
+					new VoteGUI(plugin, clicked, user).open();
+				}
+			});
+		}
+
+		dialog.open();
 	}
 
 	@Override

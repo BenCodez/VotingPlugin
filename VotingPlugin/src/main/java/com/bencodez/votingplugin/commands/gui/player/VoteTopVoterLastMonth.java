@@ -28,6 +28,50 @@ public class VoteTopVoterLastMonth extends GUIHandler {
 		this.plugin = plugin;
 		this.user = user;
 	}
+	
+	@Override
+	public void onDialog(Player player) {
+		Set<Entry<TopVoterPlayer, Integer>> users = plugin.getLastMonthTopVoter().entrySet();
+
+		com.bencodez.simpleapi.dialog.MultiActionDialogBuilder dialog = plugin.getDialogService().multiAction(player)
+				.placeholder("player", user.getPlayerName())
+				.placeholder("topvoter", "Last Month")
+				.title(plugin.getGui().getChestVoteTopName())
+				.body("&7Viewing &eLast Month &7top voters")
+				.columns(2);
+
+		int pos = 1;
+		for (Entry<TopVoterPlayer, Integer> entry : users) {
+			final TopVoterPlayer topPlayer = entry.getKey();
+			final int votes = entry.getValue();
+			final int position = pos;
+
+			dialog.placeholder("position", "" + position)
+					.placeholder("player", topPlayer.getPlayerName())
+					.placeholder("votes", "" + votes)
+					.button(plugin.getGui().getChestVoteTopItemName(),
+							plugin.getGui().getChestVoteTopItemLore(),
+							payload -> {
+								Player clicked = player.getServer().getPlayer(payload.owner());
+								if (clicked != null) {
+									new VoteGUI(plugin, clicked, topPlayer.getUser())
+											.open(GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
+								}
+							});
+			pos++;
+		}
+
+		if (plugin.getGui().isChestVoteTopBackButton()) {
+			dialog.button("&eBack", "&7Return to previous menu", payload -> {
+				Player clicked = player.getServer().getPlayer(payload.owner());
+				if (clicked != null) {
+					new VoteGUI(plugin, clicked, user).open();
+				}
+			});
+		}
+
+		dialog.open();
+	}
 
 	@Override
 	public ArrayList<String> getChat(CommandSender arg0) {

@@ -196,7 +196,7 @@ public class CommandLoader {
 	 * Checks if a player has permission for a command.
 	 *
 	 * @param player the player
-	 * @param cmd the command
+	 * @param cmd    the command
 	 * @return true if player has permission
 	 */
 	public boolean hasPermission(Player player, String cmd) {
@@ -252,7 +252,7 @@ public class CommandLoader {
 	 * Checks if a command belongs to the VotingPlugin.
 	 *
 	 * @param player the player
-	 * @param cmd the command
+	 * @param cmd    the command
 	 * @return true if it's a VotingPlugin command
 	 */
 	public boolean isVotingPluginCommand(Player player, String cmd) {
@@ -3341,25 +3341,25 @@ public class CommandLoader {
 		if (MessageAPI.startsWithIgnoreCase(slot, "url")) {
 			new VoteURL(plugin, player, user, true).open();
 		} else if (MessageAPI.startsWithIgnoreCase(slot, "next")) {
-			new VoteNext(plugin, player, user).open(GUIMethod.CHEST);
+			new VoteNext(plugin, player, user).open();
 		} else if (MessageAPI.startsWithIgnoreCase(slot, "last")) {
-			new VoteLast(plugin, player, user).open(GUIMethod.CHEST);
+			new VoteLast(plugin, player, user).open();
 		} else if (MessageAPI.startsWithIgnoreCase(slot, "total")) {
-			new VoteTotal(plugin, player, user).open(GUIMethod.CHEST);
+			new VoteTotal(plugin, player, user).open();
 		} else if (MessageAPI.startsWithIgnoreCase(slot, "top")) {
-			new VoteTopVoter(plugin, player, user, TopVoter.getDefault(), 1).open(GUIMethod.CHEST);
+			new VoteTopVoter(plugin, player, user, TopVoter.getDefault(), 1).open();
 		} else if (MessageAPI.startsWithIgnoreCase(slot, "today")) {
-			new VoteToday(plugin, player, user, 1).open(GUIMethod.CHEST);
+			new VoteToday(plugin, player, user, 1).open();
 		} else if (MessageAPI.startsWithIgnoreCase(slot, "help")) {
 			player.performCommand("vote help");
 		} else if (MessageAPI.startsWithIgnoreCase(slot, "shop")) {
-			new VoteShop(plugin, player, user).open(GUIMethod.CHEST);
+			new VoteShop(plugin, player, user).open();
 		} else if (MessageAPI.startsWithIgnoreCase(slot, "lastmonth")) {
-			new VoteTopVoterLastMonth(plugin, player, user).open(GUIMethod.CHEST);
+			new VoteTopVoterLastMonth(plugin, player, user).open();
 		} else if (MessageAPI.startsWithIgnoreCase(slot, "best")) {
-			new VoteBest(plugin, player, user).open(GUIMethod.CHEST);
+			new VoteBest(plugin, player, user).open();
 		} else if (MessageAPI.startsWithIgnoreCase(slot, "streak")) {
-			new VoteStreak(plugin, player, user).open(GUIMethod.CHEST);
+			new VoteStreak(plugin, player, user).open();
 		}
 	}
 

@@ -41,6 +41,74 @@ public class VoteTopVoter extends GUIHandler {
 		this.top = top;
 		this.page = page;
 	}
+	
+	@Override
+	public void onDialog(Player player) {
+		if (top == null) {
+			top = TopVoter.getDefault();
+		}
+
+		String topVoter = top.getName();
+
+		@SuppressWarnings("unchecked")
+		LinkedHashMap<TopVoterPlayer, Integer> topVotes = (LinkedHashMap<TopVoterPlayer, Integer>) plugin.getTopVoter(top)
+				.clone();
+
+		com.bencodez.simpleapi.dialog.MultiActionDialogBuilder dialog = plugin.getDialogService().multiAction(player)
+				.placeholder("player", user.getPlayerName())
+				.placeholder("topvoter", topVoter)
+				.title(plugin.getGui().getChestVoteTopName())
+				.body("&7Viewing &e%topvoter% &7top voters")
+				.columns(2);
+
+		int pos = 1;
+		for (Entry<TopVoterPlayer, Integer> entry : topVotes.entrySet()) {
+			final TopVoterPlayer topPlayer = entry.getKey();
+			final int votes = entry.getValue();
+			final int position = pos;
+
+			dialog.placeholder("position", "" + position)
+					.placeholder("player", topPlayer.getPlayerName())
+					.placeholder("votes", "" + votes)
+					.button(plugin.getGui().getChestVoteTopItemName(),
+							plugin.getGui().getChestVoteTopItemLore(),
+							payload -> {
+								if (plugin.getGui().isChestVoteTopOpenMainGUIOnClick()) {
+									Player clicked = player.getServer().getPlayer(payload.owner());
+									if (clicked != null) {
+										new VoteGUI(plugin, clicked, topPlayer.getUser()).open(
+												GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
+									}
+								}
+							});
+			pos++;
+		}
+
+		dialog.button("&eNext", "&7View next top voter board", payload -> {
+			Player clicked = player.getServer().getPlayer(payload.owner());
+			if (clicked != null) {
+				new VoteTopVoter(plugin, clicked, user, top.next(), 0).open(GUIMethod.DIALOG);
+			}
+		});
+
+		dialog.button("&ePrevious", "&7View previous top voter board", payload -> {
+			Player clicked = player.getServer().getPlayer(payload.owner());
+			if (clicked != null) {
+				new VoteTopVoter(plugin, clicked, user, top.prev(), 0).open(GUIMethod.DIALOG);
+			}
+		});
+
+		if (plugin.getGui().isChestVoteTopBackButton()) {
+			dialog.button("&eBack", "&7Return to previous menu", payload -> {
+				Player clicked = player.getServer().getPlayer(payload.owner());
+				if (clicked != null) {
+					new VoteGUI(plugin, clicked, user).open();
+				}
+			});
+		}
+
+		dialog.open();
+	}
 
 	@Override
 	public ArrayList<String> getChat(CommandSender sender) {

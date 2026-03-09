@@ -106,4 +106,56 @@ public class VoteURLVoteSite extends GUIHandler {
 		open(GUIMethod.CHEST);
 	}
 
+	@Override
+	public void onDialog(Player player) {
+
+		if (!plugin.getVoteSiteManager().isVoteSite(voteSite)) {
+			player.sendMessage("Not a valid votesite");
+			return;
+		}
+
+		VoteSite site = plugin.getVoteSiteManager().getVoteSite(voteSite, true);
+
+		com.bencodez.simpleapi.dialog.MultiActionDialogBuilder dialog = plugin.getDialogService().multiAction(player)
+				.placeholder("player", user.getPlayerName()).placeholder("site", site.getDisplayName())
+				.placeholder("sitename", site.getDisplayName()).placeholder("SiteName", site.getDisplayName())
+				.placeholder("servicesite", site.getServiceSite()).placeholder("ServiceSite", site.getServiceSite())
+				.placeholder("VoteDelay", "" + site.getVoteDelay())
+				.placeholder("VoteHour", "" + site.getVoteDelayDailyHour())
+				.placeholder("Next", user.voteCommandNextInfo(site)).placeholder("Last", user.voteCommandLastLine(site))
+				.title(plugin.getGui().getChestVoteURLSiteName()).body("&7Site: &e%site%").columns(2);
+
+		dialog.button("&4URL", "&7Click to see URL", payload -> {
+			Player clicked = player.getServer().getPlayer(payload.owner());
+			if (clicked != null) {
+				clicked.sendMessage(site.getVoteURL());
+			}
+		});
+
+		dialog.button("&4Next Vote", "%Next%", payload -> {
+			Player clicked = player.getServer().getPlayer(payload.owner());
+			if (clicked != null) {
+				new VoteURL(plugin, clicked, user, true).open();
+			}
+		});
+
+		dialog.button("&4Last Vote", "%Last%", payload -> {
+			Player clicked = player.getServer().getPlayer(payload.owner());
+			if (clicked != null) {
+				new VoteURL(plugin, clicked, user, true).open();
+			}
+		});
+
+		if (plugin.getGui().isChestVoteURLBackButton()) {
+			dialog.button("&eBack", "&7Return to previous menu", payload -> {
+				Player clicked = player.getServer().getPlayer(payload.owner());
+				if (clicked != null) {
+					new VoteURL(plugin, clicked, user, true).open();
+				}
+			});
+		}
+
+		dialog.open();
+	}
+
 }

@@ -38,7 +38,7 @@ public class VoteShop extends GUIHandler {
 	 *
 	 * @param plugin the plugin
 	 * @param player the sender
-	 * @param user the user
+	 * @param user   the user
 	 */
 	public VoteShop(VotingPluginMain plugin, CommandSender player, VotingPluginUser user) {
 		super(plugin, player);
@@ -57,6 +57,11 @@ public class VoteShop extends GUIHandler {
 
 	@Override
 	public void onChat(CommandSender sender) {
+	}
+
+	@Override
+	public void onDialog(Player player) {
+
 	}
 
 	@Override
@@ -97,11 +102,11 @@ public class VoteShop extends GUIHandler {
 	/**
 	 * Adds an item button.
 	 *
-	 * @param inv the inventory
-	 * @param player the player
+	 * @param inv         the inventory
+	 * @param player      the player
 	 * @param currentUser the user
-	 * @param item the item
-	 * @param category the category, null for main shop
+	 * @param item        the item
+	 * @param category    the category, null for main shop
 	 */
 	protected void addItemButton(BInventory inv, final Player player, final VotingPluginUser currentUser,
 			final VoteShopItem item, final VoteShopCategory category) {
@@ -110,9 +115,8 @@ public class VoteShop extends GUIHandler {
 		boolean hasPermission = plugin.getVoteShopManager().getPurchaseService().hasPermission(player,
 				item.getPermission());
 
-		if ((!hasPermission && item.isHideOnNoPermission())
-				|| (validation == VoteShopPurchaseResult.LIMIT_REACHED
-						&& plugin.getVoteShopManager().getDefinition().isHideLimitedReached())) {
+		if ((!hasPermission && item.isHideOnNoPermission()) || (validation == VoteShopPurchaseResult.LIMIT_REACHED
+				&& plugin.getVoteShopManager().getDefinition().isHideLimitedReached())) {
 			return;
 		}
 
@@ -139,8 +143,15 @@ public class VoteShop extends GUIHandler {
 				}
 
 				if (item.isRequireConfirmation()) {
-					new VoteShopConfirm(plugin, event.getPlayer(), clickedUser, item, category).open(GUIMethod.CHEST);
-					return;
+					if (plugin.getShopFile().isShopConfirmPurchaseUseDialog()) {
+						new VoteShopConfirm(plugin, event.getPlayer(), clickedUser, item, category)
+								.open(GUIMethod.DIALOG);
+						return;
+					} else {
+						new VoteShopConfirm(plugin, event.getPlayer(), clickedUser, item, category)
+								.open(GUIMethod.CHEST);
+						return;
+					}
 				}
 
 				handlePurchase(event.getPlayer(), clickedUser, item, category);
@@ -151,10 +162,10 @@ public class VoteShop extends GUIHandler {
 	/**
 	 * Adds a category button.
 	 *
-	 * @param inv the inventory
-	 * @param player the player
+	 * @param inv         the inventory
+	 * @param player      the player
 	 * @param currentUser the user
-	 * @param button the button
+	 * @param button      the button
 	 */
 	protected void addCategoryButton(BInventory inv, final Player player, final VotingPluginUser currentUser,
 			final VoteShopCategoryButton button) {
@@ -166,8 +177,8 @@ public class VoteShop extends GUIHandler {
 
 		final VoteShopCategory category = plugin.getVoteShopManager().getCategory(button.getCategoryId());
 		if (category == null) {
-			plugin.extraDebug("VoteShop: missing category '" + button.getCategoryId() + "' for entry "
-					+ button.getIdentifier());
+			plugin.extraDebug(
+					"VoteShop: missing category '" + button.getCategoryId() + "' for entry " + button.getIdentifier());
 			return;
 		}
 
@@ -183,10 +194,10 @@ public class VoteShop extends GUIHandler {
 	/**
 	 * Adds an extra item button.
 	 *
-	 * @param inv the inventory
-	 * @param player the player
+	 * @param inv         the inventory
+	 * @param player      the player
 	 * @param currentUser the user
-	 * @param extraItem the extra item
+	 * @param extraItem   the extra item
 	 */
 	protected void addExtraItemButton(BInventory inv, final Player player, final VotingPluginUser currentUser,
 			final VoteShopExtraItem extraItem) {
@@ -206,12 +217,13 @@ public class VoteShop extends GUIHandler {
 	/**
 	 * Handles a completed purchase.
 	 *
-	 * @param player the player
+	 * @param player      the player
 	 * @param currentUser the user
-	 * @param item the item
-	 * @param category the category or null
+	 * @param item        the item
+	 * @param category    the category or null
 	 */
-	protected void handlePurchase(Player player, VotingPluginUser currentUser, VoteShopItem item, VoteShopCategory category) {
+	protected void handlePurchase(Player player, VotingPluginUser currentUser, VoteShopItem item,
+			VoteShopCategory category) {
 		VoteShopPurchaseResult result = plugin.getVoteShopManager().purchase(player, currentUser, item);
 		if (result != VoteShopPurchaseResult.SUCCESS) {
 			plugin.getVoteShopManager().getPurchaseService().sendFailureMessage(player, currentUser, item, result);

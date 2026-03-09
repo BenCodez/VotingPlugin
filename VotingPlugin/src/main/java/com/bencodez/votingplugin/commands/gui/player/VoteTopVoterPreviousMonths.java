@@ -37,6 +37,84 @@ public class VoteTopVoterPreviousMonths extends GUIHandler {
 		this.user = user;
 		this.index = index;
 	}
+	
+	@Override
+	public void onDialog(Player player) {
+		Set<YearMonth> months = plugin.getPreviousMonthsTopVoters().keySet();
+		List<YearMonth> yearMonthList = months.stream().sorted(Collections.reverseOrder()).collect(Collectors.toList());
+
+		if (index < 0 || yearMonthList.isEmpty()) {
+			player.sendMessage(ChatColor.RED + "Can't open previous months, no data");
+			return;
+		}
+
+		if (yearMonthList.size() <= index) {
+			player.sendMessage(ChatColor.RED + "Can't open previous months, no data for requested index");
+			return;
+		}
+
+		YearMonth yearMonth = yearMonthList.get(index);
+
+		if (!plugin.getPreviousMonthsTopVoters().containsKey(yearMonth)) {
+			player.sendMessage(ChatColor.RED + "Can't open previous months, no data");
+			return;
+		}
+
+		Set<Entry<TopVoterPlayer, Integer>> users = plugin.getPreviousMonthsTopVoters().get(yearMonth).entrySet();
+
+		com.bencodez.simpleapi.dialog.MultiActionDialogBuilder dialog = plugin.getDialogService().multiAction(player)
+				.placeholder("player", user.getPlayerName())
+				.placeholder("topvoter", yearMonth.toString())
+				.title(plugin.getGui().getChestVoteTopName())
+				.body("&7Viewing &e%topvoter% &7top voters")
+				.columns(2);
+
+		int pos = 1;
+		for (Entry<TopVoterPlayer, Integer> entry : users) {
+			final TopVoterPlayer topPlayer = entry.getKey();
+			final int votes = entry.getValue();
+			final int position = pos;
+
+			dialog.placeholder("position", "" + position)
+					.placeholder("player", topPlayer.getPlayerName())
+					.placeholder("votes", "" + votes)
+					.button(plugin.getGui().getChestVoteTopItemName(),
+							plugin.getGui().getChestVoteTopItemLore(),
+							payload -> {
+								Player clicked = player.getServer().getPlayer(payload.owner());
+								if (clicked != null) {
+									new VoteGUI(plugin, clicked, topPlayer.getUser())
+											.open(GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
+								}
+							});
+			pos++;
+		}
+
+		dialog.button("&eNext Month", "&7View older month", payload -> {
+			Player clicked = player.getServer().getPlayer(payload.owner());
+			if (clicked != null) {
+				new VoteTopVoterPreviousMonths(plugin, clicked, user, index + 1).open(GUIMethod.DIALOG);
+			}
+		});
+
+		dialog.button("&ePrevious Month", "&7View newer month", payload -> {
+			Player clicked = player.getServer().getPlayer(payload.owner());
+			if (clicked != null) {
+				new VoteTopVoterPreviousMonths(plugin, clicked, user, index - 1).open(GUIMethod.DIALOG);
+			}
+		});
+
+		if (plugin.getGui().isChestVoteTopBackButton()) {
+			dialog.button("&eBack", "&7Return to previous menu", payload -> {
+				Player clicked = player.getServer().getPlayer(payload.owner());
+				if (clicked != null) {
+					new VoteGUI(plugin, clicked, user).open();
+				}
+			});
+		}
+
+		dialog.open();
+	}
 
 	@Override
 	public ArrayList<String> getChat(CommandSender arg0) {

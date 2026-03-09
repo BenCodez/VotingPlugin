@@ -33,6 +33,11 @@ public class AdminVoteVoteShopItemRemove extends GUIHandler {
 	}
 
 	@Override
+	public void onDialog(Player player) {
+
+	}
+
+	@Override
 	public ArrayList<String> getChat(CommandSender sender) {
 		return null;
 	}

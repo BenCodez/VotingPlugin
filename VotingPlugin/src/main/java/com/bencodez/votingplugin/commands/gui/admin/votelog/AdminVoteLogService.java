@@ -37,12 +37,12 @@ public class AdminVoteLogService extends GUIHandler {
 	/**
 	 * Constructor for AdminVoteLogService.
 	 *
-	 * @param plugin the VotingPluginMain instance
-	 * @param sender the command sender
-	 * @param table the vote log table
+	 * @param plugin  the VotingPluginMain instance
+	 * @param sender  the command sender
+	 * @param table   the vote log table
 	 * @param service the service name
-	 * @param days the number of days to filter
-	 * @param page the page number
+	 * @param days    the number of days to filter
+	 * @param page    the page number
 	 */
 	public AdminVoteLogService(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table, String service,
 			int days, int page) {
@@ -61,13 +61,13 @@ public class AdminVoteLogService extends GUIHandler {
 	/**
 	 * Constructor for AdminVoteLogService with user.
 	 *
-	 * @param plugin the VotingPluginMain instance
-	 * @param sender the command sender
-	 * @param table the vote log table
-	 * @param user the voting plugin user
+	 * @param plugin  the VotingPluginMain instance
+	 * @param sender  the command sender
+	 * @param table   the vote log table
+	 * @param user    the voting plugin user
 	 * @param service the service name
-	 * @param days the number of days to filter
-	 * @param page the page number
+	 * @param days    the number of days to filter
+	 * @param page    the page number
 	 */
 	public AdminVoteLogService(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table,
 			VotingPluginUser user, String service, int days, int page) {
@@ -89,6 +89,11 @@ public class AdminVoteLogService extends GUIHandler {
 
 	@Override
 	public void onChat(CommandSender sender) {
+	}
+
+	@Override
+	public void onDialog(Player player) {
+
 	}
 
 	@Override
@@ -147,8 +152,8 @@ public class AdminVoteLogService extends GUIHandler {
 	}
 
 	private BInventoryButton makeEntryButton(final VoteLogMysqlTable.VoteLogEntry entry) {
-		VoteLogMysqlTable.VoteLogEvent event =
-				entry.event != null ? VoteLogMysqlTable.VoteLogEvent.valueOf(entry.event) : null;
+		VoteLogMysqlTable.VoteLogEvent event = entry.event != null ? VoteLogMysqlTable.VoteLogEvent.valueOf(entry.event)
+				: null;
 
 		Material mat = AdminVoteLogHelpers.getMaterialForEvent(event, entry.status);
 

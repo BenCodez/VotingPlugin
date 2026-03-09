@@ -27,9 +27,10 @@ public class VoteHelp extends GUIHandler {
 
 	/**
 	 * Constructs a new vote help GUI.
+	 * 
 	 * @param plugin the plugin instance
 	 * @param player the command sender
-	 * @param page the page number
+	 * @param page   the page number
 	 */
 	public VoteHelp(VotingPluginMain plugin, CommandSender player, int page) {
 		super(plugin, player);
@@ -42,8 +43,14 @@ public class VoteHelp extends GUIHandler {
 		return null;
 	}
 
+	@Override
+	public void onDialog(Player player) {
+
+	}
+
 	/**
 	 * Generates help text with hover support.
+	 * 
 	 * @param sender the command sender
 	 * @return list of text components for help
 	 */
@@ -80,6 +87,7 @@ public class VoteHelp extends GUIHandler {
 
 	/**
 	 * Generates legacy help text without hover support.
+	 * 
 	 * @param sender the command sender
 	 * @return list of text components for help
 	 */
@@ -127,6 +135,7 @@ public class VoteHelp extends GUIHandler {
 
 	/**
 	 * Generates vote help text with pagination.
+	 * 
 	 * @param sender the command sender
 	 * @return list of text components for help
 	 */

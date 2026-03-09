@@ -29,7 +29,7 @@ public class AdminVotePerms extends GUIHandler {
 	 *
 	 * @param plugin the VotingPluginMain instance
 	 * @param player the command sender
-	 * @param page the page number
+	 * @param page   the page number
 	 */
 	public AdminVotePerms(VotingPluginMain plugin, CommandSender player, int page) {
 		super(plugin, player);
@@ -40,9 +40,9 @@ public class AdminVotePerms extends GUIHandler {
 	/**
 	 * Constructor for AdminVotePerms with player name.
 	 *
-	 * @param plugin the VotingPluginMain instance
-	 * @param player the command sender
-	 * @param page the page number
+	 * @param plugin     the VotingPluginMain instance
+	 * @param player     the command sender
+	 * @param page       the page number
 	 * @param playerName the player name to check
 	 */
 	public AdminVotePerms(VotingPluginMain plugin, CommandSender player, int page, String playerName) {
@@ -55,6 +55,11 @@ public class AdminVotePerms extends GUIHandler {
 	@Override
 	public ArrayList<String> getChat(CommandSender sender) {
 		return null;
+	}
+
+	@Override
+	public void onDialog(Player player) {
+
 	}
 
 	/**
@@ -142,7 +147,7 @@ public class AdminVotePerms extends GUIHandler {
 	 *
 	 * @param sender the command sender
 	 * @param player the player name
-	 * @param page the page number
+	 * @param page   the page number
 	 * @return list of permission strings
 	 */
 	public ArrayList<String> listPerms(CommandSender sender, String player, int page) {

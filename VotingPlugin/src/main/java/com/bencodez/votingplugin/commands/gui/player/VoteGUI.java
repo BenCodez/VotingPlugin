@@ -29,9 +29,10 @@ public class VoteGUI extends GUIHandler {
 
 	/**
 	 * Constructs a new vote GUI.
+	 * 
 	 * @param plugin the plugin instance
 	 * @param player the command sender
-	 * @param user the voting plugin user
+	 * @param user   the voting plugin user
 	 */
 	public VoteGUI(VotingPluginMain plugin, CommandSender player, VotingPluginUser user) {
 		super(plugin, player);
@@ -44,9 +45,55 @@ public class VoteGUI extends GUIHandler {
 		return null;
 	}
 
+	@Override
+	public void onDialog(Player player) {
+		if (this.user == null) {
+			user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
+		}
+
+		com.bencodez.simpleapi.dialog.MultiActionDialogBuilder dialog = plugin.getDialogService().multiAction(player)
+				.placeholder("points", "" + user.getPoints()).placeholder("player", user.getPlayerName())
+				.placeholder("top", plugin.getConfigFile().getVoteTopDefault())
+				.placeholder("sitesavailable", "" + user.getSitesNotVotedOn())
+				.title(plugin.getGui().getChestVoteGUIName()).body("&7Select an option").columns(2);
+
+		for (final String slot : plugin.getGui().getChestVoteGUISlots()) {
+			ItemBuilder builder = getItemSlot(slot, player);
+
+			String buttonText = builder.getName();
+			String tooltip = "";
+
+			if (builder.getLore() != null && !builder.getLore().isEmpty()) {
+				tooltip = builder.getLore().get(0);
+			}
+
+			dialog.button(buttonText, tooltip, payload -> {
+				Player clicked = player.getServer().getPlayer(payload.owner());
+				if (clicked == null) {
+					return;
+				}
+
+				String cmd = plugin.getGui().getChestVoteGUISlotCommand(slot);
+
+				if (cmd.equalsIgnoreCase("none")) {
+					return;
+				}
+
+				if (!cmd.equals("")) {
+					clicked.performCommand(cmd);
+				} else {
+					plugin.getCommandLoader().processSlotClick(clicked, user, slot);
+				}
+			});
+		}
+
+		dialog.open();
+	}
+
 	/**
 	 * Gets the item for a specific GUI slot.
-	 * @param slot the slot name
+	 * 
+	 * @param slot   the slot name
 	 * @param player the player
 	 * @return the item builder for the slot
 	 */
@@ -222,6 +269,7 @@ public class VoteGUI extends GUIHandler {
 									.setGiveOffline(false).send(clickEvent.getPlayer());
 
 						}
+
 					});
 		}
 

@@ -81,6 +81,11 @@ public class AdminVoteVotePlayer extends GUIHandler {
 
 		inv.openInventory(player);
 	}
+	
+	@Override
+	public void onDialog(Player player) {
+		
+	}
 
 	@Override
 	public void open() {

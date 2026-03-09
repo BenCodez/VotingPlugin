@@ -40,8 +40,8 @@ public class AdminVoteLogRecent extends GUIHandler {
 	 *
 	 * @param plugin the VotingPluginMain instance
 	 * @param sender the command sender
-	 * @param table the vote log table
-	 * @param page the page number
+	 * @param table  the vote log table
+	 * @param page   the page number
 	 */
 	public AdminVoteLogRecent(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table, int page) {
 		this(plugin, sender, table, null, page, 0, null);
@@ -52,9 +52,9 @@ public class AdminVoteLogRecent extends GUIHandler {
 	 *
 	 * @param plugin the VotingPluginMain instance
 	 * @param sender the command sender
-	 * @param table the vote log table
-	 * @param user the voting plugin user
-	 * @param page the page number
+	 * @param table  the vote log table
+	 * @param user   the voting plugin user
+	 * @param page   the page number
 	 */
 	public AdminVoteLogRecent(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table,
 			VotingPluginUser user, int page) {
@@ -66,11 +66,11 @@ public class AdminVoteLogRecent extends GUIHandler {
 	 *
 	 * @param plugin the VotingPluginMain instance
 	 * @param sender the command sender
-	 * @param table the vote log table
-	 * @param user the voting plugin user
-	 * @param page the page number
-	 * @param days the number of days to filter
-	 * @param event the event type to filter
+	 * @param table  the vote log table
+	 * @param user   the voting plugin user
+	 * @param page   the page number
+	 * @param days   the number of days to filter
+	 * @param event  the event type to filter
 	 */
 	// NEW constructor used by Menu/EventSelect
 	public AdminVoteLogRecent(VotingPluginMain plugin, CommandSender sender, VoteLogMysqlTable table,
@@ -98,6 +98,11 @@ public class AdminVoteLogRecent extends GUIHandler {
 
 	@Override
 	public void onChat(CommandSender sender) {
+	}
+
+	@Override
+	public void onDialog(Player player) {
+
 	}
 
 	@Override

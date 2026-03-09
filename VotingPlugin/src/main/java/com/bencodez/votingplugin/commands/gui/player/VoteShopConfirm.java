@@ -34,10 +34,10 @@ public class VoteShopConfirm extends GUIHandler {
 	/**
 	 * Creates the GUI.
 	 *
-	 * @param plugin the plugin
-	 * @param player the sender
-	 * @param user the user
-	 * @param item the item
+	 * @param plugin   the plugin
+	 * @param player   the sender
+	 * @param user     the user
+	 * @param item     the item
 	 * @param category the category or null
 	 */
 	public VoteShopConfirm(VotingPluginMain plugin, CommandSender player, VotingPluginUser user, VoteShopItem item,
@@ -95,6 +95,42 @@ public class VoteShopConfirm extends GUIHandler {
 			}
 		});
 		inv.openInventory(player);
+	}
+
+	@Override
+	public void onDialog(Player player) {
+		PlayerUtils.setPlayerMeta(plugin, player, "ident", item.getIdentifier());
+
+		plugin.getDialogService().confirmation(player).placeholder("player", user.getPlayerName())
+				.placeholder("identifier", item.getIdentifier())
+				.title(plugin.getShopFile().getShopConfirmPurchaseTitle())
+				.body("&7Confirm purchase of &e%identifier%&7?")
+				.yesText(new ItemBuilder(plugin.getShopFile().getShopConfirmPurchaseYesItem()).getName())
+				.noText(new ItemBuilder(plugin.getShopFile().getShopConfirmPurchaseNoItem()).getName()).onYes(payload -> {
+					Player clicked = player.getServer().getPlayer(payload.owner());
+					if (clicked == null) {
+						return;
+					}
+
+					user.cache();
+					VoteShopPurchaseResult result = plugin.getVoteShopManager().purchase(clicked, user, item);
+					if (result != VoteShopPurchaseResult.SUCCESS) {
+						plugin.getVoteShopManager().getPurchaseService().sendFailureMessage(clicked, user, item,
+								result);
+						returnToPrevious(clicked);
+						return;
+					}
+
+					plugin.getCommandLoader().processSlotClick(clicked, user, item.getIdentifier());
+					if (!item.isCloseGUI()) {
+						returnToPrevious(clicked);
+					}
+				}).onNo(payload -> {
+					Player clicked = player.getServer().getPlayer(payload.owner());
+					if (clicked != null) {
+						returnToPrevious(clicked);
+					}
+				}).open();
 	}
 
 	/**
