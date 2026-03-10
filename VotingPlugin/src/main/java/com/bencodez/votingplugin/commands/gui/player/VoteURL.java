@@ -22,7 +22,6 @@ import com.bencodez.advancedcore.api.messages.MessageBuilder;
 import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.simpleapi.array.ArrayUtils;
-import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
