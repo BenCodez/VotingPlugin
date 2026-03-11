@@ -1032,6 +1032,40 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			});
 		}
 
+		ConfigurationSection categoriesSection = plugin.getShopFile().getCategoriesSection();
+		if (categoriesSection != null) {
+			for (String categoryShop : categoriesSection.getKeys(false)) {
+				if (plugin.getShopFile().getCategoryShopSection(categoryShop) != null) {
+					for (String categoryShopItems : plugin.getShopFile().getCategoryShopSection(categoryShop)
+							.getKeys(false)) {
+						addDirectlyDefinedRewards(new DirectlyDefinedReward(
+								"Categories." + categoryShop + "." + categoryShopItems + ".Rewards") {
+
+							@Override
+							public void createSection(String key) {
+								getShopFile().createSection(key);
+							}
+
+							@Override
+							public ConfigurationSection getFileData() {
+								return getShopFile().getData();
+							}
+
+							@Override
+							public void save() {
+								getShopFile().saveData();
+							}
+
+							@Override
+							public void setData(String path, Object value) {
+								getShopFile().setValue(path, value);
+							}
+						});
+					}
+				}
+			}
+		}
+
 		addDirectlyDefinedRewards(new DirectlyDefinedReward("BungeeVotePartyRewards") {
 
 			@Override
