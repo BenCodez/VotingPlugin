@@ -49,7 +49,8 @@ public class ConfigVoteSites extends YMLFile {
 	public void generateVoteSite(String siteName) {
 		if (plugin.getConfigFile().isAutoCreateVoteSites()) {
 			String org = siteName;
-			siteName = siteName.replace(".", "_").replace(" ", "_");
+			siteName = siteName.replaceAll("[\\.\\s]+", "_");
+
 			plugin.getLogger().warning("VoteSite " + siteName + " does not exist with the servicesite '" + org
 					+ "', creating one, set AutoCreateVoteSites to false to prevent this");
 			setEnabled(siteName, true);
@@ -357,22 +358,31 @@ public class ConfigVoteSites extends YMLFile {
 	 */
 	public ArrayList<String> getVoteSitesNames(boolean checkEnabled) {
 		ArrayList<String> siteNames = new ArrayList<>();
-		if (getData().isConfigurationSection("VoteSites")) {
-			siteNames = ArrayUtils.convert(getData().getConfigurationSection("VoteSites").getKeys(false));
+
+		if (!getData().isConfigurationSection("VoteSites")) {
+			return siteNames;
 		}
 
+		siteNames = ArrayUtils.convert(getData().getConfigurationSection("VoteSites").getKeys(false));
+
 		for (int i = siteNames.size() - 1; i >= 0; i--) {
-			// plugin.getLogger().info(siteNames.get(i));
-			if (!getData().isConfigurationSection("VoteSites." + siteNames.get(i))) {
-				plugin.getLogger()
-						.warning("VoteSites." + siteNames.get(i) + " is not a configuration section, please remove");
+			String site = siteNames.get(i);
+			String path = "VoteSites." + site;
+
+			if (!getData().isConfigurationSection(path)) {
+				plugin.getLogger().warning(path + " is not a configuration section, please remove");
 				siteNames.remove(i);
-			} else if (siteNames.get(i).equalsIgnoreCase("null")
-					|| (!getVoteSiteEnabled(siteNames.get(i)) && checkEnabled) || !siteCheck(siteNames.get(i))) {
-				// plugin.getLogger().info("Removed: " + siteNames.get(i));
-				siteNames.remove(i);
+				continue;
 			}
 
+			if (site.equalsIgnoreCase("null") || (!getVoteSiteEnabled(site) && checkEnabled) || !siteCheck(site)) {
+				siteNames.remove(i);
+				continue;
+			}
+
+			if (site.contains(" ")) {
+				plugin.getLogger().warning("Vote site " + site + " contains spaces, this may cause issues");
+			}
 		}
 
 		return siteNames;
@@ -474,7 +484,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * Sets the cumulative votes for a site.
 	 *
 	 * @param siteName the site name
-	 * @param value the value
+	 * @param value    the value
 	 */
 	public void setCumulativeVotes(String siteName, int value) {
 		set(siteName, "Cumulative.Votes", value);
@@ -484,7 +494,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * Sets the display name for a site.
 	 *
 	 * @param siteName the site name
-	 * @param value the value
+	 * @param value    the value
 	 */
 	public void setDisplayName(String siteName, String value) {
 		set(siteName, "Name", value);
@@ -504,7 +514,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * Sets whether to force offline for a site.
 	 *
 	 * @param siteName the site name
-	 * @param value the value
+	 * @param value    the value
 	 */
 	public void setForceOffline(String siteName, boolean value) {
 		set(siteName, "ForceOffline", value);
@@ -593,7 +603,7 @@ public class ConfigVoteSites extends YMLFile {
 	 * Sets whether vote delay is daily for a site.
 	 *
 	 * @param siteName the site name
-	 * @param value the value
+	 * @param value    the value
 	 */
 	public void setVoteDelayDaily(String siteName, boolean value) {
 		set(siteName, "VoteDelayDaily", value);
