@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.commands;
 
+import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -80,6 +81,7 @@ import com.bencodez.votingplugin.commands.gui.player.VoteURLVoteSite;
 import com.bencodez.votingplugin.commands.tabcompleter.AliasesTabCompleter;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.events.PlayerVoteSiteCoolDownEndEvent;
+import com.bencodez.votingplugin.presets.VoteSitePreset;
 import com.bencodez.votingplugin.presets.VoteSitePresetSetupHandler;
 import com.bencodez.votingplugin.specialrewards.votemilestones.VoteMilestonesManager;
 import com.bencodez.votingplugin.topvoter.TopVoter;
@@ -2320,7 +2322,7 @@ public class CommandLoader {
 		});
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "VotePresets" },
-				"VotingPlugin.Commands.AdminVote.VotePresets|" + adminPerm, "OPen vote presets menu", false) {
+				"VotingPlugin.Commands.AdminVote.VotePresets|" + adminPerm, "Open vote presets menu", false) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
@@ -2329,6 +2331,32 @@ public class CommandLoader {
 				}
 
 				plugin.getPresetHandler().startSetup((Player) sender);
+
+			}
+		});
+
+		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "VotePresets", "(Text)" },
+				"VotingPlugin.Commands.AdminVote.VotePresets|" + adminPerm, "Find vote preset from url", false) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				if (plugin.getPresetHandler() == null) {
+					plugin.setPresetHandler(new VoteSitePresetSetupHandler(plugin));
+				}
+
+				try {
+					VoteSitePreset preset = plugin.getPresetHandler().getLoader().findVoteSitePresetForURL(args[1]);
+
+					if (preset == null) {
+						sender.sendMessage("No vote preset matches that URL.");
+						return;
+					}
+
+					plugin.getPresetHandler().promptPlaceholders((Player) sender, preset);
+				} catch (IOException e) {
+					plugin.getLogger().warning("Failed to search presets: " + e.getMessage());
+					sender.sendMessage("Could not determine a preset for that URL.");
+				}
 
 			}
 		});

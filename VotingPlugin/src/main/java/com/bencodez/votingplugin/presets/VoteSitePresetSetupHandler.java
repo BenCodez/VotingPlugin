@@ -16,6 +16,8 @@ import com.bencodez.simpleapi.valuerequest.StringListener;
 import com.bencodez.simpleapi.valuerequest.ValueRequest;
 import com.bencodez.votingplugin.VotingPluginMain;
 
+import lombok.Getter;
+
 /**
  * Handler class that guides a player through selecting a vote site preset and
  * configuring its placeholder values using the SimpleAPI {@link ValueRequest}
@@ -31,6 +33,7 @@ public class VoteSitePresetSetupHandler {
 	/**
 	 * Loader used to fetch vote site presets.
 	 */
+	@Getter
 	private final GitHubVoteSitePresetLoader loader;
 
 	/**
@@ -100,7 +103,7 @@ public class VoteSitePresetSetupHandler {
 	 * @param player player
 	 * @param preset preset
 	 */
-	private void promptPlaceholders(Player player, VoteSitePreset preset) {
+	public void promptPlaceholders(Player player, VoteSitePreset preset) {
 
 		Map<String, PlaceholderDef> defs = preset.getPlaceholders();
 
