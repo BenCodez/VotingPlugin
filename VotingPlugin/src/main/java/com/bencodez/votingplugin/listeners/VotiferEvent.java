@@ -1,7 +1,5 @@
 package com.bencodez.votingplugin.listeners;
 
-import java.util.ArrayList;
-
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -13,13 +11,11 @@ import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.vexsoftware.votifier.model.Vote;
 import com.vexsoftware.votifier.model.VotifierEvent;
 
-// TODO: Auto-generated Javadoc
 /**
  * The Class VotiferEvent.
  */
 public class VotiferEvent implements Listener {
 
-	/** The plugin. */
 	private VotingPluginMain plugin;
 
 	/**
@@ -48,7 +44,6 @@ public class VotiferEvent implements Listener {
 		final String IP = vote.getAddress();
 		final String voteUsername = vote.getUsername().trim();
 		if (IP.equals("VotingPlugin")) {
-			// ignore own plugin calls of event
 			return;
 		}
 
@@ -79,6 +74,7 @@ public class VotiferEvent implements Listener {
 								"Ignoring vote from votifier since pluginmessaging, socket, redis, or mqtt bungee method is enabled, this means you aren't setup correctly for those methods, please check: https://github.com/BenCodez/VotingPlugin/wiki/Bungeecord-Setups");
 						return;
 					}
+
 					String matchSite = "";
 					if (plugin.getConfigFile().isAdvancedServiceSiteHandling()) {
 						if (plugin.getServiceSiteHandler() != null) {
@@ -87,16 +83,7 @@ public class VotiferEvent implements Listener {
 					}
 
 					String voteSiteNameStr = plugin.getVoteSiteManager().getVoteSiteName(false, voteSite, matchSite);
-
-					ArrayList<String> sites = plugin.getConfigVoteSites().getVoteSitesNames(false);
-					boolean createSite = false;
-					if (sites != null) {
-						if (!ArrayUtils.containsIgnoreCase(sites, voteSiteNameStr)) {
-							createSite = true;
-						}
-					} else {
-						createSite = true;
-					}
+					boolean createSite = !plugin.getVoteSiteManager().hasVoteSite(voteSiteNameStr);
 
 					String serviceSite = voteSite;
 
@@ -111,17 +98,15 @@ public class VotiferEvent implements Listener {
 
 					if (plugin.getTimeChecker().isActiveProcessing()
 							&& plugin.getConfigFile().isQueueVotesDuringTimeChange()) {
-						// time change in progress
 						plugin.debug("Adding vote to time queue " + voteUsername + "/" + voteSite);
 						plugin.getTimeQueueHandler().addVote(voteUsername, voteSite);
-
 						return;
 					}
 
 					String voteSiteName = plugin.getVoteSiteManager().getVoteSiteName(true, serviceSite, matchSite);
 
-					PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSiteManager().getVoteSite(voteSiteName, true),
-							voteUsername, voteSite, true);
+					PlayerVoteEvent voteEvent = new PlayerVoteEvent(
+							plugin.getVoteSiteManager().getVoteSite(voteSiteName, true), voteUsername, voteSite, true);
 					plugin.getServer().getPluginManager().callEvent(voteEvent);
 
 					if (voteEvent.isCancelled()) {
@@ -132,9 +117,7 @@ public class VotiferEvent implements Listener {
 					plugin.getLogger().severe("Error occured during vote processing");
 					e.printStackTrace();
 				}
-
 			}
 		});
 	}
-
 }

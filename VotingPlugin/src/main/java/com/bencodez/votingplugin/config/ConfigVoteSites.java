@@ -379,10 +379,6 @@ public class ConfigVoteSites extends YMLFile {
 				siteNames.remove(i);
 				continue;
 			}
-
-			if (site.contains(" ")) {
-				plugin.getLogger().warning("Vote site " + site + " contains spaces, this may cause issues");
-			}
 		}
 
 		return siteNames;

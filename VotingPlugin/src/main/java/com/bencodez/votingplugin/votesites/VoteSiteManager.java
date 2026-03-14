@@ -11,11 +11,13 @@ import lombok.Setter;
 
 public class VoteSiteManager {
 
-	private final VotingPluginMain plugin;
+	@Getter
+	@Setter
+	private VotingPluginMain plugin;
 
 	@Getter
 	@Setter
-	private List<VoteSite> voteSites = Collections.synchronizedList(new ArrayList<>());
+	private List<VoteSite> voteSites = Collections.synchronizedList(new ArrayList<VoteSite>());
 
 	public VoteSiteManager(VotingPluginMain plugin) {
 		this.plugin = plugin;
@@ -23,12 +25,19 @@ public class VoteSiteManager {
 
 	/**
 	 * Reloads votesites from config and returns the backing list.
+	 *
+	 * @return the loaded vote sites
 	 */
 	public List<VoteSite> loadVoteSites() {
 		plugin.getConfigVoteSites().setup();
 
-		List<VoteSite> newSites = Collections.synchronizedList(new ArrayList<>());
+		List<VoteSite> newSites = Collections.synchronizedList(new ArrayList<VoteSite>());
 		newSites.addAll(plugin.getConfigVoteSites().getVoteSitesLoad());
+
+		for (VoteSite site : newSites) {
+			validateVoteSiteName(site.getKey());
+		}
+
 		voteSites = newSites;
 
 		if (voteSites.isEmpty()) {
@@ -38,116 +47,193 @@ public class VoteSiteManager {
 		plugin.debug("Loaded VoteSites");
 		return voteSites;
 	}
+
 	/**
-	 * Attempts to map a URL / display name / key to the configured "site name".
-	 * 
-	 * @param checkEnabled Whether to only consider enabled vote sites.
-	 * @param urls         One or more URLs / names to resolve.
-	 * @return The resolved vote site name, or the first provided value if no match
+	 * Validates a vote site name for common problems.
+	 *
+	 * @param siteName the site name
+	 */
+	public void validateVoteSiteName(String siteName) {
+		if (siteName == null) {
+			return;
+		}
+
+		if (siteName.equalsIgnoreCase("null")) {
+			plugin.getLogger().warning("Vote site name 'null' is not valid");
+			return;
+		}
+
+		if (siteName.contains(" ")) {
+			plugin.getLogger().warning("Vote site " + siteName + " contains spaces, this may cause issues");
+		}
+	}
+
+	/**
+	 * Normalizes a vote site key for generated or matched site names.
+	 *
+	 * @param name the input name
+	 * @return the normalized vote site key
+	 */
+	public String normalizeVoteSiteKey(String name) {
+		if (name == null) {
+			return null;
+		}
+		return name.replaceAll("[\\.\\s]+", "_");
+	}
+
+	/**
+	 * Attempts to map a URL, display name, or key to the configured vote site key.
+	 *
+	 * @param checkEnabled whether to only consider enabled vote sites
+	 * @param urls one or more identifiers to resolve
+	 * @return the resolved vote site key, or the first provided value if no match is
+	 *         found
 	 */
 	public String getVoteSiteName(boolean checkEnabled, String... urls) {
-		ArrayList<String> sites = plugin.getConfigVoteSites().getVoteSitesNames(checkEnabled);
-
 		for (String url : urls) {
 			if (url == null) {
 				return null;
 			}
-			if (!url.isEmpty() && sites != null) {
-				for (String siteName : sites) {
-					String configuredUrl = plugin.getConfigVoteSites().getServiceSite(siteName);
-					if (configuredUrl != null && configuredUrl.equalsIgnoreCase(url)) {
-						return siteName;
+
+			if (!url.isEmpty()) {
+				for (VoteSite site : voteSites) {
+					if (checkEnabled && !site.isEnabled()) {
+						continue;
 					}
-					if (siteName.equalsIgnoreCase(url)) {
-						return siteName;
+
+					String serviceSite = site.getServiceSite();
+					if (serviceSite != null && serviceSite.equalsIgnoreCase(url)) {
+						return site.getKey();
+					}
+
+					if (site.getKey().equalsIgnoreCase(url)) {
+						return site.getKey();
+					}
+
+					String displayName = site.getDisplayName();
+					if (displayName != null && displayName.equalsIgnoreCase(url)) {
+						return site.getKey();
 					}
 				}
 			}
 		}
 
-		// If no match, return the first provided value (original behavior)
 		for (String url : urls) {
 			return url;
 		}
+
 		return "";
 	}
 
 	/**
 	 * Resolves a VoteSite from an identifier.
-	 * - Matches on key or display name
-	 * - Can optionally auto-create vote sites (same behavior as VotingPluginMain)
+	 *
+	 * @param site the site identifier
+	 * @param checkEnabled whether to only match enabled sites
+	 * @return the vote site, or null if not found
 	 */
 	public VoteSite getVoteSite(String site, boolean checkEnabled) {
 		String siteName = getVoteSiteName(checkEnabled, site);
 
 		for (VoteSite voteSite : getVoteSites()) {
-			if (voteSite.getKey().equalsIgnoreCase(siteName) || voteSite.getDisplayName().equals(siteName)) {
+			if (voteSite.getKey().equalsIgnoreCase(siteName)) {
+				return voteSite;
+			}
+
+			String displayName = voteSite.getDisplayName();
+			if (displayName != null && displayName.equalsIgnoreCase(siteName)) {
 				return voteSite;
 			}
 		}
 
-		if (plugin.getConfigFile().isAutoCreateVoteSites()
-				&& !plugin.getConfigVoteSites().getVoteSitesNames(false).contains(siteName)) {
-
+		if (plugin.getConfigFile().isAutoCreateVoteSites() && !hasVoteSite(siteName)) {
 			plugin.getConfigVoteSites().generateVoteSite(siteName);
-
-			// Original code used: new VoteSite(plugin, siteName.replace(".", "_"));
-			// Keep identical behavior.
-			return new VoteSite(plugin, siteName.replace(".", "_"));
+			return new VoteSite(plugin, normalizeVoteSiteKey(siteName));
 		}
 
 		return null;
 	}
 
+	/**
+	 * Gets all enabled vote sites.
+	 *
+	 * @return the enabled vote sites
+	 */
 	public ArrayList<VoteSite> getVoteSitesEnabled() {
-		ArrayList<VoteSite> sites = new ArrayList<>();
+		ArrayList<VoteSite> sites = new ArrayList<VoteSite>();
+
 		for (VoteSite site : getVoteSites()) {
 			if (site.isEnabled()) {
 				sites.add(site);
 			}
 		}
+
 		return sites;
 	}
 
 	/**
-	 * Converts an input name/url into the configured service site URL if possible.
-	 * If no mapping exists, returns the input (original behavior).
+	 * Converts an input name or key into the configured service site if possible.
+	 *
+	 * @param name the input name
+	 * @return the service site, or the original input if no mapping exists
 	 */
 	public String getVoteSiteServiceSite(String name) {
-		ArrayList<String> sites = plugin.getConfigVoteSites().getVoteSitesNames(true);
 		if (name == null) {
 			return null;
 		}
 
-		if (sites != null) {
-			for (String siteName : sites) {
-				String url = plugin.getConfigVoteSites().getServiceSite(siteName);
-				if (url != null) {
-					if (url.equalsIgnoreCase(name) || name.equalsIgnoreCase(siteName)) {
-						return url;
-					}
+		for (VoteSite site : voteSites) {
+			if (!site.isEnabled()) {
+				continue;
+			}
+
+			String url = site.getServiceSite();
+			if (url != null) {
+				if (url.equalsIgnoreCase(name) || name.equalsIgnoreCase(site.getKey())) {
+					return url;
 				}
 			}
 		}
+
 		return name;
 	}
 
+	/**
+	 * Checks whether a vote site exists.
+	 *
+	 * @param site the site identifier
+	 * @return true if the vote site exists
+	 */
 	public boolean hasVoteSite(String site) {
 		String siteName = getVoteSiteName(false, site);
+
 		for (VoteSite voteSite : getVoteSites()) {
-			if (voteSite.getKey().equalsIgnoreCase(siteName) || voteSite.getDisplayName().equals(siteName)) {
+			if (voteSite.getKey().equalsIgnoreCase(siteName)) {
+				return true;
+			}
+
+			String displayName = voteSite.getDisplayName();
+			if (displayName != null && displayName.equalsIgnoreCase(siteName)) {
 				return true;
 			}
 		}
+
 		return false;
 	}
 
+	/**
+	 * Checks whether a vote site key exists.
+	 *
+	 * @param voteSite the vote site key
+	 * @return true if it exists
+	 */
 	public boolean isVoteSite(String voteSite) {
 		for (VoteSite site : getVoteSites()) {
 			if (site.getKey().equalsIgnoreCase(voteSite)) {
 				return true;
 			}
 		}
+
 		return false;
 	}
 }
