@@ -1,13 +1,21 @@
 package com.bencodez.votingplugin.tests.votesite;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,8 +34,11 @@ import com.bencodez.votingplugin.votesites.VoteSiteManager;
 public class VoteSiteManagerTest {
 
 	private VotingPluginMain plugin;
+
 	private ConfigVoteSites voteSitesConfig;
+
 	private Config configFile;
+
 	private VoteSiteManager manager;
 
 	@BeforeEach
@@ -36,11 +47,10 @@ public class VoteSiteManagerTest {
 		voteSitesConfig = mock(ConfigVoteSites.class);
 		configFile = mock(Config.class);
 
-		// Common plugin wiring
 		when(plugin.getConfigVoteSites()).thenReturn(voteSitesConfig);
 		when(plugin.getConfigFile()).thenReturn(configFile);
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("VoteSiteManagerTest"));
 
-		// Used by VoteSite constructor init() if auto-create path returns a VoteSite
 		when(voteSitesConfig.getVoteURL(anyString())).thenReturn("example.com");
 		when(voteSitesConfig.getServiceSite(anyString())).thenReturn("ServiceSite");
 		when(voteSitesConfig.getVoteDelay(anyString())).thenReturn(ParsedDuration.parse("12h", TimeUnit.HOURS));
@@ -56,40 +66,59 @@ public class VoteSiteManagerTest {
 		when(voteSitesConfig.getVoteSiteIgnoreCanVote(anyString())).thenReturn(false);
 		when(voteSitesConfig.getPermissionToView(anyString())).thenReturn("");
 
-		// ServiceSites list used by VoteSite.isVaidServiceSite()
 		ServerData dummyServerData = mock(ServerData.class);
-		when(dummyServerData.getServiceSites()).thenReturn(new ArrayList<>(Arrays.asList("ServiceSite")));
+		when(dummyServerData.getServiceSites()).thenReturn(new ArrayList<String>(Arrays.asList("ServiceSite")));
 		when(plugin.getServerData()).thenReturn(dummyServerData);
 
 		manager = new VoteSiteManager(plugin);
 	}
 
+	/**
+	 * Creates a mocked vote site with the given values.
+	 *
+	 * @param key the key
+	 * @param displayName the display name
+	 * @param serviceSite the service site
+	 * @param enabled the enabled state
+	 * @return the mocked vote site
+	 */
+	private VoteSite createMockVoteSite(String key, String displayName, String serviceSite, boolean enabled) {
+		VoteSite site = mock(VoteSite.class);
+		when(site.getKey()).thenReturn(key);
+		when(site.getDisplayName()).thenReturn(displayName);
+		when(site.getServiceSite()).thenReturn(serviceSite);
+		when(site.isEnabled()).thenReturn(enabled);
+		return site;
+	}
+
 	@Test
 	public void testGetVoteSiteNameMatchesConfiguredServiceSiteUrl() {
-		when(voteSitesConfig.getVoteSitesNames(true)).thenReturn(new ArrayList<>(Arrays.asList("TopSite")));
-		when(voteSitesConfig.getServiceSite("TopSite")).thenReturn("minecraftservers.org");
+		VoteSite site = createMockVoteSite("TopSite", "TopSite", "minecraftservers.org", true);
+		manager.setVoteSites(Collections.synchronizedList(new ArrayList<VoteSite>(Arrays.asList(site))));
 
 		assertEquals("TopSite", manager.getVoteSiteName(true, "minecraftservers.org"));
 	}
 
 	@Test
 	public void testGetVoteSiteNameMatchesSiteNameIgnoringCase() {
-		when(voteSitesConfig.getVoteSitesNames(true)).thenReturn(new ArrayList<>(Arrays.asList("PlanetMinecraft")));
-		when(voteSitesConfig.getServiceSite("PlanetMinecraft")).thenReturn("planetminecraft.com");
+		VoteSite site = createMockVoteSite("PlanetMinecraft", "Planet Minecraft", "planetminecraft.com", true);
+		manager.setVoteSites(Collections.synchronizedList(new ArrayList<VoteSite>(Arrays.asList(site))));
 
 		assertEquals("PlanetMinecraft", manager.getVoteSiteName(true, "planetminecraft"));
 	}
 
 	@Test
 	public void testGetVoteSiteNameReturnsNullWhenInputNull() {
-		when(voteSitesConfig.getVoteSitesNames(true)).thenReturn(new ArrayList<>(Arrays.asList("SiteA")));
+		VoteSite site = createMockVoteSite("SiteA", "Site A", "example.com", true);
+		manager.setVoteSites(Collections.synchronizedList(new ArrayList<VoteSite>(Arrays.asList(site))));
+
 		assertNull(manager.getVoteSiteName(true, (String) null));
 	}
 
 	@Test
 	public void testGetVoteSiteNameFallsBackToFirstProvidedValueWhenNoMatch() {
-		when(voteSitesConfig.getVoteSitesNames(true)).thenReturn(new ArrayList<>(Arrays.asList("SiteA")));
-		when(voteSitesConfig.getServiceSite("SiteA")).thenReturn("example.com");
+		VoteSite site = createMockVoteSite("SiteA", "Site A", "example.com", true);
+		manager.setVoteSites(Collections.synchronizedList(new ArrayList<VoteSite>(Arrays.asList(site))));
 
 		assertEquals("unknown-site", manager.getVoteSiteName(true, "unknown-site"));
 	}
@@ -98,9 +127,8 @@ public class VoteSiteManagerTest {
 	public void testGetVoteSiteReturnsExistingByKey() {
 		VoteSite site = new VoteSite(plugin, "site.test");
 		site.setDisplayName("DisplayName");
-		manager.setVoteSites(Collections.synchronizedList(new ArrayList<>(Arrays.asList(site))));
+		manager.setVoteSites(Collections.synchronizedList(new ArrayList<VoteSite>(Arrays.asList(site))));
 
-		// site.getKey() = "site_test"
 		assertSame(site, manager.getVoteSite("site_test", false));
 	}
 
@@ -108,7 +136,7 @@ public class VoteSiteManagerTest {
 	public void testGetVoteSiteReturnsExistingByDisplayName() {
 		VoteSite site = new VoteSite(plugin, "site.test");
 		site.setDisplayName("My Fancy Name");
-		manager.setVoteSites(Collections.synchronizedList(new ArrayList<>(Arrays.asList(site))));
+		manager.setVoteSites(Collections.synchronizedList(new ArrayList<VoteSite>(Arrays.asList(site))));
 
 		assertSame(site, manager.getVoteSite("My Fancy Name", false));
 	}
@@ -116,14 +144,12 @@ public class VoteSiteManagerTest {
 	@Test
 	public void testGetVoteSiteAutoCreatesWhenEnabledAndNotPresentInConfig() {
 		when(configFile.isAutoCreateVoteSites()).thenReturn(true);
-		when(voteSitesConfig.getVoteSitesNames(false)).thenReturn(new ArrayList<String>());
 
 		manager.setVoteSites(Collections.synchronizedList(new ArrayList<VoteSite>()));
 
 		VoteSite created = manager.getVoteSite("new.site", false);
 		assertNotNull(created, "Should auto-create VoteSite when enabled and not configured");
 
-		// VoteSite constructor replaces '.' with '_' in key
 		assertEquals("new_site", created.getKey());
 		verify(voteSitesConfig).generateVoteSite("new.site");
 	}
@@ -135,15 +161,16 @@ public class VoteSiteManagerTest {
 		when(a.isEnabled()).thenReturn(true);
 		when(b.isEnabled()).thenReturn(false);
 
-		manager.setVoteSites(Collections.synchronizedList(new ArrayList<>(Arrays.asList(a, b))));
+		manager.setVoteSites(Collections.synchronizedList(new ArrayList<VoteSite>(Arrays.asList(a, b))));
+
 		assertEquals(1, manager.getVoteSitesEnabled().size());
 		assertSame(a, manager.getVoteSitesEnabled().get(0));
 	}
 
 	@Test
 	public void testGetVoteSiteServiceSiteReturnsMappedUrl() {
-		when(voteSitesConfig.getVoteSitesNames(true)).thenReturn(new ArrayList<>(Arrays.asList("MCSL")));
-		when(voteSitesConfig.getServiceSite("MCSL")).thenReturn("minecraft-server-list.com");
+		VoteSite site = createMockVoteSite("MCSL", "MCSL", "minecraft-server-list.com", true);
+		manager.setVoteSites(Collections.synchronizedList(new ArrayList<VoteSite>(Arrays.asList(site))));
 
 		assertEquals("minecraft-server-list.com", manager.getVoteSiteServiceSite("MCSL"));
 		assertEquals("minecraft-server-list.com", manager.getVoteSiteServiceSite("minecraft-server-list.com"));
@@ -151,8 +178,8 @@ public class VoteSiteManagerTest {
 
 	@Test
 	public void testGetVoteSiteServiceSiteReturnsInputWhenNoMapping() {
-		when(voteSitesConfig.getVoteSitesNames(true)).thenReturn(new ArrayList<>(Arrays.asList("MCSL")));
-		when(voteSitesConfig.getServiceSite("MCSL")).thenReturn("minecraft-server-list.com");
+		VoteSite site = createMockVoteSite("MCSL", "MCSL", "minecraft-server-list.com", true);
+		manager.setVoteSites(Collections.synchronizedList(new ArrayList<VoteSite>(Arrays.asList(site))));
 
 		assertEquals("unknown.com", manager.getVoteSiteServiceSite("unknown.com"));
 	}
@@ -161,7 +188,7 @@ public class VoteSiteManagerTest {
 	public void testHasVoteSiteTrueWhenPresent() {
 		VoteSite site = new VoteSite(plugin, "site.test");
 		site.setDisplayName("DisplayName");
-		manager.setVoteSites(Collections.synchronizedList(new ArrayList<>(Arrays.asList(site))));
+		manager.setVoteSites(Collections.synchronizedList(new ArrayList<VoteSite>(Arrays.asList(site))));
 
 		assertTrue(manager.hasVoteSite("site_test"));
 	}
@@ -169,7 +196,7 @@ public class VoteSiteManagerTest {
 	@Test
 	public void testIsVoteSiteTrueWhenKeyPresent() {
 		VoteSite site = new VoteSite(plugin, "site.test");
-		manager.setVoteSites(Collections.synchronizedList(new ArrayList<>(Arrays.asList(site))));
+		manager.setVoteSites(Collections.synchronizedList(new ArrayList<VoteSite>(Arrays.asList(site))));
 
 		assertTrue(manager.isVoteSite("site_test"));
 		assertFalse(manager.isVoteSite("missing"));
@@ -178,7 +205,8 @@ public class VoteSiteManagerTest {
 	@Test
 	public void testLoadVoteSitesReplacesBackingList() {
 		VoteSite s1 = mock(VoteSite.class);
-		when(voteSitesConfig.getVoteSitesLoad()).thenReturn(new ArrayList<>(Arrays.asList(s1)));
+		when(s1.getKey()).thenReturn("TopSite");
+		when(voteSitesConfig.getVoteSitesLoad()).thenReturn(new ArrayList<VoteSite>(Arrays.asList(s1)));
 
 		manager.loadVoteSites();
 
