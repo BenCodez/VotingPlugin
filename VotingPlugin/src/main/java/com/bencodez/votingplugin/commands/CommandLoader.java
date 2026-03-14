@@ -80,6 +80,7 @@ import com.bencodez.votingplugin.commands.gui.player.VoteURLVoteSite;
 import com.bencodez.votingplugin.commands.tabcompleter.AliasesTabCompleter;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.events.PlayerVoteSiteCoolDownEndEvent;
+import com.bencodez.votingplugin.presets.VoteSitePresetSetupHandler;
 import com.bencodez.votingplugin.specialrewards.votemilestones.VoteMilestonesManager;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -2315,6 +2316,20 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				new AdminVoteLogMenu(plugin, sender, plugin.getVoteLogMysqlTable(), 60).open();
+			}
+		});
+
+		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "VotePresets" },
+				"VotingPlugin.Commands.AdminVote.VotePresets|" + adminPerm, "OPen vote presets menu", false) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				if (plugin.getPresetHandler() == null) {
+					plugin.setPresetHandler(new VoteSitePresetSetupHandler(plugin));
+				}
+
+				plugin.getPresetHandler().startSetup((Player) sender);
+
 			}
 		});
 

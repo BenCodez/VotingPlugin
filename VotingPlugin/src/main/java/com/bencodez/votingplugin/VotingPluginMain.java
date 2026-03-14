@@ -88,6 +88,7 @@ import com.bencodez.votingplugin.listeners.VotingPluginUpdateEvent;
 import com.bencodez.votingplugin.placeholders.MVdWPlaceholders;
 import com.bencodez.votingplugin.placeholders.PlaceHolders;
 import com.bencodez.votingplugin.placeholders.VotingPluginExpansion;
+import com.bencodez.votingplugin.presets.VoteSitePresetSetupHandler;
 import com.bencodez.votingplugin.servicesites.ServiceSiteHandler;
 import com.bencodez.votingplugin.signs.Signs;
 import com.bencodez.votingplugin.specialrewards.SpecialRewards;
@@ -264,6 +265,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private long lastBackgroundTaskTimeTaken = -1;
 
 	private boolean firstTimeLoaded = false;
+
+	@Getter
+	@Setter
+	private VoteSitePresetSetupHandler presetHandler;
 
 	@Getter
 	private DiscordHandler discordHandler;

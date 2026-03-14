@@ -91,41 +91,41 @@ public class GUI extends YMLFile {
 	@Getter
 	private boolean chestVoteURLAllUrlsButtonrequireAllSitesVoted = true;
 
-	@ConfigDataString(path = "GUIMethod.Best")
-	@Getter
-	private String guiMethodBest = "CHEST";
-
-	@ConfigDataString(path = "GUIMethod.GUI")
-	@Getter
-	private String guiMethodGUI = "CHEST";
-
-	@ConfigDataString(path = "GUIMethod.Last")
-	@Getter
-	private String guiMethodLast = "CHEST";
-
-	@ConfigDataString(path = "GUIMethod.Next")
-	@Getter
-	private String guiMethodNext = "CHEST";
-
-	@ConfigDataString(path = "GUIMethod.Streak")
-	@Getter
-	private String guiMethodStreak = "CHEST";
-
-	@ConfigDataString(path = "GUIMethod.Today")
+	@ConfigDataString(path = "GUIMethod.Today", options = { "CHEST", "CHAT", "DIALOG" })
 	@Getter
 	private String guiMethodToday = "CHEST";
 
-	@ConfigDataString(path = "GUIMethod.TopVoter")
+	@ConfigDataString(path = "GUIMethod.TopVoter", options = { "CHEST", "CHAT", "DIALOG" })
 	@Getter
 	private String guiMethodTopVoter = "CHEST";
 
-	@ConfigDataString(path = "GUIMethod.Total")
+	@ConfigDataString(path = "GUIMethod.Last", options = { "CHEST", "CHAT", "DIALOG" })
+	@Getter
+	private String guiMethodLast = "CHEST";
+
+	@ConfigDataString(path = "GUIMethod.Next", options = { "CHEST", "CHAT", "BOOK", "DIALOG" })
+	@Getter
+	private String guiMethodNext = "CHEST";
+
+	@ConfigDataString(path = "GUIMethod.Total", options = { "CHEST", "CHAT", "DIALOG" })
 	@Getter
 	private String guiMethodTotal = "CHEST";
 
-	@ConfigDataString(path = "GUIMethod.URL")
+	@ConfigDataString(path = "GUIMethod.URL", options = { "CHEST", "CHAT", "BOOK", "DIALOG" })
 	@Getter
 	private String guiMethodURL = "CHEST";
+
+	@ConfigDataString(path = "GUIMethod.Best", options = { "CHEST", "CHAT", "DIALOG" })
+	@Getter
+	private String guiMethodBest = "CHEST";
+
+	@ConfigDataString(path = "GUIMethod.Streak", options = { "CHEST", "CHAT", "DIALOG" })
+	@Getter
+	private String guiMethodStreak = "CHEST";
+
+	@ConfigDataString(path = "GUIMethod.GUI", options = { "CHEST", "DIALOG" })
+	@Getter
+	private String guiMethodGUI = "CHEST";
 
 	@ConfigDataBoolean(path = "LastMonthGUI")
 	@Getter
@@ -388,7 +388,7 @@ public class GUI extends YMLFile {
 	/**
 	 * Gets an extra item configuration for a chest GUI.
 	 *
-	 * @param gui the GUI name
+	 * @param gui  the GUI name
 	 * @param item the item name
 	 * @return the item configuration
 	 */
@@ -421,7 +421,7 @@ public class GUI extends YMLFile {
 	/**
 	 * Gets the rewards path for a chest vote GUI slot.
 	 *
-	 * @param slot the slot
+	 * @param slot     the slot
 	 * @param lastPath the last path segment
 	 * @return the rewards path
 	 */
