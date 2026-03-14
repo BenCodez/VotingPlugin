@@ -13,13 +13,11 @@ import com.bencodez.advancedcore.api.inventory.BInventory;
 import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
-import com.bencodez.advancedcore.api.valuerequest.InputMethod;
-import com.bencodez.advancedcore.api.valuerequest.ValueRequest;
-import com.bencodez.advancedcore.api.valuerequest.ValueRequestBuilder;
-import com.bencodez.advancedcore.api.valuerequest.listeners.NumberListener;
-import com.bencodez.advancedcore.api.valuerequest.listeners.StringListener;
 import com.bencodez.advancedcore.command.gui.RewardEditGUI;
-import com.bencodez.simpleapi.array.ArrayUtils;
+import com.bencodez.simpleapi.valuerequest.InputMethod;
+import com.bencodez.simpleapi.valuerequest.NumberListener;
+import com.bencodez.simpleapi.valuerequest.StringListener;
+import com.bencodez.simpleapi.valuerequest.ValueRequest;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 /**
@@ -69,21 +67,22 @@ public class AdminVoteVoteMilestones extends GUIHandler {
 			@Override
 			public void onClick(ClickEvent clickEvent) {
 				Set<String> keys = plugin.getVoteMilestonesManager().getConfig().getMilestones().keySet();
+				ArrayList<String> milestoneKeys = new ArrayList<String>();
 				for (String key : keys) {
-					if (key.startsWith("Legacy_")) {
-						keys.remove(key);
+					if (!key.startsWith("Legacy_")) {
+						milestoneKeys.add(key);
 					}
 				}
-				new ValueRequestBuilder(new StringListener() {
 
-					@Override
-					public void onInput(Player player, String value) {
-						RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(),
-								plugin.getRewardHandler().getDirectlyDefined("VoteMilestones." + value + ".Rewards"));
-					}
-				}, ArrayUtils.convertSet(keys)).allowCustomOption(false).usingMethod(InputMethod.INVENTORY)
-						.request(clickEvent.getPlayer());
+				new ValueRequest(plugin, plugin.getDialogService(), InputMethod.INVENTORY).requestString(
+						clickEvent.getPlayer(), "", milestoneKeys, false, "Select milestone", new StringListener() {
 
+							@Override
+							public void onInput(Player player, String value) {
+								RewardEditGUI.getInstance().openRewardGUI(clickEvent.getPlayer(),
+										plugin.getRewardHandler().getDirectlyDefined("VoteMilestones." + value + ".Rewards"));
+							}
+						});
 			}
 		});
 
@@ -91,14 +90,15 @@ public class AdminVoteVoteMilestones extends GUIHandler {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				new ValueRequest().requestNumber(player, new NumberListener() {
+				new ValueRequest(plugin, plugin.getDialogService(), null).requestNumber(player, 0, null, true,
+						"Enter milestone", new NumberListener() {
 
-					@Override
-					public void onInput(Player player, Number value) {
-						plugin.getSpecialRewardsConfig().setVoteMilestone(value.intValue());
-						plugin.reload();
-					}
-				});
+							@Override
+							public void onInput(Player player, Number value) {
+								plugin.getSpecialRewardsConfig().setVoteMilestone(value.intValue());
+								plugin.reload();
+							}
+						});
 			}
 		});
 

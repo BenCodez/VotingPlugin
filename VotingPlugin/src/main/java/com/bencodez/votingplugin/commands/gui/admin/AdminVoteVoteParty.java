@@ -17,9 +17,10 @@ import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueLi
 import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueNumber;
 import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueString;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
-import com.bencodez.advancedcore.api.valuerequest.ValueRequestBuilder;
-import com.bencodez.advancedcore.api.valuerequest.listeners.NumberListener;
 import com.bencodez.advancedcore.command.gui.RewardEditGUI;
+import com.bencodez.simpleapi.valuerequest.InputMethod;
+import com.bencodez.simpleapi.valuerequest.NumberListener;
+import com.bencodez.simpleapi.valuerequest.ValueRequest;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 /**
@@ -64,7 +65,6 @@ public class AdminVoteVoteParty extends GUIHandler {
 		EditGUI inv = new EditGUI("Edit VoteParty");
 		inv.requirePermission("VotingPlugin.Commands.AdminVote.Edit.VoteParty");
 
-		// to add
 		inv.addButton(new EditGUIButton(new ItemBuilder(Material.PAPER, 1),
 				new EditGUIValueBoolean("Enabled", plugin.getSpecialRewardsConfig().isVotePartyEnabled()) {
 
@@ -97,15 +97,21 @@ public class AdminVoteVoteParty extends GUIHandler {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				new ValueRequestBuilder(new NumberListener() {
+				ArrayList<Number> options = new ArrayList<Number>();
+				options.add(Integer.valueOf(0));
+				options.add(Integer.valueOf(10));
+				options.add(Integer.valueOf(50));
+				options.add(Integer.valueOf(100));
 
-					@Override
-					public void onInput(Player player, Number value) {
-						plugin.getServerData().setVotePartyExtraRequired(value.intValue());
-					}
-				}, new Number[] { 0, 10, 50, 100 })
-						.currentValue("" + plugin.getServerData().getVotePartyExtraRequired()).allowCustomOption(true)
-						.request(clickEvent.getPlayer());
+				new ValueRequest(plugin, plugin.getDialogService(), InputMethod.INVENTORY).requestNumber(
+						clickEvent.getPlayer(), Integer.valueOf(plugin.getServerData().getVotePartyExtraRequired()),
+						options, true, "Set extra votes", new NumberListener() {
+
+							@Override
+							public void onInput(Player player, Number value) {
+								plugin.getServerData().setVotePartyExtraRequired(value.intValue());
+							}
+						});
 
 			}
 		});
@@ -228,8 +234,6 @@ public class AdminVoteVoteParty extends GUIHandler {
 						plugin.getRewardHandler().getDirectlyDefined("VoteParty.Rewards"));
 			}
 		});
-
-		// implement item reward?
 
 		inv.openInventory(player);
 	}

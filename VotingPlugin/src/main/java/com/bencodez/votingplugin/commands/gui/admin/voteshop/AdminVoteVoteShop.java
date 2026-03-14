@@ -12,8 +12,8 @@ import com.bencodez.advancedcore.api.inventory.BInventory;
 import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
-import com.bencodez.advancedcore.api.valuerequest.ValueRequest;
-import com.bencodez.advancedcore.api.valuerequest.listeners.StringListener;
+import com.bencodez.simpleapi.valuerequest.StringListener;
+import com.bencodez.simpleapi.valuerequest.ValueRequest;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 /**
@@ -69,14 +69,15 @@ public class AdminVoteVoteShop extends GUIHandler {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
-				new ValueRequest().requestString(player, new StringListener() {
+				new ValueRequest(plugin, plugin.getDialogService(), null).requestString(player, "", null, true,
+						"Enter item name", new StringListener() {
 
-					@Override
-					public void onInput(Player player, String value) {
-						plugin.getShopFile().createShop(value);
-						plugin.reload();
-					}
-				});
+							@Override
+							public void onInput(Player player, String value) {
+								plugin.getShopFile().createShop(value);
+								plugin.reload();
+							}
+						});
 			}
 		});
 

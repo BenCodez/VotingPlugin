@@ -37,8 +37,6 @@ import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.UserStorage;
-import com.bencodez.advancedcore.api.valuerequest.ValueRequest;
-import com.bencodez.advancedcore.api.valuerequest.listeners.StringListener;
 import com.bencodez.advancedcore.api.yml.editor.ConfigEditor;
 import com.bencodez.advancedcore.command.gui.UserGUI;
 import com.bencodez.simpleapi.array.ArrayUtils;
@@ -49,6 +47,9 @@ import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.simpleapi.sql.Column;
 import com.bencodez.simpleapi.sql.DataType;
 import com.bencodez.simpleapi.updater.Updater;
+import com.bencodez.simpleapi.valuerequest.InputMethod;
+import com.bencodez.simpleapi.valuerequest.StringListener;
+import com.bencodez.simpleapi.valuerequest.ValueRequest;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.commands.executers.CommandAliases;
 import com.bencodez.votingplugin.commands.gui.AdminGUI;
@@ -2538,27 +2539,30 @@ public class CommandLoader {
 							@Override
 							public void onClick(ClickEvent clickEvent) {
 								Player player = clickEvent.getPlayer();
-								ArrayList<String> voteSites = new ArrayList<>();
+								ArrayList<String> voteSites = new ArrayList<String>();
 								for (VoteSite voteSite : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 									voteSites.add(voteSite.getKey());
 								}
-								new ValueRequest().requestString(player, "", ArrayUtils.convert(voteSites), true,
-										new StringListener() {
 
-											@Override
-											public void onInput(Player player, String value) {
-												PlayerVoteEvent voteEvent = new PlayerVoteEvent(
-														plugin.getVoteSiteManager().getVoteSite(value, true),
-														UserGUI.getInstance().getCurrentPlayer(player),
-														plugin.getVoteSiteManager().getVoteSiteServiceSite(value),
-														false);
-												plugin.getServer().getPluginManager().callEvent(voteEvent);
+								new ValueRequest(plugin, plugin.getDialogService(), InputMethod.INVENTORY)
+										.requestString(player, "", voteSites, true, "Select vote site",
+												new StringListener() {
 
-												player.sendMessage("Forced vote for "
-														+ UserGUI.getInstance().getCurrentPlayer(player) + " on "
-														+ value);
-											}
-										});
+													@Override
+													public void onInput(Player player, String value) {
+														PlayerVoteEvent voteEvent = new PlayerVoteEvent(
+																plugin.getVoteSiteManager().getVoteSite(value, true),
+																UserGUI.getInstance().getCurrentPlayer(player),
+																plugin.getVoteSiteManager()
+																		.getVoteSiteServiceSite(value),
+																false);
+														plugin.getServer().getPluginManager().callEvent(voteEvent);
+
+														player.sendMessage("Forced vote for "
+																+ UserGUI.getInstance().getCurrentPlayer(player)
+																+ " on " + value);
+													}
+												});
 
 							}
 						});
@@ -3334,8 +3338,8 @@ public class CommandLoader {
 	 * Processes a slot click action from a GUI.
 	 *
 	 * @param player the player
-	 * @param user the voting plugin user
-	 * @param slot the slot identifier
+	 * @param user   the voting plugin user
+	 * @param slot   the slot identifier
 	 */
 	public void processSlotClick(Player player, VotingPluginUser user, String slot) {
 		if (MessageAPI.startsWithIgnoreCase(slot, "url")) {

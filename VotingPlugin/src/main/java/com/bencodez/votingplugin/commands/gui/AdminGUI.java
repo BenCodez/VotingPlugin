@@ -19,10 +19,9 @@ import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueLi
 import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueNumber;
 import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueString;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
-import com.bencodez.advancedcore.api.valuerequest.InputMethod;
-import com.bencodez.advancedcore.api.valuerequest.ValueRequest;
-import com.bencodez.advancedcore.api.valuerequest.ValueRequestBuilder;
-import com.bencodez.advancedcore.api.valuerequest.listeners.StringListener;
+import com.bencodez.simpleapi.valuerequest.InputMethod;
+import com.bencodez.simpleapi.valuerequest.StringListener;
+import com.bencodez.simpleapi.valuerequest.ValueRequest;
 import com.bencodez.advancedcore.api.yml.editor.ConfigEditor;
 import com.bencodez.advancedcore.command.gui.RewardEditGUI;
 import com.bencodez.simpleapi.array.ArrayUtils;
@@ -65,7 +64,7 @@ public class AdminGUI {
 			public void onClick(ClickEvent event) {
 				Player player = event.getPlayer();
 				if (event.getClick().equals(ClickType.MIDDLE)) {
-					new ValueRequest().requestString(player, new StringListener() {
+					new ValueRequest(plugin, plugin.getDialogService(), null).requestString(player, "", null, true, "Enter vote site", new StringListener() {
 
 						@Override
 						public void onInput(Player player, String value) {
@@ -286,25 +285,25 @@ public class AdminGUI {
 				for (Player p : Bukkit.getOnlinePlayers()) {
 					playerNames.add(p.getName());
 				}
-				new ValueRequestBuilder(new StringListener() {
+				new ValueRequest(plugin, plugin.getDialogService(), InputMethod.INVENTORY).requestString(
+						event.getWhoClicked(), "", playerNames, true, "Select player", new StringListener() {
 
-					@Override
-					public void onInput(Player player, String value) {
-						Object ob = PlayerUtils.getPlayerMeta(plugin, player, "VoteSite");
-						if (ob != null) {
-							VoteSite site = (VoteSite) ob;
-							PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, value, site.getServiceSite(), false);
-							plugin.getVoteTimer().submit(new Runnable() {
+							@Override
+							public void onInput(Player player, String value) {
+								Object ob = PlayerUtils.getPlayerMeta(plugin, player, "VoteSite");
+								if (ob != null) {
+									VoteSite site = (VoteSite) ob;
+									PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, value, site.getServiceSite(), false);
+									plugin.getVoteTimer().submit(new Runnable() {
 
-								@Override
-								public void run() {
-									plugin.getServer().getPluginManager().callEvent(voteEvent);
+										@Override
+										public void run() {
+											plugin.getServer().getPluginManager().callEvent(voteEvent);
+										}
+									});
 								}
-							});
-						}
-					}
-				}, ArrayUtils.convert(playerNames)).usingMethod(InputMethod.INVENTORY).allowCustomOption(true)
-						.request(event.getWhoClicked());
+							}
+						});
 			}
 		});
 
