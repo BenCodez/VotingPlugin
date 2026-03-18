@@ -13,7 +13,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
 import com.bencodez.advancedcore.api.bedrock.BedrockNameResolver;
-import com.bencodez.advancedcore.api.misc.PlayerManager;
+import com.bencodez.advancedcore.api.user.validation.UserValidationResult;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerPostVoteEvent;
@@ -56,23 +56,26 @@ public class PlayerVoteListener implements Listener {
 		// check for name casing
 		final String properName = plugin.getUserManager().getProperName(playerName);
 
-		// Single validity check on the final name
+		// Validate BEFORE full bedrock/db-backed resolution
 		boolean allowUnJoinedCheckServer = plugin.getConfigFile().isAllowUnJoinedCheckServer();
-		boolean isValid = PlayerManager.getInstance().isValidUser(properName, allowUnJoinedCheckServer);
+		UserValidationResult validationResult = plugin.getUserManager().getValidationService().validate(properName,
+				allowUnJoinedCheckServer);
 
-		// Handle not-valid the same way you did before
-		if (!isValid) {
-			if (!plugin.getConfigFile().isAllowUnjoined()) {
-				plugin.getLogger().warning("Player " + properName + " has not joined before, disregarding vote. "
-						+ "Set AllowUnjoined to true to accept.");
-				if (event.isBungee() && plugin.getBungeeSettings().isRemoveInvalidUsers()) {
-					plugin.getVotingPluginUserManager().getVotingPluginUser(properName).remove();
-				}
-				return;
+		plugin.extraDebug("Vote validation result for " + properName + ": valid=" + validationResult.isValid()
+				+ ", source=" + validationResult.getSource() + ", reason=" + validationResult.getReason()
+				+ ", normalizedName=" + validationResult.getNormalizedName() + ", bedrock="
+				+ validationResult.isBedrock());
+
+		if (!validationResult.isValid() && !plugin.getConfigFile().isAllowUnjoined()) {
+			plugin.getLogger().warning("Player " + properName + " has not joined before, disregarding vote. "
+					+ "Reason: " + validationResult.getReason() + ". Set AllowUnjoined to true to accept.");
+			if (event.isBungee() && plugin.getBungeeSettings().isRemoveInvalidUsers()) {
+				plugin.getVotingPluginUserManager().getVotingPluginUser(properName).remove();
 			}
+			return;
 		}
 
-		// Resolve Bedrock/Java + add prefix only when appropriate
+		// Resolve Bedrock/Java + add prefix only when appropriate AFTER validation
 		BedrockNameResolver.Result rn = plugin.getBedrockHandle().resolve(properName);
 		String creditedName = rn.finalName;
 
