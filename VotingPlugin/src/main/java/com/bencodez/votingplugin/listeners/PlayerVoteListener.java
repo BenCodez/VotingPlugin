@@ -56,27 +56,27 @@ public class PlayerVoteListener implements Listener {
 		// check for name casing
 		final String properName = plugin.getUserManager().getProperName(playerName);
 
+		// Single validity check on the final name
+		boolean allowUnJoinedCheckServer = plugin.getConfigFile().isAllowUnJoinedCheckServer();
+		boolean isValid = PlayerManager.getInstance().isValidUser(properName, allowUnJoinedCheckServer);
+
+		// Handle not-valid the same way you did before
+		if (!isValid) {
+			if (!plugin.getConfigFile().isAllowUnjoined()) {
+				plugin.getLogger().warning("Player " + properName + " has not joined before, disregarding vote. "
+						+ "Set AllowUnjoined to true to accept.");
+				if (event.isBungee() && plugin.getBungeeSettings().isRemoveInvalidUsers()) {
+					plugin.getVotingPluginUserManager().getVotingPluginUser(properName).remove();
+				}
+				return;
+			}
+		}
+
 		// Resolve Bedrock/Java + add prefix only when appropriate
 		BedrockNameResolver.Result rn = plugin.getBedrockHandle().resolve(properName);
 		String creditedName = rn.finalName;
 
 		plugin.debug("Vote name resolved: " + properName + " -> " + creditedName + " (" + rn.rationale + ")");
-
-		// Single validity check on the final name
-		boolean allowUnJoinedCheckServer = plugin.getConfigFile().isAllowUnJoinedCheckServer();
-		boolean isValid = PlayerManager.getInstance().isValidUser(creditedName, allowUnJoinedCheckServer);
-
-		// Handle not-valid the same way you did before
-		if (!isValid) {
-			if (!plugin.getConfigFile().isAllowUnjoined()) {
-				plugin.getLogger().warning("Player " + creditedName + " has not joined before, disregarding vote. "
-						+ "Set AllowUnjoined to true to accept.");
-				if (event.isBungee() && plugin.getBungeeSettings().isRemoveInvalidUsers()) {
-					plugin.getVotingPluginUserManager().getVotingPluginUser(creditedName).remove();
-				}
-				return;
-			}
-		}
 
 		// If we get here, use the resolved/possibly-prefixed name going forward
 		playerName = creditedName;
