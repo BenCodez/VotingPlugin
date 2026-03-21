@@ -74,10 +74,6 @@ commands:
   votepoints:
     description: A command
     aliases: vpoints
-  votetogglereminders:
-    aliases:
-    - vtogglereminder
-    - vtoggle
   votelist:
     description: A command
     aliases: vlist

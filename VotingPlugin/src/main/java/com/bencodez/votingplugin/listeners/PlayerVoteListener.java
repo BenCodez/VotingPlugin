@@ -254,16 +254,6 @@ public class PlayerVoteListener implements Listener {
 		plugin.getVoteMilestonesManager().handleVote(user, event.getBungeeTextTotals(), event.isForceBungee(), voteUUID,
 				new HashMap<String, String>());
 
-		// other rewards
-		// plugin.getSpecialRewards().checkAllSites(voteUUID, user,
-		// event.isForceBungee());
-		// plugin.getSpecialRewards().checkAlmostAllSites(voteUUID, user,
-		// event.isForceBungee());
-		// plugin.getSpecialRewards().checkCumualativeVotes(voteUUID, user,
-		// event.getBungeeTextTotals(),
-		// event.isForceBungee());
-		// plugin.getSpecialRewards().checkMilestone(voteUUID, user,
-		// event.getBungeeTextTotals(), event.isForceBungee());
 		plugin.getCoolDownCheck().vote(user, voteSite);
 
 		plugin.getVoteStreakHandler().processVote(user, voteTime, voteUUID);
