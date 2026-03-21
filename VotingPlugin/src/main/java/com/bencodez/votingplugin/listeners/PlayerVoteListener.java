@@ -94,7 +94,14 @@ public class PlayerVoteListener implements Listener {
 					+ event.getBungeeTextTotals());
 
 			if (plugin.getBungeeSettings().isTriggerVotifierEvent()) {
-				new BungeeVotifierEvent().send(plugin, event);
+				try {
+					new ProxyVotifierEvent().send(plugin, event);
+				} catch (NoClassDefFoundError ex) {
+					plugin.getLogger().severe(
+							"Failed to trigger Votifier event for proxy vote. Either install votiifer or disable tirgger votiifer event");
+					plugin.getLogger().severe("Error: " + ex.getMessage());
+					plugin.debug(ex);
+				}
 			}
 		}
 
