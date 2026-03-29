@@ -11,7 +11,6 @@ import com.bencodez.advancedcore.api.command.CommandHandler;
 import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
 import com.bencodez.simpleapi.messages.MessageAPI;
-import com.bencodez.simpleapi.nms.NMSManager;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 import net.md_5.bungee.api.ChatColor;
@@ -143,11 +142,7 @@ public class VoteHelp extends GUIHandler {
 		int pagesize = plugin.getConfigFile().getFormatPageSize();
 		ArrayList<TextComponent> msg = new ArrayList<>();
 		ArrayList<TextComponent> text = new ArrayList<>();
-		if (NMSManager.getInstance().isVersion("1.12")) {
-			text = helpTextLegacy(sender);
-		} else {
-			text = helpText(sender);
-		}
+		text = helpText(sender);
 
 		int maxPage = text.size() / pagesize;
 		if ((text.size() % pagesize) != 0) {

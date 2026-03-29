@@ -14,7 +14,6 @@ import org.bukkit.inventory.meta.SkullMeta;
 
 import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.simpleapi.array.ArrayUtils;
-import com.bencodez.simpleapi.nms.NMSManager;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
@@ -64,12 +63,12 @@ public class SignHandler {
 	/**
 	 * Constructs a new SignHandler.
 	 *
-	 * @param plugin the main plugin instance
-	 * @param sign the sign identifier
-	 * @param location the sign location
+	 * @param plugin        the main plugin instance
+	 * @param sign          the sign identifier
+	 * @param location      the sign location
 	 * @param skullLocation the skull location
-	 * @param data the sign data
-	 * @param position the sign position
+	 * @param data          the sign data
+	 * @param position      the sign position
 	 */
 	public SignHandler(VotingPluginMain plugin, String sign, Location location, Location skullLocation, String data,
 			int position) {
@@ -301,21 +300,19 @@ public class SignHandler {
 	 * @param loc2 the second location
 	 */
 	public void updateSkulls(Location loc1, Location loc2) {
-		if (!NMSManager.getInstance().isVersion("1.12")) {
-			BlockState state = getLocation().getBlock().getState();
-			if (state instanceof Sign && state.getBlockData() instanceof Directional) {
-				Directional s = (Directional) state.getBlockData();
-				Block b = location.getBlock().getRelative(s.getFacing());
-				Block above = b.getRelative(BlockFace.UP);
-				if (checkSkull(above)) {
-					return;
-				}
-
+		BlockState state = getLocation().getBlock().getState();
+		if (state instanceof Sign && state.getBlockData() instanceof Directional) {
+			Directional s = (Directional) state.getBlockData();
+			Block b = location.getBlock().getRelative(s.getFacing());
+			Block above = b.getRelative(BlockFace.UP);
+			if (checkSkull(above)) {
+				return;
 			}
 
-			for (Block block : MiscUtils.getInstance().getRegionBlocks(location.getWorld(), loc1, loc2)) {
-				checkSkull(block);
-			}
+		}
+
+		for (Block block : MiscUtils.getInstance().getRegionBlocks(location.getWorld(), loc1, loc2)) {
+			checkSkull(block);
 		}
 	}
 }

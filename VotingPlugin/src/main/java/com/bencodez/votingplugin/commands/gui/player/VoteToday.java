@@ -19,7 +19,6 @@ import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.simpleapi.array.ArrayUtils;
-import com.bencodez.simpleapi.nms.NMSManager;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -37,15 +36,13 @@ public class VoteToday extends GUIHandler {
 		this.user = user;
 		this.page = page;
 	}
-	
+
 	@Override
 	public void onDialog(Player player) {
 		com.bencodez.simpleapi.dialog.MultiActionDialogBuilder dialog = plugin.getDialogService().multiAction(player)
-				.placeholder("player", user.getPlayerName())
-				.placeholder("page", "" + page)
+				.placeholder("player", user.getPlayerName()).placeholder("page", "" + page)
 				.title(plugin.getGui().getChestVoteTodayName())
-				.body(String.join("\n", plugin.getConfigFile().getFormatCommandsVoteTodayTitle()))
-				.columns(2);
+				.body(String.join("\n", plugin.getConfigFile().getFormatCommandsVoteTodayTitle())).columns(2);
 
 		for (TopVoterPlayer topPlayer : plugin.getVoteToday().keySet()) {
 			for (VoteSite voteSite : plugin.getVoteToday().get(topPlayer).keySet()) {
@@ -54,22 +51,18 @@ public class VoteToday extends GUIHandler {
 
 				final UUID uuid = topPlayer.getUuid();
 
-				dialog.placeholder("player", topPlayer.getPlayerName())
-						.placeholder("votesite", voteSite.getKey())
+				dialog.placeholder("player", topPlayer.getPlayerName()).placeholder("votesite", voteSite.getKey())
 						.placeholder("sitename", voteSite.getDisplayName())
 						.placeholder("SiteName", voteSite.getDisplayName())
-						.placeholder("VoteSite", voteSite.getDisplayName())
-						.placeholder("time", timeString)
-						.placeholder("Time", timeString)
-						.button("&e" + topPlayer.getPlayerName(),
-								plugin.getConfigFile().getFormatCommandsVoteTodayLine(),
-								payload -> {
+						.placeholder("VoteSite", voteSite.getDisplayName()).placeholder("time", timeString)
+						.placeholder("Time", timeString).button("&e" + topPlayer.getPlayerName(),
+								plugin.getConfigFile().getFormatCommandsVoteTodayLine(), payload -> {
 									Player clicked = player.getServer().getPlayer(payload.owner());
 									if (clicked != null) {
 										VotingPluginUser clickedUser = plugin.getVotingPluginUserManager()
 												.getVotingPluginUser(uuid);
-										new VoteGUI(plugin, clicked, clickedUser)
-												.open(GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
+										new VoteGUI(plugin, clicked, clickedUser).open(
+												GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
 									}
 								});
 			}
@@ -150,7 +143,7 @@ public class VoteToday extends GUIHandler {
 				placeholders.put("Time", timeString);
 
 				ItemBuilder item;
-				if (plugin.getGui().isChestVoteTodayUseSkull() && !NMSManager.getInstance().isVersion("1.12")) {
+				if (plugin.getGui().isChestVoteTodayUseSkull()) {
 					item = new ItemBuilder(user.getPlayerHead());
 				} else {
 					item = new ItemBuilder(plugin.getGui().getChestVoteTodayPlayerItem());
