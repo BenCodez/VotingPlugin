@@ -80,15 +80,9 @@ commands:
   voteall:
     description: A command
     aliases: vall
-  votechoices:
-    description: A command
-    alaises: vchoices
   adminvotehelp:
     description: Open adminvote help
     aliases: avhelp
-  adminvote?:
-    description: Open adminvote help
-    aliases: av?
   adminvotereport:
     description: Command Alias
     aliases: avreport
@@ -119,9 +113,6 @@ commands:
   adminvoteconfig:
     description: Command Alias
     aliases: avconfig
-  adminvoteupdatecheck:
-    description: Command Alias
-    aliases: avupdatecheck
   adminvotevote:
     description: Command Alias
     aliases:
@@ -133,29 +124,17 @@ commands:
   adminvotegivereward:
     description: Command Alias
     aliases: avgivereward
-  adminvoteconvertfromdata:
-    description: Command Alias
-    aliases: avconvertfromdata
-  adminvoteonverttodata:
-    description: Command Alias
-    aliases: avconverttodata
   adminvotecleartotal:
     description: Command Alias
   adminvotebackgroundupdate:
     description: Command Alias
     aliases: avbackgroundupdate
-  adminvoteclearcache:
-    description: Command Alias
-    aliases: avclearcache
   adminvoteservicesites:
     description: Command Alias
     aliases: avservicesites
   adminvotevoteparty:
     description: Command Alias
     aliases: avvoteparty
-  adminvotechoices:
-    description: Command Alias
-    aliases: avchoices
   adminvotereloadall:
     description: Command Alias
     aliases: avreloadall
@@ -171,21 +150,9 @@ commands:
   adminvotegiveallonline:
     description: Command Alias
     aliases: avgiveallonline
-  adminvoteforcetimechanged:
-    description: Command Alias
-    aliases: avforcetimechanged
   adminvoteplayername:
     description: Command Alias
     aliases: avplayername
-  adminvoteclearofflinerewards:
-    description: Command Alias
-    aliases: avclearofflinerewards
-  adminvoteuserremove:
-    description: Command Alias
-    aliases: avuserremove
-  adminvotepurge:
-    description: Command Alias
-    aliases: avpurge
   adminvotestatus:
     description: Command Alias
     aliases: avstatus
@@ -195,27 +162,9 @@ commands:
   adminvoteplaceholders:
     description: Command Alias
     aliases: avplaceholders
-  adminvotesetrequestmethod:
-    description: Command Alias
-    aliases: avsetrequestmethod
   adminvoteuser:
     description: Command Alias
     aliases: avuser
-  adminvotecurrentplugintime:
-    description: Command Alias
-    aliases: avcurrentplugintime
-  adminvoteresetpoints:
-    description: Command Alias
-    aliases: avresetpoints
-  adminvoteruncmd:
-    description: Command Alias
-    aliases: avruncmd
-  adminvoteuseruuidremove:
-    description: Command Alias
-    aliases: avuseruuidremove
-  adminvoteedit:
-    description: Command Alias
-    aliases: avedit
 permissions:
   VotingPlugin.Player:
     description: Allows basic access player commands
