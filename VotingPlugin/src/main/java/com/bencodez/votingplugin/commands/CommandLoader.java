@@ -2746,97 +2746,99 @@ public class CommandLoader {
 			}
 		});
 
-		if (plugin.getShopFile().isVoteShopEnabled()) {
-			plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "Shop" },
-					"VotingPlugin.Commands.Vote.Shop|" + playerPerm, "Open VoteShop GUI", false) {
+		plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "Shop" },
+				"VotingPlugin.Commands.Vote.Shop|" + playerPerm, "Open VoteShop GUI", false) {
 
-				@Override
-				public void execute(CommandSender sender, String[] args) {
-					new VoteShop(plugin, sender,
-							plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender)).open();
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				if (!plugin.getShopFile().isVoteShopEnabled()) {
+					sender.sendMessage(MessageAPI.colorize("&cVote shop disabled"));
+					return;
 				}
-			});
-			plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "Shop", "(Text)" },
-					"VotingPlugin.Commands.Vote.Shop|" + playerPerm, "Open VoteShop GUI", false) {
+				new VoteShop(plugin, sender, plugin.getVotingPluginUserManager().getVotingPluginUser((Player) sender))
+						.open();
 
-				@Override
-				public void execute(CommandSender sender, String[] args) {
-					if (!plugin.getShopFile().isVoteShopEnabled()) {
-						sender.sendMessage(MessageAPI.colorize("&cVote shop disabled"));
-						return;
+			}
+		});
+		plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "Shop", "(Text)" },
+				"VotingPlugin.Commands.Vote.Shop|" + playerPerm, "Open VoteShop GUI", false) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				if (!plugin.getShopFile().isVoteShopEnabled()) {
+					sender.sendMessage(MessageAPI.colorize("&cVote shop disabled"));
+					return;
+				}
+
+				String identifier = args[1];
+				Set<String> identifiers = plugin.getShopFile().getShopIdentifiers();
+				if (ArrayUtils.containsIgnoreCase(identifiers, identifier)) {
+					for (String ident : identifiers) {
+						if (ident.equalsIgnoreCase(args[1])) {
+							identifier = ident;
+						}
 					}
 
-					String identifier = args[1];
-					Set<String> identifiers = plugin.getShopFile().getShopIdentifiers();
-					if (ArrayUtils.containsIgnoreCase(identifiers, identifier)) {
-						for (String ident : identifiers) {
-							if (ident.equalsIgnoreCase(args[1])) {
-								identifier = ident;
+					String perm = plugin.getShopFile().getVoteShopPermission(identifier);
+					boolean hasPerm = false;
+					if (perm.isEmpty()) {
+						hasPerm = true;
+					} else {
+						hasPerm = sender.hasPermission(perm);
+					}
+
+					int limit = plugin.getShopFile().getShopIdentifierLimit(identifier);
+
+					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(sender.getName());
+					boolean limitPass = true;
+					if (limit > 0) {
+
+						if (user.getVoteShopIdentifierLimit(identifier) >= limit) {
+							limitPass = false;
+						}
+					}
+
+					if (!plugin.getShopFile().getVoteShopNotBuyable(identifier)) {
+						if (hasPerm) {
+							if (plugin.getConfigFile().isExtraVoteShopCheck()) {
+								user.cache();
 							}
-						}
+							int points = plugin.getShopFile().getShopIdentifierCost(identifier);
+							if (identifier != null) {
 
-						String perm = plugin.getShopFile().getVoteShopPermission(identifier);
-						boolean hasPerm = false;
-						if (perm.isEmpty()) {
-							hasPerm = true;
-						} else {
-							hasPerm = sender.hasPermission(perm);
-						}
+								if (limitPass) {
+									HashMap<String, String> placeholders = new HashMap<>();
+									placeholders.put("identifier", identifier);
+									placeholders.put("points", "" + points);
+									placeholders.put("limit", "" + limit);
+									if (user.removePoints(points, true)) {
 
-						int limit = plugin.getShopFile().getShopIdentifierLimit(identifier);
+										plugin.getRewardHandler().giveReward(user, plugin.getShopFile().getData(),
+												plugin.getShopFile().getShopIdentifierRewardsPath(identifier),
+												new RewardOptions().setPlaceholders(placeholders));
 
-						VotingPluginUser user = plugin.getVotingPluginUserManager()
-								.getVotingPluginUser(sender.getName());
-						boolean limitPass = true;
-						if (limit > 0) {
-
-							if (user.getVoteShopIdentifierLimit(identifier) >= limit) {
-								limitPass = false;
-							}
-						}
-
-						if (!plugin.getShopFile().getVoteShopNotBuyable(identifier)) {
-							if (hasPerm) {
-								if (plugin.getConfigFile().isExtraVoteShopCheck()) {
-									user.cache();
-								}
-								int points = plugin.getShopFile().getShopIdentifierCost(identifier);
-								if (identifier != null) {
-
-									if (limitPass) {
-										HashMap<String, String> placeholders = new HashMap<>();
-										placeholders.put("identifier", identifier);
-										placeholders.put("points", "" + points);
-										placeholders.put("limit", "" + limit);
-										if (user.removePoints(points, true)) {
-
-											plugin.getRewardHandler().giveReward(user, plugin.getShopFile().getData(),
-													plugin.getShopFile().getShopIdentifierRewardsPath(identifier),
-													new RewardOptions().setPlaceholders(placeholders));
-
-											user.sendMessage(PlaceholderUtils.replacePlaceHolder(
-													plugin.getConfigFile().getFormatShopPurchaseMsg(), placeholders));
-											if (limit > 0) {
-												user.setVoteShopIdentifierLimit(identifier,
-														user.getVoteShopIdentifierLimit(identifier) + 1);
-											}
-										} else {
-											user.sendMessage(PlaceholderUtils.replacePlaceHolder(
-													plugin.getConfigFile().getFormatShopFailedMsg(), placeholders));
+										user.sendMessage(PlaceholderUtils.replacePlaceHolder(
+												plugin.getConfigFile().getFormatShopPurchaseMsg(), placeholders));
+										if (limit > 0) {
+											user.setVoteShopIdentifierLimit(identifier,
+													user.getVoteShopIdentifierLimit(identifier) + 1);
 										}
 									} else {
-										user.sendMessage(plugin.getShopFile().getVoteShopLimitReached());
+										user.sendMessage(PlaceholderUtils.replacePlaceHolder(
+												plugin.getConfigFile().getFormatShopFailedMsg(), placeholders));
 									}
+								} else {
+									user.sendMessage(plugin.getShopFile().getVoteShopLimitReached());
 								}
-
 							}
+
 						}
-					} else {
-						sendMessage(sender, "&cWrong voteshop item");
 					}
+				} else {
+					sendMessage(sender, "&cWrong voteshop item");
 				}
-			});
-		}
+			}
+		});
 
 		plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "URL", "(SiteName)" },
 				"VotingPlugin.Commands.Vote.URL.VoteSite", "Open VoteURL GUI for VoteSite", false) {
