@@ -277,7 +277,8 @@ public class BungeeHandler implements Listener {
 					return;
 				}
 
-				plugin.debug("pluginmessaging voteupdate received for " + playerUuid);
+				plugin.debug("pluginmessaging voteupdate received for " + playerUuid + ": " + v.votePartyCurrent + "/"
+						+ v.votePartyRequired + " on " + v.service);
 				VotingPluginUser user = plugin.getVotingPluginUserManager()
 						.getVotingPluginUser(UUID.fromString(playerUuid));
 				user.cache();
