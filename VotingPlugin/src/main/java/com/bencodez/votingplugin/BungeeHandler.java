@@ -281,10 +281,10 @@ public class BungeeHandler implements Listener {
 						+ v.votePartyRequired + " on " + v.service);
 
 				// Vote party cache update
-				if (v.votePartyCurrent != 0 || bungeeVotePartyCurrent == -2) {
+				if (v.votePartyCurrent >= 0 || bungeeVotePartyCurrent == -2) {
 					bungeeVotePartyCurrent = v.votePartyCurrent;
 				}
-				if (v.votePartyRequired != 0 || bungeeVotePartyRequired == -2) {
+				if (v.votePartyRequired >= 0 || bungeeVotePartyRequired == -2) {
 					bungeeVotePartyRequired = v.votePartyRequired;
 				}
 				plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);

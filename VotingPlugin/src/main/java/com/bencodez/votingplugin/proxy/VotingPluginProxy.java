@@ -74,11 +74,11 @@ import lombok.Setter;
 public abstract class VotingPluginProxy {
 	@Getter
 	@Setter
-	private int votePartyVotes = 0;
+	private int votePartyVotes = -1;
 
 	@Getter
 	@Setter
-	private int currentVotePartyVotesRequired = 0;
+	private int currentVotePartyVotesRequired = -1;
 
 	@Getter
 	@Setter
