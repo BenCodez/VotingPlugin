@@ -292,6 +292,7 @@ public class BungeeHandler implements Listener {
 				if (v.votePartyRequired != 0 || bungeeVotePartyRequired == -2) {
 					bungeeVotePartyRequired = v.votePartyRequired;
 				}
+				plugin.getPlaceholders().onBungeeVotePartyUpdate();
 				plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);
 				plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
 
