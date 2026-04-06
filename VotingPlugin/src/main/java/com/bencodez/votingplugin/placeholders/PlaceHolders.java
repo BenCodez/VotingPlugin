@@ -1205,20 +1205,7 @@ public class PlaceHolders {
 			}
 		});
 	}
-
-	/**
-	 * Handle bungee vote party update.
-	 */
-	public void onBungeeVotePartyUpdate() {
-		/*
-		 * for (NonPlayerPlaceHolder<VotingPluginUser> placeholder :
-		 * nonPlayerPlaceholders) { if (placeholder.isUsesCache()) { if
-		 * (placeholder.getIdentifier().startsWith("BungeeVoteParty")) { for (String
-		 * ident : placeholder.getCache().keySet()) { placeholder.getCache().put(ident,
-		 * placeholder.placeholderRequest(ident)); } } } }
-		 */
-	}
-
+	
 	/**
 	 * Handle player logout.
 	 * @param user the voting plugin user

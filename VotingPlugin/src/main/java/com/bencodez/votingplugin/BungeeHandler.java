@@ -279,11 +279,6 @@ public class BungeeHandler implements Listener {
 
 				plugin.debug("pluginmessaging voteupdate received for " + playerUuid + ": " + v.votePartyCurrent + "/"
 						+ v.votePartyRequired + " on " + v.service);
-				VotingPluginUser user = plugin.getVotingPluginUserManager()
-						.getVotingPluginUser(UUID.fromString(playerUuid));
-				user.cache();
-
-				user.offVote();
 
 				// Vote party cache update
 				if (v.votePartyCurrent != 0 || bungeeVotePartyCurrent == -2) {
@@ -292,9 +287,14 @@ public class BungeeHandler implements Listener {
 				if (v.votePartyRequired != 0 || bungeeVotePartyRequired == -2) {
 					bungeeVotePartyRequired = v.votePartyRequired;
 				}
-				plugin.getPlaceholders().onBungeeVotePartyUpdate();
 				plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);
 				plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
+
+				VotingPluginUser user = plugin.getVotingPluginUserManager()
+						.getVotingPluginUser(UUID.fromString(playerUuid));
+				user.cache();
+
+				user.offVote();
 
 				// Optional: update last vote time for a service
 				String service = v.service;
@@ -582,7 +582,6 @@ public class BungeeHandler implements Listener {
 
 		bungeeVotePartyCurrent = text.getVotePartyCurrent();
 		bungeeVotePartyRequired = text.getVotePartyRequired();
-		plugin.getPlaceholders().onBungeeVotePartyUpdate();
 		plugin.getServerData().setBungeeVotePartyCurrent(bungeeVotePartyCurrent);
 		plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
 
