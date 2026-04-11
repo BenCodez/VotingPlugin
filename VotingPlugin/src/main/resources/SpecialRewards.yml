@@ -152,10 +152,15 @@ VoteParty:
   CountOfflineVotes: true
   # Broadcast when vote party reached
   Broadcast: '&cReached the vote party amount!'
-  # Send a broadcast at a certain number of votes left and send a vote reminder
-  VoteReminderBroadcast: '%votesrequired% left to go, go vote!'
+ 
   # Send vote reminder at number of votes to go
-  VoteReminderAtVotes: []
+  VoteReminder:
+    AtVotes: []
+    # Send a broadcast at a certain number of votes left and send a vote reminder
+    Broadcast: '%votesrequired% left to go, go vote!'
+    # Commands to run instead
+    Commands: []
+   
   # List of commands to execute, these only execute once.
   # %player% does not work here
   GlobalCommands: []

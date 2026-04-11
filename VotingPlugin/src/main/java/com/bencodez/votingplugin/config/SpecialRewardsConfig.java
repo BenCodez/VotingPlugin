@@ -57,13 +57,17 @@ public class SpecialRewardsConfig extends YMLFile {
 	@Getter
 	private boolean votePartyResetExtraVotesWeekly = false;
 
-	@ConfigDataString(path = "VoteParty.VoteReminderBroadcast")
+	@ConfigDataString(path = "VoteParty.VoteReminder.Broadcast", secondPath = "VoteParty.VoteReminderBroadcast")
 	@Getter
 	private String votePartyVoteReminderBroadcast = "%votesrequired% left to go, go vote!";
 
-	@ConfigDataListInt(path = "VoteParty.VoteReminderAtVotes")
+	@ConfigDataListInt(path = "VoteParty.VoteReminder.AtVotes", secondPath = "VoteParty.VoteReminderAtVotes")
 	@Getter
 	private ArrayList<Integer> votePartyVoteReminderAtVotes = new ArrayList<>();
+
+	@ConfigDataListString(path = "VoteParty.VoteReminder.Commands", secondPath = "VoteParty.VoteReminderCommands")
+	@Getter
+	private ArrayList<String> votePartyVoteReminderCommands = new ArrayList<>();
 
 	@ConfigDataListString(path = "VoteParty.GlobalRandomCommand")
 	@Getter
@@ -218,7 +222,7 @@ public class SpecialRewardsConfig extends YMLFile {
 	 * Checks if a vote streak reward is enabled.
 	 *
 	 * @param type the streak type
-	 * @param s the streak value
+	 * @param s    the streak value
 	 * @return true if enabled
 	 */
 	public boolean getVoteStreakRewardEnabled(String type, String s) {
@@ -228,7 +232,7 @@ public class SpecialRewardsConfig extends YMLFile {
 	/**
 	 * Gets the rewards path for a vote streak.
 	 *
-	 * @param type the streak type
+	 * @param type   the streak type
 	 * @param string the streak value
 	 * @return the vote streak rewards path
 	 */

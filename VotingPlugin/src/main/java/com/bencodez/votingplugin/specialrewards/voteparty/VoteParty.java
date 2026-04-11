@@ -76,7 +76,7 @@ public class VoteParty implements Listener {
 	/**
 	 * Checks if vote party requirements are met and triggers if appropriate.
 	 *
-	 * @param user the voting plugin user
+	 * @param user        the voting plugin user
 	 * @param forceBungee whether to force Bungee processing
 	 */
 	public void check(VotingPluginUser user, boolean forceBungee) {
@@ -138,6 +138,9 @@ public class VoteParty implements Listener {
 					placeholders.put("votesrequired", "" + neededVotes);
 					MiscUtils.getInstance()
 							.broadcast(PlaceholderUtils.replacePlaceHolder(broadcastMessage, placeholders));
+
+					MiscUtils.getInstance().executeConsoleCommands(
+							plugin.getSpecialRewardsConfig().getVotePartyVoteReminderCommands(), placeholders, false);
 				}
 			}
 		}
@@ -215,7 +218,7 @@ public class VoteParty implements Listener {
 	 * @return the voted users
 	 */
 	public List<String> getVotedUsers() {
-		List<String> list =  plugin.getServerData().getData().getStringList("VoteParty.Voted");
+		List<String> list = plugin.getServerData().getData().getStringList("VoteParty.Voted");
 		if (list != null) {
 			return list;
 		}
@@ -239,7 +242,7 @@ public class VoteParty implements Listener {
 	/**
 	 * Gives vote party reward to a user.
 	 *
-	 * @param user the voting plugin user
+	 * @param user      the voting plugin user
 	 * @param useBungee whether to use Bungee processing
 	 */
 	public void giveReward(VotingPluginUser user, boolean useBungee) {
@@ -254,8 +257,8 @@ public class VoteParty implements Listener {
 	/**
 	 * Gives vote party reward to a user with online status.
 	 *
-	 * @param user the voting plugin user
-	 * @param online whether the user is online
+	 * @param user      the voting plugin user
+	 * @param online    whether the user is online
 	 * @param useBungee whether to use Bungee processing
 	 */
 	public void giveReward(VotingPluginUser user, boolean online, boolean useBungee) {
@@ -269,7 +272,7 @@ public class VoteParty implements Listener {
 	/**
 	 * Gives rewards to all eligible players for the vote party.
 	 *
-	 * @param orgUser the original voting user who triggered the party
+	 * @param orgUser     the original voting user who triggered the party
 	 * @param forceBungee whether to force Bungee processing
 	 */
 	public void giveRewards(VotingPluginUser orgUser, boolean forceBungee) {
@@ -452,8 +455,8 @@ public class VoteParty implements Listener {
 	/**
 	 * Processes a vote for the vote party system.
 	 *
-	 * @param user the voting plugin user
-	 * @param realVote whether this is a real vote
+	 * @param user        the voting plugin user
+	 * @param realVote    whether this is a real vote
 	 * @param forceBungee whether to force Bungee processing
 	 */
 	public synchronized void vote(VotingPluginUser user, boolean realVote, boolean forceBungee) {
