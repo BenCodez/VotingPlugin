@@ -48,9 +48,10 @@ public class GitHubVoteSitePresetLoaderTest {
 	 * Verifies an exact domain match returns the correct preset.
 	 *
 	 * @throws IOException if loading fails
+	 * @throws InterruptedException 
 	 */
 	@Test
-	public void testFindVoteSitePresetForURLExactMatch() throws IOException {
+	public void testFindVoteSitePresetForURLExactMatch() throws IOException, InterruptedException {
 		VoteSitePreset mcServers = createPreset("votesite:mc-servers-com", "mc-servers.com",
 				Arrays.asList("mc-servers.com", "www.mc-servers.com"));
 
@@ -69,9 +70,10 @@ public class GitHubVoteSitePresetLoaderTest {
 	 * Verifies a subdomain match returns the correct preset.
 	 *
 	 * @throws IOException if loading fails
+	 * @throws InterruptedException 
 	 */
 	@Test
-	public void testFindVoteSitePresetForURLSubdomainMatch() throws IOException {
+	public void testFindVoteSitePresetForURLSubdomainMatch() throws IOException, InterruptedException {
 		VoteSitePreset preset = createPreset("votesite:mc-servers-com", "mc-servers.com",
 				Arrays.asList("mc-servers.com"));
 
@@ -87,9 +89,10 @@ public class GitHubVoteSitePresetLoaderTest {
 	 * Verifies that a similar URL does not incorrectly match another preset.
 	 *
 	 * @throws IOException if loading fails
+	 * @throws InterruptedException 
 	 */
 	@Test
-	public void testFindVoteSitePresetForURLDoesNotMatchWrongPreset() throws IOException {
+	public void testFindVoteSitePresetForURLDoesNotMatchWrongPreset() throws IOException, InterruptedException {
 		VoteSitePreset mcServers = createPreset("votesite:mc-servers-com", "MC-Servers.com",
 				Arrays.asList("mc-servers.com", "www.mc-servers.com"));
 
@@ -108,9 +111,10 @@ public class GitHubVoteSitePresetLoaderTest {
 	 * Verifies that an unmatched URL returns null.
 	 *
 	 * @throws IOException if loading fails
+	 * @throws InterruptedException 
 	 */
 	@Test
-	public void testFindVoteSitePresetForURLNoMatch() throws IOException {
+	public void testFindVoteSitePresetForURLNoMatch() throws IOException, InterruptedException {
 		VoteSitePreset preset = createPreset("votesite:mc-servers-com", "MC-Servers.com",
 				Arrays.asList("mc-servers.com"));
 

@@ -1,11 +1,13 @@
 package com.bencodez.votingplugin.servicesites;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpClient.Redirect;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -23,87 +25,46 @@ import lombok.Getter;
 /**
  * Handles service site name/value mappings.
  *
- * <p>
- * Primary runtime storage is {@code serverdata.yml} as a list of strings:
- * 
- * <pre>
+ * Primary runtime storage is serverdata.yml as a list of strings:
+ *
  * ServiceSites:
  *   - "PlanetMinecraft - planetminecraft.com"
  *   - "TopG - topg.org"
- * </pre>
  *
- * <p>
  * On startup this class:
- * <ol>
- * <li>Loads the list from {@code serverdata.yml} into memory.</li>
- * <li>Checks the web sources once for updates and overwrites
- * {@code serverdata.yml} if changed.</li>
- * </ol>
+ * 1. Loads the list from serverdata.yml into memory.
+ * 2. Checks the web sources once for updates and overwrites
+ *    serverdata.yml if changed.
  *
- * <p>
  * Lookups are case-insensitive while preserving original casing.
- * </p>
  */
 public class ServiceSiteHandler {
 
-	/**
-	 * Primary source: GitHub wiki raw markdown (most stable).
-	 */
 	private static final String PRIMARY_URL = "https://raw.githubusercontent.com/wiki/BenCodez/VotingPlugin/Minecraft-Server-Lists.md";
-
-	/**
-	 * Secondary source: main wiki (HTML).
-	 */
 	private static final String SECONDARY_URL = "https://wiki.bencodez.com/en/VotingPlugin/Minecraft-Server-Lists";
-
-	/**
-	 * Tertiary source: backup wiki (HTML).
-	 */
 	private static final String TERTIARY_URL = "https://wiki-backup.bencodez.com/VotingPlugin/Minecraft-Server-Lists/";
 
-	/**
-	 * YAML path used in {@code serverdata.yml}.
-	 */
 	private static final String SERVERDATA_PATH = "ServiceSites";
 
-	/**
-	 * Matches entries in the format {@code Key - Value}.
-	 */
 	private static final Pattern LINE_PATTERN = Pattern.compile("^\\s*(.+?)\\s+-\\s+(.+?)\\s*$");
-
-	/**
-	 * Extracts {@code 
-	 * 
-	<li>...</li>} content from HTML.
-	 */
 	private static final Pattern LI_PATTERN = Pattern.compile("<li>\\s*(.*?)\\s*</li>", Pattern.CASE_INSENSITIVE);
 
 	private final VotingPluginMain plugin;
 
 	/**
-	 * Case-insensitive lookup map (atomic swap on update).
+	 * Shared HTTP client.
 	 */
+	private final HttpClient httpClient = HttpClient.newBuilder()
+			.followRedirects(Redirect.NORMAL)
+			.connectTimeout(Duration.ofSeconds(5))
+			.build();
+
 	private final AtomicReference<Map<String, String>> sitesRef = new AtomicReference<>(
 			Collections.unmodifiableMap(new TreeMap<>(String.CASE_INSENSITIVE_ORDER)));
 
-	/**
-	 * Exposed read-only view of current service sites.
-	 */
 	@Getter
 	private Map<String, String> serviceSites = sitesRef.get();
 
-	/**
-	 * Creates the handler, loads from {@code serverdata.yml}, then checks the web
-	 * sources once for updates.
-	 *
-	 * <p>
-	 * Important: this performs a blocking web fetch on the current thread. If you
-	 * need this to be async, call {@link #refreshFromWebOnce(boolean)} from your
-	 * own async executor.
-	 * </p>
-	 *
-	 * @param plugin plugin instance
-	 */
 	public ServiceSiteHandler(VotingPluginMain plugin) {
 		this.plugin = plugin;
 
@@ -115,22 +76,10 @@ public class ServiceSiteHandler {
 		}
 	}
 
-	/**
-	 * Checks whether a service key exists (case-insensitive).
-	 *
-	 * @param service service name
-	 * @return {@code true} if present
-	 */
 	public boolean contains(String service) {
 		return service != null && sitesRef.get().containsKey(service);
 	}
 
-	/**
-	 * Maps a service name to its configured value.
-	 *
-	 * @param service service name
-	 * @return mapped value, or {@code service} if not found
-	 */
 	public String match(String service) {
 		if (service == null) {
 			return null;
@@ -138,12 +87,6 @@ public class ServiceSiteHandler {
 		return sitesRef.get().getOrDefault(service, service);
 	}
 
-	/**
-	 * Reverse lookup from value to key.
-	 *
-	 * @param value value to reverse lookup
-	 * @return matching key, or {@code value} if not found
-	 */
 	public String matchReverse(String value) {
 		if (value == null) {
 			return null;
@@ -156,9 +99,6 @@ public class ServiceSiteHandler {
 		return value;
 	}
 
-	/**
-	 * Loads service sites from {@code serverdata.yml}.
-	 */
 	public void loadFromServerData() {
 		List<String> lines = plugin.getServerData().getData().getStringList(SERVERDATA_PATH);
 
@@ -170,25 +110,12 @@ public class ServiceSiteHandler {
 		}
 	}
 
-	/**
-	 * Saves current service sites to {@code serverdata.yml}.
-	 */
 	public void saveToServerData() {
 		List<String> out = toListFormat(sitesRef.get());
 		plugin.getServerData().getData().set(SERVERDATA_PATH, out);
 		plugin.getServerData().saveData();
 	}
 
-	/**
-	 * Checks the web sources once and updates {@code serverdata.yml} if changes are
-	 * detected.
-	 *
-	 * <p>
-	 * Tries primary, secondary, then tertiary URL.
-	 * </p>
-	 *
-	 * @param logMore whether to log debug details
-	 */
 	public void refreshFromWebOnce(boolean logMore) {
 		try {
 			FetchResult res = fetchWithFallback(PRIMARY_URL, SECONDARY_URL, TERTIARY_URL);
@@ -212,17 +139,14 @@ public class ServiceSiteHandler {
 			saveToServerData();
 
 			plugin.extraDebug("ServiceSite refresh updated from " + res.sourceUrl + " (" + parsed.size() + " entries)");
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			plugin.debug(e);
 		} catch (Exception e) {
 			plugin.debug(e);
 		}
 	}
 
-	/**
-	 * Converts a map into list format used by {@code serverdata.yml}.
-	 *
-	 * @param map map to convert
-	 * @return list of {@code "Key - Value"} entries
-	 */
 	public List<String> toListFormat(Map<String, String> map) {
 		List<String> out = new ArrayList<>(map.size());
 		for (Map.Entry<String, String> e : map.entrySet()) {
@@ -232,8 +156,8 @@ public class ServiceSiteHandler {
 	}
 
 	private void setSites(Map<String, String> newSites) {
-		Map<String, String> unmodifiable = Collections
-				.unmodifiableMap(new TreeMap<String, String>(String.CASE_INSENSITIVE_ORDER) {
+		Map<String, String> unmodifiable = Collections.unmodifiableMap(
+				new TreeMap<String, String>(String.CASE_INSENSITIVE_ORDER) {
 					{
 						putAll(newSites);
 					}
@@ -242,7 +166,7 @@ public class ServiceSiteHandler {
 		serviceSites = unmodifiable;
 	}
 
-	private FetchResult fetchWithFallback(String... urls) throws IOException {
+	private FetchResult fetchWithFallback(String... urls) throws IOException, InterruptedException {
 		IOException last = null;
 		for (String url : urls) {
 			try {
@@ -255,34 +179,24 @@ public class ServiceSiteHandler {
 		throw last != null ? last : new IOException("No URLs available");
 	}
 
-	private FetchResult fetch(String urlStr) throws IOException {
-		HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-		conn.setRequestMethod("GET");
-		conn.setConnectTimeout(5000);
-		conn.setReadTimeout(7000);
-		conn.setInstanceFollowRedirects(true);
-		conn.setRequestProperty("User-Agent", "VotingPlugin/ServiceSiteHandler");
+	private FetchResult fetch(String urlStr) throws IOException, InterruptedException {
+		HttpRequest request = HttpRequest.newBuilder()
+				.uri(URI.create(urlStr))
+				.GET()
+				.timeout(Duration.ofSeconds(7))
+				.header("User-Agent", "VotingPlugin/ServiceSiteHandler")
+				.build();
 
-		int code = conn.getResponseCode();
+		HttpResponse<String> response = httpClient.send(request,
+				HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+
+		int code = response.statusCode();
 		if (code < 200 || code >= 300) {
-			conn.disconnect();
 			throw new IOException("HTTP " + code);
 		}
 
-		String ct = conn.getContentType();
-		StringBuilder sb = new StringBuilder(16 * 1024);
-
-		try (BufferedReader br = new BufferedReader(
-				new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
-			String line;
-			while ((line = br.readLine()) != null) {
-				sb.append(line).append('\n');
-			}
-		} finally {
-			conn.disconnect();
-		}
-
-		return new FetchResult(urlStr, sb.toString(), ct);
+		String contentType = response.headers().firstValue("Content-Type").orElse(null);
+		return new FetchResult(urlStr, response.body(), contentType);
 	}
 
 	private Map<String, String> parseFromWebBody(String body, String contentType) {
@@ -368,9 +282,6 @@ public class ServiceSiteHandler {
 		return out.trim();
 	}
 
-	/**
-	 * Web fetch result container.
-	 */
 	private static final class FetchResult {
 		private final String sourceUrl;
 		private final String body;

@@ -1,12 +1,10 @@
 package com.bencodez.votingplugin.webhook;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Objects;
@@ -181,24 +179,37 @@ public final class WebhookService {
 		}
 	}
 
+	/**
+	 * Sends a single webhook request using HttpClient.
+	 *
+	 * @param def webhook definition
+	 * @param req webhook request
+	 * @return HTTP status code
+	 * @throws IOException          if network error occurs
+	 * @throws InterruptedException if interrupted
+	 */
 	private int sendOnce(WebhookDefinition def, WebhookRequest req) throws IOException, InterruptedException {
 
 		def.setLastRetryAfterMs(0);
 
-		HttpURLConnection conn = (HttpURLConnection) new URL(def.getUrl()).openConnection();
-		conn.setConnectTimeout(def.getTimeoutMs());
-		conn.setReadTimeout(def.getTimeoutMs());
-		conn.setUseCaches(false);
-		conn.setDoOutput(true);
-		conn.setRequestMethod(def.getMethod().name());
+		HttpClient client = HttpClient.newBuilder().connectTimeout(java.time.Duration.ofMillis(def.getTimeoutMs()))
+				.build();
 
-		conn.setRequestProperty("Content-Type", def.getContentType());
+		HttpRequest.Builder builder = HttpRequest.newBuilder().uri(URI.create(def.getUrl()))
+				.timeout(java.time.Duration.ofMillis(def.getTimeoutMs()));
+
+		// Method + body
+		builder.method(def.getMethod().name(),
+				HttpRequest.BodyPublishers.ofString(req.getBody(), StandardCharsets.UTF_8));
+
+		// Content-Type
+		builder.header("Content-Type", def.getContentType());
 
 		// Headers
 		if (req.getHeaders() != null) {
 			for (Map.Entry<String, String> e : req.getHeaders().entrySet()) {
 				if (e.getKey() != null && !e.getKey().isEmpty() && e.getValue() != null) {
-					conn.setRequestProperty(e.getKey(), e.getValue());
+					builder.header(e.getKey(), e.getValue());
 				}
 			}
 		}
@@ -213,42 +224,24 @@ public final class WebhookService {
 			if (secret != null && !secret.isEmpty()) {
 				String signed = WebhookSigner.sign(sig.getAlgo(), secret, req.getBody());
 				if (signed != null && sig.getHeader() != null && !sig.getHeader().isEmpty()) {
-					conn.setRequestProperty(sig.getHeader(), signed);
+					builder.header(sig.getHeader(), signed);
 				}
 			}
 		}
 
-		// Write body
-		byte[] data = req.getBody().getBytes(StandardCharsets.UTF_8);
-		conn.setFixedLengthStreamingMode(data.length);
+		HttpRequest request = builder.build();
 
-		try (OutputStream os = conn.getOutputStream()) {
-			os.write(data);
-		}
+		HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
-		int code = conn.getResponseCode();
+		int code = response.statusCode();
+		String body = response.body();
 
-		// Read body for Discord retry_after
-		String body = null;
-		InputStream is = (code >= 200 && code < 400) ? conn.getInputStream() : conn.getErrorStream();
-
-		if (is != null) {
-			try (BufferedReader br = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
-				StringBuilder sb = new StringBuilder();
-				String line;
-				while ((line = br.readLine()) != null) {
-					sb.append(line);
-				}
-				body = sb.toString();
-			}
-		}
-
+		// Discord 429 handling
 		if (code == 429 && def.isHandleDiscordRateLimits()) {
 			long retryAfterMs = DiscordRateLimitUtil.extractRetryAfterMs(body);
 			def.setLastRetryAfterMs(retryAfterMs);
 		}
 
-		conn.disconnect();
 		return code;
 	}
 

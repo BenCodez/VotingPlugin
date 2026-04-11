@@ -2353,7 +2353,7 @@ public class CommandLoader {
 					}
 
 					plugin.getPresetHandler().promptPlaceholders((Player) sender, preset);
-				} catch (IOException e) {
+				} catch (IOException | InterruptedException e) {
 					plugin.getLogger().warning("Failed to search presets: " + e.getMessage());
 					sender.sendMessage("Could not determine a preset for that URL.");
 				}

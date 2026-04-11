@@ -1,15 +1,16 @@
 package com.bencodez.votingplugin.proxy;
 
-import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.sql.SQLException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -279,8 +280,8 @@ public abstract class VotingPluginProxy {
 	 */
 	public void loadMysql(MysqlConfig mysqlConfig, MysqlConfig globalDataMysqlConfig) {
 		if (mysqlConfig.getHostName().isEmpty() || mysqlConfig.getDatabase().isEmpty()) {
-			logSevere("MySQL is not configured correctly. " + "Missing host/database. host="
-					+ mysqlConfig.getHostName() + " db=" + mysqlConfig.getDatabase());
+			logSevere("MySQL is not configured correctly. " + "Missing host/database. host=" + mysqlConfig.getHostName()
+					+ " db=" + mysqlConfig.getDatabase());
 			setProxyMySQL(null);
 			return;
 		}
@@ -606,26 +607,50 @@ public abstract class VotingPluginProxy {
 		debug(message);
 	}
 
-	public UUID fetchUUID(String playerName) throws Exception {
+	/**
+	 * HTTP client used for Mojang API requests.
+	 */
+	private final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+
+	/**
+	 * Fetches a player's UUID from the Mojang API.
+	 *
+	 * @param playerName player name
+	 * @return player UUID, or {@code null} if not found
+	 * @throws IOException          if the request fails
+	 * @throws InterruptedException if interrupted while waiting for the response
+	 */
+	public UUID fetchUUID(String playerName) throws IOException, InterruptedException {
 		if (playerName == null || playerName.equalsIgnoreCase("null")) {
 			return null;
 		}
-		URL url = new URL("https://api.mojang.com/users/profiles/minecraft/" + playerName);
-		HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-		connection.connect();
 
-		if (connection.getResponseCode() == 400) {
+		HttpRequest request = HttpRequest.newBuilder()
+				.uri(URI.create("https://api.mojang.com/users/profiles/minecraft/" + playerName)).GET()
+				.timeout(Duration.ofSeconds(5)).build();
+
+		HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+		if (response.statusCode() == 400 || response.statusCode() == 404) {
 			log("There is no player with the name \"" + playerName + "\"!");
 			return null;
 		}
 
-		InputStream inputStream = connection.getInputStream();
-		BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
+		if (response.statusCode() < 200 || response.statusCode() >= 300) {
+			throw new IOException("Failed to fetch UUID for " + playerName + ", HTTP " + response.statusCode());
+		}
 
-		JsonElement element = JsonParser.parseReader(bufferedReader);
+		JsonElement element = JsonParser.parseString(response.body());
+		if (element == null || !element.isJsonObject()) {
+			return null;
+		}
+
 		JsonObject object = element.getAsJsonObject();
-		String uuidAsString = object.get("id").getAsString();
+		if (!object.has("id") || object.get("id").isJsonNull()) {
+			return null;
+		}
 
+		String uuidAsString = object.get("id").getAsString();
 		return parseUUIDFromString(uuidAsString);
 	}
 
@@ -700,22 +725,21 @@ public abstract class VotingPluginProxy {
 	public abstract MysqlConfig getNonVotedCacheMySQLConfig();
 
 	public abstract MysqlConfig getVoteLoggingMySQLConfig();
-	
+
 	/**
 	 * Shutdown MySQL-related resources safely.
 	 */
 	public void shutdownMySql() {
-	    if (getProxyMysqlMessenger() != null) {
-	        getProxyMysqlMessenger().shutdown();
-	        setProxyMysqlMessenger(null);
-	    }
+		if (getProxyMysqlMessenger() != null) {
+			getProxyMysqlMessenger().shutdown();
+			setProxyMysqlMessenger(null);
+		}
 
-	    if (getProxyMySQL() != null) {
-	        getProxyMySQL().shutdown();
-	        setProxyMySQL(null);
-	    }
+		if (getProxyMySQL() != null) {
+			getProxyMySQL().shutdown();
+			setProxyMySQL(null);
+		}
 	}
-
 
 	public void load(IVoteCache jsonStorage, INonVotedPlayersStorage nonVotedCacheJson) {
 		uuidPlayerNameCache = getProxyMySQL().getRowsUUIDNameQuery();
