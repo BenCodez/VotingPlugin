@@ -622,6 +622,24 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	/**
+	 * Returns whether this user has already claimed the NameMC like reward.
+	 *
+	 * @return true if claimed
+	 */
+	public boolean hasClaimedNameMCLikeReward() {
+		return getUserData().getBoolean("NameMCLikeRewardClaimed");
+	}
+
+	/**
+	 * Sets whether this user has already claimed the NameMC like reward.
+	 *
+	 * @param claimed true if claimed
+	 */
+	public void setClaimedNameMCLikeReward(boolean claimed) {
+		getUserData().setBoolean("NameMCLikeRewardClaimed", claimed);
+	}
+
+	/**
 	 * Gets the highest monthly total votes.
 	 *
 	 * @return the highest monthly total votes

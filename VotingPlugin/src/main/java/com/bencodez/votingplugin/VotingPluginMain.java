@@ -91,6 +91,7 @@ import com.bencodez.votingplugin.placeholders.VotingPluginExpansion;
 import com.bencodez.votingplugin.presets.VoteSitePresetSetupHandler;
 import com.bencodez.votingplugin.servicesites.ServiceSiteHandler;
 import com.bencodez.votingplugin.signs.Signs;
+import com.bencodez.votingplugin.specialrewards.NameMCLikeCheckerTask;
 import com.bencodez.votingplugin.specialrewards.SpecialRewards;
 import com.bencodez.votingplugin.specialrewards.votemilestones.VoteMilestonesManager;
 import com.bencodez.votingplugin.specialrewards.voteparty.VoteParty;
@@ -151,6 +152,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private CommandLoader commandLoader;
+
+	@Getter
+	private NameMCLikeCheckerTask nameMCLikeCheckerTask;
 
 	@Getter
 	private Config configFile;
@@ -1071,6 +1075,30 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 		}
 
+		// NameMC like reward
+		addDirectlyDefinedRewards(new DirectlyDefinedReward("NameMCLikeReward.Rewards") {
+
+			@Override
+			public void createSection(String key) {
+				getSpecialRewardsConfig().createSection(key);
+			}
+
+			@Override
+			public ConfigurationSection getFileData() {
+				return getSpecialRewardsConfig().getData();
+			}
+
+			@Override
+			public void save() {
+				getSpecialRewardsConfig().saveData();
+			}
+
+			@Override
+			public void setData(String path, Object value) {
+				getSpecialRewardsConfig().setValue(path, value);
+			}
+		});
+
 		addDirectlyDefinedRewards(new DirectlyDefinedReward("BungeeVotePartyRewards") {
 
 			@Override
@@ -1299,6 +1327,14 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		webhooks = new VotingPluginWebhooks(this);
 		webhooks.reload(getConfig().getConfigurationSection("Webhooks"));
+
+		if (getSpecialRewardsConfig().isNameMCLikeRewardEnabled()) {
+			nameMCLikeCheckerTask = new NameMCLikeCheckerTask(this);
+
+			long interval = Math.max(1, getSpecialRewardsConfig().getNameMCLikeRewardCheckIntervalMinutes()) * 60L
+					* 20L;
+			nameMCLikeCheckerTask.runTaskTimerAsynchronously(this, 20L, interval);
+		}
 
 		// Add rewards
 		getRewardHandler().addInjectedReward(new RewardInjectInt("Points", 0) {

@@ -160,6 +160,21 @@ public class SpecialRewardsConfig extends YMLFile {
 	@Getter
 	private Set<String> weeklyPossibleRewardPlaces = new HashSet<>();
 
+	@ConfigDataBoolean(path = "NameMCLikeReward.Enabled")
+	@Getter
+	private boolean nameMCLikeRewardEnabled = false;
+
+	@ConfigDataString(path = "NameMCLikeReward.Url")
+	@Getter
+	private String nameMCLikeRewardUrl = "";
+
+	@ConfigDataInt(path = "NameMCLikeReward.CheckIntervalMinutes")
+	@Getter
+	private int nameMCLikeRewardCheckIntervalMinutes = 10;
+
+	@Getter
+	private final String nameMCLikeRewardPath = "NameMCLikeReward.Rewards";
+
 	/**
 	 * Constructs a new SpecialRewardsConfig.
 	 *

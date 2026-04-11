@@ -196,6 +196,21 @@ VoteStreaks:
     Rewards:
       Commands:
       - say test
+      
+NameMCLikeReward:
+  Enabled: false
+
+  # Server ip/domain used in the NameMC API URL
+  Url: "play.example.com"
+  
+  # How often to check NameMC in minutes
+  CheckIntervalMinutes: 10
+
+  Rewards:
+    Messages:
+      Player: "&aThanks for liking the server on NameMC!"
+    Commands:
+    - "say %player% liked the server on NameMC!"
 
 # -----------------------------
 # Legacy vote rewards (DEPRECATED)
