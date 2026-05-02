@@ -162,5 +162,9 @@ class VoteStreakHandlerTest {
 		day.createSection("-3").set("Enabled", true);
 		loadFromRoot(root);
 		assertEquals(2, handler.getDefinitions().size());
+		assertNotNull(root.getConfigurationSection("VoteStreaks.LegacyDAILY2OneTime"));
+		assertNotNull(root.getConfigurationSection("VoteStreaks.LegacyDAILY3Recurring"));
+		assertFalse(root.getBoolean("VoteStreak.Day.2.Enabled"));
+		assertFalse(root.getBoolean("VoteStreak.Day.-3.Enabled"));
 	}
 }

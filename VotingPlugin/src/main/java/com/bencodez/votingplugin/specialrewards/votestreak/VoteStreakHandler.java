@@ -548,14 +548,21 @@ public class VoteStreakHandler {
 			if (legacy == null) {
 				return false;
 			}
+			ConfigurationSection voteStreaks = root.getConfigurationSection("VoteStreaks");
+			if (voteStreaks == null) {
+				voteStreaks = root.createSection("VoteStreaks");
+			}
 			boolean any = false;
-			any |= loadLegacyType(legacy, "Day", VoteStreakType.DAILY);
-			any |= loadLegacyType(legacy, "Week", VoteStreakType.WEEKLY);
-			any |= loadLegacyType(legacy, "Month", VoteStreakType.MONTHLY);
+			any |= loadLegacyType(voteStreaks, legacy, "Day", VoteStreakType.DAILY);
+			any |= loadLegacyType(voteStreaks, legacy, "Week", VoteStreakType.WEEKLY);
+			any |= loadLegacyType(voteStreaks, legacy, "Month", VoteStreakType.MONTHLY);
+			if (any) {
+				plugin.getSpecialRewardsConfig().saveData();
+			}
 			return any;
 		}
 
-		private boolean loadLegacyType(ConfigurationSection legacy, String key, VoteStreakType type) {
+		private boolean loadLegacyType(ConfigurationSection voteStreaks, ConfigurationSection legacy, String key, VoteStreakType type) {
 			ConfigurationSection sec = legacy.getConfigurationSection(key);
 			if (sec == null) return false;
 			boolean any = false;
@@ -570,6 +577,20 @@ public class VoteStreakHandler {
 				boolean enabled = defSec.getBoolean("Enabled", true);
 				defSec.set("Enabled", false);
 				String id = "Legacy" + type.name() + amount + (recurring ? "Recurring" : "OneTime");
+				if (voteStreaks.getConfigurationSection(id) == null) {
+					ConfigurationSection migrated = voteStreaks.createSection(id);
+					migrated.set("Type", type.name());
+					migrated.set("Enabled", enabled);
+					migrated.set("Recurring", recurring);
+					ConfigurationSection req = migrated.createSection("Requirements");
+					req.set("Amount", amount);
+					req.set("VotesRequired", 1);
+					migrated.set("AllowMissedAmount", 0);
+					migrated.set("AllowMissedPeriod", 0);
+					if (defSec.getConfigurationSection("Rewards") != null) {
+						migrated.set("Rewards", defSec.getConfigurationSection("Rewards").getValues(true));
+					}
+				}
 				VoteStreakDefinition def = new VoteStreakDefinition(id, type, enabled, amount, 1, 0, 0, recurring);
 				plugin.getUserManager().getDataManager()
 						.addKey(new UserDataKeyString(getColumnName(def)).setColumnType("MEDIUMTEXT"));
@@ -635,7 +656,6 @@ public class VoteStreakHandler {
 				}
 
 				boolean enabled = defSec.getBoolean("Enabled", true);
-				defSec.set("Enabled", false);
 
 				int amountInterval = 0;
 				int votesRequired = 1;
