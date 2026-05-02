@@ -3045,20 +3045,6 @@ public class CommandLoader {
 			}
 		});
 
-
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "MigrateVoteStreaks" },
-						"VotingPlugin.Commands.AdminVote.MigrateVoteStreaks|" + adminPerm,
-						"Migrate legacy VoteStreak config to VoteStreaks") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						int loaded = plugin.getVoteStreakHandler().migrateLegacyConfigManually();
-						plugin.getVoteStreakHandler().reload();
-						sendMessage(sender, "&aLegacy VoteStreak migration complete. Loaded definitions: " + loaded);
-					}
-				});
-
 		for (final TopVoter top : TopVoter.values()) {
 			String argName = top.toString();
 			String perm = top.toString();
