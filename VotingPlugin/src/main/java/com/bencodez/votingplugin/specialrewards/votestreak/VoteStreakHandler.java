@@ -186,7 +186,7 @@ public class VoteStreakHandler {
 				state.streakCount++;
 
 				int interval = Math.max(1, def.getRequiredAmount());
-				boolean shouldReward = state.streakCount > 0 && (state.streakCount % interval) == 0;
+				boolean shouldReward = shouldReward(def, state.streakCount);
 
 				plugin.extraDebug("[VoteStreak] period satisfied: streakCount=" + state.streakCount + " interval="
 						+ interval + " shouldReward=" + shouldReward);
@@ -209,6 +209,18 @@ public class VoteStreakHandler {
 		final String readBack = readStateString(user, col);
 		plugin.extraDebug("[VoteStreak] read-back col=" + col + " raw='" + readBack + "' (writtenLen="
 				+ rawAfter.length() + " readLen=" + readBack.length() + ")");
+	}
+
+	private boolean shouldReward(VoteStreakDefinition def, int streakCount) {
+		if (streakCount <= 0) {
+			return false;
+		}
+
+		int interval = Math.max(1, def.getRequiredAmount());
+		if (def.isRecurring()) {
+			return (streakCount % interval) == 0;
+		}
+		return streakCount == interval;
 	}
 
 	/**
@@ -626,6 +638,8 @@ public class VoteStreakHandler {
 					ConfigurationSection rewards = defSec.getConfigurationSection("Rewards");
 					if (rewards != null) {
 						migrated.createSection("Rewards", rewards.getValues(false));
+					} else if (defSec.isList("Rewards")) {
+						migrated.set("Rewards", defSec.getList("Rewards"));
 					}
 
 					migratedAny = true;

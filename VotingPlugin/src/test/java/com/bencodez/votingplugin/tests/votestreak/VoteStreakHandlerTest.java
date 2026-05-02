@@ -11,8 +11,11 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.lang.reflect.Method;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Level;
@@ -135,6 +138,20 @@ class VoteStreakHandlerTest {
 		return root;
 	}
 
+	private static YamlConfiguration rootWithLegacyListRewards() {
+		YamlConfiguration root = new YamlConfiguration();
+
+		ConfigurationSection legacy = root.createSection("VoteStreak");
+		ConfigurationSection day = legacy.createSection("Day");
+		day.set("Enabled", true);
+
+		ConfigurationSection enabledOneTime = day.createSection("3");
+		enabledOneTime.set("Enabled", true);
+		enabledOneTime.set("Rewards", Arrays.asList("VoteSteak_3_Rewards_Online", "VoteSteak_3_Rewards_Offline"));
+
+		return root;
+	}
+
 	/**
 	 * periodKey|streakCount|votesThisPeriod|countedThisPeriod|missWindowStartKey|missesUsed
 	 *
@@ -157,6 +174,12 @@ class VoteStreakHandlerTest {
 
 	private void setSpecialRewardsRoot(FileConfiguration root) {
 		when(plugin.getSpecialRewardsConfig().getData()).thenReturn(root);
+	}
+
+	private boolean shouldReward(VoteStreakDefinition def, int streakCount) throws Exception {
+		Method m = VoteStreakHandler.class.getDeclaredMethod("shouldReward", VoteStreakDefinition.class, int.class);
+		m.setAccessible(true);
+		return (boolean) m.invoke(handler, def, streakCount);
 	}
 
 	@Test
@@ -220,6 +243,22 @@ class VoteStreakHandlerTest {
 		assertEquals("1", p[2], "votesThisPeriod upgraded from old counted=true state and ignored on vote");
 		assertEquals("true", p[3]);
 		assertEquals("2", p[5], "missesUsed preserved");
+	}
+
+	@Test
+	void shouldReward_respectsRecurringFlag() throws Exception {
+		VoteStreakDefinition oneTime = new VoteStreakDefinition("oneTime", VoteStreakType.DAILY, true, 3, 1, 0, 0,
+				false);
+		VoteStreakDefinition recurring = new VoteStreakDefinition("recurring", VoteStreakType.DAILY, true, 3, 1, 0, 0,
+				true);
+
+		assertFalse(shouldReward(oneTime, 2));
+		assertTrue(shouldReward(oneTime, 3));
+		assertFalse(shouldReward(oneTime, 6));
+
+		assertFalse(shouldReward(recurring, 2));
+		assertTrue(shouldReward(recurring, 3));
+		assertTrue(shouldReward(recurring, 6));
 	}
 
 	@Test
@@ -297,6 +336,22 @@ class VoteStreakHandlerTest {
 		assertTrue(rewards.getKeys(false).contains("Messages"));
 		assertFalse(rewards.getKeys(false).contains("Messages.Player"),
 				"Rewards should not contain flattened Messages.Player key");
+	}
+
+	@Test
+	void migrateLegacyConfigManually_copiesListBasedRewards() {
+		YamlConfiguration root = rootWithLegacyListRewards();
+		setSpecialRewardsRoot(root);
+
+		handler.migrateLegacyConfigManually();
+
+		ConfigurationSection migrated = root.getConfigurationSection("VoteStreaks.LegacyDAILY3OneTime");
+		assertNotNull(migrated);
+
+		List<String> rewards = migrated.getStringList("Rewards");
+		assertEquals(Arrays.asList("VoteSteak_3_Rewards_Online", "VoteSteak_3_Rewards_Offline"), rewards);
+		assertFalse(migrated.isConfigurationSection("Rewards"),
+				"list-based reward references should remain list-based");
 	}
 
 }
