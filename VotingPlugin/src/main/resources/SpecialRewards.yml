@@ -193,6 +193,8 @@ VoteStreaks:
       VotesRequired: 3
     AllowMissedAmount: 1
     AllowMissedPeriod: 7
+    # true = reward every N streak completions, false = reward only once at N
+    Recurring: true
     Rewards:
       Commands:
       - say test

@@ -100,6 +100,38 @@ public class VoteStreakHandler {
 		}
 	}
 
+
+	private int getLegacyStreakProgress(VotingPluginUser user, VoteStreakType type) {
+		switch (type) {
+		case DAILY:
+			return Math.max(0, user.getDayVoteStreak());
+		case WEEKLY:
+			return Math.max(0, user.getWeekVoteStreak());
+		case MONTHLY:
+			return Math.max(0, user.getMonthVoteStreak());
+		default:
+			return 0;
+		}
+	}
+
+	private void migrateLegacyProgressIfNeeded(VotingPluginUser user, VoteStreakDefinition def, StreakState state,
+			String currentPeriodKey) {
+		if (state.periodKey != null && !state.periodKey.isEmpty()) {
+			return;
+		}
+		int legacyProgress = getLegacyStreakProgress(user, def.getType());
+		if (legacyProgress <= 0) {
+			return;
+		}
+		state.periodKey = currentPeriodKey;
+		state.streakCount = legacyProgress;
+		state.votesThisPeriod = 0;
+		state.countedThisPeriod = false;
+		state.missWindowStartKey = "";
+		state.missesUsed = 0;
+		plugin.extraDebug("[VoteStreak] migrated legacy progress for " + def.getId() + ": " + legacyProgress);
+	}
+
 	private void processVoteForDefinition(VotingPluginUser user, VoteStreakDefinition def, long voteTimeMillis,
 			UUID voteUUID) {
 		final String col = getColumnName(def);
@@ -107,6 +139,7 @@ public class VoteStreakHandler {
 		StreakState state = StreakState.deserialize(rawBefore);
 
 		final String currentPeriodKey = periodKey(def.getType(), voteTimeMillis);
+		migrateLegacyProgressIfNeeded(user, def, state, currentPeriodKey);
 
 		plugin.extraDebug("[VoteStreak] def=" + def.getId() + " idKey=" + def.getId() + " type=" + def.getType()
 				+ " col=" + col + " period=" + currentPeriodKey + " votesReq=" + def.getVotesRequired() + " interval="
@@ -146,7 +179,9 @@ public class VoteStreakHandler {
 				state.streakCount++;
 
 				int interval = Math.max(1, def.getRequiredAmount());
-				boolean shouldReward = state.streakCount > 0 && (state.streakCount % interval) == 0;
+				boolean shouldReward = def.isRecurring() ?
+						(state.streakCount > 0 && (state.streakCount % interval) == 0)
+						: (state.streakCount == interval);
 
 				plugin.extraDebug("[VoteStreak] period satisfied: streakCount=" + state.streakCount + " interval="
 						+ interval + " shouldReward=" + shouldReward);
@@ -505,8 +540,75 @@ public class VoteStreakHandler {
 		}
 	}
 
+
+	public int migrateLegacyConfigManually() {
+		ConfigurationSection root = plugin.getSpecialRewardsConfig().getData();
+		if (root == null) {
+			return 0;
+		}
+		return new VoteStreakConfigLoader().loadLegacy(root) ? ordered.size() : 0;
+	}
+
 	public final class VoteStreakConfigLoader {
 
+
+		private boolean loadLegacy(ConfigurationSection root) {
+			ConfigurationSection legacy = root.getConfigurationSection("VoteStreak");
+			if (legacy == null) {
+				return false;
+			}
+			ConfigurationSection voteStreaks = root.getConfigurationSection("VoteStreaks");
+			if (voteStreaks == null) {
+				voteStreaks = root.createSection("VoteStreaks");
+			}
+			boolean any = false;
+			any |= loadLegacyType(voteStreaks, legacy, "Day", VoteStreakType.DAILY);
+			any |= loadLegacyType(voteStreaks, legacy, "Week", VoteStreakType.WEEKLY);
+			any |= loadLegacyType(voteStreaks, legacy, "Month", VoteStreakType.MONTHLY);
+			if (any) {
+				plugin.getSpecialRewardsConfig().saveData();
+			}
+			return any;
+		}
+
+		private boolean loadLegacyType(ConfigurationSection voteStreaks, ConfigurationSection legacy, String key, VoteStreakType type) {
+			ConfigurationSection sec = legacy.getConfigurationSection(key);
+			if (sec == null) return false;
+			boolean any = false;
+			for (String streakKey : sec.getKeys(false)) {
+				ConfigurationSection defSec = sec.getConfigurationSection(streakKey);
+				if (defSec == null) continue;
+				String normalized = streakKey.replace("-", "");
+				if (!MessageAPI.isInt(normalized)) continue;
+				int amount = Integer.parseInt(normalized);
+				if (amount <= 0) continue;
+				boolean recurring = streakKey.contains("-");
+				boolean enabled = defSec.getBoolean("Enabled", true);
+				defSec.set("Enabled", false);
+				String id = "Legacy" + type.name() + amount + (recurring ? "Recurring" : "OneTime");
+				if (voteStreaks.getConfigurationSection(id) == null) {
+					ConfigurationSection migrated = voteStreaks.createSection(id);
+					migrated.set("Type", type.name());
+					migrated.set("Enabled", enabled);
+					migrated.set("Recurring", recurring);
+					ConfigurationSection req = migrated.createSection("Requirements");
+					req.set("Amount", amount);
+					req.set("VotesRequired", 1);
+					migrated.set("AllowMissedAmount", 0);
+					migrated.set("AllowMissedPeriod", 0);
+					if (defSec.getConfigurationSection("Rewards") != null) {
+						migrated.set("Rewards", defSec.getConfigurationSection("Rewards").getValues(true));
+					}
+				}
+				VoteStreakDefinition def = new VoteStreakDefinition(id, type, enabled, amount, 1, 0, 0, recurring);
+				plugin.getUserManager().getDataManager()
+						.addKey(new UserDataKeyString(getColumnName(def)).setColumnType("MEDIUMTEXT"));
+				byId.put(id, def);
+				ordered.add(def);
+				any = true;
+			}
+			return any;
+		}
 		private final Pattern idPattern = Pattern.compile("^[A-Za-z0-9_\\-]+$"); // no spaces
 
 		public void load(ConfigurationSection root) {
@@ -516,8 +618,8 @@ public class VoteStreakHandler {
 			}
 
 			ConfigurationSection voteStreaks = root.getConfigurationSection("VoteStreaks");
-			if (voteStreaks == null) {
-				plugin.getLogger().warning("VoteStreaks is missing or not a section; no streaks loaded.");
+			if (voteStreaks == null || voteStreaks.getKeys(false).isEmpty()) {
+				plugin.getLogger().warning("VoteStreaks is missing or empty; run /av migratevotestreaks to migrate legacy VoteStreak config.");
 				return;
 			}
 
@@ -579,11 +681,10 @@ public class VoteStreakHandler {
 
 				int allowMissedAmount = Math.max(0, defSec.getInt("AllowMissedAmount", 0));
 				int allowMissedPeriod = Math.max(0, defSec.getInt("AllowMissedPeriod", 0));
-
-				// ConfigurationSection editableTarget = getOrCreateVoteStreakSection(id);
+				boolean recurring = defSec.getBoolean("Recurring", true);
 
 				VoteStreakDefinition def = new VoteStreakDefinition(id, type, enabled, amountInterval, votesRequired,
-						allowMissedAmount, allowMissedPeriod);
+						allowMissedAmount, allowMissedPeriod, recurring);
 
 				plugin.getUserManager().getDataManager()
 						.addKey(new UserDataKeyString(getColumnName(def)).setColumnType("MEDIUMTEXT"));
