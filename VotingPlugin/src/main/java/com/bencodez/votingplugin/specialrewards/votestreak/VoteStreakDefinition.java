@@ -20,9 +20,16 @@ public final class VoteStreakDefinition {
 
 	@Getter
 	private final int votesRequired;
+	@Getter
+	private final boolean recurring;
 
 	public VoteStreakDefinition(String id, VoteStreakType type, boolean enabled, int requiredAmount, int votesRequired,
 			int allowMissedAmount, int allowMissedPeriod) {
+		this(id, type, enabled, requiredAmount, votesRequired, allowMissedAmount, allowMissedPeriod, true);
+	}
+
+	public VoteStreakDefinition(String id, VoteStreakType type, boolean enabled, int requiredAmount, int votesRequired,
+			int allowMissedAmount, int allowMissedPeriod, boolean recurring) {
 		this.id = id;
 		this.type = type;
 		this.enabled = enabled;
@@ -30,6 +37,7 @@ public final class VoteStreakDefinition {
 		this.allowMissedAmount = Math.max(0, allowMissedAmount);
 		this.allowMissedPeriod = Math.max(0, allowMissedPeriod);
 		this.votesRequired = Math.max(1, votesRequired);
+		this.recurring = recurring;
 	}
 
 }
