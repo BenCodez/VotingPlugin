@@ -2298,6 +2298,19 @@ public class CommandLoader {
 				});
 
 		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin, new String[] { "MigrateVoteStreaks" },
+						"VotingPlugin.Commands.AdminVote.MigrateVoteStreaks|" + adminPerm,
+						"Migrate legacy VoteStreak config to VoteStreaks") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						int loaded = plugin.getVoteStreakHandler().migrateLegacyConfigManually();
+						plugin.getVoteStreakHandler().reload();
+						sendMessage(sender, "&aLegacy VoteStreak migration complete. Loaded definitions: " + loaded);
+					}
+				});
+
+		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(plugin, new String[] { "ClearDiscordMessageID", "(topvoter)" },
 						"VotingPlugin.Commands.AdminVote.ClearDiscordMessageID",
 						"Clear discord message ID for top voter", true, true) {

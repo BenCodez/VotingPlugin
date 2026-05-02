@@ -100,6 +100,45 @@ public class VoteStreakHandler {
 		}
 	}
 
+	private int getLegacyStreakProgress(VotingPluginUser user, VoteStreakType type) {
+		switch (type) {
+		case DAILY:
+			return Math.max(0, user.getDayVoteStreak());
+		case WEEKLY:
+			return Math.max(0, user.getWeekVoteStreak());
+		case MONTHLY:
+			return Math.max(0, user.getMonthVoteStreak());
+		default:
+			return 0;
+		}
+	}
+
+	private void migrateLegacyProgressIfNeeded(VotingPluginUser user, VoteStreakDefinition def, StreakState state,
+			String currentPeriodKey) {
+		if (state.periodKey != null && !state.periodKey.isEmpty()) {
+			return;
+		}
+		int legacyProgress = getLegacyStreakProgress(user, def.getType());
+		if (legacyProgress <= 0) {
+			return;
+		}
+		state.periodKey = currentPeriodKey;
+		state.streakCount = legacyProgress;
+		state.votesThisPeriod = 0;
+		state.countedThisPeriod = false;
+		state.missWindowStartKey = "";
+		state.missesUsed = 0;
+		plugin.extraDebug("[VoteStreak] migrated legacy progress for " + def.getId() + ": " + legacyProgress);
+	}
+
+	public int migrateLegacyConfigManually() {
+		ConfigurationSection root = plugin.getSpecialRewardsConfig().getData();
+		if (root == null) {
+			return 0;
+		}
+		return new VoteStreakConfigLoader().loadLegacy(root) ? ordered.size() : 0;
+	}
+
 	private void processVoteForDefinition(VotingPluginUser user, VoteStreakDefinition def, long voteTimeMillis,
 			UUID voteUUID) {
 		final String col = getColumnName(def);
@@ -107,6 +146,7 @@ public class VoteStreakHandler {
 		StreakState state = StreakState.deserialize(rawBefore);
 
 		final String currentPeriodKey = periodKey(def.getType(), voteTimeMillis);
+		migrateLegacyProgressIfNeeded(user, def, state, currentPeriodKey);
 
 		plugin.extraDebug("[VoteStreak] def=" + def.getId() + " idKey=" + def.getId() + " type=" + def.getType()
 				+ " col=" + col + " period=" + currentPeriodKey + " votesReq=" + def.getVotesRequired() + " interval="
@@ -153,7 +193,7 @@ public class VoteStreakHandler {
 
 				if (shouldReward) {
 					plugin.extraDebug("[VoteStreak] giving rewards for idKey=" + def.getId());
-					giveRewards(user, def, voteUUID);
+					giveRewards(user, def, voteUUID, state.streakCount);
 				}
 			}
 		} else {
@@ -373,7 +413,7 @@ public class VoteStreakHandler {
 		}
 	}
 
-	private void giveRewards(VotingPluginUser user, VoteStreakDefinition def, UUID voteUUID) {
+	private void giveRewards(VotingPluginUser user, VoteStreakDefinition def, UUID voteUUID, int streakCount) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user,
 				SpecialRewardType.VOTESTREAKS.setType(def.getType().toString()).setAmount(def.getVotesRequired()),
 				voteUUID);
@@ -383,7 +423,9 @@ public class VoteStreakHandler {
 			return;
 		}
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(), "VoteStreaks." + def.getId() + ".Rewards")
-				.withPlaceHolder("id", def.getId()).send(user);
+				.withPlaceHolder("id", def.getId()).withPlaceHolder("type", def.getType().toString())
+				.withPlaceHolder("amount", "" + streakCount).withPlaceHolder("streak", "" + streakCount)
+				.send(user);
 	}
 
 	public String getColumnName(VoteStreakDefinition def) {
@@ -509,6 +551,103 @@ public class VoteStreakHandler {
 
 		private final Pattern idPattern = Pattern.compile("^[A-Za-z0-9_\\-]+$"); // no spaces
 
+		private boolean loadLegacy(ConfigurationSection root) {
+			ConfigurationSection legacy = root.getConfigurationSection("VoteStreak");
+			if (legacy == null) {
+				return false;
+			}
+			ConfigurationSection voteStreaks = root.getConfigurationSection("VoteStreaks");
+			if (voteStreaks == null) {
+				voteStreaks = root.createSection("VoteStreaks");
+			}
+			boolean any = false;
+			any |= loadLegacyType(voteStreaks, legacy, "Day", VoteStreakType.DAILY);
+			any |= loadLegacyType(voteStreaks, legacy, "Week", VoteStreakType.WEEKLY);
+			any |= loadLegacyType(voteStreaks, legacy, "Month", VoteStreakType.MONTHLY);
+			if (any) {
+				plugin.getSpecialRewardsConfig().saveData();
+			}
+			return any;
+		}
+
+		private boolean loadLegacyType(ConfigurationSection voteStreaks, ConfigurationSection legacy, String key,
+				VoteStreakType type) {
+			ConfigurationSection sec = legacy.getConfigurationSection(key);
+			if (sec == null) {
+				return false;
+			}
+
+			if (!sec.getBoolean("Enabled", true)) {
+				return false;
+			}
+
+			boolean any = false;
+			boolean migratedAny = false;
+
+			for (String streakKey : sec.getKeys(false)) {
+				ConfigurationSection defSec = sec.getConfigurationSection(streakKey);
+				if (defSec == null) {
+					continue;
+				}
+
+				String normalized = streakKey.replace("-", "");
+				if (!MessageAPI.isInt(normalized)) {
+					continue;
+				}
+
+				int amount = Integer.parseInt(normalized);
+				if (amount <= 0) {
+					continue;
+				}
+
+				boolean enabled = defSec.getBoolean("Enabled", true);
+				if (!enabled) {
+					continue;
+				}
+
+				boolean recurring = streakKey.contains("-");
+				defSec.set("Enabled", false);
+
+				String id = "Legacy" + type.name() + amount + (recurring ? "Recurring" : "OneTime");
+
+				if (voteStreaks.getConfigurationSection(id) == null) {
+					ConfigurationSection migrated = voteStreaks.createSection(id);
+					migrated.set("Type", type.name());
+					migrated.set("Enabled", true);
+					migrated.set("Recurring", recurring);
+
+					ConfigurationSection req = migrated.createSection("Requirements");
+					req.set("Amount", amount);
+					req.set("VotesRequired", 1);
+
+					migrated.set("AllowMissedAmount", 0);
+					migrated.set("AllowMissedPeriod", 0);
+
+					ConfigurationSection rewards = defSec.getConfigurationSection("Rewards");
+					if (rewards != null) {
+						migrated.createSection("Rewards", rewards.getValues(false));
+					}
+
+					migratedAny = true;
+				}
+
+				VoteStreakDefinition def = new VoteStreakDefinition(id, type, true, amount, 1, 0, 0, recurring);
+				plugin.getUserManager().getDataManager()
+						.addKey(new UserDataKeyString(getColumnName(def)).setColumnType("MEDIUMTEXT"));
+
+				byId.put(id, def);
+				ordered.add(def);
+				any = true;
+			}
+
+			if (migratedAny) {
+				plugin.getSpecialRewardsConfig().saveData();
+			}
+
+			return any;
+
+		}
+
 		public void load(ConfigurationSection root) {
 			if (root == null) {
 				plugin.getLogger().warning("VoteStreaks config root is null; no streaks loaded.");
@@ -516,8 +655,9 @@ public class VoteStreakHandler {
 			}
 
 			ConfigurationSection voteStreaks = root.getConfigurationSection("VoteStreaks");
-			if (voteStreaks == null) {
-				plugin.getLogger().warning("VoteStreaks is missing or not a section; no streaks loaded.");
+			if (voteStreaks == null || voteStreaks.getKeys(false).isEmpty()) {
+				plugin.getLogger().warning(
+						"VoteStreaks is missing or empty; run /av migratevotestreaks to migrate legacy VoteStreak config.");
 				return;
 			}
 
@@ -580,10 +720,12 @@ public class VoteStreakHandler {
 				int allowMissedAmount = Math.max(0, defSec.getInt("AllowMissedAmount", 0));
 				int allowMissedPeriod = Math.max(0, defSec.getInt("AllowMissedPeriod", 0));
 
+				boolean recurring = defSec.getBoolean("Recurring", true);
+
 				// ConfigurationSection editableTarget = getOrCreateVoteStreakSection(id);
 
 				VoteStreakDefinition def = new VoteStreakDefinition(id, type, enabled, amountInterval, votesRequired,
-						allowMissedAmount, allowMissedPeriod);
+						allowMissedAmount, allowMissedPeriod, recurring);
 
 				plugin.getUserManager().getDataManager()
 						.addKey(new UserDataKeyString(getColumnName(def)).setColumnType("MEDIUMTEXT"));
