@@ -91,7 +91,11 @@ public class VoteShopConfirm extends GUIHandler {
 
 			@Override
 			public void onClick(ClickEvent event) {
-				returnToPrevious(event.getPlayer());
+				if (item.isCloseGUI()) {
+					event.getButton().getInv().closeInv(player, null);
+				} else {
+					returnToPrevious(event.getPlayer());
+				}
 			}
 		});
 		inv.openInventory(player);
@@ -106,7 +110,8 @@ public class VoteShopConfirm extends GUIHandler {
 				.title(plugin.getShopFile().getShopConfirmPurchaseTitle())
 				.body("&7Confirm purchase of &e%identifier%&7?")
 				.yesText(new ItemBuilder(plugin.getShopFile().getShopConfirmPurchaseYesItem()).getName())
-				.noText(new ItemBuilder(plugin.getShopFile().getShopConfirmPurchaseNoItem()).getName()).onYes(payload -> {
+				.noText(new ItemBuilder(plugin.getShopFile().getShopConfirmPurchaseNoItem()).getName())
+				.onYes(payload -> {
 					Player clicked = player.getServer().getPlayer(payload.owner());
 					if (clicked == null) {
 						return;
