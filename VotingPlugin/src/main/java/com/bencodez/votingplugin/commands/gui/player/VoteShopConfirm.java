@@ -92,7 +92,7 @@ public class VoteShopConfirm extends GUIHandler {
 			@Override
 			public void onClick(ClickEvent event) {
 				if (item.isCloseGUI()) {
-					event.getButton().getInv().closeInv(player, null);
+					event.closeInventory()
 				} else {
 					returnToPrevious(event.getPlayer());
 				}
