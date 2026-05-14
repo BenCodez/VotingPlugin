@@ -425,6 +425,32 @@ public class VoteStreakHandler {
 		}
 	}
 
+	/**
+	 * Forces rewards for a configured vote streak definition.
+	 *
+	 * This does not update streak progress, vote counts, period state, or config
+	 * files.
+	 *
+	 * @param user        voting plugin user
+	 * @param id          vote streak id
+	 * @param streakCount streak amount to use for placeholders
+	 * @param voteUUID    vote uuid for the reward event
+	 * @return true if the reward was forced
+	 */
+	public boolean forceVoteStreakReward(VotingPluginUser user, String id, int streakCount, UUID voteUUID) {
+		if (user == null || id == null || id.trim().isEmpty()) {
+			return false;
+		}
+
+		VoteStreakDefinition def = getDefinition(id);
+		if (def == null) {
+			return false;
+		}
+
+		giveRewards(user, def, voteUUID == null ? UUID.randomUUID() : voteUUID, Math.max(1, streakCount));
+		return true;
+	}
+
 	private void giveRewards(VotingPluginUser user, VoteStreakDefinition def, UUID voteUUID, int streakCount) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user,
 				SpecialRewardType.VOTESTREAKS.setType(def.getType().toString()).setAmount(def.getVotesRequired()),
@@ -436,8 +462,7 @@ public class VoteStreakHandler {
 		}
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(), "VoteStreaks." + def.getId() + ".Rewards")
 				.withPlaceHolder("id", def.getId()).withPlaceHolder("type", def.getType().toString())
-				.withPlaceHolder("amount", "" + streakCount).withPlaceHolder("streak", "" + streakCount)
-				.send(user);
+				.withPlaceHolder("amount", "" + streakCount).withPlaceHolder("streak", "" + streakCount).send(user);
 	}
 
 	public String getColumnName(VoteStreakDefinition def) {
@@ -649,7 +674,7 @@ public class VoteStreakHandler {
 				plugin.getUserManager().getDataManager()
 						.addKey(new UserDataKeyString(getColumnName(def)).setColumnType("MEDIUMTEXT"));
 
-				byId.put(id, def);
+				byId.put(id.toLowerCase(Locale.ROOT), def);
 				ordered.add(def);
 				any = true;
 			}
@@ -744,7 +769,7 @@ public class VoteStreakHandler {
 				plugin.getUserManager().getDataManager()
 						.addKey(new UserDataKeyString(getColumnName(def)).setColumnType("MEDIUMTEXT"));
 
-				byId.put(id, def);
+				byId.put(id.toLowerCase(Locale.ROOT), def);
 				ordered.add(def);
 			}
 

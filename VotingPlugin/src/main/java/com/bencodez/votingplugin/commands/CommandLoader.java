@@ -84,6 +84,7 @@ import com.bencodez.votingplugin.events.PlayerVoteSiteCoolDownEndEvent;
 import com.bencodez.votingplugin.presets.VoteSitePreset;
 import com.bencodez.votingplugin.presets.VoteSitePresetSetupHandler;
 import com.bencodez.votingplugin.specialrewards.votemilestones.VoteMilestonesManager;
+import com.bencodez.votingplugin.specialrewards.votestreak.VoteStreakDefinition;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votesites.VoteSite;
@@ -2374,6 +2375,51 @@ public class CommandLoader {
 			}
 		});
 
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin, new String[] { "User", "(player)", "ForceVoteStreak", "(votestreak)" },
+						"VotingPlugin.Commands.AdminVote.ForceVoteStreak|" + adminPerm,
+						"Force a configured VoteStreaks reward by id") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
+						String id = args[3];
+
+						boolean forced = plugin.getVoteStreakHandler().forceVoteStreakReward(user, id, 1,
+								UUID.randomUUID());
+
+						if (forced) {
+							sendMessage(sender, "&aVoteStreak &e" + id + " &aforced for &e" + args[1]);
+						} else {
+							sendMessage(sender, "&cVoteStreak not found: &e" + id);
+						}
+					}
+				});
+
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin,
+						new String[] { "User", "(player)", "ForceVoteStreak", "(votestreak)", "(number)" },
+						"VotingPlugin.Commands.AdminVote.ForceVoteStreak|" + adminPerm,
+						"Force a configured VoteStreaks reward by id with a streak amount") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
+						String id = args[3];
+						int streakCount = parseInt(args[4]);
+
+						boolean forced = plugin.getVoteStreakHandler().forceVoteStreakReward(user, id, streakCount,
+								UUID.randomUUID());
+
+						if (forced) {
+							sendMessage(sender, "&aVoteStreak &e" + id + " &aforced for &e" + args[1]
+									+ " &awith amount &e" + streakCount);
+						} else {
+							sendMessage(sender, "&cVoteStreak not found: &e" + id);
+						}
+					}
+				});
+
 		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "VoteLog", "(Number)" },
 				"VotingPlugin.Commands.AdminVote.VoteLog|" + adminPerm, "See vote logs") {
 
@@ -2734,6 +2780,27 @@ public class CommandLoader {
 					public void updateReplacements() {
 					}
 				});
+
+		ArrayList<String> voteStreaks = new ArrayList<>();
+		for (VoteStreakDefinition def : plugin.getVoteStreakHandler().getDefinitions()) {
+			voteStreaks.add(def.getId());
+		}
+
+		TabCompleteHandler.getInstance().addTabCompleteOption(new TabCompleteHandle("(votestreak)", voteStreaks) {
+
+			@Override
+			public void reload() {
+				ArrayList<String> voteStreaks = new ArrayList<>();
+				for (VoteStreakDefinition def : plugin.getVoteStreakHandler().getDefinitions()) {
+					voteStreaks.add(def.getId());
+				}
+				setReplace(voteStreaks);
+			}
+
+			@Override
+			public void updateReplacements() {
+			}
+		});
 	}
 
 	/**
