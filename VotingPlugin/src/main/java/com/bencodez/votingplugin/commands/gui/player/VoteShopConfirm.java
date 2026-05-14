@@ -81,7 +81,7 @@ public class VoteShopConfirm extends GUIHandler {
 
 				plugin.getCommandLoader().processSlotClick(player, user, item.getIdentifier());
 				if (item.isCloseGUI()) {
-					event.getButton().getInv().closeInv(player, null);
+					event.closeInventory();
 				} else {
 					returnToPrevious(event.getPlayer());
 				}
