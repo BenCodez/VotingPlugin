@@ -187,7 +187,7 @@ class VoteStreakHandlerTest {
 		MemoryConfiguration root = rootWithOneStreak("DailyStreak", "DAILY", true, 5, 2, 0, 0);
 		loadFromRoot(root);
 
-		VoteStreakDefinition def = handler.getById().get("DailyStreak");
+		VoteStreakDefinition def = handler.getById().get("dailystreak");
 		assertNotNull(def);
 
 		assertEquals("DailyStreak", def.getId());
@@ -195,6 +195,10 @@ class VoteStreakHandlerTest {
 		assertTrue(def.isEnabled());
 		assertEquals(5, def.getRequiredAmount());
 		assertEquals(2, def.getVotesRequired());
+
+		assertEquals(def, handler.getDefinition("DailyStreak"));
+		assertEquals(def, handler.getDefinition("dailystreak"));
+		assertEquals(def, handler.getDefinition("DAILYSTREAK"));
 	}
 
 	@Test
