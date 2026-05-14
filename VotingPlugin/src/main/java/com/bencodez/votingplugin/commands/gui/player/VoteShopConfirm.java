@@ -144,9 +144,6 @@ public class VoteShopConfirm extends GUIHandler {
 	 * @param player the player
 	 */
 	protected void returnToPrevious(Player player) {
-		if (item.isCloseGUI()) {
-			return;
-		}
 		if (category != null) {
 			new VoteShopCategoryMenu(plugin, player, user, category).open(GUIMethod.CHEST);
 		} else {
