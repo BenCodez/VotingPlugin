@@ -523,11 +523,25 @@ UseHighestTotals: true
 # May improve performance
 #DisableCheckOnWorldChange: false
 
-# Disable javascript processing in messages/rewards
-DisableJavascript: false
+# JavaScript engine settings.
+# JavaScript is used for rewards or commands that evaluate JavaScript.
+# On Java 15 and newer, JavaScript is no longer included with the JVM by default.
+JavascriptEngine:
+  # Enables JavaScript support.
+  # If disabled, JavaScript rewards and JavaScript-based features will not run.
+  # Legacy option: DisableJavascript
+  Enabled: false
 
-# Enable command /av javascript (javascript)
-EnableJavascriptCommand: false
+  # Automatically downloads the optional Nashorn JavaScript engine dependencies when no JavaScript engine is available.
+  # This is disabled by default so servers do not download dependencies unless explicitly allowed.
+  # When enabled, AdvancedCore will try Nashorn 15.7 first, then fall back to Nashorn 15.4 if needed.
+  # Downloaded jars are stored in AdvancedCore's plugin folder.
+  AutoDownload: false
+
+  # Enables the JavaScript command.
+  # This only controls command access/registration, not whether JavaScript support itself is enabled.
+  # Legacy option: EnableJavascriptCommand
+  CommandEnabled: false
 
 # Limits amount of offline votesites
 # Does not currently work with bungee votes from votingplugin
