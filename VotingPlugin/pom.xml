@@ -389,7 +389,7 @@
                                 </manifestEntries>
                             </archive>
                             <finalName>
-                                ${project.name}-${build.number}.jar</finalName>
+                                ${project.name}-${build.number}</finalName>
                         </configuration>
                     </plugin>
                     <plugin>
