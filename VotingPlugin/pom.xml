@@ -389,28 +389,8 @@
                                 </manifestEntries>
                             </archive>
                             <finalName>
-                                ${project.name}</finalName>
+                                ${project.name}-${build.number}.jar</finalName>
                         </configuration>
-                    </plugin>
-                    <plugin>
-                        <groupId>com.coderplus.maven.plugins</groupId>
-                        <artifactId>copy-rename-maven-plugin</artifactId>
-                        <version>1.0.1</version>
-                        <executions>
-                            <execution>
-                                <id>copy-file</id>
-                                <phase>install</phase>
-                                <goals>
-                                    <goal>copy</goal>
-                                </goals>
-                                <configuration>
-                                    <sourceFile>
-                                        ${project.basedir}/target/${project.name}.jar</sourceFile>
-                                    <destinationFile>
-                                        ${project.basedir}/target/${project.name}-${build.number}.jar</destinationFile>
-                                </configuration>
-                            </execution>
-                        </executions>
                     </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
