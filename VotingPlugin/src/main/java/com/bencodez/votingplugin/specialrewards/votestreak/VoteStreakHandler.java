@@ -451,6 +451,48 @@ public class VoteStreakHandler {
 		return true;
 	}
 
+	public int resetVoteStreaks(VotingPluginUser user) {
+		if (user == null) {
+			return 0;
+		}
+
+		int reset = 0;
+		for (VoteStreakDefinition def : ordered) {
+			writeStateString(user, getColumnName(def), "");
+			reset++;
+		}
+		return reset;
+	}
+
+	public int resetVoteStreaks(VotingPluginUser user, VoteStreakType type) {
+		if (user == null || type == null) {
+			return 0;
+		}
+
+		int reset = 0;
+		for (VoteStreakDefinition def : ordered) {
+			if (def.getType() == type) {
+				writeStateString(user, getColumnName(def), "");
+				reset++;
+			}
+		}
+		return reset;
+	}
+
+	public boolean resetVoteStreak(VotingPluginUser user, String id) {
+		if (user == null || id == null || id.trim().isEmpty()) {
+			return false;
+		}
+
+		VoteStreakDefinition def = getDefinition(id);
+		if (def == null) {
+			return false;
+		}
+
+		writeStateString(user, getColumnName(def), "");
+		return true;
+	}
+
 	private void giveRewards(VotingPluginUser user, VoteStreakDefinition def, UUID voteUUID, int streakCount) {
 		PlayerSpecialRewardEvent event = new PlayerSpecialRewardEvent(user,
 				SpecialRewardType.VOTESTREAKS.setType(def.getType().toString()).setAmount(def.getVotesRequired()),

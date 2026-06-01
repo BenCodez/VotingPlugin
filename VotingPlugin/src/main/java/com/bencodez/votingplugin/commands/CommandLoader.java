@@ -85,6 +85,7 @@ import com.bencodez.votingplugin.presets.VoteSitePreset;
 import com.bencodez.votingplugin.presets.VoteSitePresetSetupHandler;
 import com.bencodez.votingplugin.specialrewards.votemilestones.VoteMilestonesManager;
 import com.bencodez.votingplugin.specialrewards.votestreak.VoteStreakDefinition;
+import com.bencodez.votingplugin.specialrewards.votestreak.VoteStreakType;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votesites.VoteSite;
@@ -903,6 +904,46 @@ public class CommandLoader {
 				sender.sendMessage(MessageAPI.colorize("&cSet votestreak month for '" + args[1] + "' to " + args[4]));
 			}
 		});
+
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin, new String[] { "User", "(player)", "ResetVoteStreaks" },
+						"VotingPlugin.Commands.AdminVote.ResetVoteStreaks|" + adminPerm,
+						"Reset configured VoteStreaks state for player") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
+						int reset = plugin.getVoteStreakHandler().resetVoteStreaks(user);
+						sendMessage(sender, "&cReset " + reset + " VoteStreaks for '" + args[1] + "'");
+					}
+				});
+
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin, new String[] { "User", "(player)", "ResetVoteStreaks", "(votestreak)" },
+						"VotingPlugin.Commands.AdminVote.ResetVoteStreaks|" + adminPerm,
+						"Reset configured VoteStreaks state for player by type or id") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
+						String target = args[3];
+
+						try {
+							VoteStreakType type = VoteStreakType.from(target);
+							int reset = plugin.getVoteStreakHandler().resetVoteStreaks(user, type);
+							sendMessage(sender,
+									"&cReset " + reset + " " + type.name() + " VoteStreaks for '" + args[1] + "'");
+							return;
+						} catch (Exception ignored) {
+						}
+
+						if (plugin.getVoteStreakHandler().resetVoteStreak(user, target)) {
+							sendMessage(sender, "&cReset VoteStreak '" + target + "' for '" + args[1] + "'");
+						} else {
+							sendMessage(sender, "&cVoteStreak not found: &e" + target);
+						}
+					}
+				});
 
 		for (final TopVoter top : TopVoter.values()) {
 			plugin.getAdminVoteCommand()
