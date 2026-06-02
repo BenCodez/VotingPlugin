@@ -152,6 +152,31 @@ class VoteStreakHandlerTest {
 		return root;
 	}
 
+	private static MemoryConfiguration rootWithThreeStreaks() {
+		MemoryConfiguration root = new MemoryConfiguration();
+		ConfigurationSection voteStreaks = root.createSection("VoteStreaks");
+
+		addStreak(voteStreaks, "Daily3", "DAILY", true, 3, 1, 1, 7);
+		addStreak(voteStreaks, "Daily7", "DAILY", true, 7, 1, 1, 7);
+		addStreak(voteStreaks, "Weekly2", "WEEKLY", true, 2, 1, 0, 0);
+
+		return root;
+	}
+
+	private static void addStreak(ConfigurationSection voteStreaks, String id, String type, boolean enabled,
+			int intervalAmount, int votesRequired, int allowMissedAmount, int allowMissedPeriod) {
+		ConfigurationSection def = voteStreaks.createSection(id);
+		def.set("Type", type);
+		def.set("Enabled", enabled);
+
+		ConfigurationSection req = def.createSection("Requirements");
+		req.set("Amount", intervalAmount);
+		req.set("VotesRequired", votesRequired);
+
+		def.set("AllowMissedAmount", allowMissedAmount);
+		def.set("AllowMissedPeriod", allowMissedPeriod);
+	}
+
 	/**
 	 * periodKey|streakCount|votesThisPeriod|countedThisPeriod|missWindowStartKey|missesUsed
 	 *
@@ -263,6 +288,74 @@ class VoteStreakHandlerTest {
 		assertFalse(shouldReward(recurring, 2));
 		assertTrue(shouldReward(recurring, 3));
 		assertTrue(shouldReward(recurring, 6));
+	}
+
+	@Test
+	void resetVoteStreaks_resetsAllConfiguredDefinitions() {
+		loadFromRoot(rootWithThreeStreaks());
+
+		Map<String, String> backing = new HashMap<>();
+		VotingPluginUser user = mapBackedUser(UUID.randomUUID(), "Ben", backing);
+		for (VoteStreakDefinition def : handler.getDefinitions()) {
+			backing.put(handler.getColumnName(def), "2026-01-10|5|1|true||0");
+		}
+
+		int reset = handler.resetVoteStreaks(user);
+
+		assertEquals(3, reset);
+		for (VoteStreakDefinition def : handler.getDefinitions()) {
+			assertEquals("", backing.get(handler.getColumnName(def)));
+		}
+	}
+
+	@Test
+	void resetVoteStreaks_byTypeResetsOnlyMatchingDefinitions() {
+		loadFromRoot(rootWithThreeStreaks());
+
+		Map<String, String> backing = new HashMap<>();
+		VotingPluginUser user = mapBackedUser(UUID.randomUUID(), "Ben", backing);
+		VoteStreakDefinition daily3 = handler.getDefinition("Daily3");
+		VoteStreakDefinition daily7 = handler.getDefinition("Daily7");
+		VoteStreakDefinition weekly2 = handler.getDefinition("Weekly2");
+
+		backing.put(handler.getColumnName(daily3), "2026-01-10|3|1|true||0");
+		backing.put(handler.getColumnName(daily7), "2026-01-10|7|1|true||0");
+		backing.put(handler.getColumnName(weekly2), "2026-W02|2|1|true||0");
+
+		int reset = handler.resetVoteStreaks(user, VoteStreakType.DAILY);
+
+		assertEquals(2, reset);
+		assertEquals("", backing.get(handler.getColumnName(daily3)));
+		assertEquals("", backing.get(handler.getColumnName(daily7)));
+		assertEquals("2026-W02|2|1|true||0", backing.get(handler.getColumnName(weekly2)));
+	}
+
+	@Test
+	void resetVoteStreak_byIdResetsOnlyMatchingDefinition() {
+		loadFromRoot(rootWithThreeStreaks());
+
+		Map<String, String> backing = new HashMap<>();
+		VotingPluginUser user = mapBackedUser(UUID.randomUUID(), "Ben", backing);
+		VoteStreakDefinition daily3 = handler.getDefinition("Daily3");
+		VoteStreakDefinition weekly2 = handler.getDefinition("Weekly2");
+
+		backing.put(handler.getColumnName(daily3), "2026-01-10|3|1|true||0");
+		backing.put(handler.getColumnName(weekly2), "2026-W02|2|1|true||0");
+
+		assertTrue(handler.resetVoteStreak(user, "daily3"));
+		assertEquals("", backing.get(handler.getColumnName(daily3)));
+		assertEquals("2026-W02|2|1|true||0", backing.get(handler.getColumnName(weekly2)));
+	}
+
+	@Test
+	void resetVoteStreak_unknownIdReturnsFalse() {
+		loadFromRoot(rootWithThreeStreaks());
+
+		Map<String, String> backing = new HashMap<>();
+		VotingPluginUser user = mapBackedUser(UUID.randomUUID(), "Ben", backing);
+
+		assertFalse(handler.resetVoteStreak(user, "missing"));
+		assertTrue(backing.isEmpty());
 	}
 
 	@Test
