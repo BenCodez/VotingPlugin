@@ -938,9 +938,9 @@ public class CommandLoader {
 						}
 
 						if (plugin.getVoteStreakHandler().resetVoteStreak(user, target)) {
-							sendMessage(sender, "&cReset VoteStreak '" + target + "' for '" + args[1] + "'");
+							sendMessage(sender, "&cReset VoteStreak state '" + target + "' for '" + args[1] + "'");
 						} else {
-							sendMessage(sender, "&cVoteStreak not found: &e" + target);
+							sendMessage(sender, "&cVoteStreak or progress group not found: &e" + target);
 						}
 					}
 				});
@@ -2826,6 +2826,7 @@ public class CommandLoader {
 		for (VoteStreakDefinition def : plugin.getVoteStreakHandler().getDefinitions()) {
 			voteStreaks.add(def.getId());
 		}
+		voteStreaks.addAll(plugin.getVoteStreakHandler().getProgressGroups());
 
 		TabCompleteHandler.getInstance().addTabCompleteOption(new TabCompleteHandle("(votestreak)", voteStreaks) {
 
@@ -2835,6 +2836,7 @@ public class CommandLoader {
 				for (VoteStreakDefinition def : plugin.getVoteStreakHandler().getDefinitions()) {
 					voteStreaks.add(def.getId());
 				}
+				voteStreaks.addAll(plugin.getVoteStreakHandler().getProgressGroups());
 				setReplace(voteStreaks);
 			}
 

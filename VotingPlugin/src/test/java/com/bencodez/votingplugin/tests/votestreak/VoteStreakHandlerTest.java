@@ -177,6 +177,25 @@ class VoteStreakHandlerTest {
 		def.set("AllowMissedPeriod", allowMissedPeriod);
 	}
 
+	private static ConfigurationSection addProgressGroup(ConfigurationSection voteStreaks, String groupId, String type,
+			int votesRequired, int allowMissedAmount, int allowMissedPeriod) {
+		ConfigurationSection group = voteStreaks.createSection("ProgressGroups").createSection(groupId);
+		group.set("Type", type);
+		group.set("VotesRequired", votesRequired);
+		group.set("AllowMissedAmount", allowMissedAmount);
+		group.set("AllowMissedPeriod", allowMissedPeriod);
+		group.createSection("Milestones");
+		return group;
+	}
+
+	private static void addProgressGroupMilestone(ConfigurationSection group, String id, int amount, boolean enabled,
+			boolean recurring) {
+		ConfigurationSection milestone = group.getConfigurationSection("Milestones").createSection(id);
+		milestone.set("Enabled", enabled);
+		milestone.set("Amount", amount);
+		milestone.set("Recurring", recurring);
+	}
+
 	/**
 	 * periodKey|streakCount|votesThisPeriod|countedThisPeriod|missWindowStartKey|missesUsed
 	 *
@@ -220,10 +239,46 @@ class VoteStreakHandlerTest {
 		assertTrue(def.isEnabled());
 		assertEquals(5, def.getRequiredAmount());
 		assertEquals(2, def.getVotesRequired());
+		assertEquals("", def.getProgressGroup());
 
 		assertEquals(def, handler.getDefinition("DailyStreak"));
 		assertEquals(def, handler.getDefinition("dailystreak"));
 		assertEquals(def, handler.getDefinition("DAILYSTREAK"));
+	}
+
+	@Test
+	void configLoader_loadsProgressGroup_andUsesSharedColumnName() {
+		MemoryConfiguration root = new MemoryConfiguration();
+		ConfigurationSection voteStreaks = root.createSection("VoteStreaks");
+		ConfigurationSection group = addProgressGroup(voteStreaks, "continuousstreak", "DAILY", 2, 1, 7);
+		addProgressGroupMilestone(group, "Daily3", 3, true, false);
+
+		loadFromRoot(root);
+
+		VoteStreakDefinition def = handler.getDefinition("Daily3");
+		assertNotNull(def);
+		assertEquals("continuousstreak", def.getProgressGroup());
+		assertEquals(2, def.getVotesRequired());
+		assertEquals(1, def.getAllowMissedAmount());
+		assertEquals(7, def.getAllowMissedPeriod());
+		assertFalse(def.isRecurring());
+		assertEquals("VoteStreakGroup_DAILY_continuousstreak", handler.getColumnName(def));
+		assertEquals("VoteStreaks.ProgressGroups.continuousstreak.Milestones.Daily3.Rewards", def.getRewardPath());
+	}
+
+	@Test
+	void configLoader_skipsProgressGroupThatDuplicatesFlatStreakId() {
+		MemoryConfiguration root = new MemoryConfiguration();
+		ConfigurationSection voteStreaks = root.createSection("VoteStreaks");
+		addStreak(voteStreaks, "ContinuousStreak", "DAILY", true, 3, 1, 0, 0);
+		ConfigurationSection group = addProgressGroup(voteStreaks, "continuousstreak", "DAILY", 1, 0, 0);
+		addProgressGroupMilestone(group, "SharedGroupTestA", 1, true, true);
+
+		loadFromRoot(root);
+
+		assertNotNull(handler.getDefinition("ContinuousStreak"));
+		assertNull(handler.getDefinition("SharedGroupTestA"));
+		assertTrue(handler.getProgressGroups().isEmpty());
 	}
 
 	@Test
@@ -272,6 +327,53 @@ class VoteStreakHandlerTest {
 		assertEquals("1", p[2], "votesThisPeriod upgraded from old counted=true state and ignored on vote");
 		assertEquals("true", p[3]);
 		assertEquals("2", p[5], "missesUsed preserved");
+	}
+
+	@Test
+	void processVote_sharedProgressGroupCountsOneVoteOnceForMultipleDefinitions() {
+		MemoryConfiguration root = new MemoryConfiguration();
+		ConfigurationSection voteStreaks = root.createSection("VoteStreaks");
+		ConfigurationSection group = addProgressGroup(voteStreaks, "continuousstreak", "DAILY", 1, 1, 7);
+		addProgressGroupMilestone(group, "Daily99", 99, true, false);
+		addProgressGroupMilestone(group, "Daily100", 100, true, false);
+		loadFromRoot(root);
+
+		VoteStreakDefinition daily99 = handler.getDefinition("Daily99");
+		VoteStreakDefinition daily100 = handler.getDefinition("Daily100");
+		assertNotNull(daily99);
+		assertNotNull(daily100);
+
+		Map<String, String> backing = new HashMap<>();
+		VotingPluginUser user = mapBackedUser(UUID.randomUUID(), "Ben", backing);
+
+		handler.processVote(user, System.currentTimeMillis(), UUID.randomUUID());
+
+		String groupCol = "VoteStreakGroup_DAILY_continuousstreak";
+		String[] p = parseState(backing.get(groupCol));
+		assertEquals("1", p[1], "shared progress should increment once for one vote");
+		assertFalse(backing.containsKey("VoteStreak_Daily99"));
+		assertFalse(backing.containsKey("VoteStreak_Daily100"));
+		assertEquals(groupCol, handler.getColumnName(daily99));
+		assertEquals(groupCol, handler.getColumnName(daily100));
+	}
+
+	@Test
+	void processVote_sharedProgressGroupDoesNotRefireRewardedOneTimeMilestone() {
+		MemoryConfiguration root = new MemoryConfiguration();
+		ConfigurationSection voteStreaks = root.createSection("VoteStreaks");
+		ConfigurationSection group = addProgressGroup(voteStreaks, "continuousstreak", "DAILY", 1, 1, 7);
+		addProgressGroupMilestone(group, "Daily3", 3, true, false);
+		loadFromRoot(root);
+
+		Map<String, String> backing = new HashMap<>();
+		VotingPluginUser user = mapBackedUser(UUID.randomUUID(), "Ben", backing);
+		backing.put("VoteStreakGroup_DAILY_continuousstreak", "2026-01-10|2|0|false||0|daily3");
+
+		handler.processVote(user, System.currentTimeMillis(), UUID.randomUUID());
+
+		String[] p = parseState(backing.get("VoteStreakGroup_DAILY_continuousstreak"));
+		assertEquals("3", p[1], "shared progress should still advance");
+		assertEquals("daily3", p[6], "reward history should be preserved");
 	}
 
 	@Test
@@ -345,6 +447,65 @@ class VoteStreakHandlerTest {
 		assertTrue(handler.resetVoteStreak(user, "daily3"));
 		assertEquals("", backing.get(handler.getColumnName(daily3)));
 		assertEquals("2026-W02|2|1|true||0", backing.get(handler.getColumnName(weekly2)));
+	}
+
+	@Test
+	void resetVoteStreak_byProgressGroupResetsSharedState() {
+		MemoryConfiguration root = new MemoryConfiguration();
+		ConfigurationSection voteStreaks = root.createSection("VoteStreaks");
+		ConfigurationSection group = addProgressGroup(voteStreaks, "continuousstreak", "DAILY", 1, 0, 0);
+		addProgressGroupMilestone(group, "SharedGroupTestA", 1, true, true);
+		addProgressGroupMilestone(group, "SharedGroupTestB", 1, true, true);
+		addStreak(voteStreaks, "UngroupedControl", "DAILY", true, 1, 1, 0, 0);
+		loadFromRoot(root);
+
+		Map<String, String> backing = new HashMap<>();
+		VotingPluginUser user = mapBackedUser(UUID.randomUUID(), "Ben", backing);
+		String groupCol = "VoteStreakGroup_DAILY_continuousstreak";
+		String controlCol = "VoteStreak_UngroupedControl";
+		backing.put(groupCol, "2026-01-10|1|1|true||0");
+		backing.put(controlCol, "2026-01-10|1|1|true||0");
+
+		assertTrue(handler.resetVoteStreak(user, "continuousstreak"));
+
+		assertEquals("", backing.get(groupCol));
+		assertEquals("2026-01-10|1|1|true||0", backing.get(controlCol));
+	}
+
+	@Test
+	void resetVoteStreak_byProgressGroupMilestoneIdDoesNotResetSharedState() {
+		MemoryConfiguration root = new MemoryConfiguration();
+		ConfigurationSection voteStreaks = root.createSection("VoteStreaks");
+		ConfigurationSection group = addProgressGroup(voteStreaks, "continuousstreak", "DAILY", 1, 0, 0);
+		addProgressGroupMilestone(group, "SharedGroupTestA", 1, true, true);
+		loadFromRoot(root);
+
+		Map<String, String> backing = new HashMap<>();
+		VotingPluginUser user = mapBackedUser(UUID.randomUUID(), "Ben", backing);
+		String groupCol = "VoteStreakGroup_DAILY_continuousstreak";
+		backing.put(groupCol, "2026-01-10|1|1|true||0");
+
+		assertFalse(handler.resetVoteStreak(user, "SharedGroupTestA"));
+
+		assertEquals("2026-01-10|1|1|true||0", backing.get(groupCol));
+	}
+
+	@Test
+	void resetVoteStreaks_countsSharedProgressGroupOnce() {
+		MemoryConfiguration root = new MemoryConfiguration();
+		ConfigurationSection voteStreaks = root.createSection("VoteStreaks");
+		ConfigurationSection group = addProgressGroup(voteStreaks, "continuousstreak", "DAILY", 1, 0, 0);
+		addProgressGroupMilestone(group, "SharedGroupTestA", 1, true, true);
+		addProgressGroupMilestone(group, "SharedGroupTestB", 1, true, true);
+		addStreak(voteStreaks, "UngroupedControl", "DAILY", true, 1, 1, 0, 0);
+		loadFromRoot(root);
+
+		Map<String, String> backing = new HashMap<>();
+		VotingPluginUser user = mapBackedUser(UUID.randomUUID(), "Ben", backing);
+		backing.put("VoteStreakGroup_DAILY_continuousstreak", "2026-01-10|1|1|true||0");
+		backing.put("VoteStreak_UngroupedControl", "2026-01-10|1|1|true||0");
+
+		assertEquals(2, handler.resetVoteStreaks(user));
 	}
 
 	@Test

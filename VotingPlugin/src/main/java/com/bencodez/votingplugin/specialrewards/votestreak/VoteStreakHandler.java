@@ -8,10 +8,12 @@ import java.time.temporal.ChronoUnit;
 import java.time.temporal.WeekFields;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -35,6 +37,7 @@ public class VoteStreakHandler {
 
 	@Getter
 	private final Map<String, VoteStreakDefinition> byId = new LinkedHashMap<>();
+	private final Map<String, VoteStreakDefinition> byProgressGroup = new LinkedHashMap<>();
 	private final List<VoteStreakDefinition> ordered = new ArrayList<>();
 
 	public VoteStreakHandler(VotingPluginMain plugin) {
@@ -46,6 +49,7 @@ public class VoteStreakHandler {
 	 */
 	public void reload() {
 		byId.clear();
+		byProgressGroup.clear();
 		ordered.clear();
 
 		// VoteStreak definitions live in specialrewards.yml now (Option B)
@@ -62,6 +66,14 @@ public class VoteStreakHandler {
 			return null;
 		}
 		return byId.get(id.toLowerCase(Locale.ROOT));
+	}
+
+	public Set<String> getProgressGroups() {
+		Set<String> groups = new LinkedHashSet<>();
+		for (VoteStreakDefinition def : byProgressGroup.values()) {
+			groups.add(def.getProgressGroup());
+		}
+		return Collections.unmodifiableSet(groups);
 	}
 
 	/**
@@ -84,6 +96,8 @@ public class VoteStreakHandler {
 		plugin.extraDebug("[VoteStreak] processVote: user=" + safeUser(user) + " timeMillis=" + voteTimeMillis
 				+ " defs=" + ordered.size());
 
+		Map<String, List<VoteStreakDefinition>> grouped = new LinkedHashMap<>();
+
 		for (VoteStreakDefinition def : ordered) {
 			if (!def.isEnabled()) {
 				plugin.extraDebug(
@@ -91,10 +105,15 @@ public class VoteStreakHandler {
 				continue;
 			}
 
+			grouped.computeIfAbsent(getColumnName(def), key -> new ArrayList<>()).add(def);
+		}
+
+		for (List<VoteStreakDefinition> defs : grouped.values()) {
 			try {
-				processVoteForDefinition(user, def, voteTimeMillis, voteUUID);
+				processVoteForDefinitions(user, defs, voteTimeMillis, voteUUID);
 			} catch (Exception e) {
-				plugin.getLogger().warning("VoteStreak processing failed for '" + def.getId() + "': " + e.getMessage());
+				plugin.getLogger().warning(
+						"VoteStreak processing failed for '" + defs.get(0).getId() + "': " + e.getMessage());
 				plugin.debug(e);
 			}
 		}
@@ -141,17 +160,29 @@ public class VoteStreakHandler {
 
 	private void processVoteForDefinition(VotingPluginUser user, VoteStreakDefinition def, long voteTimeMillis,
 			UUID voteUUID) {
-		final String col = getColumnName(def);
+		processVoteForDefinitions(user, Collections.singletonList(def), voteTimeMillis, voteUUID);
+	}
+
+	private void processVoteForDefinitions(VotingPluginUser user, List<VoteStreakDefinition> defs, long voteTimeMillis,
+			UUID voteUUID) {
+		if (defs == null || defs.isEmpty()) {
+			return;
+		}
+
+		VoteStreakDefinition progressDef = defs.get(0);
+		final boolean sharedProgress = progressDef.getProgressGroup() != null && !progressDef.getProgressGroup().isEmpty();
+		final String col = getColumnName(progressDef);
 		final String rawBefore = readStateString(user, col);
 		StreakState state = StreakState.deserialize(rawBefore);
 
-		final String currentPeriodKey = periodKey(def.getType(), voteTimeMillis);
-		migrateLegacyProgressIfNeeded(user, def, state, currentPeriodKey);
+		final String currentPeriodKey = periodKey(progressDef.getType(), voteTimeMillis);
+		migrateLegacyProgressIfNeeded(user, progressDef, state, currentPeriodKey);
 
-		plugin.extraDebug("[VoteStreak] def=" + def.getId() + " idKey=" + def.getId() + " type=" + def.getType()
-				+ " col=" + col + " period=" + currentPeriodKey + " votesReq=" + def.getVotesRequired() + " interval="
-				+ def.getRequiredAmount() + " rawBefore='" + rawBefore + "' stateBefore={periodKey=" + state.periodKey
-				+ ",streakCount=" + state.streakCount + ",votesThisPeriod=" + state.votesThisPeriod
+		plugin.extraDebug("[VoteStreak] def=" + progressDef.getId() + " idKey=" + progressDef.getId() + " type="
+				+ progressDef.getType() + " col=" + col + " progressGroup=" + progressDef.getProgressGroup()
+				+ " period=" + currentPeriodKey + " votesReq=" + progressDef.getVotesRequired() + " interval="
+				+ progressDef.getRequiredAmount() + " rawBefore='" + rawBefore + "' stateBefore={periodKey="
+				+ state.periodKey + ",streakCount=" + state.streakCount + ",votesThisPeriod=" + state.votesThisPeriod
 				+ ",countedThisPeriod=" + state.countedThisPeriod + ",missesUsed=" + state.missesUsed
 				+ ",missWindowStartKey=" + state.missWindowStartKey + "}");
 
@@ -165,7 +196,7 @@ public class VoteStreakHandler {
 			state.missesUsed = 0;
 		} else if (!state.periodKey.equals(currentPeriodKey)) {
 			plugin.extraDebug("[VoteStreak] period advanced from " + state.periodKey + " -> " + currentPeriodKey);
-			advancePeriodsAndApplyMisses(def, state, voteTimeMillis, currentPeriodKey);
+			advancePeriodsAndApplyMisses(progressDef, state, voteTimeMillis, currentPeriodKey);
 			plugin.extraDebug("[VoteStreak] after advance state={periodKey=" + state.periodKey + ",streakCount="
 					+ state.streakCount + ",votesThisPeriod=" + state.votesThisPeriod + ",countedThisPeriod="
 					+ state.countedThisPeriod + ",missesUsed=" + state.missesUsed + ",missWindowStartKey="
@@ -177,7 +208,7 @@ public class VoteStreakHandler {
 		if (!state.countedThisPeriod) {
 			state.votesThisPeriod++;
 
-			int votesRequired = Math.max(1, def.getVotesRequired());
+			int votesRequired = Math.max(1, progressDef.getVotesRequired());
 			plugin.extraDebug("[VoteStreak] vote counted in period: votesThisPeriod=" + state.votesThisPeriod + "/"
 					+ votesRequired);
 
@@ -185,15 +216,20 @@ public class VoteStreakHandler {
 				state.countedThisPeriod = true;
 				state.streakCount++;
 
-				int interval = Math.max(1, def.getRequiredAmount());
-				boolean shouldReward = shouldReward(def, state.streakCount);
+				for (VoteStreakDefinition def : defs) {
+					int interval = Math.max(1, def.getRequiredAmount());
+					boolean shouldReward = shouldReward(def, state, sharedProgress);
 
-				plugin.extraDebug("[VoteStreak] period satisfied: streakCount=" + state.streakCount + " interval="
-						+ interval + " shouldReward=" + shouldReward);
+					plugin.extraDebug("[VoteStreak] period satisfied: def=" + def.getId() + " streakCount="
+							+ state.streakCount + " interval=" + interval + " shouldReward=" + shouldReward);
 
-				if (shouldReward) {
-					plugin.extraDebug("[VoteStreak] giving rewards for idKey=" + def.getId());
-					giveRewards(user, def, voteUUID, state.streakCount);
+					if (shouldReward) {
+						plugin.extraDebug("[VoteStreak] giving rewards for idKey=" + def.getId());
+						giveRewards(user, def, voteUUID, state.streakCount);
+						if (sharedProgress && !def.isRecurring()) {
+							state.markRewarded(def);
+						}
+					}
 				}
 			}
 		} else {
@@ -209,6 +245,13 @@ public class VoteStreakHandler {
 		final String readBack = readStateString(user, col);
 		plugin.extraDebug("[VoteStreak] read-back col=" + col + " raw='" + readBack + "' (writtenLen="
 				+ rawAfter.length() + " readLen=" + readBack.length() + ")");
+	}
+
+	private boolean shouldReward(VoteStreakDefinition def, StreakState state, boolean sharedProgress) {
+		if (!shouldReward(def, state.streakCount)) {
+			return false;
+		}
+		return !sharedProgress || def.isRecurring() || !state.hasRewarded(def);
 	}
 
 	private boolean shouldReward(VoteStreakDefinition def, int streakCount) {
@@ -457,9 +500,12 @@ public class VoteStreakHandler {
 		}
 
 		int reset = 0;
+		Set<String> resetColumns = new LinkedHashSet<>();
 		for (VoteStreakDefinition def : ordered) {
-			writeStateString(user, getColumnName(def), "");
-			reset++;
+			if (resetColumns.add(getColumnName(def))) {
+				writeStateString(user, getColumnName(def), "");
+				reset++;
+			}
 		}
 		return reset;
 	}
@@ -470,8 +516,9 @@ public class VoteStreakHandler {
 		}
 
 		int reset = 0;
+		Set<String> resetColumns = new LinkedHashSet<>();
 		for (VoteStreakDefinition def : ordered) {
-			if (def.getType() == type) {
+			if (def.getType() == type && resetColumns.add(getColumnName(def))) {
 				writeStateString(user, getColumnName(def), "");
 				reset++;
 			}
@@ -484,8 +531,18 @@ public class VoteStreakHandler {
 			return false;
 		}
 
-		VoteStreakDefinition def = getDefinition(id);
+		String target = id.trim().toLowerCase(Locale.ROOT);
+		VoteStreakDefinition progressGroup = byProgressGroup.get(target);
+		if (progressGroup != null) {
+			writeStateString(user, getColumnName(progressGroup), "");
+			return true;
+		}
+
+		VoteStreakDefinition def = getDefinition(target);
 		if (def == null) {
+			return false;
+		}
+		if (def.getProgressGroup() != null && !def.getProgressGroup().isEmpty()) {
 			return false;
 		}
 
@@ -502,12 +559,15 @@ public class VoteStreakHandler {
 		if (event.isCancelled()) {
 			return;
 		}
-		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(), "VoteStreaks." + def.getId() + ".Rewards")
+		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(), def.getRewardPath())
 				.withPlaceHolder("id", def.getId()).withPlaceHolder("type", def.getType().toString())
 				.withPlaceHolder("amount", "" + streakCount).withPlaceHolder("streak", "" + streakCount).send(user);
 	}
 
 	public String getColumnName(VoteStreakDefinition def) {
+		if (def.getProgressGroup() != null && !def.getProgressGroup().isEmpty()) {
+			return "VoteStreakGroup_" + def.getType().name() + "_" + def.getProgressGroup();
+		}
 		return "VoteStreak_" + def.getId();
 	}
 
@@ -551,10 +611,13 @@ public class VoteStreakHandler {
 		boolean countedThisPeriod = false;
 		String missWindowStartKey = "";
 		int missesUsed = 0;
+		Set<String> rewardedDefinitions = new LinkedHashSet<>();
 
 		String serialize() {
-			return safe(periodKey) + "|" + streakCount + "|" + votesThisPeriod + "|" + countedThisPeriod + "|"
+			String base = safe(periodKey) + "|" + streakCount + "|" + votesThisPeriod + "|" + countedThisPeriod + "|"
 					+ safe(missWindowStartKey) + "|" + missesUsed;
+			String rewarded = serializeRewardedDefinitions();
+			return rewarded.isEmpty() ? base : base + "|" + rewarded;
 		}
 
 		static StreakState deserialize(String raw) {
@@ -593,6 +656,14 @@ public class VoteStreakHandler {
 				s.votesThisPeriod = s.countedThisPeriod ? 1 : 0;
 			}
 
+			if (p.length > 6) {
+				for (String rewarded : p[6].split(",")) {
+					if (rewarded != null && !rewarded.trim().isEmpty()) {
+						s.rewardedDefinitions.add(rewarded.trim().toLowerCase(Locale.ROOT));
+					}
+				}
+			}
+
 			if (s.periodKey == null)
 				s.periodKey = "";
 			if (s.missWindowStartKey == null)
@@ -605,6 +676,21 @@ public class VoteStreakHandler {
 				s.missesUsed = 0;
 
 			return s;
+		}
+
+		boolean hasRewarded(VoteStreakDefinition def) {
+			return rewardedDefinitions.contains(def.getId().toLowerCase(Locale.ROOT));
+		}
+
+		void markRewarded(VoteStreakDefinition def) {
+			rewardedDefinitions.add(def.getId().toLowerCase(Locale.ROOT));
+		}
+
+		private String serializeRewardedDefinitions() {
+			if (rewardedDefinitions.isEmpty()) {
+				return "";
+			}
+			return String.join(",", rewardedDefinitions);
 		}
 
 		private static String safe(String s) {
@@ -629,6 +715,7 @@ public class VoteStreakHandler {
 	public final class VoteStreakConfigLoader {
 
 		private final Pattern idPattern = Pattern.compile("^[A-Za-z0-9_\\-]+$"); // no spaces
+		private final Pattern progressGroupPattern = Pattern.compile("^[A-Za-z0-9_\\-]+$");
 
 		private boolean loadLegacy(ConfigurationSection root) {
 			ConfigurationSection legacy = root.getConfigurationSection("VoteStreak");
@@ -747,6 +834,10 @@ public class VoteStreakHandler {
 			for (String id : voteStreaks.getKeys(false)) {
 				count++;
 
+				if ("ProgressGroups".equalsIgnoreCase(id)) {
+					continue;
+				}
+
 				if (id == null || id.trim().isEmpty()) {
 					plugin.getLogger().warning("VoteStreaks entry #" + count + " has empty key; skipping.");
 					continue;
@@ -815,7 +906,135 @@ public class VoteStreakHandler {
 				ordered.add(def);
 			}
 
+			loadProgressGroups(voteStreaks);
+
 			plugin.getLogger().info("Loaded " + ordered.size() + " VoteStreak definitions.");
+		}
+
+		private void loadProgressGroups(ConfigurationSection voteStreaks) {
+			ConfigurationSection progressGroups = voteStreaks.getConfigurationSection("ProgressGroups");
+			if (progressGroups == null) {
+				return;
+			}
+
+			for (String groupId : progressGroups.getKeys(false)) {
+				if (groupId == null || groupId.trim().isEmpty()) {
+					plugin.getLogger().warning("VoteStreaks.ProgressGroups has an empty group id; skipping.");
+					continue;
+				}
+
+				groupId = groupId.trim();
+				if (!progressGroupPattern.matcher(groupId).matches()) {
+					plugin.getLogger().warning("VoteStreaks.ProgressGroups '" + groupId
+							+ "' is invalid (only A-Z, 0-9, _, -). Skipping.");
+					continue;
+				}
+				if (byId.containsKey(groupId.toLowerCase(Locale.ROOT))) {
+					plugin.getLogger().warning("VoteStreaks.ProgressGroups '" + groupId
+							+ "' duplicates an existing VoteStreak id; skipping.");
+					continue;
+				}
+
+				ConfigurationSection groupSec = progressGroups.getConfigurationSection(groupId);
+				if (groupSec == null) {
+					plugin.getLogger().warning("VoteStreaks.ProgressGroups '" + groupId + "' is not a section; skipping.");
+					continue;
+				}
+
+				VoteStreakType type = readType("VoteStreaks.ProgressGroups '" + groupId + "'", groupSec.getString("Type"));
+				if (type == null) {
+					continue;
+				}
+
+				boolean groupEnabled = groupSec.getBoolean("Enabled", true);
+				int votesRequired = Math.max(1, groupSec.getInt("VotesRequired", 1));
+				int allowMissedAmount = Math.max(0, groupSec.getInt("AllowMissedAmount", 0));
+				int allowMissedPeriod = Math.max(0, groupSec.getInt("AllowMissedPeriod", 0));
+
+				ConfigurationSection milestones = groupSec.getConfigurationSection("Milestones");
+				if (milestones == null || milestones.getKeys(false).isEmpty()) {
+					plugin.getLogger()
+							.warning("VoteStreaks.ProgressGroups '" + groupId + "' has no Milestones; skipping.");
+					continue;
+				}
+
+				for (String milestoneId : milestones.getKeys(false)) {
+					loadProgressGroupMilestone(groupId, groupSec, milestones, milestoneId, type, groupEnabled,
+							votesRequired, allowMissedAmount, allowMissedPeriod);
+				}
+			}
+		}
+
+		private void loadProgressGroupMilestone(String groupId, ConfigurationSection groupSec,
+				ConfigurationSection milestones, String milestoneId, VoteStreakType type, boolean groupEnabled,
+				int votesRequired, int allowMissedAmount, int allowMissedPeriod) {
+			if (milestoneId == null || milestoneId.trim().isEmpty()) {
+				plugin.getLogger().warning("VoteStreaks.ProgressGroups '" + groupId + "' has an empty milestone id; skipping.");
+				return;
+			}
+
+			milestoneId = milestoneId.trim();
+			if (!idPattern.matcher(milestoneId).matches()) {
+				plugin.getLogger().warning("VoteStreaks.ProgressGroups '" + groupId + "' milestone '" + milestoneId
+						+ "' is invalid (only A-Z, 0-9, _, -). Skipping.");
+				return;
+			}
+
+			if (byId.containsKey(milestoneId.toLowerCase(Locale.ROOT))) {
+				plugin.getLogger().warning("VoteStreaks.ProgressGroups '" + groupId + "' milestone '" + milestoneId
+						+ "' duplicates an existing VoteStreak id; skipping.");
+				return;
+			}
+
+			ConfigurationSection milestoneSec = milestones.getConfigurationSection(milestoneId);
+			if (milestoneSec == null) {
+				plugin.getLogger().warning("VoteStreaks.ProgressGroups '" + groupId + "' milestone '" + milestoneId
+						+ "' is not a section; skipping.");
+				return;
+			}
+
+			int amount = readRequiredAmount(milestoneSec);
+			if (amount <= 0) {
+				plugin.getLogger().warning("VoteStreaks.ProgressGroups '" + groupId + "' milestone '" + milestoneId
+						+ "' Amount must be > 0; skipping.");
+				return;
+			}
+
+			boolean enabled = groupEnabled && milestoneSec.getBoolean("Enabled", true);
+			boolean recurring = milestoneSec.getBoolean("Recurring", groupSec.getBoolean("Recurring", true));
+			String rewardPath = "VoteStreaks.ProgressGroups." + groupId + ".Milestones." + milestoneId + ".Rewards";
+
+			VoteStreakDefinition def = new VoteStreakDefinition(milestoneId, type, enabled, amount, votesRequired,
+					allowMissedAmount, allowMissedPeriod, recurring, groupId, rewardPath);
+
+			plugin.getUserManager().getDataManager()
+					.addKey(new UserDataKeyString(getColumnName(def)).setColumnType("MEDIUMTEXT"));
+
+			byId.put(milestoneId.toLowerCase(Locale.ROOT), def);
+			byProgressGroup.putIfAbsent(groupId.toLowerCase(Locale.ROOT), def);
+			ordered.add(def);
+		}
+
+		private VoteStreakType readType(String logPrefix, String typeStr) {
+			VoteStreakType type = null;
+			try {
+				type = VoteStreakType.from(typeStr);
+			} catch (Exception e) {
+				plugin.getLogger().warning(logPrefix + " has invalid Type '" + typeStr + "'; skipping.");
+			}
+			if (type == null) {
+				plugin.getLogger().warning(logPrefix + " has invalid Type '" + typeStr + "'; skipping.");
+			}
+			return type;
+		}
+
+		private int readRequiredAmount(ConfigurationSection sec) {
+			int amount = sec.getInt("Amount", 0);
+			ConfigurationSection req = sec.getConfigurationSection("Requirements");
+			if (amount <= 0 && req != null) {
+				amount = req.getInt("Amount", 0);
+			}
+			return amount;
 		}
 	}
 }
