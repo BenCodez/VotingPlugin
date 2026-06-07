@@ -226,6 +226,14 @@ class VoteStreakHandlerTest {
 		return (boolean) m.invoke(handler, def, streakCount);
 	}
 
+	private boolean shouldGiveProgressGroupLostRewards(List<VoteStreakDefinition> definitions,
+			VoteStreakDefinition progressDefinition, int lostStreakCount) throws Exception {
+		Method m = VoteStreakHandler.class.getDeclaredMethod("shouldGiveProgressGroupLostRewards", List.class,
+				VoteStreakDefinition.class, int.class);
+		m.setAccessible(true);
+		return (boolean) m.invoke(handler, definitions, progressDefinition, lostStreakCount);
+	}
+
 	@Test
 	void configLoader_loadsDefinition_andGetDefinitionWorks() {
 		MemoryConfiguration root = rootWithOneStreak("DailyStreak", "DAILY", true, 5, 2, 0, 0);
@@ -374,6 +382,123 @@ class VoteStreakHandlerTest {
 		String[] p = parseState(backing.get("VoteStreakGroup_DAILY_continuousstreak"));
 		assertEquals("3", p[1], "shared progress should still advance");
 		assertEquals("daily3", p[6], "reward history should be preserved");
+	}
+
+	@Test
+	void lostRewards_progressGroupRunsAfterOneSuccessfulPeriodByDefault() throws Exception {
+		YamlConfiguration root = new YamlConfiguration();
+		ConfigurationSection voteStreaks = root.createSection("VoteStreaks");
+		ConfigurationSection group = addProgressGroup(voteStreaks, "continuousstreak", "DAILY", 1, 0, 0);
+		group.createSection("LostRewards").createSection("Messages").set("Player", "&cStreak lost");
+		addProgressGroupMilestone(group, "Daily3", 3, true, false);
+
+		setSpecialRewardsRoot(root);
+		loadFromRoot(root);
+
+		VoteStreakDefinition progressDefinition = handler.getDefinition("Daily3");
+		assertNotNull(progressDefinition);
+
+		assertTrue(shouldGiveProgressGroupLostRewards(handler.getDefinitions(), progressDefinition, 1),
+				"LostRewards should run after one successful period when milestone requirement is disabled");
+	}
+
+	@Test
+	void lostRewards_progressGroupRequiresReachedMilestoneWhenConfigured() throws Exception {
+		YamlConfiguration root = new YamlConfiguration();
+		ConfigurationSection voteStreaks = root.createSection("VoteStreaks");
+		ConfigurationSection group = addProgressGroup(voteStreaks, "continuousstreak", "DAILY", 1, 0, 0);
+		group.set("RequireMilestoneForLostRewards", true);
+		group.createSection("LostRewards").createSection("Messages").set("Player", "&cStreak lost");
+		addProgressGroupMilestone(group, "Daily3", 3, true, false);
+		addProgressGroupMilestone(group, "Daily7", 7, true, false);
+
+		setSpecialRewardsRoot(root);
+		loadFromRoot(root);
+
+		VoteStreakDefinition progressDefinition = handler.getDefinition("Daily3");
+		assertNotNull(progressDefinition);
+
+		assertFalse(shouldGiveProgressGroupLostRewards(handler.getDefinitions(), progressDefinition, 2),
+				"LostRewards should not run before an enabled milestone is reached");
+		assertTrue(shouldGiveProgressGroupLostRewards(handler.getDefinitions(), progressDefinition, 3),
+				"LostRewards should run once the first enabled milestone is reached");
+		assertTrue(shouldGiveProgressGroupLostRewards(handler.getDefinitions(), progressDefinition, 8),
+				"LostRewards should run when any enabled milestone has been reached");
+	}
+
+	@Test
+	void lostRewards_progressGroupIgnoresDisabledMilestones() throws Exception {
+		YamlConfiguration root = new YamlConfiguration();
+		ConfigurationSection voteStreaks = root.createSection("VoteStreaks");
+		ConfigurationSection group = addProgressGroup(voteStreaks, "continuousstreak", "DAILY", 1, 0, 0);
+		group.set("RequireMilestoneForLostRewards", true);
+		group.createSection("LostRewards").createSection("Messages").set("Player", "&cStreak lost");
+		addProgressGroupMilestone(group, "Daily3", 3, false, false);
+		addProgressGroupMilestone(group, "Daily7", 7, true, false);
+
+		setSpecialRewardsRoot(root);
+		loadFromRoot(root);
+
+		VoteStreakDefinition progressDefinition = handler.getDefinition("Daily3");
+		assertNotNull(progressDefinition);
+
+		assertFalse(shouldGiveProgressGroupLostRewards(handler.getDefinitions(), progressDefinition, 3),
+				"Disabled milestones must not satisfy RequireMilestoneForLostRewards");
+		assertTrue(shouldGiveProgressGroupLostRewards(handler.getDefinitions(), progressDefinition, 7),
+				"An enabled milestone should satisfy RequireMilestoneForLostRewards");
+	}
+
+	@Test
+	void lostRewards_progressGroupDoesNotRunWithoutConfiguredRewards() throws Exception {
+		YamlConfiguration root = new YamlConfiguration();
+		ConfigurationSection voteStreaks = root.createSection("VoteStreaks");
+		ConfigurationSection group = addProgressGroup(voteStreaks, "continuousstreak", "DAILY", 1, 0, 0);
+		addProgressGroupMilestone(group, "Daily3", 3, true, false);
+
+		setSpecialRewardsRoot(root);
+		loadFromRoot(root);
+
+		VoteStreakDefinition progressDefinition = handler.getDefinition("Daily3");
+		assertNotNull(progressDefinition);
+
+		assertFalse(shouldGiveProgressGroupLostRewards(handler.getDefinitions(), progressDefinition, 3),
+				"LostRewards should not run when the group has no LostRewards section");
+	}
+
+	@Test
+	void lostRewards_regularVoteStreakIsNeverEligible() throws Exception {
+		YamlConfiguration root = new YamlConfiguration();
+		ConfigurationSection voteStreaks = root.createSection("VoteStreaks");
+		addStreak(voteStreaks, "Daily3", "DAILY", true, 3, 1, 0, 0);
+		voteStreaks.getConfigurationSection("Daily3").createSection("LostRewards").createSection("Messages")
+				.set("Player", "&cShould never run");
+
+		setSpecialRewardsRoot(root);
+		loadFromRoot(root);
+
+		VoteStreakDefinition definition = handler.getDefinition("Daily3");
+		assertNotNull(definition);
+
+		assertFalse(shouldGiveProgressGroupLostRewards(handler.getDefinitions(), definition, 3),
+				"Regular VoteStreak definitions must never use LostRewards");
+	}
+
+	@Test
+	void lostRewards_progressGroupRequiresPositiveStreakCount() throws Exception {
+		YamlConfiguration root = new YamlConfiguration();
+		ConfigurationSection voteStreaks = root.createSection("VoteStreaks");
+		ConfigurationSection group = addProgressGroup(voteStreaks, "continuousstreak", "DAILY", 1, 0, 0);
+		group.createSection("LostRewards").createSection("Messages").set("Player", "&cStreak lost");
+		addProgressGroupMilestone(group, "Daily3", 3, true, false);
+
+		setSpecialRewardsRoot(root);
+		loadFromRoot(root);
+
+		VoteStreakDefinition progressDefinition = handler.getDefinition("Daily3");
+		assertNotNull(progressDefinition);
+
+		assertFalse(shouldGiveProgressGroupLostRewards(handler.getDefinitions(), progressDefinition, 0));
+		assertFalse(shouldGiveProgressGroupLostRewards(handler.getDefinitions(), progressDefinition, -1));
 	}
 
 	@Test
