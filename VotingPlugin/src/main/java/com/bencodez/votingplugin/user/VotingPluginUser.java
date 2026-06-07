@@ -143,6 +143,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	/**
 	 * Adds one to the daily vote streak.
 	 */
+	@Deprecated
 	public void addDayVoteStreak() {
 		setDayVoteStreak(getDayVoteStreak() + 1);
 	}
@@ -157,6 +158,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	/**
 	 * Adds one to the monthly vote streak.
 	 */
+	@Deprecated
 	public void addMonthVoteStreak() {
 		setMonthVoteStreak(getMonthVoteStreak() + 1);
 	}
@@ -241,6 +243,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	/**
 	 * Adds one to the weekly vote streak.
 	 */
+	@Deprecated
 	public void addWeekVoteStreak() {
 		setWeekVoteStreak(getWeekVoteStreak() + 1);
 	}
@@ -410,6 +413,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 *
 	 * @param forceBungee whether to force bungee
 	 */
+	@Deprecated
 	public void checkDayVoteStreak(boolean forceBungee) {
 		if (!voteStreakUpdatedToday(LocalDateTime.now())) {
 			if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage() || hasPercentageTotal(
@@ -458,6 +462,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 *
 	 * @return the best day vote streak
 	 */
+	@Deprecated
 	public int getBestDayVoteStreak() {
 		return getData().getInt("BestDayVoteStreak");
 	}
@@ -467,6 +472,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 *
 	 * @return the best month vote streak
 	 */
+	@Deprecated
 	public int getBestMonthVoteStreak() {
 		return getData().getInt("BestMonthVoteStreak");
 	}
@@ -476,6 +482,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 *
 	 * @return the best week vote streak
 	 */
+	@Deprecated
 	public int getBestWeekVoteStreak() {
 		return getData().getInt("BestWeekVoteStreak");
 	}
@@ -564,6 +571,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 *
 	 * @return the day vote streak
 	 */
+	@Deprecated
 	public int getDayVoteStreak() {
 		return getData().getInt("DayVoteStreak");
 	}
@@ -573,6 +581,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 *
 	 * @return the last update time for the day vote streak
 	 */
+	@Deprecated
 	public long getDayVoteStreakLastUpdate() {
 		String str = getData().getString("DayVoteStreakLastUpdate");
 		if (str == null || str.isEmpty() || str.equals("null")) {
@@ -769,6 +778,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 *
 	 * @return the month vote streak
 	 */
+	@Deprecated
 	public int getMonthVoteStreak() {
 		return getData().getInt("MonthVoteStreak");
 	}
@@ -1048,6 +1058,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 *
 	 * @return the week vote streak
 	 */
+	@Deprecated
 	public int getWeekVoteStreak() {
 		return getData().getInt("WeekVoteStreak");
 	}
@@ -1369,6 +1380,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 *
 	 * @param streak the best day vote streak
 	 */
+	@Deprecated
 	public void setBestDayVoteStreak(int streak) {
 		getData().setInt("BestDayVoteStreak", streak);
 	}
@@ -1378,6 +1390,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 *
 	 * @param streak the best month vote streak
 	 */
+	@Deprecated
 	public void setBestMonthVoteStreak(int streak) {
 		getData().setInt("BestMonthVoteStreak", streak);
 	}
@@ -1387,6 +1400,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 *
 	 * @param streak the best week vote streak
 	 */
+	@Deprecated
 	public void setBestWeekVoteStreak(int streak) {
 		getData().setInt("BestWeekVoteStreak", streak);
 	}
@@ -1442,6 +1456,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 *
 	 * @param streak the day vote streak
 	 */
+	@Deprecated
 	public void setDayVoteStreak(int streak) {
 		getData().setInt("DayVoteStreak", streak);
 		if (getBestDayVoteStreak() < streak) {
@@ -1454,6 +1469,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 *
 	 * @param time the last update time for the day vote streak
 	 */
+	@Deprecated
 	public void setDayVoteStreakLastUpdate(long time) {
 		getData().setString("DayVoteStreakLastUpdate", "" + time);
 	}
@@ -1551,6 +1567,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 *
 	 * @param streak the month vote streak
 	 */
+	@Deprecated
 	public void setMonthVoteStreak(int streak) {
 		getData().setInt("MonthVoteStreak", streak);
 		if (getBestMonthVoteStreak() < streak) {
@@ -1692,6 +1709,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 *
 	 * @param streak the week vote streak
 	 */
+	@Deprecated
 	public void setWeekVoteStreak(int streak) {
 		getData().setInt("WeekVoteStreak", streak);
 		if (getBestWeekVoteStreak() < streak) {
@@ -1959,6 +1977,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param time the current time
 	 * @return true if the vote streak was updated today, false otherwise
 	 */
+	@Deprecated
 	public boolean voteStreakUpdatedToday(LocalDateTime time) {
 		return MiscUtils.getInstance().getTime(getDayVoteStreakLastUpdate()).getDayOfYear() == time.getDayOfYear();
 	}

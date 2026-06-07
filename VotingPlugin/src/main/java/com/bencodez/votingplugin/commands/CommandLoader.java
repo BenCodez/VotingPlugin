@@ -869,76 +869,232 @@ public class CommandLoader {
 		});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "User", "(player)", "SetVoteStreak", "DAY", "(number)" },
-						"VotingPlugin.Commands.AdminVote.SetVoteStreak.Day|" + adminPerm, "Set votestreak for player") {
+				.add(new CommandHandler(plugin,
+						new String[] { "User", "(player)", "VoteStreaks", "SetLegacy", "DAY", "(number)" },
+						"VotingPlugin.Commands.AdminVote.VoteStreaks.SetLegacy|" + adminPerm,
+						"Set the legacy daily vote streak amount") {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						plugin.getVotingPluginUserManager().getVotingPluginUser(args[1])
-								.setDayVoteStreak(Integer.parseInt(args[4]));
-						sender.sendMessage(
-								MessageAPI.colorize("&cSet votestreak day for '" + args[1] + "' to " + args[4]));
-					}
-				});
-
-		plugin.getAdminVoteCommand().add(new CommandHandler(plugin,
-				new String[] { "User", "(player)", "SetVoteStreak", "WEEK", "(number)" },
-				"VotingPlugin.Commands.AdminVote.SetVoteStreak.Week|" + adminPerm, "Set votestreak for player") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				plugin.getVotingPluginUserManager().getVotingPluginUser(args[1])
-						.setWeekVoteStreak(Integer.parseInt(args[4]));
-				sender.sendMessage(MessageAPI.colorize("&cSet votestreak week for '" + args[1] + "' to " + args[4]));
-			}
-		});
-
-		plugin.getAdminVoteCommand().add(new CommandHandler(plugin,
-				new String[] { "User", "(player)", "SetVoteStreak", "MONTH", "(number)" },
-				"VotingPlugin.Commands.AdminVote.SetVoteStreak.Month|" + adminPerm, "Set votestreak for player") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				plugin.getVotingPluginUserManager().getVotingPluginUser(args[1])
-						.setMonthVoteStreak(Integer.parseInt(args[4]));
-				sender.sendMessage(MessageAPI.colorize("&cSet votestreak month for '" + args[1] + "' to " + args[4]));
-			}
-		});
-
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "User", "(player)", "ResetVoteStreaks" },
-						"VotingPlugin.Commands.AdminVote.ResetVoteStreaks|" + adminPerm,
-						"Reset configured VoteStreaks state for player") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-						int reset = plugin.getVoteStreakHandler().resetVoteStreaks(user);
-						sendMessage(sender, "&cReset " + reset + " VoteStreaks for '" + args[1] + "'");
+								.setDayVoteStreak(Integer.parseInt(args[5]));
+						sendMessage(sender, "&aSet legacy daily VoteStreak for &e" + args[1] + " &ato &e" + args[5]);
 					}
 				});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "User", "(player)", "ResetVoteStreaks", "(votestreak)" },
-						"VotingPlugin.Commands.AdminVote.ResetVoteStreaks|" + adminPerm,
-						"Reset configured VoteStreaks state for player by type or id") {
+				.add(new CommandHandler(plugin,
+						new String[] { "User", "(player)", "VoteStreaks", "SetLegacy", "WEEK", "(number)" },
+						"VotingPlugin.Commands.AdminVote.VoteStreaks.SetLegacy|" + adminPerm,
+						"Set the legacy weekly vote streak amount") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						plugin.getVotingPluginUserManager().getVotingPluginUser(args[1])
+								.setWeekVoteStreak(Integer.parseInt(args[5]));
+						sendMessage(sender, "&aSet legacy weekly VoteStreak for &e" + args[1] + " &ato &e" + args[5]);
+					}
+				});
+
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin,
+						new String[] { "User", "(player)", "VoteStreaks", "SetLegacy", "MONTH", "(number)" },
+						"VotingPlugin.Commands.AdminVote.VoteStreaks.SetLegacy|" + adminPerm,
+						"Set the legacy monthly vote streak amount") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						plugin.getVotingPluginUserManager().getVotingPluginUser(args[1])
+								.setMonthVoteStreak(Integer.parseInt(args[5]));
+						sendMessage(sender, "&aSet legacy monthly VoteStreak for &e" + args[1] + " &ato &e" + args[5]);
+					}
+				});
+
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin,
+						new String[] { "User", "(player)", "VoteStreaks", "Advance", "(votestreakstate)" },
+						"VotingPlugin.Commands.AdminVote.VoteStreaks.Advance|" + adminPerm,
+						"Advance a configured VoteStreak by one and give crossed rewards") {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-						String target = args[3];
+						int result = plugin.getVoteStreakHandler().advanceVoteStreak(user, args[4], 1, UUID.randomUUID());
+						if (result >= 0) {
+							sendMessage(sender, "&aAdvanced VoteStreak &e" + args[4] + " &afor &e" + args[1]
+									+ "&a. New amount: &e" + result);
+						} else {
+							sendMessage(sender, "&cVoteStreak or progress group not found: &e" + args[4]);
+						}
+					}
+				});
 
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin,
+						new String[] { "User", "(player)", "VoteStreaks", "Advance", "(votestreakstate)", "(number)" },
+						"VotingPlugin.Commands.AdminVote.VoteStreaks.Advance|" + adminPerm,
+						"Advance a configured VoteStreak and give crossed rewards") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						int amount = Integer.parseInt(args[5]);
+						if (amount <= 0) {
+							sendMessage(sender, "&cAdvance amount must be greater than zero");
+							return;
+						}
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
+						int result = plugin.getVoteStreakHandler().advanceVoteStreak(user, args[4], amount, UUID.randomUUID());
+						if (result >= 0) {
+							sendMessage(sender, "&aAdvanced VoteStreak &e" + args[4] + " &aby &e" + amount + " &afor &e"
+									+ args[1] + "&a. New amount: &e" + result);
+						} else {
+							sendMessage(sender, "&cVoteStreak or progress group not found: &e" + args[4]);
+						}
+					}
+				});
+
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin,
+						new String[] { "User", "(player)", "VoteStreaks", "SetAmount", "(votestreakstate)", "(number)" },
+						"VotingPlugin.Commands.AdminVote.VoteStreaks.SetAmount|" + adminPerm,
+						"Set a configured VoteStreak amount without giving rewards") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
+						int amount = Math.max(0, Integer.parseInt(args[5]));
+						if (plugin.getVoteStreakHandler().setVoteStreakAmount(user, args[4], amount)) {
+							sendMessage(sender, "&aSet VoteStreak &e" + args[4] + " &aamount for &e" + args[1]
+									+ " &ato &e" + amount);
+						} else {
+							sendMessage(sender, "&cVoteStreak or progress group not found: &e" + args[4]);
+						}
+					}
+				});
+
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin,
+						new String[] { "User", "(player)", "VoteStreaks", "AddAmount", "(votestreakstate)", "(number)" },
+						"VotingPlugin.Commands.AdminVote.VoteStreaks.AddAmount|" + adminPerm,
+						"Add to a configured VoteStreak amount without giving rewards") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
+						int change = Integer.parseInt(args[5]);
+						int result = plugin.getVoteStreakHandler().addVoteStreakAmount(user, args[4], change);
+						if (result >= 0) {
+							sendMessage(sender, "&aChanged VoteStreak &e" + args[4] + " &aamount by &e" + change
+									+ " &afor &e" + args[1] + "&a. New amount: &e" + result);
+						} else {
+							sendMessage(sender, "&cVoteStreak or progress group not found: &e" + args[4]);
+						}
+					}
+				});
+
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin,
+						new String[] { "User", "(player)", "VoteStreaks", "SetLastUpdate", "(votestreakstate)", "(text)" },
+						"VotingPlugin.Commands.AdminVote.VoteStreaks.SetLastUpdate|" + adminPerm,
+						"Set the last update date for a configured VoteStreak using yyyy-MM-dd") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
+						String periodKey = plugin.getVoteStreakHandler().setVoteStreakLastUpdateDate(user, args[4], args[5]);
+						if (periodKey != null) {
+							sendMessage(sender, "&aSet the last update date for VoteStreak &e" + args[4] + " &afor &e"
+									+ args[1] + " &ato &e" + args[5] + "&a. Stored period: &e" + periodKey);
+						} else {
+							sendMessage(sender, "&cInvalid VoteStreak, progress group, or date. Use yyyy-MM-dd.");
+						}
+					}
+				});
+
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin,
+						new String[] { "User", "(player)", "VoteStreaks", "SetVotes", "(votestreakstate)", "(number)" },
+						"VotingPlugin.Commands.AdminVote.VoteStreaks.SetVotes|" + adminPerm,
+						"Set votes recorded in the current VoteStreak period") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
+						int votes = Math.max(0, Integer.parseInt(args[5]));
+						if (plugin.getVoteStreakHandler().setVoteStreakVotesThisPeriod(user, args[4], votes)) {
+							sendMessage(sender, "&aSet current-period votes for VoteStreak &e" + args[4] + " &afor &e"
+									+ args[1] + " &ato &e" + votes);
+						} else {
+							sendMessage(sender, "&cVoteStreak or progress group not found: &e" + args[4]);
+						}
+					}
+				});
+
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin,
+						new String[] { "User", "(player)", "VoteStreaks", "SetSatisfied", "(votestreakstate)", "(boolean)" },
+						"VotingPlugin.Commands.AdminVote.VoteStreaks.SetSatisfied|" + adminPerm,
+						"Set whether the current VoteStreak period is satisfied") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
+						boolean satisfied = Boolean.parseBoolean(args[5]);
+						if (plugin.getVoteStreakHandler().setVoteStreakPeriodSatisfied(user, args[4], satisfied)) {
+							sendMessage(sender, "&aSet current-period satisfied state for VoteStreak &e" + args[4]
+									+ " &afor &e" + args[1] + " &ato &e" + satisfied);
+						} else {
+							sendMessage(sender, "&cVoteStreak or progress group not found: &e" + args[4]);
+						}
+					}
+				});
+
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin,
+						new String[] { "User", "(player)", "VoteStreaks", "Status", "(votestreakstate)" },
+						"VotingPlugin.Commands.AdminVote.VoteStreaks.Status|" + adminPerm,
+						"Show the stored state for a configured VoteStreak") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
+						List<String> status = plugin.getVoteStreakHandler().getVoteStreakStatus(user, args[4]);
+						if (status.isEmpty()) {
+							sendMessage(sender, "&cVoteStreak or progress group not found: &e" + args[4]);
+							return;
+						}
+						sendMessage(sender, "&aVoteStreak state for &e" + args[1] + "&a:");
+						for (String line : status) {
+							sendMessage(sender, "&7- &f" + line);
+						}
+					}
+				});
+
+		plugin.getAdminVoteCommand()
+				.add(new CommandHandler(plugin,
+						new String[] { "User", "(player)", "VoteStreaks", "Reset", "(votestreakreset)" },
+						"VotingPlugin.Commands.AdminVote.VoteStreaks.Reset|" + adminPerm,
+						"Reset VoteStreak state by id, progress group, type, or ALL") {
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
+						String target = args[4];
+						if (target.equalsIgnoreCase("ALL")) {
+							int reset = plugin.getVoteStreakHandler().resetVoteStreaks(user);
+							sendMessage(sender, "&aReset &e" + reset + " &aVoteStreak states for &e" + args[1]);
+							return;
+						}
 						try {
 							VoteStreakType type = VoteStreakType.from(target);
 							int reset = plugin.getVoteStreakHandler().resetVoteStreaks(user, type);
-							sendMessage(sender,
-									"&cReset " + reset + " " + type.name() + " VoteStreaks for '" + args[1] + "'");
+							sendMessage(sender, "&aReset &e" + reset + " " + type.name() + " &aVoteStreak states for &e"
+									+ args[1]);
 							return;
-						} catch (Exception ignored) {
+						} catch (IllegalArgumentException ignored) {
 						}
-
 						if (plugin.getVoteStreakHandler().resetVoteStreak(user, target)) {
-							sendMessage(sender, "&cReset VoteStreak state '" + target + "' for '" + args[1] + "'");
+							sendMessage(sender, "&aReset VoteStreak state &e" + target + " &afor &e" + args[1]);
 						} else {
 							sendMessage(sender, "&cVoteStreak or progress group not found: &e" + target);
 						}
@@ -1587,20 +1743,20 @@ public class CommandLoader {
 
 			plugin.getAdminVoteCommand()
 					.add(new CommandHandler(plugin,
-							new String[] { "User", "(player)", "ForceVoteStreak", str, "(Text)" },
+							new String[] { "User", "(player)", "VoteStreaks", "ForceLegacy", str, "(Text)" },
 							"VotingPlugin.Commands.AdminVote.ForceVoteStreak|" + adminPerm,
 							"Force a votestreak reward for " + str) {
 
 						@Override
 						public void execute(CommandSender sender, String[] args) {
-							String num = args[4];
+							String num = args[5];
 							if (num.contains("-")) {
 								num = num.replaceAll("-", "");
 							}
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-							plugin.getSpecialRewards().giveVoteStreakReward(null, user, user.isOnline(), str, args[4],
+							plugin.getSpecialRewards().giveVoteStreakReward(null, user, user.isOnline(), str, args[5],
 									parseInt(num), plugin.getBungeeSettings().isUseBungeecoord());
-							sendMessage(sender, "&cVoteStreak " + str + " " + args[4] + " forced");
+							sendMessage(sender, "&cVoteStreak " + str + " " + args[5] + " forced");
 						}
 					});
 		}
@@ -2417,14 +2573,14 @@ public class CommandLoader {
 		});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "User", "(player)", "ForceVoteStreak", "(votestreak)" },
+				.add(new CommandHandler(plugin, new String[] { "User", "(player)", "VoteStreaks", "Force", "(votestreak)" },
 						"VotingPlugin.Commands.AdminVote.ForceVoteStreak|" + adminPerm,
 						"Force a configured VoteStreaks reward by id") {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-						String id = args[3];
+						String id = args[4];
 
 						boolean forced = plugin.getVoteStreakHandler().forceVoteStreakReward(user, id, 1,
 								UUID.randomUUID());
@@ -2439,15 +2595,15 @@ public class CommandLoader {
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(plugin,
-						new String[] { "User", "(player)", "ForceVoteStreak", "(votestreak)", "(number)" },
+						new String[] { "User", "(player)", "VoteStreaks", "Force", "(votestreak)", "(number)" },
 						"VotingPlugin.Commands.AdminVote.ForceVoteStreak|" + adminPerm,
 						"Force a configured VoteStreaks reward by id with a streak amount") {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-						String id = args[3];
-						int streakCount = parseInt(args[4]);
+						String id = args[4];
+						int streakCount = parseInt(args[5]);
 
 						boolean forced = plugin.getVoteStreakHandler().forceVoteStreakReward(user, id, streakCount,
 								UUID.randomUUID());
@@ -2826,7 +2982,6 @@ public class CommandLoader {
 		for (VoteStreakDefinition def : plugin.getVoteStreakHandler().getDefinitions()) {
 			voteStreaks.add(def.getId());
 		}
-		voteStreaks.addAll(plugin.getVoteStreakHandler().getProgressGroups());
 
 		TabCompleteHandler.getInstance().addTabCompleteOption(new TabCompleteHandle("(votestreak)", voteStreaks) {
 
@@ -2836,7 +2991,6 @@ public class CommandLoader {
 				for (VoteStreakDefinition def : plugin.getVoteStreakHandler().getDefinitions()) {
 					voteStreaks.add(def.getId());
 				}
-				voteStreaks.addAll(plugin.getVoteStreakHandler().getProgressGroups());
 				setReplace(voteStreaks);
 			}
 
@@ -2844,6 +2998,64 @@ public class CommandLoader {
 			public void updateReplacements() {
 			}
 		});
+
+		ArrayList<String> voteStreakStates = new ArrayList<>();
+		for (VoteStreakDefinition def : plugin.getVoteStreakHandler().getDefinitions()) {
+			if (def.getProgressGroup() == null || def.getProgressGroup().isEmpty()) {
+				voteStreakStates.add(def.getId());
+			}
+		}
+		voteStreakStates.addAll(plugin.getVoteStreakHandler().getProgressGroups());
+
+		TabCompleteHandler.getInstance()
+				.addTabCompleteOption(new TabCompleteHandle("(votestreakstate)", voteStreakStates) {
+
+					@Override
+					public void reload() {
+						ArrayList<String> voteStreakStates = new ArrayList<>();
+						for (VoteStreakDefinition def : plugin.getVoteStreakHandler().getDefinitions()) {
+							if (def.getProgressGroup() == null || def.getProgressGroup().isEmpty()) {
+								voteStreakStates.add(def.getId());
+							}
+						}
+						voteStreakStates.addAll(plugin.getVoteStreakHandler().getProgressGroups());
+						setReplace(voteStreakStates);
+					}
+
+					@Override
+					public void updateReplacements() {
+					}
+				});
+
+		ArrayList<String> voteStreakResetTargets = new ArrayList<>(voteStreakStates);
+		voteStreakResetTargets.add("ALL");
+		voteStreakResetTargets.add("DAILY");
+		voteStreakResetTargets.add("WEEKLY");
+		voteStreakResetTargets.add("MONTHLY");
+
+		TabCompleteHandler.getInstance()
+				.addTabCompleteOption(new TabCompleteHandle("(votestreakreset)", voteStreakResetTargets) {
+
+					@Override
+					public void reload() {
+						ArrayList<String> voteStreakResetTargets = new ArrayList<>();
+						for (VoteStreakDefinition def : plugin.getVoteStreakHandler().getDefinitions()) {
+							if (def.getProgressGroup() == null || def.getProgressGroup().isEmpty()) {
+								voteStreakResetTargets.add(def.getId());
+							}
+						}
+						voteStreakResetTargets.addAll(plugin.getVoteStreakHandler().getProgressGroups());
+						voteStreakResetTargets.add("ALL");
+						voteStreakResetTargets.add("DAILY");
+						voteStreakResetTargets.add("WEEKLY");
+						voteStreakResetTargets.add("MONTHLY");
+						setReplace(voteStreakResetTargets);
+					}
+
+					@Override
+					public void updateReplacements() {
+					}
+				});
 	}
 
 	/**

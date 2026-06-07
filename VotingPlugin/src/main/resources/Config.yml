@@ -535,7 +535,7 @@ JavascriptEngine:
   # Automatically downloads the optional Nashorn JavaScript engine dependencies when no JavaScript engine is available.
   # This is disabled by default so servers do not download dependencies unless explicitly allowed.
   # When enabled, AdvancedCore will try Nashorn 15.7 first, then fall back to Nashorn 15.4 if needed.
-  # Downloaded jars are stored in AdvancedCore's plugin folder.
+  # Downloaded jars are stored in VotingPlugin's plugin folder.
   AutoDownload: false
 
   # Enables the JavaScript command.
