@@ -905,9 +905,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				});
 			}
 		}
-
-		// VoteMilestones (NEW system)
-		// VoteMilestones
+		
 		ConfigurationSection voteMilestonesSection = plugin.getSpecialRewardsConfig().getData()
 				.getConfigurationSection("VoteMilestones");
 
@@ -916,8 +914,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				addSpecialRewardsEditorPath("VoteMilestones." + milestoneId + ".Rewards");
 			}
 		}
-
-		// Standalone VoteStreak rewards
+		
+		// VoteStreak rewards
 		ConfigurationSection voteStreaksSection = plugin.getSpecialRewardsConfig().getData()
 				.getConfigurationSection("VoteStreaks");
 
@@ -935,7 +933,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				addSpecialRewardsEditorPath("VoteStreaks." + streakId + ".Rewards");
 			}
 
-			// Progress-group milestone rewards
 			ConfigurationSection progressGroupsSection = voteStreaksSection.getConfigurationSection("ProgressGroups");
 
 			if (progressGroupsSection != null) {
@@ -945,19 +942,25 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 						continue;
 					}
 
+					addSpecialRewardsEditorPath(
+							"VoteStreaks.ProgressGroups." + groupId + ".LostRewards");
+
 					ConfigurationSection milestonesSection = groupSection.getConfigurationSection("Milestones");
 					if (milestonesSection == null) {
 						continue;
 					}
 
 					for (String milestoneId : milestonesSection.getKeys(false)) {
-						ConfigurationSection milestoneSection = milestonesSection.getConfigurationSection(milestoneId);
+						ConfigurationSection milestoneSection = milestonesSection
+								.getConfigurationSection(milestoneId);
+
 						if (milestoneSection == null) {
 							continue;
 						}
 
 						addSpecialRewardsEditorPath(
-								"VoteStreaks.ProgressGroups." + groupId + ".Milestones." + milestoneId + ".Rewards");
+								"VoteStreaks.ProgressGroups." + groupId
+										+ ".Milestones." + milestoneId + ".Rewards");
 					}
 				}
 			}

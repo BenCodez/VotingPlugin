@@ -191,7 +191,7 @@ public class VoteStreakHandler {
 			state.missesUsed = 0;
 		} else if (!state.periodKey.equals(currentPeriodKey)) {
 			plugin.extraDebug("[VoteStreak] period advanced from " + state.periodKey + " -> " + currentPeriodKey);
-			advancePeriodsAndApplyMisses(progressDef, state, voteTimeMillis, currentPeriodKey);
+			advancePeriodsAndApplyMisses(user, defs, state, voteTimeMillis, currentPeriodKey, voteUUID);
 			plugin.extraDebug("[VoteStreak] after advance state={periodKey=" + state.periodKey + ",streakCount="
 					+ state.streakCount + ",votesThisPeriod=" + state.votesThisPeriod + ",countedThisPeriod="
 					+ state.countedThisPeriod + ",missesUsed=" + state.missesUsed + ",missWindowStartKey="
@@ -262,30 +262,34 @@ public class VoteStreakHandler {
 	}
 
 	/**
-	 * When periods change, we determine if previous periods were misses.
-	 * 
-	 * @param def              vote streak definition
-	 * @param state            current streak state
-	 * @param nowMillis        current time millis
+	 * Advances the streak to the current period and applies missed periods.
+	 *
+	 * @param user voting plugin user
+	 * @param definitions definitions sharing the same streak state
+	 * @param state current streak state
+	 * @param nowMillis current time in milliseconds
 	 * @param currentPeriodKey current period key
+	 * @param voteUUID unique ID associated with the vote
 	 */
-	private void advancePeriodsAndApplyMisses(VoteStreakDefinition def, StreakState state, long nowMillis,
-			String currentPeriodKey) {
+	private void advancePeriodsAndApplyMisses(VotingPluginUser user, List<VoteStreakDefinition> definitions,
+			StreakState state, long nowMillis, String currentPeriodKey, UUID voteUUID) {
+		VoteStreakDefinition progressDefinition = definitions.get(0);
 
 		if (!state.countedThisPeriod) {
-			plugin.extraDebug("[VoteStreak] advance: previous period " + state.periodKey + " NOT satisfied -> miss");
-			recordMiss(def, state, nowMillis);
+			plugin.extraDebug("[VoteStreak] advance: previous period " + state.periodKey
+					+ " NOT satisfied -> miss");
+			recordMiss(progressDefinition, state, nowMillis);
 		}
 
-		int skipped = periodsBetween(def.getType(), state.periodKey, currentPeriodKey);
-		plugin.extraDebug(
-				"[VoteStreak] advance: skipped=" + skipped + " between " + state.periodKey + " -> " + currentPeriodKey);
+		int skipped = periodsBetween(progressDefinition.getType(), state.periodKey, currentPeriodKey);
+		plugin.extraDebug("[VoteStreak] advance: skipped=" + skipped + " between " + state.periodKey
+				+ " -> " + currentPeriodKey);
 
 		if (skipped > 1) {
 			for (int i = 0; i < skipped - 1; i++) {
-				plugin.extraDebug(
-						"[VoteStreak] advance: recording intermediate missed period " + (i + 1) + "/" + (skipped - 1));
-				recordMiss(def, state, nowMillis);
+				plugin.extraDebug("[VoteStreak] advance: recording intermediate missed period "
+						+ (i + 1) + "/" + (skipped - 1));
+				recordMiss(progressDefinition, state, nowMillis);
 			}
 		}
 
@@ -293,17 +297,68 @@ public class VoteStreakHandler {
 		state.countedThisPeriod = false;
 		state.votesThisPeriod = 0;
 
-		if (def.getAllowMissedAmount() <= 0) {
+		boolean streakLost = false;
+
+		if (progressDefinition.getAllowMissedAmount() <= 0) {
 			if (state.missesUsed > 0) {
-				plugin.extraDebug(
-						"[VoteStreak] advance: no misses allowed and missesUsed=" + state.missesUsed + " -> reset");
-				resetStreakAndMissTracking(state);
+				plugin.extraDebug("[VoteStreak] advance: no misses allowed and missesUsed="
+						+ state.missesUsed + " -> reset");
+				streakLost = true;
 			}
-		} else if (state.missesUsed > def.getAllowMissedAmount()) {
-			plugin.extraDebug("[VoteStreak] advance: missesUsed=" + state.missesUsed + " > allowMissedAmount="
-					+ def.getAllowMissedAmount() + " -> reset");
+		} else if (state.missesUsed > progressDefinition.getAllowMissedAmount()) {
+			plugin.extraDebug("[VoteStreak] advance: missesUsed=" + state.missesUsed
+					+ " > allowMissedAmount=" + progressDefinition.getAllowMissedAmount() + " -> reset");
+			streakLost = true;
+		}
+
+		if (streakLost) {
+			int lostStreakCount = state.streakCount;
+			if (shouldGiveProgressGroupLostRewards(definitions, progressDefinition, lostStreakCount)) {
+				giveProgressGroupLostRewards(user, progressDefinition, lostStreakCount);
+			}
 			resetStreakAndMissTracking(state);
 		}
+	}
+
+	/**
+	 * Checks whether lost rewards should run for a progress group.
+	 *
+	 * @param definitions progress group milestone definitions
+	 * @param progressDefinition definition owning the shared progress
+	 * @param lostStreakCount streak count before reset
+	 * @return true if the progress group lost rewards should run
+	 */
+	private boolean shouldGiveProgressGroupLostRewards(List<VoteStreakDefinition> definitions,
+			VoteStreakDefinition progressDefinition, int lostStreakCount) {
+		String progressGroup = progressDefinition.getProgressGroup();
+		if (lostStreakCount <= 0 || progressGroup == null || progressGroup.isEmpty()) {
+			return false;
+		}
+
+		String groupPath = "VoteStreaks.ProgressGroups." + progressGroup;
+		ConfigurationSection root = plugin.getSpecialRewardsConfig().getData();
+		if (!root.isConfigurationSection(groupPath + ".LostRewards")) {
+			return false;
+		}
+
+		boolean requireMilestone = root.getBoolean(groupPath + ".RequireMilestoneForLostRewards", false);
+		return !requireMilestone || hasReachedEnabledMilestone(definitions, lostStreakCount);
+	}
+
+	/**
+	 * Checks whether the streak reached at least one enabled milestone.
+	 *
+	 * @param definitions progress group milestone definitions
+	 * @param streakCount streak count before reset
+	 * @return true if an enabled milestone was reached
+	 */
+	private boolean hasReachedEnabledMilestone(List<VoteStreakDefinition> definitions, int streakCount) {
+		for (VoteStreakDefinition definition : definitions) {
+			if (definition.isEnabled() && streakCount >= definition.getRequiredAmount()) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private void recordMiss(VoteStreakDefinition def, StreakState state, long nowMillis) {
@@ -543,6 +598,29 @@ public class VoteStreakHandler {
 
 		writeStateString(user, getColumnName(def), "");
 		return true;
+	}
+
+	/**
+	 * Gives rewards configured for losing a progress group streak.
+	 *
+	 * @param user voting plugin user
+	 * @param definition definition belonging to the progress group
+	 * @param lostStreakCount streak count before reset
+	 */
+	private void giveProgressGroupLostRewards(VotingPluginUser user, VoteStreakDefinition definition,
+			int lostStreakCount) {
+		String rewardPath = "VoteStreaks.ProgressGroups." + definition.getProgressGroup() + ".LostRewards";
+		ConfigurationSection root = plugin.getSpecialRewardsConfig().getData();
+
+		plugin.extraDebug("[VoteStreak] giving progress group lost rewards for group="
+				+ definition.getProgressGroup() + " path=" + rewardPath + " streakCount=" + lostStreakCount);
+
+		new RewardBuilder(root, rewardPath)
+				.withPlaceHolder("id", definition.getProgressGroup())
+				.withPlaceHolder("type", definition.getType().toString())
+				.withPlaceHolder("amount", String.valueOf(lostStreakCount))
+				.withPlaceHolder("streak", String.valueOf(lostStreakCount))
+				.send(user);
 	}
 
 	private void giveRewards(VotingPluginUser user, VoteStreakDefinition def, UUID voteUUID, int streakCount) {

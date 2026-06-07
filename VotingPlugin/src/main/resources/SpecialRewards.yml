@@ -244,6 +244,14 @@ VoteStreaks:
       # Number of recent periods checked when validating group progress.
       # This example checks the last 7 days because Type is DAILY.
       AllowMissedPeriod: 7
+      
+      # Only run LostRewards if the player reached at least one milestone.
+      RequireMilestoneForLostRewards: true
+      
+      # Rewards executed when the streak requirement is failed after progress was made.
+      LostRewards:
+        Messages:
+          Player: "&cYou lost your %streak% day voting streak."
 
       # Each milestone can have its own amount, recurring behavior, and rewards
       # while sharing the progress settings configured above.
