@@ -448,6 +448,36 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private VoteStreakHandler voteStreakHandler;
 
+	/**
+	 * Registers a directly editable rewards path from SpecialRewards.yml.
+	 *
+	 * @param rewardPath full configuration path to the rewards section
+	 */
+	private void addSpecialRewardsEditorPath(String rewardPath) {
+		addDirectlyDefinedRewards(new DirectlyDefinedReward(rewardPath) {
+
+			@Override
+			public void setData(String path, Object value) {
+				plugin.getSpecialRewardsConfig().getData().set(path, value);
+			}
+
+			@Override
+			public void createSection(String key) {
+				plugin.getSpecialRewardsConfig().getData().createSection(key);
+			}
+
+			@Override
+			public ConfigurationSection getFileData() {
+				return plugin.getSpecialRewardsConfig().getData();
+			}
+
+			@Override
+			public void save() {
+				plugin.getSpecialRewardsConfig().saveData();
+			}
+		});
+	}
+
 	public void loadDirectlyDefined() {
 		getRewardHandler().getDirectlyDefinedRewards().clear();
 
@@ -877,35 +907,59 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 
 		// VoteMilestones (NEW system)
+		// VoteMilestones
 		ConfigurationSection voteMilestonesSection = plugin.getSpecialRewardsConfig().getData()
 				.getConfigurationSection("VoteMilestones");
 
 		if (voteMilestonesSection != null) {
 			for (String milestoneId : voteMilestonesSection.getKeys(false)) {
+				addSpecialRewardsEditorPath("VoteMilestones." + milestoneId + ".Rewards");
+			}
+		}
 
-				// Direct edit path: VoteMilestones.<id>.Rewards
-				addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteMilestones." + milestoneId + ".Rewards") {
+		// Standalone VoteStreak rewards
+		ConfigurationSection voteStreaksSection = plugin.getSpecialRewardsConfig().getData()
+				.getConfigurationSection("VoteStreaks");
 
-					@Override
-					public void setData(String path, Object value) {
-						plugin.getSpecialRewardsConfig().getData().set(path, value);
+		if (voteStreaksSection != null) {
+			for (String streakId : voteStreaksSection.getKeys(false)) {
+				if ("ProgressGroups".equalsIgnoreCase(streakId)) {
+					continue;
+				}
+
+				ConfigurationSection streakSection = voteStreaksSection.getConfigurationSection(streakId);
+				if (streakSection == null) {
+					continue;
+				}
+
+				addSpecialRewardsEditorPath("VoteStreaks." + streakId + ".Rewards");
+			}
+
+			// Progress-group milestone rewards
+			ConfigurationSection progressGroupsSection = voteStreaksSection.getConfigurationSection("ProgressGroups");
+
+			if (progressGroupsSection != null) {
+				for (String groupId : progressGroupsSection.getKeys(false)) {
+					ConfigurationSection groupSection = progressGroupsSection.getConfigurationSection(groupId);
+					if (groupSection == null) {
+						continue;
 					}
 
-					@Override
-					public void createSection(String key) {
-						plugin.getSpecialRewardsConfig().getData().createSection(key);
+					ConfigurationSection milestonesSection = groupSection.getConfigurationSection("Milestones");
+					if (milestonesSection == null) {
+						continue;
 					}
 
-					@Override
-					public ConfigurationSection getFileData() {
-						return plugin.getSpecialRewardsConfig().getData();
-					}
+					for (String milestoneId : milestonesSection.getKeys(false)) {
+						ConfigurationSection milestoneSection = milestonesSection.getConfigurationSection(milestoneId);
+						if (milestoneSection == null) {
+							continue;
+						}
 
-					@Override
-					public void save() {
-						plugin.getSpecialRewardsConfig().saveData();
+						addSpecialRewardsEditorPath(
+								"VoteStreaks.ProgressGroups." + groupId + ".Milestones." + milestoneId + ".Rewards");
 					}
-				});
+				}
 			}
 		}
 
