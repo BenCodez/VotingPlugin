@@ -158,11 +158,6 @@ public class VoteStreakHandler {
 		return new VoteStreakConfigLoader().loadLegacy(root) ? ordered.size() : 0;
 	}
 
-	private void processVoteForDefinition(VotingPluginUser user, VoteStreakDefinition def, long voteTimeMillis,
-			UUID voteUUID) {
-		processVoteForDefinitions(user, Collections.singletonList(def), voteTimeMillis, voteUUID);
-	}
-
 	private void processVoteForDefinitions(VotingPluginUser user, List<VoteStreakDefinition> defs, long voteTimeMillis,
 			UUID voteUUID) {
 		if (defs == null || defs.isEmpty()) {

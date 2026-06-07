@@ -179,25 +179,107 @@ VoteParty:
         Amount: 1
 
 
-# -----------------------------
-# Vote streak rewards (NEW)
-# -----------------------------
+# ---------------------------------
+# Vote streak rewards
+# ---------------------------------
 VoteStreaks:
-  # Id name, data is stored under this name
-  # On proxy setups keep different for each server unless you want one global streak/reward
+  # Each streak must have a unique ID.
+  # Player streak data is stored under this ID.
+  #
+  # On proxy networks:
+  # - Use different IDs on each server for independent streaks.
+  # - Use the same ID on every server for one shared global streak.
+  #
+  # Changing an ID will cause the existing stored progress under the old ID
+  # to no longer apply to this streak.
   Daily3Votes:
+    # The calendar period used for this streak.
+    # Available types include DAILY, WEEKLY, and MONTHLY.
     Type: DAILY
+
+    # Whether this streak definition is enabled.
     Enabled: false
+
     Requirements:
+      # Number of successful periods required to complete the streak.
       Amount: 3
+
+      # Number of votes required within each period for that period to count.
+      # With Type set to DAILY, this example requires 3 votes in one day.
       VotesRequired: 3
+
+    # Maximum number of missed periods allowed within the validation window.
+    # Set to 0 to require every period to be completed.
     AllowMissedAmount: 1
+
+    # Number of recent periods checked when validating the streak.
+    # This example checks the last 7 days because Type is DAILY.
     AllowMissedPeriod: 7
-    # true = reward every N streak completions, false = reward only once at N
+
+    # true: Give the reward again at each multiple of Amount.
+    #       With Amount set to 3, rewards are given at 3, 6, 9, and so on.
+    # false: Give the reward only when Amount is reached for the first time.
     Recurring: true
+
+    # Rewards executed when the streak requirement is completed.
+    # Vote streaks support the standard VotingPlugin Rewards system.
     Rewards:
       Commands:
       - say test
+
+  # Progress groups allow multiple reward milestones to use the same
+  # underlying streak progress and vote requirements.
+  ProgressGroups:
+    # Each progress group must have a unique ID.
+    MyProgressGroupOne:
+      # The calendar period used when tracking progress for this group.
+      Type: DAILY
+
+      # Number of votes required within each period for that period to count.
+      VotesRequired: 1
+
+      # Maximum number of missed periods allowed within the validation window.
+      AllowMissedAmount: 1
+
+      # Number of recent periods checked when validating group progress.
+      # This example checks the last 7 days because Type is DAILY.
+      AllowMissedPeriod: 7
+
+      # Each milestone can have its own amount, recurring behavior, and rewards
+      # while sharing the progress settings configured above.
+      Milestones:
+        DailyStreak3:
+          # Whether this milestone is enabled.
+          Enabled: false
+
+          # Number of successful periods required to complete this milestone.
+          Amount: 3
+
+          # true: Give the reward again at each multiple of Amount.
+          # false: Give the reward only the first time Amount is reached.
+          Recurring: false
+
+          # Rewards executed when this milestone is completed.
+          Rewards:
+            Messages:
+              Player: "&aYou reached a 3 day streak"
+
+        DailyStreak7:
+          # Whether this milestone is enabled.
+          Enabled: false
+
+          # Number of successful periods required to complete this milestone.
+          Amount: 7
+
+          # true: Give the reward again at each multiple of Amount.
+          # false: Give the reward only the first time Amount is reached.
+          Recurring: false
+
+          # Rewards executed when this milestone is completed.
+          Rewards:
+            Messages:
+              Player: "&aYou reached a 7 day streak"
+
       
 NameMCLikeReward:
   Enabled: false
