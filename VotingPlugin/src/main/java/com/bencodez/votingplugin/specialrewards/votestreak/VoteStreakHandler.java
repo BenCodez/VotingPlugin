@@ -811,21 +811,24 @@ public class VoteStreakHandler {
 
 		private boolean loadLegacyType(ConfigurationSection voteStreaks, ConfigurationSection legacy, String key,
 				VoteStreakType type) {
-			ConfigurationSection sec = legacy.getConfigurationSection(key);
-			if (sec == null) {
+			ConfigurationSection legacyTypeSection = legacy.getConfigurationSection(key);
+			if (legacyTypeSection == null || !legacyTypeSection.getBoolean("Enabled", true)) {
 				return false;
 			}
 
-			if (!sec.getBoolean("Enabled", true)) {
-				return false;
-			}
+			String groupId = getLegacyProgressGroupId(type);
+			ConfigurationSection progressGroups = voteStreaks.getConfigurationSection("ProgressGroups");
+			ConfigurationSection groupSection = progressGroups == null ? null
+					: progressGroups.getConfigurationSection(groupId);
+			ConfigurationSection milestones = groupSection == null ? null
+					: groupSection.getConfigurationSection("Milestones");
 
 			boolean any = false;
 			boolean migratedAny = false;
 
-			for (String streakKey : sec.getKeys(false)) {
-				ConfigurationSection defSec = sec.getConfigurationSection(streakKey);
-				if (defSec == null) {
+			for (String streakKey : legacyTypeSection.getKeys(false)) {
+				ConfigurationSection legacyDefinition = legacyTypeSection.getConfigurationSection(streakKey);
+				if (legacyDefinition == null || !legacyDefinition.getBoolean("Enabled", true)) {
 					continue;
 				}
 
@@ -839,45 +842,54 @@ public class VoteStreakHandler {
 					continue;
 				}
 
-				boolean enabled = defSec.getBoolean("Enabled", true);
-				if (!enabled) {
-					continue;
+				boolean recurring = streakKey.contains("-");
+				String milestoneId = "Legacy" + type.name() + amount
+						+ (recurring ? "Recurring" : "OneTime");
+
+				if (progressGroups == null) {
+					progressGroups = voteStreaks.createSection("ProgressGroups");
+				}
+				if (groupSection == null) {
+					groupSection = progressGroups.createSection(groupId);
+					groupSection.set("Type", type.name());
+					groupSection.set("Enabled", true);
+					groupSection.set("VotesRequired", 1);
+					groupSection.set("AllowMissedAmount", 0);
+					groupSection.set("AllowMissedPeriod", 0);
+				}
+				if (milestones == null) {
+					milestones = groupSection.createSection("Milestones");
 				}
 
-				boolean recurring = streakKey.contains("-");
-				defSec.set("Enabled", false);
+				ConfigurationSection milestone = milestones.getConfigurationSection(milestoneId);
+				if (milestone == null) {
+					milestone = milestones.createSection(milestoneId);
+					milestone.set("Enabled", true);
+					milestone.set("Amount", amount);
+					milestone.set("Recurring", recurring);
 
-				String id = "Legacy" + type.name() + amount + (recurring ? "Recurring" : "OneTime");
-
-				if (voteStreaks.getConfigurationSection(id) == null) {
-					ConfigurationSection migrated = voteStreaks.createSection(id);
-					migrated.set("Type", type.name());
-					migrated.set("Enabled", true);
-					migrated.set("Recurring", recurring);
-
-					ConfigurationSection req = migrated.createSection("Requirements");
-					req.set("Amount", amount);
-					req.set("VotesRequired", 1);
-
-					migrated.set("AllowMissedAmount", 0);
-					migrated.set("AllowMissedPeriod", 0);
-
-					ConfigurationSection rewards = defSec.getConfigurationSection("Rewards");
+					ConfigurationSection rewards = legacyDefinition.getConfigurationSection("Rewards");
 					if (rewards != null) {
-						migrated.createSection("Rewards", rewards.getValues(false));
-					} else if (defSec.isList("Rewards")) {
-						migrated.set("Rewards", defSec.getList("Rewards"));
+						milestone.createSection("Rewards", rewards.getValues(false));
+					} else if (legacyDefinition.isList("Rewards")) {
+						milestone.set("Rewards", legacyDefinition.getList("Rewards"));
 					}
-
 					migratedAny = true;
 				}
 
-				VoteStreakDefinition def = new VoteStreakDefinition(id, type, true, amount, 1, 0, 0, recurring);
-				plugin.getUserManager().getDataManager()
-						.addKey(new UserDataKeyString(getColumnName(def)).setColumnType("MEDIUMTEXT"));
+				legacyDefinition.set("Enabled", false);
 
-				byId.put(id.toLowerCase(Locale.ROOT), def);
-				ordered.add(def);
+				String rewardPath = "VoteStreaks.ProgressGroups." + groupId + ".Milestones." + milestoneId
+						+ ".Rewards";
+				VoteStreakDefinition definition = new VoteStreakDefinition(milestoneId, type, true, amount, 1, 0,
+						0, recurring, groupId, rewardPath);
+
+				plugin.getUserManager().getDataManager()
+						.addKey(new UserDataKeyString(getColumnName(definition)).setColumnType("MEDIUMTEXT"));
+
+				byId.put(milestoneId.toLowerCase(Locale.ROOT), definition);
+				byProgressGroup.putIfAbsent(groupId.toLowerCase(Locale.ROOT), definition);
+				ordered.add(definition);
 				any = true;
 			}
 
@@ -886,7 +898,20 @@ public class VoteStreakHandler {
 			}
 
 			return any;
+		}
 
+		/**
+		 * Gets the progress group ID used for migrated legacy streaks.
+		 *
+		 * @param type legacy streak type
+		 * @return migrated progress group ID
+		 */
+		private String getLegacyProgressGroupId(VoteStreakType type) {
+			return switch (type) {
+			case DAILY -> "LegacyDaily";
+			case WEEKLY -> "LegacyWeekly";
+			case MONTHLY -> "LegacyMonthly";
+			};
 		}
 
 		public void load(ConfigurationSection root) {

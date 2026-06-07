@@ -645,7 +645,7 @@ class VoteStreakHandlerTest {
 	}
 
 	@Test
-	void migrateLegacyConfigManually_migratesOnlyEnabledLegacyEntries() {
+	void migrateLegacyConfigManually_migratesEnabledEntriesIntoSharedProgressGroup() {
 		YamlConfiguration root = rootWithLegacyVoteStreaks();
 		setSpecialRewardsRoot(root);
 
@@ -653,35 +653,50 @@ class VoteStreakHandlerTest {
 
 		assertEquals(2, migrated);
 
-		ConfigurationSection voteStreaks = root.getConfigurationSection("VoteStreaks");
-		assertNotNull(voteStreaks);
+		ConfigurationSection group = root.getConfigurationSection("VoteStreaks.ProgressGroups.LegacyWeekly");
+		assertNotNull(group);
+		assertEquals("WEEKLY", group.getString("Type"));
+		assertTrue(group.getBoolean("Enabled"));
+		assertEquals(1, group.getInt("VotesRequired"));
+		assertEquals(0, group.getInt("AllowMissedAmount"));
+		assertEquals(0, group.getInt("AllowMissedPeriod"));
 
-		ConfigurationSection oneTime = voteStreaks.getConfigurationSection("LegacyWEEKLY2OneTime");
+		ConfigurationSection oneTime = group
+				.getConfigurationSection("Milestones.LegacyWEEKLY2OneTime");
 		assertNotNull(oneTime);
-		assertEquals("WEEKLY", oneTime.getString("Type"));
 		assertTrue(oneTime.getBoolean("Enabled"));
 		assertFalse(oneTime.getBoolean("Recurring"));
-		assertEquals(2, oneTime.getInt("Requirements.Amount"));
-		assertEquals(1, oneTime.getInt("Requirements.VotesRequired"));
-		assertEquals(0, oneTime.getInt("AllowMissedAmount"));
-		assertEquals(0, oneTime.getInt("AllowMissedPeriod"));
+		assertEquals(2, oneTime.getInt("Amount"));
 
-		ConfigurationSection recurring = voteStreaks.getConfigurationSection("LegacyWEEKLY4Recurring");
+		ConfigurationSection recurring = group
+				.getConfigurationSection("Milestones.LegacyWEEKLY4Recurring");
 		assertNotNull(recurring);
-		assertEquals("WEEKLY", recurring.getString("Type"));
 		assertTrue(recurring.getBoolean("Enabled"));
 		assertTrue(recurring.getBoolean("Recurring"));
-		assertEquals(4, recurring.getInt("Requirements.Amount"));
-		assertEquals(1, recurring.getInt("Requirements.VotesRequired"));
+		assertEquals(4, recurring.getInt("Amount"));
 
-		assertNull(voteStreaks.getConfigurationSection("LegacyWEEKLY3OneTime"),
+		assertNull(group.getConfigurationSection("Milestones.LegacyWEEKLY3OneTime"),
 				"disabled legacy streak entries should not migrate");
+
+		VoteStreakDefinition oneTimeDefinition = handler.getDefinition("LegacyWEEKLY2OneTime");
+		VoteStreakDefinition recurringDefinition = handler.getDefinition("LegacyWEEKLY4Recurring");
+		assertNotNull(oneTimeDefinition);
+		assertNotNull(recurringDefinition);
+		assertEquals("LegacyWeekly", oneTimeDefinition.getProgressGroup());
+		assertEquals("LegacyWeekly", recurringDefinition.getProgressGroup());
+		assertEquals("VoteStreakGroup_WEEKLY_LegacyWeekly", handler.getColumnName(oneTimeDefinition));
+		assertEquals(handler.getColumnName(oneTimeDefinition), handler.getColumnName(recurringDefinition));
+		assertEquals("VoteStreaks.ProgressGroups.LegacyWeekly.Milestones.LegacyWEEKLY2OneTime.Rewards",
+				oneTimeDefinition.getRewardPath());
+		assertEquals("VoteStreaks.ProgressGroups.LegacyWeekly.Milestones.LegacyWEEKLY4Recurring.Rewards",
+				recurringDefinition.getRewardPath());
 
 		assertFalse(root.getBoolean("VoteStreak.Week.2.Enabled"),
 				"migrated legacy entries should be disabled after migration");
 		assertFalse(root.getBoolean("VoteStreak.Week.-4.Enabled"),
 				"migrated recurring legacy entries should be disabled after migration");
-		assertFalse(root.getBoolean("VoteStreak.Week.3.Enabled"), "disabled legacy entries should remain disabled");
+		assertFalse(root.getBoolean("VoteStreak.Week.3.Enabled"),
+				"disabled legacy entries should remain disabled");
 	}
 
 	@Test
@@ -709,7 +724,7 @@ class VoteStreakHandlerTest {
 
 		handler.migrateLegacyConfigManually();
 
-		ConfigurationSection migrated = root.getConfigurationSection("VoteStreaks.LegacyWEEKLY2OneTime");
+		ConfigurationSection migrated = root.getConfigurationSection("VoteStreaks.ProgressGroups.LegacyWeekly.Milestones.LegacyWEEKLY2OneTime");
 		assertNotNull(migrated);
 
 		assertEquals("&aYou voted for %Streak% %Type%'s in a row!", migrated.getString("Rewards.Messages.Player"));
@@ -728,7 +743,7 @@ class VoteStreakHandlerTest {
 
 		handler.migrateLegacyConfigManually();
 
-		ConfigurationSection migrated = root.getConfigurationSection("VoteStreaks.LegacyDAILY3OneTime");
+		ConfigurationSection migrated = root.getConfigurationSection("VoteStreaks.ProgressGroups.LegacyDaily.Milestones.LegacyDAILY3OneTime");
 		assertNotNull(migrated);
 
 		List<String> rewards = migrated.getStringList("Rewards");
