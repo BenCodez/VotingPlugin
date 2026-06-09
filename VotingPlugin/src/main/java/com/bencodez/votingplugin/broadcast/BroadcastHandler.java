@@ -13,14 +13,16 @@ import java.util.Set;
 import java.util.StringJoiner;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 
-import com.bencodez.advancedcore.api.misc.MiscUtils;
+import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.simpleapi.messages.MessageAPI;
+import com.bencodez.simpleapi.player.PlayerUtils;
 import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -28,42 +30,38 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 /**
  * Core broadcast logic.
  *
- * Decides WHEN to broadcast and builds lines/messages. Uses your existing
- * "eligible online players" behavior (disable broadcast respected).
+ * Decides when to broadcast and builds lines and messages. Uses the existing
+ * eligible online players behavior and respects disabled broadcasts.
  *
- * NOTE: Backend servers only.
+ * Backend servers only.
  */
 public final class BroadcastHandler {
 
 	private final VotingPluginMain plugin;
 
 	/**
-	 * Only used for day-boundary logic (FIRST_VOTE_OF_DAY).
+	 * Only used for day-boundary logic for first vote of day broadcasts.
 	 */
 	private final ZoneId zoneId;
 
 	private volatile BroadcastSettings settings;
 
-	// Per-player cooldown tracking
 	private final ConcurrentHashMap<UUID, Instant> lastBroadcastAt = new ConcurrentHashMap<UUID, Instant>();
 
-	// Batch window tracking
 	private final ConcurrentHashMap<UUID, LinkedHashSet<String>> pendingSites = new ConcurrentHashMap<UUID, LinkedHashSet<String>>();
 	private final ConcurrentHashMap<UUID, BukkitTask> pendingFlush = new ConcurrentHashMap<UUID, BukkitTask>();
 
-	// First vote of day tracking
 	private final ConcurrentHashMap<UUID, LocalDate> firstVoteDay = new ConcurrentHashMap<UUID, LocalDate>();
 
-	// Interval summary tracking (uuid -> set of sites during interval)
 	private final ConcurrentHashMap<UUID, LinkedHashSet<String>> intervalSites = new ConcurrentHashMap<UUID, LinkedHashSet<String>>();
 	private volatile BukkitTask intervalTask;
 
 	/**
-	 * Constructs a new BroadcastHandler.
+	 * Constructs a new broadcast handler.
 	 *
-	 * @param plugin   the main plugin instance
+	 * @param plugin the main plugin instance
 	 * @param settings the broadcast settings
-	 * @param zoneId   the time zone ID, or null to use system default
+	 * @param zoneId the time zone ID, or null to use the system default
 	 */
 	public BroadcastHandler(VotingPluginMain plugin, BroadcastSettings settings, ZoneId zoneId) {
 		this.plugin = plugin;
@@ -74,7 +72,8 @@ public final class BroadcastHandler {
 	}
 
 	/**
-	 * Updates the broadcast settings and reschedules interval task if needed.
+	 * Updates the broadcast settings and reschedules the interval task when
+	 * required.
 	 *
 	 * @param settings the new broadcast settings
 	 */
@@ -84,118 +83,131 @@ public final class BroadcastHandler {
 	}
 
 	/**
-	 * Call whenever a vote is received.
+	 * Handles a received vote.
 	 *
-	 * @param uuid       player's uuid
-	 * @param playerName player name (optional; if null/empty, resolved from Bukkit)
-	 * @param siteName   vote site name (display name)
-	 * @param wasOnline  whether the player was online when the vote was received
+	 * @param uuid the voted player's UUID
+	 * @param playerName the player name, or null to resolve it from Bukkit
+	 * @param siteName the vote site display name
+	 * @param wasOnline whether the voted player was online when the vote was received
 	 */
 	public void broadcastVote(UUID uuid, String playerName, String siteName, boolean wasOnline) {
-		BroadcastSettings s = settings;
-		if (s == null || s.isDisabled()) {
+		BroadcastSettings currentSettings = settings;
+		if (currentSettings == null || currentSettings.isDisabled()) {
 			return;
 		}
 
-		// Always collect for interval summaries (even if Type isn't interval right
-		// now).
 		recordInterval(uuid, siteName);
 
 		String name = playerName == null || playerName.isEmpty() ? resolveName(uuid) : playerName;
+		VoteBroadcastType type = currentSettings.getType();
 
-		VoteBroadcastType type = s.getType();
-
-		// New: types that only broadcast if the voting player is online
 		if (type == VoteBroadcastType.EVERY_VOTE_ONLINE_ONLY) {
 			if (!wasOnline) {
 				return;
 			}
-			broadcastNow(name, single(siteName), "vote_online_only", null);
+			broadcastNow(uuid, name, single(siteName), "vote_online_only", null);
 			return;
 		}
 
 		if (type == VoteBroadcastType.EVERY_VOTE) {
-			broadcastNow(name, single(siteName), "vote", null);
-
+			broadcastNow(uuid, name, single(siteName), "vote", null);
 		} else if (type == VoteBroadcastType.COOLDOWN_PER_PLAYER) {
-			if (checkAndMarkCooldown(uuid, s.getDuration())) {
-				broadcastNow(name, single(siteName), "cooldown", null);
+			if (checkAndMarkCooldown(uuid, currentSettings.getDuration())) {
+				broadcastNow(uuid, name, single(siteName), "cooldown", null);
 			}
-
 		} else if (type == VoteBroadcastType.BATCH_WINDOW_PER_PLAYER) {
-			bufferBatch(uuid, name, siteName, s.getDuration());
-
+			bufferBatch(uuid, name, siteName, currentSettings.getDuration());
 		} else if (type == VoteBroadcastType.FIRST_VOTE_OF_DAY) {
 			if (markFirstVoteOfDay(uuid)) {
-				broadcastNow(name, single(siteName), "first_day", null);
+				broadcastNow(uuid, name, single(siteName), "first_day", null);
 			}
-
 		} else if (type == VoteBroadcastType.INTERVAL_SUMMARY_GLOBAL) {
-			// handled by scheduled task
+			// Handled by the scheduled interval task.
 		}
 	}
 
-	/*
-	 * ======================= Broadcast helpers =======================
+	/**
+	 * Renders and broadcasts a message.
+	 *
+	 * All PlaceholderAPI placeholders are evaluated using the voted player before
+	 * the message is sent to recipients.
+	 *
+	 * @param votedPlayerUuid the voted player's UUID, or null when no single player applies
+	 * @param playerName the rendered player name
+	 * @param sites the vote sites
+	 * @param reason the broadcast reason
+	 * @param extraContext additional format context, or null
 	 */
-
-	private void broadcastNow(String playerName, List<String> sites, String reason, Map<String, String> extraContext) {
-		BroadcastSettings s = settings;
-		if (s == null || s.isDisabled()) {
+	private void broadcastNow(UUID votedPlayerUuid, String playerName, List<String> sites, String reason,
+			Map<String, String> extraContext) {
+		BroadcastSettings currentSettings = settings;
+		if (currentSettings == null || currentSettings.isDisabled()) {
 			return;
 		}
 
-		List<String> cleaned = applyMaxSites(sites, s);
+		List<String> cleaned = applyMaxSites(sites, currentSettings);
 		cleaned.sort(new Comparator<String>() {
 			@Override
-			public int compare(String a, String b) {
-				String aa = a == null ? "" : a.toLowerCase(Locale.ROOT);
-				String bb = b == null ? "" : b.toLowerCase(Locale.ROOT);
-				return aa.compareTo(bb);
+			public int compare(String first, String second) {
+				String firstValue = first == null ? "" : first.toLowerCase(Locale.ROOT);
+				String secondValue = second == null ? "" : second.toLowerCase(Locale.ROOT);
+				return firstValue.compareTo(secondValue);
 			}
 		});
 
 		List<String> lines;
 		if (extraContext == null) {
-			lines = s.getFormat().render(playerName, cleaned, reason);
+			lines = currentSettings.getFormat().render(playerName, cleaned, reason);
 		} else {
-			lines = s.getFormat().render(playerName, cleaned, reason, extraContext);
+			lines = currentSettings.getFormat().render(playerName, cleaned, reason, extraContext);
 		}
 
+		OfflinePlayer votedPlayer = votedPlayerUuid == null ? null : Bukkit.getOfflinePlayer(votedPlayerUuid);
+
 		for (String line : lines) {
-			broadcastToEligiblePlayers(line);
+			String parsedLine = PlaceholderUtils.replacePlaceHolders(votedPlayer, line);
+			broadcastToEligiblePlayers(parsedLine);
 		}
 	}
 
 	/**
-	 * Your reliable broadcast style: - only sends to online players - respects
-	 * per-player disable broadcast toggle - runs PlaceholderAPI style per-player
-	 * placeholders (if your PlaceholderUtils does) - supports %newline% / %NewLine%
-	 * splitting
+	 * Broadcasts a message that has already had PlaceholderAPI placeholders parsed.
+	 *
+	 * Placeholder parsing is intentionally not performed for each recipient because
+	 * all placeholders must be based on the voted player. JSON-style click and hover
+	 * formatting is still parsed for each recipient.
+	 *
+	 * @param broadcastMessage the parsed message
 	 */
-	private void broadcastToEligiblePlayers(String broadcastMsg) {
-		if (broadcastMsg == null || broadcastMsg.isEmpty()) {
+	private void broadcastToEligiblePlayers(String broadcastMessage) {
+		if (broadcastMessage == null || broadcastMessage.isEmpty()) {
 			return;
 		}
 
-		ArrayList<Player> players = new ArrayList<Player>();
-		for (Player p : Bukkit.getOnlinePlayers()) {
-			VotingPluginUser u = plugin.getVotingPluginUserManager().getVotingPluginUser(p);
-			if (u != null && !u.getDisableBroadcast()) {
-				players.add(p);
+		for (Player player : Bukkit.getOnlinePlayers()) {
+			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
+			if (user == null || user.getDisableBroadcast()) {
+				continue;
+			}
+
+			for (String firstSplit : broadcastMessage.split(Pattern.quote("%newline%"))) {
+				for (String message : firstSplit.split(Pattern.quote("%NewLine%"))) {
+					String colorizedMessage = MessageAPI.colorize(message);
+					PlayerUtils.getServerHandle().sendMessage(player, PlaceholderUtils.parseJson(colorizedMessage));
+				}
 			}
 		}
 
-		// If you prefer your manual loop, keep it here (not in main)
-		MiscUtils.getInstance().broadcast(broadcastMsg, players);
-
-		Bukkit.getServer().getConsoleSender().sendMessage(MessageAPI.colorize(broadcastMsg));
+		Bukkit.getServer().getConsoleSender().sendMessage(MessageAPI.colorize(broadcastMessage));
 	}
 
-	/*
-	 * ======================= Cooldown logic (fixed millis) =======================
+	/**
+	 * Checks and updates a player's broadcast cooldown.
+	 *
+	 * @param uuid the player's UUID
+	 * @param cooldown the cooldown duration
+	 * @return true when the broadcast is allowed
 	 */
-
 	private boolean checkAndMarkCooldown(UUID uuid, ParsedDuration cooldown) {
 		if (cooldown == null || cooldown.isEmpty()) {
 			return true;
@@ -218,38 +230,50 @@ public final class BroadcastHandler {
 		return false;
 	}
 
-	/*
-	 * ======================= Batch window logic (fixed millis)
-	 * =======================
+	/**
+	 * Adds a vote site to a player's pending batch.
+	 *
+	 * @param uuid the player's UUID
+	 * @param playerName the player's name
+	 * @param siteName the vote site
+	 * @param window the batch window
 	 */
-
 	private void bufferBatch(UUID uuid, String playerName, String siteName, ParsedDuration window) {
 		if (siteName != null && !siteName.isEmpty()) {
-			LinkedHashSet<String> set = pendingSites.get(uuid);
-			if (set == null) {
+			LinkedHashSet<String> sites = pendingSites.get(uuid);
+			if (sites == null) {
 				LinkedHashSet<String> created = new LinkedHashSet<String>();
-				set = pendingSites.putIfAbsent(uuid, created);
-				if (set == null) {
-					set = created;
+				sites = pendingSites.putIfAbsent(uuid, created);
+				if (sites == null) {
+					sites = created;
 				}
 			}
-			synchronized (set) {
-				set.add(siteName);
+
+			synchronized (sites) {
+				sites.add(siteName);
 			}
 		}
 
 		if (!pendingFlush.containsKey(uuid)) {
 			BukkitTask task = scheduleBatchFlush(uuid, playerName, window);
-			BukkitTask prev = pendingFlush.putIfAbsent(uuid, task);
-			if (prev != null) {
+			BukkitTask previous = pendingFlush.putIfAbsent(uuid, task);
+			if (previous != null) {
 				task.cancel();
 			}
 		}
 	}
 
+	/**
+	 * Schedules a pending batch flush.
+	 *
+	 * @param uuid the player's UUID
+	 * @param playerName the player's name
+	 * @param window the batch window
+	 * @return the scheduled Bukkit task
+	 */
 	private BukkitTask scheduleBatchFlush(final UUID uuid, final String playerName, ParsedDuration window) {
-		long delayMs = window == null ? 1L : window.delayMillisFromNow();
-		long ticks = Math.max(1L, delayMs / 50L);
+		long delayMillis = window == null ? 1L : window.delayMillisFromNow();
+		long ticks = Math.max(1L, delayMillis / 50L);
 
 		return Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
 			@Override
@@ -263,23 +287,32 @@ public final class BroadcastHandler {
 		}, ticks);
 	}
 
+	/**
+	 * Flushes a player's pending vote-site batch.
+	 *
+	 * @param uuid the player's UUID
+	 * @param playerName the player's name
+	 */
 	private void flushBatch(UUID uuid, String playerName) {
-		Set<String> set = pendingSites.remove(uuid);
-		if (set == null || set.isEmpty()) {
+		Set<String> sites = pendingSites.remove(uuid);
+		if (sites == null || sites.isEmpty()) {
 			return;
 		}
 
-		List<String> list;
-		synchronized (set) {
-			list = new ArrayList<String>(set);
+		List<String> siteList;
+		synchronized (sites) {
+			siteList = new ArrayList<String>(sites);
 		}
-		broadcastNow(playerName, list, "batch", null);
+
+		broadcastNow(uuid, playerName, siteList, "batch", null);
 	}
 
-	/*
-	 * ======================= First vote of day (calendar) =======================
+	/**
+	 * Marks and checks a player's first vote of the current day.
+	 *
+	 * @param uuid the player's UUID
+	 * @return true when this is the first vote of the day
 	 */
-
 	private boolean markFirstVoteOfDay(UUID uuid) {
 		LocalDate today = LocalDate.now(zoneId);
 		LocalDate last = firstVoteDay.putIfAbsent(uuid, today);
@@ -287,30 +320,34 @@ public final class BroadcastHandler {
 		if (last == null) {
 			return true;
 		}
+
 		if (!last.equals(today)) {
 			firstVoteDay.put(uuid, today);
 			return true;
 		}
+
 		return false;
 	}
 
-	/*
-	 * ======================= Interval summary =======================
+	/**
+	 * Reschedules the global interval summary task when required.
 	 */
-
 	private void rescheduleIntervalIfNeeded() {
 		if (intervalTask != null) {
 			intervalTask.cancel();
 			intervalTask = null;
 		}
 
-		BroadcastSettings s = settings;
-		if (s == null || s.getType() != VoteBroadcastType.INTERVAL_SUMMARY_GLOBAL) {
+		BroadcastSettings currentSettings = settings;
+		if (currentSettings == null
+				|| currentSettings.getType() != VoteBroadcastType.INTERVAL_SUMMARY_GLOBAL) {
 			return;
 		}
 
-		long delayMs = s.getDuration() == null ? 1L : s.getDuration().delayMillisFromNow();
-		long ticks = Math.max(1L, delayMs / 50L);
+		long delayMillis = currentSettings.getDuration() == null
+				? 1L
+				: currentSettings.getDuration().delayMillisFromNow();
+		long ticks = Math.max(1L, delayMillis / 50L);
 
 		intervalTask = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
 			@Override
@@ -320,36 +357,46 @@ public final class BroadcastHandler {
 		}, ticks, ticks);
 	}
 
+	/**
+	 * Records a vote site for the global interval summary.
+	 *
+	 * @param uuid the player's UUID
+	 * @param siteName the vote site
+	 */
 	private void recordInterval(UUID uuid, String siteName) {
 		if (siteName == null || siteName.isEmpty()) {
 			return;
 		}
 
-		LinkedHashSet<String> set = intervalSites.get(uuid);
-		if (set == null) {
+		LinkedHashSet<String> sites = intervalSites.get(uuid);
+		if (sites == null) {
 			LinkedHashSet<String> created = new LinkedHashSet<String>();
-			set = intervalSites.putIfAbsent(uuid, created);
-			if (set == null) {
-				set = created;
+			sites = intervalSites.putIfAbsent(uuid, created);
+			if (sites == null) {
+				sites = created;
 			}
 		}
-		synchronized (set) {
-			set.add(siteName);
+
+		synchronized (sites) {
+			sites.add(siteName);
 		}
 	}
 
 	/**
-	 * Interval summary supports extra context placeholders: - %players% /
-	 * %numberofplayers% - %sites% / %numberofsites%
+	 * Broadcasts the global interval summary.
+	 *
+	 * The interval summary has no single voted player, so PlaceholderAPI
+	 * placeholders are left unchanged.
 	 */
 	private void broadcastIntervalSummary() {
-		BroadcastSettings s = settings;
-		if (s == null || s.isDisabled() || s.getType() != VoteBroadcastType.INTERVAL_SUMMARY_GLOBAL) {
+		BroadcastSettings currentSettings = settings;
+		if (currentSettings == null || currentSettings.isDisabled()
+				|| currentSettings.getType() != VoteBroadcastType.INTERVAL_SUMMARY_GLOBAL) {
 			return;
 		}
 
-		ConcurrentHashMap<UUID, LinkedHashSet<String>> snapshot = new ConcurrentHashMap<UUID, LinkedHashSet<String>>(
-				intervalSites);
+		ConcurrentHashMap<UUID, LinkedHashSet<String>> snapshot =
+				new ConcurrentHashMap<UUID, LinkedHashSet<String>>(intervalSites);
 		intervalSites.clear();
 
 		if (snapshot.isEmpty()) {
@@ -395,47 +442,70 @@ public final class BroadcastHandler {
 		context.put("sites", sitesCsv);
 		context.put("numberofsites", String.valueOf(uniqueSites.size()));
 
-		broadcastNow("Server", entries, "interval", context);
+		broadcastNow(null, "Server", entries, "interval", context);
 	}
 
-	/*
-	 * ======================= Utilities =======================
+	/**
+	 * Creates a single-value site list.
+	 *
+	 * @param site the site name
+	 * @return the site list
 	 */
-
 	private List<String> single(String site) {
-		List<String> list = new ArrayList<String>();
+		List<String> sites = new ArrayList<String>();
 		if (site != null && !site.isEmpty()) {
-			list.add(site);
+			sites.add(site);
 		}
-		return list;
+		return sites;
 	}
 
-	private List<String> applyMaxSites(List<String> sites, BroadcastSettings s) {
+	/**
+	 * Applies the configured maximum number of listed sites.
+	 *
+	 * @param sites the original site list
+	 * @param currentSettings the current broadcast settings
+	 * @return the limited site list
+	 */
+	private List<String> applyMaxSites(List<String> sites, BroadcastSettings currentSettings) {
 		if (sites == null) {
 			return new ArrayList<String>();
 		}
-		int max = s.getMaxSitesListed();
-		if (max <= 0 || sites.size() <= max) {
+
+		int maximum = currentSettings.getMaxSitesListed();
+		if (maximum <= 0 || sites.size() <= maximum) {
 			return new ArrayList<String>(sites);
 		}
-		return new ArrayList<String>(sites.subList(0, max));
+
+		return new ArrayList<String>(sites.subList(0, maximum));
 	}
 
+	/**
+	 * Resolves a player's name from Bukkit.
+	 *
+	 * @param uuid the player's UUID
+	 * @return the resolved player name
+	 */
 	private String resolveName(UUID uuid) {
 		try {
-			OfflinePlayer op = Bukkit.getOfflinePlayer(uuid);
-			String name = op == null ? null : op.getName();
+			OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(uuid);
+			String name = offlinePlayer == null ? null : offlinePlayer.getName();
 			return name == null || name.isEmpty() ? "Player" : name;
-		} catch (Exception e) {
+		} catch (Exception exception) {
 			return "Player";
 		}
 	}
 
-	private String join(List<String> list) {
+	/**
+	 * Joins non-empty strings with a comma and space.
+	 *
+	 * @param values the values to join
+	 * @return the joined string
+	 */
+	private String join(List<String> values) {
 		StringJoiner joiner = new StringJoiner(", ");
-		for (String s : list) {
-			if (s != null && !s.isEmpty()) {
-				joiner.add(s);
+		for (String value : values) {
+			if (value != null && !value.isEmpty()) {
+				joiner.add(value);
 			}
 		}
 		return joiner.toString();
