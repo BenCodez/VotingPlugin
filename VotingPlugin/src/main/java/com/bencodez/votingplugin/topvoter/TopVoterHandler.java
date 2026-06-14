@@ -765,7 +765,7 @@ public class TopVoterHandler implements Listener {
 
 		if (plugin.getConfigFile().isHideTopVoterIfNotPlayedBefore()) {
 			list.removeIf(entry -> {
-				var playerId = entry.getKey().getUser().getJavaUUID();
+				UUID playerId = entry.getKey().getUser().getJavaUUID();
 				OfflinePlayer player = Bukkit.getOfflinePlayer(playerId);
 
 				return !player.hasPlayedBefore();
