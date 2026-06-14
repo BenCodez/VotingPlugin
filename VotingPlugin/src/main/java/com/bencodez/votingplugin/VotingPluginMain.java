@@ -877,34 +877,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				}
 			});
 		}
-
-		if (plugin.getSpecialRewardsConfig().getData().getConfigurationSection("VoteStreaks") != null) {
-			for (String streak : plugin.getSpecialRewardsConfig().getData().getConfigurationSection("VoteStreaks")
-					.getKeys(false)) {
-				plugin.addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteStreaks." + streak + ".Rewards") {
-
-					@Override
-					public void setData(String path, Object value) {
-						plugin.getSpecialRewardsConfig().getData().set(path, value);
-					}
-
-					@Override
-					public void createSection(String key) {
-						plugin.getSpecialRewardsConfig().getData().createSection(key);
-					}
-
-					@Override
-					public ConfigurationSection getFileData() {
-						return getSpecialRewardsConfig().getData();
-					}
-
-					@Override
-					public void save() {
-						plugin.getSpecialRewardsConfig().saveData();
-					}
-				});
-			}
-		}
 		
 		ConfigurationSection voteMilestonesSection = plugin.getSpecialRewardsConfig().getData()
 				.getConfigurationSection("VoteMilestones");
@@ -1293,6 +1265,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				getLogger().info("Loading PlaceholderAPI expansion");
 			}
 		}
+		
+		voteMilestonesManager = new VoteMilestonesManager(this);
+		
+		voteStreakHandler = new VoteStreakHandler(this);
+		voteStreakHandler.reload();
 
 		registerCommands();
 		checkVotifier();
@@ -1337,7 +1314,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		topVoterHandler.register();
 
-		voteMilestonesManager = new VoteMilestonesManager(this);
+		
 
 		plugin.getBukkitScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
@@ -1378,9 +1355,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		// load vote logging if enabled
 		loadVoteLoggingMySQL();
-
-		voteStreakHandler = new VoteStreakHandler(this);
-		voteStreakHandler.reload();
 
 		webhooks = new VotingPluginWebhooks(this);
 		webhooks.reload(getConfig().getConfigurationSection("Webhooks"));
