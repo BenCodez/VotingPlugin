@@ -763,6 +763,15 @@ public class TopVoterHandler implements Listener {
 
 		List<Entry<TopVoterPlayer, Integer>> list = new LinkedList<>(map.entrySet());
 
+		if (plugin.getConfigFile().isHideTopVoterIfNotPlayedBefore()) {
+			list.removeIf(entry -> {
+				var playerId = entry.getKey().getUser().getJavaUUID();
+				OfflinePlayer player = Bukkit.getOfflinePlayer(playerId);
+
+				return !player.hasPlayedBefore();
+			});
+		}
+
 		// Sorting the list based on values
 		Collections.sort(list, new Comparator<Entry<TopVoterPlayer, Integer>>() {
 			@Override

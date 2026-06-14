@@ -491,6 +491,10 @@ public class Config extends YMLFile {
 	@Getter
 	private int MaxiumNumberOfTopVotersToLoad = 1000;
 
+	@ConfigDataBoolean(path = "HideTopVoterIfNotPlayedBefore")
+	@Getter
+	private boolean HideTopVoterIfNotPlayedBefore = false;
+
 	@ConfigDataBoolean(path = "OverrideVersionDisable")
 	@Getter
 	private boolean overrideVersionDisable = false;
