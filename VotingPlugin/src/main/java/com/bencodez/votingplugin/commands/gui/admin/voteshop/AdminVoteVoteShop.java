@@ -12,6 +12,7 @@ import com.bencodez.advancedcore.api.inventory.BInventory;
 import com.bencodez.advancedcore.api.inventory.BInventory.ClickEvent;
 import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.simpleapi.valuerequest.StringListener;
 import com.bencodez.simpleapi.valuerequest.ValueRequest;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -75,6 +76,7 @@ public class AdminVoteVoteShop extends GUIHandler {
 							@Override
 							public void onInput(Player player, String value) {
 								plugin.getShopFile().createShop(value);
+								player.sendMessage(MessageAPI.colorize("&aShop item created successfully: " + value));
 								plugin.reload();
 							}
 						});
