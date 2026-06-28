@@ -1,10 +1,13 @@
 package com.bencodez.votingplugin.commands.gui.admin.voteshop;
 
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.Map.Entry;
 
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 
 import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
@@ -17,11 +20,16 @@ import com.bencodez.simpleapi.valuerequest.StringListener;
 import com.bencodez.simpleapi.valuerequest.ValueRequest;
 import com.bencodez.votingplugin.VotingPluginMain;
 
+import lombok.Getter;
+import lombok.Setter;
+
 /**
  * Admin vote shop GUI handler.
  */
 public class AdminVoteVoteShop extends GUIHandler {
 
+	@Getter
+	@Setter
 	private VotingPluginMain plugin;
 
 	/**
@@ -83,6 +91,40 @@ public class AdminVoteVoteShop extends GUIHandler {
 			}
 		});
 
+		inv.addButton(new BInventoryButton(new ItemBuilder(Material.HOPPER).setName("&aAdd voteshop item from hand")
+				.addLoreLine("&7Hold an item in your main hand")
+				.addLoreLine("&7then click this button.")) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				ItemStack item = getHeldItem(clickEvent);
+				if (isEmpty(item)) {
+					clickEvent.getPlayer().sendMessage(MessageAPI.colorize("&cHold an item in your main hand first."));
+					new AdminVoteVoteShop(plugin, clickEvent.getPlayer()).open();
+					return;
+				}
+
+				new ValueRequest(plugin, plugin.getDialogService(), null).requestString(clickEvent.getPlayer(), "", null, true,
+						"Enter item name", new StringListener() {
+
+							@Override
+							public void onInput(Player player, String value) {
+								createShopFromItem(value, item);
+								player.sendMessage(MessageAPI.colorize("&aShop item created successfully: " + value));
+								plugin.reload();
+							}
+						});
+			}
+		});
+
+		inv.addButton(new BInventoryButton(new ItemBuilder(Material.CHEST).setName("&bEdit categories")) {
+
+			@Override
+			public void onClick(ClickEvent clickEvent) {
+				new AdminVoteVoteShopCategories(plugin, clickEvent.getPlayer()).open(GUIMethod.CHEST);
+			}
+		});
+
 		inv.addButton(new BInventoryButton(new ItemBuilder(Material.REDSTONE_BLOCK).setName("&cRemove item")) {
 
 			@Override
@@ -96,6 +138,49 @@ public class AdminVoteVoteShop extends GUIHandler {
 	@Override
 	public void open() {
 		open(GUIMethod.CHEST);
+	}
+
+	/**
+	 * Creates a new shop item and copies the held item to display and rewards.
+	 *
+	 * @param identifier the shop identifier
+	 * @param itemStack  the item stack to copy
+	 */
+	private void createShopFromItem(String identifier, ItemStack itemStack) {
+		String basePath = "Shop." + identifier;
+		plugin.getShopFile().getData().set(basePath, null);
+		plugin.getShopFile().getData().set(basePath + ".Identifier_Name", identifier);
+		plugin.getShopFile().getData().set(basePath + ".Cost", 1);
+		plugin.getShopFile().getData().set(basePath + ".Permission", "");
+		plugin.getShopFile().getData().set(basePath + ".CloseGUI", true);
+		plugin.getShopFile().getData().set(basePath + ".RequireConfirmation", false);
+		ItemBuilder item = new ItemBuilder(itemStack.clone());
+		Map<String, Object> map = item.getConfiguration(true);
+		for (Entry<String, Object> entry : map.entrySet()) {
+			plugin.getShopFile().getData().set(basePath + ".DisplayItem.ItemStack." + entry.getKey(), entry.getValue());
+			plugin.getShopFile().getData().set(basePath + ".Rewards.Items.Item1.ItemStack." + entry.getKey(), entry.getValue());
+		}
+		plugin.getShopFile().saveData();
+	}
+
+	/**
+	 * Gets the item the player is holding in their main hand.
+	 *
+	 * @param clickEvent the click event
+	 * @return the held item
+	 */
+	private ItemStack getHeldItem(ClickEvent clickEvent) {
+		return clickEvent.getPlayer().getInventory().getItemInMainHand().clone();
+	}
+
+	/**
+	 * Checks if an item stack is empty.
+	 *
+	 * @param itemStack the item stack
+	 * @return true if empty
+	 */
+	private boolean isEmpty(ItemStack itemStack) {
+		return itemStack == null || itemStack.getType() == Material.AIR;
 	}
 
 }
