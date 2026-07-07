@@ -98,7 +98,7 @@ public class VoteSiteJsonPresetManager {
 		String voteURL = getString(values.get("voteURL"));
 		String voteDelay = getString(values.get("voteDelay"));
 
-		Boolean waitUntilDelay = getBoolean(values.get("WaitUnitVoteDelay"));
+		Boolean waitUntilDelay = getBoolean(values.get("WaitUntilVoteDelay"));
 		if (waitUntilDelay == null) {
 			waitUntilDelay = getBoolean(values.get("waitUntilVoteDelay"));
 		}
