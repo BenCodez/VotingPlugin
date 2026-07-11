@@ -332,6 +332,15 @@ public class PlaceHolders {
 		}.withDescription("Last month total").updateDataKey("LastMonthTotal"));
 
 		// end of older placeholders
+		
+		placeholders.add(new PlaceHolder<VotingPluginUser>("CanLike_NameMC") {
+
+			@Override
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
+				return user.hasClaimedNameMCLikeReward() ? "Complete" : "Incomplete";
+			}
+		}.withDescription("Return Complete/Incomplete depending on whether the player has liked the server on NameMC")
+				.updateDataKey("ClaimedNameMCLikeReward"));
 
 		placeholders.add(new PlaceHolder<VotingPluginUser>("DisableBroadcast") {
 
