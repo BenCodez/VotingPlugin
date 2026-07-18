@@ -170,8 +170,9 @@ public class ServerData {
 	 * @return the service sites
 	 */
 	@SuppressWarnings("unchecked")
+	@Deprecated
 	public ArrayList<String> getServiceSites() {
-		return (ArrayList<String>) getData().getList("ServiceSites", new ArrayList<>());
+		return (ArrayList<String>) getData().getList("GottenServiceSites", new ArrayList<>());
 	}
 
 	/**
@@ -434,7 +435,7 @@ public class ServerData {
 	 * @param list the service sites list
 	 */
 	public void setServiceSites(ArrayList<String> list) {
-		getData().set("ServiceSites", list);
+		getData().set("GottenServiceSites", list);
 		saveData();
 	}
 
