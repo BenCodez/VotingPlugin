@@ -54,7 +54,6 @@ public class VoteTotalsSnapshotStorageTest {
 		assertEquals(3, parsed.getVotePartyCurrent());
 		assertEquals(50, parsed.getVotePartyRequired());
 		assertEquals(9, parsed.getDateMonthTotal());
-		assertEquals(voteId, parsed.getVoteUUID());
 	}
 
 	@Test
@@ -106,7 +105,6 @@ public class VoteTotalsSnapshotStorageTest {
 		assertEquals(11, reparsed.getVotePartyCurrent());
 		assertEquals(22, reparsed.getVotePartyRequired());
 		assertEquals(33, reparsed.getDateMonthTotal());
-		assertEquals(voteId, reparsed.getVoteUUID());
 	}
 
 	@Test

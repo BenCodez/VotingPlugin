@@ -1759,7 +1759,8 @@ public abstract class VotingPluginProxy {
 					update.add(new Column("DailyTotal", new DataValueInt(dailyTotal)));
 					update.add(new Column("Points", new DataValueInt(points)));
 
-					debug("Setting totals " + text.toString());
+					debug("Setting totals " + text.toString() + ", voteId=" + voteId + " for " + player + "/"
+							+ service);
 					getProxyMySQL().update(uuid, update);
 				} else {
 					text = new VoteTotalsSnapshot(0, 0, 0, 0, 0, votePartyVotes, currentVotePartyVotesRequired, 0);

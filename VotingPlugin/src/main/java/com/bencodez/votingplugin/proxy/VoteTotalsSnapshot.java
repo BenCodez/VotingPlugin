@@ -47,7 +47,7 @@ public class VoteTotalsSnapshot {
 
 	public VoteTotalsSnapshot() {
 	}
-	
+
 	public VoteTotalsSnapshot(int allTimeTotal, int monthTotal, int weeklyTotal, int dailyTotal, int points,
 			int votePartyCurrent, int votePartyRequired, int dateMonthTotal) {
 		this.allTimeTotal = allTimeTotal;
@@ -116,8 +116,7 @@ public class VoteTotalsSnapshot {
 
 	public String toStorageString() {
 		return "v" + CURRENT_VERSION + SEP + allTimeTotal + SEP + monthTotal + SEP + weeklyTotal + SEP + dailyTotal
-				+ SEP + points + SEP + votePartyCurrent + SEP + votePartyRequired + SEP + dateMonthTotal + SEP
-				+ (voteUUID != null ? voteUUID.toString() : "");
+				+ SEP + points + SEP + votePartyCurrent + SEP + votePartyRequired + SEP + dateMonthTotal;
 	}
 
 	@Override
