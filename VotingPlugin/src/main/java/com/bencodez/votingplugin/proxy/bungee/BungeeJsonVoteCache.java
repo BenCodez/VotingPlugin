@@ -50,7 +50,7 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 		setLong(path + ".Time", voteData.getTime());
 		setBoolean(path + ".Real", voteData.isRealVote());
 		setString(path + ".Text", voteData.getText());
-		setString(path + ".VoteID", voteData.getVoteId() != null ? voteData.getVoteId().toString() : null);
+		setString(path + ".VoteId", voteData.getVoteId() != null ? voteData.getVoteId().toString() : null);
 	}
 
 	public void addVoteOnline(String player, int num, OfflineBungeeVote voteData) {
@@ -61,7 +61,7 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 		setLong(path + ".Time", voteData.getTime());
 		setBoolean(path + ".Real", voteData.isRealVote());
 		setString(path + ".Text", voteData.getText());
-		setString(path + ".VoteID", voteData.getVoteId() != null ? voteData.getVoteId().toString() : null);
+		setString(path + ".VoteId", voteData.getVoteId() != null ? voteData.getVoteId().toString() : null);
 	}
 
 	public void clearData() {
