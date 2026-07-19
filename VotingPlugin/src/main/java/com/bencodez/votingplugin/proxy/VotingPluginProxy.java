@@ -1780,10 +1780,11 @@ public abstract class VotingPluginProxy {
 			if (getConfig().getSendVotesToAllServers()) {
 				for (String s : getAllAvailableServers()) {
 
-					boolean forceCache = false;
-					if (!playerOnline && getConfig().getWaitForUserOnline()) {
-						forceCache = true;
-						debug("Forcing vote to cache");
+					boolean forceCache = getConfig().getWaitForUserOnline()
+							&& (!playerOnline || playerServer == null || !playerServer.equalsIgnoreCase(s));
+
+					if (forceCache) {
+						debug("Forcing vote to cache for server " + s);
 					}
 
 					if ((!isSomeoneOnlineServer(s) && method.requiresPlayerOnline()) || forceCache) {
