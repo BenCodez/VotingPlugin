@@ -1342,7 +1342,7 @@ public abstract class VotingPluginProxy {
 	public void processQueue() {
 		while (getVoteCacheHandler().getTimeChangeQueue().size() > 0) {
 			VoteTimeQueue vote = getVoteCacheHandler().getTimeChangeQueue().remove();
-			vote(vote.getName(), vote.getService(), true, false, vote.getTime(), null, null);
+			vote(vote.getName(), vote.getService(), true, false, vote.getTime(), null, null, vote.getVoteId());
 		}
 	}
 
@@ -1597,7 +1597,19 @@ public abstract class VotingPluginProxy {
 
 	public synchronized void vote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
 			VoteTotalsSnapshot text, String uuid) {
+		vote(player, service, realVote, timeQueue, queueTime, text, uuid, null);
+	}
+
+	private synchronized void vote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
+			VoteTotalsSnapshot text, String uuid, UUID existingVoteId) {
 		try {
+			UUID voteId = existingVoteId;
+			if (voteId == null && text != null) {
+				voteId = text.getVoteUUID();
+			}
+			if (voteId == null) {
+				voteId = UUID.randomUUID();
+			}
 			if (player == null || player.isEmpty()) {
 				log("No name from vote on " + service);
 				return;
@@ -1608,7 +1620,7 @@ public abstract class VotingPluginProxy {
 				if (getGlobalDataHandler().isTimeChangedHappened()) {
 					getGlobalDataHandler().checkForFinishedTimeChanges();
 					if (timeQueue && getGlobalDataHandler().isTimeChangedHappened()) {
-						getVoteCacheHandler().getTimeChangeQueue().add(new VoteTimeQueue(player, service,
+						getVoteCacheHandler().getTimeChangeQueue().add(new VoteTimeQueue(voteId, player, service,
 								LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()));
 						log("Caching vote from " + player + "/" + service
 								+ " because time change is happening right now");
@@ -1683,8 +1695,6 @@ public abstract class VotingPluginProxy {
 			// Cache online state/server once (IMPORTANT for broadcast logic correctness)
 			final boolean playerOnline = isPlayerOnline(player);
 			final String playerServer = playerOnline ? getCurrentPlayerServer(player) : null;
-
-			final UUID voteId = UUID.randomUUID();
 
 			addVoteParty();
 
