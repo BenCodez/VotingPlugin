@@ -587,13 +587,9 @@ public class BungeeHandler implements Listener {
 
 		user.cache();
 
-		boolean bungeeBroadcast = v.broadcast;
+		boolean setTotalsOnBackend = !v.manageTotals;
 
-		// Wire has no "setTotals" flag; treat as always true (so doNotSetTotals =
-		// false)
-		boolean doNotSetTotals = false;
-
-		user.bungeeVotePluginMessaging(service, v.time, text, doNotSetTotals, v.wasOnline, bungeeBroadcast, v.num);
+		user.bungeeVotePluginMessaging(service, v.time, text, setTotalsOnBackend, v.wasOnline, v.broadcast, v.num);
 
 		if (plugin.getBungeeSettings().isPerServerPoints()) {
 			user.addPoints(plugin.getConfigFile().getPointsOnVote());
