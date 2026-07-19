@@ -81,8 +81,17 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 	}
 
 	private void ensureVoteIdColumn() {
+		String probeSql = "SELECT " + qi("voteId") + " FROM " + qi(getTableName()) + " WHERE 1 = 0;";
+		try (Connection conn = mysql.getConnectionManager().getConnection();
+				PreparedStatement ps = conn.prepareStatement(probeSql)) {
+			ps.executeQuery();
+			return;
+		} catch (SQLException ignored) {
+			// Column does not exist yet.
+		}
+
 		try {
-			new Query(mysql, "ALTER TABLE " + qi(getTableName()) + " ADD COLUMN IF NOT EXISTS " + qi("voteId")
+			new Query(mysql, "ALTER TABLE " + qi(getTableName()) + " ADD COLUMN " + qi("voteId")
 					+ " VARCHAR(36);").executeUpdate();
 		} catch (SQLException e) {
 			debug(e);
