@@ -5,12 +5,17 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,6 +63,30 @@ public class VoteCacheHandlerVoteIdTest {
 
 		assertEquals(1, handler.getOnlineVotes("player-uuid").size());
 		verify(storage).addVoteOnline("player-uuid", 0, handler.getOnlineVotes("player-uuid").get(0));
+	}
+
+	@Test
+	public void concurrentServerDeliveriesReserveVoteIdAtomically() throws Exception {
+		UUID voteId = UUID.randomUUID();
+
+		runConcurrently(() -> handler.addServerVote("server", vote(voteId, 100L)),
+				() -> handler.addServerVote("server", vote(voteId, 101L)));
+
+		assertEquals(1, handler.getVotes("server").size());
+		verify(storage, times(1)).addVote(org.mockito.ArgumentMatchers.eq("server"),
+				org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any(OfflineBungeeVote.class));
+	}
+
+	@Test
+	public void concurrentOnlineDeliveriesReserveVoteIdAtomically() throws Exception {
+		UUID voteId = UUID.randomUUID();
+
+		runConcurrently(() -> handler.addOnlineVote("player-uuid", vote(voteId, 100L)),
+				() -> handler.addOnlineVote("player-uuid", vote(voteId, 101L)));
+
+		assertEquals(1, handler.getOnlineVotes("player-uuid").size());
+		verify(storage, times(1)).addVoteOnline(org.mockito.ArgumentMatchers.eq("player-uuid"),
+				org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any(OfflineBungeeVote.class));
 	}
 
 	@Test
@@ -157,6 +186,39 @@ public class VoteCacheHandlerVoteIdTest {
 		when(parent.has(key)).thenReturn(true);
 		when(parent.get(key)).thenReturn(child);
 		when(child.asBoolean()).thenReturn(value);
+	}
+
+	private static void runConcurrently(Runnable first, Runnable second) throws Exception {
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		CountDownLatch ready = new CountDownLatch(2);
+		CountDownLatch start = new CountDownLatch(1);
+		try {
+			Future<?> firstFuture = executor.submit(() -> {
+				ready.countDown();
+				await(start);
+				first.run();
+			});
+			Future<?> secondFuture = executor.submit(() -> {
+				ready.countDown();
+				await(start);
+				second.run();
+			});
+			ready.await();
+			start.countDown();
+			firstFuture.get();
+			secondFuture.get();
+		} finally {
+			executor.shutdownNow();
+		}
+	}
+
+	private static void await(CountDownLatch latch) {
+		try {
+			latch.await();
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new IllegalStateException(e);
+		}
 	}
 
 	private static OfflineBungeeVote vote(UUID voteId, long time) {
