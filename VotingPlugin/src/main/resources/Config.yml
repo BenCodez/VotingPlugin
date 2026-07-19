@@ -467,6 +467,9 @@ LoadTopVoter:
 # Set to -1 for no limit
 MaxiumNumberOfTopVotersToLoad: 1000
 
+# Whether to remove voters from the top-list if they have not joined the server yet
+HideTopVoterIfNotPlayedBefore: false
+
 # When top voter awards are given (even if there are none listed) it will store top voters
 # Files will created in TopVoters folder.
 # Monthly top voters are always saved by default now
