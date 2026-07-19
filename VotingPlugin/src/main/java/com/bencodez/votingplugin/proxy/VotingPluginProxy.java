@@ -508,8 +508,8 @@ public abstract class VotingPluginProxy {
 								globalMessageProxyHandler.sendMessage(server, delay,
 										VotingPluginWire.vote(cache.getPlayerName(), cache.getUuid(),
 												cache.getService(), cache.getTime(), false, cache.isRealVote(),
-												cache.getText(), cache.getVoteId(), getConfig().getBungeeManageTotals(), broadcastHere,
-												num, numberOfVotes));
+												cache.getText(), cache.getVoteId(), getConfig().getBungeeManageTotals(),
+												broadcastHere, num, numberOfVotes));
 								delay++;
 								num++;
 								removed.add(cache);
@@ -1604,9 +1604,6 @@ public abstract class VotingPluginProxy {
 			VoteTotalsSnapshot text, String uuid, UUID existingVoteId) {
 		try {
 			UUID voteId = existingVoteId;
-			if (voteId == null && text != null) {
-				voteId = text.getVoteUUID();
-			}
 			if (voteId == null) {
 				voteId = UUID.randomUUID();
 			}
@@ -1750,7 +1747,7 @@ public abstract class VotingPluginProxy {
 					}
 
 					text = new VoteTotalsSnapshot(allTimeTotal, monthTotal, weeklyTotal, dailyTotal, points,
-							votePartyVotes, currentVotePartyVotesRequired, dateMonthTotal, voteId);
+							votePartyVotes, currentVotePartyVotesRequired, dateMonthTotal);
 
 					ArrayList<Column> update = new ArrayList<>();
 					update.add(new Column("AllTimeTotal", new DataValueInt(allTimeTotal)));
@@ -1765,8 +1762,7 @@ public abstract class VotingPluginProxy {
 					debug("Setting totals " + text.toString());
 					getProxyMySQL().update(uuid, update);
 				} else {
-					text = new VoteTotalsSnapshot(0, 0, 0, 0, 0, votePartyVotes, currentVotePartyVotesRequired, 0,
-							voteId);
+					text = new VoteTotalsSnapshot(0, 0, 0, 0, 0, votePartyVotes, currentVotePartyVotesRequired, 0);
 				}
 			}
 
@@ -1802,8 +1798,8 @@ public abstract class VotingPluginProxy {
 						}
 
 						globalMessageProxyHandler.sendMessage(s, 2,
-								VotingPluginWire.vote(player, uuid, service, time, true, realVote, text.toString(), voteId,
-										getConfig().getBungeeManageTotals(), broadcastHere, 1, 1));
+								VotingPluginWire.vote(player, uuid, service, time, true, realVote, text.toString(),
+										voteId, getConfig().getBungeeManageTotals(), broadcastHere, 1, 1));
 					}
 				}
 			} else {
@@ -1819,8 +1815,8 @@ public abstract class VotingPluginProxy {
 					}
 
 					globalMessageProxyHandler.sendMessage(server, 1,
-							VotingPluginWire.voteOnline(player, uuid, service, time, true, realVote, text.toString(), voteId,
-									getConfig().getBungeeManageTotals(), broadcastHere, 1, 1));
+							VotingPluginWire.voteOnline(player, uuid, service, time, true, realVote, text.toString(),
+									voteId, getConfig().getBungeeManageTotals(), broadcastHere, 1, 1));
 
 					if (getConfig().getProxyBroadcastEnabled()) {
 						Set<String> targets = proxyBroadcastDecider.resolveTargets(true, playerServer);
@@ -1886,8 +1882,9 @@ public abstract class VotingPluginProxy {
 
 					if (shouldSend) {
 						debug("Sending global proxy voteonline envelope");
-						multiProxyHandler.sendMultiProxyEnvelope(VotingPluginWire.voteOnline(player, uuid, service,
-								time, false, realVote, text == null ? "" : text.toString(), voteId, false, false, 1, 1));
+						multiProxyHandler
+								.sendMultiProxyEnvelope(VotingPluginWire.voteOnline(player, uuid, service, time, false,
+										realVote, text == null ? "" : text.toString(), voteId, false, false, 1, 1));
 					} else {
 						debug("Not sending global proxy message for voteonline, player already got reward");
 					}

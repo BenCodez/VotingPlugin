@@ -42,11 +42,25 @@ public class VoteTotalsSnapshot {
 	private int dateMonthTotal;
 	@Getter
 	@Setter
+	@Deprecated
 	private UUID voteUUID;
 
 	public VoteTotalsSnapshot() {
 	}
+	
+	public VoteTotalsSnapshot(int allTimeTotal, int monthTotal, int weeklyTotal, int dailyTotal, int points,
+			int votePartyCurrent, int votePartyRequired, int dateMonthTotal) {
+		this.allTimeTotal = allTimeTotal;
+		this.monthTotal = monthTotal;
+		this.weeklyTotal = weeklyTotal;
+		this.dailyTotal = dailyTotal;
+		this.points = points;
+		this.votePartyCurrent = votePartyCurrent;
+		this.votePartyRequired = votePartyRequired;
+		this.dateMonthTotal = dateMonthTotal;
+	}
 
+	@Deprecated
 	public VoteTotalsSnapshot(int allTimeTotal, int monthTotal, int weeklyTotal, int dailyTotal, int points,
 			int votePartyCurrent, int votePartyRequired, int dateMonthTotal, UUID voteUUID) {
 		this.allTimeTotal = allTimeTotal;

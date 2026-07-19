@@ -582,6 +582,7 @@ public class BungeeHandler implements Listener {
 		plugin.debug("wire vote received from " + player + "/" + uuidStr + " on " + service);
 
 		VoteTotalsSnapshot text = VoteTotalsSnapshot.parseStorage(v.totals == null ? "" : v.totals);
+		@SuppressWarnings("deprecation")
 		UUID voteId = v.voteId != null ? v.voteId : text.getVoteUUID();
 
 		if (!reserveWireVote(voteId)) {
