@@ -2,6 +2,7 @@
 package com.bencodez.votingplugin.proxy;
 
 import java.util.Map;
+import java.util.UUID;
 
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 
