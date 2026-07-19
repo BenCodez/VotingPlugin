@@ -599,7 +599,7 @@ public class BungeeHandler implements Listener {
 			user.addPoints(plugin.getConfigFile().getPointsOnVote());
 		}
 
-		if (!service.isEmpty()) {
+		if (service != null && !service.isEmpty()) {
 			plugin.getServerData().addServiceSite(service);
 		}
 

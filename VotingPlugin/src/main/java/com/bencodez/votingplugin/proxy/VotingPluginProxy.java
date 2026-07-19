@@ -1793,7 +1793,7 @@ public abstract class VotingPluginProxy {
 
 						globalMessageProxyHandler.sendMessage(s, 2,
 								VotingPluginWire.vote(player, uuid, service, time, true, realVote, text.toString(),
-										!getConfig().getBungeeManageTotals(), broadcastHere, 1, 1));
+										getConfig().getBungeeManageTotals(), broadcastHere, 1, 1));
 					}
 				}
 			} else {
@@ -1810,7 +1810,7 @@ public abstract class VotingPluginProxy {
 
 					globalMessageProxyHandler.sendMessage(server, 1,
 							VotingPluginWire.voteOnline(player, uuid, service, time, true, realVote, text.toString(),
-									!getConfig().getBungeeManageTotals(), broadcastHere, 1, 1));
+									getConfig().getBungeeManageTotals(), broadcastHere, 1, 1));
 
 					if (getConfig().getProxyBroadcastEnabled()) {
 						Set<String> targets = proxyBroadcastDecider.resolveTargets(true, playerServer);
