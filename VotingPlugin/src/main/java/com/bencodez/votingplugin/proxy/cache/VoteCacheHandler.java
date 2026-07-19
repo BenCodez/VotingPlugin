@@ -292,6 +292,28 @@ public abstract class VoteCacheHandler {
 	}
 
 	/**
+	 * Reads an optional UUID from cached data.
+	 *
+	 * @param data cached data
+	 * @param key value key
+	 * @return parsed UUID or null
+	 */
+	private UUID readUuid(DataNode data, String key) {
+		if (!data.has(key)) {
+			return null;
+		}
+		String value = data.get(key).asString();
+		if (value == null || value.isEmpty()) {
+			return null;
+		}
+		try {
+			return UUID.fromString(value);
+		} catch (IllegalArgumentException ignored) {
+			return null;
+		}
+	}
+
+	/**
 	 * Saves the vote cache to storage.
 	 */
 	public void saveVoteCache() {
@@ -299,7 +321,7 @@ public abstract class VoteCacheHandler {
 
 			if (!getTimeChangeQueue().isEmpty()) {
 				for (VoteTimeQueue vote : getTimeChangeQueue()) {
-					timedVoteCacheTable.insertTimedVote(vote.getName(), vote.getService(), vote.getTime());
+					timedVoteCacheTable.insertTimedVote(vote.getVoteId(), vote.getName(), vote.getService(), vote.getTime());
 				}
 			}
 		} else {
@@ -351,8 +373,8 @@ public abstract class VoteCacheHandler {
 			// Load timed votes from MySQL
 			ArrayList<VoteTimeQueue> timedVotes = new ArrayList<>();
 			timedVoteCacheTable.getAllVotes().forEach(timedVoteRow -> {
-				VoteTimeQueue voteTimeQueue = new VoteTimeQueue(timedVoteRow.getPlayerName(), timedVoteRow.getService(),
-						timedVoteRow.getTime());
+				VoteTimeQueue voteTimeQueue = new VoteTimeQueue(timedVoteRow.getVoteId(), timedVoteRow.getPlayerName(),
+						timedVoteRow.getService(), timedVoteRow.getTime());
 				timedVotes.add(voteTimeQueue);
 			});
 			timeChangeQueue.addAll(timedVotes);
@@ -368,8 +390,9 @@ public abstract class VoteCacheHandler {
 						String name = data.has("Name") ? data.get("Name").asString() : "";
 						String service = data.has("Service") ? data.get("Service").asString() : "";
 						long time = data.has("Time") ? data.get("Time").asLong() : 0L;
+						UUID voteId = readUuid(data, "VoteId");
 
-						getTimeChangeQueue().add(new VoteTimeQueue(name, service, time));
+						getTimeChangeQueue().add(new VoteTimeQueue(voteId, name, service, time));
 					}
 				}
 
