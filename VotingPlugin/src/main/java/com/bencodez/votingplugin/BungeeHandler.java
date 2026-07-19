@@ -8,6 +8,7 @@ import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -51,6 +52,11 @@ import lombok.Getter;
  * Handler for Bungee/proxy server integration.
  */
 public class BungeeHandler implements Listener {
+
+	private static final long PROCESSED_VOTE_TTL_MILLIS = TimeUnit.MINUTES.toMillis(30);
+
+	@Getter
+	private final ConcurrentHashMap<UUID, Long> processedWireVotes = new ConcurrentHashMap<>();
 	@Getter
 	private ClientHandler clientHandler;
 
@@ -575,10 +581,16 @@ public class BungeeHandler implements Listener {
 
 		plugin.debug("wire vote received from " + player + "/" + uuidStr + " on " + service);
 
+		VoteTotalsSnapshot text = VoteTotalsSnapshot.parseStorage(v.totals == null ? "" : v.totals);
+		UUID voteId = v.voteId != null ? v.voteId : text.getVoteUUID();
+
+		if (!reserveWireVote(voteId)) {
+			plugin.debug("Ignoring duplicate wire vote " + voteId + " for " + player + " on " + service);
+			return;
+		}
+
 		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuidStr),
 				player);
-
-		VoteTotalsSnapshot text = VoteTotalsSnapshot.parseStorage(v.totals == null ? "" : v.totals);
 
 		bungeeVotePartyCurrent = text.getVotePartyCurrent();
 		bungeeVotePartyRequired = text.getVotePartyRequired();
@@ -601,6 +613,50 @@ public class BungeeHandler implements Listener {
 
 		@SuppressWarnings("unused")
 		int _ignored = v.numberOfVotes;
+	}
+
+	/**
+	 * Reserves a wire vote for processing.
+	 *
+	 * @param voteId unique vote identifier
+	 * @return true if the vote has not been processed recently
+	 */
+	private boolean reserveWireVote(UUID voteId) {
+		if (voteId == null) {
+			return true;
+		}
+
+		long now = System.currentTimeMillis();
+		long expiresAt = now + PROCESSED_VOTE_TTL_MILLIS;
+
+		while (true) {
+			Long currentExpiry = processedWireVotes.get(voteId);
+			if (currentExpiry == null) {
+				if (processedWireVotes.putIfAbsent(voteId, expiresAt) == null) {
+					cleanupProcessedWireVotes(now);
+					return true;
+				}
+				continue;
+			}
+
+			if (currentExpiry > now) {
+				return false;
+			}
+
+			if (processedWireVotes.replace(voteId, currentExpiry, expiresAt)) {
+				cleanupProcessedWireVotes(now);
+				return true;
+			}
+		}
+	}
+
+	/**
+	 * Removes expired wire vote identifiers.
+	 *
+	 * @param now current timestamp
+	 */
+	private void cleanupProcessedWireVotes(long now) {
+		processedWireVotes.entrySet().removeIf(entry -> entry.getValue() <= now);
 	}
 
 	/**
