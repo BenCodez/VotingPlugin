@@ -508,7 +508,7 @@ public abstract class VotingPluginProxy {
 								globalMessageProxyHandler.sendMessage(server, delay,
 										VotingPluginWire.vote(cache.getPlayerName(), cache.getUuid(),
 												cache.getService(), cache.getTime(), false, cache.isRealVote(),
-												cache.getText(), getConfig().getBungeeManageTotals(), broadcastHere,
+												cache.getText(), cache.getVoteId(), getConfig().getBungeeManageTotals(), broadcastHere,
 												num, numberOfVotes));
 								delay++;
 								num++;
@@ -553,7 +553,7 @@ public abstract class VotingPluginProxy {
 
 						globalMessageProxyHandler.sendMessage(server, delay,
 								VotingPluginWire.voteOnline(cache.getPlayerName(), cache.getUuid(), cache.getService(),
-										cache.getTime(), false, cache.isRealVote(), cache.getText(),
+										cache.getTime(), false, cache.isRealVote(), cache.getText(), cache.getVoteId(),
 										getConfig().getBungeeManageTotals(), broadcastHere, num, numberOfVotes));
 						delay++;
 						num++;
@@ -1792,7 +1792,7 @@ public abstract class VotingPluginProxy {
 						}
 
 						globalMessageProxyHandler.sendMessage(s, 2,
-								VotingPluginWire.vote(player, uuid, service, time, true, realVote, text.toString(),
+								VotingPluginWire.vote(player, uuid, service, time, true, realVote, text.toString(), voteId,
 										getConfig().getBungeeManageTotals(), broadcastHere, 1, 1));
 					}
 				}
@@ -1809,7 +1809,7 @@ public abstract class VotingPluginProxy {
 					}
 
 					globalMessageProxyHandler.sendMessage(server, 1,
-							VotingPluginWire.voteOnline(player, uuid, service, time, true, realVote, text.toString(),
+							VotingPluginWire.voteOnline(player, uuid, service, time, true, realVote, text.toString(), voteId,
 									getConfig().getBungeeManageTotals(), broadcastHere, 1, 1));
 
 					if (getConfig().getProxyBroadcastEnabled()) {
@@ -1863,7 +1863,7 @@ public abstract class VotingPluginProxy {
 				if (!getConfig().getMultiProxyOneGlobalReward()) {
 					debug("Sending global proxy vote envelope");
 					multiProxyHandler.sendMultiProxyEnvelope(VotingPluginWire.vote(player, uuid, service, time, false,
-							realVote, text == null ? "" : text.toString(), false, false, 1, 1));
+							realVote, text == null ? "" : text.toString(), voteId, false, false, 1, 1));
 				} else {
 					// Only send to other proxies if the player DID NOT already receive reward on a
 					// backend
@@ -1877,7 +1877,7 @@ public abstract class VotingPluginProxy {
 					if (shouldSend) {
 						debug("Sending global proxy voteonline envelope");
 						multiProxyHandler.sendMultiProxyEnvelope(VotingPluginWire.voteOnline(player, uuid, service,
-								time, false, realVote, text == null ? "" : text.toString(), false, false, 1, 1));
+								time, false, realVote, text == null ? "" : text.toString(), voteId, false, false, 1, 1));
 					} else {
 						debug("Not sending global proxy message for voteonline, player already got reward");
 					}
