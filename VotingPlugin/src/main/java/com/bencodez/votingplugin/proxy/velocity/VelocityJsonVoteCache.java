@@ -28,6 +28,8 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 		setPath(voteTimedQueue.getName(), "TimedVoteCache", String.valueOf(num), "Name");
 		setPath(voteTimedQueue.getService(), "TimedVoteCache", String.valueOf(num), "Service");
 		setPath(voteTimedQueue.getTime(), "TimedVoteCache", String.valueOf(num), "Time");
+		setPath(voteTimedQueue.getVoteId() == null ? null : voteTimedQueue.getVoteId().toString(), "TimedVoteCache",
+				String.valueOf(num), "VoteId");
 	}
 
 	@Override
@@ -38,7 +40,7 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 		setPath(voteData.getTime(), "VoteCache", server, String.valueOf(num), "Time");
 		setPath(voteData.isRealVote(), "VoteCache", server, String.valueOf(num), "Real");
 		setPath(voteData.getText(), "VoteCache", server, String.valueOf(num), "Text");
-		setPath(voteData.getVoteId() != null ? voteData.getVoteId().toString() : null, "VoteCache", server, String.valueOf(num), "VoteID");
+		setPath(voteData.getVoteId() != null ? voteData.getVoteId().toString() : null, "VoteCache", server, String.valueOf(num), "VoteId");
 	}
 
 	@Override
@@ -49,7 +51,7 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 		setPath(voteData.getTime(), "OnlineCache", player, String.valueOf(num), "Time");
 		setPath(voteData.isRealVote(), "OnlineCache", player, String.valueOf(num), "Real");
 		setPath(voteData.getText(), "OnlineCache", player, String.valueOf(num), "Text");
-		setPath(voteData.getVoteId() != null ? voteData.getVoteId().toString() : null, "OnlineCache", player, String.valueOf(num), "VoteID");
+		setPath(voteData.getVoteId() != null ? voteData.getVoteId().toString() : null, "OnlineCache", player, String.valueOf(num), "VoteId");
 	}
 
 	@Override

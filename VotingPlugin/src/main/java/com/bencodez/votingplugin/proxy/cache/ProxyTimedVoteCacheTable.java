@@ -6,6 +6,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import com.bencodez.simpleapi.sql.mysql.AbstractSqlTable;
 import com.bencodez.simpleapi.sql.mysql.DbType;
@@ -30,7 +31,8 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 					+ qi("id") + " BIGSERIAL PRIMARY KEY, "
 					+ qi("playerName") + " VARCHAR(100), "
 					+ qi("service") + " VARCHAR(100), "
-					+ qi("time") + " BIGINT"
+					+ qi("time") + " BIGINT, "
+					+ qi("voteId") + " VARCHAR(36)"
 					+ ");";
 		}
 
@@ -39,6 +41,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				+ qi("playerName") + " VARCHAR(100),"
 				+ qi("service") + " VARCHAR(100),"
 				+ qi("time") + " BIGINT,"
+				+ qi("voteId") + " VARCHAR(36),"
 				+ "INDEX idx_time (" + qi("time") + ")"
 				+ ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
 	}
@@ -62,6 +65,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 		super((tablePrefix != null ? tablePrefix : "") + "votingplugin_timedvotecache",
 				existingMysql,
 				debug);
+		ensureVoteIdColumn();
 		ensureIndexes();
 	}
 
@@ -72,7 +76,26 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 	 */
 	public ProxyTimedVoteCacheTable(MysqlConfig config, boolean debug) {
 		super("votingplugin_timedvotecache", config, debug);
+		ensureVoteIdColumn();
 		ensureIndexes();
+	}
+
+	private void ensureVoteIdColumn() {
+		String probeSql = "SELECT " + qi("voteId") + " FROM " + qi(getTableName()) + " WHERE 1 = 0;";
+		try (Connection conn = mysql.getConnectionManager().getConnection();
+				PreparedStatement ps = conn.prepareStatement(probeSql)) {
+			ps.executeQuery();
+			return;
+		} catch (SQLException ignored) {
+			// Column does not exist yet.
+		}
+
+		try {
+			new Query(mysql, "ALTER TABLE " + qi(getTableName()) + " ADD COLUMN " + qi("voteId")
+					+ " VARCHAR(36);").executeUpdate();
+		} catch (SQLException e) {
+			debug(e);
+		}
 	}
 
 	private void ensureIndexes() {
@@ -89,18 +112,20 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 	// --- INSERT ---
 	/**
 	 * Inserts a timed vote.
+	 * @param voteId unique vote identifier
 	 * @param playerName the player name
 	 * @param service the voting service
 	 * @param time the vote time
 	 */
-	public void insertTimedVote(String playerName, String service, long time) {
+	public void insertTimedVote(UUID voteId, String playerName, String service, long time) {
 		String sql = "INSERT INTO " + qi(getTableName()) + " (" + qi("playerName") + ", " + qi("service") + ", "
-				+ qi("time") + ") VALUES (?, ?, ?);";
+				+ qi("time") + ", " + qi("voteId") + ") VALUES (?, ?, ?, ?);";
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setString(1, playerName);
 			ps.setString(2, service);
 			ps.setLong(3, time);
+			ps.setString(4, voteId == null ? null : voteId.toString());
 			ps.executeUpdate();
 		} catch (SQLException e) {
 			debug(e);
@@ -189,7 +214,8 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 							rs.getInt("id"),
 							rs.getString("playerName"),
 							rs.getString("service"),
-							rs.getLong("time")
+							rs.getLong("time"),
+							parseUuid(rs.getString("voteId"))
 					));
 				}
 			}
@@ -197,6 +223,17 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 			debug(e);
 		}
 		return list;
+	}
+
+	private UUID parseUuid(String value) {
+		if (value == null || value.isEmpty()) {
+			return null;
+		}
+		try {
+			return UUID.fromString(value);
+		} catch (IllegalArgumentException ignored) {
+			return null;
+		}
 	}
 
 	/**
@@ -207,6 +244,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 		private final String playerName;
 		private final String service;
 		private final long time;
+		private final UUID voteId;
 
 		/**
 		 * Constructor for TimedVoteRow.
@@ -214,12 +252,14 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 		 * @param playerName the player name
 		 * @param service the voting service
 		 * @param time the vote time
+		 * @param voteId unique vote identifier
 		 */
-		public TimedVoteRow(int id, String playerName, String service, long time) {
+		public TimedVoteRow(int id, String playerName, String service, long time, UUID voteId) {
 			this.id = id;
 			this.playerName = playerName;
 			this.service = service;
 			this.time = time;
+			this.voteId = voteId;
 		}
 
 		/**
@@ -252,6 +292,15 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 		 */
 		public long getTime() {
 			return time;
+		}
+
+		/**
+		 * Gets the vote identifier.
+		 *
+		 * @return vote identifier or null
+		 */
+		public UUID getVoteId() {
+			return voteId;
 		}
 	}
 }
