@@ -63,6 +63,7 @@ public final class VotingPluginWire {
 	public static final String K_WAS_ONLINE = "wasOnline";
 	public static final String K_REAL_VOTE = "realVote";
 	public static final String K_TOTALS = "totals";
+	public static final String K_VOTE_ID = "voteId";
 	public static final String K_SET_TOTALS = "setTotals";
 	public static final String K_MANAGE_TOTALS = "manageTotals";
 	public static final String K_BUNGEE_BROADCAST = "bungeeBroadcast";
@@ -84,22 +85,24 @@ public final class VotingPluginWire {
 	}
 
 	public static JsonEnvelope vote(String player, String uuid, String service, long time, boolean wasOnline,
-			boolean realVote, String totals, boolean manageTotals, boolean bungeeBroadcast, int num,
+			boolean realVote, String totals, UUID voteId, boolean manageTotals, boolean bungeeBroadcast, int num,
 			int numberOfVotes) {
 
 		return base(SUB_VOTE).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid)).put(K_SERVICE, safe(service))
 				.put(K_TIME, time).put(K_WAS_ONLINE, wasOnline).put(K_REAL_VOTE, realVote).put(K_TOTALS, safe(totals))
+				.put(K_VOTE_ID, voteId == null ? "" : voteId.toString())
 				.put(K_SET_TOTALS, true) // backend historically defaulted to true
 				.put(K_MANAGE_TOTALS, manageTotals).put(K_BUNGEE_BROADCAST, bungeeBroadcast).put(K_NUM, num)
 				.put(K_NUMBER_OF_VOTES, numberOfVotes).build();
 	}
 
 	public static JsonEnvelope voteOnline(String player, String uuid, String service, long time, boolean wasOnline,
-			boolean realVote, String totals, boolean manageTotals, boolean bungeeBroadcast, int num,
+			boolean realVote, String totals, UUID voteId, boolean manageTotals, boolean bungeeBroadcast, int num,
 			int numberOfVotes) {
 
 		return base(SUB_VOTE_ONLINE).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid)).put(K_SERVICE, safe(service))
 				.put(K_TIME, time).put(K_WAS_ONLINE, wasOnline).put(K_REAL_VOTE, realVote).put(K_TOTALS, safe(totals))
+				.put(K_VOTE_ID, voteId == null ? "" : voteId.toString())
 				.put(K_SET_TOTALS, true).put(K_MANAGE_TOTALS, manageTotals).put(K_BUNGEE_BROADCAST, bungeeBroadcast)
 				.put(K_NUM, num).put(K_NUMBER_OF_VOTES, numberOfVotes).build();
 	}
@@ -174,6 +177,7 @@ public final class VotingPluginWire {
 		public final boolean wasOnline;
 		public final boolean realVote;
 		public final String totals;
+		public final UUID voteId;
 
 		public final boolean setTotals;
 		public final boolean manageTotals;
@@ -182,7 +186,7 @@ public final class VotingPluginWire {
 		public final int numberOfVotes;
 
 		private Vote(String subChannel, String player, String uuid, String service, long time, boolean wasOnline,
-				boolean realVote, String totals, boolean setTotals, boolean manageTotals, boolean broadcast, int num,
+				boolean realVote, String totals, UUID voteId, boolean setTotals, boolean manageTotals, boolean broadcast, int num,
 				int numberOfVotes) {
 			this.subChannel = subChannel;
 			this.player = player;
@@ -192,6 +196,7 @@ public final class VotingPluginWire {
 			this.wasOnline = wasOnline;
 			this.realVote = realVote;
 			this.totals = totals;
+			this.voteId = voteId;
 			this.setTotals = setTotals;
 			this.manageTotals = manageTotals;
 			this.broadcast = broadcast;
@@ -212,6 +217,7 @@ public final class VotingPluginWire {
 		final boolean wasOnline = readBool(f, K_WAS_ONLINE, false);
 		final boolean realVote = readBool(f, K_REAL_VOTE, false);
 		final String totals = safe(f.get(K_TOTALS));
+		final UUID voteId = readUuid(f, K_VOTE_ID);
 
 		final boolean setTotals = readBool(f, K_SET_TOTALS, true);
 		final boolean manageTotals = readBool(f, K_MANAGE_TOTALS, false);
@@ -221,7 +227,7 @@ public final class VotingPluginWire {
 		final int num = readInt(f, K_NUM, 1);
 		final int numberOfVotes = readInt(f, K_NUMBER_OF_VOTES, 1);
 
-		return new Vote(sub, player, uuid, service, time, wasOnline, realVote, totals, setTotals, manageTotals,
+		return new Vote(sub, player, uuid, service, time, wasOnline, realVote, totals, voteId, setTotals, manageTotals,
 				broadcast, num, numberOfVotes);
 	}
 
@@ -291,6 +297,18 @@ public final class VotingPluginWire {
 			return Integer.parseInt(v);
 		} catch (Exception ignored) {
 			return def;
+		}
+	}
+
+	private static UUID readUuid(Map<String, String> f, String key) {
+		String value = f.get(key);
+		if (value == null || value.isEmpty()) {
+			return null;
+		}
+		try {
+			return UUID.fromString(value);
+		} catch (IllegalArgumentException ignored) {
+			return null;
 		}
 	}
 
