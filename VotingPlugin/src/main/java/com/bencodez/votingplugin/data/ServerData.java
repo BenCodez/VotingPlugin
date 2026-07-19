@@ -170,7 +170,6 @@ public class ServerData {
 	 * @return the service sites
 	 */
 	@SuppressWarnings("unchecked")
-	@Deprecated
 	public ArrayList<String> getServiceSites() {
 		return (ArrayList<String>) getData().getList("GottenServiceSites", new ArrayList<>());
 	}

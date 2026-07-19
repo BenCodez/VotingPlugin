@@ -1519,7 +1519,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					contains = true;
 				}
 			}
-			if (!contains) {
+			if (!contains && !getConfigFile().isDisableNoServiceSiteMessage()) {
 				issues = false;
 				plugin.getLogger().warning("No vote has been recieved from " + site.getServiceSite()
 						+ ", may be an invalid service site. Please read: https://github.com/BenCodez/VotingPlugin/wiki/Votifier-Troubleshooting");
