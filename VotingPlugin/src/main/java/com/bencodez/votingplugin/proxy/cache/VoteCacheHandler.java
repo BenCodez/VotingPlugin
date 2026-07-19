@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -88,6 +89,11 @@ public abstract class VoteCacheHandler {
 	 * @param vote the vote to add
 	 */
 	public void addServerVote(String server, OfflineBungeeVote vote) {
+		if (containsServerVote(server, vote.getVoteId())) {
+			debug1("Not caching duplicate vote " + vote.getVoteId() + " for server " + server);
+			return;
+		}
+
 		cachedVotes.putIfAbsent(server, new ArrayList<>());
 		cachedVotes.get(server).add(vote);
 
@@ -160,6 +166,11 @@ public abstract class VoteCacheHandler {
 	 * @param vote the vote to add
 	 */
 	public void addOnlineVote(String uuid, OfflineBungeeVote vote) {
+		if (containsOnlineVote(uuid, vote.getVoteId())) {
+			debug1("Not caching duplicate online vote " + vote.getVoteId() + " for " + uuid);
+			return;
+		}
+
 		cachedOnlineVotes.putIfAbsent(uuid, new ArrayList<>());
 		cachedOnlineVotes.get(uuid).add(vote);
 
@@ -224,6 +235,60 @@ public abstract class VoteCacheHandler {
 		for (String server : cachedVotes.keySet()) {
 			removeServerVotes(server, expiredServerVotes);
 		}
+	}
+
+	/**
+	 * Checks whether a vote is already cached for a server.
+	 *
+	 * @param server target server
+	 * @param voteId unique vote identifier
+	 * @return true if the vote is already cached for the server
+	 */
+	private boolean containsServerVote(String server, UUID voteId) {
+		if (voteId == null) {
+			return false;
+		}
+		for (OfflineBungeeVote vote : getVotes(server)) {
+			if (voteId.equals(vote.getVoteId())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Checks whether a vote is already cached for an online player.
+	 *
+	 * @param uuid player UUID
+	 * @param voteId unique vote identifier
+	 * @return true if the vote is already cached for the player
+	 */
+	private boolean containsOnlineVote(String uuid, UUID voteId) {
+		if (voteId == null) {
+			return false;
+		}
+		for (OfflineBungeeVote vote : getOnlineVotes(uuid)) {
+			if (voteId.equals(vote.getVoteId())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Reads a vote identifier using the current key and the legacy key.
+	 *
+	 * @param data cached vote data
+	 * @return stored vote identifier or an empty string
+	 */
+	private String readVoteId(DataNode data) {
+		if (data.has("VoteId")) {
+			return data.get("VoteId").asString();
+		}
+		if (data.has("VoteID")) {
+			return data.get("VoteID").asString();
+		}
+		return "";
 	}
 
 	/**
@@ -326,7 +391,7 @@ public abstract class VoteCacheHandler {
 							long time = data.has("Time") ? data.get("Time").asLong() : 0L;
 							boolean real = data.has("Real") && data.get("Real").asBoolean();
 							String text = data.has("Text") ? data.get("Text").asString() : "";
-							String voteId = data.has("VoteId") ? data.get("VoteId").asString() : "";
+							String voteId = readVoteId(data);
 
 							votes.add(new OfflineBungeeVote(voteId, name, uuid, service, time, real, text));
 						}
@@ -351,7 +416,7 @@ public abstract class VoteCacheHandler {
 							long time = data.has("Time") ? data.get("Time").asLong() : 0L;
 							boolean real = data.has("Real") && data.get("Real").asBoolean();
 							String text = data.has("Text") ? data.get("Text").asString() : "";
-							String voteId = data.has("VoteId") ? data.get("VoteId").asString() : "";
+							String voteId = readVoteId(data);
 
 							votes.add(new OfflineBungeeVote(voteId, name, uuid, service, time, real, text));
 						}
