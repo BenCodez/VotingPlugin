@@ -88,7 +88,7 @@ public abstract class VoteCacheHandler {
 	 * @param server the server name
 	 * @param vote the vote to add
 	 */
-	public void addServerVote(String server, OfflineBungeeVote vote) {
+	public synchronized void addServerVote(String server, OfflineBungeeVote vote) {
 		if (containsServerVote(server, vote.getVoteId())) {
 			debug1("Not caching duplicate vote " + vote.getVoteId() + " for server " + server);
 			return;
@@ -165,7 +165,7 @@ public abstract class VoteCacheHandler {
 	 * @param uuid the player UUID
 	 * @param vote the vote to add
 	 */
-	public void addOnlineVote(String uuid, OfflineBungeeVote vote) {
+	public synchronized void addOnlineVote(String uuid, OfflineBungeeVote vote) {
 		if (containsOnlineVote(uuid, vote.getVoteId())) {
 			debug1("Not caching duplicate online vote " + vote.getVoteId() + " for " + uuid);
 			return;
