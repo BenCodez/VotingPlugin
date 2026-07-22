@@ -145,7 +145,9 @@ public class PlayerVoteListener implements Listener {
 			}
 		}
 
-		if (voteSite.isWaitUntilVoteDelay() && !user.canVoteSite(voteSite)) {
+		boolean queuedProxyVoteAlreadyRecorded = ProxyVoteDelayCheck.isQueuedVoteAlreadyRecorded(event.isBungee(),
+				event.getTime(), user.getTime(voteSite));
+		if (voteSite.isWaitUntilVoteDelay() && !queuedProxyVoteAlreadyRecorded && !user.canVoteSite(voteSite)) {
 			if (!event.isRealVote()) {
 				plugin.getLogger().info(user.getPlayerName() + " did a not real vote, bypassing WaitUntilVoteDelay");
 			} else {
@@ -156,6 +158,10 @@ public class PlayerVoteListener implements Listener {
 				plugin.getLogger()
 						.info(user.getPlayerName() + " has bypass permission for WaitUntilVoteDelay, bypassing");
 			}
+		}
+		if (queuedProxyVoteAlreadyRecorded) {
+			plugin.debug("Allowing queued proxy vote for " + user.getPlayerName() + " on " + voteSite.getKey()
+					+ "; proxy vote time already matches LastVotes: " + event.getTime());
 		}
 
 		UUID voteUUID = UUID.randomUUID();
