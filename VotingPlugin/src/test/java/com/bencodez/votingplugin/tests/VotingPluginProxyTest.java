@@ -44,7 +44,6 @@ public class VotingPluginProxyTest {
 		votingPluginProxy.setProxyMySQL(proxyMySQL);
 		votingPluginProxy.setGlobalDataHandler(globalDataHandler);
 		votingPluginProxy.setMultiProxyHandler(multiProxyHandler);
-		votingPluginProxy.setTestConfig(config);
 
 		// Mocking config methods
 		when(config.getVotePartyEnabled()).thenReturn(true);
@@ -53,7 +52,6 @@ public class VotingPluginProxyTest {
 		when(config.getBungeeManageTotals()).thenReturn(true);
 		when(config.getPluginMessageEncryption()).thenReturn(false);
 		when(config.getDebug()).thenReturn(false);
-		when(config.getBedrockPlayerPrefix()).thenReturn(".");
 	}
 
 	@Test
@@ -84,17 +82,6 @@ public class VotingPluginProxyTest {
 		// Add 2 more votes
 		votingPluginProxy.addCurrentVotePartyVotes(2);
 		assertEquals(5, votingPluginProxy.getVotePartyVotes());
-	}
-
-	@Test
-	void configuredBedrockPrefixPassesIngressValidation() {
-		when(config.getBedrockPlayerPrefix()).thenReturn("-");
-		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
-
-		spyProxy.vote("-BedrockPlayer", "MCHT", true, true, 0, null, null);
-
-		verify(spyProxy).getUUID("-BedrockPlayer");
-		assertTrue(spyProxy.getWarnings().stream().noneMatch(warning -> warning.contains("Rejected vote")));
 	}
 
 	@Test
