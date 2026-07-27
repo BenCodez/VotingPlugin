@@ -88,7 +88,7 @@ public class VotingPluginProxyTest {
 	void invalidVoteStopsBeforeAnyPersistentRewardCacheOrForwardingState() {
 		for (String username : new String[] { "MchtNameOver16xxx", "../MchtTraversal", "Mcht/Slash", "Mcht\\Slash",
 				"Mcht Space", "Mcht\tTab", "Mcht\u00E9Unicode" }) {
-			VotingPluginProxy spyProxy = Mockito.spy(votingPluginProxy);
+			VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
 
 			spyProxy.vote(username, "MCHT", true, true, 0, null, null);
 
