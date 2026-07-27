@@ -1604,7 +1604,7 @@ public abstract class VotingPluginProxy {
 	private synchronized void vote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
 			VoteTotalsSnapshot text, String uuid, UUID existingVoteId) {
 		try {
-			if (!MinecraftUsernameValidator.isValid(player)) {
+			if (!MinecraftUsernameValidator.isValid(player, getConfig().getBedrockPlayerPrefix())) {
 				warn("Rejected vote with invalid Minecraft username '"
 						+ MinecraftUsernameValidator.sanitizeForLog(player) + "' from service '"
 						+ MinecraftUsernameValidator.sanitizeForLog(service) + "'");
