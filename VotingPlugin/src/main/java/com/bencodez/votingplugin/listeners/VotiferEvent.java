@@ -48,7 +48,7 @@ public class VotiferEvent implements Listener {
 			return;
 		}
 
-		if (!MinecraftUsernameValidator.isValid(voteUsername)) {
+		if (!MinecraftUsernameValidator.isValid(voteUsername, plugin.getOptions().getBedrockPlayerPrefix())) {
 			plugin.getLogger().warning("Rejected vote with invalid Minecraft username '"
 					+ MinecraftUsernameValidator.sanitizeForLog(voteUsername) + "' from service '"
 					+ MinecraftUsernameValidator.sanitizeForLog(voteSite) + "'");
