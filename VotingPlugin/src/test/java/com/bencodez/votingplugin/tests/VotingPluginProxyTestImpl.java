@@ -17,6 +17,11 @@ import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 
 public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	private final List<String> warnings = new ArrayList<>();
+	private VotingPluginProxyConfig testConfig = Mockito.mock(VotingPluginProxyConfig.class);
+
+	public void setTestConfig(VotingPluginProxyConfig testConfig) {
+		this.testConfig = testConfig;
+	}
 
 	public List<String> getWarnings() {
 		return warnings;
@@ -39,7 +44,7 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	@Override
 	public VotingPluginProxyConfig getConfig() {
-		return Mockito.mock(VotingPluginProxyConfig.class);
+		return testConfig;
 	}
 
 	@Override
