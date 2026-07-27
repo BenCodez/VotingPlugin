@@ -8,6 +8,7 @@ import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
+import com.bencodez.votingplugin.util.MinecraftUsernameValidator;
 import com.vexsoftware.votifier.model.Vote;
 import com.vexsoftware.votifier.model.VotifierEvent;
 
@@ -42,13 +43,15 @@ public class VotiferEvent implements Listener {
 		}
 		final String voteSite = str;
 		final String IP = vote.getAddress();
-		final String voteUsername = vote.getUsername().trim();
+		final String voteUsername = vote.getUsername();
 		if (IP.equals("VotingPlugin")) {
 			return;
 		}
 
-		if (voteUsername.length() == 0) {
-			plugin.getLogger().warning("No name from vote on " + voteSite);
+		if (!MinecraftUsernameValidator.isValid(voteUsername)) {
+			plugin.getLogger().warning("Rejected vote with invalid Minecraft username '"
+					+ MinecraftUsernameValidator.sanitizeForLog(voteUsername) + "' from service '"
+					+ MinecraftUsernameValidator.sanitizeForLog(voteSite) + "'");
 			return;
 		}
 

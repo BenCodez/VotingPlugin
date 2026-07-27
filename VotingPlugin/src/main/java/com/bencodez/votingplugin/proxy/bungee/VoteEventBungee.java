@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.proxy.bungee;
 
+import com.bencodez.votingplugin.util.MinecraftUsernameValidator;
 import com.vexsoftware.votifier.bungee.events.VotifierEvent;
 import com.vexsoftware.votifier.model.Vote;
 
@@ -32,7 +33,8 @@ public class VoteEventBungee implements net.md_5.bungee.api.plugin.Listener {
 			public void run() {
 				Vote vote = event.getVote();
 				String serviceSite = vote.getServiceName();
-				plugin.getLogger().info("Vote received " + vote.getUsername() + " from service site " + serviceSite);
+				plugin.getLogger().info("Vote received " + MinecraftUsernameValidator.sanitizeForLog(vote.getUsername())
+						+ " from service site " + MinecraftUsernameValidator.sanitizeForLog(serviceSite));
 
 				if (serviceSite.isEmpty()) {
 					serviceSite = "Empty";

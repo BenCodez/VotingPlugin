@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.proxy.velocity;
 
+import com.bencodez.votingplugin.util.MinecraftUsernameValidator;
 import com.velocitypowered.api.event.Subscribe;
 import com.vexsoftware.votifier.velocity.event.VotifierEvent;
 
@@ -30,7 +31,8 @@ public class VoteEventVelocity {
 			@Override
 			public void run() {
 				String serviceSite = serviceSiteVote;
-				plugin.getLogger().info("Vote received " + name + " from service site " + serviceSite);
+				plugin.getLogger().info("Vote received " + MinecraftUsernameValidator.sanitizeForLog(name)
+						+ " from service site " + MinecraftUsernameValidator.sanitizeForLog(serviceSite));
 				if (serviceSite.isEmpty()) {
 					serviceSite = "Empty";
 				}

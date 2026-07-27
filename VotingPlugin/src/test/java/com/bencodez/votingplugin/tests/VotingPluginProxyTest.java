@@ -2,7 +2,10 @@
 package com.bencodez.votingplugin.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -67,8 +70,6 @@ public class VotingPluginProxyTest {
 		assertEquals(1, spyProxy.getVotePartyVotes());
 	}
 
-
-
 	@Test
 	void testAddCurrentVotePartyVotes() {
 		// Initial votePartyVotes should be 0
@@ -81,5 +82,24 @@ public class VotingPluginProxyTest {
 		// Add 2 more votes
 		votingPluginProxy.addCurrentVotePartyVotes(2);
 		assertEquals(5, votingPluginProxy.getVotePartyVotes());
+	}
+
+	@Test
+	void invalidVoteStopsBeforeAnyPersistentRewardCacheOrForwardingState() {
+		for (String username : new String[] { "MchtNameOver16xxx", "../MchtTraversal", "Mcht/Slash", "Mcht\\Slash",
+				"Mcht Space", "Mcht\tTab", "Mcht\u00E9Unicode" }) {
+			VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+
+			spyProxy.vote(username, "MCHT", true, true, 0, null, null);
+
+			verify(spyProxy, never()).getUUID(Mockito.anyString());
+			verify(spyProxy, never()).addVoteParty();
+			verify(spyProxy, never()).getVoteCacheHandler();
+			verify(spyProxy, never()).getGlobalMessageProxyHandler();
+			verify(proxyMySQL, never()).containsKeyQuery(Mockito.anyString());
+			verify(multiProxyHandler, never()).sendMultiProxyEnvelope(Mockito.any());
+			assertEquals(0, spyProxy.getVotePartyVotes(), username);
+			assertTrue(spyProxy.getWarnings().stream().anyMatch(warning -> warning.contains("Rejected vote")), username);
+		}
 	}
 }
