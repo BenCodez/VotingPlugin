@@ -1,8 +1,10 @@
 package com.bencodez.votingplugin.tests;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
@@ -14,6 +16,11 @@ import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 
 public class VotingPluginProxyTestImpl extends VotingPluginProxy {
+	private final List<String> warnings = new ArrayList<>();
+
+	public List<String> getWarnings() {
+		return warnings;
+	}
 
 	@Override
 	public void addNonVotedPlayer(String uuid, String playerName) {
@@ -144,8 +151,7 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	@Override
 	public void warn(String message) {
-		// For testing, simply print the warning message
-		System.err.println("WARNING: " + message);
+		warnings.add(message);
 	}
 
 	@Override
