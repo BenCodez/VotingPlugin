@@ -17,6 +17,27 @@ class MinecraftUsernameValidatorTest {
 	}
 
 	@Test
+	void acceptsOnlyTheConfiguredBedrockPrefix() {
+		assertTrue(MinecraftUsernameValidator.isValid(".Player", "."));
+		assertTrue(MinecraftUsernameValidator.isValid("-Player", "-"));
+		assertTrue(MinecraftUsernameValidator.isValid("+-Player", "+-"));
+		assertTrue(MinecraftUsernameValidator.isValid("-MchtNameOver16xx", "-"));
+
+		assertFalse(MinecraftUsernameValidator.isValid(".Player", "-"));
+		assertFalse(MinecraftUsernameValidator.isValid("-Player", "."));
+		assertFalse(MinecraftUsernameValidator.isValid(".Player", ""));
+		assertFalse(MinecraftUsernameValidator.isValid(".Player", null));
+	}
+
+	@Test
+	void rejectsInvalidBedrockBaseNames() {
+		for (String username : new String[] { ".", ".MchtNameOver16xxx", "../MchtTraversal", ".Mcht/Slash",
+				".Mcht\\Slash", ".Mcht Space", ".Mcht\tTab", ".Mcht\u00E9Unicode" }) {
+			assertFalse(MinecraftUsernameValidator.isValid(username, "."), username);
+		}
+	}
+
+	@Test
 	void rejectsInvalidMinecraftUsernames() {
 		for (String username : new String[] { "MchtNameOver16xxx", "../MchtTraversal", "Mcht/Slash", "Mcht\\Slash",
 				"Mcht Space", "Mcht\tTab", "Mcht\nLine", "Mcht\u0000Control", "Mcht- punctuation",

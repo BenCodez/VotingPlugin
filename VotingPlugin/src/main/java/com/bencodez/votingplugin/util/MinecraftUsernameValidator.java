@@ -3,7 +3,7 @@ package com.bencodez.votingplugin.util;
 import java.util.regex.Pattern;
 
 /**
- * Validates Java Edition player names received from external vote sources.
+ * Validates player names received from external vote sources.
  */
 public final class MinecraftUsernameValidator {
 	private static final int MAX_LENGTH = 16;
@@ -21,6 +21,27 @@ public final class MinecraftUsernameValidator {
 	 */
 	public static boolean isValid(String username) {
 		return username != null && VALID_USERNAME.matcher(username).matches();
+	}
+
+	/**
+	 * Tests a Java username or a Bedrock username using the configured prefix. The
+	 * prefix is matched literally and the remaining player name must still use the
+	 * normal 1-16 character username syntax.
+	 *
+	 * @param username            username supplied by an external source
+	 * @param bedrockPlayerPrefix configured Bedrock player prefix
+	 * @return {@code true} when the username is valid for Java or for the configured
+	 *         Bedrock prefix
+	 */
+	public static boolean isValid(String username, String bedrockPlayerPrefix) {
+		if (isValid(username)) {
+			return true;
+		}
+		if (username == null || bedrockPlayerPrefix == null || bedrockPlayerPrefix.isEmpty()
+				|| !username.startsWith(bedrockPlayerPrefix)) {
+			return false;
+		}
+		return isValid(username.substring(bedrockPlayerPrefix.length()));
 	}
 
 	/**
