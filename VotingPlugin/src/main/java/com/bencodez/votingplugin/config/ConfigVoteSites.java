@@ -60,6 +60,7 @@ public class ConfigVoteSites extends YMLFile {
 			set(siteName, "DisplayItem.Material", "STONE");
 			set(siteName, "DisplayItem.Amount", 1);
 			set(siteName, "Rewards.Messages.Player", "&aThanks for voting on %ServiceSite%!");
+			set(siteName, "WaitUntilVoteDelayRewards", Collections.emptyMap());
 
 			plugin.loadVoteSites();
 
@@ -85,6 +86,30 @@ public class ConfigVoteSites extends YMLFile {
 					plugin.getConfigVoteSites().setValue(path, value);
 				}
 			});
+
+			plugin.addDirectlyDefinedRewards(
+					new DirectlyDefinedReward("VoteSites." + siteName + ".WaitUntilVoteDelayRewards") {
+
+						@Override
+						public void createSection(String key) {
+							plugin.getConfigVoteSites().createSection(key);
+						}
+
+						@Override
+						public ConfigurationSection getFileData() {
+							return plugin.getConfigVoteSites().getData();
+						}
+
+						@Override
+						public void save() {
+							plugin.getConfigVoteSites().saveData();
+						}
+
+						@Override
+						public void setData(String path, Object value) {
+							plugin.getConfigVoteSites().setValue(path, value);
+						}
+					});
 
 			plugin.addDirectlyDefinedRewards(
 					new DirectlyDefinedReward("VoteSites." + siteName + ".CoolDownEndRewards") {
@@ -192,6 +217,16 @@ public class ConfigVoteSites extends YMLFile {
 	 */
 	public String getRewardsPath(String siteName) {
 		return "VoteSites." + siteName + ".Rewards";
+	}
+
+	/**
+	 * Gets the rewards path used when a vote is rejected by WaitUntilVoteDelay.
+	 *
+	 * @param siteName the site name
+	 * @return the wait-until-vote-delay rewards path
+	 */
+	public String getWaitUntilVoteDelayRewardsPath(String siteName) {
+		return "VoteSites." + siteName + ".WaitUntilVoteDelayRewards";
 	}
 
 	/**

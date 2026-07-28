@@ -141,6 +141,22 @@ public class VoteSite {
 
 	}
 
+	/**
+	 * Gives rewards configured for a vote rejected by WaitUntilVoteDelay.
+	 *
+	 * @param user the voting user
+	 * @param online whether the player was online when the vote was received
+	 * @param bungee whether the vote came through the proxy
+	 */
+	public void giveWaitUntilVoteDelayRewards(VotingPluginUser user, boolean online, boolean bungee) {
+		new RewardBuilder(plugin.getConfigVoteSites().getData(),
+				plugin.getConfigVoteSites().getWaitUntilVoteDelayRewardsPath(key)).setOnline(online)
+						.withPlaceHolder("ServiceSite", getServiceSite())
+						.withPlaceHolder("SiteName", getDisplayName())
+						.withPlaceHolder("VoteDelay", "" + getVoteDelay())
+						.withPlaceHolder("VoteURL", getVoteURL()).setServer(bungee).send(user);
+	}
+
 	public boolean hasRewards() {
 		return plugin.getRewardHandler().hasRewards(plugin.getConfigVoteSites().getData(),
 				plugin.getConfigVoteSites().getRewardsPath(key));

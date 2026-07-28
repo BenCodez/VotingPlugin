@@ -31,6 +31,7 @@ public final class VotingPluginWire {
 	public static final String SUB_VOTE = "Vote";
 	public static final String SUB_VOTE_ONLINE = "VoteOnline";
 	public static final String SUB_VOTE_UPDATE = "VoteUpdate";
+	public static final String SUB_VOTE_DELAY_REJECTED = "VoteDelayRejected";
 	public static final String SUB_VOTE_BROADCAST = "VoteBroadcast";
 	public static final String SUB_BUNGEE_TIME_CHANGE = "BungeeTimeChange";
 
@@ -106,6 +107,11 @@ public final class VotingPluginWire {
 				.put(K_VOTE_ID, voteId == null ? "" : voteId.toString())
 				.put(K_SET_TOTALS, true).put(K_MANAGE_TOTALS, manageTotals).put(K_BUNGEE_BROADCAST, bungeeBroadcast)
 				.put(K_NUM, num).put(K_NUMBER_OF_VOTES, numberOfVotes).build();
+	}
+
+	public static JsonEnvelope voteDelayRejected(String player, String uuid, String service, boolean wasOnline) {
+		return base(SUB_VOTE_DELAY_REJECTED).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid))
+				.put(K_SERVICE, safe(service)).put(K_WAS_ONLINE, wasOnline).build();
 	}
 
 	public static JsonEnvelope voteBroadcast(String uuid, String player, String service, long time, String totals) {
@@ -230,6 +236,26 @@ public final class VotingPluginWire {
 
 		return new Vote(sub, player, uuid, service, time, wasOnline, realVote, totals, voteId, setTotals, manageTotals,
 				broadcast, num, numberOfVotes);
+	}
+
+	public static final class VoteDelayRejected {
+		public final String player;
+		public final String uuid;
+		public final String service;
+		public final boolean wasOnline;
+
+		private VoteDelayRejected(String player, String uuid, String service, boolean wasOnline) {
+			this.player = player;
+			this.uuid = uuid;
+			this.service = service;
+			this.wasOnline = wasOnline;
+		}
+	}
+
+	public static VoteDelayRejected readVoteDelayRejected(JsonEnvelope env) {
+		Map<String, String> f = env.getFields();
+		return new VoteDelayRejected(safe(f.get(K_PLAYER)), safe(f.get(K_UUID)), safe(f.get(K_SERVICE)),
+				readBool(f, K_WAS_ONLINE, false));
 	}
 
 	public static final class VoteUpdate {
