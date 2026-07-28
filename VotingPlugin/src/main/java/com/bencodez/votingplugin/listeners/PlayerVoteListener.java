@@ -153,6 +153,13 @@ public class PlayerVoteListener implements Listener {
 			} else {
 				if (!user.hasPermission("VotingPlugin.BypassWaitUntilVoteDelay")) {
 					plugin.getLogger().info(user.getPlayerName() + " must wait until votedelay is over, ignoring vote");
+					boolean online = user.isOnline();
+					if (event.isBungee()) {
+						online = event.isWasOnline();
+					}
+					if (plugin.getOptions().isProcessRewards()) {
+						voteSite.giveWaitUntilVoteDelayRewards(user, online, event.isBungee());
+					}
 					return;
 				}
 				plugin.getLogger()

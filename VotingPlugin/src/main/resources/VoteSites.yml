@@ -99,6 +99,12 @@ VoteSites:
     # Recommend: false
     WaitUntilVoteDelay: false
 
+    # Reward to run when a real vote is rejected because VoteDelay has not ended
+    # This supports standard rewards and the placeholders %ServiceSite%, %SiteName%, %VoteDelay%, and %VoteURL%
+    #WaitUntilVoteDelayRewards:
+    #  Messages:
+    #    Player: '&cYour vote was not accepted because the vote delay has not ended.'
+
     # Reset vote delay each day (for certain sites that do this)
     # Recommend: false
     VoteDelayDaily: false

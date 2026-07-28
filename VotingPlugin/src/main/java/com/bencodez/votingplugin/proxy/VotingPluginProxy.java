@@ -1499,6 +1499,17 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
+	private void sendVoteDelayRejected(String player, String uuid, String service, boolean playerOnline,
+			String playerServer) {
+		if (!playerOnline || playerServer == null || !getAllAvailableServers().contains(playerServer)) {
+			debug("Not sending vote delay rejection for " + player + " because the player is offline");
+			return;
+		}
+
+		globalMessageProxyHandler.sendMessage(playerServer, 1,
+				VotingPluginWire.voteDelayRejected(player, uuid, service, true));
+	}
+
 	public String getWaitUntilDelaySiteFromService(String service) {
 		for (String site : getConfig().getWaitUntilVoteDelaySites()) {
 			if (getConfig().getWaitUntilVoteDelayService(site).equalsIgnoreCase(service)) {
@@ -1718,6 +1729,7 @@ public abstract class VotingPluginProxy {
 
 					if (!checkVoteDelay(uuid, service, data)) {
 						log("Vote delay is not met for " + player + "/" + service + ", skipping vote");
+						sendVoteDelayRejected(player, uuid, service, playerOnline, playerServer);
 						return;
 					}
 

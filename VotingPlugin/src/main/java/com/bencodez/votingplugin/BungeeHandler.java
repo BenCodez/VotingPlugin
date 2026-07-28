@@ -272,6 +272,12 @@ public class BungeeHandler implements Listener {
 			}
 		});
 
+		globalMessageHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_VOTE_DELAY_REJECTED) {
+			@Override
+			public void onReceive(JsonEnvelope msg) {
+				handleWireVoteDelayRejected(msg);
+			}
+		});
 		globalMessageHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_VOTE_UPDATE) {
 			@Override
 			public void onReceive(JsonEnvelope msg) {
@@ -555,6 +561,43 @@ public class BungeeHandler implements Listener {
 		} catch (Exception ignored) {
 			return def;
 		}
+	}
+
+	private void handleWireVoteDelayRejected(JsonEnvelope msg) {
+		if (msg.getSchema() != VotingPluginWire.SCHEMA_VERSION) {
+			plugin.getLogger().warning("Incompatible version with bungee/proxy, please update all servers: "
+					+ msg.getSchema() + " != " + VotingPluginWire.SCHEMA_VERSION);
+			return;
+		}
+
+		if (!plugin.getOptions().isProcessRewards()) {
+			return;
+		}
+
+		VotingPluginWire.VoteDelayRejected rejected = VotingPluginWire.readVoteDelayRejected(msg);
+		if (rejected.uuid.isEmpty() || rejected.service.isEmpty()) {
+			return;
+		}
+
+		UUID javaUuid;
+		try {
+			javaUuid = UUID.fromString(rejected.uuid);
+		} catch (IllegalArgumentException e) {
+			plugin.getLogger().warning("Invalid UUID in VoteDelayRejected: " + rejected.uuid);
+			return;
+		}
+
+		VoteSite voteSite = plugin.getVoteSiteManager()
+				.getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, rejected.service), true);
+		if (voteSite == null) {
+			plugin.getLogger().warning("No voting site with the service site: '" + rejected.service + "'");
+			return;
+		}
+
+		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(javaUuid, rejected.player);
+		user.cache();
+		user.updateName(true);
+		voteSite.giveWaitUntilVoteDelayRewards(user, rejected.wasOnline && user.isOnline(), true);
 	}
 
 	/**

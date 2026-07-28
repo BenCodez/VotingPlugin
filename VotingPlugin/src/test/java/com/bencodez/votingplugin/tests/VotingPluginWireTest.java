@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
 import com.bencodez.votingplugin.proxy.VotingPluginWire.Vote;
+import com.bencodez.votingplugin.proxy.VotingPluginWire.VoteDelayRejected;
 
 /**
  * Tests proxy vote wire encoding and decoding.
@@ -38,5 +39,19 @@ public class VotingPluginWireTest {
 		Vote vote = VotingPluginWire.readVote(envelope);
 
 		assertNull(vote.voteId);
+	}
+
+	@Test
+	public void voteDelayRejectedRoundTripPreservesContext() {
+		String uuid = UUID.randomUUID().toString();
+		JsonEnvelope envelope = VotingPluginWire.voteDelayRejected("Player", uuid, "Service", true);
+
+		VoteDelayRejected rejected = VotingPluginWire.readVoteDelayRejected(envelope);
+
+		assertEquals(VotingPluginWire.SUB_VOTE_DELAY_REJECTED, envelope.getSubChannel());
+		assertEquals("Player", rejected.player);
+		assertEquals(uuid, rejected.uuid);
+		assertEquals("Service", rejected.service);
+		assertEquals(true, rejected.wasOnline);
 	}
 }
