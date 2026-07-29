@@ -351,8 +351,8 @@ CHEST:
     EndOfGUI: false
     # If true, this item will become an exit button instead
     Exit: false
-
-  # VoteShop settings moved to Shop.yml for 6.17 (To be released)
+    # If set, command to run when clicking back button
+    #Command: somecustomgui 
 
 BOOK:
   VoteURLBookGUI:

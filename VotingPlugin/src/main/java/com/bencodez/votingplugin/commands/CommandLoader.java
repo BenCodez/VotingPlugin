@@ -143,21 +143,27 @@ public class CommandLoader {
 			item = new ItemBuilder(Material.BARRIER, 1).setName("&8Back to VoteGUI");
 		}
 
+		String command = sec.getString("Command", "");
+
 		final boolean openVoteURL = a;
 		final boolean exitGUI = exit;
 		BInventoryButton b = new BInventoryButton(item) {
 
 			@Override
 			public void onClick(ClickEvent event) {
-				if (!exitGUI) {
-					if (!openVoteURL) {
-						new VoteGUI(plugin, event.getWhoClicked(), user)
-								.open(GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
-					} else {
-						new VoteURL(plugin, event.getWhoClicked(), user, true).open();
-					}
+				if (!command.isEmpty()) {
+					event.getPlayer().performCommand(command);
 				} else {
-					event.closeInventory();
+					if (!exitGUI) {
+						if (!openVoteURL) {
+							new VoteGUI(plugin, event.getWhoClicked(), user)
+									.open(GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
+						} else {
+							new VoteURL(plugin, event.getWhoClicked(), user, true).open();
+						}
+					} else {
+						event.closeInventory();
+					}
 				}
 			}
 
@@ -919,7 +925,8 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-						int result = plugin.getVoteStreakHandler().advanceVoteStreak(user, args[4], 1, UUID.randomUUID());
+						int result = plugin.getVoteStreakHandler().advanceVoteStreak(user, args[4], 1,
+								UUID.randomUUID());
 						if (result >= 0) {
 							sendMessage(sender, "&aAdvanced VoteStreak &e" + args[4] + " &afor &e" + args[1]
 									+ "&a. New amount: &e" + result);
@@ -943,7 +950,8 @@ public class CommandLoader {
 							return;
 						}
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-						int result = plugin.getVoteStreakHandler().advanceVoteStreak(user, args[4], amount, UUID.randomUUID());
+						int result = plugin.getVoteStreakHandler().advanceVoteStreak(user, args[4], amount,
+								UUID.randomUUID());
 						if (result >= 0) {
 							sendMessage(sender, "&aAdvanced VoteStreak &e" + args[4] + " &aby &e" + amount + " &afor &e"
 									+ args[1] + "&a. New amount: &e" + result);
@@ -955,7 +963,8 @@ public class CommandLoader {
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(plugin,
-						new String[] { "User", "(player)", "VoteStreaks", "SetAmount", "(votestreakstate)", "(number)" },
+						new String[] { "User", "(player)", "VoteStreaks", "SetAmount", "(votestreakstate)",
+								"(number)" },
 						"VotingPlugin.Commands.AdminVote.VoteStreaks.SetAmount|" + adminPerm,
 						"Set a configured VoteStreak amount without giving rewards") {
 
@@ -974,7 +983,8 @@ public class CommandLoader {
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(plugin,
-						new String[] { "User", "(player)", "VoteStreaks", "AddAmount", "(votestreakstate)", "(number)" },
+						new String[] { "User", "(player)", "VoteStreaks", "AddAmount", "(votestreakstate)",
+								"(number)" },
 						"VotingPlugin.Commands.AdminVote.VoteStreaks.AddAmount|" + adminPerm,
 						"Add to a configured VoteStreak amount without giving rewards") {
 
@@ -994,14 +1004,16 @@ public class CommandLoader {
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(plugin,
-						new String[] { "User", "(player)", "VoteStreaks", "SetLastUpdate", "(votestreakstate)", "(text)" },
+						new String[] { "User", "(player)", "VoteStreaks", "SetLastUpdate", "(votestreakstate)",
+								"(text)" },
 						"VotingPlugin.Commands.AdminVote.VoteStreaks.SetLastUpdate|" + adminPerm,
 						"Set the last update date for a configured VoteStreak using yyyy-MM-dd") {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-						String periodKey = plugin.getVoteStreakHandler().setVoteStreakLastUpdateDate(user, args[4], args[5]);
+						String periodKey = plugin.getVoteStreakHandler().setVoteStreakLastUpdateDate(user, args[4],
+								args[5]);
 						if (periodKey != null) {
 							sendMessage(sender, "&aSet the last update date for VoteStreak &e" + args[4] + " &afor &e"
 									+ args[1] + " &ato &e" + args[5] + "&a. Stored period: &e" + periodKey);
@@ -1032,7 +1044,8 @@ public class CommandLoader {
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(plugin,
-						new String[] { "User", "(player)", "VoteStreaks", "SetSatisfied", "(votestreakstate)", "(boolean)" },
+						new String[] { "User", "(player)", "VoteStreaks", "SetSatisfied", "(votestreakstate)",
+								"(boolean)" },
 						"VotingPlugin.Commands.AdminVote.VoteStreaks.SetSatisfied|" + adminPerm,
 						"Set whether the current VoteStreak period is satisfied") {
 
@@ -1088,8 +1101,8 @@ public class CommandLoader {
 						try {
 							VoteStreakType type = VoteStreakType.from(target);
 							int reset = plugin.getVoteStreakHandler().resetVoteStreaks(user, type);
-							sendMessage(sender, "&aReset &e" + reset + " " + type.name() + " &aVoteStreak states for &e"
-									+ args[1]);
+							sendMessage(sender,
+									"&aReset &e" + reset + " " + type.name() + " &aVoteStreak states for &e" + args[1]);
 							return;
 						} catch (IllegalArgumentException ignored) {
 						}
@@ -2573,7 +2586,8 @@ public class CommandLoader {
 		});
 
 		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "User", "(player)", "VoteStreaks", "Force", "(votestreak)" },
+				.add(new CommandHandler(plugin,
+						new String[] { "User", "(player)", "VoteStreaks", "Force", "(votestreak)" },
 						"VotingPlugin.Commands.AdminVote.ForceVoteStreak|" + adminPerm,
 						"Force a configured VoteStreaks reward by id") {
 
