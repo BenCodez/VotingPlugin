@@ -143,7 +143,7 @@ public class CommandLoader {
 			item = new ItemBuilder(Material.BARRIER, 1).setName("&8Back to VoteGUI");
 		}
 
-		String command = sec.getString("Command", "");
+		final String command = sec.getString("Command", "");
 
 		final boolean openVoteURL = a;
 		final boolean exitGUI = exit;
@@ -152,7 +152,14 @@ public class CommandLoader {
 			@Override
 			public void onClick(ClickEvent event) {
 				if (!command.isEmpty()) {
-					event.getPlayer().performCommand(command);
+					plugin.getBukkitScheduler().runTask(plugin, new Runnable() {
+
+						@Override
+						public void run() {
+							event.getPlayer().performCommand(command);
+						}
+					});
+
 				} else {
 					if (!exitGUI) {
 						if (!openVoteURL) {
