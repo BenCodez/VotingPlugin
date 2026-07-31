@@ -75,11 +75,28 @@ public class PlayerVoteListener implements Listener {
 			return;
 		}
 
-		// Resolve Bedrock/Java + add prefix only when appropriate AFTER validation
-		BedrockNameResolver.Result rn = plugin.getBedrockHandle().resolve(properName);
-		String creditedName = rn.finalName;
+		String creditedName;
+		String resolutionRationale;
+		if (validationResult.isValid()) {
+			// Validation checks exact online and stored identities before attempting a
+			// prefixed Bedrock fallback. Keep that decision authoritative so a second
+			// resolver pass cannot redirect an offline Java vote to an online Bedrock
+			// account with the same base name.
+			creditedName = validationResult.getNormalizedName();
+			if (creditedName == null || creditedName.isEmpty()) {
+				creditedName = properName;
+			}
+			resolutionRationale = "validation-"
+					+ validationResult.getSource().toString().toLowerCase(java.util.Locale.ROOT);
+		} else {
+			// Invalid users only reach this point when AllowUnjoined is enabled. Preserve
+			// the existing resolver behavior for those otherwise unknown identities.
+			BedrockNameResolver.Result rn = plugin.getBedrockHandle().resolve(properName);
+			creditedName = rn.finalName;
+			resolutionRationale = rn.rationale;
+		}
 
-		plugin.debug("Vote name resolved: " + properName + " -> " + creditedName + " (" + rn.rationale + ")");
+		plugin.debug("Vote name resolved: " + properName + " -> " + creditedName + " (" + resolutionRationale + ")");
 
 		// If we get here, use the resolved/possibly-prefixed name going forward
 		playerName = creditedName;
