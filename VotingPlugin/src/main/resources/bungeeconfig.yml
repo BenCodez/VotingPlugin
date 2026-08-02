@@ -279,7 +279,7 @@ Redis:
   Port: 6379
   Username: ''
   Password: ''
-  # Set a prefix from an entire proxy network if using mutli-proxy setup below
+  # Set a prefix from an entire proxy network if using multi-proxy setup below
   Prefix: ''
   #Db-Index: 0
 
@@ -300,7 +300,7 @@ MQTT:
   BrokerURL: "tcp://localhost:1883"
   Username: ''
   Password: ''
-  # Set a prefix from an entire proxy network if using mutli-proxy setup below
+  # Set a prefix from an entire proxy network if using multi-proxy setup below
   Prefix: ''
 
 ######################################################################################

@@ -651,7 +651,7 @@ public class CommandLoader {
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(plugin, new String[] { "Perms", "(Number)", "(Player)" },
 						"VotingPlugin.Commands.AdminVote.Perms.Other|" + adminPerm,
-						"List permissions from the plugin the specificed player has") {
+						"List permissions from the plugin the specified player has") {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
@@ -1418,7 +1418,7 @@ public class CommandLoader {
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(plugin, new String[] { "VoteSite", "(sitename)", "SetServiceSite", "(string)" },
-						"VotingPlugin.Commands.AdminVote.VoteSite.Edit|" + adminPerm, "Set VoteSite SerivceSite") {
+						"VotingPlugin.Commands.AdminVote.VoteSite.Edit|" + adminPerm, "Set VoteSite ServiceSite") {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
@@ -1565,7 +1565,7 @@ public class CommandLoader {
 						sender.sendMessage(MessageAPI.colorize("&aServiceSite is properly setup"));
 					} else {
 						sender.sendMessage(
-								MessageAPI.colorize("&cService may not be valid, haven't recieved a vote from "
+								MessageAPI.colorize("&cService may not be valid, haven't received a vote from "
 										+ service + ", see /av servicesites"));
 					}
 
@@ -3246,7 +3246,7 @@ public class CommandLoader {
 		plugin.getVoteCommand()
 				.add(new CommandHandler(plugin, new String[] { "ToggleBroadcast" },
 						"VotingPlugin.Commands.Vote.ToggleBroadcast|" + playerPerm,
-						"Toggle whether or not you will recieve vote broadcasts", false) {
+						"Toggle whether or not you will receive vote broadcasts", false) {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
