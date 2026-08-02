@@ -115,7 +115,7 @@ public class PlayerVoteListener implements Listener {
 					new ProxyVotifierEvent().send(plugin, event);
 				} catch (NoClassDefFoundError ex) {
 					plugin.getLogger().severe(
-							"Failed to trigger Votifier event for proxy vote. Either install votiifer or disable tirgger votiifer event");
+							"Failed to trigger Votifier event for proxy vote. Either install Votifier or disable triggering the Votifier event");
 					plugin.getLogger().severe("Error: " + ex.getMessage());
 					plugin.debug(ex);
 				}
