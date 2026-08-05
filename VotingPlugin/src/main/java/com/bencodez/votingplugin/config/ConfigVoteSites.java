@@ -48,11 +48,21 @@ public class ConfigVoteSites extends YMLFile {
 	 * @param siteName the site name
 	 */
 	public void generateVoteSite(String siteName) {
+		tryGenerateVoteSite(siteName);
+	}
+
+	/**
+	 * Attempts to generate a vote site.
+	 *
+	 * @param siteName the site name
+	 * @return {@code true} if the site was generated
+	 */
+	public boolean tryGenerateVoteSite(String siteName) {
 		if (plugin.getConfigFile().isAutoCreateVoteSites()) {
 			if (!ServiceSiteValidator.isValid(siteName)) {
 				plugin.getLogger().warning("Unable to generate vote site with unsupported name '"
 						+ ServiceSiteValidator.sanitizeForLog(siteName) + "'");
-				return;
+				return false;
 			}
 			String org = siteName;
 			siteName = siteName.replaceAll("[\\.\\s]+", "_");
@@ -147,7 +157,9 @@ public class ConfigVoteSites extends YMLFile {
 							+ ", please check console for details"));
 				}
 			}
+			return true;
 		}
+		return false;
 	}
 
 	/**
