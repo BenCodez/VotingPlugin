@@ -76,12 +76,28 @@ public final class ServiceSiteValidator {
 	}
 
 	private static boolean isVisibleBaseCharacter(int codePoint) {
-		if (Character.isWhitespace(codePoint) || Character.isSpaceChar(codePoint)) {
+		if (Character.isWhitespace(codePoint) || Character.isSpaceChar(codePoint)
+				|| isDefaultIgnorable(codePoint)) {
 			return false;
 		}
 
 		int type = Character.getType(codePoint);
 		return type != Character.NON_SPACING_MARK && type != Character.COMBINING_SPACING_MARK
 				&& type != Character.ENCLOSING_MARK;
+	}
+
+	private static boolean isDefaultIgnorable(int codePoint) {
+		return codePoint == 0x00AD || codePoint == 0x034F || codePoint == 0x061C
+				|| (codePoint >= 0x115F && codePoint <= 0x1160)
+				|| (codePoint >= 0x17B4 && codePoint <= 0x17B5)
+				|| (codePoint >= 0x180B && codePoint <= 0x180F)
+				|| (codePoint >= 0x200B && codePoint <= 0x200F)
+				|| (codePoint >= 0x202A && codePoint <= 0x202E)
+				|| (codePoint >= 0x2060 && codePoint <= 0x206F) || codePoint == 0x3164
+				|| (codePoint >= 0xFE00 && codePoint <= 0xFE0F) || codePoint == 0xFEFF
+				|| codePoint == 0xFFA0 || (codePoint >= 0xFFF0 && codePoint <= 0xFFF8)
+				|| (codePoint >= 0x1BCA0 && codePoint <= 0x1BCA3)
+				|| (codePoint >= 0x1D173 && codePoint <= 0x1D17A)
+				|| (codePoint >= 0xE0000 && codePoint <= 0xE0FFF);
 	}
 }
