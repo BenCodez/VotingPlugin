@@ -20,6 +20,7 @@ import com.bencodez.simpleapi.file.YMLFile;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.util.ServiceSiteValidator;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
 // TODO: Auto-generated Javadoc
@@ -48,6 +49,11 @@ public class ConfigVoteSites extends YMLFile {
 	 */
 	public void generateVoteSite(String siteName) {
 		if (plugin.getConfigFile().isAutoCreateVoteSites()) {
+			if (!ServiceSiteValidator.isValid(siteName)) {
+				plugin.getLogger().warning("Unable to generate vote site with unsupported name '"
+						+ ServiceSiteValidator.sanitizeForLog(siteName) + "'");
+				return;
+			}
 			String org = siteName;
 			siteName = siteName.replaceAll("[\\.\\s]+", "_");
 
