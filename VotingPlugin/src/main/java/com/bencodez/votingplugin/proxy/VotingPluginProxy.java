@@ -65,6 +65,7 @@ import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyServerSocketConfigur
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.util.MinecraftUsernameValidator;
+import com.bencodez.votingplugin.util.ServiceSiteValidator;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable.VoteLogStatus;
 import com.google.gson.JsonElement;
@@ -1615,6 +1616,10 @@ public abstract class VotingPluginProxy {
 	private synchronized void vote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
 			VoteTotalsSnapshot text, String uuid, UUID existingVoteId) {
 		try {
+			if (!ServiceSiteValidator.isValid(service)) {
+				warn("Rejected vote with invalid service site '" + ServiceSiteValidator.sanitizeForLog(service) + "'");
+				return;
+			}
 			if (!MinecraftUsernameValidator.isValid(player, getConfig().getBedrockPlayerPrefix())) {
 				warn("Rejected vote with invalid Minecraft username '"
 						+ MinecraftUsernameValidator.sanitizeForLog(player) + "' from service '"
