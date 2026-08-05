@@ -28,7 +28,7 @@ public final class ServiceSiteValidator {
 			if (isDisallowed(codePoint)) {
 				return false;
 			}
-			if (!Character.isWhitespace(codePoint) && !Character.isSpaceChar(codePoint)) {
+			if (isVisibleBaseCharacter(codePoint)) {
 				hasVisibleCharacter = true;
 			}
 			offset += Character.charCount(codePoint);
@@ -73,5 +73,15 @@ public final class ServiceSiteValidator {
 		int type = Character.getType(codePoint);
 		return type == Character.CONTROL || type == Character.FORMAT || type == Character.LINE_SEPARATOR
 				|| type == Character.PARAGRAPH_SEPARATOR || type == Character.SURROGATE;
+	}
+
+	private static boolean isVisibleBaseCharacter(int codePoint) {
+		if (Character.isWhitespace(codePoint) || Character.isSpaceChar(codePoint)) {
+			return false;
+		}
+
+		int type = Character.getType(codePoint);
+		return type != Character.NON_SPACING_MARK && type != Character.COMBINING_SPACING_MARK
+				&& type != Character.ENCLOSING_MARK;
 	}
 }
