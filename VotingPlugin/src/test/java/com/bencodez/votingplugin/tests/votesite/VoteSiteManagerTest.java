@@ -145,6 +145,7 @@ public class VoteSiteManagerTest {
 	@Test
 	public void testGetVoteSiteAutoCreatesWhenEnabledAndNotPresentInConfig() {
 		when(configFile.isAutoCreateVoteSites()).thenReturn(true);
+		when(voteSitesConfig.tryGenerateVoteSite("new.site")).thenReturn(true);
 
 		manager.setVoteSites(Collections.synchronizedList(new ArrayList<VoteSite>()));
 
@@ -152,7 +153,18 @@ public class VoteSiteManagerTest {
 		assertNotNull(created, "Should auto-create VoteSite when enabled and not configured");
 
 		assertEquals("new_site", created.getKey());
-		verify(voteSitesConfig).generateVoteSite("new.site");
+		verify(voteSitesConfig).tryGenerateVoteSite("new.site");
+	}
+
+	@Test
+	public void testGetVoteSiteReturnsNullWhenGenerationFails() {
+		when(configFile.isAutoCreateVoteSites()).thenReturn(true);
+		when(voteSitesConfig.tryGenerateVoteSite("new.site")).thenReturn(false);
+
+		manager.setVoteSites(Collections.synchronizedList(new ArrayList<VoteSite>()));
+
+		assertNull(manager.getVoteSite("new.site", false));
+		verify(voteSitesConfig).tryGenerateVoteSite("new.site");
 	}
 
 	@Test
@@ -162,7 +174,7 @@ public class VoteSiteManagerTest {
 		manager.setVoteSites(Collections.synchronizedList(new ArrayList<VoteSite>()));
 
 		assertNull(manager.getVoteSite("[Unsupported]", false));
-		verify(voteSitesConfig, never()).generateVoteSite(anyString());
+		verify(voteSitesConfig, never()).tryGenerateVoteSite(anyString());
 	}
 
 	@Test
