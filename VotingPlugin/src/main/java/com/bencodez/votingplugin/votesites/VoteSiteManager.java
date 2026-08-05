@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.List;
 
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.util.ServiceSiteValidator;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -147,7 +148,14 @@ public class VoteSiteManager {
 		}
 
 		if (plugin.getConfigFile().isAutoCreateVoteSites() && !hasVoteSite(siteName)) {
-			plugin.getConfigVoteSites().generateVoteSite(siteName);
+			if (!ServiceSiteValidator.isValid(siteName)) {
+				plugin.getLogger().warning("Unable to auto-create vote site with unsupported name '"
+						+ ServiceSiteValidator.sanitizeForLog(siteName) + "'");
+				return null;
+			}
+			if (!plugin.getConfigVoteSites().tryGenerateVoteSite(siteName)) {
+				return null;
+			}
 			return new VoteSite(plugin, normalizeVoteSiteKey(siteName));
 		}
 

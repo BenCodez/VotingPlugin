@@ -68,10 +68,19 @@ public class AdminGUI {
 
 						@Override
 						public void onInput(Player player, String value) {
-							plugin.getConfigVoteSites().generateVoteSite(value);
+							if (!plugin.getConfigVoteSites().tryGenerateVoteSite(value)) {
+								player.sendMessage(
+										"Unable to generate site: unsupported name or AutoCreateVoteSites is disabled");
+								return;
+							}
 							player.sendMessage("Generated site");
 							plugin.reload();
-							openAdminGUIVoteSiteSite(player, plugin.getVoteSiteManager().getVoteSite(value, true));
+							VoteSite generatedSite = plugin.getVoteSiteManager().getVoteSite(value, true);
+							if (generatedSite == null) {
+								player.sendMessage("Site was generated but could not be loaded");
+								return;
+							}
+							openAdminGUIVoteSiteSite(player, generatedSite);
 						}
 					});
 				} else {

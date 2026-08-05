@@ -9,6 +9,7 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.util.MinecraftUsernameValidator;
+import com.bencodez.votingplugin.util.ServiceSiteValidator;
 import com.vexsoftware.votifier.model.Vote;
 import com.vexsoftware.votifier.model.VotifierEvent;
 
@@ -38,13 +39,18 @@ public class VotiferEvent implements Listener {
 
 		Vote vote = event.getVote();
 		String str = vote.getServiceName();
-		if (str.isEmpty()) {
+		if (str == null || str.isEmpty()) {
 			str = "Empty";
 		}
 		final String voteSite = str;
 		final String IP = vote.getAddress();
 		final String voteUsername = vote.getUsername();
 		if (IP.equals("VotingPlugin")) {
+			return;
+		}
+		if (!ServiceSiteValidator.isValid(voteSite)) {
+			plugin.getLogger().warning("Rejected vote with invalid service site '"
+					+ ServiceSiteValidator.sanitizeForLog(voteSite) + "'");
 			return;
 		}
 
@@ -93,10 +99,13 @@ public class VotiferEvent implements Listener {
 					if (plugin.getConfigFile().isAutoCreateVoteSites() && createSite) {
 						plugin.getLogger().warning("VoteSite with service site '" + voteSiteNameStr
 								+ "' does not exist, attempting to generate...");
-						plugin.getConfigVoteSites().generateVoteSite(voteSiteNameStr);
-
-						plugin.getLogger().info("Current known service sites: "
-								+ ArrayUtils.makeStringList(plugin.getServerData().getServiceSites()));
+						if (plugin.getConfigVoteSites().tryGenerateVoteSite(voteSiteNameStr)) {
+							plugin.getLogger().info("Current known service sites: "
+									+ ArrayUtils.makeStringList(plugin.getServerData().getServiceSites()));
+						} else {
+							plugin.getLogger().warning("Unable to generate VoteSite for service site '"
+									+ ServiceSiteValidator.sanitizeForLog(voteSiteNameStr) + "'");
+						}
 					}
 
 					if (plugin.getTimeChecker().isActiveProcessing()

@@ -44,6 +44,7 @@ import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.proxy.VoteTotalsSnapshot;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.util.ServiceSiteValidator;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
 import lombok.Getter;
@@ -619,6 +620,11 @@ public class BungeeHandler implements Listener {
 		String service = v.service;
 
 		if (uuidStr == null || uuidStr.isEmpty()) {
+			return;
+		}
+		if (!ServiceSiteValidator.isValid(service)) {
+			plugin.getLogger().warning("Rejected proxy vote with invalid service site '"
+					+ ServiceSiteValidator.sanitizeForLog(service) + "'");
 			return;
 		}
 
