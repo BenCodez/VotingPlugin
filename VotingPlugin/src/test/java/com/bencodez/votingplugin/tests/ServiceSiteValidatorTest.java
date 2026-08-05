@@ -14,7 +14,7 @@ class ServiceSiteValidatorTest {
 		for (String serviceSite : new String[] { "PlanetMinecraft.com", "Minecraft Server List", "Crafty.gg",
 				"https://example.com/vote", "https://list.example/vote?id=1&source=proxy#top",
 				"https://example.com/search?q=site%20name+network", "site_name-2", "Site, Other; Network!",
-				"Serviço de votação", "Site\u00A0Name", "Site\uFE0F", "Cafe\u0301" }) {
+				"Serviço de votação", "Site\u00A0Name", "Site\uFE0F", "Cafe\u0301", "Site\u3164Name" }) {
 			assertTrue(ServiceSiteValidator.isValid(serviceSite), serviceSite);
 		}
 	}
@@ -40,6 +40,12 @@ class ServiceSiteValidatorTest {
 		assertFalse(ServiceSiteValidator.isValid("\u034F"));
 		assertFalse(ServiceSiteValidator.isValid("\u0301"));
 		assertFalse(ServiceSiteValidator.isValid("\uFE0F\u034F\u0301"));
+		assertFalse(ServiceSiteValidator.isValid("\u115F"));
+		assertFalse(ServiceSiteValidator.isValid("\u1160"));
+		assertFalse(ServiceSiteValidator.isValid("\u3164"));
+		assertFalse(ServiceSiteValidator.isValid("\uFFA0"));
+		assertFalse(ServiceSiteValidator.isValid("\uFFF0"));
+		assertFalse(ServiceSiteValidator.isValid(new String(Character.toChars(0xE0001))));
 		assertFalse(ServiceSiteValidator.isValid("A".repeat(2049)));
 		assertTrue(ServiceSiteValidator.isValid("A".repeat(2048)));
 	}
