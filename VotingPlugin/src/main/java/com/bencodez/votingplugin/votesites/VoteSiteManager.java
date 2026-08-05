@@ -153,7 +153,9 @@ public class VoteSiteManager {
 						+ ServiceSiteValidator.sanitizeForLog(siteName) + "'");
 				return null;
 			}
-			plugin.getConfigVoteSites().generateVoteSite(siteName);
+			if (!plugin.getConfigVoteSites().tryGenerateVoteSite(siteName)) {
+				return null;
+			}
 			return new VoteSite(plugin, normalizeVoteSiteKey(siteName));
 		}
 
