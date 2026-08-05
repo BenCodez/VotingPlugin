@@ -18,18 +18,22 @@ public final class ServiceSiteValidator {
 	 *         contain unsupported delimiters
 	 */
 	public static boolean isValid(String serviceSite) {
-		if (serviceSite == null || serviceSite.isBlank() || serviceSite.length() > MAX_LENGTH) {
+		if (serviceSite == null || serviceSite.length() > MAX_LENGTH) {
 			return false;
 		}
 
+		boolean hasVisibleCharacter = false;
 		for (int offset = 0; offset < serviceSite.length();) {
 			int codePoint = serviceSite.codePointAt(offset);
 			if (isDisallowed(codePoint)) {
 				return false;
 			}
+			if (!Character.isWhitespace(codePoint) && !Character.isSpaceChar(codePoint)) {
+				hasVisibleCharacter = true;
+			}
 			offset += Character.charCount(codePoint);
 		}
-		return true;
+		return hasVisibleCharacter;
 	}
 
 	/**
