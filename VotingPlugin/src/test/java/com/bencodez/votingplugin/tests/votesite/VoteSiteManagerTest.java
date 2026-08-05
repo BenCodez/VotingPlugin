@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -152,6 +153,16 @@ public class VoteSiteManagerTest {
 
 		assertEquals("new_site", created.getKey());
 		verify(voteSitesConfig).generateVoteSite("new.site");
+	}
+
+	@Test
+	public void testGetVoteSiteDoesNotAutoCreateUnsupportedName() {
+		when(configFile.isAutoCreateVoteSites()).thenReturn(true);
+
+		manager.setVoteSites(Collections.synchronizedList(new ArrayList<VoteSite>()));
+
+		assertNull(manager.getVoteSite("[Unsupported]", false));
+		verify(voteSitesConfig, never()).generateVoteSite(anyString());
 	}
 
 	@Test
