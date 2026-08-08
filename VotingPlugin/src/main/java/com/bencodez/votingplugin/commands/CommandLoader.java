@@ -20,6 +20,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.CommandMap;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
@@ -2687,6 +2688,11 @@ public class CommandLoader {
 		commands = new HashMap<>();
 		aliasCommandNames.clear();
 
+		// Bukkit registers plugin.yml commands before this loader runs.
+		if (!plugin.getConfigFile().isLoadCommandAliases()) {
+			unregisterOptionalPluginYMLCommands();
+		}
+
 		// If false: still wire permissions, but don't wire alias executors/tab
 		// completers.
 		final boolean enableAliases = plugin.getConfigFile().isLoadCommandAliases();
@@ -2843,6 +2849,74 @@ public class CommandLoader {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Removes optional commands declared in plugin.yml when aliases are disabled.
+	 */
+	private void unregisterOptionalPluginYMLCommands() {
+		try {
+			CommandMap commandMap = getCommandMap();
+			for (String commandName : plugin.getDescription().getCommands().keySet()) {
+				if (commandName.equalsIgnoreCase("vote") || commandName.equalsIgnoreCase("adminvote")
+						|| commandName.equalsIgnoreCase("av")) {
+					continue;
+				}
+				PluginCommand command = plugin.getCommand(commandName);
+				if (command != null) {
+					unregisterCommand(commandMap, command);
+				}
+			}
+		} catch (Exception e) {
+			plugin.getLogger().warning("Unable to unregister disabled command aliases: " + e.getMessage());
+		}
+	}
+
+	/** Removes the command and all labels that still point to it from Bukkit's map. */
+	private void unregisterCommand(CommandMap commandMap, PluginCommand command) throws ReflectiveOperationException {
+		command.unregister(commandMap);
+		java.lang.reflect.Field field = null;
+		Class<?> commandMapClass = commandMap.getClass();
+		while (commandMapClass != null && field == null) {
+			try {
+				field = commandMapClass.getDeclaredField("knownCommands");
+			} catch (NoSuchFieldException ignored) {
+				commandMapClass = commandMapClass.getSuperclass();
+			}
+		}
+		if (field == null) {
+			throw new NoSuchFieldException("knownCommands");
+		}
+		field.setAccessible(true);
+		@SuppressWarnings("unchecked")
+		Map<String, org.bukkit.command.Command> knownCommands =
+				(Map<String, org.bukkit.command.Command>) field.get(commandMap);
+		Set<String> removedLabels = new HashSet<>();
+		for (Map.Entry<String, org.bukkit.command.Command> entry : knownCommands.entrySet()) {
+			if (entry.getValue() == command) {
+				removedLabels.add(entry.getKey());
+			}
+		}
+		knownCommands.entrySet().removeIf(entry -> entry.getValue() == command);
+		for (String label : removedLabels) {
+			if (knownCommands.containsKey(label)) {
+				continue;
+			}
+			for (Map.Entry<String, org.bukkit.command.Command> entry : knownCommands.entrySet()) {
+				String fallback = entry.getKey();
+				int separator = fallback.indexOf(':');
+				if (separator > 0 && fallback.substring(separator + 1).equalsIgnoreCase(label)) {
+					knownCommands.put(label, entry.getValue());
+					break;
+				}
+			}
+		}
+	}
+
+	/** Gets Bukkit's command map without depending on a CraftBukkit package name. */
+	private CommandMap getCommandMap() throws ReflectiveOperationException {
+		java.lang.reflect.Method method = plugin.getServer().getClass().getMethod("getCommandMap");
+		return (CommandMap) method.invoke(plugin.getServer());
 	}
 
 	/**
