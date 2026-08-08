@@ -693,6 +693,27 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
+	protected synchronized void retryPendingTimeBroadcasts(String server) {
+		List<String> blockedServers = getConfig().getBlockedServers();
+		if (server == null || (blockedServers != null && blockedServers.contains(server))) {
+			return;
+		}
+		if (getVoteCacheHandler().getTimeChangeQueue() == null) {
+			return;
+		}
+		for (VoteTimeQueue vote : new ArrayList<>(getVoteCacheHandler().getTimeChangeQueue())) {
+			if (!vote.isProxyBroadcastHandled() || vote.getUuid().isEmpty() || !vote.getBroadcastTargets().contains(server)
+					|| vote.getBroadcastForwardedServers().contains(server)) {
+				continue;
+			}
+			Set<String> forwarded = sendProxyBroadcast(Collections.singleton(server), vote.getUuid(), vote.getName(),
+					vote.getService(), vote.getTime(), vote.getTotals(), false);
+			if (vote.getBroadcastForwardedServers().addAll(forwarded)) {
+				getVoteCacheHandler().updateTimeVote(vote);
+			}
+		}
+	}
+
 	/**
 	 * Periodically retries every pending voter-keyed standalone broadcast. This is
 	 * required for broker transports whose recovery does not produce a player-login
@@ -720,6 +741,29 @@ public abstract class VotingPluginProxy {
 						getVoteCacheHandler().updateOnlineVote(cachedUuid, cache);
 					}
 				}
+			}
+		}
+		retryPendingTimeBroadcasts();
+	}
+
+	public synchronized void retryPendingTimeBroadcasts() {
+		if (getVoteCacheHandler().getTimeChangeQueue() == null) {
+			return;
+		}
+		for (VoteTimeQueue vote : new ArrayList<>(getVoteCacheHandler().getTimeChangeQueue())) {
+			if (!vote.isProxyBroadcastHandled() || vote.getUuid().isEmpty()) {
+				continue;
+			}
+			Set<String> pendingTargets = new LinkedHashSet<>(vote.getBroadcastTargets());
+			pendingTargets.removeAll(vote.getBroadcastForwardedServers());
+			List<String> blockedServers = getConfig().getBlockedServers();
+			if (blockedServers != null) {
+				pendingTargets.removeAll(blockedServers);
+			}
+			Set<String> forwarded = sendProxyBroadcast(pendingTargets, vote.getUuid(), vote.getName(), vote.getService(),
+					vote.getTime(), vote.getTotals(), false);
+			if (vote.getBroadcastForwardedServers().addAll(forwarded)) {
+				getVoteCacheHandler().updateTimeVote(vote);
 			}
 		}
 	}
@@ -1442,6 +1486,7 @@ public abstract class VotingPluginProxy {
 
 			checkCachedVotes(serverName);
 			retryPendingOnlineBroadcasts(serverName);
+			retryPendingTimeBroadcasts(serverName);
 			checkOnlineVotes(playerName, uuid, serverName);
 			multiProxyHandler.login(uuid, playerName);
 		}
@@ -1554,9 +1599,15 @@ public abstract class VotingPluginProxy {
 			if (!vote.isProcessed()) {
 				VoteTotalsSnapshot queuedTotals = vote.getTotals() == null || vote.getTotals().isEmpty() ? null
 						: VoteTotalsSnapshot.parseStorage(vote.getTotals());
-				if (!vote(vote.getName(), vote.getService(), true, false, vote.getTime(), queuedTotals, null, vote)) {
+				QueuedVoteResult result = vote(vote.getName(), vote.getService(), true, false, vote.getTime(), queuedTotals,
+						null, vote);
+				if (result == QueuedVoteResult.RETRY) {
 					scheduleTimeVoteRetry();
 					return;
+				}
+				if (result == QueuedVoteResult.TERMINAL) {
+					warn("Removing terminal rollover vote " + vote.getVoteId() + " for " + vote.getName() + "/"
+							+ ServiceSiteValidator.sanitizeForLog(vote.getService()));
 				}
 			}
 			if (!getVoteCacheHandler().removeTimeVote(vote)) {
@@ -1936,18 +1987,22 @@ public abstract class VotingPluginProxy {
 		vote(player, service, realVote, timeQueue, queueTime, text, uuid, null);
 	}
 
-	private synchronized boolean vote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
+	private enum QueuedVoteResult {
+		SUCCESS, RETRY, TERMINAL
+	}
+
+	private synchronized QueuedVoteResult vote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
 			VoteTotalsSnapshot text, String uuid, VoteTimeQueue queuedVote) {
 		try {
 			if (!ServiceSiteValidator.isValid(service)) {
 				warn("Rejected vote with invalid service site '" + ServiceSiteValidator.sanitizeForLog(service) + "'");
-				return false;
+				return QueuedVoteResult.TERMINAL;
 			}
 			if (!MinecraftUsernameValidator.isValid(player, getConfig().getBedrockPlayerPrefix())) {
 				warn("Rejected vote with invalid Minecraft username '"
 						+ MinecraftUsernameValidator.sanitizeForLog(player) + "' from service '"
 						+ MinecraftUsernameValidator.sanitizeForLog(service) + "'");
-				return false;
+				return QueuedVoteResult.TERMINAL;
 			}
 
 			UUID voteId = queuedVote == null ? null : queuedVote.getVoteId();
@@ -1978,15 +2033,15 @@ public abstract class VotingPluginProxy {
 			if (uuid.isEmpty()) {
 				if (player.startsWith(getConfig().getBedrockPlayerPrefix())) {
 					log("Ignoring vote since unable to get UUID of bedrock player");
-					return false;
+					return QueuedVoteResult.TERMINAL;
 				}
 				if (!getConfig().getAllowUnJoined()) {
 					log("Ignoring vote from " + player + " since player hasn't joined before");
-					return false;
+					return QueuedVoteResult.TERMINAL;
 				}
 				if (!getConfig().getUUIDLookup()) {
 					log("Failed to get uuid for " + player);
-					return false;
+					return QueuedVoteResult.TERMINAL;
 				}
 
 				debug("Fetching UUID online, since allowunjoined is enabled");
@@ -2002,7 +2057,7 @@ public abstract class VotingPluginProxy {
 				}
 				if (u == null) {
 					debug("Failed to get uuid for " + player);
-					return false;
+					return QueuedVoteResult.TERMINAL;
 				}
 				uuid = u.toString();
 			}
@@ -2048,7 +2103,7 @@ public abstract class VotingPluginProxy {
 			if (managesTotals) {
 				if (getProxyMySQL() == null) {
 					logSevere("Mysql is not loaded correctly, stopping vote processing");
-					return false;
+					return QueuedVoteResult.RETRY;
 				}
 
 				if (!getProxyMySQL().containsKeyQuery(uuid)) {
@@ -2060,7 +2115,7 @@ public abstract class VotingPluginProxy {
 				if (!checkVoteDelay(uuid, player, service, data, queuedVote == null)) {
 					log("Vote delay is not met for " + player + "/" + service + ", skipping vote");
 					sendVoteDelayRejected(player, uuid, service, playerOnline, playerServer);
-					return false;
+					return QueuedVoteResult.TERMINAL;
 				}
 			}
 
@@ -2075,11 +2130,11 @@ public abstract class VotingPluginProxy {
 				}
 				VoteTimeQueue delayedVote = new VoteTimeQueue(voteId, player, service, time,
 						proxyBroadcastHandled, broadcastTargets, broadcastForwardedServers,
-						text == null ? "" : text.toString(), false);
+						projectedTotals == null ? "" : projectedTotals.toString(), false, uuid);
 				if (!getVoteCacheHandler().addTimeVoteToCache(delayedVote)) {
 					logSevere("Unable to persist queued rollover vote for " + player + "/" + service
 							+ "; skipping proxy broadcast");
-					return false;
+					return QueuedVoteResult.RETRY;
 				}
 				if (proxyBroadcastHandled) {
 					for (String target : broadcastTargets) {
@@ -2093,7 +2148,7 @@ public abstract class VotingPluginProxy {
 				}
 				log("Caching vote from " + player + "/" + service
 						+ " because time change is happening right now");
-				return true;
+				return QueuedVoteResult.SUCCESS;
 			}
 
 			addVoteParty();
@@ -2305,10 +2360,10 @@ public abstract class VotingPluginProxy {
 							+ "; attempting durable removal immediately");
 				}
 			}
-			return true;
+			return QueuedVoteResult.SUCCESS;
 		} catch (Exception e) {
 			e.printStackTrace();
-			return false;
+			return QueuedVoteResult.RETRY;
 		}
 	}
 

@@ -497,7 +497,7 @@ public abstract class VoteCacheHandler {
 		}
 		timeChangeQueue.add(vote);
 		if (useMySQL) {
-			boolean stored = timedVoteCacheTable.insertTimedVote(vote.getVoteId(), vote.getName(), vote.getService(),
+			boolean stored = timedVoteCacheTable.insertTimedVote(vote.getVoteId(), vote.getUuid(), vote.getName(), vote.getService(),
 					vote.getTime(), vote.isProxyBroadcastHandled(), vote.encodeBroadcastTargets(),
 					vote.encodeBroadcastForwardedServers(), vote.getTotals(), vote.isProcessed());
 			if (!stored) {
@@ -626,7 +626,7 @@ public abstract class VoteCacheHandler {
 						timedVoteRow.getService(), timedVoteRow.getTime(), timedVoteRow.isProxyBroadcastHandled(),
 						VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getBroadcastTargets()),
 						VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getBroadcastForwardedServers()),
-						timedVoteRow.getTotals(), timedVoteRow.isProcessed());
+						timedVoteRow.getTotals(), timedVoteRow.isProcessed(), timedVoteRow.getUuid());
 				timedVotes.add(voteTimeQueue);
 			});
 			timeChangeQueue.addAll(timedVotes);
@@ -641,6 +641,7 @@ public abstract class VoteCacheHandler {
 						String service = data.has("Service") ? data.get("Service").asString() : "";
 						long time = data.has("Time") ? data.get("Time").asLong() : 0L;
 						UUID voteId = readUuid(data, "VoteId");
+						String uuid = data.has("UUID") ? data.get("UUID").asString() : "";
 						boolean proxyBroadcastHandled = data.has("ProxyBroadcastHandled")
 								&& data.get("ProxyBroadcastHandled").asBoolean();
 						String forwardedServers = data.has("BroadcastForwardedServers")
@@ -654,7 +655,7 @@ public abstract class VoteCacheHandler {
 
 						getTimeChangeQueue().add(new VoteTimeQueue(voteId, name, service, time, proxyBroadcastHandled,
 								VoteTimeQueue.decodeBroadcastForwardedServers(broadcastTargets),
-								VoteTimeQueue.decodeBroadcastForwardedServers(forwardedServers), totals, processed));
+								VoteTimeQueue.decodeBroadcastForwardedServers(forwardedServers), totals, processed, uuid));
 					}
 				}
 

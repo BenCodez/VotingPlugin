@@ -195,6 +195,10 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 		retryPendingOnlineBroadcasts(server);
 	}
 
+	public void retryPendingTimeBroadcastsForTest(String server) {
+		retryPendingTimeBroadcasts(server);
+	}
+
 	@Override
 	public void setVoteCacheLastUpdated() {
 		// TODO Auto-generated method stub

@@ -46,6 +46,16 @@ public class VoteTotalsSnapshotStorageTest {
 	}
 
 	@Test
+	public void projectedVotePartyValuesReplaceStandaloneBroadcastPlaceholders() {
+		VoteTotalsSnapshot data = new VoteTotalsSnapshot(100, 45, 12, 3, 9, 8, 20, 2);
+
+		String rendered = data.applyBroadcastPlaceholders("%VotingPlugin_BungeeVotePartyVotesCurrent%/"
+				+ "%VotingPlugin_BungeeVotePartyVotesNeeded%/%VotingPlugin_BungeeVotePartyVotesRequired%");
+
+		assertEquals("8/12/20", rendered);
+	}
+
+	@Test
 	public void constructor_toStorageString_roundTripsThroughParseStorage_v2() {
 		UUID voteId = UUID.randomUUID();
 

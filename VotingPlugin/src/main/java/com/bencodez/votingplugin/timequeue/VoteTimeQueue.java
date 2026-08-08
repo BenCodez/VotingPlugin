@@ -28,6 +28,9 @@ public class VoteTimeQueue {
 	private UUID voteId;
 	@Getter
 	@Setter
+	private String uuid;
+	@Getter
+	@Setter
 	private boolean proxyBroadcastHandled;
 	@Getter
 	@Setter
@@ -48,7 +51,7 @@ public class VoteTimeQueue {
 	 * @param time vote timestamp
 	 */
 	public VoteTimeQueue(String name, String service, long time) {
-		this(null, name, service, time, false, Collections.emptySet(), Collections.emptySet(), "", false);
+		this(null, name, service, time, false, Collections.emptySet(), Collections.emptySet(), "", false, "");
 	}
 
 	/**
@@ -60,7 +63,7 @@ public class VoteTimeQueue {
 	 * @param time vote timestamp
 	 */
 	public VoteTimeQueue(UUID voteId, String name, String service, long time) {
-		this(voteId, name, service, time, false, Collections.emptySet(), Collections.emptySet(), "", false);
+		this(voteId, name, service, time, false, Collections.emptySet(), Collections.emptySet(), "", false, "");
 	}
 
 	/**
@@ -76,7 +79,7 @@ public class VoteTimeQueue {
 	public VoteTimeQueue(UUID voteId, String name, String service, long time, boolean proxyBroadcastHandled,
 			Set<String> broadcastForwardedServers) {
 		this(voteId, name, service, time, proxyBroadcastHandled, Collections.emptySet(), broadcastForwardedServers, "",
-				false);
+				false, "");
 	}
 
 	/**
@@ -93,7 +96,7 @@ public class VoteTimeQueue {
 	public VoteTimeQueue(UUID voteId, String name, String service, long time, boolean proxyBroadcastHandled,
 			Set<String> broadcastTargets, Set<String> broadcastForwardedServers) {
 		this(voteId, name, service, time, proxyBroadcastHandled, broadcastTargets, broadcastForwardedServers, "",
-				false);
+				false, "");
 	}
 
 	/**
@@ -111,7 +114,15 @@ public class VoteTimeQueue {
 	 */
 	public VoteTimeQueue(UUID voteId, String name, String service, long time, boolean proxyBroadcastHandled,
 			Set<String> broadcastTargets, Set<String> broadcastForwardedServers, String totals, boolean processed) {
+		this(voteId, name, service, time, proxyBroadcastHandled, broadcastTargets, broadcastForwardedServers, totals,
+				processed, "");
+	}
+
+	public VoteTimeQueue(UUID voteId, String name, String service, long time, boolean proxyBroadcastHandled,
+			Set<String> broadcastTargets, Set<String> broadcastForwardedServers, String totals, boolean processed,
+			String uuid) {
 		this.voteId = voteId;
+		this.uuid = uuid == null ? "" : uuid;
 		this.name = name;
 		this.service = service;
 		this.time = time;

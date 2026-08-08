@@ -35,6 +35,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 					+ qi("service") + " VARCHAR(100), "
 					+ qi("time") + " BIGINT, "
 					+ qi("voteId") + " VARCHAR(36), "
+					+ qi("uuid") + " VARCHAR(36), "
 					+ qi("proxyBroadcastHandled") + " BOOLEAN NOT NULL DEFAULT FALSE, "
 					+ qi("totals") + " TEXT, "
 					+ qi("processed") + " BOOLEAN NOT NULL DEFAULT FALSE, "
@@ -49,6 +50,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				+ qi("service") + " VARCHAR(100),"
 				+ qi("time") + " BIGINT,"
 				+ qi("voteId") + " VARCHAR(36),"
+				+ qi("uuid") + " VARCHAR(36),"
 				+ qi("proxyBroadcastHandled") + " TINYINT(1) NOT NULL DEFAULT 0,"
 				+ qi("totals") + " TEXT,"
 				+ qi("processed") + " TINYINT(1) NOT NULL DEFAULT 0,"
@@ -96,6 +98,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 
 	private void ensureVoteIdColumn() {
 		ensureColumn("voteId", "VARCHAR(36)");
+		ensureColumn("uuid", "VARCHAR(36)");
 	}
 
 	private void ensureProxyBroadcastColumns() {
@@ -153,31 +156,32 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 	 * @param processed whether normal replay processing completed
 	 * @return true when the row was inserted
 	 */
-	public boolean insertTimedVote(UUID voteId, String playerName, String service, long time,
+	public boolean insertTimedVote(UUID voteId, String uuid, String playerName, String service, long time,
 			boolean proxyBroadcastHandled, String broadcastTargets, String broadcastForwardedServers, String totals,
 			boolean processed) {
 		String sql = "INSERT INTO " + qi(getTableName()) + " (" + qi("playerName") + ", " + qi("service") + ", "
-				+ qi("time") + ", " + qi("voteId") + ", " + qi("proxyBroadcastHandled") + ", "
+				+ qi("time") + ", " + qi("voteId") + ", " + qi("uuid") + ", " + qi("proxyBroadcastHandled") + ", "
 				+ qi("broadcastTargets") + ", " + qi("broadcastForwardedServers") + ", " + qi("totals") + ", "
-				+ qi("processed") + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
+				+ qi("processed") + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setString(1, playerName);
 			ps.setString(2, service);
 			ps.setLong(3, time);
 			ps.setString(4, voteId == null ? null : voteId.toString());
+			ps.setString(5, uuid);
 			if (getDbType() == DbType.POSTGRESQL) {
-				ps.setBoolean(5, proxyBroadcastHandled);
+				ps.setBoolean(6, proxyBroadcastHandled);
 			} else {
-				ps.setInt(5, proxyBroadcastHandled ? 1 : 0);
+				ps.setInt(6, proxyBroadcastHandled ? 1 : 0);
 			}
-			ps.setString(6, broadcastTargets);
-			ps.setString(7, broadcastForwardedServers);
-			ps.setString(8, totals);
+			ps.setString(7, broadcastTargets);
+			ps.setString(8, broadcastForwardedServers);
+			ps.setString(9, totals);
 			if (getDbType() == DbType.POSTGRESQL) {
-				ps.setBoolean(9, processed);
+				ps.setBoolean(10, processed);
 			} else {
-				ps.setInt(9, processed ? 1 : 0);
+				ps.setInt(10, processed ? 1 : 0);
 			}
 			ps.executeUpdate();
 			return true;
@@ -197,7 +201,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 		boolean hasVoteId = vote.getVoteId() != null;
 		String sql = "UPDATE " + qi(getTableName()) + " SET " + qi("proxyBroadcastHandled") + " = ?, "
 				+ qi("broadcastTargets") + " = ?, " + qi("broadcastForwardedServers") + " = ?, " + qi("totals")
-				+ " = ?, " + qi("processed") + " = ? WHERE "
+				+ " = ?, " + qi("processed") + " = ?, " + qi("uuid") + " = ? WHERE "
 				+ (hasVoteId ? qi("voteId") + " = ?;"
 						: qi("playerName") + " = ? AND " + qi("service") + " = ? AND " + qi("time") + " = ?;");
 		try (Connection conn = mysql.getConnectionManager().getConnection();
@@ -215,12 +219,13 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 			} else {
 				ps.setInt(5, vote.isProcessed() ? 1 : 0);
 			}
+			ps.setString(6, vote.getUuid());
 			if (hasVoteId) {
-				ps.setString(6, vote.getVoteId().toString());
+				ps.setString(7, vote.getVoteId().toString());
 			} else {
-				ps.setString(6, vote.getName());
-				ps.setString(7, vote.getService());
-				ps.setLong(8, vote.getTime());
+				ps.setString(7, vote.getName());
+				ps.setString(8, vote.getService());
+				ps.setLong(9, vote.getTime());
 			}
 			ps.executeUpdate();
 			return true;
@@ -342,6 +347,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 							rs.getString("service"),
 							rs.getLong("time"),
 							parseUuid(rs.getString("voteId")),
+							rs.getString("uuid"),
 							rs.getBoolean("proxyBroadcastHandled"),
 							rs.getString("broadcastTargets"),
 							rs.getString("broadcastForwardedServers"),
@@ -376,6 +382,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 		private final String service;
 		private final long time;
 		private final UUID voteId;
+		private final String uuid;
 		private final boolean proxyBroadcastHandled;
 		private final String broadcastTargets;
 		private final String broadcastForwardedServers;
@@ -395,7 +402,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 		 * @param totals incoming multi-proxy totals snapshot
 		 * @param processed whether normal replay processing completed
 		 */
-		public TimedVoteRow(int id, String playerName, String service, long time, UUID voteId,
+		public TimedVoteRow(int id, String playerName, String service, long time, UUID voteId, String uuid,
 				boolean proxyBroadcastHandled, String broadcastTargets, String broadcastForwardedServers, String totals,
 				boolean processed) {
 			this.id = id;
@@ -403,6 +410,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 			this.service = service;
 			this.time = time;
 			this.voteId = voteId;
+			this.uuid = uuid;
 			this.proxyBroadcastHandled = proxyBroadcastHandled;
 			this.broadcastTargets = broadcastTargets;
 			this.broadcastForwardedServers = broadcastForwardedServers;
@@ -449,6 +457,10 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 		 */
 		public UUID getVoteId() {
 			return voteId;
+		}
+
+		public String getUuid() {
+			return uuid;
 		}
 
 		/**

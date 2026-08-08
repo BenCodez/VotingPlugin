@@ -171,6 +171,10 @@ public class VoteTotalsSnapshot {
 		placeholders.put("VotingPlugin_total_daily", Integer.toString(dailyTotal));
 		placeholders.put("VotingPlugin_points", Integer.toString(points));
 		placeholders.put("VotingPlugin_points_format", numberFormat.format(points));
+		placeholders.put("VotingPlugin_BungeeVotePartyVotesCurrent", Integer.toString(votePartyCurrent));
+		placeholders.put("VotingPlugin_BungeeVotePartyVotesNeeded",
+				Integer.toString(votePartyRequired - votePartyCurrent));
+		placeholders.put("VotingPlugin_BungeeVotePartyVotesRequired", Integer.toString(votePartyRequired));
 
 		String output = input;
 		for (Map.Entry<String, String> placeholder : placeholders.entrySet()) {

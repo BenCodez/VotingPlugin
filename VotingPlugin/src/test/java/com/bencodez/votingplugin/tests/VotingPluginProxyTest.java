@@ -169,19 +169,21 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
-	void failedRolloverReplayRemainsQueued() {
+	void terminalRolloverReplayIsRemovedBeforeLaterEntries() {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		java.util.Queue<VoteTimeQueue> queue = new java.util.concurrent.ConcurrentLinkedQueue<>();
-		queue.add(new VoteTimeQueue(java.util.UUID.randomUUID(), "Player", "Invalid\\Service", 100L));
+		VoteTimeQueue invalid = new VoteTimeQueue(java.util.UUID.randomUUID(), "Player", "Invalid\\Service", 100L);
+		queue.add(invalid);
 		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(queue);
+		Mockito.when(voteCache.removeTimeVote(invalid)).thenAnswer(invocation -> queue.remove(invalid));
 
 		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
 		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
 
 		spyProxy.processQueue();
 
-		assertEquals(1, queue.size());
-		verify(voteCache, never()).removeTimeVote(Mockito.any());
+		assertTrue(queue.isEmpty());
+		verify(voteCache).removeTimeVote(invalid);
 	}
 
 	@Test
@@ -278,6 +280,24 @@ public class VotingPluginProxyTest {
 		assertTrue(vote.isProxyBroadcastComplete());
 		assertEquals(java.util.Set.of("Server1", "Server2"), vote.getBroadcastForwardedServers());
 		verify(voteCache).updateOnlineVote("voter-uuid", vote);
+	}
+
+	@Test
+	void timedBroadcastRetriesWhileRolloverIsStillActive() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		VoteTimeQueue vote = new VoteTimeQueue(java.util.UUID.randomUUID(), "OfflineVoter", "Service", 100L, true,
+				java.util.Set.of("Server1"), java.util.Collections.emptySet(), "totals", false, "voter-uuid");
+		java.util.Queue<VoteTimeQueue> queue = new java.util.concurrent.ConcurrentLinkedQueue<>();
+		queue.add(vote);
+		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(queue);
+		Mockito.when(votingPluginProxy.getConfig().getBlockedServers()).thenReturn(java.util.Collections.emptyList());
+
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		spyProxy.retryPendingTimeBroadcastsForTest("Server1");
+
+		assertEquals(java.util.Set.of("Server1"), vote.getBroadcastForwardedServers());
+		verify(voteCache).updateTimeVote(vote);
 	}
 
 	@Test

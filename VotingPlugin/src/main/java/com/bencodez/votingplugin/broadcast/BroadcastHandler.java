@@ -261,6 +261,8 @@ public final class BroadcastHandler {
 			VoteTotalsSnapshot totals) {
 		if (totals != null) {
 			pendingTotals.put(uuid, totals);
+		} else {
+			pendingTotals.remove(uuid);
 		}
 		if (siteName != null && !siteName.isEmpty()) {
 			LinkedHashSet<String> sites = pendingSites.get(uuid);
