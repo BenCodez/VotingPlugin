@@ -854,7 +854,7 @@ public abstract class VotingPluginProxy {
 	}
 
 	private synchronized void retryCachedVoteDeliveryPersistence() {
-		for (String server : new LinkedHashSet<>(getVoteCacheHandler().getCachedVotesServers())) {
+		for (String server : new LinkedHashSet<>(Arrays.asList(getVoteCacheHandler().getCachedVotesServers()))) {
 			for (OfflineBungeeVote vote : new ArrayList<>(getVoteCacheHandler().getVotes(server))) {
 				if (vote.isDeliveryStateDirty()) {
 					persistServerVoteDelivery(server, vote);
