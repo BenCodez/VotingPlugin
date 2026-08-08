@@ -355,8 +355,9 @@ public class BungeeHandler implements Listener {
 				// New fields (May use later)
 				@SuppressWarnings("unused")
 				final long time = readLongSafe(f.get(VotingPluginWire.K_TIME), 0L);
-				@SuppressWarnings("unused")
-				final String totals = nvl(f.get(VotingPluginWire.K_TOTALS));
+				final String totalsRaw = nvl(f.get(VotingPluginWire.K_TOTALS));
+				final VoteTotalsSnapshot totals = totalsRaw.isEmpty() ? null
+						: VoteTotalsSnapshot.parseStorage(totalsRaw);
 
 				VoteSite voteSite = plugin.getVoteSiteManager()
 						.getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, service), true);
@@ -388,9 +389,13 @@ public class BungeeHandler implements Listener {
 					return;
 				}
 
-				final boolean online = user.isOnline(); // same behavior as non-bungee vote path
+				// New proxies preserve the state sampled when the vote arrived. Fall back to
+				// the legacy delivery-time behavior for envelopes from older proxies.
+				final boolean online = f.containsKey(VotingPluginWire.K_WAS_ONLINE)
+						? Boolean.parseBoolean(f.get(VotingPluginWire.K_WAS_ONLINE))
+						: user.isOnline();
 				plugin.getBroadcastHandler().broadcastVote(user.getJavaUUID(), user.getPlayerName(),
-						voteSite.getDisplayName(), online);
+						voteSite.getDisplayName(), online, totals);
 			}
 		});
 

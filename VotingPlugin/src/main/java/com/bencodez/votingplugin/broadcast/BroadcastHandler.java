@@ -25,6 +25,7 @@ import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.simpleapi.player.PlayerUtils;
 import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.proxy.VoteTotalsSnapshot;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 /**
@@ -49,6 +50,7 @@ public final class BroadcastHandler {
 	private final ConcurrentHashMap<UUID, Instant> lastBroadcastAt = new ConcurrentHashMap<UUID, Instant>();
 
 	private final ConcurrentHashMap<UUID, LinkedHashSet<String>> pendingSites = new ConcurrentHashMap<UUID, LinkedHashSet<String>>();
+	private final ConcurrentHashMap<UUID, VoteTotalsSnapshot> pendingTotals = new ConcurrentHashMap<UUID, VoteTotalsSnapshot>();
 	private final ConcurrentHashMap<UUID, BukkitTask> pendingFlush = new ConcurrentHashMap<UUID, BukkitTask>();
 
 	private final ConcurrentHashMap<UUID, LocalDate> firstVoteDay = new ConcurrentHashMap<UUID, LocalDate>();
@@ -91,6 +93,20 @@ public final class BroadcastHandler {
 	 * @param wasOnline whether the voted player was online when the vote was received
 	 */
 	public void broadcastVote(UUID uuid, String playerName, String siteName, boolean wasOnline) {
+		broadcastVote(uuid, playerName, siteName, wasOnline, null);
+	}
+
+	/**
+	 * Handles a received vote with an optional proxy-projected totals snapshot.
+	 *
+	 * @param uuid the voted player's UUID
+	 * @param playerName the player name, or null to resolve it from Bukkit
+	 * @param siteName the vote site display name
+	 * @param wasOnline whether the voted player was online when the vote was received
+	 * @param totals projected totals for this broadcast, or null to use stored values
+	 */
+	public void broadcastVote(UUID uuid, String playerName, String siteName, boolean wasOnline,
+			VoteTotalsSnapshot totals) {
 		BroadcastSettings currentSettings = settings;
 		if (currentSettings == null || currentSettings.isDisabled()) {
 			return;
@@ -105,21 +121,21 @@ public final class BroadcastHandler {
 			if (!wasOnline) {
 				return;
 			}
-			broadcastNow(uuid, name, single(siteName), "vote_online_only", null);
+			broadcastNow(uuid, name, single(siteName), "vote_online_only", null, totals);
 			return;
 		}
 
 		if (type == VoteBroadcastType.EVERY_VOTE) {
-			broadcastNow(uuid, name, single(siteName), "vote", null);
+			broadcastNow(uuid, name, single(siteName), "vote", null, totals);
 		} else if (type == VoteBroadcastType.COOLDOWN_PER_PLAYER) {
 			if (checkAndMarkCooldown(uuid, currentSettings.getDuration())) {
-				broadcastNow(uuid, name, single(siteName), "cooldown", null);
+				broadcastNow(uuid, name, single(siteName), "cooldown", null, totals);
 			}
 		} else if (type == VoteBroadcastType.BATCH_WINDOW_PER_PLAYER) {
-			bufferBatch(uuid, name, siteName, currentSettings.getDuration());
+			bufferBatch(uuid, name, siteName, currentSettings.getDuration(), totals);
 		} else if (type == VoteBroadcastType.FIRST_VOTE_OF_DAY) {
 			if (markFirstVoteOfDay(uuid)) {
-				broadcastNow(uuid, name, single(siteName), "first_day", null);
+				broadcastNow(uuid, name, single(siteName), "first_day", null, totals);
 			}
 		} else if (type == VoteBroadcastType.INTERVAL_SUMMARY_GLOBAL) {
 			// Handled by the scheduled interval task.
@@ -139,7 +155,7 @@ public final class BroadcastHandler {
 	 * @param extraContext additional format context, or null
 	 */
 	private void broadcastNow(UUID votedPlayerUuid, String playerName, List<String> sites, String reason,
-			Map<String, String> extraContext) {
+			Map<String, String> extraContext, VoteTotalsSnapshot totals) {
 		BroadcastSettings currentSettings = settings;
 		if (currentSettings == null || currentSettings.isDisabled()) {
 			return;
@@ -165,7 +181,10 @@ public final class BroadcastHandler {
 		OfflinePlayer votedPlayer = votedPlayerUuid == null ? null : Bukkit.getOfflinePlayer(votedPlayerUuid);
 
 		for (String line : lines) {
-			String parsedLine = PlaceholderUtils.replacePlaceHolders(votedPlayer, line);
+			String totalsLine = totals == null ? line
+					: totals.applyBroadcastPlaceholders(line,
+							plugin.getConfigFile().isUseMonthDateTotalsAsPrimaryTotal());
+			String parsedLine = PlaceholderUtils.replacePlaceHolders(votedPlayer, totalsLine);
 			broadcastToEligiblePlayers(parsedLine);
 		}
 	}
@@ -238,7 +257,13 @@ public final class BroadcastHandler {
 	 * @param siteName the vote site
 	 * @param window the batch window
 	 */
-	private void bufferBatch(UUID uuid, String playerName, String siteName, ParsedDuration window) {
+	private void bufferBatch(UUID uuid, String playerName, String siteName, ParsedDuration window,
+			VoteTotalsSnapshot totals) {
+		if (totals != null) {
+			pendingTotals.put(uuid, totals);
+		} else {
+			pendingTotals.remove(uuid);
+		}
 		if (siteName != null && !siteName.isEmpty()) {
 			LinkedHashSet<String> sites = pendingSites.get(uuid);
 			if (sites == null) {
@@ -295,6 +320,7 @@ public final class BroadcastHandler {
 	 */
 	private void flushBatch(UUID uuid, String playerName) {
 		Set<String> sites = pendingSites.remove(uuid);
+		VoteTotalsSnapshot totals = pendingTotals.remove(uuid);
 		if (sites == null || sites.isEmpty()) {
 			return;
 		}
@@ -304,7 +330,7 @@ public final class BroadcastHandler {
 			siteList = new ArrayList<String>(sites);
 		}
 
-		broadcastNow(uuid, playerName, siteList, "batch", null);
+		broadcastNow(uuid, playerName, siteList, "batch", null, totals);
 	}
 
 	/**
@@ -442,7 +468,7 @@ public final class BroadcastHandler {
 		context.put("sites", sitesCsv);
 		context.put("numberofsites", String.valueOf(uniqueSites.size()));
 
-		broadcastNow(null, "Server", entries, "interval", context);
+		broadcastNow(null, "Server", entries, "interval", context, null);
 	}
 
 	/**

@@ -96,6 +96,22 @@ public final class ProxyBroadcastDecider {
 	}
 
 	/**
+	 * Check whether broadcasts should be sent independently from vote delivery.
+	 *
+	 * FORWARD must not wait for a cached vote to be released when the voting player
+	 * logs in. Sending a standalone broadcast also prevents reward-delivery settings
+	 * such as WaitForUserOnline from changing broadcast timing.
+	 *
+	 * @param playerOnline whether the voting player is currently online
+	 * @return true when an offline player's broadcast should be forwarded immediately
+	 */
+	public boolean usesImmediateForwarding(boolean playerOnline) {
+		VotingPluginProxyConfig cfg = config.get();
+		return !playerOnline && cfg != null && cfg.getProxyBroadcastEnabled() && OfflineMode
+				.parse(cfg.getProxyBroadcastOfflineMode(), OfflineMode.QUEUE) == OfflineMode.FORWARD;
+	}
+
+	/**
 	 * Convenience check for "should this specific server broadcast?"
 	 * @param server the server name
 	 * @param targets the target servers

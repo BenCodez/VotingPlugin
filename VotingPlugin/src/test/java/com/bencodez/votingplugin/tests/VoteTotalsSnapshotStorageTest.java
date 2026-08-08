@@ -24,6 +24,38 @@ import com.bencodez.votingplugin.proxy.VoteTotalsSnapshot;
 public class VoteTotalsSnapshotStorageTest {
 
 	@Test
+	public void projectedTotalsReplaceBroadcastPlaceholdersWithoutChangingStorage() {
+		VoteTotalsSnapshot data = new VoteTotalsSnapshot(1234, 45, 12, 3, 9876, 8, 20, 45);
+
+		String rendered = data.applyBroadcastPlaceholders(
+				"%AllTimeTotal%/%VotingPlugin_total_monthly%/%VotingPlugin_total_weekly%/"
+						+ "%VotingPlugin_total_daily%/%VotingPlugin_points_format%");
+
+		assertEquals("1234/45/12/3/9,876", rendered);
+		assertEquals("v2//1234//45//12//3//9876//8//20//45", data.toStorageString());
+	}
+
+	@Test
+	public void datedMonthlyTotalIsUsedForPrimaryMonthlyPlaceholders() {
+		VoteTotalsSnapshot data = new VoteTotalsSnapshot(100, 45, 12, 3, 9, 0, 20, 2);
+
+		String rendered = data.applyBroadcastPlaceholders(
+				"%MonthTotal%/%VotingPlugin_total%/%VotingPlugin_total_monthly%", true);
+
+		assertEquals("45/2/2", rendered);
+	}
+
+	@Test
+	public void projectedVotePartyValuesReplaceStandaloneBroadcastPlaceholders() {
+		VoteTotalsSnapshot data = new VoteTotalsSnapshot(100, 45, 12, 3, 9, 8, 20, 2);
+
+		String rendered = data.applyBroadcastPlaceholders("%VotingPlugin_BungeeVotePartyVotesCurrent%/"
+				+ "%VotingPlugin_BungeeVotePartyVotesNeeded%/%VotingPlugin_BungeeVotePartyVotesRequired%");
+
+		assertEquals("8/12/20", rendered);
+	}
+
+	@Test
 	public void constructor_toStorageString_roundTripsThroughParseStorage_v2() {
 		UUID voteId = UUID.randomUUID();
 

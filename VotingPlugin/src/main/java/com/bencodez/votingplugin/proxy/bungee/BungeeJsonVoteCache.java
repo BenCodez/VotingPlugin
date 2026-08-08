@@ -41,6 +41,12 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 		setString(path + ".Service", voteTimedQueue.getService());
 		setLong(path + ".Time", voteTimedQueue.getTime());
 		setString(path + ".VoteId", voteTimedQueue.getVoteId() == null ? null : voteTimedQueue.getVoteId().toString());
+		setString(path + ".UUID", voteTimedQueue.getUuid());
+		setBoolean(path + ".ProxyBroadcastHandled", voteTimedQueue.isProxyBroadcastHandled());
+		setString(path + ".Totals", voteTimedQueue.getTotals());
+		setBoolean(path + ".Processed", voteTimedQueue.isProcessed());
+		setString(path + ".BroadcastTargets", voteTimedQueue.encodeBroadcastTargets());
+		setString(path + ".BroadcastForwardedServers", voteTimedQueue.encodeBroadcastForwardedServers());
 	}
 
 	public void addVote(String server, int num, OfflineBungeeVote voteData) {
@@ -52,6 +58,11 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 		setBoolean(path + ".Real", voteData.isRealVote());
 		setString(path + ".Text", voteData.getText());
 		setString(path + ".VoteId", voteData.getVoteId() != null ? voteData.getVoteId().toString() : null);
+		setBoolean(path + ".BroadcastForwarded", voteData.isBroadcastForwarded());
+		setBoolean(path + ".ProxyBroadcastHandled", voteData.isProxyBroadcastHandled());
+		setString(path + ".BroadcastTargets", voteData.encodeBroadcastTargets());
+		setString(path + ".BroadcastForwardedServers", voteData.encodeBroadcastForwardedServers());
+		setBoolean(path + ".RewardDelivered", voteData.isRewardDelivered());
 	}
 
 	public void addVoteOnline(String player, int num, OfflineBungeeVote voteData) {
@@ -63,6 +74,11 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 		setBoolean(path + ".Real", voteData.isRealVote());
 		setString(path + ".Text", voteData.getText());
 		setString(path + ".VoteId", voteData.getVoteId() != null ? voteData.getVoteId().toString() : null);
+		setBoolean(path + ".BroadcastForwarded", voteData.isBroadcastForwarded());
+		setBoolean(path + ".ProxyBroadcastHandled", voteData.isProxyBroadcastHandled());
+		setString(path + ".BroadcastTargets", voteData.encodeBroadcastTargets());
+		setString(path + ".BroadcastForwardedServers", voteData.encodeBroadcastForwardedServers());
+		setBoolean(path + ".RewardDelivered", voteData.isRewardDelivered());
 	}
 
 	public void clearData() {
@@ -102,6 +118,11 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 
 	public DataNode getTimedVoteCache(String key) {
 		return new GsonDataNode(getNode("TimedVoteCache." + key));
+	}
+
+	@Override
+	public void removeTimedVotes() {
+		setString("TimedVoteCache", null);
 	}
 
 	public int getVotePartyCache(String server) {
