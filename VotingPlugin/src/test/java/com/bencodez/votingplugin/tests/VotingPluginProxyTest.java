@@ -291,6 +291,7 @@ public class VotingPluginProxyTest {
 		queue.add(vote);
 		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(queue);
 		Mockito.when(votingPluginProxy.getConfig().getBlockedServers()).thenReturn(java.util.Collections.emptyList());
+		votingPluginProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
 
 		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
 		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
