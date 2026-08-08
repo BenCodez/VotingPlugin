@@ -217,6 +217,22 @@ public class VoteSiteManagerTest {
 	}
 
 	@Test
+	public void testDisabledConfiguredVoteSiteIsNotAutoCreated() {
+		when(configFile.isAutoCreateVoteSites()).thenReturn(true);
+		when(voteSitesConfig.getVoteSitesNames(false))
+				.thenReturn(new ArrayList<String>(Arrays.asList("DisabledSite")));
+		when(voteSitesConfig.getServiceSite("DisabledSite")).thenReturn("disabled.example.com");
+		when(voteSitesConfig.getDisplayName("DisabledSite")).thenReturn("Disabled Site");
+
+		manager.setVoteSites(Collections.synchronizedList(new ArrayList<VoteSite>()));
+
+		assertEquals("DisabledSite", manager.getVoteSiteName(false, "disabled.example.com"));
+		assertTrue(manager.hasVoteSite("disabled.example.com"));
+		assertNull(manager.getVoteSite("disabled.example.com", true));
+		verify(voteSitesConfig, never()).tryGenerateVoteSite(anyString());
+	}
+
+	@Test
 	public void testIsVoteSiteTrueWhenKeyPresent() {
 		VoteSite site = new VoteSite(plugin, "site.test");
 		manager.setVoteSites(Collections.synchronizedList(new ArrayList<VoteSite>(Arrays.asList(site))));
