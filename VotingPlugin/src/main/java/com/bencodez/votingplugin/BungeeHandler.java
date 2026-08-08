@@ -355,8 +355,9 @@ public class BungeeHandler implements Listener {
 				// New fields (May use later)
 				@SuppressWarnings("unused")
 				final long time = readLongSafe(f.get(VotingPluginWire.K_TIME), 0L);
-				@SuppressWarnings("unused")
-				final String totals = nvl(f.get(VotingPluginWire.K_TOTALS));
+				final String totalsRaw = nvl(f.get(VotingPluginWire.K_TOTALS));
+				final VoteTotalsSnapshot totals = totalsRaw.isEmpty() ? null
+						: VoteTotalsSnapshot.parseStorage(totalsRaw);
 
 				VoteSite voteSite = plugin.getVoteSiteManager()
 						.getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, service), true);
@@ -394,7 +395,7 @@ public class BungeeHandler implements Listener {
 						? Boolean.parseBoolean(f.get(VotingPluginWire.K_WAS_ONLINE))
 						: user.isOnline();
 				plugin.getBroadcastHandler().broadcastVote(user.getJavaUUID(), user.getPlayerName(),
-						voteSite.getDisplayName(), online);
+						voteSite.getDisplayName(), online, totals);
 			}
 		});
 

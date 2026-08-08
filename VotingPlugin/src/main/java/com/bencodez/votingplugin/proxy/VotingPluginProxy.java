@@ -117,6 +117,9 @@ public abstract class VotingPluginProxy {
 	private RedisHandler redisHandler;
 	private JedisPool redisPublisherPool;
 	private volatile long redisPublisherRetryAfter;
+	private final Set<VoteTimeQueue> processedTimeVotesPendingRemoval = Collections
+			.newSetFromMap(new java.util.IdentityHashMap<VoteTimeQueue, Boolean>());
+	private boolean timeVoteRetryScheduled;
 
 	private boolean enabled;
 
@@ -821,6 +824,50 @@ public abstract class VotingPluginProxy {
 		return toAdd;
 	}
 
+	private VoteTotalsSnapshot getProjectedRolloverTotals(ArrayList<Column> data, String player) {
+		List<TimeType> timeChanges = getGlobalDataHandler().getTimeChanges();
+		boolean resetMonth = timeChanges.contains(TimeType.MONTH);
+		boolean resetWeek = timeChanges.contains(TimeType.WEEK);
+		boolean resetDay = timeChanges.contains(TimeType.DAY);
+		int acceptedQueuedVotes = 0;
+		for (VoteTimeQueue queued : getVoteCacheHandler().getTimeChangeQueue()) {
+			if (queued.getName() != null && queued.getName().equalsIgnoreCase(player)) {
+				acceptedQueuedVotes++;
+			}
+		}
+		int voteIncrement = acceptedQueuedVotes + 1;
+
+		int allTimeTotal = getValue(data, "AllTimeTotal", voteIncrement);
+		int monthTotal = resetMonth ? voteIncrement : getValue(data, "MonthTotal", voteIncrement);
+		int weeklyTotal = resetWeek ? voteIncrement : getValue(data, "WeeklyTotal", voteIncrement);
+		int dailyTotal = resetDay ? voteIncrement : getValue(data, "DailyTotal", voteIncrement);
+		int points = getValue(data, "Points", voteIncrement * getConfig().getPointsOnVote());
+
+		int maxVotes = getConfig().getMaxAmountOfVotesPerDay();
+		if (maxVotes > 0) {
+			int days = getBungeeTimeChecker().getTime().getDayOfMonth();
+			if (monthTotal > days * maxVotes) {
+				monthTotal = days * maxVotes;
+			}
+		}
+		if (getConfig().getLimitVotePoints() > 0 && points > getConfig().getLimitVotePoints()) {
+			points = getConfig().getLimitVotePoints();
+		}
+
+		int dateMonthTotal = -1;
+		if (getConfig().getStoreMonthTotalsWithDate()) {
+			if (getConfig().getUseMonthDateTotalsAsPrimaryTotal()) {
+				dateMonthTotal = resetMonth ? voteIncrement
+						: getValue(data, getMonthTotalsWithDatePath(), voteIncrement);
+			} else {
+				dateMonthTotal = monthTotal;
+			}
+		}
+
+		return new VoteTotalsSnapshot(allTimeTotal, monthTotal, weeklyTotal, dailyTotal, points, votePartyVotes,
+				currentVotePartyVotesRequired, dateMonthTotal);
+	}
+
 	public abstract String getPluginVersion();
 
 	public abstract int getVoteCacheCurrentVotePartyVotes();
@@ -1475,8 +1522,36 @@ public abstract class VotingPluginProxy {
 	public synchronized void processQueue() {
 		while (getVoteCacheHandler().getTimeChangeQueue().size() > 0) {
 			VoteTimeQueue vote = getVoteCacheHandler().getTimeChangeQueue().element();
-			vote(vote.getName(), vote.getService(), true, false, vote.getTime(), null, null, vote);
-			getVoteCacheHandler().removeTimeVote(vote);
+			if (!processedTimeVotesPendingRemoval.contains(vote)) {
+				if (!vote(vote.getName(), vote.getService(), true, false, vote.getTime(), null, null, vote)) {
+					scheduleTimeVoteRetry();
+					return;
+				}
+				processedTimeVotesPendingRemoval.add(vote);
+			}
+			if (!getVoteCacheHandler().removeTimeVote(vote)) {
+				scheduleTimeVoteRetry();
+				return;
+			}
+			processedTimeVotesPendingRemoval.remove(vote);
+		}
+	}
+
+	private void scheduleTimeVoteRetry() {
+		if (timeVoteRetryScheduled || getScheduler() == null) {
+			return;
+		}
+		timeVoteRetryScheduled = true;
+		try {
+			getScheduler().schedule(() -> {
+				synchronized (VotingPluginProxy.this) {
+					timeVoteRetryScheduled = false;
+				}
+				processQueue();
+			}, 5, TimeUnit.SECONDS);
+		} catch (RuntimeException e) {
+			timeVoteRetryScheduled = false;
+			debug("Unable to schedule rollover vote retry: " + e.getMessage());
 		}
 	}
 
@@ -1832,18 +1907,18 @@ public abstract class VotingPluginProxy {
 		vote(player, service, realVote, timeQueue, queueTime, text, uuid, null);
 	}
 
-	private synchronized void vote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
+	private synchronized boolean vote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
 			VoteTotalsSnapshot text, String uuid, VoteTimeQueue queuedVote) {
 		try {
 			if (!ServiceSiteValidator.isValid(service)) {
 				warn("Rejected vote with invalid service site '" + ServiceSiteValidator.sanitizeForLog(service) + "'");
-				return;
+				return false;
 			}
 			if (!MinecraftUsernameValidator.isValid(player, getConfig().getBedrockPlayerPrefix())) {
 				warn("Rejected vote with invalid Minecraft username '"
 						+ MinecraftUsernameValidator.sanitizeForLog(player) + "' from service '"
 						+ MinecraftUsernameValidator.sanitizeForLog(service) + "'");
-				return;
+				return false;
 			}
 
 			UUID voteId = queuedVote == null ? null : queuedVote.getVoteId();
@@ -1874,15 +1949,15 @@ public abstract class VotingPluginProxy {
 			if (uuid.isEmpty()) {
 				if (player.startsWith(getConfig().getBedrockPlayerPrefix())) {
 					log("Ignoring vote since unable to get UUID of bedrock player");
-					return;
+					return false;
 				}
 				if (!getConfig().getAllowUnJoined()) {
 					log("Ignoring vote from " + player + " since player hasn't joined before");
-					return;
+					return false;
 				}
 				if (!getConfig().getUUIDLookup()) {
 					log("Failed to get uuid for " + player);
-					return;
+					return false;
 				}
 
 				debug("Fetching UUID online, since allowunjoined is enabled");
@@ -1898,7 +1973,7 @@ public abstract class VotingPluginProxy {
 				}
 				if (u == null) {
 					debug("Failed to get uuid for " + player);
-					return;
+					return false;
 				}
 				uuid = u.toString();
 			}
@@ -1944,7 +2019,7 @@ public abstract class VotingPluginProxy {
 			if (managesTotals) {
 				if (getProxyMySQL() == null) {
 					logSevere("Mysql is not loaded correctly, stopping vote processing");
-					return;
+					return false;
 				}
 
 				if (!getProxyMySQL().containsKeyQuery(uuid)) {
@@ -1956,7 +2031,7 @@ public abstract class VotingPluginProxy {
 				if (!checkVoteDelay(uuid, player, service, data, queuedVote == null)) {
 					log("Vote delay is not met for " + player + "/" + service + ", skipping vote");
 					sendVoteDelayRejected(player, uuid, service, playerOnline, playerServer);
-					return;
+					return false;
 				}
 			}
 
@@ -1964,6 +2039,7 @@ public abstract class VotingPluginProxy {
 			// change queues the reward/totals work. The queued delivery state prevents
 			// replaying broadcasts that already reached a backend.
 			if (queueForTimeChange) {
+				VoteTotalsSnapshot projectedTotals = managesTotals ? getProjectedRolloverTotals(data, player) : text;
 				if (proxyBroadcastDecider.usesImmediateForwarding(playerOnline)) {
 					broadcastTargets.addAll(proxyBroadcastDecider.resolveTargets(false, null));
 					proxyBroadcastHandled = true;
@@ -1973,12 +2049,12 @@ public abstract class VotingPluginProxy {
 				if (!getVoteCacheHandler().addTimeVoteToCache(delayedVote)) {
 					logSevere("Unable to persist queued rollover vote for " + player + "/" + service
 							+ "; skipping proxy broadcast");
-					return;
+					return false;
 				}
 				if (proxyBroadcastHandled) {
 					for (String target : broadcastTargets) {
 						Set<String> forwarded = sendProxyBroadcast(Collections.singleton(target), uuid, player,
-								service, time, "", false);
+								service, time, projectedTotals == null ? "" : projectedTotals.toString(), false);
 						if (delayedVote.getBroadcastForwardedServers().addAll(forwarded)) {
 							broadcastForwardedServers.addAll(forwarded);
 							getVoteCacheHandler().updateTimeVote(delayedVote);
@@ -1987,7 +2063,7 @@ public abstract class VotingPluginProxy {
 				}
 				log("Caching vote from " + player + "/" + service
 						+ " because time change is happening right now");
-				return;
+				return true;
 			}
 
 			addVoteParty();
@@ -2189,8 +2265,10 @@ public abstract class VotingPluginProxy {
 					}
 				}
 			}
+			return true;
 		} catch (Exception e) {
 			e.printStackTrace();
+			return false;
 		}
 	}
 

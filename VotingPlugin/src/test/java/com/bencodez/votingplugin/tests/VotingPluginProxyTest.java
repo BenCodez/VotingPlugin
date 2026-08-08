@@ -169,6 +169,22 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void failedRolloverReplayRemainsQueued() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		java.util.Queue<VoteTimeQueue> queue = new java.util.concurrent.ConcurrentLinkedQueue<>();
+		queue.add(new VoteTimeQueue(java.util.UUID.randomUUID(), "Player", "Invalid\\Service", 100L));
+		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(queue);
+
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+
+		spyProxy.processQueue();
+
+		assertEquals(1, queue.size());
+		verify(voteCache, never()).removeTimeVote(Mockito.any());
+	}
+
+	@Test
 	void pendingServerBroadcastRetriesBeforeOfflineRewardDelivery() {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "player-uuid",

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -176,6 +177,27 @@ public class VoteCacheHandlerVoteIdTest {
 
 		verify(storage).addTimedVote(2, queued);
 		verify(storage).save();
+	}
+
+	@Test
+	public void timedVoteIsRemovedFromMemoryOnlyAfterJsonSaveSucceeds() {
+		VoteTimeQueue queued = new VoteTimeQueue(UUID.randomUUID(), "Player", "Service", 100L);
+		assertTrue(handler.addTimeVoteToCache(queued));
+
+		assertTrue(handler.removeTimeVote(queued));
+
+		assertTrue(handler.getTimeChangeQueue().isEmpty());
+	}
+
+	@Test
+	public void timedVoteRemainsQueuedWhenJsonDeleteCannotBeSaved() {
+		VoteTimeQueue queued = new VoteTimeQueue(UUID.randomUUID(), "Player", "Service", 100L);
+		assertTrue(handler.addTimeVoteToCache(queued));
+		doThrow(new RuntimeException("save failed")).when(storage).save();
+
+		assertFalse(handler.removeTimeVote(queued));
+
+		assertTrue(handler.getTimeChangeQueue().contains(queued));
 	}
 
 	@Test

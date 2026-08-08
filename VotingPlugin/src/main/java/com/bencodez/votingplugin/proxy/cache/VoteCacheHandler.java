@@ -555,20 +555,32 @@ public abstract class VoteCacheHandler {
 	 * Removes a queued rollover vote after its normal processing completes.
 	 *
 	 * @param vote processed queued vote
+	 * @return true when durable storage and the in-memory queue were updated
 	 */
-	public synchronized void removeTimeVote(VoteTimeQueue vote) {
-		timeChangeQueue.remove(vote);
+	public synchronized boolean removeTimeVote(VoteTimeQueue vote) {
 		if (useMySQL) {
-			timedVoteCacheTable.removeVote(vote);
-			return;
+			if (!timedVoteCacheTable.removeVote(vote)) {
+				return false;
+			}
+			timeChangeQueue.remove(vote);
+			return true;
 		}
 
-		jsonStorage.removeTimedVotes();
-		int index = 0;
-		for (VoteTimeQueue queued : timeChangeQueue) {
-			jsonStorage.addTimedVote(index++, queued);
+		ArrayList<VoteTimeQueue> remaining = new ArrayList<>(timeChangeQueue);
+		remaining.remove(vote);
+		try {
+			jsonStorage.removeTimedVotes();
+			int index = 0;
+			for (VoteTimeQueue queued : remaining) {
+				jsonStorage.addTimedVote(index++, queued);
+			}
+			jsonStorage.save();
+			timeChangeQueue.remove(vote);
+			return true;
+		} catch (RuntimeException e) {
+			debug1(e);
+			return false;
 		}
-		jsonStorage.save();
 	}
 
 	/**

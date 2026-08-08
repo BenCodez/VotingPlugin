@@ -242,8 +242,9 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 	 * Removes one processed queued vote by vote ID, with a legacy tuple fallback.
 	 *
 	 * @param vote processed queued vote
+	 * @return true when the durable delete completed
 	 */
-	public void removeVote(VoteTimeQueue vote) {
+	public boolean removeVote(VoteTimeQueue vote) {
 		boolean hasVoteId = vote.getVoteId() != null;
 		String sql = "DELETE FROM " + qi(getTableName()) + " WHERE "
 				+ (hasVoteId ? qi("voteId") + " = ?;"
@@ -258,8 +259,10 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				ps.setLong(3, vote.getTime());
 			}
 			ps.executeUpdate();
+			return true;
 		} catch (SQLException e) {
 			debug(e);
+			return false;
 		}
 	}
 
