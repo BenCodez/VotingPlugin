@@ -639,6 +639,10 @@ public abstract class VotingPluginProxy {
 						if (cache.isProxyBroadcastHandled()) {
 							Set<String> pendingTargets = new LinkedHashSet<>(cache.getBroadcastTargets());
 							pendingTargets.removeAll(cache.getBroadcastForwardedServers());
+							List<String> blockedServers = getConfig().getBlockedServers();
+							if (blockedServers != null) {
+								pendingTargets.removeAll(blockedServers);
+							}
 							cache.getBroadcastForwardedServers().addAll(sendProxyBroadcast(pendingTargets,
 									cache.getUuid(), cache.getPlayerName(), cache.getService(), cache.getTime(),
 									cache.getText(), false));
