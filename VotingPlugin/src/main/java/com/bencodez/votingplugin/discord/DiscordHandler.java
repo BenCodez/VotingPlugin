@@ -193,12 +193,13 @@ public class DiscordHandler {
 			return;
 		}
 
-		long existingId = topVoterMessageIds.getOrDefault(top, 0L);
+		long existingId;
 		synchronized (recoveringTopVoters) {
-		if (recoveringTopVoters.contains(top)) {
-			plugin.debug("Skipping Discord Top Voter update while recovery is in progress: " + top);
-			return;
-		}
+			if (recoveringTopVoters.contains(top)) {
+				plugin.debug("Skipping Discord Top Voter update while recovery is in progress: " + top);
+				return;
+			}
+			existingId = topVoterMessageIds.getOrDefault(top, 0L);
 		}
 
 		if (existingId <= 0 || newMessage) {
@@ -240,12 +241,16 @@ public class DiscordHandler {
 			plugin.getServerData().setTopVoterMessageId(top, 0L);
 			channel.sendMessageEmbeds(eb.build()).queue(msg -> {
 				long newId = msg.getIdLong();
-				topVoterMessageIds.put(top, newId);
-				plugin.getServerData().setTopVoterMessageId(top, newId);
-				recoveringTopVoters.remove(top);
+				synchronized (recoveringTopVoters) {
+					topVoterMessageIds.put(top, newId);
+					plugin.getServerData().setTopVoterMessageId(top, newId);
+					recoveringTopVoters.remove(top);
+				}
 				plugin.debug("Recovered Top Voters " + top + " with replacement message (ID: " + newId + ")");
 			}, sendError -> {
-				recoveringTopVoters.remove(top);
+				synchronized (recoveringTopVoters) {
+					recoveringTopVoters.remove(top);
+				}
 				plugin.getLogger().warning("Error recovering Top Voters " + top + ": " + sendError.getMessage());
 			});
 			return;
