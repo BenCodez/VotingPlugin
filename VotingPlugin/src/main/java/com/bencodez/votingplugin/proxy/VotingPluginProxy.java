@@ -78,6 +78,7 @@ import com.google.gson.JsonObject;
 import redis.clients.jedis.DefaultJedisClientConfig;
 import redis.clients.jedis.HostAndPort;
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -114,6 +115,8 @@ public abstract class VotingPluginProxy {
 
 	@Getter
 	private RedisHandler redisHandler;
+	private JedisPool redisPublisherPool;
+	private volatile long redisPublisherRetryAfter;
 
 	private boolean enabled;
 
@@ -1008,6 +1011,8 @@ public abstract class VotingPluginProxy {
 					debug2(message);
 				}
 			};
+			redisPublisherPool = new JedisPool(new HostAndPort(getConfig().getRedisHost(), getConfig().getRedisPort()),
+					buildRedisClientConfig());
 
 			runAsync(() -> {
 				RedisListener listener = redisHandler.createEnvelopeListener(
@@ -1199,7 +1204,7 @@ public abstract class VotingPluginProxy {
 
 			@Override
 			public void clearVote(String uuid) {
-				getVoteCacheHandler().removeOnlineVotes(uuid);
+				getVoteCacheHandler().clearOnlineVoteRewards(uuid);
 			}
 
 			@Override
@@ -1386,6 +1391,10 @@ public abstract class VotingPluginProxy {
 		if (redisHandler != null) {
 			redisHandler.close();
 		}
+		if (redisPublisherPool != null) {
+			redisPublisherPool.close();
+			redisPublisherPool = null;
+		}
 
 		bungeeTimeChecker.shutdown();
 
@@ -1555,7 +1564,7 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
-	public boolean sendRedisEnvelopeServer(String server, JsonEnvelope envelope) {
+	private DefaultJedisClientConfig buildRedisClientConfig() {
 		DefaultJedisClientConfig.Builder config = DefaultJedisClientConfig.builder()
 				.database(getConfig().getRedisDbIndex()).connectionTimeoutMillis(2000).socketTimeoutMillis(2000);
 		if (getConfig().getRedisUsername() != null && !getConfig().getRedisUsername().isEmpty()) {
@@ -1564,13 +1573,23 @@ public abstract class VotingPluginProxy {
 		if (getConfig().getRedisPassword() != null && !getConfig().getRedisPassword().isEmpty()) {
 			config.password(getConfig().getRedisPassword());
 		}
+		return config.build();
+	}
 
-		try (Jedis jedis = new Jedis(new HostAndPort(getConfig().getRedisHost(), getConfig().getRedisPort()),
-				config.build())) {
+	public boolean sendRedisEnvelopeServer(String server, JsonEnvelope envelope) {
+		JedisPool publisherPool = redisPublisherPool;
+		if (publisherPool == null || System.currentTimeMillis() < redisPublisherRetryAfter) {
+			return false;
+		}
+
+		try (Jedis jedis = publisherPool.getResource()) {
 			String channel = getConfig().getRedisPrefix() + "VotingPlugin_" + server;
 			long subscribers = jedis.publish(channel, JsonEnvelopeCodec.encode(envelope));
+			redisPublisherRetryAfter = 0L;
 			return subscribers > 0;
 		} catch (Exception e) {
+			// Avoid paying the connection timeout once per target while Redis is down.
+			redisPublisherRetryAfter = System.currentTimeMillis() + 2000L;
 			debug(e.getMessage());
 			return false;
 		}

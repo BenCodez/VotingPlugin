@@ -136,9 +136,7 @@ public abstract class VoteCacheHandler {
 					|| !data.has("Time")) {
 				continue;
 			}
-			if (vote.getUuid().equals(data.get("UUID").asString())
-					&& vote.getService().equals(data.get("Service").asString())
-					&& vote.getTime() == data.get("Time").asLong()) {
+			if (matchesStoredVote(data, vote)) {
 				try {
 					jsonStorage.addVote(server, Integer.parseInt(key), vote);
 					jsonStorage.save();
@@ -260,9 +258,7 @@ public abstract class VoteCacheHandler {
 					|| !data.has("Time")) {
 				continue;
 			}
-			if (vote.getUuid().equals(data.get("UUID").asString())
-					&& vote.getService().equals(data.get("Service").asString())
-					&& vote.getTime() == data.get("Time").asLong()) {
+			if (matchesStoredVote(data, vote)) {
 				try {
 					jsonStorage.addVoteOnline(uuid, Integer.parseInt(key), vote);
 					jsonStorage.save();
@@ -271,6 +267,32 @@ public abstract class VoteCacheHandler {
 				}
 				return;
 			}
+		}
+	}
+
+	/**
+	 * Clears voter-keyed reward eligibility while retaining entries that still have
+	 * standalone proxy broadcast targets to deliver.
+	 *
+	 * @param uuid player UUID whose global reward was delivered by another proxy
+	 */
+	public synchronized void clearOnlineVoteRewards(String uuid) {
+		ArrayList<OfflineBungeeVote> votes = cachedOnlineVotes.get(uuid);
+		if (votes == null || votes.isEmpty()) {
+			return;
+		}
+
+		ArrayList<OfflineBungeeVote> retained = new ArrayList<>();
+		for (OfflineBungeeVote vote : votes) {
+			if (vote.isProxyBroadcastHandled() && !vote.isProxyBroadcastComplete()) {
+				vote.setRewardDelivered(true);
+				retained.add(vote);
+			}
+		}
+
+		removeOnlineVotes(uuid);
+		for (OfflineBungeeVote vote : retained) {
+			addOnlineVote(uuid, vote);
 		}
 	}
 
@@ -399,6 +421,16 @@ public abstract class VoteCacheHandler {
 		} catch (IllegalArgumentException ignored) {
 			return null;
 		}
+	}
+
+	private boolean matchesStoredVote(DataNode data, OfflineBungeeVote vote) {
+		String storedVoteId = readVoteId(data);
+		if (vote.getVoteId() != null && storedVoteId != null && !storedVoteId.isEmpty()) {
+			return vote.getVoteId().toString().equals(storedVoteId);
+		}
+		return vote.getUuid().equals(data.get("UUID").asString())
+				&& vote.getService().equals(data.get("Service").asString())
+				&& vote.getTime() == data.get("Time").asLong();
 	}
 
 	/**

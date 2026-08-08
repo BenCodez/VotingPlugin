@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -232,6 +233,56 @@ public class VoteCacheHandlerVoteIdTest {
 	}
 
 	@Test
+	public void serverBroadcastStateUpdateUsesVoteIdWhenTimestampsCollide() {
+		UUID voteId = UUID.randomUUID();
+		DataNode matching = storedVoteNode(voteId, 100L);
+		DataNode other = storedVoteNode(UUID.randomUUID(), 100L);
+		when(storage.getServerVotes("server")).thenReturn(List.of("4", "5"));
+		when(storage.getServerVotes("server", "4")).thenReturn(other);
+		when(storage.getServerVotes("server", "5")).thenReturn(matching);
+
+		OfflineBungeeVote vote = new OfflineBungeeVote(voteId, "Player", "player-uuid", "Service", 100L, true,
+				"totals", true, true, Set.of("Server1"), Set.of("Server1"), false);
+		handler.updateServerVote("server", vote);
+
+		verify(storage, never()).addVote("server", 4, vote);
+		verify(storage).addVote("server", 5, vote);
+	}
+
+	@Test
+	public void onlineBroadcastStateUpdateUsesVoteIdWhenTimestampsCollide() {
+		UUID voteId = UUID.randomUUID();
+		DataNode matching = storedVoteNode(voteId, 100L);
+		DataNode other = storedVoteNode(UUID.randomUUID(), 100L);
+		when(storage.getOnlineVotes("player-uuid")).thenReturn(List.of("3", "7"));
+		when(storage.getOnlineVotes("player-uuid", "3")).thenReturn(other);
+		when(storage.getOnlineVotes("player-uuid", "7")).thenReturn(matching);
+
+		OfflineBungeeVote vote = new OfflineBungeeVote(voteId, "Player", "player-uuid", "Service", 100L, true,
+				"totals", true, true, Set.of("Server1"), Set.of("Server1"), false);
+		handler.updateOnlineVote("player-uuid", vote);
+
+		verify(storage, never()).addVoteOnline("player-uuid", 3, vote);
+		verify(storage).addVoteOnline("player-uuid", 7, vote);
+	}
+
+	@Test
+	public void globalRewardClearRetainsOnlyIncompleteForwardBroadcasts() {
+		OfflineBungeeVote pending = new OfflineBungeeVote(UUID.randomUUID(), "Player", "player-uuid", "Service",
+				100L, true, "totals", false, true, Set.of("Lobby", "Survival"), Set.of("Lobby"), false);
+		OfflineBungeeVote complete = new OfflineBungeeVote(UUID.randomUUID(), "Player", "player-uuid", "Service",
+				101L, true, "totals", true, true, Set.of("Lobby"), Set.of("Lobby"), false);
+		handler.addOnlineVote("player-uuid", pending);
+		handler.addOnlineVote("player-uuid", complete);
+
+		handler.clearOnlineVoteRewards("player-uuid");
+
+		assertEquals(List.of(pending), handler.getOnlineVotes("player-uuid"));
+		assertTrue(pending.isRewardDelivered());
+		assertTrue(pending.needsBroadcastOn("Survival"));
+	}
+
+	@Test
 	public void timedVoteBroadcastStateLoadsFromJsonCache() {
 		IVoteCache stored = mock(IVoteCache.class);
 		DataNode timedNode = mock(DataNode.class);
@@ -348,6 +399,16 @@ public class VoteCacheHandlerVoteIdTest {
 		when(parent.has(key)).thenReturn(true);
 		when(parent.get(key)).thenReturn(child);
 		when(child.asBoolean()).thenReturn(value);
+	}
+
+	private static DataNode storedVoteNode(UUID voteId, long time) {
+		DataNode voteNode = mock(DataNode.class);
+		when(voteNode.isObject()).thenReturn(true);
+		stubString(voteNode, "UUID", "player-uuid");
+		stubString(voteNode, "Service", "Service");
+		stubLong(voteNode, "Time", time);
+		stubString(voteNode, "VoteId", voteId.toString());
+		return voteNode;
 	}
 
 	private static void runConcurrently(Runnable first, Runnable second) throws Exception {
