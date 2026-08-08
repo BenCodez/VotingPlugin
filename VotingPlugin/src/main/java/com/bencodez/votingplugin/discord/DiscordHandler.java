@@ -3,8 +3,10 @@ package com.bencodez.votingplugin.discord;
 import java.awt.Color;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -38,6 +40,7 @@ public class DiscordHandler {
 	private final VotingPluginMain plugin;
 	@Getter
 	private final HashMap<TopVoter, Long> topVoterMessageIds = new HashMap<TopVoter, Long>();
+	private final Set<TopVoter> recoveringTopVoters = new HashSet<>();
 	private final AtomicBoolean discordReady = new AtomicBoolean(false);
 
 	/**
@@ -191,6 +194,12 @@ public class DiscordHandler {
 		}
 
 		long existingId = topVoterMessageIds.getOrDefault(top, 0L);
+		synchronized (recoveringTopVoters) {
+		if (recoveringTopVoters.contains(top)) {
+			plugin.debug("Skipping Discord Top Voter update while recovery is in progress: " + top);
+			return;
+		}
+		}
 
 		if (existingId <= 0 || newMessage) {
 			channel.sendMessageEmbeds(eb.build()).queue(msg -> {
@@ -219,6 +228,12 @@ public class DiscordHandler {
 		if (plugin.getConfigFile().isDiscordSRVTopVoterAutoRecoverMessageOnFailure()
 				&& error instanceof ErrorResponseException
 				&& ((ErrorResponseException) error).getErrorResponse() == ErrorResponse.UNKNOWN_MESSAGE) {
+			synchronized (recoveringTopVoters) {
+				if (topVoterMessageIds.getOrDefault(top, 0L) != existingId || !recoveringTopVoters.add(top)) {
+					plugin.debug("Skipping stale Discord Top Voter recovery because another update handled: " + top);
+					return;
+				}
+			}
 			plugin.getLogger().warning("Discord Top Voters " + top + " message " + existingId
 					+ " no longer exists; clearing the stored ID and posting a replacement.");
 			topVoterMessageIds.put(top, 0L);
@@ -227,9 +242,12 @@ public class DiscordHandler {
 				long newId = msg.getIdLong();
 				topVoterMessageIds.put(top, newId);
 				plugin.getServerData().setTopVoterMessageId(top, newId);
+				recoveringTopVoters.remove(top);
 				plugin.debug("Recovered Top Voters " + top + " with replacement message (ID: " + newId + ")");
-			}, sendError -> plugin.getLogger().warning("Error recovering Top Voters " + top + ": "
-					+ sendError.getMessage()));
+			}, sendError -> {
+				recoveringTopVoters.remove(top);
+				plugin.getLogger().warning("Error recovering Top Voters " + top + ": " + sendError.getMessage());
+			});
 			return;
 		}
 
