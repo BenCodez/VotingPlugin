@@ -18,14 +18,8 @@ import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 
 public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	private final List<String> warnings = new ArrayList<>();
-	private final VotingPluginProxyConfig config = Mockito.mock(VotingPluginProxyConfig.class);
+	private VotingPluginProxyConfig config;
 	private boolean pluginMessageDeliveryResult = true;
-
-	public VotingPluginProxyTestImpl() {
-		Mockito.when(config.getPluginMessageEncryption()).thenReturn(false);
-		Mockito.when(config.getPluginMessageChannel()).thenReturn("votingplugin:main");
-		Mockito.when(config.getDebug()).thenReturn(false);
-	}
 
 	public List<String> getWarnings() {
 		return warnings;
@@ -48,6 +42,12 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	@Override
 	public VotingPluginProxyConfig getConfig() {
+		if (config == null) {
+			config = Mockito.mock(VotingPluginProxyConfig.class);
+			Mockito.when(config.getPluginMessageEncryption()).thenReturn(false);
+			Mockito.when(config.getPluginMessageChannel()).thenReturn("votingplugin:main");
+			Mockito.when(config.getDebug()).thenReturn(false);
+		}
 		return config;
 	}
 

@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,7 +18,6 @@ import org.mockito.MockitoAnnotations;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
 import com.bencodez.votingplugin.proxy.ProxyMysqlUserTable;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
-import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyHandler;
 
@@ -30,9 +28,6 @@ public class VotingPluginProxyTest {
 
 	@Mock
 	private ProxyMysqlUserTable proxyMySQL;
-
-	@Mock
-	private VotingPluginProxyConfig config;
 
 	@Mock
 	private GlobalDataHandlerProxy globalDataHandler;
@@ -47,13 +42,6 @@ public class VotingPluginProxyTest {
 		votingPluginProxy.setGlobalDataHandler(globalDataHandler);
 		votingPluginProxy.setMultiProxyHandler(multiProxyHandler);
 
-		// Mocking config methods
-		when(config.getVotePartyEnabled()).thenReturn(true);
-		when(config.getVotePartyVotesRequired()).thenReturn(5);
-		when(config.getVotePartyIncreaseVotesRequired()).thenReturn(5);
-		when(config.getBungeeManageTotals()).thenReturn(true);
-		when(config.getPluginMessageEncryption()).thenReturn(false);
-		when(config.getDebug()).thenReturn(false);
 	}
 
 	@Test
