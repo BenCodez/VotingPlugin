@@ -3,8 +3,10 @@ package com.bencodez.votingplugin.discord;
 import java.awt.Color;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -25,6 +27,8 @@ import github.scarsz.discordsrv.api.events.DiscordReadyEvent;
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.JDA;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.TextChannel;
+import github.scarsz.discordsrv.dependencies.jda.api.requests.ErrorResponse;
+import github.scarsz.discordsrv.dependencies.jda.api.exceptions.ErrorResponseException;
 import github.scarsz.discordsrv.util.DiscordUtil;
 import lombok.Getter;
 
@@ -36,6 +40,7 @@ public class DiscordHandler {
 	private final VotingPluginMain plugin;
 	@Getter
 	private final HashMap<TopVoter, Long> topVoterMessageIds = new HashMap<TopVoter, Long>();
+	private final Set<TopVoter> recoveringTopVoters = new HashSet<>();
 	private final AtomicBoolean discordReady = new AtomicBoolean(false);
 
 	/**
@@ -188,7 +193,14 @@ public class DiscordHandler {
 			return;
 		}
 
-		long existingId = topVoterMessageIds.getOrDefault(top, 0L);
+		long existingId;
+		synchronized (recoveringTopVoters) {
+			if (recoveringTopVoters.contains(top)) {
+				plugin.debug("Skipping Discord Top Voter update while recovery is in progress: " + top);
+				return;
+			}
+			existingId = topVoterMessageIds.getOrDefault(top, 0L);
+		}
 
 		if (existingId <= 0 || newMessage) {
 			channel.sendMessageEmbeds(eb.build()).queue(msg -> {
@@ -201,8 +213,52 @@ public class DiscordHandler {
 		} else {
 			channel.editMessageEmbedsById(existingId, eb.build()).queue(
 					m -> plugin.debug("Edited Top Voters " + top + " (ID: " + existingId + ")"),
-					err -> plugin.getLogger().warning("Error editing Top Voters " + top + ": " + err.getMessage()));
+					err -> handleMessageUpdateFailure(top, channel, eb, existingId, err));
 		}
+	}
+
+	/**
+	 * Handles a failed update of a stored leaderboard message.
+	 *
+	 * Discord message IDs become invalid when a message is deleted. Treat that
+	 * condition as recoverable so one deleted message cannot permanently stop
+	 * leaderboard updates.
+	 */
+	private void handleMessageUpdateFailure(TopVoter top, TextChannel channel, EmbedBuilder eb, long existingId,
+			Throwable error) {
+		if (plugin.getConfigFile().isDiscordSRVTopVoterAutoRecoverMessageOnFailure()
+				&& error instanceof ErrorResponseException
+				&& ((ErrorResponseException) error).getErrorResponse() == ErrorResponse.UNKNOWN_MESSAGE) {
+			synchronized (recoveringTopVoters) {
+				if (topVoterMessageIds.getOrDefault(top, 0L) != existingId || !recoveringTopVoters.add(top)) {
+					plugin.debug("Skipping stale Discord Top Voter recovery because another update handled: " + top);
+					return;
+				}
+			}
+			plugin.getLogger().warning("Discord Top Voters " + top + " message " + existingId
+					+ " no longer exists; clearing the stored ID and posting a replacement.");
+			synchronized (recoveringTopVoters) {
+				topVoterMessageIds.put(top, 0L);
+			}
+			plugin.getServerData().setTopVoterMessageId(top, 0L);
+			channel.sendMessageEmbeds(eb.build()).queue(msg -> {
+				long newId = msg.getIdLong();
+				synchronized (recoveringTopVoters) {
+					topVoterMessageIds.put(top, newId);
+					plugin.getServerData().setTopVoterMessageId(top, newId);
+					recoveringTopVoters.remove(top);
+				}
+				plugin.debug("Recovered Top Voters " + top + " with replacement message (ID: " + newId + ")");
+			}, sendError -> {
+				synchronized (recoveringTopVoters) {
+					recoveringTopVoters.remove(top);
+				}
+				plugin.getLogger().warning("Error recovering Top Voters " + top + ": " + sendError.getMessage());
+			});
+			return;
+		}
+
+		plugin.getLogger().warning("Error editing Top Voters " + top + ": " + error.getMessage());
 	}
 
 	/**

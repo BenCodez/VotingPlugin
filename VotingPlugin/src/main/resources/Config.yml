@@ -663,6 +663,10 @@ DiscordSRV:
 
   # Show live top voter counts in discord
   TopVoter:
+    # If true, automatically post a replacement when the stored Discord
+    # leaderboard message no longer exists.
+    AutoRecoverMessageOnFailure: true
+
     AllTime:
       # If true, will send top voter messages to discord
       # Will send a message show top 10 voters
