@@ -119,6 +119,27 @@ public class VoteSiteManager {
 			}
 		}
 
+		if (!checkEnabled) {
+			ArrayList<String> configuredSites = plugin.getConfigVoteSites().getVoteSitesNames(false);
+			if (configuredSites != null) {
+				for (String url : urls) {
+					if (url == null) {
+						return null;
+					}
+
+					for (String siteName : configuredSites) {
+						String serviceSite = plugin.getConfigVoteSites().getServiceSite(siteName);
+						String displayName = plugin.getConfigVoteSites().getDisplayName(siteName);
+						if (siteName.equalsIgnoreCase(url)
+								|| (serviceSite != null && serviceSite.equalsIgnoreCase(url))
+								|| (displayName != null && displayName.equalsIgnoreCase(url))) {
+							return siteName;
+						}
+					}
+				}
+			}
+		}
+
 		for (String url : urls) {
 			return url;
 		}
@@ -214,6 +235,18 @@ public class VoteSiteManager {
 	 */
 	public boolean hasVoteSite(String site) {
 		String siteName = getVoteSiteName(false, site);
+		if (siteName == null) {
+			return false;
+		}
+
+		ArrayList<String> configuredSites = plugin.getConfigVoteSites().getVoteSitesNames(false);
+		if (configuredSites != null) {
+			for (String configuredSite : configuredSites) {
+				if (configuredSite.equalsIgnoreCase(siteName)) {
+					return true;
+				}
+			}
+		}
 
 		for (VoteSite voteSite : getVoteSites()) {
 			if (voteSite.getKey().equalsIgnoreCase(siteName)) {
