@@ -2864,12 +2864,23 @@ public class CommandLoader {
 				}
 				PluginCommand command = plugin.getCommand(commandName);
 				if (command != null) {
-					command.unregister(commandMap);
+					unregisterCommand(commandMap, command);
 				}
 			}
 		} catch (Exception e) {
 			plugin.getLogger().warning("Unable to unregister disabled command aliases: " + e.getMessage());
 		}
+	}
+
+	/** Removes the command and all labels that still point to it from Bukkit's map. */
+	private void unregisterCommand(CommandMap commandMap, PluginCommand command) throws ReflectiveOperationException {
+		command.unregister(commandMap);
+		java.lang.reflect.Field field = commandMap.getClass().getDeclaredField("knownCommands");
+		field.setAccessible(true);
+		@SuppressWarnings("unchecked")
+		Map<String, org.bukkit.command.Command> knownCommands =
+				(Map<String, org.bukkit.command.Command>) field.get(commandMap);
+		knownCommands.entrySet().removeIf(entry -> entry.getValue() == command);
 	}
 
 	/** Gets Bukkit's command map without depending on a CraftBukkit package name. */
