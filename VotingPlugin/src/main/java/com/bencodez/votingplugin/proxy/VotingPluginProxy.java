@@ -903,8 +903,12 @@ public abstract class VotingPluginProxy {
 		boolean resetWeek = timeChanges.contains(TimeType.WEEK);
 		boolean resetDay = timeChanges.contains(TimeType.DAY);
 		int acceptedQueuedVotes = 0;
+		int acceptedGlobalQueuedVotes = 0;
 		for (VoteTimeQueue queued : getVoteCacheHandler().getTimeChangeQueue()) {
-			if (queued.getName() != null && queued.getName().equalsIgnoreCase(player)) {
+			if (!queued.isProcessed()) {
+				acceptedGlobalQueuedVotes++;
+			}
+			if (!queued.isProcessed() && queued.getName() != null && queued.getName().equalsIgnoreCase(player)) {
 				acceptedQueuedVotes++;
 			}
 		}
@@ -937,8 +941,27 @@ public abstract class VotingPluginProxy {
 			}
 		}
 
-		return new VoteTotalsSnapshot(allTimeTotal, monthTotal, weeklyTotal, dailyTotal, points, votePartyVotes,
-				currentVotePartyVotesRequired, dateMonthTotal);
+		int[] projectedVoteParty = getProjectedVotePartyState(acceptedGlobalQueuedVotes + 1);
+		return new VoteTotalsSnapshot(allTimeTotal, monthTotal, weeklyTotal, dailyTotal, points,
+				projectedVoteParty[0], projectedVoteParty[1], dateMonthTotal);
+	}
+
+	protected int[] getProjectedVotePartyState(int acceptedVotes) {
+		int current = votePartyVotes;
+		int required = currentVotePartyVotesRequired;
+		if (!getConfig().getVotePartyEnabled()) {
+			return new int[] { current, required };
+		}
+
+		int increase = getConfig().getVotePartyIncreaseVotesRequired();
+		for (int i = 0; i < acceptedVotes; i++) {
+			current++;
+			if (current >= required) {
+				current -= required;
+				required += increase;
+			}
+		}
+		return new int[] { current, required };
 	}
 
 	public abstract String getPluginVersion();

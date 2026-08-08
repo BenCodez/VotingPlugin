@@ -199,6 +199,10 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 		retryPendingTimeBroadcasts(server);
 	}
 
+	public int[] getProjectedVotePartyStateForTest(int acceptedVotes) {
+		return getProjectedVotePartyState(acceptedVotes);
+	}
+
 	@Override
 	public void setVoteCacheLastUpdated() {
 		// TODO Auto-generated method stub

@@ -80,6 +80,21 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void rolloverProjectionIncludesQueuedVotesAndVotePartyThresholds() {
+		Mockito.when(votingPluginProxy.getConfig().getVotePartyEnabled()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getVotePartyIncreaseVotesRequired()).thenReturn(5);
+		votingPluginProxy.setVotePartyVotes(8);
+		votingPluginProxy.setCurrentVotePartyVotesRequired(10);
+
+		int[] projected = votingPluginProxy.getProjectedVotePartyStateForTest(3);
+
+		assertEquals(1, projected[0]);
+		assertEquals(15, projected[1]);
+		assertEquals(8, votingPluginProxy.getVotePartyVotes());
+		assertEquals(10, votingPluginProxy.getCurrentVotePartyVotesRequired());
+	}
+
+	@Test
 	void invalidVoteStopsBeforeAnyPersistentRewardCacheOrForwardingState() {
 		for (String username : new String[] { "MchtNameOver16xxx", "../MchtTraversal", "Mcht/Slash", "Mcht\\Slash",
 				"Mcht Space", "Mcht\tTab", "Mcht\u00E9Unicode" }) {
