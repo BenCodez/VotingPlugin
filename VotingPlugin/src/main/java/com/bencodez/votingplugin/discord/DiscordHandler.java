@@ -25,6 +25,8 @@ import github.scarsz.discordsrv.api.events.DiscordReadyEvent;
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.JDA;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.TextChannel;
+import github.scarsz.discordsrv.dependencies.jda.api.requests.ErrorResponse;
+import github.scarsz.discordsrv.dependencies.jda.api.exceptions.ErrorResponseException;
 import github.scarsz.discordsrv.util.DiscordUtil;
 import lombok.Getter;
 
@@ -201,8 +203,37 @@ public class DiscordHandler {
 		} else {
 			channel.editMessageEmbedsById(existingId, eb.build()).queue(
 					m -> plugin.debug("Edited Top Voters " + top + " (ID: " + existingId + ")"),
-					err -> plugin.getLogger().warning("Error editing Top Voters " + top + ": " + err.getMessage()));
+					err -> handleMessageUpdateFailure(top, channel, eb, existingId, err));
 		}
+	}
+
+	/**
+	 * Handles a failed update of a stored leaderboard message.
+	 *
+	 * Discord message IDs become invalid when a message is deleted. Treat that
+	 * condition as recoverable so one deleted message cannot permanently stop
+	 * leaderboard updates.
+	 */
+	private void handleMessageUpdateFailure(TopVoter top, TextChannel channel, EmbedBuilder eb, long existingId,
+			Throwable error) {
+		if (plugin.getConfigFile().isDiscordSRVTopVoterAutoRecoverMessageOnFailure()
+				&& error instanceof ErrorResponseException
+				&& ((ErrorResponseException) error).getErrorResponse() == ErrorResponse.UNKNOWN_MESSAGE) {
+			plugin.getLogger().warning("Discord Top Voters " + top + " message " + existingId
+					+ " no longer exists; clearing the stored ID and posting a replacement.");
+			topVoterMessageIds.put(top, 0L);
+			plugin.getServerData().setTopVoterMessageId(top, 0L);
+			channel.sendMessageEmbeds(eb.build()).queue(msg -> {
+				long newId = msg.getIdLong();
+				topVoterMessageIds.put(top, newId);
+				plugin.getServerData().setTopVoterMessageId(top, newId);
+				plugin.debug("Recovered Top Voters " + top + " with replacement message (ID: " + newId + ")");
+			}, sendError -> plugin.getLogger().warning("Error recovering Top Voters " + top + ": "
+					+ sendError.getMessage()));
+			return;
+		}
+
+		plugin.getLogger().warning("Error editing Top Voters " + top + ": " + error.getMessage());
 	}
 
 	/**
