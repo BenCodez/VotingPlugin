@@ -2852,6 +2852,33 @@ public class CommandLoader {
 	}
 
 	/**
+	 * Removes optional commands declared in plugin.yml when aliases are disabled.
+	 */
+	private void unregisterOptionalPluginYMLCommands() {
+		try {
+			CommandMap commandMap = getCommandMap();
+			for (String commandName : plugin.getDescription().getCommands().keySet()) {
+				if (commandName.equalsIgnoreCase("vote") || commandName.equalsIgnoreCase("adminvote")
+						|| commandName.equalsIgnoreCase("av")) {
+					continue;
+				}
+				PluginCommand command = plugin.getCommand(commandName);
+				if (command != null) {
+					command.unregister(commandMap);
+				}
+			}
+		} catch (Exception e) {
+			plugin.getLogger().warning("Unable to unregister disabled command aliases: " + e.getMessage());
+		}
+	}
+
+	/** Gets Bukkit's command map without depending on a CraftBukkit package name. */
+	private CommandMap getCommandMap() throws ReflectiveOperationException {
+		java.lang.reflect.Method method = plugin.getServer().getClass().getMethod("getCommandMap");
+		return (CommandMap) method.invoke(plugin.getServer());
+	}
+
+	/**
 	 * Load commands.
 	 */
 	public void loadCommands() {
