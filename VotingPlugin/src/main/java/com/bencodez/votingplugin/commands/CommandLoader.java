@@ -20,6 +20,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.CommandMap;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
@@ -2686,6 +2687,11 @@ public class CommandLoader {
 	public void loadAliases() {
 		commands = new HashMap<>();
 		aliasCommandNames.clear();
+
+		// Bukkit registers plugin.yml commands before this loader runs.
+		if (!plugin.getConfigFile().isLoadCommandAliases()) {
+			unregisterOptionalPluginYMLCommands();
+		}
 
 		// If false: still wire permissions, but don't wire alias executors/tab
 		// completers.
