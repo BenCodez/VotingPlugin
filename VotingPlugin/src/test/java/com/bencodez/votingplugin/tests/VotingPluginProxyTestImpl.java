@@ -12,11 +12,15 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.mockito.Mockito;
 
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
+import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 
 public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	private final List<String> warnings = new ArrayList<>();
+	private VotingPluginProxyConfig config;
+	private boolean pluginMessageDeliveryResult = true;
+	private boolean playerOnline = true;
 
 	public List<String> getWarnings() {
 		return warnings;
@@ -39,7 +43,13 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	@Override
 	public VotingPluginProxyConfig getConfig() {
-		return Mockito.mock(VotingPluginProxyConfig.class);
+		if (config == null) {
+			config = Mockito.mock(VotingPluginProxyConfig.class);
+			Mockito.when(config.getPluginMessageEncryption()).thenReturn(false);
+			Mockito.when(config.getPluginMessageChannel()).thenReturn("votingplugin:main");
+			Mockito.when(config.getDebug()).thenReturn(false);
+		}
+		return config;
 	}
 
 	@Override
@@ -99,7 +109,11 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	@Override
 	public boolean isPlayerOnline(String playerName) {
-		return true;
+		return playerOnline;
+	}
+
+	public void setPlayerOnline(boolean playerOnline) {
+		this.playerOnline = playerOnline;
 	}
 
 	@Override
@@ -161,9 +175,28 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	}
 
 	@Override
-	public void sendPluginMessageData(String server, String channel, byte[] data, boolean queue) {
-		// TODO Auto-generated method stub
+	public boolean sendPluginMessageData(String server, String channel, byte[] data, boolean queue) {
+		return pluginMessageDeliveryResult;
+	}
 
+	public void setPluginMessageDeliveryResult(boolean pluginMessageDeliveryResult) {
+		this.pluginMessageDeliveryResult = pluginMessageDeliveryResult;
+	}
+
+	public boolean sendPluginMessageImmediately(String server, JsonEnvelope envelope) {
+		return sendPluginMessageServerNow(server, envelope);
+	}
+
+	public boolean sendProxyBroadcastImmediately(String server, JsonEnvelope envelope) {
+		return sendProxyBroadcastEnvelopeNow(server, envelope);
+	}
+
+	public void retryPendingOnlineBroadcastsForTest(String server) {
+		retryPendingOnlineBroadcasts(server);
+	}
+
+	public void retryPendingTimeBroadcastsForTest(String server) {
+		retryPendingTimeBroadcasts(server);
 	}
 
 	@Override

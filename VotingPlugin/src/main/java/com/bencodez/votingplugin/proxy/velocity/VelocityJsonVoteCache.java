@@ -30,6 +30,14 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 		setPath(voteTimedQueue.getTime(), "TimedVoteCache", String.valueOf(num), "Time");
 		setPath(voteTimedQueue.getVoteId() == null ? null : voteTimedQueue.getVoteId().toString(), "TimedVoteCache",
 				String.valueOf(num), "VoteId");
+		setPath(voteTimedQueue.getUuid(), "TimedVoteCache", String.valueOf(num), "UUID");
+		setPath(voteTimedQueue.isProxyBroadcastHandled(), "TimedVoteCache", String.valueOf(num),
+				"ProxyBroadcastHandled");
+		setPath(voteTimedQueue.getTotals(), "TimedVoteCache", String.valueOf(num), "Totals");
+		setPath(voteTimedQueue.isProcessed(), "TimedVoteCache", String.valueOf(num), "Processed");
+		setPath(voteTimedQueue.encodeBroadcastTargets(), "TimedVoteCache", String.valueOf(num), "BroadcastTargets");
+		setPath(voteTimedQueue.encodeBroadcastForwardedServers(), "TimedVoteCache", String.valueOf(num),
+				"BroadcastForwardedServers");
 	}
 
 	@Override
@@ -41,6 +49,13 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 		setPath(voteData.isRealVote(), "VoteCache", server, String.valueOf(num), "Real");
 		setPath(voteData.getText(), "VoteCache", server, String.valueOf(num), "Text");
 		setPath(voteData.getVoteId() != null ? voteData.getVoteId().toString() : null, "VoteCache", server, String.valueOf(num), "VoteId");
+		setPath(voteData.isBroadcastForwarded(), "VoteCache", server, String.valueOf(num), "BroadcastForwarded");
+		setPath(voteData.isProxyBroadcastHandled(), "VoteCache", server, String.valueOf(num),
+				"ProxyBroadcastHandled");
+		setPath(voteData.encodeBroadcastTargets(), "VoteCache", server, String.valueOf(num), "BroadcastTargets");
+		setPath(voteData.encodeBroadcastForwardedServers(), "VoteCache", server, String.valueOf(num),
+				"BroadcastForwardedServers");
+		setPath(voteData.isRewardDelivered(), "VoteCache", server, String.valueOf(num), "RewardDelivered");
 	}
 
 	@Override
@@ -52,6 +67,13 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 		setPath(voteData.isRealVote(), "OnlineCache", player, String.valueOf(num), "Real");
 		setPath(voteData.getText(), "OnlineCache", player, String.valueOf(num), "Text");
 		setPath(voteData.getVoteId() != null ? voteData.getVoteId().toString() : null, "OnlineCache", player, String.valueOf(num), "VoteId");
+		setPath(voteData.isBroadcastForwarded(), "OnlineCache", player, String.valueOf(num), "BroadcastForwarded");
+		setPath(voteData.isProxyBroadcastHandled(), "OnlineCache", player, String.valueOf(num),
+				"ProxyBroadcastHandled");
+		setPath(voteData.encodeBroadcastTargets(), "OnlineCache", player, String.valueOf(num), "BroadcastTargets");
+		setPath(voteData.encodeBroadcastForwardedServers(), "OnlineCache", player, String.valueOf(num),
+				"BroadcastForwardedServers");
+		setPath(voteData.isRewardDelivered(), "OnlineCache", player, String.valueOf(num), "RewardDelivered");
 	}
 
 	@Override
@@ -100,6 +122,11 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 	@Override
 	public ConfigDataNode getTimedVoteCache(String key) {
 		return new ConfigDataNode(getNode("TimedVoteCache", key));
+	}
+
+	@Override
+	public void removeTimedVotes() {
+		remove("TimedVoteCache");
 	}
 
 	@Override

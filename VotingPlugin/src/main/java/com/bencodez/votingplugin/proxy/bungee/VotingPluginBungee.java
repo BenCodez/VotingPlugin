@@ -644,10 +644,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			@Override
-			public void sendPluginMessageData(String server, String channel, byte[] data, boolean queue) {
+			public boolean sendPluginMessageData(String server, String channel, byte[] data, boolean queue) {
 				if (getProxy().getServerInfo(server) != null) {
-					getProxy().getServerInfo(server).sendData(channel, data, queue);
+					return getProxy().getServerInfo(server).sendData(channel, data, queue);
 				}
+				return false;
 			}
 
 			@Override
@@ -824,6 +825,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		voteCheckTask = getProxy().getScheduler().schedule(this, new Runnable() {
 			@Override
 			public void run() {
+				getVotingPluginProxy().retryPendingOnlineBroadcasts();
 				for (String server : getVotingPluginProxy().getVoteCacheHandler().getCachedVotesServers()) {
 					getVotingPluginProxy().checkCachedVotes(server);
 				}

@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.UUID;
@@ -53,5 +54,13 @@ public class VotingPluginWireTest {
 		assertEquals(uuid, rejected.uuid);
 		assertEquals("Service", rejected.service);
 		assertEquals(true, rejected.wasOnline);
+	}
+
+	@Test
+	public void voteBroadcastPreservesTheOriginalOfflineState() {
+		JsonEnvelope envelope = VotingPluginWire.voteBroadcast(UUID.randomUUID().toString(), "Player", "Service",
+				100L, "totals", false);
+
+		assertFalse(Boolean.parseBoolean(envelope.getFields().get(VotingPluginWire.K_WAS_ONLINE)));
 	}
 }

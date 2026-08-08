@@ -30,6 +30,7 @@ import com.bencodez.votingplugin.broadcast.BroadcastFormat;
 import com.bencodez.votingplugin.broadcast.BroadcastHandler;
 import com.bencodez.votingplugin.broadcast.BroadcastSettings;
 import com.bencodez.votingplugin.broadcast.VoteBroadcastType;
+import com.bencodez.votingplugin.proxy.VoteTotalsSnapshot;
 
 public class BroadcastHandlerTest {
 
@@ -144,6 +145,33 @@ public class BroadcastHandlerTest {
 		verify(console).sendMessage(org.mockito.ArgumentMatchers.<String>argThat(
 				message -> message.contains("HEADER") && message.contains("Ben") && message.contains("2")
 						&& message.contains("SiteA") && message.contains("SiteB") && message.contains("batch")));
+	}
+
+	@Test
+	public void batchUsesStoredTotalsWhenNewestVoteHasNoSnapshot() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		BukkitTask task = mock(BukkitTask.class);
+		stubBukkitAndConsole();
+		bukkitStatic.when(Bukkit::getScheduler).thenReturn(scheduler);
+		AtomicReference<Runnable> scheduled = new AtomicReference<Runnable>();
+		when(scheduler.runTaskLater(eq(plugin), any(Runnable.class), anyLong())).thenAnswer(invocation -> {
+			scheduled.set(invocation.getArgument(1));
+			return task;
+		});
+		BroadcastSettings settings = new BroadcastSettings(VoteBroadcastType.BATCH_WINDOW_PER_PLAYER,
+				ParsedDuration.parse("1s"), 10,
+				new BroadcastFormat("SINGLE", "HEADER %AllTimeTotal%", " - %site%"));
+		BroadcastHandler handler = new BroadcastHandler(plugin, settings, ZoneId.systemDefault());
+		UUID uuid = UUID.randomUUID();
+
+		handler.broadcastVote(uuid, "Ben", "Forwarded", false,
+				new VoteTotalsSnapshot(999, 1, 1, 1, 1, 1, 10, 1));
+		handler.broadcastVote(uuid, "Ben", "Stored", true, null);
+		scheduled.get().run();
+
+		verify(console).sendMessage(org.mockito.ArgumentMatchers.<String>argThat(
+				message -> message.contains("HEADER") && message.contains("%AllTimeTotal%")));
 	}
 
 	@Test

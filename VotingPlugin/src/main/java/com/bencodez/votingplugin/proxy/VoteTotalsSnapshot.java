@@ -1,5 +1,9 @@
 package com.bencodez.votingplugin.proxy;
 
+import java.text.NumberFormat;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -122,6 +126,62 @@ public class VoteTotalsSnapshot {
 	@Override
 	public String toString() {
 		return toStorageString();
+	}
+
+	/**
+	 * Applies this snapshot to total placeholders used in a vote broadcast.
+	 *
+	 * The backend may receive a standalone broadcast before rollover totals are
+	 * committed. Replacing these placeholders before PlaceholderAPI runs lets that
+	 * one message use the proxy's projected values without mutating player storage.
+	 *
+	 * @param input broadcast line
+	 * @return line with VotingPlugin total placeholders replaced
+	 */
+	public String applyBroadcastPlaceholders(String input) {
+		return applyBroadcastPlaceholders(input, false);
+	}
+
+	/**
+	 * Applies this snapshot using the configured primary monthly total.
+	 *
+	 * @param input broadcast line
+	 * @param useDateMonthTotal whether dated monthly totals are primary
+	 * @return line with VotingPlugin total placeholders replaced
+	 */
+	public String applyBroadcastPlaceholders(String input, boolean useDateMonthTotal) {
+		if (input == null || input.isEmpty()) {
+			return input;
+		}
+
+		NumberFormat numberFormat = NumberFormat.getNumberInstance(Locale.US);
+		int primaryMonthTotal = useDateMonthTotal && dateMonthTotal >= 0 ? dateMonthTotal : monthTotal;
+		Map<String, String> placeholders = new LinkedHashMap<>();
+		placeholders.put("AllTimeTotal", Integer.toString(allTimeTotal));
+		placeholders.put("MonthTotal", Integer.toString(monthTotal));
+		placeholders.put("WeeklyTotal", Integer.toString(weeklyTotal));
+		placeholders.put("DailyTotal", Integer.toString(dailyTotal));
+		placeholders.put("Points", Integer.toString(points));
+		placeholders.put("Points_Format", numberFormat.format(points));
+		placeholders.put("VotingPlugin_alltimetotal", Integer.toString(allTimeTotal));
+		placeholders.put("VotingPlugin_total", Integer.toString(primaryMonthTotal));
+		placeholders.put("VotingPlugin_total_alltime", Integer.toString(allTimeTotal));
+		placeholders.put("VotingPlugin_total_monthly", Integer.toString(primaryMonthTotal));
+		placeholders.put("VotingPlugin_total_weekly", Integer.toString(weeklyTotal));
+		placeholders.put("VotingPlugin_total_daily", Integer.toString(dailyTotal));
+		placeholders.put("VotingPlugin_points", Integer.toString(points));
+		placeholders.put("VotingPlugin_points_format", numberFormat.format(points));
+		placeholders.put("VotingPlugin_BungeeVotePartyVotesCurrent", Integer.toString(votePartyCurrent));
+		placeholders.put("VotingPlugin_BungeeVotePartyVotesNeeded",
+				Integer.toString(votePartyRequired - votePartyCurrent));
+		placeholders.put("VotingPlugin_BungeeVotePartyVotesRequired", Integer.toString(votePartyRequired));
+
+		String output = input;
+		for (Map.Entry<String, String> placeholder : placeholders.entrySet()) {
+			output = output.replaceAll("(?i)" + Pattern.quote("%" + placeholder.getKey() + "%"),
+					java.util.regex.Matcher.quoteReplacement(placeholder.getValue()));
+		}
+		return output;
 	}
 
 	// Legacy (milestoneCount exists, but ignored)

@@ -3,9 +3,12 @@ package com.bencodez.votingplugin.proxy.cache;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -99,13 +102,49 @@ public abstract class VoteCacheHandler {
 
 		if (useMySQL) {
 			voteCacheTable.insertVote(vote.getVoteId(), vote.getUuid(), vote.getPlayerName(), vote.getService(),
-					vote.getTime(), vote.isRealVote(), vote.getText(), server);
+					vote.getTime(), vote.isRealVote(), vote.getText(), vote.isBroadcastForwarded(),
+					vote.isProxyBroadcastHandled(), vote.encodeBroadcastTargets(),
+					vote.encodeBroadcastForwardedServers(), vote.isRewardDelivered(), server);
 		} else {
 			// IMPORTANT: index must come from JSON, not from cachedVotes (cache can be out
 			// of sync with JSON)
 			int idx = jsonStorage.getServerVotes(server).size();
 			jsonStorage.addVote(server, idx, vote);
 			jsonStorage.save();
+		}
+	}
+
+	/**
+	 * Persists updated delivery state for an existing server-cached vote.
+	 *
+	 * @param server backend server owning the cached reward
+	 * @param vote cached vote with updated delivery state
+	 */
+	public synchronized void updateServerVote(String server, OfflineBungeeVote vote) {
+		if (useMySQL) {
+			voteCacheTable.updateProxyBroadcastState(vote, server);
+			return;
+		}
+
+		Collection<String> keys = jsonStorage.getServerVotes(server);
+		if (keys == null) {
+			return;
+		}
+		for (String key : keys) {
+			DataNode data = jsonStorage.getServerVotes(server, key);
+			if (data == null || !data.isObject() || !data.has("UUID") || !data.has("Service")
+					|| !data.has("Time")) {
+				continue;
+			}
+			if (matchesStoredVote(data, vote)) {
+				try {
+					jsonStorage.addVote(server, Integer.parseInt(key), vote);
+					jsonStorage.save();
+				} catch (NumberFormatException e) {
+					debug1(e);
+				}
+				return;
+			}
 		}
 	}
 
@@ -161,6 +200,15 @@ public abstract class VoteCacheHandler {
 	}
 
 	/**
+	 * Gets a snapshot of player UUID keys that have voter-keyed cached votes.
+	 *
+	 * @return cached player UUIDs
+	 */
+	public Set<String> getOnlineVoteUUIDs() {
+		return new LinkedHashSet<>(cachedOnlineVotes.keySet());
+	}
+
+	/**
 	 * Adds a vote to the online vote cache for a player.
 	 * @param uuid the player UUID
 	 * @param vote the vote to add
@@ -176,13 +224,100 @@ public abstract class VoteCacheHandler {
 
 		if (useMySQL) {
 			onlineVoteCacheTable.insertVote(vote.getVoteId(), vote.getUuid(), vote.getPlayerName(), vote.getService(),
-					vote.getTime(), vote.isRealVote(), vote.getText());
+					vote.getTime(), vote.isRealVote(), vote.getText(), vote.isBroadcastForwarded(),
+					vote.isProxyBroadcastHandled(), vote.encodeBroadcastTargets(),
+					vote.encodeBroadcastForwardedServers(), vote.isRewardDelivered());
 		} else {
 			// IMPORTANT: index must come from JSON, not from cachedOnlineVotes (cache can
 			// be out of sync with JSON)
 			int idx = jsonStorage.getOnlineVotes(uuid).size();
 			jsonStorage.addVoteOnline(uuid, idx, vote);
 			jsonStorage.save();
+		}
+	}
+
+	/**
+	 * Persists updated delivery state for an existing voter-keyed cached vote.
+	 *
+	 * @param uuid voter cache key
+	 * @param vote cached vote with updated delivery state
+	 */
+	public synchronized void updateOnlineVote(String uuid, OfflineBungeeVote vote) {
+		if (useMySQL) {
+			onlineVoteCacheTable.updateProxyBroadcastState(vote);
+			return;
+		}
+
+		Collection<String> keys = jsonStorage.getOnlineVotes(uuid);
+		if (keys == null) {
+			return;
+		}
+		for (String key : keys) {
+			DataNode data = jsonStorage.getOnlineVotes(uuid, key);
+			if (data == null || !data.isObject() || !data.has("UUID") || !data.has("Service")
+					|| !data.has("Time")) {
+				continue;
+			}
+			if (matchesStoredVote(data, vote)) {
+				try {
+					jsonStorage.addVoteOnline(uuid, Integer.parseInt(key), vote);
+					jsonStorage.save();
+				} catch (NumberFormatException e) {
+					debug1(e);
+				}
+				return;
+			}
+		}
+	}
+
+	/**
+	 * Clears voter-keyed reward eligibility while retaining entries that still have
+	 * standalone proxy broadcast targets to deliver.
+	 *
+	 * @param uuid player UUID whose global reward was delivered by another proxy
+	 */
+	public synchronized void clearOnlineVoteRewards(String uuid) {
+		ArrayList<OfflineBungeeVote> votes = cachedOnlineVotes.get(uuid);
+		if (votes == null || votes.isEmpty()) {
+			return;
+		}
+
+		ArrayList<OfflineBungeeVote> retained = new ArrayList<>();
+		for (OfflineBungeeVote vote : votes) {
+			if (vote.isProxyBroadcastHandled() && !vote.isProxyBroadcastComplete()) {
+				vote.setRewardDelivered(true);
+				retained.add(vote);
+			}
+		}
+
+		removeOnlineVotes(uuid);
+		for (OfflineBungeeVote vote : retained) {
+			addOnlineVote(uuid, vote);
+		}
+	}
+
+	/**
+	 * Removes one voter-keyed cached vote by its stable vote identity.
+	 *
+	 * @param uuid voter cache key
+	 * @param removedVote vote to remove
+	 */
+	public synchronized void removeOnlineVote(String uuid, OfflineBungeeVote removedVote) {
+		ArrayList<OfflineBungeeVote> votes = cachedOnlineVotes.get(uuid);
+		if (votes == null || votes.isEmpty()) {
+			return;
+		}
+
+		ArrayList<OfflineBungeeVote> retained = new ArrayList<>();
+		for (OfflineBungeeVote vote : votes) {
+			if (!sameVoteIdentity(vote, removedVote)) {
+				retained.add(vote);
+			}
+		}
+
+		removeOnlineVotes(uuid);
+		for (OfflineBungeeVote vote : retained) {
+			addOnlineVote(uuid, vote);
 		}
 	}
 
@@ -313,26 +448,40 @@ public abstract class VoteCacheHandler {
 		}
 	}
 
+	private boolean matchesStoredVote(DataNode data, OfflineBungeeVote vote) {
+		String storedVoteId = readVoteId(data);
+		if (vote.getVoteId() != null && storedVoteId != null && !storedVoteId.isEmpty()) {
+			return vote.getVoteId().toString().equals(storedVoteId);
+		}
+		return vote.getUuid().equals(data.get("UUID").asString())
+				&& vote.getService().equals(data.get("Service").asString())
+				&& vote.getTime() == data.get("Time").asLong();
+	}
+
+	private boolean sameVoteIdentity(OfflineBungeeVote first, OfflineBungeeVote second) {
+		if (first.getVoteId() != null && second.getVoteId() != null) {
+			return first.getVoteId().equals(second.getVoteId());
+		}
+		return first.getUuid().equals(second.getUuid()) && first.getService().equals(second.getService())
+				&& first.getTime() == second.getTime();
+	}
+
+	private boolean matchesStoredTimeVote(DataNode data, VoteTimeQueue vote) {
+		String storedVoteId = readVoteId(data);
+		if (vote.getVoteId() != null && storedVoteId != null && !storedVoteId.isEmpty()) {
+			return vote.getVoteId().toString().equals(storedVoteId);
+		}
+		return data.has("Name") && data.has("Service") && data.has("Time")
+				&& vote.getName().equals(data.get("Name").asString())
+				&& vote.getService().equals(data.get("Service").asString())
+				&& vote.getTime() == data.get("Time").asLong();
+	}
+
 	/**
 	 * Saves the vote cache to storage.
 	 */
 	public void saveVoteCache() {
-		if (useMySQL) {
-
-			if (!getTimeChangeQueue().isEmpty()) {
-				for (VoteTimeQueue vote : getTimeChangeQueue()) {
-					timedVoteCacheTable.insertTimedVote(vote.getVoteId(), vote.getName(), vote.getService(), vote.getTime());
-				}
-			}
-		} else {
-
-			if (!getTimeChangeQueue().isEmpty()) {
-				int num = 0;
-				for (VoteTimeQueue vote : getTimeChangeQueue()) {
-					jsonStorage.addTimedVote(num, vote);
-					num++;
-				}
-			}
+		if (!useMySQL) {
 			jsonStorage.save();
 		}
 	}
@@ -340,9 +489,103 @@ public abstract class VoteCacheHandler {
 	/**
 	 * Adds a timed vote to the cache queue.
 	 * @param vote the timed vote to add
+	 * @return true when the vote was durably stored
 	 */
-	public void addTimeVoteToCache(VoteTimeQueue vote) {
+	public synchronized boolean addTimeVoteToCache(VoteTimeQueue vote) {
+		if (vote == null) {
+			return false;
+		}
 		timeChangeQueue.add(vote);
+		if (useMySQL) {
+			boolean stored = timedVoteCacheTable.insertTimedVote(vote.getVoteId(), vote.getUuid(), vote.getName(), vote.getService(),
+					vote.getTime(), vote.isProxyBroadcastHandled(), vote.encodeBroadcastTargets(),
+					vote.encodeBroadcastForwardedServers(), vote.getTotals(), vote.isProcessed());
+			if (!stored) {
+				timeChangeQueue.remove(vote);
+			}
+			return stored;
+		}
+
+		try {
+			Collection<String> keys = jsonStorage.getTimedVoteCache();
+			int index = 0;
+			while (keys != null && keys.contains(String.valueOf(index))) {
+				index++;
+			}
+			jsonStorage.addTimedVote(index, vote);
+			jsonStorage.save();
+			return true;
+		} catch (RuntimeException e) {
+			timeChangeQueue.remove(vote);
+			debug1(e);
+			return false;
+		}
+	}
+
+	/**
+	 * Persists changed delivery state for a queued rollover vote.
+	 *
+	 * @param vote queued vote to update
+	 * @return true when the durable state update completed
+	 */
+	public synchronized boolean updateTimeVote(VoteTimeQueue vote) {
+		if (useMySQL) {
+			return timedVoteCacheTable.updateTimedVote(vote);
+		}
+
+		Collection<String> keys = jsonStorage.getTimedVoteCache();
+		if (keys == null) {
+			return false;
+		}
+		for (String key : keys) {
+			DataNode data = jsonStorage.getTimedVoteCache(key);
+			if (data != null && data.isObject() && matchesStoredTimeVote(data, vote)) {
+				try {
+					jsonStorage.addTimedVote(Integer.parseInt(key), vote);
+					jsonStorage.save();
+					return true;
+				} catch (NumberFormatException e) {
+					debug1(e);
+					return false;
+				} catch (RuntimeException e) {
+					debug1(e);
+					return false;
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Removes a queued rollover vote after its normal processing completes.
+	 *
+	 * @param vote processed queued vote
+	 * @return true when durable storage and the in-memory queue were updated
+	 */
+	public synchronized boolean removeTimeVote(VoteTimeQueue vote) {
+		if (useMySQL) {
+			if (!timedVoteCacheTable.removeVote(vote)) {
+				return false;
+			}
+			timeChangeQueue.remove(vote);
+			return true;
+		}
+
+		ArrayList<VoteTimeQueue> remaining = new ArrayList<>(timeChangeQueue);
+		remaining.remove(vote);
+		try {
+			jsonStorage.removeTimedVotes();
+			int index = 0;
+			for (VoteTimeQueue queued : remaining) {
+				jsonStorage.addTimedVote(index++, queued);
+			}
+			jsonStorage.save();
+			timeChangeQueue.remove(vote);
+			return true;
+		} catch (RuntimeException e) {
+			debug1(e);
+			return false;
+		}
 	}
 
 	/**
@@ -354,7 +597,10 @@ public abstract class VoteCacheHandler {
 			voteCacheTable.getAllVotes().forEach(voteRow -> {
 				OfflineBungeeVote vote = new OfflineBungeeVote(voteRow.getVoteId(), voteRow.getPlayerName(),
 						voteRow.getUuid(), voteRow.getService(), voteRow.getTime(), voteRow.isRealVote(),
-						voteRow.getText());
+						voteRow.getText(), voteRow.isBroadcastForwarded(), voteRow.isProxyBroadcastHandled(),
+						VoteTimeQueue.decodeBroadcastForwardedServers(voteRow.getBroadcastTargets()),
+						VoteTimeQueue.decodeBroadcastForwardedServers(voteRow.getBroadcastForwardedServers()),
+						voteRow.isRewardDelivered());
 				String server = voteRow.getServer();
 				cachedVotes.putIfAbsent(server, new ArrayList<>());
 				cachedVotes.get(server).add(vote);
@@ -364,7 +610,10 @@ public abstract class VoteCacheHandler {
 			onlineVoteCacheTable.getAllVotes().forEach(voteRow -> {
 				OfflineBungeeVote vote = new OfflineBungeeVote(voteRow.getVoteId(), voteRow.getPlayerName(),
 						voteRow.getUuid(), voteRow.getService(), voteRow.getTime(), voteRow.isRealVote(),
-						voteRow.getText());
+						voteRow.getText(), voteRow.isBroadcastForwarded(), voteRow.isProxyBroadcastHandled(),
+						VoteTimeQueue.decodeBroadcastForwardedServers(voteRow.getBroadcastTargets()),
+						VoteTimeQueue.decodeBroadcastForwardedServers(voteRow.getBroadcastForwardedServers()),
+						voteRow.isRewardDelivered());
 				String player = vote.getUuid();
 				cachedOnlineVotes.putIfAbsent(player, new ArrayList<>());
 				cachedOnlineVotes.get(player).add(vote);
@@ -374,12 +623,13 @@ public abstract class VoteCacheHandler {
 			ArrayList<VoteTimeQueue> timedVotes = new ArrayList<>();
 			timedVoteCacheTable.getAllVotes().forEach(timedVoteRow -> {
 				VoteTimeQueue voteTimeQueue = new VoteTimeQueue(timedVoteRow.getVoteId(), timedVoteRow.getPlayerName(),
-						timedVoteRow.getService(), timedVoteRow.getTime());
+						timedVoteRow.getService(), timedVoteRow.getTime(), timedVoteRow.isProxyBroadcastHandled(),
+						VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getBroadcastTargets()),
+						VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getBroadcastForwardedServers()),
+						timedVoteRow.getTotals(), timedVoteRow.isProcessed(), timedVoteRow.getUuid());
 				timedVotes.add(voteTimeQueue);
 			});
 			timeChangeQueue.addAll(timedVotes);
-
-			timedVoteCacheTable.clearTable();
 
 		} else {
 			try {
@@ -391,8 +641,21 @@ public abstract class VoteCacheHandler {
 						String service = data.has("Service") ? data.get("Service").asString() : "";
 						long time = data.has("Time") ? data.get("Time").asLong() : 0L;
 						UUID voteId = readUuid(data, "VoteId");
+						String uuid = data.has("UUID") ? data.get("UUID").asString() : "";
+						boolean proxyBroadcastHandled = data.has("ProxyBroadcastHandled")
+								&& data.get("ProxyBroadcastHandled").asBoolean();
+						String forwardedServers = data.has("BroadcastForwardedServers")
+								? data.get("BroadcastForwardedServers").asString()
+								: "";
+						String broadcastTargets = data.has("BroadcastTargets")
+								? data.get("BroadcastTargets").asString()
+								: "";
+						String totals = data.has("Totals") ? data.get("Totals").asString() : "";
+						boolean processed = data.has("Processed") && data.get("Processed").asBoolean();
 
-						getTimeChangeQueue().add(new VoteTimeQueue(voteId, name, service, time));
+						getTimeChangeQueue().add(new VoteTimeQueue(voteId, name, service, time, proxyBroadcastHandled,
+								VoteTimeQueue.decodeBroadcastForwardedServers(broadcastTargets),
+								VoteTimeQueue.decodeBroadcastForwardedServers(forwardedServers), totals, processed, uuid));
 					}
 				}
 
@@ -415,8 +678,24 @@ public abstract class VoteCacheHandler {
 							boolean real = data.has("Real") && data.get("Real").asBoolean();
 							String text = data.has("Text") ? data.get("Text").asString() : "";
 							String voteId = readVoteId(data);
+							boolean broadcastForwarded = data.has("BroadcastForwarded")
+									&& data.get("BroadcastForwarded").asBoolean();
+							boolean proxyBroadcastHandled = data.has("ProxyBroadcastHandled")
+									&& data.get("ProxyBroadcastHandled").asBoolean();
+							String broadcastTargets = data.has("BroadcastTargets")
+									? data.get("BroadcastTargets").asString()
+									: "";
+							String broadcastForwardedServers = data.has("BroadcastForwardedServers")
+									? data.get("BroadcastForwardedServers").asString()
+									: "";
+							boolean rewardDelivered = data.has("RewardDelivered")
+									&& data.get("RewardDelivered").asBoolean();
 
-							votes.add(new OfflineBungeeVote(voteId, name, uuid, service, time, real, text));
+							votes.add(new OfflineBungeeVote(voteId, name, uuid, service, time, real, text,
+									broadcastForwarded, proxyBroadcastHandled,
+									VoteTimeQueue.decodeBroadcastForwardedServers(broadcastTargets),
+									VoteTimeQueue.decodeBroadcastForwardedServers(broadcastForwardedServers),
+									rewardDelivered));
 						}
 					}
 					cachedVotes.put(server, votes);
@@ -440,8 +719,24 @@ public abstract class VoteCacheHandler {
 							boolean real = data.has("Real") && data.get("Real").asBoolean();
 							String text = data.has("Text") ? data.get("Text").asString() : "";
 							String voteId = readVoteId(data);
+							boolean broadcastForwarded = data.has("BroadcastForwarded")
+									&& data.get("BroadcastForwarded").asBoolean();
+							boolean proxyBroadcastHandled = data.has("ProxyBroadcastHandled")
+									&& data.get("ProxyBroadcastHandled").asBoolean();
+							String broadcastTargets = data.has("BroadcastTargets")
+									? data.get("BroadcastTargets").asString()
+									: "";
+							String broadcastForwardedServers = data.has("BroadcastForwardedServers")
+									? data.get("BroadcastForwardedServers").asString()
+									: "";
+							boolean rewardDelivered = data.has("RewardDelivered")
+									&& data.get("RewardDelivered").asBoolean();
 
-							votes.add(new OfflineBungeeVote(voteId, name, uuid, service, time, real, text));
+							votes.add(new OfflineBungeeVote(voteId, name, uuid, service, time, real, text,
+									broadcastForwarded, proxyBroadcastHandled,
+									VoteTimeQueue.decodeBroadcastForwardedServers(broadcastTargets),
+									VoteTimeQueue.decodeBroadcastForwardedServers(broadcastForwardedServers),
+									rewardDelivered));
 						}
 					}
 					cachedOnlineVotes.put(player, votes);
