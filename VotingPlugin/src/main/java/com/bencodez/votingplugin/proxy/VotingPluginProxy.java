@@ -662,6 +662,13 @@ public abstract class VotingPluginProxy {
 									VotingPluginWire.voteOnline(cache.getPlayerName(), cache.getUuid(), cache.getService(),
 											cache.getTime(), false, cache.isRealVote(), cache.getText(), cache.getVoteId(),
 											getConfig().getBungeeManageTotals(), broadcastHere, num, numberOfVotes));
+							// The normal envelope is also a valid broadcast delivery for the
+							// current target. Record it so a previously pending standalone
+							// retry cannot announce the same vote again later.
+							if (cache.isProxyBroadcastHandled() && broadcastHere) {
+								cache.getBroadcastForwardedServers().add(server);
+								cache.setBroadcastForwarded(cache.isProxyBroadcastComplete());
+							}
 							cache.setRewardDelivered(true);
 							deliveredReward = true;
 							delay++;
