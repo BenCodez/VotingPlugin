@@ -240,6 +240,7 @@ public class DiscordHandler {
 			synchronized (recoveringTopVoters) {
 				topVoterMessageIds.put(top, 0L);
 			}
+			plugin.getServerData().setTopVoterMessageId(top, 0L);
 			channel.sendMessageEmbeds(eb.build()).queue(msg -> {
 				long newId = msg.getIdLong();
 				synchronized (recoveringTopVoters) {
