@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.proxy.cache;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
@@ -108,6 +109,42 @@ public abstract class VoteCacheHandler {
 			int idx = jsonStorage.getServerVotes(server).size();
 			jsonStorage.addVote(server, idx, vote);
 			jsonStorage.save();
+		}
+	}
+
+	/**
+	 * Persists updated delivery state for an existing server-cached vote.
+	 *
+	 * @param server backend server owning the cached reward
+	 * @param vote cached vote with updated delivery state
+	 */
+	public synchronized void updateServerVote(String server, OfflineBungeeVote vote) {
+		if (useMySQL) {
+			voteCacheTable.updateProxyBroadcastState(vote, server);
+			return;
+		}
+
+		Collection<String> keys = jsonStorage.getServerVotes(server);
+		if (keys == null) {
+			return;
+		}
+		for (String key : keys) {
+			DataNode data = jsonStorage.getServerVotes(server, key);
+			if (data == null || !data.isObject() || !data.has("UUID") || !data.has("Service")
+					|| !data.has("Time")) {
+				continue;
+			}
+			if (vote.getUuid().equals(data.get("UUID").asString())
+					&& vote.getService().equals(data.get("Service").asString())
+					&& vote.getTime() == data.get("Time").asLong()) {
+				try {
+					jsonStorage.addVote(server, Integer.parseInt(key), vote);
+					jsonStorage.save();
+				} catch (NumberFormatException e) {
+					debug1(e);
+				}
+				return;
+			}
 		}
 	}
 

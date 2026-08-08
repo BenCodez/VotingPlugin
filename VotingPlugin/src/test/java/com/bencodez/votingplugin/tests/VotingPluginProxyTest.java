@@ -16,10 +16,14 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
+import com.bencodez.votingplugin.proxy.BungeeMethod;
+import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 import com.bencodez.votingplugin.proxy.ProxyMysqlUserTable;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
+import com.bencodez.votingplugin.proxy.cache.VoteCacheHandler;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyHandler;
+import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
 public class VotingPluginProxyTest {
 
@@ -115,13 +119,60 @@ public class VotingPluginProxyTest {
 		Mockito.when(proxyMySQL.getExactQuery(Mockito.any())).thenReturn(new java.util.ArrayList<>());
 
 		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
-		Mockito.doReturn(false).when(spyProxy).checkVoteDelay(Mockito.anyString(), Mockito.anyString(), Mockito.any());
+		Mockito.doReturn(false).when(spyProxy).checkVoteDelay(Mockito.anyString(), Mockito.anyString(),
+				Mockito.anyString(), Mockito.any(), Mockito.anyBoolean());
 
 		spyProxy.vote("Player", "Service", true, true, 0, null, null);
 
-		verify(spyProxy).checkVoteDelay(Mockito.anyString(), Mockito.eq("Service"), Mockito.any());
+		verify(spyProxy).checkVoteDelay(Mockito.anyString(), Mockito.eq("Player"), Mockito.eq("Service"), Mockito.any(),
+				Mockito.eq(true));
 		verify(globalDataHandler, never()).isTimeChangedHappened();
 		verify(spyProxy, never()).sendPluginMessageData(Mockito.anyString(), Mockito.anyString(), Mockito.any(),
 				Mockito.anyBoolean());
+	}
+
+	@Test
+	void acceptedTimeChangeVoteReservesItsDelaySlot() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		java.util.Queue<VoteTimeQueue> queue = new java.util.concurrent.ConcurrentLinkedQueue<>();
+		queue.add(new VoteTimeQueue(java.util.UUID.randomUUID(), "Player", "Service", System.currentTimeMillis()));
+		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(queue);
+		Mockito.when(voteCache.getVotes(Mockito.anyString())).thenReturn(new java.util.ArrayList<>());
+
+		Mockito.when(votingPluginProxy.getConfig().getWaitUntilVoteDelaySites()).thenReturn(java.util.List.of("Site"));
+		Mockito.when(votingPluginProxy.getConfig().getWaitUntilVoteDelayService("Site")).thenReturn("Service");
+		Mockito.when(votingPluginProxy.getConfig().getWaitUntilVoteDelayVoteDelay("Site")).thenReturn(1);
+
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+
+		assertFalse(spyProxy.checkVoteDelay("player-uuid", "Player", "Service", new java.util.ArrayList<>(), true));
+		assertTrue(spyProxy.checkVoteDelay("player-uuid", "Player", "Service", new java.util.ArrayList<>(), false));
+	}
+
+	@Test
+	void pendingServerBroadcastRetriesBeforeOfflineRewardDelivery() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "player-uuid",
+				"Service", 100L, true, "totals", false, true, java.util.Set.of("Server1"),
+				java.util.Collections.emptySet(), false);
+		Mockito.when(voteCache.hasVotes("Server1")).thenReturn(true);
+		Mockito.when(voteCache.getVotes("Server1"))
+				.thenReturn(new java.util.ArrayList<>(java.util.List.of(vote)));
+
+		votingPluginProxy.setPlayerOnline(false);
+		votingPluginProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		Mockito.when(votingPluginProxy.getConfig().getBlockedServers())
+				.thenReturn(java.util.Collections.emptyList());
+		Mockito.when(votingPluginProxy.getConfig().getWaitForUserOnline()).thenReturn(true);
+
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		spyProxy.checkCachedVotes("Server1");
+
+		assertTrue(vote.isProxyBroadcastComplete());
+		assertTrue(vote.isBroadcastForwarded());
+		assertFalse(vote.isRewardDelivered());
+		verify(voteCache).updateServerVote("Server1", vote);
 	}
 }

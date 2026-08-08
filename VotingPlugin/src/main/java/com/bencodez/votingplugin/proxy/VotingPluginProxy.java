@@ -507,6 +507,16 @@ public abstract class VotingPluginProxy {
 						int num = 1;
 						int numberOfVotes = c.size();
 						for (OfflineBungeeVote cache : c) {
+							if (cache.isProxyBroadcastHandled() && cache.needsBroadcastOn(server)) {
+								Set<String> forwarded = sendProxyBroadcast(Collections.singleton(server),
+										cache.getUuid(), cache.getPlayerName(), cache.getService(), cache.getTime(),
+										cache.getText(), false);
+								if (cache.getBroadcastForwardedServers().addAll(forwarded)) {
+									cache.setBroadcastForwarded(cache.isProxyBroadcastComplete());
+									getVoteCacheHandler().updateServerVote(server, cache);
+								}
+							}
+
 							boolean toSend = true;
 							if (getConfig().getWaitForUserOnline()) {
 								if (!isPlayerOnline(cache.getPlayerName())) {
@@ -1386,7 +1396,7 @@ public abstract class VotingPluginProxy {
 		return new UUID(mostSigBits, leastSigBits);
 	}
 
-	public void processQueue() {
+	public synchronized void processQueue() {
 		while (getVoteCacheHandler().getTimeChangeQueue().size() > 0) {
 			VoteTimeQueue vote = getVoteCacheHandler().getTimeChangeQueue().remove();
 			vote(vote.getName(), vote.getService(), true, false, vote.getTime(), null, null, vote);
@@ -1571,7 +1581,8 @@ public abstract class VotingPluginProxy {
 		return "";
 	}
 
-	private long getLastVotesTime(String uuid, ArrayList<Column> cols, String site, String service) {
+	private long getLastVotesTime(String uuid, ArrayList<Column> cols, String site, String service, String player,
+			boolean includeTimeChangeQueue) {
 		long mostRecentTime = 0;
 
 		if (getVoteCacheHandler().hasOnlineVotes(uuid)) {
@@ -1587,6 +1598,15 @@ public abstract class VotingPluginProxy {
 			for (OfflineBungeeVote vote : getVoteCacheHandler().getVotes(server)) {
 				if (vote.getUuid().equals(uuid) && vote.getService().equalsIgnoreCase(service)) {
 					mostRecentTime = Math.max(mostRecentTime, vote.getTime());
+				}
+			}
+		}
+
+		if (includeTimeChangeQueue && player != null) {
+			for (VoteTimeQueue queuedVote : getVoteCacheHandler().getTimeChangeQueue()) {
+				if (queuedVote.getName().equalsIgnoreCase(player)
+						&& queuedVote.getService().equalsIgnoreCase(service)) {
+					mostRecentTime = Math.max(mostRecentTime, queuedVote.getTime());
 				}
 			}
 		}
@@ -1607,6 +1627,22 @@ public abstract class VotingPluginProxy {
 	}
 
 	public boolean checkVoteDelay(String uuid, String service, ArrayList<Column> data) {
+		return checkVoteDelay(uuid, null, service, data, false);
+	}
+
+	/**
+	 * Checks the configured vote delay, optionally including accepted votes waiting
+	 * for a GlobalData time change to finish.
+	 *
+	 * @param uuid player UUID
+	 * @param player player name used by the time-change queue
+	 * @param service vote service
+	 * @param data current player data
+	 * @param includeTimeChangeQueue whether queued votes reserve their delay slot
+	 * @return true when the vote may be accepted
+	 */
+	public boolean checkVoteDelay(String uuid, String player, String service, ArrayList<Column> data,
+			boolean includeTimeChangeQueue) {
 		String site = getWaitUntilDelaySiteFromService(service);
 		if (site.isEmpty()) {
 			debug("No service site set for " + service + ", skipping vote delay check");
@@ -1616,7 +1652,7 @@ public abstract class VotingPluginProxy {
 		int voteDelay = getConfig().getWaitUntilVoteDelayVoteDelay(site);
 		int voteDelayMin = getConfig().getWaitUntilVoteDelayVoteDelayMin(site);
 
-		long lastVote = getLastVotesTime(uuid, data, site, service);
+		long lastVote = getLastVotesTime(uuid, data, site, service, player, includeTimeChangeQueue);
 		if (lastVote == 0) {
 			debug("No last vote time found for " + uuid + "/" + service + ", skipping vote delay check");
 			return true;
@@ -1776,7 +1812,7 @@ public abstract class VotingPluginProxy {
 				}
 
 				data = getProxyMySQL().getExactQuery(new Column("uuid", new DataValueString(uuid)));
-				if (!checkVoteDelay(uuid, service, data)) {
+				if (!checkVoteDelay(uuid, player, service, data, queuedVote == null)) {
 					log("Vote delay is not met for " + player + "/" + service + ", skipping vote");
 					sendVoteDelayRejected(player, uuid, service, playerOnline, playerServer);
 					return;
@@ -1791,12 +1827,17 @@ public abstract class VotingPluginProxy {
 				if (timeQueue && getGlobalDataHandler().isTimeChangedHappened()) {
 					if (proxyBroadcastDecider.usesImmediateForwarding(playerOnline)) {
 						broadcastTargets.addAll(proxyBroadcastDecider.resolveTargets(false, null));
-						broadcastForwardedServers.addAll(
-								sendProxyBroadcast(broadcastTargets, uuid, player, service, time, "", false));
 						proxyBroadcastHandled = true;
 					}
-					getVoteCacheHandler().getTimeChangeQueue().add(new VoteTimeQueue(voteId, player, service, time,
-							proxyBroadcastHandled, broadcastTargets, broadcastForwardedServers));
+					VoteTimeQueue delayedVote = new VoteTimeQueue(voteId, player, service, time,
+							proxyBroadcastHandled, broadcastTargets, broadcastForwardedServers);
+					getVoteCacheHandler().getTimeChangeQueue().add(delayedVote);
+					if (proxyBroadcastHandled) {
+						Set<String> forwarded = sendProxyBroadcast(broadcastTargets, uuid, player, service, time, "",
+								false);
+						broadcastForwardedServers.addAll(forwarded);
+						delayedVote.getBroadcastForwardedServers().addAll(forwarded);
+					}
 					log("Caching vote from " + player + "/" + service
 							+ " because time change is happening right now");
 					return;
