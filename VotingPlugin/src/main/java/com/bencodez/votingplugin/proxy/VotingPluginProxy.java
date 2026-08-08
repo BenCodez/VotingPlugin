@@ -529,7 +529,20 @@ public abstract class VotingPluginProxy {
 		case REDIS:
 			return sendRedisEnvelopeServer(server, envelope, true);
 		case SOCKETS:
-			return sendSocketEnvelopeServer(server, envelope);
+			// Standalone broadcasts use the same initialized client as normal
+			// envelopes. This preserves the socket connection and its delivery
+			// acknowledgement instead of creating a second short-lived socket.
+			ClientHandler socketClient = clientHandles == null ? null : clientHandles.get(server);
+			if (socketClient == null) {
+				return false;
+			}
+			try {
+				socketClient.sendEnvelope(envelope);
+				return true;
+			} catch (RuntimeException e) {
+				debug(e.getMessage());
+				return false;
+			}
 		default:
 			return false;
 		}
@@ -1729,7 +1742,7 @@ public abstract class VotingPluginProxy {
 				VoteTotalsSnapshot queuedTotals = vote.getTotals() == null || vote.getTotals().isEmpty() ? null
 						: VoteTotalsSnapshot.parseStorage(vote.getTotals());
 				QueuedVoteResult result = vote(vote.getName(), vote.getService(), true, false, vote.getTime(), queuedTotals,
-						null, vote);
+						vote.getUuid(), vote);
 				if (result == QueuedVoteResult.RETRY) {
 					scheduleTimeVoteRetry();
 					return;
