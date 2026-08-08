@@ -524,7 +524,7 @@ public abstract class VotingPluginProxy {
 		case PLUGINMESSAGING:
 			return sendPluginMessageServerNow(server, envelope);
 		case REDIS:
-			return sendRedisEnvelopeServer(server, envelope);
+			return sendRedisEnvelopeServer(server, envelope, true);
 		case SOCKETS:
 			return sendSocketEnvelopeServer(server, envelope);
 		default:
@@ -682,7 +682,11 @@ public abstract class VotingPluginProxy {
 						cache.getPlayerName(), cache.getService(), cache.getTime(), cache.getText(), false);
 				if (cache.getBroadcastForwardedServers().addAll(forwarded)) {
 					cache.setBroadcastForwarded(cache.isProxyBroadcastComplete());
-					getVoteCacheHandler().updateOnlineVote(cachedUuid, cache);
+					if (cache.isRewardDelivered() && cache.isProxyBroadcastComplete()) {
+						getVoteCacheHandler().removeOnlineVote(cachedUuid, cache);
+					} else {
+						getVoteCacheHandler().updateOnlineVote(cachedUuid, cache);
+					}
 				}
 			}
 		}
@@ -1062,7 +1066,10 @@ public abstract class VotingPluginProxy {
 					sendRedisEnvelopeServer(server, envelope);
 					break;
 				case SOCKETS:
-					sendSocketEnvelopeServer(server, envelope);
+					ClientHandler socketClient = clientHandles == null ? null : clientHandles.get(server);
+					if (socketClient != null) {
+						socketClient.sendEnvelope(envelope);
+					}
 					break;
 				default:
 					break;
@@ -1467,8 +1474,9 @@ public abstract class VotingPluginProxy {
 
 	public synchronized void processQueue() {
 		while (getVoteCacheHandler().getTimeChangeQueue().size() > 0) {
-			VoteTimeQueue vote = getVoteCacheHandler().getTimeChangeQueue().remove();
+			VoteTimeQueue vote = getVoteCacheHandler().getTimeChangeQueue().element();
 			vote(vote.getName(), vote.getService(), true, false, vote.getTime(), null, null, vote);
+			getVoteCacheHandler().removeTimeVote(vote);
 		}
 	}
 
@@ -1577,8 +1585,12 @@ public abstract class VotingPluginProxy {
 	}
 
 	public boolean sendRedisEnvelopeServer(String server, JsonEnvelope envelope) {
+		return sendRedisEnvelopeServer(server, envelope, false);
+	}
+
+	private boolean sendRedisEnvelopeServer(String server, JsonEnvelope envelope, boolean useRetryCooldown) {
 		JedisPool publisherPool = redisPublisherPool;
-		if (publisherPool == null || System.currentTimeMillis() < redisPublisherRetryAfter) {
+		if (publisherPool == null || (useRetryCooldown && System.currentTimeMillis() < redisPublisherRetryAfter)) {
 			return false;
 		}
 
@@ -1588,8 +1600,10 @@ public abstract class VotingPluginProxy {
 			redisPublisherRetryAfter = 0L;
 			return subscribers > 0;
 		} catch (Exception e) {
-			// Avoid paying the connection timeout once per target while Redis is down.
-			redisPublisherRetryAfter = System.currentTimeMillis() + 2000L;
+			if (useRetryCooldown) {
+				// Standalone broadcasts remain queued, so their retries can be throttled safely.
+				redisPublisherRetryAfter = System.currentTimeMillis() + 2000L;
+			}
 			debug(e.getMessage());
 			return false;
 		}
@@ -1956,12 +1970,20 @@ public abstract class VotingPluginProxy {
 				}
 				VoteTimeQueue delayedVote = new VoteTimeQueue(voteId, player, service, time,
 						proxyBroadcastHandled, broadcastTargets, broadcastForwardedServers);
-				getVoteCacheHandler().getTimeChangeQueue().add(delayedVote);
+				if (!getVoteCacheHandler().addTimeVoteToCache(delayedVote)) {
+					logSevere("Unable to persist queued rollover vote for " + player + "/" + service
+							+ "; skipping proxy broadcast");
+					return;
+				}
 				if (proxyBroadcastHandled) {
-					Set<String> forwarded = sendProxyBroadcast(broadcastTargets, uuid, player, service, time, "",
-							false);
-					broadcastForwardedServers.addAll(forwarded);
-					delayedVote.getBroadcastForwardedServers().addAll(forwarded);
+					for (String target : broadcastTargets) {
+						Set<String> forwarded = sendProxyBroadcast(Collections.singleton(target), uuid, player,
+								service, time, "", false);
+						if (delayedVote.getBroadcastForwardedServers().addAll(forwarded)) {
+							broadcastForwardedServers.addAll(forwarded);
+							getVoteCacheHandler().updateTimeVote(delayedVote);
+						}
+					}
 				}
 				log("Caching vote from " + player + "/" + service
 						+ " because time change is happening right now");

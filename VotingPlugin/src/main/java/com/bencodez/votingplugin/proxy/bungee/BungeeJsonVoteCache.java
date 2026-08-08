@@ -117,6 +117,11 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 		return new GsonDataNode(getNode("TimedVoteCache." + key));
 	}
 
+	@Override
+	public void removeTimedVotes() {
+		setString("TimedVoteCache", null);
+	}
+
 	public int getVotePartyCache(String server) {
 		return getInt("VoteParty.Cache." + server, 0);
 	}

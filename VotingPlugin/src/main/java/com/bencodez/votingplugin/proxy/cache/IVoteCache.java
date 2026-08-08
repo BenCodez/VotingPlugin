@@ -105,6 +105,11 @@ public interface IVoteCache {
 	DataNode getTimedVoteCache(String key);
 
 	/**
+	 * Removes all persisted timed vote entries.
+	 */
+	void removeTimedVotes();
+
+	/**
 	 * Gets the vote party cache for a server.
 	 *
 	 * @param server the server name

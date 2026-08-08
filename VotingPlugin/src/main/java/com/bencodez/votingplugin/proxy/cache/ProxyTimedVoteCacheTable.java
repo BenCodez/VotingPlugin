@@ -14,6 +14,7 @@ import com.bencodez.simpleapi.sql.mysql.DbType;
 import com.bencodez.simpleapi.sql.mysql.MySQL;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.simpleapi.sql.mysql.queries.Query;
+import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
 /**
  * Table for caching timed votes in the proxy.
@@ -140,8 +141,9 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 	 * @param proxyBroadcastHandled whether standalone proxy forwarding was handled
 	 * @param broadcastTargets encoded original broadcast targets
 	 * @param broadcastForwardedServers encoded servers that received the standalone broadcast
+	 * @return true when the row was inserted
 	 */
-	public void insertTimedVote(UUID voteId, String playerName, String service, long time,
+	public boolean insertTimedVote(UUID voteId, String playerName, String service, long time,
 			boolean proxyBroadcastHandled, String broadcastTargets, String broadcastForwardedServers) {
 		String sql = "INSERT INTO " + qi(getTableName()) + " (" + qi("playerName") + ", " + qi("service") + ", "
 				+ qi("time") + ", " + qi("voteId") + ", " + qi("proxyBroadcastHandled") + ", "
@@ -160,6 +162,41 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 			}
 			ps.setString(6, broadcastTargets);
 			ps.setString(7, broadcastForwardedServers);
+			ps.executeUpdate();
+			return true;
+		} catch (SQLException e) {
+			debug(e);
+			return false;
+		}
+	}
+
+	/**
+	 * Updates a queued vote's standalone broadcast delivery state.
+	 *
+	 * @param vote queued vote with current delivery state
+	 */
+	public void updateTimedVote(VoteTimeQueue vote) {
+		boolean hasVoteId = vote.getVoteId() != null;
+		String sql = "UPDATE " + qi(getTableName()) + " SET " + qi("proxyBroadcastHandled") + " = ?, "
+				+ qi("broadcastTargets") + " = ?, " + qi("broadcastForwardedServers") + " = ? WHERE "
+				+ (hasVoteId ? qi("voteId") + " = ?;"
+						: qi("playerName") + " = ? AND " + qi("service") + " = ? AND " + qi("time") + " = ?;");
+		try (Connection conn = mysql.getConnectionManager().getConnection();
+				PreparedStatement ps = conn.prepareStatement(sql)) {
+			if (getDbType() == DbType.POSTGRESQL) {
+				ps.setBoolean(1, vote.isProxyBroadcastHandled());
+			} else {
+				ps.setInt(1, vote.isProxyBroadcastHandled() ? 1 : 0);
+			}
+			ps.setString(2, vote.encodeBroadcastTargets());
+			ps.setString(3, vote.encodeBroadcastForwardedServers());
+			if (hasVoteId) {
+				ps.setString(4, vote.getVoteId().toString());
+			} else {
+				ps.setString(4, vote.getName());
+				ps.setString(5, vote.getService());
+				ps.setLong(6, vote.getTime());
+			}
 			ps.executeUpdate();
 		} catch (SQLException e) {
 			debug(e);
@@ -195,6 +232,31 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setInt(1, id);
+			ps.executeUpdate();
+		} catch (SQLException e) {
+			debug(e);
+		}
+	}
+
+	/**
+	 * Removes one processed queued vote by vote ID, with a legacy tuple fallback.
+	 *
+	 * @param vote processed queued vote
+	 */
+	public void removeVote(VoteTimeQueue vote) {
+		boolean hasVoteId = vote.getVoteId() != null;
+		String sql = "DELETE FROM " + qi(getTableName()) + " WHERE "
+				+ (hasVoteId ? qi("voteId") + " = ?;"
+						: qi("playerName") + " = ? AND " + qi("service") + " = ? AND " + qi("time") + " = ?;");
+		try (Connection conn = mysql.getConnectionManager().getConnection();
+				PreparedStatement ps = conn.prepareStatement(sql)) {
+			if (hasVoteId) {
+				ps.setString(1, vote.getVoteId().toString());
+			} else {
+				ps.setString(1, vote.getName());
+				ps.setString(2, vote.getService());
+				ps.setLong(3, vote.getTime());
+			}
 			ps.executeUpdate();
 		} catch (SQLException e) {
 			debug(e);

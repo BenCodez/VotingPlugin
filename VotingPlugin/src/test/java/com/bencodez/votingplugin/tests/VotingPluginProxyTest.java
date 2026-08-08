@@ -217,4 +217,27 @@ public class VotingPluginProxyTest {
 		assertFalse(vote.isRewardDelivered());
 		verify(voteCache).updateOnlineVote("voter-uuid", vote);
 	}
+
+	@Test
+	void completedBroadcastOnlyOnlineVoteIsRemovedAfterRetry() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "OfflineVoter", "voter-uuid",
+				"Service", 100L, true, "totals", false, true, java.util.Set.of("Server1"),
+				java.util.Collections.emptySet(), true);
+		Mockito.when(voteCache.getOnlineVoteUUIDs()).thenReturn(java.util.Set.of("voter-uuid"));
+		Mockito.when(voteCache.getOnlineVotes("voter-uuid"))
+				.thenReturn(new java.util.ArrayList<>(java.util.List.of(vote)));
+
+		votingPluginProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		Mockito.when(votingPluginProxy.getConfig().getBlockedServers())
+				.thenReturn(java.util.Collections.emptyList());
+
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		spyProxy.retryPendingOnlineBroadcastsForTest("Server1");
+
+		assertTrue(vote.isProxyBroadcastComplete());
+		verify(voteCache).removeOnlineVote("voter-uuid", vote);
+		verify(voteCache, never()).updateOnlineVote("voter-uuid", vote);
+	}
 }

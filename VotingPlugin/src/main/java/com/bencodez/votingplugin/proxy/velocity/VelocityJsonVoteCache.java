@@ -122,6 +122,11 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 	}
 
 	@Override
+	public void removeTimedVotes() {
+		remove("TimedVoteCache");
+	}
+
+	@Override
 	public int getVotePartyCache(String server) {
 		return getNode("VoteParty", "Cache", server).getInt(0);
 	}

@@ -297,6 +297,31 @@ public abstract class VoteCacheHandler {
 	}
 
 	/**
+	 * Removes one voter-keyed cached vote by its stable vote identity.
+	 *
+	 * @param uuid voter cache key
+	 * @param removedVote vote to remove
+	 */
+	public synchronized void removeOnlineVote(String uuid, OfflineBungeeVote removedVote) {
+		ArrayList<OfflineBungeeVote> votes = cachedOnlineVotes.get(uuid);
+		if (votes == null || votes.isEmpty()) {
+			return;
+		}
+
+		ArrayList<OfflineBungeeVote> retained = new ArrayList<>();
+		for (OfflineBungeeVote vote : votes) {
+			if (!sameVoteIdentity(vote, removedVote)) {
+				retained.add(vote);
+			}
+		}
+
+		removeOnlineVotes(uuid);
+		for (OfflineBungeeVote vote : retained) {
+			addOnlineVote(uuid, vote);
+		}
+	}
+
+	/**
 	 * Removes all cached online votes for a player.
 	 * @param uuid the player UUID
 	 */
@@ -433,28 +458,30 @@ public abstract class VoteCacheHandler {
 				&& vote.getTime() == data.get("Time").asLong();
 	}
 
+	private boolean sameVoteIdentity(OfflineBungeeVote first, OfflineBungeeVote second) {
+		if (first.getVoteId() != null && second.getVoteId() != null) {
+			return first.getVoteId().equals(second.getVoteId());
+		}
+		return first.getUuid().equals(second.getUuid()) && first.getService().equals(second.getService())
+				&& first.getTime() == second.getTime();
+	}
+
+	private boolean matchesStoredTimeVote(DataNode data, VoteTimeQueue vote) {
+		String storedVoteId = readVoteId(data);
+		if (vote.getVoteId() != null && storedVoteId != null && !storedVoteId.isEmpty()) {
+			return vote.getVoteId().toString().equals(storedVoteId);
+		}
+		return data.has("Name") && data.has("Service") && data.has("Time")
+				&& vote.getName().equals(data.get("Name").asString())
+				&& vote.getService().equals(data.get("Service").asString())
+				&& vote.getTime() == data.get("Time").asLong();
+	}
+
 	/**
 	 * Saves the vote cache to storage.
 	 */
 	public void saveVoteCache() {
-		if (useMySQL) {
-
-			if (!getTimeChangeQueue().isEmpty()) {
-				for (VoteTimeQueue vote : getTimeChangeQueue()) {
-					timedVoteCacheTable.insertTimedVote(vote.getVoteId(), vote.getName(), vote.getService(), vote.getTime(),
-							vote.isProxyBroadcastHandled(), vote.encodeBroadcastTargets(),
-							vote.encodeBroadcastForwardedServers());
-				}
-			}
-		} else {
-
-			if (!getTimeChangeQueue().isEmpty()) {
-				int num = 0;
-				for (VoteTimeQueue vote : getTimeChangeQueue()) {
-					jsonStorage.addTimedVote(num, vote);
-					num++;
-				}
-			}
+		if (!useMySQL) {
 			jsonStorage.save();
 		}
 	}
@@ -462,9 +489,86 @@ public abstract class VoteCacheHandler {
 	/**
 	 * Adds a timed vote to the cache queue.
 	 * @param vote the timed vote to add
+	 * @return true when the vote was durably stored
 	 */
-	public void addTimeVoteToCache(VoteTimeQueue vote) {
+	public synchronized boolean addTimeVoteToCache(VoteTimeQueue vote) {
+		if (vote == null) {
+			return false;
+		}
 		timeChangeQueue.add(vote);
+		if (useMySQL) {
+			boolean stored = timedVoteCacheTable.insertTimedVote(vote.getVoteId(), vote.getName(), vote.getService(),
+					vote.getTime(), vote.isProxyBroadcastHandled(), vote.encodeBroadcastTargets(),
+					vote.encodeBroadcastForwardedServers());
+			if (!stored) {
+				timeChangeQueue.remove(vote);
+			}
+			return stored;
+		}
+
+		try {
+			Collection<String> keys = jsonStorage.getTimedVoteCache();
+			int index = 0;
+			while (keys != null && keys.contains(String.valueOf(index))) {
+				index++;
+			}
+			jsonStorage.addTimedVote(index, vote);
+			jsonStorage.save();
+			return true;
+		} catch (RuntimeException e) {
+			timeChangeQueue.remove(vote);
+			debug1(e);
+			return false;
+		}
+	}
+
+	/**
+	 * Persists changed delivery state for a queued rollover vote.
+	 *
+	 * @param vote queued vote to update
+	 */
+	public synchronized void updateTimeVote(VoteTimeQueue vote) {
+		if (useMySQL) {
+			timedVoteCacheTable.updateTimedVote(vote);
+			return;
+		}
+
+		Collection<String> keys = jsonStorage.getTimedVoteCache();
+		if (keys == null) {
+			return;
+		}
+		for (String key : keys) {
+			DataNode data = jsonStorage.getTimedVoteCache(key);
+			if (data != null && data.isObject() && matchesStoredTimeVote(data, vote)) {
+				try {
+					jsonStorage.addTimedVote(Integer.parseInt(key), vote);
+					jsonStorage.save();
+				} catch (NumberFormatException e) {
+					debug1(e);
+				}
+				return;
+			}
+		}
+	}
+
+	/**
+	 * Removes a queued rollover vote after its normal processing completes.
+	 *
+	 * @param vote processed queued vote
+	 */
+	public synchronized void removeTimeVote(VoteTimeQueue vote) {
+		timeChangeQueue.remove(vote);
+		if (useMySQL) {
+			timedVoteCacheTable.removeVote(vote);
+			return;
+		}
+
+		jsonStorage.removeTimedVotes();
+		int index = 0;
+		for (VoteTimeQueue queued : timeChangeQueue) {
+			jsonStorage.addTimedVote(index++, queued);
+		}
+		jsonStorage.save();
 	}
 
 	/**
@@ -508,8 +612,6 @@ public abstract class VoteCacheHandler {
 				timedVotes.add(voteTimeQueue);
 			});
 			timeChangeQueue.addAll(timedVotes);
-
-			timedVoteCacheTable.clearTable();
 
 		} else {
 			try {

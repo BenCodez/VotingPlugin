@@ -151,16 +151,31 @@ public class VoteCacheHandlerVoteIdTest {
 	}
 
 	@Test
-	public void timedVoteIdIsPassedToJsonStorage() {
+	public void timedVoteIsPersistedImmediatelyWithItsId() {
 		UUID voteId = UUID.randomUUID();
 		VoteTimeQueue queued = new VoteTimeQueue(voteId, "Player", "Service", 100L);
 		handler.addTimeVoteToCache(queued);
 
-		handler.saveVoteCache();
-
 		verify(storage).addTimedVote(eq(0), same(queued));
 		verify(storage).save();
 		assertEquals(voteId, handler.getTimeChangeQueue().element().getVoteId());
+	}
+
+	@Test
+	public void timedVoteDeliveryStateIsUpdatedByVoteId() {
+		UUID voteId = UUID.randomUUID();
+		DataNode stored = mock(DataNode.class);
+		when(stored.isObject()).thenReturn(true);
+		stubString(stored, "VoteId", voteId.toString());
+		when(storage.getTimedVoteCache()).thenReturn(List.of("2"));
+		when(storage.getTimedVoteCache("2")).thenReturn(stored);
+		VoteTimeQueue queued = new VoteTimeQueue(voteId, "Player", "Service", 100L, true,
+				Set.of("Server1"), Set.of("Server1"));
+
+		handler.updateTimeVote(queued);
+
+		verify(storage).addTimedVote(2, queued);
+		verify(storage).save();
 	}
 
 	@Test
@@ -280,6 +295,19 @@ public class VoteCacheHandlerVoteIdTest {
 		assertEquals(List.of(pending), handler.getOnlineVotes("player-uuid"));
 		assertTrue(pending.isRewardDelivered());
 		assertTrue(pending.needsBroadcastOn("Survival"));
+	}
+
+	@Test
+	public void completedOnlineVoteRemovalKeepsCollidingVoteId() {
+		UUID removedId = UUID.randomUUID();
+		OfflineBungeeVote removed = vote(removedId, 100L);
+		OfflineBungeeVote retained = vote(UUID.randomUUID(), 100L);
+		handler.addOnlineVote("player-uuid", removed);
+		handler.addOnlineVote("player-uuid", retained);
+
+		handler.removeOnlineVote("player-uuid", removed);
+
+		assertEquals(List.of(retained), handler.getOnlineVotes("player-uuid"));
 	}
 
 	@Test
