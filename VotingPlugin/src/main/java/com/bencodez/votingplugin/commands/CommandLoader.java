@@ -2891,7 +2891,26 @@ public class CommandLoader {
 		@SuppressWarnings("unchecked")
 		Map<String, org.bukkit.command.Command> knownCommands =
 				(Map<String, org.bukkit.command.Command>) field.get(commandMap);
+		Set<String> removedLabels = new HashSet<>();
+		for (Map.Entry<String, org.bukkit.command.Command> entry : knownCommands.entrySet()) {
+			if (entry.getValue() == command) {
+				removedLabels.add(entry.getKey());
+			}
+		}
 		knownCommands.entrySet().removeIf(entry -> entry.getValue() == command);
+		for (String label : removedLabels) {
+			if (knownCommands.containsKey(label)) {
+				continue;
+			}
+			for (Map.Entry<String, org.bukkit.command.Command> entry : knownCommands.entrySet()) {
+				String fallback = entry.getKey();
+				int separator = fallback.indexOf(':');
+				if (separator > 0 && fallback.substring(separator + 1).equalsIgnoreCase(label)) {
+					knownCommands.put(label, entry.getValue());
+					break;
+				}
+			}
+		}
 	}
 
 	/** Gets Bukkit's command map without depending on a CraftBukkit package name. */
