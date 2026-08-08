@@ -203,6 +203,10 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 		return getProjectedVotePartyState(acceptedVotes);
 	}
 
+	public boolean persistTimeVoteDeliveryForTest(VoteTimeQueue vote) {
+		return persistTimeVoteDelivery(vote);
+	}
+
 	@Override
 	public void setVoteCacheLastUpdated() {
 		// TODO Auto-generated method stub

@@ -118,6 +118,7 @@ public abstract class VotingPluginProxy {
 	private JedisPool redisPublisherPool;
 	private volatile long redisPublisherRetryAfter;
 	private boolean timeVoteRetryScheduled;
+	private boolean timeVoteDeliveryRetryScheduled;
 
 	private boolean enabled;
 
@@ -702,6 +703,9 @@ public abstract class VotingPluginProxy {
 			return;
 		}
 		for (VoteTimeQueue vote : new ArrayList<>(getVoteCacheHandler().getTimeChangeQueue())) {
+			if (vote.isDeliveryStateDirty() && !persistTimeVoteDelivery(vote)) {
+				continue;
+			}
 			if (!vote.isProxyBroadcastHandled() || vote.getUuid().isEmpty() || !vote.getBroadcastTargets().contains(server)
 					|| vote.getBroadcastForwardedServers().contains(server)) {
 				continue;
@@ -709,7 +713,7 @@ public abstract class VotingPluginProxy {
 			Set<String> forwarded = sendProxyBroadcast(Collections.singleton(server), vote.getUuid(), vote.getName(),
 					vote.getService(), vote.getTime(), vote.getTotals(), false);
 			if (vote.getBroadcastForwardedServers().addAll(forwarded)) {
-				getVoteCacheHandler().updateTimeVote(vote);
+				persistTimeVoteDelivery(vote);
 			}
 		}
 	}
@@ -751,6 +755,9 @@ public abstract class VotingPluginProxy {
 			return;
 		}
 		for (VoteTimeQueue vote : new ArrayList<>(getVoteCacheHandler().getTimeChangeQueue())) {
+			if (vote.isDeliveryStateDirty() && !persistTimeVoteDelivery(vote)) {
+				continue;
+			}
 			if (!vote.isProxyBroadcastHandled() || vote.getUuid().isEmpty()) {
 				continue;
 			}
@@ -763,8 +770,36 @@ public abstract class VotingPluginProxy {
 			Set<String> forwarded = sendProxyBroadcast(pendingTargets, vote.getUuid(), vote.getName(), vote.getService(),
 					vote.getTime(), vote.getTotals(), false);
 			if (vote.getBroadcastForwardedServers().addAll(forwarded)) {
-				getVoteCacheHandler().updateTimeVote(vote);
+				persistTimeVoteDelivery(vote);
 			}
+		}
+	}
+
+	protected synchronized boolean persistTimeVoteDelivery(VoteTimeQueue vote) {
+		if (getVoteCacheHandler().updateTimeVote(vote)) {
+			vote.setDeliveryStateDirty(false);
+			return true;
+		}
+		vote.setDeliveryStateDirty(true);
+		scheduleTimeVoteDeliveryRetry();
+		return false;
+	}
+
+	private void scheduleTimeVoteDeliveryRetry() {
+		if (timeVoteDeliveryRetryScheduled || getScheduler() == null) {
+			return;
+		}
+		timeVoteDeliveryRetryScheduled = true;
+		try {
+			getScheduler().schedule(() -> {
+				synchronized (VotingPluginProxy.this) {
+					timeVoteDeliveryRetryScheduled = false;
+				}
+				retryPendingTimeBroadcasts();
+			}, 5, TimeUnit.SECONDS);
+		} catch (RuntimeException e) {
+			timeVoteDeliveryRetryScheduled = false;
+			debug("Unable to schedule timed broadcast state retry: " + e.getMessage());
 		}
 	}
 
@@ -2165,7 +2200,7 @@ public abstract class VotingPluginProxy {
 								service, time, projectedTotals == null ? "" : projectedTotals.toString(), false);
 						if (delayedVote.getBroadcastForwardedServers().addAll(forwarded)) {
 							broadcastForwardedServers.addAll(forwarded);
-							getVoteCacheHandler().updateTimeVote(delayedVote);
+							persistTimeVoteDelivery(delayedVote);
 						}
 					}
 				}

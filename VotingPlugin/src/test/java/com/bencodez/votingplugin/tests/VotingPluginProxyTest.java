@@ -317,6 +317,21 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void failedTimedDeliveryStatePersistenceRemainsDirtyUntilRetrySucceeds() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		VoteTimeQueue vote = new VoteTimeQueue(java.util.UUID.randomUUID(), "OfflineVoter", "Service", 100L);
+		Mockito.when(voteCache.updateTimeVote(vote)).thenReturn(false, true);
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+
+		assertFalse(spyProxy.persistTimeVoteDeliveryForTest(vote));
+		assertTrue(vote.isDeliveryStateDirty());
+		assertTrue(spyProxy.persistTimeVoteDeliveryForTest(vote));
+		assertFalse(vote.isDeliveryStateDirty());
+		verify(voteCache, Mockito.times(2)).updateTimeVote(vote);
+	}
+
+	@Test
 	void completedBroadcastOnlyOnlineVoteIsRemovedAfterRetry() {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "OfflineVoter", "voter-uuid",

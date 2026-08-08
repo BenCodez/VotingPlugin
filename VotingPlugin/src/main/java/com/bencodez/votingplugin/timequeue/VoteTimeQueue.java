@@ -39,6 +39,9 @@ public class VoteTimeQueue {
 	@Setter
 	private boolean processed;
 	@Getter
+	@Setter
+	private boolean deliveryStateDirty;
+	@Getter
 	private Set<String> broadcastTargets;
 	@Getter
 	private Set<String> broadcastForwardedServers;
