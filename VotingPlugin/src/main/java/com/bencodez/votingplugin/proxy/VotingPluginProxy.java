@@ -475,6 +475,16 @@ public abstract class VotingPluginProxy {
 
 	public abstract void broadcast(String message);
 
+	private void sendProxyBroadcast(Set<String> targets, String uuid, String player, String service, long time,
+			String text) {
+		int delay = 1;
+		for (String targetServer : targets) {
+			globalMessageProxyHandler.sendMessage(targetServer, delay,
+					VotingPluginWire.voteBroadcast(uuid, player, service, time, text));
+			delay++;
+		}
+	}
+
 	public synchronized void checkCachedVotes(String server) {
 		int delay = 1;
 		if (isServerValid(server)) {
@@ -498,13 +508,18 @@ public abstract class VotingPluginProxy {
 							if (toSend) {
 								boolean broadcastHere = true;
 								if (getConfig().getProxyBroadcastEnabled()) {
-									boolean playerOnline = isPlayerOnline(cache.getPlayerName());
-									String playerServer = playerOnline ? getCurrentPlayerServer(cache.getPlayerName())
-											: null;
+									if (proxyBroadcastDecider.usesImmediateForwarding()) {
+										broadcastHere = false;
+									} else {
+										boolean playerOnline = isPlayerOnline(cache.getPlayerName());
+										String playerServer = playerOnline
+												? getCurrentPlayerServer(cache.getPlayerName())
+												: null;
 
-									Set<String> targets = proxyBroadcastDecider.resolveTargets(playerOnline,
-											playerServer);
-									broadcastHere = proxyBroadcastDecider.shouldBroadcast(server, targets);
+										Set<String> targets = proxyBroadcastDecider.resolveTargets(playerOnline,
+												playerServer);
+										broadcastHere = proxyBroadcastDecider.shouldBroadcast(server, targets);
+									}
 								}
 
 								globalMessageProxyHandler.sendMessage(server, delay,
@@ -547,10 +562,14 @@ public abstract class VotingPluginProxy {
 					for (OfflineBungeeVote cache : c) {
 						boolean broadcastHere = true;
 						if (getConfig().getProxyBroadcastEnabled()) {
-							String playerServer = (server != null) ? server : getCurrentPlayerServer(player);
+							if (proxyBroadcastDecider.usesImmediateForwarding()) {
+								broadcastHere = false;
+							} else {
+								String playerServer = (server != null) ? server : getCurrentPlayerServer(player);
 
-							Set<String> targets = proxyBroadcastDecider.resolveTargets(true, playerServer);
-							broadcastHere = proxyBroadcastDecider.shouldBroadcast(server, targets);
+								Set<String> targets = proxyBroadcastDecider.resolveTargets(true, playerServer);
+								broadcastHere = proxyBroadcastDecider.shouldBroadcast(server, targets);
+							}
 						}
 
 						globalMessageProxyHandler.sendMessage(server, delay,
@@ -1794,6 +1813,11 @@ public abstract class VotingPluginProxy {
 			}
 
 			VoteLogStatus voteStatus = VoteLogStatus.IMMEDIATE;
+			boolean immediateProxyBroadcast = proxyBroadcastDecider.usesImmediateForwarding();
+			if (immediateProxyBroadcast) {
+				Set<String> targets = proxyBroadcastDecider.resolveTargets(playerOnline, playerServer);
+				sendProxyBroadcast(targets, uuid, player, service, time, text == null ? "" : text.toString());
+			}
 
 			// ===========================
 			// Send vote(s) to backend(s)
@@ -1816,8 +1840,12 @@ public abstract class VotingPluginProxy {
 					} else {
 						boolean broadcastHere = true;
 						if (getConfig().getProxyBroadcastEnabled()) {
-							Set<String> targets = proxyBroadcastDecider.resolveTargets(playerOnline, playerServer);
-							broadcastHere = proxyBroadcastDecider.shouldBroadcast(s, targets);
+							if (immediateProxyBroadcast) {
+								broadcastHere = false;
+							} else {
+								Set<String> targets = proxyBroadcastDecider.resolveTargets(playerOnline, playerServer);
+								broadcastHere = proxyBroadcastDecider.shouldBroadcast(s, targets);
+							}
 						}
 
 						globalMessageProxyHandler.sendMessage(s, 2,
@@ -1833,15 +1861,19 @@ public abstract class VotingPluginProxy {
 
 					boolean broadcastHere = true;
 					if (getConfig().getProxyBroadcastEnabled()) {
-						Set<String> targets = proxyBroadcastDecider.resolveTargets(true, playerServer);
-						broadcastHere = proxyBroadcastDecider.shouldBroadcast(server, targets);
+						if (immediateProxyBroadcast) {
+							broadcastHere = false;
+						} else {
+							Set<String> targets = proxyBroadcastDecider.resolveTargets(true, playerServer);
+							broadcastHere = proxyBroadcastDecider.shouldBroadcast(server, targets);
+						}
 					}
 
 					globalMessageProxyHandler.sendMessage(server, 1,
 							VotingPluginWire.voteOnline(player, uuid, service, time, true, realVote, text.toString(),
 									voteId, getConfig().getBungeeManageTotals(), broadcastHere, 1, 1));
 
-					if (getConfig().getProxyBroadcastEnabled()) {
+					if (getConfig().getProxyBroadcastEnabled() && !immediateProxyBroadcast) {
 						Set<String> targets = proxyBroadcastDecider.resolveTargets(true, playerServer);
 
 						int bDelay = 2;
