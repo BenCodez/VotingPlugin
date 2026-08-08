@@ -2875,7 +2875,18 @@ public class CommandLoader {
 	/** Removes the command and all labels that still point to it from Bukkit's map. */
 	private void unregisterCommand(CommandMap commandMap, PluginCommand command) throws ReflectiveOperationException {
 		command.unregister(commandMap);
-		java.lang.reflect.Field field = commandMap.getClass().getDeclaredField("knownCommands");
+		java.lang.reflect.Field field = null;
+		Class<?> commandMapClass = commandMap.getClass();
+		while (commandMapClass != null && field == null) {
+			try {
+				field = commandMapClass.getDeclaredField("knownCommands");
+			} catch (NoSuchFieldException ignored) {
+				commandMapClass = commandMapClass.getSuperclass();
+			}
+		}
+		if (field == null) {
+			throw new NoSuchFieldException("knownCommands");
+		}
 		field.setAccessible(true);
 		@SuppressWarnings("unchecked")
 		Map<String, org.bukkit.command.Command> knownCommands =
