@@ -1,7 +1,9 @@
 package com.bencodez.votingplugin.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
@@ -126,6 +128,26 @@ public class VoteCacheHandlerVoteIdTest {
 	}
 
 	@Test
+	public void legacyJsonCacheEntryStillNeedsItsBroadcast() {
+		UUID voteId = UUID.randomUUID();
+		handler = handlerForStoredVote("VoteId", voteId);
+
+		handler.load();
+
+		assertFalse(handler.getVotes("server").get(0).isBroadcastForwarded());
+	}
+
+	@Test
+	public void forwardedBroadcastStateLoadsFromJsonCache() {
+		UUID voteId = UUID.randomUUID();
+		handler = handlerForStoredVote("VoteId", voteId, true);
+
+		handler.load();
+
+		assertTrue(handler.getVotes("server").get(0).isBroadcastForwarded());
+	}
+
+	@Test
 	public void timedVoteIdIsPassedToJsonStorage() {
 		UUID voteId = UUID.randomUUID();
 		VoteTimeQueue queued = new VoteTimeQueue(voteId, "Player", "Service", 100L);
@@ -144,6 +166,10 @@ public class VoteCacheHandlerVoteIdTest {
 	}
 
 	private VoteCacheHandler handlerForStoredVote(String idKey, UUID voteId) {
+		return handlerForStoredVote(idKey, voteId, null);
+	}
+
+	private VoteCacheHandler handlerForStoredVote(String idKey, UUID voteId, Boolean broadcastForwarded) {
 		IVoteCache stored = mock(IVoteCache.class);
 		DataNode voteNode = mock(DataNode.class);
 		when(stored.getTimedVoteCache()).thenReturn(Collections.emptyList());
@@ -160,6 +186,9 @@ public class VoteCacheHandlerVoteIdTest {
 		stubBoolean(voteNode, "Real", true);
 		stubString(voteNode, "Text", "totals");
 		stubString(voteNode, idKey, voteId.toString());
+		if (broadcastForwarded != null) {
+			stubBoolean(voteNode, "BroadcastForwarded", broadcastForwarded.booleanValue());
+		}
 		if ("VoteID".equals(idKey)) {
 			when(voteNode.has("VoteId")).thenReturn(false);
 		}

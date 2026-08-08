@@ -102,11 +102,12 @@ public final class ProxyBroadcastDecider {
 	 * logs in. Sending a standalone broadcast also prevents reward-delivery settings
 	 * such as WaitForUserOnline from changing broadcast timing.
 	 *
-	 * @return true when immediate standalone forwarding is enabled
+	 * @param playerOnline whether the voting player is currently online
+	 * @return true when an offline player's broadcast should be forwarded immediately
 	 */
-	public boolean usesImmediateForwarding() {
+	public boolean usesImmediateForwarding(boolean playerOnline) {
 		VotingPluginProxyConfig cfg = config.get();
-		return cfg != null && cfg.getProxyBroadcastEnabled() && OfflineMode
+		return !playerOnline && cfg != null && cfg.getProxyBroadcastEnabled() && OfflineMode
 				.parse(cfg.getProxyBroadcastOfflineMode(), OfflineMode.QUEUE) == OfflineMode.FORWARD;
 	}
 

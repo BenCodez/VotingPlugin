@@ -99,7 +99,7 @@ public abstract class VoteCacheHandler {
 
 		if (useMySQL) {
 			voteCacheTable.insertVote(vote.getVoteId(), vote.getUuid(), vote.getPlayerName(), vote.getService(),
-					vote.getTime(), vote.isRealVote(), vote.getText(), server);
+					vote.getTime(), vote.isRealVote(), vote.getText(), vote.isBroadcastForwarded(), server);
 		} else {
 			// IMPORTANT: index must come from JSON, not from cachedVotes (cache can be out
 			// of sync with JSON)
@@ -176,7 +176,7 @@ public abstract class VoteCacheHandler {
 
 		if (useMySQL) {
 			onlineVoteCacheTable.insertVote(vote.getVoteId(), vote.getUuid(), vote.getPlayerName(), vote.getService(),
-					vote.getTime(), vote.isRealVote(), vote.getText());
+					vote.getTime(), vote.isRealVote(), vote.getText(), vote.isBroadcastForwarded());
 		} else {
 			// IMPORTANT: index must come from JSON, not from cachedOnlineVotes (cache can
 			// be out of sync with JSON)
@@ -354,7 +354,7 @@ public abstract class VoteCacheHandler {
 			voteCacheTable.getAllVotes().forEach(voteRow -> {
 				OfflineBungeeVote vote = new OfflineBungeeVote(voteRow.getVoteId(), voteRow.getPlayerName(),
 						voteRow.getUuid(), voteRow.getService(), voteRow.getTime(), voteRow.isRealVote(),
-						voteRow.getText());
+						voteRow.getText(), voteRow.isBroadcastForwarded());
 				String server = voteRow.getServer();
 				cachedVotes.putIfAbsent(server, new ArrayList<>());
 				cachedVotes.get(server).add(vote);
@@ -364,7 +364,7 @@ public abstract class VoteCacheHandler {
 			onlineVoteCacheTable.getAllVotes().forEach(voteRow -> {
 				OfflineBungeeVote vote = new OfflineBungeeVote(voteRow.getVoteId(), voteRow.getPlayerName(),
 						voteRow.getUuid(), voteRow.getService(), voteRow.getTime(), voteRow.isRealVote(),
-						voteRow.getText());
+						voteRow.getText(), voteRow.isBroadcastForwarded());
 				String player = vote.getUuid();
 				cachedOnlineVotes.putIfAbsent(player, new ArrayList<>());
 				cachedOnlineVotes.get(player).add(vote);
@@ -415,8 +415,11 @@ public abstract class VoteCacheHandler {
 							boolean real = data.has("Real") && data.get("Real").asBoolean();
 							String text = data.has("Text") ? data.get("Text").asString() : "";
 							String voteId = readVoteId(data);
+							boolean broadcastForwarded = data.has("BroadcastForwarded")
+									&& data.get("BroadcastForwarded").asBoolean();
 
-							votes.add(new OfflineBungeeVote(voteId, name, uuid, service, time, real, text));
+							votes.add(new OfflineBungeeVote(voteId, name, uuid, service, time, real, text,
+									broadcastForwarded));
 						}
 					}
 					cachedVotes.put(server, votes);
@@ -440,8 +443,11 @@ public abstract class VoteCacheHandler {
 							boolean real = data.has("Real") && data.get("Real").asBoolean();
 							String text = data.has("Text") ? data.get("Text").asString() : "";
 							String voteId = readVoteId(data);
+							boolean broadcastForwarded = data.has("BroadcastForwarded")
+									&& data.get("BroadcastForwarded").asBoolean();
 
-							votes.add(new OfflineBungeeVote(voteId, name, uuid, service, time, real, text));
+							votes.add(new OfflineBungeeVote(voteId, name, uuid, service, time, real, text,
+									broadcastForwarded));
 						}
 					}
 					cachedOnlineVotes.put(player, votes);

@@ -28,7 +28,8 @@ public class ProxyBroadcastDeciderTest {
 		ProxyBroadcastDecider decider = new ProxyBroadcastDecider(() -> config, () -> servers, server -> true,
 				server -> false);
 
-		assertTrue(decider.usesImmediateForwarding());
+		assertTrue(decider.usesImmediateForwarding(false));
+		assertFalse(decider.usesImmediateForwarding(true));
 		assertEquals(servers, decider.resolveTargets(false, null));
 	}
 
@@ -41,10 +42,10 @@ public class ProxyBroadcastDeciderTest {
 		ProxyBroadcastDecider decider = new ProxyBroadcastDecider(() -> config, LinkedHashSet::new, server -> true,
 				server -> false);
 
-		assertFalse(decider.usesImmediateForwarding());
+		assertFalse(decider.usesImmediateForwarding(false));
 
 		when(config.getProxyBroadcastEnabled()).thenReturn(false);
 		when(config.getProxyBroadcastOfflineMode()).thenReturn("FORWARD");
-		assertFalse(decider.usesImmediateForwarding());
+		assertFalse(decider.usesImmediateForwarding(false));
 	}
 }

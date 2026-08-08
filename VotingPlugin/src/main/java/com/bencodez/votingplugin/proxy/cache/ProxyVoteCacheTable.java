@@ -33,6 +33,7 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 	// Ensure we don't run the same migration repeatedly during startup (or for each
 	// subclass).
 	private static final Set<String> MIGRATED_VOTEID = ConcurrentHashMap.newKeySet();
+	private static final Set<String> MIGRATED_BROADCAST_FORWARDED = ConcurrentHashMap.newKeySet();
 	private static final Set<String> ENSURED_INDEXES = ConcurrentHashMap.newKeySet();
 
 	// ---- Required hooks ----
@@ -54,13 +55,15 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 					.append(", ").append(qi("voteid")).append(" VARCHAR(36), ").append(qi("playerName"))
 					.append(" VARCHAR(100), ").append(qi("service")).append(" VARCHAR(100), ").append(qi("time"))
 					.append(" BIGINT, ").append(qi("realVote")).append(" BOOLEAN, ").append(qi("text"))
-					.append(" TEXT, ").append(qi("server")).append(" VARCHAR(100)").append(");");
+					.append(" TEXT, ").append(qi("broadcastForwarded")).append(" BOOLEAN NOT NULL DEFAULT FALSE, ")
+					.append(qi("server")).append(" VARCHAR(100)").append(");");
 		} else {
 			sb.append("CREATE TABLE IF NOT EXISTS ").append(qi(getTableName())).append(" (").append(qi("id"))
 					.append(" INT AUTO_INCREMENT PRIMARY KEY,").append(qi("uuid")).append(" VARCHAR(37),")
 					.append(qi("voteid")).append(" VARCHAR(36),").append(qi("playerName")).append(" VARCHAR(100),")
 					.append(qi("service")).append(" VARCHAR(100),").append(qi("time")).append(" BIGINT,")
 					.append(qi("realVote")).append(" TINYINT(1),").append(qi("text")).append(" TEXT,")
+					.append(qi("broadcastForwarded")).append(" TINYINT(1) NOT NULL DEFAULT 0,")
 					.append(qi("server")).append(" VARCHAR(100),").append("INDEX idx_server (").append(qi("server"))
 					.append("),").append("INDEX idx_uuid (").append(qi("uuid")).append("),").append("INDEX idx_time (")
 					.append(qi("time")).append(")").append(") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
@@ -127,6 +130,7 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 		// best-effort migrations (safe for pool size 1; no nested connections)
 		alterColumnType("uuid", bestUuidType());
 		addVoteIdColumnIfMissingOnce();
+		addBroadcastForwardedColumnIfMissingOnce();
 		ensureIndexesOnce();
 	}
 
@@ -140,6 +144,7 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 
 		alterColumnType("uuid", bestUuidType());
 		addVoteIdColumnIfMissingOnce();
+		addBroadcastForwardedColumnIfMissingOnce();
 		ensureIndexesOnce();
 	}
 
@@ -214,6 +219,43 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 		}
 	}
 
+	private void addBroadcastForwardedColumnIfMissingOnce() {
+		final String key = getDbType() + ":" + getTableName() + ":broadcastForwarded";
+		if (!MIGRATED_BROADCAST_FORWARDED.add(key)) {
+			return;
+		}
+		addBroadcastForwardedColumnIfMissing();
+	}
+
+	private void addBroadcastForwardedColumnIfMissing() {
+		final boolean pg = getDbType() == DbType.POSTGRESQL;
+		final String schemaFilter = pg ? "table_schema = current_schema()" : "TABLE_SCHEMA = DATABASE()";
+		final String checkSql = "SELECT 1 FROM information_schema.columns WHERE " + schemaFilter
+				+ " AND LOWER(table_name) = LOWER(?) AND LOWER(column_name) = LOWER(?) LIMIT 1;";
+
+		try (Connection conn = mysql.getConnectionManager().getConnection();
+				PreparedStatement ps = conn.prepareStatement(checkSql)) {
+			ps.setString(1, getTableName());
+			ps.setString(2, "broadcastForwarded");
+
+			try (ResultSet rs = ps.executeQuery()) {
+				if (rs.next()) {
+					return;
+				}
+			}
+
+			final String type = pg ? "BOOLEAN NOT NULL DEFAULT FALSE" : "TINYINT(1) NOT NULL DEFAULT 0";
+			final String alter = "ALTER TABLE " + qi(getTableName()) + " ADD COLUMN " + qi("broadcastForwarded")
+					+ " " + type + ";";
+			try (Statement st = conn.createStatement()) {
+				st.executeUpdate(alter);
+			}
+		} catch (SQLException e) {
+			logSevere("Failed to add broadcastForwarded column to " + getTableName() + ": " + e.getMessage());
+			debug(e);
+		}
+	}
+
 	// ---- INSERT ----
 
 	/**
@@ -225,14 +267,16 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 	 * @param time the vote time
 	 * @param real whether this is a real vote
 	 * @param text the vote text/payload
+	 * @param broadcastForwarded whether the proxy already forwarded the broadcast
 	 * @param server the server name
 	 */
 	public void insertVote(UUID voteId, String uuid, String playerName, String service, long time, boolean real,
-			String text, String server) {
+			String text, boolean broadcastForwarded, String server) {
 
 		String sql = "INSERT INTO " + qi(getTableName()) + " (" + qi("uuid") + ", " + qi("voteid") + ", "
 				+ qi("playerName") + ", " + qi("service") + ", " + qi("time") + ", " + qi("realVote") + ", "
-				+ qi("text") + ", " + qi("server") + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
+				+ qi("text") + ", " + qi("broadcastForwarded") + ", " + qi("server")
+				+ ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -255,7 +299,12 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 			}
 
 			ps.setString(7, text);
-			ps.setString(8, server);
+			if (getDbType() == DbType.POSTGRESQL) {
+				ps.setBoolean(8, broadcastForwarded);
+			} else {
+				ps.setInt(8, broadcastForwarded ? 1 : 0);
+			}
+			ps.setString(9, server);
 
 			ps.executeUpdate();
 		} catch (SQLException | IllegalArgumentException e) {
@@ -457,7 +506,7 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 					VoteRow v = new VoteRow(rs.getInt("id"), rs.getString("voteid"), rs.getString("uuid"),
 							rs.getString("playerName"), rs.getString("service"), rs.getLong("time"),
 							(getDbType() == DbType.POSTGRESQL ? rs.getBoolean("realVote") : rs.getInt("realVote") == 1),
-							rs.getString("text"), rs.getString("server"));
+							rs.getString("text"), rs.getBoolean("broadcastForwarded"), rs.getString("server"));
 					list.add(v);
 				}
 			}
@@ -479,6 +528,7 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 		private final long time;
 		private final boolean realVote;
 		private final String text;
+		private final boolean broadcastForwarded;
 		private final String server;
 
 		/**
@@ -491,10 +541,11 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 		 * @param time the vote time
 		 * @param realVote whether this is a real vote
 		 * @param text the vote text
+		 * @param broadcastForwarded whether the proxy already forwarded the broadcast
 		 * @param server the server name
 		 */
 		public VoteRow(int id, String voteId, String uuid, String playerName, String service, long time,
-				boolean realVote, String text, String server) {
+				boolean realVote, String text, boolean broadcastForwarded, String server) {
 			this.id = id;
 			this.voteId = voteId;
 			this.uuid = uuid;
@@ -503,6 +554,7 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 			this.time = time;
 			this.realVote = realVote;
 			this.text = text;
+			this.broadcastForwarded = broadcastForwarded;
 			this.server = server;
 		}
 
@@ -568,6 +620,14 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 		 */
 		public String getText() {
 			return text;
+		}
+
+		/**
+		 * Checks whether the proxy already forwarded the broadcast.
+		 * @return true if the broadcast was already forwarded
+		 */
+		public boolean isBroadcastForwarded() {
+			return broadcastForwarded;
 		}
 
 		/**
