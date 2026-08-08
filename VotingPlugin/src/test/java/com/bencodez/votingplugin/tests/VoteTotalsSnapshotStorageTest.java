@@ -36,6 +36,16 @@ public class VoteTotalsSnapshotStorageTest {
 	}
 
 	@Test
+	public void datedMonthlyTotalIsUsedForPrimaryMonthlyPlaceholders() {
+		VoteTotalsSnapshot data = new VoteTotalsSnapshot(100, 45, 12, 3, 9, 0, 20, 2);
+
+		String rendered = data.applyBroadcastPlaceholders(
+				"%MonthTotal%/%VotingPlugin_total%/%VotingPlugin_total_monthly%", true);
+
+		assertEquals("45/2/2", rendered);
+	}
+
+	@Test
 	public void constructor_toStorageString_roundTripsThroughParseStorage_v2() {
 		UUID voteId = UUID.randomUUID();
 

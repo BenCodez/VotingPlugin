@@ -185,6 +185,29 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void durablyProcessedRolloverVoteIsDeletedWithoutReplay() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		java.util.Queue<VoteTimeQueue> queue = new java.util.concurrent.ConcurrentLinkedQueue<>();
+		VoteTimeQueue processed = new VoteTimeQueue(java.util.UUID.randomUUID(), "Player", "Invalid\\Service", 100L,
+				false, java.util.Collections.emptySet(), java.util.Collections.emptySet(), "totals", true);
+		queue.add(processed);
+		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(queue);
+		Mockito.when(voteCache.removeTimeVote(processed)).thenAnswer(invocation -> {
+			queue.remove(processed);
+			return true;
+		});
+
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+
+		spyProxy.processQueue();
+
+		assertTrue(queue.isEmpty());
+		verify(spyProxy, never()).getUUID(Mockito.anyString());
+		verify(voteCache).removeTimeVote(processed);
+	}
+
+	@Test
 	void pendingServerBroadcastRetriesBeforeOfflineRewardDelivery() {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "player-uuid",
@@ -231,6 +254,29 @@ public class VotingPluginProxyTest {
 		assertTrue(vote.isProxyBroadcastComplete());
 		assertTrue(vote.isBroadcastForwarded());
 		assertFalse(vote.isRewardDelivered());
+		verify(voteCache).updateOnlineVote("voter-uuid", vote);
+	}
+
+	@Test
+	void periodicRetryDeliversBrokerBackedOnlineCacheWithoutVoterLogin() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "OfflineVoter", "voter-uuid",
+				"Service", 100L, true, "totals", false, true, java.util.Set.of("Server1", "Server2"),
+				java.util.Collections.emptySet(), false);
+		Mockito.when(voteCache.getOnlineVoteUUIDs()).thenReturn(java.util.Set.of("voter-uuid"));
+		Mockito.when(voteCache.getOnlineVotes("voter-uuid"))
+				.thenReturn(new java.util.ArrayList<>(java.util.List.of(vote)));
+
+		votingPluginProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		Mockito.when(votingPluginProxy.getConfig().getBlockedServers())
+				.thenReturn(java.util.Collections.emptyList());
+
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		spyProxy.retryPendingOnlineBroadcasts();
+
+		assertTrue(vote.isProxyBroadcastComplete());
+		assertEquals(java.util.Set.of("Server1", "Server2"), vote.getBroadcastForwardedServers());
 		verify(voteCache).updateOnlineVote("voter-uuid", vote);
 	}
 

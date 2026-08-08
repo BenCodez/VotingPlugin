@@ -32,6 +32,8 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 				String.valueOf(num), "VoteId");
 		setPath(voteTimedQueue.isProxyBroadcastHandled(), "TimedVoteCache", String.valueOf(num),
 				"ProxyBroadcastHandled");
+		setPath(voteTimedQueue.getTotals(), "TimedVoteCache", String.valueOf(num), "Totals");
+		setPath(voteTimedQueue.isProcessed(), "TimedVoteCache", String.valueOf(num), "Processed");
 		setPath(voteTimedQueue.encodeBroadcastTargets(), "TimedVoteCache", String.valueOf(num), "BroadcastTargets");
 		setPath(voteTimedQueue.encodeBroadcastForwardedServers(), "TimedVoteCache", String.valueOf(num),
 				"BroadcastForwardedServers");

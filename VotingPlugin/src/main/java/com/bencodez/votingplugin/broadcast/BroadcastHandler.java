@@ -181,7 +181,9 @@ public final class BroadcastHandler {
 		OfflinePlayer votedPlayer = votedPlayerUuid == null ? null : Bukkit.getOfflinePlayer(votedPlayerUuid);
 
 		for (String line : lines) {
-			String totalsLine = totals == null ? line : totals.applyBroadcastPlaceholders(line);
+			String totalsLine = totals == null ? line
+					: totals.applyBroadcastPlaceholders(line,
+							plugin.getConfigFile().isUseMonthDateTotalsAsPrimaryTotal());
 			String parsedLine = PlaceholderUtils.replacePlaceHolders(votedPlayer, totalsLine);
 			broadcastToEligiblePlayers(parsedLine);
 		}

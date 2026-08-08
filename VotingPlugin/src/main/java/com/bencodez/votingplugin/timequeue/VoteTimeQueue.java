@@ -30,6 +30,12 @@ public class VoteTimeQueue {
 	@Setter
 	private boolean proxyBroadcastHandled;
 	@Getter
+	@Setter
+	private String totals;
+	@Getter
+	@Setter
+	private boolean processed;
+	@Getter
 	private Set<String> broadcastTargets;
 	@Getter
 	private Set<String> broadcastForwardedServers;
@@ -42,7 +48,7 @@ public class VoteTimeQueue {
 	 * @param time vote timestamp
 	 */
 	public VoteTimeQueue(String name, String service, long time) {
-		this(null, name, service, time, false, Collections.emptySet(), Collections.emptySet());
+		this(null, name, service, time, false, Collections.emptySet(), Collections.emptySet(), "", false);
 	}
 
 	/**
@@ -54,7 +60,7 @@ public class VoteTimeQueue {
 	 * @param time vote timestamp
 	 */
 	public VoteTimeQueue(UUID voteId, String name, String service, long time) {
-		this(voteId, name, service, time, false, Collections.emptySet(), Collections.emptySet());
+		this(voteId, name, service, time, false, Collections.emptySet(), Collections.emptySet(), "", false);
 	}
 
 	/**
@@ -69,7 +75,8 @@ public class VoteTimeQueue {
 	 */
 	public VoteTimeQueue(UUID voteId, String name, String service, long time, boolean proxyBroadcastHandled,
 			Set<String> broadcastForwardedServers) {
-		this(voteId, name, service, time, proxyBroadcastHandled, Collections.emptySet(), broadcastForwardedServers);
+		this(voteId, name, service, time, proxyBroadcastHandled, Collections.emptySet(), broadcastForwardedServers, "",
+				false);
 	}
 
 	/**
@@ -85,11 +92,32 @@ public class VoteTimeQueue {
 	 */
 	public VoteTimeQueue(UUID voteId, String name, String service, long time, boolean proxyBroadcastHandled,
 			Set<String> broadcastTargets, Set<String> broadcastForwardedServers) {
+		this(voteId, name, service, time, proxyBroadcastHandled, broadcastTargets, broadcastForwardedServers, "",
+				false);
+	}
+
+	/**
+	 * Creates a queued vote with all durable replay state.
+	 *
+	 * @param voteId unique vote identifier
+	 * @param name player name
+	 * @param service service site
+	 * @param time vote timestamp
+	 * @param proxyBroadcastHandled whether standalone forwarding was handled before queueing
+	 * @param broadcastTargets original backend broadcast targets
+	 * @param broadcastForwardedServers backend servers that received the standalone broadcast
+	 * @param totals incoming multi-proxy totals snapshot
+	 * @param processed whether normal replay processing completed
+	 */
+	public VoteTimeQueue(UUID voteId, String name, String service, long time, boolean proxyBroadcastHandled,
+			Set<String> broadcastTargets, Set<String> broadcastForwardedServers, String totals, boolean processed) {
 		this.voteId = voteId;
 		this.name = name;
 		this.service = service;
 		this.time = time;
 		this.proxyBroadcastHandled = proxyBroadcastHandled;
+		this.totals = totals == null ? "" : totals;
+		this.processed = processed;
 		this.broadcastTargets = new LinkedHashSet<>();
 		if (broadcastTargets != null) {
 			this.broadcastTargets.addAll(broadcastTargets);

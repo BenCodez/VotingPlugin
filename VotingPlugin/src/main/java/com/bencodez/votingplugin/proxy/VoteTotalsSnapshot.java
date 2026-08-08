@@ -139,11 +139,23 @@ public class VoteTotalsSnapshot {
 	 * @return line with VotingPlugin total placeholders replaced
 	 */
 	public String applyBroadcastPlaceholders(String input) {
+		return applyBroadcastPlaceholders(input, false);
+	}
+
+	/**
+	 * Applies this snapshot using the configured primary monthly total.
+	 *
+	 * @param input broadcast line
+	 * @param useDateMonthTotal whether dated monthly totals are primary
+	 * @return line with VotingPlugin total placeholders replaced
+	 */
+	public String applyBroadcastPlaceholders(String input, boolean useDateMonthTotal) {
 		if (input == null || input.isEmpty()) {
 			return input;
 		}
 
 		NumberFormat numberFormat = NumberFormat.getNumberInstance(Locale.US);
+		int primaryMonthTotal = useDateMonthTotal && dateMonthTotal >= 0 ? dateMonthTotal : monthTotal;
 		Map<String, String> placeholders = new LinkedHashMap<>();
 		placeholders.put("AllTimeTotal", Integer.toString(allTimeTotal));
 		placeholders.put("MonthTotal", Integer.toString(monthTotal));
@@ -152,9 +164,9 @@ public class VoteTotalsSnapshot {
 		placeholders.put("Points", Integer.toString(points));
 		placeholders.put("Points_Format", numberFormat.format(points));
 		placeholders.put("VotingPlugin_alltimetotal", Integer.toString(allTimeTotal));
-		placeholders.put("VotingPlugin_total", Integer.toString(monthTotal));
+		placeholders.put("VotingPlugin_total", Integer.toString(primaryMonthTotal));
 		placeholders.put("VotingPlugin_total_alltime", Integer.toString(allTimeTotal));
-		placeholders.put("VotingPlugin_total_monthly", Integer.toString(monthTotal));
+		placeholders.put("VotingPlugin_total_monthly", Integer.toString(primaryMonthTotal));
 		placeholders.put("VotingPlugin_total_weekly", Integer.toString(weeklyTotal));
 		placeholders.put("VotingPlugin_total_daily", Integer.toString(dailyTotal));
 		placeholders.put("VotingPlugin_points", Integer.toString(points));

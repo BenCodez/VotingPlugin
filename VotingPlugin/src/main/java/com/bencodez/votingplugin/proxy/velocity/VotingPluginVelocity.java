@@ -926,6 +926,7 @@ public class VotingPluginVelocity {
 		voteCheckTask = server.getScheduler().buildTask(this, () -> {
 			if (getVotingPluginProxy().getGlobalDataHandler() == null
 					|| !getVotingPluginProxy().getGlobalDataHandler().isTimeChangedHappened()) {
+				getVotingPluginProxy().retryPendingOnlineBroadcasts();
 
 				for (String srv : getVotingPluginProxy().getVoteCacheHandler().getCachedVotesServers()) {
 					getVotingPluginProxy().checkCachedVotes(srv);

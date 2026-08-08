@@ -499,7 +499,7 @@ public abstract class VoteCacheHandler {
 		if (useMySQL) {
 			boolean stored = timedVoteCacheTable.insertTimedVote(vote.getVoteId(), vote.getName(), vote.getService(),
 					vote.getTime(), vote.isProxyBroadcastHandled(), vote.encodeBroadcastTargets(),
-					vote.encodeBroadcastForwardedServers());
+					vote.encodeBroadcastForwardedServers(), vote.getTotals(), vote.isProcessed());
 			if (!stored) {
 				timeChangeQueue.remove(vote);
 			}
@@ -526,16 +526,16 @@ public abstract class VoteCacheHandler {
 	 * Persists changed delivery state for a queued rollover vote.
 	 *
 	 * @param vote queued vote to update
+	 * @return true when the durable state update completed
 	 */
-	public synchronized void updateTimeVote(VoteTimeQueue vote) {
+	public synchronized boolean updateTimeVote(VoteTimeQueue vote) {
 		if (useMySQL) {
-			timedVoteCacheTable.updateTimedVote(vote);
-			return;
+			return timedVoteCacheTable.updateTimedVote(vote);
 		}
 
 		Collection<String> keys = jsonStorage.getTimedVoteCache();
 		if (keys == null) {
-			return;
+			return false;
 		}
 		for (String key : keys) {
 			DataNode data = jsonStorage.getTimedVoteCache(key);
@@ -543,12 +543,17 @@ public abstract class VoteCacheHandler {
 				try {
 					jsonStorage.addTimedVote(Integer.parseInt(key), vote);
 					jsonStorage.save();
+					return true;
 				} catch (NumberFormatException e) {
 					debug1(e);
+					return false;
+				} catch (RuntimeException e) {
+					debug1(e);
+					return false;
 				}
-				return;
 			}
 		}
+		return false;
 	}
 
 	/**
@@ -620,7 +625,8 @@ public abstract class VoteCacheHandler {
 				VoteTimeQueue voteTimeQueue = new VoteTimeQueue(timedVoteRow.getVoteId(), timedVoteRow.getPlayerName(),
 						timedVoteRow.getService(), timedVoteRow.getTime(), timedVoteRow.isProxyBroadcastHandled(),
 						VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getBroadcastTargets()),
-						VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getBroadcastForwardedServers()));
+						VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getBroadcastForwardedServers()),
+						timedVoteRow.getTotals(), timedVoteRow.isProcessed());
 				timedVotes.add(voteTimeQueue);
 			});
 			timeChangeQueue.addAll(timedVotes);
@@ -643,10 +649,12 @@ public abstract class VoteCacheHandler {
 						String broadcastTargets = data.has("BroadcastTargets")
 								? data.get("BroadcastTargets").asString()
 								: "";
+						String totals = data.has("Totals") ? data.get("Totals").asString() : "";
+						boolean processed = data.has("Processed") && data.get("Processed").asBoolean();
 
 						getTimeChangeQueue().add(new VoteTimeQueue(voteId, name, service, time, proxyBroadcastHandled,
 								VoteTimeQueue.decodeBroadcastForwardedServers(broadcastTargets),
-								VoteTimeQueue.decodeBroadcastForwardedServers(forwardedServers)));
+								VoteTimeQueue.decodeBroadcastForwardedServers(forwardedServers), totals, processed));
 					}
 				}
 

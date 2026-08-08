@@ -117,8 +117,6 @@ public abstract class VotingPluginProxy {
 	private RedisHandler redisHandler;
 	private JedisPool redisPublisherPool;
 	private volatile long redisPublisherRetryAfter;
-	private final Set<VoteTimeQueue> processedTimeVotesPendingRemoval = Collections
-			.newSetFromMap(new java.util.IdentityHashMap<VoteTimeQueue, Boolean>());
 	private boolean timeVoteRetryScheduled;
 
 	private boolean enabled;
@@ -683,6 +681,37 @@ public abstract class VotingPluginProxy {
 				}
 				Set<String> forwarded = sendProxyBroadcast(Collections.singleton(server), cache.getUuid(),
 						cache.getPlayerName(), cache.getService(), cache.getTime(), cache.getText(), false);
+				if (cache.getBroadcastForwardedServers().addAll(forwarded)) {
+					cache.setBroadcastForwarded(cache.isProxyBroadcastComplete());
+					if (cache.isRewardDelivered() && cache.isProxyBroadcastComplete()) {
+						getVoteCacheHandler().removeOnlineVote(cachedUuid, cache);
+					} else {
+						getVoteCacheHandler().updateOnlineVote(cachedUuid, cache);
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * Periodically retries every pending voter-keyed standalone broadcast. This is
+	 * required for broker transports whose recovery does not produce a player-login
+	 * carrier event.
+	 */
+	public synchronized void retryPendingOnlineBroadcasts() {
+		for (String cachedUuid : new LinkedHashSet<>(getVoteCacheHandler().getOnlineVoteUUIDs())) {
+			for (OfflineBungeeVote cache : new ArrayList<>(getVoteCacheHandler().getOnlineVotes(cachedUuid))) {
+				if (!cache.isProxyBroadcastHandled() || cache.isProxyBroadcastComplete()) {
+					continue;
+				}
+				Set<String> pendingTargets = new LinkedHashSet<>(cache.getBroadcastTargets());
+				pendingTargets.removeAll(cache.getBroadcastForwardedServers());
+				List<String> blockedServers = getConfig().getBlockedServers();
+				if (blockedServers != null) {
+					pendingTargets.removeAll(blockedServers);
+				}
+				Set<String> forwarded = sendProxyBroadcast(pendingTargets, cache.getUuid(), cache.getPlayerName(),
+						cache.getService(), cache.getTime(), cache.getText(), false);
 				if (cache.getBroadcastForwardedServers().addAll(forwarded)) {
 					cache.setBroadcastForwarded(cache.isProxyBroadcastComplete());
 					if (cache.isRewardDelivered() && cache.isProxyBroadcastComplete()) {
@@ -1522,18 +1551,18 @@ public abstract class VotingPluginProxy {
 	public synchronized void processQueue() {
 		while (getVoteCacheHandler().getTimeChangeQueue().size() > 0) {
 			VoteTimeQueue vote = getVoteCacheHandler().getTimeChangeQueue().element();
-			if (!processedTimeVotesPendingRemoval.contains(vote)) {
-				if (!vote(vote.getName(), vote.getService(), true, false, vote.getTime(), null, null, vote)) {
+			if (!vote.isProcessed()) {
+				VoteTotalsSnapshot queuedTotals = vote.getTotals() == null || vote.getTotals().isEmpty() ? null
+						: VoteTotalsSnapshot.parseStorage(vote.getTotals());
+				if (!vote(vote.getName(), vote.getService(), true, false, vote.getTime(), queuedTotals, null, vote)) {
 					scheduleTimeVoteRetry();
 					return;
 				}
-				processedTimeVotesPendingRemoval.add(vote);
 			}
 			if (!getVoteCacheHandler().removeTimeVote(vote)) {
 				scheduleTimeVoteRetry();
 				return;
 			}
-			processedTimeVotesPendingRemoval.remove(vote);
 		}
 	}
 
@@ -2045,7 +2074,8 @@ public abstract class VotingPluginProxy {
 					proxyBroadcastHandled = true;
 				}
 				VoteTimeQueue delayedVote = new VoteTimeQueue(voteId, player, service, time,
-						proxyBroadcastHandled, broadcastTargets, broadcastForwardedServers);
+						proxyBroadcastHandled, broadcastTargets, broadcastForwardedServers,
+						text == null ? "" : text.toString(), false);
 				if (!getVoteCacheHandler().addTimeVoteToCache(delayedVote)) {
 					logSevere("Unable to persist queued rollover vote for " + player + "/" + service
 							+ "; skipping proxy broadcast");
@@ -2119,6 +2149,9 @@ public abstract class VotingPluginProxy {
 				} else {
 					text = new VoteTotalsSnapshot(0, 0, 0, 0, 0, votePartyVotes, currentVotePartyVotesRequired, 0);
 				}
+			}
+			if (text == null) {
+				text = new VoteTotalsSnapshot(0, 0, 0, 0, 0, votePartyVotes, currentVotePartyVotesRequired, 0);
 			}
 
 			VoteLogStatus voteStatus = VoteLogStatus.IMMEDIATE;
@@ -2263,6 +2296,13 @@ public abstract class VotingPluginProxy {
 					} else {
 						debug("Not sending global proxy message for voteonline, player already got reward");
 					}
+				}
+			}
+			if (queuedVote != null) {
+				queuedVote.setProcessed(true);
+				if (!getVoteCacheHandler().updateTimeVote(queuedVote)) {
+					warn("Unable to persist completed rollover vote " + queuedVote.getVoteId()
+							+ "; attempting durable removal immediately");
 				}
 			}
 			return true;

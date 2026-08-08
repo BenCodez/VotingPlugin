@@ -825,6 +825,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		voteCheckTask = getProxy().getScheduler().schedule(this, new Runnable() {
 			@Override
 			public void run() {
+				getVotingPluginProxy().retryPendingOnlineBroadcasts();
 				for (String server : getVotingPluginProxy().getVoteCacheHandler().getCachedVotesServers()) {
 					getVotingPluginProxy().checkCachedVotes(server);
 				}

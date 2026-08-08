@@ -353,6 +353,10 @@ public class VoteCacheHandlerVoteIdTest {
 		stubString(timedNode, "BroadcastForwardedServers",
 				new VoteTimeQueue(voteId, "Player", "Service", 100L, true, Set.of("Server1"))
 						.encodeBroadcastForwardedServers());
+		String totals = new com.bencodez.votingplugin.proxy.VoteTotalsSnapshot(10, 2, 2, 1, 4, 0, 20, 2)
+				.toStorageString();
+		stubString(timedNode, "Totals", totals);
+		stubBoolean(timedNode, "Processed", true);
 
 		handler = newHandler(stored);
 		handler.load();
@@ -362,6 +366,8 @@ public class VoteCacheHandlerVoteIdTest {
 		assertTrue(loaded.isProxyBroadcastHandled());
 		assertEquals(Set.of("Server1", "Server2"), loaded.getBroadcastTargets());
 		assertEquals(Set.of("Server1"), loaded.getBroadcastForwardedServers());
+		assertEquals(totals, loaded.getTotals());
+		assertTrue(loaded.isProcessed());
 	}
 
 	@Test
