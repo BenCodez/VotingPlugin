@@ -237,8 +237,9 @@ public class DiscordHandler {
 			}
 			plugin.getLogger().warning("Discord Top Voters " + top + " message " + existingId
 					+ " no longer exists; clearing the stored ID and posting a replacement.");
-			topVoterMessageIds.put(top, 0L);
-			plugin.getServerData().setTopVoterMessageId(top, 0L);
+			synchronized (recoveringTopVoters) {
+				topVoterMessageIds.put(top, 0L);
+			}
 			channel.sendMessageEmbeds(eb.build()).queue(msg -> {
 				long newId = msg.getIdLong();
 				synchronized (recoveringTopVoters) {
