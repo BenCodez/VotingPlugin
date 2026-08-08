@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 35675)
+Total output lines: 3821
+
 package com.bencodez.votingplugin.commands;
 
 import java.io.IOException;
@@ -21,6 +24,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginCommand;
+import org.bukkit.command.CommandMap;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -1518,598 +1522,7 @@ public class CommandLoader {
 									.colorize("&cFailed to check for update for &c&l" + plugin.getName() + "&c!"));
 							break;
 						}
-						case NO_UPDATE: {
-							sender.sendMessage(MessageAPI.colorize("&c&l" + plugin.getName()
-									+ " &cis up to date! Version: &c&l" + plugin.getUpdater().getVersion()));
-							break;
-						}
-						case UPDATE_AVAILABLE: {
-							sender.sendMessage(MessageAPI.colorize(
-									"&c&l" + plugin.getName() + " &chas an update available! Your Version: &c&l"
-											+ plugin.getDescription().getVersion() + " &cNew Version: &c&l"
-											+ plugin.getUpdater().getVersion()));
-							break;
-						}
-						default: {
-							break;
-						}
-						}
-					}
-				});
-
-			}
-		});
-
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "VoteSite", "(sitename)", "SetEnabled", "(boolean)" },
-						"VotingPlugin.Commands.AdminVote.VoteSite.Edit|" + adminPerm, "Set VoteSite Enabled") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						String voteSite = plugin.getVoteSiteManager().getVoteSiteName(false, args[1]);
-						boolean value = Boolean.parseBoolean(args[3]);
-
-						plugin.getConfigVoteSites().setEnabled(voteSite, value);
-						sender.sendMessage(MessageAPI.colorize("&cSet votesite " + voteSite + " enabled to " + value));
-
-					}
-				});
-
-		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "VoteSite", "(sitename)", "Check" },
-				"VotingPlugin.Commands.AdminVote.VoteSite.Check|" + adminPerm, "Check to see if VoteSite is valid") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				String siteName = args[1];
-				if (!plugin.getConfigVoteSites().isServiceSiteGood(siteName)) {
-					sender.sendMessage(MessageAPI.colorize("&cServiceSite is invalid, votes may not work properly"));
-				} else {
-					String service = plugin.getConfigVoteSites().getServiceSite(siteName);
-					if (plugin.getServerData().getServiceSites().contains(service)) {
-						sender.sendMessage(MessageAPI.colorize("&aServiceSite is properly setup"));
-					} else {
-						sender.sendMessage(
-								MessageAPI.colorize("&cService may not be valid, haven't received a vote from "
-										+ service + ", see /av servicesites"));
-					}
-
-				}
-				if (!plugin.getConfigVoteSites().isVoteURLGood(siteName)) {
-					sender.sendMessage(MessageAPI.colorize("&cVoteURL is invalid"));
-				} else {
-					sender.sendMessage(MessageAPI.colorize("&aVoteURL is properly setup"));
-				}
-			}
-		});
-
-		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "BackgroundUpdate" },
-				"VotingPlugin.Commands.AdminVote.BackgroundUpdate|" + adminPerm, "Force a background update") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				plugin.setUpdate(true);
-				plugin.update();
-				sender.sendMessage(MessageAPI.colorize("&cUpdating..."));
-			}
-		});
-
-		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "ClearOfflineVotes" },
-				"VotingPlugin.Commands.AdminVote.ClearOfflineVotes|" + adminPerm, "Clear all offline votes") {
-
-			@Override
-			public void execute(CommandSender sender, String[] args) {
-				plugin.getUserManager().removeAllKeyValues("OfflineVotes", DataType.STRING);
-				plugin.getUserManager().getDataManager().clearCache();
-				sender.sendMessage(MessageAPI.colorize("&cOffline votes Cleared"));
-			}
-		});
-
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "Test", "(Player)", "(sitename)", "(number)" },
-						"VotingPlugin.Commands.AdminVote.Test|" + adminPerm, "Test voting speed, for debug") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						plugin.getVoteTester().testVotes(Integer.parseInt(args[3]), args[1], args[2]);
-						if (isPlayer(sender)) {
-							sendMessage(sender, "&cSee console for details");
-						}
-					}
-				});
-
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "TestSpam", "(Player)", "(sitename)", "(number)" },
-						"VotingPlugin.Commands.AdminVote.TestSpam|" + adminPerm, "Test voting spam speed, for debug") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						plugin.getVoteTester().testSpam(Integer.parseInt(args[3]), args[1], args[2]);
-						if (isPlayer(sender)) {
-							sendMessage(sender, "&cSee console for details");
-						}
-					}
-				});
-
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "TestReward", "(Player)", "(reward)", "(number)" },
-						"VotingPlugin.Commands.AdminVote.TestReward|" + adminPerm, "Test reward speed, for debug") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						plugin.getVoteTester().testRewards(Integer.parseInt(args[3]), args[1], args[2]);
-						if (isPlayer(sender)) {
-							sendMessage(sender, "&cSee console for details");
-						}
-					}
-				});
-
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "Placeholders" },
-						"VotingPlugin.Commands.AdminVote.Placeholders|" + adminPerm,
-						"See possible placeholderapi placeholders") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						new AdminVotePlaceholders(plugin, sender).open();
-					}
-				});
-
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "VoteParty", "Force" },
-						"VotingPlugin.Commands.AdminVote.VoteParty.Force|" + adminPerm,
-						"Force a voteparty reward, resets vote count") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						plugin.getVoteParty().giveRewards(null, plugin.getBungeeSettings().isUseBungeecoord());
-					}
-				});
-
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "VoteParty", "SetVoteCount", "(Number)" },
-						"VotingPlugin.Commands.AdminVote.VoteParty.SetVoteCount|" + adminPerm, "Set voteparty count") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						int num = Integer.parseInt(args[2]);
-						if (num == 0) {
-							plugin.getVoteParty().reset(true);
-							sendMessage(sender, "&cVoteparty totals have been set to 0 and all been reset");
-						} else {
-							plugin.getVoteParty().setTotalVotes(num);
-							sendMessage(sender, "&cVoteparty total votes has been set to " + args[2]);
-						}
-					}
-				});
-
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "VoteParty", "AddVoteCount", "(Number)" },
-						"VotingPlugin.Commands.AdminVote.VoteParty.SetVoteCount|" + adminPerm, "Add voteparty count") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						int num = plugin.getVoteParty().getTotalVotes() + Integer.parseInt(args[2]);
-						plugin.getVoteParty().setTotalVotes(num);
-						sendMessage(sender, "&cVoteparty total votes has been set to " + num);
-					}
-				});
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "VoteParty", "SetExtraRequired", "(Number)" },
-						"VotingPlugin.Commands.AdminVote.VoteParty.SetExtraRequired|" + adminPerm,
-						"Set VotePartyExtraRequired value") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						plugin.getServerData().setVotePartyExtraRequired(Integer.parseInt(args[2]));
-						sendMessage(sender, "&cSet VotePartyExtraRequired to " + args[2]);
-					}
-				});
-
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "User", "(player)", "ForceVoteShop", "(VoteShop)" },
-						"VotingPlugin.Commands.AdminVote.ForceVoteShop|" + adminPerm, "Force a voteshop reward") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-						plugin.getRewardHandler().giveReward(user, plugin.getConfigFile().getData(),
-								plugin.getShopFile().getShopIdentifierRewardsPath(args[3]), new RewardOptions());
-						sendMessage(sender, "&cVoteShop " + args[3] + " forced");
-					}
-				});
-
-		for (final TopVoter top : TopVoter.valuesMinusAllTime()) {
-			plugin.getAdminVoteCommand()
-					.add(new CommandHandler(plugin,
-							new String[] { "User", "(player)", "ForceTopVoter", top.toString(), "(Number)" },
-							"VotingPlugin.Commands.AdminVote.ForceTopVoter." + top.toString() + "|" + adminPerm,
-							"Force a top voter reward") {
-
-						@Override
-						public void execute(CommandSender sender, String[] args) {
-							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-							int place = parseInt(args[4]);
-							switch (top) {
-							case Daily:
-								user.giveDailyTopVoterAward(place, args[4]);
-								break;
-							case Monthly:
-								user.giveMonthlyTopVoterAward(place, args[4]);
-								break;
-							case Weekly:
-								user.giveWeeklyTopVoterAward(place, args[4]);
-								break;
-							default:
-								break;
-
-							}
-							sendMessage(sender, "&cTopVoter " + top.toString() + " " + args[4] + " forced");
-						}
-					});
-
-			String text = "";
-			switch (top) {
-			case Daily:
-				text = "Day";
-				break;
-			case Monthly:
-				text = "Month";
-				break;
-			case Weekly:
-				text = "Week";
-				break;
-			default:
-				break;
-
-			}
-
-			final String str = text;
-
-			plugin.getAdminVoteCommand()
-					.add(new CommandHandler(plugin,
-							new String[] { "User", "(player)", "VoteStreaks", "ForceLegacy", str, "(Text)" },
-							"VotingPlugin.Commands.AdminVote.ForceVoteStreak|" + adminPerm,
-							"Force a votestreak reward for " + str) {
-
-						@Override
-						public void execute(CommandSender sender, String[] args) {
-							String num = args[5];
-							if (num.contains("-")) {
-								num = num.replaceAll("-", "");
-							}
-							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-							plugin.getSpecialRewards().giveVoteStreakReward(null, user, user.isOnline(), str, args[5],
-									parseInt(num), plugin.getBungeeSettings().isUseBungeecoord());
-							sendMessage(sender, "&cVoteStreak " + str + " " + args[5] + " forced");
-						}
-					});
-		}
-
-		// /av votemilestone forcegroup <player> <group>
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin,
-						new String[] { "VoteMilestone&VM", "ForceGroup", "(player)", "(milestonegroup)" },
-						"VotingPlugin.Commands.AdminVote.VoteMilestone.ForceGroup|" + adminPerm,
-						"Force execute VoteMilestones for a group (skips totals, respects limits)") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						VoteMilestonesManager vm = plugin.getVoteMilestonesManager();
-						if (vm == null) {
-							sendMessage(sender, "&cVoteMilestonesManager is not available");
-							return;
-						}
-
-						String player = args[2];
-						String group = args[3];
-
-						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
-						int executed = vm.forceGroup(user, group, false, null);
-
-						sendMessage(sender, "&aForced VoteMilestonesGroup (limits ON) for &e" + player + "&a group=&e"
-								+ group + "&a executed=&e" + executed);
-					}
-				});
-
-		// /av votemilestone forcegroupnolimits <player> <group>
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin,
-						new String[] { "VoteMilestone&VM", "ForceGroupNoLimits", "(player)", "(milestonegroup)" },
-						"VotingPlugin.Commands.AdminVote.VoteMilestone.ForceGroupNoLimits|" + adminPerm,
-						"Force execute VoteMilestones for a group (skips totals, bypasses limits)") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						VoteMilestonesManager vm = plugin.getVoteMilestonesManager();
-						if (vm == null) {
-							sendMessage(sender, "&cVoteMilestonesManager is not available");
-							return;
-						}
-
-						String player = args[2];
-						String group = args[3];
-
-						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
-						int executed = vm.forceGroup(user, group, true, null);
-
-						sendMessage(sender, "&aForced VoteMilestonesGroup (limits OFF) for &e" + player + "&a group=&e"
-								+ group + "&a executed=&e" + executed);
-					}
-				});
-
-		// /av votemilestone force <player> <milestoneId>
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "VoteMilestone&VM", "Force", "(player)", "(milestone)" },
-						"VotingPlugin.Commands.AdminVote.VoteMilestone.Force|" + adminPerm,
-						"Force execute a specific VoteMilestone (skips totals, respects limits)") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						VoteMilestonesManager vm = plugin.getVoteMilestonesManager();
-						if (vm == null) {
-							sendMessage(sender, "&cVoteMilestonesManager is not available");
-							return;
-						}
-
-						String player = args[2];
-						String milestoneId = args[3];
-
-						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
-						boolean ok = vm.forceMilestone(user, milestoneId, false, null);
-
-						sendMessage(sender,
-								ok ? "&aForced VoteMilestone (limits ON) for &e" + player + "&a milestone=&e"
-										+ milestoneId
-										: "&cFailed to force milestone (not found/disabled/blocked by limit): &e"
-												+ milestoneId);
-					}
-				});
-
-		// /av votemilestone forcenolimits <player> <milestoneId>
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin,
-						new String[] { "VoteMilestone&VM", "ForceNoLimits", "(player)", "(milestone)" },
-						"VotingPlugin.Commands.AdminVote.VoteMilestone.ForceNoLimits|" + adminPerm,
-						"Force execute a specific VoteMilestone (skips totals, bypasses limits)") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						VoteMilestonesManager vm = plugin.getVoteMilestonesManager();
-						if (vm == null) {
-							sendMessage(sender, "&cVoteMilestonesManager is not available");
-							return;
-						}
-
-						String player = args[2];
-						String milestoneId = args[3];
-
-						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
-						boolean ok = vm.forceMilestone(user, milestoneId, true, null);
-
-						sendMessage(sender,
-								ok ? "&aForced VoteMilestone (limits OFF) for &e" + player + "&a milestone=&e"
-										+ milestoneId
-										: "&cFailed to force milestone (not found/disabled): &e" + milestoneId);
-					}
-				});
-
-		// /av votemilestone previewmilestone <player> <milestoneId>
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin,
-						new String[] { "VoteMilestone&VM", "PreviewMilestone", "(player)", "(milestone)" },
-						"VotingPlugin.Commands.AdminVote.VoteMilestone.PreviewMilestone|" + adminPerm,
-						"Preview a specific VoteMilestone (shows total/match/limit; does not execute)") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						VoteMilestonesManager vm = plugin.getVoteMilestonesManager();
-						if (vm == null) {
-							sendMessage(sender, "&cVoteMilestonesManager is not available");
-							return;
-						}
-
-						String player = args[2];
-						String milestoneId = args[3];
-
-						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
-						String group = vm.getGroupForMilestoneId(milestoneId);
-						if (group == null) {
-							sendMessage(sender, "&cUnknown milestone: &e" + milestoneId);
-							return;
-						}
-
-						sendMessage(sender, "&aVoteMilestone preview for &e" + player + "&a milestone=&e" + milestoneId
-								+ "&a (group=&e" + group + "&a)");
-						for (String line : vm.previewGroup(user, group, null)) {
-							if (line == null) {
-								continue;
-							}
-							if (line.startsWith("group=") || line.toLowerCase().startsWith(milestoneId.toLowerCase())) {
-								sendMessage(sender, "&7- &f" + line);
-							}
-						}
-					}
-				});
-
-		// /av votemilestone statusmilestone <player> <milestoneId>
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin,
-						new String[] { "VoteMilestone&VM", "StatusMilestone", "(player)", "(milestone)" },
-						"VotingPlugin.Commands.AdminVote.VoteMilestone.StatusMilestone|" + adminPerm,
-						"Show status for a specific VoteMilestone (given/missing/due/pending; does not execute)") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						VoteMilestonesManager vm = plugin.getVoteMilestonesManager();
-						if (vm == null) {
-							sendMessage(sender, "&cVoteMilestonesManager is not available");
-							return;
-						}
-
-						String player = args[2];
-						String milestoneId = args[3];
-
-						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
-						String group = vm.getGroupForMilestoneId(milestoneId);
-						if (group == null) {
-							sendMessage(sender, "&cUnknown milestone: &e" + milestoneId);
-							return;
-						}
-
-						sendMessage(sender, "&aVoteMilestone status for &e" + player + "&a milestone=&e" + milestoneId
-								+ "&a (group=&e" + group + "&a)");
-						java.util.List<String> lines = vm.statusGroup(user, group, null);
-						for (String line : lines) {
-							if (line == null) {
-								continue;
-							}
-							if (line.toLowerCase().startsWith(milestoneId.toLowerCase())) {
-								sendMessage(sender, "&7- &f" + line);
-							}
-						}
-					}
-				});
-
-		// /av user <player> forcevotemilestone <milestoneId>
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin,
-						new String[] { "User", "(player)", "ForceVoteMilestone", "(milestone)" },
-						"VotingPlugin.Commands.AdminVote.User.ForceVoteMilestone|" + adminPerm,
-						"Force execute a specific VoteMilestone (skips totals, respects limits)") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						VoteMilestonesManager vm = plugin.getVoteMilestonesManager();
-						if (vm == null) {
-							sendMessage(sender, "&cVoteMilestonesManager is not available");
-							return;
-						}
-
-						String player = args[1];
-						String milestoneId = args[3];
-
-						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
-						boolean ok = vm.forceMilestone(user, milestoneId, false, null);
-
-						sendMessage(sender,
-								ok ? "&aForced VoteMilestone (limits ON) for &e" + player + "&a milestone=&e"
-										+ milestoneId
-										: "&cFailed to force milestone (not found/disabled/blocked by limit): &e"
-												+ milestoneId);
-					}
-				});
-
-		// /av user <player> forcevotemilestonenolimits <milestoneId>
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin,
-						new String[] { "User", "(player)", "ForceVoteMilestoneNoLimits", "(milestone)" },
-						"VotingPlugin.Commands.AdminVote.User.ForceVoteMilestoneNoLimits|" + adminPerm,
-						"Force execute a specific VoteMilestone (skips totals, bypasses limits)") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						VoteMilestonesManager vm = plugin.getVoteMilestonesManager();
-						if (vm == null) {
-							sendMessage(sender, "&cVoteMilestonesManager is not available");
-							return;
-						}
-
-						String player = args[1];
-						String milestoneId = args[3];
-
-						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
-						boolean ok = vm.forceMilestone(user, milestoneId, true, null);
-
-						sendMessage(sender,
-								ok ? "&aForced VoteMilestone (limits OFF) for &e" + player + "&a milestone=&e"
-										+ milestoneId
-										: "&cFailed to force milestone (not found/disabled): &e" + milestoneId);
-					}
-				});
-
-		// /av user <player> resetvotemilestonelimits [group]
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin,
-						new String[] { "User", "(player)", "ResetVoteMilestoneLimits", "(milestonegroup)" },
-						"VotingPlugin.Commands.AdminVote.User.ResetVoteMilestoneLimits|" + adminPerm,
-						"Reset VoteMilestone limits for a player (group)") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						VoteMilestonesManager vm = plugin.getVoteMilestonesManager();
-						if (vm == null) {
-							sendMessage(sender, "&cVoteMilestonesManager is not available");
-							return;
-						}
-
-						String player = args[1];
-						String group = args[3];
-
-						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
-						int removed = vm.resetLimits(user, group);
-
-						sendMessage(sender, "&aReset VoteMilestone limits for &e" + player + "&a group=&e" + group
-								+ "&a removed=&e" + removed);
-					}
-				});
-
-		// /av user <player> resetvotemilestonelimits (no group)
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin, new String[] { "User", "(player)", "ResetVoteMilestoneLimits" },
-						"VotingPlugin.Commands.AdminVote.User.ResetVoteMilestoneLimits|" + adminPerm,
-						"Reset ALL VoteMilestone limits for a player") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						VoteMilestonesManager vm = plugin.getVoteMilestonesManager();
-						if (vm == null) {
-							sendMessage(sender, "&cVoteMilestonesManager is not available");
-							return;
-						}
-
-						String player = args[1];
-
-						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
-						int removed = vm.resetLimits(user, null);
-
-						sendMessage(sender,
-								"&aReset ALL VoteMilestone limits for &e" + player + "&a cleared=&e" + removed);
-					}
-				});
-
-		// /av votemilestone preview <player> <group>
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin,
-						new String[] { "VoteMilestone&VM", "Preview", "(player)", "(milestonegroup)" },
-						"VotingPlugin.Commands.AdminVote.VoteMilestone.Preview|" + adminPerm,
-						"Preview VoteMilestones for a group (shows totals/matches; does not execute)") {
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						VoteMilestonesManager vm = plugin.getVoteMilestonesManager();
-						if (vm == null) {
-							sendMessage(sender, "&cVoteMilestonesManager is not available");
-							return;
-						}
-
-						String player = args[2];
-						String group = args[3];
-
-						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
-
-						sendMessage(sender, "&aVoteMilestone preview for &e" + player + "&a group=&e" + group);
-						for (String line : vm.previewGroup(user, group, null)) {
-							sendMessage(sender, "&7- &f" + line);
-						}
-					}
-				});
-
-		// /av votemilestone status <player> <group>
-		plugin.getAdminVoteCommand()
-				.add(new CommandHandler(plugin,
-						new String[] { "VoteMilestone&VM", "Status", "(player)", "(milestonegroup)" },
-						"VotingPlugin.Commands.AdminVote.VoteMilestone.Status|" + adminPerm,
-						"Show VoteMilestone status for a group (current total; does not execute)") {
+	…5675 tokens truncated…VoteMilestone status for a group (current total; does not execute)") {
 
 					@Override
 					public void execute(CommandSender sender, String[] args) {
@@ -2690,6 +2103,9 @@ public class CommandLoader {
 		// If false: still wire permissions, but don't wire alias executors/tab
 		// completers.
 		final boolean enableAliases = plugin.getConfigFile().isLoadCommandAliases();
+		if (!enableAliases) {
+			unregisterOptionalPluginYMLCommands();
+		}
 
 		// ---------------------------
 		// /vote aliases
@@ -2843,6 +2259,40 @@ public class CommandLoader {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Removes optional commands declared in plugin.yml when aliases are disabled.
+	 * Bukkit registers plugin.yml commands before this loader runs, so simply
+	 * replacing their executors still reserves the command names.
+	 */
+	private void unregisterOptionalPluginYMLCommands() {
+		try {
+			CommandMap commandMap = getCommandMap();
+			for (String commandName : plugin.getDescription().getCommands().keySet()) {
+				if (commandName.equalsIgnoreCase("vote") || commandName.equalsIgnoreCase("adminvote")
+						|| commandName.equalsIgnoreCase("av")) {
+					continue;
+				}
+				PluginCommand command = plugin.getCommand(commandName);
+				if (command != null) {
+					command.unregister(commandMap);
+				}
+			}
+		} catch (Exception e) {
+			plugin.getLogger().warning("Unable to unregister disabled command aliases: " + e.getMessage());
+		}
+	}
+
+	/**
+	 * Gets Bukkit's command map without depending on a CraftBukkit package name.
+	 *
+	 * @return the server command map
+	 * @throws ReflectiveOperationException if the server does not expose it
+	 */
+	private CommandMap getCommandMap() throws ReflectiveOperationException {
+		java.lang.reflect.Method method = plugin.getServer().getClass().getMethod("getCommandMap");
+		return (CommandMap) method.invoke(plugin.getServer());
 	}
 
 	/**
