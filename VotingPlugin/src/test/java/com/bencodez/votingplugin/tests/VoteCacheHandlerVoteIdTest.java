@@ -214,6 +214,24 @@ public class VoteCacheHandlerVoteIdTest {
 	}
 
 	@Test
+	public void updatedOnlineBroadcastStateIsPersistedInPlace() {
+		DataNode voteNode = mock(DataNode.class);
+		when(storage.getOnlineVotes("player-uuid")).thenReturn(List.of("3"));
+		when(storage.getOnlineVotes("player-uuid", "3")).thenReturn(voteNode);
+		when(voteNode.isObject()).thenReturn(true);
+		stubString(voteNode, "UUID", "player-uuid");
+		stubString(voteNode, "Service", "Service");
+		stubLong(voteNode, "Time", 100L);
+
+		OfflineBungeeVote vote = new OfflineBungeeVote(UUID.randomUUID(), "Player", "player-uuid", "Service", 100L,
+				true, "totals", true, true, Set.of("Server1"), Set.of("Server1"), false);
+		handler.updateOnlineVote("player-uuid", vote);
+
+		verify(storage).addVoteOnline("player-uuid", 3, vote);
+		verify(storage).save();
+	}
+
+	@Test
 	public void timedVoteBroadcastStateLoadsFromJsonCache() {
 		IVoteCache stored = mock(IVoteCache.class);
 		DataNode timedNode = mock(DataNode.class);

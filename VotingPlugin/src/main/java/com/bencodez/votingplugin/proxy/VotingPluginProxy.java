@@ -480,20 +480,47 @@ public abstract class VotingPluginProxy {
 	private Set<String> sendProxyBroadcast(Set<String> targets, String uuid, String player, String service, long time,
 			String text, boolean wasOnline) {
 		Set<String> forwarded = new LinkedHashSet<>();
-		int delay = 1;
 		for (String targetServer : targets) {
 			JsonEnvelope envelope = VotingPluginWire.voteBroadcast(uuid, player, service, time, text, wasOnline);
-			if (method == BungeeMethod.PLUGINMESSAGING) {
-				if (sendPluginMessageServerNow(targetServer, envelope)) {
-					forwarded.add(targetServer);
-				}
-			} else {
-				globalMessageProxyHandler.sendMessage(targetServer, delay, envelope);
+			if (sendProxyBroadcastEnvelopeNow(targetServer, envelope)) {
 				forwarded.add(targetServer);
 			}
-			delay++;
 		}
 		return forwarded;
+	}
+
+	/**
+	 * Sends a standalone proxy broadcast through the selected transport and reports
+	 * whether that transport accepted the message.
+	 *
+	 * @param server target backend server
+	 * @param envelope standalone broadcast envelope
+	 * @return true only when the transport accepted the message
+	 */
+	protected boolean sendProxyBroadcastEnvelopeNow(String server, JsonEnvelope envelope) {
+		switch (method) {
+		case MQTT:
+			return sendMqttEnvelopeServer(server, envelope);
+		case MYSQL:
+			if (proxyMysqlMessenger == null) {
+				return false;
+			}
+			try {
+				proxyMysqlMessenger.sendToBackend(server, envelope);
+				return true;
+			} catch (SQLException e) {
+				debug(e.getMessage());
+				return false;
+			}
+		case PLUGINMESSAGING:
+			return sendPluginMessageServerNow(server, envelope);
+		case REDIS:
+			return sendRedisEnvelopeServer(server, envelope);
+		case SOCKETS:
+			return sendSocketEnvelopeServer(server, envelope);
+		default:
+			return false;
+		}
 	}
 
 	public synchronized void checkCachedVotes(String server) {
@@ -621,6 +648,32 @@ public abstract class VotingPluginProxy {
 							&& getConfig().getMultiProxyOneGlobalReward()) {
 						multiProxyHandler.sendClearVote(uuid, player);
 					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * Retries voter-keyed standalone broadcasts when any player makes a target
+	 * backend available as a plugin-message carrier.
+	 *
+	 * @param server backend server that gained a carrier
+	 */
+	protected synchronized void retryPendingOnlineBroadcasts(String server) {
+		List<String> blockedServers = getConfig().getBlockedServers();
+		if (server == null || (blockedServers != null && blockedServers.contains(server))) {
+			return;
+		}
+		for (String cachedUuid : getVoteCacheHandler().getOnlineVoteUUIDs()) {
+			for (OfflineBungeeVote cache : new ArrayList<>(getVoteCacheHandler().getOnlineVotes(cachedUuid))) {
+				if (!cache.isProxyBroadcastHandled() || !cache.needsBroadcastOn(server)) {
+					continue;
+				}
+				Set<String> forwarded = sendProxyBroadcast(Collections.singleton(server), cache.getUuid(),
+						cache.getPlayerName(), cache.getService(), cache.getTime(), cache.getText(), false);
+				if (cache.getBroadcastForwardedServers().addAll(forwarded)) {
+					cache.setBroadcastForwarded(cache.isProxyBroadcastComplete());
+					getVoteCacheHandler().updateOnlineVote(cachedUuid, cache);
 				}
 			}
 		}
@@ -1294,6 +1347,7 @@ public abstract class VotingPluginProxy {
 			}
 
 			checkCachedVotes(serverName);
+			retryPendingOnlineBroadcasts(serverName);
 			checkOnlineVotes(playerName, uuid, serverName);
 			multiProxyHandler.login(uuid, playerName);
 		}
@@ -1495,26 +1549,52 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
-	public void sendRedisEnvelopeServer(String server, JsonEnvelope envelope) {
-		redisHandler.publishEnvelope(getConfig().getRedisPrefix() + "VotingPlugin_" + server, envelope);
+	public boolean sendRedisEnvelopeServer(String server, JsonEnvelope envelope) {
+		if (redisHandler == null) {
+			return false;
+		}
+		try {
+			redisHandler.publishEnvelope(getConfig().getRedisPrefix() + "VotingPlugin_" + server, envelope);
+			// RedisHandler currently swallows publish failures and exposes no acknowledgement,
+			// so the standalone delivery must remain pending.
+			return false;
+		} catch (Exception e) {
+			debug(e.getMessage());
+			return false;
+		}
 	}
 
-	public void sendMqttEnvelopeServer(String server, JsonEnvelope envelope) {
+	public boolean sendMqttEnvelopeServer(String server, JsonEnvelope envelope) {
+		if (mqttHandler == null) {
+			return false;
+		}
 		try {
 			mqttHandler.publishEnvelope(getConfig().getMqttPrefix() + "votingplugin/servers/" + server, envelope);
+			return true;
 		} catch (Exception e) {
 			if (getConfig().getDebug()) {
 				e.printStackTrace();
 			}
+			return false;
 		}
 	}
 
-	public void sendSocketEnvelopeServer(String server, JsonEnvelope envelope) {
+	public boolean sendSocketEnvelopeServer(String server, JsonEnvelope envelope) {
 		if (clientHandles == null) {
-			return;
+			return false;
 		}
-		if (clientHandles.containsKey(server)) {
-			clientHandles.get(server).sendEnvelope(envelope);
+		ClientHandler client = clientHandles.get(server);
+		if (client == null) {
+			return false;
+		}
+		try {
+			client.sendEnvelope(envelope);
+			// ClientHandler currently swallows connect/write failures and exposes no
+			// acknowledgement, so the standalone delivery must remain pending.
+			return false;
+		} catch (Exception e) {
+			debug(e.getMessage());
+			return false;
 		}
 	}
 

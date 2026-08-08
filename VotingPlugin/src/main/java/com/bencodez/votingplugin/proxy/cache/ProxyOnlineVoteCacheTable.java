@@ -149,6 +149,45 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 		}
 	}
 
+	/**
+	 * Updates proxy broadcast and reward delivery state for a voter-keyed cached
+	 * vote.
+	 *
+	 * @param vote cached vote with updated delivery state
+	 */
+	public void updateProxyBroadcastState(OfflineBungeeVote vote) {
+		if (vote == null) {
+			return;
+		}
+
+		String sql = "UPDATE " + qi(getTableName()) + " SET " + qi("broadcastForwarded") + " = ?, "
+				+ qi("proxyBroadcastHandled") + " = ?, " + qi("broadcastTargets") + " = ?, "
+				+ qi("broadcastForwardedServers") + " = ?, " + qi("rewardDelivered") + " = ? WHERE "
+				+ qi("uuid") + " = ? AND " + qi("service") + " = ? AND " + qi("time") + " = ?;";
+
+		try (Connection conn = mysql.getConnectionManager().getConnection();
+				PreparedStatement ps = conn.prepareStatement(sql)) {
+			if (getDbType() == DbType.POSTGRESQL) {
+				ps.setBoolean(1, vote.isBroadcastForwarded());
+				ps.setBoolean(2, vote.isProxyBroadcastHandled());
+				ps.setBoolean(5, vote.isRewardDelivered());
+				ps.setObject(6, UUID.fromString(vote.getUuid()));
+			} else {
+				ps.setInt(1, vote.isBroadcastForwarded() ? 1 : 0);
+				ps.setInt(2, vote.isProxyBroadcastHandled() ? 1 : 0);
+				ps.setInt(5, vote.isRewardDelivered() ? 1 : 0);
+				ps.setString(6, vote.getUuid());
+			}
+			ps.setString(3, vote.encodeBroadcastTargets());
+			ps.setString(4, vote.encodeBroadcastForwardedServers());
+			ps.setString(7, vote.getService());
+			ps.setLong(8, vote.getTime());
+			ps.executeUpdate();
+		} catch (SQLException | IllegalArgumentException e) {
+			debug(e);
+		}
+	}
+
 	private void ensureIndexesOnce() {
 		if (getDbType() != DbType.POSTGRESQL) {
 			return;

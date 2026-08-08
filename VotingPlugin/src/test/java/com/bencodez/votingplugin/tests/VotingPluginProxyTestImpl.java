@@ -187,6 +187,14 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 		return sendPluginMessageServerNow(server, envelope);
 	}
 
+	public boolean sendProxyBroadcastImmediately(String server, JsonEnvelope envelope) {
+		return sendProxyBroadcastEnvelopeNow(server, envelope);
+	}
+
+	public void retryPendingOnlineBroadcastsForTest(String server) {
+		retryPendingOnlineBroadcasts(server);
+	}
+
 	@Override
 	public void setVoteCacheLastUpdated() {
 		// TODO Auto-generated method stub

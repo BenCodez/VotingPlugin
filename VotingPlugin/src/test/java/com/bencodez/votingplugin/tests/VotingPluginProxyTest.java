@@ -16,6 +16,7 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
+import com.bencodez.simpleapi.servercomm.mysql.MySqlMessenger;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 import com.bencodez.votingplugin.proxy.ProxyMysqlUserTable;
@@ -109,6 +110,18 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void standaloneMysqlBroadcastReportsTransportFailure() throws Exception {
+		MySqlMessenger messenger = Mockito.mock(MySqlMessenger.class);
+		Mockito.doThrow(new java.sql.SQLException("send failed")).when(messenger)
+				.sendToBackend(Mockito.eq("Server1"), Mockito.any());
+		votingPluginProxy.setMethod(BungeeMethod.MYSQL);
+		votingPluginProxy.setProxyMysqlMessenger(messenger);
+
+		assertFalse(votingPluginProxy.sendProxyBroadcastImmediately("Server1",
+				VotingPluginWire.voteBroadcast("uuid", "Player", "Service", 100L, "", false)));
+	}
+
+	@Test
 	void rejectedVoteStopsBeforeGlobalDataQueueOrOfflineBroadcast() {
 		votingPluginProxy.setPlayerOnline(false);
 		Mockito.when(votingPluginProxy.getConfig().getBungeeManageTotals()).thenReturn(true);
@@ -174,5 +187,29 @@ public class VotingPluginProxyTest {
 		assertTrue(vote.isBroadcastForwarded());
 		assertFalse(vote.isRewardDelivered());
 		verify(voteCache).updateServerVote("Server1", vote);
+	}
+
+	@Test
+	void pendingOnlineBroadcastRetriesWhenTargetGainsAnyCarrier() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "OfflineVoter", "voter-uuid",
+				"Service", 100L, true, "totals", false, true, java.util.Set.of("Server1"),
+				java.util.Collections.emptySet(), false);
+		Mockito.when(voteCache.getOnlineVoteUUIDs()).thenReturn(java.util.Set.of("voter-uuid"));
+		Mockito.when(voteCache.getOnlineVotes("voter-uuid"))
+				.thenReturn(new java.util.ArrayList<>(java.util.List.of(vote)));
+
+		votingPluginProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		Mockito.when(votingPluginProxy.getConfig().getBlockedServers())
+				.thenReturn(java.util.Collections.emptyList());
+
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		spyProxy.retryPendingOnlineBroadcastsForTest("Server1");
+
+		assertTrue(vote.isProxyBroadcastComplete());
+		assertTrue(vote.isBroadcastForwarded());
+		assertFalse(vote.isRewardDelivered());
+		verify(voteCache).updateOnlineVote("voter-uuid", vote);
 	}
 }

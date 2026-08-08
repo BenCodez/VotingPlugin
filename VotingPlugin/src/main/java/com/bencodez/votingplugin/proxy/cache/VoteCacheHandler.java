@@ -4,9 +4,11 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -200,6 +202,15 @@ public abstract class VoteCacheHandler {
 	}
 
 	/**
+	 * Gets a snapshot of player UUID keys that have voter-keyed cached votes.
+	 *
+	 * @return cached player UUIDs
+	 */
+	public Set<String> getOnlineVoteUUIDs() {
+		return new LinkedHashSet<>(cachedOnlineVotes.keySet());
+	}
+
+	/**
 	 * Adds a vote to the online vote cache for a player.
 	 * @param uuid the player UUID
 	 * @param vote the vote to add
@@ -224,6 +235,42 @@ public abstract class VoteCacheHandler {
 			int idx = jsonStorage.getOnlineVotes(uuid).size();
 			jsonStorage.addVoteOnline(uuid, idx, vote);
 			jsonStorage.save();
+		}
+	}
+
+	/**
+	 * Persists updated delivery state for an existing voter-keyed cached vote.
+	 *
+	 * @param uuid voter cache key
+	 * @param vote cached vote with updated delivery state
+	 */
+	public synchronized void updateOnlineVote(String uuid, OfflineBungeeVote vote) {
+		if (useMySQL) {
+			onlineVoteCacheTable.updateProxyBroadcastState(vote);
+			return;
+		}
+
+		Collection<String> keys = jsonStorage.getOnlineVotes(uuid);
+		if (keys == null) {
+			return;
+		}
+		for (String key : keys) {
+			DataNode data = jsonStorage.getOnlineVotes(uuid, key);
+			if (data == null || !data.isObject() || !data.has("UUID") || !data.has("Service")
+					|| !data.has("Time")) {
+				continue;
+			}
+			if (vote.getUuid().equals(data.get("UUID").asString())
+					&& vote.getService().equals(data.get("Service").asString())
+					&& vote.getTime() == data.get("Time").asLong()) {
+				try {
+					jsonStorage.addVoteOnline(uuid, Integer.parseInt(key), vote);
+					jsonStorage.save();
+				} catch (NumberFormatException e) {
+					debug1(e);
+				}
+				return;
+			}
 		}
 	}
 
