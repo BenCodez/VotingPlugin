@@ -43,6 +43,9 @@ public class OfflineBungeeVote {
 	@Getter
 	@Setter
 	private boolean rewardDelivered;
+	@Getter
+	@Setter
+	private boolean deliveryStateDirty;
 
 	/**
 	 * Constructor with UUID voteId.

@@ -118,9 +118,9 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 	 * @param vote cached vote with updated delivery state
 	 * @param server backend server owning the cached reward
 	 */
-	public void updateProxyBroadcastState(OfflineBungeeVote vote, String server) {
+	public boolean updateProxyBroadcastState(OfflineBungeeVote vote, String server) {
 		if (vote == null || server == null) {
-			return;
+			return false;
 		}
 
 		boolean hasVoteId = vote.getVoteId() != null;
@@ -157,9 +157,10 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 				ps.setLong(8, vote.getTime());
 				ps.setString(9, server);
 			}
-			ps.executeUpdate();
+			return ps.executeUpdate() > 0;
 		} catch (SQLException | IllegalArgumentException e) {
 			debug(e);
+			return false;
 		}
 	}
 

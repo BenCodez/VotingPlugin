@@ -119,6 +119,7 @@ public abstract class VotingPluginProxy {
 	private volatile long redisPublisherRetryAfter;
 	private boolean timeVoteRetryScheduled;
 	private boolean timeVoteDeliveryRetryScheduled;
+	private boolean cachedVoteDeliveryRetryScheduled;
 
 	private boolean enabled;
 
@@ -545,13 +546,18 @@ public abstract class VotingPluginProxy {
 						int num = 1;
 						int numberOfVotes = c.size();
 						for (OfflineBungeeVote cache : c) {
+							if (cache.isDeliveryStateDirty() && !persistServerVoteDelivery(server, cache)) {
+								continue;
+							}
 							if (cache.isProxyBroadcastHandled() && cache.needsBroadcastOn(server)) {
 								Set<String> forwarded = sendProxyBroadcast(Collections.singleton(server),
 										cache.getUuid(), cache.getPlayerName(), cache.getService(), cache.getTime(),
 										cache.getText(), false);
 								if (cache.getBroadcastForwardedServers().addAll(forwarded)) {
 									cache.setBroadcastForwarded(cache.isProxyBroadcastComplete());
-									getVoteCacheHandler().updateServerVote(server, cache);
+									if (!persistServerVoteDelivery(server, cache)) {
+										continue;
+									}
 								}
 							}
 
@@ -677,6 +683,9 @@ public abstract class VotingPluginProxy {
 		}
 		for (String cachedUuid : getVoteCacheHandler().getOnlineVoteUUIDs()) {
 			for (OfflineBungeeVote cache : new ArrayList<>(getVoteCacheHandler().getOnlineVotes(cachedUuid))) {
+				if (cache.isDeliveryStateDirty() && !persistOnlineVoteDelivery(cachedUuid, cache)) {
+					continue;
+				}
 				if (!cache.isProxyBroadcastHandled() || !cache.needsBroadcastOn(server)) {
 					continue;
 				}
@@ -687,7 +696,7 @@ public abstract class VotingPluginProxy {
 					if (cache.isRewardDelivered() && cache.isProxyBroadcastComplete()) {
 						getVoteCacheHandler().removeOnlineVote(cachedUuid, cache);
 					} else {
-						getVoteCacheHandler().updateOnlineVote(cachedUuid, cache);
+						persistOnlineVoteDelivery(cachedUuid, cache);
 					}
 				}
 			}
@@ -726,6 +735,9 @@ public abstract class VotingPluginProxy {
 	public synchronized void retryPendingOnlineBroadcasts() {
 		for (String cachedUuid : new LinkedHashSet<>(getVoteCacheHandler().getOnlineVoteUUIDs())) {
 			for (OfflineBungeeVote cache : new ArrayList<>(getVoteCacheHandler().getOnlineVotes(cachedUuid))) {
+				if (cache.isDeliveryStateDirty() && !persistOnlineVoteDelivery(cachedUuid, cache)) {
+					continue;
+				}
 				if (!cache.isProxyBroadcastHandled() || cache.isProxyBroadcastComplete()) {
 					continue;
 				}
@@ -742,7 +754,7 @@ public abstract class VotingPluginProxy {
 					if (cache.isRewardDelivered() && cache.isProxyBroadcastComplete()) {
 						getVoteCacheHandler().removeOnlineVote(cachedUuid, cache);
 					} else {
-						getVoteCacheHandler().updateOnlineVote(cachedUuid, cache);
+						persistOnlineVoteDelivery(cachedUuid, cache);
 					}
 				}
 			}
@@ -800,6 +812,61 @@ public abstract class VotingPluginProxy {
 		} catch (RuntimeException e) {
 			timeVoteDeliveryRetryScheduled = false;
 			debug("Unable to schedule timed broadcast state retry: " + e.getMessage());
+		}
+	}
+
+	protected synchronized boolean persistServerVoteDelivery(String server, OfflineBungeeVote vote) {
+		if (getVoteCacheHandler().updateServerVote(server, vote)) {
+			vote.setDeliveryStateDirty(false);
+			return true;
+		}
+		vote.setDeliveryStateDirty(true);
+		scheduleCachedVoteDeliveryRetry();
+		return false;
+	}
+
+	protected synchronized boolean persistOnlineVoteDelivery(String uuid, OfflineBungeeVote vote) {
+		if (getVoteCacheHandler().updateOnlineVote(uuid, vote)) {
+			vote.setDeliveryStateDirty(false);
+			return true;
+		}
+		vote.setDeliveryStateDirty(true);
+		scheduleCachedVoteDeliveryRetry();
+		return false;
+	}
+
+	private void scheduleCachedVoteDeliveryRetry() {
+		if (cachedVoteDeliveryRetryScheduled || getScheduler() == null) {
+			return;
+		}
+		cachedVoteDeliveryRetryScheduled = true;
+		try {
+			getScheduler().schedule(() -> {
+				synchronized (VotingPluginProxy.this) {
+					cachedVoteDeliveryRetryScheduled = false;
+				}
+				retryCachedVoteDeliveryPersistence();
+			}, 5, TimeUnit.SECONDS);
+		} catch (RuntimeException e) {
+			cachedVoteDeliveryRetryScheduled = false;
+			debug("Unable to schedule cached broadcast state retry: " + e.getMessage());
+		}
+	}
+
+	private synchronized void retryCachedVoteDeliveryPersistence() {
+		for (String server : new LinkedHashSet<>(getVoteCacheHandler().getCachedVotesServers())) {
+			for (OfflineBungeeVote vote : new ArrayList<>(getVoteCacheHandler().getVotes(server))) {
+				if (vote.isDeliveryStateDirty()) {
+					persistServerVoteDelivery(server, vote);
+				}
+			}
+		}
+		for (String uuid : new LinkedHashSet<>(getVoteCacheHandler().getOnlineVoteUUIDs())) {
+			for (OfflineBungeeVote vote : new ArrayList<>(getVoteCacheHandler().getOnlineVotes(uuid))) {
+				if (vote.isDeliveryStateDirty()) {
+					persistOnlineVoteDelivery(uuid, vote);
+				}
+			}
 		}
 	}
 
@@ -979,6 +1046,10 @@ public abstract class VotingPluginProxy {
 		int[] projectedVoteParty = getProjectedVotePartyState(acceptedGlobalQueuedVotes + 1);
 		return new VoteTotalsSnapshot(allTimeTotal, monthTotal, weeklyTotal, dailyTotal, points,
 				projectedVoteParty[0], projectedVoteParty[1], dateMonthTotal);
+	}
+
+	protected boolean canForwardStandaloneBroadcast(boolean managesTotals) {
+		return managesTotals;
 	}
 
 	protected int[] getProjectedVotePartyState(int acceptedVotes) {
@@ -2144,6 +2215,7 @@ public abstract class VotingPluginProxy {
 			boolean proxyBroadcastHandled = queuedVote != null && queuedVote.isProxyBroadcastHandled();
 			boolean processesTotals = getConfig().getPrimaryServer() || !getConfig().getMultiProxySupport();
 			boolean managesTotals = processesTotals && getConfig().getBungeeManageTotals();
+			boolean canValidateStandaloneBroadcast = canForwardStandaloneBroadcast(managesTotals);
 			ArrayList<Column> data = null;
 			boolean queueForTimeChange = false;
 
@@ -2182,7 +2254,7 @@ public abstract class VotingPluginProxy {
 			// replaying broadcasts that already reached a backend.
 			if (queueForTimeChange) {
 				VoteTotalsSnapshot projectedTotals = managesTotals ? getProjectedRolloverTotals(data, player) : text;
-				if (proxyBroadcastDecider.usesImmediateForwarding(playerOnline)) {
+				if (canValidateStandaloneBroadcast && proxyBroadcastDecider.usesImmediateForwarding(playerOnline)) {
 					broadcastTargets.addAll(proxyBroadcastDecider.resolveTargets(false, null));
 					proxyBroadcastHandled = true;
 				}
@@ -2268,8 +2340,8 @@ public abstract class VotingPluginProxy {
 			}
 
 			VoteLogStatus voteStatus = VoteLogStatus.IMMEDIATE;
-			boolean standaloneProxyBroadcast = proxyBroadcastHandled
-					|| proxyBroadcastDecider.usesImmediateForwarding(playerOnline);
+			boolean standaloneProxyBroadcast = canValidateStandaloneBroadcast && (proxyBroadcastHandled
+					|| proxyBroadcastDecider.usesImmediateForwarding(playerOnline));
 			Set<String> proxyBroadcastTargets = Collections.emptySet();
 			if (standaloneProxyBroadcast) {
 				// A handled queued broadcast was necessarily sampled while the player was
@@ -2334,7 +2406,8 @@ public abstract class VotingPluginProxy {
 							VotingPluginWire.voteOnline(player, uuid, service, time, true, realVote, text.toString(),
 									voteId, getConfig().getBungeeManageTotals(), broadcastHere, 1, 1));
 
-					if (getConfig().getProxyBroadcastEnabled() && !standaloneProxyBroadcast) {
+					if (canValidateStandaloneBroadcast && getConfig().getProxyBroadcastEnabled()
+							&& !standaloneProxyBroadcast) {
 						Set<String> targets = proxyBroadcastDecider.resolveTargets(true, playerServer);
 
 						int bDelay = 2;

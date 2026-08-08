@@ -120,15 +120,14 @@ public abstract class VoteCacheHandler {
 	 * @param server backend server owning the cached reward
 	 * @param vote cached vote with updated delivery state
 	 */
-	public synchronized void updateServerVote(String server, OfflineBungeeVote vote) {
+	public synchronized boolean updateServerVote(String server, OfflineBungeeVote vote) {
 		if (useMySQL) {
-			voteCacheTable.updateProxyBroadcastState(vote, server);
-			return;
+			return voteCacheTable.updateProxyBroadcastState(vote, server);
 		}
 
 		Collection<String> keys = jsonStorage.getServerVotes(server);
 		if (keys == null) {
-			return;
+			return false;
 		}
 		for (String key : keys) {
 			DataNode data = jsonStorage.getServerVotes(server, key);
@@ -140,12 +139,14 @@ public abstract class VoteCacheHandler {
 				try {
 					jsonStorage.addVote(server, Integer.parseInt(key), vote);
 					jsonStorage.save();
-				} catch (NumberFormatException e) {
+					return true;
+				} catch (RuntimeException e) {
 					debug1(e);
+					return false;
 				}
-				return;
 			}
 		}
+		return false;
 	}
 
 	/**
@@ -242,15 +243,14 @@ public abstract class VoteCacheHandler {
 	 * @param uuid voter cache key
 	 * @param vote cached vote with updated delivery state
 	 */
-	public synchronized void updateOnlineVote(String uuid, OfflineBungeeVote vote) {
+	public synchronized boolean updateOnlineVote(String uuid, OfflineBungeeVote vote) {
 		if (useMySQL) {
-			onlineVoteCacheTable.updateProxyBroadcastState(vote);
-			return;
+			return onlineVoteCacheTable.updateProxyBroadcastState(vote);
 		}
 
 		Collection<String> keys = jsonStorage.getOnlineVotes(uuid);
 		if (keys == null) {
-			return;
+			return false;
 		}
 		for (String key : keys) {
 			DataNode data = jsonStorage.getOnlineVotes(uuid, key);
@@ -262,12 +262,14 @@ public abstract class VoteCacheHandler {
 				try {
 					jsonStorage.addVoteOnline(uuid, Integer.parseInt(key), vote);
 					jsonStorage.save();
-				} catch (NumberFormatException e) {
+					return true;
+				} catch (RuntimeException e) {
 					debug1(e);
+					return false;
 				}
-				return;
 			}
 		}
+		return false;
 	}
 
 	/**

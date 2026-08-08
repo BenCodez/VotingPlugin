@@ -13,6 +13,7 @@ import org.mockito.Mockito;
 
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
+import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
@@ -206,6 +207,18 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	public boolean persistTimeVoteDeliveryForTest(VoteTimeQueue vote) {
 		return persistTimeVoteDelivery(vote);
+	}
+
+	public boolean persistServerVoteDeliveryForTest(String server, OfflineBungeeVote vote) {
+		return persistServerVoteDelivery(server, vote);
+	}
+
+	public boolean persistOnlineVoteDeliveryForTest(String uuid, OfflineBungeeVote vote) {
+		return persistOnlineVoteDelivery(uuid, vote);
+	}
+
+	public boolean canForwardStandaloneBroadcastForTest(boolean managesTotals) {
+		return canForwardStandaloneBroadcast(managesTotals);
 	}
 
 	@Override
