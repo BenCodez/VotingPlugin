@@ -2,6 +2,7 @@
 package com.bencodez.votingplugin.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.never;
@@ -19,6 +20,7 @@ import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
 import com.bencodez.votingplugin.proxy.ProxyMysqlUserTable;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
+import com.bencodez.votingplugin.proxy.VotingPluginWire;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyHandler;
 
 public class VotingPluginProxyTest {
@@ -101,5 +103,16 @@ public class VotingPluginProxyTest {
 			assertEquals(0, spyProxy.getVotePartyVotes(), username);
 			assertTrue(spyProxy.getWarnings().stream().anyMatch(warning -> warning.contains("Rejected vote")), username);
 		}
+	}
+
+	@Test
+	void immediatePluginMessageReportsActualDeliveryResult() {
+		votingPluginProxy.setPluginMessageDeliveryResult(false);
+		assertFalse(votingPluginProxy.sendPluginMessageImmediately("Server1",
+				VotingPluginWire.voteBroadcast("uuid", "Player", "Service", 100L, "", false)));
+
+		votingPluginProxy.setPluginMessageDeliveryResult(true);
+		assertTrue(votingPluginProxy.sendPluginMessageImmediately("Server1",
+				VotingPluginWire.voteBroadcast("uuid", "Player", "Service", 100L, "", false)));
 	}
 }

@@ -33,7 +33,6 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 	// Ensure we don't run the same migration repeatedly during startup (or for each
 	// subclass).
 	private static final Set<String> MIGRATED_VOTEID = ConcurrentHashMap.newKeySet();
-	private static final Set<String> MIGRATED_BROADCAST_FORWARDED = ConcurrentHashMap.newKeySet();
 	private static final Set<String> ENSURED_INDEXES = ConcurrentHashMap.newKeySet();
 
 	// ---- Required hooks ----
@@ -130,7 +129,7 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 		// best-effort migrations (safe for pool size 1; no nested connections)
 		alterColumnType("uuid", bestUuidType());
 		addVoteIdColumnIfMissingOnce();
-		addBroadcastForwardedColumnIfMissingOnce();
+		addBroadcastForwardedColumnIfMissing();
 		ensureIndexesOnce();
 	}
 
@@ -144,7 +143,7 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 
 		alterColumnType("uuid", bestUuidType());
 		addVoteIdColumnIfMissingOnce();
-		addBroadcastForwardedColumnIfMissingOnce();
+		addBroadcastForwardedColumnIfMissing();
 		ensureIndexesOnce();
 	}
 
@@ -217,14 +216,6 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 			logSevere("Failed to add voteid column to " + getTableName() + ": " + e.getMessage());
 			debug(e);
 		}
-	}
-
-	private void addBroadcastForwardedColumnIfMissingOnce() {
-		final String key = getDbType() + ":" + getTableName() + ":broadcastForwarded";
-		if (!MIGRATED_BROADCAST_FORWARDED.add(key)) {
-			return;
-		}
-		addBroadcastForwardedColumnIfMissing();
 	}
 
 	private void addBroadcastForwardedColumnIfMissing() {

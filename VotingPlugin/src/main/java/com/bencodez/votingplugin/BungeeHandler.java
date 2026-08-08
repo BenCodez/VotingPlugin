@@ -388,7 +388,11 @@ public class BungeeHandler implements Listener {
 					return;
 				}
 
-				final boolean online = user.isOnline(); // same behavior as non-bungee vote path
+				// New proxies preserve the state sampled when the vote arrived. Fall back to
+				// the legacy delivery-time behavior for envelopes from older proxies.
+				final boolean online = f.containsKey(VotingPluginWire.K_WAS_ONLINE)
+						? Boolean.parseBoolean(f.get(VotingPluginWire.K_WAS_ONLINE))
+						: user.isOnline();
 				plugin.getBroadcastHandler().broadcastVote(user.getJavaUUID(), user.getPlayerName(),
 						voteSite.getDisplayName(), online);
 			}

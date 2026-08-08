@@ -12,7 +12,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -162,7 +164,49 @@ public class VoteCacheHandlerVoteIdTest {
 
 	@Test
 	public void legacyTimedVoteConstructorHasNoId() {
-		assertNull(new VoteTimeQueue("Player", "Service", 100L).getVoteId());
+		VoteTimeQueue vote = new VoteTimeQueue("Player", "Service", 100L);
+
+		assertNull(vote.getVoteId());
+		assertFalse(vote.isProxyBroadcastHandled());
+		assertTrue(vote.getBroadcastForwardedServers().isEmpty());
+	}
+
+	@Test
+	public void timedVoteBroadcastStateRoundTripsThroughStorageEncoding() {
+		Set<String> servers = new LinkedHashSet<>(List.of("Server1", "Server,Two", "Server Three"));
+		VoteTimeQueue vote = new VoteTimeQueue(UUID.randomUUID(), "Player", "Service", 100L, true, servers);
+
+		assertEquals(servers,
+				VoteTimeQueue.decodeBroadcastForwardedServers(vote.encodeBroadcastForwardedServers()));
+	}
+
+	@Test
+	public void timedVoteBroadcastStateLoadsFromJsonCache() {
+		IVoteCache stored = mock(IVoteCache.class);
+		DataNode timedNode = mock(DataNode.class);
+		when(stored.getTimedVoteCache()).thenReturn(List.of("0"));
+		when(stored.getTimedVoteCache("0")).thenReturn(timedNode);
+		when(stored.getServers()).thenReturn(Collections.emptyList());
+		when(stored.getPlayers()).thenReturn(Collections.emptyList());
+		when(timedNode.isObject()).thenReturn(true);
+
+		UUID voteId = UUID.randomUUID();
+		stubString(timedNode, "Name", "Player");
+		stubString(timedNode, "Service", "Service");
+		stubLong(timedNode, "Time", 100L);
+		stubString(timedNode, "VoteId", voteId.toString());
+		stubBoolean(timedNode, "ProxyBroadcastHandled", true);
+		stubString(timedNode, "BroadcastForwardedServers",
+				new VoteTimeQueue(voteId, "Player", "Service", 100L, true, Set.of("Server1"))
+						.encodeBroadcastForwardedServers());
+
+		handler = newHandler(stored);
+		handler.load();
+
+		VoteTimeQueue loaded = handler.getTimeChangeQueue().element();
+		assertEquals(voteId, loaded.getVoteId());
+		assertTrue(loaded.isProxyBroadcastHandled());
+		assertEquals(Set.of("Server1"), loaded.getBroadcastForwardedServers());
 	}
 
 	private VoteCacheHandler handlerForStoredVote(String idKey, UUID voteId) {

@@ -321,7 +321,8 @@ public abstract class VoteCacheHandler {
 
 			if (!getTimeChangeQueue().isEmpty()) {
 				for (VoteTimeQueue vote : getTimeChangeQueue()) {
-					timedVoteCacheTable.insertTimedVote(vote.getVoteId(), vote.getName(), vote.getService(), vote.getTime());
+					timedVoteCacheTable.insertTimedVote(vote.getVoteId(), vote.getName(), vote.getService(), vote.getTime(),
+							vote.isProxyBroadcastHandled(), vote.encodeBroadcastForwardedServers());
 				}
 			}
 		} else {
@@ -374,7 +375,8 @@ public abstract class VoteCacheHandler {
 			ArrayList<VoteTimeQueue> timedVotes = new ArrayList<>();
 			timedVoteCacheTable.getAllVotes().forEach(timedVoteRow -> {
 				VoteTimeQueue voteTimeQueue = new VoteTimeQueue(timedVoteRow.getVoteId(), timedVoteRow.getPlayerName(),
-						timedVoteRow.getService(), timedVoteRow.getTime());
+						timedVoteRow.getService(), timedVoteRow.getTime(), timedVoteRow.isProxyBroadcastHandled(),
+						VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getBroadcastForwardedServers()));
 				timedVotes.add(voteTimeQueue);
 			});
 			timeChangeQueue.addAll(timedVotes);
@@ -391,8 +393,14 @@ public abstract class VoteCacheHandler {
 						String service = data.has("Service") ? data.get("Service").asString() : "";
 						long time = data.has("Time") ? data.get("Time").asLong() : 0L;
 						UUID voteId = readUuid(data, "VoteId");
+						boolean proxyBroadcastHandled = data.has("ProxyBroadcastHandled")
+								&& data.get("ProxyBroadcastHandled").asBoolean();
+						String forwardedServers = data.has("BroadcastForwardedServers")
+								? data.get("BroadcastForwardedServers").asString()
+								: "";
 
-						getTimeChangeQueue().add(new VoteTimeQueue(voteId, name, service, time));
+						getTimeChangeQueue().add(new VoteTimeQueue(voteId, name, service, time, proxyBroadcastHandled,
+								VoteTimeQueue.decodeBroadcastForwardedServers(forwardedServers)));
 					}
 				}
 

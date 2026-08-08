@@ -778,12 +778,12 @@ public class VotingPluginVelocity {
 			}
 
 			@Override
-			public void sendPluginMessageData(String serverName, String channelName, byte[] data, boolean queue) {
+			public boolean sendPluginMessageData(String serverName, String channelName, byte[] data, boolean queue) {
 				if (!server.getServer(serverName).isPresent()) {
-					return;
+					return false;
 				}
 				RegisteredServer send = server.getServer(serverName).get();
-				send.sendPluginMessage(channel, data);
+				return send.sendPluginMessage(channel, data);
 			}
 
 			@Override

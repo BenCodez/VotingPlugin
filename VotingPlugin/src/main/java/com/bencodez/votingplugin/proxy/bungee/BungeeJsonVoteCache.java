@@ -41,6 +41,8 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 		setString(path + ".Service", voteTimedQueue.getService());
 		setLong(path + ".Time", voteTimedQueue.getTime());
 		setString(path + ".VoteId", voteTimedQueue.getVoteId() == null ? null : voteTimedQueue.getVoteId().toString());
+		setBoolean(path + ".ProxyBroadcastHandled", voteTimedQueue.isProxyBroadcastHandled());
+		setString(path + ".BroadcastForwardedServers", voteTimedQueue.encodeBroadcastForwardedServers());
 	}
 
 	public void addVote(String server, int num, OfflineBungeeVote voteData) {
