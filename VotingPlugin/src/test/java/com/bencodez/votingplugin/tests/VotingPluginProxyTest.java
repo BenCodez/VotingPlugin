@@ -122,7 +122,7 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
-	void rejectedVoteStopsBeforeGlobalDataQueueOrOfflineBroadcast() {
+	void rolloverCompletesBeforeVoteDataLoadsAndRejectedVoteDoesNotBroadcast() {
 		votingPluginProxy.setPlayerOnline(false);
 		Mockito.when(votingPluginProxy.getConfig().getBungeeManageTotals()).thenReturn(true);
 		Mockito.when(votingPluginProxy.getConfig().getGlobalDataEnabled()).thenReturn(true);
@@ -130,6 +130,7 @@ public class VotingPluginProxyTest {
 		Mockito.when(votingPluginProxy.getConfig().getProxyBroadcastOfflineMode()).thenReturn("FORWARD");
 		Mockito.when(proxyMySQL.containsKeyQuery(Mockito.anyString())).thenReturn(true);
 		Mockito.when(proxyMySQL.getExactQuery(Mockito.any())).thenReturn(new java.util.ArrayList<>());
+		Mockito.when(globalDataHandler.isTimeChangedHappened()).thenReturn(true, false);
 
 		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
 		Mockito.doReturn(false).when(spyProxy).checkVoteDelay(Mockito.anyString(), Mockito.anyString(),
@@ -137,9 +138,13 @@ public class VotingPluginProxyTest {
 
 		spyProxy.vote("Player", "Service", true, true, 0, null, null);
 
-		verify(spyProxy).checkVoteDelay(Mockito.anyString(), Mockito.eq("Player"), Mockito.eq("Service"), Mockito.any(),
-				Mockito.eq(true));
-		verify(globalDataHandler, never()).isTimeChangedHappened();
+		org.mockito.InOrder order = Mockito.inOrder(globalDataHandler, proxyMySQL, spyProxy);
+		order.verify(globalDataHandler).isTimeChangedHappened();
+		order.verify(globalDataHandler).checkForFinishedTimeChanges();
+		order.verify(globalDataHandler).isTimeChangedHappened();
+		order.verify(proxyMySQL).getExactQuery(Mockito.any());
+		order.verify(spyProxy).checkVoteDelay(Mockito.anyString(), Mockito.eq("Player"), Mockito.eq("Service"),
+				Mockito.any(), Mockito.eq(true));
 		verify(spyProxy, never()).sendPluginMessageData(Mockito.anyString(), Mockito.anyString(), Mockito.any(),
 				Mockito.anyBoolean());
 	}

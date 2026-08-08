@@ -5,6 +5,8 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -72,6 +74,10 @@ import com.bencodez.votingplugin.votelog.VoteLogMysqlTable;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable.VoteLogStatus;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+
+import redis.clients.jedis.DefaultJedisClientConfig;
+import redis.clients.jedis.HostAndPort;
+import redis.clients.jedis.Jedis;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -1550,14 +1556,20 @@ public abstract class VotingPluginProxy {
 	}
 
 	public boolean sendRedisEnvelopeServer(String server, JsonEnvelope envelope) {
-		if (redisHandler == null) {
-			return false;
+		DefaultJedisClientConfig.Builder config = DefaultJedisClientConfig.builder()
+				.database(getConfig().getRedisDbIndex()).connectionTimeoutMillis(2000).socketTimeoutMillis(2000);
+		if (getConfig().getRedisUsername() != null && !getConfig().getRedisUsername().isEmpty()) {
+			config.user(getConfig().getRedisUsername());
 		}
-		try {
-			redisHandler.publishEnvelope(getConfig().getRedisPrefix() + "VotingPlugin_" + server, envelope);
-			// RedisHandler currently swallows publish failures and exposes no acknowledgement,
-			// so the standalone delivery must remain pending.
-			return false;
+		if (getConfig().getRedisPassword() != null && !getConfig().getRedisPassword().isEmpty()) {
+			config.password(getConfig().getRedisPassword());
+		}
+
+		try (Jedis jedis = new Jedis(new HostAndPort(getConfig().getRedisHost(), getConfig().getRedisPort()),
+				config.build())) {
+			String channel = getConfig().getRedisPrefix() + "VotingPlugin_" + server;
+			long subscribers = jedis.publish(channel, JsonEnvelopeCodec.encode(envelope));
+			return subscribers > 0;
 		} catch (Exception e) {
 			debug(e.getMessage());
 			return false;
@@ -1580,18 +1592,25 @@ public abstract class VotingPluginProxy {
 	}
 
 	public boolean sendSocketEnvelopeServer(String server, JsonEnvelope envelope) {
-		if (clientHandles == null) {
+		Map<String, Object> configuration = getConfig().getSpigotServerConfiguration(server);
+		if (configuration == null) {
 			return false;
 		}
-		ClientHandler client = clientHandles.get(server);
-		if (client == null) {
+		String host = configuration.get("Host") instanceof String ? (String) configuration.get("Host") : "";
+		int port = configuration.get("Port") instanceof Number ? ((Number) configuration.get("Port")).intValue() : 1298;
+		if (host.isEmpty()) {
 			return false;
 		}
-		try {
-			client.sendEnvelope(envelope);
-			// ClientHandler currently swallows connect/write failures and exposes no
-			// acknowledgement, so the standalone delivery must remain pending.
-			return false;
+
+		String payload = JsonEnvelopeCodec.encode(envelope);
+		String encoded = encryptionHandler != null ? encryptionHandler.encrypt(payload) : payload;
+		try (Socket socket = new Socket()) {
+			socket.connect(new InetSocketAddress(host, port), 2000);
+			try (DataOutputStream output = new DataOutputStream(socket.getOutputStream())) {
+				output.writeUTF(encoded);
+				output.flush();
+			}
+			return true;
 		} catch (Exception e) {
 			debug(e.getMessage());
 			return false;
@@ -1876,6 +1895,15 @@ public abstract class VotingPluginProxy {
 			boolean processesTotals = getConfig().getPrimaryServer() || !getConfig().getMultiProxySupport();
 			boolean managesTotals = processesTotals && getConfig().getBungeeManageTotals();
 			ArrayList<Column> data = null;
+			boolean queueForTimeChange = false;
+
+			// A completion callback can wipe totals and replay older queued votes. Run it
+			// before loading this vote's database snapshot so the calculations below use
+			// the post-rollover state.
+			if (getConfig().getGlobalDataEnabled() && getGlobalDataHandler().isTimeChangedHappened()) {
+				getGlobalDataHandler().checkForFinishedTimeChanges();
+				queueForTimeChange = timeQueue && getGlobalDataHandler().isTimeChangedHappened();
+			}
 
 			// Validate the vote before any immediate announcement. This keeps duplicate
 			// votes rejected by the delay check out of the GlobalData rollover queue and
@@ -1899,29 +1927,26 @@ public abstract class VotingPluginProxy {
 				}
 			}
 
-			// Resolve identity and forward an offline broadcast before a GlobalData time
+			// Forward an accepted offline broadcast before the still-active GlobalData
 			// change queues the reward/totals work. The queued delivery state prevents
 			// replaying broadcasts that already reached a backend.
-			if (getConfig().getGlobalDataEnabled() && getGlobalDataHandler().isTimeChangedHappened()) {
-				getGlobalDataHandler().checkForFinishedTimeChanges();
-				if (timeQueue && getGlobalDataHandler().isTimeChangedHappened()) {
-					if (proxyBroadcastDecider.usesImmediateForwarding(playerOnline)) {
-						broadcastTargets.addAll(proxyBroadcastDecider.resolveTargets(false, null));
-						proxyBroadcastHandled = true;
-					}
-					VoteTimeQueue delayedVote = new VoteTimeQueue(voteId, player, service, time,
-							proxyBroadcastHandled, broadcastTargets, broadcastForwardedServers);
-					getVoteCacheHandler().getTimeChangeQueue().add(delayedVote);
-					if (proxyBroadcastHandled) {
-						Set<String> forwarded = sendProxyBroadcast(broadcastTargets, uuid, player, service, time, "",
-								false);
-						broadcastForwardedServers.addAll(forwarded);
-						delayedVote.getBroadcastForwardedServers().addAll(forwarded);
-					}
-					log("Caching vote from " + player + "/" + service
-							+ " because time change is happening right now");
-					return;
+			if (queueForTimeChange) {
+				if (proxyBroadcastDecider.usesImmediateForwarding(playerOnline)) {
+					broadcastTargets.addAll(proxyBroadcastDecider.resolveTargets(false, null));
+					proxyBroadcastHandled = true;
 				}
+				VoteTimeQueue delayedVote = new VoteTimeQueue(voteId, player, service, time,
+						proxyBroadcastHandled, broadcastTargets, broadcastForwardedServers);
+				getVoteCacheHandler().getTimeChangeQueue().add(delayedVote);
+				if (proxyBroadcastHandled) {
+					Set<String> forwarded = sendProxyBroadcast(broadcastTargets, uuid, player, service, time, "",
+							false);
+					broadcastForwardedServers.addAll(forwarded);
+					delayedVote.getBroadcastForwardedServers().addAll(forwarded);
+				}
+				log("Caching vote from " + player + "/" + service
+						+ " because time change is happening right now");
+				return;
 			}
 
 			addVoteParty();
