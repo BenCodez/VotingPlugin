@@ -32,6 +32,7 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 				String.valueOf(num), "VoteId");
 		setPath(voteTimedQueue.isProxyBroadcastHandled(), "TimedVoteCache", String.valueOf(num),
 				"ProxyBroadcastHandled");
+		setPath(voteTimedQueue.encodeBroadcastTargets(), "TimedVoteCache", String.valueOf(num), "BroadcastTargets");
 		setPath(voteTimedQueue.encodeBroadcastForwardedServers(), "TimedVoteCache", String.valueOf(num),
 				"BroadcastForwardedServers");
 	}
@@ -46,6 +47,12 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 		setPath(voteData.getText(), "VoteCache", server, String.valueOf(num), "Text");
 		setPath(voteData.getVoteId() != null ? voteData.getVoteId().toString() : null, "VoteCache", server, String.valueOf(num), "VoteId");
 		setPath(voteData.isBroadcastForwarded(), "VoteCache", server, String.valueOf(num), "BroadcastForwarded");
+		setPath(voteData.isProxyBroadcastHandled(), "VoteCache", server, String.valueOf(num),
+				"ProxyBroadcastHandled");
+		setPath(voteData.encodeBroadcastTargets(), "VoteCache", server, String.valueOf(num), "BroadcastTargets");
+		setPath(voteData.encodeBroadcastForwardedServers(), "VoteCache", server, String.valueOf(num),
+				"BroadcastForwardedServers");
+		setPath(voteData.isRewardDelivered(), "VoteCache", server, String.valueOf(num), "RewardDelivered");
 	}
 
 	@Override
@@ -58,6 +65,12 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 		setPath(voteData.getText(), "OnlineCache", player, String.valueOf(num), "Text");
 		setPath(voteData.getVoteId() != null ? voteData.getVoteId().toString() : null, "OnlineCache", player, String.valueOf(num), "VoteId");
 		setPath(voteData.isBroadcastForwarded(), "OnlineCache", player, String.valueOf(num), "BroadcastForwarded");
+		setPath(voteData.isProxyBroadcastHandled(), "OnlineCache", player, String.valueOf(num),
+				"ProxyBroadcastHandled");
+		setPath(voteData.encodeBroadcastTargets(), "OnlineCache", player, String.valueOf(num), "BroadcastTargets");
+		setPath(voteData.encodeBroadcastForwardedServers(), "OnlineCache", player, String.valueOf(num),
+				"BroadcastForwardedServers");
+		setPath(voteData.isRewardDelivered(), "OnlineCache", player, String.valueOf(num), "RewardDelivered");
 	}
 
 	@Override

@@ -42,6 +42,7 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 		setLong(path + ".Time", voteTimedQueue.getTime());
 		setString(path + ".VoteId", voteTimedQueue.getVoteId() == null ? null : voteTimedQueue.getVoteId().toString());
 		setBoolean(path + ".ProxyBroadcastHandled", voteTimedQueue.isProxyBroadcastHandled());
+		setString(path + ".BroadcastTargets", voteTimedQueue.encodeBroadcastTargets());
 		setString(path + ".BroadcastForwardedServers", voteTimedQueue.encodeBroadcastForwardedServers());
 	}
 
@@ -55,6 +56,10 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 		setString(path + ".Text", voteData.getText());
 		setString(path + ".VoteId", voteData.getVoteId() != null ? voteData.getVoteId().toString() : null);
 		setBoolean(path + ".BroadcastForwarded", voteData.isBroadcastForwarded());
+		setBoolean(path + ".ProxyBroadcastHandled", voteData.isProxyBroadcastHandled());
+		setString(path + ".BroadcastTargets", voteData.encodeBroadcastTargets());
+		setString(path + ".BroadcastForwardedServers", voteData.encodeBroadcastForwardedServers());
+		setBoolean(path + ".RewardDelivered", voteData.isRewardDelivered());
 	}
 
 	public void addVoteOnline(String player, int num, OfflineBungeeVote voteData) {
@@ -67,6 +72,10 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 		setString(path + ".Text", voteData.getText());
 		setString(path + ".VoteId", voteData.getVoteId() != null ? voteData.getVoteId().toString() : null);
 		setBoolean(path + ".BroadcastForwarded", voteData.isBroadcastForwarded());
+		setBoolean(path + ".ProxyBroadcastHandled", voteData.isProxyBroadcastHandled());
+		setString(path + ".BroadcastTargets", voteData.encodeBroadcastTargets());
+		setString(path + ".BroadcastForwardedServers", voteData.encodeBroadcastForwardedServers());
+		setBoolean(path + ".RewardDelivered", voteData.isRewardDelivered());
 	}
 
 	public void clearData() {

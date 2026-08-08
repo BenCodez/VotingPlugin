@@ -20,6 +20,7 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	private final List<String> warnings = new ArrayList<>();
 	private VotingPluginProxyConfig config;
 	private boolean pluginMessageDeliveryResult = true;
+	private boolean playerOnline = true;
 
 	public List<String> getWarnings() {
 		return warnings;
@@ -108,7 +109,11 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	@Override
 	public boolean isPlayerOnline(String playerName) {
-		return true;
+		return playerOnline;
+	}
+
+	public void setPlayerOnline(boolean playerOnline) {
+		this.playerOnline = playerOnline;
 	}
 
 	@Override

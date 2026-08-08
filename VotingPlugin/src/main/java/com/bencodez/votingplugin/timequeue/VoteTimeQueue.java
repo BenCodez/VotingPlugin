@@ -30,6 +30,8 @@ public class VoteTimeQueue {
 	@Setter
 	private boolean proxyBroadcastHandled;
 	@Getter
+	private Set<String> broadcastTargets;
+	@Getter
 	private Set<String> broadcastForwardedServers;
 
 	/**
@@ -40,7 +42,7 @@ public class VoteTimeQueue {
 	 * @param time vote timestamp
 	 */
 	public VoteTimeQueue(String name, String service, long time) {
-		this(null, name, service, time, false, Collections.emptySet());
+		this(null, name, service, time, false, Collections.emptySet(), Collections.emptySet());
 	}
 
 	/**
@@ -52,7 +54,7 @@ public class VoteTimeQueue {
 	 * @param time vote timestamp
 	 */
 	public VoteTimeQueue(UUID voteId, String name, String service, long time) {
-		this(voteId, name, service, time, false, Collections.emptySet());
+		this(voteId, name, service, time, false, Collections.emptySet(), Collections.emptySet());
 	}
 
 	/**
@@ -67,15 +69,44 @@ public class VoteTimeQueue {
 	 */
 	public VoteTimeQueue(UUID voteId, String name, String service, long time, boolean proxyBroadcastHandled,
 			Set<String> broadcastForwardedServers) {
+		this(voteId, name, service, time, proxyBroadcastHandled, Collections.emptySet(), broadcastForwardedServers);
+	}
+
+	/**
+	 * Creates a queued vote with the original proxy broadcast routing state.
+	 *
+	 * @param voteId unique vote identifier
+	 * @param name player name
+	 * @param service service site
+	 * @param time vote timestamp
+	 * @param proxyBroadcastHandled whether standalone forwarding was handled before queueing
+	 * @param broadcastTargets original backend broadcast targets
+	 * @param broadcastForwardedServers backend servers that received the standalone broadcast
+	 */
+	public VoteTimeQueue(UUID voteId, String name, String service, long time, boolean proxyBroadcastHandled,
+			Set<String> broadcastTargets, Set<String> broadcastForwardedServers) {
 		this.voteId = voteId;
 		this.name = name;
 		this.service = service;
 		this.time = time;
 		this.proxyBroadcastHandled = proxyBroadcastHandled;
+		this.broadcastTargets = new LinkedHashSet<>();
+		if (broadcastTargets != null) {
+			this.broadcastTargets.addAll(broadcastTargets);
+		}
 		this.broadcastForwardedServers = new LinkedHashSet<>();
 		if (broadcastForwardedServers != null) {
 			this.broadcastForwardedServers.addAll(broadcastForwardedServers);
 		}
+	}
+
+	/**
+	 * Encodes original broadcast targets for JSON and SQL cache storage.
+	 *
+	 * @return encoded target set
+	 */
+	public String encodeBroadcastTargets() {
+		return encodeBroadcastServers(broadcastTargets);
 	}
 
 	/**
@@ -84,9 +115,22 @@ public class VoteTimeQueue {
 	 * @return encoded server set
 	 */
 	public String encodeBroadcastForwardedServers() {
+		return encodeBroadcastServers(broadcastForwardedServers);
+	}
+
+	/**
+	 * Encodes backend server names for cache storage.
+	 *
+	 * @param servers server names to encode
+	 * @return encoded server set
+	 */
+	public static String encodeBroadcastServers(Set<String> servers) {
 		Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
 		StringBuilder encoded = new StringBuilder();
-		for (String server : broadcastForwardedServers) {
+		if (servers == null) {
+			return "";
+		}
+		for (String server : servers) {
 			if (server == null || server.isEmpty()) {
 				continue;
 			}

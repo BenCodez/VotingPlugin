@@ -168,16 +168,31 @@ public class VoteCacheHandlerVoteIdTest {
 
 		assertNull(vote.getVoteId());
 		assertFalse(vote.isProxyBroadcastHandled());
+		assertTrue(vote.getBroadcastTargets().isEmpty());
 		assertTrue(vote.getBroadcastForwardedServers().isEmpty());
 	}
 
 	@Test
 	public void timedVoteBroadcastStateRoundTripsThroughStorageEncoding() {
-		Set<String> servers = new LinkedHashSet<>(List.of("Server1", "Server,Two", "Server Three"));
-		VoteTimeQueue vote = new VoteTimeQueue(UUID.randomUUID(), "Player", "Service", 100L, true, servers);
+		Set<String> targets = new LinkedHashSet<>(List.of("Server1", "Server,Two", "Server Three"));
+		Set<String> forwarded = Set.of("Server1");
+		VoteTimeQueue vote = new VoteTimeQueue(UUID.randomUUID(), "Player", "Service", 100L, true, targets,
+				forwarded);
 
-		assertEquals(servers,
+		assertEquals(targets, VoteTimeQueue.decodeBroadcastForwardedServers(vote.encodeBroadcastTargets()));
+		assertEquals(forwarded,
 				VoteTimeQueue.decodeBroadcastForwardedServers(vote.encodeBroadcastForwardedServers()));
+	}
+
+	@Test
+	public void cachedBroadcastStateSuppressesNonTargetsAndDeliveredTargets() {
+		OfflineBungeeVote vote = new OfflineBungeeVote(UUID.randomUUID(), "Player", "player-uuid", "Service", 100L,
+				true, "totals", false, true, Set.of("Lobby", "Survival"), Set.of("Lobby"), false);
+
+		assertFalse(vote.needsBroadcastOn("Lobby"));
+		assertTrue(vote.needsBroadcastOn("Survival"));
+		assertFalse(vote.needsBroadcastOn("Creative"));
+		assertFalse(vote.isProxyBroadcastComplete());
 	}
 
 	@Test
@@ -196,6 +211,8 @@ public class VoteCacheHandlerVoteIdTest {
 		stubLong(timedNode, "Time", 100L);
 		stubString(timedNode, "VoteId", voteId.toString());
 		stubBoolean(timedNode, "ProxyBroadcastHandled", true);
+		stubString(timedNode, "BroadcastTargets",
+				VoteTimeQueue.encodeBroadcastServers(Set.of("Server1", "Server2")));
 		stubString(timedNode, "BroadcastForwardedServers",
 				new VoteTimeQueue(voteId, "Player", "Service", 100L, true, Set.of("Server1"))
 						.encodeBroadcastForwardedServers());
@@ -206,7 +223,43 @@ public class VoteCacheHandlerVoteIdTest {
 		VoteTimeQueue loaded = handler.getTimeChangeQueue().element();
 		assertEquals(voteId, loaded.getVoteId());
 		assertTrue(loaded.isProxyBroadcastHandled());
+		assertEquals(Set.of("Server1", "Server2"), loaded.getBroadcastTargets());
 		assertEquals(Set.of("Server1"), loaded.getBroadcastForwardedServers());
+	}
+
+	@Test
+	public void onlineVoteBroadcastTargetsAndRewardStateLoadFromJsonCache() {
+		IVoteCache stored = mock(IVoteCache.class);
+		DataNode voteNode = mock(DataNode.class);
+		when(stored.getTimedVoteCache()).thenReturn(Collections.emptyList());
+		when(stored.getServers()).thenReturn(Collections.emptyList());
+		when(stored.getPlayers()).thenReturn(List.of("player-uuid"));
+		when(stored.getOnlineVotes("player-uuid")).thenReturn(List.of("0"));
+		when(stored.getOnlineVotes("player-uuid", "0")).thenReturn(voteNode);
+		when(voteNode.isObject()).thenReturn(true);
+
+		UUID voteId = UUID.randomUUID();
+		stubString(voteNode, "Name", "Player");
+		stubString(voteNode, "UUID", "player-uuid");
+		stubString(voteNode, "Service", "Service");
+		stubLong(voteNode, "Time", 100L);
+		stubBoolean(voteNode, "Real", true);
+		stubString(voteNode, "Text", "totals");
+		stubString(voteNode, "VoteId", voteId.toString());
+		stubBoolean(voteNode, "ProxyBroadcastHandled", true);
+		stubString(voteNode, "BroadcastTargets", VoteTimeQueue.encodeBroadcastServers(Set.of("Lobby", "Survival")));
+		stubString(voteNode, "BroadcastForwardedServers", VoteTimeQueue.encodeBroadcastServers(Set.of("Lobby")));
+		stubBoolean(voteNode, "RewardDelivered", true);
+
+		handler = newHandler(stored);
+		handler.load();
+
+		OfflineBungeeVote loaded = handler.getOnlineVotes("player-uuid").get(0);
+		assertTrue(loaded.isProxyBroadcastHandled());
+		assertEquals(Set.of("Lobby", "Survival"), loaded.getBroadcastTargets());
+		assertEquals(Set.of("Lobby"), loaded.getBroadcastForwardedServers());
+		assertTrue(loaded.isRewardDelivered());
+		assertTrue(loaded.needsBroadcastOn("Survival"));
 	}
 
 	private VoteCacheHandler handlerForStoredVote(String idKey, UUID voteId) {
