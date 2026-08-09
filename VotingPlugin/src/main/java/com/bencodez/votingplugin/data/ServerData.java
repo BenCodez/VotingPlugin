@@ -377,6 +377,22 @@ public class ServerData {
 		saveData();
 	}
 
+	/** Reserve a proxy vote-delay rejection identifier durably. */
+	public synchronized boolean reserveWireVote(UUID voteId, long expiresAt) {
+		ConfigurationSection section = getData().getConfigurationSection("WireVoteRejections");
+		if (section == null) section = getData().createSection("WireVoteRejections");
+		long now = System.currentTimeMillis();
+		boolean changed = false;
+		for (String key : new HashSet<>(section.getKeys(false))) {
+			if (section.getLong(key, 0L) < now) { section.set(key, null); changed = true; }
+		}
+		String key = voteId.toString();
+		if (section.contains(key)) { if (changed) saveData(); return false; }
+		section.set(key, expiresAt);
+		saveData();
+		return true;
+	}
+
 	/**
 	 * Save data.
 	 */
