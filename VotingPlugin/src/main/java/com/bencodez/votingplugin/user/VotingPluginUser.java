@@ -1275,8 +1275,13 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		// Process each offline vote.
 		for (String voteSiteName : offlineVotes) {
 			if (plugin.getVoteSiteManager().hasVoteSite(voteSiteName)) {
-				plugin.debug("Giving offline site reward: " + voteSiteName);
-				playerVote(plugin.getVoteSiteManager().getVoteSite(voteSiteName, true), false, false);
+				VoteSite voteSite = plugin.getVoteSiteManager().getVoteSite(voteSiteName, true);
+				if (voteSite != null && voteSite.isEnabled()) {
+					plugin.debug("Giving offline site reward: " + voteSiteName);
+					playerVote(voteSite, false, false);
+				} else {
+					plugin.debug("Skipping offline vote for disabled site: " + voteSiteName);
+				}
 			} else {
 				plugin.debug("Site doesn't exist: " + voteSiteName);
 			}
