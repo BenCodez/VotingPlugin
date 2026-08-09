@@ -84,6 +84,12 @@
                             <groupId>com.velocitypowered</groupId>
                             <artifactId>velocity-api</artifactId>
                             <version>${velocity.version}</version>
+                            <exclusions>
+                                <exclusion>
+                                    <groupId>com.velocitypowered</groupId>
+                                    <artifactId>velocity-brigadier</artifactId>
+                                </exclusion>
+                            </exclusions>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>
