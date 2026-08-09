@@ -219,7 +219,7 @@ public class VoteSiteManagerTest {
 	@Test
 	public void testDisabledConfiguredVoteSiteIsNotAutoCreated() {
 		when(configFile.isAutoCreateVoteSites()).thenReturn(true);
-		when(voteSitesConfig.getVoteSitesNames(false))
+		when(voteSitesConfig.getRawVoteSiteNames())
 				.thenReturn(new ArrayList<String>(Arrays.asList("DisabledSite")));
 		when(voteSitesConfig.getServiceSite("DisabledSite")).thenReturn("disabled.example.com");
 		when(voteSitesConfig.getDisplayName("DisabledSite")).thenReturn("Disabled Site");
