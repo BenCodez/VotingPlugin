@@ -120,7 +120,7 @@ public class VoteSiteManager {
 		}
 
 		if (!checkEnabled) {
-			ArrayList<String> configuredSites = plugin.getConfigVoteSites().getVoteSitesNames(false);
+			ArrayList<String> configuredSites = plugin.getConfigVoteSites().getRawVoteSiteNames();
 			if (configuredSites != null) {
 				for (String url : urls) {
 					if (url == null) {
