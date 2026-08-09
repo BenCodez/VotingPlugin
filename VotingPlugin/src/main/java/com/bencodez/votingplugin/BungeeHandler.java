@@ -54,7 +54,10 @@ import lombok.Getter;
  */
 public class BungeeHandler implements Listener {
 
-	private static final long PROCESSED_VOTE_TTL_MILLIS = TimeUnit.MINUTES.toMillis(30);
+	// Keep rejection identifiers longer than the documented 24-hour vote-delay window.
+	// The wire schema is versioned separately so older peers cannot silently
+	// interpret the replay-protected envelope with legacy semantics.
+	private static final long PROCESSED_VOTE_TTL_MILLIS = TimeUnit.HOURS.toMillis(25);
 
 	@Getter
 	private final ConcurrentHashMap<UUID, Long> processedWireVotes = new ConcurrentHashMap<>();
