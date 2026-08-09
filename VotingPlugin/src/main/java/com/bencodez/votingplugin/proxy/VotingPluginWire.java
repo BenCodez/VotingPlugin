@@ -23,7 +23,7 @@ public final class VotingPluginWire {
 	private VotingPluginWire() {
 	}
 
-	public static final int SCHEMA_VERSION = 1;
+	public static final int SCHEMA_VERSION = 2;
 
 	// =========================
 	// Subchannels (canonical)
