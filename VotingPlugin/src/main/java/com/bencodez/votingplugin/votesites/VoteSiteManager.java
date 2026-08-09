@@ -126,13 +126,17 @@ public class VoteSiteManager {
 					if (url == null) {
 						return null;
 					}
+					if (url.isEmpty()) {
+						continue;
+					}
 
+					String normalizedUrl = normalizeVoteSiteKey(url);
 					for (String siteName : configuredSites) {
 						String serviceSite = plugin.getConfigVoteSites().getServiceSite(siteName);
 						String displayName = plugin.getConfigVoteSites().getDisplayName(siteName);
-						if (siteName.equalsIgnoreCase(url)
-								|| (serviceSite != null && serviceSite.equalsIgnoreCase(url))
-								|| (displayName != null && displayName.equalsIgnoreCase(url))) {
+						if (siteName.equalsIgnoreCase(url) || siteName.equalsIgnoreCase(normalizedUrl)
+								|| (serviceSite != null && !serviceSite.isEmpty() && serviceSite.equalsIgnoreCase(url))
+								|| (displayName != null && !displayName.isEmpty() && displayName.equalsIgnoreCase(url))) {
 							return siteName;
 						}
 					}
