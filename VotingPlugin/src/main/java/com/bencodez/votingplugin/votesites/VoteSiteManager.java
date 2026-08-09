@@ -239,7 +239,7 @@ public class VoteSiteManager {
 			return false;
 		}
 
-		ArrayList<String> configuredSites = plugin.getConfigVoteSites().getVoteSitesNames(false);
+		ArrayList<String> configuredSites = plugin.getConfigVoteSites().getRawVoteSiteNames();
 		if (configuredSites != null) {
 			for (String configuredSite : configuredSites) {
 				if (configuredSite.equalsIgnoreCase(siteName)) {
