@@ -280,6 +280,11 @@ public class ConfigVoteSites extends YMLFile {
 		return ParsedDuration.ofMillis(millis);
 	}
 
+	/** Returns the configured vote-delay duration in milliseconds. */
+	public long getVoteDelayMillis(String site) {
+		return getVoteDelay(site).getMillis();
+	}
+
 	/**
 	 * Gets the vote delay daily hour for a site.
 	 *
