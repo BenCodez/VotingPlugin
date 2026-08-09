@@ -239,6 +239,12 @@
             <artifactId>spigot-api</artifactId>
             <version>26.2-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.velocitypowered</groupId>
+                    <artifactId>velocity-brigadier</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
