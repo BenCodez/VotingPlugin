@@ -275,6 +275,12 @@
             <artifactId>velocity-api</artifactId>
             <version>${velocity.version}</version>
             <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.velocitypowered</groupId>
+                    <artifactId>velocity-brigadier</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.bstats</groupId>
