@@ -4,6 +4,7 @@ package com.bencodez.votingplugin;
 import java.io.File;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.Map;
@@ -54,7 +55,10 @@ import lombok.Getter;
  */
 public class BungeeHandler implements Listener {
 
-	private static final long PROCESSED_VOTE_TTL_MILLIS = TimeUnit.MINUTES.toMillis(30);
+	// Keep rejection identifiers longer than the documented 24-hour vote-delay window.
+	// The wire schema is versioned separately so older peers cannot silently
+	// interpret the replay-protected envelope with legacy semantics.
+	private static final long PROCESSED_VOTE_TTL_MILLIS = TimeUnit.HOURS.toMillis(25);
 
 	@Getter
 	private final ConcurrentHashMap<UUID, Long> processedWireVotes = new ConcurrentHashMap<>();
@@ -355,9 +359,8 @@ public class BungeeHandler implements Listener {
 				// New fields (May use later)
 				@SuppressWarnings("unused")
 				final long time = readLongSafe(f.get(VotingPluginWire.K_TIME), 0L);
-				final String totalsRaw = nvl(f.get(VotingPluginWire.K_TOTALS));
-				final VoteTotalsSnapshot totals = totalsRaw.isEmpty() ? null
-						: VoteTotalsSnapshot.parseStorage(totalsRaw);
+				@SuppressWarnings("unused")
+				final String totals = nvl(f.get(VotingPluginWire.K_TOTALS));
 
 				VoteSite voteSite = plugin.getVoteSiteManager()
 						.getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, service), true);
@@ -389,13 +392,9 @@ public class BungeeHandler implements Listener {
 					return;
 				}
 
-				// New proxies preserve the state sampled when the vote arrived. Fall back to
-				// the legacy delivery-time behavior for envelopes from older proxies.
-				final boolean online = f.containsKey(VotingPluginWire.K_WAS_ONLINE)
-						? Boolean.parseBoolean(f.get(VotingPluginWire.K_WAS_ONLINE))
-						: user.isOnline();
+				final boolean online = user.isOnline(); // same behavior as non-bungee vote path
 				plugin.getBroadcastHandler().broadcastVote(user.getJavaUUID(), user.getPlayerName(),
-						voteSite.getDisplayName(), online, totals);
+						voteSite.getDisplayName(), online);
 			}
 		});
 
@@ -581,10 +580,9 @@ public class BungeeHandler implements Listener {
 		}
 
 		VotingPluginWire.VoteDelayRejected rejected = VotingPluginWire.readVoteDelayRejected(msg);
-		if (rejected.uuid.isEmpty() || rejected.service.isEmpty()) {
+		if (rejected.uuid.isEmpty() || rejected.service.isEmpty() || rejected.voteId == null) {
 			return;
 		}
-
 		UUID javaUuid;
 		try {
 			javaUuid = UUID.fromString(rejected.uuid);
@@ -595,14 +593,56 @@ public class BungeeHandler implements Listener {
 
 		VoteSite voteSite = plugin.getVoteSiteManager()
 				.getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, rejected.service), true);
-		if (voteSite == null) {
-			plugin.getLogger().warning("No voting site with the service site: '" + rejected.service + "'");
+		if (voteSite == null || !voteSite.isWaitUntilVoteDelay()) {
+			plugin.getLogger().warning(
+					"No vote-delay-enabled voting site with the service site: '" + rejected.service + "'");
 			return;
 		}
 
 		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(javaUuid, rejected.player);
 		user.cache();
 		user.updateName(true);
+		if (user.canVoteSite(voteSite)) {
+			long proxyLastVote = rejected.lastVoteTime;
+			boolean outsideDelayWindow = proxyLastVote <= 0;
+			if (voteSite.isVoteDelayDaily()) {
+				LocalDateTime now = LocalDateTime.now();
+				int resetHour = Math.max(0, Math.min(23, voteSite.getVoteDelayDailyHour()));
+				LocalDateTime currentReset = now.withHour(resetHour).withMinute(0).withSecond(0).withNano(0);
+				if (currentReset.isAfter(now)) {
+					currentReset = currentReset.minusDays(1);
+				}
+				outsideDelayWindow = outsideDelayWindow
+						|| proxyLastVote < currentReset.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+			} else {
+				long delayMillis = voteSite.getVoteDelay().getMillis();
+				outsideDelayWindow = outsideDelayWindow
+						|| (delayMillis > 0 && proxyLastVote + delayMillis <= System.currentTimeMillis());
+			}
+			if (outsideDelayWindow) {
+				plugin.debug("Ignoring vote delay rejection outside the delay window for " + rejected.player + " on "
+						+ rejected.service);
+				return;
+			}
+		}
+		long expiresAt;
+		if (voteSite.isVoteDelayDaily()) {
+			LocalDateTime now = LocalDateTime.now();
+			int resetHour = Math.max(0, Math.min(23, voteSite.getVoteDelayDailyHour()));
+			LocalDateTime nextReset = now.withHour(resetHour).withMinute(0).withSecond(0).withNano(0);
+			if (!nextReset.isAfter(now)) {
+				nextReset = nextReset.plusDays(1);
+			}
+			expiresAt = nextReset.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+		} else {
+			long delayMillis = plugin.getConfigVoteSites().getVoteDelayMillis(voteSite.getKey());
+			expiresAt = delayMillis <= 0 ? Long.MAX_VALUE : System.currentTimeMillis() + delayMillis;
+		}
+		if (!plugin.getServerData().reserveWireVote(rejected.voteId, expiresAt)) {
+			plugin.debug("Ignoring duplicate vote delay rejection " + rejected.voteId + " for " + rejected.player
+					+ " on " + rejected.service);
+			return;
+		}
 		voteSite.giveWaitUntilVoteDelayRewards(user, rejected.wasOnline && user.isOnline(), true);
 	}
 
