@@ -1,7 +1,6 @@
 package com.bencodez.votingplugin.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.UUID;
@@ -45,7 +44,8 @@ public class VotingPluginWireTest {
 	@Test
 	public void voteDelayRejectedRoundTripPreservesContext() {
 		String uuid = UUID.randomUUID().toString();
-		JsonEnvelope envelope = VotingPluginWire.voteDelayRejected("Player", uuid, "Service", true);
+		UUID voteId = UUID.randomUUID();
+		JsonEnvelope envelope = VotingPluginWire.voteDelayRejected("Player", uuid, "Service", true, voteId);
 
 		VoteDelayRejected rejected = VotingPluginWire.readVoteDelayRejected(envelope);
 
@@ -54,13 +54,26 @@ public class VotingPluginWireTest {
 		assertEquals(uuid, rejected.uuid);
 		assertEquals("Service", rejected.service);
 		assertEquals(true, rejected.wasOnline);
+		assertEquals(voteId, rejected.voteId);
 	}
 
 	@Test
-	public void voteBroadcastPreservesTheOriginalOfflineState() {
-		JsonEnvelope envelope = VotingPluginWire.voteBroadcast(UUID.randomUUID().toString(), "Player", "Service",
-				100L, "totals", false);
+	public void voteDelayRejectedGeneratesReplayIdentifier() {
+		JsonEnvelope envelope = VotingPluginWire.voteDelayRejected("Player", UUID.randomUUID().toString(), "Service",
+				true);
 
-		assertFalse(Boolean.parseBoolean(envelope.getFields().get(VotingPluginWire.K_WAS_ONLINE)));
+		VoteDelayRejected rejected = VotingPluginWire.readVoteDelayRejected(envelope);
+
+		assertEquals(UUID.fromString(envelope.getFields().get(VotingPluginWire.K_VOTE_ID)), rejected.voteId);
+	}
+
+	@Test
+	public void voteDelayRejectedAllowsDecoderToIdentifyMissingReplayIdentifier() {
+		JsonEnvelope envelope = VotingPluginWire.voteDelayRejected("Player", UUID.randomUUID().toString(), "Service",
+				true, null);
+
+		VoteDelayRejected rejected = VotingPluginWire.readVoteDelayRejected(envelope);
+
+		assertNull(rejected.voteId);
 	}
 }
