@@ -406,7 +406,9 @@ public class ConfigVoteSites extends YMLFile {
 	/** Returns raw configured vote-site section keys without validation or logging. */
 	public ArrayList<String> getRawVoteSiteNames() {
 		if (!getData().isConfigurationSection("VoteSites")) return new ArrayList<>();
-		return ArrayUtils.convert(getData().getConfigurationSection("VoteSites").getKeys(false));
+		ArrayList<String> names = ArrayUtils.convert(getData().getConfigurationSection("VoteSites").getKeys(false));
+		names.removeIf(name -> !getData().isConfigurationSection("VoteSites." + name));
+		return names;
 	}
 
 	/**
