@@ -651,7 +651,10 @@ public class BungeeHandler implements Listener {
 
 		boolean setTotalsOnBackend = !v.manageTotals;
 
-		user.bungeeVotePluginMessaging(service, v.time, text, setTotalsOnBackend, v.wasOnline, v.broadcast, v.num);
+		boolean identifiedQueuedDelivery = VotingPluginWire.SUB_VOTE_ONLINE.equals(msg.getSubChannel())
+				&& v.voteId != null;
+		user.bungeeVotePluginMessaging(service, v.time, text, setTotalsOnBackend, v.wasOnline, v.broadcast, v.num,
+				identifiedQueuedDelivery);
 
 		if (plugin.getBungeeSettings().isPerServerPoints()) {
 			user.addPoints(plugin.getConfigFile().getPointsOnVote());
