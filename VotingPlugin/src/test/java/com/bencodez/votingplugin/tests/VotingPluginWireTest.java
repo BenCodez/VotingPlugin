@@ -27,6 +27,7 @@ public class VotingPluginWireTest {
 		Vote vote = VotingPluginWire.readVote(envelope);
 
 		assertEquals(voteId, vote.voteId);
+		assertEquals(VotingPluginWire.SUB_VOTE, envelope.getSubChannel());
 		assertEquals("Player", vote.player);
 		assertEquals("Service", vote.service);
 	}
@@ -39,6 +40,20 @@ public class VotingPluginWireTest {
 		Vote vote = VotingPluginWire.readVote(envelope);
 
 		assertNull(vote.voteId);
+		assertEquals(VotingPluginWire.SUB_VOTE_ONLINE, envelope.getSubChannel());
+	}
+
+	@Test
+	public void voteOnlineRoundTripPreservesIdentifiedQueuedVote() {
+		UUID voteId = UUID.randomUUID();
+
+		JsonEnvelope envelope = VotingPluginWire.voteOnline("Player", UUID.randomUUID().toString(), "Service",
+				100L, true, true, "totals", voteId, true, false, 1, 1);
+
+		Vote vote = VotingPluginWire.readVote(envelope);
+
+		assertEquals(VotingPluginWire.SUB_VOTE_ONLINE, envelope.getSubChannel());
+		assertEquals(voteId, vote.voteId);
 	}
 
 	@Test
