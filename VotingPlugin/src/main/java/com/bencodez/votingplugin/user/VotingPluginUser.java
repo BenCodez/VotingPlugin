@@ -260,7 +260,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param num       the vote number
 	 */
 	public void bungeeVotePluginMessaging(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
-			boolean wasOnline, boolean broadcast, int num) {
+			boolean wasOnline, boolean broadcast, int num, boolean queuedProxyVote) {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
 
@@ -275,6 +275,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			voteEvent.setWasOnline(wasOnline);
 			voteEvent.setBroadcast(broadcast);
 			voteEvent.setVoteNumber(num);
+			voteEvent.setQueuedProxyVote(queuedProxyVote);
 			plugin.getServer().getPluginManager().callEvent(voteEvent);
 		}
 	}
