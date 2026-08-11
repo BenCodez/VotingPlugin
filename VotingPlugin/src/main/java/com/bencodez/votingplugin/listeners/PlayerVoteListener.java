@@ -162,8 +162,8 @@ public class PlayerVoteListener implements Listener {
 			}
 		}
 
-		boolean queuedProxyVoteAlreadyRecorded = event.isBungee() && event.getTime() > 0L
-				&& event.getTime() == user.getTime(voteSite);
+		boolean queuedProxyVoteAlreadyRecorded = event.isBungee() && event.isQueuedProxyVote()
+				&& event.getTime() > 0L && event.getTime() == user.getTime(voteSite);
 		if (voteSite.isWaitUntilVoteDelay() && !queuedProxyVoteAlreadyRecorded && !user.canVoteSite(voteSite)) {
 			if (!event.isRealVote()) {
 				plugin.getLogger().info(user.getPlayerName() + " did a not real vote, bypassing WaitUntilVoteDelay");
