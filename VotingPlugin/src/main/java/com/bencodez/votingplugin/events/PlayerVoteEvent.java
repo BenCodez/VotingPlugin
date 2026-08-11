@@ -76,6 +76,11 @@ public class PlayerVoteEvent extends Event {
 	@Setter
 	private boolean wasOnline;
 
+	/** Whether this event is the identified delivery of a queued proxy vote. */
+	@Getter
+	@Setter
+	private boolean queuedProxyVote;
+
 	@Getter
 	@Setter
 	private boolean broadcast = true;
