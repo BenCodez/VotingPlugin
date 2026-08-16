@@ -67,6 +67,7 @@ public class BungeeHandler implements Listener {
 	private final ConcurrentHashMap<String, BackendPlayerPresenceSession> playerPresenceSessions = new ConcurrentHashMap<>();
 	private final Object presenceLifecycleLock = new Object();
 	private boolean presenceReporting;
+	private String presenceServer;
 	private ScheduledFuture<?> presenceHeartbeatTask;
 	@Getter
 	private ClientHandler clientHandler;
@@ -599,7 +600,7 @@ public class BungeeHandler implements Listener {
 			}
 			playerPresenceSessions.put(playerKey(session.playerName), session);
 			sendPresenceMessage(VotingPluginWire.login(session.playerName, session.uuid,
-					plugin.getBungeeSettings().getServer(), session.connectionId));
+					presenceServer, session.connectionId));
 		}
 	}
 
@@ -619,15 +620,19 @@ public class BungeeHandler implements Listener {
 			}
 
 			sendPresenceMessage(VotingPluginWire.logout(session.playerName, session.uuid,
-					plugin.getBungeeSettings().getServer(), session.connectionId));
+					presenceServer, session.connectionId));
 		}
 	}
 
 	private void handlePresenceSnapshotRequest(JsonEnvelope msg) {
 		VotingPluginWire.PresenceSnapshotRequest request = VotingPluginWire.readPresenceSnapshotRequest(msg);
-		String server = plugin.getBungeeSettings().getServer();
-		if (request.requestId == null || request.server.isEmpty() || !server.equalsIgnoreCase(request.server)) {
-			return;
+		String server;
+		synchronized (presenceLifecycleLock) {
+			server = presenceServer;
+			if (!presenceReporting || server == null || request.requestId == null || request.server.isEmpty()
+					|| !server.equalsIgnoreCase(request.server)) {
+				return;
+			}
 		}
 
 		// Transport listeners may run off the Bukkit thread. Snapshot Bukkit state on
@@ -635,7 +640,7 @@ public class BungeeHandler implements Listener {
 		plugin.getBukkitScheduler().runTask(plugin, new Runnable() {
 			@Override
 			public void run() {
-				if (!plugin.isEnabled() || globalMessageHandler == null) {
+				if (!plugin.isEnabled() || globalMessageHandler == null || !isActivePresenceServer(server)) {
 					return;
 				}
 
@@ -652,7 +657,7 @@ public class BungeeHandler implements Listener {
 				for (int chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++) {
 					int fromIndex = chunkIndex * PRESENCE_SNAPSHOT_CHUNK_SIZE;
 					int toIndex = Math.min(players.size(), fromIndex + PRESENCE_SNAPSHOT_CHUNK_SIZE);
-					sendActivePresenceMessage(VotingPluginWire.presenceSnapshot(server, request.requestId,
+					sendActivePresenceMessage(server, VotingPluginWire.presenceSnapshot(server, request.requestId,
 							chunkIndex, chunkCount, players.subList(fromIndex, toIndex)));
 				}
 			}
@@ -701,6 +706,7 @@ public class BungeeHandler implements Listener {
 		}
 		String server = plugin.getBungeeSettings().getServer();
 		synchronized (presenceLifecycleLock) {
+			presenceServer = server;
 			presenceReporting = true;
 			sendPresenceMessage(VotingPluginWire.backendStarted(server));
 			sendPresenceMessage(VotingPluginWire.backendHeartbeat(server));
@@ -711,7 +717,7 @@ public class BungeeHandler implements Listener {
 			presenceHeartbeatTask = plugin.getTimer().scheduleAtFixedRate(new Runnable() {
 				@Override
 				public void run() {
-					sendActivePresenceMessage(VotingPluginWire.backendHeartbeat(server));
+					sendPresenceHeartbeat();
 				}
 			}, PRESENCE_HEARTBEAT_SECONDS, PRESENCE_HEARTBEAT_SECONDS, TimeUnit.SECONDS);
 		}
@@ -726,10 +732,13 @@ public class BungeeHandler implements Listener {
 					return;
 				}
 				for (Player player : Bukkit.getOnlinePlayers()) {
-					BackendPlayerPresenceSession session = getOrCreatePresenceSession(player);
-					if (session != null) {
-						sendActivePresenceMessage(VotingPluginWire.login(session.playerName, session.uuid,
-								plugin.getBungeeSettings().getServer(), session.connectionId));
+					synchronized (presenceLifecycleLock) {
+						BackendPlayerPresenceSession session = getOrCreatePresenceSession(player);
+						String server = presenceServer;
+						if (session != null && presenceReporting && server != null) {
+							sendActivePresenceMessage(server, VotingPluginWire.login(session.playerName, session.uuid,
+									server, session.connectionId));
+						}
 					}
 				}
 			}
@@ -738,24 +747,56 @@ public class BungeeHandler implements Listener {
 
 	private void stopPresenceReporting() {
 		synchronized (presenceLifecycleLock) {
+			String server = presenceServer;
+			boolean wasReporting = presenceReporting;
 			presenceReporting = false;
+			presenceServer = null;
 			if (presenceHeartbeatTask != null) {
 				presenceHeartbeatTask.cancel(false);
 				presenceHeartbeatTask = null;
 			}
-			if (globalMessageHandler != null) {
-				sendPresenceMessage(VotingPluginWire.backendStopped(plugin.getBungeeSettings().getServer()));
+			if (wasReporting && globalMessageHandler != null && server != null) {
+				sendPresenceMessage(VotingPluginWire.backendStopped(server));
 			}
 			playerPresenceSessions.clear();
 		}
 	}
 
-	private void sendActivePresenceMessage(JsonEnvelope envelope) {
+	private void sendPresenceHeartbeat() {
 		synchronized (presenceLifecycleLock) {
-			if (presenceReporting) {
+			if (presenceReporting && presenceServer != null) {
+				sendPresenceMessage(VotingPluginWire.backendHeartbeat(presenceServer));
+			}
+		}
+	}
+
+	private boolean isActivePresenceServer(String server) {
+		synchronized (presenceLifecycleLock) {
+			return presenceReporting && presenceServer != null && presenceServer.equalsIgnoreCase(server);
+		}
+	}
+
+	private void sendActivePresenceMessage(String server, JsonEnvelope envelope) {
+		synchronized (presenceLifecycleLock) {
+			if (presenceReporting && presenceServer != null && presenceServer.equalsIgnoreCase(server)) {
 				sendPresenceMessage(envelope);
 			}
 		}
+	}
+
+	/**
+	 * Restarts presence reporting when the configured backend server name changes.
+	 */
+	public void reloadPresenceReporting() {
+		String configuredServer = plugin.getBungeeSettings().getServer();
+		synchronized (presenceLifecycleLock) {
+			if (presenceReporting && presenceServer != null
+					&& presenceServer.equalsIgnoreCase(configuredServer)) {
+				return;
+			}
+		}
+		stopPresenceReporting();
+		startPresenceReporting();
 	}
 
 	private void sendPresenceMessage(JsonEnvelope envelope) {

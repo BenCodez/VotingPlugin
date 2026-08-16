@@ -27,6 +27,7 @@ import com.google.gson.JsonParser;
  * reference them directly.
  */
 public final class VotingPluginWire {
+	private static final int MAX_PRESENCE_SNAPSHOT_JSON_LENGTH = 65536;
 
 	private VotingPluginWire() {
 	}
@@ -440,7 +441,7 @@ public final class VotingPluginWire {
 		int chunkCount = readInt(fields, K_CHUNK_COUNT, 1);
 		String encodedPlayers = fields.get(K_PLAYERS);
 		List<PresencePlayer> players = new ArrayList<>();
-		if (encodedPlayers == null) {
+		if (encodedPlayers == null || encodedPlayers.length() > MAX_PRESENCE_SNAPSHOT_JSON_LENGTH) {
 			return new PresenceSnapshot(server, requestId, chunkIndex, chunkCount, players, false);
 		}
 

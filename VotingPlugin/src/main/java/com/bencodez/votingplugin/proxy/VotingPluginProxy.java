@@ -1367,8 +1367,10 @@ public abstract class VotingPluginProxy {
 					return;
 				}
 				if (event.connectionId != null) {
-					backendPlayerPresenceTracker.playerOnline(player, uuid, server, event.connectionId,
-							System.currentTimeMillis());
+					if (isPresenceServerValid(server, VotingPluginWire.SUB_LOGIN)) {
+						backendPlayerPresenceTracker.playerOnline(player, uuid, server, event.connectionId,
+								System.currentTimeMillis());
+					}
 				}
 
 				debug("Login: " + player + "/" + uuid + " " + server);
@@ -1380,6 +1382,9 @@ public abstract class VotingPluginProxy {
 			@Override
 			public void onReceive(JsonEnvelope message) {
 				VotingPluginWire.PlayerPresenceEvent event = VotingPluginWire.readPlayerPresenceEvent(message);
+				if (!isPresenceServerValid(event.server, VotingPluginWire.SUB_LOGOUT)) {
+					return;
+				}
 				if (!backendPlayerPresenceTracker.playerOffline(event.uuid, event.server, event.connectionId,
 						System.currentTimeMillis())) {
 					debug("Ignored invalid or stale logout envelope: " + message.getFields());
@@ -1390,30 +1395,40 @@ public abstract class VotingPluginProxy {
 		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_BACKEND_STARTED) {
 			@Override
 			public void onReceive(JsonEnvelope message) {
-				backendPlayerPresenceTracker.backendStarted(
-						message.getFields().getOrDefault(VotingPluginWire.K_SERVER, ""), System.currentTimeMillis());
+				String server = message.getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
+				if (isPresenceServerValid(server, VotingPluginWire.SUB_BACKEND_STARTED)) {
+					backendPlayerPresenceTracker.backendStarted(server, System.currentTimeMillis());
+				}
 			}
 		});
 
 		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_BACKEND_STOPPED) {
 			@Override
 			public void onReceive(JsonEnvelope message) {
-				backendPlayerPresenceTracker.backendStopped(
-						message.getFields().getOrDefault(VotingPluginWire.K_SERVER, ""), System.currentTimeMillis());
+				String server = message.getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
+				if (isPresenceServerValid(server, VotingPluginWire.SUB_BACKEND_STOPPED)) {
+					backendPlayerPresenceTracker.backendStopped(server, System.currentTimeMillis());
+				}
 			}
 		});
 
 		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_BACKEND_HEARTBEAT) {
 			@Override
 			public void onReceive(JsonEnvelope message) {
-				backendPlayerPresenceTracker.heartbeat(
-						message.getFields().getOrDefault(VotingPluginWire.K_SERVER, ""), System.currentTimeMillis());
+				String server = message.getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
+				if (isPresenceServerValid(server, VotingPluginWire.SUB_BACKEND_HEARTBEAT)) {
+					backendPlayerPresenceTracker.heartbeat(server, System.currentTimeMillis());
+				}
 			}
 		});
 
 		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_PRESENCE_SNAPSHOT) {
 			@Override
 			public void onReceive(JsonEnvelope message) {
+				String server = message.getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
+				if (!isPresenceServerValid(server, VotingPluginWire.SUB_PRESENCE_SNAPSHOT)) {
+					return;
+				}
 				VotingPluginWire.PresenceSnapshot snapshot = VotingPluginWire.readPresenceSnapshot(message);
 				if (!snapshot.valid || !backendPlayerPresenceTracker.applySnapshotChunk(snapshot.server,
 						snapshot.requestId, snapshot.chunkIndex, snapshot.chunkCount, snapshot.players,
@@ -1676,7 +1691,8 @@ public abstract class VotingPluginProxy {
 	 * @return request identifier, or null when the server name is invalid
 	 */
 	public UUID requestBackendPresenceSnapshot(String server) {
-		if (globalMessageProxyHandler == null) {
+		if (globalMessageProxyHandler == null
+				|| !isPresenceServerValid(server, VotingPluginWire.SUB_PRESENCE_SNAPSHOT_REQUEST)) {
 			return null;
 		}
 		UUID requestId = backendPlayerPresenceTracker.beginSnapshot(server);
@@ -1685,6 +1701,14 @@ public abstract class VotingPluginProxy {
 					VotingPluginWire.presenceSnapshotRequest(server, requestId));
 		}
 		return requestId;
+	}
+
+	private boolean isPresenceServerValid(String server, String subChannel) {
+		if (server == null || server.isBlank() || !isServerValid(server)) {
+			debug("Ignored " + subChannel + " presence envelope for an unconfigured server");
+			return false;
+		}
+		return true;
 	}
 
 	/**

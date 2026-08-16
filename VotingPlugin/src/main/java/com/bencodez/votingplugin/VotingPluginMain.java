@@ -1819,6 +1819,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		if (bungeeSettings.isUseBungeecoord()) {
 			if (getBungeeHandler() == null) {
 				loadBungeeHandler();
+			} else {
+				getBungeeHandler().reloadPresenceReporting();
 			}
 			if (userStorage) {
 				getBungeeHandler().loadGlobalMysql();

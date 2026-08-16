@@ -2,8 +2,10 @@ package com.bencodez.votingplugin.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -153,6 +155,35 @@ public class BackendPlayerPresenceTrackerTest {
 	}
 
 	@Test
+	public void backendStateIsBoundedAndEvictsUnavailableEntries() {
+		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker(2);
+		tracker.heartbeat("survival", 10L);
+		tracker.heartbeat("creative", 20L);
+		tracker.heartbeat("rejected", 30L);
+
+		assertEquals(2, tracker.getTrackedBackendCount());
+		assertNull(tracker.getBackendStatus("rejected"));
+
+		tracker.backendStopped("survival", 40L);
+		tracker.heartbeat("minigames", 50L);
+
+		assertEquals(2, tracker.getTrackedBackendCount());
+		assertNull(tracker.getBackendStatus("survival"));
+		assertTrue(tracker.getBackendStatus("minigames").isAvailable());
+	}
+
+	@Test
+	public void expiredBackendStateIsEvictedOnLaterSweep() {
+		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
+		tracker.heartbeat("survival", 10L);
+
+		assertEquals(Set.of("survival"), tracker.expireBackends(71L, 60L));
+		assertFalse(tracker.getBackendStatus("survival").isAvailable());
+		assertTrue(tracker.expireBackends(72L, 60L).isEmpty());
+		assertNull(tracker.getBackendStatus("survival"));
+	}
+
+	@Test
 	public void unexpectedSnapshotRequestIsIgnored() {
 		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
 
@@ -177,6 +208,35 @@ public class BackendPlayerPresenceTrackerTest {
 		assertTrue(tracker.getPlayer(firstUuid).isPresent());
 		assertTrue(tracker.getPlayer(secondUuid).isPresent());
 		assertEquals(0, tracker.getPendingSnapshotCount());
+	}
+
+	@Test
+	public void snapshotPlayerLimitIsEnforcedBeforeChunksAreRetained() {
+		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
+		UUID requestId = UUID.randomUUID();
+		PresencePlayer player = player("Player", UUID.randomUUID());
+		tracker.beginSnapshot("survival", requestId, 10L);
+
+		assertTrue(tracker.applySnapshotChunk("survival", requestId, 0, 3,
+				Collections.nCopies(50001, player), 20L));
+		assertFalse(tracker.applySnapshotChunk("survival", requestId, 1, 3,
+				Collections.nCopies(50000, player), 30L));
+
+		assertEquals(0, tracker.getPendingSnapshotCount());
+	}
+
+	@Test
+	public void incompleteSnapshotExpiresWhileBackendRemainsHealthy() {
+		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
+		UUID requestId = UUID.randomUUID();
+		tracker.beginSnapshot("survival", requestId, 10L);
+		assertTrue(tracker.applySnapshotChunk("survival", requestId, 0, 2,
+				List.of(player("Player", UUID.randomUUID())), 20L));
+
+		tracker.heartbeat("survival", 120010L);
+
+		assertEquals(0, tracker.getPendingSnapshotCount());
+		assertFalse(tracker.applySnapshotChunk("survival", requestId, 1, 2, List.of(), 120011L));
 	}
 
 	private static PresencePlayer player(String name, UUID uuid) {

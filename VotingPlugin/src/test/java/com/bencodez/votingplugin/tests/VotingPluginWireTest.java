@@ -123,6 +123,16 @@ public class VotingPluginWireTest {
 	}
 
 	@Test
+	public void oversizedPresenceSnapshotIsRejectedBeforeParsing() {
+		JsonEnvelope envelope = JsonEnvelope.builder(VotingPluginWire.SUB_PRESENCE_SNAPSHOT)
+				.schema(VotingPluginWire.SCHEMA_VERSION).put(VotingPluginWire.K_SERVER, "survival")
+				.put(VotingPluginWire.K_REQUEST_ID, UUID.randomUUID().toString())
+				.put(VotingPluginWire.K_PLAYERS, "x".repeat(65537)).build();
+
+		assertFalse(VotingPluginWire.readPresenceSnapshot(envelope).valid);
+	}
+
+	@Test
 	public void chunkedPresenceSnapshotPreservesChunkMetadata() {
 		UUID requestId = UUID.randomUUID();
 		JsonEnvelope envelope = VotingPluginWire.presenceSnapshot("survival", requestId, 2, 4, List.of());
