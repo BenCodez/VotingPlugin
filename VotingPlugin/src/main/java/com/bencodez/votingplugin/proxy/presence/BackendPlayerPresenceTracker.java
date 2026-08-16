@@ -43,6 +43,7 @@ public class BackendPlayerPresenceTracker {
 	private final Map<UUID, Long> lastPlayerEventSequences = new HashMap<>();
 	private final Map<UUID, String> lastPlayerEventServers = new HashMap<>();
 	private final Map<UUID, CrossBackendFence> crossBackendFences = new HashMap<>();
+	private final Map<UUID, CrossBackendFence> destinationClaims = new HashMap<>();
 	private final Map<String, BackendState> backends = new HashMap<>();
 	private final Map<String, PendingSnapshot> pendingSnapshots = new HashMap<>();
 	private final int maxTrackedBackends;
@@ -81,20 +82,19 @@ public class BackendPlayerPresenceTracker {
 
 	public synchronized boolean playerOnline(String playerName, String uuid, String server, UUID connectionId,
 			long now) {
-		return playerOnlineResult(playerName, uuid, server, connectionId, null, 0L, now, now, false)
-				== PlayerOnlineResult.ACCEPTED;
+		return playerOnlineResult(playerName, uuid, server, connectionId, null, 0L, now, now, false).isAccepted();
 	}
 
 	public synchronized boolean playerOnline(String playerName, String uuid, String server, UUID connectionId,
 			long backendStartedAt, long presenceTimestamp, long now) {
 		return playerOnlineResult(playerName, uuid, server, connectionId, legacyIncarnation(backendStartedAt),
-				backendStartedAt, presenceTimestamp, now, true) == PlayerOnlineResult.ACCEPTED;
+				backendStartedAt, presenceTimestamp, now, true).isAccepted();
 	}
 
 	public synchronized boolean playerOnline(String playerName, String uuid, String server, UUID connectionId,
 			UUID backendIncarnationId, long backendStartedAt, long presenceTimestamp, long now) {
 		return playerOnlineResult(playerName, uuid, server, connectionId, backendIncarnationId, backendStartedAt,
-				presenceTimestamp, now, true) == PlayerOnlineResult.ACCEPTED;
+				presenceTimestamp, now, true).isAccepted();
 	}
 
 	/**
@@ -114,17 +114,17 @@ public class BackendPlayerPresenceTracker {
 		String normalizedName = normalizePlayerName(playerName);
 		String normalizedServer = normalizeServer(server);
 		if (playerUuid == null || normalizedName == null || normalizedServer == null || connectionId == null) {
-			return PlayerOnlineResult.REJECTED;
+			return PlayerOnlineResult.rejected();
 		}
 		BackendState backendState = null;
 		if (fenced) {
 			if (!isCurrentBackendGeneration(normalizedServer, backendIncarnationId, backendStartedAt)
 					|| !isValidPresenceTimestamp(backendStartedAt, presenceTimestamp)) {
-				return PlayerOnlineResult.REJECTED;
+				return PlayerOnlineResult.rejected();
 			}
 			backendState = backends.get(serverKey(normalizedServer));
 			if (presenceTimestamp <= backendState.lastPlayerEventTimestamp) {
-				return PlayerOnlineResult.REJECTED;
+				return PlayerOnlineResult.rejected();
 			}
 			boolean conflictingBackend = false;
 			PlayerPresence current = playersByUuid.get(playerUuid);
@@ -132,7 +132,7 @@ public class BackendPlayerPresenceTracker {
 				if (!current.getServer().equalsIgnoreCase(normalizedServer)) {
 					conflictingBackend = true;
 				} else if (current.getLastSeen() >= presenceTimestamp) {
-					return PlayerOnlineResult.REJECTED;
+					return PlayerOnlineResult.rejected();
 				}
 			}
 			UUID currentNameOwnerUuid = uuidByPlayerName.get(normalizedName);
@@ -141,7 +141,7 @@ public class BackendPlayerPresenceTracker {
 				if (!currentNameOwner.getServer().equalsIgnoreCase(normalizedServer)) {
 					conflictingBackend = true;
 				} else if (currentNameOwner.getLastSeen() >= presenceTimestamp) {
-					return PlayerOnlineResult.REJECTED;
+					return PlayerOnlineResult.rejected();
 				}
 			}
 			if (conflictingBackend) {
@@ -152,28 +152,29 @@ public class BackendPlayerPresenceTracker {
 				if (!ensurePlayerEventCapacity(playerUuid)
 						|| !markBackendAvailable(normalizedServer, backendIncarnationId, backendStartedAt,
 						presenceTimestamp, now)) {
-					return PlayerOnlineResult.REJECTED;
+					return PlayerOnlineResult.rejected();
 				}
 				long sequence = ++eventSequence;
 				lastPlayerEventSequences.put(playerUuid, sequence);
 				lastPlayerEventServers.put(playerUuid, normalizedServer);
 				crossBackendFences.put(playerUuid, new CrossBackendFence(normalizedServer, sequence));
+				putDestinationClaim(playerUuid, normalizedServer, sequence);
 				backendState.lastPlayerEventTimestamp = presenceTimestamp;
 				prunePlayerEventSequences();
-				return PlayerOnlineResult.CONFLICTING_PRESENCE;
+				return PlayerOnlineResult.conflictingPresence(sequence);
 			}
 		}
 		boolean newIdentity = !playersByUuid.containsKey(playerUuid) && !uuidByPlayerName.containsKey(normalizedName);
 		if (newIdentity && playersByUuid.size() >= maxTrackedPlayerEvents) {
-			return PlayerOnlineResult.REJECTED;
+			return PlayerOnlineResult.rejected();
 		}
 		if (!ensurePlayerEventCapacity(playerUuid)) {
-			return PlayerOnlineResult.REJECTED;
+			return PlayerOnlineResult.rejected();
 		}
 		if (fenced ? !markBackendAvailable(normalizedServer, backendIncarnationId, backendStartedAt,
 				presenceTimestamp, now)
 				: !markBackendAvailable(normalizedServer, now)) {
-			return PlayerOnlineResult.REJECTED;
+			return PlayerOnlineResult.rejected();
 		}
 
 		long sequence = ++eventSequence;
@@ -184,7 +185,7 @@ public class BackendPlayerPresenceTracker {
 			backendState.lastPlayerEventTimestamp = presenceTimestamp;
 		}
 		prunePlayerEventSequences();
-		return PlayerOnlineResult.ACCEPTED;
+		return PlayerOnlineResult.accepted();
 	}
 
 	public synchronized boolean playerOffline(String uuid, String server, UUID connectionId, long now) {
@@ -428,6 +429,35 @@ public class BackendPlayerPresenceTracker {
 	public synchronized UUID beginSnapshot(String server, UUID requestId, UUID backendIncarnationId,
 			long backendStartedAt, long now) {
 		return beginSnapshot(server, requestId, backendIncarnationId, backendStartedAt, now, true);
+	}
+
+	public synchronized UUID beginSnapshotForDestinationClaim(String server, UUID requestId,
+			UUID backendIncarnationId, long backendStartedAt, UUID playerUuid, long conflictSequence, long now) {
+		if (!isCurrentDestinationClaim(playerUuid, server, conflictSequence)) {
+			return null;
+		}
+		return beginSnapshot(server, requestId, backendIncarnationId, backendStartedAt, now, true);
+	}
+
+	public synchronized UUID getPendingSnapshotRequestIdForDestinationClaim(String server, UUID playerUuid,
+			long conflictSequence, long now) {
+		if (!isCurrentDestinationClaim(playerUuid, server, conflictSequence)) {
+			return null;
+		}
+		return getPendingSnapshotRequestId(server, now);
+	}
+
+	public synchronized boolean isCurrentDestinationClaim(UUID playerUuid, String server, long conflictSequence) {
+		String normalizedServer = normalizeServer(server);
+		CrossBackendFence fence = playerUuid == null ? null : destinationClaims.get(playerUuid);
+		return normalizedServer != null && conflictSequence > 0L && fence != null
+				&& fence.sequence == conflictSequence && fence.server.equalsIgnoreCase(normalizedServer);
+	}
+
+	public synchronized void releaseDestinationClaim(UUID playerUuid, String server, long conflictSequence) {
+		if (isCurrentDestinationClaim(playerUuid, server, conflictSequence)) {
+			destinationClaims.remove(playerUuid);
+		}
 	}
 
 	private UUID beginSnapshot(String server, UUID requestId, UUID backendIncarnationId, long backendStartedAt,
@@ -755,6 +785,7 @@ public class BackendPlayerPresenceTracker {
 	}
 
 	private void putPresence(PlayerPresence presence) {
+		destinationClaims.remove(presence.getUuid());
 		String nameKey = nameKey(presence.getPlayerName());
 		UUID previousNameUuid = uuidByPlayerName.get(nameKey);
 		if (previousNameUuid != null && !previousNameUuid.equals(presence.getUuid())) {
@@ -783,6 +814,27 @@ public class BackendPlayerPresenceTracker {
 		if (fence != null && fence.server.equalsIgnoreCase(server)) {
 			crossBackendFences.put(uuid, new CrossBackendFence(fence.server, sequence));
 		}
+		CrossBackendFence claim = destinationClaims.get(uuid);
+		if (claim != null && claim.server.equalsIgnoreCase(server)) {
+			destinationClaims.remove(uuid);
+		}
+	}
+
+	private void putDestinationClaim(UUID uuid, String server, long sequence) {
+		if (!destinationClaims.containsKey(uuid) && destinationClaims.size() >= maxTrackedPlayerEvents) {
+			UUID oldestUuid = null;
+			long oldestSequence = Long.MAX_VALUE;
+			for (Map.Entry<UUID, CrossBackendFence> entry : destinationClaims.entrySet()) {
+				if (entry.getValue().sequence < oldestSequence) {
+					oldestUuid = entry.getKey();
+					oldestSequence = entry.getValue().sequence;
+				}
+			}
+			if (oldestUuid != null) {
+				destinationClaims.remove(oldestUuid);
+			}
+		}
+		destinationClaims.put(uuid, new CrossBackendFence(server, sequence));
 	}
 
 	private void removePlayersOnServer(String server, long sequence) {
@@ -995,10 +1047,43 @@ public class BackendPlayerPresenceTracker {
 		return server.toLowerCase(Locale.ROOT);
 	}
 
-	public enum PlayerOnlineResult {
-		ACCEPTED,
-		CONFLICTING_PRESENCE,
-		REJECTED
+	public static final class PlayerOnlineResult {
+		private static final PlayerOnlineResult ACCEPTED = new PlayerOnlineResult(true, false, 0L);
+		private static final PlayerOnlineResult REJECTED = new PlayerOnlineResult(false, false, 0L);
+
+		private final boolean accepted;
+		private final boolean conflictingPresence;
+		private final long conflictSequence;
+
+		private PlayerOnlineResult(boolean accepted, boolean conflictingPresence, long conflictSequence) {
+			this.accepted = accepted;
+			this.conflictingPresence = conflictingPresence;
+			this.conflictSequence = conflictSequence;
+		}
+
+		private static PlayerOnlineResult accepted() {
+			return ACCEPTED;
+		}
+
+		private static PlayerOnlineResult conflictingPresence(long conflictSequence) {
+			return new PlayerOnlineResult(false, true, conflictSequence);
+		}
+
+		private static PlayerOnlineResult rejected() {
+			return REJECTED;
+		}
+
+		public boolean isAccepted() {
+			return accepted;
+		}
+
+		public boolean isConflictingPresence() {
+			return conflictingPresence;
+		}
+
+		public long getConflictSequence() {
+			return conflictSequence;
+		}
 	}
 
 	private static final class CrossBackendFence {

@@ -1560,11 +1560,12 @@ public abstract class VotingPluginProxy {
 					player, uuid, server, event.connectionId,
 					event.backendIncarnationId, event.backendStartedAt, event.presenceTimestamp,
 					System.currentTimeMillis());
-			accepted = result == BackendPlayerPresenceTracker.PlayerOnlineResult.ACCEPTED;
-			if (result == BackendPlayerPresenceTracker.PlayerOnlineResult.CONFLICTING_PRESENCE) {
+			accepted = result.isAccepted();
+			if (result.isConflictingPresence()) {
 				requestBackendPresenceSnapshot(server,
 						new PendingPresenceHandoff(player, uuid, server, event.connectionId,
-								event.backendIncarnationId, event.backendStartedAt, System.currentTimeMillis()));
+								event.backendIncarnationId, event.backendStartedAt,
+								result.getConflictSequence(), System.currentTimeMillis()));
 			}
 		}
 
@@ -1829,13 +1830,22 @@ public abstract class VotingPluginProxy {
 				: !queuePendingPresenceHandoff(handoff, now))) {
 			return null;
 		}
-		UUID requestId = backendPlayerPresenceTracker.beginSnapshot(server, UUID.randomUUID(), backendIncarnationId,
-				backendStartedAt, now);
+		UUID requestId = handoff == null
+				? backendPlayerPresenceTracker.beginSnapshot(server, UUID.randomUUID(), backendIncarnationId,
+						backendStartedAt, now)
+				: backendPlayerPresenceTracker.beginSnapshotForDestinationClaim(server, UUID.randomUUID(),
+						backendIncarnationId, backendStartedAt, handoff.playerUuid, handoff.conflictSequence, now);
 		boolean created = requestId != null;
 		if (!created) {
-			requestId = backendPlayerPresenceTracker.getPendingSnapshotRequestId(server, now);
+			requestId = handoff == null ? backendPlayerPresenceTracker.getPendingSnapshotRequestId(server, now)
+					: backendPlayerPresenceTracker.getPendingSnapshotRequestIdForDestinationClaim(server,
+							handoff.playerUuid, handoff.conflictSequence, now);
 		}
 		if (requestId == null) {
+			if (handoff != null && !backendPlayerPresenceTracker.isCurrentDestinationClaim(handoff.playerUuid,
+					handoff.server, handoff.conflictSequence)) {
+				discardPendingPresenceHandoff(handoff);
+			}
 			// A handoff stays unassigned while the destination is inside its snapshot
 			// cooldown. Presence maintenance will attach it to the next allowed snapshot.
 			return null;
@@ -1857,6 +1867,10 @@ public abstract class VotingPluginProxy {
 		}
 		synchronized (pendingPresenceHandoffs) {
 			prunePendingPresenceHandoffs(now);
+			PendingPresenceHandoff current = pendingPresenceHandoffs.get(handoff.playerUuid);
+			if (current != null && current.conflictSequence > handoff.conflictSequence) {
+				return false;
+			}
 			handoff.requestId = null;
 			pendingPresenceHandoffs.put(handoff.playerUuid, handoff);
 			return true;
@@ -1887,6 +1901,7 @@ public abstract class VotingPluginProxy {
 
 	private boolean isPresenceHandoffValid(PendingPresenceHandoff handoff, long now) {
 		return handoff != null && handoff.playerUuid != null && handoff.connectionId != null
+				&& handoff.conflictSequence > 0L
 				&& now >= handoff.createdAt && now - handoff.createdAt <= PRESENCE_HANDOFF_TIMEOUT_MILLIS;
 	}
 
@@ -1914,23 +1929,45 @@ public abstract class VotingPluginProxy {
 					&& presence.getConnectionId().equals(handoff.connectionId)) {
 				login(handoff.playerName, handoff.uuid, handoff.server);
 			}
+			releaseDestinationClaim(handoff);
 		}
 	}
 
 	private void discardPendingPresenceHandoff(String uuid) {
 		try {
 			UUID playerUuid = UUID.fromString(uuid.trim());
+			PendingPresenceHandoff removed;
 			synchronized (pendingPresenceHandoffs) {
-				pendingPresenceHandoffs.remove(playerUuid);
+				removed = pendingPresenceHandoffs.remove(playerUuid);
 			}
+			releaseDestinationClaim(removed);
 		} catch (Exception ignored) {
 			// Invalid identities are rejected by the presence tracker.
 		}
 	}
 
+	private void discardPendingPresenceHandoff(PendingPresenceHandoff handoff) {
+		boolean removed = false;
+		synchronized (pendingPresenceHandoffs) {
+			if (handoff != null && pendingPresenceHandoffs.get(handoff.playerUuid) == handoff) {
+				pendingPresenceHandoffs.remove(handoff.playerUuid);
+				removed = true;
+			}
+		}
+		if (removed) {
+			releaseDestinationClaim(handoff);
+		}
+	}
+
 	private void discardPendingPresenceHandoffs(String server) {
 		synchronized (pendingPresenceHandoffs) {
-			pendingPresenceHandoffs.entrySet().removeIf(entry -> entry.getValue().server.equalsIgnoreCase(server));
+			pendingPresenceHandoffs.entrySet().removeIf(entry -> {
+				if (!entry.getValue().server.equalsIgnoreCase(server)) {
+					return false;
+				}
+				releaseDestinationClaim(entry.getValue());
+				return true;
+			});
 		}
 	}
 
@@ -1939,14 +1976,32 @@ public abstract class VotingPluginProxy {
 			return;
 		}
 		synchronized (pendingPresenceHandoffs) {
-			pendingPresenceHandoffs.entrySet().removeIf(entry -> requestId.equals(entry.getValue().requestId));
+			pendingPresenceHandoffs.entrySet().removeIf(entry -> {
+				if (!requestId.equals(entry.getValue().requestId)) {
+					return false;
+				}
+				releaseDestinationClaim(entry.getValue());
+				return true;
+			});
 		}
 	}
 
 	private void prunePendingPresenceHandoffs(long now) {
-		pendingPresenceHandoffs.entrySet()
-				.removeIf(entry -> now < entry.getValue().createdAt
-						|| now - entry.getValue().createdAt > PRESENCE_HANDOFF_TIMEOUT_MILLIS);
+		pendingPresenceHandoffs.entrySet().removeIf(entry -> {
+			PendingPresenceHandoff handoff = entry.getValue();
+			if (now >= handoff.createdAt && now - handoff.createdAt <= PRESENCE_HANDOFF_TIMEOUT_MILLIS) {
+				return false;
+			}
+			releaseDestinationClaim(handoff);
+			return true;
+		});
+	}
+
+	private void releaseDestinationClaim(PendingPresenceHandoff handoff) {
+		if (handoff != null) {
+			backendPlayerPresenceTracker.releaseDestinationClaim(handoff.playerUuid, handoff.server,
+					handoff.conflictSequence);
+		}
 	}
 
 	protected void retryPendingPresenceHandoffs(long now) {
@@ -2979,10 +3034,11 @@ public abstract class VotingPluginProxy {
 		private final UUID connectionId;
 		private final UUID backendIncarnationId;
 		private final long backendStartedAt;
+		private final long conflictSequence;
 		private final long createdAt;
 
 		private PendingPresenceHandoff(String playerName, String uuid, String server, UUID connectionId,
-				UUID backendIncarnationId, long backendStartedAt, long createdAt) {
+				UUID backendIncarnationId, long backendStartedAt, long conflictSequence, long createdAt) {
 			this.playerUuid = parsePlayerUuid(uuid);
 			this.playerName = playerName;
 			this.uuid = uuid;
@@ -2990,6 +3046,7 @@ public abstract class VotingPluginProxy {
 			this.connectionId = connectionId;
 			this.backendIncarnationId = backendIncarnationId;
 			this.backendStartedAt = backendStartedAt;
+			this.conflictSequence = conflictSequence;
 			this.createdAt = createdAt;
 		}
 

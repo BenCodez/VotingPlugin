@@ -44,16 +44,57 @@ public class BackendPlayerPresenceTrackerTest {
 
 		assertTrue(tracker.backendStarted("survival", survivalIncarnation, 1000L, 1000L, 10L));
 		assertTrue(tracker.backendStarted("creative", creativeIncarnation, 1000L, 1000L, 11L));
-		assertEquals(BackendPlayerPresenceTracker.PlayerOnlineResult.ACCEPTED,
-				tracker.playerOnlineResult("Player", uuid.toString(), "survival", connectionId,
-						survivalIncarnation, 1000L, 1100L, 20L));
+		BackendPlayerPresenceTracker.PlayerOnlineResult accepted = tracker.playerOnlineResult("Player",
+				uuid.toString(), "survival", connectionId, survivalIncarnation, 1000L, 1100L, 20L);
+		assertTrue(accepted.isAccepted());
+		assertFalse(accepted.isConflictingPresence());
 
-		assertEquals(BackendPlayerPresenceTracker.PlayerOnlineResult.CONFLICTING_PRESENCE,
-				tracker.playerOnlineResult("Player", uuid.toString(), "creative", UUID.randomUUID(),
-						creativeIncarnation, 1000L, 1200L, 30L));
-		assertEquals(BackendPlayerPresenceTracker.PlayerOnlineResult.REJECTED,
-				tracker.playerOnlineResult("Player", uuid.toString(), "creative", UUID.randomUUID(),
-						creativeIncarnation, 1000L, 1200L, 40L));
+		BackendPlayerPresenceTracker.PlayerOnlineResult conflict = tracker.playerOnlineResult("Player",
+				uuid.toString(), "creative", UUID.randomUUID(), creativeIncarnation, 1000L, 1200L, 30L);
+		assertFalse(conflict.isAccepted());
+		assertTrue(conflict.isConflictingPresence());
+		assertTrue(conflict.getConflictSequence() > 0L);
+
+		BackendPlayerPresenceTracker.PlayerOnlineResult rejected = tracker.playerOnlineResult("Player",
+				uuid.toString(), "creative", UUID.randomUUID(), creativeIncarnation, 1000L, 1200L, 40L);
+		assertFalse(rejected.isAccepted());
+		assertFalse(rejected.isConflictingPresence());
+		assertEquals(0L, rejected.getConflictSequence());
+	}
+
+	@Test
+	public void supersededDestinationClaimCannotStartOrReuseSnapshot() {
+		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
+		UUID sourceIncarnation = UUID.randomUUID();
+		UUID firstIncarnation = UUID.randomUUID();
+		UUID finalIncarnation = UUID.randomUUID();
+		UUID playerUuid = UUID.randomUUID();
+		UUID sourceConnection = UUID.randomUUID();
+		assertTrue(tracker.backendStarted("source", sourceIncarnation, 1000L, 1000L, 10L));
+		assertTrue(tracker.backendStarted("first", firstIncarnation, 1000L, 1000L, 11L));
+		assertTrue(tracker.backendStarted("final", finalIncarnation, 1000L, 1000L, 12L));
+		assertTrue(tracker.playerOnline("Player", playerUuid.toString(), "source", sourceConnection,
+				sourceIncarnation, 1000L, 1100L, 20L));
+
+		BackendPlayerPresenceTracker.PlayerOnlineResult first = tracker.playerOnlineResult("Player",
+				playerUuid.toString(), "first", UUID.randomUUID(), firstIncarnation, 1000L, 1200L, 30L);
+		BackendPlayerPresenceTracker.PlayerOnlineResult finalResult = tracker.playerOnlineResult("Player",
+				playerUuid.toString(), "final", UUID.randomUUID(), finalIncarnation, 1000L, 1300L, 40L);
+		assertTrue(first.isConflictingPresence());
+		assertTrue(finalResult.isConflictingPresence());
+		assertTrue(finalResult.getConflictSequence() > first.getConflictSequence());
+		assertTrue(tracker.playerOffline(playerUuid.toString(), "source", sourceConnection,
+				sourceIncarnation, 1000L, 1400L, 45L));
+		assertTrue(tracker.isCurrentDestinationClaim(playerUuid, "final", finalResult.getConflictSequence()));
+
+		assertNull(tracker.beginSnapshotForDestinationClaim("first", UUID.randomUUID(), firstIncarnation, 1000L,
+				playerUuid, first.getConflictSequence(), 50L));
+		assertNull(tracker.getPendingSnapshotRequestIdForDestinationClaim("first", playerUuid,
+				first.getConflictSequence(), 50L));
+
+		UUID finalRequest = UUID.randomUUID();
+		assertEquals(finalRequest, tracker.beginSnapshotForDestinationClaim("final", finalRequest,
+				finalIncarnation, 1000L, playerUuid, finalResult.getConflictSequence(), 50L));
 	}
 
 	@Test
