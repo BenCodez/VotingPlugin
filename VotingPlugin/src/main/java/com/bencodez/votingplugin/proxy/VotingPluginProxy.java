@@ -66,6 +66,7 @@ import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyHandler;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyMethod;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyServerSocketConfiguration;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyServerSocketConfigurationBungee;
+import com.bencodez.votingplugin.proxy.presence.BackendGenerationStateStore;
 import com.bencodez.votingplugin.proxy.presence.BackendPlayerPresenceTracker;
 import com.bencodez.votingplugin.proxy.presence.PlayerPresence;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
@@ -160,6 +161,8 @@ public abstract class VotingPluginProxy {
 	private final BackendPlayerPresenceTracker backendPlayerPresenceTracker = new BackendPlayerPresenceTracker();
 	private final Map<UUID, PendingPresenceHandoff> pendingPresenceHandoffs = new HashMap<>();
 	private final Set<String> pendingBackendRecoverySnapshots = ConcurrentHashMap.newKeySet();
+	private final Object backendGenerationStateLock = new Object();
+	private BackendGenerationStateStore backendGenerationStateStore;
 
 	public VotingPluginProxy() {
 		enabled = true;
@@ -1149,6 +1152,7 @@ public abstract class VotingPluginProxy {
 	}
 
 	public void load(IVoteCache jsonStorage, INonVotedPlayersStorage nonVotedCacheJson) {
+		loadBackendGenerationState();
 		uuidPlayerNameCache = getProxyMySQL().getRowsUUIDNameQuery();
 
 		bungeeTimeChecker.setTimeChangeFailSafeBypass(getConfig().getTimeChangeFailSafeBypass());
@@ -1440,6 +1444,7 @@ public abstract class VotingPluginProxy {
 								VotingPluginWire.SUB_BACKEND_STARTED)) {
 					if (backendPlayerPresenceTracker.backendStarted(server, backendIncarnationId, backendStartedAt,
 							presenceTimestamp, System.currentTimeMillis())) {
+						saveBackendGenerationState();
 						discardPendingPresenceHandoffs(server);
 						pendingBackendRecoverySnapshots.add(presenceServerKey(server));
 						requestBackendPresenceSnapshot(server);
@@ -1461,6 +1466,7 @@ public abstract class VotingPluginProxy {
 								VotingPluginWire.SUB_BACKEND_STOPPED)) {
 					if (backendPlayerPresenceTracker.backendStopped(server, backendIncarnationId, backendStartedAt,
 							presenceTimestamp, System.currentTimeMillis())) {
+						saveBackendGenerationState();
 						discardPendingPresenceHandoffs(server);
 						pendingBackendRecoverySnapshots.remove(presenceServerKey(server));
 					}
@@ -1895,6 +1901,33 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
+	private void loadBackendGenerationState() {
+		synchronized (backendGenerationStateLock) {
+			backendGenerationStateStore = new BackendGenerationStateStore(getDataFolderPlugin().toPath());
+			try {
+				for (String server : backendGenerationStateStore.loadInto(backendPlayerPresenceTracker,
+						getAllAvailableServers(), System.currentTimeMillis())) {
+					pendingBackendRecoverySnapshots.add(presenceServerKey(server));
+				}
+			} catch (IOException e) {
+				warn("Unable to load backend presence generation state: " + e.getMessage());
+			}
+		}
+	}
+
+	private void saveBackendGenerationState() {
+		synchronized (backendGenerationStateLock) {
+			if (backendGenerationStateStore == null) {
+				return;
+			}
+			try {
+				backendGenerationStateStore.save(backendPlayerPresenceTracker);
+			} catch (IOException e) {
+				warn("Unable to save backend presence generation state: " + e.getMessage());
+			}
+		}
+	}
+
 	private String presenceServerKey(String server) {
 		return server == null ? "" : server.trim().toLowerCase(java.util.Locale.ROOT);
 	}
@@ -2000,6 +2033,7 @@ public abstract class VotingPluginProxy {
 	public abstract void logSevere(String message);
 
 	public void onDisable() {
+		saveBackendGenerationState();
 		getVoteCacheHandler().saveVoteCache();
 
 		if (getProxyMysqlMessenger() != null) {

@@ -292,15 +292,9 @@ public class BackendPlayerPresenceTracker {
 			if (state.retiredIncarnations.contains(backendIncarnationId)) {
 				return false;
 			}
-			// Reannounced starts can race during overlapping deployments, especially
-			// after a proxy restart. Incarnations of this same configured backend are
-			// ordered by their immutable process-start timestamp so an older process
-			// cannot reclaim the server name from a newer one. Timestamps from different
-			// backend names are never compared.
-			if (backendStartedAt <= state.backendStartedAt) {
-				retireIncarnation(state, backendIncarnationId);
-				return false;
-			}
+			// Only an authenticated BackendStarted event can advance the proxy-local
+			// restart order. The current and retired UUIDs are persisted by the proxy so
+			// this ordering survives proxy restarts without comparing backend clocks.
 			retireCurrentIncarnation(state);
 			long sequence = ++eventSequence;
 			removePlayersOnServer(normalizedServer, sequence);
@@ -710,6 +704,71 @@ public class BackendPlayerPresenceTracker {
 		return lastPlayerEventSequences.size();
 	}
 
+	/**
+	 * Exports the bounded lifecycle-ordering state needed to fence old process
+	 * reannouncements after a proxy restart. Player presence and availability are
+	 * deliberately not persisted.
+	 *
+	 * @return immutable lifecycle state snapshot
+	 */
+	public synchronized List<BackendGenerationState> getBackendGenerationStates() {
+		List<BackendGenerationState> states = new ArrayList<>();
+		for (BackendState state : backends.values()) {
+			if (state.backendIncarnationId != null && state.backendStartedAt > 0L) {
+				states.add(new BackendGenerationState(state.server, state.backendIncarnationId,
+						state.backendStartedAt, state.lastLifecycleTimestamp, state.stopped,
+						state.retiredIncarnations));
+			}
+		}
+		return Collections.unmodifiableList(states);
+	}
+
+	/**
+	 * Restores lifecycle ordering before proxy message listeners start. Restored
+	 * active generations begin unavailable and must prove liveness with a heartbeat;
+	 * their players are recovered through a fresh snapshot.
+	 *
+	 * @param states validated persisted states
+	 * @param now current proxy time
+	 * @return backend names that require heartbeat and snapshot recovery
+	 */
+	public synchronized Set<String> restoreBackendGenerationStates(Collection<BackendGenerationState> states,
+			long now) {
+		if (states == null || !backends.isEmpty()) {
+			return Collections.emptySet();
+		}
+		Set<String> recoveryServers = new LinkedHashSet<>();
+		for (BackendGenerationState persisted : states) {
+			if (persisted == null || backends.size() >= maxTrackedBackends) {
+				break;
+			}
+			String server = normalizeServer(persisted.server);
+			if (server == null || persisted.backendIncarnationId == null || persisted.backendStartedAt <= 0L
+					|| persisted.lastLifecycleTimestamp < persisted.backendStartedAt
+					|| persisted.retiredIncarnations.size() > MAX_RETIRED_INCARNATIONS_PER_BACKEND) {
+				continue;
+			}
+			String key = serverKey(server);
+			if (backends.containsKey(key)) {
+				continue;
+			}
+			BackendState state = new BackendState(server);
+			state.backendIncarnationId = persisted.backendIncarnationId;
+			state.backendStartedAt = persisted.backendStartedAt;
+			state.lastLifecycleTimestamp = persisted.lastLifecycleTimestamp;
+			state.lastSeen = now;
+			state.available = false;
+			state.stopped = persisted.stopped;
+			state.retiredIncarnations.addAll(persisted.retiredIncarnations);
+			state.retiredIncarnations.remove(state.backendIncarnationId);
+			backends.put(key, state);
+			if (!state.stopped) {
+				recoveryServers.add(server);
+			}
+		}
+		return Collections.unmodifiableSet(recoveryServers);
+	}
+
 	public synchronized UUID getBackendIncarnationId(String server) {
 		String normalizedServer = normalizeServer(server);
 		if (normalizedServer == null) {
@@ -987,6 +1046,55 @@ public class BackendPlayerPresenceTracker {
 
 		private BackendState(String server) {
 			this.server = server;
+		}
+	}
+
+	/**
+	 * Durable, non-secret backend lifecycle ordering record.
+	 */
+	public static final class BackendGenerationState {
+		private final String server;
+		private final UUID backendIncarnationId;
+		private final long backendStartedAt;
+		private final long lastLifecycleTimestamp;
+		private final boolean stopped;
+		private final Set<UUID> retiredIncarnations;
+
+		public BackendGenerationState(String server, UUID backendIncarnationId, long backendStartedAt,
+				long lastLifecycleTimestamp, boolean stopped, Collection<UUID> retiredIncarnations) {
+			this.server = server;
+			this.backendIncarnationId = backendIncarnationId;
+			this.backendStartedAt = backendStartedAt;
+			this.lastLifecycleTimestamp = lastLifecycleTimestamp;
+			this.stopped = stopped;
+			LinkedHashSet<UUID> retired = retiredIncarnations == null ? new LinkedHashSet<>()
+					: new LinkedHashSet<>(retiredIncarnations);
+			retired.remove(null);
+			this.retiredIncarnations = Collections.unmodifiableSet(retired);
+		}
+
+		public String getServer() {
+			return server;
+		}
+
+		public UUID getBackendIncarnationId() {
+			return backendIncarnationId;
+		}
+
+		public long getBackendStartedAt() {
+			return backendStartedAt;
+		}
+
+		public long getLastLifecycleTimestamp() {
+			return lastLifecycleTimestamp;
+		}
+
+		public boolean isStopped() {
+			return stopped;
+		}
+
+		public Set<UUID> getRetiredIncarnations() {
+			return retiredIncarnations;
 		}
 	}
 
