@@ -20,10 +20,12 @@ import com.bencodez.votingplugin.proxy.VotingPluginWire.PresencePlayer;
  * Tracks player locations reported through the existing global-message system.
  *
  * <p>
- * Backend server names are the stable backend identity. Per-player connection
- * identifiers prevent delayed logout messages from clearing a newer login. The
- * tracker is deliberately independent from vote routing so the presence
- * protocol can be introduced without changing existing proxy behavior.
+ * Backend server names are the stable backend identity. Automatic incarnation
+ * identifiers fence delayed messages from replaced backend processes, while
+ * per-player connection identifiers prevent delayed logout messages from
+ * clearing a newer login. The tracker is deliberately independent from vote
+ * routing so the presence protocol can be introduced without changing existing
+ * proxy behavior.
  * </p>
  */
 public class BackendPlayerPresenceTracker {
@@ -32,6 +34,7 @@ public class BackendPlayerPresenceTracker {
 	private static final int MAX_SNAPSHOT_PLAYERS = 100000;
 	private static final int MAX_SNAPSHOT_CHUNKS = 10000;
 	private static final int DEFAULT_MAX_TRACKED_BACKENDS = 1024;
+	private static final int MAX_RETIRED_INCARNATIONS_PER_BACKEND = 64;
 	private static final long SNAPSHOT_TIMEOUT_MILLIS = 120000L;
 
 	private final Map<UUID, PlayerPresence> playersByUuid = new HashMap<>();
@@ -40,10 +43,11 @@ public class BackendPlayerPresenceTracker {
 	private final Map<String, BackendState> backends = new HashMap<>();
 	private final Map<String, PendingSnapshot> pendingSnapshots = new HashMap<>();
 	private final int maxTrackedBackends;
+	private final int maxTrackedPlayerEvents;
 	private long eventSequence;
 
 	public BackendPlayerPresenceTracker() {
-		this(DEFAULT_MAX_TRACKED_BACKENDS);
+		this(DEFAULT_MAX_TRACKED_BACKENDS, MAX_SNAPSHOT_PLAYERS);
 	}
 
 	/**
@@ -52,24 +56,45 @@ public class BackendPlayerPresenceTracker {
 	 * @param maxTrackedBackends maximum configured backend identities retained
 	 */
 	public BackendPlayerPresenceTracker(int maxTrackedBackends) {
+		this(maxTrackedBackends, MAX_SNAPSHOT_PLAYERS);
+	}
+
+	/**
+	 * Creates a tracker with explicit backend and retained player-event limits.
+	 *
+	 * @param maxTrackedBackends maximum configured backend identities retained
+	 * @param maxTrackedPlayerEvents maximum live players plus snapshot tombstones
+	 */
+	public BackendPlayerPresenceTracker(int maxTrackedBackends, int maxTrackedPlayerEvents) {
 		if (maxTrackedBackends <= 0) {
 			throw new IllegalArgumentException("maxTrackedBackends must be positive");
 		}
+		if (maxTrackedPlayerEvents <= 0 || maxTrackedPlayerEvents > MAX_SNAPSHOT_PLAYERS) {
+			throw new IllegalArgumentException("maxTrackedPlayerEvents must be between 1 and 100000");
+		}
 		this.maxTrackedBackends = maxTrackedBackends;
+		this.maxTrackedPlayerEvents = maxTrackedPlayerEvents;
 	}
 
 	public synchronized boolean playerOnline(String playerName, String uuid, String server, UUID connectionId,
 			long now) {
-		return playerOnline(playerName, uuid, server, connectionId, 0L, now, now, false);
+		return playerOnline(playerName, uuid, server, connectionId, null, 0L, now, now, false);
 	}
 
 	public synchronized boolean playerOnline(String playerName, String uuid, String server, UUID connectionId,
 			long backendStartedAt, long presenceTimestamp, long now) {
-		return playerOnline(playerName, uuid, server, connectionId, backendStartedAt, presenceTimestamp, now, true);
+		return playerOnline(playerName, uuid, server, connectionId, legacyIncarnation(backendStartedAt),
+				backendStartedAt, presenceTimestamp, now);
+	}
+
+	public synchronized boolean playerOnline(String playerName, String uuid, String server, UUID connectionId,
+			UUID backendIncarnationId, long backendStartedAt, long presenceTimestamp, long now) {
+		return playerOnline(playerName, uuid, server, connectionId, backendIncarnationId, backendStartedAt,
+				presenceTimestamp, now, true);
 	}
 
 	private boolean playerOnline(String playerName, String uuid, String server, UUID connectionId,
-			long backendStartedAt, long presenceTimestamp, long now, boolean fenced) {
+			UUID backendIncarnationId, long backendStartedAt, long presenceTimestamp, long now, boolean fenced) {
 		UUID playerUuid = parseUuid(uuid);
 		String normalizedName = normalizePlayerName(playerName);
 		String normalizedServer = normalizeServer(server);
@@ -77,23 +102,25 @@ public class BackendPlayerPresenceTracker {
 			return false;
 		}
 		boolean newIdentity = !playersByUuid.containsKey(playerUuid) && !uuidByPlayerName.containsKey(normalizedName);
-		if (newIdentity && playersByUuid.size() >= MAX_SNAPSHOT_PLAYERS) {
+		if (newIdentity && playersByUuid.size() >= maxTrackedPlayerEvents) {
 			return false;
 		}
-		if (fenced ? !markBackendAvailable(normalizedServer, backendStartedAt, presenceTimestamp, now)
+		if (!ensurePlayerEventCapacity(playerUuid)) {
+			return false;
+		}
+		if (fenced ? !markBackendAvailable(normalizedServer, backendIncarnationId, backendStartedAt,
+				presenceTimestamp, now)
 				: !markBackendAvailable(normalizedServer, now)) {
 			return false;
 		}
 		if (fenced) {
 			PlayerPresence current = playersByUuid.get(playerUuid);
-			if (current != null && current.getServer().equalsIgnoreCase(normalizedServer)
-					&& current.getLastSeen() > presenceTimestamp) {
+			if (current != null && current.getLastSeen() > presenceTimestamp) {
 				return false;
 			}
 			UUID currentNameOwnerUuid = uuidByPlayerName.get(normalizedName);
 			PlayerPresence currentNameOwner = playersByUuid.get(currentNameOwnerUuid);
-			if (currentNameOwner != null && currentNameOwner.getServer().equalsIgnoreCase(normalizedServer)
-					&& currentNameOwner.getLastSeen() > presenceTimestamp) {
+			if (currentNameOwner != null && currentNameOwner.getLastSeen() > presenceTimestamp) {
 				return false;
 			}
 		}
@@ -107,22 +134,29 @@ public class BackendPlayerPresenceTracker {
 	}
 
 	public synchronized boolean playerOffline(String uuid, String server, UUID connectionId, long now) {
-		return playerOffline(uuid, server, connectionId, 0L, now, now, false);
+		return playerOffline(uuid, server, connectionId, null, 0L, now, now, false);
 	}
 
 	public synchronized boolean playerOffline(String uuid, String server, UUID connectionId, long backendStartedAt,
 			long presenceTimestamp, long now) {
-		return playerOffline(uuid, server, connectionId, backendStartedAt, presenceTimestamp, now, true);
+		return playerOffline(uuid, server, connectionId, legacyIncarnation(backendStartedAt), backendStartedAt,
+				presenceTimestamp, now);
 	}
 
-	private boolean playerOffline(String uuid, String server, UUID connectionId, long backendStartedAt,
-			long presenceTimestamp, long now, boolean fenced) {
+	public synchronized boolean playerOffline(String uuid, String server, UUID connectionId,
+			UUID backendIncarnationId, long backendStartedAt, long presenceTimestamp, long now) {
+		return playerOffline(uuid, server, connectionId, backendIncarnationId, backendStartedAt, presenceTimestamp,
+				now, true);
+	}
+
+	private boolean playerOffline(String uuid, String server, UUID connectionId, UUID backendIncarnationId,
+			long backendStartedAt, long presenceTimestamp, long now, boolean fenced) {
 		UUID playerUuid = parseUuid(uuid);
 		String normalizedServer = normalizeServer(server);
 		if (playerUuid == null || normalizedServer == null || connectionId == null) {
 			return false;
 		}
-		if (fenced && (!isCurrentBackendGeneration(normalizedServer, backendStartedAt)
+		if (fenced && (!isCurrentBackendGeneration(normalizedServer, backendIncarnationId, backendStartedAt)
 				|| !isValidPresenceTimestamp(backendStartedAt, presenceTimestamp))) {
 			return false;
 		}
@@ -138,7 +172,7 @@ public class BackendPlayerPresenceTracker {
 		long sequence = ++eventSequence;
 		removePresence(playerUuid, sequence);
 		if (fenced) {
-			markBackendAvailable(normalizedServer, backendStartedAt, presenceTimestamp, now);
+			markBackendAvailable(normalizedServer, backendIncarnationId, backendStartedAt, presenceTimestamp, now);
 		} else {
 			markBackendAvailable(normalizedServer, now);
 		}
@@ -162,15 +196,51 @@ public class BackendPlayerPresenceTracker {
 
 	public synchronized boolean backendStarted(String server, long backendStartedAt, long presenceTimestamp,
 			long now) {
+		return backendStarted(server, legacyIncarnation(backendStartedAt), backendStartedAt, presenceTimestamp, now);
+	}
+
+	public synchronized boolean backendStarted(String server, UUID backendIncarnationId, long backendStartedAt,
+			long presenceTimestamp, long now) {
 		String normalizedServer = normalizeServer(server);
-		if (normalizedServer == null || !markBackendAvailable(normalizedServer, backendStartedAt, presenceTimestamp,
-				now)) {
+		if (normalizedServer == null || backendIncarnationId == null
+				|| !isValidPresenceTimestamp(backendStartedAt, presenceTimestamp)) {
 			return false;
 		}
-		BackendState state = backends.get(serverKey(normalizedServer));
+		String key = serverKey(normalizedServer);
+		BackendState state = backends.get(key);
+		if (state == null) {
+			state = createBackendState(normalizedServer, now);
+			if (state == null) {
+				return false;
+			}
+			state.backendIncarnationId = backendIncarnationId;
+			state.backendStartedAt = backendStartedAt;
+		} else if (!backendIncarnationId.equals(state.backendIncarnationId)) {
+			if (state.retiredIncarnations.contains(backendIncarnationId)) {
+				return false;
+			}
+			// Explicit BackendStarted receipt advances proxy-local restart order. Other
+			// message types can never replace the current incarnation.
+			retireCurrentIncarnation(state);
+			long sequence = ++eventSequence;
+			removePlayersOnServer(normalizedServer, sequence);
+			pendingSnapshots.remove(key);
+			state.backendIncarnationId = backendIncarnationId;
+			state.backendStartedAt = backendStartedAt;
+			state.lastLifecycleTimestamp = 0L;
+			state.stopped = false;
+			prunePlayerEventSequences();
+		} else if (state.backendStartedAt != backendStartedAt) {
+			return false;
+		} else if (state.stopped) {
+			return false;
+		}
 		if (presenceTimestamp < state.lastLifecycleTimestamp) {
 			return false;
 		}
+		state.lastSeen = now;
+		state.available = true;
+		state.stopped = false;
 		state.lastLifecycleTimestamp = presenceTimestamp;
 		return true;
 	}
@@ -194,8 +264,14 @@ public class BackendPlayerPresenceTracker {
 
 	public synchronized boolean backendStopped(String server, long backendStartedAt, long presenceTimestamp,
 			long now) {
+		return backendStopped(server, legacyIncarnation(backendStartedAt), backendStartedAt, presenceTimestamp, now);
+	}
+
+	public synchronized boolean backendStopped(String server, UUID backendIncarnationId, long backendStartedAt,
+			long presenceTimestamp, long now) {
 		String normalizedServer = normalizeServer(server);
-		if (normalizedServer == null || !isCurrentBackendGeneration(normalizedServer, backendStartedAt)) {
+		if (normalizedServer == null
+				|| !isCurrentBackendGeneration(normalizedServer, backendIncarnationId, backendStartedAt)) {
 			return false;
 		}
 		BackendState state = backends.get(serverKey(normalizedServer));
@@ -223,10 +299,15 @@ public class BackendPlayerPresenceTracker {
 	}
 
 	public synchronized boolean heartbeat(String server, long backendStartedAt, long presenceTimestamp, long now) {
+		return heartbeat(server, legacyIncarnation(backendStartedAt), backendStartedAt, presenceTimestamp, now);
+	}
+
+	public synchronized boolean heartbeat(String server, UUID backendIncarnationId, long backendStartedAt,
+			long presenceTimestamp, long now) {
 		expirePendingSnapshots(now);
 		String normalizedServer = normalizeServer(server);
 		return normalizedServer != null
-				&& markBackendAvailable(normalizedServer, backendStartedAt, presenceTimestamp, now);
+				&& markBackendAvailable(normalizedServer, backendIncarnationId, backendStartedAt, presenceTimestamp, now);
 	}
 
 	public synchronized UUID beginSnapshot(String server) {
@@ -238,19 +319,25 @@ public class BackendPlayerPresenceTracker {
 	}
 
 	public synchronized UUID beginSnapshot(String server, UUID requestId, long now) {
-		return beginSnapshot(server, requestId, 0L, now, false);
+		return beginSnapshot(server, requestId, null, 0L, now, false);
 	}
 
 	public synchronized UUID beginSnapshot(String server, UUID requestId, long backendStartedAt, long now) {
-		return beginSnapshot(server, requestId, backendStartedAt, now, true);
+		return beginSnapshot(server, requestId, legacyIncarnation(backendStartedAt), backendStartedAt, now);
 	}
 
-	private UUID beginSnapshot(String server, UUID requestId, long backendStartedAt, long now, boolean fenced) {
+	public synchronized UUID beginSnapshot(String server, UUID requestId, UUID backendIncarnationId,
+			long backendStartedAt, long now) {
+		return beginSnapshot(server, requestId, backendIncarnationId, backendStartedAt, now, true);
+	}
+
+	private UUID beginSnapshot(String server, UUID requestId, UUID backendIncarnationId, long backendStartedAt,
+			long now, boolean fenced) {
 		String normalizedServer = normalizeServer(server);
 		if (normalizedServer == null || requestId == null) {
 			return null;
 		}
-		if (fenced && !isCurrentBackendGeneration(normalizedServer, backendStartedAt)) {
+		if (fenced && !isCurrentBackendGeneration(normalizedServer, backendIncarnationId, backendStartedAt)) {
 			return null;
 		}
 		expirePendingSnapshots(now);
@@ -258,7 +345,8 @@ public class BackendPlayerPresenceTracker {
 		if (!pendingSnapshots.containsKey(serverKey) && pendingSnapshots.size() >= maxTrackedBackends) {
 			return null;
 		}
-		pendingSnapshots.put(serverKey, new PendingSnapshot(requestId, eventSequence, now, backendStartedAt));
+		pendingSnapshots.put(serverKey,
+				new PendingSnapshot(requestId, eventSequence, now, backendIncarnationId, backendStartedAt));
 		prunePlayerEventSequences();
 		return requestId;
 	}
@@ -270,18 +358,25 @@ public class BackendPlayerPresenceTracker {
 
 	public synchronized boolean applySnapshotChunk(String server, UUID requestId, int chunkIndex, int chunkCount,
 			Collection<PresencePlayer> players, long now) {
-		return applySnapshotChunk(server, requestId, chunkIndex, chunkCount, players, 0L, now, now, false);
+		return applySnapshotChunk(server, requestId, chunkIndex, chunkCount, players, null, 0L, now, now, false);
 	}
 
 	public synchronized boolean applySnapshotChunk(String server, UUID requestId, int chunkIndex, int chunkCount,
 			Collection<PresencePlayer> players, long backendStartedAt, long presenceTimestamp, long now) {
-		return applySnapshotChunk(server, requestId, chunkIndex, chunkCount, players, backendStartedAt,
-				presenceTimestamp, now, true);
+		return applySnapshotChunk(server, requestId, chunkIndex, chunkCount, players,
+				legacyIncarnation(backendStartedAt), backendStartedAt, presenceTimestamp, now);
+	}
+
+	public synchronized boolean applySnapshotChunk(String server, UUID requestId, int chunkIndex, int chunkCount,
+			Collection<PresencePlayer> players, UUID backendIncarnationId, long backendStartedAt,
+			long presenceTimestamp, long now) {
+		return applySnapshotChunk(server, requestId, chunkIndex, chunkCount, players, backendIncarnationId,
+				backendStartedAt, presenceTimestamp, now, true);
 	}
 
 	private boolean applySnapshotChunk(String server, UUID requestId, int chunkIndex, int chunkCount,
-			Collection<PresencePlayer> players, long backendStartedAt, long presenceTimestamp, long now,
-			boolean fenced) {
+			Collection<PresencePlayer> players, UUID backendIncarnationId, long backendStartedAt,
+			long presenceTimestamp, long now, boolean fenced) {
 		String normalizedServer = normalizeServer(server);
 		if (normalizedServer == null || requestId == null || players == null || chunkIndex < 0 || chunkCount <= 0
 				|| chunkCount > MAX_SNAPSHOT_CHUNKS || chunkIndex >= chunkCount
@@ -293,8 +388,10 @@ public class BackendPlayerPresenceTracker {
 		expirePendingSnapshots(now);
 		PendingSnapshot pending = pendingSnapshots.get(serverKey);
 		if (pending == null || !pending.requestId.equals(requestId)
+				|| !java.util.Objects.equals(pending.backendIncarnationId, backendIncarnationId)
 				|| pending.backendStartedAt != backendStartedAt
-				|| (fenced && !isCurrentBackendGeneration(normalizedServer, backendStartedAt))) {
+				|| (fenced && !isCurrentBackendGeneration(normalizedServer, backendIncarnationId,
+						backendStartedAt))) {
 			return false;
 		}
 		if (fenced && !isValidPresenceTimestamp(backendStartedAt, presenceTimestamp)) {
@@ -351,6 +448,13 @@ public class BackendPlayerPresenceTracker {
 				return false;
 			}
 		}
+		Set<UUID> retainedEventIdentities = new HashSet<>(lastPlayerEventSequences.keySet());
+		retainedEventIdentities.addAll(snapshotPlayers.keySet());
+		if (retainedEventIdentities.size() > maxTrackedPlayerEvents) {
+			pendingSnapshots.remove(serverKey);
+			prunePlayerEventSequences();
+			return false;
+		}
 		int retainedPlayers = playersByUuid.size();
 		for (PlayerPresence current : playersByUuid.values()) {
 			if (current.getServer().equalsIgnoreCase(normalizedServer)
@@ -361,8 +465,8 @@ public class BackendPlayerPresenceTracker {
 		if (retainedPlayers + snapshotPlayers.size() > MAX_SNAPSHOT_PLAYERS) {
 			return false;
 		}
-		if (pending.backendStartedAt > 0L ? !markBackendAvailable(normalizedServer, pending.backendStartedAt,
-				pending.snapshotTimestamp, now)
+		if (pending.backendStartedAt > 0L ? !markBackendAvailable(normalizedServer, pending.backendIncarnationId,
+				pending.backendStartedAt, pending.snapshotTimestamp, now)
 				: !markBackendAvailable(normalizedServer, now)) {
 			return false;
 		}
@@ -479,6 +583,19 @@ public class BackendPlayerPresenceTracker {
 		return backends.size();
 	}
 
+	public synchronized int getRetainedPlayerEventCount() {
+		return lastPlayerEventSequences.size();
+	}
+
+	public synchronized UUID getBackendIncarnationId(String server) {
+		String normalizedServer = normalizeServer(server);
+		if (normalizedServer == null) {
+			return null;
+		}
+		BackendState state = backends.get(serverKey(normalizedServer));
+		return state == null || !state.available || state.stopped ? null : state.backendIncarnationId;
+	}
+
 	public synchronized long getBackendStartedAt(String server) {
 		String normalizedServer = normalizeServer(server);
 		if (normalizedServer == null) {
@@ -557,6 +674,18 @@ public class BackendPlayerPresenceTracker {
 		}
 	}
 
+	private boolean ensurePlayerEventCapacity(UUID playerUuid) {
+		if (lastPlayerEventSequences.containsKey(playerUuid)
+				|| lastPlayerEventSequences.size() < maxTrackedPlayerEvents) {
+			return true;
+		}
+		if (!pendingSnapshots.isEmpty()) {
+			pendingSnapshots.clear();
+			prunePlayerEventSequences();
+		}
+		return lastPlayerEventSequences.size() < maxTrackedPlayerEvents;
+	}
+
 	private int countPlayersOnServer(String server) {
 		int count = 0;
 		for (PlayerPresence presence : playersByUuid.values()) {
@@ -586,33 +715,22 @@ public class BackendPlayerPresenceTracker {
 		return true;
 	}
 
-	private boolean markBackendAvailable(String server, long backendStartedAt, long presenceTimestamp, long now) {
-		if (!isValidPresenceTimestamp(backendStartedAt, presenceTimestamp)) {
+	private boolean markBackendAvailable(String server, UUID backendIncarnationId, long backendStartedAt,
+			long presenceTimestamp, long now) {
+		if (backendIncarnationId == null || !isValidPresenceTimestamp(backendStartedAt, presenceTimestamp)) {
 			return false;
 		}
 		String key = serverKey(server);
 		BackendState state = backends.get(key);
 		if (state == null) {
-			if (backends.size() >= maxTrackedBackends) {
-				evictOldestUnavailableBackend();
-			}
-			if (backends.size() >= maxTrackedBackends) {
+			state = createBackendState(server, now);
+			if (state == null) {
 				return false;
 			}
-			state = new BackendState(server);
+			state.backendIncarnationId = backendIncarnationId;
 			state.backendStartedAt = backendStartedAt;
-			backends.put(key, state);
-		} else if (backendStartedAt < state.backendStartedAt) {
-			return false;
-		} else if (backendStartedAt > state.backendStartedAt) {
-			long sequence = ++eventSequence;
-			removePlayersOnServer(server, sequence);
-			pendingSnapshots.remove(key);
-			state.backendStartedAt = backendStartedAt;
-			state.lastLifecycleTimestamp = 0L;
-			state.stopped = false;
-			prunePlayerEventSequences();
-		} else if (state.stopped) {
+		} else if (!backendIncarnationId.equals(state.backendIncarnationId)
+				|| backendStartedAt != state.backendStartedAt || state.stopped) {
 			return false;
 		}
 		state.lastSeen = now;
@@ -620,16 +738,48 @@ public class BackendPlayerPresenceTracker {
 		return true;
 	}
 
-	private boolean isCurrentBackendGeneration(String server, long backendStartedAt) {
-		if (backendStartedAt <= 0L) {
+	private boolean isCurrentBackendGeneration(String server, UUID backendIncarnationId, long backendStartedAt) {
+		if (backendIncarnationId == null || backendStartedAt <= 0L) {
 			return false;
 		}
 		BackendState state = backends.get(serverKey(server));
-		return state != null && state.backendStartedAt == backendStartedAt && !state.stopped;
+		return state != null && backendIncarnationId.equals(state.backendIncarnationId)
+				&& state.backendStartedAt == backendStartedAt && !state.stopped;
 	}
 
 	private static boolean isValidPresenceTimestamp(long backendStartedAt, long presenceTimestamp) {
 		return backendStartedAt > 0L && presenceTimestamp >= backendStartedAt;
+	}
+
+	private BackendState createBackendState(String server, long now) {
+		if (backends.size() >= maxTrackedBackends) {
+			evictOldestUnavailableBackend();
+		}
+		if (backends.size() >= maxTrackedBackends) {
+			return null;
+		}
+		BackendState state = new BackendState(server);
+		state.lastSeen = now;
+		backends.put(serverKey(server), state);
+		return state;
+	}
+
+	private void retireCurrentIncarnation(BackendState state) {
+		if (state.backendIncarnationId == null) {
+			return;
+		}
+		state.retiredIncarnations.add(state.backendIncarnationId);
+		while (state.retiredIncarnations.size() > MAX_RETIRED_INCARNATIONS_PER_BACKEND) {
+			java.util.Iterator<UUID> iterator = state.retiredIncarnations.iterator();
+			if (iterator.hasNext()) {
+				iterator.next();
+				iterator.remove();
+			}
+		}
+	}
+
+	private static UUID legacyIncarnation(long backendStartedAt) {
+		return backendStartedAt <= 0L ? null : new UUID(0L, backendStartedAt);
 	}
 
 	private void evictOldestUnavailableBackend() {
@@ -693,6 +843,8 @@ public class BackendPlayerPresenceTracker {
 
 	private static final class BackendState {
 		private final String server;
+		private final Set<UUID> retiredIncarnations = new LinkedHashSet<>();
+		private UUID backendIncarnationId;
 		private long backendStartedAt;
 		private long lastLifecycleTimestamp;
 		private long lastSeen;
@@ -708,16 +860,19 @@ public class BackendPlayerPresenceTracker {
 		private final UUID requestId;
 		private final long eventWatermark;
 		private final long requestedAt;
+		private final UUID backendIncarnationId;
 		private final long backendStartedAt;
 		private final Map<Integer, List<PresencePlayer>> chunks = new HashMap<>();
 		private int chunkCount;
 		private int playerCount;
 		private long snapshotTimestamp;
 
-		private PendingSnapshot(UUID requestId, long eventWatermark, long requestedAt, long backendStartedAt) {
+		private PendingSnapshot(UUID requestId, long eventWatermark, long requestedAt, UUID backendIncarnationId,
+				long backendStartedAt) {
 			this.requestId = requestId;
 			this.eventWatermark = eventWatermark;
 			this.requestedAt = requestedAt;
+			this.backendIncarnationId = backendIncarnationId;
 			this.backendStartedAt = backendStartedAt;
 		}
 

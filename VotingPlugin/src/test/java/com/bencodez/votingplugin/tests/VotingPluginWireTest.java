@@ -86,12 +86,16 @@ public class VotingPluginWireTest {
 	@Test
 	public void presenceEventsPreserveBackendGenerationAndCaptureTime() {
 		UUID connectionId = UUID.randomUUID();
+		UUID backendIncarnationId = UUID.randomUUID();
 		VotingPluginWire.PlayerPresenceEvent login = VotingPluginWire.readPlayerPresenceEvent(VotingPluginWire.login(
-				"Player", UUID.randomUUID().toString(), "survival", connectionId, 1000L, 1100L));
-		JsonEnvelope heartbeat = VotingPluginWire.backendHeartbeat("survival", 1000L, 1200L);
+				"Player", UUID.randomUUID().toString(), "survival", connectionId, backendIncarnationId, 1000L,
+				1100L));
+		JsonEnvelope heartbeat = VotingPluginWire.backendHeartbeat("survival", backendIncarnationId, 1000L, 1200L);
 
+		assertEquals(backendIncarnationId, login.backendIncarnationId);
 		assertEquals(1000L, login.backendStartedAt);
 		assertEquals(1100L, login.presenceTimestamp);
+		assertEquals(backendIncarnationId, VotingPluginWire.readBackendIncarnationId(heartbeat));
 		assertEquals(1000L, VotingPluginWire.readBackendStartedAt(heartbeat));
 		assertEquals(1200L, VotingPluginWire.readPresenceTimestamp(heartbeat));
 	}
@@ -148,14 +152,16 @@ public class VotingPluginWireTest {
 	@Test
 	public void chunkedPresenceSnapshotPreservesChunkMetadata() {
 		UUID requestId = UUID.randomUUID();
-		JsonEnvelope envelope = VotingPluginWire.presenceSnapshot("survival", requestId, 2, 4, List.of(), 1000L,
-				1300L);
+		UUID backendIncarnationId = UUID.randomUUID();
+		JsonEnvelope envelope = VotingPluginWire.presenceSnapshot("survival", requestId, 2, 4, List.of(),
+				backendIncarnationId, 1000L, 1300L);
 
 		VotingPluginWire.PresenceSnapshot snapshot = VotingPluginWire.readPresenceSnapshot(envelope);
 
 		assertTrue(snapshot.valid);
 		assertEquals(2, snapshot.chunkIndex);
 		assertEquals(4, snapshot.chunkCount);
+		assertEquals(backendIncarnationId, snapshot.backendIncarnationId);
 		assertEquals(1000L, snapshot.backendStartedAt);
 		assertEquals(1300L, snapshot.presenceTimestamp);
 	}

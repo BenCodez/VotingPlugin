@@ -76,6 +76,7 @@ public final class VotingPluginWire {
 	public static final String K_SERVICE = "service";
 	public static final String K_TIME = "time";
 	public static final String K_CONNECTION_ID = "connectionId";
+	public static final String K_BACKEND_INCARNATION_ID = "backendIncarnationId";
 	public static final String K_BACKEND_STARTED_AT = "backendStartedAt";
 	public static final String K_PRESENCE_TIMESTAMP = "presenceTimestamp";
 	public static final String K_REQUEST_ID = "requestId";
@@ -179,8 +180,14 @@ public final class VotingPluginWire {
 
 	public static JsonEnvelope login(String player, String uuid, String server, UUID connectionId,
 			long backendStartedAt, long presenceTimestamp) {
+		return login(player, uuid, server, connectionId, null, backendStartedAt, presenceTimestamp);
+	}
+
+	public static JsonEnvelope login(String player, String uuid, String server, UUID connectionId,
+			UUID backendIncarnationId, long backendStartedAt, long presenceTimestamp) {
 		return base(SUB_LOGIN).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid)).put(K_SERVER, safe(server))
 				.put(K_CONNECTION_ID, connectionId == null ? "" : connectionId.toString())
+				.put(K_BACKEND_INCARNATION_ID, backendIncarnationId == null ? "" : backendIncarnationId.toString())
 				.put(K_BACKEND_STARTED_AT, backendStartedAt).put(K_PRESENCE_TIMESTAMP, presenceTimestamp).build();
 	}
 
@@ -190,8 +197,14 @@ public final class VotingPluginWire {
 
 	public static JsonEnvelope logout(String player, String uuid, String server, UUID connectionId,
 			long backendStartedAt, long presenceTimestamp) {
+		return logout(player, uuid, server, connectionId, null, backendStartedAt, presenceTimestamp);
+	}
+
+	public static JsonEnvelope logout(String player, String uuid, String server, UUID connectionId,
+			UUID backendIncarnationId, long backendStartedAt, long presenceTimestamp) {
 		return base(SUB_LOGOUT).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid)).put(K_SERVER, safe(server))
 				.put(K_CONNECTION_ID, connectionId == null ? "" : connectionId.toString())
+				.put(K_BACKEND_INCARNATION_ID, backendIncarnationId == null ? "" : backendIncarnationId.toString())
 				.put(K_BACKEND_STARTED_AT, backendStartedAt).put(K_PRESENCE_TIMESTAMP, presenceTimestamp).build();
 	}
 
@@ -200,7 +213,13 @@ public final class VotingPluginWire {
 	}
 
 	public static JsonEnvelope backendStarted(String server, long backendStartedAt, long presenceTimestamp) {
+		return backendStarted(server, null, backendStartedAt, presenceTimestamp);
+	}
+
+	public static JsonEnvelope backendStarted(String server, UUID backendIncarnationId, long backendStartedAt,
+			long presenceTimestamp) {
 		return base(SUB_BACKEND_STARTED).put(K_SERVER, safe(server)).put(K_BACKEND_STARTED_AT, backendStartedAt)
+				.put(K_BACKEND_INCARNATION_ID, backendIncarnationId == null ? "" : backendIncarnationId.toString())
 				.put(K_PRESENCE_TIMESTAMP, presenceTimestamp).build();
 	}
 
@@ -209,7 +228,13 @@ public final class VotingPluginWire {
 	}
 
 	public static JsonEnvelope backendStopped(String server, long backendStartedAt, long presenceTimestamp) {
+		return backendStopped(server, null, backendStartedAt, presenceTimestamp);
+	}
+
+	public static JsonEnvelope backendStopped(String server, UUID backendIncarnationId, long backendStartedAt,
+			long presenceTimestamp) {
 		return base(SUB_BACKEND_STOPPED).put(K_SERVER, safe(server)).put(K_BACKEND_STARTED_AT, backendStartedAt)
+				.put(K_BACKEND_INCARNATION_ID, backendIncarnationId == null ? "" : backendIncarnationId.toString())
 				.put(K_PRESENCE_TIMESTAMP, presenceTimestamp).build();
 	}
 
@@ -218,7 +243,13 @@ public final class VotingPluginWire {
 	}
 
 	public static JsonEnvelope backendHeartbeat(String server, long backendStartedAt, long presenceTimestamp) {
+		return backendHeartbeat(server, null, backendStartedAt, presenceTimestamp);
+	}
+
+	public static JsonEnvelope backendHeartbeat(String server, UUID backendIncarnationId, long backendStartedAt,
+			long presenceTimestamp) {
 		return base(SUB_BACKEND_HEARTBEAT).put(K_SERVER, safe(server)).put(K_BACKEND_STARTED_AT, backendStartedAt)
+				.put(K_BACKEND_INCARNATION_ID, backendIncarnationId == null ? "" : backendIncarnationId.toString())
 				.put(K_PRESENCE_TIMESTAMP, presenceTimestamp).build();
 	}
 
@@ -228,8 +259,14 @@ public final class VotingPluginWire {
 
 	public static JsonEnvelope presenceSnapshotRequest(String server, UUID requestId, long backendStartedAt,
 			long presenceTimestamp) {
+		return presenceSnapshotRequest(server, requestId, null, backendStartedAt, presenceTimestamp);
+	}
+
+	public static JsonEnvelope presenceSnapshotRequest(String server, UUID requestId, UUID backendIncarnationId,
+			long backendStartedAt, long presenceTimestamp) {
 		return base(SUB_PRESENCE_SNAPSHOT_REQUEST).put(K_SERVER, safe(server))
 				.put(K_REQUEST_ID, requestId == null ? "" : requestId.toString())
+				.put(K_BACKEND_INCARNATION_ID, backendIncarnationId == null ? "" : backendIncarnationId.toString())
 				.put(K_BACKEND_STARTED_AT, backendStartedAt).put(K_PRESENCE_TIMESTAMP, presenceTimestamp).build();
 	}
 
@@ -244,6 +281,13 @@ public final class VotingPluginWire {
 
 	public static JsonEnvelope presenceSnapshot(String server, UUID requestId, int chunkIndex, int chunkCount,
 			Collection<PresencePlayer> players, long backendStartedAt, long presenceTimestamp) {
+		return presenceSnapshot(server, requestId, chunkIndex, chunkCount, players, null, backendStartedAt,
+				presenceTimestamp);
+	}
+
+	public static JsonEnvelope presenceSnapshot(String server, UUID requestId, int chunkIndex, int chunkCount,
+			Collection<PresencePlayer> players, UUID backendIncarnationId, long backendStartedAt,
+			long presenceTimestamp) {
 		JsonArray jsonPlayers = new JsonArray();
 		if (players != null) {
 			for (PresencePlayer player : players) {
@@ -260,6 +304,7 @@ public final class VotingPluginWire {
 		return base(SUB_PRESENCE_SNAPSHOT).put(K_SERVER, safe(server))
 				.put(K_REQUEST_ID, requestId == null ? "" : requestId.toString()).put(K_CHUNK_INDEX, chunkIndex)
 				.put(K_CHUNK_COUNT, chunkCount).put(K_PLAYERS, jsonPlayers.toString())
+				.put(K_BACKEND_INCARNATION_ID, backendIncarnationId == null ? "" : backendIncarnationId.toString())
 				.put(K_BACKEND_STARTED_AT, backendStartedAt).put(K_PRESENCE_TIMESTAMP, presenceTimestamp).build();
 	}
 
@@ -425,15 +470,17 @@ public final class VotingPluginWire {
 		public final String uuid;
 		public final String server;
 		public final UUID connectionId;
+		public final UUID backendIncarnationId;
 		public final long backendStartedAt;
 		public final long presenceTimestamp;
 
 		private PlayerPresenceEvent(String player, String uuid, String server, UUID connectionId,
-				long backendStartedAt, long presenceTimestamp) {
+				UUID backendIncarnationId, long backendStartedAt, long presenceTimestamp) {
 			this.player = player;
 			this.uuid = uuid;
 			this.server = server;
 			this.connectionId = connectionId;
+			this.backendIncarnationId = backendIncarnationId;
 			this.backendStartedAt = backendStartedAt;
 			this.presenceTimestamp = presenceTimestamp;
 		}
@@ -443,7 +490,12 @@ public final class VotingPluginWire {
 		Map<String, String> fields = env.getFields();
 		return new PlayerPresenceEvent(safe(fields.get(K_PLAYER)), safe(fields.get(K_UUID)),
 				safe(fields.get(K_SERVER)), readUuid(fields, K_CONNECTION_ID),
+				readUuid(fields, K_BACKEND_INCARNATION_ID),
 				readLong(fields, K_BACKEND_STARTED_AT, 0L), readLong(fields, K_PRESENCE_TIMESTAMP, 0L));
+	}
+
+	public static UUID readBackendIncarnationId(JsonEnvelope env) {
+		return readUuid(env.getFields(), K_BACKEND_INCARNATION_ID);
 	}
 
 	public static long readBackendStartedAt(JsonEnvelope env) {
@@ -457,13 +509,15 @@ public final class VotingPluginWire {
 	public static final class PresenceSnapshotRequest {
 		public final String server;
 		public final UUID requestId;
+		public final UUID backendIncarnationId;
 		public final long backendStartedAt;
 		public final long presenceTimestamp;
 
-		private PresenceSnapshotRequest(String server, UUID requestId, long backendStartedAt,
+		private PresenceSnapshotRequest(String server, UUID requestId, UUID backendIncarnationId, long backendStartedAt,
 				long presenceTimestamp) {
 			this.server = server;
 			this.requestId = requestId;
+			this.backendIncarnationId = backendIncarnationId;
 			this.backendStartedAt = backendStartedAt;
 			this.presenceTimestamp = presenceTimestamp;
 		}
@@ -472,6 +526,7 @@ public final class VotingPluginWire {
 	public static PresenceSnapshotRequest readPresenceSnapshotRequest(JsonEnvelope env) {
 		Map<String, String> fields = env.getFields();
 		return new PresenceSnapshotRequest(safe(fields.get(K_SERVER)), readUuid(fields, K_REQUEST_ID),
+				readUuid(fields, K_BACKEND_INCARNATION_ID),
 				readLong(fields, K_BACKEND_STARTED_AT, 0L), readLong(fields, K_PRESENCE_TIMESTAMP, 0L));
 	}
 
@@ -482,17 +537,20 @@ public final class VotingPluginWire {
 		public final int chunkCount;
 		public final List<PresencePlayer> players;
 		public final boolean valid;
+		public final UUID backendIncarnationId;
 		public final long backendStartedAt;
 		public final long presenceTimestamp;
 
 		private PresenceSnapshot(String server, UUID requestId, int chunkIndex, int chunkCount,
-				List<PresencePlayer> players, boolean valid, long backendStartedAt, long presenceTimestamp) {
+				List<PresencePlayer> players, boolean valid, UUID backendIncarnationId, long backendStartedAt,
+				long presenceTimestamp) {
 			this.server = server;
 			this.requestId = requestId;
 			this.chunkIndex = chunkIndex;
 			this.chunkCount = chunkCount;
 			this.players = Collections.unmodifiableList(players);
 			this.valid = valid;
+			this.backendIncarnationId = backendIncarnationId;
 			this.backendStartedAt = backendStartedAt;
 			this.presenceTimestamp = presenceTimestamp;
 		}
@@ -504,12 +562,14 @@ public final class VotingPluginWire {
 		UUID requestId = readUuid(fields, K_REQUEST_ID);
 		int chunkIndex = readInt(fields, K_CHUNK_INDEX, 0);
 		int chunkCount = readInt(fields, K_CHUNK_COUNT, 1);
+		UUID backendIncarnationId = readUuid(fields, K_BACKEND_INCARNATION_ID);
 		long backendStartedAt = readLong(fields, K_BACKEND_STARTED_AT, 0L);
 		long presenceTimestamp = readLong(fields, K_PRESENCE_TIMESTAMP, 0L);
 		String encodedPlayers = fields.get(K_PLAYERS);
 		List<PresencePlayer> players = new ArrayList<>();
 		if (encodedPlayers == null || encodedPlayers.length() > MAX_PRESENCE_SNAPSHOT_JSON_LENGTH) {
 			return new PresenceSnapshot(server, requestId, chunkIndex, chunkCount, players, false,
+					backendIncarnationId,
 					backendStartedAt, presenceTimestamp);
 		}
 
@@ -517,11 +577,13 @@ public final class VotingPluginWire {
 			JsonElement root = JsonParser.parseString(encodedPlayers);
 			if (!root.isJsonArray()) {
 				return new PresenceSnapshot(server, requestId, chunkIndex, chunkCount, players, false,
+						backendIncarnationId,
 						backendStartedAt, presenceTimestamp);
 			}
 			for (JsonElement element : root.getAsJsonArray()) {
 				if (!element.isJsonObject()) {
 					return new PresenceSnapshot(server, requestId, chunkIndex, chunkCount, new ArrayList<>(), false,
+							backendIncarnationId,
 							backendStartedAt, presenceTimestamp);
 				}
 				JsonObject object = element.getAsJsonObject();
@@ -531,9 +593,11 @@ public final class VotingPluginWire {
 			boolean valid = requestId != null && !server.isEmpty() && chunkIndex >= 0 && chunkCount > 0
 					&& chunkIndex < chunkCount;
 			return new PresenceSnapshot(server, requestId, chunkIndex, chunkCount, players, valid,
+					backendIncarnationId,
 					backendStartedAt, presenceTimestamp);
 		} catch (RuntimeException e) {
 			return new PresenceSnapshot(server, requestId, chunkIndex, chunkCount, new ArrayList<>(), false,
+					backendIncarnationId,
 					backendStartedAt, presenceTimestamp);
 		}
 	}
