@@ -87,6 +87,8 @@ import lombok.Setter;
 
 public abstract class VotingPluginProxy {
 	private static final long PRESENCE_HANDOFF_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(2);
+	private static final long PRESENCE_MAINTENANCE_INTERVAL_SECONDS = 30L;
+	private static final long PRESENCE_BACKEND_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(90);
 
 	@Getter
 	@Setter
@@ -157,6 +159,7 @@ public abstract class VotingPluginProxy {
 	@Getter
 	private final BackendPlayerPresenceTracker backendPlayerPresenceTracker = new BackendPlayerPresenceTracker();
 	private final Map<UUID, PendingPresenceHandoff> pendingPresenceHandoffs = new HashMap<>();
+	private final Set<String> pendingBackendRecoverySnapshots = ConcurrentHashMap.newKeySet();
 
 	public VotingPluginProxy() {
 		enabled = true;
@@ -1438,6 +1441,8 @@ public abstract class VotingPluginProxy {
 					if (backendPlayerPresenceTracker.backendStarted(server, backendIncarnationId, backendStartedAt,
 							presenceTimestamp, System.currentTimeMillis())) {
 						discardPendingPresenceHandoffs(server);
+						pendingBackendRecoverySnapshots.add(presenceServerKey(server));
+						requestBackendPresenceSnapshot(server);
 					}
 				}
 			}
@@ -1457,6 +1462,7 @@ public abstract class VotingPluginProxy {
 					if (backendPlayerPresenceTracker.backendStopped(server, backendIncarnationId, backendStartedAt,
 							presenceTimestamp, System.currentTimeMillis())) {
 						discardPendingPresenceHandoffs(server);
+						pendingBackendRecoverySnapshots.remove(presenceServerKey(server));
 					}
 				}
 			}
@@ -1504,6 +1510,7 @@ public abstract class VotingPluginProxy {
 						discardPendingPresenceHandoffs(snapshot.requestId);
 					}
 				} else if (backendPlayerPresenceTracker.getPendingSnapshotRequestId(snapshot.server, now) == null) {
+					pendingBackendRecoverySnapshots.remove(presenceServerKey(snapshot.server));
 					completePendingPresenceHandoffs(snapshot.requestId, snapshot.server,
 							snapshot.backendIncarnationId, snapshot.backendStartedAt, now);
 				}
@@ -1535,6 +1542,8 @@ public abstract class VotingPluginProxy {
 
 		loadMultiProxySupport();
 		loadVoteLoggingMySQL();
+		loadTaskTimer(this::maintainBackendPresence, PRESENCE_MAINTENANCE_INTERVAL_SECONDS,
+				PRESENCE_MAINTENANCE_INTERVAL_SECONDS);
 
 		debug("VotingPluginProxy loaded, ONLINEMODE: " + getConfig().getOnlineMode());
 	}
@@ -1874,6 +1883,22 @@ public abstract class VotingPluginProxy {
 				.removeIf(entry -> now - entry.getValue().createdAt > PRESENCE_HANDOFF_TIMEOUT_MILLIS);
 	}
 
+	private void maintainBackendPresence() {
+		if (!enabled) {
+			return;
+		}
+		expireBackendPresence(PRESENCE_BACKEND_TIMEOUT_MILLIS);
+		for (String server : getAllAvailableServers()) {
+			if (pendingBackendRecoverySnapshots.contains(presenceServerKey(server))) {
+				requestBackendPresenceSnapshot(server);
+			}
+		}
+	}
+
+	private String presenceServerKey(String server) {
+		return server == null ? "" : server.trim().toLowerCase(java.util.Locale.ROOT);
+	}
+
 	private boolean isPresenceServerValid(String server, String subChannel) {
 		if (server == null || server.isBlank() || !isServerValid(server)) {
 			debug("Ignored " + subChannel + " presence envelope for an unconfigured server");
@@ -1926,6 +1951,7 @@ public abstract class VotingPluginProxy {
 		Set<String> expired = backendPlayerPresenceTracker.expireBackends(now, timeoutMillis);
 		for (String server : expired) {
 			discardPendingPresenceHandoffs(server);
+			pendingBackendRecoverySnapshots.remove(presenceServerKey(server));
 		}
 		synchronized (pendingPresenceHandoffs) {
 			prunePendingPresenceHandoffs(now);
