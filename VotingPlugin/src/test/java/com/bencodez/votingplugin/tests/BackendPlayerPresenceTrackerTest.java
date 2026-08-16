@@ -67,6 +67,18 @@ public class BackendPlayerPresenceTrackerTest {
 	}
 
 	@Test
+	public void olderIncarnationCannotReplaceFirstGenerationSeenAfterProxyRestart() {
+		BackendPlayerPresenceTracker afterRestart = new BackendPlayerPresenceTracker();
+		UUID olderIncarnation = UUID.randomUUID();
+		UUID survivingIncarnation = UUID.randomUUID();
+
+		assertTrue(afterRestart.backendStarted("survival", survivingIncarnation, 2000L, 2000L, 10L));
+		assertFalse(afterRestart.backendStarted("survival", olderIncarnation, 1000L, 2100L, 20L));
+		assertFalse(afterRestart.backendStopped("survival", olderIncarnation, 1000L, 2200L, 30L));
+		assertEquals(survivingIncarnation, afterRestart.getBackendIncarnationId("survival"));
+	}
+
+	@Test
 	public void staleLogoutCannotClearNewerConnection() {
 		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
 		UUID uuid = UUID.randomUUID();
@@ -293,16 +305,18 @@ public class BackendPlayerPresenceTrackerTest {
 	}
 
 	@Test
-	public void replacementIncarnationDoesNotDependOnIncreasingWallClock() {
+	public void replacementWithRegressedStartupClockWaitsForCurrentGenerationToStop() {
 		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
 		UUID oldIncarnation = UUID.randomUUID();
 		UUID replacementIncarnation = UUID.randomUUID();
 		UUID replacementUuid = UUID.randomUUID();
 
 		assertTrue(tracker.backendStarted("survival", oldIncarnation, 2000L, 2000L, 10L));
-		assertTrue(tracker.backendStarted("survival", replacementIncarnation, 1000L, 1000L, 20L));
+		assertFalse(tracker.backendStarted("survival", replacementIncarnation, 1000L, 1000L, 20L));
+		assertTrue(tracker.backendStopped("survival", oldIncarnation, 2000L, 2100L, 21L));
+		assertTrue(tracker.backendStarted("survival", replacementIncarnation, 1000L, 1000L, 22L));
 		assertTrue(tracker.playerOnline("Replacement", replacementUuid.toString(), "survival", UUID.randomUUID(),
-				replacementIncarnation, 1000L, 1100L, 21L));
+				replacementIncarnation, 1000L, 1100L, 23L));
 
 		assertFalse(tracker.backendStarted("survival", oldIncarnation, 2000L, 2200L, 30L));
 		assertEquals(replacementIncarnation, tracker.getBackendIncarnationId("survival"));
@@ -406,6 +420,21 @@ public class BackendPlayerPresenceTrackerTest {
 		UUID laterRequest = UUID.randomUUID();
 		assertEquals(laterRequest,
 				tracker.beginSnapshot("survival", laterRequest, backendIncarnation, 1000L, 30020L));
+	}
+
+	@Test
+	public void backwardClockJumpExpiresSnapshotAndResetsRequestCooldown() {
+		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
+		UUID backendIncarnation = UUID.randomUUID();
+		UUID firstRequest = UUID.randomUUID();
+		UUID replacementRequest = UUID.randomUUID();
+		assertTrue(tracker.backendStarted("survival", backendIncarnation, 1000L, 1000L, 100000L));
+		assertEquals(firstRequest,
+				tracker.beginSnapshot("survival", firstRequest, backendIncarnation, 1000L, 100000L));
+
+		assertNull(tracker.getPendingSnapshotRequestId("survival", 90000L));
+		assertEquals(replacementRequest,
+				tracker.beginSnapshot("survival", replacementRequest, backendIncarnation, 1000L, 90000L));
 	}
 
 	@Test

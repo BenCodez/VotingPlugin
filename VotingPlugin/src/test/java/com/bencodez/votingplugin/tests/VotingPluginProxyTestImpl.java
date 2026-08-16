@@ -13,6 +13,7 @@ import org.mockito.Mockito;
 
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
+import com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler;
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
@@ -195,6 +196,24 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	public void handleLoginMessageForTest(JsonEnvelope envelope) {
 		handleLoginMessage(envelope);
+	}
+
+	public void setGlobalMessageProxyHandlerForTest(GlobalMessageProxyHandler handler) {
+		try {
+			java.lang.reflect.Field field = VotingPluginProxy.class.getDeclaredField("globalMessageProxyHandler");
+			field.setAccessible(true);
+			field.set(this, handler);
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException(e);
+		}
+	}
+
+	public void retryPendingPresenceHandoffsForTest(long now) {
+		retryPendingPresenceHandoffs(now);
+	}
+
+	public int getPendingPresenceHandoffCountForTest() {
+		return getPendingPresenceHandoffCount();
 	}
 
 	public void retryPendingOnlineBroadcastsForTest(String server) {

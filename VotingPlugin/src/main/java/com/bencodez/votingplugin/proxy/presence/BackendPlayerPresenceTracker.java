@@ -292,9 +292,14 @@ public class BackendPlayerPresenceTracker {
 			if (state.retiredIncarnations.contains(backendIncarnationId)) {
 				return false;
 			}
-			// Only a BackendStarted event can advance the proxy-local restart order. The
-			// current and retired UUIDs are persisted by the proxy so this ordering
-			// survives proxy restarts without comparing backend clocks.
+			// While the current process is still available, only a process with a later
+			// backend startup timestamp may replace it. This prevents a periodically
+			// reannounced start from an overlapping older process from taking ownership
+			// after the voting proxy has restarted. Once the current process stops or
+			// expires, a replacement is accepted regardless of clock movement.
+			if (state.available && !state.stopped && backendStartedAt <= state.backendStartedAt) {
+				return false;
+			}
 			retireCurrentIncarnation(state);
 			long sequence = ++eventSequence;
 			removePlayersOnServer(normalizedServer, sequence);
@@ -438,9 +443,9 @@ public class BackendPlayerPresenceTracker {
 		}
 		if (fenced) {
 			BackendState state = backends.get(serverKey);
-			if (state == null || state.lastSnapshotRequestedAt > now
-					|| (state.lastSnapshotRequestedAt > 0L
-							&& now - state.lastSnapshotRequestedAt < SNAPSHOT_REQUEST_MIN_INTERVAL_MILLIS)) {
+			if (state == null || (state.lastSnapshotRequestedAt > 0L
+					&& now >= state.lastSnapshotRequestedAt
+					&& now - state.lastSnapshotRequestedAt < SNAPSHOT_REQUEST_MIN_INTERVAL_MILLIS)) {
 				return null;
 			}
 			state.lastSnapshotRequestedAt = now;
@@ -1005,7 +1010,10 @@ public class BackendPlayerPresenceTracker {
 		}
 
 		private boolean isExpired(long now) {
-			return now >= requestedAt && now - requestedAt >= SNAPSHOT_TIMEOUT_MILLIS;
+			// A backward wall-clock adjustment must not pin a lost request indefinitely.
+			// Expire it immediately so the next maintenance pass can request a fresh
+			// snapshot and reset the cooldown origin.
+			return now < requestedAt || now - requestedAt >= SNAPSHOT_TIMEOUT_MILLIS;
 		}
 	}
 

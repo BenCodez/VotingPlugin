@@ -164,6 +164,43 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void handoffBlockedBySnapshotCooldownIsRetried() {
+		votingPluginProxy.setMethod(BungeeMethod.MQTT);
+		com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler messageHandler = Mockito
+				.mock(com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler.class);
+		votingPluginProxy.setGlobalMessageProxyHandlerForTest(messageHandler);
+		long now = System.currentTimeMillis();
+		java.util.UUID sourceIncarnation = java.util.UUID.randomUUID();
+		java.util.UUID destinationIncarnation = java.util.UUID.randomUUID();
+		java.util.UUID playerUuid = java.util.UUID.randomUUID();
+		java.util.UUID sourceConnection = java.util.UUID.randomUUID();
+		java.util.UUID destinationConnection = java.util.UUID.randomUUID();
+		java.util.UUID cooldownRequest = java.util.UUID.randomUUID();
+
+		assertTrue(votingPluginProxy.getBackendPlayerPresenceTracker().backendStarted("Server1", sourceIncarnation,
+				1000L, 1000L, now));
+		assertTrue(votingPluginProxy.getBackendPlayerPresenceTracker().backendStarted("Server2",
+				destinationIncarnation, 2000L, 2000L, now));
+		assertTrue(votingPluginProxy.getBackendPlayerPresenceTracker().playerOnline("Player", playerUuid.toString(),
+				"Server1", sourceConnection, sourceIncarnation, 1000L, 1100L, now));
+		assertEquals(cooldownRequest, votingPluginProxy.getBackendPlayerPresenceTracker().beginSnapshot("Server2",
+				cooldownRequest, destinationIncarnation, 2000L, now));
+		assertTrue(votingPluginProxy.getBackendPlayerPresenceTracker().applySnapshotChunk("Server2", cooldownRequest,
+				0, 1, java.util.List.of(), destinationIncarnation, 2000L, 2100L, now));
+
+		votingPluginProxy.handleLoginMessageForTest(VotingPluginWire.login("Player", playerUuid.toString(), "Server2",
+				destinationConnection, destinationIncarnation, 2000L, 2200L));
+
+		assertEquals(1, votingPluginProxy.getPendingPresenceHandoffCountForTest());
+		verify(messageHandler, never()).sendMessage(Mockito.anyString(), Mockito.anyInt(), Mockito.any());
+
+		votingPluginProxy.retryPendingPresenceHandoffsForTest(now + 30001L);
+
+		verify(messageHandler).sendMessage(Mockito.eq("Server2"), Mockito.eq(1), Mockito.any());
+		assertEquals(1, votingPluginProxy.getPendingPresenceHandoffCountForTest());
+	}
+
+	@Test
 	void standaloneMysqlBroadcastReportsTransportFailure() throws Exception {
 		MySqlMessenger messenger = Mockito.mock(MySqlMessenger.class);
 		Mockito.doThrow(new java.sql.SQLException("send failed")).when(messenger)
