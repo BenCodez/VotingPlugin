@@ -133,13 +133,19 @@ public class BackendPlayerPresenceTracker {
 			}
 			if (conflictingBackend) {
 				// A cross-backend login needs a proxy-confirmed destination snapshot. It is
-				// still an ordered event from the current generation, so advance that
-				// backend's replay fence before asking for the handoff snapshot.
-				if (!markBackendAvailable(normalizedServer, backendIncarnationId, backendStartedAt,
+				// still an ordered player event from the current generation. Record it before
+				// the destination snapshot begins so snapshots for superseded destinations
+				// cannot install stale presence during a rapid A-to-B-to-C handoff.
+				if (!ensurePlayerEventCapacity(playerUuid)
+						|| !markBackendAvailable(normalizedServer, backendIncarnationId, backendStartedAt,
 						presenceTimestamp, now)) {
 					return false;
 				}
+				long sequence = ++eventSequence;
+				lastPlayerEventSequences.put(playerUuid, sequence);
+				lastPlayerEventServers.put(playerUuid, normalizedServer);
 				backendState.lastPlayerEventTimestamp = presenceTimestamp;
+				prunePlayerEventSequences();
 				return false;
 			}
 		}

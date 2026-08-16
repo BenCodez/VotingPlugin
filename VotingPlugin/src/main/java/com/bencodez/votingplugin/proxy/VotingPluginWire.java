@@ -55,6 +55,7 @@ public final class VotingPluginWire {
 	public static final String SUB_BACKEND_STARTED = "BackendStarted";
 	public static final String SUB_BACKEND_STOPPED = "BackendStopped";
 	public static final String SUB_BACKEND_HEARTBEAT = "BackendHeartbeat";
+	public static final String SUB_PRESENCE_RESYNC_REQUEST = "PresenceResyncRequest";
 	public static final String SUB_PRESENCE_SNAPSHOT_REQUEST = "PresenceSnapshotRequest";
 	public static final String SUB_PRESENCE_SNAPSHOT = "PresenceSnapshot";
 	public static final String SUB_VOTEUPDATE_RELAY = "voteupdate";
@@ -251,6 +252,12 @@ public final class VotingPluginWire {
 		return base(SUB_BACKEND_HEARTBEAT).put(K_SERVER, safe(server)).put(K_BACKEND_STARTED_AT, backendStartedAt)
 				.put(K_BACKEND_INCARNATION_ID, backendIncarnationId == null ? "" : backendIncarnationId.toString())
 				.put(K_PRESENCE_TIMESTAMP, presenceTimestamp).build();
+	}
+
+	public static JsonEnvelope presenceResyncRequest(String server, UUID requestId, long requestedAt) {
+		return base(SUB_PRESENCE_RESYNC_REQUEST).put(K_SERVER, safe(server))
+				.put(K_REQUEST_ID, requestId == null ? "" : requestId.toString())
+				.put(K_PRESENCE_TIMESTAMP, requestedAt).build();
 	}
 
 	public static JsonEnvelope presenceSnapshotRequest(String server, UUID requestId) {
@@ -504,6 +511,24 @@ public final class VotingPluginWire {
 
 	public static long readPresenceTimestamp(JsonEnvelope env) {
 		return readLong(env.getFields(), K_PRESENCE_TIMESTAMP, 0L);
+	}
+
+	public static final class PresenceResyncRequest {
+		public final String server;
+		public final UUID requestId;
+		public final long requestedAt;
+
+		private PresenceResyncRequest(String server, UUID requestId, long requestedAt) {
+			this.server = server;
+			this.requestId = requestId;
+			this.requestedAt = requestedAt;
+		}
+	}
+
+	public static PresenceResyncRequest readPresenceResyncRequest(JsonEnvelope env) {
+		Map<String, String> fields = env.getFields();
+		return new PresenceResyncRequest(safe(fields.get(K_SERVER)), readUuid(fields, K_REQUEST_ID),
+				readLong(fields, K_PRESENCE_TIMESTAMP, 0L));
 	}
 
 	public static final class PresenceSnapshotRequest {

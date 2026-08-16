@@ -60,6 +60,7 @@ public class BungeeHandler implements Listener {
 
 	private static final long PROCESSED_VOTE_TTL_MILLIS = TimeUnit.MINUTES.toMillis(30);
 	private static final long PRESENCE_HEARTBEAT_SECONDS = 30;
+	private static final long PRESENCE_RESYNC_REQUEST_MIN_INTERVAL_NANOS = TimeUnit.SECONDS.toNanos(5);
 	private static final long PRESENCE_SNAPSHOT_REQUEST_MIN_INTERVAL_NANOS = TimeUnit.SECONDS.toNanos(30);
 	private static final int PRESENCE_SNAPSHOT_CHUNK_SIZE = 100;
 
@@ -72,6 +73,8 @@ public class BungeeHandler implements Listener {
 	private UUID presenceIncarnationId;
 	private long presenceStartedAt;
 	private long presenceLastTimestamp;
+	private UUID lastPresenceResyncRequestId;
+	private long lastPresenceResyncRequestAtNanos;
 	private UUID lastPresenceSnapshotRequestId;
 	private long lastPresenceSnapshotRequestAtNanos;
 	private ScheduledFuture<?> presenceHeartbeatTask;
@@ -300,6 +303,13 @@ public class BungeeHandler implements Listener {
 		});
 
 		if (method.supportsBackendPresence()) {
+			globalMessageHandler.addListener(
+					new GlobalMessageListener(VotingPluginWire.SUB_PRESENCE_RESYNC_REQUEST) {
+						@Override
+						public void onReceive(JsonEnvelope msg) {
+							handlePresenceResyncRequest(msg);
+						}
+					});
 			globalMessageHandler.addListener(
 					new GlobalMessageListener(VotingPluginWire.SUB_PRESENCE_SNAPSHOT_REQUEST) {
 						@Override
@@ -650,6 +660,34 @@ public class BungeeHandler implements Listener {
 		}
 	}
 
+	private void handlePresenceResyncRequest(JsonEnvelope msg) {
+		VotingPluginWire.PresenceResyncRequest request = VotingPluginWire.readPresenceResyncRequest(msg);
+		synchronized (presenceLifecycleLock) {
+			if (!presenceReporting || presenceServer == null || presenceIncarnationId == null
+					|| request.requestId == null || request.requestedAt <= 0L || request.server.isEmpty()
+					|| !presenceServer.equalsIgnoreCase(request.server)) {
+				return;
+			}
+			long requestReceivedAtNanos = System.nanoTime();
+			if (request.requestId.equals(lastPresenceResyncRequestId)
+					|| (lastPresenceResyncRequestId != null
+							&& requestReceivedAtNanos - lastPresenceResyncRequestAtNanos
+									< PRESENCE_RESYNC_REQUEST_MIN_INTERVAL_NANOS)) {
+				return;
+			}
+			lastPresenceResyncRequestId = request.requestId;
+			lastPresenceResyncRequestAtNanos = requestReceivedAtNanos;
+			// A fresh voting proxy does not know this backend's incarnation yet. Reannounce
+			// it first; the proxy then uses the existing generation-bound snapshot request.
+			// Reset the backend cooldown so a request accepted by a previous proxy process
+			// cannot delay recovery on the new process for the full snapshot timeout.
+			lastPresenceSnapshotRequestId = null;
+			lastPresenceSnapshotRequestAtNanos = 0L;
+			sendPresenceMessage(VotingPluginWire.backendStarted(presenceServer, presenceIncarnationId,
+					presenceStartedAt, nextPresenceTimestamp()));
+		}
+	}
+
 	private void handlePresenceSnapshotRequest(JsonEnvelope msg) {
 		VotingPluginWire.PresenceSnapshotRequest request = VotingPluginWire.readPresenceSnapshotRequest(msg);
 		String server;
@@ -769,6 +807,8 @@ public class BungeeHandler implements Listener {
 			presenceLastTimestamp = now;
 			presenceServer = server;
 			presenceReporting = true;
+			lastPresenceResyncRequestId = null;
+			lastPresenceResyncRequestAtNanos = 0L;
 			lastPresenceSnapshotRequestId = null;
 			lastPresenceSnapshotRequestAtNanos = 0L;
 			sendPresenceMessage(VotingPluginWire.backendStarted(server, presenceIncarnationId, presenceStartedAt,
@@ -833,6 +873,8 @@ public class BungeeHandler implements Listener {
 						nextPresenceTimestamp()));
 			}
 			presenceIncarnationId = null;
+			lastPresenceResyncRequestId = null;
+			lastPresenceResyncRequestAtNanos = 0L;
 			lastPresenceSnapshotRequestId = null;
 			lastPresenceSnapshotRequestAtNanos = 0L;
 			playerPresenceSessions.clear();

@@ -101,6 +101,19 @@ public class VotingPluginWireTest {
 	}
 
 	@Test
+	public void presenceResyncRequestPreservesTargetAndRequestTime() {
+		UUID requestId = UUID.randomUUID();
+		JsonEnvelope envelope = VotingPluginWire.presenceResyncRequest("survival", requestId, 1200L);
+
+		VotingPluginWire.PresenceResyncRequest request = VotingPluginWire.readPresenceResyncRequest(envelope);
+
+		assertEquals(VotingPluginWire.SUB_PRESENCE_RESYNC_REQUEST, envelope.getSubChannel());
+		assertEquals("survival", request.server);
+		assertEquals(requestId, request.requestId);
+		assertEquals(1200L, request.requestedAt);
+	}
+
+	@Test
 	public void legacyLoginRemainsReadableWithoutConnectionIdentity() {
 		VotingPluginWire.PlayerPresenceEvent login = VotingPluginWire.readPlayerPresenceEvent(
 				VotingPluginWire.login("Player", UUID.randomUUID().toString(), "survival"));

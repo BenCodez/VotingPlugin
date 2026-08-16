@@ -375,6 +375,47 @@ public class BackendPlayerPresenceTrackerTest {
 	}
 
 	@Test
+	public void newerHandoffFencesSnapshotForSupersededDestination() {
+		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
+		UUID sourceIncarnation = UUID.randomUUID();
+		UUID firstDestinationIncarnation = UUID.randomUUID();
+		UUID finalDestinationIncarnation = UUID.randomUUID();
+		UUID playerUuid = UUID.randomUUID();
+		UUID sourceConnection = UUID.randomUUID();
+		UUID firstDestinationConnection = UUID.randomUUID();
+		UUID finalDestinationConnection = UUID.randomUUID();
+		UUID firstRequest = UUID.randomUUID();
+		UUID finalRequest = UUID.randomUUID();
+
+		assertTrue(tracker.backendStarted("source", sourceIncarnation, 1000L, 1000L, 10L));
+		assertTrue(tracker.backendStarted("first", firstDestinationIncarnation, 1000L, 1000L, 11L));
+		assertTrue(tracker.backendStarted("final", finalDestinationIncarnation, 1000L, 1000L, 12L));
+		assertTrue(tracker.playerOnline("Player", playerUuid.toString(), "source", sourceConnection,
+				sourceIncarnation, 1000L, 1100L, 20L));
+
+		assertFalse(tracker.playerOnline("Player", playerUuid.toString(), "first", firstDestinationConnection,
+				firstDestinationIncarnation, 1000L, 1200L, 30L));
+		assertEquals(firstRequest,
+				tracker.beginSnapshot("first", firstRequest, firstDestinationIncarnation, 1000L, 31L));
+		assertFalse(tracker.playerOnline("Player", playerUuid.toString(), "final", finalDestinationConnection,
+				finalDestinationIncarnation, 1000L, 1300L, 40L));
+		assertEquals(finalRequest,
+				tracker.beginSnapshot("final", finalRequest, finalDestinationIncarnation, 1000L, 41L));
+
+		assertTrue(tracker.applySnapshotChunk("first", firstRequest, 0, 1,
+				List.of(new PresencePlayer("Player", playerUuid.toString(), firstDestinationConnection.toString())),
+				firstDestinationIncarnation, 1000L, 1400L, 50L));
+		assertEquals("source", tracker.getPlayer(playerUuid).orElseThrow().getServer());
+
+		assertTrue(tracker.applySnapshotChunk("final", finalRequest, 0, 1,
+				List.of(new PresencePlayer("Player", playerUuid.toString(), finalDestinationConnection.toString())),
+				finalDestinationIncarnation, 1000L, 1500L, 60L));
+		PlayerPresence current = tracker.getPlayer(playerUuid).orElseThrow();
+		assertEquals("final", current.getServer());
+		assertEquals(finalDestinationConnection, current.getConnectionId());
+	}
+
+	@Test
 	public void destinationLogoutPreventsInFlightHandoffSnapshotFromRestoringPlayer() {
 		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
 		UUID survivalIncarnation = UUID.randomUUID();

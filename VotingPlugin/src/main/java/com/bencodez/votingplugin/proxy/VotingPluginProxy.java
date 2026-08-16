@@ -87,6 +87,7 @@ import lombok.Setter;
 
 public abstract class VotingPluginProxy {
 	private static final long PRESENCE_HANDOFF_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(2);
+	private static final long PRESENCE_STARTUP_RESYNC_DELAY_SECONDS = 5L;
 	private static final long PRESENCE_MAINTENANCE_INTERVAL_SECONDS = 30L;
 	private static final long PRESENCE_BACKEND_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(90);
 
@@ -1511,6 +1512,7 @@ public abstract class VotingPluginProxy {
 		loadMultiProxySupport();
 		loadVoteLoggingMySQL();
 		if (method.supportsBackendPresence()) {
+			scheduleBackendPresenceStartupResync();
 			loadTaskTimer(this::maintainBackendPresence, PRESENCE_MAINTENANCE_INTERVAL_SECONDS,
 					PRESENCE_MAINTENANCE_INTERVAL_SECONDS);
 		}
@@ -1968,6 +1970,30 @@ public abstract class VotingPluginProxy {
 	protected int getPendingPresenceHandoffCount() {
 		synchronized (pendingPresenceHandoffs) {
 			return pendingPresenceHandoffs.size();
+		}
+	}
+
+	protected void scheduleBackendPresenceStartupResync() {
+		ScheduledExecutorService scheduler = getScheduler();
+		if (method == null || !method.supportsBackendPresence() || scheduler == null) {
+			return;
+		}
+		scheduler.schedule(this::requestBackendPresenceStartupResync,
+				PRESENCE_STARTUP_RESYNC_DELAY_SECONDS, TimeUnit.SECONDS);
+	}
+
+	protected void requestBackendPresenceStartupResync() {
+		if (!enabled || method == null || !method.supportsBackendPresence() || globalMessageProxyHandler == null) {
+			return;
+		}
+		long requestedAt = System.currentTimeMillis();
+		int delay = 1;
+		for (String server : getAllAvailableServers()) {
+			if (!isPresenceServerValid(server, VotingPluginWire.SUB_PRESENCE_RESYNC_REQUEST)) {
+				continue;
+			}
+			globalMessageProxyHandler.sendMessage(server, delay++,
+					VotingPluginWire.presenceResyncRequest(server, UUID.randomUUID(), requestedAt));
 		}
 	}
 

@@ -24,6 +24,7 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	private VotingPluginProxyConfig config;
 	private boolean pluginMessageDeliveryResult = true;
 	private boolean playerOnline = true;
+	private ScheduledExecutorService scheduler;
 
 	public List<String> getWarnings() {
 		return warnings;
@@ -216,6 +217,14 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 		return getPendingPresenceHandoffCount();
 	}
 
+	public void scheduleBackendPresenceStartupResyncForTest() {
+		scheduleBackendPresenceStartupResync();
+	}
+
+	public void setSchedulerForTest(ScheduledExecutorService scheduler) {
+		this.scheduler = scheduler;
+	}
+
 	public void retryPendingOnlineBroadcastsForTest(String server) {
 		retryPendingOnlineBroadcasts(server);
 	}
@@ -288,7 +297,7 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	@Override
 	public ScheduledExecutorService getScheduler() {
-		return null;
+		return scheduler;
 	}
 
 	@Override

@@ -201,6 +201,49 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void presenceTransportRequestsBackendResyncFiveSecondsAfterProxyStart() {
+		votingPluginProxy.setMethod(BungeeMethod.MQTT);
+		java.util.concurrent.ScheduledExecutorService scheduler = Mockito
+				.mock(java.util.concurrent.ScheduledExecutorService.class);
+		com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler messageHandler = Mockito
+				.mock(com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler.class);
+		votingPluginProxy.setSchedulerForTest(scheduler);
+		votingPluginProxy.setGlobalMessageProxyHandlerForTest(messageHandler);
+		org.mockito.ArgumentCaptor<Runnable> task = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+
+		votingPluginProxy.scheduleBackendPresenceStartupResyncForTest();
+
+		verify(scheduler).schedule(task.capture(), Mockito.eq(5L),
+				Mockito.eq(java.util.concurrent.TimeUnit.SECONDS));
+		task.getValue().run();
+
+		org.mockito.ArgumentCaptor<String> targets = org.mockito.ArgumentCaptor.forClass(String.class);
+		org.mockito.ArgumentCaptor<com.bencodez.simpleapi.servercomm.codec.JsonEnvelope> envelopes = org.mockito.ArgumentCaptor
+				.forClass(com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.class);
+		verify(messageHandler, Mockito.times(2)).sendMessage(targets.capture(), Mockito.anyInt(), envelopes.capture());
+		assertEquals(java.util.Set.of("Server1", "Server2"), new java.util.HashSet<>(targets.getAllValues()));
+		for (com.bencodez.simpleapi.servercomm.codec.JsonEnvelope envelope : envelopes.getAllValues()) {
+			VotingPluginWire.PresenceResyncRequest request = VotingPluginWire.readPresenceResyncRequest(envelope);
+			assertEquals(VotingPluginWire.SUB_PRESENCE_RESYNC_REQUEST, envelope.getSubChannel());
+			assertTrue(java.util.Set.of("Server1", "Server2").contains(request.server));
+			assertTrue(request.requestId != null);
+			assertTrue(request.requestedAt > 0L);
+		}
+	}
+
+	@Test
+	void pluginMessagingDoesNotSchedulePresenceStartupResync() {
+		votingPluginProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		java.util.concurrent.ScheduledExecutorService scheduler = Mockito
+				.mock(java.util.concurrent.ScheduledExecutorService.class);
+		votingPluginProxy.setSchedulerForTest(scheduler);
+
+		votingPluginProxy.scheduleBackendPresenceStartupResyncForTest();
+
+		Mockito.verifyNoInteractions(scheduler);
+	}
+
+	@Test
 	void standaloneMysqlBroadcastReportsTransportFailure() throws Exception {
 		MySqlMessenger messenger = Mockito.mock(MySqlMessenger.class);
 		Mockito.doThrow(new java.sql.SQLException("send failed")).when(messenger)
