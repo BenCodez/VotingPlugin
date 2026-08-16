@@ -42,6 +42,7 @@ public class BackendPlayerPresenceTracker {
 	private final Map<String, UUID> uuidByPlayerName = new HashMap<>();
 	private final Map<UUID, Long> lastPlayerEventSequences = new HashMap<>();
 	private final Map<UUID, String> lastPlayerEventServers = new HashMap<>();
+	private final Map<UUID, CrossBackendFence> crossBackendFences = new HashMap<>();
 	private final Map<String, BackendState> backends = new HashMap<>();
 	private final Map<String, PendingSnapshot> pendingSnapshots = new HashMap<>();
 	private final int maxTrackedBackends;
@@ -144,6 +145,7 @@ public class BackendPlayerPresenceTracker {
 				long sequence = ++eventSequence;
 				lastPlayerEventSequences.put(playerUuid, sequence);
 				lastPlayerEventServers.put(playerUuid, normalizedServer);
+				crossBackendFences.put(playerUuid, new CrossBackendFence(normalizedServer, sequence));
 				backendState.lastPlayerEventTimestamp = presenceTimestamp;
 				prunePlayerEventSequences();
 				return false;
@@ -221,6 +223,7 @@ public class BackendPlayerPresenceTracker {
 			long sequence = ++eventSequence;
 			lastPlayerEventSequences.put(playerUuid, sequence);
 			lastPlayerEventServers.put(playerUuid, normalizedServer);
+			updateCrossBackendFenceForLogout(playerUuid, normalizedServer, sequence);
 			backendState.lastPlayerEventTimestamp = presenceTimestamp;
 			prunePlayerEventSequences();
 			return true;
@@ -230,6 +233,7 @@ public class BackendPlayerPresenceTracker {
 		}
 		long sequence = ++eventSequence;
 		removePresence(playerUuid, sequence);
+		updateCrossBackendFenceForLogout(playerUuid, normalizedServer, sequence);
 		if (fenced) {
 			markBackendAvailable(normalizedServer, backendIncarnationId, backendStartedAt, presenceTimestamp, now);
 			backendState.lastPlayerEventTimestamp = presenceTimestamp;
@@ -601,6 +605,14 @@ public class BackendPlayerPresenceTracker {
 		}
 
 		for (SnapshotPresence snapshot : snapshotPlayers.values()) {
+			CrossBackendFence crossBackendFence = crossBackendFences.get(snapshot.uuid);
+			if (crossBackendFence != null && crossBackendFence.sequence > pending.eventWatermark) {
+				// A newer cross-backend destination (or its logout) supersedes every
+				// snapshot that began before that transition. Keep this fence separate
+				// from the source logout tombstone so removing the source cannot let an
+				// older intermediate destination win.
+				continue;
+			}
 			long lastPlayerEvent = lastPlayerEventSequences.getOrDefault(snapshot.uuid, 0L);
 			if (lastPlayerEvent > pending.eventWatermark) {
 				PlayerPresence currentPresence = playersByUuid.get(snapshot.uuid);
@@ -770,6 +782,13 @@ public class BackendPlayerPresenceTracker {
 		lastPlayerEventSequences.put(uuid, sequence);
 	}
 
+	private void updateCrossBackendFenceForLogout(UUID uuid, String server, long sequence) {
+		CrossBackendFence fence = crossBackendFences.get(uuid);
+		if (fence != null && fence.server.equalsIgnoreCase(server)) {
+			crossBackendFences.put(uuid, new CrossBackendFence(fence.server, sequence));
+		}
+	}
+
 	private void removePlayersOnServer(String server, long sequence) {
 		List<UUID> toRemove = new ArrayList<>();
 		for (PlayerPresence presence : playersByUuid.values()) {
@@ -786,6 +805,7 @@ public class BackendPlayerPresenceTracker {
 		if (pendingSnapshots.isEmpty()) {
 			lastPlayerEventSequences.keySet().retainAll(playersByUuid.keySet());
 			lastPlayerEventServers.keySet().retainAll(playersByUuid.keySet());
+			crossBackendFences.keySet().retainAll(playersByUuid.keySet());
 			return;
 		}
 
@@ -797,6 +817,8 @@ public class BackendPlayerPresenceTracker {
 		lastPlayerEventSequences.entrySet()
 				.removeIf(entry -> !playersByUuid.containsKey(entry.getKey()) && entry.getValue() <= retainAfter);
 		lastPlayerEventServers.keySet().retainAll(lastPlayerEventSequences.keySet());
+		crossBackendFences.entrySet().removeIf(entry -> !playersByUuid.containsKey(entry.getKey())
+				&& entry.getValue().sequence <= retainAfter);
 	}
 
 	private void expirePendingSnapshots(long now) {
@@ -975,6 +997,16 @@ public class BackendPlayerPresenceTracker {
 
 	private static String serverKey(String server) {
 		return server.toLowerCase(Locale.ROOT);
+	}
+
+	private static final class CrossBackendFence {
+		private final String server;
+		private final long sequence;
+
+		private CrossBackendFence(String server, long sequence) {
+			this.server = server;
+			this.sequence = sequence;
+		}
 	}
 
 	private static final class BackendState {
