@@ -292,8 +292,15 @@ public class BackendPlayerPresenceTracker {
 			if (state.retiredIncarnations.contains(backendIncarnationId)) {
 				return false;
 			}
-			// Explicit BackendStarted receipt advances proxy-local restart order. Other
-			// message types can never replace the current incarnation.
+			// Reannounced starts can race during overlapping deployments, especially
+			// after a proxy restart. Incarnations of this same configured backend are
+			// ordered by their immutable process-start timestamp so an older process
+			// cannot reclaim the server name from a newer one. Timestamps from different
+			// backend names are never compared.
+			if (backendStartedAt <= state.backendStartedAt) {
+				retireIncarnation(state, backendIncarnationId);
+				return false;
+			}
 			retireCurrentIncarnation(state);
 			long sequence = ++eventSequence;
 			removePlayersOnServer(normalizedServer, sequence);
@@ -888,7 +895,11 @@ public class BackendPlayerPresenceTracker {
 		if (state.backendIncarnationId == null) {
 			return;
 		}
-		state.retiredIncarnations.add(state.backendIncarnationId);
+		retireIncarnation(state, state.backendIncarnationId);
+	}
+
+	private void retireIncarnation(BackendState state, UUID backendIncarnationId) {
+		state.retiredIncarnations.add(backendIncarnationId);
 		while (state.retiredIncarnations.size() > MAX_RETIRED_INCARNATIONS_PER_BACKEND) {
 			java.util.Iterator<UUID> iterator = state.retiredIncarnations.iterator();
 			if (iterator.hasNext()) {

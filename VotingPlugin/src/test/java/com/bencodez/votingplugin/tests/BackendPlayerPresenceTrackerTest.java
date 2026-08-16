@@ -261,18 +261,18 @@ public class BackendPlayerPresenceTrackerTest {
 	}
 
 	@Test
-	public void replacementIncarnationDoesNotDependOnIncreasingWallClock() {
+	public void olderIncarnationCannotReclaimBackendAfterNewerStartArrivesFirst() {
 		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
 		UUID oldIncarnation = UUID.randomUUID();
 		UUID replacementIncarnation = UUID.randomUUID();
 		UUID replacementUuid = UUID.randomUUID();
 
-		assertTrue(tracker.backendStarted("survival", oldIncarnation, 2000L, 2000L, 10L));
-		assertTrue(tracker.backendStarted("survival", replacementIncarnation, 1000L, 1000L, 20L));
+		assertTrue(tracker.backendStarted("survival", replacementIncarnation, 2000L, 2000L, 10L));
 		assertTrue(tracker.playerOnline("Replacement", replacementUuid.toString(), "survival", UUID.randomUUID(),
-				replacementIncarnation, 1000L, 1100L, 21L));
+				replacementIncarnation, 2000L, 2100L, 11L));
 
-		assertFalse(tracker.backendStarted("survival", oldIncarnation, 2000L, 2200L, 30L));
+		assertFalse(tracker.backendStarted("survival", oldIncarnation, 1000L, 1000L, 20L));
+		assertFalse(tracker.backendStopped("survival", oldIncarnation, 1000L, 2200L, 30L));
 		assertEquals(replacementIncarnation, tracker.getBackendIncarnationId("survival"));
 		assertTrue(tracker.getPlayer(replacementUuid).isPresent());
 	}

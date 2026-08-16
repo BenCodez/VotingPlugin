@@ -1951,7 +1951,10 @@ public abstract class VotingPluginProxy {
 		Set<String> expired = backendPlayerPresenceTracker.expireBackends(now, timeoutMillis);
 		for (String server : expired) {
 			discardPendingPresenceHandoffs(server);
-			pendingBackendRecoverySnapshots.remove(presenceServerKey(server));
+			// Keep recovery pending while this generation is unavailable. If the same
+			// backend process resumes, its heartbeat can mark it available again and the
+			// maintenance task will request a fresh snapshot of players who stayed online.
+			pendingBackendRecoverySnapshots.add(presenceServerKey(server));
 		}
 		synchronized (pendingPresenceHandoffs) {
 			prunePendingPresenceHandoffs(now);
