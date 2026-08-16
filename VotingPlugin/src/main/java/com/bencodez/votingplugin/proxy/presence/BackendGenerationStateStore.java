@@ -176,6 +176,13 @@ public final class BackendGenerationStateStore {
 			Files.deleteIfExists(temporary);
 			throw new IOException("Atomic backend generation state replacement is not supported", e);
 		}
+		// force(true) above makes the file contents durable, while forcing the parent
+		// directory makes the atomic rename itself durable across sudden power loss.
+		if (parent != null) {
+			try (FileChannel directory = FileChannel.open(parent, StandardOpenOption.READ)) {
+				directory.force(true);
+			}
+		}
 	}
 
 	private static UUID readUuid(DataInputStream input) throws IOException {
