@@ -66,6 +66,7 @@ import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyHandler;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyMethod;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyServerSocketConfiguration;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyServerSocketConfigurationBungee;
+import com.bencodez.votingplugin.proxy.presence.BackendPlayerPresenceTracker;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.util.MinecraftUsernameValidator;
@@ -149,6 +150,9 @@ public abstract class VotingPluginProxy {
 
 	@Getter
 	private NonVotedPlayersCache nonVotedPlayersCache;
+
+	@Getter
+	private final BackendPlayerPresenceTracker backendPlayerPresenceTracker = new BackendPlayerPresenceTracker();
 
 	public VotingPluginProxy() {
 		enabled = true;
@@ -1350,21 +1354,72 @@ public abstract class VotingPluginProxy {
 			}
 		};
 
-		globalMessageProxyHandler.addListener(new GlobalMessageListener("login") {
+		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_LOGIN) {
 			@Override
 			public void onReceive(JsonEnvelope message) {
-				Map<String, String> f = message.getFields();
-				String player = f.getOrDefault("player", "");
-				String uuid = f.getOrDefault("uuid", "");
-				String server = f.getOrDefault("server", "");
+				VotingPluginWire.PlayerPresenceEvent event = VotingPluginWire.readPlayerPresenceEvent(message);
+				String player = event.player;
+				String uuid = event.uuid;
+				String server = event.server;
 
 				if (player.isEmpty() || uuid.isEmpty()) {
 					logSevere("Invalid login envelope received: " + message.getFields());
 					return;
 				}
+				if (event.connectionId != null) {
+					backendPlayerPresenceTracker.playerOnline(player, uuid, server, event.connectionId,
+							System.currentTimeMillis());
+				}
 
 				debug("Login: " + player + "/" + uuid + " " + server);
 				login(player, uuid, server);
+			}
+		});
+
+		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_LOGOUT) {
+			@Override
+			public void onReceive(JsonEnvelope message) {
+				VotingPluginWire.PlayerPresenceEvent event = VotingPluginWire.readPlayerPresenceEvent(message);
+				if (!backendPlayerPresenceTracker.playerOffline(event.uuid, event.server, event.connectionId,
+						System.currentTimeMillis())) {
+					debug("Ignored invalid or stale logout envelope: " + message.getFields());
+				}
+			}
+		});
+
+		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_BACKEND_STARTED) {
+			@Override
+			public void onReceive(JsonEnvelope message) {
+				backendPlayerPresenceTracker.backendStarted(
+						message.getFields().getOrDefault(VotingPluginWire.K_SERVER, ""), System.currentTimeMillis());
+			}
+		});
+
+		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_BACKEND_STOPPED) {
+			@Override
+			public void onReceive(JsonEnvelope message) {
+				backendPlayerPresenceTracker.backendStopped(
+						message.getFields().getOrDefault(VotingPluginWire.K_SERVER, ""), System.currentTimeMillis());
+			}
+		});
+
+		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_BACKEND_HEARTBEAT) {
+			@Override
+			public void onReceive(JsonEnvelope message) {
+				backendPlayerPresenceTracker.heartbeat(
+						message.getFields().getOrDefault(VotingPluginWire.K_SERVER, ""), System.currentTimeMillis());
+			}
+		});
+
+		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_PRESENCE_SNAPSHOT) {
+			@Override
+			public void onReceive(JsonEnvelope message) {
+				VotingPluginWire.PresenceSnapshot snapshot = VotingPluginWire.readPresenceSnapshot(message);
+				if (!snapshot.valid || !backendPlayerPresenceTracker.applySnapshotChunk(snapshot.server,
+						snapshot.requestId, snapshot.chunkIndex, snapshot.chunkCount, snapshot.players,
+						System.currentTimeMillis())) {
+					debug("Ignored invalid or unexpected presence snapshot from " + snapshot.server);
+				}
 			}
 		});
 
@@ -1613,6 +1668,36 @@ public abstract class VotingPluginProxy {
 	}
 
 	public abstract void log(String message);
+
+	/**
+	 * Requests a complete player-presence snapshot from one backend server.
+	 *
+	 * @param server configured backend server name
+	 * @return request identifier, or null when the server name is invalid
+	 */
+	public UUID requestBackendPresenceSnapshot(String server) {
+		if (globalMessageProxyHandler == null) {
+			return null;
+		}
+		UUID requestId = backendPlayerPresenceTracker.beginSnapshot(server);
+		if (requestId != null) {
+			globalMessageProxyHandler.sendMessage(server, 1,
+					VotingPluginWire.presenceSnapshotRequest(server, requestId));
+		}
+		return requestId;
+	}
+
+	/**
+	 * Removes presence owned by backends that have stopped reporting heartbeats.
+	 * Scheduling and timeout configuration are intentionally left to dedicated
+	 * proxy mode.
+	 *
+	 * @param timeoutMillis maximum backend silence before expiry
+	 * @return expired backend server names
+	 */
+	public Set<String> expireBackendPresence(long timeoutMillis) {
+		return backendPlayerPresenceTracker.expireBackends(System.currentTimeMillis(), timeoutMillis);
+	}
 
 	public void login(String playerName, String uuid, String serverName) {
 		if (!getConfig().getOnlineMode()) {

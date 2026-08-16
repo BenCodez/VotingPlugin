@@ -1,10 +1,18 @@
 // File: com/bencodez/votingplugin/proxy/VotingPluginWire.java
 package com.bencodez.votingplugin.proxy;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 /**
  * Canonical wire format for proxy - backend messages.
@@ -42,6 +50,12 @@ public final class VotingPluginWire {
 	public static final String SUB_VOTE_PARTY = "VotePartyBungee";
 
 	public static final String SUB_LOGIN = "login";
+	public static final String SUB_LOGOUT = "logout";
+	public static final String SUB_BACKEND_STARTED = "BackendStarted";
+	public static final String SUB_BACKEND_STOPPED = "BackendStopped";
+	public static final String SUB_BACKEND_HEARTBEAT = "BackendHeartbeat";
+	public static final String SUB_PRESENCE_SNAPSHOT_REQUEST = "PresenceSnapshotRequest";
+	public static final String SUB_PRESENCE_SNAPSHOT = "PresenceSnapshot";
 	public static final String SUB_VOTEUPDATE_RELAY = "voteupdate";
 
 	// =========================
@@ -60,6 +74,11 @@ public final class VotingPluginWire {
 	public static final String K_SERVER = "server";
 	public static final String K_SERVICE = "service";
 	public static final String K_TIME = "time";
+	public static final String K_CONNECTION_ID = "connectionId";
+	public static final String K_REQUEST_ID = "requestId";
+	public static final String K_PLAYERS = "players";
+	public static final String K_CHUNK_INDEX = "chunkIndex";
+	public static final String K_CHUNK_COUNT = "chunkCount";
 
 	// Vote/VoteOnline extras
 	public static final String K_WAS_ONLINE = "wasOnline";
@@ -148,7 +167,58 @@ public final class VotingPluginWire {
 	}
 
 	public static JsonEnvelope login(String player, String uuid, String server) {
-		return base(SUB_LOGIN).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid)).put(K_SERVER, safe(server)).build();
+		return login(player, uuid, server, null);
+	}
+
+	public static JsonEnvelope login(String player, String uuid, String server, UUID connectionId) {
+		return base(SUB_LOGIN).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid)).put(K_SERVER, safe(server))
+				.put(K_CONNECTION_ID, connectionId == null ? "" : connectionId.toString()).build();
+	}
+
+	public static JsonEnvelope logout(String player, String uuid, String server, UUID connectionId) {
+		return base(SUB_LOGOUT).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid)).put(K_SERVER, safe(server))
+				.put(K_CONNECTION_ID, connectionId == null ? "" : connectionId.toString()).build();
+	}
+
+	public static JsonEnvelope backendStarted(String server) {
+		return base(SUB_BACKEND_STARTED).put(K_SERVER, safe(server)).build();
+	}
+
+	public static JsonEnvelope backendStopped(String server) {
+		return base(SUB_BACKEND_STOPPED).put(K_SERVER, safe(server)).build();
+	}
+
+	public static JsonEnvelope backendHeartbeat(String server) {
+		return base(SUB_BACKEND_HEARTBEAT).put(K_SERVER, safe(server)).build();
+	}
+
+	public static JsonEnvelope presenceSnapshotRequest(String server, UUID requestId) {
+		return base(SUB_PRESENCE_SNAPSHOT_REQUEST).put(K_SERVER, safe(server))
+				.put(K_REQUEST_ID, requestId == null ? "" : requestId.toString()).build();
+	}
+
+	public static JsonEnvelope presenceSnapshot(String server, UUID requestId, Collection<PresencePlayer> players) {
+		return presenceSnapshot(server, requestId, 0, 1, players);
+	}
+
+	public static JsonEnvelope presenceSnapshot(String server, UUID requestId, int chunkIndex, int chunkCount,
+			Collection<PresencePlayer> players) {
+		JsonArray jsonPlayers = new JsonArray();
+		if (players != null) {
+			for (PresencePlayer player : players) {
+				if (player == null) {
+					continue;
+				}
+				JsonObject object = new JsonObject();
+				object.addProperty(K_PLAYER, safe(player.player));
+				object.addProperty(K_UUID, safe(player.uuid));
+				object.addProperty(K_CONNECTION_ID, safe(player.connectionId));
+				jsonPlayers.add(object);
+			}
+		}
+		return base(SUB_PRESENCE_SNAPSHOT).put(K_SERVER, safe(server))
+				.put(K_REQUEST_ID, requestId == null ? "" : requestId.toString()).put(K_CHUNK_INDEX, chunkIndex)
+				.put(K_CHUNK_COUNT, chunkCount).put(K_PLAYERS, jsonPlayers.toString()).build();
 	}
 
 	// =========================
@@ -296,6 +366,105 @@ public final class VotingPluginWire {
 		return new VoteUpdate(uuid, cur, req, service, t);
 	}
 
+	public static final class PresencePlayer {
+		public final String player;
+		public final String uuid;
+		public final String connectionId;
+
+		public PresencePlayer(String player, String uuid, String connectionId) {
+			this.player = safe(player);
+			this.uuid = safe(uuid);
+			this.connectionId = safe(connectionId);
+		}
+	}
+
+	public static final class PlayerPresenceEvent {
+		public final String player;
+		public final String uuid;
+		public final String server;
+		public final UUID connectionId;
+
+		private PlayerPresenceEvent(String player, String uuid, String server, UUID connectionId) {
+			this.player = player;
+			this.uuid = uuid;
+			this.server = server;
+			this.connectionId = connectionId;
+		}
+	}
+
+	public static PlayerPresenceEvent readPlayerPresenceEvent(JsonEnvelope env) {
+		Map<String, String> fields = env.getFields();
+		return new PlayerPresenceEvent(safe(fields.get(K_PLAYER)), safe(fields.get(K_UUID)),
+				safe(fields.get(K_SERVER)), readUuid(fields, K_CONNECTION_ID));
+	}
+
+	public static final class PresenceSnapshotRequest {
+		public final String server;
+		public final UUID requestId;
+
+		private PresenceSnapshotRequest(String server, UUID requestId) {
+			this.server = server;
+			this.requestId = requestId;
+		}
+	}
+
+	public static PresenceSnapshotRequest readPresenceSnapshotRequest(JsonEnvelope env) {
+		Map<String, String> fields = env.getFields();
+		return new PresenceSnapshotRequest(safe(fields.get(K_SERVER)), readUuid(fields, K_REQUEST_ID));
+	}
+
+	public static final class PresenceSnapshot {
+		public final String server;
+		public final UUID requestId;
+		public final int chunkIndex;
+		public final int chunkCount;
+		public final List<PresencePlayer> players;
+		public final boolean valid;
+
+		private PresenceSnapshot(String server, UUID requestId, int chunkIndex, int chunkCount,
+				List<PresencePlayer> players, boolean valid) {
+			this.server = server;
+			this.requestId = requestId;
+			this.chunkIndex = chunkIndex;
+			this.chunkCount = chunkCount;
+			this.players = Collections.unmodifiableList(players);
+			this.valid = valid;
+		}
+	}
+
+	public static PresenceSnapshot readPresenceSnapshot(JsonEnvelope env) {
+		Map<String, String> fields = env.getFields();
+		String server = safe(fields.get(K_SERVER));
+		UUID requestId = readUuid(fields, K_REQUEST_ID);
+		int chunkIndex = readInt(fields, K_CHUNK_INDEX, 0);
+		int chunkCount = readInt(fields, K_CHUNK_COUNT, 1);
+		String encodedPlayers = fields.get(K_PLAYERS);
+		List<PresencePlayer> players = new ArrayList<>();
+		if (encodedPlayers == null) {
+			return new PresenceSnapshot(server, requestId, chunkIndex, chunkCount, players, false);
+		}
+
+		try {
+			JsonElement root = JsonParser.parseString(encodedPlayers);
+			if (!root.isJsonArray()) {
+				return new PresenceSnapshot(server, requestId, chunkIndex, chunkCount, players, false);
+			}
+			for (JsonElement element : root.getAsJsonArray()) {
+				if (!element.isJsonObject()) {
+					return new PresenceSnapshot(server, requestId, chunkIndex, chunkCount, new ArrayList<>(), false);
+				}
+				JsonObject object = element.getAsJsonObject();
+				players.add(new PresencePlayer(readJsonString(object, K_PLAYER), readJsonString(object, K_UUID),
+						readJsonString(object, K_CONNECTION_ID)));
+			}
+			boolean valid = requestId != null && !server.isEmpty() && chunkIndex >= 0 && chunkCount > 0
+					&& chunkIndex < chunkCount;
+			return new PresenceSnapshot(server, requestId, chunkIndex, chunkCount, players, valid);
+		} catch (RuntimeException e) {
+			return new PresenceSnapshot(server, requestId, chunkIndex, chunkCount, new ArrayList<>(), false);
+		}
+	}
+
 	// =========================
 	// Internals
 	// =========================
@@ -339,6 +508,14 @@ public final class VotingPluginWire {
 		} catch (IllegalArgumentException ignored) {
 			return null;
 		}
+	}
+
+	private static String readJsonString(JsonObject object, String key) {
+		JsonElement value = object.get(key);
+		if (value == null || value.isJsonNull() || !value.isJsonPrimitive()) {
+			return "";
+		}
+		return safe(value.getAsString());
 	}
 
 	private static long readLong(Map<String, String> f, String key, long def) {
