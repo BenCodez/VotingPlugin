@@ -2931,10 +2931,7 @@ public abstract class VotingPluginProxy {
 			// ===========================
 			// Send vote(s) to backend(s)
 			// ===========================
-			// A dedicated voting proxy has no player-facing proxy state. Its confirmed
-			// backend presence selects one destination, so never fan a vote out merely
-			// because a legacy configuration still has SendVotesToAllServers enabled.
-			if (getConfig().getSendVotesToAllServers() && !isDedicatedVotingProxyEnabled()) {
+			if (getConfig().getSendVotesToAllServers()) {
 				for (String s : getAllAvailableServers()) {
 
 					boolean forceCache = getConfig().getWaitForUserOnline()
