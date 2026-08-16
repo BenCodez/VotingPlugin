@@ -1,12 +1,20 @@
 // File: com/bencodez/votingplugin/proxy/VotingPluginWire.java
 package com.bencodez.votingplugin.proxy;
 
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.google.gson.JsonArray;
@@ -79,6 +87,7 @@ public final class VotingPluginWire {
 	public static final String K_BACKEND_INCARNATION_ID = "backendIncarnationId";
 	public static final String K_BACKEND_STARTED_AT = "backendStartedAt";
 	public static final String K_PRESENCE_TIMESTAMP = "presenceTimestamp";
+	public static final String K_PRESENCE_SIGNATURE = "presenceSignature";
 	public static final String K_REQUEST_ID = "requestId";
 	public static final String K_PLAYERS = "players";
 	public static final String K_CHUNK_INDEX = "chunkIndex";
@@ -506,6 +515,55 @@ public final class VotingPluginWire {
 		return readLong(env.getFields(), K_PRESENCE_TIMESTAMP, 0L);
 	}
 
+	/**
+	 * Signs every field in a presence envelope with a backend-specific secret.
+	 *
+	 * @param envelope presence envelope
+	 * @param secret backend-specific shared secret
+	 * @return signed envelope, or the original envelope when no secret is configured
+	 */
+	public static JsonEnvelope signPresenceEnvelope(JsonEnvelope envelope, String secret) {
+		if (envelope == null || !isValidPresenceSecret(secret)) {
+			return envelope;
+		}
+		JsonEnvelope.Builder builder = JsonEnvelope.builder(envelope.getSubChannel()).schema(envelope.getSchema());
+		for (Map.Entry<String, String> entry : envelope.getFields().entrySet()) {
+			if (!K_PRESENCE_SIGNATURE.equals(entry.getKey())) {
+				builder.put(entry.getKey(), entry.getValue());
+			}
+		}
+		builder.put(K_PRESENCE_SIGNATURE, computePresenceSignature(envelope, secret));
+		return builder.build();
+	}
+
+	/**
+	 * Verifies a presence envelope using a backend-specific secret.
+	 *
+	 * @param envelope received envelope
+	 * @param secret expected backend-specific shared secret
+	 * @return true when the envelope signature is valid
+	 */
+	public static boolean verifyPresenceEnvelope(JsonEnvelope envelope, String secret) {
+		if (envelope == null || !isValidPresenceSecret(secret)) {
+			return false;
+		}
+		String actual = envelope.getFields().get(K_PRESENCE_SIGNATURE);
+		if (actual == null || actual.isBlank()) {
+			return false;
+		}
+		try {
+			byte[] actualBytes = Base64.getDecoder().decode(actual);
+			byte[] expectedBytes = Base64.getDecoder().decode(computePresenceSignature(envelope, secret));
+			return MessageDigest.isEqual(expectedBytes, actualBytes);
+		} catch (IllegalArgumentException e) {
+			return false;
+		}
+	}
+
+	public static boolean isValidPresenceSecret(String secret) {
+		return secret != null && secret.length() >= 32;
+	}
+
 	public static final class PresenceSnapshotRequest {
 		public final String server;
 		public final UUID requestId;
@@ -609,6 +667,33 @@ public final class VotingPluginWire {
 	private static JsonEnvelope.Builder base(String subChannel) {
 		int ver = SCHEMA_VERSION;
 		return JsonEnvelope.builder(subChannel).schema(ver);
+	}
+
+	private static String computePresenceSignature(JsonEnvelope envelope, String secret) {
+		try {
+			Mac mac = Mac.getInstance("HmacSHA256");
+			mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+			updateSignaturePart(mac, envelope.getSubChannel());
+			updateSignaturePart(mac, Integer.toString(envelope.getSchema()));
+			for (Map.Entry<String, String> entry : new TreeMap<>(envelope.getFields()).entrySet()) {
+				if (!K_PRESENCE_SIGNATURE.equals(entry.getKey())) {
+					updateSignaturePart(mac, entry.getKey());
+					updateSignaturePart(mac, entry.getValue());
+				}
+			}
+			return Base64.getEncoder().encodeToString(mac.doFinal());
+		} catch (GeneralSecurityException e) {
+			throw new IllegalStateException("HmacSHA256 is unavailable", e);
+		}
+	}
+
+	private static void updateSignaturePart(Mac mac, String value) {
+		byte[] bytes = safe(value).getBytes(StandardCharsets.UTF_8);
+		mac.update((byte) (bytes.length >>> 24));
+		mac.update((byte) (bytes.length >>> 16));
+		mac.update((byte) (bytes.length >>> 8));
+		mac.update((byte) bytes.length);
+		mac.update(bytes);
 	}
 
 	private static String safe(String s) {

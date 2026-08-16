@@ -1366,19 +1366,34 @@ public abstract class VotingPluginProxy {
 					logSevere("Invalid login envelope received: " + message.getFields());
 					return;
 				}
-				if (event.connectionId != null
+				boolean legacy = event.connectionId == null && event.backendIncarnationId == null
+						&& event.backendStartedAt == 0L && event.presenceTimestamp == 0L;
+				boolean accepted = false;
+				if (legacy) {
+					// Preserve legacy behavior only for backends that have not enabled
+					// authenticated presence. Otherwise a three-field login could bypass the
+					// backend-specific signature and trigger cached reward delivery.
+					accepted = !VotingPluginWire.isValidPresenceSecret(getPresenceServerSecret(server));
+				} else if (event.connectionId != null && isPresenceServerValid(server, VotingPluginWire.SUB_LOGIN)
+						&& isPresenceEnvelopeAuthenticated(message, server, VotingPluginWire.SUB_LOGIN)
 						&& isPresenceGenerationValid(event.backendIncarnationId, event.backendStartedAt,
-								event.presenceTimestamp,
-								VotingPluginWire.SUB_LOGIN)) {
-					if (isPresenceServerValid(server, VotingPluginWire.SUB_LOGIN)) {
-						backendPlayerPresenceTracker.playerOnline(player, uuid, server, event.connectionId,
-								event.backendIncarnationId, event.backendStartedAt, event.presenceTimestamp,
-								System.currentTimeMillis());
+								event.presenceTimestamp, VotingPluginWire.SUB_LOGIN)) {
+					boolean conflictingBackend = backendPlayerPresenceTracker.hasConflictingPresence(player, uuid,
+							server);
+					accepted = backendPlayerPresenceTracker.playerOnline(player, uuid, server, event.connectionId,
+							event.backendIncarnationId, event.backendStartedAt, event.presenceTimestamp,
+							System.currentTimeMillis());
+					if (!accepted && conflictingBackend) {
+						requestBackendPresenceSnapshot(server);
 					}
 				}
 
 				debug("Login: " + player + "/" + uuid + " " + server);
-				login(player, uuid, server);
+				if (accepted) {
+					login(player, uuid, server);
+				} else {
+					debug("Ignored invalid or stale extended login envelope: " + message.getFields());
+				}
 			}
 		});
 
@@ -1387,6 +1402,7 @@ public abstract class VotingPluginProxy {
 			public void onReceive(JsonEnvelope message) {
 				VotingPluginWire.PlayerPresenceEvent event = VotingPluginWire.readPlayerPresenceEvent(message);
 				if (!isPresenceServerValid(event.server, VotingPluginWire.SUB_LOGOUT)
+						|| !isPresenceEnvelopeAuthenticated(message, event.server, VotingPluginWire.SUB_LOGOUT)
 						|| !isPresenceGenerationValid(event.backendIncarnationId, event.backendStartedAt,
 								event.presenceTimestamp,
 								VotingPluginWire.SUB_LOGOUT)) {
@@ -1408,6 +1424,7 @@ public abstract class VotingPluginProxy {
 				long backendStartedAt = VotingPluginWire.readBackendStartedAt(message);
 				long presenceTimestamp = VotingPluginWire.readPresenceTimestamp(message);
 				if (isPresenceServerValid(server, VotingPluginWire.SUB_BACKEND_STARTED)
+						&& isPresenceEnvelopeAuthenticated(message, server, VotingPluginWire.SUB_BACKEND_STARTED)
 						&& isPresenceGenerationValid(backendIncarnationId, backendStartedAt, presenceTimestamp,
 								VotingPluginWire.SUB_BACKEND_STARTED)) {
 					backendPlayerPresenceTracker.backendStarted(server, backendIncarnationId, backendStartedAt,
@@ -1424,6 +1441,7 @@ public abstract class VotingPluginProxy {
 				long backendStartedAt = VotingPluginWire.readBackendStartedAt(message);
 				long presenceTimestamp = VotingPluginWire.readPresenceTimestamp(message);
 				if (isPresenceServerValid(server, VotingPluginWire.SUB_BACKEND_STOPPED)
+						&& isPresenceEnvelopeAuthenticated(message, server, VotingPluginWire.SUB_BACKEND_STOPPED)
 						&& isPresenceGenerationValid(backendIncarnationId, backendStartedAt, presenceTimestamp,
 								VotingPluginWire.SUB_BACKEND_STOPPED)) {
 					backendPlayerPresenceTracker.backendStopped(server, backendIncarnationId, backendStartedAt,
@@ -1440,6 +1458,7 @@ public abstract class VotingPluginProxy {
 				long backendStartedAt = VotingPluginWire.readBackendStartedAt(message);
 				long presenceTimestamp = VotingPluginWire.readPresenceTimestamp(message);
 				if (isPresenceServerValid(server, VotingPluginWire.SUB_BACKEND_HEARTBEAT)
+						&& isPresenceEnvelopeAuthenticated(message, server, VotingPluginWire.SUB_BACKEND_HEARTBEAT)
 						&& isPresenceGenerationValid(backendIncarnationId, backendStartedAt, presenceTimestamp,
 								VotingPluginWire.SUB_BACKEND_HEARTBEAT)) {
 					backendPlayerPresenceTracker.heartbeat(server, backendIncarnationId, backendStartedAt,
@@ -1452,7 +1471,9 @@ public abstract class VotingPluginProxy {
 			@Override
 			public void onReceive(JsonEnvelope message) {
 				String server = message.getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
-				if (!isPresenceServerValid(server, VotingPluginWire.SUB_PRESENCE_SNAPSHOT)) {
+				if (!isPresenceServerValid(server, VotingPluginWire.SUB_PRESENCE_SNAPSHOT)
+						|| !isPresenceEnvelopeAuthenticated(message, server,
+								VotingPluginWire.SUB_PRESENCE_SNAPSHOT)) {
 					return;
 				}
 				VotingPluginWire.PresenceSnapshot snapshot = VotingPluginWire.readPresenceSnapshot(message);
@@ -1719,7 +1740,8 @@ public abstract class VotingPluginProxy {
 	 * Requests a complete player-presence snapshot from one backend server.
 	 *
 	 * @param server configured backend server name
-	 * @return request identifier, or null when the server name is invalid
+	 * @return request identifier, or null when the server is invalid, already has a
+	 *         pending request, or is inside the snapshot-request cooldown
 	 */
 	public UUID requestBackendPresenceSnapshot(String server) {
 		if (globalMessageProxyHandler == null
@@ -1736,9 +1758,11 @@ public abstract class VotingPluginProxy {
 		requestId = backendPlayerPresenceTracker.beginSnapshot(server, requestId, backendIncarnationId,
 				backendStartedAt, now);
 		if (requestId != null) {
+			JsonEnvelope request = VotingPluginWire.presenceSnapshotRequest(server, requestId, backendIncarnationId,
+					backendStartedAt, now);
+			request = VotingPluginWire.signPresenceEnvelope(request, getPresenceServerSecret(server));
 			globalMessageProxyHandler.sendMessage(server, 1,
-					VotingPluginWire.presenceSnapshotRequest(server, requestId, backendIncarnationId,
-							backendStartedAt, now));
+					request);
 		}
 		return requestId;
 	}
@@ -1749,6 +1773,28 @@ public abstract class VotingPluginProxy {
 			return false;
 		}
 		return true;
+	}
+
+	private boolean isPresenceEnvelopeAuthenticated(JsonEnvelope message, String server, String subChannel) {
+		String secret = getPresenceServerSecret(server);
+		if (!VotingPluginWire.verifyPresenceEnvelope(message, secret)) {
+			debug("Ignored " + subChannel + " presence envelope with invalid backend authentication");
+			return false;
+		}
+		return true;
+	}
+
+	private String getPresenceServerSecret(String server) {
+		if (server == null) {
+			return "";
+		}
+		for (String configuredServer : getAllAvailableServers()) {
+			if (configuredServer.equalsIgnoreCase(server)) {
+				String secret = getConfig().getPresenceServerSecret(configuredServer);
+				return secret == null ? "" : secret.trim();
+			}
+		}
+		return "";
 	}
 
 	private boolean isPresenceGenerationValid(UUID backendIncarnationId, long backendStartedAt,

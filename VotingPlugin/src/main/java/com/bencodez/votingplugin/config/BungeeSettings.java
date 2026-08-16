@@ -106,6 +106,10 @@ public class BungeeSettings extends YMLFile {
 	@Getter
 	private String server = "PleaseSet";
 
+	@ConfigDataString(path = "PresenceServerSecret")
+	@Getter
+	private String presenceServerSecret = "";
+
 	@ConfigDataString(path = "SpigotServer.Host")
 	@Getter
 	private String spigotServerHost = "";

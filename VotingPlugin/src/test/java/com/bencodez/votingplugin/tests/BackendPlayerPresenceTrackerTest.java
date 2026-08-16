@@ -215,6 +215,52 @@ public class BackendPlayerPresenceTrackerTest {
 	}
 
 	@Test
+	public void staleLoginCannotRefreshOrReviveExpiredBackend() {
+		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
+		UUID backendIncarnation = UUID.randomUUID();
+		UUID playerUuid = UUID.randomUUID();
+		assertTrue(tracker.backendStarted("survival", backendIncarnation, 1000L, 1000L, 10L));
+		assertTrue(tracker.playerOnline("Player", playerUuid.toString(), "survival", UUID.randomUUID(),
+				backendIncarnation, 1000L, 1200L, 20L));
+
+		assertFalse(tracker.playerOnline("Player", playerUuid.toString(), "survival", UUID.randomUUID(),
+				backendIncarnation, 1000L, 1100L, 50L));
+		assertEquals(20L, tracker.getBackendStatus("survival").getLastSeen());
+		assertEquals(Set.of("survival"), tracker.expireBackends(81L, 60L));
+
+		assertFalse(tracker.playerOnline("Player", playerUuid.toString(), "survival", UUID.randomUUID(),
+				backendIncarnation, 1000L, 1200L, 90L));
+		assertFalse(tracker.getBackendStatus("survival").isAvailable());
+		assertEquals(20L, tracker.getBackendStatus("survival").getLastSeen());
+		assertTrue(tracker.getPlayer(playerUuid).isEmpty());
+	}
+
+	@Test
+	public void delayedHeartbeatCannotReviveExpiredBackend() {
+		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
+		UUID backendIncarnation = UUID.randomUUID();
+		assertTrue(tracker.backendStarted("survival", backendIncarnation, 1000L, 1000L, 10L));
+		assertTrue(tracker.heartbeat("survival", backendIncarnation, 1000L, 1200L, 20L));
+		assertEquals(Set.of("survival"), tracker.expireBackends(81L, 60L));
+
+		assertFalse(tracker.heartbeat("survival", backendIncarnation, 1000L, 1200L, 90L));
+		assertFalse(tracker.getBackendStatus("survival").isAvailable());
+		assertEquals(20L, tracker.getBackendStatus("survival").getLastSeen());
+	}
+
+	@Test
+	public void replayedLifecycleMessageCannotReviveExpiredBackend() {
+		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
+		UUID backendIncarnation = UUID.randomUUID();
+		assertTrue(tracker.backendStarted("survival", backendIncarnation, 1000L, 1000L, 10L));
+		assertEquals(Set.of("survival"), tracker.expireBackends(71L, 60L));
+
+		assertFalse(tracker.backendStarted("survival", backendIncarnation, 1000L, 1000L, 80L));
+		assertFalse(tracker.getBackendStatus("survival").isAvailable());
+		assertEquals(10L, tracker.getBackendStatus("survival").getLastSeen());
+	}
+
+	@Test
 	public void replacementIncarnationDoesNotDependOnIncreasingWallClock() {
 		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
 		UUID oldIncarnation = UUID.randomUUID();
@@ -249,6 +295,85 @@ public class BackendPlayerPresenceTrackerTest {
 		PlayerPresence current = tracker.getPlayer(playerUuid).orElseThrow();
 		assertEquals("creative", current.getServer());
 		assertEquals(creativeConnection, current.getConnectionId());
+	}
+
+	@Test
+	public void snapshotConfirmsCrossBackendMoveWithoutComparingBackendClocks() {
+		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
+		UUID survivalIncarnation = UUID.randomUUID();
+		UUID creativeIncarnation = UUID.randomUUID();
+		UUID playerUuid = UUID.randomUUID();
+		UUID creativeConnection = UUID.randomUUID();
+		UUID survivalConnection = UUID.randomUUID();
+		assertTrue(tracker.backendStarted("survival", survivalIncarnation, 1000L, 1000L, 10L));
+		assertTrue(tracker.backendStarted("creative", creativeIncarnation, 1000L, 1000L, 11L));
+		assertTrue(tracker.playerOnline("Player", playerUuid.toString(), "creative", creativeConnection,
+				creativeIncarnation, 1000L, 5000L, 20L));
+
+		// The destination clock is behind the source clock. Its login cannot directly
+		// replace the source, but it advances the destination event fence.
+		assertFalse(tracker.playerOnline("Player", playerUuid.toString(), "survival", survivalConnection,
+				survivalIncarnation, 1000L, 1100L, 30L));
+		UUID requestId = UUID.randomUUID();
+		assertEquals(requestId,
+				tracker.beginSnapshot("survival", requestId, survivalIncarnation, 1000L, 40L));
+		assertTrue(tracker.playerOffline(playerUuid.toString(), "creative", creativeConnection,
+				creativeIncarnation, 1000L, 5100L, 50L));
+
+		assertTrue(tracker.applySnapshotChunk("survival", requestId, 0, 1,
+				List.of(new PresencePlayer("Player", playerUuid.toString(), survivalConnection.toString())),
+				survivalIncarnation, 1000L, 1200L, 60L));
+		PlayerPresence current = tracker.getPlayer(playerUuid).orElseThrow();
+		assertEquals("survival", current.getServer());
+		assertEquals(survivalConnection, current.getConnectionId());
+	}
+
+	@Test
+	public void destinationLogoutPreventsInFlightHandoffSnapshotFromRestoringPlayer() {
+		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
+		UUID survivalIncarnation = UUID.randomUUID();
+		UUID creativeIncarnation = UUID.randomUUID();
+		UUID playerUuid = UUID.randomUUID();
+		UUID creativeConnection = UUID.randomUUID();
+		UUID survivalConnection = UUID.randomUUID();
+		assertTrue(tracker.backendStarted("survival", survivalIncarnation, 1000L, 1000L, 10L));
+		assertTrue(tracker.backendStarted("creative", creativeIncarnation, 1000L, 1000L, 11L));
+		assertTrue(tracker.playerOnline("Player", playerUuid.toString(), "creative", creativeConnection,
+				creativeIncarnation, 1000L, 5000L, 20L));
+		assertFalse(tracker.playerOnline("Player", playerUuid.toString(), "survival", survivalConnection,
+				survivalIncarnation, 1000L, 1100L, 30L));
+		UUID requestId = UUID.randomUUID();
+		assertEquals(requestId,
+				tracker.beginSnapshot("survival", requestId, survivalIncarnation, 1000L, 40L));
+
+		// This snapshot was captured before the destination logout but delivered after it.
+		assertTrue(tracker.playerOffline(playerUuid.toString(), "survival", survivalConnection,
+				survivalIncarnation, 1000L, 1200L, 50L));
+		assertTrue(tracker.applySnapshotChunk("survival", requestId, 0, 1,
+				List.of(new PresencePlayer("Player", playerUuid.toString(), survivalConnection.toString())),
+				survivalIncarnation, 1000L, 1150L, 60L));
+
+		PlayerPresence current = tracker.getPlayer(playerUuid).orElseThrow();
+		assertEquals("creative", current.getServer());
+		assertEquals(creativeConnection, current.getConnectionId());
+	}
+
+	@Test
+	public void snapshotRequestsAreDeduplicatedAndRateLimitedBeforePendingStateChanges() {
+		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
+		UUID backendIncarnation = UUID.randomUUID();
+		UUID firstRequest = UUID.randomUUID();
+		assertTrue(tracker.backendStarted("survival", backendIncarnation, 1000L, 1000L, 10L));
+		assertEquals(firstRequest,
+				tracker.beginSnapshot("survival", firstRequest, backendIncarnation, 1000L, 20L));
+		assertNull(tracker.beginSnapshot("survival", UUID.randomUUID(), backendIncarnation, 1000L, 21L));
+
+		assertTrue(tracker.applySnapshotChunk("survival", firstRequest, 0, 1, List.of(),
+				backendIncarnation, 1000L, 1100L, 22L));
+		assertNull(tracker.beginSnapshot("survival", UUID.randomUUID(), backendIncarnation, 1000L, 23L));
+		UUID laterRequest = UUID.randomUUID();
+		assertEquals(laterRequest,
+				tracker.beginSnapshot("survival", laterRequest, backendIncarnation, 1000L, 30020L));
 	}
 
 	@Test
@@ -291,14 +416,14 @@ public class BackendPlayerPresenceTrackerTest {
 	}
 
 	@Test
-	public void expiredBackendStateIsEvictedOnLaterSweep() {
+	public void expiredBackendStateRetainsReplayFences() {
 		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
 		tracker.heartbeat("survival", 10L);
 
 		assertEquals(Set.of("survival"), tracker.expireBackends(71L, 60L));
 		assertFalse(tracker.getBackendStatus("survival").isAvailable());
 		assertTrue(tracker.expireBackends(72L, 60L).isEmpty());
-		assertNull(tracker.getBackendStatus("survival"));
+		assertFalse(tracker.getBackendStatus("survival").isAvailable());
 	}
 
 	@Test

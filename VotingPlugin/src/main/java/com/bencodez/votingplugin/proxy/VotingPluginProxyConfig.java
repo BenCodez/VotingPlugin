@@ -408,6 +408,16 @@ public interface VotingPluginProxyConfig {
 	public Map<String, Object> getSpigotServerConfiguration(String s);
 
 	/**
+	 * Gets the authentication secret assigned to one backend's presence messages.
+	 *
+	 * @param server configured backend server name
+	 * @return backend-specific secret, or an empty string when presence tracking is not configured
+	 */
+	default String getPresenceServerSecret(String server) {
+		return "";
+	}
+
+	/**
 	 * Gets the collection of Spigot servers.
 	 *
 	 * @return the collection of server names

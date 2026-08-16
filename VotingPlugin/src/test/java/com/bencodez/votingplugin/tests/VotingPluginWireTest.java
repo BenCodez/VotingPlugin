@@ -101,6 +101,25 @@ public class VotingPluginWireTest {
 	}
 
 	@Test
+	public void presenceEnvelopeAuthenticationRejectsWrongSecretAndTampering() {
+		String secret = "survival-presence-secret-32-characters-minimum";
+		String wrongSecret = "creative-presence-secret-32-characters-minimum";
+		JsonEnvelope unsigned = VotingPluginWire.login("Player", UUID.randomUUID().toString(), "survival",
+				UUID.randomUUID(), UUID.randomUUID(), 1000L, 1100L);
+		JsonEnvelope signed = VotingPluginWire.signPresenceEnvelope(unsigned, secret);
+
+		assertTrue(VotingPluginWire.verifyPresenceEnvelope(signed, secret));
+		assertFalse(VotingPluginWire.verifyPresenceEnvelope(signed, wrongSecret));
+		assertFalse(VotingPluginWire.verifyPresenceEnvelope(unsigned, secret));
+
+		JsonEnvelope.Builder tampered = JsonEnvelope.builder(signed.getSubChannel()).schema(signed.getSchema());
+		for (java.util.Map.Entry<String, String> entry : signed.getFields().entrySet()) {
+			tampered.put(entry.getKey(), VotingPluginWire.K_SERVER.equals(entry.getKey()) ? "creative" : entry.getValue());
+		}
+		assertFalse(VotingPluginWire.verifyPresenceEnvelope(tampered.build(), secret));
+	}
+
+	@Test
 	public void legacyLoginRemainsReadableWithoutConnectionIdentity() {
 		VotingPluginWire.PlayerPresenceEvent login = VotingPluginWire.readPlayerPresenceEvent(
 				VotingPluginWire.login("Player", UUID.randomUUID().toString(), "survival"));

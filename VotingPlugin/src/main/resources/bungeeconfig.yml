@@ -269,6 +269,14 @@ PluginMessageChannel: "vp:vp"
 # This setting requires a restart
 PluginMessageEncryption: false
 
+# Backend-specific HMAC secrets for authenticated player-presence messages.
+# Every value must be unique, at least 32 characters, and match PresenceServerSecret on that backend.
+# These authenticate server identity on shared Redis, MQTT, and MySQL transports.
+PresenceServerSecrets: {}
+#PresenceServerSecrets:
+#  survival: 'replace-with-a-long-random-secret'
+#  creative: 'replace-with-a-different-long-random-secret'
+
 ###########################################
 # REDIS Settings
 ###########################################
