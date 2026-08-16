@@ -225,9 +225,9 @@ public class BackendPlayerPresenceTracker {
 				|| !current.getConnectionId().equals(connectionId)) {
 			String key = serverKey(normalizedServer);
 			DestinationClaim claim = destinationClaims.get(playerUuid);
-			boolean matchingDestinationClaim = claim != null
-					&& claim.server.equalsIgnoreCase(normalizedServer) && claim.connectionId.equals(connectionId);
-			if (!fenced || (!pendingSnapshots.containsKey(key) && !matchingDestinationClaim)
+			boolean claimForDestination = claim != null && claim.server.equalsIgnoreCase(normalizedServer);
+			boolean matchingDestinationClaim = claimForDestination && claim.connectionId.equals(connectionId);
+			if (!fenced || (claimForDestination ? !matchingDestinationClaim : !pendingSnapshots.containsKey(key))
 					|| !ensurePlayerEventCapacity(playerUuid)
 					|| !markBackendAvailable(normalizedServer, backendIncarnationId, backendStartedAt,
 							presenceTimestamp, now)) {

@@ -157,6 +157,36 @@ public class BackendPlayerPresenceTrackerTest {
 	}
 
 	@Test
+	public void mismatchedDestinationLogoutCannotFenceClaimedSnapshot() {
+		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
+		UUID sourceIncarnation = UUID.randomUUID();
+		UUID destinationIncarnation = UUID.randomUUID();
+		UUID playerUuid = UUID.randomUUID();
+		UUID sourceConnection = UUID.randomUUID();
+		UUID claimedConnection = UUID.randomUUID();
+		assertTrue(tracker.backendStarted("source", sourceIncarnation, 1000L, 1000L, 10L));
+		assertTrue(tracker.backendStarted("destination", destinationIncarnation, 1000L, 1000L, 11L));
+		assertTrue(tracker.playerOnline("Player", playerUuid.toString(), "source", sourceConnection,
+				sourceIncarnation, 1000L, 1100L, 12L));
+
+		BackendPlayerPresenceTracker.PlayerOnlineResult conflict = tracker.playerOnlineResult("Player",
+				playerUuid.toString(), "destination", claimedConnection, destinationIncarnation,
+				1000L, 1200L, 20L);
+		assertTrue(conflict.isConflictingPresence());
+		UUID requestId = UUID.randomUUID();
+		assertEquals(requestId, tracker.beginSnapshotForDestinationClaim("destination", requestId,
+				destinationIncarnation, 1000L, playerUuid, conflict.getConflictSequence(), 21L));
+
+		assertFalse(tracker.playerOffline(playerUuid.toString(), "destination", UUID.randomUUID(),
+				destinationIncarnation, 1000L, 1300L, 22L));
+		assertTrue(tracker.isCurrentDestinationClaim(playerUuid, "destination", conflict.getConflictSequence()));
+		assertTrue(tracker.applySnapshotChunk("destination", requestId, 0, 1,
+				List.of(new PresencePlayer("Player", playerUuid.toString(), claimedConnection.toString())),
+				destinationIncarnation, 1000L, 1250L, 23L));
+		assertEquals("destination", tracker.getPlayer(playerUuid).orElseThrow().getServer());
+	}
+
+	@Test
 	public void proxyRestartTreatsPlayersAsOfflineUntilFreshSnapshot() {
 		UUID incarnationId = UUID.randomUUID();
 		UUID playerUuid = UUID.randomUUID();
