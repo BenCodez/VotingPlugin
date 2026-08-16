@@ -65,6 +65,8 @@ public class BungeeHandler implements Listener {
 	@Getter
 	private final ConcurrentHashMap<UUID, Long> processedWireVotes = new ConcurrentHashMap<>();
 	private final ConcurrentHashMap<String, BackendPlayerPresenceSession> playerPresenceSessions = new ConcurrentHashMap<>();
+	private final Object presenceLifecycleLock = new Object();
+	private boolean presenceReporting;
 	private ScheduledFuture<?> presenceHeartbeatTask;
 	@Getter
 	private ClientHandler clientHandler;
@@ -591,9 +593,14 @@ public class BungeeHandler implements Listener {
 			return;
 		}
 
-		playerPresenceSessions.put(playerKey(session.playerName), session);
-		sendPresenceMessage(VotingPluginWire.login(session.playerName, session.uuid,
-				plugin.getBungeeSettings().getServer(), session.connectionId));
+		synchronized (presenceLifecycleLock) {
+			if (!presenceReporting) {
+				return;
+			}
+			playerPresenceSessions.put(playerKey(session.playerName), session);
+			sendPresenceMessage(VotingPluginWire.login(session.playerName, session.uuid,
+					plugin.getBungeeSettings().getServer(), session.connectionId));
+		}
 	}
 
 	/**
@@ -602,13 +609,18 @@ public class BungeeHandler implements Listener {
 	 * @param playerName player name
 	 */
 	public void playerOffline(String playerName) {
-		BackendPlayerPresenceSession session = playerPresenceSessions.remove(playerKey(playerName));
-		if (session == null || globalMessageHandler == null) {
-			return;
-		}
+		synchronized (presenceLifecycleLock) {
+			if (!presenceReporting) {
+				return;
+			}
+			BackendPlayerPresenceSession session = playerPresenceSessions.remove(playerKey(playerName));
+			if (session == null || globalMessageHandler == null) {
+				return;
+			}
 
-		sendPresenceMessage(VotingPluginWire.logout(session.playerName, session.uuid,
-				plugin.getBungeeSettings().getServer(), session.connectionId));
+			sendPresenceMessage(VotingPluginWire.logout(session.playerName, session.uuid,
+					plugin.getBungeeSettings().getServer(), session.connectionId));
+		}
 	}
 
 	private void handlePresenceSnapshotRequest(JsonEnvelope msg) {
@@ -640,7 +652,7 @@ public class BungeeHandler implements Listener {
 				for (int chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++) {
 					int fromIndex = chunkIndex * PRESENCE_SNAPSHOT_CHUNK_SIZE;
 					int toIndex = Math.min(players.size(), fromIndex + PRESENCE_SNAPSHOT_CHUNK_SIZE);
-					sendPresenceMessage(VotingPluginWire.presenceSnapshot(server, request.requestId,
+					sendActivePresenceMessage(VotingPluginWire.presenceSnapshot(server, request.requestId,
 							chunkIndex, chunkCount, players.subList(fromIndex, toIndex)));
 				}
 			}
@@ -648,20 +660,25 @@ public class BungeeHandler implements Listener {
 	}
 
 	private BackendPlayerPresenceSession getOrCreatePresenceSession(Player player) {
-		String key = playerKey(player.getName());
-		BackendPlayerPresenceSession current = playerPresenceSessions.get(key);
-		if (current != null) {
-			return current;
-		}
+		synchronized (presenceLifecycleLock) {
+			if (!presenceReporting) {
+				return null;
+			}
+			String key = playerKey(player.getName());
+			BackendPlayerPresenceSession current = playerPresenceSessions.get(key);
+			if (current != null) {
+				return current;
+			}
 
-		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
-		String uuid = user == null ? player.getUniqueId().toString() : user.getUUID();
-		BackendPlayerPresenceSession created = createPresenceSession(player.getName(), uuid);
-		if (created == null) {
-			return null;
+			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
+			String uuid = user == null ? player.getUniqueId().toString() : user.getUUID();
+			BackendPlayerPresenceSession created = createPresenceSession(player.getName(), uuid);
+			if (created == null) {
+				return null;
+			}
+			BackendPlayerPresenceSession raced = playerPresenceSessions.putIfAbsent(key, created);
+			return raced == null ? created : raced;
 		}
-		BackendPlayerPresenceSession raced = playerPresenceSessions.putIfAbsent(key, created);
-		return raced == null ? created : raced;
 	}
 
 	private BackendPlayerPresenceSession createPresenceSession(String playerName, String uuid) {
@@ -683,31 +700,62 @@ public class BungeeHandler implements Listener {
 			return;
 		}
 		String server = plugin.getBungeeSettings().getServer();
-		sendPresenceMessage(VotingPluginWire.backendStarted(server));
-		sendPresenceMessage(VotingPluginWire.backendHeartbeat(server));
+		synchronized (presenceLifecycleLock) {
+			presenceReporting = true;
+			sendPresenceMessage(VotingPluginWire.backendStarted(server));
+			sendPresenceMessage(VotingPluginWire.backendHeartbeat(server));
 
-		if (presenceHeartbeatTask != null) {
-			presenceHeartbeatTask.cancel(false);
+			if (presenceHeartbeatTask != null) {
+				presenceHeartbeatTask.cancel(false);
+			}
+			presenceHeartbeatTask = plugin.getTimer().scheduleAtFixedRate(new Runnable() {
+				@Override
+				public void run() {
+					sendActivePresenceMessage(VotingPluginWire.backendHeartbeat(server));
+				}
+			}, PRESENCE_HEARTBEAT_SECONDS, PRESENCE_HEARTBEAT_SECONDS, TimeUnit.SECONDS);
 		}
-		presenceHeartbeatTask = plugin.getTimer().scheduleAtFixedRate(new Runnable() {
+		seedOnlinePlayerPresence();
+	}
+
+	private void seedOnlinePlayerPresence() {
+		plugin.getBukkitScheduler().runTask(plugin, new Runnable() {
 			@Override
 			public void run() {
-				if (plugin.isEnabled() && globalMessageHandler != null) {
-					sendPresenceMessage(VotingPluginWire.backendHeartbeat(server));
+				if (!plugin.isEnabled()) {
+					return;
+				}
+				for (Player player : Bukkit.getOnlinePlayers()) {
+					BackendPlayerPresenceSession session = getOrCreatePresenceSession(player);
+					if (session != null) {
+						sendActivePresenceMessage(VotingPluginWire.login(session.playerName, session.uuid,
+								plugin.getBungeeSettings().getServer(), session.connectionId));
+					}
 				}
 			}
-		}, PRESENCE_HEARTBEAT_SECONDS, PRESENCE_HEARTBEAT_SECONDS, TimeUnit.SECONDS);
+		});
 	}
 
 	private void stopPresenceReporting() {
-		if (presenceHeartbeatTask != null) {
-			presenceHeartbeatTask.cancel(false);
-			presenceHeartbeatTask = null;
+		synchronized (presenceLifecycleLock) {
+			presenceReporting = false;
+			if (presenceHeartbeatTask != null) {
+				presenceHeartbeatTask.cancel(false);
+				presenceHeartbeatTask = null;
+			}
+			if (globalMessageHandler != null) {
+				sendPresenceMessage(VotingPluginWire.backendStopped(plugin.getBungeeSettings().getServer()));
+			}
+			playerPresenceSessions.clear();
 		}
-		if (globalMessageHandler != null) {
-			sendPresenceMessage(VotingPluginWire.backendStopped(plugin.getBungeeSettings().getServer()));
+	}
+
+	private void sendActivePresenceMessage(JsonEnvelope envelope) {
+		synchronized (presenceLifecycleLock) {
+			if (presenceReporting) {
+				sendPresenceMessage(envelope);
+			}
 		}
-		playerPresenceSessions.clear();
 	}
 
 	private void sendPresenceMessage(JsonEnvelope envelope) {

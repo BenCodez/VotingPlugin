@@ -102,6 +102,26 @@ public class BackendPlayerPresenceTrackerTest {
 	}
 
 	@Test
+	public void snapshotCannotEvictNewerOwnerOfTheSameName() {
+		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
+		UUID snapshotUuid = UUID.randomUUID();
+		UUID currentUuid = UUID.randomUUID();
+		UUID currentConnection = UUID.randomUUID();
+		UUID requestId = UUID.randomUUID();
+		tracker.beginSnapshot("survival", requestId);
+		tracker.playerOnline("Player", currentUuid.toString(), "creative", currentConnection, 20L);
+
+		assertTrue(tracker.applySnapshot("survival", requestId,
+				List.of(new PresencePlayer("player", snapshotUuid.toString(), UUID.randomUUID().toString())), 30L));
+
+		assertTrue(tracker.getPlayer(snapshotUuid).isEmpty());
+		PlayerPresence current = tracker.getPlayer("PLAYER").orElseThrow();
+		assertEquals(currentUuid, current.getUuid());
+		assertEquals(currentConnection, current.getConnectionId());
+		assertEquals(1, tracker.getOnlinePlayerCount());
+	}
+
+	@Test
 	public void backendLifecycleAndTimeoutRemoveOwnedPlayers() {
 		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
 		UUID uuid = UUID.randomUUID();
@@ -116,6 +136,20 @@ public class BackendPlayerPresenceTrackerTest {
 		assertEquals(Set.of("survival"), expired);
 		assertTrue(tracker.getPlayer(uuid).isEmpty());
 		assertFalse(tracker.getBackendStatus("survival").isAvailable());
+	}
+
+	@Test
+	public void staleLogoutCannotReviveStoppedBackend() {
+		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
+		UUID uuid = UUID.randomUUID();
+		UUID connectionId = UUID.randomUUID();
+		tracker.playerOnline("Player", uuid.toString(), "survival", connectionId, 10L);
+		tracker.backendStopped("survival", 20L);
+
+		assertFalse(tracker.playerOffline(uuid.toString(), "survival", connectionId, 30L));
+
+		assertFalse(tracker.getBackendStatus("survival").isAvailable());
+		assertEquals(20L, tracker.getBackendStatus("survival").getLastSeen());
 	}
 
 	@Test

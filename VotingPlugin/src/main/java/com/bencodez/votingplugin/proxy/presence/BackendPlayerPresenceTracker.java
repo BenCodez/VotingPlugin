@@ -64,14 +64,14 @@ public class BackendPlayerPresenceTracker {
 			return false;
 		}
 
-		long sequence = ++eventSequence;
-		markBackendAvailable(normalizedServer, now);
 		PlayerPresence current = playersByUuid.get(playerUuid);
 		if (current == null || !current.getServer().equalsIgnoreCase(normalizedServer)
 				|| !current.getConnectionId().equals(connectionId)) {
 			return false;
 		}
+		long sequence = ++eventSequence;
 		removePresence(playerUuid, sequence);
+		markBackendAvailable(normalizedServer, now);
 		prunePlayerEventSequences();
 		return true;
 	}
@@ -198,6 +198,13 @@ public class BackendPlayerPresenceTracker {
 			long lastPlayerEvent = lastPlayerEventSequences.getOrDefault(snapshot.uuid, 0L);
 			if (lastPlayerEvent > pending.eventWatermark) {
 				continue;
+			}
+			UUID nameOwnerUuid = uuidByPlayerName.get(snapshot.normalizedName);
+			if (nameOwnerUuid != null && !nameOwnerUuid.equals(snapshot.uuid)) {
+				PlayerPresence nameOwner = playersByUuid.get(nameOwnerUuid);
+				if (nameOwner != null && nameOwner.getLastEventSequence() > pending.eventWatermark) {
+					continue;
+				}
 			}
 			putPresence(new PlayerPresence(snapshot.uuid, snapshot.playerName, normalizedServer,
 					snapshot.connectionId, snapshotSequence, now));
