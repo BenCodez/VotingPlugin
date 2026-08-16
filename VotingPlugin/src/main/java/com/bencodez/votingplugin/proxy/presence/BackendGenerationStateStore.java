@@ -35,7 +35,11 @@ public final class BackendGenerationStateStore {
 	private static final int VERSION = 1;
 	private static final int MAX_BACKENDS = 1024;
 	private static final int MAX_RETIRED_INCARNATIONS = 64;
-	private static final long MAX_FILE_BYTES = 1024L * 1024L;
+	private static final int MAX_SERVER_CHARACTERS = 128;
+	private static final long MAX_SERIALIZED_SERVER_BYTES = 2L + MAX_SERVER_CHARACTERS * 3L;
+	private static final long MAX_SERIALIZED_ENTRY_BYTES = MAX_SERIALIZED_SERVER_BYTES + 16L + 8L + 8L + 1L
+			+ 4L + MAX_RETIRED_INCARNATIONS * 16L;
+	private static final long MAX_FILE_BYTES = 12L + MAX_BACKENDS * MAX_SERIALIZED_ENTRY_BYTES;
 	private static final String FILE_NAME = "backend-presence-generations.dat";
 
 	private final Path file;
@@ -115,7 +119,19 @@ public final class BackendGenerationStateStore {
 	 */
 	public void save(BackendPlayerPresenceTracker tracker) throws IOException {
 		List<BackendGenerationState> states = new ArrayList<>(tracker.getBackendGenerationStates());
+		if (states.size() > MAX_BACKENDS) {
+			throw new IOException("Too many backend generation states to persist");
+		}
 		states.sort(Comparator.comparing(BackendGenerationState::getServer, String.CASE_INSENSITIVE_ORDER));
+		for (BackendGenerationState state : states) {
+			if (state.getServer() == null || state.getServer().isBlank()
+					|| state.getServer().length() > MAX_SERVER_CHARACTERS
+					|| state.getBackendIncarnationId() == null || state.getBackendStartedAt() <= 0L
+					|| state.getLastLifecycleTimestamp() < state.getBackendStartedAt()
+					|| state.getRetiredIncarnations().size() > MAX_RETIRED_INCARNATIONS) {
+				throw new IOException("Invalid backend generation state cannot be persisted");
+			}
+		}
 		Path parent = file.getParent();
 		if (parent != null) {
 			Files.createDirectories(parent);
@@ -145,7 +161,8 @@ public final class BackendGenerationStateStore {
 		try {
 			Files.move(temporary, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
 		} catch (AtomicMoveNotSupportedException e) {
-			Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING);
+			Files.deleteIfExists(temporary);
+			throw new IOException("Atomic backend generation state replacement is not supported", e);
 		}
 	}
 
