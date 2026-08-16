@@ -1382,8 +1382,11 @@ public abstract class VotingPluginProxy {
 				boolean accepted = false;
 				if (legacy) {
 					// Preserve cached-reward delivery from older backends that still send the
-					// original three-field login envelope.
-					accepted = true;
+					// original three-field login envelope. Backend Server names are trusted
+					// identities, but a stale legacy login must not contradict authoritative
+					// modern presence for the same player.
+					accepted = isPresenceServerValid(server, VotingPluginWire.SUB_LOGIN)
+							&& !backendPlayerPresenceTracker.hasConflictingPresence(player, uuid, server);
 				} else if (event.connectionId != null && isPresenceServerValid(server, VotingPluginWire.SUB_LOGIN)
 						&& isPresenceGenerationValid(event.backendIncarnationId, event.backendStartedAt,
 								event.presenceTimestamp, VotingPluginWire.SUB_LOGIN)) {
@@ -1405,7 +1408,7 @@ public abstract class VotingPluginProxy {
 					discardPendingPresenceHandoff(uuid);
 					login(player, uuid, server);
 				} else {
-					debug("Ignored invalid or stale extended login envelope: " + message.getFields());
+					debug("Ignored invalid or stale login envelope: " + message.getFields());
 				}
 			}
 		});
@@ -1892,13 +1895,18 @@ public abstract class VotingPluginProxy {
 
 	private void loadBackendGenerationState() {
 		synchronized (backendGenerationStateLock) {
-			backendGenerationStateStore = new BackendGenerationStateStore(getDataFolderPlugin().toPath());
+			BackendGenerationStateStore stateStore = new BackendGenerationStateStore(getDataFolderPlugin().toPath());
 			try {
-				for (String server : backendGenerationStateStore.loadInto(backendPlayerPresenceTracker,
+				for (String server : stateStore.loadInto(backendPlayerPresenceTracker,
 						getAllAvailableServers(), System.currentTimeMillis())) {
 					pendingBackendRecoverySnapshots.add(presenceServerKey(server));
 				}
+				backendGenerationStateStore = stateStore;
 			} catch (IOException | RuntimeException e) {
+				// Fail closed: accepting a new lifecycle generation without the restored
+				// retired-incarnation fence could let delayed traffic replace the current
+				// backend. A clean restart after repairing/removing the state file is required.
+				backendGenerationStateStore = null;
 				warn("Unable to load backend presence generation state: " + e.getMessage());
 			}
 		}
@@ -1958,6 +1966,9 @@ public abstract class VotingPluginProxy {
 	}
 
 	private boolean isPresenceServerValid(String server, String subChannel) {
+		// The presence protocol's trust boundary is the configured backend set. The
+		// selected transport must only be accessible to backend servers trusted not to
+		// impersonate one another.
 		if (server == null || server.isBlank() || !isServerValid(server)) {
 			debug("Ignored " + subChannel + " presence envelope for an unconfigured server");
 			return false;

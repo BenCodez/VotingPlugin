@@ -35,6 +35,19 @@ public class BackendPlayerPresenceTrackerTest {
 	}
 
 	@Test
+	public void conflictingServerClaimIsRejectedWhenModernPresenceIsKnown() {
+		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
+		UUID uuid = UUID.randomUUID();
+		UUID connectionId = UUID.randomUUID();
+
+		assertTrue(tracker.playerOnline("Player", uuid.toString(), "survival", connectionId, 10L));
+
+		assertFalse(tracker.hasConflictingPresence("Player", uuid.toString(), "survival"));
+		assertTrue(tracker.hasConflictingPresence("Player", uuid.toString(), "creative"));
+		assertTrue(tracker.hasConflictingPresence("player", UUID.randomUUID().toString(), "creative"));
+	}
+
+	@Test
 	public void staleLogoutCannotClearNewerConnection() {
 		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
 		UUID uuid = UUID.randomUUID();

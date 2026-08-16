@@ -119,6 +119,7 @@ GiveExtraAllSitesRewards: false
 # What server this is in bungee (must match across your backend servers)
 # Also can be applied to rewards
 # IMPORTANT: Each backend server MUST have a unique value here.
+# Presence messages use this configured name as the trusted backend identity.
 Server: PleaseSet
 
 # Rewards from bungee vote party
