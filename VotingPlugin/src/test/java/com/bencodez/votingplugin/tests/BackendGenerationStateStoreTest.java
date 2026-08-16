@@ -67,10 +67,10 @@ public class BackendGenerationStateStoreTest {
 		assertTrue(tracker.playerOnline("Player", playerUuid.toString(), "survival", connectionId,
 				oldIncarnation, 1000L, 1100L, 20L));
 
-		assertThrows(IOException.class,
+		assertThrows(UnsupportedOperationException.class,
 				() -> tracker.backendStartedDurably("survival", replacementIncarnation, 2000L, 2000L, 30L,
 						ignored -> {
-							throw new IOException("simulated persistence failure");
+							throw new UnsupportedOperationException("simulated persistence failure");
 						}));
 
 		assertEquals(oldIncarnation, tracker.getBackendIncarnationId("survival"));

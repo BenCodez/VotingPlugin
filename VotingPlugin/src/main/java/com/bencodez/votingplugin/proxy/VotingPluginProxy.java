@@ -1927,7 +1927,7 @@ public abstract class VotingPluginProxy {
 			try {
 				return backendPlayerPresenceTracker.backendStartedDurably(server, backendIncarnationId,
 						backendStartedAt, presenceTimestamp, now, backendGenerationStateStore::save);
-			} catch (IOException e) {
+			} catch (IOException | RuntimeException e) {
 				warn("Rejected backend presence generation because its ordering fence could not be saved: "
 						+ e.getMessage());
 				return false;
@@ -1945,7 +1945,7 @@ public abstract class VotingPluginProxy {
 			try {
 				return backendPlayerPresenceTracker.backendStoppedDurably(server, backendIncarnationId,
 						backendStartedAt, presenceTimestamp, now, backendGenerationStateStore::save);
-			} catch (IOException e) {
+			} catch (IOException | RuntimeException e) {
 				warn("Rejected backend presence stop because its lifecycle fence could not be saved: "
 						+ e.getMessage());
 				return false;
