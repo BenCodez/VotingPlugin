@@ -81,38 +81,50 @@ public class BackendPlayerPresenceTracker {
 
 	public synchronized boolean playerOnline(String playerName, String uuid, String server, UUID connectionId,
 			long now) {
-		return playerOnline(playerName, uuid, server, connectionId, null, 0L, now, now, false);
+		return playerOnlineResult(playerName, uuid, server, connectionId, null, 0L, now, now, false)
+				== PlayerOnlineResult.ACCEPTED;
 	}
 
 	public synchronized boolean playerOnline(String playerName, String uuid, String server, UUID connectionId,
 			long backendStartedAt, long presenceTimestamp, long now) {
-		return playerOnline(playerName, uuid, server, connectionId, legacyIncarnation(backendStartedAt),
-				backendStartedAt, presenceTimestamp, now);
+		return playerOnlineResult(playerName, uuid, server, connectionId, legacyIncarnation(backendStartedAt),
+				backendStartedAt, presenceTimestamp, now, true) == PlayerOnlineResult.ACCEPTED;
 	}
 
 	public synchronized boolean playerOnline(String playerName, String uuid, String server, UUID connectionId,
 			UUID backendIncarnationId, long backendStartedAt, long presenceTimestamp, long now) {
-		return playerOnline(playerName, uuid, server, connectionId, backendIncarnationId, backendStartedAt,
+		return playerOnlineResult(playerName, uuid, server, connectionId, backendIncarnationId, backendStartedAt,
+				presenceTimestamp, now, true) == PlayerOnlineResult.ACCEPTED;
+	}
+
+	/**
+	 * Applies a fenced login and reports whether it was accepted, rejected as a
+	 * cross-backend handoff requiring a snapshot, or rejected for another reason.
+	 * The decision and all tracker mutations occur under this method's single lock.
+	 */
+	public synchronized PlayerOnlineResult playerOnlineResult(String playerName, String uuid, String server,
+			UUID connectionId, UUID backendIncarnationId, long backendStartedAt, long presenceTimestamp, long now) {
+		return playerOnlineResult(playerName, uuid, server, connectionId, backendIncarnationId, backendStartedAt,
 				presenceTimestamp, now, true);
 	}
 
-	private boolean playerOnline(String playerName, String uuid, String server, UUID connectionId,
+	private PlayerOnlineResult playerOnlineResult(String playerName, String uuid, String server, UUID connectionId,
 			UUID backendIncarnationId, long backendStartedAt, long presenceTimestamp, long now, boolean fenced) {
 		UUID playerUuid = parseUuid(uuid);
 		String normalizedName = normalizePlayerName(playerName);
 		String normalizedServer = normalizeServer(server);
 		if (playerUuid == null || normalizedName == null || normalizedServer == null || connectionId == null) {
-			return false;
+			return PlayerOnlineResult.REJECTED;
 		}
 		BackendState backendState = null;
 		if (fenced) {
 			if (!isCurrentBackendGeneration(normalizedServer, backendIncarnationId, backendStartedAt)
 					|| !isValidPresenceTimestamp(backendStartedAt, presenceTimestamp)) {
-				return false;
+				return PlayerOnlineResult.REJECTED;
 			}
 			backendState = backends.get(serverKey(normalizedServer));
 			if (presenceTimestamp <= backendState.lastPlayerEventTimestamp) {
-				return false;
+				return PlayerOnlineResult.REJECTED;
 			}
 			boolean conflictingBackend = false;
 			PlayerPresence current = playersByUuid.get(playerUuid);
@@ -120,7 +132,7 @@ public class BackendPlayerPresenceTracker {
 				if (!current.getServer().equalsIgnoreCase(normalizedServer)) {
 					conflictingBackend = true;
 				} else if (current.getLastSeen() >= presenceTimestamp) {
-					return false;
+					return PlayerOnlineResult.REJECTED;
 				}
 			}
 			UUID currentNameOwnerUuid = uuidByPlayerName.get(normalizedName);
@@ -129,7 +141,7 @@ public class BackendPlayerPresenceTracker {
 				if (!currentNameOwner.getServer().equalsIgnoreCase(normalizedServer)) {
 					conflictingBackend = true;
 				} else if (currentNameOwner.getLastSeen() >= presenceTimestamp) {
-					return false;
+					return PlayerOnlineResult.REJECTED;
 				}
 			}
 			if (conflictingBackend) {
@@ -140,7 +152,7 @@ public class BackendPlayerPresenceTracker {
 				if (!ensurePlayerEventCapacity(playerUuid)
 						|| !markBackendAvailable(normalizedServer, backendIncarnationId, backendStartedAt,
 						presenceTimestamp, now)) {
-					return false;
+					return PlayerOnlineResult.REJECTED;
 				}
 				long sequence = ++eventSequence;
 				lastPlayerEventSequences.put(playerUuid, sequence);
@@ -148,20 +160,20 @@ public class BackendPlayerPresenceTracker {
 				crossBackendFences.put(playerUuid, new CrossBackendFence(normalizedServer, sequence));
 				backendState.lastPlayerEventTimestamp = presenceTimestamp;
 				prunePlayerEventSequences();
-				return false;
+				return PlayerOnlineResult.CONFLICTING_PRESENCE;
 			}
 		}
 		boolean newIdentity = !playersByUuid.containsKey(playerUuid) && !uuidByPlayerName.containsKey(normalizedName);
 		if (newIdentity && playersByUuid.size() >= maxTrackedPlayerEvents) {
-			return false;
+			return PlayerOnlineResult.REJECTED;
 		}
 		if (!ensurePlayerEventCapacity(playerUuid)) {
-			return false;
+			return PlayerOnlineResult.REJECTED;
 		}
 		if (fenced ? !markBackendAvailable(normalizedServer, backendIncarnationId, backendStartedAt,
 				presenceTimestamp, now)
 				: !markBackendAvailable(normalizedServer, now)) {
-			return false;
+			return PlayerOnlineResult.REJECTED;
 		}
 
 		long sequence = ++eventSequence;
@@ -172,7 +184,7 @@ public class BackendPlayerPresenceTracker {
 			backendState.lastPlayerEventTimestamp = presenceTimestamp;
 		}
 		prunePlayerEventSequences();
-		return true;
+		return PlayerOnlineResult.ACCEPTED;
 	}
 
 	public synchronized boolean playerOffline(String uuid, String server, UUID connectionId, long now) {
@@ -256,22 +268,6 @@ public class BackendPlayerPresenceTracker {
 		removePlayersOnServer(normalizedServer, sequence);
 		pendingSnapshots.remove(serverKey(normalizedServer));
 		prunePlayerEventSequences();
-	}
-
-	public synchronized boolean hasConflictingPresence(String playerName, String uuid, String server) {
-		UUID playerUuid = parseUuid(uuid);
-		String normalizedName = normalizePlayerName(playerName);
-		String normalizedServer = normalizeServer(server);
-		if (playerUuid == null || normalizedName == null || normalizedServer == null) {
-			return false;
-		}
-		PlayerPresence uuidPresence = playersByUuid.get(playerUuid);
-		if (uuidPresence != null && !uuidPresence.getServer().equalsIgnoreCase(normalizedServer)) {
-			return true;
-		}
-		UUID nameOwnerUuid = uuidByPlayerName.get(normalizedName);
-		PlayerPresence namePresence = playersByUuid.get(nameOwnerUuid);
-		return namePresence != null && !namePresence.getServer().equalsIgnoreCase(normalizedServer);
 	}
 
 	public synchronized boolean backendStarted(String server, long backendStartedAt, long presenceTimestamp,
@@ -997,6 +993,12 @@ public class BackendPlayerPresenceTracker {
 
 	private static String serverKey(String server) {
 		return server.toLowerCase(Locale.ROOT);
+	}
+
+	public enum PlayerOnlineResult {
+		ACCEPTED,
+		CONFLICTING_PRESENCE,
+		REJECTED
 	}
 
 	private static final class CrossBackendFence {

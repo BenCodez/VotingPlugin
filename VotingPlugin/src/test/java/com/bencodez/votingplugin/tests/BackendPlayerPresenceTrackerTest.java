@@ -37,14 +37,23 @@ public class BackendPlayerPresenceTrackerTest {
 	@Test
 	public void conflictingServerClaimIsRejectedWhenModernPresenceIsKnown() {
 		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
+		UUID survivalIncarnation = UUID.randomUUID();
+		UUID creativeIncarnation = UUID.randomUUID();
 		UUID uuid = UUID.randomUUID();
 		UUID connectionId = UUID.randomUUID();
 
-		assertTrue(tracker.playerOnline("Player", uuid.toString(), "survival", connectionId, 10L));
+		assertTrue(tracker.backendStarted("survival", survivalIncarnation, 1000L, 1000L, 10L));
+		assertTrue(tracker.backendStarted("creative", creativeIncarnation, 1000L, 1000L, 11L));
+		assertEquals(BackendPlayerPresenceTracker.PlayerOnlineResult.ACCEPTED,
+				tracker.playerOnlineResult("Player", uuid.toString(), "survival", connectionId,
+						survivalIncarnation, 1000L, 1100L, 20L));
 
-		assertFalse(tracker.hasConflictingPresence("Player", uuid.toString(), "survival"));
-		assertTrue(tracker.hasConflictingPresence("Player", uuid.toString(), "creative"));
-		assertTrue(tracker.hasConflictingPresence("player", UUID.randomUUID().toString(), "creative"));
+		assertEquals(BackendPlayerPresenceTracker.PlayerOnlineResult.CONFLICTING_PRESENCE,
+				tracker.playerOnlineResult("Player", uuid.toString(), "creative", UUID.randomUUID(),
+						creativeIncarnation, 1000L, 1200L, 30L));
+		assertEquals(BackendPlayerPresenceTracker.PlayerOnlineResult.REJECTED,
+				tracker.playerOnlineResult("Player", uuid.toString(), "creative", UUID.randomUUID(),
+						creativeIncarnation, 1000L, 1200L, 40L));
 	}
 
 	@Test

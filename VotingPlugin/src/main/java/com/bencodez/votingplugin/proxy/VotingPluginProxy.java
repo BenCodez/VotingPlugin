@@ -1556,11 +1556,12 @@ public abstract class VotingPluginProxy {
 				&& isPresenceServerValid(server, VotingPluginWire.SUB_LOGIN)
 				&& isPresenceGenerationValid(event.backendIncarnationId, event.backendStartedAt,
 						event.presenceTimestamp, VotingPluginWire.SUB_LOGIN)) {
-			boolean conflictingBackend = backendPlayerPresenceTracker.hasConflictingPresence(player, uuid, server);
-			accepted = backendPlayerPresenceTracker.playerOnline(player, uuid, server, event.connectionId,
+			BackendPlayerPresenceTracker.PlayerOnlineResult result = backendPlayerPresenceTracker.playerOnlineResult(
+					player, uuid, server, event.connectionId,
 					event.backendIncarnationId, event.backendStartedAt, event.presenceTimestamp,
 					System.currentTimeMillis());
-			if (!accepted && conflictingBackend) {
+			accepted = result == BackendPlayerPresenceTracker.PlayerOnlineResult.ACCEPTED;
+			if (result == BackendPlayerPresenceTracker.PlayerOnlineResult.CONFLICTING_PRESENCE) {
 				requestBackendPresenceSnapshot(server,
 						new PendingPresenceHandoff(player, uuid, server, event.connectionId,
 								event.backendIncarnationId, event.backendStartedAt, System.currentTimeMillis()));
