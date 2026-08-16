@@ -249,8 +249,8 @@ WhiteListedServers: []
 # MQTT
 # SOCKETS
 # MYSQL (Not recommended)
-# Presence trusts each backend's configured Server name. Only allow trusted
-# backend servers to access the selected communication transport.
+# PLUGINMESSAGING uses this proxy's player/server state and disables backend
+# presence messages. Other methods trust each backend's configured Server name.
 BungeeMethod: PLUGINMESSAGING
 
 ######################################################################################

@@ -299,12 +299,15 @@ public class BungeeHandler implements Listener {
 			}
 		});
 
-		globalMessageHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_PRESENCE_SNAPSHOT_REQUEST) {
-			@Override
-			public void onReceive(JsonEnvelope msg) {
-				handlePresenceSnapshotRequest(msg);
-			}
-		});
+		if (method.supportsBackendPresence()) {
+			globalMessageHandler.addListener(
+					new GlobalMessageListener(VotingPluginWire.SUB_PRESENCE_SNAPSHOT_REQUEST) {
+						@Override
+						public void onReceive(JsonEnvelope msg) {
+							handlePresenceSnapshotRequest(msg);
+						}
+					});
+		}
 		globalMessageHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_VOTE_UPDATE) {
 			@Override
 			public void onReceive(JsonEnvelope msg) {
@@ -588,12 +591,24 @@ public class BungeeHandler implements Listener {
 	}
 
 	/**
-	 * Announces a player connection to the proxy presence tracker.
+	 * Announces a player login. Plugin messaging uses the original login envelope;
+	 * standalone transports also update the proxy presence tracker.
 	 *
 	 * @param playerName player name
 	 * @param uuid authoritative VotingPlugin UUID
 	 */
 	public void playerOnline(String playerName, String uuid) {
+		if (!method.supportsBackendPresence()) {
+			// PLUGINMESSAGING is attached to the player-facing proxy. Preserve the
+			// original login notification used for cached rewards and let the proxy
+			// provide authoritative online-player/server state.
+			if (globalMessageHandler != null) {
+				globalMessageHandler.sendMessage(VotingPluginWire.login(playerName, uuid,
+						plugin.getBungeeSettings().getServer()));
+			}
+			return;
+		}
+
 		BackendPlayerPresenceSession session = createPresenceSession(playerName, uuid);
 		if (session == null) {
 			plugin.getLogger().warning("Unable to report player login with invalid identity: " + nvl(playerName));
@@ -614,7 +629,8 @@ public class BungeeHandler implements Listener {
 	}
 
 	/**
-	 * Announces the end of the latest connection tracked for a player.
+	 * Announces the end of the latest presence-tracked player connection. Plugin
+	 * messaging relies on the proxy's native disconnect state and sends no logout.
 	 *
 	 * @param playerName player name
 	 */
@@ -742,7 +758,7 @@ public class BungeeHandler implements Listener {
 	}
 
 	private void startPresenceReporting() {
-		if (globalMessageHandler == null) {
+		if (globalMessageHandler == null || method == null || !method.supportsBackendPresence()) {
 			return;
 		}
 		String server = plugin.getBungeeSettings().getServer();

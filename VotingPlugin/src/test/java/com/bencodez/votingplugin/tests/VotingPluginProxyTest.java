@@ -125,6 +125,45 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void pluginMessagingLegacyLoginUsesTheProxyCurrentServer() {
+		String uuid = java.util.UUID.randomUUID().toString();
+		votingPluginProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		doNothing().when(spyProxy).login(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+
+		spyProxy.handleLoginMessageForTest(VotingPluginWire.login("Player", uuid, "claimed-backend"));
+
+		verify(spyProxy).login("Player", uuid, "Server1");
+	}
+
+	@Test
+	void standaloneTransportLegacyLoginKeepsOriginalCompatibilityPath() {
+		String uuid = java.util.UUID.randomUUID().toString();
+		votingPluginProxy.setMethod(BungeeMethod.MQTT);
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		doNothing().when(spyProxy).login(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+
+		spyProxy.handleLoginMessageForTest(VotingPluginWire.login("Player", uuid, "survival"));
+
+		verify(spyProxy).login("Player", uuid, "survival");
+	}
+
+	@Test
+	void pluginMessagingIgnoresExtendedPresenceLogin() {
+		votingPluginProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		doNothing().when(spyProxy).login(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+		java.util.UUID connectionId = java.util.UUID.randomUUID();
+		java.util.UUID incarnationId = java.util.UUID.randomUUID();
+
+		spyProxy.handleLoginMessageForTest(VotingPluginWire.login("Player",
+				java.util.UUID.randomUUID().toString(), "survival", connectionId, incarnationId, 1000L, 1100L));
+
+		verify(spyProxy, never()).login(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+		assertEquals(0, spyProxy.getBackendPlayerPresenceTracker().getOnlinePlayerCount());
+	}
+
+	@Test
 	void standaloneMysqlBroadcastReportsTransportFailure() throws Exception {
 		MySqlMessenger messenger = Mockito.mock(MySqlMessenger.class);
 		Mockito.doThrow(new java.sql.SQLException("send failed")).when(messenger)

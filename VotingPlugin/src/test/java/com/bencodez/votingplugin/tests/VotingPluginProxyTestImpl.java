@@ -193,6 +193,10 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 		return sendProxyBroadcastEnvelopeNow(server, envelope);
 	}
 
+	public void handleLoginMessageForTest(JsonEnvelope envelope) {
+		handleLoginMessage(envelope);
+	}
+
 	public void retryPendingOnlineBroadcastsForTest(String server) {
 		retryPendingOnlineBroadcasts(server);
 	}

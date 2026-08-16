@@ -74,6 +74,7 @@ public final class BackendGenerationStateStore {
 			}
 		}
 		List<BackendGenerationState> states = new ArrayList<>();
+		Set<String> restoredServerKeys = new HashSet<>();
 		try (DataInputStream input = new DataInputStream(new BufferedInputStream(Files.newInputStream(file)))) {
 			if (input.readInt() != MAGIC || input.readInt() != VERSION) {
 				throw new IOException("Unsupported backend generation state format");
@@ -84,6 +85,9 @@ public final class BackendGenerationStateStore {
 			}
 			for (int index = 0; index < backendCount; index++) {
 				String server = input.readUTF();
+				String normalizedServer = server.trim();
+				String serverKey = normalizedServer.toLowerCase(Locale.ROOT);
+				boolean configuredEntry = configured.contains(serverKey);
 				UUID current = readUuid(input);
 				long backendStartedAt = input.readLong();
 				long lastLifecycleTimestamp = input.readLong();
@@ -94,9 +98,18 @@ public final class BackendGenerationStateStore {
 				}
 				Set<UUID> retired = new LinkedHashSet<>();
 				for (int retiredIndex = 0; retiredIndex < retiredCount; retiredIndex++) {
-					retired.add(readUuid(input));
+					UUID retiredIncarnation = readUuid(input);
+					if (!retired.add(retiredIncarnation) && configuredEntry) {
+						throw new IOException("Duplicate retired backend incarnation");
+					}
 				}
-				if (configured.contains(server.trim().toLowerCase(Locale.ROOT))) {
+				if (configuredEntry) {
+					if (normalizedServer.isEmpty() || normalizedServer.length() > MAX_SERVER_CHARACTERS
+							|| !server.equals(normalizedServer) || backendStartedAt <= 0L
+							|| lastLifecycleTimestamp < backendStartedAt || retired.contains(current)
+							|| !restoredServerKeys.add(serverKey)) {
+						throw new IOException("Invalid configured backend generation state");
+					}
 					states.add(new BackendGenerationState(server, current, backendStartedAt,
 							lastLifecycleTimestamp, stopped, retired));
 				}

@@ -1152,7 +1152,13 @@ public abstract class VotingPluginProxy {
 	}
 
 	public void load(IVoteCache jsonStorage, INonVotedPlayersStorage nonVotedCacheJson) {
-		loadBackendGenerationState();
+		method = BungeeMethod.getByName(getConfig().getBungeeMethod());
+		if (getMethod() == null) {
+			method = BungeeMethod.PLUGINMESSAGING;
+		}
+		if (method.supportsBackendPresence()) {
+			loadBackendGenerationState();
+		}
 		uuidPlayerNameCache = getProxyMySQL().getRowsUUIDNameQuery();
 
 		bungeeTimeChecker.setTimeChangeFailSafeBypass(getConfig().getTimeChangeFailSafeBypass());
@@ -1233,11 +1239,6 @@ public abstract class VotingPluginProxy {
 				return getProxyMySQL().getUuids();
 			}
 		};
-
-		method = BungeeMethod.getByName(getConfig().getBungeeMethod());
-		if (getMethod() == null) {
-			method = BungeeMethod.PLUGINMESSAGING;
-		}
 
 		if (method.equals(BungeeMethod.MYSQL)) {
 			try {
@@ -1368,54 +1369,16 @@ public abstract class VotingPluginProxy {
 		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_LOGIN) {
 			@Override
 			public void onReceive(JsonEnvelope message) {
-				VotingPluginWire.PlayerPresenceEvent event = VotingPluginWire.readPlayerPresenceEvent(message);
-				String player = event.player;
-				String uuid = event.uuid;
-				String server = event.server;
-
-				if (player.isEmpty() || uuid.isEmpty()) {
-					logSevere("Invalid login envelope received: " + message.getFields());
-					return;
-				}
-				boolean legacy = event.connectionId == null && event.backendIncarnationId == null
-						&& event.backendStartedAt == 0L && event.presenceTimestamp == 0L;
-				boolean accepted = false;
-				if (legacy) {
-					// Preserve cached-reward delivery from older backends that still send the
-					// original three-field login envelope. Backend Server names are trusted
-					// identities, but a stale legacy login must not contradict authoritative
-					// modern presence for the same player.
-					accepted = isPresenceServerValid(server, VotingPluginWire.SUB_LOGIN)
-							&& !backendPlayerPresenceTracker.hasConflictingPresence(player, uuid, server);
-				} else if (event.connectionId != null && isPresenceServerValid(server, VotingPluginWire.SUB_LOGIN)
-						&& isPresenceGenerationValid(event.backendIncarnationId, event.backendStartedAt,
-								event.presenceTimestamp, VotingPluginWire.SUB_LOGIN)) {
-					boolean conflictingBackend = backendPlayerPresenceTracker.hasConflictingPresence(player, uuid,
-							server);
-					accepted = backendPlayerPresenceTracker.playerOnline(player, uuid, server, event.connectionId,
-							event.backendIncarnationId, event.backendStartedAt, event.presenceTimestamp,
-							System.currentTimeMillis());
-					if (!accepted && conflictingBackend) {
-						requestBackendPresenceSnapshot(server,
-								new PendingPresenceHandoff(player, uuid, server, event.connectionId,
-										event.backendIncarnationId, event.backendStartedAt,
-										System.currentTimeMillis()));
-					}
-				}
-
-				debug("Login: " + player + "/" + uuid + " " + server);
-				if (accepted) {
-					discardPendingPresenceHandoff(uuid);
-					login(player, uuid, server);
-				} else {
-					debug("Ignored invalid or stale login envelope: " + message.getFields());
-				}
+				handleLoginMessage(message);
 			}
 		});
 
 		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_LOGOUT) {
 			@Override
 			public void onReceive(JsonEnvelope message) {
+				if (!method.supportsBackendPresence()) {
+					return;
+				}
 				VotingPluginWire.PlayerPresenceEvent event = VotingPluginWire.readPlayerPresenceEvent(message);
 				if (!isPresenceServerValid(event.server, VotingPluginWire.SUB_LOGOUT)
 						|| !isPresenceGenerationValid(event.backendIncarnationId, event.backendStartedAt,
@@ -1434,6 +1397,9 @@ public abstract class VotingPluginProxy {
 		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_BACKEND_STARTED) {
 			@Override
 			public void onReceive(JsonEnvelope message) {
+				if (!method.supportsBackendPresence()) {
+					return;
+				}
 				String server = message.getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
 				UUID backendIncarnationId = VotingPluginWire.readBackendIncarnationId(message);
 				long backendStartedAt = VotingPluginWire.readBackendStartedAt(message);
@@ -1454,6 +1420,9 @@ public abstract class VotingPluginProxy {
 		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_BACKEND_STOPPED) {
 			@Override
 			public void onReceive(JsonEnvelope message) {
+				if (!method.supportsBackendPresence()) {
+					return;
+				}
 				String server = message.getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
 				UUID backendIncarnationId = VotingPluginWire.readBackendIncarnationId(message);
 				long backendStartedAt = VotingPluginWire.readBackendStartedAt(message);
@@ -1473,6 +1442,9 @@ public abstract class VotingPluginProxy {
 		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_BACKEND_HEARTBEAT) {
 			@Override
 			public void onReceive(JsonEnvelope message) {
+				if (!method.supportsBackendPresence()) {
+					return;
+				}
 				String server = message.getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
 				UUID backendIncarnationId = VotingPluginWire.readBackendIncarnationId(message);
 				long backendStartedAt = VotingPluginWire.readBackendStartedAt(message);
@@ -1489,6 +1461,9 @@ public abstract class VotingPluginProxy {
 		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_PRESENCE_SNAPSHOT) {
 			@Override
 			public void onReceive(JsonEnvelope message) {
+				if (!method.supportsBackendPresence()) {
+					return;
+				}
 				String server = message.getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
 				if (!isPresenceServerValid(server, VotingPluginWire.SUB_PRESENCE_SNAPSHOT)) {
 					return;
@@ -1541,10 +1516,68 @@ public abstract class VotingPluginProxy {
 
 		loadMultiProxySupport();
 		loadVoteLoggingMySQL();
-		loadTaskTimer(this::maintainBackendPresence, PRESENCE_MAINTENANCE_INTERVAL_SECONDS,
-				PRESENCE_MAINTENANCE_INTERVAL_SECONDS);
+		if (method.supportsBackendPresence()) {
+			loadTaskTimer(this::maintainBackendPresence, PRESENCE_MAINTENANCE_INTERVAL_SECONDS,
+					PRESENCE_MAINTENANCE_INTERVAL_SECONDS);
+		}
 
 		debug("VotingPluginProxy loaded, ONLINEMODE: " + getConfig().getOnlineMode());
+	}
+
+	/**
+	 * Handles both the original login notification and extended presence logins.
+	 * Kept protected so transport-policy behavior can be regression tested without
+	 * initializing a live proxy transport.
+	 *
+	 * @param message login envelope
+	 */
+	protected void handleLoginMessage(JsonEnvelope message) {
+		VotingPluginWire.PlayerPresenceEvent event = VotingPluginWire.readPlayerPresenceEvent(message);
+		String player = event.player;
+		String uuid = event.uuid;
+		String server = event.server;
+
+		if (player.isEmpty() || uuid.isEmpty()) {
+			logSevere("Invalid login envelope received: " + message.getFields());
+			return;
+		}
+		boolean legacy = event.connectionId == null && event.backendIncarnationId == null
+				&& event.backendStartedAt == 0L && event.presenceTimestamp == 0L;
+		boolean accepted = false;
+		String deliveryServer = server;
+		if (legacy) {
+			// Preserve the original login contract for cached rewards. In
+			// PLUGINMESSAGING mode the player-facing proxy is authoritative for online
+			// state and backend presence messages are disabled entirely.
+			accepted = true;
+			if (method == BungeeMethod.PLUGINMESSAGING) {
+				String proxyServer = getCurrentPlayerServer(player);
+				if (proxyServer != null && !proxyServer.isBlank()) {
+					deliveryServer = proxyServer;
+				}
+			}
+		} else if (method != null && method.supportsBackendPresence() && event.connectionId != null
+				&& isPresenceServerValid(server, VotingPluginWire.SUB_LOGIN)
+				&& isPresenceGenerationValid(event.backendIncarnationId, event.backendStartedAt,
+						event.presenceTimestamp, VotingPluginWire.SUB_LOGIN)) {
+			boolean conflictingBackend = backendPlayerPresenceTracker.hasConflictingPresence(player, uuid, server);
+			accepted = backendPlayerPresenceTracker.playerOnline(player, uuid, server, event.connectionId,
+					event.backendIncarnationId, event.backendStartedAt, event.presenceTimestamp,
+					System.currentTimeMillis());
+			if (!accepted && conflictingBackend) {
+				requestBackendPresenceSnapshot(server,
+						new PendingPresenceHandoff(player, uuid, server, event.connectionId,
+								event.backendIncarnationId, event.backendStartedAt, System.currentTimeMillis()));
+			}
+		}
+
+		debug("Login: " + player + "/" + uuid + " " + server);
+		if (accepted) {
+			discardPendingPresenceHandoff(uuid);
+			login(player, uuid, deliveryServer);
+		} else {
+			debug("Ignored invalid or stale login envelope: " + message.getFields());
+		}
 	}
 
 	private VoteLogMysqlTable voteLogMysqlTable;
@@ -1776,7 +1809,7 @@ public abstract class VotingPluginProxy {
 	}
 
 	private UUID requestBackendPresenceSnapshot(String server, PendingPresenceHandoff handoff) {
-		if (globalMessageProxyHandler == null
+		if (method == null || !method.supportsBackendPresence() || globalMessageProxyHandler == null
 				|| !isPresenceServerValid(server, VotingPluginWire.SUB_PRESENCE_SNAPSHOT_REQUEST)) {
 			return null;
 		}
@@ -1882,7 +1915,7 @@ public abstract class VotingPluginProxy {
 	}
 
 	private void maintainBackendPresence() {
-		if (!enabled) {
+		if (!enabled || method == null || !method.supportsBackendPresence()) {
 			return;
 		}
 		expireBackendPresence(PRESENCE_BACKEND_TIMEOUT_MILLIS);
@@ -1994,6 +2027,9 @@ public abstract class VotingPluginProxy {
 	 * @return expired backend server names
 	 */
 	public Set<String> expireBackendPresence(long timeoutMillis) {
+		if (method == null || !method.supportsBackendPresence()) {
+			return Collections.emptySet();
+		}
 		long now = System.currentTimeMillis();
 		Set<String> expired = backendPlayerPresenceTracker.expireBackends(now, timeoutMillis);
 		for (String server : expired) {

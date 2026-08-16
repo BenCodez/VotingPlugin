@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -98,6 +99,29 @@ public class BackendGenerationStateStoreTest {
 
 		assertEquals(incarnation, tracker.getBackendIncarnationId("survival"));
 		assertEquals(connectionId, tracker.getPlayer(playerUuid).orElseThrow().getConnectionId());
+	}
+
+	@Test
+	public void semanticallyInvalidConfiguredStateFailsBeforeRestore() throws Exception {
+		Path stateFile = temporaryDirectory.resolve("backend-presence-generations.dat");
+		try (DataOutputStream output = new DataOutputStream(Files.newOutputStream(stateFile))) {
+			output.writeInt(0x56504753);
+			output.writeInt(1);
+			output.writeInt(1);
+			output.writeUTF("survival");
+			UUID incarnation = UUID.randomUUID();
+			output.writeLong(incarnation.getMostSignificantBits());
+			output.writeLong(incarnation.getLeastSignificantBits());
+			output.writeLong(0L);
+			output.writeLong(0L);
+			output.writeBoolean(false);
+			output.writeInt(0);
+		}
+
+		BackendGenerationStateStore store = new BackendGenerationStateStore(temporaryDirectory);
+		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
+		assertThrows(IOException.class, () -> store.loadInto(tracker, List.of("survival"), 10L));
+		assertEquals(0, tracker.getTrackedBackendCount());
 	}
 
 	@Test
