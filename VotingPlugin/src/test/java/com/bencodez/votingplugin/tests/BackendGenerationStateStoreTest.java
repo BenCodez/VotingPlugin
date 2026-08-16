@@ -2,8 +2,10 @@ package com.bencodez.votingplugin.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -36,7 +38,7 @@ public class BackendGenerationStateStoreTest {
 		BackendPlayerPresenceTracker afterFirstProxyRestart = new BackendPlayerPresenceTracker();
 		assertEquals(Set.of("survival"),
 				store.loadInto(afterFirstProxyRestart, List.of("survival"), 20L));
-		// Equal or rolled-back wall clocks are allowed: authenticated receipt order at
+		// Equal or rolled-back wall clocks are allowed: accepted receipt order at
 		// the proxy establishes the replacement, not backendStartedAt.
 		assertTrue(afterFirstProxyRestart.backendStarted("survival", replacementIncarnation,
 				1000L, 1000L, 30L));
@@ -51,6 +53,51 @@ public class BackendGenerationStateStoreTest {
 				1000L, 1100L, 60L));
 		assertEquals(replacementIncarnation,
 				afterSecondProxyRestart.getBackendIncarnationId("survival"));
+	}
+
+	@Test
+	public void failedGenerationPersistenceRollsBackTheTransition() throws Exception {
+		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
+		UUID oldIncarnation = UUID.randomUUID();
+		UUID replacementIncarnation = UUID.randomUUID();
+		UUID playerUuid = UUID.randomUUID();
+		UUID connectionId = UUID.randomUUID();
+
+		assertTrue(tracker.backendStarted("survival", oldIncarnation, 1000L, 1000L, 10L));
+		assertTrue(tracker.playerOnline("Player", playerUuid.toString(), "survival", connectionId,
+				oldIncarnation, 1000L, 1100L, 20L));
+
+		assertThrows(IOException.class,
+				() -> tracker.backendStartedDurably("survival", replacementIncarnation, 2000L, 2000L, 30L,
+						ignored -> {
+							throw new IOException("simulated persistence failure");
+						}));
+
+		assertEquals(oldIncarnation, tracker.getBackendIncarnationId("survival"));
+		assertEquals(connectionId, tracker.getPlayer(playerUuid).orElseThrow().getConnectionId());
+		assertFalse(tracker.heartbeat("survival", replacementIncarnation, 2000L, 2100L, 40L));
+		assertTrue(tracker.heartbeat("survival", oldIncarnation, 1000L, 1200L, 40L));
+	}
+
+	@Test
+	public void failedStopPersistenceRestoresOnlinePresence() throws Exception {
+		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
+		UUID incarnation = UUID.randomUUID();
+		UUID playerUuid = UUID.randomUUID();
+		UUID connectionId = UUID.randomUUID();
+
+		assertTrue(tracker.backendStarted("survival", incarnation, 1000L, 1000L, 10L));
+		assertTrue(tracker.playerOnline("Player", playerUuid.toString(), "survival", connectionId,
+				incarnation, 1000L, 1100L, 20L));
+
+		assertThrows(IOException.class,
+				() -> tracker.backendStoppedDurably("survival", incarnation, 1000L, 1200L, 30L,
+						ignored -> {
+							throw new IOException("simulated persistence failure");
+						}));
+
+		assertEquals(incarnation, tracker.getBackendIncarnationId("survival"));
+		assertEquals(connectionId, tracker.getPlayer(playerUuid).orElseThrow().getConnectionId());
 	}
 
 	@Test

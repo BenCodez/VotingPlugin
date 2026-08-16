@@ -320,11 +320,6 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	}
 
 	@Override
-	public String getPresenceServerSecret(String server) {
-		return getString(getNode("PresenceServerSecrets", server), "");
-	}
-
-	@Override
 	public boolean getStoreMonthTotalsWithDate() {
 		return getBoolean(getNode("StoreMonthTotalsWithDate"), false);
 	}

@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.proxy.presence;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -133,7 +134,7 @@ public class BackendPlayerPresenceTracker {
 			}
 			if (conflictingBackend) {
 				// A cross-backend login needs a proxy-confirmed destination snapshot. It is
-				// still an authenticated, ordered event from this backend, so advance that
+				// still an ordered event from the current generation, so advance that
 				// backend's replay fence before asking for the handoff snapshot.
 				if (!markBackendAvailable(normalizedServer, backendIncarnationId, backendStartedAt,
 						presenceTimestamp, now)) {
@@ -292,9 +293,9 @@ public class BackendPlayerPresenceTracker {
 			if (state.retiredIncarnations.contains(backendIncarnationId)) {
 				return false;
 			}
-			// Only an authenticated BackendStarted event can advance the proxy-local
-			// restart order. The current and retired UUIDs are persisted by the proxy so
-			// this ordering survives proxy restarts without comparing backend clocks.
+			// Only a BackendStarted event can advance the proxy-local restart order. The
+			// current and retired UUIDs are persisted by the proxy so this ordering
+			// survives proxy restarts without comparing backend clocks.
 			retireCurrentIncarnation(state);
 			long sequence = ++eventSequence;
 			removePlayersOnServer(normalizedServer, sequence);
@@ -320,6 +321,42 @@ public class BackendPlayerPresenceTracker {
 		state.stopped = false;
 		state.lastLifecycleTimestamp = presenceTimestamp;
 		return true;
+	}
+
+	/**
+	 * Applies a backend-start transition only when its resulting generation fence
+	 * can be persisted. Any persistence failure restores all tracker state changed
+	 * by the transition before the exception is returned to the caller.
+	 *
+	 * @param server configured backend server name
+	 * @param backendIncarnationId automatic process incarnation identifier
+	 * @param backendStartedAt lifecycle capture timestamp
+	 * @param presenceTimestamp message capture timestamp
+	 * @param now proxy receipt time
+	 * @param persister durable generation-state writer
+	 * @return true when the transition was accepted and persisted
+	 * @throws IOException when the resulting generation fence cannot be persisted
+	 */
+	public synchronized boolean backendStartedDurably(String server, UUID backendIncarnationId,
+			long backendStartedAt, long presenceTimestamp, long now,
+			BackendGenerationStatePersister persister) throws IOException {
+		if (persister == null) {
+			throw new IllegalArgumentException("persister must not be null");
+		}
+		if (!canAcceptBackendStarted(server, backendIncarnationId, backendStartedAt, presenceTimestamp)) {
+			return false;
+		}
+		TrackerState before = captureState();
+		if (!backendStarted(server, backendIncarnationId, backendStartedAt, presenceTimestamp, now)) {
+			throw new IllegalStateException("Validated backend-start transition was not accepted");
+		}
+		try {
+			persister.save(this);
+			return true;
+		} catch (IOException | RuntimeException e) {
+			restoreState(before);
+			throw e;
+		}
 	}
 
 	public synchronized void backendStopped(String server, long now) {
@@ -365,6 +402,42 @@ public class BackendPlayerPresenceTracker {
 		state.stopped = true;
 		prunePlayerEventSequences();
 		return true;
+	}
+
+	/**
+	 * Applies a backend-stop transition only when its resulting lifecycle fence can
+	 * be persisted. Any persistence failure restores the live player and backend
+	 * state removed by the attempted stop.
+	 *
+	 * @param server configured backend server name
+	 * @param backendIncarnationId automatic process incarnation identifier
+	 * @param backendStartedAt lifecycle capture timestamp
+	 * @param presenceTimestamp message capture timestamp
+	 * @param now proxy receipt time
+	 * @param persister durable generation-state writer
+	 * @return true when the transition was accepted and persisted
+	 * @throws IOException when the resulting lifecycle fence cannot be persisted
+	 */
+	public synchronized boolean backendStoppedDurably(String server, UUID backendIncarnationId,
+			long backendStartedAt, long presenceTimestamp, long now,
+			BackendGenerationStatePersister persister) throws IOException {
+		if (persister == null) {
+			throw new IllegalArgumentException("persister must not be null");
+		}
+		if (!canAcceptBackendStopped(server, backendIncarnationId, backendStartedAt, presenceTimestamp)) {
+			return false;
+		}
+		TrackerState before = captureState();
+		if (!backendStopped(server, backendIncarnationId, backendStartedAt, presenceTimestamp, now)) {
+			throw new IllegalStateException("Validated backend-stop transition was not accepted");
+		}
+		try {
+			persister.save(this);
+			return true;
+		} catch (IOException | RuntimeException e) {
+			restoreState(before);
+			throw e;
+		}
 	}
 
 	public synchronized void heartbeat(String server, long now) {
@@ -787,6 +860,64 @@ public class BackendPlayerPresenceTracker {
 		return state == null || !state.available || state.stopped ? 0L : state.backendStartedAt;
 	}
 
+	private TrackerState captureState() {
+		return new TrackerState(this);
+	}
+
+	private boolean canAcceptBackendStarted(String server, UUID backendIncarnationId, long backendStartedAt,
+			long presenceTimestamp) {
+		String normalizedServer = normalizeServer(server);
+		if (normalizedServer == null || backendIncarnationId == null
+				|| !isValidPresenceTimestamp(backendStartedAt, presenceTimestamp)) {
+			return false;
+		}
+		BackendState state = backends.get(serverKey(normalizedServer));
+		if (state == null) {
+			if (backends.size() < maxTrackedBackends) {
+				return true;
+			}
+			for (BackendState candidate : backends.values()) {
+				if (!candidate.available) {
+					return true;
+				}
+			}
+			return false;
+		}
+		if (!backendIncarnationId.equals(state.backendIncarnationId)) {
+			return !state.retiredIncarnations.contains(backendIncarnationId);
+		}
+		return state.backendStartedAt == backendStartedAt && !state.stopped
+				&& presenceTimestamp > state.lastLifecycleTimestamp;
+	}
+
+	private boolean canAcceptBackendStopped(String server, UUID backendIncarnationId, long backendStartedAt,
+			long presenceTimestamp) {
+		String normalizedServer = normalizeServer(server);
+		if (normalizedServer == null
+				|| !isCurrentBackendGeneration(normalizedServer, backendIncarnationId, backendStartedAt)) {
+			return false;
+		}
+		BackendState state = backends.get(serverKey(normalizedServer));
+		return isValidPresenceTimestamp(backendStartedAt, presenceTimestamp)
+				&& presenceTimestamp >= state.lastLifecycleTimestamp;
+	}
+
+	private void restoreState(TrackerState state) {
+		playersByUuid.clear();
+		playersByUuid.putAll(state.playersByUuid);
+		uuidByPlayerName.clear();
+		uuidByPlayerName.putAll(state.uuidByPlayerName);
+		lastPlayerEventSequences.clear();
+		lastPlayerEventSequences.putAll(state.lastPlayerEventSequences);
+		lastPlayerEventServers.clear();
+		lastPlayerEventServers.putAll(state.lastPlayerEventServers);
+		backends.clear();
+		backends.putAll(state.backends);
+		pendingSnapshots.clear();
+		pendingSnapshots.putAll(state.pendingSnapshots);
+		eventSequence = state.eventSequence;
+	}
+
 	private SnapshotPresence parseSnapshotPlayer(PresencePlayer player) {
 		if (player == null) {
 			return null;
@@ -1050,6 +1181,15 @@ public class BackendPlayerPresenceTracker {
 	}
 
 	/**
+	 * Writes the tracker's current backend-generation snapshot while the lifecycle
+	 * transition is held under the tracker lock.
+	 */
+	@FunctionalInterface
+	public interface BackendGenerationStatePersister {
+		void save(BackendPlayerPresenceTracker tracker) throws IOException;
+	}
+
+	/**
 	 * Durable, non-secret backend lifecycle ordering record.
 	 */
 	public static final class BackendGenerationState {
@@ -1120,6 +1260,51 @@ public class BackendPlayerPresenceTracker {
 
 		private boolean isExpired(long now) {
 			return now >= requestedAt && now - requestedAt >= SNAPSHOT_TIMEOUT_MILLIS;
+		}
+	}
+
+	private static final class TrackerState {
+		private final Map<UUID, PlayerPresence> playersByUuid;
+		private final Map<String, UUID> uuidByPlayerName;
+		private final Map<UUID, Long> lastPlayerEventSequences;
+		private final Map<UUID, String> lastPlayerEventServers;
+		private final Map<String, BackendState> backends = new HashMap<>();
+		private final Map<String, PendingSnapshot> pendingSnapshots = new HashMap<>();
+		private final long eventSequence;
+
+		private TrackerState(BackendPlayerPresenceTracker tracker) {
+			playersByUuid = new HashMap<>(tracker.playersByUuid);
+			uuidByPlayerName = new HashMap<>(tracker.uuidByPlayerName);
+			lastPlayerEventSequences = new HashMap<>(tracker.lastPlayerEventSequences);
+			lastPlayerEventServers = new HashMap<>(tracker.lastPlayerEventServers);
+			for (Map.Entry<String, BackendState> entry : tracker.backends.entrySet()) {
+				BackendState source = entry.getValue();
+				BackendState copy = new BackendState(source.server);
+				copy.retiredIncarnations.addAll(source.retiredIncarnations);
+				copy.backendIncarnationId = source.backendIncarnationId;
+				copy.backendStartedAt = source.backendStartedAt;
+				copy.lastLifecycleTimestamp = source.lastLifecycleTimestamp;
+				copy.lastPlayerEventTimestamp = source.lastPlayerEventTimestamp;
+				copy.lastHeartbeatTimestamp = source.lastHeartbeatTimestamp;
+				copy.lastSnapshotRequestedAt = source.lastSnapshotRequestedAt;
+				copy.lastSeen = source.lastSeen;
+				copy.available = source.available;
+				copy.stopped = source.stopped;
+				backends.put(entry.getKey(), copy);
+			}
+			for (Map.Entry<String, PendingSnapshot> entry : tracker.pendingSnapshots.entrySet()) {
+				PendingSnapshot source = entry.getValue();
+				PendingSnapshot copy = new PendingSnapshot(source.requestId, source.eventWatermark,
+						source.requestedAt, source.backendIncarnationId, source.backendStartedAt);
+				for (Map.Entry<Integer, List<PresencePlayer>> chunk : source.chunks.entrySet()) {
+					copy.chunks.put(chunk.getKey(), new ArrayList<>(chunk.getValue()));
+				}
+				copy.chunkCount = source.chunkCount;
+				copy.playerCount = source.playerCount;
+				copy.snapshotTimestamp = source.snapshotTimestamp;
+				pendingSnapshots.put(entry.getKey(), copy);
+			}
+			eventSequence = tracker.eventSequence;
 		}
 	}
 

@@ -277,11 +277,6 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 	}
 
 	@Override
-	public String getPresenceServerSecret(String server) {
-		return getData().getString("PresenceServerSecrets." + server, "");
-	}
-
-	@Override
 	public boolean getStoreMonthTotalsWithDate() {
 		return getData().getBoolean("StoreMonthTotalsWithDate", false);
 	}

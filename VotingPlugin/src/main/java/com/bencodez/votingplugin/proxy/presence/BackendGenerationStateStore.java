@@ -27,8 +27,7 @@ import com.bencodez.votingplugin.proxy.presence.BackendPlayerPresenceTracker.Bac
 
 /**
  * Atomically persists the small, bounded proxy-local ordering fence for backend
- * process incarnations. The file contains no authentication secrets or player
- * data.
+ * process incarnations. The file contains no player data.
  */
 public final class BackendGenerationStateStore {
 	private static final int MAGIC = 0x56504753;

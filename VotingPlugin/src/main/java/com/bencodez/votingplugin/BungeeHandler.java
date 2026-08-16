@@ -72,7 +72,6 @@ public class BungeeHandler implements Listener {
 	private UUID presenceIncarnationId;
 	private long presenceStartedAt;
 	private long presenceLastTimestamp;
-	private String presenceServerSecret = "";
 	private UUID lastPresenceSnapshotRequestId;
 	private long lastPresenceSnapshotRequestAtNanos;
 	private ScheduledFuture<?> presenceHeartbeatTask;
@@ -608,10 +607,8 @@ public class BungeeHandler implements Listener {
 			playerPresenceSessions.put(playerKey(session.playerName), session);
 			reannouncePresenceStarted();
 			long eventTimestamp = nextPresenceTimestamp();
-			JsonEnvelope login = hasPresenceServerSecret()
-					? VotingPluginWire.login(session.playerName, session.uuid, presenceServer, session.connectionId,
-							presenceIncarnationId, presenceStartedAt, eventTimestamp)
-					: VotingPluginWire.login(session.playerName, session.uuid, presenceServer);
+			JsonEnvelope login = VotingPluginWire.login(session.playerName, session.uuid, presenceServer,
+					session.connectionId, presenceIncarnationId, presenceStartedAt, eventTimestamp);
 			sendPresenceMessage(login);
 		}
 	}
@@ -638,13 +635,6 @@ public class BungeeHandler implements Listener {
 	}
 
 	private void handlePresenceSnapshotRequest(JsonEnvelope msg) {
-		String serverSecret;
-		synchronized (presenceLifecycleLock) {
-			serverSecret = presenceServerSecret;
-		}
-		if (!VotingPluginWire.verifyPresenceEnvelope(msg, serverSecret)) {
-			return;
-		}
 		VotingPluginWire.PresenceSnapshotRequest request = VotingPluginWire.readPresenceSnapshotRequest(msg);
 		String server;
 		UUID backendIncarnationId;
@@ -661,9 +651,9 @@ public class BungeeHandler implements Listener {
 				return;
 			}
 			long requestReceivedAtNanos = System.nanoTime();
-			// Shared transports do not expose a trustworthy publisher identity. The
-			// incarnation match rejects unrelated lifecycle traffic, while this cooldown
-			// bounds work even if another backend observes and replays a valid request.
+			// The incarnation match rejects unrelated lifecycle traffic. Request IDs and
+			// this cooldown bound duplicate or replayed matching requests on shared
+			// transports.
 			if (request.requestId.equals(lastPresenceSnapshotRequestId)
 					|| (lastPresenceSnapshotRequestId != null
 							&& requestReceivedAtNanos - lastPresenceSnapshotRequestAtNanos
@@ -756,14 +746,12 @@ public class BungeeHandler implements Listener {
 			return;
 		}
 		String server = plugin.getBungeeSettings().getServer();
-		String serverSecret = getConfiguredPresenceServerSecret();
 		synchronized (presenceLifecycleLock) {
 			long now = System.currentTimeMillis();
 			presenceIncarnationId = UUID.randomUUID();
 			presenceStartedAt = now;
 			presenceLastTimestamp = now;
 			presenceServer = server;
-			presenceServerSecret = serverSecret;
 			presenceReporting = true;
 			lastPresenceSnapshotRequestId = null;
 			lastPresenceSnapshotRequestAtNanos = 0L;
@@ -801,11 +789,9 @@ public class BungeeHandler implements Listener {
 						String server = presenceServer;
 						if (session != null && presenceReporting && server != null) {
 							long eventTimestamp = nextPresenceTimestamp();
-							JsonEnvelope login = hasPresenceServerSecret()
-									? VotingPluginWire.login(session.playerName, session.uuid, server,
-											session.connectionId, presenceIncarnationId, presenceStartedAt,
-											eventTimestamp)
-									: VotingPluginWire.login(session.playerName, session.uuid, server);
+							JsonEnvelope login = VotingPluginWire.login(session.playerName, session.uuid, server,
+									session.connectionId, presenceIncarnationId, presenceStartedAt,
+									eventTimestamp);
 							sendActivePresenceMessage(server, presenceIncarnationId, presenceStartedAt, login);
 						}
 					}
@@ -831,7 +817,6 @@ public class BungeeHandler implements Listener {
 						nextPresenceTimestamp()));
 			}
 			presenceIncarnationId = null;
-			presenceServerSecret = "";
 			lastPresenceSnapshotRequestId = null;
 			lastPresenceSnapshotRequestAtNanos = 0L;
 			playerPresenceSessions.clear();
@@ -874,32 +859,21 @@ public class BungeeHandler implements Listener {
 	}
 
 	private void reannouncePresenceStarted() {
-		if (!presenceReporting || presenceServer == null
-				|| presenceIncarnationId == null || !hasPresenceServerSecret()) {
+		if (!presenceReporting || presenceServer == null || presenceIncarnationId == null) {
 			return;
 		}
 		sendPresenceMessage(VotingPluginWire.backendStarted(presenceServer, presenceIncarnationId,
 				presenceStartedAt, presenceStartedAt));
 	}
 
-	private boolean hasPresenceServerSecret() {
-		return VotingPluginWire.isValidPresenceSecret(presenceServerSecret);
-	}
-
-	private String getConfiguredPresenceServerSecret() {
-		return nvl(plugin.getBungeeSettings().getPresenceServerSecret()).trim();
-	}
-
 	/**
-	 * Restarts presence reporting when the configured backend identity or secret changes.
+	 * Restarts presence reporting when the configured backend identity changes.
 	 */
 	public void reloadPresenceReporting() {
 		String configuredServer = plugin.getBungeeSettings().getServer();
-		String configuredSecret = getConfiguredPresenceServerSecret();
 		synchronized (presenceLifecycleLock) {
 			if (presenceReporting && presenceServer != null
-					&& presenceServer.equalsIgnoreCase(configuredServer)
-					&& presenceServerSecret.equals(configuredSecret)) {
+					&& presenceServer.equalsIgnoreCase(configuredServer)) {
 				return;
 			}
 		}
@@ -919,8 +893,7 @@ public class BungeeHandler implements Listener {
 			return;
 		}
 		try {
-			globalMessageHandler.sendMessage(VotingPluginWire.signPresenceEnvelope(envelope,
-					presenceServerSecret));
+			globalMessageHandler.sendMessage(envelope);
 		} catch (RuntimeException e) {
 			plugin.debug("Unable to send backend presence message " + envelope.getSubChannel());
 			plugin.debug(e);

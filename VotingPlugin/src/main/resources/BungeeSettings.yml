@@ -121,12 +121,6 @@ GiveExtraAllSitesRewards: false
 # IMPORTANT: Each backend server MUST have a unique value here.
 Server: PleaseSet
 
-# Required for authenticated backend player-presence tracking.
-# Set a unique random value of at least 32 characters on every backend and copy only this backend's value
-# to PresenceServerSecrets.<Server> in the dedicated proxy's bungeeconfig.yml.
-# Leave blank to keep legacy login handling without enabling presence tracking.
-PresenceServerSecret: ''
-
 # Rewards from bungee vote party
 # Gives to only players only
 # Use regular voteparty rewards otherwise
