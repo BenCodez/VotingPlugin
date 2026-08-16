@@ -155,6 +155,62 @@ public class BackendPlayerPresenceTrackerTest {
 	}
 
 	@Test
+	public void delayedStopFromOlderBackendGenerationCannotClearReplacement() {
+		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
+		UUID oldUuid = UUID.randomUUID();
+		UUID replacementUuid = UUID.randomUUID();
+		UUID replacementConnection = UUID.randomUUID();
+
+		assertTrue(tracker.backendStarted("survival", 1000L, 1000L, 10L));
+		assertTrue(tracker.playerOnline("Old", oldUuid.toString(), "survival", UUID.randomUUID(),
+				1000L, 1100L, 11L));
+		assertTrue(tracker.backendStarted("survival", 2000L, 2000L, 20L));
+		assertTrue(tracker.playerOnline("Replacement", replacementUuid.toString(), "survival",
+				replacementConnection, 2000L, 2100L, 21L));
+
+		// The old process shuts down later in wall-clock time, but its generation is
+		// still obsolete and must not win.
+		assertFalse(tracker.backendStopped("survival", 1000L, 2200L, 22L));
+
+		assertTrue(tracker.getBackendStatus("survival").isAvailable());
+		assertTrue(tracker.getPlayer(oldUuid).isEmpty());
+		assertEquals(replacementConnection, tracker.getPlayer(replacementUuid).orElseThrow().getConnectionId());
+		assertEquals(2100L, tracker.getPlayer(replacementUuid).orElseThrow().getLastSeen());
+	}
+
+	@Test
+	public void stoppedBackendGenerationCannotBeRevivedByDelayedHeartbeat() {
+		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
+		assertTrue(tracker.backendStarted("survival", 1000L, 1000L, 10L));
+		assertTrue(tracker.backendStopped("survival", 1000L, 1100L, 20L));
+
+		assertFalse(tracker.heartbeat("survival", 1000L, 1050L, 30L));
+
+		assertFalse(tracker.getBackendStatus("survival").isAvailable());
+		assertEquals(20L, tracker.getBackendStatus("survival").getLastSeen());
+	}
+
+	@Test
+	public void captureTimestampRejectsReorderedPlayerEventsWithinGeneration() {
+		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
+		UUID uuid = UUID.randomUUID();
+		UUID currentConnection = UUID.randomUUID();
+		UUID delayedConnection = UUID.randomUUID();
+		assertTrue(tracker.backendStarted("survival", 1000L, 1000L, 10L));
+		assertTrue(tracker.playerOnline("Player", uuid.toString(), "survival", currentConnection,
+				1000L, 1200L, 20L));
+
+		assertFalse(tracker.playerOnline("Player", uuid.toString(), "survival", delayedConnection,
+				1000L, 1100L, 30L));
+		assertFalse(tracker.playerOffline(uuid.toString(), "survival", currentConnection,
+				1000L, 1150L, 40L));
+
+		PlayerPresence current = tracker.getPlayer(uuid).orElseThrow();
+		assertEquals(currentConnection, current.getConnectionId());
+		assertEquals(1200L, current.getLastSeen());
+	}
+
+	@Test
 	public void backendStateIsBoundedAndEvictsUnavailableEntries() {
 		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker(2);
 		tracker.heartbeat("survival", 10L);
