@@ -879,7 +879,7 @@ public class BungeeHandler implements Listener {
 			return;
 		}
 		sendPresenceMessage(VotingPluginWire.backendStarted(presenceServer, presenceIncarnationId,
-				presenceStartedAt, nextPresenceTimestamp()));
+				presenceStartedAt, presenceStartedAt));
 		presenceStartedReplayedWithCarrier = true;
 	}
 
