@@ -1671,7 +1671,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 */
 	@Override
 	public void onUnLoad() {
-		if (bungeeSettings.isUseBungeecoord()) {
+		if (getBungeeHandler() != null) {
 			try {
 				getBungeeHandler().close();
 			} catch (Exception e) {
@@ -1819,10 +1819,14 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		if (bungeeSettings.isUseBungeecoord()) {
 			if (getBungeeHandler() == null) {
 				loadBungeeHandler();
+			} else {
+				getBungeeHandler().reloadPresenceReporting();
 			}
 			if (userStorage) {
 				getBungeeHandler().loadGlobalMysql();
 			}
+		} else if (getBungeeHandler() != null) {
+			getBungeeHandler().disablePresenceReporting();
 		}
 		checkYMLError();
 

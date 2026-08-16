@@ -5,12 +5,16 @@ import java.io.File;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.bukkit.Bukkit;
@@ -55,9 +59,25 @@ import lombok.Getter;
 public class BungeeHandler implements Listener {
 
 	private static final long PROCESSED_VOTE_TTL_MILLIS = TimeUnit.MINUTES.toMillis(30);
+	private static final long PRESENCE_HEARTBEAT_SECONDS = 30;
+	private static final long PRESENCE_RESYNC_REQUEST_MIN_INTERVAL_NANOS = TimeUnit.SECONDS.toNanos(5);
+	private static final long PRESENCE_SNAPSHOT_REQUEST_MIN_INTERVAL_NANOS = TimeUnit.SECONDS.toNanos(30);
+	private static final int PRESENCE_SNAPSHOT_CHUNK_SIZE = 100;
 
 	@Getter
 	private final ConcurrentHashMap<UUID, Long> processedWireVotes = new ConcurrentHashMap<>();
+	private final ConcurrentHashMap<String, BackendPlayerPresenceSession> playerPresenceSessions = new ConcurrentHashMap<>();
+	private final Object presenceLifecycleLock = new Object();
+	private boolean presenceReporting;
+	private String presenceServer;
+	private UUID presenceIncarnationId;
+	private long presenceStartedAt;
+	private long presenceLastTimestamp;
+	private UUID lastPresenceResyncRequestId;
+	private long lastPresenceResyncRequestAtNanos;
+	private UUID lastPresenceSnapshotRequestId;
+	private long lastPresenceSnapshotRequestAtNanos;
+	private ScheduledFuture<?> presenceHeartbeatTask;
 	@Getter
 	private ClientHandler clientHandler;
 
@@ -199,6 +219,8 @@ public class BungeeHandler implements Listener {
 	 * Closes and cleans up all handlers and connections.
 	 */
 	public void close() {
+		stopPresenceReporting();
+
 		if (backendMysqlMessenger != null) {
 			backendMysqlMessenger.shutdown();
 		}
@@ -279,6 +301,23 @@ public class BungeeHandler implements Listener {
 				handleWireVoteDelayRejected(msg);
 			}
 		});
+
+		if (method.supportsBackendPresence()) {
+			globalMessageHandler.addListener(
+					new GlobalMessageListener(VotingPluginWire.SUB_PRESENCE_RESYNC_REQUEST) {
+						@Override
+						public void onReceive(JsonEnvelope msg) {
+							handlePresenceResyncRequest(msg);
+						}
+					});
+			globalMessageHandler.addListener(
+					new GlobalMessageListener(VotingPluginWire.SUB_PRESENCE_SNAPSHOT_REQUEST) {
+						@Override
+						public void onReceive(JsonEnvelope msg) {
+							handlePresenceSnapshotRequest(msg);
+						}
+					});
+		}
 		globalMessageHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_VOTE_UPDATE) {
 			@Override
 			public void onReceive(JsonEnvelope msg) {
@@ -556,6 +595,382 @@ public class BungeeHandler implements Listener {
 
 		if (plugin.getOptions().getServer().equalsIgnoreCase("pleaseset")) {
 			plugin.getLogger().warning("Server name for bungee voting is not set, please set it");
+		}
+
+		startPresenceReporting();
+	}
+
+	/**
+	 * Announces a player login. Plugin messaging uses the original login envelope;
+	 * standalone transports also update the proxy presence tracker.
+	 *
+	 * @param playerName player name
+	 * @param uuid authoritative VotingPlugin UUID
+	 */
+	public void playerOnline(String playerName, String uuid) {
+		if (!method.supportsBackendPresence()) {
+			// PLUGINMESSAGING is attached to the player-facing proxy. Preserve the
+			// original login notification used for cached rewards and let the proxy
+			// provide authoritative online-player/server state.
+			if (globalMessageHandler != null) {
+				globalMessageHandler.sendMessage(VotingPluginWire.login(playerName, uuid,
+						plugin.getBungeeSettings().getServer()));
+			}
+			return;
+		}
+
+		BackendPlayerPresenceSession session = createPresenceSession(playerName, uuid);
+		if (session == null) {
+			plugin.getLogger().warning("Unable to report player login with invalid identity: " + nvl(playerName));
+			return;
+		}
+
+		synchronized (presenceLifecycleLock) {
+			if (!presenceReporting) {
+				return;
+			}
+			playerPresenceSessions.put(playerKey(session.playerName), session);
+			reannouncePresenceStarted();
+			long eventTimestamp = nextPresenceTimestamp();
+			JsonEnvelope login = VotingPluginWire.login(session.playerName, session.uuid, presenceServer,
+					session.connectionId, presenceIncarnationId, presenceStartedAt, eventTimestamp);
+			sendPresenceMessage(login);
+		}
+	}
+
+	/**
+	 * Announces the end of the latest presence-tracked player connection. Plugin
+	 * messaging relies on the proxy's native disconnect state and sends no logout.
+	 *
+	 * @param playerName player name
+	 */
+	public void playerOffline(String playerName) {
+		synchronized (presenceLifecycleLock) {
+			if (!presenceReporting) {
+				return;
+			}
+			BackendPlayerPresenceSession session = playerPresenceSessions.remove(playerKey(playerName));
+			if (session == null || globalMessageHandler == null) {
+				return;
+			}
+
+			long eventTimestamp = nextPresenceTimestamp();
+			sendPresenceMessage(VotingPluginWire.logout(session.playerName, session.uuid,
+					presenceServer, session.connectionId, presenceIncarnationId, presenceStartedAt, eventTimestamp));
+		}
+	}
+
+	private void handlePresenceResyncRequest(JsonEnvelope msg) {
+		VotingPluginWire.PresenceResyncRequest request = VotingPluginWire.readPresenceResyncRequest(msg);
+		synchronized (presenceLifecycleLock) {
+			if (!presenceReporting || presenceServer == null || presenceIncarnationId == null
+					|| request.requestId == null || request.requestedAt <= 0L || request.server.isEmpty()
+					|| !presenceServer.equalsIgnoreCase(request.server)) {
+				return;
+			}
+			long requestReceivedAtNanos = System.nanoTime();
+			if (request.requestId.equals(lastPresenceResyncRequestId)
+					|| (lastPresenceResyncRequestId != null
+							&& requestReceivedAtNanos - lastPresenceResyncRequestAtNanos
+									< PRESENCE_RESYNC_REQUEST_MIN_INTERVAL_NANOS)) {
+				return;
+			}
+			lastPresenceResyncRequestId = request.requestId;
+			lastPresenceResyncRequestAtNanos = requestReceivedAtNanos;
+			// A fresh voting proxy does not know this backend's incarnation yet. Reannounce
+			// it first; the proxy then uses the existing generation-bound snapshot request.
+			// Reset the backend cooldown so a request accepted by a previous proxy process
+			// cannot delay recovery on the new process for the full snapshot timeout.
+			lastPresenceSnapshotRequestId = null;
+			lastPresenceSnapshotRequestAtNanos = 0L;
+			sendPresenceMessage(VotingPluginWire.backendStarted(presenceServer, presenceIncarnationId,
+					presenceStartedAt, nextPresenceTimestamp()));
+		}
+	}
+
+	private void handlePresenceSnapshotRequest(JsonEnvelope msg) {
+		VotingPluginWire.PresenceSnapshotRequest request = VotingPluginWire.readPresenceSnapshotRequest(msg);
+		String server;
+		UUID backendIncarnationId;
+		long backendStartedAt;
+		synchronized (presenceLifecycleLock) {
+			server = presenceServer;
+			backendIncarnationId = presenceIncarnationId;
+			backendStartedAt = presenceStartedAt;
+			if (!presenceReporting || server == null || request.requestId == null || request.server.isEmpty()
+					|| backendIncarnationId == null
+					|| !server.equalsIgnoreCase(request.server) || request.backendStartedAt != backendStartedAt
+					|| !backendIncarnationId.equals(request.backendIncarnationId)
+					|| request.presenceTimestamp <= 0L) {
+				return;
+			}
+			long requestReceivedAtNanos = System.nanoTime();
+			// The incarnation match rejects unrelated lifecycle traffic. Request IDs and
+			// this cooldown bound duplicate or replayed matching requests on shared
+			// transports.
+			if (request.requestId.equals(lastPresenceSnapshotRequestId)
+					|| (lastPresenceSnapshotRequestId != null
+							&& requestReceivedAtNanos - lastPresenceSnapshotRequestAtNanos
+									< PRESENCE_SNAPSHOT_REQUEST_MIN_INTERVAL_NANOS)) {
+				return;
+			}
+			lastPresenceSnapshotRequestId = request.requestId;
+			lastPresenceSnapshotRequestAtNanos = requestReceivedAtNanos;
+		}
+
+		// Transport listeners may run off the Bukkit thread. Snapshot Bukkit state on
+		// the server thread before replying.
+		plugin.getBukkitScheduler().runTask(plugin, new Runnable() {
+			@Override
+			public void run() {
+				if (!plugin.isEnabled() || globalMessageHandler == null
+						|| !isActivePresenceGeneration(server, backendIncarnationId, backendStartedAt)) {
+					return;
+				}
+
+					long snapshotTimestamp;
+					List<VotingPluginWire.PresencePlayer> players = new ArrayList<>();
+					synchronized (presenceLifecycleLock) {
+						if (!isActivePresenceGeneration(server, backendIncarnationId, backendStartedAt)) {
+							return;
+						}
+						for (Player player : Bukkit.getOnlinePlayers()) {
+							BackendPlayerPresenceSession session = getOrCreatePresenceSession(player);
+							if (session != null) {
+								players.add(new VotingPluginWire.PresencePlayer(session.playerName, session.uuid,
+										session.connectionId.toString()));
+							}
+						}
+						// Bukkit player state cannot change while this server-thread task is
+						// running, so timestamp the completed capture before sending it.
+						snapshotTimestamp = nextPresenceTimestamp();
+					}
+				int chunkCount = Math.max(1,
+						(players.size() + PRESENCE_SNAPSHOT_CHUNK_SIZE - 1) / PRESENCE_SNAPSHOT_CHUNK_SIZE);
+				for (int chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++) {
+					int fromIndex = chunkIndex * PRESENCE_SNAPSHOT_CHUNK_SIZE;
+					int toIndex = Math.min(players.size(), fromIndex + PRESENCE_SNAPSHOT_CHUNK_SIZE);
+					sendActivePresenceMessage(server, backendIncarnationId, backendStartedAt,
+							VotingPluginWire.presenceSnapshot(server, request.requestId, chunkIndex, chunkCount,
+									players.subList(fromIndex, toIndex), backendIncarnationId, backendStartedAt,
+									snapshotTimestamp));
+				}
+			}
+		});
+	}
+
+	private BackendPlayerPresenceSession getOrCreatePresenceSession(Player player) {
+		synchronized (presenceLifecycleLock) {
+			if (!presenceReporting) {
+				return null;
+			}
+			String key = playerKey(player.getName());
+			BackendPlayerPresenceSession current = playerPresenceSessions.get(key);
+			if (current != null) {
+				return current;
+			}
+
+			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
+			String uuid = user == null ? player.getUniqueId().toString() : user.getUUID();
+			BackendPlayerPresenceSession created = createPresenceSession(player.getName(), uuid);
+			if (created == null) {
+				return null;
+			}
+			BackendPlayerPresenceSession raced = playerPresenceSessions.putIfAbsent(key, created);
+			return raced == null ? created : raced;
+		}
+	}
+
+	private BackendPlayerPresenceSession createPresenceSession(String playerName, String uuid) {
+		String name = nvl(playerName).trim();
+		String parsedUuid = nvl(uuid).trim();
+		if (name.isEmpty() || parsedUuid.isEmpty()) {
+			return null;
+		}
+		try {
+			parsedUuid = UUID.fromString(parsedUuid).toString();
+		} catch (IllegalArgumentException e) {
+			return null;
+		}
+		return new BackendPlayerPresenceSession(name, parsedUuid, UUID.randomUUID());
+	}
+
+	private void startPresenceReporting() {
+		if (globalMessageHandler == null || method == null || !method.supportsBackendPresence()) {
+			return;
+		}
+		String server = plugin.getBungeeSettings().getServer();
+		synchronized (presenceLifecycleLock) {
+			long now = System.currentTimeMillis();
+			presenceIncarnationId = UUID.randomUUID();
+			presenceStartedAt = now;
+			presenceLastTimestamp = now;
+			presenceServer = server;
+			presenceReporting = true;
+			lastPresenceResyncRequestId = null;
+			lastPresenceResyncRequestAtNanos = 0L;
+			lastPresenceSnapshotRequestId = null;
+			lastPresenceSnapshotRequestAtNanos = 0L;
+			sendPresenceMessage(VotingPluginWire.backendStarted(server, presenceIncarnationId, presenceStartedAt,
+					now));
+			sendPresenceMessage(VotingPluginWire.backendHeartbeat(server, presenceIncarnationId, presenceStartedAt,
+					nextPresenceTimestamp()));
+
+			if (presenceHeartbeatTask != null) {
+				presenceHeartbeatTask.cancel(false);
+			}
+			presenceHeartbeatTask = plugin.getTimer().scheduleAtFixedRate(new Runnable() {
+				@Override
+				public void run() {
+					sendPresenceHeartbeat();
+				}
+			}, PRESENCE_HEARTBEAT_SECONDS, PRESENCE_HEARTBEAT_SECONDS, TimeUnit.SECONDS);
+		}
+		seedOnlinePlayerPresence();
+	}
+
+	private void seedOnlinePlayerPresence() {
+		plugin.getBukkitScheduler().runTask(plugin, new Runnable() {
+			@Override
+			public void run() {
+				if (!plugin.isEnabled()) {
+					return;
+				}
+				synchronized (presenceLifecycleLock) {
+					reannouncePresenceStarted();
+				}
+				for (Player player : Bukkit.getOnlinePlayers()) {
+					synchronized (presenceLifecycleLock) {
+						BackendPlayerPresenceSession session = getOrCreatePresenceSession(player);
+						String server = presenceServer;
+						if (session != null && presenceReporting && server != null) {
+							long eventTimestamp = nextPresenceTimestamp();
+							JsonEnvelope login = VotingPluginWire.login(session.playerName, session.uuid, server,
+									session.connectionId, presenceIncarnationId, presenceStartedAt,
+									eventTimestamp);
+							sendActivePresenceMessage(server, presenceIncarnationId, presenceStartedAt, login);
+						}
+					}
+				}
+			}
+		});
+	}
+
+	private void stopPresenceReporting() {
+		synchronized (presenceLifecycleLock) {
+			String server = presenceServer;
+			UUID backendIncarnationId = presenceIncarnationId;
+			long backendStartedAt = presenceStartedAt;
+			boolean wasReporting = presenceReporting;
+			presenceReporting = false;
+			presenceServer = null;
+			if (presenceHeartbeatTask != null) {
+				presenceHeartbeatTask.cancel(false);
+				presenceHeartbeatTask = null;
+			}
+			if (wasReporting && globalMessageHandler != null && server != null && backendIncarnationId != null) {
+				sendPresenceMessage(VotingPluginWire.backendStopped(server, backendIncarnationId, backendStartedAt,
+						nextPresenceTimestamp()));
+			}
+			presenceIncarnationId = null;
+			lastPresenceResyncRequestId = null;
+			lastPresenceResyncRequestAtNanos = 0L;
+			lastPresenceSnapshotRequestId = null;
+			lastPresenceSnapshotRequestAtNanos = 0L;
+			playerPresenceSessions.clear();
+		}
+	}
+
+	private void sendPresenceHeartbeat() {
+		synchronized (presenceLifecycleLock) {
+			if (presenceReporting && presenceServer != null && presenceIncarnationId != null) {
+				reannouncePresenceStarted();
+				sendPresenceMessage(VotingPluginWire.backendHeartbeat(presenceServer, presenceIncarnationId,
+						presenceStartedAt, nextPresenceTimestamp()));
+			}
+		}
+	}
+
+	private boolean isActivePresenceGeneration(String server, UUID backendIncarnationId, long backendStartedAt) {
+		synchronized (presenceLifecycleLock) {
+			return presenceReporting && presenceServer != null && presenceServer.equalsIgnoreCase(server)
+					&& presenceIncarnationId != null && presenceIncarnationId.equals(backendIncarnationId)
+					&& presenceStartedAt == backendStartedAt;
+		}
+	}
+
+	private void sendActivePresenceMessage(String server, UUID backendIncarnationId, long backendStartedAt,
+			JsonEnvelope envelope) {
+		synchronized (presenceLifecycleLock) {
+			if (presenceReporting && presenceServer != null && presenceServer.equalsIgnoreCase(server)
+					&& presenceIncarnationId != null && presenceIncarnationId.equals(backendIncarnationId)
+					&& presenceStartedAt == backendStartedAt) {
+				sendPresenceMessage(envelope);
+			}
+		}
+	}
+
+	private long nextPresenceTimestamp() {
+		long now = System.currentTimeMillis();
+		presenceLastTimestamp = Math.max(now, presenceLastTimestamp + 1L);
+		return presenceLastTimestamp;
+	}
+
+	private void reannouncePresenceStarted() {
+		if (!presenceReporting || presenceServer == null || presenceIncarnationId == null) {
+			return;
+		}
+		sendPresenceMessage(VotingPluginWire.backendStarted(presenceServer, presenceIncarnationId,
+				presenceStartedAt, presenceStartedAt));
+	}
+
+	/**
+	 * Restarts presence reporting when the configured backend identity changes.
+	 */
+	public void reloadPresenceReporting() {
+		String configuredServer = plugin.getBungeeSettings().getServer();
+		synchronized (presenceLifecycleLock) {
+			if (presenceReporting && presenceServer != null
+					&& presenceServer.equalsIgnoreCase(configuredServer)) {
+				return;
+			}
+		}
+		stopPresenceReporting();
+		startPresenceReporting();
+	}
+
+	/**
+	 * Stops presence reporting without closing the existing global-message handler.
+	 */
+	public void disablePresenceReporting() {
+		stopPresenceReporting();
+	}
+
+	private void sendPresenceMessage(JsonEnvelope envelope) {
+		if (globalMessageHandler == null) {
+			return;
+		}
+		try {
+			globalMessageHandler.sendMessage(envelope);
+		} catch (RuntimeException e) {
+			plugin.debug("Unable to send backend presence message " + envelope.getSubChannel());
+			plugin.debug(e);
+		}
+	}
+
+	private static String playerKey(String playerName) {
+		return nvl(playerName).trim().toLowerCase(Locale.ROOT);
+	}
+
+	private static final class BackendPlayerPresenceSession {
+		private final String playerName;
+		private final String uuid;
+		private final UUID connectionId;
+
+		private BackendPlayerPresenceSession(String playerName, String uuid, UUID connectionId) {
+			this.playerName = playerName;
+			this.uuid = uuid;
+			this.connectionId = connectionId;
 		}
 	}
 

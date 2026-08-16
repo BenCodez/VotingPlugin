@@ -125,6 +125,125 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void pluginMessagingLegacyLoginUsesTheProxyCurrentServer() {
+		String uuid = java.util.UUID.randomUUID().toString();
+		votingPluginProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		doNothing().when(spyProxy).login(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+
+		spyProxy.handleLoginMessageForTest(VotingPluginWire.login("Player", uuid, "claimed-backend"));
+
+		verify(spyProxy).login("Player", uuid, "Server1");
+	}
+
+	@Test
+	void standaloneTransportLegacyLoginKeepsOriginalCompatibilityPath() {
+		String uuid = java.util.UUID.randomUUID().toString();
+		votingPluginProxy.setMethod(BungeeMethod.MQTT);
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		doNothing().when(spyProxy).login(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+
+		spyProxy.handleLoginMessageForTest(VotingPluginWire.login("Player", uuid, "survival"));
+
+		verify(spyProxy).login("Player", uuid, "survival");
+	}
+
+	@Test
+	void pluginMessagingIgnoresExtendedPresenceLogin() {
+		votingPluginProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		doNothing().when(spyProxy).login(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+		java.util.UUID connectionId = java.util.UUID.randomUUID();
+		java.util.UUID incarnationId = java.util.UUID.randomUUID();
+
+		spyProxy.handleLoginMessageForTest(VotingPluginWire.login("Player",
+				java.util.UUID.randomUUID().toString(), "survival", connectionId, incarnationId, 1000L, 1100L));
+
+		verify(spyProxy, never()).login(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+		assertEquals(0, spyProxy.getBackendPlayerPresenceTracker().getOnlinePlayerCount());
+	}
+
+	@Test
+	void handoffBlockedBySnapshotCooldownIsRetried() {
+		votingPluginProxy.setMethod(BungeeMethod.MQTT);
+		com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler messageHandler = Mockito
+				.mock(com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler.class);
+		votingPluginProxy.setGlobalMessageProxyHandlerForTest(messageHandler);
+		long now = System.currentTimeMillis();
+		java.util.UUID sourceIncarnation = java.util.UUID.randomUUID();
+		java.util.UUID destinationIncarnation = java.util.UUID.randomUUID();
+		java.util.UUID playerUuid = java.util.UUID.randomUUID();
+		java.util.UUID sourceConnection = java.util.UUID.randomUUID();
+		java.util.UUID destinationConnection = java.util.UUID.randomUUID();
+		java.util.UUID cooldownRequest = java.util.UUID.randomUUID();
+
+		assertTrue(votingPluginProxy.getBackendPlayerPresenceTracker().backendStarted("Server1", sourceIncarnation,
+				1000L, 1000L, now));
+		assertTrue(votingPluginProxy.getBackendPlayerPresenceTracker().backendStarted("Server2",
+				destinationIncarnation, 2000L, 2000L, now));
+		assertTrue(votingPluginProxy.getBackendPlayerPresenceTracker().playerOnline("Player", playerUuid.toString(),
+				"Server1", sourceConnection, sourceIncarnation, 1000L, 1100L, now));
+		assertEquals(cooldownRequest, votingPluginProxy.getBackendPlayerPresenceTracker().beginSnapshot("Server2",
+				cooldownRequest, destinationIncarnation, 2000L, now));
+		assertTrue(votingPluginProxy.getBackendPlayerPresenceTracker().applySnapshotChunk("Server2", cooldownRequest,
+				0, 1, java.util.List.of(), destinationIncarnation, 2000L, 2100L, now));
+
+		votingPluginProxy.handleLoginMessageForTest(VotingPluginWire.login("Player", playerUuid.toString(), "Server2",
+				destinationConnection, destinationIncarnation, 2000L, 2200L));
+
+		assertEquals(1, votingPluginProxy.getPendingPresenceHandoffCountForTest());
+		verify(messageHandler, never()).sendMessage(Mockito.anyString(), Mockito.anyInt(), Mockito.any());
+
+		votingPluginProxy.retryPendingPresenceHandoffsForTest(now + 30001L);
+
+		verify(messageHandler).sendMessage(Mockito.eq("Server2"), Mockito.eq(1), Mockito.any());
+		assertEquals(1, votingPluginProxy.getPendingPresenceHandoffCountForTest());
+	}
+
+	@Test
+	void presenceTransportRequestsBackendResyncFiveSecondsAfterProxyStart() {
+		votingPluginProxy.setMethod(BungeeMethod.MQTT);
+		java.util.concurrent.ScheduledExecutorService scheduler = Mockito
+				.mock(java.util.concurrent.ScheduledExecutorService.class);
+		com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler messageHandler = Mockito
+				.mock(com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler.class);
+		votingPluginProxy.setSchedulerForTest(scheduler);
+		votingPluginProxy.setGlobalMessageProxyHandlerForTest(messageHandler);
+		org.mockito.ArgumentCaptor<Runnable> task = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+
+		votingPluginProxy.scheduleBackendPresenceStartupResyncForTest();
+
+		verify(scheduler).schedule(task.capture(), Mockito.eq(5L),
+				Mockito.eq(java.util.concurrent.TimeUnit.SECONDS));
+		task.getValue().run();
+
+		org.mockito.ArgumentCaptor<String> targets = org.mockito.ArgumentCaptor.forClass(String.class);
+		org.mockito.ArgumentCaptor<com.bencodez.simpleapi.servercomm.codec.JsonEnvelope> envelopes = org.mockito.ArgumentCaptor
+				.forClass(com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.class);
+		verify(messageHandler, Mockito.times(2)).sendMessage(targets.capture(), Mockito.anyInt(), envelopes.capture());
+		assertEquals(java.util.Set.of("Server1", "Server2"), new java.util.HashSet<>(targets.getAllValues()));
+		for (com.bencodez.simpleapi.servercomm.codec.JsonEnvelope envelope : envelopes.getAllValues()) {
+			VotingPluginWire.PresenceResyncRequest request = VotingPluginWire.readPresenceResyncRequest(envelope);
+			assertEquals(VotingPluginWire.SUB_PRESENCE_RESYNC_REQUEST, envelope.getSubChannel());
+			assertTrue(java.util.Set.of("Server1", "Server2").contains(request.server));
+			assertTrue(request.requestId != null);
+			assertTrue(request.requestedAt > 0L);
+		}
+	}
+
+	@Test
+	void pluginMessagingDoesNotSchedulePresenceStartupResync() {
+		votingPluginProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		java.util.concurrent.ScheduledExecutorService scheduler = Mockito
+				.mock(java.util.concurrent.ScheduledExecutorService.class);
+		votingPluginProxy.setSchedulerForTest(scheduler);
+
+		votingPluginProxy.scheduleBackendPresenceStartupResyncForTest();
+
+		Mockito.verifyNoInteractions(scheduler);
+	}
+
+	@Test
 	void standaloneMysqlBroadcastReportsTransportFailure() throws Exception {
 		MySqlMessenger messenger = Mockito.mock(MySqlMessenger.class);
 		Mockito.doThrow(new java.sql.SQLException("send failed")).when(messenger)

@@ -249,6 +249,8 @@ WhiteListedServers: []
 # MQTT
 # SOCKETS
 # MYSQL (Not recommended)
+# PLUGINMESSAGING uses this proxy's player/server state and disables backend
+# presence messages. Other methods trust each backend's configured Server name.
 BungeeMethod: PLUGINMESSAGING
 
 ######################################################################################

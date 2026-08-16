@@ -13,6 +13,7 @@ import org.mockito.Mockito;
 
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
+import com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler;
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
@@ -23,6 +24,7 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	private VotingPluginProxyConfig config;
 	private boolean pluginMessageDeliveryResult = true;
 	private boolean playerOnline = true;
+	private ScheduledExecutorService scheduler;
 
 	public List<String> getWarnings() {
 		return warnings;
@@ -193,6 +195,36 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 		return sendProxyBroadcastEnvelopeNow(server, envelope);
 	}
 
+	public void handleLoginMessageForTest(JsonEnvelope envelope) {
+		handleLoginMessage(envelope);
+	}
+
+	public void setGlobalMessageProxyHandlerForTest(GlobalMessageProxyHandler handler) {
+		try {
+			java.lang.reflect.Field field = VotingPluginProxy.class.getDeclaredField("globalMessageProxyHandler");
+			field.setAccessible(true);
+			field.set(this, handler);
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException(e);
+		}
+	}
+
+	public void retryPendingPresenceHandoffsForTest(long now) {
+		retryPendingPresenceHandoffs(now);
+	}
+
+	public int getPendingPresenceHandoffCountForTest() {
+		return getPendingPresenceHandoffCount();
+	}
+
+	public void scheduleBackendPresenceStartupResyncForTest() {
+		scheduleBackendPresenceStartupResync();
+	}
+
+	public void setSchedulerForTest(ScheduledExecutorService scheduler) {
+		this.scheduler = scheduler;
+	}
+
 	public void retryPendingOnlineBroadcastsForTest(String server) {
 		retryPendingOnlineBroadcasts(server);
 	}
@@ -265,7 +297,7 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	@Override
 	public ScheduledExecutorService getScheduler() {
-		return null;
+		return scheduler;
 	}
 
 	@Override
