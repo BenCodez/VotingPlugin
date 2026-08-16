@@ -1965,11 +1965,11 @@ public abstract class VotingPluginProxy {
 			});
 		}
 		for (PendingPresenceHandoff handoff : completed) {
-			completedPlayers.add(handoff.playerUuid);
 			PlayerPresence presence = backendPlayerPresenceTracker.getPlayer(handoff.playerUuid).orElse(null);
 			if (presence != null && presence.getServer().equalsIgnoreCase(handoff.server)
 					&& presence.getConnectionId().equals(handoff.connectionId)) {
 				login(handoff.playerName, handoff.uuid, handoff.server);
+				completedPlayers.add(handoff.playerUuid);
 			}
 			releaseDestinationClaim(handoff);
 		}
