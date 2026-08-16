@@ -103,7 +103,7 @@ public class BackendPlayerPresenceTrackerTest {
 		tracker.playerOnline("Old", oldUuid.toString(), "survival", UUID.randomUUID(), 10L);
 		tracker.playerOnline("Other", otherUuid.toString(), "creative", UUID.randomUUID(), 10L);
 		UUID requestId = UUID.randomUUID();
-		tracker.beginSnapshot("survival", requestId);
+		tracker.beginSnapshot("survival", requestId, 10L);
 
 		assertTrue(tracker.applySnapshot("survival", requestId,
 				List.of(player("Current", snapshotUuid)), 20L));
@@ -120,7 +120,7 @@ public class BackendPlayerPresenceTrackerTest {
 		UUID oldConnection = UUID.randomUUID();
 		UUID newConnection = UUID.randomUUID();
 		UUID requestId = UUID.randomUUID();
-		tracker.beginSnapshot("survival", requestId);
+		tracker.beginSnapshot("survival", requestId, 10L);
 		tracker.playerOnline("Player", uuid.toString(), "creative", newConnection, 20L);
 
 		assertTrue(tracker.applySnapshot("survival", requestId,
@@ -138,7 +138,7 @@ public class BackendPlayerPresenceTrackerTest {
 		UUID connectionId = UUID.randomUUID();
 		tracker.playerOnline("Player", uuid.toString(), "survival", connectionId, 10L);
 		UUID requestId = UUID.randomUUID();
-		tracker.beginSnapshot("survival", requestId);
+		tracker.beginSnapshot("survival", requestId, 10L);
 		tracker.playerOffline(uuid.toString(), "survival", connectionId, 20L);
 
 		assertTrue(tracker.applySnapshot("survival", requestId,
@@ -154,7 +154,7 @@ public class BackendPlayerPresenceTrackerTest {
 		UUID currentUuid = UUID.randomUUID();
 		UUID currentConnection = UUID.randomUUID();
 		UUID requestId = UUID.randomUUID();
-		tracker.beginSnapshot("survival", requestId);
+		tracker.beginSnapshot("survival", requestId, 10L);
 		tracker.playerOnline("Player", currentUuid.toString(), "creative", currentConnection, 20L);
 
 		assertTrue(tracker.applySnapshot("survival", requestId,
@@ -500,7 +500,7 @@ public class BackendPlayerPresenceTrackerTest {
 		UUID firstUuid = UUID.randomUUID();
 		UUID secondUuid = UUID.randomUUID();
 		UUID requestId = UUID.randomUUID();
-		tracker.beginSnapshot("survival", requestId);
+		tracker.beginSnapshot("survival", requestId, 10L);
 
 		assertTrue(tracker.applySnapshotChunk("survival", requestId, 1, 2,
 				List.of(player("Second", secondUuid)), 20L));
