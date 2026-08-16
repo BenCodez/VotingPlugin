@@ -265,6 +265,10 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 		return isSomeoneOnlineServerForVoteRouting(server);
 	}
 
+	public void processDedicatedSnapshotLoginsForTest(String server, Set<UUID> handoffPlayers) {
+		processDedicatedSnapshotLogins(server, handoffPlayers);
+	}
+
 	@Override
 	public void setVoteCacheLastUpdated() {
 		// TODO Auto-generated method stub

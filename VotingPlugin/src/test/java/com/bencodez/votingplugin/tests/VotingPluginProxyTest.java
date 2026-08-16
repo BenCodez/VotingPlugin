@@ -192,6 +192,25 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void dedicatedSnapshotDrainsCachedVotesForConfirmedPlayers() {
+		Mockito.when(votingPluginProxy.getConfig().getDedicatedVotingProxy()).thenReturn(true);
+		votingPluginProxy.setMethod(BungeeMethod.MQTT);
+		long now = System.currentTimeMillis();
+		java.util.UUID incarnation = java.util.UUID.randomUUID();
+		java.util.UUID playerUuid = java.util.UUID.randomUUID();
+		assertTrue(votingPluginProxy.getBackendPlayerPresenceTracker().backendStarted("Server2", incarnation,
+				1000L, 1000L, now));
+		assertTrue(votingPluginProxy.getBackendPlayerPresenceTracker().playerOnline("Player", playerUuid.toString(),
+				"Server2", java.util.UUID.randomUUID(), incarnation, 1000L, 1100L, now));
+
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		doNothing().when(spyProxy).login(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+		spyProxy.processDedicatedSnapshotLoginsForTest("Server2", java.util.Collections.emptySet());
+
+		verify(spyProxy).login("Player", playerUuid.toString(), "Server2");
+	}
+
+	@Test
 	void handoffBlockedBySnapshotCooldownIsRetried() {
 		votingPluginProxy.setMethod(BungeeMethod.MQTT);
 		com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler messageHandler = Mockito

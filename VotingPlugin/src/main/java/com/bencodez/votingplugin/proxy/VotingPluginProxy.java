@@ -1519,8 +1519,9 @@ public abstract class VotingPluginProxy {
 					}
 				} else if (backendPlayerPresenceTracker.getPendingSnapshotRequestId(snapshot.server, now) == null) {
 					pendingBackendRecoverySnapshots.remove(presenceServerKey(snapshot.server));
-					completePendingPresenceHandoffs(snapshot.requestId, snapshot.server,
+					Set<UUID> handoffPlayers = completePendingPresenceHandoffs(snapshot.requestId, snapshot.server,
 							snapshot.backendIncarnationId, snapshot.backendStartedAt, now);
+					processDedicatedSnapshotLogins(snapshot.server, handoffPlayers);
 				}
 			}
 		});
@@ -1944,9 +1945,10 @@ public abstract class VotingPluginProxy {
 				&& now >= handoff.createdAt && now - handoff.createdAt <= PRESENCE_HANDOFF_TIMEOUT_MILLIS;
 	}
 
-	private void completePendingPresenceHandoffs(UUID requestId, String server, UUID backendIncarnationId,
+	private Set<UUID> completePendingPresenceHandoffs(UUID requestId, String server, UUID backendIncarnationId,
 			long backendStartedAt, long now) {
 		List<PendingPresenceHandoff> completed = new ArrayList<>();
+		Set<UUID> completedPlayers = new LinkedHashSet<>();
 		synchronized (pendingPresenceHandoffs) {
 			prunePendingPresenceHandoffs(now);
 			pendingPresenceHandoffs.entrySet().removeIf(entry -> {
@@ -1963,12 +1965,32 @@ public abstract class VotingPluginProxy {
 			});
 		}
 		for (PendingPresenceHandoff handoff : completed) {
+			completedPlayers.add(handoff.playerUuid);
 			PlayerPresence presence = backendPlayerPresenceTracker.getPlayer(handoff.playerUuid).orElse(null);
 			if (presence != null && presence.getServer().equalsIgnoreCase(handoff.server)
 					&& presence.getConnectionId().equals(handoff.connectionId)) {
 				login(handoff.playerName, handoff.uuid, handoff.server);
 			}
 			releaseDestinationClaim(handoff);
+		}
+		return completedPlayers;
+	}
+
+	/**
+	 * Drains voter-keyed cached rewards when a complete recovery snapshot first
+	 * confirms a player on a dedicated voting proxy. Cross-backend handoffs are
+	 * already processed by their token-bound completion path and are excluded to
+	 * avoid a second login callback.
+	 */
+	protected void processDedicatedSnapshotLogins(String server, Set<UUID> handoffPlayers) {
+		if (!isDedicatedVotingProxyEnabled() || server == null || server.isBlank()) {
+			return;
+		}
+		Set<UUID> excluded = handoffPlayers == null ? Collections.emptySet() : handoffPlayers;
+		for (PlayerPresence presence : backendPlayerPresenceTracker.getOnlinePlayers()) {
+			if (presence.getServer().equalsIgnoreCase(server) && !excluded.contains(presence.getUuid())) {
+				login(presence.getPlayerName(), presence.getUuid().toString(), presence.getServer());
+			}
 		}
 	}
 
