@@ -231,6 +231,11 @@ Debug: false
 # Have a reward on each server
 # If false, will send to online server only
 SendVotesToAllServers: true
+# Enable only on a single dedicated voting proxy when regional proxies do not
+# run VotingPlugin. Requires a non-PLUGINMESSAGING BungeeMethod; online player
+# routing then uses backend presence reported through the global message system.
+# Unknown players are treated as offline and follow the existing vote cache path.
+DedicatedVotingProxy: false
 # List of servers the plugin won't send the vote to
 # Uses names from bungeecoord config, only needed for non SOCKETS setup
 BlockedServers:

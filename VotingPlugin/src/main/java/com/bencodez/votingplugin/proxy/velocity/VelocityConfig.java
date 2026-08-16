@@ -270,6 +270,11 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	}
 
 	@Override
+	public boolean getDedicatedVotingProxy() {
+		return getBoolean(getNode("DedicatedVotingProxy"), false);
+	}
+
+	@Override
 	public Map<String, Object> getSpigotServerConfiguration(String s) {
 		return configToMap(getNode("SpigotServers", s));
 	}

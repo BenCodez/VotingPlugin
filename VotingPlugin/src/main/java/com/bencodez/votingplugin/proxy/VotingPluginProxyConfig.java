@@ -400,6 +400,13 @@ public interface VotingPluginProxyConfig {
 	public boolean getSendVotesToAllServers();
 
 	/**
+	 * Gets whether this is the dedicated voting proxy for a multi-proxy network.
+	 *
+	 * @return true when backend-reported presence should drive vote routing
+	 */
+	public boolean getDedicatedVotingProxy();
+
+	/**
 	 * Gets the configuration for a specific Spigot server.
 	 *
 	 * @param s the server name

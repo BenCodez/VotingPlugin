@@ -563,7 +563,7 @@ public abstract class VotingPluginProxy {
 	public synchronized void checkCachedVotes(String server) {
 		int delay = 1;
 		if (isServerValid(server)) {
-			if (isSomeoneOnlineServer(server)) {
+			if (isSomeoneOnlineServerForVoteRouting(server)) {
 				if (getVoteCacheHandler().hasVotes(server) && !getConfig().getBlockedServers().contains(server)) {
 					ArrayList<OfflineBungeeVote> c = getVoteCacheHandler().getVotes(server);
 					ArrayList<OfflineBungeeVote> removed = new ArrayList<>();
@@ -588,10 +588,10 @@ public abstract class VotingPluginProxy {
 
 							boolean toSend = true;
 							if (getConfig().getWaitForUserOnline()) {
-								if (!isPlayerOnline(cache.getPlayerName())) {
+								if (!isPlayerOnlineForVoteRouting(cache.getPlayerName())) {
 									toSend = false;
-								} else if (isPlayerOnline(cache.getPlayerName())
-										&& !getCurrentPlayerServer(cache.getPlayerName()).equals(server)) {
+								} else if (isPlayerOnlineForVoteRouting(cache.getPlayerName())
+										&& !getCurrentPlayerServerForVoteRouting(cache.getPlayerName()).equals(server)) {
 									toSend = false;
 								}
 							}
@@ -599,8 +599,8 @@ public abstract class VotingPluginProxy {
 								boolean broadcastHere = cache.needsBroadcastOn(server);
 								if (!cache.isProxyBroadcastHandled() && broadcastHere
 										&& getConfig().getProxyBroadcastEnabled()) {
-									boolean playerOnline = isPlayerOnline(cache.getPlayerName());
-									String playerServer = playerOnline ? getCurrentPlayerServer(cache.getPlayerName())
+									boolean playerOnline = isPlayerOnlineForVoteRouting(cache.getPlayerName());
+									String playerServer = playerOnline ? getCurrentPlayerServerForVoteRouting(cache.getPlayerName())
 											: null;
 
 									Set<String> targets = proxyBroadcastDecider.resolveTargets(playerOnline,
@@ -636,11 +636,11 @@ public abstract class VotingPluginProxy {
 
 	public synchronized void checkOnlineVotes(String player, String uuid, String server) {
 		int delay = 1;
-		if (isPlayerOnline(player) && getVoteCacheHandler().hasOnlineVotes(uuid)) {
+		if (isPlayerOnlineForVoteRouting(player) && getVoteCacheHandler().hasOnlineVotes(uuid)) {
 			ArrayList<OfflineBungeeVote> c = getVoteCacheHandler().getOnlineVotes(uuid);
 			if (!c.isEmpty()) {
 				if (server == null) {
-					server = getCurrentPlayerServer(player);
+					server = getCurrentPlayerServerForVoteRouting(player);
 				}
 				if (!getConfig().getBlockedServers().contains(server)) {
 					int num = 1;
@@ -663,7 +663,7 @@ public abstract class VotingPluginProxy {
 						boolean broadcastHere = cache.needsBroadcastOn(server);
 						if (!cache.isProxyBroadcastHandled() && broadcastHere
 								&& getConfig().getProxyBroadcastEnabled()) {
-							String playerServer = (server != null) ? server : getCurrentPlayerServer(player);
+							String playerServer = (server != null) ? server : getCurrentPlayerServerForVoteRouting(player);
 
 							Set<String> targets = proxyBroadcastDecider.resolveTargets(true, playerServer);
 							broadcastHere = proxyBroadcastDecider.shouldBroadcast(server, targets);
@@ -997,6 +997,26 @@ public abstract class VotingPluginProxy {
 
 	public abstract String getCurrentPlayerServer(String player);
 
+	/**
+	 * Resolves a player's server for vote routing. A dedicated voting proxy has no
+	 * local players, so it uses the backend presence tracker instead.
+	 */
+	protected String getCurrentPlayerServerForVoteRouting(String player) {
+		if (isDedicatedVotingProxyEnabled()) {
+			return backendPlayerPresenceTracker.getPlayer(player).map(presence -> presence.getServer()).orElse(null);
+		}
+		return getCurrentPlayerServer(player);
+	}
+
+	/**
+	 * Dedicated routing is intentionally unavailable on plugin messaging: that
+	 * transport is attached to a player-facing proxy and does not carry backend
+	 * presence snapshots.
+	 */
+	protected boolean isDedicatedVotingProxyEnabled() {
+		return getConfig().getDedicatedVotingProxy() && method != null && method.supportsBackendPresence();
+	}
+
 	public abstract File getDataFolderPlugin();
 
 	public String getMonthTotalsWithDatePath() {
@@ -1122,9 +1142,27 @@ public abstract class VotingPluginProxy {
 
 	public abstract boolean isPlayerOnline(String playerName);
 
+	/**
+	 * Checks online state for vote routing, using backend presence only when this
+	 * proxy is explicitly configured as the dedicated voting proxy.
+	 */
+	protected boolean isPlayerOnlineForVoteRouting(String playerName) {
+		return isDedicatedVotingProxyEnabled() ? backendPlayerPresenceTracker.getPlayer(playerName).isPresent()
+				: isPlayerOnline(playerName);
+	}
+
 	public abstract boolean isServerValid(String server);
 
 	public abstract boolean isSomeoneOnlineServer(String server);
+
+	protected boolean isSomeoneOnlineServerForVoteRouting(String server) {
+		if (!isDedicatedVotingProxyEnabled()) {
+			return isSomeoneOnlineServer(server);
+		}
+		com.bencodez.votingplugin.proxy.presence.BackendPresenceStatus status = backendPlayerPresenceTracker
+				.getBackendStatus(server);
+		return status != null && status.isAvailable() && status.getPlayerCount() > 0;
+	}
 
 	public abstract boolean isVoteCacheIgnoreTime();
 
@@ -1154,6 +1192,7 @@ public abstract class VotingPluginProxy {
 		if (getMethod() == null) {
 			method = BungeeMethod.PLUGINMESSAGING;
 		}
+		warnUnsupportedDedicatedVotingProxyMode();
 		uuidPlayerNameCache = getProxyMySQL().getRowsUUIDNameQuery();
 
 		bungeeTimeChecker.setTimeChangeFailSafeBypass(getConfig().getTimeChangeFailSafeBypass());
@@ -2133,7 +2172,7 @@ public abstract class VotingPluginProxy {
 		if (getConfig().getOnlineMode()) {
 			addNonVotedPlayer(uuid, playerName);
 		}
-		if (isPlayerOnline(playerName)) {
+		if (isPlayerOnlineForVoteRouting(playerName)) {
 			if (getConfig().getGlobalDataEnabled()) {
 				if (getGlobalDataHandler().isTimeChangedHappened()) {
 					getGlobalDataHandler().checkForFinishedTimeChanges();
@@ -2296,10 +2335,18 @@ public abstract class VotingPluginProxy {
 		if (getMethod() == null) {
 			method = BungeeMethod.PLUGINMESSAGING;
 		}
+		warnUnsupportedDedicatedVotingProxyMode();
 
 		setCurrentVotePartyVotesRequired(
 				getConfig().getVotePartyVotesRequired() + getVoteCacheVotePartyIncreaseVotesRequired());
 		loadMultiProxySupport();
+	}
+
+	private void warnUnsupportedDedicatedVotingProxyMode() {
+		if (getConfig().getDedicatedVotingProxy() && (method == null || !method.supportsBackendPresence())) {
+			logSevere("DedicatedVotingProxy requires MYSQL, REDIS, MQTT, or SOCKETS; PLUGINMESSAGING is disabled for "
+					+ "dedicated-proxy routing. Falling back to normal proxy routing.");
+		}
 	}
 
 	public abstract void runAsync(Runnable run);
@@ -2468,7 +2515,7 @@ public abstract class VotingPluginProxy {
 	}
 
 	public void sendVoteParty(String server) {
-		if (isSomeoneOnlineServer(server)) {
+		if (isSomeoneOnlineServerForVoteRouting(server)) {
 			globalMessageProxyHandler.sendMessage(server, 1, VotingPluginWire.votePartyBungee());
 		}
 	}
@@ -2495,7 +2542,7 @@ public abstract class VotingPluginProxy {
 
 	public void status() {
 		for (String s : getAllAvailableServers()) {
-			if (!isSomeoneOnlineServer(s)) {
+			if (!isSomeoneOnlineServerForVoteRouting(s)) {
 				log("No players on server " + s + " to send test status message, please retest with someone online");
 			} else {
 				log("Sending request for status message on " + s);
@@ -2730,8 +2777,8 @@ public abstract class VotingPluginProxy {
 			player = getProperName(uuid, player);
 
 			// Cache online state/server once (IMPORTANT for broadcast logic correctness)
-			final boolean playerOnline = isPlayerOnline(player);
-			final String playerServer = playerOnline ? getCurrentPlayerServer(player) : null;
+			final boolean playerOnline = isPlayerOnlineForVoteRouting(player);
+			final String playerServer = playerOnline ? getCurrentPlayerServerForVoteRouting(player) : null;
 			long time = queueTime != 0 ? queueTime
 					: LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
 
@@ -2884,7 +2931,10 @@ public abstract class VotingPluginProxy {
 			// ===========================
 			// Send vote(s) to backend(s)
 			// ===========================
-			if (getConfig().getSendVotesToAllServers()) {
+			// A dedicated voting proxy has no player-facing proxy state. Its confirmed
+			// backend presence selects one destination, so never fan a vote out merely
+			// because a legacy configuration still has SendVotesToAllServers enabled.
+			if (getConfig().getSendVotesToAllServers() && !isDedicatedVotingProxyEnabled()) {
 				for (String s : getAllAvailableServers()) {
 
 					boolean forceCache = getConfig().getWaitForUserOnline()
@@ -2894,7 +2944,7 @@ public abstract class VotingPluginProxy {
 						debug("Forcing vote to cache for server " + s);
 					}
 
-					if ((!isSomeoneOnlineServer(s) && method.requiresPlayerOnline()) || forceCache) {
+					if ((!isSomeoneOnlineServerForVoteRouting(s) && method.requiresPlayerOnline()) || forceCache) {
 						voteStatus = VoteLogStatus.CACHED;
 						boolean broadcastForwarded = standaloneProxyBroadcast
 								&& broadcastForwardedServers.containsAll(proxyBroadcastTargets);
