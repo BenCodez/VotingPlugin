@@ -43,7 +43,7 @@ public class BackendPlayerPresenceTracker {
 	private final Map<UUID, Long> lastPlayerEventSequences = new HashMap<>();
 	private final Map<UUID, String> lastPlayerEventServers = new HashMap<>();
 	private final Map<UUID, CrossBackendFence> crossBackendFences = new HashMap<>();
-	private final Map<UUID, CrossBackendFence> destinationClaims = new HashMap<>();
+	private final Map<UUID, DestinationClaim> destinationClaims = new HashMap<>();
 	private final Map<String, BackendState> backends = new HashMap<>();
 	private final Map<String, PendingSnapshot> pendingSnapshots = new HashMap<>();
 	private final int maxTrackedBackends;
@@ -158,7 +158,7 @@ public class BackendPlayerPresenceTracker {
 				lastPlayerEventSequences.put(playerUuid, sequence);
 				lastPlayerEventServers.put(playerUuid, normalizedServer);
 				crossBackendFences.put(playerUuid, new CrossBackendFence(normalizedServer, sequence));
-				putDestinationClaim(playerUuid, normalizedServer, sequence);
+				putDestinationClaim(playerUuid, normalizedServer, connectionId, sequence);
 				backendState.lastPlayerEventTimestamp = presenceTimestamp;
 				prunePlayerEventSequences();
 				return PlayerOnlineResult.conflictingPresence(sequence);
@@ -224,19 +224,23 @@ public class BackendPlayerPresenceTracker {
 		if (current == null || !current.getServer().equalsIgnoreCase(normalizedServer)
 				|| !current.getConnectionId().equals(connectionId)) {
 			String key = serverKey(normalizedServer);
-			if (!fenced || !pendingSnapshots.containsKey(key) || !ensurePlayerEventCapacity(playerUuid)
-					|| !pendingSnapshots.containsKey(key)
+			DestinationClaim claim = destinationClaims.get(playerUuid);
+			boolean matchingDestinationClaim = claim != null
+					&& claim.server.equalsIgnoreCase(normalizedServer) && claim.connectionId.equals(connectionId);
+			if (!fenced || (!pendingSnapshots.containsKey(key) && !matchingDestinationClaim)
+					|| !ensurePlayerEventCapacity(playerUuid)
 					|| !markBackendAvailable(normalizedServer, backendIncarnationId, backendStartedAt,
 							presenceTimestamp, now)) {
 				return false;
 			}
 			// A destination logout can race the snapshot used to confirm a cross-backend
-			// handoff. Keep the current source presence, but retain a destination tombstone
-			// so a snapshot captured before this logout cannot restore the stale session.
+			// handoff, including while cooldown leaves no request pending. Keep the current
+			// source presence, invalidate the matching destination claim, and retain a
+			// tombstone so an older snapshot cannot restore the stale session.
 			long sequence = ++eventSequence;
 			lastPlayerEventSequences.put(playerUuid, sequence);
 			lastPlayerEventServers.put(playerUuid, normalizedServer);
-			updateCrossBackendFenceForLogout(playerUuid, normalizedServer, sequence);
+			updateCrossBackendFenceForLogout(playerUuid, normalizedServer, connectionId, sequence);
 			backendState.lastPlayerEventTimestamp = presenceTimestamp;
 			prunePlayerEventSequences();
 			return true;
@@ -246,7 +250,7 @@ public class BackendPlayerPresenceTracker {
 		}
 		long sequence = ++eventSequence;
 		removePresence(playerUuid, sequence);
-		updateCrossBackendFenceForLogout(playerUuid, normalizedServer, sequence);
+		updateCrossBackendFenceForLogout(playerUuid, normalizedServer, connectionId, sequence);
 		if (fenced) {
 			markBackendAvailable(normalizedServer, backendIncarnationId, backendStartedAt, presenceTimestamp, now);
 			backendState.lastPlayerEventTimestamp = presenceTimestamp;
@@ -444,12 +448,15 @@ public class BackendPlayerPresenceTracker {
 		if (!isCurrentDestinationClaim(playerUuid, server, conflictSequence)) {
 			return null;
 		}
-		return getPendingSnapshotRequestId(server, now);
+		String normalizedServer = normalizeServer(server);
+		expirePendingSnapshots(now);
+		PendingSnapshot pending = pendingSnapshots.get(serverKey(normalizedServer));
+		return pending == null || pending.eventWatermark < conflictSequence ? null : pending.requestId;
 	}
 
 	public synchronized boolean isCurrentDestinationClaim(UUID playerUuid, String server, long conflictSequence) {
 		String normalizedServer = normalizeServer(server);
-		CrossBackendFence fence = playerUuid == null ? null : destinationClaims.get(playerUuid);
+		DestinationClaim fence = playerUuid == null ? null : destinationClaims.get(playerUuid);
 		return normalizedServer != null && conflictSequence > 0L && fence != null
 				&& fence.sequence == conflictSequence && fence.server.equalsIgnoreCase(normalizedServer);
 	}
@@ -809,22 +816,22 @@ public class BackendPlayerPresenceTracker {
 		lastPlayerEventSequences.put(uuid, sequence);
 	}
 
-	private void updateCrossBackendFenceForLogout(UUID uuid, String server, long sequence) {
+	private void updateCrossBackendFenceForLogout(UUID uuid, String server, UUID connectionId, long sequence) {
 		CrossBackendFence fence = crossBackendFences.get(uuid);
 		if (fence != null && fence.server.equalsIgnoreCase(server)) {
 			crossBackendFences.put(uuid, new CrossBackendFence(fence.server, sequence));
 		}
-		CrossBackendFence claim = destinationClaims.get(uuid);
-		if (claim != null && claim.server.equalsIgnoreCase(server)) {
+		DestinationClaim claim = destinationClaims.get(uuid);
+		if (claim != null && claim.server.equalsIgnoreCase(server) && claim.connectionId.equals(connectionId)) {
 			destinationClaims.remove(uuid);
 		}
 	}
 
-	private void putDestinationClaim(UUID uuid, String server, long sequence) {
+	private void putDestinationClaim(UUID uuid, String server, UUID connectionId, long sequence) {
 		if (!destinationClaims.containsKey(uuid) && destinationClaims.size() >= maxTrackedPlayerEvents) {
 			UUID oldestUuid = null;
 			long oldestSequence = Long.MAX_VALUE;
-			for (Map.Entry<UUID, CrossBackendFence> entry : destinationClaims.entrySet()) {
+			for (Map.Entry<UUID, DestinationClaim> entry : destinationClaims.entrySet()) {
 				if (entry.getValue().sequence < oldestSequence) {
 					oldestUuid = entry.getKey();
 					oldestSequence = entry.getValue().sequence;
@@ -834,7 +841,7 @@ public class BackendPlayerPresenceTracker {
 				destinationClaims.remove(oldestUuid);
 			}
 		}
-		destinationClaims.put(uuid, new CrossBackendFence(server, sequence));
+		destinationClaims.put(uuid, new DestinationClaim(server, connectionId, sequence));
 	}
 
 	private void removePlayersOnServer(String server, long sequence) {
@@ -1092,6 +1099,18 @@ public class BackendPlayerPresenceTracker {
 
 		private CrossBackendFence(String server, long sequence) {
 			this.server = server;
+			this.sequence = sequence;
+		}
+	}
+
+	private static final class DestinationClaim {
+		private final String server;
+		private final UUID connectionId;
+		private final long sequence;
+
+		private DestinationClaim(String server, UUID connectionId, long sequence) {
+			this.server = server;
+			this.connectionId = connectionId;
 			this.sequence = sequence;
 		}
 	}
