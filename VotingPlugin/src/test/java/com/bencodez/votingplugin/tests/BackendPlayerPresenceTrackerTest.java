@@ -494,8 +494,8 @@ public class BackendPlayerPresenceTrackerTest {
 
 		UUID expiredRequest = UUID.randomUUID();
 		tracker.beginSnapshot("survival", expiredRequest, 50L);
-		assertEquals(expiredRequest, tracker.getPendingSnapshotRequestId("survival", 120050L));
-		assertNull(tracker.getPendingSnapshotRequestId("survival", 120051L));
+		assertEquals(expiredRequest, tracker.getPendingSnapshotRequestId("survival", 120049L));
+		assertNull(tracker.getPendingSnapshotRequestId("survival", 120050L));
 	}
 
 	private static PresencePlayer player(String name, UUID uuid) {
