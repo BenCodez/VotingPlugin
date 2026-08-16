@@ -48,6 +48,25 @@ public class BackendPlayerPresenceTrackerTest {
 	}
 
 	@Test
+	public void proxyRestartTreatsPlayersAsOfflineUntilFreshSnapshot() {
+		UUID incarnationId = UUID.randomUUID();
+		UUID playerUuid = UUID.randomUUID();
+		BackendPlayerPresenceTracker beforeRestart = new BackendPlayerPresenceTracker();
+		assertTrue(beforeRestart.backendStarted("survival", incarnationId, 1000L, 1000L, 10L));
+		assertTrue(beforeRestart.playerOnline("Player", playerUuid.toString(), "survival", UUID.randomUUID(),
+				incarnationId, 1000L, 1100L, 20L));
+
+		BackendPlayerPresenceTracker afterRestart = new BackendPlayerPresenceTracker();
+		assertTrue(afterRestart.getPlayer(playerUuid).isEmpty());
+		assertTrue(afterRestart.backendStarted("survival", incarnationId, 1000L, 1000L, 30L));
+		UUID requestId = UUID.randomUUID();
+		assertEquals(requestId, afterRestart.beginSnapshot("survival", requestId, incarnationId, 1000L, 40L));
+		assertTrue(afterRestart.applySnapshotChunk("survival", requestId, 0, 1, Collections.emptyList(),
+				incarnationId, 1000L, 1200L, 50L));
+		assertEquals(0, afterRestart.getOnlinePlayerCount());
+	}
+
+	@Test
 	public void staleLogoutCannotClearNewerConnection() {
 		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
 		UUID uuid = UUID.randomUUID();

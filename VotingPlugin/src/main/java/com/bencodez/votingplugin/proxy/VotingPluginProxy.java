@@ -66,7 +66,6 @@ import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyHandler;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyMethod;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyServerSocketConfiguration;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyServerSocketConfigurationBungee;
-import com.bencodez.votingplugin.proxy.presence.BackendGenerationStateStore;
 import com.bencodez.votingplugin.proxy.presence.BackendPlayerPresenceTracker;
 import com.bencodez.votingplugin.proxy.presence.PlayerPresence;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
@@ -161,8 +160,6 @@ public abstract class VotingPluginProxy {
 	private final BackendPlayerPresenceTracker backendPlayerPresenceTracker = new BackendPlayerPresenceTracker();
 	private final Map<UUID, PendingPresenceHandoff> pendingPresenceHandoffs = new HashMap<>();
 	private final Set<String> pendingBackendRecoverySnapshots = ConcurrentHashMap.newKeySet();
-	private final Object backendGenerationStateLock = new Object();
-	private BackendGenerationStateStore backendGenerationStateStore;
 
 	public VotingPluginProxy() {
 		enabled = true;
@@ -1156,9 +1153,6 @@ public abstract class VotingPluginProxy {
 		if (getMethod() == null) {
 			method = BungeeMethod.PLUGINMESSAGING;
 		}
-		if (method.supportsBackendPresence()) {
-			loadBackendGenerationState();
-		}
 		uuidPlayerNameCache = getProxyMySQL().getRowsUUIDNameQuery();
 
 		bungeeTimeChecker.setTimeChangeFailSafeBypass(getConfig().getTimeChangeFailSafeBypass());
@@ -1407,7 +1401,7 @@ public abstract class VotingPluginProxy {
 				if (isPresenceServerValid(server, VotingPluginWire.SUB_BACKEND_STARTED)
 						&& isPresenceGenerationValid(backendIncarnationId, backendStartedAt, presenceTimestamp,
 								VotingPluginWire.SUB_BACKEND_STARTED)) {
-					if (acceptBackendStarted(server, backendIncarnationId, backendStartedAt,
+					if (backendPlayerPresenceTracker.backendStarted(server, backendIncarnationId, backendStartedAt,
 							presenceTimestamp, System.currentTimeMillis())) {
 						discardPendingPresenceHandoffs(server);
 						pendingBackendRecoverySnapshots.add(presenceServerKey(server));
@@ -1430,7 +1424,7 @@ public abstract class VotingPluginProxy {
 				if (isPresenceServerValid(server, VotingPluginWire.SUB_BACKEND_STOPPED)
 						&& isPresenceGenerationValid(backendIncarnationId, backendStartedAt, presenceTimestamp,
 								VotingPluginWire.SUB_BACKEND_STOPPED)) {
-					if (acceptBackendStopped(server, backendIncarnationId, backendStartedAt,
+					if (backendPlayerPresenceTracker.backendStopped(server, backendIncarnationId, backendStartedAt,
 							presenceTimestamp, System.currentTimeMillis())) {
 						discardPendingPresenceHandoffs(server);
 						pendingBackendRecoverySnapshots.remove(presenceServerKey(server));
@@ -1926,74 +1920,6 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
-	private void loadBackendGenerationState() {
-		synchronized (backendGenerationStateLock) {
-			BackendGenerationStateStore stateStore = new BackendGenerationStateStore(getDataFolderPlugin().toPath());
-			try {
-				for (String server : stateStore.loadInto(backendPlayerPresenceTracker,
-						getAllAvailableServers(), System.currentTimeMillis())) {
-					pendingBackendRecoverySnapshots.add(presenceServerKey(server));
-				}
-				backendGenerationStateStore = stateStore;
-			} catch (IOException | RuntimeException e) {
-				// Fail closed: accepting a new lifecycle generation without the restored
-				// retired-incarnation fence could let delayed traffic replace the current
-				// backend. A clean restart after repairing/removing the state file is required.
-				backendGenerationStateStore = null;
-				warn("Unable to load backend presence generation state: " + e.getMessage());
-			}
-		}
-	}
-
-	private void saveBackendGenerationState() {
-		synchronized (backendGenerationStateLock) {
-			if (backendGenerationStateStore == null) {
-				return;
-			}
-			try {
-				backendGenerationStateStore.save(backendPlayerPresenceTracker);
-			} catch (IOException | RuntimeException e) {
-				warn("Unable to save backend presence generation state: " + e.getMessage());
-			}
-		}
-	}
-
-	private boolean acceptBackendStarted(String server, UUID backendIncarnationId, long backendStartedAt,
-			long presenceTimestamp, long now) {
-		synchronized (backendGenerationStateLock) {
-			if (backendGenerationStateStore == null) {
-				warn("Ignored backend presence generation because its durable state store is unavailable");
-				return false;
-			}
-			try {
-				return backendPlayerPresenceTracker.backendStartedDurably(server, backendIncarnationId,
-						backendStartedAt, presenceTimestamp, now, backendGenerationStateStore::save);
-			} catch (IOException | RuntimeException e) {
-				warn("Rejected backend presence generation because its ordering fence could not be saved: "
-						+ e.getMessage());
-				return false;
-			}
-		}
-	}
-
-	private boolean acceptBackendStopped(String server, UUID backendIncarnationId, long backendStartedAt,
-			long presenceTimestamp, long now) {
-		synchronized (backendGenerationStateLock) {
-			if (backendGenerationStateStore == null) {
-				warn("Ignored backend presence stop because its durable state store is unavailable");
-				return false;
-			}
-			try {
-				return backendPlayerPresenceTracker.backendStoppedDurably(server, backendIncarnationId,
-						backendStartedAt, presenceTimestamp, now, backendGenerationStateStore::save);
-			} catch (IOException | RuntimeException e) {
-				warn("Rejected backend presence stop because its lifecycle fence could not be saved: "
-						+ e.getMessage());
-				return false;
-			}
-		}
-	}
-
 	private String presenceServerKey(String server) {
 		return server == null ? "" : server.trim().toLowerCase(java.util.Locale.ROOT);
 	}
@@ -2083,7 +2009,6 @@ public abstract class VotingPluginProxy {
 	public abstract void logSevere(String message);
 
 	public void onDisable() {
-		saveBackendGenerationState();
 		getVoteCacheHandler().saveVoteCache();
 
 		if (getProxyMysqlMessenger() != null) {
