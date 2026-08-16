@@ -75,7 +75,6 @@ public class BungeeHandler implements Listener {
 	private String presenceServerSecret = "";
 	private UUID lastPresenceSnapshotRequestId;
 	private long lastPresenceSnapshotRequestAtNanos;
-	private boolean presenceStartedReplayedWithCarrier;
 	private ScheduledFuture<?> presenceHeartbeatTask;
 	@Getter
 	private ClientHandler clientHandler;
@@ -607,7 +606,7 @@ public class BungeeHandler implements Listener {
 				return;
 			}
 			playerPresenceSessions.put(playerKey(session.playerName), session);
-			replayPresenceStartedWithCarrier();
+			reannouncePresenceStarted();
 			long eventTimestamp = nextPresenceTimestamp();
 			JsonEnvelope login = hasPresenceServerSecret()
 					? VotingPluginWire.login(session.playerName, session.uuid, presenceServer, session.connectionId,
@@ -768,7 +767,6 @@ public class BungeeHandler implements Listener {
 			presenceReporting = true;
 			lastPresenceSnapshotRequestId = null;
 			lastPresenceSnapshotRequestAtNanos = 0L;
-			presenceStartedReplayedWithCarrier = false;
 			sendPresenceMessage(VotingPluginWire.backendStarted(server, presenceIncarnationId, presenceStartedAt,
 					now));
 			sendPresenceMessage(VotingPluginWire.backendHeartbeat(server, presenceIncarnationId, presenceStartedAt,
@@ -794,12 +792,14 @@ public class BungeeHandler implements Listener {
 				if (!plugin.isEnabled()) {
 					return;
 				}
+				synchronized (presenceLifecycleLock) {
+					reannouncePresenceStarted();
+				}
 				for (Player player : Bukkit.getOnlinePlayers()) {
 					synchronized (presenceLifecycleLock) {
 						BackendPlayerPresenceSession session = getOrCreatePresenceSession(player);
 						String server = presenceServer;
 						if (session != null && presenceReporting && server != null) {
-							replayPresenceStartedWithCarrier();
 							long eventTimestamp = nextPresenceTimestamp();
 							JsonEnvelope login = hasPresenceServerSecret()
 									? VotingPluginWire.login(session.playerName, session.uuid, server,
@@ -834,7 +834,6 @@ public class BungeeHandler implements Listener {
 			presenceServerSecret = "";
 			lastPresenceSnapshotRequestId = null;
 			lastPresenceSnapshotRequestAtNanos = 0L;
-			presenceStartedReplayedWithCarrier = false;
 			playerPresenceSessions.clear();
 		}
 	}
@@ -842,6 +841,7 @@ public class BungeeHandler implements Listener {
 	private void sendPresenceHeartbeat() {
 		synchronized (presenceLifecycleLock) {
 			if (presenceReporting && presenceServer != null && presenceIncarnationId != null) {
+				reannouncePresenceStarted();
 				sendPresenceMessage(VotingPluginWire.backendHeartbeat(presenceServer, presenceIncarnationId,
 						presenceStartedAt, nextPresenceTimestamp()));
 			}
@@ -873,14 +873,13 @@ public class BungeeHandler implements Listener {
 		return presenceLastTimestamp;
 	}
 
-	private void replayPresenceStartedWithCarrier() {
-		if (presenceStartedReplayedWithCarrier || !presenceReporting || presenceServer == null
+	private void reannouncePresenceStarted() {
+		if (!presenceReporting || presenceServer == null
 				|| presenceIncarnationId == null || !hasPresenceServerSecret()) {
 			return;
 		}
 		sendPresenceMessage(VotingPluginWire.backendStarted(presenceServer, presenceIncarnationId,
 				presenceStartedAt, presenceStartedAt));
-		presenceStartedReplayedWithCarrier = true;
 	}
 
 	private boolean hasPresenceServerSecret() {

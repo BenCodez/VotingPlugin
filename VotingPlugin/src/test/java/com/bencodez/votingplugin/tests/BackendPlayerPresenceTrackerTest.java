@@ -482,6 +482,22 @@ public class BackendPlayerPresenceTrackerTest {
 		assertFalse(tracker.applySnapshotChunk("survival", requestId, 1, 2, List.of(), 120011L));
 	}
 
+	@Test
+	public void pendingSnapshotRequestIdTracksCompletionAndExpiry() {
+		BackendPlayerPresenceTracker tracker = new BackendPlayerPresenceTracker();
+		UUID completedRequest = UUID.randomUUID();
+		tracker.beginSnapshot("survival", completedRequest, 10L);
+
+		assertEquals(completedRequest, tracker.getPendingSnapshotRequestId("survival", 20L));
+		assertTrue(tracker.applySnapshot("survival", completedRequest, List.of(), 30L));
+		assertNull(tracker.getPendingSnapshotRequestId("survival", 40L));
+
+		UUID expiredRequest = UUID.randomUUID();
+		tracker.beginSnapshot("survival", expiredRequest, 50L);
+		assertEquals(expiredRequest, tracker.getPendingSnapshotRequestId("survival", 120050L));
+		assertNull(tracker.getPendingSnapshotRequestId("survival", 120051L));
+	}
+
 	private static PresencePlayer player(String name, UUID uuid) {
 		return new PresencePlayer(name, uuid.toString(), UUID.randomUUID().toString());
 	}

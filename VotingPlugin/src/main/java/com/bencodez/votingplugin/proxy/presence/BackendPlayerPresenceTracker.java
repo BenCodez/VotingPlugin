@@ -677,6 +677,24 @@ public class BackendPlayerPresenceTracker {
 		return pendingSnapshots.size();
 	}
 
+	/**
+	 * Returns the active snapshot request for a backend, expiring stale requests
+	 * first.
+	 *
+	 * @param server configured backend server name
+	 * @param now current proxy time in milliseconds
+	 * @return active request identifier, or null when none remains
+	 */
+	public synchronized UUID getPendingSnapshotRequestId(String server, long now) {
+		String normalizedServer = normalizeServer(server);
+		if (normalizedServer == null) {
+			return null;
+		}
+		expirePendingSnapshots(now);
+		PendingSnapshot pending = pendingSnapshots.get(serverKey(normalizedServer));
+		return pending == null ? null : pending.requestId;
+	}
+
 	public synchronized int getTrackedBackendCount() {
 		return backends.size();
 	}
