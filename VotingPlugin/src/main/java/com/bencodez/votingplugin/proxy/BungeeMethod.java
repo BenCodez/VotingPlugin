@@ -25,6 +25,17 @@ public enum BungeeMethod {
 	}
 
 	/**
+	 * Checks whether backend-reported player presence is required for this
+	 * transport. Plugin messaging runs on the player-facing proxy, which already
+	 * has an authoritative view of online players and their current servers.
+	 *
+	 * @return true when the transport requires backend presence messages
+	 */
+	public boolean supportsBackendPresence() {
+		return this != PLUGINMESSAGING;
+	}
+
+	/**
 	 * Gets a BungeeMethod by name.
 	 *
 	 * @param str the method name

@@ -10,7 +10,6 @@ import com.bencodez.advancedcore.api.player.UuidLookup;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.listeners.AdvancedCoreLoginEvent;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.proxy.VotingPluginWire;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 /**
@@ -79,8 +78,7 @@ public class PlayerJoinEvent implements Listener {
 		plugin.getPlaceholders().onUpdate(user, true);
 
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
-			plugin.getBungeeHandler().getGlobalMessageHandler().sendMessage(VotingPluginWire.login(user.getPlayerName(),
-					user.getUUID(), plugin.getBungeeSettings().getServer()));
+			plugin.getBungeeHandler().playerOnline(user.getPlayerName(), user.getUUID());
 		}
 	}
 
@@ -98,6 +96,10 @@ public class PlayerJoinEvent implements Listener {
 		final Player player = event.getPlayer();
 		if (player == null) {
 			return;
+		}
+
+		if (plugin.getBungeeSettings().isUseBungeecoord()) {
+			plugin.getBungeeHandler().playerOffline(player.getName());
 		}
 
 		plugin.getLoginTimer().execute(new Runnable() {

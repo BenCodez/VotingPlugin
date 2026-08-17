@@ -85,6 +85,10 @@ public class Config extends YMLFile {
 	@Getter
 	private boolean discordSRVTopVoterAllTimeNewMessageOnUpdate = false;
 
+	@ConfigDataBoolean(path = "DiscordSRV.TopVoter.AutoRecoverMessageOnFailure")
+	@Getter
+	private boolean discordSRVTopVoterAutoRecoverMessageOnFailure = true;
+
 	@ConfigDataBoolean(path = "DiscordSRV.TopVoter.Monthly.NewMessageOnUpdate")
 	@Getter
 	private boolean discordSRVTopVoterMonthlyNewMessageOnUpdate = false;

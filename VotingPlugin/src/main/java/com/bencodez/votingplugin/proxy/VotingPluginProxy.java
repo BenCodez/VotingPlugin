@@ -66,6 +66,8 @@ import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyHandler;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyMethod;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyServerSocketConfiguration;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyServerSocketConfigurationBungee;
+import com.bencodez.votingplugin.proxy.presence.BackendPlayerPresenceTracker;
+import com.bencodez.votingplugin.proxy.presence.PlayerPresence;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.util.MinecraftUsernameValidator;
@@ -84,6 +86,11 @@ import lombok.Getter;
 import lombok.Setter;
 
 public abstract class VotingPluginProxy {
+	private static final long PRESENCE_HANDOFF_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(2);
+	private static final long PRESENCE_STARTUP_RESYNC_DELAY_SECONDS = 5L;
+	private static final long PRESENCE_MAINTENANCE_INTERVAL_SECONDS = 30L;
+	private static final long PRESENCE_BACKEND_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(90);
+
 	@Getter
 	@Setter
 	private int votePartyVotes = 0;
@@ -149,6 +156,11 @@ public abstract class VotingPluginProxy {
 
 	@Getter
 	private NonVotedPlayersCache nonVotedPlayersCache;
+
+	@Getter
+	private final BackendPlayerPresenceTracker backendPlayerPresenceTracker = new BackendPlayerPresenceTracker();
+	private final Map<UUID, PendingPresenceHandoff> pendingPresenceHandoffs = new HashMap<>();
+	private final Set<String> pendingBackendRecoverySnapshots = ConcurrentHashMap.newKeySet();
 
 	public VotingPluginProxy() {
 		enabled = true;
@@ -551,7 +563,7 @@ public abstract class VotingPluginProxy {
 	public synchronized void checkCachedVotes(String server) {
 		int delay = 1;
 		if (isServerValid(server)) {
-			if (isSomeoneOnlineServer(server)) {
+			if (isSomeoneOnlineServerForVoteRouting(server)) {
 				if (getVoteCacheHandler().hasVotes(server) && !getConfig().getBlockedServers().contains(server)) {
 					ArrayList<OfflineBungeeVote> c = getVoteCacheHandler().getVotes(server);
 					ArrayList<OfflineBungeeVote> removed = new ArrayList<>();
@@ -576,10 +588,10 @@ public abstract class VotingPluginProxy {
 
 							boolean toSend = true;
 							if (getConfig().getWaitForUserOnline()) {
-								if (!isPlayerOnline(cache.getPlayerName())) {
+								if (!isPlayerOnlineForVoteRouting(cache.getPlayerName())) {
 									toSend = false;
-								} else if (isPlayerOnline(cache.getPlayerName())
-										&& !getCurrentPlayerServer(cache.getPlayerName()).equals(server)) {
+								} else if (isPlayerOnlineForVoteRouting(cache.getPlayerName())
+										&& !getCurrentPlayerServerForVoteRouting(cache.getPlayerName()).equals(server)) {
 									toSend = false;
 								}
 							}
@@ -587,8 +599,8 @@ public abstract class VotingPluginProxy {
 								boolean broadcastHere = cache.needsBroadcastOn(server);
 								if (!cache.isProxyBroadcastHandled() && broadcastHere
 										&& getConfig().getProxyBroadcastEnabled()) {
-									boolean playerOnline = isPlayerOnline(cache.getPlayerName());
-									String playerServer = playerOnline ? getCurrentPlayerServer(cache.getPlayerName())
+									boolean playerOnline = isPlayerOnlineForVoteRouting(cache.getPlayerName());
+									String playerServer = playerOnline ? getCurrentPlayerServerForVoteRouting(cache.getPlayerName())
 											: null;
 
 									Set<String> targets = proxyBroadcastDecider.resolveTargets(playerOnline,
@@ -624,11 +636,11 @@ public abstract class VotingPluginProxy {
 
 	public synchronized void checkOnlineVotes(String player, String uuid, String server) {
 		int delay = 1;
-		if (isPlayerOnline(player) && getVoteCacheHandler().hasOnlineVotes(uuid)) {
+		if (isPlayerOnlineForVoteRouting(player) && getVoteCacheHandler().hasOnlineVotes(uuid)) {
 			ArrayList<OfflineBungeeVote> c = getVoteCacheHandler().getOnlineVotes(uuid);
 			if (!c.isEmpty()) {
 				if (server == null) {
-					server = getCurrentPlayerServer(player);
+					server = getCurrentPlayerServerForVoteRouting(player);
 				}
 				if (!getConfig().getBlockedServers().contains(server)) {
 					int num = 1;
@@ -651,7 +663,7 @@ public abstract class VotingPluginProxy {
 						boolean broadcastHere = cache.needsBroadcastOn(server);
 						if (!cache.isProxyBroadcastHandled() && broadcastHere
 								&& getConfig().getProxyBroadcastEnabled()) {
-							String playerServer = (server != null) ? server : getCurrentPlayerServer(player);
+							String playerServer = (server != null) ? server : getCurrentPlayerServerForVoteRouting(player);
 
 							Set<String> targets = proxyBroadcastDecider.resolveTargets(true, playerServer);
 							broadcastHere = proxyBroadcastDecider.shouldBroadcast(server, targets);
@@ -985,6 +997,26 @@ public abstract class VotingPluginProxy {
 
 	public abstract String getCurrentPlayerServer(String player);
 
+	/**
+	 * Resolves a player's server for vote routing. A dedicated voting proxy has no
+	 * local players, so it uses the backend presence tracker instead.
+	 */
+	protected String getCurrentPlayerServerForVoteRouting(String player) {
+		if (isDedicatedVotingProxyEnabled()) {
+			return backendPlayerPresenceTracker.getPlayer(player).map(presence -> presence.getServer()).orElse(null);
+		}
+		return getCurrentPlayerServer(player);
+	}
+
+	/**
+	 * Dedicated routing is intentionally unavailable on plugin messaging: that
+	 * transport is attached to a player-facing proxy and does not carry backend
+	 * presence snapshots.
+	 */
+	protected boolean isDedicatedVotingProxyEnabled() {
+		return getConfig().getDedicatedVotingProxy() && method != null && method.supportsBackendPresence();
+	}
+
 	public abstract File getDataFolderPlugin();
 
 	public String getMonthTotalsWithDatePath() {
@@ -1110,9 +1142,27 @@ public abstract class VotingPluginProxy {
 
 	public abstract boolean isPlayerOnline(String playerName);
 
+	/**
+	 * Checks online state for vote routing, using backend presence only when this
+	 * proxy is explicitly configured as the dedicated voting proxy.
+	 */
+	protected boolean isPlayerOnlineForVoteRouting(String playerName) {
+		return isDedicatedVotingProxyEnabled() ? backendPlayerPresenceTracker.getPlayer(playerName).isPresent()
+				: isPlayerOnline(playerName);
+	}
+
 	public abstract boolean isServerValid(String server);
 
 	public abstract boolean isSomeoneOnlineServer(String server);
+
+	protected boolean isSomeoneOnlineServerForVoteRouting(String server) {
+		if (!isDedicatedVotingProxyEnabled()) {
+			return isSomeoneOnlineServer(server);
+		}
+		com.bencodez.votingplugin.proxy.presence.BackendPresenceStatus status = backendPlayerPresenceTracker
+				.getBackendStatus(server);
+		return status != null && status.isAvailable() && status.getPlayerCount() > 0;
+	}
 
 	public abstract boolean isVoteCacheIgnoreTime();
 
@@ -1138,6 +1188,11 @@ public abstract class VotingPluginProxy {
 	}
 
 	public void load(IVoteCache jsonStorage, INonVotedPlayersStorage nonVotedCacheJson) {
+		method = BungeeMethod.getByName(getConfig().getBungeeMethod());
+		if (getMethod() == null) {
+			method = BungeeMethod.PLUGINMESSAGING;
+		}
+		warnUnsupportedDedicatedVotingProxyMode();
 		uuidPlayerNameCache = getProxyMySQL().getRowsUUIDNameQuery();
 
 		bungeeTimeChecker.setTimeChangeFailSafeBypass(getConfig().getTimeChangeFailSafeBypass());
@@ -1218,11 +1273,6 @@ public abstract class VotingPluginProxy {
 				return getProxyMySQL().getUuids();
 			}
 		};
-
-		method = BungeeMethod.getByName(getConfig().getBungeeMethod());
-		if (getMethod() == null) {
-			method = BungeeMethod.PLUGINMESSAGING;
-		}
 
 		if (method.equals(BungeeMethod.MYSQL)) {
 			try {
@@ -1350,21 +1400,129 @@ public abstract class VotingPluginProxy {
 			}
 		};
 
-		globalMessageProxyHandler.addListener(new GlobalMessageListener("login") {
+		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_LOGIN) {
 			@Override
 			public void onReceive(JsonEnvelope message) {
-				Map<String, String> f = message.getFields();
-				String player = f.getOrDefault("player", "");
-				String uuid = f.getOrDefault("uuid", "");
-				String server = f.getOrDefault("server", "");
+				handleLoginMessage(message);
+			}
+		});
 
-				if (player.isEmpty() || uuid.isEmpty()) {
-					logSevere("Invalid login envelope received: " + message.getFields());
+		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_LOGOUT) {
+			@Override
+			public void onReceive(JsonEnvelope message) {
+				if (!method.supportsBackendPresence()) {
 					return;
 				}
+				VotingPluginWire.PlayerPresenceEvent event = VotingPluginWire.readPlayerPresenceEvent(message);
+				if (!isPresenceServerValid(event.server, VotingPluginWire.SUB_LOGOUT)
+						|| !isPresenceGenerationValid(event.backendIncarnationId, event.backendStartedAt,
+								event.presenceTimestamp,
+								VotingPluginWire.SUB_LOGOUT)) {
+					return;
+				}
+				if (!backendPlayerPresenceTracker.playerOffline(event.uuid, event.server, event.connectionId,
+						event.backendIncarnationId, event.backendStartedAt, event.presenceTimestamp,
+						System.currentTimeMillis())) {
+					debug("Ignored invalid or stale logout envelope: " + message.getFields());
+				}
+			}
+		});
 
-				debug("Login: " + player + "/" + uuid + " " + server);
-				login(player, uuid, server);
+		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_BACKEND_STARTED) {
+			@Override
+			public void onReceive(JsonEnvelope message) {
+				if (!method.supportsBackendPresence()) {
+					return;
+				}
+				String server = message.getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
+				UUID backendIncarnationId = VotingPluginWire.readBackendIncarnationId(message);
+				long backendStartedAt = VotingPluginWire.readBackendStartedAt(message);
+				long presenceTimestamp = VotingPluginWire.readPresenceTimestamp(message);
+				if (isPresenceServerValid(server, VotingPluginWire.SUB_BACKEND_STARTED)
+						&& isPresenceGenerationValid(backendIncarnationId, backendStartedAt, presenceTimestamp,
+								VotingPluginWire.SUB_BACKEND_STARTED)) {
+					if (backendPlayerPresenceTracker.backendStarted(server, backendIncarnationId, backendStartedAt,
+							presenceTimestamp, System.currentTimeMillis())) {
+						discardPendingPresenceHandoffs(server);
+						pendingBackendRecoverySnapshots.add(presenceServerKey(server));
+						requestBackendPresenceSnapshot(server);
+					}
+				}
+			}
+		});
+
+		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_BACKEND_STOPPED) {
+			@Override
+			public void onReceive(JsonEnvelope message) {
+				if (!method.supportsBackendPresence()) {
+					return;
+				}
+				String server = message.getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
+				UUID backendIncarnationId = VotingPluginWire.readBackendIncarnationId(message);
+				long backendStartedAt = VotingPluginWire.readBackendStartedAt(message);
+				long presenceTimestamp = VotingPluginWire.readPresenceTimestamp(message);
+				if (isPresenceServerValid(server, VotingPluginWire.SUB_BACKEND_STOPPED)
+						&& isPresenceGenerationValid(backendIncarnationId, backendStartedAt, presenceTimestamp,
+								VotingPluginWire.SUB_BACKEND_STOPPED)) {
+					if (backendPlayerPresenceTracker.backendStopped(server, backendIncarnationId, backendStartedAt,
+							presenceTimestamp, System.currentTimeMillis())) {
+						discardPendingPresenceHandoffs(server);
+						pendingBackendRecoverySnapshots.remove(presenceServerKey(server));
+					}
+				}
+			}
+		});
+
+		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_BACKEND_HEARTBEAT) {
+			@Override
+			public void onReceive(JsonEnvelope message) {
+				if (!method.supportsBackendPresence()) {
+					return;
+				}
+				String server = message.getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
+				UUID backendIncarnationId = VotingPluginWire.readBackendIncarnationId(message);
+				long backendStartedAt = VotingPluginWire.readBackendStartedAt(message);
+				long presenceTimestamp = VotingPluginWire.readPresenceTimestamp(message);
+				if (isPresenceServerValid(server, VotingPluginWire.SUB_BACKEND_HEARTBEAT)
+						&& isPresenceGenerationValid(backendIncarnationId, backendStartedAt, presenceTimestamp,
+								VotingPluginWire.SUB_BACKEND_HEARTBEAT)) {
+					backendPlayerPresenceTracker.heartbeat(server, backendIncarnationId, backendStartedAt,
+							presenceTimestamp, System.currentTimeMillis());
+				}
+			}
+		});
+
+		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_PRESENCE_SNAPSHOT) {
+			@Override
+			public void onReceive(JsonEnvelope message) {
+				if (!method.supportsBackendPresence()) {
+					return;
+				}
+				String server = message.getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
+				if (!isPresenceServerValid(server, VotingPluginWire.SUB_PRESENCE_SNAPSHOT)) {
+					return;
+				}
+				VotingPluginWire.PresenceSnapshot snapshot = VotingPluginWire.readPresenceSnapshot(message);
+				long now = System.currentTimeMillis();
+				boolean accepted = snapshot.valid
+						&& isPresenceGenerationValid(snapshot.backendIncarnationId, snapshot.backendStartedAt,
+								snapshot.presenceTimestamp,
+								VotingPluginWire.SUB_PRESENCE_SNAPSHOT)
+						&& backendPlayerPresenceTracker.applySnapshotChunk(snapshot.server,
+								snapshot.requestId, snapshot.chunkIndex, snapshot.chunkCount, snapshot.players,
+								snapshot.backendIncarnationId, snapshot.backendStartedAt,
+								snapshot.presenceTimestamp, now);
+				if (!accepted) {
+					debug("Ignored invalid or unexpected presence snapshot from " + snapshot.server);
+					if (backendPlayerPresenceTracker.getPendingSnapshotRequestId(snapshot.server, now) == null) {
+						discardPendingPresenceHandoffs(snapshot.requestId);
+					}
+				} else if (backendPlayerPresenceTracker.getPendingSnapshotRequestId(snapshot.server, now) == null) {
+					pendingBackendRecoverySnapshots.remove(presenceServerKey(snapshot.server));
+					Set<UUID> handoffPlayers = completePendingPresenceHandoffs(snapshot.requestId, snapshot.server,
+							snapshot.backendIncarnationId, snapshot.backendStartedAt, now);
+					processDedicatedSnapshotLogins(snapshot.server, handoffPlayers);
+				}
 			}
 		});
 
@@ -1393,8 +1551,71 @@ public abstract class VotingPluginProxy {
 
 		loadMultiProxySupport();
 		loadVoteLoggingMySQL();
+		if (method.supportsBackendPresence()) {
+			scheduleBackendPresenceStartupResync();
+			loadTaskTimer(this::maintainBackendPresence, PRESENCE_MAINTENANCE_INTERVAL_SECONDS,
+					PRESENCE_MAINTENANCE_INTERVAL_SECONDS);
+		}
 
 		debug("VotingPluginProxy loaded, ONLINEMODE: " + getConfig().getOnlineMode());
+	}
+
+	/**
+	 * Handles both the original login notification and extended presence logins.
+	 * Kept protected so transport-policy behavior can be regression tested without
+	 * initializing a live proxy transport.
+	 *
+	 * @param message login envelope
+	 */
+	protected void handleLoginMessage(JsonEnvelope message) {
+		VotingPluginWire.PlayerPresenceEvent event = VotingPluginWire.readPlayerPresenceEvent(message);
+		String player = event.player;
+		String uuid = event.uuid;
+		String server = event.server;
+
+		if (player.isEmpty() || uuid.isEmpty()) {
+			logSevere("Invalid login envelope received: " + message.getFields());
+			return;
+		}
+		boolean legacy = event.connectionId == null && event.backendIncarnationId == null
+				&& event.backendStartedAt == 0L && event.presenceTimestamp == 0L;
+		boolean accepted = false;
+		String deliveryServer = server;
+		if (legacy) {
+			// Preserve the original login contract for cached rewards. In
+			// PLUGINMESSAGING mode the player-facing proxy is authoritative for online
+			// state and backend presence messages are disabled entirely.
+			accepted = true;
+			if (method == BungeeMethod.PLUGINMESSAGING) {
+				String proxyServer = getCurrentPlayerServer(player);
+				if (proxyServer != null && !proxyServer.isBlank()) {
+					deliveryServer = proxyServer;
+				}
+			}
+		} else if (method != null && method.supportsBackendPresence() && event.connectionId != null
+				&& isPresenceServerValid(server, VotingPluginWire.SUB_LOGIN)
+				&& isPresenceGenerationValid(event.backendIncarnationId, event.backendStartedAt,
+						event.presenceTimestamp, VotingPluginWire.SUB_LOGIN)) {
+			BackendPlayerPresenceTracker.PlayerOnlineResult result = backendPlayerPresenceTracker.playerOnlineResult(
+					player, uuid, server, event.connectionId,
+					event.backendIncarnationId, event.backendStartedAt, event.presenceTimestamp,
+					System.currentTimeMillis());
+			accepted = result.isAccepted();
+			if (result.isConflictingPresence()) {
+				requestBackendPresenceSnapshot(server,
+						new PendingPresenceHandoff(player, uuid, server, event.connectionId,
+								event.backendIncarnationId, event.backendStartedAt,
+								result.getConflictSequence(), System.currentTimeMillis()));
+			}
+		}
+
+		debug("Login: " + player + "/" + uuid + " " + server);
+		if (accepted) {
+			discardPendingPresenceHandoff(uuid);
+			login(player, uuid, deliveryServer);
+		} else {
+			debug("Ignored invalid or stale login envelope: " + message.getFields());
+		}
 	}
 
 	private VoteLogMysqlTable voteLogMysqlTable;
@@ -1614,6 +1835,349 @@ public abstract class VotingPluginProxy {
 
 	public abstract void log(String message);
 
+	/**
+	 * Requests a complete player-presence snapshot from one backend server.
+	 *
+	 * @param server configured backend server name
+	 * @return new or already-active request identifier, or null when the server is
+	 *         invalid or is inside the snapshot-request cooldown
+	 */
+	public UUID requestBackendPresenceSnapshot(String server) {
+		return requestBackendPresenceSnapshot(server, null);
+	}
+
+	private UUID requestBackendPresenceSnapshot(String server, PendingPresenceHandoff handoff) {
+		return requestBackendPresenceSnapshot(server, handoff, System.currentTimeMillis(), false);
+	}
+
+	private UUID requestBackendPresenceSnapshot(String server, PendingPresenceHandoff handoff, long now,
+			boolean handoffAlreadyQueued) {
+		if (method == null || !method.supportsBackendPresence() || globalMessageProxyHandler == null
+				|| !isPresenceServerValid(server, VotingPluginWire.SUB_PRESENCE_SNAPSHOT_REQUEST)) {
+			return null;
+		}
+		long backendStartedAt = backendPlayerPresenceTracker.getBackendStartedAt(server);
+		UUID backendIncarnationId = backendPlayerPresenceTracker.getBackendIncarnationId(server);
+		if (backendStartedAt <= 0L || backendIncarnationId == null) {
+			return null;
+		}
+		if (handoff != null && (!server.equalsIgnoreCase(handoff.server)
+				|| !backendIncarnationId.equals(handoff.backendIncarnationId)
+				|| backendStartedAt != handoff.backendStartedAt)) {
+			return null;
+		}
+		if (handoff != null && (handoffAlreadyQueued ? !isPendingPresenceHandoff(handoff, now)
+				: !queuePendingPresenceHandoff(handoff, now))) {
+			return null;
+		}
+		UUID requestId = handoff == null
+				? backendPlayerPresenceTracker.beginSnapshot(server, UUID.randomUUID(), backendIncarnationId,
+						backendStartedAt, now)
+				: backendPlayerPresenceTracker.beginSnapshotForDestinationClaim(server, UUID.randomUUID(),
+						backendIncarnationId, backendStartedAt, handoff.playerUuid, handoff.conflictSequence, now);
+		boolean created = requestId != null;
+		if (!created) {
+			requestId = handoff == null ? backendPlayerPresenceTracker.getPendingSnapshotRequestId(server, now)
+					: backendPlayerPresenceTracker.getPendingSnapshotRequestIdForDestinationClaim(server,
+							handoff.playerUuid, handoff.conflictSequence, now);
+		}
+		if (requestId == null) {
+			if (handoff != null && !backendPlayerPresenceTracker.isCurrentDestinationClaim(handoff.playerUuid,
+					handoff.server, handoff.conflictSequence)) {
+				discardPendingPresenceHandoff(handoff);
+			}
+			// A handoff stays unassigned while the destination is inside its snapshot
+			// cooldown. Presence maintenance will attach it to the next allowed snapshot.
+			return null;
+		}
+		if (handoff != null) {
+			assignPendingPresenceHandoff(handoff, requestId, now);
+		}
+		if (created) {
+			JsonEnvelope request = VotingPluginWire.presenceSnapshotRequest(server, requestId, backendIncarnationId,
+					backendStartedAt, now);
+			globalMessageProxyHandler.sendMessage(server, 1, request);
+		}
+		return requestId;
+	}
+
+	private boolean queuePendingPresenceHandoff(PendingPresenceHandoff handoff, long now) {
+		if (!isPresenceHandoffValid(handoff, now)) {
+			return false;
+		}
+		synchronized (pendingPresenceHandoffs) {
+			prunePendingPresenceHandoffs(now);
+			PendingPresenceHandoff current = pendingPresenceHandoffs.get(handoff.playerUuid);
+			if (current != null && current.conflictSequence > handoff.conflictSequence) {
+				return false;
+			}
+			handoff.requestId = null;
+			pendingPresenceHandoffs.put(handoff.playerUuid, handoff);
+			return true;
+		}
+	}
+
+	private boolean isPendingPresenceHandoff(PendingPresenceHandoff handoff, long now) {
+		if (!isPresenceHandoffValid(handoff, now)) {
+			return false;
+		}
+		synchronized (pendingPresenceHandoffs) {
+			prunePendingPresenceHandoffs(now);
+			return pendingPresenceHandoffs.get(handoff.playerUuid) == handoff;
+		}
+	}
+
+	private void assignPendingPresenceHandoff(PendingPresenceHandoff handoff, UUID requestId, long now) {
+		if (requestId == null || !isPresenceHandoffValid(handoff, now)) {
+			return;
+		}
+		synchronized (pendingPresenceHandoffs) {
+			prunePendingPresenceHandoffs(now);
+			if (pendingPresenceHandoffs.get(handoff.playerUuid) == handoff) {
+				handoff.requestId = requestId;
+			}
+		}
+	}
+
+	private boolean isPresenceHandoffValid(PendingPresenceHandoff handoff, long now) {
+		return handoff != null && handoff.playerUuid != null && handoff.connectionId != null
+				&& handoff.conflictSequence > 0L
+				&& now >= handoff.createdAt && now - handoff.createdAt <= PRESENCE_HANDOFF_TIMEOUT_MILLIS;
+	}
+
+	private Set<UUID> completePendingPresenceHandoffs(UUID requestId, String server, UUID backendIncarnationId,
+			long backendStartedAt, long now) {
+		List<PendingPresenceHandoff> completed = new ArrayList<>();
+		Set<UUID> completedPlayers = new LinkedHashSet<>();
+		synchronized (pendingPresenceHandoffs) {
+			prunePendingPresenceHandoffs(now);
+			pendingPresenceHandoffs.entrySet().removeIf(entry -> {
+				PendingPresenceHandoff handoff = entry.getValue();
+				if (!requestId.equals(handoff.requestId)) {
+					return false;
+				}
+				if (handoff.server.equalsIgnoreCase(server)
+						&& handoff.backendIncarnationId.equals(backendIncarnationId)
+						&& handoff.backendStartedAt == backendStartedAt) {
+					completed.add(handoff);
+				}
+				return true;
+			});
+		}
+		for (PendingPresenceHandoff handoff : completed) {
+			PlayerPresence presence = backendPlayerPresenceTracker.getPlayer(handoff.playerUuid).orElse(null);
+			if (presence != null && presence.getServer().equalsIgnoreCase(handoff.server)
+					&& presence.getConnectionId().equals(handoff.connectionId)) {
+				login(handoff.playerName, handoff.uuid, handoff.server);
+				completedPlayers.add(handoff.playerUuid);
+			}
+			releaseDestinationClaim(handoff);
+		}
+		return completedPlayers;
+	}
+
+	/**
+	 * Drains voter-keyed cached rewards when a complete recovery snapshot first
+	 * confirms a player on a dedicated voting proxy. Cross-backend handoffs are
+	 * already processed by their token-bound completion path and are excluded to
+	 * avoid a second login callback.
+	 */
+	protected void processDedicatedSnapshotLogins(String server, Set<UUID> handoffPlayers) {
+		if (!isDedicatedVotingProxyEnabled() || server == null || server.isBlank()) {
+			return;
+		}
+		Set<UUID> excluded = handoffPlayers == null ? Collections.emptySet() : handoffPlayers;
+		for (PlayerPresence presence : backendPlayerPresenceTracker.getOnlinePlayers()) {
+			if (presence.getServer().equalsIgnoreCase(server) && !excluded.contains(presence.getUuid())) {
+				login(presence.getPlayerName(), presence.getUuid().toString(), presence.getServer());
+			}
+		}
+	}
+
+	private void discardPendingPresenceHandoff(String uuid) {
+		try {
+			UUID playerUuid = UUID.fromString(uuid.trim());
+			PendingPresenceHandoff removed;
+			synchronized (pendingPresenceHandoffs) {
+				removed = pendingPresenceHandoffs.remove(playerUuid);
+			}
+			releaseDestinationClaim(removed);
+		} catch (Exception ignored) {
+			// Invalid identities are rejected by the presence tracker.
+		}
+	}
+
+	private void discardPendingPresenceHandoff(PendingPresenceHandoff handoff) {
+		boolean removed = false;
+		synchronized (pendingPresenceHandoffs) {
+			if (handoff != null && pendingPresenceHandoffs.get(handoff.playerUuid) == handoff) {
+				pendingPresenceHandoffs.remove(handoff.playerUuid);
+				removed = true;
+			}
+		}
+		if (removed) {
+			releaseDestinationClaim(handoff);
+		}
+	}
+
+	private void discardPendingPresenceHandoffs(String server) {
+		synchronized (pendingPresenceHandoffs) {
+			pendingPresenceHandoffs.entrySet().removeIf(entry -> {
+				if (!entry.getValue().server.equalsIgnoreCase(server)) {
+					return false;
+				}
+				releaseDestinationClaim(entry.getValue());
+				return true;
+			});
+		}
+	}
+
+	private void discardPendingPresenceHandoffs(UUID requestId) {
+		if (requestId == null) {
+			return;
+		}
+		synchronized (pendingPresenceHandoffs) {
+			pendingPresenceHandoffs.entrySet().removeIf(entry -> {
+				if (!requestId.equals(entry.getValue().requestId)) {
+					return false;
+				}
+				releaseDestinationClaim(entry.getValue());
+				return true;
+			});
+		}
+	}
+
+	private void prunePendingPresenceHandoffs(long now) {
+		pendingPresenceHandoffs.entrySet().removeIf(entry -> {
+			PendingPresenceHandoff handoff = entry.getValue();
+			if (now >= handoff.createdAt && now - handoff.createdAt <= PRESENCE_HANDOFF_TIMEOUT_MILLIS) {
+				return false;
+			}
+			releaseDestinationClaim(handoff);
+			return true;
+		});
+	}
+
+	private void releaseDestinationClaim(PendingPresenceHandoff handoff) {
+		if (handoff != null) {
+			backendPlayerPresenceTracker.releaseDestinationClaim(handoff.playerUuid, handoff.server,
+					handoff.conflictSequence);
+		}
+	}
+
+	protected void retryPendingPresenceHandoffs(long now) {
+		List<PendingPresenceHandoff> retry = new ArrayList<>();
+		synchronized (pendingPresenceHandoffs) {
+			prunePendingPresenceHandoffs(now);
+			for (PendingPresenceHandoff handoff : pendingPresenceHandoffs.values()) {
+				UUID activeRequestId = backendPlayerPresenceTracker.getPendingSnapshotRequestId(handoff.server, now);
+				if (handoff.requestId != null && !handoff.requestId.equals(activeRequestId)) {
+					handoff.requestId = null;
+				}
+				if (handoff.requestId == null) {
+					retry.add(handoff);
+				}
+			}
+		}
+		for (PendingPresenceHandoff handoff : retry) {
+			requestBackendPresenceSnapshot(handoff.server, handoff, now, true);
+		}
+	}
+
+	protected int getPendingPresenceHandoffCount() {
+		synchronized (pendingPresenceHandoffs) {
+			return pendingPresenceHandoffs.size();
+		}
+	}
+
+	protected void scheduleBackendPresenceStartupResync() {
+		ScheduledExecutorService scheduler = getScheduler();
+		if (method == null || !method.supportsBackendPresence() || scheduler == null) {
+			return;
+		}
+		scheduler.schedule(this::requestBackendPresenceStartupResync,
+				PRESENCE_STARTUP_RESYNC_DELAY_SECONDS, TimeUnit.SECONDS);
+	}
+
+	protected void requestBackendPresenceStartupResync() {
+		if (!enabled || method == null || !method.supportsBackendPresence() || globalMessageProxyHandler == null) {
+			return;
+		}
+		long requestedAt = System.currentTimeMillis();
+		int delay = 1;
+		for (String server : getAllAvailableServers()) {
+			if (!isPresenceServerValid(server, VotingPluginWire.SUB_PRESENCE_RESYNC_REQUEST)) {
+				continue;
+			}
+			globalMessageProxyHandler.sendMessage(server, delay++,
+					VotingPluginWire.presenceResyncRequest(server, UUID.randomUUID(), requestedAt));
+		}
+	}
+
+	private void maintainBackendPresence() {
+		if (!enabled || method == null || !method.supportsBackendPresence()) {
+			return;
+		}
+		expireBackendPresence(PRESENCE_BACKEND_TIMEOUT_MILLIS);
+		for (String server : getAllAvailableServers()) {
+			if (pendingBackendRecoverySnapshots.contains(presenceServerKey(server))) {
+				requestBackendPresenceSnapshot(server);
+			}
+		}
+		retryPendingPresenceHandoffs(System.currentTimeMillis());
+	}
+
+	private String presenceServerKey(String server) {
+		return server == null ? "" : server.trim().toLowerCase(java.util.Locale.ROOT);
+	}
+
+	private boolean isPresenceServerValid(String server, String subChannel) {
+		// The presence protocol's trust boundary is the configured backend set. The
+		// selected transport must only be accessible to backend servers trusted not to
+		// impersonate one another.
+		if (server == null || server.isBlank() || !isServerValid(server)) {
+			debug("Ignored " + subChannel + " presence envelope for an unconfigured server");
+			return false;
+		}
+		return true;
+	}
+
+	private boolean isPresenceGenerationValid(UUID backendIncarnationId, long backendStartedAt,
+			long presenceTimestamp, String subChannel) {
+		if (backendIncarnationId == null || backendStartedAt <= 0L || presenceTimestamp < backendStartedAt) {
+			debug("Ignored " + subChannel + " presence envelope with an invalid backend generation");
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * Removes presence owned by backends that have stopped reporting heartbeats.
+	 * Scheduling and timeout configuration are intentionally left to dedicated
+	 * proxy mode.
+	 *
+	 * @param timeoutMillis maximum backend silence before expiry
+	 * @return expired backend server names
+	 */
+	public Set<String> expireBackendPresence(long timeoutMillis) {
+		if (method == null || !method.supportsBackendPresence()) {
+			return Collections.emptySet();
+		}
+		long now = System.currentTimeMillis();
+		Set<String> expired = backendPlayerPresenceTracker.expireBackends(now, timeoutMillis);
+		for (String server : expired) {
+			discardPendingPresenceHandoffs(server);
+			// Keep recovery pending while this generation is unavailable. If the same
+			// backend process resumes, its heartbeat can mark it available again and the
+			// maintenance task will request a fresh snapshot of players who stayed online.
+			pendingBackendRecoverySnapshots.add(presenceServerKey(server));
+		}
+		synchronized (pendingPresenceHandoffs) {
+			prunePendingPresenceHandoffs(now);
+		}
+		return expired;
+	}
+
 	public void login(String playerName, String uuid, String serverName) {
 		if (!getConfig().getOnlineMode()) {
 			uuid = getUUID(playerName);
@@ -1630,7 +2194,7 @@ public abstract class VotingPluginProxy {
 		if (getConfig().getOnlineMode()) {
 			addNonVotedPlayer(uuid, playerName);
 		}
-		if (isPlayerOnline(playerName)) {
+		if (isPlayerOnlineForVoteRouting(playerName)) {
 			if (getConfig().getGlobalDataEnabled()) {
 				if (getGlobalDataHandler().isTimeChangedHappened()) {
 					getGlobalDataHandler().checkForFinishedTimeChanges();
@@ -1793,10 +2357,18 @@ public abstract class VotingPluginProxy {
 		if (getMethod() == null) {
 			method = BungeeMethod.PLUGINMESSAGING;
 		}
+		warnUnsupportedDedicatedVotingProxyMode();
 
 		setCurrentVotePartyVotesRequired(
 				getConfig().getVotePartyVotesRequired() + getVoteCacheVotePartyIncreaseVotesRequired());
 		loadMultiProxySupport();
+	}
+
+	private void warnUnsupportedDedicatedVotingProxyMode() {
+		if (getConfig().getDedicatedVotingProxy() && (method == null || !method.supportsBackendPresence())) {
+			logSevere("DedicatedVotingProxy requires MYSQL, REDIS, MQTT, or SOCKETS; PLUGINMESSAGING is disabled for "
+					+ "dedicated-proxy routing. Falling back to normal proxy routing.");
+		}
 	}
 
 	public abstract void runAsync(Runnable run);
@@ -1965,7 +2537,7 @@ public abstract class VotingPluginProxy {
 	}
 
 	public void sendVoteParty(String server) {
-		if (isSomeoneOnlineServer(server)) {
+		if (isSomeoneOnlineServerForVoteRouting(server)) {
 			globalMessageProxyHandler.sendMessage(server, 1, VotingPluginWire.votePartyBungee());
 		}
 	}
@@ -1992,7 +2564,7 @@ public abstract class VotingPluginProxy {
 
 	public void status() {
 		for (String s : getAllAvailableServers()) {
-			if (!isSomeoneOnlineServer(s)) {
+			if (!isSomeoneOnlineServerForVoteRouting(s)) {
 				log("No players on server " + s + " to send test status message, please retest with someone online");
 			} else {
 				log("Sending request for status message on " + s);
@@ -2227,8 +2799,8 @@ public abstract class VotingPluginProxy {
 			player = getProperName(uuid, player);
 
 			// Cache online state/server once (IMPORTANT for broadcast logic correctness)
-			final boolean playerOnline = isPlayerOnline(player);
-			final String playerServer = playerOnline ? getCurrentPlayerServer(player) : null;
+			final boolean playerOnline = isPlayerOnlineForVoteRouting(player);
+			final String playerServer = playerOnline ? getCurrentPlayerServerForVoteRouting(player) : null;
 			long time = queueTime != 0 ? queueTime
 					: LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
 
@@ -2391,7 +2963,7 @@ public abstract class VotingPluginProxy {
 						debug("Forcing vote to cache for server " + s);
 					}
 
-					if ((!isSomeoneOnlineServer(s) && method.requiresPlayerOnline()) || forceCache) {
+					if ((!isSomeoneOnlineServerForVoteRouting(s) && method.requiresPlayerOnline()) || forceCache) {
 						voteStatus = VoteLogStatus.CACHED;
 						boolean broadcastForwarded = standaloneProxyBroadcast
 								&& broadcastForwardedServers.containsAll(proxyBroadcastTargets);
@@ -2519,6 +3091,40 @@ public abstract class VotingPluginProxy {
 		} catch (Exception e) {
 			e.printStackTrace();
 			return QueuedVoteResult.RETRY;
+		}
+	}
+
+	private static final class PendingPresenceHandoff {
+		private UUID requestId;
+		private final UUID playerUuid;
+		private final String playerName;
+		private final String uuid;
+		private final String server;
+		private final UUID connectionId;
+		private final UUID backendIncarnationId;
+		private final long backendStartedAt;
+		private final long conflictSequence;
+		private final long createdAt;
+
+		private PendingPresenceHandoff(String playerName, String uuid, String server, UUID connectionId,
+				UUID backendIncarnationId, long backendStartedAt, long conflictSequence, long createdAt) {
+			this.playerUuid = parsePlayerUuid(uuid);
+			this.playerName = playerName;
+			this.uuid = uuid;
+			this.server = server;
+			this.connectionId = connectionId;
+			this.backendIncarnationId = backendIncarnationId;
+			this.backendStartedAt = backendStartedAt;
+			this.conflictSequence = conflictSequence;
+			this.createdAt = createdAt;
+		}
+
+		private static UUID parsePlayerUuid(String uuid) {
+			try {
+				return UUID.fromString(uuid.trim());
+			} catch (Exception ignored) {
+				return null;
+			}
 		}
 	}
 

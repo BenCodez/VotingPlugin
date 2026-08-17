@@ -267,6 +267,11 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 	}
 
 	@Override
+	public boolean getDedicatedVotingProxy() {
+		return getData().getBoolean("DedicatedVotingProxy", false);
+	}
+
+	@Override
 	public Map<String, Object> getSpigotServerConfiguration(String s) {
 		return configToMap(getData().getSection("SpigotServers." + s));
 	}
