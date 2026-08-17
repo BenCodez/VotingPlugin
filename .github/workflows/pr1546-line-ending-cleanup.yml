@@ -1,0 +1,58 @@
+name: PR 1546 line-ending cleanup
+
+on:
+  push:
+    branches:
+      - codex/review-pr-response
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/review-pr-response
+          fetch-depth: 0
+
+      - name: Restore CRLF endings in the two affected source files
+        shell: python
+        run: |
+          from pathlib import Path
+
+          paths = [
+              Path("VotingPlugin/src/main/java/com/bencodez/votingplugin/config/ConfigVoteSites.java"),
+              Path("VotingPlugin/src/main/java/com/bencodez/votingplugin/user/VotingPluginUser.java"),
+          ]
+          for path in paths:
+              data = path.read_bytes()
+              normalized = data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+              path.write_bytes(normalized.replace(b"\n", b"\r\n"))
+
+      - name: Verify line endings and commit cleanup
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          paths = [
+              Path("VotingPlugin/src/main/java/com/bencodez/votingplugin/config/ConfigVoteSites.java"),
+              Path("VotingPlugin/src/main/java/com/bencodez/votingplugin/user/VotingPluginUser.java"),
+          ]
+          for path in paths:
+              data = path.read_bytes()
+              assert b"\n" not in data.replace(b"\r\n", b""), f"non-CRLF newline remains in {path}"
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/pr1546-line-ending-cleanup.yml
+          git add VotingPlugin/src/main/java/com/bencodez/votingplugin/config/ConfigVoteSites.java
+          git add VotingPlugin/src/main/java/com/bencodez/votingplugin/user/VotingPluginUser.java
+          git diff --cached --check
+          git commit -m "Restore Java source line endings"
+          git push origin HEAD:codex/review-pr-response
