@@ -1,0 +1,245 @@
+name: Implement PR 1553
+
+on:
+  push:
+    branches:
+      - tests/disabled-vote-site-autocreation
+
+permissions:
+  contents: write
+
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: tests/disabled-vote-site-autocreation
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      - name: Apply the disabled vote-site implementation
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(path_value: str, old: str, new: str) -> None:
+              path = Path(path_value)
+              raw = path.read_bytes()
+              text = raw.decode("utf-8")
+              newline = "\r\n" if "\r\n" in text else "\n"
+              normalized = text.replace("\r\n", "\n")
+              count = normalized.count(old)
+              if count != 1:
+                  raise RuntimeError(f"Expected one replacement in {path}, found {count}")
+              updated = normalized.replace(old, new, 1)
+              path.write_bytes(updated.replace("\n", newline).encode("utf-8"))
+
+          config_path = "VotingPlugin/src/main/java/com/bencodez/votingplugin/config/ConfigVoteSites.java"
+          manager_path = "VotingPlugin/src/main/java/com/bencodez/votingplugin/votesites/VoteSiteManager.java"
+          votifier_path = "VotingPlugin/src/main/java/com/bencodez/votingplugin/listeners/VotiferEvent.java"
+
+          config_marker = '''\t/**
+           * Gets the names of vote sites.
+           *
+           * @param checkEnabled whether to check if sites are enabled
+           * @return the list of vote site names
+           */
+          \tpublic ArrayList<String> getVoteSitesNames(boolean checkEnabled) {'''.replace("          \t", "\t").replace("           ", "\t ")
+
+          config_replacement = '''\t/**
+          \t * Gets configured vote-site section keys without filtering by Enabled or
+          \t * validating the site's settings.
+          \t *
+          \t * @return the configured vote-site section keys
+          \t */
+          \tpublic ArrayList<String> getRawVoteSiteNames() {
+          \t\tArrayList<String> siteNames = new ArrayList<>();
+
+          \t\tif (!getData().isConfigurationSection("VoteSites")) {
+          \t\t\treturn siteNames;
+          \t\t}
+
+          \t\tsiteNames = ArrayUtils.convert(getData().getConfigurationSection("VoteSites").getKeys(false));
+          \t\tsiteNames.removeIf(siteName -> !getData().isConfigurationSection("VoteSites." + siteName));
+          \t\treturn siteNames;
+          \t}
+
+          \t/**
+          \t * Gets the names of vote sites.
+          \t *
+          \t * @param checkEnabled whether to check if sites are enabled
+          \t * @return the list of vote site names
+          \t */
+          \tpublic ArrayList<String> getVoteSitesNames(boolean checkEnabled) {'''.replace("          \t", "\t")
+
+          replace_once(config_path, config_marker, config_replacement)
+
+          manager_marker = '''\tpublic String normalizeVoteSiteKey(String name) {
+          \t\tif (name == null) {
+          \t\t\treturn null;
+          \t\t}
+          \t\treturn name.replaceAll("[\\\\.\\\\s]+", "_");
+          \t}
+
+          \t/**
+          \t * Attempts to map a URL, display name, or key to the configured vote site key.'''.replace("          \t", "\t")
+
+          manager_replacement = '''\tpublic String normalizeVoteSiteKey(String name) {
+          \t\tif (name == null) {
+          \t\t\treturn null;
+          \t\t}
+          \t\treturn name.replaceAll("[\\\\.\\\\s]+", "_");
+          \t}
+
+          \t/**
+          \t * Resolves an identifier against every configured vote-site section,
+          \t * including disabled sites.
+          \t *
+          \t * @param identifiers vote-site keys, service sites, or display names
+          \t * @return the configured vote-site key, or null when no configuration matches
+          \t */
+          \tprivate String getConfiguredVoteSiteName(String... identifiers) {
+          \t\tif (identifiers == null) {
+          \t\t\treturn null;
+          \t\t}
+
+          \t\tArrayList<String> configuredSites = plugin.getConfigVoteSites().getRawVoteSiteNames();
+          \t\tif (configuredSites == null || configuredSites.isEmpty()) {
+          \t\t\treturn null;
+          \t\t}
+
+          \t\tfor (String identifier : identifiers) {
+          \t\t\tif (identifier == null || identifier.isEmpty()) {
+          \t\t\t\tcontinue;
+          \t\t\t}
+
+          \t\t\tString normalizedIdentifier = normalizeVoteSiteKey(identifier);
+          \t\t\tfor (String siteName : configuredSites) {
+          \t\t\t\tif (siteName == null) {
+          \t\t\t\t\tcontinue;
+          \t\t\t\t}
+
+          \t\t\t\tString serviceSite = plugin.getConfigVoteSites().getServiceSite(siteName);
+          \t\t\t\tString displayName = plugin.getConfigVoteSites().getDisplayName(siteName);
+          \t\t\t\tif (siteName.equalsIgnoreCase(identifier) || siteName.equalsIgnoreCase(normalizedIdentifier)
+          \t\t\t\t\t\t|| (serviceSite != null && !serviceSite.isEmpty()
+          \t\t\t\t\t\t\t\t&& serviceSite.equalsIgnoreCase(identifier))
+          \t\t\t\t\t\t|| (displayName != null && !displayName.isEmpty()
+          \t\t\t\t\t\t\t\t&& displayName.equalsIgnoreCase(identifier))) {
+          \t\t\t\t\treturn siteName;
+          \t\t\t\t}
+          \t\t\t}
+          \t\t}
+
+          \t\treturn null;
+          \t}
+
+          \t/**
+          \t * Checks whether an identifier belongs to any configured vote site,
+          \t * including a disabled site.
+          \t *
+          \t * @param identifiers vote-site identifiers
+          \t * @return true when a configured vote-site section matches
+          \t */
+          \tpublic boolean hasConfiguredVoteSite(String... identifiers) {
+          \t\treturn getConfiguredVoteSiteName(identifiers) != null;
+          \t}
+
+          \t/**
+          \t * Attempts to map a URL, display name, or key to the configured vote site key.'''.replace("          \t", "\t")
+
+          replace_once(manager_path, manager_marker, manager_replacement)
+
+          fallback_marker = '''\t\tfor (String url : urls) {
+          \t\t\treturn url;
+          \t\t}
+
+          \t\treturn "";
+          \t}'''.replace("          \t", "\t")
+
+          fallback_replacement = '''\t\tif (!checkEnabled) {
+          \t\t\tString configuredSiteName = getConfiguredVoteSiteName(urls);
+          \t\t\tif (configuredSiteName != null) {
+          \t\t\t\treturn configuredSiteName;
+          \t\t\t}
+          \t\t}
+
+          \t\tfor (String url : urls) {
+          \t\t\treturn url;
+          \t\t}
+
+          \t\treturn "";
+          \t}'''.replace("          \t", "\t")
+
+          replace_once(manager_path, fallback_marker, fallback_replacement)
+
+          replace_once(
+              manager_path,
+              '''\t\tif (plugin.getConfigFile().isAutoCreateVoteSites() && !hasVoteSite(siteName)) {'''.replace("          \t", "\t"),
+              '''\t\tif (plugin.getConfigFile().isAutoCreateVoteSites() && !hasVoteSite(siteName)
+          \t\t\t\t&& !hasConfiguredVoteSite(siteName)) {'''.replace("          \t", "\t"),
+          )
+
+          has_site_marker = '''\tpublic boolean hasVoteSite(String site) {
+          \t\tString siteName = getVoteSiteName(false, site);
+
+          \t\tfor (VoteSite voteSite : getVoteSites()) {'''.replace("          \t", "\t")
+
+          has_site_replacement = '''\tpublic boolean hasVoteSite(String site) {
+          \t\tString siteName = getVoteSiteName(false, site);
+          \t\tif (siteName == null) {
+          \t\t\treturn false;
+          \t\t}
+
+          \t\tfor (VoteSite voteSite : getVoteSites()) {'''.replace("          \t", "\t")
+
+          replace_once(manager_path, has_site_marker, has_site_replacement)
+
+          replace_once(
+              votifier_path,
+              '''\t\t\t\t\tboolean createSite = !plugin.getVoteSiteManager().hasVoteSite(voteSiteNameStr);'''.replace("          \t", "\t"),
+              '''\t\t\t\t\tboolean createSite = !plugin.getVoteSiteManager().hasVoteSite(voteSiteNameStr)
+          \t\t\t\t\t\t\t&& !plugin.getVoteSiteManager().hasConfiguredVoteSite(voteSiteNameStr);'''.replace("          \t", "\t"),
+          )
+
+      - name: Verify the implementation
+        run: mvn -B -f VotingPlugin/pom.xml package
+
+      - name: Commit the verified implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git rm .github/workflows/pr1553-implementation.yml
+          git add \
+            VotingPlugin/src/main/java/com/bencodez/votingplugin/config/ConfigVoteSites.java \
+            VotingPlugin/src/main/java/com/bencodez/votingplugin/listeners/VotiferEvent.java \
+            VotingPlugin/src/main/java/com/bencodez/votingplugin/votesites/VoteSiteManager.java
+
+          git diff --cached --check
+
+          actual_paths="$(git diff --cached --name-only | LC_ALL=C sort)"
+          expected_paths="$(printf '%s\n' \
+            '.github/workflows/pr1553-implementation.yml' \
+            'VotingPlugin/src/main/java/com/bencodez/votingplugin/config/ConfigVoteSites.java' \
+            'VotingPlugin/src/main/java/com/bencodez/votingplugin/listeners/VotiferEvent.java' \
+            'VotingPlugin/src/main/java/com/bencodez/votingplugin/votesites/VoteSiteManager.java' \
+            | LC_ALL=C sort)"
+
+          if [[ "${actual_paths}" != "${expected_paths}" ]]; then
+            printf 'Unexpected changed paths:\n%s\n' "${actual_paths}" >&2
+            exit 1
+          fi
+
+          git commit -m "Prevent disabled vote sites from being auto-created"
+          git push origin HEAD:tests/disabled-vote-site-autocreation
