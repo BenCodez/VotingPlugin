@@ -1,4 +1,5 @@
 name: PR 1546 line-ending cleanup
+# Registered in a prior commit so this push reliably triggers the one-shot workflow.
 
 on:
   push:
