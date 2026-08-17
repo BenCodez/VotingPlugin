@@ -269,6 +269,10 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 		processDedicatedSnapshotLogins(server, handoffPlayers);
 	}
 
+	public boolean shouldSendVoteToAllServersForTest() {
+		return shouldSendVoteToAllServers();
+	}
+
 	@Override
 	public void setVoteCacheLastUpdated() {
 		// TODO Auto-generated method stub

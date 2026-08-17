@@ -192,6 +192,17 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void dedicatedVotingProxyPreservesSendVotesToAllServersSetting() {
+		Mockito.when(votingPluginProxy.getConfig().getDedicatedVotingProxy()).thenReturn(true);
+		votingPluginProxy.setMethod(BungeeMethod.MQTT);
+		Mockito.when(votingPluginProxy.getConfig().getSendVotesToAllServers()).thenReturn(true);
+		assertTrue(votingPluginProxy.shouldSendVoteToAllServersForTest());
+
+		Mockito.when(votingPluginProxy.getConfig().getSendVotesToAllServers()).thenReturn(false);
+		assertFalse(votingPluginProxy.shouldSendVoteToAllServersForTest());
+	}
+
+	@Test
 	void dedicatedSnapshotDrainsCachedVotesForConfirmedPlayers() {
 		Mockito.when(votingPluginProxy.getConfig().getDedicatedVotingProxy()).thenReturn(true);
 		votingPluginProxy.setMethod(BungeeMethod.MQTT);

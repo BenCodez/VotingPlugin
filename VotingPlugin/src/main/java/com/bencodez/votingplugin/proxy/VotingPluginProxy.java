@@ -2953,7 +2953,7 @@ public abstract class VotingPluginProxy {
 			// ===========================
 			// Send vote(s) to backend(s)
 			// ===========================
-			if (getConfig().getSendVotesToAllServers()) {
+			if (shouldSendVoteToAllServers()) {
 				for (String s : getAllAvailableServers()) {
 
 					boolean forceCache = getConfig().getWaitForUserOnline()
@@ -3092,6 +3092,15 @@ public abstract class VotingPluginProxy {
 			e.printStackTrace();
 			return QueuedVoteResult.RETRY;
 		}
+	}
+
+	/**
+	 * Keeps vote fan-out independent from dedicated-presence routing and backend
+	 * reward-storage settings. The proxy obeys SendVotesToAllServers exactly as
+	 * configured; each backend applies its own reward behavior on receipt.
+	 */
+	protected boolean shouldSendVoteToAllServers() {
+		return getConfig().getSendVotesToAllServers();
 	}
 
 	private static final class PendingPresenceHandoff {
