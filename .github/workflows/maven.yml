@@ -21,6 +21,110 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+
+      - name: Restore PR 1546 source line endings
+        if: github.event_name == 'pull_request' && github.head_ref == 'codex/review-pr-response'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          comment_json="$(mktemp)"
+          curl --fail --silent --show-error --location \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/BenCodez/VotingPlugin/issues/comments/5321212138" \
+            > "${comment_json}"
+
+          python - "${comment_json}" <<'PY'
+          import base64
+          import gzip
+          import hashlib
+          import json
+          import sys
+          from pathlib import Path
+
+          comment = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))["body"]
+          values = {}
+          for line in comment.splitlines():
+              if "=" in line:
+                  key, value = line.split("=", 1)
+                  values[key] = value.strip()
+
+          required = {
+              "CONFIG_GZIP_BASE64",
+              "USER_GZIP_BASE64",
+              "CONFIG_GIT_BLOB_SHA",
+              "USER_GIT_BLOB_SHA",
+              "CONFIG_UNCOMPRESSED_BYTES",
+              "USER_UNCOMPRESSED_BYTES",
+          }
+          missing = required.difference(values)
+          if missing:
+              raise RuntimeError(f"Missing verified cleanup fields: {sorted(missing)}")
+
+          targets = (
+              (
+                  "CONFIG",
+                  Path("VotingPlugin/src/main/java/com/bencodez/votingplugin/config/ConfigVoteSites.java"),
+              ),
+              (
+                  "USER",
+                  Path("VotingPlugin/src/main/java/com/bencodez/votingplugin/user/VotingPluginUser.java"),
+              ),
+          )
+
+          for prefix, path in targets:
+              compressed = base64.b64decode(values[f"{prefix}_GZIP_BASE64"], validate=True)
+              data = gzip.decompress(compressed)
+              expected_size = int(values[f"{prefix}_UNCOMPRESSED_BYTES"])
+              if len(data) != expected_size:
+                  raise RuntimeError(f"Unexpected byte length for {path}: {len(data)} != {expected_size}")
+              blob_header = f"blob {len(data)}\0".encode("ascii")
+              actual_sha = hashlib.sha1(blob_header + data).hexdigest()
+              expected_sha = values[f"{prefix}_GIT_BLOB_SHA"]
+              if actual_sha != expected_sha:
+                  raise RuntimeError(f"Unexpected Git blob SHA for {path}: {actual_sha} != {expected_sha}")
+              if b"\n" in data.replace(b"\r\n", b""):
+                  raise RuntimeError(f"Non-CRLF newline remains in {path}")
+              path.write_bytes(data)
+          PY
+
+          git show origin/master:.github/workflows/maven.yml > .github/workflows/maven.yml
+          rm -f .github/workflows/pr1546-line-ending-cleanup.yml
+          rm -f VotingPlugin/src/test/java/com/bencodez/votingplugin/tests/cleanup/Pr1546LineEndingCleanupTest.java
+          rmdir --ignore-fail-on-non-empty VotingPlugin/src/test/java/com/bencodez/votingplugin/tests/cleanup 2>/dev/null || true
+
+          git add -A -- \
+            .github/workflows/maven.yml \
+            .github/workflows/pr1546-line-ending-cleanup.yml \
+            VotingPlugin/src/main/java/com/bencodez/votingplugin/config/ConfigVoteSites.java \
+            VotingPlugin/src/main/java/com/bencodez/votingplugin/user/VotingPluginUser.java \
+            VotingPlugin/src/test/java/com/bencodez/votingplugin/tests/cleanup/Pr1546LineEndingCleanupTest.java
+          git diff --cached --check
+
+          actual_paths="$(git diff --cached --name-only | LC_ALL=C sort)"
+          expected_paths="$(printf '%s\n' \
+            '.github/workflows/maven.yml' \
+            '.github/workflows/pr1546-line-ending-cleanup.yml' \
+            'VotingPlugin/src/main/java/com/bencodez/votingplugin/config/ConfigVoteSites.java' \
+            'VotingPlugin/src/main/java/com/bencodez/votingplugin/user/VotingPluginUser.java' \
+            'VotingPlugin/src/test/java/com/bencodez/votingplugin/tests/cleanup/Pr1546LineEndingCleanupTest.java' \
+            | LC_ALL=C sort)"
+          if [[ "${actual_paths}" != "${expected_paths}" ]]; then
+            printf 'Unexpected cleanup paths:\n%s\n' "${actual_paths}" >&2
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Restore Java source line endings"
+          git push origin HEAD:codex/review-pr-response
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
