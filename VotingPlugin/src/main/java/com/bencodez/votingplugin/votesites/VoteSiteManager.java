@@ -83,6 +83,60 @@ public class VoteSiteManager {
 	}
 
 	/**
+	 * Resolves identifiers against every configured vote-site section, including
+	 * disabled sites.
+	 *
+	 * @param identifiers vote-site keys, service sites, or display names
+	 * @return the configured vote-site key, or null when no configuration matches
+	 */
+	private String getConfiguredVoteSiteName(String... identifiers) {
+		if (identifiers == null) {
+			return null;
+		}
+
+		ArrayList<String> configuredSites = plugin.getConfigVoteSites().getRawVoteSiteNames();
+		if (configuredSites == null || configuredSites.isEmpty()) {
+			return null;
+		}
+
+		for (String identifier : identifiers) {
+			if (identifier == null || identifier.isEmpty()) {
+				continue;
+			}
+
+			String normalizedIdentifier = normalizeVoteSiteKey(identifier);
+			for (String siteName : configuredSites) {
+				if (siteName == null) {
+					continue;
+				}
+
+				String serviceSite = plugin.getConfigVoteSites().getServiceSite(siteName);
+				String displayName = plugin.getConfigVoteSites().getDisplayName(siteName);
+				if (siteName.equalsIgnoreCase(identifier) || siteName.equalsIgnoreCase(normalizedIdentifier)
+						|| (serviceSite != null && !serviceSite.isEmpty()
+								&& serviceSite.equalsIgnoreCase(identifier))
+						|| (displayName != null && !displayName.isEmpty()
+								&& displayName.equalsIgnoreCase(identifier))) {
+					return siteName;
+				}
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Checks whether an identifier belongs to any configured vote site, including
+	 * a disabled site.
+	 *
+	 * @param identifiers vote-site identifiers
+	 * @return true when a configured vote-site section matches
+	 */
+	public boolean hasConfiguredVoteSite(String... identifiers) {
+		return getConfiguredVoteSiteName(identifiers) != null;
+	}
+
+	/**
 	 * Attempts to map a URL, display name, or key to the configured vote site key.
 	 *
 	 * @param checkEnabled whether to only consider enabled vote sites
@@ -91,6 +145,10 @@ public class VoteSiteManager {
 	 *         found
 	 */
 	public String getVoteSiteName(boolean checkEnabled, String... urls) {
+		if (urls == null) {
+			return null;
+		}
+
 		for (String url : urls) {
 			if (url == null) {
 				return null;
@@ -116,6 +174,13 @@ public class VoteSiteManager {
 						return site.getKey();
 					}
 				}
+			}
+		}
+
+		if (!checkEnabled) {
+			String configuredSiteName = getConfiguredVoteSiteName(urls);
+			if (configuredSiteName != null) {
+				return configuredSiteName;
 			}
 		}
 
@@ -147,7 +212,8 @@ public class VoteSiteManager {
 			}
 		}
 
-		if (plugin.getConfigFile().isAutoCreateVoteSites() && !hasVoteSite(siteName)) {
+		if (plugin.getConfigFile().isAutoCreateVoteSites() && !hasVoteSite(siteName)
+				&& !hasConfiguredVoteSite(siteName)) {
 			if (!ServiceSiteValidator.isValid(siteName)) {
 				plugin.getLogger().warning("Unable to auto-create vote site with unsupported name '"
 						+ ServiceSiteValidator.sanitizeForLog(siteName) + "'");
@@ -214,6 +280,9 @@ public class VoteSiteManager {
 	 */
 	public boolean hasVoteSite(String site) {
 		String siteName = getVoteSiteName(false, site);
+		if (siteName == null) {
+			return false;
+		}
 
 		for (VoteSite voteSite : getVoteSites()) {
 			if (voteSite.getKey().equalsIgnoreCase(siteName)) {
