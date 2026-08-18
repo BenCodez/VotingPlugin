@@ -404,6 +404,24 @@ public class ConfigVoteSites extends YMLFile {
 	}
 
 	/**
+	 * Gets configured vote-site section keys without filtering by Enabled or
+	 * validating the site's settings.
+	 *
+	 * @return the configured vote-site section keys
+	 */
+	public ArrayList<String> getRawVoteSiteNames() {
+		ArrayList<String> siteNames = new ArrayList<>();
+
+		if (!getData().isConfigurationSection("VoteSites")) {
+			return siteNames;
+		}
+
+		siteNames = ArrayUtils.convert(getData().getConfigurationSection("VoteSites").getKeys(false));
+		siteNames.removeIf(siteName -> !getData().isConfigurationSection("VoteSites." + siteName));
+		return siteNames;
+	}
+
+	/**
 	 * Gets the names of vote sites.
 	 *
 	 * @param checkEnabled whether to check if sites are enabled

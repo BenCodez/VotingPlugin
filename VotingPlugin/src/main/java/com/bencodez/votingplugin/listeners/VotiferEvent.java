@@ -92,7 +92,8 @@ public class VotiferEvent implements Listener {
 					}
 
 					String voteSiteNameStr = plugin.getVoteSiteManager().getVoteSiteName(false, voteSite, matchSite);
-					boolean createSite = !plugin.getVoteSiteManager().hasVoteSite(voteSiteNameStr);
+					boolean createSite = !plugin.getVoteSiteManager().hasVoteSite(voteSiteNameStr)
+							&& !plugin.getVoteSiteManager().hasConfiguredVoteSite(voteSiteNameStr);
 
 					String serviceSite = voteSite;
 
