@@ -1582,15 +1582,15 @@ public abstract class VotingPluginProxy {
 		boolean accepted = false;
 		String deliveryServer = server;
 		if (legacy) {
-			// Preserve the original login contract for cached rewards. In
-			// PLUGINMESSAGING mode the player-facing proxy is authoritative for online
-			// state and backend presence messages are disabled entirely.
-			accepted = true;
 			if (method == BungeeMethod.PLUGINMESSAGING) {
 				String proxyServer = getCurrentPlayerServer(player);
-				if (proxyServer != null && !proxyServer.isBlank()) {
+				accepted = isLegacyLoginDestinationAuthoritative(player, uuid, proxyServer);
+				if (accepted) {
 					deliveryServer = proxyServer;
 				}
+			} else if (method != null && method.supportsBackendPresence()
+					&& isPresenceServerValid(server, VotingPluginWire.SUB_LOGIN)) {
+				accepted = isLegacyLoginDestinationAuthoritative(player, uuid, server);
 			}
 		} else if (method != null && method.supportsBackendPresence() && event.connectionId != null
 				&& isPresenceServerValid(server, VotingPluginWire.SUB_LOGIN)
@@ -1615,6 +1615,52 @@ public abstract class VotingPluginProxy {
 			login(player, uuid, deliveryServer);
 		} else {
 			debug("Ignored invalid or stale login envelope: " + message.getFields());
+		}
+	}
+
+	/**
+	 * Validates a legacy login against an authority independent of the envelope.
+	 * Player-facing proxies use their native live route and UUID. A dedicated
+	 * voting proxy has no native player session, so it requires an exact modern
+	 * presence match for the claimed destination.
+	 */
+	private boolean isLegacyLoginDestinationAuthoritative(String player, String uuid, String server) {
+		if (server == null || server.isBlank()) {
+			return false;
+		}
+
+		UUID claimedUuid;
+		try {
+			claimedUuid = UUID.fromString(uuid.trim());
+		} catch (RuntimeException e) {
+			return false;
+		}
+
+		if (isDedicatedVotingProxyEnabled()) {
+			PlayerPresence presence = backendPlayerPresenceTracker.getPlayer(player).orElse(null);
+			return presence != null && presence.getServer().equalsIgnoreCase(server)
+					&& (!getConfig().getOnlineMode() || presence.getUuid().equals(claimedUuid));
+		}
+
+		if (!isPlayerOnline(player)) {
+			return false;
+		}
+		String proxyServer = getCurrentPlayerServer(player);
+		if (proxyServer == null || !proxyServer.equalsIgnoreCase(server)) {
+			return false;
+		}
+		if (!getConfig().getOnlineMode()) {
+			return true;
+		}
+
+		String authoritativeUuid = getUUID(player);
+		if (authoritativeUuid == null || authoritativeUuid.isBlank()) {
+			return false;
+		}
+		try {
+			return claimedUuid.equals(UUID.fromString(authoritativeUuid.trim()));
+		} catch (IllegalArgumentException e) {
+			return false;
 		}
 	}
 
