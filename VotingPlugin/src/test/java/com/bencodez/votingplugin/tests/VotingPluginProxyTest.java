@@ -125,10 +125,12 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
-	void pluginMessagingLegacyLoginUsesTheProxyCurrentServer() {
+	void pluginMessagingLegacyLoginUsesTheProxyCurrentServerAndUuid() {
 		String uuid = java.util.UUID.randomUUID().toString();
+		Mockito.when(votingPluginProxy.getConfig().getOnlineMode()).thenReturn(true);
 		votingPluginProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
 		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(uuid).when(spyProxy).getUUID("Player");
 		doNothing().when(spyProxy).login(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
 
 		spyProxy.handleLoginMessageForTest(VotingPluginWire.login("Player", uuid, "claimed-backend"));
@@ -137,15 +139,136 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
-	void standaloneTransportLegacyLoginKeepsOriginalCompatibilityPath() {
+	void pluginMessagingLegacyLoginRejectsMismatchedUuid() {
+		String authoritativeUuid = java.util.UUID.randomUUID().toString();
+		String claimedUuid = java.util.UUID.randomUUID().toString();
+		Mockito.when(votingPluginProxy.getConfig().getOnlineMode()).thenReturn(true);
+		votingPluginProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(authoritativeUuid).when(spyProxy).getUUID("Player");
+		doNothing().when(spyProxy).login(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+
+		spyProxy.handleLoginMessageForTest(VotingPluginWire.login("Player", claimedUuid, "Server1"));
+
+		verify(spyProxy, never()).login(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+	}
+
+	@Test
+	void standaloneTransportLegacyLoginUsesProxyAuthoritativeRoute() {
 		String uuid = java.util.UUID.randomUUID().toString();
+		Mockito.when(votingPluginProxy.getConfig().getOnlineMode()).thenReturn(true);
+		votingPluginProxy.setMethod(BungeeMethod.MQTT);
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(uuid).when(spyProxy).getUUID("Player");
+		doNothing().when(spyProxy).login(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+
+		spyProxy.handleLoginMessageForTest(VotingPluginWire.login("Player", uuid, "Server1"));
+
+		verify(spyProxy).login("Player", uuid, "Server1");
+	}
+
+	@Test
+	void standaloneTransportLegacyLoginRejectsUnknownServer() {
+		String uuid = java.util.UUID.randomUUID().toString();
+		votingPluginProxy.setMethod(BungeeMethod.MQTT);
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(false).when(spyProxy).isServerValid("unknown-server");
+		doNothing().when(spyProxy).login(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+
+		spyProxy.handleLoginMessageForTest(VotingPluginWire.login("Player", uuid, "unknown-server"));
+
+		verify(spyProxy, never()).login(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+	}
+
+	@Test
+	void standaloneTransportLegacyLoginAcceptsModernToLegacyHandoffUsingProxyRoute() {
+		java.util.UUID playerUuid = java.util.UUID.randomUUID();
+		java.util.UUID incarnation = java.util.UUID.randomUUID();
+		long now = System.currentTimeMillis();
+		Mockito.when(votingPluginProxy.getConfig().getOnlineMode()).thenReturn(true);
+		votingPluginProxy.setMethod(BungeeMethod.MQTT);
+		assertTrue(votingPluginProxy.getBackendPlayerPresenceTracker().backendStarted("Server1", incarnation,
+				1000L, 1000L, now));
+		assertTrue(votingPluginProxy.getBackendPlayerPresenceTracker().playerOnline("Player",
+				playerUuid.toString(), "Server1", java.util.UUID.randomUUID(), incarnation, 1000L, 1100L,
+				now));
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn("Server2").when(spyProxy).getCurrentPlayerServer("Player");
+		Mockito.doReturn(playerUuid.toString()).when(spyProxy).getUUID("Player");
+		doNothing().when(spyProxy).login(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+
+		spyProxy.handleLoginMessageForTest(
+				VotingPluginWire.login("Player", playerUuid.toString(), "Server2"));
+
+		verify(spyProxy).login("Player", playerUuid.toString(), "Server2");
+	}
+
+	@Test
+	void standaloneTransportLegacyLoginRejectsClaimNotMatchingProxyRoute() {
+		String uuid = java.util.UUID.randomUUID().toString();
+		Mockito.when(votingPluginProxy.getConfig().getOnlineMode()).thenReturn(true);
+		votingPluginProxy.setMethod(BungeeMethod.MQTT);
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(uuid).when(spyProxy).getUUID("Player");
+		doNothing().when(spyProxy).login(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+
+		spyProxy.handleLoginMessageForTest(VotingPluginWire.login("Player", uuid, "Server2"));
+
+		verify(spyProxy, never()).login(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+	}
+
+	@Test
+	void standaloneTransportLegacyLoginRejectsNameUuidMismatch() {
+		String aliceUuid = java.util.UUID.randomUUID().toString();
+		String bobUuid = java.util.UUID.randomUUID().toString();
+		Mockito.when(votingPluginProxy.getConfig().getOnlineMode()).thenReturn(true);
+		votingPluginProxy.setMethod(BungeeMethod.MQTT);
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(aliceUuid).when(spyProxy).getUUID("Alice");
+		doNothing().when(spyProxy).login(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+
+		spyProxy.handleLoginMessageForTest(VotingPluginWire.login("Alice", bobUuid, "Server1"));
+
+		verify(spyProxy, never()).login(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+	}
+
+	@Test
+	void dedicatedProxyLegacyLoginRequiresConfirmedDestinationPresence() {
+		java.util.UUID playerUuid = java.util.UUID.randomUUID();
+		java.util.UUID incarnation = java.util.UUID.randomUUID();
+		long now = System.currentTimeMillis();
+		Mockito.when(votingPluginProxy.getConfig().getOnlineMode()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getDedicatedVotingProxy()).thenReturn(true);
+		votingPluginProxy.setMethod(BungeeMethod.MQTT);
+		assertTrue(votingPluginProxy.getBackendPlayerPresenceTracker().backendStarted("Server1", incarnation,
+				1000L, 1000L, now));
+		assertTrue(votingPluginProxy.getBackendPlayerPresenceTracker().playerOnline("Player",
+				playerUuid.toString(), "Server1", java.util.UUID.randomUUID(), incarnation, 1000L, 1100L,
+				now));
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		doNothing().when(spyProxy).login(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+
+		spyProxy.handleLoginMessageForTest(
+				VotingPluginWire.login("Player", playerUuid.toString(), "Server2"));
+		verify(spyProxy, never()).login(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+
+		spyProxy.handleLoginMessageForTest(
+				VotingPluginWire.login("Player", playerUuid.toString(), "Server1"));
+		verify(spyProxy).login("Player", playerUuid.toString(), "Server1");
+	}
+
+	@Test
+	void dedicatedProxyLegacyLoginRejectsUnknownIdentity() {
+		String uuid = java.util.UUID.randomUUID().toString();
+		Mockito.when(votingPluginProxy.getConfig().getOnlineMode()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getDedicatedVotingProxy()).thenReturn(true);
 		votingPluginProxy.setMethod(BungeeMethod.MQTT);
 		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
 		doNothing().when(spyProxy).login(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
 
-		spyProxy.handleLoginMessageForTest(VotingPluginWire.login("Player", uuid, "survival"));
+		spyProxy.handleLoginMessageForTest(VotingPluginWire.login("Player", uuid, "Server1"));
 
-		verify(spyProxy).login("Player", uuid, "survival");
+		verify(spyProxy, never()).login(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
 	}
 
 	@Test
