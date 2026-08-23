@@ -109,6 +109,10 @@ public class VoteSiteResolver {
 		}
 
 		for (VoteSite voteSite : registry.getVoteSites()) {
+			if (checkEnabled && !voteSite.isEnabled()) {
+				continue;
+			}
+
 			if (voteSite.getKey().equalsIgnoreCase(siteName)) {
 				return voteSite;
 			}
