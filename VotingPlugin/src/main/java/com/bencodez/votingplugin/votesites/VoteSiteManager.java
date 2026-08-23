@@ -7,29 +7,31 @@ import java.util.List;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 import lombok.Getter;
-import lombok.Setter;
 
 public class VoteSiteManager {
 
 	@Getter
-	@Setter
 	private VotingPluginMain plugin;
 
 	@Getter
 	private final VoteSiteRegistry registry;
 
 	@Getter
-	private final VoteSiteValidator validator;
+	private VoteSiteValidator validator;
 
 	@Getter
-	private final VoteSiteResolver resolver;
+	private VoteSiteResolver resolver;
 
 	@Getter
-	private final VoteSiteFactory factory;
+	private VoteSiteFactory factory;
 
 	public VoteSiteManager(VotingPluginMain plugin) {
-		this.plugin = plugin;
 		registry = new VoteSiteRegistry();
+		setPlugin(plugin);
+	}
+
+	public void setPlugin(VotingPluginMain plugin) {
+		this.plugin = plugin;
 		validator = new VoteSiteValidator(plugin);
 		resolver = new VoteSiteResolver(plugin, registry, validator);
 		factory = new VoteSiteFactory(plugin, resolver, validator);
