@@ -14,22 +14,10 @@ import com.bencodez.advancedcore.api.command.AdvancedCoreTabCompleteHandler;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 
-// TODO: Auto-generated Javadoc
-/**
- * The Class VoteTabCompleter.
- */
 public class VoteTabCompleter implements TabCompleter {
 
-	/** The plugin. */
 	VotingPluginMain plugin = VotingPluginMain.plugin;
 
-	/*
-	 * (non-Javadoc)
-	 *
-	 * @see org.bukkit.command.TabCompleter#onTabComplete(org.bukkit.command.
-	 * CommandSender, org.bukkit.command.Command, java.lang.String,
-	 * java.lang.String[])
-	 */
 	@Override
 	public List<String> onTabComplete(CommandSender sender, Command cmd, String alias, String[] args) {
 
