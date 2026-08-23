@@ -1,16 +1,35 @@
 package com.bencodez.votingplugin.topvoter;
 
+import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+
+import com.bencodez.votingplugin.votesites.VoteSite;
 
 /**
  * Owns the mutable ranking state used by the top-voter subsystem.
  */
 public class TopVoterState {
 
-	private LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>> topVoters = new LinkedHashMap<>();
-	private LinkedHashMap<TopVoterPlayer, Integer> lastMonthTopVoters = new LinkedHashMap<>();
-	private LinkedHashMap<YearMonth, LinkedHashMap<TopVoterPlayer, Integer>> previousMonthsTopVoters = new LinkedHashMap<>();
+	private LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>> topVoters;
+	private LinkedHashMap<TopVoterPlayer, Integer> lastMonthTopVoters;
+	private LinkedHashMap<YearMonth, LinkedHashMap<TopVoterPlayer, Integer>> previousMonthsTopVoters;
+	private LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>> voteToday;
+
+	public TopVoterState() {
+		reset();
+	}
+
+	public void reset() {
+		topVoters = new LinkedHashMap<>();
+		for (TopVoter topVoter : TopVoter.values()) {
+			topVoters.put(topVoter, new LinkedHashMap<>());
+		}
+		lastMonthTopVoters = new LinkedHashMap<>();
+		previousMonthsTopVoters = new LinkedHashMap<>();
+		voteToday = new LinkedHashMap<>();
+	}
 
 	public LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>> getTopVoters() {
 		return topVoters;
@@ -40,5 +59,13 @@ public class TopVoterState {
 	public void setPreviousMonthsTopVoters(
 			LinkedHashMap<YearMonth, LinkedHashMap<TopVoterPlayer, Integer>> previousMonthsTopVoters) {
 		this.previousMonthsTopVoters = previousMonthsTopVoters != null ? previousMonthsTopVoters : new LinkedHashMap<>();
+	}
+
+	public LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>> getVoteToday() {
+		return voteToday;
+	}
+
+	public void setVoteToday(LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>> voteToday) {
+		this.voteToday = voteToday != null ? voteToday : new LinkedHashMap<>();
 	}
 }
