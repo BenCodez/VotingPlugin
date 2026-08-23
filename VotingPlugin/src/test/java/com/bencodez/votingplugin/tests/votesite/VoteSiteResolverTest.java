@@ -52,6 +52,19 @@ public class VoteSiteResolverTest {
 	}
 
 	@Test
+	public void testResolveDisabledLoadedSiteHonorsCheckEnabled() {
+		VoteSite site = mock(VoteSite.class);
+		when(site.getKey()).thenReturn("DisabledSite");
+		when(site.getDisplayName()).thenReturn("Disabled Site");
+		when(site.isEnabled()).thenReturn(false);
+		registry.setVoteSites(Collections.synchronizedList(new ArrayList<VoteSite>(Arrays.asList(site))));
+
+		assertNull(resolver.resolveVoteSite("DisabledSite", true));
+		assertNull(resolver.resolveVoteSite("Disabled Site", true));
+		assertSame(site, resolver.resolveVoteSite("DisabledSite", false));
+	}
+
+	@Test
 	public void testConfiguredDisabledSiteCanResolveNameWithoutCreating() {
 		when(config.getRawVoteSiteNames()).thenReturn(new ArrayList<String>(Arrays.asList("DisabledSite")));
 		when(config.getServiceSite("DisabledSite")).thenReturn("disabled.example.com");
