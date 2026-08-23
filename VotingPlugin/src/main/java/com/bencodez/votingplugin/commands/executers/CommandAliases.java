@@ -11,38 +11,19 @@ import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 
-// TODO: Auto-generated Javadoc
-/**
- * The Class CommandAliases.
- */
 public class CommandAliases implements CommandExecutor {
 
 	private boolean adminCommand;
 
-	/** The cmd handle. */
 	private CommandHandler cmdHandle;
 
-	/** The plugin. */
 	private VotingPluginMain plugin = VotingPluginMain.plugin;
 
-	/**
-	 * Constructs a new CommandAliases instance.
-	 *
-	 * @param cmdHandle the command handler
-	 * @param adminCommand whether this is an admin command
-	 */
 	public CommandAliases(CommandHandler cmdHandle, boolean adminCommand) {
 		this.cmdHandle = cmdHandle;
 		this.adminCommand = adminCommand;
 	}
 
-	/*
-	 * (non-Javadoc)
-	 *
-	 * @see org.bukkit.command.CommandExecutor#onCommand(org.bukkit.command.
-	 * CommandSender , org.bukkit.command.Command, java.lang.String,
-	 * java.lang.String[])
-	 */
 	@Override
 	public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
 
@@ -88,12 +69,6 @@ public class CommandAliases implements CommandExecutor {
 				}
 			}
 		}
-
-		/*
-		 * for (String arg : cmdHandle.getArgs()[0].split("&")) { argsNew.set(0, arg);
-		 * if (cmdHandle.runCommand(sender, Utils.getInstance().convertArray(argsNew)))
-		 * { plugin.debug( "cmd found, ran cmd"); return true; } }
-		 */
 
 		// invalid command
 		if (adminCommand) {
