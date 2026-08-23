@@ -5,23 +5,36 @@ import java.util.Collections;
 import java.util.List;
 
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.util.ServiceSiteValidator;
 
 import lombok.Getter;
-import lombok.Setter;
 
 public class VoteSiteManager {
 
 	@Getter
-	@Setter
 	private VotingPluginMain plugin;
 
 	@Getter
-	@Setter
-	private List<VoteSite> voteSites = Collections.synchronizedList(new ArrayList<VoteSite>());
+	private final VoteSiteRegistry registry;
+
+	@Getter
+	private VoteSiteValidator validator;
+
+	@Getter
+	private VoteSiteResolver resolver;
+
+	@Getter
+	private VoteSiteFactory factory;
 
 	public VoteSiteManager(VotingPluginMain plugin) {
+		registry = new VoteSiteRegistry();
+		setPlugin(plugin);
+	}
+
+	public void setPlugin(VotingPluginMain plugin) {
 		this.plugin = plugin;
+		validator = new VoteSiteValidator(plugin);
+		resolver = new VoteSiteResolver(plugin, registry, validator);
+		factory = new VoteSiteFactory(plugin, resolver, validator);
 	}
 
 	/**
@@ -36,281 +49,90 @@ public class VoteSiteManager {
 		newSites.addAll(plugin.getConfigVoteSites().getVoteSitesLoad());
 
 		for (VoteSite site : newSites) {
-			validateVoteSiteName(site.getKey());
+			validator.validateVoteSiteName(site.getKey());
 		}
 
-		voteSites = newSites;
+		registry.setVoteSites(newSites);
 
-		if (voteSites.isEmpty()) {
+		if (registry.getVoteSites().isEmpty()) {
 			plugin.getLogger().warning("Detected no voting sites, this may mean something isn't properly setup");
 		}
 
 		plugin.debug("Loaded VoteSites");
-		return voteSites;
+		return registry.getVoteSites();
+	}
+
+	public List<VoteSite> getVoteSites() {
+		return registry.getVoteSites();
 	}
 
 	/**
-	 * Validates a vote site name for common problems.
+	 * Kept for API compatibility. New code should prefer the registry directly.
 	 *
-	 * @param siteName the site name
+	 * @param voteSites the loaded vote sites
 	 */
+	public void setVoteSites(List<VoteSite> voteSites) {
+		registry.setVoteSites(voteSites);
+	}
+
 	public void validateVoteSiteName(String siteName) {
-		if (siteName == null) {
-			return;
-		}
-
-		if (siteName.equalsIgnoreCase("null")) {
-			plugin.getLogger().warning("Vote site name 'null' is not valid");
-			return;
-		}
-
-		if (siteName.contains(" ")) {
-			plugin.getLogger().warning("Vote site " + siteName + " contains spaces, this may cause issues");
-		}
+		validator.validateVoteSiteName(siteName);
 	}
 
-	/**
-	 * Normalizes a vote site key for generated or matched site names.
-	 *
-	 * @param name the input name
-	 * @return the normalized vote site key
-	 */
 	public String normalizeVoteSiteKey(String name) {
-		if (name == null) {
-			return null;
-		}
-		return name.replaceAll("[\\.\\s]+", "_");
+		return validator.normalizeVoteSiteKey(name);
 	}
 
-	/**
-	 * Resolves identifiers against every configured vote-site section, including
-	 * disabled sites.
-	 *
-	 * @param identifiers vote-site keys, service sites, or display names
-	 * @return the configured vote-site key, or null when no configuration matches
-	 */
-	private String getConfiguredVoteSiteName(String... identifiers) {
-		if (identifiers == null) {
-			return null;
-		}
-
-		ArrayList<String> configuredSites = plugin.getConfigVoteSites().getRawVoteSiteNames();
-		if (configuredSites == null || configuredSites.isEmpty()) {
-			return null;
-		}
-
-		for (String identifier : identifiers) {
-			if (identifier == null || identifier.isEmpty()) {
-				continue;
-			}
-
-			String normalizedIdentifier = normalizeVoteSiteKey(identifier);
-			for (String siteName : configuredSites) {
-				if (siteName == null) {
-					continue;
-				}
-
-				String serviceSite = plugin.getConfigVoteSites().getServiceSite(siteName);
-				String displayName = plugin.getConfigVoteSites().getDisplayName(siteName);
-				if (siteName.equalsIgnoreCase(identifier) || siteName.equalsIgnoreCase(normalizedIdentifier)
-						|| (serviceSite != null && !serviceSite.isEmpty()
-								&& serviceSite.equalsIgnoreCase(identifier))
-						|| (displayName != null && !displayName.isEmpty()
-								&& displayName.equalsIgnoreCase(identifier))) {
-					return siteName;
-				}
-			}
-		}
-
-		return null;
-	}
-
-	/**
-	 * Checks whether an identifier belongs to any configured vote site, including
-	 * a disabled site.
-	 *
-	 * @param identifiers vote-site identifiers
-	 * @return true when a configured vote-site section matches
-	 */
 	public boolean hasConfiguredVoteSite(String... identifiers) {
-		return getConfiguredVoteSiteName(identifiers) != null;
+		return resolver.hasConfiguredVoteSite(identifiers);
 	}
 
-	/**
-	 * Attempts to map a URL, display name, or key to the configured vote site key.
-	 *
-	 * @param checkEnabled whether to only consider enabled vote sites
-	 * @param urls one or more identifiers to resolve
-	 * @return the resolved vote site key, or the first provided value if no match is
-	 *         found
-	 */
 	public String getVoteSiteName(boolean checkEnabled, String... urls) {
-		if (urls == null) {
-			return null;
-		}
-
-		for (String url : urls) {
-			if (url == null) {
-				return null;
-			}
-
-			if (!url.isEmpty()) {
-				for (VoteSite site : voteSites) {
-					if (checkEnabled && !site.isEnabled()) {
-						continue;
-					}
-
-					String serviceSite = site.getServiceSite();
-					if (serviceSite != null && serviceSite.equalsIgnoreCase(url)) {
-						return site.getKey();
-					}
-
-					if (site.getKey().equalsIgnoreCase(url)) {
-						return site.getKey();
-					}
-
-					String displayName = site.getDisplayName();
-					if (displayName != null && displayName.equalsIgnoreCase(url)) {
-						return site.getKey();
-					}
-				}
-			}
-		}
-
-		if (!checkEnabled) {
-			String configuredSiteName = getConfiguredVoteSiteName(urls);
-			if (configuredSiteName != null) {
-				return configuredSiteName;
-			}
-		}
-
-		for (String url : urls) {
-			return url;
-		}
-
-		return "";
+		return resolver.getVoteSiteName(checkEnabled, urls);
 	}
 
 	/**
-	 * Resolves a VoteSite from an identifier.
+	 * Resolves an already-loaded vote site without creating configuration.
 	 *
 	 * @param site the site identifier
 	 * @param checkEnabled whether to only match enabled sites
-	 * @return the vote site, or null if not found
+	 * @return the loaded vote site, or null when none matches
 	 */
-	public VoteSite getVoteSite(String site, boolean checkEnabled) {
-		String siteName = getVoteSiteName(checkEnabled, site);
-
-		for (VoteSite voteSite : getVoteSites()) {
-			if (voteSite.getKey().equalsIgnoreCase(siteName)) {
-				return voteSite;
-			}
-
-			String displayName = voteSite.getDisplayName();
-			if (displayName != null && displayName.equalsIgnoreCase(siteName)) {
-				return voteSite;
-			}
-		}
-
-		if (plugin.getConfigFile().isAutoCreateVoteSites() && !hasVoteSite(siteName)
-				&& !hasConfiguredVoteSite(siteName)) {
-			if (!ServiceSiteValidator.isValid(siteName)) {
-				plugin.getLogger().warning("Unable to auto-create vote site with unsupported name '"
-						+ ServiceSiteValidator.sanitizeForLog(siteName) + "'");
-				return null;
-			}
-			if (!plugin.getConfigVoteSites().tryGenerateVoteSite(siteName)) {
-				return null;
-			}
-			return new VoteSite(plugin, normalizeVoteSiteKey(siteName));
-		}
-
-		return null;
+	public VoteSite resolveVoteSite(String site, boolean checkEnabled) {
+		return resolver.resolveVoteSite(site, checkEnabled);
 	}
 
 	/**
-	 * Gets all enabled vote sites.
-	 *
-	 * @return the enabled vote sites
-	 */
-	public ArrayList<VoteSite> getVoteSitesEnabled() {
-		ArrayList<VoteSite> sites = new ArrayList<VoteSite>();
-
-		for (VoteSite site : getVoteSites()) {
-			if (site.isEnabled()) {
-				sites.add(site);
-			}
-		}
-
-		return sites;
-	}
-
-	/**
-	 * Converts an input name or key into the configured service site if possible.
-	 *
-	 * @param name the input name
-	 * @return the service site, or the original input if no mapping exists
-	 */
-	public String getVoteSiteServiceSite(String name) {
-		if (name == null) {
-			return null;
-		}
-
-		for (VoteSite site : voteSites) {
-			if (!site.isEnabled()) {
-				continue;
-			}
-
-			String url = site.getServiceSite();
-			if (url != null) {
-				if (url.equalsIgnoreCase(name) || name.equalsIgnoreCase(site.getKey())) {
-					return url;
-				}
-			}
-		}
-
-		return name;
-	}
-
-	/**
-	 * Checks whether a vote site exists.
+	 * Resolves a vote site and preserves the legacy auto-create behavior when no
+	 * loaded site matches.
 	 *
 	 * @param site the site identifier
-	 * @return true if the vote site exists
+	 * @param checkEnabled whether to only match enabled sites
+	 * @return the vote site, or null if not found or created
 	 */
-	public boolean hasVoteSite(String site) {
-		String siteName = getVoteSiteName(false, site);
-		if (siteName == null) {
-			return false;
+	public VoteSite getVoteSite(String site, boolean checkEnabled) {
+		VoteSite voteSite = resolver.resolveVoteSite(site, checkEnabled);
+		if (voteSite != null) {
+			return voteSite;
 		}
 
-		for (VoteSite voteSite : getVoteSites()) {
-			if (voteSite.getKey().equalsIgnoreCase(siteName)) {
-				return true;
-			}
-
-			String displayName = voteSite.getDisplayName();
-			if (displayName != null && displayName.equalsIgnoreCase(siteName)) {
-				return true;
-			}
-		}
-
-		return false;
+		String siteName = resolver.getVoteSiteName(checkEnabled, site);
+		return factory.createIfAllowed(siteName);
 	}
 
-	/**
-	 * Checks whether a vote site key exists.
-	 *
-	 * @param voteSite the vote site key
-	 * @return true if it exists
-	 */
-	public boolean isVoteSite(String voteSite) {
-		for (VoteSite site : getVoteSites()) {
-			if (site.getKey().equalsIgnoreCase(voteSite)) {
-				return true;
-			}
-		}
+	public ArrayList<VoteSite> getVoteSitesEnabled() {
+		return registry.getEnabledVoteSites();
+	}
 
-		return false;
+	public String getVoteSiteServiceSite(String name) {
+		return resolver.getVoteSiteServiceSite(name);
+	}
+
+	public boolean hasVoteSite(String site) {
+		return resolver.hasVoteSite(site);
+	}
+
+	public boolean isVoteSite(String voteSite) {
+		return resolver.isVoteSite(voteSite);
 	}
 }
