@@ -8,30 +8,14 @@ import com.bencodez.advancedcore.api.command.CommandHandler;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 
-// TODO: Auto-generated Javadoc
-/**
- * The Class CommandAdminVote.
- */
 public class CommandAdminVote implements CommandExecutor {
 
 	private VotingPluginMain plugin;
 
-	/**
-	 * Constructs a new CommandAdminVote instance.
-	 *
-	 * @param plugin the main plugin instance
-	 */
 	public CommandAdminVote(VotingPluginMain plugin) {
 		this.plugin = plugin;
 	}
 
-	/*
-	 * (non-Javadoc)
-	 *
-	 * @see org.bukkit.command.CommandExecutor#onCommand(org.bukkit.command.
-	 * CommandSender , org.bukkit.command.Command, java.lang.String,
-	 * java.lang.String[])
-	 */
 	@Override
 	public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
 		for (CommandHandler commandHandler : plugin.getAdminVoteCommand()) {
