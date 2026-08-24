@@ -1,9 +1,10 @@
 name: Remove BungeeHandler compatibility
 
 on:
-  push:
+  pull_request:
     branches:
-      - cleanup/remove-bungee-handler
+      - master
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: write
