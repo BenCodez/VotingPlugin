@@ -3,7 +3,7 @@ name: Refactor top voter handler
 on:
   pull_request:
     branches:
-      - refactor/votingplugin-reward-registration
+      - master
     types: [opened, synchronize, reopened]
 
 permissions:
