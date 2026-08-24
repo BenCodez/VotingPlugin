@@ -948,8 +948,8 @@ public class PlaceHolders {
 
 			@Override
 			public String placeholderRequest(String identifier) {
-				if (plugin.getBungeeHandler() != null) {
-					return Integer.toString(plugin.getBungeeHandler().getBungeeVotePartyCurrent());
+				if (plugin.getBackendProxyHandler() != null) {
+					return Integer.toString(plugin.getBackendProxyHandler().getBungeeVotePartyCurrent());
 				}
 				return "-1";
 			}
@@ -959,9 +959,9 @@ public class PlaceHolders {
 
 			@Override
 			public String placeholderRequest(String identifier) {
-				if (plugin.getBungeeHandler() != null) {
-					return Integer.toString(plugin.getBungeeHandler().getBungeeVotePartyRequired()
-							- plugin.getBungeeHandler().getBungeeVotePartyCurrent());
+				if (plugin.getBackendProxyHandler() != null) {
+					return Integer.toString(plugin.getBackendProxyHandler().getBungeeVotePartyRequired()
+							- plugin.getBackendProxyHandler().getBungeeVotePartyCurrent());
 				}
 				return "-1";
 			}
@@ -971,8 +971,8 @@ public class PlaceHolders {
 
 			@Override
 			public String placeholderRequest(String identifier) {
-				if (plugin.getBungeeHandler() != null) {
-					return Integer.toString(plugin.getBungeeHandler().getBungeeVotePartyRequired());
+				if (plugin.getBackendProxyHandler() != null) {
+					return Integer.toString(plugin.getBackendProxyHandler().getBungeeVotePartyRequired());
 				}
 				return "-1";
 			}
