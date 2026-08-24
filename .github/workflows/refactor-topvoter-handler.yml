@@ -70,12 +70,17 @@ jobs:
           text = replace_method(text,
               '\tpublic LinkedHashMap<TopVoterPlayer, Integer> sortByValues(LinkedHashMap<TopVoterPlayer, Integer> map,',
               '\tpublic LinkedHashMap<TopVoterPlayer, Integer> sortByValues(LinkedHashMap<TopVoterPlayer, Integer> map,\n\t\t\tfinal boolean order) {\n\t\treturn TopVoterRanking.sortByValues(map, order);\n\t}\n')
-          text = text.replace('ArrayList<TopVoterPlayer> users = plugin.convertSet(plugin.getTopVoter(TopVoter.Weekly).keySet());',
-                              'ArrayList<TopVoterPlayer> users = new ArrayList<>(plugin.getTopVoterState().getTopVoters(TopVoter.Weekly).keySet());')
           handler.write_text(text)
+
+          source_root = Path('VotingPlugin/src/main/java')
+          for source in source_root.rglob('*.java'):
+              source_text = source.read_text()
+              if 'plugin.convertSet(' in source_text:
+                  source.write_text(source_text.replace('plugin.convertSet(', 'new ArrayList<>('))
 
           main = Path('VotingPlugin/src/main/java/com/bencodez/votingplugin/VotingPluginMain.java')
           main_text = main.read_text()
+          main_text = main_text.replace('\n\t\t\t\tcheckFirstTimeLoaded();\n', '\n')
           main_text = replace_method(main_text, '\tpublic ArrayList<TopVoterPlayer> convertSet(Set<TopVoterPlayer> set)', '')
           main_text = replace_method(main_text, '\tpublic void checkFirstTimeLoaded()', '')
           main_text = main_text.replace('\n\tprivate boolean firstTimeLoaded = false;\n', '\n')
