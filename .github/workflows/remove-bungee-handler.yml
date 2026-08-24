@@ -1,0 +1,61 @@
+name: Remove BungeeHandler compatibility
+
+on:
+  push:
+    branches:
+      - cleanup/remove-bungee-handler
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cleanup/remove-bungee-handler
+      - name: Remove compatibility API
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          main = Path('VotingPlugin/src/main/java/com/bencodez/votingplugin/VotingPluginMain.java')
+          text = main.read_text()
+          block = '''\n\t/**\n\t * @deprecated Use {@link #getBackendProxyHandler()} instead.\n\t */\n\t@Deprecated\n\tpublic BungeeHandler getBungeeHandler() {\n\t\treturn (BungeeHandler) backendProxyHandler;\n\t}\n'''
+          if block not in text:
+              raise SystemExit('deprecated getBungeeHandler block not found')
+          text = text.replace(block, '\n')
+          text = text.replace('backendProxyHandler = new BungeeHandler(this);', 'backendProxyHandler = new BackendProxyHandler(this);')
+          main.write_text(text)
+
+          alias = Path('VotingPlugin/src/main/java/com/bencodez/votingplugin/BungeeHandler.java')
+          if not alias.exists():
+              raise SystemExit('BungeeHandler.java not found')
+          alias.unlink()
+
+          compat_test = Path('VotingPlugin/src/test/java/com/bencodez/votingplugin/tests/backendproxy/BungeeHandlerCompatibilityTest.java')
+          if compat_test.exists():
+              compat_test.unlink()
+          PY
+      - name: Verify legacy symbols are gone
+        run: |
+          if grep -R --line-number --include='*.java' '\bBungeeHandler\b\|getBungeeHandler()' VotingPlugin/src/main/java VotingPlugin/src/test/java; then
+            echo 'Legacy BungeeHandler compatibility symbols remain'
+            exit 1
+          fi
+      - name: Build
+        run: mvn -B -f VotingPlugin/pom.xml package
+      - name: Commit cleanup
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add VotingPlugin/src/main/java VotingPlugin/src/test/java
+          git commit -m 'Remove BungeeHandler compatibility API'
+          git push origin HEAD:cleanup/remove-bungee-handler
+      - name: Remove temporary workflow
+        run: |
+          git pull --rebase origin cleanup/remove-bungee-handler
+          git rm .github/workflows/remove-bungee-handler.yml
+          git commit -m 'Remove temporary refactor workflow'
+          git push origin HEAD:cleanup/remove-bungee-handler
