@@ -1,0 +1,62 @@
+name: Remove BungeeHandler compatibility
+
+on:
+  push:
+    branches:
+      - refactor/backendproxy-presence
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/backendproxy-presence
+      - name: Replace internal BungeeHandler references
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          root = Path('VotingPlugin/src/main/java')
+          for path in root.rglob('*.java'):
+              if path.as_posix().endswith('/BungeeHandler.java'):
+                  continue
+              text = path.read_text()
+              new = text.replace('getBungeeHandler()', 'getBackendProxyHandler()')
+              new = new.replace('BungeeHandler bungeeHandler', 'BackendProxyHandler backendProxyHandler')
+              new = new.replace('new BungeeHandler(', 'new BackendProxyHandler(')
+              new = new.replace('bungeeHandler =', 'backendProxyHandler =')
+              new = new.replace('bungeeHandler.', 'backendProxyHandler.')
+              if path.name == 'VotingPluginMain.java' and 'com.bencodez.votingplugin.backendproxy.BackendProxyHandler;' not in new:
+                  marker = 'import com.bencodez.votingplugin.broadcast.BroadcastHandler;\n'
+                  new = new.replace(marker, marker + 'import com.bencodez.votingplugin.backendproxy.BackendProxyHandler;\n')
+              if new != text:
+                  path.write_text(new)
+
+          shim = Path('VotingPlugin/src/main/java/com/bencodez/votingplugin/BungeeHandler.java')
+          if shim.exists():
+              shim.unlink()
+          PY
+      - name: Verify no old class references remain
+        run: |
+          if grep -R --line-number --include='*.java' '\bBungeeHandler\b\|getBungeeHandler()\|bungeeHandler' VotingPlugin/src/main/java; then
+            echo 'Old BungeeHandler references remain'
+            exit 1
+          fi
+      - name: Commit refactor
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add VotingPlugin/src/main/java
+          git commit -m 'Remove BungeeHandler compatibility layer'
+          git push origin HEAD:refactor/backendproxy-presence
+      - name: Remove temporary workflow
+        run: |
+          git pull --rebase origin refactor/backendproxy-presence
+          git rm .github/workflows/remove-bungee-handler.yml
+          git commit -m 'Remove temporary refactor workflow'
+          git push origin HEAD:refactor/backendproxy-presence
