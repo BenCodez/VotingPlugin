@@ -268,7 +268,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private long lastBackgroundTaskTimeTaken = -1;
 
-	private boolean firstTimeLoaded = false;
 
 	@Getter
 	@Setter
@@ -291,25 +290,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 	}
 
-	public void checkFirstTimeLoaded() {
-		if (!firstTimeLoaded) {
 
-			if (getGui().isChestVoteTopUseSkull()) {
-				int maxToLoad = 200;
-				for (TopVoter top : getTopVoter().keySet()) {
-					int num = 1;
-					Set<TopVoterPlayer> players = getTopVoter().get(top).keySet();
-					for (TopVoterPlayer p : players) {
-						if (num <= maxToLoad) {
-							getSkullCacheHandler().addToCache(p.getUuid(), p.getPlayerName());
-						}
-						num++;
-					}
-				}
-			}
-		}
-		firstTimeLoaded = true;
-	}
 
 	/**
 	 * Check votifier.
@@ -351,9 +332,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		voteShopManager = new VoteShopManager(this);
 	}
 
-	public ArrayList<TopVoterPlayer> convertSet(Set<TopVoterPlayer> set) {
-		return new ArrayList<>(set);
-	}
+
 
 	@Override
 	public FileConfiguration getConfig() {
@@ -1212,7 +1191,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				serverData.updateValues();
 				getSigns().updateSigns();
 
-				checkFirstTimeLoaded();
 
 				if (plugin.getConfigFile().isDiscordSRVEnabled() && getDiscordHandler() != null) {
 					for (TopVoter top : TopVoter.values()) {
