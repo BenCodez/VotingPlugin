@@ -1,0 +1,56 @@
+name: One-shot backend proxy move
+
+on:
+  push:
+    branches:
+      - refactor/backendproxy-presence
+
+permissions:
+  contents: write
+
+jobs:
+  move-handler:
+    if: github.event.head_commit.message == 'Run backend proxy class move'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/backendproxy-presence
+          fetch-depth: 0
+
+      - name: Move and rename backend proxy handler
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('VotingPlugin/src/main/java/com/bencodez/votingplugin/BungeeHandler.java')
+          target = Path('VotingPlugin/src/main/java/com/bencodez/votingplugin/backendproxy/BackendProxyHandler.java')
+          source = root.read_text()
+
+          source = source.replace(
+              '// File: com/bencodez/votingplugin/BungeeHandler.java\npackage com.bencodez.votingplugin;',
+              '// File: com/bencodez/votingplugin/backendproxy/BackendProxyHandler.java\npackage com.bencodez.votingplugin.backendproxy;')
+          source = source.replace(
+              'import com.bencodez.votingplugin.backendproxy.presence.BackendPresenceManager;',
+              'import com.bencodez.votingplugin.VotingPluginMain;\nimport com.bencodez.votingplugin.backendproxy.presence.BackendPresenceManager;')
+          source = source.replace('public class BungeeHandler implements Listener {',
+                                  'public class BackendProxyHandler implements Listener {')
+          source = source.replace('Constructs a new BungeeHandler.', 'Constructs a new BackendProxyHandler.')
+          source = source.replace('public BungeeHandler(VotingPluginMain plugin) {',
+                                  'public BackendProxyHandler(VotingPluginMain plugin) {')
+          source = source.replace('Loading bungee handler', 'Loading backend proxy handler')
+
+          target.parent.mkdir(parents=True, exist_ok=True)
+          target.write_text(source)
+
+          root.write_text('''package com.bencodez.votingplugin;\n\nimport com.bencodez.votingplugin.backendproxy.BackendProxyHandler;\n\n/**\n * @deprecated Use {@link BackendProxyHandler}.\n */\n@Deprecated\npublic class BungeeHandler extends BackendProxyHandler {\n\n\tpublic BungeeHandler(VotingPluginMain plugin) {\n\t\tsuper(plugin);\n\t}\n}\n''')
+
+          Path('.github/workflows/refactor-backendproxy-move.yml').unlink()
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Move backend proxy handler into package"
+          git push origin HEAD:refactor/backendproxy-presence
