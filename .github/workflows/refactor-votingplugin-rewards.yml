@@ -1,0 +1,63 @@
+name: Refactor VotingPlugin reward registration
+
+on:
+  pull_request:
+    branches:
+      - refactor/backendproxy-components
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/votingplugin-reward-registration
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Replace inline reward registration
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('VotingPlugin/src/main/java/com/bencodez/votingplugin/VotingPluginMain.java')
+          text = path.read_text()
+
+          anchor = 'import com.bencodez.votingplugin.presets.VoteSitePresetSetupHandler;\n'
+          new_import = 'import com.bencodez.votingplugin.rewards.VotingPluginRewardRegistrar;\n'
+          if new_import not in text:
+              if anchor not in text:
+                  raise SystemExit('reward registrar import anchor not found')
+              text = text.replace(anchor, anchor + new_import, 1)
+
+          start_marker = '\t\t// Add rewards\n'
+          end_marker = '\n\t\tplugin.getLogger().info("Enabled VotingPlugin "'
+          start = text.find(start_marker)
+          end = text.find(end_marker, start)
+          if start < 0 or end < 0:
+              raise SystemExit('inline reward block markers not found')
+
+          text = text[:start] + '\t\tVotingPluginRewardRegistrar.register(this);\n' + text[end:]
+          path.write_text(text)
+          PY
+      - name: Build
+        run: mvn -B -f VotingPlugin/pom.xml package
+      - name: Commit refactor
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A VotingPlugin
+          git commit -m 'Move VotingPlugin reward registration out of main'
+          git push origin HEAD:refactor/votingplugin-reward-registration
+      - name: Remove temporary workflow
+        run: |
+          git pull --rebase origin refactor/votingplugin-reward-registration
+          git rm .github/workflows/refactor-votingplugin-rewards.yml
+          git commit -m 'Remove temporary reward refactor workflow'
+          git push origin HEAD:refactor/votingplugin-reward-registration
