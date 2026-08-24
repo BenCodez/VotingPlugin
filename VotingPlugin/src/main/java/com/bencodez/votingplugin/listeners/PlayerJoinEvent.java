@@ -78,7 +78,7 @@ public class PlayerJoinEvent implements Listener {
 		plugin.getPlaceholders().onUpdate(user, true);
 
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
-			plugin.getBungeeHandler().playerOnline(user.getPlayerName(), user.getUUID());
+			plugin.getBackendProxyHandler().playerOnline(user.getPlayerName(), user.getUUID());
 		}
 	}
 
@@ -99,7 +99,7 @@ public class PlayerJoinEvent implements Listener {
 		}
 
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
-			plugin.getBungeeHandler().playerOffline(player.getName());
+			plugin.getBackendProxyHandler().playerOffline(player.getName());
 		}
 
 		plugin.getLoginTimer().execute(new Runnable() {

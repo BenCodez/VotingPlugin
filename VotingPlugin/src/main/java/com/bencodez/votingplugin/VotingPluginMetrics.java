@@ -191,7 +191,7 @@ public class VotingPluginMetrics {
 			@Override
 			public String call() throws Exception {
 				if (plugin.getBungeeSettings().isUseBungeecoord()) {
-					return "" + plugin.getBungeeHandler().getMethod().toString();
+					return "" + plugin.getBackendProxyHandler().getMethod().toString();
 				}
 				return "Disabled";
 			}

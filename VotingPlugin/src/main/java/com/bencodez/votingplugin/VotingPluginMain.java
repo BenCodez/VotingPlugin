@@ -61,6 +61,7 @@ import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigSpigot;
 import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.simpleapi.updater.Updater;
 import com.bencodez.votingplugin.broadcast.BroadcastHandler;
+import com.bencodez.votingplugin.backendproxy.BackendProxyHandler;
 import com.bencodez.votingplugin.broadcast.BroadcastSettings;
 import com.bencodez.votingplugin.commands.CommandLoader;
 import com.bencodez.votingplugin.commands.executers.CommandAdminVote;
@@ -143,7 +144,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private BroadcastHandler broadcastHandler;
 
 	@Getter
-	private BungeeHandler bungeeHandler;
+	private BackendProxyHandler backendProxyHandler;
 
 	@Getter
 	private BungeeSettings bungeeSettings;
@@ -451,8 +452,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	private void loadBungeeHandler() {
-		bungeeHandler = new BungeeHandler(this);
-		bungeeHandler.load();
+		backendProxyHandler = new BackendProxyHandler(this);
+		backendProxyHandler.load();
 
 		if (getOptions().getServer().equalsIgnoreCase("PleaseSet")) {
 			getLogger().warning("Bungeecoord is true and server name is not set, bungeecoord features may not work");
@@ -1678,9 +1679,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 */
 	@Override
 	public void onUnLoad() {
-		if (getBungeeHandler() != null) {
+		if (getBackendProxyHandler() != null) {
 			try {
-				getBungeeHandler().close();
+				getBackendProxyHandler().close();
 			} catch (Exception e) {
 				debug(e);
 			}
@@ -1824,16 +1825,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		reloadAdvancedCore(userStorage);
 
 		if (bungeeSettings.isUseBungeecoord()) {
-			if (getBungeeHandler() == null) {
+			if (getBackendProxyHandler() == null) {
 				loadBungeeHandler();
 			} else {
-				getBungeeHandler().reloadPresenceReporting();
+				getBackendProxyHandler().reloadPresenceReporting();
 			}
 			if (userStorage) {
-				getBungeeHandler().loadGlobalMysql();
+				getBackendProxyHandler().loadGlobalMysql();
 			}
-		} else if (getBungeeHandler() != null) {
-			getBungeeHandler().disablePresenceReporting();
+		} else if (getBackendProxyHandler() != null) {
+			getBackendProxyHandler().disablePresenceReporting();
 		}
 		checkYMLError();
 
