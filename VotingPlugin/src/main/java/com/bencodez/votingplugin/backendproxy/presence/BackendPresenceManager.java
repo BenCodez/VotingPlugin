@@ -308,6 +308,7 @@ public class BackendPresenceManager {
 			if (isActiveGeneration(expectedServer, expectedIncarnationId, expectedStartedAt)) {
 				send(envelope);
 			}
+		}
 	}
 
 	private long nextTimestamp() {
