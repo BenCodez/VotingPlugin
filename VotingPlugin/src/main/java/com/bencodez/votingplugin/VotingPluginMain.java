@@ -271,6 +271,14 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		getRewardHandler().addDirectlyDefined(directlyDefinedReward);
 	}
 
+	/**
+	 * @deprecated Use {@link #getBackendProxyHandler()} instead.
+	 */
+	@Deprecated
+	public BungeeHandler getBungeeHandler() {
+		return (BungeeHandler) backendProxyHandler;
+	}
+
 	public void basicBungeeUpdate() {
 		for (Player player : Bukkit.getOnlinePlayers()) {
 			VotingPluginUser user = getVotingPluginUserManager().getVotingPluginUser(player);
@@ -452,7 +460,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	private void loadBungeeHandler() {
-		backendProxyHandler = new BackendProxyHandler(this);
+		backendProxyHandler = new BungeeHandler(this);
 		backendProxyHandler.load();
 
 		if (getOptions().getServer().equalsIgnoreCase("PleaseSet")) {
