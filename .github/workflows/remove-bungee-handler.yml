@@ -30,19 +30,20 @@ jobs:
           text = text.replace('backendProxyHandler = new BungeeHandler(this);', 'backendProxyHandler = new BackendProxyHandler(this);')
           main.write_text(text)
 
-          alias = Path('VotingPlugin/src/main/java/com/bencodez/votingplugin/BungeeHandler.java')
-          if not alias.exists():
-              raise SystemExit('BungeeHandler.java not found')
-          alias.unlink()
-
-          compat_test = Path('VotingPlugin/src/test/java/com/bencodez/votingplugin/tests/backendproxy/BungeeHandlerCompatibilityTest.java')
-          if compat_test.exists():
-              compat_test.unlink()
+          Files = [
+              Path('VotingPlugin/src/main/java/com/bencodez/votingplugin/BungeeHandler.java'),
+              Path('VotingPlugin/src/test/java/com/bencodez/votingplugin/tests/backendproxy/BungeeHandlerCompatibilityTest.java'),
+              Path('VotingPlugin/src/test/java/com/bencodez/votingplugin/tests/backendproxy/RemoveBungeeHandlerMigrationTest.java'),
+          ]
+          for path in Files:
+              if path.name == 'BungeeHandler.java' and not path.exists():
+                  raise SystemExit('BungeeHandler.java not found')
+              path.unlink(missing_ok=True)
           PY
       - name: Verify legacy symbols are gone
         run: |
-          if grep -R --line-number --include='*.java' '\bBungeeHandler\b\|getBungeeHandler()' VotingPlugin/src/main/java; then
-            echo 'Legacy BungeeHandler production symbols remain'
+          if grep -R --line-number --include='*.java' '\bBungeeHandler\b\|getBungeeHandler()' VotingPlugin/src/main/java VotingPlugin/src/test/java; then
+            echo 'Legacy BungeeHandler symbols remain'
             exit 1
           fi
       - name: Build
@@ -51,7 +52,6 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          rm -f VotingPlugin/src/test/java/com/bencodez/votingplugin/tests/backendproxy/RemoveBungeeHandlerMigrationTest.java
           git add -A
           git commit -m 'Remove BungeeHandler compatibility API'
           git push origin HEAD:cleanup/remove-bungee-handler
