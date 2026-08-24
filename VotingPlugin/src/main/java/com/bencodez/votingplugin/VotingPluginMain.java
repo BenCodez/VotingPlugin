@@ -101,6 +101,7 @@ import com.bencodez.votingplugin.timequeue.TimeQueueHandler;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterHandler;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
+import com.bencodez.votingplugin.topvoter.TopVoterState;
 import com.bencodez.votingplugin.updater.CheckUpdate;
 import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -172,13 +173,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private ShopFile shopFile;
 
 	@Getter
-	private LinkedHashMap<TopVoterPlayer, Integer> lastMonthTopVoter;
-
-	@Getter
-	@Setter
-	private LinkedHashMap<YearMonth, LinkedHashMap<TopVoterPlayer, Integer>> previousMonthsTopVoters;
-
-	@Getter
 	private MVdWPlaceholders mvdwPlaceholders;
 
 	@Getter
@@ -210,11 +204,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private String time = "";
 
 	@Getter
-	@Setter
-	private LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>> topVoter;
+	private TopVoterHandler topVoterHandler;
 
 	@Getter
-	private TopVoterHandler topVoterHandler;
+	private TopVoterState topVoterState;
 
 	@Getter
 	@Setter
@@ -243,10 +236,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private VoteSiteManager voteSiteManager;
-
-	@Getter
-	@Setter
-	private LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>> voteToday;
 
 	private boolean votifierLoaded = true;
 
@@ -295,9 +284,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 			if (getGui().isChestVoteTopUseSkull()) {
 				int maxToLoad = 200;
-				for (TopVoter top : topVoter.keySet()) {
+				for (TopVoter top : getTopVoter().keySet()) {
 					int num = 1;
-					Set<TopVoterPlayer> players = topVoter.get(top).keySet();
+					Set<TopVoterPlayer> players = getTopVoter().get(top).keySet();
 					for (TopVoterPlayer p : players) {
 						if (num <= maxToLoad) {
 							getSkullCacheHandler().addToCache(p.getUuid(), p.getPlayerName());
@@ -359,12 +348,37 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		return configFile.getData();
 	}
 
+	public LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>> getTopVoter() {
+		return topVoterState.getTopVoters();
+	}
+
+	public void setTopVoter(LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>> topVoter) {
+		topVoterState.setTopVoters(topVoter);
+	}
+
 	public LinkedHashMap<TopVoterPlayer, Integer> getTopVoter(TopVoter top) {
-		LinkedHashMap<TopVoterPlayer, Integer> top1 = topVoter.get(top);
-		if (top1 == null) {
-			top1 = new LinkedHashMap<>();
-		}
-		return top1;
+		return topVoterState.getTopVoters(top);
+	}
+
+	public LinkedHashMap<TopVoterPlayer, Integer> getLastMonthTopVoter() {
+		return topVoterState.getLastMonthTopVoters();
+	}
+
+	public LinkedHashMap<YearMonth, LinkedHashMap<TopVoterPlayer, Integer>> getPreviousMonthsTopVoters() {
+		return topVoterState.getPreviousMonthsTopVoters();
+	}
+
+	public void setPreviousMonthsTopVoters(
+			LinkedHashMap<YearMonth, LinkedHashMap<TopVoterPlayer, Integer>> previousMonthsTopVoters) {
+		topVoterState.setPreviousMonthsTopVoters(previousMonthsTopVoters);
+	}
+
+	public LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>> getVoteToday() {
+		return topVoterState.getVoteToday();
+	}
+
+	public void setVoteToday(LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>> voteToday) {
+		topVoterState.setVoteToday(voteToday);
 	}
 
 	/**
@@ -1319,15 +1333,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 		});
 
+		topVoterState = new TopVoterState();
 		topVoterHandler = new TopVoterHandler(this);
-		lastMonthTopVoter = new LinkedHashMap<>();
-		previousMonthsTopVoters = new LinkedHashMap<>();
-
-		topVoter = new LinkedHashMap<>();
-		for (TopVoter top : TopVoter.values()) {
-			topVoter.put(top, new LinkedHashMap<>());
-		}
-		voteToday = new LinkedHashMap<>();
 
 		new AdminGUI(this).loadHook();
 
