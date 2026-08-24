@@ -91,6 +91,7 @@ import com.bencodez.votingplugin.placeholders.MVdWPlaceholders;
 import com.bencodez.votingplugin.placeholders.PlaceHolders;
 import com.bencodez.votingplugin.placeholders.VotingPluginExpansion;
 import com.bencodez.votingplugin.presets.VoteSitePresetSetupHandler;
+import com.bencodez.votingplugin.rewards.VotingPluginRewardRegistrar;
 import com.bencodez.votingplugin.servicesites.ServiceSiteHandler;
 import com.bencodez.votingplugin.signs.Signs;
 import com.bencodez.votingplugin.specialrewards.NameMCLikeCheckerTask;
@@ -699,133 +700,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			nameMCLikeCheckerTask.runTaskTimerAsynchronously(this, 20L, interval);
 		}
 
-		// Add rewards
-		getRewardHandler().addInjectedReward(new RewardInjectInt("Points", 0) {
-
-			@Override
-			public String onRewardRequest(Reward reward, com.bencodez.advancedcore.api.user.AdvancedCoreUser user,
-					int num, HashMap<String, String> placeholders) {
-				VotingPluginUser vpUser = getVotingPluginUserManager().getVotingPluginUser(user);
-				String str = "" + vpUser.addPoints(num);
-				debug("Setting points to " + str);
-				return str;
-			}
-		}.synchronize().asPlaceholder("newpoints").addEditButton(
-				new EditGUIButton(new ItemBuilder(Material.PAPER), new EditGUIValueNumber("Points", null) {
-
-					@Override
-					public void setValue(Player player, Number value) {
-						RewardEditData reward = (RewardEditData) getInv().getData("Reward");
-						reward.setValue("Points", value.intValue());
-					}
-				}.addLore("Give player voting points"))).validator(new RewardInjectValidator() {
-
-					@Override
-					public void onValidate(Reward reward, RewardInject inject, ConfigurationSection data) {
-						if (data.getInt(inject.getPath(), -1) == 0) {
-							warning(reward, inject, "Points can not be 0");
-						}
-					}
-				}));
-
-		getRewardHandler().addInjectedReward(new RewardInjectConfigurationSection("VoteBossBar") {
-
-			@Override
-			public String onRewardRequested(Reward arg0, com.bencodez.advancedcore.api.user.AdvancedCoreUser user,
-					ConfigurationSection section, HashMap<String, String> placeholders) {
-				if (section.getBoolean("Enabled")) {
-					user.sendBossBar(
-							PlaceholderUtils.replacePlaceHolder(section.getString("Message", ""), placeholders),
-							section.getString("Color", "BLUE"), section.getString("Style", "SOLID"),
-							(double) getVotingPluginUserManager().getVotingPluginUser(user).getSitesVotedOn()
-									/ plugin.getVoteSites().size(),
-							section.getInt("Delay", 30));
-				}
-				return null;
-			}
-		});
-
-		getRewardHandler().addInjectedReward(new RewardInjectConfigurationSection("WebhookReward") {
-
-			@Override
-			public String onRewardRequested(Reward reward, AdvancedCoreUser user, ConfigurationSection section,
-					HashMap<String, String> placeholders) {
-
-				if (section == null || webhooks == null) {
-					return null;
-				}
-
-				// Parse list from inside this section
-				List<WebhookRewardEntry> entries = WebhookRewardParser.parse(section);
-
-				if (entries == null || entries.isEmpty()) {
-					return null;
-				}
-
-				webhooks.createExecutor().executeAll(entries, (input) -> {
-					return PlaceholderUtils.replacePlaceHolder(input, placeholders);
-				});
-
-				return null;
-			}
-		});
-
-		getRewardHandler().addInjectedRequirements(new RequirementInjectConfigurationSection("VoteTotal") {
-
-			@Override
-			public boolean onRequirementsRequested(Reward reward, AdvancedCoreUser acUser, ConfigurationSection section,
-					RewardOptions rewardOptions) {
-				boolean atleast = section.getBoolean("AtleastMode", false);
-				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(acUser);
-
-				for (TopVoter top : TopVoter.values()) {
-					int required = section.getInt(top.toString(), -1);
-					if (required >= 0) {
-						int total = user.getTotal(top);
-						if (atleast) {
-							if (total < required) {
-								debug("Failed requirement " + top.toString() + " " + total + "/" + required);
-								return false;
-							}
-						} else {
-							if (total != required) {
-								debug("Failed requirement " + top.toString() + " " + total + "!=" + required);
-								return false;
-							}
-						}
-					}
-				}
-
-				int pointsRequired = section.getInt("Points", -1);
-				if (pointsRequired >= 0) {
-					int points = user.getPoints();
-					if (atleast) {
-						if (points < pointsRequired) {
-							debug("Failed requirement points " + points + "/" + pointsRequired);
-							return false;
-						}
-					} else {
-						if (points != pointsRequired) {
-							debug("Failed requirement points " + points + "!=" + pointsRequired);
-							return false;
-						}
-					}
-				}
-
-				return true;
-			}
-		});
-
-		for (final TopVoter top : TopVoter.values()) {
-			getRewardHandler().addPlaceholder(new RewardPlaceholderHandle("Total_" + top.toString()) {
-
-				@Override
-				public String getValue(Reward reward, com.bencodez.advancedcore.api.user.AdvancedCoreUser user) {
-					VotingPluginUser vUser = getVotingPluginUserManager().getVotingPluginUser(user);
-					return "" + vUser.getTotal(top);
-				}
-			});
-		}
+		VotingPluginRewardRegistrar.register(this);
 
 		plugin.getLogger().info("Enabled VotingPlugin " + plugin.getDescription().getVersion());
 		if (plugin.getDescription().getVersion().contains("SNAPSHOT")) {
