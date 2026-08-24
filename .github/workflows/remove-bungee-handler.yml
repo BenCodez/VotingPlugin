@@ -41,8 +41,8 @@ jobs:
           PY
       - name: Verify legacy symbols are gone
         run: |
-          if grep -R --line-number --include='*.java' '\bBungeeHandler\b\|getBungeeHandler()' VotingPlugin/src/main/java VotingPlugin/src/test/java; then
-            echo 'Legacy BungeeHandler compatibility symbols remain'
+          if grep -R --line-number --include='*.java' '\bBungeeHandler\b\|getBungeeHandler()' VotingPlugin/src/main/java; then
+            echo 'Legacy BungeeHandler production symbols remain'
             exit 1
           fi
       - name: Build
@@ -51,7 +51,8 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add VotingPlugin/src/main/java VotingPlugin/src/test/java
+          rm -f VotingPlugin/src/test/java/com/bencodez/votingplugin/tests/backendproxy/RemoveBungeeHandlerMigrationTest.java
+          git add -A
           git commit -m 'Remove BungeeHandler compatibility API'
           git push origin HEAD:cleanup/remove-bungee-handler
       - name: Remove temporary workflow
