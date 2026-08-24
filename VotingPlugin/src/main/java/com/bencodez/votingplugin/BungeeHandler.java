@@ -3,6 +3,8 @@ package com.bencodez.votingplugin;
 import com.bencodez.votingplugin.backendproxy.BackendProxyHandler;
 
 /**
+ * Compatibility alias for the renamed backend/proxy handler.
+ *
  * @deprecated Use {@link BackendProxyHandler}.
  */
 @Deprecated
