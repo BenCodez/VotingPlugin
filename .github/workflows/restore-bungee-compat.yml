@@ -1,0 +1,49 @@
+name: Restore BungeeHandler compatibility
+
+on:
+  push:
+    branches:
+      - refactor/backendproxy-presence
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/backendproxy-presence
+      - name: Restore deprecated compatibility getter
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('VotingPlugin/src/main/java/com/bencodez/votingplugin/VotingPluginMain.java')
+          text = path.read_text()
+          text = text.replace('backendProxyHandler = new BackendProxyHandler(this);', 'backendProxyHandler = new BungeeHandler(this);')
+          marker = '\tpublic void basicBungeeUpdate() {'
+          getter = '''\t/**\n\t * @deprecated Use {@link #getBackendProxyHandler()} instead.\n\t */\n\t@Deprecated\n\tpublic BungeeHandler getBungeeHandler() {\n\t\treturn (BungeeHandler) backendProxyHandler;\n\t}\n\n'''
+          if 'public BungeeHandler getBungeeHandler()' not in text:
+              text = text.replace(marker, getter + marker)
+          path.write_text(text)
+          PY
+      - name: Verify compatibility and canonical API
+        run: |
+          grep -q 'private BackendProxyHandler backendProxyHandler;' VotingPlugin/src/main/java/com/bencodez/votingplugin/VotingPluginMain.java
+          grep -q 'backendProxyHandler = new BungeeHandler(this);' VotingPlugin/src/main/java/com/bencodez/votingplugin/VotingPluginMain.java
+          grep -q 'public BungeeHandler getBungeeHandler()' VotingPlugin/src/main/java/com/bencodez/votingplugin/VotingPluginMain.java
+      - name: Commit compatibility
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add VotingPlugin/src/main/java/com/bencodez/votingplugin/VotingPluginMain.java
+          git commit -m 'Restore deprecated BungeeHandler getter compatibility'
+          git push origin HEAD:refactor/backendproxy-presence
+      - name: Remove temporary workflow
+        run: |
+          git pull --rebase origin refactor/backendproxy-presence
+          git rm .github/workflows/restore-bungee-compat.yml
+          git commit -m 'Remove temporary compatibility workflow'
+          git push origin HEAD:refactor/backendproxy-presence
