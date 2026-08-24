@@ -32,6 +32,7 @@ public class BackendPlayerPresenceSessionTest {
 	public void testPlayerKeysAreCaseInsensitiveAndTrimmed() {
 		assertEquals(BackendPlayerPresenceSession.playerKey(" Player "),
 				BackendPlayerPresenceSession.playerKey("player"));
+		assertEquals("", BackendPlayerPresenceSession.playerKey(null));
 	}
 
 	@Test
