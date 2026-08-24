@@ -17,6 +17,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: cleanup/remove-bungee-handler
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
       - name: Remove compatibility API
         run: |
           python - <<'PY'
@@ -30,12 +36,12 @@ jobs:
           text = text.replace('backendProxyHandler = new BungeeHandler(this);', 'backendProxyHandler = new BackendProxyHandler(this);')
           main.write_text(text)
 
-          Files = [
+          files = [
               Path('VotingPlugin/src/main/java/com/bencodez/votingplugin/BungeeHandler.java'),
               Path('VotingPlugin/src/test/java/com/bencodez/votingplugin/tests/backendproxy/BungeeHandlerCompatibilityTest.java'),
               Path('VotingPlugin/src/test/java/com/bencodez/votingplugin/tests/backendproxy/RemoveBungeeHandlerMigrationTest.java'),
           ]
-          for path in Files:
+          for path in files:
               if path.name == 'BungeeHandler.java' and not path.exists():
                   raise SystemExit('BungeeHandler.java not found')
               path.unlink(missing_ok=True)
