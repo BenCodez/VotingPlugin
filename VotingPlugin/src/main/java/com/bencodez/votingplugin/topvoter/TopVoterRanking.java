@@ -46,8 +46,8 @@ public final class TopVoterRanking {
 				} else {
 					mapped.put(Integer.parseInt(data[0]), place);
 				}
-			} catch (RuntimeException ignored) {
-				// Invalid place specifications are ignored just as they were by the handler.
+			} catch (RuntimeException e) {
+				e.printStackTrace();
 			}
 		}
 		return mapped;
