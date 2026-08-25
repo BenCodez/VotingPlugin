@@ -46,7 +46,7 @@ public class VoteParty implements Listener {
 	 * @param user the voting plugin user
 	 */
 	public void addTotal(VotingPluginUser user) {
-		state.setTotalVotes(state.getTotalVotes() + 1);
+		setTotalVotes(getTotalVotes() + 1);
 		user.setVotePartyVotes(user.getVotePartyVotes() + 1);
 		plugin.getPlaceholders().onVotePartyUpdate();
 	}
@@ -58,10 +58,10 @@ public class VoteParty implements Listener {
 	 */
 	public void addVotePlayer(VotingPluginUser user) {
 		String uuid = user.getUUID();
-		List<String> voted = state.getVotedUsers();
+		List<String> voted = getVotedUsers();
 		if (!voted.contains(uuid)) {
 			voted.add(uuid);
-			state.setVotedUsers(voted);
+			setVotedUsers(voted);
 		}
 	}
 
@@ -170,7 +170,7 @@ public class VoteParty implements Listener {
 	 * @return the needed votes
 	 */
 	public int getNeededVotes() {
-		return state.getNeededVotes();
+		return getVotesRequired() - getTotalVotes();
 	}
 
 	/**
@@ -302,7 +302,11 @@ public class VoteParty implements Listener {
 	 * @param override whether to override total votes to zero
 	 */
 	public void reset(boolean override) {
-		state.reset(override);
+		if (override) {
+			setTotalVotes(0);
+		}
+		setVotedUsers(new ArrayList<>());
+		resetVotePartyCount();
 	}
 
 	/**
