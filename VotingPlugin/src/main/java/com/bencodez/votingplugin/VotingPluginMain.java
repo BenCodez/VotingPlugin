@@ -1,8 +1,6 @@
 package com.bencodez.votingplugin;
 
 import java.io.File;
-import java.time.Instant;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
@@ -46,15 +44,14 @@ import com.bencodez.advancedcore.api.rewards.injected.RewardInjectInt;
 import com.bencodez.advancedcore.api.rewards.injected.RewardInjectValidator;
 import com.bencodez.advancedcore.api.rewards.injectedrequirement.RequirementInjectConfigurationSection;
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
-import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.UserStartup;
 import com.bencodez.simpleapi.file.YMLConfig;
-import com.bencodez.simpleapi.skull.SkullCache;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigSpigot;
 import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.simpleapi.updater.Updater;
 import com.bencodez.votingplugin.broadcast.BroadcastHandler;
 import com.bencodez.votingplugin.backendproxy.BackendProxyHandler;
+import com.bencodez.votingplugin.backgroundtask.VotingPluginBackgroundTask;
 import com.bencodez.votingplugin.backendproxy.BackendProxyRewardRegistrar;
 import com.bencodez.votingplugin.broadcast.BroadcastSettings;
 import com.bencodez.votingplugin.commands.CommandLoader;
@@ -212,16 +209,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private TopVoterState topVoterState;
 
-	@Getter
-	@Setter
-	private boolean update = false;
 
 	@Getter
 	@Setter
 	private Updater updater;
 
-	@Getter
-	private boolean updateStarted = false;
 
 	@Getter
 	@Setter
@@ -254,8 +246,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private ServiceSiteHandler serviceSiteHandler;
 
-	@Getter
-	private long lastBackgroundTaskTimeTaken = -1;
 
 
 	@Getter
@@ -265,11 +255,31 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private DiscordHandler discordHandler;
 
+	private VotingPluginBackgroundTask backgroundTask;
 	private VotingPluginVersionInfo versionInfo;
 	private VotingPluginConfigHealth configHealth;
 	private VotifierIntegration votifierIntegration;
 	private VoteLogManager voteLogManager;
 	private VotingPluginWebhookManager webhookManager;
+
+	public boolean isUpdate() {
+		return backgroundTask != null && backgroundTask.isRequested();
+	}
+
+	public void setUpdate(boolean update) {
+		if (backgroundTask == null) {
+			backgroundTask = new VotingPluginBackgroundTask(this);
+		}
+		backgroundTask.setRequested(update);
+	}
+
+	public boolean isUpdateStarted() {
+		return backgroundTask != null && backgroundTask.isRunning();
+	}
+
+	public long getLastBackgroundTaskTimeTaken() {
+		return backgroundTask == null ? -1 : backgroundTask.getLastRunTimeSeconds();
+	}
 
 	public void addDirectlyDefinedRewards(DirectlyDefinedReward directlyDefinedReward) {
 		getRewardHandler().addDirectlyDefined(directlyDefinedReward);
@@ -1030,162 +1040,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	public synchronized void update() {
-		if (!(update || configFile.isAlwaysUpdate())) {
-			return;
+		if (backgroundTask == null) {
+			backgroundTask = new VotingPluginBackgroundTask(this);
 		}
-		if (plugin == null) {
-			return;
-		}
-		if (updateStarted) {
-			return;
-		}
-		if (configFile.isUpdateWithPlayersOnlineOnly() && Bukkit.getOnlinePlayers().isEmpty()) {
-			return;
-		}
-
-		updateStarted = true;
-		update = false;
-
-		synchronized (plugin) {
-			try {
-				if (plugin == null || !plugin.isEnabled()) {
-					return;
-				}
-
-				getUserManager().getDataManager().clearCacheBasic();
-				SkullCache.flushWeek();
-
-				plugin.debug("Starting background task, current cached users: "
-						+ plugin.getUserManager().getDataManager().getUserDataCache().keySet().size());
-
-				boolean extraBackgroundUpdate = configFile.isExtraBackgroundUpdate();
-				long startTime = System.currentTimeMillis();
-
-				LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>> voteToday = new LinkedHashMap<>();
-				LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>> tempTopVoter = new LinkedHashMap<>();
-
-				ArrayList<TopVoter> topVotersToCheck = new ArrayList<>();
-				for (TopVoter top : TopVoter.values()) {
-					if (plugin == null) {
-						return;
-					}
-					if (plugin.getConfigFile().getLoadTopVoter(top)) {
-						topVotersToCheck.add(top);
-						tempTopVoter.put(top, new LinkedHashMap<>());
-					}
-				}
-
-				boolean topVoterIgnorePermissionUse = plugin.getConfigFile().isTopVoterIgnorePermission();
-				ArrayList<String> blackList = plugin.getConfigFile().getBlackList();
-
-				// Compute "today" bounds once (avoid LocalDateTime.now() + MiscUtils
-				// conversions in tight loops)
-				final ZoneId zone = ZoneId.systemDefault();
-				final LocalDate today = LocalDate.now(zone);
-				final long startOfDayMs = today.atStartOfDay(zone).toInstant().toEpochMilli();
-				final long startOfNextDayMs = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli();
-
-				final long afterSetup = System.currentTimeMillis();
-
-				// STREAM all users (MYSQL/SQLITE/FLAT) via the new shortcut method
-				plugin.getUserManager().forEachUserKeys((uuid, columns) -> {
-					if (plugin == null || !plugin.isEnabled()) {
-						return;
-					}
-
-					VotingPluginUser user = getVotingPluginUserManager().getVotingPluginUser(uuid, false);
-					user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
-					user.updateTempCacheWithColumns(columns);
-
-					try {
-						if (!user.isBanned() && !blackList.contains(user.getPlayerName())) {
-
-							if (!topVoterIgnorePermissionUse || !user.isTopVoterIgnore()) {
-								TopVoterPlayer tvp = user.getTopVoterPlayer();
-								for (TopVoter top : topVotersToCheck) {
-									int total = user.getTotal(top);
-									if (total > 0) {
-										tempTopVoter.get(top).put(tvp, total);
-									}
-								}
-							}
-
-							// Only allocate if we actually find a "today" vote
-							HashMap<VoteSite, LocalDateTime> times = null;
-
-							for (Entry<VoteSite, Long> entry : user.getLastVotes().entrySet()) {
-								VoteSite site = entry.getKey();
-								if (!site.isEnabled() || site.isHidden()) {
-									continue;
-								}
-
-								long time = entry.getValue();
-								if (time >= startOfDayMs && time < startOfNextDayMs) {
-									if (times == null) {
-										times = new HashMap<>();
-									}
-									times.put(site, LocalDateTime.ofInstant(Instant.ofEpochMilli(time), zone));
-								}
-							}
-
-							if (times != null && !times.isEmpty()) {
-								voteToday.put(user.getTopVoterPlayer(), times);
-							}
-						}
-
-						if (extraBackgroundUpdate && user.isOnline()) {
-							user.offVote();
-						}
-
-						if (!plugin.getPlaceholders().getCacheLevel().onlineOnly() || user.isOnline()) {
-							plugin.getPlaceholders().onUpdate(user, false);
-						}
-					} finally {
-						user.clearTempCache();
-					}
-
-				}, (count) -> {
-					long time1 = (System.currentTimeMillis() - afterSetup) / 1000;
-					plugin.debug("Finished getting player data in " + time1 + " seconds, " + count + " users, "
-							+ plugin.getStorageType());
-				});
-
-				// Final processing (runs once after ALL users processed)
-				topVoterHandler.updateTopVoters(tempTopVoter);
-				placeholders.onUpdate();
-				setVoteToday(voteToday);
-				serverData.updateValues();
-				getSigns().updateSigns();
-
-
-				if (plugin.getConfigFile().isDiscordSRVEnabled() && getDiscordHandler() != null) {
-					for (TopVoter top : TopVoter.values()) {
-						if (!plugin.getConfigFile().isDiscordSRVTopVoterNewMessageOnUpdate(top)) {
-							getDiscordHandler().updateTopVoterMessageId(top);
-						}
-					}
-				}
-
-				plugin.getUserManager().getDataManager().clearNonNeededCachedUsers();
-				plugin.extraDebug("Current cached users: "
-						+ plugin.getUserManager().getDataManager().getUserDataCache().keySet().size());
-
-				update = false;
-
-				long totalTime = (System.currentTimeMillis() - startTime) / 1000;
-				lastBackgroundTaskTimeTaken = totalTime;
-				plugin.debug("Background task finished. Total time: " + totalTime + " seconds");
-
-			} catch (Exception ex) {
-				if (plugin != null) {
-					plugin.getLogger().info("Looks like something went wrong");
-				}
-				ex.printStackTrace();
-			} finally {
-				updateStarted = false;
-			}
-		}
+		backgroundTask.run();
 	}
+
 
 
 	@Getter
