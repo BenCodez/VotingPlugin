@@ -1594,6 +1594,13 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 	}
 
+	/** Refreshes the optional Control connector after its Config.yml settings were applied. */
+	public synchronized void restartBackendControlConnector() {
+		if (backendControlConnector != null) backendControlConnector.close();
+		backendControlConnector = null;
+		startBackendControlConnector();
+	}
+
 	private void migrateVoteBroadcast(Config configFile) {
 		ConfigurationSection cfg = configFile.getData();
 		// If new section exists, do nothing

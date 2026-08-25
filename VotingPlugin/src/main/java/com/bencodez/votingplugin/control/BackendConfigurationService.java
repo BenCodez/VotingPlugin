@@ -49,29 +49,31 @@ public final class BackendConfigurationService {
 	public Preview preview(String fileName, String proposedContent) throws IOException {
 		Path path = resolve(fileName);
 		String current = readRaw(path, false);
-		String resolved = resolveSecrets(parse(proposedContent), parse(current)).saveToString();
-		ensureBounded(resolved);
-		return new Preview(fileName, resolved, revision(current), changes(parse(current), parse(resolved)));
+		return preview(fileName, proposedContent, current);
 	}
 
 	public ApplyResult apply(String fileName, String proposedContent, String expectedRevision) throws IOException {
 		Path target = resolve(fileName);
 		String current = readRaw(target, false);
 		if (expectedRevision == null || !revision(current).equals(expectedRevision)) throw new StaleRevisionException();
-		Preview preview = preview(fileName, proposedContent);
+		Preview preview = preview(fileName, proposedContent, current);
 		Path backup = target.resolveSibling(target.getFileName() + ".control-backup");
 		Path staging = Files.createTempFile(target.getParent(), ".control-", ".yml");
 		boolean installed = false;
 		try {
-			Files.copy(target, backup, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
 			Files.writeString(staging, preview.resolvedContent(), StandardCharsets.UTF_8,
 					StandardOpenOption.TRUNCATE_EXISTING);
+			Files.writeString(backup, current, StandardCharsets.UTF_8, StandardOpenOption.CREATE,
+					StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+			if (!revision(readRaw(target, false)).equals(expectedRevision)) throw new StaleRevisionException();
 			move(staging, target);
 			installed = true;
 			reload.run();
 			String applied = readRaw(target, false);
 			return new ApplyResult(new Document(fileName, mask(parse(applied)), revision(applied)),
 					preview.changes(), false);
+		} catch (StaleRevisionException stale) {
+			throw stale;
 		} catch (Exception failure) {
 			boolean rolledBack = false;
 			if (installed) {
@@ -87,6 +89,13 @@ public final class BackendConfigurationService {
 		} finally {
 			Files.deleteIfExists(staging);
 		}
+	}
+
+	private Preview preview(String fileName, String proposedContent, String current) {
+		YamlConfiguration currentYaml = parse(current);
+		String resolved = resolveSecrets(parse(proposedContent), currentYaml).saveToString();
+		ensureBounded(resolved);
+		return new Preview(fileName, resolved, revision(current), changes(currentYaml, parse(resolved)));
 	}
 
 	public QuickPreview previewQuickSetup(String preset, Map<String, String> options) throws IOException {
@@ -128,6 +137,51 @@ public final class BackendConfigurationService {
 			yaml.set(root + ".VoteDelay", options.getOrDefault("voteDelay", "24h"));
 			yaml.set(root + ".DisplayItem.Material", options.getOrDefault("material", "DIAMOND"));
 			yaml.set(root + ".DisplayItem.Amount", 1);
+			return new QuickProposal(fileName, yaml.saveToString());
+		}
+		if ("easy-reward".equals(preset)) {
+			String fileName = "VoteSites.yml";
+			YamlConfiguration yaml = parse(readRaw(resolve(fileName), false));
+			String scope = options == null ? "site" : options.getOrDefault("scope", "site");
+			String root;
+			if ("every-site".equals(scope)) {
+				root = "EverySiteReward";
+			} else if ("site".equals(scope)) {
+				root = "VoteSites." + option(options, "name", "[A-Za-z0-9_-]{1,64}") + ".Rewards";
+			} else {
+				throw new IllegalArgumentException("quick setup option scope is invalid");
+			}
+			String command = optional(options, "command", 500);
+			String message = optional(options, "message", 500);
+			if (command.isBlank() && message.isBlank()) {
+				throw new IllegalArgumentException("easy reward requires a command or player message");
+			}
+			if (!command.isBlank()) yaml.set(root + ".Commands", List.of(command));
+			if (!message.isBlank()) yaml.set(root + ".Messages.Player", message);
+			return new QuickProposal(fileName, yaml.saveToString());
+		}
+		if ("common-settings".equals(preset)) {
+			String fileName = "Config.yml";
+			YamlConfiguration yaml = parse(readRaw(resolve(fileName), false));
+			yaml.set("ProcessRewards", booleanOption(options, "processRewards"));
+			yaml.set("AutoCreateVoteSites", booleanOption(options, "autoCreateVoteSites"));
+			yaml.set("ExtraAllSitesCheck", booleanOption(options, "extraAllSitesCheck"));
+			yaml.set("CountFakeVotes", booleanOption(options, "countFakeVotes"));
+			yaml.set("DisableNoServiceSiteMessage", booleanOption(options, "disableNoServiceSiteMessage"));
+			yaml.set("DisableUpdateChecking", booleanOption(options, "disableUpdateChecking"));
+			return new QuickProposal(fileName, yaml.saveToString());
+		}
+		if ("vote-party".equals(preset)) {
+			String fileName = "SpecialRewards.yml";
+			YamlConfiguration yaml = parse(readRaw(resolve(fileName), false));
+			yaml.set("VoteParty.Enabled", true);
+			yaml.set("VoteParty.VotesRequired", boundedInteger(option(options, "votesRequired", "[0-9]{1,6}"), 1, 100000));
+			yaml.set("VoteParty.GiveAllPlayers", booleanOption(options, "giveAllPlayers"));
+			yaml.set("VoteParty.GiveOnlinePlayersOnly", booleanOption(options, "onlineOnly"));
+			String command = optional(options, "command", 500);
+			String broadcast = optional(options, "broadcast", 500);
+			if (!command.isBlank()) yaml.set("VoteParty.Rewards.Commands", List.of(command));
+			if (!broadcast.isBlank()) yaml.set("VoteParty.Broadcast", broadcast);
 			return new QuickProposal(fileName, yaml.saveToString());
 		}
 		throw new IllegalArgumentException("quick setup preset is unsupported");
@@ -238,6 +292,23 @@ public final class BackendConfigurationService {
 		String value = options == null ? null : options.get(name);
 		if (value == null || !value.matches(pattern)) throw new IllegalArgumentException("quick setup option " + name + " is invalid");
 		return value;
+	}
+
+	private static String optional(Map<String, String> options, String name, int maximum) {
+		String value = options == null ? "" : options.getOrDefault(name, "").trim();
+		if (value.length() > maximum || value.indexOf('\0') >= 0 || value.indexOf('\r') >= 0
+				|| value.indexOf('\n') >= 0) {
+			throw new IllegalArgumentException("quick setup option " + name + " is invalid");
+		}
+		return value;
+	}
+
+	private static boolean booleanOption(Map<String, String> options, String name) {
+		String value = options == null ? null : options.get(name);
+		if (!"true".equals(value) && !"false".equals(value)) {
+			throw new IllegalArgumentException("quick setup option " + name + " is invalid");
+		}
+		return Boolean.parseBoolean(value);
 	}
 
 	private static int boundedInteger(String value, int minimum, int maximum) {

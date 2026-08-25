@@ -66,5 +66,25 @@ class BackendConfigurationServiceTest {
 				"voteDelay", "24h"));
 		assertTrue(site.proposal().content().contains("PMC:"));
 		assertTrue(site.proposal().content().contains("PlanetMinecraft.com"));
+
+		BackendConfigurationService.QuickPreview reward = service.previewQuickSetup("easy-reward", Map.of(
+				"scope", "site", "name", "PMC", "command", "eco give %player% 100",
+				"message", "&aThanks for voting!"));
+		assertTrue(reward.proposal().content().contains("eco give %player% 100"));
+
+		Files.writeString(directory.resolve("Config.yml"), "ProcessRewards: false\nAutoCreateVoteSites: false\n"
+				+ "ExtraAllSitesCheck: false\nCountFakeVotes: false\nDisableNoServiceSiteMessage: false\n"
+				+ "DisableUpdateChecking: false\n");
+		BackendConfigurationService.QuickPreview common = service.previewQuickSetup("common-settings", Map.of(
+				"processRewards", "true", "autoCreateVoteSites", "true", "extraAllSitesCheck", "true",
+				"countFakeVotes", "true", "disableNoServiceSiteMessage", "false",
+				"disableUpdateChecking", "false"));
+		assertTrue(common.proposal().content().contains("ExtraAllSitesCheck: true"));
+
+		Files.writeString(directory.resolve("SpecialRewards.yml"), "VoteParty:\n  Enabled: false\n");
+		BackendConfigurationService.QuickPreview party = service.previewQuickSetup("vote-party", Map.of(
+				"votesRequired", "25", "command", "give %player% diamond 1", "broadcast", "Party!",
+				"giveAllPlayers", "false", "onlineOnly", "true"));
+		assertTrue(party.proposal().content().contains("VotesRequired: 25"));
 	}
 }

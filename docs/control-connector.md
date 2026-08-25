@@ -133,10 +133,12 @@ Control:
     RequestTimeoutMillis: 10000
 ```
 
-The Bukkit connector owns one daemon worker and performs no Control I/O on the server thread. It negotiates
+The Bukkit connector owns one daemon worker and performs no Control I/O on the server thread. It reports a bounded list of
+installed plugin names for WebUI command suggestions and negotiates
 `config.files.v1` and `config.quick-setup.v1`, then polls the same outbound operation queue as proxies. File apply schedules
 the VotingPlugin reload on the Bukkit thread and waits only on the connector worker. Control failure never blocks votes,
-joins, commands, or plugin shutdown.
+joins, commands, or plugin shutdown. A successful `Config.yml` apply reports its result first, then recreates the connector
+so changes to `Control.Backend` take effect without a full server restart.
 
 ## Discovery semantics
 
@@ -165,8 +167,11 @@ if reload fails. Returned YAML is normalized and masks password/secret/token/API
 with `__VOTINGPLUGIN_CONTROL_REDACTED__`; leaving the marker unchanged preserves the local value. A replacement secret may
 be submitted through the authenticated preview, but is never returned or audited.
 
-Quick setups currently cover standalone backend mode, proxy-connected backend mode with an explicit server identity, and
-adding/updating a vote site. They use the same preview, revision, approval, backup, reload, and rollback path—not a bypass.
+Quick setups cover standalone backend mode, proxy-connected backend mode with an explicit server identity, adding/updating
+a vote site, an easy per-site or every-site command/message reward, six common operational toggles, and vote-party basics.
+Detected Essentials/EssentialsX, CMI, and LuckPerms installations add editable command suggestions alongside generic
+Minecraft rewards. Plugin detection does not inspect third-party configuration or versions. Every shortcut uses the same
+preview, revision, approval, backup, reload, and rollback path—not a bypass.
 
 An admin must select capable online nodes, preview the change, and confirm the
 single-use approval generated for that exact successful preview. Nodes claim work over their existing outbound connection,

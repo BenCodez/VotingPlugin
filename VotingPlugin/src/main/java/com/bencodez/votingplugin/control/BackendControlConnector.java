@@ -51,6 +51,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	private volatile boolean closed;
 	private volatile boolean registered;
 	private volatile boolean operationsAccepted;
+	private volatile boolean quickSetupsAccepted;
 	private volatile int failures;
 	private volatile ScheduledFuture<?> scheduled;
 
@@ -119,7 +120,9 @@ public final class BackendControlConnector implements AutoCloseable {
 				}
 			}
 			if (node != null && node.has("acceptedCapabilities")) {
-				operationsAccepted = containsAll(node.getAsJsonArray("acceptedCapabilities"), CAPABILITIES);
+				JsonArray accepted = node.getAsJsonArray("acceptedCapabilities");
+				operationsAccepted = contains(accepted, "config.files.v1");
+				quickSetupsAccepted = contains(accepted, "config.quick-setup.v1");
 			}
 			registered = true;
 			if (operationsAccepted) claimAndExecute();
@@ -144,6 +147,11 @@ public final class BackendControlConnector implements AutoCloseable {
 		body.addProperty("displayName", settings.nodeId());
 		body.addProperty("platform", "BUKKIT");
 		body.addProperty("pluginVersion", plugin.getDescription().getVersion());
+		JsonArray detectedPlugins = new JsonArray();
+		java.util.Arrays.stream(plugin.getServer().getPluginManager().getPlugins())
+				.map(installed -> installed.getDescription().getName()).filter(name -> name != null && !name.isBlank())
+				.distinct().sorted(String.CASE_INSENSITIVE_ORDER).limit(128).forEach(detectedPlugins::add);
+		body.add("detectedPlugins", detectedPlugins);
 		addCapabilities(body);
 		return requireObject(send("POST", "/api/v1/nodes/register", body), 200, 201);
 	}
@@ -180,6 +188,10 @@ public final class BackendControlConnector implements AutoCloseable {
 		JsonObject resultBody = result.json(sessionId);
 		requireObject(send("POST", "/api/v1/nodes/" + settings.nodeId() + "/operations/" + operationId + "/result",
 				resultBody), 200);
+		if (result.restartConnector()) {
+			synchronized (completed) { completed.remove(operationId); }
+			plugin.getServer().getScheduler().runTask(plugin, plugin::restartBackendControlConnector);
+		}
 	}
 
 	private TaskResult execute(JsonObject task) {
@@ -188,7 +200,10 @@ public final class BackendControlConnector implements AutoCloseable {
 			JsonObject configuration = task.getAsJsonObject("configuration");
 			String domain = string(configuration, "domain");
 			if ("file".equals(domain)) return executeFile(type, configuration, task);
-			if ("quick-setup".equals(domain)) return executeQuick(type, configuration, task);
+			if ("quick-setup".equals(domain)) {
+				if (!quickSetupsAccepted) return TaskResult.failure("UNSUPPORTED_TASK", "Quick setups were not negotiated");
+				return executeQuick(type, configuration, task);
+			}
 			return TaskResult.failure("UNSUPPORTED_TASK", "Configuration domain is unsupported");
 		} catch (BackendConfigurationService.StaleRevisionException e) {
 			return TaskResult.failure("STALE_REVISION", "Configuration changed after preview");
@@ -205,18 +220,20 @@ public final class BackendControlConnector implements AutoCloseable {
 		String fileName = string(configuration, "fileName");
 		if ("READ".equals(type)) {
 			BackendConfigurationService.Document document = configurations.read(fileName);
-			return TaskResult.file(document, List.of(), false, false);
+			return TaskResult.file(document, List.of(), false, false, false);
 		}
 		String content = string(configuration, "content");
 		if ("PREVIEW".equals(type)) {
 			BackendConfigurationService.Preview preview = configurations.preview(fileName, content);
 			BackendConfigurationService.Document current = configurations.read(fileName);
-			return TaskResult.file(current, preview.changes(), false, false);
+			if (!preview.revision().equals(current.revision())) throw new BackendConfigurationService.StaleRevisionException();
+			return TaskResult.file(current, preview.changes(), false, false, false);
 		}
 		if ("APPLY".equals(type)) {
 			BackendConfigurationService.ApplyResult applied = configurations.apply(fileName, content,
 					string(task, "expectedRevision"));
-			return TaskResult.file(applied.document(), applied.changes(), true, applied.rolledBack());
+			return TaskResult.file(applied.document(), applied.changes(), true, applied.rolledBack(),
+					"Config.yml".equals(fileName));
 		}
 		return TaskResult.failure("UNSUPPORTED_TASK", "Task type is unsupported");
 	}
@@ -232,7 +249,8 @@ public final class BackendControlConnector implements AutoCloseable {
 		if ("APPLY".equals(type)) {
 			BackendConfigurationService.ApplyResult applied = configurations.applyQuickSetup(preset, options,
 					string(task, "expectedRevision"));
-			return TaskResult.quick(preset, options, applied.document().revision(), applied.changes(), true);
+			return TaskResult.quick(preset, options, applied.document().revision(), applied.changes(), true,
+					"Config.yml".equals(applied.document().fileName()));
 		}
 		return TaskResult.failure("UNSUPPORTED_TASK", "Task type is unsupported");
 	}
@@ -275,10 +293,10 @@ public final class BackendControlConnector implements AutoCloseable {
 		body.add("requiredCapabilities", required);
 	}
 
-	private static boolean containsAll(JsonArray accepted, Set<String> expected) {
-		Set<String> values = new java.util.HashSet<>();
-		if (accepted != null) accepted.forEach(value -> values.add(value.getAsString()));
-		return values.containsAll(expected);
+	private static boolean contains(JsonArray accepted, String expected) {
+		if (accepted == null) return false;
+		for (JsonElement value : accepted) if (value.isJsonPrimitive() && expected.equals(value.getAsString())) return true;
+		return false;
 	}
 
 	private static String string(JsonObject object, String name) {
@@ -311,7 +329,8 @@ public final class BackendControlConnector implements AutoCloseable {
 	private record Response(int status, String body) { }
 
 	private record TaskResult(boolean success, String code, String message, String revision,
-			JsonObject configuration, List<String> changes, boolean reloaded, boolean rolledBack) {
+			JsonObject configuration, List<String> changes, boolean reloaded, boolean rolledBack,
+			boolean restartConnector) {
 		private JsonObject json(UUID sessionId) {
 			JsonObject body = new JsonObject();
 			body.addProperty("sessionId", sessionId.toString());
@@ -329,17 +348,21 @@ public final class BackendControlConnector implements AutoCloseable {
 		}
 
 		private static TaskResult file(BackendConfigurationService.Document document, List<String> changes,
-				boolean reloaded, boolean rolledBack) {
+				boolean reloaded, boolean rolledBack, boolean restartConnector) {
 			JsonObject config = new JsonObject();
 			config.addProperty("domain", "file");
 			config.addProperty("fileName", document.fileName());
 			config.addProperty("content", document.content());
 			return new TaskResult(true, "OK", "Operation completed", document.revision(), config,
-					List.copyOf(changes), reloaded, rolledBack);
+					List.copyOf(changes), reloaded, rolledBack, restartConnector);
 		}
 
 		private static TaskResult quick(String preset, Map<String, String> options, String revision,
 				List<String> changes, boolean reloaded) {
+			return quick(preset, options, revision, changes, reloaded, false);
+		}
+		private static TaskResult quick(String preset, Map<String, String> options, String revision,
+				List<String> changes, boolean reloaded, boolean restartConnector) {
 			JsonObject config = new JsonObject();
 			config.addProperty("domain", "quick-setup");
 			config.addProperty("preset", preset);
@@ -347,13 +370,13 @@ public final class BackendControlConnector implements AutoCloseable {
 			options.forEach(values::addProperty);
 			config.add("options", values);
 			return new TaskResult(true, "OK", "Operation completed", revision, config, List.copyOf(changes),
-					reloaded, false);
+					reloaded, false, restartConnector);
 		}
 
 		private static TaskResult failure(String code, String message) { return failure(code, message, false); }
 		private static TaskResult failure(String code, String message, boolean rolledBack) {
 			return new TaskResult(false, code, message == null ? "Operation failed" : message, null, null,
-					List.of(), false, rolledBack);
+					List.of(), false, rolledBack, false);
 		}
 	}
 
