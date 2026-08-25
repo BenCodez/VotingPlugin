@@ -1,0 +1,97 @@
+name: Extract background task
+
+on:
+  pull_request:
+    branches:
+      - master
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/background-task
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Delegate background task from main
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_method(text, marker, replacement):
+              start = text.find(marker)
+              if start < 0:
+                  raise SystemExit('method marker not found: ' + marker)
+              brace = text.find('{', start)
+              depth = 0
+              for pos in range(brace, len(text)):
+                  if text[pos] == '{': depth += 1
+                  elif text[pos] == '}':
+                      depth -= 1
+                      if depth == 0:
+                          return text[:start] + replacement + text[pos + 1:]
+              raise SystemExit('unterminated method: ' + marker)
+
+          path = Path('VotingPlugin/src/main/java/com/bencodez/votingplugin/VotingPluginMain.java')
+          text = path.read_text()
+          anchor = 'import com.bencodez.votingplugin.backendproxy.BackendProxyHandler;\n'
+          imp = 'import com.bencodez.votingplugin.backgroundtask.VotingPluginBackgroundTask;\n'
+          if imp not in text:
+              text = text.replace(anchor, anchor + imp, 1)
+
+          for block in [
+              '\n\t@Getter\n\t@Setter\n\tprivate boolean update = false;\n',
+              '\n\t@Getter\n\tprivate boolean updateStarted = false;\n',
+              '\n\t@Getter\n\tprivate long lastBackgroundTaskTimeTaken = -1;\n',
+          ]:
+              text = text.replace(block, '\n')
+
+          field_anchor = '\tprivate VotingPluginVersionInfo versionInfo;\n'
+          if '\tprivate VotingPluginBackgroundTask backgroundTask;\n' not in text:
+              text = text.replace(field_anchor, '\tprivate VotingPluginBackgroundTask backgroundTask;\n' + field_anchor, 1)
+
+          delegates = '''\tpublic boolean isUpdate() {\n\t\treturn backgroundTask != null && backgroundTask.isRequested();\n\t}\n\n\tpublic void setUpdate(boolean update) {\n\t\tif (backgroundTask == null) {\n\t\t\tbackgroundTask = new VotingPluginBackgroundTask(this);\n\t\t}\n\t\tbackgroundTask.setRequested(update);\n\t}\n\n\tpublic boolean isUpdateStarted() {\n\t\treturn backgroundTask != null && backgroundTask.isRunning();\n\t}\n\n\tpublic long getLastBackgroundTaskTimeTaken() {\n\t\treturn backgroundTask == null ? -1 : backgroundTask.getLastRunTimeSeconds();\n\t}\n\n'''
+          method_anchor = '\tpublic void addDirectlyDefinedRewards('
+          text = text.replace(method_anchor, delegates + method_anchor, 1)
+
+          text = replace_method(text, '\tpublic synchronized void update()',
+              '\tpublic synchronized void update() {\n\t\tif (backgroundTask == null) {\n\t\t\tbackgroundTask = new VotingPluginBackgroundTask(this);\n\t\t}\n\t\tbackgroundTask.run();\n\t}\n')
+
+          # Construct at plugin preload so all later request/update calls use the component.
+          preload = '\t\tplugin = this;\n'
+          if '\t\tbackgroundTask = new VotingPluginBackgroundTask(this);\n' not in text:
+              text = text.replace(preload, preload + '\t\tbackgroundTask = new VotingPluginBackgroundTask(this);\n', 1)
+
+          # Remove imports that were only used by the extracted update body.
+          for line in [
+              'import java.time.Instant;\n', 'import java.time.LocalDate;\n',
+              'import com.bencodez.advancedcore.api.user.UserDataFetchMode;\n',
+              'import com.bencodez.simpleapi.skull.SkullCache;\n',
+          ]:
+              text = text.replace(line, '')
+          path.write_text(text)
+          PY
+      - name: Build
+        run: mvn -B -f VotingPlugin/pom.xml package
+      - name: Commit background task refactor
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A VotingPlugin
+          git commit -m 'Extract VotingPlugin background task'
+          git push origin HEAD:refactor/background-task
+      - name: Remove temporary workflow
+        run: |
+          git pull --rebase origin refactor/background-task
+          git rm .github/workflows/refactor-background-task.yml
+          git commit -m 'Remove temporary background task workflow'
+          git push origin HEAD:refactor/background-task
