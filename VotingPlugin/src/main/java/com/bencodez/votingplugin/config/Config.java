@@ -21,6 +21,7 @@ import com.bencodez.votingplugin.placeholders.PlaceholderCacheLevel;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 
 import lombok.Getter;
+
 public class Config extends YMLFile {
 
 	@ConfigDataBoolean(path = "AddCustomCommands")

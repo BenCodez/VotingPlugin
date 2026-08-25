@@ -15,6 +15,7 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import lombok.Getter;
 import lombok.Setter;
+
 public class VoteSite {
 	@Getter
 	@Setter

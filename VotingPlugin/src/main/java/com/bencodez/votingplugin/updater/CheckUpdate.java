@@ -5,6 +5,7 @@ import java.util.TimerTask;
 
 import com.bencodez.simpleapi.updater.Updater;
 import com.bencodez.votingplugin.VotingPluginMain;
+
 public class CheckUpdate {
 
 	private VotingPluginMain plugin;

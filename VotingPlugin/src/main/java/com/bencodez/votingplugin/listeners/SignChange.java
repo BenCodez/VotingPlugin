@@ -7,6 +7,7 @@ import org.bukkit.event.block.SignChangeEvent;
 import com.bencodez.advancedcore.api.misc.PlayerManager;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
+
 public class SignChange implements Listener {
 
 	/** The plugin. */

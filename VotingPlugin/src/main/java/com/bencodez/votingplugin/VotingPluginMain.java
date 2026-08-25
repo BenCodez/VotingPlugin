@@ -129,6 +129,7 @@ import com.bencodez.votingplugin.webhook.WebhookRewardParser;
 
 import lombok.Getter;
 import lombok.Setter;
+
 public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter

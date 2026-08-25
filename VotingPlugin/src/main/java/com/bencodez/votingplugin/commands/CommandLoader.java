@@ -90,6 +90,7 @@ import com.bencodez.votingplugin.specialrewards.votestreak.VoteStreakType;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votesites.VoteSite;
+
 public class CommandLoader {
 
 	private String adminPerm = "VotingPlugin.Admin";

@@ -11,6 +11,7 @@ import com.bencodez.votingplugin.votesites.VoteSite;
 
 import lombok.Getter;
 import lombok.Setter;
+
 public class PlayerPostVoteEvent extends Event {
 
 	/** The Constant handlers. */
@@ -104,6 +105,7 @@ public class PlayerPostVoteEvent extends Event {
 		this.playerName = playerName;
 		this.voteUUID = voteUUID;
 	}
+
 	@Override
 	public HandlerList getHandlers() {
 		return handlers;

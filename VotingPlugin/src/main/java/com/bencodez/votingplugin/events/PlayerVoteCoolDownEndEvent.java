@@ -7,6 +7,7 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import lombok.Getter;
 import lombok.Setter;
+
 public class PlayerVoteCoolDownEndEvent extends Event {
 
 	/** The Constant handlers. */
@@ -38,6 +39,7 @@ public class PlayerVoteCoolDownEndEvent extends Event {
 		super(true);
 		player = user;
 	}
+
 	@Override
 	public HandlerList getHandlers() {
 		return handlers;

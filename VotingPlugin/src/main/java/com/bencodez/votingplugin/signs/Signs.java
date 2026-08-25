@@ -8,6 +8,7 @@ import com.bencodez.votingplugin.VotingPluginMain;
 
 import lombok.Getter;
 import lombok.Setter;
+
 public class Signs {
 	private VotingPluginMain plugin;
 

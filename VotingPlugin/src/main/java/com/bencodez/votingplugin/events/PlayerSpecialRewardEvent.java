@@ -9,6 +9,7 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import lombok.Getter;
 import lombok.Setter;
+
 public class PlayerSpecialRewardEvent extends Event {
 
 	/** The Constant handlers. */
@@ -52,6 +53,7 @@ public class PlayerSpecialRewardEvent extends Event {
 		this.user = user;
 		this.voteUUID = voteUUID;
 	}
+
 	@Override
 	public HandlerList getHandlers() {
 		return handlers;

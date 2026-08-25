@@ -8,6 +8,7 @@ import com.bencodez.votingplugin.votesites.VoteSite;
 
 import lombok.Getter;
 import lombok.Setter;
+
 public class PlayerVoteSiteCoolDownEndEvent extends Event {
 
 	/** The Constant handlers. */
@@ -45,6 +46,7 @@ public class PlayerVoteSiteCoolDownEndEvent extends Event {
 		player = user;
 		this.site = site;
 	}
+
 	@Override
 	public HandlerList getHandlers() {
 		return handlers;

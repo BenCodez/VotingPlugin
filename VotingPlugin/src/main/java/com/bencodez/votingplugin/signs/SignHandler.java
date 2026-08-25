@@ -20,6 +20,7 @@ import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
 
 import lombok.Getter;
 import lombok.Setter;
+
 public class SignHandler {
 
 	@Getter

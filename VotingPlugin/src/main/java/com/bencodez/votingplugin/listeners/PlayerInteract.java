@@ -13,6 +13,7 @@ import com.bencodez.advancedcore.api.misc.PlayerManager;
 import com.bencodez.simpleapi.player.PlayerUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.signs.SignHandler;
+
 public class PlayerInteract implements Listener {
 
 	/** The plugin. */

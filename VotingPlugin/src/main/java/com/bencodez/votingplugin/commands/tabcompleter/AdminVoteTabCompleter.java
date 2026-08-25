@@ -13,10 +13,12 @@ import org.bukkit.command.TabCompleter;
 import com.bencodez.advancedcore.api.command.AdvancedCoreTabCompleteHandler;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
+
 public class AdminVoteTabCompleter implements TabCompleter {
 
 	/** The plugin. */
 	VotingPluginMain plugin = VotingPluginMain.plugin;
+
 	@Override
 	public List<String> onTabComplete(CommandSender sender, Command cmd, String alias, String[] args) {
 

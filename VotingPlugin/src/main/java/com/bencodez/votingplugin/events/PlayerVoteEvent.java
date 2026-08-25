@@ -9,6 +9,7 @@ import com.bencodez.votingplugin.votesites.VoteSite;
 
 import lombok.Getter;
 import lombok.Setter;
+
 public class PlayerVoteEvent extends Event {
 
 	/** The Constant handlers. */
@@ -94,6 +95,7 @@ public class PlayerVoteEvent extends Event {
 		this.realVote = realVote;
 		this.serviceSite = serviceSite;
 	}
+
 	@Override
 	public HandlerList getHandlers() {
 		return handlers;

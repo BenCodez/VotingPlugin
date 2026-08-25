@@ -11,6 +11,7 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerSpecialRewardEvent;
 import com.bencodez.votingplugin.events.SpecialRewardType;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+
 public class SpecialRewards {
 
 	private VotingPluginMain plugin;

@@ -7,6 +7,7 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import lombok.Getter;
 import lombok.Setter;
+
 public class PlayerReceivePointsEvent extends Event {
 
 	/** The Constant handlers. */
@@ -48,6 +49,7 @@ public class PlayerReceivePointsEvent extends Event {
 		this.player = user;
 		this.points = points;
 	}
+
 	@Override
 	public HandlerList getHandlers() {
 		return handlers;

@@ -35,6 +35,7 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
 import lombok.Getter;
+
 public class PlaceHolders {
 
 	@Getter

@@ -9,6 +9,7 @@ import org.bukkit.event.block.BlockBreakEvent;
 
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.signs.SignHandler;
+
 public class BlockBreak implements Listener {
 
 	/** The plugin. */

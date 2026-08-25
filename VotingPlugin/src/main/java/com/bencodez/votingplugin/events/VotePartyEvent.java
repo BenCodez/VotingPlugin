@@ -5,6 +5,7 @@ import org.bukkit.event.HandlerList;
 
 import lombok.Getter;
 import lombok.Setter;
+
 public class VotePartyEvent extends Event {
 
 	/** The Constant handlers. */
@@ -29,6 +30,7 @@ public class VotePartyEvent extends Event {
 	public VotePartyEvent() {
 		super(true);
 	}
+
 	@Override
 	public HandlerList getHandlers() {
 		return handlers;

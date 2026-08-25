@@ -6,6 +6,7 @@ import org.bukkit.event.Listener;
 
 import com.bencodez.advancedcore.listeners.PluginUpdateVersionEvent;
 import com.bencodez.votingplugin.VotingPluginMain;
+
 public class VotingPluginUpdateEvent implements Listener {
 
 	/** The plugin. */
