@@ -116,6 +116,28 @@ class HostedControlManagerTest {
 		assertFalse(launcher.processes.get(0).isAlive());
 	}
 
+	@Test
+	void digestMismatchNeverActivatesOrLaunchesDownloadedCode() throws Exception {
+		byte[] expected = "expected-release".getBytes(StandardCharsets.UTF_8);
+		byte[] untrusted = "different-content".getBytes(StandardCharsets.UTF_8);
+		Path root = directory.toAbsolutePath().normalize();
+		Path jar = root.resolve("control/control.jar");
+		HostedControlManager.Settings settings = settings(jar, root.resolve("control/data"), true, false,
+				digest(expected), 30);
+		FakeLauncher launcher = new FakeLauncher();
+		ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+		HostedControlManager manager = new HostedControlManager(settings, executor,
+				(source, target, maximum, timeout) -> Files.write(target, untrusted), launcher,
+				(endpoint, timeout) -> true, millis -> { }, System::nanoTime, message -> { });
+
+		manager.runOnce();
+
+		assertEquals(HostedControlManager.Status.FAILED, manager.status());
+		assertFalse(Files.exists(jar));
+		assertTrue(launcher.processes.isEmpty());
+		manager.close();
+	}
+
 	private HostedControlManager.Settings settings(Path jar, Path data, boolean autoDownload, boolean autoUpdate,
 			String sha256, int startupTimeout) {
 		Path root = directory.toAbsolutePath().normalize();
