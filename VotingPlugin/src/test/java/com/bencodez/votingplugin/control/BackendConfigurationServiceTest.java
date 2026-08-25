@@ -51,6 +51,26 @@ class BackendConfigurationServiceTest {
 		assertThrows(IllegalArgumentException.class, () -> service.preview("Config.yml", "bad: [yaml"));
 	}
 
+	@Test void transportValidationFailureRollsBackBeforeApplyReturns() throws Exception {
+		Path settings = directory.resolve("BungeeSettings.yml");
+		Files.writeString(settings, "UseBungeecord: false\nBungeeMethod: PLUGINMESSAGING\n");
+		AtomicInteger reloads = new AtomicInteger();
+		BackendConfigurationService service = new BackendConfigurationService(directory,
+				(BackendConfigurationService.ApplyAction) fileName -> {
+					assertEquals("BungeeSettings.yml", fileName);
+					if (reloads.incrementAndGet() == 1) throw new IllegalStateException("transport unavailable");
+				});
+		BackendConfigurationService.Document before = service.read("BungeeSettings.yml");
+		BackendConfigurationService.ApplyFailureException failure = assertThrows(
+				BackendConfigurationService.ApplyFailureException.class,
+				() -> service.apply("BungeeSettings.yml",
+						"UseBungeecord: true\nBungeeMethod: MQTT\n", before.revision()));
+
+		assertTrue(failure.rolledBack());
+		assertEquals(2, reloads.get());
+		assertTrue(service.read("BungeeSettings.yml").content().contains("PLUGINMESSAGING"));
+	}
+
 	@Test void quickSetupsProduceReviewableBackendAndVoteSiteChanges() throws Exception {
 		Files.writeString(directory.resolve("BungeeSettings.yml"), "UseBungeecord: false\nServer: PleaseSet\n");
 		Files.writeString(directory.resolve("VoteSites.yml"), "VoteSites: {}\n");

@@ -1603,9 +1603,22 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	/** Recreates proxy transports after Control applies BungeeSettings.yml. */
 	public synchronized void restartBackendProxyHandler() {
-		if (backendProxyHandler != null) backendProxyHandler.close();
-		backendProxyHandler = null;
-		if (bungeeSettings.isUseBungeecoord()) loadBungeeHandler();
+		BackendProxyHandler previous = backendProxyHandler;
+		if (!bungeeSettings.isUseBungeecoord()) {
+			backendProxyHandler = null;
+			if (previous != null) previous.close();
+			return;
+		}
+		BackendProxyHandler replacement = new BackendProxyHandler(this);
+		try {
+			replacement.load();
+			replacement.validateTransport();
+		} catch (RuntimeException failure) {
+			replacement.close();
+			throw failure;
+		}
+		backendProxyHandler = replacement;
+		if (previous != null) previous.close();
 	}
 
 	private void migrateVoteBroadcast(Config configFile) {

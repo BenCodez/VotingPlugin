@@ -32,9 +32,13 @@ public final class BackendConfigurationService {
 			"GUI.yml", "Shop.yml", "BungeeSettings.yml");
 
 	private final Path dataDirectory;
-	private final ReloadAction reload;
+	private final ApplyAction reload;
 
 	public BackendConfigurationService(Path dataDirectory, ReloadAction reload) {
+		this(dataDirectory, ignored -> reload.run());
+	}
+
+	public BackendConfigurationService(Path dataDirectory, ApplyAction reload) {
 		this.dataDirectory = dataDirectory.toAbsolutePath().normalize();
 		this.reload = reload;
 	}
@@ -68,7 +72,7 @@ public final class BackendConfigurationService {
 			if (!revision(readRaw(target, false)).equals(expectedRevision)) throw new StaleRevisionException();
 			move(staging, target);
 			installed = true;
-			reload.run();
+			reload.run(fileName);
 			String applied = readRaw(target, false);
 			return new ApplyResult(new Document(fileName, mask(parse(applied)), revision(applied)),
 					preview.changes(), false);
@@ -79,7 +83,7 @@ public final class BackendConfigurationService {
 			if (installed) {
 				try {
 					Files.copy(backup, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
-					reload.run();
+					reload.run(fileName);
 					rolledBack = true;
 				} catch (Exception rollbackFailure) {
 					failure.addSuppressed(rollbackFailure);
@@ -332,6 +336,7 @@ public final class BackendConfigurationService {
 	public record QuickPreview(QuickProposal proposal, String revision, List<String> changes) { }
 
 	@FunctionalInterface public interface ReloadAction { void run() throws Exception; }
+	@FunctionalInterface public interface ApplyAction { void run(String fileName) throws Exception; }
 	@SuppressWarnings("serial") public static final class StaleRevisionException extends RuntimeException { }
 	@SuppressWarnings("serial") public static final class ApplyFailureException extends IOException {
 		private final boolean rolledBack;

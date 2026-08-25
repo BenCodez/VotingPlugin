@@ -568,6 +568,25 @@ public class BackendProxyHandler implements Listener {
 		presenceManager.start();
 	}
 
+	/** Fails an apply when the selected proxy transport could not be initialized. */
+	public void validateTransport() {
+		if (method == null || globalMessageHandler == null || presenceManager == null) {
+			throw new IllegalStateException("Backend proxy handler initialization failed");
+		}
+		if (method.equals(BungeeMethod.MYSQL) && backendMysqlMessenger == null) {
+			throw new IllegalStateException("MySQL backend proxy transport initialization failed");
+		}
+		if (method.equals(BungeeMethod.REDIS) && redisHandler == null) {
+			throw new IllegalStateException("Redis backend proxy transport initialization failed");
+		}
+		if (method.equals(BungeeMethod.SOCKETS) && (clientHandler == null || socketHandler == null)) {
+			throw new IllegalStateException("Socket backend proxy transport initialization failed");
+		}
+		if (method.equals(BungeeMethod.MQTT) && mqttHandler == null) {
+			throw new IllegalStateException("MQTT backend proxy transport initialization failed");
+		}
+	}
+
 	/**
 	 * Announces a player login to the configured proxy transport.
 	 */
