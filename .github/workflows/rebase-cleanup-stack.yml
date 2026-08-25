@@ -1,17 +1,15 @@
 name: Rebase cleanup stack
 
 on:
-  pull_request:
+  push:
     branches:
-      - master
-    types: [opened, synchronize, reopened]
+      - automation/rebase-cleanup-stack
 
 permissions:
   contents: write
 
 jobs:
   rebase:
-    if: github.head_ref == 'automation/rebase-cleanup-stack'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -46,16 +44,13 @@ jobs:
           git rebase --onto refactor/votingplugin-reward-registration 789e4f45017ce257d91557a5b3af3848984f2c29
           python - <<'PY'
           from pathlib import Path
-
           path = Path('VotingPlugin/src/main/java/com/bencodez/votingplugin/topvoter/TopVoterHandler.java')
           text = path.read_text()
-
           old_field = '\tprivate VotingPluginMain plugin;\n\tprivate final TopVoterLoader loader;\n'
           new_field = '\tprivate VotingPluginMain plugin;\n\tprivate final TopVoterLoader loader;\n\tprivate boolean skullCacheWarmed;\n'
           if old_field not in text:
               raise SystemExit('TopVoterHandler field anchor not found')
           text = text.replace(old_field, new_field, 1)
-
           old_tail = '\t\tplugin.debug("Updated TopVoter");\n\t}\n}'
           new_tail = '''\t\tplugin.debug("Updated TopVoter");
 \t\twarmTopVoterSkullCacheOnce();
@@ -66,11 +61,9 @@ jobs:
 \t\t\treturn;
 \t\t}
 \t\tskullCacheWarmed = true;
-
 \t\tif (!plugin.getGui().isChestVoteTopUseSkull()) {
 \t\t\treturn;
 \t\t}
-
 \t\tint maxToLoad = 200;
 \t\tfor (TopVoter top : plugin.getTopVoter().keySet()) {
 \t\t\tint loaded = 0;
