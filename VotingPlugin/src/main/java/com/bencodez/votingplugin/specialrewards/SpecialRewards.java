@@ -11,11 +11,6 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerSpecialRewardEvent;
 import com.bencodez.votingplugin.events.SpecialRewardType;
 import com.bencodez.votingplugin.user.VotingPluginUser;
-
-// TODO: Auto-generated Javadoc
-/**
- * The Class OtherVoteReward.
- */
 public class SpecialRewards {
 
 	private VotingPluginMain plugin;

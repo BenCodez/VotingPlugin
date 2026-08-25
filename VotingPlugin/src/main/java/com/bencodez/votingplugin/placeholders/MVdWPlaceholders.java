@@ -10,11 +10,6 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 import be.maximvdw.placeholderapi.PlaceholderAPI;
 import be.maximvdw.placeholderapi.PlaceholderReplaceEvent;
 import be.maximvdw.placeholderapi.PlaceholderReplacer;
-
-// TODO: Auto-generated Javadoc
-/**
- * The Class PlaceHolders.
- */
 public class MVdWPlaceholders {
 
 	/** The plugin. */

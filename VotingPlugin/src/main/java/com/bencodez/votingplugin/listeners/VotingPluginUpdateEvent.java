@@ -6,11 +6,6 @@ import org.bukkit.event.Listener;
 
 import com.bencodez.advancedcore.listeners.PluginUpdateVersionEvent;
 import com.bencodez.votingplugin.VotingPluginMain;
-
-// TODO: Auto-generated Javadoc
-/**
- * The Class AdvancedCoreUpdateEvent.
- */
 public class VotingPluginUpdateEvent implements Listener {
 
 	/** The plugin. */

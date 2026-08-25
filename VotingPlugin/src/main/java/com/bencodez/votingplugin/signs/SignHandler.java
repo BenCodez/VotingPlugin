@@ -20,11 +20,6 @@ import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
 
 import lombok.Getter;
 import lombok.Setter;
-
-// TODO: Auto-generated Javadoc
-/**
- * The Class SignHandler.
- */
 public class SignHandler {
 
 	@Getter

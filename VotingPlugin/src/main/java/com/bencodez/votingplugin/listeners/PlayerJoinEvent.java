@@ -11,10 +11,6 @@ import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.listeners.AdvancedCoreLoginEvent;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
-
-/**
- * The Class PlayerJoinEvent.
- */
 public class PlayerJoinEvent implements Listener {
 
 	/** The plugin. */

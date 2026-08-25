@@ -35,11 +35,6 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
 import lombok.Getter;
-
-// TODO: Auto-generated Javadoc
-/**
- * The Class PlaceHolders.
- */
 public class PlaceHolders {
 
 	@Getter

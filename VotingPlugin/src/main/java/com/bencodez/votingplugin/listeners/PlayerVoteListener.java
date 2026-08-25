@@ -21,11 +21,6 @@ import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votesites.VoteSite;
-
-// TODO: Auto-generated Javadoc
-/**
- * The Class VotiferEvent.
- */
 public class PlayerVoteListener implements Listener {
 
 	private VotingPluginMain plugin;

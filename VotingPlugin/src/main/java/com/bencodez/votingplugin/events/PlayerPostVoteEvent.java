@@ -11,11 +11,6 @@ import com.bencodez.votingplugin.votesites.VoteSite;
 
 import lombok.Getter;
 import lombok.Setter;
-
-// TODO: Auto-generated Javadoc
-/**
- * The Class PlayerVoteEvent.
- */
 public class PlayerPostVoteEvent extends Event {
 
 	/** The Constant handlers. */
@@ -109,12 +104,6 @@ public class PlayerPostVoteEvent extends Event {
 		this.playerName = playerName;
 		this.voteUUID = voteUUID;
 	}
-
-	/*
-	 * (non-Javadoc)
-	 *
-	 * @see org.bukkit.event.Event#getHandlers()
-	 */
 	@Override
 	public HandlerList getHandlers() {
 		return handlers;

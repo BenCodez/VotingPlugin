@@ -17,11 +17,6 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.signs.SignHandler;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import com.bencodez.votingplugin.topvoter.TopVoter;
-
-// TODO: Auto-generated Javadoc
-/**
- * The Class ServerData.
- */
 public class ServerData {
 
 	private VotingPluginMain plugin = VotingPluginMain.plugin;

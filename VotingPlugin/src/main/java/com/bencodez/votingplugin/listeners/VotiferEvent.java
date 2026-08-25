@@ -12,10 +12,6 @@ import com.bencodez.votingplugin.util.MinecraftUsernameValidator;
 import com.bencodez.votingplugin.util.ServiceSiteValidator;
 import com.vexsoftware.votifier.model.Vote;
 import com.vexsoftware.votifier.model.VotifierEvent;
-
-/**
- * The Class VotiferEvent.
- */
 public class VotiferEvent implements Listener {
 
 	private VotingPluginMain plugin;

@@ -7,11 +7,6 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 
 import lombok.Getter;
 import lombok.Setter;
-
-// TODO: Auto-generated Javadoc
-/**
- * The Class PlayerVoteEvent.
- */
 public class PlayerReceivePointsEvent extends Event {
 
 	/** The Constant handlers. */
@@ -53,12 +48,6 @@ public class PlayerReceivePointsEvent extends Event {
 		this.player = user;
 		this.points = points;
 	}
-
-	/*
-	 * (non-Javadoc)
-	 *
-	 * @see org.bukkit.event.Event#getHandlers()
-	 */
 	@Override
 	public HandlerList getHandlers() {
 		return handlers;
