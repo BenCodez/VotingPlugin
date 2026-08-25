@@ -1,10 +1,6 @@
 package com.bencodez.votingplugin;
 
 import java.io.File;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.net.URL;
-import java.security.CodeSource;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -20,15 +16,12 @@ import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
 import org.bukkit.permissions.Permission;
@@ -77,10 +70,12 @@ import com.bencodez.votingplugin.config.ConfigVoteSites;
 import com.bencodez.votingplugin.config.GUI;
 import com.bencodez.votingplugin.config.ShopFile;
 import com.bencodez.votingplugin.config.SpecialRewardsConfig;
+import com.bencodez.votingplugin.config.VotingPluginConfigHealth;
 import com.bencodez.votingplugin.cooldown.CoolDownCheck;
 import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.discord.DiscordHandler;
 import com.bencodez.votingplugin.listeners.BlockBreak;
+import com.bencodez.votingplugin.integration.votifier.VotifierIntegration;
 import com.bencodez.votingplugin.listeners.PlayerInteract;
 import com.bencodez.votingplugin.listeners.PlayerJoinEvent;
 import com.bencodez.votingplugin.listeners.PlayerVoteListener;
@@ -113,7 +108,9 @@ import com.bencodez.votingplugin.topvoter.TopVoterRewardRegistrar;
 import com.bencodez.votingplugin.updater.CheckUpdate;
 import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.version.VotingPluginVersionInfo;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable;
+import com.bencodez.votingplugin.votelog.VoteLogManager;
 import com.bencodez.votingplugin.votelog.listeners.PlayerPostVoteLoggerListener;
 import com.bencodez.votingplugin.votelog.listeners.PlayerSpecialRewardLoggerListener;
 import com.bencodez.votingplugin.votelog.listeners.VoteMilestoneVoteLogListener;
@@ -129,6 +126,7 @@ import com.bencodez.votingplugin.votesites.VoteSite;
 import com.bencodez.votingplugin.votesites.VoteSiteManager;
 import com.bencodez.votingplugin.votesites.VoteSiteRewardRegistrar;
 import com.bencodez.votingplugin.webhook.VotingPluginWebhooks;
+import com.bencodez.votingplugin.webhook.VotingPluginWebhookManager;
 import com.bencodez.votingplugin.webhook.WebhookRewardEntry;
 import com.bencodez.votingplugin.webhook.WebhookRewardParser;
 
@@ -192,11 +190,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private VoteTester voteTester;
 
-	@Getter
-	private String profile = "";
 
-	@Getter
-	private String buildNumber = "NOTSET";
 
 	@Getter
 	private ServerData serverData;
@@ -211,8 +205,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private SpecialRewardsConfig specialRewardsConfig;
 
-	@Getter
-	private String time = "";
 
 	@Getter
 	private TopVoterHandler topVoterHandler;
@@ -248,10 +240,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private VoteSiteManager voteSiteManager;
 
-	private boolean votifierLoaded = true;
 
-	@Getter
-	private boolean ymlError = false;
 
 	@Getter
 	private ScheduledExecutorService voteTimer;
@@ -276,6 +265,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private DiscordHandler discordHandler;
 
+	private VotingPluginVersionInfo versionInfo;
+	private VotingPluginConfigHealth configHealth;
+	private VotifierIntegration votifierIntegration;
+	private VoteLogManager voteLogManager;
+	private VotingPluginWebhookManager webhookManager;
+
 	public void addDirectlyDefinedRewards(DirectlyDefinedReward directlyDefinedReward) {
 		getRewardHandler().addDirectlyDefined(directlyDefinedReward);
 	}
@@ -296,36 +291,47 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 * Check votifier.
 	 */
 	private void checkVotifier() {
-		try {
-			Class.forName("com.vexsoftware.votifier.model.VotifierEvent");
-		} catch (ClassNotFoundException e) {
-			if (!bungeeSettings.isUseBungeecoord()) {
-				plugin.getLogger()
-						.warning("No VotifierEvent found, install Votifier, NuVotifier, or another Votifier plugin");
-			} else {
-				plugin.debug("No VotifierEvent found, but usebungeecoord enabled");
-			}
-			votifierLoaded = false;
+		if (votifierIntegration == null) {
+			votifierIntegration = new VotifierIntegration(this);
 		}
+		votifierIntegration.detect();
 	}
 
+
 	private void checkYMLError() {
-		if (configFile.isFailedToRead() || configVoteSites.isFailedToRead() || specialRewardsConfig.isFailedToRead()
-				|| bungeeSettings.isFailedToRead() || gui.isFailedToRead()) {
-			ymlError = true;
-		} else {
-			ymlError = false;
+		if (configHealth == null) {
+			configHealth = new VotingPluginConfigHealth(this);
 		}
+		configHealth.check();
+	}
 
-		if (ymlError) {
-			plugin.getBukkitScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
 
-				@Override
-				public void run() {
-					plugin.getLogger().severe("Failed to load a file, check startup log");
-				}
-			}, 1);
-		}
+	public String getProfile() {
+		return versionInfo == null ? "" : versionInfo.getProfile();
+	}
+
+	public String getBuildNumber() {
+		return versionInfo == null ? "NOTSET" : versionInfo.getBuildNumber();
+	}
+
+	public String getTime() {
+		return versionInfo == null ? "" : versionInfo.getTime();
+	}
+
+	public boolean isYmlError() {
+		return configHealth != null && configHealth.hasYmlError();
+	}
+
+	public boolean isVotifierLoaded() {
+		return votifierIntegration == null || votifierIntegration.isLoaded();
+	}
+
+	public VoteLogMysqlTable getVoteLogMysqlTable() {
+		return voteLogManager == null ? null : voteLogManager.getVoteLogMysqlTable();
+	}
+
+	public VotingPluginWebhooks getWebhooks() {
+		return webhookManager == null ? null : webhookManager.getWebhooks();
 	}
 
 	public void loadVoteShopManager() {
@@ -383,33 +389,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		return getVotingPluginUserManager().getVotingPluginUser(uuid);
 	}
 
-	private YamlConfiguration getVersionFile() {
-		try {
-			CodeSource src = this.getClass().getProtectionDomain().getCodeSource();
-			if (src != null) {
-				URL jar = src.getLocation();
-				ZipInputStream zip = null;
-				zip = new ZipInputStream(jar.openStream());
-				while (true) {
-					ZipEntry e = zip.getNextEntry();
-					if (e != null) {
-						String name = e.getName();
-						if (name.equals("votingpluginversion.yml")) {
-							Reader defConfigStream = new InputStreamReader(zip);
-							if (defConfigStream != null) {
-								YamlConfiguration defConfig = YamlConfiguration.loadConfiguration(defConfigStream);
-								defConfigStream.close();
-								return defConfig;
-							}
-						}
-					}
-				}
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		return null;
-	}
+
 
 	@Deprecated
 	public VoteSite getVoteSite(String site, boolean checkEnabled) {
@@ -508,13 +488,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	private void loadVersionFile() {
-		YamlConfiguration conf = getVersionFile();
-		if (conf != null) {
-			time = conf.getString("time", "");
-			profile = conf.getString("profile", "");
-			buildNumber = conf.getString("buildnumber", "NOTSET");
-		}
+		versionInfo = new VotingPluginVersionInfo(this);
+		versionInfo.load();
 	}
+
 
 	public void loadVoteSites() {
 		configVoteSites.setup();
@@ -668,8 +645,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		// load vote logging if enabled
 		loadVoteLoggingMySQL();
 
-		webhooks = new VotingPluginWebhooks(this);
-		webhooks.reload(getConfig().getConfigurationSection("Webhooks"));
+		webhookManager = new VotingPluginWebhookManager(this);
+		webhookManager.load();
 
 		if (getSpecialRewardsConfig().isNameMCLikeRewardEnabled()) {
 			nameMCLikeCheckerTask = new NameMCLikeCheckerTask(this);
@@ -684,7 +661,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		plugin.getLogger().info("Enabled VotingPlugin " + plugin.getDescription().getVersion());
 		if (plugin.getDescription().getVersion().contains("SNAPSHOT")) {
 			plugin.getLogger().info(
-					"Using dev build, this is not a stable build, use at your own risk. Build number: " + buildNumber);
+					"Using dev build, this is not a stable build, use at your own risk. Build number: " + getBuildNumber());
 		}
 
 		boolean hasRewards = getRewardHandler().hasRewards(getConfigVoteSites().getData(),
@@ -784,11 +761,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		configFile.saveData();
 	}
 
-	/*
-	 * (non-Javadoc)
-	 *
-	 * @see org.bukkit.plugin.java.JavaPlugin#onEnable()
-	 */
 	@Override
 	public void onPreLoad() {
 		plugin = this;
@@ -827,11 +799,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	}
 
-	/*
-	 * (non-Javadoc)
-	 *
-	 * @see org.bukkit.plugin.java.JavaPlugin#onDisable()
-	 */
 	@Override
 	public void onUnLoad() {
 		if (getBackendProxyHandler() != null) {
@@ -841,9 +808,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				debug(e);
 			}
 		}
-		if (webhooks != null) {
-			webhooks.shutdown();
-			webhooks = null;
+		if (webhookManager != null) {
+			webhookManager.shutdown();
 		}
 		voteTimer.shutdown();
 		try {
@@ -914,7 +880,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		PluginManager pm = getServer().getPluginManager();
 
 		pm.registerEvents(new PlayerJoinEvent(this), this);
-		if (votifierLoaded) {
+		if (isVotifierLoaded()) {
 			pm.registerEvents(new VotiferEvent(this), this);
 		}
 		pm.registerEvents(new PlayerVoteListener(this), this);
@@ -1005,7 +971,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			voteRemindersManager.reload();
 		}
 
-		webhooks.reload(getConfig().getConfigurationSection("Webhooks"));
+		if (webhookManager != null) { webhookManager.reload(); }
 
 		coolDownCheck.checkEnabled();
 
@@ -1221,94 +1187,18 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 	}
 
-	@Getter
-	private VoteLogMysqlTable voteLogMysqlTable;
 
 	@Getter
 	private VoteMilestonesManager voteMilestonesManager;
 
-	@Getter
-	private VotingPluginWebhooks webhooks;
 
 	public void loadVoteLoggingMySQL() {
-		if (getConfigFile().isVoteLoggingEnabled()) {
-			if (getConfigFile().isVoteLoggingUseMainMySQL()) {
-				voteLogMysqlTable = new VoteLogMysqlTable("votingplugin_votelog", getMysql().getMysql(),
-						new MysqlConfigSpigot(getConfigFile().getVoteLoggingSection()),
-						getOptions().getDebug().isDebug()) {
-
-					@Override
-					public void logSevere(String string) {
-						plugin.getLogger().severe(string);
-					}
-
-					@Override
-					public void logInfo(String string) {
-						plugin.getLogger().info(string);
-					}
-
-					@Override
-					public String getServerName() {
-						if (plugin.getBungeeSettings().isUseBungeecoord()) {
-							return plugin.getBungeeSettings().getServer();
-						} else {
-							return "";
-						}
-					}
-
-					@Override
-					public void debug(Throwable t) {
-						if (getOptions().getDebug().isDebug()) {
-							plugin.debug(t);
-						}
-					}
-				};
-			} else {
-				voteLogMysqlTable = new VoteLogMysqlTable("votingplugin_votelog",
-						new MysqlConfigSpigot(getConfigFile().getVoteLoggingSection()),
-						getOptions().getDebug().isDebug()) {
-
-					@Override
-					public void logSevere(String string) {
-						plugin.getLogger().severe(string);
-					}
-
-					@Override
-					public void logInfo(String string) {
-						plugin.getLogger().info(string);
-					}
-
-					@Override
-					public void debug(Throwable t) {
-						if (getOptions().getDebug().isDebug()) {
-							plugin.debug(t);
-						}
-					}
-
-					@Override
-					public String getServerName() {
-						if (plugin.getBungeeSettings().isUseBungeecoord()) {
-							return plugin.getBungeeSettings().getServer();
-						} else {
-							return "";
-						}
-					}
-				};
-			}
-
-			getTimer().scheduleAtFixedRate(new Runnable() {
-
-				@Override
-				public void run() {
-					voteLogMysqlTable.purgeOlderThanDays(getConfigFile().getVoteLoggingPurgeDays(), 100);
-				}
-			}, 60, 60 * 60, TimeUnit.SECONDS); // Purge old logs every hour
-
-			debug("Vote logging MySQL enabled");
-		} else {
-			debug("Vote logging MySQL disabled");
+		if (voteLogManager == null) {
+			voteLogManager = new VoteLogManager(this);
 		}
+		voteLogManager.load();
 	}
+
 
 	public void updateAdvancedCoreHook() {
 		getJavascriptEngine().put("VotingPlugin", this);
