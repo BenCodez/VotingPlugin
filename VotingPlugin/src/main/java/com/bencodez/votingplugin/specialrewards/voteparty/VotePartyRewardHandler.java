@@ -20,10 +20,12 @@ public final class VotePartyRewardHandler {
 
 	private final VotingPluginMain plugin;
 	private final VotePartyState state;
+	private final VoteParty voteParty;
 
-	public VotePartyRewardHandler(VotingPluginMain plugin, VotePartyState state) {
+	public VotePartyRewardHandler(VotingPluginMain plugin, VotePartyState state, VoteParty voteParty) {
 		this.plugin = plugin;
 		this.state = state;
+		this.voteParty = voteParty;
 	}
 
 	public void giveReward(VotingPluginUser user, boolean useBungee) {
@@ -86,7 +88,7 @@ public final class VotePartyRewardHandler {
 		for (Player player : Bukkit.getOnlinePlayers()) {
 			VotingPluginUser user = resolveUser(triggeringUser, player.getUniqueId(), player);
 			if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
-				giveReward(user, forceBungee);
+				voteParty.giveReward(user, forceBungee);
 			}
 			alreadyGiven.add(player.getUniqueId().toString());
 		}
@@ -97,7 +99,7 @@ public final class VotePartyRewardHandler {
 			}
 			VotingPluginUser user = resolveUser(triggeringUser, UUID.fromString(uuid), null);
 			if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
-				giveReward(user, forceBungee);
+				voteParty.giveReward(user, forceBungee);
 			}
 		}
 	}
@@ -108,7 +110,7 @@ public final class VotePartyRewardHandler {
 		for (String uuid : state.getVotedUsers()) {
 			VotingPluginUser user = resolveUser(triggeringUser, UUID.fromString(uuid), null);
 			if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
-				giveReward(user, forceBungee);
+				voteParty.giveReward(user, forceBungee);
 			}
 		}
 	}
