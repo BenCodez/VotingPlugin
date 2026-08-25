@@ -1,0 +1,67 @@
+name: Clean generated comments round 2
+
+on:
+  pull_request:
+    branches:
+      - master
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cleanup/generated-comments-round2
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Remove generated comment boilerplate
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path('VotingPlugin/src/main/java')
+          changed = []
+          for path in root.rglob('*.java'):
+              text = path.read_text()
+              original = text
+              text = re.sub(r'(?m)^\s*// TODO: Auto-generated Javadoc\s*\n', '', text)
+              text = re.sub(r'(?ms)^\s*/\*\*\s*\n\s*\* The Class [^\n]+\.\s*\n\s*\*/\s*\n', '', text)
+              text = re.sub(r'(?ms)^\s*/\*\s*\n\s*\* \(non-Javadoc\)\s*\n(?:\s*\*.*\n)*?\s*\*/\s*\n', '', text)
+              if text != original:
+                  path.write_text(text)
+                  changed.append(str(path))
+
+          if not changed:
+              raise SystemExit('No generated comment boilerplate found')
+          print('\n'.join(changed))
+          PY
+      - name: Verify generated markers are gone
+        run: |
+          if grep -R --line-number --include='*.java' 'TODO: Auto-generated Javadoc\|(non-Javadoc)\|The Class ' VotingPlugin/src/main/java; then
+            echo 'Generated comment markers remain'
+            exit 1
+          fi
+      - name: Build
+        run: mvn -B -f VotingPlugin/pom.xml package
+      - name: Commit cleanup
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A VotingPlugin
+          git commit -m 'Remove remaining generated comment boilerplate'
+          git push origin HEAD:cleanup/generated-comments-round2
+      - name: Remove temporary workflow
+        run: |
+          git pull --rebase origin cleanup/generated-comments-round2
+          git rm .github/workflows/cleanup-generated-comments-round2.yml
+          git commit -m 'Remove temporary comment cleanup workflow'
+          git push origin HEAD:cleanup/generated-comments-round2
