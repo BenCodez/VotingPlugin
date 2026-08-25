@@ -2,10 +2,10 @@
 
 This development milestone adds an optional connector from the BungeeCord and Velocity VotingPlugin proxy JAR
 to the separate [VotingPlugin Control](https://github.com/BenCodez/VotingPlugin-Control) application. It discovers each
-proxy and its eligible backend server names. Control includes the local WebUI. VotingPlugin may now explicitly opt in to
+proxy and its eligible backend server names. Enrolled Bukkit nodes can also connect outbound for full configuration-file
+and quick-setup control. Control includes the local WebUI. VotingPlugin may now explicitly opt in to
 provisioning and supervising that application as a separate child JVM; it is never loaded into the proxy classloader. The
-connector does not expose backend addresses, secrets, or unrestricted configuration and does not connect directly from
-Bukkit backend nodes.
+connector does not expose backend addresses. Configuration secrets are masked on every read and never enter audit records.
 
 ## Failure isolation
 
@@ -116,6 +116,28 @@ Timing bounds are intentional:
 
 Do not raise these by patching around validation; correct the topology or connectivity problem instead.
 
+### Bukkit full-configuration enrollment
+
+Each backend is separately opt-in and separately enrolled so one node credential cannot impersonate another. Put its
+credential in that backend's VotingPlugin data folder and configure `Config.yml`:
+
+```yaml
+Control:
+  Backend:
+    Enabled: true
+    NodeId: 'backend-lobby'
+    Endpoint: 'http://127.0.0.1:8080'
+    CredentialFile: 'control-credential.txt'
+    HeartbeatSeconds: 30
+    ConnectTimeoutMillis: 3000
+    RequestTimeoutMillis: 10000
+```
+
+The Bukkit connector owns one daemon worker and performs no Control I/O on the server thread. It negotiates
+`config.files.v1` and `config.quick-setup.v1`, then polls the same outbound operation queue as proxies. File apply schedules
+the VotingPlugin reload on the Bukkit thread and waits only on the connector worker. Control failure never blocks votes,
+joins, commands, or plugin shutdown.
+
 ## Discovery semantics
 
 Both platforms use the same connector implementation and protocol version `1`. Each proxy process creates a new session
@@ -136,7 +158,17 @@ revisions, writes a local `.control-backup`, requires atomic activation of a sta
 proxy. A reload failure triggers immediate backup restoration and another reload attempt; Control receives the per-node
 reload/rollback result. Task results are cached by operation ID so a leased retry cannot apply the same change twice.
 
-The WebUI never sends raw YAML. An admin must select capable online proxies, preview the typed change, and confirm the
+For enrolled Bukkit nodes, the WebUI can read and edit all six user-facing files: `Config.yml`, `VoteSites.yml`,
+`SpecialRewards.yml`, `GUI.yml`, `Shop.yml`, and `BungeeSettings.yml`. YAML is parsed before preview; each apply uses an
+exact SHA-256 revision, stages and atomically installs the file, retains `.control-backup`, reloads, and restores the backup
+if reload fails. Returned YAML is normalized and masks password/secret/token/API-key/authorization/webhook-secret paths
+with `__VOTINGPLUGIN_CONTROL_REDACTED__`; leaving the marker unchanged preserves the local value. A replacement secret may
+be submitted through the authenticated preview, but is never returned or audited.
+
+Quick setups currently cover standalone backend mode, proxy-connected backend mode with an explicit server identity, and
+adding/updating a vote site. They use the same preview, revision, approval, backup, reload, and rollback path—not a bypass.
+
+An admin must select capable online nodes, preview the change, and confirm the
 single-use approval generated for that exact successful preview. Nodes claim work over their existing outbound connection,
 so no inbound listener is added to VotingPlugin. Authentication failures, unavailable required capabilities,
 and protocol mismatches back off only the connector. Current redacted diagnostic status is one of `DISABLED`, `STARTING`,
@@ -154,6 +186,6 @@ default.
 - Backend listed with unknown presence: this is expected when the selected existing VotingPlugin transport does not provide
   backend-presence observations.
 
-Unrestricted configuration, manual rollback, topology persistence, cloud relay, diagnostics downloads, signed remote
+Arbitrary console commands, manual rollback, topology persistence, cloud relay, diagnostics downloads, signed remote
 release manifests, and remote support remain later milestones. Hosted downloads currently require the SHA-256 trust pin
 to be supplied in local configuration; VotingPlugin never trusts a remotely fetched checksum by itself.

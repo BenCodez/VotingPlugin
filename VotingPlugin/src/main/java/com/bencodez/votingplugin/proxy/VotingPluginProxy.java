@@ -1320,22 +1320,7 @@ public abstract class VotingPluginProxy {
 				}
 			});
 
-			clientHandles = new HashMap<>();
-			List<String> l = getConfig().getBlockedServers();
-			for (String s : getConfig().getSpigotServers()) {
-				if (!l.contains(s)) {
-					Map<String, Object> d = getConfig().getSpigotServerConfiguration(s);
-					String host = "";
-					if (d.containsKey("Host")) {
-						host = (String) d.get("Host");
-					}
-					int port = 1298;
-					if (d.containsKey("Port")) {
-						port = (int) d.get("Port");
-					}
-					clientHandles.put(s, new ClientHandler(host, port, encryptionHandler, getConfig().getDebug()));
-				}
-			}
+			rebuildSocketClients();
 		} else if (method.equals(BungeeMethod.REDIS)) {
 			redisHandler = new RedisHandler(getConfig().getRedisHost(), getConfig().getRedisPort(),
 					getConfig().getRedisUsername(), getConfig().getRedisPassword(), getConfig().getRedisDbIndex()) {
@@ -2476,6 +2461,9 @@ public abstract class VotingPluginProxy {
 			method = BungeeMethod.PLUGINMESSAGING;
 		}
 		warnUnsupportedDedicatedVotingProxyMode();
+		if (!restartControlServices && method == BungeeMethod.SOCKETS) {
+			rebuildSocketClients();
+		}
 
 		setCurrentVotePartyVotesRequired(
 				getConfig().getVotePartyVotesRequired() + getVoteCacheVotePartyIncreaseVotesRequired());
@@ -2483,6 +2471,19 @@ public abstract class VotingPluginProxy {
 		if (restartControlServices) {
 			startControlServices();
 		}
+	}
+
+	private void rebuildSocketClients() {
+		HashMap<String, ClientHandler> rebuilt = new HashMap<>();
+		List<String> blocked = getConfig().getBlockedServers();
+		for (String server : getConfig().getSpigotServers()) {
+			if (blocked.contains(server)) continue;
+			Map<String, Object> data = getConfig().getSpigotServerConfiguration(server);
+			String host = data.containsKey("Host") ? (String) data.get("Host") : "";
+			int port = data.containsKey("Port") ? (int) data.get("Port") : 1298;
+			rebuilt.put(server, new ClientHandler(host, port, encryptionHandler, getConfig().getDebug()));
+		}
+		clientHandles = rebuilt;
 	}
 
 	private void warnUnsupportedDedicatedVotingProxyMode() {

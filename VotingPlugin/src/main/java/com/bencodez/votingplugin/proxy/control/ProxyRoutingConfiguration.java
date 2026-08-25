@@ -26,7 +26,7 @@ public record ProxyRoutingConfiguration(boolean sendVotesToAllServers, List<Stri
 
 	public String revision() {
 		String canonical = sendVotesToAllServers + "\n" + String.join("\n", blockedServers.stream()
-				.map(value -> value.toLowerCase(Locale.ROOT)).sorted().toList());
+				.sorted().toList());
 		try {
 			return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
 					.digest(canonical.getBytes(StandardCharsets.UTF_8)));

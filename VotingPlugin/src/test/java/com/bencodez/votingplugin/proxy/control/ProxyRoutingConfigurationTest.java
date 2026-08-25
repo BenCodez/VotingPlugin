@@ -1,16 +1,19 @@
 package com.bencodez.votingplugin.proxy.control;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class ProxyRoutingConfigurationTest {
-	@Test void revisionIsStableAcrossBlockedServerCaseAndOrder() {
+	@Test void revisionIgnoresOrderButPreservesBehaviorallySignificantCase() {
 		ProxyRoutingConfiguration first = new ProxyRoutingConfiguration(true, List.of("Lobby", "survival"));
-		ProxyRoutingConfiguration second = new ProxyRoutingConfiguration(true, List.of("SURVIVAL", "lobby"));
+		ProxyRoutingConfiguration second = new ProxyRoutingConfiguration(true, List.of("survival", "Lobby"));
 		assertEquals(first.revision(), second.revision());
+		assertNotEquals(first.revision(),
+				new ProxyRoutingConfiguration(true, List.of("lobby", "survival")).revision());
 	}
 
 	@Test void rejectsDuplicateBlankAndOversizedServerLists() {

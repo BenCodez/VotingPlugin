@@ -77,6 +77,7 @@ import com.bencodez.votingplugin.config.GUI;
 import com.bencodez.votingplugin.config.ShopFile;
 import com.bencodez.votingplugin.config.SpecialRewardsConfig;
 import com.bencodez.votingplugin.cooldown.CoolDownCheck;
+import com.bencodez.votingplugin.control.BackendControlConnector;
 import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.discord.DiscordHandler;
 import com.bencodez.votingplugin.listeners.BlockBreak;
@@ -266,6 +267,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private DiscordHandler discordHandler;
+
+	private BackendControlConnector backendControlConnector;
 
 	public void addDirectlyDefinedRewards(DirectlyDefinedReward directlyDefinedReward) {
 		getRewardHandler().addDirectlyDefined(directlyDefinedReward);
@@ -1577,6 +1580,18 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}, 10);
 		}
 
+		startBackendControlConnector();
+
+	}
+
+	private void startBackendControlConnector() {
+		try {
+			backendControlConnector = BackendControlConnector.create(this);
+			if (backendControlConnector != null) backendControlConnector.start();
+		} catch (Exception e) {
+			backendControlConnector = null;
+			getLogger().warning("[Control] Bukkit configuration connector was not started: " + e.getMessage());
+		}
 	}
 
 	private void migrateVoteBroadcast(Config configFile) {
@@ -1680,6 +1695,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 */
 	@Override
 	public void onUnLoad() {
+		if (backendControlConnector != null) {
+			backendControlConnector.close();
+			backendControlConnector = null;
+		}
 		if (getBackendProxyHandler() != null) {
 			try {
 				getBackendProxyHandler().close();
