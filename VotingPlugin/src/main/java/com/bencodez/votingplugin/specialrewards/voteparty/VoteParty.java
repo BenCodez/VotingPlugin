@@ -37,7 +37,7 @@ public class VoteParty implements Listener {
 	public VoteParty(VotingPluginMain plugin) {
 		this.plugin = plugin;
 		this.state = new VotePartyState(plugin);
-		this.rewardHandler = new VotePartyRewardHandler(plugin, state);
+		this.rewardHandler = new VotePartyRewardHandler(plugin, state, this);
 	}
 
 	/**
