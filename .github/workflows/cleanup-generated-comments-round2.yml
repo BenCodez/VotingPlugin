@@ -35,7 +35,7 @@ jobs:
               original = text
               text = re.sub(r'(?m)^\s*// TODO: Auto-generated Javadoc\s*\n', '', text)
               text = re.sub(r'(?ms)^\s*/\*\*\s*\n\s*\* The Class [^\n]+\.\s*\n\s*\*/\s*\n', '', text)
-              text = re.sub(r'(?ms)^\s*/\*\s*\n\s*\* \(non-Javadoc\)\s*\n(?:\s*\*.*\n)*?\s*\*/\s*\n', '', text)
+              text = re.sub(r'(?ms)^\s*/\*\s*\n\s*\* \(non-Javadoc\).*?\*/\s*\n', '', text)
               if text != original:
                   path.write_text(text)
                   changed.append(str(path))
