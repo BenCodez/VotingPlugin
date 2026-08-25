@@ -51,7 +51,6 @@ public class VoteParty implements Listener {
 		plugin.getPlaceholders().onVotePartyUpdate();
 	}
 
-
 	/**
 	 * Adds the vote player.
 	 *
@@ -65,7 +64,6 @@ public class VoteParty implements Listener {
 			state.setVotedUsers(voted);
 		}
 	}
-
 
 	/**
 	 * Checks if vote party requirements are met and triggers if appropriate.
@@ -111,7 +109,6 @@ public class VoteParty implements Listener {
 		if (plugin.getSpecialRewardsConfig().isVotePartyOnlyOncePerWeek()) {
 			plugin.getServerData().updateLastVotePartyWeek();
 		}
-
 	}
 
 	/**
@@ -138,7 +135,6 @@ public class VoteParty implements Listener {
 				}
 			}
 		}
-
 	}
 
 	/**
@@ -177,7 +173,6 @@ public class VoteParty implements Listener {
 		return state.getNeededVotes();
 	}
 
-
 	/**
 	 * Gets a random player name from voted users.
 	 *
@@ -186,7 +181,6 @@ public class VoteParty implements Listener {
 	public String getRandomPlayerName() {
 		return rewardHandler.randomOnlinePlayerName();
 	}
-
 
 	/**
 	 * Gets the total votes.
@@ -197,7 +191,6 @@ public class VoteParty implements Listener {
 		return state.getTotalVotes();
 	}
 
-
 	/**
 	 * Gets the voted users.
 	 *
@@ -206,7 +199,6 @@ public class VoteParty implements Listener {
 	public List<String> getVotedUsers() {
 		return state.getVotedUsers();
 	}
-
 
 	/**
 	 * Gets the number of votes required for the vote party.
@@ -217,7 +209,6 @@ public class VoteParty implements Listener {
 		return state.getVotesRequired();
 	}
 
-
 	/**
 	 * Gives vote party reward to a user.
 	 *
@@ -225,9 +216,12 @@ public class VoteParty implements Listener {
 	 * @param useBungee whether to use Bungee processing
 	 */
 	public void giveReward(VotingPluginUser user, boolean useBungee) {
-		rewardHandler.giveReward(user, useBungee);
+		if (plugin.getSpecialRewardsConfig().getVotePartyUserVotesRequired() > 0
+				&& user.getVotePartyVotes() < plugin.getSpecialRewardsConfig().getVotePartyUserVotesRequired()) {
+			return;
+		}
+		giveReward(user, user.isOnline(), useBungee);
 	}
-
 
 	/**
 	 * Gives vote party reward to a user with online status.
@@ -240,7 +234,6 @@ public class VoteParty implements Listener {
 		rewardHandler.giveReward(user, online, useBungee);
 	}
 
-
 	/**
 	 * Gives rewards to all eligible players for the vote party.
 	 *
@@ -251,7 +244,6 @@ public class VoteParty implements Listener {
 		rewardHandler.giveRewards(orgUser, forceBungee);
 		reset(false);
 	}
-
 
 	/**
 	 * Handles day change events to reset vote party if configured.
@@ -313,14 +305,12 @@ public class VoteParty implements Listener {
 		state.reset(override);
 	}
 
-
 	/**
 	 * Resets the vote party count for all users.
 	 */
 	public void resetVotePartyCount() {
 		state.resetUserCounts();
 	}
-
 
 	/**
 	 * Sets the total votes.
@@ -331,7 +321,6 @@ public class VoteParty implements Listener {
 		state.setTotalVotes(value);
 	}
 
-
 	/**
 	 * Sets the voted users.
 	 *
@@ -340,7 +329,6 @@ public class VoteParty implements Listener {
 	public void setVotedUsers(List<String> value) {
 		state.setVotedUsers(value);
 	}
-
 
 	/**
 	 * Processes a vote for the vote party system.
@@ -361,5 +349,4 @@ public class VoteParty implements Listener {
 			}
 		}
 	}
-
 }
