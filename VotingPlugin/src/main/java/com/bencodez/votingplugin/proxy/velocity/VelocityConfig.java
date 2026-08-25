@@ -16,6 +16,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
 import com.bencodez.simpleapi.file.velocity.VelocityYMLFile;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
+import com.bencodez.votingplugin.proxy.control.ProxyRoutingConfiguration;
 
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
@@ -36,22 +37,30 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	}
 
 	@Override
-	public synchronized void persistControlProxyRouting(boolean sendVotesToAllServers, List<String> blockedServers)
-			throws IOException {
+	public synchronized void persistControlProxyRouting(boolean sendVotesToAllServers, List<String> blockedServers,
+			String expectedRevision) throws IOException {
 		Path target = configurationFile.toPath();
 		Path stage = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".control-stage");
 		Path backup = target.resolveSibling(target.getFileName() + ".control-backup");
 		YamlConfigurationLoader sourceLoader = YamlConfigurationLoader.builder().path(target).build();
 		ConfigurationNode candidate = sourceLoader.load();
+		if (!routing(candidate).revision().equals(expectedRevision)) throw new StaleControlRevisionException();
 		candidate.node("SendVotesToAllServers").set(sendVotesToAllServers);
 		candidate.node("BlockedServers").setList(String.class, List.copyOf(blockedServers));
 		try {
 			YamlConfigurationLoader.builder().path(stage).build().save(candidate);
+			ConfigurationNode latest = sourceLoader.load();
+			if (!routing(latest).revision().equals(expectedRevision)) throw new StaleControlRevisionException();
 			Files.copy(target, backup, StandardCopyOption.REPLACE_EXISTING);
 			atomicReplace(stage, target);
 		} finally {
 			Files.deleteIfExists(stage);
 		}
+	}
+
+	private static ProxyRoutingConfiguration routing(ConfigurationNode configuration) throws IOException {
+		return new ProxyRoutingConfiguration(configuration.node("SendVotesToAllServers").getBoolean(false),
+				configuration.node("BlockedServers").getList(String.class, List.of()));
 	}
 
 	@Override

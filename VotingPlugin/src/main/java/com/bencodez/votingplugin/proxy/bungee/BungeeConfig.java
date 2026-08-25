@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
+import com.bencodez.votingplugin.proxy.control.ProxyRoutingConfiguration;
 
 import lombok.Getter;
 import net.md_5.bungee.config.Configuration;
@@ -513,22 +514,30 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 	}
 
 	@Override
-	public synchronized void persistControlProxyRouting(boolean sendVotesToAllServers, List<String> blockedServers)
-			throws IOException {
+	public synchronized void persistControlProxyRouting(boolean sendVotesToAllServers, List<String> blockedServers,
+			String expectedRevision) throws IOException {
 		Path target = new File(bungee.getDataFolder(), "bungeeconfig.yml").toPath();
 		Path stage = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".control-stage");
 		Path backup = target.resolveSibling(target.getFileName() + ".control-backup");
 		Configuration candidate = ConfigurationProvider.getProvider(YamlConfiguration.class).load(target.toFile());
+		if (!routing(candidate).revision().equals(expectedRevision)) throw new StaleControlRevisionException();
 		candidate.set("SendVotesToAllServers", sendVotesToAllServers);
 		candidate.set("BlockedServers", List.copyOf(blockedServers));
 		try {
 			ConfigurationProvider.getProvider(YamlConfiguration.class).save(candidate, stage.toFile());
+			Configuration latest = ConfigurationProvider.getProvider(YamlConfiguration.class).load(target.toFile());
+			if (!routing(latest).revision().equals(expectedRevision)) throw new StaleControlRevisionException();
 			Files.copy(target, backup, StandardCopyOption.REPLACE_EXISTING);
 			atomicReplace(stage, target);
 			data = candidate;
 		} finally {
 			Files.deleteIfExists(stage);
 		}
+	}
+
+	private static ProxyRoutingConfiguration routing(Configuration configuration) {
+		return new ProxyRoutingConfiguration(configuration.getBoolean("SendVotesToAllServers", false),
+				configuration.getStringList("BlockedServers"));
 	}
 
 	@Override

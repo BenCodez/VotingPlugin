@@ -219,7 +219,7 @@ class ControlConnectorTest {
 	private static final class NoOpPlatform implements ProxyRoutingConfigurationService.Platform {
 		@Override public ProxyRoutingConfiguration read() { return new ProxyRoutingConfiguration(false, List.of()); }
 		@Override public java.util.Set<String> configuredServers() { return java.util.Set.of(); }
-		@Override public void persist(ProxyRoutingConfiguration proposal) { }
+		@Override public void persist(ProxyRoutingConfiguration proposal, String expectedRevision) { }
 		@Override public void rollback() { }
 		@Override public void reload() { }
 	}

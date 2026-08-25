@@ -99,21 +99,33 @@ public final class BackendConfigurationService {
 	}
 
 	public QuickPreview previewQuickSetup(String preset, Map<String, String> options) throws IOException {
-		QuickProposal proposal = quickProposal(preset, options);
-		String current = readRaw(resolve(proposal.fileName()), false);
+		String fileName = quickSetupFile(preset);
+		String current = readRaw(resolve(fileName), false);
+		QuickProposal proposal = quickProposal(preset, options, fileName, current);
 		return new QuickPreview(proposal, revision(current), changes(parse(current), parse(proposal.content())));
 	}
 
 	public ApplyResult applyQuickSetup(String preset, Map<String, String> options, String expectedRevision)
 			throws IOException {
-		QuickProposal proposal = quickProposal(preset, options);
+		String fileName = quickSetupFile(preset);
+		String current = readRaw(resolve(fileName), false);
+		if (expectedRevision == null || !revision(current).equals(expectedRevision)) throw new StaleRevisionException();
+		QuickProposal proposal = quickProposal(preset, options, fileName, current);
 		return apply(proposal.fileName(), proposal.content(), expectedRevision);
 	}
 
-	private QuickProposal quickProposal(String preset, Map<String, String> options) throws IOException {
+	private static String quickSetupFile(String preset) {
+		if ("standalone".equals(preset) || "proxy-backend".equals(preset)) return "BungeeSettings.yml";
+		if ("vote-site".equals(preset) || "easy-reward".equals(preset)) return "VoteSites.yml";
+		if ("common-settings".equals(preset)) return "Config.yml";
+		if ("vote-party".equals(preset)) return "SpecialRewards.yml";
+		throw new IllegalArgumentException("quick setup preset is unsupported");
+	}
+
+	private QuickProposal quickProposal(String preset, Map<String, String> options, String fileName,
+			String current) {
+		YamlConfiguration yaml = parse(current);
 		if ("standalone".equals(preset) || "proxy-backend".equals(preset)) {
-			String fileName = "BungeeSettings.yml";
-			YamlConfiguration yaml = parse(readRaw(resolve(fileName), false));
 			boolean proxy = "proxy-backend".equals(preset);
 			yaml.set("UseBungeecord", proxy);
 			if (proxy) {
@@ -124,8 +136,6 @@ public final class BackendConfigurationService {
 			return new QuickProposal(fileName, yaml.saveToString());
 		}
 		if ("vote-site".equals(preset)) {
-			String fileName = "VoteSites.yml";
-			YamlConfiguration yaml = parse(readRaw(resolve(fileName), false));
 			String name = option(options, "name", "[A-Za-z0-9_-]{1,64}");
 			String root = "VoteSites." + name;
 			yaml.set(root + ".Enabled", true);
@@ -140,8 +150,6 @@ public final class BackendConfigurationService {
 			return new QuickProposal(fileName, yaml.saveToString());
 		}
 		if ("easy-reward".equals(preset)) {
-			String fileName = "VoteSites.yml";
-			YamlConfiguration yaml = parse(readRaw(resolve(fileName), false));
 			String scope = options == null ? "site" : options.getOrDefault("scope", "site");
 			String root;
 			if ("every-site".equals(scope)) {
@@ -161,8 +169,6 @@ public final class BackendConfigurationService {
 			return new QuickProposal(fileName, yaml.saveToString());
 		}
 		if ("common-settings".equals(preset)) {
-			String fileName = "Config.yml";
-			YamlConfiguration yaml = parse(readRaw(resolve(fileName), false));
 			yaml.set("ProcessRewards", booleanOption(options, "processRewards"));
 			yaml.set("AutoCreateVoteSites", booleanOption(options, "autoCreateVoteSites"));
 			yaml.set("ExtraAllSitesCheck", booleanOption(options, "extraAllSitesCheck"));
@@ -172,8 +178,6 @@ public final class BackendConfigurationService {
 			return new QuickProposal(fileName, yaml.saveToString());
 		}
 		if ("vote-party".equals(preset)) {
-			String fileName = "SpecialRewards.yml";
-			YamlConfiguration yaml = parse(readRaw(resolve(fileName), false));
 			yaml.set("VoteParty.Enabled", true);
 			yaml.set("VoteParty.VotesRequired", boundedInteger(option(options, "votesRequired", "[0-9]{1,6}"), 1, 100000));
 			yaml.set("VoteParty.GiveAllPlayers", booleanOption(options, "giveAllPlayers"));

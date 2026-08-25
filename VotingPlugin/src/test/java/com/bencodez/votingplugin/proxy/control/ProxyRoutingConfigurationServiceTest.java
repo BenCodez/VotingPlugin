@@ -39,16 +39,33 @@ class ProxyRoutingConfigurationServiceTest {
 		assertTrue(platform.reloadCalls == 2);
 	}
 
+	@Test
+	void persistenceRevisionRaceRemainsAStaleRevision() {
+		ProxyRoutingConfiguration current = new ProxyRoutingConfiguration(false, List.of());
+		FakePlatform platform = new FakePlatform();
+		platform.current = current;
+		platform.staleDuringPersist = true;
+
+		assertThrows(ProxyRoutingConfigurationService.StaleRevisionException.class,
+				() -> new ProxyRoutingConfigurationService(platform).apply(
+						new ProxyRoutingConfiguration(true, List.of()), current.revision()));
+		assertTrue(platform.reloadCalls == 0);
+	}
+
 	private static final class FakePlatform implements ProxyRoutingConfigurationService.Platform {
 		private ProxyRoutingConfiguration current = new ProxyRoutingConfiguration(false, List.of());
 		private Set<String> configuredServers = Set.of();
 		private boolean failFirstReload;
 		private boolean rolledBack;
+		private boolean staleDuringPersist;
 		private int reloadCalls;
 
 		@Override public ProxyRoutingConfiguration read() { return current; }
 		@Override public Set<String> configuredServers() { return configuredServers; }
-		@Override public void persist(ProxyRoutingConfiguration proposal) { current = proposal; }
+		@Override public void persist(ProxyRoutingConfiguration proposal, String expectedRevision) throws IOException {
+			if (staleDuringPersist) throw new com.bencodez.votingplugin.proxy.VotingPluginProxyConfig.StaleControlRevisionException();
+			current = proposal;
+		}
 		@Override public void rollback() { rolledBack = true; }
 		@Override public void reload() throws Exception {
 			reloadCalls++;

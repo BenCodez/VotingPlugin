@@ -16,9 +16,20 @@ public interface VotingPluginProxyConfig {
 		throw new UnsupportedOperationException("Control configuration writes are unavailable");
 	}
 
+	/** Persists only if the same routing snapshot is still active immediately before replacement. */
+	default void persistControlProxyRouting(boolean sendVotesToAllServers, List<String> blockedServers,
+			String expectedRevision) throws IOException {
+		persistControlProxyRouting(sendVotesToAllServers, blockedServers);
+	}
+
 	/** Restores the most recent Control-created backup. */
 	default void rollbackControlProxyRouting() throws IOException {
 		throw new UnsupportedOperationException("Control configuration rollback is unavailable");
+	}
+
+	@SuppressWarnings("serial")
+	final class StaleControlRevisionException extends IOException {
+		public StaleControlRevisionException() { super("Control proxy routing revision is stale"); }
 	}
 	/** Whether the optional local VotingPlugin Control connector is enabled. */
 	default boolean getControlEnabled() {

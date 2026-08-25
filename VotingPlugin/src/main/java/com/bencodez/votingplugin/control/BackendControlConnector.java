@@ -188,9 +188,13 @@ public final class BackendControlConnector implements AutoCloseable {
 		JsonObject resultBody = result.json(sessionId);
 		requireObject(send("POST", "/api/v1/nodes/" + settings.nodeId() + "/operations/" + operationId + "/result",
 				resultBody), 200);
-		if (result.restartConnector()) {
+		TaskResult submitted = result;
+		if (submitted.restartConnector() || submitted.restartBackendProxy()) {
 			synchronized (completed) { completed.remove(operationId); }
-			plugin.getServer().getScheduler().runTask(plugin, plugin::restartBackendControlConnector);
+			plugin.getServer().getScheduler().runTask(plugin, () -> {
+				if (submitted.restartBackendProxy()) plugin.restartBackendProxyHandler();
+				if (submitted.restartConnector()) plugin.restartBackendControlConnector();
+			});
 		}
 	}
 
@@ -220,20 +224,20 @@ public final class BackendControlConnector implements AutoCloseable {
 		String fileName = string(configuration, "fileName");
 		if ("READ".equals(type)) {
 			BackendConfigurationService.Document document = configurations.read(fileName);
-			return TaskResult.file(document, List.of(), false, false, false);
+			return TaskResult.file(document, List.of(), false, false, false, false);
 		}
 		String content = string(configuration, "content");
 		if ("PREVIEW".equals(type)) {
 			BackendConfigurationService.Preview preview = configurations.preview(fileName, content);
 			BackendConfigurationService.Document current = configurations.read(fileName);
 			if (!preview.revision().equals(current.revision())) throw new BackendConfigurationService.StaleRevisionException();
-			return TaskResult.file(current, preview.changes(), false, false, false);
+			return TaskResult.file(current, preview.changes(), false, false, false, false);
 		}
 		if ("APPLY".equals(type)) {
 			BackendConfigurationService.ApplyResult applied = configurations.apply(fileName, content,
 					string(task, "expectedRevision"));
 			return TaskResult.file(applied.document(), applied.changes(), true, applied.rolledBack(),
-					"Config.yml".equals(fileName));
+					"Config.yml".equals(fileName), "BungeeSettings.yml".equals(fileName));
 		}
 		return TaskResult.failure("UNSUPPORTED_TASK", "Task type is unsupported");
 	}
@@ -250,7 +254,8 @@ public final class BackendControlConnector implements AutoCloseable {
 			BackendConfigurationService.ApplyResult applied = configurations.applyQuickSetup(preset, options,
 					string(task, "expectedRevision"));
 			return TaskResult.quick(preset, options, applied.document().revision(), applied.changes(), true,
-					"Config.yml".equals(applied.document().fileName()));
+					"Config.yml".equals(applied.document().fileName()),
+					"BungeeSettings.yml".equals(applied.document().fileName()));
 		}
 		return TaskResult.failure("UNSUPPORTED_TASK", "Task type is unsupported");
 	}
@@ -330,7 +335,7 @@ public final class BackendControlConnector implements AutoCloseable {
 
 	private record TaskResult(boolean success, String code, String message, String revision,
 			JsonObject configuration, List<String> changes, boolean reloaded, boolean rolledBack,
-			boolean restartConnector) {
+			boolean restartConnector, boolean restartBackendProxy) {
 		private JsonObject json(UUID sessionId) {
 			JsonObject body = new JsonObject();
 			body.addProperty("sessionId", sessionId.toString());
@@ -348,21 +353,22 @@ public final class BackendControlConnector implements AutoCloseable {
 		}
 
 		private static TaskResult file(BackendConfigurationService.Document document, List<String> changes,
-				boolean reloaded, boolean rolledBack, boolean restartConnector) {
+				boolean reloaded, boolean rolledBack, boolean restartConnector, boolean restartBackendProxy) {
 			JsonObject config = new JsonObject();
 			config.addProperty("domain", "file");
 			config.addProperty("fileName", document.fileName());
 			config.addProperty("content", document.content());
 			return new TaskResult(true, "OK", "Operation completed", document.revision(), config,
-					List.copyOf(changes), reloaded, rolledBack, restartConnector);
+					List.copyOf(changes), reloaded, rolledBack, restartConnector, restartBackendProxy);
 		}
 
 		private static TaskResult quick(String preset, Map<String, String> options, String revision,
 				List<String> changes, boolean reloaded) {
-			return quick(preset, options, revision, changes, reloaded, false);
+			return quick(preset, options, revision, changes, reloaded, false, false);
 		}
 		private static TaskResult quick(String preset, Map<String, String> options, String revision,
-				List<String> changes, boolean reloaded, boolean restartConnector) {
+				List<String> changes, boolean reloaded, boolean restartConnector,
+				boolean restartBackendProxy) {
 			JsonObject config = new JsonObject();
 			config.addProperty("domain", "quick-setup");
 			config.addProperty("preset", preset);
@@ -370,13 +376,13 @@ public final class BackendControlConnector implements AutoCloseable {
 			options.forEach(values::addProperty);
 			config.add("options", values);
 			return new TaskResult(true, "OK", "Operation completed", revision, config, List.copyOf(changes),
-					reloaded, false, restartConnector);
+					reloaded, false, restartConnector, restartBackendProxy);
 		}
 
 		private static TaskResult failure(String code, String message) { return failure(code, message, false); }
 		private static TaskResult failure(String code, String message, boolean rolledBack) {
 			return new TaskResult(false, code, message == null ? "Operation failed" : message, null, null,
-					List.of(), false, rolledBack, false);
+					List.of(), false, rolledBack, false, false);
 		}
 	}
 

@@ -17,9 +17,9 @@ public final class ProxyRoutingConfigurationService {
 						proxy.getConfig().getBlockedServers());
 			}
 			@Override public Set<String> configuredServers() { return proxy.getAllConfiguredServers(); }
-			@Override public void persist(ProxyRoutingConfiguration proposal) throws IOException {
+			@Override public void persist(ProxyRoutingConfiguration proposal, String expectedRevision) throws IOException {
 				proxy.getConfig().persistControlProxyRouting(proposal.sendVotesToAllServers(),
-						proposal.blockedServers());
+						proposal.blockedServers(), expectedRevision);
 			}
 			@Override public void rollback() throws IOException { proxy.getConfig().rollbackControlProxyRouting(); }
 			@Override public void reload() throws Exception { proxy.reloadControlConfiguration(); }
@@ -48,7 +48,11 @@ public final class ProxyRoutingConfigurationService {
 		if (expectedRevision == null || !read().revision().equals(expectedRevision)) {
 			throw new StaleRevisionException();
 		}
-		platform.persist(proposal);
+		try {
+			platform.persist(proposal, expectedRevision);
+		} catch (com.bencodez.votingplugin.proxy.VotingPluginProxyConfig.StaleControlRevisionException e) {
+			throw new StaleRevisionException();
+		}
 		try {
 			platform.reload();
 		} catch (Exception e) {
@@ -67,7 +71,7 @@ public final class ProxyRoutingConfigurationService {
 	interface Platform {
 		ProxyRoutingConfiguration read();
 		Set<String> configuredServers();
-		void persist(ProxyRoutingConfiguration proposal) throws IOException;
+		void persist(ProxyRoutingConfiguration proposal, String expectedRevision) throws IOException;
 		void rollback() throws IOException;
 		void reload() throws Exception;
 	}
