@@ -65,6 +65,7 @@ public final class ControlConnector implements AutoCloseable {
 	private final AtomicBoolean inFlight = new AtomicBoolean();
 	private volatile boolean closed;
 	private volatile boolean registered;
+	private volatile boolean configurationAccepted;
 	private volatile int failures;
 	private volatile long snapshotSequence;
 	private volatile ScheduledFuture<?> scheduled;
@@ -184,6 +185,7 @@ public final class ControlConnector implements AutoCloseable {
 			activeRequest = presence;
 			return presence.thenCompose(responseBody -> {
 				handlePresenceResponse(responseBody);
+				if (!configurationAccepted) return CompletableFuture.completedFuture(null);
 				CompletableFuture<Response> claim = transport.send(claimRequest());
 				activeRequest = claim;
 				return claim.thenCompose(this::handleClaimResponse);
@@ -210,16 +212,18 @@ public final class ControlConnector implements AutoCloseable {
 		}
 		requireSuccess(response);
 		JsonObject body = parseObject(response.body);
+		JsonObject node = body.getAsJsonObject("node");
+		JsonArray accepted = node == null ? null : node.getAsJsonArray("acceptedCapabilities");
 		if (registration) {
 			JsonElement protocol = body.getAsJsonObject("identity").get("protocolVersion");
 			if (protocol == null || protocol.getAsInt() != PROTOCOL_VERSION) {
 				throw new ProtocolException();
 			}
-			JsonArray accepted = body.getAsJsonObject("node").getAsJsonArray("acceptedCapabilities");
 			if (accepted == null || !contains(accepted, "presence.snapshot")) {
 				throw new ProtocolException();
 			}
 		}
+		configurationAccepted = accepted != null && contains(accepted, CONFIGURATION_CAPABILITY);
 	}
 
 	private void handlePresenceResponse(Response response) {

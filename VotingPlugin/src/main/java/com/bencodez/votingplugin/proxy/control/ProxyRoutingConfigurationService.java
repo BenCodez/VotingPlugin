@@ -2,7 +2,6 @@ package com.bencodez.votingplugin.proxy.control;
 
 import java.io.IOException;
 import java.util.HashSet;
-import java.util.Locale;
 import java.util.Set;
 
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
@@ -36,10 +35,9 @@ public final class ProxyRoutingConfigurationService {
 	}
 
 	public void validate(ProxyRoutingConfiguration proposal) {
-		Set<String> available = new HashSet<>();
-		platform.configuredServers().forEach(server -> available.add(server.toLowerCase(Locale.ROOT)));
+		Set<String> available = new HashSet<>(platform.configuredServers());
 		for (String server : proposal.blockedServers()) {
-			if (!available.contains(server.toLowerCase(Locale.ROOT))) {
+			if (!available.contains(server)) {
 				throw new IllegalArgumentException("unknown backend: " + server);
 			}
 		}

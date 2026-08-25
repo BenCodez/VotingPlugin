@@ -130,7 +130,8 @@ invent an online state from a server address or arbitrary wall-clock timestamp.
 
 The connector requires `presence.snapshot` and advertises `config.proxy-routing.v1` when its typed adapter is available.
 The latter permits reads and preview/apply of only `SendVotesToAllServers` and `BlockedServers`. Every preview validates
-blocked names against that proxy's configured backends and returns a deterministic SHA-256 revision. Apply rejects stale
+blocked names as exact, case-preserving matches against that proxy's configured backends and returns a deterministic
+SHA-256 revision. Apply rejects stale
 revisions, writes a local `.control-backup`, requires atomic activation of a staged YAML file, and soft-reloads the
 proxy. A reload failure triggers immediate backup restoration and another reload attempt; Control receives the per-node
 reload/rollback result. Task results are cached by operation ID so a leased retry cannot apply the same change twice.

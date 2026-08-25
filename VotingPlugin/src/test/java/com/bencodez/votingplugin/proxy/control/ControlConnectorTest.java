@@ -43,7 +43,7 @@ class ControlConnectorTest {
 	@Test void registrationHeartbeatAndPresenceAreWireCompatibleAndReplacementSnapshotsAdvance() {
 		connector.cycle();
 		assertEquals(Status.CONNECTED, connector.status());
-		assertEquals(3, transport.requests.size());
+		assertEquals(2, transport.requests.size());
 		Request registration = transport.requests.get(0);
 		assertEquals("POST", registration.method());
 		assertEquals("/api/v1/nodes/register", registration.path());
@@ -59,8 +59,8 @@ class ControlConnectorTest {
 				.get("backendId").getAsString());
 
 		connector.cycle();
-		assertEquals("/api/v1/nodes/proxy-a/heartbeat", transport.requests.get(3).path());
-		JsonObject secondSnapshot = JsonParser.parseString(transport.requests.get(4).body()).getAsJsonObject();
+		assertEquals("/api/v1/nodes/proxy-a/heartbeat", transport.requests.get(2).path());
+		JsonObject secondSnapshot = JsonParser.parseString(transport.requests.get(3).body()).getAsJsonObject();
 		assertEquals(1, secondSnapshot.get("sequence").getAsLong());
 	}
 
@@ -89,8 +89,36 @@ class ControlConnectorTest {
 		connector.cycle();
 		assertEquals(Status.UNAVAILABLE, connector.status());
 		connector.cycle();
-		assertEquals("POST", transport.requests.get(4).method());
-		assertEquals("/api/v1/nodes/register", transport.requests.get(4).path());
+		assertEquals("POST", transport.requests.get(3).method());
+		assertEquals("/api/v1/nodes/register", transport.requests.get(3).path());
+	}
+
+	@Test void skipsOperationClaimsWhenConfigurationCapabilityWasNotAccepted() {
+		connector.close();
+		ProxyRoutingConfigurationService service = new ProxyRoutingConfigurationService(new NoOpPlatform());
+		connector = new ControlConnector(settings(), scheduler, transport,
+				() -> List.of(), logs::add, UUID.randomUUID(), () -> 0L, service);
+		transport.acceptConfiguration = false;
+
+		connector.cycle();
+
+		assertEquals(Status.CONNECTED, connector.status());
+		assertEquals(2, transport.requests.size());
+		assertTrue(transport.requests.stream().noneMatch(request -> request.path().endsWith("/operations")));
+	}
+
+	@Test void claimsOperationsWhenConfigurationCapabilityWasAccepted() {
+		connector.close();
+		ProxyRoutingConfigurationService service = new ProxyRoutingConfigurationService(new NoOpPlatform());
+		connector = new ControlConnector(settings(), scheduler, transport,
+				() -> List.of(), logs::add, UUID.randomUUID(), () -> 0L, service);
+		transport.acceptConfiguration = true;
+
+		connector.cycle();
+
+		assertEquals(Status.CONNECTED, connector.status());
+		assertEquals(3, transport.requests.size());
+		assertTrue(transport.requests.get(2).path().endsWith("/operations"));
 	}
 
 	@Test void slowTransportDoesNotBlockCallerAndShutdownCancelsInFlightRequest() {
@@ -147,6 +175,7 @@ class ControlConnectorTest {
 		private Response nextPrimary;
 		private CompletableFuture<Response> stalled;
 		private RuntimeException synchronousFailure;
+		private boolean acceptConfiguration;
 
 		@Override
 		public CompletableFuture<Response> send(Request request) {
@@ -171,12 +200,23 @@ class ControlConnectorTest {
 					return CompletableFuture.completedFuture(response);
 				}
 				if ("/api/v1/nodes/register".equals(request.path())) {
+					String capabilities = acceptConfiguration
+							? "[\"presence.snapshot\",\"config.proxy-routing.v1\"]" : "[\"presence.snapshot\"]";
 					return CompletableFuture.completedFuture(new Response(201,
-							"{\"identity\":{\"protocolVersion\":1},\"node\":{\"acceptedCapabilities\":[\"presence.snapshot\"]}}"));
+							"{\"identity\":{\"protocolVersion\":1},\"node\":{\"acceptedCapabilities\":"
+									+ capabilities + "}}"));
 				}
 				return CompletableFuture.completedFuture(new Response(200, "{\"node\":{}}"));
 			}
 			return CompletableFuture.completedFuture(new Response(200, "{\"applied\":true,\"node\":{}}"));
 		}
+	}
+
+	private static final class NoOpPlatform implements ProxyRoutingConfigurationService.Platform {
+		@Override public ProxyRoutingConfiguration read() { return new ProxyRoutingConfiguration(false, List.of()); }
+		@Override public java.util.Set<String> configuredServers() { return java.util.Set.of(); }
+		@Override public void persist(ProxyRoutingConfiguration proposal) { }
+		@Override public void rollback() { }
+		@Override public void reload() { }
 	}
 }

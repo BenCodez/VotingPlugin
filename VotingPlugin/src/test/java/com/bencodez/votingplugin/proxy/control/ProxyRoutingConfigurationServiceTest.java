@@ -16,8 +16,10 @@ class ProxyRoutingConfigurationServiceTest {
 		FakePlatform platform = new FakePlatform();
 		platform.configuredServers = Set.of("Lobby");
 
-		assertDoesNotThrow(() -> new ProxyRoutingConfigurationService(platform)
-				.validate(new ProxyRoutingConfiguration(true, List.of("lobby"))));
+		ProxyRoutingConfigurationService service = new ProxyRoutingConfigurationService(platform);
+		assertDoesNotThrow(() -> service.validate(new ProxyRoutingConfiguration(true, List.of("Lobby"))));
+		assertThrows(IllegalArgumentException.class,
+				() -> service.validate(new ProxyRoutingConfiguration(true, List.of("lobby"))));
 	}
 
 	@Test
