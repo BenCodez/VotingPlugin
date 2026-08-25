@@ -1,0 +1,126 @@
+name: Rebase cleanup stack
+
+on:
+  pull_request:
+    branches:
+      - master
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  rebase:
+    if: github.head_ref == 'automation/rebase-cleanup-stack'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: automation/rebase-cleanup-stack
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Rebase cleanup PR stack and restore skull warmup
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'BenCodez'
+          git config user.email 'benbergen12@gmail.com'
+          git fetch origin \
+            master \
+            refactor/backendproxy-components \
+            refactor/votingplugin-reward-registration \
+            refactor/topvoter-handler \
+            refactor/main-lifecycle-services \
+            refactor/background-task \
+            refactor/voteparty-components \
+            cleanup/generated-comments-round2
+
+          git checkout -B refactor/votingplugin-reward-registration origin/refactor/votingplugin-reward-registration
+          git rebase --onto origin/refactor/backendproxy-components 30ca646f67068a8d4a125a8e5189f7e203b0a9ba
+
+          git checkout -B refactor/topvoter-handler origin/refactor/topvoter-handler
+          git rebase --onto refactor/votingplugin-reward-registration 789e4f45017ce257d91557a5b3af3848984f2c29
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('VotingPlugin/src/main/java/com/bencodez/votingplugin/topvoter/TopVoterHandler.java')
+          text = path.read_text()
+
+          old_field = '\tprivate VotingPluginMain plugin;\n\tprivate final TopVoterLoader loader;\n'
+          new_field = '\tprivate VotingPluginMain plugin;\n\tprivate final TopVoterLoader loader;\n\tprivate boolean skullCacheWarmed;\n'
+          if old_field not in text:
+              raise SystemExit('TopVoterHandler field anchor not found')
+          text = text.replace(old_field, new_field, 1)
+
+          old_tail = '\t\tplugin.debug("Updated TopVoter");\n\t}\n}'
+          new_tail = '''\t\tplugin.debug("Updated TopVoter");
+\t\twarmTopVoterSkullCacheOnce();
+\t}
+
+\tprivate void warmTopVoterSkullCacheOnce() {
+\t\tif (skullCacheWarmed) {
+\t\t\treturn;
+\t\t}
+\t\tskullCacheWarmed = true;
+
+\t\tif (!plugin.getGui().isChestVoteTopUseSkull()) {
+\t\t\treturn;
+\t\t}
+
+\t\tint maxToLoad = 200;
+\t\tfor (TopVoter top : plugin.getTopVoter().keySet()) {
+\t\t\tint loaded = 0;
+\t\t\tfor (TopVoterPlayer player : plugin.getTopVoter(top).keySet()) {
+\t\t\t\tif (loaded >= maxToLoad) {
+\t\t\t\t\tbreak;
+\t\t\t\t}
+\t\t\t\tplugin.getSkullCacheHandler().addToCache(player.getUuid(), player.getPlayerName());
+\t\t\t\tloaded++;
+\t\t\t}
+\t\t}
+\t}
+}'''
+          if old_tail not in text:
+              raise SystemExit('TopVoterHandler update tail anchor not found')
+          path.write_text(text.replace(old_tail, new_tail, 1))
+          PY
+          git add VotingPlugin/src/main/java/com/bencodez/votingplugin/topvoter/TopVoterHandler.java
+          git commit -m 'Restore top voter skull cache warmup'
+
+          git checkout -B refactor/main-lifecycle-services origin/refactor/main-lifecycle-services
+          git rebase --onto refactor/topvoter-handler 01215e22c193477844dfe8e1860435e7b965a15a
+
+          git checkout -B refactor/background-task origin/refactor/background-task
+          git rebase --onto refactor/main-lifecycle-services cb0eac2ce27584a2422431b8d7b304f20c52d352
+
+          git checkout -B refactor/voteparty-components origin/refactor/voteparty-components
+          git rebase --onto refactor/background-task 656e9b050cbf39b0750329a460127e998bf95dca
+
+          git checkout -B cleanup/generated-comments-round2 origin/cleanup/generated-comments-round2
+          git rebase --onto refactor/voteparty-components 9f223b8880ff22a9562aad74883da749d92d1090
+
+          for branch in \
+            refactor/votingplugin-reward-registration \
+            refactor/topvoter-handler \
+            refactor/main-lifecycle-services \
+            refactor/background-task \
+            refactor/voteparty-components \
+            cleanup/generated-comments-round2; do
+            git checkout "$branch"
+            echo "Building $branch"
+            mvn -B -f VotingPlugin/pom.xml package
+          done
+
+          git push --force-with-lease origin refactor/votingplugin-reward-registration
+          git push --force-with-lease origin refactor/topvoter-handler
+          git push --force-with-lease origin refactor/main-lifecycle-services
+          git push --force-with-lease origin refactor/background-task
+          git push --force-with-lease origin refactor/voteparty-components
+          git push --force-with-lease origin cleanup/generated-comments-round2
+      - name: Delete temporary automation branch
+        if: success()
+        run: git push origin --delete automation/rebase-cleanup-stack
