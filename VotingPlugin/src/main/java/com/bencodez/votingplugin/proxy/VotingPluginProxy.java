@@ -62,6 +62,7 @@ import com.bencodez.votingplugin.proxy.cache.IVoteCache;
 import com.bencodez.votingplugin.proxy.cache.VoteCacheHandler;
 import com.bencodez.votingplugin.proxy.cache.nonvoted.INonVotedPlayersStorage;
 import com.bencodez.votingplugin.proxy.cache.nonvoted.NonVotedPlayersCache;
+import com.bencodez.votingplugin.proxy.control.ControlConnector;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyHandler;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyMethod;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyServerSocketConfiguration;
@@ -161,6 +162,7 @@ public abstract class VotingPluginProxy {
 	private final BackendPlayerPresenceTracker backendPlayerPresenceTracker = new BackendPlayerPresenceTracker();
 	private final Map<UUID, PendingPresenceHandoff> pendingPresenceHandoffs = new HashMap<>();
 	private final Set<String> pendingBackendRecoverySnapshots = ConcurrentHashMap.newKeySet();
+	private volatile ControlConnector controlConnector;
 
 	public VotingPluginProxy() {
 		enabled = true;
@@ -1556,8 +1558,38 @@ public abstract class VotingPluginProxy {
 			loadTaskTimer(this::maintainBackendPresence, PRESENCE_MAINTENANCE_INTERVAL_SECONDS,
 					PRESENCE_MAINTENANCE_INTERVAL_SECONDS);
 		}
+		startControlConnector();
 
 		debug("VotingPluginProxy loaded, ONLINEMODE: " + getConfig().getOnlineMode());
+	}
+
+	private synchronized void startControlConnector() {
+		stopControlConnector();
+		if (!getConfig().getControlEnabled()) {
+			return;
+		}
+		try {
+			controlConnector = ControlConnector.create(this);
+			if (controlConnector != null) {
+				controlConnector.start();
+			}
+		} catch (IOException | IllegalArgumentException e) {
+			controlConnector = null;
+			logSevere("[Control] connector configuration or credential is invalid; voting remains unaffected");
+		}
+	}
+
+	private synchronized void stopControlConnector() {
+		ControlConnector connector = controlConnector;
+		controlConnector = null;
+		if (connector != null) {
+			connector.close();
+		}
+	}
+
+	public String getControlConnectorStatus() {
+		ControlConnector connector = controlConnector;
+		return connector == null ? "DISABLED" : connector.status().name();
 	}
 
 	/**
@@ -2262,6 +2294,7 @@ public abstract class VotingPluginProxy {
 	public abstract void logSevere(String message);
 
 	public void onDisable() {
+		stopControlConnector();
 		getVoteCacheHandler().saveVoteCache();
 
 		if (getProxyMysqlMessenger() != null) {
@@ -2408,6 +2441,7 @@ public abstract class VotingPluginProxy {
 		setCurrentVotePartyVotesRequired(
 				getConfig().getVotePartyVotesRequired() + getVoteCacheVotePartyIncreaseVotesRequired());
 		loadMultiProxySupport();
+		startControlConnector();
 	}
 
 	private void warnUnsupportedDedicatedVotingProxyMode() {
@@ -2418,6 +2452,9 @@ public abstract class VotingPluginProxy {
 	}
 
 	public abstract void runAsync(Runnable run);
+
+	/** Platform name used only for the transport-neutral Control discovery contract. */
+	public abstract String getProxyPlatform();
 
 	public abstract void runConsoleCommand(String command);
 

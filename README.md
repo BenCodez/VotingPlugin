@@ -2,6 +2,8 @@
 Plugin on SpigotMC
 https://www.spigotmc.org/resources/votingplugin.15358/
 
+Development documentation: [optional VotingPlugin Control discovery connector](docs/control-connector.md).
+
 ### Maven:
 
     <repository>

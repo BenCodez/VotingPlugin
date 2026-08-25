@@ -82,6 +82,11 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	}
 
 	@Override
+	public String getProxyPlatform() {
+		return "VELOCITY";
+	}
+
+	@Override
 	public int getVoteCacheCurrentVotePartyVotes() {
 		return 0;
 	}

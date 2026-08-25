@@ -34,6 +34,41 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 		this.bungee = bungee;
 	}
 
+	@Override
+	public boolean getControlEnabled() {
+		return getData().getBoolean("Control.Enabled", false);
+	}
+
+	@Override
+	public String getControlEndpoint() {
+		return getData().getString("Control.Endpoint", "http://127.0.0.1:8080");
+	}
+
+	@Override
+	public String getControlNodeId() {
+		return getData().getString("Control.NodeId", "");
+	}
+
+	@Override
+	public String getControlCredentialFile() {
+		return getData().getString("Control.CredentialFile", "control-credential.txt");
+	}
+
+	@Override
+	public int getControlHeartbeatSeconds() {
+		return getData().getInt("Control.HeartbeatSeconds", 30);
+	}
+
+	@Override
+	public int getControlConnectTimeoutMillis() {
+		return getData().getInt("Control.ConnectTimeoutMillis", 3000);
+	}
+
+	@Override
+	public int getControlRequestTimeoutMillis() {
+		return getData().getInt("Control.RequestTimeoutMillis", 5000);
+	}
+
 	/**
 	 * Converts a Configuration object to a Map.
 	 *

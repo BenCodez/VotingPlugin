@@ -476,3 +476,14 @@ MultiProxyServers:
   secondproxy:
     Host: 0.0.0.0
     Port: 1235
+# Optional local-first VotingPlugin Control discovery. Missing keys preserve the disabled default.
+Control:
+  Enabled: false
+  Endpoint: 'http://127.0.0.1:8080'
+  # Blank reuses ProxyServerName. This must match the identity enrolled in Control.
+  NodeId: ''
+  # Relative to the VotingPlugin proxy data folder. Put only the enrollment credential in this file.
+  CredentialFile: 'control-credential.txt'
+  HeartbeatSeconds: 30
+  ConnectTimeoutMillis: 3000
+  RequestTimeoutMillis: 5000

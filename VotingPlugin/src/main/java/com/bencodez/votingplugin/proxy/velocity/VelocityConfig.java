@@ -29,6 +29,41 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	}
 
 	@Override
+	public boolean getControlEnabled() {
+		return getBoolean(getNode("Control", "Enabled"), false);
+	}
+
+	@Override
+	public String getControlEndpoint() {
+		return getString(getNode("Control", "Endpoint"), "http://127.0.0.1:8080");
+	}
+
+	@Override
+	public String getControlNodeId() {
+		return getString(getNode("Control", "NodeId"), "");
+	}
+
+	@Override
+	public String getControlCredentialFile() {
+		return getString(getNode("Control", "CredentialFile"), "control-credential.txt");
+	}
+
+	@Override
+	public int getControlHeartbeatSeconds() {
+		return getInt(getNode("Control", "HeartbeatSeconds"), 30);
+	}
+
+	@Override
+	public int getControlConnectTimeoutMillis() {
+		return getInt(getNode("Control", "ConnectTimeoutMillis"), 3000);
+	}
+
+	@Override
+	public int getControlRequestTimeoutMillis() {
+		return getInt(getNode("Control", "RequestTimeoutMillis"), 5000);
+	}
+
+	@Override
 	public boolean getAllowUnJoined() {
 		return getBoolean(getNode("AllowUnJoined"), false);
 	}

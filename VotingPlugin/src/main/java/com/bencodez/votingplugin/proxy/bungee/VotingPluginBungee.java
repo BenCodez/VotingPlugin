@@ -499,6 +499,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			@Override
+			public String getProxyPlatform() {
+				return "BUNGEECORD";
+			}
+
+			@Override
 			public String getCurrentPlayerServer(String player) {
 				ProxiedPlayer p = getProxy().getPlayer(player);
 				if (p != null && p.getServer() != null) {

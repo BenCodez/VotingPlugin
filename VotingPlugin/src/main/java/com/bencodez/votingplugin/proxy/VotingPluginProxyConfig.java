@@ -9,6 +9,23 @@ import java.util.Map;
  * Configuration interface for proxy server integration.
  */
 public interface VotingPluginProxyConfig {
+	/** Whether the optional local VotingPlugin Control connector is enabled. */
+	public boolean getControlEnabled();
+
+	/** Base HTTP(S) endpoint for VotingPlugin Control. */
+	public String getControlEndpoint();
+
+	/** Stable enrolled identity; blank reuses ProxyServerName. */
+	public String getControlNodeId();
+
+	/** Relative file in the plugin data folder containing the one-time enrollment credential. */
+	public String getControlCredentialFile();
+
+	public int getControlHeartbeatSeconds();
+
+	public int getControlConnectTimeoutMillis();
+
+	public int getControlRequestTimeoutMillis();
 
 	/**
 	 * Gets whether proxy broadcast is enabled.

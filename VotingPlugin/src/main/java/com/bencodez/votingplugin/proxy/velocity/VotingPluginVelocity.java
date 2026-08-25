@@ -350,13 +350,7 @@ public class VotingPluginVelocity {
 		CommandMeta meta = server.getCommandManager().metaBuilder("votingpluginproxy").aliases("vpp").build();
 		server.getCommandManager().register(meta, new VotingPluginVelocityCommand(this));
 
-		// create runtime
-		votingPluginProxy = createProxyRuntime();
-
-		// full init
-		reloadAllInternal(true);
-
-		// version
+		// Load the embedded version before the shared runtime starts optional integrations.
 		try {
 			getVersionFile();
 			if (versionFile != null) {
@@ -367,6 +361,12 @@ public class VotingPluginVelocity {
 			}
 		} catch (Exception ignored) {
 		}
+
+		// create runtime
+		votingPluginProxy = createProxyRuntime();
+
+		// full init
+		reloadAllInternal(true);
 
 		// metrics (same as your original, shortened)
 		Metrics metrics = metricsFactory.make(this, 11547);
@@ -580,6 +580,11 @@ public class VotingPluginVelocity {
 			@Override
 			public VotingPluginProxyConfig getConfig() {
 				return config;
+			}
+
+			@Override
+			public String getProxyPlatform() {
+				return "VELOCITY";
 			}
 
 			@Override
