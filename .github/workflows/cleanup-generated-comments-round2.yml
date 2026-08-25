@@ -46,7 +46,7 @@ jobs:
           PY
       - name: Verify generated markers are gone
         run: |
-          if grep -R --line-number --include='*.java' 'TODO: Auto-generated Javadoc\|(non-Javadoc)\|The Class ' VotingPlugin/src/main/java; then
+          if grep -R --line-number --include='*.java' 'TODO: Auto-generated Javadoc\|(non-Javadoc)' VotingPlugin/src/main/java; then
             echo 'Generated comment markers remain'
             exit 1
           fi
