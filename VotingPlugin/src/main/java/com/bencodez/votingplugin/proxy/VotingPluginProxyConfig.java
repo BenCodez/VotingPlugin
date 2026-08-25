@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.proxy;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -9,23 +10,47 @@ import java.util.Map;
  * Configuration interface for proxy server integration.
  */
 public interface VotingPluginProxyConfig {
+	/** Atomically persists the small non-secret configuration domain exposed by Control. */
+	default void persistControlProxyRouting(boolean sendVotesToAllServers, List<String> blockedServers)
+			throws IOException {
+		throw new UnsupportedOperationException("Control configuration writes are unavailable");
+	}
+
+	/** Restores the most recent Control-created backup. */
+	default void rollbackControlProxyRouting() throws IOException {
+		throw new UnsupportedOperationException("Control configuration rollback is unavailable");
+	}
 	/** Whether the optional local VotingPlugin Control connector is enabled. */
-	public boolean getControlEnabled();
+	default boolean getControlEnabled() {
+		return false;
+	}
 
 	/** Base HTTP(S) endpoint for VotingPlugin Control. */
-	public String getControlEndpoint();
+	default String getControlEndpoint() {
+		return "http://127.0.0.1:8080";
+	}
 
 	/** Stable enrolled identity; blank reuses ProxyServerName. */
-	public String getControlNodeId();
+	default String getControlNodeId() {
+		return "";
+	}
 
 	/** Relative file in the plugin data folder containing the one-time enrollment credential. */
-	public String getControlCredentialFile();
+	default String getControlCredentialFile() {
+		return "control-credential.txt";
+	}
 
-	public int getControlHeartbeatSeconds();
+	default int getControlHeartbeatSeconds() {
+		return 30;
+	}
 
-	public int getControlConnectTimeoutMillis();
+	default int getControlConnectTimeoutMillis() {
+		return 3000;
+	}
 
-	public int getControlRequestTimeoutMillis();
+	default int getControlRequestTimeoutMillis() {
+		return 5000;
+	}
 
 	/** Whether this proxy should provision and supervise a separate Control JVM. */
 	default boolean getControlHostedEnabled() {

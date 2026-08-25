@@ -1,10 +1,11 @@
 # VotingPlugin Control discovery connector
 
-This development milestone adds an optional, read-only connector from the BungeeCord and Velocity VotingPlugin proxy JAR
+This development milestone adds an optional connector from the BungeeCord and Velocity VotingPlugin proxy JAR
 to the separate [VotingPlugin Control](https://github.com/BenCodez/VotingPlugin-Control) application. It discovers each
 proxy and its eligible backend server names. Control includes the local WebUI. VotingPlugin may now explicitly opt in to
 provisioning and supervising that application as a separate child JVM; it is never loaded into the proxy classloader. The
-connector does not expose backend addresses or configuration and does not connect directly from Bukkit backend nodes.
+connector does not expose backend addresses, secrets, or unrestricted configuration and does not connect directly from
+Bukkit backend nodes.
 
 ## Failure isolation
 
@@ -121,7 +122,16 @@ presence protocol, the existing `BackendPlayerPresenceTracker` supplies availabi
 has no authoritative observation, the backend remains discoverable with `presenceKnown: false`; the connector does not
 invent an online state from a server address or arbitrary wall-clock timestamp.
 
-The connector advertises and requires `presence.snapshot`. Authentication failures, unavailable required capabilities,
+The connector requires `presence.snapshot` and advertises `config.proxy-routing.v1` when its typed adapter is available.
+The latter permits reads and preview/apply of only `SendVotesToAllServers` and `BlockedServers`. Every preview validates
+blocked names against that proxy's configured backends and returns a deterministic SHA-256 revision. Apply rejects stale
+revisions, writes a local `.control-backup`, requires atomic activation of a staged YAML file, and soft-reloads the
+proxy. A reload failure triggers immediate backup restoration and another reload attempt; Control receives the per-node
+reload/rollback result. Task results are cached by operation ID so a leased retry cannot apply the same change twice.
+
+The WebUI never sends raw YAML. An admin must select capable online proxies, preview the typed change, and confirm the
+single-use approval generated for that exact successful preview. Nodes claim work over their existing outbound connection,
+so no inbound listener is added to VotingPlugin. Authentication failures, unavailable required capabilities,
 and protocol mismatches back off only the connector. Current redacted diagnostic status is one of `DISABLED`, `STARTING`,
 `CONNECTED`, `AUTHENTICATION_FAILED`, `INCOMPATIBLE`, `UNAVAILABLE`, or `STOPPED`.
 
@@ -137,6 +147,6 @@ default.
 - Backend listed with unknown presence: this is expected when the selected existing VotingPlugin transport does not provide
   backend-presence observations.
 
-Configuration reads/writes, topology persistence, cloud relay, diagnostics downloads, signed remote release manifests,
-and remote support remain later milestones. Hosted downloads currently require the SHA-256 trust pin to be supplied in
-local configuration; VotingPlugin never trusts a remotely fetched checksum by itself.
+Unrestricted configuration, manual rollback, topology persistence, cloud relay, diagnostics downloads, signed remote
+release manifests, and remote support remain later milestones. Hosted downloads currently require the SHA-256 trust pin
+to be supplied in local configuration; VotingPlugin never trusts a remotely fetched checksum by itself.

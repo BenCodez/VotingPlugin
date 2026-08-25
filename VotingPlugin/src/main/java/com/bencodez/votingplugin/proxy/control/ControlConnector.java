@@ -16,6 +16,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -47,7 +49,8 @@ public final class ControlConnector implements AutoCloseable {
 	static final int PROTOCOL_VERSION = 1;
 	static final int MAX_RESPONSE_BYTES = 64 * 1024;
 	private static final Pattern NODE_ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,63}");
-	private static final Set<String> CAPABILITIES = Set.of("presence.snapshot");
+	private static final Set<String> BASE_CAPABILITIES = Set.of("presence.snapshot");
+	private static final String CONFIGURATION_CAPABILITY = "config.proxy-routing.v1";
 	private static final long MAX_BACKOFF_MILLIS = TimeUnit.MINUTES.toMillis(5);
 
 	private final Settings settings;
@@ -57,6 +60,8 @@ public final class ControlConnector implements AutoCloseable {
 	private final Consumer<String> logger;
 	private final UUID sessionId;
 	private final LongSupplier jitterSource;
+	private final ProxyRoutingConfigurationService configurationService;
+	private final Map<UUID, TaskResult> completedTasks = new LinkedHashMap<>();
 	private final AtomicBoolean inFlight = new AtomicBoolean();
 	private volatile boolean closed;
 	private volatile boolean registered;
@@ -69,6 +74,12 @@ public final class ControlConnector implements AutoCloseable {
 	public ControlConnector(Settings settings, ScheduledExecutorService scheduler, Transport transport,
 			Supplier<List<ObservedBackend>> snapshotSource, Consumer<String> logger, UUID sessionId,
 			LongSupplier jitterSource) {
+		this(settings, scheduler, transport, snapshotSource, logger, sessionId, jitterSource, null);
+	}
+
+	ControlConnector(Settings settings, ScheduledExecutorService scheduler, Transport transport,
+			Supplier<List<ObservedBackend>> snapshotSource, Consumer<String> logger, UUID sessionId,
+			LongSupplier jitterSource, ProxyRoutingConfigurationService configurationService) {
 		this.settings = Objects.requireNonNull(settings, "settings");
 		this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
 		this.transport = Objects.requireNonNull(transport, "transport");
@@ -76,6 +87,7 @@ public final class ControlConnector implements AutoCloseable {
 		this.logger = Objects.requireNonNull(logger, "logger");
 		this.sessionId = Objects.requireNonNull(sessionId, "sessionId");
 		this.jitterSource = Objects.requireNonNull(jitterSource, "jitterSource");
+		this.configurationService = configurationService;
 	}
 
 	/** Creates the production connector without reading a credential when the feature is disabled. */
@@ -123,7 +135,7 @@ public final class ControlConnector implements AutoCloseable {
 		};
 		return new ControlConnector(settings, proxy.getScheduler(), transport, snapshot,
 				message -> proxy.log("[Control] " + message), UUID.randomUUID(),
-				() -> ThreadLocalRandom.current().nextLong());
+				() -> ThreadLocalRandom.current().nextLong(), new ProxyRoutingConfigurationService(proxy));
 	}
 
 	public void start() {
@@ -156,14 +168,26 @@ public final class ControlConnector implements AutoCloseable {
 			return;
 		}
 		Request first = registered ? heartbeatRequest() : registrationRequest();
-		CompletableFuture<Response> primary = transport.send(first);
+		CompletableFuture<Response> primary;
+		try {
+			primary = transport.send(first);
+		} catch (RuntimeException failure) {
+			inFlight.set(false);
+			onFailure(failure);
+			return;
+		}
 		activeRequest = primary;
 		CompletableFuture<Void> operation = primary.thenCompose(response -> {
 			handlePrimaryResponse(response, !registered);
 			registered = true;
 			CompletableFuture<Response> presence = transport.send(presenceRequest());
 			activeRequest = presence;
-			return presence.thenAccept(this::handlePresenceResponse);
+			return presence.thenCompose(responseBody -> {
+				handlePresenceResponse(responseBody);
+				CompletableFuture<Response> claim = transport.send(claimRequest());
+				activeRequest = claim;
+				return claim.thenCompose(this::handleClaimResponse);
+			});
 		});
 		operation.whenComplete((ignored, failure) -> {
 			activeRequest = null;
@@ -289,6 +313,103 @@ public final class ControlConnector implements AutoCloseable {
 		return new Request("PUT", "/api/v1/nodes/" + settings.nodeId() + "/presence", body.toString());
 	}
 
+	private Request claimRequest() {
+		JsonObject body = new JsonObject();
+		body.addProperty("sessionId", sessionId.toString());
+		return new Request("POST", "/api/v1/nodes/" + settings.nodeId() + "/operations", body.toString());
+	}
+
+	private CompletableFuture<Void> handleClaimResponse(Response response) {
+		if (response.statusCode == 204) return CompletableFuture.completedFuture(null);
+		if (response.statusCode == 404) {
+			registered = false;
+			throw new RegistryLostException();
+		}
+		requireSuccess(response);
+		JsonObject task = parseObject(response.body);
+		UUID operationId = UUID.fromString(requireString(task, "operationId"));
+		TaskResult result;
+		synchronized (completedTasks) {
+			result = completedTasks.get(operationId);
+		}
+		if (result == null) {
+			result = executeTask(task);
+			synchronized (completedTasks) {
+				completedTasks.put(operationId, result);
+				while (completedTasks.size() > 128) completedTasks.remove(completedTasks.keySet().iterator().next());
+			}
+		}
+		CompletableFuture<Response> submitted = transport.send(resultRequest(operationId, result));
+		activeRequest = submitted;
+		return submitted.thenAccept(ControlConnector::requireSuccess);
+	}
+
+	private TaskResult executeTask(JsonObject task) {
+		if (configurationService == null) return TaskResult.failure("UNSUPPORTED", "Configuration control is unavailable");
+		String type = requireString(task, "type");
+		try {
+			ProxyRoutingConfiguration current = configurationService.read();
+			if ("READ".equals(type)) return TaskResult.success(current.revision(), current, List.of(), false);
+			ProxyRoutingConfiguration proposal = parseConfiguration(task.getAsJsonObject("configuration"));
+			configurationService.validate(proposal);
+			List<String> changes = proposal.changesFrom(current);
+			if ("PREVIEW".equals(type)) return TaskResult.success(current.revision(), current, changes, false);
+			if (!"APPLY".equals(type)) return TaskResult.failure("UNSUPPORTED_TASK", "Task type is unsupported");
+			configurationService.apply(proposal, requireString(task, "expectedRevision"));
+			ProxyRoutingConfiguration applied = configurationService.read();
+			return TaskResult.success(applied.revision(), applied, changes, true);
+		} catch (ProxyRoutingConfigurationService.StaleRevisionException e) {
+			return TaskResult.failure("STALE_REVISION", "Configuration changed after preview");
+		} catch (ProxyRoutingConfigurationService.ApplyFailureException e) {
+			return new TaskResult(false, "RELOAD_FAILED", "Reload failed after persistence", null, null, List.of(),
+					false, e.rolledBack());
+		} catch (IllegalArgumentException e) {
+			return TaskResult.failure("VALIDATION_ERROR", e.getMessage());
+		} catch (IOException | RuntimeException e) {
+			return TaskResult.failure("APPLY_FAILED", "Configuration operation failed");
+		}
+	}
+
+	private static ProxyRoutingConfiguration parseConfiguration(JsonObject body) {
+		if (body == null || !body.has("sendVotesToAllServers") || !body.has("blockedServers")) {
+			throw new IllegalArgumentException("configuration is incomplete");
+		}
+		List<String> blocked = new ArrayList<>();
+		body.getAsJsonArray("blockedServers").forEach(value -> blocked.add(value.getAsString()));
+		return new ProxyRoutingConfiguration(body.get("sendVotesToAllServers").getAsBoolean(), blocked);
+	}
+
+	private Request resultRequest(UUID operationId, TaskResult result) {
+		JsonObject body = new JsonObject();
+		body.addProperty("sessionId", sessionId.toString());
+		body.addProperty("success", result.success);
+		body.addProperty("code", result.code);
+		body.addProperty("message", result.message);
+		if (result.revision != null) body.addProperty("revision", result.revision);
+		if (result.configuration != null) body.add("configuration", configurationJson(result.configuration));
+		JsonArray changes = new JsonArray();
+		result.changes.forEach(changes::add);
+		body.add("changes", changes);
+		body.addProperty("reloaded", result.reloaded);
+		body.addProperty("rolledBack", result.rolledBack);
+		return new Request("POST", "/api/v1/nodes/" + settings.nodeId() + "/operations/" + operationId
+				+ "/result", body.toString());
+	}
+
+	private static JsonObject configurationJson(ProxyRoutingConfiguration configuration) {
+		JsonObject body = new JsonObject();
+		body.addProperty("sendVotesToAllServers", configuration.sendVotesToAllServers());
+		JsonArray blocked = new JsonArray();
+		configuration.blockedServers().forEach(blocked::add);
+		body.add("blockedServers", blocked);
+		return body;
+	}
+
+	private static String requireString(JsonObject body, String name) {
+		if (body == null || !body.has(name) || !body.get(name).isJsonPrimitive()) throw new MalformedResponseException();
+		return body.get(name).getAsString();
+	}
+
 	private JsonObject commonBody() {
 		JsonObject body = sessionBody();
 		body.addProperty("nodeId", settings.nodeId());
@@ -302,9 +423,10 @@ public final class ControlConnector implements AutoCloseable {
 		return body;
 	}
 
-	private static void addCapabilities(JsonObject body) {
+	private void addCapabilities(JsonObject body) {
 		JsonArray advertised = new JsonArray();
-		CAPABILITIES.stream().sorted().forEach(advertised::add);
+		BASE_CAPABILITIES.stream().sorted().forEach(advertised::add);
+		if (configurationService != null) advertised.add(CONFIGURATION_CAPABILITY);
 		body.add("capabilities", advertised);
 		JsonArray required = new JsonArray();
 		required.add("presence.snapshot");
@@ -441,6 +563,17 @@ public final class ControlConnector implements AutoCloseable {
 
 	public record Request(String method, String path, String body) { }
 	public record Response(int statusCode, String body) { }
+
+	private record TaskResult(boolean success, String code, String message, String revision,
+			ProxyRoutingConfiguration configuration, List<String> changes, boolean reloaded, boolean rolledBack) {
+		private static TaskResult success(String revision, ProxyRoutingConfiguration configuration,
+				List<String> changes, boolean reloaded) {
+			return new TaskResult(true, "OK", "Operation completed", revision, configuration, changes, reloaded, false);
+		}
+		private static TaskResult failure(String code, String message) {
+			return new TaskResult(false, code, message == null ? "Operation failed" : message, null, null, List.of(), false, false);
+		}
+	}
 
 	public interface Transport extends AutoCloseable {
 		CompletableFuture<Response> send(Request request);

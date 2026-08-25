@@ -4,6 +4,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -504,6 +506,44 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 					new File(bungee.getDataFolder(), "bungeeconfig.yml"));
 		} catch (IOException e) {
 			e.printStackTrace();
+		}
+	}
+
+	@Override
+	public synchronized void persistControlProxyRouting(boolean sendVotesToAllServers, List<String> blockedServers)
+			throws IOException {
+		Path target = new File(bungee.getDataFolder(), "bungeeconfig.yml").toPath();
+		Path stage = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".control-stage");
+		Path backup = target.resolveSibling(target.getFileName() + ".control-backup");
+		Configuration candidate = ConfigurationProvider.getProvider(YamlConfiguration.class).load(target.toFile());
+		candidate.set("SendVotesToAllServers", sendVotesToAllServers);
+		candidate.set("BlockedServers", List.copyOf(blockedServers));
+		try {
+			ConfigurationProvider.getProvider(YamlConfiguration.class).save(candidate, stage.toFile());
+			Files.copy(target, backup, StandardCopyOption.REPLACE_EXISTING);
+			atomicReplace(stage, target);
+			data = candidate;
+		} finally {
+			Files.deleteIfExists(stage);
+		}
+	}
+
+	@Override
+	public synchronized void rollbackControlProxyRouting() throws IOException {
+		Path target = new File(bungee.getDataFolder(), "bungeeconfig.yml").toPath();
+		Path backup = target.resolveSibling(target.getFileName() + ".control-backup");
+		if (!Files.isRegularFile(backup)) throw new IOException("Control backup is unavailable");
+		Path stage = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".control-rollback");
+		Files.copy(backup, stage, StandardCopyOption.REPLACE_EXISTING);
+		atomicReplace(stage, target);
+		data = ConfigurationProvider.getProvider(YamlConfiguration.class).load(target.toFile());
+	}
+
+	private static void atomicReplace(Path source, Path target) throws IOException {
+		try {
+			Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+		} catch (java.nio.file.AtomicMoveNotSupportedException e) {
+			throw new IOException("Atomic Control configuration activation is unsupported", e);
 		}
 	}
 

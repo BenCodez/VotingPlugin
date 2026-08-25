@@ -43,7 +43,7 @@ class ControlConnectorTest {
 	@Test void registrationHeartbeatAndPresenceAreWireCompatibleAndReplacementSnapshotsAdvance() {
 		connector.cycle();
 		assertEquals(Status.CONNECTED, connector.status());
-		assertEquals(2, transport.requests.size());
+		assertEquals(3, transport.requests.size());
 		Request registration = transport.requests.get(0);
 		assertEquals("POST", registration.method());
 		assertEquals("/api/v1/nodes/register", registration.path());
@@ -59,8 +59,8 @@ class ControlConnectorTest {
 				.get("backendId").getAsString());
 
 		connector.cycle();
-		assertEquals("/api/v1/nodes/proxy-a/heartbeat", transport.requests.get(2).path());
-		JsonObject secondSnapshot = JsonParser.parseString(transport.requests.get(3).body()).getAsJsonObject();
+		assertEquals("/api/v1/nodes/proxy-a/heartbeat", transport.requests.get(3).path());
+		JsonObject secondSnapshot = JsonParser.parseString(transport.requests.get(4).body()).getAsJsonObject();
 		assertEquals(1, secondSnapshot.get("sequence").getAsLong());
 	}
 
@@ -89,8 +89,8 @@ class ControlConnectorTest {
 		connector.cycle();
 		assertEquals(Status.UNAVAILABLE, connector.status());
 		connector.cycle();
-		assertEquals("POST", transport.requests.get(3).method());
-		assertEquals("/api/v1/nodes/register", transport.requests.get(3).path());
+		assertEquals("POST", transport.requests.get(4).method());
+		assertEquals("/api/v1/nodes/register", transport.requests.get(4).path());
 	}
 
 	@Test void slowTransportDoesNotBlockCallerAndShutdownCancelsInFlightRequest() {
@@ -102,6 +102,14 @@ class ControlConnectorTest {
 		connector.close();
 		assertTrue(stalled.isCancelled());
 		assertEquals(Status.STOPPED, connector.status());
+	}
+
+	@Test void synchronousTransportFailureClearsInFlightAndRetries() {
+		transport.synchronousFailure = new IllegalArgumentException("invalid header");
+		connector.cycle();
+		assertEquals(Status.UNAVAILABLE, connector.status());
+		connector.cycle();
+		assertEquals(Status.CONNECTED, connector.status());
 	}
 
 	@Test void backoffIsBoundedExponentialAndJitteredWithoutSleeping() {
@@ -138,14 +146,23 @@ class ControlConnectorTest {
 		private final List<Request> requests = new ArrayList<>();
 		private Response nextPrimary;
 		private CompletableFuture<Response> stalled;
+		private RuntimeException synchronousFailure;
 
 		@Override
 		public CompletableFuture<Response> send(Request request) {
+			if (synchronousFailure != null) {
+				RuntimeException failure = synchronousFailure;
+				synchronousFailure = null;
+				throw failure;
+			}
 			requests.add(request);
 			if (stalled != null) {
 				CompletableFuture<Response> result = stalled;
 				stalled = null;
 				return result;
+			}
+			if (request.path().endsWith("/operations")) {
+				return CompletableFuture.completedFuture(new Response(204, ""));
 			}
 			if (!request.path().endsWith("/presence")) {
 				Response response = nextPrimary;
@@ -153,7 +170,7 @@ class ControlConnectorTest {
 				if (response != null) {
 					return CompletableFuture.completedFuture(response);
 				}
-				if ("POST".equals(request.method())) {
+				if ("/api/v1/nodes/register".equals(request.path())) {
 					return CompletableFuture.completedFuture(new Response(201,
 							"{\"identity\":{\"protocolVersion\":1},\"node\":{\"acceptedCapabilities\":[\"presence.snapshot\"]}}"));
 				}

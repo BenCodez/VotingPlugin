@@ -1,6 +1,10 @@
 package com.bencodez.votingplugin.proxy.velocity;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -14,11 +18,13 @@ import com.bencodez.simpleapi.file.velocity.VelocityYMLFile;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 
 import org.spongepowered.configurate.ConfigurationNode;
+import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
 
 /**
  * Configuration file handler for Velocity proxy.
  */
 public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxyConfig {
+	private final File configurationFile;
 
 	/**
 	 * Constructs a new Velocity configuration.
@@ -26,6 +32,45 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	 */
 	public VelocityConfig(File file) {
 		super(file);
+		configurationFile = file;
+	}
+
+	@Override
+	public synchronized void persistControlProxyRouting(boolean sendVotesToAllServers, List<String> blockedServers)
+			throws IOException {
+		Path target = configurationFile.toPath();
+		Path stage = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".control-stage");
+		Path backup = target.resolveSibling(target.getFileName() + ".control-backup");
+		YamlConfigurationLoader sourceLoader = YamlConfigurationLoader.builder().path(target).build();
+		ConfigurationNode candidate = sourceLoader.load();
+		candidate.node("SendVotesToAllServers").set(sendVotesToAllServers);
+		candidate.node("BlockedServers").setList(String.class, List.copyOf(blockedServers));
+		try {
+			YamlConfigurationLoader.builder().path(stage).build().save(candidate);
+			Files.copy(target, backup, StandardCopyOption.REPLACE_EXISTING);
+			atomicReplace(stage, target);
+		} finally {
+			Files.deleteIfExists(stage);
+		}
+	}
+
+	@Override
+	public synchronized void rollbackControlProxyRouting() throws IOException {
+		Path target = configurationFile.toPath();
+		Path backup = target.resolveSibling(target.getFileName() + ".control-backup");
+		if (!Files.isRegularFile(backup)) throw new IOException("Control backup is unavailable");
+		Path stage = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".control-rollback");
+		Files.copy(backup, stage, StandardCopyOption.REPLACE_EXISTING);
+		atomicReplace(stage, target);
+		reload();
+	}
+
+	private static void atomicReplace(Path source, Path target) throws IOException {
+		try {
+			Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+		} catch (java.nio.file.AtomicMoveNotSupportedException e) {
+			throw new IOException("Atomic Control configuration activation is unsupported", e);
+		}
 	}
 
 	@Override

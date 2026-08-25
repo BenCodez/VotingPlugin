@@ -61,6 +61,7 @@ public final class HostedControlManager implements AutoCloseable {
 	private volatile Future<?> activeTask;
 	private volatile int failures;
 	private volatile String quarantinedSha256;
+	private volatile String trustedRollbackSha256;
 
 	private HostedControlManager(Settings settings, Consumer<String> logger) {
 		this(settings, daemonExecutor(), new JdkArtifactDownloader(), new JdkProcessLauncher(),
@@ -154,10 +155,14 @@ public final class HostedControlManager implements AutoCloseable {
 		secureDirectory(settings.rootDirectory(), settings.dataDirectory());
 		if (Files.isRegularFile(settings.jarFile(), LinkOption.NOFOLLOW_LINKS)) {
 			String installedSha256 = sha256(settings.jarFile());
-			if (settings.sha256().equals(installedSha256)
-					|| settings.sha256().equals(quarantinedSha256)) {
+			if (settings.sha256().equals(installedSha256)) {
 				return false;
 			}
+			if (settings.sha256().equals(quarantinedSha256)) {
+				if (installedSha256.equals(trustedRollbackSha256)) return false;
+				throw new IOException("Rolled-back Control artifact no longer matches its trusted digest");
+			}
+			trustedRollbackSha256 = installedSha256;
 		}
 		boolean installed = Files.exists(settings.jarFile(), LinkOption.NOFOLLOW_LINKS);
 		if (installed && !Files.isRegularFile(settings.jarFile(), LinkOption.NOFOLLOW_LINKS)) {
