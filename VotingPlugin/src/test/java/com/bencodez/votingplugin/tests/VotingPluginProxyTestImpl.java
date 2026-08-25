@@ -46,6 +46,11 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	}
 
 	@Override
+	public Set<String> getAllConfiguredServers() {
+		return getAllAvailableServers();
+	}
+
+	@Override
 	public VotingPluginProxyConfig getConfig() {
 		if (config == null) {
 			config = Mockito.mock(VotingPluginProxyConfig.class);
@@ -157,6 +162,11 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	@Override
 	public void reloadCore(boolean mysql) {
+		// Mocked for testing
+	}
+
+	@Override
+	public void reloadControlConfiguration() throws Exception {
 		// Mocked for testing
 	}
 

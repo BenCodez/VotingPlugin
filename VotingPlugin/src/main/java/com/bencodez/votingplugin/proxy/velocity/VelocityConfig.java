@@ -62,7 +62,13 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 		Path stage = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".control-rollback");
 		Files.copy(backup, stage, StandardCopyOption.REPLACE_EXISTING);
 		atomicReplace(stage, target);
-		reload();
+		loadControlConfiguration();
+	}
+
+	/** Loads the active file without the superclass's empty-config fallback. */
+	public synchronized void loadControlConfiguration() throws IOException {
+		ConfigurationNode loaded = YamlConfigurationLoader.builder().path(configurationFile.toPath()).build().load();
+		setConf(loaded);
 	}
 
 	private static void atomicReplace(Path source, Path target) throws IOException {

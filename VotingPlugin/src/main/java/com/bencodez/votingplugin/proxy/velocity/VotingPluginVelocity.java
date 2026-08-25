@@ -578,6 +578,13 @@ public class VotingPluginVelocity {
 			}
 
 			@Override
+			public Set<String> getAllConfiguredServers() {
+				Set<String> configured = new HashSet<>();
+				server.getAllServers().forEach(registered -> configured.add(registered.getServerInfo().getName()));
+				return configured;
+			}
+
+			@Override
 			public VotingPluginProxyConfig getConfig() {
 				return config;
 			}
@@ -800,6 +807,12 @@ public class VotingPluginVelocity {
 			public void reloadCore(boolean mysql) {
 				// mysql=true is reloadall behavior
 				reloadAllInternal(mysql);
+			}
+
+			@Override
+			public void reloadControlConfiguration() throws Exception {
+				config.loadControlConfiguration();
+				reloadFromControl();
 			}
 
 			@Override

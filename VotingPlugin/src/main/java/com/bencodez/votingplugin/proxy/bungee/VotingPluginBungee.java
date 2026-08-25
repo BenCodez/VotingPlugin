@@ -494,6 +494,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			@Override
+			public Set<String> getAllConfiguredServers() {
+				return new HashSet<>(getProxy().getServers().keySet());
+			}
+
+			@Override
 			public VotingPluginProxyConfig getConfig() {
 				return config;
 			}
@@ -705,6 +710,12 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			public void reloadCore(boolean mysql) {
 				// mysql==true should do full reloadall behavior on the platform
 				reloadPlugin(mysql);
+			}
+
+			@Override
+			public void reloadControlConfiguration() throws Exception {
+				config.loadControlConfiguration();
+				reloadFromControl();
 			}
 
 			@Override

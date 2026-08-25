@@ -60,10 +60,16 @@ current release is retained as `.previous`. A failed process/protocol health che
 previous release, retaining the failed candidate as `.failed`. Unexpected exits use bounded restart backoff.
 
 The child receives only its bind host, port, and contained data directory. It does not receive VotingPlugin configuration
-or credentials in release metadata. Process output is written beside the hosted JAR and rotated at 1 MiB. The WebUI is
-then available at `http://127.0.0.1:8080/` and asks for Control's separate admin token. To expose a non-loopback listener,
-create the admin token in `Control.Hosted.DataDirectory` first and use HTTPS or a private tunnel; Control otherwise refuses
-the bind.
+or credentials in release metadata. Process output is written beside the hosted JAR and rotated at 1 MiB. Configure the
+WebUI password directly against the hosted data directory (the prompt is not echoed and the password is not an argument):
+
+```shell
+java -jar plugins/VotingPlugin/control/votingplugin-control.jar web-password plugins/VotingPlugin/control/data
+```
+
+The WebUI is then available at `http://127.0.0.1:8080/`. Password rotation invalidates every existing browser session.
+To expose a non-loopback listener, create either the WebUI password or an admin API token in
+`Control.Hosted.DataDirectory` first and use HTTPS or a private tunnel; Control otherwise refuses the bind.
 
 Manual installation remains supported: put a Control JAR at `JarFile`, configure its exact SHA-256, set `AutoDownload` and
 `AutoUpdate` false, and enable hosting. VotingPlugin will verify and supervise it without network access.

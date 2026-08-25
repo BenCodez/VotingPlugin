@@ -479,6 +479,15 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 	}
 
 	public void load() {
+		try {
+			loadControlConfiguration();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	/** Loads the configuration while propagating failures to Control's rollback path. */
+	public void loadControlConfiguration() throws IOException {
 		if (!bungee.getDataFolder().exists()) {
 			bungee.getDataFolder().mkdir();
 		}
@@ -488,16 +497,10 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 		if (!file.exists()) {
 			try (InputStream in = bungee.getResourceAsStream("bungeeconfig.yml")) {
 				Files.copy(in, file.toPath());
-			} catch (IOException e) {
-				e.printStackTrace();
 			}
 		}
-		try {
-			data = ConfigurationProvider.getProvider(YamlConfiguration.class)
-					.load(new File(bungee.getDataFolder(), "bungeeconfig.yml"));
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		data = ConfigurationProvider.getProvider(YamlConfiguration.class)
+				.load(new File(bungee.getDataFolder(), "bungeeconfig.yml"));
 	}
 
 	public void save() {
