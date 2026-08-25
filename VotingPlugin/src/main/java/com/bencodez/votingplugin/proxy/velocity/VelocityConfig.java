@@ -64,6 +64,61 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	}
 
 	@Override
+	public boolean getControlHostedEnabled() {
+		return getBoolean(getNode("Control", "Hosted", "Enabled"), false);
+	}
+
+	@Override
+	public boolean getControlHostedAutoDownload() {
+		return getBoolean(getNode("Control", "Hosted", "AutoDownload"), true);
+	}
+
+	@Override
+	public boolean getControlHostedAutoUpdate() {
+		return getBoolean(getNode("Control", "Hosted", "AutoUpdate"), false);
+	}
+
+	@Override
+	public String getControlHostedDownloadUrl() {
+		return getString(getNode("Control", "Hosted", "DownloadUrl"), "");
+	}
+
+	@Override
+	public String getControlHostedSha256() {
+		return getString(getNode("Control", "Hosted", "Sha256"), "");
+	}
+
+	@Override
+	public String getControlHostedJarFile() {
+		return getString(getNode("Control", "Hosted", "JarFile"), "control/votingplugin-control.jar");
+	}
+
+	@Override
+	public String getControlHostedDataDirectory() {
+		return getString(getNode("Control", "Hosted", "DataDirectory"), "control/data");
+	}
+
+	@Override
+	public String getControlHostedHost() {
+		return getString(getNode("Control", "Hosted", "Host"), "127.0.0.1");
+	}
+
+	@Override
+	public int getControlHostedPort() {
+		return getInt(getNode("Control", "Hosted", "Port"), 8080);
+	}
+
+	@Override
+	public int getControlHostedStartupTimeoutSeconds() {
+		return getInt(getNode("Control", "Hosted", "StartupTimeoutSeconds"), 30);
+	}
+
+	@Override
+	public int getControlHostedDownloadTimeoutSeconds() {
+		return getInt(getNode("Control", "Hosted", "DownloadTimeoutSeconds"), 60);
+	}
+
+	@Override
 	public boolean getAllowUnJoined() {
 		return getBoolean(getNode("AllowUnJoined"), false);
 	}

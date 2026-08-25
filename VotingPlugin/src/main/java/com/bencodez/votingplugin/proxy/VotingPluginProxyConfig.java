@@ -27,6 +27,53 @@ public interface VotingPluginProxyConfig {
 
 	public int getControlRequestTimeoutMillis();
 
+	/** Whether this proxy should provision and supervise a separate Control JVM. */
+	default boolean getControlHostedEnabled() {
+		return false;
+	}
+
+	/** Download the pinned artifact when it is not installed. */
+	default boolean getControlHostedAutoDownload() {
+		return true;
+	}
+
+	/** Replace an installed artifact when its digest differs from the configured pin. */
+	default boolean getControlHostedAutoUpdate() {
+		return false;
+	}
+
+	default String getControlHostedDownloadUrl() {
+		return "";
+	}
+
+	default String getControlHostedSha256() {
+		return "";
+	}
+
+	default String getControlHostedJarFile() {
+		return "control/votingplugin-control.jar";
+	}
+
+	default String getControlHostedDataDirectory() {
+		return "control/data";
+	}
+
+	default String getControlHostedHost() {
+		return "127.0.0.1";
+	}
+
+	default int getControlHostedPort() {
+		return 8080;
+	}
+
+	default int getControlHostedStartupTimeoutSeconds() {
+		return 30;
+	}
+
+	default int getControlHostedDownloadTimeoutSeconds() {
+		return 60;
+	}
+
 	/**
 	 * Gets whether proxy broadcast is enabled.
 	 *

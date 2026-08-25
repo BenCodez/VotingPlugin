@@ -69,6 +69,61 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 		return getData().getInt("Control.RequestTimeoutMillis", 5000);
 	}
 
+	@Override
+	public boolean getControlHostedEnabled() {
+		return getData().getBoolean("Control.Hosted.Enabled", false);
+	}
+
+	@Override
+	public boolean getControlHostedAutoDownload() {
+		return getData().getBoolean("Control.Hosted.AutoDownload", true);
+	}
+
+	@Override
+	public boolean getControlHostedAutoUpdate() {
+		return getData().getBoolean("Control.Hosted.AutoUpdate", false);
+	}
+
+	@Override
+	public String getControlHostedDownloadUrl() {
+		return getData().getString("Control.Hosted.DownloadUrl", "");
+	}
+
+	@Override
+	public String getControlHostedSha256() {
+		return getData().getString("Control.Hosted.Sha256", "");
+	}
+
+	@Override
+	public String getControlHostedJarFile() {
+		return getData().getString("Control.Hosted.JarFile", "control/votingplugin-control.jar");
+	}
+
+	@Override
+	public String getControlHostedDataDirectory() {
+		return getData().getString("Control.Hosted.DataDirectory", "control/data");
+	}
+
+	@Override
+	public String getControlHostedHost() {
+		return getData().getString("Control.Hosted.Host", "127.0.0.1");
+	}
+
+	@Override
+	public int getControlHostedPort() {
+		return getData().getInt("Control.Hosted.Port", 8080);
+	}
+
+	@Override
+	public int getControlHostedStartupTimeoutSeconds() {
+		return getData().getInt("Control.Hosted.StartupTimeoutSeconds", 30);
+	}
+
+	@Override
+	public int getControlHostedDownloadTimeoutSeconds() {
+		return getData().getInt("Control.Hosted.DownloadTimeoutSeconds", 60);
+	}
+
 	/**
 	 * Converts a Configuration object to a Map.
 	 *

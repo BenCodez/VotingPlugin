@@ -63,6 +63,7 @@ import com.bencodez.votingplugin.proxy.cache.VoteCacheHandler;
 import com.bencodez.votingplugin.proxy.cache.nonvoted.INonVotedPlayersStorage;
 import com.bencodez.votingplugin.proxy.cache.nonvoted.NonVotedPlayersCache;
 import com.bencodez.votingplugin.proxy.control.ControlConnector;
+import com.bencodez.votingplugin.proxy.control.HostedControlManager;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyHandler;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyMethod;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyServerSocketConfiguration;
@@ -163,6 +164,7 @@ public abstract class VotingPluginProxy {
 	private final Map<UUID, PendingPresenceHandoff> pendingPresenceHandoffs = new HashMap<>();
 	private final Set<String> pendingBackendRecoverySnapshots = ConcurrentHashMap.newKeySet();
 	private volatile ControlConnector controlConnector;
+	private volatile HostedControlManager hostedControlManager;
 
 	public VotingPluginProxy() {
 		enabled = true;
@@ -1558,13 +1560,24 @@ public abstract class VotingPluginProxy {
 			loadTaskTimer(this::maintainBackendPresence, PRESENCE_MAINTENANCE_INTERVAL_SECONDS,
 					PRESENCE_MAINTENANCE_INTERVAL_SECONDS);
 		}
-		startControlConnector();
+		startControlServices();
 
 		debug("VotingPluginProxy loaded, ONLINEMODE: " + getConfig().getOnlineMode());
 	}
 
-	private synchronized void startControlConnector() {
-		stopControlConnector();
+	private synchronized void startControlServices() {
+		stopControlServices(true);
+		if (getConfig().getControlHostedEnabled()) {
+			try {
+				hostedControlManager = HostedControlManager.create(this);
+				if (hostedControlManager != null) {
+					hostedControlManager.start();
+				}
+			} catch (IllegalArgumentException e) {
+				hostedControlManager = null;
+				logSevere("[Control Host] configuration is invalid; VotingPlugin remains unaffected");
+			}
+		}
 		if (!getConfig().getControlEnabled()) {
 			return;
 		}
@@ -1579,17 +1592,31 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
-	private synchronized void stopControlConnector() {
+	private synchronized void stopControlServices(boolean waitForHosted) {
 		ControlConnector connector = controlConnector;
 		controlConnector = null;
 		if (connector != null) {
 			connector.close();
+		}
+		HostedControlManager manager = hostedControlManager;
+		hostedControlManager = null;
+		if (manager != null) {
+			if (waitForHosted) {
+				manager.closeAndWait();
+			} else {
+				manager.close();
+			}
 		}
 	}
 
 	public String getControlConnectorStatus() {
 		ControlConnector connector = controlConnector;
 		return connector == null ? "DISABLED" : connector.status().name();
+	}
+
+	public String getHostedControlStatus() {
+		HostedControlManager manager = hostedControlManager;
+		return manager == null ? "DISABLED" : manager.status().name();
 	}
 
 	/**
@@ -2294,7 +2321,7 @@ public abstract class VotingPluginProxy {
 	public abstract void logSevere(String message);
 
 	public void onDisable() {
-		stopControlConnector();
+		stopControlServices(false);
 		getVoteCacheHandler().saveVoteCache();
 
 		if (getProxyMysqlMessenger() != null) {
@@ -2441,7 +2468,7 @@ public abstract class VotingPluginProxy {
 		setCurrentVotePartyVotesRequired(
 				getConfig().getVotePartyVotesRequired() + getVoteCacheVotePartyIncreaseVotesRequired());
 		loadMultiProxySupport();
-		startControlConnector();
+		startControlServices();
 	}
 
 	private void warnUnsupportedDedicatedVotingProxyMode() {
