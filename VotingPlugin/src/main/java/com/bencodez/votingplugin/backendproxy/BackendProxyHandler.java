@@ -8,6 +8,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.bukkit.event.Listener;
 
 import com.bencodez.advancedcore.api.time.TimeType;
+import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandler;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
 import com.bencodez.simpleapi.servercomm.mqtt.MqttHandler;
@@ -121,6 +122,10 @@ public class BackendProxyHandler implements Listener {
 
 	public void loadGlobalMysql() {
 		globalDataSync.load();
+	}
+
+	public GlobalDataHandler getGlobalDataHandler() {
+		return globalDataSync.getGlobalDataHandler();
 	}
 
 	public void checkGlobalData() {
