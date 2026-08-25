@@ -223,7 +223,9 @@ public final class ControlConnector implements AutoCloseable {
 				throw new ProtocolException();
 			}
 		}
-		configurationAccepted = accepted != null && contains(accepted, CONFIGURATION_CAPABILITY);
+		if (accepted != null) {
+			configurationAccepted = contains(accepted, CONFIGURATION_CAPABILITY);
+		}
 	}
 
 	private void handlePresenceResponse(Response response) {

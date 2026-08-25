@@ -119,6 +119,10 @@ class ControlConnectorTest {
 		assertEquals(Status.CONNECTED, connector.status());
 		assertEquals(3, transport.requests.size());
 		assertTrue(transport.requests.get(2).path().endsWith("/operations"));
+
+		connector.cycle();
+		assertEquals(6, transport.requests.size());
+		assertTrue(transport.requests.get(5).path().endsWith("/operations"));
 	}
 
 	@Test void slowTransportDoesNotBlockCallerAndShutdownCancelsInFlightRequest() {
