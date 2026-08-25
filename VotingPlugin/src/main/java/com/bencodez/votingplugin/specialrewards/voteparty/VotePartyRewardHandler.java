@@ -46,7 +46,7 @@ public final class VotePartyRewardHandler {
 
 	public void giveRewards(VotingPluginUser triggeringUser, boolean forceBungee) {
 		MiscUtils.getInstance().broadcast(plugin.getSpecialRewardsConfig().getVotePartyBroadcast());
-		dispatchGlobalCommands(randomOnlinePlayerName());
+		dispatchGlobalCommands(voteParty.getRandomPlayerName());
 
 		if (plugin.getSpecialRewardsConfig().isVotePartyGiveAllPlayers()) {
 			giveAllPlayers(triggeringUser, forceBungee);
@@ -106,8 +106,8 @@ public final class VotePartyRewardHandler {
 
 	private void giveVotedPlayers(VotingPluginUser triggeringUser, boolean forceBungee) {
 		plugin.debug("Trying to give all voted players vote party");
-		plugin.debug(ArrayUtils.makeStringList(state.getVotedUsers()));
-		for (String uuid : state.getVotedUsers()) {
+		plugin.debug(ArrayUtils.makeStringList(voteParty.getVotedUsers()));
+		for (String uuid : voteParty.getVotedUsers()) {
 			VotingPluginUser user = resolveUser(triggeringUser, UUID.fromString(uuid), null);
 			if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
 				voteParty.giveReward(user, forceBungee);
