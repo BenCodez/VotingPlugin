@@ -1,0 +1,135 @@
+name: Refactor main lifecycle services
+
+on:
+  pull_request:
+    branches:
+      - master
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/main-lifecycle-services
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Move lifecycle ownership out of main
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_method(text, marker, replacement):
+              start = text.find(marker)
+              if start < 0:
+                  raise SystemExit('method marker not found: ' + marker)
+              brace = text.find('{', start)
+              depth = 0
+              for pos in range(brace, len(text)):
+                  if text[pos] == '{': depth += 1
+                  elif text[pos] == '}':
+                      depth -= 1
+                      if depth == 0:
+                          return text[:start] + replacement + text[pos + 1:]
+              raise SystemExit('unterminated method: ' + marker)
+
+          path = Path('VotingPlugin/src/main/java/com/bencodez/votingplugin/VotingPluginMain.java')
+          text = path.read_text()
+
+          # Imports for feature-owned lifecycle components.
+          anchors = {
+            'import com.bencodez.votingplugin.config.VotingPluginConfigHealth;\n': 'import com.bencodez.votingplugin.config.SpecialRewardsConfig;\n',
+            'import com.bencodez.votingplugin.integration.votifier.VotifierIntegration;\n': 'import com.bencodez.votingplugin.listeners.BlockBreak;\n',
+            'import com.bencodez.votingplugin.version.VotingPluginVersionInfo;\n': 'import com.bencodez.votingplugin.user.VotingPluginUser;\n',
+            'import com.bencodez.votingplugin.votelog.VoteLogManager;\n': 'import com.bencodez.votingplugin.votelog.VoteLogMysqlTable;\n',
+            'import com.bencodez.votingplugin.webhook.VotingPluginWebhookManager;\n': 'import com.bencodez.votingplugin.webhook.VotingPluginWebhooks;\n',
+          }
+          for new, anchor in anchors.items():
+              if new not in text:
+                  text = text.replace(anchor, anchor + new, 1)
+
+          # Remove imports no longer needed by main.
+          for line in [
+              'import java.io.InputStreamReader;\n', 'import java.io.Reader;\n', 'import java.net.URL;\n',
+              'import java.security.CodeSource;\n', 'import java.util.zip.ZipEntry;\n', 'import java.util.zip.ZipInputStream;\n',
+              'import org.bukkit.configuration.file.YamlConfiguration;\n',
+          ]:
+              text = text.replace(line, '')
+
+          # Replace state fields with feature components.
+          for block in [
+              '\n\t@Getter\n\tprivate String profile = "";\n',
+              '\n\t@Getter\n\tprivate String buildNumber = "NOTSET";\n',
+              '\n\t@Getter\n\tprivate String time = "";\n',
+              '\n\tprivate boolean votifierLoaded = true;\n',
+              '\n\t@Getter\n\tprivate boolean ymlError = false;\n',
+              '\n\t@Getter\n\tprivate VoteLogMysqlTable voteLogMysqlTable;\n',
+              '\n\t@Getter\n\tprivate VotingPluginWebhooks webhooks;\n',
+          ]:
+              text = text.replace(block, '\n')
+
+          field_anchor = '\t@Getter\n\tprivate DiscordHandler discordHandler;\n'
+          lifecycle_fields = '''\t@Getter\n\tprivate DiscordHandler discordHandler;\n\n\tprivate VotingPluginVersionInfo versionInfo;\n\tprivate VotingPluginConfigHealth configHealth;\n\tprivate VotifierIntegration votifierIntegration;\n\tprivate VoteLogManager voteLogManager;\n\tprivate VotingPluginWebhookManager webhookManager;\n'''
+          text = text.replace(field_anchor, lifecycle_fields, 1)
+
+          text = replace_method(text, '\tprivate void checkVotifier()',
+              '\tprivate void checkVotifier() {\n\t\tif (votifierIntegration == null) {\n\t\t\tvotifierIntegration = new VotifierIntegration(this);\n\t\t}\n\t\tvotifierIntegration.detect();\n\t}\n')
+          text = replace_method(text, '\tprivate void checkYMLError()',
+              '\tprivate void checkYMLError() {\n\t\tif (configHealth == null) {\n\t\t\tconfigHealth = new VotingPluginConfigHealth(this);\n\t\t}\n\t\tconfigHealth.check();\n\t}\n')
+          text = replace_method(text, '\tprivate YamlConfiguration getVersionFile()', '')
+          text = replace_method(text, '\tprivate void loadVersionFile()',
+              '\tprivate void loadVersionFile() {\n\t\tversionInfo = new VotingPluginVersionInfo(this);\n\t\tversionInfo.load();\n\t}\n')
+          text = replace_method(text, '\tpublic void loadVoteLoggingMySQL()',
+              '\tpublic void loadVoteLoggingMySQL() {\n\t\tif (voteLogManager == null) {\n\t\t\tvoteLogManager = new VoteLogManager(this);\n\t\t}\n\t\tvoteLogManager.load();\n\t}\n')
+
+          # Preserve public getter surface as delegates.
+          getter_anchor = '\tpublic void loadVoteShopManager() {\n'
+          getters = '''\tpublic String getProfile() {\n\t\treturn versionInfo == null ? "" : versionInfo.getProfile();\n\t}\n\n\tpublic String getBuildNumber() {\n\t\treturn versionInfo == null ? "NOTSET" : versionInfo.getBuildNumber();\n\t}\n\n\tpublic String getTime() {\n\t\treturn versionInfo == null ? "" : versionInfo.getTime();\n\t}\n\n\tpublic boolean isYmlError() {\n\t\treturn configHealth != null && configHealth.hasYmlError();\n\t}\n\n\tpublic boolean isVotifierLoaded() {\n\t\treturn votifierIntegration == null || votifierIntegration.isLoaded();\n\t}\n\n\tpublic VoteLogMysqlTable getVoteLogMysqlTable() {\n\t\treturn voteLogManager == null ? null : voteLogManager.getVoteLogMysqlTable();\n\t}\n\n\tpublic VotingPluginWebhooks getWebhooks() {\n\t\treturn webhookManager == null ? null : webhookManager.getWebhooks();\n\t}\n\n'''
+          text = text.replace(getter_anchor, getters + getter_anchor, 1)
+
+          # Event registration should use integration state instead of the removed field.
+          text = text.replace('if (votifierLoaded) {', 'if (isVotifierLoaded()) {')
+
+          # Webhook lifecycle ownership.
+          old_webhook_start = '''\t\twebhooks = new VotingPluginWebhooks(this);\n\t\twebhooks.reload(getConfig().getConfigurationSection("Webhooks"));'''
+          new_webhook_start = '''\t\twebhookManager = new VotingPluginWebhookManager(this);\n\t\twebhookManager.load();'''
+          text = text.replace(old_webhook_start, new_webhook_start)
+          old_unload = '''\t\tif (webhooks != null) {\n\t\t\twebhooks.shutdown();\n\t\t\twebhooks = null;\n\t\t}'''
+          text = text.replace(old_unload, '''\t\tif (webhookManager != null) {\n\t\t\twebhookManager.shutdown();\n\t\t}''')
+          text = text.replace('webhooks.reload(getConfig().getConfigurationSection("Webhooks"));',
+                              'if (webhookManager != null) { webhookManager.reload(); }')
+
+          # Existing reward code uses the compatibility getter rather than a removed field.
+          text = text.replace('section == null || webhooks == null', 'section == null || getWebhooks() == null')
+          text = text.replace('webhooks.createExecutor()', 'getWebhooks().createExecutor()')
+          text = text.replace(' + buildNumber)', ' + getBuildNumber())')
+
+          # Remove generated JavaPlugin override comments in the touched main class.
+          text = text.replace('''\n\t/*\n\t * (non-Javadoc)\n\t *\n\t * @see org.bukkit.plugin.java.JavaPlugin#onEnable()\n\t */''', '')
+          text = text.replace('''\n\t/*\n\t * (non-Javadoc)\n\t *\n\t * @see org.bukkit.plugin.java.JavaPlugin#onDisable()\n\t */''', '')
+
+          path.write_text(text)
+          PY
+      - name: Build
+        run: mvn -B -f VotingPlugin/pom.xml package
+      - name: Commit lifecycle refactor
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A VotingPlugin
+          git commit -m 'Move lifecycle services out of VotingPluginMain'
+          git push origin HEAD:refactor/main-lifecycle-services
+      - name: Remove temporary workflow
+        run: |
+          git pull --rebase origin refactor/main-lifecycle-services
+          git rm .github/workflows/refactor-main-lifecycle.yml
+          git commit -m 'Remove temporary lifecycle refactor workflow'
+          git push origin HEAD:refactor/main-lifecycle-services
