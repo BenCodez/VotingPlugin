@@ -120,13 +120,8 @@ public final class BackendControlConnector implements AutoCloseable {
 					throw new ConnectorException("protocol mismatch");
 				}
 			}
-			operationsAccepted = false;
-			quickSetupsAccepted = false;
-			if (node != null && node.has("acceptedCapabilities")) {
-				JsonArray accepted = node.getAsJsonArray("acceptedCapabilities");
-				operationsAccepted = contains(accepted, "config.files.v1");
-				quickSetupsAccepted = contains(accepted, "config.quick-setup.v1");
-			}
+			operationsAccepted = negotiatedCapability(node, "config.files.v1", operationsAccepted);
+			quickSetupsAccepted = negotiatedCapability(node, "config.quick-setup.v1", quickSetupsAccepted);
 			try {
 				requireFileCapability(operationsAccepted);
 			} catch (ConnectorException incompatible) {
@@ -151,6 +146,9 @@ public final class BackendControlConnector implements AutoCloseable {
 	}
 
 	private JsonObject register() throws Exception {
+		// A registration must explicitly establish required capabilities. Heartbeats may omit the unchanged set.
+		operationsAccepted = false;
+		quickSetupsAccepted = false;
 		JsonObject body = sessionBody();
 		body.addProperty("nodeId", settings.nodeId());
 		body.addProperty("displayName", settings.nodeId());
@@ -307,6 +305,11 @@ public final class BackendControlConnector implements AutoCloseable {
 		if (accepted == null) return false;
 		for (JsonElement value : accepted) if (value.isJsonPrimitive() && expected.equals(value.getAsString())) return true;
 		return false;
+	}
+
+	static boolean negotiatedCapability(JsonObject node, String capability, boolean current) {
+		if (node == null || !node.has("acceptedCapabilities")) return current;
+		return contains(node.getAsJsonArray("acceptedCapabilities"), capability);
 	}
 
 	static void requireFileCapability(boolean accepted) {

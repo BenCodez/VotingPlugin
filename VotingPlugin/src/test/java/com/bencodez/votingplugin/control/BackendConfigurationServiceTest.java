@@ -51,6 +51,21 @@ class BackendConfigurationServiceTest {
 		assertThrows(IllegalArgumentException.class, () -> service.preview("Config.yml", "bad: [yaml"));
 	}
 
+	@Test void rejectsManagedFileAndDirectorySymlinkEscapes() throws Exception {
+		Path root = Files.createDirectory(directory.resolve("plugin-data"));
+		Path outside = Files.createDirectory(directory.resolve("outside"));
+		Path externalConfig = outside.resolve("Config.yml");
+		Files.writeString(externalConfig, "Feature: external\n");
+		Files.createSymbolicLink(root.resolve("Config.yml"), externalConfig);
+		BackendConfigurationService service = new BackendConfigurationService(root, () -> { });
+
+		assertThrows(java.io.IOException.class, () -> service.read("Config.yml"));
+		Files.createDirectory(outside.resolve("sites"));
+		Files.writeString(outside.resolve("sites/External.yml"), "VoteSites: {}\n");
+		Files.createSymbolicLink(root.resolve("VoteSites"), outside.resolve("sites"));
+		assertThrows(java.io.IOException.class, () -> service.read("VoteSites/External.yml"));
+	}
+
 	@Test void transportValidationFailureRollsBackBeforeApplyReturns() throws Exception {
 		Path settings = directory.resolve("BungeeSettings.yml");
 		Files.writeString(settings, "UseBungeecord: false\nBungeeMethod: PLUGINMESSAGING\n");

@@ -195,19 +195,31 @@ public final class BackendConfigurationService {
 		throw new IllegalArgumentException("quick setup preset is unsupported");
 	}
 
-	private Path resolve(String fileName) {
+	private Path resolve(String fileName) throws IOException {
 		if (fileName == null || (!TOP_LEVEL.contains(fileName)
 				&& !fileName.matches("VoteSites/[A-Za-z0-9._-]{1,100}\\.yml"))) {
 			throw new IllegalArgumentException("configuration file is not managed");
 		}
-		Path target = dataDirectory.resolve(fileName).normalize();
-		if (!target.startsWith(dataDirectory)) throw new IllegalArgumentException("configuration path escapes data folder");
+		Path requested = dataDirectory.resolve(fileName).normalize();
+		if (!requested.startsWith(dataDirectory)) {
+			throw new IllegalArgumentException("configuration path escapes data folder");
+		}
+		Path root = dataDirectory.toRealPath();
+		Path parent = requested.getParent();
+		if (parent == null) throw new IOException("configuration parent is unavailable");
+		Path realParent = parent.toRealPath();
+		if (!realParent.startsWith(root)) throw new IOException("configuration path escapes data folder");
+		Path target = realParent.resolve(requested.getFileName()).normalize();
+		if (!target.startsWith(root) || Files.isSymbolicLink(target)) {
+			throw new IOException("symbolic configuration paths are not allowed");
+		}
 		return target;
 	}
 
 	private static String readRaw(Path path, boolean allowMissing) throws IOException {
 		if (!Files.exists(path) && allowMissing) return "";
-		if (!Files.isRegularFile(path) || Files.size(path) > MAX_CONTENT_BYTES) {
+		if (!Files.isRegularFile(path, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+				|| Files.size(path) > MAX_CONTENT_BYTES) {
 			throw new IOException("configuration file is missing or too large");
 		}
 		byte[] bytes = Files.readAllBytes(path);
