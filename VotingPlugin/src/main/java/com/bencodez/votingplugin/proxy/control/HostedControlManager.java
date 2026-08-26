@@ -499,16 +499,18 @@ public final class HostedControlManager implements AutoCloseable {
 		CompletableFuture<Void> onExit();
 	}
 
-	private static final class JdkArtifactDownloader implements ArtifactDownloader {
+	static final class JdkArtifactDownloader implements ArtifactDownloader {
 		private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10))
 				.followRedirects(HttpClient.Redirect.NEVER).build();
 
 		@Override
 		public void download(URI source, Path target, long maximumBytes, Duration timeout)
 				throws IOException, InterruptedException {
+			long deadline = System.nanoTime() + timeout.toNanos();
 			URI current = source;
 			for (int redirects = 0; redirects <= 5; redirects++) {
-				HttpRequest request = HttpRequest.newBuilder(current).timeout(timeout)
+				long requestNanos = remainingDownloadNanos(deadline);
+				HttpRequest request = HttpRequest.newBuilder(current).timeout(Duration.ofNanos(requestNanos))
 						.header("Accept", "application/java-archive, application/octet-stream")
 						.header("User-Agent", "VotingPlugin-Control-Host").GET().build();
 				HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
@@ -536,20 +538,57 @@ public final class HostedControlManager implements AutoCloseable {
 				}
 				try (InputStream input = response.body(); OutputStream output = Files.newOutputStream(target,
 						StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+					AtomicBoolean bodyTimedOut = new AtomicBoolean();
+					Thread timeoutThread = bodyTimeoutThread(input, deadline, bodyTimedOut);
 					byte[] buffer = new byte[8192];
 					long total = 0;
 					int count;
-					while ((count = input.read(buffer)) != -1) {
-						total += count;
-						if (total > maximumBytes) {
-							throw new IOException("Control artifact exceeds the download limit");
+					try {
+						while ((count = input.read(buffer)) != -1) {
+							if (bodyTimedOut.get() || System.nanoTime() >= deadline) {
+								throw new IOException("Control artifact download timed out");
+							}
+							total += count;
+							if (total > maximumBytes) {
+								throw new IOException("Control artifact exceeds the download limit");
+							}
+							output.write(buffer, 0, count);
 						}
-						output.write(buffer, 0, count);
+					} catch (IOException failure) {
+						if (bodyTimedOut.get()) throw new IOException("Control artifact download timed out", failure);
+						throw failure;
+					} finally {
+						timeoutThread.interrupt();
 					}
+					if (bodyTimedOut.get()) throw new IOException("Control artifact download timed out");
 				}
 				return;
 			}
 			throw new IOException("Control download redirected too many times");
+		}
+
+		private static long remainingDownloadNanos(long deadline) throws IOException {
+			long remaining = deadline - System.nanoTime();
+			if (remaining <= 0) throw new IOException("Control artifact download timed out");
+			return remaining;
+		}
+
+		private static Thread bodyTimeoutThread(InputStream input, long deadline, AtomicBoolean timedOut)
+				throws IOException {
+			long remaining = remainingDownloadNanos(deadline);
+			Thread thread = new Thread(() -> {
+				try {
+					TimeUnit.NANOSECONDS.sleep(remaining);
+					timedOut.set(true);
+					input.close();
+				} catch (InterruptedException ignored) {
+					Thread.currentThread().interrupt();
+				} catch (IOException ignored) { }
+			}, "VotingPlugin-Control-Download-Timeout");
+			thread.setDaemon(true);
+			thread.setContextClassLoader(ClassLoader.getPlatformClassLoader());
+			thread.start();
+			return thread;
 		}
 	}
 

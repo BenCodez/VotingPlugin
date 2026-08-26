@@ -50,6 +50,10 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.util.ServiceSiteValidator;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
+import redis.clients.jedis.DefaultJedisClientConfig;
+import redis.clients.jedis.HostAndPort;
+import redis.clients.jedis.Jedis;
+
 import lombok.Getter;
 
 /**
@@ -592,11 +596,32 @@ public class BackendProxyHandler implements Listener {
 		if (method.equals(BungeeMethod.REDIS) && redisHandler == null) {
 			throw new IllegalStateException("Redis backend proxy transport initialization failed");
 		}
+		if (method.equals(BungeeMethod.REDIS)) {
+			validateRedisConnection();
+		}
 		if (method.equals(BungeeMethod.SOCKETS) && (clientHandler == null || socketHandler == null)) {
 			throw new IllegalStateException("Socket backend proxy transport initialization failed");
 		}
 		if (method.equals(BungeeMethod.MQTT) && mqttHandler == null) {
 			throw new IllegalStateException("MQTT backend proxy transport initialization failed");
+		}
+	}
+
+	private void validateRedisConnection() {
+		DefaultJedisClientConfig.Builder config = DefaultJedisClientConfig.builder()
+				.database(plugin.getBungeeSettings().getRedisdbindex())
+				.connectionTimeoutMillis(2000).socketTimeoutMillis(2000);
+		String username = plugin.getBungeeSettings().getRedisUsername();
+		String password = plugin.getBungeeSettings().getRedisPassword();
+		if (username != null && !username.isEmpty()) config.user(username);
+		if (password != null && !password.isEmpty()) config.password(password);
+		try (Jedis jedis = new Jedis(new HostAndPort(plugin.getBungeeSettings().getRedisHost(),
+				plugin.getBungeeSettings().getRedisPort()), config.build())) {
+			if (!"PONG".equalsIgnoreCase(jedis.ping())) {
+				throw new IllegalStateException("Redis backend proxy transport did not answer PING");
+			}
+		} catch (RuntimeException failure) {
+			throw new IllegalStateException("Redis backend proxy transport connection failed", failure);
 		}
 	}
 

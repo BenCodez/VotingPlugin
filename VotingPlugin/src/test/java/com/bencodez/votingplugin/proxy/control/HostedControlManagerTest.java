@@ -5,22 +5,27 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.CountDownLatch;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import com.sun.net.httpserver.HttpServer;
 
 class HostedControlManagerTest {
 	@TempDir
@@ -36,6 +41,40 @@ class HostedControlManagerTest {
 						"https://github.com/BenCodez/VotingPlugin-Control/releases/latest/download/control.jar"));
 		assertThrows(IllegalArgumentException.class, () -> settings(root.resolve("control.jar"), root.resolve("data"),
 				true, false, "not-a-digest", 30));
+	}
+
+	@Test
+	void hostedArtifactBodyReadCannotOutliveDownloadTimeout() throws Exception {
+		CountDownLatch bodyStarted = new CountDownLatch(1);
+		CountDownLatch releaseBody = new CountDownLatch(1);
+		HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+		server.createContext("/control.jar", exchange -> {
+			exchange.sendResponseHeaders(200, 0);
+			try (var body = exchange.getResponseBody()) {
+				body.write(1);
+				body.flush();
+				bodyStarted.countDown();
+				try {
+					releaseBody.await();
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+				}
+			}
+		});
+		server.start();
+		try {
+			Path target = directory.resolve("stalled.jar");
+			URI source = URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/control.jar");
+			long started = System.nanoTime();
+			IOException failure = assertThrows(IOException.class, () -> new HostedControlManager.JdkArtifactDownloader()
+					.download(source, target, 1024, Duration.ofMillis(250)));
+			assertTrue(bodyStarted.await(2, TimeUnit.SECONDS));
+			assertTrue(failure.getMessage().contains("timed out"));
+			assertTrue(Duration.ofNanos(System.nanoTime() - started).compareTo(Duration.ofSeconds(2)) < 0);
+		} finally {
+			releaseBody.countDown();
+			server.stop(0);
+		}
 	}
 
 	@Test
