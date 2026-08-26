@@ -266,6 +266,15 @@ public interface VotingPluginProxyConfig {
 	public int getMultiProxyRedisPort();
 
 	/**
+	 * Gets whether the multi-proxy Redis connection uses SSL/TLS.
+	 *
+	 * @return true if SSL/TLS is enabled
+	 */
+	default boolean getMultiProxyRedisSsl() {
+		return false;
+	}
+
+	/**
 	 * Gets whether multi-proxy Redis uses existing connection.
 	 *
 	 * @return true if using existing connection
@@ -370,6 +379,15 @@ public interface VotingPluginProxyConfig {
 	 * @return the Redis port
 	 */
 	public int getRedisPort();
+
+	/**
+	 * Gets whether the Redis connection uses SSL/TLS.
+	 *
+	 * @return true if SSL/TLS is enabled
+	 */
+	default boolean getRedisSsl() {
+		return false;
+	}
 
 	/**
 	 * Gets the Redis database index.

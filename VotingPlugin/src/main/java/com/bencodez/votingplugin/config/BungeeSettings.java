@@ -58,6 +58,10 @@ public class BungeeSettings extends YMLFile {
 	@Getter
 	private int redisPort = 6379;
 
+	@ConfigDataBoolean(path = "Redis.SSL")
+	@Getter
+	private boolean redisSsl = false;
+
 	@ConfigDataString(path = "MQTT.ClientID")
 	@Getter
 	private String mqttClientID = "";

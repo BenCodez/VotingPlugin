@@ -23,7 +23,8 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 	public void start(GlobalMessageHandler messageHandler) {
 		redisHandler = new RedisHandler(plugin.getBungeeSettings().getRedisHost(),
 				plugin.getBungeeSettings().getRedisPort(), plugin.getBungeeSettings().getRedisUsername(),
-				plugin.getBungeeSettings().getRedisPassword(), plugin.getBungeeSettings().getRedisdbindex()) {
+				plugin.getBungeeSettings().getRedisPassword(), plugin.getBungeeSettings().getRedisdbindex(),
+				plugin.getBungeeSettings().isRedisSsl()) {
 			@Override
 			public void debug(String message) {
 				if (plugin.getBungeeSettings().isBungeeDebug()) {
