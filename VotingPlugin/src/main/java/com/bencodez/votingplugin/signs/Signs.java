@@ -9,10 +9,6 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import lombok.Getter;
 import lombok.Setter;
 
-// TODO: Auto-generated Javadoc
-/**
- * The Class Signs.
- */
 public class Signs {
 	private VotingPluginMain plugin;
 

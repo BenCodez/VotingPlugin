@@ -130,9 +130,6 @@ import com.bencodez.votingplugin.webhook.WebhookRewardParser;
 import lombok.Getter;
 import lombok.Setter;
 
-/**
- * The Class Main.
- */
 public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter

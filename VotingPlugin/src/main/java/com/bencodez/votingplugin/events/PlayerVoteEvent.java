@@ -10,10 +10,6 @@ import com.bencodez.votingplugin.votesites.VoteSite;
 import lombok.Getter;
 import lombok.Setter;
 
-// TODO: Auto-generated Javadoc
-/**
- * The Class PlayerVoteEvent.
- */
 public class PlayerVoteEvent extends Event {
 
 	/** The Constant handlers. */
@@ -100,11 +96,6 @@ public class PlayerVoteEvent extends Event {
 		this.serviceSite = serviceSite;
 	}
 
-	/*
-	 * (non-Javadoc)
-	 *
-	 * @see org.bukkit.event.Event#getHandlers()
-	 */
 	@Override
 	public HandlerList getHandlers() {
 		return handlers;
