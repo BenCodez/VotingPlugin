@@ -4,12 +4,20 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 
+import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.simpleapi.servercomm.sockets.ClientHandler;
+import com.bencodez.votingplugin.tests.VotingPluginProxyTestImpl;
 
 class VotingPluginProxyLifecycleTest {
 
@@ -26,5 +34,53 @@ class VotingPluginProxyLifecycleTest {
 
 		verify(failing).stopConnection();
 		verify(healthy).stopConnection();
+	}
+
+	@Test
+	void waitsForInFlightSocketSendBeforeClosingClientMap() throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		proxy.setMethod(BungeeMethod.SOCKETS);
+		ClientHandler client = mock(ClientHandler.class);
+		JsonEnvelope envelope = mock(JsonEnvelope.class);
+		CountDownLatch sending = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		CountDownLatch closingStarted = new CountDownLatch(1);
+		org.mockito.Mockito.doAnswer(ignored -> {
+			sending.countDown();
+			if (!release.await(5, TimeUnit.SECONDS)) throw new AssertionError("send was not released");
+			return null;
+		}).when(client).sendEnvelope(envelope);
+
+		Field handles = VotingPluginProxy.class.getDeclaredField("clientHandles");
+		handles.setAccessible(true);
+		HashMap<String, ClientHandler> clients = new HashMap<>();
+		clients.put("lobby", client);
+		handles.set(proxy, clients);
+		Method close = VotingPluginProxy.class.getDeclaredMethod("closeSocketClients");
+		close.setAccessible(true);
+
+		var executor = Executors.newFixedThreadPool(2);
+		try {
+			var send = executor.submit(() -> proxy.sendProxyBroadcastEnvelopeNow("lobby", envelope));
+			org.junit.jupiter.api.Assertions.assertTrue(sending.await(5, TimeUnit.SECONDS));
+			var closing = executor.submit(() -> {
+				closingStarted.countDown();
+				try {
+					close.invoke(proxy);
+				} catch (ReflectiveOperationException e) {
+					throw new RuntimeException(e);
+				}
+			});
+			org.junit.jupiter.api.Assertions.assertTrue(closingStarted.await(5, TimeUnit.SECONDS));
+			org.junit.jupiter.api.Assertions.assertThrows(java.util.concurrent.TimeoutException.class,
+					() -> closing.get(100, TimeUnit.MILLISECONDS));
+			release.countDown();
+			org.junit.jupiter.api.Assertions.assertTrue(send.get(5, TimeUnit.SECONDS));
+			closing.get(5, TimeUnit.SECONDS);
+			verify(client).stopConnection();
+		} finally {
+			release.countDown();
+			executor.shutdownNow();
+		}
 	}
 }

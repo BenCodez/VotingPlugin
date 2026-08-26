@@ -548,17 +548,7 @@ public abstract class VotingPluginProxy {
 			// Standalone broadcasts use the same initialized client as normal
 			// envelopes. This preserves the socket connection and its delivery
 			// acknowledgement instead of creating a second short-lived socket.
-			ClientHandler socketClient = clientHandles == null ? null : clientHandles.get(server);
-			if (socketClient == null) {
-				return false;
-			}
-			try {
-				socketClient.sendEnvelope(envelope);
-				return true;
-			} catch (RuntimeException e) {
-				debug(e.getMessage());
-				return false;
-			}
+			return sendSocketEnvelope(server, envelope);
 		default:
 			return false;
 		}
@@ -1381,10 +1371,7 @@ public abstract class VotingPluginProxy {
 					sendRedisEnvelopeServer(server, envelope);
 					break;
 				case SOCKETS:
-					ClientHandler socketClient = clientHandles == null ? null : clientHandles.get(server);
-					if (socketClient != null) {
-						socketClient.sendEnvelope(envelope);
-					}
+					sendSocketEnvelope(server, envelope);
 					break;
 				default:
 					break;
@@ -2326,9 +2313,7 @@ public abstract class VotingPluginProxy {
 		if (socketHandler != null) {
 			socketHandler.closeConnection();
 		}
-		HashMap<String, ClientHandler> clients = clientHandles;
-		clientHandles = null;
-		stopSocketClients(clients);
+		closeSocketClients();
 
 		if (redisHandler != null) {
 			redisHandler.close();
@@ -2483,7 +2468,7 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
-	private void rebuildSocketClients() {
+	private synchronized void rebuildSocketClients() {
 		HashMap<String, ClientHandler> rebuilt = new HashMap<>();
 		try {
 			List<String> blocked = getConfig().getBlockedServers();
@@ -2501,6 +2486,24 @@ public abstract class VotingPluginProxy {
 		HashMap<String, ClientHandler> previous = clientHandles;
 		clientHandles = rebuilt;
 		stopSocketClients(previous);
+	}
+
+	private synchronized boolean sendSocketEnvelope(String server, JsonEnvelope envelope) {
+		ClientHandler socketClient = clientHandles == null ? null : clientHandles.get(server);
+		if (socketClient == null) return false;
+		try {
+			socketClient.sendEnvelope(envelope);
+			return true;
+		} catch (RuntimeException e) {
+			debug(e.getMessage());
+			return false;
+		}
+	}
+
+	private synchronized void closeSocketClients() {
+		HashMap<String, ClientHandler> clients = clientHandles;
+		clientHandles = null;
+		stopSocketClients(clients);
 	}
 
 	static void stopSocketClients(Map<String, ClientHandler> clients) {

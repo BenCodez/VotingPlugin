@@ -515,6 +515,10 @@ public class BackendProxyHandler implements Listener {
 		} else if (method.equals(BungeeMethod.PLUGINMESSAGING)) {
 			plugin.registerBungeeChannels(plugin.getBungeeSettings().getPluginMessagingChannel());
 
+			// PluginMessaging outlives this transport handler. Clear the previous
+			// configuration before optionally installing a replacement so a live
+			// encrypted-to-plaintext reload cannot retain stale encryption state.
+			plugin.getPluginMessaging().setEncryptionHandler(null);
 			if (plugin.getBungeeSettings().isPluginMessageEncryption()) {
 				encryptionHandler = new EncryptionHandler(plugin.getName(), new File(plugin.getDataFolder(), "secretkey.key"));
 				plugin.getPluginMessaging().setEncryptionHandler(encryptionHandler);
