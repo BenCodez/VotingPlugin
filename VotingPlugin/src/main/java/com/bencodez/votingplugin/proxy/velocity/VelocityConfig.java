@@ -41,20 +41,32 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 			String expectedRevision) throws IOException {
 		Path target = configurationFile.toPath();
 		Path stage = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".control-stage");
+		Path backupStage = null;
 		Path backup = target.resolveSibling(target.getFileName() + ".control-backup");
 		YamlConfigurationLoader sourceLoader = YamlConfigurationLoader.builder().path(target).build();
-		ConfigurationNode candidate = sourceLoader.load();
-		if (!routing(candidate).revision().equals(expectedRevision)) throw new StaleControlRevisionException();
-		candidate.node("SendVotesToAllServers").set(sendVotesToAllServers);
-		candidate.node("BlockedServers").setList(String.class, List.copyOf(blockedServers));
 		try {
-			YamlConfigurationLoader.builder().path(stage).build().save(candidate);
+			backupStage = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".control-backup-stage");
+			byte[] sourceSnapshot = Files.readAllBytes(target);
 			ConfigurationNode latest = sourceLoader.load();
-			if (!routing(latest).revision().equals(expectedRevision)) throw new StaleControlRevisionException();
-			Files.copy(target, backup, StandardCopyOption.REPLACE_EXISTING);
+			if (!java.util.Arrays.equals(sourceSnapshot, Files.readAllBytes(target))
+					|| !routing(latest).revision().equals(expectedRevision)) {
+				throw new StaleControlRevisionException();
+			}
+			latest.node("SendVotesToAllServers").set(sendVotesToAllServers);
+			latest.node("BlockedServers").setList(String.class, List.copyOf(blockedServers));
+			YamlConfigurationLoader.builder().path(stage).build().save(latest);
+			if (!java.util.Arrays.equals(sourceSnapshot, Files.readAllBytes(target))) {
+				throw new StaleControlRevisionException();
+			}
+			Files.write(backupStage, sourceSnapshot);
+			if (!java.util.Arrays.equals(sourceSnapshot, Files.readAllBytes(target))) {
+				throw new StaleControlRevisionException();
+			}
+			atomicReplace(backupStage, backup);
 			atomicReplace(stage, target);
 		} finally {
 			Files.deleteIfExists(stage);
+			if (backupStage != null) Files.deleteIfExists(backupStage);
 		}
 	}
 

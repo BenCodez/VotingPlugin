@@ -213,6 +213,12 @@ public class BackendProxyHandler implements Listener {
 		if (backendMysqlMessenger != null) {
 			backendMysqlMessenger.shutdown();
 		}
+		if (redisHandler != null) {
+			redisHandler.close();
+		}
+		if (redisThread != null) {
+			redisThread.interrupt();
+		}
 
 		if (socketHandler != null) {
 			socketHandler.closeConnection();
