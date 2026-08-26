@@ -5,6 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import java.lang.reflect.Field;
+import java.util.concurrent.ScheduledExecutorService;
 
 import org.junit.jupiter.api.Test;
 
@@ -69,5 +70,19 @@ class BackendProxyHandlerLifecycleTest {
 
 		verify(messenger).shutdown();
 		assertNull(handler.getBackendMysqlMessenger());
+	}
+
+	@Test
+	void stopsGlobalDataTimerWhenHandlerIsReplaced() throws Exception {
+		BackendProxyHandler handler = new BackendProxyHandler(null);
+		ScheduledExecutorService timer = mock(ScheduledExecutorService.class);
+		Field field = BackendProxyHandler.class.getDeclaredField("timer");
+		field.setAccessible(true);
+		field.set(handler, timer);
+
+		handler.releaseGlobalDataTimer();
+
+		verify(timer).shutdownNow();
+		assertNull(handler.getTimer());
 	}
 }

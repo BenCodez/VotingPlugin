@@ -209,6 +209,7 @@ public class BackendProxyHandler implements Listener {
 	 */
 	public void close() {
 		plugin.deactivateBackendPluginMessageHandler(globalMessageHandler);
+		releaseGlobalDataTimer();
 
 		if (presenceManager != null) {
 			presenceManager.stop();
@@ -241,6 +242,14 @@ public class BackendProxyHandler implements Listener {
 		plugin.getServerData().setBungeeVotePartyRequired(bungeeVotePartyRequired);
 		if (globalDataHandler != null) {
 			globalDataHandler.getGlobalMysql().close();
+		}
+	}
+
+	/** Stops periodic global-data work owned by this handler before it is discarded. */
+	public synchronized void releaseGlobalDataTimer() {
+		if (timer != null) {
+			timer.shutdownNow();
+			timer = null;
 		}
 	}
 
