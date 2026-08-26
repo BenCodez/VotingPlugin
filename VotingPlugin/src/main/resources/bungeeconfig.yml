@@ -284,6 +284,8 @@ PluginMessageEncryption: false
 Redis:
   Host: localhost
   Port: 6379
+  # Enable SSL/TLS. The Redis certificate must be trusted by the Java runtime.
+  SSL: false
   Username: ''
   Password: ''
   # Set a prefix from an entire proxy network if using multi-proxy setup below
@@ -448,6 +450,8 @@ MultiProxyRedis:
   UseExistingConnection: false
   Host: localhost
   Port: 6379
+  # Ignored when UseExistingConnection is true; the Redis.SSL setting is used instead.
+  SSL: false
   Username: ''
   Password: ''
 

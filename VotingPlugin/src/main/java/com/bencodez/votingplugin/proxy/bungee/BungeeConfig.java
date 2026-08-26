@@ -167,6 +167,11 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 	}
 
 	@Override
+	public boolean getMultiProxyRedisSsl() {
+		return getData().getBoolean("MultiProxyRedis.SSL", false);
+	}
+
+	@Override
 	public int getMultiProxyRedisDbIndex() {
 		return getData().getInt("MultiProxyRedis.Db-Index", 0);
 	}
@@ -244,6 +249,11 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 	@Override
 	public int getRedisPort() {
 		return getData().getInt("Redis.Port", 6379);
+	}
+
+	@Override
+	public boolean getRedisSsl() {
+		return getData().getBoolean("Redis.SSL", false);
 	}
 
 	@Override

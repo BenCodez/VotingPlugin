@@ -106,6 +106,13 @@ public abstract class MultiProxyHandler {
 	public abstract int getMultiProxyRedisPort();
 
 	/**
+	 * Gets whether the multi-proxy Redis connection uses SSL/TLS.
+	 *
+	 * @return true if SSL/TLS is enabled
+	 */
+	public abstract boolean getMultiProxyRedisSsl();
+
+	/**
 	 * Gets the multi-proxy Redis database index.
 	 *
 	 * @return the database index
@@ -286,7 +293,8 @@ public abstract class MultiProxyHandler {
 				multiProxyRedis = getRedisHandler();
 			} else {
 				multiProxyRedis = new RedisHandler(getMultiProxyRedisHost(), getMultiProxyRedisPort(),
-						getMultiProxyUsername(), getMultiProxyPassword(), getMultiProxyRedisDbIndex()) {
+						getMultiProxyUsername(), getMultiProxyPassword(), getMultiProxyRedisDbIndex(),
+						getMultiProxyRedisSsl()) {
 					@Override
 					public void debug(String message) {
 						if (getDebug()) {

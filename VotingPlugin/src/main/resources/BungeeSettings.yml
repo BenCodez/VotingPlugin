@@ -72,6 +72,8 @@ BungeeMethod: PLUGINMESSAGING
 Redis:
   Host: localhost
   Port: 6379
+  # Enable SSL/TLS. The Redis certificate must be trusted by the Java runtime.
+  SSL: false
   # To get the user name, run redis-cli
   # If you set a password, run "auth <your password>"
   # If the output is "OK" run "ACL USERS"
