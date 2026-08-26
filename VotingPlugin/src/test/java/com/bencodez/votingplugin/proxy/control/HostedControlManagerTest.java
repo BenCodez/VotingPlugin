@@ -176,6 +176,16 @@ class HostedControlManagerTest {
 		assertTrue(executor.isTerminated());
 	}
 
+	@Test
+	void forcedProcessTerminationIsAwaitedBeforeReturning() {
+		StubbornProcess process = new StubbornProcess();
+
+		HostedControlManager.stopProcess(process, true);
+
+		assertTrue(process.forciblyDestroyed);
+		assertEquals(2, process.waits.get());
+	}
+
 	private HostedControlManager.Settings settings(Path jar, Path data, boolean autoDownload, boolean autoUpdate,
 			String sha256, int startupTimeout) {
 		Path root = directory.toAbsolutePath().normalize();
@@ -213,6 +223,26 @@ class HostedControlManagerTest {
 		@Override public void destroy() { destroyed = true; alive = false; exit.complete(null); }
 		@Override public void destroyForcibly() { destroy(); }
 		@Override public boolean waitFor(long timeout, TimeUnit unit) { return !alive; }
+		@Override public CompletableFuture<Void> onExit() { return exit; }
+	}
+
+	private static final class StubbornProcess implements HostedControlManager.ManagedProcess {
+		private final AtomicInteger waits = new AtomicInteger();
+		private final CompletableFuture<Void> exit = new CompletableFuture<>();
+		private volatile boolean alive = true;
+		private volatile boolean forciblyDestroyed;
+
+		@Override public boolean isAlive() { return alive; }
+		@Override public void destroy() { }
+		@Override public void destroyForcibly() {
+			forciblyDestroyed = true;
+			alive = false;
+			exit.complete(null);
+		}
+		@Override public boolean waitFor(long timeout, TimeUnit unit) {
+			waits.incrementAndGet();
+			return !alive;
+		}
 		@Override public CompletableFuture<Void> onExit() { return exit; }
 	}
 }

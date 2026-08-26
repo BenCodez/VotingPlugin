@@ -326,16 +326,20 @@ public final class HostedControlManager implements AutoCloseable {
 		}
 	}
 
-	private static void stopProcess(ManagedProcess process, boolean wait) {
+	static void stopProcess(ManagedProcess process, boolean wait) {
 		process.destroy();
 		if (wait) {
 			try {
 				if (!process.waitFor(3, TimeUnit.SECONDS)) {
 					process.destroyForcibly();
+					if (!process.waitFor(3, TimeUnit.SECONDS)) {
+						throw new IllegalStateException("Hosted Control process did not stop after forced termination");
+					}
 				}
 			} catch (InterruptedException e) {
 				process.destroyForcibly();
 				Thread.currentThread().interrupt();
+				throw new IllegalStateException("Interrupted while stopping the hosted Control process", e);
 			}
 		} else {
 			process.onExit().orTimeout(3, TimeUnit.SECONDS).exceptionally(failure -> {
