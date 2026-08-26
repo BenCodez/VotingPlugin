@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import com.bencodez.simpleapi.servercomm.sockets.SocketHandler;
 import com.bencodez.simpleapi.servercomm.mqtt.MqttHandler;
+import com.bencodez.simpleapi.servercomm.mysql.MySqlMessenger;
 import com.bencodez.simpleapi.servercomm.redis.RedisHandler;
 
 class BackendProxyHandlerLifecycleTest {
@@ -54,5 +55,19 @@ class BackendProxyHandlerLifecycleTest {
 
 		verify(mqtt).disconnect();
 		assertNull(handler.getMqttHandler());
+	}
+
+	@Test
+	void releasesMysqlSubscriberBeforeSameMethodReplacement() throws Exception {
+		BackendProxyHandler handler = new BackendProxyHandler(null);
+		MySqlMessenger messenger = mock(MySqlMessenger.class);
+		Field field = BackendProxyHandler.class.getDeclaredField("backendMysqlMessenger");
+		field.setAccessible(true);
+		field.set(handler, messenger);
+
+		handler.releaseMysqlTransport();
+
+		verify(messenger).shutdown();
+		assertNull(handler.getBackendMysqlMessenger());
 	}
 }

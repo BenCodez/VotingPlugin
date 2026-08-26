@@ -76,6 +76,7 @@ public final class BackendConfigurationService {
 					StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
 			if (!revision(readRaw(target, false)).equals(expectedRevision)) throw new StaleRevisionException();
 			move(backupStaging, backup);
+			if (!revision(readRaw(target, false)).equals(expectedRevision)) throw new StaleRevisionException();
 			move(staging, target);
 			installed = true;
 			reload.run(fileName);

@@ -1628,6 +1628,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				&& replacementMethod == BungeeMethod.MQTT) {
 			previous.releaseMqttTransport();
 		}
+		if (previous != null && previous.getMethod() == BungeeMethod.MYSQL
+				&& replacementMethod == BungeeMethod.MYSQL) {
+			previous.releaseMysqlTransport();
+		}
 		BackendProxyHandler replacement = new BackendProxyHandler(this);
 		try {
 			replacement.load();

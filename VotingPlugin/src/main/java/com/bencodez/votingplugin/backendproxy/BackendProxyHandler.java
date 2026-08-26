@@ -276,6 +276,14 @@ public class BackendProxyHandler implements Listener {
 		}
 	}
 
+	/** Stops a MySQL messenger before another subscriber is activated for the same method. */
+	public synchronized void releaseMysqlTransport() {
+		if (backendMysqlMessenger != null) {
+			backendMysqlMessenger.shutdown();
+			backendMysqlMessenger = null;
+		}
+	}
+
 	/**
 	 * Loads and initializes the bungee handler with the configured method.
 	 */
