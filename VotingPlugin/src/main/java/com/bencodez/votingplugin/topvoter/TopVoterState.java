@@ -18,6 +18,7 @@ public class TopVoterState {
 	private LinkedHashMap<YearMonth, LinkedHashMap<TopVoterPlayer, Integer>> previousMonthsTopVoters;
 	private LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>> voteToday;
 	private boolean skullCacheWarmed;
+	private int rankingUpdatesSeen;
 
 	public TopVoterState() {
 		reset();
@@ -32,6 +33,7 @@ public class TopVoterState {
 		previousMonthsTopVoters = new LinkedHashMap<>();
 		voteToday = new LinkedHashMap<>();
 		skullCacheWarmed = false;
+		rankingUpdatesSeen = 0;
 	}
 
 	public LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>> getTopVoters() {
@@ -40,7 +42,12 @@ public class TopVoterState {
 
 	public void setTopVoters(LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>> topVoters) {
 		this.topVoters = topVoters != null ? topVoters : new LinkedHashMap<>();
-		warmSkullCacheOnce();
+		if (!skullCacheWarmed && !this.topVoters.isEmpty()) {
+			rankingUpdatesSeen++;
+			if (rankingUpdatesSeen >= this.topVoters.size()) {
+				warmSkullCacheOnce();
+			}
+		}
 	}
 
 	private void warmSkullCacheOnce() {
