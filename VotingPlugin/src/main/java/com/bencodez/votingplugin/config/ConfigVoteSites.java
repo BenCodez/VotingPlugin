@@ -23,10 +23,6 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.util.ServiceSiteValidator;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
-// TODO: Auto-generated Javadoc
-/**
- * The Class ConfigVoteSites.
- */
 public class ConfigVoteSites extends YMLFile {
 
 	private VotingPluginMain plugin;

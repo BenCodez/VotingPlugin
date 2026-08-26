@@ -4,9 +4,6 @@ package com.bencodez.votingplugin.specialrewards.voteparty;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Random;
-import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -16,25 +13,21 @@ import org.bukkit.event.Listener;
 
 import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
-import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.time.events.DayChangeEvent;
 import com.bencodez.advancedcore.api.time.events.MonthChangeEvent;
 import com.bencodez.advancedcore.api.time.events.WeekChangeEvent;
-import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.simpleapi.messages.MessageAPI;
-import com.bencodez.simpleapi.sql.DataType;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.VotePartyEvent;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
-// TODO: Auto-generated Javadoc
-/**
- * The Class VoteParty.
- */
+/** Coordinates VoteParty voting, reminders, commands, and reset events. */
 public class VoteParty implements Listener {
 
 	private VotingPluginMain plugin;
+	private final VotePartyState state;
+	private final VotePartyRewardHandler rewardHandler;
 
 	/**
 	 * Constructs a new VoteParty.
@@ -43,6 +36,8 @@ public class VoteParty implements Listener {
 	 */
 	public VoteParty(VotingPluginMain plugin) {
 		this.plugin = plugin;
+		this.state = new VotePartyState(plugin);
+		this.rewardHandler = new VotePartyRewardHandler(plugin, state, this);
 	}
 
 	/**
@@ -64,9 +59,6 @@ public class VoteParty implements Listener {
 	public void addVotePlayer(VotingPluginUser user) {
 		String uuid = user.getUUID();
 		List<String> voted = getVotedUsers();
-		if (voted == null) {
-			voted = new ArrayList<>();
-		}
 		if (!voted.contains(uuid)) {
 			voted.add(uuid);
 			setVotedUsers(voted);
@@ -117,7 +109,6 @@ public class VoteParty implements Listener {
 		if (plugin.getSpecialRewardsConfig().isVotePartyOnlyOncePerWeek()) {
 			plugin.getServerData().updateLastVotePartyWeek();
 		}
-
 	}
 
 	/**
@@ -144,7 +135,6 @@ public class VoteParty implements Listener {
 				}
 			}
 		}
-
 	}
 
 	/**
@@ -180,10 +170,7 @@ public class VoteParty implements Listener {
 	 * @return the needed votes
 	 */
 	public int getNeededVotes() {
-		int votesRequired = getVotesRequired();
-		int votes = getTotalVotes();
-		int neededVotes = votesRequired - votes;
-		return neededVotes;
+		return getVotesRequired() - getTotalVotes();
 	}
 
 	/**
@@ -192,15 +179,7 @@ public class VoteParty implements Listener {
 	 * @return random player name or "No Player" if none available
 	 */
 	public String getRandomPlayerName() {
-		ArrayList<String> allPlayers = new ArrayList<>();
-		for (Player players : Bukkit.getOnlinePlayers()) {
-			allPlayers.add(players.getName());
-		}
-		if (allPlayers.size() == 0) {
-			return "No Player";
-		}
-		int random = new Random().nextInt(allPlayers.size());
-		return allPlayers.get(random);
+		return rewardHandler.randomOnlinePlayerName();
 	}
 
 	/**
@@ -209,7 +188,7 @@ public class VoteParty implements Listener {
 	 * @return the total votes
 	 */
 	public int getTotalVotes() {
-		return plugin.getServerData().getData().getInt("VoteParty.Total");
+		return state.getTotalVotes();
 	}
 
 	/**
@@ -218,11 +197,7 @@ public class VoteParty implements Listener {
 	 * @return the voted users
 	 */
 	public List<String> getVotedUsers() {
-		List<String> list = plugin.getServerData().getData().getStringList("VoteParty.Voted");
-		if (list != null) {
-			return list;
-		}
-		return new ArrayList<>();
+		return state.getVotedUsers();
 	}
 
 	/**
@@ -231,12 +206,7 @@ public class VoteParty implements Listener {
 	 * @return votes required including extra requirements
 	 */
 	public int getVotesRequired() {
-		int required = plugin.getSpecialRewardsConfig().getVotePartyVotesRequired();
-		int extra = plugin.getServerData().getVotePartyExtraRequired();
-		if (extra > 0) {
-			return required + extra;
-		}
-		return required;
+		return state.getVotesRequired();
 	}
 
 	/**
@@ -246,10 +216,9 @@ public class VoteParty implements Listener {
 	 * @param useBungee whether to use Bungee processing
 	 */
 	public void giveReward(VotingPluginUser user, boolean useBungee) {
-		if (plugin.getSpecialRewardsConfig().getVotePartyUserVotesRequired() > 0) {
-			if (user.getVotePartyVotes() < plugin.getSpecialRewardsConfig().getVotePartyUserVotesRequired()) {
-				return;
-			}
+		if (plugin.getSpecialRewardsConfig().getVotePartyUserVotesRequired() > 0
+				&& user.getVotePartyVotes() < plugin.getSpecialRewardsConfig().getVotePartyUserVotesRequired()) {
+			return;
 		}
 		giveReward(user, user.isOnline(), useBungee);
 	}
@@ -262,11 +231,7 @@ public class VoteParty implements Listener {
 	 * @param useBungee whether to use Bungee processing
 	 */
 	public void giveReward(VotingPluginUser user, boolean online, boolean useBungee) {
-		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
-				plugin.getSpecialRewardsConfig().getVotePartyRewardsPath()).setOnline(online)
-				.withPlaceHolder("VotesRequired", "" + plugin.getSpecialRewardsConfig().getVotePartyVotesRequired())
-				.withPlaceHolder("FirstVotePartyToday", "" + !plugin.getServerData().isLastVotePartySameDay())
-				.setServer(useBungee).send(user);
+		rewardHandler.giveReward(user, online, useBungee);
 	}
 
 	/**
@@ -276,87 +241,7 @@ public class VoteParty implements Listener {
 	 * @param forceBungee whether to force Bungee processing
 	 */
 	public void giveRewards(VotingPluginUser orgUser, boolean forceBungee) {
-		MiscUtils.getInstance().broadcast(plugin.getSpecialRewardsConfig().getVotePartyBroadcast());
-
-		String player = getRandomPlayerName();
-		for (final String cmd : plugin.getSpecialRewardsConfig().getVotePartyGlobalCommands()) {
-			plugin.getBukkitScheduler().runTask(plugin, new Runnable() {
-
-				@Override
-				public void run() {
-					Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(),
-							PlaceholderUtils.replacePlaceHolder(cmd, "randomonlineplayer", player));
-				}
-
-			});
-		}
-
-		final ArrayList<String> list = plugin.getSpecialRewardsConfig().getVotePartyGlobalRandomCommand();
-		if (list.size() > 0) {
-			plugin.getBukkitScheduler().runTask(plugin, new Runnable() {
-
-				@Override
-				public void run() {
-					Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(), PlaceholderUtils.replacePlaceHolder(
-							list.get(ThreadLocalRandom.current().nextInt(list.size())), "randomonlineplayer", player));
-				}
-
-			});
-		}
-
-		if (plugin.getSpecialRewardsConfig().isVotePartyGiveAllPlayers()) {
-			plugin.debug("Trying to give all players vote party");
-
-			ArrayList<String> alreadyGotten = new ArrayList<>();
-			for (Player p : Bukkit.getOnlinePlayers()) {
-				VotingPluginUser user;
-				if (orgUser != null && orgUser.getJavaUUID().equals(p.getUniqueId())) {
-					user = orgUser;
-				} else {
-					user = plugin.getVotingPluginUserManager().getVotingPluginUser(p);
-					user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
-				}
-
-				if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
-					giveReward(user, forceBungee);
-				}
-				alreadyGotten.add(p.getUniqueId().toString());
-			}
-			for (String uuid : plugin.getVotingPluginUserManager().getAllUUIDs()) {
-				if (!alreadyGotten.contains(uuid)) {
-					VotingPluginUser user;
-					if (orgUser != null && orgUser.getJavaUUID().toString().equals(uuid)) {
-						user = orgUser;
-					} else {
-						user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid));
-						user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
-					}
-
-					if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
-						giveReward(user, forceBungee);
-					}
-				}
-			}
-		} else {
-			plugin.debug("Trying to give all voted players vote party");
-			plugin.debug(ArrayUtils.makeStringList(getVotedUsers()));
-			for (String uuid :
-
-			getVotedUsers()) {
-				VotingPluginUser user;
-				if (orgUser != null && orgUser.getJavaUUID().toString().equals(uuid)) {
-					user = orgUser;
-				} else {
-					user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid));
-					user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
-				}
-				if (!plugin.getSpecialRewardsConfig().isVotePartyGiveOnlinePlayersOnly() || user.isOnline()) {
-					giveReward(user, forceBungee);
-				}
-
-			}
-		}
-
+		rewardHandler.giveRewards(orgUser, forceBungee);
 		reset(false);
 	}
 
@@ -422,14 +307,13 @@ public class VoteParty implements Listener {
 		}
 		setVotedUsers(new ArrayList<>());
 		resetVotePartyCount();
-
 	}
 
 	/**
 	 * Resets the vote party count for all users.
 	 */
 	public void resetVotePartyCount() {
-		plugin.getUserManager().removeAllKeyValues("VotePartyVotes", DataType.INTEGER);
+		state.resetUserCounts();
 	}
 
 	/**
@@ -438,8 +322,7 @@ public class VoteParty implements Listener {
 	 * @param value the new total votes
 	 */
 	public void setTotalVotes(int value) {
-		plugin.getServerData().getData().set("VoteParty.Total", value);
-		plugin.getServerData().saveData();
+		state.setTotalVotes(value);
 	}
 
 	/**
@@ -448,8 +331,7 @@ public class VoteParty implements Listener {
 	 * @param value the new voted users
 	 */
 	public void setVotedUsers(List<String> value) {
-		plugin.getServerData().getData().set("VoteParty.Voted", value);
-		plugin.getServerData().saveData();
+		state.setVotedUsers(value);
 	}
 
 	/**
@@ -471,5 +353,4 @@ public class VoteParty implements Listener {
 			}
 		}
 	}
-
 }

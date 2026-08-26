@@ -10,10 +10,6 @@ import org.bukkit.event.block.BlockBreakEvent;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.signs.SignHandler;
 
-// TODO: Auto-generated Javadoc
-/**
- * The Class BlockBreak.
- */
 public class BlockBreak implements Listener {
 
 	/** The plugin. */

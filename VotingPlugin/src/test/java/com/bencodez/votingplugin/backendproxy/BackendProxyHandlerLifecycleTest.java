@@ -13,18 +13,23 @@ import com.bencodez.simpleapi.servercomm.sockets.SocketHandler;
 import com.bencodez.simpleapi.servercomm.mqtt.MqttHandler;
 import com.bencodez.simpleapi.servercomm.mysql.MySqlMessenger;
 import com.bencodez.simpleapi.servercomm.redis.RedisHandler;
+import com.bencodez.votingplugin.backendproxy.global.BackendGlobalDataSync;
+import com.bencodez.votingplugin.backendproxy.transport.MqttBackendProxyTransport;
+import com.bencodez.votingplugin.backendproxy.transport.MysqlBackendProxyTransport;
+import com.bencodez.votingplugin.backendproxy.transport.RedisBackendProxyTransport;
+import com.bencodez.votingplugin.backendproxy.transport.SocketBackendProxyTransport;
 
 class BackendProxyHandlerLifecycleTest {
 
 	@Test
 	void releasesSocketListenerBeforeSamePortReplacement() throws Exception {
-		BackendProxyHandler handler = new BackendProxyHandler(null);
+		SocketBackendProxyTransport handler = new SocketBackendProxyTransport(null);
 		SocketHandler socket = mock(SocketHandler.class);
-		Field field = BackendProxyHandler.class.getDeclaredField("socketHandler");
+		Field field = SocketBackendProxyTransport.class.getDeclaredField("socketHandler");
 		field.setAccessible(true);
 		field.set(handler, socket);
 
-		handler.releaseSocketListener();
+		handler.prepareForReplacement();
 
 		verify(socket).closeConnection();
 		assertNull(handler.getSocketHandler());
@@ -32,13 +37,13 @@ class BackendProxyHandlerLifecycleTest {
 
 	@Test
 	void releasesRedisSubscriberBeforeSameTopicReplacement() throws Exception {
-		BackendProxyHandler handler = new BackendProxyHandler(null);
+		RedisBackendProxyTransport handler = new RedisBackendProxyTransport(null);
 		RedisHandler redis = mock(RedisHandler.class);
-		Field field = BackendProxyHandler.class.getDeclaredField("redisHandler");
+		Field field = RedisBackendProxyTransport.class.getDeclaredField("redisHandler");
 		field.setAccessible(true);
 		field.set(handler, redis);
 
-		handler.releaseRedisTransport();
+		handler.prepareForReplacement();
 
 		verify(redis).close();
 		assertNull(handler.getRedisHandler());
@@ -46,13 +51,13 @@ class BackendProxyHandlerLifecycleTest {
 
 	@Test
 	void releasesMqttSubscriberBeforeSameMethodReplacement() throws Exception {
-		BackendProxyHandler handler = new BackendProxyHandler(null);
+		MqttBackendProxyTransport handler = new MqttBackendProxyTransport(null);
 		MqttHandler mqtt = mock(MqttHandler.class);
-		Field field = BackendProxyHandler.class.getDeclaredField("mqttHandler");
+		Field field = MqttBackendProxyTransport.class.getDeclaredField("mqttHandler");
 		field.setAccessible(true);
 		field.set(handler, mqtt);
 
-		handler.releaseMqttTransport();
+		handler.prepareForReplacement();
 
 		verify(mqtt).disconnect();
 		assertNull(handler.getMqttHandler());
@@ -60,27 +65,27 @@ class BackendProxyHandlerLifecycleTest {
 
 	@Test
 	void releasesMysqlSubscriberBeforeSameMethodReplacement() throws Exception {
-		BackendProxyHandler handler = new BackendProxyHandler(null);
+		MysqlBackendProxyTransport handler = new MysqlBackendProxyTransport(null);
 		MySqlMessenger messenger = mock(MySqlMessenger.class);
-		Field field = BackendProxyHandler.class.getDeclaredField("backendMysqlMessenger");
+		Field field = MysqlBackendProxyTransport.class.getDeclaredField("messenger");
 		field.setAccessible(true);
 		field.set(handler, messenger);
 
-		handler.releaseMysqlTransport();
+		handler.prepareForReplacement();
 
 		verify(messenger).shutdown();
-		assertNull(handler.getBackendMysqlMessenger());
+		assertNull(handler.getMessenger());
 	}
 
 	@Test
 	void stopsGlobalDataTimerWhenHandlerIsReplaced() throws Exception {
-		BackendProxyHandler handler = new BackendProxyHandler(null);
+		BackendGlobalDataSync handler = new BackendGlobalDataSync(null, null);
 		ScheduledExecutorService timer = mock(ScheduledExecutorService.class);
-		Field field = BackendProxyHandler.class.getDeclaredField("timer");
+		Field field = BackendGlobalDataSync.class.getDeclaredField("timer");
 		field.setAccessible(true);
 		field.set(handler, timer);
 
-		handler.releaseGlobalDataTimer();
+		handler.close();
 
 		verify(timer).shutdownNow();
 		assertNull(handler.getTimer());

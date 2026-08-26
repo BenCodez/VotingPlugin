@@ -82,7 +82,7 @@ public class ShopFile extends YMLFile {
 	public void convertFromGUIFile() {
 		setValue("VoteShop.Enabled", plugin.getGui().getData().getBoolean("CHEST.VoteShopEnabled"));
 		setValue("VoteShop.BackButton", plugin.getGui().getData().getBoolean("CHEST.VoteShopBackButton"));
-		setValue("VoteShop.HideLimitReached", plugin.getGui().getData().getBoolean("CHEST.VoteShopHideLimitedReached"));
+		setValue("VoteShop.HideLimitedReached", plugin.getGui().getData().getBoolean("CHEST.VoteShopHideLimitedReached"));
 		setValue("VoteShop.RequireConfirmation",
 				plugin.getGui().getData().getBoolean("CHEST.VoteShopRequireConfirmation"));
 		setValue("VoteShop.ReopenGUIOnPurchase",

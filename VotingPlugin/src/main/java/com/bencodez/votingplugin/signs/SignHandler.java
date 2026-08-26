@@ -21,10 +21,6 @@ import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
 import lombok.Getter;
 import lombok.Setter;
 
-// TODO: Auto-generated Javadoc
-/**
- * The Class SignHandler.
- */
 public class SignHandler {
 
 	@Getter
@@ -216,13 +212,13 @@ public class SignHandler {
 
 			ArrayList<TopVoterPlayer> users = null;
 			if (data.equalsIgnoreCase("all")) {
-				users = plugin.convertSet(plugin.getTopVoter(TopVoter.AllTime).keySet());
+				users = new ArrayList<>(plugin.getTopVoter(TopVoter.AllTime).keySet());
 			} else if (data.equalsIgnoreCase("monthly")) {
-				users = plugin.convertSet(plugin.getTopVoter(TopVoter.Monthly).keySet());
+				users = new ArrayList<>(plugin.getTopVoter(TopVoter.Monthly).keySet());
 			} else if (data.equalsIgnoreCase("weekly")) {
-				users = plugin.convertSet(plugin.getTopVoter(TopVoter.Weekly).keySet());
+				users = new ArrayList<>(plugin.getTopVoter(TopVoter.Weekly).keySet());
 			} else if (data.equalsIgnoreCase("daily")) {
-				users = plugin.convertSet(plugin.getTopVoter(TopVoter.Daily).keySet());
+				users = new ArrayList<>(plugin.getTopVoter(TopVoter.Daily).keySet());
 			}
 
 			if (users != null && users.size() >= position) {
