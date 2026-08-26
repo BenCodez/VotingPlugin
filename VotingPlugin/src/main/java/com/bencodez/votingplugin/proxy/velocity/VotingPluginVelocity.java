@@ -481,7 +481,7 @@ public class VotingPluginVelocity {
 				// Shutdown old runtime completely (this stops old MySQL pool)
 				try {
 					if (votingPluginProxy != null) {
-						votingPluginProxy.onDisable();
+						votingPluginProxy.onDisable(true);
 					}
 				} catch (Exception ignored) {
 				}

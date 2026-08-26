@@ -396,7 +396,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			// Tear down old runtime (this WILL shutdown MySQL because proxy owns it)
 			try {
 				if (votingPluginProxy != null) {
-					votingPluginProxy.onDisable();
+					votingPluginProxy.onDisable(true);
 				}
 			} catch (Exception ignored) {
 			}

@@ -2296,7 +2296,12 @@ public abstract class VotingPluginProxy {
 	public abstract void logSevere(String message);
 
 	public void onDisable() {
-		stopControlServices(false);
+		onDisable(false);
+	}
+
+	/** Full runtime replacement waits for hosted workers; final proxy stop remains non-blocking. */
+	public void onDisable(boolean waitForHosted) {
+		stopControlServices(waitForHosted);
 		getVoteCacheHandler().saveVoteCache();
 
 		if (getProxyMysqlMessenger() != null) {
