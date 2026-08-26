@@ -45,6 +45,7 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 public class TopVoterHandler implements Listener {
 
 	private VotingPluginMain plugin;
+	private final TopVoterLoader loader;
 
 	/**
 	 * Constructs a new top voter handler.
@@ -52,6 +53,7 @@ public class TopVoterHandler implements Listener {
 	 */
 	public TopVoterHandler(VotingPluginMain plugin) {
 		this.plugin = plugin;
+		this.loader = new TopVoterLoader(plugin);
 	}
 
 	/**
@@ -74,41 +76,9 @@ public class TopVoterHandler implements Listener {
 	 * @return map of top voters and their vote counts
 	 */
 	public LinkedHashMap<TopVoterPlayer, Integer> getMonthlyTopVotersAtTime(LocalDateTime atTime) {
-		// int limitSize = plugin.getConfigFile().getMaxiumNumberOfTopVotersToLoad();
-
-		LinkedHashMap<TopVoterPlayer, Integer> topVoter = new LinkedHashMap<>();
-
-		// forEachUserKeys is callback-based; wait for completion because this method
-		// returns a value.
-		// NOTE: do not call this from the main thread if forEachUserKeys is async.
-		CountDownLatch latch = new CountDownLatch(1);
-
-		plugin.getUserManager().forEachUserKeys((uuid, columns) -> {
-			if (plugin != null && plugin.isEnabled() && uuid != null) {
-				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
-				user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
-				user.updateTempCacheWithColumns(columns);
-
-				int total = user.getTotal(TopVoter.Monthly, atTime);
-				if (total > 0) {
-					topVoter.put(user.getTopVoterPlayer(), total);
-				}
-
-				user.clearTempCache();
-			}
-		}, (count) -> {
-			latch.countDown();
-		});
-
-		try {
-			latch.await(10, TimeUnit.MINUTES);
-		} catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-		}
-
-		return sortByValues(topVoter, false);
-
+		return loader.getMonthlyTopVotersAtTime(atTime);
 	}
+
 
 	/**
 	 * Gets the top voter blacklist.
@@ -126,29 +96,9 @@ public class TopVoterHandler implements Listener {
 	 */
 	public LinkedHashMap<TopVoterPlayer, Integer> getTopVotersOfMonth(YearMonth month,
 			HashMap<UUID, ArrayList<Column>> cols) {
-
-		LinkedHashMap<TopVoterPlayer, Integer> totals = new LinkedHashMap<>();
-		LocalDateTime atTime = month.atDay(15).atTime(0, 0);
-		for (Entry<UUID, ArrayList<Column>> playerData : cols.entrySet()) {
-
-			String uuid = playerData.getKey().toString();
-			if (uuid != null && !uuid.isEmpty()) {
-				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid),
-						false);
-				user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
-				user.updateTempCacheWithColumns(playerData.getValue());
-				int total = 0;
-				total = user.getTotal(TopVoter.Monthly, atTime);
-
-				if (total > 0) {
-					totals.put(user.getTopVoterPlayer(), total);
-				}
-				user.clearTempCache();
-			}
-		}
-
-		return sortByValues(totals, false);
+		return loader.getTopVotersOfMonth(month, cols);
 	}
+
 
 	/**
 	 * Top voters weekly.
@@ -162,7 +112,7 @@ public class TopVoterHandler implements Listener {
 	 */
 	public String[] getTopVotersWeekly() {
 		ArrayList<String> msg = new ArrayList<>();
-		ArrayList<TopVoterPlayer> users = plugin.convertSet(plugin.getTopVoter(TopVoter.Weekly).keySet());
+		ArrayList<TopVoterPlayer> users = new ArrayList<>(plugin.getTopVoter(TopVoter.Weekly).keySet());
 		for (int i = 0; i < users.size(); i++) {
 			String line = plugin.getConfigFile().getFormatCommandsVoteTopLine().replace("%num%", "" + (i + 1))
 					.replace("%player%", users.get(i).getPlayerName())
@@ -174,198 +124,25 @@ public class TopVoterHandler implements Listener {
 	}
 
 	private HashMap<Integer, String> handlePlaces(Set<String> places) {
-		HashMap<Integer, String> place = new HashMap<>();
-		for (String p : places) {
-			String[] data = p.split("-");
-			try {
-				if (data.length > 1) {
-					for (int i = Integer.parseInt(data[0]); i < Integer.parseInt(data[1]); i++) {
-						place.put(i, p);
-					}
-				} else {
-					place.put(Integer.parseInt(data[0]), p);
-				}
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-		}
-
-		return place;
+		return TopVoterRanking.mapAwardPlaces(places);
 	}
+
 
 	/**
 	 * Loads last month's top voter data.
 	 */
 	public void loadLastMonth() {
-		if (!plugin.getGui().isLastMonthGUI()) {
-			return;
-		}
-
-		plugin.getLastMonthTopVoter().clear();
-
-		// If you don’t need insertion order here, HashMap is faster.
-		final HashMap<TopVoterPlayer, Integer> totals = new HashMap<>();
-
-		final LocalDateTime lastMonthTime = plugin.getTimeChecker().getTime().minusMonths(1);
-		final boolean useDateTotalsPrimary = plugin.getConfigFile().isUseMonthDateTotalsAsPrimaryTotal();
-
-		plugin.getUserManager().forEachUserKeys((uuid, columns) -> {
-			if (uuid == null || plugin == null || !plugin.isEnabled()) {
-				return;
-			}
-
-			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
-			user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
-			user.updateTempCacheWithColumns(columns);
-
-			try {
-				final int total = useDateTotalsPrimary ? user.getTotal(TopVoter.Monthly, lastMonthTime)
-						: user.getLastMonthTotal();
-
-				if (total > 0) {
-					// Only build tvp if we actually need it
-					totals.put(user.getTopVoterPlayer(), total);
-				}
-			} finally {
-				user.clearTempCache();
-			}
-
-		}, (count) -> {
-			plugin.getLastMonthTopVoter().putAll(sortByValues(new LinkedHashMap<>(totals), false));
-			plugin.debug("Loaded last month top voters");
-		});
+		loader.loadLastMonth();
 	}
+
 
 	/**
 	 * Loads previous month top voters for all configured months.
 	 */
 	public void loadPreviousMonthTopVoters() {
-		if (!plugin.getConfigFile().isStoreMonthTotalsWithDate()) {
-			return;
-		}
-
-		final LocalDateTime now = plugin.getTimeChecker().getTime();
-		final YearMonth currentYm = YearMonth.of(now.getYear(), now.getMonth());
-
-		// Discover month columns -> YearMonth list + matching column names
-		final ArrayList<YearMonth> months = new ArrayList<>();
-		final ArrayList<String> monthColumns = new ArrayList<>();
-
-		for (String column : plugin.getUserManager().getAllColumns()) {
-			if (!column.startsWith("MonthTotal-")) {
-				continue;
-			}
-
-			// Expected: MonthTotal-MONTH-YEAR (ex: MonthTotal-JANUARY-2025)
-			// Faster than split("-") (regex)
-			final int firstDash = column.indexOf('-'); // after MonthTotal
-			final int secondDash = column.indexOf('-', firstDash + 1); // after MONTH
-			if (firstDash < 0 || secondDash < 0) {
-				continue;
-			}
-
-			final String monthStr = column.substring(firstDash + 1, secondDash);
-			final String yearStr = column.substring(secondDash + 1);
-
-			if (!MessageAPI.isInt(yearStr)) {
-				continue;
-			}
-
-			try {
-				final int year = Integer.parseInt(yearStr);
-				final Month month = Month.valueOf(monthStr);
-				final YearMonth ym = YearMonth.of(year, month);
-
-				if (ym.isBefore(currentYm)) {
-					months.add(ym);
-					monthColumns.add(column);
-				}
-			} catch (Exception ignored) {
-				// bad month string etc.
-			}
-		}
-
-		if (months.isEmpty()) {
-			return;
-		}
-
-		// Sort months AND keep monthColumns aligned
-		{
-			final Integer[] idx = new Integer[months.size()];
-			for (int i = 0; i < idx.length; i++)
-				idx[i] = i;
-
-			java.util.Arrays.sort(idx, (a, b) -> months.get(a).compareTo(months.get(b)));
-
-			final ArrayList<YearMonth> monthsSorted = new ArrayList<>(months.size());
-			final ArrayList<String> colsSorted = new ArrayList<>(months.size());
-			for (int i = 0; i < idx.length; i++) {
-				monthsSorted.add(months.get(idx[i]));
-				colsSorted.add(monthColumns.get(idx[i]));
-			}
-
-			months.clear();
-			months.addAll(monthsSorted);
-
-			monthColumns.clear();
-			monthColumns.addAll(colsSorted);
-		}
-
-		// Prepare destination maps once
-		final LinkedHashMap<YearMonth, LinkedHashMap<TopVoterPlayer, Integer>> prev = plugin
-				.getPreviousMonthsTopVoters();
-		prev.clear();
-
-		for (YearMonth ym : months) {
-			plugin.debug("Loading previous month top voters of " + ym);
-			prev.put(ym, new LinkedHashMap<>());
-		}
-
-		@SuppressWarnings("unchecked")
-		final LinkedHashMap<TopVoterPlayer, Integer>[] monthMaps = new LinkedHashMap[months.size()];
-		for (int i = 0; i < months.size(); i++) {
-			monthMaps[i] = prev.get(months.get(i));
-		}
-
-		// Snapshot arrays for faster access inside the loop
-		final String[] monthColsArr = monthColumns.toArray(new String[0]);
-
-		plugin.getUserManager().forEachUserKeys((uuid, columns) -> {
-			if (uuid == null) {
-				return;
-			}
-
-			final VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
-			user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
-			user.updateTempCacheWithColumns(columns);
-
-			try {
-				TopVoterPlayer tvp = null;
-
-				// Read MonthTotal-* columns directly (FAST)
-				for (int i = 0; i < monthColsArr.length; i++) {
-					final int total = user.getData().getInt(monthColsArr[i], 0, UserDataFetchMode.TEMP_ONLY);
-					if (total > 0) {
-						if (tvp == null) {
-							tvp = user.getTopVoterPlayer();
-						}
-						monthMaps[i].put(tvp, total);
-					}
-				}
-			} finally {
-				user.clearTempCache();
-			}
-
-		}, (count) -> {
-			// Sort each month map once
-			for (int i = 0; i < months.size(); i++) {
-				final YearMonth ym = months.get(i);
-				prev.put(ym, sortByValues(prev.get(ym), false));
-			}
-
-			plugin.extraDebug("Previous Months: " + prev.keySet());
-		});
+		loader.loadPreviousMonthTopVoters();
 	}
+
 
 	/**
 	 * Handles date change events.
@@ -760,36 +537,9 @@ public class TopVoterHandler implements Listener {
 	 */
 	public LinkedHashMap<TopVoterPlayer, Integer> sortByValues(LinkedHashMap<TopVoterPlayer, Integer> map,
 			final boolean order) {
-
-		List<Entry<TopVoterPlayer, Integer>> list = new LinkedList<>(map.entrySet());
-
-		// Sorting the list based on values
-		Collections.sort(list, new Comparator<Entry<TopVoterPlayer, Integer>>() {
-			@Override
-			public int compare(Entry<TopVoterPlayer, Integer> o1, Entry<TopVoterPlayer, Integer> o2) {
-				if (order) {
-					int result = (o1.getValue()).compareTo(o2.getValue());
-					if (result != 0) {
-						return result;
-					}
-					return o2.getKey().getLastVoteTime().compareTo(o1.getKey().getLastVoteTime());
-				}
-				int result = (o2.getValue()).compareTo(o1.getValue());
-				if (result != 0) {
-					return result;
-				}
-				return o1.getKey().getLastVoteTime().compareTo(o2.getKey().getLastVoteTime());
-			}
-		});
-
-		// Maintaining insertion order with the help of LinkedList
-		LinkedHashMap<TopVoterPlayer, Integer> sortedMap = new LinkedHashMap<>();
-		for (Entry<TopVoterPlayer, Integer> entry : list) {
-			sortedMap.put(entry.getKey(), entry.getValue());
-		}
-
-		return sortedMap;
+		return TopVoterRanking.sortByValues(map, order);
 	}
+
 
 	/**
 	 * Stores top voter data to file.
@@ -985,7 +735,7 @@ public class TopVoterHandler implements Listener {
 	 */
 	public String[] topVotersDaily() {
 		ArrayList<String> msg = new ArrayList<>();
-		ArrayList<TopVoterPlayer> users = plugin.convertSet(plugin.getTopVoter(TopVoter.Daily).keySet());
+		ArrayList<TopVoterPlayer> users = new ArrayList<>(plugin.getTopVoter(TopVoter.Daily).keySet());
 		for (int i = 0; i < users.size(); i++) {
 			String line = "%num%: %player%, %votes%";
 			line = line.replace("%num%", "" + (i + 1));
