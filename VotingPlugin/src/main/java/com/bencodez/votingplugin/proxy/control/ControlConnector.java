@@ -220,6 +220,9 @@ public final class ControlConnector implements AutoCloseable {
 			}
 		}
 		if (accepted != null) {
+			if (!contains(accepted, "presence.snapshot")) {
+				throw new ProtocolException();
+			}
 			configurationAccepted = contains(accepted, CONFIGURATION_CAPABILITY);
 		}
 	}

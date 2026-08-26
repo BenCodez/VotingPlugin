@@ -27,8 +27,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.eclipse.paho.client.mqttv3.MqttException;
 
@@ -165,6 +168,12 @@ public abstract class VotingPluginProxy {
 	private final Set<String> pendingBackendRecoverySnapshots = ConcurrentHashMap.newKeySet();
 	private volatile ControlConnector controlConnector;
 	private volatile HostedControlManager hostedControlManager;
+	private final AtomicLong controlServicesGeneration = new AtomicLong();
+	private final ExecutorService controlLifecycleExecutor = Executors.newSingleThreadExecutor(task -> {
+		Thread thread = new Thread(task, "votingplugin-control-lifecycle");
+		thread.setDaemon(true);
+		return thread;
+	});
 
 	public VotingPluginProxy() {
 		enabled = true;
@@ -1567,6 +1576,27 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
+	/** Keeps potentially long hosted-Control handoffs off proxy command/event threads. */
+	private void restartControlServicesAsync() {
+		final long generation = controlServicesGeneration.incrementAndGet();
+		try {
+			controlLifecycleExecutor.execute(() -> {
+				try {
+					synchronized (VotingPluginProxy.this) {
+						if (!enabled || generation != controlServicesGeneration.get()) return;
+						startControlServices();
+					}
+				} catch (RuntimeException failure) {
+					if (generation == controlServicesGeneration.get()) {
+						logSevere("[Control] asynchronous service restart failed: " + failure.getMessage());
+					}
+				}
+			});
+		} catch (RuntimeException failure) {
+			logSevere("[Control] services were not restarted because async scheduling failed");
+		}
+	}
+
 	private synchronized void stopControlServices(boolean waitForHosted) {
 		ControlConnector connector = controlConnector;
 		controlConnector = null;
@@ -2301,6 +2331,9 @@ public abstract class VotingPluginProxy {
 
 	/** Full runtime replacement waits for hosted workers; final proxy stop remains non-blocking. */
 	public void onDisable(boolean waitForHosted) {
+		controlServicesGeneration.incrementAndGet();
+		if (waitForHosted) controlLifecycleExecutor.shutdown();
+		else controlLifecycleExecutor.shutdownNow();
 		stopControlServices(waitForHosted);
 		getVoteCacheHandler().saveVoteCache();
 
@@ -2469,7 +2502,7 @@ public abstract class VotingPluginProxy {
 				getConfig().getVotePartyVotesRequired() + getVoteCacheVotePartyIncreaseVotesRequired());
 		if (restartControlServices) {
 			loadMultiProxySupport();
-			startControlServices();
+			restartControlServicesAsync();
 		}
 	}
 

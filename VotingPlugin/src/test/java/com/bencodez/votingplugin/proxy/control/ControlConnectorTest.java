@@ -93,6 +93,17 @@ class ControlConnectorTest {
 		assertEquals("/api/v1/nodes/register", transport.requests.get(3).path());
 	}
 
+	@Test void explicitHeartbeatCapabilityRevocationIsIncompatibleAndStopsTheCycle() {
+		connector.cycle();
+		transport.nextPrimary = new Response(200,
+				"{\"node\":{\"acceptedCapabilities\":[\"config.proxy-routing.v1\"]}}");
+
+		connector.cycle();
+
+		assertEquals(Status.INCOMPATIBLE, connector.status());
+		assertEquals(3, transport.requests.size());
+	}
+
 	@Test void skipsOperationClaimsWhenConfigurationCapabilityWasNotAccepted() {
 		connector.close();
 		ProxyRoutingConfigurationService service = new ProxyRoutingConfigurationService(new NoOpPlatform());
