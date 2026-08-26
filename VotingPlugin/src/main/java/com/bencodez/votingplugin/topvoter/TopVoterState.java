@@ -5,6 +5,7 @@ import java.time.YearMonth;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 
+import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
 /**
@@ -16,6 +17,7 @@ public class TopVoterState {
 	private LinkedHashMap<TopVoterPlayer, Integer> lastMonthTopVoters;
 	private LinkedHashMap<YearMonth, LinkedHashMap<TopVoterPlayer, Integer>> previousMonthsTopVoters;
 	private LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>> voteToday;
+	private boolean skullCacheWarmed;
 
 	public TopVoterState() {
 		reset();
@@ -29,6 +31,7 @@ public class TopVoterState {
 		lastMonthTopVoters = new LinkedHashMap<>();
 		previousMonthsTopVoters = new LinkedHashMap<>();
 		voteToday = new LinkedHashMap<>();
+		skullCacheWarmed = false;
 	}
 
 	public LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>> getTopVoters() {
@@ -37,6 +40,37 @@ public class TopVoterState {
 
 	public void setTopVoters(LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>> topVoters) {
 		this.topVoters = topVoters != null ? topVoters : new LinkedHashMap<>();
+		warmSkullCacheOnce();
+	}
+
+	private void warmSkullCacheOnce() {
+		if (skullCacheWarmed) {
+			return;
+		}
+		skullCacheWarmed = true;
+
+		VotingPluginMain plugin = VotingPluginMain.plugin;
+		if (plugin == null) {
+			return;
+		}
+
+		new Thread(() -> {
+			if (!plugin.getGui().isChestVoteTopUseSkull()) {
+				return;
+			}
+
+			int maxToLoad = 200;
+			for (TopVoter topVoter : topVoters.keySet()) {
+				int loaded = 0;
+				for (TopVoterPlayer player : getTopVoters(topVoter).keySet()) {
+					plugin.getSkullCacheHandler().addToCache(player.getUuid(), player.getPlayerName());
+					loaded++;
+					if (loaded >= maxToLoad) {
+						break;
+					}
+				}
+			}
+		}).start();
 	}
 
 	public LinkedHashMap<TopVoterPlayer, Integer> getTopVoters(TopVoter topVoter) {
