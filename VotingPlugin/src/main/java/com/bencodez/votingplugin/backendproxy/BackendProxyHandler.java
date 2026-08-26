@@ -252,6 +252,18 @@ public class BackendProxyHandler implements Listener {
 		}
 	}
 
+	/** Stops a shared-topic subscriber before a Redis replacement is activated. */
+	public synchronized void releaseRedisTransport() {
+		if (redisHandler != null) {
+			redisHandler.close();
+			redisHandler = null;
+		}
+		if (redisThread != null) {
+			redisThread.interrupt();
+			redisThread = null;
+		}
+	}
+
 	/**
 	 * Loads and initializes the bungee handler with the configured method.
 	 */
