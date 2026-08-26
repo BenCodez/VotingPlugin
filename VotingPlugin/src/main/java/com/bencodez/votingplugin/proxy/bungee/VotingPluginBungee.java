@@ -398,7 +398,16 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				if (votingPluginProxy != null) {
 					votingPluginProxy.onDisable(true);
 				}
-			} catch (Exception ignored) {
+			} catch (Exception shutdownFailure) {
+				getLogger().severe("Reload aborted because hosted Control did not stop safely");
+				shutdownFailure.printStackTrace();
+				try {
+					schedulePlatformTasks();
+				} catch (Exception taskFailure) {
+					shutdownFailure.addSuppressed(taskFailure);
+				}
+				reloading = false;
+				return;
 			}
 
 			// Recreate runtime

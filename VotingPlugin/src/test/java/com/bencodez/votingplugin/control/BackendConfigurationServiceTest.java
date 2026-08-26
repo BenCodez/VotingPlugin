@@ -86,6 +86,27 @@ class BackendConfigurationServiceTest {
 		assertTrue(service.read("BungeeSettings.yml").content().contains("PLUGINMESSAGING"));
 	}
 
+	@Test void failedReloadDoesNotOverwriteAConcurrentManualEdit() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "Feature: before\n");
+		AtomicInteger reloads = new AtomicInteger();
+		BackendConfigurationService service = new BackendConfigurationService(directory,
+				(BackendConfigurationService.ApplyAction) fileName -> {
+					reloads.incrementAndGet();
+					Files.writeString(config, "Feature: manual\n");
+					throw new IllegalStateException("reload failed");
+				});
+		BackendConfigurationService.Document before = service.read("Config.yml");
+
+		BackendConfigurationService.ApplyFailureException failure = assertThrows(
+				BackendConfigurationService.ApplyFailureException.class,
+				() -> service.apply("Config.yml", "Feature: proposed\n", before.revision()));
+
+		assertFalse(failure.rolledBack());
+		assertEquals(1, reloads.get());
+		assertEquals("Feature: manual\n", Files.readString(config));
+	}
+
 	@Test void quickSetupsProduceReviewableBackendAndVoteSiteChanges() throws Exception {
 		Files.writeString(directory.resolve("BungeeSettings.yml"), "UseBungeecord: false\nServer: PleaseSet\n");
 		Files.writeString(directory.resolve("VoteSites.yml"), "VoteSites: {}\n");

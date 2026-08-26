@@ -82,6 +82,10 @@ public final class BackendConfigurationService {
 			boolean rolledBack = false;
 			if (installed) {
 				try {
+					String installedRevision = revision(preview.resolvedContent());
+					if (!revision(readRaw(target, false)).equals(installedRevision)) {
+						throw new IOException("Managed configuration changed while reload failed; backup was not restored");
+					}
 					Files.copy(backup, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
 					reload.run(fileName);
 					rolledBack = true;

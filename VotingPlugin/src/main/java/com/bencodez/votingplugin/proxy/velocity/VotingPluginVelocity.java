@@ -483,7 +483,15 @@ public class VotingPluginVelocity {
 					if (votingPluginProxy != null) {
 						votingPluginProxy.onDisable(true);
 					}
-				} catch (Exception ignored) {
+				} catch (Exception shutdownFailure) {
+					logger.error("Reload aborted because hosted Control did not stop safely", shutdownFailure);
+					try {
+						scheduleTasks();
+					} catch (Exception taskFailure) {
+						shutdownFailure.addSuppressed(taskFailure);
+					}
+					reloading = false;
+					return;
 				}
 
 				// Recreate runtime
