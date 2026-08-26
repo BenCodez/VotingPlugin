@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.backendproxy;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.lang.reflect.Field;
 import java.util.concurrent.ScheduledExecutorService;
@@ -16,10 +17,32 @@ import com.bencodez.simpleapi.servercomm.redis.RedisHandler;
 import com.bencodez.votingplugin.backendproxy.global.BackendGlobalDataSync;
 import com.bencodez.votingplugin.backendproxy.transport.MqttBackendProxyTransport;
 import com.bencodez.votingplugin.backendproxy.transport.MysqlBackendProxyTransport;
+import com.bencodez.votingplugin.backendproxy.transport.BackendProxyTransport;
+import com.bencodez.votingplugin.backendproxy.transport.BackendProxyTransportManager;
 import com.bencodez.votingplugin.backendproxy.transport.RedisBackendProxyTransport;
 import com.bencodez.votingplugin.backendproxy.transport.SocketBackendProxyTransport;
+import com.bencodez.votingplugin.proxy.BungeeMethod;
 
 class BackendProxyHandlerLifecycleTest {
+
+	@Test
+	void keepsPluginMessageRelayActiveUntilAtomicTargetSwap() throws Exception {
+		BackendProxyHandler handler = new BackendProxyHandler(null);
+		Field method = BackendProxyHandler.class.getDeclaredField("method");
+		method.setAccessible(true);
+		method.set(handler, BungeeMethod.PLUGINMESSAGING);
+		Field managerField = BackendProxyHandler.class.getDeclaredField("transportManager");
+		managerField.setAccessible(true);
+		BackendProxyTransportManager manager = (BackendProxyTransportManager) managerField.get(handler);
+		BackendProxyTransport transport = mock(BackendProxyTransport.class);
+		Field transportField = BackendProxyTransportManager.class.getDeclaredField("transport");
+		transportField.setAccessible(true);
+		transportField.set(manager, transport);
+
+		handler.prepareForReplacement(BungeeMethod.PLUGINMESSAGING);
+
+		verifyNoInteractions(transport);
+	}
 
 	@Test
 	void releasesSocketListenerBeforeSamePortReplacement() throws Exception {

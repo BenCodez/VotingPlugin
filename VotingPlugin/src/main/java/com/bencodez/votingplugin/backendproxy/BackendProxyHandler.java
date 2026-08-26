@@ -98,7 +98,9 @@ public class BackendProxyHandler implements Listener {
 
 	/** Releases a same-method subscriber/listener before its replacement starts. */
 	public void prepareForReplacement(BungeeMethod replacementMethod) {
-		if (method == replacementMethod) transportManager.prepareForReplacement();
+		if (method == replacementMethod && method != BungeeMethod.PLUGINMESSAGING) {
+			transportManager.prepareForReplacement();
+		}
 	}
 
 	/** Fails a configuration apply when its selected transport did not initialize. */
