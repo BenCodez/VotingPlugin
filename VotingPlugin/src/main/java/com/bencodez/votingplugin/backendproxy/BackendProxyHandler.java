@@ -219,6 +219,13 @@ public class BackendProxyHandler implements Listener {
 		if (redisThread != null) {
 			redisThread.interrupt();
 		}
+		if (mqttHandler != null) {
+			try {
+				mqttHandler.disconnect();
+			} catch (Exception e) {
+				plugin.getLogger().warning("Unable to disconnect the replaced MQTT backend transport");
+			}
+		}
 
 		if (socketHandler != null) {
 			socketHandler.closeConnection();

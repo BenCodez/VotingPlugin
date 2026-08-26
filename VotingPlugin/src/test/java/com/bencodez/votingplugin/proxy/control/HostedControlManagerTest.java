@@ -17,6 +17,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.CountDownLatch;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -140,6 +141,39 @@ class HostedControlManagerTest {
 		assertFalse(Files.exists(jar));
 		assertTrue(launcher.processes.isEmpty());
 		manager.close();
+	}
+
+	@Test
+	void closeAndWaitDoesNotReturnUntilArtifactWorkerStops() throws Exception {
+		byte[] release = "release".getBytes(StandardCharsets.UTF_8);
+		Path root = directory.toAbsolutePath().normalize();
+		Path jar = root.resolve("control/control.jar");
+		HostedControlManager.Settings settings = settings(jar, root.resolve("control/data"), true, false,
+				digest(release), 1);
+		CountDownLatch entered = new CountDownLatch(1);
+		CountDownLatch releaseWorker = new CountDownLatch(1);
+		ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+		HostedControlManager manager = new HostedControlManager(settings, executor, (source, target, maximum, timeout) -> {
+			entered.countDown();
+			while (releaseWorker.getCount() > 0) {
+				try {
+					releaseWorker.await();
+				} catch (InterruptedException ignored) { }
+			}
+			Files.write(target, release);
+		}, new FakeLauncher(), (endpoint, timeout) -> true, millis -> { }, System::nanoTime, message -> { });
+		manager.start();
+		assertTrue(entered.await(2, TimeUnit.SECONDS));
+		CountDownLatch closingStarted = new CountDownLatch(1);
+		CompletableFuture<Void> closing = CompletableFuture.runAsync(() -> {
+			closingStarted.countDown();
+			manager.closeAndWait();
+		});
+		assertTrue(closingStarted.await(2, TimeUnit.SECONDS));
+		assertFalse(closing.isDone());
+		releaseWorker.countDown();
+		closing.get(2, TimeUnit.SECONDS);
+		assertTrue(executor.isTerminated());
 	}
 
 	private HostedControlManager.Settings settings(Path jar, Path data, boolean autoDownload, boolean autoUpdate,

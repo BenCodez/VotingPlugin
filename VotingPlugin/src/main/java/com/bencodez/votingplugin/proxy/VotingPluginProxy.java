@@ -2337,6 +2337,13 @@ public abstract class VotingPluginProxy {
 			redisPublisherPool.close();
 			redisPublisherPool = null;
 		}
+		if (mqttHandler != null) {
+			try {
+				mqttHandler.disconnect();
+			} catch (Exception e) {
+				logSevere("Unable to disconnect the MQTT proxy transport");
+			}
+		}
 
 		bungeeTimeChecker.shutdown();
 

@@ -55,6 +55,7 @@ public final class HostedControlManager implements AutoCloseable {
 	private final LongSupplier nanoTime;
 	private final Consumer<String> logger;
 	private final AtomicBoolean workInProgress = new AtomicBoolean();
+	private final Object processLifecycle = new Object();
 	private volatile boolean closed;
 	private volatile Status status = Status.STARTING;
 	private volatile ManagedProcess managedProcess;
@@ -213,9 +214,12 @@ public final class HostedControlManager implements AutoCloseable {
 
 	private ManagedProcess launch(Path artifact) throws IOException {
 		status = Status.STARTING_PROCESS;
-		ManagedProcess process = launcher.launch(settings, artifact);
-		managedProcess = process;
-		return process;
+		synchronized (processLifecycle) {
+			if (closed) throw new IOException("Hosted Control manager is closed");
+			ManagedProcess process = launcher.launch(settings, artifact);
+			managedProcess = process;
+			return process;
+		}
 	}
 
 	private boolean awaitHealthy(ManagedProcess process) throws InterruptedException {
@@ -294,18 +298,32 @@ public final class HostedControlManager implements AutoCloseable {
 	}
 
 	private void close(boolean waitForProcess) {
-		closed = true;
-		status = Status.STOPPED;
+		ManagedProcess process;
+		synchronized (processLifecycle) {
+			closed = true;
+			status = Status.STOPPED;
+			process = managedProcess;
+			managedProcess = null;
+		}
 		Future<?> task = activeTask;
 		if (task != null) {
 			task.cancel(true);
 		}
-		ManagedProcess process = managedProcess;
-		managedProcess = null;
 		if (process != null) {
 			stopProcess(process, waitForProcess);
 		}
 		executor.shutdownNow();
+		if (waitForProcess) {
+			long waitSeconds = (long) settings.downloadTimeoutSeconds() + settings.startupTimeoutSeconds() + 5L;
+			try {
+				if (!executor.awaitTermination(waitSeconds, TimeUnit.SECONDS)) {
+					throw new IllegalStateException("Hosted Control worker did not stop before reload");
+				}
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				throw new IllegalStateException("Interrupted while waiting for the hosted Control worker", e);
+			}
+		}
 	}
 
 	private static void stopProcess(ManagedProcess process, boolean wait) {

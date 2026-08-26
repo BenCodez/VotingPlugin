@@ -7,7 +7,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -36,6 +35,7 @@ import java.util.regex.Pattern;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 import com.bencodez.votingplugin.proxy.presence.BackendPresenceStatus;
+import com.bencodez.votingplugin.util.ControlCredentialFile;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -105,11 +105,7 @@ public final class ControlConnector implements AutoCloseable {
 		if (credentialName == null || credentialName.isBlank()) {
 			throw new IllegalArgumentException("Control.CredentialFile must be set");
 		}
-		Path credentialFile = dataDirectory.resolve(credentialName).normalize();
-		if (!credentialFile.startsWith(dataDirectory)) {
-			throw new IllegalArgumentException("Control.CredentialFile must stay within the plugin data folder");
-		}
-		String credential = readCredential(credentialFile);
+		String credential = ControlCredentialFile.read(dataDirectory, credentialName);
 		String endpointValue = config.getControlEndpoint();
 		if (endpointValue == null || endpointValue.isBlank()) {
 			throw new IllegalArgumentException("Control.Endpoint must be set");
@@ -472,17 +468,6 @@ public final class ControlConnector implements AutoCloseable {
 			request.cancel(true);
 		}
 		transport.close();
-	}
-
-	private static String readCredential(Path path) throws IOException {
-		if (!Files.isRegularFile(path) || Files.size(path) > 512) {
-			throw new IOException("Control credential file is missing or invalid");
-		}
-		String credential = Files.readString(path, StandardCharsets.UTF_8).trim();
-		if (credential.isEmpty() || credential.length() > 512) {
-			throw new IOException("Control credential file is missing or invalid");
-		}
-		return credential;
 	}
 
 	private static JsonObject parseObject(String body) {

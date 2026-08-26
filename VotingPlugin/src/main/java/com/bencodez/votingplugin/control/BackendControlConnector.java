@@ -7,7 +7,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -27,6 +26,7 @@ import java.util.regex.Pattern;
 import org.bukkit.configuration.ConfigurationSection;
 
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.util.ControlCredentialFile;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -88,14 +88,8 @@ public final class BackendControlConnector implements AutoCloseable {
 			throw new IllegalArgumentException("Control.Backend.Endpoint must be an HTTP(S) origin");
 		}
 		Path root = plugin.getDataFolder().toPath().toAbsolutePath().normalize();
-		Path credentialPath = root.resolve(control.getString("CredentialFile", "control-credential.txt")).normalize();
-		if (!credentialPath.startsWith(root) || !Files.isRegularFile(credentialPath) || Files.size(credentialPath) > 512) {
-			throw new IOException("Control backend credential file is missing or invalid");
-		}
-		String credential = Files.readString(credentialPath, StandardCharsets.UTF_8).trim();
-		if (credential.isEmpty() || credential.length() > 512 || credential.indexOf('\r') >= 0 || credential.indexOf('\n') >= 0) {
-			throw new IOException("Control backend credential file is missing or invalid");
-		}
+		String credential = ControlCredentialFile.read(root,
+				control.getString("CredentialFile", "control-credential.txt"));
 		Settings settings = new Settings(nodeId, endpoint,
 				bounded(control.getInt("HeartbeatSeconds", 30), 10, 300, "HeartbeatSeconds"),
 				bounded(control.getInt("ConnectTimeoutMillis", 3000), 500, 30000, "ConnectTimeoutMillis"),
