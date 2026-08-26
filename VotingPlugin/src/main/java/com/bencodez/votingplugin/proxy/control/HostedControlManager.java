@@ -33,6 +33,7 @@ import java.util.function.LongSupplier;
 
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
+import com.bencodez.votingplugin.util.BoundedHttpBodyHandler;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -627,7 +628,7 @@ public final class HostedControlManager implements AutoCloseable {
 		}
 	}
 
-	private static final class JdkHealthProbe implements HealthProbe {
+	static final class JdkHealthProbe implements HealthProbe {
 		private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2))
 				.followRedirects(HttpClient.Redirect.NEVER).build();
 
@@ -636,23 +637,17 @@ public final class HostedControlManager implements AutoCloseable {
 			try {
 				HttpRequest request = HttpRequest.newBuilder(endpoint.resolve("/api/v1/health"))
 						.timeout(timeout).header("Accept", "application/json").GET().build();
-				HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
-				try (InputStream input = response.body()) {
-					byte[] bytes = input.readNBytes(64 * 1024 + 1);
-					if (response.statusCode() != 200 || bytes.length > 64 * 1024) {
-						return false;
-					}
-					JsonElement parsed = JsonParser.parseString(new String(bytes, java.nio.charset.StandardCharsets.UTF_8));
-					if (!parsed.isJsonObject()) {
-						return false;
-					}
-					JsonObject object = parsed.getAsJsonObject();
-					JsonObject identity = object.has("identity") && object.get("identity").isJsonObject()
-							? object.getAsJsonObject("identity") : null;
-					return object.has("status") && "ok".equals(object.get("status").getAsString())
-							&& identity != null && identity.has("protocolVersion")
-							&& identity.get("protocolVersion").getAsInt() == EXPECTED_PROTOCOL_VERSION;
-				}
+				HttpResponse<byte[]> response = client.send(request, new BoundedHttpBodyHandler(64 * 1024));
+				if (response.statusCode() != 200) return false;
+				JsonElement parsed = JsonParser.parseString(
+						new String(response.body(), java.nio.charset.StandardCharsets.UTF_8));
+				if (!parsed.isJsonObject()) return false;
+				JsonObject object = parsed.getAsJsonObject();
+				JsonObject identity = object.has("identity") && object.get("identity").isJsonObject()
+						? object.getAsJsonObject("identity") : null;
+				return object.has("status") && "ok".equals(object.get("status").getAsString())
+						&& identity != null && identity.has("protocolVersion")
+						&& identity.get("protocolVersion").getAsInt() == EXPECTED_PROTOCOL_VERSION;
 			} catch (Exception e) {
 				return false;
 			}

@@ -1,7 +1,6 @@
 package com.bencodez.votingplugin.proxy.control;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -35,6 +34,7 @@ import java.util.regex.Pattern;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 import com.bencodez.votingplugin.proxy.presence.BackendPresenceStatus;
+import com.bencodez.votingplugin.util.BoundedHttpBodyHandler;
 import com.bencodez.votingplugin.util.ControlCredentialFile;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -592,20 +592,9 @@ public final class ControlConnector implements AutoCloseable {
 					.header("Authorization", "Bearer " + credential)
 					.method(request.method, HttpRequest.BodyPublishers.ofString(request.body, StandardCharsets.UTF_8))
 					.build();
-			return client.sendAsync(httpRequest, HttpResponse.BodyHandlers.ofInputStream())
-					.thenApply(response -> new Response(response.statusCode(), readBounded(response.body())));
-		}
-
-		private static String readBounded(InputStream input) {
-			try (input) {
-				byte[] bytes = input.readNBytes(MAX_RESPONSE_BYTES + 1);
-				if (bytes.length > MAX_RESPONSE_BYTES) {
-					throw new MalformedResponseException();
-				}
-				return new String(bytes, StandardCharsets.UTF_8);
-			} catch (IOException e) {
-				throw new CompletionException(new UnavailableException());
-			}
+			return client.sendAsync(httpRequest, new BoundedHttpBodyHandler(MAX_RESPONSE_BYTES))
+					.thenApply(response -> new Response(response.statusCode(),
+							new String(response.body(), StandardCharsets.UTF_8)));
 		}
 	}
 

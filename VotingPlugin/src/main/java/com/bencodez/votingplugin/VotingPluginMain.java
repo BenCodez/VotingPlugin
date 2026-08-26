@@ -66,6 +66,7 @@ import com.bencodez.simpleapi.updater.Updater;
 import com.bencodez.votingplugin.broadcast.BroadcastHandler;
 import com.bencodez.votingplugin.backendproxy.BackendProxyHandler;
 import com.bencodez.votingplugin.broadcast.BroadcastSettings;
+import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.commands.CommandLoader;
 import com.bencodez.votingplugin.commands.executers.CommandAdminVote;
 import com.bencodez.votingplugin.commands.executers.CommandVote;
@@ -1613,6 +1614,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			backendProxyHandler = null;
 			if (previous != null) previous.close();
 			return;
+		}
+		BungeeMethod replacementMethod = BungeeMethod.getByName(bungeeSettings.getBungeeMethod());
+		if (previous != null && previous.getMethod() == BungeeMethod.SOCKETS
+				&& replacementMethod == BungeeMethod.SOCKETS) {
+			previous.releaseSocketListener();
 		}
 		BackendProxyHandler replacement = new BackendProxyHandler(this);
 		try {

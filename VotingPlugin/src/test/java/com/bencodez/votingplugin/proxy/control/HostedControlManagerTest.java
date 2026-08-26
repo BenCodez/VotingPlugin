@@ -78,6 +78,37 @@ class HostedControlManagerTest {
 	}
 
 	@Test
+	void hostedHealthBodyReadCannotOutliveProbeTimeout() throws Exception {
+		CountDownLatch bodyStarted = new CountDownLatch(1);
+		CountDownLatch releaseBody = new CountDownLatch(1);
+		HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+		server.createContext("/api/v1/health", exchange -> {
+			exchange.sendResponseHeaders(200, 0);
+			try (var body = exchange.getResponseBody()) {
+				body.write("{\"status\":\"ok\"".getBytes(StandardCharsets.UTF_8));
+				body.flush();
+				bodyStarted.countDown();
+				try {
+					releaseBody.await();
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+				}
+			}
+		});
+		server.start();
+		try {
+			URI endpoint = URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/");
+			long started = System.nanoTime();
+			assertFalse(new HostedControlManager.JdkHealthProbe().isHealthy(endpoint, Duration.ofMillis(250)));
+			assertTrue(bodyStarted.await(2, TimeUnit.SECONDS));
+			assertTrue(Duration.ofNanos(System.nanoTime() - started).compareTo(Duration.ofSeconds(2)) < 0);
+		} finally {
+			releaseBody.countDown();
+			server.stop(0);
+		}
+	}
+
+	@Test
 	void missingPinnedArtifactIsStagedVerifiedAndStarted() throws Exception {
 		byte[] release = "signed-release-content".getBytes(StandardCharsets.UTF_8);
 		Path root = directory.toAbsolutePath().normalize();

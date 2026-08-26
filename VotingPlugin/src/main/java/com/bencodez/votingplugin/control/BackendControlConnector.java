@@ -1,7 +1,6 @@
 package com.bencodez.votingplugin.control;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -26,6 +25,7 @@ import java.util.regex.Pattern;
 import org.bukkit.configuration.ConfigurationSection;
 
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.util.BoundedHttpBodyHandler;
 import com.bencodez.votingplugin.util.ControlCredentialFile;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -262,12 +262,8 @@ public final class BackendControlConnector implements AutoCloseable {
 				.timeout(Duration.ofMillis(settings.requestTimeoutMillis())).header("Content-Type", "application/json")
 				.header("Authorization", "Bearer " + credential)
 				.method(method, HttpRequest.BodyPublishers.ofString(body.toString(), StandardCharsets.UTF_8)).build();
-		HttpResponse<InputStream> response = http.send(request, HttpResponse.BodyHandlers.ofInputStream());
-		try (InputStream input = response.body()) {
-			byte[] bytes = input.readNBytes(MAX_RESPONSE_BYTES + 1);
-			if (bytes.length > MAX_RESPONSE_BYTES) throw new ConnectorException("response too large");
-			return new Response(response.statusCode(), new String(bytes, StandardCharsets.UTF_8));
-		}
+		HttpResponse<byte[]> response = http.send(request, new BoundedHttpBodyHandler(MAX_RESPONSE_BYTES));
+		return new Response(response.statusCode(), new String(response.body(), StandardCharsets.UTF_8));
 	}
 
 	private static JsonObject requireObject(Response response, int... statuses) {

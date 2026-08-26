@@ -244,6 +244,14 @@ public class BackendProxyHandler implements Listener {
 		}
 	}
 
+	/** Releases the listening port before a same-address socket replacement is created. */
+	public synchronized void releaseSocketListener() {
+		if (socketHandler != null) {
+			socketHandler.closeConnection();
+			socketHandler = null;
+		}
+	}
+
 	/**
 	 * Loads and initializes the bungee handler with the configured method.
 	 */
