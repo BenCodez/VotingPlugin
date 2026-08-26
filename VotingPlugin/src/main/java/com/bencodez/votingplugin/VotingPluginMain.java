@@ -20,6 +20,7 @@ import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -56,6 +57,8 @@ import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.UserStartup;
 import com.bencodez.simpleapi.file.YMLConfig;
+import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
+import com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessageHandler;
 import com.bencodez.simpleapi.skull.SkullCache;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigSpigot;
 import com.bencodez.simpleapi.time.ParsedDuration;
@@ -146,6 +149,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private BackendProxyHandler backendProxyHandler;
+	private final AtomicReference<GlobalMessageHandler> backendPluginMessageTarget = new AtomicReference<>();
+	private PluginMessageHandler backendPluginMessageRelay;
 
 	@Getter
 	private BungeeSettings bungeeSettings;
@@ -1619,6 +1624,25 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 		backendProxyHandler = replacement;
 		if (previous != null) previous.close();
+	}
+
+	/** Keeps one plugin-message listener for the plugin lifetime and atomically swaps its active backend handler. */
+	public synchronized void activateBackendPluginMessageHandler(GlobalMessageHandler target) {
+		backendPluginMessageTarget.set(target);
+		if (backendPluginMessageRelay == null) {
+			backendPluginMessageRelay = new PluginMessageHandler() {
+				@Override
+				public void onReceive(com.bencodez.simpleapi.servercomm.codec.JsonEnvelope envelope) {
+					GlobalMessageHandler current = backendPluginMessageTarget.get();
+					if (current != null) current.onMessage(envelope);
+				}
+			};
+			getPluginMessaging().add(backendPluginMessageRelay);
+		}
+	}
+
+	public void deactivateBackendPluginMessageHandler(GlobalMessageHandler target) {
+		backendPluginMessageTarget.compareAndSet(target, null);
 	}
 
 	private void migrateVoteBroadcast(Config configFile) {

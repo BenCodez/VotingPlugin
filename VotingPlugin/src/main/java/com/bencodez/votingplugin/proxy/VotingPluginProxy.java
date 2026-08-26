@@ -2326,6 +2326,9 @@ public abstract class VotingPluginProxy {
 		if (socketHandler != null) {
 			socketHandler.closeConnection();
 		}
+		HashMap<String, ClientHandler> clients = clientHandles;
+		clientHandles = null;
+		stopSocketClients(clients);
 
 		if (redisHandler != null) {
 			redisHandler.close();
@@ -2475,15 +2478,34 @@ public abstract class VotingPluginProxy {
 
 	private void rebuildSocketClients() {
 		HashMap<String, ClientHandler> rebuilt = new HashMap<>();
-		List<String> blocked = getConfig().getBlockedServers();
-		for (String server : getConfig().getSpigotServers()) {
-			if (blocked.contains(server)) continue;
-			Map<String, Object> data = getConfig().getSpigotServerConfiguration(server);
-			String host = data.containsKey("Host") ? (String) data.get("Host") : "";
-			int port = data.containsKey("Port") ? (int) data.get("Port") : 1298;
-			rebuilt.put(server, new ClientHandler(host, port, encryptionHandler, getConfig().getDebug()));
+		try {
+			List<String> blocked = getConfig().getBlockedServers();
+			for (String server : getConfig().getSpigotServers()) {
+				if (blocked.contains(server)) continue;
+				Map<String, Object> data = getConfig().getSpigotServerConfiguration(server);
+				String host = data.containsKey("Host") ? (String) data.get("Host") : "";
+				int port = data.containsKey("Port") ? (int) data.get("Port") : 1298;
+				rebuilt.put(server, new ClientHandler(host, port, encryptionHandler, getConfig().getDebug()));
+			}
+		} catch (RuntimeException failure) {
+			stopSocketClients(rebuilt);
+			throw failure;
 		}
+		HashMap<String, ClientHandler> previous = clientHandles;
 		clientHandles = rebuilt;
+		stopSocketClients(previous);
+	}
+
+	static void stopSocketClients(Map<String, ClientHandler> clients) {
+		if (clients == null) return;
+		for (ClientHandler client : clients.values()) {
+			if (client == null) continue;
+			try {
+				client.stopConnection();
+			} catch (RuntimeException ignored) {
+				// Best effort: one broken client must not prevent the remaining sockets from closing.
+			}
+		}
 	}
 
 	private void warnUnsupportedDedicatedVotingProxyMode() {

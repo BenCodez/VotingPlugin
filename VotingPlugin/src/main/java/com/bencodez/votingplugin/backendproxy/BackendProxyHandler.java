@@ -33,7 +33,6 @@ import com.bencodez.simpleapi.servercomm.global.GlobalMessageListener;
 import com.bencodez.simpleapi.servercomm.mqtt.MqttHandler;
 import com.bencodez.simpleapi.servercomm.mqtt.MqttServerComm;
 import com.bencodez.simpleapi.servercomm.mysql.MySqlMessenger;
-import com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessageHandler;
 import com.bencodez.simpleapi.servercomm.redis.RedisHandler;
 import com.bencodez.simpleapi.servercomm.redis.RedisListener;
 import com.bencodez.simpleapi.servercomm.sockets.ClientHandler;
@@ -205,6 +204,8 @@ public class BackendProxyHandler implements Listener {
 	 * Closes and cleans up all handlers and connections.
 	 */
 	public void close() {
+		plugin.deactivateBackendPluginMessageHandler(globalMessageHandler);
+
 		if (presenceManager != null) {
 			presenceManager.stop();
 		}
@@ -508,12 +509,7 @@ public class BackendProxyHandler implements Listener {
 
 			plugin.getPluginMessaging().setDebug(plugin.getBungeeSettings().isBungeeDebug());
 
-			plugin.getPluginMessaging().add(new PluginMessageHandler() {
-				@Override
-				public void onReceive(JsonEnvelope envelope) {
-					globalMessageHandler.onMessage(envelope);
-				}
-			});
+			plugin.activateBackendPluginMessageHandler(globalMessageHandler);
 
 		} else if (method.equals(BungeeMethod.SOCKETS)) {
 			encryptionHandler = new EncryptionHandler(plugin.getName(), new File(plugin.getDataFolder(), "secretkey.key"));
