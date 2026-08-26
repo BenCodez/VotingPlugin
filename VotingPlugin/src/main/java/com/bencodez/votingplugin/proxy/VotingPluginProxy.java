@@ -168,6 +168,7 @@ public abstract class VotingPluginProxy {
 	private final Set<String> pendingBackendRecoverySnapshots = ConcurrentHashMap.newKeySet();
 	private volatile ControlConnector controlConnector;
 	private volatile HostedControlManager hostedControlManager;
+	private final Object controlLifecycleLock = new Object();
 	private final AtomicLong controlServicesGeneration = new AtomicLong();
 	private final ExecutorService controlLifecycleExecutor = Executors.newSingleThreadExecutor(task -> {
 		Thread thread = new Thread(task, "votingplugin-control-lifecycle");
@@ -1549,30 +1550,10 @@ public abstract class VotingPluginProxy {
 		debug("VotingPluginProxy loaded, ONLINEMODE: " + getConfig().getOnlineMode());
 	}
 
-	private synchronized void startControlServices() {
-		stopControlServices(true);
-		if (getConfig().getControlHostedEnabled()) {
-			try {
-				hostedControlManager = HostedControlManager.create(this);
-				if (hostedControlManager != null) {
-					hostedControlManager.start();
-				}
-			} catch (IllegalArgumentException e) {
-				hostedControlManager = null;
-				logSevere("[Control Host] configuration is invalid; VotingPlugin remains unaffected");
-			}
-		}
-		if (!getConfig().getControlEnabled()) {
-			return;
-		}
-		try {
-			controlConnector = ControlConnector.create(this);
-			if (controlConnector != null) {
-				controlConnector.start();
-			}
-		} catch (IOException | IllegalArgumentException e) {
-			controlConnector = null;
-			logSevere("[Control] connector configuration or credential is invalid; voting remains unaffected");
+	private void startControlServices() {
+		synchronized (controlLifecycleLock) {
+			stopControlServicesLocked(true);
+			startControlServicesLocked();
 		}
 	}
 
@@ -1582,9 +1563,10 @@ public abstract class VotingPluginProxy {
 		try {
 			controlLifecycleExecutor.execute(() -> {
 				try {
-					synchronized (VotingPluginProxy.this) {
+					synchronized (controlLifecycleLock) {
 						if (!enabled || generation != controlServicesGeneration.get()) return;
-						startControlServices();
+						stopControlServicesLocked(true);
+						startControlServicesLocked();
 					}
 				} catch (RuntimeException failure) {
 					if (generation == controlServicesGeneration.get()) {
@@ -1597,7 +1579,33 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
-	private synchronized void stopControlServices(boolean waitForHosted) {
+	private void stopControlServices(boolean waitForHosted) {
+		synchronized (controlLifecycleLock) {
+			stopControlServicesLocked(waitForHosted);
+		}
+	}
+
+	private void startControlServicesLocked() {
+		if (getConfig().getControlHostedEnabled()) {
+			try {
+				hostedControlManager = HostedControlManager.create(this);
+				if (hostedControlManager != null) hostedControlManager.start();
+			} catch (IllegalArgumentException e) {
+				hostedControlManager = null;
+				logSevere("[Control Host] configuration is invalid; VotingPlugin remains unaffected");
+			}
+		}
+		if (!getConfig().getControlEnabled()) return;
+		try {
+			controlConnector = ControlConnector.create(this);
+			if (controlConnector != null) controlConnector.start();
+		} catch (IOException | IllegalArgumentException e) {
+			controlConnector = null;
+			logSevere("[Control] connector configuration or credential is invalid; voting remains unaffected");
+		}
+	}
+
+	private void stopControlServicesLocked(boolean waitForHosted) {
 		ControlConnector connector = controlConnector;
 		controlConnector = null;
 		if (connector != null) {

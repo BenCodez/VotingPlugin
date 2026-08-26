@@ -6,9 +6,12 @@ import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.nio.channels.Channels;
+import java.nio.channels.SeekableByteChannel;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -63,13 +66,16 @@ public final class BackendConfigurationService {
 		Preview preview = preview(fileName, proposedContent, current);
 		Path backup = target.resolveSibling(target.getFileName() + ".control-backup");
 		Path staging = Files.createTempFile(target.getParent(), ".control-", ".yml");
+		Path backupStaging = Files.createTempFile(target.getParent(), ".control-backup-", ".yml");
 		boolean installed = false;
 		try {
 			Files.writeString(staging, preview.resolvedContent(), StandardCharsets.UTF_8,
 					StandardOpenOption.TRUNCATE_EXISTING);
-			Files.writeString(backup, current, StandardCharsets.UTF_8, StandardOpenOption.CREATE,
+			rejectSymbolicBackup(backup);
+			Files.writeString(backupStaging, current, StandardCharsets.UTF_8,
 					StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
 			if (!revision(readRaw(target, false)).equals(expectedRevision)) throw new StaleRevisionException();
+			move(backupStaging, backup);
 			move(staging, target);
 			installed = true;
 			reload.run(fileName);
@@ -86,7 +92,7 @@ public final class BackendConfigurationService {
 					if (!revision(readRaw(target, false)).equals(installedRevision)) {
 						throw new IOException("Managed configuration changed while reload failed; backup was not restored");
 					}
-					Files.copy(backup, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+					copyBackupNoFollow(backup, target);
 					reload.run(fileName);
 					rolledBack = true;
 				} catch (Exception rollbackFailure) {
@@ -94,6 +100,27 @@ public final class BackendConfigurationService {
 				}
 			}
 			throw new ApplyFailureException(rolledBack, failure);
+		} finally {
+			Files.deleteIfExists(staging);
+			Files.deleteIfExists(backupStaging);
+		}
+	}
+
+	private static void rejectSymbolicBackup(Path backup) throws IOException {
+		if (Files.isSymbolicLink(backup)) throw new IOException("Symbolic configuration backups are not allowed");
+	}
+
+	private static void copyBackupNoFollow(Path backup, Path target) throws IOException {
+		if (!Files.isRegularFile(backup, LinkOption.NOFOLLOW_LINKS)) {
+			throw new IOException("Control backup is unavailable or unsafe");
+		}
+		Path staging = Files.createTempFile(target.getParent(), ".control-rollback-", ".yml");
+		try {
+			try (SeekableByteChannel source = Files.newByteChannel(backup,
+					Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS))) {
+				Files.copy(Channels.newInputStream(source), staging, StandardCopyOption.REPLACE_EXISTING);
+			}
+			move(staging, target);
 		} finally {
 			Files.deleteIfExists(staging);
 		}

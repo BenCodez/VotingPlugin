@@ -66,6 +66,21 @@ class BackendConfigurationServiceTest {
 		assertThrows(java.io.IOException.class, () -> service.read("VoteSites/External.yml"));
 	}
 
+	@Test void rejectsSymlinkedBackupSidecarsWithoutTouchingTheirTargets() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Path external = directory.resolve("external-backup.yml");
+		Files.writeString(config, "Feature: false\n");
+		Files.writeString(external, "external: preserved\n");
+		Files.createSymbolicLink(directory.resolve("Config.yml.control-backup"), external);
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		String revision = service.read("Config.yml").revision();
+
+		assertThrows(java.io.IOException.class,
+				() -> service.apply("Config.yml", "Feature: true\n", revision));
+		assertEquals("external: preserved\n", Files.readString(external));
+		assertEquals("Feature: false\n", Files.readString(config));
+	}
+
 	@Test void transportValidationFailureRollsBackBeforeApplyReturns() throws Exception {
 		Path settings = directory.resolve("BungeeSettings.yml");
 		Files.writeString(settings, "UseBungeecord: false\nBungeeMethod: PLUGINMESSAGING\n");
