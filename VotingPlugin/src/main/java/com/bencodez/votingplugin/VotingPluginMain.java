@@ -1624,6 +1624,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				&& replacementMethod == BungeeMethod.REDIS) {
 			previous.releaseRedisTransport();
 		}
+		if (previous != null && previous.getMethod() == BungeeMethod.MQTT
+				&& replacementMethod == BungeeMethod.MQTT) {
+			previous.releaseMqttTransport();
+		}
 		BackendProxyHandler replacement = new BackendProxyHandler(this);
 		try {
 			replacement.load();

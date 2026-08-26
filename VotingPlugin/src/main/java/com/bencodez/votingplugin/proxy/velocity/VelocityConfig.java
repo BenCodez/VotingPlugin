@@ -26,6 +26,7 @@ import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
  */
 public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxyConfig {
 	private final File configurationFile;
+	private byte[] controlInstalledSnapshot;
 
 	/**
 	 * Constructs a new Velocity configuration.
@@ -55,6 +56,7 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 			latest.node("SendVotesToAllServers").set(sendVotesToAllServers);
 			latest.node("BlockedServers").setList(String.class, List.copyOf(blockedServers));
 			YamlConfigurationLoader.builder().path(stage).build().save(latest);
+			byte[] installedSnapshot = Files.readAllBytes(stage);
 			if (!java.util.Arrays.equals(sourceSnapshot, Files.readAllBytes(target))) {
 				throw new StaleControlRevisionException();
 			}
@@ -67,6 +69,7 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 				throw new StaleControlRevisionException();
 			}
 			atomicReplace(stage, target);
+			controlInstalledSnapshot = installedSnapshot;
 		} finally {
 			Files.deleteIfExists(stage);
 			if (backupStage != null) Files.deleteIfExists(backupStage);
@@ -83,9 +86,14 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 		Path target = configurationFile.toPath();
 		Path backup = target.resolveSibling(target.getFileName() + ".control-backup");
 		if (!Files.isRegularFile(backup)) throw new IOException("Control backup is unavailable");
+		if (controlInstalledSnapshot == null
+				|| !java.util.Arrays.equals(controlInstalledSnapshot, Files.readAllBytes(target))) {
+			throw new StaleControlRevisionException();
+		}
 		Path stage = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".control-rollback");
 		Files.copy(backup, stage, StandardCopyOption.REPLACE_EXISTING);
 		atomicReplace(stage, target);
+		controlInstalledSnapshot = null;
 		loadControlConfiguration();
 	}
 

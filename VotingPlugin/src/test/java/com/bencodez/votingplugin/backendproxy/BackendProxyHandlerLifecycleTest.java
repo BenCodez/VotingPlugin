@@ -9,6 +9,7 @@ import java.lang.reflect.Field;
 import org.junit.jupiter.api.Test;
 
 import com.bencodez.simpleapi.servercomm.sockets.SocketHandler;
+import com.bencodez.simpleapi.servercomm.mqtt.MqttHandler;
 import com.bencodez.simpleapi.servercomm.redis.RedisHandler;
 
 class BackendProxyHandlerLifecycleTest {
@@ -39,5 +40,19 @@ class BackendProxyHandlerLifecycleTest {
 
 		verify(redis).close();
 		assertNull(handler.getRedisHandler());
+	}
+
+	@Test
+	void releasesMqttSubscriberBeforeSameMethodReplacement() throws Exception {
+		BackendProxyHandler handler = new BackendProxyHandler(null);
+		MqttHandler mqtt = mock(MqttHandler.class);
+		Field field = BackendProxyHandler.class.getDeclaredField("mqttHandler");
+		field.setAccessible(true);
+		field.set(handler, mqtt);
+
+		handler.releaseMqttTransport();
+
+		verify(mqtt).disconnect();
+		assertNull(handler.getMqttHandler());
 	}
 }

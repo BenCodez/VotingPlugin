@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.proxy.control;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
@@ -52,12 +53,31 @@ class ProxyRoutingConfigurationServiceTest {
 		assertTrue(platform.reloadCalls == 0);
 	}
 
+	@Test
+	void failedReloadPreservesAConcurrentEditDetectedByTheAdapter() {
+		ProxyRoutingConfiguration current = new ProxyRoutingConfiguration(false, List.of());
+		FakePlatform platform = new FakePlatform();
+		platform.current = current;
+		platform.manualEditDuringFailedReload = true;
+
+		ProxyRoutingConfigurationService.ApplyFailureException failure = assertThrows(
+				ProxyRoutingConfigurationService.ApplyFailureException.class,
+				() -> new ProxyRoutingConfigurationService(platform).apply(
+						new ProxyRoutingConfiguration(true, List.of()), current.revision()));
+
+		assertFalse(failure.rolledBack());
+		assertFalse(platform.rolledBack);
+		assertTrue(platform.current.blockedServers().contains("manual-edit"));
+	}
+
 	private static final class FakePlatform implements ProxyRoutingConfigurationService.Platform {
 		private ProxyRoutingConfiguration current = new ProxyRoutingConfiguration(false, List.of());
 		private Set<String> configuredServers = Set.of();
 		private boolean failFirstReload;
 		private boolean rolledBack;
 		private boolean staleDuringPersist;
+		private boolean manualEditDuringFailedReload;
+		private ProxyRoutingConfiguration installed;
 		private int reloadCalls;
 
 		@Override public ProxyRoutingConfiguration read() { return current; }
@@ -65,10 +85,18 @@ class ProxyRoutingConfigurationServiceTest {
 		@Override public void persist(ProxyRoutingConfiguration proposal, String expectedRevision) throws IOException {
 			if (staleDuringPersist) throw new com.bencodez.votingplugin.proxy.VotingPluginProxyConfig.StaleControlRevisionException();
 			current = proposal;
+			installed = proposal;
 		}
-		@Override public void rollback() { rolledBack = true; }
+		@Override public void rollback() throws IOException {
+			if (!current.equals(installed)) throw new IOException("active configuration changed");
+			rolledBack = true;
+		}
 		@Override public void reload() throws Exception {
 			reloadCalls++;
+			if (manualEditDuringFailedReload && reloadCalls == 1) {
+				current = new ProxyRoutingConfiguration(false, List.of("manual-edit"));
+				throw new IOException("invalid reloaded configuration");
+			}
 			if (failFirstReload && reloadCalls == 1) throw new IOException("invalid reloaded configuration");
 		}
 	}

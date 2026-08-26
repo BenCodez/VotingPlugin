@@ -25,6 +25,7 @@ import net.md_5.bungee.config.YamlConfiguration;
  */
 public class BungeeConfig implements VotingPluginProxyConfig {
 	private VotingPluginBungee bungee;
+	private byte[] controlInstalledSnapshot;
 	@Getter
 	private Configuration data;
 
@@ -531,6 +532,7 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 			latest.set("SendVotesToAllServers", sendVotesToAllServers);
 			latest.set("BlockedServers", List.copyOf(blockedServers));
 			ConfigurationProvider.getProvider(YamlConfiguration.class).save(latest, stage.toFile());
+			byte[] installedSnapshot = Files.readAllBytes(stage);
 			if (!java.util.Arrays.equals(sourceSnapshot, Files.readAllBytes(target))) {
 				throw new StaleControlRevisionException();
 			}
@@ -543,6 +545,7 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 				throw new StaleControlRevisionException();
 			}
 			atomicReplace(stage, target);
+			controlInstalledSnapshot = installedSnapshot;
 			data = latest;
 		} finally {
 			Files.deleteIfExists(stage);
@@ -560,9 +563,14 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 		Path target = new File(bungee.getDataFolder(), "bungeeconfig.yml").toPath();
 		Path backup = target.resolveSibling(target.getFileName() + ".control-backup");
 		if (!Files.isRegularFile(backup)) throw new IOException("Control backup is unavailable");
+		if (controlInstalledSnapshot == null
+				|| !java.util.Arrays.equals(controlInstalledSnapshot, Files.readAllBytes(target))) {
+			throw new StaleControlRevisionException();
+		}
 		Path stage = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".control-rollback");
 		Files.copy(backup, stage, StandardCopyOption.REPLACE_EXISTING);
 		atomicReplace(stage, target);
+		controlInstalledSnapshot = null;
 		data = ConfigurationProvider.getProvider(YamlConfiguration.class).load(target.toFile());
 	}
 

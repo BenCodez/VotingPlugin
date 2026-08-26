@@ -264,6 +264,18 @@ public class BackendProxyHandler implements Listener {
 		}
 	}
 
+	/** Stops an MQTT subscriber before another client is connected for the same backend method. */
+	public synchronized void releaseMqttTransport() {
+		if (mqttHandler != null) {
+			try {
+				mqttHandler.disconnect();
+			} catch (Exception e) {
+				throw new IllegalStateException("Unable to disconnect the replaced MQTT backend transport", e);
+			}
+			mqttHandler = null;
+		}
+	}
+
 	/**
 	 * Loads and initializes the bungee handler with the configured method.
 	 */
