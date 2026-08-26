@@ -22,10 +22,6 @@ import com.bencodez.votingplugin.topvoter.TopVoter;
 
 import lombok.Getter;
 
-// TODO: Auto-generated Javadoc
-/**
- * The Class Config.
- */
 public class Config extends YMLFile {
 
 	@ConfigDataBoolean(path = "AddCustomCommands")

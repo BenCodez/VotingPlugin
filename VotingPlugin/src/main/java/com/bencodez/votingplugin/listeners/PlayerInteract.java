@@ -14,10 +14,6 @@ import com.bencodez.simpleapi.player.PlayerUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.signs.SignHandler;
 
-// TODO: Auto-generated Javadoc
-/**
- * The Class PlayerInteract.
- */
 public class PlayerInteract implements Listener {
 
 	/** The plugin. */

@@ -1,12 +1,6 @@
 package com.bencodez.votingplugin;
 
 import java.io.File;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.net.URL;
-import java.security.CodeSource;
-import java.time.Instant;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
@@ -20,15 +14,12 @@ import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
 import org.bukkit.permissions.Permission;
@@ -53,15 +44,15 @@ import com.bencodez.advancedcore.api.rewards.injected.RewardInjectInt;
 import com.bencodez.advancedcore.api.rewards.injected.RewardInjectValidator;
 import com.bencodez.advancedcore.api.rewards.injectedrequirement.RequirementInjectConfigurationSection;
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
-import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.UserStartup;
 import com.bencodez.simpleapi.file.YMLConfig;
-import com.bencodez.simpleapi.skull.SkullCache;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigSpigot;
 import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.simpleapi.updater.Updater;
 import com.bencodez.votingplugin.broadcast.BroadcastHandler;
 import com.bencodez.votingplugin.backendproxy.BackendProxyHandler;
+import com.bencodez.votingplugin.backgroundtask.VotingPluginBackgroundTask;
+import com.bencodez.votingplugin.backendproxy.BackendProxyRewardRegistrar;
 import com.bencodez.votingplugin.broadcast.BroadcastSettings;
 import com.bencodez.votingplugin.commands.CommandLoader;
 import com.bencodez.votingplugin.commands.executers.CommandAdminVote;
@@ -76,10 +67,12 @@ import com.bencodez.votingplugin.config.ConfigVoteSites;
 import com.bencodez.votingplugin.config.GUI;
 import com.bencodez.votingplugin.config.ShopFile;
 import com.bencodez.votingplugin.config.SpecialRewardsConfig;
+import com.bencodez.votingplugin.config.VotingPluginConfigHealth;
 import com.bencodez.votingplugin.cooldown.CoolDownCheck;
 import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.discord.DiscordHandler;
 import com.bencodez.votingplugin.listeners.BlockBreak;
+import com.bencodez.votingplugin.integration.votifier.VotifierIntegration;
 import com.bencodez.votingplugin.listeners.PlayerInteract;
 import com.bencodez.votingplugin.listeners.PlayerJoinEvent;
 import com.bencodez.votingplugin.listeners.PlayerVoteListener;
@@ -90,44 +83,53 @@ import com.bencodez.votingplugin.placeholders.MVdWPlaceholders;
 import com.bencodez.votingplugin.placeholders.PlaceHolders;
 import com.bencodez.votingplugin.placeholders.VotingPluginExpansion;
 import com.bencodez.votingplugin.presets.VoteSitePresetSetupHandler;
+import com.bencodez.votingplugin.rewards.VotingPluginRewardRegistrar;
 import com.bencodez.votingplugin.servicesites.ServiceSiteHandler;
 import com.bencodez.votingplugin.signs.Signs;
 import com.bencodez.votingplugin.specialrewards.NameMCLikeCheckerTask;
 import com.bencodez.votingplugin.specialrewards.SpecialRewards;
+import com.bencodez.votingplugin.specialrewards.SpecialRewardsRewardRegistrar;
+import com.bencodez.votingplugin.specialrewards.votemilestones.VoteMilestoneRewardRegistrar;
 import com.bencodez.votingplugin.specialrewards.votemilestones.VoteMilestonesManager;
 import com.bencodez.votingplugin.specialrewards.voteparty.VoteParty;
+import com.bencodez.votingplugin.specialrewards.voteparty.VotePartyRewardRegistrar;
 import com.bencodez.votingplugin.specialrewards.votestreak.VoteStreakHandler;
+import com.bencodez.votingplugin.specialrewards.votestreak.VoteStreakRewardRegistrar;
 import com.bencodez.votingplugin.test.VoteTester;
 import com.bencodez.votingplugin.timequeue.TimeQueueHandler;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterHandler;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
 import com.bencodez.votingplugin.topvoter.TopVoterState;
+import com.bencodez.votingplugin.topvoter.TopVoterRewardRegistrar;
 import com.bencodez.votingplugin.updater.CheckUpdate;
 import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.version.VotingPluginVersionInfo;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable;
+import com.bencodez.votingplugin.votelog.VoteLogManager;
 import com.bencodez.votingplugin.votelog.listeners.PlayerPostVoteLoggerListener;
 import com.bencodez.votingplugin.votelog.listeners.PlayerSpecialRewardLoggerListener;
 import com.bencodez.votingplugin.votelog.listeners.VoteMilestoneVoteLogListener;
 import com.bencodez.votingplugin.votelog.listeners.VoteShopPurchaseLoggerListener;
 import com.bencodez.votingplugin.votereminding.VoteRemindersLegacyMigrator;
 import com.bencodez.votingplugin.votereminding.VoteRemindersListener;
+import com.bencodez.votingplugin.votereminding.VoteReminderRewardRegistrar;
 import com.bencodez.votingplugin.votereminding.VoteRemindersManager;
 import com.bencodez.votingplugin.votereminding.store.UserDataVoteReminderCooldownStore;
 import com.bencodez.votingplugin.voteshop.VoteShopManager;
+import com.bencodez.votingplugin.voteshop.VoteShopRewardRegistrar;
 import com.bencodez.votingplugin.votesites.VoteSite;
 import com.bencodez.votingplugin.votesites.VoteSiteManager;
+import com.bencodez.votingplugin.votesites.VoteSiteRewardRegistrar;
 import com.bencodez.votingplugin.webhook.VotingPluginWebhooks;
+import com.bencodez.votingplugin.webhook.VotingPluginWebhookManager;
 import com.bencodez.votingplugin.webhook.WebhookRewardEntry;
 import com.bencodez.votingplugin.webhook.WebhookRewardParser;
 
 import lombok.Getter;
 import lombok.Setter;
 
-/**
- * The Class Main.
- */
 public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
@@ -182,11 +184,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private VoteTester voteTester;
 
-	@Getter
-	private String profile = "";
 
-	@Getter
-	private String buildNumber = "NOTSET";
 
 	@Getter
 	private ServerData serverData;
@@ -201,8 +199,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private SpecialRewardsConfig specialRewardsConfig;
 
-	@Getter
-	private String time = "";
 
 	@Getter
 	private TopVoterHandler topVoterHandler;
@@ -210,16 +206,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private TopVoterState topVoterState;
 
-	@Getter
-	@Setter
-	private boolean update = false;
 
 	@Getter
 	@Setter
 	private Updater updater;
 
-	@Getter
-	private boolean updateStarted = false;
 
 	@Getter
 	@Setter
@@ -238,10 +229,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private VoteSiteManager voteSiteManager;
 
-	private boolean votifierLoaded = true;
 
-	@Getter
-	private boolean ymlError = false;
 
 	@Getter
 	private ScheduledExecutorService voteTimer;
@@ -255,10 +243,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private ServiceSiteHandler serviceSiteHandler;
 
-	@Getter
-	private long lastBackgroundTaskTimeTaken = -1;
 
-	private boolean firstTimeLoaded = false;
 
 	@Getter
 	@Setter
@@ -266,6 +251,32 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private DiscordHandler discordHandler;
+
+	private VotingPluginBackgroundTask backgroundTask;
+	private VotingPluginVersionInfo versionInfo;
+	private VotingPluginConfigHealth configHealth;
+	private VotifierIntegration votifierIntegration;
+	private VoteLogManager voteLogManager;
+	private VotingPluginWebhookManager webhookManager;
+
+	public boolean isUpdate() {
+		return backgroundTask != null && backgroundTask.isRequested();
+	}
+
+	public void setUpdate(boolean update) {
+		if (backgroundTask == null) {
+			backgroundTask = new VotingPluginBackgroundTask(this);
+		}
+		backgroundTask.setRequested(update);
+	}
+
+	public boolean isUpdateStarted() {
+		return backgroundTask != null && backgroundTask.isRunning();
+	}
+
+	public long getLastBackgroundTaskTimeTaken() {
+		return backgroundTask == null ? -1 : backgroundTask.getLastRunTimeSeconds();
+	}
 
 	public void addDirectlyDefinedRewards(DirectlyDefinedReward directlyDefinedReward) {
 		getRewardHandler().addDirectlyDefined(directlyDefinedReward);
@@ -281,69 +292,60 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 	}
 
-	public void checkFirstTimeLoaded() {
-		if (!firstTimeLoaded) {
 
-			if (getGui().isChestVoteTopUseSkull()) {
-				int maxToLoad = 200;
-				for (TopVoter top : getTopVoter().keySet()) {
-					int num = 1;
-					Set<TopVoterPlayer> players = getTopVoter().get(top).keySet();
-					for (TopVoterPlayer p : players) {
-						if (num <= maxToLoad) {
-							getSkullCacheHandler().addToCache(p.getUuid(), p.getPlayerName());
-						}
-						num++;
-					}
-				}
-			}
-		}
-		firstTimeLoaded = true;
-	}
 
 	/**
 	 * Check votifier.
 	 */
 	private void checkVotifier() {
-		try {
-			Class.forName("com.vexsoftware.votifier.model.VotifierEvent");
-		} catch (ClassNotFoundException e) {
-			if (!bungeeSettings.isUseBungeecoord()) {
-				plugin.getLogger()
-						.warning("No VotifierEvent found, install Votifier, NuVotifier, or another Votifier plugin");
-			} else {
-				plugin.debug("No VotifierEvent found, but usebungeecoord enabled");
-			}
-			votifierLoaded = false;
+		if (votifierIntegration == null) {
+			votifierIntegration = new VotifierIntegration(this);
 		}
+		votifierIntegration.detect();
 	}
 
+
 	private void checkYMLError() {
-		if (configFile.isFailedToRead() || configVoteSites.isFailedToRead() || specialRewardsConfig.isFailedToRead()
-				|| bungeeSettings.isFailedToRead() || gui.isFailedToRead()) {
-			ymlError = true;
-		} else {
-			ymlError = false;
+		if (configHealth == null) {
+			configHealth = new VotingPluginConfigHealth(this);
 		}
+		configHealth.check();
+	}
 
-		if (ymlError) {
-			plugin.getBukkitScheduler().runTaskLaterAsynchronously(plugin, new Runnable() {
 
-				@Override
-				public void run() {
-					plugin.getLogger().severe("Failed to load a file, check startup log");
-				}
-			}, 1);
-		}
+	public String getProfile() {
+		return versionInfo == null ? "" : versionInfo.getProfile();
+	}
+
+	public String getBuildNumber() {
+		return versionInfo == null ? "NOTSET" : versionInfo.getBuildNumber();
+	}
+
+	public String getTime() {
+		return versionInfo == null ? "" : versionInfo.getTime();
+	}
+
+	public boolean isYmlError() {
+		return configHealth != null && configHealth.hasYmlError();
+	}
+
+	public boolean isVotifierLoaded() {
+		return votifierIntegration == null || votifierIntegration.isLoaded();
+	}
+
+	public VoteLogMysqlTable getVoteLogMysqlTable() {
+		return voteLogManager == null ? null : voteLogManager.getVoteLogMysqlTable();
+	}
+
+	public VotingPluginWebhooks getWebhooks() {
+		return webhookManager == null ? null : webhookManager.getWebhooks();
 	}
 
 	public void loadVoteShopManager() {
 		voteShopManager = new VoteShopManager(this);
 	}
 
-	public ArrayList<TopVoterPlayer> convertSet(Set<TopVoterPlayer> set) {
-		return new ArrayList<>(set);
-	}
+
 
 	@Override
 	public FileConfiguration getConfig() {
@@ -394,33 +396,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		return getVotingPluginUserManager().getVotingPluginUser(uuid);
 	}
 
-	private YamlConfiguration getVersionFile() {
-		try {
-			CodeSource src = this.getClass().getProtectionDomain().getCodeSource();
-			if (src != null) {
-				URL jar = src.getLocation();
-				ZipInputStream zip = null;
-				zip = new ZipInputStream(jar.openStream());
-				while (true) {
-					ZipEntry e = zip.getNextEntry();
-					if (e != null) {
-						String name = e.getName();
-						if (name.equals("votingpluginversion.yml")) {
-							Reader defConfigStream = new InputStreamReader(zip);
-							if (defConfigStream != null) {
-								YamlConfiguration defConfig = YamlConfiguration.loadConfiguration(defConfigStream);
-								defConfigStream.close();
-								return defConfig;
-							}
-						}
-					}
-				}
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		return null;
-	}
+
 
 	@Deprecated
 	public VoteSite getVoteSite(String site, boolean checkEnabled) {
@@ -469,729 +445,20 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 *
 	 * @param rewardPath full configuration path to the rewards section
 	 */
-	private void addSpecialRewardsEditorPath(String rewardPath) {
-		addDirectlyDefinedRewards(new DirectlyDefinedReward(rewardPath) {
-
-			@Override
-			public void setData(String path, Object value) {
-				plugin.getSpecialRewardsConfig().getData().set(path, value);
-			}
-
-			@Override
-			public void createSection(String key) {
-				plugin.getSpecialRewardsConfig().getData().createSection(key);
-			}
-
-			@Override
-			public ConfigurationSection getFileData() {
-				return plugin.getSpecialRewardsConfig().getData();
-			}
-
-			@Override
-			public void save() {
-				plugin.getSpecialRewardsConfig().saveData();
-			}
-		});
-	}
-
 	public void loadDirectlyDefined() {
 		getRewardHandler().getDirectlyDefinedRewards().clear();
 
-		addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteReminderOptions.Defaults.Rewards") {
-
-			@Override
-			public void createSection(String key) {
-				getConfigFile().saveData();
-			}
-
-			@Override
-			public ConfigurationSection getFileData() {
-				return getConfigFile().getData();
-			}
-
-			@Override
-			public void save() {
-				getConfigFile().saveData();
-			}
-
-			@Override
-			public void setData(String path, Object value) {
-				getConfigFile().setValue(path, value);
-			}
-		});
-
-		ConfigurationSection sec = getConfigFile().getData().getConfigurationSection("VoteReminders");
-
-		if (sec != null) {
-			for (String key : sec.getKeys(false)) {
-				addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteReminders." + key + ".Rewards") {
-
-					@Override
-					public void createSection(String key) {
-						getConfigFile().saveData();
-					}
-
-					@Override
-					public ConfigurationSection getFileData() {
-						return getConfigFile().getData();
-					}
-
-					@Override
-					public void save() {
-						getConfigFile().saveData();
-					}
-
-					@Override
-					public void setData(String path, Object value) {
-						getConfigFile().setValue(path, value);
-					}
-				});
-			}
-		}
-
-		// vote cooldown ended
-		addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteCoolDownEndedReward") {
-
-			@Override
-			public void createSection(String key) {
-				getSpecialRewardsConfig().createSection(key);
-			}
-
-			@Override
-			public ConfigurationSection getFileData() {
-				return getSpecialRewardsConfig().getData();
-			}
-
-			@Override
-			public void save() {
-				getSpecialRewardsConfig().saveData();
-			}
-
-			@Override
-			public void setData(String path, Object value) {
-				getSpecialRewardsConfig().setValue(path, value);
-			}
-		});
-
-		// any site rewards
-		addDirectlyDefinedRewards(new DirectlyDefinedReward("AnySiteRewards") {
-
-			@Override
-			public void createSection(String key) {
-				getSpecialRewardsConfig().createSection(key);
-			}
-
-			@Override
-			public ConfigurationSection getFileData() {
-				return getSpecialRewardsConfig().getData();
-			}
-
-			@Override
-			public void save() {
-				getSpecialRewardsConfig().saveData();
-			}
-
-			@Override
-			public void setData(String path, Object value) {
-				getSpecialRewardsConfig().setValue(path, value);
-			}
-		});
-
-		addDirectlyDefinedRewards(new DirectlyDefinedReward("EverySiteReward") {
-
-			@Override
-			public void createSection(String key) {
-				getConfigVoteSites().createSection(key);
-			}
-
-			@Override
-			public ConfigurationSection getFileData() {
-				return getConfigVoteSites().getData();
-			}
-
-			@Override
-			public void save() {
-				getConfigVoteSites().saveData();
-			}
-
-			@Override
-			public void setData(String path, Object value) {
-				getConfigVoteSites().setValue(path, value);
-			}
-		});
-
-		// login rewards
-		addDirectlyDefinedRewards(new DirectlyDefinedReward("LoginRewards") {
-
-			@Override
-			public void createSection(String key) {
-				getSpecialRewardsConfig().createSection(key);
-			}
-
-			@Override
-			public ConfigurationSection getFileData() {
-				return getSpecialRewardsConfig().getData();
-			}
-
-			@Override
-			public void save() {
-				getSpecialRewardsConfig().saveData();
-			}
-
-			@Override
-			public void setData(String path, Object value) {
-				getSpecialRewardsConfig().setValue(path, value);
-			}
-		});
-
-		// logout rewards
-		addDirectlyDefinedRewards(new DirectlyDefinedReward("LogoutRewards") {
-
-			@Override
-			public void createSection(String key) {
-				getSpecialRewardsConfig().createSection(key);
-			}
-
-			@Override
-			public ConfigurationSection getFileData() {
-				return getSpecialRewardsConfig().getData();
-			}
-
-			@Override
-			public void save() {
-				getSpecialRewardsConfig().saveData();
-			}
-
-			@Override
-			public void setData(String path, Object value) {
-				getSpecialRewardsConfig().setValue(path, value);
-			}
-		});
-
-		// VoteParty
-		addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteParty.Rewards") {
-
-			@Override
-			public void createSection(String key) {
-				getSpecialRewardsConfig().createSection(key);
-			}
-
-			@Override
-			public ConfigurationSection getFileData() {
-				return getSpecialRewardsConfig().getData();
-			}
-
-			@Override
-			public void save() {
-				getSpecialRewardsConfig().saveData();
-			}
-
-			@Override
-			public void setData(String path, Object value) {
-				getSpecialRewardsConfig().setValue(path, value);
-			}
-		});
-
-		// legacy reward handlng for migrator
-		if (getSpecialRewardsConfig().getData().getConfigurationSection("Cumulative") != null) {
-			for (String num : getSpecialRewardsConfig().getData().getConfigurationSection("Cumulative")
-					.getKeys(false)) {
-				addDirectlyDefinedRewards(new DirectlyDefinedReward("Cumulative." + num + ".Rewards") {
-
-					@Override
-					public void createSection(String key) {
-						getSpecialRewardsConfig().createSection(key);
-					}
-
-					@Override
-					public ConfigurationSection getFileData() {
-						return getSpecialRewardsConfig().getData();
-					}
-
-					@Override
-					public void save() {
-						getSpecialRewardsConfig().saveData();
-					}
-
-					@Override
-					public void setData(String path, Object value) {
-						getSpecialRewardsConfig().setValue(path, value);
-					}
-				});
-			}
-		}
-
-		if (getSpecialRewardsConfig().getData().getConfigurationSection("Milestones") != null) {
-			for (String num : getSpecialRewardsConfig().getData().getConfigurationSection("Milestones")
-					.getKeys(false)) {
-				addDirectlyDefinedRewards(new DirectlyDefinedReward("Milestones." + num + ".Rewards") {
-
-					@Override
-					public void createSection(String key) {
-						getSpecialRewardsConfig().createSection(key);
-					}
-
-					@Override
-					public ConfigurationSection getFileData() {
-						return getSpecialRewardsConfig().getData();
-					}
-
-					@Override
-					public void save() {
-						getSpecialRewardsConfig().saveData();
-					}
-
-					@Override
-					public void setData(String path, Object value) {
-						getSpecialRewardsConfig().setValue(path, value);
-					}
-				});
-			}
-		}
-
-		// legacy for migrator
-		addDirectlyDefinedRewards(new DirectlyDefinedReward("AllSites") {
-
-			@Override
-			public void createSection(String key) {
-				getSpecialRewardsConfig().createSection(key);
-			}
-
-			@Override
-			public ConfigurationSection getFileData() {
-				return getSpecialRewardsConfig().getData();
-			}
-
-			@Override
-			public void save() {
-				getSpecialRewardsConfig().saveData();
-			}
-
-			@Override
-			public void setData(String path, Object value) {
-				getSpecialRewardsConfig().setValue(path, value);
-			}
-		});
-
-		// legacy for migrator
-		addDirectlyDefinedRewards(new DirectlyDefinedReward("AlmostAllSites") {
-
-			@Override
-			public void createSection(String key) {
-				getSpecialRewardsConfig().createSection(key);
-			}
-
-			@Override
-			public ConfigurationSection getFileData() {
-				return getSpecialRewardsConfig().getData();
-			}
-
-			@Override
-			public void save() {
-				getSpecialRewardsConfig().saveData();
-			}
-
-			@Override
-			public void setData(String path, Object value) {
-				getSpecialRewardsConfig().setValue(path, value);
-			}
-		});
-
-		// legacy for migrator
-		addDirectlyDefinedRewards(new DirectlyDefinedReward("FirstVote") {
-
-			@Override
-			public void createSection(String key) {
-				getSpecialRewardsConfig().createSection(key);
-			}
-
-			@Override
-			public ConfigurationSection getFileData() {
-				return getSpecialRewardsConfig().getData();
-			}
-
-			@Override
-			public void save() {
-				getSpecialRewardsConfig().saveData();
-			}
-
-			@Override
-			public void setData(String path, Object value) {
-				getSpecialRewardsConfig().setValue(path, value);
-			}
-		});
-
-		// legacy for migrator
-		addDirectlyDefinedRewards(new DirectlyDefinedReward("FirstVoteToday") {
-
-			@Override
-			public void createSection(String key) {
-				getSpecialRewardsConfig().createSection(key);
-			}
-
-			@Override
-			public ConfigurationSection getFileData() {
-				return getSpecialRewardsConfig().getData();
-			}
-
-			@Override
-			public void save() {
-				getSpecialRewardsConfig().saveData();
-			}
-
-			@Override
-			public void setData(String path, Object value) {
-				getSpecialRewardsConfig().setValue(path, value);
-			}
-		});
-
-		// VoteSites
-		for (VoteSite site : plugin.getVoteSiteManager().getVoteSites()) {
-			addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteSites." + site.getKey() + ".Rewards") {
-
-				@Override
-				public void createSection(String key) {
-					getConfigVoteSites().createSection(key);
-				}
-
-				@Override
-				public ConfigurationSection getFileData() {
-					return getConfigVoteSites().getData();
-				}
-
-				@Override
-				public void save() {
-					getConfigVoteSites().saveData();
-				}
-
-				@Override
-				public void setData(String path, Object value) {
-					getConfigVoteSites().setValue(path, value);
-				}
-			});
-
-			addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteSites." + site.getKey() + ".WaitUntilVoteDelayRewards") {
-
-				@Override
-				public void createSection(String key) {
-					getConfigVoteSites().createSection(key);
-				}
-
-				@Override
-				public ConfigurationSection getFileData() {
-					return getConfigVoteSites().getData();
-				}
-
-				@Override
-				public void save() {
-					getConfigVoteSites().saveData();
-				}
-
-				@Override
-				public void setData(String path, Object value) {
-					getConfigVoteSites().setValue(path, value);
-				}
-			});
-
-			addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteSites." + site.getKey() + ".CoolDownEndRewards") {
-
-				@Override
-				public void createSection(String key) {
-					getConfigVoteSites().createSection(key);
-				}
-
-				@Override
-				public ConfigurationSection getFileData() {
-					return getConfigVoteSites().getData();
-				}
-
-				@Override
-				public void save() {
-					getConfigVoteSites().saveData();
-				}
-
-				@Override
-				public void setData(String path, Object value) {
-					getConfigVoteSites().setValue(path, value);
-				}
-			});
-		}
-		
-		ConfigurationSection voteMilestonesSection = plugin.getSpecialRewardsConfig().getData()
-				.getConfigurationSection("VoteMilestones");
-
-		if (voteMilestonesSection != null) {
-			for (String milestoneId : voteMilestonesSection.getKeys(false)) {
-				addSpecialRewardsEditorPath("VoteMilestones." + milestoneId + ".Rewards");
-			}
-		}
-		
-		// VoteStreak rewards
-		ConfigurationSection voteStreaksSection = plugin.getSpecialRewardsConfig().getData()
-				.getConfigurationSection("VoteStreaks");
-
-		if (voteStreaksSection != null) {
-			for (String streakId : voteStreaksSection.getKeys(false)) {
-				if ("ProgressGroups".equalsIgnoreCase(streakId)) {
-					continue;
-				}
-
-				ConfigurationSection streakSection = voteStreaksSection.getConfigurationSection(streakId);
-				if (streakSection == null) {
-					continue;
-				}
-
-				addSpecialRewardsEditorPath("VoteStreaks." + streakId + ".Rewards");
-			}
-
-			ConfigurationSection progressGroupsSection = voteStreaksSection.getConfigurationSection("ProgressGroups");
-
-			if (progressGroupsSection != null) {
-				for (String groupId : progressGroupsSection.getKeys(false)) {
-					ConfigurationSection groupSection = progressGroupsSection.getConfigurationSection(groupId);
-					if (groupSection == null) {
-						continue;
-					}
-
-					addSpecialRewardsEditorPath(
-							"VoteStreaks.ProgressGroups." + groupId + ".LostRewards");
-
-					ConfigurationSection milestonesSection = groupSection.getConfigurationSection("Milestones");
-					if (milestonesSection == null) {
-						continue;
-					}
-
-					for (String milestoneId : milestonesSection.getKeys(false)) {
-						ConfigurationSection milestoneSection = milestonesSection
-								.getConfigurationSection(milestoneId);
-
-						if (milestoneSection == null) {
-							continue;
-						}
-
-						addSpecialRewardsEditorPath(
-								"VoteStreaks.ProgressGroups." + groupId
-										+ ".Milestones." + milestoneId + ".Rewards");
-					}
-				}
-			}
-		}
-
-		// vote streaks, old way
-		String[] types = new String[] { "Day", "Week", "Month" };
-		for (String type : types) {
-			for (String str : plugin.getSpecialRewardsConfig().getVoteStreakVotes(type)) {
-				addDirectlyDefinedRewards(new DirectlyDefinedReward("VoteStreak." + type + "." + str + ".Rewards") {
-
-					@Override
-					public void createSection(String key) {
-						getSpecialRewardsConfig().createSection(key);
-					}
-
-					@Override
-					public ConfigurationSection getFileData() {
-						return getSpecialRewardsConfig().getData();
-					}
-
-					@Override
-					public void save() {
-						getSpecialRewardsConfig().saveData();
-					}
-
-					@Override
-					public void setData(String path, Object value) {
-						getSpecialRewardsConfig().setValue(path, value);
-					}
-				});
-			}
-		}
-
-		for (String path : plugin.getSpecialRewardsConfig().getMonthlyPossibleRewardPlaces()) {
-			addDirectlyDefinedRewards(
-					new DirectlyDefinedReward(plugin.getSpecialRewardsConfig().getMonthlyAwardRewardsPath(path)) {
-
-						@Override
-						public void createSection(String key) {
-							getSpecialRewardsConfig().createSection(key);
-						}
-
-						@Override
-						public ConfigurationSection getFileData() {
-							return getSpecialRewardsConfig().getData();
-						}
-
-						@Override
-						public void save() {
-							getSpecialRewardsConfig().saveData();
-						}
-
-						@Override
-						public void setData(String path, Object value) {
-							getSpecialRewardsConfig().setValue(path, value);
-						}
-					});
-		}
-
-		for (String path : plugin.getSpecialRewardsConfig().getWeeklyPossibleRewardPlaces()) {
-			addDirectlyDefinedRewards(
-					new DirectlyDefinedReward(plugin.getSpecialRewardsConfig().getWeeklyAwardRewardsPath(path)) {
-
-						@Override
-						public void createSection(String key) {
-							getSpecialRewardsConfig().createSection(key);
-						}
-
-						@Override
-						public ConfigurationSection getFileData() {
-							return getSpecialRewardsConfig().getData();
-						}
-
-						@Override
-						public void save() {
-							getSpecialRewardsConfig().saveData();
-						}
-
-						@Override
-						public void setData(String path, Object value) {
-							getSpecialRewardsConfig().setValue(path, value);
-						}
-					});
-		}
-
-		for (String path : plugin.getSpecialRewardsConfig().getDailyPossibleRewardPlaces()) {
-			addDirectlyDefinedRewards(
-					new DirectlyDefinedReward(plugin.getSpecialRewardsConfig().getDailyAwardRewardsPath(path)) {
-
-						@Override
-						public void createSection(String key) {
-							getSpecialRewardsConfig().createSection(key);
-						}
-
-						@Override
-						public ConfigurationSection getFileData() {
-							return getSpecialRewardsConfig().getData();
-						}
-
-						@Override
-						public void save() {
-							getSpecialRewardsConfig().saveData();
-						}
-
-						@Override
-						public void setData(String path, Object value) {
-							getSpecialRewardsConfig().setValue(path, value);
-						}
-					});
-		}
-
-		for (String identifier : plugin.getShopFile().getShopIdentifiers()) {
-			addDirectlyDefinedRewards(new DirectlyDefinedReward("Shop." + identifier + ".Rewards") {
-
-				@Override
-				public void createSection(String key) {
-					getShopFile().createSection(key);
-				}
-
-				@Override
-				public ConfigurationSection getFileData() {
-					return getShopFile().getData();
-				}
-
-				@Override
-				public void save() {
-					getShopFile().saveData();
-				}
-
-				@Override
-				public void setData(String path, Object value) {
-					getShopFile().setValue(path, value);
-				}
-			});
-		}
-
-		ConfigurationSection categoriesSection = plugin.getShopFile().getCategoriesSection();
-		if (categoriesSection != null) {
-			for (String categoryShop : categoriesSection.getKeys(false)) {
-				if (plugin.getShopFile().getCategoryShopSection(categoryShop) != null) {
-					for (String categoryShopItems : plugin.getShopFile().getCategoryShopSection(categoryShop)
-							.getKeys(false)) {
-						addDirectlyDefinedRewards(new DirectlyDefinedReward(
-								"Categories." + categoryShop + "." + categoryShopItems + ".Rewards") {
-
-							@Override
-							public void createSection(String key) {
-								getShopFile().createSection(key);
-							}
-
-							@Override
-							public ConfigurationSection getFileData() {
-								return getShopFile().getData();
-							}
-
-							@Override
-							public void save() {
-								getShopFile().saveData();
-							}
-
-							@Override
-							public void setData(String path, Object value) {
-								getShopFile().setValue(path, value);
-							}
-						});
-					}
-				}
-			}
-		}
-
-		// NameMC like reward
-		addDirectlyDefinedRewards(new DirectlyDefinedReward("NameMCLikeReward.Rewards") {
-
-			@Override
-			public void createSection(String key) {
-				getSpecialRewardsConfig().createSection(key);
-			}
-
-			@Override
-			public ConfigurationSection getFileData() {
-				return getSpecialRewardsConfig().getData();
-			}
-
-			@Override
-			public void save() {
-				getSpecialRewardsConfig().saveData();
-			}
-
-			@Override
-			public void setData(String path, Object value) {
-				getSpecialRewardsConfig().setValue(path, value);
-			}
-		});
-
-		addDirectlyDefinedRewards(new DirectlyDefinedReward("BungeeVotePartyRewards") {
-
-			@Override
-			public void createSection(String key) {
-				getBungeeSettings().createSection(key);
-			}
-
-			@Override
-			public ConfigurationSection getFileData() {
-				return getBungeeSettings().getData();
-			}
-
-			@Override
-			public void save() {
-				getBungeeSettings().saveData();
-			}
-
-			@Override
-			public void setData(String path, Object value) {
-				getBungeeSettings().setValue(path, value);
-			}
-		});
+		VoteReminderRewardRegistrar.register(this);
+		SpecialRewardsRewardRegistrar.register(this);
+		VoteSiteRewardRegistrar.register(this);
+		VotePartyRewardRegistrar.register(this);
+		VoteMilestoneRewardRegistrar.register(this);
+		VoteStreakRewardRegistrar.register(this);
+		TopVoterRewardRegistrar.register(this);
+		VoteShopRewardRegistrar.register(this);
+		BackendProxyRewardRegistrar.register(this);
 
 		getRewardHandler().checkDirectlyDefined();
-
 	}
 
 	private void loadTimer() {
@@ -1228,13 +495,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	private void loadVersionFile() {
-		YamlConfiguration conf = getVersionFile();
-		if (conf != null) {
-			time = conf.getString("time", "");
-			profile = conf.getString("profile", "");
-			buildNumber = conf.getString("buildnumber", "NOTSET");
-		}
+		versionInfo = new VotingPluginVersionInfo(this);
+		versionInfo.load();
 	}
+
 
 	public void loadVoteSites() {
 		configVoteSites.setup();
@@ -1388,8 +652,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		// load vote logging if enabled
 		loadVoteLoggingMySQL();
 
-		webhooks = new VotingPluginWebhooks(this);
-		webhooks.reload(getConfig().getConfigurationSection("Webhooks"));
+		webhookManager = new VotingPluginWebhookManager(this);
+		webhookManager.load();
 
 		if (getSpecialRewardsConfig().isNameMCLikeRewardEnabled()) {
 			nameMCLikeCheckerTask = new NameMCLikeCheckerTask(this);
@@ -1399,138 +663,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			nameMCLikeCheckerTask.runTaskTimerAsynchronously(this, 20L, interval);
 		}
 
-		// Add rewards
-		getRewardHandler().addInjectedReward(new RewardInjectInt("Points", 0) {
-
-			@Override
-			public String onRewardRequest(Reward reward, com.bencodez.advancedcore.api.user.AdvancedCoreUser user,
-					int num, HashMap<String, String> placeholders) {
-				VotingPluginUser vpUser = getVotingPluginUserManager().getVotingPluginUser(user);
-				String str = "" + vpUser.addPoints(num);
-				debug("Setting points to " + str);
-				return str;
-			}
-		}.synchronize().asPlaceholder("newpoints").addEditButton(
-				new EditGUIButton(new ItemBuilder(Material.PAPER), new EditGUIValueNumber("Points", null) {
-
-					@Override
-					public void setValue(Player player, Number value) {
-						RewardEditData reward = (RewardEditData) getInv().getData("Reward");
-						reward.setValue("Points", value.intValue());
-					}
-				}.addLore("Give player voting points"))).validator(new RewardInjectValidator() {
-
-					@Override
-					public void onValidate(Reward reward, RewardInject inject, ConfigurationSection data) {
-						if (data.getInt(inject.getPath(), -1) == 0) {
-							warning(reward, inject, "Points can not be 0");
-						}
-					}
-				}));
-
-		getRewardHandler().addInjectedReward(new RewardInjectConfigurationSection("VoteBossBar") {
-
-			@Override
-			public String onRewardRequested(Reward arg0, com.bencodez.advancedcore.api.user.AdvancedCoreUser user,
-					ConfigurationSection section, HashMap<String, String> placeholders) {
-				if (section.getBoolean("Enabled")) {
-					user.sendBossBar(
-							PlaceholderUtils.replacePlaceHolder(section.getString("Message", ""), placeholders),
-							section.getString("Color", "BLUE"), section.getString("Style", "SOLID"),
-							(double) getVotingPluginUserManager().getVotingPluginUser(user).getSitesVotedOn()
-									/ plugin.getVoteSites().size(),
-							section.getInt("Delay", 30));
-				}
-				return null;
-			}
-		});
-
-		getRewardHandler().addInjectedReward(new RewardInjectConfigurationSection("WebhookReward") {
-
-			@Override
-			public String onRewardRequested(Reward reward, AdvancedCoreUser user, ConfigurationSection section,
-					HashMap<String, String> placeholders) {
-
-				if (section == null || webhooks == null) {
-					return null;
-				}
-
-				// Parse list from inside this section
-				List<WebhookRewardEntry> entries = WebhookRewardParser.parse(section);
-
-				if (entries == null || entries.isEmpty()) {
-					return null;
-				}
-
-				webhooks.createExecutor().executeAll(entries, (input) -> {
-					return PlaceholderUtils.replacePlaceHolder(input, placeholders);
-				});
-
-				return null;
-			}
-		});
-
-		getRewardHandler().addInjectedRequirements(new RequirementInjectConfigurationSection("VoteTotal") {
-
-			@Override
-			public boolean onRequirementsRequested(Reward reward, AdvancedCoreUser acUser, ConfigurationSection section,
-					RewardOptions rewardOptions) {
-				boolean atleast = section.getBoolean("AtleastMode", false);
-				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(acUser);
-
-				for (TopVoter top : TopVoter.values()) {
-					int required = section.getInt(top.toString(), -1);
-					if (required >= 0) {
-						int total = user.getTotal(top);
-						if (atleast) {
-							if (total < required) {
-								debug("Failed requirement " + top.toString() + " " + total + "/" + required);
-								return false;
-							}
-						} else {
-							if (total != required) {
-								debug("Failed requirement " + top.toString() + " " + total + "!=" + required);
-								return false;
-							}
-						}
-					}
-				}
-
-				int pointsRequired = section.getInt("Points", -1);
-				if (pointsRequired >= 0) {
-					int points = user.getPoints();
-					if (atleast) {
-						if (points < pointsRequired) {
-							debug("Failed requirement points " + points + "/" + pointsRequired);
-							return false;
-						}
-					} else {
-						if (points != pointsRequired) {
-							debug("Failed requirement points " + points + "!=" + pointsRequired);
-							return false;
-						}
-					}
-				}
-
-				return true;
-			}
-		});
-
-		for (final TopVoter top : TopVoter.values()) {
-			getRewardHandler().addPlaceholder(new RewardPlaceholderHandle("Total_" + top.toString()) {
-
-				@Override
-				public String getValue(Reward reward, com.bencodez.advancedcore.api.user.AdvancedCoreUser user) {
-					VotingPluginUser vUser = getVotingPluginUserManager().getVotingPluginUser(user);
-					return "" + vUser.getTotal(top);
-				}
-			});
-		}
+		VotingPluginRewardRegistrar.register(this);
 
 		plugin.getLogger().info("Enabled VotingPlugin " + plugin.getDescription().getVersion());
 		if (plugin.getDescription().getVersion().contains("SNAPSHOT")) {
 			plugin.getLogger().info(
-					"Using dev build, this is not a stable build, use at your own risk. Build number: " + buildNumber);
+					"Using dev build, this is not a stable build, use at your own risk. Build number: " + getBuildNumber());
 		}
 
 		boolean hasRewards = getRewardHandler().hasRewards(getConfigVoteSites().getData(),
@@ -1630,11 +768,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		configFile.saveData();
 	}
 
-	/*
-	 * (non-Javadoc)
-	 *
-	 * @see org.bukkit.plugin.java.JavaPlugin#onEnable()
-	 */
 	@Override
 	public void onPreLoad() {
 		plugin = this;
@@ -1673,11 +806,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	}
 
-	/*
-	 * (non-Javadoc)
-	 *
-	 * @see org.bukkit.plugin.java.JavaPlugin#onDisable()
-	 */
 	@Override
 	public void onUnLoad() {
 		if (getBackendProxyHandler() != null) {
@@ -1687,9 +815,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				debug(e);
 			}
 		}
-		if (webhooks != null) {
-			webhooks.shutdown();
-			webhooks = null;
+		if (webhookManager != null) {
+			webhookManager.shutdown();
 		}
 		voteTimer.shutdown();
 		try {
@@ -1760,7 +887,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		PluginManager pm = getServer().getPluginManager();
 
 		pm.registerEvents(new PlayerJoinEvent(this), this);
-		if (votifierLoaded) {
+		if (isVotifierLoaded()) {
 			pm.registerEvents(new VotiferEvent(this), this);
 		}
 		pm.registerEvents(new PlayerVoteListener(this), this);
@@ -1851,7 +978,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			voteRemindersManager.reload();
 		}
 
-		webhooks.reload(getConfig().getConfigurationSection("Webhooks"));
+		if (webhookManager != null) { webhookManager.reload(); }
 
 		coolDownCheck.checkEnabled();
 
@@ -1910,252 +1037,25 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	public synchronized void update() {
-		if (!(update || configFile.isAlwaysUpdate())) {
-			return;
+		if (backgroundTask == null) {
+			backgroundTask = new VotingPluginBackgroundTask(this);
 		}
-		if (plugin == null) {
-			return;
-		}
-		if (updateStarted) {
-			return;
-		}
-		if (configFile.isUpdateWithPlayersOnlineOnly() && Bukkit.getOnlinePlayers().isEmpty()) {
-			return;
-		}
-
-		updateStarted = true;
-		update = false;
-
-		synchronized (plugin) {
-			try {
-				if (plugin == null || !plugin.isEnabled()) {
-					return;
-				}
-
-				getUserManager().getDataManager().clearCacheBasic();
-				SkullCache.flushWeek();
-
-				plugin.debug("Starting background task, current cached users: "
-						+ plugin.getUserManager().getDataManager().getUserDataCache().keySet().size());
-
-				boolean extraBackgroundUpdate = configFile.isExtraBackgroundUpdate();
-				long startTime = System.currentTimeMillis();
-
-				LinkedHashMap<TopVoterPlayer, HashMap<VoteSite, LocalDateTime>> voteToday = new LinkedHashMap<>();
-				LinkedHashMap<TopVoter, LinkedHashMap<TopVoterPlayer, Integer>> tempTopVoter = new LinkedHashMap<>();
-
-				ArrayList<TopVoter> topVotersToCheck = new ArrayList<>();
-				for (TopVoter top : TopVoter.values()) {
-					if (plugin == null) {
-						return;
-					}
-					if (plugin.getConfigFile().getLoadTopVoter(top)) {
-						topVotersToCheck.add(top);
-						tempTopVoter.put(top, new LinkedHashMap<>());
-					}
-				}
-
-				boolean topVoterIgnorePermissionUse = plugin.getConfigFile().isTopVoterIgnorePermission();
-				ArrayList<String> blackList = plugin.getConfigFile().getBlackList();
-
-				// Compute "today" bounds once (avoid LocalDateTime.now() + MiscUtils
-				// conversions in tight loops)
-				final ZoneId zone = ZoneId.systemDefault();
-				final LocalDate today = LocalDate.now(zone);
-				final long startOfDayMs = today.atStartOfDay(zone).toInstant().toEpochMilli();
-				final long startOfNextDayMs = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli();
-
-				final long afterSetup = System.currentTimeMillis();
-
-				// STREAM all users (MYSQL/SQLITE/FLAT) via the new shortcut method
-				plugin.getUserManager().forEachUserKeys((uuid, columns) -> {
-					if (plugin == null || !plugin.isEnabled()) {
-						return;
-					}
-
-					VotingPluginUser user = getVotingPluginUserManager().getVotingPluginUser(uuid, false);
-					user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
-					user.updateTempCacheWithColumns(columns);
-
-					try {
-						if (!user.isBanned() && !blackList.contains(user.getPlayerName())) {
-
-							if (!topVoterIgnorePermissionUse || !user.isTopVoterIgnore()) {
-								TopVoterPlayer tvp = user.getTopVoterPlayer();
-								for (TopVoter top : topVotersToCheck) {
-									int total = user.getTotal(top);
-									if (total > 0) {
-										tempTopVoter.get(top).put(tvp, total);
-									}
-								}
-							}
-
-							// Only allocate if we actually find a "today" vote
-							HashMap<VoteSite, LocalDateTime> times = null;
-
-							for (Entry<VoteSite, Long> entry : user.getLastVotes().entrySet()) {
-								VoteSite site = entry.getKey();
-								if (!site.isEnabled() || site.isHidden()) {
-									continue;
-								}
-
-								long time = entry.getValue();
-								if (time >= startOfDayMs && time < startOfNextDayMs) {
-									if (times == null) {
-										times = new HashMap<>();
-									}
-									times.put(site, LocalDateTime.ofInstant(Instant.ofEpochMilli(time), zone));
-								}
-							}
-
-							if (times != null && !times.isEmpty()) {
-								voteToday.put(user.getTopVoterPlayer(), times);
-							}
-						}
-
-						if (extraBackgroundUpdate && user.isOnline()) {
-							user.offVote();
-						}
-
-						if (!plugin.getPlaceholders().getCacheLevel().onlineOnly() || user.isOnline()) {
-							plugin.getPlaceholders().onUpdate(user, false);
-						}
-					} finally {
-						user.clearTempCache();
-					}
-
-				}, (count) -> {
-					long time1 = (System.currentTimeMillis() - afterSetup) / 1000;
-					plugin.debug("Finished getting player data in " + time1 + " seconds, " + count + " users, "
-							+ plugin.getStorageType());
-				});
-
-				// Final processing (runs once after ALL users processed)
-				topVoterHandler.updateTopVoters(tempTopVoter);
-				placeholders.onUpdate();
-				setVoteToday(voteToday);
-				serverData.updateValues();
-				getSigns().updateSigns();
-
-				checkFirstTimeLoaded();
-
-				if (plugin.getConfigFile().isDiscordSRVEnabled() && getDiscordHandler() != null) {
-					for (TopVoter top : TopVoter.values()) {
-						if (!plugin.getConfigFile().isDiscordSRVTopVoterNewMessageOnUpdate(top)) {
-							getDiscordHandler().updateTopVoterMessageId(top);
-						}
-					}
-				}
-
-				plugin.getUserManager().getDataManager().clearNonNeededCachedUsers();
-				plugin.extraDebug("Current cached users: "
-						+ plugin.getUserManager().getDataManager().getUserDataCache().keySet().size());
-
-				update = false;
-
-				long totalTime = (System.currentTimeMillis() - startTime) / 1000;
-				lastBackgroundTaskTimeTaken = totalTime;
-				plugin.debug("Background task finished. Total time: " + totalTime + " seconds");
-
-			} catch (Exception ex) {
-				if (plugin != null) {
-					plugin.getLogger().info("Looks like something went wrong");
-				}
-				ex.printStackTrace();
-			} finally {
-				updateStarted = false;
-			}
-		}
+		backgroundTask.run();
 	}
 
-	@Getter
-	private VoteLogMysqlTable voteLogMysqlTable;
+
 
 	@Getter
 	private VoteMilestonesManager voteMilestonesManager;
 
-	@Getter
-	private VotingPluginWebhooks webhooks;
 
 	public void loadVoteLoggingMySQL() {
-		if (getConfigFile().isVoteLoggingEnabled()) {
-			if (getConfigFile().isVoteLoggingUseMainMySQL()) {
-				voteLogMysqlTable = new VoteLogMysqlTable("votingplugin_votelog", getMysql().getMysql(),
-						new MysqlConfigSpigot(getConfigFile().getVoteLoggingSection()),
-						getOptions().getDebug().isDebug()) {
-
-					@Override
-					public void logSevere(String string) {
-						plugin.getLogger().severe(string);
-					}
-
-					@Override
-					public void logInfo(String string) {
-						plugin.getLogger().info(string);
-					}
-
-					@Override
-					public String getServerName() {
-						if (plugin.getBungeeSettings().isUseBungeecoord()) {
-							return plugin.getBungeeSettings().getServer();
-						} else {
-							return "";
-						}
-					}
-
-					@Override
-					public void debug(Throwable t) {
-						if (getOptions().getDebug().isDebug()) {
-							plugin.debug(t);
-						}
-					}
-				};
-			} else {
-				voteLogMysqlTable = new VoteLogMysqlTable("votingplugin_votelog",
-						new MysqlConfigSpigot(getConfigFile().getVoteLoggingSection()),
-						getOptions().getDebug().isDebug()) {
-
-					@Override
-					public void logSevere(String string) {
-						plugin.getLogger().severe(string);
-					}
-
-					@Override
-					public void logInfo(String string) {
-						plugin.getLogger().info(string);
-					}
-
-					@Override
-					public void debug(Throwable t) {
-						if (getOptions().getDebug().isDebug()) {
-							plugin.debug(t);
-						}
-					}
-
-					@Override
-					public String getServerName() {
-						if (plugin.getBungeeSettings().isUseBungeecoord()) {
-							return plugin.getBungeeSettings().getServer();
-						} else {
-							return "";
-						}
-					}
-				};
-			}
-
-			getTimer().scheduleAtFixedRate(new Runnable() {
-
-				@Override
-				public void run() {
-					voteLogMysqlTable.purgeOlderThanDays(getConfigFile().getVoteLoggingPurgeDays(), 100);
-				}
-			}, 60, 60 * 60, TimeUnit.SECONDS); // Purge old logs every hour
-
-			debug("Vote logging MySQL enabled");
-		} else {
-			debug("Vote logging MySQL disabled");
+		if (voteLogManager == null) {
+			voteLogManager = new VoteLogManager(this);
 		}
+		voteLogManager.load();
 	}
+
 
 	public void updateAdvancedCoreHook() {
 		getJavascriptEngine().put("VotingPlugin", this);

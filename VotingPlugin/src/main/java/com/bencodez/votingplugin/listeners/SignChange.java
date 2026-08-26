@@ -8,10 +8,6 @@ import com.bencodez.advancedcore.api.misc.PlayerManager;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 
-// TODO: Auto-generated Javadoc
-/**
- * The Class SignChange.
- */
 public class SignChange implements Listener {
 
 	/** The plugin. */

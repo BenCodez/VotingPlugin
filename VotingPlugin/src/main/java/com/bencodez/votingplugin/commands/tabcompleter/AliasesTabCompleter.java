@@ -17,9 +17,6 @@ import com.bencodez.simpleapi.command.TabCompleteHandler;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 
-/**
- * The Class AliasesTabCompleter.
- */
 public class AliasesTabCompleter implements TabCompleter {
 
 	private boolean adminCommand;
@@ -30,13 +27,6 @@ public class AliasesTabCompleter implements TabCompleter {
 	/** The plugin. */
 	VotingPluginMain plugin = VotingPluginMain.plugin;
 
-	/*
-	 * (non-Javadoc)
-	 *
-	 * @see org.bukkit.command.TabCompleter#onTabComplete(org.bukkit.command.
-	 * CommandSender, org.bukkit.command.Command, java.lang.String,
-	 * java.lang.String[])
-	 */
 	@Override
 	public List<String> onTabComplete(CommandSender sender, Command cmd, String alias, String[] argsIn) {
 		ArrayList<String> msgArray = new ArrayList<>();
