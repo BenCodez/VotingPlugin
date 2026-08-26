@@ -3,6 +3,8 @@ package com.bencodez.votingplugin.proxy;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -18,8 +20,25 @@ import org.junit.jupiter.api.Test;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.simpleapi.servercomm.sockets.ClientHandler;
 import com.bencodez.votingplugin.tests.VotingPluginProxyTestImpl;
+import com.bencodez.votingplugin.proxy.control.HostedControlManager;
 
 class VotingPluginProxyLifecycleTest {
+
+	@Test
+	void retainsHostedManagerWhenBoundedShutdownFails() throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		HostedControlManager manager = mock(HostedControlManager.class);
+		doThrow(new IllegalStateException("still running")).when(manager).closeAndWait();
+		Field hosted = VotingPluginProxy.class.getDeclaredField("hostedControlManager");
+		hosted.setAccessible(true);
+		hosted.set(proxy, manager);
+		Method stop = VotingPluginProxy.class.getDeclaredMethod("stopControlServices", boolean.class);
+		stop.setAccessible(true);
+
+		assertThrows(java.lang.reflect.InvocationTargetException.class, () -> stop.invoke(proxy, true));
+
+		assertSame(manager, hosted.get(proxy));
+	}
 
 	@Test
 	void stopsEveryReplacedSocketClientEvenWhenOneStopFails() {

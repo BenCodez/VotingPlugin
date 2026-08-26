@@ -1612,13 +1612,13 @@ public abstract class VotingPluginProxy {
 			connector.close();
 		}
 		HostedControlManager manager = hostedControlManager;
-		hostedControlManager = null;
 		if (manager != null) {
 			if (waitForHosted) {
 				manager.closeAndWait();
 			} else {
 				manager.close();
 			}
+			if (hostedControlManager == manager) hostedControlManager = null;
 		}
 	}
 

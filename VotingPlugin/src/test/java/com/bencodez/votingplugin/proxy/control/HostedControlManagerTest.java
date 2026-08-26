@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.proxy.control;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -256,6 +257,26 @@ class HostedControlManagerTest {
 		assertEquals(2, process.waits.get());
 	}
 
+	@Test
+	void failedForcedTerminationRetainsManagedProcessForRetry() throws Exception {
+		Path root = directory.toAbsolutePath().normalize();
+		ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+		HostedControlManager manager = new HostedControlManager(
+				settings(root.resolve("control.jar"), root.resolve("data"), false, false, digest("x".getBytes()), 1),
+				executor, (source, target, maximum, timeout) -> { }, new FakeLauncher(),
+				(endpoint, timeout) -> true, millis -> { }, System::nanoTime, message -> { });
+		UnkillableProcess process = new UnkillableProcess();
+		java.lang.reflect.Field managed = HostedControlManager.class.getDeclaredField("managedProcess");
+		managed.setAccessible(true);
+		managed.set(manager, process);
+
+		assertThrows(IllegalStateException.class, manager::closeAndWait);
+
+		assertSame(process, managed.get(manager));
+		assertTrue(process.forciblyDestroyed);
+		assertEquals(2, process.waits.get());
+	}
+
 	private HostedControlManager.Settings settings(Path jar, Path data, boolean autoDownload, boolean autoUpdate,
 			String sha256, int startupTimeout) {
 		Path root = directory.toAbsolutePath().normalize();
@@ -312,6 +333,21 @@ class HostedControlManagerTest {
 		@Override public boolean waitFor(long timeout, TimeUnit unit) {
 			waits.incrementAndGet();
 			return !alive;
+		}
+		@Override public CompletableFuture<Void> onExit() { return exit; }
+	}
+
+	private static final class UnkillableProcess implements HostedControlManager.ManagedProcess {
+		private final AtomicInteger waits = new AtomicInteger();
+		private final CompletableFuture<Void> exit = new CompletableFuture<>();
+		private volatile boolean forciblyDestroyed;
+
+		@Override public boolean isAlive() { return true; }
+		@Override public void destroy() { }
+		@Override public void destroyForcibly() { forciblyDestroyed = true; }
+		@Override public boolean waitFor(long timeout, TimeUnit unit) {
+			waits.incrementAndGet();
+			return false;
 		}
 		@Override public CompletableFuture<Void> onExit() { return exit; }
 	}

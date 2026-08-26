@@ -304,26 +304,49 @@ public final class HostedControlManager implements AutoCloseable {
 			closed = true;
 			status = Status.STOPPED;
 			process = managedProcess;
-			managedProcess = null;
 		}
 		Future<?> task = activeTask;
 		if (task != null) {
 			task.cancel(true);
 		}
-		if (process != null) {
-			stopProcess(process, waitForProcess);
+		RuntimeException shutdownFailure = null;
+		try {
+			if (process != null) {
+				stopProcess(process, waitForProcess);
+				if (waitForProcess) {
+					clearManagedProcess(process);
+				} else {
+					process.onExit().whenComplete((ignored, failure) -> clearManagedProcess(process));
+				}
+			}
+		} catch (RuntimeException failure) {
+			shutdownFailure = failure;
+		} finally {
+			executor.shutdownNow();
 		}
-		executor.shutdownNow();
 		if (waitForProcess) {
 			long waitSeconds = (long) settings.downloadTimeoutSeconds() + settings.startupTimeoutSeconds() + 5L;
 			try {
 				if (!executor.awaitTermination(waitSeconds, TimeUnit.SECONDS)) {
-					throw new IllegalStateException("Hosted Control worker did not stop before reload");
+					IllegalStateException workerFailure = new IllegalStateException(
+							"Hosted Control worker did not stop before reload");
+					if (shutdownFailure != null) workerFailure.addSuppressed(shutdownFailure);
+					throw workerFailure;
 				}
 			} catch (InterruptedException e) {
 				Thread.currentThread().interrupt();
-				throw new IllegalStateException("Interrupted while waiting for the hosted Control worker", e);
+				IllegalStateException interrupted = new IllegalStateException(
+						"Interrupted while waiting for the hosted Control worker", e);
+				if (shutdownFailure != null) interrupted.addSuppressed(shutdownFailure);
+				throw interrupted;
 			}
+		}
+		if (shutdownFailure != null) throw shutdownFailure;
+	}
+
+	private void clearManagedProcess(ManagedProcess process) {
+		synchronized (processLifecycle) {
+			if (managedProcess == process) managedProcess = null;
 		}
 	}
 
