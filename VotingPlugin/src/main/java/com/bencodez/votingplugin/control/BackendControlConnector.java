@@ -262,7 +262,9 @@ public final class BackendControlConnector implements AutoCloseable {
 				.timeout(Duration.ofMillis(settings.requestTimeoutMillis())).header("Content-Type", "application/json")
 				.header("Authorization", "Bearer " + credential)
 				.method(method, HttpRequest.BodyPublishers.ofString(body.toString(), StandardCharsets.UTF_8)).build();
-		HttpResponse<byte[]> response = http.send(request, new BoundedHttpBodyHandler(MAX_RESPONSE_BYTES));
+		HttpResponse<byte[]> response = http.send(request,
+				new BoundedHttpBodyHandler(MAX_RESPONSE_BYTES,
+						Duration.ofMillis(settings.requestTimeoutMillis())));
 		return new Response(response.statusCode(), new String(response.body(), StandardCharsets.UTF_8));
 	}
 

@@ -637,7 +637,7 @@ public final class HostedControlManager implements AutoCloseable {
 			try {
 				HttpRequest request = HttpRequest.newBuilder(endpoint.resolve("/api/v1/health"))
 						.timeout(timeout).header("Accept", "application/json").GET().build();
-				HttpResponse<byte[]> response = client.send(request, new BoundedHttpBodyHandler(64 * 1024));
+				HttpResponse<byte[]> response = client.send(request, new BoundedHttpBodyHandler(64 * 1024, timeout));
 				if (response.statusCode() != 200) return false;
 				JsonElement parsed = JsonParser.parseString(
 						new String(response.body(), java.nio.charset.StandardCharsets.UTF_8));

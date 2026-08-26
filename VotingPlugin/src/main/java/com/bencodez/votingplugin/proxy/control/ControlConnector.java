@@ -592,7 +592,7 @@ public final class ControlConnector implements AutoCloseable {
 					.header("Authorization", "Bearer " + credential)
 					.method(request.method, HttpRequest.BodyPublishers.ofString(request.body, StandardCharsets.UTF_8))
 					.build();
-			return client.sendAsync(httpRequest, new BoundedHttpBodyHandler(MAX_RESPONSE_BYTES))
+			return client.sendAsync(httpRequest, new BoundedHttpBodyHandler(MAX_RESPONSE_BYTES, requestTimeout))
 					.thenApply(response -> new Response(response.statusCode(),
 							new String(response.body(), StandardCharsets.UTF_8)));
 		}
