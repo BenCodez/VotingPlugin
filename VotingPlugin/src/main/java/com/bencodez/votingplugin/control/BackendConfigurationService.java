@@ -93,7 +93,7 @@ public final class BackendConfigurationService {
 					if (!revision(readRaw(target, false)).equals(installedRevision)) {
 						throw new IOException("Managed configuration changed while reload failed; backup was not restored");
 					}
-					copyBackupNoFollow(backup, target);
+					copyBackupNoFollow(backup, target, installedRevision);
 					reload.run(fileName);
 					rolledBack = true;
 				} catch (Exception rollbackFailure) {
@@ -111,7 +111,7 @@ public final class BackendConfigurationService {
 		if (Files.isSymbolicLink(backup)) throw new IOException("Symbolic configuration backups are not allowed");
 	}
 
-	private static void copyBackupNoFollow(Path backup, Path target) throws IOException {
+	private static void copyBackupNoFollow(Path backup, Path target, String expectedTargetRevision) throws IOException {
 		if (!Files.isRegularFile(backup, LinkOption.NOFOLLOW_LINKS)) {
 			throw new IOException("Control backup is unavailable or unsafe");
 		}
@@ -120,6 +120,9 @@ public final class BackendConfigurationService {
 			try (SeekableByteChannel source = Files.newByteChannel(backup,
 					Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS))) {
 				Files.copy(Channels.newInputStream(source), staging, StandardCopyOption.REPLACE_EXISTING);
+			}
+			if (!revision(readRaw(target, false)).equals(expectedTargetRevision)) {
+				throw new IOException("Managed configuration changed while rollback was staged");
 			}
 			move(staging, target);
 		} finally {

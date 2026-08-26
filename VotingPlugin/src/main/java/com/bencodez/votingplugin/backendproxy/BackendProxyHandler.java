@@ -34,7 +34,7 @@ import lombok.Getter;
 public class BackendProxyHandler implements Listener {
 
 	private final VotingPluginMain plugin;
-	private final ProcessedVoteCache processedVoteCache = new ProcessedVoteCache();
+	private final ProcessedVoteCache processedVoteCache;
 	private final BackendProxyTransportManager transportManager;
 	private final BackendGlobalDataSync globalDataSync;
 
@@ -48,7 +48,12 @@ public class BackendProxyHandler implements Listener {
 	private GlobalMessageHandler globalMessageHandler;
 
 	public BackendProxyHandler(VotingPluginMain plugin) {
+		this(plugin, new ProcessedVoteCache());
+	}
+
+	public BackendProxyHandler(VotingPluginMain plugin, ProcessedVoteCache processedVoteCache) {
 		this.plugin = plugin;
+		this.processedVoteCache = java.util.Objects.requireNonNull(processedVoteCache, "processedVoteCache");
 		transportManager = new BackendProxyTransportManager(plugin);
 		globalDataSync = new BackendGlobalDataSync(plugin, this::sendEnvelope);
 	}

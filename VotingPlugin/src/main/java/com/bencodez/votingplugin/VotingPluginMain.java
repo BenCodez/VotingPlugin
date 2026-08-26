@@ -57,6 +57,7 @@ import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.simpleapi.updater.Updater;
 import com.bencodez.votingplugin.broadcast.BroadcastHandler;
 import com.bencodez.votingplugin.backendproxy.BackendProxyHandler;
+import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache;
 import com.bencodez.votingplugin.backgroundtask.VotingPluginBackgroundTask;
 import com.bencodez.votingplugin.backendproxy.BackendProxyRewardRegistrar;
 import com.bencodez.votingplugin.broadcast.BroadcastSettings;
@@ -155,6 +156,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private BackendProxyHandler backendProxyHandler;
+	private final ProcessedVoteCache backendProcessedVoteCache = new ProcessedVoteCache();
 	private final AtomicReference<GlobalMessageHandler> backendPluginMessageTarget = new AtomicReference<>();
 	private PluginMessageHandler backendPluginMessageRelay;
 	private BackendControlConnector backendControlConnector;
@@ -440,7 +442,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	private void loadBungeeHandler() {
-		backendProxyHandler = new BackendProxyHandler(this);
+		backendProxyHandler = new BackendProxyHandler(this, backendProcessedVoteCache);
 		backendProxyHandler.load();
 
 		if (getOptions().getServer().equalsIgnoreCase("PleaseSet")) {
@@ -757,7 +759,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 		BungeeMethod replacementMethod = BungeeMethod.getByName(bungeeSettings.getBungeeMethod());
 		if (previous != null) previous.prepareForReplacement(replacementMethod);
-		BackendProxyHandler replacement = new BackendProxyHandler(this);
+		BackendProxyHandler replacement = new BackendProxyHandler(this, backendProcessedVoteCache);
 		try {
 			replacement.load();
 			replacement.validateTransport();

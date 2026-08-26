@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.backendproxy;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -15,6 +16,7 @@ import com.bencodez.simpleapi.servercomm.mqtt.MqttHandler;
 import com.bencodez.simpleapi.servercomm.mysql.MySqlMessenger;
 import com.bencodez.simpleapi.servercomm.redis.RedisHandler;
 import com.bencodez.votingplugin.backendproxy.global.BackendGlobalDataSync;
+import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache;
 import com.bencodez.votingplugin.backendproxy.transport.MqttBackendProxyTransport;
 import com.bencodez.votingplugin.backendproxy.transport.MysqlBackendProxyTransport;
 import com.bencodez.votingplugin.backendproxy.transport.BackendProxyTransport;
@@ -24,6 +26,15 @@ import com.bencodez.votingplugin.backendproxy.transport.SocketBackendProxyTransp
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 
 class BackendProxyHandlerLifecycleTest {
+
+	@Test
+	void sharesVoteDeduplicationAcrossHandlerReplacement() {
+		ProcessedVoteCache cache = new ProcessedVoteCache();
+		BackendProxyHandler previous = new BackendProxyHandler(null, cache);
+		BackendProxyHandler replacement = new BackendProxyHandler(null, cache);
+
+		assertSame(previous.getProcessedWireVotes(), replacement.getProcessedWireVotes());
+	}
 
 	@Test
 	void keepsPluginMessageRelayActiveUntilAtomicTargetSwap() throws Exception {

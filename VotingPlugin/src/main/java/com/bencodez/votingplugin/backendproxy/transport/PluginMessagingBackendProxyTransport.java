@@ -20,12 +20,12 @@ public class PluginMessagingBackendProxyTransport implements BackendProxyTranspo
 	public void start(GlobalMessageHandler messageHandler) {
 		this.messageHandler = messageHandler;
 		plugin.registerBungeeChannels(plugin.getBungeeSettings().getPluginMessagingChannel());
-		plugin.getPluginMessaging().setEncryptionHandler(null);
+		EncryptionHandler encryptionHandler = null;
 		if (plugin.getBungeeSettings().isPluginMessageEncryption()) {
-			EncryptionHandler encryptionHandler = new EncryptionHandler(plugin.getName(),
+			encryptionHandler = new EncryptionHandler(plugin.getName(),
 					new File(plugin.getDataFolder(), "secretkey.key"));
-			plugin.getPluginMessaging().setEncryptionHandler(encryptionHandler);
 		}
+		plugin.getPluginMessaging().setEncryptionHandler(encryptionHandler);
 		plugin.getPluginMessaging().setDebug(plugin.getBungeeSettings().isBungeeDebug());
 		plugin.activateBackendPluginMessageHandler(messageHandler);
 	}

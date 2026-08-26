@@ -568,8 +568,15 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 			throw new StaleControlRevisionException();
 		}
 		Path stage = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".control-rollback");
-		Files.copy(backup, stage, StandardCopyOption.REPLACE_EXISTING);
-		atomicReplace(stage, target);
+		try {
+			Files.copy(backup, stage, StandardCopyOption.REPLACE_EXISTING);
+			if (!java.util.Arrays.equals(controlInstalledSnapshot, Files.readAllBytes(target))) {
+				throw new StaleControlRevisionException();
+			}
+			atomicReplace(stage, target);
+		} finally {
+			Files.deleteIfExists(stage);
+		}
 		controlInstalledSnapshot = null;
 		data = ConfigurationProvider.getProvider(YamlConfiguration.class).load(target.toFile());
 	}
