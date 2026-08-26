@@ -1607,9 +1607,9 @@ public abstract class VotingPluginProxy {
 
 	private void stopControlServicesLocked(boolean waitForHosted) {
 		ControlConnector connector = controlConnector;
-		controlConnector = null;
 		if (connector != null) {
 			connector.close();
+			if (controlConnector == connector) controlConnector = null;
 		}
 		HostedControlManager manager = hostedControlManager;
 		if (manager != null) {

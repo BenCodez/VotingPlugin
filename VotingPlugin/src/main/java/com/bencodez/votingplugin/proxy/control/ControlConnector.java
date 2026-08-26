@@ -52,6 +52,7 @@ public final class ControlConnector implements AutoCloseable {
 	private static final Set<String> BASE_CAPABILITIES = Set.of("presence.snapshot");
 	private static final String CONFIGURATION_CAPABILITY = "config.proxy-routing.v1";
 	private static final long MAX_BACKOFF_MILLIS = TimeUnit.MINUTES.toMillis(5);
+	private static final long OPERATION_SHUTDOWN_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(65);
 
 	private final Settings settings;
 	private final ScheduledExecutorService scheduler;
@@ -70,6 +71,7 @@ public final class ControlConnector implements AutoCloseable {
 	private volatile long snapshotSequence;
 	private volatile ScheduledFuture<?> scheduled;
 	private volatile CompletableFuture<?> activeRequest;
+	private volatile CompletableFuture<Void> activeOperation;
 	private volatile Status status = Status.STARTING;
 
 	public ControlConnector(Settings settings, ScheduledExecutorService scheduler, Transport transport,
@@ -174,6 +176,8 @@ public final class ControlConnector implements AutoCloseable {
 			return;
 		}
 		activeRequest = primary;
+		CompletableFuture<Void> operationDone = new CompletableFuture<>();
+		activeOperation = operationDone;
 		CompletableFuture<Void> operation = primary.thenCompose(response -> {
 			handlePrimaryResponse(response, !registered);
 			registered = true;
@@ -188,15 +192,23 @@ public final class ControlConnector implements AutoCloseable {
 			});
 		});
 		operation.whenComplete((ignored, failure) -> {
-			activeRequest = null;
-			inFlight.set(false);
-			if (closed) {
-				return;
-			}
-			if (failure == null) {
-				onSuccess();
-			} else {
-				onFailure(unwrap(failure));
+			try {
+				activeRequest = null;
+				inFlight.set(false);
+				if (!closed) {
+					if (failure == null) {
+						onSuccess();
+					} else {
+						onFailure(unwrap(failure));
+					}
+				}
+			} finally {
+				if (failure == null) {
+					operationDone.complete(null);
+				} else {
+					operationDone.completeExceptionally(failure);
+				}
+				if (activeOperation == operationDone) activeOperation = null;
 			}
 		});
 	}
@@ -469,6 +481,19 @@ public final class ControlConnector implements AutoCloseable {
 		CompletableFuture<?> request = activeRequest;
 		if (request != null) {
 			request.cancel(true);
+		}
+		CompletableFuture<Void> operation = activeOperation;
+		if (operation != null) {
+			try {
+				operation.get(OPERATION_SHUTDOWN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+			} catch (java.util.concurrent.CancellationException | java.util.concurrent.ExecutionException ignored) {
+				// Cancellation/failure completes the chain and makes transport shutdown safe.
+			} catch (java.util.concurrent.TimeoutException e) {
+				throw new IllegalStateException("Control operation did not stop before connector shutdown", e);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				throw new IllegalStateException("Interrupted while waiting for the Control operation", e);
+			}
 		}
 		transport.close();
 	}

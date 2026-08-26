@@ -13,8 +13,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -155,6 +157,46 @@ class ControlConnectorTest {
 		assertEquals(Status.CONNECTED, connector.status());
 	}
 
+	@Test void closeWaitsForClaimedApplyToFinish() throws Exception {
+		connector.close();
+		CountDownLatch persistEntered = new CountDownLatch(1);
+		CountDownLatch releasePersist = new CountDownLatch(1);
+		ProxyRoutingConfiguration current = new ProxyRoutingConfiguration(false, List.of());
+		ProxyRoutingConfigurationService service = new ProxyRoutingConfigurationService(new NoOpPlatform() {
+			@Override public void persist(ProxyRoutingConfiguration proposal, String expectedRevision)
+					throws java.io.IOException {
+				persistEntered.countDown();
+				try {
+					releasePersist.await();
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+					throw new java.io.IOException(e);
+				}
+			}
+		});
+		connector = new ControlConnector(settings(), scheduler, transport,
+				() -> List.of(), logs::add, UUID.randomUUID(), () -> 0L, service);
+		transport.acceptConfiguration = true;
+		transport.operationClaim = new CompletableFuture<>();
+		connector.cycle();
+		try {
+			CompletableFuture<Void> executing = CompletableFuture.runAsync(() -> transport.operationClaim.complete(
+					new Response(200, "{\"operationId\":\"00000000-0000-0000-0000-000000000099\","
+							+ "\"type\":\"APPLY\",\"expectedRevision\":\"" + current.revision() + "\","
+							+ "\"configuration\":{\"sendVotesToAllServers\":true,\"blockedServers\":[]}}")));
+			assertTrue(persistEntered.await(2, TimeUnit.SECONDS));
+			CompletableFuture<Void> closing = CompletableFuture.runAsync(connector::close);
+			assertThrows(java.util.concurrent.TimeoutException.class, () -> closing.get(100, TimeUnit.MILLISECONDS));
+
+			releasePersist.countDown();
+			executing.get(2, TimeUnit.SECONDS);
+			closing.get(2, TimeUnit.SECONDS);
+			assertEquals(Status.STOPPED, connector.status());
+		} finally {
+			releasePersist.countDown();
+		}
+	}
+
 	@Test void backoffIsBoundedExponentialAndJitteredWithoutSleeping() {
 		assertEquals(1000, ControlConnector.backoffMillis(1, 0));
 		assertEquals(2000, ControlConnector.backoffMillis(2, 0));
@@ -191,6 +233,7 @@ class ControlConnectorTest {
 		private CompletableFuture<Response> stalled;
 		private RuntimeException synchronousFailure;
 		private boolean acceptConfiguration;
+		private CompletableFuture<Response> operationClaim;
 
 		@Override
 		public CompletableFuture<Response> send(Request request) {
@@ -206,6 +249,7 @@ class ControlConnectorTest {
 				return result;
 			}
 			if (request.path().endsWith("/operations")) {
+				if (operationClaim != null) return operationClaim;
 				return CompletableFuture.completedFuture(new Response(204, ""));
 			}
 			if (!request.path().endsWith("/presence")) {
@@ -227,7 +271,7 @@ class ControlConnectorTest {
 		}
 	}
 
-	private static final class NoOpPlatform implements ProxyRoutingConfigurationService.Platform {
+	private static class NoOpPlatform implements ProxyRoutingConfigurationService.Platform {
 		@Override public ProxyRoutingConfiguration read() { return new ProxyRoutingConfiguration(false, List.of()); }
 		@Override public java.util.Set<String> configuredServers() { return java.util.Set.of(); }
 		@Override public void persist(ProxyRoutingConfiguration proposal, String expectedRevision) { }

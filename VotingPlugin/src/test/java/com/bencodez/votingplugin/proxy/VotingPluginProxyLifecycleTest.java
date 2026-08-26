@@ -21,8 +21,25 @@ import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.simpleapi.servercomm.sockets.ClientHandler;
 import com.bencodez.votingplugin.tests.VotingPluginProxyTestImpl;
 import com.bencodez.votingplugin.proxy.control.HostedControlManager;
+import com.bencodez.votingplugin.proxy.control.ControlConnector;
 
 class VotingPluginProxyLifecycleTest {
+
+	@Test
+	void retainsConnectorWhenOperationShutdownFails() throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		ControlConnector connector = mock(ControlConnector.class);
+		doThrow(new IllegalStateException("operation still running")).when(connector).close();
+		Field control = VotingPluginProxy.class.getDeclaredField("controlConnector");
+		control.setAccessible(true);
+		control.set(proxy, connector);
+		Method stop = VotingPluginProxy.class.getDeclaredMethod("stopControlServices", boolean.class);
+		stop.setAccessible(true);
+
+		assertThrows(java.lang.reflect.InvocationTargetException.class, () -> stop.invoke(proxy, true));
+
+		assertSame(connector, control.get(proxy));
+	}
 
 	@Test
 	void retainsHostedManagerWhenBoundedShutdownFails() throws Exception {
