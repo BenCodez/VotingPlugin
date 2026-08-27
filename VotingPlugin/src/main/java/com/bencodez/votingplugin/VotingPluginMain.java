@@ -442,8 +442,20 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	private void loadBungeeHandler() {
-		backendProxyHandler = new BackendProxyHandler(this, backendProcessedVoteCache);
-		backendProxyHandler.load();
+		BackendProxyHandler candidate = new BackendProxyHandler(this, backendProcessedVoteCache);
+		try {
+			candidate.load();
+			backendProxyHandler = candidate;
+		} catch (RuntimeException failure) {
+			try {
+				candidate.close();
+			} catch (RuntimeException closeFailure) {
+				failure.addSuppressed(closeFailure);
+			}
+			backendProxyHandler = null;
+			getLogger().warning("Backend proxy transport was not started; it will be retried on reload: "
+					+ failure.getMessage());
+		}
 
 		if (getOptions().getServer().equalsIgnoreCase("PleaseSet")) {
 			getLogger().warning("Bungeecoord is true and server name is not set, bungeecoord features may not work");
@@ -1034,13 +1046,15 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		reloadAdvancedCore(userStorage);
 
 		if (bungeeSettings.isUseBungeecoord()) {
-			if (getBackendProxyHandler() == null) {
+			BackendProxyHandler handler = getBackendProxyHandler();
+			if (handler == null) {
 				loadBungeeHandler();
+				handler = getBackendProxyHandler();
 			} else {
-				getBackendProxyHandler().reloadPresenceReporting();
+				handler.reloadPresenceReporting();
 			}
-			if (userStorage) {
-				getBackendProxyHandler().loadGlobalMysql();
+			if (userStorage && handler != null) {
+				handler.loadGlobalMysql();
 			}
 		} else if (getBackendProxyHandler() != null) {
 			getBackendProxyHandler().disablePresenceReporting();

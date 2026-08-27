@@ -65,6 +65,7 @@ public final class HostedControlManager implements AutoCloseable {
 	private volatile int failures;
 	private volatile String quarantinedSha256;
 	private volatile String trustedRollbackSha256;
+	private volatile boolean rollbackPending;
 
 	private HostedControlManager(Settings settings, Consumer<String> logger) {
 		this(settings, daemonExecutor(), new JdkArtifactDownloader(), new JdkProcessLauncher(),
@@ -118,6 +119,7 @@ public final class HostedControlManager implements AutoCloseable {
 				clearManagedProcess(retained);
 			}
 			boolean updated = prepareArtifact();
+			if (updated) rollbackPending = true;
 			if (closed) {
 				return;
 			}
@@ -125,14 +127,16 @@ public final class HostedControlManager implements AutoCloseable {
 			ManagedProcess process = launched.process();
 			if (awaitHealthy(launched)) {
 				failures = 0;
+				rollbackPending = false;
 				status = Status.RUNNING;
 				logger.accept("WebUI is available at " + settings.endpoint());
 				monitor(process);
 				return;
 			}
 			stopProcess(process, true);
-			if (updated && Files.isRegularFile(settings.previousFile(), LinkOption.NOFOLLOW_LINKS)) {
+			if (rollbackPending && Files.isRegularFile(settings.previousFile(), LinkOption.NOFOLLOW_LINKS)) {
 				rollback();
+				rollbackPending = false;
 				LaunchedProcess previousLaunch = launch(settings.jarFile());
 				ManagedProcess previous = previousLaunch.process();
 				if (awaitHealthy(previousLaunch)) {

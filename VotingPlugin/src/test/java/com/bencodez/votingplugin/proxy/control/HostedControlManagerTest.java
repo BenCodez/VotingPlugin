@@ -333,6 +333,40 @@ class HostedControlManagerTest {
 		manager.close();
 	}
 
+	@Test
+	void delayedUpdateProcessExitPreservesRollbackEligibility() throws Exception {
+		byte[] previous = "previous-release".getBytes(StandardCharsets.UTF_8);
+		byte[] update = "bad-new-release".getBytes(StandardCharsets.UTF_8);
+		Path root = directory.toAbsolutePath().normalize();
+		Path jar = root.resolve("control.jar");
+		Files.write(jar, previous);
+		HostedControlManager.Settings settings = settings(jar, root.resolve("data"), true, true,
+				digest(update), 1);
+		ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1);
+		RetainedProcess retained = new RetainedProcess();
+		List<String> launches = new ArrayList<>();
+		AtomicInteger launchCount = new AtomicInteger();
+		AtomicLong clock = new AtomicLong();
+		HostedControlManager manager = new HostedControlManager(settings, executor,
+				(source, target, maximum, timeout) -> Files.write(target, update),
+				(launchSettings, artifact, launchId) -> {
+					launches.add(Files.readString(artifact));
+					return launchCount.getAndIncrement() == 0 ? retained : new FakeProcess();
+				}, (endpoint, timeout, launchId) -> "previous-release".equals(launches.get(launches.size() - 1)),
+				millis -> clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(millis)), clock::get, message -> { });
+
+		manager.runOnce();
+		assertEquals(HostedControlManager.Status.FAILED, manager.status());
+		retained.exit();
+		manager.runOnce();
+
+		assertEquals(HostedControlManager.Status.ROLLED_BACK, manager.status());
+		assertEquals(List.of("bad-new-release", "bad-new-release", "previous-release"), launches);
+		assertEquals("previous-release", Files.readString(jar));
+		assertEquals("bad-new-release", Files.readString(settings.failedFile()));
+		manager.close();
+	}
+
 	private HostedControlManager.Settings settings(Path jar, Path data, boolean autoDownload, boolean autoUpdate,
 			String sha256, int startupTimeout) {
 		Path root = directory.toAbsolutePath().normalize();
