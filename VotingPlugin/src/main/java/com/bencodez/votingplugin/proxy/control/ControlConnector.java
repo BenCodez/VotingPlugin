@@ -95,6 +95,11 @@ public final class ControlConnector implements AutoCloseable {
 
 	/** Creates the production connector without reading a credential when the feature is disabled. */
 	public static ControlConnector create(VotingPluginProxy proxy) throws IOException {
+		return create(proxy, null);
+	}
+
+	/** Creates a replacement while preserving results that Control has not acknowledged. */
+	public static ControlConnector create(VotingPluginProxy proxy, ControlConnector predecessor) throws IOException {
 		VotingPluginProxyConfig config = proxy.getConfig();
 		if (!config.getControlEnabled()) {
 			return null;
@@ -132,9 +137,15 @@ public final class ControlConnector implements AutoCloseable {
 			backends.sort(Comparator.comparing(ObservedBackend::backendId));
 			return List.copyOf(backends);
 		};
-		return new ControlConnector(settings, proxy.getScheduler(), transport, snapshot,
+		ControlConnector connector = new ControlConnector(settings, proxy.getScheduler(), transport, snapshot,
 				message -> proxy.log("[Control] " + message), UUID.randomUUID(),
 				() -> ThreadLocalRandom.current().nextLong(), new ProxyRoutingConfigurationService(proxy));
+		if (predecessor != null) {
+			synchronized (predecessor.completedTasks) {
+				connector.completedTasks.putAll(predecessor.completedTasks);
+			}
+		}
+		return connector;
 	}
 
 	public void start() {
@@ -365,7 +376,10 @@ public final class ControlConnector implements AutoCloseable {
 		}
 		CompletableFuture<Response> submitted = transport.send(resultRequest(operationId, result));
 		activeRequest = submitted;
-		return submitted.thenAccept(ControlConnector::requireSuccess);
+		return submitted.thenAccept(resultResponse -> {
+			requireSuccess(resultResponse);
+			synchronized (completedTasks) { completedTasks.remove(operationId); }
+		});
 	}
 
 	private TaskResult executeTask(JsonObject task) {

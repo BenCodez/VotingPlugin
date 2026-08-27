@@ -1552,8 +1552,9 @@ public abstract class VotingPluginProxy {
 
 	private void startControlServices() {
 		synchronized (controlLifecycleLock) {
+			ControlConnector predecessor = controlConnector;
 			stopControlServicesLocked(true);
-			startControlServicesLocked();
+			startControlServicesLocked(predecessor);
 		}
 	}
 
@@ -1565,8 +1566,9 @@ public abstract class VotingPluginProxy {
 				try {
 					synchronized (controlLifecycleLock) {
 						if (!enabled || generation != controlServicesGeneration.get()) return;
+						ControlConnector predecessor = controlConnector;
 						stopControlServicesLocked(true);
-						startControlServicesLocked();
+						startControlServicesLocked(predecessor);
 					}
 				} catch (RuntimeException failure) {
 					if (generation == controlServicesGeneration.get()) {
@@ -1585,7 +1587,7 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
-	private void startControlServicesLocked() {
+	private void startControlServicesLocked(ControlConnector predecessor) {
 		if (getConfig().getControlHostedEnabled()) {
 			try {
 				hostedControlManager = HostedControlManager.create(this);
@@ -1597,7 +1599,7 @@ public abstract class VotingPluginProxy {
 		}
 		if (!getConfig().getControlEnabled()) return;
 		try {
-			controlConnector = ControlConnector.create(this);
+			controlConnector = ControlConnector.create(this, predecessor);
 			if (controlConnector != null) controlConnector.start();
 		} catch (IOException | IllegalArgumentException e) {
 			controlConnector = null;
