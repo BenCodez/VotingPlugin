@@ -417,8 +417,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				cleanupFailure.printStackTrace();
 			}
 
-			// Recreate runtime
-			votingPluginProxy = createProxyRuntime();
+			// Recreate runtime and carry results captured before the old connector stopped.
+			VotingPluginProxy previousRuntime = votingPluginProxy;
+			VotingPluginProxy replacementRuntime = createProxyRuntime();
+			replacementRuntime.inheritPendingControlResults(previousRuntime);
+			votingPluginProxy = replacementRuntime;
 
 			// Initialize MySQL BEFORE calling proxy.load(...)
 			try {

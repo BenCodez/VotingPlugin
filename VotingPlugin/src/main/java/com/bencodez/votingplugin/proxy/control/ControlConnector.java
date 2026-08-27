@@ -95,11 +95,16 @@ public final class ControlConnector implements AutoCloseable {
 
 	/** Creates the production connector without reading a credential when the feature is disabled. */
 	public static ControlConnector create(VotingPluginProxy proxy) throws IOException {
-		return create(proxy, null);
+		return createWithPendingResults(proxy, null);
 	}
 
 	/** Creates a replacement while preserving results that Control has not acknowledged. */
 	public static ControlConnector create(VotingPluginProxy proxy, ControlConnector predecessor) throws IOException {
+		return createWithPendingResults(proxy, predecessor == null ? null : predecessor.pendingResults());
+	}
+
+	public static ControlConnector createWithPendingResults(VotingPluginProxy proxy, PendingResults pending)
+			throws IOException {
 		VotingPluginProxyConfig config = proxy.getConfig();
 		if (!config.getControlEnabled()) {
 			return null;
@@ -140,12 +145,12 @@ public final class ControlConnector implements AutoCloseable {
 		ControlConnector connector = new ControlConnector(settings, proxy.getScheduler(), transport, snapshot,
 				message -> proxy.log("[Control] " + message), UUID.randomUUID(),
 				() -> ThreadLocalRandom.current().nextLong(), new ProxyRoutingConfigurationService(proxy));
-		if (predecessor != null) {
-			synchronized (predecessor.completedTasks) {
-				connector.completedTasks.putAll(predecessor.completedTasks);
-			}
-		}
+		if (pending != null) connector.completedTasks.putAll(pending.tasks);
 		return connector;
+	}
+
+	public PendingResults pendingResults() {
+		synchronized (completedTasks) { return new PendingResults(new LinkedHashMap<>(completedTasks)); }
 	}
 
 	public void start() {
@@ -613,6 +618,12 @@ public final class ControlConnector implements AutoCloseable {
 		private static TaskResult failure(String code, String message) {
 			return new TaskResult(false, code, message == null ? "Operation failed" : message, null, null, List.of(), false, false);
 		}
+	}
+
+	/** Opaque immutable handoff state used when a platform recreates its entire proxy runtime. */
+	public static final class PendingResults {
+		private final Map<UUID, TaskResult> tasks;
+		private PendingResults(Map<UUID, TaskResult> tasks) { this.tasks = Map.copyOf(tasks); }
 	}
 
 	public interface Transport extends AutoCloseable {

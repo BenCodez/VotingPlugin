@@ -167,6 +167,7 @@ public abstract class VotingPluginProxy {
 	private final Map<UUID, PendingPresenceHandoff> pendingPresenceHandoffs = new HashMap<>();
 	private final Set<String> pendingBackendRecoverySnapshots = ConcurrentHashMap.newKeySet();
 	private volatile ControlConnector controlConnector;
+	private volatile ControlConnector.PendingResults inheritedControlResults;
 	private volatile HostedControlManager hostedControlManager;
 	private final Object controlLifecycleLock = new Object();
 	private final AtomicLong controlServicesGeneration = new AtomicLong();
@@ -1599,7 +1600,10 @@ public abstract class VotingPluginProxy {
 		}
 		if (!getConfig().getControlEnabled()) return;
 		try {
-			controlConnector = ControlConnector.create(this, predecessor);
+			ControlConnector.PendingResults pending = predecessor == null
+					? inheritedControlResults : predecessor.pendingResults();
+			controlConnector = ControlConnector.createWithPendingResults(this, pending);
+			inheritedControlResults = null;
 			if (controlConnector != null) controlConnector.start();
 		} catch (IOException | IllegalArgumentException e) {
 			controlConnector = null;
@@ -2367,52 +2371,65 @@ public abstract class VotingPluginProxy {
 	public void prepareForRuntimeReplacement() {
 		controlServicesGeneration.incrementAndGet();
 		controlLifecycleExecutor.shutdown();
+		ControlConnector connector = controlConnector;
+		if (connector != null) inheritedControlResults = connector.pendingResults();
 		stopControlServices(true);
+	}
+
+	/** Transfers unacknowledged apply results into a newly created platform runtime. */
+	public void inheritPendingControlResults(VotingPluginProxy previous) {
+		ControlConnector connector = previous == null ? null : previous.controlConnector;
+		if (connector != null) inheritedControlResults = connector.pendingResults();
+		else if (previous != null) inheritedControlResults = previous.inheritedControlResults;
 	}
 
 	/** Best-effort remainder of runtime teardown after the Control overlap gate has succeeded. */
 	public void completeRuntimeReplacementShutdown() {
-		getVoteCacheHandler().saveVoteCache();
-
-		if (getProxyMysqlMessenger() != null) {
-			getProxyMysqlMessenger().shutdown();
-		}
-
-		if (getProxyMySQL() != null) {
-			getProxyMySQL().shutdown();
-		}
-		if (multiProxyHandler != null) {
-			multiProxyHandler.close();
-		}
-
-		if (socketHandler != null) {
-			socketHandler.closeConnection();
-		}
-		closeSocketClients();
-
-		if (redisHandler != null) {
-			redisHandler.close();
-		}
-		if (redisPublisherPool != null) {
-			redisPublisherPool.close();
-			redisPublisherPool = null;
-		}
-		if (mqttHandler != null) {
+		runCleanup("vote cache", () -> getVoteCacheHandler().saveVoteCache());
+		runCleanup("proxy MySQL messenger", () -> {
+			if (getProxyMysqlMessenger() != null) getProxyMysqlMessenger().shutdown();
+		});
+		runCleanup("proxy MySQL", () -> {
+			if (getProxyMySQL() != null) getProxyMySQL().shutdown();
+		});
+		runCleanup("multi-proxy handler", () -> {
+			if (multiProxyHandler != null) multiProxyHandler.close();
+		});
+		runCleanup("socket listener", () -> {
+			if (socketHandler != null) socketHandler.closeConnection();
+		});
+		runCleanup("socket clients", this::closeSocketClients);
+		runCleanup("Redis subscriber", () -> {
+			if (redisHandler != null) redisHandler.close();
+		});
+		runCleanup("Redis publisher", () -> {
+			JedisPool pool = redisPublisherPool;
 			try {
-				mqttHandler.disconnect();
-			} catch (Exception e) {
-				logSevere("Unable to disconnect the MQTT proxy transport");
+				if (pool != null) pool.close();
+			} finally {
+				if (redisPublisherPool == pool) redisPublisherPool = null;
 			}
-		}
-
-		bungeeTimeChecker.shutdown();
-
-		if (getGlobalDataHandler() != null) {
-			getGlobalDataHandler().shutdown();
-		}
-
+		});
+		runCleanup("MQTT transport", () -> {
+			if (mqttHandler != null) mqttHandler.disconnect();
+		});
+		runCleanup("time checker", () -> bungeeTimeChecker.shutdown());
+		runCleanup("global data", () -> {
+			if (getGlobalDataHandler() != null) getGlobalDataHandler().shutdown();
+		});
 		enabled = false;
 	}
+
+	private void runCleanup(String service, CleanupAction cleanup) {
+		try {
+			cleanup.run();
+		} catch (Exception failure) {
+			logSevere("Unable to stop " + service + "; remaining proxy cleanup will continue");
+		}
+	}
+
+	@FunctionalInterface
+	private interface CleanupAction { void run() throws Exception; }
 
 	public void onPluginMessageReceived(DataInputStream in) {
 		runAsync(() -> {
