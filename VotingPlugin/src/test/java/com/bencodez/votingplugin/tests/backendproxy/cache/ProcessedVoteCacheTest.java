@@ -48,4 +48,20 @@ public class ProcessedVoteCacheTest {
 		assertTrue(cache.reserveRedisDelivery(UUID.randomUUID().toString()));
 		assertTrue(cache.reserveRedisDelivery(null));
 	}
+
+	@Test
+	public void legacyRedisHandoffMatchesOldAndBufferedDeliveryCounts() {
+		ProcessedVoteCache cache = new ProcessedVoteCache();
+		Object previous = new Object();
+		Object replacement = new Object();
+		cache.registerRedisSubscriber(previous);
+		cache.registerRedisSubscriber(replacement);
+
+		assertTrue(cache.reserveLegacyRedisDelivery(previous, "same-envelope"));
+		assertFalse(cache.reserveLegacyRedisDelivery(replacement, "same-envelope"));
+		cache.activateRedisSubscriber(replacement);
+		assertTrue(cache.consumeLegacyRedisDelivery("same-envelope"));
+		assertFalse(cache.consumeLegacyRedisDelivery("same-envelope"));
+		cache.finishRedisHandoff();
+	}
 }

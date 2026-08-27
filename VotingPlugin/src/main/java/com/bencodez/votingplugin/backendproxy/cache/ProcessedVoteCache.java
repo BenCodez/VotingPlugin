@@ -21,6 +21,9 @@ public class ProcessedVoteCache {
 	private final ConcurrentHashMap<UUID, Long> processedVotes = new ConcurrentHashMap<>();
 	private final long ttlMillis;
 	private final LinkedHashMap<String, Long> processedRedisDeliveries = new LinkedHashMap<>();
+	private final LinkedHashMap<String, Integer> legacyRedisDeliveries = new LinkedHashMap<>();
+	private Object activeRedisSubscriber;
+	private Object standbyRedisSubscriber;
 
 	public ProcessedVoteCache() {
 		this(DEFAULT_TTL_MILLIS);
@@ -74,6 +77,51 @@ public class ProcessedVoteCache {
 			oldest.remove();
 		}
 		return true;
+	}
+
+	public synchronized void registerRedisSubscriber(Object subscriber) {
+		if (activeRedisSubscriber == null) {
+			activeRedisSubscriber = subscriber;
+		} else if (activeRedisSubscriber != subscriber) {
+			standbyRedisSubscriber = subscriber;
+			legacyRedisDeliveries.clear();
+		}
+	}
+
+	/** Returns true only for the active subscriber and counts its legacy delivery during overlap. */
+	public synchronized boolean reserveLegacyRedisDelivery(Object subscriber, String signature) {
+		if (activeRedisSubscriber != subscriber) return false;
+		if (standbyRedisSubscriber != null) legacyRedisDeliveries.merge(signature, 1, Integer::sum);
+		return true;
+	}
+
+	public synchronized void activateRedisSubscriber(Object subscriber) {
+		if (standbyRedisSubscriber != subscriber) {
+			throw new IllegalStateException("Redis replacement subscriber is not registered");
+		}
+		activeRedisSubscriber = subscriber;
+		standbyRedisSubscriber = null;
+	}
+
+	/** Consumes one matching delivery processed by the previous active subscriber. */
+	public synchronized boolean consumeLegacyRedisDelivery(String signature) {
+		Integer count = legacyRedisDeliveries.get(signature);
+		if (count == null) return false;
+		if (count <= 1) legacyRedisDeliveries.remove(signature);
+		else legacyRedisDeliveries.put(signature, count - 1);
+		return true;
+	}
+
+	public synchronized void finishRedisHandoff() {
+		legacyRedisDeliveries.clear();
+	}
+
+	public synchronized void unregisterRedisSubscriber(Object subscriber) {
+		if (standbyRedisSubscriber == subscriber) {
+			standbyRedisSubscriber = null;
+			legacyRedisDeliveries.clear();
+		}
+		if (activeRedisSubscriber == subscriber) activeRedisSubscriber = null;
 	}
 
 	private void cleanup(long now) {

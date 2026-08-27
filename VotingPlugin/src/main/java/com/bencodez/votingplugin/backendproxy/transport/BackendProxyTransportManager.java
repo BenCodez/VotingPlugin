@@ -78,6 +78,21 @@ public class BackendProxyTransportManager {
 		}
 	}
 
+	public void closeRedisForHandoff() {
+		if (!(transport instanceof RedisBackendProxyTransport)) {
+			throw new IllegalStateException("Redis backend proxy transport is unavailable");
+		}
+		((RedisBackendProxyTransport) transport).closeForHandoff();
+		transport = null;
+	}
+
+	public void activateRedisAfterHandoff() {
+		if (!(transport instanceof RedisBackendProxyTransport)) {
+			throw new IllegalStateException("Redis replacement transport is unavailable");
+		}
+		((RedisBackendProxyTransport) transport).activateAfterHandoff();
+	}
+
 	public ClientHandler getClientHandler() {
 		return transport instanceof SocketBackendProxyTransport
 				? ((SocketBackendProxyTransport) transport).getClientHandler() : null;

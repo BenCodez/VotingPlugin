@@ -116,6 +116,13 @@ public class BackendProxyHandler implements Listener {
 		transportManager.validate();
 	}
 
+	/** Completes the no-loss/no-duplicate same-Redis subscriber handoff after validation. */
+	public void completeRedisHandoff(BackendProxyHandler replacement) {
+		if (method != BungeeMethod.REDIS || replacement.method != BungeeMethod.REDIS) return;
+		transportManager.closeRedisForHandoff();
+		replacement.transportManager.activateRedisAfterHandoff();
+	}
+
 	public void playerOnline(String playerName, String uuid) {
 		if (presenceManager != null) {
 			presenceManager.playerOnline(playerName, uuid);

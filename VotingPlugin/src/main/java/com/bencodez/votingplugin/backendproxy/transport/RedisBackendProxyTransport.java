@@ -2,6 +2,8 @@ package com.bencodez.votingplugin.backendproxy.transport;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.ArrayList;
+import java.util.List;
 
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
@@ -25,6 +27,10 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 	private RedisHandler redisHandler;
 	private CountDownLatch subscriptionReady;
 	private Thread listenerThread;
+	private final Object subscriberIdentity = new Object();
+	private final Object legacyLifecycle = new Object();
+	private final List<JsonEnvelope> bufferedLegacyDeliveries = new ArrayList<>();
+	private GlobalMessageHandler messageHandler;
 
 	public RedisBackendProxyTransport(VotingPluginMain plugin) {
 		this(plugin, new ProcessedVoteCache());
@@ -37,6 +43,8 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 
 	@Override
 	public void start(GlobalMessageHandler messageHandler) {
+		this.messageHandler = messageHandler;
+		processedVoteCache.registerRedisSubscriber(subscriberIdentity);
 		redisHandler = new RedisHandler(plugin.getBungeeSettings().getRedisHost(),
 				plugin.getBungeeSettings().getRedisPort(), plugin.getBungeeSettings().getRedisUsername(),
 				plugin.getBungeeSettings().getRedisPassword(), plugin.getBungeeSettings().getRedisdbindex()) {
@@ -55,9 +63,11 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 				(ch, payload) -> {
 					try {
 						JsonEnvelope envelope = com.bencodez.simpleapi.servercomm.codec.JsonEnvelopeCodec.decode(payload);
-						if (processedVoteCache.reserveRedisDelivery(
-								envelope.getFields().get(VotingPluginWire.K_REDIS_DELIVERY_ID))) {
-							messageHandler.onMessage(envelope);
+						String deliveryId = envelope.getFields().get(VotingPluginWire.K_REDIS_DELIVERY_ID);
+						if (deliveryId != null) {
+							if (processedVoteCache.reserveRedisDelivery(deliveryId)) messageHandler.onMessage(envelope);
+						} else {
+							dispatchLegacy(envelope);
 						}
 					} catch (Exception e) {
 						plugin.debug("Redis decode failed: " + e.getMessage());
@@ -71,6 +81,35 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 		listenerThread = new Thread(() -> handler.loadListener(listener), "VotingPlugin-Redis-Backend");
 		listenerThread.setDaemon(true);
 		listenerThread.start();
+	}
+
+	private void dispatchLegacy(JsonEnvelope envelope) {
+		String signature = com.bencodez.simpleapi.servercomm.codec.JsonEnvelopeCodec.encode(envelope);
+		synchronized (legacyLifecycle) {
+			if (processedVoteCache.reserveLegacyRedisDelivery(subscriberIdentity, signature)) {
+				messageHandler.onMessage(envelope);
+			} else {
+				bufferedLegacyDeliveries.add(envelope);
+			}
+		}
+	}
+
+	/** Promotes a validated standby after the previous listener has completely stopped. */
+	public void activateAfterHandoff() {
+		synchronized (legacyLifecycle) {
+			processedVoteCache.activateRedisSubscriber(subscriberIdentity);
+			for (JsonEnvelope envelope : bufferedLegacyDeliveries) {
+				String signature = com.bencodez.simpleapi.servercomm.codec.JsonEnvelopeCodec.encode(envelope);
+				if (!processedVoteCache.consumeLegacyRedisDelivery(signature)) messageHandler.onMessage(envelope);
+			}
+			bufferedLegacyDeliveries.clear();
+			processedVoteCache.finishRedisHandoff();
+		}
+	}
+
+	/** Stops the old listener while retaining its overlap accounting for standby promotion. */
+	public void closeForHandoff() {
+		closeListener(false);
 	}
 
 	@Override
@@ -111,6 +150,10 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 
 	@Override
 	public void close() {
+		closeListener(true);
+	}
+
+	private void closeListener(boolean unregister) {
 		Thread thread = listenerThread;
 		if (redisHandler != null) {
 			redisHandler.close();
@@ -122,9 +165,13 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 				thread.join(TimeUnit.SECONDS.toMillis(3));
 			} catch (InterruptedException e) {
 				Thread.currentThread().interrupt();
+				throw new IllegalStateException("Interrupted while stopping Redis backend subscription", e);
 			}
+			if (thread.isAlive()) throw new IllegalStateException("Redis backend subscription did not stop");
 		}
 		listenerThread = null;
 		subscriptionReady = null;
+		messageHandler = null;
+		if (unregister) processedVoteCache.unregisterRedisSubscriber(subscriberIdentity);
 	}
 }

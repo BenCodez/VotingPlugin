@@ -788,6 +788,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		try {
 			replacement.load();
 			replacement.validateTransport();
+			if (previous != null) previous.completeRedisHandoff(replacement);
 		} catch (RuntimeException failure) {
 			replacement.close();
 			throw failure;
