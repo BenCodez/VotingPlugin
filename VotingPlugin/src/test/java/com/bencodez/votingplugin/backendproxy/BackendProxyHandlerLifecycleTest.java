@@ -70,17 +70,27 @@ class BackendProxyHandlerLifecycleTest {
 	}
 
 	@Test
-	void releasesRedisSubscriberBeforeSameTopicReplacement() throws Exception {
-		RedisBackendProxyTransport handler = new RedisBackendProxyTransport(null);
+	void keepsRedisSubscriberUntilReplacementIsReady() throws Exception {
+		BackendProxyHandler handler = new BackendProxyHandler(null);
+		Field method = BackendProxyHandler.class.getDeclaredField("method");
+		method.setAccessible(true);
+		method.set(handler, BungeeMethod.REDIS);
+		Field managerField = BackendProxyHandler.class.getDeclaredField("transportManager");
+		managerField.setAccessible(true);
+		BackendProxyTransportManager manager = (BackendProxyTransportManager) managerField.get(handler);
+		RedisBackendProxyTransport transport = new RedisBackendProxyTransport(null);
 		RedisHandler redis = mock(RedisHandler.class);
 		Field field = RedisBackendProxyTransport.class.getDeclaredField("redisHandler");
 		field.setAccessible(true);
-		field.set(handler, redis);
+		field.set(transport, redis);
+		Field transportField = BackendProxyTransportManager.class.getDeclaredField("transport");
+		transportField.setAccessible(true);
+		transportField.set(manager, transport);
 
-		handler.prepareForReplacement();
+		handler.prepareForReplacement(BungeeMethod.REDIS);
 
-		verify(redis).close();
-		assertNull(handler.getRedisHandler());
+		verifyNoInteractions(redis);
+		assertSame(redis, handler.getRedisHandler());
 	}
 
 	@Test

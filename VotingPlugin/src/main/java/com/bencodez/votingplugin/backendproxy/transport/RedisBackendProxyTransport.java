@@ -1,5 +1,8 @@
 package com.bencodez.votingplugin.backendproxy.transport;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
 import com.bencodez.simpleapi.servercomm.redis.RedisHandler;
@@ -17,7 +20,7 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 	private final VotingPluginMain plugin;
 	@Getter
 	private RedisHandler redisHandler;
-	private Thread listenerThread;
+	private CountDownLatch subscriptionReady;
 
 	public RedisBackendProxyTransport(VotingPluginMain plugin) {
 		this.plugin = plugin;
@@ -36,16 +39,24 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 			}
 		};
 		RedisHandler handler = redisHandler;
-
-		listenerThread = new Thread(() -> {
-			if (plugin.isEnabled()) {
-				RedisListener listener = handler.createEnvelopeListener(
-						plugin.getBungeeSettings().getRedisPrefix() + "VotingPlugin_" + plugin.getBungeeSettings().getServer(),
-						(ch, envelope) -> messageHandler.onMessage(envelope));
-				handler.loadListener(listener);
+		CountDownLatch ready = new CountDownLatch(1);
+		subscriptionReady = ready;
+		RedisListener listener = new RedisListener(handler,
+				plugin.getBungeeSettings().getRedisPrefix() + "VotingPlugin_" + plugin.getBungeeSettings().getServer(),
+				(ch, payload) -> {
+					try {
+						messageHandler.onMessage(
+								com.bencodez.simpleapi.servercomm.codec.JsonEnvelopeCodec.decode(payload));
+					} catch (Exception e) {
+						plugin.debug("Redis decode failed: " + e.getMessage());
+					}
+				}) {
+			@Override
+			public void onSubscribe(String channel, int subscribedChannels) {
+				ready.countDown();
 			}
-		}, "VotingPlugin-Redis-Backend");
-		listenerThread.start();
+		};
+		handler.loadListener(listener);
 	}
 
 	@Override
@@ -73,6 +84,14 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 		} catch (RuntimeException failure) {
 			throw new IllegalStateException("Redis backend proxy transport connection failed", failure);
 		}
+		try {
+			if (subscriptionReady == null || !subscriptionReady.await(3, TimeUnit.SECONDS)) {
+				throw new IllegalStateException("Redis backend proxy subscription did not become ready");
+			}
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new IllegalStateException("Interrupted while waiting for Redis backend proxy subscription", e);
+		}
 	}
 
 	@Override
@@ -81,9 +100,6 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 			redisHandler.close();
 			redisHandler = null;
 		}
-		if (listenerThread != null) {
-			listenerThread.interrupt();
-			listenerThread = null;
-		}
+		subscriptionReady = null;
 	}
 }

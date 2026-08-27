@@ -103,7 +103,7 @@ public class BackendProxyHandler implements Listener {
 
 	/** Releases a same-method subscriber/listener before its replacement starts. */
 	public void prepareForReplacement(BungeeMethod replacementMethod) {
-		if (method == replacementMethod && method != BungeeMethod.PLUGINMESSAGING) {
+		if (method == replacementMethod && method != BungeeMethod.PLUGINMESSAGING && method != BungeeMethod.REDIS) {
 			transportManager.prepareForReplacement();
 		}
 	}

@@ -82,6 +82,15 @@ public final class BackendConfigurationService {
 			installed = true;
 			reload.run(fileName);
 			String applied = readRaw(target, false);
+			String installedRevision = revision(preview.resolvedContent());
+			if (!revision(applied).equals(installedRevision)) {
+				String concurrentRevision = revision(applied);
+				reload.run(fileName);
+				if (!revision(readRaw(target, false)).equals(concurrentRevision)) {
+					throw new StaleRevisionException();
+				}
+				throw new StaleRevisionException();
+			}
 			return new ApplyResult(new Document(fileName, mask(parse(applied)), revision(applied)),
 					preview.changes(), false);
 		} catch (StaleRevisionException stale) {

@@ -77,7 +77,7 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	}
 
 	private static ProxyRoutingConfiguration routing(ConfigurationNode configuration) throws IOException {
-		return new ProxyRoutingConfiguration(configuration.node("SendVotesToAllServers").getBoolean(false),
+		return new ProxyRoutingConfiguration(configuration.node("SendVotesToAllServers").getBoolean(true),
 				configuration.node("BlockedServers").getList(String.class, List.of()));
 	}
 
