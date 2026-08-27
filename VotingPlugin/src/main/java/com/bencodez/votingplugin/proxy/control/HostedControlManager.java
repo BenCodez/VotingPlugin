@@ -874,6 +874,7 @@ public final class HostedControlManager implements AutoCloseable {
 			environment.put("CONTROL_PORT", Integer.toString(settings.port()));
 			environment.put("CONTROL_DATA_DIR", settings.dataDirectory().toString());
 			environment.put("CONTROL_LAUNCH_ID", launchId);
+			environment.put("CONTROL_PARENT_PID", Long.toString(ProcessHandle.current().pid()));
 			return new JdkManagedProcess(builder.start());
 		}
 

@@ -225,12 +225,17 @@ public final class BackendControlConnector implements AutoCloseable {
 			}
 		}
 		JsonObject resultBody = result.json(sessionId);
-		requireObject(send("POST", "/api/v1/nodes/" + settings.nodeId() + "/operations/" + operationId + "/result",
-				resultBody), 200);
 		TaskResult submitted = result;
-		if (submitted.restartConnector()) {
-			synchronized (completed) { completed.remove(operationId); }
-			plugin.getServer().getScheduler().runTask(plugin, plugin::restartBackendControlConnector);
+		try {
+			requireObject(send("POST", "/api/v1/nodes/" + settings.nodeId() + "/operations/" + operationId + "/result",
+					resultBody), 200);
+			if (submitted.restartConnector()) {
+				synchronized (completed) { completed.remove(operationId); }
+			}
+		} finally {
+			if (submitted.restartConnector()) {
+				plugin.getServer().getScheduler().runTask(plugin, plugin::restartBackendControlConnector);
+			}
 		}
 	}
 
