@@ -60,6 +60,7 @@ public final class HostedControlManager implements AutoCloseable {
 	private volatile boolean closed;
 	private volatile Status status = Status.STARTING;
 	private volatile ManagedProcess managedProcess;
+	private volatile ManagedProcess exitAwaitedProcess;
 	private volatile Future<?> activeTask;
 	private volatile int failures;
 	private volatile String quarantinedSha256;
@@ -111,6 +112,11 @@ public final class HostedControlManager implements AutoCloseable {
 			return;
 		}
 		try {
+			ManagedProcess retained = managedProcess;
+			if (retained != null) {
+				if (retained.isAlive()) return;
+				clearManagedProcess(retained);
+			}
 			boolean updated = prepareArtifact();
 			if (closed) {
 				return;
@@ -217,6 +223,13 @@ public final class HostedControlManager implements AutoCloseable {
 		status = Status.STARTING_PROCESS;
 		synchronized (processLifecycle) {
 			if (closed) throw new IOException("Hosted Control manager is closed");
+			if (managedProcess != null) {
+				if (managedProcess.isAlive()) {
+					throw new IOException("The previous hosted Control process is still running");
+				}
+				managedProcess = null;
+				exitAwaitedProcess = null;
+			}
 			ManagedProcess process = launcher.launch(settings, artifact);
 			managedProcess = process;
 			return process;
@@ -267,8 +280,32 @@ public final class HostedControlManager implements AutoCloseable {
 
 	private void fail() {
 		status = Status.FAILED;
+		ManagedProcess process = managedProcess;
+		if (process != null && process.isAlive()) {
+			failWhileProcessIsAlive(process);
+			return;
+		}
+		if (process != null) clearManagedProcess(process);
 		logger.accept("Control could not be provisioned or started; VotingPlugin remains unaffected and will retry");
 		scheduleRetry();
+	}
+
+	private void failWhileProcessIsAlive(ManagedProcess process) {
+		status = Status.FAILED;
+		synchronized (processLifecycle) {
+			if (closed || managedProcess != process || exitAwaitedProcess == process) return;
+			exitAwaitedProcess = process;
+		}
+		logger.accept("Control could not be stopped; provisioning will retry only after that process exits");
+		process.onExit().whenComplete((ignored, failure) -> {
+			boolean retry;
+			synchronized (processLifecycle) {
+				if (exitAwaitedProcess == process) exitAwaitedProcess = null;
+				retry = !closed && managedProcess == process;
+				if (retry) managedProcess = null;
+			}
+			if (retry) scheduleRetry();
+		});
 	}
 
 	private void scheduleRetry() {
@@ -346,7 +383,10 @@ public final class HostedControlManager implements AutoCloseable {
 
 	private void clearManagedProcess(ManagedProcess process) {
 		synchronized (processLifecycle) {
-			if (managedProcess == process) managedProcess = null;
+			if (managedProcess == process) {
+				managedProcess = null;
+				if (exitAwaitedProcess == process) exitAwaitedProcess = null;
+			}
 		}
 	}
 

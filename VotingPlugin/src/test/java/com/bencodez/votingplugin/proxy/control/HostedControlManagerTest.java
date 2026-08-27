@@ -19,6 +19,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -277,6 +278,35 @@ class HostedControlManagerTest {
 		assertEquals(2, process.waits.get());
 	}
 
+	@Test
+	void failedHealthTerminationDefersRetryUntilRetainedProcessExits() throws Exception {
+		byte[] release = "manual-release".getBytes(StandardCharsets.UTF_8);
+		Path root = directory.toAbsolutePath().normalize();
+		Path jar = root.resolve("control.jar");
+		Files.write(jar, release);
+		ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1);
+		RetainedProcess process = new RetainedProcess();
+		AtomicInteger launches = new AtomicInteger();
+		AtomicLong clock = new AtomicLong();
+		HostedControlManager manager = new HostedControlManager(
+				settings(jar, root.resolve("data"), false, false, digest(release), 1), executor,
+				(source, target, maximum, timeout) -> { }, (settings, artifact) -> {
+					launches.incrementAndGet();
+					return process;
+				}, (endpoint, timeout) -> false,
+				millis -> clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(millis)), clock::get, message -> { });
+
+		manager.runOnce();
+		manager.runOnce();
+
+		assertEquals(HostedControlManager.Status.FAILED, manager.status());
+		assertEquals(1, launches.get());
+		assertTrue(executor.getQueue().isEmpty());
+		process.exit();
+		assertEquals(1, executor.getQueue().size());
+		manager.close();
+	}
+
 	private HostedControlManager.Settings settings(Path jar, Path data, boolean autoDownload, boolean autoUpdate,
 			String sha256, int startupTimeout) {
 		Path root = directory.toAbsolutePath().normalize();
@@ -350,5 +380,20 @@ class HostedControlManagerTest {
 			return false;
 		}
 		@Override public CompletableFuture<Void> onExit() { return exit; }
+	}
+
+	private static final class RetainedProcess implements HostedControlManager.ManagedProcess {
+		private final CompletableFuture<Void> exit = new CompletableFuture<>();
+		private volatile boolean alive = true;
+
+		@Override public boolean isAlive() { return alive; }
+		@Override public void destroy() { }
+		@Override public void destroyForcibly() { }
+		@Override public boolean waitFor(long timeout, TimeUnit unit) { return false; }
+		@Override public CompletableFuture<Void> onExit() { return exit; }
+		private void exit() {
+			alive = false;
+			exit.complete(null);
+		}
 	}
 }
