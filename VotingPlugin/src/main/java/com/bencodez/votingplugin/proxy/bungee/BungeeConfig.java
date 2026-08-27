@@ -3,14 +3,19 @@ package com.bencodez.votingplugin.proxy.bungee;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.channels.Channels;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 import com.bencodez.votingplugin.proxy.control.ProxyRoutingConfiguration;
@@ -562,14 +567,19 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 	public synchronized void rollbackControlProxyRouting() throws IOException {
 		Path target = new File(bungee.getDataFolder(), "bungeeconfig.yml").toPath();
 		Path backup = target.resolveSibling(target.getFileName() + ".control-backup");
-		if (!Files.isRegularFile(backup)) throw new IOException("Control backup is unavailable");
+		if (!Files.isRegularFile(backup, LinkOption.NOFOLLOW_LINKS)) {
+			throw new IOException("Control backup is unavailable or unsafe");
+		}
 		if (controlInstalledSnapshot == null
 				|| !java.util.Arrays.equals(controlInstalledSnapshot, Files.readAllBytes(target))) {
 			throw new StaleControlRevisionException();
 		}
 		Path stage = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".control-rollback");
 		try {
-			Files.copy(backup, stage, StandardCopyOption.REPLACE_EXISTING);
+			try (SeekableByteChannel source = Files.newByteChannel(backup,
+					Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS))) {
+				Files.copy(Channels.newInputStream(source), stage, StandardCopyOption.REPLACE_EXISTING);
+			}
 			if (!java.util.Arrays.equals(controlInstalledSnapshot, Files.readAllBytes(target))) {
 				throw new StaleControlRevisionException();
 			}
@@ -579,6 +589,15 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 		}
 		controlInstalledSnapshot = null;
 		data = ConfigurationProvider.getProvider(YamlConfiguration.class).load(target.toFile());
+	}
+
+	@Override
+	public synchronized void verifyControlProxyRoutingInstalled() throws IOException {
+		Path target = new File(bungee.getDataFolder(), "bungeeconfig.yml").toPath();
+		if (controlInstalledSnapshot == null
+				|| !java.util.Arrays.equals(controlInstalledSnapshot, Files.readAllBytes(target))) {
+			throw new StaleControlRevisionException();
+		}
 	}
 
 	private static void atomicReplace(Path source, Path target) throws IOException {

@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.proxy.velocity;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
@@ -30,5 +31,25 @@ class VelocityConfigControlTest {
 
 		assertFalse(config.getSendVotesToAllServers());
 		assertTrue(config.getBlockedServers().contains("lobby"));
+	}
+
+	@Test
+	void rollbackRejectsASymbolicBackupSidecar() throws Exception {
+		Path file = directory.resolve("velocity.yml");
+		Files.writeString(file, "SendVotesToAllServers: true\nBlockedServers: []\n");
+		VelocityConfig config = new VelocityConfig(file.toFile());
+		config.loadControlConfiguration();
+		ProxyRoutingConfiguration current = new ProxyRoutingConfiguration(config.getSendVotesToAllServers(),
+				config.getBlockedServers());
+		config.persistControlProxyRouting(false, List.of("lobby"), current.revision());
+		Path backup = file.resolveSibling(file.getFileName() + ".control-backup");
+		Path external = directory.resolve("external.yml");
+		Files.writeString(external, "external: preserved\n");
+		Files.delete(backup);
+		Files.createSymbolicLink(backup, external);
+
+		assertThrows(java.io.IOException.class, config::rollbackControlProxyRouting);
+		assertTrue(Files.readString(file).contains("lobby"));
+		assertTrue(Files.readString(external).contains("preserved"));
 	}
 }

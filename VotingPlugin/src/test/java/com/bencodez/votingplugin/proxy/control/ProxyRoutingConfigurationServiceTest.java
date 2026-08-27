@@ -70,6 +70,20 @@ class ProxyRoutingConfigurationServiceTest {
 		assertTrue(platform.current.blockedServers().contains("manual-edit"));
 	}
 
+	@Test
+	void successfulReloadReconcilesAndRejectsAConcurrentEdit() {
+		ProxyRoutingConfiguration current = new ProxyRoutingConfiguration(false, List.of());
+		FakePlatform platform = new FakePlatform();
+		platform.current = current;
+		platform.manualEditDuringSuccessfulReload = true;
+
+		assertThrows(ProxyRoutingConfigurationService.StaleRevisionException.class,
+				() -> new ProxyRoutingConfigurationService(platform).apply(
+						new ProxyRoutingConfiguration(true, List.of()), current.revision()));
+		assertTrue(platform.reloadCalls == 2);
+		assertTrue(platform.current.blockedServers().contains("manual-edit"));
+	}
+
 	private static final class FakePlatform implements ProxyRoutingConfigurationService.Platform {
 		private ProxyRoutingConfiguration current = new ProxyRoutingConfiguration(false, List.of());
 		private Set<String> configuredServers = Set.of();
@@ -77,6 +91,7 @@ class ProxyRoutingConfigurationServiceTest {
 		private boolean rolledBack;
 		private boolean staleDuringPersist;
 		private boolean manualEditDuringFailedReload;
+		private boolean manualEditDuringSuccessfulReload;
 		private ProxyRoutingConfiguration installed;
 		private int reloadCalls;
 
@@ -93,11 +108,19 @@ class ProxyRoutingConfigurationServiceTest {
 		}
 		@Override public void reload() throws Exception {
 			reloadCalls++;
+			if (manualEditDuringSuccessfulReload && reloadCalls == 1) {
+				current = new ProxyRoutingConfiguration(false, List.of("manual-edit"));
+			}
 			if (manualEditDuringFailedReload && reloadCalls == 1) {
 				current = new ProxyRoutingConfiguration(false, List.of("manual-edit"));
 				throw new IOException("invalid reloaded configuration");
 			}
 			if (failFirstReload && reloadCalls == 1) throw new IOException("invalid reloaded configuration");
+		}
+		@Override public void verifyInstalled() throws IOException {
+			if (!current.equals(installed)) {
+				throw new com.bencodez.votingplugin.proxy.VotingPluginProxyConfig.StaleControlRevisionException();
+			}
 		}
 	}
 }

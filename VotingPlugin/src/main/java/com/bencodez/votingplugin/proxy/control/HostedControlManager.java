@@ -68,6 +68,7 @@ public final class HostedControlManager implements AutoCloseable {
 	private volatile String quarantinedSha256;
 	private volatile String trustedRollbackSha256;
 	private volatile String rollbackCandidateSha256;
+	private volatile boolean rollbackCandidateReachedHealth;
 	private volatile boolean rollbackPending;
 
 	private HostedControlManager(Settings settings, Consumer<String> logger) {
@@ -125,8 +126,11 @@ public final class HostedControlManager implements AutoCloseable {
 				clearManagedProcess(retained);
 			}
 			if (rollbackPending && Files.isRegularFile(settings.previousFile(), LinkOption.NOFOLLOW_LINKS)) {
-				if (rollbackAndStartPrevious()) return;
-				throw new IOException("The previous Control release did not become healthy");
+				if (rollbackCandidateReachedHealth) {
+					if (rollbackAndStartPrevious()) return;
+					throw new IOException("The previous Control release did not become healthy");
+				}
+				restoreIncompleteActivation();
 			}
 			recoverPersistedQuarantineState();
 			boolean updated = prepareArtifact();
@@ -139,10 +143,15 @@ public final class HostedControlManager implements AutoCloseable {
 			}
 			LaunchedProcess launched = launch(settings.jarFile());
 			ManagedProcess process = launched.process();
+			if (updated) {
+				persistHealthCheckingState(trustedRollbackSha256, rollbackCandidateSha256);
+				rollbackCandidateReachedHealth = true;
+			}
 			if (awaitHealthy(launched)) {
 				failures = 0;
 				clearPersistedRollbackState();
 				rollbackCandidateSha256 = null;
+				rollbackCandidateReachedHealth = false;
 				rollbackPending = false;
 				status = Status.RUNNING;
 				logger.accept("WebUI is available at " + settings.endpoint());
@@ -175,6 +184,7 @@ public final class HostedControlManager implements AutoCloseable {
 		rollbackPending = false;
 		quarantinedSha256 = failedCandidateSha256;
 		rollbackCandidateSha256 = null;
+		rollbackCandidateReachedHealth = false;
 		LaunchedProcess previousLaunch = launch(settings.jarFile());
 		ManagedProcess previous = previousLaunch.process();
 		if (awaitHealthy(previousLaunch)) {
@@ -252,7 +262,12 @@ public final class HostedControlManager implements AutoCloseable {
 	}
 
 	private void persistRollbackState(String previousSha256) throws IOException {
+		Files.deleteIfExists(settings.healthCheckingFile());
 		persistDigestState(settings.rollbackPendingFile(), previousSha256, settings.sha256(), "rollback");
+	}
+
+	private void persistHealthCheckingState(String previousSha256, String candidateSha256) throws IOException {
+		persistDigestState(settings.healthCheckingFile(), previousSha256, candidateSha256, "health-checking");
 	}
 
 	private void persistQuarantineState(String previousSha256, String candidateSha256) throws IOException {
@@ -298,6 +313,7 @@ public final class HostedControlManager implements AutoCloseable {
 		if (previousSha256.equals(activeSha256)) {
 			clearPersistedRollbackState();
 			rollbackCandidateSha256 = null;
+			rollbackCandidateReachedHealth = false;
 			rollbackPending = false;
 			return;
 		}
@@ -310,7 +326,25 @@ public final class HostedControlManager implements AutoCloseable {
 		}
 		trustedRollbackSha256 = previousSha256;
 		rollbackCandidateSha256 = candidateSha256;
+		String[] healthChecking = readDigestState(settings.healthCheckingFile(), "health-checking");
+		if (healthChecking != null && (!previousSha256.equals(healthChecking[0])
+				|| !candidateSha256.equals(healthChecking[1]))) {
+			throw new IOException("Control health-checking state does not match pending rollback state");
+		}
+		rollbackCandidateReachedHealth = healthChecking != null;
 		rollbackPending = true;
+	}
+
+	private void restoreIncompleteActivation() throws IOException {
+		if (Files.exists(settings.jarFile(), LinkOption.NOFOLLOW_LINKS)) {
+			atomicMove(settings.jarFile(), settings.failedFile(), true);
+		}
+		atomicMove(settings.previousFile(), settings.jarFile(), false);
+		clearPersistedRollbackState();
+		trustedRollbackSha256 = null;
+		rollbackCandidateSha256 = null;
+		rollbackCandidateReachedHealth = false;
+		rollbackPending = false;
 	}
 
 	private void recoverPersistedQuarantineState() throws IOException {
@@ -354,6 +388,7 @@ public final class HostedControlManager implements AutoCloseable {
 
 	private void clearPersistedRollbackState() throws IOException {
 		Files.deleteIfExists(settings.rollbackPendingFile());
+		Files.deleteIfExists(settings.healthCheckingFile());
 	}
 
 	private void clearPersistedQuarantineState() throws IOException {
@@ -678,6 +713,10 @@ public final class HostedControlManager implements AutoCloseable {
 
 		Path quarantineFile() {
 			return jarFile.resolveSibling(jarFile.getFileName() + ".quarantined");
+		}
+
+		Path healthCheckingFile() {
+			return jarFile.resolveSibling(jarFile.getFileName() + ".health-checking");
 		}
 
 		URI endpoint() {

@@ -454,6 +454,40 @@ class HostedControlManagerTest {
 		restartedManager.close();
 	}
 
+	@Test
+	void incompleteActivationIsRetriedWithoutQuarantiningCandidate() throws Exception {
+		byte[] previous = "previous-release".getBytes(StandardCharsets.UTF_8);
+		byte[] update = "candidate-release".getBytes(StandardCharsets.UTF_8);
+		Path root = directory.toAbsolutePath().normalize();
+		Path jar = root.resolve("control.jar");
+		Files.write(jar, previous);
+		HostedControlManager.Settings settings = settings(jar, root.resolve("data"), true, true,
+				digest(update), 1);
+		AtomicInteger downloads = new AtomicInteger();
+		AtomicInteger launches = new AtomicInteger();
+		ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+		HostedControlManager manager = new HostedControlManager(settings, executor,
+				(source, target, maximum, timeout) -> {
+					downloads.incrementAndGet();
+					Files.write(target, update);
+				}, (launchSettings, artifact, launchId) -> {
+					if (launches.getAndIncrement() == 0) throw new IOException("simulated pre-launch exit");
+					return new FakeProcess();
+				}, (endpoint, timeout, launchId) -> true, millis -> { }, System::nanoTime, message -> { });
+
+		manager.runOnce();
+		assertEquals(HostedControlManager.Status.FAILED, manager.status());
+		assertFalse(Files.exists(settings.healthCheckingFile()));
+		manager.runOnce();
+
+		assertEquals(HostedControlManager.Status.RUNNING, manager.status());
+		assertEquals(2, downloads.get());
+		assertEquals(2, launches.get());
+		assertEquals("candidate-release", Files.readString(jar));
+		assertFalse(Files.exists(settings.quarantineFile()));
+		manager.close();
+	}
+
 	private HostedControlManager.Settings settings(Path jar, Path data, boolean autoDownload, boolean autoUpdate,
 			String sha256, int startupTimeout) {
 		Path root = directory.toAbsolutePath().normalize();

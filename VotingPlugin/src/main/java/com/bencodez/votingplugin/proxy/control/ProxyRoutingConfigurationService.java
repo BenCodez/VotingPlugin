@@ -23,6 +23,9 @@ public final class ProxyRoutingConfigurationService {
 			}
 			@Override public void rollback() throws IOException { proxy.getConfig().rollbackControlProxyRouting(); }
 			@Override public void reload() throws Exception { proxy.reloadControlConfiguration(); }
+			@Override public void verifyInstalled() throws IOException {
+				proxy.getConfig().verifyControlProxyRoutingInstalled();
+			}
 		});
 	}
 
@@ -55,6 +58,14 @@ public final class ProxyRoutingConfigurationService {
 		}
 		try {
 			platform.reload();
+			try {
+				platform.verifyInstalled();
+			} catch (com.bencodez.votingplugin.proxy.VotingPluginProxyConfig.StaleControlRevisionException stale) {
+				platform.reload();
+				throw new StaleRevisionException();
+			}
+		} catch (StaleRevisionException stale) {
+			throw stale;
 		} catch (Exception e) {
 			boolean rolledBack = false;
 			try {
@@ -74,6 +85,7 @@ public final class ProxyRoutingConfigurationService {
 		void persist(ProxyRoutingConfiguration proposal, String expectedRevision) throws IOException;
 		void rollback() throws IOException;
 		void reload() throws Exception;
+		default void verifyInstalled() throws IOException { }
 	}
 
 	@SuppressWarnings("serial")

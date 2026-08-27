@@ -27,6 +27,10 @@ public interface VotingPluginProxyConfig {
 		throw new UnsupportedOperationException("Control configuration rollback is unavailable");
 	}
 
+	/** Verifies that the exact Control-installed routing snapshot is still on disk. */
+	default void verifyControlProxyRoutingInstalled() throws IOException {
+	}
+
 	@SuppressWarnings("serial")
 	final class StaleControlRevisionException extends IOException {
 		public StaleControlRevisionException() { super("Control proxy routing revision is stale"); }
