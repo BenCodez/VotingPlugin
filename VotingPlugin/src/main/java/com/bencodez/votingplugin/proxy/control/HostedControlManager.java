@@ -67,6 +67,7 @@ public final class HostedControlManager implements AutoCloseable {
 	private volatile int failures;
 	private volatile String quarantinedSha256;
 	private volatile String trustedRollbackSha256;
+	private volatile String rollbackCandidateSha256;
 	private volatile boolean rollbackPending;
 
 	private HostedControlManager(Settings settings, Consumer<String> logger) {
@@ -128,7 +129,10 @@ public final class HostedControlManager implements AutoCloseable {
 				throw new IOException("The previous Control release did not become healthy");
 			}
 			boolean updated = prepareArtifact();
-			if (updated) rollbackPending = true;
+			if (updated) {
+				rollbackCandidateSha256 = settings.sha256();
+				rollbackPending = true;
+			}
 			if (closed) {
 				return;
 			}
@@ -137,6 +141,7 @@ public final class HostedControlManager implements AutoCloseable {
 			if (awaitHealthy(launched)) {
 				failures = 0;
 				clearPersistedRollbackState();
+				rollbackCandidateSha256 = null;
 				rollbackPending = false;
 				status = Status.RUNNING;
 				logger.accept("WebUI is available at " + settings.endpoint());
@@ -169,7 +174,8 @@ public final class HostedControlManager implements AutoCloseable {
 		ManagedProcess previous = previousLaunch.process();
 		if (awaitHealthy(previousLaunch)) {
 			failures = 0;
-			quarantinedSha256 = settings.sha256();
+			quarantinedSha256 = rollbackCandidateSha256;
+			rollbackCandidateSha256 = null;
 			status = Status.ROLLED_BACK;
 			logger.accept("The new Control release failed health checks; the previous release is running");
 			monitor(previous);
@@ -291,6 +297,8 @@ public final class HostedControlManager implements AutoCloseable {
 		String activeSha256 = active ? sha256(settings.jarFile()) : null;
 		if (previousSha256.equals(activeSha256)) {
 			clearPersistedRollbackState();
+			rollbackCandidateSha256 = null;
+			rollbackPending = false;
 			return;
 		}
 		if (active && !candidateSha256.equals(activeSha256)) {
@@ -301,6 +309,7 @@ public final class HostedControlManager implements AutoCloseable {
 			throw new IOException("Previous Control artifact does not match pending rollback state");
 		}
 		trustedRollbackSha256 = previousSha256;
+		rollbackCandidateSha256 = candidateSha256;
 		rollbackPending = true;
 	}
 

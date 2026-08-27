@@ -370,28 +370,35 @@ class HostedControlManagerTest {
 	@Test
 	void pendingUpdateRollbackSurvivesManagerRestart() throws Exception {
 		byte[] previous = "previous-release".getBytes(StandardCharsets.UTF_8);
-		byte[] update = "bad-new-release".getBytes(StandardCharsets.UTF_8);
+		byte[] failedUpdate = "bad-new-release-a".getBytes(StandardCharsets.UTF_8);
+		byte[] nextUpdate = "new-release-b".getBytes(StandardCharsets.UTF_8);
 		Path root = directory.toAbsolutePath().normalize();
 		Path jar = root.resolve("control.jar");
 		Files.write(jar, previous);
 		HostedControlManager.Settings settings = settings(jar, root.resolve("data"), true, true,
-				digest(update), 1);
+				digest(failedUpdate), 1);
 		FakeLauncher failedLauncher = new FakeLauncher();
 		ScheduledExecutorService failedExecutor = Executors.newSingleThreadScheduledExecutor();
 		HostedControlManager failedManager = new HostedControlManager(settings, failedExecutor,
-				(source, target, maximum, timeout) -> Files.write(target, update), failedLauncher,
+				(source, target, maximum, timeout) -> Files.write(target, failedUpdate), failedLauncher,
 				(endpoint, timeout, launchId) -> { throw new IllegalStateException("simulated JVM exit"); },
 				millis -> { }, System::nanoTime, message -> { });
 
 		failedManager.runOnce();
 		failedExecutor.shutdownNow();
-		assertEquals("bad-new-release", Files.readString(jar));
+		assertEquals("bad-new-release-a", Files.readString(jar));
 		assertTrue(Files.isRegularFile(settings.rollbackPendingFile()));
 
+		HostedControlManager.Settings recoveredSettings = settings(jar, root.resolve("data"), true, true,
+				digest(nextUpdate), 1);
 		FakeLauncher recoveredLauncher = new FakeLauncher();
+		AtomicInteger recoveredDownloads = new AtomicInteger();
 		ScheduledExecutorService recoveredExecutor = Executors.newSingleThreadScheduledExecutor();
-		HostedControlManager recoveredManager = new HostedControlManager(settings, recoveredExecutor,
-				(source, target, maximum, timeout) -> { throw new AssertionError("recovery downloaded"); },
+		HostedControlManager recoveredManager = new HostedControlManager(recoveredSettings, recoveredExecutor,
+				(source, target, maximum, timeout) -> {
+					recoveredDownloads.incrementAndGet();
+					Files.write(target, nextUpdate);
+				},
 				recoveredLauncher, (endpoint, timeout, launchId) -> true, millis -> { }, System::nanoTime,
 				message -> { });
 		recoveredManager.runOnce();
@@ -399,7 +406,15 @@ class HostedControlManagerTest {
 		assertEquals(HostedControlManager.Status.ROLLED_BACK, recoveredManager.status());
 		assertEquals(List.of("previous-release"), recoveredLauncher.launchedContents);
 		assertEquals("previous-release", Files.readString(jar));
-		assertFalse(Files.exists(settings.rollbackPendingFile()));
+		assertEquals(0, recoveredDownloads.get());
+		assertFalse(Files.exists(recoveredSettings.rollbackPendingFile()));
+
+		recoveredLauncher.processes.get(0).destroy();
+		recoveredManager.runOnce();
+		assertEquals(HostedControlManager.Status.RUNNING, recoveredManager.status());
+		assertEquals(1, recoveredDownloads.get());
+		assertEquals(List.of("previous-release", "new-release-b"), recoveredLauncher.launchedContents);
+		assertEquals("new-release-b", Files.readString(jar));
 		recoveredManager.close();
 	}
 
