@@ -128,6 +128,7 @@ public final class HostedControlManager implements AutoCloseable {
 				if (rollbackAndStartPrevious()) return;
 				throw new IOException("The previous Control release did not become healthy");
 			}
+			recoverPersistedQuarantineState();
 			boolean updated = prepareArtifact();
 			if (updated) {
 				rollbackCandidateSha256 = settings.sha256();
@@ -168,14 +169,16 @@ public final class HostedControlManager implements AutoCloseable {
 	}
 
 	private boolean rollbackAndStartPrevious() throws IOException, InterruptedException {
+		String failedCandidateSha256 = rollbackCandidateSha256;
+		persistQuarantineState(trustedRollbackSha256, failedCandidateSha256);
 		rollback();
 		rollbackPending = false;
+		quarantinedSha256 = failedCandidateSha256;
+		rollbackCandidateSha256 = null;
 		LaunchedProcess previousLaunch = launch(settings.jarFile());
 		ManagedProcess previous = previousLaunch.process();
 		if (awaitHealthy(previousLaunch)) {
 			failures = 0;
-			quarantinedSha256 = rollbackCandidateSha256;
-			rollbackCandidateSha256 = null;
 			status = Status.ROLLED_BACK;
 			logger.accept("The new Control release failed health checks; the previous release is running");
 			monitor(previous);
@@ -249,16 +252,27 @@ public final class HostedControlManager implements AutoCloseable {
 	}
 
 	private void persistRollbackState(String previousSha256) throws IOException {
+		persistDigestState(settings.rollbackPendingFile(), previousSha256, settings.sha256(), "rollback");
+	}
+
+	private void persistQuarantineState(String previousSha256, String candidateSha256) throws IOException {
+		persistDigestState(settings.quarantineFile(), previousSha256, candidateSha256, "quarantine");
+	}
+
+	private void persistDigestState(Path marker, String previousSha256, String candidateSha256, String name)
+			throws IOException {
 		if (previousSha256 == null || !previousSha256.matches("[0-9a-f]{64}")) {
-			throw new IOException("Control rollback digest is unavailable");
+			throw new IOException("Control " + name + " digest is unavailable");
 		}
-		Path marker = settings.rollbackPendingFile();
+		if (candidateSha256 == null || !candidateSha256.matches("[0-9a-f]{64}")) {
+			throw new IOException("Control " + name + " candidate digest is unavailable");
+		}
 		if (Files.exists(marker, LinkOption.NOFOLLOW_LINKS)
 				&& !Files.isRegularFile(marker, LinkOption.NOFOLLOW_LINKS)) {
-			throw new IOException("Control rollback state path is not a regular file");
+			throw new IOException("Control " + name + " state path is not a regular file");
 		}
 		Path staged = marker.resolveSibling(marker.getFileName() + ".staged-" + UUID.randomUUID());
-		byte[] state = (previousSha256 + "\n" + settings.sha256() + "\n")
+		byte[] state = (previousSha256 + "\n" + candidateSha256 + "\n")
 				.getBytes(java.nio.charset.StandardCharsets.US_ASCII);
 		try (FileChannel channel = FileChannel.open(staged, StandardOpenOption.CREATE_NEW,
 				StandardOpenOption.WRITE)) {
@@ -275,22 +289,8 @@ public final class HostedControlManager implements AutoCloseable {
 
 	private void recoverPersistedRollbackState() throws IOException {
 		Path marker = settings.rollbackPendingFile();
-		if (!Files.exists(marker, LinkOption.NOFOLLOW_LINKS)) return;
-		if (!Files.isRegularFile(marker, LinkOption.NOFOLLOW_LINKS)) {
-			throw new IOException("Control rollback state is invalid");
-		}
-		byte[] bytes;
-		try (FileChannel channel = FileChannel.open(marker, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
-			long size = channel.size();
-			if (size > 256L) throw new IOException("Control rollback state is invalid");
-			bytes = new byte[(int) size];
-			ByteBuffer buffer = ByteBuffer.wrap(bytes);
-			while (buffer.hasRemaining() && channel.read(buffer) >= 0) { }
-		}
-		String[] lines = new String(bytes, java.nio.charset.StandardCharsets.US_ASCII).split("\\R");
-		if (lines.length != 2 || !lines[0].matches("[0-9a-f]{64}") || !lines[1].matches("[0-9a-f]{64}")) {
-			throw new IOException("Control rollback state is invalid");
-		}
+		String[] lines = readDigestState(marker, "rollback");
+		if (lines == null) return;
 		String previousSha256 = lines[0];
 		String candidateSha256 = lines[1];
 		boolean active = Files.isRegularFile(settings.jarFile(), LinkOption.NOFOLLOW_LINKS);
@@ -313,8 +313,51 @@ public final class HostedControlManager implements AutoCloseable {
 		rollbackPending = true;
 	}
 
+	private void recoverPersistedQuarantineState() throws IOException {
+		String[] lines = readDigestState(settings.quarantineFile(), "quarantine");
+		if (lines == null) return;
+		String previousSha256 = lines[0];
+		String candidateSha256 = lines[1];
+		if (!settings.sha256().equals(candidateSha256)) {
+			clearPersistedQuarantineState();
+			quarantinedSha256 = null;
+			trustedRollbackSha256 = null;
+			return;
+		}
+		if (!Files.isRegularFile(settings.jarFile(), LinkOption.NOFOLLOW_LINKS)
+				|| !previousSha256.equals(sha256(settings.jarFile()))) {
+			throw new IOException("Active Control artifact does not match quarantined rollback state");
+		}
+		trustedRollbackSha256 = previousSha256;
+		quarantinedSha256 = candidateSha256;
+	}
+
+	private String[] readDigestState(Path marker, String name) throws IOException {
+		if (!Files.exists(marker, LinkOption.NOFOLLOW_LINKS)) return null;
+		if (!Files.isRegularFile(marker, LinkOption.NOFOLLOW_LINKS)) {
+			throw new IOException("Control " + name + " state is invalid");
+		}
+		byte[] bytes;
+		try (FileChannel channel = FileChannel.open(marker, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
+			long size = channel.size();
+			if (size > 256L) throw new IOException("Control " + name + " state is invalid");
+			bytes = new byte[(int) size];
+			ByteBuffer buffer = ByteBuffer.wrap(bytes);
+			while (buffer.hasRemaining() && channel.read(buffer) >= 0) { }
+		}
+		String[] lines = new String(bytes, java.nio.charset.StandardCharsets.US_ASCII).split("\\R");
+		if (lines.length != 2 || !lines[0].matches("[0-9a-f]{64}") || !lines[1].matches("[0-9a-f]{64}")) {
+			throw new IOException("Control " + name + " state is invalid");
+		}
+		return lines;
+	}
+
 	private void clearPersistedRollbackState() throws IOException {
 		Files.deleteIfExists(settings.rollbackPendingFile());
+	}
+
+	private void clearPersistedQuarantineState() throws IOException {
+		Files.deleteIfExists(settings.quarantineFile());
 	}
 
 	private LaunchedProcess launch(Path artifact) throws IOException {
@@ -631,6 +674,10 @@ public final class HostedControlManager implements AutoCloseable {
 
 		Path rollbackPendingFile() {
 			return jarFile.resolveSibling(jarFile.getFileName() + ".rollback-pending");
+		}
+
+		Path quarantineFile() {
+			return jarFile.resolveSibling(jarFile.getFileName() + ".quarantined");
 		}
 
 		URI endpoint() {

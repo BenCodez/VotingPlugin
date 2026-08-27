@@ -418,6 +418,42 @@ class HostedControlManagerTest {
 		recoveredManager.close();
 	}
 
+	@Test
+	void quarantinedUpdateDigestSurvivesManagerRestart() throws Exception {
+		byte[] previous = "previous-release".getBytes(StandardCharsets.UTF_8);
+		byte[] update = "bad-new-release".getBytes(StandardCharsets.UTF_8);
+		Path root = directory.toAbsolutePath().normalize();
+		Path jar = root.resolve("control.jar");
+		Files.write(jar, previous);
+		HostedControlManager.Settings settings = settings(jar, root.resolve("data"), true, true,
+				digest(update), 1);
+		FakeLauncher failedLauncher = new FakeLauncher();
+		AtomicInteger healthChecks = new AtomicInteger();
+		AtomicLong clock = new AtomicLong();
+		ScheduledExecutorService failedExecutor = Executors.newSingleThreadScheduledExecutor();
+		HostedControlManager failedManager = new HostedControlManager(settings, failedExecutor,
+				(source, target, maximum, timeout) -> Files.write(target, update), failedLauncher,
+				(endpoint, timeout, launchId) -> healthChecks.incrementAndGet() > 4,
+				millis -> clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(millis)), clock::get, message -> { });
+		failedManager.runOnce();
+		assertEquals(HostedControlManager.Status.ROLLED_BACK, failedManager.status());
+		assertTrue(Files.isRegularFile(settings.quarantineFile()));
+		failedManager.close();
+
+		FakeLauncher restartedLauncher = new FakeLauncher();
+		ScheduledExecutorService restartedExecutor = Executors.newSingleThreadScheduledExecutor();
+		HostedControlManager restartedManager = new HostedControlManager(settings, restartedExecutor,
+				(source, target, maximum, timeout) -> { throw new AssertionError("quarantined update downloaded"); },
+				restartedLauncher, (endpoint, timeout, launchId) -> true, millis -> { }, System::nanoTime,
+				message -> { });
+		restartedManager.runOnce();
+
+		assertEquals(HostedControlManager.Status.RUNNING, restartedManager.status());
+		assertEquals(List.of("previous-release"), restartedLauncher.launchedContents);
+		assertEquals("previous-release", Files.readString(jar));
+		restartedManager.close();
+	}
+
 	private HostedControlManager.Settings settings(Path jar, Path data, boolean autoDownload, boolean autoUpdate,
 			String sha256, int startupTimeout) {
 		Path root = directory.toAbsolutePath().normalize();
