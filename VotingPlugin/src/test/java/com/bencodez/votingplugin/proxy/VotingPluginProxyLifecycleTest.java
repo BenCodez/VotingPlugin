@@ -4,6 +4,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.lang.reflect.Field;
@@ -55,6 +56,28 @@ class VotingPluginProxyLifecycleTest {
 		assertThrows(java.lang.reflect.InvocationTargetException.class, () -> stop.invoke(proxy, true));
 
 		assertSame(manager, hosted.get(proxy));
+	}
+
+	@Test
+	void finalStopContinuesToHostedManagerAfterConnectorDrainFailure() throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		ControlConnector connector = mock(ControlConnector.class);
+		doThrow(new IllegalStateException("operation still running")).when(connector).close();
+		HostedControlManager manager = mock(HostedControlManager.class);
+		Field control = VotingPluginProxy.class.getDeclaredField("controlConnector");
+		control.setAccessible(true);
+		control.set(proxy, connector);
+		Field hosted = VotingPluginProxy.class.getDeclaredField("hostedControlManager");
+		hosted.setAccessible(true);
+		hosted.set(proxy, manager);
+		Method stop = VotingPluginProxy.class.getDeclaredMethod("stopControlServices", boolean.class);
+		stop.setAccessible(true);
+
+		stop.invoke(proxy, false);
+
+		verify(manager).close();
+		assertNull(control.get(proxy));
+		assertNull(hosted.get(proxy));
 	}
 
 	@Test

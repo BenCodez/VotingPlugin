@@ -1608,17 +1608,29 @@ public abstract class VotingPluginProxy {
 	private void stopControlServicesLocked(boolean waitForHosted) {
 		ControlConnector connector = controlConnector;
 		if (connector != null) {
-			connector.close();
-			if (controlConnector == connector) controlConnector = null;
+			try {
+				connector.close();
+				if (controlConnector == connector) controlConnector = null;
+			} catch (RuntimeException failure) {
+				if (waitForHosted) throw failure;
+				if (controlConnector == connector) controlConnector = null;
+				logSevere("[Control] connector did not stop cleanly; proxy cleanup will continue");
+			}
 		}
 		HostedControlManager manager = hostedControlManager;
 		if (manager != null) {
-			if (waitForHosted) {
-				manager.closeAndWait();
-			} else {
-				manager.close();
+			try {
+				if (waitForHosted) {
+					manager.closeAndWait();
+				} else {
+					manager.close();
+				}
+				if (hostedControlManager == manager) hostedControlManager = null;
+			} catch (RuntimeException failure) {
+				if (waitForHosted) throw failure;
+				if (hostedControlManager == manager) hostedControlManager = null;
+				logSevere("[Control Host] manager did not stop cleanly; proxy cleanup will continue");
 			}
-			if (hostedControlManager == manager) hostedControlManager = null;
 		}
 	}
 
@@ -2682,7 +2694,8 @@ public abstract class VotingPluginProxy {
 
 		try (Jedis jedis = publisherPool.getResource()) {
 			String channel = getConfig().getRedisPrefix() + "VotingPlugin_" + server;
-			long subscribers = jedis.publish(channel, JsonEnvelopeCodec.encode(envelope));
+			long subscribers = jedis.publish(channel,
+					JsonEnvelopeCodec.encode(VotingPluginWire.withRedisDeliveryId(envelope)));
 			redisPublisherRetryAfter = 0L;
 			return subscribers > 0;
 		} catch (Exception e) {

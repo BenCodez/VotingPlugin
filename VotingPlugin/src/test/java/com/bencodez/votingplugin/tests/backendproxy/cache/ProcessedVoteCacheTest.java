@@ -38,4 +38,14 @@ public class ProcessedVoteCacheTest {
 		assertTrue(cache.reserve(voteId));
 		assertEquals(1, cache.getProcessedVotes().size());
 	}
+
+	@Test
+	public void redisDeliveryIsAcceptedOnceAcrossSharedHandlers() {
+		ProcessedVoteCache cache = new ProcessedVoteCache();
+		String deliveryId = UUID.randomUUID().toString();
+		assertTrue(cache.reserveRedisDelivery(deliveryId));
+		assertFalse(cache.reserveRedisDelivery(deliveryId));
+		assertTrue(cache.reserveRedisDelivery(UUID.randomUUID().toString()));
+		assertTrue(cache.reserveRedisDelivery(null));
+	}
 }

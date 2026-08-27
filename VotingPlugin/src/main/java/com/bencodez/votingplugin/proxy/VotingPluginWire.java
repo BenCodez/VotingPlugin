@@ -27,6 +27,7 @@ import com.google.gson.JsonParser;
  * reference them directly.
  */
 public final class VotingPluginWire {
+	public static final String K_REDIS_DELIVERY_ID = "_vpRedisDeliveryId";
 	private static final int MAX_PRESENCE_SNAPSHOT_JSON_LENGTH = 65536;
 
 	private VotingPluginWire() {
@@ -634,6 +635,12 @@ public final class VotingPluginWire {
 	private static JsonEnvelope.Builder base(String subChannel) {
 		int ver = SCHEMA_VERSION;
 		return JsonEnvelope.builder(subChannel).schema(ver);
+	}
+
+	/** Adds a per-publication identity so overlapping Redis subscribers can suppress one duplicate delivery. */
+	public static JsonEnvelope withRedisDeliveryId(JsonEnvelope envelope) {
+		if (envelope.getFields().containsKey(K_REDIS_DELIVERY_ID)) return envelope;
+		return envelope.toBuilder().put(K_REDIS_DELIVERY_ID, UUID.randomUUID().toString()).build();
 	}
 
 	private static String safe(String s) {

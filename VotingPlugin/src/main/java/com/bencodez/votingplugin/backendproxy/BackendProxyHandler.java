@@ -54,7 +54,7 @@ public class BackendProxyHandler implements Listener {
 	public BackendProxyHandler(VotingPluginMain plugin, ProcessedVoteCache processedVoteCache) {
 		this.plugin = plugin;
 		this.processedVoteCache = java.util.Objects.requireNonNull(processedVoteCache, "processedVoteCache");
-		transportManager = new BackendProxyTransportManager(plugin);
+		transportManager = new BackendProxyTransportManager(plugin, processedVoteCache);
 		globalDataSync = new BackendGlobalDataSync(plugin, this::sendEnvelope);
 	}
 

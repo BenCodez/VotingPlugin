@@ -8,6 +8,8 @@ import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
 import com.bencodez.simpleapi.servercomm.redis.RedisHandler;
 import com.bencodez.simpleapi.servercomm.redis.RedisListener;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache;
+import com.bencodez.votingplugin.proxy.VotingPluginWire;
 
 import redis.clients.jedis.DefaultJedisClientConfig;
 import redis.clients.jedis.HostAndPort;
@@ -18,13 +20,19 @@ import lombok.Getter;
 public class RedisBackendProxyTransport implements BackendProxyTransport {
 
 	private final VotingPluginMain plugin;
+	private final ProcessedVoteCache processedVoteCache;
 	@Getter
 	private RedisHandler redisHandler;
 	private CountDownLatch subscriptionReady;
 	private Thread listenerThread;
 
 	public RedisBackendProxyTransport(VotingPluginMain plugin) {
+		this(plugin, new ProcessedVoteCache());
+	}
+
+	public RedisBackendProxyTransport(VotingPluginMain plugin, ProcessedVoteCache processedVoteCache) {
 		this.plugin = plugin;
+		this.processedVoteCache = processedVoteCache;
 	}
 
 	@Override
@@ -46,8 +54,11 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 				plugin.getBungeeSettings().getRedisPrefix() + "VotingPlugin_" + plugin.getBungeeSettings().getServer(),
 				(ch, payload) -> {
 					try {
-						messageHandler.onMessage(
-								com.bencodez.simpleapi.servercomm.codec.JsonEnvelopeCodec.decode(payload));
+						JsonEnvelope envelope = com.bencodez.simpleapi.servercomm.codec.JsonEnvelopeCodec.decode(payload);
+						if (processedVoteCache.reserveRedisDelivery(
+								envelope.getFields().get(VotingPluginWire.K_REDIS_DELIVERY_ID))) {
+							messageHandler.onMessage(envelope);
+						}
 					} catch (Exception e) {
 						plugin.debug("Redis decode failed: " + e.getMessage());
 					}
@@ -65,7 +76,8 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 	@Override
 	public void send(JsonEnvelope envelope) {
 		if (redisHandler != null) {
-			redisHandler.publishEnvelope(plugin.getBungeeSettings().getRedisPrefix() + "VotingPlugin", envelope);
+			redisHandler.publishEnvelope(plugin.getBungeeSettings().getRedisPrefix() + "VotingPlugin",
+					VotingPluginWire.withRedisDeliveryId(envelope));
 		}
 	}
 
