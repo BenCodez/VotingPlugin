@@ -197,6 +197,25 @@ class ControlConnectorTest {
 		}
 	}
 
+	@Test void closeBeforeOperationPublicationPreventsTheRequestChainFromStarting() throws Exception {
+		connector.close();
+		transport.firstSendEntered = new CountDownLatch(1);
+		transport.releaseFirstSend = new CountDownLatch(1);
+		connector = new ControlConnector(settings(), scheduler, transport,
+				() -> List.of(), logs::add, UUID.randomUUID(), () -> 0L);
+		CompletableFuture<Void> cycling = CompletableFuture.runAsync(connector::cycle);
+		assertTrue(transport.firstSendEntered.await(2, TimeUnit.SECONDS));
+
+		try {
+			connector.close();
+		} finally {
+			transport.releaseFirstSend.countDown();
+		}
+		cycling.get(2, TimeUnit.SECONDS);
+		assertEquals(1, transport.requests.size());
+		assertEquals(Status.STOPPED, connector.status());
+	}
+
 	@Test void backoffIsBoundedExponentialAndJitteredWithoutSleeping() {
 		assertEquals(1000, ControlConnector.backoffMillis(1, 0));
 		assertEquals(2000, ControlConnector.backoffMillis(2, 0));
@@ -234,6 +253,8 @@ class ControlConnectorTest {
 		private RuntimeException synchronousFailure;
 		private boolean acceptConfiguration;
 		private CompletableFuture<Response> operationClaim;
+		private CountDownLatch firstSendEntered;
+		private CountDownLatch releaseFirstSend;
 
 		@Override
 		public CompletableFuture<Response> send(Request request) {
@@ -243,6 +264,17 @@ class ControlConnectorTest {
 				throw failure;
 			}
 			requests.add(request);
+			if (firstSendEntered != null) {
+				firstSendEntered.countDown();
+				try {
+					releaseFirstSend.await();
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+					throw new IllegalStateException(e);
+				} finally {
+					firstSendEntered = null;
+				}
+			}
 			if (stalled != null) {
 				CompletableFuture<Response> result = stalled;
 				stalled = null;

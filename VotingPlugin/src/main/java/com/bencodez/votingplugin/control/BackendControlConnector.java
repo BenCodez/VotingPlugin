@@ -14,7 +14,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
@@ -22,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
+import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
 
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -36,6 +39,7 @@ import com.google.gson.JsonParser;
 public final class BackendControlConnector implements AutoCloseable {
 	private static final int PROTOCOL_VERSION = 1;
 	private static final int MAX_RESPONSE_BYTES = 768 * 1024;
+	private static final long SHUTDOWN_TIMEOUT_SECONDS = 65;
 	private static final Pattern NODE_ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,63}");
 	private static final Set<String> CAPABILITIES = Set.of("config.files.v1", "config.quick-setup.v1");
 
@@ -48,12 +52,15 @@ public final class BackendControlConnector implements AutoCloseable {
 	private final UUID sessionId = UUID.randomUUID();
 	private final Map<UUID, TaskResult> completed = new LinkedHashMap<>();
 	private final AtomicBoolean running = new AtomicBoolean();
+	private final Object operationLifecycle = new Object();
 	private volatile boolean closed;
 	private volatile boolean registered;
 	private volatile boolean operationsAccepted;
 	private volatile boolean quickSetupsAccepted;
 	private volatile int failures;
 	private volatile ScheduledFuture<?> scheduled;
+	private volatile Future<?> activeReload;
+	private volatile CompletableFuture<Void> activeOperation;
 
 	private BackendControlConnector(VotingPluginMain plugin, Settings settings, String credential) {
 		this.plugin = plugin;
@@ -67,12 +74,27 @@ public final class BackendControlConnector implements AutoCloseable {
 		executor = Executors.newSingleThreadScheduledExecutor(factory);
 		http = HttpClient.newBuilder().connectTimeout(Duration.ofMillis(settings.connectTimeoutMillis()))
 				.followRedirects(HttpClient.Redirect.NEVER).build();
-		configurations = new BackendConfigurationService(plugin.getDataFolder().toPath(), fileName ->
-				plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
-					plugin.reload();
-					if ("BungeeSettings.yml".equals(fileName)) plugin.restartBackendProxyHandler();
-					return null;
-				}).get(30, TimeUnit.SECONDS));
+		configurations = new BackendConfigurationService(plugin.getDataFolder().toPath(), this::reloadConfiguration);
+	}
+
+	private void reloadConfiguration(String fileName) throws Exception {
+		Future<?> reload;
+		synchronized (operationLifecycle) {
+			if (closed) throw new IllegalStateException("Bukkit Control connector is stopping");
+			reload = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+				plugin.reload();
+				if ("BungeeSettings.yml".equals(fileName)) plugin.restartBackendProxyHandler();
+				return null;
+			});
+			activeReload = reload;
+		}
+		try {
+			reload.get(30, TimeUnit.SECONDS);
+		} finally {
+			synchronized (operationLifecycle) {
+				if (activeReload == reload) activeReload = null;
+			}
+		}
 	}
 
 	public static BackendControlConnector create(VotingPluginMain plugin) throws IOException {
@@ -123,7 +145,22 @@ public final class BackendControlConnector implements AutoCloseable {
 				throw incompatible;
 			}
 			registered = true;
-			if (operationsAccepted) claimAndExecute();
+			if (closed) return;
+			if (operationsAccepted) {
+				CompletableFuture<Void> operation = new CompletableFuture<>();
+				synchronized (operationLifecycle) {
+					if (closed) return;
+					activeOperation = operation;
+				}
+				try {
+					claimAndExecute();
+				} finally {
+					operation.complete(null);
+					synchronized (operationLifecycle) {
+						if (activeOperation == operation) activeOperation = null;
+					}
+				}
+			}
 			if (failures > 0) plugin.getLogger().info("[Control] Bukkit configuration connector recovered");
 			failures = 0;
 		} catch (Exception failure) {
@@ -174,6 +211,7 @@ public final class BackendControlConnector implements AutoCloseable {
 		Response response = send("POST", "/api/v1/nodes/" + settings.nodeId() + "/operations", body);
 		if (response.status() == 204) return;
 		JsonObject task = requireObject(response, 200);
+		if (closed) return;
 		UUID operationId = UUID.fromString(string(task, "operationId"));
 		TaskResult result;
 		synchronized (completed) {
@@ -327,10 +365,41 @@ public final class BackendControlConnector implements AutoCloseable {
 
 	@Override
 	public void close() {
-		closed = true;
+		Future<?> reload;
+		CompletableFuture<Void> operation;
+		synchronized (operationLifecycle) {
+			closed = true;
+			reload = activeReload;
+			operation = activeOperation;
+		}
 		ScheduledFuture<?> current = scheduled;
 		if (current != null) current.cancel(false);
-		executor.shutdownNow();
+		if (reload != null && Bukkit.isPrimaryThread()) reload.cancel(false);
+		awaitShutdown(executor, operation);
+	}
+
+	static void awaitShutdown(ScheduledExecutorService executor, CompletableFuture<Void> operation) {
+		executor.shutdown();
+		if (operation != null) {
+			try {
+				operation.get(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+			} catch (java.util.concurrent.CancellationException | java.util.concurrent.ExecutionException ignored) {
+				// A completed failed operation is no longer able to outlive shutdown.
+			} catch (java.util.concurrent.TimeoutException e) {
+				throw new IllegalStateException("Bukkit Control operation did not stop before connector shutdown", e);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				throw new IllegalStateException("Interrupted while waiting for the Bukkit Control operation", e);
+			}
+		}
+		try {
+			if (!executor.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+				throw new IllegalStateException("Bukkit Control operation did not stop before connector shutdown");
+			}
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new IllegalStateException("Interrupted while waiting for the Bukkit Control operation", e);
+		}
 	}
 
 	private record Settings(String nodeId, URI endpoint, int heartbeatSeconds, int connectTimeoutMillis,

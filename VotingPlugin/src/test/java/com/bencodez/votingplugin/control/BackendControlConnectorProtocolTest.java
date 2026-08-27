@@ -5,6 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
 import org.junit.jupiter.api.Test;
 
 import com.google.gson.JsonArray;
@@ -26,5 +30,17 @@ class BackendControlConnectorProtocolTest {
 		explicit.add("acceptedCapabilities", accepted);
 		assertFalse(BackendControlConnector.negotiatedCapability(explicit, "config.files.v1", true));
 		assertTrue(BackendControlConnector.negotiatedCapability(explicit, "config.quick-setup.v1", false));
+	}
+
+	@Test void shutdownWaitsForTheClaimedBackendOperation() throws Exception {
+		var executor = Executors.newSingleThreadScheduledExecutor();
+		CompletableFuture<Void> operation = new CompletableFuture<>();
+		CompletableFuture<Void> closing = CompletableFuture.runAsync(
+				() -> BackendControlConnector.awaitShutdown(executor, operation));
+
+		assertThrows(java.util.concurrent.TimeoutException.class, () -> closing.get(100, TimeUnit.MILLISECONDS));
+		operation.complete(null);
+		closing.get(2, TimeUnit.SECONDS);
+		assertTrue(executor.isTerminated());
 	}
 }

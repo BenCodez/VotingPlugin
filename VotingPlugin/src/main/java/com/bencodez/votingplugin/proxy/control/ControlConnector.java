@@ -175,9 +175,16 @@ public final class ControlConnector implements AutoCloseable {
 			onFailure(failure);
 			return;
 		}
-		activeRequest = primary;
 		CompletableFuture<Void> operationDone = new CompletableFuture<>();
 		activeOperation = operationDone;
+		if (closed) {
+			primary.cancel(true);
+			operationDone.complete(null);
+			if (activeOperation == operationDone) activeOperation = null;
+			inFlight.set(false);
+			return;
+		}
+		activeRequest = primary;
 		CompletableFuture<Void> operation = primary.thenCompose(response -> {
 			handlePrimaryResponse(response, !registered);
 			registered = true;

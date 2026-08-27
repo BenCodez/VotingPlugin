@@ -744,8 +744,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	/** Refreshes the optional Control connector after its Config.yml settings were applied. */
 	public synchronized void restartBackendControlConnector() {
-		if (backendControlConnector != null) backendControlConnector.close();
-		backendControlConnector = null;
+		BackendControlConnector connector = backendControlConnector;
+		if (connector != null) {
+			connector.close();
+			if (backendControlConnector == connector) backendControlConnector = null;
+		}
 		startBackendControlConnector();
 	}
 
@@ -881,9 +884,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onUnLoad() {
-		if (backendControlConnector != null) {
-			backendControlConnector.close();
-			backendControlConnector = null;
+		BackendControlConnector connector = backendControlConnector;
+		if (connector != null) {
+			connector.close();
+			if (backendControlConnector == connector) backendControlConnector = null;
 		}
 		if (getBackendProxyHandler() != null) {
 			try {
