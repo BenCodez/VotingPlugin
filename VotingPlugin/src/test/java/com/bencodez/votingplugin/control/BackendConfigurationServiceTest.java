@@ -138,6 +138,23 @@ class BackendConfigurationServiceTest {
 		assertEquals("Feature: manual\n", Files.readString(config));
 	}
 
+	@Test void reconciliationReloadRetriesWhenAnotherManualEditRacesIt() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "Feature: before\n");
+		AtomicInteger reloads = new AtomicInteger();
+		BackendConfigurationService service = new BackendConfigurationService(directory,
+				(BackendConfigurationService.ApplyAction) fileName -> {
+					int reload = reloads.incrementAndGet();
+					if (reload <= 2) Files.writeString(config, "Feature: manual-" + reload + "\n");
+				});
+		BackendConfigurationService.Document before = service.read("Config.yml");
+
+		assertThrows(BackendConfigurationService.StaleRevisionException.class,
+				() -> service.apply("Config.yml", "Feature: proposed\n", before.revision()));
+		assertEquals(3, reloads.get());
+		assertEquals("Feature: manual-2\n", Files.readString(config));
+	}
+
 	@Test void quickSetupsProduceReviewableBackendAndVoteSiteChanges() throws Exception {
 		Files.writeString(directory.resolve("BungeeSettings.yml"), "UseBungeecord: false\nServer: PleaseSet\n");
 		Files.writeString(directory.resolve("VoteSites.yml"), "VoteSites: {}\n");

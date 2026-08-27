@@ -84,11 +84,7 @@ public final class BackendConfigurationService {
 			String applied = readRaw(target, false);
 			String installedRevision = revision(preview.resolvedContent());
 			if (!revision(applied).equals(installedRevision)) {
-				String concurrentRevision = revision(applied);
-				reload.run(fileName);
-				if (!revision(readRaw(target, false)).equals(concurrentRevision)) {
-					throw new StaleRevisionException();
-				}
+				reconcileConcurrentEdit(fileName, target);
 				throw new StaleRevisionException();
 			}
 			return new ApplyResult(new Document(fileName, mask(parse(applied)), revision(applied)),
@@ -115,6 +111,15 @@ public final class BackendConfigurationService {
 			Files.deleteIfExists(staging);
 			Files.deleteIfExists(backupStaging);
 		}
+	}
+
+	private void reconcileConcurrentEdit(String fileName, Path target) throws Exception {
+		for (int attempt = 0; attempt < 3; attempt++) {
+			String snapshotRevision = revision(readRaw(target, false));
+			reload.run(fileName);
+			if (revision(readRaw(target, false)).equals(snapshotRevision)) return;
+		}
+		throw new StaleRevisionException();
 	}
 
 	private static void rejectSymbolicBackup(Path backup) throws IOException {

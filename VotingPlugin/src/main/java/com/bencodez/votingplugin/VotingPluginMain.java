@@ -898,8 +898,14 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	public void onUnLoad() {
 		BackendControlConnector connector = backendControlConnector;
 		if (connector != null) {
-			connector.close();
-			if (backendControlConnector == connector) backendControlConnector = null;
+			try {
+				connector.close();
+			} catch (RuntimeException e) {
+				getLogger().warning("[Control] Bukkit connector did not stop cleanly; normal plugin cleanup will continue");
+				debug(e);
+			} finally {
+				if (backendControlConnector == connector) backendControlConnector = null;
+			}
 		}
 		if (getBackendProxyHandler() != null) {
 			try {
