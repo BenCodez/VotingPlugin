@@ -478,10 +478,10 @@ public class VotingPluginVelocity {
 				} catch (Exception ignored) {
 				}
 
-				// Shutdown old runtime completely (this stops old MySQL pool)
+				// Stop Control first; replacement must not overlap a retained hosted child/connector.
 				try {
 					if (votingPluginProxy != null) {
-						votingPluginProxy.onDisable(true);
+						votingPluginProxy.prepareForRuntimeReplacement();
 					}
 				} catch (Exception shutdownFailure) {
 					logger.error("Reload aborted because hosted Control did not stop safely", shutdownFailure);
@@ -492,6 +492,12 @@ public class VotingPluginVelocity {
 					}
 					reloading = false;
 					return;
+				}
+				// Later transport/cache failures must not leave the old runtime partially disabled.
+				try {
+					if (votingPluginProxy != null) votingPluginProxy.completeRuntimeReplacementShutdown();
+				} catch (Exception cleanupFailure) {
+					logger.error("Old proxy runtime cleanup was incomplete; replacement will continue", cleanupFailure);
 				}
 
 				// Recreate runtime

@@ -393,10 +393,10 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			} catch (Exception ignored) {
 			}
 
-			// Tear down old runtime (this WILL shutdown MySQL because proxy owns it)
+			// Stop Control first; replacement must not overlap a retained hosted child/connector.
 			try {
 				if (votingPluginProxy != null) {
-					votingPluginProxy.onDisable(true);
+					votingPluginProxy.prepareForRuntimeReplacement();
 				}
 			} catch (Exception shutdownFailure) {
 				getLogger().severe("Reload aborted because hosted Control did not stop safely");
@@ -408,6 +408,13 @@ public class VotingPluginBungee extends Plugin implements Listener {
 				}
 				reloading = false;
 				return;
+			}
+			// Later transport/cache failures must not leave the old runtime partially disabled.
+			try {
+				if (votingPluginProxy != null) votingPluginProxy.completeRuntimeReplacementShutdown();
+			} catch (Exception cleanupFailure) {
+				getLogger().severe("Old proxy runtime cleanup was incomplete; replacement will continue");
+				cleanupFailure.printStackTrace();
 			}
 
 			// Recreate runtime

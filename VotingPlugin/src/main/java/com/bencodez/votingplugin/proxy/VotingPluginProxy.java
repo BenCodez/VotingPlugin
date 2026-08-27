@@ -2351,10 +2351,25 @@ public abstract class VotingPluginProxy {
 
 	/** Full runtime replacement waits for hosted workers; final proxy stop remains non-blocking. */
 	public void onDisable(boolean waitForHosted) {
+		if (waitForHosted) {
+			prepareForRuntimeReplacement();
+		} else {
+			controlServicesGeneration.incrementAndGet();
+			controlLifecycleExecutor.shutdownNow();
+			stopControlServices(false);
+		}
+		completeRuntimeReplacementShutdown();
+	}
+
+	/** Fail-closed gate that must complete before a replacement proxy runtime is created. */
+	public void prepareForRuntimeReplacement() {
 		controlServicesGeneration.incrementAndGet();
-		if (waitForHosted) controlLifecycleExecutor.shutdown();
-		else controlLifecycleExecutor.shutdownNow();
-		stopControlServices(waitForHosted);
+		controlLifecycleExecutor.shutdown();
+		stopControlServices(true);
+	}
+
+	/** Best-effort remainder of runtime teardown after the Control overlap gate has succeeded. */
+	public void completeRuntimeReplacementShutdown() {
 		getVoteCacheHandler().saveVoteCache();
 
 		if (getProxyMysqlMessenger() != null) {
