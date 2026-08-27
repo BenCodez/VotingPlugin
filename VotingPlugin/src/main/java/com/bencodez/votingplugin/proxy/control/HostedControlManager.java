@@ -7,6 +7,8 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -113,6 +115,9 @@ public final class HostedControlManager implements AutoCloseable {
 			return;
 		}
 		try {
+			secureDirectory(settings.rootDirectory(), settings.jarFile().getParent());
+			secureDirectory(settings.rootDirectory(), settings.dataDirectory());
+			recoverPersistedRollbackState();
 			ManagedProcess retained = managedProcess;
 			if (retained != null) {
 				if (retained.isAlive()) return;
@@ -131,6 +136,7 @@ public final class HostedControlManager implements AutoCloseable {
 			ManagedProcess process = launched.process();
 			if (awaitHealthy(launched)) {
 				failures = 0;
+				clearPersistedRollbackState();
 				rollbackPending = false;
 				status = Status.RUNNING;
 				logger.accept("WebUI is available at " + settings.endpoint());
@@ -174,10 +180,9 @@ public final class HostedControlManager implements AutoCloseable {
 	}
 
 	private boolean prepareArtifact() throws IOException, InterruptedException {
-		secureDirectory(settings.rootDirectory(), settings.jarFile().getParent());
-		secureDirectory(settings.rootDirectory(), settings.dataDirectory());
+		String installedSha256 = null;
 		if (Files.isRegularFile(settings.jarFile(), LinkOption.NOFOLLOW_LINKS)) {
-			String installedSha256 = sha256(settings.jarFile());
+			installedSha256 = sha256(settings.jarFile());
 			if (settings.sha256().equals(installedSha256)) {
 				return false;
 			}
@@ -206,15 +211,16 @@ public final class HostedControlManager implements AutoCloseable {
 			if (!settings.sha256().equals(sha256(staged))) {
 				throw new IOException("Downloaded Control artifact failed SHA-256 verification");
 			}
-			activate(staged, installed);
+			activate(staged, installed, installedSha256);
 			return installed;
 		} finally {
 			Files.deleteIfExists(staged);
 		}
 	}
 
-	private void activate(Path staged, boolean installed) throws IOException {
+	private void activate(Path staged, boolean installed, String installedSha256) throws IOException {
 		if (installed) {
+			persistRollbackState(installedSha256);
 			atomicMove(settings.jarFile(), settings.previousFile(), true);
 		}
 		try {
@@ -222,6 +228,7 @@ public final class HostedControlManager implements AutoCloseable {
 		} catch (IOException e) {
 			if (installed && Files.exists(settings.previousFile(), LinkOption.NOFOLLOW_LINKS)) {
 				atomicMove(settings.previousFile(), settings.jarFile(), true);
+				clearPersistedRollbackState();
 			}
 			throw e;
 		}
@@ -232,6 +239,73 @@ public final class HostedControlManager implements AutoCloseable {
 			atomicMove(settings.jarFile(), settings.failedFile(), true);
 		}
 		atomicMove(settings.previousFile(), settings.jarFile(), false);
+		clearPersistedRollbackState();
+	}
+
+	private void persistRollbackState(String previousSha256) throws IOException {
+		if (previousSha256 == null || !previousSha256.matches("[0-9a-f]{64}")) {
+			throw new IOException("Control rollback digest is unavailable");
+		}
+		Path marker = settings.rollbackPendingFile();
+		if (Files.exists(marker, LinkOption.NOFOLLOW_LINKS)
+				&& !Files.isRegularFile(marker, LinkOption.NOFOLLOW_LINKS)) {
+			throw new IOException("Control rollback state path is not a regular file");
+		}
+		Path staged = marker.resolveSibling(marker.getFileName() + ".staged-" + UUID.randomUUID());
+		byte[] state = (previousSha256 + "\n" + settings.sha256() + "\n")
+				.getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+		try (FileChannel channel = FileChannel.open(staged, StandardOpenOption.CREATE_NEW,
+				StandardOpenOption.WRITE)) {
+			ByteBuffer buffer = ByteBuffer.wrap(state);
+			while (buffer.hasRemaining()) channel.write(buffer);
+			channel.force(true);
+		}
+		try {
+			atomicMove(staged, marker, true);
+		} finally {
+			Files.deleteIfExists(staged);
+		}
+	}
+
+	private void recoverPersistedRollbackState() throws IOException {
+		Path marker = settings.rollbackPendingFile();
+		if (!Files.exists(marker, LinkOption.NOFOLLOW_LINKS)) return;
+		if (!Files.isRegularFile(marker, LinkOption.NOFOLLOW_LINKS)) {
+			throw new IOException("Control rollback state is invalid");
+		}
+		byte[] bytes;
+		try (FileChannel channel = FileChannel.open(marker, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
+			long size = channel.size();
+			if (size > 256L) throw new IOException("Control rollback state is invalid");
+			bytes = new byte[(int) size];
+			ByteBuffer buffer = ByteBuffer.wrap(bytes);
+			while (buffer.hasRemaining() && channel.read(buffer) >= 0) { }
+		}
+		String[] lines = new String(bytes, java.nio.charset.StandardCharsets.US_ASCII).split("\\R");
+		if (lines.length != 2 || !lines[0].matches("[0-9a-f]{64}") || !lines[1].matches("[0-9a-f]{64}")) {
+			throw new IOException("Control rollback state is invalid");
+		}
+		String previousSha256 = lines[0];
+		String candidateSha256 = lines[1];
+		boolean active = Files.isRegularFile(settings.jarFile(), LinkOption.NOFOLLOW_LINKS);
+		String activeSha256 = active ? sha256(settings.jarFile()) : null;
+		if (previousSha256.equals(activeSha256)) {
+			clearPersistedRollbackState();
+			return;
+		}
+		if (active && !candidateSha256.equals(activeSha256)) {
+			throw new IOException("Active Control artifact does not match pending rollback state");
+		}
+		if (!Files.isRegularFile(settings.previousFile(), LinkOption.NOFOLLOW_LINKS)
+				|| !previousSha256.equals(sha256(settings.previousFile()))) {
+			throw new IOException("Previous Control artifact does not match pending rollback state");
+		}
+		trustedRollbackSha256 = previousSha256;
+		rollbackPending = true;
+	}
+
+	private void clearPersistedRollbackState() throws IOException {
+		Files.deleteIfExists(settings.rollbackPendingFile());
 	}
 
 	private LaunchedProcess launch(Path artifact) throws IOException {
@@ -544,6 +618,10 @@ public final class HostedControlManager implements AutoCloseable {
 
 		Path failedFile() {
 			return jarFile.resolveSibling(jarFile.getFileName() + ".failed");
+		}
+
+		Path rollbackPendingFile() {
+			return jarFile.resolveSibling(jarFile.getFileName() + ".rollback-pending");
 		}
 
 		URI endpoint() {

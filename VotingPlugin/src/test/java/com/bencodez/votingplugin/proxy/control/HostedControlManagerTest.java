@@ -367,6 +367,42 @@ class HostedControlManagerTest {
 		manager.close();
 	}
 
+	@Test
+	void pendingUpdateRollbackSurvivesManagerRestart() throws Exception {
+		byte[] previous = "previous-release".getBytes(StandardCharsets.UTF_8);
+		byte[] update = "bad-new-release".getBytes(StandardCharsets.UTF_8);
+		Path root = directory.toAbsolutePath().normalize();
+		Path jar = root.resolve("control.jar");
+		Files.write(jar, previous);
+		HostedControlManager.Settings settings = settings(jar, root.resolve("data"), true, true,
+				digest(update), 1);
+		FakeLauncher failedLauncher = new FakeLauncher();
+		ScheduledExecutorService failedExecutor = Executors.newSingleThreadScheduledExecutor();
+		HostedControlManager failedManager = new HostedControlManager(settings, failedExecutor,
+				(source, target, maximum, timeout) -> Files.write(target, update), failedLauncher,
+				(endpoint, timeout, launchId) -> { throw new IllegalStateException("simulated JVM exit"); },
+				millis -> { }, System::nanoTime, message -> { });
+
+		failedManager.runOnce();
+		failedExecutor.shutdownNow();
+		assertEquals("bad-new-release", Files.readString(jar));
+		assertTrue(Files.isRegularFile(settings.rollbackPendingFile()));
+
+		FakeLauncher recoveredLauncher = new FakeLauncher();
+		ScheduledExecutorService recoveredExecutor = Executors.newSingleThreadScheduledExecutor();
+		HostedControlManager recoveredManager = new HostedControlManager(settings, recoveredExecutor,
+				(source, target, maximum, timeout) -> { throw new AssertionError("recovery downloaded"); },
+				recoveredLauncher, (endpoint, timeout, launchId) -> true, millis -> { }, System::nanoTime,
+				message -> { });
+		recoveredManager.runOnce();
+
+		assertEquals(HostedControlManager.Status.ROLLED_BACK, recoveredManager.status());
+		assertEquals(List.of("previous-release"), recoveredLauncher.launchedContents);
+		assertEquals("previous-release", Files.readString(jar));
+		assertFalse(Files.exists(settings.rollbackPendingFile()));
+		recoveredManager.close();
+	}
+
 	private HostedControlManager.Settings settings(Path jar, Path data, boolean autoDownload, boolean autoUpdate,
 			String sha256, int startupTimeout) {
 		Path root = directory.toAbsolutePath().normalize();
