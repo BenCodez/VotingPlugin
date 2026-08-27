@@ -361,7 +361,7 @@ class HostedControlManagerTest {
 		manager.runOnce();
 
 		assertEquals(HostedControlManager.Status.ROLLED_BACK, manager.status());
-		assertEquals(List.of("bad-new-release", "bad-new-release", "previous-release"), launches);
+		assertEquals(List.of("bad-new-release", "previous-release"), launches);
 		assertEquals("previous-release", Files.readString(jar));
 		assertEquals("bad-new-release", Files.readString(settings.failedFile()));
 		manager.close();

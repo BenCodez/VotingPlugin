@@ -118,6 +118,10 @@ public final class HostedControlManager implements AutoCloseable {
 				if (retained.isAlive()) return;
 				clearManagedProcess(retained);
 			}
+			if (rollbackPending && Files.isRegularFile(settings.previousFile(), LinkOption.NOFOLLOW_LINKS)) {
+				if (rollbackAndStartPrevious()) return;
+				throw new IOException("The previous Control release did not become healthy");
+			}
 			boolean updated = prepareArtifact();
 			if (updated) rollbackPending = true;
 			if (closed) {
@@ -135,19 +139,7 @@ public final class HostedControlManager implements AutoCloseable {
 			}
 			stopProcess(process, true);
 			if (rollbackPending && Files.isRegularFile(settings.previousFile(), LinkOption.NOFOLLOW_LINKS)) {
-				rollback();
-				rollbackPending = false;
-				LaunchedProcess previousLaunch = launch(settings.jarFile());
-				ManagedProcess previous = previousLaunch.process();
-				if (awaitHealthy(previousLaunch)) {
-					failures = 0;
-					quarantinedSha256 = settings.sha256();
-					status = Status.ROLLED_BACK;
-					logger.accept("The new Control release failed health checks; the previous release is running");
-					monitor(previous);
-					return;
-				}
-				stopProcess(previous, true);
+				if (rollbackAndStartPrevious()) return;
 			}
 			throw new IOException("Control did not become healthy");
 		} catch (InterruptedException e) {
@@ -162,6 +154,23 @@ public final class HostedControlManager implements AutoCloseable {
 		} finally {
 			workInProgress.set(false);
 		}
+	}
+
+	private boolean rollbackAndStartPrevious() throws IOException, InterruptedException {
+		rollback();
+		rollbackPending = false;
+		LaunchedProcess previousLaunch = launch(settings.jarFile());
+		ManagedProcess previous = previousLaunch.process();
+		if (awaitHealthy(previousLaunch)) {
+			failures = 0;
+			quarantinedSha256 = settings.sha256();
+			status = Status.ROLLED_BACK;
+			logger.accept("The new Control release failed health checks; the previous release is running");
+			monitor(previous);
+			return true;
+		}
+		stopProcess(previous, true);
+		return false;
 	}
 
 	private boolean prepareArtifact() throws IOException, InterruptedException {
