@@ -1616,6 +1616,7 @@ public abstract class VotingPluginProxy {
 		if (connector != null) {
 			try {
 				connector.close();
+				if (waitForHosted) inheritedControlResults = connector.pendingResults();
 				if (controlConnector == connector) controlConnector = null;
 			} catch (RuntimeException failure) {
 				if (waitForHosted) throw failure;
@@ -2371,8 +2372,6 @@ public abstract class VotingPluginProxy {
 	public void prepareForRuntimeReplacement() {
 		controlServicesGeneration.incrementAndGet();
 		controlLifecycleExecutor.shutdown();
-		ControlConnector connector = controlConnector;
-		if (connector != null) inheritedControlResults = connector.pendingResults();
 		stopControlServices(true);
 	}
 
