@@ -123,6 +123,18 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 		}
 	}
 
+	@Override
+	public synchronized byte[] captureControlProxyRoutingSnapshot() throws IOException {
+		return Files.readAllBytes(configurationFile.toPath());
+	}
+
+	@Override
+	public synchronized void verifyControlProxyRoutingSnapshot(byte[] snapshot) throws IOException {
+		if (!java.util.Arrays.equals(snapshot, Files.readAllBytes(configurationFile.toPath()))) {
+			throw new StaleControlRevisionException();
+		}
+	}
+
 	/** Loads the active file without the superclass's empty-config fallback. */
 	public synchronized void loadControlConfiguration() throws IOException {
 		ConfigurationNode loaded = YamlConfigurationLoader.builder().path(configurationFile.toPath()).build().load();

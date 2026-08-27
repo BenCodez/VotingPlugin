@@ -600,6 +600,19 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 		}
 	}
 
+	@Override
+	public synchronized byte[] captureControlProxyRoutingSnapshot() throws IOException {
+		return Files.readAllBytes(new File(bungee.getDataFolder(), "bungeeconfig.yml").toPath());
+	}
+
+	@Override
+	public synchronized void verifyControlProxyRoutingSnapshot(byte[] snapshot) throws IOException {
+		Path target = new File(bungee.getDataFolder(), "bungeeconfig.yml").toPath();
+		if (!java.util.Arrays.equals(snapshot, Files.readAllBytes(target))) {
+			throw new StaleControlRevisionException();
+		}
+	}
+
 	private static void atomicReplace(Path source, Path target) throws IOException {
 		try {
 			Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);

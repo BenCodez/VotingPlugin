@@ -488,6 +488,33 @@ class HostedControlManagerTest {
 		manager.close();
 	}
 
+	@Test
+	void launchStatePublicationFailureStopsTheLaunchedChild() throws Exception {
+		byte[] previous = "previous-release".getBytes(StandardCharsets.UTF_8);
+		byte[] update = "candidate-release".getBytes(StandardCharsets.UTF_8);
+		Path root = directory.toAbsolutePath().normalize();
+		Path jar = root.resolve("control.jar");
+		Files.write(jar, previous);
+		HostedControlManager.Settings settings = settings(jar, root.resolve("data"), true, true,
+				digest(update), 1);
+		FakeProcess process = new FakeProcess();
+		ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+		HostedControlManager manager = new HostedControlManager(settings, executor,
+				(source, target, maximum, timeout) -> Files.write(target, update),
+				(launchSettings, artifact, launchId) -> {
+					Files.createDirectory(settings.healthCheckingFile());
+					Files.writeString(settings.healthCheckingFile().resolve("blocker"), "x");
+					return process;
+				}, (endpoint, timeout, launchId) -> true, millis -> { }, System::nanoTime, message -> { });
+
+		manager.runOnce();
+
+		assertEquals(HostedControlManager.Status.FAILED, manager.status());
+		assertTrue(process.destroyed);
+		assertFalse(process.isAlive());
+		manager.close();
+	}
+
 	private HostedControlManager.Settings settings(Path jar, Path data, boolean autoDownload, boolean autoUpdate,
 			String sha256, int startupTimeout) {
 		Path root = directory.toAbsolutePath().normalize();

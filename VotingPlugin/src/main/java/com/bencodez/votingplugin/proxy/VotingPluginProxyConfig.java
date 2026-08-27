@@ -31,6 +31,16 @@ public interface VotingPluginProxyConfig {
 	default void verifyControlProxyRoutingInstalled() throws IOException {
 	}
 
+	/** Captures the exact proxy configuration file that the next strict reload should consume. */
+	default byte[] captureControlProxyRoutingSnapshot() throws IOException {
+		throw new UnsupportedOperationException("Control configuration snapshot verification is unavailable");
+	}
+
+	/** Verifies that the proxy configuration file still equals a previously captured snapshot. */
+	default void verifyControlProxyRoutingSnapshot(byte[] snapshot) throws IOException {
+		throw new UnsupportedOperationException("Control configuration snapshot verification is unavailable");
+	}
+
 	@SuppressWarnings("serial")
 	final class StaleControlRevisionException extends IOException {
 		public StaleControlRevisionException() { super("Control proxy routing revision is stale"); }

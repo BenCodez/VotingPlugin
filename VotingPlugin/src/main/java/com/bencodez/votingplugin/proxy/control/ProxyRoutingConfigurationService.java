@@ -26,6 +26,12 @@ public final class ProxyRoutingConfigurationService {
 			@Override public void verifyInstalled() throws IOException {
 				proxy.getConfig().verifyControlProxyRoutingInstalled();
 			}
+			@Override public byte[] captureInstalledSnapshot() throws IOException {
+				return proxy.getConfig().captureControlProxyRoutingSnapshot();
+			}
+			@Override public void verifyInstalledSnapshot(byte[] snapshot) throws IOException {
+				proxy.getConfig().verifyControlProxyRoutingSnapshot(snapshot);
+			}
 		});
 	}
 
@@ -61,7 +67,7 @@ public final class ProxyRoutingConfigurationService {
 			try {
 				platform.verifyInstalled();
 			} catch (com.bencodez.votingplugin.proxy.VotingPluginProxyConfig.StaleControlRevisionException stale) {
-				platform.reload();
+				reconcileConcurrentEdit();
 				throw new StaleRevisionException();
 			}
 		} catch (StaleRevisionException stale) {
@@ -79,6 +85,19 @@ public final class ProxyRoutingConfigurationService {
 		}
 	}
 
+	private void reconcileConcurrentEdit() throws Exception {
+		for (int attempt = 0; attempt < 3; attempt++) {
+			byte[] snapshot = platform.captureInstalledSnapshot();
+			platform.reload();
+			try {
+				platform.verifyInstalledSnapshot(snapshot);
+				return;
+			} catch (com.bencodez.votingplugin.proxy.VotingPluginProxyConfig.StaleControlRevisionException stale) {
+				if (attempt == 2) throw new StaleRevisionException();
+			}
+		}
+	}
+
 	interface Platform {
 		ProxyRoutingConfiguration read();
 		Set<String> configuredServers();
@@ -86,6 +105,8 @@ public final class ProxyRoutingConfigurationService {
 		void rollback() throws IOException;
 		void reload() throws Exception;
 		default void verifyInstalled() throws IOException { }
+		default byte[] captureInstalledSnapshot() throws IOException { return new byte[0]; }
+		default void verifyInstalledSnapshot(byte[] snapshot) throws IOException { }
 	}
 
 	@SuppressWarnings("serial")

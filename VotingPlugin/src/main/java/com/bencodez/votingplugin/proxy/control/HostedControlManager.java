@@ -144,7 +144,16 @@ public final class HostedControlManager implements AutoCloseable {
 			LaunchedProcess launched = launch(settings.jarFile());
 			ManagedProcess process = launched.process();
 			if (updated) {
-				persistHealthCheckingState(trustedRollbackSha256, rollbackCandidateSha256);
+				try {
+					persistHealthCheckingState(trustedRollbackSha256, rollbackCandidateSha256);
+				} catch (IOException publicationFailure) {
+					try {
+						stopProcess(process, true);
+					} catch (RuntimeException stopFailure) {
+						publicationFailure.addSuppressed(stopFailure);
+					}
+					throw publicationFailure;
+				}
 				rollbackCandidateReachedHealth = true;
 			}
 			if (awaitHealthy(launched)) {
