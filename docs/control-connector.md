@@ -59,8 +59,9 @@ without downloading. `AutoUpdate` is false by default; when explicitly enabled a
 current release is retained as `.previous`. A failed process/protocol health check atomically restores and starts that
 previous release, retaining the failed candidate as `.failed`. Unexpected exits use bounded restart backoff.
 
-The child receives only its bind host, port, and contained data directory. It does not receive VotingPlugin configuration
-or credentials in release metadata. Process output is written beside the hosted JAR and rotated at 1 MiB. Configure the
+The child receives only its bind host, port, contained data directory, and a random per-launch ID. Health must echo that
+ID, preventing an unrelated Control process on the same port from satisfying startup checks. It does not receive
+VotingPlugin configuration or credentials in release metadata. Process output is written beside the hosted JAR and rotated at 1 MiB. Configure the
 WebUI password directly against the hosted data directory (the prompt is not echoed and the password is not an argument):
 
 ```shell

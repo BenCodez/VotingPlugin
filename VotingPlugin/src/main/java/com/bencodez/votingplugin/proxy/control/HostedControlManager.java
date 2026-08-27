@@ -121,8 +121,9 @@ public final class HostedControlManager implements AutoCloseable {
 			if (closed) {
 				return;
 			}
-			ManagedProcess process = launch(settings.jarFile());
-			if (awaitHealthy(process)) {
+			LaunchedProcess launched = launch(settings.jarFile());
+			ManagedProcess process = launched.process();
+			if (awaitHealthy(launched)) {
 				failures = 0;
 				status = Status.RUNNING;
 				logger.accept("WebUI is available at " + settings.endpoint());
@@ -132,8 +133,9 @@ public final class HostedControlManager implements AutoCloseable {
 			stopProcess(process, true);
 			if (updated && Files.isRegularFile(settings.previousFile(), LinkOption.NOFOLLOW_LINKS)) {
 				rollback();
-				ManagedProcess previous = launch(settings.jarFile());
-				if (awaitHealthy(previous)) {
+				LaunchedProcess previousLaunch = launch(settings.jarFile());
+				ManagedProcess previous = previousLaunch.process();
+				if (awaitHealthy(previousLaunch)) {
 					failures = 0;
 					quarantinedSha256 = settings.sha256();
 					status = Status.ROLLED_BACK;
@@ -219,7 +221,7 @@ public final class HostedControlManager implements AutoCloseable {
 		atomicMove(settings.previousFile(), settings.jarFile(), false);
 	}
 
-	private ManagedProcess launch(Path artifact) throws IOException {
+	private LaunchedProcess launch(Path artifact) throws IOException {
 		status = Status.STARTING_PROCESS;
 		synchronized (processLifecycle) {
 			if (closed) throw new IOException("Hosted Control manager is closed");
@@ -230,13 +232,15 @@ public final class HostedControlManager implements AutoCloseable {
 				managedProcess = null;
 				exitAwaitedProcess = null;
 			}
-			ManagedProcess process = launcher.launch(settings, artifact);
+			String launchId = UUID.randomUUID().toString();
+			ManagedProcess process = launcher.launch(settings, artifact, launchId);
 			managedProcess = process;
-			return process;
+			return new LaunchedProcess(process, launchId);
 		}
 	}
 
-	private boolean awaitHealthy(ManagedProcess process) throws InterruptedException {
+	private boolean awaitHealthy(LaunchedProcess launched) throws InterruptedException {
+		ManagedProcess process = launched.process();
 		long timeoutNanos = TimeUnit.SECONDS.toNanos(settings.startupTimeoutSeconds());
 		long started = nanoTime.getAsLong();
 		long deadline = started + timeoutNanos;
@@ -255,7 +259,7 @@ public final class HostedControlManager implements AutoCloseable {
 			firstAttempt = false;
 			long remaining = Math.max(1L, deadline - now);
 			if (healthProbe.isHealthy(settings.endpoint(),
-					Duration.ofNanos(Math.min(TimeUnit.SECONDS.toNanos(2), remaining)))) {
+					Duration.ofNanos(Math.min(TimeUnit.SECONDS.toNanos(2), remaining)), launched.launchId())) {
 				return process.isAlive();
 			}
 			if (nanoTime.getAsLong() >= deadline) {
@@ -544,11 +548,11 @@ public final class HostedControlManager implements AutoCloseable {
 	}
 
 	interface ProcessLauncher {
-		ManagedProcess launch(Settings settings, Path artifact) throws IOException;
+		ManagedProcess launch(Settings settings, Path artifact, String launchId) throws IOException;
 	}
 
 	interface HealthProbe {
-		boolean isHealthy(URI endpoint, Duration timeout);
+		boolean isHealthy(URI endpoint, Duration timeout, String launchId);
 	}
 
 	interface Sleeper {
@@ -658,7 +662,7 @@ public final class HostedControlManager implements AutoCloseable {
 
 	private static final class JdkProcessLauncher implements ProcessLauncher {
 		@Override
-		public ManagedProcess launch(Settings settings, Path artifact) throws IOException {
+		public ManagedProcess launch(Settings settings, Path artifact, String launchId) throws IOException {
 			Path log = artifact.resolveSibling("control-output.log");
 			if (Files.exists(log, LinkOption.NOFOLLOW_LINKS)
 					&& !Files.isRegularFile(log, LinkOption.NOFOLLOW_LINKS)) {
@@ -683,6 +687,7 @@ public final class HostedControlManager implements AutoCloseable {
 			environment.put("CONTROL_HOST", settings.host());
 			environment.put("CONTROL_PORT", Integer.toString(settings.port()));
 			environment.put("CONTROL_DATA_DIR", settings.dataDirectory().toString());
+			environment.put("CONTROL_LAUNCH_ID", launchId);
 			return new JdkManagedProcess(builder.start());
 		}
 
@@ -696,7 +701,7 @@ public final class HostedControlManager implements AutoCloseable {
 				.followRedirects(HttpClient.Redirect.NEVER).build();
 
 		@Override
-		public boolean isHealthy(URI endpoint, Duration timeout) {
+		public boolean isHealthy(URI endpoint, Duration timeout, String launchId) {
 			try {
 				HttpRequest request = HttpRequest.newBuilder(endpoint.resolve("/api/v1/health"))
 						.timeout(timeout).header("Accept", "application/json").GET().build();
@@ -709,6 +714,7 @@ public final class HostedControlManager implements AutoCloseable {
 				JsonObject identity = object.has("identity") && object.get("identity").isJsonObject()
 						? object.getAsJsonObject("identity") : null;
 				return object.has("status") && "ok".equals(object.get("status").getAsString())
+						&& object.has("launchId") && launchId.equals(object.get("launchId").getAsString())
 						&& identity != null && identity.has("protocolVersion")
 						&& identity.get("protocolVersion").getAsInt() == EXPECTED_PROTOCOL_VERSION;
 			} catch (Exception e) {
@@ -716,6 +722,8 @@ public final class HostedControlManager implements AutoCloseable {
 			}
 		}
 	}
+
+	private record LaunchedProcess(ManagedProcess process, String launchId) { }
 
 	private static final class JdkManagedProcess implements ManagedProcess {
 		private final Process process;

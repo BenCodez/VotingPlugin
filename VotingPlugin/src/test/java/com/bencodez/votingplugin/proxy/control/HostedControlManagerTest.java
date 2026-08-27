@@ -101,11 +101,36 @@ class HostedControlManagerTest {
 		try {
 			URI endpoint = URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/");
 			long started = System.nanoTime();
-			assertFalse(new HostedControlManager.JdkHealthProbe().isHealthy(endpoint, Duration.ofMillis(250)));
+			assertFalse(new HostedControlManager.JdkHealthProbe().isHealthy(endpoint, Duration.ofMillis(250),
+					"00000000-0000-0000-0000-000000000001"));
 			assertTrue(bodyStarted.await(2, TimeUnit.SECONDS));
 			assertTrue(Duration.ofNanos(System.nanoTime() - started).compareTo(Duration.ofSeconds(2)) < 0);
 		} finally {
 			releaseBody.countDown();
+			server.stop(0);
+		}
+	}
+
+	@Test
+	void hostedHealthRequiresTheLaunchedChildIdentity() throws Exception {
+		String launchId = "00000000-0000-0000-0000-000000000001";
+		HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+		server.createContext("/api/v1/health", exchange -> {
+			byte[] body = ("{\"status\":\"ok\",\"launchId\":\"" + launchId
+					+ "\",\"identity\":{\"protocolVersion\":1}}").getBytes(StandardCharsets.UTF_8);
+			exchange.sendResponseHeaders(200, body.length);
+			try (var output = exchange.getResponseBody()) {
+				output.write(body);
+			}
+		});
+		server.start();
+		try {
+			URI endpoint = URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/");
+			HostedControlManager.JdkHealthProbe probe = new HostedControlManager.JdkHealthProbe();
+			assertTrue(probe.isHealthy(endpoint, Duration.ofSeconds(2), launchId));
+			assertFalse(probe.isHealthy(endpoint, Duration.ofSeconds(2),
+					"00000000-0000-0000-0000-000000000002"));
+		} finally {
 			server.stop(0);
 		}
 	}
@@ -124,7 +149,7 @@ class HostedControlManagerTest {
 				(source, target, maximum, timeout) -> {
 					downloads.incrementAndGet();
 					Files.write(target, release);
-				}, launcher, (endpoint, timeout) -> true,
+				}, launcher, (endpoint, timeout, launchId) -> true,
 				millis -> { throw new AssertionError("healthy startup must not sleep"); }, System::nanoTime,
 				message -> { });
 
@@ -154,7 +179,7 @@ class HostedControlManagerTest {
 		ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 		HostedControlManager manager = new HostedControlManager(settings, executor,
 				(source, target, maximum, timeout) -> Files.write(target, update), launcher,
-				(endpoint, timeout) -> healthChecks.incrementAndGet() > 4,
+				(endpoint, timeout, launchId) -> healthChecks.incrementAndGet() > 4,
 				millis -> clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(millis)), clock::get, message -> { });
 
 		manager.runOnce();
@@ -185,7 +210,7 @@ class HostedControlManagerTest {
 		ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 		HostedControlManager manager = new HostedControlManager(settings, executor,
 				(source, target, maximum, timeout) -> { throw new AssertionError("manual install downloaded"); },
-				launcher, (endpoint, timeout) -> true, millis -> { }, System::nanoTime, message -> { });
+				launcher, (endpoint, timeout, launchId) -> true, millis -> { }, System::nanoTime, message -> { });
 
 		manager.runOnce();
 		manager.close();
@@ -206,7 +231,7 @@ class HostedControlManagerTest {
 		ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 		HostedControlManager manager = new HostedControlManager(settings, executor,
 				(source, target, maximum, timeout) -> Files.write(target, untrusted), launcher,
-				(endpoint, timeout) -> true, millis -> { }, System::nanoTime, message -> { });
+				(endpoint, timeout, launchId) -> true, millis -> { }, System::nanoTime, message -> { });
 
 		manager.runOnce();
 
@@ -234,7 +259,7 @@ class HostedControlManagerTest {
 				} catch (InterruptedException ignored) { }
 			}
 			Files.write(target, release);
-		}, new FakeLauncher(), (endpoint, timeout) -> true, millis -> { }, System::nanoTime, message -> { });
+		}, new FakeLauncher(), (endpoint, timeout, launchId) -> true, millis -> { }, System::nanoTime, message -> { });
 		manager.start();
 		assertTrue(entered.await(2, TimeUnit.SECONDS));
 		CountDownLatch closingStarted = new CountDownLatch(1);
@@ -266,7 +291,7 @@ class HostedControlManagerTest {
 		HostedControlManager manager = new HostedControlManager(
 				settings(root.resolve("control.jar"), root.resolve("data"), false, false, digest("x".getBytes()), 1),
 				executor, (source, target, maximum, timeout) -> { }, new FakeLauncher(),
-				(endpoint, timeout) -> true, millis -> { }, System::nanoTime, message -> { });
+				(endpoint, timeout, launchId) -> true, millis -> { }, System::nanoTime, message -> { });
 		UnkillableProcess process = new UnkillableProcess();
 		java.lang.reflect.Field managed = HostedControlManager.class.getDeclaredField("managedProcess");
 		managed.setAccessible(true);
@@ -291,10 +316,10 @@ class HostedControlManagerTest {
 		AtomicLong clock = new AtomicLong();
 		HostedControlManager manager = new HostedControlManager(
 				settings(jar, root.resolve("data"), false, false, digest(release), 1), executor,
-				(source, target, maximum, timeout) -> { }, (settings, artifact) -> {
+				(source, target, maximum, timeout) -> { }, (settings, artifact, launchId) -> {
 					launches.incrementAndGet();
 					return process;
-				}, (endpoint, timeout) -> false,
+				}, (endpoint, timeout, launchId) -> false,
 				millis -> clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(millis)), clock::get, message -> { });
 
 		manager.runOnce();
@@ -327,7 +352,8 @@ class HostedControlManagerTest {
 		private final List<FakeProcess> processes = new ArrayList<>();
 
 		@Override
-		public HostedControlManager.ManagedProcess launch(HostedControlManager.Settings settings, Path artifact)
+		public HostedControlManager.ManagedProcess launch(HostedControlManager.Settings settings, Path artifact,
+				String launchId)
 				throws java.io.IOException {
 			launchedContents.add(Files.readString(artifact));
 			FakeProcess process = new FakeProcess();
