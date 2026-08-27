@@ -21,6 +21,7 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 	@Getter
 	private RedisHandler redisHandler;
 	private CountDownLatch subscriptionReady;
+	private Thread listenerThread;
 
 	public RedisBackendProxyTransport(VotingPluginMain plugin) {
 		this.plugin = plugin;
@@ -56,7 +57,9 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 				ready.countDown();
 			}
 		};
-		handler.loadListener(listener);
+		listenerThread = new Thread(() -> handler.loadListener(listener), "VotingPlugin-Redis-Backend");
+		listenerThread.setDaemon(true);
+		listenerThread.start();
 	}
 
 	@Override
@@ -96,10 +99,20 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 
 	@Override
 	public void close() {
+		Thread thread = listenerThread;
 		if (redisHandler != null) {
 			redisHandler.close();
 			redisHandler = null;
 		}
+		if (thread != null) {
+			thread.interrupt();
+			try {
+				thread.join(TimeUnit.SECONDS.toMillis(3));
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+		}
+		listenerThread = null;
 		subscriptionReady = null;
 	}
 }
