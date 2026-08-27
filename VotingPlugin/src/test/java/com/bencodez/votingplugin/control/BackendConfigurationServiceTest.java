@@ -158,4 +158,16 @@ class BackendConfigurationServiceTest {
 				"giveAllPlayers", "false", "onlineOnly", "true"));
 		assertTrue(party.proposal().content().contains("VotesRequired: 25"));
 	}
+
+	@Test void proxyBackendQuickSetupRejectsUnknownTransportMethods() throws Exception {
+		Files.writeString(directory.resolve("BungeeSettings.yml"),
+				"UseBungeecord: false\nServer: PleaseSet\nBungeeMethod: PLUGINMESSAGING\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		assertThrows(IllegalArgumentException.class, () -> service.previewQuickSetup("proxy-backend",
+				Map.of("server", "lobby", "method", "NOT_A_TRANSPORT")));
+		BackendConfigurationService.QuickPreview mqtt = service.previewQuickSetup("proxy-backend",
+				Map.of("server", "lobby", "method", "mqtt"));
+		assertTrue(mqtt.proposal().content().contains("BungeeMethod: MQTT"));
+	}
 }

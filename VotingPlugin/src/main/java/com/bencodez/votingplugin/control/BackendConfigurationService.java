@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -26,6 +25,8 @@ import java.util.Set;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
+
+import com.bencodez.votingplugin.proxy.BungeeMethod;
 
 /** Safe, revisioned access to every user-facing VotingPlugin YAML configuration file. */
 public final class BackendConfigurationService {
@@ -170,7 +171,7 @@ public final class BackendConfigurationService {
 			if (proxy) {
 				String server = option(options, "server", "[A-Za-z0-9][A-Za-z0-9._-]{0,63}");
 				yaml.set("Server", server);
-				yaml.set("BungeeMethod", options.getOrDefault("method", "PLUGINMESSAGING"));
+				yaml.set("BungeeMethod", bungeeMethodOption(options));
 			}
 			return new QuickProposal(fileName, yaml.saveToString());
 		}
@@ -336,11 +337,15 @@ public final class BackendConfigurationService {
 	}
 
 	private static void move(Path source, Path target) throws IOException {
-		try {
-			Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-		} catch (AtomicMoveNotSupportedException e) {
-			Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
+		Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+	}
+
+	private static String bungeeMethodOption(Map<String, String> options) {
+		String value = options == null ? "PLUGINMESSAGING" : options.getOrDefault("method", "PLUGINMESSAGING");
+		for (BungeeMethod method : BungeeMethod.values()) {
+			if (method.name().equalsIgnoreCase(value)) return method.name();
 		}
+		throw new IllegalArgumentException("quick setup option method is invalid");
 	}
 
 	private static String option(Map<String, String> options, String name, String pattern) {
