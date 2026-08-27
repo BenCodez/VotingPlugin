@@ -164,6 +164,7 @@ class HostedControlManagerTest {
 		assertEquals("previous-release", Files.readString(jar));
 		assertEquals("bad-new-release", Files.readString(settings.failedFile()));
 		assertTrue(launcher.processes.get(0).destroyed);
+		launcher.processes.get(1).destroy();
 		Files.writeString(jar, "corrupted-after-rollback");
 		manager.runOnce();
 		assertEquals(HostedControlManager.Status.FAILED, manager.status());
