@@ -133,7 +133,11 @@ public final class BackendConfigurationService {
 
 	private Preview preview(String fileName, String proposedContent, String current) {
 		YamlConfiguration currentYaml = parse(current);
-		String resolved = resolveSecrets(parse(proposedContent), currentYaml).saveToString();
+		YamlConfiguration resolvedYaml = resolveSecrets(parse(proposedContent), currentYaml);
+		if ("BungeeSettings.yml".equals(fileName) && resolvedYaml.contains("BungeeMethod")) {
+			resolvedYaml.set("BungeeMethod", canonicalBungeeMethod(resolvedYaml.getString("BungeeMethod")));
+		}
+		String resolved = resolvedYaml.saveToString();
 		ensureBounded(resolved);
 		return new Preview(fileName, resolved, revision(current), changes(currentYaml, parse(resolved)));
 	}
@@ -342,10 +346,14 @@ public final class BackendConfigurationService {
 
 	private static String bungeeMethodOption(Map<String, String> options) {
 		String value = options == null ? "PLUGINMESSAGING" : options.getOrDefault("method", "PLUGINMESSAGING");
+		return canonicalBungeeMethod(value);
+	}
+
+	private static String canonicalBungeeMethod(String value) {
 		for (BungeeMethod method : BungeeMethod.values()) {
 			if (method.name().equalsIgnoreCase(value)) return method.name();
 		}
-		throw new IllegalArgumentException("quick setup option method is invalid");
+		throw new IllegalArgumentException("BungeeMethod is invalid");
 	}
 
 	private static String option(Map<String, String> options, String name, String pattern) {

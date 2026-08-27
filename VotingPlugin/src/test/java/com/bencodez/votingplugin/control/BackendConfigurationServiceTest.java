@@ -170,4 +170,16 @@ class BackendConfigurationServiceTest {
 				Map.of("server", "lobby", "method", "mqtt"));
 		assertTrue(mqtt.proposal().content().contains("BungeeMethod: MQTT"));
 	}
+
+	@Test void fullBungeeSettingsRejectsUnknownTransportMethods() throws Exception {
+		Files.writeString(directory.resolve("BungeeSettings.yml"),
+				"UseBungeecord: true\nServer: lobby\nBungeeMethod: PLUGINMESSAGING\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		assertThrows(IllegalArgumentException.class, () -> service.preview("BungeeSettings.yml",
+				"UseBungeecord: true\nServer: lobby\nBungeeMethod: NOT_A_TRANSPORT\n"));
+		BackendConfigurationService.Preview mqtt = service.preview("BungeeSettings.yml",
+				"UseBungeecord: true\nServer: lobby\nBungeeMethod: mqtt\n");
+		assertTrue(mqtt.resolvedContent().contains("BungeeMethod: MQTT"));
+	}
 }
