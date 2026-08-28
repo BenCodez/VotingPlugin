@@ -63,7 +63,9 @@ public final class ControlConnector implements AutoCloseable {
 	private final LongSupplier jitterSource;
 	private final ProxyRoutingConfigurationService configurationService;
 	private final Map<UUID, TaskResult> completedTasks = new LinkedHashMap<>();
+	private final Object operationLifecycle = new Object();
 	private final AtomicBoolean inFlight = new AtomicBoolean();
+	private Runnable deferredReplacement;
 	private volatile boolean closed;
 	private volatile boolean registered;
 	private volatile boolean configurationAccepted;
@@ -95,16 +97,6 @@ public final class ControlConnector implements AutoCloseable {
 
 	/** Creates the production connector without reading a credential when the feature is disabled. */
 	public static ControlConnector create(VotingPluginProxy proxy) throws IOException {
-		return createWithPendingResults(proxy, null);
-	}
-
-	/** Creates a replacement while preserving results that Control has not acknowledged. */
-	public static ControlConnector create(VotingPluginProxy proxy, ControlConnector predecessor) throws IOException {
-		return createWithPendingResults(proxy, predecessor == null ? null : predecessor.pendingResults());
-	}
-
-	public static ControlConnector createWithPendingResults(VotingPluginProxy proxy, PendingResults pending)
-			throws IOException {
 		VotingPluginProxyConfig config = proxy.getConfig();
 		if (!config.getControlEnabled()) {
 			return null;
@@ -145,12 +137,7 @@ public final class ControlConnector implements AutoCloseable {
 		ControlConnector connector = new ControlConnector(settings, proxy.getScheduler(), transport, snapshot,
 				message -> proxy.log("[Control] " + message), UUID.randomUUID(),
 				() -> ThreadLocalRandom.current().nextLong(), new ProxyRoutingConfigurationService(proxy));
-		if (pending != null) connector.completedTasks.putAll(pending.tasks);
 		return connector;
-	}
-
-	public PendingResults pendingResults() {
-		synchronized (completedTasks) { return new PendingResults(new LinkedHashMap<>(completedTasks)); }
 	}
 
 	public void start() {
@@ -163,6 +150,30 @@ public final class ControlConnector implements AutoCloseable {
 
 	public Status status() {
 		return status;
+	}
+
+	/** Defers a replacement while a cycle or unacknowledged result still belongs to this connector. */
+	public boolean deferReplacementUntilSafe(Runnable replacement) {
+		Objects.requireNonNull(replacement, "replacement");
+		synchronized (operationLifecycle) {
+			if (inFlight.get() || !completedTasks.isEmpty()) {
+				deferredReplacement = replacement;
+				return true;
+			}
+			closed = true;
+			status = Status.STOPPED;
+			return false;
+		}
+	}
+
+	/** Reserves a quiescent connector for a full runtime replacement without losing a claimed result. */
+	public boolean reserveRuntimeReplacement() {
+		synchronized (operationLifecycle) {
+			if (inFlight.get() || !completedTasks.isEmpty()) return false;
+			closed = true;
+			status = Status.STOPPED;
+			return true;
+		}
 	}
 
 	private void schedule(long delayMillis) {
@@ -179,15 +190,15 @@ public final class ControlConnector implements AutoCloseable {
 	}
 
 	void cycle() {
-		if (closed || !inFlight.compareAndSet(false, true)) {
-			return;
+		synchronized (operationLifecycle) {
+			if (closed || !inFlight.compareAndSet(false, true)) return;
 		}
 		Request first = registered ? heartbeatRequest() : registrationRequest();
 		CompletableFuture<Response> primary;
 		try {
 			primary = transport.send(first);
 		} catch (RuntimeException failure) {
-			inFlight.set(false);
+			finishCycle();
 			onFailure(failure);
 			return;
 		}
@@ -197,7 +208,7 @@ public final class ControlConnector implements AutoCloseable {
 			primary.cancel(true);
 			operationDone.complete(null);
 			if (activeOperation == operationDone) activeOperation = null;
-			inFlight.set(false);
+			finishCycle();
 			return;
 		}
 		activeRequest = primary;
@@ -217,7 +228,7 @@ public final class ControlConnector implements AutoCloseable {
 		operation.whenComplete((ignored, failure) -> {
 			try {
 				activeRequest = null;
-				inFlight.set(false);
+				finishCycle();
 				if (!closed) {
 					if (failure == null) {
 						onSuccess();
@@ -234,6 +245,18 @@ public final class ControlConnector implements AutoCloseable {
 				if (activeOperation == operationDone) activeOperation = null;
 			}
 		});
+	}
+
+	private void finishCycle() {
+		Runnable replacement = null;
+		synchronized (operationLifecycle) {
+			inFlight.set(false);
+			if (completedTasks.isEmpty() && deferredReplacement != null) {
+				replacement = deferredReplacement;
+				deferredReplacement = null;
+			}
+		}
+		if (replacement != null) replacement.run();
 	}
 
 	private void handlePrimaryResponse(Response response, boolean registration) {
@@ -369,12 +392,12 @@ public final class ControlConnector implements AutoCloseable {
 		JsonObject task = parseObject(response.body);
 		UUID operationId = UUID.fromString(requireString(task, "operationId"));
 		TaskResult result;
-		synchronized (completedTasks) {
+		synchronized (operationLifecycle) {
 			result = completedTasks.get(operationId);
 		}
 		if (result == null) {
 			result = executeTask(task);
-			synchronized (completedTasks) {
+			synchronized (operationLifecycle) {
 				completedTasks.put(operationId, result);
 				while (completedTasks.size() > 128) completedTasks.remove(completedTasks.keySet().iterator().next());
 			}
@@ -383,7 +406,7 @@ public final class ControlConnector implements AutoCloseable {
 		activeRequest = submitted;
 		return submitted.thenAccept(resultResponse -> {
 			requireSuccess(resultResponse);
-			synchronized (completedTasks) { completedTasks.remove(operationId); }
+			synchronized (operationLifecycle) { completedTasks.remove(operationId); }
 		});
 	}
 
@@ -498,8 +521,11 @@ public final class ControlConnector implements AutoCloseable {
 
 	@Override
 	public void close() {
-		closed = true;
-		status = Status.STOPPED;
+		synchronized (operationLifecycle) {
+			closed = true;
+			status = Status.STOPPED;
+			deferredReplacement = null;
+		}
 		ScheduledFuture<?> scheduledRequest = scheduled;
 		if (scheduledRequest != null) {
 			scheduledRequest.cancel(false);
@@ -618,12 +644,6 @@ public final class ControlConnector implements AutoCloseable {
 		private static TaskResult failure(String code, String message) {
 			return new TaskResult(false, code, message == null ? "Operation failed" : message, null, null, List.of(), false, false);
 		}
-	}
-
-	/** Opaque immutable handoff state used when a platform recreates its entire proxy runtime. */
-	public static final class PendingResults {
-		private final Map<UUID, TaskResult> tasks;
-		private PendingResults(Map<UUID, TaskResult> tasks) { this.tasks = Map.copyOf(tasks); }
 	}
 
 	public interface Transport extends AutoCloseable {

@@ -169,7 +169,6 @@ public abstract class VotingPluginProxy {
 	private final Map<UUID, PendingPresenceHandoff> pendingPresenceHandoffs = new HashMap<>();
 	private final Set<String> pendingBackendRecoverySnapshots = ConcurrentHashMap.newKeySet();
 	private volatile ControlConnector controlConnector;
-	private volatile ControlConnector.PendingResults inheritedControlResults;
 	private volatile HostedControlManager hostedControlManager;
 	private final Object controlLifecycleLock = new Object();
 	private final AtomicLong controlServicesGeneration = new AtomicLong();
@@ -1557,8 +1556,12 @@ public abstract class VotingPluginProxy {
 	private void startControlServices() {
 		synchronized (controlLifecycleLock) {
 			ControlConnector predecessor = controlConnector;
+			if (predecessor != null && predecessor.deferReplacementUntilSafe(this::restartControlServicesAsync)) {
+				log("[Control] service restart deferred until the current result is acknowledged");
+				return;
+			}
 			stopControlServicesLocked(true);
-			startControlServicesLocked(predecessor);
+			startControlServicesLocked();
 		}
 	}
 
@@ -1571,8 +1574,13 @@ public abstract class VotingPluginProxy {
 					synchronized (controlLifecycleLock) {
 						if (!enabled || generation != controlServicesGeneration.get()) return;
 						ControlConnector predecessor = controlConnector;
+						if (predecessor != null
+								&& predecessor.deferReplacementUntilSafe(this::restartControlServicesAsync)) {
+							log("[Control] service restart deferred until the current result is acknowledged");
+							return;
+						}
 						stopControlServicesLocked(true);
-						startControlServicesLocked(predecessor);
+						startControlServicesLocked();
 					}
 				} catch (RuntimeException failure) {
 					if (generation == controlServicesGeneration.get()) {
@@ -1591,7 +1599,7 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
-	private void startControlServicesLocked(ControlConnector predecessor) {
+	private void startControlServicesLocked() {
 		if (getConfig().getControlHostedEnabled()) {
 			try {
 				hostedControlManager = HostedControlManager.create(this);
@@ -1603,10 +1611,7 @@ public abstract class VotingPluginProxy {
 		}
 		if (!getConfig().getControlEnabled()) return;
 		try {
-			ControlConnector.PendingResults pending = predecessor == null
-					? inheritedControlResults : predecessor.pendingResults();
-			controlConnector = ControlConnector.createWithPendingResults(this, pending);
-			inheritedControlResults = null;
+			controlConnector = ControlConnector.create(this);
 			if (controlConnector != null) controlConnector.start();
 		} catch (IOException | IllegalArgumentException e) {
 			controlConnector = null;
@@ -1619,7 +1624,6 @@ public abstract class VotingPluginProxy {
 		if (connector != null) {
 			try {
 				connector.close();
-				if (waitForHosted) inheritedControlResults = connector.pendingResults();
 				if (controlConnector == connector) controlConnector = null;
 			} catch (RuntimeException failure) {
 				if (waitForHosted) throw failure;
@@ -2379,15 +2383,14 @@ public abstract class VotingPluginProxy {
 	/** Fail-closed gate that must complete before a replacement proxy runtime is created. */
 	public void prepareForRuntimeReplacement() {
 		controlServicesGeneration.incrementAndGet();
-		controlLifecycleExecutor.shutdown();
-		stopControlServices(true);
-	}
-
-	/** Transfers unacknowledged apply results into a newly created platform runtime. */
-	public void inheritPendingControlResults(VotingPluginProxy previous) {
-		ControlConnector connector = previous == null ? null : previous.controlConnector;
-		if (connector != null) inheritedControlResults = connector.pendingResults();
-		else if (previous != null) inheritedControlResults = previous.inheritedControlResults;
+		synchronized (controlLifecycleLock) {
+			ControlConnector connector = controlConnector;
+			if (connector != null && !connector.reserveRuntimeReplacement()) {
+				throw new IllegalStateException("Control result must be acknowledged before proxy runtime replacement");
+			}
+			controlLifecycleExecutor.shutdown();
+			stopControlServicesLocked(true);
+		}
 	}
 
 	/** Best-effort remainder of runtime teardown after the Control overlap gate has succeeded. */

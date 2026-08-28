@@ -17,6 +17,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -197,6 +198,28 @@ class ControlConnectorTest {
 		}
 	}
 
+	@Test void replacementWaitsForTheOriginatingNodeToAcknowledgeItsResult() {
+		connector.close();
+		ProxyRoutingConfiguration current = new ProxyRoutingConfiguration(false, List.of());
+		connector = new ControlConnector(settings(), scheduler, transport,
+				() -> List.of(), logs::add, UUID.randomUUID(), () -> 0L,
+				new ProxyRoutingConfigurationService(new NoOpPlatform()));
+		transport.acceptConfiguration = true;
+		transport.operationClaim = CompletableFuture.completedFuture(new Response(200,
+				"{\"operationId\":\"00000000-0000-0000-0000-000000000099\","
+						+ "\"type\":\"APPLY\",\"expectedRevision\":\"" + current.revision() + "\","
+						+ "\"configuration\":{\"sendVotesToAllServers\":true,\"blockedServers\":[]}}"));
+		transport.resultSubmission = new CompletableFuture<>();
+		connector.cycle();
+
+		AtomicBoolean replacementStarted = new AtomicBoolean();
+		assertTrue(connector.deferReplacementUntilSafe(() -> replacementStarted.set(true)));
+		assertFalse(replacementStarted.get());
+
+		transport.resultSubmission.complete(new Response(200, "{}"));
+		assertTrue(replacementStarted.get());
+	}
+
 	@Test void closeBeforeOperationPublicationPreventsTheRequestChainFromStarting() throws Exception {
 		connector.close();
 		transport.firstSendEntered = new CountDownLatch(1);
@@ -253,6 +276,7 @@ class ControlConnectorTest {
 		private RuntimeException synchronousFailure;
 		private boolean acceptConfiguration;
 		private CompletableFuture<Response> operationClaim;
+		private CompletableFuture<Response> resultSubmission;
 		private CountDownLatch firstSendEntered;
 		private CountDownLatch releaseFirstSend;
 
@@ -280,6 +304,7 @@ class ControlConnectorTest {
 				stalled = null;
 				return result;
 			}
+			if (request.path().endsWith("/result") && resultSubmission != null) return resultSubmission;
 			if (request.path().endsWith("/operations")) {
 				if (operationClaim != null) return operationClaim;
 				return CompletableFuture.completedFuture(new Response(204, ""));

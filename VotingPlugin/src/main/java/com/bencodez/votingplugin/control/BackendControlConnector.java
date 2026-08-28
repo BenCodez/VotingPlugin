@@ -28,6 +28,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
 
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.control.BackendControlResultStore.Route;
+import com.bencodez.votingplugin.control.BackendControlResultStore.StoredResult;
 import com.bencodez.votingplugin.util.BoundedHttpBodyHandler;
 import com.bencodez.votingplugin.util.ControlCredentialFile;
 import com.google.gson.JsonArray;
@@ -44,13 +46,15 @@ public final class BackendControlConnector implements AutoCloseable {
 	private static final Set<String> CAPABILITIES = Set.of("config.files.v1", "config.quick-setup.v1");
 
 	private final VotingPluginMain plugin;
+	private final Path dataDirectory;
 	private final Settings settings;
 	private final String credential;
 	private final ScheduledExecutorService executor;
 	private final HttpClient http;
 	private final BackendConfigurationService configurations;
 	private final UUID sessionId = UUID.randomUUID();
-	private final Map<UUID, TaskResult> completed = new LinkedHashMap<>();
+	private final Map<UUID, StoredResult> completed = new LinkedHashMap<>();
+	private final boolean recovering;
 	private final AtomicBoolean running = new AtomicBoolean();
 	private final Object operationLifecycle = new Object();
 	private volatile boolean closed;
@@ -62,10 +66,13 @@ public final class BackendControlConnector implements AutoCloseable {
 	private volatile Future<?> activeReload;
 	private volatile CompletableFuture<Void> activeOperation;
 
-	private BackendControlConnector(VotingPluginMain plugin, Settings settings, String credential) {
+	private BackendControlConnector(VotingPluginMain plugin, Path dataDirectory, Settings settings, String credential,
+			boolean recovering) {
 		this.plugin = plugin;
+		this.dataDirectory = dataDirectory;
 		this.settings = settings;
 		this.credential = credential;
+		this.recovering = recovering;
 		ThreadFactory factory = runnable -> {
 			Thread thread = new Thread(runnable, "votingplugin-control-backend");
 			thread.setDaemon(true);
@@ -98,6 +105,15 @@ public final class BackendControlConnector implements AutoCloseable {
 	}
 
 	public static BackendControlConnector create(VotingPluginMain plugin) throws IOException {
+		Path root = plugin.getDataFolder().toPath().toAbsolutePath().normalize();
+		BackendControlResultStore.State recovered = BackendControlResultStore.load(root);
+		if (recovered != null) {
+			Settings settings = Settings.from(recovered.route());
+			String credential = ControlCredentialFile.read(root, settings.credentialFile());
+			BackendControlConnector connector = new BackendControlConnector(plugin, root, settings, credential, true);
+			connector.completed.putAll(recovered.results());
+			return connector;
+		}
 		ConfigurationSection control = plugin.getConfigFile().getData().getConfigurationSection("Control.Backend");
 		if (control == null || !control.getBoolean("Enabled", false)) return null;
 		String nodeId = control.getString("NodeId", "").trim();
@@ -109,14 +125,13 @@ public final class BackendControlConnector implements AutoCloseable {
 				|| (endpoint.getPath() != null && !endpoint.getPath().isEmpty() && !"/".equals(endpoint.getPath()))) {
 			throw new IllegalArgumentException("Control.Backend.Endpoint must be an HTTP(S) origin");
 		}
-		Path root = plugin.getDataFolder().toPath().toAbsolutePath().normalize();
-		String credential = ControlCredentialFile.read(root,
-				control.getString("CredentialFile", "control-credential.txt"));
-		Settings settings = new Settings(nodeId, endpoint,
+		String credentialFile = control.getString("CredentialFile", "control-credential.txt");
+		String credential = ControlCredentialFile.read(root, credentialFile);
+		Settings settings = new Settings(nodeId, endpoint, credentialFile,
 				bounded(control.getInt("HeartbeatSeconds", 30), 10, 300, "HeartbeatSeconds"),
 				bounded(control.getInt("ConnectTimeoutMillis", 3000), 500, 30000, "ConnectTimeoutMillis"),
 				bounded(control.getInt("RequestTimeoutMillis", 10000), 500, 30000, "RequestTimeoutMillis"));
-		return new BackendControlConnector(plugin, settings, credential);
+		return new BackendControlConnector(plugin, root, settings, credential, false);
 	}
 
 	public boolean hasPendingResults() {
@@ -210,6 +225,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	}
 
 	private void claimAndExecute() throws Exception {
+		if (submitCompletedResult()) return;
 		JsonObject body = new JsonObject();
 		body.addProperty("sessionId", sessionId.toString());
 		Response response = send("POST", "/api/v1/nodes/" + settings.nodeId() + "/operations", body);
@@ -217,33 +233,64 @@ public final class BackendControlConnector implements AutoCloseable {
 		JsonObject task = requireObject(response, 200);
 		if (closed) return;
 		UUID operationId = UUID.fromString(string(task, "operationId"));
-		TaskResult result;
+		StoredResult result;
 		synchronized (completed) {
 			result = completed.get(operationId);
 		}
 		if (result == null) {
-			result = execute(task);
+			TaskResult executed = execute(task);
+			result = new StoredResult(executed.json(), executed.restartConnector());
 			synchronized (completed) {
 				completed.put(operationId, result);
-				while (completed.size() > 128) completed.remove(completed.keySet().iterator().next());
 			}
+			persistCompleted();
 		}
-		JsonObject resultBody = result.json(sessionId);
-		TaskResult submitted = result;
+		submitCompletedResult(operationId, result);
+	}
+
+	private boolean submitCompletedResult() throws Exception {
+		Map.Entry<UUID, StoredResult> pending;
+		synchronized (completed) {
+			pending = completed.entrySet().stream().findFirst().orElse(null);
+		}
+		if (pending == null) return false;
+		persistCompleted();
+		submitCompletedResult(pending.getKey(), pending.getValue());
+		return true;
+	}
+
+	private void submitCompletedResult(UUID operationId, StoredResult submitted) throws Exception {
+		JsonObject resultBody = submitted.result().deepCopy();
+		resultBody.addProperty("sessionId", sessionId.toString());
 		afterResultAcknowledged(
 				() -> requireObject(send("POST", "/api/v1/nodes/" + settings.nodeId() + "/operations/" + operationId
 						+ "/result", resultBody), 200),
 				() -> {
 					synchronized (completed) { completed.remove(operationId); }
-					if (submitted.restartConnector()) {
+					try {
+						persistCompleted();
+					} catch (Exception failure) {
+						synchronized (completed) { completed.put(operationId, submitted); }
+						throw failure;
+					}
+					boolean drained;
+					synchronized (completed) { drained = completed.isEmpty(); }
+					if (drained && (submitted.restartConnector() || recovering)) {
 						plugin.getServer().getScheduler().runTask(plugin, plugin::restartBackendControlConnector);
 					}
 				});
 	}
 
-	static void afterResultAcknowledged(ResultSubmission submission, Runnable acknowledged) throws Exception {
+	private void persistCompleted() throws IOException {
+		Map<UUID, StoredResult> snapshot;
+		synchronized (completed) { snapshot = new LinkedHashMap<>(completed); }
+		BackendControlResultStore.save(dataDirectory, settings.route(), snapshot);
+	}
+
+	static void afterResultAcknowledged(ResultSubmission submission, ResultAcknowledgement acknowledged)
+			throws Exception {
 		submission.submit();
-		acknowledged.run();
+		acknowledged.acknowledge();
 	}
 
 	private TaskResult execute(JsonObject task) {
@@ -414,18 +461,44 @@ public final class BackendControlConnector implements AutoCloseable {
 		}
 	}
 
-	private record Settings(String nodeId, URI endpoint, int heartbeatSeconds, int connectTimeoutMillis,
-			int requestTimeoutMillis) { }
+	private record Settings(String nodeId, URI endpoint, String credentialFile, int heartbeatSeconds,
+			int connectTimeoutMillis, int requestTimeoutMillis) {
+		private Settings {
+			if (!NODE_ID.matcher(nodeId).matches()) throw new IllegalArgumentException("Control.Backend.NodeId is invalid");
+			if (!Set.of("http", "https").contains(endpoint.getScheme()) || endpoint.getHost() == null
+					|| endpoint.getUserInfo() != null || endpoint.getQuery() != null || endpoint.getFragment() != null
+					|| (endpoint.getPath() != null && !endpoint.getPath().isEmpty() && !"/".equals(endpoint.getPath()))) {
+				throw new IllegalArgumentException("Control.Backend.Endpoint must be an HTTP(S) origin");
+			}
+			if (credentialFile == null || credentialFile.isBlank() || credentialFile.length() > 2048) {
+				throw new IllegalArgumentException("Control.Backend.CredentialFile is invalid");
+			}
+			bounded(heartbeatSeconds, 10, 300, "HeartbeatSeconds");
+			bounded(connectTimeoutMillis, 500, 30000, "ConnectTimeoutMillis");
+			bounded(requestTimeoutMillis, 500, 30000, "RequestTimeoutMillis");
+		}
+
+		private static Settings from(Route route) {
+			return new Settings(route.nodeId(), route.endpoint(), route.credentialFile(), route.heartbeatSeconds(),
+					route.connectTimeoutMillis(), route.requestTimeoutMillis());
+		}
+
+		private Route route() {
+			return new Route(nodeId, endpoint, credentialFile, heartbeatSeconds, connectTimeoutMillis,
+					requestTimeoutMillis);
+		}
+	}
 	private record Response(int status, String body) { }
 	@FunctionalInterface
 	interface ResultSubmission { void submit() throws Exception; }
+	@FunctionalInterface
+	interface ResultAcknowledgement { void acknowledge() throws Exception; }
 
 	private record TaskResult(boolean success, String code, String message, String revision,
 			JsonObject configuration, List<String> changes, boolean reloaded, boolean rolledBack,
 			boolean restartConnector) {
-		private JsonObject json(UUID sessionId) {
+		private JsonObject json() {
 			JsonObject body = new JsonObject();
-			body.addProperty("sessionId", sessionId.toString());
 			body.addProperty("success", success);
 			body.addProperty("code", code);
 			body.addProperty("message", message);
