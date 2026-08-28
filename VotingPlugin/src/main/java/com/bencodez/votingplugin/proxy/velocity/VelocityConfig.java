@@ -22,6 +22,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 import com.bencodez.simpleapi.file.velocity.VelocityYMLFile;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 import com.bencodez.votingplugin.proxy.control.ProxyRoutingConfiguration;
+import com.bencodez.votingplugin.util.DurableFiles;
 
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
@@ -143,7 +144,9 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 
 	private static void atomicReplace(Path source, Path target) throws IOException {
 		try {
+			DurableFiles.forceFile(source);
 			Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+			DurableFiles.forceMoveDirectories(source, target);
 		} catch (java.nio.file.AtomicMoveNotSupportedException e) {
 			throw new IOException("Atomic Control configuration activation is unsupported", e);
 		}

@@ -16,12 +16,15 @@ public class ProcessedVoteCache {
 
 	private static final long DEFAULT_TTL_MILLIS = TimeUnit.MINUTES.toMillis(30);
 	private static final int MAX_REDIS_DELIVERIES = 4096;
+	public static final int MAX_LEGACY_REDIS_DELIVERY_BYTES = 256 * 1024;
+	public static final int MAX_LEGACY_REDIS_TOTAL_BYTES = 4 * 1024 * 1024;
 
 	@Getter
 	private final ConcurrentHashMap<UUID, Long> processedVotes = new ConcurrentHashMap<>();
 	private final long ttlMillis;
 	private final LinkedHashMap<String, Long> processedRedisDeliveries = new LinkedHashMap<>();
 	private final LinkedHashMap<String, Integer> legacyRedisDeliveries = new LinkedHashMap<>();
+	private long legacyRedisDeliveryBytes;
 	private Object activeRedisSubscriber;
 	private Object standbyRedisSubscriber;
 
@@ -85,6 +88,7 @@ public class ProcessedVoteCache {
 		} else if (activeRedisSubscriber != subscriber) {
 			standbyRedisSubscriber = subscriber;
 			legacyRedisDeliveries.clear();
+			legacyRedisDeliveryBytes = 0;
 		}
 	}
 
@@ -96,8 +100,14 @@ public class ProcessedVoteCache {
 			if (count != null) {
 				legacyRedisDeliveries.put(signature,
 						count == Integer.MAX_VALUE ? Integer.MAX_VALUE : count + 1);
-			} else if (legacyRedisDeliveries.size() < MAX_REDIS_DELIVERIES) {
-				legacyRedisDeliveries.put(signature, 1);
+			} else {
+				int bytes = legacyRedisDeliveryBytes(signature);
+				if (bytes <= MAX_LEGACY_REDIS_DELIVERY_BYTES
+						&& legacyRedisDeliveries.size() < MAX_REDIS_DELIVERIES
+						&& legacyRedisDeliveryBytes <= MAX_LEGACY_REDIS_TOTAL_BYTES - bytes) {
+					legacyRedisDeliveries.put(signature, 1);
+					legacyRedisDeliveryBytes += bytes;
+				}
 			}
 		}
 		return true;
@@ -115,24 +125,46 @@ public class ProcessedVoteCache {
 	public synchronized boolean consumeLegacyRedisDelivery(String signature) {
 		Integer count = legacyRedisDeliveries.get(signature);
 		if (count == null) return false;
-		if (count <= 1) legacyRedisDeliveries.remove(signature);
-		else legacyRedisDeliveries.put(signature, count - 1);
+		if (count <= 1) {
+			legacyRedisDeliveries.remove(signature);
+			legacyRedisDeliveryBytes -= legacyRedisDeliveryBytes(signature);
+		} else legacyRedisDeliveries.put(signature, count - 1);
 		return true;
 	}
 
 	public synchronized void finishRedisHandoff() {
 		legacyRedisDeliveries.clear();
+		legacyRedisDeliveryBytes = 0;
 	}
 
 	public synchronized void unregisterRedisSubscriber(Object subscriber) {
 		if (standbyRedisSubscriber == subscriber) {
 			standbyRedisSubscriber = null;
 			legacyRedisDeliveries.clear();
+			legacyRedisDeliveryBytes = 0;
 		}
 		if (activeRedisSubscriber == subscriber) activeRedisSubscriber = null;
 	}
 
 	private void cleanup(long now) {
 		processedVotes.entrySet().removeIf(entry -> entry.getValue() <= now);
+	}
+
+	/** Returns an exact UTF-8 length up to the per-delivery cap, then cap + 1. */
+	public static int legacyRedisDeliveryBytes(String signature) {
+		if (signature == null) return 0;
+		int bytes = 0;
+		for (int index = 0; index < signature.length(); index++) {
+			char character = signature.charAt(index);
+			if (character <= 0x7f) bytes++;
+			else if (character <= 0x7ff) bytes += 2;
+			else if (Character.isHighSurrogate(character) && index + 1 < signature.length()
+					&& Character.isLowSurrogate(signature.charAt(index + 1))) {
+				bytes += 4;
+				index++;
+			} else bytes += 3;
+			if (bytes > MAX_LEGACY_REDIS_DELIVERY_BYTES) return MAX_LEGACY_REDIS_DELIVERY_BYTES + 1;
+		}
+		return bytes;
 	}
 }

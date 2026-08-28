@@ -83,4 +83,19 @@ public class ProcessedVoteCacheTest {
 		deliveries.setAccessible(true);
 		assertEquals(4096, ((Map<?, ?>) deliveries.get(cache)).size());
 	}
+
+	@Test
+	public void legacyRedisHandoffAccountingRejectsOversizedSignatures() throws Exception {
+		ProcessedVoteCache cache = new ProcessedVoteCache();
+		Object previous = new Object();
+		cache.registerRedisSubscriber(previous);
+		cache.registerRedisSubscriber(new Object());
+
+		assertTrue(cache.reserveLegacyRedisDelivery(previous,
+				"x".repeat(ProcessedVoteCache.MAX_LEGACY_REDIS_DELIVERY_BYTES + 1)));
+
+		Field deliveries = ProcessedVoteCache.class.getDeclaredField("legacyRedisDeliveries");
+		deliveries.setAccessible(true);
+		assertTrue(((Map<?, ?>) deliveries.get(cache)).isEmpty());
+	}
 }

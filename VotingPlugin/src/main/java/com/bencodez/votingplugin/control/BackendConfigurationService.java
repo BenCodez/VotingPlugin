@@ -27,6 +27,7 @@ import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import com.bencodez.votingplugin.proxy.BungeeMethod;
+import com.bencodez.votingplugin.util.DurableFiles;
 
 /** Safe, revisioned access to every user-facing VotingPlugin YAML configuration file. */
 public final class BackendConfigurationService {
@@ -368,7 +369,9 @@ public final class BackendConfigurationService {
 	}
 
 	private static void move(Path source, Path target) throws IOException {
+		DurableFiles.forceFile(source);
 		Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+		DurableFiles.forceMoveDirectories(source, target);
 	}
 
 	private static String bungeeMethodOption(Map<String, String> options) {

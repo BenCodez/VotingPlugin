@@ -50,4 +50,19 @@ class RedisBackendProxyTransportTest {
 
 		verify(messages, times(1)).onMessage(envelope);
 	}
+
+	@Test
+	void legacyHandoffBufferDegradesForAnOversizedEnvelope() throws Exception {
+		RedisBackendProxyTransport transport = new RedisBackendProxyTransport(null, new ProcessedVoteCache());
+		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
+		Field handler = RedisBackendProxyTransport.class.getDeclaredField("messageHandler");
+		handler.setAccessible(true);
+		handler.set(transport, messages);
+		JsonEnvelope envelope = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE_UPDATE)
+				.put("payload", "x".repeat(ProcessedVoteCache.MAX_LEGACY_REDIS_DELIVERY_BYTES + 1)).build();
+
+		transport.dispatchLegacy(envelope);
+
+		verify(messages).onMessage(envelope);
+	}
 }

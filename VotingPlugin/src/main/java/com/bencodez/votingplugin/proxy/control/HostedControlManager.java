@@ -36,6 +36,7 @@ import java.util.function.LongSupplier;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 import com.bencodez.votingplugin.util.BoundedHttpBodyHandler;
+import com.bencodez.votingplugin.util.DurableFiles;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -247,6 +248,7 @@ public final class HostedControlManager implements AutoCloseable {
 	}
 
 	private void activate(Path staged, boolean installed, String installedSha256) throws IOException {
+		DurableFiles.forceFile(staged);
 		if (installed) {
 			persistRollbackState(installedSha256);
 			atomicMove(settings.jarFile(), settings.previousFile(), true);
@@ -271,7 +273,7 @@ public final class HostedControlManager implements AutoCloseable {
 	}
 
 	private void persistRollbackState(String previousSha256) throws IOException {
-		Files.deleteIfExists(settings.healthCheckingFile());
+		DurableFiles.deleteIfExists(settings.healthCheckingFile());
 		persistDigestState(settings.rollbackPendingFile(), previousSha256, settings.sha256(), "rollback");
 	}
 
@@ -396,12 +398,12 @@ public final class HostedControlManager implements AutoCloseable {
 	}
 
 	private void clearPersistedRollbackState() throws IOException {
-		Files.deleteIfExists(settings.rollbackPendingFile());
-		Files.deleteIfExists(settings.healthCheckingFile());
+		DurableFiles.deleteIfExists(settings.rollbackPendingFile());
+		DurableFiles.deleteIfExists(settings.healthCheckingFile());
 	}
 
 	private void clearPersistedQuarantineState() throws IOException {
-		Files.deleteIfExists(settings.quarantineFile());
+		DurableFiles.deleteIfExists(settings.quarantineFile());
 	}
 
 	private LaunchedProcess launch(Path artifact) throws IOException {
@@ -627,6 +629,7 @@ public final class HostedControlManager implements AutoCloseable {
 			} else {
 				Files.move(source, target, StandardCopyOption.ATOMIC_MOVE);
 			}
+			DurableFiles.forceMoveDirectories(source, target);
 		} catch (AtomicMoveNotSupportedException e) {
 			throw new IOException("Atomic Control artifact activation is unsupported", e);
 		}
@@ -888,7 +891,7 @@ public final class HostedControlManager implements AutoCloseable {
 		}
 
 		private static boolean isWindows() {
-			return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
+			return DurableFiles.isWindowsName(System.getProperty("os.name", ""));
 		}
 	}
 

@@ -19,6 +19,7 @@ import java.util.Set;
 
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 import com.bencodez.votingplugin.proxy.control.ProxyRoutingConfiguration;
+import com.bencodez.votingplugin.util.DurableFiles;
 
 import lombok.Getter;
 import net.md_5.bungee.config.Configuration;
@@ -625,7 +626,9 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 
 	private static void atomicReplace(Path source, Path target) throws IOException {
 		try {
+			DurableFiles.forceFile(source);
 			Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+			DurableFiles.forceMoveDirectories(source, target);
 		} catch (java.nio.file.AtomicMoveNotSupportedException e) {
 			throw new IOException("Atomic Control configuration activation is unsupported", e);
 		}

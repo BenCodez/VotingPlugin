@@ -1,9 +1,9 @@
 package com.bencodez.votingplugin.backendproxy.transport;
 
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLParameters;
 
@@ -33,6 +33,7 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 	private final Object subscriberIdentity = new Object();
 	private final Object legacyLifecycle = new Object();
 	private final List<JsonEnvelope> bufferedLegacyDeliveries = new ArrayList<>();
+	private long bufferedLegacyDeliveryBytes;
 	private boolean legacyHandoffDegraded;
 	private GlobalMessageHandler messageHandler;
 
@@ -90,15 +91,20 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 
 	void dispatchLegacy(JsonEnvelope envelope) {
 		String signature = com.bencodez.simpleapi.servercomm.codec.JsonEnvelopeCodec.encode(envelope);
+		int encodedBytes = ProcessedVoteCache.legacyRedisDeliveryBytes(signature);
 		synchronized (legacyLifecycle) {
 			if (processedVoteCache.reserveLegacyRedisDelivery(subscriberIdentity, signature)) {
 				messageHandler.onMessage(envelope);
-			} else if (bufferedLegacyDeliveries.size() < MAX_LEGACY_HANDOFF_DELIVERIES) {
+			} else if (encodedBytes <= ProcessedVoteCache.MAX_LEGACY_REDIS_DELIVERY_BYTES
+					&& bufferedLegacyDeliveries.size() < MAX_LEGACY_HANDOFF_DELIVERIES
+					&& bufferedLegacyDeliveryBytes <= ProcessedVoteCache.MAX_LEGACY_REDIS_TOTAL_BYTES - encodedBytes) {
 				bufferedLegacyDeliveries.add(envelope);
+				bufferedLegacyDeliveryBytes += encodedBytes;
 			} else {
 				if (!legacyHandoffDegraded && plugin != null) {
-					plugin.getLogger().warning("Redis legacy handoff exceeded " + MAX_LEGACY_HANDOFF_DELIVERIES
-							+ " buffered deliveries; temporarily degrading duplicate suppression");
+					plugin.getLogger().warning("Redis legacy handoff exceeded its " + MAX_LEGACY_HANDOFF_DELIVERIES
+							+ " delivery / " + ProcessedVoteCache.MAX_LEGACY_REDIS_TOTAL_BYTES
+							+ " byte buffer; temporarily degrading duplicate suppression");
 				}
 				legacyHandoffDegraded = true;
 				messageHandler.onMessage(envelope);
@@ -115,6 +121,7 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 				if (!processedVoteCache.consumeLegacyRedisDelivery(signature)) messageHandler.onMessage(envelope);
 			}
 			bufferedLegacyDeliveries.clear();
+			bufferedLegacyDeliveryBytes = 0;
 			legacyHandoffDegraded = false;
 			processedVoteCache.finishRedisHandoff();
 		}
