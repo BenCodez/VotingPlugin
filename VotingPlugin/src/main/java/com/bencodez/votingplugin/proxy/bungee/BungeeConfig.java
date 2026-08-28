@@ -599,7 +599,12 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 			if (!java.util.Arrays.equals(controlInstalledSnapshot, Files.readAllBytes(target))) {
 				throw new StaleControlRevisionException();
 			}
-			atomicReplace(stage, target);
+			try {
+				atomicReplace(stage, target);
+			} catch (DurableFiles.PublishedException published) {
+				controlInstalledSnapshot = null;
+				throw published;
+			}
 		} finally {
 			Files.deleteIfExists(stage);
 		}

@@ -38,14 +38,20 @@ public final class BackendConfigurationService {
 
 	private final Path dataDirectory;
 	private final ApplyAction reload;
+	private final MoveAction mover;
 
 	public BackendConfigurationService(Path dataDirectory, ReloadAction reload) {
 		this(dataDirectory, ignored -> reload.run());
 	}
 
 	public BackendConfigurationService(Path dataDirectory, ApplyAction reload) {
+		this(dataDirectory, reload, BackendConfigurationService::move);
+	}
+
+	BackendConfigurationService(Path dataDirectory, ApplyAction reload, MoveAction mover) {
 		this.dataDirectory = dataDirectory.toAbsolutePath().normalize();
 		this.reload = reload;
+		this.mover = mover;
 	}
 
 	public Document read(String fileName) throws IOException {
@@ -82,10 +88,10 @@ public final class BackendConfigurationService {
 			Files.writeString(backupStaging, current, StandardCharsets.UTF_8,
 					StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
 			if (!revision(readRaw(target, false)).equals(expectedRevision)) throw new StaleRevisionException();
-			move(backupStaging, backup);
+			mover.move(backupStaging, backup);
 			if (!revision(readRaw(target, false)).equals(expectedRevision)) throw new StaleRevisionException();
 			try {
-				move(staging, target);
+				mover.move(staging, target);
 				installed = true;
 			} catch (DurableFiles.PublishedException published) {
 				installed = true;
@@ -110,7 +116,13 @@ public final class BackendConfigurationService {
 					if (!revision(readRaw(target, false)).equals(installedRevision)) {
 						throw new IOException("Managed configuration changed while reload failed; backup was not restored");
 					}
-					copyBackupNoFollow(backup, target, installedRevision);
+					try {
+						copyBackupNoFollow(backup, target, installedRevision);
+					} catch (DurableFiles.PublishedException published) {
+						// The backup is already active. Preserve the durability warning, but
+						// still reload it so runtime and disk cannot diverge.
+						failure.addSuppressed(published);
+					}
 					reload.run(fileName);
 					rolledBack = true;
 				} catch (Exception rollbackFailure) {
@@ -137,7 +149,7 @@ public final class BackendConfigurationService {
 		if (Files.isSymbolicLink(backup)) throw new IOException("Symbolic configuration backups are not allowed");
 	}
 
-	private static void copyBackupNoFollow(Path backup, Path target, String expectedTargetRevision) throws IOException {
+	private void copyBackupNoFollow(Path backup, Path target, String expectedTargetRevision) throws IOException {
 		if (!Files.isRegularFile(backup, LinkOption.NOFOLLOW_LINKS)) {
 			throw new IOException("Control backup is unavailable or unsafe");
 		}
@@ -150,7 +162,7 @@ public final class BackendConfigurationService {
 			if (!revision(readRaw(target, false)).equals(expectedTargetRevision)) {
 				throw new IOException("Managed configuration changed while rollback was staged");
 			}
-			move(staging, target);
+			mover.move(staging, target);
 		} finally {
 			Files.deleteIfExists(staging);
 		}
@@ -432,6 +444,7 @@ public final class BackendConfigurationService {
 
 	@FunctionalInterface public interface ReloadAction { void run() throws Exception; }
 	@FunctionalInterface public interface ApplyAction { void run(String fileName) throws Exception; }
+	@FunctionalInterface interface MoveAction { void move(Path source, Path target) throws IOException; }
 	@SuppressWarnings("serial") public static final class StaleRevisionException extends RuntimeException { }
 	@SuppressWarnings("serial") public static final class ApplyFailureException extends IOException {
 		private final boolean rolledBack;

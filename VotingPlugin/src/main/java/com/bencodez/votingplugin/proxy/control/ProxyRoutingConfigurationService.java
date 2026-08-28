@@ -82,13 +82,21 @@ public final class ProxyRoutingConfigurationService {
 
 	private ApplyFailureException rollbackAfterFailure(Exception failure) {
 		boolean rolledBack = false;
+		DurableFiles.PublishedException publicationFailure = null;
 		try {
-			platform.rollback();
+			try {
+				platform.rollback();
+			} catch (DurableFiles.PublishedException published) {
+				// The restored file is already active. Continue the reload so runtime
+				// state follows disk, while retaining the durability warning.
+				publicationFailure = published;
+			}
 			platform.reload();
 			rolledBack = true;
 		} catch (Exception rollbackFailure) {
 			failure.addSuppressed(rollbackFailure);
 		}
+		if (publicationFailure != null) failure.addSuppressed(publicationFailure);
 		return new ApplyFailureException(rolledBack, failure);
 	}
 

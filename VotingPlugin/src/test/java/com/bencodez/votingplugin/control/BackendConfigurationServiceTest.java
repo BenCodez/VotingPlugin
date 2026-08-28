@@ -5,14 +5,18 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import com.bencodez.votingplugin.util.DurableFiles;
 
 class BackendConfigurationServiceTest {
 	@TempDir Path directory;
@@ -99,6 +103,33 @@ class BackendConfigurationServiceTest {
 		assertTrue(failure.rolledBack());
 		assertEquals(2, reloads.get());
 		assertTrue(service.read("BungeeSettings.yml").content().contains("PLUGINMESSAGING"));
+	}
+
+	@Test void publishedRollbackStillReloadsTheRestoredConfiguration() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "Feature: before\n");
+		AtomicInteger reloads = new AtomicInteger();
+		AtomicInteger moves = new AtomicInteger();
+		BackendConfigurationService service = new BackendConfigurationService(directory,
+				(BackendConfigurationService.ApplyAction) fileName -> {
+					if (reloads.incrementAndGet() == 1) throw new IOException("reload failed");
+				}, (source, target) -> {
+					Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+					if (moves.incrementAndGet() == 3) {
+						throw new DurableFiles.PublishedException(new IOException("directory force failed"));
+					}
+				});
+		BackendConfigurationService.Document before = service.read("Config.yml");
+
+		BackendConfigurationService.ApplyFailureException failure = assertThrows(
+				BackendConfigurationService.ApplyFailureException.class,
+				() -> service.apply("Config.yml", "Feature: proposed\n", before.revision()));
+
+		assertTrue(failure.rolledBack());
+		assertEquals(2, reloads.get());
+		assertEquals("Feature: before\n", Files.readString(config));
+		assertTrue(java.util.Arrays.stream(failure.getCause().getSuppressed())
+				.anyMatch(DurableFiles.PublishedException.class::isInstance));
 	}
 
 	@Test void failedReloadDoesNotOverwriteAConcurrentManualEdit() throws Exception {

@@ -75,6 +75,27 @@ class ProxyRoutingConfigurationServiceTest {
 	}
 
 	@Test
+	void publishedRollbackStillReloadsTheRestoredConfiguration() {
+		ProxyRoutingConfiguration current = new ProxyRoutingConfiguration(false, List.of());
+		FakePlatform platform = new FakePlatform();
+		platform.current = current;
+		platform.failFirstReload = true;
+		platform.failAfterRollbackPublication = true;
+
+		ProxyRoutingConfigurationService.ApplyFailureException failure = assertThrows(
+				ProxyRoutingConfigurationService.ApplyFailureException.class,
+				() -> new ProxyRoutingConfigurationService(platform).apply(
+						new ProxyRoutingConfiguration(true, List.of()), current.revision()));
+
+		assertTrue(failure.rolledBack());
+		assertTrue(platform.rolledBack);
+		assertTrue(platform.current.equals(current));
+		assertTrue(platform.reloadCalls == 2);
+		assertTrue(java.util.Arrays.stream(failure.getCause().getSuppressed())
+				.anyMatch(DurableFiles.PublishedException.class::isInstance));
+	}
+
+	@Test
 	void failedReloadPreservesAConcurrentEditDetectedByTheAdapter() {
 		ProxyRoutingConfiguration current = new ProxyRoutingConfiguration(false, List.of());
 		FakePlatform platform = new FakePlatform();
@@ -126,6 +147,7 @@ class ProxyRoutingConfigurationServiceTest {
 		private boolean rolledBack;
 		private boolean staleDuringPersist;
 		private boolean failAfterPublication;
+		private boolean failAfterRollbackPublication;
 		private boolean manualEditDuringFailedReload;
 		private boolean manualEditDuringSuccessfulReload;
 		private int manualEditsDuringSuccessfulReloads;
@@ -146,6 +168,9 @@ class ProxyRoutingConfigurationServiceTest {
 			if (!current.equals(installed)) throw new IOException("active configuration changed");
 			current = previous;
 			rolledBack = true;
+			if (failAfterRollbackPublication) {
+				throw new DurableFiles.PublishedException(new IOException("directory force failed"));
+			}
 		}
 		@Override public void reload() throws Exception {
 			reloadCalls++;
