@@ -47,4 +47,23 @@ class BackendControlResultStoreTest {
 
 		assertThrows(java.io.IOException.class, () -> BackendControlResultStore.load(directory));
 	}
+
+	@Test void maximumEscapeHeavyConfigurationFitsTheEncodedJournal() throws Exception {
+		Route route = new Route("backend-old", URI.create("https://control.example:8443"), "credential.txt",
+				30, 3000, 10000);
+		JsonObject configuration = new JsonObject();
+		configuration.addProperty("domain", "file");
+		configuration.addProperty("fileName", "Config.yml");
+		configuration.addProperty("content", "\\".repeat(BackendConfigurationService.MAX_CONTENT_BYTES));
+		JsonObject result = new JsonObject();
+		result.addProperty("success", true);
+		result.add("configuration", configuration);
+
+		BackendControlResultStore.save(directory, route,
+				Map.of(UUID.fromString("00000000-0000-0000-0000-000000000099"), new StoredResult(result, false)));
+
+		assertEquals(BackendConfigurationService.MAX_CONTENT_BYTES,
+				BackendControlResultStore.load(directory).results().values().iterator().next().result()
+						.getAsJsonObject("configuration").get("content").getAsString().length());
+	}
 }

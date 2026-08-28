@@ -24,7 +24,8 @@ import com.google.gson.JsonParser;
 /** Durable result journal used to make locally applied Control operations restart-safe. */
 final class BackendControlResultStore {
 	private static final int VERSION = 1;
-	private static final int MAX_BYTES = 1024 * 1024;
+	// A valid 512 KiB YAML result may expand up to sixfold when characters require JSON unicode escaping.
+	private static final int MAX_BYTES = 4 * 1024 * 1024;
 	private static final int MAX_RESULTS = 128;
 	private static final String FILE_NAME = ".control-pending-results.json";
 
