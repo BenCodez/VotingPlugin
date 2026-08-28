@@ -238,7 +238,7 @@ public final class BackendControlConnector implements AutoCloseable {
 			result = completed.get(operationId);
 		}
 		if (result != null) {
-			if (!result.committed() && !anticipatedResultIsInstalled(result)) {
+			if (!result.committed() && !result.claimRequired() && !anticipatedResultIsInstalled(result)) {
 				result = null;
 			} else {
 				result = committedForAttempt(result, string(task, "attemptId"));
@@ -250,7 +250,7 @@ public final class BackendControlConnector implements AutoCloseable {
 			TaskResult executed = execute(operationId, task);
 			JsonObject resultJson = executed.json();
 			resultJson.addProperty("attemptId", string(task, "attemptId"));
-			result = new StoredResult(resultJson, executed.restartConnector(), true);
+			result = new StoredResult(resultJson, executed.restartConnector(), true, false);
 			synchronized (completed) {
 				completed.put(operationId, result);
 			}
@@ -260,6 +260,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	}
 
 	private boolean submitCompletedResult() throws Exception {
+		prepareWriteAheadIntents();
 		Map.Entry<UUID, StoredResult> pending;
 		synchronized (completed) {
 			pending = completed.entrySet().stream().filter(entry -> entry.getValue().committed()).findFirst().orElse(null);
@@ -276,7 +277,8 @@ public final class BackendControlConnector implements AutoCloseable {
 				+ "/result", resultBody);
 		if (taskLeaseExpired(response)) {
 			synchronized (completed) {
-				completed.put(operationId, new StoredResult(submitted.result(), submitted.restartConnector(), false));
+				completed.put(operationId,
+						new StoredResult(submitted.result(), submitted.restartConnector(), false, true));
 			}
 			persistCompleted();
 			return false;
@@ -334,9 +336,36 @@ public final class BackendControlConnector implements AutoCloseable {
 		JsonObject result = anticipated.json();
 		result.addProperty("attemptId", attemptId);
 		synchronized (completed) {
-			completed.put(operationId, new StoredResult(result, anticipated.restartConnector(), false));
+			completed.put(operationId, new StoredResult(result, anticipated.restartConnector(), false, false));
 		}
 		persistCompleted();
+	}
+
+	private void prepareWriteAheadIntents() throws IOException {
+		Map<UUID, StoredResult> snapshot;
+		synchronized (completed) { snapshot = new LinkedHashMap<>(completed); }
+		boolean changed = false;
+		for (Map.Entry<UUID, StoredResult> entry : snapshot.entrySet()) {
+			StoredResult pending = entry.getValue();
+			if (pending.committed() || pending.claimRequired()) continue;
+			StoredResult recovered = anticipatedResultIsInstalled(pending)
+					? committedForAttempt(pending, string(pending.result(), "attemptId"))
+					: abortedIntent(pending);
+			synchronized (completed) {
+				if (completed.get(entry.getKey()) == pending) {
+					completed.put(entry.getKey(), recovered);
+					changed = true;
+				}
+			}
+		}
+		if (changed) persistCompleted();
+	}
+
+	static StoredResult abortedIntent(StoredResult pending) {
+		JsonObject result = TaskResult.failure("RECOVERY_ABORTED",
+				"Configuration apply did not finish before node recovery").json();
+		result.addProperty("attemptId", string(pending.result(), "attemptId"));
+		return new StoredResult(result, false, true, false);
 	}
 
 	private boolean anticipatedResultIsInstalled(StoredResult pending) throws IOException {
@@ -357,7 +386,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	private static StoredResult committedForAttempt(StoredResult pending, String attemptId) {
 		JsonObject result = pending.result().deepCopy();
 		result.addProperty("attemptId", attemptId);
-		return new StoredResult(result, pending.restartConnector(), true);
+		return new StoredResult(result, pending.restartConnector(), true, false);
 	}
 
 	static void afterResultAcknowledged(ResultSubmission submission, ResultAcknowledgement acknowledged)

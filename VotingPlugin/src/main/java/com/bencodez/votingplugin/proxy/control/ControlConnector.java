@@ -96,6 +96,15 @@ public final class ControlConnector implements AutoCloseable {
 				null, null, false, null);
 	}
 
+	ControlConnector(Settings settings, ScheduledExecutorService scheduler, Transport transport,
+			Supplier<List<ObservedBackend>> snapshotSource, Consumer<String> logger, UUID sessionId,
+			LongSupplier jitterSource, ProxyRoutingConfigurationService configurationService,
+			Map<UUID, StoredResult> recoveredTasks) {
+		this(settings, scheduler, transport, snapshotSource, logger, sessionId, jitterSource, configurationService,
+				null, null, false, null);
+		completedTasks.putAll(recoveredTasks);
+	}
+
 	private ControlConnector(Settings settings, ScheduledExecutorService scheduler, Transport transport,
 			Supplier<List<ObservedBackend>> snapshotSource, Consumer<String> logger, UUID sessionId,
 			LongSupplier jitterSource, ProxyRoutingConfigurationService configurationService, Path dataDirectory,
@@ -428,7 +437,7 @@ public final class ControlConnector implements AutoCloseable {
 			result = completedTasks.get(operationId);
 		}
 		if (result != null) {
-			if (!result.committed() && !anticipatedResultIsInstalled(result)) {
+			if (!result.committed() && !result.claimRequired() && !anticipatedResultIsInstalled(result)) {
 				result = null;
 			} else {
 				result = committedForAttempt(result, requireString(task, "attemptId"));
@@ -440,7 +449,7 @@ public final class ControlConnector implements AutoCloseable {
 			TaskResult executed = executeTask(operationId, task);
 			JsonObject resultJson = executed.json();
 			resultJson.addProperty("attemptId", requireString(task, "attemptId"));
-			result = new StoredResult(resultJson, true);
+			result = new StoredResult(resultJson, true, false);
 			synchronized (operationLifecycle) {
 				completedTasks.put(operationId, result);
 			}
@@ -450,6 +459,7 @@ public final class ControlConnector implements AutoCloseable {
 	}
 
 	private boolean hasCompletedTask() {
+		prepareWriteAheadIntents();
 		synchronized (operationLifecycle) {
 			return completedTasks.values().stream().anyMatch(StoredResult::committed);
 		}
@@ -472,7 +482,7 @@ public final class ControlConnector implements AutoCloseable {
 		return submitted.thenAccept(resultResponse -> {
 			if (taskLeaseExpired(resultResponse)) {
 				synchronized (operationLifecycle) {
-					completedTasks.put(operationId, new StoredResult(result.result(), false));
+					completedTasks.put(operationId, new StoredResult(result.result(), false, true));
 				}
 				persistCompleted();
 				return;
@@ -532,9 +542,36 @@ public final class ControlConnector implements AutoCloseable {
 		JsonObject result = anticipated.json();
 		result.addProperty("attemptId", attemptId);
 		synchronized (operationLifecycle) {
-			completedTasks.put(operationId, new StoredResult(result, false));
+			completedTasks.put(operationId, new StoredResult(result, false, false));
 		}
 		persistCompleted();
+	}
+
+	private void prepareWriteAheadIntents() {
+		Map<UUID, StoredResult> snapshot;
+		synchronized (operationLifecycle) { snapshot = new LinkedHashMap<>(completedTasks); }
+		boolean changed = false;
+		for (Map.Entry<UUID, StoredResult> entry : snapshot.entrySet()) {
+			StoredResult pending = entry.getValue();
+			if (pending.committed() || pending.claimRequired()) continue;
+			StoredResult recovered = anticipatedResultIsInstalled(pending)
+					? committedForAttempt(pending, requireString(pending.result(), "attemptId"))
+					: abortedIntent(pending);
+			synchronized (operationLifecycle) {
+				if (completedTasks.get(entry.getKey()) == pending) {
+					completedTasks.put(entry.getKey(), recovered);
+					changed = true;
+				}
+			}
+		}
+		if (changed) persistCompleted();
+	}
+
+	private static StoredResult abortedIntent(StoredResult pending) {
+		JsonObject result = TaskResult.failure("RECOVERY_ABORTED",
+				"Configuration apply did not finish before node recovery").json();
+		result.addProperty("attemptId", requireString(pending.result(), "attemptId"));
+		return new StoredResult(result, true, false);
 	}
 
 	private boolean anticipatedResultIsInstalled(StoredResult pending) {
@@ -545,7 +582,7 @@ public final class ControlConnector implements AutoCloseable {
 	private static StoredResult committedForAttempt(StoredResult pending, String attemptId) {
 		JsonObject result = pending.result().deepCopy();
 		result.addProperty("attemptId", attemptId);
-		return new StoredResult(result, true);
+		return new StoredResult(result, true, false);
 	}
 
 	private TaskResult executeTask(UUID operationId, JsonObject task) {

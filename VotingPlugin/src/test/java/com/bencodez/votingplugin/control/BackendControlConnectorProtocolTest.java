@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.Test;
 
+import com.bencodez.votingplugin.control.BackendControlResultStore.StoredResult;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
@@ -27,6 +28,19 @@ class BackendControlConnectorProtocolTest {
 				"{\"error\":{\"code\":\"OPERATION_NOT_FOUND\"}}")));
 		assertFalse(BackendControlConnector.operationNotFound(new BackendControlConnector.Response(404,
 				"{\"error\":{\"code\":\"NODE_NOT_FOUND\"}}")));
+	}
+
+	@Test void abandonedBackendIntentBecomesATerminalRecoveryResult() {
+		JsonObject anticipated = new JsonObject();
+		anticipated.addProperty("attemptId", "00000000-0000-0000-0000-000000000199");
+
+		StoredResult recovered = BackendControlConnector.abortedIntent(
+				new StoredResult(anticipated, true, false, false));
+
+		assertTrue(recovered.committed());
+		assertFalse(recovered.claimRequired());
+		assertFalse(recovered.restartConnector());
+		assertTrue("RECOVERY_ABORTED".equals(recovered.result().get("code").getAsString()));
 	}
 
 	@Test void registrationRequiresFileControlButAllowsQuickSetupToRemainOptional() {

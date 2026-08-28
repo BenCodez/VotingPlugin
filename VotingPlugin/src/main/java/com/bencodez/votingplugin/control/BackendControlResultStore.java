@@ -23,7 +23,7 @@ import com.google.gson.JsonParser;
 
 /** Durable result journal used to make locally applied Control operations restart-safe. */
 final class BackendControlResultStore {
-	private static final int VERSION = 1;
+	private static final int VERSION = 2;
 	// A valid 512 KiB YAML result may expand up to sixfold when characters require JSON unicode escaping.
 	private static final int MAX_BYTES = 4 * 1024 * 1024;
 	private static final int MAX_RESULTS = 128;
@@ -66,10 +66,11 @@ final class BackendControlResultStore {
 				UUID operationId = UUID.fromString(string(item, "operationId"));
 				JsonObject result = object(item, "result").deepCopy();
 				if (!item.has("restartConnector") || !item.get("restartConnector").isJsonPrimitive()
-						|| !item.has("committed") || !item.get("committed").isJsonPrimitive()) throw invalid();
+						|| !item.has("committed") || !item.get("committed").isJsonPrimitive()
+						|| !item.has("claimRequired") || !item.get("claimRequired").isJsonPrimitive()) throw invalid();
 				StoredResult previous = results.put(operationId,
 						new StoredResult(result, item.get("restartConnector").getAsBoolean(),
-								item.get("committed").getAsBoolean()));
+								item.get("committed").getAsBoolean(), item.get("claimRequired").getAsBoolean()));
 				if (previous != null) throw invalid();
 			}
 			return new State(route, Map.copyOf(results));
@@ -107,6 +108,7 @@ final class BackendControlResultStore {
 			item.add("result", result.result().deepCopy());
 			item.addProperty("restartConnector", result.restartConnector());
 			item.addProperty("committed", result.committed());
+			item.addProperty("claimRequired", result.claimRequired());
 			listed.add(item);
 		});
 		root.add("results", listed);
@@ -158,6 +160,10 @@ final class BackendControlResultStore {
 
 	record Route(String nodeId, URI endpoint, String credentialFile, int heartbeatSeconds,
 			int connectTimeoutMillis, int requestTimeoutMillis) { }
-	record StoredResult(JsonObject result, boolean restartConnector, boolean committed) { }
+	record StoredResult(JsonObject result, boolean restartConnector, boolean committed, boolean claimRequired) {
+		StoredResult {
+			if (committed && claimRequired) throw new IllegalArgumentException("committed result cannot require a claim");
+		}
+	}
 	record State(Route route, Map<UUID, StoredResult> results) { }
 }

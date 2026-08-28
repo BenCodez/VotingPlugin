@@ -6,11 +6,13 @@ import com.bencodez.votingplugin.proxy.control.ControlConnector.Response;
 import com.bencodez.votingplugin.proxy.control.ControlConnector.Settings;
 import com.bencodez.votingplugin.proxy.control.ControlConnector.Status;
 import com.bencodez.votingplugin.proxy.control.ControlConnector.Transport;
+import com.bencodez.votingplugin.proxy.control.ProxyControlResultStore.StoredResult;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -301,6 +303,39 @@ class ControlConnectorTest {
 
 		assertEquals(2, transport.requests.stream().filter(request -> request.path().endsWith("/operations")).count());
 		assertEquals(1, transport.requests.stream().filter(request -> request.path().endsWith("/result")).count());
+	}
+
+	@Test void abandonedWriteAheadIntentIsReportedAndReleasedWhenControlForgotTheOperation() {
+		connector.close();
+		UUID operationId = UUID.fromString("00000000-0000-0000-0000-000000000099");
+		ProxyRoutingConfiguration proposal = new ProxyRoutingConfiguration(true, List.of());
+		JsonObject anticipated = new JsonObject();
+		anticipated.addProperty("success", true);
+		anticipated.addProperty("code", "OK");
+		anticipated.addProperty("message", "Configuration applied");
+		anticipated.addProperty("revision", proposal.revision());
+		JsonObject configuration = new JsonObject();
+		configuration.addProperty("sendVotesToAllServers", true);
+		configuration.add("blockedServers", new com.google.gson.JsonArray());
+		anticipated.add("configuration", configuration);
+		anticipated.addProperty("attemptId", "00000000-0000-0000-0000-000000000199");
+		connector = new ControlConnector(settings(), scheduler, transport,
+				() -> List.of(), logs::add, UUID.randomUUID(), () -> 0L,
+				new ProxyRoutingConfigurationService(new NoOpPlatform()),
+				Map.of(operationId, new StoredResult(anticipated, false, false)));
+		transport.acceptConfiguration = true;
+		transport.resultSubmission = CompletableFuture.completedFuture(new Response(404,
+				"{\"error\":{\"code\":\"OPERATION_NOT_FOUND\"}}"));
+
+		connector.cycle();
+		JsonObject submitted = JsonParser.parseString(transport.requests.stream()
+				.filter(request -> request.path().endsWith("/result")).findFirst().orElseThrow().body()).getAsJsonObject();
+		assertEquals("RECOVERY_ABORTED", submitted.get("code").getAsString());
+
+		transport.operationClaim = CompletableFuture.completedFuture(new Response(204, ""));
+		connector.cycle();
+		assertEquals(1, transport.requests.stream().filter(request -> request.path().endsWith("/operations")).count());
+		assertTrue(connector.reserveRuntimeReplacement());
 	}
 
 	@Test void closeBeforeOperationPublicationPreventsTheRequestChainFromStarting() throws Exception {

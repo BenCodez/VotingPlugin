@@ -30,7 +30,7 @@ class BackendControlResultStoreTest {
 		result.addProperty("success", true);
 		result.addProperty("revision", "applied-revision");
 		Map<UUID, StoredResult> pending = new LinkedHashMap<>();
-		pending.put(operationId, new StoredResult(result, true, true));
+		pending.put(operationId, new StoredResult(result, true, true, false));
 
 		BackendControlResultStore.save(directory, route, pending);
 		BackendControlResultStore.State recovered = BackendControlResultStore.load(directory);
@@ -50,9 +50,11 @@ class BackendControlResultStoreTest {
 		result.addProperty("revision", "anticipated-revision");
 
 		BackendControlResultStore.save(directory, route,
-				Map.of(operationId, new StoredResult(result, false, false)));
+				Map.of(operationId, new StoredResult(result, false, false, false)));
 
-		assertFalse(BackendControlResultStore.load(directory).results().get(operationId).committed());
+		StoredResult recovered = BackendControlResultStore.load(directory).results().get(operationId);
+		assertFalse(recovered.committed());
+		assertFalse(recovered.claimRequired());
 	}
 
 	@Test void symbolicPendingResultJournalIsRejected() throws Exception {
@@ -76,7 +78,7 @@ class BackendControlResultStoreTest {
 
 		BackendControlResultStore.save(directory, route,
 				Map.of(UUID.fromString("00000000-0000-0000-0000-000000000099"),
-						new StoredResult(result, false, true)));
+						new StoredResult(result, false, true, false)));
 
 		assertEquals(BackendConfigurationService.MAX_CONTENT_BYTES,
 				BackendControlResultStore.load(directory).results().values().iterator().next().result()

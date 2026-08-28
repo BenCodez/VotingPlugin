@@ -30,7 +30,7 @@ class ProxyControlResultStoreTest {
 		result.addProperty("success", true);
 		result.addProperty("revision", "applied-revision");
 		Map<UUID, StoredResult> pending = new LinkedHashMap<>();
-		pending.put(operationId, new StoredResult(result, true));
+		pending.put(operationId, new StoredResult(result, true, false));
 
 		ProxyControlResultStore.save(directory, route, pending);
 		ProxyControlResultStore.State recovered = ProxyControlResultStore.load(directory);
@@ -49,9 +49,11 @@ class ProxyControlResultStoreTest {
 		JsonObject result = new JsonObject();
 		result.addProperty("revision", "anticipated-revision");
 
-		ProxyControlResultStore.save(directory, route, Map.of(operationId, new StoredResult(result, false)));
+		ProxyControlResultStore.save(directory, route, Map.of(operationId, new StoredResult(result, false, false)));
 
-		assertFalse(ProxyControlResultStore.load(directory).results().get(operationId).committed());
+		StoredResult recovered = ProxyControlResultStore.load(directory).results().get(operationId);
+		assertFalse(recovered.committed());
+		assertFalse(recovered.claimRequired());
 	}
 
 	@Test void symbolicProxyResultJournalIsRejected() throws Exception {
