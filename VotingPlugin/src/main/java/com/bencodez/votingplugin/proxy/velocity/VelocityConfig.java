@@ -358,6 +358,11 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	}
 
 	@Override
+	public boolean getMultiProxyRedisSsl() {
+		return getBoolean(getNode("MultiProxyRedis", "SSL"), false);
+	}
+
+	@Override
 	public int getMultiProxyRedisDbIndex() {
 		return getInt(getNode("MultiProxyRedis", "Db-Index"), 0);
 	}
@@ -458,6 +463,11 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	@Override
 	public int getRedisPort() {
 		return getInt(getNode("Redis", "Port"), 6379);
+	}
+
+	@Override
+	public boolean getRedisSsl() {
+		return getBoolean(getNode("Redis", "SSL"), false);
 	}
 
 	@Override

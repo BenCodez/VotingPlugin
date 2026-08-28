@@ -47,7 +47,8 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 		processedVoteCache.registerRedisSubscriber(subscriberIdentity);
 		redisHandler = new RedisHandler(plugin.getBungeeSettings().getRedisHost(),
 				plugin.getBungeeSettings().getRedisPort(), plugin.getBungeeSettings().getRedisUsername(),
-				plugin.getBungeeSettings().getRedisPassword(), plugin.getBungeeSettings().getRedisdbindex()) {
+				plugin.getBungeeSettings().getRedisPassword(), plugin.getBungeeSettings().getRedisdbindex(),
+				plugin.getBungeeSettings().isRedisSsl()) {
 			@Override
 			public void debug(String message) {
 				if (plugin.getBungeeSettings().isBungeeDebug()) {

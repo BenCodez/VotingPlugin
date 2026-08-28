@@ -33,6 +33,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import javax.net.ssl.SSLParameters;
+
 import org.eclipse.paho.client.mqttv3.MqttException;
 
 import com.bencodez.advancedcore.api.time.TimeType;
@@ -1324,7 +1326,8 @@ public abstract class VotingPluginProxy {
 			rebuildSocketClients();
 		} else if (method.equals(BungeeMethod.REDIS)) {
 			redisHandler = new RedisHandler(getConfig().getRedisHost(), getConfig().getRedisPort(),
-					getConfig().getRedisUsername(), getConfig().getRedisPassword(), getConfig().getRedisDbIndex()) {
+					getConfig().getRedisUsername(), getConfig().getRedisPassword(), getConfig().getRedisDbIndex(),
+					getConfig().getRedisSsl()) {
 
 				@Override
 				public void debug(String message) {
@@ -1332,7 +1335,7 @@ public abstract class VotingPluginProxy {
 				}
 			};
 			redisPublisherPool = new JedisPool(new HostAndPort(getConfig().getRedisHost(), getConfig().getRedisPort()),
-					buildRedisClientConfig());
+					buildRedisClientConfig(getConfig()));
 
 			runAsync(() -> {
 				RedisListener listener = redisHandler.createEnvelopeListener(
@@ -1873,6 +1876,11 @@ public abstract class VotingPluginProxy {
 			@Override
 			public int getMultiProxyRedisPort() {
 				return getConfig().getMultiProxyRedisPort();
+			}
+
+			@Override
+			public boolean getMultiProxyRedisSsl() {
+				return getConfig().getMultiProxyRedisSsl();
 			}
 
 			@Override
@@ -2703,14 +2711,20 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
-	private DefaultJedisClientConfig buildRedisClientConfig() {
+	static DefaultJedisClientConfig buildRedisClientConfig(VotingPluginProxyConfig configSource) {
 		DefaultJedisClientConfig.Builder config = DefaultJedisClientConfig.builder()
-				.database(getConfig().getRedisDbIndex()).connectionTimeoutMillis(2000).socketTimeoutMillis(2000);
-		if (getConfig().getRedisUsername() != null && !getConfig().getRedisUsername().isEmpty()) {
-			config.user(getConfig().getRedisUsername());
+				.database(configSource.getRedisDbIndex()).ssl(configSource.getRedisSsl()).connectionTimeoutMillis(2000)
+				.socketTimeoutMillis(2000);
+		if (configSource.getRedisSsl()) {
+			SSLParameters sslParameters = new SSLParameters();
+			sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
+			config.sslParameters(sslParameters);
 		}
-		if (getConfig().getRedisPassword() != null && !getConfig().getRedisPassword().isEmpty()) {
-			config.password(getConfig().getRedisPassword());
+		if (configSource.getRedisUsername() != null && !configSource.getRedisUsername().isEmpty()) {
+			config.user(configSource.getRedisUsername());
+		}
+		if (configSource.getRedisPassword() != null && !configSource.getRedisPassword().isEmpty()) {
+			config.password(configSource.getRedisPassword());
 		}
 		return config.build();
 	}
