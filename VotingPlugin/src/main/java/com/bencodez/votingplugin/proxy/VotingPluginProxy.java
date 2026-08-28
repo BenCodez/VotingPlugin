@@ -1593,6 +1593,11 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
+	/** Rebuilds a recovery connector from current settings after its durable result is acknowledged. */
+	public final void restartControlServicesAfterRecovery() {
+		restartControlServicesAsync();
+	}
+
 	private void stopControlServices(boolean waitForHosted) {
 		synchronized (controlLifecycleLock) {
 			stopControlServicesLocked(waitForHosted);

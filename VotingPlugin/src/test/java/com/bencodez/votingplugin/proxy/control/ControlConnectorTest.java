@@ -220,6 +220,30 @@ class ControlConnectorTest {
 		assertTrue(replacementStarted.get());
 	}
 
+	@Test void lostResultResponseIsResubmittedBeforeAnotherOperationClaim() {
+		connector.close();
+		ProxyRoutingConfiguration current = new ProxyRoutingConfiguration(false, List.of());
+		connector = new ControlConnector(settings(), scheduler, transport,
+				() -> List.of(), logs::add, UUID.randomUUID(), () -> 0L,
+				new ProxyRoutingConfigurationService(new NoOpPlatform()));
+		transport.acceptConfiguration = true;
+		transport.operationClaim = CompletableFuture.completedFuture(new Response(200,
+				"{\"operationId\":\"00000000-0000-0000-0000-000000000099\","
+						+ "\"type\":\"APPLY\",\"expectedRevision\":\"" + current.revision() + "\","
+						+ "\"configuration\":{\"sendVotesToAllServers\":true,\"blockedServers\":[]}}"));
+		transport.resultSubmission = new CompletableFuture<>();
+		connector.cycle();
+		transport.resultSubmission.completeExceptionally(new java.io.IOException("response lost"));
+		assertEquals(Status.UNAVAILABLE, connector.status());
+
+		transport.operationClaim = CompletableFuture.completedFuture(new Response(204, ""));
+		transport.resultSubmission = CompletableFuture.completedFuture(new Response(200, "{}"));
+		connector.cycle();
+
+		assertEquals(2, transport.requests.stream().filter(request -> request.path().endsWith("/result")).count());
+		assertEquals(1, transport.requests.stream().filter(request -> request.path().endsWith("/operations")).count());
+	}
+
 	@Test void closeBeforeOperationPublicationPreventsTheRequestChainFromStarting() throws Exception {
 		connector.close();
 		transport.firstSendEntered = new CountDownLatch(1);

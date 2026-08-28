@@ -34,6 +34,8 @@ import java.util.regex.Pattern;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 import com.bencodez.votingplugin.proxy.presence.BackendPresenceStatus;
+import com.bencodez.votingplugin.proxy.control.ProxyControlResultStore.Route;
+import com.bencodez.votingplugin.proxy.control.ProxyControlResultStore.StoredResult;
 import com.bencodez.votingplugin.util.BoundedHttpBodyHandler;
 import com.bencodez.votingplugin.util.ControlCredentialFile;
 import com.google.gson.JsonArray;
@@ -62,7 +64,11 @@ public final class ControlConnector implements AutoCloseable {
 	private final UUID sessionId;
 	private final LongSupplier jitterSource;
 	private final ProxyRoutingConfigurationService configurationService;
-	private final Map<UUID, TaskResult> completedTasks = new LinkedHashMap<>();
+	private final Path dataDirectory;
+	private final Route route;
+	private final boolean recovering;
+	private final Runnable recoveryComplete;
+	private final Map<UUID, StoredResult> completedTasks = new LinkedHashMap<>();
 	private final Object operationLifecycle = new Object();
 	private final AtomicBoolean inFlight = new AtomicBoolean();
 	private Runnable deferredReplacement;
@@ -79,12 +85,21 @@ public final class ControlConnector implements AutoCloseable {
 	public ControlConnector(Settings settings, ScheduledExecutorService scheduler, Transport transport,
 			Supplier<List<ObservedBackend>> snapshotSource, Consumer<String> logger, UUID sessionId,
 			LongSupplier jitterSource) {
-		this(settings, scheduler, transport, snapshotSource, logger, sessionId, jitterSource, null);
+		this(settings, scheduler, transport, snapshotSource, logger, sessionId, jitterSource, null,
+				null, null, false, null);
 	}
 
 	ControlConnector(Settings settings, ScheduledExecutorService scheduler, Transport transport,
 			Supplier<List<ObservedBackend>> snapshotSource, Consumer<String> logger, UUID sessionId,
 			LongSupplier jitterSource, ProxyRoutingConfigurationService configurationService) {
+		this(settings, scheduler, transport, snapshotSource, logger, sessionId, jitterSource, configurationService,
+				null, null, false, null);
+	}
+
+	private ControlConnector(Settings settings, ScheduledExecutorService scheduler, Transport transport,
+			Supplier<List<ObservedBackend>> snapshotSource, Consumer<String> logger, UUID sessionId,
+			LongSupplier jitterSource, ProxyRoutingConfigurationService configurationService, Path dataDirectory,
+			Route route, boolean recovering, Runnable recoveryComplete) {
 		this.settings = Objects.requireNonNull(settings, "settings");
 		this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
 		this.transport = Objects.requireNonNull(transport, "transport");
@@ -93,30 +108,44 @@ public final class ControlConnector implements AutoCloseable {
 		this.sessionId = Objects.requireNonNull(sessionId, "sessionId");
 		this.jitterSource = Objects.requireNonNull(jitterSource, "jitterSource");
 		this.configurationService = configurationService;
+		this.dataDirectory = dataDirectory;
+		this.route = route;
+		this.recovering = recovering;
+		this.recoveryComplete = recoveryComplete;
 	}
 
 	/** Creates the production connector without reading a credential when the feature is disabled. */
 	public static ControlConnector create(VotingPluginProxy proxy) throws IOException {
-		VotingPluginProxyConfig config = proxy.getConfig();
-		if (!config.getControlEnabled()) {
-			return null;
-		}
-		String configuredNodeId = config.getControlNodeId();
-		String nodeId = configuredNodeId == null || configuredNodeId.isBlank()
-				? config.getProxyServerName() : configuredNodeId.trim();
 		Path dataDirectory = proxy.getDataFolderPlugin().toPath().toAbsolutePath().normalize();
-		String credentialName = config.getControlCredentialFile();
-		if (credentialName == null || credentialName.isBlank()) {
-			throw new IllegalArgumentException("Control.CredentialFile must be set");
+		ProxyControlResultStore.State recovered = ProxyControlResultStore.load(dataDirectory);
+		VotingPluginProxyConfig config = proxy.getConfig();
+		Settings settings;
+		Route route;
+		String credentialName;
+		boolean recovering = recovered != null;
+		if (recovered != null) {
+			route = recovered.route();
+			settings = settings(route);
+			credentialName = route.credentialFile();
+		} else {
+			if (!config.getControlEnabled()) return null;
+			String configuredNodeId = config.getControlNodeId();
+			String nodeId = configuredNodeId == null || configuredNodeId.isBlank()
+					? config.getProxyServerName() : configuredNodeId.trim();
+			credentialName = config.getControlCredentialFile();
+			if (credentialName == null || credentialName.isBlank()) {
+				throw new IllegalArgumentException("Control.CredentialFile must be set");
+			}
+			String endpointValue = config.getControlEndpoint();
+			if (endpointValue == null || endpointValue.isBlank()) {
+				throw new IllegalArgumentException("Control.Endpoint must be set");
+			}
+			settings = new Settings(nodeId, nodeId, proxy.getProxyPlatform(), proxy.getPluginVersion(),
+					URI.create(endpointValue.trim()), config.getControlHeartbeatSeconds(),
+					config.getControlConnectTimeoutMillis(), config.getControlRequestTimeoutMillis());
+			route = route(settings, credentialName);
 		}
 		String credential = ControlCredentialFile.read(dataDirectory, credentialName);
-		String endpointValue = config.getControlEndpoint();
-		if (endpointValue == null || endpointValue.isBlank()) {
-			throw new IllegalArgumentException("Control.Endpoint must be set");
-		}
-		Settings settings = new Settings(nodeId, nodeId, proxy.getProxyPlatform(), proxy.getPluginVersion(),
-				URI.create(endpointValue.trim()), config.getControlHeartbeatSeconds(),
-				config.getControlConnectTimeoutMillis(), config.getControlRequestTimeoutMillis());
 		HttpControlTransport transport = new HttpControlTransport(settings.endpoint(), credential,
 				settings.connectTimeoutMillis(), settings.requestTimeoutMillis());
 		Supplier<List<ObservedBackend>> snapshot = () -> {
@@ -136,7 +165,9 @@ public final class ControlConnector implements AutoCloseable {
 		};
 		ControlConnector connector = new ControlConnector(settings, proxy.getScheduler(), transport, snapshot,
 				message -> proxy.log("[Control] " + message), UUID.randomUUID(),
-				() -> ThreadLocalRandom.current().nextLong(), new ProxyRoutingConfigurationService(proxy));
+				() -> ThreadLocalRandom.current().nextLong(), new ProxyRoutingConfigurationService(proxy), dataDirectory,
+				route, recovering, proxy::restartControlServicesAfterRecovery);
+		if (recovered != null) connector.completedTasks.putAll(recovered.results());
 		return connector;
 	}
 
@@ -220,6 +251,7 @@ public final class ControlConnector implements AutoCloseable {
 			return presence.thenCompose(responseBody -> {
 				handlePresenceResponse(responseBody);
 				if (!configurationAccepted) return CompletableFuture.completedFuture(null);
+				if (hasCompletedTask()) return submitCompletedResult();
 				CompletableFuture<Response> claim = transport.send(claimRequest());
 				activeRequest = claim;
 				return claim.thenCompose(this::handleClaimResponse);
@@ -391,23 +423,62 @@ public final class ControlConnector implements AutoCloseable {
 		requireSuccess(response);
 		JsonObject task = parseObject(response.body);
 		UUID operationId = UUID.fromString(requireString(task, "operationId"));
-		TaskResult result;
+		StoredResult result;
 		synchronized (operationLifecycle) {
 			result = completedTasks.get(operationId);
 		}
 		if (result == null) {
-			result = executeTask(task);
+			TaskResult executed = executeTask(task);
+			result = new StoredResult(executed.json());
 			synchronized (operationLifecycle) {
 				completedTasks.put(operationId, result);
-				while (completedTasks.size() > 128) completedTasks.remove(completedTasks.keySet().iterator().next());
 			}
+			persistCompleted();
 		}
+		return submitCompletedResult(operationId, result);
+	}
+
+	private boolean hasCompletedTask() {
+		synchronized (operationLifecycle) { return !completedTasks.isEmpty(); }
+	}
+
+	private CompletableFuture<Void> submitCompletedResult() {
+		Map.Entry<UUID, StoredResult> pending;
+		synchronized (operationLifecycle) {
+			pending = completedTasks.entrySet().stream().findFirst().orElse(null);
+		}
+		if (pending == null) return CompletableFuture.completedFuture(null);
+		persistCompleted();
+		return submitCompletedResult(pending.getKey(), pending.getValue());
+	}
+
+	private CompletableFuture<Void> submitCompletedResult(UUID operationId, StoredResult result) {
 		CompletableFuture<Response> submitted = transport.send(resultRequest(operationId, result));
 		activeRequest = submitted;
 		return submitted.thenAccept(resultResponse -> {
 			requireSuccess(resultResponse);
 			synchronized (operationLifecycle) { completedTasks.remove(operationId); }
+			try {
+				persistCompleted();
+			} catch (RuntimeException failure) {
+				synchronized (operationLifecycle) { completedTasks.put(operationId, result); }
+				throw failure;
+			}
+			boolean drained;
+			synchronized (operationLifecycle) { drained = completedTasks.isEmpty(); }
+			if (recovering && drained && recoveryComplete != null) recoveryComplete.run();
 		});
+	}
+
+	private void persistCompleted() {
+		if (dataDirectory == null || route == null) return;
+		Map<UUID, StoredResult> snapshot;
+		synchronized (operationLifecycle) { snapshot = new LinkedHashMap<>(completedTasks); }
+		try {
+			ProxyControlResultStore.save(dataDirectory, route, snapshot);
+		} catch (IOException e) {
+			throw new UnavailableException(e);
+		}
 	}
 
 	private TaskResult executeTask(JsonObject task) {
@@ -445,21 +516,26 @@ public final class ControlConnector implements AutoCloseable {
 		return new ProxyRoutingConfiguration(body.get("sendVotesToAllServers").getAsBoolean(), blocked);
 	}
 
-	private Request resultRequest(UUID operationId, TaskResult result) {
-		JsonObject body = new JsonObject();
+	private Request resultRequest(UUID operationId, StoredResult result) {
+		JsonObject body = result.result().deepCopy();
 		body.addProperty("sessionId", sessionId.toString());
-		body.addProperty("success", result.success);
-		body.addProperty("code", result.code);
-		body.addProperty("message", result.message);
-		if (result.revision != null) body.addProperty("revision", result.revision);
-		if (result.configuration != null) body.add("configuration", configurationJson(result.configuration));
-		JsonArray changes = new JsonArray();
-		result.changes.forEach(changes::add);
-		body.add("changes", changes);
-		body.addProperty("reloaded", result.reloaded);
-		body.addProperty("rolledBack", result.rolledBack);
 		return new Request("POST", "/api/v1/nodes/" + settings.nodeId() + "/operations/" + operationId
 				+ "/result", body.toString());
+	}
+
+	private static Route route(Settings settings, String credentialFile) {
+		return new Route(settings.nodeId(), settings.displayName(), settings.platform(), settings.pluginVersion(),
+				settings.endpoint(), credentialFile, settings.heartbeatSeconds(), settings.connectTimeoutMillis(),
+				settings.requestTimeoutMillis());
+	}
+
+	private static Settings settings(Route route) {
+		if (route.credentialFile() == null || route.credentialFile().isBlank()
+				|| route.credentialFile().length() > 2048) {
+			throw new IllegalArgumentException("Control.CredentialFile is invalid");
+		}
+		return new Settings(route.nodeId(), route.displayName(), route.platform(), route.pluginVersion(), route.endpoint(),
+				route.heartbeatSeconds(), route.connectTimeoutMillis(), route.requestTimeoutMillis());
 	}
 
 	private static JsonObject configurationJson(ProxyRoutingConfiguration configuration) {
@@ -637,6 +713,21 @@ public final class ControlConnector implements AutoCloseable {
 
 	private record TaskResult(boolean success, String code, String message, String revision,
 			ProxyRoutingConfiguration configuration, List<String> changes, boolean reloaded, boolean rolledBack) {
+		private JsonObject json() {
+			JsonObject body = new JsonObject();
+			body.addProperty("success", success);
+			body.addProperty("code", code);
+			body.addProperty("message", message);
+			if (revision != null) body.addProperty("revision", revision);
+			if (configuration != null) body.add("configuration", configurationJson(configuration));
+			JsonArray listed = new JsonArray();
+			changes.forEach(listed::add);
+			body.add("changes", listed);
+			body.addProperty("reloaded", reloaded);
+			body.addProperty("rolledBack", rolledBack);
+			return body;
+		}
+
 		private static TaskResult success(String revision, ProxyRoutingConfiguration configuration,
 				List<String> changes, boolean reloaded) {
 			return new TaskResult(true, "OK", "Operation completed", revision, configuration, changes, reloaded, false);
@@ -687,7 +778,10 @@ public final class ControlConnector implements AutoCloseable {
 	@SuppressWarnings("serial")
 	private static final class RegistryLostException extends ControlFailure { }
 	@SuppressWarnings("serial")
-	private static final class UnavailableException extends ControlFailure { }
+	private static final class UnavailableException extends ControlFailure {
+		private UnavailableException() { }
+		private UnavailableException(Throwable cause) { super.initCause(cause); }
+	}
 	@SuppressWarnings("serial")
 	private static final class MalformedResponseException extends ControlFailure { }
 }
