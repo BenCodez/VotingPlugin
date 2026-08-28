@@ -6,12 +6,14 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -131,8 +133,19 @@ final class BackendControlResultStore {
 	}
 
 	private static void forceDirectory(Path directory) throws IOException {
-		try (FileChannel channel = FileChannel.open(directory, StandardOpenOption.READ)) {
-			channel.force(true);
+		try {
+			try (FileChannel channel = FileChannel.open(directory, StandardOpenOption.READ)) {
+				channel.force(true);
+			}
+		} catch (AccessDeniedException unsupportedDirectoryHandle) {
+			// The Windows NIO provider cannot open directory handles. The staged file was
+			// already forced and the atomic move has completed, so do not turn every
+			// otherwise successful journal update into a permanent Windows failure.
+			if (!System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win")) {
+				throw unsupportedDirectoryHandle;
+			}
+		} catch (UnsupportedOperationException unsupportedDirectoryForce) {
+			// Some providers support atomic moves but expose no directory-force operation.
 		}
 	}
 
