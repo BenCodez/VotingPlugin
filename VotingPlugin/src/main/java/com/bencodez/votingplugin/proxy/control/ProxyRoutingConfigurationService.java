@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
+import com.bencodez.votingplugin.util.DurableFiles;
 
 /** Validates, persists, reloads, and rolls back the bounded Control configuration domain. */
 public final class ProxyRoutingConfigurationService {
@@ -61,6 +62,8 @@ public final class ProxyRoutingConfigurationService {
 			platform.persist(proposal, expectedRevision);
 		} catch (com.bencodez.votingplugin.proxy.VotingPluginProxyConfig.StaleControlRevisionException e) {
 			throw new StaleRevisionException();
+		} catch (DurableFiles.PublishedException published) {
+			throw rollbackAfterFailure(published);
 		}
 		try {
 			platform.reload();
@@ -73,16 +76,20 @@ public final class ProxyRoutingConfigurationService {
 		} catch (StaleRevisionException stale) {
 			throw stale;
 		} catch (Exception e) {
-			boolean rolledBack = false;
-			try {
-				platform.rollback();
-				platform.reload();
-				rolledBack = true;
-			} catch (Exception rollbackFailure) {
-				e.addSuppressed(rollbackFailure);
-			}
-			throw new ApplyFailureException(rolledBack, e);
+			throw rollbackAfterFailure(e);
 		}
+	}
+
+	private ApplyFailureException rollbackAfterFailure(Exception failure) {
+		boolean rolledBack = false;
+		try {
+			platform.rollback();
+			platform.reload();
+			rolledBack = true;
+		} catch (Exception rollbackFailure) {
+			failure.addSuppressed(rollbackFailure);
+		}
+		return new ApplyFailureException(rolledBack, failure);
 	}
 
 	private void reconcileConcurrentEdit() throws Exception {

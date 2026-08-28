@@ -41,13 +41,25 @@ public final class DurableFiles {
 	}
 
 	public static void forceMoveDirectories(Path source, Path target) throws IOException {
-		Path sourceParent = source.toAbsolutePath().normalize().getParent();
-		Path targetParent = target.toAbsolutePath().normalize().getParent();
-		forceDirectory(targetParent);
-		if (sourceParent != null && !sourceParent.equals(targetParent)) forceDirectory(sourceParent);
+		try {
+			Path sourceParent = source.toAbsolutePath().normalize().getParent();
+			Path targetParent = target.toAbsolutePath().normalize().getParent();
+			forceDirectory(targetParent);
+			if (sourceParent != null && !sourceParent.equals(targetParent)) forceDirectory(sourceParent);
+		} catch (IOException failure) {
+			throw new PublishedException(failure);
+		}
 	}
 
 	public static boolean isWindowsName(String name) {
 		return name != null && name.trim().toLowerCase(Locale.ROOT).startsWith("windows");
+	}
+
+	/** Indicates that an atomic rename completed before metadata writeback failed. */
+	@SuppressWarnings("serial")
+	public static final class PublishedException extends IOException {
+		public PublishedException(IOException cause) {
+			super("File was published but its directory metadata could not be forced", cause);
+		}
 	}
 }

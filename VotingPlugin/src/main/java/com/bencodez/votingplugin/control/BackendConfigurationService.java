@@ -84,8 +84,13 @@ public final class BackendConfigurationService {
 			if (!revision(readRaw(target, false)).equals(expectedRevision)) throw new StaleRevisionException();
 			move(backupStaging, backup);
 			if (!revision(readRaw(target, false)).equals(expectedRevision)) throw new StaleRevisionException();
-			move(staging, target);
-			installed = true;
+			try {
+				move(staging, target);
+				installed = true;
+			} catch (DurableFiles.PublishedException published) {
+				installed = true;
+				throw published;
+			}
 			reload.run(fileName);
 			String applied = readRaw(target, false);
 			String installedRevision = revision(preview.resolvedContent());

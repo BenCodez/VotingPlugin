@@ -74,8 +74,13 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 			if (!java.util.Arrays.equals(sourceSnapshot, Files.readAllBytes(target))) {
 				throw new StaleControlRevisionException();
 			}
-			atomicReplace(stage, target);
 			controlInstalledSnapshot = installedSnapshot;
+			try {
+				atomicReplace(stage, target);
+			} catch (IOException failure) {
+				if (!(failure instanceof DurableFiles.PublishedException)) controlInstalledSnapshot = null;
+				throw failure;
+			}
 		} finally {
 			Files.deleteIfExists(stage);
 			if (backupStage != null) Files.deleteIfExists(backupStage);

@@ -12,6 +12,8 @@ import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
+import com.bencodez.votingplugin.util.DurableFiles;
+
 class ProxyRoutingConfigurationServiceTest {
 	@Test
 	void validatesBlockedServersAgainstCompleteConfiguredSet() {
@@ -52,6 +54,24 @@ class ProxyRoutingConfigurationServiceTest {
 				() -> new ProxyRoutingConfigurationService(platform).apply(
 						new ProxyRoutingConfiguration(true, List.of()), current.revision()));
 		assertTrue(platform.reloadCalls == 0);
+	}
+
+	@Test
+	void postRenameDirectoryForceFailureRollsBackPublishedConfiguration() {
+		ProxyRoutingConfiguration current = new ProxyRoutingConfiguration(false, List.of());
+		FakePlatform platform = new FakePlatform();
+		platform.current = current;
+		platform.failAfterPublication = true;
+
+		ProxyRoutingConfigurationService.ApplyFailureException failure = assertThrows(
+				ProxyRoutingConfigurationService.ApplyFailureException.class,
+				() -> new ProxyRoutingConfigurationService(platform).apply(
+						new ProxyRoutingConfiguration(true, List.of()), current.revision()));
+
+		assertTrue(failure.rolledBack());
+		assertTrue(platform.rolledBack);
+		assertTrue(platform.current.equals(current));
+		assertTrue(platform.reloadCalls == 1);
 	}
 
 	@Test
@@ -105,21 +125,26 @@ class ProxyRoutingConfigurationServiceTest {
 		private boolean failFirstReload;
 		private boolean rolledBack;
 		private boolean staleDuringPersist;
+		private boolean failAfterPublication;
 		private boolean manualEditDuringFailedReload;
 		private boolean manualEditDuringSuccessfulReload;
 		private int manualEditsDuringSuccessfulReloads;
 		private ProxyRoutingConfiguration installed;
+		private ProxyRoutingConfiguration previous;
 		private int reloadCalls;
 
 		@Override public ProxyRoutingConfiguration read() { return current; }
 		@Override public Set<String> configuredServers() { return configuredServers; }
 		@Override public void persist(ProxyRoutingConfiguration proposal, String expectedRevision) throws IOException {
 			if (staleDuringPersist) throw new com.bencodez.votingplugin.proxy.VotingPluginProxyConfig.StaleControlRevisionException();
+			previous = current;
 			current = proposal;
 			installed = proposal;
+			if (failAfterPublication) throw new DurableFiles.PublishedException(new IOException("directory force failed"));
 		}
 		@Override public void rollback() throws IOException {
 			if (!current.equals(installed)) throw new IOException("active configuration changed");
+			current = previous;
 			rolledBack = true;
 		}
 		@Override public void reload() throws Exception {
