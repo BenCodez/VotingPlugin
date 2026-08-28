@@ -477,25 +477,41 @@ public final class ControlConnector implements AutoCloseable {
 				persistCompleted();
 				return;
 			}
-			requireSuccess(resultResponse);
-			synchronized (operationLifecycle) { completedTasks.remove(operationId); }
-			try {
-				persistCompleted();
-			} catch (RuntimeException failure) {
-				synchronized (operationLifecycle) { completedTasks.put(operationId, result); }
-				throw failure;
+			if (operationNotFound(resultResponse)) {
+				acknowledgeCompletedResult(operationId, result);
+				return;
 			}
-			boolean drained;
-			synchronized (operationLifecycle) { drained = completedTasks.isEmpty(); }
-			if (recovering && drained && recoveryComplete != null) recoveryComplete.run();
+			requireSuccess(resultResponse);
+			acknowledgeCompletedResult(operationId, result);
 		});
 	}
 
+	private void acknowledgeCompletedResult(UUID operationId, StoredResult result) {
+		synchronized (operationLifecycle) { completedTasks.remove(operationId); }
+		try {
+			persistCompleted();
+		} catch (RuntimeException failure) {
+			synchronized (operationLifecycle) { completedTasks.put(operationId, result); }
+			throw failure;
+		}
+		boolean drained;
+		synchronized (operationLifecycle) { drained = completedTasks.isEmpty(); }
+		if (recovering && drained && recoveryComplete != null) recoveryComplete.run();
+	}
+
 	private static boolean taskLeaseExpired(Response response) {
-		if (response.statusCode != 409) return false;
+		return responseCode(response, 409, "TASK_LEASE_EXPIRED");
+	}
+
+	private static boolean operationNotFound(Response response) {
+		return responseCode(response, 404, "OPERATION_NOT_FOUND");
+	}
+
+	private static boolean responseCode(Response response, int status, String code) {
+		if (response.statusCode != status) return false;
 		try {
 			JsonObject error = parseObject(response.body).getAsJsonObject("error");
-			return error != null && error.has("code") && "TASK_LEASE_EXPIRED".equals(error.get("code").getAsString());
+			return error != null && error.has("code") && code.equals(error.get("code").getAsString());
 		} catch (RuntimeException ignored) {
 			return false;
 		}

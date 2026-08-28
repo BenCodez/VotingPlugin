@@ -281,30 +281,44 @@ public final class BackendControlConnector implements AutoCloseable {
 			persistCompleted();
 			return false;
 		}
+		if (operationNotFound(response)) {
+			acknowledgeCompletedResult(operationId, submitted);
+			return true;
+		}
 		afterResultAcknowledged(
 				() -> requireObject(response, 200),
-				() -> {
-					synchronized (completed) { completed.remove(operationId); }
-					try {
-						persistCompleted();
-					} catch (Exception failure) {
-						synchronized (completed) { completed.put(operationId, submitted); }
-						throw failure;
-					}
-					boolean drained;
-					synchronized (completed) { drained = completed.isEmpty(); }
-					if (drained && (submitted.restartConnector() || recovering)) {
-						plugin.getServer().getScheduler().runTask(plugin, plugin::restartBackendControlConnector);
-					}
-				});
+				() -> acknowledgeCompletedResult(operationId, submitted));
 		return true;
 	}
 
+	private void acknowledgeCompletedResult(UUID operationId, StoredResult submitted) throws Exception {
+		synchronized (completed) { completed.remove(operationId); }
+		try {
+			persistCompleted();
+		} catch (Exception failure) {
+			synchronized (completed) { completed.put(operationId, submitted); }
+			throw failure;
+		}
+		boolean drained;
+		synchronized (completed) { drained = completed.isEmpty(); }
+		if (drained && (submitted.restartConnector() || recovering)) {
+			plugin.getServer().getScheduler().runTask(plugin, plugin::restartBackendControlConnector);
+		}
+	}
+
 	static boolean taskLeaseExpired(Response response) {
-		if (response.status() != 409) return false;
+		return responseCode(response, 409, "TASK_LEASE_EXPIRED");
+	}
+
+	static boolean operationNotFound(Response response) {
+		return responseCode(response, 404, "OPERATION_NOT_FOUND");
+	}
+
+	private static boolean responseCode(Response response, int status, String code) {
+		if (response.status() != status) return false;
 		try {
 			JsonObject error = JsonParser.parseString(response.body()).getAsJsonObject().getAsJsonObject("error");
-			return error != null && error.has("code") && "TASK_LEASE_EXPIRED".equals(error.get("code").getAsString());
+			return error != null && error.has("code") && code.equals(error.get("code").getAsString());
 		} catch (RuntimeException ignored) {
 			return false;
 		}

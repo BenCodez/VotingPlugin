@@ -23,6 +23,10 @@ class BackendControlConnectorProtocolTest {
 		assertFalse(BackendControlConnector.taskLeaseExpired(new BackendControlConnector.Response(409,
 				"{\"error\":{\"code\":\"SESSION_MISMATCH\"}}")));
 		assertFalse(BackendControlConnector.taskLeaseExpired(new BackendControlConnector.Response(500, "not-json")));
+		assertTrue(BackendControlConnector.operationNotFound(new BackendControlConnector.Response(404,
+				"{\"error\":{\"code\":\"OPERATION_NOT_FOUND\"}}")));
+		assertFalse(BackendControlConnector.operationNotFound(new BackendControlConnector.Response(404,
+				"{\"error\":{\"code\":\"NODE_NOT_FOUND\"}}")));
 	}
 
 	@Test void registrationRequiresFileControlButAllowsQuickSetupToRemainOptional() {

@@ -280,6 +280,29 @@ class ControlConnectorTest {
 				JsonParser.parseString(results.get(1).body()).getAsJsonObject().get("attemptId").getAsString());
 	}
 
+	@Test void forgottenControlOperationDoesNotBlockFutureClaims() {
+		connector.close();
+		ProxyRoutingConfiguration current = new ProxyRoutingConfiguration(false, List.of());
+		connector = new ControlConnector(settings(), scheduler, transport,
+				() -> List.of(), logs::add, UUID.randomUUID(), () -> 0L,
+				new ProxyRoutingConfigurationService(new NoOpPlatform()));
+		transport.acceptConfiguration = true;
+		transport.operationClaim = CompletableFuture.completedFuture(new Response(200,
+				"{\"operationId\":\"00000000-0000-0000-0000-000000000099\","
+						+ "\"attemptId\":\"00000000-0000-0000-0000-000000000199\","
+						+ "\"type\":\"READ\",\"configuration\":"
+						+ "{\"sendVotesToAllServers\":false,\"blockedServers\":[]}}"));
+		transport.resultSubmission = CompletableFuture.completedFuture(new Response(404,
+				"{\"error\":{\"code\":\"OPERATION_NOT_FOUND\"}}"));
+
+		connector.cycle();
+		transport.operationClaim = CompletableFuture.completedFuture(new Response(204, ""));
+		connector.cycle();
+
+		assertEquals(2, transport.requests.stream().filter(request -> request.path().endsWith("/operations")).count());
+		assertEquals(1, transport.requests.stream().filter(request -> request.path().endsWith("/result")).count());
+	}
+
 	@Test void closeBeforeOperationPublicationPreventsTheRequestChainFromStarting() throws Exception {
 		connector.close();
 		transport.firstSendEntered = new CountDownLatch(1);
