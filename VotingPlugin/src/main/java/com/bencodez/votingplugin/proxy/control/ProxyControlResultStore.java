@@ -5,7 +5,6 @@ import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -119,11 +118,7 @@ final class ProxyControlResultStore {
 		Path staging = Files.createTempFile(dataDirectory, ".control-proxy-results-", ".json");
 		try {
 			Files.write(staging, bytes, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
-			try {
-				Files.move(staging, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-			} catch (AtomicMoveNotSupportedException e) {
-				Files.move(staging, target, StandardCopyOption.REPLACE_EXISTING);
-			}
+			Files.move(staging, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
 		} finally {
 			Files.deleteIfExists(staging);
 		}
