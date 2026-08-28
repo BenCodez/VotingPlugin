@@ -22,6 +22,7 @@ import redis.clients.jedis.Jedis;
 import lombok.Getter;
 
 public class RedisBackendProxyTransport implements BackendProxyTransport {
+	static final int MAX_LEGACY_HANDOFF_DELIVERIES = 4096;
 
 	private final VotingPluginMain plugin;
 	private final ProcessedVoteCache processedVoteCache;
@@ -32,6 +33,7 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 	private final Object subscriberIdentity = new Object();
 	private final Object legacyLifecycle = new Object();
 	private final List<JsonEnvelope> bufferedLegacyDeliveries = new ArrayList<>();
+	private boolean legacyHandoffDegraded;
 	private GlobalMessageHandler messageHandler;
 
 	public RedisBackendProxyTransport(VotingPluginMain plugin) {
@@ -86,13 +88,20 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 		listenerThread.start();
 	}
 
-	private void dispatchLegacy(JsonEnvelope envelope) {
+	void dispatchLegacy(JsonEnvelope envelope) {
 		String signature = com.bencodez.simpleapi.servercomm.codec.JsonEnvelopeCodec.encode(envelope);
 		synchronized (legacyLifecycle) {
 			if (processedVoteCache.reserveLegacyRedisDelivery(subscriberIdentity, signature)) {
 				messageHandler.onMessage(envelope);
-			} else {
+			} else if (bufferedLegacyDeliveries.size() < MAX_LEGACY_HANDOFF_DELIVERIES) {
 				bufferedLegacyDeliveries.add(envelope);
+			} else {
+				if (!legacyHandoffDegraded && plugin != null) {
+					plugin.getLogger().warning("Redis legacy handoff exceeded " + MAX_LEGACY_HANDOFF_DELIVERIES
+							+ " buffered deliveries; temporarily degrading duplicate suppression");
+				}
+				legacyHandoffDegraded = true;
+				messageHandler.onMessage(envelope);
 			}
 		}
 	}
@@ -106,6 +115,7 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 				if (!processedVoteCache.consumeLegacyRedisDelivery(signature)) messageHandler.onMessage(envelope);
 			}
 			bufferedLegacyDeliveries.clear();
+			legacyHandoffDegraded = false;
 			processedVoteCache.finishRedisHandoff();
 		}
 	}

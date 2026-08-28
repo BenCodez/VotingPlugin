@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.proxy.control;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -81,7 +82,7 @@ final class ProxyControlResultStore {
 		Path target = target(dataDirectory);
 		if (results.isEmpty()) {
 			if (Files.isSymbolicLink(target)) throw new IOException("Control proxy-result journal is unsafe");
-			Files.deleteIfExists(target);
+			if (Files.deleteIfExists(target)) forceDirectory(dataDirectory);
 			return;
 		}
 		if (results.size() > MAX_RESULTS) throw new IOException("Too many pending Control proxy results");
@@ -117,10 +118,22 @@ final class ProxyControlResultStore {
 		Files.createDirectories(dataDirectory);
 		Path staging = Files.createTempFile(dataDirectory, ".control-proxy-results-", ".json");
 		try {
-			Files.write(staging, bytes, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+			try (FileChannel channel = FileChannel.open(staging, StandardOpenOption.TRUNCATE_EXISTING,
+					StandardOpenOption.WRITE)) {
+				ByteBuffer buffer = ByteBuffer.wrap(bytes);
+				while (buffer.hasRemaining()) channel.write(buffer);
+				channel.force(true);
+			}
 			Files.move(staging, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+			forceDirectory(dataDirectory);
 		} finally {
 			Files.deleteIfExists(staging);
+		}
+	}
+
+	private static void forceDirectory(Path directory) throws IOException {
+		try (FileChannel channel = FileChannel.open(directory, StandardOpenOption.READ)) {
+			channel.force(true);
 		}
 	}
 

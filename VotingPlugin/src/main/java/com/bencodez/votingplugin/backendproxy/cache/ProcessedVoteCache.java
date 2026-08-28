@@ -1,9 +1,9 @@
 package com.bencodez.votingplugin.backendproxy.cache;
 
-import java.util.UUID;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -91,7 +91,15 @@ public class ProcessedVoteCache {
 	/** Returns true only for the active subscriber and counts its legacy delivery during overlap. */
 	public synchronized boolean reserveLegacyRedisDelivery(Object subscriber, String signature) {
 		if (activeRedisSubscriber != subscriber) return false;
-		if (standbyRedisSubscriber != null) legacyRedisDeliveries.merge(signature, 1, Integer::sum);
+		if (standbyRedisSubscriber != null) {
+			Integer count = legacyRedisDeliveries.get(signature);
+			if (count != null) {
+				legacyRedisDeliveries.put(signature,
+						count == Integer.MAX_VALUE ? Integer.MAX_VALUE : count + 1);
+			} else if (legacyRedisDeliveries.size() < MAX_REDIS_DELIVERIES) {
+				legacyRedisDeliveries.put(signature, 1);
+			}
+		}
 		return true;
 	}
 
