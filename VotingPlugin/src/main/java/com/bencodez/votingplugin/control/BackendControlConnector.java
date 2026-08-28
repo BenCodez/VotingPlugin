@@ -237,9 +237,20 @@ public final class BackendControlConnector implements AutoCloseable {
 		synchronized (completed) {
 			result = completed.get(operationId);
 		}
+		if (result != null) {
+			if (!result.committed() && !anticipatedResultIsInstalled(result)) {
+				result = null;
+			} else {
+				result = committedForAttempt(result, string(task, "attemptId"));
+				synchronized (completed) { completed.put(operationId, result); }
+				persistCompleted();
+			}
+		}
 		if (result == null) {
-			TaskResult executed = execute(task);
-			result = new StoredResult(executed.json(), executed.restartConnector());
+			TaskResult executed = execute(operationId, task);
+			JsonObject resultJson = executed.json();
+			resultJson.addProperty("attemptId", string(task, "attemptId"));
+			result = new StoredResult(resultJson, executed.restartConnector(), true);
 			synchronized (completed) {
 				completed.put(operationId, result);
 			}
@@ -251,20 +262,27 @@ public final class BackendControlConnector implements AutoCloseable {
 	private boolean submitCompletedResult() throws Exception {
 		Map.Entry<UUID, StoredResult> pending;
 		synchronized (completed) {
-			pending = completed.entrySet().stream().findFirst().orElse(null);
+			pending = completed.entrySet().stream().filter(entry -> entry.getValue().committed()).findFirst().orElse(null);
 		}
 		if (pending == null) return false;
 		persistCompleted();
-		submitCompletedResult(pending.getKey(), pending.getValue());
-		return true;
+		return submitCompletedResult(pending.getKey(), pending.getValue());
 	}
 
-	private void submitCompletedResult(UUID operationId, StoredResult submitted) throws Exception {
+	private boolean submitCompletedResult(UUID operationId, StoredResult submitted) throws Exception {
 		JsonObject resultBody = submitted.result().deepCopy();
 		resultBody.addProperty("sessionId", sessionId.toString());
+		Response response = send("POST", "/api/v1/nodes/" + settings.nodeId() + "/operations/" + operationId
+				+ "/result", resultBody);
+		if (taskLeaseExpired(response)) {
+			synchronized (completed) {
+				completed.put(operationId, new StoredResult(submitted.result(), submitted.restartConnector(), false));
+			}
+			persistCompleted();
+			return false;
+		}
 		afterResultAcknowledged(
-				() -> requireObject(send("POST", "/api/v1/nodes/" + settings.nodeId() + "/operations/" + operationId
-						+ "/result", resultBody), 200),
+				() -> requireObject(response, 200),
 				() -> {
 					synchronized (completed) { completed.remove(operationId); }
 					try {
@@ -279,6 +297,17 @@ public final class BackendControlConnector implements AutoCloseable {
 						plugin.getServer().getScheduler().runTask(plugin, plugin::restartBackendControlConnector);
 					}
 				});
+		return true;
+	}
+
+	static boolean taskLeaseExpired(Response response) {
+		if (response.status() != 409) return false;
+		try {
+			JsonObject error = JsonParser.parseString(response.body()).getAsJsonObject().getAsJsonObject("error");
+			return error != null && error.has("code") && "TASK_LEASE_EXPIRED".equals(error.get("code").getAsString());
+		} catch (RuntimeException ignored) {
+			return false;
+		}
 	}
 
 	private void persistCompleted() throws IOException {
@@ -287,21 +316,51 @@ public final class BackendControlConnector implements AutoCloseable {
 		BackendControlResultStore.save(dataDirectory, settings.route(), snapshot);
 	}
 
+	private void persistIntent(UUID operationId, TaskResult anticipated, String attemptId) throws IOException {
+		JsonObject result = anticipated.json();
+		result.addProperty("attemptId", attemptId);
+		synchronized (completed) {
+			completed.put(operationId, new StoredResult(result, anticipated.restartConnector(), false));
+		}
+		persistCompleted();
+	}
+
+	private boolean anticipatedResultIsInstalled(StoredResult pending) throws IOException {
+		JsonObject result = pending.result();
+		if (!result.has("revision") || !result.has("configuration")) return false;
+		String revision = result.get("revision").getAsString();
+		JsonObject configuration = result.getAsJsonObject("configuration");
+		String domain = string(configuration, "domain");
+		if ("file".equals(domain)) {
+			return revision.equals(configurations.read(string(configuration, "fileName")).revision());
+		}
+		if ("quick-setup".equals(domain)) {
+			return revision.equals(configurations.currentQuickSetupRevision(string(configuration, "preset")));
+		}
+		return false;
+	}
+
+	private static StoredResult committedForAttempt(StoredResult pending, String attemptId) {
+		JsonObject result = pending.result().deepCopy();
+		result.addProperty("attemptId", attemptId);
+		return new StoredResult(result, pending.restartConnector(), true);
+	}
+
 	static void afterResultAcknowledged(ResultSubmission submission, ResultAcknowledgement acknowledged)
 			throws Exception {
 		submission.submit();
 		acknowledged.acknowledge();
 	}
 
-	private TaskResult execute(JsonObject task) {
+	private TaskResult execute(UUID operationId, JsonObject task) {
 		try {
 			String type = string(task, "type");
 			JsonObject configuration = task.getAsJsonObject("configuration");
 			String domain = string(configuration, "domain");
-			if ("file".equals(domain)) return executeFile(type, configuration, task);
+			if ("file".equals(domain)) return executeFile(operationId, type, configuration, task);
 			if ("quick-setup".equals(domain)) {
 				if (!quickSetupsAccepted) return TaskResult.failure("UNSUPPORTED_TASK", "Quick setups were not negotiated");
-				return executeQuick(type, configuration, task);
+				return executeQuick(operationId, type, configuration, task);
 			}
 			return TaskResult.failure("UNSUPPORTED_TASK", "Configuration domain is unsupported");
 		} catch (BackendConfigurationService.StaleRevisionException e) {
@@ -315,7 +374,8 @@ public final class BackendControlConnector implements AutoCloseable {
 		}
 	}
 
-	private TaskResult executeFile(String type, JsonObject configuration, JsonObject task) throws IOException {
+	private TaskResult executeFile(UUID operationId, String type, JsonObject configuration, JsonObject task)
+			throws IOException {
 		String fileName = string(configuration, "fileName");
 		if ("READ".equals(type)) {
 			BackendConfigurationService.Document document = configurations.read(fileName);
@@ -329,6 +389,10 @@ public final class BackendControlConnector implements AutoCloseable {
 			return TaskResult.file(current, preview.changes(), false, false, false);
 		}
 		if ("APPLY".equals(type)) {
+			BackendConfigurationService.Preview preview = configurations.preview(fileName, content);
+			persistIntent(operationId,
+					TaskResult.file(configurations.proposedDocument(preview), preview.changes(), true, false,
+							"Config.yml".equals(fileName)), string(task, "attemptId"));
 			BackendConfigurationService.ApplyResult applied = configurations.apply(fileName, content,
 					string(task, "expectedRevision"));
 			return TaskResult.file(applied.document(), applied.changes(), true, applied.rolledBack(),
@@ -337,7 +401,8 @@ public final class BackendControlConnector implements AutoCloseable {
 		return TaskResult.failure("UNSUPPORTED_TASK", "Task type is unsupported");
 	}
 
-	private TaskResult executeQuick(String type, JsonObject configuration, JsonObject task) throws IOException {
+	private TaskResult executeQuick(UUID operationId, String type, JsonObject configuration, JsonObject task)
+			throws IOException {
 		if ("READ".equals(type)) return TaskResult.failure("UNSUPPORTED_TASK", "Quick setups cannot be read");
 		String preset = string(configuration, "preset");
 		Map<String, String> options = options(configuration.getAsJsonObject("options"));
@@ -346,6 +411,10 @@ public final class BackendControlConnector implements AutoCloseable {
 			return TaskResult.quick(preset, options, preview.revision(), preview.changes(), false);
 		}
 		if ("APPLY".equals(type)) {
+			BackendConfigurationService.QuickPreview preview = configurations.previewQuickSetup(preset, options);
+			persistIntent(operationId,
+					TaskResult.quick(preset, options, configurations.proposedQuickSetupRevision(preview), preview.changes(),
+							true, "Config.yml".equals(preview.proposal().fileName())), string(task, "attemptId"));
 			BackendConfigurationService.ApplyResult applied = configurations.applyQuickSetup(preset, options,
 					string(task, "expectedRevision"));
 			return TaskResult.quick(preset, options, applied.document().revision(), applied.changes(), true,
@@ -488,7 +557,7 @@ public final class BackendControlConnector implements AutoCloseable {
 					requestTimeoutMillis);
 		}
 	}
-	private record Response(int status, String body) { }
+	record Response(int status, String body) { }
 	@FunctionalInterface
 	interface ResultSubmission { void submit() throws Exception; }
 	@FunctionalInterface

@@ -65,8 +65,9 @@ final class ProxyControlResultStore {
 				if (!element.isJsonObject()) throw invalid();
 				JsonObject item = element.getAsJsonObject();
 				UUID operationId = UUID.fromString(string(item, "operationId"));
+				if (!item.has("committed") || !item.get("committed").isJsonPrimitive()) throw invalid();
 				StoredResult previous = results.put(operationId,
-						new StoredResult(object(item, "result").deepCopy()));
+						new StoredResult(object(item, "result").deepCopy(), item.get("committed").getAsBoolean()));
 				if (previous != null) throw invalid();
 			}
 			return new State(route, Map.copyOf(results));
@@ -105,6 +106,7 @@ final class ProxyControlResultStore {
 			JsonObject item = new JsonObject();
 			item.addProperty("operationId", operationId.toString());
 			item.add("result", result.result().deepCopy());
+			item.addProperty("committed", result.committed());
 			listed.add(item);
 		});
 		root.add("results", listed);
@@ -156,6 +158,6 @@ final class ProxyControlResultStore {
 
 	record Route(String nodeId, String displayName, String platform, String pluginVersion, URI endpoint,
 			String credentialFile, int heartbeatSeconds, int connectTimeoutMillis, int requestTimeoutMillis) { }
-	record StoredResult(JsonObject result) { }
+	record StoredResult(JsonObject result, boolean committed) { }
 	record State(Route route, Map<UUID, StoredResult> results) { }
 }

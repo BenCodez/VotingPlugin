@@ -17,6 +17,14 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 class BackendControlConnectorProtocolTest {
+	@Test void onlyTheLeaseExpiryConflictRequestsAResultReclaim() {
+		assertTrue(BackendControlConnector.taskLeaseExpired(new BackendControlConnector.Response(409,
+				"{\"error\":{\"code\":\"TASK_LEASE_EXPIRED\"}}")));
+		assertFalse(BackendControlConnector.taskLeaseExpired(new BackendControlConnector.Response(409,
+				"{\"error\":{\"code\":\"SESSION_MISMATCH\"}}")));
+		assertFalse(BackendControlConnector.taskLeaseExpired(new BackendControlConnector.Response(500, "not-json")));
+	}
+
 	@Test void registrationRequiresFileControlButAllowsQuickSetupToRemainOptional() {
 		assertThrows(RuntimeException.class, () -> BackendControlConnector.requireFileCapability(false));
 		assertDoesNotThrow(() -> BackendControlConnector.requireFileCapability(true));

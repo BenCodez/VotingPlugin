@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.control;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.URI;
 import java.nio.file.Files;
@@ -29,15 +30,29 @@ class BackendControlResultStoreTest {
 		result.addProperty("success", true);
 		result.addProperty("revision", "applied-revision");
 		Map<UUID, StoredResult> pending = new LinkedHashMap<>();
-		pending.put(operationId, new StoredResult(result, true));
+		pending.put(operationId, new StoredResult(result, true, true));
 
 		BackendControlResultStore.save(directory, route, pending);
 		BackendControlResultStore.State recovered = BackendControlResultStore.load(directory);
 
 		assertEquals(route, recovered.route());
 		assertEquals("applied-revision", recovered.results().get(operationId).result().get("revision").getAsString());
+		assertTrue(recovered.results().get(operationId).committed());
 		BackendControlResultStore.save(directory, route, Map.of());
 		assertFalse(Files.exists(directory.resolve(".control-pending-results.json")));
+	}
+
+	@Test void writeAheadIntentRetainsItsUncommittedStateAcrossRestart() throws Exception {
+		UUID operationId = UUID.fromString("00000000-0000-0000-0000-000000000099");
+		Route route = new Route("backend-old", URI.create("https://control.example:8443"), "old-credential.txt",
+				30, 3000, 10000);
+		JsonObject result = new JsonObject();
+		result.addProperty("revision", "anticipated-revision");
+
+		BackendControlResultStore.save(directory, route,
+				Map.of(operationId, new StoredResult(result, false, false)));
+
+		assertFalse(BackendControlResultStore.load(directory).results().get(operationId).committed());
 	}
 
 	@Test void symbolicPendingResultJournalIsRejected() throws Exception {
@@ -60,7 +75,8 @@ class BackendControlResultStoreTest {
 		result.add("configuration", configuration);
 
 		BackendControlResultStore.save(directory, route,
-				Map.of(UUID.fromString("00000000-0000-0000-0000-000000000099"), new StoredResult(result, false)));
+				Map.of(UUID.fromString("00000000-0000-0000-0000-000000000099"),
+						new StoredResult(result, false, true)));
 
 		assertEquals(BackendConfigurationService.MAX_CONTENT_BYTES,
 				BackendControlResultStore.load(directory).results().values().iterator().next().result()

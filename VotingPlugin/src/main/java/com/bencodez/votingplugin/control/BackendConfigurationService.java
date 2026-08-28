@@ -60,6 +60,11 @@ public final class BackendConfigurationService {
 		return preview(fileName, proposedContent, current);
 	}
 
+	Document proposedDocument(Preview preview) {
+		return new Document(preview.fileName(), mask(parse(preview.resolvedContent())),
+				revision(preview.resolvedContent()));
+	}
+
 	public ApplyResult apply(String fileName, String proposedContent, String expectedRevision) throws IOException {
 		Path target = resolve(fileName);
 		String current = readRaw(target, false);
@@ -161,6 +166,14 @@ public final class BackendConfigurationService {
 		String current = readRaw(resolve(fileName), false);
 		QuickProposal proposal = quickProposal(preset, options, fileName, current);
 		return new QuickPreview(proposal, revision(current), changes(parse(current), parse(proposal.content())));
+	}
+
+	String proposedQuickSetupRevision(QuickPreview preview) {
+		return revision(preview.proposal().content());
+	}
+
+	String currentQuickSetupRevision(String preset) throws IOException {
+		return read(quickSetupFile(preset)).revision();
 	}
 
 	public ApplyResult applyQuickSetup(String preset, Map<String, String> options, String expectedRevision)

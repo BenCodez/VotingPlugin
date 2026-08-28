@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.proxy.control;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.URI;
 import java.nio.file.Files;
@@ -29,15 +30,28 @@ class ProxyControlResultStoreTest {
 		result.addProperty("success", true);
 		result.addProperty("revision", "applied-revision");
 		Map<UUID, StoredResult> pending = new LinkedHashMap<>();
-		pending.put(operationId, new StoredResult(result));
+		pending.put(operationId, new StoredResult(result, true));
 
 		ProxyControlResultStore.save(directory, route, pending);
 		ProxyControlResultStore.State recovered = ProxyControlResultStore.load(directory);
 
 		assertEquals(route, recovered.route());
 		assertEquals("applied-revision", recovered.results().get(operationId).result().get("revision").getAsString());
+		assertTrue(recovered.results().get(operationId).committed());
 		ProxyControlResultStore.save(directory, route, Map.of());
 		assertFalse(Files.exists(directory.resolve(".control-proxy-pending-results.json")));
+	}
+
+	@Test void writeAheadIntentRetainsItsUncommittedStateAcrossRestart() throws Exception {
+		UUID operationId = UUID.fromString("00000000-0000-0000-0000-000000000099");
+		Route route = new Route("proxy-old", "Proxy Old", "VELOCITY", "7.1.2",
+				URI.create("https://control.example:8443"), "old-credential.txt", 30, 3000, 5000);
+		JsonObject result = new JsonObject();
+		result.addProperty("revision", "anticipated-revision");
+
+		ProxyControlResultStore.save(directory, route, Map.of(operationId, new StoredResult(result, false)));
+
+		assertFalse(ProxyControlResultStore.load(directory).results().get(operationId).committed());
 	}
 
 	@Test void symbolicProxyResultJournalIsRejected() throws Exception {

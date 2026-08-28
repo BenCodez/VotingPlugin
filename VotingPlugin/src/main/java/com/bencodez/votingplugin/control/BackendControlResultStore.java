@@ -65,9 +65,11 @@ final class BackendControlResultStore {
 				JsonObject item = element.getAsJsonObject();
 				UUID operationId = UUID.fromString(string(item, "operationId"));
 				JsonObject result = object(item, "result").deepCopy();
-				if (!item.has("restartConnector") || !item.get("restartConnector").isJsonPrimitive()) throw invalid();
+				if (!item.has("restartConnector") || !item.get("restartConnector").isJsonPrimitive()
+						|| !item.has("committed") || !item.get("committed").isJsonPrimitive()) throw invalid();
 				StoredResult previous = results.put(operationId,
-						new StoredResult(result, item.get("restartConnector").getAsBoolean()));
+						new StoredResult(result, item.get("restartConnector").getAsBoolean(),
+								item.get("committed").getAsBoolean()));
 				if (previous != null) throw invalid();
 			}
 			return new State(route, Map.copyOf(results));
@@ -104,6 +106,7 @@ final class BackendControlResultStore {
 			item.addProperty("operationId", operationId.toString());
 			item.add("result", result.result().deepCopy());
 			item.addProperty("restartConnector", result.restartConnector());
+			item.addProperty("committed", result.committed());
 			listed.add(item);
 		});
 		root.add("results", listed);
@@ -155,6 +158,6 @@ final class BackendControlResultStore {
 
 	record Route(String nodeId, URI endpoint, String credentialFile, int heartbeatSeconds,
 			int connectTimeoutMillis, int requestTimeoutMillis) { }
-	record StoredResult(JsonObject result, boolean restartConnector) { }
+	record StoredResult(JsonObject result, boolean restartConnector, boolean committed) { }
 	record State(Route route, Map<UUID, StoredResult> results) { }
 }

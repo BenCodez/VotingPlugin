@@ -427,9 +427,20 @@ public final class ControlConnector implements AutoCloseable {
 		synchronized (operationLifecycle) {
 			result = completedTasks.get(operationId);
 		}
+		if (result != null) {
+			if (!result.committed() && !anticipatedResultIsInstalled(result)) {
+				result = null;
+			} else {
+				result = committedForAttempt(result, requireString(task, "attemptId"));
+				synchronized (operationLifecycle) { completedTasks.put(operationId, result); }
+				persistCompleted();
+			}
+		}
 		if (result == null) {
-			TaskResult executed = executeTask(task);
-			result = new StoredResult(executed.json());
+			TaskResult executed = executeTask(operationId, task);
+			JsonObject resultJson = executed.json();
+			resultJson.addProperty("attemptId", requireString(task, "attemptId"));
+			result = new StoredResult(resultJson, true);
 			synchronized (operationLifecycle) {
 				completedTasks.put(operationId, result);
 			}
@@ -439,13 +450,16 @@ public final class ControlConnector implements AutoCloseable {
 	}
 
 	private boolean hasCompletedTask() {
-		synchronized (operationLifecycle) { return !completedTasks.isEmpty(); }
+		synchronized (operationLifecycle) {
+			return completedTasks.values().stream().anyMatch(StoredResult::committed);
+		}
 	}
 
 	private CompletableFuture<Void> submitCompletedResult() {
 		Map.Entry<UUID, StoredResult> pending;
 		synchronized (operationLifecycle) {
-			pending = completedTasks.entrySet().stream().findFirst().orElse(null);
+			pending = completedTasks.entrySet().stream().filter(entry -> entry.getValue().committed())
+					.findFirst().orElse(null);
 		}
 		if (pending == null) return CompletableFuture.completedFuture(null);
 		persistCompleted();
@@ -456,6 +470,13 @@ public final class ControlConnector implements AutoCloseable {
 		CompletableFuture<Response> submitted = transport.send(resultRequest(operationId, result));
 		activeRequest = submitted;
 		return submitted.thenAccept(resultResponse -> {
+			if (taskLeaseExpired(resultResponse)) {
+				synchronized (operationLifecycle) {
+					completedTasks.put(operationId, new StoredResult(result.result(), false));
+				}
+				persistCompleted();
+				return;
+			}
 			requireSuccess(resultResponse);
 			synchronized (operationLifecycle) { completedTasks.remove(operationId); }
 			try {
@@ -470,6 +491,16 @@ public final class ControlConnector implements AutoCloseable {
 		});
 	}
 
+	private static boolean taskLeaseExpired(Response response) {
+		if (response.statusCode != 409) return false;
+		try {
+			JsonObject error = parseObject(response.body).getAsJsonObject("error");
+			return error != null && error.has("code") && "TASK_LEASE_EXPIRED".equals(error.get("code").getAsString());
+		} catch (RuntimeException ignored) {
+			return false;
+		}
+	}
+
 	private void persistCompleted() {
 		if (dataDirectory == null || route == null) return;
 		Map<UUID, StoredResult> snapshot;
@@ -481,7 +512,27 @@ public final class ControlConnector implements AutoCloseable {
 		}
 	}
 
-	private TaskResult executeTask(JsonObject task) {
+	private void persistIntent(UUID operationId, TaskResult anticipated, String attemptId) {
+		JsonObject result = anticipated.json();
+		result.addProperty("attemptId", attemptId);
+		synchronized (operationLifecycle) {
+			completedTasks.put(operationId, new StoredResult(result, false));
+		}
+		persistCompleted();
+	}
+
+	private boolean anticipatedResultIsInstalled(StoredResult pending) {
+		JsonObject result = pending.result();
+		return result.has("revision") && result.get("revision").getAsString().equals(configurationService.read().revision());
+	}
+
+	private static StoredResult committedForAttempt(StoredResult pending, String attemptId) {
+		JsonObject result = pending.result().deepCopy();
+		result.addProperty("attemptId", attemptId);
+		return new StoredResult(result, true);
+	}
+
+	private TaskResult executeTask(UUID operationId, JsonObject task) {
 		if (configurationService == null) return TaskResult.failure("UNSUPPORTED", "Configuration control is unavailable");
 		String type = requireString(task, "type");
 		try {
@@ -492,6 +543,8 @@ public final class ControlConnector implements AutoCloseable {
 			List<String> changes = proposal.changesFrom(current);
 			if ("PREVIEW".equals(type)) return TaskResult.success(current.revision(), current, changes, false);
 			if (!"APPLY".equals(type)) return TaskResult.failure("UNSUPPORTED_TASK", "Task type is unsupported");
+			persistIntent(operationId, TaskResult.success(proposal.revision(), proposal, changes, true),
+					requireString(task, "attemptId"));
 			configurationService.apply(proposal, requireString(task, "expectedRevision"));
 			ProxyRoutingConfiguration applied = configurationService.read();
 			return TaskResult.success(applied.revision(), applied, changes, true);

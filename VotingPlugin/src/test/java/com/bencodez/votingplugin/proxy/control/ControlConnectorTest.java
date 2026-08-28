@@ -183,6 +183,7 @@ class ControlConnectorTest {
 		try {
 			CompletableFuture<Void> executing = CompletableFuture.runAsync(() -> transport.operationClaim.complete(
 					new Response(200, "{\"operationId\":\"00000000-0000-0000-0000-000000000099\","
+							+ "\"attemptId\":\"00000000-0000-0000-0000-000000000199\","
 							+ "\"type\":\"APPLY\",\"expectedRevision\":\"" + current.revision() + "\","
 							+ "\"configuration\":{\"sendVotesToAllServers\":true,\"blockedServers\":[]}}")));
 			assertTrue(persistEntered.await(2, TimeUnit.SECONDS));
@@ -207,6 +208,7 @@ class ControlConnectorTest {
 		transport.acceptConfiguration = true;
 		transport.operationClaim = CompletableFuture.completedFuture(new Response(200,
 				"{\"operationId\":\"00000000-0000-0000-0000-000000000099\","
+						+ "\"attemptId\":\"00000000-0000-0000-0000-000000000199\","
 						+ "\"type\":\"APPLY\",\"expectedRevision\":\"" + current.revision() + "\","
 						+ "\"configuration\":{\"sendVotesToAllServers\":true,\"blockedServers\":[]}}"));
 		transport.resultSubmission = new CompletableFuture<>();
@@ -229,6 +231,7 @@ class ControlConnectorTest {
 		transport.acceptConfiguration = true;
 		transport.operationClaim = CompletableFuture.completedFuture(new Response(200,
 				"{\"operationId\":\"00000000-0000-0000-0000-000000000099\","
+						+ "\"attemptId\":\"00000000-0000-0000-0000-000000000199\","
 						+ "\"type\":\"APPLY\",\"expectedRevision\":\"" + current.revision() + "\","
 						+ "\"configuration\":{\"sendVotesToAllServers\":true,\"blockedServers\":[]}}"));
 		transport.resultSubmission = new CompletableFuture<>();
@@ -242,6 +245,39 @@ class ControlConnectorTest {
 
 		assertEquals(2, transport.requests.stream().filter(request -> request.path().endsWith("/result")).count());
 		assertEquals(1, transport.requests.stream().filter(request -> request.path().endsWith("/operations")).count());
+	}
+
+	@Test void expiredResultLeaseIsReclaimedAndReboundBeforeResubmission() {
+		connector.close();
+		ProxyRoutingConfiguration current = new ProxyRoutingConfiguration(false, List.of());
+		connector = new ControlConnector(settings(), scheduler, transport,
+				() -> List.of(), logs::add, UUID.randomUUID(), () -> 0L,
+				new ProxyRoutingConfigurationService(new NoOpPlatform()));
+		transport.acceptConfiguration = true;
+		transport.operationClaim = CompletableFuture.completedFuture(new Response(200,
+				"{\"operationId\":\"00000000-0000-0000-0000-000000000099\","
+						+ "\"attemptId\":\"00000000-0000-0000-0000-000000000199\","
+						+ "\"type\":\"APPLY\",\"expectedRevision\":\"" + current.revision() + "\","
+						+ "\"configuration\":{\"sendVotesToAllServers\":true,\"blockedServers\":[]}}"));
+		transport.resultSubmission = CompletableFuture.completedFuture(new Response(409,
+				"{\"error\":{\"code\":\"TASK_LEASE_EXPIRED\"}}"));
+
+		connector.cycle();
+
+		transport.operationClaim = CompletableFuture.completedFuture(new Response(200,
+				"{\"operationId\":\"00000000-0000-0000-0000-000000000099\","
+						+ "\"attemptId\":\"00000000-0000-0000-0000-000000000299\","
+						+ "\"type\":\"APPLY\",\"expectedRevision\":\"" + current.revision() + "\","
+						+ "\"configuration\":{\"sendVotesToAllServers\":true,\"blockedServers\":[]}}"));
+		transport.resultSubmission = CompletableFuture.completedFuture(new Response(200, "{}"));
+		connector.cycle();
+
+		List<Request> results = transport.requests.stream().filter(request -> request.path().endsWith("/result")).toList();
+		assertEquals(2, results.size());
+		assertEquals("00000000-0000-0000-0000-000000000199",
+				JsonParser.parseString(results.get(0).body()).getAsJsonObject().get("attemptId").getAsString());
+		assertEquals("00000000-0000-0000-0000-000000000299",
+				JsonParser.parseString(results.get(1).body()).getAsJsonObject().get("attemptId").getAsString());
 	}
 
 	@Test void closeBeforeOperationPublicationPreventsTheRequestChainFromStarting() throws Exception {
