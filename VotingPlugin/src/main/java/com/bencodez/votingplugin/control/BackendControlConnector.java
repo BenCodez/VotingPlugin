@@ -98,11 +98,6 @@ public final class BackendControlConnector implements AutoCloseable {
 	}
 
 	public static BackendControlConnector create(VotingPluginMain plugin) throws IOException {
-		return create(plugin, null);
-	}
-
-	public static BackendControlConnector create(VotingPluginMain plugin, BackendControlConnector predecessor)
-			throws IOException {
 		ConfigurationSection control = plugin.getConfigFile().getData().getConfigurationSection("Control.Backend");
 		if (control == null || !control.getBoolean("Enabled", false)) return null;
 		String nodeId = control.getString("NodeId", "").trim();
@@ -121,13 +116,7 @@ public final class BackendControlConnector implements AutoCloseable {
 				bounded(control.getInt("HeartbeatSeconds", 30), 10, 300, "HeartbeatSeconds"),
 				bounded(control.getInt("ConnectTimeoutMillis", 3000), 500, 30000, "ConnectTimeoutMillis"),
 				bounded(control.getInt("RequestTimeoutMillis", 10000), 500, 30000, "RequestTimeoutMillis"));
-		BackendControlConnector connector = new BackendControlConnector(plugin, settings, credential);
-		if (predecessor != null) {
-			synchronized (predecessor.completed) {
-				connector.completed.putAll(predecessor.completed);
-			}
-		}
-		return connector;
+		return new BackendControlConnector(plugin, settings, credential);
 	}
 
 	public boolean hasPendingResults() {
@@ -241,15 +230,20 @@ public final class BackendControlConnector implements AutoCloseable {
 		}
 		JsonObject resultBody = result.json(sessionId);
 		TaskResult submitted = result;
-		try {
-			requireObject(send("POST", "/api/v1/nodes/" + settings.nodeId() + "/operations/" + operationId + "/result",
-					resultBody), 200);
-			synchronized (completed) { completed.remove(operationId); }
-		} finally {
-			if (submitted.restartConnector()) {
-				plugin.getServer().getScheduler().runTask(plugin, plugin::restartBackendControlConnector);
-			}
-		}
+		afterResultAcknowledged(
+				() -> requireObject(send("POST", "/api/v1/nodes/" + settings.nodeId() + "/operations/" + operationId
+						+ "/result", resultBody), 200),
+				() -> {
+					synchronized (completed) { completed.remove(operationId); }
+					if (submitted.restartConnector()) {
+						plugin.getServer().getScheduler().runTask(plugin, plugin::restartBackendControlConnector);
+					}
+				});
+	}
+
+	static void afterResultAcknowledged(ResultSubmission submission, Runnable acknowledged) throws Exception {
+		submission.submit();
+		acknowledged.run();
 	}
 
 	private TaskResult execute(JsonObject task) {
@@ -423,6 +417,8 @@ public final class BackendControlConnector implements AutoCloseable {
 	private record Settings(String nodeId, URI endpoint, int heartbeatSeconds, int connectTimeoutMillis,
 			int requestTimeoutMillis) { }
 	private record Response(int status, String body) { }
+	@FunctionalInterface
+	interface ResultSubmission { void submit() throws Exception; }
 
 	private record TaskResult(boolean success, String code, String message, String revision,
 			JsonObject configuration, List<String> changes, boolean reloaded, boolean rolledBack,

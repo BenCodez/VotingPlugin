@@ -757,18 +757,17 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	/** Refreshes the optional Control connector after its Config.yml settings were applied. */
 	public synchronized void restartBackendControlConnector() {
 		BackendControlConnector connector = backendControlConnector;
+		if (connector != null && connector.hasPendingResults()) {
+			getLogger().warning("[Control] Keeping the previous connector until its applied result is acknowledged");
+			return;
+		}
 		BackendControlConnector replacement;
 		try {
-			replacement = BackendControlConnector.create(this, connector);
+			replacement = BackendControlConnector.create(this);
 		} catch (Exception e) {
-			if (connector != null && connector.hasPendingResults()) {
-				getLogger().warning("[Control] Keeping the previous connector until its applied result is acknowledged");
-				return;
-			}
 			replacement = null;
 			getLogger().warning("[Control] Bukkit configuration connector was not restarted: " + e.getMessage());
 		}
-		if (replacement == null && connector != null && connector.hasPendingResults()) return;
 		if (connector != null) connector.close();
 		if (backendControlConnector == connector) backendControlConnector = replacement;
 		if (replacement != null) replacement.start();

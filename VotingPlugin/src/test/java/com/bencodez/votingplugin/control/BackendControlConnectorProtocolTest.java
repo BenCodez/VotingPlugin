@@ -5,9 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.Test;
 
@@ -42,5 +44,16 @@ class BackendControlConnectorProtocolTest {
 		operation.complete(null);
 		closing.get(2, TimeUnit.SECONDS);
 		assertTrue(executor.isTerminated());
+	}
+
+	@Test void failedResultAcknowledgementDoesNotTriggerConnectorHandoff() throws Exception {
+		AtomicBoolean handedOff = new AtomicBoolean();
+		assertThrows(IOException.class, () -> BackendControlConnector.afterResultAcknowledged(
+				() -> { throw new IOException("Control result was not acknowledged"); },
+				() -> handedOff.set(true)));
+		assertFalse(handedOff.get());
+
+		BackendControlConnector.afterResultAcknowledged(() -> { }, () -> handedOff.set(true));
+		assertTrue(handedOff.get());
 	}
 }
