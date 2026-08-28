@@ -1614,7 +1614,6 @@ public abstract class VotingPluginProxy {
 				logSevere("[Control Host] configuration is invalid; VotingPlugin remains unaffected");
 			}
 		}
-		if (!getConfig().getControlEnabled()) return;
 		try {
 			controlConnector = ControlConnector.create(this);
 			if (controlConnector != null) controlConnector.start();
