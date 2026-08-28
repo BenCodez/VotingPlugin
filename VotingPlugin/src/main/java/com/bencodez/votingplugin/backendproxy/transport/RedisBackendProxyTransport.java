@@ -5,6 +5,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.net.ssl.SSLParameters;
+
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
 import com.bencodez.simpleapi.servercomm.redis.RedisHandler;
@@ -124,15 +126,10 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 	@Override
 	public void validate() {
 		if (redisHandler == null) throw new IllegalStateException("Redis backend proxy transport initialization failed");
-		DefaultJedisClientConfig.Builder config = DefaultJedisClientConfig.builder()
-				.database(plugin.getBungeeSettings().getRedisdbindex())
-				.connectionTimeoutMillis(2000).socketTimeoutMillis(2000);
-		String username = plugin.getBungeeSettings().getRedisUsername();
-		String password = plugin.getBungeeSettings().getRedisPassword();
-		if (username != null && !username.isEmpty()) config.user(username);
-		if (password != null && !password.isEmpty()) config.password(password);
 		try (Jedis jedis = new Jedis(new HostAndPort(plugin.getBungeeSettings().getRedisHost(),
-				plugin.getBungeeSettings().getRedisPort()), config.build())) {
+				plugin.getBungeeSettings().getRedisPort()), buildValidationClientConfig(
+						plugin.getBungeeSettings().getRedisdbindex(), plugin.getBungeeSettings().getRedisUsername(),
+						plugin.getBungeeSettings().getRedisPassword(), plugin.getBungeeSettings().isRedisSsl()))) {
 			if (!"PONG".equalsIgnoreCase(jedis.ping())) {
 				throw new IllegalStateException("Redis backend proxy transport did not answer PING");
 			}
@@ -147,6 +144,20 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 			Thread.currentThread().interrupt();
 			throw new IllegalStateException("Interrupted while waiting for Redis backend proxy subscription", e);
 		}
+	}
+
+	static DefaultJedisClientConfig buildValidationClientConfig(int database, String username, String password,
+			boolean ssl) {
+		DefaultJedisClientConfig.Builder config = DefaultJedisClientConfig.builder().database(database).ssl(ssl)
+				.connectionTimeoutMillis(2000).socketTimeoutMillis(2000);
+		if (ssl) {
+			SSLParameters sslParameters = new SSLParameters();
+			sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
+			config.sslParameters(sslParameters);
+		}
+		if (username != null && !username.isEmpty()) config.user(username);
+		if (password != null && !password.isEmpty()) config.password(password);
+		return config.build();
 	}
 
 	@Override
