@@ -60,11 +60,13 @@ public final class HostedControlManager implements AutoCloseable {
 	private final Consumer<String> logger;
 	private final AtomicBoolean workInProgress = new AtomicBoolean();
 	private final Object processLifecycle = new Object();
+	private final Object preparationLifecycle = new Object();
 	private volatile boolean closed;
 	private volatile Status status = Status.STARTING;
 	private volatile ManagedProcess managedProcess;
 	private volatile ManagedProcess exitAwaitedProcess;
 	private volatile Future<?> activeTask;
+	private volatile PreparedArtifact preparedArtifact;
 	private volatile int failures;
 	private volatile String quarantinedSha256;
 	private volatile String trustedRollbackSha256;
@@ -92,25 +94,69 @@ public final class HostedControlManager implements AutoCloseable {
 
 	public static HostedControlManager create(VotingPluginProxy proxy) {
 		VotingPluginProxyConfig config = proxy.getConfig();
-		if (!config.getControlHostedEnabled()) {
-			return null;
-		}
-		Path root = proxy.getDataFolderPlugin().toPath().toAbsolutePath().normalize();
-		Settings settings = new Settings(root,
-				resolveInside(root, config.getControlHostedJarFile(), "Control hosted JAR"),
-				resolveInside(root, config.getControlHostedDataDirectory(), "Control hosted data directory"),
+		HostConfiguration hosted = new HostConfiguration(config.getControlHostedEnabled(),
 				config.getControlHostedAutoDownload(), config.getControlHostedAutoUpdate(),
-				parseDownloadUri(config.getControlHostedDownloadUrl()), config.getControlHostedSha256(),
+				config.getControlHostedDownloadUrl(), config.getControlHostedSha256(),
+				config.getControlHostedJarFile(), config.getControlHostedDataDirectory(),
 				config.getControlHostedHost(), config.getControlHostedPort(),
 				config.getControlHostedStartupTimeoutSeconds(), config.getControlHostedDownloadTimeoutSeconds());
-		return new HostedControlManager(settings, message -> proxy.log("[Control Host] " + message));
+		return create(proxy.getDataFolderPlugin().toPath(), hosted,
+				message -> proxy.log("[Control Host] " + message));
+	}
+
+	/**
+	 * Creates the platform-neutral hosted Control supervisor. Bukkit uses this
+	 * entry point so the shared manager never links against the Bukkit API when it
+	 * is loaded on BungeeCord or Velocity.
+	 */
+	public static HostedControlManager create(Path rootDirectory, HostConfiguration config,
+			Consumer<String> logger) {
+		Objects.requireNonNull(config, "config");
+		if (!config.enabled()) return null;
+		Path root = Objects.requireNonNull(rootDirectory, "rootDirectory").toAbsolutePath().normalize();
+		Settings settings = new Settings(root,
+				resolveInside(root, config.jarFile(), "Control hosted JAR"),
+				resolveInside(root, config.dataDirectory(), "Control hosted data directory"),
+				config.autoDownload(), config.autoUpdate(), parseDownloadUri(config.downloadUrl()), config.sha256(),
+				config.host(), config.port(), config.startupTimeoutSeconds(), config.downloadTimeoutSeconds());
+		return new HostedControlManager(settings, Objects.requireNonNull(logger, "logger"));
 	}
 
 	public void start() {
-		if (closed || activeTask != null) {
-			return;
+		submitInitialTask();
+	}
+
+	/** Starts on the manager worker and waits for the initial health result. */
+	public boolean startAndWaitForInitialResult() throws InterruptedException {
+		Future<?> task = submitInitialTask();
+		if (task == null) return false;
+		try {
+			task.get();
+		} catch (java.util.concurrent.CancellationException | java.util.concurrent.ExecutionException e) {
+			return false;
 		}
-		activeTask = executor.submit(this::runOnce);
+		return status == Status.RUNNING || status == Status.ROLLED_BACK;
+	}
+
+	private synchronized Future<?> submitInitialTask() {
+		if (closed) return null;
+		if (activeTask == null) activeTask = executor.submit(this::runOnce);
+		return activeTask;
+	}
+
+	/** Downloads and verifies a replacement without disturbing the active process. */
+	public void prepareForReplacement() throws IOException, InterruptedException {
+		synchronized (preparationLifecycle) {
+			if (closed) throw new IOException("Hosted Control manager is closed");
+			if (activeTask != null || workInProgress.get()) {
+				throw new IOException("Hosted Control manager has already started");
+			}
+			if (preparedArtifact != null) return;
+			secureDirectory(settings.rootDirectory(), settings.jarFile().getParent());
+			secureDirectory(settings.rootDirectory(), settings.dataDirectory());
+			loadPersistedQuarantineStateForPreparation();
+			preparedArtifact = stageArtifact();
+		}
 	}
 
 	void runOnce() {
@@ -134,7 +180,16 @@ public final class HostedControlManager implements AutoCloseable {
 				restoreIncompleteActivation();
 			}
 			recoverPersistedQuarantineState();
-			boolean updated = prepareArtifact();
+			PreparedArtifact prepared = takePreparedArtifact();
+			if (prepared == null) prepared = stageArtifact();
+			boolean updated;
+			synchronized (processLifecycle) {
+				if (closed) {
+					deletePreparedArtifact(prepared);
+					return;
+				}
+				updated = activatePreparedArtifact(prepared);
+			}
 			if (updated) {
 				rollbackCandidateSha256 = settings.sha256();
 				rollbackPending = true;
@@ -208,15 +263,17 @@ public final class HostedControlManager implements AutoCloseable {
 		return false;
 	}
 
-	private boolean prepareArtifact() throws IOException, InterruptedException {
+	private PreparedArtifact stageArtifact() throws IOException, InterruptedException {
 		String installedSha256 = null;
 		if (Files.isRegularFile(settings.jarFile(), LinkOption.NOFOLLOW_LINKS)) {
 			installedSha256 = sha256(settings.jarFile());
 			if (settings.sha256().equals(installedSha256)) {
-				return false;
+				return new PreparedArtifact(null, true, installedSha256);
 			}
 			if (settings.sha256().equals(quarantinedSha256)) {
-				if (installedSha256.equals(trustedRollbackSha256)) return false;
+				if (installedSha256.equals(trustedRollbackSha256)) {
+					return new PreparedArtifact(null, true, installedSha256);
+				}
 				throw new IOException("Rolled-back Control artifact no longer matches its trusted digest");
 			}
 			trustedRollbackSha256 = installedSha256;
@@ -240,10 +297,47 @@ public final class HostedControlManager implements AutoCloseable {
 			if (!settings.sha256().equals(sha256(staged))) {
 				throw new IOException("Downloaded Control artifact failed SHA-256 verification");
 			}
-			activate(staged, installed, installedSha256);
+			return new PreparedArtifact(staged, installed, installedSha256);
+		} catch (IOException | InterruptedException | RuntimeException e) {
+			Files.deleteIfExists(staged);
+			throw e;
+		}
+	}
+
+	private boolean activatePreparedArtifact(PreparedArtifact prepared) throws IOException {
+		if (prepared.staged() == null) return false;
+		try {
+			boolean installed = Files.isRegularFile(settings.jarFile(), LinkOption.NOFOLLOW_LINKS);
+			String installedSha256 = installed ? sha256(settings.jarFile()) : null;
+			if (installed != prepared.installed()
+					|| !Objects.equals(installedSha256, prepared.installedSha256())) {
+				throw new IOException("Control artifact changed while its replacement was staged");
+			}
+			activate(prepared.staged(), installed, installedSha256);
 			return installed;
 		} finally {
-			Files.deleteIfExists(staged);
+			Files.deleteIfExists(prepared.staged());
+		}
+	}
+
+	private PreparedArtifact takePreparedArtifact() {
+		synchronized (preparationLifecycle) {
+			PreparedArtifact prepared = preparedArtifact;
+			preparedArtifact = null;
+			return prepared;
+		}
+	}
+
+	private void discardPreparedArtifact() {
+		deletePreparedArtifact(takePreparedArtifact());
+	}
+
+	private void deletePreparedArtifact(PreparedArtifact prepared) {
+		if (prepared == null || prepared.staged() == null) return;
+		try {
+			Files.deleteIfExists(prepared.staged());
+		} catch (IOException ignored) {
+			// The contained staging file is best-effort cleanup during shutdown.
 		}
 	}
 
@@ -375,6 +469,18 @@ public final class HostedControlManager implements AutoCloseable {
 		}
 		trustedRollbackSha256 = previousSha256;
 		quarantinedSha256 = candidateSha256;
+	}
+
+	/** Reads a matching quarantine without clearing state still owned by the active manager. */
+	private void loadPersistedQuarantineStateForPreparation() throws IOException {
+		String[] lines = readDigestState(settings.quarantineFile(), "quarantine");
+		if (lines == null || !settings.sha256().equals(lines[1])) return;
+		if (!Files.isRegularFile(settings.jarFile(), LinkOption.NOFOLLOW_LINKS)
+				|| !lines[0].equals(sha256(settings.jarFile()))) {
+			throw new IOException("Active Control artifact does not match quarantined rollback state");
+		}
+		trustedRollbackSha256 = lines[0];
+		quarantinedSha256 = lines[1];
 	}
 
 	private String[] readDigestState(Path marker, String name) throws IOException {
@@ -548,6 +654,7 @@ public final class HostedControlManager implements AutoCloseable {
 		} catch (RuntimeException failure) {
 			shutdownFailure = failure;
 		} finally {
+			discardPreparedArtifact();
 			executor.shutdownNow();
 		}
 		if (waitForProcess) {
@@ -682,6 +789,13 @@ public final class HostedControlManager implements AutoCloseable {
 		STARTING, DOWNLOADING, STARTING_PROCESS, RUNNING, ROLLED_BACK, FAILED, STOPPED
 	}
 
+	/** Platform configuration for the separate hosted Control process. */
+	public record HostConfiguration(boolean enabled, boolean autoDownload, boolean autoUpdate, String downloadUrl,
+			String sha256, String jarFile, String dataDirectory, String host, int port, int startupTimeoutSeconds,
+			int downloadTimeoutSeconds) { }
+
+	private record PreparedArtifact(Path staged, boolean installed, String installedSha256) { }
+
 	record Settings(Path rootDirectory, Path jarFile, Path dataDirectory, boolean autoDownload, boolean autoUpdate,
 			URI downloadUri, String sha256, String host, int port, int startupTimeoutSeconds,
 			int downloadTimeoutSeconds) {
@@ -709,6 +823,7 @@ public final class HostedControlManager implements AutoCloseable {
 					|| downloadTimeoutSeconds < 5 || downloadTimeoutSeconds > 300) {
 				throw new IllegalArgumentException("Control hosted bounds are invalid");
 			}
+			parseEndpoint(host, port);
 		}
 
 		Path previousFile() {
@@ -732,8 +847,16 @@ public final class HostedControlManager implements AutoCloseable {
 		}
 
 		URI endpoint() {
+			return parseEndpoint(host, port);
+		}
+
+		private static URI parseEndpoint(String host, int port) {
 			try {
-				return new URI("http", null, host, port, "/", null, null);
+				URI endpoint = new URI("http", null, host, port, "/", null, null);
+				if (endpoint.getHost() == null) {
+					throw new IllegalArgumentException("Control hosted endpoint is invalid");
+				}
+				return endpoint;
 			} catch (Exception e) {
 				throw new IllegalArgumentException("Control hosted endpoint is invalid");
 			}

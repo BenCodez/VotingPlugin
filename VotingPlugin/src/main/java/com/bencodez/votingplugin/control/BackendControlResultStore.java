@@ -17,6 +17,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.bencodez.votingplugin.util.DurableFiles;
+import com.bencodez.votingplugin.proxy.control.HostedControlManager.HostConfiguration;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -24,7 +25,8 @@ import com.google.gson.JsonParser;
 
 /** Durable result journal used to make locally applied Control operations restart-safe. */
 final class BackendControlResultStore {
-	private static final int VERSION = 2;
+	private static final int VERSION = 3;
+	private static final int LEGACY_VERSION = 2;
 	// A valid 512 KiB YAML result may expand up to sixfold when characters require JSON unicode escaping.
 	private static final int MAX_BYTES = 4 * 1024 * 1024;
 	private static final int MAX_RESULTS = 128;
@@ -53,11 +55,14 @@ final class BackendControlResultStore {
 			JsonElement parsed = JsonParser.parseString(new String(bytes, StandardCharsets.UTF_8));
 			if (!parsed.isJsonObject()) throw invalid();
 			JsonObject root = parsed.getAsJsonObject();
-			if (integer(root, "version") != VERSION) throw invalid();
+			int version = integer(root, "version");
+			if (version != VERSION && version != LEGACY_VERSION) throw invalid();
 			JsonObject routeJson = object(root, "route");
 			Route route = new Route(string(routeJson, "nodeId"), URI.create(string(routeJson, "endpoint")),
 					string(routeJson, "credentialFile"), integer(routeJson, "heartbeatSeconds"),
 					integer(routeJson, "connectTimeoutMillis"), integer(routeJson, "requestTimeoutMillis"));
+			HostConfiguration hosted = version == LEGACY_VERSION ? legacyHostedConfiguration()
+					: hostedConfiguration(object(root, "hosted"));
 			JsonArray listed = array(root, "results");
 			if (listed.size() == 0 || listed.size() > MAX_RESULTS) throw invalid();
 			Map<UUID, StoredResult> results = new LinkedHashMap<>();
@@ -74,13 +79,14 @@ final class BackendControlResultStore {
 								item.get("committed").getAsBoolean(), item.get("claimRequired").getAsBoolean()));
 				if (previous != null) throw invalid();
 			}
-			return new State(route, Map.copyOf(results));
+			return new State(route, hosted, Map.copyOf(results));
 		} catch (RuntimeException e) {
 			throw new IOException("Control pending-result journal is malformed", e);
 		}
 	}
 
-	static void save(Path dataDirectory, Route route, Map<UUID, StoredResult> results) throws IOException {
+	static void save(Path dataDirectory, Route route, HostConfiguration hosted,
+			Map<UUID, StoredResult> results) throws IOException {
 		Path target = target(dataDirectory);
 		if (results.isEmpty()) {
 			if (Files.isSymbolicLink(target)) throw new IOException("Control pending-result journal is unsafe");
@@ -102,6 +108,19 @@ final class BackendControlResultStore {
 		routeJson.addProperty("connectTimeoutMillis", route.connectTimeoutMillis());
 		routeJson.addProperty("requestTimeoutMillis", route.requestTimeoutMillis());
 		root.add("route", routeJson);
+		JsonObject hostedJson = new JsonObject();
+		hostedJson.addProperty("enabled", hosted.enabled());
+		hostedJson.addProperty("autoDownload", hosted.autoDownload());
+		hostedJson.addProperty("autoUpdate", hosted.autoUpdate());
+		hostedJson.addProperty("downloadUrl", hosted.downloadUrl());
+		hostedJson.addProperty("sha256", hosted.sha256());
+		hostedJson.addProperty("jarFile", hosted.jarFile());
+		hostedJson.addProperty("dataDirectory", hosted.dataDirectory());
+		hostedJson.addProperty("host", hosted.host());
+		hostedJson.addProperty("port", hosted.port());
+		hostedJson.addProperty("startupTimeoutSeconds", hosted.startupTimeoutSeconds());
+		hostedJson.addProperty("downloadTimeoutSeconds", hosted.downloadTimeoutSeconds());
+		root.add("hosted", hostedJson);
 		JsonArray listed = new JsonArray();
 		results.forEach((operationId, result) -> {
 			JsonObject item = new JsonObject();
@@ -152,6 +171,33 @@ final class BackendControlResultStore {
 		return value;
 	}
 
+	private static String optionalString(JsonObject object, String name) {
+		if (!object.has(name) || !object.get(name).isJsonPrimitive()) throw invalid();
+		String value = object.get(name).getAsString();
+		if (value == null || value.length() > 2048) throw invalid();
+		return value;
+	}
+
+	private static boolean bool(JsonObject object, String name) {
+		if (!object.has(name) || !object.get(name).isJsonPrimitive()) throw invalid();
+		return object.get(name).getAsBoolean();
+	}
+
+	private static HostConfiguration hostedConfiguration(JsonObject hosted) {
+		return new HostConfiguration(bool(hosted, "enabled"), bool(hosted, "autoDownload"),
+				bool(hosted, "autoUpdate"), optionalString(hosted, "downloadUrl"),
+				optionalString(hosted, "sha256"), string(hosted, "jarFile"),
+				string(hosted, "dataDirectory"), string(hosted, "host"), integer(hosted, "port"),
+				integer(hosted, "startupTimeoutSeconds"), integer(hosted, "downloadTimeoutSeconds"));
+	}
+
+	private static HostConfiguration legacyHostedConfiguration() {
+		// Version 2 predates Bukkit-hosted Control, so recovery must keep hosting disabled
+		// until the old connector route has submitted its pending result.
+		return new HostConfiguration(false, false, false, "", "", "control/votingplugin-control.jar",
+				"control/data", "127.0.0.1", 8080, 30, 60);
+	}
+
 	private static int integer(JsonObject object, String name) {
 		if (!object.has(name) || !object.get(name).isJsonPrimitive()) throw invalid();
 		return object.get(name).getAsInt();
@@ -168,5 +214,5 @@ final class BackendControlResultStore {
 			if (committed && claimRequired) throw new IllegalArgumentException("committed result cannot require a claim");
 		}
 	}
-	record State(Route route, Map<UUID, StoredResult> results) { }
+	record State(Route route, HostConfiguration hostedConfiguration, Map<UUID, StoredResult> results) { }
 }

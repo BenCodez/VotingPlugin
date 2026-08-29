@@ -30,6 +30,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.control.BackendControlResultStore.Route;
 import com.bencodez.votingplugin.control.BackendControlResultStore.StoredResult;
+import com.bencodez.votingplugin.proxy.control.HostedControlManager.HostConfiguration;
 import com.bencodez.votingplugin.util.BoundedHttpBodyHandler;
 import com.bencodez.votingplugin.util.ControlCredentialFile;
 import com.google.gson.JsonArray;
@@ -49,6 +50,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	private final Path dataDirectory;
 	private final Settings settings;
 	private final String credential;
+	private volatile HostConfiguration hostedConfiguration;
 	private final ScheduledExecutorService executor;
 	private final HttpClient http;
 	private final BackendConfigurationService configurations;
@@ -57,6 +59,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	private final boolean recovering;
 	private final AtomicBoolean running = new AtomicBoolean();
 	private final Object operationLifecycle = new Object();
+	private final Object journalLifecycle = new Object();
 	private volatile boolean closed;
 	private volatile boolean registered;
 	private volatile boolean operationsAccepted;
@@ -67,11 +70,12 @@ public final class BackendControlConnector implements AutoCloseable {
 	private volatile CompletableFuture<Void> activeOperation;
 
 	private BackendControlConnector(VotingPluginMain plugin, Path dataDirectory, Settings settings, String credential,
-			boolean recovering) {
+			HostConfiguration hostedConfiguration, boolean recovering) {
 		this.plugin = plugin;
 		this.dataDirectory = dataDirectory;
 		this.settings = settings;
 		this.credential = credential;
+		this.hostedConfiguration = hostedConfiguration;
 		this.recovering = recovering;
 		ThreadFactory factory = runnable -> {
 			Thread thread = new Thread(runnable, "votingplugin-control-backend");
@@ -89,7 +93,7 @@ public final class BackendControlConnector implements AutoCloseable {
 		synchronized (operationLifecycle) {
 			if (closed) throw new IllegalStateException("Bukkit Control connector is stopping");
 			reload = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
-				plugin.reload();
+				plugin.reloadFromControl();
 				if ("BungeeSettings.yml".equals(fileName)) plugin.restartBackendProxyHandler();
 				return null;
 			});
@@ -110,7 +114,8 @@ public final class BackendControlConnector implements AutoCloseable {
 		if (recovered != null) {
 			Settings settings = Settings.from(recovered.route());
 			String credential = ControlCredentialFile.read(root, settings.credentialFile());
-			BackendControlConnector connector = new BackendControlConnector(plugin, root, settings, credential, true);
+			BackendControlConnector connector = new BackendControlConnector(plugin, root, settings, credential,
+					recovered.hostedConfiguration(), true);
 			connector.completed.putAll(recovered.results());
 			return connector;
 		}
@@ -131,11 +136,22 @@ public final class BackendControlConnector implements AutoCloseable {
 				bounded(control.getInt("HeartbeatSeconds", 30), 10, 300, "HeartbeatSeconds"),
 				bounded(control.getInt("ConnectTimeoutMillis", 3000), 500, 30000, "ConnectTimeoutMillis"),
 				bounded(control.getInt("RequestTimeoutMillis", 10000), 500, 30000, "RequestTimeoutMillis"));
-		return new BackendControlConnector(plugin, root, settings, credential, false);
+		return new BackendControlConnector(plugin, root, settings, credential,
+				plugin.getActiveBackendHostedControlConfigurationSnapshot(), false);
+	}
+
+	/** Hosted settings that must remain active while a durable result is recovered. */
+	public static HostConfiguration recoveredHostedConfiguration(Path dataDirectory) throws IOException {
+		BackendControlResultStore.State recovered = BackendControlResultStore.load(dataDirectory);
+		return recovered == null ? null : recovered.hostedConfiguration();
 	}
 
 	public boolean hasPendingResults() {
 		synchronized (completed) { return !completed.isEmpty(); }
+	}
+
+	public boolean isClosed() {
+		return closed;
 	}
 
 	public void start() { schedule(0); }
@@ -303,7 +319,8 @@ public final class BackendControlConnector implements AutoCloseable {
 		}
 		boolean drained;
 		synchronized (completed) { drained = completed.isEmpty(); }
-		if (drained && (submitted.restartConnector() || recovering)) {
+		if (drained && (submitted.restartConnector() || recovering
+				|| plugin.hasDeferredBackendControlReconciliation())) {
 			plugin.getServer().getScheduler().runTask(plugin, plugin::restartBackendControlConnector);
 		}
 	}
@@ -327,9 +344,25 @@ public final class BackendControlConnector implements AutoCloseable {
 	}
 
 	private void persistCompleted() throws IOException {
-		Map<UUID, StoredResult> snapshot;
-		synchronized (completed) { snapshot = new LinkedHashMap<>(completed); }
-		BackendControlResultStore.save(dataDirectory, settings.route(), snapshot);
+		synchronized (journalLifecycle) {
+			Map<UUID, StoredResult> snapshot;
+			synchronized (completed) { snapshot = new LinkedHashMap<>(completed); }
+			if (!snapshot.isEmpty()) hostedConfiguration = plugin.getActiveBackendHostedControlConfigurationSnapshot();
+			BackendControlResultStore.save(dataDirectory, settings.route(), hostedConfiguration, snapshot);
+		}
+	}
+
+	/** Durably aligns pending results before the hosted lifecycle publishes a new active process. */
+	public void publishHostedConfiguration(HostConfiguration configuration, Runnable publication) throws IOException {
+		synchronized (journalLifecycle) {
+			Map<UUID, StoredResult> snapshot;
+			synchronized (completed) { snapshot = new LinkedHashMap<>(completed); }
+			if (!snapshot.isEmpty()) {
+				BackendControlResultStore.save(dataDirectory, settings.route(), configuration, snapshot);
+			}
+			hostedConfiguration = configuration;
+			publication.run();
+		}
 	}
 
 	private void persistIntent(UUID operationId, TaskResult anticipated, String attemptId) throws IOException {

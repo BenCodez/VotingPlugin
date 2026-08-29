@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.proxy.control;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -43,6 +44,21 @@ class HostedControlManagerTest {
 						"https://github.com/BenCodez/VotingPlugin-Control/releases/latest/download/control.jar"));
 		assertThrows(IllegalArgumentException.class, () -> settings(root.resolve("control.jar"), root.resolve("data"),
 				true, false, "not-a-digest", 30));
+	}
+
+	@Test
+	void platformNeutralFactoryKeepsHostingOptIn() {
+		HostedControlManager.HostConfiguration disabled = new HostedControlManager.HostConfiguration(false, true,
+				false, "", "", "control/control.jar", "control/data", "127.0.0.1", 8080, 30, 60);
+		assertNull(HostedControlManager.create(directory, disabled, message -> { }));
+		HostedControlManager.HostConfiguration escaping = new HostedControlManager.HostConfiguration(true, false,
+				false, "", "0".repeat(64), "../control.jar", "control/data", "127.0.0.1", 8080, 30, 60);
+		assertThrows(IllegalArgumentException.class,
+				() -> HostedControlManager.create(directory, escaping, message -> { }));
+		HostedControlManager.HostConfiguration invalidHost = new HostedControlManager.HostConfiguration(true, false,
+				false, "", "0".repeat(64), "control/control.jar", "control/data", "[", 8080, 30, 60);
+		assertThrows(IllegalArgumentException.class,
+				() -> HostedControlManager.create(directory, invalidHost, message -> { }));
 	}
 
 	@Test
@@ -194,6 +210,73 @@ class HostedControlManagerTest {
 		manager.runOnce();
 		assertEquals(HostedControlManager.Status.FAILED, manager.status());
 		assertEquals(2, launcher.launchedContents.size());
+		manager.close();
+	}
+
+	@Test
+	void replacementIsDownloadedAndVerifiedBeforeActiveArtifactChanges() throws Exception {
+		byte[] previous = "previous-release".getBytes(StandardCharsets.UTF_8);
+		byte[] update = "new-release".getBytes(StandardCharsets.UTF_8);
+		Path root = directory.toAbsolutePath().normalize();
+		Path jar = root.resolve("control/control.jar");
+		Files.createDirectories(jar.getParent());
+		Files.write(jar, previous);
+		HostedControlManager.Settings settings = settings(jar, root.resolve("control/data"), true, true,
+				digest(update), 30);
+		FakeLauncher launcher = new FakeLauncher();
+		HostedControlManager manager = new HostedControlManager(settings,
+				Executors.newSingleThreadScheduledExecutor(),
+				(source, target, maximum, timeout) -> Files.write(target, update), launcher,
+				(endpoint, timeout, launchId) -> true, millis -> { }, System::nanoTime, message -> { });
+
+		manager.prepareForReplacement();
+
+		assertEquals("previous-release", Files.readString(jar));
+		assertTrue(launcher.launchedContents.isEmpty());
+		assertTrue(manager.startAndWaitForInitialResult());
+		assertEquals(List.of("new-release"), launcher.launchedContents);
+		manager.close();
+	}
+
+	@Test
+	void unusableReplacementDoesNotChangeActiveArtifact() throws Exception {
+		byte[] previous = "previous-release".getBytes(StandardCharsets.UTF_8);
+		byte[] update = "new-release".getBytes(StandardCharsets.UTF_8);
+		Path root = directory.toAbsolutePath().normalize();
+		Path jar = root.resolve("control/control.jar");
+		Files.createDirectories(jar.getParent());
+		Files.write(jar, previous);
+		HostedControlManager.Settings settings = settings(jar, root.resolve("control/data"), true, false,
+				digest(update), 30);
+		FakeLauncher launcher = new FakeLauncher();
+		HostedControlManager manager = new HostedControlManager(settings,
+				Executors.newSingleThreadScheduledExecutor(),
+				(source, target, maximum, timeout) -> { throw new AssertionError("replacement downloaded"); },
+				launcher, (endpoint, timeout, launchId) -> true, millis -> { }, System::nanoTime, message -> { });
+
+		assertThrows(IOException.class, manager::prepareForReplacement);
+
+		assertEquals("previous-release", Files.readString(jar));
+		assertTrue(launcher.launchedContents.isEmpty());
+		manager.close();
+	}
+
+	@Test
+	void initialHealthFailureIsReportedToLifecycleCaller() throws Exception {
+		byte[] release = "new-release".getBytes(StandardCharsets.UTF_8);
+		Path root = directory.toAbsolutePath().normalize();
+		Path jar = root.resolve("control/control.jar");
+		HostedControlManager.Settings settings = settings(jar, root.resolve("control/data"), true, false,
+				digest(release), 1);
+		AtomicLong clock = new AtomicLong();
+		HostedControlManager manager = new HostedControlManager(settings,
+				Executors.newSingleThreadScheduledExecutor(),
+				(source, target, maximum, timeout) -> Files.write(target, release), new FakeLauncher(),
+				(endpoint, timeout, launchId) -> false,
+				millis -> clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(millis)), clock::get, message -> { });
+
+		assertFalse(manager.startAndWaitForInitialResult());
+		assertEquals(HostedControlManager.Status.FAILED, manager.status());
 		manager.close();
 	}
 

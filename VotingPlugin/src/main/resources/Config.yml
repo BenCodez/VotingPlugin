@@ -1165,6 +1165,24 @@ Webhooks:
 ###########################################
 
 Control:
+  # Optionally let this Bukkit/Paper backend provision and supervise VotingPlugin Control as a separate JVM.
+  # Enable this on only one proxy or backend in the network.
+  Hosted:
+    Enabled: false
+    # Download a missing artifact. An exact SHA-256 pin is always required.
+    AutoDownload: true
+    # Disabled by default. When enabled, a new configured SHA-256 may replace the installed artifact.
+    AutoUpdate: false
+    # Use a versioned release asset URL; /latest/ URLs are rejected.
+    DownloadUrl: ''
+    Sha256: ''
+    # Both paths must remain relative to this backend's VotingPlugin data folder.
+    JarFile: 'control/votingplugin-control.jar'
+    DataDirectory: 'control/data'
+    Host: '127.0.0.1'
+    Port: 8080
+    StartupTimeoutSeconds: 30
+    DownloadTimeoutSeconds: 60
   Backend:
     Enabled: false
     # Must be unique for every Bukkit/Paper backend in the network.
