@@ -60,11 +60,13 @@ public final class HostedControlManager implements AutoCloseable {
 	private final Consumer<String> logger;
 	private final AtomicBoolean workInProgress = new AtomicBoolean();
 	private final Object processLifecycle = new Object();
+	private final Object preparationLifecycle = new Object();
 	private volatile boolean closed;
 	private volatile Status status = Status.STARTING;
 	private volatile ManagedProcess managedProcess;
 	private volatile ManagedProcess exitAwaitedProcess;
 	private volatile Future<?> activeTask;
+	private volatile PreparedArtifact preparedArtifact;
 	private volatile int failures;
 	private volatile String quarantinedSha256;
 	private volatile String trustedRollbackSha256;
@@ -127,6 +129,21 @@ public final class HostedControlManager implements AutoCloseable {
 		activeTask = executor.submit(this::runOnce);
 	}
 
+	/** Downloads and verifies a replacement without disturbing the active process. */
+	public void prepareForReplacement() throws IOException, InterruptedException {
+		synchronized (preparationLifecycle) {
+			if (closed) throw new IOException("Hosted Control manager is closed");
+			if (activeTask != null || workInProgress.get()) {
+				throw new IOException("Hosted Control manager has already started");
+			}
+			if (preparedArtifact != null) return;
+			secureDirectory(settings.rootDirectory(), settings.jarFile().getParent());
+			secureDirectory(settings.rootDirectory(), settings.dataDirectory());
+			loadPersistedQuarantineStateForPreparation();
+			preparedArtifact = stageArtifact();
+		}
+	}
+
 	void runOnce() {
 		if (closed || !workInProgress.compareAndSet(false, true)) {
 			return;
@@ -148,7 +165,16 @@ public final class HostedControlManager implements AutoCloseable {
 				restoreIncompleteActivation();
 			}
 			recoverPersistedQuarantineState();
-			boolean updated = prepareArtifact();
+			PreparedArtifact prepared = takePreparedArtifact();
+			if (prepared == null) prepared = stageArtifact();
+			boolean updated;
+			synchronized (processLifecycle) {
+				if (closed) {
+					deletePreparedArtifact(prepared);
+					return;
+				}
+				updated = activatePreparedArtifact(prepared);
+			}
 			if (updated) {
 				rollbackCandidateSha256 = settings.sha256();
 				rollbackPending = true;
@@ -222,15 +248,17 @@ public final class HostedControlManager implements AutoCloseable {
 		return false;
 	}
 
-	private boolean prepareArtifact() throws IOException, InterruptedException {
+	private PreparedArtifact stageArtifact() throws IOException, InterruptedException {
 		String installedSha256 = null;
 		if (Files.isRegularFile(settings.jarFile(), LinkOption.NOFOLLOW_LINKS)) {
 			installedSha256 = sha256(settings.jarFile());
 			if (settings.sha256().equals(installedSha256)) {
-				return false;
+				return new PreparedArtifact(null, true, installedSha256);
 			}
 			if (settings.sha256().equals(quarantinedSha256)) {
-				if (installedSha256.equals(trustedRollbackSha256)) return false;
+				if (installedSha256.equals(trustedRollbackSha256)) {
+					return new PreparedArtifact(null, true, installedSha256);
+				}
 				throw new IOException("Rolled-back Control artifact no longer matches its trusted digest");
 			}
 			trustedRollbackSha256 = installedSha256;
@@ -254,10 +282,47 @@ public final class HostedControlManager implements AutoCloseable {
 			if (!settings.sha256().equals(sha256(staged))) {
 				throw new IOException("Downloaded Control artifact failed SHA-256 verification");
 			}
-			activate(staged, installed, installedSha256);
+			return new PreparedArtifact(staged, installed, installedSha256);
+		} catch (IOException | InterruptedException | RuntimeException e) {
+			Files.deleteIfExists(staged);
+			throw e;
+		}
+	}
+
+	private boolean activatePreparedArtifact(PreparedArtifact prepared) throws IOException {
+		if (prepared.staged() == null) return false;
+		try {
+			boolean installed = Files.isRegularFile(settings.jarFile(), LinkOption.NOFOLLOW_LINKS);
+			String installedSha256 = installed ? sha256(settings.jarFile()) : null;
+			if (installed != prepared.installed()
+					|| !Objects.equals(installedSha256, prepared.installedSha256())) {
+				throw new IOException("Control artifact changed while its replacement was staged");
+			}
+			activate(prepared.staged(), installed, installedSha256);
 			return installed;
 		} finally {
-			Files.deleteIfExists(staged);
+			Files.deleteIfExists(prepared.staged());
+		}
+	}
+
+	private PreparedArtifact takePreparedArtifact() {
+		synchronized (preparationLifecycle) {
+			PreparedArtifact prepared = preparedArtifact;
+			preparedArtifact = null;
+			return prepared;
+		}
+	}
+
+	private void discardPreparedArtifact() {
+		deletePreparedArtifact(takePreparedArtifact());
+	}
+
+	private void deletePreparedArtifact(PreparedArtifact prepared) {
+		if (prepared == null || prepared.staged() == null) return;
+		try {
+			Files.deleteIfExists(prepared.staged());
+		} catch (IOException ignored) {
+			// The contained staging file is best-effort cleanup during shutdown.
 		}
 	}
 
@@ -389,6 +454,18 @@ public final class HostedControlManager implements AutoCloseable {
 		}
 		trustedRollbackSha256 = previousSha256;
 		quarantinedSha256 = candidateSha256;
+	}
+
+	/** Reads a matching quarantine without clearing state still owned by the active manager. */
+	private void loadPersistedQuarantineStateForPreparation() throws IOException {
+		String[] lines = readDigestState(settings.quarantineFile(), "quarantine");
+		if (lines == null || !settings.sha256().equals(lines[1])) return;
+		if (!Files.isRegularFile(settings.jarFile(), LinkOption.NOFOLLOW_LINKS)
+				|| !lines[0].equals(sha256(settings.jarFile()))) {
+			throw new IOException("Active Control artifact does not match quarantined rollback state");
+		}
+		trustedRollbackSha256 = lines[0];
+		quarantinedSha256 = lines[1];
 	}
 
 	private String[] readDigestState(Path marker, String name) throws IOException {
@@ -562,6 +639,7 @@ public final class HostedControlManager implements AutoCloseable {
 		} catch (RuntimeException failure) {
 			shutdownFailure = failure;
 		} finally {
+			discardPreparedArtifact();
 			executor.shutdownNow();
 		}
 		if (waitForProcess) {
@@ -700,6 +778,8 @@ public final class HostedControlManager implements AutoCloseable {
 	public record HostConfiguration(boolean enabled, boolean autoDownload, boolean autoUpdate, String downloadUrl,
 			String sha256, String jarFile, String dataDirectory, String host, int port, int startupTimeoutSeconds,
 			int downloadTimeoutSeconds) { }
+
+	private record PreparedArtifact(Path staged, boolean installed, String installedSha256) { }
 
 	record Settings(Path rootDirectory, Path jarFile, Path dataDirectory, boolean autoDownload, boolean autoUpdate,
 			URI downloadUri, String sha256, String host, int port, int startupTimeoutSeconds,

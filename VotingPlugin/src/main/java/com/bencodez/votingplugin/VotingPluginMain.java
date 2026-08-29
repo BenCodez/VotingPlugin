@@ -825,7 +825,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		backendHostedControlConfiguration = replacementConfiguration;
 		backendHostedControlManager = replacement;
 		try {
-			backendHostedControlLifecycle.execute(() -> replaceBackendHostedControl(previous, replacement));
+			backendHostedControlLifecycle.execute(
+					() -> replaceBackendHostedControl(previous, previousConfiguration, replacement));
 		} catch (RejectedExecutionException e) {
 			backendHostedControlConfiguration = previousConfiguration;
 			backendHostedControlManager = previous;
@@ -834,7 +835,24 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 	}
 
-	private void replaceBackendHostedControl(HostedControlManager previous, HostedControlManager replacement) {
+	private void replaceBackendHostedControl(HostedControlManager previous,
+			HostedControlManager.HostConfiguration previousConfiguration, HostedControlManager replacement) {
+		if (replacement != null) {
+			try {
+				replacement.prepareForReplacement();
+			} catch (Exception e) {
+				synchronized (this) {
+					if (backendHostedControlManager == replacement) {
+						backendHostedControlManager = previous;
+						backendHostedControlConfiguration = previousConfiguration;
+						replacement.close();
+						getLogger().warning("[Control Host] Replacement provisioning failed; the current host is unchanged: "
+								+ e.getMessage());
+						return;
+					}
+				}
+			}
+		}
 		try {
 			if (previous != null) previous.closeAndWait();
 		} catch (RuntimeException e) {

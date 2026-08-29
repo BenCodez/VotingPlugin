@@ -214,6 +214,54 @@ class HostedControlManagerTest {
 	}
 
 	@Test
+	void replacementIsDownloadedAndVerifiedBeforeActiveArtifactChanges() throws Exception {
+		byte[] previous = "previous-release".getBytes(StandardCharsets.UTF_8);
+		byte[] update = "new-release".getBytes(StandardCharsets.UTF_8);
+		Path root = directory.toAbsolutePath().normalize();
+		Path jar = root.resolve("control/control.jar");
+		Files.createDirectories(jar.getParent());
+		Files.write(jar, previous);
+		HostedControlManager.Settings settings = settings(jar, root.resolve("control/data"), true, true,
+				digest(update), 30);
+		FakeLauncher launcher = new FakeLauncher();
+		HostedControlManager manager = new HostedControlManager(settings,
+				Executors.newSingleThreadScheduledExecutor(),
+				(source, target, maximum, timeout) -> Files.write(target, update), launcher,
+				(endpoint, timeout, launchId) -> true, millis -> { }, System::nanoTime, message -> { });
+
+		manager.prepareForReplacement();
+
+		assertEquals("previous-release", Files.readString(jar));
+		assertTrue(launcher.launchedContents.isEmpty());
+		manager.runOnce();
+		assertEquals(List.of("new-release"), launcher.launchedContents);
+		manager.close();
+	}
+
+	@Test
+	void unusableReplacementDoesNotChangeActiveArtifact() throws Exception {
+		byte[] previous = "previous-release".getBytes(StandardCharsets.UTF_8);
+		byte[] update = "new-release".getBytes(StandardCharsets.UTF_8);
+		Path root = directory.toAbsolutePath().normalize();
+		Path jar = root.resolve("control/control.jar");
+		Files.createDirectories(jar.getParent());
+		Files.write(jar, previous);
+		HostedControlManager.Settings settings = settings(jar, root.resolve("control/data"), true, false,
+				digest(update), 30);
+		FakeLauncher launcher = new FakeLauncher();
+		HostedControlManager manager = new HostedControlManager(settings,
+				Executors.newSingleThreadScheduledExecutor(),
+				(source, target, maximum, timeout) -> { throw new AssertionError("replacement downloaded"); },
+				launcher, (endpoint, timeout, launchId) -> true, millis -> { }, System::nanoTime, message -> { });
+
+		assertThrows(IOException.class, manager::prepareForReplacement);
+
+		assertEquals("previous-release", Files.readString(jar));
+		assertTrue(launcher.launchedContents.isEmpty());
+		manager.close();
+	}
+
+	@Test
 	void manualPinnedInstallNeedsNoDownloaderAndCloseIsNonBlocking() throws Exception {
 		byte[] release = "manual-release".getBytes(StandardCharsets.UTF_8);
 		Path root = directory.toAbsolutePath().normalize();
