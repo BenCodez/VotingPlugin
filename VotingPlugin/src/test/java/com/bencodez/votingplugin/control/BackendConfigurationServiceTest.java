@@ -378,7 +378,7 @@ class BackendConfigurationServiceTest {
 		assertTrue(preview.proposal().content().contains("# synchronized field"));
 		assertTrue(preview.changes().stream().noneMatch(change -> change.toLowerCase().contains("reward")));
 
-		service.applyQuickSetup("sync-vote-sites", Map.of("sourceContent", source), before.revision());
+		service.applyQuickSetup("sync-vote-sites", Map.of("sourceContent", source), preview.revision());
 		String applied = Files.readString(voteSites);
 		assertTrue(applied.contains("target reward"));
 		assertFalse(applied.contains("source reward"));
