@@ -160,8 +160,9 @@ Control:
 Blank `NodeId` reuses `BungeeSettings.Server`. The backend generates the raw credential locally and sends only its SHA-256
 verifier over the plugin-message channel. Velocity/BungeeCord binds the request to the actual backend server connection,
 requires that identity to equal `BungeeSettings.Server`, installs the verifier in its hosted Control, and returns a
-non-secret acknowledgement. The raw credential never leaves the backend. Requests retry safely after restarts and while no
-player is available to carry plugin messages.
+non-secret acknowledgement. The pending marker is removed only after the backend also authenticates to its configured
+Control endpoint, so an incorrect endpoint cannot strand a newly generated credential. The raw credential never leaves the
+backend. Requests retry safely after restarts and while no player is available to carry plugin messages.
 
 If a Bukkit server hosts its own Control and its endpoint addresses that local listener, the same generation and verifier
 installation happen locally. External Control installations, custom backend node IDs that differ from
