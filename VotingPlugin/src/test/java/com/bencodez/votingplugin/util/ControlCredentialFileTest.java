@@ -65,6 +65,21 @@ class ControlCredentialFileTest {
 		assertFalse(Files.exists(control.resolve("control-credential.txt.auto-enroll")));
 	}
 
+	@Test void enrollmentMarkerContainsOnlyBoundedNonSecretState() throws Exception {
+		Path root = Files.createDirectory(directory.resolve("marker-plugin"));
+		String configured = "control/control-credential.txt";
+		ControlCredentialFile.prepareAutoEnrollment(root, configured, "survival");
+		Path credential = root.resolve(configured);
+		Path marker = root.resolve(configured + ".auto-enroll");
+
+		String secret = Files.readString(credential);
+		String state = Files.readString(marker);
+		assertFalse(state.contains(secret));
+		Files.writeString(marker, state + "\nunexpected");
+		assertThrows(java.io.IOException.class,
+				() -> ControlCredentialFile.prepareAutoEnrollment(root, configured, "survival"));
+	}
+
 	@Test void readsContainedFileAndRejectsFileDirectoryAndTraversalEscapes() throws Exception {
 		Path root = Files.createDirectory(directory.resolve("plugin"));
 		Path outside = Files.createDirectory(directory.resolve("outside"));
