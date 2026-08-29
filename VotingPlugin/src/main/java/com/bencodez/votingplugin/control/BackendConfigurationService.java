@@ -325,13 +325,19 @@ public final class BackendConfigurationService {
 		String sourceRootKey = matchingKey(source, "VoteSites", true);
 		ConfigurationSection sourceSites = sourceRootKey == null ? null : source.getConfigurationSection(sourceRootKey);
 		if (sourceSites == null) throw new IllegalArgumentException("source VoteSites.yml has no VoteSites section");
+		List<String> mergeableSites = sourceSites.getKeys(false).stream().filter(site -> {
+			ConfigurationSection section = sourceSites.getConfigurationSection(site);
+			if (section == null) throw new IllegalArgumentException("source vote site " + site + " is not a section");
+			return hasNonRewardValue(section);
+		}).toList();
+		if (mergeableSites.isEmpty()) return;
 		String targetRootKey = matchingKey(target, "VoteSites", ignoreCase);
 		if (targetRootKey == null) targetRootKey = sourceRootKey;
 		ConfigurationSection targetSites = target.getConfigurationSection(targetRootKey);
 		if (targetSites == null) targetSites = target.createSection(targetRootKey);
 		target.setComments(targetRootKey, source.getComments(sourceRootKey));
 		target.setInlineComments(targetRootKey, source.getInlineComments(sourceRootKey));
-		for (String site : sourceSites.getKeys(false)) {
+		for (String site : mergeableSites) {
 			ConfigurationSection sourceSite = sourceSites.getConfigurationSection(site);
 			if (sourceSite == null) throw new IllegalArgumentException("source vote site " + site + " is not a section");
 			String targetSiteKey = matchingKey(targetSites, site, ignoreCase);
@@ -345,6 +351,19 @@ public final class BackendConfigurationService {
 			target.setInlineComments(targetPath, sourceSites.getInlineComments(site));
 			mergeNonRewardValues(sourceSite, target, targetPath, ignoreCase);
 		}
+	}
+
+	private static boolean hasNonRewardValue(ConfigurationSection source) {
+		for (String key : source.getKeys(false)) {
+			if (rewardKey(key)) continue;
+			Object value = source.get(key);
+			if (value instanceof ConfigurationSection section) {
+				if (hasNonRewardValue(section)) return true;
+			} else if (value != null && !REDACTED.equals(value)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static void mergeNonRewardValues(ConfigurationSection source, YamlConfiguration target,
@@ -451,12 +470,17 @@ public final class BackendConfigurationService {
 		for (String path : new ArrayList<>(yaml.getKeys(true))) {
 			if (!(yaml.get(path) instanceof ConfigurationSection) && secret(path)) {
 				Object value = yaml.get(path);
-				if (value != null && !String.valueOf(value).isBlank()) secretValues.add(String.valueOf(value));
+				if (value != null) addSecretValues(secretValues, String.valueOf(value));
 				yaml.set(path, REDACTED);
 			}
 		}
 		sanitizeCommentMetadata(yaml, secretValues);
 		return yaml.saveToString();
+	}
+
+	private static void addSecretValues(Set<String> values, String value) {
+		if (!value.isBlank()) values.add(value);
+		value.lines().map(String::trim).filter(line -> !line.isBlank()).forEach(values::add);
 	}
 
 	private static void sanitizeCommentMetadata(YamlConfiguration yaml, Set<String> secretValues) {

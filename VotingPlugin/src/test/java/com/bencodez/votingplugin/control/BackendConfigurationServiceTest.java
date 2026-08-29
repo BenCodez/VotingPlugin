@@ -135,6 +135,18 @@ class BackendConfigurationServiceTest {
 		assertTrue(read.content().contains("# This is true when enabled"));
 	}
 
+	@Test void redactsIndividualLinesFromMultilineSecretsInComments() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "Password: |\n  alpha-secret-part\n  beta-secret-part\n"
+				+ "# rotate alpha-secret-part soon\nFeature: false\n");
+
+		BackendConfigurationService.Document read = new BackendConfigurationService(directory, () -> { })
+				.read("Config.yml");
+
+		assertFalse(read.content().contains("alpha-secret-part"));
+		assertFalse(read.content().contains("beta-secret-part"));
+	}
+
 	@Test void rejectsStaleInvalidAndUnmanagedWrites() throws Exception {
 		Files.writeString(directory.resolve("Config.yml"), "Feature: false\n");
 		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
@@ -432,6 +444,18 @@ class BackendConfigurationServiceTest {
 				Map.of("sourceContent", "not: [yaml")));
 		assertThrows(IllegalArgumentException.class, () -> service.previewQuickSetup("sync-vote-sites",
 				Map.of("sourceContent", "Other: value\n")));
+	}
+
+	@Test void voteSitesSyncSkipsRewardOnlySites() throws Exception {
+		Files.writeString(directory.resolve("VoteSites.yml"), "VoteSites:\n  Existing:\n    Name: Existing\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("sync-vote-sites", Map.of(
+				"sourceContent", "VoteSites:\n  RewardOnly:\n    Rewards:\n      Commands: ['say ignored']\n"));
+
+		YamlConfiguration proposal = new YamlConfiguration();
+		proposal.loadFromString(preview.proposal().content());
+		assertFalse(proposal.contains("VoteSites.RewardOnly"));
 	}
 
 	@Test void fullBungeeSettingsRejectsUnknownTransportMethods() throws Exception {
