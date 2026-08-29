@@ -6,6 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.PosixFilePermission;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -23,6 +26,11 @@ class ControlCredentialFileTest {
 
 		assertTrue(Files.isRegularFile(credential));
 		assertEquals("", Files.readString(credential));
+		PosixFileAttributeView posix = Files.getFileAttributeView(credential, PosixFileAttributeView.class);
+		if (posix != null) {
+			assertEquals(Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE),
+					posix.readAttributes().permissions());
+		}
 	}
 
 	@Test void readsContainedFileAndRejectsFileDirectoryAndTraversalEscapes() throws Exception {
