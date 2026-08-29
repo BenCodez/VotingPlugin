@@ -403,7 +403,7 @@ class BackendConfigurationServiceTest {
 		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
 
 		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("sync-vote-sites", Map.of(
-				"sourceContent", "votesites:\n  PMC:\n    Name: Updated upper\n"));
+				"sourceContent", "votesites:\n  PMC:\n    name: Updated upper\n"));
 		YamlConfiguration proposal = new YamlConfiguration();
 		proposal.loadFromString(preview.proposal().content());
 
