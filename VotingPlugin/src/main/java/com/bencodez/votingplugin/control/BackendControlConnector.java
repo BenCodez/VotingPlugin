@@ -45,7 +45,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	private static final long SHUTDOWN_TIMEOUT_SECONDS = 65;
 	private static final Pattern NODE_ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,63}");
 	private static final Set<String> CAPABILITIES = Set.of("config.files.v1", "config.file-comments.v1",
-			"config.quick-setup.v1");
+			"config.quick-setup.v1", "config.vote-sites-sync.v1");
 
 	private final VotingPluginMain plugin;
 	private final Path dataDirectory;
@@ -682,7 +682,11 @@ public final class BackendControlConnector implements AutoCloseable {
 			config.addProperty("domain", "quick-setup");
 			config.addProperty("preset", preset);
 			JsonObject values = new JsonObject();
-			options.forEach(values::addProperty);
+			options.forEach((name, value) -> {
+				// The source document is an input to the merge, not result data. It
+				// may be large and must not be retained or echoed by Control.
+				if (!"sourceContent".equals(name)) values.addProperty(name, value);
+			});
 			config.add("options", values);
 			return new TaskResult(true, "OK", "Operation completed", revision, config, List.copyOf(changes),
 					reloaded, false, restartConnector);
