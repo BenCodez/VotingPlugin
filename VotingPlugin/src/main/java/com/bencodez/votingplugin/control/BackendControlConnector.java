@@ -500,7 +500,7 @@ public final class BackendControlConnector implements AutoCloseable {
 		if ("APPLY".equals(type)) {
 			BackendConfigurationService.QuickPreview preview = configurations.previewQuickSetup(preset, options);
 			persistIntent(operationId,
-					TaskResult.quick(preset, options, configurations.proposedQuickSetupRevision(preview), preview.changes(),
+					TaskResult.quick(preset, options, configurations.proposedQuickSetupRevision(preset, preview), preview.changes(),
 							true, "Config.yml".equals(preview.proposal().fileName())), string(task, "attemptId"));
 			BackendConfigurationService.ApplyResult applied = configurations.applyQuickSetup(preset, options,
 					string(task, "expectedRevision"));

@@ -42,7 +42,7 @@ public final class BackendConfigurationService {
 			"WaitUntilVoteDelay", "PermissionToView", "IgnoreCanVote", "VoteDelayDailyHour", "VoteDelayMin",
 			"GiveOffline");
 	private static final Pattern COMMENT_SECRET = Pattern.compile(
-			"(?i)(\\b(?:[\\w-]*(?:password|secret)[\\w-]*|token|api[ _-]?key|authorization|webhook[ _-]?url)"
+			"(?i)(\\b(?:[\\w-]*(?:password|secret)[\\w-]*|token|api[ _.-]?key|authorization|webhook[ _.-]?url)"
 					+ "\\b\\s*[:=]\\s*)(.*)$");
 	private static final Pattern SECRET_PATH_URL = Pattern.compile("(?i)(\\burl\\b\\s*[:=]\\s*)(.*)$");
 
@@ -197,8 +197,8 @@ public final class BackendConfigurationService {
 				changes(parse(current), parse(proposal.content())));
 	}
 
-	String proposedQuickSetupRevision(QuickPreview preview) {
-		return revision(preview.proposal().content());
+	String proposedQuickSetupRevision(String preset, QuickPreview preview) throws IOException {
+		return quickSetupRevision(preset, preview.proposal().content());
 	}
 
 	String currentQuickSetupRevision(String preset) throws IOException {
