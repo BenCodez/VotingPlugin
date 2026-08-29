@@ -171,7 +171,8 @@ joins, commands, or plugin shutdown. A successful `Config.yml` apply reports its
 so changes to `Control.Backend` take effect without a full server restart. If `Control.Hosted` changed, a dedicated daemon
 lifecycle worker waits for the existing child to stop only after that result is acknowledged, then starts the replacement
 with the new settings. This prevents the old and new children from racing for the same listener. Invalid host settings leave
-the currently running Control child unchanged.
+the currently running Control child unchanged. If the backend restarts with a pending result, the durable journal also
+restores the previous hosted settings until that result is acknowledged, preserving the recovery connector's endpoint.
 
 ## Discovery semantics
 

@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin;
 
 import java.io.File;
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
@@ -759,6 +760,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	private void startBackendHostedControl() {
 		HostedControlManager.HostConfiguration configuration = readBackendHostedControlConfiguration();
+		try {
+			HostedControlManager.HostConfiguration recovered = BackendControlConnector
+					.recoveredHostedConfiguration(getDataFolder().toPath());
+			if (recovered != null) {
+				configuration = recovered;
+				getLogger().info("[Control Host] Keeping the previous hosted settings until pending results are acknowledged");
+			}
+		} catch (IOException e) {
+			getLogger().warning("[Control Host] Pending hosted settings could not be recovered: " + e.getMessage());
+		}
 		backendHostedControlConfiguration = configuration;
 		if (!configuration.enabled()) return;
 		try {
@@ -785,6 +796,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				hosted.getString("DataDirectory", "control/data"), hosted.getString("Host", "127.0.0.1"),
 				hosted.getInt("Port", 8080), hosted.getInt("StartupTimeoutSeconds", 30),
 				hosted.getInt("DownloadTimeoutSeconds", 60));
+	}
+
+	/** Immutable active hosted settings captured in the durable Control result journal. */
+	public HostedControlManager.HostConfiguration getActiveBackendHostedControlConfigurationSnapshot() {
+		HostedControlManager.HostConfiguration active = backendHostedControlConfiguration;
+		return active == null ? readBackendHostedControlConfiguration() : active;
 	}
 
 	private synchronized void restartBackendHostedControlIfChanged() {
