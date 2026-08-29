@@ -66,6 +66,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	private volatile boolean registered;
 	private volatile boolean operationsAccepted;
 	private volatile boolean quickSetupsAccepted;
+	private volatile boolean voteSitesSyncAccepted;
 	private volatile int failures;
 	private volatile ScheduledFuture<?> scheduled;
 	private volatile Future<?> activeReload;
@@ -176,6 +177,7 @@ public final class BackendControlConnector implements AutoCloseable {
 			}
 			operationsAccepted = negotiatedCapability(node, "config.files.v1", operationsAccepted);
 			quickSetupsAccepted = negotiatedCapability(node, "config.quick-setup.v1", quickSetupsAccepted);
+			voteSitesSyncAccepted = negotiatedCapability(node, "config.vote-sites-sync.v1", voteSitesSyncAccepted);
 			try {
 				requireFileCapability(operationsAccepted);
 			} catch (ConnectorException incompatible) {
@@ -220,6 +222,7 @@ public final class BackendControlConnector implements AutoCloseable {
 		// A registration must explicitly establish required capabilities. Heartbeats may omit the unchanged set.
 		operationsAccepted = false;
 		quickSetupsAccepted = false;
+		voteSitesSyncAccepted = false;
 		JsonObject body = sessionBody();
 		body.addProperty("nodeId", settings.nodeId());
 		body.addProperty("displayName", settings.nodeId());
@@ -486,6 +489,9 @@ public final class BackendControlConnector implements AutoCloseable {
 			throws IOException {
 		if ("READ".equals(type)) return TaskResult.failure("UNSUPPORTED_TASK", "Quick setups cannot be read");
 		String preset = string(configuration, "preset");
+		if (!quickSetupCapabilityAccepted(preset, quickSetupsAccepted, voteSitesSyncAccepted)) {
+			return TaskResult.failure("UNSUPPORTED_TASK", "VoteSites sync was not negotiated");
+		}
 		Map<String, String> options = options(configuration.getAsJsonObject("options"));
 		if ("PREVIEW".equals(type)) {
 			BackendConfigurationService.QuickPreview preview = configurations.previewQuickSetup(preset, options);
@@ -502,6 +508,11 @@ public final class BackendControlConnector implements AutoCloseable {
 					"Config.yml".equals(applied.document().fileName()));
 		}
 		return TaskResult.failure("UNSUPPORTED_TASK", "Task type is unsupported");
+	}
+
+	static boolean quickSetupCapabilityAccepted(String preset, boolean quickSetupsAccepted,
+			boolean voteSitesSyncAccepted) {
+		return quickSetupsAccepted && (!"sync-vote-sites".equals(preset) || voteSitesSyncAccepted);
 	}
 
 	private Response send(String method, String path, JsonObject body) throws Exception {
