@@ -547,6 +547,7 @@ public final class HostedControlManager implements AutoCloseable {
 	private void installLocalAutoEnrollment() throws IOException, InterruptedException {
 		PendingAutoEnrollment enrollment = localAutoEnrollment;
 		if (enrollment == null) return;
+		requireTrustedInstalledArtifact();
 		verifierInstaller.install(settings, settings.jarFile(), enrollment.nodeId(), enrollment.verifier(),
 				Duration.ofSeconds(Math.min(30, settings.startupTimeoutSeconds())));
 		ControlCredentialFile.completeAutoEnrollment(enrollment);
@@ -574,6 +575,7 @@ public final class HostedControlManager implements AutoCloseable {
 							result.complete(false);
 							return;
 						}
+						requireTrustedInstalledArtifact();
 						verifierInstaller.install(settings, settings.jarFile(), nodeId, verifier,
 								Duration.ofSeconds(Math.min(30, settings.startupTimeoutSeconds())));
 						result.complete(true);
@@ -590,6 +592,16 @@ public final class HostedControlManager implements AutoCloseable {
 			}
 			return result;
 		});
+	}
+
+	private void requireTrustedInstalledArtifact() throws IOException {
+		if (!Files.isRegularFile(settings.jarFile(), LinkOption.NOFOLLOW_LINKS)) {
+			throw new IOException("Control artifact is unavailable");
+		}
+		String installed = sha256(settings.jarFile());
+		if (!settings.sha256().equals(installed) && !installed.equals(trustedRollbackSha256)) {
+			throw new IOException("Control artifact no longer matches a trusted digest");
+		}
 	}
 
 	private LaunchedProcess launch(Path artifact) throws IOException {
@@ -736,6 +748,8 @@ public final class HostedControlManager implements AutoCloseable {
 		} finally {
 			discardPreparedArtifact();
 			executor.shutdownNow();
+			enrollmentTasks.values().forEach(result -> result.complete(false));
+			enrollmentTasks.clear();
 		}
 		if (waitForProcess) {
 			long waitSeconds = (long) settings.downloadTimeoutSeconds() + settings.startupTimeoutSeconds() + 5L;
@@ -837,7 +851,7 @@ public final class HostedControlManager implements AutoCloseable {
 		return resolved;
 	}
 
-	/** True only for direct loopback HTTP to this hosted listener. */
+	/** True only for direct HTTP to this hosted listener on the same node. */
 	public static boolean isDirectLocalEndpoint(String configuredEndpoint, HostConfiguration hosted) {
 		if (hosted == null || !hosted.enabled() || configuredEndpoint == null) return false;
 		try {
@@ -847,7 +861,15 @@ public final class HostedControlManager implements AutoCloseable {
 			String path = endpoint.getPath();
 			boolean loopback = "localhost".equalsIgnoreCase(host) || "127.0.0.1".equals(host)
 					|| "::1".equals(host) || "0:0:0:0:0:0:0:1".equals(host);
-			return "http".equalsIgnoreCase(endpoint.getScheme()) && loopback && port == hosted.port()
+			String listenerHost = hosted.host() == null ? "" : hosted.host().trim();
+			boolean configuredListener = host != null && host.equalsIgnoreCase(listenerHost);
+			boolean listenerLoopback = "localhost".equalsIgnoreCase(listenerHost) || "127.0.0.1".equals(listenerHost)
+					|| "::1".equals(listenerHost) || "0:0:0:0:0:0:0:1".equals(listenerHost);
+			boolean listenerWildcard = "0.0.0.0".equals(listenerHost) || "::".equals(listenerHost)
+					|| "0:0:0:0:0:0:0:0".equals(listenerHost);
+			return "http".equalsIgnoreCase(endpoint.getScheme())
+					&& (configuredListener || (loopback && (listenerLoopback || listenerWildcard)))
+					&& port == hosted.port()
 					&& endpoint.getUserInfo() == null && endpoint.getQuery() == null && endpoint.getFragment() == null
 					&& (path == null || path.isEmpty() || "/".equals(path));
 		} catch (IllegalArgumentException e) {
