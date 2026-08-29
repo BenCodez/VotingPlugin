@@ -124,7 +124,7 @@ public class VotingPluginVelocity {
 	/**
 	 * Plugin messages received during reload are queued.
 	 */
-	private final Queue<byte[]> queuedPluginMessages = new ConcurrentLinkedQueue<byte[]>();
+	private final Queue<QueuedPluginMessage> queuedPluginMessages = new ConcurrentLinkedQueue<>();
 
 	@Inject
 	public VotingPluginVelocity(ProxyServer server, Logger logger, Metrics.Factory metricsFactory,
@@ -265,15 +265,16 @@ public class VotingPluginVelocity {
 		if (!(event.getSource() instanceof ServerConnection)) {
 			return;
 		}
+		String sourceServer = ((ServerConnection) event.getSource()).getServerInfo().getName();
 
 		if (reloading) {
 			byte[] copy = new byte[event.getData().length];
 			System.arraycopy(event.getData(), 0, copy, 0, event.getData().length);
-			queuedPluginMessages.add(copy);
+			queuedPluginMessages.add(new QueuedPluginMessage(sourceServer, copy));
 			return;
 		}
 
-		handlePluginMessageBytes(event.getData());
+		handlePluginMessageBytes(sourceServer, event.getData());
 	}
 
 	@Subscribe
@@ -986,22 +987,24 @@ public class VotingPluginVelocity {
 		server.getScheduler().buildTask(this, runnable).schedule();
 	}
 
-	private void handlePluginMessageBytes(byte[] data) {
+	private void handlePluginMessageBytes(String sourceServer, byte[] data) {
 		ByteArrayInputStream instream = new ByteArrayInputStream(data);
 		DataInputStream in = new DataInputStream(instream);
 		try {
-			getVotingPluginProxy().onPluginMessageReceived(in);
+			getVotingPluginProxy().onPluginMessageReceived(in, sourceServer);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
 
 	private void drainQueuedPluginMessages() {
-		byte[] msg;
+		QueuedPluginMessage msg;
 		while ((msg = queuedPluginMessages.poll()) != null) {
-			handlePluginMessageBytes(msg);
+			handlePluginMessageBytes(msg.sourceServer(), msg.data());
 		}
 	}
+
+	private record QueuedPluginMessage(String sourceServer, byte[] data) { }
 
 	/**
 	 * Convert old YAML cache files to JSON.
