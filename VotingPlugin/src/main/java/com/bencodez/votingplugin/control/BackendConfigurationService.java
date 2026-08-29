@@ -36,6 +36,10 @@ public final class BackendConfigurationService {
 	public static final int MAX_CONTENT_BYTES = 512 * 1024;
 	private static final Set<String> TOP_LEVEL = Set.of("Config.yml", "VoteSites.yml", "SpecialRewards.yml",
 			"GUI.yml", "Shop.yml", "BungeeSettings.yml");
+	private static final Set<String> VOTE_SITE_FIELDS = Set.of("AdvancedPriority", "Amount", "Chance",
+			"DisplayItem", "Enabled", "Fallback", "ForceOffline", "Hidden", "Items", "Material", "Messages",
+			"Name", "Player", "Priority", "ServiceSite", "VoteDelay", "VoteDelayDaily", "VoteURL",
+			"WaitUntilVoteDelay");
 	private static final Pattern COMMENT_SECRET = Pattern.compile(
 			"(?i)(\\b(?:[\\w-]*(?:password|secret)[\\w-]*|token|api[ _-]?key|authorization|webhook[ _-]?url)"
 					+ "\\b\\s*[:=]\\s*)(.*)$");
@@ -316,7 +320,7 @@ public final class BackendConfigurationService {
 		}
 		switch (method) {
 		case PLUGINMESSAGING:
-			if (settings.getString("PluginMessageChannel", "").isBlank()) {
+			if (settings.getString("PluginMessageChannel", "vp:vp").isBlank()) {
 				throw new IllegalArgumentException("PluginMessageChannel must be set");
 			}
 			break;
@@ -398,8 +402,10 @@ public final class BackendConfigurationService {
 		for (String key : source.getKeys(false)) {
 			if (rewardKey(key)) continue;
 			ConfigurationSection targetSection = target.getConfigurationSection(targetParent);
-			String targetKey = targetSection == null ? null : matchingKey(targetSection, key, ignoreCase);
-			String targetPath = targetParent + "." + (targetKey == null ? key : targetKey);
+			String canonicalKey = canonicalVoteSiteField(key);
+			String targetKey = targetSection == null ? null
+					: matchingKey(targetSection, canonicalKey, ignoreCase || !canonicalKey.equals(key));
+			String targetPath = targetParent + "." + (targetKey == null ? canonicalKey : targetKey);
 			Object value = source.get(key);
 			if (value instanceof ConfigurationSection section) {
 				if (target.getConfigurationSection(targetPath) == null) {
@@ -421,6 +427,10 @@ public final class BackendConfigurationService {
 		if (section.getKeys(false).contains(expected)) return expected;
 		if (!ignoreCase) return null;
 		return section.getKeys(false).stream().filter(key -> key.equalsIgnoreCase(expected)).findFirst().orElse(null);
+	}
+
+	private static String canonicalVoteSiteField(String key) {
+		return VOTE_SITE_FIELDS.stream().filter(field -> field.equalsIgnoreCase(key)).findFirst().orElse(key);
 	}
 
 	private static boolean rewardKey(String key) {
