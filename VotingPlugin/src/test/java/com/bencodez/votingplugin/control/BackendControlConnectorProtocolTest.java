@@ -76,6 +76,13 @@ class BackendControlConnectorProtocolTest {
 		assertTrue(BackendControlConnector.negotiatedCapability(explicit, "config.quick-setup.v1", false));
 	}
 
+	@Test void voteSitesSyncRequiresBothNegotiatedCapabilities() {
+		assertFalse(BackendControlConnector.quickSetupCapabilityAccepted("sync-vote-sites", true, false));
+		assertFalse(BackendControlConnector.quickSetupCapabilityAccepted("sync-vote-sites", false, true));
+		assertTrue(BackendControlConnector.quickSetupCapabilityAccepted("sync-vote-sites", true, true));
+		assertTrue(BackendControlConnector.quickSetupCapabilityAccepted("common-settings", true, false));
+	}
+
 	@Test void shutdownWaitsForTheClaimedBackendOperation() throws Exception {
 		var executor = Executors.newSingleThreadScheduledExecutor();
 		CompletableFuture<Void> operation = new CompletableFuture<>();
