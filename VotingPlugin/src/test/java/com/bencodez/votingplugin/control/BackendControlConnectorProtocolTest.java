@@ -55,6 +55,8 @@ class BackendControlConnectorProtocolTest {
 		JsonArray advertised = registration.getAsJsonArray("capabilities");
 		assertTrue(advertised.asList().stream()
 				.anyMatch(value -> "config.file-comments.v1".equals(value.getAsString())));
+		assertTrue(advertised.asList().stream()
+				.anyMatch(value -> "config.vote-sites-sync.v1".equals(value.getAsString())));
 		JsonArray required = registration.getAsJsonArray("requiredCapabilities");
 		assertTrue(required.asList().stream()
 				.anyMatch(value -> "config.files.v1".equals(value.getAsString())));
