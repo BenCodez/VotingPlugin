@@ -180,6 +180,7 @@ public final class BackendControlConnector implements AutoCloseable {
 				throw incompatible;
 			}
 			registered = true;
+			plugin.backendControlAuthenticated();
 			if (closed) return;
 			if (operationsAccepted) {
 				CompletableFuture<Void> operation = new CompletableFuture<>();
