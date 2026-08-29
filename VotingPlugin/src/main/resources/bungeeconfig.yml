@@ -484,10 +484,11 @@ MultiProxyServers:
 Control:
   Enabled: false
   Endpoint: 'http://127.0.0.1:8080'
-  # Blank reuses ProxyServerName. This must match the identity enrolled in Control.
+  # Blank reuses ProxyServerName.
   NodeId: ''
-  # Relative to the VotingPlugin proxy data folder. VotingPlugin creates it blank automatically.
-  # Paste only the enrollment credential into this file.
+  # Relative to the VotingPlugin proxy data folder. When this connector points to its own
+  # hosted Control listener, VotingPlugin generates and enrolls this credential automatically.
+  # External Control installations still create a blank file for manual enrollment.
   CredentialFile: 'control/control-credential.txt'
   HeartbeatSeconds: 30
   ConnectTimeoutMillis: 3000
