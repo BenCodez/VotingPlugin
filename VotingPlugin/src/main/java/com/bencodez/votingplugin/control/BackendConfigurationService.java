@@ -39,7 +39,8 @@ public final class BackendConfigurationService {
 	private static final Set<String> VOTE_SITE_FIELDS = Set.of("AdvancedPriority", "Amount", "Chance",
 			"DisplayItem", "Enabled", "Fallback", "ForceOffline", "Hidden", "Items", "Material", "Messages",
 			"Name", "Player", "Priority", "ServiceSite", "VoteDelay", "VoteDelayDaily", "VoteURL",
-			"WaitUntilVoteDelay");
+			"WaitUntilVoteDelay", "PermissionToView", "IgnoreCanVote", "VoteDelayDailyHour", "VoteDelayMin",
+			"GiveOffline");
 	private static final Pattern COMMENT_SECRET = Pattern.compile(
 			"(?i)(\\b(?:[\\w-]*(?:password|secret)[\\w-]*|token|api[ _-]?key|authorization|webhook[ _-]?url)"
 					+ "\\b\\s*[:=]\\s*)(.*)$");
@@ -192,7 +193,8 @@ public final class BackendConfigurationService {
 		String fileName = quickSetupFile(preset);
 		String current = readRaw(resolve(fileName), false);
 		QuickProposal proposal = quickProposal(preset, options, fileName, current);
-		return new QuickPreview(proposal, revision(current), changes(parse(current), parse(proposal.content())));
+		return new QuickPreview(proposal, quickSetupRevision(preset, current),
+				changes(parse(current), parse(proposal.content())));
 	}
 
 	String proposedQuickSetupRevision(QuickPreview preview) {
@@ -200,16 +202,29 @@ public final class BackendConfigurationService {
 	}
 
 	String currentQuickSetupRevision(String preset) throws IOException {
-		return read(quickSetupFile(preset)).revision();
+		return quickSetupRevision(preset, readRaw(resolve(quickSetupFile(preset)), false));
 	}
 
 	public ApplyResult applyQuickSetup(String preset, Map<String, String> options, String expectedRevision)
 			throws IOException {
 		String fileName = quickSetupFile(preset);
 		String current = readRaw(resolve(fileName), false);
-		if (expectedRevision == null || !revision(current).equals(expectedRevision)) throw new StaleRevisionException();
+		if (expectedRevision == null || !quickSetupRevision(preset, current).equals(expectedRevision)) {
+			throw new StaleRevisionException();
+		}
 		QuickProposal proposal = quickProposal(preset, options, fileName, current);
-		return apply(proposal.fileName(), proposal.content(), expectedRevision);
+		ApplyResult applied = apply(proposal.fileName(), proposal.content(), revision(current));
+		if (!"sync-vote-sites".equals(preset)) return applied;
+		Document document = applied.document();
+		String installed = readRaw(resolve(fileName), false);
+		return new ApplyResult(new Document(document.fileName(), document.content(),
+				quickSetupRevision(preset, installed)), applied.changes(), applied.rolledBack());
+	}
+
+	private String quickSetupRevision(String preset, String current) throws IOException {
+		if (!"sync-vote-sites".equals(preset)) return revision(current);
+		String policy = Files.exists(resolve("Config.yml")) ? readRaw(resolve("Config.yml"), false) : "";
+		return revision(current + "\0" + policy);
 	}
 
 	private static String quickSetupFile(String preset) {
@@ -228,7 +243,9 @@ public final class BackendConfigurationService {
 			String sourceContent = options == null ? null : options.get("sourceContent");
 			YamlConfiguration source = parse(sourceContent);
 			mergeVoteSites(source, yaml, caseInsensitiveYmlFiles());
-			return new QuickProposal(fileName, yaml.saveToString());
+			String merged = yaml.saveToString();
+			ensureBounded(merged);
+			return new QuickProposal(fileName, merged);
 		}
 		if ("standalone".equals(preset) || "proxy-backend".equals(preset)) {
 			boolean proxy = "proxy-backend".equals(preset);
@@ -455,7 +472,7 @@ public final class BackendConfigurationService {
 		List<String> sanitized = new ArrayList<>(comments.size());
 		for (String original : comments) {
 			String comment = original;
-			for (String value : secretValues) {
+			for (String value : secretValues.stream().sorted(java.util.Comparator.comparingInt(String::length).reversed()).toList()) {
 				if (safeSecretValue(value)) comment = comment.replace(value, REDACTED);
 			}
 			comment = COMMENT_SECRET.matcher(comment).replaceAll("$1" + REDACTED);
