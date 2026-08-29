@@ -86,15 +86,32 @@ class BackendConfigurationServiceTest {
 		Files.writeString(config, "# Password: commented-secret\n"
 				+ "Database:\n"
 				+ "  Password: active-secret # rotate active-secret soon\n"
-				+ "Feature: true # Token=comment-token\n");
+				+ "Feature: true # Token=comment-token\n"
+				+ "Other: true # Authorization: Bearer old-token\n"
+				+ "Hook: true # WebhookURL: https://example.invalid/private hook\n"
+				+ "Quoted: true # DatabasePassword: \"two words\"\n");
 		BackendConfigurationService.Document read = new BackendConfigurationService(directory, () -> { })
 				.read("Config.yml");
 
 		assertFalse(read.content().contains("commented-secret"));
 		assertFalse(read.content().contains("active-secret"));
 		assertFalse(read.content().contains("comment-token"));
+		assertFalse(read.content().contains("Bearer old-token"));
+		assertFalse(read.content().contains("example.invalid"));
+		assertFalse(read.content().contains("two words"));
 		assertTrue(read.content().contains("# Password: " + BackendConfigurationService.REDACTED));
 		assertTrue(read.content().contains("# rotate " + BackendConfigurationService.REDACTED + " soon"));
+	}
+
+	@Test void doesNotRewriteHashTextInsideBlockScalars() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "Message: |\n  # Password: this is message text\nFeature: false\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.Document read = service.read("Config.yml");
+		assertTrue(read.content().contains("# Password: this is message text"));
+		service.apply("Config.yml", read.content().replace("Feature: false", "Feature: true"), read.revision());
+		assertTrue(Files.readString(config).contains("# Password: this is message text"));
 	}
 
 	@Test void rejectsStaleInvalidAndUnmanagedWrites() throws Exception {
@@ -349,6 +366,22 @@ class BackendConfigurationServiceTest {
 		assertTrue(applied.contains("TargetOnly"));
 		assertTrue(applied.contains("NewSite"));
 		assertTrue(applied.contains("# Planet Minecraft settings"));
+	}
+
+	@Test void voteSitesSyncMatchesRootSitesAndFieldsCaseInsensitively() throws Exception {
+		Files.writeString(directory.resolve("VoteSites.yml"), "votesites:\n  pmc:\n    name: Target\n    Rewards:\n      Commands: ['keep']\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("sync-vote-sites", Map.of(
+				"sourceContent", "VOTESITES:\n  PMC:\n    Name: Source\n    VoteURL: https://example.invalid/vote\n"));
+		YamlConfiguration proposal = new YamlConfiguration();
+		proposal.loadFromString(preview.proposal().content());
+
+		assertEquals("Source", proposal.getString("votesites.pmc.name"));
+		assertEquals("https://example.invalid/vote", proposal.getString("votesites.pmc.VoteURL"));
+		assertEquals(List.of("keep"), proposal.getStringList("votesites.pmc.Rewards.Commands"));
+		assertEquals(1, proposal.getKeys(false).size());
+		assertEquals(1, proposal.getConfigurationSection("votesites").getKeys(false).size());
 	}
 
 	@Test void voteSitesSyncRejectsMalformedOrMissingSourceSections() throws Exception {

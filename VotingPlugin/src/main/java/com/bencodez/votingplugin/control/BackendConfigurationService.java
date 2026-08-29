@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.bukkit.configuration.ConfigurationSection;
@@ -38,7 +37,8 @@ public final class BackendConfigurationService {
 	private static final Set<String> TOP_LEVEL = Set.of("Config.yml", "VoteSites.yml", "SpecialRewards.yml",
 			"GUI.yml", "Shop.yml", "BungeeSettings.yml");
 	private static final Pattern COMMENT_SECRET = Pattern.compile(
-			"(?i)(\\b(?:password|token|secret|credential|api[ _-]?key)\\b\\s*[:=]\\s*)([^\\s#]+)");
+			"(?i)(\\b(?:[\\w-]*(?:password|secret)[\\w-]*|token|api[ _-]?key|authorization|webhook[ _-]?url)"
+					+ "\\b\\s*[:=]\\s*)(.*)$");
 
 	private final Path dataDirectory;
 	private final ApplyAction reload;
@@ -292,16 +292,21 @@ public final class BackendConfigurationService {
 	}
 
 	private static void mergeVoteSites(YamlConfiguration source, YamlConfiguration target) {
-		ConfigurationSection sourceSites = source.getConfigurationSection("VoteSites");
+		String sourceRootKey = keyIgnoreCase(source, "VoteSites");
+		ConfigurationSection sourceSites = sourceRootKey == null ? null : source.getConfigurationSection(sourceRootKey);
 		if (sourceSites == null) throw new IllegalArgumentException("source VoteSites.yml has no VoteSites section");
-		ConfigurationSection targetSites = target.getConfigurationSection("VoteSites");
-		if (targetSites == null) targetSites = target.createSection("VoteSites");
-		target.setComments("VoteSites", source.getComments("VoteSites"));
-		target.setInlineComments("VoteSites", source.getInlineComments("VoteSites"));
+		String targetRootKey = keyIgnoreCase(target, "VoteSites");
+		if (targetRootKey == null) targetRootKey = sourceRootKey;
+		ConfigurationSection targetSites = target.getConfigurationSection(targetRootKey);
+		if (targetSites == null) targetSites = target.createSection(targetRootKey);
+		target.setComments(targetRootKey, source.getComments(sourceRootKey));
+		target.setInlineComments(targetRootKey, source.getInlineComments(sourceRootKey));
 		for (String site : sourceSites.getKeys(false)) {
 			ConfigurationSection sourceSite = sourceSites.getConfigurationSection(site);
 			if (sourceSite == null) throw new IllegalArgumentException("source vote site " + site + " is not a section");
-			String targetPath = "VoteSites." + site;
+			String targetSiteKey = keyIgnoreCase(targetSites, site);
+			if (targetSiteKey == null) targetSiteKey = site;
+			String targetPath = targetRootKey + "." + targetSiteKey;
 			if (target.getConfigurationSection(targetPath) == null) {
 				target.set(targetPath, null);
 				target.createSection(targetPath);
@@ -316,7 +321,9 @@ public final class BackendConfigurationService {
 			String targetParent) {
 		for (String key : source.getKeys(false)) {
 			if (rewardKey(key)) continue;
-			String targetPath = targetParent + "." + key;
+			ConfigurationSection targetSection = target.getConfigurationSection(targetParent);
+			String targetKey = targetSection == null ? null : keyIgnoreCase(targetSection, key);
+			String targetPath = targetParent + "." + (targetKey == null ? key : targetKey);
 			Object value = source.get(key);
 			if (value instanceof ConfigurationSection section) {
 				if (target.getConfigurationSection(targetPath) == null) {
@@ -332,6 +339,10 @@ public final class BackendConfigurationService {
 				target.setInlineComments(targetPath, source.getInlineComments(key));
 			}
 		}
+	}
+
+	private static String keyIgnoreCase(ConfigurationSection section, String expected) {
+		return section.getKeys(false).stream().filter(key -> key.equalsIgnoreCase(expected)).findFirst().orElse(null);
 	}
 
 	private static boolean rewardKey(String key) {
@@ -406,37 +417,26 @@ public final class BackendConfigurationService {
 				yaml.set(path, REDACTED);
 			}
 		}
-		return sanitizeComments(yaml.saveToString(), secretValues);
+		sanitizeCommentMetadata(yaml, secretValues);
+		return yaml.saveToString();
 	}
 
-	private static String sanitizeComments(String content, Set<String> secretValues) {
-		StringBuilder sanitized = new StringBuilder(content.length());
-		for (String line : content.split("\\n", -1)) {
-			int commentStart = commentStart(line);
-			if (commentStart >= 0) {
-				String comment = line.substring(commentStart);
-				for (String value : secretValues) comment = comment.replace(value, REDACTED);
-				Matcher matcher = COMMENT_SECRET.matcher(comment);
-				comment = matcher.replaceAll("$1" + REDACTED);
-				line = line.substring(0, commentStart) + comment;
-			}
-			sanitized.append(line).append('\n');
+	private static void sanitizeCommentMetadata(YamlConfiguration yaml, Set<String> secretValues) {
+		for (String path : new ArrayList<>(yaml.getKeys(true))) {
+			yaml.setComments(path, sanitizeComments(yaml.getComments(path), secretValues));
+			yaml.setInlineComments(path, sanitizeComments(yaml.getInlineComments(path), secretValues));
 		}
-		return sanitized.substring(0, sanitized.length() - 1);
 	}
 
-	private static int commentStart(String line) {
-		boolean singleQuoted = false;
-		boolean doubleQuoted = false;
-		for (int index = 0; index < line.length(); index++) {
-			char current = line.charAt(index);
-			if (current == '\'' && !doubleQuoted) singleQuoted = !singleQuoted;
-			else if (current == '"' && !singleQuoted && (index == 0 || line.charAt(index - 1) != '\\')) {
-				doubleQuoted = !doubleQuoted;
-			} else if (current == '#' && !singleQuoted && !doubleQuoted
-					&& (index == 0 || Character.isWhitespace(line.charAt(index - 1)))) return index;
+	private static List<String> sanitizeComments(List<String> comments, Set<String> secretValues) {
+		List<String> sanitized = new ArrayList<>(comments.size());
+		for (String original : comments) {
+			String comment = original;
+			for (String value : secretValues) comment = comment.replace(value, REDACTED);
+			comment = COMMENT_SECRET.matcher(comment).replaceAll("$1" + REDACTED);
+			sanitized.add(comment);
 		}
-		return -1;
+		return sanitized;
 	}
 
 	private static YamlConfiguration resolveSecrets(YamlConfiguration proposal, YamlConfiguration current) {
