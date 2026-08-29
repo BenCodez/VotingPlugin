@@ -89,7 +89,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	/**
 	 * Plugin messages received during reload are queued and replayed after reload.
 	 */
-	private final Queue<byte[]> queuedPluginMessages = new ConcurrentLinkedQueue<byte[]>();
+	private final Queue<QueuedPluginMessage> queuedPluginMessages = new ConcurrentLinkedQueue<>();
 
 	/**
 	 * Logs debug output if enabled in config.
@@ -279,16 +279,17 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			debug("Ignore plugin message (not from server)");
 			return;
 		}
+		String sourceServer = ((Server) ev.getSender()).getInfo().getName();
 
 		// During reload, queue and replay later to avoid calling into disposed runtime
 		if (reloading) {
 			byte[] copy = new byte[ev.getData().length];
 			System.arraycopy(ev.getData(), 0, copy, 0, ev.getData().length);
-			queuedPluginMessages.add(copy);
+			queuedPluginMessages.add(new QueuedPluginMessage(sourceServer, copy));
 			return;
 		}
 
-		handlePluginMessageBytes(ev.getData());
+		handlePluginMessageBytes(sourceServer, ev.getData());
 	}
 
 	/**
@@ -896,11 +897,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	 *
 	 * @param data payload bytes
 	 */
-	private void handlePluginMessageBytes(byte[] data) {
+	private void handlePluginMessageBytes(String sourceServer, byte[] data) {
 		ByteArrayInputStream instream = new ByteArrayInputStream(data);
 		DataInputStream in = new DataInputStream(instream);
 		try {
-			getVotingPluginProxy().onPluginMessageReceived(in);
+			getVotingPluginProxy().onPluginMessageReceived(in, sourceServer);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -910,13 +911,15 @@ public class VotingPluginBungee extends Plugin implements Listener {
 	 * Replays queued plugin messages after reload completes.
 	 */
 	private void drainQueuedPluginMessages() {
-		byte[] msg;
+		QueuedPluginMessage msg;
 		while ((msg = queuedPluginMessages.poll()) != null) {
 			try {
-				handlePluginMessageBytes(msg);
+				handlePluginMessageBytes(msg.sourceServer(), msg.data());
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
 		}
 	}
+
+	private record QueuedPluginMessage(String sourceServer, byte[] data) { }
 }
