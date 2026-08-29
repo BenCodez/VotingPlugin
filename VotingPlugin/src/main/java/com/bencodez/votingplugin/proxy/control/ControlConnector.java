@@ -666,18 +666,23 @@ public final class ControlConnector implements AutoCloseable {
 		}
 		String type = requireString(task, "type");
 		try {
-			JsonObject options = requested.getAsJsonObject("options");
-			ProxyMethodConfiguration proposal = new ProxyMethodConfiguration(
-					ProxyMethodConfigurationService.canonical(requireString(options, "method")));
 			ProxyMethodConfiguration current = methodConfigurationService.read();
-			methodConfigurationService.validate(proposal);
-			List<String> changes = proposal.changesFrom(current);
 			if ("READ".equals(type)) {
 				JsonObject response = requested.deepCopy();
-				response.getAsJsonObject("options").addProperty("method", current.method().name());
+				JsonObject responseOptions = response.getAsJsonObject("options");
+				if (responseOptions == null) {
+					responseOptions = new JsonObject();
+					response.add("options", responseOptions);
+				}
+				responseOptions.addProperty("method", current.method().name());
 				return completed(TaskResult.success(current.revision(), response, List.of(), false,
 						"Current proxy method is " + current.method().name()));
 			}
+			JsonObject options = requested.getAsJsonObject("options");
+			ProxyMethodConfiguration proposal = new ProxyMethodConfiguration(
+					ProxyMethodConfigurationService.canonical(requireString(options, "method")));
+			methodConfigurationService.validate(proposal);
+			List<String> changes = proposal.changesFrom(current);
 			if ("PREVIEW".equals(type)) return completed(TaskResult.success(current.revision(), requested.deepCopy(),
 					changes, false, "Required settings are present; runtime restart will follow apply"));
 			if (!"APPLY".equals(type)) return completed(TaskResult.failure("UNSUPPORTED_TASK", "Task type is unsupported"));

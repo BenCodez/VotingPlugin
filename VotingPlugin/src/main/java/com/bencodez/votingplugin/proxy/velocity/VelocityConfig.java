@@ -785,20 +785,24 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 		ConfigurationNode db = getNode("Database");
 		if (isSection(db)) {
 			String host = getString(getNode("Database", "Host"), "");
-			return host != null && !host.isEmpty();
+			String database = getString(getNode("Database", "Database"), "");
+			return host != null && !host.isEmpty() && database != null && !database.isEmpty();
 		}
 
 		// Legacy-style: Host at root
 		String host = getString(getNode("Host"), "");
 		if (host != null && !host.isEmpty()) {
-			return true;
+			String database = getString(getNode("Database"), "");
+			return database != null && !database.isEmpty();
 		}
 
 		// Optional older style some setups used: MySQL.Host
 		ConfigurationNode mysql = getNode("MySQL");
 		if (isSection(mysql)) {
 			String mysqlHost = getString(getNode("MySQL", "Host"), "");
-			return mysqlHost != null && !mysqlHost.isEmpty();
+			String mysqlDatabase = getString(getNode("MySQL", "Database"), "");
+			return mysqlHost != null && !mysqlHost.isEmpty()
+					&& mysqlDatabase != null && !mysqlDatabase.isEmpty();
 		}
 
 		return false;

@@ -779,12 +779,12 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 		// New-style: Database: { Host: ..., ... }
 		Configuration db = sectionOrNull(data, "Database");
 		if (db != null) {
-			return db.getString("Host", "") != null && !db.getString("Host", "").isEmpty();
+			return !db.getString("Host", "").isEmpty() && !db.getString("Database", "").isEmpty();
 		}
 
 		// Legacy-style: Host/Port/... at root
 		String host = data.getString("Host", "");
-		return host != null && !host.isEmpty();
+		return host != null && !host.isEmpty() && !data.getString("Database", "").isEmpty();
 	}
 
 }
