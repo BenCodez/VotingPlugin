@@ -369,7 +369,7 @@ public final class BackendConfigurationService {
 		List<String> sanitized = new ArrayList<>(comments.size());
 		for (String original : comments) {
 			String comment = original;
-			for (String value : secretValues) {
+			for (String value : secretValues.stream().sorted(java.util.Comparator.comparingInt(String::length).reversed()).toList()) {
 				if (safeSecretValue(value)) comment = comment.replace(value, REDACTED);
 			}
 			comment = COMMENT_SECRET.matcher(comment).replaceAll("$1" + REDACTED);
