@@ -32,10 +32,15 @@ public class MqttBackendProxyTransport implements BackendProxyTransport {
 			mqttHandler.subscribeEnvelopes(plugin.getBungeeSettings().getMqttPrefix() + "votingplugin/servers/"
 					+ plugin.getOptions().getServer(), (topic, envelope) -> messageHandler.onMessage(envelope));
 		} catch (MqttException e) {
-			e.printStackTrace();
+			throw new IllegalStateException("MQTT backend proxy transport initialization failed", e);
 		} catch (Exception e) {
-			e.printStackTrace();
+			throw new IllegalStateException("MQTT backend proxy transport initialization failed", e);
 		}
+	}
+
+	@Override
+	public void validate() {
+		if (mqttHandler == null) throw new IllegalStateException("MQTT backend proxy transport initialization failed");
 	}
 
 	@Override
@@ -52,7 +57,27 @@ public class MqttBackendProxyTransport implements BackendProxyTransport {
 	}
 
 	@Override
+	public void prepareForReplacement() {
+		if (mqttHandler != null) {
+			try {
+				mqttHandler.disconnect();
+			} catch (Exception e) {
+				throw new IllegalStateException("Unable to disconnect the MQTT backend transport", e);
+			}
+			mqttHandler = null;
+		}
+	}
+
+	@Override
 	public void close() {
-		// Preserve current MQTT lifecycle behavior.
+		if (mqttHandler != null) {
+			try {
+				mqttHandler.disconnect();
+			} catch (Exception e) {
+				plugin.getLogger().warning("Unable to disconnect the replaced MQTT backend transport");
+			} finally {
+				mqttHandler = null;
+			}
+		}
 	}
 }

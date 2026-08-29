@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.proxy;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -9,6 +10,119 @@ import java.util.Map;
  * Configuration interface for proxy server integration.
  */
 public interface VotingPluginProxyConfig {
+	/** Atomically persists the small non-secret configuration domain exposed by Control. */
+	default void persistControlProxyRouting(boolean sendVotesToAllServers, List<String> blockedServers)
+			throws IOException {
+		throw new UnsupportedOperationException("Control configuration writes are unavailable");
+	}
+
+	/** Persists only if the same routing snapshot is still active immediately before replacement. */
+	default void persistControlProxyRouting(boolean sendVotesToAllServers, List<String> blockedServers,
+			String expectedRevision) throws IOException {
+		persistControlProxyRouting(sendVotesToAllServers, blockedServers);
+	}
+
+	/** Restores the most recent Control-created backup. */
+	default void rollbackControlProxyRouting() throws IOException {
+		throw new UnsupportedOperationException("Control configuration rollback is unavailable");
+	}
+
+	/** Verifies that the exact Control-installed routing snapshot is still on disk. */
+	default void verifyControlProxyRoutingInstalled() throws IOException {
+	}
+
+	/** Captures the exact proxy configuration file that the next strict reload should consume. */
+	default byte[] captureControlProxyRoutingSnapshot() throws IOException {
+		throw new UnsupportedOperationException("Control configuration snapshot verification is unavailable");
+	}
+
+	/** Verifies that the proxy configuration file still equals a previously captured snapshot. */
+	default void verifyControlProxyRoutingSnapshot(byte[] snapshot) throws IOException {
+		throw new UnsupportedOperationException("Control configuration snapshot verification is unavailable");
+	}
+
+	@SuppressWarnings("serial")
+	final class StaleControlRevisionException extends IOException {
+		public StaleControlRevisionException() { super("Control proxy routing revision is stale"); }
+	}
+	/** Whether the optional local VotingPlugin Control connector is enabled. */
+	default boolean getControlEnabled() {
+		return false;
+	}
+
+	/** Base HTTP(S) endpoint for VotingPlugin Control. */
+	default String getControlEndpoint() {
+		return "http://127.0.0.1:8080";
+	}
+
+	/** Stable enrolled identity; blank reuses ProxyServerName. */
+	default String getControlNodeId() {
+		return "";
+	}
+
+	/** Relative file in the plugin data folder containing the one-time enrollment credential. */
+	default String getControlCredentialFile() {
+		return "control-credential.txt";
+	}
+
+	default int getControlHeartbeatSeconds() {
+		return 30;
+	}
+
+	default int getControlConnectTimeoutMillis() {
+		return 3000;
+	}
+
+	default int getControlRequestTimeoutMillis() {
+		return 5000;
+	}
+
+	/** Whether this proxy should provision and supervise a separate Control JVM. */
+	default boolean getControlHostedEnabled() {
+		return false;
+	}
+
+	/** Download the pinned artifact when it is not installed. */
+	default boolean getControlHostedAutoDownload() {
+		return true;
+	}
+
+	/** Replace an installed artifact when its digest differs from the configured pin. */
+	default boolean getControlHostedAutoUpdate() {
+		return false;
+	}
+
+	default String getControlHostedDownloadUrl() {
+		return "";
+	}
+
+	default String getControlHostedSha256() {
+		return "";
+	}
+
+	default String getControlHostedJarFile() {
+		return "control/votingplugin-control.jar";
+	}
+
+	default String getControlHostedDataDirectory() {
+		return "control/data";
+	}
+
+	default String getControlHostedHost() {
+		return "127.0.0.1";
+	}
+
+	default int getControlHostedPort() {
+		return 8080;
+	}
+
+	default int getControlHostedStartupTimeoutSeconds() {
+		return 30;
+	}
+
+	default int getControlHostedDownloadTimeoutSeconds() {
+		return 60;
+	}
 
 	/**
 	 * Gets whether proxy broadcast is enabled.

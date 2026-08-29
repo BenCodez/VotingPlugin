@@ -3,14 +3,23 @@ package com.bencodez.votingplugin.proxy.bungee;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.channels.Channels;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
+import com.bencodez.votingplugin.proxy.control.ProxyRoutingConfiguration;
+import com.bencodez.votingplugin.util.DurableFiles;
 
 import lombok.Getter;
 import net.md_5.bungee.config.Configuration;
@@ -22,6 +31,7 @@ import net.md_5.bungee.config.YamlConfiguration;
  */
 public class BungeeConfig implements VotingPluginProxyConfig {
 	private VotingPluginBungee bungee;
+	private byte[] controlInstalledSnapshot;
 	@Getter
 	private Configuration data;
 
@@ -32,6 +42,96 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 	 */
 	public BungeeConfig(VotingPluginBungee bungee) {
 		this.bungee = bungee;
+	}
+
+	@Override
+	public boolean getControlEnabled() {
+		return getData().getBoolean("Control.Enabled", false);
+	}
+
+	@Override
+	public String getControlEndpoint() {
+		return getData().getString("Control.Endpoint", "http://127.0.0.1:8080");
+	}
+
+	@Override
+	public String getControlNodeId() {
+		return getData().getString("Control.NodeId", "");
+	}
+
+	@Override
+	public String getControlCredentialFile() {
+		return getData().getString("Control.CredentialFile", "control-credential.txt");
+	}
+
+	@Override
+	public int getControlHeartbeatSeconds() {
+		return getData().getInt("Control.HeartbeatSeconds", 30);
+	}
+
+	@Override
+	public int getControlConnectTimeoutMillis() {
+		return getData().getInt("Control.ConnectTimeoutMillis", 3000);
+	}
+
+	@Override
+	public int getControlRequestTimeoutMillis() {
+		return getData().getInt("Control.RequestTimeoutMillis", 5000);
+	}
+
+	@Override
+	public boolean getControlHostedEnabled() {
+		return getData().getBoolean("Control.Hosted.Enabled", false);
+	}
+
+	@Override
+	public boolean getControlHostedAutoDownload() {
+		return getData().getBoolean("Control.Hosted.AutoDownload", true);
+	}
+
+	@Override
+	public boolean getControlHostedAutoUpdate() {
+		return getData().getBoolean("Control.Hosted.AutoUpdate", false);
+	}
+
+	@Override
+	public String getControlHostedDownloadUrl() {
+		return getData().getString("Control.Hosted.DownloadUrl", "");
+	}
+
+	@Override
+	public String getControlHostedSha256() {
+		return getData().getString("Control.Hosted.Sha256", "");
+	}
+
+	@Override
+	public String getControlHostedJarFile() {
+		return getData().getString("Control.Hosted.JarFile", "control/votingplugin-control.jar");
+	}
+
+	@Override
+	public String getControlHostedDataDirectory() {
+		return getData().getString("Control.Hosted.DataDirectory", "control/data");
+	}
+
+	@Override
+	public String getControlHostedHost() {
+		return getData().getString("Control.Hosted.Host", "127.0.0.1");
+	}
+
+	@Override
+	public int getControlHostedPort() {
+		return getData().getInt("Control.Hosted.Port", 8080);
+	}
+
+	@Override
+	public int getControlHostedStartupTimeoutSeconds() {
+		return getData().getInt("Control.Hosted.StartupTimeoutSeconds", 30);
+	}
+
+	@Override
+	public int getControlHostedDownloadTimeoutSeconds() {
+		return getData().getInt("Control.Hosted.DownloadTimeoutSeconds", 60);
 	}
 
 	/**
@@ -397,6 +497,15 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 	}
 
 	public void load() {
+		try {
+			loadControlConfiguration();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	/** Loads the configuration while propagating failures to Control's rollback path. */
+	public void loadControlConfiguration() throws IOException {
 		if (!bungee.getDataFolder().exists()) {
 			bungee.getDataFolder().mkdir();
 		}
@@ -406,16 +515,10 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 		if (!file.exists()) {
 			try (InputStream in = bungee.getResourceAsStream("bungeeconfig.yml")) {
 				Files.copy(in, file.toPath());
-			} catch (IOException e) {
-				e.printStackTrace();
 			}
 		}
-		try {
-			data = ConfigurationProvider.getProvider(YamlConfiguration.class)
-					.load(new File(bungee.getDataFolder(), "bungeeconfig.yml"));
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		data = ConfigurationProvider.getProvider(YamlConfiguration.class)
+				.load(new File(bungee.getDataFolder(), "bungeeconfig.yml"));
 	}
 
 	public void save() {
@@ -424,6 +527,120 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 					new File(bungee.getDataFolder(), "bungeeconfig.yml"));
 		} catch (IOException e) {
 			e.printStackTrace();
+		}
+	}
+
+	@Override
+	public synchronized void persistControlProxyRouting(boolean sendVotesToAllServers, List<String> blockedServers,
+			String expectedRevision) throws IOException {
+		Path target = new File(bungee.getDataFolder(), "bungeeconfig.yml").toPath();
+		Path stage = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".control-stage");
+		Path backupStage = null;
+		Path backup = target.resolveSibling(target.getFileName() + ".control-backup");
+		try {
+			backupStage = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".control-backup-stage");
+			byte[] sourceSnapshot = Files.readAllBytes(target);
+			Configuration latest = ConfigurationProvider.getProvider(YamlConfiguration.class).load(target.toFile());
+			if (!java.util.Arrays.equals(sourceSnapshot, Files.readAllBytes(target))
+					|| !routing(latest).revision().equals(expectedRevision)) {
+				throw new StaleControlRevisionException();
+			}
+			latest.set("SendVotesToAllServers", sendVotesToAllServers);
+			latest.set("BlockedServers", List.copyOf(blockedServers));
+			ConfigurationProvider.getProvider(YamlConfiguration.class).save(latest, stage.toFile());
+			byte[] installedSnapshot = Files.readAllBytes(stage);
+			if (!java.util.Arrays.equals(sourceSnapshot, Files.readAllBytes(target))) {
+				throw new StaleControlRevisionException();
+			}
+			Files.write(backupStage, sourceSnapshot);
+			if (!java.util.Arrays.equals(sourceSnapshot, Files.readAllBytes(target))) {
+				throw new StaleControlRevisionException();
+			}
+			atomicReplace(backupStage, backup);
+			if (!java.util.Arrays.equals(sourceSnapshot, Files.readAllBytes(target))) {
+				throw new StaleControlRevisionException();
+			}
+			controlInstalledSnapshot = installedSnapshot;
+			try {
+				atomicReplace(stage, target);
+			} catch (IOException failure) {
+				if (!(failure instanceof DurableFiles.PublishedException)) controlInstalledSnapshot = null;
+				throw failure;
+			}
+			data = latest;
+		} finally {
+			Files.deleteIfExists(stage);
+			if (backupStage != null) Files.deleteIfExists(backupStage);
+		}
+	}
+
+	private static ProxyRoutingConfiguration routing(Configuration configuration) {
+		return new ProxyRoutingConfiguration(configuration.getBoolean("SendVotesToAllServers", false),
+				configuration.getStringList("BlockedServers"));
+	}
+
+	@Override
+	public synchronized void rollbackControlProxyRouting() throws IOException {
+		Path target = new File(bungee.getDataFolder(), "bungeeconfig.yml").toPath();
+		Path backup = target.resolveSibling(target.getFileName() + ".control-backup");
+		if (!Files.isRegularFile(backup, LinkOption.NOFOLLOW_LINKS)) {
+			throw new IOException("Control backup is unavailable or unsafe");
+		}
+		if (controlInstalledSnapshot == null
+				|| !java.util.Arrays.equals(controlInstalledSnapshot, Files.readAllBytes(target))) {
+			throw new StaleControlRevisionException();
+		}
+		Path stage = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".control-rollback");
+		try {
+			try (SeekableByteChannel source = Files.newByteChannel(backup,
+					Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS))) {
+				Files.copy(Channels.newInputStream(source), stage, StandardCopyOption.REPLACE_EXISTING);
+			}
+			if (!java.util.Arrays.equals(controlInstalledSnapshot, Files.readAllBytes(target))) {
+				throw new StaleControlRevisionException();
+			}
+			try {
+				atomicReplace(stage, target);
+			} catch (DurableFiles.PublishedException published) {
+				controlInstalledSnapshot = null;
+				throw published;
+			}
+		} finally {
+			Files.deleteIfExists(stage);
+		}
+		controlInstalledSnapshot = null;
+		data = ConfigurationProvider.getProvider(YamlConfiguration.class).load(target.toFile());
+	}
+
+	@Override
+	public synchronized void verifyControlProxyRoutingInstalled() throws IOException {
+		Path target = new File(bungee.getDataFolder(), "bungeeconfig.yml").toPath();
+		if (controlInstalledSnapshot == null
+				|| !java.util.Arrays.equals(controlInstalledSnapshot, Files.readAllBytes(target))) {
+			throw new StaleControlRevisionException();
+		}
+	}
+
+	@Override
+	public synchronized byte[] captureControlProxyRoutingSnapshot() throws IOException {
+		return Files.readAllBytes(new File(bungee.getDataFolder(), "bungeeconfig.yml").toPath());
+	}
+
+	@Override
+	public synchronized void verifyControlProxyRoutingSnapshot(byte[] snapshot) throws IOException {
+		Path target = new File(bungee.getDataFolder(), "bungeeconfig.yml").toPath();
+		if (!java.util.Arrays.equals(snapshot, Files.readAllBytes(target))) {
+			throw new StaleControlRevisionException();
+		}
+	}
+
+	private static void atomicReplace(Path source, Path target) throws IOException {
+		try {
+			DurableFiles.forceFile(source);
+			Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+			DurableFiles.forceMoveDirectories(source, target);
+		} catch (java.nio.file.AtomicMoveNotSupportedException e) {
+			throw new IOException("Atomic Control configuration activation is unsupported", e);
 		}
 	}
 

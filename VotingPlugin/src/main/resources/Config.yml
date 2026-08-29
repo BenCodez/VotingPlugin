@@ -1158,6 +1158,24 @@ Webhooks:
         Secret: "change-me"
 
 ###########################################
+# VotingPlugin Control backend connector
+# Optional outbound connection for full local WebUI configuration control.
+# Create a node credential with Control's `enroll` owner command and place it
+# in the VotingPlugin data folder. The credential is never stored in this YAML.
+###########################################
+
+Control:
+  Backend:
+    Enabled: false
+    # Must be unique for every Bukkit/Paper backend in the network.
+    NodeId: ''
+    Endpoint: 'http://127.0.0.1:8080'
+    CredentialFile: 'control-credential.txt'
+    HeartbeatSeconds: 30
+    ConnectTimeoutMillis: 3000
+    RequestTimeoutMillis: 10000
+
+###########################################
 # Additional / Advanced Settings
 # Rarely needed options for special setups
 ###########################################

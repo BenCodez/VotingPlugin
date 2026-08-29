@@ -393,16 +393,33 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			} catch (Exception ignored) {
 			}
 
-			// Tear down old runtime (this WILL shutdown MySQL because proxy owns it)
+			// Stop Control first; replacement must not overlap a retained hosted child/connector.
 			try {
 				if (votingPluginProxy != null) {
-					votingPluginProxy.onDisable();
+					votingPluginProxy.prepareForRuntimeReplacement();
 				}
-			} catch (Exception ignored) {
+			} catch (Exception shutdownFailure) {
+				getLogger().severe("Reload aborted because hosted Control did not stop safely");
+				shutdownFailure.printStackTrace();
+				try {
+					schedulePlatformTasks();
+				} catch (Exception taskFailure) {
+					shutdownFailure.addSuppressed(taskFailure);
+				}
+				reloading = false;
+				return;
+			}
+			// Later transport/cache failures must not leave the old runtime partially disabled.
+			try {
+				if (votingPluginProxy != null) votingPluginProxy.completeRuntimeReplacementShutdown();
+			} catch (Exception cleanupFailure) {
+				getLogger().severe("Old proxy runtime cleanup was incomplete; replacement will continue");
+				cleanupFailure.printStackTrace();
 			}
 
-			// Recreate runtime
-			votingPluginProxy = createProxyRuntime();
+			// Recreate the runtime only after the old connector has drained its result.
+			VotingPluginProxy replacementRuntime = createProxyRuntime();
+			votingPluginProxy = replacementRuntime;
 
 			// Initialize MySQL BEFORE calling proxy.load(...)
 			try {
@@ -494,8 +511,18 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			@Override
+			public Set<String> getAllConfiguredServers() {
+				return new HashSet<>(getProxy().getServers().keySet());
+			}
+
+			@Override
 			public VotingPluginProxyConfig getConfig() {
 				return config;
+			}
+
+			@Override
+			public String getProxyPlatform() {
+				return "BUNGEECORD";
 			}
 
 			@Override
@@ -700,6 +727,12 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			public void reloadCore(boolean mysql) {
 				// mysql==true should do full reloadall behavior on the platform
 				reloadPlugin(mysql);
+			}
+
+			@Override
+			public void reloadControlConfiguration() throws Exception {
+				config.loadControlConfiguration();
+				reloadFromControl();
 			}
 
 			@Override

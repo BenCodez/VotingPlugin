@@ -350,13 +350,7 @@ public class VotingPluginVelocity {
 		CommandMeta meta = server.getCommandManager().metaBuilder("votingpluginproxy").aliases("vpp").build();
 		server.getCommandManager().register(meta, new VotingPluginVelocityCommand(this));
 
-		// create runtime
-		votingPluginProxy = createProxyRuntime();
-
-		// full init
-		reloadAllInternal(true);
-
-		// version
+		// Load the embedded version before the shared runtime starts optional integrations.
 		try {
 			getVersionFile();
 			if (versionFile != null) {
@@ -367,6 +361,12 @@ public class VotingPluginVelocity {
 			}
 		} catch (Exception ignored) {
 		}
+
+		// create runtime
+		votingPluginProxy = createProxyRuntime();
+
+		// full init
+		reloadAllInternal(true);
 
 		// metrics (same as your original, shortened)
 		Metrics metrics = metricsFactory.make(this, 11547);
@@ -478,16 +478,31 @@ public class VotingPluginVelocity {
 				} catch (Exception ignored) {
 				}
 
-				// Shutdown old runtime completely (this stops old MySQL pool)
+				// Stop Control first; replacement must not overlap a retained hosted child/connector.
 				try {
 					if (votingPluginProxy != null) {
-						votingPluginProxy.onDisable();
+						votingPluginProxy.prepareForRuntimeReplacement();
 					}
-				} catch (Exception ignored) {
+				} catch (Exception shutdownFailure) {
+					logger.error("Reload aborted because hosted Control did not stop safely", shutdownFailure);
+					try {
+						scheduleTasks();
+					} catch (Exception taskFailure) {
+						shutdownFailure.addSuppressed(taskFailure);
+					}
+					reloading = false;
+					return;
+				}
+				// Later transport/cache failures must not leave the old runtime partially disabled.
+				try {
+					if (votingPluginProxy != null) votingPluginProxy.completeRuntimeReplacementShutdown();
+				} catch (Exception cleanupFailure) {
+					logger.error("Old proxy runtime cleanup was incomplete; replacement will continue", cleanupFailure);
 				}
 
-				// Recreate runtime
-				votingPluginProxy = createProxyRuntime();
+				// Recreate the runtime only after the old connector has drained its result.
+				VotingPluginProxy replacementRuntime = createProxyRuntime();
+				votingPluginProxy = replacementRuntime;
 
 				// Init MySQL BEFORE calling proxy.load(...)
 				try {
@@ -578,8 +593,20 @@ public class VotingPluginVelocity {
 			}
 
 			@Override
+			public Set<String> getAllConfiguredServers() {
+				Set<String> configured = new HashSet<>();
+				server.getAllServers().forEach(registered -> configured.add(registered.getServerInfo().getName()));
+				return configured;
+			}
+
+			@Override
 			public VotingPluginProxyConfig getConfig() {
 				return config;
+			}
+
+			@Override
+			public String getProxyPlatform() {
+				return "VELOCITY";
 			}
 
 			@Override
@@ -795,6 +822,12 @@ public class VotingPluginVelocity {
 			public void reloadCore(boolean mysql) {
 				// mysql=true is reloadall behavior
 				reloadAllInternal(mysql);
+			}
+
+			@Override
+			public void reloadControlConfiguration() throws Exception {
+				config.loadControlConfiguration();
+				reloadFromControl();
 			}
 
 			@Override

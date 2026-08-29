@@ -34,7 +34,7 @@ import lombok.Getter;
 public class BackendProxyHandler implements Listener {
 
 	private final VotingPluginMain plugin;
-	private final ProcessedVoteCache processedVoteCache = new ProcessedVoteCache();
+	private final ProcessedVoteCache processedVoteCache;
 	private final BackendProxyTransportManager transportManager;
 	private final BackendGlobalDataSync globalDataSync;
 
@@ -48,8 +48,13 @@ public class BackendProxyHandler implements Listener {
 	private GlobalMessageHandler globalMessageHandler;
 
 	public BackendProxyHandler(VotingPluginMain plugin) {
+		this(plugin, new ProcessedVoteCache());
+	}
+
+	public BackendProxyHandler(VotingPluginMain plugin, ProcessedVoteCache processedVoteCache) {
 		this.plugin = plugin;
-		transportManager = new BackendProxyTransportManager(plugin);
+		this.processedVoteCache = java.util.Objects.requireNonNull(processedVoteCache, "processedVoteCache");
+		transportManager = new BackendProxyTransportManager(plugin, processedVoteCache);
 		globalDataSync = new BackendGlobalDataSync(plugin, this::sendEnvelope);
 	}
 
@@ -94,6 +99,28 @@ public class BackendProxyHandler implements Listener {
 			votePartySync.persist();
 		}
 		globalDataSync.close();
+	}
+
+	/** Releases a same-method subscriber/listener before its replacement starts. */
+	public void prepareForReplacement(BungeeMethod replacementMethod) {
+		if (method == replacementMethod && method != BungeeMethod.PLUGINMESSAGING && method != BungeeMethod.REDIS) {
+			transportManager.prepareForReplacement();
+		}
+	}
+
+	/** Fails a configuration apply when its selected transport did not initialize. */
+	public void validateTransport() {
+		if (method == null || globalMessageHandler == null || presenceManager == null) {
+			throw new IllegalStateException("Backend proxy handler initialization failed");
+		}
+		transportManager.validate();
+	}
+
+	/** Completes the no-loss/no-duplicate same-Redis subscriber handoff after validation. */
+	public void completeRedisHandoff(BackendProxyHandler replacement) {
+		if (method != BungeeMethod.REDIS || replacement.method != BungeeMethod.REDIS) return;
+		transportManager.closeRedisForHandoff();
+		replacement.transportManager.activateRedisAfterHandoff();
 	}
 
 	public void playerOnline(String playerName, String uuid) {

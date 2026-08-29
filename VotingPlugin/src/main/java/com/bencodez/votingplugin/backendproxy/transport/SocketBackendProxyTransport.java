@@ -55,12 +55,21 @@ public class SocketBackendProxyTransport implements BackendProxyTransport {
 	}
 
 	@Override
+	public void validate() {
+		if (clientHandler == null || socketHandler == null) {
+			throw new IllegalStateException("Socket backend proxy transport initialization failed");
+		}
+	}
+
+	@Override
 	public void close() {
 		if (socketHandler != null) {
 			socketHandler.closeConnection();
+			socketHandler = null;
 		}
 		if (clientHandler != null) {
 			clientHandler.stopConnection();
+			clientHandler = null;
 		}
 	}
 }

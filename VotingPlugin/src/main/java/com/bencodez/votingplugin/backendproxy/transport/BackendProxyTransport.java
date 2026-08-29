@@ -12,5 +12,12 @@ public interface BackendProxyTransport {
 
 	void send(JsonEnvelope envelope);
 
+	default void validate() {
+	}
+
+	default void prepareForReplacement() {
+		close();
+	}
+
 	void close();
 }

@@ -14,6 +14,9 @@ import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -46,14 +49,19 @@ import com.bencodez.advancedcore.api.rewards.injectedrequirement.RequirementInje
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.UserStartup;
 import com.bencodez.simpleapi.file.YMLConfig;
+import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
+import com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessageHandler;
+import com.bencodez.simpleapi.skull.SkullCache;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigSpigot;
 import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.simpleapi.updater.Updater;
 import com.bencodez.votingplugin.broadcast.BroadcastHandler;
 import com.bencodez.votingplugin.backendproxy.BackendProxyHandler;
+import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache;
 import com.bencodez.votingplugin.backgroundtask.VotingPluginBackgroundTask;
 import com.bencodez.votingplugin.backendproxy.BackendProxyRewardRegistrar;
 import com.bencodez.votingplugin.broadcast.BroadcastSettings;
+import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.commands.CommandLoader;
 import com.bencodez.votingplugin.commands.executers.CommandAdminVote;
 import com.bencodez.votingplugin.commands.executers.CommandVote;
@@ -69,6 +77,7 @@ import com.bencodez.votingplugin.config.ShopFile;
 import com.bencodez.votingplugin.config.SpecialRewardsConfig;
 import com.bencodez.votingplugin.config.VotingPluginConfigHealth;
 import com.bencodez.votingplugin.cooldown.CoolDownCheck;
+import com.bencodez.votingplugin.control.BackendControlConnector;
 import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.discord.DiscordHandler;
 import com.bencodez.votingplugin.listeners.BlockBreak;
@@ -147,6 +156,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private BackendProxyHandler backendProxyHandler;
+	private final ProcessedVoteCache backendProcessedVoteCache = new ProcessedVoteCache();
+	private final AtomicReference<GlobalMessageHandler> backendPluginMessageTarget = new AtomicReference<>();
+	private PluginMessageHandler backendPluginMessageRelay;
+	private BackendControlConnector backendControlConnector;
 
 	@Getter
 	private BungeeSettings bungeeSettings;
@@ -429,8 +442,20 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	private void loadBungeeHandler() {
-		backendProxyHandler = new BackendProxyHandler(this);
-		backendProxyHandler.load();
+		BackendProxyHandler candidate = new BackendProxyHandler(this, backendProcessedVoteCache);
+		try {
+			candidate.load();
+			backendProxyHandler = candidate;
+		} catch (RuntimeException failure) {
+			try {
+				candidate.close();
+			} catch (RuntimeException closeFailure) {
+				failure.addSuppressed(closeFailure);
+			}
+			backendProxyHandler = null;
+			getLogger().warning("Backend proxy transport was not started; it will be retried on reload: "
+					+ failure.getMessage());
+		}
 
 		if (getOptions().getServer().equalsIgnoreCase("PleaseSet")) {
 			getLogger().warning("Bungeecoord is true and server name is not set, bungeecoord features may not work");
@@ -715,6 +740,79 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}, 10);
 		}
 
+		startBackendControlConnector();
+
+	}
+
+	private void startBackendControlConnector() {
+		try {
+			backendControlConnector = BackendControlConnector.create(this);
+			if (backendControlConnector != null) backendControlConnector.start();
+		} catch (Exception e) {
+			backendControlConnector = null;
+			getLogger().warning("[Control] Bukkit configuration connector was not started: " + e.getMessage());
+		}
+	}
+
+	/** Refreshes the optional Control connector after its Config.yml settings were applied. */
+	public synchronized void restartBackendControlConnector() {
+		BackendControlConnector connector = backendControlConnector;
+		if (connector != null && connector.hasPendingResults()) {
+			getLogger().warning("[Control] Keeping the previous connector until its applied result is acknowledged");
+			return;
+		}
+		BackendControlConnector replacement;
+		try {
+			replacement = BackendControlConnector.create(this);
+		} catch (Exception e) {
+			replacement = null;
+			getLogger().warning("[Control] Bukkit configuration connector was not restarted: " + e.getMessage());
+		}
+		if (connector != null) connector.close();
+		if (backendControlConnector == connector) backendControlConnector = replacement;
+		if (replacement != null) replacement.start();
+	}
+
+	/** Recreates proxy transports after Control applies BungeeSettings.yml. */
+	public synchronized void restartBackendProxyHandler() {
+		BackendProxyHandler previous = backendProxyHandler;
+		if (!bungeeSettings.isUseBungeecoord()) {
+			backendProxyHandler = null;
+			if (previous != null) previous.close();
+			return;
+		}
+		BungeeMethod replacementMethod = BungeeMethod.getByName(bungeeSettings.getBungeeMethod());
+		if (previous != null) previous.prepareForReplacement(replacementMethod);
+		BackendProxyHandler replacement = new BackendProxyHandler(this, backendProcessedVoteCache);
+		try {
+			replacement.load();
+			replacement.validateTransport();
+			if (previous != null) previous.completeRedisHandoff(replacement);
+		} catch (RuntimeException failure) {
+			replacement.close();
+			throw failure;
+		}
+		backendProxyHandler = replacement;
+		if (previous != null) previous.close();
+	}
+
+	/** Keeps one plugin-message listener for the plugin lifetime and atomically swaps its active backend handler. */
+	public synchronized void activateBackendPluginMessageHandler(GlobalMessageHandler target) {
+		backendPluginMessageTarget.set(target);
+		if (backendPluginMessageRelay == null) {
+			backendPluginMessageRelay = new PluginMessageHandler() {
+				@Override
+				public void onReceive(com.bencodez.simpleapi.servercomm.codec.JsonEnvelope envelope) {
+					GlobalMessageHandler current = backendPluginMessageTarget.get();
+					if (current != null) current.onMessage(envelope);
+				}
+			};
+			getPluginMessaging().add(backendPluginMessageRelay);
+		}
+	}
+
+	public void deactivateBackendPluginMessageHandler(GlobalMessageHandler target) {
+		backendPluginMessageTarget.compareAndSet(target, null);
 	}
 
 	private void migrateVoteBroadcast(Config configFile) {
@@ -808,6 +906,17 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onUnLoad() {
+		BackendControlConnector connector = backendControlConnector;
+		if (connector != null) {
+			try {
+				connector.close();
+			} catch (RuntimeException e) {
+				getLogger().warning("[Control] Bukkit connector did not stop cleanly; normal plugin cleanup will continue");
+				debug(e);
+			} finally {
+				if (backendControlConnector == connector) backendControlConnector = null;
+			}
+		}
 		if (getBackendProxyHandler() != null) {
 			try {
 				getBackendProxyHandler().close();
@@ -953,13 +1062,15 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		reloadAdvancedCore(userStorage);
 
 		if (bungeeSettings.isUseBungeecoord()) {
-			if (getBackendProxyHandler() == null) {
+			BackendProxyHandler handler = getBackendProxyHandler();
+			if (handler == null) {
 				loadBungeeHandler();
+				handler = getBackendProxyHandler();
 			} else {
-				getBackendProxyHandler().reloadPresenceReporting();
+				handler.reloadPresenceReporting();
 			}
-			if (userStorage) {
-				getBackendProxyHandler().loadGlobalMysql();
+			if (userStorage && handler != null) {
+				handler.loadGlobalMysql();
 			}
 		} else if (getBackendProxyHandler() != null) {
 			getBackendProxyHandler().disablePresenceReporting();

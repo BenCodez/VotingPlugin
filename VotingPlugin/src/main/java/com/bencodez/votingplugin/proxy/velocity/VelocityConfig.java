@@ -1,24 +1,38 @@
 package com.bencodez.votingplugin.proxy.velocity;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.channels.Channels;
+import java.nio.channels.SeekableByteChannel;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import com.bencodez.simpleapi.file.velocity.VelocityYMLFile;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
+import com.bencodez.votingplugin.proxy.control.ProxyRoutingConfiguration;
+import com.bencodez.votingplugin.util.DurableFiles;
 
 import org.spongepowered.configurate.ConfigurationNode;
+import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
 
 /**
  * Configuration file handler for Velocity proxy.
  */
 public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxyConfig {
+	private final File configurationFile;
+	private byte[] controlInstalledSnapshot;
 
 	/**
 	 * Constructs a new Velocity configuration.
@@ -26,6 +40,216 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	 */
 	public VelocityConfig(File file) {
 		super(file);
+		configurationFile = file;
+	}
+
+	@Override
+	public synchronized void persistControlProxyRouting(boolean sendVotesToAllServers, List<String> blockedServers,
+			String expectedRevision) throws IOException {
+		Path target = configurationFile.toPath();
+		Path stage = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".control-stage");
+		Path backupStage = null;
+		Path backup = target.resolveSibling(target.getFileName() + ".control-backup");
+		YamlConfigurationLoader sourceLoader = YamlConfigurationLoader.builder().path(target).build();
+		try {
+			backupStage = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".control-backup-stage");
+			byte[] sourceSnapshot = Files.readAllBytes(target);
+			ConfigurationNode latest = sourceLoader.load();
+			if (!java.util.Arrays.equals(sourceSnapshot, Files.readAllBytes(target))
+					|| !routing(latest).revision().equals(expectedRevision)) {
+				throw new StaleControlRevisionException();
+			}
+			latest.node("SendVotesToAllServers").set(sendVotesToAllServers);
+			latest.node("BlockedServers").setList(String.class, List.copyOf(blockedServers));
+			YamlConfigurationLoader.builder().path(stage).build().save(latest);
+			byte[] installedSnapshot = Files.readAllBytes(stage);
+			if (!java.util.Arrays.equals(sourceSnapshot, Files.readAllBytes(target))) {
+				throw new StaleControlRevisionException();
+			}
+			Files.write(backupStage, sourceSnapshot);
+			if (!java.util.Arrays.equals(sourceSnapshot, Files.readAllBytes(target))) {
+				throw new StaleControlRevisionException();
+			}
+			atomicReplace(backupStage, backup);
+			if (!java.util.Arrays.equals(sourceSnapshot, Files.readAllBytes(target))) {
+				throw new StaleControlRevisionException();
+			}
+			controlInstalledSnapshot = installedSnapshot;
+			try {
+				atomicReplace(stage, target);
+			} catch (IOException failure) {
+				if (!(failure instanceof DurableFiles.PublishedException)) controlInstalledSnapshot = null;
+				throw failure;
+			}
+		} finally {
+			Files.deleteIfExists(stage);
+			if (backupStage != null) Files.deleteIfExists(backupStage);
+		}
+	}
+
+	private static ProxyRoutingConfiguration routing(ConfigurationNode configuration) throws IOException {
+		return new ProxyRoutingConfiguration(configuration.node("SendVotesToAllServers").getBoolean(true),
+				configuration.node("BlockedServers").getList(String.class, List.of()));
+	}
+
+	@Override
+	public synchronized void rollbackControlProxyRouting() throws IOException {
+		Path target = configurationFile.toPath();
+		Path backup = target.resolveSibling(target.getFileName() + ".control-backup");
+		if (!Files.isRegularFile(backup, LinkOption.NOFOLLOW_LINKS)) {
+			throw new IOException("Control backup is unavailable or unsafe");
+		}
+		if (controlInstalledSnapshot == null
+				|| !java.util.Arrays.equals(controlInstalledSnapshot, Files.readAllBytes(target))) {
+			throw new StaleControlRevisionException();
+		}
+		Path stage = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".control-rollback");
+		try {
+			try (SeekableByteChannel source = Files.newByteChannel(backup,
+					Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS))) {
+				Files.copy(Channels.newInputStream(source), stage, StandardCopyOption.REPLACE_EXISTING);
+			}
+			if (!java.util.Arrays.equals(controlInstalledSnapshot, Files.readAllBytes(target))) {
+				throw new StaleControlRevisionException();
+			}
+			try {
+				atomicReplace(stage, target);
+			} catch (DurableFiles.PublishedException published) {
+				controlInstalledSnapshot = null;
+				throw published;
+			}
+		} finally {
+			Files.deleteIfExists(stage);
+		}
+		controlInstalledSnapshot = null;
+		loadControlConfiguration();
+	}
+
+	@Override
+	public synchronized void verifyControlProxyRoutingInstalled() throws IOException {
+		Path target = configurationFile.toPath();
+		if (controlInstalledSnapshot == null
+				|| !java.util.Arrays.equals(controlInstalledSnapshot, Files.readAllBytes(target))) {
+			throw new StaleControlRevisionException();
+		}
+	}
+
+	@Override
+	public synchronized byte[] captureControlProxyRoutingSnapshot() throws IOException {
+		return Files.readAllBytes(configurationFile.toPath());
+	}
+
+	@Override
+	public synchronized void verifyControlProxyRoutingSnapshot(byte[] snapshot) throws IOException {
+		if (!java.util.Arrays.equals(snapshot, Files.readAllBytes(configurationFile.toPath()))) {
+			throw new StaleControlRevisionException();
+		}
+	}
+
+	/** Loads the active file without the superclass's empty-config fallback. */
+	public synchronized void loadControlConfiguration() throws IOException {
+		ConfigurationNode loaded = YamlConfigurationLoader.builder().path(configurationFile.toPath()).build().load();
+		setConf(loaded);
+	}
+
+	private static void atomicReplace(Path source, Path target) throws IOException {
+		try {
+			DurableFiles.forceFile(source);
+			Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+			DurableFiles.forceMoveDirectories(source, target);
+		} catch (java.nio.file.AtomicMoveNotSupportedException e) {
+			throw new IOException("Atomic Control configuration activation is unsupported", e);
+		}
+	}
+
+	@Override
+	public boolean getControlEnabled() {
+		return getBoolean(getNode("Control", "Enabled"), false);
+	}
+
+	@Override
+	public String getControlEndpoint() {
+		return getString(getNode("Control", "Endpoint"), "http://127.0.0.1:8080");
+	}
+
+	@Override
+	public String getControlNodeId() {
+		return getString(getNode("Control", "NodeId"), "");
+	}
+
+	@Override
+	public String getControlCredentialFile() {
+		return getString(getNode("Control", "CredentialFile"), "control-credential.txt");
+	}
+
+	@Override
+	public int getControlHeartbeatSeconds() {
+		return getInt(getNode("Control", "HeartbeatSeconds"), 30);
+	}
+
+	@Override
+	public int getControlConnectTimeoutMillis() {
+		return getInt(getNode("Control", "ConnectTimeoutMillis"), 3000);
+	}
+
+	@Override
+	public int getControlRequestTimeoutMillis() {
+		return getInt(getNode("Control", "RequestTimeoutMillis"), 5000);
+	}
+
+	@Override
+	public boolean getControlHostedEnabled() {
+		return getBoolean(getNode("Control", "Hosted", "Enabled"), false);
+	}
+
+	@Override
+	public boolean getControlHostedAutoDownload() {
+		return getBoolean(getNode("Control", "Hosted", "AutoDownload"), true);
+	}
+
+	@Override
+	public boolean getControlHostedAutoUpdate() {
+		return getBoolean(getNode("Control", "Hosted", "AutoUpdate"), false);
+	}
+
+	@Override
+	public String getControlHostedDownloadUrl() {
+		return getString(getNode("Control", "Hosted", "DownloadUrl"), "");
+	}
+
+	@Override
+	public String getControlHostedSha256() {
+		return getString(getNode("Control", "Hosted", "Sha256"), "");
+	}
+
+	@Override
+	public String getControlHostedJarFile() {
+		return getString(getNode("Control", "Hosted", "JarFile"), "control/votingplugin-control.jar");
+	}
+
+	@Override
+	public String getControlHostedDataDirectory() {
+		return getString(getNode("Control", "Hosted", "DataDirectory"), "control/data");
+	}
+
+	@Override
+	public String getControlHostedHost() {
+		return getString(getNode("Control", "Hosted", "Host"), "127.0.0.1");
+	}
+
+	@Override
+	public int getControlHostedPort() {
+		return getInt(getNode("Control", "Hosted", "Port"), 8080);
+	}
+
+	@Override
+	public int getControlHostedStartupTimeoutSeconds() {
+		return getInt(getNode("Control", "Hosted", "StartupTimeoutSeconds"), 30);
+	}
+
+	@Override
+	public int getControlHostedDownloadTimeoutSeconds() {
+		return getInt(getNode("Control", "Hosted", "DownloadTimeoutSeconds"), 60);
 	}
 
 	@Override

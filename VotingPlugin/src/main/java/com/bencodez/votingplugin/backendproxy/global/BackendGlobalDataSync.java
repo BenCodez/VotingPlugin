@@ -151,6 +151,7 @@ public class BackendGlobalDataSync {
 	}
 
 	public void close() {
+		shutdownTimer();
 		closeGlobalMysql();
 	}
 
@@ -171,5 +172,6 @@ public class BackendGlobalDataSync {
 			Thread.currentThread().interrupt();
 		}
 		timer.shutdownNow();
+		timer = null;
 	}
 }

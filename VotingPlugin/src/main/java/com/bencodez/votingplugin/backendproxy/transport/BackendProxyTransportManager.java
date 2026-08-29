@@ -8,6 +8,7 @@ import com.bencodez.simpleapi.servercomm.redis.RedisHandler;
 import com.bencodez.simpleapi.servercomm.sockets.ClientHandler;
 import com.bencodez.simpleapi.servercomm.sockets.SocketHandler;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 
 /**
@@ -16,10 +17,16 @@ import com.bencodez.votingplugin.proxy.BungeeMethod;
 public class BackendProxyTransportManager {
 
 	private final VotingPluginMain plugin;
+	private final ProcessedVoteCache processedVoteCache;
 	private BackendProxyTransport transport;
 
 	public BackendProxyTransportManager(VotingPluginMain plugin) {
+		this(plugin, new ProcessedVoteCache());
+	}
+
+	public BackendProxyTransportManager(VotingPluginMain plugin, ProcessedVoteCache processedVoteCache) {
 		this.plugin = plugin;
+		this.processedVoteCache = processedVoteCache;
 	}
 
 	public void start(BungeeMethod method, GlobalMessageHandler messageHandler) {
@@ -35,7 +42,7 @@ public class BackendProxyTransportManager {
 			transport = new SocketBackendProxyTransport(plugin);
 			break;
 		case REDIS:
-			transport = new RedisBackendProxyTransport(plugin);
+			transport = new RedisBackendProxyTransport(plugin, processedVoteCache);
 			break;
 		case MQTT:
 			transport = new MqttBackendProxyTransport(plugin);
@@ -57,6 +64,33 @@ public class BackendProxyTransportManager {
 			transport.close();
 			transport = null;
 		}
+	}
+
+	public void validate() {
+		if (transport == null) throw new IllegalStateException("Backend proxy transport was not initialized");
+		transport.validate();
+	}
+
+	public void prepareForReplacement() {
+		if (transport != null) {
+			transport.prepareForReplacement();
+			transport = null;
+		}
+	}
+
+	public void closeRedisForHandoff() {
+		if (!(transport instanceof RedisBackendProxyTransport)) {
+			throw new IllegalStateException("Redis backend proxy transport is unavailable");
+		}
+		((RedisBackendProxyTransport) transport).closeForHandoff();
+		transport = null;
+	}
+
+	public void activateRedisAfterHandoff() {
+		if (!(transport instanceof RedisBackendProxyTransport)) {
+			throw new IllegalStateException("Redis replacement transport is unavailable");
+		}
+		((RedisBackendProxyTransport) transport).activateAfterHandoff();
 	}
 
 	public ClientHandler getClientHandler() {

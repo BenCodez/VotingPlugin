@@ -33,8 +33,13 @@ public class MysqlBackendProxyTransport implements BackendProxyTransport {
 						messageHandler.onMessage(msg.envelope);
 					});
 		} catch (SQLException e) {
-			e.printStackTrace();
+			throw new IllegalStateException("MySQL backend proxy transport initialization failed", e);
 		}
+	}
+
+	@Override
+	public void validate() {
+		if (messenger == null) throw new IllegalStateException("MySQL backend proxy transport initialization failed");
 	}
 
 	@Override
@@ -53,6 +58,7 @@ public class MysqlBackendProxyTransport implements BackendProxyTransport {
 	public void close() {
 		if (messenger != null) {
 			messenger.shutdown();
+			messenger = null;
 		}
 	}
 }

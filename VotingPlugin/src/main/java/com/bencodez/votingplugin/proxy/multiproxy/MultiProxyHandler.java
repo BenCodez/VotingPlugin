@@ -53,7 +53,7 @@ public abstract class MultiProxyHandler {
 	/**
 	 * Closes the multi-proxy handler.
 	 */
-	public void close() {
+	public synchronized void close() {
 		if (multiproxySocketHandler != null) {
 			multiproxySocketHandler.closeConnection();
 			multiproxySocketHandler = null;
@@ -61,6 +61,9 @@ public abstract class MultiProxyHandler {
 		if (multiProxyRedis != null && !getMultiProxyRedisUseExistingConnection()) {
 			multiProxyRedis.close();
 		}
+		multiProxyRedis = null;
+		stopSocketClients(multiproxyClientHandles);
+		multiproxyClientHandles = null;
 	}
 
 	/**
@@ -249,7 +252,7 @@ public abstract class MultiProxyHandler {
 	/**
 	 * Loads multi-proxy support.
 	 */
-	public void loadMultiProxySupport() {
+	public synchronized void loadMultiProxySupport() {
 		if (!getMultiProxySupportEnabled()) {
 			return;
 		}
@@ -355,7 +358,7 @@ public abstract class MultiProxyHandler {
 	 *
 	 * @param envelope the envelope to send
 	 */
-	public void sendMultiProxyEnvelope(JsonEnvelope envelope) {
+	public synchronized void sendMultiProxyEnvelope(JsonEnvelope envelope) {
 		if (envelope == null) {
 			return;
 		}
@@ -372,6 +375,18 @@ public abstract class MultiProxyHandler {
 			}
 			for (String server : getProxyServers()) {
 				multiProxyRedis.publishEnvelope("VotingPluginProxy_" + server, envelope);
+			}
+		}
+	}
+
+	static void stopSocketClients(Map<String, ClientHandler> clients) {
+		if (clients == null) return;
+		for (ClientHandler client : clients.values()) {
+			if (client == null) continue;
+			try {
+				client.stopConnection();
+			} catch (RuntimeException ignored) {
+				// Continue closing the remaining clients after an individual failure.
 			}
 		}
 	}

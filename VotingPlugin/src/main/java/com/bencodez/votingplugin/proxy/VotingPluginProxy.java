@@ -27,8 +27,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import javax.net.ssl.SSLParameters;
 
@@ -64,6 +67,8 @@ import com.bencodez.votingplugin.proxy.cache.IVoteCache;
 import com.bencodez.votingplugin.proxy.cache.VoteCacheHandler;
 import com.bencodez.votingplugin.proxy.cache.nonvoted.INonVotedPlayersStorage;
 import com.bencodez.votingplugin.proxy.cache.nonvoted.NonVotedPlayersCache;
+import com.bencodez.votingplugin.proxy.control.ControlConnector;
+import com.bencodez.votingplugin.proxy.control.HostedControlManager;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyHandler;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyMethod;
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyServerSocketConfiguration;
@@ -163,6 +168,15 @@ public abstract class VotingPluginProxy {
 	private final BackendPlayerPresenceTracker backendPlayerPresenceTracker = new BackendPlayerPresenceTracker();
 	private final Map<UUID, PendingPresenceHandoff> pendingPresenceHandoffs = new HashMap<>();
 	private final Set<String> pendingBackendRecoverySnapshots = ConcurrentHashMap.newKeySet();
+	private volatile ControlConnector controlConnector;
+	private volatile HostedControlManager hostedControlManager;
+	private final Object controlLifecycleLock = new Object();
+	private final AtomicLong controlServicesGeneration = new AtomicLong();
+	private final ExecutorService controlLifecycleExecutor = Executors.newSingleThreadExecutor(task -> {
+		Thread thread = new Thread(task, "votingplugin-control-lifecycle");
+		thread.setDaemon(true);
+		return thread;
+	});
 
 	public VotingPluginProxy() {
 		enabled = true;
@@ -546,17 +560,7 @@ public abstract class VotingPluginProxy {
 			// Standalone broadcasts use the same initialized client as normal
 			// envelopes. This preserves the socket connection and its delivery
 			// acknowledgement instead of creating a second short-lived socket.
-			ClientHandler socketClient = clientHandles == null ? null : clientHandles.get(server);
-			if (socketClient == null) {
-				return false;
-			}
-			try {
-				socketClient.sendEnvelope(envelope);
-				return true;
-			} catch (RuntimeException e) {
-				debug(e.getMessage());
-				return false;
-			}
+			return sendSocketEnvelope(server, envelope);
 		default:
 			return false;
 		}
@@ -995,6 +999,9 @@ public abstract class VotingPluginProxy {
 
 	public abstract Set<String> getAllAvailableServers();
 
+	/** Complete platform server set before whitelist/blocked routing filters. */
+	public abstract Set<String> getAllConfiguredServers();
+
 	public abstract VotingPluginProxyConfig getConfig();
 
 	public abstract String getCurrentPlayerServer(String player);
@@ -1315,22 +1322,7 @@ public abstract class VotingPluginProxy {
 				}
 			});
 
-			clientHandles = new HashMap<>();
-			List<String> l = getConfig().getBlockedServers();
-			for (String s : getConfig().getSpigotServers()) {
-				if (!l.contains(s)) {
-					Map<String, Object> d = getConfig().getSpigotServerConfiguration(s);
-					String host = "";
-					if (d.containsKey("Host")) {
-						host = (String) d.get("Host");
-					}
-					int port = 1298;
-					if (d.containsKey("Port")) {
-						port = (int) d.get("Port");
-					}
-					clientHandles.put(s, new ClientHandler(host, port, encryptionHandler, getConfig().getDebug()));
-				}
-			}
+			rebuildSocketClients();
 		} else if (method.equals(BungeeMethod.REDIS)) {
 			redisHandler = new RedisHandler(getConfig().getRedisHost(), getConfig().getRedisPort(),
 					getConfig().getRedisUsername(), getConfig().getRedisPassword(), getConfig().getRedisDbIndex(),
@@ -1392,10 +1384,7 @@ public abstract class VotingPluginProxy {
 					sendRedisEnvelopeServer(server, envelope);
 					break;
 				case SOCKETS:
-					ClientHandler socketClient = clientHandles == null ? null : clientHandles.get(server);
-					if (socketClient != null) {
-						socketClient.sendEnvelope(envelope);
-					}
+					sendSocketEnvelope(server, envelope);
 					break;
 				default:
 					break;
@@ -1559,8 +1548,118 @@ public abstract class VotingPluginProxy {
 			loadTaskTimer(this::maintainBackendPresence, PRESENCE_MAINTENANCE_INTERVAL_SECONDS,
 					PRESENCE_MAINTENANCE_INTERVAL_SECONDS);
 		}
+		startControlServices();
 
 		debug("VotingPluginProxy loaded, ONLINEMODE: " + getConfig().getOnlineMode());
+	}
+
+	private void startControlServices() {
+		synchronized (controlLifecycleLock) {
+			ControlConnector predecessor = controlConnector;
+			if (predecessor != null && predecessor.deferReplacementUntilSafe(this::restartControlServicesAsync)) {
+				log("[Control] service restart deferred until the current result is acknowledged");
+				return;
+			}
+			stopControlServicesLocked(true);
+			startControlServicesLocked();
+		}
+	}
+
+	/** Keeps potentially long hosted-Control handoffs off proxy command/event threads. */
+	private void restartControlServicesAsync() {
+		final long generation = controlServicesGeneration.incrementAndGet();
+		try {
+			controlLifecycleExecutor.execute(() -> {
+				try {
+					synchronized (controlLifecycleLock) {
+						if (!enabled || generation != controlServicesGeneration.get()) return;
+						ControlConnector predecessor = controlConnector;
+						if (predecessor != null
+								&& predecessor.deferReplacementUntilSafe(this::restartControlServicesAsync)) {
+							log("[Control] service restart deferred until the current result is acknowledged");
+							return;
+						}
+						stopControlServicesLocked(true);
+						startControlServicesLocked();
+					}
+				} catch (RuntimeException failure) {
+					if (generation == controlServicesGeneration.get()) {
+						logSevere("[Control] asynchronous service restart failed: " + failure.getMessage());
+					}
+				}
+			});
+		} catch (RuntimeException failure) {
+			logSevere("[Control] services were not restarted because async scheduling failed");
+		}
+	}
+
+	/** Rebuilds a recovery connector from current settings after its durable result is acknowledged. */
+	public final void restartControlServicesAfterRecovery() {
+		restartControlServicesAsync();
+	}
+
+	private void stopControlServices(boolean waitForHosted) {
+		synchronized (controlLifecycleLock) {
+			stopControlServicesLocked(waitForHosted);
+		}
+	}
+
+	private void startControlServicesLocked() {
+		if (getConfig().getControlHostedEnabled()) {
+			try {
+				hostedControlManager = HostedControlManager.create(this);
+				if (hostedControlManager != null) hostedControlManager.start();
+			} catch (IllegalArgumentException e) {
+				hostedControlManager = null;
+				logSevere("[Control Host] configuration is invalid; VotingPlugin remains unaffected");
+			}
+		}
+		try {
+			controlConnector = ControlConnector.create(this);
+			if (controlConnector != null) controlConnector.start();
+		} catch (IOException | IllegalArgumentException e) {
+			controlConnector = null;
+			logSevere("[Control] connector configuration or credential is invalid; voting remains unaffected");
+		}
+	}
+
+	private void stopControlServicesLocked(boolean waitForHosted) {
+		ControlConnector connector = controlConnector;
+		if (connector != null) {
+			try {
+				connector.close();
+				if (controlConnector == connector) controlConnector = null;
+			} catch (RuntimeException failure) {
+				if (waitForHosted) throw failure;
+				if (controlConnector == connector) controlConnector = null;
+				logSevere("[Control] connector did not stop cleanly; proxy cleanup will continue");
+			}
+		}
+		HostedControlManager manager = hostedControlManager;
+		if (manager != null) {
+			try {
+				if (waitForHosted) {
+					manager.closeAndWait();
+				} else {
+					manager.close();
+				}
+				if (hostedControlManager == manager) hostedControlManager = null;
+			} catch (RuntimeException failure) {
+				if (waitForHosted) throw failure;
+				if (hostedControlManager == manager) hostedControlManager = null;
+				logSevere("[Control Host] manager did not stop cleanly; proxy cleanup will continue");
+			}
+		}
+	}
+
+	public String getControlConnectorStatus() {
+		ControlConnector connector = controlConnector;
+		return connector == null ? "DISABLED" : connector.status().name();
+	}
+
+	public String getHostedControlStatus() {
+		HostedControlManager manager = hostedControlManager;
+		return manager == null ? "DISABLED" : manager.status().name();
 	}
 
 	/**
@@ -2270,39 +2369,81 @@ public abstract class VotingPluginProxy {
 	public abstract void logSevere(String message);
 
 	public void onDisable() {
-		getVoteCacheHandler().saveVoteCache();
+		onDisable(false);
+	}
 
-		if (getProxyMysqlMessenger() != null) {
-			getProxyMysqlMessenger().shutdown();
+	/** Full runtime replacement waits for hosted workers; final proxy stop remains non-blocking. */
+	public void onDisable(boolean waitForHosted) {
+		if (waitForHosted) {
+			prepareForRuntimeReplacement();
+		} else {
+			controlServicesGeneration.incrementAndGet();
+			controlLifecycleExecutor.shutdownNow();
+			stopControlServices(false);
 		}
+		completeRuntimeReplacementShutdown();
+	}
 
-		if (getProxyMySQL() != null) {
-			getProxyMySQL().shutdown();
+	/** Fail-closed gate that must complete before a replacement proxy runtime is created. */
+	public void prepareForRuntimeReplacement() {
+		controlServicesGeneration.incrementAndGet();
+		synchronized (controlLifecycleLock) {
+			ControlConnector connector = controlConnector;
+			if (connector != null && !connector.reserveRuntimeReplacement()) {
+				throw new IllegalStateException("Control result must be acknowledged before proxy runtime replacement");
+			}
+			controlLifecycleExecutor.shutdown();
+			stopControlServicesLocked(true);
 		}
-		if (multiProxyHandler != null) {
-			multiProxyHandler.close();
-		}
+	}
 
-		if (socketHandler != null) {
-			socketHandler.closeConnection();
-		}
-
-		if (redisHandler != null) {
-			redisHandler.close();
-		}
-		if (redisPublisherPool != null) {
-			redisPublisherPool.close();
-			redisPublisherPool = null;
-		}
-
-		bungeeTimeChecker.shutdown();
-
-		if (getGlobalDataHandler() != null) {
-			getGlobalDataHandler().shutdown();
-		}
-
+	/** Best-effort remainder of runtime teardown after the Control overlap gate has succeeded. */
+	public void completeRuntimeReplacementShutdown() {
+		runCleanup("vote cache", () -> getVoteCacheHandler().saveVoteCache());
+		runCleanup("proxy MySQL messenger", () -> {
+			if (getProxyMysqlMessenger() != null) getProxyMysqlMessenger().shutdown();
+		});
+		runCleanup("proxy MySQL", () -> {
+			if (getProxyMySQL() != null) getProxyMySQL().shutdown();
+		});
+		runCleanup("multi-proxy handler", () -> {
+			if (multiProxyHandler != null) multiProxyHandler.close();
+		});
+		runCleanup("socket listener", () -> {
+			if (socketHandler != null) socketHandler.closeConnection();
+		});
+		runCleanup("socket clients", this::closeSocketClients);
+		runCleanup("Redis subscriber", () -> {
+			if (redisHandler != null) redisHandler.close();
+		});
+		runCleanup("Redis publisher", () -> {
+			JedisPool pool = redisPublisherPool;
+			try {
+				if (pool != null) pool.close();
+			} finally {
+				if (redisPublisherPool == pool) redisPublisherPool = null;
+			}
+		});
+		runCleanup("MQTT transport", () -> {
+			if (mqttHandler != null) mqttHandler.disconnect();
+		});
+		runCleanup("time checker", () -> bungeeTimeChecker.shutdown());
+		runCleanup("global data", () -> {
+			if (getGlobalDataHandler() != null) getGlobalDataHandler().shutdown();
+		});
 		enabled = false;
 	}
+
+	private void runCleanup(String service, CleanupAction cleanup) {
+		try {
+			cleanup.run();
+		} catch (Exception failure) {
+			logSevere("Unable to stop " + service + "; remaining proxy cleanup will continue");
+		}
+	}
+
+	@FunctionalInterface
+	private interface CleanupAction { void run() throws Exception; }
 
 	public void onPluginMessageReceived(DataInputStream in) {
 		runAsync(() -> {
@@ -2407,15 +2548,80 @@ public abstract class VotingPluginProxy {
 	}
 
 	public void reload() {
+		reloadRuntime(true);
+	}
+
+	/** Applies a Control-originated configuration reload without stopping its connector or hosted service. */
+	public void reloadFromControl() {
+		reloadRuntime(false);
+	}
+
+	private void reloadRuntime(boolean restartControlServices) {
 		method = BungeeMethod.getByName(getConfig().getBungeeMethod());
 		if (getMethod() == null) {
 			method = BungeeMethod.PLUGINMESSAGING;
 		}
 		warnUnsupportedDedicatedVotingProxyMode();
+		if (!restartControlServices && method == BungeeMethod.SOCKETS) {
+			rebuildSocketClients();
+		}
 
 		setCurrentVotePartyVotesRequired(
 				getConfig().getVotePartyVotesRequired() + getVoteCacheVotePartyIncreaseVotesRequired());
-		loadMultiProxySupport();
+		if (restartControlServices) {
+			loadMultiProxySupport();
+			restartControlServicesAsync();
+		}
+	}
+
+	private synchronized void rebuildSocketClients() {
+		HashMap<String, ClientHandler> rebuilt = new HashMap<>();
+		try {
+			List<String> blocked = getConfig().getBlockedServers();
+			for (String server : getConfig().getSpigotServers()) {
+				if (blocked.contains(server)) continue;
+				Map<String, Object> data = getConfig().getSpigotServerConfiguration(server);
+				String host = data.containsKey("Host") ? (String) data.get("Host") : "";
+				int port = data.containsKey("Port") ? (int) data.get("Port") : 1298;
+				rebuilt.put(server, new ClientHandler(host, port, encryptionHandler, getConfig().getDebug()));
+			}
+		} catch (RuntimeException failure) {
+			stopSocketClients(rebuilt);
+			throw failure;
+		}
+		HashMap<String, ClientHandler> previous = clientHandles;
+		clientHandles = rebuilt;
+		stopSocketClients(previous);
+	}
+
+	private synchronized boolean sendSocketEnvelope(String server, JsonEnvelope envelope) {
+		ClientHandler socketClient = clientHandles == null ? null : clientHandles.get(server);
+		if (socketClient == null) return false;
+		try {
+			socketClient.sendEnvelope(envelope);
+			return true;
+		} catch (RuntimeException e) {
+			debug(e.getMessage());
+			return false;
+		}
+	}
+
+	private synchronized void closeSocketClients() {
+		HashMap<String, ClientHandler> clients = clientHandles;
+		clientHandles = null;
+		stopSocketClients(clients);
+	}
+
+	static void stopSocketClients(Map<String, ClientHandler> clients) {
+		if (clients == null) return;
+		for (ClientHandler client : clients.values()) {
+			if (client == null) continue;
+			try {
+				client.stopConnection();
+			} catch (RuntimeException ignored) {
+				// Best effort: one broken client must not prevent the remaining sockets from closing.
+			}
+		}
 	}
 
 	private void warnUnsupportedDedicatedVotingProxyMode() {
@@ -2427,11 +2633,17 @@ public abstract class VotingPluginProxy {
 
 	public abstract void runAsync(Runnable run);
 
+	/** Platform name used only for the transport-neutral Control discovery contract. */
+	public abstract String getProxyPlatform();
+
 	public abstract void runConsoleCommand(String command);
 
 	public abstract void saveVoteCacheFile();
 
 	public abstract void reloadCore(boolean mysql);
+
+	/** Strict Control reload path; failures propagate so the caller can restore its backup. */
+	public abstract void reloadControlConfiguration() throws Exception;
 
 	public abstract boolean sendPluginMessageData(String server, String channel, byte[] data, boolean queue);
 
@@ -2536,7 +2748,8 @@ public abstract class VotingPluginProxy {
 
 		try (Jedis jedis = publisherPool.getResource()) {
 			String channel = getConfig().getRedisPrefix() + "VotingPlugin_" + server;
-			long subscribers = jedis.publish(channel, JsonEnvelopeCodec.encode(envelope));
+			long subscribers = jedis.publish(channel,
+					JsonEnvelopeCodec.encode(VotingPluginWire.withRedisDeliveryId(envelope)));
 			redisPublisherRetryAfter = 0L;
 			return subscribers > 0;
 		} catch (Exception e) {
