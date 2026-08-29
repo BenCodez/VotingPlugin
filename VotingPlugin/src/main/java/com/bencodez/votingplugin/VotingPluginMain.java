@@ -940,6 +940,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				Runnable publication = () -> {
 					backendHostedControlActiveManager = replacement;
 					backendHostedControlActiveConfiguration = replacementConfiguration;
+					restartBackendControlConnector();
 				};
 				BackendControlConnector connector = backendControlConnector;
 				if (connector == null) publication.run();
@@ -1060,6 +1061,21 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		if (replacement != null) replacement.start();
 	}
 
+	private synchronized void clearBackendControlAutoEnrollment() {
+		BackendControlAutoEnrollment previous = backendControlAutoEnrollment;
+		backendControlAutoEnrollment = null;
+		if (previous != null) previous.close();
+	}
+
+	/** True while a newly configured local host must be published before its connector is created. */
+	private boolean backendControlAwaitsHostedPublication() {
+		HostedControlManager.HostConfiguration configured = readBackendHostedControlConfiguration();
+		if (configured.equals(backendHostedControlActiveConfiguration)) return false;
+		ConfigurationSection control = getConfigFile().getData().getConfigurationSection("Control.Backend");
+		return control != null && control.getBoolean("Enabled", false)
+				&& HostedControlManager.isDirectLocalEndpoint(control.getString("Endpoint", ""), configured);
+	}
+
 	/** Refreshes the optional Control services after their Config.yml settings were applied. */
 	public synchronized void restartBackendControlConnector() {
 		backendControlConnectorReconcileRequested = true;
@@ -1111,10 +1127,15 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			BackendControlConnector replacement;
 			boolean creationFailed = false;
 			try {
-				refreshBackendControlAutoEnrollment();
-				BackendControlAutoEnrollment enrollment = backendControlAutoEnrollment;
-				replacement = enrollment != null && enrollment.isAwaitingCredential()
-						? null : BackendControlConnector.create(this);
+				if (backendControlAwaitsHostedPublication()) {
+					clearBackendControlAutoEnrollment();
+					replacement = null;
+				} else {
+					refreshBackendControlAutoEnrollment();
+					BackendControlAutoEnrollment enrollment = backendControlAutoEnrollment;
+					replacement = enrollment != null && enrollment.isAwaitingCredential()
+							? null : BackendControlConnector.create(this);
+				}
 			} catch (Exception e) {
 				replacement = null;
 				creationFailed = true;
