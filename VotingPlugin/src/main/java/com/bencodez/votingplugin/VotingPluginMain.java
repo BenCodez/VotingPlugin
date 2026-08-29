@@ -1240,9 +1240,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	/** Confirms that the generated credential authenticated to the configured Control endpoint. */
-	public void backendControlAuthenticated() {
+	public void backendControlAuthenticated(String nodeId, String credentialFile, String endpoint, String verifier) {
 		BackendControlAutoEnrollment enrollment = backendControlAutoEnrollment;
-		if (enrollment != null) enrollment.connectorAuthenticated();
+		if (enrollment != null) enrollment.connectorAuthenticated(nodeId, credentialFile, endpoint, verifier);
 	}
 
 	private void migrateVoteBroadcast(Config configFile) {
