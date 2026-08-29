@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -11,6 +12,18 @@ import org.junit.jupiter.api.io.TempDir;
 
 class ControlCredentialFileTest {
 	@TempDir Path directory;
+
+
+	@Test void createsBlankContainedCredentialFileBeforeEnrollment() throws Exception {
+		Path root = Files.createDirectory(directory.resolve("plugin"));
+		Path credential = root.resolve("control/control-credential.txt");
+
+		assertThrows(java.io.IOException.class,
+				() -> ControlCredentialFile.read(root, "control/control-credential.txt"));
+
+		assertTrue(Files.isRegularFile(credential));
+		assertEquals("", Files.readString(credential));
+	}
 
 	@Test void readsContainedFileAndRejectsFileDirectoryAndTraversalEscapes() throws Exception {
 		Path root = Files.createDirectory(directory.resolve("plugin"));
