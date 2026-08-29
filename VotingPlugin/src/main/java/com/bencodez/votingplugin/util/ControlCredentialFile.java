@@ -107,17 +107,31 @@ public final class ControlCredentialFile {
 	private static PendingAutoEnrollment readMarker(Path marker, Path credentialFile, String configuredPath)
 			throws IOException {
 		if (!Files.exists(marker, LinkOption.NOFOLLOW_LINKS)) return null;
-		if (!Files.isRegularFile(marker, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(marker)
-				|| Files.size(marker) > MAX_MARKER_BYTES) throw invalid();
-		String[] lines = Files.readString(marker, StandardCharsets.US_ASCII).split("\\R", -1);
-		if (lines.length < 3 || !"1".equals(lines[0]) || !NODE_ID.matcher(lines[1]).matches()
+		if (!Files.isRegularFile(marker, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(marker)) throw invalid();
+		ByteBuffer bytes = ByteBuffer.allocate(MAX_MARKER_BYTES + 1);
+		try (SeekableByteChannel channel = Files.newByteChannel(marker, StandardOpenOption.READ,
+				LinkOption.NOFOLLOW_LINKS)) {
+			while (bytes.hasRemaining() && channel.read(bytes) > 0) { }
+		}
+		if (bytes.position() > MAX_MARKER_BYTES) throw invalid();
+		bytes.flip();
+		String contents;
+		try {
+			contents = StandardCharsets.US_ASCII.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
+					.onUnmappableCharacter(CodingErrorAction.REPORT).decode(bytes).toString();
+		} catch (java.nio.charset.CharacterCodingException e) {
+			throw invalid();
+		}
+		String[] lines = contents.split("\\n", -1);
+		if (lines.length != 3 || contents.indexOf('\r') >= 0 || !"1".equals(lines[0])
+				|| !NODE_ID.matcher(lines[1]).matches()
 				|| !VERIFIER.matcher(lines[2]).matches()) throw invalid();
 		restrictPermissions(marker);
 		return new PendingAutoEnrollment(credentialFile, configuredPath, lines[1], lines[2]);
 	}
 
 	private static String markerContents(PendingAutoEnrollment enrollment) {
-		return "1\n" + enrollment.nodeId() + "\n" + enrollment.verifier() + "\n";
+		return "1\n" + enrollment.nodeId() + "\n" + enrollment.verifier();
 	}
 
 	private static Path marker(Path credentialFile) {
