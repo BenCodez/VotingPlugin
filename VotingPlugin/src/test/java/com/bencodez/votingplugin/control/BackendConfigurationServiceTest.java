@@ -157,6 +157,16 @@ class BackendConfigurationServiceTest {
 		assertFalse(read.content().contains("real-comment-secret"));
 	}
 
+	@Test void redactsQuotedCredentialKeysInComments() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "# \"Password\": quoted-comment-secret\nFeature: false\n");
+
+		BackendConfigurationService.Document read = new BackendConfigurationService(directory, () -> { })
+				.read("Config.yml");
+
+		assertFalse(read.content().contains("quoted-comment-secret"));
+	}
+
 	@Test void rejectsStaleInvalidAndUnmanagedWrites() throws Exception {
 		Files.writeString(directory.resolve("Config.yml"), "Feature: false\n");
 		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
@@ -466,6 +476,21 @@ class BackendConfigurationServiceTest {
 		YamlConfiguration proposal = new YamlConfiguration();
 		proposal.loadFromString(preview.proposal().content());
 		assertFalse(proposal.contains("VoteSites.RewardOnly"));
+	}
+
+	@Test void voteSitesSyncPreservesTargetsBelowRewardOnlyWrappers() throws Exception {
+		Files.writeString(directory.resolve("VoteSites.yml"),
+				"VoteSites:\n  Example:\n    Name: Target\n    Metadata: keep\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("sync-vote-sites", Map.of(
+				"sourceContent", "VoteSites:\n  Example:\n    Name: Source\n    Metadata:\n"
+						+ "      Rewards:\n        Commands: ['say ignored']\n"));
+		YamlConfiguration proposal = new YamlConfiguration();
+		proposal.loadFromString(preview.proposal().content());
+
+		assertEquals("Source", proposal.getString("VoteSites.Example.Name"));
+		assertEquals("keep", proposal.getString("VoteSites.Example.Metadata"));
 	}
 
 	@Test void fullBungeeSettingsRejectsUnknownTransportMethods() throws Exception {
