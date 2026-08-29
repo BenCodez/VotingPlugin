@@ -205,7 +205,8 @@ public final class BackendConfigurationService {
 
 	private static String quickSetupFile(String preset) {
 		if ("standalone".equals(preset) || "proxy-backend".equals(preset)) return "BungeeSettings.yml";
-		if ("vote-site".equals(preset) || "easy-reward".equals(preset)) return "VoteSites.yml";
+		if ("vote-site".equals(preset) || "easy-reward".equals(preset)
+				|| "sync-vote-sites".equals(preset)) return "VoteSites.yml";
 		if ("common-settings".equals(preset)) return "Config.yml";
 		if ("vote-party".equals(preset)) return "SpecialRewards.yml";
 		throw new IllegalArgumentException("quick setup preset is unsupported");
@@ -214,6 +215,12 @@ public final class BackendConfigurationService {
 	private QuickProposal quickProposal(String preset, Map<String, String> options, String fileName,
 			String current) {
 		YamlConfiguration yaml = parse(current);
+		if ("sync-vote-sites".equals(preset)) {
+			String sourceContent = options == null ? null : options.get("sourceContent");
+			YamlConfiguration source = parse(sourceContent);
+			mergeVoteSites(source, yaml);
+			return new QuickProposal(fileName, yaml.saveToString());
+		}
 		if ("standalone".equals(preset) || "proxy-backend".equals(preset)) {
 			boolean proxy = "proxy-backend".equals(preset);
 			yaml.set("UseBungeecord", proxy);
@@ -278,6 +285,54 @@ public final class BackendConfigurationService {
 			return new QuickProposal(fileName, yaml.saveToString());
 		}
 		throw new IllegalArgumentException("quick setup preset is unsupported");
+	}
+
+	private static void mergeVoteSites(YamlConfiguration source, YamlConfiguration target) {
+		ConfigurationSection sourceSites = source.getConfigurationSection("VoteSites");
+		if (sourceSites == null) throw new IllegalArgumentException("source VoteSites.yml has no VoteSites section");
+		ConfigurationSection targetSites = target.getConfigurationSection("VoteSites");
+		if (targetSites == null) targetSites = target.createSection("VoteSites");
+		target.setComments("VoteSites", source.getComments("VoteSites"));
+		target.setInlineComments("VoteSites", source.getInlineComments("VoteSites"));
+		for (String site : sourceSites.getKeys(false)) {
+			ConfigurationSection sourceSite = sourceSites.getConfigurationSection(site);
+			if (sourceSite == null) throw new IllegalArgumentException("source vote site " + site + " is not a section");
+			String targetPath = "VoteSites." + site;
+			if (target.getConfigurationSection(targetPath) == null) {
+				target.set(targetPath, null);
+				target.createSection(targetPath);
+			}
+			target.setComments(targetPath, sourceSites.getComments(site));
+			target.setInlineComments(targetPath, sourceSites.getInlineComments(site));
+			mergeNonRewardValues(sourceSite, target, targetPath);
+		}
+	}
+
+	private static void mergeNonRewardValues(ConfigurationSection source, YamlConfiguration target,
+			String targetParent) {
+		for (String key : source.getKeys(false)) {
+			if (rewardKey(key)) continue;
+			String targetPath = targetParent + "." + key;
+			Object value = source.get(key);
+			if (value instanceof ConfigurationSection section) {
+				if (target.getConfigurationSection(targetPath) == null) {
+					target.set(targetPath, null);
+					target.createSection(targetPath);
+				}
+				target.setComments(targetPath, source.getComments(key));
+				target.setInlineComments(targetPath, source.getInlineComments(key));
+				mergeNonRewardValues(section, target, targetPath);
+			} else if (!REDACTED.equals(value)) {
+				target.set(targetPath, value);
+				target.setComments(targetPath, source.getComments(key));
+				target.setInlineComments(targetPath, source.getInlineComments(key));
+			}
+		}
+	}
+
+	private static boolean rewardKey(String key) {
+		String normalized = key.replace("-", "").replace("_", "").toLowerCase(Locale.ROOT);
+		return normalized.contains("reward");
 	}
 
 	private Path resolve(String fileName) throws IOException {
