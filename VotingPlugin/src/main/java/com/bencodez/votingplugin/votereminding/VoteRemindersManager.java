@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -272,6 +273,7 @@ public final class VoteRemindersManager {
 
 	private final VotingPluginMain plugin;
 	private final VoteReminderCooldownStore store;
+	private final Set<UUID> disabledReminders = ConcurrentHashMap.newKeySet();
 
 	private VoteReminderOptions options;
 	private VoteReminderCooldowns cooldowns;
@@ -331,6 +333,7 @@ public final class VoteRemindersManager {
 	public VoteRemindersManager(VotingPluginMain plugin, VoteReminderCooldownStore store) {
 		this.plugin = plugin;
 		this.store = store;
+		loadDisabledReminders();
 
 		this.scheduler = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
 			private final AtomicInteger n = new AtomicInteger();
@@ -351,6 +354,7 @@ public final class VoteRemindersManager {
 	public void reload() {
 		stopTasks();
 
+		loadDisabledReminders();
 		loadConfig();
 		this.cooldowns = new VoteReminderCooldowns(store, options.getGlobalCooldown());
 
@@ -852,6 +856,11 @@ public final class VoteRemindersManager {
 
 	private boolean attemptFireNow(VotingPluginUser user, Player player, VoteReminderDefinition def,
 			Map<String, String> placeholders) {
+		if (!isUserReminderEnabled(user)) {
+			plugin.extraDebug("[VoteReminders] gate disabled-reminders-map for " + user.getPlayerName()
+					+ " def=" + def.getName());
+			return false;
+		}
 
 		if (!user.shouldBeReminded()) {
 			plugin.extraDebug(
@@ -965,7 +974,56 @@ public final class VoteRemindersManager {
 	}
 
 	private boolean isUserReminderEnabled(VotingPluginUser user) {
-		return true;
+		return isRemindersEnabled(user.getJavaUUID());
+	}
+
+	/**
+	 * Checks whether vote reminders are enabled for a player.
+	 *
+	 * @param uuid the player's UUID
+	 * @return true when reminders are enabled
+	 */
+	public boolean isRemindersEnabled(UUID uuid) {
+		return uuid == null || !disabledReminders.contains(uuid);
+	}
+
+	/**
+	 * Toggles and immediately persists a player's vote reminder preference.
+	 *
+	 * @param uuid the player's UUID
+	 * @return the new enabled state
+	 */
+	public synchronized boolean toggleReminders(UUID uuid) {
+		if (uuid == null) {
+			return true;
+		}
+
+		boolean enabled;
+		if (disabledReminders.remove(uuid)) {
+			enabled = true;
+		} else {
+			disabledReminders.add(uuid);
+			enabled = false;
+		}
+		saveDisabledReminders();
+		return enabled;
+	}
+
+	private synchronized void loadDisabledReminders() {
+		disabledReminders.clear();
+		for (String uuid : plugin.getServerData().getDisabledReminders()) {
+			try {
+				disabledReminders.add(UUID.fromString(uuid));
+			} catch (IllegalArgumentException e) {
+				plugin.getLogger().warning("Ignoring invalid UUID in VotingPlugin.DisabledReminders: " + uuid);
+			}
+		}
+	}
+
+	private void saveDisabledReminders() {
+		ArrayList<UUID> uuids = new ArrayList<>(disabledReminders);
+		uuids.sort(Comparator.comparing(UUID::toString));
+		plugin.getServerData().saveDisabledReminders(uuids);
 	}
 
 	/*

@@ -3336,6 +3336,24 @@ public class CommandLoader {
 					}
 				});
 
+		plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "ToggleReminders" },
+				"VotingPlugin.Commands.Vote.ToggleReminders|" + playerPerm, "Enable/disable vote reminders", false) {
+
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				VotingPluginUser user = plugin.getVotingPluginUserManager()
+						.getVotingPluginUser((Player) sender);
+				boolean enabled = plugin.getVoteRemindersManager().toggleReminders(user.getJavaUUID());
+				plugin.getPlaceholders().onUpdate(user, true);
+
+				if (enabled) {
+					sendMessage(sender, plugin.getConfigFile().getFormatCommandsVoteToggleRemindersEnabled());
+				} else {
+					sendMessage(sender, plugin.getConfigFile().getFormatCommandsVoteToggleRemindersDisabled());
+				}
+			}
+		});
+
 		plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "Next", "(player)" },
 				"VotingPlugin.Commands.Vote.Next.Other|" + modPerm, "See other players next votes") {
 
