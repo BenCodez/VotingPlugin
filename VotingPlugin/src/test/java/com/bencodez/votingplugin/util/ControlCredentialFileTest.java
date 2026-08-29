@@ -49,6 +49,7 @@ class ControlCredentialFileTest {
 		assertTrue(Files.isRegularFile(root.resolve(configured + ".auto-enroll")));
 		ControlCredentialFile.completeAutoEnrollment(recovered);
 		assertFalse(Files.exists(root.resolve(configured + ".auto-enroll")));
+		ControlCredentialFile.completeAutoEnrollment(recovered);
 		assertNull(ControlCredentialFile.prepareAutoEnrollment(root, configured, "proxy-a"));
 		assertEquals(credential, ControlCredentialFile.read(root, configured));
 	}
