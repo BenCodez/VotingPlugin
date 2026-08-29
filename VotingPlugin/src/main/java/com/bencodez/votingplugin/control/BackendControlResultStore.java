@@ -26,6 +26,7 @@ import com.google.gson.JsonParser;
 /** Durable result journal used to make locally applied Control operations restart-safe. */
 final class BackendControlResultStore {
 	private static final int VERSION = 3;
+	private static final int LEGACY_VERSION = 2;
 	// A valid 512 KiB YAML result may expand up to sixfold when characters require JSON unicode escaping.
 	private static final int MAX_BYTES = 4 * 1024 * 1024;
 	private static final int MAX_RESULTS = 128;
@@ -54,18 +55,14 @@ final class BackendControlResultStore {
 			JsonElement parsed = JsonParser.parseString(new String(bytes, StandardCharsets.UTF_8));
 			if (!parsed.isJsonObject()) throw invalid();
 			JsonObject root = parsed.getAsJsonObject();
-			if (integer(root, "version") != VERSION) throw invalid();
+			int version = integer(root, "version");
+			if (version != VERSION && version != LEGACY_VERSION) throw invalid();
 			JsonObject routeJson = object(root, "route");
 			Route route = new Route(string(routeJson, "nodeId"), URI.create(string(routeJson, "endpoint")),
 					string(routeJson, "credentialFile"), integer(routeJson, "heartbeatSeconds"),
 					integer(routeJson, "connectTimeoutMillis"), integer(routeJson, "requestTimeoutMillis"));
-			JsonObject hostedJson = object(root, "hosted");
-			HostConfiguration hosted = new HostConfiguration(bool(hostedJson, "enabled"),
-					bool(hostedJson, "autoDownload"), bool(hostedJson, "autoUpdate"),
-					optionalString(hostedJson, "downloadUrl"), optionalString(hostedJson, "sha256"),
-					string(hostedJson, "jarFile"), string(hostedJson, "dataDirectory"),
-					string(hostedJson, "host"), integer(hostedJson, "port"),
-					integer(hostedJson, "startupTimeoutSeconds"), integer(hostedJson, "downloadTimeoutSeconds"));
+			HostConfiguration hosted = version == LEGACY_VERSION ? legacyHostedConfiguration()
+					: hostedConfiguration(object(root, "hosted"));
 			JsonArray listed = array(root, "results");
 			if (listed.size() == 0 || listed.size() > MAX_RESULTS) throw invalid();
 			Map<UUID, StoredResult> results = new LinkedHashMap<>();
@@ -184,6 +181,21 @@ final class BackendControlResultStore {
 	private static boolean bool(JsonObject object, String name) {
 		if (!object.has(name) || !object.get(name).isJsonPrimitive()) throw invalid();
 		return object.get(name).getAsBoolean();
+	}
+
+	private static HostConfiguration hostedConfiguration(JsonObject hosted) {
+		return new HostConfiguration(bool(hosted, "enabled"), bool(hosted, "autoDownload"),
+				bool(hosted, "autoUpdate"), optionalString(hosted, "downloadUrl"),
+				optionalString(hosted, "sha256"), string(hosted, "jarFile"),
+				string(hosted, "dataDirectory"), string(hosted, "host"), integer(hosted, "port"),
+				integer(hosted, "startupTimeoutSeconds"), integer(hosted, "downloadTimeoutSeconds"));
+	}
+
+	private static HostConfiguration legacyHostedConfiguration() {
+		// Version 2 predates Bukkit-hosted Control, so recovery must keep hosting disabled
+		// until the old connector route has submitted its pending result.
+		return new HostConfiguration(false, false, false, "", "", "control/votingplugin-control.jar",
+				"control/data", "127.0.0.1", 8080, 30, 60);
 	}
 
 	private static int integer(JsonObject object, String name) {

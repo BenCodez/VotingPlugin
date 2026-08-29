@@ -61,6 +61,37 @@ class BackendControlResultStoreTest {
 		assertFalse(recovered.claimRequired());
 	}
 
+	@Test void versionTwoJournalRecoversWithBackendHostingDisabled() throws Exception {
+		JsonObject root = new JsonObject();
+		root.addProperty("version", 2);
+		JsonObject route = new JsonObject();
+		route.addProperty("nodeId", "backend-old");
+		route.addProperty("endpoint", "https://control.example:8443");
+		route.addProperty("credentialFile", "old-credential.txt");
+		route.addProperty("heartbeatSeconds", 30);
+		route.addProperty("connectTimeoutMillis", 3000);
+		route.addProperty("requestTimeoutMillis", 10000);
+		root.add("route", route);
+		JsonObject result = new JsonObject();
+		result.addProperty("success", true);
+		JsonObject pending = new JsonObject();
+		pending.addProperty("operationId", "00000000-0000-0000-0000-000000000099");
+		pending.add("result", result);
+		pending.addProperty("restartConnector", true);
+		pending.addProperty("committed", true);
+		pending.addProperty("claimRequired", false);
+		com.google.gson.JsonArray results = new com.google.gson.JsonArray();
+		results.add(pending);
+		root.add("results", results);
+		Files.writeString(directory.resolve(".control-pending-results.json"), root.toString());
+
+		BackendControlResultStore.State recovered = BackendControlResultStore.load(directory);
+
+		assertEquals(URI.create("https://control.example:8443"), recovered.route().endpoint());
+		assertFalse(recovered.hostedConfiguration().enabled());
+		assertTrue(recovered.results().values().iterator().next().committed());
+	}
+
 	@Test void symbolicPendingResultJournalIsRejected() throws Exception {
 		Path external = directory.resolve("external.json");
 		Files.writeString(external, "{}");
