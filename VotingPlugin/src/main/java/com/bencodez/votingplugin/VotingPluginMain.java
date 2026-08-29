@@ -923,13 +923,31 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 			return;
 		}
-		synchronized (this) {
-			if (backendHostedControlStopping || backendHostedControlLifecycleFailed) {
-				closeBackendHostedControlManager(replacement, false);
-				return;
+		try {
+			synchronized (this) {
+				if (backendHostedControlStopping || backendHostedControlLifecycleFailed) {
+					closeBackendHostedControlManager(replacement, false);
+					return;
+				}
+				Runnable publication = () -> {
+					backendHostedControlActiveManager = replacement;
+					backendHostedControlActiveConfiguration = replacementConfiguration;
+				};
+				BackendControlConnector connector = backendControlConnector;
+				if (connector == null) publication.run();
+				else connector.publishHostedConfiguration(replacementConfiguration, publication);
 			}
-			backendHostedControlActiveManager = replacement;
-			backendHostedControlActiveConfiguration = replacementConfiguration;
+		} catch (IOException e) {
+			try {
+				closeBackendHostedControlManager(replacement, true);
+			} catch (RuntimeException closeFailure) {
+				e.addSuppressed(closeFailure);
+			}
+			if (!backendHostedControlStopping) {
+				getLogger().warning("[Control Host] Replacement publication failed; restoring the previous host");
+				debug(e);
+				restoreBackendHostedControl(previousConfiguration, replacement, replacementConfiguration);
+			}
 		}
 	}
 

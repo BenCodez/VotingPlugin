@@ -59,6 +59,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	private final boolean recovering;
 	private final AtomicBoolean running = new AtomicBoolean();
 	private final Object operationLifecycle = new Object();
+	private final Object journalLifecycle = new Object();
 	private volatile boolean closed;
 	private volatile boolean registered;
 	private volatile boolean operationsAccepted;
@@ -343,16 +344,30 @@ public final class BackendControlConnector implements AutoCloseable {
 	}
 
 	private void persistCompleted() throws IOException {
-		Map<UUID, StoredResult> snapshot;
-		synchronized (completed) { snapshot = new LinkedHashMap<>(completed); }
-		if (!snapshot.isEmpty()) hostedConfiguration = plugin.getActiveBackendHostedControlConfigurationSnapshot();
-		BackendControlResultStore.save(dataDirectory, settings.route(), hostedConfiguration, snapshot);
+		synchronized (journalLifecycle) {
+			Map<UUID, StoredResult> snapshot;
+			synchronized (completed) { snapshot = new LinkedHashMap<>(completed); }
+			if (!snapshot.isEmpty()) hostedConfiguration = plugin.getActiveBackendHostedControlConfigurationSnapshot();
+			BackendControlResultStore.save(dataDirectory, settings.route(), hostedConfiguration, snapshot);
+		}
+	}
+
+	/** Durably aligns pending results before the hosted lifecycle publishes a new active process. */
+	public void publishHostedConfiguration(HostConfiguration configuration, Runnable publication) throws IOException {
+		synchronized (journalLifecycle) {
+			Map<UUID, StoredResult> snapshot;
+			synchronized (completed) { snapshot = new LinkedHashMap<>(completed); }
+			if (!snapshot.isEmpty()) {
+				BackendControlResultStore.save(dataDirectory, settings.route(), configuration, snapshot);
+			}
+			hostedConfiguration = configuration;
+			publication.run();
+		}
 	}
 
 	private void persistIntent(UUID operationId, TaskResult anticipated, String attemptId) throws IOException {
 		JsonObject result = anticipated.json();
 		result.addProperty("attemptId", attemptId);
-		hostedConfiguration = plugin.getActiveBackendHostedControlConfigurationSnapshot();
 		synchronized (completed) {
 			completed.put(operationId, new StoredResult(result, anticipated.restartConnector(), false, false));
 		}
