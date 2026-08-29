@@ -217,7 +217,10 @@ class ControlConnectorTest {
 		connector.cycle();
 
 		AtomicBoolean replacementStarted = new AtomicBoolean();
-		assertTrue(connector.deferReplacementUntilSafe(() -> replacementStarted.set(true)));
+		assertTrue(connector.deferReplacementUntilSafe(() -> {
+			assertFalse(connector.hasActiveOperation());
+			replacementStarted.set(true);
+		}));
 		assertFalse(replacementStarted.get());
 
 		transport.resultSubmission.complete(new Response(200, "{}"));

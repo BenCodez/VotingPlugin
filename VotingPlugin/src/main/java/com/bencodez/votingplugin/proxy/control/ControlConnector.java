@@ -284,7 +284,6 @@ public final class ControlConnector implements AutoCloseable {
 		operation.whenComplete((ignored, failure) -> {
 			try {
 				activeRequest = null;
-				finishCycle();
 				if (!closed) {
 					if (failure == null) {
 						onSuccess();
@@ -299,8 +298,13 @@ public final class ControlConnector implements AutoCloseable {
 					operationDone.completeExceptionally(failure);
 				}
 				if (activeOperation == operationDone) activeOperation = null;
+				finishCycle();
 			}
 		});
+	}
+
+	boolean hasActiveOperation() {
+		return activeOperation != null;
 	}
 
 	private void finishCycle() {
