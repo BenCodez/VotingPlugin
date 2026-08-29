@@ -17,15 +17,7 @@ public final class ControlCredentialFile {
 	private ControlCredentialFile() { }
 
 	public static String read(Path rootDirectory, String configuredPath) throws IOException {
-		if (configuredPath == null || configuredPath.isBlank()) throw invalid();
-		Path lexicalRoot = rootDirectory.toAbsolutePath().normalize();
-		Path requested = lexicalRoot.resolve(configuredPath).normalize();
-		if (!requested.startsWith(lexicalRoot) || requested.getParent() == null) throw invalid();
-		Path realRoot = lexicalRoot.toRealPath();
-		Path realParent = requested.getParent().toRealPath();
-		if (!realParent.startsWith(realRoot)) throw invalid();
-		Path target = realParent.resolve(requested.getFileName());
-		if (!Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(target)) throw invalid();
+		Path target = resolveAndCreate(rootDirectory, configuredPath);
 
 		ByteBuffer bytes = ByteBuffer.allocate(MAX_BYTES + 1);
 		try (SeekableByteChannel channel = Files.newByteChannel(target, StandardOpenOption.READ,
@@ -44,6 +36,42 @@ public final class ControlCredentialFile {
 		if (credential.isEmpty() || credential.length() > MAX_BYTES || credential.indexOf('\r') >= 0
 				|| credential.indexOf('\n') >= 0) throw invalid();
 		return credential;
+	}
+
+
+	private static Path resolveAndCreate(Path rootDirectory, String configuredPath) throws IOException {
+		if (configuredPath == null || configuredPath.isBlank()) throw invalid();
+		Path lexicalRoot = rootDirectory.toAbsolutePath().normalize();
+		Path requested = lexicalRoot.resolve(configuredPath).normalize();
+		if (!requested.startsWith(lexicalRoot) || requested.getParent() == null) throw invalid();
+
+		Path realRoot = lexicalRoot.toRealPath();
+		Path current = realRoot;
+		for (Path component : lexicalRoot.relativize(requested.getParent())) {
+			Path child = current.resolve(component.toString());
+			if (!Files.exists(child, LinkOption.NOFOLLOW_LINKS)) {
+				try {
+					Files.createDirectory(child);
+				} catch (java.nio.file.FileAlreadyExistsException ignored) {
+					// Revalidate below in case another process created it.
+				}
+			}
+			if (Files.isSymbolicLink(child) || !Files.isDirectory(child, LinkOption.NOFOLLOW_LINKS)) throw invalid();
+			current = child.toRealPath();
+			if (!current.startsWith(realRoot)) throw invalid();
+		}
+
+		Path target = current.resolve(requested.getFileName());
+		if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+			try (SeekableByteChannel ignored = Files.newByteChannel(target,
+					StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)) {
+				// Publish an empty placeholder for enrollment through the file manager or WebUI.
+			} catch (java.nio.file.FileAlreadyExistsException ignored) {
+				// Revalidate below in case another process created it.
+			}
+		}
+		if (!Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(target)) throw invalid();
+		return target;
 	}
 
 	private static IOException invalid() {
