@@ -44,6 +44,42 @@ class BackendConfigurationServiceTest {
 		assertTrue(Files.isRegularFile(directory.resolve("Config.yml.control-backup")));
 	}
 
+	@Test void fullFileEditingPreservesCommentsWhileSecretsRemainRedacted() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "# VotingPlugin owner notes\n"
+				+ "Database:\n"
+				+ "  # Never expose this value\n"
+				+ "  Password: keep-me # database credential\n"
+				+ "Feature: false # toggle from Control\n"
+				+ "# End of owner notes\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.Document read = service.read("Config.yml");
+		assertFalse(read.content().contains("keep-me"));
+		assertTrue(read.content().contains(BackendConfigurationService.REDACTED));
+		assertTrue(read.content().contains("# VotingPlugin owner notes"));
+		assertTrue(read.content().contains("# Never expose this value"));
+		assertTrue(read.content().contains("# database credential"));
+		assertTrue(read.content().contains("# toggle from Control"));
+		assertTrue(read.content().contains("# End of owner notes"));
+
+		String proposal = read.content().replace("Feature: false", "Feature: true");
+		BackendConfigurationService.Preview preview = service.preview("Config.yml", proposal);
+		assertTrue(preview.resolvedContent().contains("# VotingPlugin owner notes"));
+		assertTrue(preview.resolvedContent().contains("# database credential"));
+		assertFalse(preview.resolvedContent().contains(BackendConfigurationService.REDACTED));
+
+		service.apply("Config.yml", proposal, read.revision());
+		String applied = Files.readString(config);
+		assertTrue(applied.contains("Password: keep-me"));
+		assertTrue(applied.contains("Feature: true"));
+		assertTrue(applied.contains("# VotingPlugin owner notes"));
+		assertTrue(applied.contains("# Never expose this value"));
+		assertTrue(applied.contains("# database credential"));
+		assertTrue(applied.contains("# toggle from Control"));
+		assertTrue(applied.contains("# End of owner notes"));
+	}
+
 	@Test void rejectsStaleInvalidAndUnmanagedWrites() throws Exception {
 		Files.writeString(directory.resolve("Config.yml"), "Feature: false\n");
 		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
