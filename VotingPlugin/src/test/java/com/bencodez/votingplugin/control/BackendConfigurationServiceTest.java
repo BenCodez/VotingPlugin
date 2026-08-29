@@ -85,7 +85,7 @@ class BackendConfigurationServiceTest {
 		Path config = directory.resolve("Config.yml");
 		Files.writeString(config, "# Password: commented-secret\n"
 				+ "Database:\n"
-				+ "  Password: active-secret # rotate active-secret soon\n"
+				+ "  Password: abc1234 # rotate abc1234 soon\n"
 				+ "Feature: true # Token=comment-token\n"
 				+ "Other: true # Authorization: Bearer old-token\n"
 				+ "Hook: true # WebhookURL: https://example.invalid/private hook\n"
@@ -94,13 +94,21 @@ class BackendConfigurationServiceTest {
 				.read("Config.yml");
 
 		assertFalse(read.content().contains("commented-secret"));
-		assertFalse(read.content().contains("active-secret"));
+		assertFalse(read.content().contains("abc1234"));
 		assertFalse(read.content().contains("comment-token"));
 		assertFalse(read.content().contains("Bearer old-token"));
 		assertFalse(read.content().contains("example.invalid"));
 		assertFalse(read.content().contains("two words"));
 		assertTrue(read.content().contains("# Password: " + BackendConfigurationService.REDACTED));
 		assertTrue(read.content().contains("# rotate " + BackendConfigurationService.REDACTED + " soon"));
+	}
+
+	@Test void redactsSecretsInCommentOnlyDocuments() throws Exception {
+		Files.writeString(directory.resolve("Config.yml"), "# Password: header-secret\n# owner footer\n");
+		BackendConfigurationService.Document read = new BackendConfigurationService(directory, () -> { })
+				.read("Config.yml");
+		assertFalse(read.content().contains("header-secret"));
+		assertTrue(read.content().contains(BackendConfigurationService.REDACTED));
 	}
 
 	@Test void doesNotRewriteHashTextInsideBlockScalars() throws Exception {
