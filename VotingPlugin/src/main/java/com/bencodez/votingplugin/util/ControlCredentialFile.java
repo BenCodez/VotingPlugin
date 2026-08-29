@@ -74,6 +74,7 @@ public final class ControlCredentialFile {
 		Path marker = marker(target);
 		PendingAutoEnrollment current = readMarker(marker, target, enrollment.configuredPath());
 		String credential = readCredential(target);
+		if (current == null && credential != null && enrollment.verifier().equals(verifier(credential))) return;
 		if (current == null || credential == null || !current.nodeId().equals(enrollment.nodeId())
 				|| !current.verifier().equals(enrollment.verifier())
 				|| !current.verifier().equals(verifier(credential))) {
