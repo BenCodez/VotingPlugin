@@ -1090,10 +1090,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				return;
 			}
 			BackendControlConnector replacement;
+			boolean creationFailed = false;
 			try {
 				replacement = BackendControlConnector.create(this);
 			} catch (Exception e) {
 				replacement = null;
+				creationFailed = true;
 				getLogger().warning("[Control] Bukkit configuration connector was not restarted: " + e.getMessage());
 			}
 			synchronized (this) {
@@ -1104,6 +1106,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				}
 				if (backendControlConnector == previous) backendControlConnector = replacement;
 				if (replacement != null) replacement.start();
+				if (creationFailed) {
+					backendControlConnectorReconcileQueued = false;
+					getLogger().warning("[Control] Hosted settings remain unchanged until the connector can restart");
+					return;
+				}
 			}
 			boolean pending = replacement != null && replacement.hasPendingResults();
 			if (pending) {
