@@ -52,7 +52,7 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 		ConfigurationSection control = control(plugin);
 		if (control == null || !control.getBoolean("Enabled", false)
 				|| HostedControlManager.isDirectLocalEndpoint(control.getString("Endpoint", ""), hosted)
-				|| !plugin.getBungeeSettings().isUseBungeecord()
+				|| !plugin.getBungeeSettings().isUseBungeecoord()
 				|| BungeeMethod.getByName(plugin.getBungeeSettings().getBungeeMethod()) != BungeeMethod.PLUGINMESSAGING) {
 			return null;
 		}
