@@ -91,7 +91,7 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 
 	@Override
 	public boolean getControlHostedAutoUpdate() {
-		return getData().getBoolean("Control.Hosted.AutoUpdate", false);
+		return getData().getBoolean("Control.Hosted.AutoUpdate", true);
 	}
 
 	@Override

@@ -50,12 +50,17 @@ import com.google.gson.JsonParser;
  */
 public final class HostedControlManager implements AutoCloseable {
 	static final long MAX_DOWNLOAD_BYTES = 64L * 1024L * 1024L;
+	static final int MAX_RELEASE_METADATA_BYTES = 256 * 1024;
+	static final long LATEST_UPDATE_INTERVAL_SECONDS = TimeUnit.HOURS.toSeconds(6);
+	static final URI LATEST_RELEASE_API = URI.create(
+			"https://api.github.com/repos/BenCodez/VotingPlugin-Control/releases/latest");
 	private static final int HEALTH_ATTEMPTS_PER_SECOND = 4;
 	private static final int EXPECTED_PROTOCOL_VERSION = 1;
 
 	private final Settings settings;
 	private final ScheduledExecutorService executor;
 	private final ArtifactDownloader downloader;
+	private final ReleaseResolver releaseResolver;
 	private final ProcessLauncher launcher;
 	private final VerifierInstaller verifierInstaller;
 	private final HealthProbe healthProbe;
@@ -71,6 +76,7 @@ public final class HostedControlManager implements AutoCloseable {
 	private volatile ManagedProcess managedProcess;
 	private volatile ManagedProcess exitAwaitedProcess;
 	private volatile Future<?> activeTask;
+	private volatile Future<?> updateCheckTask;
 	private volatile PreparedArtifact preparedArtifact;
 	private volatile int failures;
 	private volatile String quarantinedSha256;
@@ -79,11 +85,13 @@ public final class HostedControlManager implements AutoCloseable {
 	private volatile boolean rollbackCandidateReachedHealth;
 	private volatile boolean rollbackPending;
 	private volatile String healthyLaunchId;
+	private volatile ArtifactSpec trustedTargetArtifact;
 	private volatile PendingAutoEnrollment localAutoEnrollment;
 
 	private HostedControlManager(Settings settings, PendingAutoEnrollment localAutoEnrollment,
 			Consumer<String> logger) {
-		this(settings, daemonExecutor(), new JdkArtifactDownloader(), new JdkProcessLauncher(),
+		this(settings, daemonExecutor(), new JdkArtifactDownloader(), new JdkGithubReleaseResolver(),
+				new JdkProcessLauncher(),
 				new JdkVerifierInstaller(), new JdkHealthProbe(), Thread::sleep, System::nanoTime,
 				localAutoEnrollment, logger);
 	}
@@ -91,16 +99,26 @@ public final class HostedControlManager implements AutoCloseable {
 	HostedControlManager(Settings settings, ScheduledExecutorService executor, ArtifactDownloader downloader,
 			ProcessLauncher launcher, HealthProbe healthProbe, Sleeper sleeper, LongSupplier nanoTime,
 			Consumer<String> logger) {
-		this(settings, executor, downloader, launcher, (configured, artifact, nodeId, verifier, timeout) -> { },
+		this(settings, executor, downloader, new JdkGithubReleaseResolver(), launcher,
+				(configured, artifact, nodeId, verifier, timeout) -> { },
 				healthProbe, sleeper, nanoTime, null, logger);
 	}
 
 	HostedControlManager(Settings settings, ScheduledExecutorService executor, ArtifactDownloader downloader,
 			ProcessLauncher launcher, VerifierInstaller verifierInstaller, HealthProbe healthProbe, Sleeper sleeper,
 			LongSupplier nanoTime, PendingAutoEnrollment localAutoEnrollment, Consumer<String> logger) {
+		this(settings, executor, downloader, new JdkGithubReleaseResolver(), launcher, verifierInstaller,
+				healthProbe, sleeper, nanoTime, localAutoEnrollment, logger);
+	}
+
+	HostedControlManager(Settings settings, ScheduledExecutorService executor, ArtifactDownloader downloader,
+			ReleaseResolver releaseResolver, ProcessLauncher launcher, VerifierInstaller verifierInstaller,
+			HealthProbe healthProbe, Sleeper sleeper, LongSupplier nanoTime,
+			PendingAutoEnrollment localAutoEnrollment, Consumer<String> logger) {
 		this.settings = Objects.requireNonNull(settings, "settings");
 		this.executor = Objects.requireNonNull(executor, "executor");
 		this.downloader = Objects.requireNonNull(downloader, "downloader");
+		this.releaseResolver = Objects.requireNonNull(releaseResolver, "releaseResolver");
 		this.launcher = Objects.requireNonNull(launcher, "launcher");
 		this.verifierInstaller = Objects.requireNonNull(verifierInstaller, "verifierInstaller");
 		this.healthProbe = Objects.requireNonNull(healthProbe, "healthProbe");
@@ -190,8 +208,9 @@ public final class HostedControlManager implements AutoCloseable {
 			if (preparedArtifact != null) return;
 			secureDirectory(settings.rootDirectory(), settings.jarFile().getParent());
 			secureDirectory(settings.rootDirectory(), settings.dataDirectory());
-			loadPersistedQuarantineStateForPreparation();
-			preparedArtifact = stageArtifact();
+			ArtifactSpec target = resolveTargetArtifact();
+			loadPersistedQuarantineStateForPreparation(target.sha256());
+			preparedArtifact = stageArtifact(target);
 		}
 	}
 
@@ -215,9 +234,15 @@ public final class HostedControlManager implements AutoCloseable {
 				}
 				restoreIncompleteActivation();
 			}
-			recoverPersistedQuarantineState();
 			PreparedArtifact prepared = takePreparedArtifact();
-			if (prepared == null) prepared = stageArtifact();
+			ArtifactSpec target;
+			if (prepared == null) {
+				target = resolveTargetArtifact();
+				recoverPersistedQuarantineState(target.sha256());
+				prepared = stageArtifact(target);
+			} else {
+				target = prepared.target();
+			}
 			boolean updated;
 			synchronized (processLifecycle) {
 				if (closed) {
@@ -226,8 +251,9 @@ public final class HostedControlManager implements AutoCloseable {
 				}
 				updated = activatePreparedArtifact(prepared);
 			}
+			trustedTargetArtifact = target;
 			if (updated) {
-				rollbackCandidateSha256 = settings.sha256();
+				rollbackCandidateSha256 = target.sha256();
 				rollbackPending = true;
 			}
 			if (closed) {
@@ -257,8 +283,10 @@ public final class HostedControlManager implements AutoCloseable {
 				rollbackPending = false;
 				healthyLaunchId = launched.launchId();
 				status = Status.RUNNING;
+				if (target.sha256().equals(sha256(settings.jarFile()))) persistResolvedArtifactSafely(target);
 				logger.accept("WebUI is available at " + settings.endpoint());
 				monitor(process);
+				scheduleLatestUpdateCheck(process);
 				return;
 			}
 			stopProcess(process, true);
@@ -269,11 +297,11 @@ public final class HostedControlManager implements AutoCloseable {
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 			if (!closed) {
-				fail();
+				fail(e);
 			}
 		} catch (Exception e) {
 			if (!closed) {
-				fail();
+				fail(e);
 			}
 		} finally {
 			workInProgress.set(false);
@@ -296,22 +324,23 @@ public final class HostedControlManager implements AutoCloseable {
 			status = Status.ROLLED_BACK;
 			logger.accept("The new Control release failed health checks; the previous release is running");
 			monitor(previous);
+			scheduleLatestUpdateCheck(previous);
 			return true;
 		}
 		stopProcess(previous, true);
 		return false;
 	}
 
-	private PreparedArtifact stageArtifact() throws IOException, InterruptedException {
+	private PreparedArtifact stageArtifact(ArtifactSpec target) throws IOException, InterruptedException {
 		String installedSha256 = null;
 		if (Files.isRegularFile(settings.jarFile(), LinkOption.NOFOLLOW_LINKS)) {
 			installedSha256 = sha256(settings.jarFile());
-			if (settings.sha256().equals(installedSha256)) {
-				return new PreparedArtifact(null, true, installedSha256);
+			if (target.sha256().equals(installedSha256)) {
+				return new PreparedArtifact(null, true, installedSha256, target);
 			}
-			if (settings.sha256().equals(quarantinedSha256)) {
+			if (target.sha256().equals(quarantinedSha256)) {
 				if (installedSha256.equals(trustedRollbackSha256)) {
-					return new PreparedArtifact(null, true, installedSha256);
+					return new PreparedArtifact(null, true, installedSha256, target);
 				}
 				throw new IOException("Rolled-back Control artifact no longer matches its trusted digest");
 			}
@@ -324,23 +353,139 @@ public final class HostedControlManager implements AutoCloseable {
 		if ((installed && !settings.autoUpdate()) || (!installed && !settings.autoDownload())) {
 			throw new IOException("Control artifact is unavailable or does not match its pin");
 		}
-		if (settings.downloadUri() == null) {
+		if (target.downloadUri() == null) {
 			throw new IOException("Control download URL is not configured");
 		}
 
 		status = Status.DOWNLOADING;
 		Path staged = settings.jarFile().resolveSibling(settings.jarFile().getFileName() + ".staged-" + UUID.randomUUID());
 		try {
-			downloader.download(settings.downloadUri(), staged, MAX_DOWNLOAD_BYTES,
+			downloader.download(target.downloadUri(), staged, MAX_DOWNLOAD_BYTES,
 					Duration.ofSeconds(settings.downloadTimeoutSeconds()));
-			if (!settings.sha256().equals(sha256(staged))) {
+			if (!target.sha256().equals(sha256(staged))) {
 				throw new IOException("Downloaded Control artifact failed SHA-256 verification");
 			}
-			return new PreparedArtifact(staged, installed, installedSha256);
+			return new PreparedArtifact(staged, installed, installedSha256, target);
 		} catch (IOException | InterruptedException | RuntimeException e) {
 			Files.deleteIfExists(staged);
 			throw e;
 		}
+	}
+
+	private ArtifactSpec resolveTargetArtifact() throws IOException, InterruptedException {
+		ArtifactSpec pinned = settings.pinnedArtifact();
+		if (pinned != null) return pinned;
+		if (!settings.autoUpdate()) {
+			try {
+				ArtifactSpec cached = readPersistedResolvedArtifact();
+				if (cached != null) return cached;
+			} catch (IOException ignored) {
+				// A fresh official lookup may repair malformed cached metadata after launch.
+			}
+		}
+		return resolveLatestArtifact(true);
+	}
+
+	private ArtifactSpec resolveLatestArtifact(boolean allowCachedFallback) throws IOException, InterruptedException {
+		ArtifactSpec cached = null;
+		IOException cachedFailure = null;
+		try {
+			cached = readPersistedResolvedArtifact();
+		} catch (IOException e) {
+			cachedFailure = e;
+		}
+		try {
+			ArtifactSpec latest = releaseResolver.resolve(Duration.ofSeconds(settings.downloadTimeoutSeconds()));
+			if (cached != null && compareReleaseVersions(latest.version(), cached.version()) <= 0) return cached;
+			return latest;
+		} catch (IOException e) {
+			if (allowCachedFallback && cached != null) {
+				logger.accept("GitHub latest-release lookup failed; using the last verified release metadata");
+				return cached;
+			}
+			if (cachedFailure != null) e.addSuppressed(cachedFailure);
+			throw e;
+		}
+	}
+
+	private void persistResolvedArtifactSafely(ArtifactSpec artifact) {
+		if (!settings.usesLatestRelease()) return;
+		try {
+			persistResolvedArtifact(artifact);
+		} catch (IOException e) {
+			logger.accept("Control is healthy, but its latest-release metadata could not be cached: "
+					+ safeFailureMessage(e));
+		}
+	}
+
+	private void persistResolvedArtifact(ArtifactSpec artifact) throws IOException {
+		Path state = settings.releaseStateFile();
+		if (Files.exists(state, LinkOption.NOFOLLOW_LINKS)
+				&& !Files.isRegularFile(state, LinkOption.NOFOLLOW_LINKS)) {
+			throw new IOException("Control release metadata path is not a regular file");
+		}
+		Path staged = state.resolveSibling(state.getFileName() + ".staged-" + UUID.randomUUID());
+		byte[] content = (artifact.version() + "\n" + artifact.sha256() + "\n"
+				+ artifact.downloadUri() + "\n").getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+		try (FileChannel channel = FileChannel.open(staged, StandardOpenOption.CREATE_NEW,
+				StandardOpenOption.WRITE)) {
+			ByteBuffer buffer = ByteBuffer.wrap(content);
+			while (buffer.hasRemaining()) channel.write(buffer);
+			channel.force(true);
+		}
+		try {
+			atomicMove(staged, state, true);
+		} finally {
+			Files.deleteIfExists(staged);
+		}
+	}
+
+	private ArtifactSpec readPersistedResolvedArtifact() throws IOException {
+		if (!settings.usesLatestRelease()) return null;
+		Path state = settings.releaseStateFile();
+		if (!Files.exists(state, LinkOption.NOFOLLOW_LINKS)) return null;
+		if (!Files.isRegularFile(state, LinkOption.NOFOLLOW_LINKS)) {
+			throw new IOException("Control release metadata is invalid");
+		}
+		byte[] bytes;
+		try (FileChannel channel = FileChannel.open(state, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
+			long size = channel.size();
+			if (size < 1 || size > 2048L) throw new IOException("Control release metadata is invalid");
+			bytes = new byte[(int) size];
+			ByteBuffer buffer = ByteBuffer.wrap(bytes);
+			while (buffer.hasRemaining() && channel.read(buffer) >= 0) { }
+		}
+		String[] lines = new String(bytes, java.nio.charset.StandardCharsets.US_ASCII).split("\\R");
+		if (lines.length != 3) throw new IOException("Control release metadata is invalid");
+		ArtifactSpec artifact;
+		try {
+			artifact = new ArtifactSpec(parseDownloadUri(lines[2]), lines[1], lines[0]);
+		} catch (IllegalArgumentException e) {
+			throw new IOException("Control release metadata is invalid", e);
+		}
+		if (!isOfficialReleaseArtifact(artifact)) {
+			throw new IOException("Control release metadata is not an official release asset");
+		}
+		return artifact;
+	}
+
+	static int compareReleaseVersions(String left, String right) {
+		if (left == null || right == null || !left.matches("v[0-9]+\\.[0-9]+\\.[0-9]+")
+				|| !right.matches("v[0-9]+\\.[0-9]+\\.[0-9]+")) return 0;
+		String[] leftParts = left.substring(1).split("\\.");
+		String[] rightParts = right.substring(1).split("\\.");
+		for (int i = 0; i < 3; i++) {
+			int comparison = Long.compare(Long.parseLong(leftParts[i]), Long.parseLong(rightParts[i]));
+			if (comparison != 0) return comparison;
+		}
+		return 0;
+	}
+
+	private static boolean isOfficialReleaseArtifact(ArtifactSpec artifact) {
+		if (artifact == null || !artifact.version().matches("v[0-9]+\\.[0-9]+\\.[0-9]+")) return false;
+		URI expected = URI.create("https://github.com/BenCodez/VotingPlugin-Control/releases/download/"
+				+ artifact.version() + "/votingplugin-control.jar");
+		return expected.equals(artifact.downloadUri());
 	}
 
 	private boolean activatePreparedArtifact(PreparedArtifact prepared) throws IOException {
@@ -352,7 +497,7 @@ public final class HostedControlManager implements AutoCloseable {
 					|| !Objects.equals(installedSha256, prepared.installedSha256())) {
 				throw new IOException("Control artifact changed while its replacement was staged");
 			}
-			activate(prepared.staged(), installed, installedSha256);
+			activate(prepared.staged(), installed, installedSha256, prepared.target().sha256());
 			return installed;
 		} finally {
 			Files.deleteIfExists(prepared.staged());
@@ -380,10 +525,11 @@ public final class HostedControlManager implements AutoCloseable {
 		}
 	}
 
-	private void activate(Path staged, boolean installed, String installedSha256) throws IOException {
+	private void activate(Path staged, boolean installed, String installedSha256, String candidateSha256)
+			throws IOException {
 		DurableFiles.forceFile(staged);
 		if (installed) {
-			persistRollbackState(installedSha256);
+			persistRollbackState(installedSha256, candidateSha256);
 			atomicMove(settings.jarFile(), settings.previousFile(), true);
 		}
 		try {
@@ -405,9 +551,9 @@ public final class HostedControlManager implements AutoCloseable {
 		clearPersistedRollbackState();
 	}
 
-	private void persistRollbackState(String previousSha256) throws IOException {
+	private void persistRollbackState(String previousSha256, String candidateSha256) throws IOException {
 		DurableFiles.deleteIfExists(settings.healthCheckingFile());
-		persistDigestState(settings.rollbackPendingFile(), previousSha256, settings.sha256(), "rollback");
+		persistDigestState(settings.rollbackPendingFile(), previousSha256, candidateSha256, "rollback");
 	}
 
 	private void persistHealthCheckingState(String previousSha256, String candidateSha256) throws IOException {
@@ -491,12 +637,12 @@ public final class HostedControlManager implements AutoCloseable {
 		rollbackPending = false;
 	}
 
-	private void recoverPersistedQuarantineState() throws IOException {
+	private void recoverPersistedQuarantineState(String targetSha256) throws IOException {
 		String[] lines = readDigestState(settings.quarantineFile(), "quarantine");
 		if (lines == null) return;
 		String previousSha256 = lines[0];
 		String candidateSha256 = lines[1];
-		if (!settings.sha256().equals(candidateSha256)) {
+		if (!targetSha256.equals(candidateSha256)) {
 			clearPersistedQuarantineState();
 			quarantinedSha256 = null;
 			trustedRollbackSha256 = null;
@@ -511,9 +657,9 @@ public final class HostedControlManager implements AutoCloseable {
 	}
 
 	/** Reads a matching quarantine without clearing state still owned by the active manager. */
-	private void loadPersistedQuarantineStateForPreparation() throws IOException {
+	private void loadPersistedQuarantineStateForPreparation(String targetSha256) throws IOException {
 		String[] lines = readDigestState(settings.quarantineFile(), "quarantine");
-		if (lines == null || !settings.sha256().equals(lines[1])) return;
+		if (lines == null || !targetSha256.equals(lines[1])) return;
 		if (!Files.isRegularFile(settings.jarFile(), LinkOption.NOFOLLOW_LINKS)
 				|| !lines[0].equals(sha256(settings.jarFile()))) {
 			throw new IOException("Active Control artifact does not match quarantined rollback state");
@@ -618,7 +764,8 @@ public final class HostedControlManager implements AutoCloseable {
 			throw new IOException("Control artifact is unavailable");
 		}
 		String installed = sha256(settings.jarFile());
-		if (!settings.sha256().equals(installed) && !installed.equals(trustedRollbackSha256)) {
+		ArtifactSpec target = trustedTargetArtifact;
+		if ((target == null || !target.sha256().equals(installed)) && !installed.equals(trustedRollbackSha256)) {
 			throw new IOException("Control artifact no longer matches a trusted digest");
 		}
 	}
@@ -686,7 +833,92 @@ public final class HostedControlManager implements AutoCloseable {
 		});
 	}
 
-	private void fail() {
+	private void scheduleLatestUpdateCheck(ManagedProcess process) {
+		if (closed || !settings.usesLatestRelease() || !settings.autoUpdate()) return;
+		Future<?> previous = updateCheckTask;
+		if (previous != null && !previous.isDone()) previous.cancel(false);
+		try {
+			updateCheckTask = executor.schedule(() -> checkForLatestUpdate(process),
+					LATEST_UPDATE_INTERVAL_SECONDS, TimeUnit.SECONDS);
+		} catch (RuntimeException ignored) {
+			// Executor shutdown raced with the successful launch.
+		}
+	}
+
+	void checkForLatestUpdate(ManagedProcess process) {
+		Future<?> scheduled = updateCheckTask;
+		updateCheckTask = null;
+		if (scheduled != null && !scheduled.isDone()) scheduled.cancel(false);
+		if (closed || managedProcess != process || !process.isAlive()) return;
+		PreparedArtifact prepared = null;
+		try {
+			ArtifactSpec target = resolveLatestArtifact(false);
+			recoverPersistedQuarantineState(target.sha256());
+			String installed = sha256(settings.jarFile());
+			ArtifactSpec persisted = readPersistedResolvedArtifact();
+			if (target.sha256().equals(installed) || target.sha256().equals(quarantinedSha256)) {
+				scheduleLatestUpdateCheck(process);
+				return;
+			}
+			if (persisted != null && persisted.sha256().equals(installed)
+					&& compareReleaseVersions(target.version(), persisted.version()) <= 0) {
+				logger.accept("Ignoring GitHub release metadata that is not newer than the running Control version");
+				scheduleLatestUpdateCheck(process);
+				return;
+			}
+			prepared = stageArtifact(target);
+			if (prepared.staged() == null) {
+				status = Status.RUNNING;
+				scheduleLatestUpdateCheck(process);
+				return;
+			}
+			synchronized (processLifecycle) {
+				if (closed || managedProcess != process || !process.isAlive()) {
+					deletePreparedArtifact(prepared);
+					return;
+				}
+				managedProcess = null;
+				healthyLaunchId = null;
+			}
+			try {
+				stopProcess(process, true);
+			} catch (RuntimeException stopFailure) {
+				synchronized (processLifecycle) {
+					if (!closed && process.isAlive() && managedProcess == null) managedProcess = process;
+				}
+				deletePreparedArtifact(prepared);
+				failWhileProcessIsAlive(process);
+				return;
+			}
+			synchronized (preparationLifecycle) {
+				if (closed) {
+					deletePreparedArtifact(prepared);
+					return;
+				}
+				preparedArtifact = prepared;
+			}
+			logger.accept("A newer Control release was verified; restarting the hosted service");
+			status = Status.STARTING;
+			runOnce();
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			deletePreparedArtifact(prepared);
+			if (!closed && process.isAlive()) {
+				status = Status.RUNNING;
+				scheduleLatestUpdateCheck(process);
+			}
+		} catch (Exception e) {
+			deletePreparedArtifact(prepared);
+			if (!closed && process.isAlive()) {
+				status = Status.RUNNING;
+				logger.accept("Latest-release check failed; the current Control service remains running: "
+						+ safeFailureMessage(e));
+				scheduleLatestUpdateCheck(process);
+			}
+		}
+	}
+
+	private void fail(Throwable failure) {
 		healthyLaunchId = null;
 		status = Status.FAILED;
 		ManagedProcess process = managedProcess;
@@ -695,8 +927,18 @@ public final class HostedControlManager implements AutoCloseable {
 			return;
 		}
 		if (process != null) clearManagedProcess(process);
-		logger.accept("Control could not be provisioned or started; VotingPlugin remains unaffected and will retry");
+		logger.accept("Control could not be provisioned or started; VotingPlugin remains unaffected and will retry: "
+				+ safeFailureMessage(failure));
 		scheduleRetry();
+	}
+
+	private static String safeFailureMessage(Throwable failure) {
+		String message = failure == null ? null : failure.getMessage();
+		if (message == null || message.isBlank()) {
+			return failure == null ? "unknown failure" : failure.getClass().getSimpleName();
+		}
+		String safe = message.replaceAll("[\\r\\n\\t\\p{Cntrl}]", " ").trim();
+		return safe.length() <= 240 ? safe : safe.substring(0, 240);
 	}
 
 	private void failWhileProcessIsAlive(ManagedProcess process) {
@@ -757,6 +999,8 @@ public final class HostedControlManager implements AutoCloseable {
 		if (task != null) {
 			task.cancel(true);
 		}
+		Future<?> updateTask = updateCheckTask;
+		if (updateTask != null) updateTask.cancel(true);
 		RuntimeException shutdownFailure = null;
 		try {
 			if (process != null) {
@@ -977,7 +1221,23 @@ public final class HostedControlManager implements AutoCloseable {
 			String sha256, String jarFile, String dataDirectory, String host, int port, int startupTimeoutSeconds,
 			int downloadTimeoutSeconds) { }
 
-	private record PreparedArtifact(Path staged, boolean installed, String installedSha256) { }
+	private record PreparedArtifact(Path staged, boolean installed, String installedSha256, ArtifactSpec target) { }
+
+	record ArtifactSpec(URI downloadUri, String sha256, String version) {
+		ArtifactSpec {
+			sha256 = sha256 == null ? "" : sha256.trim().toLowerCase(Locale.ROOT);
+			version = version == null ? "" : version.trim();
+			if (!sha256.matches("[0-9a-f]{64}")) {
+				throw new IllegalArgumentException("Control release SHA-256 is invalid");
+			}
+			if (!version.isEmpty() && !version.matches("v(?:0|[1-9][0-9]{0,8})\\.(?:0|[1-9][0-9]{0,8})\\.(?:0|[1-9][0-9]{0,8})")) {
+				throw new IllegalArgumentException("Control release version is invalid");
+			}
+			if (!version.isEmpty() && downloadUri == null) {
+				throw new IllegalArgumentException("Control release download URL is invalid");
+			}
+		}
+	}
 
 	record Settings(Path rootDirectory, Path jarFile, Path dataDirectory, boolean autoDownload, boolean autoUpdate,
 			URI downloadUri, String sha256, String host, int port, int startupTimeoutSeconds,
@@ -992,10 +1252,13 @@ public final class HostedControlManager implements AutoCloseable {
 				throw new IllegalArgumentException("Control hosted paths are invalid");
 			}
 			sha256 = sha256 == null ? "" : sha256.trim().toLowerCase(Locale.ROOT);
-			if (!sha256.matches("[0-9a-f]{64}")) {
+			if (!sha256.isEmpty() && !sha256.matches("[0-9a-f]{64}")) {
 				throw new IllegalArgumentException("Control hosted SHA-256 pin must contain 64 hexadecimal characters");
 			}
-			if ((autoDownload || autoUpdate) && downloadUri == null) {
+			if (downloadUri != null && sha256.isEmpty()) {
+				throw new IllegalArgumentException("Control hosted DownloadUrl and Sha256 must be configured together");
+			}
+			if (!sha256.isEmpty() && (autoDownload || autoUpdate) && downloadUri == null) {
 				throw new IllegalArgumentException("Control hosted download URL is required");
 			}
 			host = host == null ? "" : host.trim();
@@ -1029,6 +1292,18 @@ public final class HostedControlManager implements AutoCloseable {
 			return jarFile.resolveSibling(jarFile.getFileName() + ".health-checking");
 		}
 
+		Path releaseStateFile() {
+			return jarFile.resolveSibling(jarFile.getFileName() + ".release");
+		}
+
+		boolean usesLatestRelease() {
+			return sha256.isEmpty() && downloadUri == null;
+		}
+
+		ArtifactSpec pinnedArtifact() {
+			return sha256.isEmpty() ? null : new ArtifactSpec(downloadUri, sha256, "");
+		}
+
 		URI endpoint() {
 			return parseEndpoint(host, port);
 		}
@@ -1049,6 +1324,10 @@ public final class HostedControlManager implements AutoCloseable {
 	interface ArtifactDownloader {
 		void download(URI source, Path target, long maximumBytes, Duration timeout)
 				throws IOException, InterruptedException;
+	}
+
+	interface ReleaseResolver {
+		ArtifactSpec resolve(Duration timeout) throws IOException, InterruptedException;
 	}
 
 	interface ProcessLauncher {
@@ -1074,6 +1353,81 @@ public final class HostedControlManager implements AutoCloseable {
 		void destroyForcibly();
 		boolean waitFor(long timeout, TimeUnit unit) throws InterruptedException;
 		CompletableFuture<Void> onExit();
+	}
+
+	static final class JdkGithubReleaseResolver implements ReleaseResolver {
+		private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10))
+				.followRedirects(HttpClient.Redirect.NEVER).build();
+
+		@Override
+		public ArtifactSpec resolve(Duration timeout) throws IOException, InterruptedException {
+			HttpRequest request = HttpRequest.newBuilder(LATEST_RELEASE_API).timeout(timeout)
+					.header("Accept", "application/vnd.github+json")
+					.header("X-GitHub-Api-Version", "2022-11-28")
+					.header("User-Agent", "VotingPlugin-Control-Host").GET().build();
+			HttpResponse<byte[]> response = client.send(request,
+					new BoundedHttpBodyHandler(MAX_RELEASE_METADATA_BYTES, timeout));
+			if (response.statusCode() != 200) {
+				throw new IOException("GitHub latest-release lookup returned HTTP " + response.statusCode());
+			}
+			return parseLatestRelease(response.body());
+		}
+
+		static ArtifactSpec parseLatestRelease(byte[] body) throws IOException {
+			try {
+				JsonElement parsed = JsonParser.parseString(
+						new String(body, java.nio.charset.StandardCharsets.UTF_8));
+				if (!parsed.isJsonObject()) throw new IOException("GitHub latest-release metadata is invalid");
+				JsonObject release = parsed.getAsJsonObject();
+				if (booleanValue(release, "draft") || booleanValue(release, "prerelease")) {
+					throw new IOException("GitHub latest release is not stable");
+				}
+				String version = stringValue(release, "tag_name");
+				JsonObject jarAsset = null;
+				if (release.has("assets") && release.get("assets").isJsonArray()) {
+					for (JsonElement element : release.getAsJsonArray("assets")) {
+						if (!element.isJsonObject()) continue;
+						JsonObject asset = element.getAsJsonObject();
+						if ("votingplugin-control.jar".equals(stringValue(asset, "name"))) {
+							if (jarAsset != null) throw new IOException("GitHub release contains duplicate Control JAR assets");
+							jarAsset = asset;
+						}
+					}
+				}
+				if (jarAsset == null) throw new IOException("GitHub latest release has no Control JAR asset");
+				String digest = stringValue(jarAsset, "digest").toLowerCase(Locale.ROOT);
+				if (!digest.matches("sha256:[0-9a-f]{64}")) {
+					throw new IOException("GitHub latest release has no valid SHA-256 digest");
+				}
+				ArtifactSpec artifact = new ArtifactSpec(
+						parseDownloadUri(stringValue(jarAsset, "browser_download_url")),
+						digest.substring("sha256:".length()), version);
+				if (!isOfficialReleaseArtifact(artifact)) {
+					throw new IOException("GitHub latest release asset URL is invalid");
+				}
+				return artifact;
+			} catch (IOException e) {
+				throw e;
+			} catch (RuntimeException e) {
+				throw new IOException("GitHub latest-release metadata is invalid", e);
+			}
+		}
+
+		private static String stringValue(JsonObject object, String name) throws IOException {
+			if (!object.has(name) || !object.get(name).isJsonPrimitive()
+					|| !object.getAsJsonPrimitive(name).isString()) {
+				throw new IOException("GitHub latest-release metadata is missing " + name);
+			}
+			return object.get(name).getAsString();
+		}
+
+		private static boolean booleanValue(JsonObject object, String name) throws IOException {
+			if (!object.has(name) || !object.get(name).isJsonPrimitive()
+					|| !object.getAsJsonPrimitive(name).isBoolean()) {
+				throw new IOException("GitHub latest-release metadata is missing " + name);
+			}
+			return object.get(name).getAsBoolean();
+		}
 	}
 
 	static final class JdkArtifactDownloader implements ArtifactDownloader {

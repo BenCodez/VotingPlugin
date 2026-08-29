@@ -31,9 +31,12 @@ Every other node should use its connector against that instance rather than star
 discovery are separate switches: `Control.Hosted.Enabled` runs Control, while proxy `Control.Enabled` or backend
 `Control.Backend.Enabled` enrolls and reports that node to it.
 
-Control releases publish `votingplugin-control.jar` and `votingplugin-control.jar.sha256`. Configure an immutable versioned
-asset URL and copy its exact digest into `Sha256`; `/latest/` URLs, unpinned artifacts, plaintext download URLs, redirects
-outside HTTPS, and paths outside VotingPlugin's data folder are rejected.
+Control releases publish `votingplugin-control.jar` with GitHub's SHA-256 asset digest. The default blank `DownloadUrl`
+and `Sha256` select the official latest stable release from `BenCodez/VotingPlugin-Control`. VotingPlugin validates the
+repository, stable semantic-version tag, exact asset name and immutable versioned download URL, then verifies the JAR
+against GitHub's published digest before activation. With `AutoUpdate` enabled, it repeats this check every six hours.
+Set both `DownloadUrl` and `Sha256` to opt out of release tracking and manually pin an exact artifact. Manual `/latest/`
+URLs, partial pins, plaintext download URLs, redirects outside HTTPS, and paths outside VotingPlugin's data folder are rejected.
 
 ```yaml
 Control:
@@ -44,9 +47,9 @@ Control:
   Hosted:
     Enabled: true
     AutoDownload: true
-    AutoUpdate: false
-    DownloadUrl: 'https://github.com/BenCodez/VotingPlugin-Control/releases/download/vX.Y.Z/votingplugin-control.jar'
-    Sha256: '<64-character SHA-256 from the pinned release>'
+    AutoUpdate: true
+    DownloadUrl: ''
+    Sha256: ''
     JarFile: 'control/votingplugin-control.jar'
     DataDirectory: 'control/data'
     Host: '127.0.0.1'
@@ -63,9 +66,9 @@ Control:
   Hosted:
     Enabled: true
     AutoDownload: true
-    AutoUpdate: false
-    DownloadUrl: 'https://github.com/BenCodez/VotingPlugin-Control/releases/download/vX.Y.Z/votingplugin-control.jar'
-    Sha256: '<64-character SHA-256 from the pinned release>'
+    AutoUpdate: true
+    DownloadUrl: ''
+    Sha256: ''
     JarFile: 'control/votingplugin-control.jar'
     DataDirectory: 'control/data'
     Host: '127.0.0.1'
@@ -83,10 +86,12 @@ Control:
 ```
 
 On first start, the artifact is downloaded to a unique staging file with a 64 MiB hard limit, verified, and atomically
-activated before launch with the same Java runtime as the hosting proxy or backend. An existing matching manual installation is launched
-without downloading. `AutoUpdate` is false by default; when explicitly enabled and the configured digest changes, the
-current release is retained as `.previous`. A failed process/protocol health check atomically restores and starts that
-previous release, retaining the failed candidate as `.failed`. Unexpected exits use bounded restart backoff.
+activated before launch with the same Java runtime as the hosting proxy or backend. The last verified official release
+metadata is cached beside the hosted JAR so a temporary GitHub API outage does not prevent an already verified install
+from starting. Automatic updates are staged and hash-verified while the current process remains healthy; only then is the
+service restarted. The current release is retained as `.previous`. A failed process/protocol health check atomically
+restores and starts that previous release, retaining the failed candidate as `.failed`. A quarantined digest is not retried
+until GitHub publishes a newer release. Unexpected exits use bounded restart backoff.
 
 The child receives only its bind host, port, contained data directory, and a random per-launch ID. Health must echo that
 ID, preventing an unrelated Control process on the same port from satisfying startup checks. It does not receive
@@ -98,8 +103,9 @@ WebUI, copy that one-time value using the server file manager, and choose the We
 consumed immediately, and no server command is required. Password rotation invalidates every existing browser session.
 Use HTTPS or a private authenticated tunnel when exposing the listener outside a trusted private network.
 
-Manual installation remains supported: put a Control JAR at `JarFile`, configure its exact SHA-256, set `AutoDownload` and
-`AutoUpdate` false, and enable hosting. VotingPlugin will verify and supervise it without network access.
+Manual pinning remains supported: set an immutable versioned `DownloadUrl` and its exact `Sha256`. For a fully offline
+manual installation, put the JAR at `JarFile`, leave `DownloadUrl` blank, configure its exact `Sha256`, and set both
+`AutoDownload` and `AutoUpdate` false. VotingPlugin will verify and supervise it without network access.
 
 ## Enrollment and configuration
 
@@ -236,5 +242,6 @@ default.
   backend-presence observations.
 
 Arbitrary console commands, manual rollback, topology persistence, cloud relay, diagnostics downloads, signed remote
-release manifests, and remote support remain later milestones. Hosted downloads currently require the SHA-256 trust pin
-to be supplied in local configuration; VotingPlugin never trusts a remotely fetched checksum by itself.
+release manifests, and remote support remain later milestones. Automatic release tracking trusts GitHub's authenticated
+release metadata and published asset digest for the official repository. Administrators who require an independently
+reviewed trust pin can continue to supply `DownloadUrl` and `Sha256` locally.
