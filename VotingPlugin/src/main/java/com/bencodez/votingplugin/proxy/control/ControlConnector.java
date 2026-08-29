@@ -27,6 +27,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
@@ -53,6 +54,11 @@ public final class ControlConnector implements AutoCloseable {
 	private static final Pattern NODE_ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,63}");
 	private static final Set<String> BASE_CAPABILITIES = Set.of("presence.snapshot");
 	private static final String CONFIGURATION_CAPABILITY = "config.proxy-routing.v1";
+	private static final String COMMUNICATION_TEST_CAPABILITY = "config.transport-test.v1";
+	private static final String COMMUNICATION_TEST_PRESET = "communication-test";
+	private static final String PROXY_METHOD_CAPABILITY = "config.proxy-method.v1";
+	private static final String PROXY_METHOD_PRESET = "proxy-method";
+	private static final String INTERNAL_OPERATION_TYPE = "_controlOperationType";
 	private static final long MAX_BACKOFF_MILLIS = TimeUnit.MINUTES.toMillis(5);
 	private static final long OPERATION_SHUTDOWN_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(65);
 
@@ -64,6 +70,9 @@ public final class ControlConnector implements AutoCloseable {
 	private final UUID sessionId;
 	private final LongSupplier jitterSource;
 	private final ProxyRoutingConfigurationService configurationService;
+	private final ProxyMethodConfigurationService methodConfigurationService;
+	private final Function<String, CompletableFuture<VotingPluginProxy.CommunicationTestResult>> communicationTest;
+	private final Runnable runtimeReplacement;
 	private final Path dataDirectory;
 	private final Route route;
 	private final boolean recovering;
@@ -86,14 +95,14 @@ public final class ControlConnector implements AutoCloseable {
 			Supplier<List<ObservedBackend>> snapshotSource, Consumer<String> logger, UUID sessionId,
 			LongSupplier jitterSource) {
 		this(settings, scheduler, transport, snapshotSource, logger, sessionId, jitterSource, null,
-				null, null, false, null);
+				null, null, false, null, null, null, null);
 	}
 
 	ControlConnector(Settings settings, ScheduledExecutorService scheduler, Transport transport,
 			Supplier<List<ObservedBackend>> snapshotSource, Consumer<String> logger, UUID sessionId,
 			LongSupplier jitterSource, ProxyRoutingConfigurationService configurationService) {
 		this(settings, scheduler, transport, snapshotSource, logger, sessionId, jitterSource, configurationService,
-				null, null, false, null);
+				null, null, false, null, null, null, null);
 	}
 
 	ControlConnector(Settings settings, ScheduledExecutorService scheduler, Transport transport,
@@ -101,14 +110,16 @@ public final class ControlConnector implements AutoCloseable {
 			LongSupplier jitterSource, ProxyRoutingConfigurationService configurationService,
 			Map<UUID, StoredResult> recoveredTasks) {
 		this(settings, scheduler, transport, snapshotSource, logger, sessionId, jitterSource, configurationService,
-				null, null, false, null);
+				null, null, false, null, null, null, null);
 		completedTasks.putAll(recoveredTasks);
 	}
 
 	private ControlConnector(Settings settings, ScheduledExecutorService scheduler, Transport transport,
 			Supplier<List<ObservedBackend>> snapshotSource, Consumer<String> logger, UUID sessionId,
 			LongSupplier jitterSource, ProxyRoutingConfigurationService configurationService, Path dataDirectory,
-			Route route, boolean recovering, Runnable recoveryComplete) {
+			Route route, boolean recovering, Runnable recoveryComplete,
+			Function<String, CompletableFuture<VotingPluginProxy.CommunicationTestResult>> communicationTest,
+			ProxyMethodConfigurationService methodConfigurationService, Runnable runtimeReplacement) {
 		this.settings = Objects.requireNonNull(settings, "settings");
 		this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
 		this.transport = Objects.requireNonNull(transport, "transport");
@@ -117,6 +128,9 @@ public final class ControlConnector implements AutoCloseable {
 		this.sessionId = Objects.requireNonNull(sessionId, "sessionId");
 		this.jitterSource = Objects.requireNonNull(jitterSource, "jitterSource");
 		this.configurationService = configurationService;
+		this.methodConfigurationService = methodConfigurationService;
+		this.communicationTest = communicationTest;
+		this.runtimeReplacement = runtimeReplacement;
 		this.dataDirectory = dataDirectory;
 		this.route = route;
 		this.recovering = recovering;
@@ -175,7 +189,9 @@ public final class ControlConnector implements AutoCloseable {
 		ControlConnector connector = new ControlConnector(settings, proxy.getScheduler(), transport, snapshot,
 				message -> proxy.log("[Control] " + message), UUID.randomUUID(),
 				() -> ThreadLocalRandom.current().nextLong(), new ProxyRoutingConfigurationService(proxy), dataDirectory,
-				route, recovering, proxy::restartControlServicesAfterRecovery);
+				route, recovering, proxy::restartControlServicesAfterRecovery,
+				server -> proxy.testBackendCommunication(server, 5000L), new ProxyMethodConfigurationService(proxy),
+				() -> proxy.reloadCore(true));
 		if (recovered != null) connector.completedTasks.putAll(recovered.results());
 		return connector;
 	}
@@ -269,7 +285,6 @@ public final class ControlConnector implements AutoCloseable {
 		operation.whenComplete((ignored, failure) -> {
 			try {
 				activeRequest = null;
-				finishCycle();
 				if (!closed) {
 					if (failure == null) {
 						onSuccess();
@@ -284,8 +299,13 @@ public final class ControlConnector implements AutoCloseable {
 					operationDone.completeExceptionally(failure);
 				}
 				if (activeOperation == operationDone) activeOperation = null;
+				finishCycle();
 			}
 		});
+	}
+
+	boolean hasActiveOperation() {
+		return activeOperation != null;
 	}
 
 	private void finishCycle() {
@@ -322,7 +342,9 @@ public final class ControlConnector implements AutoCloseable {
 			if (!contains(accepted, "presence.snapshot")) {
 				throw new ProtocolException();
 			}
-			configurationAccepted = contains(accepted, CONFIGURATION_CAPABILITY);
+			configurationAccepted = contains(accepted, CONFIGURATION_CAPABILITY)
+					|| contains(accepted, COMMUNICATION_TEST_CAPABILITY)
+					|| contains(accepted, PROXY_METHOD_CAPABILITY);
 		}
 	}
 
@@ -446,14 +468,15 @@ public final class ControlConnector implements AutoCloseable {
 			}
 		}
 		if (result == null) {
-			TaskResult executed = executeTask(operationId, task);
-			JsonObject resultJson = executed.json();
-			resultJson.addProperty("attemptId", requireString(task, "attemptId"));
-			result = new StoredResult(resultJson, true, false);
-			synchronized (operationLifecycle) {
-				completedTasks.put(operationId, result);
-			}
-			persistCompleted();
+			return executeTask(operationId, task).thenCompose(executed -> {
+				JsonObject resultJson = executed.json();
+				resultJson.addProperty("attemptId", requireString(task, "attemptId"));
+				resultJson.addProperty(INTERNAL_OPERATION_TYPE, requireString(task, "type"));
+				StoredResult completed = new StoredResult(resultJson, true, false);
+				synchronized (operationLifecycle) { completedTasks.put(operationId, completed); }
+				persistCompleted();
+				return submitCompletedResult(operationId, completed);
+			});
 		}
 		return submitCompletedResult(operationId, result);
 	}
@@ -505,8 +528,22 @@ public final class ControlConnector implements AutoCloseable {
 			throw failure;
 		}
 		boolean drained;
-		synchronized (operationLifecycle) { drained = completedTasks.isEmpty(); }
-		if (recovering && drained && recoveryComplete != null) recoveryComplete.run();
+		boolean replaceRuntime = requiresRuntimeReplacement(result) && runtimeReplacement != null;
+		synchronized (operationLifecycle) {
+			drained = completedTasks.isEmpty();
+			if (replaceRuntime) deferredReplacement = runtimeReplacement;
+		}
+		if (recovering && drained && recoveryComplete != null && !replaceRuntime) recoveryComplete.run();
+	}
+
+	static boolean requiresRuntimeReplacement(StoredResult result) {
+		JsonObject body = result.result();
+		if (!body.has("success") || !body.get("success").getAsBoolean() || !body.has("configuration")
+				|| !body.has(INTERNAL_OPERATION_TYPE)
+				|| !"APPLY".equals(body.get(INTERNAL_OPERATION_TYPE).getAsString())) return false;
+		JsonObject configuration = body.getAsJsonObject("configuration");
+		return configuration != null && configuration.has("preset")
+				&& PROXY_METHOD_PRESET.equals(configuration.get("preset").getAsString());
 	}
 
 	private static boolean taskLeaseExpired(Response response) {
@@ -541,6 +578,7 @@ public final class ControlConnector implements AutoCloseable {
 	private void persistIntent(UUID operationId, TaskResult anticipated, String attemptId) {
 		JsonObject result = anticipated.json();
 		result.addProperty("attemptId", attemptId);
+		result.addProperty(INTERNAL_OPERATION_TYPE, "APPLY");
 		synchronized (operationLifecycle) {
 			completedTasks.put(operationId, new StoredResult(result, false, false));
 		}
@@ -576,7 +614,13 @@ public final class ControlConnector implements AutoCloseable {
 
 	private boolean anticipatedResultIsInstalled(StoredResult pending) {
 		JsonObject result = pending.result();
-		return result.has("revision") && result.get("revision").getAsString().equals(configurationService.read().revision());
+		if (!result.has("revision")) return false;
+		JsonObject configuration = result.getAsJsonObject("configuration");
+		if (configuration != null && isProxyMethod(configuration) && methodConfigurationService != null) {
+			return result.get("revision").getAsString().equals(methodConfigurationService.read().revision());
+		}
+		return configurationService != null
+				&& result.get("revision").getAsString().equals(configurationService.read().revision());
 	}
 
 	private static StoredResult committedForAttempt(StoredResult pending, String attemptId) {
@@ -585,32 +629,124 @@ public final class ControlConnector implements AutoCloseable {
 		return new StoredResult(result, true, false);
 	}
 
-	private TaskResult executeTask(UUID operationId, JsonObject task) {
-		if (configurationService == null) return TaskResult.failure("UNSUPPORTED", "Configuration control is unavailable");
+	private CompletableFuture<TaskResult> executeTask(UUID operationId, JsonObject task) {
+		JsonObject requested = task.getAsJsonObject("configuration");
+		if (isCommunicationTest(requested)) return executeCommunicationTest(task, requested);
+		if (isProxyMethod(requested)) return executeProxyMethod(operationId, task, requested);
+		if (configurationService == null) return completed(TaskResult.failure("UNSUPPORTED", "Configuration control is unavailable"));
 		String type = requireString(task, "type");
 		try {
 			ProxyRoutingConfiguration current = configurationService.read();
-			if ("READ".equals(type)) return TaskResult.success(current.revision(), current, List.of(), false);
+			if ("READ".equals(type)) return completed(TaskResult.success(current.revision(), current, List.of(), false));
 			ProxyRoutingConfiguration proposal = parseConfiguration(task.getAsJsonObject("configuration"));
 			configurationService.validate(proposal);
 			List<String> changes = proposal.changesFrom(current);
-			if ("PREVIEW".equals(type)) return TaskResult.success(current.revision(), current, changes, false);
-			if (!"APPLY".equals(type)) return TaskResult.failure("UNSUPPORTED_TASK", "Task type is unsupported");
+			if ("PREVIEW".equals(type)) return completed(TaskResult.success(current.revision(), current, changes, false));
+			if (!"APPLY".equals(type)) return completed(TaskResult.failure("UNSUPPORTED_TASK", "Task type is unsupported"));
 			persistIntent(operationId, TaskResult.success(proposal.revision(), proposal, changes, true),
 					requireString(task, "attemptId"));
 			configurationService.apply(proposal, requireString(task, "expectedRevision"));
 			ProxyRoutingConfiguration applied = configurationService.read();
-			return TaskResult.success(applied.revision(), applied, changes, true);
+			return completed(TaskResult.success(applied.revision(), applied, changes, true));
 		} catch (ProxyRoutingConfigurationService.StaleRevisionException e) {
-			return TaskResult.failure("STALE_REVISION", "Configuration changed after preview");
+			return completed(TaskResult.failure("STALE_REVISION", "Configuration changed after preview"));
 		} catch (ProxyRoutingConfigurationService.ApplyFailureException e) {
-			return new TaskResult(false, "RELOAD_FAILED", "Reload failed after persistence", null, null, List.of(),
-					false, e.rolledBack());
+			return completed(new TaskResult(false, "RELOAD_FAILED", "Reload failed after persistence", null, null,
+					List.of(), false, e.rolledBack()));
 		} catch (IllegalArgumentException e) {
-			return TaskResult.failure("VALIDATION_ERROR", e.getMessage());
+			return completed(TaskResult.failure("VALIDATION_ERROR", e.getMessage()));
 		} catch (IOException | RuntimeException e) {
-			return TaskResult.failure("APPLY_FAILED", "Configuration operation failed");
+			return completed(TaskResult.failure("APPLY_FAILED", "Configuration operation failed"));
 		}
+	}
+
+	private CompletableFuture<TaskResult> executeProxyMethod(UUID operationId, JsonObject task, JsonObject requested) {
+		if (methodConfigurationService == null) {
+			return completed(TaskResult.failure("UNSUPPORTED", "Proxy method control is unavailable"));
+		}
+		String type = requireString(task, "type");
+		try {
+			ProxyMethodConfiguration current = methodConfigurationService.read();
+			if ("READ".equals(type)) {
+				JsonObject response = requested.deepCopy();
+				JsonObject responseOptions = response.getAsJsonObject("options");
+				if (responseOptions == null) {
+					responseOptions = new JsonObject();
+					response.add("options", responseOptions);
+				}
+				responseOptions.addProperty("method", current.method().name());
+				return completed(TaskResult.success(current.revision(), response, List.of(), false,
+						"Current proxy method is " + current.method().name()));
+			}
+			JsonObject options = requested.getAsJsonObject("options");
+			ProxyMethodConfiguration proposal = new ProxyMethodConfiguration(
+					ProxyMethodConfigurationService.canonical(requireString(options, "method")));
+			methodConfigurationService.validate(proposal);
+			List<String> changes = proposal.changesFrom(current);
+			if ("PREVIEW".equals(type)) return completed(TaskResult.success(current.revision(), requested.deepCopy(),
+					changes, false, "Required settings are present; runtime restart will follow apply"));
+			if (!"APPLY".equals(type)) return completed(TaskResult.failure("UNSUPPORTED_TASK", "Task type is unsupported"));
+			persistIntent(operationId, TaskResult.success(proposal.revision(), requested.deepCopy(), changes, false,
+					"Proxy method persisted; runtime restart is waiting for result acknowledgement"),
+					requireString(task, "attemptId"));
+			methodConfigurationService.apply(proposal, requireString(task, "expectedRevision"));
+			return completed(TaskResult.success(proposal.revision(), requested.deepCopy(), changes, false,
+					"Proxy method persisted; runtime restart follows acknowledgement"));
+		} catch (ProxyMethodConfigurationService.StaleRevisionException e) {
+			return completed(TaskResult.failure("STALE_REVISION", "Proxy method changed after preview"));
+		} catch (ProxyMethodConfigurationService.ApplyFailureException e) {
+			return completed(new TaskResult(false, "APPLY_FAILED", "Proxy method persistence failed", null, null,
+					List.of(), false, e.rolledBack()));
+		} catch (IllegalArgumentException e) {
+			return completed(TaskResult.failure("VALIDATION_ERROR", e.getMessage()));
+		} catch (IOException | RuntimeException e) {
+			return completed(TaskResult.failure("APPLY_FAILED", "Proxy method operation failed"));
+		}
+	}
+
+	private CompletableFuture<TaskResult> executeCommunicationTest(JsonObject task, JsonObject requested) {
+		if (!"READ".equals(requireString(task, "type"))) {
+			return completed(TaskResult.failure("UNSUPPORTED_TASK", "Communication tests are read-only"));
+		}
+		if (communicationTest == null || configurationService == null) {
+			return completed(TaskResult.failure("UNSUPPORTED", "Communication testing is unavailable"));
+		}
+		JsonObject options = requested == null ? null : requested.getAsJsonObject("options");
+		String server = options == null ? "" : requireString(options, "server").trim();
+		if (server.isEmpty() || server.length() > 100) {
+			return completed(TaskResult.failure("VALIDATION_ERROR", "A valid backend server is required"));
+		}
+		String revision;
+		try {
+			revision = configurationService.read().revision();
+		} catch (RuntimeException failure) {
+			return completed(TaskResult.failure("READ_FAILED", "Could not read the active proxy configuration"));
+		}
+		return communicationTest.apply(server).handle((result, failure) -> {
+			if (failure != null || result == null) {
+				return TaskResult.failure("TEST_FAILED", "The communication test could not complete");
+			}
+			if (!result.success()) return TaskResult.failure(result.code(), result.message());
+			String summary = result.server() + " replied via " + result.method() + " in "
+					+ result.roundTripMillis() + " ms";
+			return TaskResult.success(revision, requested.deepCopy(), List.of(summary), false, result.message());
+		});
+	}
+
+	private static boolean isCommunicationTest(JsonObject requested) {
+		return requested != null && requested.has("domain") && requested.has("preset")
+				&& "quick-setup".equals(requested.get("domain").getAsString())
+				&& COMMUNICATION_TEST_PRESET.equals(requested.get("preset").getAsString());
+	}
+
+	private static boolean isProxyMethod(JsonObject requested) {
+		return requested != null && requested.has("domain") && requested.has("preset")
+				&& "quick-setup".equals(requested.get("domain").getAsString())
+				&& PROXY_METHOD_PRESET.equals(requested.get("preset").getAsString());
+	}
+
+	private static CompletableFuture<TaskResult> completed(TaskResult result) {
+		return CompletableFuture.completedFuture(result);
 	}
 
 	private static ProxyRoutingConfiguration parseConfiguration(JsonObject body) {
@@ -624,6 +760,7 @@ public final class ControlConnector implements AutoCloseable {
 
 	private Request resultRequest(UUID operationId, StoredResult result) {
 		JsonObject body = result.result().deepCopy();
+		body.remove(INTERNAL_OPERATION_TYPE);
 		body.addProperty("sessionId", sessionId.toString());
 		return new Request("POST", "/api/v1/nodes/" + settings.nodeId() + "/operations/" + operationId
 				+ "/result", body.toString());
@@ -675,6 +812,8 @@ public final class ControlConnector implements AutoCloseable {
 		JsonArray advertised = new JsonArray();
 		BASE_CAPABILITIES.stream().sorted().forEach(advertised::add);
 		if (configurationService != null) advertised.add(CONFIGURATION_CAPABILITY);
+		if (communicationTest != null) advertised.add(COMMUNICATION_TEST_CAPABILITY);
+		if (methodConfigurationService != null) advertised.add(PROXY_METHOD_CAPABILITY);
 		body.add("capabilities", advertised);
 		JsonArray required = new JsonArray();
 		required.add("presence.snapshot");
@@ -818,14 +957,14 @@ public final class ControlConnector implements AutoCloseable {
 	public record Response(int statusCode, String body) { }
 
 	private record TaskResult(boolean success, String code, String message, String revision,
-			ProxyRoutingConfiguration configuration, List<String> changes, boolean reloaded, boolean rolledBack) {
+			JsonObject configuration, List<String> changes, boolean reloaded, boolean rolledBack) {
 		private JsonObject json() {
 			JsonObject body = new JsonObject();
 			body.addProperty("success", success);
 			body.addProperty("code", code);
 			body.addProperty("message", message);
 			if (revision != null) body.addProperty("revision", revision);
-			if (configuration != null) body.add("configuration", configurationJson(configuration));
+			if (configuration != null) body.add("configuration", configuration);
 			JsonArray listed = new JsonArray();
 			changes.forEach(listed::add);
 			body.add("changes", listed);
@@ -836,7 +975,11 @@ public final class ControlConnector implements AutoCloseable {
 
 		private static TaskResult success(String revision, ProxyRoutingConfiguration configuration,
 				List<String> changes, boolean reloaded) {
-			return new TaskResult(true, "OK", "Operation completed", revision, configuration, changes, reloaded, false);
+			return success(revision, configurationJson(configuration), changes, reloaded, "Operation completed");
+		}
+		private static TaskResult success(String revision, JsonObject configuration, List<String> changes,
+				boolean reloaded, String message) {
+			return new TaskResult(true, "OK", message, revision, configuration, changes, reloaded, false);
 		}
 		private static TaskResult failure(String code, String message) {
 			return new TaskResult(false, code, message == null ? "Operation failed" : message, null, null, List.of(), false, false);
