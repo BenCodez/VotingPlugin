@@ -271,6 +271,79 @@ class BackendConfigurationServiceTest {
 		assertTrue(mqtt.proposal().content().contains("BungeeMethod: MQTT"));
 	}
 
+	@Test void voteSitesSyncAddsAndUpdatesDefinitionsWithoutTouchingRewardsOrTargetOnlySites() throws Exception {
+		Path voteSites = directory.resolve("VoteSites.yml");
+		Files.writeString(voteSites, "VoteSites:\n"
+				+ "  PMC:\n"
+				+ "    Name: Target name\n"
+				+ "    VoteURL: https://target.example/vote\n"
+				+ "    Rewards:\n"
+				+ "      Commands: ['target reward']\n"
+				+ "    WaitUntilVoteDelayRewards:\n"
+				+ "      Commands: ['target rejected reward']\n"
+				+ "  TargetOnly:\n"
+				+ "    Name: Keep me\n"
+				+ "EverySiteReward:\n"
+				+ "  Commands: ['target every-site reward']\n");
+		String source = "# Source network sites\n"
+				+ "VoteSites:\n"
+				+ "  # Planet Minecraft settings\n"
+				+ "  PMC:\n"
+				+ "    Name: Source name # synchronized field\n"
+				+ "    VoteURL: https://source.example/vote\n"
+				+ "    DisplayItem:\n"
+				+ "      Material: EMERALD\n"
+				+ "    Rewards:\n"
+				+ "      Commands: ['source reward']\n"
+				+ "    WaitUntilVoteDelayRewards:\n"
+				+ "      Commands: ['source rejected reward']\n"
+				+ "  NewSite:\n"
+				+ "    Name: Added site\n"
+				+ "    VoteURL: https://new.example/vote\n"
+				+ "    Rewards:\n"
+				+ "      Commands: ['source new reward']\n"
+				+ "EverySiteReward:\n"
+				+ "  Commands: ['source every-site reward']\n";
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		BackendConfigurationService.Document before = service.read("VoteSites.yml");
+
+		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("sync-vote-sites",
+				Map.of("sourceContent", source));
+		YamlConfiguration proposal = new YamlConfiguration();
+		proposal.options().parseComments(true);
+		proposal.loadFromString(preview.proposal().content());
+		assertEquals("Source name", proposal.getString("VoteSites.PMC.Name"));
+		assertEquals("EMERALD", proposal.getString("VoteSites.PMC.DisplayItem.Material"));
+		assertEquals(List.of("target reward"), proposal.getStringList("VoteSites.PMC.Rewards.Commands"));
+		assertEquals(List.of("target rejected reward"),
+				proposal.getStringList("VoteSites.PMC.WaitUntilVoteDelayRewards.Commands"));
+		assertEquals("Keep me", proposal.getString("VoteSites.TargetOnly.Name"));
+		assertEquals("Added site", proposal.getString("VoteSites.NewSite.Name"));
+		assertFalse(proposal.contains("VoteSites.NewSite.Rewards"));
+		assertEquals(List.of("target every-site reward"), proposal.getStringList("EverySiteReward.Commands"));
+		assertTrue(preview.proposal().content().contains("# Planet Minecraft settings"));
+		assertTrue(preview.proposal().content().contains("# synchronized field"));
+		assertTrue(preview.changes().stream().noneMatch(change -> change.toLowerCase().contains("reward")));
+
+		service.applyQuickSetup("sync-vote-sites", Map.of("sourceContent", source), before.revision());
+		String applied = Files.readString(voteSites);
+		assertTrue(applied.contains("target reward"));
+		assertFalse(applied.contains("source reward"));
+		assertTrue(applied.contains("TargetOnly"));
+		assertTrue(applied.contains("NewSite"));
+		assertTrue(applied.contains("# Planet Minecraft settings"));
+	}
+
+	@Test void voteSitesSyncRejectsMalformedOrMissingSourceSections() throws Exception {
+		Files.writeString(directory.resolve("VoteSites.yml"), "VoteSites: {}\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		assertThrows(IllegalArgumentException.class, () -> service.previewQuickSetup("sync-vote-sites",
+				Map.of("sourceContent", "not: [yaml")));
+		assertThrows(IllegalArgumentException.class, () -> service.previewQuickSetup("sync-vote-sites",
+				Map.of("sourceContent", "Other: value\n")));
+	}
+
 	@Test void fullBungeeSettingsRejectsUnknownTransportMethods() throws Exception {
 		Files.writeString(directory.resolve("BungeeSettings.yml"),
 				"UseBungeecord: true\nServer: lobby\nBungeeMethod: PLUGINMESSAGING\n");
