@@ -31,6 +31,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.net.ssl.SSLParameters;
@@ -97,6 +98,7 @@ public abstract class VotingPluginProxy {
 	private static final long PRESENCE_STARTUP_RESYNC_DELAY_SECONDS = 5L;
 	private static final long PRESENCE_MAINTENANCE_INTERVAL_SECONDS = 30L;
 	private static final long PRESENCE_BACKEND_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(90);
+	private static final long CONTROL_ENROLLMENT_MIN_INTERVAL_NANOS = TimeUnit.SECONDS.toNanos(10);
 
 	@Getter
 	@Setter
@@ -168,6 +170,7 @@ public abstract class VotingPluginProxy {
 	private final BackendPlayerPresenceTracker backendPlayerPresenceTracker = new BackendPlayerPresenceTracker();
 	private final Map<UUID, PendingPresenceHandoff> pendingPresenceHandoffs = new HashMap<>();
 	private final Set<String> pendingBackendRecoverySnapshots = ConcurrentHashMap.newKeySet();
+	private final Map<String, Long> controlEnrollmentNextAllowed = new ConcurrentHashMap<>();
 	private volatile ControlConnector controlConnector;
 	private volatile HostedControlManager hostedControlManager;
 	private final Object controlLifecycleLock = new Object();
@@ -1609,9 +1612,9 @@ public abstract class VotingPluginProxy {
 			try {
 				hostedControlManager = HostedControlManager.create(this);
 				if (hostedControlManager != null) hostedControlManager.start();
-			} catch (IllegalArgumentException e) {
+			} catch (IOException | IllegalArgumentException e) {
 				hostedControlManager = null;
-				logSevere("[Control Host] configuration is invalid; VotingPlugin remains unaffected");
+				logSevere("[Control Host] configuration or automatic enrollment is invalid; VotingPlugin remains unaffected");
 			}
 		}
 		try {
@@ -2446,6 +2449,11 @@ public abstract class VotingPluginProxy {
 	private interface CleanupAction { void run() throws Exception; }
 
 	public void onPluginMessageReceived(DataInputStream in) {
+		onPluginMessageReceived(in, null);
+	}
+
+	/** Receives a plugin message bound to the backend server connection that sent it. */
+	public void onPluginMessageReceived(DataInputStream in, String sourceServer) {
 		runAsync(() -> {
 			try {
 				final String headerSub;
@@ -2480,10 +2488,47 @@ public abstract class VotingPluginProxy {
 					return;
 				}
 
+				if (VotingPluginWire.SUB_CONTROL_ENROLLMENT_REQUEST.equals(envelope.getSubChannel())) {
+					handleControlEnrollmentRequest(sourceServer, envelope);
+					return;
+				}
+
 				globalMessageProxyHandler.onMessage(envelope);
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
+		});
+	}
+
+	private void handleControlEnrollmentRequest(String sourceServer, JsonEnvelope envelope) {
+		VotingPluginWire.ControlEnrollmentRequest request = VotingPluginWire.readControlEnrollmentRequest(envelope);
+		if (!request.valid || sourceServer == null || sourceServer.isBlank()) return;
+		if (!sourceServer.equals(request.nodeId)) {
+			sendPluginMessageServer(sourceServer, 0,
+					VotingPluginWire.controlEnrollmentResult(sourceServer, request.requestId, false));
+			return;
+		}
+		long now = System.nanoTime();
+		AtomicBoolean allowed = new AtomicBoolean();
+		controlEnrollmentNextAllowed.compute(sourceServer, (ignored, nextAllowed) -> {
+			if (nextAllowed == null || now >= nextAllowed) {
+				allowed.set(true);
+				return now + CONTROL_ENROLLMENT_MIN_INTERVAL_NANOS;
+			}
+			return nextAllowed;
+		});
+		if (!allowed.get()) return;
+		HostedControlManager manager = hostedControlManager;
+		if (manager == null) {
+			sendPluginMessageServer(sourceServer, 0,
+					VotingPluginWire.controlEnrollmentResult(sourceServer, request.requestId, false));
+			return;
+		}
+		manager.installNodeVerifier(sourceServer, request.verifier).whenComplete((installed, failure) -> {
+			boolean success = failure == null && Boolean.TRUE.equals(installed);
+			sendPluginMessageServer(sourceServer, 0,
+					VotingPluginWire.controlEnrollmentResult(sourceServer, request.requestId, success));
+			if (success) log("[Control] automatically enrolled backend node " + sourceServer);
 		});
 	}
 
