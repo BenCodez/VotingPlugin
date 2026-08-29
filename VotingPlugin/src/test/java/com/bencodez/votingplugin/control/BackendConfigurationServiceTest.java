@@ -156,6 +156,16 @@ class BackendConfigurationServiceTest {
 		assertFalse(read.content().contains("real-comment-secret"));
 	}
 
+	@Test void redactsQuotedCredentialKeysInComments() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "# \"Password\": quoted-comment-secret\nFeature: false\n");
+
+		BackendConfigurationService.Document read = new BackendConfigurationService(directory, () -> { })
+				.read("Config.yml");
+
+		assertFalse(read.content().contains("quoted-comment-secret"));
+	}
+
 	@Test void rejectsStaleInvalidAndUnmanagedWrites() throws Exception {
 		Files.writeString(directory.resolve("Config.yml"), "Feature: false\n");
 		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
