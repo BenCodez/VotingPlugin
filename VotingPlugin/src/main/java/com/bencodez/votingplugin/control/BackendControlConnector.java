@@ -89,7 +89,7 @@ public final class BackendControlConnector implements AutoCloseable {
 		synchronized (operationLifecycle) {
 			if (closed) throw new IllegalStateException("Bukkit Control connector is stopping");
 			reload = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
-				plugin.reload();
+				plugin.reloadFromControl();
 				if ("BungeeSettings.yml".equals(fileName)) plugin.restartBackendProxyHandler();
 				return null;
 			});

@@ -1157,14 +1157,19 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 */
 	@Override
 	public void reload() {
-		reloadPlugin(false);
+		reloadPlugin(false, true);
 	}
 
 	public void reloadAll() {
-		reloadPlugin(true);
+		reloadPlugin(true, true);
 	}
 
-	private void reloadPlugin(boolean userStorage) {
+	/** Reloads configuration applied by Control before its result is acknowledged. */
+	public void reloadFromControl() {
+		reloadPlugin(false, false);
+	}
+
+	private void reloadPlugin(boolean userStorage, boolean reconcileHostedControl) {
 		configFile.reloadData();
 		configFile.loadValues();
 
@@ -1221,6 +1226,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		voteShopManager.reload();
 
 		loadDirectlyDefined();
+
+		if (reconcileHostedControl) restartBackendHostedControlIfChanged();
 
 		setUpdate(true);
 	}
