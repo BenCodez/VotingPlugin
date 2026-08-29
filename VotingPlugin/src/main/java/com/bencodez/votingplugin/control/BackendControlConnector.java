@@ -314,7 +314,8 @@ public final class BackendControlConnector implements AutoCloseable {
 		}
 		boolean drained;
 		synchronized (completed) { drained = completed.isEmpty(); }
-		if (drained && (submitted.restartConnector() || recovering)) {
+		if (drained && (submitted.restartConnector() || recovering
+				|| plugin.hasDeferredBackendControlReconciliation())) {
 			plugin.getServer().getScheduler().runTask(plugin, plugin::restartBackendControlConnector);
 		}
 	}

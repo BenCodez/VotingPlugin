@@ -163,7 +163,15 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private final ProcessedVoteCache backendProcessedVoteCache = new ProcessedVoteCache();
 	private final AtomicReference<GlobalMessageHandler> backendPluginMessageTarget = new AtomicReference<>();
 	private PluginMessageHandler backendPluginMessageRelay;
-	private BackendControlConnector backendControlConnector;
+	private volatile BackendControlConnector backendControlConnector;
+	private final ExecutorService backendControlConnectorLifecycle = Executors.newSingleThreadExecutor(runnable -> {
+		Thread thread = new Thread(runnable, "votingplugin-control-backend-connector-lifecycle");
+		thread.setDaemon(true);
+		return thread;
+	});
+	private boolean backendControlConnectorReconcileRequested;
+	private boolean backendControlConnectorReconcileQueued;
+	private volatile boolean backendControlConnectorStopping;
 	private volatile HostedControlManager backendHostedControlManager;
 	private volatile HostedControlManager.HostConfiguration backendHostedControlConfiguration;
 	private volatile HostedControlManager backendHostedControlActiveManager;
@@ -1017,22 +1025,100 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	/** Refreshes the optional Control services after their Config.yml settings were applied. */
 	public synchronized void restartBackendControlConnector() {
-		BackendControlConnector connector = backendControlConnector;
-		if (connector != null && connector.hasPendingResults()) {
-			getLogger().warning("[Control] Keeping the previous connector until its applied result is acknowledged");
-			return;
-		}
-		BackendControlConnector replacement;
+		backendControlConnectorReconcileRequested = true;
+		if (backendControlConnectorStopping || backendControlConnectorReconcileQueued) return;
+		backendControlConnectorReconcileQueued = true;
 		try {
-			replacement = BackendControlConnector.create(this);
-		} catch (Exception e) {
-			replacement = null;
-			getLogger().warning("[Control] Bukkit configuration connector was not restarted: " + e.getMessage());
+			backendControlConnectorLifecycle.execute(this::reconcileBackendControlConnector);
+		} catch (RejectedExecutionException e) {
+			backendControlConnectorReconcileQueued = false;
+			getLogger().warning("[Control] Bukkit connector settings require a server restart after lifecycle shutdown");
 		}
-		if (connector != null) connector.close();
-		if (backendControlConnector == connector) backendControlConnector = replacement;
-		if (replacement != null) replacement.start();
-		restartBackendHostedControlIfChanged();
+	}
+
+	private void reconcileBackendControlConnector() {
+		while (true) {
+			BackendControlConnector previous;
+			synchronized (this) {
+				if (backendControlConnectorStopping) {
+					backendControlConnectorReconcileQueued = false;
+					return;
+				}
+				previous = backendControlConnector;
+				if (previous != null && previous.hasPendingResults()) {
+					backendControlConnectorReconcileQueued = false;
+					getLogger().warning("[Control] Deferring connector and hosted settings until pending results drain");
+					return;
+				}
+				backendControlConnectorReconcileRequested = false;
+			}
+			try {
+				if (previous != null) previous.close();
+			} catch (RuntimeException e) {
+				synchronized (this) {
+					backendControlConnectorReconcileRequested = true;
+					backendControlConnectorReconcileQueued = false;
+				}
+				getLogger().warning("[Control] Previous Bukkit connector did not stop; reconciliation is deferred");
+				debug(e);
+				return;
+			}
+			BackendControlConnector replacement;
+			try {
+				replacement = BackendControlConnector.create(this);
+			} catch (Exception e) {
+				replacement = null;
+				getLogger().warning("[Control] Bukkit configuration connector was not restarted: " + e.getMessage());
+			}
+			synchronized (this) {
+				if (backendControlConnectorStopping) {
+					if (replacement != null) replacement.close();
+					backendControlConnectorReconcileQueued = false;
+					return;
+				}
+				if (backendControlConnector == previous) backendControlConnector = replacement;
+				if (replacement != null) replacement.start();
+			}
+			boolean pending = replacement != null && replacement.hasPendingResults();
+			if (pending) {
+				synchronized (this) { backendControlConnectorReconcileRequested = true; }
+			} else {
+				restartBackendHostedControlIfChanged();
+			}
+			synchronized (this) {
+				if (!backendControlConnectorReconcileRequested) {
+					backendControlConnectorReconcileQueued = false;
+					return;
+				}
+			}
+		}
+	}
+
+	/** True while a reload is waiting for the durable result queue to drain. */
+	public synchronized boolean hasDeferredBackendControlReconciliation() {
+		return backendControlConnectorReconcileRequested;
+	}
+
+	private void stopBackendControlConnectorLifecycle() {
+		backendControlConnectorStopping = true;
+		backendControlConnectorLifecycle.shutdownNow();
+		BackendControlConnector connector = backendControlConnector;
+		backendControlConnector = null;
+		if (connector != null) {
+			try {
+				connector.close();
+			} catch (RuntimeException e) {
+				getLogger().warning("[Control] Bukkit connector did not stop cleanly; normal plugin cleanup will continue");
+				debug(e);
+			}
+		}
+		try {
+			if (!backendControlConnectorLifecycle.awaitTermination(10, TimeUnit.SECONDS)) {
+				getLogger().warning("[Control] Bukkit connector lifecycle worker did not stop during unload");
+			}
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		}
 	}
 
 	/** Redacted lifecycle status for the optional Control process hosted by Bukkit. */
@@ -1176,17 +1262,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Override
 	public void onUnLoad() {
 		stopBackendHostedControlLifecycle();
-		BackendControlConnector connector = backendControlConnector;
-		if (connector != null) {
-			try {
-				connector.close();
-			} catch (RuntimeException e) {
-				getLogger().warning("[Control] Bukkit connector did not stop cleanly; normal plugin cleanup will continue");
-				debug(e);
-			} finally {
-				if (backendControlConnector == connector) backendControlConnector = null;
-			}
-		}
+		stopBackendControlConnectorLifecycle();
 		if (getBackendProxyHandler() != null) {
 			try {
 				getBackendProxyHandler().close();
