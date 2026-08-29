@@ -331,8 +331,7 @@ public final class BackendConfigurationService {
 
 	private void validateProxyMethod(BungeeMethod method, YamlConfiguration settings) {
 		String server = settings.getString("Server", "").trim();
-		if (method != BungeeMethod.PLUGINMESSAGING
-				&& (server.isEmpty() || "PleaseSet".equalsIgnoreCase(server))) {
+		if (server.isEmpty() || "PleaseSet".equalsIgnoreCase(server)) {
 			throw new IllegalArgumentException("Server must be set to this backend's unique proxy server name");
 		}
 		switch (method) {
