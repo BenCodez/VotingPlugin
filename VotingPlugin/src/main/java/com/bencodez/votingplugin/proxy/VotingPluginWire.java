@@ -59,6 +59,8 @@ public final class VotingPluginWire {
 	public static final String SUB_PRESENCE_RESYNC_REQUEST = "PresenceResyncRequest";
 	public static final String SUB_PRESENCE_SNAPSHOT_REQUEST = "PresenceSnapshotRequest";
 	public static final String SUB_PRESENCE_SNAPSHOT = "PresenceSnapshot";
+	public static final String SUB_CONTROL_ENROLLMENT_REQUEST = "ControlEnrollmentRequest";
+	public static final String SUB_CONTROL_ENROLLMENT_RESULT = "ControlEnrollmentResult";
 	public static final String SUB_VOTEUPDATE_RELAY = "voteupdate";
 
 	// =========================
@@ -85,6 +87,9 @@ public final class VotingPluginWire {
 	public static final String K_PLAYERS = "players";
 	public static final String K_CHUNK_INDEX = "chunkIndex";
 	public static final String K_CHUNK_COUNT = "chunkCount";
+	public static final String K_NODE_ID = "nodeId";
+	public static final String K_VERIFIER = "verifier";
+	public static final String K_SUCCESS = "success";
 
 	// Vote/VoteOnline extras
 	public static final String K_WAS_ONLINE = "wasOnline";
@@ -170,6 +175,18 @@ public final class VotingPluginWire {
 
 	public static JsonEnvelope serverName(String server) {
 		return base(SUB_SERVER_NAME).put(K_SERVER, safe(server)).build();
+	}
+
+	public static JsonEnvelope controlEnrollmentRequest(String nodeId, String verifier, UUID requestId) {
+		return base(SUB_CONTROL_ENROLLMENT_REQUEST).put(K_NODE_ID, safe(nodeId))
+				.put(K_VERIFIER, safe(verifier))
+				.put(K_REQUEST_ID, requestId == null ? "" : requestId.toString()).build();
+	}
+
+	public static JsonEnvelope controlEnrollmentResult(String nodeId, UUID requestId, boolean success) {
+		return base(SUB_CONTROL_ENROLLMENT_RESULT).put(K_NODE_ID, safe(nodeId))
+				.put(K_REQUEST_ID, requestId == null ? "" : requestId.toString())
+				.put(K_SUCCESS, success).build();
 	}
 
 	public static JsonEnvelope login(String player, String uuid, String server) {
@@ -459,6 +476,47 @@ public final class VotingPluginWire {
 		}
 
 		return new VoteUpdate(uuid, cur, req, service, t);
+	}
+
+	public static final class ControlEnrollmentRequest {
+		public final String nodeId;
+		public final String verifier;
+		public final UUID requestId;
+		public final boolean valid;
+
+		private ControlEnrollmentRequest(String nodeId, String verifier, UUID requestId) {
+			this.nodeId = nodeId;
+			this.verifier = verifier;
+			this.requestId = requestId;
+			this.valid = nodeId.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+					&& verifier.matches("[0-9a-f]{64}") && requestId != null;
+		}
+	}
+
+	public static ControlEnrollmentRequest readControlEnrollmentRequest(JsonEnvelope env) {
+		Map<String, String> fields = env.getFields();
+		return new ControlEnrollmentRequest(safe(fields.get(K_NODE_ID)), safe(fields.get(K_VERIFIER)),
+				readUuid(fields, K_REQUEST_ID));
+	}
+
+	public static final class ControlEnrollmentResult {
+		public final String nodeId;
+		public final UUID requestId;
+		public final boolean success;
+		public final boolean valid;
+
+		private ControlEnrollmentResult(String nodeId, UUID requestId, boolean success) {
+			this.nodeId = nodeId;
+			this.requestId = requestId;
+			this.success = success;
+			this.valid = nodeId.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,63}") && requestId != null;
+		}
+	}
+
+	public static ControlEnrollmentResult readControlEnrollmentResult(JsonEnvelope env) {
+		Map<String, String> fields = env.getFields();
+		return new ControlEnrollmentResult(safe(fields.get(K_NODE_ID)), readUuid(fields, K_REQUEST_ID),
+				readBool(fields, K_SUCCESS, false));
 	}
 
 	public static final class PresencePlayer {
