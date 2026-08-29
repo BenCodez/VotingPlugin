@@ -883,12 +883,10 @@ public final class HostedControlManager implements AutoCloseable {
 			String host = normalizeHostLiteral(endpoint.getHost());
 			int port = endpoint.getPort() < 0 ? 80 : endpoint.getPort();
 			String path = endpoint.getPath();
-			boolean loopback = "localhost".equalsIgnoreCase(host) || "127.0.0.1".equals(host)
-					|| "::1".equals(host) || "0:0:0:0:0:0:0:1".equals(host);
+			boolean loopback = isLoopbackHost(host);
 			String listenerHost = normalizeHostLiteral(hosted.host());
 			boolean configuredListener = host != null && host.equalsIgnoreCase(listenerHost);
-			boolean listenerLoopback = "localhost".equalsIgnoreCase(listenerHost) || "127.0.0.1".equals(listenerHost)
-					|| "::1".equals(listenerHost) || "0:0:0:0:0:0:0:1".equals(listenerHost);
+			boolean listenerLoopback = isLoopbackHost(listenerHost);
 			boolean listenerWildcard = "0.0.0.0".equals(listenerHost) || "::".equals(listenerHost)
 					|| "0:0:0:0:0:0:0:0".equals(listenerHost);
 			return "http".equalsIgnoreCase(endpoint.getScheme())
@@ -915,7 +913,7 @@ public final class HostedControlManager implements AutoCloseable {
 			String path = endpoint.getPath();
 			boolean listenerWildcard = "0.0.0.0".equals(listenerHost) || "::".equals(listenerHost)
 					|| "0:0:0:0:0:0:0:0".equals(listenerHost);
-			if (!"http".equalsIgnoreCase(endpoint.getScheme()) || host.isBlank()
+			if (!"http".equalsIgnoreCase(endpoint.getScheme()) || host.isBlank() || isLoopbackHost(host)
 					|| (!listenerWildcard && !host.equalsIgnoreCase(listenerHost)) || port != settings.port()
 					|| endpoint.getUserInfo() != null || endpoint.getQuery() != null || endpoint.getFragment() != null
 					|| (path != null && !path.isEmpty() && !"/".equals(path))) {
@@ -935,6 +933,11 @@ public final class HostedControlManager implements AutoCloseable {
 			return normalized.substring(1, normalized.length() - 1);
 		}
 		return normalized;
+	}
+
+	private static boolean isLoopbackHost(String host) {
+		return "localhost".equalsIgnoreCase(host) || host.startsWith("127.")
+				|| "::1".equalsIgnoreCase(host) || "0:0:0:0:0:0:0:1".equalsIgnoreCase(host);
 	}
 
 	static URI parseDownloadUri(String configured) {

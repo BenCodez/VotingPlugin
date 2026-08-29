@@ -237,6 +237,10 @@ class HostedControlManagerTest {
 		Files.write(jar, release);
 		HostedControlManager.Settings settings = settings(jar, root.resolve("control/data"), false, false,
 				digest(release), 30);
+		settings = new HostedControlManager.Settings(settings.rootDirectory(), settings.jarFile(),
+				settings.dataDirectory(), settings.autoDownload(), settings.autoUpdate(), settings.downloadUri(),
+				settings.sha256(), "10.0.0.5", 8080, settings.startupTimeoutSeconds(),
+				settings.downloadTimeoutSeconds());
 		AtomicInteger installations = new AtomicInteger();
 		ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 		HostedControlManager manager = new HostedControlManager(settings, executor,
@@ -245,13 +249,13 @@ class HostedControlManagerTest {
 				(endpoint, timeout, launchId) -> true, millis -> { }, System::nanoTime, null, message -> { });
 		manager.runOnce();
 
-		assertTrue(manager.installNodeVerifier("survival", "", "http://127.0.0.1:8080")
+		assertTrue(manager.installNodeVerifier("survival", "", "http://10.0.0.5:8080")
 				.get(5, TimeUnit.SECONDS));
 		assertEquals(0, installations.get());
-		assertTrue(manager.installNodeVerifier("survival", "a".repeat(64), "http://127.0.0.1:8080")
+		assertTrue(manager.installNodeVerifier("survival", "a".repeat(64), "http://10.0.0.5:8080")
 				.get(5, TimeUnit.SECONDS));
 		assertEquals(1, installations.get());
-		assertFalse(manager.installNodeVerifier("../invalid", "a".repeat(64), "http://127.0.0.1:8080")
+		assertFalse(manager.installNodeVerifier("../invalid", "a".repeat(64), "http://10.0.0.5:8080")
 				.get(5, TimeUnit.SECONDS));
 		assertFalse(manager.installNodeVerifier("survival", "b".repeat(64), "http://external.example:8080")
 				.get(5, TimeUnit.SECONDS));
@@ -282,6 +286,8 @@ class HostedControlManagerTest {
 		assertTrue(manager.installNodeVerifier("survival", "a".repeat(64), "http://10.0.0.5:2150")
 				.get(5, TimeUnit.SECONDS));
 		assertFalse(manager.installNodeVerifier("creative", "b".repeat(64), "http://external.example:2150")
+				.get(5, TimeUnit.SECONDS));
+		assertFalse(manager.installNodeVerifier("loopback", "c".repeat(64), "http://127.0.0.1:2150")
 				.get(5, TimeUnit.SECONDS));
 		assertEquals(1, installations.get());
 		manager.close();
