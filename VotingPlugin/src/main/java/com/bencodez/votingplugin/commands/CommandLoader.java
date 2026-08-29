@@ -3337,7 +3337,7 @@ public class CommandLoader {
 				});
 
 		plugin.getVoteCommand().add(new CommandHandler(plugin, new String[] { "ToggleReminders" },
-				"VotingPlugin.Commands.Vote.ToggleReminders", "Enable/disable vote reminders", false) {
+				"VotingPlugin.Commands.Vote.ToggleReminders|" + playerPerm, "Enable/disable vote reminders", false) {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
