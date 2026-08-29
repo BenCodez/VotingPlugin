@@ -320,6 +320,9 @@ public final class BackendConfigurationService {
 		if (content == null) throw new IllegalArgumentException("configuration content is required");
 		ensureBounded(content);
 		YamlConfiguration yaml = new YamlConfiguration();
+		// Comment retention is part of the hosted editor contract. Keep this
+		// explicit even though current Spigot versions default it to true.
+		yaml.options().parseComments(true);
 		try {
 			yaml.loadFromString(content);
 		} catch (InvalidConfigurationException e) {
