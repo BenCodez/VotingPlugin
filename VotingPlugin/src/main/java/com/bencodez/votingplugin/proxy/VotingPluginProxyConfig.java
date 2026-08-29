@@ -22,11 +22,6 @@ public interface VotingPluginProxyConfig {
 		persistControlProxyRouting(sendVotesToAllServers, blockedServers);
 	}
 
-	/** Atomically persists only the proxy communication method. */
-	default void persistControlProxyMethod(String method, String expectedRevision) throws IOException {
-		throw new UnsupportedOperationException("Control proxy method writes are unavailable");
-	}
-
 	/** Restores the most recent Control-created backup. */
 	default void rollbackControlProxyRouting() throws IOException {
 		throw new UnsupportedOperationException("Control configuration rollback is unavailable");

@@ -125,51 +125,6 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
-	void communicationTestCompletesOnlyForTheCorrelatedBackendReply() throws Exception {
-		votingPluginProxy.setMethod(BungeeMethod.MQTT);
-		java.util.concurrent.ScheduledExecutorService scheduler = Mockito
-				.mock(java.util.concurrent.ScheduledExecutorService.class);
-		com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler messageHandler = Mockito
-				.mock(com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler.class);
-		votingPluginProxy.setSchedulerForTest(scheduler);
-		votingPluginProxy.setGlobalMessageProxyHandlerForTest(messageHandler);
-		org.mockito.ArgumentCaptor<com.bencodez.simpleapi.servercomm.codec.JsonEnvelope> sent = org.mockito.ArgumentCaptor
-				.forClass(com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.class);
-
-		java.util.concurrent.CompletableFuture<VotingPluginProxy.CommunicationTestResult> result = votingPluginProxy
-				.testBackendCommunication("Server1", 5000L);
-		verify(messageHandler).sendMessage(Mockito.eq("Server1"), Mockito.eq(1), sent.capture());
-		String requestId = sent.getValue().getFields().get(VotingPluginWire.K_REQUEST_ID);
-		assertFalse(result.isDone());
-
-		votingPluginProxy.handleStatusOkayForTest(VotingPluginWire.statusOkay("Server2",
-				java.util.UUID.fromString(requestId)));
-		assertFalse(result.isDone());
-		votingPluginProxy.handleStatusOkayForTest(VotingPluginWire.statusOkay("Server1",
-				java.util.UUID.fromString(requestId)));
-
-		VotingPluginProxy.CommunicationTestResult completed = result.get();
-		assertTrue(completed.success());
-		assertEquals("Server1", completed.server());
-		assertEquals("MQTT", completed.method());
-		assertTrue(completed.roundTripMillis() >= 0L);
-	}
-
-	@Test
-	void pluginMessagingCommunicationTestExplainsOnlinePlayerRequirement() throws Exception {
-		votingPluginProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
-		votingPluginProxy.setGlobalMessageProxyHandlerForTest(Mockito
-				.mock(com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler.class));
-		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
-		Mockito.doReturn(false).when(spyProxy).isSomeoneOnlineServer(Mockito.eq("Server1"));
-
-		VotingPluginProxy.CommunicationTestResult result = spyProxy.testBackendCommunication("Server1", 5000L).get();
-
-		assertFalse(result.success());
-		assertEquals("PLAYER_REQUIRED", result.code());
-	}
-
-	@Test
 	void pluginMessagingLegacyLoginUsesTheProxyCurrentServerAndUuid() {
 		String uuid = java.util.UUID.randomUUID().toString();
 		Mockito.when(votingPluginProxy.getConfig().getOnlineMode()).thenReturn(true);

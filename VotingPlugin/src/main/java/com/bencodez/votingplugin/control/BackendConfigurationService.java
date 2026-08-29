@@ -42,7 +42,7 @@ public final class BackendConfigurationService {
 			"WaitUntilVoteDelay", "PermissionToView", "IgnoreCanVote", "VoteDelayDailyHour", "VoteDelayMin",
 			"GiveOffline");
 	private static final Pattern COMMENT_SECRET = Pattern.compile(
-			"(?i)(\\b(?:[\\w-]*(?:password|secret)[\\w-]*|token|api[ _.-]?key|authorization|webhook[ _.-]?url)"
+			"(?i)(\\b(?:[\\w-]*(?:password|secret)[\\w-]*|token|api[ _.-]?key|authorization|[\\w.-]*webhook[ _.-]?url)"
 					+ "\\b\\s*[:=]\\s*)(.*)$");
 	private static final Pattern SECRET_PATH_URL = Pattern.compile("(?i)(\\burl\\b\\s*[:=]\\s*)(.*)$");
 

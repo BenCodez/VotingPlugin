@@ -170,18 +170,8 @@ public final class VotingPluginWire {
 		return base(SUB_STATUS).put(K_SERVER, safe(server)).build();
 	}
 
-	public static JsonEnvelope status(String server, UUID requestId) {
-		return base(SUB_STATUS).put(K_SERVER, safe(server))
-				.put(K_REQUEST_ID, requestId == null ? "" : requestId.toString()).build();
-	}
-
 	public static JsonEnvelope statusOkay(String server) {
 		return base(SUB_STATUS_OKAY).put(K_SERVER, safe(server)).build();
-	}
-
-	public static JsonEnvelope statusOkay(String server, UUID requestId) {
-		return base(SUB_STATUS_OKAY).put(K_SERVER, safe(server))
-				.put(K_REQUEST_ID, requestId == null ? "" : requestId.toString()).build();
 	}
 
 	public static JsonEnvelope serverName(String server) {

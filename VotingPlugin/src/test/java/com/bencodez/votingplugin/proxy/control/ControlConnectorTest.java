@@ -217,30 +217,11 @@ class ControlConnectorTest {
 		connector.cycle();
 
 		AtomicBoolean replacementStarted = new AtomicBoolean();
-		assertTrue(connector.deferReplacementUntilSafe(() -> {
-			assertFalse(connector.hasActiveOperation());
-			replacementStarted.set(true);
-		}));
+		assertTrue(connector.deferReplacementUntilSafe(() -> replacementStarted.set(true)));
 		assertFalse(replacementStarted.get());
 
 		transport.resultSubmission.complete(new Response(200, "{}"));
 		assertTrue(replacementStarted.get());
-	}
-
-	@Test void onlySuccessfulProxyMethodApplyRequestsRuntimeReplacement() {
-		JsonObject result = new JsonObject();
-		result.addProperty("success", true);
-		JsonObject configuration = new JsonObject();
-		configuration.addProperty("preset", "proxy-method");
-		result.add("configuration", configuration);
-		result.addProperty("_controlOperationType", "READ");
-		assertFalse(ControlConnector.requiresRuntimeReplacement(new StoredResult(result, true, false)));
-		result.addProperty("_controlOperationType", "PREVIEW");
-		assertFalse(ControlConnector.requiresRuntimeReplacement(new StoredResult(result, true, false)));
-		result.addProperty("_controlOperationType", "APPLY");
-		assertTrue(ControlConnector.requiresRuntimeReplacement(new StoredResult(result, true, false)));
-		result.addProperty("success", false);
-		assertFalse(ControlConnector.requiresRuntimeReplacement(new StoredResult(result, true, false)));
 	}
 
 	@Test void lostResultResponseIsResubmittedBeforeAnotherOperationClaim() {

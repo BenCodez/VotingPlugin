@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -172,7 +171,6 @@ public abstract class VotingPluginProxy {
 	private final Map<UUID, PendingPresenceHandoff> pendingPresenceHandoffs = new HashMap<>();
 	private final Set<String> pendingBackendRecoverySnapshots = ConcurrentHashMap.newKeySet();
 	private final Map<String, Long> controlEnrollmentNextAllowed = new ConcurrentHashMap<>();
-	private final Map<UUID, PendingCommunicationTest> pendingCommunicationTests = new ConcurrentHashMap<>();
 	private volatile ControlConnector controlConnector;
 	private volatile HostedControlManager hostedControlManager;
 	private final Object controlLifecycleLock = new Object();
@@ -1523,10 +1521,11 @@ public abstract class VotingPluginProxy {
 			}
 		});
 
-		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_STATUS_OKAY) {
+		globalMessageProxyHandler.addListener(new GlobalMessageListener("statusokay") {
 			@Override
 			public void onReceive(JsonEnvelope message) {
-				handleStatusOkay(message);
+				String server = message.getFields().getOrDefault("server", "");
+				log("Status okay for " + server);
 			}
 		});
 
@@ -2403,7 +2402,6 @@ public abstract class VotingPluginProxy {
 
 	/** Best-effort remainder of runtime teardown after the Control overlap gate has succeeded. */
 	public void completeRuntimeReplacementShutdown() {
-		cancelCommunicationTests("Proxy runtime stopped before the backend replied");
 		runCleanup("vote cache", () -> getVoteCacheHandler().saveVoteCache());
 		runCleanup("proxy MySQL messenger", () -> {
 			if (getProxyMysqlMessenger() != null) getProxyMysqlMessenger().shutdown();
@@ -2892,91 +2890,6 @@ public abstract class VotingPluginProxy {
 			}
 		}
 	}
-
-	/** Runs a correlated, non-vote round trip over the active backend transport. */
-	public CompletableFuture<CommunicationTestResult> testBackendCommunication(String requestedServer,
-			long timeoutMillis) {
-		String server = requestedServer == null ? "" : requestedServer.trim();
-		BungeeMethod activeMethod = method;
-		if (server.isEmpty() || !getAllAvailableServers().contains(server)) {
-			return CompletableFuture.completedFuture(CommunicationTestResult.failure(server, activeMethod,
-					"UNKNOWN_BACKEND", "The backend is not configured on this proxy"));
-		}
-		if (activeMethod == null || globalMessageProxyHandler == null) {
-			return CompletableFuture.completedFuture(CommunicationTestResult.failure(server, activeMethod,
-					"TRANSPORT_UNAVAILABLE", "The proxy communication transport is not running"));
-		}
-		if (activeMethod == BungeeMethod.PLUGINMESSAGING && !isSomeoneOnlineServerForVoteRouting(server)) {
-			return CompletableFuture.completedFuture(CommunicationTestResult.failure(server, activeMethod,
-					"PLAYER_REQUIRED", "Plugin messaging requires an online player on the selected backend"));
-		}
-		ScheduledExecutorService scheduler = getScheduler();
-		if (scheduler == null) {
-			return CompletableFuture.completedFuture(CommunicationTestResult.failure(server, activeMethod,
-					"TRANSPORT_UNAVAILABLE", "The proxy scheduler is not running"));
-		}
-		long boundedTimeout = Math.max(500L, Math.min(timeoutMillis, 30000L));
-		UUID requestId = UUID.randomUUID();
-		CompletableFuture<CommunicationTestResult> result = new CompletableFuture<>();
-		PendingCommunicationTest pending = new PendingCommunicationTest(server, activeMethod, System.nanoTime(), result);
-		pendingCommunicationTests.put(requestId, pending);
-		result.whenComplete((ignored, failure) -> pendingCommunicationTests.remove(requestId, pending));
-		try {
-			scheduler.schedule(() -> result.complete(CommunicationTestResult.failure(server, activeMethod,
-					"TIMEOUT", "No correlated reply arrived before the timeout")), boundedTimeout, TimeUnit.MILLISECONDS);
-			globalMessageProxyHandler.sendMessage(server, 1, VotingPluginWire.status(server, requestId));
-		} catch (RuntimeException failure) {
-			result.complete(CommunicationTestResult.failure(server, activeMethod, "SEND_FAILED",
-					"The proxy could not send the communication test"));
-		}
-		return result;
-	}
-
-	protected void handleStatusOkay(JsonEnvelope message) {
-		String server = message.getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
-		String request = message.getFields().getOrDefault(VotingPluginWire.K_REQUEST_ID, "");
-		if (request.isEmpty()) {
-			log("Status okay for " + server);
-			return;
-		}
-		UUID requestId;
-		try {
-			requestId = UUID.fromString(request);
-		} catch (IllegalArgumentException ignored) {
-			debug("Ignored status reply with an invalid request ID from " + server);
-			return;
-		}
-		PendingCommunicationTest pending = pendingCommunicationTests.get(requestId);
-		if (pending == null || !pending.server().equals(server)) {
-			debug("Ignored unexpected status reply from " + server);
-			return;
-		}
-		long roundTripMillis = Math.max(0L,
-				TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - pending.startedAtNanos()));
-		pending.result().complete(CommunicationTestResult.success(server, pending.method(), roundTripMillis));
-	}
-
-	private void cancelCommunicationTests(String message) {
-		pendingCommunicationTests.forEach((requestId, pending) -> pending.result().complete(
-				CommunicationTestResult.failure(pending.server(), pending.method(), "TRANSPORT_STOPPED", message)));
-		pendingCommunicationTests.clear();
-	}
-
-	public record CommunicationTestResult(boolean success, String code, String message, String server,
-			String method, long roundTripMillis) {
-		private static CommunicationTestResult success(String server, BungeeMethod method, long roundTripMillis) {
-			return new CommunicationTestResult(true, "OK", "Backend replied over the active transport", server,
-					method == null ? "" : method.name(), roundTripMillis);
-		}
-
-		private static CommunicationTestResult failure(String server, BungeeMethod method, String code, String message) {
-			return new CommunicationTestResult(false, code, message, server,
-					method == null ? "" : method.name(), -1L);
-		}
-	}
-
-	private record PendingCommunicationTest(String server, BungeeMethod method, long startedAtNanos,
-			CompletableFuture<CommunicationTestResult> result) { }
 
 	private void sendVoteDelayRejected(String player, String uuid, String service, boolean playerOnline,
 			String playerServer) {

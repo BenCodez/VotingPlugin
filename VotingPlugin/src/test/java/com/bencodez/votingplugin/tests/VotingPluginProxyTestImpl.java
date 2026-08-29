@@ -214,10 +214,6 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 		handleLoginMessage(envelope);
 	}
 
-	public void handleStatusOkayForTest(JsonEnvelope envelope) {
-		handleStatusOkay(envelope);
-	}
-
 	public void setGlobalMessageProxyHandlerForTest(GlobalMessageProxyHandler handler) {
 		try {
 			java.lang.reflect.Field field = VotingPluginProxy.class.getDeclaredField("globalMessageProxyHandler");
