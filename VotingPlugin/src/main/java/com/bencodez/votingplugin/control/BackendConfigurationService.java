@@ -21,6 +21,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.InvalidConfigurationException;
@@ -35,6 +37,8 @@ public final class BackendConfigurationService {
 	public static final int MAX_CONTENT_BYTES = 512 * 1024;
 	private static final Set<String> TOP_LEVEL = Set.of("Config.yml", "VoteSites.yml", "SpecialRewards.yml",
 			"GUI.yml", "Shop.yml", "BungeeSettings.yml");
+	private static final Pattern COMMENT_SECRET = Pattern.compile(
+			"(?i)(\\b(?:password|token|secret|credential|api[ _-]?key)\\b\\s*[:=]\\s*)([^\\s#]+)");
 
 	private final Path dataDirectory;
 	private final ApplyAction reload;
@@ -394,10 +398,45 @@ public final class BackendConfigurationService {
 	}
 
 	private static String mask(YamlConfiguration yaml) {
+		Set<String> secretValues = new HashSet<>();
 		for (String path : new ArrayList<>(yaml.getKeys(true))) {
-			if (!(yaml.get(path) instanceof ConfigurationSection) && secret(path)) yaml.set(path, REDACTED);
+			if (!(yaml.get(path) instanceof ConfigurationSection) && secret(path)) {
+				Object value = yaml.get(path);
+				if (value != null && !String.valueOf(value).isBlank()) secretValues.add(String.valueOf(value));
+				yaml.set(path, REDACTED);
+			}
 		}
-		return yaml.saveToString();
+		return sanitizeComments(yaml.saveToString(), secretValues);
+	}
+
+	private static String sanitizeComments(String content, Set<String> secretValues) {
+		StringBuilder sanitized = new StringBuilder(content.length());
+		for (String line : content.split("\\n", -1)) {
+			int commentStart = commentStart(line);
+			if (commentStart >= 0) {
+				String comment = line.substring(commentStart);
+				for (String value : secretValues) comment = comment.replace(value, REDACTED);
+				Matcher matcher = COMMENT_SECRET.matcher(comment);
+				comment = matcher.replaceAll("$1" + REDACTED);
+				line = line.substring(0, commentStart) + comment;
+			}
+			sanitized.append(line).append('\n');
+		}
+		return sanitized.substring(0, sanitized.length() - 1);
+	}
+
+	private static int commentStart(String line) {
+		boolean singleQuoted = false;
+		boolean doubleQuoted = false;
+		for (int index = 0; index < line.length(); index++) {
+			char current = line.charAt(index);
+			if (current == '\'' && !doubleQuoted) singleQuoted = !singleQuoted;
+			else if (current == '"' && !singleQuoted && (index == 0 || line.charAt(index - 1) != '\\')) {
+				doubleQuoted = !doubleQuoted;
+			} else if (current == '#' && !singleQuoted && !doubleQuoted
+					&& (index == 0 || Character.isWhitespace(line.charAt(index - 1)))) return index;
+		}
+		return -1;
 	}
 
 	private static YamlConfiguration resolveSecrets(YamlConfiguration proposal, YamlConfiguration current) {

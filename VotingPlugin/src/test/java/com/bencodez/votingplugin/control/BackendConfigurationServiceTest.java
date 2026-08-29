@@ -9,7 +9,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -79,6 +78,22 @@ class BackendConfigurationServiceTest {
 		assertTrue(applied.contains("# database credential"));
 		assertTrue(applied.contains("# toggle from Control"));
 		assertTrue(applied.contains("# End of owner notes"));
+	}
+
+	@Test void redactsSecretsRepeatedOrDefinedInsideComments() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "# Password: commented-secret\n"
+				+ "Database:\n"
+				+ "  Password: active-secret # rotate active-secret soon\n"
+				+ "Feature: true # Token=comment-token\n");
+		BackendConfigurationService.Document read = new BackendConfigurationService(directory, () -> { })
+				.read("Config.yml");
+
+		assertFalse(read.content().contains("commented-secret"));
+		assertFalse(read.content().contains("active-secret"));
+		assertFalse(read.content().contains("comment-token"));
+		assertTrue(read.content().contains("# Password: " + BackendConfigurationService.REDACTED));
+		assertTrue(read.content().contains("# rotate " + BackendConfigurationService.REDACTED + " soon"));
 	}
 
 	@Test void rejectsStaleInvalidAndUnmanagedWrites() throws Exception {
