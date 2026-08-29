@@ -233,7 +233,7 @@ class HostedControlManagerTest {
 
 		assertEquals("previous-release", Files.readString(jar));
 		assertTrue(launcher.launchedContents.isEmpty());
-		manager.runOnce();
+		assertTrue(manager.startAndWaitForInitialResult());
 		assertEquals(List.of("new-release"), launcher.launchedContents);
 		manager.close();
 	}
@@ -258,6 +258,25 @@ class HostedControlManagerTest {
 
 		assertEquals("previous-release", Files.readString(jar));
 		assertTrue(launcher.launchedContents.isEmpty());
+		manager.close();
+	}
+
+	@Test
+	void initialHealthFailureIsReportedToLifecycleCaller() throws Exception {
+		byte[] release = "new-release".getBytes(StandardCharsets.UTF_8);
+		Path root = directory.toAbsolutePath().normalize();
+		Path jar = root.resolve("control/control.jar");
+		HostedControlManager.Settings settings = settings(jar, root.resolve("control/data"), true, false,
+				digest(release), 1);
+		AtomicLong clock = new AtomicLong();
+		HostedControlManager manager = new HostedControlManager(settings,
+				Executors.newSingleThreadScheduledExecutor(),
+				(source, target, maximum, timeout) -> Files.write(target, release), new FakeLauncher(),
+				(endpoint, timeout, launchId) -> false,
+				millis -> clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(millis)), clock::get, message -> { });
+
+		assertFalse(manager.startAndWaitForInitialResult());
+		assertEquals(HostedControlManager.Status.FAILED, manager.status());
 		manager.close();
 	}
 

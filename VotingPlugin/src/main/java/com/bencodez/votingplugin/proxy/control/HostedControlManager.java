@@ -123,10 +123,25 @@ public final class HostedControlManager implements AutoCloseable {
 	}
 
 	public void start() {
-		if (closed || activeTask != null) {
-			return;
+		submitInitialTask();
+	}
+
+	/** Starts on the manager worker and waits for the initial health result. */
+	public boolean startAndWaitForInitialResult() throws InterruptedException {
+		Future<?> task = submitInitialTask();
+		if (task == null) return false;
+		try {
+			task.get();
+		} catch (java.util.concurrent.CancellationException | java.util.concurrent.ExecutionException e) {
+			return false;
 		}
-		activeTask = executor.submit(this::runOnce);
+		return status == Status.RUNNING || status == Status.ROLLED_BACK;
+	}
+
+	private synchronized Future<?> submitInitialTask() {
+		if (closed) return null;
+		if (activeTask == null) activeTask = executor.submit(this::runOnce);
+		return activeTask;
 	}
 
 	/** Downloads and verifies a replacement without disturbing the active process. */

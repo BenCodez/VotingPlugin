@@ -168,6 +168,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private volatile HostedControlManager.HostConfiguration backendHostedControlConfiguration;
 	private volatile HostedControlManager backendHostedControlActiveManager;
 	private volatile HostedControlManager.HostConfiguration backendHostedControlActiveConfiguration;
+	private final Set<HostedControlManager> backendHostedControlManagers = java.util.concurrent.ConcurrentHashMap.newKeySet();
 	private final ExecutorService backendHostedControlLifecycle = Executors.newSingleThreadExecutor(runnable -> {
 		Thread thread = new Thread(runnable, "votingplugin-control-backend-host-lifecycle");
 		thread.setDaemon(true);
@@ -779,6 +780,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			backendHostedControlManager = HostedControlManager.create(getDataFolder().toPath(), configuration,
 					message -> getLogger().info("[Control Host] " + message));
 			backendHostedControlActiveManager = backendHostedControlManager;
+			if (backendHostedControlActiveManager != null) backendHostedControlManagers.add(backendHostedControlActiveManager);
 			if (backendHostedControlActiveManager != null) backendHostedControlActiveManager.start();
 		} catch (IllegalArgumentException e) {
 			backendHostedControlManager = null;
@@ -825,6 +827,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					+ e.getMessage());
 			return;
 		}
+		if (replacement != null) backendHostedControlManagers.add(replacement);
 		backendHostedControlConfiguration = replacementConfiguration;
 		backendHostedControlManager = replacement;
 		try {
@@ -833,7 +836,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		} catch (RejectedExecutionException e) {
 			backendHostedControlConfiguration = backendHostedControlActiveConfiguration;
 			backendHostedControlManager = backendHostedControlActiveManager;
-			if (replacement != null) replacement.close();
+			closeBackendHostedControlManager(replacement, false);
 			getLogger().warning("[Control Host] Bukkit hosting settings require a server restart after lifecycle shutdown");
 		}
 	}
@@ -853,25 +856,27 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 								+ e.getMessage());
 					}
 				}
-				replacement.close();
+				closeBackendHostedControlManager(replacement, false);
 				return;
 			}
 		}
 		HostedControlManager previous;
+		HostedControlManager.HostConfiguration previousConfiguration;
 		synchronized (this) {
 			if (backendHostedControlStopping || backendHostedControlLifecycleFailed
 					|| backendHostedControlManager != replacement
 					|| !replacementConfiguration.equals(backendHostedControlConfiguration)) {
-				if (replacement != null) replacement.close();
+				closeBackendHostedControlManager(replacement, false);
 				return;
 			}
 			previous = backendHostedControlActiveManager;
+			previousConfiguration = backendHostedControlActiveConfiguration;
 		}
 		try {
-			if (previous != null) previous.closeAndWait();
+			closeBackendHostedControlManager(previous, true);
 		} catch (RuntimeException e) {
 			backendHostedControlLifecycleFailed = true;
-			if (replacement != null) replacement.close();
+			closeBackendHostedControlManager(replacement, false);
 			synchronized (this) {
 				if (backendHostedControlManager == replacement) {
 					backendHostedControlManager = previous;
@@ -884,38 +889,119 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 			return;
 		}
+		if (backendHostedControlStopping) {
+			closeBackendHostedControlManager(replacement, false);
+			return;
+		}
+		boolean started;
+		try {
+			started = replacement == null || replacement.startAndWaitForInitialResult();
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			closeBackendHostedControlManager(replacement, false);
+			return;
+		}
+		if (!started) {
+			try {
+				closeBackendHostedControlManager(replacement, true);
+			} catch (RuntimeException e) {
+				backendHostedControlLifecycleFailed = true;
+				getLogger().warning("[Control Host] Failed replacement could not be stopped; restoration is blocked");
+				debug(e);
+				return;
+			}
+			if (!backendHostedControlStopping) {
+				restoreBackendHostedControl(previousConfiguration, replacement, replacementConfiguration);
+			}
+			return;
+		}
 		synchronized (this) {
-			if (backendHostedControlActiveManager == previous) backendHostedControlActiveManager = null;
 			if (backendHostedControlStopping || backendHostedControlLifecycleFailed) {
-				if (replacement != null) replacement.close();
+				closeBackendHostedControlManager(replacement, false);
 				return;
 			}
 			backendHostedControlActiveManager = replacement;
 			backendHostedControlActiveConfiguration = replacementConfiguration;
-			if (replacement != null) replacement.start();
 		}
+	}
+
+	private void restoreBackendHostedControl(HostedControlManager.HostConfiguration previousConfiguration,
+			HostedControlManager failedReplacement,
+			HostedControlManager.HostConfiguration failedConfiguration) {
+		if (previousConfiguration == null) {
+			backendHostedControlLifecycleFailed = true;
+			getLogger().warning("[Control Host] Replacement failed and no previous hosted settings were available");
+			return;
+		}
+		HostedControlManager restored = null;
+		try {
+			restored = HostedControlManager.create(getDataFolder().toPath(), previousConfiguration,
+					message -> getLogger().info("[Control Host] " + message));
+			if (restored != null) backendHostedControlManagers.add(restored);
+			if (restored != null && !restored.startAndWaitForInitialResult()) {
+				closeBackendHostedControlManager(restored, true);
+				throw new IllegalStateException("the previous hosted settings did not become healthy");
+			}
+		} catch (Exception e) {
+			if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+			if (restored != null) {
+				try {
+					closeBackendHostedControlManager(restored, false);
+				} catch (RuntimeException closeFailure) {
+					e.addSuppressed(closeFailure);
+				}
+			}
+			if (backendHostedControlStopping) return;
+			backendHostedControlLifecycleFailed = true;
+			getLogger().warning("[Control Host] Replacement failed and the previous host could not be restored: "
+					+ e.getMessage());
+			return;
+		}
+		synchronized (this) {
+			if (backendHostedControlStopping) {
+				closeBackendHostedControlManager(restored, false);
+				return;
+			}
+			backendHostedControlActiveManager = restored;
+			backendHostedControlActiveConfiguration = previousConfiguration;
+			if (backendHostedControlManager == failedReplacement
+					&& failedConfiguration.equals(backendHostedControlConfiguration)) {
+				backendHostedControlManager = restored;
+				backendHostedControlConfiguration = previousConfiguration;
+			}
+		}
+		getLogger().warning("[Control Host] Replacement did not become healthy; the previous host was restored");
+	}
+
+	private void closeBackendHostedControlManager(HostedControlManager manager, boolean waitForProcess) {
+		if (manager == null) return;
+		if (waitForProcess) manager.closeAndWait();
+		else manager.close();
+		backendHostedControlManagers.remove(manager);
 	}
 
 	private void stopBackendHostedControlLifecycle() {
 		backendHostedControlStopping = true;
+		backendHostedControlLifecycle.shutdownNow();
+		Set<HostedControlManager> managers = new java.util.HashSet<>(backendHostedControlManagers);
+		if (backendHostedControlActiveManager != null) managers.add(backendHostedControlActiveManager);
+		if (backendHostedControlManager != null) managers.add(backendHostedControlManager);
+		for (HostedControlManager manager : managers) {
+			try {
+				closeBackendHostedControlManager(manager, true);
+			} catch (RuntimeException e) {
+				getLogger().warning("[Control Host] A hosted process did not stop cleanly during unload");
+				debug(e);
+			}
+		}
+		backendHostedControlManager = null;
+		backendHostedControlActiveManager = null;
 		try {
-			backendHostedControlLifecycle.execute(() -> {
-				HostedControlManager active = backendHostedControlActiveManager;
-				HostedControlManager requested = backendHostedControlManager;
-				if (active != null) active.close();
-				if (requested != null && requested != active) requested.close();
-				backendHostedControlManager = null;
-				backendHostedControlActiveManager = null;
-			});
-		} catch (RejectedExecutionException e) {
-			HostedControlManager active = backendHostedControlActiveManager;
-			HostedControlManager requested = backendHostedControlManager;
-			if (active != null) active.close();
-			if (requested != null && requested != active) requested.close();
-			backendHostedControlManager = null;
-			backendHostedControlActiveManager = null;
-		} finally {
-			backendHostedControlLifecycle.shutdown();
+			if (!backendHostedControlLifecycle.awaitTermination(10, TimeUnit.SECONDS)) {
+				getLogger().warning("[Control Host] The hosted lifecycle worker did not stop during unload");
+			}
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
 		}
 	}
 
