@@ -1,6 +1,8 @@
 package com.bencodez.votingplugin.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -16,7 +18,6 @@ import org.junit.jupiter.api.io.TempDir;
 class ControlCredentialFileTest {
 	@TempDir Path directory;
 
-
 	@Test void createsBlankContainedCredentialFileBeforeEnrollment() throws Exception {
 		Path root = Files.createDirectory(directory.resolve("plugin"));
 		Path credential = root.resolve("control/control-credential.txt");
@@ -31,6 +32,37 @@ class ControlCredentialFileTest {
 			assertEquals(Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE),
 					posix.readAttributes().permissions());
 		}
+	}
+
+	@Test void automaticEnrollmentSurvivesRestartUntilAcknowledged() throws Exception {
+		Path root = Files.createDirectory(directory.resolve("auto-plugin"));
+		String configured = "control/control-credential.txt";
+
+		ControlCredentialFile.PendingAutoEnrollment first =
+				ControlCredentialFile.prepareAutoEnrollment(root, configured, "proxy-a");
+		String credential = ControlCredentialFile.read(root, configured);
+		ControlCredentialFile.PendingAutoEnrollment recovered =
+				ControlCredentialFile.prepareAutoEnrollment(root, configured, "proxy-a");
+
+		assertTrue(credential.startsWith("vpctl_node_"));
+		assertEquals(first.verifier(), recovered.verifier());
+		assertTrue(Files.isRegularFile(root.resolve(configured + ".auto-enroll")));
+		ControlCredentialFile.completeAutoEnrollment(recovered);
+		assertFalse(Files.exists(root.resolve(configured + ".auto-enroll")));
+		assertNull(ControlCredentialFile.prepareAutoEnrollment(root, configured, "proxy-a"));
+		assertEquals(credential, ControlCredentialFile.read(root, configured));
+	}
+
+	@Test void existingManualCredentialIsNeverReplaced() throws Exception {
+		Path root = Files.createDirectory(directory.resolve("manual-plugin"));
+		Path control = Files.createDirectories(root.resolve("control"));
+		Path credential = control.resolve("control-credential.txt");
+		Files.writeString(credential, "vpctl_node_manually_enrolled");
+
+		assertNull(ControlCredentialFile.prepareAutoEnrollment(root,
+				"control/control-credential.txt", "proxy-a"));
+		assertEquals("vpctl_node_manually_enrolled", Files.readString(credential));
+		assertFalse(Files.exists(control.resolve("control-credential.txt.auto-enroll")));
 	}
 
 	@Test void readsContainedFileAndRejectsFileDirectoryAndTraversalEscapes() throws Exception {
