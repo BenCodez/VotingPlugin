@@ -179,7 +179,7 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 
 	@Override
 	public String getControlCredentialFile() {
-		return getString(getNode("Control", "CredentialFile"), "control-credential.txt");
+		return getString(getNode("Control", "CredentialFile"), "control/control-credential.txt");
 	}
 
 	@Override

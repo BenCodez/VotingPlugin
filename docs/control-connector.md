@@ -40,7 +40,7 @@ Control:
   Enabled: true
   Endpoint: 'http://127.0.0.1:8080'
   NodeId: 'proxy-a'
-  CredentialFile: 'control-credential.txt'
+  CredentialFile: 'control/control-credential.txt'
   Hosted:
     Enabled: true
     AutoDownload: true
@@ -76,7 +76,7 @@ Control:
     Enabled: true
     NodeId: 'backend-lobby'
     Endpoint: 'http://127.0.0.1:8080'
-    CredentialFile: 'control-credential.txt'
+    CredentialFile: 'control/control-credential.txt'
     HeartbeatSeconds: 30
     ConnectTimeoutMillis: 3000
     RequestTimeoutMillis: 10000
@@ -106,14 +106,11 @@ Manual installation remains supported: put a Control JAR at `JarFile`, configure
 
 ## Enrollment and configuration
 
-1. Build/run Control and use its owner command to enroll the exact stable node ID:
+1. Start Control, complete its one-time WebUI setup, and use the Node enrollment page to enroll the exact stable node ID.
 
-   ```shell
-   java -jar votingplugin-control-0.1.0-SNAPSHOT-all.jar enroll proxy-a data
-   ```
-
-2. On that proxy or backend, create `plugins/VotingPlugin/control-credential.txt` (or the platform-equivalent VotingPlugin
-   data directory) containing only the printed credential. Restrict filesystem access to the Minecraft service account.
+2. On the first connector start, VotingPlugin automatically creates the blank
+   `plugins/VotingPlugin/control/control-credential.txt` placeholder (or its platform-equivalent data path). Paste only
+   the generated enrollment credential into that file and restrict filesystem access to the Minecraft service account.
 
 3. Configure `bungeeconfig.yml`:
 
@@ -122,7 +119,7 @@ Manual installation remains supported: put a Control JAR at `JarFile`, configure
      Enabled: true
      Endpoint: 'http://127.0.0.1:8080'
      NodeId: 'proxy-a'
-     CredentialFile: 'control-credential.txt'
+     CredentialFile: 'control/control-credential.txt'
      HeartbeatSeconds: 30
      ConnectTimeoutMillis: 3000
      RequestTimeoutMillis: 5000
@@ -130,7 +127,8 @@ Manual installation remains supported: put a Control JAR at `JarFile`, configure
 
 `NodeId` may be blank to reuse the existing `ProxyServerName`, but every simultaneously connected proxy must have a unique,
 stable enrolled identity. Explicitly setting it is recommended. `CredentialFile` must resolve inside VotingPlugin's data
-directory; credentials in URLs and parent-directory traversal are rejected. The credential is never logged or placed in
+directory. Its missing parent directories and blank placeholder are created automatically; credentials in URLs and
+parent-directory traversal are rejected. The credential is never logged or placed in
 plugin messages.
 
 The endpoint must be an `http` or `https` origin without embedded credentials, query, fragment, or path. Plain HTTP is
@@ -157,7 +155,7 @@ Control:
     Enabled: true
     NodeId: 'backend-lobby'
     Endpoint: 'http://127.0.0.1:8080'
-    CredentialFile: 'control-credential.txt'
+    CredentialFile: 'control/control-credential.txt'
     HeartbeatSeconds: 30
     ConnectTimeoutMillis: 3000
     RequestTimeoutMillis: 10000

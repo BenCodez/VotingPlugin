@@ -1188,7 +1188,8 @@ Control:
     # Must be unique for every Bukkit/Paper backend in the network.
     NodeId: ''
     Endpoint: 'http://127.0.0.1:8080'
-    CredentialFile: 'control-credential.txt'
+    # VotingPlugin creates this blank file automatically; paste only the enrollment credential into it.
+    CredentialFile: 'control/control-credential.txt'
     HeartbeatSeconds: 30
     ConnectTimeoutMillis: 3000
     RequestTimeoutMillis: 10000

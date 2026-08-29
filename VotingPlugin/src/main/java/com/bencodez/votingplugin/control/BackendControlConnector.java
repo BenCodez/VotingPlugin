@@ -130,7 +130,7 @@ public final class BackendControlConnector implements AutoCloseable {
 				|| (endpoint.getPath() != null && !endpoint.getPath().isEmpty() && !"/".equals(endpoint.getPath()))) {
 			throw new IllegalArgumentException("Control.Backend.Endpoint must be an HTTP(S) origin");
 		}
-		String credentialFile = control.getString("CredentialFile", "control-credential.txt");
+		String credentialFile = control.getString("CredentialFile", "control/control-credential.txt");
 		String credential = ControlCredentialFile.read(root, credentialFile);
 		Settings settings = new Settings(nodeId, endpoint, credentialFile,
 				bounded(control.getInt("HeartbeatSeconds", 30), 10, 300, "HeartbeatSeconds"),
