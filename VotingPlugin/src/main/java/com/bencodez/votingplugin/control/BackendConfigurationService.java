@@ -39,6 +39,7 @@ public final class BackendConfigurationService {
 	private static final Pattern COMMENT_SECRET = Pattern.compile(
 			"(?i)(\\b(?:[\\w-]*(?:password|secret)[\\w-]*|token|api[ _-]?key|authorization|webhook[ _-]?url)"
 					+ "\\b\\s*[:=]\\s*)(.*)$");
+	private static final Pattern SECRET_PATH_URL = Pattern.compile("(?i)(\\burl\\b\\s*[:=]\\s*)(.*)$");
 
 	private final Path dataDirectory;
 	private final ApplyAction reload;
@@ -357,17 +358,20 @@ public final class BackendConfigurationService {
 
 	private static void sanitizeCommentMetadata(YamlConfiguration yaml, Set<String> secretValues) {
 		for (String path : new ArrayList<>(yaml.getKeys(true))) {
-			yaml.setComments(path, sanitizeComments(yaml.getComments(path), secretValues));
-			yaml.setInlineComments(path, sanitizeComments(yaml.getInlineComments(path), secretValues));
+			yaml.setComments(path, sanitizeComments(yaml.getComments(path), secretValues, secret(path)));
+			yaml.setInlineComments(path, sanitizeComments(yaml.getInlineComments(path), secretValues, secret(path)));
 		}
 	}
 
-	private static List<String> sanitizeComments(List<String> comments, Set<String> secretValues) {
+	private static List<String> sanitizeComments(List<String> comments, Set<String> secretValues, boolean secretPath) {
 		List<String> sanitized = new ArrayList<>(comments.size());
 		for (String original : comments) {
 			String comment = original;
-			for (String value : secretValues) comment = comment.replace(value, REDACTED);
+			for (String value : secretValues) {
+				if (value.length() >= 8) comment = comment.replace(value, REDACTED);
+			}
 			comment = COMMENT_SECRET.matcher(comment).replaceAll("$1" + REDACTED);
+			if (secretPath) comment = SECRET_PATH_URL.matcher(comment).replaceAll("$1" + REDACTED);
 			sanitized.add(comment);
 		}
 		return sanitized;

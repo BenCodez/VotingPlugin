@@ -113,6 +113,17 @@ class BackendConfigurationServiceTest {
 		assertTrue(Files.readString(config).contains("# Password: this is message text"));
 	}
 
+	@Test void redactsWebhookUrlCommentsWithoutReplacingShortSecretsInProse() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "Password: true\nDiscordWebhook:\n  URL: '' # URL: https://old-secret.invalid/hook\n"
+				+ "Feature: false # This is true when enabled\n");
+		BackendConfigurationService.Document read = new BackendConfigurationService(directory, () -> { })
+				.read("Config.yml");
+
+		assertFalse(read.content().contains("old-secret.invalid"));
+		assertTrue(read.content().contains("# This is true when enabled"));
+	}
+
 	@Test void rejectsStaleInvalidAndUnmanagedWrites() throws Exception {
 		Files.writeString(directory.resolve("Config.yml"), "Feature: false\n");
 		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
