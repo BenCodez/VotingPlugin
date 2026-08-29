@@ -345,6 +345,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	private void persistCompleted() throws IOException {
 		Map<UUID, StoredResult> snapshot;
 		synchronized (completed) { snapshot = new LinkedHashMap<>(completed); }
+		if (!snapshot.isEmpty()) hostedConfiguration = plugin.getActiveBackendHostedControlConfigurationSnapshot();
 		BackendControlResultStore.save(dataDirectory, settings.route(), hostedConfiguration, snapshot);
 	}
 
