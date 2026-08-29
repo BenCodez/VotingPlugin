@@ -39,6 +39,7 @@ public final class BackendConfigurationService {
 	private static final Pattern COMMENT_SECRET = Pattern.compile(
 			"(?i)(\\b(?:[\\w-]*(?:password|secret)[\\w-]*|token|api[ _-]?key|authorization|webhook[ _-]?url)"
 					+ "\\b\\s*[:=]\\s*)(.*)$");
+	private static final Pattern SECRET_PATH_URL = Pattern.compile("(?i)(\\burl\\b\\s*[:=]\\s*)(.*)$");
 
 	private final Path dataDirectory;
 	private final ApplyAction reload;
@@ -217,12 +218,12 @@ public final class BackendConfigurationService {
 	}
 
 	private QuickProposal quickProposal(String preset, Map<String, String> options, String fileName,
-			String current) {
+			String current) throws IOException {
 		YamlConfiguration yaml = parse(current);
 		if ("sync-vote-sites".equals(preset)) {
 			String sourceContent = options == null ? null : options.get("sourceContent");
 			YamlConfiguration source = parse(sourceContent);
-			mergeVoteSites(source, yaml);
+			mergeVoteSites(source, yaml, caseInsensitiveYmlFiles());
 			return new QuickProposal(fileName, yaml.saveToString());
 		}
 		if ("standalone".equals(preset) || "proxy-backend".equals(preset)) {
@@ -291,11 +292,16 @@ public final class BackendConfigurationService {
 		throw new IllegalArgumentException("quick setup preset is unsupported");
 	}
 
-	private static void mergeVoteSites(YamlConfiguration source, YamlConfiguration target) {
-		String sourceRootKey = keyIgnoreCase(source, "VoteSites");
+	private boolean caseInsensitiveYmlFiles() throws IOException {
+		Path config = resolve("Config.yml");
+		return !Files.exists(config) || parse(readRaw(config, false)).getBoolean("CaseInsensitiveYMLFiles", true);
+	}
+
+	private static void mergeVoteSites(YamlConfiguration source, YamlConfiguration target, boolean ignoreCase) {
+		String sourceRootKey = matchingKey(source, "VoteSites", ignoreCase);
 		ConfigurationSection sourceSites = sourceRootKey == null ? null : source.getConfigurationSection(sourceRootKey);
 		if (sourceSites == null) throw new IllegalArgumentException("source VoteSites.yml has no VoteSites section");
-		String targetRootKey = keyIgnoreCase(target, "VoteSites");
+		String targetRootKey = matchingKey(target, "VoteSites", ignoreCase);
 		if (targetRootKey == null) targetRootKey = sourceRootKey;
 		ConfigurationSection targetSites = target.getConfigurationSection(targetRootKey);
 		if (targetSites == null) targetSites = target.createSection(targetRootKey);
@@ -304,7 +310,7 @@ public final class BackendConfigurationService {
 		for (String site : sourceSites.getKeys(false)) {
 			ConfigurationSection sourceSite = sourceSites.getConfigurationSection(site);
 			if (sourceSite == null) throw new IllegalArgumentException("source vote site " + site + " is not a section");
-			String targetSiteKey = keyIgnoreCase(targetSites, site);
+			String targetSiteKey = matchingKey(targetSites, site, ignoreCase);
 			if (targetSiteKey == null) targetSiteKey = site;
 			String targetPath = targetRootKey + "." + targetSiteKey;
 			if (target.getConfigurationSection(targetPath) == null) {
@@ -313,16 +319,16 @@ public final class BackendConfigurationService {
 			}
 			target.setComments(targetPath, sourceSites.getComments(site));
 			target.setInlineComments(targetPath, sourceSites.getInlineComments(site));
-			mergeNonRewardValues(sourceSite, target, targetPath);
+			mergeNonRewardValues(sourceSite, target, targetPath, ignoreCase);
 		}
 	}
 
 	private static void mergeNonRewardValues(ConfigurationSection source, YamlConfiguration target,
-			String targetParent) {
+			String targetParent, boolean ignoreCase) {
 		for (String key : source.getKeys(false)) {
 			if (rewardKey(key)) continue;
 			ConfigurationSection targetSection = target.getConfigurationSection(targetParent);
-			String targetKey = targetSection == null ? null : keyIgnoreCase(targetSection, key);
+			String targetKey = targetSection == null ? null : matchingKey(targetSection, key, ignoreCase);
 			String targetPath = targetParent + "." + (targetKey == null ? key : targetKey);
 			Object value = source.get(key);
 			if (value instanceof ConfigurationSection section) {
@@ -332,7 +338,7 @@ public final class BackendConfigurationService {
 				}
 				target.setComments(targetPath, source.getComments(key));
 				target.setInlineComments(targetPath, source.getInlineComments(key));
-				mergeNonRewardValues(section, target, targetPath);
+				mergeNonRewardValues(section, target, targetPath, ignoreCase);
 			} else if (!REDACTED.equals(value)) {
 				target.set(targetPath, value);
 				target.setComments(targetPath, source.getComments(key));
@@ -341,7 +347,9 @@ public final class BackendConfigurationService {
 		}
 	}
 
-	private static String keyIgnoreCase(ConfigurationSection section, String expected) {
+	private static String matchingKey(ConfigurationSection section, String expected, boolean ignoreCase) {
+		if (section.getKeys(false).contains(expected)) return expected;
+		if (!ignoreCase) return null;
 		return section.getKeys(false).stream().filter(key -> key.equalsIgnoreCase(expected)).findFirst().orElse(null);
 	}
 
@@ -423,17 +431,20 @@ public final class BackendConfigurationService {
 
 	private static void sanitizeCommentMetadata(YamlConfiguration yaml, Set<String> secretValues) {
 		for (String path : new ArrayList<>(yaml.getKeys(true))) {
-			yaml.setComments(path, sanitizeComments(yaml.getComments(path), secretValues));
-			yaml.setInlineComments(path, sanitizeComments(yaml.getInlineComments(path), secretValues));
+			yaml.setComments(path, sanitizeComments(yaml.getComments(path), secretValues, secret(path)));
+			yaml.setInlineComments(path, sanitizeComments(yaml.getInlineComments(path), secretValues, secret(path)));
 		}
 	}
 
-	private static List<String> sanitizeComments(List<String> comments, Set<String> secretValues) {
+	private static List<String> sanitizeComments(List<String> comments, Set<String> secretValues, boolean secretPath) {
 		List<String> sanitized = new ArrayList<>(comments.size());
 		for (String original : comments) {
 			String comment = original;
-			for (String value : secretValues) comment = comment.replace(value, REDACTED);
+			for (String value : secretValues) {
+				if (value.length() >= 8) comment = comment.replace(value, REDACTED);
+			}
 			comment = COMMENT_SECRET.matcher(comment).replaceAll("$1" + REDACTED);
+			if (secretPath) comment = SECRET_PATH_URL.matcher(comment).replaceAll("$1" + REDACTED);
 			sanitized.add(comment);
 		}
 		return sanitized;

@@ -114,6 +114,17 @@ class BackendConfigurationServiceTest {
 		assertTrue(Files.readString(config).contains("# Password: this is message text"));
 	}
 
+	@Test void redactsWebhookUrlCommentsWithoutReplacingShortSecretsInProse() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "Password: true\nDiscordWebhook:\n  URL: '' # URL: https://old-secret.invalid/hook\n"
+				+ "Feature: false # This is true when enabled\n");
+		BackendConfigurationService.Document read = new BackendConfigurationService(directory, () -> { })
+				.read("Config.yml");
+
+		assertFalse(read.content().contains("old-secret.invalid"));
+		assertTrue(read.content().contains("# This is true when enabled"));
+	}
+
 	@Test void rejectsStaleInvalidAndUnmanagedWrites() throws Exception {
 		Files.writeString(directory.resolve("Config.yml"), "Feature: false\n");
 		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
@@ -369,6 +380,7 @@ class BackendConfigurationServiceTest {
 	}
 
 	@Test void voteSitesSyncMatchesRootSitesAndFieldsCaseInsensitively() throws Exception {
+		Files.writeString(directory.resolve("Config.yml"), "CaseInsensitiveYMLFiles: true\n");
 		Files.writeString(directory.resolve("VoteSites.yml"), "votesites:\n  pmc:\n    name: Target\n    Rewards:\n      Commands: ['keep']\n");
 		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
 
@@ -382,6 +394,21 @@ class BackendConfigurationServiceTest {
 		assertEquals(List.of("keep"), proposal.getStringList("votesites.pmc.Rewards.Commands"));
 		assertEquals(1, proposal.getKeys(false).size());
 		assertEquals(1, proposal.getConfigurationSection("votesites").getKeys(false).size());
+	}
+
+	@Test void voteSitesSyncKeepsDistinctKeysWhenCaseInsensitiveFilesAreDisabled() throws Exception {
+		Files.writeString(directory.resolve("Config.yml"), "CaseInsensitiveYMLFiles: false\n");
+		Files.writeString(directory.resolve("VoteSites.yml"), "VoteSites:\n  PMC:\n    Name: Upper target\n"
+				+ "  pmc:\n    Name: Lower target\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("sync-vote-sites", Map.of(
+				"sourceContent", "VoteSites:\n  PMC:\n    Name: Updated upper\n"));
+		YamlConfiguration proposal = new YamlConfiguration();
+		proposal.loadFromString(preview.proposal().content());
+
+		assertEquals("Updated upper", proposal.getString("VoteSites.PMC.Name"));
+		assertEquals("Lower target", proposal.getString("VoteSites.pmc.Name"));
 	}
 
 	@Test void voteSitesSyncRejectsMalformedOrMissingSourceSections() throws Exception {
