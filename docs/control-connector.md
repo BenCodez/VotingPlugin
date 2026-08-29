@@ -168,9 +168,10 @@ installed plugin names for WebUI command suggestions and negotiates
 `config.files.v1` and `config.quick-setup.v1`, then polls the same outbound operation queue as proxies. File apply schedules
 the VotingPlugin reload on the Bukkit thread and waits only on the connector worker. Control failure never blocks votes,
 joins, commands, or plugin shutdown. A successful `Config.yml` apply reports its result first, then recreates the connector
-so changes to `Control.Backend` take effect without a full server restart. If `Control.Hosted` changed, the existing child
-is asked to stop only after that result is acknowledged and a replacement supervisor starts with the new settings. Invalid
-host settings leave the currently running Control child unchanged.
+so changes to `Control.Backend` take effect without a full server restart. If `Control.Hosted` changed, a dedicated daemon
+lifecycle worker waits for the existing child to stop only after that result is acknowledged, then starts the replacement
+with the new settings. This prevents the old and new children from racing for the same listener. Invalid host settings leave
+the currently running Control child unchanged.
 
 ## Discovery semantics
 

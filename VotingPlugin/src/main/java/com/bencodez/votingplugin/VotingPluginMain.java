@@ -11,7 +11,9 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -161,8 +163,15 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private final AtomicReference<GlobalMessageHandler> backendPluginMessageTarget = new AtomicReference<>();
 	private PluginMessageHandler backendPluginMessageRelay;
 	private BackendControlConnector backendControlConnector;
-	private HostedControlManager backendHostedControlManager;
-	private HostedControlManager.HostConfiguration backendHostedControlConfiguration;
+	private volatile HostedControlManager backendHostedControlManager;
+	private volatile HostedControlManager.HostConfiguration backendHostedControlConfiguration;
+	private final ExecutorService backendHostedControlLifecycle = Executors.newSingleThreadExecutor(runnable -> {
+		Thread thread = new Thread(runnable, "votingplugin-control-backend-host-lifecycle");
+		thread.setDaemon(true);
+		return thread;
+	});
+	private volatile boolean backendHostedControlLifecycleFailed;
+	private volatile boolean backendHostedControlStopping;
 
 	@Getter
 	private BungeeSettings bungeeSettings;
@@ -778,9 +787,13 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				hosted.getInt("DownloadTimeoutSeconds", 60));
 	}
 
-	private void restartBackendHostedControlIfChanged() {
+	private synchronized void restartBackendHostedControlIfChanged() {
 		HostedControlManager.HostConfiguration replacementConfiguration = readBackendHostedControlConfiguration();
 		if (replacementConfiguration.equals(backendHostedControlConfiguration)) return;
+		if (backendHostedControlStopping || backendHostedControlLifecycleFailed) {
+			getLogger().warning("[Control Host] Bukkit hosting settings require a server restart after lifecycle shutdown");
+			return;
+		}
 		HostedControlManager replacement;
 		try {
 			replacement = HostedControlManager.create(getDataFolder().toPath(), replacementConfiguration,
@@ -791,10 +804,56 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			return;
 		}
 		HostedControlManager previous = backendHostedControlManager;
+		HostedControlManager.HostConfiguration previousConfiguration = backendHostedControlConfiguration;
 		backendHostedControlConfiguration = replacementConfiguration;
 		backendHostedControlManager = replacement;
-		if (previous != null) previous.close();
-		if (replacement != null) replacement.start();
+		try {
+			backendHostedControlLifecycle.execute(() -> replaceBackendHostedControl(previous, replacement));
+		} catch (RejectedExecutionException e) {
+			backendHostedControlConfiguration = previousConfiguration;
+			backendHostedControlManager = previous;
+			if (replacement != null) replacement.close();
+			getLogger().warning("[Control Host] Bukkit hosting settings require a server restart after lifecycle shutdown");
+		}
+	}
+
+	private void replaceBackendHostedControl(HostedControlManager previous, HostedControlManager replacement) {
+		try {
+			if (previous != null) previous.closeAndWait();
+		} catch (RuntimeException e) {
+			backendHostedControlLifecycleFailed = true;
+			if (replacement != null) replacement.close();
+			if (!backendHostedControlStopping) {
+				getLogger().warning("[Control Host] The previous Bukkit-hosted process did not stop; replacement is blocked");
+				debug(e);
+			}
+			return;
+		}
+		synchronized (this) {
+			if (backendHostedControlStopping || backendHostedControlLifecycleFailed
+					|| backendHostedControlManager != replacement) {
+				if (replacement != null) replacement.close();
+				return;
+			}
+			if (replacement != null) replacement.start();
+		}
+	}
+
+	private void stopBackendHostedControlLifecycle() {
+		backendHostedControlStopping = true;
+		try {
+			backendHostedControlLifecycle.execute(() -> {
+				HostedControlManager hosted = backendHostedControlManager;
+				if (hosted != null) hosted.close();
+				backendHostedControlManager = null;
+			});
+		} catch (RejectedExecutionException e) {
+			HostedControlManager hosted = backendHostedControlManager;
+			if (hosted != null) hosted.close();
+			backendHostedControlManager = null;
+		} finally {
+			backendHostedControlLifecycle.shutdown();
+		}
 	}
 
 	private void startBackendControlConnector() {
@@ -829,6 +888,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	/** Redacted lifecycle status for the optional Control process hosted by Bukkit. */
 	public String getBackendHostedControlStatus() {
+		if (backendHostedControlLifecycleFailed) return "FAILED";
 		HostedControlManager manager = backendHostedControlManager;
 		return manager == null ? "DISABLED" : manager.status().name();
 	}
@@ -966,6 +1026,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onUnLoad() {
+		stopBackendHostedControlLifecycle();
 		BackendControlConnector connector = backendControlConnector;
 		if (connector != null) {
 			try {
@@ -975,17 +1036,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				debug(e);
 			} finally {
 				if (backendControlConnector == connector) backendControlConnector = null;
-			}
-		}
-		HostedControlManager hosted = backendHostedControlManager;
-		if (hosted != null) {
-			try {
-				hosted.close();
-			} catch (RuntimeException e) {
-				getLogger().warning("[Control Host] Bukkit host did not stop cleanly; normal plugin cleanup will continue");
-				debug(e);
-			} finally {
-				if (backendHostedControlManager == hosted) backendHostedControlManager = null;
 			}
 		}
 		if (getBackendProxyHandler() != null) {
