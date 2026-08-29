@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Set;
 
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
+import com.bencodez.votingplugin.proxy.control.ProxyMethodConfiguration;
 import com.bencodez.votingplugin.proxy.control.ProxyRoutingConfiguration;
 import com.bencodez.votingplugin.util.DurableFiles;
 
@@ -577,6 +578,43 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 	private static ProxyRoutingConfiguration routing(Configuration configuration) {
 		return new ProxyRoutingConfiguration(configuration.getBoolean("SendVotesToAllServers", false),
 				configuration.getStringList("BlockedServers"));
+	}
+
+	@Override
+	public synchronized void persistControlProxyMethod(String method, String expectedRevision) throws IOException {
+		Path target = new File(bungee.getDataFolder(), "bungeeconfig.yml").toPath();
+		Path stage = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".control-stage");
+		Path backupStage = null;
+		Path backup = target.resolveSibling(target.getFileName() + ".control-backup");
+		try {
+			backupStage = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".control-backup-stage");
+			byte[] sourceSnapshot = Files.readAllBytes(target);
+			Configuration latest = ConfigurationProvider.getProvider(YamlConfiguration.class).load(target.toFile());
+			ProxyMethodConfiguration current = new ProxyMethodConfiguration(
+					com.bencodez.votingplugin.proxy.control.ProxyMethodConfigurationService.canonical(
+							latest.getString("BungeeMethod", "PLUGINMESSAGING")));
+			if (!java.util.Arrays.equals(sourceSnapshot, Files.readAllBytes(target))
+					|| !current.revision().equals(expectedRevision)) throw new StaleControlRevisionException();
+			latest.set("BungeeMethod", method);
+			ConfigurationProvider.getProvider(YamlConfiguration.class).save(latest, stage.toFile());
+			byte[] installedSnapshot = Files.readAllBytes(stage);
+			if (!java.util.Arrays.equals(sourceSnapshot, Files.readAllBytes(target))) throw new StaleControlRevisionException();
+			Files.write(backupStage, sourceSnapshot);
+			if (!java.util.Arrays.equals(sourceSnapshot, Files.readAllBytes(target))) throw new StaleControlRevisionException();
+			atomicReplace(backupStage, backup);
+			if (!java.util.Arrays.equals(sourceSnapshot, Files.readAllBytes(target))) throw new StaleControlRevisionException();
+			controlInstalledSnapshot = installedSnapshot;
+			try {
+				atomicReplace(stage, target);
+			} catch (IOException failure) {
+				if (!(failure instanceof DurableFiles.PublishedException)) controlInstalledSnapshot = null;
+				throw failure;
+			}
+			data = latest;
+		} finally {
+			Files.deleteIfExists(stage);
+			if (backupStage != null) Files.deleteIfExists(backupStage);
+		}
 	}
 
 	@Override

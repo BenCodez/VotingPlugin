@@ -72,11 +72,13 @@ public class BackendProxyMessageRouter {
 		messages.addListener(new GlobalMessageListener(VotingPluginWire.SUB_VOTE_BROADCAST) {
 			@Override public void onReceive(JsonEnvelope msg) { handleVoteBroadcast(msg); }
 		});
-		messages.addListener(new GlobalMessageListener("Status") {
+		messages.addListener(new GlobalMessageListener(VotingPluginWire.SUB_STATUS) {
 			@Override public void onReceive(JsonEnvelope msg) {
 				HashMap<String, Object> out = new HashMap<>();
-				out.put("server", nvl(msg.getFields().get("server")));
-				sendSubChannel(messages, "statusokay", out);
+				out.put(VotingPluginWire.K_SERVER, nvl(msg.getFields().get(VotingPluginWire.K_SERVER)));
+				String requestId = nvl(msg.getFields().get(VotingPluginWire.K_REQUEST_ID));
+				if (!requestId.isEmpty()) out.put(VotingPluginWire.K_REQUEST_ID, requestId);
+				sendSubChannel(messages, VotingPluginWire.SUB_STATUS_OKAY, out);
 			}
 		});
 		messages.addListener(new GlobalMessageListener("ServerName") {

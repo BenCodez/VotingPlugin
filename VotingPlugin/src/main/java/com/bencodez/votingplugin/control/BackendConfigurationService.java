@@ -204,7 +204,8 @@ public final class BackendConfigurationService {
 	}
 
 	private static String quickSetupFile(String preset) {
-		if ("standalone".equals(preset) || "proxy-backend".equals(preset)) return "BungeeSettings.yml";
+		if ("standalone".equals(preset) || "proxy-backend".equals(preset)
+				|| "proxy-method".equals(preset)) return "BungeeSettings.yml";
 		if ("vote-site".equals(preset) || "easy-reward".equals(preset)
 				|| "sync-vote-sites".equals(preset)) return "VoteSites.yml";
 		if ("common-settings".equals(preset)) return "Config.yml";
@@ -229,6 +230,13 @@ public final class BackendConfigurationService {
 				yaml.set("Server", server);
 				yaml.set("BungeeMethod", bungeeMethodOption(options));
 			}
+			return new QuickProposal(fileName, yaml.saveToString());
+		}
+		if ("proxy-method".equals(preset)) {
+			BungeeMethod method = BungeeMethod.valueOf(bungeeMethodOption(options));
+			validateProxyMethod(method, yaml);
+			yaml.set("UseBungeecord", true);
+			yaml.set("BungeeMethod", method.name());
 			return new QuickProposal(fileName, yaml.saveToString());
 		}
 		if ("vote-site".equals(preset)) {
@@ -285,6 +293,64 @@ public final class BackendConfigurationService {
 			return new QuickProposal(fileName, yaml.saveToString());
 		}
 		throw new IllegalArgumentException("quick setup preset is unsupported");
+	}
+
+	private void validateProxyMethod(BungeeMethod method, YamlConfiguration settings) {
+		String server = settings.getString("Server", "").trim();
+		if (server.isEmpty() || "PleaseSet".equalsIgnoreCase(server)) {
+			throw new IllegalArgumentException("Server must be set to this backend's unique proxy server name");
+		}
+		switch (method) {
+		case PLUGINMESSAGING:
+			if (settings.getString("PluginMessageChannel", "").isBlank()) {
+				throw new IllegalArgumentException("PluginMessageChannel must be set");
+			}
+			break;
+		case REDIS:
+			configuredHostAndPort(settings, "Redis.Host", "Redis.Port", "Redis");
+			break;
+		case MQTT:
+			validBroker(settings.getString("MQTT.BrokerURL", ""));
+			String clientId = settings.getString("MQTT.ClientID", server);
+			if (clientId == null || clientId.isBlank()) throw new IllegalArgumentException("MQTT.ClientID must be set");
+			break;
+		case SOCKETS:
+			configuredHostAndPort(settings, "BungeeServer.Host", "BungeeServer.Port", "BungeeServer");
+			break;
+		case MYSQL:
+			try {
+				YamlConfiguration main = parse(readRaw(resolve("Config.yml"), false));
+				if (!"MYSQL".equalsIgnoreCase(main.getString("DataStorage", ""))
+						|| main.getString("Database.Host", "").isBlank()
+						|| main.getString("Database.Database", "").isBlank()) {
+					throw new IllegalArgumentException("Config.yml DataStorage must be MYSQL with Database.Host and Database.Database set");
+				}
+			} catch (IOException e) {
+				throw new IllegalArgumentException("Config.yml could not be checked for MYSQL settings");
+			}
+			break;
+		default:
+			throw new IllegalArgumentException("BungeeMethod is unsupported");
+		}
+	}
+
+	private static void configuredHostAndPort(YamlConfiguration yaml, String hostPath, String portPath, String label) {
+		String host = yaml.getString(hostPath, "");
+		int port = yaml.getInt(portPath, 0);
+		if (host == null || host.isBlank() || port < 1 || port > 65535) {
+			throw new IllegalArgumentException(label + " host and port must be set");
+		}
+	}
+
+	private static void validBroker(String value) {
+		try {
+			java.net.URI broker = java.net.URI.create(value == null ? "" : value.trim());
+			if (!Set.of("tcp", "ssl", "ws", "wss").contains(broker.getScheme()) || broker.getHost() == null) {
+				throw new IllegalArgumentException();
+			}
+		} catch (RuntimeException e) {
+			throw new IllegalArgumentException("MQTT.BrokerURL must be a valid tcp, ssl, ws, or wss endpoint");
+		}
 	}
 
 	private static void mergeVoteSites(YamlConfiguration source, YamlConfiguration target) {

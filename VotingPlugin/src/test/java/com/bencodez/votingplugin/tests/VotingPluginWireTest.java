@@ -210,6 +210,20 @@ public class VotingPluginWireTest {
 	}
 
 	@Test
+	public void statusRoundTripCarriesCorrelationId() {
+		UUID requestId = UUID.randomUUID();
+
+		JsonEnvelope request = VotingPluginWire.status("survival", requestId);
+		JsonEnvelope response = VotingPluginWire.statusOkay("survival", requestId);
+
+		assertEquals(VotingPluginWire.SUB_STATUS, request.getSubChannel());
+		assertEquals("survival", request.getFields().get(VotingPluginWire.K_SERVER));
+		assertEquals(requestId.toString(), request.getFields().get(VotingPluginWire.K_REQUEST_ID));
+		assertEquals(VotingPluginWire.SUB_STATUS_OKAY, response.getSubChannel());
+		assertEquals(requestId.toString(), response.getFields().get(VotingPluginWire.K_REQUEST_ID));
+	}
+
+	@Test
 	public void malformedControlEnrollmentIsRejected() {
 		JsonEnvelope malformed = JsonEnvelope.builder(VotingPluginWire.SUB_CONTROL_ENROLLMENT_REQUEST)
 				.schema(VotingPluginWire.SCHEMA_VERSION).put(VotingPluginWire.K_NODE_ID, "../proxy")

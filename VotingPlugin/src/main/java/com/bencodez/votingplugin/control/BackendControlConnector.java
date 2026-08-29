@@ -45,7 +45,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	private static final long SHUTDOWN_TIMEOUT_SECONDS = 65;
 	private static final Pattern NODE_ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,63}");
 	private static final Set<String> CAPABILITIES = Set.of("config.files.v1", "config.file-comments.v1",
-			"config.quick-setup.v1", "config.vote-sites-sync.v1");
+			"config.quick-setup.v1", "config.vote-sites-sync.v1", "config.proxy-method.v1");
 
 	private final VotingPluginMain plugin;
 	private final Path dataDirectory;
