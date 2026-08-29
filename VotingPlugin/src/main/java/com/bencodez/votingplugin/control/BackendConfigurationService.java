@@ -325,7 +325,7 @@ public final class BackendConfigurationService {
 			}
 			break;
 		case REDIS:
-			configuredHostAndPort(settings, "Redis.Host", "Redis.Port", "Redis");
+			configuredHostAndPort(settings, "Redis.Host", "Redis.Port", 6379, "Redis");
 			break;
 		case MQTT:
 			validBroker(settings.getString("MQTT.BrokerURL", ""));
@@ -333,7 +333,7 @@ public final class BackendConfigurationService {
 			if (clientId == null || clientId.isBlank()) throw new IllegalArgumentException("MQTT.ClientID must be set");
 			break;
 		case SOCKETS:
-			configuredHostAndPort(settings, "BungeeServer.Host", "BungeeServer.Port", "BungeeServer");
+			configuredHostAndPort(settings, "BungeeServer.Host", "BungeeServer.Port", 1297, "BungeeServer");
 			break;
 		case MYSQL:
 			try {
@@ -352,9 +352,10 @@ public final class BackendConfigurationService {
 		}
 	}
 
-	private static void configuredHostAndPort(YamlConfiguration yaml, String hostPath, String portPath, String label) {
+	private static void configuredHostAndPort(YamlConfiguration yaml, String hostPath, String portPath,
+			int defaultPort, String label) {
 		String host = yaml.getString(hostPath, "");
-		int port = yaml.getInt(portPath, 0);
+		int port = yaml.getInt(portPath, defaultPort);
 		if (host == null || host.isBlank() || port < 1 || port > 65535) {
 			throw new IllegalArgumentException(label + " host and port must be set");
 		}
@@ -510,6 +511,8 @@ public final class BackendConfigurationService {
 	}
 
 	private static void sanitizeCommentMetadata(YamlConfiguration yaml, Set<String> secretValues) {
+		yaml.options().setHeader(sanitizeComments(yaml.options().getHeader(), secretValues, false));
+		yaml.options().setFooter(sanitizeComments(yaml.options().getFooter(), secretValues, false));
 		for (String path : new ArrayList<>(yaml.getKeys(true))) {
 			yaml.setComments(path, sanitizeComments(yaml.getComments(path), secretValues, secret(path)));
 			yaml.setInlineComments(path, sanitizeComments(yaml.getInlineComments(path), secretValues, secret(path)));
@@ -521,13 +524,18 @@ public final class BackendConfigurationService {
 		for (String original : comments) {
 			String comment = original;
 			for (String value : secretValues) {
-				if (value.length() >= 8) comment = comment.replace(value, REDACTED);
+				if (safeSecretValue(value)) comment = comment.replace(value, REDACTED);
 			}
 			comment = COMMENT_SECRET.matcher(comment).replaceAll("$1" + REDACTED);
 			if (secretPath) comment = SECRET_PATH_URL.matcher(comment).replaceAll("$1" + REDACTED);
 			sanitized.add(comment);
 		}
 		return sanitized;
+	}
+
+	private static boolean safeSecretValue(String value) {
+		if (value.length() < 6) return false;
+		return !Set.of("true", "false", "null", "yes", "no", "on", "off").contains(value.toLowerCase(Locale.ROOT));
 	}
 
 	private static YamlConfiguration resolveSecrets(YamlConfiguration proposal, YamlConfiguration current) {
