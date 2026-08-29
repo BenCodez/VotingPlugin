@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -323,6 +324,114 @@ class BackendConfigurationServiceTest {
 		BackendConfigurationService.QuickPreview mqtt = service.previewQuickSetup("proxy-backend",
 				Map.of("server", "lobby", "method", "mqtt"));
 		assertTrue(mqtt.proposal().content().contains("BungeeMethod: MQTT"));
+	}
+
+	@Test void voteSitesSyncAddsAndUpdatesDefinitionsWithoutTouchingRewardsOrTargetOnlySites() throws Exception {
+		Path voteSites = directory.resolve("VoteSites.yml");
+		Files.writeString(voteSites, "VoteSites:\n"
+				+ "  PMC:\n"
+				+ "    Name: Target name\n"
+				+ "    VoteURL: https://target.example/vote\n"
+				+ "    Rewards:\n"
+				+ "      Commands: ['target reward']\n"
+				+ "    WaitUntilVoteDelayRewards:\n"
+				+ "      Commands: ['target rejected reward']\n"
+				+ "  TargetOnly:\n"
+				+ "    Name: Keep me\n"
+				+ "EverySiteReward:\n"
+				+ "  Commands: ['target every-site reward']\n");
+		String source = "# Source network sites\n"
+				+ "VoteSites:\n"
+				+ "  # Planet Minecraft settings\n"
+				+ "  PMC:\n"
+				+ "    Name: Source name # synchronized field\n"
+				+ "    VoteURL: https://source.example/vote\n"
+				+ "    DisplayItem:\n"
+				+ "      Material: EMERALD\n"
+				+ "    Rewards:\n"
+				+ "      Commands: ['source reward']\n"
+				+ "    WaitUntilVoteDelayRewards:\n"
+				+ "      Commands: ['source rejected reward']\n"
+				+ "  NewSite:\n"
+				+ "    Name: Added site\n"
+				+ "    VoteURL: https://new.example/vote\n"
+				+ "    Rewards:\n"
+				+ "      Commands: ['source new reward']\n"
+				+ "EverySiteReward:\n"
+				+ "  Commands: ['source every-site reward']\n";
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		BackendConfigurationService.Document before = service.read("VoteSites.yml");
+
+		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("sync-vote-sites",
+				Map.of("sourceContent", source));
+		String recoveryRevision = service.proposedQuickSetupRevision("sync-vote-sites", preview);
+		YamlConfiguration proposal = new YamlConfiguration();
+		proposal.options().parseComments(true);
+		proposal.loadFromString(preview.proposal().content());
+		assertEquals("Source name", proposal.getString("VoteSites.PMC.Name"));
+		assertEquals("EMERALD", proposal.getString("VoteSites.PMC.DisplayItem.Material"));
+		assertEquals(List.of("target reward"), proposal.getStringList("VoteSites.PMC.Rewards.Commands"));
+		assertEquals(List.of("target rejected reward"),
+				proposal.getStringList("VoteSites.PMC.WaitUntilVoteDelayRewards.Commands"));
+		assertEquals("Keep me", proposal.getString("VoteSites.TargetOnly.Name"));
+		assertEquals("Added site", proposal.getString("VoteSites.NewSite.Name"));
+		assertFalse(proposal.contains("VoteSites.NewSite.Rewards"));
+		assertEquals(List.of("target every-site reward"), proposal.getStringList("EverySiteReward.Commands"));
+		assertTrue(preview.proposal().content().contains("# Planet Minecraft settings"));
+		assertTrue(preview.proposal().content().contains("# synchronized field"));
+		assertTrue(preview.changes().stream().noneMatch(change -> change.toLowerCase().contains("reward")));
+
+		BackendConfigurationService.ApplyResult result = service.applyQuickSetup("sync-vote-sites",
+				Map.of("sourceContent", source), preview.revision());
+		assertEquals(recoveryRevision, result.document().revision());
+		String applied = Files.readString(voteSites);
+		assertTrue(applied.contains("target reward"));
+		assertFalse(applied.contains("source reward"));
+		assertTrue(applied.contains("TargetOnly"));
+		assertTrue(applied.contains("NewSite"));
+		assertTrue(applied.contains("# Planet Minecraft settings"));
+	}
+
+	@Test void voteSitesSyncMatchesRootSitesAndFieldsCaseInsensitively() throws Exception {
+		Files.writeString(directory.resolve("Config.yml"), "CaseInsensitiveYMLFiles: true\n");
+		Files.writeString(directory.resolve("VoteSites.yml"), "votesites:\n  pmc:\n    name: Target\n    Rewards:\n      Commands: ['keep']\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("sync-vote-sites", Map.of(
+				"sourceContent", "VOTESITES:\n  PMC:\n    Name: Source\n    VoteURL: https://example.invalid/vote\n"));
+		YamlConfiguration proposal = new YamlConfiguration();
+		proposal.loadFromString(preview.proposal().content());
+
+		assertEquals("Source", proposal.getString("votesites.pmc.name"));
+		assertEquals("https://example.invalid/vote", proposal.getString("votesites.pmc.VoteURL"));
+		assertEquals(List.of("keep"), proposal.getStringList("votesites.pmc.Rewards.Commands"));
+		assertEquals(1, proposal.getKeys(false).size());
+		assertEquals(1, proposal.getConfigurationSection("votesites").getKeys(false).size());
+	}
+
+	@Test void voteSitesSyncKeepsDistinctKeysWhenCaseInsensitiveFilesAreDisabled() throws Exception {
+		Files.writeString(directory.resolve("Config.yml"), "caseinsensitiveymlfiles: false\n");
+		Files.writeString(directory.resolve("VoteSites.yml"), "VoteSites:\n  PMC:\n    Name: Upper target\n"
+				+ "  pmc:\n    Name: Lower target\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("sync-vote-sites", Map.of(
+				"sourceContent", "votesites:\n  PMC:\n    name: Updated upper\n"));
+		YamlConfiguration proposal = new YamlConfiguration();
+		proposal.loadFromString(preview.proposal().content());
+
+		assertEquals("Updated upper", proposal.getString("VoteSites.PMC.Name"));
+		assertEquals("Lower target", proposal.getString("VoteSites.pmc.Name"));
+	}
+
+	@Test void voteSitesSyncRejectsMalformedOrMissingSourceSections() throws Exception {
+		Files.writeString(directory.resolve("VoteSites.yml"), "VoteSites: {}\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		assertThrows(IllegalArgumentException.class, () -> service.previewQuickSetup("sync-vote-sites",
+				Map.of("sourceContent", "not: [yaml")));
+		assertThrows(IllegalArgumentException.class, () -> service.previewQuickSetup("sync-vote-sites",
+				Map.of("sourceContent", "Other: value\n")));
 	}
 
 	@Test void fullBungeeSettingsRejectsUnknownTransportMethods() throws Exception {
