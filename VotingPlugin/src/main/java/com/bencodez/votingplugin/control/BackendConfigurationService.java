@@ -37,7 +37,7 @@ public final class BackendConfigurationService {
 	private static final Set<String> TOP_LEVEL = Set.of("Config.yml", "VoteSites.yml", "SpecialRewards.yml",
 			"GUI.yml", "Shop.yml", "BungeeSettings.yml");
 	private static final Pattern COMMENT_SECRET = Pattern.compile(
-			"(?i)(\\b(?:[\\w-]*(?:password|secret)[\\w-]*|token|api[ _-]?key|authorization|webhook[ _-]?url)"
+			"(?i)(\\b(?:[\\w-]*(?:password|secret)[\\w-]*|token|api[ _.-]?key|authorization|webhook[ _.-]?url)"
 					+ "\\b\\s*[:=]\\s*)(.*)$");
 	private static final Pattern SECRET_PATH_URL = Pattern.compile("(?i)(\\burl\\b\\s*[:=]\\s*)(.*)$");
 

@@ -123,12 +123,14 @@ class BackendConfigurationServiceTest {
 
 	@Test void redactsWebhookUrlCommentsWithoutReplacingShortSecretsInProse() throws Exception {
 		Path config = directory.resolve("Config.yml");
-		Files.writeString(config, "Password: true\nDiscordWebhook:\n  URL: '' # URL: https://old-secret.invalid/hook\n"
+		Files.writeString(config, "Password: true\n# DiscordWebhook.URL: https://dotted-secret.invalid/hook\n"
+				+ "DiscordWebhook:\n  URL: '' # URL: https://old-secret.invalid/hook\n"
 				+ "Feature: false # This is true when enabled\n");
 		BackendConfigurationService.Document read = new BackendConfigurationService(directory, () -> { })
 				.read("Config.yml");
 
 		assertFalse(read.content().contains("old-secret.invalid"));
+		assertFalse(read.content().contains("dotted-secret.invalid"));
 		assertTrue(read.content().contains("# This is true when enabled"));
 	}
 
