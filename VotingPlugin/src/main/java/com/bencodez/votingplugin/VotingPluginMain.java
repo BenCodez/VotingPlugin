@@ -1049,7 +1049,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 	}
 
-	private void refreshBackendControlAutoEnrollment() throws IOException {
+	private synchronized void refreshBackendControlAutoEnrollment() throws IOException {
 		BackendControlAutoEnrollment previous = backendControlAutoEnrollment;
 		backendControlAutoEnrollment = null;
 		if (previous != null) previous.close();
