@@ -294,11 +294,14 @@ public final class BackendConfigurationService {
 
 	private boolean caseInsensitiveYmlFiles() throws IOException {
 		Path config = resolve("Config.yml");
-		return !Files.exists(config) || parse(readRaw(config, false)).getBoolean("CaseInsensitiveYMLFiles", true);
+		if (!Files.exists(config)) return true;
+		YamlConfiguration settings = parse(readRaw(config, false));
+		String key = matchingKey(settings, "CaseInsensitiveYMLFiles", true);
+		return key == null || settings.getBoolean(key, true);
 	}
 
 	private static void mergeVoteSites(YamlConfiguration source, YamlConfiguration target, boolean ignoreCase) {
-		String sourceRootKey = matchingKey(source, "VoteSites", ignoreCase);
+		String sourceRootKey = matchingKey(source, "VoteSites", true);
 		ConfigurationSection sourceSites = sourceRootKey == null ? null : source.getConfigurationSection(sourceRootKey);
 		if (sourceSites == null) throw new IllegalArgumentException("source VoteSites.yml has no VoteSites section");
 		String targetRootKey = matchingKey(target, "VoteSites", ignoreCase);
