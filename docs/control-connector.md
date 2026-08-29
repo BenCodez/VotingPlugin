@@ -90,16 +90,13 @@ previous release, retaining the failed candidate as `.failed`. Unexpected exits 
 
 The child receives only its bind host, port, contained data directory, and a random per-launch ID. Health must echo that
 ID, preventing an unrelated Control process on the same port from satisfying startup checks. It does not receive
-VotingPlugin configuration or credentials in release metadata. Process output is written beside the hosted JAR and rotated at 1 MiB. Configure the
-WebUI password directly against the hosted data directory (the prompt is not echoed and the password is not an argument):
+VotingPlugin configuration or credentials in release metadata. Process output is written beside the hosted JAR and
+rotated at 1 MiB.
 
-```shell
-java -jar plugins/VotingPlugin/control/votingplugin-control.jar web-password plugins/VotingPlugin/control/data
-```
-
-The WebUI is then available at `http://127.0.0.1:8080/`. Password rotation invalidates every existing browser session.
-To expose a non-loopback listener, create either the WebUI password or an admin API token in
-`Control.Hosted.DataDirectory` first and use HTTPS or a private tunnel; Control otherwise refuses the bind.
+On first start, Control creates an owner-readable `web-setup-code.txt` inside `Control.Hosted.DataDirectory`. Open the
+WebUI, copy that one-time value using the server file manager, and choose the WebUI password in the browser. The code is
+consumed immediately, and no server command is required. Password rotation invalidates every existing browser session.
+Use HTTPS or a private authenticated tunnel when exposing the listener outside a trusted private network.
 
 Manual installation remains supported: put a Control JAR at `JarFile`, configure its exact SHA-256, set `AutoDownload` and
 `AutoUpdate` false, and enable hosting. VotingPlugin will verify and supervise it without network access.
