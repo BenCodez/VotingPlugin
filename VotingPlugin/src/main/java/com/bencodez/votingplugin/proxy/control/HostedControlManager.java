@@ -855,8 +855,18 @@ public final class HostedControlManager implements AutoCloseable {
 			ArtifactSpec target = resolveLatestArtifact(false);
 			recoverPersistedQuarantineState(target.sha256());
 			String installed = sha256(settings.jarFile());
-			ArtifactSpec persisted = readPersistedResolvedArtifact();
-			if (target.sha256().equals(installed) || target.sha256().equals(quarantinedSha256)) {
+			ArtifactSpec persisted = null;
+			try {
+				persisted = readPersistedResolvedArtifact();
+			} catch (IOException ignored) {
+				// A successful verified check can repair the local metadata cache.
+			}
+			if (target.sha256().equals(installed)) {
+				persistResolvedArtifactSafely(target);
+				scheduleLatestUpdateCheck(process);
+				return;
+			}
+			if (target.sha256().equals(quarantinedSha256)) {
 				scheduleLatestUpdateCheck(process);
 				return;
 			}
