@@ -486,8 +486,9 @@ Control:
   Endpoint: 'http://127.0.0.1:8080'
   # Blank reuses ProxyServerName. This must match the identity enrolled in Control.
   NodeId: ''
-  # Relative to the VotingPlugin proxy data folder. Put only the enrollment credential in this file.
-  CredentialFile: 'control-credential.txt'
+  # Relative to the VotingPlugin proxy data folder. VotingPlugin creates it blank automatically.
+  # Paste only the enrollment credential into this file.
+  CredentialFile: 'control/control-credential.txt'
   HeartbeatSeconds: 30
   ConnectTimeoutMillis: 3000
   RequestTimeoutMillis: 5000
