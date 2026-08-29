@@ -157,6 +157,10 @@ Control:
     RequestTimeoutMillis: 10000
 ```
 
+Use an address the backend itself can reach, normally the proxy VM/private IP. Proxy-mediated enrollment deliberately
+rejects `localhost`, `127.0.0.0/8`, and IPv6 loopback because those addresses resolve to the backend rather than the proxy
+when the processes run on different machines.
+
 Blank `NodeId` reuses `BungeeSettings.Server`. The backend generates the raw credential locally and sends only its SHA-256
 verifier over the plugin-message channel. Velocity/BungeeCord binds the request to the actual backend server connection,
 requires that identity to equal `BungeeSettings.Server`, installs the verifier in its hosted Control, and returns a

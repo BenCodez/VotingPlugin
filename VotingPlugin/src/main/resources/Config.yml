@@ -1187,6 +1187,7 @@ Control:
     Enabled: false
     # Blank reuses BungeeSettings.Server, which must be unique for every backend.
     NodeId: ''
+    # For a proxy-hosted Control, use the proxy VM/private IP. Loopback is accepted only for Control hosted by this backend.
     Endpoint: 'http://127.0.0.1:8080'
     # VotingPlugin automatically generates this local credential only after confirming it can enroll through
     # the hosted Control on this server or the proxy's authenticated, route-verified plugin-message path.
