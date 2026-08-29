@@ -227,6 +227,22 @@ class ControlConnectorTest {
 		assertTrue(replacementStarted.get());
 	}
 
+	@Test void onlySuccessfulProxyMethodApplyRequestsRuntimeReplacement() {
+		JsonObject result = new JsonObject();
+		result.addProperty("success", true);
+		JsonObject configuration = new JsonObject();
+		configuration.addProperty("preset", "proxy-method");
+		result.add("configuration", configuration);
+		result.addProperty("_controlOperationType", "READ");
+		assertFalse(ControlConnector.requiresRuntimeReplacement(new StoredResult(result, true, false)));
+		result.addProperty("_controlOperationType", "PREVIEW");
+		assertFalse(ControlConnector.requiresRuntimeReplacement(new StoredResult(result, true, false)));
+		result.addProperty("_controlOperationType", "APPLY");
+		assertTrue(ControlConnector.requiresRuntimeReplacement(new StoredResult(result, true, false)));
+		result.addProperty("success", false);
+		assertFalse(ControlConnector.requiresRuntimeReplacement(new StoredResult(result, true, false)));
+	}
+
 	@Test void lostResultResponseIsResubmittedBeforeAnotherOperationClaim() {
 		connector.close();
 		ProxyRoutingConfiguration current = new ProxyRoutingConfiguration(false, List.of());

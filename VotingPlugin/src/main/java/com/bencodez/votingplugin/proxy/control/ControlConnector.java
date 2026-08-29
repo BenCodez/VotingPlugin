@@ -58,6 +58,7 @@ public final class ControlConnector implements AutoCloseable {
 	private static final String COMMUNICATION_TEST_PRESET = "communication-test";
 	private static final String PROXY_METHOD_CAPABILITY = "config.proxy-method.v1";
 	private static final String PROXY_METHOD_PRESET = "proxy-method";
+	private static final String INTERNAL_OPERATION_TYPE = "_controlOperationType";
 	private static final long MAX_BACKOFF_MILLIS = TimeUnit.MINUTES.toMillis(5);
 	private static final long OPERATION_SHUTDOWN_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(65);
 
@@ -470,6 +471,7 @@ public final class ControlConnector implements AutoCloseable {
 			return executeTask(operationId, task).thenCompose(executed -> {
 				JsonObject resultJson = executed.json();
 				resultJson.addProperty("attemptId", requireString(task, "attemptId"));
+				resultJson.addProperty(INTERNAL_OPERATION_TYPE, requireString(task, "type"));
 				StoredResult completed = new StoredResult(resultJson, true, false);
 				synchronized (operationLifecycle) { completedTasks.put(operationId, completed); }
 				persistCompleted();
@@ -534,9 +536,11 @@ public final class ControlConnector implements AutoCloseable {
 		if (recovering && drained && recoveryComplete != null && !replaceRuntime) recoveryComplete.run();
 	}
 
-	private static boolean requiresRuntimeReplacement(StoredResult result) {
+	static boolean requiresRuntimeReplacement(StoredResult result) {
 		JsonObject body = result.result();
-		if (!body.has("success") || !body.get("success").getAsBoolean() || !body.has("configuration")) return false;
+		if (!body.has("success") || !body.get("success").getAsBoolean() || !body.has("configuration")
+				|| !body.has(INTERNAL_OPERATION_TYPE)
+				|| !"APPLY".equals(body.get(INTERNAL_OPERATION_TYPE).getAsString())) return false;
 		JsonObject configuration = body.getAsJsonObject("configuration");
 		return configuration != null && configuration.has("preset")
 				&& PROXY_METHOD_PRESET.equals(configuration.get("preset").getAsString());
@@ -574,6 +578,7 @@ public final class ControlConnector implements AutoCloseable {
 	private void persistIntent(UUID operationId, TaskResult anticipated, String attemptId) {
 		JsonObject result = anticipated.json();
 		result.addProperty("attemptId", attemptId);
+		result.addProperty(INTERNAL_OPERATION_TYPE, "APPLY");
 		synchronized (operationLifecycle) {
 			completedTasks.put(operationId, new StoredResult(result, false, false));
 		}
@@ -750,6 +755,7 @@ public final class ControlConnector implements AutoCloseable {
 
 	private Request resultRequest(UUID operationId, StoredResult result) {
 		JsonObject body = result.result().deepCopy();
+		body.remove(INTERNAL_OPERATION_TYPE);
 		body.addProperty("sessionId", sessionId.toString());
 		return new Request("POST", "/api/v1/nodes/" + settings.nodeId() + "/operations/" + operationId
 				+ "/result", body.toString());

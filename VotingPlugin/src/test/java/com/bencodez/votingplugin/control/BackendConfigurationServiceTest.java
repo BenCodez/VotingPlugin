@@ -433,13 +433,13 @@ class BackendConfigurationServiceTest {
 	}
 
 	@Test void voteSitesSyncKeepsDistinctKeysWhenCaseInsensitiveFilesAreDisabled() throws Exception {
-		Files.writeString(directory.resolve("Config.yml"), "CaseInsensitiveYMLFiles: false\n");
+		Files.writeString(directory.resolve("Config.yml"), "caseinsensitiveymlfiles: false\n");
 		Files.writeString(directory.resolve("VoteSites.yml"), "VoteSites:\n  PMC:\n    Name: Upper target\n"
 				+ "  pmc:\n    Name: Lower target\n");
 		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
 
 		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("sync-vote-sites", Map.of(
-				"sourceContent", "VoteSites:\n  PMC:\n    Name: Updated upper\n"));
+				"sourceContent", "votesites:\n  PMC:\n    Name: Updated upper\n"));
 		YamlConfiguration proposal = new YamlConfiguration();
 		proposal.loadFromString(preview.proposal().content());
 

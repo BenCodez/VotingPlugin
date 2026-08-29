@@ -592,7 +592,7 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 			Configuration latest = ConfigurationProvider.getProvider(YamlConfiguration.class).load(target.toFile());
 			ProxyMethodConfiguration current = new ProxyMethodConfiguration(
 					com.bencodez.votingplugin.proxy.control.ProxyMethodConfigurationService.canonical(
-							latest.getString("BungeeMethod", "PLUGINMESSAGING")));
+							latest.getString("BungeeMethod", "SOCKETS")));
 			if (!java.util.Arrays.equals(sourceSnapshot, Files.readAllBytes(target))
 					|| !current.revision().equals(expectedRevision)) throw new StaleControlRevisionException();
 			latest.set("BungeeMethod", method);
