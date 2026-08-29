@@ -87,9 +87,9 @@ public interface VotingPluginProxyConfig {
 		return true;
 	}
 
-	/** Replace an installed artifact when its digest differs from the configured pin. */
+	/** Follow newer official releases, or replace an installed artifact when a manual pin changes. */
 	default boolean getControlHostedAutoUpdate() {
-		return false;
+		return true;
 	}
 
 	default String getControlHostedDownloadUrl() {

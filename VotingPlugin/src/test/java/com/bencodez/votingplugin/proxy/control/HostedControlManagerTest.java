@@ -36,7 +36,7 @@ class HostedControlManagerTest {
 	Path directory;
 
 	@Test
-	void versionPinsAndContainedPathsAreRequired() throws Exception {
+	void manualPinsAndContainedPathsAreValidatedWhileBlankSelectsLatest() throws Exception {
 		Path root = directory.toAbsolutePath().normalize();
 		assertThrows(IllegalArgumentException.class,
 				() -> HostedControlManager.resolveInside(root, "../outside.jar", "jar"));
@@ -45,6 +45,33 @@ class HostedControlManagerTest {
 						"https://github.com/BenCodez/VotingPlugin-Control/releases/latest/download/control.jar"));
 		assertThrows(IllegalArgumentException.class, () -> settings(root.resolve("control.jar"), root.resolve("data"),
 				true, false, "not-a-digest", 30));
+		HostedControlManager.Settings latest = latestSettings(root.resolve("control.jar"), root.resolve("data"), true);
+		assertTrue(latest.usesLatestRelease());
+		assertThrows(IllegalArgumentException.class, () -> new HostedControlManager.Settings(root,
+				root.resolve("control.jar"), root.resolve("data"), true, true,
+				URI.create("https://github.com/BenCodez/VotingPlugin-Control/releases/download/v0.1.3/votingplugin-control.jar"),
+				"", "127.0.0.1", 8080, 30, 60));
+	}
+
+	@Test
+	void githubLatestMetadataRequiresStableOfficialAssetAndDigest() throws Exception {
+		String sha256 = "a".repeat(64);
+		String valid = """
+				{"tag_name":"v0.1.3","draft":false,"prerelease":false,"assets":[
+				{"name":"votingplugin-control.jar","digest":"sha256:%s","browser_download_url":
+				"https://github.com/BenCodez/VotingPlugin-Control/releases/download/v0.1.3/votingplugin-control.jar"}]}
+				""".formatted(sha256);
+		HostedControlManager.ArtifactSpec artifact = HostedControlManager.JdkGithubReleaseResolver
+				.parseLatestRelease(valid.getBytes(StandardCharsets.UTF_8));
+		assertEquals("v0.1.3", artifact.version());
+		assertEquals(sha256, artifact.sha256());
+
+		String wrongRepository = valid.replace("BenCodez/VotingPlugin-Control", "someone/other");
+		assertThrows(IOException.class, () -> HostedControlManager.JdkGithubReleaseResolver
+				.parseLatestRelease(wrongRepository.getBytes(StandardCharsets.UTF_8)));
+		String prerelease = valid.replace("\"prerelease\":false", "\"prerelease\":true");
+		assertThrows(IOException.class, () -> HostedControlManager.JdkGithubReleaseResolver
+				.parseLatestRelease(prerelease.getBytes(StandardCharsets.UTF_8)));
 	}
 
 	@Test
@@ -195,6 +222,69 @@ class HostedControlManagerTest {
 		assertEquals("signed-release-content", Files.readString(jar));
 		manager.close();
 		assertTrue(launcher.processes.get(0).destroyed);
+	}
+
+	@Test
+	void blankPinDownloadsOfficialLatestAndCachesVerifiedMetadata() throws Exception {
+		byte[] release = "latest-release-content".getBytes(StandardCharsets.UTF_8);
+		Path root = directory.toAbsolutePath().normalize();
+		Path jar = root.resolve("control/latest-control.jar");
+		HostedControlManager.Settings settings = latestSettings(jar, root.resolve("control/latest-data"), true);
+		HostedControlManager.ArtifactSpec latest = officialArtifact("v0.1.3", digest(release));
+		FakeLauncher launcher = new FakeLauncher();
+		AtomicInteger resolutions = new AtomicInteger();
+		HostedControlManager manager = new HostedControlManager(settings,
+				Executors.newSingleThreadScheduledExecutor(),
+				(source, target, maximum, timeout) -> Files.write(target, release), timeout -> {
+					resolutions.incrementAndGet();
+					return latest;
+				}, launcher, (configured, artifact, nodeId, verifier, timeout) -> { },
+				(endpoint, timeout, launchId) -> true, millis -> { }, System::nanoTime, null, message -> { });
+
+		manager.runOnce();
+
+		assertEquals(HostedControlManager.Status.RUNNING, manager.status());
+		assertEquals(1, resolutions.get());
+		assertEquals("latest-release-content", Files.readString(jar));
+		assertTrue(Files.isRegularFile(settings.releaseStateFile()));
+		assertTrue(Files.readString(settings.releaseStateFile()).contains("v0.1.3"));
+		manager.close();
+	}
+
+	@Test
+	void latestModeStagesAndRestartsOnlyAfterNewReleaseIsVerified() throws Exception {
+		byte[] oldRelease = "old-release".getBytes(StandardCharsets.UTF_8);
+		byte[] newRelease = "new-release".getBytes(StandardCharsets.UTF_8);
+		Path root = directory.toAbsolutePath().normalize();
+		Path jar = root.resolve("control/updating-control.jar");
+		Files.createDirectories(jar.getParent());
+		Files.write(jar, oldRelease);
+		HostedControlManager.Settings settings = latestSettings(jar, root.resolve("control/updating-data"), true);
+		HostedControlManager.ArtifactSpec oldArtifact = officialArtifact("v0.1.2", digest(oldRelease));
+		HostedControlManager.ArtifactSpec newArtifact = officialArtifact("v0.1.3", digest(newRelease));
+		AtomicInteger resolutions = new AtomicInteger();
+		AtomicInteger downloads = new AtomicInteger();
+		FakeLauncher launcher = new FakeLauncher();
+		HostedControlManager manager = new HostedControlManager(settings,
+				Executors.newSingleThreadScheduledExecutor(), (source, target, maximum, timeout) -> {
+					downloads.incrementAndGet();
+					assertEquals(newArtifact.downloadUri(), source);
+					Files.write(target, newRelease);
+				}, timeout -> resolutions.getAndIncrement() == 0 ? oldArtifact : newArtifact,
+				launcher, (configured, artifact, nodeId, verifier, timeout) -> { },
+				(endpoint, timeout, launchId) -> true, millis -> { }, System::nanoTime, null, message -> { });
+
+		manager.runOnce();
+		HostedControlManager.ManagedProcess first = launcher.processes.get(0);
+		manager.checkForLatestUpdate(first);
+
+		assertEquals(2, resolutions.get());
+		assertEquals(1, downloads.get());
+		assertEquals(List.of("old-release", "new-release"), launcher.launchedContents);
+		assertFalse(first.isAlive());
+		assertEquals("new-release", Files.readString(jar));
+		assertTrue(Files.readString(settings.releaseStateFile()).contains("v0.1.3"));
+		manager.close();
 	}
 
 	@Test
@@ -718,6 +808,18 @@ class HostedControlManagerTest {
 		return new HostedControlManager.Settings(root, jar, data, autoDownload, autoUpdate,
 				URI.create("https://github.com/BenCodez/VotingPlugin-Control/releases/download/v0.1.0/control.jar"),
 				sha256, "127.0.0.1", 8080, startupTimeout, 60);
+	}
+
+	private HostedControlManager.Settings latestSettings(Path jar, Path data, boolean autoUpdate) {
+		Path root = directory.toAbsolutePath().normalize();
+		return new HostedControlManager.Settings(root, jar, data, true, autoUpdate, null, "",
+				"127.0.0.1", 8080, 30, 60);
+	}
+
+	private HostedControlManager.ArtifactSpec officialArtifact(String version, String sha256) {
+		return new HostedControlManager.ArtifactSpec(URI.create(
+				"https://github.com/BenCodez/VotingPlugin-Control/releases/download/" + version
+						+ "/votingplugin-control.jar"), sha256, version);
 	}
 
 	private String digest(byte[] bytes) throws Exception {

@@ -1169,11 +1169,12 @@ Control:
   # Enable this on only one proxy or backend in the network.
   Hosted:
     Enabled: false
-    # Download a missing artifact. An exact SHA-256 pin is always required.
+    # Download a missing artifact from the official latest stable GitHub release.
     AutoDownload: true
-    # Disabled by default. When enabled, a new configured SHA-256 may replace the installed artifact.
-    AutoUpdate: false
-    # Use a versioned release asset URL; /latest/ URLs are rejected.
+    # Check the official latest release every six hours and safely update with rollback protection.
+    AutoUpdate: true
+    # Leave both blank for automatic official releases. Set both to manually pin an exact release.
+    # Manual URLs must be versioned release assets; /latest/ URLs are rejected.
     DownloadUrl: ''
     Sha256: ''
     # Both paths must remain relative to this backend's VotingPlugin data folder.

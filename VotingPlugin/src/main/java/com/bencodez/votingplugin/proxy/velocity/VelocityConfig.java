@@ -209,7 +209,7 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 
 	@Override
 	public boolean getControlHostedAutoUpdate() {
-		return getBoolean(getNode("Control", "Hosted", "AutoUpdate"), false);
+		return getBoolean(getNode("Control", "Hosted", "AutoUpdate"), true);
 	}
 
 	@Override

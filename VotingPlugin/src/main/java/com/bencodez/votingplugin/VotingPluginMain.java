@@ -816,11 +816,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private HostedControlManager.HostConfiguration readBackendHostedControlConfiguration() {
 		ConfigurationSection hosted = getConfigFile().getData().getConfigurationSection("Control.Hosted");
 		if (hosted == null) {
-			return new HostedControlManager.HostConfiguration(false, true, false, "", "",
+			return new HostedControlManager.HostConfiguration(false, true, true, "", "",
 					"control/votingplugin-control.jar", "control/data", "127.0.0.1", 8080, 30, 60);
 		}
 		return new HostedControlManager.HostConfiguration(hosted.getBoolean("Enabled", false),
-				hosted.getBoolean("AutoDownload", true), hosted.getBoolean("AutoUpdate", false),
+				hosted.getBoolean("AutoDownload", true), hosted.getBoolean("AutoUpdate", true),
 				hosted.getString("DownloadUrl", ""), hosted.getString("Sha256", ""),
 				hosted.getString("JarFile", "control/votingplugin-control.jar"),
 				hosted.getString("DataDirectory", "control/data"), hosted.getString("Host", "127.0.0.1"),
