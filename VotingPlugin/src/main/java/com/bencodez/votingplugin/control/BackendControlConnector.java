@@ -121,7 +121,7 @@ public final class BackendControlConnector implements AutoCloseable {
 		}
 		ConfigurationSection control = plugin.getConfigFile().getData().getConfigurationSection("Control.Backend");
 		if (control == null || !control.getBoolean("Enabled", false)) return null;
-		String nodeId = control.getString("NodeId", "").trim();
+		String nodeId = BackendControlAutoEnrollment.configuredNodeId(plugin, control);
 		if (!NODE_ID.matcher(nodeId).matches()) throw new IllegalArgumentException("Control.Backend.NodeId is invalid");
 		String endpointValue = control.getString("Endpoint", "").trim();
 		URI endpoint = URI.create(endpointValue);
