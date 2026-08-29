@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.bencodez.votingplugin.util.ControlCredentialFile;
 import com.sun.net.httpserver.HttpServer;
 
 class HostedControlManagerTest {
@@ -59,6 +60,20 @@ class HostedControlManagerTest {
 				false, "", "0".repeat(64), "control/control.jar", "control/data", "[", 8080, 30, 60);
 		assertThrows(IllegalArgumentException.class,
 				() -> HostedControlManager.create(directory, invalidHost, message -> { }));
+	}
+
+	@Test
+	void localEndpointMatchesLoopbackOrTheConfiguredListenerAddress() {
+		HostedControlManager.HostConfiguration hosted = new HostedControlManager.HostConfiguration(true, false,
+				false, "", "0".repeat(64), "control/control.jar", "control/data", "10.0.0.5", 2150, 30, 60);
+
+		assertFalse(HostedControlManager.isDirectLocalEndpoint("http://127.0.0.1:2150", hosted));
+		assertTrue(HostedControlManager.isDirectLocalEndpoint("http://10.0.0.5:2150", hosted));
+		assertFalse(HostedControlManager.isDirectLocalEndpoint("http://10.0.0.6:2150", hosted));
+		assertFalse(HostedControlManager.isDirectLocalEndpoint("https://10.0.0.5:2150", hosted));
+		HostedControlManager.HostConfiguration wildcard = new HostedControlManager.HostConfiguration(true, false,
+				false, "", "0".repeat(64), "control/control.jar", "control/data", "0.0.0.0", 2150, 30, 60);
+		assertTrue(HostedControlManager.isDirectLocalEndpoint("http://127.0.0.1:2150", wildcard));
 	}
 
 	@Test
@@ -177,6 +192,60 @@ class HostedControlManagerTest {
 		assertEquals("signed-release-content", Files.readString(jar));
 		manager.close();
 		assertTrue(launcher.processes.get(0).destroyed);
+	}
+
+	@Test
+	void localEnrollmentInstallsVerifierBeforeTheHostedProcessStarts() throws Exception {
+		byte[] release = "release-with-enrollment-command".getBytes(StandardCharsets.UTF_8);
+		Path root = directory.toAbsolutePath().normalize();
+		Path jar = root.resolve("control/control.jar");
+		Files.createDirectories(jar.getParent());
+		Files.write(jar, release);
+		HostedControlManager.Settings settings = settings(jar, root.resolve("control/data"), false, false,
+				digest(release), 30);
+		ControlCredentialFile.PendingAutoEnrollment pending = ControlCredentialFile.prepareAutoEnrollment(root,
+				"control/control-credential.txt", "proxy-a");
+		AtomicInteger installations = new AtomicInteger();
+		FakeLauncher launcher = new FakeLauncher();
+		ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+		HostedControlManager manager = new HostedControlManager(settings, executor,
+				(source, target, maximum, timeout) -> { throw new AssertionError("download was not expected"); },
+				launcher, (configured, artifact, nodeId, verifier, timeout) -> {
+					assertTrue(launcher.launchedContents.isEmpty());
+					assertEquals("proxy-a", nodeId);
+					assertEquals(pending.verifier(), verifier);
+					installations.incrementAndGet();
+				}, (endpoint, timeout, launchId) -> true, millis -> { }, System::nanoTime, pending, message -> { });
+
+		manager.runOnce();
+
+		assertEquals(HostedControlManager.Status.RUNNING, manager.status());
+		assertEquals(1, installations.get());
+		assertFalse(Files.exists(root.resolve("control/control-credential.txt.auto-enroll")));
+		manager.close();
+	}
+
+	@Test
+	void runningHostAcceptsVerifierOnlyBackendEnrollment() throws Exception {
+		byte[] release = "release-with-enrollment-command".getBytes(StandardCharsets.UTF_8);
+		Path root = directory.toAbsolutePath().normalize();
+		Path jar = root.resolve("control/control.jar");
+		Files.createDirectories(jar.getParent());
+		Files.write(jar, release);
+		HostedControlManager.Settings settings = settings(jar, root.resolve("control/data"), false, false,
+				digest(release), 30);
+		AtomicInteger installations = new AtomicInteger();
+		ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+		HostedControlManager manager = new HostedControlManager(settings, executor,
+				(source, target, maximum, timeout) -> { throw new AssertionError("download was not expected"); },
+				new FakeLauncher(), (configured, artifact, nodeId, verifier, timeout) -> installations.incrementAndGet(),
+				(endpoint, timeout, launchId) -> true, millis -> { }, System::nanoTime, null, message -> { });
+		manager.runOnce();
+
+		assertTrue(manager.installNodeVerifier("survival", "a".repeat(64)).get(5, TimeUnit.SECONDS));
+		assertEquals(1, installations.get());
+		assertFalse(manager.installNodeVerifier("../invalid", "a".repeat(64)).get(5, TimeUnit.SECONDS));
+		manager.close();
 	}
 
 	@Test
