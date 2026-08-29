@@ -164,7 +164,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private final AtomicReference<GlobalMessageHandler> backendPluginMessageTarget = new AtomicReference<>();
 	private PluginMessageHandler backendPluginMessageRelay;
 	private volatile BackendControlConnector backendControlConnector;
-	private final ExecutorService backendControlConnectorLifecycle = Executors.newSingleThreadExecutor(runnable -> {
+	private final ScheduledExecutorService backendControlConnectorLifecycle = Executors.newSingleThreadScheduledExecutor(runnable -> {
 		Thread thread = new Thread(runnable, "votingplugin-control-backend-connector-lifecycle");
 		thread.setDaemon(true);
 		return thread;
@@ -1045,7 +1045,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					return;
 				}
 				previous = backendControlConnector;
-				if (previous != null && previous.hasPendingResults()) {
+				if (previous != null && !previous.isClosed() && previous.hasPendingResults()) {
 					backendControlConnectorReconcileQueued = false;
 					getLogger().warning("[Control] Deferring connector and hosted settings until pending results drain");
 					return;
@@ -1057,10 +1057,18 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			} catch (RuntimeException e) {
 				synchronized (this) {
 					backendControlConnectorReconcileRequested = true;
-					backendControlConnectorReconcileQueued = false;
 				}
-				getLogger().warning("[Control] Previous Bukkit connector did not stop; reconciliation is deferred");
+				getLogger().warning("[Control] Previous Bukkit connector is still draining; reconciliation will retry");
 				debug(e);
+				if (backendControlConnectorStopping) {
+					synchronized (this) { backendControlConnectorReconcileQueued = false; }
+					return;
+				}
+				try {
+					backendControlConnectorLifecycle.schedule(this::reconcileBackendControlConnector, 5, TimeUnit.SECONDS);
+				} catch (RejectedExecutionException rejected) {
+					synchronized (this) { backendControlConnectorReconcileQueued = false; }
+				}
 				return;
 			}
 			BackendControlConnector replacement;

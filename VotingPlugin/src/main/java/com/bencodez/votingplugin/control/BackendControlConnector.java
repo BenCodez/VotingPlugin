@@ -149,6 +149,10 @@ public final class BackendControlConnector implements AutoCloseable {
 		synchronized (completed) { return !completed.isEmpty(); }
 	}
 
+	public boolean isClosed() {
+		return closed;
+	}
+
 	public void start() { schedule(0); }
 
 	private void schedule(long delayMillis) {
