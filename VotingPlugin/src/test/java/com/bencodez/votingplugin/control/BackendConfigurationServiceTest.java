@@ -297,6 +297,17 @@ class BackendConfigurationServiceTest {
 		assertTrue(redis.proposal().content().contains("BungeeMethod: REDIS"));
 	}
 
+	@Test void pluginMessagingMethodDoesNotRequireStandaloneBackendIdentity() throws Exception {
+		Files.writeString(directory.resolve("BungeeSettings.yml"),
+				"UseBungeecord: true\nServer: PleaseSet\nBungeeMethod: REDIS\nPluginMessageChannel: vp:vp\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("proxy-method",
+				Map.of("method", "PLUGINMESSAGING"));
+
+		assertTrue(preview.proposal().content().contains("BungeeMethod: PLUGINMESSAGING"));
+	}
+
 	@Test void voteSitesSyncAddsAndUpdatesDefinitionsWithoutTouchingRewardsOrTargetOnlySites() throws Exception {
 		Path voteSites = directory.resolve("VoteSites.yml");
 		Files.writeString(voteSites, "VoteSites:\n"
