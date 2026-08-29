@@ -50,6 +50,9 @@ public class BackendProxyMessageRouter {
 		messages.addListener(new GlobalMessageListener(VotingPluginWire.SUB_VOTE_DELAY_REJECTED) {
 			@Override public void onReceive(JsonEnvelope msg) { handleWireVoteDelayRejected(msg); }
 		});
+		messages.addListener(new GlobalMessageListener(VotingPluginWire.SUB_CONTROL_ENROLLMENT_RESULT) {
+			@Override public void onReceive(JsonEnvelope msg) { plugin.handleBackendControlEnrollmentResult(msg); }
+		});
 
 		if (method.supportsBackendPresence()) {
 			messages.addListener(new GlobalMessageListener(VotingPluginWire.SUB_PRESENCE_RESYNC_REQUEST) {
