@@ -61,7 +61,7 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 
 	@Override
 	public String getControlCredentialFile() {
-		return getData().getString("Control.CredentialFile", "control-credential.txt");
+		return getData().getString("Control.CredentialFile", "control/control-credential.txt");
 	}
 
 	@Override
