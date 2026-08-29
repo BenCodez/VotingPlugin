@@ -6,14 +6,18 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Map;
 import java.util.UUID;
 
+import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -21,7 +25,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.data.ServerData;
+import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votereminding.VoteRemindersManager;
+import com.bencodez.votingplugin.votereminding.VoteRemindersManager.VoteReminderConditions;
+import com.bencodez.votingplugin.votereminding.VoteRemindersManager.VoteReminderDefinition;
+import com.bencodez.votingplugin.votereminding.VoteRemindersManager.VoteReminderType;
 import com.bencodez.votingplugin.votereminding.store.VoteReminderCooldownStore;
 
 @ExtendWith(MockitoExtension.class)
@@ -94,6 +102,37 @@ public class VoteRemindersManagerTest {
 
 			verify(serverData, times(2)).saveDisabledReminders(any());
 			verify(serverData).saveDisabledReminders(argThat(uuids -> uuids.size() == 1 && uuids.contains(enabled)));
+		} finally {
+			manager.shutdown();
+		}
+	}
+
+	@Test
+	public void fireAttempt_rechecksReminderPreferenceAfterDelay() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		ServerData serverData = mock(ServerData.class);
+		VoteReminderCooldownStore store = mock(VoteReminderCooldownStore.class);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		UUID uuid = UUID.randomUUID();
+
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(serverData.getDisabledReminders()).thenReturn(Collections.emptyList());
+		when(user.getJavaUUID()).thenReturn(uuid);
+		when(user.getPlayerName()).thenReturn("TestPlayer");
+
+		VoteRemindersManager manager = new VoteRemindersManager(plugin, store);
+		try {
+			assertFalse(manager.toggleReminders(uuid));
+
+			VoteReminderDefinition definition = new VoteReminderDefinition("Delayed", VoteReminderType.LOGIN, 0,
+					ParsedDuration.parse(""), ParsedDuration.parse(""), "", new VoteReminderConditions(),
+					ParsedDuration.parse(""));
+			Method attemptFireNow = VoteRemindersManager.class.getDeclaredMethod("attemptFireNow",
+					VotingPluginUser.class, Player.class, VoteReminderDefinition.class, Map.class);
+			attemptFireNow.setAccessible(true);
+
+			assertFalse((boolean) attemptFireNow.invoke(manager, user, null, definition, null));
+			verify(user, never()).shouldBeReminded();
 		} finally {
 			manager.shutdown();
 		}

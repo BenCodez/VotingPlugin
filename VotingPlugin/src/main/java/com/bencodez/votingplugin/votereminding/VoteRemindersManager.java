@@ -856,6 +856,11 @@ public final class VoteRemindersManager {
 
 	private boolean attemptFireNow(VotingPluginUser user, Player player, VoteReminderDefinition def,
 			Map<String, String> placeholders) {
+		if (!isUserReminderEnabled(user)) {
+			plugin.extraDebug("[VoteReminders] gate disabled-reminders-map for " + user.getPlayerName()
+					+ " def=" + def.getName());
+			return false;
+		}
 
 		if (!user.shouldBeReminded()) {
 			plugin.extraDebug(
