@@ -85,7 +85,7 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 		return configured == null || configured.isBlank() ? plugin.getOptions().getServer() : configured.trim();
 	}
 
-	public void start() {
+	public synchronized void start() {
 		if (closed.get() || retryTask != null) return;
 		try {
 			retryTask = plugin.getServer().getScheduler().runTaskTimer(plugin, this::send, 1L, RETRY_TICKS);
@@ -118,7 +118,7 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 	}
 
 	@Override
-	public void close() {
+	public synchronized void close() {
 		if (!closed.compareAndSet(false, true)) return;
 		BukkitTask task = retryTask;
 		if (task != null) task.cancel();
