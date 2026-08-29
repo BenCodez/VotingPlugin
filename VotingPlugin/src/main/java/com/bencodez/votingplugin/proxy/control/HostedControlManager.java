@@ -121,11 +121,15 @@ public final class HostedControlManager implements AutoCloseable {
 		Path root = proxy.getDataFolderPlugin().toPath();
 		PendingAutoEnrollment enrollment = null;
 		if (config.getControlEnabled() && isDirectLocalEndpoint(config.getControlEndpoint(), hosted)) {
-			String configuredNodeId = config.getControlNodeId();
-			String nodeId = configuredNodeId == null || configuredNodeId.isBlank()
-					? config.getProxyServerName() : configuredNodeId.trim();
-			enrollment = ControlCredentialFile.prepareAutoEnrollment(root,
-					config.getControlCredentialFile(), nodeId);
+			try {
+				String configuredNodeId = config.getControlNodeId();
+				String nodeId = configuredNodeId == null || configuredNodeId.isBlank()
+						? config.getProxyServerName() : configuredNodeId.trim();
+				enrollment = ControlCredentialFile.prepareAutoEnrollment(root,
+						config.getControlCredentialFile(), nodeId);
+			} catch (IOException | IllegalArgumentException enrollmentFailure) {
+				proxy.log("[Control] Automatic local credential enrollment was skipped because its connector settings are invalid");
+			}
 		}
 		return create(root, hosted, enrollment, message -> proxy.log("[Control Host] " + message));
 	}

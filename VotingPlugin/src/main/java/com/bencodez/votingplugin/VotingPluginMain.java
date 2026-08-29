@@ -802,7 +802,13 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	private HostedControlManager createBackendHostedControlManager(
 			HostedControlManager.HostConfiguration configuration) throws IOException {
-		PendingAutoEnrollment enrollment = BackendControlAutoEnrollment.prepareLocal(this, configuration);
+		PendingAutoEnrollment enrollment = null;
+		try {
+			enrollment = BackendControlAutoEnrollment.prepareLocal(this, configuration);
+		} catch (IOException | IllegalArgumentException enrollmentFailure) {
+			getLogger().warning(
+					"[Control] Automatic local credential enrollment was skipped because its connector settings are invalid");
+		}
 		return HostedControlManager.create(getDataFolder().toPath(), configuration, enrollment,
 				message -> getLogger().info("[Control Host] " + message));
 	}
