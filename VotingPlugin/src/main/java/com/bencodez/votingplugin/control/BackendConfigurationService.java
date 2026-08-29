@@ -42,8 +42,8 @@ public final class BackendConfigurationService {
 			"WaitUntilVoteDelay", "PermissionToView", "IgnoreCanVote", "VoteDelayDailyHour", "VoteDelayMin",
 			"GiveOffline");
 	private static final Pattern COMMENT_SECRET = Pattern.compile(
-			"(?i)(\\b(?:[\\w-]*(?:password|secret)[\\w-]*|token|api[ _.-]?key|authorization|[\\w.-]*webhook[ _.-]?url)"
-					+ "\\b\\s*[:=]\\s*)(.*)$");
+			"(?i)([\"']?\\b(?:[\\w-]*(?:password|secret)[\\w-]*|token|api[ _.-]?key|authorization|[\\w.-]*webhook[ _.-]?url)"
+					+ "\\b[\"']?\\s*[:=]\\s*)(.*)$");
 	private static final Pattern SECRET_PATH_URL = Pattern.compile("(?i)(\\burl\\b\\s*[:=]\\s*)(.*)$");
 
 	private final Path dataDirectory;
@@ -444,6 +444,7 @@ public final class BackendConfigurationService {
 			String targetPath = targetParent + "." + (targetKey == null ? canonicalKey : targetKey);
 			Object value = source.get(key);
 			if (value instanceof ConfigurationSection section) {
+				if (!hasNonRewardValue(section)) continue;
 				if (target.getConfigurationSection(targetPath) == null) {
 					target.set(targetPath, null);
 					target.createSection(targetPath);
