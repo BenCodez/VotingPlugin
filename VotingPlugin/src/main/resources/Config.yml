@@ -1188,8 +1188,8 @@ Control:
     # Blank reuses BungeeSettings.Server, which must be unique for every backend.
     NodeId: ''
     Endpoint: 'http://127.0.0.1:8080'
-    # VotingPlugin automatically generates this local credential when it can enroll through
-    # the hosted Control on this server or through the authenticated proxy plugin-message path.
+    # VotingPlugin automatically generates this local credential only after confirming it can enroll through
+    # the hosted Control on this server or the proxy's authenticated, route-verified plugin-message path.
     # Unsupported/external topologies retain the blank file for manual enrollment.
     CredentialFile: 'control/control-credential.txt'
     HeartbeatSeconds: 30

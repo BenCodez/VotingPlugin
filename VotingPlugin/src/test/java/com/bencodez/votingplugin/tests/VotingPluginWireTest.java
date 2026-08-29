@@ -180,22 +180,33 @@ public class VotingPluginWireTest {
 	}
 
 	@Test
-	public void controlEnrollmentRoundTripContainsOnlyVerifierAndIdentity() {
+	public void controlEnrollmentRoundTripContainsVerifierIdentityAndRoute() {
 		UUID requestId = UUID.randomUUID();
 		String verifier = "a".repeat(64);
 
 		VotingPluginWire.ControlEnrollmentRequest request = VotingPluginWire.readControlEnrollmentRequest(
-				VotingPluginWire.controlEnrollmentRequest("survival", verifier, requestId));
+				VotingPluginWire.controlEnrollmentRequest("survival", verifier, "http://10.0.0.5:2150", requestId));
 		VotingPluginWire.ControlEnrollmentResult result = VotingPluginWire.readControlEnrollmentResult(
 				VotingPluginWire.controlEnrollmentResult("survival", requestId, true));
 
 		assertTrue(request.valid);
 		assertEquals("survival", request.nodeId);
 		assertEquals(verifier, request.verifier);
+		assertEquals("http://10.0.0.5:2150", request.endpoint);
 		assertEquals(requestId, request.requestId);
 		assertTrue(result.valid);
 		assertTrue(result.success);
 		assertEquals(requestId, result.requestId);
+	}
+
+	@Test
+	public void blankVerifierIsAValidHostedRoutePreflight() {
+		VotingPluginWire.ControlEnrollmentRequest request = VotingPluginWire.readControlEnrollmentRequest(
+				VotingPluginWire.controlEnrollmentRequest("survival", "", "http://10.0.0.5:2150",
+						UUID.randomUUID()));
+
+		assertTrue(request.valid);
+		assertEquals("", request.verifier);
 	}
 
 	@Test

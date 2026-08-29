@@ -71,6 +71,9 @@ class HostedControlManagerTest {
 		assertTrue(HostedControlManager.isDirectLocalEndpoint("http://10.0.0.5:2150", hosted));
 		assertFalse(HostedControlManager.isDirectLocalEndpoint("http://10.0.0.6:2150", hosted));
 		assertFalse(HostedControlManager.isDirectLocalEndpoint("https://10.0.0.5:2150", hosted));
+		HostedControlManager.HostConfiguration ipv6 = new HostedControlManager.HostConfiguration(true, false,
+				false, "", "0".repeat(64), "control/control.jar", "control/data", "::1", 2150, 30, 60);
+		assertTrue(HostedControlManager.isDirectLocalEndpoint("http://[::1]:2150", ipv6));
 		HostedControlManager.HostConfiguration wildcard = new HostedControlManager.HostConfiguration(true, false,
 				false, "", "0".repeat(64), "control/control.jar", "control/data", "0.0.0.0", 2150, 30, 60);
 		assertTrue(HostedControlManager.isDirectLocalEndpoint("http://127.0.0.1:2150", wildcard));
@@ -242,9 +245,45 @@ class HostedControlManagerTest {
 				(endpoint, timeout, launchId) -> true, millis -> { }, System::nanoTime, null, message -> { });
 		manager.runOnce();
 
-		assertTrue(manager.installNodeVerifier("survival", "a".repeat(64)).get(5, TimeUnit.SECONDS));
+		assertTrue(manager.installNodeVerifier("survival", "", "http://127.0.0.1:8080")
+				.get(5, TimeUnit.SECONDS));
+		assertEquals(0, installations.get());
+		assertTrue(manager.installNodeVerifier("survival", "a".repeat(64), "http://127.0.0.1:8080")
+				.get(5, TimeUnit.SECONDS));
 		assertEquals(1, installations.get());
-		assertFalse(manager.installNodeVerifier("../invalid", "a".repeat(64)).get(5, TimeUnit.SECONDS));
+		assertFalse(manager.installNodeVerifier("../invalid", "a".repeat(64), "http://127.0.0.1:8080")
+				.get(5, TimeUnit.SECONDS));
+		assertFalse(manager.installNodeVerifier("survival", "b".repeat(64), "http://external.example:8080")
+				.get(5, TimeUnit.SECONDS));
+		manager.close();
+	}
+
+	@Test
+	void wildcardHostProvesRequestedRouteReachesTheRunningLaunch() throws Exception {
+		byte[] release = "release-with-enrollment-command".getBytes(StandardCharsets.UTF_8);
+		Path root = directory.toAbsolutePath().normalize();
+		Path jar = root.resolve("control/wildcard-control.jar");
+		Files.createDirectories(jar.getParent());
+		Files.write(jar, release);
+		HostedControlManager.Settings base = settings(jar, root.resolve("control/wildcard-data"), false, false,
+				digest(release), 30);
+		HostedControlManager.Settings settings = new HostedControlManager.Settings(base.rootDirectory(), base.jarFile(),
+				base.dataDirectory(), base.autoDownload(), base.autoUpdate(), base.downloadUri(), base.sha256(),
+				"0.0.0.0", 2150, base.startupTimeoutSeconds(), base.downloadTimeoutSeconds());
+		AtomicInteger installations = new AtomicInteger();
+		ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+		HostedControlManager manager = new HostedControlManager(settings, executor,
+				(source, target, maximum, timeout) -> { throw new AssertionError("download was not expected"); },
+				new FakeLauncher(), (configured, artifact, nodeId, verifier, timeout) -> installations.incrementAndGet(),
+				(endpoint, timeout, launchId) -> !"external.example".equals(endpoint.getHost()),
+				millis -> { }, System::nanoTime, null, message -> { });
+		manager.runOnce();
+
+		assertTrue(manager.installNodeVerifier("survival", "a".repeat(64), "http://10.0.0.5:2150")
+				.get(5, TimeUnit.SECONDS));
+		assertFalse(manager.installNodeVerifier("creative", "b".repeat(64), "http://external.example:2150")
+				.get(5, TimeUnit.SECONDS));
+		assertEquals(1, installations.get());
 		manager.close();
 	}
 

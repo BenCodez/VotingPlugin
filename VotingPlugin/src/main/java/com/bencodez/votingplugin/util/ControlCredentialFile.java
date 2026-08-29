@@ -39,6 +39,21 @@ public final class ControlCredentialFile {
 		return credential;
 	}
 
+	/** Inspects existing enrollment state without generating a new credential. */
+	public static synchronized AutoEnrollmentInspection inspectAutoEnrollment(Path rootDirectory,
+			String configuredPath) throws IOException {
+		Path target = resolveAndCreate(rootDirectory, configuredPath);
+		Path marker = marker(target);
+		String credential = readCredential(target);
+		PendingAutoEnrollment pending = readMarker(marker, target, configuredPath);
+		if (credential != null && pending != null && !sha256Verifier(credential).equals(pending.verifier())) {
+			DurableFiles.deleteIfExists(marker);
+			pending = null;
+		}
+		if (credential == null) pending = null;
+		return new AutoEnrollmentInspection(credential != null, pending);
+	}
+
 	/**
 	 * Generates a credential only when the configured file is empty and retains a
 	 * verifier-only marker until the supervising host acknowledges enrollment.
@@ -227,4 +242,6 @@ public final class ControlCredentialFile {
 
 	/** Non-secret durable request for a supervising Control host to install. */
 	public record PendingAutoEnrollment(Path credentialFile, String configuredPath, String nodeId, String verifier) { }
+
+	public record AutoEnrollmentInspection(boolean credentialPresent, PendingAutoEnrollment pending) { }
 }

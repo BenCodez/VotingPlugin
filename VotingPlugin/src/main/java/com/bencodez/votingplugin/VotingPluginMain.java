@@ -1041,6 +1041,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private void startBackendControlConnector() {
 		try {
 			refreshBackendControlAutoEnrollment();
+			if (backendControlAutoEnrollment != null && backendControlAutoEnrollment.isAwaitingCredential()) return;
 			backendControlConnector = BackendControlConnector.create(this);
 			if (backendControlConnector != null) backendControlConnector.start();
 		} catch (Exception e) {
@@ -1111,7 +1112,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			boolean creationFailed = false;
 			try {
 				refreshBackendControlAutoEnrollment();
-				replacement = BackendControlConnector.create(this);
+				BackendControlAutoEnrollment enrollment = backendControlAutoEnrollment;
+				replacement = enrollment != null && enrollment.isAwaitingCredential()
+						? null : BackendControlConnector.create(this);
 			} catch (Exception e) {
 				replacement = null;
 				creationFailed = true;

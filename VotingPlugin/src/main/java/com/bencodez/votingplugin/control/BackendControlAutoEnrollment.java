@@ -16,6 +16,7 @@ import com.bencodez.votingplugin.proxy.VotingPluginWire;
 import com.bencodez.votingplugin.proxy.control.HostedControlManager;
 import com.bencodez.votingplugin.proxy.control.HostedControlManager.HostConfiguration;
 import com.bencodez.votingplugin.util.ControlCredentialFile;
+import com.bencodez.votingplugin.util.ControlCredentialFile.AutoEnrollmentInspection;
 import com.bencodez.votingplugin.util.ControlCredentialFile.PendingAutoEnrollment;
 
 /**
@@ -27,19 +28,24 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 	private static final long VERIFIER_REFRESH_NANOS = TimeUnit.SECONDS.toNanos(60);
 
 	private final VotingPluginMain plugin;
-	private final PendingAutoEnrollment enrollment;
+	private final String nodeId;
+	private final String credentialFile;
 	private final String endpoint;
 	private final UUID requestId = UUID.randomUUID();
 	private final AtomicBoolean closed = new AtomicBoolean();
 	private volatile BukkitTask retryTask;
+	private PendingAutoEnrollment enrollment;
 	private boolean verifierInstalled;
 	private boolean connectorAuthenticated;
 	private long verifierAcknowledgedAt;
 
-	private BackendControlAutoEnrollment(VotingPluginMain plugin, PendingAutoEnrollment enrollment, String endpoint) {
+	private BackendControlAutoEnrollment(VotingPluginMain plugin, String nodeId, String credentialFile,
+			String endpoint, PendingAutoEnrollment enrollment) {
 		this.plugin = plugin;
-		this.enrollment = enrollment;
+		this.nodeId = nodeId;
+		this.credentialFile = credentialFile;
 		this.endpoint = endpoint;
+		this.enrollment = enrollment;
 	}
 
 	/** Prepares a verifier that this Bukkit process's own hosted Control will install. */
@@ -68,10 +74,15 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 		if (!nodeId.equals(serverName) || "pleaseset".equalsIgnoreCase(nodeId)) {
 			return null;
 		}
-		PendingAutoEnrollment enrollment = prepare(plugin, control);
 		String endpoint = control.getString("Endpoint", "");
-		return enrollment == null ? null : new BackendControlAutoEnrollment(plugin, enrollment,
-				endpoint == null ? "" : endpoint.trim());
+		String credentialFile = control.getString("CredentialFile", "control/control-credential.txt");
+		AutoEnrollmentInspection inspection = ControlCredentialFile.inspectAutoEnrollment(
+				plugin.getDataFolder().toPath(), credentialFile);
+		PendingAutoEnrollment pending = inspection.pending();
+		if (pending == null && inspection.credentialPresent()) return null;
+		if (pending != null && !nodeId.equals(pending.nodeId())) pending = null;
+		return new BackendControlAutoEnrollment(plugin, nodeId, credentialFile,
+				endpoint == null ? "" : endpoint.trim(), pending);
 	}
 
 	public static String configuredNodeId(VotingPluginMain plugin, ConfigurationSection control) {
@@ -81,8 +92,12 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 	private static PendingAutoEnrollment prepare(VotingPluginMain plugin, ConfigurationSection control)
 			throws IOException {
 		String credentialFile = control.getString("CredentialFile", "control/control-credential.txt");
-		return ControlCredentialFile.prepareAutoEnrollment(plugin.getDataFolder().toPath(), credentialFile,
-				nodeId(plugin, control));
+		return prepare(plugin, credentialFile, nodeId(plugin, control));
+	}
+
+	private static PendingAutoEnrollment prepare(VotingPluginMain plugin, String credentialFile, String nodeId)
+			throws IOException {
+		return ControlCredentialFile.prepareAutoEnrollment(plugin.getDataFolder().toPath(), credentialFile, nodeId);
 	}
 
 	private static ConfigurationSection control(VotingPluginMain plugin) {
@@ -104,33 +119,56 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 		}
 	}
 
+	/** True while the proxy must confirm that this route reaches its hosted Control. */
+	public synchronized boolean isAwaitingCredential() {
+		return enrollment == null;
+	}
+
 	private void send() {
+		PendingAutoEnrollment pending;
 		synchronized (this) {
 			if (closed.get() || (verifierInstalled
 					&& System.nanoTime() - verifierAcknowledgedAt < VERIFIER_REFRESH_NANOS)) return;
+			pending = enrollment;
 		}
 		BackendProxyHandler handler = plugin.getBackendProxyHandler();
 		if (handler == null || handler.getMethod() != BungeeMethod.PLUGINMESSAGING
 				|| handler.getGlobalMessageHandler() == null) return;
 		handler.getGlobalMessageHandler().sendMessage(VotingPluginWire.controlEnrollmentRequest(
-				enrollment.nodeId(), enrollment.verifier(), requestId));
+				nodeId, pending == null ? "" : pending.verifier(), endpoint, requestId));
 	}
 
-	public synchronized void handle(JsonEnvelope envelope) {
+	public void handle(JsonEnvelope envelope) {
 		VotingPluginWire.ControlEnrollmentResult result = VotingPluginWire.readControlEnrollmentResult(envelope);
-		if (closed.get() || !result.valid || !result.success || !requestId.equals(result.requestId)
-				|| !enrollment.nodeId().equals(result.nodeId)) return;
-		verifierInstalled = true;
-		verifierAcknowledgedAt = System.nanoTime();
-		completeIfConnected();
+		boolean restartConnector = false;
+		synchronized (this) {
+			if (closed.get() || !result.valid || !result.success || !requestId.equals(result.requestId)
+					|| !nodeId.equals(result.nodeId)) return;
+			if (enrollment == null) {
+				try {
+					enrollment = prepare(plugin, credentialFile, nodeId);
+					if (enrollment == null) close();
+					restartConnector = true;
+				} catch (IOException e) {
+					plugin.getLogger().warning(
+							"[Control] Automatic backend credential could not be prepared; it will retry");
+				}
+			} else {
+				verifierInstalled = true;
+				verifierAcknowledgedAt = System.nanoTime();
+				completeIfConnected();
+			}
+		}
+		if (restartConnector) plugin.restartBackendControlConnector();
 	}
 
 	/** Completes durable enrollment only after this credential authenticated to the configured endpoint. */
 	public synchronized void connectorAuthenticated(String nodeId, String credentialFile, String endpoint,
 			String verifier) {
-		if (closed.get() || !enrollment.nodeId().equals(nodeId)
-				|| !enrollment.configuredPath().equals(credentialFile) || !this.endpoint.equals(endpoint)
-				|| !enrollment.verifier().equals(verifier)) return;
+		PendingAutoEnrollment pending = enrollment;
+		if (closed.get() || pending == null || !pending.nodeId().equals(nodeId)
+				|| !pending.configuredPath().equals(credentialFile) || !this.endpoint.equals(endpoint)
+				|| !pending.verifier().equals(verifier)) return;
 		connectorAuthenticated = true;
 		completeIfConnected();
 	}
@@ -138,8 +176,10 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 	private void completeIfConnected() {
 		if (!verifierInstalled || !connectorAuthenticated) return;
 		try {
-			ControlCredentialFile.completeAutoEnrollment(enrollment);
-			plugin.getLogger().info("[Control] Automatic credential enrollment completed for " + enrollment.nodeId());
+			PendingAutoEnrollment pending = enrollment;
+			if (pending == null) return;
+			ControlCredentialFile.completeAutoEnrollment(pending);
+			plugin.getLogger().info("[Control] Automatic credential enrollment completed for " + pending.nodeId());
 			close();
 		} catch (IOException e) {
 			verifierInstalled = false;

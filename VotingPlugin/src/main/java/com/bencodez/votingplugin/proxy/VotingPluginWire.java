@@ -89,6 +89,7 @@ public final class VotingPluginWire {
 	public static final String K_CHUNK_COUNT = "chunkCount";
 	public static final String K_NODE_ID = "nodeId";
 	public static final String K_VERIFIER = "verifier";
+	public static final String K_ENDPOINT = "endpoint";
 	public static final String K_SUCCESS = "success";
 
 	// Vote/VoteOnline extras
@@ -177,9 +178,10 @@ public final class VotingPluginWire {
 		return base(SUB_SERVER_NAME).put(K_SERVER, safe(server)).build();
 	}
 
-	public static JsonEnvelope controlEnrollmentRequest(String nodeId, String verifier, UUID requestId) {
+	public static JsonEnvelope controlEnrollmentRequest(String nodeId, String verifier, String endpoint, UUID requestId) {
 		return base(SUB_CONTROL_ENROLLMENT_REQUEST).put(K_NODE_ID, safe(nodeId))
 				.put(K_VERIFIER, safe(verifier))
+				.put(K_ENDPOINT, safe(endpoint))
 				.put(K_REQUEST_ID, requestId == null ? "" : requestId.toString()).build();
 	}
 
@@ -481,22 +483,26 @@ public final class VotingPluginWire {
 	public static final class ControlEnrollmentRequest {
 		public final String nodeId;
 		public final String verifier;
+		public final String endpoint;
 		public final UUID requestId;
 		public final boolean valid;
 
-		private ControlEnrollmentRequest(String nodeId, String verifier, UUID requestId) {
+		private ControlEnrollmentRequest(String nodeId, String verifier, String endpoint, UUID requestId) {
 			this.nodeId = nodeId;
 			this.verifier = verifier;
+			this.endpoint = endpoint;
 			this.requestId = requestId;
 			this.valid = nodeId.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
-					&& verifier.matches("[0-9a-f]{64}") && requestId != null;
+					&& (verifier.isEmpty() || verifier.matches("[0-9a-f]{64}"))
+					&& !endpoint.isBlank() && endpoint.length() <= 2048
+					&& requestId != null;
 		}
 	}
 
 	public static ControlEnrollmentRequest readControlEnrollmentRequest(JsonEnvelope env) {
 		Map<String, String> fields = env.getFields();
 		return new ControlEnrollmentRequest(safe(fields.get(K_NODE_ID)), safe(fields.get(K_VERIFIER)),
-				readUuid(fields, K_REQUEST_ID));
+				safe(fields.get(K_ENDPOINT)), readUuid(fields, K_REQUEST_ID));
 	}
 
 	public static final class ControlEnrollmentResult {

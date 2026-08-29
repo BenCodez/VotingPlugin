@@ -2524,7 +2524,7 @@ public abstract class VotingPluginProxy {
 					VotingPluginWire.controlEnrollmentResult(sourceServer, request.requestId, false));
 			return;
 		}
-		manager.installNodeVerifier(sourceServer, request.verifier).whenComplete((installed, failure) -> {
+		manager.installNodeVerifier(sourceServer, request.verifier, request.endpoint).whenComplete((installed, failure) -> {
 			boolean success = failure == null && Boolean.TRUE.equals(installed);
 			sendPluginMessageServer(sourceServer, 0,
 					VotingPluginWire.controlEnrollmentResult(sourceServer, request.requestId, success));

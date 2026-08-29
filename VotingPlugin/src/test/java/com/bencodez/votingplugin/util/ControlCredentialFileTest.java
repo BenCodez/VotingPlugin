@@ -54,6 +54,30 @@ class ControlCredentialFileTest {
 		assertEquals(credential, ControlCredentialFile.read(root, configured));
 	}
 
+	@Test void inspectionNeverGeneratesAndRecoversOnlyMatchingPendingState() throws Exception {
+		Path root = Files.createDirectory(directory.resolve("inspection-plugin"));
+		String configured = "control/control-credential.txt";
+
+		ControlCredentialFile.AutoEnrollmentInspection blank =
+				ControlCredentialFile.inspectAutoEnrollment(root, configured);
+		assertFalse(blank.credentialPresent());
+		assertNull(blank.pending());
+
+		ControlCredentialFile.PendingAutoEnrollment generated =
+				ControlCredentialFile.prepareAutoEnrollment(root, configured, "survival");
+		ControlCredentialFile.AutoEnrollmentInspection pending =
+				ControlCredentialFile.inspectAutoEnrollment(root, configured);
+		assertTrue(pending.credentialPresent());
+		assertEquals(generated, pending.pending());
+
+		Files.writeString(root.resolve(configured), "vpctl_node_manually_replaced");
+		ControlCredentialFile.AutoEnrollmentInspection replaced =
+				ControlCredentialFile.inspectAutoEnrollment(root, configured);
+		assertTrue(replaced.credentialPresent());
+		assertNull(replaced.pending());
+		assertFalse(Files.exists(root.resolve(configured + ".auto-enroll")));
+	}
+
 	@Test void existingManualCredentialIsNeverReplaced() throws Exception {
 		Path root = Files.createDirectory(directory.resolve("manual-plugin"));
 		Path control = Files.createDirectories(root.resolve("control"));
