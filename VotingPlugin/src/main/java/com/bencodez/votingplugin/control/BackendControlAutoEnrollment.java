@@ -28,6 +28,7 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 
 	private final VotingPluginMain plugin;
 	private final PendingAutoEnrollment enrollment;
+	private final String endpoint;
 	private final UUID requestId = UUID.randomUUID();
 	private final AtomicBoolean closed = new AtomicBoolean();
 	private volatile BukkitTask retryTask;
@@ -35,9 +36,10 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 	private boolean connectorAuthenticated;
 	private long verifierAcknowledgedAt;
 
-	private BackendControlAutoEnrollment(VotingPluginMain plugin, PendingAutoEnrollment enrollment) {
+	private BackendControlAutoEnrollment(VotingPluginMain plugin, PendingAutoEnrollment enrollment, String endpoint) {
 		this.plugin = plugin;
 		this.enrollment = enrollment;
+		this.endpoint = endpoint;
 	}
 
 	/** Prepares a verifier that this Bukkit process's own hosted Control will install. */
@@ -67,7 +69,9 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 			return null;
 		}
 		PendingAutoEnrollment enrollment = prepare(plugin, control);
-		return enrollment == null ? null : new BackendControlAutoEnrollment(plugin, enrollment);
+		String endpoint = control.getString("Endpoint", "");
+		return enrollment == null ? null : new BackendControlAutoEnrollment(plugin, enrollment,
+				endpoint == null ? "" : endpoint.trim());
 	}
 
 	public static String configuredNodeId(VotingPluginMain plugin, ConfigurationSection control) {
@@ -122,8 +126,11 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 	}
 
 	/** Completes durable enrollment only after this credential authenticated to the configured endpoint. */
-	public synchronized void connectorAuthenticated() {
-		if (closed.get()) return;
+	public synchronized void connectorAuthenticated(String nodeId, String credentialFile, String endpoint,
+			String verifier) {
+		if (closed.get() || !enrollment.nodeId().equals(nodeId)
+				|| !enrollment.configuredPath().equals(credentialFile) || !this.endpoint.equals(endpoint)
+				|| !enrollment.verifier().equals(verifier)) return;
 		connectorAuthenticated = true;
 		completeIfConnected();
 	}
