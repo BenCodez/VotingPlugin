@@ -158,6 +158,8 @@ public class VotingPluginProxyTest {
 	@Test
 	void pluginMessagingCommunicationTestExplainsOnlinePlayerRequirement() throws Exception {
 		votingPluginProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		votingPluginProxy.setGlobalMessageProxyHandlerForTest(Mockito
+				.mock(com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler.class));
 		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
 		Mockito.doReturn(false).when(spyProxy).isSomeoneOnlineServer(Mockito.eq("Server1"));
 
