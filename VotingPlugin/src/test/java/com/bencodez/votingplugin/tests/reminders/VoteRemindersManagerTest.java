@@ -2,11 +2,15 @@ package com.bencodez.votingplugin.tests.reminders;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.UUID;
 
@@ -15,6 +19,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.bencodez.simpleapi.time.ParsedDuration;
+import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.votereminding.VoteRemindersManager;
 import com.bencodez.votingplugin.votereminding.store.VoteReminderCooldownStore;
 
@@ -65,5 +71,31 @@ public class VoteRemindersManagerTest {
 
 		cd.markFired(uuid, "Basic", 123L);
 		verify(store).setPerReminderLast(uuid, "Basic", 123L);
+	}
+
+	@Test
+	public void reminderPreference_loadsLegacyDisabledPlayersAndPersistsToggles() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		ServerData serverData = mock(ServerData.class);
+		VoteReminderCooldownStore store = mock(VoteReminderCooldownStore.class);
+		UUID disabled = UUID.randomUUID();
+		UUID enabled = UUID.randomUUID();
+
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(serverData.getDisabledReminders()).thenReturn(Arrays.asList(disabled.toString()));
+
+		VoteRemindersManager manager = new VoteRemindersManager(plugin, store);
+		try {
+			assertFalse(manager.isRemindersEnabled(disabled));
+			assertTrue(manager.isRemindersEnabled(enabled));
+
+			assertTrue(manager.toggleReminders(disabled));
+			assertFalse(manager.toggleReminders(enabled));
+
+			verify(serverData, times(2)).saveDisabledReminders(any());
+			verify(serverData).saveDisabledReminders(argThat(uuids -> uuids.size() == 1 && uuids.contains(enabled)));
+		} finally {
+			manager.shutdown();
+		}
 	}
 }
