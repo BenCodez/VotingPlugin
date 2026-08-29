@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.control;
 
 import java.io.IOException;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.bukkit.configuration.ConfigurationSection;
@@ -23,12 +24,16 @@ import com.bencodez.votingplugin.util.ControlCredentialFile.PendingAutoEnrollmen
  */
 public final class BackendControlAutoEnrollment implements AutoCloseable {
 	private static final long RETRY_TICKS = 20L * 15L;
+	private static final long VERIFIER_REFRESH_NANOS = TimeUnit.SECONDS.toNanos(60);
 
 	private final VotingPluginMain plugin;
 	private final PendingAutoEnrollment enrollment;
 	private final UUID requestId = UUID.randomUUID();
 	private final AtomicBoolean closed = new AtomicBoolean();
 	private volatile BukkitTask retryTask;
+	private boolean verifierInstalled;
+	private boolean connectorAuthenticated;
+	private long verifierAcknowledgedAt;
 
 	private BackendControlAutoEnrollment(VotingPluginMain plugin, PendingAutoEnrollment enrollment) {
 		this.plugin = plugin;
@@ -96,7 +101,10 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 	}
 
 	private void send() {
-		if (closed.get()) return;
+		synchronized (this) {
+			if (closed.get() || (verifierInstalled
+					&& System.nanoTime() - verifierAcknowledgedAt < VERIFIER_REFRESH_NANOS)) return;
+		}
 		BackendProxyHandler handler = plugin.getBackendProxyHandler();
 		if (handler == null || handler.getMethod() != BungeeMethod.PLUGINMESSAGING
 				|| handler.getGlobalMessageHandler() == null) return;
@@ -104,15 +112,30 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 				enrollment.nodeId(), enrollment.verifier(), requestId));
 	}
 
-	public void handle(JsonEnvelope envelope) {
+	public synchronized void handle(JsonEnvelope envelope) {
 		VotingPluginWire.ControlEnrollmentResult result = VotingPluginWire.readControlEnrollmentResult(envelope);
 		if (closed.get() || !result.valid || !result.success || !requestId.equals(result.requestId)
 				|| !enrollment.nodeId().equals(result.nodeId)) return;
+		verifierInstalled = true;
+		verifierAcknowledgedAt = System.nanoTime();
+		completeIfConnected();
+	}
+
+	/** Completes durable enrollment only after this credential authenticated to the configured endpoint. */
+	public synchronized void connectorAuthenticated() {
+		if (closed.get()) return;
+		connectorAuthenticated = true;
+		completeIfConnected();
+	}
+
+	private void completeIfConnected() {
+		if (!verifierInstalled || !connectorAuthenticated) return;
 		try {
 			ControlCredentialFile.completeAutoEnrollment(enrollment);
 			plugin.getLogger().info("[Control] Automatic credential enrollment completed for " + enrollment.nodeId());
 			close();
 		} catch (IOException e) {
+			verifierInstalled = false;
 			plugin.getLogger().warning("[Control] Automatic credential enrollment could not be finalized; it will retry");
 		}
 	}
