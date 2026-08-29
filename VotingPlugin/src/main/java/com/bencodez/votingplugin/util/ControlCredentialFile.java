@@ -52,14 +52,14 @@ public final class ControlCredentialFile {
 		String credential = readCredential(target);
 		PendingAutoEnrollment pending = readMarker(marker, target, configuredPath);
 		if (credential != null && pending == null) return null;
-		if (credential != null && !verifier(credential).equals(pending.verifier())) {
+		if (credential != null && !sha256Verifier(credential).equals(pending.verifier())) {
 			DurableFiles.deleteIfExists(marker);
 			return null;
 		}
 		if (credential != null && nodeId.equals(pending.nodeId())) return pending;
 
 		String generated = token();
-		String generatedVerifier = verifier(generated);
+		String generatedVerifier = sha256Verifier(generated);
 		PendingAutoEnrollment replacement = new PendingAutoEnrollment(target, configuredPath, nodeId,
 				generatedVerifier);
 		writeAtomically(marker, markerContents(replacement));
@@ -74,10 +74,10 @@ public final class ControlCredentialFile {
 		Path marker = marker(target);
 		PendingAutoEnrollment current = readMarker(marker, target, enrollment.configuredPath());
 		String credential = readCredential(target);
-		if (current == null && credential != null && enrollment.verifier().equals(verifier(credential))) return;
+		if (current == null && credential != null && enrollment.verifier().equals(sha256Verifier(credential))) return;
 		if (current == null || credential == null || !current.nodeId().equals(enrollment.nodeId())
 				|| !current.verifier().equals(enrollment.verifier())
-				|| !current.verifier().equals(verifier(credential))) {
+				|| !current.verifier().equals(sha256Verifier(credential))) {
 			throw new IOException("Control automatic enrollment state changed");
 		}
 		DurableFiles.deleteIfExists(marker);
@@ -210,7 +210,9 @@ public final class ControlCredentialFile {
 		return "vpctl_node_" + Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
 	}
 
-	private static String verifier(String credential) {
+	/** Returns the non-secret verifier used to bind connector authentication to pending enrollment. */
+	public static String sha256Verifier(String credential) {
+		if (credential == null) throw new IllegalArgumentException("credential is required");
 		try {
 			return HexFormat.of().formatHex(
 					MessageDigest.getInstance("SHA-256").digest(credential.getBytes(StandardCharsets.UTF_8)));
