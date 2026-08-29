@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.proxy.control;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -43,6 +44,17 @@ class HostedControlManagerTest {
 						"https://github.com/BenCodez/VotingPlugin-Control/releases/latest/download/control.jar"));
 		assertThrows(IllegalArgumentException.class, () -> settings(root.resolve("control.jar"), root.resolve("data"),
 				true, false, "not-a-digest", 30));
+	}
+
+	@Test
+	void platformNeutralFactoryKeepsHostingOptIn() {
+		HostedControlManager.HostConfiguration disabled = new HostedControlManager.HostConfiguration(false, true,
+				false, "", "", "control/control.jar", "control/data", "127.0.0.1", 8080, 30, 60);
+		assertNull(HostedControlManager.create(directory, disabled, message -> { }));
+		HostedControlManager.HostConfiguration escaping = new HostedControlManager.HostConfiguration(true, false,
+				false, "", "0".repeat(64), "../control.jar", "control/data", "127.0.0.1", 8080, 30, 60);
+		assertThrows(IllegalArgumentException.class,
+				() -> HostedControlManager.create(directory, escaping, message -> { }));
 	}
 
 	@Test

@@ -4,7 +4,8 @@ This development milestone adds an optional connector from the BungeeCord and Ve
 to the separate [VotingPlugin Control](https://github.com/BenCodez/VotingPlugin-Control) application. It discovers each
 proxy and its eligible backend server names. Enrolled Bukkit nodes can also connect outbound for full configuration-file
 and quick-setup control. Control includes the local WebUI. VotingPlugin may now explicitly opt in to
-provisioning and supervising that application as a separate child JVM; it is never loaded into the proxy classloader. The
+provisioning and supervising that application from either a proxy or a Bukkit backend as a separate child JVM; it is
+never loaded into the proxy or server classloader. The
 connector does not expose backend addresses. Configuration secrets are masked on every read and never enter audit records.
 
 ## Failure isolation
@@ -20,14 +21,15 @@ Shutdown cancels the scheduled cycle and active future without waiting indefinit
 
 The hosted-Control manager is independently disabled by default. Downloads, hashing, activation, health checks, process
 startup, and restart backoff run on its own daemon worker. Hosting failure changes only its redacted status/log and never
-blocks the proxy event loop or vote processing. Stopping VotingPlugin asks only the child process it created to terminate
+blocks the proxy event loop, Bukkit server thread, or vote processing. Stopping VotingPlugin asks only the child process it created to terminate
 and applies a bounded asynchronous force-stop fallback.
 
 ## Optional hosted WebUI
 
-Use one hosted Control instance for the network. Other proxies should use the connector against that instance rather than
-each starting a competing service. Hosting and discovery are separate switches: `Control.Hosted.Enabled` runs Control,
-while `Control.Enabled` reports this proxy to it.
+Use one hosted Control instance for the network. It may run on one BungeeCord/Velocity proxy or on one Bukkit/Paper backend.
+Every other node should use its connector against that instance rather than starting a competing service. Hosting and
+discovery are separate switches: `Control.Hosted.Enabled` runs Control, while proxy `Control.Enabled` or backend
+`Control.Backend.Enabled` enrolls and reports that node to it.
 
 Control releases publish `votingplugin-control.jar` and `votingplugin-control.jar.sha256`. Configure an immutable versioned
 asset URL and copy its exact digest into `Sha256`; `/latest/` URLs, unpinned artifacts, plaintext download URLs, redirects
@@ -53,8 +55,35 @@ Control:
     DownloadTimeoutSeconds: 60
 ```
 
+The same hosted block may instead be placed in the backend's `Config.yml`, alongside `Control.Backend`. In this example the
+backend both hosts Control and enrolls itself for full configuration management:
+
+```yaml
+Control:
+  Hosted:
+    Enabled: true
+    AutoDownload: true
+    AutoUpdate: false
+    DownloadUrl: 'https://github.com/BenCodez/VotingPlugin-Control/releases/download/v0.1.0/votingplugin-control.jar'
+    Sha256: '<64-character SHA-256 from the pinned release>'
+    JarFile: 'control/votingplugin-control.jar'
+    DataDirectory: 'control/data'
+    Host: '127.0.0.1'
+    Port: 8080
+    StartupTimeoutSeconds: 30
+    DownloadTimeoutSeconds: 60
+  Backend:
+    Enabled: true
+    NodeId: 'backend-lobby'
+    Endpoint: 'http://127.0.0.1:8080'
+    CredentialFile: 'control-credential.txt'
+    HeartbeatSeconds: 30
+    ConnectTimeoutMillis: 3000
+    RequestTimeoutMillis: 10000
+```
+
 On first start, the artifact is downloaded to a unique staging file with a 64 MiB hard limit, verified, and atomically
-activated before launch with the same Java runtime as the proxy. An existing matching manual installation is launched
+activated before launch with the same Java runtime as the hosting proxy or backend. An existing matching manual installation is launched
 without downloading. `AutoUpdate` is false by default; when explicitly enabled and the configured digest changes, the
 current release is retained as `.previous`. A failed process/protocol health check atomically restores and starts that
 previous release, retaining the failed candidate as `.failed`. Unexpected exits use bounded restart backoff.
@@ -83,8 +112,8 @@ Manual installation remains supported: put a Control JAR at `JarFile`, configure
    java -jar votingplugin-control-0.1.0-SNAPSHOT-all.jar enroll proxy-a data
    ```
 
-2. On that proxy, create `plugins/VotingPlugin/control-credential.txt` (or the platform-equivalent VotingPlugin proxy data
-   directory) containing only the printed credential. Restrict filesystem access to the proxy service account.
+2. On that proxy or backend, create `plugins/VotingPlugin/control-credential.txt` (or the platform-equivalent VotingPlugin
+   data directory) containing only the printed credential. Restrict filesystem access to the Minecraft service account.
 
 3. Configure `bungeeconfig.yml`:
 
@@ -139,7 +168,9 @@ installed plugin names for WebUI command suggestions and negotiates
 `config.files.v1` and `config.quick-setup.v1`, then polls the same outbound operation queue as proxies. File apply schedules
 the VotingPlugin reload on the Bukkit thread and waits only on the connector worker. Control failure never blocks votes,
 joins, commands, or plugin shutdown. A successful `Config.yml` apply reports its result first, then recreates the connector
-so changes to `Control.Backend` take effect without a full server restart.
+so changes to `Control.Backend` take effect without a full server restart. If `Control.Hosted` changed, the existing child
+is asked to stop only after that result is acknowledged and a replacement supervisor starts with the new settings. Invalid
+host settings leave the currently running Control child unchanged.
 
 ## Discovery semantics
 

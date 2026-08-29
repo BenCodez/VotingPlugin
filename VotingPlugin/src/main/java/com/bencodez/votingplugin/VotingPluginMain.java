@@ -92,6 +92,7 @@ import com.bencodez.votingplugin.placeholders.MVdWPlaceholders;
 import com.bencodez.votingplugin.placeholders.PlaceHolders;
 import com.bencodez.votingplugin.placeholders.VotingPluginExpansion;
 import com.bencodez.votingplugin.presets.VoteSitePresetSetupHandler;
+import com.bencodez.votingplugin.proxy.control.HostedControlManager;
 import com.bencodez.votingplugin.rewards.VotingPluginRewardRegistrar;
 import com.bencodez.votingplugin.servicesites.ServiceSiteHandler;
 import com.bencodez.votingplugin.signs.Signs;
@@ -160,6 +161,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private final AtomicReference<GlobalMessageHandler> backendPluginMessageTarget = new AtomicReference<>();
 	private PluginMessageHandler backendPluginMessageRelay;
 	private BackendControlConnector backendControlConnector;
+	private HostedControlManager backendHostedControlManager;
+	private HostedControlManager.HostConfiguration backendHostedControlConfiguration;
 
 	@Getter
 	private BungeeSettings bungeeSettings;
@@ -740,8 +743,58 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}, 10);
 		}
 
+		startBackendHostedControl();
 		startBackendControlConnector();
 
+	}
+
+	private void startBackendHostedControl() {
+		HostedControlManager.HostConfiguration configuration = readBackendHostedControlConfiguration();
+		backendHostedControlConfiguration = configuration;
+		if (!configuration.enabled()) return;
+		try {
+			backendHostedControlManager = HostedControlManager.create(getDataFolder().toPath(), configuration,
+					message -> getLogger().info("[Control Host] " + message));
+			if (backendHostedControlManager != null) backendHostedControlManager.start();
+		} catch (IllegalArgumentException e) {
+			backendHostedControlManager = null;
+			getLogger().warning("[Control Host] Bukkit hosting configuration is invalid; VotingPlugin remains active: "
+					+ e.getMessage());
+		}
+	}
+
+	private HostedControlManager.HostConfiguration readBackendHostedControlConfiguration() {
+		ConfigurationSection hosted = getConfigFile().getData().getConfigurationSection("Control.Hosted");
+		if (hosted == null) {
+			return new HostedControlManager.HostConfiguration(false, true, false, "", "",
+					"control/votingplugin-control.jar", "control/data", "127.0.0.1", 8080, 30, 60);
+		}
+		return new HostedControlManager.HostConfiguration(hosted.getBoolean("Enabled", false),
+				hosted.getBoolean("AutoDownload", true), hosted.getBoolean("AutoUpdate", false),
+				hosted.getString("DownloadUrl", ""), hosted.getString("Sha256", ""),
+				hosted.getString("JarFile", "control/votingplugin-control.jar"),
+				hosted.getString("DataDirectory", "control/data"), hosted.getString("Host", "127.0.0.1"),
+				hosted.getInt("Port", 8080), hosted.getInt("StartupTimeoutSeconds", 30),
+				hosted.getInt("DownloadTimeoutSeconds", 60));
+	}
+
+	private void restartBackendHostedControlIfChanged() {
+		HostedControlManager.HostConfiguration replacementConfiguration = readBackendHostedControlConfiguration();
+		if (replacementConfiguration.equals(backendHostedControlConfiguration)) return;
+		HostedControlManager replacement;
+		try {
+			replacement = HostedControlManager.create(getDataFolder().toPath(), replacementConfiguration,
+					message -> getLogger().info("[Control Host] " + message));
+		} catch (IllegalArgumentException e) {
+			getLogger().warning("[Control Host] Applied Bukkit hosting settings are invalid; the current host is unchanged: "
+					+ e.getMessage());
+			return;
+		}
+		HostedControlManager previous = backendHostedControlManager;
+		backendHostedControlConfiguration = replacementConfiguration;
+		backendHostedControlManager = replacement;
+		if (previous != null) previous.close();
+		if (replacement != null) replacement.start();
 	}
 
 	private void startBackendControlConnector() {
@@ -754,7 +807,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 	}
 
-	/** Refreshes the optional Control connector after its Config.yml settings were applied. */
+	/** Refreshes the optional Control services after their Config.yml settings were applied. */
 	public synchronized void restartBackendControlConnector() {
 		BackendControlConnector connector = backendControlConnector;
 		if (connector != null && connector.hasPendingResults()) {
@@ -771,6 +824,13 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		if (connector != null) connector.close();
 		if (backendControlConnector == connector) backendControlConnector = replacement;
 		if (replacement != null) replacement.start();
+		restartBackendHostedControlIfChanged();
+	}
+
+	/** Redacted lifecycle status for the optional Control process hosted by Bukkit. */
+	public String getBackendHostedControlStatus() {
+		HostedControlManager manager = backendHostedControlManager;
+		return manager == null ? "DISABLED" : manager.status().name();
 	}
 
 	/** Recreates proxy transports after Control applies BungeeSettings.yml. */
@@ -915,6 +975,17 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				debug(e);
 			} finally {
 				if (backendControlConnector == connector) backendControlConnector = null;
+			}
+		}
+		HostedControlManager hosted = backendHostedControlManager;
+		if (hosted != null) {
+			try {
+				hosted.close();
+			} catch (RuntimeException e) {
+				getLogger().warning("[Control Host] Bukkit host did not stop cleanly; normal plugin cleanup will continue");
+				debug(e);
+			} finally {
+				if (backendHostedControlManager == hosted) backendHostedControlManager = null;
 			}
 		}
 		if (getBackendProxyHandler() != null) {

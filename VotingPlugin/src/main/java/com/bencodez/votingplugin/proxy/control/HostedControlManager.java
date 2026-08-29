@@ -92,18 +92,32 @@ public final class HostedControlManager implements AutoCloseable {
 
 	public static HostedControlManager create(VotingPluginProxy proxy) {
 		VotingPluginProxyConfig config = proxy.getConfig();
-		if (!config.getControlHostedEnabled()) {
-			return null;
-		}
-		Path root = proxy.getDataFolderPlugin().toPath().toAbsolutePath().normalize();
-		Settings settings = new Settings(root,
-				resolveInside(root, config.getControlHostedJarFile(), "Control hosted JAR"),
-				resolveInside(root, config.getControlHostedDataDirectory(), "Control hosted data directory"),
+		HostConfiguration hosted = new HostConfiguration(config.getControlHostedEnabled(),
 				config.getControlHostedAutoDownload(), config.getControlHostedAutoUpdate(),
-				parseDownloadUri(config.getControlHostedDownloadUrl()), config.getControlHostedSha256(),
+				config.getControlHostedDownloadUrl(), config.getControlHostedSha256(),
+				config.getControlHostedJarFile(), config.getControlHostedDataDirectory(),
 				config.getControlHostedHost(), config.getControlHostedPort(),
 				config.getControlHostedStartupTimeoutSeconds(), config.getControlHostedDownloadTimeoutSeconds());
-		return new HostedControlManager(settings, message -> proxy.log("[Control Host] " + message));
+		return create(proxy.getDataFolderPlugin().toPath(), hosted,
+				message -> proxy.log("[Control Host] " + message));
+	}
+
+	/**
+	 * Creates the platform-neutral hosted Control supervisor. Bukkit uses this
+	 * entry point so the shared manager never links against the Bukkit API when it
+	 * is loaded on BungeeCord or Velocity.
+	 */
+	public static HostedControlManager create(Path rootDirectory, HostConfiguration config,
+			Consumer<String> logger) {
+		Objects.requireNonNull(config, "config");
+		if (!config.enabled()) return null;
+		Path root = Objects.requireNonNull(rootDirectory, "rootDirectory").toAbsolutePath().normalize();
+		Settings settings = new Settings(root,
+				resolveInside(root, config.jarFile(), "Control hosted JAR"),
+				resolveInside(root, config.dataDirectory(), "Control hosted data directory"),
+				config.autoDownload(), config.autoUpdate(), parseDownloadUri(config.downloadUrl()), config.sha256(),
+				config.host(), config.port(), config.startupTimeoutSeconds(), config.downloadTimeoutSeconds());
+		return new HostedControlManager(settings, Objects.requireNonNull(logger, "logger"));
 	}
 
 	public void start() {
@@ -681,6 +695,11 @@ public final class HostedControlManager implements AutoCloseable {
 	public enum Status {
 		STARTING, DOWNLOADING, STARTING_PROCESS, RUNNING, ROLLED_BACK, FAILED, STOPPED
 	}
+
+	/** Platform configuration for the separate hosted Control process. */
+	public record HostConfiguration(boolean enabled, boolean autoDownload, boolean autoUpdate, String downloadUrl,
+			String sha256, String jarFile, String dataDirectory, String host, int port, int startupTimeoutSeconds,
+			int downloadTimeoutSeconds) { }
 
 	record Settings(Path rootDirectory, Path jarFile, Path dataDirectory, boolean autoDownload, boolean autoUpdate,
 			URI downloadUri, String sha256, String host, int port, int startupTimeoutSeconds,
