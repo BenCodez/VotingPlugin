@@ -80,6 +80,7 @@ import com.bencodez.votingplugin.config.ShopFile;
 import com.bencodez.votingplugin.config.SpecialRewardsConfig;
 import com.bencodez.votingplugin.config.VotingPluginConfigHealth;
 import com.bencodez.votingplugin.cooldown.CoolDownCheck;
+import com.bencodez.votingplugin.control.BackendControlAutoEnrollment;
 import com.bencodez.votingplugin.control.BackendControlConnector;
 import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.discord.DiscordHandler;
@@ -96,6 +97,7 @@ import com.bencodez.votingplugin.placeholders.PlaceHolders;
 import com.bencodez.votingplugin.placeholders.VotingPluginExpansion;
 import com.bencodez.votingplugin.presets.VoteSitePresetSetupHandler;
 import com.bencodez.votingplugin.proxy.control.HostedControlManager;
+import com.bencodez.votingplugin.util.ControlCredentialFile.PendingAutoEnrollment;
 import com.bencodez.votingplugin.rewards.VotingPluginRewardRegistrar;
 import com.bencodez.votingplugin.servicesites.ServiceSiteHandler;
 import com.bencodez.votingplugin.signs.Signs;
@@ -163,6 +165,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private final ProcessedVoteCache backendProcessedVoteCache = new ProcessedVoteCache();
 	private final AtomicReference<GlobalMessageHandler> backendPluginMessageTarget = new AtomicReference<>();
 	private PluginMessageHandler backendPluginMessageRelay;
+	private volatile BackendControlAutoEnrollment backendControlAutoEnrollment;
 	private volatile BackendControlConnector backendControlConnector;
 	private final ScheduledExecutorService backendControlConnectorLifecycle = Executors.newSingleThreadScheduledExecutor(runnable -> {
 		Thread thread = new Thread(runnable, "votingplugin-control-backend-connector-lifecycle");
@@ -785,17 +788,29 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		backendHostedControlActiveConfiguration = configuration;
 		if (!configuration.enabled()) return;
 		try {
-			backendHostedControlManager = HostedControlManager.create(getDataFolder().toPath(), configuration,
-					message -> getLogger().info("[Control Host] " + message));
+			backendHostedControlManager = createBackendHostedControlManager(configuration);
 			backendHostedControlActiveManager = backendHostedControlManager;
 			if (backendHostedControlActiveManager != null) backendHostedControlManagers.add(backendHostedControlActiveManager);
 			if (backendHostedControlActiveManager != null) backendHostedControlActiveManager.start();
-		} catch (IllegalArgumentException e) {
+		} catch (IOException | IllegalArgumentException e) {
 			backendHostedControlManager = null;
 			backendHostedControlActiveManager = null;
 			getLogger().warning("[Control Host] Bukkit hosting configuration is invalid; VotingPlugin remains active: "
 					+ e.getMessage());
 		}
+	}
+
+	private HostedControlManager createBackendHostedControlManager(
+			HostedControlManager.HostConfiguration configuration) throws IOException {
+		PendingAutoEnrollment enrollment = null;
+		try {
+			enrollment = BackendControlAutoEnrollment.prepareLocal(this, configuration);
+		} catch (IOException | IllegalArgumentException enrollmentFailure) {
+			getLogger().warning(
+					"[Control] Automatic local credential enrollment was skipped because its connector settings are invalid");
+		}
+		return HostedControlManager.create(getDataFolder().toPath(), configuration, enrollment,
+				message -> getLogger().info("[Control Host] " + message));
 	}
 
 	private HostedControlManager.HostConfiguration readBackendHostedControlConfiguration() {
@@ -828,9 +843,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 		HostedControlManager replacement;
 		try {
-			replacement = HostedControlManager.create(getDataFolder().toPath(), replacementConfiguration,
-					message -> getLogger().info("[Control Host] " + message));
-		} catch (IllegalArgumentException e) {
+			replacement = createBackendHostedControlManager(replacementConfiguration);
+		} catch (IOException | IllegalArgumentException e) {
 			getLogger().warning("[Control Host] Applied Bukkit hosting settings are invalid; the current host is unchanged: "
 					+ e.getMessage());
 			return;
@@ -932,6 +946,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				Runnable publication = () -> {
 					backendHostedControlActiveManager = replacement;
 					backendHostedControlActiveConfiguration = replacementConfiguration;
+					restartBackendControlConnector();
 				};
 				BackendControlConnector connector = backendControlConnector;
 				if (connector == null) publication.run();
@@ -961,8 +976,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 		HostedControlManager restored = null;
 		try {
-			restored = HostedControlManager.create(getDataFolder().toPath(), previousConfiguration,
-					message -> getLogger().info("[Control Host] " + message));
+			restored = createBackendHostedControlManager(previousConfiguration);
 			if (restored != null) backendHostedControlManagers.add(restored);
 			if (restored != null && !restored.startAndWaitForInitialResult()) {
 				closeBackendHostedControlManager(restored, true);
@@ -1033,12 +1047,39 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	private void startBackendControlConnector() {
 		try {
+			refreshBackendControlAutoEnrollment();
+			if (backendControlAutoEnrollment != null && backendControlAutoEnrollment.isAwaitingCredential()) return;
 			backendControlConnector = BackendControlConnector.create(this);
 			if (backendControlConnector != null) backendControlConnector.start();
 		} catch (Exception e) {
 			backendControlConnector = null;
 			getLogger().warning("[Control] Bukkit configuration connector was not started: " + e.getMessage());
 		}
+	}
+
+	private synchronized void refreshBackendControlAutoEnrollment() throws IOException {
+		BackendControlAutoEnrollment previous = backendControlAutoEnrollment;
+		backendControlAutoEnrollment = null;
+		if (previous != null) previous.close();
+		BackendControlAutoEnrollment replacement = BackendControlAutoEnrollment.create(this,
+				getActiveBackendHostedControlConfigurationSnapshot());
+		backendControlAutoEnrollment = replacement;
+		if (replacement != null) replacement.start();
+	}
+
+	private synchronized void clearBackendControlAutoEnrollment() {
+		BackendControlAutoEnrollment previous = backendControlAutoEnrollment;
+		backendControlAutoEnrollment = null;
+		if (previous != null) previous.close();
+	}
+
+	/** True while a newly configured local host must be published before its connector is created. */
+	private boolean backendControlAwaitsHostedPublication() {
+		HostedControlManager.HostConfiguration configured = readBackendHostedControlConfiguration();
+		if (configured.equals(backendHostedControlActiveConfiguration)) return false;
+		ConfigurationSection control = getConfigFile().getData().getConfigurationSection("Control.Backend");
+		return control != null && control.getBoolean("Enabled", false)
+				&& HostedControlManager.isDirectLocalEndpoint(control.getString("Endpoint", ""), configured);
 	}
 
 	/** Refreshes the optional Control services after their Config.yml settings were applied. */
@@ -1092,7 +1133,15 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			BackendControlConnector replacement;
 			boolean creationFailed = false;
 			try {
-				replacement = BackendControlConnector.create(this);
+				if (backendControlAwaitsHostedPublication()) {
+					clearBackendControlAutoEnrollment();
+					replacement = null;
+				} else {
+					refreshBackendControlAutoEnrollment();
+					BackendControlAutoEnrollment enrollment = backendControlAutoEnrollment;
+					replacement = enrollment != null && enrollment.isAwaitingCredential()
+							? null : BackendControlConnector.create(this);
+				}
 			} catch (Exception e) {
 				replacement = null;
 				creationFailed = true;
@@ -1135,6 +1184,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private void stopBackendControlConnectorLifecycle() {
 		backendControlConnectorStopping = true;
 		backendControlConnectorLifecycle.shutdownNow();
+		BackendControlAutoEnrollment enrollment = backendControlAutoEnrollment;
+		backendControlAutoEnrollment = null;
+		if (enrollment != null) enrollment.close();
 		BackendControlConnector connector = backendControlConnector;
 		backendControlConnector = null;
 		if (connector != null) {
@@ -1167,6 +1219,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		if (!bungeeSettings.isUseBungeecoord()) {
 			backendProxyHandler = null;
 			if (previous != null) previous.close();
+			BackendControlAutoEnrollment enrollment = backendControlAutoEnrollment;
+			backendControlAutoEnrollment = null;
+			if (enrollment != null) enrollment.close();
 			return;
 		}
 		BungeeMethod replacementMethod = BungeeMethod.getByName(bungeeSettings.getBungeeMethod());
@@ -1182,6 +1237,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 		backendProxyHandler = replacement;
 		if (previous != null) previous.close();
+		try {
+			refreshBackendControlAutoEnrollment();
+		} catch (IOException e) {
+			getLogger().warning("[Control] Automatic backend enrollment was not refreshed: " + e.getMessage());
+		}
 	}
 
 	/** Keeps one plugin-message listener for the plugin lifetime and atomically swaps its active backend handler. */
@@ -1201,6 +1261,18 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	public void deactivateBackendPluginMessageHandler(GlobalMessageHandler target) {
 		backendPluginMessageTarget.compareAndSet(target, null);
+	}
+
+	/** Handles the non-secret acknowledgement for a pending proxy-mediated enrollment. */
+	public void handleBackendControlEnrollmentResult(com.bencodez.simpleapi.servercomm.codec.JsonEnvelope envelope) {
+		BackendControlAutoEnrollment enrollment = backendControlAutoEnrollment;
+		if (enrollment != null) enrollment.handle(envelope);
+	}
+
+	/** Confirms that the generated credential authenticated to the configured Control endpoint. */
+	public void backendControlAuthenticated(String nodeId, String credentialFile, String endpoint, String verifier) {
+		BackendControlAutoEnrollment enrollment = backendControlAutoEnrollment;
+		if (enrollment != null) enrollment.connectorAuthenticated(nodeId, credentialFile, endpoint, verifier);
 	}
 
 	private void migrateVoteBroadcast(Config configFile) {

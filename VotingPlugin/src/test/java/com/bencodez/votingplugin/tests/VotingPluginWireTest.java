@@ -178,4 +178,44 @@ public class VotingPluginWireTest {
 		assertEquals(1000L, snapshot.backendStartedAt);
 		assertEquals(1300L, snapshot.presenceTimestamp);
 	}
+
+	@Test
+	public void controlEnrollmentRoundTripContainsVerifierIdentityAndRoute() {
+		UUID requestId = UUID.randomUUID();
+		String verifier = "a".repeat(64);
+
+		VotingPluginWire.ControlEnrollmentRequest request = VotingPluginWire.readControlEnrollmentRequest(
+				VotingPluginWire.controlEnrollmentRequest("survival", verifier, "http://10.0.0.5:2150", requestId));
+		VotingPluginWire.ControlEnrollmentResult result = VotingPluginWire.readControlEnrollmentResult(
+				VotingPluginWire.controlEnrollmentResult("survival", requestId, true));
+
+		assertTrue(request.valid);
+		assertEquals("survival", request.nodeId);
+		assertEquals(verifier, request.verifier);
+		assertEquals("http://10.0.0.5:2150", request.endpoint);
+		assertEquals(requestId, request.requestId);
+		assertTrue(result.valid);
+		assertTrue(result.success);
+		assertEquals(requestId, result.requestId);
+	}
+
+	@Test
+	public void blankVerifierIsAValidHostedRoutePreflight() {
+		VotingPluginWire.ControlEnrollmentRequest request = VotingPluginWire.readControlEnrollmentRequest(
+				VotingPluginWire.controlEnrollmentRequest("survival", "", "http://10.0.0.5:2150",
+						UUID.randomUUID()));
+
+		assertTrue(request.valid);
+		assertEquals("", request.verifier);
+	}
+
+	@Test
+	public void malformedControlEnrollmentIsRejected() {
+		JsonEnvelope malformed = JsonEnvelope.builder(VotingPluginWire.SUB_CONTROL_ENROLLMENT_REQUEST)
+				.schema(VotingPluginWire.SCHEMA_VERSION).put(VotingPluginWire.K_NODE_ID, "../proxy")
+				.put(VotingPluginWire.K_VERIFIER, "not-a-verifier")
+				.put(VotingPluginWire.K_REQUEST_ID, "not-a-uuid").build();
+
+		assertFalse(VotingPluginWire.readControlEnrollmentRequest(malformed).valid);
+	}
 }

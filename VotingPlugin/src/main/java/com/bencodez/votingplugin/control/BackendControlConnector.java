@@ -50,6 +50,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	private final Path dataDirectory;
 	private final Settings settings;
 	private final String credential;
+	private final String credentialVerifier;
 	private volatile HostConfiguration hostedConfiguration;
 	private final ScheduledExecutorService executor;
 	private final HttpClient http;
@@ -75,6 +76,7 @@ public final class BackendControlConnector implements AutoCloseable {
 		this.dataDirectory = dataDirectory;
 		this.settings = settings;
 		this.credential = credential;
+		this.credentialVerifier = ControlCredentialFile.sha256Verifier(credential);
 		this.hostedConfiguration = hostedConfiguration;
 		this.recovering = recovering;
 		ThreadFactory factory = runnable -> {
@@ -121,7 +123,7 @@ public final class BackendControlConnector implements AutoCloseable {
 		}
 		ConfigurationSection control = plugin.getConfigFile().getData().getConfigurationSection("Control.Backend");
 		if (control == null || !control.getBoolean("Enabled", false)) return null;
-		String nodeId = control.getString("NodeId", "").trim();
+		String nodeId = BackendControlAutoEnrollment.configuredNodeId(plugin, control);
 		if (!NODE_ID.matcher(nodeId).matches()) throw new IllegalArgumentException("Control.Backend.NodeId is invalid");
 		String endpointValue = control.getString("Endpoint", "").trim();
 		URI endpoint = URI.create(endpointValue);
@@ -180,6 +182,8 @@ public final class BackendControlConnector implements AutoCloseable {
 				throw incompatible;
 			}
 			registered = true;
+			plugin.backendControlAuthenticated(settings.nodeId(), settings.credentialFile(),
+					settings.endpoint().toString(), credentialVerifier);
 			if (closed) return;
 			if (operationsAccepted) {
 				CompletableFuture<Void> operation = new CompletableFuture<>();

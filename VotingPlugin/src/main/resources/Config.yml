@@ -1160,8 +1160,8 @@ Webhooks:
 ###########################################
 # VotingPlugin Control backend connector
 # Optional outbound connection for full local WebUI configuration control.
-# Create a node credential with Control's `enroll` owner command and place it
-# in the VotingPlugin data folder. The credential is never stored in this YAML.
+# A locally hosted Control, or a proxy-hosted Control reached with PLUGINMESSAGING,
+# generates and enrolls credentials automatically. The credential never enters this YAML.
 ###########################################
 
 Control:
@@ -1185,10 +1185,13 @@ Control:
     DownloadTimeoutSeconds: 60
   Backend:
     Enabled: false
-    # Must be unique for every Bukkit/Paper backend in the network.
+    # Blank reuses BungeeSettings.Server, which must be unique for every backend.
     NodeId: ''
+    # For a proxy-hosted Control, use the proxy VM/private IP. Loopback is accepted only for Control hosted by this backend.
     Endpoint: 'http://127.0.0.1:8080'
-    # VotingPlugin creates this blank file automatically; paste only the enrollment credential into it.
+    # VotingPlugin automatically generates this local credential only after confirming it can enroll through
+    # the hosted Control on this server or the proxy's authenticated, route-verified plugin-message path.
+    # Unsupported/external topologies retain the blank file for manual enrollment.
     CredentialFile: 'control/control-credential.txt'
     HeartbeatSeconds: 30
     ConnectTimeoutMillis: 3000

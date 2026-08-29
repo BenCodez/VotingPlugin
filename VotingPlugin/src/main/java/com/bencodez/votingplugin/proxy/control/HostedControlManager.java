@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -36,6 +37,8 @@ import java.util.function.LongSupplier;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 import com.bencodez.votingplugin.util.BoundedHttpBodyHandler;
+import com.bencodez.votingplugin.util.ControlCredentialFile;
+import com.bencodez.votingplugin.util.ControlCredentialFile.PendingAutoEnrollment;
 import com.bencodez.votingplugin.util.DurableFiles;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -54,11 +57,13 @@ public final class HostedControlManager implements AutoCloseable {
 	private final ScheduledExecutorService executor;
 	private final ArtifactDownloader downloader;
 	private final ProcessLauncher launcher;
+	private final VerifierInstaller verifierInstaller;
 	private final HealthProbe healthProbe;
 	private final Sleeper sleeper;
 	private final LongSupplier nanoTime;
 	private final Consumer<String> logger;
 	private final AtomicBoolean workInProgress = new AtomicBoolean();
+	private final ConcurrentHashMap<String, CompletableFuture<Boolean>> enrollmentTasks = new ConcurrentHashMap<>();
 	private final Object processLifecycle = new Object();
 	private final Object preparationLifecycle = new Object();
 	private volatile boolean closed;
@@ -73,26 +78,39 @@ public final class HostedControlManager implements AutoCloseable {
 	private volatile String rollbackCandidateSha256;
 	private volatile boolean rollbackCandidateReachedHealth;
 	private volatile boolean rollbackPending;
+	private volatile String healthyLaunchId;
+	private volatile PendingAutoEnrollment localAutoEnrollment;
 
-	private HostedControlManager(Settings settings, Consumer<String> logger) {
+	private HostedControlManager(Settings settings, PendingAutoEnrollment localAutoEnrollment,
+			Consumer<String> logger) {
 		this(settings, daemonExecutor(), new JdkArtifactDownloader(), new JdkProcessLauncher(),
-				new JdkHealthProbe(), Thread::sleep, System::nanoTime, logger);
+				new JdkVerifierInstaller(), new JdkHealthProbe(), Thread::sleep, System::nanoTime,
+				localAutoEnrollment, logger);
 	}
 
 	HostedControlManager(Settings settings, ScheduledExecutorService executor, ArtifactDownloader downloader,
 			ProcessLauncher launcher, HealthProbe healthProbe, Sleeper sleeper, LongSupplier nanoTime,
 			Consumer<String> logger) {
+		this(settings, executor, downloader, launcher, (configured, artifact, nodeId, verifier, timeout) -> { },
+				healthProbe, sleeper, nanoTime, null, logger);
+	}
+
+	HostedControlManager(Settings settings, ScheduledExecutorService executor, ArtifactDownloader downloader,
+			ProcessLauncher launcher, VerifierInstaller verifierInstaller, HealthProbe healthProbe, Sleeper sleeper,
+			LongSupplier nanoTime, PendingAutoEnrollment localAutoEnrollment, Consumer<String> logger) {
 		this.settings = Objects.requireNonNull(settings, "settings");
 		this.executor = Objects.requireNonNull(executor, "executor");
 		this.downloader = Objects.requireNonNull(downloader, "downloader");
 		this.launcher = Objects.requireNonNull(launcher, "launcher");
+		this.verifierInstaller = Objects.requireNonNull(verifierInstaller, "verifierInstaller");
 		this.healthProbe = Objects.requireNonNull(healthProbe, "healthProbe");
 		this.sleeper = Objects.requireNonNull(sleeper, "sleeper");
 		this.nanoTime = Objects.requireNonNull(nanoTime, "nanoTime");
+		this.localAutoEnrollment = localAutoEnrollment;
 		this.logger = Objects.requireNonNull(logger, "logger");
 	}
 
-	public static HostedControlManager create(VotingPluginProxy proxy) {
+	public static HostedControlManager create(VotingPluginProxy proxy) throws IOException {
 		VotingPluginProxyConfig config = proxy.getConfig();
 		HostConfiguration hosted = new HostConfiguration(config.getControlHostedEnabled(),
 				config.getControlHostedAutoDownload(), config.getControlHostedAutoUpdate(),
@@ -100,8 +118,20 @@ public final class HostedControlManager implements AutoCloseable {
 				config.getControlHostedJarFile(), config.getControlHostedDataDirectory(),
 				config.getControlHostedHost(), config.getControlHostedPort(),
 				config.getControlHostedStartupTimeoutSeconds(), config.getControlHostedDownloadTimeoutSeconds());
-		return create(proxy.getDataFolderPlugin().toPath(), hosted,
-				message -> proxy.log("[Control Host] " + message));
+		Path root = proxy.getDataFolderPlugin().toPath();
+		PendingAutoEnrollment enrollment = null;
+		if (config.getControlEnabled() && isDirectLocalEndpoint(config.getControlEndpoint(), hosted)) {
+			try {
+				String configuredNodeId = config.getControlNodeId();
+				String nodeId = configuredNodeId == null || configuredNodeId.isBlank()
+						? config.getProxyServerName() : configuredNodeId.trim();
+				enrollment = ControlCredentialFile.prepareAutoEnrollment(root,
+						config.getControlCredentialFile(), nodeId);
+			} catch (IOException | IllegalArgumentException enrollmentFailure) {
+				proxy.log("[Control] Automatic local credential enrollment was skipped because its connector settings are invalid");
+			}
+		}
+		return create(root, hosted, enrollment, message -> proxy.log("[Control Host] " + message));
 	}
 
 	/**
@@ -111,6 +141,12 @@ public final class HostedControlManager implements AutoCloseable {
 	 */
 	public static HostedControlManager create(Path rootDirectory, HostConfiguration config,
 			Consumer<String> logger) {
+		return create(rootDirectory, config, null, logger);
+	}
+
+	/** Creates a hosted supervisor with an optional verifier-only local enrollment. */
+	public static HostedControlManager create(Path rootDirectory, HostConfiguration config,
+			PendingAutoEnrollment localAutoEnrollment, Consumer<String> logger) {
 		Objects.requireNonNull(config, "config");
 		if (!config.enabled()) return null;
 		Path root = Objects.requireNonNull(rootDirectory, "rootDirectory").toAbsolutePath().normalize();
@@ -119,7 +155,7 @@ public final class HostedControlManager implements AutoCloseable {
 				resolveInside(root, config.dataDirectory(), "Control hosted data directory"),
 				config.autoDownload(), config.autoUpdate(), parseDownloadUri(config.downloadUrl()), config.sha256(),
 				config.host(), config.port(), config.startupTimeoutSeconds(), config.downloadTimeoutSeconds());
-		return new HostedControlManager(settings, Objects.requireNonNull(logger, "logger"));
+		return new HostedControlManager(settings, localAutoEnrollment, Objects.requireNonNull(logger, "logger"));
 	}
 
 	public void start() {
@@ -197,6 +233,7 @@ public final class HostedControlManager implements AutoCloseable {
 			if (closed) {
 				return;
 			}
+			installLocalAutoEnrollment();
 			LaunchedProcess launched = launch(settings.jarFile());
 			ManagedProcess process = launched.process();
 			if (updated) {
@@ -218,6 +255,7 @@ public final class HostedControlManager implements AutoCloseable {
 				rollbackCandidateSha256 = null;
 				rollbackCandidateReachedHealth = false;
 				rollbackPending = false;
+				healthyLaunchId = launched.launchId();
 				status = Status.RUNNING;
 				logger.accept("WebUI is available at " + settings.endpoint());
 				monitor(process);
@@ -254,6 +292,7 @@ public final class HostedControlManager implements AutoCloseable {
 		ManagedProcess previous = previousLaunch.process();
 		if (awaitHealthy(previousLaunch)) {
 			failures = 0;
+			healthyLaunchId = previousLaunch.launchId();
 			status = Status.ROLLED_BACK;
 			logger.accept("The new Control release failed health checks; the previous release is running");
 			monitor(previous);
@@ -512,8 +551,81 @@ public final class HostedControlManager implements AutoCloseable {
 		DurableFiles.deleteIfExists(settings.quarantineFile());
 	}
 
+	private void installLocalAutoEnrollment() throws IOException, InterruptedException {
+		PendingAutoEnrollment enrollment = localAutoEnrollment;
+		if (enrollment == null) return;
+		requireTrustedInstalledArtifact();
+		verifierInstaller.install(settings, settings.jarFile(), enrollment.nodeId(), enrollment.verifier(),
+				Duration.ofSeconds(Math.min(30, settings.startupTimeoutSeconds())));
+		ControlCredentialFile.completeAutoEnrollment(enrollment);
+		localAutoEnrollment = null;
+		logger.accept("Automatically enrolled local node " + enrollment.nodeId());
+	}
+
+	/**
+	 * Proves a backend route reaches this hosted launch, then optionally installs
+	 * its verifier. The raw credential never reaches this process.
+	 */
+	public CompletableFuture<Boolean> installNodeVerifier(String nodeId, String verifier, String endpoint) {
+		if (nodeId == null || !nodeId.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+				|| verifier == null || (!verifier.isEmpty() && !verifier.matches("[0-9a-f]{64}"))) {
+			return CompletableFuture.completedFuture(false);
+		}
+		URI requestedEndpoint = hostedBackendEndpoint(endpoint);
+		if (requestedEndpoint == null) return CompletableFuture.completedFuture(false);
+		String key = nodeId + ':' + verifier + ':' + requestedEndpoint;
+		return enrollmentTasks.computeIfAbsent(key, ignored -> {
+			CompletableFuture<Boolean> result = new CompletableFuture<>();
+			try {
+				executor.execute(() -> {
+					try {
+						String launchId = healthyLaunchId;
+						if (closed || (status != Status.RUNNING && status != Status.ROLLED_BACK)
+								|| launchId == null
+								|| !Files.isRegularFile(settings.jarFile(), LinkOption.NOFOLLOW_LINKS)) {
+							result.complete(false);
+							return;
+						}
+						if (!healthProbe.isHealthy(requestedEndpoint, Duration.ofSeconds(2), launchId)) {
+							result.complete(false);
+							return;
+						}
+						if (verifier.isEmpty()) {
+							result.complete(true);
+							return;
+						}
+						requireTrustedInstalledArtifact();
+						verifierInstaller.install(settings, settings.jarFile(), nodeId, verifier,
+								Duration.ofSeconds(Math.min(30, settings.startupTimeoutSeconds())));
+						result.complete(true);
+					} catch (Exception failure) {
+						if (failure instanceof InterruptedException) Thread.currentThread().interrupt();
+						result.complete(false);
+					} finally {
+						enrollmentTasks.remove(key, result);
+					}
+				});
+			} catch (RuntimeException failure) {
+				result.complete(false);
+				enrollmentTasks.remove(key, result);
+			}
+			return result;
+		});
+	}
+
+	private void requireTrustedInstalledArtifact() throws IOException {
+		if (!Files.isRegularFile(settings.jarFile(), LinkOption.NOFOLLOW_LINKS)) {
+			throw new IOException("Control artifact is unavailable");
+		}
+		String installed = sha256(settings.jarFile());
+		if (!settings.sha256().equals(installed) && !installed.equals(trustedRollbackSha256)) {
+			throw new IOException("Control artifact no longer matches a trusted digest");
+		}
+	}
+
 	private LaunchedProcess launch(Path artifact) throws IOException {
 		status = Status.STARTING_PROCESS;
+		healthyLaunchId = null;
 		synchronized (processLifecycle) {
 			if (closed) throw new IOException("Hosted Control manager is closed");
 			if (managedProcess != null) {
@@ -567,6 +679,7 @@ public final class HostedControlManager implements AutoCloseable {
 				return;
 			}
 			managedProcess = null;
+			healthyLaunchId = null;
 			status = Status.FAILED;
 			logger.accept("Control exited unexpectedly; a bounded restart will be attempted");
 			scheduleRetry();
@@ -574,6 +687,7 @@ public final class HostedControlManager implements AutoCloseable {
 	}
 
 	private void fail() {
+		healthyLaunchId = null;
 		status = Status.FAILED;
 		ManagedProcess process = managedProcess;
 		if (process != null && process.isAlive()) {
@@ -586,6 +700,7 @@ public final class HostedControlManager implements AutoCloseable {
 	}
 
 	private void failWhileProcessIsAlive(ManagedProcess process) {
+		healthyLaunchId = null;
 		status = Status.FAILED;
 		synchronized (processLifecycle) {
 			if (closed || managedProcess != process || exitAwaitedProcess == process) return;
@@ -634,6 +749,7 @@ public final class HostedControlManager implements AutoCloseable {
 		ManagedProcess process;
 		synchronized (processLifecycle) {
 			closed = true;
+			healthyLaunchId = null;
 			status = Status.STOPPED;
 			process = managedProcess;
 		}
@@ -656,6 +772,8 @@ public final class HostedControlManager implements AutoCloseable {
 		} finally {
 			discardPreparedArtifact();
 			executor.shutdownNow();
+			enrollmentTasks.values().forEach(result -> result.complete(false));
+			enrollmentTasks.clear();
 		}
 		if (waitForProcess) {
 			long waitSeconds = (long) settings.downloadTimeoutSeconds() + settings.startupTimeoutSeconds() + 5L;
@@ -755,6 +873,71 @@ public final class HostedControlManager implements AutoCloseable {
 			throw new IllegalArgumentException(name + " escapes the plugin data directory");
 		}
 		return resolved;
+	}
+
+	/** True only for direct HTTP to this hosted listener on the same node. */
+	public static boolean isDirectLocalEndpoint(String configuredEndpoint, HostConfiguration hosted) {
+		if (hosted == null || !hosted.enabled() || configuredEndpoint == null) return false;
+		try {
+			URI endpoint = URI.create(configuredEndpoint.trim());
+			String host = normalizeHostLiteral(endpoint.getHost());
+			int port = endpoint.getPort() < 0 ? 80 : endpoint.getPort();
+			String path = endpoint.getPath();
+			boolean loopback = isLoopbackHost(host);
+			String listenerHost = normalizeHostLiteral(hosted.host());
+			boolean configuredListener = host != null && host.equalsIgnoreCase(listenerHost);
+			boolean listenerLoopback = isLoopbackHost(listenerHost);
+			boolean listenerWildcard = "0.0.0.0".equals(listenerHost) || "::".equals(listenerHost)
+					|| "0:0:0:0:0:0:0:0".equals(listenerHost);
+			return "http".equalsIgnoreCase(endpoint.getScheme())
+					&& (configuredListener || (loopback && (listenerLoopback || listenerWildcard)))
+					&& port == hosted.port()
+					&& endpoint.getUserInfo() == null && endpoint.getQuery() == null && endpoint.getFragment() == null
+					&& (path == null || path.isEmpty() || "/".equals(path));
+		} catch (IllegalArgumentException e) {
+			return false;
+		}
+	}
+
+	/**
+	 * Accepts a backend route only when it can address this listener. A subsequent
+	 * launch-id health probe proves that the route reaches this exact hosted process.
+	 */
+	private URI hostedBackendEndpoint(String configuredEndpoint) {
+		if (configuredEndpoint == null || configuredEndpoint.isBlank()) return null;
+		try {
+			URI endpoint = URI.create(configuredEndpoint.trim());
+			String host = normalizeHostLiteral(endpoint.getHost());
+			String listenerHost = normalizeHostLiteral(settings.host());
+			int port = endpoint.getPort() < 0 ? 80 : endpoint.getPort();
+			String path = endpoint.getPath();
+			boolean listenerWildcard = "0.0.0.0".equals(listenerHost) || "::".equals(listenerHost)
+					|| "0:0:0:0:0:0:0:0".equals(listenerHost);
+			if (!"http".equalsIgnoreCase(endpoint.getScheme()) || host.isBlank() || isLoopbackHost(host)
+					|| (!listenerWildcard && !host.equalsIgnoreCase(listenerHost)) || port != settings.port()
+					|| endpoint.getUserInfo() != null || endpoint.getQuery() != null || endpoint.getFragment() != null
+					|| (path != null && !path.isEmpty() && !"/".equals(path))) {
+				return null;
+			}
+			return endpoint;
+		} catch (IllegalArgumentException e) {
+			return null;
+		}
+	}
+
+	private static String normalizeHostLiteral(String host) {
+		if (host == null) return "";
+		String normalized = host.trim();
+		if (normalized.length() >= 2 && normalized.charAt(0) == '['
+				&& normalized.charAt(normalized.length() - 1) == ']') {
+			return normalized.substring(1, normalized.length() - 1);
+		}
+		return normalized;
+	}
+
+	private static boolean isLoopbackHost(String host) {
+		return "localhost".equalsIgnoreCase(host) || host.startsWith("127.")
+				|| "::1".equalsIgnoreCase(host) || "0:0:0:0:0:0:0:1".equalsIgnoreCase(host);
 	}
 
 	static URI parseDownloadUri(String configured) {
@@ -872,6 +1055,11 @@ public final class HostedControlManager implements AutoCloseable {
 		ManagedProcess launch(Settings settings, Path artifact, String launchId) throws IOException;
 	}
 
+	interface VerifierInstaller {
+		void install(Settings settings, Path artifact, String nodeId, String verifier, Duration timeout)
+				throws IOException, InterruptedException;
+	}
+
 	interface HealthProbe {
 		boolean isHealthy(URI endpoint, Duration timeout, String launchId);
 	}
@@ -981,6 +1169,34 @@ public final class HostedControlManager implements AutoCloseable {
 		}
 	}
 
+	private static final class JdkVerifierInstaller implements VerifierInstaller {
+		@Override
+		public void install(Settings settings, Path artifact, String nodeId, String verifier, Duration timeout)
+				throws IOException, InterruptedException {
+			Path java = Path.of(System.getProperty("java.home"), "bin", isWindows() ? "java.exe" : "java");
+			ProcessBuilder builder = new ProcessBuilder(java.toString(), "-jar", artifact.toString(),
+					"enroll-verifier", nodeId, verifier, settings.dataDirectory().toString());
+			builder.directory(artifact.getParent().toFile());
+			builder.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+			builder.redirectError(ProcessBuilder.Redirect.DISCARD);
+			copySafeEnvironment(builder);
+			Process process = builder.start();
+			boolean exited;
+			try {
+				exited = process.waitFor(Math.max(1L, timeout.toMillis()), TimeUnit.MILLISECONDS);
+			} catch (InterruptedException e) {
+				process.destroyForcibly();
+				throw e;
+			}
+			if (!exited) {
+				process.destroy();
+				if (!process.waitFor(2, TimeUnit.SECONDS)) process.destroyForcibly();
+				throw new IOException("Control verifier enrollment timed out");
+			}
+			if (process.exitValue() != 0) throw new IOException("Control verifier enrollment failed");
+		}
+	}
+
 	private static final class JdkProcessLauncher implements ProcessLauncher {
 		@Override
 		public ManagedProcess launch(Settings settings, Path artifact, String launchId) throws IOException {
@@ -997,14 +1213,8 @@ public final class HostedControlManager implements AutoCloseable {
 			builder.directory(artifact.getParent().toFile());
 			builder.redirectErrorStream(true);
 			builder.redirectOutput(ProcessBuilder.Redirect.appendTo(log.toFile()));
+			copySafeEnvironment(builder);
 			var environment = builder.environment();
-			environment.clear();
-			for (String safe : Set.of("LANG", "LC_ALL", "SYSTEMROOT", "WINDIR", "TEMP", "TMP")) {
-				String value = System.getenv(safe);
-				if (value != null) {
-					environment.put(safe, value);
-				}
-			}
 			environment.put("CONTROL_HOST", settings.host());
 			environment.put("CONTROL_PORT", Integer.toString(settings.port()));
 			environment.put("CONTROL_DATA_DIR", settings.dataDirectory().toString());
@@ -1014,8 +1224,21 @@ public final class HostedControlManager implements AutoCloseable {
 		}
 
 		private static boolean isWindows() {
-			return DurableFiles.isWindowsName(System.getProperty("os.name", ""));
+			return HostedControlManager.isWindows();
 		}
+	}
+
+	private static void copySafeEnvironment(ProcessBuilder builder) {
+		var environment = builder.environment();
+		environment.clear();
+		for (String safe : Set.of("LANG", "LC_ALL", "SYSTEMROOT", "WINDIR", "TEMP", "TMP")) {
+			String value = System.getenv(safe);
+			if (value != null) environment.put(safe, value);
+		}
+	}
+
+	private static boolean isWindows() {
+		return DurableFiles.isWindowsName(System.getProperty("os.name", ""));
 	}
 
 	static final class JdkHealthProbe implements HealthProbe {
