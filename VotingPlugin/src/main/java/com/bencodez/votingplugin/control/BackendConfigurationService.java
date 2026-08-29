@@ -348,12 +348,17 @@ public final class BackendConfigurationService {
 		for (String path : new ArrayList<>(yaml.getKeys(true))) {
 			if (!(yaml.get(path) instanceof ConfigurationSection) && secret(path)) {
 				Object value = yaml.get(path);
-				if (value != null && !String.valueOf(value).isBlank()) secretValues.add(String.valueOf(value));
+				if (value != null) addSecretValues(secretValues, String.valueOf(value));
 				yaml.set(path, REDACTED);
 			}
 		}
 		sanitizeCommentMetadata(yaml, secretValues);
 		return yaml.saveToString();
+	}
+
+	private static void addSecretValues(Set<String> values, String value) {
+		if (!value.isBlank()) values.add(value);
+		value.lines().map(String::trim).filter(line -> !line.isBlank()).forEach(values::add);
 	}
 
 	private static void sanitizeCommentMetadata(YamlConfiguration yaml, Set<String> secretValues) {

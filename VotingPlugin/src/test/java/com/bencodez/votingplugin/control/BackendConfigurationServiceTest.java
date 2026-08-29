@@ -134,6 +134,18 @@ class BackendConfigurationServiceTest {
 		assertTrue(read.content().contains("# This is true when enabled"));
 	}
 
+	@Test void redactsIndividualLinesFromMultilineSecretsInComments() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "Password: |\n  alpha-secret-part\n  beta-secret-part\n"
+				+ "# rotate alpha-secret-part soon\nFeature: false\n");
+
+		BackendConfigurationService.Document read = new BackendConfigurationService(directory, () -> { })
+				.read("Config.yml");
+
+		assertFalse(read.content().contains("alpha-secret-part"));
+		assertFalse(read.content().contains("beta-secret-part"));
+	}
+
 	@Test void rejectsStaleInvalidAndUnmanagedWrites() throws Exception {
 		Files.writeString(directory.resolve("Config.yml"), "Feature: false\n");
 		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
