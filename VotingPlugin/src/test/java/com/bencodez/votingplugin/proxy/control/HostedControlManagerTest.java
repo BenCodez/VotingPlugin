@@ -55,6 +55,10 @@ class HostedControlManagerTest {
 				false, "", "0".repeat(64), "../control.jar", "control/data", "127.0.0.1", 8080, 30, 60);
 		assertThrows(IllegalArgumentException.class,
 				() -> HostedControlManager.create(directory, escaping, message -> { }));
+		HostedControlManager.HostConfiguration invalidHost = new HostedControlManager.HostConfiguration(true, false,
+				false, "", "0".repeat(64), "control/control.jar", "control/data", "[", 8080, 30, 60);
+		assertThrows(IllegalArgumentException.class,
+				() -> HostedControlManager.create(directory, invalidHost, message -> { }));
 	}
 
 	@Test

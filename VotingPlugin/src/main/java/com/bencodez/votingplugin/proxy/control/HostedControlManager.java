@@ -728,6 +728,7 @@ public final class HostedControlManager implements AutoCloseable {
 					|| downloadTimeoutSeconds < 5 || downloadTimeoutSeconds > 300) {
 				throw new IllegalArgumentException("Control hosted bounds are invalid");
 			}
+			parseEndpoint(host, port);
 		}
 
 		Path previousFile() {
@@ -751,8 +752,16 @@ public final class HostedControlManager implements AutoCloseable {
 		}
 
 		URI endpoint() {
+			return parseEndpoint(host, port);
+		}
+
+		private static URI parseEndpoint(String host, int port) {
 			try {
-				return new URI("http", null, host, port, "/", null, null);
+				URI endpoint = new URI("http", null, host, port, "/", null, null);
+				if (endpoint.getHost() == null) {
+					throw new IllegalArgumentException("Control hosted endpoint is invalid");
+				}
+				return endpoint;
 			} catch (Exception e) {
 				throw new IllegalArgumentException("Control hosted endpoint is invalid");
 			}
