@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -36,6 +37,8 @@ import java.util.function.LongSupplier;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 import com.bencodez.votingplugin.util.BoundedHttpBodyHandler;
+import com.bencodez.votingplugin.util.ControlCredentialFile;
+import com.bencodez.votingplugin.util.ControlCredentialFile.PendingAutoEnrollment;
 import com.bencodez.votingplugin.util.DurableFiles;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -54,11 +57,13 @@ public final class HostedControlManager implements AutoCloseable {
 	private final ScheduledExecutorService executor;
 	private final ArtifactDownloader downloader;
 	private final ProcessLauncher launcher;
+	private final VerifierInstaller verifierInstaller;
 	private final HealthProbe healthProbe;
 	private final Sleeper sleeper;
 	private final LongSupplier nanoTime;
 	private final Consumer<String> logger;
 	private final AtomicBoolean workInProgress = new AtomicBoolean();
+	private final ConcurrentHashMap<String, CompletableFuture<Boolean>> enrollmentTasks = new ConcurrentHashMap<>();
 	private final Object processLifecycle = new Object();
 	private final Object preparationLifecycle = new Object();
 	private volatile boolean closed;
@@ -73,26 +78,38 @@ public final class HostedControlManager implements AutoCloseable {
 	private volatile String rollbackCandidateSha256;
 	private volatile boolean rollbackCandidateReachedHealth;
 	private volatile boolean rollbackPending;
+	private volatile PendingAutoEnrollment localAutoEnrollment;
 
-	private HostedControlManager(Settings settings, Consumer<String> logger) {
+	private HostedControlManager(Settings settings, PendingAutoEnrollment localAutoEnrollment,
+			Consumer<String> logger) {
 		this(settings, daemonExecutor(), new JdkArtifactDownloader(), new JdkProcessLauncher(),
-				new JdkHealthProbe(), Thread::sleep, System::nanoTime, logger);
+				new JdkVerifierInstaller(), new JdkHealthProbe(), Thread::sleep, System::nanoTime,
+				localAutoEnrollment, logger);
 	}
 
 	HostedControlManager(Settings settings, ScheduledExecutorService executor, ArtifactDownloader downloader,
 			ProcessLauncher launcher, HealthProbe healthProbe, Sleeper sleeper, LongSupplier nanoTime,
 			Consumer<String> logger) {
+		this(settings, executor, downloader, launcher, (configured, artifact, nodeId, verifier, timeout) -> { },
+				healthProbe, sleeper, nanoTime, null, logger);
+	}
+
+	HostedControlManager(Settings settings, ScheduledExecutorService executor, ArtifactDownloader downloader,
+			ProcessLauncher launcher, VerifierInstaller verifierInstaller, HealthProbe healthProbe, Sleeper sleeper,
+			LongSupplier nanoTime, PendingAutoEnrollment localAutoEnrollment, Consumer<String> logger) {
 		this.settings = Objects.requireNonNull(settings, "settings");
 		this.executor = Objects.requireNonNull(executor, "executor");
 		this.downloader = Objects.requireNonNull(downloader, "downloader");
 		this.launcher = Objects.requireNonNull(launcher, "launcher");
+		this.verifierInstaller = Objects.requireNonNull(verifierInstaller, "verifierInstaller");
 		this.healthProbe = Objects.requireNonNull(healthProbe, "healthProbe");
 		this.sleeper = Objects.requireNonNull(sleeper, "sleeper");
 		this.nanoTime = Objects.requireNonNull(nanoTime, "nanoTime");
+		this.localAutoEnrollment = localAutoEnrollment;
 		this.logger = Objects.requireNonNull(logger, "logger");
 	}
 
-	public static HostedControlManager create(VotingPluginProxy proxy) {
+	public static HostedControlManager create(VotingPluginProxy proxy) throws IOException {
 		VotingPluginProxyConfig config = proxy.getConfig();
 		HostConfiguration hosted = new HostConfiguration(config.getControlHostedEnabled(),
 				config.getControlHostedAutoDownload(), config.getControlHostedAutoUpdate(),
@@ -100,8 +117,16 @@ public final class HostedControlManager implements AutoCloseable {
 				config.getControlHostedJarFile(), config.getControlHostedDataDirectory(),
 				config.getControlHostedHost(), config.getControlHostedPort(),
 				config.getControlHostedStartupTimeoutSeconds(), config.getControlHostedDownloadTimeoutSeconds());
-		return create(proxy.getDataFolderPlugin().toPath(), hosted,
-				message -> proxy.log("[Control Host] " + message));
+		Path root = proxy.getDataFolderPlugin().toPath();
+		PendingAutoEnrollment enrollment = null;
+		if (config.getControlEnabled() && isDirectLocalEndpoint(config.getControlEndpoint(), hosted)) {
+			String configuredNodeId = config.getControlNodeId();
+			String nodeId = configuredNodeId == null || configuredNodeId.isBlank()
+					? config.getProxyServerName() : configuredNodeId.trim();
+			enrollment = ControlCredentialFile.prepareAutoEnrollment(root,
+					config.getControlCredentialFile(), nodeId);
+		}
+		return create(root, hosted, enrollment, message -> proxy.log("[Control Host] " + message));
 	}
 
 	/**
@@ -111,6 +136,12 @@ public final class HostedControlManager implements AutoCloseable {
 	 */
 	public static HostedControlManager create(Path rootDirectory, HostConfiguration config,
 			Consumer<String> logger) {
+		return create(rootDirectory, config, null, logger);
+	}
+
+	/** Creates a hosted supervisor with an optional verifier-only local enrollment. */
+	public static HostedControlManager create(Path rootDirectory, HostConfiguration config,
+			PendingAutoEnrollment localAutoEnrollment, Consumer<String> logger) {
 		Objects.requireNonNull(config, "config");
 		if (!config.enabled()) return null;
 		Path root = Objects.requireNonNull(rootDirectory, "rootDirectory").toAbsolutePath().normalize();
@@ -119,7 +150,7 @@ public final class HostedControlManager implements AutoCloseable {
 				resolveInside(root, config.dataDirectory(), "Control hosted data directory"),
 				config.autoDownload(), config.autoUpdate(), parseDownloadUri(config.downloadUrl()), config.sha256(),
 				config.host(), config.port(), config.startupTimeoutSeconds(), config.downloadTimeoutSeconds());
-		return new HostedControlManager(settings, Objects.requireNonNull(logger, "logger"));
+		return new HostedControlManager(settings, localAutoEnrollment, Objects.requireNonNull(logger, "logger"));
 	}
 
 	public void start() {
