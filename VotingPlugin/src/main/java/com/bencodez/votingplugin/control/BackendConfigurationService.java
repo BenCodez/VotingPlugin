@@ -362,21 +362,28 @@ public final class BackendConfigurationService {
 	}
 
 	private static void sanitizeCommentMetadata(YamlConfiguration yaml, Set<String> secretValues) {
-		yaml.options().setHeader(sanitizeComments(yaml.options().getHeader(), secretValues, false));
-		yaml.options().setFooter(sanitizeComments(yaml.options().getFooter(), secretValues, false));
+		List<String> replacements = secretValues.stream().filter(BackendConfigurationService::safeSecretValue)
+				.sorted(java.util.Comparator.comparingInt(String::length).reversed()).toList();
+		yaml.options().setHeader(sanitizeComments(yaml.options().getHeader(), replacements, false));
+		yaml.options().setFooter(sanitizeComments(yaml.options().getFooter(), replacements, false));
 		for (String path : new ArrayList<>(yaml.getKeys(true))) {
-			yaml.setComments(path, sanitizeComments(yaml.getComments(path), secretValues, secret(path)));
-			yaml.setInlineComments(path, sanitizeComments(yaml.getInlineComments(path), secretValues, secret(path)));
+			yaml.setComments(path, sanitizeComments(yaml.getComments(path), replacements, secret(path)));
+			yaml.setInlineComments(path, sanitizeComments(yaml.getInlineComments(path), replacements, secret(path)));
 		}
 	}
 
-	private static List<String> sanitizeComments(List<String> comments, Set<String> secretValues, boolean secretPath) {
+	private static List<String> sanitizeComments(List<String> comments, List<String> secretValues, boolean secretPath) {
 		List<String> sanitized = new ArrayList<>(comments.size());
+		boolean redactContinuation = false;
 		for (String original : comments) {
 			String comment = original;
-			for (String value : secretValues.stream().sorted(java.util.Comparator.comparingInt(String::length).reversed()).toList()) {
-				if (safeSecretValue(value)) comment = comment.replace(value, REDACTED);
+			if (redactContinuation && !original.isBlank()) {
+				comment = REDACTED;
+				redactContinuation = false;
 			}
+			for (String value : secretValues) comment = comment.replace(value, REDACTED);
+			java.util.regex.Matcher labelledSecret = COMMENT_SECRET.matcher(original);
+			if (labelledSecret.find() && labelledSecret.group(2).isBlank()) redactContinuation = true;
 			comment = COMMENT_SECRET.matcher(comment).replaceAll("$1" + REDACTED);
 			if (secretPath) comment = SECRET_PATH_URL.matcher(comment).replaceAll("$1" + REDACTED);
 			sanitized.add(comment);
