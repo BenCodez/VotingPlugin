@@ -39,13 +39,13 @@ outside HTTPS, and paths outside VotingPlugin's data folder are rejected.
 Control:
   Enabled: true
   Endpoint: 'http://127.0.0.1:8080'
-  NodeId: 'proxy-a'
+  NodeId: ''
   CredentialFile: 'control/control-credential.txt'
   Hosted:
     Enabled: true
     AutoDownload: true
     AutoUpdate: false
-    DownloadUrl: 'https://github.com/BenCodez/VotingPlugin-Control/releases/download/v0.1.0/votingplugin-control.jar'
+    DownloadUrl: 'https://github.com/BenCodez/VotingPlugin-Control/releases/download/vX.Y.Z/votingplugin-control.jar'
     Sha256: '<64-character SHA-256 from the pinned release>'
     JarFile: 'control/votingplugin-control.jar'
     DataDirectory: 'control/data'
@@ -64,7 +64,7 @@ Control:
     Enabled: true
     AutoDownload: true
     AutoUpdate: false
-    DownloadUrl: 'https://github.com/BenCodez/VotingPlugin-Control/releases/download/v0.1.0/votingplugin-control.jar'
+    DownloadUrl: 'https://github.com/BenCodez/VotingPlugin-Control/releases/download/vX.Y.Z/votingplugin-control.jar'
     Sha256: '<64-character SHA-256 from the pinned release>'
     JarFile: 'control/votingplugin-control.jar'
     DataDirectory: 'control/data'
@@ -74,7 +74,7 @@ Control:
     DownloadTimeoutSeconds: 60
   Backend:
     Enabled: true
-    NodeId: 'backend-lobby'
+    NodeId: ''
     Endpoint: 'http://127.0.0.1:8080'
     CredentialFile: 'control/control-credential.txt'
     HeartbeatSeconds: 30
@@ -106,19 +106,18 @@ Manual installation remains supported: put a Control JAR at `JarFile`, configure
 
 ## Enrollment and configuration
 
-1. Start Control, complete its one-time WebUI setup, and use the Node enrollment page to enroll the exact stable node ID.
+The easiest network setup hosts one Control instance on the proxy. Configure `bungeeconfig.yml` as below, using a Control
+release that supports the `enroll-verifier` owner command. On first start VotingPlugin creates a random proxy credential
+under `plugins/VotingPlugin/control/`, installs only its SHA-256 verifier into the hosted Control data directory, and starts
+the connector. No enrollment command or credential copy is required.
 
-2. On the first connector start, VotingPlugin automatically creates the blank
-   `plugins/VotingPlugin/control/control-credential.txt` placeholder (or its platform-equivalent data path). Paste only
-   the generated enrollment credential into that file and restrict filesystem access to the Minecraft service account.
-
-3. Configure `bungeeconfig.yml`:
+Configure `bungeeconfig.yml`:
 
    ```yaml
    Control:
      Enabled: true
      Endpoint: 'http://127.0.0.1:8080'
-     NodeId: 'proxy-a'
+     NodeId: ''
      CredentialFile: 'control/control-credential.txt'
      HeartbeatSeconds: 30
      ConnectTimeoutMillis: 3000
@@ -126,10 +125,10 @@ Manual installation remains supported: put a Control JAR at `JarFile`, configure
    ```
 
 `NodeId` may be blank to reuse the existing `ProxyServerName`, but every simultaneously connected proxy must have a unique,
-stable enrolled identity. Explicitly setting it is recommended. `CredentialFile` must resolve inside VotingPlugin's data
-directory. Its missing parent directories and blank placeholder are created automatically; credentials in URLs and
-parent-directory traversal are rejected. The credential is never logged or placed in
-plugin messages.
+stable identity. Automatic enrollment is enabled only when the connector endpoint addresses that same hosted listener by
+loopback or by its configured bind address and port. `CredentialFile` must resolve inside VotingPlugin's data directory.
+Its missing parent directories are created automatically; credentials in URLs and parent-directory traversal are rejected.
+The generated credential is never logged or passed to the child process.
 
 The endpoint must be an `http` or `https` origin without embedded credentials, query, fragment, or path. Plain HTTP is
 suitable only for loopback or a trusted private network. Use HTTPS or a private authenticated tunnel when crossing an
@@ -146,20 +145,31 @@ Do not raise these by patching around validation; correct the topology or connec
 
 ### Bukkit full-configuration enrollment
 
-Each backend is separately opt-in and separately enrolled so one node credential cannot impersonate another. Put its
-credential in that backend's VotingPlugin data folder and configure `Config.yml`:
+Each backend is separately opt-in and receives its own credential so one node cannot impersonate another. With
+`BungeeMethod: PLUGINMESSAGING`, configure each backend's `Config.yml` and point `Endpoint` at the proxy-hosted listener:
 
 ```yaml
 Control:
   Backend:
     Enabled: true
-    NodeId: 'backend-lobby'
-    Endpoint: 'http://127.0.0.1:8080'
+    NodeId: ''
+    Endpoint: 'http://<proxy-private-address>:8080'
     CredentialFile: 'control/control-credential.txt'
     HeartbeatSeconds: 30
     ConnectTimeoutMillis: 3000
     RequestTimeoutMillis: 10000
 ```
+
+Blank `NodeId` reuses `BungeeSettings.Server`. The backend generates the raw credential locally and sends only its SHA-256
+verifier over the plugin-message channel. Velocity/BungeeCord binds the request to the actual backend server connection,
+requires that identity to equal `BungeeSettings.Server`, installs the verifier in its hosted Control, and returns a
+non-secret acknowledgement. The raw credential never leaves the backend. Requests retry safely after restarts and while no
+player is available to carry plugin messages.
+
+If a Bukkit server hosts its own Control and its endpoint addresses that local listener, the same generation and verifier
+installation happen locally. External Control installations, custom backend node IDs that differ from
+`BungeeSettings.Server`, and non-plugin-message transports retain manual WebUI/owner-command enrollment; an existing
+nonblank credential file is always treated as manually managed and is never replaced.
 
 The Bukkit connector owns one daemon worker and performs no Control I/O on the server thread. It reports a bounded list of
 installed plugin names for WebUI command suggestions and negotiates
