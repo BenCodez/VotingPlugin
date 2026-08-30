@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.control;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -88,6 +89,12 @@ class BackendControlConnectorProtocolTest {
 				new java.util.concurrent.CompletionException(new IllegalStateException("invalid VoteSites.yml")));
 
 		assertTrue(message.equals("Reload failed: invalid VoteSites.yml"));
+	}
+
+	@Test void operationFailureCodesMatchTheRequestedAction() {
+		assertEquals("READ_FAILED", BackendControlConnector.operationFailureCode("READ"));
+		assertEquals("PREVIEW_FAILED", BackendControlConnector.operationFailureCode("PREVIEW"));
+		assertEquals("APPLY_FAILED", BackendControlConnector.operationFailureCode("APPLY"));
 	}
 
 	@Test void shutdownWaitsForTheClaimedBackendOperation() throws Exception {

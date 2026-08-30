@@ -477,8 +477,9 @@ public final class BackendControlConnector implements AutoCloseable {
 	}
 
 	private TaskResult execute(UUID operationId, JsonObject task) {
+		String type = null;
 		try {
-			String type = string(task, "type");
+			type = string(task, "type");
 			JsonObject configuration = task.getAsJsonObject("configuration");
 			String domain = string(configuration, "domain");
 			if ("file".equals(domain)) return executeFile(operationId, type, configuration, task);
@@ -492,10 +493,28 @@ public final class BackendControlConnector implements AutoCloseable {
 		} catch (BackendConfigurationService.ApplyFailureException e) {
 			return TaskResult.failure("RELOAD_FAILED", failureMessage("Reload failed", e), e.rolledBack());
 		} catch (IllegalArgumentException e) {
+			if ("READ".equals(type)) return operationFailure(type, e);
 			return TaskResult.failure("VALIDATION_ERROR", e.getMessage());
 		} catch (Exception e) {
-			return TaskResult.failure("APPLY_FAILED", "Configuration operation failed");
+			return operationFailure(type, e);
 		}
+	}
+
+	private static TaskResult operationFailure(String type, Throwable failure) {
+		String code = operationFailureCode(type);
+		String prefix = "Configuration apply failed";
+		if ("READ".equals(type)) {
+			prefix = "Configuration read failed";
+		} else if ("PREVIEW".equals(type)) {
+			prefix = "Configuration preview failed";
+		}
+		return TaskResult.failure(code, failureMessage(prefix, failure));
+	}
+
+	static String operationFailureCode(String type) {
+		if ("READ".equals(type)) return "READ_FAILED";
+		if ("PREVIEW".equals(type)) return "PREVIEW_FAILED";
+		return "APPLY_FAILED";
 	}
 
 	private TaskResult executeFile(UUID operationId, String type, JsonObject configuration, JsonObject task)

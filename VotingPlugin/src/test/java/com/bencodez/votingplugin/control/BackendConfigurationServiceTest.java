@@ -23,6 +23,18 @@ import com.bencodez.votingplugin.util.DurableFiles;
 class BackendConfigurationServiceTest {
 	@TempDir Path directory;
 
+	@Test void transientReadFailuresAreRetried() throws Exception {
+		AtomicInteger attempts = new AtomicInteger();
+
+		String value = BackendConfigurationService.retryRead(() -> {
+			if (attempts.incrementAndGet() < 3) throw new IOException("configuration is being replaced");
+			return "loaded";
+		});
+
+		assertEquals("loaded", value);
+		assertEquals(3, attempts.get());
+	}
+
 	@Test void masksSecretsPreservesThemAndAppliesARevisionedReload() throws Exception {
 		Path config = directory.resolve("Config.yml");
 		Files.writeString(config, "Database:\n  Password: keep-me\nFeature: false\n");

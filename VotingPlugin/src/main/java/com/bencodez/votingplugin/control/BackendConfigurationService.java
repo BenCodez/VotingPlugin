@@ -35,6 +35,8 @@ import com.bencodez.votingplugin.util.DurableFiles;
 public final class BackendConfigurationService {
 	public static final String REDACTED = "__VOTINGPLUGIN_CONTROL_REDACTED__";
 	public static final int MAX_CONTENT_BYTES = 512 * 1024;
+	private static final int READ_ATTEMPTS = 3;
+	private static final long READ_RETRY_MILLIS = 25;
 	private static final Set<String> TOP_LEVEL = Set.of("Config.yml", "VoteSites.yml", "SpecialRewards.yml",
 			"GUI.yml", "Shop.yml", "BungeeSettings.yml");
 	private static final Set<String> VOTE_SITE_FIELDS = Set.of("AdvancedPriority", "Amount", "Chance",
@@ -68,9 +70,11 @@ public final class BackendConfigurationService {
 
 	public Document read(String fileName) throws IOException {
 		Path path = resolve(fileName);
-		String raw = readRaw(path, false);
-		YamlConfiguration yaml = parse(raw);
-		return new Document(fileName, mask(yaml), revision(raw));
+		return retryRead(() -> {
+			String raw = readRaw(path, false);
+			YamlConfiguration yaml = parse(raw);
+			return new Document(fileName, mask(yaml), revision(raw));
+		});
 	}
 
 	public Preview preview(String fileName, String proposedContent) throws IOException {
@@ -213,6 +217,10 @@ public final class BackendConfigurationService {
 
 	/** Returns the small, non-secret state represented by a guided setup form. */
 	public QuickState readQuickSetup(String preset, Map<String, String> options) throws IOException {
+		return retryRead(() -> readQuickSetupOnce(preset, options));
+	}
+
+	private QuickState readQuickSetupOnce(String preset, Map<String, String> options) throws IOException {
 		String fileName = quickSetupFile(preset);
 		String current = readRaw(resolve(fileName), false);
 		YamlConfiguration yaml = parse(current);
@@ -254,6 +262,27 @@ public final class BackendConfigurationService {
 			throw new IllegalArgumentException("quick setup preset cannot be read");
 		}
 		return new QuickState(Map.copyOf(values), quickSetupRevision(preset, current));
+	}
+
+	static <T> T retryRead(ReadAction<T> read) throws IOException {
+		Exception last = null;
+		for (int attempt = 0; attempt < READ_ATTEMPTS; attempt++) {
+			try {
+				return read.run();
+			} catch (IOException | IllegalArgumentException failure) {
+				last = failure;
+				if (attempt + 1 < READ_ATTEMPTS) {
+					try {
+						Thread.sleep(READ_RETRY_MILLIS);
+					} catch (InterruptedException interrupted) {
+						Thread.currentThread().interrupt();
+						throw new IOException("configuration read was interrupted", interrupted);
+					}
+				}
+			}
+		}
+		if (last instanceof IOException io) throw io;
+		throw (IllegalArgumentException) last;
 	}
 
 	String proposedQuickSetupRevision(String preset, QuickPreview preview) throws IOException {
@@ -906,6 +935,7 @@ public final class BackendConfigurationService {
 	public record QuickProposal(String fileName, String content) { }
 	public record QuickPreview(QuickProposal proposal, String revision, List<String> changes) { }
 	public record QuickState(Map<String, String> options, String revision) { }
+	@FunctionalInterface interface ReadAction<T> { T run() throws IOException; }
 
 	@FunctionalInterface public interface ReloadAction { void run() throws Exception; }
 	@FunctionalInterface public interface ApplyAction { void run(String fileName) throws Exception; }
