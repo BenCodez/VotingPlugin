@@ -84,10 +84,15 @@ public final class BackendConfigurationService {
 	}
 
 	public ApplyResult apply(String fileName, String proposedContent, String expectedRevision) throws IOException {
+		return apply(fileName, proposedContent, expectedRevision, true);
+	}
+
+	private ApplyResult apply(String fileName, String proposedContent, String expectedRevision,
+			boolean restoreRedactedSecrets) throws IOException {
 		Path target = resolve(fileName);
 		String current = readRaw(target, false);
 		if (expectedRevision == null || !revision(current).equals(expectedRevision)) throw new StaleRevisionException();
-		Preview preview = preview(fileName, proposedContent, current);
+		Preview preview = preview(fileName, proposedContent, current, restoreRedactedSecrets);
 		Path backup = target.resolveSibling(target.getFileName() + ".control-backup");
 		Path staging = Files.createTempFile(target.getParent(), ".control-", ".yml");
 		Path backupStaging = Files.createTempFile(target.getParent(), ".control-backup-", ".yml");
@@ -180,8 +185,15 @@ public final class BackendConfigurationService {
 	}
 
 	private Preview preview(String fileName, String proposedContent, String current) {
+		return preview(fileName, proposedContent, current, true);
+	}
+
+	private Preview preview(String fileName, String proposedContent, String current,
+			boolean restoreRedactedSecrets) {
 		YamlConfiguration currentYaml = parse(current);
-		YamlConfiguration resolvedYaml = resolveSecrets(parse(proposedContent), currentYaml);
+		YamlConfiguration proposedYaml = parse(proposedContent);
+		YamlConfiguration resolvedYaml = restoreRedactedSecrets
+				? resolveSecrets(proposedYaml, currentYaml) : proposedYaml;
 		if ("BungeeSettings.yml".equals(fileName) && resolvedYaml.contains("BungeeMethod")) {
 			resolvedYaml.set("BungeeMethod", canonicalBungeeMethod(resolvedYaml.getString("BungeeMethod")));
 		}
@@ -214,7 +226,9 @@ public final class BackendConfigurationService {
 			throw new StaleRevisionException();
 		}
 		QuickProposal proposal = quickProposal(preset, options, fileName, current);
-		ApplyResult applied = apply(proposal.fileName(), proposal.content(), revision(current));
+		// Quick proposals are generated from this fresh, unmasked server snapshot.
+		// Editor placeholder restoration must remain limited to client-authored YAML.
+		ApplyResult applied = apply(proposal.fileName(), proposal.content(), revision(current), false);
 		if (!"sync-vote-sites".equals(preset)) return applied;
 		Document document = applied.document();
 		String installed = readRaw(resolve(fileName), false);
