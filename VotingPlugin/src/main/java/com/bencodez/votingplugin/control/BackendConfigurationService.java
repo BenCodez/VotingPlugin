@@ -391,6 +391,7 @@ public final class BackendConfigurationService {
 	}
 
 	private static void mergeVoteSites(YamlConfiguration source, YamlConfiguration target, boolean ignoreCase) {
+		List<String> targetSecretValues = commentSecretReplacements(target);
 		String sourceRootKey = matchingKey(source, "VoteSites", true);
 		ConfigurationSection sourceSites = sourceRootKey == null ? null : source.getConfigurationSection(sourceRootKey);
 		if (sourceSites == null) throw new IllegalArgumentException("source VoteSites.yml has no VoteSites section");
@@ -404,8 +405,11 @@ public final class BackendConfigurationService {
 		if (targetRootKey == null) targetRootKey = sourceRootKey;
 		ConfigurationSection targetSites = target.getConfigurationSection(targetRootKey);
 		if (targetSites == null) targetSites = target.createSection(targetRootKey);
-		target.setComments(targetRootKey, source.getComments(sourceRootKey));
-		target.setInlineComments(targetRootKey, source.getInlineComments(sourceRootKey));
+		target.setComments(targetRootKey, sourceCommentsUnlessTargetProtected(target.getComments(targetRootKey),
+				source.getComments(sourceRootKey), targetSecretValues, secret(targetRootKey)));
+		target.setInlineComments(targetRootKey, sourceCommentsUnlessTargetProtected(
+				target.getInlineComments(targetRootKey), source.getInlineComments(sourceRootKey), targetSecretValues,
+				secret(targetRootKey)));
 		for (String site : mergeableSites) {
 			ConfigurationSection sourceSite = sourceSites.getConfigurationSection(site);
 			if (sourceSite == null) throw new IllegalArgumentException("source vote site " + site + " is not a section");
@@ -416,9 +420,12 @@ public final class BackendConfigurationService {
 				target.set(targetPath, null);
 				target.createSection(targetPath);
 			}
-			target.setComments(targetPath, sourceSites.getComments(site));
-			target.setInlineComments(targetPath, sourceSites.getInlineComments(site));
-			mergeNonRewardValues(sourceSite, target, targetPath, ignoreCase);
+			target.setComments(targetPath, sourceCommentsUnlessTargetProtected(target.getComments(targetPath),
+					sourceSites.getComments(site), targetSecretValues, secret(targetPath)));
+			target.setInlineComments(targetPath, sourceCommentsUnlessTargetProtected(
+					target.getInlineComments(targetPath), sourceSites.getInlineComments(site), targetSecretValues,
+					secret(targetPath)));
+			mergeNonRewardValues(sourceSite, target, targetPath, ignoreCase, targetSecretValues);
 		}
 	}
 
@@ -436,7 +443,7 @@ public final class BackendConfigurationService {
 	}
 
 	private static void mergeNonRewardValues(ConfigurationSection source, YamlConfiguration target,
-			String targetParent, boolean ignoreCase) {
+			String targetParent, boolean ignoreCase, List<String> targetSecretValues) {
 		for (String key : source.getKeys(false)) {
 			if (rewardKey(key)) continue;
 			ConfigurationSection targetSection = target.getConfigurationSection(targetParent);
@@ -451,17 +458,43 @@ public final class BackendConfigurationService {
 					target.set(targetPath, null);
 					target.createSection(targetPath);
 				}
-				target.setComments(targetPath, source.getComments(key));
-				target.setInlineComments(targetPath, source.getInlineComments(key));
-				mergeNonRewardValues(section, target, targetPath, ignoreCase);
+				target.setComments(targetPath, sourceCommentsUnlessTargetProtected(target.getComments(targetPath),
+						source.getComments(key), targetSecretValues, secret(targetPath)));
+				target.setInlineComments(targetPath, sourceCommentsUnlessTargetProtected(
+						target.getInlineComments(targetPath), source.getInlineComments(key), targetSecretValues,
+						secret(targetPath)));
+				mergeNonRewardValues(section, target, targetPath, ignoreCase, targetSecretValues);
 			} else if (!REDACTED.equals(value)) {
 				ConfigurationSection protectedTarget = target.getConfigurationSection(targetPath);
 				if (protectedTarget != null && containsRewardDescendant(protectedTarget)) continue;
+				List<String> targetComments = target.getComments(targetPath);
+				List<String> targetInlineComments = target.getInlineComments(targetPath);
 				target.set(targetPath, value);
-				target.setComments(targetPath, source.getComments(key));
-				target.setInlineComments(targetPath, source.getInlineComments(key));
+				target.setComments(targetPath, sourceCommentsUnlessTargetProtected(targetComments,
+						source.getComments(key), targetSecretValues, secret(targetPath)));
+				target.setInlineComments(targetPath, sourceCommentsUnlessTargetProtected(
+						targetInlineComments, source.getInlineComments(key), targetSecretValues,
+						secret(targetPath)));
 			}
 		}
+	}
+
+	private static List<String> commentSecretReplacements(YamlConfiguration target) {
+		Set<String> values = new HashSet<>();
+		for (String path : target.getKeys(true)) {
+			Object value = target.get(path);
+			if (!(value instanceof ConfigurationSection) && value != null && secret(path)) {
+				addSecretValues(values, String.valueOf(value));
+			}
+		}
+		return values.stream().filter(BackendConfigurationService::safeSecretValue)
+				.sorted(java.util.Comparator.comparingInt(String::length).reversed()).toList();
+	}
+
+	private static List<String> sourceCommentsUnlessTargetProtected(List<String> targetComments,
+			List<String> sourceComments, List<String> targetSecretValues, boolean secretPath) {
+		return targetComments.equals(sanitizeComments(targetComments, targetSecretValues, secretPath))
+				? sourceComments : targetComments;
 	}
 
 	private static boolean containsRewardDescendant(ConfigurationSection section) {
@@ -569,7 +602,9 @@ public final class BackendConfigurationService {
 			}
 		}
 		sanitizeCommentMetadata(yaml, secretValues);
-		return yaml.saveToString();
+		String masked = yaml.saveToString();
+		ensureBounded(masked);
+		return masked;
 	}
 
 	private static void addSecretValues(Set<String> values, String value) {
@@ -650,6 +685,13 @@ public final class BackendConfigurationService {
 
 	private static List<String> restoreCommentSecrets(List<String> proposed, List<String> current,
 			List<String> redactedCurrent) {
+		for (int index = 0; index < redactedCurrent.size(); index++) {
+			String redacted = redactedCurrent.get(index);
+			if (redacted.contains(REDACTED)
+					&& (index >= proposed.size() || !redacted.equals(proposed.get(index)))) {
+				throw new IllegalArgumentException("redacted comment placeholders must not be edited or moved");
+			}
+		}
 		List<String> restored = new ArrayList<>(proposed.size());
 		for (int index = 0; index < proposed.size(); index++) {
 			String comment = proposed.get(index);
