@@ -607,11 +607,18 @@ public final class BackendConfigurationService {
 				current.options().getHeader(), redactedCurrent.options().getHeader()));
 		proposal.options().setFooter(restoreCommentSecrets(proposal.options().getFooter(),
 				current.options().getFooter(), redactedCurrent.options().getFooter()));
-		for (String path : new ArrayList<>(proposal.getKeys(true))) {
-			proposal.setComments(path, restoreCommentSecrets(proposal.getComments(path), current.getComments(path),
-					redactedCurrent.getComments(path)));
-			proposal.setInlineComments(path, restoreCommentSecrets(proposal.getInlineComments(path),
-					current.getInlineComments(path), redactedCurrent.getInlineComments(path)));
+		Set<String> proposalPaths = new LinkedHashSet<>(proposal.getKeys(true));
+		Set<String> paths = new LinkedHashSet<>(redactedCurrent.getKeys(true));
+		paths.addAll(proposalPaths);
+		for (String path : paths) {
+			List<String> comments = restoreCommentSecrets(proposal.getComments(path), current.getComments(path),
+					redactedCurrent.getComments(path));
+			List<String> inlineComments = restoreCommentSecrets(proposal.getInlineComments(path),
+					current.getInlineComments(path), redactedCurrent.getInlineComments(path));
+			if (proposalPaths.contains(path)) {
+				proposal.setComments(path, comments);
+				proposal.setInlineComments(path, inlineComments);
+			}
 		}
 	}
 

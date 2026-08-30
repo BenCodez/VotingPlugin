@@ -225,6 +225,16 @@ class BackendConfigurationServiceTest {
 		assertThrows(IllegalArgumentException.class, () -> service.preview("Config.yml", replaced));
 	}
 
+	@Test void rejectsRemovingAKeyThatOwnsARedactedComment() throws Exception {
+		Files.writeString(directory.resolve("Config.yml"),
+				"Feature: false # Password: inline-comment-secret\nOther: true\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		BackendConfigurationService.Document read = service.read("Config.yml");
+
+		assertTrue(read.content().contains(BackendConfigurationService.REDACTED));
+		assertThrows(IllegalArgumentException.class, () -> service.preview("Config.yml", "Other: true\n"));
+	}
+
 	@Test void rejectsMaskedDocumentsThatExpandPastTheSizeLimit() throws Exception {
 		String repeatedSecret = "abc1234 ".repeat(20_000);
 		String raw = "Password: abc1234\n# " + repeatedSecret + "\nFeature: false\n";
