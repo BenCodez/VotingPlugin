@@ -214,7 +214,9 @@ matches. `detectedUnconfiguredServicesTruncated` reports whether more values exi
 VoteLogging. Keep it distinct from `unmatchedLoggedServices`, which is derived from retained VoteLog aggregates and is
 empty/non-authoritative unless `voteLogReadable` is true. An enabled row with a configured service uses
 `VOTE_LOG_UNAVAILABLE` or `VOTE_LOG_UNREADABLE`, not `NO_RECENT_VOTES`, when aggregates cannot be read; `DISABLED` and
-`SERVICE_SITE_MISSING` keep their higher-priority configuration status.
+`SERVICE_SITE_MISSING` keep their higher-priority configuration status. The at-most-100 configured sites shown in the
+response are queried through a separate bounded prepared filter, so falling outside the 100 most recently active services
+cannot be misreported as zero votes.
 
 An exact player result includes at most 100 `lastVotes` rows with `siteKey`, `displayName`, `serviceSite`, and `time`, plus
 `lastVotesTruncated`. These are stored last-vote values for sites that currently resolve as enabled; disabled, invalid, or
@@ -225,6 +227,8 @@ unloaded site keys are not returned. They are not log enumeration or an end-to-e
 
 - Inspection results may contain only the typed fields documented above. Never echo a credential, password, token,
   database/Redis/MQTT host, webhook URL, raw configuration, or raw server log.
+- An unexpected handler exception returns only generic `INSPECTION_FAILED` text. The backend log may identify its exception
+  class, but omits the exception message because it can contain storage endpoints, users, or filesystem paths.
 - `diagnostics` explicitly lists sensitive categories it omitted. It is a status report, not a support archive.
 - VoteLog access goes through bounded methods on `VoteLogMysqlTable`; Control never supplies SQL or a table name.
 - VoteLog queries execute on the connector worker and use prepared, bounded table methods. Never move them to the Bukkit

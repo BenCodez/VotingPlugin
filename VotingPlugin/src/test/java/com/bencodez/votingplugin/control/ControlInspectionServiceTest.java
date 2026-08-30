@@ -22,6 +22,7 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable.ServerCount;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable.ServiceCount;
+import com.bencodez.votingplugin.votelog.VoteLogMysqlTable.ServiceHealth;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable.VoteLogCounts;
 import com.bencodez.votingplugin.votesites.VoteSite;
 import com.google.gson.JsonObject;
@@ -274,6 +275,35 @@ class ControlInspectionServiceTest {
 		assertFalse(site.has("loggedVotes"));
 		assertFalse(site.has("lastVoteTime"));
 		verify(table, never()).getServiceHealth(30, 100);
+	}
+
+	@Test void voteSiteHealthQueriesConfiguredServicesOutsideTheRecentAggregateWindow() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		VoteLogMysqlTable table = mock(VoteLogMysqlTable.class);
+		org.bukkit.configuration.file.YamlConfiguration voteSites = new org.bukkit.configuration.file.YamlConfiguration();
+		voteSites.set("VoteSites.PMC.ServiceSite", "configured.example");
+		when(plugin.getConfigVoteSites().getData()).thenReturn(voteSites);
+		when(plugin.getConfigFile().isVoteLoggingEnabled()).thenReturn(true);
+		when(plugin.getVoteLogMysqlTable()).thenReturn(table);
+		when(table.isReadable()).thenReturn(true);
+		List<ServiceHealth> recent = new ArrayList<>();
+		for (int index = 0; index < 100; index++) {
+			recent.add(new ServiceHealth("other-" + index, 1, 1000 - index, 1, 0));
+		}
+		when(table.getServiceHealth(30, 100)).thenReturn(recent);
+		when(table.getServiceHealthForServices(30, List.of("configured.example"))).thenReturn(List.of(
+				new ServiceHealth("configured.example", 7, 500, 6, 1)));
+		when(plugin.getServerData().getServiceSitesReadOnly()).thenReturn(List.of());
+		ControlInspectionService service = new ControlInspectionService(plugin);
+
+		JsonObject result = service.inspect(JsonParser.parseString(
+				"{\"kind\":\"vote-site-health\",\"filters\":{\"days\":\"30\"}}")
+				.getAsJsonObject()).getAsJsonObject("result");
+		JsonObject site = result.getAsJsonArray("sites").get(0).getAsJsonObject();
+
+		assertEquals("ACTIVE", site.get("status").getAsString());
+		assertEquals(7, site.get("loggedVotes").getAsLong());
+		assertTrue(result.get("truncated").getAsBoolean());
 	}
 
 	@Test void voteSiteResolutionUsesOnlyNonCreatingPaths() {

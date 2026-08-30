@@ -115,6 +115,16 @@ class BackendControlConnectorProtocolTest {
 		assertTrue(message.equals("Reload failed: invalid VoteSites.yml"));
 	}
 
+	@Test void unexpectedInspectionFailureMessagesNeverExposeTheCause() {
+		String message = BackendControlConnector.inspectionFailureMessage(new IllegalStateException(
+				"jdbc:mysql://database.internal/votes user=secret path=/srv/private"));
+
+		assertEquals("Inspection failed; see the backend log", message);
+		assertFalse(message.contains("jdbc"));
+		assertFalse(message.contains("secret"));
+		assertFalse(message.contains("/srv"));
+	}
+
 	@Test void failureMessagesAreSingleLineAndBoundedBeforeSubmission() {
 		String message = BackendControlConnector.boundedResultMessage(
 				"unsupported field " + "x".repeat(1000) + "\r\nnext line");

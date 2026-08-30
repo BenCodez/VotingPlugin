@@ -118,25 +118,35 @@ public final class ControlInspectionService {
 	private JsonObject voteSiteHealth(JsonObject filters) {
 		rejectUnknown(filters, Set.of("days"), "vote-site-health filters");
 		int days = boundedInt(filters, "days", 30, 1, 365);
+		ConfigurationSection root = plugin.getConfigVoteSites().getData().getConfigurationSection("VoteSites");
+		List<String> configuredNames = allConfiguredVoteSiteNames();
+		Set<String> configuredServices = new HashSet<>();
+		Set<String> displayedServices = new java.util.LinkedHashSet<>();
+		for (int index = 0; index < configuredNames.size(); index++) {
+			ConfigurationSection site = root == null ? null : root.getConfigurationSection(configuredNames.get(index));
+			if (site == null) continue;
+			String service = safe(site.getString("ServiceSite", ""), 64);
+			if (service.isBlank()) continue;
+			configuredServices.add(lower(service));
+			if (index < MAX_ROWS) displayedServices.add(lower(service));
+		}
 		Map<String, ServiceHealth> logged = new HashMap<>();
+		List<ServiceHealth> recentHealth = List.of();
 		VoteLogMysqlTable table = plugin.getVoteLogMysqlTable();
 		boolean voteLoggingEnabled = plugin.getConfigFile().isVoteLoggingEnabled();
 		boolean voteLoggingAvailable = voteLoggingEnabled && table != null;
 		boolean voteLogReadable = voteLoggingAvailable && table.isReadable();
 		if (voteLogReadable) {
-			for (ServiceHealth health : table.getServiceHealth(days, MAX_ROWS)) {
+			recentHealth = table.getServiceHealth(days, MAX_ROWS);
+			for (ServiceHealth health : recentHealth) {
+				logged.put(lower(health.service()), health);
+			}
+			for (ServiceHealth health : table.getServiceHealthForServices(days, List.copyOf(displayedServices))) {
 				logged.put(lower(health.service()), health);
 			}
 		}
 		JsonArray sites = new JsonArray();
 		Set<String> matchedServices = new HashSet<>();
-		ConfigurationSection root = plugin.getConfigVoteSites().getData().getConfigurationSection("VoteSites");
-		List<String> configuredNames = allConfiguredVoteSiteNames();
-		Set<String> configuredServices = new HashSet<>();
-		for (String name : configuredNames) {
-			ConfigurationSection site = root == null ? null : root.getConfigurationSection(name);
-			if (site != null) configuredServices.add(lower(site.getString("ServiceSite", "")));
-		}
 		for (String name : configuredNames.stream().limit(MAX_ROWS).toList()) {
 			ConfigurationSection site = root == null ? null : root.getConfigurationSection(name);
 			if (site == null) continue;
@@ -161,8 +171,10 @@ public final class ControlInspectionService {
 			sites.add(row);
 		}
 		JsonArray unmatched = new JsonArray();
-		logged.values().stream().filter(health -> !matchedServices.contains(lower(health.service())))
-				.sorted(Comparator.comparingLong(ServiceHealth::lastVoteTime).reversed()).limit(MAX_ROWS)
+		recentHealth.stream().filter(health -> !matchedServices.contains(lower(health.service())))
+				.sorted(Comparator.comparingLong(ServiceHealth::lastVoteTime).reversed()
+						.thenComparing(ServiceHealth::service, String.CASE_INSENSITIVE_ORDER)
+						.thenComparing(ServiceHealth::service)).limit(MAX_ROWS)
 				.forEach(health -> {
 					JsonObject row = new JsonObject();
 					row.addProperty("serviceSite", safe(health.service(), 64));
@@ -189,7 +201,7 @@ public final class ControlInspectionService {
 		result.add("unmatchedLoggedServices", unmatched);
 		result.add("detectedUnconfiguredServices", detectedUnconfigured);
 		result.addProperty("detectedUnconfiguredServicesTruncated", detected.size() > MAX_ROWS);
-		result.addProperty("truncated", configuredNames.size() > MAX_ROWS || logged.size() >= MAX_ROWS);
+		result.addProperty("truncated", configuredNames.size() > MAX_ROWS || recentHealth.size() >= MAX_ROWS);
 		return result;
 	}
 

@@ -62,7 +62,8 @@ automation because it copies a JAR into a developer-specific server directory.
 7. Inspections are read-only, typed, bounded, and safe to retry. Never add raw SQL, table names, filesystem paths, commands,
    arbitrary placeholders, generic configuration lookup, fuzzy/all-player search, or mutable live objects.
 8. Never return credentials, passwords, tokens, database/Redis/MQTT connection details, webhook URLs, raw configuration,
-   raw logs, or unrestricted player records. Keep diagnostics deliberately redacted.
+   raw logs, or unrestricted player records. Keep diagnostics deliberately redacted. Unexpected inspection exceptions
+   return a generic external message; local logging may identify the exception class but must omit its message.
 9. An inspection's `player` query is exact name or UUID lookup and must check existence before loading. Do not turn it into
    enumeration or autocomplete.
 10. A reward inspection only validates/normalizes a typed proposal. It must report `wouldExecute:false` and
@@ -137,7 +138,9 @@ not a complete network delivery trace: it does not record every validation rejec
 reward command, command outcome, or expiry. Documentation and UI must call these **logged events**.
 
 Queries must use the bounded methods on `VoteLogMysqlTable`. Preserve prepared parameters, exact filters, row limits, and
-stable ordering. Do not accept raw SQL from Control or expose the database/table configuration.
+stable ordering. The recent service-health window is not proof that an omitted configured service has no votes; query the
+at-most-100 displayed configured services through prepared exact filters. Do not accept raw SQL from Control or expose
+the database/table configuration.
 
 ## Paired change and PR workflow
 

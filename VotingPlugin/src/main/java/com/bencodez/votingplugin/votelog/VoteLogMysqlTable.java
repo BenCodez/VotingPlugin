@@ -8,6 +8,7 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 import com.bencodez.simpleapi.sql.DataType;
@@ -879,12 +880,57 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 				+ "SUM(CASE WHEN status='IMMEDIATE' THEN 1 ELSE 0 END) AS immediate, "
 				+ "SUM(CASE WHEN status='CACHED' THEN 1 ELSE 0 END) AS cached FROM " + qi(getTableName())
 				+ " WHERE event=? AND vote_time >= ? AND service IS NOT NULL AND service != '' "
-				+ "GROUP BY service ORDER BY last_vote DESC LIMIT " + limit + ";";
+				+ "GROUP BY service ORDER BY last_vote DESC, LOWER(service) ASC, service ASC LIMIT " + limit + ";";
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setQueryTimeout(INSPECTION_QUERY_TIMEOUT_SECONDS);
 			ps.setString(1, VoteLogEvent.VOTE_RECEIVED.name());
 			ps.setLong(2, cutoff);
+			try (ResultSet rs = ps.executeQuery()) {
+				List<ServiceHealth> result = new java.util.ArrayList<>();
+				while (rs.next()) {
+					result.add(new ServiceHealth(rs.getString("service"), rs.getLong("votes"),
+							rs.getLong("last_vote"), rs.getLong("immediate"), rs.getLong("cached")));
+				}
+				return List.copyOf(result);
+			}
+		} catch (SQLException e) {
+			debug(e);
+			return List.of();
+		}
+	}
+
+	/**
+	 * Returns bounded aggregates for the exact configured services displayed by an
+	 * inspection. This avoids treating a configured service outside the recent
+	 * global aggregate window as having no votes.
+	 *
+	 * @param days lookback window, from 1 through 365 days
+	 * @param services case-insensitive service names, capped at 100 entries
+	 * @return service aggregates with deterministic ordering
+	 */
+	public List<ServiceHealth> getServiceHealthForServices(int days, List<String> services) {
+		days = Math.max(1, Math.min(days, 365));
+		List<String> boundedServices = services == null ? List.of() : services.stream()
+				.filter(value -> value != null && value.length() <= 64 && !value.isBlank())
+				.map(value -> value.toLowerCase(Locale.ROOT)).distinct().limit(100).toList();
+		if (boundedServices.isEmpty()) return List.of();
+		long cutoff = System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L);
+		String placeholders = String.join(",", Collections.nCopies(boundedServices.size(), "?"));
+		String sql = "SELECT service, COUNT(*) AS votes, MAX(vote_time) AS last_vote, "
+				+ "SUM(CASE WHEN status='IMMEDIATE' THEN 1 ELSE 0 END) AS immediate, "
+				+ "SUM(CASE WHEN status='CACHED' THEN 1 ELSE 0 END) AS cached FROM " + qi(getTableName())
+				+ " WHERE event=? AND vote_time >= ? AND service IS NOT NULL AND service != '' "
+				+ "AND LOWER(service) IN (" + placeholders + ") GROUP BY service "
+				+ "ORDER BY last_vote DESC, LOWER(service) ASC, service ASC LIMIT 100;";
+		try (Connection conn = mysql.getConnectionManager().getConnection();
+				PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setQueryTimeout(INSPECTION_QUERY_TIMEOUT_SECONDS);
+			ps.setString(1, VoteLogEvent.VOTE_RECEIVED.name());
+			ps.setLong(2, cutoff);
+			for (int index = 0; index < boundedServices.size(); index++) {
+				ps.setString(index + 3, boundedServices.get(index));
+			}
 			try (ResultSet rs = ps.executeQuery()) {
 				List<ServiceHealth> result = new java.util.ArrayList<>();
 				while (rs.next()) {

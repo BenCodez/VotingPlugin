@@ -237,8 +237,14 @@ public final class BackendControlConnector implements AutoCloseable {
 		} catch (IllegalArgumentException failure) {
 			return InspectionTaskResult.failure("VALIDATION_ERROR", failure.getMessage());
 		} catch (Exception failure) {
-			return InspectionTaskResult.failure("INSPECTION_FAILED", failureMessage("Inspection failed", failure));
+			plugin.getLogger().warning("[Control] Bukkit data inspection failed ("
+					+ failure.getClass().getName() + "); exception message omitted");
+			return InspectionTaskResult.failure("INSPECTION_FAILED", inspectionFailureMessage(failure));
 		}
+	}
+
+	static String inspectionFailureMessage(Throwable ignored) {
+		return "Inspection failed; see the backend log";
 	}
 
 	/** Claims configuration work independently of the lower-frequency presence heartbeat. */
