@@ -354,7 +354,9 @@ public final class BackendConfigurationService {
 			}
 		}
 		sanitizeCommentMetadata(yaml, secretValues);
-		return yaml.saveToString();
+		String masked = yaml.saveToString();
+		ensureBounded(masked);
+		return masked;
 	}
 
 	private static void addSecretValues(Set<String> values, String value) {
@@ -435,6 +437,13 @@ public final class BackendConfigurationService {
 
 	private static List<String> restoreCommentSecrets(List<String> proposed, List<String> current,
 			List<String> redactedCurrent) {
+		for (int index = 0; index < redactedCurrent.size(); index++) {
+			String redacted = redactedCurrent.get(index);
+			if (redacted.contains(REDACTED)
+					&& (index >= proposed.size() || !redacted.equals(proposed.get(index)))) {
+				throw new IllegalArgumentException("redacted comment placeholders must not be edited or moved");
+			}
+		}
 		List<String> restored = new ArrayList<>(proposed.size());
 		for (int index = 0; index < proposed.size(); index++) {
 			String comment = proposed.get(index);
