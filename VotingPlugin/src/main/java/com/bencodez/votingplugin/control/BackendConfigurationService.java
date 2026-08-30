@@ -316,10 +316,10 @@ public final class BackendConfigurationService {
 
 	private boolean caseInsensitiveYmlFiles() throws IOException {
 		Path config = resolve("Config.yml");
-		if (!Files.exists(config)) return true;
+		if (!Files.exists(config)) return false;
 		YamlConfiguration settings = parse(readRaw(config, false));
 		String key = matchingKey(settings, "CaseInsensitiveYMLFiles", true);
-		return key == null || settings.getBoolean(key, true);
+		return key != null && settings.getBoolean(key, false);
 	}
 
 	private static void mergeVoteSites(YamlConfiguration source, YamlConfiguration target, boolean ignoreCase) {
