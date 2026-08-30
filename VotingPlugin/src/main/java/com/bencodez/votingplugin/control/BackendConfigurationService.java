@@ -224,8 +224,7 @@ public final class BackendConfigurationService {
 
 	private String quickSetupRevision(String preset, String current) throws IOException {
 		if (!"sync-vote-sites".equals(preset)) return revision(current);
-		String policy = Files.exists(resolve("Config.yml")) ? readRaw(resolve("Config.yml"), false) : "";
-		return revision(current + "\0" + policy);
+		return revision(current + "\0CaseInsensitiveYMLFiles=" + caseInsensitiveYmlFiles());
 	}
 
 	private static String quickSetupFile(String preset) {

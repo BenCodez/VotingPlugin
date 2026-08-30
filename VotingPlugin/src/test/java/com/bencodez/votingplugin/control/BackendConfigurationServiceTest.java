@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.control;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -530,6 +531,23 @@ class BackendConfigurationServiceTest {
 		assertEquals(List.of("keep"), proposal.getStringList("votesites.pmc.Rewards.Commands"));
 		assertEquals(1, proposal.getKeys(false).size());
 		assertEquals(1, proposal.getConfigurationSection("votesites").getKeys(false).size());
+	}
+
+	@Test void voteSitesSyncRevisionTracksOnlyTheCasingPolicyFromConfig() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "CaseInsensitiveYMLFiles: true\nMessage: before\n");
+		Files.writeString(directory.resolve("VoteSites.yml"), "VoteSites:\n  PMC:\n    Name: Target\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		Map<String, String> source = Map.of("sourceContent", "VoteSites:\n  PMC:\n    Name: Source\n");
+
+		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("sync-vote-sites", source);
+		Files.writeString(config, "CaseInsensitiveYMLFiles: true\nMessage: independently edited\n");
+		assertDoesNotThrow(() -> service.applyQuickSetup("sync-vote-sites", source, preview.revision()));
+
+		BackendConfigurationService.QuickPreview policyPreview = service.previewQuickSetup("sync-vote-sites", source);
+		Files.writeString(config, "CaseInsensitiveYMLFiles: false\nMessage: independently edited\n");
+		assertThrows(BackendConfigurationService.StaleRevisionException.class,
+				() -> service.applyQuickSetup("sync-vote-sites", source, policyPreview.revision()));
 	}
 
 	@Test void voteSitesSyncDropsUnrestorableSourceCredentialComments() throws Exception {
