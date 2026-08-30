@@ -508,6 +508,25 @@ class BackendConfigurationServiceTest {
 		assertEquals(1, proposal.getConfigurationSection("votesites").getKeys(false).size());
 	}
 
+	@Test void voteSitesSyncDropsUnrestorableSourceCredentialComments() throws Exception {
+		Files.writeString(directory.resolve("VoteSites.yml"), "VoteSites:\n  PMC:\n    Name: Target\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		String source = "VoteSites:\n  # Password: " + BackendConfigurationService.REDACTED + "\n"
+				+ "  # public source note\n  PMC:\n    Name: Source # Token: "
+				+ BackendConfigurationService.REDACTED + "\n";
+
+		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("sync-vote-sites",
+				Map.of("sourceContent", source));
+
+		assertFalse(preview.proposal().content().contains(BackendConfigurationService.REDACTED));
+		assertTrue(preview.proposal().content().contains("public source note"));
+		BackendConfigurationService.ApplyResult applied = service.applyQuickSetup("sync-vote-sites",
+				Map.of("sourceContent", source), preview.revision());
+		YamlConfiguration installed = new YamlConfiguration();
+		installed.loadFromString(applied.document().content());
+		assertEquals("Source", installed.getString("VoteSites.PMC.Name"));
+	}
+
 	@Test void voteSitesSyncKeepsDistinctKeysWhenCaseInsensitiveFilesAreDisabled() throws Exception {
 		Files.writeString(directory.resolve("Config.yml"), "caseinsensitiveymlfiles: false\n");
 		Files.writeString(directory.resolve("VoteSites.yml"), "VoteSites:\n  PMC:\n    Name: Upper target\n"
@@ -558,6 +577,22 @@ class BackendConfigurationServiceTest {
 
 		assertEquals("Source", proposal.getString("VoteSites.Example.Name"));
 		assertEquals("keep", proposal.getString("VoteSites.Example.Metadata"));
+	}
+
+	@Test void voteSitesSyncDoesNotReplaceTargetSectionsContainingRewardDescendants() throws Exception {
+		Files.writeString(directory.resolve("VoteSites.yml"), "VoteSites:\n  Example:\n    Name: Target\n"
+				+ "    Metadata:\n      Owner: keep\n      Rewards:\n        Commands: ['target reward']\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("sync-vote-sites", Map.of(
+				"sourceContent", "VoteSites:\n  Example:\n    Name: Source\n    Metadata: source scalar\n"));
+		YamlConfiguration proposal = new YamlConfiguration();
+		proposal.loadFromString(preview.proposal().content());
+
+		assertEquals("Source", proposal.getString("VoteSites.Example.Name"));
+		assertEquals("keep", proposal.getString("VoteSites.Example.Metadata.Owner"));
+		assertEquals(List.of("target reward"),
+				proposal.getStringList("VoteSites.Example.Metadata.Rewards.Commands"));
 	}
 
 	@Test void fullBungeeSettingsRejectsUnknownTransportMethods() throws Exception {

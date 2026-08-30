@@ -243,6 +243,7 @@ public final class BackendConfigurationService {
 		if ("sync-vote-sites".equals(preset)) {
 			String sourceContent = options == null ? null : options.get("sourceContent");
 			YamlConfiguration source = parse(sourceContent);
+			removeRedactedCommentMetadata(source);
 			mergeVoteSites(source, yaml, caseInsensitiveYmlFiles());
 			String merged = yaml.saveToString();
 			ensureBounded(merged);
@@ -387,11 +388,35 @@ public final class BackendConfigurationService {
 				target.setInlineComments(targetPath, source.getInlineComments(key));
 				mergeNonRewardValues(section, target, targetPath, ignoreCase);
 			} else if (!REDACTED.equals(value)) {
+				ConfigurationSection protectedTarget = target.getConfigurationSection(targetPath);
+				if (protectedTarget != null && containsRewardDescendant(protectedTarget)) continue;
 				target.set(targetPath, value);
 				target.setComments(targetPath, source.getComments(key));
 				target.setInlineComments(targetPath, source.getInlineComments(key));
 			}
 		}
+	}
+
+	private static boolean containsRewardDescendant(ConfigurationSection section) {
+		for (String key : section.getKeys(false)) {
+			if (rewardKey(key)) return true;
+			Object value = section.get(key);
+			if (value instanceof ConfigurationSection child && containsRewardDescendant(child)) return true;
+		}
+		return false;
+	}
+
+	private static void removeRedactedCommentMetadata(YamlConfiguration source) {
+		source.options().setHeader(withoutRedactedComments(source.options().getHeader()));
+		source.options().setFooter(withoutRedactedComments(source.options().getFooter()));
+		for (String path : new ArrayList<>(source.getKeys(true))) {
+			source.setComments(path, withoutRedactedComments(source.getComments(path)));
+			source.setInlineComments(path, withoutRedactedComments(source.getInlineComments(path)));
+		}
+	}
+
+	private static List<String> withoutRedactedComments(List<String> comments) {
+		return comments.stream().filter(comment -> !comment.contains(REDACTED)).toList();
 	}
 
 	private static String matchingKey(ConfigurationSection section, String expected, boolean ignoreCase) {
