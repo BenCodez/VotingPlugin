@@ -448,6 +448,50 @@ class BackendConfigurationServiceTest {
 		assertTrue(party.proposal().content().contains("VotesRequired: 25"));
 	}
 
+	@Test void guidedSettingsReadTheInstalledValuesInsteadOfAssumingDefaults() throws Exception {
+		Files.writeString(directory.resolve("BungeeSettings.yml"),
+				"UseBungeecord: true\nServer: lobby\nBungeeMethod: REDIS\n");
+		Files.writeString(directory.resolve("Config.yml"), "ProcessRewards: false\nAutoCreateVoteSites: true\n"
+				+ "ExtraAllSitesCheck: true\nCountFakeVotes: false\nDisableNoServiceSiteMessage: true\n"
+				+ "DisableUpdateChecking: true\n");
+		Files.writeString(directory.resolve("VoteSites.yml"), "VoteSites:\n  PMC:\n    Enabled: false\n"
+				+ "    Name: Planet Minecraft\n    Priority: 9\n    Hidden: true\n"
+				+ "    ServiceSite: PlanetMinecraft.com\n    VoteURL: https://example.com/vote\n"
+				+ "    VoteDelay: 12h\n    DisplayItem:\n      Material: EMERALD\n");
+		Files.writeString(directory.resolve("SpecialRewards.yml"), "VoteParty:\n  Enabled: true\n"
+				+ "  VotesRequired: 35\n  GiveAllPlayers: true\n  GiveOnlinePlayersOnly: false\n"
+				+ "  Broadcast: Party!\n  Rewards:\n    Commands: [say one, say two]\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		assertEquals("lobby", service.readQuickSetup("proxy-backend", Map.of()).options().get("server"));
+		assertEquals("REDIS", service.readQuickSetup("proxy-backend", Map.of()).options().get("method"));
+		assertEquals("false", service.readQuickSetup("common-settings", Map.of()).options().get("processRewards"));
+		assertEquals("EMERALD", service.readQuickSetup("vote-site", Map.of("name", "PMC"))
+				.options().get("material"));
+		assertEquals("2", service.readQuickSetup("vote-party", Map.of()).options().get("rewardCommandCount"));
+	}
+
+	@Test void guidedRewardsAppendWithoutReplacingExistingRewardConfiguration() throws Exception {
+		Files.writeString(directory.resolve("VoteSites.yml"), "VoteSites:\n  PMC:\n    Rewards:\n"
+				+ "      Commands: [existing]\n      Messages:\n        Player: Existing message\n");
+		Files.writeString(directory.resolve("SpecialRewards.yml"), "VoteParty:\n  Enabled: true\n"
+				+ "  Rewards:\n    Commands: [existing party]\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.QuickPreview reward = service.previewQuickSetup("easy-reward", Map.of(
+				"scope", "site", "name", "PMC", "command", "new reward", "message", "New message"));
+		assertTrue(reward.proposal().content().contains("existing"));
+		assertTrue(reward.proposal().content().contains("new reward"));
+		assertTrue(reward.proposal().content().contains("Existing message"));
+		assertFalse(reward.proposal().content().contains("New message"));
+
+		BackendConfigurationService.QuickPreview party = service.previewQuickSetup("vote-party", Map.of(
+				"votesRequired", "20", "command", "new party", "broadcast", "Party!",
+				"giveAllPlayers", "false", "onlineOnly", "true"));
+		assertTrue(party.proposal().content().contains("existing party"));
+		assertTrue(party.proposal().content().contains("new party"));
+	}
+
 	@Test void proxyBackendQuickSetupRejectsUnknownTransportMethods() throws Exception {
 		Files.writeString(directory.resolve("BungeeSettings.yml"),
 				"UseBungeecord: false\nServer: PleaseSet\nBungeeMethod: PLUGINMESSAGING\n");
