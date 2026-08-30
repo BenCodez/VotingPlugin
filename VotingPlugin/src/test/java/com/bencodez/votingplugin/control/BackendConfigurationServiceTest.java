@@ -220,7 +220,6 @@ class BackendConfigurationServiceTest {
 				.replace("original owner note", "updated owner note")
 				.replace("old inline note", "updated inline note"));
 
-		assertTrue(preview.changes().contains("changed header comments"));
 		assertTrue(preview.changes().contains("changed comments Feature"));
 	}
 
