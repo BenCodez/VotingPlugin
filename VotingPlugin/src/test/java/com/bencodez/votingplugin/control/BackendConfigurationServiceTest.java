@@ -645,6 +645,21 @@ class BackendConfigurationServiceTest {
 		assertEquals("Lower target", proposal.getString("VoteSites.pmc.Name"));
 	}
 
+	@Test void voteSitesSyncDefaultsToCaseSensitiveKeysWhenThePolicyIsAbsent() throws Exception {
+		Files.writeString(directory.resolve("Config.yml"), "Message: no casing policy configured\n");
+		Files.writeString(directory.resolve("VoteSites.yml"), "VoteSites:\n  PMC:\n    Name: Upper target\n"
+				+ "  pmc:\n    Name: Lower target\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("sync-vote-sites", Map.of(
+				"sourceContent", "VoteSites:\n  PMC:\n    Name: Updated upper\n"));
+		YamlConfiguration proposal = new YamlConfiguration();
+		proposal.loadFromString(preview.proposal().content());
+
+		assertEquals("Updated upper", proposal.getString("VoteSites.PMC.Name"));
+		assertEquals("Lower target", proposal.getString("VoteSites.pmc.Name"));
+	}
+
 	@Test void voteSitesSyncRejectsMalformedOrMissingSourceSections() throws Exception {
 		Files.writeString(directory.resolve("VoteSites.yml"), "VoteSites: {}\n");
 		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
