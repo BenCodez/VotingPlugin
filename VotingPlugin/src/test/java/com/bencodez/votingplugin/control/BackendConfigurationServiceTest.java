@@ -623,6 +623,10 @@ class BackendConfigurationServiceTest {
 		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("sync-vote-sites",
 				Map.of("sourceContent", source));
 		assertTrue(preview.proposal().content().contains("target-comment-secret"));
+		BackendConfigurationService.Document editorSnapshot = service.read("VoteSites.yml");
+		assertFalse(editorSnapshot.content().contains("target-comment-secret"));
+		assertThrows(IllegalArgumentException.class, () -> service.apply("VoteSites.yml",
+				preview.proposal().content(), editorSnapshot.revision()));
 
 		service.applyQuickSetup("sync-vote-sites", Map.of("sourceContent", source), preview.revision());
 		String applied = Files.readString(voteSites);
