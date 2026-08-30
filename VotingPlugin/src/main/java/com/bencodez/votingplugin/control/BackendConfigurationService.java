@@ -45,6 +45,7 @@ public final class BackendConfigurationService {
 			"(?i)([\"']?\\b(?:[\\w-]*(?:password|secret)[\\w-]*|token|api[ _.-]?key|authorization|[\\w.-]*webhook[ _.-]?url)"
 					+ "\\b[\"']?\\s*[:=]\\s*)(.*)$");
 	private static final Pattern SECRET_PATH_URL = Pattern.compile("(?i)(\\burl\\b\\s*[:=]\\s*)(.*)$");
+	private static final Pattern BLOCK_SCALAR_INDICATOR = Pattern.compile("[|>](?:[+-][1-9]?|[1-9][+-]?)?");
 
 	private final Path dataDirectory;
 	private final ApplyAction reload;
@@ -573,12 +574,17 @@ public final class BackendConfigurationService {
 			}
 			for (String value : secretValues) comment = comment.replace(value, REDACTED);
 			java.util.regex.Matcher labelledSecret = COMMENT_SECRET.matcher(original);
-			if (labelledSecret.find() && labelledSecret.group(2).isBlank()) redactContinuation = true;
+			if (labelledSecret.find() && commentContinuation(labelledSecret.group(2))) redactContinuation = true;
 			comment = COMMENT_SECRET.matcher(comment).replaceAll("$1" + REDACTED);
 			if (secretPath) comment = SECRET_PATH_URL.matcher(comment).replaceAll("$1" + REDACTED);
 			sanitized.add(comment);
 		}
 		return sanitized;
+	}
+
+	private static boolean commentContinuation(String value) {
+		String trimmed = value.trim();
+		return trimmed.isEmpty() || BLOCK_SCALAR_INDICATOR.matcher(trimmed).matches();
 	}
 
 	private static boolean safeSecretValue(String value) {
@@ -587,10 +593,44 @@ public final class BackendConfigurationService {
 	}
 
 	private static YamlConfiguration resolveSecrets(YamlConfiguration proposal, YamlConfiguration current) {
+		YamlConfiguration redactedCurrent = parse(mask(parse(current.saveToString())));
 		for (String path : new ArrayList<>(proposal.getKeys(true))) {
 			if (secret(path) && REDACTED.equals(proposal.getString(path))) proposal.set(path, current.get(path));
 		}
+		restoreCommentSecrets(proposal, current, redactedCurrent);
 		return proposal;
+	}
+
+	private static void restoreCommentSecrets(YamlConfiguration proposal, YamlConfiguration current,
+			YamlConfiguration redactedCurrent) {
+		proposal.options().setHeader(restoreCommentSecrets(proposal.options().getHeader(),
+				current.options().getHeader(), redactedCurrent.options().getHeader()));
+		proposal.options().setFooter(restoreCommentSecrets(proposal.options().getFooter(),
+				current.options().getFooter(), redactedCurrent.options().getFooter()));
+		for (String path : new ArrayList<>(proposal.getKeys(true))) {
+			proposal.setComments(path, restoreCommentSecrets(proposal.getComments(path), current.getComments(path),
+					redactedCurrent.getComments(path)));
+			proposal.setInlineComments(path, restoreCommentSecrets(proposal.getInlineComments(path),
+					current.getInlineComments(path), redactedCurrent.getInlineComments(path)));
+		}
+	}
+
+	private static List<String> restoreCommentSecrets(List<String> proposed, List<String> current,
+			List<String> redactedCurrent) {
+		List<String> restored = new ArrayList<>(proposed.size());
+		for (int index = 0; index < proposed.size(); index++) {
+			String comment = proposed.get(index);
+			if (!comment.contains(REDACTED)) {
+				restored.add(comment);
+				continue;
+			}
+			if (index >= current.size() || index >= redactedCurrent.size()
+					|| !comment.equals(redactedCurrent.get(index))) {
+				throw new IllegalArgumentException("redacted comment placeholders must not be edited or moved");
+			}
+			restored.add(current.get(index));
+		}
+		return restored;
 	}
 
 	private static boolean secret(String path) {
