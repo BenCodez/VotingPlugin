@@ -190,8 +190,9 @@ inspections, and performs no Control I/O on the server thread. The inspection wo
 bounded five-second wait, so a slow database read does not hold the configuration lane or shutdown indefinitely. The
 connector reports a bounded list of installed plugin names for WebUI command suggestions and negotiates
 `config.files.v1`, `config.quick-setup.v1`, and the separate read-only `data.inspect.v1` capability. It polls configuration
-operations and inspections over distinct outbound queues. File apply schedules
-the VotingPlugin reload on the Bukkit thread and waits only on the connector worker. Control failure never blocks votes,
+operations and inspections over distinct outbound queues. Repeated inspection transport or protocol failures use bounded
+exponential backoff from one second to five minutes, while the configuration and voting paths remain available. File apply
+schedules the VotingPlugin reload on the Bukkit thread and waits only on the connector worker. Control failure never blocks votes,
 joins, commands, or plugin shutdown. A successful `Config.yml` apply reports its result first, then recreates the connector
 so changes to `Control.Backend` take effect without a full server restart. If `Control.Hosted` changed, a dedicated daemon
 lifecycle worker waits for the existing child to stop only after that result is acknowledged, then starts the replacement

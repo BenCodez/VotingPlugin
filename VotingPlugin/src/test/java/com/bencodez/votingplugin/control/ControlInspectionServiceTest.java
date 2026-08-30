@@ -13,12 +13,16 @@ import static org.mockito.Mockito.when;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable;
+import com.bencodez.votingplugin.votelog.VoteLogMysqlTable.ServerCount;
+import com.bencodez.votingplugin.votelog.VoteLogMysqlTable.ServiceCount;
+import com.bencodez.votingplugin.votelog.VoteLogMysqlTable.VoteLogCounts;
 import com.bencodez.votingplugin.votesites.VoteSite;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -160,6 +164,30 @@ class ControlInspectionServiceTest {
 		assertThrows(ControlInspectionService.InspectionUnavailableException.class,
 				() -> service.inspect(query));
 		verify(table, never()).getCounts(30);
+	}
+
+	@Test void voteLogTopListsBreakCountTiesByName() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		VoteLogMysqlTable table = mock(VoteLogMysqlTable.class);
+		when(plugin.getConfigFile().isVoteLoggingEnabled()).thenReturn(true);
+		when(plugin.getVoteLogMysqlTable()).thenReturn(table);
+		when(table.isReadable()).thenReturn(true);
+		when(table.getCounts(30)).thenReturn(new VoteLogCounts(12, 10, 2));
+		when(table.getUniqueVoters(30)).thenReturn(4L);
+		when(table.getTopServices(30, 20)).thenReturn(List.of(
+				new ServiceCount("Zulu", 3), new ServiceCount("alpha", 3), new ServiceCount("Middle", 6)));
+		when(table.getTopServers(30, 20)).thenReturn(List.of(
+				new ServerCount("survival", 2), new ServerCount("Creative", 2), new ServerCount("hub", 8)));
+		ControlInspectionService service = new ControlInspectionService(plugin);
+
+		JsonObject result = service.inspect(JsonParser.parseString(
+				"{\"kind\":\"vote-log-summary\",\"filters\":{\"days\":\"30\"}}")
+				.getAsJsonObject()).getAsJsonObject("result");
+
+		assertEquals(List.of("Middle", "alpha", "Zulu"), result.getAsJsonArray("topServices").asList().stream()
+				.map(row -> row.getAsJsonObject().get("service").getAsString()).toList());
+		assertEquals(List.of("hub", "Creative", "survival"), result.getAsJsonArray("topServers").asList().stream()
+				.map(row -> row.getAsJsonObject().get("server").getAsString()).toList());
 	}
 
 	@Test void exactPlayerMissDoesNotLoadOrEnumerateUsers() {

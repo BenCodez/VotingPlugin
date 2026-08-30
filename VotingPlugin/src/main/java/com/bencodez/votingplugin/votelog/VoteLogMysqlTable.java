@@ -237,7 +237,8 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 
 		String sql = "SELECT server, COUNT(*) AS votes " + "FROM " + qi(getTableName()) + " WHERE 1=1 "
 				+ "AND server IS NOT NULL AND server != '' " + (eventFilter != null ? "AND event=? " : "")
-				+ (useCutoff ? "AND vote_time >= ? " : "") + "GROUP BY server " + "ORDER BY votes DESC " + "LIMIT "
+				+ (useCutoff ? "AND vote_time >= ? " : "") + "GROUP BY server "
+				+ "ORDER BY votes DESC, LOWER(server) ASC, server ASC " + "LIMIT "
 				+ limit + ";";
 
 		try (Connection conn = mysql.getConnectionManager().getConnection();
@@ -1297,7 +1298,7 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 
 		String sql = "SELECT service, COUNT(*) AS votes " + "FROM " + qi(getTableName()) + " WHERE 1=1 "
 				+ (eventFilter != null ? "AND event=? " : "") + (useCutoff ? "AND vote_time >= ? " : "")
-				+ "GROUP BY service " + "ORDER BY votes DESC " + "LIMIT " + limit + ";";
+				+ "GROUP BY service " + "ORDER BY votes DESC, LOWER(service) ASC, service ASC " + "LIMIT " + limit + ";";
 
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {

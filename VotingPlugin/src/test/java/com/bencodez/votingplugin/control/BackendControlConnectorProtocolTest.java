@@ -83,6 +83,15 @@ class BackendControlConnectorProtocolTest {
 		assertTrue(BackendControlConnector.negotiatedCapability(explicit, "config.quick-setup.v1", false));
 	}
 
+	@Test void repeatedInspectionFailuresUseBoundedExponentialBackoff() {
+		assertEquals(0, BackendControlConnector.inspectionRetryDelayMillis(0));
+		assertEquals(1000, BackendControlConnector.inspectionRetryDelayMillis(1));
+		assertEquals(2000, BackendControlConnector.inspectionRetryDelayMillis(2));
+		assertEquals(256000, BackendControlConnector.inspectionRetryDelayMillis(9));
+		assertEquals(300000, BackendControlConnector.inspectionRetryDelayMillis(10));
+		assertEquals(300000, BackendControlConnector.inspectionRetryDelayMillis(30));
+	}
+
 	@Test void voteSitesSyncRequiresBothNegotiatedCapabilities() {
 		assertFalse(BackendControlConnector.quickSetupCapabilityAccepted("sync-vote-sites", true, false));
 		assertFalse(BackendControlConnector.quickSetupCapabilityAccepted("sync-vote-sites", false, true));

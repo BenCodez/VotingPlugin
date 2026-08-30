@@ -74,6 +74,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	private volatile boolean voteSitesSyncAccepted;
 	private volatile boolean inspectionsAccepted;
 	private volatile int inspectionFailures;
+	private volatile long inspectionRetryAtNanos;
 	private volatile int failures;
 	private volatile ScheduledFuture<?> scheduled;
 	private volatile ScheduledFuture<?> operationPolling;
@@ -185,14 +186,19 @@ public final class BackendControlConnector implements AutoCloseable {
 
 	/** Polls the separately negotiated read-only lane on the connector worker. */
 	private void pollInspections() {
+		long retryAt = inspectionRetryAtNanos;
 		if (closed || !registered || failures != 0 || !inspectionsAccepted
+				|| retryAt != 0 && System.nanoTime() - retryAt < 0
 				|| !inspecting.compareAndSet(false, true)) return;
 		try {
 			claimAndInspect();
 			if (inspectionFailures > 0) plugin.getLogger().info("[Control] Bukkit data inspection recovered");
 			inspectionFailures = 0;
+			inspectionRetryAtNanos = 0;
 		} catch (Exception failure) {
 			inspectionFailures = Math.min(30, inspectionFailures + 1);
+			inspectionRetryAtNanos = System.nanoTime()
+					+ TimeUnit.MILLISECONDS.toNanos(inspectionRetryDelayMillis(inspectionFailures));
 			if (inspectionFailures == 1 || inspectionFailures % 10 == 0) {
 				plugin.getLogger().warning("[Control] Bukkit data inspection unavailable; VotingPlugin remains active");
 			}
@@ -286,7 +292,12 @@ public final class BackendControlConnector implements AutoCloseable {
 			operationsAccepted = negotiatedCapability(node, "config.files.v1", operationsAccepted);
 			quickSetupsAccepted = negotiatedCapability(node, "config.quick-setup.v1", quickSetupsAccepted);
 			voteSitesSyncAccepted = negotiatedCapability(node, "config.vote-sites-sync.v1", voteSitesSyncAccepted);
+			boolean inspectionsWereAccepted = inspectionsAccepted;
 			inspectionsAccepted = negotiatedCapability(node, "data.inspect.v1", inspectionsAccepted);
+			if (inspectionsAccepted && !inspectionsWereAccepted) {
+				inspectionFailures = 0;
+				inspectionRetryAtNanos = 0;
+			}
 			try {
 				requireFileCapability(operationsAccepted);
 			} catch (ConnectorException incompatible) {
@@ -724,6 +735,11 @@ public final class BackendControlConnector implements AutoCloseable {
 	static boolean negotiatedCapability(JsonObject node, String capability, boolean current) {
 		if (node == null || !node.has("acceptedCapabilities")) return current;
 		return contains(node.getAsJsonArray("acceptedCapabilities"), capability);
+	}
+
+	static long inspectionRetryDelayMillis(int failures) {
+		if (failures <= 0) return 0;
+		return Math.min(TimeUnit.MINUTES.toMillis(5), 1000L << Math.min(failures - 1, 9));
 	}
 
 	static void requireFileCapability(boolean accepted) {

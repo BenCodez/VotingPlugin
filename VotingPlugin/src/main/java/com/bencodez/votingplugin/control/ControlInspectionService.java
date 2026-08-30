@@ -21,6 +21,8 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.util.ServiceSiteValidator;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable.ServiceHealth;
+import com.bencodez.votingplugin.votelog.VoteLogMysqlTable.ServerCount;
+import com.bencodez.votingplugin.votelog.VoteLogMysqlTable.ServiceCount;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable.VoteLogCounts;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable.VoteLogEntry;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable.VoteLogEvent;
@@ -261,14 +263,22 @@ public final class ControlInspectionService {
 		result.addProperty("cached", counts.cached);
 		result.addProperty("uniqueVoters", table.getUniqueVoters(days));
 		JsonArray services = new JsonArray();
-		table.getTopServices(days, MAX_TOP_ROWS).forEach(count -> {
+		table.getTopServices(days, MAX_TOP_ROWS).stream()
+				.sorted(Comparator.comparingLong((ServiceCount count) -> count.votes).reversed()
+						.thenComparing(count -> safe(count.service, 64), String.CASE_INSENSITIVE_ORDER)
+						.thenComparing(count -> safe(count.service, 64)))
+				.forEach(count -> {
 			JsonObject row = new JsonObject();
 			row.addProperty("service", safe(count.service, 64));
 			row.addProperty("votes", count.votes);
 			services.add(row);
 		});
 		JsonArray servers = new JsonArray();
-		table.getTopServers(days, MAX_TOP_ROWS).forEach(count -> {
+		table.getTopServers(days, MAX_TOP_ROWS).stream()
+				.sorted(Comparator.comparingLong((ServerCount count) -> count.votes).reversed()
+						.thenComparing(count -> safe(count.server, 64), String.CASE_INSENSITIVE_ORDER)
+						.thenComparing(count -> safe(count.server, 64)))
+				.forEach(count -> {
 			JsonObject row = new JsonObject();
 			row.addProperty("server", safe(count.server, 64));
 			row.addProperty("votes", count.votes);

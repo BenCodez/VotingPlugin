@@ -91,11 +91,14 @@ JSON object whose `schemaVersion` is the JSON integer `1` (not a string), `kind`
 `VALIDATION_ERROR`, `UNAVAILABLE`, `RESULT_TOO_LARGE`, or `INSPECTION_FAILED`.
 
 Data is limited to 512 KiB. General rows are limited to 100, top lists to 20, diagnostics to 128 detected plugin names,
-and lookback windows to 365 days. The connector performs inspections on a dedicated single-thread daemon executor,
-separate from presence and configuration work and never on the Bukkit primary thread. Database reads therefore cannot
+and lookback windows to 365 days. Summary top lists order vote counts descending, then names case-insensitively and by
+exact spelling; the database applies the same name tie-break before its limit. The connector performs inspections on a
+dedicated single-thread daemon executor, separate from presence and configuration work and never on the Bukkit primary
+thread. Database reads therefore cannot
 block vote handling, server ticks, or configuration polling; one long query serializes only later inspections. Shutdown
 cancels this lane and waits at most five seconds for its worker. Inspections have no write-ahead journal because retrying
-a read is safe.
+a read is safe. A persistent missing route, transport failure, server error, or malformed response backs this polling lane
+off exponentially from one second to a five-minute cap; a successful poll or newly accepted capability resets the delay.
 
 ## Query allow-list
 

@@ -76,7 +76,8 @@ Keep these paths separate:
 - configuration capabilities (`config.*.v1`) poll `/operations`, may read/preview/apply typed configuration, and journal
   results;
 - inspection capability `data.inspect.v1` polls `/inspections`, executes only `ControlInspectionService`, and does not
-  journal because a lost acknowledgement can safely repeat a read.
+  journal because a lost acknowledgement can safely repeat a read. Repeated failures back this lane off exponentially
+  from one second to five minutes without changing voting or configuration availability.
 
 Every claimed task is bound to a node session and `attemptId`. Echo both. An HTTP `204` means no work. Authentication,
 protocol, or capability failure changes only connector state/backoff.
