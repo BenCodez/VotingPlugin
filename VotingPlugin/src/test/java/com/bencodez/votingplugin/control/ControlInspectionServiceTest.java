@@ -14,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 
 import org.junit.jupiter.api.Test;
 
@@ -304,6 +305,94 @@ class ControlInspectionServiceTest {
 		assertEquals("ACTIVE", site.get("status").getAsString());
 		assertEquals(7, site.get("loggedVotes").getAsLong());
 		assertTrue(result.get("truncated").getAsBoolean());
+	}
+
+	@Test void voteSiteHealthMatchesFullServiceNamesBeforeTruncatingOutput() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		VoteLogMysqlTable table = mock(VoteLogMysqlTable.class);
+		String fullService = "long-service-" + "x".repeat(100);
+		String normalized = fullService.toLowerCase(Locale.ROOT);
+		org.bukkit.configuration.file.YamlConfiguration voteSites = new org.bukkit.configuration.file.YamlConfiguration();
+		voteSites.set("VoteSites.Long.ServiceSite", fullService);
+		when(plugin.getConfigVoteSites().getData()).thenReturn(voteSites);
+		when(plugin.getConfigFile().isVoteLoggingEnabled()).thenReturn(true);
+		when(plugin.getVoteLogMysqlTable()).thenReturn(table);
+		when(table.isReadable()).thenReturn(true);
+		when(table.getServiceHealth(30, 100)).thenReturn(List.of());
+		when(table.getServiceHealthForServices(30, List.of(normalized))).thenReturn(List.of(
+				new ServiceHealth(fullService.toUpperCase(Locale.ROOT), 5, 900, 4, 1)));
+		when(plugin.getServerData().getServiceSitesReadOnly()).thenReturn(List.of(
+				fullService.toUpperCase(Locale.ROOT)));
+		ControlInspectionService service = new ControlInspectionService(plugin);
+
+		JsonObject result = service.inspect(JsonParser.parseString(
+				"{\"kind\":\"vote-site-health\",\"filters\":{\"days\":\"30\"}}")
+				.getAsJsonObject()).getAsJsonObject("result");
+		JsonObject site = result.getAsJsonArray("sites").get(0).getAsJsonObject();
+
+		assertEquals("ACTIVE", site.get("status").getAsString());
+		assertEquals(5, site.get("loggedVotes").getAsLong());
+		assertEquals(64, site.get("serviceSite").getAsString().length());
+		assertEquals(0, result.getAsJsonArray("detectedUnconfiguredServices").size());
+		verify(table).getServiceHealthForServices(30, List.of(normalized));
+	}
+
+	@Test void voteSiteHealthExcludesConfiguredSitesBeyondTheDisplayedWindowFromUnmatchedRows() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		VoteLogMysqlTable table = mock(VoteLogMysqlTable.class);
+		org.bukkit.configuration.file.YamlConfiguration voteSites = new org.bukkit.configuration.file.YamlConfiguration();
+		List<String> displayed = new ArrayList<>();
+		for (int index = 0; index <= 100; index++) {
+			String serviceName = String.format("configured-%03d.example", index);
+			voteSites.set(String.format("VoteSites.Site%03d.ServiceSite", index), serviceName);
+			if (index < 100) displayed.add(serviceName);
+		}
+		when(plugin.getConfigVoteSites().getData()).thenReturn(voteSites);
+		when(plugin.getConfigFile().isVoteLoggingEnabled()).thenReturn(true);
+		when(plugin.getVoteLogMysqlTable()).thenReturn(table);
+		when(table.isReadable()).thenReturn(true);
+		when(table.getServiceHealth(30, 100)).thenReturn(List.of(
+				new ServiceHealth("configured-100.example", 3, 800, 3, 0)));
+		when(table.getServiceHealthForServices(30, displayed)).thenReturn(List.of());
+		when(plugin.getServerData().getServiceSitesReadOnly()).thenReturn(List.of());
+		ControlInspectionService service = new ControlInspectionService(plugin);
+
+		JsonObject result = service.inspect(JsonParser.parseString(
+				"{\"kind\":\"vote-site-health\",\"filters\":{\"days\":\"30\"}}")
+				.getAsJsonObject()).getAsJsonObject("result");
+
+		assertEquals(100, result.getAsJsonArray("sites").size());
+		assertEquals(0, result.getAsJsonArray("unmatchedLoggedServices").size());
+		assertTrue(result.get("truncated").getAsBoolean());
+	}
+
+	@Test void voteSiteHealthMergesCaseVariantsInsteadOfOverwritingAggregates() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		VoteLogMysqlTable table = mock(VoteLogMysqlTable.class);
+		org.bukkit.configuration.file.YamlConfiguration voteSites = new org.bukkit.configuration.file.YamlConfiguration();
+		voteSites.set("VoteSites.Mixed.ServiceSite", "Example.COM");
+		when(plugin.getConfigVoteSites().getData()).thenReturn(voteSites);
+		when(plugin.getConfigFile().isVoteLoggingEnabled()).thenReturn(true);
+		when(plugin.getVoteLogMysqlTable()).thenReturn(table);
+		when(table.isReadable()).thenReturn(true);
+		when(table.getServiceHealth(30, 100)).thenReturn(List.of(
+				new ServiceHealth("Example.com", 3, 700, 2, 1),
+				new ServiceHealth("example.COM", 4, 900, 3, 1)));
+		when(table.getServiceHealthForServices(30, List.of("example.com"))).thenReturn(List.of());
+		when(plugin.getServerData().getServiceSitesReadOnly()).thenReturn(List.of());
+		ControlInspectionService service = new ControlInspectionService(plugin);
+
+		JsonObject result = service.inspect(JsonParser.parseString(
+				"{\"kind\":\"vote-site-health\",\"filters\":{\"days\":\"30\"}}")
+				.getAsJsonObject()).getAsJsonObject("result");
+		JsonObject site = result.getAsJsonArray("sites").get(0).getAsJsonObject();
+
+		assertEquals("ACTIVE", site.get("status").getAsString());
+		assertEquals(7, site.get("loggedVotes").getAsLong());
+		assertEquals(900, site.get("lastVoteTime").getAsLong());
+		assertEquals(5, site.get("immediateVotes").getAsLong());
+		assertEquals(2, site.get("cachedVotes").getAsLong());
+		assertEquals(0, result.getAsJsonArray("unmatchedLoggedServices").size());
 	}
 
 	@Test void voteSiteResolutionUsesOnlyNonCreatingPaths() {

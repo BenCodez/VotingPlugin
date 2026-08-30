@@ -45,6 +45,10 @@ public final class ControlInspectionService {
 	public static final int MAX_DATA_BYTES = 512 * 1024;
 	private static final int MAX_ROWS = 100;
 	private static final int MAX_TOP_ROWS = 20;
+	private static final Comparator<ServiceHealth> SERVICE_HEALTH_ORDER = Comparator
+			.comparingLong(ServiceHealth::lastVoteTime).reversed()
+			.thenComparing(ServiceHealth::service, String.CASE_INSENSITIVE_ORDER)
+			.thenComparing(ServiceHealth::service);
 	private static final Pattern PLAYER_NAME = Pattern.compile("[A-Za-z0-9_]{1,16}");
 	private static final Pattern SERVICE_NAME = Pattern.compile("[^\\p{Cntrl}]{1,64}");
 	private static final Set<String> KINDS = Set.of("overview", "vote-site-health", "player",
@@ -125,7 +129,7 @@ public final class ControlInspectionService {
 		for (int index = 0; index < configuredNames.size(); index++) {
 			ConfigurationSection site = root == null ? null : root.getConfigurationSection(configuredNames.get(index));
 			if (site == null) continue;
-			String service = safe(site.getString("ServiceSite", ""), 64);
+			String service = site.getString("ServiceSite", "");
 			if (service.isBlank()) continue;
 			configuredServices.add(lower(service));
 			if (index < MAX_ROWS) displayedServices.add(lower(service));
@@ -137,22 +141,22 @@ public final class ControlInspectionService {
 		boolean voteLoggingAvailable = voteLoggingEnabled && table != null;
 		boolean voteLogReadable = voteLoggingAvailable && table.isReadable();
 		if (voteLogReadable) {
-			recentHealth = table.getServiceHealth(days, MAX_ROWS);
+			recentHealth = normalizedServiceHealth(table.getServiceHealth(days, MAX_ROWS));
 			for (ServiceHealth health : recentHealth) {
 				logged.put(lower(health.service()), health);
 			}
-			for (ServiceHealth health : table.getServiceHealthForServices(days, List.copyOf(displayedServices))) {
+			for (ServiceHealth health : normalizedServiceHealth(
+					table.getServiceHealthForServices(days, List.copyOf(displayedServices)))) {
 				logged.put(lower(health.service()), health);
 			}
 		}
 		JsonArray sites = new JsonArray();
-		Set<String> matchedServices = new HashSet<>();
 		for (String name : configuredNames.stream().limit(MAX_ROWS).toList()) {
 			ConfigurationSection site = root == null ? null : root.getConfigurationSection(name);
 			if (site == null) continue;
-			String service = safe(site.getString("ServiceSite", ""), 64);
-			ServiceHealth health = logged.get(lower(service));
-			if (!service.isBlank()) matchedServices.add(lower(service));
+			String fullService = site.getString("ServiceSite", "");
+			String service = safe(fullService, 64);
+			ServiceHealth health = logged.get(lower(fullService));
 			JsonObject row = new JsonObject();
 			row.addProperty("key", safe(name, 64));
 			row.addProperty("displayName", safe(site.getString("Name", name), 100));
@@ -164,17 +168,15 @@ public final class ControlInspectionService {
 			row.addProperty("hasRewards", hasRewardConfiguration(site));
 			if (voteLogReadable) addHealth(row, health);
 			row.addProperty("status", !site.getBoolean("Enabled", true) ? "DISABLED"
-					: service.isBlank() ? "SERVICE_SITE_MISSING"
+					: fullService.isBlank() ? "SERVICE_SITE_MISSING"
 					: !voteLoggingAvailable ? "VOTE_LOG_UNAVAILABLE"
 					: !voteLogReadable ? "VOTE_LOG_UNREADABLE"
 					: health == null ? "NO_RECENT_VOTES" : "ACTIVE");
 			sites.add(row);
 		}
 		JsonArray unmatched = new JsonArray();
-		recentHealth.stream().filter(health -> !matchedServices.contains(lower(health.service())))
-				.sorted(Comparator.comparingLong(ServiceHealth::lastVoteTime).reversed()
-						.thenComparing(ServiceHealth::service, String.CASE_INSENSITIVE_ORDER)
-						.thenComparing(ServiceHealth::service)).limit(MAX_ROWS)
+		recentHealth.stream().filter(health -> !configuredServices.contains(lower(health.service())))
+				.sorted(SERVICE_HEALTH_ORDER).limit(MAX_ROWS)
 				.forEach(health -> {
 					JsonObject row = new JsonObject();
 					row.addProperty("serviceSite", safe(health.service(), 64));
@@ -185,7 +187,7 @@ public final class ControlInspectionService {
 		for (String observed : plugin.getServerData().getServiceSitesReadOnly()) {
 			String sanitized = safe(observed, 64);
 			if (!sanitized.isBlank() && !configuredServices.contains(lower(observed))) {
-				detected.putIfAbsent(lower(sanitized), sanitized);
+				detected.putIfAbsent(lower(observed), sanitized);
 			}
 		}
 		JsonArray detectedUnconfigured = new JsonArray();
@@ -203,6 +205,24 @@ public final class ControlInspectionService {
 		result.addProperty("detectedUnconfiguredServicesTruncated", detected.size() > MAX_ROWS);
 		result.addProperty("truncated", configuredNames.size() > MAX_ROWS || recentHealth.size() >= MAX_ROWS);
 		return result;
+	}
+
+	private static List<ServiceHealth> normalizedServiceHealth(List<ServiceHealth> values) {
+		Map<String, ServiceHealth> merged = new HashMap<>();
+		if (values != null) {
+			for (ServiceHealth value : values) {
+				if (value == null || value.service() == null || value.service().isBlank()) continue;
+				merged.merge(lower(value.service()), value, ControlInspectionService::mergeServiceHealth);
+			}
+		}
+		return merged.values().stream().sorted(SERVICE_HEALTH_ORDER).toList();
+	}
+
+	private static ServiceHealth mergeServiceHealth(ServiceHealth left, ServiceHealth right) {
+		String representative = left.service().compareTo(right.service()) <= 0 ? left.service() : right.service();
+		return new ServiceHealth(representative, left.votes() + right.votes(),
+				Math.max(left.lastVoteTime(), right.lastVoteTime()), left.immediate() + right.immediate(),
+				left.cached() + right.cached());
 	}
 
 	private JsonObject player(JsonObject filters) {

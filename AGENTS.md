@@ -139,8 +139,10 @@ reward command, command outcome, or expiry. Documentation and UI must call these
 
 Queries must use the bounded methods on `VoteLogMysqlTable`. Preserve prepared parameters, exact filters, row limits, and
 stable ordering. The recent service-health window is not proof that an omitted configured service has no votes; query the
-at-most-100 displayed configured services through prepared exact filters. Do not accept raw SQL from Control or expose
-the database/table configuration.
+at-most-100 displayed configured services through prepared exact filters. Health matching and SQL aggregation use the
+full, case-normalized ServiceSite (up to the 2048-character validator bound); truncate only serialized display fields,
+and classify unmatched logged services against every configured site rather than only the displayed page. Do not accept
+raw SQL from Control or expose the database/table configuration.
 
 ## Paired change and PR workflow
 

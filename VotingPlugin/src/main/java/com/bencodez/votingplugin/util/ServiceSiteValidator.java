@@ -4,7 +4,8 @@ package com.bencodez.votingplugin.util;
  * Validates service-site names received from vote sources.
  */
 public final class ServiceSiteValidator {
-	private static final int MAX_LENGTH = 2048;
+	/** Maximum accepted UTF-16 length for a service-site identifier. */
+	public static final int MAX_LENGTH = 2048;
 	private static final int MAX_LOG_LENGTH = 128;
 
 	private ServiceSiteValidator() {

@@ -216,7 +216,10 @@ empty/non-authoritative unless `voteLogReadable` is true. An enabled row with a 
 `VOTE_LOG_UNAVAILABLE` or `VOTE_LOG_UNREADABLE`, not `NO_RECENT_VOTES`, when aggregates cannot be read; `DISABLED` and
 `SERVICE_SITE_MISSING` keep their higher-priority configuration status. The at-most-100 configured sites shown in the
 response are queried through a separate bounded prepared filter, so falling outside the 100 most recently active services
-cannot be misreported as zero votes.
+cannot be misreported as zero votes. Matching and aggregates use the complete case-normalized ServiceSite, including
+valid names longer than the 64-character display field; output truncation never changes lookup identity. Case variants
+are combined into one aggregate, and `unmatchedLoggedServices` excludes all configured ServiceSites, including configured
+rows beyond the displayed 100-site page.
 
 An exact player result includes at most 100 `lastVotes` rows with `siteKey`, `displayName`, `serviceSite`, and `time`, plus
 `lastVotesTruncated`. These are stored last-vote values for sites that currently resolve as enabled; disabled, invalid, or

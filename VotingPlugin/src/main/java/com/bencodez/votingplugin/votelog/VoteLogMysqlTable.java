@@ -17,6 +17,7 @@ import com.bencodez.simpleapi.sql.mysql.DbType;
 import com.bencodez.simpleapi.sql.mysql.MySQL;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.simpleapi.sql.mysql.queries.Query;
+import com.bencodez.votingplugin.util.ServiceSiteValidator;
 
 /**
  * Vote log table usable from BOTH proxy and backend.
@@ -876,11 +877,11 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 		days = Math.max(1, Math.min(days, 365));
 		limit = Math.max(1, Math.min(limit, 100));
 		long cutoff = System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L);
-		String sql = "SELECT service, COUNT(*) AS votes, MAX(vote_time) AS last_vote, "
+		String sql = "SELECT LOWER(service) AS service, COUNT(*) AS votes, MAX(vote_time) AS last_vote, "
 				+ "SUM(CASE WHEN status='IMMEDIATE' THEN 1 ELSE 0 END) AS immediate, "
 				+ "SUM(CASE WHEN status='CACHED' THEN 1 ELSE 0 END) AS cached FROM " + qi(getTableName())
 				+ " WHERE event=? AND vote_time >= ? AND service IS NOT NULL AND service != '' "
-				+ "GROUP BY service ORDER BY last_vote DESC, LOWER(service) ASC, service ASC LIMIT " + limit + ";";
+				+ "GROUP BY LOWER(service) ORDER BY last_vote DESC, LOWER(service) ASC LIMIT " + limit + ";";
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setQueryTimeout(INSPECTION_QUERY_TIMEOUT_SECONDS);
@@ -912,17 +913,17 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 	public List<ServiceHealth> getServiceHealthForServices(int days, List<String> services) {
 		days = Math.max(1, Math.min(days, 365));
 		List<String> boundedServices = services == null ? List.of() : services.stream()
-				.filter(value -> value != null && value.length() <= 64 && !value.isBlank())
+				.filter(value -> value != null && value.length() <= ServiceSiteValidator.MAX_LENGTH && !value.isBlank())
 				.map(value -> value.toLowerCase(Locale.ROOT)).distinct().limit(100).toList();
 		if (boundedServices.isEmpty()) return List.of();
 		long cutoff = System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L);
 		String placeholders = String.join(",", Collections.nCopies(boundedServices.size(), "?"));
-		String sql = "SELECT service, COUNT(*) AS votes, MAX(vote_time) AS last_vote, "
+		String sql = "SELECT LOWER(service) AS service, COUNT(*) AS votes, MAX(vote_time) AS last_vote, "
 				+ "SUM(CASE WHEN status='IMMEDIATE' THEN 1 ELSE 0 END) AS immediate, "
 				+ "SUM(CASE WHEN status='CACHED' THEN 1 ELSE 0 END) AS cached FROM " + qi(getTableName())
 				+ " WHERE event=? AND vote_time >= ? AND service IS NOT NULL AND service != '' "
-				+ "AND LOWER(service) IN (" + placeholders + ") GROUP BY service "
-				+ "ORDER BY last_vote DESC, LOWER(service) ASC, service ASC LIMIT 100;";
+				+ "AND LOWER(service) IN (" + placeholders + ") GROUP BY LOWER(service) "
+				+ "ORDER BY last_vote DESC, LOWER(service) ASC LIMIT 100;";
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setQueryTimeout(INSPECTION_QUERY_TIMEOUT_SECONDS);
