@@ -35,6 +35,13 @@ class BackendConfigurationServiceTest {
 		assertEquals(3, attempts.get());
 	}
 
+	@Test void malformedQuickReadInputRemainsAValidationFailure() {
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		assertThrows(IllegalArgumentException.class, () -> service.readQuickSetup("vote-site", Map.of()));
+		assertThrows(IllegalArgumentException.class, () -> service.readQuickSetup("easy-reward", Map.of()));
+	}
+
 	@Test void masksSecretsPreservesThemAndAppliesARevisionedReload() throws Exception {
 		Path config = directory.resolve("Config.yml");
 		Files.writeString(config, "Database:\n  Password: keep-me\nFeature: false\n");
@@ -256,7 +263,7 @@ class BackendConfigurationServiceTest {
 
 		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
 
-		assertThrows(IllegalArgumentException.class, () -> service.read("Config.yml"));
+		assertThrows(IOException.class, () -> service.read("Config.yml"));
 	}
 
 	@Test void reportsCommentOnlyChangesInPreview() throws Exception {

@@ -37,6 +37,8 @@ public final class BackendConfigurationService {
 	public static final int MAX_CONTENT_BYTES = 512 * 1024;
 	private static final int READ_ATTEMPTS = 3;
 	private static final long READ_RETRY_MILLIS = 25;
+	private static final Set<String> READABLE_QUICK_SETUPS = Set.of("standalone", "proxy-backend", "vote-site",
+			"common-settings", "vote-party");
 	private static final Set<String> TOP_LEVEL = Set.of("Config.yml", "VoteSites.yml", "SpecialRewards.yml",
 			"GUI.yml", "Shop.yml", "BungeeSettings.yml");
 	private static final Set<String> VOTE_SITE_FIELDS = Set.of("AdvancedPriority", "Amount", "Chance",
@@ -217,6 +219,10 @@ public final class BackendConfigurationService {
 
 	/** Returns the small, non-secret state represented by a guided setup form. */
 	public QuickState readQuickSetup(String preset, Map<String, String> options) throws IOException {
+		if (!READABLE_QUICK_SETUPS.contains(preset)) {
+			throw new IllegalArgumentException("quick setup preset cannot be read");
+		}
+		if ("vote-site".equals(preset)) option(options, "name", "[A-Za-z0-9_-]{1,64}");
 		return retryRead(() -> readQuickSetupOnce(preset, options));
 	}
 
@@ -282,7 +288,7 @@ public final class BackendConfigurationService {
 			}
 		}
 		if (last instanceof IOException io) throw io;
-		throw (IllegalArgumentException) last;
+		throw new IOException(last.getMessage(), last);
 	}
 
 	String proposedQuickSetupRevision(String preset, QuickPreview preview) throws IOException {

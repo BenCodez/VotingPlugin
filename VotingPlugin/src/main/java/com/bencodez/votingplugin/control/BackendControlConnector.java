@@ -493,7 +493,6 @@ public final class BackendControlConnector implements AutoCloseable {
 		} catch (BackendConfigurationService.ApplyFailureException e) {
 			return TaskResult.failure("RELOAD_FAILED", failureMessage("Reload failed", e), e.rolledBack());
 		} catch (IllegalArgumentException e) {
-			if ("READ".equals(type)) return operationFailure(type, e);
 			return TaskResult.failure("VALIDATION_ERROR", e.getMessage());
 		} catch (Exception e) {
 			return operationFailure(type, e);
