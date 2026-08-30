@@ -83,6 +83,13 @@ class BackendControlConnectorProtocolTest {
 		assertTrue(BackendControlConnector.quickSetupCapabilityAccepted("common-settings", true, false));
 	}
 
+	@Test void reloadFailureMessageIncludesTheUsefulNestedCause() {
+		String message = BackendControlConnector.failureMessage("Reload failed",
+				new java.util.concurrent.CompletionException(new IllegalStateException("invalid VoteSites.yml")));
+
+		assertTrue(message.equals("Reload failed: invalid VoteSites.yml"));
+	}
+
 	@Test void shutdownWaitsForTheClaimedBackendOperation() throws Exception {
 		var executor = Executors.newSingleThreadScheduledExecutor();
 		CompletableFuture<Void> operation = new CompletableFuture<>();

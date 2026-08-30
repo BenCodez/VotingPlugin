@@ -59,6 +59,7 @@ public final class ControlConnector implements AutoCloseable {
 	private static final String PROXY_METHOD_CAPABILITY = "config.proxy-method.v1";
 	private static final String PROXY_METHOD_PRESET = "proxy-method";
 	private static final String INTERNAL_OPERATION_TYPE = "_controlOperationType";
+	private static final long OPERATION_POLL_MILLIS = 1000;
 	private static final long MAX_BACKOFF_MILLIS = TimeUnit.MINUTES.toMillis(5);
 	private static final long OPERATION_SHUTDOWN_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(65);
 
@@ -87,6 +88,7 @@ public final class ControlConnector implements AutoCloseable {
 	private volatile int failures;
 	private volatile long snapshotSequence;
 	private volatile ScheduledFuture<?> scheduled;
+	private volatile ScheduledFuture<?> operationPolling;
 	private volatile CompletableFuture<?> activeRequest;
 	private volatile CompletableFuture<Void> activeOperation;
 	private volatile Status status = Status.STARTING;
@@ -202,6 +204,52 @@ public final class ControlConnector implements AutoCloseable {
 		}
 		status = Status.STARTING;
 		schedule(0);
+		operationPolling = scheduler.scheduleWithFixedDelay(this::pollOperations,
+				OPERATION_POLL_MILLIS, OPERATION_POLL_MILLIS, TimeUnit.MILLISECONDS);
+	}
+
+	/** Polls only the operation queue; heartbeat and presence retain their configured cadence. */
+	void pollOperations() {
+		CompletableFuture<Void> operationDone;
+		synchronized (operationLifecycle) {
+			if (closed || !registered || status != Status.CONNECTED || !configurationAccepted
+					|| !inFlight.compareAndSet(false, true)) return;
+			operationDone = new CompletableFuture<>();
+			activeOperation = operationDone;
+		}
+		CompletableFuture<Void> operation;
+		try {
+			if (hasCompletedTask()) {
+				operation = submitCompletedResult();
+			} else {
+				CompletableFuture<Response> claim = transport.send(claimRequest());
+				activeRequest = claim;
+				operation = claim.thenCompose(this::handleClaimResponse);
+			}
+		} catch (RuntimeException failure) {
+			operation = new CompletableFuture<>();
+			operation.completeExceptionally(failure);
+		}
+		operation.whenComplete((ignored, failure) -> {
+			Throwable cause = failure == null ? null : unwrap(failure);
+			try {
+				activeRequest = null;
+				if (cause == null) {
+					operationDone.complete(null);
+				} else {
+					registered = false;
+					operationDone.completeExceptionally(cause);
+				}
+			} finally {
+				if (activeOperation == operationDone) activeOperation = null;
+				finishCycle();
+			}
+			if (cause != null && !closed) {
+				ScheduledFuture<?> heartbeat = scheduled;
+				if (heartbeat != null) heartbeat.cancel(false);
+				onFailure(cause);
+			}
+		});
 	}
 
 	public Status status() {
@@ -851,6 +899,8 @@ public final class ControlConnector implements AutoCloseable {
 		if (scheduledRequest != null) {
 			scheduledRequest.cancel(false);
 		}
+		ScheduledFuture<?> polling = operationPolling;
+		if (polling != null) polling.cancel(false);
 		CompletableFuture<?> request = activeRequest;
 		if (request != null) {
 			request.cancel(true);

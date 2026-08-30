@@ -141,6 +141,21 @@ class ControlConnectorTest {
 		assertTrue(transport.requests.get(5).path().endsWith("/operations"));
 	}
 
+	@Test void fastOperationPollDoesNotSendAnotherHeartbeatOrPresenceSnapshot() {
+		connector.close();
+		connector = new ControlConnector(settings(), scheduler, transport,
+				() -> List.of(), logs::add, UUID.randomUUID(), () -> 0L,
+				new ProxyRoutingConfigurationService(new NoOpPlatform()));
+		transport.acceptConfiguration = true;
+
+		connector.cycle();
+		int afterHeartbeat = transport.requests.size();
+		connector.pollOperations();
+
+		assertEquals(afterHeartbeat + 1, transport.requests.size());
+		assertTrue(transport.requests.get(afterHeartbeat).path().endsWith("/operations"));
+	}
+
 	@Test void slowTransportDoesNotBlockCallerAndShutdownCancelsInFlightRequest() {
 		CompletableFuture<Response> stalled = new CompletableFuture<>();
 		transport.stalled = stalled;

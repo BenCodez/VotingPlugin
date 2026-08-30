@@ -16,6 +16,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -210,6 +211,51 @@ public final class BackendConfigurationService {
 				changes(parse(current), parse(proposal.content())));
 	}
 
+	/** Returns the small, non-secret state represented by a guided setup form. */
+	public QuickState readQuickSetup(String preset, Map<String, String> options) throws IOException {
+		String fileName = quickSetupFile(preset);
+		String current = readRaw(resolve(fileName), false);
+		YamlConfiguration yaml = parse(current);
+		Map<String, String> values = new LinkedHashMap<>();
+		if ("standalone".equals(preset) || "proxy-backend".equals(preset)) {
+			values.put("useBungeecord", String.valueOf(yaml.getBoolean("UseBungeecord", false)));
+			values.put("server", yaml.getString("Server", ""));
+			values.put("method", canonicalBungeeMethod(yaml.getString("BungeeMethod", "PLUGINMESSAGING")));
+		} else if ("vote-site".equals(preset)) {
+			String name = option(options, "name", "[A-Za-z0-9_-]{1,64}");
+			String root = "VoteSites." + name;
+			values.put("name", name);
+			values.put("exists", String.valueOf(yaml.isConfigurationSection(root)));
+			values.put("enabled", String.valueOf(yaml.getBoolean(root + ".Enabled", true)));
+			values.put("displayName", yaml.getString(root + ".Name", name));
+			values.put("priority", String.valueOf(yaml.getInt(root + ".Priority", 5)));
+			values.put("hidden", String.valueOf(yaml.getBoolean(root + ".Hidden", false)));
+			values.put("serviceSite", yaml.getString(root + ".ServiceSite", ""));
+			values.put("voteUrl", yaml.getString(root + ".VoteURL", ""));
+			values.put("voteDelay", yaml.getString(root + ".VoteDelay", "24h"));
+			values.put("material", yaml.getString(root + ".DisplayItem.Material", "DIAMOND"));
+		} else if ("common-settings".equals(preset)) {
+			values.put("processRewards", String.valueOf(yaml.getBoolean("ProcessRewards", true)));
+			values.put("autoCreateVoteSites", String.valueOf(yaml.getBoolean("AutoCreateVoteSites", true)));
+			values.put("extraAllSitesCheck", String.valueOf(yaml.getBoolean("ExtraAllSitesCheck", false)));
+			values.put("countFakeVotes", String.valueOf(yaml.getBoolean("CountFakeVotes", true)));
+			values.put("disableNoServiceSiteMessage",
+					String.valueOf(yaml.getBoolean("DisableNoServiceSiteMessage", false)));
+			values.put("disableUpdateChecking", String.valueOf(yaml.getBoolean("DisableUpdateChecking", false)));
+		} else if ("vote-party".equals(preset)) {
+			values.put("enabled", String.valueOf(yaml.getBoolean("VoteParty.Enabled", false)));
+			values.put("votesRequired", String.valueOf(yaml.getInt("VoteParty.VotesRequired", 20)));
+			values.put("broadcast", yaml.getString("VoteParty.Broadcast", ""));
+			values.put("giveAllPlayers", String.valueOf(yaml.getBoolean("VoteParty.GiveAllPlayers", false)));
+			values.put("onlineOnly", String.valueOf(yaml.getBoolean("VoteParty.GiveOnlinePlayersOnly", true)));
+			values.put("rewardCommandCount",
+					String.valueOf(yaml.getStringList("VoteParty.Rewards.Commands").size()));
+		} else {
+			throw new IllegalArgumentException("quick setup preset cannot be read");
+		}
+		return new QuickState(Map.copyOf(values), quickSetupRevision(preset, current));
+	}
+
 	String proposedQuickSetupRevision(String preset, QuickPreview preview) throws IOException {
 		return quickSetupRevision(preset, preview.proposal().content());
 	}
@@ -283,10 +329,10 @@ public final class BackendConfigurationService {
 		if ("vote-site".equals(preset)) {
 			String name = option(options, "name", "[A-Za-z0-9_-]{1,64}");
 			String root = "VoteSites." + name;
-			yaml.set(root + ".Enabled", true);
+			yaml.set(root + ".Enabled", booleanOption(options, "enabled", true));
 			yaml.set(root + ".Name", options.getOrDefault("displayName", name));
 			yaml.set(root + ".Priority", boundedInteger(options.getOrDefault("priority", "5"), 0, 100));
-			yaml.set(root + ".Hidden", false);
+			yaml.set(root + ".Hidden", booleanOption(options, "hidden", false));
 			yaml.set(root + ".ServiceSite", option(options, "serviceSite", ".{1,200}"));
 			yaml.set(root + ".VoteURL", option(options, "voteUrl", ".{1,500}"));
 			yaml.set(root + ".VoteDelay", options.getOrDefault("voteDelay", "24h"));
@@ -309,8 +355,10 @@ public final class BackendConfigurationService {
 			if (command.isBlank() && message.isBlank()) {
 				throw new IllegalArgumentException("easy reward requires a command or player message");
 			}
-			if (!command.isBlank()) yaml.set(root + ".Commands", List.of(command));
-			if (!message.isBlank()) yaml.set(root + ".Messages.Player", message);
+			if (!command.isBlank()) appendUniqueString(yaml, root + ".Commands", command);
+			if (!message.isBlank() && !yaml.contains(root + ".Messages.Player")) {
+				yaml.set(root + ".Messages.Player", message);
+			}
 			return new QuickProposal(fileName, yaml.saveToString());
 		}
 		if ("common-settings".equals(preset)) {
@@ -329,11 +377,28 @@ public final class BackendConfigurationService {
 			yaml.set("VoteParty.GiveOnlinePlayersOnly", booleanOption(options, "onlineOnly"));
 			String command = optional(options, "command", 500);
 			String broadcast = optional(options, "broadcast", 500);
-			if (!command.isBlank()) yaml.set("VoteParty.Rewards.Commands", List.of(command));
+			if (!command.isBlank()) appendUniqueString(yaml, "VoteParty.Rewards.Commands", command);
 			if (!broadcast.isBlank()) yaml.set("VoteParty.Broadcast", broadcast);
 			return new QuickProposal(fileName, yaml.saveToString());
 		}
 		throw new IllegalArgumentException("quick setup preset is unsupported");
+	}
+
+	private static void appendUniqueString(YamlConfiguration yaml, String path, String value) {
+		Object current = yaml.get(path);
+		List<String> values = new ArrayList<>();
+		if (current instanceof List<?> listed) {
+			for (Object item : listed) {
+				if (!(item instanceof String text)) {
+					throw new IllegalArgumentException(path + " contains a non-text entry; use the full YAML editor");
+				}
+				values.add(text);
+			}
+		} else if (current != null) {
+			throw new IllegalArgumentException(path + " is not a list; use the full YAML editor");
+		}
+		if (!values.contains(value)) values.add(value);
+		yaml.set(path, values);
 	}
 
 	private boolean caseInsensitiveYmlFiles() throws IOException {
@@ -820,6 +885,11 @@ public final class BackendConfigurationService {
 		return Boolean.parseBoolean(value);
 	}
 
+	private static boolean booleanOption(Map<String, String> options, String name, boolean defaultValue) {
+		if (options == null || !options.containsKey(name)) return defaultValue;
+		return booleanOption(options, name);
+	}
+
 	private static int boundedInteger(String value, int minimum, int maximum) {
 		try {
 			int parsed = Integer.parseInt(value);
@@ -835,6 +905,7 @@ public final class BackendConfigurationService {
 	public record ApplyResult(Document document, List<String> changes, boolean rolledBack) { }
 	public record QuickProposal(String fileName, String content) { }
 	public record QuickPreview(QuickProposal proposal, String revision, List<String> changes) { }
+	public record QuickState(Map<String, String> options, String revision) { }
 
 	@FunctionalInterface public interface ReloadAction { void run() throws Exception; }
 	@FunctionalInterface public interface ApplyAction { void run(String fileName) throws Exception; }

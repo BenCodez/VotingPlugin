@@ -42,6 +42,7 @@ import com.google.gson.JsonParser;
 public final class BackendControlConnector implements AutoCloseable {
 	private static final int PROTOCOL_VERSION = 1;
 	private static final int MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
+	private static final long OPERATION_POLL_MILLIS = 1000;
 	private static final long SHUTDOWN_TIMEOUT_SECONDS = 65;
 	private static final Pattern NODE_ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,63}");
 	private static final Set<String> CAPABILITIES = Set.of("config.files.v1", "config.file-comments.v1",
@@ -69,6 +70,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	private volatile boolean voteSitesSyncAccepted;
 	private volatile int failures;
 	private volatile ScheduledFuture<?> scheduled;
+	private volatile ScheduledFuture<?> operationPolling;
 	private volatile Future<?> activeReload;
 	private volatile CompletableFuture<Void> activeOperation;
 
@@ -158,7 +160,45 @@ public final class BackendControlConnector implements AutoCloseable {
 		return closed;
 	}
 
-	public void start() { schedule(0); }
+	public void start() {
+		if (closed) return;
+		schedule(0);
+		operationPolling = executor.scheduleWithFixedDelay(this::pollOperations,
+				OPERATION_POLL_MILLIS, OPERATION_POLL_MILLIS, TimeUnit.MILLISECONDS);
+	}
+
+	/** Claims configuration work independently of the lower-frequency presence heartbeat. */
+	private void pollOperations() {
+		if (closed || !registered || failures != 0 || !operationsAccepted
+				|| !running.compareAndSet(false, true)) return;
+		CompletableFuture<Void> operation = new CompletableFuture<>();
+		synchronized (operationLifecycle) {
+			if (closed) {
+				running.set(false);
+				return;
+			}
+			activeOperation = operation;
+		}
+		try {
+			claimAndExecute();
+		} catch (Exception failure) {
+			registered = false;
+			failures = Math.min(30, failures + 1);
+			if (failures == 1 || failures % 10 == 0) {
+				plugin.getLogger().warning("[Control] Bukkit operation polling unavailable; VotingPlugin remains active");
+			}
+			ScheduledFuture<?> heartbeat = scheduled;
+			if (heartbeat != null) heartbeat.cancel(false);
+			if (!closed) schedule(Math.min(TimeUnit.MINUTES.toMillis(5),
+					1000L << Math.min(failures - 1, 8)));
+		} finally {
+			operation.complete(null);
+			synchronized (operationLifecycle) {
+				if (activeOperation == operation) activeOperation = null;
+			}
+			running.set(false);
+		}
+	}
 
 	private void schedule(long delayMillis) {
 		if (!closed) scheduled = executor.schedule(this::cycle, delayMillis, TimeUnit.MILLISECONDS);
@@ -450,7 +490,7 @@ public final class BackendControlConnector implements AutoCloseable {
 		} catch (BackendConfigurationService.StaleRevisionException e) {
 			return TaskResult.failure("STALE_REVISION", "Configuration changed after preview");
 		} catch (BackendConfigurationService.ApplyFailureException e) {
-			return TaskResult.failure("RELOAD_FAILED", "Reload failed after persistence", e.rolledBack());
+			return TaskResult.failure("RELOAD_FAILED", failureMessage("Reload failed", e), e.rolledBack());
 		} catch (IllegalArgumentException e) {
 			return TaskResult.failure("VALIDATION_ERROR", e.getMessage());
 		} catch (Exception e) {
@@ -487,12 +527,15 @@ public final class BackendControlConnector implements AutoCloseable {
 
 	private TaskResult executeQuick(UUID operationId, String type, JsonObject configuration, JsonObject task)
 			throws IOException {
-		if ("READ".equals(type)) return TaskResult.failure("UNSUPPORTED_TASK", "Quick setups cannot be read");
 		String preset = string(configuration, "preset");
 		if (!quickSetupCapabilityAccepted(preset, quickSetupsAccepted, voteSitesSyncAccepted)) {
 			return TaskResult.failure("UNSUPPORTED_TASK", "VoteSites sync was not negotiated");
 		}
 		Map<String, String> options = options(configuration.getAsJsonObject("options"));
+		if ("READ".equals(type)) {
+			BackendConfigurationService.QuickState state = configurations.readQuickSetup(preset, options);
+			return TaskResult.quick(preset, state.options(), state.revision(), List.of(), false);
+		}
 		if ("PREVIEW".equals(type)) {
 			BackendConfigurationService.QuickPreview preview = configurations.previewQuickSetup(preset, options);
 			return TaskResult.quick(preset, options, preview.revision(), preview.changes(), false);
@@ -508,6 +551,19 @@ public final class BackendControlConnector implements AutoCloseable {
 					"Config.yml".equals(applied.document().fileName()));
 		}
 		return TaskResult.failure("UNSUPPORTED_TASK", "Task type is unsupported");
+	}
+
+	static String failureMessage(String prefix, Throwable failure) {
+		Throwable detail = failure;
+		while (detail.getCause() != null && (detail instanceof BackendConfigurationService.ApplyFailureException
+				|| detail instanceof java.util.concurrent.ExecutionException
+				|| detail instanceof java.util.concurrent.CompletionException
+				|| detail.getMessage() == null || detail.getMessage().isBlank())) detail = detail.getCause();
+		String message = detail.getMessage();
+		if (message == null || message.isBlank()) message = detail.getClass().getSimpleName();
+		message = message.replaceAll("[\\p{Cntrl}&&[^\\t]]", " ").trim();
+		if (message.length() > 240) message = message.substring(0, 237) + "...";
+		return prefix + ": " + message;
 	}
 
 	static boolean quickSetupCapabilityAccepted(String preset, boolean quickSetupsAccepted,
@@ -594,6 +650,8 @@ public final class BackendControlConnector implements AutoCloseable {
 		}
 		ScheduledFuture<?> current = scheduled;
 		if (current != null) current.cancel(false);
+		ScheduledFuture<?> polling = operationPolling;
+		if (polling != null) polling.cancel(false);
 		if (reload != null && Bukkit.isPrimaryThread()) reload.cancel(false);
 		awaitShutdown(executor, operation);
 	}
