@@ -125,7 +125,7 @@ class BackendConfigurationServiceTest {
 	@Test void redactsWebhookUrlCommentsWithoutReplacingShortSecretsInProse() throws Exception {
 		Path config = directory.resolve("Config.yml");
 		Files.writeString(config, "Password: true\n# DiscordWebhook.URL: https://dotted-secret.invalid/hook\n"
-				+ "DiscordWebhook:\n  URL: '' # URL: https://old-secret.invalid/hook\n"
+				+ "DiscordWebhook:\n  URL: '' # \"URL\": https://old-secret.invalid/hook\n"
 				+ "Feature: false # This is true when enabled\n");
 		BackendConfigurationService.Document read = new BackendConfigurationService(directory, () -> { })
 				.read("Config.yml");
@@ -155,6 +155,23 @@ class BackendConfigurationServiceTest {
 				.read("Config.yml");
 
 		assertFalse(read.content().contains("real-comment-secret"));
+	}
+
+	@Test void redactsEveryLineOfCredentialCommentBlockScalars() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "# Password: |\n# first-comment-secret\n# second-comment-secret\n#\n"
+				+ "# owner note\nFeature: false\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.Document read = service.read("Config.yml");
+		assertFalse(read.content().contains("first-comment-secret"));
+		assertFalse(read.content().contains("second-comment-secret"));
+		assertTrue(read.content().contains("owner note"));
+
+		BackendConfigurationService.Preview preview = service.preview("Config.yml",
+				read.content().replace("Feature: false", "Feature: true"));
+		assertTrue(preview.resolvedContent().contains("first-comment-secret"));
+		assertTrue(preview.resolvedContent().contains("second-comment-secret"));
 	}
 
 	@Test void redactsAndRestoresCredentialCommentBlockScalars() throws Exception {
@@ -192,6 +209,19 @@ class BackendConfigurationServiceTest {
 				"Password changed: " + BackendConfigurationService.REDACTED);
 
 		assertThrows(IllegalArgumentException.class, () -> service.preview("Config.yml", changed));
+	}
+
+	@Test void reportsCommentOnlyChangesInPreview() throws Exception {
+		Files.writeString(directory.resolve("Config.yml"), "# original owner note\nFeature: false # old inline note\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		BackendConfigurationService.Document read = service.read("Config.yml");
+
+		BackendConfigurationService.Preview preview = service.preview("Config.yml", read.content()
+				.replace("original owner note", "updated owner note")
+				.replace("old inline note", "updated inline note"));
+
+		assertTrue(preview.changes().contains("changed header comments"));
+		assertTrue(preview.changes().contains("changed comments Feature"));
 	}
 
 	@Test void redactsQuotedCredentialKeysInComments() throws Exception {

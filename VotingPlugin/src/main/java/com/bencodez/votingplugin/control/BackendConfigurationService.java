@@ -44,7 +44,7 @@ public final class BackendConfigurationService {
 	private static final Pattern COMMENT_SECRET = Pattern.compile(
 			"(?i)([\"']?\\b(?:[\\w-]*(?:password|secret)[\\w-]*|token|api[ _.-]?key|authorization|[\\w.-]*webhook[ _.-]?url)"
 					+ "\\b[\"']?\\s*[:=]\\s*)(.*)$");
-	private static final Pattern SECRET_PATH_URL = Pattern.compile("(?i)(\\burl\\b\\s*[:=]\\s*)(.*)$");
+	private static final Pattern SECRET_PATH_URL = Pattern.compile("(?i)([\"']?\\burl\\b[\"']?\\s*[:=]\\s*)(.*)$");
 	private static final Pattern BLOCK_SCALAR_INDICATOR = Pattern.compile("[|>](?:[+-][1-9]?|[1-9][+-]?)?");
 
 	private final Path dataDirectory;
@@ -501,9 +501,17 @@ public final class BackendConfigurationService {
 		boolean redactContinuation = false;
 		for (String original : comments) {
 			String comment = original;
-			if (redactContinuation && !original.isBlank()) {
-				comment = REDACTED;
-				redactContinuation = false;
+			if (redactContinuation) {
+				if (original.isBlank()) {
+					redactContinuation = false;
+				} else {
+					java.util.regex.Matcher continuedLabel = COMMENT_SECRET.matcher(original);
+					if (continuedLabel.find() && !commentContinuation(continuedLabel.group(2))) {
+						redactContinuation = false;
+					}
+					sanitized.add(REDACTED);
+					continue;
+				}
 			}
 			for (String value : secretValues) comment = comment.replace(value, REDACTED);
 			java.util.regex.Matcher labelledSecret = COMMENT_SECRET.matcher(original);
@@ -578,19 +586,34 @@ public final class BackendConfigurationService {
 		Set<String> paths = new LinkedHashSet<>(current.getKeys(true));
 		paths.addAll(proposal.getKeys(true));
 		List<String> changes = new ArrayList<>();
+		if (!current.options().getHeader().equals(proposal.options().getHeader())
+				&& !addChange(changes, "changed header comments")) return List.copyOf(changes);
+		if (!current.options().getFooter().equals(proposal.options().getFooter())
+				&& !addChange(changes, "changed footer comments")) return List.copyOf(changes);
 		for (String path : paths) {
 			Object before = current.get(path);
 			Object after = proposal.get(path);
-			if (before instanceof ConfigurationSection || after instanceof ConfigurationSection) continue;
-			if (!java.util.Objects.equals(before, after)) {
-				changes.add((secret(path) ? "changed secret " : "changed ") + path);
-				if (changes.size() == 19) {
-					changes.add("additional changes omitted");
-					break;
-				}
+			if (!(before instanceof ConfigurationSection) && !(after instanceof ConfigurationSection)
+					&& !java.util.Objects.equals(before, after)
+					&& !addChange(changes, (secret(path) ? "changed secret " : "changed ") + path)) {
+				break;
+			}
+			if ((!current.getComments(path).equals(proposal.getComments(path))
+					|| !current.getInlineComments(path).equals(proposal.getInlineComments(path)))
+					&& !addChange(changes, "changed comments " + path)) {
+				break;
 			}
 		}
 		return List.copyOf(changes);
+	}
+
+	private static boolean addChange(List<String> changes, String change) {
+		if (changes.size() == 19) {
+			changes.add("additional changes omitted");
+			return false;
+		}
+		changes.add(change);
+		return true;
 	}
 
 	private static String revision(String content) {
