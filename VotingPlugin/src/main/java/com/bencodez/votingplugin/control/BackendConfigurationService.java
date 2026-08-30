@@ -36,6 +36,11 @@ public final class BackendConfigurationService {
 	public static final int MAX_CONTENT_BYTES = 512 * 1024;
 	private static final Set<String> TOP_LEVEL = Set.of("Config.yml", "VoteSites.yml", "SpecialRewards.yml",
 			"GUI.yml", "Shop.yml", "BungeeSettings.yml");
+	private static final Set<String> VOTE_SITE_FIELDS = Set.of("AdvancedPriority", "Amount", "Chance",
+			"DisplayItem", "Enabled", "Fallback", "ForceOffline", "Hidden", "Items", "Material", "Messages",
+			"Name", "Player", "Priority", "ServiceSite", "VoteDelay", "VoteDelayDaily", "VoteURL",
+			"WaitUntilVoteDelay", "PermissionToView", "IgnoreCanVote", "VoteDelayDailyHour", "VoteDelayMin",
+			"GiveOffline");
 	private static final Pattern COMMENT_SECRET = Pattern.compile(
 			"(?i)([\"']?\\b(?:[\\w-]*(?:password|secret)[\\w-]*|token|api[ _.-]?key|authorization|[\\w.-]*webhook[ _.-]?url)"
 					+ "\\b[\"']?\\s*[:=]\\s*)(.*)$");
@@ -189,37 +194,60 @@ public final class BackendConfigurationService {
 		String fileName = quickSetupFile(preset);
 		String current = readRaw(resolve(fileName), false);
 		QuickProposal proposal = quickProposal(preset, options, fileName, current);
-		return new QuickPreview(proposal, revision(current), changes(parse(current), parse(proposal.content())));
+		return new QuickPreview(proposal, quickSetupRevision(preset, current),
+				changes(parse(current), parse(proposal.content())));
 	}
 
-	String proposedQuickSetupRevision(QuickPreview preview) {
-		return revision(preview.proposal().content());
+	String proposedQuickSetupRevision(String preset, QuickPreview preview) throws IOException {
+		return quickSetupRevision(preset, preview.proposal().content());
 	}
 
 	String currentQuickSetupRevision(String preset) throws IOException {
-		return read(quickSetupFile(preset)).revision();
+		return quickSetupRevision(preset, readRaw(resolve(quickSetupFile(preset)), false));
 	}
 
 	public ApplyResult applyQuickSetup(String preset, Map<String, String> options, String expectedRevision)
 			throws IOException {
 		String fileName = quickSetupFile(preset);
 		String current = readRaw(resolve(fileName), false);
-		if (expectedRevision == null || !revision(current).equals(expectedRevision)) throw new StaleRevisionException();
+		if (expectedRevision == null || !quickSetupRevision(preset, current).equals(expectedRevision)) {
+			throw new StaleRevisionException();
+		}
 		QuickProposal proposal = quickProposal(preset, options, fileName, current);
-		return apply(proposal.fileName(), proposal.content(), expectedRevision);
+		ApplyResult applied = apply(proposal.fileName(), proposal.content(), revision(current));
+		if (!"sync-vote-sites".equals(preset)) return applied;
+		Document document = applied.document();
+		String installed = readRaw(resolve(fileName), false);
+		return new ApplyResult(new Document(document.fileName(), document.content(),
+				quickSetupRevision(preset, installed)), applied.changes(), applied.rolledBack());
+	}
+
+	private String quickSetupRevision(String preset, String current) throws IOException {
+		if (!"sync-vote-sites".equals(preset)) return revision(current);
+		return revision(current + "\0CaseInsensitiveYMLFiles=" + caseInsensitiveYmlFiles());
 	}
 
 	private static String quickSetupFile(String preset) {
 		if ("standalone".equals(preset) || "proxy-backend".equals(preset)) return "BungeeSettings.yml";
-		if ("vote-site".equals(preset) || "easy-reward".equals(preset)) return "VoteSites.yml";
+		if ("vote-site".equals(preset) || "easy-reward".equals(preset)
+				|| "sync-vote-sites".equals(preset)) return "VoteSites.yml";
 		if ("common-settings".equals(preset)) return "Config.yml";
 		if ("vote-party".equals(preset)) return "SpecialRewards.yml";
 		throw new IllegalArgumentException("quick setup preset is unsupported");
 	}
 
 	private QuickProposal quickProposal(String preset, Map<String, String> options, String fileName,
-			String current) {
+			String current) throws IOException {
 		YamlConfiguration yaml = parse(current);
+		if ("sync-vote-sites".equals(preset)) {
+			String sourceContent = options == null ? null : options.get("sourceContent");
+			YamlConfiguration source = parse(sourceContent);
+			removeRedactedCommentMetadata(source);
+			mergeVoteSites(source, yaml, caseInsensitiveYmlFiles());
+			String merged = yaml.saveToString();
+			ensureBounded(merged);
+			return new QuickProposal(fileName, merged);
+		}
 		if ("standalone".equals(preset) || "proxy-backend".equals(preset)) {
 			boolean proxy = "proxy-backend".equals(preset);
 			yaml.set("UseBungeecord", proxy);
@@ -284,6 +312,158 @@ public final class BackendConfigurationService {
 			return new QuickProposal(fileName, yaml.saveToString());
 		}
 		throw new IllegalArgumentException("quick setup preset is unsupported");
+	}
+
+	private boolean caseInsensitiveYmlFiles() throws IOException {
+		Path config = resolve("Config.yml");
+		if (!Files.exists(config)) return false;
+		YamlConfiguration settings = parse(readRaw(config, false));
+		String key = matchingKey(settings, "CaseInsensitiveYMLFiles", true);
+		return key != null && settings.getBoolean(key, false);
+	}
+
+	private static void mergeVoteSites(YamlConfiguration source, YamlConfiguration target, boolean ignoreCase) {
+		List<String> targetSecretValues = commentSecretReplacements(target);
+		String sourceRootKey = matchingKey(source, "VoteSites", true);
+		ConfigurationSection sourceSites = sourceRootKey == null ? null : source.getConfigurationSection(sourceRootKey);
+		if (sourceSites == null) throw new IllegalArgumentException("source VoteSites.yml has no VoteSites section");
+		List<String> mergeableSites = sourceSites.getKeys(false).stream().filter(site -> {
+			ConfigurationSection section = sourceSites.getConfigurationSection(site);
+			if (section == null) throw new IllegalArgumentException("source vote site " + site + " is not a section");
+			return hasNonRewardValue(section);
+		}).toList();
+		if (mergeableSites.isEmpty()) return;
+		String targetRootKey = matchingKey(target, "VoteSites", ignoreCase);
+		if (targetRootKey == null) targetRootKey = sourceRootKey;
+		ConfigurationSection targetSites = target.getConfigurationSection(targetRootKey);
+		if (targetSites == null) targetSites = target.createSection(targetRootKey);
+		target.setComments(targetRootKey, sourceCommentsUnlessTargetProtected(target.getComments(targetRootKey),
+				source.getComments(sourceRootKey), targetSecretValues, secret(targetRootKey)));
+		target.setInlineComments(targetRootKey, sourceCommentsUnlessTargetProtected(
+				target.getInlineComments(targetRootKey), source.getInlineComments(sourceRootKey), targetSecretValues,
+				secret(targetRootKey)));
+		for (String site : mergeableSites) {
+			ConfigurationSection sourceSite = sourceSites.getConfigurationSection(site);
+			if (sourceSite == null) throw new IllegalArgumentException("source vote site " + site + " is not a section");
+			String targetSiteKey = matchingKey(targetSites, site, ignoreCase);
+			if (targetSiteKey == null) targetSiteKey = site;
+			String targetPath = targetRootKey + "." + targetSiteKey;
+			if (target.getConfigurationSection(targetPath) == null) {
+				target.set(targetPath, null);
+				target.createSection(targetPath);
+			}
+			target.setComments(targetPath, sourceCommentsUnlessTargetProtected(target.getComments(targetPath),
+					sourceSites.getComments(site), targetSecretValues, secret(targetPath)));
+			target.setInlineComments(targetPath, sourceCommentsUnlessTargetProtected(
+					target.getInlineComments(targetPath), sourceSites.getInlineComments(site), targetSecretValues,
+					secret(targetPath)));
+			mergeNonRewardValues(sourceSite, target, targetPath, ignoreCase, targetSecretValues);
+		}
+	}
+
+	private static boolean hasNonRewardValue(ConfigurationSection source) {
+		for (String key : source.getKeys(false)) {
+			if (rewardKey(key)) continue;
+			Object value = source.get(key);
+			if (value instanceof ConfigurationSection section) {
+				if (hasNonRewardValue(section)) return true;
+			} else if (value != null && !REDACTED.equals(value)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static void mergeNonRewardValues(ConfigurationSection source, YamlConfiguration target,
+			String targetParent, boolean ignoreCase, List<String> targetSecretValues) {
+		for (String key : source.getKeys(false)) {
+			if (rewardKey(key)) continue;
+			ConfigurationSection targetSection = target.getConfigurationSection(targetParent);
+			String canonicalKey = canonicalVoteSiteField(key);
+			String targetKey = targetSection == null ? null
+					: matchingKey(targetSection, canonicalKey, ignoreCase || !canonicalKey.equals(key));
+			String targetPath = targetParent + "." + (targetKey == null ? canonicalKey : targetKey);
+			Object value = source.get(key);
+			if (value instanceof ConfigurationSection section) {
+				if (!hasNonRewardValue(section)) continue;
+				if (target.getConfigurationSection(targetPath) == null) {
+					target.set(targetPath, null);
+					target.createSection(targetPath);
+				}
+				target.setComments(targetPath, sourceCommentsUnlessTargetProtected(target.getComments(targetPath),
+						source.getComments(key), targetSecretValues, secret(targetPath)));
+				target.setInlineComments(targetPath, sourceCommentsUnlessTargetProtected(
+						target.getInlineComments(targetPath), source.getInlineComments(key), targetSecretValues,
+						secret(targetPath)));
+				mergeNonRewardValues(section, target, targetPath, ignoreCase, targetSecretValues);
+			} else if (!REDACTED.equals(value)) {
+				ConfigurationSection protectedTarget = target.getConfigurationSection(targetPath);
+				if (protectedTarget != null && containsRewardDescendant(protectedTarget)) continue;
+				List<String> targetComments = target.getComments(targetPath);
+				List<String> targetInlineComments = target.getInlineComments(targetPath);
+				target.set(targetPath, value);
+				target.setComments(targetPath, sourceCommentsUnlessTargetProtected(targetComments,
+						source.getComments(key), targetSecretValues, secret(targetPath)));
+				target.setInlineComments(targetPath, sourceCommentsUnlessTargetProtected(
+						targetInlineComments, source.getInlineComments(key), targetSecretValues,
+						secret(targetPath)));
+			}
+		}
+	}
+
+	private static List<String> commentSecretReplacements(YamlConfiguration target) {
+		Set<String> values = new HashSet<>();
+		for (String path : target.getKeys(true)) {
+			Object value = target.get(path);
+			if (!(value instanceof ConfigurationSection) && value != null && secret(path)) {
+				addSecretValues(values, String.valueOf(value));
+			}
+		}
+		return values.stream().filter(BackendConfigurationService::safeSecretValue)
+				.sorted(java.util.Comparator.comparingInt(String::length).reversed()).toList();
+	}
+
+	private static List<String> sourceCommentsUnlessTargetProtected(List<String> targetComments,
+			List<String> sourceComments, List<String> targetSecretValues, boolean secretPath) {
+		return targetComments.equals(sanitizeComments(targetComments, targetSecretValues, secretPath))
+				? sourceComments : targetComments;
+	}
+
+	private static boolean containsRewardDescendant(ConfigurationSection section) {
+		for (String key : section.getKeys(false)) {
+			if (rewardKey(key)) return true;
+			Object value = section.get(key);
+			if (value instanceof ConfigurationSection child && containsRewardDescendant(child)) return true;
+		}
+		return false;
+	}
+
+	private static void removeRedactedCommentMetadata(YamlConfiguration source) {
+		source.options().setHeader(withoutRedactedComments(source.options().getHeader()));
+		source.options().setFooter(withoutRedactedComments(source.options().getFooter()));
+		for (String path : new ArrayList<>(source.getKeys(true))) {
+			source.setComments(path, withoutRedactedComments(source.getComments(path)));
+			source.setInlineComments(path, withoutRedactedComments(source.getInlineComments(path)));
+		}
+	}
+
+	private static List<String> withoutRedactedComments(List<String> comments) {
+		return comments.stream().filter(comment -> !comment.contains(REDACTED)).toList();
+	}
+
+	private static String matchingKey(ConfigurationSection section, String expected, boolean ignoreCase) {
+		if (section.getKeys(false).contains(expected)) return expected;
+		if (!ignoreCase) return null;
+		return section.getKeys(false).stream().filter(key -> key.equalsIgnoreCase(expected)).findFirst().orElse(null);
+	}
+
+	private static String canonicalVoteSiteField(String key) {
+		return VOTE_SITE_FIELDS.stream().filter(field -> field.equalsIgnoreCase(key)).findFirst().orElse(key);
+	}
+
+	private static boolean rewardKey(String key) {
+		String normalized = key.replace("-", "").replace("_", "").toLowerCase(Locale.ROOT);
+		return normalized.contains("reward");
 	}
 
 	private Path resolve(String fileName) throws IOException {
