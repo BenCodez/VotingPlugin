@@ -68,10 +68,7 @@ public final class ProxyMethodConfigurationService {
 	}
 
 	public void apply(ProxyMethodConfiguration proposal, String expectedRevision) throws IOException {
-		validate(proposal);
-		if (expectedRevision == null || !read().revision().equals(expectedRevision)) {
-			throw new StaleRevisionException();
-		}
+		if (expectedRevision == null) throw new StaleRevisionException();
 		try {
 			proxy.getConfig().persistControlProxyMethod(proposal.method().name(), expectedRevision,
 					latest -> validate(proposal, latest));

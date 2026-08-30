@@ -91,4 +91,21 @@ class ProxyMethodConfigurationServiceTest {
 		ProxyMethodConfiguration proposal = new ProxyMethodConfiguration(BungeeMethod.REDIS);
 		assertThrows(IllegalArgumentException.class, () -> service.apply(proposal, service.read().revision()));
 	}
+
+	@Test
+	void applyDoesNotRejectAValidFreshSnapshotUsingStaleCachedSettings() throws Exception {
+		when(config.getBungeeMethod()).thenReturn("PLUGINMESSAGING");
+		VotingPluginProxyConfig fresh = mock(VotingPluginProxyConfig.class);
+		when(fresh.getRedisHost()).thenReturn("localhost");
+		when(fresh.getRedisPort()).thenReturn(6379);
+		doAnswer(invocation -> {
+			VotingPluginProxyConfig.ControlProxyMethodValidator validator = invocation.getArgument(2);
+			validator.validate(fresh);
+			return null;
+		}).when(config).persistControlProxyMethod(org.mockito.ArgumentMatchers.eq("REDIS"),
+				org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any());
+
+		ProxyMethodConfiguration proposal = new ProxyMethodConfiguration(BungeeMethod.REDIS);
+		assertDoesNotThrow(() -> service.apply(proposal, service.read().revision()));
+	}
 }
