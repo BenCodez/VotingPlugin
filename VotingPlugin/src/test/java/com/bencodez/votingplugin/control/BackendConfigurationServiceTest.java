@@ -44,6 +44,229 @@ class BackendConfigurationServiceTest {
 		assertTrue(Files.isRegularFile(directory.resolve("Config.yml.control-backup")));
 	}
 
+	@Test void fullFileEditingPreservesCommentsWhileSecretsRemainRedacted() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "# VotingPlugin owner notes\n"
+				+ "Database:\n"
+				+ "  # Never expose this value\n"
+				+ "  Password: keep-me # database credential\n"
+				+ "Feature: false # toggle from Control\n"
+				+ "# End of owner notes\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.Document read = service.read("Config.yml");
+		assertFalse(read.content().contains("keep-me"));
+		assertTrue(read.content().contains(BackendConfigurationService.REDACTED));
+		assertTrue(read.content().contains("# VotingPlugin owner notes"));
+		assertTrue(read.content().contains("# Never expose this value"));
+		assertTrue(read.content().contains("# database credential"));
+		assertTrue(read.content().contains("# toggle from Control"));
+		assertTrue(read.content().contains("# End of owner notes"));
+
+		String proposal = read.content().replace("Feature: false", "Feature: true");
+		BackendConfigurationService.Preview preview = service.preview("Config.yml", proposal);
+		assertTrue(preview.resolvedContent().contains("# VotingPlugin owner notes"));
+		assertTrue(preview.resolvedContent().contains("# database credential"));
+		assertFalse(preview.resolvedContent().contains(BackendConfigurationService.REDACTED));
+
+		service.apply("Config.yml", proposal, read.revision());
+		String applied = Files.readString(config);
+		assertTrue(applied.contains("Password: keep-me"));
+		assertTrue(applied.contains("Feature: true"));
+		assertTrue(applied.contains("# VotingPlugin owner notes"));
+		assertTrue(applied.contains("# Never expose this value"));
+		assertTrue(applied.contains("# database credential"));
+		assertTrue(applied.contains("# toggle from Control"));
+		assertTrue(applied.contains("# End of owner notes"));
+	}
+
+	@Test void redactsSecretsRepeatedOrDefinedInsideComments() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "# Password: commented-secret\n"
+				+ "Database:\n"
+				+ "  Password: abc1234 # rotate abc1234 soon\n"
+				+ "Feature: true # Token=comment-token\n"
+				+ "Other: true # Authorization: Bearer old-token\n"
+				+ "Hook: true # WebhookURL: https://example.invalid/private hook\n"
+				+ "Quoted: true # DatabasePassword: \"two words\"\n");
+		BackendConfigurationService.Document read = new BackendConfigurationService(directory, () -> { })
+				.read("Config.yml");
+
+		assertFalse(read.content().contains("commented-secret"));
+		assertFalse(read.content().contains("abc1234"));
+		assertFalse(read.content().contains("comment-token"));
+		assertFalse(read.content().contains("Bearer old-token"));
+		assertFalse(read.content().contains("example.invalid"));
+		assertFalse(read.content().contains("two words"));
+		assertTrue(read.content().contains("# Password: " + BackendConfigurationService.REDACTED));
+		assertTrue(read.content().contains("# rotate " + BackendConfigurationService.REDACTED + " soon"));
+	}
+
+	@Test void redactsSecretsInCommentOnlyDocuments() throws Exception {
+		Files.writeString(directory.resolve("Config.yml"), "# Password: header-secret\n# owner footer\n");
+		BackendConfigurationService.Document read = new BackendConfigurationService(directory, () -> { })
+				.read("Config.yml");
+		assertFalse(read.content().contains("header-secret"));
+		assertTrue(read.content().contains(BackendConfigurationService.REDACTED));
+	}
+
+	@Test void doesNotRewriteHashTextInsideBlockScalars() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "Message: |\n  # Password: this is message text\nFeature: false\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.Document read = service.read("Config.yml");
+		assertTrue(read.content().contains("# Password: this is message text"));
+		service.apply("Config.yml", read.content().replace("Feature: false", "Feature: true"), read.revision());
+		assertTrue(Files.readString(config).contains("# Password: this is message text"));
+	}
+
+	@Test void redactsWebhookUrlCommentsWithoutReplacingShortSecretsInProse() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "Password: true\n# DiscordWebhook.URL: https://dotted-secret.invalid/hook\n"
+				+ "DiscordWebhook:\n  URL: '' # \"URL\": https://old-secret.invalid/hook\n"
+				+ "Feature: false # This is true when enabled\n");
+		BackendConfigurationService.Document read = new BackendConfigurationService(directory, () -> { })
+				.read("Config.yml");
+
+		assertFalse(read.content().contains("old-secret.invalid"));
+		assertFalse(read.content().contains("dotted-secret.invalid"));
+		assertTrue(read.content().contains("# This is true when enabled"));
+	}
+
+	@Test void redactsIndividualLinesFromMultilineSecretsInComments() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "Password: |\n  alpha-secret-part\n  beta-secret-part\n"
+				+ "# rotate alpha-secret-part soon\nFeature: false\n");
+
+		BackendConfigurationService.Document read = new BackendConfigurationService(directory, () -> { })
+				.read("Config.yml");
+
+		assertFalse(read.content().contains("alpha-secret-part"));
+		assertFalse(read.content().contains("beta-secret-part"));
+	}
+
+	@Test void redactsCredentialValuesContinuedOnTheNextCommentLine() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "# Password:\n# real-comment-secret\nFeature: false\n");
+
+		BackendConfigurationService.Document read = new BackendConfigurationService(directory, () -> { })
+				.read("Config.yml");
+
+		assertFalse(read.content().contains("real-comment-secret"));
+	}
+
+	@Test void redactsEveryLineOfCredentialCommentBlockScalars() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "# Password: |\n# first-comment-secret\n# second-comment-secret\n#\n"
+				+ "# owner note\nFeature: false\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.Document read = service.read("Config.yml");
+		assertFalse(read.content().contains("first-comment-secret"));
+		assertFalse(read.content().contains("second-comment-secret"));
+		assertTrue(read.content().contains("owner note"));
+
+		BackendConfigurationService.Preview preview = service.preview("Config.yml",
+				read.content().replace("Feature: false", "Feature: true"));
+		assertTrue(preview.resolvedContent().contains("first-comment-secret"));
+		assertTrue(preview.resolvedContent().contains("second-comment-secret"));
+	}
+
+	@Test void redactsAndRestoresCredentialCommentBlockScalars() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "# Password: |\n# literal-comment-secret\n"
+				+ "# Token: >-\n# folded-comment-secret\n"
+				+ "# ApiKey: |2+\n# indented-comment-secret\nFeature: false\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.Document read = service.read("Config.yml");
+		assertFalse(read.content().contains("literal-comment-secret"));
+		assertFalse(read.content().contains("folded-comment-secret"));
+		assertFalse(read.content().contains("indented-comment-secret"));
+
+		String proposal = read.content().replace("Feature: false", "Feature: true");
+		BackendConfigurationService.Preview preview = service.preview("Config.yml", proposal);
+		assertTrue(preview.resolvedContent().contains("literal-comment-secret"));
+		assertTrue(preview.resolvedContent().contains("folded-comment-secret"));
+		assertTrue(preview.resolvedContent().contains("indented-comment-secret"));
+		assertFalse(preview.resolvedContent().contains(BackendConfigurationService.REDACTED));
+
+		service.apply("Config.yml", proposal, read.revision());
+		String applied = Files.readString(config);
+		assertTrue(applied.contains("literal-comment-secret"));
+		assertTrue(applied.contains("folded-comment-secret"));
+		assertTrue(applied.contains("indented-comment-secret"));
+		assertTrue(applied.contains("Feature: true"));
+	}
+
+	@Test void rejectsChangedRedactedCommentPlaceholders() throws Exception {
+		Files.writeString(directory.resolve("Config.yml"), "# Password: comment-secret\nFeature: false\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		BackendConfigurationService.Document read = service.read("Config.yml");
+		String changed = read.content().replace("Password: " + BackendConfigurationService.REDACTED,
+				"Password changed: " + BackendConfigurationService.REDACTED);
+
+		assertThrows(IllegalArgumentException.class, () -> service.preview("Config.yml", changed));
+	}
+
+	@Test void rejectsRemovedOrReplacedRedactedCommentPlaceholders() throws Exception {
+		Files.writeString(directory.resolve("Config.yml"), "# Password: comment-secret\nFeature: false\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		BackendConfigurationService.Document read = service.read("Config.yml");
+		String removed = read.content().lines().filter(line -> !line.contains(BackendConfigurationService.REDACTED))
+				.collect(java.util.stream.Collectors.joining("\n")) + "\n";
+		String replaced = read.content().replace("Password: " + BackendConfigurationService.REDACTED,
+				"ordinary owner note");
+
+		assertThrows(IllegalArgumentException.class, () -> service.preview("Config.yml", removed));
+		assertThrows(IllegalArgumentException.class, () -> service.preview("Config.yml", replaced));
+	}
+
+	@Test void rejectsRemovingAKeyThatOwnsARedactedComment() throws Exception {
+		Files.writeString(directory.resolve("Config.yml"),
+				"Feature: false # Password: inline-comment-secret\nOther: true\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		BackendConfigurationService.Document read = service.read("Config.yml");
+
+		assertTrue(read.content().contains(BackendConfigurationService.REDACTED));
+		assertThrows(IllegalArgumentException.class, () -> service.preview("Config.yml", "Other: true\n"));
+	}
+
+	@Test void rejectsMaskedDocumentsThatExpandPastTheSizeLimit() throws Exception {
+		String repeatedSecret = "abc1234 ".repeat(20_000);
+		String raw = "Password: abc1234\n# " + repeatedSecret + "\nFeature: false\n";
+		assertTrue(raw.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
+				< BackendConfigurationService.MAX_CONTENT_BYTES);
+		Files.writeString(directory.resolve("Config.yml"), raw);
+
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		assertThrows(IllegalArgumentException.class, () -> service.read("Config.yml"));
+	}
+
+	@Test void reportsCommentOnlyChangesInPreview() throws Exception {
+		Files.writeString(directory.resolve("Config.yml"), "# original owner note\nFeature: false # old inline note\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		BackendConfigurationService.Document read = service.read("Config.yml");
+
+		BackendConfigurationService.Preview preview = service.preview("Config.yml", read.content()
+				.replace("original owner note", "updated owner note")
+				.replace("old inline note", "updated inline note"));
+
+		assertTrue(preview.changes().contains("changed comments Feature"));
+	}
+
+	@Test void redactsQuotedCredentialKeysInComments() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "# \"Password\": quoted-comment-secret\nFeature: false\n");
+
+		BackendConfigurationService.Document read = new BackendConfigurationService(directory, () -> { })
+				.read("Config.yml");
+
+		assertFalse(read.content().contains("quoted-comment-secret"));
+	}
+
 	@Test void rejectsStaleInvalidAndUnmanagedWrites() throws Exception {
 		Files.writeString(directory.resolve("Config.yml"), "Feature: false\n");
 		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });

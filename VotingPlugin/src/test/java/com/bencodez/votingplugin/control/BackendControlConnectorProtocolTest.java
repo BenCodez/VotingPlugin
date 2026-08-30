@@ -48,6 +48,20 @@ class BackendControlConnectorProtocolTest {
 		assertDoesNotThrow(() -> BackendControlConnector.requireFileCapability(true));
 	}
 
+	@Test void registrationAdvertisesCommentPreservingFilesAsAnOptionalCapability() {
+		JsonObject registration = new JsonObject();
+		BackendControlConnector.addCapabilities(registration);
+
+		JsonArray advertised = registration.getAsJsonArray("capabilities");
+		assertTrue(advertised.asList().stream()
+				.anyMatch(value -> "config.file-comments.v1".equals(value.getAsString())));
+		JsonArray required = registration.getAsJsonArray("requiredCapabilities");
+		assertTrue(required.asList().stream()
+				.anyMatch(value -> "config.files.v1".equals(value.getAsString())));
+		assertFalse(required.asList().stream()
+				.anyMatch(value -> "config.file-comments.v1".equals(value.getAsString())));
+	}
+
 	@Test void heartbeatRetainsOmittedCapabilitiesAndHonorsExplicitReplacement() {
 		JsonObject omitted = new JsonObject();
 		assertTrue(BackendControlConnector.negotiatedCapability(omitted, "config.files.v1", true));

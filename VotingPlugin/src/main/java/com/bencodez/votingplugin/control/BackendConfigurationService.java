@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.InvalidConfigurationException;
@@ -35,6 +36,11 @@ public final class BackendConfigurationService {
 	public static final int MAX_CONTENT_BYTES = 512 * 1024;
 	private static final Set<String> TOP_LEVEL = Set.of("Config.yml", "VoteSites.yml", "SpecialRewards.yml",
 			"GUI.yml", "Shop.yml", "BungeeSettings.yml");
+	private static final Pattern COMMENT_SECRET = Pattern.compile(
+			"(?i)([\"']?\\b(?:[\\w-]*(?:password|secret)[\\w-]*|token|api[ _.-]?key|authorization|[\\w.-]*webhook[ _.-]?url)"
+					+ "\\b[\"']?\\s*[:=]\\s*)(.*)$");
+	private static final Pattern SECRET_PATH_URL = Pattern.compile("(?i)([\"']?\\burl\\b[\"']?\\s*[:=]\\s*)(.*)$");
+	private static final Pattern BLOCK_SCALAR_INDICATOR = Pattern.compile("[|>](?:[+-][1-9]?|[1-9][+-]?)?");
 
 	private final Path dataDirectory;
 	private final ApplyAction reload;
@@ -320,6 +326,9 @@ public final class BackendConfigurationService {
 		if (content == null) throw new IllegalArgumentException("configuration content is required");
 		ensureBounded(content);
 		YamlConfiguration yaml = new YamlConfiguration();
+		// Comment retention is part of the hosted editor contract. Keep this
+		// explicit even though current Spigot versions default it to true.
+		yaml.options().parseComments(true);
 		try {
 			yaml.loadFromString(content);
 		} catch (InvalidConfigurationException e) {
@@ -336,17 +345,126 @@ public final class BackendConfigurationService {
 	}
 
 	private static String mask(YamlConfiguration yaml) {
+		Set<String> secretValues = new HashSet<>();
 		for (String path : new ArrayList<>(yaml.getKeys(true))) {
-			if (!(yaml.get(path) instanceof ConfigurationSection) && secret(path)) yaml.set(path, REDACTED);
+			if (!(yaml.get(path) instanceof ConfigurationSection) && secret(path)) {
+				Object value = yaml.get(path);
+				if (value != null) addSecretValues(secretValues, String.valueOf(value));
+				yaml.set(path, REDACTED);
+			}
 		}
-		return yaml.saveToString();
+		sanitizeCommentMetadata(yaml, secretValues);
+		String masked = yaml.saveToString();
+		ensureBounded(masked);
+		return masked;
+	}
+
+	private static void addSecretValues(Set<String> values, String value) {
+		if (!value.isBlank()) values.add(value);
+		value.lines().map(String::trim).filter(line -> !line.isBlank()).forEach(values::add);
+	}
+
+	private static void sanitizeCommentMetadata(YamlConfiguration yaml, Set<String> secretValues) {
+		List<String> replacements = secretValues.stream().filter(BackendConfigurationService::safeSecretValue)
+				.sorted(java.util.Comparator.comparingInt(String::length).reversed()).toList();
+		yaml.options().setHeader(sanitizeComments(yaml.options().getHeader(), replacements, false));
+		yaml.options().setFooter(sanitizeComments(yaml.options().getFooter(), replacements, false));
+		for (String path : new ArrayList<>(yaml.getKeys(true))) {
+			yaml.setComments(path, sanitizeComments(yaml.getComments(path), replacements, secret(path)));
+			yaml.setInlineComments(path, sanitizeComments(yaml.getInlineComments(path), replacements, secret(path)));
+		}
+	}
+
+	private static List<String> sanitizeComments(List<String> comments, List<String> secretValues, boolean secretPath) {
+		List<String> sanitized = new ArrayList<>(comments.size());
+		boolean redactContinuation = false;
+		for (String original : comments) {
+			String comment = original;
+			if (redactContinuation) {
+				if (original.isBlank()) {
+					redactContinuation = false;
+				} else {
+					java.util.regex.Matcher continuedLabel = COMMENT_SECRET.matcher(original);
+					if (continuedLabel.find() && !commentContinuation(continuedLabel.group(2))) {
+						redactContinuation = false;
+					}
+					sanitized.add(REDACTED);
+					continue;
+				}
+			}
+			for (String value : secretValues) comment = comment.replace(value, REDACTED);
+			java.util.regex.Matcher labelledSecret = COMMENT_SECRET.matcher(original);
+			if (labelledSecret.find() && commentContinuation(labelledSecret.group(2))) redactContinuation = true;
+			comment = COMMENT_SECRET.matcher(comment).replaceAll("$1" + REDACTED);
+			if (secretPath) comment = SECRET_PATH_URL.matcher(comment).replaceAll("$1" + REDACTED);
+			sanitized.add(comment);
+		}
+		return sanitized;
+	}
+
+	private static boolean commentContinuation(String value) {
+		String trimmed = value.trim();
+		return trimmed.isEmpty() || BLOCK_SCALAR_INDICATOR.matcher(trimmed).matches();
+	}
+
+	private static boolean safeSecretValue(String value) {
+		if (value.length() < 6) return false;
+		return !Set.of("true", "false", "null", "yes", "no", "on", "off").contains(value.toLowerCase(Locale.ROOT));
 	}
 
 	private static YamlConfiguration resolveSecrets(YamlConfiguration proposal, YamlConfiguration current) {
+		YamlConfiguration redactedCurrent = parse(mask(parse(current.saveToString())));
 		for (String path : new ArrayList<>(proposal.getKeys(true))) {
 			if (secret(path) && REDACTED.equals(proposal.getString(path))) proposal.set(path, current.get(path));
 		}
+		restoreCommentSecrets(proposal, current, redactedCurrent);
 		return proposal;
+	}
+
+	private static void restoreCommentSecrets(YamlConfiguration proposal, YamlConfiguration current,
+			YamlConfiguration redactedCurrent) {
+		proposal.options().setHeader(restoreCommentSecrets(proposal.options().getHeader(),
+				current.options().getHeader(), redactedCurrent.options().getHeader()));
+		proposal.options().setFooter(restoreCommentSecrets(proposal.options().getFooter(),
+				current.options().getFooter(), redactedCurrent.options().getFooter()));
+		Set<String> proposalPaths = new LinkedHashSet<>(proposal.getKeys(true));
+		Set<String> paths = new LinkedHashSet<>(redactedCurrent.getKeys(true));
+		paths.addAll(proposalPaths);
+		for (String path : paths) {
+			List<String> comments = restoreCommentSecrets(proposal.getComments(path), current.getComments(path),
+					redactedCurrent.getComments(path));
+			List<String> inlineComments = restoreCommentSecrets(proposal.getInlineComments(path),
+					current.getInlineComments(path), redactedCurrent.getInlineComments(path));
+			if (proposalPaths.contains(path)) {
+				proposal.setComments(path, comments);
+				proposal.setInlineComments(path, inlineComments);
+			}
+		}
+	}
+
+	private static List<String> restoreCommentSecrets(List<String> proposed, List<String> current,
+			List<String> redactedCurrent) {
+		for (int index = 0; index < redactedCurrent.size(); index++) {
+			String redacted = redactedCurrent.get(index);
+			if (redacted.contains(REDACTED)
+					&& (index >= proposed.size() || !redacted.equals(proposed.get(index)))) {
+				throw new IllegalArgumentException("redacted comment placeholders must not be edited or moved");
+			}
+		}
+		List<String> restored = new ArrayList<>(proposed.size());
+		for (int index = 0; index < proposed.size(); index++) {
+			String comment = proposed.get(index);
+			if (!comment.contains(REDACTED)) {
+				restored.add(comment);
+				continue;
+			}
+			if (index >= current.size() || index >= redactedCurrent.size()
+					|| !comment.equals(redactedCurrent.get(index))) {
+				throw new IllegalArgumentException("redacted comment placeholders must not be edited or moved");
+			}
+			restored.add(current.get(index));
+		}
+		return restored;
 	}
 
 	private static boolean secret(String path) {
@@ -361,19 +479,34 @@ public final class BackendConfigurationService {
 		Set<String> paths = new LinkedHashSet<>(current.getKeys(true));
 		paths.addAll(proposal.getKeys(true));
 		List<String> changes = new ArrayList<>();
+		if (!current.options().getHeader().equals(proposal.options().getHeader())
+				&& !addChange(changes, "changed header comments")) return List.copyOf(changes);
+		if (!current.options().getFooter().equals(proposal.options().getFooter())
+				&& !addChange(changes, "changed footer comments")) return List.copyOf(changes);
 		for (String path : paths) {
 			Object before = current.get(path);
 			Object after = proposal.get(path);
-			if (before instanceof ConfigurationSection || after instanceof ConfigurationSection) continue;
-			if (!java.util.Objects.equals(before, after)) {
-				changes.add((secret(path) ? "changed secret " : "changed ") + path);
-				if (changes.size() == 19) {
-					changes.add("additional changes omitted");
-					break;
-				}
+			if (!(before instanceof ConfigurationSection) && !(after instanceof ConfigurationSection)
+					&& !java.util.Objects.equals(before, after)
+					&& !addChange(changes, (secret(path) ? "changed secret " : "changed ") + path)) {
+				break;
+			}
+			if ((!current.getComments(path).equals(proposal.getComments(path))
+					|| !current.getInlineComments(path).equals(proposal.getInlineComments(path)))
+					&& !addChange(changes, "changed comments " + path)) {
+				break;
 			}
 		}
 		return List.copyOf(changes);
+	}
+
+	private static boolean addChange(List<String> changes, String change) {
+		if (changes.size() == 19) {
+			changes.add("additional changes omitted");
+			return false;
+		}
+		changes.add(change);
+		return true;
 	}
 
 	private static String revision(String content) {
