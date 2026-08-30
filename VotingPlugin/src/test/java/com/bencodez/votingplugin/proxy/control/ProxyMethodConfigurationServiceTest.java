@@ -54,6 +54,7 @@ class ProxyMethodConfigurationServiceTest {
 
 		when(config.getBungeePort()).thenReturn(1297);
 		when(proxy.getAllConfiguredServers()).thenReturn(Set.of("lobby", "blocked"));
+		when(config.getSpigotServers()).thenReturn(List.of("lobby", "blocked"));
 		when(config.getBlockedServers()).thenReturn(List.of("blocked"));
 		when(config.getSpigotServerConfiguration("lobby")).thenReturn(Map.of("Host", "localhost"));
 		assertDoesNotThrow(() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.SOCKETS)));
@@ -62,6 +63,18 @@ class ProxyMethodConfigurationServiceTest {
 				() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.MYSQL)));
 		when(config.hasDatabaseConfigured()).thenReturn(true);
 		assertDoesNotThrow(() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.MYSQL)));
+	}
+
+	@Test
+	void validatesEveryPersistedSocketRouteEvenWhenTheProxyNoLongerRegistersIt() {
+		when(config.getBungeePort()).thenReturn(1297);
+		when(config.getBlockedServers()).thenReturn(List.of());
+		when(config.getSpigotServers()).thenReturn(List.of("stale-route"));
+		when(config.getSpigotServerConfiguration("stale-route"))
+				.thenReturn(Map.of("Host", "localhost", "Port", "bad"));
+
+		assertThrows(IllegalArgumentException.class,
+				() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.SOCKETS)));
 	}
 
 	@Test

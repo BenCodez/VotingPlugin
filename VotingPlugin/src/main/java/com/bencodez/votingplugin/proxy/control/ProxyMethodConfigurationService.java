@@ -45,7 +45,7 @@ public final class ProxyMethodConfigurationService {
 				throw new IllegalArgumentException("BungeeServer.Port must be set");
 			}
 			List<String> blockedServers = config.getBlockedServers();
-			for (String server : proxy.getAllConfiguredServers()) {
+			for (String server : config.getSpigotServers()) {
 				if (blockedServers != null && blockedServers.contains(server)) continue;
 				Map<String, Object> backend = config.getSpigotServerConfiguration(server);
 				Object host = backend.get("Host");
