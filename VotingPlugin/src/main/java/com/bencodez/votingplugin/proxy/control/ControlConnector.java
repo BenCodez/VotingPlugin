@@ -295,7 +295,13 @@ public final class ControlConnector implements AutoCloseable {
 
 	void cycle() {
 		synchronized (operationLifecycle) {
-			if (closed || !inFlight.compareAndSet(false, true)) return;
+			if (closed) return;
+			if (!inFlight.compareAndSet(false, true)) {
+				// A fast operation claim can overlap the one-shot heartbeat. Re-arm
+				// it so presence does not stop after this collision.
+				schedule(OPERATION_POLL_MILLIS);
+				return;
+			}
 		}
 		Request first = registered ? heartbeatRequest() : registrationRequest();
 		CompletableFuture<Response> primary;

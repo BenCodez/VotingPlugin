@@ -156,6 +156,23 @@ class ControlConnectorTest {
 		assertTrue(transport.requests.get(afterHeartbeat).path().endsWith("/operations"));
 	}
 
+	@Test void heartbeatCollidingWithOperationPollIsRearmed() throws Exception {
+		connector.close();
+		connector = new ControlConnector(settings(), scheduler, transport,
+				() -> List.of(), logs::add, UUID.randomUUID(), () -> 0L,
+				new ProxyRoutingConfigurationService(new NoOpPlatform()));
+		transport.acceptConfiguration = true;
+		connector.cycle();
+
+		transport.operationClaim = new CompletableFuture<>();
+		transport.heartbeatSent = new CountDownLatch(1);
+		connector.pollOperations();
+		connector.cycle();
+		transport.operationClaim.complete(new Response(204, ""));
+
+		assertTrue(transport.heartbeatSent.await(2, TimeUnit.SECONDS));
+	}
+
 	@Test void slowTransportDoesNotBlockCallerAndShutdownCancelsInFlightRequest() {
 		CompletableFuture<Response> stalled = new CompletableFuture<>();
 		transport.stalled = stalled;
@@ -431,6 +448,7 @@ class ControlConnectorTest {
 		private CompletableFuture<Response> resultSubmission;
 		private CountDownLatch firstSendEntered;
 		private CountDownLatch releaseFirstSend;
+		private CountDownLatch heartbeatSent;
 
 		@Override
 		public CompletableFuture<Response> send(Request request) {
@@ -440,6 +458,7 @@ class ControlConnectorTest {
 				throw failure;
 			}
 			requests.add(request);
+			if (heartbeatSent != null && request.path().endsWith("/heartbeat")) heartbeatSent.countDown();
 			if (firstSendEntered != null) {
 				firstSendEntered.countDown();
 				try {
