@@ -108,11 +108,20 @@ class BackendControlConnectorProtocolTest {
 		assertFalse(result.toString().contains("secret command"));
 	}
 
-	@Test void reloadFailureMessageIncludesTheUsefulNestedCause() {
-		String message = BackendControlConnector.failureMessage("Reload failed",
-				new java.util.concurrent.CompletionException(new IllegalStateException("invalid VoteSites.yml")));
+	@Test void configurationFailureMessagesNeverExposeExceptionDetails() {
+		IllegalStateException failure = new IllegalStateException(
+				"/srv/private/VoteSites.yml jdbc:mysql://database.internal user=secret");
 
-		assertTrue(message.equals("Reload failed: invalid VoteSites.yml"));
+		assertEquals("Configuration read failed; see the backend log",
+				BackendControlConnector.operationFailureMessage("READ", failure));
+		assertEquals("Configuration preview failed; see the backend log",
+				BackendControlConnector.operationFailureMessage("PREVIEW", failure));
+		assertEquals("Configuration apply failed; see the backend log",
+				BackendControlConnector.operationFailureMessage("APPLY", failure));
+		assertEquals("Configuration reload failed; see the backend log",
+				BackendControlConnector.reloadFailureMessage(failure));
+		assertFalse(BackendControlConnector.operationFailureMessage("READ", failure).contains("/srv"));
+		assertFalse(BackendControlConnector.reloadFailureMessage(failure).contains("secret"));
 	}
 
 	@Test void unexpectedInspectionFailureMessagesNeverExposeTheCause() {

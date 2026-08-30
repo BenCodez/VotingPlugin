@@ -22,6 +22,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
 import java.util.regex.Pattern;
 
 import org.bukkit.Bukkit;
@@ -579,7 +580,8 @@ public final class BackendControlConnector implements AutoCloseable {
 		} catch (BackendConfigurationService.StaleRevisionException e) {
 			return TaskResult.failure("STALE_REVISION", "Configuration changed after preview");
 		} catch (BackendConfigurationService.ApplyFailureException e) {
-			return TaskResult.failure("RELOAD_FAILED", failureMessage("Reload failed", e), e.rolledBack());
+			logConfigurationFailure("reload", e);
+			return TaskResult.failure("RELOAD_FAILED", reloadFailureMessage(e), e.rolledBack());
 		} catch (IllegalArgumentException e) {
 			return TaskResult.failure("VALIDATION_ERROR", e.getMessage());
 		} catch (Exception e) {
@@ -587,15 +589,25 @@ public final class BackendControlConnector implements AutoCloseable {
 		}
 	}
 
-	private static TaskResult operationFailure(String type, Throwable failure) {
+	private TaskResult operationFailure(String type, Throwable failure) {
 		String code = operationFailureCode(type);
-		String prefix = "Configuration apply failed";
-		if ("READ".equals(type)) {
-			prefix = "Configuration read failed";
-		} else if ("PREVIEW".equals(type)) {
-			prefix = "Configuration preview failed";
-		}
-		return TaskResult.failure(code, failureMessage(prefix, failure));
+		String action = "READ".equals(type) ? "read" : "PREVIEW".equals(type) ? "preview" : "apply";
+		logConfigurationFailure(action, failure);
+		return TaskResult.failure(code, operationFailureMessage(type, failure));
+	}
+
+	private void logConfigurationFailure(String action, Throwable failure) {
+		plugin.getLogger().log(Level.WARNING, "[Control] Configuration " + action + " failed", failure);
+	}
+
+	static String operationFailureMessage(String type, Throwable ignored) {
+		if ("READ".equals(type)) return "Configuration read failed; see the backend log";
+		if ("PREVIEW".equals(type)) return "Configuration preview failed; see the backend log";
+		return "Configuration apply failed; see the backend log";
+	}
+
+	static String reloadFailureMessage(Throwable ignored) {
+		return "Configuration reload failed; see the backend log";
 	}
 
 	static String operationFailureCode(String type) {
@@ -657,17 +669,6 @@ public final class BackendControlConnector implements AutoCloseable {
 					"Config.yml".equals(applied.document().fileName()));
 		}
 		return TaskResult.failure("UNSUPPORTED_TASK", "Task type is unsupported");
-	}
-
-	static String failureMessage(String prefix, Throwable failure) {
-		Throwable detail = failure;
-		while (detail.getCause() != null && (detail instanceof BackendConfigurationService.ApplyFailureException
-				|| detail instanceof java.util.concurrent.ExecutionException
-				|| detail instanceof java.util.concurrent.CompletionException
-				|| detail.getMessage() == null || detail.getMessage().isBlank())) detail = detail.getCause();
-		String message = detail.getMessage();
-		if (message == null || message.isBlank()) message = detail.getClass().getSimpleName();
-		return boundedResultMessage(prefix + ": " + message);
 	}
 
 	/** Keeps every persisted/submitted result safely inside Control's 500-character protocol limit. */

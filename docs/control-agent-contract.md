@@ -230,6 +230,8 @@ unloaded site keys are not returned. They are not log enumeration or an end-to-e
 
 - Inspection results may contain only the typed fields documented above. Never echo a credential, password, token,
   database/Redis/MQTT host, webhook URL, raw configuration, or raw server log.
+- Unexpected managed configuration read, preview, apply, and reload exceptions retain their action-specific result code but
+  return fixed external text; their detailed cause is logged only on the backend and is never copied into a Control result.
 - An unexpected handler exception returns only generic `INSPECTION_FAILED` text. The backend log may identify its exception
   class, but omits the exception message because it can contain storage endpoints, users, or filesystem paths.
 - `diagnostics` explicitly lists sensitive categories it omitted. It is a status report, not a support archive.
