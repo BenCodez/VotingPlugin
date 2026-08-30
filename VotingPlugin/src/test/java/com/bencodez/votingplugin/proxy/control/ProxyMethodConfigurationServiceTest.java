@@ -3,9 +3,11 @@ package com.bencodez.votingplugin.proxy.control;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -51,7 +53,9 @@ class ProxyMethodConfigurationServiceTest {
 		assertDoesNotThrow(() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.MQTT)));
 
 		when(config.getBungeePort()).thenReturn(1297);
-		when(config.getSpigotServerConfiguration("lobby")).thenReturn(Map.of("Host", "localhost", "Port", 1298));
+		when(proxy.getAllConfiguredServers()).thenReturn(Set.of("lobby", "blocked"));
+		when(config.getBlockedServers()).thenReturn(List.of("blocked"));
+		when(config.getSpigotServerConfiguration("lobby")).thenReturn(Map.of("Host", "localhost"));
 		assertDoesNotThrow(() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.SOCKETS)));
 
 		assertThrows(IllegalArgumentException.class,
@@ -69,5 +73,22 @@ class ProxyMethodConfigurationServiceTest {
 	void readsUnknownPersistedMethodsUsingTheRuntimeFallback() {
 		when(config.getBungeeMethod()).thenReturn("unknown");
 		assertEquals(BungeeMethod.PLUGINMESSAGING, service.read().method());
+	}
+
+	@Test
+	void applyValidatesTheFreshlyLoadedPersistedSnapshot() throws Exception {
+		when(config.getBungeeMethod()).thenReturn("PLUGINMESSAGING");
+		when(config.getRedisHost()).thenReturn("localhost");
+		when(config.getRedisPort()).thenReturn(6379);
+		VotingPluginProxyConfig fresh = mock(VotingPluginProxyConfig.class);
+		doAnswer(invocation -> {
+			VotingPluginProxyConfig.ControlProxyMethodValidator validator = invocation.getArgument(2);
+			validator.validate(fresh);
+			return null;
+		}).when(config).persistControlProxyMethod(org.mockito.ArgumentMatchers.eq("REDIS"),
+				org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any());
+
+		ProxyMethodConfiguration proposal = new ProxyMethodConfiguration(BungeeMethod.REDIS);
+		assertThrows(IllegalArgumentException.class, () -> service.apply(proposal, service.read().revision()));
 	}
 }

@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 import com.bencodez.votingplugin.proxy.control.ProxyMethodConfiguration;
 import com.bencodez.votingplugin.proxy.control.ProxyRoutingConfiguration;
@@ -581,7 +582,8 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 	}
 
 	@Override
-	public synchronized void persistControlProxyMethod(String method, String expectedRevision) throws IOException {
+	public synchronized void persistControlProxyMethod(String method, String expectedRevision,
+			ControlProxyMethodValidator validator) throws IOException {
 		Path target = new File(bungee.getDataFolder(), "bungeeconfig.yml").toPath();
 		Path stage = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".control-stage");
 		Path backupStage = null;
@@ -591,10 +593,15 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 			byte[] sourceSnapshot = Files.readAllBytes(target);
 			Configuration latest = ConfigurationProvider.getProvider(YamlConfiguration.class).load(target.toFile());
 			ProxyMethodConfiguration current = new ProxyMethodConfiguration(
-					com.bencodez.votingplugin.proxy.control.ProxyMethodConfigurationService.canonical(
-							latest.getString("BungeeMethod", "SOCKETS")));
+					BungeeMethod.getByName(latest.getString("BungeeMethod", "SOCKETS")));
 			if (!java.util.Arrays.equals(sourceSnapshot, Files.readAllBytes(target))
 					|| !current.revision().equals(expectedRevision)) throw new StaleControlRevisionException();
+			BungeeConfig fresh = new BungeeConfig(bungee);
+			fresh.loadControlConfiguration();
+			validator.validate(fresh);
+			if (!java.util.Arrays.equals(sourceSnapshot, Files.readAllBytes(target))) {
+				throw new StaleControlRevisionException();
+			}
 			latest.set("BungeeMethod", method);
 			ConfigurationProvider.getProvider(YamlConfiguration.class).save(latest, stage.toFile());
 			byte[] installedSnapshot = Files.readAllBytes(stage);

@@ -23,7 +23,10 @@ public final class ProxyMethodConfigurationService {
 	}
 
 	public void validate(ProxyMethodConfiguration proposal) {
-		VotingPluginProxyConfig config = proxy.getConfig();
+		validate(proposal, proxy.getConfig());
+	}
+
+	private void validate(ProxyMethodConfiguration proposal, VotingPluginProxyConfig config) {
 		switch (proposal.method()) {
 		case PLUGINMESSAGING:
 			if (blank(config.getPluginMessageChannel())) {
@@ -41,12 +44,15 @@ public final class ProxyMethodConfigurationService {
 			if (config.getBungeePort() < 1 || config.getBungeePort() > 65535) {
 				throw new IllegalArgumentException("BungeeServer.Port must be set");
 			}
+			List<String> blockedServers = config.getBlockedServers();
 			for (String server : proxy.getAllConfiguredServers()) {
+				if (blockedServers != null && blockedServers.contains(server)) continue;
 				Map<String, Object> backend = config.getSpigotServerConfiguration(server);
 				Object host = backend.get("Host");
 				Object port = backend.get("Port");
-				if (host == null || blank(host.toString()) || !(port instanceof Number)
-						|| ((Number) port).intValue() < 1 || ((Number) port).intValue() > 65535) {
+				int socketPort = port == null ? 1298 : port instanceof Number ? ((Number) port).intValue() : 0;
+				if (!(host instanceof String) || blank((String) host)
+						|| socketPort < 1 || socketPort > 65535) {
 					throw new IllegalArgumentException("SpigotServers." + server + " Host and Port must be set for SOCKETS");
 				}
 			}
@@ -67,10 +73,13 @@ public final class ProxyMethodConfigurationService {
 			throw new StaleRevisionException();
 		}
 		try {
-			proxy.getConfig().persistControlProxyMethod(proposal.method().name(), expectedRevision);
+			proxy.getConfig().persistControlProxyMethod(proposal.method().name(), expectedRevision,
+					latest -> validate(proposal, latest));
 			proxy.getConfig().verifyControlProxyRoutingInstalled();
 		} catch (VotingPluginProxyConfig.StaleControlRevisionException e) {
 			throw new StaleRevisionException();
+		} catch (IllegalArgumentException validation) {
+			throw validation;
 		} catch (DurableFiles.PublishedException published) {
 			throw rollbackAfterFailure(published);
 		} catch (IOException failure) {

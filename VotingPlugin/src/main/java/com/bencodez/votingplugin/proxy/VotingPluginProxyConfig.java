@@ -24,7 +24,18 @@ public interface VotingPluginProxyConfig {
 
 	/** Atomically persists only the proxy communication method. */
 	default void persistControlProxyMethod(String method, String expectedRevision) throws IOException {
+		persistControlProxyMethod(method, expectedRevision, ignored -> { });
+	}
+
+	/** Atomically validates the freshly loaded file before persisting the proxy communication method. */
+	default void persistControlProxyMethod(String method, String expectedRevision,
+			ControlProxyMethodValidator validator) throws IOException {
 		throw new UnsupportedOperationException("Control proxy method writes are unavailable");
+	}
+
+	@FunctionalInterface
+	interface ControlProxyMethodValidator {
+		void validate(VotingPluginProxyConfig current);
 	}
 
 	/** Restores the most recent Control-created backup. */
