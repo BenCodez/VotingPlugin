@@ -460,6 +460,40 @@ class BackendConfigurationServiceTest {
 		assertTrue(mqtt.proposal().content().contains("BungeeMethod: MQTT"));
 	}
 
+	@Test void proxyMethodSwitchPreflightsRequiredBackendSettings() throws Exception {
+		Path settings = directory.resolve("BungeeSettings.yml");
+		Files.writeString(settings, "UseBungeecord: true\nServer: lobby\nBungeeMethod: PLUGINMESSAGING\n"
+				+ "PluginMessageChannel: vp:vp\nRedis:\n  Host: ''\n  Port: 6379\n"
+				+ "MQTT:\n  ClientID: lobby\n  BrokerURL: bad\nBungeeServer:\n  Host: ''\n  Port: 1297\n");
+		Files.writeString(directory.resolve("Config.yml"),
+				"DataStorage: SQLITE\nDatabase:\n  Host: ''\n  Database: ''\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		assertThrows(IllegalArgumentException.class,
+				() -> service.previewQuickSetup("proxy-method", Map.of("method", "REDIS")));
+		assertThrows(IllegalArgumentException.class,
+				() -> service.previewQuickSetup("proxy-method", Map.of("method", "MQTT")));
+		assertThrows(IllegalArgumentException.class,
+				() -> service.previewQuickSetup("proxy-method", Map.of("method", "SOCKETS")));
+		assertThrows(IllegalArgumentException.class,
+				() -> service.previewQuickSetup("proxy-method", Map.of("method", "MYSQL")));
+
+		Files.writeString(settings, Files.readString(settings).replace("Host: ''", "Host: localhost")
+				.replace("BrokerURL: bad", "BrokerURL: tcp://localhost:1883"));
+		BackendConfigurationService.QuickPreview redis = service.previewQuickSetup("proxy-method",
+				Map.of("method", "REDIS"));
+		assertTrue(redis.proposal().content().contains("BungeeMethod: REDIS"));
+	}
+
+	@Test void pluginMessagingMethodRequiresBackendIdentityForDiagnostics() throws Exception {
+		Files.writeString(directory.resolve("BungeeSettings.yml"),
+				"UseBungeecord: true\nServer: PleaseSet\nBungeeMethod: REDIS\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		assertThrows(IllegalArgumentException.class, () -> service.previewQuickSetup("proxy-method",
+				Map.of("method", "PLUGINMESSAGING")));
+	}
+
 	@Test void voteSitesSyncAddsAndUpdatesDefinitionsWithoutTouchingRewardsOrTargetOnlySites() throws Exception {
 		Path voteSites = directory.resolve("VoteSites.yml");
 		Files.writeString(voteSites, "VoteSites:\n"

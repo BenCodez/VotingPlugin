@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.proxy.velocity;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -12,6 +13,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.bencodez.votingplugin.proxy.control.ProxyRoutingConfiguration;
+import com.bencodez.votingplugin.proxy.control.ProxyMethodConfiguration;
+import com.bencodez.votingplugin.proxy.control.ProxyMethodConfigurationService;
 
 class VelocityConfigControlTest {
 	@TempDir Path directory;
@@ -51,5 +54,54 @@ class VelocityConfigControlTest {
 		assertThrows(java.io.IOException.class, config::rollbackControlProxyRouting);
 		assertTrue(Files.readString(file).contains("lobby"));
 		assertTrue(Files.readString(external).contains("preserved"));
+	}
+
+	@Test
+	void controlPersistsOnlyTheRevisionedProxyMethod() throws Exception {
+		Path file = directory.resolve("velocity.yml");
+		Files.writeString(file, "BungeeMethod: PLUGINMESSAGING\nRedis:\n  Host: localhost\n  Port: 6379\n");
+		VelocityConfig config = new VelocityConfig(file.toFile());
+		config.loadControlConfiguration();
+		ProxyMethodConfiguration current = new ProxyMethodConfiguration(
+				ProxyMethodConfigurationService.canonical(config.getBungeeMethod()));
+
+		config.persistControlProxyMethod("REDIS", current.revision());
+		config.loadControlConfiguration();
+
+		assertEquals("REDIS", config.getBungeeMethod());
+		assertTrue(Files.readString(file).contains("Host: localhost"));
+	}
+
+	@Test
+	void controlCanRepairAnUnknownPersistedProxyMethod() throws Exception {
+		Path file = directory.resolve("velocity.yml");
+		Files.writeString(file, "BungeeMethod: RETIRED_METHOD\nRedis:\n  Host: localhost\n  Port: 6379\n");
+		VelocityConfig config = new VelocityConfig(file.toFile());
+		config.loadControlConfiguration();
+		ProxyMethodConfiguration current = new ProxyMethodConfiguration(
+				com.bencodez.votingplugin.proxy.BungeeMethod.getByName(config.getBungeeMethod()));
+
+		config.persistControlProxyMethod("REDIS", current.revision());
+		config.loadControlConfiguration();
+
+		assertEquals("REDIS", config.getBungeeMethod());
+	}
+
+	@Test
+	void controlValidatesTheFreshOnDiskSnapshotBeforeChangingMethods() throws Exception {
+		Path file = directory.resolve("velocity.yml");
+		Files.writeString(file, "BungeeMethod: PLUGINMESSAGING\nRedis:\n  Host: localhost\n  Port: 6379\n");
+		VelocityConfig config = new VelocityConfig(file.toFile());
+		config.loadControlConfiguration();
+		ProxyMethodConfiguration current = new ProxyMethodConfiguration(
+				com.bencodez.votingplugin.proxy.BungeeMethod.getByName(config.getBungeeMethod()));
+		Files.writeString(file, "BungeeMethod: PLUGINMESSAGING\nRedis:\n  Host: ''\n  Port: 6379\n");
+
+		assertThrows(IllegalArgumentException.class, () -> config.persistControlProxyMethod("REDIS",
+				current.revision(), fresh -> {
+					if (fresh.getRedisHost().isBlank()) throw new IllegalArgumentException("Redis host must be set");
+				}));
+
+		assertTrue(Files.readString(file).contains("BungeeMethod: PLUGINMESSAGING"));
 	}
 }
