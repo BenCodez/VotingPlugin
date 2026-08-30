@@ -23,6 +23,8 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	private final List<String> warnings = new ArrayList<>();
 	private VotingPluginProxyConfig config;
 	private boolean pluginMessageDeliveryResult = true;
+	private boolean communicationTestDeliveryResult = true;
+	private JsonEnvelope lastCommunicationTestEnvelope;
 	private boolean playerOnline = true;
 	private ScheduledExecutorService scheduler;
 
@@ -208,6 +210,20 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	public boolean sendProxyBroadcastImmediately(String server, JsonEnvelope envelope) {
 		return sendProxyBroadcastEnvelopeNow(server, envelope);
+	}
+
+	@Override
+	protected boolean sendCommunicationTestEnvelopeNow(String server, JsonEnvelope envelope) {
+		lastCommunicationTestEnvelope = envelope;
+		return communicationTestDeliveryResult;
+	}
+
+	public void setCommunicationTestDeliveryResult(boolean communicationTestDeliveryResult) {
+		this.communicationTestDeliveryResult = communicationTestDeliveryResult;
+	}
+
+	public JsonEnvelope getLastCommunicationTestEnvelope() {
+		return lastCommunicationTestEnvelope;
 	}
 
 	public void handleLoginMessageForTest(JsonEnvelope envelope) {

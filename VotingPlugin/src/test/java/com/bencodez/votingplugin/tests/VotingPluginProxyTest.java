@@ -133,13 +133,11 @@ public class VotingPluginProxyTest {
 				.mock(com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler.class);
 		votingPluginProxy.setSchedulerForTest(scheduler);
 		votingPluginProxy.setGlobalMessageProxyHandlerForTest(messageHandler);
-		org.mockito.ArgumentCaptor<com.bencodez.simpleapi.servercomm.codec.JsonEnvelope> sent = org.mockito.ArgumentCaptor
-				.forClass(com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.class);
 
 		java.util.concurrent.CompletableFuture<VotingPluginProxy.CommunicationTestResult> result = votingPluginProxy
 				.testBackendCommunication("Server1", 5000L);
-		verify(messageHandler).sendMessage(Mockito.eq("Server1"), Mockito.eq(1), sent.capture());
-		String requestId = sent.getValue().getFields().get(VotingPluginWire.K_REQUEST_ID);
+		String requestId = votingPluginProxy.getLastCommunicationTestEnvelope().getFields()
+				.get(VotingPluginWire.K_REQUEST_ID);
 		assertFalse(result.isDone());
 
 		votingPluginProxy.handleStatusOkayForTest(VotingPluginWire.statusOkay("Server2",
@@ -153,6 +151,27 @@ public class VotingPluginProxyTest {
 		assertEquals("Server1", completed.server());
 		assertEquals("MQTT", completed.method());
 		assertTrue(completed.roundTripMillis() >= 0L);
+	}
+
+	@Test
+	void communicationTestReportsUnavailableWhenTheActiveTransportCannotSend() throws Exception {
+		java.util.concurrent.ScheduledExecutorService scheduler = Mockito
+				.mock(java.util.concurrent.ScheduledExecutorService.class);
+		votingPluginProxy.setSchedulerForTest(scheduler);
+		votingPluginProxy.setGlobalMessageProxyHandlerForTest(Mockito
+				.mock(com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler.class));
+		votingPluginProxy.setCommunicationTestDeliveryResult(false);
+
+		for (BungeeMethod unavailable : new BungeeMethod[] { BungeeMethod.MQTT, BungeeMethod.SOCKETS }) {
+			votingPluginProxy.setMethod(unavailable);
+			VotingPluginProxy.CommunicationTestResult result = votingPluginProxy
+					.testBackendCommunication("Server1", 5000L).get();
+
+			assertFalse(result.success());
+			assertEquals("TRANSPORT_UNAVAILABLE", result.code());
+			assertEquals(unavailable.name(), result.method());
+		}
+		Mockito.verifyNoInteractions(scheduler);
 	}
 
 	@Test

@@ -2922,14 +2922,23 @@ public abstract class VotingPluginProxy {
 		pendingCommunicationTests.put(requestId, pending);
 		result.whenComplete((ignored, failure) -> pendingCommunicationTests.remove(requestId, pending));
 		try {
+			if (!sendCommunicationTestEnvelopeNow(server, VotingPluginWire.status(server, requestId))) {
+				result.complete(CommunicationTestResult.failure(server, activeMethod, "TRANSPORT_UNAVAILABLE",
+						"The active transport could not accept the communication test"));
+				return result;
+			}
 			scheduler.schedule(() -> result.complete(CommunicationTestResult.failure(server, activeMethod,
 					"TIMEOUT", "No correlated reply arrived before the timeout")), boundedTimeout, TimeUnit.MILLISECONDS);
-			globalMessageProxyHandler.sendMessage(server, 1, VotingPluginWire.status(server, requestId));
 		} catch (RuntimeException failure) {
 			result.complete(CommunicationTestResult.failure(server, activeMethod, "SEND_FAILED",
 					"The proxy could not send the communication test"));
 		}
 		return result;
+	}
+
+	/** Sends a diagnostic immediately and reports whether the active transport accepted it. */
+	protected boolean sendCommunicationTestEnvelopeNow(String server, JsonEnvelope envelope) {
+		return sendProxyBroadcastEnvelopeNow(server, envelope);
 	}
 
 	protected void handleStatusOkay(JsonEnvelope message) {
