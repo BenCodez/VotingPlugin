@@ -526,6 +526,23 @@ class BackendConfigurationServiceTest {
 		assertEquals("Source", installed.getString("VoteSites.PMC.Name"));
 	}
 
+	@Test void voteSitesSyncPreservesTargetCredentialComments() throws Exception {
+		Path voteSites = directory.resolve("VoteSites.yml");
+		Files.writeString(voteSites, "VoteSites:\n  PMC:\n"
+				+ "    Name: Target # Password: target-comment-secret\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		String source = "VoteSites:\n  PMC:\n    Name: Source # public source comment\n";
+
+		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("sync-vote-sites",
+				Map.of("sourceContent", source));
+		assertTrue(preview.proposal().content().contains("target-comment-secret"));
+
+		service.applyQuickSetup("sync-vote-sites", Map.of("sourceContent", source), preview.revision());
+		String applied = Files.readString(voteSites);
+		assertTrue(applied.contains("Name: Source"));
+		assertTrue(applied.contains("target-comment-secret"));
+	}
+
 	@Test void voteSitesSyncKeepsDistinctKeysWhenCaseInsensitiveFilesAreDisabled() throws Exception {
 		Files.writeString(directory.resolve("Config.yml"), "caseinsensitiveymlfiles: false\n");
 		Files.writeString(directory.resolve("VoteSites.yml"), "VoteSites:\n  PMC:\n    Name: Upper target\n"
