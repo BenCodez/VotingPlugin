@@ -211,6 +211,31 @@ class BackendConfigurationServiceTest {
 		assertThrows(IllegalArgumentException.class, () -> service.preview("Config.yml", changed));
 	}
 
+	@Test void rejectsRemovedOrReplacedRedactedCommentPlaceholders() throws Exception {
+		Files.writeString(directory.resolve("Config.yml"), "# Password: comment-secret\nFeature: false\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		BackendConfigurationService.Document read = service.read("Config.yml");
+		String removed = read.content().lines().filter(line -> !line.contains(BackendConfigurationService.REDACTED))
+				.collect(java.util.stream.Collectors.joining("\n")) + "\n";
+		String replaced = read.content().replace("Password: " + BackendConfigurationService.REDACTED,
+				"ordinary owner note");
+
+		assertThrows(IllegalArgumentException.class, () -> service.preview("Config.yml", removed));
+		assertThrows(IllegalArgumentException.class, () -> service.preview("Config.yml", replaced));
+	}
+
+	@Test void rejectsMaskedDocumentsThatExpandPastTheSizeLimit() throws Exception {
+		String repeatedSecret = "abc1234 ".repeat(20_000);
+		String raw = "Password: abc1234\n# " + repeatedSecret + "\nFeature: false\n";
+		assertTrue(raw.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
+				< BackendConfigurationService.MAX_CONTENT_BYTES);
+		Files.writeString(directory.resolve("Config.yml"), raw);
+
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		assertThrows(IllegalArgumentException.class, () -> service.read("Config.yml"));
+	}
+
 	@Test void reportsCommentOnlyChangesInPreview() throws Exception {
 		Files.writeString(directory.resolve("Config.yml"), "# original owner note\nFeature: false # old inline note\n");
 		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
