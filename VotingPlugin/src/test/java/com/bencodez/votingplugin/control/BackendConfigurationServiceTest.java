@@ -125,7 +125,7 @@ class BackendConfigurationServiceTest {
 	@Test void redactsWebhookUrlCommentsWithoutReplacingShortSecretsInProse() throws Exception {
 		Path config = directory.resolve("Config.yml");
 		Files.writeString(config, "Password: true\n# DiscordWebhook.URL: https://dotted-secret.invalid/hook\n"
-				+ "DiscordWebhook:\n  URL: '' # URL: https://old-secret.invalid/hook\n"
+				+ "DiscordWebhook:\n  URL: '' # \"URL\": https://old-secret.invalid/hook\n"
 				+ "Feature: false # This is true when enabled\n");
 		BackendConfigurationService.Document read = new BackendConfigurationService(directory, () -> { })
 				.read("Config.yml");
@@ -155,6 +155,23 @@ class BackendConfigurationServiceTest {
 				.read("Config.yml");
 
 		assertFalse(read.content().contains("real-comment-secret"));
+	}
+
+	@Test void redactsEveryLineOfCredentialCommentBlockScalars() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "# Password: |\n# first-comment-secret\n# second-comment-secret\n#\n"
+				+ "# owner note\nFeature: false\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.Document read = service.read("Config.yml");
+		assertFalse(read.content().contains("first-comment-secret"));
+		assertFalse(read.content().contains("second-comment-secret"));
+		assertTrue(read.content().contains("owner note"));
+
+		BackendConfigurationService.Preview preview = service.preview("Config.yml",
+				read.content().replace("Feature: false", "Feature: true"));
+		assertTrue(preview.resolvedContent().contains("first-comment-secret"));
+		assertTrue(preview.resolvedContent().contains("second-comment-secret"));
 	}
 
 	@Test void redactsAndRestoresCredentialCommentBlockScalars() throws Exception {
@@ -192,6 +209,19 @@ class BackendConfigurationServiceTest {
 				"Password changed: " + BackendConfigurationService.REDACTED);
 
 		assertThrows(IllegalArgumentException.class, () -> service.preview("Config.yml", changed));
+	}
+
+	@Test void reportsCommentOnlyChangesInPreview() throws Exception {
+		Files.writeString(directory.resolve("Config.yml"), "# original owner note\nFeature: false # old inline note\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		BackendConfigurationService.Document read = service.read("Config.yml");
+
+		BackendConfigurationService.Preview preview = service.preview("Config.yml", read.content()
+				.replace("original owner note", "updated owner note")
+				.replace("old inline note", "updated inline note"));
+
+		assertTrue(preview.changes().contains("changed header comments"));
+		assertTrue(preview.changes().contains("changed comments Feature"));
 	}
 
 	@Test void redactsQuotedCredentialKeysInComments() throws Exception {
@@ -512,6 +542,25 @@ class BackendConfigurationServiceTest {
 		assertEquals(1, proposal.getConfigurationSection("votesites").getKeys(false).size());
 	}
 
+	@Test void voteSitesSyncDropsUnrestorableSourceCredentialComments() throws Exception {
+		Files.writeString(directory.resolve("VoteSites.yml"), "VoteSites:\n  PMC:\n    Name: Target\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		String source = "VoteSites:\n  # Password: " + BackendConfigurationService.REDACTED + "\n"
+				+ "  # public source note\n  PMC:\n    Name: Source # Token: "
+				+ BackendConfigurationService.REDACTED + "\n";
+
+		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("sync-vote-sites",
+				Map.of("sourceContent", source));
+
+		assertFalse(preview.proposal().content().contains(BackendConfigurationService.REDACTED));
+		assertTrue(preview.proposal().content().contains("public source note"));
+		BackendConfigurationService.ApplyResult applied = service.applyQuickSetup("sync-vote-sites",
+				Map.of("sourceContent", source), preview.revision());
+		YamlConfiguration installed = new YamlConfiguration();
+		installed.loadFromString(applied.document().content());
+		assertEquals("Source", installed.getString("VoteSites.PMC.Name"));
+	}
+
 	@Test void voteSitesSyncKeepsDistinctKeysWhenCaseInsensitiveFilesAreDisabled() throws Exception {
 		Files.writeString(directory.resolve("Config.yml"), "caseinsensitiveymlfiles: false\n");
 		Files.writeString(directory.resolve("VoteSites.yml"), "VoteSites:\n  PMC:\n    Name: Upper target\n"
@@ -562,6 +611,22 @@ class BackendConfigurationServiceTest {
 
 		assertEquals("Source", proposal.getString("VoteSites.Example.Name"));
 		assertEquals("keep", proposal.getString("VoteSites.Example.Metadata"));
+	}
+
+	@Test void voteSitesSyncDoesNotReplaceTargetSectionsContainingRewardDescendants() throws Exception {
+		Files.writeString(directory.resolve("VoteSites.yml"), "VoteSites:\n  Example:\n    Name: Target\n"
+				+ "    Metadata:\n      Owner: keep\n      Rewards:\n        Commands: ['target reward']\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("sync-vote-sites", Map.of(
+				"sourceContent", "VoteSites:\n  Example:\n    Name: Source\n    Metadata: source scalar\n"));
+		YamlConfiguration proposal = new YamlConfiguration();
+		proposal.loadFromString(preview.proposal().content());
+
+		assertEquals("Source", proposal.getString("VoteSites.Example.Name"));
+		assertEquals("keep", proposal.getString("VoteSites.Example.Metadata.Owner"));
+		assertEquals(List.of("target reward"),
+				proposal.getStringList("VoteSites.Example.Metadata.Rewards.Commands"));
 	}
 
 	@Test void fullBungeeSettingsRejectsUnknownTransportMethods() throws Exception {
