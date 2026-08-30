@@ -156,6 +156,43 @@ class BackendConfigurationServiceTest {
 		assertFalse(read.content().contains("real-comment-secret"));
 	}
 
+	@Test void redactsAndRestoresCredentialCommentBlockScalars() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "# Password: |\n# literal-comment-secret\n"
+				+ "# Token: >-\n# folded-comment-secret\n"
+				+ "# ApiKey: |2+\n# indented-comment-secret\nFeature: false\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.Document read = service.read("Config.yml");
+		assertFalse(read.content().contains("literal-comment-secret"));
+		assertFalse(read.content().contains("folded-comment-secret"));
+		assertFalse(read.content().contains("indented-comment-secret"));
+
+		String proposal = read.content().replace("Feature: false", "Feature: true");
+		BackendConfigurationService.Preview preview = service.preview("Config.yml", proposal);
+		assertTrue(preview.resolvedContent().contains("literal-comment-secret"));
+		assertTrue(preview.resolvedContent().contains("folded-comment-secret"));
+		assertTrue(preview.resolvedContent().contains("indented-comment-secret"));
+		assertFalse(preview.resolvedContent().contains(BackendConfigurationService.REDACTED));
+
+		service.apply("Config.yml", proposal, read.revision());
+		String applied = Files.readString(config);
+		assertTrue(applied.contains("literal-comment-secret"));
+		assertTrue(applied.contains("folded-comment-secret"));
+		assertTrue(applied.contains("indented-comment-secret"));
+		assertTrue(applied.contains("Feature: true"));
+	}
+
+	@Test void rejectsChangedRedactedCommentPlaceholders() throws Exception {
+		Files.writeString(directory.resolve("Config.yml"), "# Password: comment-secret\nFeature: false\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		BackendConfigurationService.Document read = service.read("Config.yml");
+		String changed = read.content().replace("Password: " + BackendConfigurationService.REDACTED,
+				"Password changed: " + BackendConfigurationService.REDACTED);
+
+		assertThrows(IllegalArgumentException.class, () -> service.preview("Config.yml", changed));
+	}
+
 	@Test void redactsQuotedCredentialKeysInComments() throws Exception {
 		Path config = directory.resolve("Config.yml");
 		Files.writeString(config, "# \"Password\": quoted-comment-secret\nFeature: false\n");
