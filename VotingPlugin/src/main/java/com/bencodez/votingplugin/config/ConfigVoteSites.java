@@ -48,13 +48,30 @@ public class ConfigVoteSites extends YMLFile {
 	}
 
 	/**
-	 * Attempts to generate a vote site.
+	 * Attempts to auto-generate a vote site for an inbound, previously unknown
+	 * service. This is the only creation path controlled by AutoCreateVoteSites.
+	 *
+	 * @param siteName the site name
+	 * @return {@code true} if automatic creation was enabled and succeeded
+	 */
+	public boolean tryAutoGenerateVoteSite(String siteName) {
+		return tryGenerateVoteSite(siteName, true);
+	}
+
+	/**
+	 * Attempts to explicitly generate a vote site. Admin commands, the admin GUI,
+	 * and other deliberate setup actions use this method even when automatic
+	 * creation for inbound votes is disabled.
 	 *
 	 * @param siteName the site name
 	 * @return {@code true} if the site was generated
 	 */
 	public boolean tryGenerateVoteSite(String siteName) {
-		if (plugin.getConfigFile().isAutoCreateVoteSites()) {
+		return tryGenerateVoteSite(siteName, false);
+	}
+
+	private boolean tryGenerateVoteSite(String siteName, boolean automatic) {
+		if (!automatic || plugin.getConfigFile().isAutoCreateVoteSites()) {
 			if (!ServiceSiteValidator.isValid(siteName)) {
 				plugin.getLogger().warning("Unable to generate vote site with unsupported name '"
 						+ ServiceSiteValidator.sanitizeForLog(siteName) + "'");
@@ -63,8 +80,7 @@ public class ConfigVoteSites extends YMLFile {
 			String org = siteName;
 			siteName = siteName.replaceAll("[\\.\\s]+", "_");
 
-			plugin.getLogger().warning("VoteSite " + siteName + " does not exist with the servicesite '" + org
-					+ "', creating one, set AutoCreateVoteSites to false to prevent this");
+			plugin.getLogger().warning("Creating VoteSite " + siteName + " for the service site '" + org + "'");
 			setEnabled(siteName, true);
 			setServiceSite(siteName, org);
 			setVoteURL(siteName, "VoteURL");

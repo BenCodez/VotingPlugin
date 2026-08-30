@@ -38,7 +38,7 @@ public final class BackendConfigurationService {
 	private static final int READ_ATTEMPTS = 3;
 	private static final long READ_RETRY_MILLIS = 25;
 	private static final Set<String> READABLE_QUICK_SETUPS = Set.of("standalone", "proxy-backend", "vote-site",
-			"common-settings", "vote-party");
+			"common-settings", "vote-party", "auto-create-vote-sites", "vote-logging");
 	private static final Set<String> TOP_LEVEL = Set.of("Config.yml", "VoteSites.yml", "SpecialRewards.yml",
 			"GUI.yml", "Shop.yml", "BungeeSettings.yml");
 	private static final Set<String> VOTE_SITE_FIELDS = Set.of("AdvancedPriority", "Amount", "Chance",
@@ -210,7 +210,7 @@ public final class BackendConfigurationService {
 	}
 
 	public QuickPreview previewQuickSetup(String preset, Map<String, String> options) throws IOException {
-		String fileName = quickSetupFile(preset);
+		String fileName = quickSetupFile(preset, options);
 		String current = readRaw(resolve(fileName), false);
 		QuickProposal proposal = quickProposal(preset, options, fileName, current);
 		return new QuickPreview(proposal, quickSetupRevision(preset, current),
@@ -222,6 +222,7 @@ public final class BackendConfigurationService {
 		if (!READABLE_QUICK_SETUPS.contains(preset)) {
 			throw new IllegalArgumentException("quick setup preset cannot be read");
 		}
+		rejectUnknownOptions(options, "vote-site".equals(preset) ? Set.of("name") : Set.of());
 		if ("vote-site".equals(preset)) option(options, "name", "[A-Za-z0-9_-]{1,64}");
 		return retryRead(() -> readQuickSetupOnce(preset, options));
 	}
@@ -248,6 +249,13 @@ public final class BackendConfigurationService {
 			values.put("voteUrl", yaml.getString(root + ".VoteURL", ""));
 			values.put("voteDelay", yaml.getString(root + ".VoteDelay", "24h"));
 			values.put("material", yaml.getString(root + ".DisplayItem.Material", "DIAMOND"));
+		} else if ("auto-create-vote-sites".equals(preset)) {
+			values.put("enabled", String.valueOf(yaml.getBoolean("AutoCreateVoteSites", true)));
+		} else if ("vote-logging".equals(preset)) {
+			values.put("enabled", String.valueOf(yaml.getBoolean("VoteLogging.Enabled", false)));
+			values.put("purgeDays", String.valueOf(validateVoteLoggingPurgeDays(
+					yaml.getInt("VoteLogging.PurgeDays", 30))));
+			values.put("useMainMySQL", String.valueOf(yaml.getBoolean("VoteLogging.UseMainMySQL", true)));
 		} else if ("common-settings".equals(preset)) {
 			values.put("processRewards", String.valueOf(yaml.getBoolean("ProcessRewards", true)));
 			values.put("autoCreateVoteSites", String.valueOf(yaml.getBoolean("AutoCreateVoteSites", true)));
@@ -267,7 +275,16 @@ public final class BackendConfigurationService {
 		} else {
 			throw new IllegalArgumentException("quick setup preset cannot be read");
 		}
+		validateQuickStateValues(values);
 		return new QuickState(Map.copyOf(values), quickSetupRevision(preset, current));
+	}
+
+	private static void validateQuickStateValues(Map<String, String> values) {
+		if (values.size() > 20 || values.values().stream().anyMatch(value -> value == null
+				|| value.indexOf('\0') >= 0 || value.getBytes(StandardCharsets.UTF_8).length > 500)) {
+			throw new IllegalArgumentException(
+					"installed quick setup state exceeds Control result limits; use the full YAML editor");
+		}
 	}
 
 	static <T> T retryRead(ReadAction<T> read) throws IOException {
@@ -299,9 +316,21 @@ public final class BackendConfigurationService {
 		return quickSetupRevision(preset, readRaw(resolve(quickSetupFile(preset)), false));
 	}
 
+	String currentQuickSetupRevision(String preset, Map<String, String> options) throws IOException {
+		if ("reward-builder".equals(preset)) {
+			rejectUnknownOptions(options, Set.of("targetFile"));
+			String target = options == null ? null : options.get("targetFile");
+			if (!Set.of("VoteSites.yml", "SpecialRewards.yml").contains(target)) {
+				throw new IllegalArgumentException("reward builder recovery target is invalid");
+			}
+			return revision(readRaw(resolve(target), false));
+		}
+		return quickSetupRevision(preset, readRaw(resolve(quickSetupFile(preset)), false));
+	}
+
 	public ApplyResult applyQuickSetup(String preset, Map<String, String> options, String expectedRevision)
 			throws IOException {
-		String fileName = quickSetupFile(preset);
+		String fileName = quickSetupFile(preset, options);
 		String current = readRaw(resolve(fileName), false);
 		if (expectedRevision == null || !quickSetupRevision(preset, current).equals(expectedRevision)) {
 			throw new StaleRevisionException();
@@ -327,13 +356,37 @@ public final class BackendConfigurationService {
 				|| "proxy-method".equals(preset)) return "BungeeSettings.yml";
 		if ("vote-site".equals(preset) || "easy-reward".equals(preset)
 				|| "sync-vote-sites".equals(preset)) return "VoteSites.yml";
-		if ("common-settings".equals(preset)) return "Config.yml";
+		if ("common-settings".equals(preset) || "auto-create-vote-sites".equals(preset)
+				|| "vote-logging".equals(preset)) return "Config.yml";
 		if ("vote-party".equals(preset)) return "SpecialRewards.yml";
 		throw new IllegalArgumentException("quick setup preset is unsupported");
 	}
 
+	private static String quickSetupFile(String preset, Map<String, String> options) {
+		if (!"reward-builder".equals(preset)) return quickSetupFile(preset);
+		rejectUnknownOptions(options, Set.of("proposal"));
+		String encoded = options == null ? null : options.get("proposal");
+		return ControlRewardProposal.parse(encoded).fileName();
+	}
+
 	private QuickProposal quickProposal(String preset, Map<String, String> options, String fileName,
 			String current) throws IOException {
+		rejectUnknownOptions(options, switch (preset) {
+		case "standalone" -> Set.of();
+		case "proxy-backend" -> Set.of("server", "method");
+		case "proxy-method" -> Set.of("method");
+		case "vote-site" -> Set.of("name", "enabled", "displayName", "priority", "hidden",
+				"serviceSite", "voteUrl", "voteDelay", "material");
+		case "easy-reward" -> Set.of("scope", "name", "command", "message");
+		case "reward-builder" -> Set.of("proposal");
+		case "auto-create-vote-sites" -> Set.of("enabled");
+		case "vote-logging" -> Set.of("enabled", "purgeDays", "useMainMySQL");
+		case "common-settings" -> Set.of("processRewards", "autoCreateVoteSites", "extraAllSitesCheck",
+				"countFakeVotes", "disableNoServiceSiteMessage", "disableUpdateChecking");
+		case "vote-party" -> Set.of("votesRequired", "broadcast", "giveAllPlayers", "onlineOnly", "command");
+		case "sync-vote-sites" -> Set.of("sourceContent");
+		default -> throw new IllegalArgumentException("quick setup preset is unsupported");
+		});
 		YamlConfiguration yaml = parse(current);
 		if ("sync-vote-sites".equals(preset)) {
 			String sourceContent = options == null ? null : options.get("sourceContent");
@@ -396,6 +449,34 @@ public final class BackendConfigurationService {
 			}
 			return new QuickProposal(fileName, yaml.saveToString());
 		}
+		if ("reward-builder".equals(preset)) {
+			rejectUnknownOptions(options, Set.of("proposal"));
+			ControlRewardProposal.Parsed proposal = ControlRewardProposal.parse(
+					options == null ? null : options.get("proposal"));
+			if (!fileName.equals(proposal.fileName())) {
+				throw new IllegalArgumentException("reward proposal scope changed while it was being prepared");
+			}
+			writeRewardProposal(yaml, proposal);
+			String configured = yaml.saveToString();
+			ensureBounded(configured);
+			return new QuickProposal(fileName, configured);
+		}
+		if ("auto-create-vote-sites".equals(preset)) {
+			// Keep this intentionally narrow: the dedicated setup must never rewrite
+			// another operational toggle as a side effect.
+			rejectUnknownOptions(options, Set.of("enabled"));
+			yaml.set("AutoCreateVoteSites", booleanOption(options, "enabled"));
+			return new QuickProposal(fileName, yaml.saveToString());
+		}
+		if ("vote-logging".equals(preset)) {
+			// Credentials and connection settings are deliberately excluded. A dedicated
+			// MySQL connection remains a full-editor task.
+			rejectUnknownOptions(options, Set.of("enabled", "purgeDays", "useMainMySQL"));
+			yaml.set("VoteLogging.Enabled", booleanOption(options, "enabled"));
+			yaml.set("VoteLogging.PurgeDays", voteLoggingPurgeDays(options));
+			yaml.set("VoteLogging.UseMainMySQL", booleanOption(options, "useMainMySQL"));
+			return new QuickProposal(fileName, yaml.saveToString());
+		}
 		if ("common-settings".equals(preset)) {
 			yaml.set("ProcessRewards", booleanOption(options, "processRewards"));
 			yaml.set("AutoCreateVoteSites", booleanOption(options, "autoCreateVoteSites"));
@@ -417,6 +498,51 @@ public final class BackendConfigurationService {
 			return new QuickProposal(fileName, yaml.saveToString());
 		}
 		throw new IllegalArgumentException("quick setup preset is unsupported");
+	}
+
+	private static void writeRewardProposal(YamlConfiguration yaml, ControlRewardProposal.Parsed proposal) {
+		String root;
+		if ("site".equals(proposal.scope())) {
+			String siteRoot = "VoteSites." + proposal.site();
+			if (!yaml.isConfigurationSection(siteRoot)) {
+				throw new IllegalArgumentException("reward proposal site is not configured");
+			}
+			root = siteRoot + ".Rewards";
+		} else if ("every-site".equals(proposal.scope())) {
+			root = "EverySiteReward";
+		} else {
+			root = "VoteParty.Rewards";
+		}
+
+		// This dedicated preset owns exactly one selected reward subtree. Unrelated
+		// sites and VoteParty settings remain intact, while a second preview is fully
+		// deterministic and cannot leave stale actions behind.
+		yaml.set(root, null);
+		if (!proposal.commands().isEmpty()) yaml.set(root + ".Commands", proposal.commands());
+		if (!proposal.playerMessages().isEmpty()) {
+			yaml.set(root + ".Messages.Player", proposal.playerMessages());
+		}
+		if (!proposal.broadcastMessages().isEmpty()) {
+			yaml.set(root + ".Messages.Broadcast", proposal.broadcastMessages());
+		}
+		for (int index = 0; index < proposal.items().size(); index++) {
+			ControlRewardProposal.Item item = proposal.items().get(index);
+			String itemRoot = root + ".Items.ControlItem" + (index + 1);
+			yaml.set(itemRoot + ".Material", item.material());
+			yaml.set(itemRoot + ".Amount", item.amount());
+		}
+		if (proposal.money() > 0) yaml.set(root + ".Money", proposal.money());
+		for (int index = 0; index < proposal.permissions().size(); index++) {
+			String permissionRoot = root + ".AdvancedRewards.ControlPermission" + (index + 1)
+					+ ".TempPermission";
+			yaml.set(permissionRoot + ".Permission", proposal.permissions().get(index));
+			// AdvancedCore's portable permission reward is time-based. Integer.MAX_VALUE
+			// seconds is an effectively long-lived grant without assuming LuckPerms or a
+			// server-specific console command.
+			yaml.set(permissionRoot + ".Expiration", Integer.MAX_VALUE);
+		}
+		yaml.set(root + ".Chance", proposal.chancePercent());
+		yaml.set(root + ".RewardType", proposal.onlineOnly() ? "ONLINE" : "BOTH");
 	}
 
 	private static void appendUniqueString(YamlConfiguration yaml, String path, String value) {
@@ -903,6 +1029,15 @@ public final class BackendConfigurationService {
 		return value;
 	}
 
+	private static void rejectUnknownOptions(Map<String, String> options, Set<String> accepted) {
+		if (options == null) return;
+		for (String name : options.keySet()) {
+			if (!accepted.contains(name)) {
+				throw new IllegalArgumentException("quick setup option " + name + " is unsupported");
+			}
+		}
+	}
+
 	private static String optional(Map<String, String> options, String name, int maximum) {
 		String value = options == null ? "" : options.getOrDefault(name, "").trim();
 		if (value.length() > maximum || value.indexOf('\0') >= 0 || value.indexOf('\r') >= 0
@@ -923,6 +1058,18 @@ public final class BackendConfigurationService {
 	private static boolean booleanOption(Map<String, String> options, String name, boolean defaultValue) {
 		if (options == null || !options.containsKey(name)) return defaultValue;
 		return booleanOption(options, name);
+	}
+
+	private static int voteLoggingPurgeDays(Map<String, String> options) {
+		int days = boundedInteger(option(options, "purgeDays", "(?:-1|[0-9]{1,4})"), -1, 3650);
+		return validateVoteLoggingPurgeDays(days);
+	}
+
+	private static int validateVoteLoggingPurgeDays(int days) {
+		if (days != -1 && (days < 1 || days > 3650)) {
+			throw new IllegalArgumentException("quick setup number is invalid");
+		}
+		return days;
 	}
 
 	private static int boundedInteger(String value, int minimum, int maximum) {

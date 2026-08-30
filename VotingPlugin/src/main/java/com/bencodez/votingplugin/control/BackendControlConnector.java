@@ -44,9 +44,10 @@ public final class BackendControlConnector implements AutoCloseable {
 	private static final int MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 	private static final long OPERATION_POLL_MILLIS = 1000;
 	private static final long SHUTDOWN_TIMEOUT_SECONDS = 65;
+	private static final long INSPECTION_SHUTDOWN_TIMEOUT_SECONDS = 5;
 	private static final Pattern NODE_ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,63}");
 	private static final Set<String> CAPABILITIES = Set.of("config.files.v1", "config.file-comments.v1",
-			"config.quick-setup.v1", "config.vote-sites-sync.v1", "config.proxy-method.v1");
+			"config.quick-setup.v1", "config.vote-sites-sync.v1", "config.proxy-method.v1", "data.inspect.v1");
 
 	private final VotingPluginMain plugin;
 	private final Path dataDirectory;
@@ -55,12 +56,15 @@ public final class BackendControlConnector implements AutoCloseable {
 	private final String credentialVerifier;
 	private volatile HostConfiguration hostedConfiguration;
 	private final ScheduledExecutorService executor;
+	private final ScheduledExecutorService inspectionExecutor;
 	private final HttpClient http;
 	private final BackendConfigurationService configurations;
+	private final ControlInspectionService inspections;
 	private final UUID sessionId = UUID.randomUUID();
 	private final Map<UUID, StoredResult> completed = new LinkedHashMap<>();
 	private final boolean recovering;
 	private final AtomicBoolean running = new AtomicBoolean();
+	private final AtomicBoolean inspecting = new AtomicBoolean();
 	private final Object operationLifecycle = new Object();
 	private final Object journalLifecycle = new Object();
 	private volatile boolean closed;
@@ -68,9 +72,12 @@ public final class BackendControlConnector implements AutoCloseable {
 	private volatile boolean operationsAccepted;
 	private volatile boolean quickSetupsAccepted;
 	private volatile boolean voteSitesSyncAccepted;
+	private volatile boolean inspectionsAccepted;
+	private volatile int inspectionFailures;
 	private volatile int failures;
 	private volatile ScheduledFuture<?> scheduled;
 	private volatile ScheduledFuture<?> operationPolling;
+	private volatile ScheduledFuture<?> inspectionPolling;
 	private volatile Future<?> activeReload;
 	private volatile CompletableFuture<Void> activeOperation;
 
@@ -88,10 +95,17 @@ public final class BackendControlConnector implements AutoCloseable {
 			thread.setDaemon(true);
 			return thread;
 		};
+		ThreadFactory inspectionFactory = runnable -> {
+			Thread thread = new Thread(runnable, "votingplugin-control-inspection");
+			thread.setDaemon(true);
+			return thread;
+		};
 		executor = Executors.newSingleThreadScheduledExecutor(factory);
+		inspectionExecutor = Executors.newSingleThreadScheduledExecutor(inspectionFactory);
 		http = HttpClient.newBuilder().connectTimeout(Duration.ofMillis(settings.connectTimeoutMillis()))
 				.followRedirects(HttpClient.Redirect.NEVER).build();
 		configurations = new BackendConfigurationService(plugin.getDataFolder().toPath(), this::reloadConfiguration);
+		inspections = new ControlInspectionService(plugin);
 	}
 
 	private void reloadConfiguration(String fileName) throws Exception {
@@ -165,6 +179,60 @@ public final class BackendControlConnector implements AutoCloseable {
 		schedule(0);
 		operationPolling = executor.scheduleWithFixedDelay(this::pollOperations,
 				OPERATION_POLL_MILLIS, OPERATION_POLL_MILLIS, TimeUnit.MILLISECONDS);
+		inspectionPolling = inspectionExecutor.scheduleWithFixedDelay(this::pollInspections,
+				OPERATION_POLL_MILLIS, OPERATION_POLL_MILLIS, TimeUnit.MILLISECONDS);
+	}
+
+	/** Polls the separately negotiated read-only lane on the connector worker. */
+	private void pollInspections() {
+		if (closed || !registered || failures != 0 || !inspectionsAccepted
+				|| !inspecting.compareAndSet(false, true)) return;
+		try {
+			claimAndInspect();
+			if (inspectionFailures > 0) plugin.getLogger().info("[Control] Bukkit data inspection recovered");
+			inspectionFailures = 0;
+		} catch (Exception failure) {
+			inspectionFailures = Math.min(30, inspectionFailures + 1);
+			if (inspectionFailures == 1 || inspectionFailures % 10 == 0) {
+				plugin.getLogger().warning("[Control] Bukkit data inspection unavailable; VotingPlugin remains active");
+			}
+		} finally {
+			inspecting.set(false);
+		}
+	}
+
+	private void claimAndInspect() throws Exception {
+		JsonObject body = new JsonObject();
+		body.addProperty("sessionId", sessionId.toString());
+		Response response = send("POST", "/api/v1/nodes/" + settings.nodeId() + "/inspections", body);
+		if (response.status() == 204) return;
+		JsonObject task = requireObject(response, 200);
+		UUID inspectionId = UUID.fromString(string(task, "inspectionId"));
+		String attemptId = string(task, "attemptId");
+		JsonObject query = task.has("query") && task.get("query").isJsonObject()
+				? task.getAsJsonObject("query") : null;
+		InspectionTaskResult result = executeInspection(query);
+		JsonObject submitted = result.json();
+		submitted.addProperty("sessionId", sessionId.toString());
+		submitted.addProperty("attemptId", attemptId);
+		// Inspection work is read-only, so a lost acknowledgement can safely cause
+		// Control to lease the same query again without a write-ahead journal.
+		requireObject(send("POST", "/api/v1/nodes/" + settings.nodeId() + "/inspections/" + inspectionId
+				+ "/result", submitted), 200);
+	}
+
+	private InspectionTaskResult executeInspection(JsonObject query) {
+		try {
+			return InspectionTaskResult.success(inspections.inspect(query));
+		} catch (ControlInspectionService.ResultTooLargeException failure) {
+			return InspectionTaskResult.failure("RESULT_TOO_LARGE", failure.getMessage());
+		} catch (ControlInspectionService.InspectionUnavailableException failure) {
+			return InspectionTaskResult.failure("UNAVAILABLE", failure.getMessage());
+		} catch (IllegalArgumentException failure) {
+			return InspectionTaskResult.failure("VALIDATION_ERROR", failure.getMessage());
+		} catch (Exception failure) {
+			return InspectionTaskResult.failure("INSPECTION_FAILED", failureMessage("Inspection failed", failure));
+		}
 	}
 
 	/** Claims configuration work independently of the lower-frequency presence heartbeat. */
@@ -218,6 +286,7 @@ public final class BackendControlConnector implements AutoCloseable {
 			operationsAccepted = negotiatedCapability(node, "config.files.v1", operationsAccepted);
 			quickSetupsAccepted = negotiatedCapability(node, "config.quick-setup.v1", quickSetupsAccepted);
 			voteSitesSyncAccepted = negotiatedCapability(node, "config.vote-sites-sync.v1", voteSitesSyncAccepted);
+			inspectionsAccepted = negotiatedCapability(node, "data.inspect.v1", inspectionsAccepted);
 			try {
 				requireFileCapability(operationsAccepted);
 			} catch (ConnectorException incompatible) {
@@ -263,6 +332,7 @@ public final class BackendControlConnector implements AutoCloseable {
 		operationsAccepted = false;
 		quickSetupsAccepted = false;
 		voteSitesSyncAccepted = false;
+		inspectionsAccepted = false;
 		JsonObject body = sessionBody();
 		body.addProperty("nodeId", settings.nodeId());
 		body.addProperty("displayName", settings.nodeId());
@@ -459,7 +529,8 @@ public final class BackendControlConnector implements AutoCloseable {
 			return revision.equals(configurations.read(string(configuration, "fileName")).revision());
 		}
 		if ("quick-setup".equals(domain)) {
-			return revision.equals(configurations.currentQuickSetupRevision(string(configuration, "preset")));
+			return revision.equals(configurations.currentQuickSetupRevision(string(configuration, "preset"),
+					options(configuration.getAsJsonObject("options"))));
 		}
 		return false;
 	}
@@ -579,9 +650,28 @@ public final class BackendControlConnector implements AutoCloseable {
 				|| detail.getMessage() == null || detail.getMessage().isBlank())) detail = detail.getCause();
 		String message = detail.getMessage();
 		if (message == null || message.isBlank()) message = detail.getClass().getSimpleName();
-		message = message.replaceAll("[\\p{Cntrl}&&[^\\t]]", " ").trim();
-		if (message.length() > 240) message = message.substring(0, 237) + "...";
-		return prefix + ": " + message;
+		return boundedResultMessage(prefix + ": " + message);
+	}
+
+	/** Keeps every persisted/submitted result safely inside Control's 500-character protocol limit. */
+	static String boundedResultMessage(String message) {
+		String safe = message == null ? "Operation failed" : message.replaceAll("\\p{Cntrl}", " ").trim();
+		if (safe.isBlank()) safe = "Operation failed";
+		if (safe.length() > 240) safe = safe.substring(0, 237) + "...";
+		return safe;
+	}
+
+	static List<String> boundedResultChanges(List<String> changes) {
+		if (changes == null || changes.isEmpty()) return List.of();
+		List<String> safe = new ArrayList<>();
+		for (String change : changes) {
+			if (safe.size() == 19) {
+				safe.add("additional changes omitted");
+				break;
+			}
+			safe.add(boundedResultMessage(change == null ? "change omitted" : change));
+		}
+		return List.copyOf(safe);
 	}
 
 	static boolean quickSetupCapabilityAccepted(String preset, boolean quickSetupsAccepted,
@@ -652,6 +742,15 @@ public final class BackendControlConnector implements AutoCloseable {
 		return Map.copyOf(values);
 	}
 
+	static Map<String, String> resultQuickOptions(String preset, Map<String, String> options) {
+		if ("sync-vote-sites".equals(preset)) return Map.of();
+		if ("reward-builder".equals(preset)) {
+			String proposal = options == null ? null : options.get("proposal");
+			return Map.of("targetFile", ControlRewardProposal.parse(proposal).fileName());
+		}
+		return options == null ? Map.of() : Map.copyOf(options);
+	}
+
 	private static int bounded(int value, int min, int max, String name) {
 		if (value < min || value > max) throw new IllegalArgumentException("Control.Backend." + name + " is invalid");
 		return value;
@@ -670,8 +769,24 @@ public final class BackendControlConnector implements AutoCloseable {
 		if (current != null) current.cancel(false);
 		ScheduledFuture<?> polling = operationPolling;
 		if (polling != null) polling.cancel(false);
+		ScheduledFuture<?> inspection = inspectionPolling;
+		if (inspection != null) inspection.cancel(false);
+		inspectionExecutor.shutdownNow();
 		if (reload != null && Bukkit.isPrimaryThread()) reload.cancel(false);
 		awaitShutdown(executor, operation);
+		if (!awaitInspectionShutdown(inspectionExecutor)) {
+			plugin.getLogger().warning("[Control] Data inspection worker did not stop cleanly; shutdown will continue");
+		}
+	}
+
+	static boolean awaitInspectionShutdown(ScheduledExecutorService executor) {
+		executor.shutdownNow();
+		try {
+			return executor.awaitTermination(INSPECTION_SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			return false;
+		}
 	}
 
 	static void awaitShutdown(ScheduledExecutorService executor, CompletableFuture<Void> operation) {
@@ -734,6 +849,11 @@ public final class BackendControlConnector implements AutoCloseable {
 	private record TaskResult(boolean success, String code, String message, String revision,
 			JsonObject configuration, List<String> changes, boolean reloaded, boolean rolledBack,
 			boolean restartConnector) {
+		private TaskResult {
+			message = boundedResultMessage(message);
+			changes = boundedResultChanges(changes);
+		}
+
 		private JsonObject json() {
 			JsonObject body = new JsonObject();
 			body.addProperty("success", success);
@@ -769,11 +889,7 @@ public final class BackendControlConnector implements AutoCloseable {
 			config.addProperty("domain", "quick-setup");
 			config.addProperty("preset", preset);
 			JsonObject values = new JsonObject();
-			options.forEach((name, value) -> {
-				// The source document is an input to the merge, not result data. It
-				// may be large and must not be retained or echoed by Control.
-				if (!"sourceContent".equals(name)) values.addProperty(name, value);
-			});
+			resultQuickOptions(preset, options).forEach(values::addProperty);
 			config.add("options", values);
 			return new TaskResult(true, "OK", "Operation completed", revision, config, List.copyOf(changes),
 					reloaded, false, restartConnector);
@@ -781,8 +897,29 @@ public final class BackendControlConnector implements AutoCloseable {
 
 		private static TaskResult failure(String code, String message) { return failure(code, message, false); }
 		private static TaskResult failure(String code, String message, boolean rolledBack) {
-			return new TaskResult(false, code, message == null ? "Operation failed" : message, null, null,
+			return new TaskResult(false, code, message, null, null,
 					List.of(), false, rolledBack, false);
+		}
+	}
+
+	private record InspectionTaskResult(boolean success, String code, String message, JsonObject data) {
+		private JsonObject json() {
+			JsonObject body = new JsonObject();
+			body.addProperty("success", success);
+			body.addProperty("code", code);
+			body.addProperty("message", message);
+			if (data != null) body.add("data", data);
+			return body;
+		}
+
+		private static InspectionTaskResult success(JsonObject data) {
+			return new InspectionTaskResult(true, "OK", "Inspection completed", data);
+		}
+
+		private static InspectionTaskResult failure(String code, String message) {
+			String safeMessage = boundedResultMessage(message == null || message.isBlank()
+					? "Inspection failed" : message);
+			return new InspectionTaskResult(false, code, safeMessage, null);
 		}
 	}
 

@@ -7,7 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -58,11 +60,15 @@ class BackendControlConnectorProtocolTest {
 				.anyMatch(value -> "config.file-comments.v1".equals(value.getAsString())));
 		assertTrue(advertised.asList().stream()
 				.anyMatch(value -> "config.vote-sites-sync.v1".equals(value.getAsString())));
+		assertTrue(advertised.asList().stream()
+				.anyMatch(value -> "data.inspect.v1".equals(value.getAsString())));
 		JsonArray required = registration.getAsJsonArray("requiredCapabilities");
 		assertTrue(required.asList().stream()
 				.anyMatch(value -> "config.files.v1".equals(value.getAsString())));
 		assertFalse(required.asList().stream()
 				.anyMatch(value -> "config.file-comments.v1".equals(value.getAsString())));
+		assertFalse(required.asList().stream()
+				.anyMatch(value -> "data.inspect.v1".equals(value.getAsString())));
 	}
 
 	@Test void heartbeatRetainsOmittedCapabilitiesAndHonorsExplicitReplacement() {
@@ -84,11 +90,36 @@ class BackendControlConnectorProtocolTest {
 		assertTrue(BackendControlConnector.quickSetupCapabilityAccepted("common-settings", true, false));
 	}
 
+	@Test void rewardBuilderResultsKeepOnlyTheSafeRecoveryTarget() {
+		String proposal = "{\"scope\":\"site\",\"site\":\"PMC\",\"commands\":[\"secret command\"]}";
+		Map<String, String> result = BackendControlConnector.resultQuickOptions("reward-builder",
+				Map.of("proposal", proposal));
+
+		assertEquals(Map.of("targetFile", "VoteSites.yml"), result);
+		assertFalse(result.toString().contains("secret command"));
+	}
+
 	@Test void reloadFailureMessageIncludesTheUsefulNestedCause() {
 		String message = BackendControlConnector.failureMessage("Reload failed",
 				new java.util.concurrent.CompletionException(new IllegalStateException("invalid VoteSites.yml")));
 
 		assertTrue(message.equals("Reload failed: invalid VoteSites.yml"));
+	}
+
+	@Test void failureMessagesAreSingleLineAndBoundedBeforeSubmission() {
+		String message = BackendControlConnector.boundedResultMessage(
+				"unsupported field " + "x".repeat(1000) + "\r\nnext line");
+
+		assertTrue(message.length() <= 240);
+		assertFalse(message.contains("\r"));
+		assertFalse(message.contains("\n"));
+		assertTrue(message.endsWith("..."));
+
+		var changes = BackendControlConnector.boundedResultChanges(java.util.stream.IntStream.range(0, 25)
+				.mapToObj(index -> "change-" + index + "-" + "y".repeat(1000)).toList());
+		assertEquals(20, changes.size());
+		assertTrue(changes.stream().allMatch(change -> change.length() <= 240));
+		assertEquals("additional changes omitted", changes.get(19));
 	}
 
 	@Test void operationFailureCodesMatchTheRequestedAction() {
@@ -106,6 +137,26 @@ class BackendControlConnectorProtocolTest {
 		assertThrows(java.util.concurrent.TimeoutException.class, () -> closing.get(100, TimeUnit.MILLISECONDS));
 		operation.complete(null);
 		closing.get(2, TimeUnit.SECONDS);
+		assertTrue(executor.isTerminated());
+	}
+
+	@Test void inspectionShutdownInterruptsItsIndependentWorker() throws Exception {
+		var executor = Executors.newSingleThreadScheduledExecutor();
+		CountDownLatch started = new CountDownLatch(1);
+		AtomicBoolean interrupted = new AtomicBoolean();
+		executor.execute(() -> {
+			started.countDown();
+			try {
+				Thread.sleep(TimeUnit.MINUTES.toMillis(1));
+			} catch (InterruptedException expected) {
+				interrupted.set(true);
+				Thread.currentThread().interrupt();
+			}
+		});
+		assertTrue(started.await(1, TimeUnit.SECONDS));
+
+		assertTrue(BackendControlConnector.awaitInspectionShutdown(executor));
+		assertTrue(interrupted.get());
 		assertTrue(executor.isTerminated());
 	}
 

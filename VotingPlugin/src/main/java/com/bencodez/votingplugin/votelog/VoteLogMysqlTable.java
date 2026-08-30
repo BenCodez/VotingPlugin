@@ -36,6 +36,7 @@ import com.bencodez.simpleapi.sql.mysql.queries.Query;
  * caching. - INSERTs use PreparedStatements (works on MySQL/MariaDB/Postgres).
  */
 public abstract class VoteLogMysqlTable extends AbstractSqlTable {
+	private static final int INSPECTION_QUERY_TIMEOUT_SECONDS = 10;
 
 	/**
 	 * Event types that can be logged in the vote log.
@@ -241,7 +242,7 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
-
+			ps.setQueryTimeout(INSPECTION_QUERY_TIMEOUT_SECONDS);
 			int idx = 1;
 			if (eventFilter != null) {
 				ps.setString(idx++, eventFilter.name());
@@ -861,6 +862,67 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 	}
 
 	/**
+	 * Returns a bounded, aggregate-only health view for vote services. This is
+	 * intentionally narrower than exposing a SQL query surface to administrative
+	 * integrations.
+	 *
+	 * @param days lookback window, from 1 through 365 days
+	 * @param limit maximum service rows, from 1 through 100
+	 * @return service aggregates ordered by most recent vote
+	 */
+	public List<ServiceHealth> getServiceHealth(int days, int limit) {
+		days = Math.max(1, Math.min(days, 365));
+		limit = Math.max(1, Math.min(limit, 100));
+		long cutoff = System.currentTimeMillis() - (days * 24L * 60L * 60L * 1000L);
+		String sql = "SELECT service, COUNT(*) AS votes, MAX(vote_time) AS last_vote, "
+				+ "SUM(CASE WHEN status='IMMEDIATE' THEN 1 ELSE 0 END) AS immediate, "
+				+ "SUM(CASE WHEN status='CACHED' THEN 1 ELSE 0 END) AS cached FROM " + qi(getTableName())
+				+ " WHERE event=? AND vote_time >= ? AND service IS NOT NULL AND service != '' "
+				+ "GROUP BY service ORDER BY last_vote DESC LIMIT " + limit + ";";
+		try (Connection conn = mysql.getConnectionManager().getConnection();
+				PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setQueryTimeout(INSPECTION_QUERY_TIMEOUT_SECONDS);
+			ps.setString(1, VoteLogEvent.VOTE_RECEIVED.name());
+			ps.setLong(2, cutoff);
+			try (ResultSet rs = ps.executeQuery()) {
+				List<ServiceHealth> result = new java.util.ArrayList<>();
+				while (rs.next()) {
+					result.add(new ServiceHealth(rs.getString("service"), rs.getLong("votes"),
+							rs.getLong("last_vote"), rs.getLong("immediate"), rs.getLong("cached")));
+				}
+				return List.copyOf(result);
+			}
+		} catch (SQLException e) {
+			debug(e);
+			return List.of();
+		}
+	}
+
+	/**
+	 * Probes whether the initialized VoteLog table can currently be queried without
+	 * exposing connection details or conflating a connection failure with an empty
+	 * table.
+	 *
+	 * @return true when a bounded table read succeeds
+	 */
+	public boolean isReadable() {
+		String sql = "SELECT 1 FROM " + qi(getTableName()) + " WHERE 1=0;";
+		try (Connection conn = mysql.getConnectionManager().getConnection();
+				PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setQueryTimeout(INSPECTION_QUERY_TIMEOUT_SECONDS);
+			try (ResultSet ignored = ps.executeQuery()) {
+				return true;
+			}
+		} catch (SQLException e) {
+			debug(e);
+			return false;
+		}
+	}
+
+	/** Aggregate vote-log health for one service. */
+	public record ServiceHealth(String service, long votes, long lastVoteTime, long immediate, long cached) { }
+
+	/**
 	 * Gets recent vote log entries for all events.
 	 *
 	 * @param days number of days to look back (0 for all)
@@ -1134,6 +1196,7 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setQueryTimeout(INSPECTION_QUERY_TIMEOUT_SECONDS);
 
 			int idx = 1;
 			if (eventFilter != null) {
@@ -1184,6 +1247,7 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setQueryTimeout(INSPECTION_QUERY_TIMEOUT_SECONDS);
 
 			int idx = 1;
 			if (eventFilter != null) {
@@ -1237,6 +1301,7 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setQueryTimeout(INSPECTION_QUERY_TIMEOUT_SECONDS);
 
 			int idx = 1;
 			if (eventFilter != null) {
@@ -1262,6 +1327,7 @@ public abstract class VoteLogMysqlTable extends AbstractSqlTable {
 	private List<VoteLogEntry> query(String sql, Object[] params) {
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setQueryTimeout(INSPECTION_QUERY_TIMEOUT_SECONDS);
 
 			for (int i = 0; i < params.length; i++) {
 				Object p = params[i];

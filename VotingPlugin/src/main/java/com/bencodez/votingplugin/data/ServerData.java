@@ -171,6 +171,17 @@ public class ServerData {
 	}
 
 	/**
+	 * Returns a detached service-site snapshot without creating the VotingPlugin
+	 * server-data section. Intended for read-only diagnostics and inspections.
+	 *
+	 * @return persisted service-site observations
+	 */
+	public synchronized List<String> getServiceSitesReadOnly() {
+		ConfigurationSection root = plugin.getServerDataFile().getData().getConfigurationSection("VotingPlugin");
+		return root == null ? List.of() : List.copyOf(root.getStringList("GottenServiceSites"));
+	}
+
+	/**
 	 * Gets the sign data.
 	 *
 	 * @param sign the sign

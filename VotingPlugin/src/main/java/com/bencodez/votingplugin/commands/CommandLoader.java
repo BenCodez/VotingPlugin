@@ -1388,8 +1388,7 @@ public class CommandLoader {
 				if (plugin.getConfigVoteSites().tryGenerateVoteSite(args[1])) {
 					sender.sendMessage(MessageAPI.colorize("&cCreated VoteSite: &c&l" + args[1]));
 				} else {
-					sender.sendMessage(MessageAPI.colorize(
-							"&cUnable to create VoteSite: unsupported name or AutoCreateVoteSites is disabled"));
+					sender.sendMessage(MessageAPI.colorize("&cUnable to create VoteSite: unsupported name"));
 				}
 
 			}

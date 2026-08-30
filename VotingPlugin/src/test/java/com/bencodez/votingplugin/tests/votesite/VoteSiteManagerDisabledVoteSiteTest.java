@@ -141,7 +141,7 @@ public class VoteSiteManagerDisabledVoteSiteTest {
 		assertNull(manager.getVoteSite("disabled.example.com", true),
 				"Enabled-only lookup should return no disabled VoteSite");
 
-		verify(voteSitesConfig, never()).tryGenerateVoteSite(anyString());
+		verify(voteSitesConfig, never()).tryAutoGenerateVoteSite(anyString());
 	}
 
 	@Test
@@ -173,19 +173,19 @@ public class VoteSiteManagerDisabledVoteSiteTest {
 		assertFalse(manager.hasConfiguredVoteSite((String[]) null));
 		assertFalse(manager.hasVoteSite(null));
 
-		verify(voteSitesConfig, never()).tryGenerateVoteSite(anyString());
+		verify(voteSitesConfig, never()).tryAutoGenerateVoteSite(anyString());
 	}
 
 	@Test
 	public void testUnknownSiteStillAutoCreatesWhenDisabledSitesAreConfigured() {
 		when(configFile.isAutoCreateVoteSites()).thenReturn(true);
-		when(voteSitesConfig.tryGenerateVoteSite("new.example.com")).thenReturn(true);
+		when(voteSitesConfig.tryAutoGenerateVoteSite("new.example.com")).thenReturn(true);
 		configureDisabledVoteSite("DisabledSite", "disabled.example.com", "Disabled Voting Site");
 
 		VoteSite generated = manager.getVoteSite("new.example.com", false);
 
 		assertNotNull(generated, "An unrelated unknown site should still be auto-created");
 		assertEquals("new_example_com", generated.getKey());
-		verify(voteSitesConfig).tryGenerateVoteSite("new.example.com");
+		verify(voteSitesConfig).tryAutoGenerateVoteSite("new.example.com");
 	}
 }
