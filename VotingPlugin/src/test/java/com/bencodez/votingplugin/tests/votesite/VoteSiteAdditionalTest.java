@@ -13,6 +13,7 @@ import java.util.logging.Logger;
 import org.bukkit.Bukkit;
 import org.bukkit.Server;
 import org.bukkit.inventory.ItemFactory;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,6 +32,7 @@ import com.bencodez.votingplugin.votesites.VoteSite;
  * Extra unit tests for {@link VoteSite}.
  */
 public class VoteSiteAdditionalTest {
+    private static MockedStatic<Bukkit> mockedBukkit;
 
     private VotingPluginMain plugin;
     private ConfigVoteSites cfg;
@@ -46,7 +48,15 @@ public class VoteSiteAdditionalTest {
         when(mockServer.getItemFactory()).thenReturn(mockItemFactory);
         when(mockServer.getLogger()).thenReturn(mockLogger);
 
-        Bukkit.setServer(mockServer);
+        mockedBukkit = mockStatic(Bukkit.class);
+        mockedBukkit.when(Bukkit::getServer).thenReturn(mockServer);
+        mockedBukkit.when(Bukkit::getItemFactory).thenReturn(mockItemFactory);
+        mockedBukkit.when(Bukkit::getLogger).thenReturn(mockLogger);
+    }
+
+    @AfterAll
+    public static void tearDownBukkitMinimal() {
+        mockedBukkit.close();
     }
 
     @BeforeEach
