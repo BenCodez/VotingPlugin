@@ -99,7 +99,7 @@ public class BackendProxyMessageRouter {
 		});
 	}
 
-	private void handleVoteUpdate(JsonEnvelope msg) {
+	void handleVoteUpdate(JsonEnvelope msg) {
 		VotingPluginWire.VoteUpdate update = VotingPluginWire.readVoteUpdate(msg);
 		String playerUuid = update.uuid;
 		if (playerUuid == null || playerUuid.isEmpty()) {
@@ -121,7 +121,13 @@ public class BackendProxyMessageRouter {
 		user.offVote();
 
 		if (update.service != null && !update.service.isEmpty() && update.time > 0) {
-			user.setTime(plugin.getVoteSiteManager().getVoteSite(update.service, true), update.time);
+			VoteSite voteSite = plugin.getVoteSiteManager().getVoteSite(update.service, true);
+			if (voteSite == null) {
+				plugin.getLogger().warning("Ignoring VoteUpdate last vote time for unknown service site: "
+						+ update.service);
+			} else {
+				user.setTime(voteSite, update.time);
+			}
 		} else if (update.service != null && !update.service.isEmpty() && update.time <= 0
 				&& plugin.getBungeeSettings().isBungeeDebug()) {
 			plugin.debug("Invalid last vote time received from bungee: " + update.time);
