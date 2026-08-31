@@ -47,7 +47,7 @@ public final class BackendConfigurationService {
 			"WaitUntilVoteDelay", "PermissionToView", "IgnoreCanVote", "VoteDelayDailyHour", "VoteDelayMin",
 			"GiveOffline");
 	private static final Pattern COMMENT_SECRET = Pattern.compile(
-			"(?i)([\"']?\\b(?:[\\w-]*(?:password|secret)[\\w-]*|token|api[ _.-]?key|authorization|[\\w.-]*webhook[ _.-]?url)"
+			"(?i)([\"']?\\b(?:[\\w-]*(?:password|secret)[\\w-]*|token|connection[ _.-]?code|api[ _.-]?key|authorization|[\\w.-]*webhook[ _.-]?url)"
 					+ "\\b[\"']?\\s*[:=]\\s*)(.*)$");
 	private static final Pattern SECRET_PATH_URL = Pattern.compile("(?i)([\"']?\\burl\\b[\"']?\\s*[:=]\\s*)(.*)$");
 	private static final Pattern BLOCK_SCALAR_INDICATOR = Pattern.compile("[|>](?:[+-][1-9]?|[1-9][+-]?)?");
@@ -592,6 +592,15 @@ public final class BackendConfigurationService {
 		case SOCKETS:
 			configuredHostAndPort(settings, "BungeeServer.Host", "BungeeServer.Port", 1297, "BungeeServer");
 			break;
+		case HTTP:
+			String connectionCode = settings.getString("HTTP.ConnectionCode", "");
+			if (connectionCode == null || connectionCode.isBlank()) {
+				Path identity = dataDirectory.resolve("http").resolve("http-transport-client.p12");
+				if (!Files.isRegularFile(identity)) {
+					throw new IllegalArgumentException("HTTP.ConnectionCode must be set for initial enrollment");
+				}
+			}
+			break;
 		case MYSQL:
 			try {
 				YamlConfiguration main = parse(readRaw(resolve("Config.yml"), false));
@@ -957,7 +966,7 @@ public final class BackendConfigurationService {
 	private static boolean secret(String path) {
 		String key = path.substring(path.lastIndexOf('.') + 1).replace("-", "").replace("_", "")
 				.toLowerCase(Locale.ROOT);
-		return key.contains("password") || key.contains("secret") || key.equals("token")
+		return key.contains("password") || key.contains("secret") || key.equals("token") || key.equals("connectioncode")
 				|| key.equals("apikey") || key.equals("authorization") || key.equals("webhookurl") || key.equals("url")
 				&& path.toLowerCase(Locale.ROOT).contains("webhook");
 	}

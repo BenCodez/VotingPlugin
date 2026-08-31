@@ -679,6 +679,19 @@ class BackendConfigurationServiceTest {
 		BackendConfigurationService.QuickPreview mqtt = service.previewQuickSetup("proxy-backend",
 				Map.of("server", "lobby", "method", "mqtt"));
 		assertTrue(mqtt.proposal().content().contains("BungeeMethod: MQTT"));
+		BackendConfigurationService.QuickPreview http = service.previewQuickSetup("proxy-backend",
+				Map.of("server", "lobby", "method", "http"));
+		assertTrue(http.proposal().content().contains("BungeeMethod: HTTP"));
+	}
+
+	@Test void httpConnectionCodeIsRedactedFromManagedConfiguration() throws Exception {
+		Files.writeString(directory.resolve("BungeeSettings.yml"),
+				"HTTP:\n  ConnectionCode: VPH1-sensitive-enrollment-code\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.Document read = service.read("BungeeSettings.yml");
+		assertFalse(read.content().contains("VPH1-sensitive-enrollment-code"));
+		assertTrue(read.content().contains(BackendConfigurationService.REDACTED));
 	}
 
 	@Test void proxyMethodSwitchPreflightsRequiredBackendSettings() throws Exception {

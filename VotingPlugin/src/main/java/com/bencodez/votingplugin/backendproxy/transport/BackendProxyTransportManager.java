@@ -41,6 +41,9 @@ public class BackendProxyTransportManager {
 		case SOCKETS:
 			transport = new SocketBackendProxyTransport(plugin);
 			break;
+		case HTTP:
+			transport = new HttpBackendProxyTransport(plugin);
+			break;
 		case REDIS:
 			transport = new RedisBackendProxyTransport(plugin, processedVoteCache);
 			break;

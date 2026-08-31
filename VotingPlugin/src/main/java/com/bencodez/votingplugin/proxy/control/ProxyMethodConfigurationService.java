@@ -58,6 +58,21 @@ public final class ProxyMethodConfigurationService {
 				}
 			}
 			break;
+		case HTTP:
+			if (blank(config.getHttpHost()) || config.getHttpPort() < 1 || config.getHttpPort() > 65535) {
+				throw new IllegalArgumentException("HTTP.Host and HTTP.Port must be set");
+			}
+			String endpoint = config.getHttpPublicEndpoint();
+			if (blank(endpoint)) throw new IllegalArgumentException("HTTP.PublicEndpoint must be an HTTPS origin");
+			URI httpEndpoint;
+			try { httpEndpoint = URI.create(endpoint); }
+			catch (RuntimeException invalid) { throw new IllegalArgumentException("HTTP.PublicEndpoint must be an HTTPS origin"); }
+			if (!"https".equalsIgnoreCase(httpEndpoint.getScheme()) || httpEndpoint.getHost() == null
+					|| httpEndpoint.getUserInfo() != null || httpEndpoint.getQuery() != null || httpEndpoint.getFragment() != null
+					|| (httpEndpoint.getPath() != null && !httpEndpoint.getPath().isEmpty() && !"/".equals(httpEndpoint.getPath()))) {
+				throw new IllegalArgumentException("HTTP.PublicEndpoint must be an HTTPS origin");
+			}
+			break;
 		case MYSQL:
 			if (!config.hasDatabaseConfigured()) {
 				throw new IllegalArgumentException("The proxy database Host must be configured for MYSQL");

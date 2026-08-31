@@ -60,6 +60,19 @@ class ProxyMethodConfigurationServiceTest {
 		assertDoesNotThrow(() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.SOCKETS)));
 
 		assertThrows(IllegalArgumentException.class,
+				() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.HTTP)));
+		when(config.getHttpHost()).thenReturn("0.0.0.0");
+		when(config.getHttpPort()).thenReturn(1297);
+		when(config.getHttpPublicEndpoint()).thenReturn("http://proxy.example.test:1297");
+		assertThrows(IllegalArgumentException.class,
+				() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.HTTP)));
+		when(config.getHttpPublicEndpoint()).thenReturn("https://proxy.example.test:1297/terminated-path");
+		assertThrows(IllegalArgumentException.class,
+				() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.HTTP)));
+		when(config.getHttpPublicEndpoint()).thenReturn("https://proxy.example.test:1297");
+		assertDoesNotThrow(() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.HTTP)));
+
+		assertThrows(IllegalArgumentException.class,
 				() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.MYSQL)));
 		when(config.hasDatabaseConfigured()).thenReturn(true);
 		assertDoesNotThrow(() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.MYSQL)));

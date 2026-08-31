@@ -64,6 +64,9 @@ import com.bencodez.simpleapi.sql.data.DataValueBoolean;
 import com.bencodez.simpleapi.sql.data.DataValueInt;
 import com.bencodez.simpleapi.sql.data.DataValueString;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
+import com.bencodez.votingplugin.backendproxy.http.HttpEnrollmentAuthority;
+import com.bencodez.votingplugin.backendproxy.http.HttpProxyTransportServer;
+import com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity;
 import com.bencodez.votingplugin.proxy.broadcast.ProxyBroadcastDecider;
 import com.bencodez.votingplugin.proxy.cache.IVoteCache;
 import com.bencodez.votingplugin.proxy.cache.VoteCacheHandler;
@@ -118,6 +121,8 @@ public abstract class VotingPluginProxy {
 	private HashMap<String, ClientHandler> clientHandles;
 
 	private SocketHandler socketHandler;
+	private HttpProxyTransportServer httpTransportServer;
+	private HttpEnrollmentAuthority httpEnrollmentAuthority;
 
 	@Getter
 	@Setter
@@ -566,6 +571,8 @@ public abstract class VotingPluginProxy {
 			// envelopes. This preserves the socket connection and its delivery
 			// acknowledgement instead of creating a second short-lived socket.
 			return sendSocketEnvelope(server, envelope);
+		case HTTP:
+			return sendHttpEnvelope(server, envelope);
 		default:
 			return false;
 		}
@@ -1328,6 +1335,8 @@ public abstract class VotingPluginProxy {
 			});
 
 			rebuildSocketClients();
+		} else if (method.equals(BungeeMethod.HTTP)) {
+			startHttpTransport();
 		} else if (method.equals(BungeeMethod.REDIS)) {
 			redisHandler = new RedisHandler(getConfig().getRedisHost(), getConfig().getRedisPort(),
 					getConfig().getRedisUsername(), getConfig().getRedisPassword(), getConfig().getRedisDbIndex(),
@@ -1390,6 +1399,9 @@ public abstract class VotingPluginProxy {
 					break;
 				case SOCKETS:
 					sendSocketEnvelope(server, envelope);
+					break;
+				case HTTP:
+					sendHttpEnvelope(server, envelope);
 					break;
 				default:
 					break;
@@ -2418,6 +2430,7 @@ public abstract class VotingPluginProxy {
 			if (socketHandler != null) socketHandler.closeConnection();
 		});
 		runCleanup("socket clients", this::closeSocketClients);
+		runCleanup("HTTP transport", this::closeHttpTransport);
 		runCleanup("Redis subscriber", () -> {
 			if (redisHandler != null) redisHandler.close();
 		});
@@ -2653,6 +2666,60 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
+	private synchronized boolean sendHttpEnvelope(String server, JsonEnvelope envelope) {
+		HttpProxyTransportServer transport = httpTransportServer;
+		return transport != null && transport.send(server, envelope);
+	}
+
+	private void startHttpTransport() {
+		try {
+			URI endpoint = URI.create(getConfig().getHttpPublicEndpoint());
+			if (!"https".equalsIgnoreCase(endpoint.getScheme()) || endpoint.getHost() == null
+					|| endpoint.getUserInfo() != null || endpoint.getQuery() != null || endpoint.getFragment() != null
+					|| (endpoint.getPath() != null && !endpoint.getPath().isEmpty() && !"/".equals(endpoint.getPath()))) {
+				throw new IllegalArgumentException("HTTP.PublicEndpoint must be an HTTPS origin");
+			}
+			File directory = new File(getDataFolderPlugin(), "http");
+			HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.toPath(), endpoint.getHost());
+			httpEnrollmentAuthority = new HttpEnrollmentAuthority(identity, directory.toPath());
+			httpTransportServer = new HttpProxyTransportServer(
+					new InetSocketAddress(getConfig().getHttpHost(), getConfig().getHttpPort()), identity,
+					httpEnrollmentAuthority, received -> {
+						GlobalMessageProxyHandler handler = globalMessageProxyHandler;
+						if (handler == null) throw new IllegalStateException("HTTP message router is not ready");
+						handler.onMessage(received.envelope());
+					});
+			httpTransportServer.start();
+			logInfo("HTTP transport listening securely on " + getConfig().getHttpHost() + ":"
+					+ httpTransportServer.port() + "; use /votingpluginbungee httpcode <server> for each backend");
+		} catch (Exception failure) {
+			closeHttpTransport();
+			throw new IllegalStateException("HTTP transport could not start securely", failure);
+		}
+	}
+
+	private synchronized void closeHttpTransport() {
+		HttpProxyTransportServer transport = httpTransportServer;
+		httpTransportServer = null;
+		httpEnrollmentAuthority = null;
+		if (transport != null) transport.close();
+	}
+
+	public String createHttpConnectionCode(String serverId) {
+		HttpEnrollmentAuthority authority = httpEnrollmentAuthority;
+		if (method != BungeeMethod.HTTP || authority == null) {
+			throw new IllegalStateException("The HTTP transport is not running");
+		}
+		return authority.createConnectionCode(serverId, URI.create(getConfig().getHttpPublicEndpoint()), Duration.ofMinutes(15))
+				.encode();
+	}
+
+	public void revokeHttpBackend(String serverId) {
+		HttpEnrollmentAuthority authority = httpEnrollmentAuthority;
+		if (method != BungeeMethod.HTTP || authority == null) throw new IllegalStateException("The HTTP transport is not running");
+		authority.revoke(HttpTlsIdentity.canonicalServerId(serverId));
+	}
+
 	private synchronized void closeSocketClients() {
 		HashMap<String, ClientHandler> clients = clientHandles;
 		clientHandles = null;
@@ -2673,7 +2740,7 @@ public abstract class VotingPluginProxy {
 
 	private void warnUnsupportedDedicatedVotingProxyMode() {
 		if (getConfig().getDedicatedVotingProxy() && (method == null || !method.supportsBackendPresence())) {
-			logSevere("DedicatedVotingProxy requires MYSQL, REDIS, MQTT, or SOCKETS; PLUGINMESSAGING is disabled for "
+			logSevere("DedicatedVotingProxy requires MYSQL, REDIS, MQTT, SOCKETS, or HTTP; PLUGINMESSAGING is disabled for "
 					+ "dedicated-proxy routing. Falling back to normal proxy routing.");
 		}
 	}
