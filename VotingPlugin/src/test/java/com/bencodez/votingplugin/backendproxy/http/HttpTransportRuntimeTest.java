@@ -222,7 +222,13 @@ class HttpTransportRuntimeTest {
 			HttpTransportProtocol.Delivery delivery = new HttpTransportProtocol.Delivery(id, JsonEnvelope.builder("x").build());
 			connector.dispatch(delivery);
 			assertTrue(callback.await(2, TimeUnit.SECONDS));
-			assertEquals(java.util.List.of(id), connector.drainAcknowledgements());
+			java.util.List<String> acknowledgements = java.util.List.of();
+			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+			while (acknowledgements.isEmpty() && System.nanoTime() < deadline) {
+				acknowledgements = connector.drainAcknowledgements();
+				if (acknowledgements.isEmpty()) Thread.sleep(5);
+			}
+			assertEquals(java.util.List.of(id), acknowledgements);
 			assertTrue(connector.accept(java.util.List.of(delivery)).isEmpty());
 			assertEquals(java.util.List.of(id), connector.drainAcknowledgements());
 		}

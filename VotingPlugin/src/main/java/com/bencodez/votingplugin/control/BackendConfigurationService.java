@@ -28,6 +28,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 
+import com.bencodez.votingplugin.backendproxy.http.HttpClientCredentialStore;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.util.DurableFiles;
 
@@ -595,8 +596,7 @@ public final class BackendConfigurationService {
 		case HTTP:
 			String connectionCode = settings.getString("HTTP.ConnectionCode", "");
 			if (connectionCode == null || connectionCode.isBlank()) {
-				Path identity = dataDirectory.resolve("http").resolve("http-transport-client.p12");
-				if (!Files.isRegularFile(identity)) {
+				if (!HttpClientCredentialStore.hasEnrolledProfile(dataDirectory.resolve("http"))) {
 					throw new IllegalArgumentException("HTTP.ConnectionCode must be set for initial enrollment");
 				}
 			}

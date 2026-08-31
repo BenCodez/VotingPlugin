@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.backendproxy.http;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -13,6 +14,8 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Arrays;
+import javax.net.ssl.X509TrustManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -141,6 +144,20 @@ class HttpTransportSecurityTest {
 	}
 
 	@Test
+	void serverTlsUsesPrivateCaTrustAndRejectsForeignClients() throws Exception {
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("proxy"), "localhost");
+		HttpTlsIdentity foreign = HttpTlsIdentity.loadOrCreate(directory.resolve("foreign"), "localhost");
+		X509TrustManager trust = Arrays.stream(HttpTlsIdentity.trustManagers(identity.caCertificate()))
+				.filter(X509TrustManager.class::isInstance).map(X509TrustManager.class::cast).findFirst().orElseThrow();
+		HttpTlsIdentity.IssuedClientCertificate accepted = identity.issueClientCertificate("lobby-1");
+		HttpTlsIdentity.IssuedClientCertificate rejected = foreign.issueClientCertificate("lobby-1");
+		assertDoesNotThrow(() -> trust.checkClientTrusted(
+				new java.security.cert.X509Certificate[] { accepted.certificate(), identity.caCertificate() }, "EC"));
+		assertThrows(java.security.cert.CertificateException.class, () -> trust.checkClientTrusted(
+				new java.security.cert.X509Certificate[] { rejected.certificate(), foreign.caCertificate() }, "EC"));
+	}
+
+	@Test
 	void stagedCredentialDoesNotReplaceActiveGenerationUntilAtomicActivation() throws Exception {
 		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("proxy"), "localhost");
 		Path client = directory.resolve("client");
@@ -154,6 +171,8 @@ class HttpTransportSecurityTest {
 		assertEquals(originalPin, HttpTransportSecrets.certificatePin(HttpClientCredentialStore.load(client).certificate()));
 		HttpClientCredentialStore.activateReplacement(client, staged);
 		assertNotEquals(originalPin, HttpTransportSecrets.certificatePin(HttpClientCredentialStore.load(client).certificate()));
+		assertTrue(HttpClientCredentialStore.matchesEnrollmentCode(client, code),
+				"automatic certificate renewal must retain the consumed-code marker");
 		HttpTlsIdentity.IssuedClientCertificate manuallyReenrolled = identity.issueClientCertificate("lobby-1");
 		HttpClientCredentialStore.saveEnrolled(client, code, manuallyReenrolled);
 		assertEquals(HttpTransportSecrets.certificatePin(manuallyReenrolled.certificate()),

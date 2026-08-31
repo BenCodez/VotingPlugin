@@ -43,10 +43,8 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	private void initialize(Path directory, String serverId, String configuredCode,
 			GlobalMessageHandler messageHandler) {
 		try {
-			if (!HttpClientCredentialStore.hasEnrolledProfile(directory)) {
-				HttpConnectionCode code = HttpConnectionCode.parse(configuredCode);
-				HttpBackendTransportConnector.enroll(code, serverId, directory);
-			}
+			HttpConnectionCode code = enrollmentCode(directory, serverId, configuredCode);
+			if (code != null) HttpBackendTransportConnector.enroll(code, serverId, directory);
 			HttpClientCredentialStore.EnrolledClient enrolled = HttpClientCredentialStore.loadEnrolled(directory);
 			if (!enrolled.profile().serverId().equals(com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity.canonicalServerId(serverId)))
 				throw new IllegalStateException("Persisted HTTP identity belongs to a different backend Server name");
@@ -97,20 +95,28 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	}
 
 	private static void validateConfiguration(Path directory, String serverId, String configuredCode) {
+		enrollmentCode(directory, serverId, configuredCode);
+	}
+
+	static HttpConnectionCode enrollmentCode(Path directory, String serverId, String configuredCode) {
 		try { serverId = com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity.canonicalServerId(serverId); }
 		catch (IllegalArgumentException invalid) { throw new IllegalStateException("HTTP requires a valid unique backend Server name", invalid); }
-		if (!HttpClientCredentialStore.hasEnrolledProfile(directory)) {
-			if (configuredCode == null || configuredCode.isBlank())
-				throw new IllegalStateException("HTTP requires a temporary ConnectionCode for initial enrollment");
+		boolean enrolled = HttpClientCredentialStore.hasEnrolledProfile(directory);
+		if (configuredCode != null && !configuredCode.isBlank()) {
 			try {
 				HttpConnectionCode code = HttpConnectionCode.parse(configuredCode);
-				code.requireActive(Clock.systemUTC());
 				if (!code.serverId().equals(serverId))
 					throw new IllegalArgumentException("Connection code belongs to a different backend");
-			} catch (IllegalArgumentException invalid) {
+				if (enrolled && HttpClientCredentialStore.matchesEnrollmentCode(directory, code)) return null;
+				code.requireActive(Clock.systemUTC());
+				return code;
+			} catch (Exception invalid) {
 				throw new IllegalStateException("HTTP ConnectionCode is invalid, expired, or belongs to a different backend", invalid);
 			}
 		}
+		if (!enrolled)
+			throw new IllegalStateException("HTTP requires a temporary ConnectionCode for initial enrollment");
+		return null;
 	}
 
 	@Override

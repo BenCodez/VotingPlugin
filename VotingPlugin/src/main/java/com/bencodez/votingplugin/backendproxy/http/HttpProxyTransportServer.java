@@ -107,12 +107,9 @@ public final class HttpProxyTransportServer implements AutoCloseable {
 		if (closed || serverId == null || envelope == null) return false;
 		try { serverId = HttpTlsIdentity.canonicalServerId(serverId); HttpTransportProtocol.validateEnvelope(envelope); }
 		catch (IllegalArgumentException invalid) { return false; }
-		synchronized (backends) {
-			BackendState backend = backends.computeIfAbsent(serverId, ignored -> new BackendState());
-			boolean accepted = backend.enqueue(new HttpTransportProtocol.Delivery(UUID.randomUUID().toString(), envelope));
-			if (accepted) backend.signal();
-			return accepted;
-		}
+		BackendState backend;
+		synchronized (backends) { backend = backends.computeIfAbsent(serverId, ignored -> new BackendState()); }
+		return backend.enqueue(new HttpTransportProtocol.Delivery(UUID.randomUUID().toString(), envelope));
 	}
 
 	@Override public void close() {
@@ -232,7 +229,10 @@ public final class HttpProxyTransportServer implements AutoCloseable {
 			// prevents a captured request from being replayed with altered ACKs or a new payload.
 			if (requestedSequence <= sequence) return false; sequence = requestedSequence; return true;
 		}
-		private boolean enqueue(HttpTransportProtocol.Delivery delivery) { if (outgoing.size() >= HttpTransportProtocol.MAX_QUEUE) return false; outgoing.put(delivery.id(), delivery); return true; }
+		synchronized boolean enqueue(HttpTransportProtocol.Delivery delivery) {
+			if (outgoing.size() >= HttpTransportProtocol.MAX_QUEUE) return false;
+			outgoing.put(delivery.id(), delivery); signal(); return true;
+		}
 		private void acknowledge(Collection<String> acks) { for (String id : acks) { outgoing.remove(id); delivered.remove(id); } }
 		List<HttpTransportProtocol.Delivery> acceptIncoming(List<HttpTransportProtocol.Delivery> received) {
 			List<HttpTransportProtocol.Delivery> accepted = new java.util.ArrayList<>();

@@ -32,7 +32,6 @@ import javax.net.ssl.SSLEngine;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509ExtendedKeyManager;
-import javax.net.ssl.X509TrustManager;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.BasicConstraints;
 import org.bouncycastle.asn1.x509.Extension;
@@ -159,9 +158,17 @@ public final class HttpTlsIdentity {
 	public SSLContext serverContext() throws Exception {
 		renewServerCertificateIfNeeded();
 		SSLContext context = SSLContext.getInstance("TLS");
-		context.init(new KeyManager[] { new RotatingServerKeyManager() },
-				new TrustManager[] { new EnrollmentAwareTrustManager(caCertificate) }, null);
+		context.init(new KeyManager[] { new RotatingServerKeyManager() }, trustManagers(caCertificate), null);
 		return context;
+	}
+
+	static TrustManager[] trustManagers(X509Certificate caCertificate) throws Exception {
+		KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+		trustStore.load(null, EMPTY_PASSWORD);
+		trustStore.setCertificateEntry("http-transport-ca", caCertificate);
+		TrustManagerFactory factory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+		factory.init(trustStore);
+		return factory.getTrustManagers();
 	}
 
 	private synchronized void renewServerCertificateIfNeeded() throws Exception {
@@ -378,25 +385,5 @@ public final class HttpTlsIdentity {
 		@Override public PrivateKey getPrivateKey(String alias) { refresh(); return ALIAS.equals(alias) ? serverKey : null; }
 	}
 
-	private static final class EnrollmentAwareTrustManager implements X509TrustManager {
-		private final X509TrustManager delegate;
-		private EnrollmentAwareTrustManager(X509Certificate caCertificate) throws Exception {
-			KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
-			trustStore.load(null, EMPTY_PASSWORD);
-			trustStore.setCertificateEntry("http-transport-ca", caCertificate);
-			TrustManagerFactory factory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-			factory.init(trustStore);
-			this.delegate = Arrays.stream(factory.getTrustManagers())
-					.filter(X509TrustManager.class::isInstance)
-					.map(X509TrustManager.class::cast)
-					.findFirst()
-					.orElseThrow(() -> new IllegalStateException("No X.509 trust manager is available"));
-		}
-		@Override public void checkClientTrusted(X509Certificate[] chain, String authType) throws java.security.cert.CertificateException {
-			delegate.checkClientTrusted(chain, authType);
-		}
-		@Override public void checkServerTrusted(X509Certificate[] chain, String authType) { throw new UnsupportedOperationException(); }
-		@Override public X509Certificate[] getAcceptedIssuers() { return delegate.getAcceptedIssuers(); }
-	}
 	private enum CertificateRole { CA, SERVER, CLIENT }
 }

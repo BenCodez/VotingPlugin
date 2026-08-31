@@ -1,12 +1,16 @@
 package com.bencodez.votingplugin.backendproxy.transport;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.backendproxy.http.HttpClientCredentialStore;
 import com.bencodez.votingplugin.backendproxy.http.HttpConnectionCode;
+import com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity;
 import com.bencodez.votingplugin.config.BungeeSettings;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
 import java.net.URI;
@@ -40,6 +44,24 @@ class HttpBackendProxyTransportTest {
 
 		when(settings.getHttpConnectionCode()).thenReturn(code("lobby-1", Instant.now().plusSeconds(60)).encode());
 		assertDoesNotThrow(transport::validate);
+	}
+
+	@Test
+	void freshConnectionCodeOverridesAnExistingEnrollment() throws Exception {
+		Path credentials = directory.resolve("http");
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("proxy"), "proxy.example.test");
+		HttpConnectionCode original = new HttpConnectionCode("lobby-1", URI.create("https://proxy.example.test:1297/"),
+				identity.serverCertificatePin(), identity.caCertificatePin(), Instant.now().minusSeconds(1), "A".repeat(43));
+		HttpClientCredentialStore.saveEnrolled(credentials, original, identity.issueClientCertificate("lobby-1"));
+		assertNull(HttpBackendProxyTransport.enrollmentCode(credentials, "lobby-1", ""));
+		assertNull(HttpBackendProxyTransport.enrollmentCode(credentials, "lobby-1", original.encode()),
+				"the already-consumed code must not be retried, even after it expires");
+
+		HttpConnectionCode replacement = new HttpConnectionCode("lobby-1", original.endpoint(), original.serverCertificatePin(),
+				original.caCertificatePin(), Instant.now().plusSeconds(60), "B".repeat(43));
+		assertEquals(replacement.encode(), HttpBackendProxyTransport.enrollmentCode(credentials, "lobby-1", replacement.encode()).encode());
+		assertThrows(IllegalStateException.class,
+				() -> HttpBackendProxyTransport.enrollmentCode(credentials, "lobby-1", "malformed"));
 	}
 
 	private static HttpConnectionCode code(String serverId, Instant expiry) {

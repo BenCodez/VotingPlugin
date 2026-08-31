@@ -22,6 +22,7 @@ public final class HttpClientCredentialStore {
 	private static final String BUNDLE_FILE = "http-transport-client.p12";
 	private static final String PASSWORD_FILE = "http-transport-client-password";
 	private static final String PROFILE_FILE = "http-transport-profile.properties";
+	private static final String CONNECTION_CODE_DIGEST_FILE = "http-transport-connection-code.sha256";
 	private static final String GENERATIONS_DIRECTORY = "http-transport-client-generations";
 	private static final String CURRENT_FILE = "http-transport-client-current";
 	private HttpClientCredentialStore() { }
@@ -44,7 +45,7 @@ public final class HttpClientCredentialStore {
 		HttpClientProfile profile = new HttpClientProfile(HttpTlsIdentity.canonicalServerId(issued.serverId()), code.endpoint(),
 				code.serverCertificatePin(), code.caCertificatePin());
 		try {
-			StagedCredential staged = stage(directory, issued, profile);
+			StagedCredential staged = stage(directory, issued, profile, connectionCodeDigest(code));
 			activateReplacement(directory, staged);
 		} catch (IOException failure) { throw failure;
 		} catch (Exception failure) { throw new IOException("Could not persist HTTP client credential", failure); }
@@ -89,11 +90,12 @@ public final class HttpClientCredentialStore {
 
 	/** Writes and validates a replacement generation without touching the active credential. */
 	static StagedCredential stageReplacement(Path directory, HttpTlsIdentity.IssuedClientCertificate issued) throws Exception {
-		return stage(directory, issued, loadProfile(directory));
+		Path active = activeDirectory(directory);
+		return stage(directory, issued, loadProfileFile(active), readConnectionCodeDigest(active));
 	}
 
 	private static StagedCredential stage(Path directory, HttpTlsIdentity.IssuedClientCertificate issued,
-			HttpClientProfile profile) throws Exception {
+			HttpClientProfile profile, String connectionCodeDigest) throws Exception {
 		if (directory == null || issued == null) throw new IllegalArgumentException("Credential replacement is required");
 		Path generations = directory.toAbsolutePath().normalize().resolve(GENERATIONS_DIRECTORY);
 		Files.createDirectories(generations);
@@ -106,11 +108,14 @@ public final class HttpClientCredentialStore {
 		try {
 			save(generation, issued);
 			writeProfile(generation, profile);
+			if (connectionCodeDigest != null) writePrivate(safe(generation.resolve(CONNECTION_CODE_DIGEST_FILE)),
+					connectionCodeDigest.getBytes(StandardCharsets.US_ASCII));
 			EnrolledClient enrolled = loadEnrolled(generation);
 			return new StagedCredential(name, enrolled.credential());
 		} catch (Exception failure) {
 			try { Files.deleteIfExists(generation.resolve(BUNDLE_FILE)); Files.deleteIfExists(generation.resolve(PASSWORD_FILE));
-				Files.deleteIfExists(generation.resolve(PROFILE_FILE)); Files.deleteIfExists(generation); }
+				Files.deleteIfExists(generation.resolve(PROFILE_FILE)); Files.deleteIfExists(generation.resolve(CONNECTION_CODE_DIGEST_FILE));
+				Files.deleteIfExists(generation); }
 			catch (IOException cleanup) { failure.addSuppressed(cleanup); }
 			throw failure;
 		}
@@ -151,8 +156,17 @@ public final class HttpClientCredentialStore {
 	}
 
 	public static boolean hasEnrolledProfile(Path directory) {
-		try { loadProfile(directory); return true; }
+		try { loadEnrolled(directory); return true; }
 		catch (Exception unavailable) { return false; }
+	}
+
+	/** Returns whether this exact one-time code created the active credential, without persisting the code itself. */
+	public static boolean matchesEnrollmentCode(Path directory, HttpConnectionCode code) throws IOException {
+		if (code == null) throw new IllegalArgumentException("Connection code is required");
+		String stored = readConnectionCodeDigest(activeDirectory(directory));
+		if (stored == null) return false;
+		return HttpTransportSecrets.constantTimeEquals(stored.getBytes(StandardCharsets.US_ASCII),
+				connectionCodeDigest(code).getBytes(StandardCharsets.US_ASCII));
 	}
 
 	/** Loads and cross-checks the persisted client key material and bound normal-transport profile. */
@@ -220,6 +234,20 @@ public final class HttpClientCredentialStore {
 		if (!generation.getParent().equals(generations) || Files.isSymbolicLink(generation) || !Files.isDirectory(generation, LinkOption.NOFOLLOW_LINKS))
 			throw new IOException("HTTP client credential generation is invalid");
 		return generation;
+	}
+
+	private static String readConnectionCodeDigest(Path directory) throws IOException {
+		Path digest = safe(directory.resolve(CONNECTION_CODE_DIGEST_FILE));
+		if (!Files.exists(digest, LinkOption.NOFOLLOW_LINKS)) return null;
+		if (!Files.isRegularFile(digest, LinkOption.NOFOLLOW_LINKS) || Files.size(digest) != 64)
+			throw new IOException("HTTP connection-code marker is invalid");
+		String value = Files.readString(digest, StandardCharsets.US_ASCII);
+		if (!value.matches("[0-9a-f]{64}")) throw new IOException("HTTP connection-code marker is invalid");
+		return value;
+	}
+
+	private static String connectionCodeDigest(HttpConnectionCode code) {
+		return HttpTransportSecrets.sha256Hex(code.encode().getBytes(StandardCharsets.US_ASCII));
 	}
 
 	private static void writePrivate(Path file, byte[] contents) throws IOException {

@@ -26,7 +26,7 @@ The `HTTP` bungee method gives every backend an outbound encrypted connection to
      ConnectionCode: 'paste-code-here'
    ```
 
-5. Restart the backend. Once enrollment succeeds, remove `ConnectionCode` from the configuration. The backend's private identity is stored in its VotingPlugin data folder and is reused automatically.
+5. Restart the backend. Once enrollment succeeds, remove `ConnectionCode` from the configuration. The backend's private identity is stored in its VotingPlugin data folder and is reused automatically. A different nonblank code is treated as an explicit re-enrollment request; a digest lets harmless restarts recognize the already-consumed code without storing its secret token.
 
 Connection codes expire after 15 minutes and can be used only once. Treat a fresh code like a temporary password: transfer it privately and do not publish it in logs, tickets, or chat rooms.
 
