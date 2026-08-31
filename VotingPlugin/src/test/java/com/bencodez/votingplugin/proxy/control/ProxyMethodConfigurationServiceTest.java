@@ -69,6 +69,14 @@ class ProxyMethodConfigurationServiceTest {
 		when(config.getHttpPublicEndpoint()).thenReturn("https://proxy.example.test:1297/terminated-path");
 		assertThrows(IllegalArgumentException.class,
 				() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.HTTP)));
+		when(config.getHttpPublicEndpoint()).thenReturn("https://proxy.example.test:0");
+		assertThrows(IllegalArgumentException.class,
+				() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.HTTP)));
+		when(config.getHttpPublicEndpoint()).thenReturn("https://proxy.example.test:65536");
+		assertThrows(IllegalArgumentException.class,
+				() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.HTTP)));
+		when(config.getHttpPublicEndpoint()).thenReturn("https://proxy.example.test");
+		assertDoesNotThrow(() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.HTTP)));
 		when(config.getHttpPublicEndpoint()).thenReturn("https://proxy.example.test:1297");
 		assertDoesNotThrow(() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.HTTP)));
 

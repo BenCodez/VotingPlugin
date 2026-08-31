@@ -23,6 +23,7 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	private final List<String> warnings = new ArrayList<>();
 	private VotingPluginProxyConfig config;
 	private boolean pluginMessageDeliveryResult = true;
+	private boolean voteEnvelopeDeliveryResult = true;
 	private boolean communicationTestDeliveryResult = true;
 	private JsonEnvelope lastCommunicationTestEnvelope;
 	private boolean playerOnline = true;
@@ -210,6 +211,18 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	public boolean sendProxyBroadcastImmediately(String server, JsonEnvelope envelope) {
 		return sendProxyBroadcastEnvelopeNow(server, envelope);
+	}
+
+	@Override
+	protected boolean sendVoteEnvelopeAccepted(String server, int delay, JsonEnvelope envelope) {
+		if (getMethod() == com.bencodez.votingplugin.proxy.BungeeMethod.HTTP) {
+			return voteEnvelopeDeliveryResult;
+		}
+		return super.sendVoteEnvelopeAccepted(server, delay, envelope);
+	}
+
+	public void setVoteEnvelopeDeliveryResult(boolean voteEnvelopeDeliveryResult) {
+		this.voteEnvelopeDeliveryResult = voteEnvelopeDeliveryResult;
 	}
 
 	@Override

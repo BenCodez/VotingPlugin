@@ -605,6 +605,49 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void rejectedHttpQueueDeliveryRetainsCachedServerVote() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "player-uuid",
+				"Service", 100L, true, "totals");
+		Mockito.when(voteCache.hasVotes("Server1")).thenReturn(true);
+		Mockito.when(voteCache.getVotes("Server1"))
+				.thenReturn(new java.util.ArrayList<>(java.util.List.of(vote)));
+		Mockito.when(votingPluginProxy.getConfig().getBlockedServers())
+				.thenReturn(java.util.Collections.emptyList());
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(false);
+
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		spyProxy.checkCachedVotes("Server1");
+
+		verify(voteCache).removeServerVotes(Mockito.eq("Server1"),
+				Mockito.argThat(java.util.List::isEmpty));
+	}
+
+	@Test
+	void rejectedHttpQueueDeliveryRetainsCachedOnlineVote() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "player-uuid",
+				"Service", 100L, true, "totals");
+		Mockito.when(voteCache.hasOnlineVotes("player-uuid")).thenReturn(true);
+		Mockito.when(voteCache.getOnlineVotes("player-uuid"))
+				.thenReturn(new java.util.ArrayList<>(java.util.List.of(vote)));
+		Mockito.when(votingPluginProxy.getConfig().getBlockedServers())
+				.thenReturn(java.util.Collections.emptyList());
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(false);
+
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		spyProxy.checkOnlineVotes("Player", "player-uuid", "Server1");
+
+		assertFalse(vote.isRewardDelivered());
+		verify(voteCache).addOnlineVote("player-uuid", vote);
+		verify(multiProxyHandler, never()).sendClearVote(Mockito.anyString(), Mockito.anyString());
+	}
+
+	@Test
 	void pendingOnlineBroadcastRetriesWhenTargetGainsAnyCarrier() {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "OfflineVoter", "voter-uuid",

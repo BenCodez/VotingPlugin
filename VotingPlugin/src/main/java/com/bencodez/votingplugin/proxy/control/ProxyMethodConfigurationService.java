@@ -68,6 +68,7 @@ public final class ProxyMethodConfigurationService {
 			try { httpEndpoint = URI.create(endpoint); }
 			catch (RuntimeException invalid) { throw new IllegalArgumentException("HTTP.PublicEndpoint must be an HTTPS origin"); }
 			if (!"https".equalsIgnoreCase(httpEndpoint.getScheme()) || httpEndpoint.getHost() == null
+					|| httpEndpoint.getPort() == 0 || httpEndpoint.getPort() > 65535
 					|| httpEndpoint.getUserInfo() != null || httpEndpoint.getQuery() != null || httpEndpoint.getFragment() != null
 					|| (httpEndpoint.getPath() != null && !httpEndpoint.getPath().isEmpty() && !"/".equals(httpEndpoint.getPath()))) {
 				throw new IllegalArgumentException("HTTP.PublicEndpoint must be an HTTPS origin");

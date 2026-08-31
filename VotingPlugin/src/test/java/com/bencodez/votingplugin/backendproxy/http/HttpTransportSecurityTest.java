@@ -20,6 +20,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class HttpTransportSecurityTest {
+	@Test
+	void connectionCodeRejectsExplicitZeroPort() {
+		assertThrows(IllegalArgumentException.class,
+				() -> new HttpConnectionCode("lobby", URI.create("https://proxy.example.test:0/"), pin('a'),
+						pin('b'), Instant.now().plusSeconds(60), "token"));
+	}
+
 	@TempDir Path directory;
 
 	@Test

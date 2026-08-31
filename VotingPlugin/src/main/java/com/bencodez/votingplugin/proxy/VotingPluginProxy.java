@@ -578,6 +578,24 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
+	/**
+	 * Sends a reward-bearing vote envelope and reports whether the selected
+	 * transport accepted it. Legacy transports retain their existing asynchronous
+	 * semantics; HTTP exposes its bounded-queue result so a vote is never discarded
+	 * when the queue is full.
+	 */
+	protected boolean sendVoteEnvelopeAccepted(String server, int delay, JsonEnvelope envelope) {
+		if (method == BungeeMethod.HTTP) {
+			return sendHttpEnvelope(server, envelope);
+		}
+		GlobalMessageProxyHandler handler = globalMessageProxyHandler;
+		if (handler == null) {
+			return false;
+		}
+		handler.sendMessage(server, delay, envelope);
+		return true;
+	}
+
 	public synchronized void checkCachedVotes(String server) {
 		int delay = 1;
 		if (isServerValid(server)) {
@@ -626,11 +644,14 @@ public abstract class VotingPluginProxy {
 									broadcastHere = proxyBroadcastDecider.shouldBroadcast(server, targets);
 								}
 
-								globalMessageProxyHandler.sendMessage(server, delay,
+								if (!sendVoteEnvelopeAccepted(server, delay,
 										VotingPluginWire.vote(cache.getPlayerName(), cache.getUuid(),
 												cache.getService(), cache.getTime(), false, cache.isRealVote(),
 												cache.getText(), cache.getVoteId(), getConfig().getBungeeManageTotals(),
-												broadcastHere, num, numberOfVotes));
+												broadcastHere, num, numberOfVotes))) {
+									debug("Retaining cached vote because the transport rejected delivery for " + server);
+									continue;
+								}
 								delay++;
 								num++;
 								removed.add(cache);
@@ -688,10 +709,14 @@ public abstract class VotingPluginProxy {
 						}
 
 						if (!cache.isRewardDelivered()) {
-							globalMessageProxyHandler.sendMessage(server, delay,
+							if (!sendVoteEnvelopeAccepted(server, delay,
 									VotingPluginWire.voteOnline(cache.getPlayerName(), cache.getUuid(), cache.getService(),
 											cache.getTime(), false, cache.isRealVote(), cache.getText(), cache.getVoteId(),
-											getConfig().getBungeeManageTotals(), broadcastHere, num, numberOfVotes));
+											getConfig().getBungeeManageTotals(), broadcastHere, num, numberOfVotes))) {
+								debug("Retaining online vote because the transport rejected delivery for " + server);
+								retained.add(cache);
+								continue;
+							}
 							// The normal envelope is also a valid broadcast delivery for the
 							// current target. Record it so a previously pending standalone
 							// retry cannot announce the same vote again later.
@@ -2675,6 +2700,7 @@ public abstract class VotingPluginProxy {
 		try {
 			URI endpoint = URI.create(getConfig().getHttpPublicEndpoint());
 			if (!"https".equalsIgnoreCase(endpoint.getScheme()) || endpoint.getHost() == null
+					|| endpoint.getPort() == 0 || endpoint.getPort() > 65535
 					|| endpoint.getUserInfo() != null || endpoint.getQuery() != null || endpoint.getFragment() != null
 					|| (endpoint.getPath() != null && !endpoint.getPath().isEmpty() && !"/".equals(endpoint.getPath()))) {
 				throw new IllegalArgumentException("HTTP.PublicEndpoint must be an HTTPS origin");
@@ -3461,9 +3487,18 @@ public abstract class VotingPluginProxy {
 							broadcastHere = proxyBroadcastDecider.shouldBroadcast(s, targets);
 						}
 
-						globalMessageProxyHandler.sendMessage(s, 2,
+						if (!sendVoteEnvelopeAccepted(s, 2,
 								VotingPluginWire.vote(player, uuid, service, time, true, realVote, text.toString(),
-										voteId, getConfig().getBungeeManageTotals(), broadcastHere, 1, 1));
+										voteId, getConfig().getBungeeManageTotals(), broadcastHere, 1, 1))) {
+							voteStatus = VoteLogStatus.CACHED;
+							boolean broadcastForwarded = standaloneProxyBroadcast
+									&& broadcastForwardedServers.containsAll(proxyBroadcastTargets);
+							getVoteCacheHandler().addServerVote(s,
+									new OfflineBungeeVote(voteId, player, uuid, service, time, realVote,
+											text.toString(), broadcastForwarded, standaloneProxyBroadcast,
+											proxyBroadcastTargets, broadcastForwardedServers, false));
+							debug("Caching vote after the transport rejected delivery for " + s);
+						}
 					}
 				}
 			} else {
@@ -3479,11 +3514,21 @@ public abstract class VotingPluginProxy {
 						broadcastHere = proxyBroadcastDecider.shouldBroadcast(server, targets);
 					}
 
-					globalMessageProxyHandler.sendMessage(server, 1,
+					boolean rewardAccepted = sendVoteEnvelopeAccepted(server, 1,
 							VotingPluginWire.voteOnline(player, uuid, service, time, true, realVote, text.toString(),
 									voteId, getConfig().getBungeeManageTotals(), broadcastHere, 1, 1));
+					if (!rewardAccepted) {
+						voteStatus = VoteLogStatus.CACHED;
+						boolean broadcastForwarded = standaloneProxyBroadcast
+								&& broadcastForwardedServers.containsAll(proxyBroadcastTargets);
+						getVoteCacheHandler().addOnlineVote(uuid,
+								new OfflineBungeeVote(voteId, player, uuid, service, time, realVote, text.toString(),
+										broadcastForwarded, standaloneProxyBroadcast, proxyBroadcastTargets,
+										broadcastForwardedServers, false));
+						debug("Caching online vote after the transport rejected delivery for " + server);
+					}
 
-					if (canValidateStandaloneBroadcast && getConfig().getProxyBroadcastEnabled()
+					if (rewardAccepted && canValidateStandaloneBroadcast && getConfig().getProxyBroadcastEnabled()
 							&& !standaloneProxyBroadcast) {
 						Set<String> targets = proxyBroadcastDecider.resolveTargets(true, playerServer);
 
@@ -3505,7 +3550,7 @@ public abstract class VotingPluginProxy {
 					}
 
 					// multiproxy: envelope-only clear vote
-					if (getConfig().getMultiProxySupport() && getConfig().getMultiProxyOneGlobalReward()) {
+					if (rewardAccepted && getConfig().getMultiProxySupport() && getConfig().getMultiProxyOneGlobalReward()) {
 						multiProxyHandler.sendClearVote(uuid, player);
 					}
 				} else {

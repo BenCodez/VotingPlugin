@@ -68,7 +68,8 @@ public record HttpConnectionCode(String serverId, URI endpoint, String serverCer
 		if (value == null || !"https".equalsIgnoreCase(value.getScheme()) || value.getHost() == null
 				|| value.getUserInfo() != null || value.getFragment() != null || value.getRawQuery() != null)
 			throw new IllegalArgumentException("Endpoint must be an absolute HTTPS URL without credentials or query");
-		if (value.getPort() > 65535 || value.getPort() < -1) throw new IllegalArgumentException("Endpoint port is invalid");
+		if (value.getPort() == 0 || value.getPort() > 65535 || value.getPort() < -1)
+			throw new IllegalArgumentException("Endpoint port is invalid");
 		String path = value.getRawPath();
 		if (path == null || path.isEmpty()) path = "/";
 		if (!path.endsWith("/")) path += "/";
