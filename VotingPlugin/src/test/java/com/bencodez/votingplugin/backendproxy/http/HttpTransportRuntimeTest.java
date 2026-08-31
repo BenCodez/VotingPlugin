@@ -1,7 +1,9 @@
 package com.bencodez.votingplugin.backendproxy.http;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
@@ -85,6 +87,26 @@ class HttpTransportRuntimeTest {
 		assertTrue(fitted.size() > 0 && fitted.size() < candidates.size());
 		assertTrue(HttpTransportProtocol.request("lobby-1", session, 0, java.util.List.of(), fitted).length
 				<= HttpTransportProtocol.MAX_BODY_BYTES);
+	}
+
+	@Test
+	void packetNumbersMustUseCanonicalJsonIntegerTokens() {
+		com.google.gson.JsonObject packet = com.google.gson.JsonParser.parseString(new String(HttpTransportProtocol.request(
+				"lobby-1", java.util.UUID.randomUUID().toString(), 0, java.util.List.of(), java.util.List.of()),
+				java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+		assertDoesNotThrow(() -> HttpTransportProtocol.parsePacket(packet.toString()
+				.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+		String timestamp = packet.get("timestamp").getAsString();
+		java.util.Map<String, java.util.List<String>> invalid = java.util.Map.of(
+				"v", java.util.List.of("\"1\"", "1.0", "1e0"),
+				"sequence", java.util.List.of("\"0\"", "0.0", "0e0"),
+				"timestamp", java.util.List.of("\"" + timestamp + "\"", timestamp + ".0", timestamp + "e0"));
+		for (var field : invalid.entrySet()) for (String token : field.getValue()) {
+			com.google.gson.JsonObject rejected = packet.deepCopy();
+			rejected.add(field.getKey(), com.google.gson.JsonParser.parseString(token));
+			assertThrows(IllegalArgumentException.class, () -> HttpTransportProtocol.parsePacket(
+					rejected.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)), field.getKey() + "=" + token);
+		}
 	}
 
 	@Test

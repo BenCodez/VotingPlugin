@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -16,6 +17,8 @@ import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
 import java.net.URI;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -62,6 +65,28 @@ class HttpBackendProxyTransportTest {
 		assertEquals(replacement.encode(), HttpBackendProxyTransport.enrollmentCode(credentials, "lobby-1", replacement.encode()).encode());
 		assertThrows(IllegalStateException.class,
 				() -> HttpBackendProxyTransport.enrollmentCode(credentials, "lobby-1", "malformed"));
+	}
+
+	@Test
+	void closeNeverWaitsForSetupOnTheCallingThread() throws Exception {
+		HttpBackendProxyTransport transport = new HttpBackendProxyTransport(mock(VotingPluginMain.class));
+		CountDownLatch started = new CountDownLatch(1), release = new CountDownLatch(1);
+		Thread blocked = new Thread(() -> {
+			started.countDown();
+			while (release.getCount() != 0) try { release.await(); }
+			catch (InterruptedException ignored) { /* Simulate setup I/O that has not unwound yet. */ }
+		});
+		blocked.start();
+		assertTrue(started.await(1, TimeUnit.SECONDS));
+		java.lang.reflect.Field worker = HttpBackendProxyTransport.class.getDeclaredField("worker");
+		worker.setAccessible(true);
+		worker.set(transport, blocked);
+
+		long startedAt = System.nanoTime();
+		transport.close();
+		long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt);
+		try { assertTrue(elapsedMillis < 500, "close blocked the calling thread for " + elapsedMillis + " ms"); }
+		finally { release.countDown(); blocked.join(TimeUnit.SECONDS.toMillis(1)); }
 	}
 
 	private static HttpConnectionCode code(String serverId, Instant expiry) {

@@ -67,8 +67,9 @@ final class HttpTransportProtocol {
 			String server = HttpTlsIdentity.canonicalServerId(string(root, "server", 64));
 			String session = uuid(root, "session");
 			long sequence = nonNegative(root, "sequence");
-			long timestamp = root.get("timestamp").getAsLong();
-			if (Math.abs(Instant.now().toEpochMilli() - timestamp) > MAX_CLOCK_SKEW_MILLIS) throw bad();
+			long timestamp = integer(root, "timestamp");
+			long now = Instant.now().toEpochMilli();
+			if (timestamp < now - MAX_CLOCK_SKEW_MILLIS || timestamp > now + MAX_CLOCK_SKEW_MILLIS) throw bad();
 			List<String> acks = parseIds(root.get("acks"));
 			List<Delivery> messages = parseMessages(root.get("messages"));
 			return new Packet(server, session, sequence, acks, messages);
@@ -179,7 +180,15 @@ final class HttpTransportProtocol {
 		for (String name : names) if (!object.has(name) || object.get(name).isJsonNull()) throw bad();
 	}
 	private static String string(JsonObject object, String name, int max) { JsonElement v = object.get(name); if (!v.isJsonPrimitive() || !v.getAsJsonPrimitive().isString()) throw bad(); String value = v.getAsString(); if (value.isEmpty() || value.length() > max) throw bad(); return value; }
-	private static long integer(JsonObject object, String name) { try { return object.get(name).getAsLong(); } catch (RuntimeException failure) { throw bad(); } }
+	private static long integer(JsonObject object, String name) {
+		try {
+			JsonElement value = object.get(name);
+			if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()) throw bad();
+			String token = value.getAsString();
+			if (!token.matches("-?(?:0|[1-9][0-9]*)")) throw bad();
+			return Long.parseLong(token);
+		} catch (RuntimeException failure) { throw bad(); }
+	}
 	private static long nonNegative(JsonObject object, String name) { long n = integer(object, name); if (n < 0) throw bad(); return n; }
 	private static String uuid(JsonObject object, String name) { String value = string(object, name, 64); try { return UUID.fromString(value).toString(); } catch (IllegalArgumentException invalid) { throw bad(); } }
 	private static void validId(String id) { if (id == null || id.length() > 64) throw bad(); try { UUID.fromString(id); } catch (IllegalArgumentException invalid) { throw bad(); } }

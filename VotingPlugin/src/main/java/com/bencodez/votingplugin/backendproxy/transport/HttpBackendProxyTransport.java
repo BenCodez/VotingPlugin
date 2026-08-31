@@ -49,19 +49,21 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 			if (!enrolled.profile().serverId().equals(com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity.canonicalServerId(serverId)))
 				throw new IllegalStateException("Persisted HTTP identity belongs to a different backend Server name");
 			HttpBackendTransportConnector replacement = new HttpBackendTransportConnector(directory, messageHandler::onMessage);
+			boolean discard = false;
 			synchronized (lifecycle) {
 				if (closed) {
-					replacement.close();
-					return;
-				}
-				connector = replacement;
-				replacement.start();
-				while (!startupQueue.isEmpty()) {
-					if (!replacement.send(startupQueue.removeFirst())) {
-						throw new IllegalStateException("HTTP startup queue could not be transferred");
+					discard = true;
+				} else {
+					connector = replacement;
+					replacement.start();
+					while (!startupQueue.isEmpty()) {
+						if (!replacement.send(startupQueue.removeFirst())) {
+							throw new IllegalStateException("HTTP startup queue could not be transferred");
+						}
 					}
 				}
 			}
+			if (discard) replacement.close();
 		} catch (Exception failure) {
 			startupFailure = new IllegalStateException("Secure HTTP backend enrollment or connection failed", failure);
 			plugin.getLogger().severe("Secure HTTP backend transport is unavailable; check the connection code and proxy endpoint");
@@ -124,6 +126,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 		Thread setup;
 		HttpBackendTransportConnector active;
 		synchronized (lifecycle) {
+			if (closed) return;
 			closed = true;
 			startupQueue.clear();
 			setup = worker;
@@ -131,14 +134,16 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 			active = connector;
 			connector = null;
 		}
-		if (setup != null) {
-			setup.interrupt();
-			try {
-				setup.join(TimeUnit.SECONDS.toMillis(5));
-			} catch (InterruptedException interrupted) {
-				Thread.currentThread().interrupt();
-			}
-		}
+		if (setup != null) setup.interrupt();
+		if (setup == null && active == null) return;
+		Thread cleanup = new Thread(() -> drain(setup, active), "VotingPlugin-HTTP-Backend-Cleanup");
+		cleanup.setDaemon(true);
+		cleanup.start();
+	}
+
+	private static void drain(Thread setup, HttpBackendTransportConnector active) {
+		if (setup != null) try { setup.join(TimeUnit.SECONDS.toMillis(5)); }
+		catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
 		if (active != null) active.close();
 	}
 }
