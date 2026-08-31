@@ -69,8 +69,7 @@ public class AdminGUI {
 						@Override
 						public void onInput(Player player, String value) {
 							if (!plugin.getConfigVoteSites().tryGenerateVoteSite(value)) {
-								player.sendMessage(
-										"Unable to generate site: unsupported name or AutoCreateVoteSites is disabled");
+								player.sendMessage("Unable to generate site: unsupported name");
 								return;
 							}
 							player.sendMessage("Generated site");

@@ -109,7 +109,7 @@ public class VotiferEventDisabledVoteSiteTest {
 
 		listener.onVotiferEvent(createVoteEvent(SERVICE_SITE));
 
-		verify(configVoteSites, never()).tryGenerateVoteSite(anyString());
+		verify(configVoteSites, never()).tryAutoGenerateVoteSite(anyString());
 
 		// Proves the submitted task continued through vote resolution rather than
 		// passing only because processing stopped before the generation decision.
@@ -126,14 +126,14 @@ public class VotiferEventDisabledVoteSiteTest {
 
 		// Return false to avoid depending on reload behavior. This test only needs to
 		// prove that a genuinely unknown site still attempts generation.
-		when(configVoteSites.tryGenerateVoteSite(SERVICE_SITE)).thenReturn(false);
+		when(configVoteSites.tryAutoGenerateVoteSite(SERVICE_SITE)).thenReturn(false);
 
 		when(voteSiteManager.getVoteSiteName(true, SERVICE_SITE, "")).thenReturn(SERVICE_SITE);
 		when(voteSiteManager.getVoteSite(SERVICE_SITE, true)).thenReturn(null);
 
 		listener.onVotiferEvent(createVoteEvent(SERVICE_SITE));
 
-		verify(configVoteSites).tryGenerateVoteSite(SERVICE_SITE);
+		verify(configVoteSites).tryAutoGenerateVoteSite(SERVICE_SITE);
 		verify(pluginManager).callEvent(any(PlayerVoteEvent.class));
 	}
 }

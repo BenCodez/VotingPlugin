@@ -30,7 +30,7 @@ public class VoteSiteFactory {
 			return null;
 		}
 
-		if (!plugin.getConfigVoteSites().tryGenerateVoteSite(siteName)) {
+		if (!plugin.getConfigVoteSites().tryAutoGenerateVoteSite(siteName)) {
 			return null;
 		}
 

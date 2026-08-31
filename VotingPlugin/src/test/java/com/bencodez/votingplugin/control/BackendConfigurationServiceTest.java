@@ -23,6 +23,33 @@ import com.bencodez.votingplugin.util.DurableFiles;
 class BackendConfigurationServiceTest {
 	@TempDir Path directory;
 
+	@Test void transientReadFailuresAreRetried() throws Exception {
+		AtomicInteger attempts = new AtomicInteger();
+
+		String value = BackendConfigurationService.retryRead(() -> {
+			if (attempts.incrementAndGet() < 3) throw new IOException("configuration is being replaced");
+			return "loaded";
+		});
+
+		assertEquals("loaded", value);
+		assertEquals(3, attempts.get());
+	}
+
+	@Test void malformedQuickReadInputRemainsAValidationFailure() {
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		assertThrows(IllegalArgumentException.class, () -> service.readQuickSetup("vote-site", Map.of()));
+		assertThrows(IllegalArgumentException.class, () -> service.readQuickSetup("vote-site",
+				Map.of("name", "PMC", "password", "must-not-be-accepted")));
+		assertThrows(IllegalArgumentException.class, () -> service.readQuickSetup("auto-create-vote-sites",
+				Map.of("password", "must-not-be-accepted")));
+		assertThrows(IllegalArgumentException.class, () -> service.readQuickSetup("vote-logging",
+				Map.of("host", "must-not-be-accepted")));
+		assertThrows(IllegalArgumentException.class, () -> service.readQuickSetup("common-settings",
+				Map.of("unknown", "must-not-be-accepted")));
+		assertThrows(IllegalArgumentException.class, () -> service.readQuickSetup("easy-reward", Map.of()));
+	}
+
 	@Test void masksSecretsPreservesThemAndAppliesARevisionedReload() throws Exception {
 		Path config = directory.resolve("Config.yml");
 		Files.writeString(config, "Database:\n  Password: keep-me\nFeature: false\n");
@@ -244,7 +271,7 @@ class BackendConfigurationServiceTest {
 
 		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
 
-		assertThrows(IllegalArgumentException.class, () -> service.read("Config.yml"));
+		assertThrows(IOException.class, () -> service.read("Config.yml"));
 	}
 
 	@Test void reportsCommentOnlyChangesInPreview() throws Exception {
@@ -471,6 +498,69 @@ class BackendConfigurationServiceTest {
 		assertEquals("2", service.readQuickSetup("vote-party", Map.of()).options().get("rewardCommandCount"));
 	}
 
+	@Test void oversizedInstalledGuidedValuesFailInsteadOfWedgingResultSubmission() throws Exception {
+		Files.writeString(directory.resolve("SpecialRewards.yml"),
+				"VoteParty:\n  Broadcast: '" + "é".repeat(251) + "'\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		assertThrows(IOException.class, () -> service.readQuickSetup("vote-party", Map.of()));
+	}
+
+	@Test void autoCreateVoteSitesSetupReadsAndChangesOnlyItsDedicatedToggle() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "AutoCreateVoteSites: true\nProcessRewards: false\nOtherSetting: keep\n");
+		AtomicInteger reloads = new AtomicInteger();
+		BackendConfigurationService service = new BackendConfigurationService(directory, reloads::incrementAndGet);
+
+		BackendConfigurationService.QuickState state = service.readQuickSetup("auto-create-vote-sites", Map.of());
+		assertEquals("true", state.options().get("enabled"));
+		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("auto-create-vote-sites",
+				Map.of("enabled", "false"));
+		assertEquals(List.of("changed AutoCreateVoteSites"), preview.changes());
+
+		service.applyQuickSetup("auto-create-vote-sites", Map.of("enabled", "false"), state.revision());
+		YamlConfiguration applied = YamlConfiguration.loadConfiguration(config.toFile());
+		assertFalse(applied.getBoolean("AutoCreateVoteSites"));
+		assertFalse(applied.getBoolean("ProcessRewards"));
+		assertEquals("keep", applied.getString("OtherSetting"));
+		assertEquals(1, reloads.get());
+		assertThrows(IllegalArgumentException.class, () -> service.previewQuickSetup("auto-create-vote-sites",
+				Map.of("enabled", "not-a-boolean")));
+	}
+
+	@Test void voteLoggingSetupIsTypedAndNeverTouchesDatabaseCredentials() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "VoteLogging:\n  Enabled: false\n  PurgeDays: 30\n  UseMainMySQL: true\n"
+				+ "  Host: private-db\n  Password: keep-secret\nProcessRewards: false\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.QuickState state = service.readQuickSetup("vote-logging", Map.of());
+		assertEquals(Map.of("enabled", "false", "purgeDays", "30", "useMainMySQL", "true"),
+				state.options());
+		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("vote-logging", Map.of(
+				"enabled", "true", "purgeDays", "90", "useMainMySQL", "false"));
+		assertEquals(List.of("changed VoteLogging.Enabled", "changed VoteLogging.PurgeDays",
+				"changed VoteLogging.UseMainMySQL"), preview.changes());
+		service.applyQuickSetup("vote-logging", Map.of("enabled", "true", "purgeDays", "-1",
+				"useMainMySQL", "false"), state.revision());
+
+		YamlConfiguration applied = YamlConfiguration.loadConfiguration(config.toFile());
+		assertTrue(applied.getBoolean("VoteLogging.Enabled"));
+		assertEquals(-1, applied.getInt("VoteLogging.PurgeDays"));
+		assertFalse(applied.getBoolean("VoteLogging.UseMainMySQL"));
+		assertEquals("-1", service.readQuickSetup("vote-logging", Map.of()).options().get("purgeDays"));
+		assertEquals("private-db", applied.getString("VoteLogging.Host"));
+		assertEquals("keep-secret", applied.getString("VoteLogging.Password"));
+		assertFalse(applied.getBoolean("ProcessRewards"));
+		assertThrows(IllegalArgumentException.class, () -> service.previewQuickSetup("vote-logging", Map.of(
+				"enabled", "true", "purgeDays", "0", "useMainMySQL", "true")));
+		assertThrows(IllegalArgumentException.class, () -> service.previewQuickSetup("vote-logging", Map.of(
+				"enabled", "true", "purgeDays", "30", "useMainMySQL", "true",
+				"password", "must-not-be-accepted")));
+		Files.writeString(config, "VoteLogging:\n  Enabled: true\n  PurgeDays: 0\n  UseMainMySQL: true\n");
+		assertThrows(java.io.IOException.class, () -> service.readQuickSetup("vote-logging", Map.of()));
+	}
+
 	@Test void guidedRewardsAppendWithoutReplacingExistingRewardConfiguration() throws Exception {
 		Files.writeString(directory.resolve("VoteSites.yml"), "VoteSites:\n  PMC:\n    Rewards:\n"
 				+ "      Commands: [existing]\n      Messages:\n        Player: Existing message\n");
@@ -490,6 +580,93 @@ class BackendConfigurationServiceTest {
 				"giveAllPlayers", "false", "onlineOnly", "true"));
 		assertTrue(party.proposal().content().contains("existing party"));
 		assertTrue(party.proposal().content().contains("new party"));
+	}
+
+	@Test void rewardBuilderPersistsTheTypedSiteProposalAndOnlyReplacesItsSelectedSubtree() throws Exception {
+		Path voteSites = directory.resolve("VoteSites.yml");
+		Files.writeString(voteSites, "VoteSites:\n  PMC:\n    Name: Planet Minecraft\n    Rewards:\n"
+				+ "      Commands: [old command]\n  Other:\n    Rewards:\n      Commands: [keep other]\n"
+				+ "EverySiteReward:\n  Commands: [keep every]\n");
+		AtomicInteger reloads = new AtomicInteger();
+		BackendConfigurationService service = new BackendConfigurationService(directory, reloads::incrementAndGet);
+		String encoded = """
+				{"scope":"site","site":"PMC","commands":["eco give %player% 100"],
+				 "playerMessages":["Thanks"],"broadcastMessages":["%player% voted"],
+				 "items":[{"material":"diamond","amount":2}],"money":4.5,
+				 "permissions":["example.vote.reward"],"chancePercent":25,"onlineOnly":true}
+				""";
+		Map<String, String> options = Map.of("proposal", encoded);
+
+		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("reward-builder", options);
+		assertEquals("VoteSites.yml", preview.proposal().fileName());
+		assertEquals(preview.revision(), service.currentQuickSetupRevision("reward-builder",
+				Map.of("targetFile", "VoteSites.yml")));
+		YamlConfiguration proposed = new YamlConfiguration();
+		proposed.loadFromString(preview.proposal().content());
+		String root = "VoteSites.PMC.Rewards";
+		assertEquals(List.of("eco give %player% 100"), proposed.getStringList(root + ".Commands"));
+		assertEquals(List.of("Thanks"), proposed.getStringList(root + ".Messages.Player"));
+		assertEquals(List.of("%player% voted"), proposed.getStringList(root + ".Messages.Broadcast"));
+		assertEquals("DIAMOND", proposed.getString(root + ".Items.ControlItem1.Material"));
+		assertEquals(2, proposed.getInt(root + ".Items.ControlItem1.Amount"));
+		assertEquals(4.5, proposed.getDouble(root + ".Money"));
+		assertEquals("example.vote.reward", proposed.getString(root
+				+ ".AdvancedRewards.ControlPermission1.TempPermission.Permission"));
+		assertEquals(Integer.MAX_VALUE, proposed.getInt(root
+				+ ".AdvancedRewards.ControlPermission1.TempPermission.Expiration"));
+		assertEquals(25, proposed.getDouble(root + ".Chance"));
+		assertEquals("ONLINE", proposed.getString(root + ".RewardType"));
+		assertFalse(preview.proposal().content().contains("old command"));
+		assertTrue(preview.proposal().content().contains("keep other"));
+		assertTrue(preview.proposal().content().contains("keep every"));
+
+		BackendConfigurationService.ApplyResult applied = service.applyQuickSetup("reward-builder", options,
+				preview.revision());
+		assertEquals(1, reloads.get());
+		assertTrue(Files.readString(voteSites).contains("eco give %player% 100"));
+		assertEquals(applied.document().revision(), service.currentQuickSetupRevision("reward-builder",
+				Map.of("targetFile", "VoteSites.yml")));
+	}
+
+	@Test void rewardBuilderRoutesEverySiteAndVotePartyWithoutChangingSiblingSettings() throws Exception {
+		Files.writeString(directory.resolve("VoteSites.yml"), "VoteSites: {}\nEverySiteReward:\n  Commands: [old]\n");
+		Files.writeString(directory.resolve("SpecialRewards.yml"), "VoteParty:\n  Enabled: false\n"
+				+ "  VotesRequired: 40\n  Rewards:\n    Commands: [old party]\nOtherReward: keep\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.QuickPreview every = service.previewQuickSetup("reward-builder", Map.of(
+				"proposal", "{\"scope\":\"every-site\",\"commands\":[\"say every\"]}"));
+		assertEquals("VoteSites.yml", every.proposal().fileName());
+		assertTrue(every.proposal().content().contains("say every"));
+		assertFalse(every.proposal().content().contains("Commands:\n  - old"));
+
+		BackendConfigurationService.QuickPreview party = service.previewQuickSetup("reward-builder", Map.of(
+				"proposal", "{\"scope\":\"vote-party\",\"playerMessages\":[\"Party\"]}"));
+		assertEquals("SpecialRewards.yml", party.proposal().fileName());
+		YamlConfiguration proposed = new YamlConfiguration();
+		proposed.loadFromString(party.proposal().content());
+		assertFalse(proposed.getBoolean("VoteParty.Enabled"));
+		assertEquals(40, proposed.getInt("VoteParty.VotesRequired"));
+		assertEquals(List.of("Party"), proposed.getStringList("VoteParty.Rewards.Messages.Player"));
+		assertEquals("keep", proposed.getString("OtherReward"));
+	}
+
+	@Test void rewardBuilderRejectsUnknownOptionsMalformedPlansAndMissingSites() throws Exception {
+		Files.writeString(directory.resolve("VoteSites.yml"), "VoteSites: {}\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		assertThrows(IllegalArgumentException.class, () -> service.readQuickSetup("reward-builder", Map.of()));
+		assertThrows(IllegalArgumentException.class, () -> service.previewQuickSetup("reward-builder",
+				Map.of("proposal", "not json")));
+		assertThrows(IllegalArgumentException.class, () -> service.previewQuickSetup("reward-builder", Map.of(
+				"proposal", "{\"scope\":\"every-site\",\"commands\":[\"say hi\"]}", "command", "say bypass")));
+		assertThrows(IllegalArgumentException.class, () -> service.previewQuickSetup("reward-builder", Map.of(
+				"proposal", "{\"scope\":\"site\",\"site\":\"Missing\",\"commands\":[\"say hi\"]}")));
+		String oversized = "{\"scope\":\"every-site\",\"commands\":[\"" + "x".repeat(64 * 1024) + "\"]}";
+		assertThrows(IllegalArgumentException.class, () -> service.previewQuickSetup("reward-builder",
+				Map.of("proposal", oversized)));
+		assertThrows(IllegalArgumentException.class, () -> service.currentQuickSetupRevision("reward-builder",
+				Map.of("targetFile", "Config.yml")));
 	}
 
 	@Test void proxyBackendQuickSetupRejectsUnknownTransportMethods() throws Exception {
@@ -716,6 +893,8 @@ class BackendConfigurationServiceTest {
 				Map.of("sourceContent", "not: [yaml")));
 		assertThrows(IllegalArgumentException.class, () -> service.previewQuickSetup("sync-vote-sites",
 				Map.of("sourceContent", "Other: value\n")));
+		assertThrows(IllegalArgumentException.class, () -> service.previewQuickSetup("sync-vote-sites",
+				Map.of("sourceContent", "VoteSites: {}\n", "futureOption", "must-not-be-ignored")));
 	}
 
 	@Test void voteSitesSyncSkipsRewardOnlySites() throws Exception {

@@ -93,10 +93,12 @@ service restarted. The current release is retained as `.previous`. A failed proc
 restores and starts that previous release, retaining the failed candidate as `.failed`. A quarantined digest is not retried
 until GitHub publishes a newer release. Unexpected exits use bounded restart backoff.
 
-The child receives only its bind host, port, contained data directory, and a random per-launch ID. Health must echo that
-ID, preventing an unrelated Control process on the same port from satisfying startup checks. It does not receive
-VotingPlugin configuration or credentials in release metadata. Process output is written beside the hosted JAR and
-rotated at 1 MiB.
+The child's explicit management inputs are its bind host, port, contained data directory, a random per-launch ID, and the
+supervising process ID so it can stop when its parent disappears. The launcher clears the inherited environment and copies
+only a fixed allow-list of locale, temporary-directory, and Windows runtime variables. Health must echo the launch ID,
+preventing an unrelated Control process on the same port from satisfying startup checks. It does not receive VotingPlugin
+configuration or credentials in release metadata. Process output is written beside the hosted JAR; before a child launch,
+an existing log larger than 1 MiB is moved to the single previous-log slot.
 
 On first start, Control creates an owner-readable `web-setup-code.txt` inside `Control.Hosted.DataDirectory`. Open the
 WebUI, copy that one-time value using the server file manager, and choose the WebUI password in the browser. The code is
@@ -137,7 +139,7 @@ The endpoint must be an `http` or `https` origin without embedded credentials, q
 suitable only for loopback or a trusted private network. Use HTTPS or a private authenticated tunnel when crossing an
 untrusted network. Control authentication does not itself encrypt traffic.
 
-Timing bounds are intentional:
+Proxy discovery-connector timing bounds are intentional:
 
 - heartbeat: 10–300 seconds;
 - connect/request timeout: 500–30,000 milliseconds;
@@ -163,6 +165,10 @@ Control:
     RequestTimeoutMillis: 10000
 ```
 
+The Bukkit connector uses the same 10–300-second heartbeat and 500–30,000-millisecond timeout ranges, but its bounded
+response-body limit is 4 MiB so it can receive managed-file/configuration tasks. Do not apply the proxy connector's 64 KiB
+discovery-response bound to this lane.
+
 Use an address the backend itself can reach, normally the proxy VM/private IP. Proxy-mediated enrollment deliberately
 rejects `localhost`, `127.0.0.0/8`, and IPv6 loopback because those addresses resolve to the backend rather than the proxy
 when the processes run on different machines.
@@ -179,10 +185,14 @@ installation happen locally. External Control installations, custom backend node
 `BungeeSettings.Server`, and non-plugin-message transports retain manual WebUI/owner-command enrollment; an existing
 nonblank credential file is always treated as manually managed and is never replaced.
 
-The Bukkit connector owns one daemon worker and performs no Control I/O on the server thread. It reports a bounded list of
-installed plugin names for WebUI command suggestions and negotiates
-`config.files.v1` and `config.quick-setup.v1`, then polls the same outbound operation queue as proxies. File apply schedules
-the VotingPlugin reload on the Bukkit thread and waits only on the connector worker. Control failure never blocks votes,
+The Bukkit connector owns separate single-thread daemon executors for presence/configuration work and read-only
+inspections, and performs no Control I/O on the server thread. The inspection worker is cancelled on shutdown with a
+bounded five-second wait, so a slow database read does not hold the configuration lane or shutdown indefinitely. The
+connector reports a bounded list of installed plugin names for WebUI command suggestions and negotiates
+`config.files.v1`, `config.quick-setup.v1`, and the separate read-only `data.inspect.v1` capability. It polls configuration
+operations and inspections over distinct outbound queues. Repeated inspection transport or protocol failures use bounded
+exponential backoff from one second to five minutes, while the configuration and voting paths remain available. File apply
+schedules the VotingPlugin reload on the Bukkit thread and waits only on the connector worker. Control failure never blocks votes,
 joins, commands, or plugin shutdown. A successful `Config.yml` apply reports its result first, then recreates the connector
 so changes to `Control.Backend` take effect without a full server restart. If `Control.Hosted` changed, a dedicated daemon
 lifecycle worker waits for the existing child to stop only after that result is acknowledged, then starts the replacement
@@ -217,11 +227,54 @@ if reload fails. Returned YAML is normalized and masks password/secret/token/API
 with `__VOTINGPLUGIN_CONTROL_REDACTED__`; leaving the marker unchanged preserves the local value. A replacement secret may
 be submitted through the authenticated preview, but is never returned or audited.
 
+Control configuration snapshots store the redacted managed-file content returned by this read path, not raw credentials.
+Restore resolves unchanged markers against each target's current secrets during preview/apply. Protect Control's data
+directory anyway because snapshots contain complete managed configuration structure and operational values.
+
 Quick setups cover standalone backend mode, proxy-connected backend mode with an explicit server identity, adding/updating
-a vote site, an easy per-site or every-site command/message reward, six common operational toggles, and vote-party basics.
+a vote site, an easy per-site or every-site command/message reward, six common operational toggles, a dedicated
+`auto-create-vote-sites` switch that changes only `Config.yml` → `AutoCreateVoteSites`, a non-secret `vote-logging` setup,
+vote-party basics, and a typed `reward-builder`. Disabling auto-creation affects only inbound unknown-service generation;
+explicit admin command/GUI site creation remains available, and the health inspection can still list at most 100 persisted
+detected-but-unconfigured service names. The logging setup owns only enabled state, purge retention (`-1` disables or
+`1`–`3650` days), and whether to reuse the main MySQL connection. It rejects `0`/other negatives and never accepts or
+exposes connection credentials. Its apply reloads configuration but does not recreate or close the VoteLog manager;
+restart VotingPlugin after changing `VoteLogging.Enabled`. Inspections immediately gate disabled logging even if a stale
+adapter remains, while a newly enabled instance reports enabled but unavailable until restart initializes the adapter.
+
+The reward builder is PREVIEW/APPLY-only and accepts exactly one <=64 KiB serialized proposal using the same strict schema
+as reward simulation. It deterministically replaces only `VoteSites.<site>.Rewards`, `EverySiteReward`, or
+`VoteParty.Rewards`; all unrelated sites/settings/scopes remain intact, and it never executes the reward. Control strips
+the proposal from public operation views and durable history; the connector's result and pending-result journal keep only
+the safe derived target file, never the proposal.
+
 Detected Essentials/EssentialsX, CMI, and LuckPerms installations add editable command suggestions alongside generic
 Minecraft rewards. Plugin detection does not inspect third-party configuration or versions. Every shortcut uses the same
 preview, revision, approval, backup, reload, and rollback path—not a bypass.
+Control rejects presets/options outside its fixed schema, and the node independently applies phase-specific validation.
+The WebUI settings catalog is a static versioned reference, not an arbitrary key/value write API.
+
+The inspection lane provides typed overview, vote-site health (including persisted unconfigured-service observations),
+exact-player data with bounded per-site last votes, VoteLog summary/search/correlation trace, side-effect-free vote-site
+resolution, reward-proposal simulation, and redacted diagnostics. Overview/diagnostics distinguish VoteLog configuration
+from current readability. Results are capped at 512 KiB, general rows at 100, detected diagnostic plugin names at 128, and
+lookbacks at 365 days. It does not expose SQL, arbitrary user enumeration, raw configuration/logs,
+commands, reward execution, or writes. The exact schemas and safety invariants are documented in
+[the Control agent contract](control-agent-contract.md).
+
+Inspection filters are string values on the wire and are parsed by the selected kind's strict schema. The connector runs
+the handlers, including bounded VoteLog/player storage reads, on the dedicated inspection daemon rather than Bukkit's
+primary thread or the configuration executor. VoteLog statements use a 10-second JDBC timeout. Reward and vote-site
+inspections are dry runs: they do not call reward execution or auto-creating resolution paths.
+
+VoteLogging is optional and SQL-backed. Control labels its output **logged events** because the table records selected vote,
+milestone, streak, top-voter, and shop events—not every validation decision, transport hop, reward command, or command
+outcome. A correlation-ID trace is therefore a timeline of retained rows sharing one `voteId`, not proof of every network
+delivery step. Configured enabled, enabled-and-adapter-available, and readable are separate states. The bounded
+`voteLogReadable` probe distinguishes a current database failure from an authoritative empty table:
+summary/search/trace return `UNAVAILABLE` when logging is disabled, its adapter is absent, or the probe fails, while
+vote-site health labels SQL state and skips aggregates. It is a point-in-time probe; a database failure after it succeeds
+can still hit the legacy query API's empty fallback.
 
 An admin must select capable online nodes, preview the change, and confirm the
 single-use approval generated for that exact successful preview. Nodes claim work over their existing outbound connection,
@@ -234,14 +287,14 @@ and protocol mismatches back off only the connector. Current redacted diagnostic
 - Rotate with Control's `enroll <nodeId>` command, replace the credential file, then reload/restart VotingPlugin.
 - Revoke immediately with Control's `revoke <nodeId>` command.
 - Disable by setting `Control.Enabled: false` and reloading/restarting; deleting all new keys also returns to the disabled
-default.
+  default.
 - `AUTHENTICATION_FAILED`: confirm exact node-ID enrollment and replace a revoked/rotated credential.
 - `INCOMPATIBLE`: the two JARs do not share protocol version/capability support; upgrade the older side.
 - `UNAVAILABLE`: verify endpoint routing, Control health, TLS trust, and timeout settings.
 - Backend listed with unknown presence: this is expected when the selected existing VotingPlugin transport does not provide
   backend-presence observations.
 
-Arbitrary console commands, manual rollback, topology persistence, cloud relay, diagnostics downloads, signed remote
-release manifests, and remote support remain later milestones. Automatic release tracking trusts GitHub's authenticated
+Arbitrary console commands, direct backup-rollback endpoints, topology persistence, cloud relay, raw support archives,
+signed remote release manifests, and remote support remain later milestones. Automatic release tracking trusts GitHub's authenticated
 release metadata and published asset digest for the official repository. Administrators who require an independently
 reviewed trust pin can continue to supply `DownloadUrl` and `Sha256` locally.

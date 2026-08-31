@@ -72,11 +72,13 @@ public class VoteSiteResolverTest {
 
 		assertEquals("DisabledSite", resolver.getVoteSiteName(false, "disabled.example.com"));
 		verify(config, never()).tryGenerateVoteSite(anyString());
+		verify(config, never()).tryAutoGenerateVoteSite(anyString());
 	}
 
 	@Test
 	public void testResolveMissingSiteNeverGeneratesConfig() {
 		assertNull(resolver.resolveVoteSite("new.site", false));
 		verify(config, never()).tryGenerateVoteSite(anyString());
+		verify(config, never()).tryAutoGenerateVoteSite(anyString());
 	}
 }
