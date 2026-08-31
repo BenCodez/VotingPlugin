@@ -96,7 +96,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 		validateConfiguration(directory, serverId, plugin.getBungeeSettings().getHttpConnectionCode());
 	}
 
-	private static void validateConfiguration(Path directory, String serverId, String configuredCode) {
+	public static void validateConfiguration(Path directory, String serverId, String configuredCode) {
 		enrollmentCode(directory, serverId, configuredCode);
 	}
 

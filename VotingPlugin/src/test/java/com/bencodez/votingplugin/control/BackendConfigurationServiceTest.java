@@ -710,6 +710,33 @@ class BackendConfigurationServiceTest {
 		assertDoesNotThrow(() -> service.previewQuickSetup("proxy-method", Map.of("method", "HTTP")));
 	}
 
+	@Test void httpMethodPreflightRejectsInvalidExpiredAndWrongServerConnectionCodes() throws Exception {
+		Path settings = directory.resolve("BungeeSettings.yml");
+		Files.writeString(settings, "UseBungeecord: true\nServer: lobby-1\nBungeeMethod: PLUGINMESSAGING\n"
+				+ "PluginMessageChannel: vp:vp\nHTTP:\n  ConnectionCode: malformed\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		assertThrows(IllegalArgumentException.class,
+				() -> service.previewQuickSetup("proxy-method", Map.of("method", "HTTP")));
+
+		com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity identity =
+				com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity.loadOrCreate(directory.resolve("code-proxy"), "localhost");
+		com.bencodez.votingplugin.backendproxy.http.HttpConnectionCode expired =
+				new com.bencodez.votingplugin.backendproxy.http.HttpConnectionCode("lobby-1",
+						java.net.URI.create("https://localhost:1297/"), identity.serverCertificatePin(),
+						identity.caCertificatePin(), java.time.Instant.now().minusSeconds(1), "A".repeat(43));
+		Files.writeString(settings, Files.readString(settings).replace("malformed", expired.encode()));
+		assertThrows(IllegalArgumentException.class,
+				() -> service.previewQuickSetup("proxy-method", Map.of("method", "HTTP")));
+
+		com.bencodez.votingplugin.backendproxy.http.HttpConnectionCode wrongServer =
+				new com.bencodez.votingplugin.backendproxy.http.HttpConnectionCode("survival",
+						expired.endpoint(), expired.serverCertificatePin(), expired.caCertificatePin(),
+						java.time.Instant.now().plusSeconds(60), "B".repeat(43));
+		Files.writeString(settings, Files.readString(settings).replace(expired.encode(), wrongServer.encode()));
+		assertThrows(IllegalArgumentException.class,
+				() -> service.previewQuickSetup("proxy-method", Map.of("method", "HTTP")));
+	}
+
 	@Test void proxyMethodSwitchPreflightsRequiredBackendSettings() throws Exception {
 		Path settings = directory.resolve("BungeeSettings.yml");
 		Files.writeString(settings, "UseBungeecord: true\nServer: lobby\nBungeeMethod: PLUGINMESSAGING\n"

@@ -28,7 +28,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 
-import com.bencodez.votingplugin.backendproxy.http.HttpClientCredentialStore;
+import com.bencodez.votingplugin.backendproxy.transport.HttpBackendProxyTransport;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.util.DurableFiles;
 
@@ -595,11 +595,8 @@ public final class BackendConfigurationService {
 			break;
 		case HTTP:
 			String connectionCode = settings.getString("HTTP.ConnectionCode", "");
-			if (connectionCode == null || connectionCode.isBlank()) {
-				if (!HttpClientCredentialStore.hasEnrolledProfile(dataDirectory.resolve("http"))) {
-					throw new IllegalArgumentException("HTTP.ConnectionCode must be set for initial enrollment");
-				}
-			}
+			try { HttpBackendProxyTransport.validateConfiguration(dataDirectory.resolve("http"), server, connectionCode); }
+			catch (IllegalStateException invalid) { throw new IllegalArgumentException(invalid.getMessage(), invalid); }
 			break;
 		case MYSQL:
 			try {
