@@ -25,6 +25,7 @@ import java.util.List;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.BasicConstraints;
@@ -129,8 +130,9 @@ public final class HttpTlsIdentity {
 	public X509Certificate serverCertificate() { return serverCertificate; }
 
 	/**
-	 * The listener requests a client certificate but validates its issuance/binding in the HTTP handler.
-	 * This is necessary to share the enrollment and normal endpoints on one JDK HttpsServer listener.
+	 * The listener requests an optional client certificate so enrollment can share the same port.
+	 * Any certificate that is presented must chain to this transport's private CA; normal requests
+	 * additionally validate the certificate's persisted backend binding in the HTTP handler.
 	 */
 	public SSLContext serverContext() throws Exception {
 		KeyStore store = KeyStore.getInstance("PKCS12");
@@ -311,11 +313,24 @@ public final class HttpTlsIdentity {
 	}
 
 	private static final class EnrollmentAwareTrustManager implements X509TrustManager {
-		private final X509Certificate[] acceptedIssuers;
-		private EnrollmentAwareTrustManager(X509Certificate caCertificate) { this.acceptedIssuers = new X509Certificate[] { caCertificate }; }
-		@Override public void checkClientTrusted(X509Certificate[] chain, String authType) { }
+		private final X509TrustManager delegate;
+		private EnrollmentAwareTrustManager(X509Certificate caCertificate) throws Exception {
+			KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+			trustStore.load(null, EMPTY_PASSWORD);
+			trustStore.setCertificateEntry("http-transport-ca", caCertificate);
+			TrustManagerFactory factory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+			factory.init(trustStore);
+			this.delegate = Arrays.stream(factory.getTrustManagers())
+					.filter(X509TrustManager.class::isInstance)
+					.map(X509TrustManager.class::cast)
+					.findFirst()
+					.orElseThrow(() -> new IllegalStateException("No X.509 trust manager is available"));
+		}
+		@Override public void checkClientTrusted(X509Certificate[] chain, String authType) throws java.security.cert.CertificateException {
+			delegate.checkClientTrusted(chain, authType);
+		}
 		@Override public void checkServerTrusted(X509Certificate[] chain, String authType) { throw new UnsupportedOperationException(); }
-		@Override public X509Certificate[] getAcceptedIssuers() { return acceptedIssuers.clone(); }
+		@Override public X509Certificate[] getAcceptedIssuers() { return delegate.getAcceptedIssuers(); }
 	}
 	private enum CertificateRole { CA, SERVER, CLIENT }
 }
