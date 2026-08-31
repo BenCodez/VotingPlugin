@@ -276,6 +276,63 @@ class ControlInspectionServiceTest {
 		assertFalse(result.toString().contains("must not leave the backend"));
 	}
 
+	@Test void playerInspectionBoundsAllowListedStorageColumnsAtTheSharedRowLimit() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		VotingPluginUser user = mock(VotingPluginUser.class, RETURNS_DEEP_STUBS);
+		when(plugin.getUserManager().userExist("ExactName")).thenReturn(true);
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser("ExactName")).thenReturn(user);
+		when(plugin.getStorageType()).thenReturn(UserStorage.SQLITE);
+		when(user.getUUID()).thenReturn("3b0c76c1-b7ef-4a2c-a565-b7bc662531f9");
+		when(user.getPlayerName()).thenReturn("ExactName");
+		when(user.getOfflineVotes()).thenReturn(new ArrayList<>());
+		when(user.getLastVotes()).thenReturn(new HashMap<>());
+		HashMap<String, DataValue> stored = new HashMap<>();
+		for (int index = 0; index <= ControlInspectionService.MAX_ROWS; index++) {
+			stored.put(String.format("VoteShopLimit%03d", index), new DataValueInt(index));
+		}
+		when(user.getUserData().getValues()).thenReturn(stored);
+		ControlInspectionService service = new ControlInspectionService(plugin);
+
+		JsonObject result = service.inspect(JsonParser.parseString(
+				"{\"kind\":\"player\",\"filters\":{\"name\":\"ExactName\"}}")
+				.getAsJsonObject()).getAsJsonObject("result");
+
+		assertEquals(ControlInspectionService.MAX_ROWS, result.getAsJsonArray("columns").size());
+		assertEquals("VoteShopLimit000", result.getAsJsonArray("columns").get(0).getAsJsonObject()
+				.get("name").getAsString());
+		assertEquals("VoteShopLimit099", result.getAsJsonArray("columns").get(99).getAsJsonObject()
+				.get("name").getAsString());
+		assertTrue(result.get("columnsTruncated").getAsBoolean());
+	}
+
+	@Test void diagnosticsBoundsAndReportsTruncatedPluginInventory() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		org.bukkit.configuration.file.YamlConfiguration config = new org.bukkit.configuration.file.YamlConfiguration();
+		org.bukkit.configuration.file.YamlConfiguration voteSites = new org.bukkit.configuration.file.YamlConfiguration();
+		when(plugin.getConfigFile().getData()).thenReturn(config);
+		when(plugin.getConfigVoteSites().getData()).thenReturn(voteSites);
+		when(plugin.getVoteSiteManager().getVoteSites()).thenReturn(new ArrayList<>());
+		when(plugin.getVoteLogMysqlTable()).thenReturn(null);
+		org.bukkit.plugin.Plugin[] installed = new org.bukkit.plugin.Plugin[ControlInspectionService.MAX_ROWS + 1];
+		for (int index = 0; index < installed.length; index++) {
+			installed[index] = mock(org.bukkit.plugin.Plugin.class, RETURNS_DEEP_STUBS);
+			when(installed[index].getDescription().getName()).thenReturn(String.format("Plugin%03d", index));
+		}
+		when(installed[99].getDescription().getName()).thenReturn("plugina");
+		when(installed[100].getDescription().getName()).thenReturn("PluginA");
+		when(plugin.getServer().getPluginManager().getPlugins()).thenReturn(installed);
+		ControlInspectionService service = new ControlInspectionService(plugin);
+
+		JsonObject result = service.inspect(JsonParser.parseString(
+				"{\"kind\":\"diagnostics\",\"filters\":{}}")
+				.getAsJsonObject()).getAsJsonObject("result");
+
+		assertEquals(ControlInspectionService.MAX_ROWS, result.getAsJsonArray("detectedPlugins").size());
+		assertEquals("Plugin000", result.getAsJsonArray("detectedPlugins").get(0).getAsString());
+		assertEquals("PluginA", result.getAsJsonArray("detectedPlugins").get(99).getAsString());
+		assertTrue(result.get("detectedPluginsTruncated").getAsBoolean());
+	}
+
 	@Test void voteSiteHealthIncludesPersistedDetectedInboxWithoutVoteLogging() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
 		org.bukkit.configuration.file.YamlConfiguration voteSites = new org.bukkit.configuration.file.YamlConfiguration();

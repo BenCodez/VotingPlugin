@@ -18,7 +18,6 @@ import com.google.gson.JsonObject;
 final class ControlPlayerDataService {
 	private static final int MAX_CONTENT_BYTES = 512 * 1024;
 	private static final int MAX_VALUE_BYTES = 16 * 1024;
-	private static final int MAX_COLUMNS = 128;
 	private static final Set<String> SAFE_STRING_COLUMNS = Set.of("UUID", "PlayerName", "LastOnline",
 			"DayVoteStreakLastUpdate", "VoteRemindersLast");
 	private static final Set<String> SAFE_BOOLEAN_COLUMNS = Set.of("TopVoterIgnore", "Reminded", "DisableBroadcast");
@@ -54,7 +53,7 @@ final class ControlPlayerDataService {
 			String name = entry.getKey();
 			DataValue value = entry.getValue();
 			if (name == null || value == null || !safeColumn(name, value)) continue;
-			if (listed.size() >= MAX_COLUMNS) {
+			if (listed.size() >= ControlInspectionService.MAX_ROWS) {
 				truncated = true;
 				break;
 			}

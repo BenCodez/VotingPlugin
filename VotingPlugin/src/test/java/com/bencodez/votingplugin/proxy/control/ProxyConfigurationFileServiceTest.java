@@ -31,12 +31,26 @@ class ProxyConfigurationFileServiceTest {
 				  Host: redis.internal
 				  Password: redis-secret
 				MQTT:
-				  BrokerURL: tcp://user:pass@broker.internal:1883
+				  ClientID: private-client
+				  BrokerURL: ssl://broker.internal:8883
+				  Username: mqtt-user
+				  Password: mqtt-password
+				  Prefix: private-prefix
 				Control:
+				  Endpoint: http://control.internal:8080
 				  CredentialFile: control/credential.txt
 				  Hosted:
 				    JarFile: control/control.jar
 				    DataDirectory: control/data
+				    Host: control-host.internal
+				    Port: 8081
+				MultiProxySocketHost:
+				  Host: socket.internal
+				  Port: 1234
+				MultiProxyServers:
+				  second:
+				    Host: second.internal
+				    Port: 1235
 				BungeeMethod: PLUGINMESSAGING
 				""");
 
@@ -46,7 +60,15 @@ class ProxyConfigurationFileServiceTest {
 		assertFalse(content.contains("voting"));
 		assertFalse(content.contains("admin"));
 		assertFalse(content.contains("secret"));
-		assertFalse(content.contains("user:pass"));
+		assertFalse(content.contains("private-client"));
+		assertFalse(content.contains("broker.internal"));
+		assertFalse(content.contains("mqtt-user"));
+		assertFalse(content.contains("mqtt-password"));
+		assertFalse(content.contains("private-prefix"));
+		assertFalse(content.contains("control.internal"));
+		assertFalse(content.contains("control-host.internal"));
+		assertFalse(content.contains("socket.internal"));
+		assertFalse(content.contains("second.internal"));
 		assertFalse(content.contains("control/credential.txt"));
 		assertFalse(content.contains("control/control.jar"));
 		assertFalse(content.contains("control/data"));
@@ -67,6 +89,15 @@ class ProxyConfigurationFileServiceTest {
 				      Port: 6379
 				      Password: nested-password
 				      SSL: true
+				  - MQTT:
+				      BrokerURL: ssl://sequence-broker.internal:8883 # sequence-broker.internal
+				      Username: sequence-mqtt-user
+				      Prefix: sequence-prefix
+				  - Control:
+				      Endpoint: http://sequence-control.internal:8080 # sequence-control.internal
+				      Hosted:
+				        Host: sequence-control-host.internal
+				        Port: 8081
 				Endpoints:
 				  - jdbc:mysql://sequence-user:sequence-password@db.internal/votes # sequence-password
 				Debug: false
@@ -77,6 +108,11 @@ class ProxyConfigurationFileServiceTest {
 		assertFalse(current.content().contains("sequence-secret"));
 		assertFalse(current.content().contains("redis.internal"));
 		assertFalse(current.content().contains("nested-password"));
+		assertFalse(current.content().contains("sequence-broker.internal"));
+		assertFalse(current.content().contains("sequence-mqtt-user"));
+		assertFalse(current.content().contains("sequence-prefix"));
+		assertFalse(current.content().contains("sequence-control.internal"));
+		assertFalse(current.content().contains("sequence-control-host.internal"));
 		assertFalse(current.content().contains("sequence-user"));
 		assertFalse(current.content().contains("sequence-password"));
 		assertTrue(current.content().contains("SSL: true"));
@@ -87,6 +123,12 @@ class ProxyConfigurationFileServiceTest {
 		assertTrue(preview.resolvedContent().contains("Authorization: sequence-secret # sequence-secret"));
 		assertTrue(preview.resolvedContent().contains("Host: redis.internal # redis.internal"));
 		assertTrue(preview.resolvedContent().contains("Password: nested-password"));
+		assertTrue(preview.resolvedContent().contains("BrokerURL: ssl://sequence-broker.internal:8883 # sequence-broker.internal"));
+		assertTrue(preview.resolvedContent().contains("Username: sequence-mqtt-user"));
+		assertTrue(preview.resolvedContent().contains("Prefix: sequence-prefix"));
+		assertTrue(preview.resolvedContent().contains("Endpoint: http://sequence-control.internal:8080 # sequence-control.internal"));
+		assertTrue(preview.resolvedContent().contains("Host: sequence-control-host.internal"));
+		assertTrue(preview.resolvedContent().contains("Port: 8081"));
 		assertTrue(preview.resolvedContent().contains("jdbc:mysql://sequence-user:sequence-password@db.internal/votes # sequence-password"));
 		assertTrue(preview.resolvedContent().contains("SSL: true"));
 		service.apply(ProxyConfigurationFileService.FILE_NAME, proposal, current.revision());
@@ -94,6 +136,8 @@ class ProxyConfigurationFileServiceTest {
 		assertTrue(applied.contains("Authorization: sequence-secret # sequence-secret"));
 		assertTrue(applied.contains("Host: redis.internal # redis.internal"));
 		assertTrue(applied.contains("Password: nested-password"));
+		assertTrue(applied.contains("BrokerURL: ssl://sequence-broker.internal:8883 # sequence-broker.internal"));
+		assertTrue(applied.contains("Endpoint: http://sequence-control.internal:8080 # sequence-control.internal"));
 		assertTrue(applied.contains("jdbc:mysql://sequence-user:sequence-password@db.internal/votes # sequence-password"));
 		assertTrue(applied.contains("Debug: true"));
 	}

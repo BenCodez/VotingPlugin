@@ -90,7 +90,7 @@ JSON object whose `schemaVersion` is the JSON integer `1` (not a string), `kind`
 `generatedAt` parses as an ISO-8601 instant, and `result` is a JSON object. Failures omit `data` and use
 `VALIDATION_ERROR`, `UNAVAILABLE`, `RESULT_TOO_LARGE`, or `INSPECTION_FAILED`.
 
-Data is limited to 512 KiB. General rows are limited to 100, top lists to 20, diagnostics to 128 detected plugin names,
+Data is limited to 512 KiB. General rows and diagnostics plugin inventories are limited to 100, top lists to 20,
 and lookback windows to 365 days. Summary top lists order vote counts descending, then names case-insensitively and by
 exact spelling; the database applies the same name tie-break before its limit. The connector performs inspections on a
 dedicated single-thread daemon executor, separate from presence and configuration work and never on the Bukkit primary
@@ -119,7 +119,7 @@ encoded `proposal` may be larger, with a 64 KiB hard limit.
 | `vote-trace` | required canonical 36-character UUID `voteId`; optional string `days`/`limit` | Chronological VoteLog events sharing one correlation ID |
 | `vote-site-resolution` | required valid `serviceSite` (1–64 characters); optional string boolean `includeDisabled` | Dry-runs existing resolution and reports whether auto-create would be attempted; never calls the creating resolver |
 | `reward-simulation` | required `proposal`, a JSON object encoded as one filter string | Validates and normalizes typed actions, reports the plan, and never invokes `RewardBuilder` |
-| `diagnostics` | none | Bounded redacted environment/configuration status, configured/readable VoteLog state, and detected plugin names |
+| `diagnostics` | none | Bounded redacted environment/configuration status, configured/readable VoteLog state, and up to 100 detected plugin names with an explicit truncation indicator |
 
 Valid VoteLog `event` values are `VOTE_RECEIVED`, `VOTEMILESTONE`, `VOTE_STREAK_REWARD`, `TOP_VOTER_REWARD`, and
 `VOTESHOP_PURCHASE`. Search values are exact, not substrings. VoteLog summary/search/trace return `UNAVAILABLE` when the
@@ -229,7 +229,7 @@ unloaded site keys are not returned. They are not log enumeration or an end-to-e
 ## Data and security invariants
 
 - Inspection results may contain only the typed fields documented above. Never echo a credential, password, token,
-  database/Redis/MQTT host, webhook URL, raw configuration, or raw server log.
+  database or transport host, Control endpoint, webhook URL, raw configuration, or raw server log.
 - Unexpected managed configuration read, preview, apply, and reload exceptions retain their action-specific result code but
   return fixed external text; their detailed cause is logged only on the backend and is never copied into a Control result.
 - An unexpected handler exception returns only generic `INSPECTION_FAILED` text. The backend log may identify its exception

@@ -793,8 +793,16 @@ final class ProxyConfigurationFileService {
 					"prefix", "dbindex")
 					.contains(normalized);
 		}
-		if (normalizedPath.startsWith("control.")) {
-			return normalized.endsWith("file") || normalized.endsWith("directory");
+		if (infrastructurePath(normalizedPath, "mqtt")) {
+			return Set.of("clientid", "brokerurl", "username", "password", "prefix").contains(normalized);
+		}
+		if (infrastructurePath(normalizedPath, "multiproxysockethost")
+				|| infrastructurePath(normalizedPath, "multiproxyservers")) {
+			return Set.of("host", "port").contains(normalized);
+		}
+		if (infrastructurePath(normalizedPath, "control")) {
+			return normalized.endsWith("file") || normalized.endsWith("directory")
+					|| Set.of("endpoint", "host", "port").contains(normalized);
 		}
 		if (value instanceof String text) {
 			String lowered = text.trim().toLowerCase(Locale.ROOT);
