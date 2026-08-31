@@ -66,6 +66,9 @@ class HttpTransportSecurityTest {
 		HttpEnrollmentAuthority authority = new HttpEnrollmentAuthority(identity, clock);
 		HttpConnectionCode wrongTargetCode = authority.createConnectionCode("lobby-1", URI.create("https://localhost:8443/"), Duration.ofMinutes(5));
 		assertThrows(IllegalArgumentException.class, () -> authority.enroll("attacker", wrongTargetCode.enrollmentToken()));
+		assertTrue(authority.authenticate("lobby-1", authority.enroll("lobby-1", wrongTargetCode.enrollmentToken()).certificate()),
+				"a wrong backend must not consume another backend's connection code");
+		authority.revoke("lobby-1");
 		HttpConnectionCode code = authority.createConnectionCode("lobby-1", URI.create("https://localhost:8443/"), Duration.ofMinutes(5));
 		HttpTlsIdentity.IssuedClientCertificate issued = authority.enroll("lobby-1", code.enrollmentToken());
 		assertTrue(authority.authenticate("lobby-1", issued.certificate()));
@@ -86,7 +89,10 @@ class HttpTransportSecurityTest {
 		assertEquals(code.endpoint(), profile.endpoint());
 		assertEquals("lobby-1", HttpClientCredentialStore.loadEnrolled(directory.resolve("client")).profile().serverId());
 		assertNotEquals(null, HttpPinnedTls.mutualTlsContext(code, restored));
-		Files.writeString(directory.resolve("client").resolve("http-transport-profile.properties"), "version=1\nserverId=lobby-1\n");
+		Path clientDirectory = directory.resolve("client");
+		String generation = Files.readString(clientDirectory.resolve("http-transport-client-current"));
+		Files.writeString(clientDirectory.resolve("http-transport-client-generations").resolve(generation)
+				.resolve("http-transport-profile.properties"), "version=1\nserverId=lobby-1\n");
 		assertThrows(java.io.IOException.class, () -> HttpClientCredentialStore.loadProfile(directory.resolve("client")));
 		HttpEnrollmentAuthority durable = new HttpEnrollmentAuthority(identity, directory.resolve("state"));
 		HttpConnectionCode durableCode = durable.createConnectionCode("survival", URI.create("https://localhost:8443/"), Duration.ofMinutes(5));
@@ -94,6 +100,64 @@ class HttpTransportSecurityTest {
 		assertTrue(new HttpEnrollmentAuthority(identity, directory.resolve("state")).authenticate("survival", durableIssued.certificate()));
 		durable.revoke("survival");
 		assertFalse(new HttpEnrollmentAuthority(identity, directory.resolve("state")).authenticate("survival", durableIssued.certificate()));
+	}
+
+	@Test
+	void renewalKeepsOldCredentialUntilReplacementAuthenticates() throws Exception {
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("proxy"), "localhost");
+		HttpEnrollmentAuthority authority = new HttpEnrollmentAuthority(identity, directory.resolve("state"));
+		HttpConnectionCode code = authority.createConnectionCode("lobby-1", URI.create("https://localhost:8443/"), Duration.ofMinutes(5));
+		HttpTlsIdentity.IssuedClientCertificate original = authority.enroll("lobby-1", code.enrollmentToken());
+		HttpTlsIdentity.IssuedClientCertificate replacement = authority.renew("lobby-1", original.certificate());
+
+		assertTrue(authority.authenticate("lobby-1", original.certificate()), "lost renewal responses must leave the old credential usable");
+		assertTrue(authority.authenticate("lobby-1", replacement.certificate()), "first replacement request promotes the pending binding");
+		assertFalse(authority.authenticate("lobby-1", original.certificate()), "promotion revokes the superseded credential");
+		assertTrue(new HttpEnrollmentAuthority(identity, directory.resolve("state"))
+				.authenticate("lobby-1", replacement.certificate()), "promoted renewal must survive restart");
+	}
+
+	@Test
+	void serverLeafRotatesInsideRenewalWindowAndPreservesAuthority() throws Exception {
+		Instant now = Instant.now();
+		HttpTlsIdentity original = HttpTlsIdentity.loadOrCreate(directory, "localhost",
+				Clock.fixed(now.minus(Duration.ofDays(340)), ZoneOffset.UTC));
+		String originalPin = HttpTransportSecrets.certificatePin(original.serverCertificate());
+		HttpTlsIdentity renewed = HttpTlsIdentity.loadOrCreate(directory, "localhost", Clock.fixed(now, ZoneOffset.UTC));
+		assertNotEquals(originalPin, renewed.serverCertificatePin());
+		assertEquals(original.caCertificatePin(), renewed.caCertificatePin());
+		assertFalse(HttpTlsIdentity.needsRenewal(renewed.serverCertificate(), Clock.fixed(now, ZoneOffset.UTC)));
+	}
+
+	@Test
+	void activeTlsContextRotatesServerLeafInsideRenewalWindow() throws Exception {
+		Instant now = Instant.now();
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory, "localhost",
+				Clock.fixed(now.minus(Duration.ofDays(340)), ZoneOffset.UTC));
+		String expiringPin = HttpTransportSecrets.certificatePin(identity.serverCertificate());
+		identity.serverContext();
+		assertNotEquals(expiringPin, identity.serverCertificatePin());
+		assertFalse(HttpTlsIdentity.needsRenewal(identity.serverCertificate(), Clock.systemUTC()));
+	}
+
+	@Test
+	void stagedCredentialDoesNotReplaceActiveGenerationUntilAtomicActivation() throws Exception {
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("proxy"), "localhost");
+		Path client = directory.resolve("client");
+		HttpTlsIdentity.IssuedClientCertificate original = identity.issueClientCertificate("lobby-1");
+		HttpConnectionCode code = new HttpConnectionCode("lobby-1", URI.create("https://localhost:8443/"),
+				identity.serverCertificatePin(), identity.caCertificatePin(), Instant.now().plusSeconds(60), "A".repeat(43));
+		HttpClientCredentialStore.saveEnrolled(client, code, original);
+		String originalPin = HttpTransportSecrets.certificatePin(HttpClientCredentialStore.load(client).certificate());
+		HttpTlsIdentity.IssuedClientCertificate replacement = identity.issueClientCertificate("lobby-1");
+		HttpClientCredentialStore.StagedCredential staged = HttpClientCredentialStore.stageReplacement(client, replacement);
+		assertEquals(originalPin, HttpTransportSecrets.certificatePin(HttpClientCredentialStore.load(client).certificate()));
+		HttpClientCredentialStore.activateReplacement(client, staged);
+		assertNotEquals(originalPin, HttpTransportSecrets.certificatePin(HttpClientCredentialStore.load(client).certificate()));
+		HttpTlsIdentity.IssuedClientCertificate manuallyReenrolled = identity.issueClientCertificate("lobby-1");
+		HttpClientCredentialStore.saveEnrolled(client, code, manuallyReenrolled);
+		assertEquals(HttpTransportSecrets.certificatePin(manuallyReenrolled.certificate()),
+				HttpTransportSecrets.certificatePin(HttpClientCredentialStore.loadEnrolled(client).credential().certificate()));
 	}
 
 	private static String pin(char character) { return String.valueOf(character).repeat(64); }

@@ -1,7 +1,7 @@
 package com.bencodez.votingplugin.backendproxy.transport;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.util.ArrayDeque;
 import java.util.concurrent.TimeUnit;
 
@@ -33,6 +33,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 		Path directory = plugin.getDataFolder().toPath().resolve("http");
 		String serverId = plugin.getBungeeSettings().getServer();
 		String connectionCode = plugin.getBungeeSettings().getHttpConnectionCode();
+		validateConfiguration(directory, serverId, connectionCode);
 		worker = new Thread(() -> initialize(directory, serverId, connectionCode, messageHandler),
 				"VotingPlugin-HTTP-Backend-Setup");
 		worker.setDaemon(true);
@@ -42,14 +43,14 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	private void initialize(Path directory, String serverId, String configuredCode,
 			GlobalMessageHandler messageHandler) {
 		try {
-			if (!Files.isRegularFile(directory.resolve("http-transport-profile.properties"))) {
+			if (!HttpClientCredentialStore.hasEnrolledProfile(directory)) {
 				HttpConnectionCode code = HttpConnectionCode.parse(configuredCode);
 				HttpBackendTransportConnector.enroll(code, serverId, directory);
 			}
 			HttpClientCredentialStore.EnrolledClient enrolled = HttpClientCredentialStore.loadEnrolled(directory);
 			if (!enrolled.profile().serverId().equals(com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity.canonicalServerId(serverId)))
 				throw new IllegalStateException("Persisted HTTP identity belongs to a different backend Server name");
-			HttpBackendTransportConnector replacement = new HttpBackendTransportConnector(enrolled, messageHandler::onMessage);
+			HttpBackendTransportConnector replacement = new HttpBackendTransportConnector(directory, messageHandler::onMessage);
 			synchronized (lifecycle) {
 				if (closed) {
 					replacement.close();
@@ -92,10 +93,23 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 			throw new IllegalStateException("HTTP requires a valid unique backend Server name");
 		}
 		Path directory = plugin.getDataFolder().toPath().resolve("http");
-		if (!Files.isRegularFile(directory.resolve("http-transport-profile.properties"))
-				&& (plugin.getBungeeSettings().getHttpConnectionCode() == null
-						|| plugin.getBungeeSettings().getHttpConnectionCode().isBlank())) {
-			throw new IllegalStateException("HTTP requires a temporary ConnectionCode for initial enrollment");
+		validateConfiguration(directory, serverId, plugin.getBungeeSettings().getHttpConnectionCode());
+	}
+
+	private static void validateConfiguration(Path directory, String serverId, String configuredCode) {
+		try { serverId = com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity.canonicalServerId(serverId); }
+		catch (IllegalArgumentException invalid) { throw new IllegalStateException("HTTP requires a valid unique backend Server name", invalid); }
+		if (!HttpClientCredentialStore.hasEnrolledProfile(directory)) {
+			if (configuredCode == null || configuredCode.isBlank())
+				throw new IllegalStateException("HTTP requires a temporary ConnectionCode for initial enrollment");
+			try {
+				HttpConnectionCode code = HttpConnectionCode.parse(configuredCode);
+				code.requireActive(Clock.systemUTC());
+				if (!code.serverId().equals(serverId))
+					throw new IllegalArgumentException("Connection code belongs to a different backend");
+			} catch (IllegalArgumentException invalid) {
+				throw new IllegalStateException("HTTP ConnectionCode is invalid, expired, or belongs to a different backend", invalid);
+			}
 		}
 	}
 

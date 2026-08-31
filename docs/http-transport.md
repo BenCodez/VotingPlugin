@@ -33,7 +33,8 @@ Connection codes expire after 15 minutes and can be used only once. Treat a fres
 ## Security model
 
 - TLS keys and a private certificate authority are generated automatically on the proxy. No shared transport password or public CA setup is required.
-- The backend pins both the exact proxy certificate and its private authority during enrollment. Normal traffic uses a distinct client certificate bound to that backend's canonical `Server` name.
+- Enrollment pins both the exact proxy certificate and its private authority. Normal traffic trusts only that pinned private authority and keeps HTTPS hostname verification enabled, allowing the proxy leaf certificate to rotate safely without trusting public certificate authorities. It uses a distinct client certificate bound to that backend's canonical `Server` name.
+- Proxy and backend leaf certificates renew automatically during a 30-day pre-expiry window. Backend renewal is authenticated by the still-valid mTLS identity, persisted before use, and switches the proxy binding only after the replacement successfully connects; no new connection code is needed.
 - Every normal request is authenticated again at the application boundary. A payload cannot claim another backend identity, and redirect following is disabled.
 - TLS 1.3 is required and weak protocols are disabled.
 - Enrollment tokens are 256-bit random capabilities, single-use, short-lived, and retained by the proxy only as hashes.

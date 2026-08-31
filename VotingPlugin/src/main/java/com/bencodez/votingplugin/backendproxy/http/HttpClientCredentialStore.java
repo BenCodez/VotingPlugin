@@ -22,6 +22,8 @@ public final class HttpClientCredentialStore {
 	private static final String BUNDLE_FILE = "http-transport-client.p12";
 	private static final String PASSWORD_FILE = "http-transport-client-password";
 	private static final String PROFILE_FILE = "http-transport-profile.properties";
+	private static final String GENERATIONS_DIRECTORY = "http-transport-client-generations";
+	private static final String CURRENT_FILE = "http-transport-client-current";
 	private HttpClientCredentialStore() { }
 
 	public static void save(Path directory, HttpTlsIdentity.IssuedClientCertificate issued) throws IOException {
@@ -39,9 +41,16 @@ public final class HttpClientCredentialStore {
 	public static void saveEnrolled(Path directory, HttpConnectionCode code, HttpTlsIdentity.IssuedClientCertificate issued)
 			throws IOException {
 		if (code == null || issued == null) throw new IllegalArgumentException("Connection code and credential are required");
-		save(directory, issued);
 		HttpClientProfile profile = new HttpClientProfile(HttpTlsIdentity.canonicalServerId(issued.serverId()), code.endpoint(),
 				code.serverCertificatePin(), code.caCertificatePin());
+		try {
+			StagedCredential staged = stage(directory, issued, profile);
+			activateReplacement(directory, staged);
+		} catch (IOException failure) { throw failure;
+		} catch (Exception failure) { throw new IOException("Could not persist HTTP client credential", failure); }
+	}
+
+	private static void writeProfile(Path directory, HttpClientProfile profile) throws IOException {
 		Properties properties = new Properties();
 		properties.setProperty("version", "1");
 		properties.setProperty("serverId", profile.serverId());
@@ -54,6 +63,10 @@ public final class HttpClientCredentialStore {
 	}
 
 	public static ClientCredential load(Path directory) throws Exception {
+		return loadCredential(activeDirectory(directory));
+	}
+
+	private static ClientCredential loadCredential(Path directory) throws Exception {
 		Path bundle = safe(directory.resolve(BUNDLE_FILE));
 		Path passwordFile = safe(directory.resolve(PASSWORD_FILE));
 		if (!Files.isRegularFile(bundle, LinkOption.NOFOLLOW_LINKS) || !Files.isRegularFile(passwordFile, LinkOption.NOFOLLOW_LINKS))
@@ -74,7 +87,56 @@ public final class HttpClientCredentialStore {
 		} finally { java.util.Arrays.fill(password, '\0'); }
 	}
 
+	/** Writes and validates a replacement generation without touching the active credential. */
+	static StagedCredential stageReplacement(Path directory, HttpTlsIdentity.IssuedClientCertificate issued) throws Exception {
+		return stage(directory, issued, loadProfile(directory));
+	}
+
+	private static StagedCredential stage(Path directory, HttpTlsIdentity.IssuedClientCertificate issued,
+			HttpClientProfile profile) throws Exception {
+		if (directory == null || issued == null) throw new IllegalArgumentException("Credential replacement is required");
+		Path generations = directory.toAbsolutePath().normalize().resolve(GENERATIONS_DIRECTORY);
+		Files.createDirectories(generations);
+		if (Files.isSymbolicLink(generations) || !Files.isDirectory(generations, LinkOption.NOFOLLOW_LINKS))
+			throw new IOException("HTTP credential generation directory is unsafe");
+		String name = java.util.UUID.randomUUID().toString();
+		Path generation = generations.resolve(name);
+		Files.createDirectory(generation);
+		setOwnerOnlyDirectory(generation);
+		try {
+			save(generation, issued);
+			writeProfile(generation, profile);
+			EnrolledClient enrolled = loadEnrolled(generation);
+			return new StagedCredential(name, enrolled.credential());
+		} catch (Exception failure) {
+			try { Files.deleteIfExists(generation.resolve(BUNDLE_FILE)); Files.deleteIfExists(generation.resolve(PASSWORD_FILE));
+				Files.deleteIfExists(generation.resolve(PROFILE_FILE)); Files.deleteIfExists(generation); }
+			catch (IOException cleanup) { failure.addSuppressed(cleanup); }
+			throw failure;
+		}
+	}
+
+	/** Atomically makes a fully validated generation durable and active. */
+	static void activateReplacement(Path directory, StagedCredential staged) throws IOException {
+		if (directory == null || staged == null || !staged.name().matches("[0-9a-f-]{36}"))
+			throw new IllegalArgumentException("Staged credential is invalid");
+		Path generations = directory.toAbsolutePath().normalize().resolve(GENERATIONS_DIRECTORY);
+		Path generation = generations.resolve(staged.name()).normalize();
+		if (!generation.getParent().equals(generations) || Files.isSymbolicLink(generation)
+				|| !Files.isRegularFile(generation.resolve(BUNDLE_FILE), LinkOption.NOFOLLOW_LINKS)
+				|| !Files.isRegularFile(generation.resolve(PASSWORD_FILE), LinkOption.NOFOLLOW_LINKS)
+				|| !Files.isRegularFile(generation.resolve(PROFILE_FILE), LinkOption.NOFOLLOW_LINKS))
+			throw new IOException("Staged HTTP credential is incomplete");
+		writePrivate(safe(directory.resolve(CURRENT_FILE)), staged.name().getBytes(StandardCharsets.US_ASCII));
+	}
+
+	static record StagedCredential(String name, ClientCredential credential) { }
+
 	public static HttpClientProfile loadProfile(Path directory) throws IOException {
+		return loadProfileFile(activeDirectory(directory));
+	}
+
+	private static HttpClientProfile loadProfileFile(Path directory) throws IOException {
 		Path profile = safe(directory.resolve(PROFILE_FILE));
 		if (!Files.isRegularFile(profile, LinkOption.NOFOLLOW_LINKS) || Files.size(profile) > 8192)
 			throw new IOException("HTTP transport profile has not been enrolled");
@@ -88,10 +150,16 @@ public final class HttpClientCredentialStore {
 		} catch (IllegalArgumentException failure) { throw new IOException("HTTP transport profile is invalid", failure); }
 	}
 
+	public static boolean hasEnrolledProfile(Path directory) {
+		try { loadProfile(directory); return true; }
+		catch (Exception unavailable) { return false; }
+	}
+
 	/** Loads and cross-checks the persisted client key material and bound normal-transport profile. */
 	public static EnrolledClient loadEnrolled(Path directory) throws Exception {
-		ClientCredential credential = load(directory);
-		HttpClientProfile profile = loadProfile(directory);
+		Path active = activeDirectory(directory);
+		ClientCredential credential = loadCredential(active);
+		HttpClientProfile profile = loadProfileFile(active);
 		if (!matchesProfile(credential, profile)) throw new IOException("HTTP client certificate does not match its profile");
 		return new EnrolledClient(profile, credential);
 	}
@@ -116,6 +184,9 @@ public final class HttpClientCredentialStore {
 
 	private static boolean matchesProfile(ClientCredential credential, HttpClientProfile profile) {
 		try {
+			String authorityPin = HttpTransportSecrets.certificatePin(credential.caCertificate());
+			if (!HttpTransportSecrets.constantTimeEquals(profile.caCertificatePin().getBytes(StandardCharsets.US_ASCII),
+					authorityPin.getBytes(StandardCharsets.US_ASCII))) return false;
 			credential.certificate().checkValidity();
 			credential.certificate().verify(credential.caCertificate().getPublicKey());
 			java.util.List<String> usage = credential.certificate().getExtendedKeyUsage();
@@ -136,6 +207,21 @@ public final class HttpClientCredentialStore {
 		return file.toAbsolutePath().normalize();
 	}
 
+	private static Path activeDirectory(Path directory) throws IOException {
+		Path root = directory.toAbsolutePath().normalize();
+		Path current = safe(root.resolve(CURRENT_FILE));
+		if (!Files.exists(current, LinkOption.NOFOLLOW_LINKS)) return root;
+		if (!Files.isRegularFile(current, LinkOption.NOFOLLOW_LINKS) || Files.size(current) > 64)
+			throw new IOException("HTTP client credential pointer is invalid");
+		String name = Files.readString(current, StandardCharsets.US_ASCII);
+		if (!name.matches("[0-9a-f-]{36}")) throw new IOException("HTTP client credential pointer is invalid");
+		Path generations = root.resolve(GENERATIONS_DIRECTORY);
+		Path generation = generations.resolve(name).normalize();
+		if (!generation.getParent().equals(generations) || Files.isSymbolicLink(generation) || !Files.isDirectory(generation, LinkOption.NOFOLLOW_LINKS))
+			throw new IOException("HTTP client credential generation is invalid");
+		return generation;
+	}
+
 	private static void writePrivate(Path file, byte[] contents) throws IOException {
 		Path temporary = Files.createTempFile(file.getParent(), file.getFileName().toString(), ".tmp");
 		try {
@@ -151,6 +237,12 @@ public final class HttpClientCredentialStore {
 
 	private static void setOwnerOnly(Path path) throws IOException {
 		try { Files.setPosixFilePermissions(path, EnumSet.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE)); }
+		catch (UnsupportedOperationException ignored) { }
+	}
+
+	private static void setOwnerOnlyDirectory(Path path) throws IOException {
+		try { Files.setPosixFilePermissions(path, EnumSet.of(PosixFilePermission.OWNER_READ,
+				PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE)); }
 		catch (UnsupportedOperationException ignored) { }
 	}
 

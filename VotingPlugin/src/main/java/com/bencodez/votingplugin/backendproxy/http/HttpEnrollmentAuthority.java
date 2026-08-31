@@ -70,14 +70,15 @@ public final class HttpEnrollmentAuthority {
 		expireEnrollments();
 		byte[] suppliedHash = HttpTransportSecrets.sha256(enrollmentToken.getBytes(StandardCharsets.US_ASCII));
 		String lookup = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(suppliedHash);
-		Enrollment enrollment = enrollments.remove(lookup); // consume before issuing: failed retries require a fresh code.
+		Enrollment enrollment = enrollments.get(lookup);
 		if (enrollment == null || !HttpTransportSecrets.constantTimeEquals(enrollment.tokenHash(), suppliedHash))
 			throw new IllegalArgumentException("Enrollment was rejected");
 		if (!serverId.equals(enrollment.serverId())) throw new IllegalArgumentException("Enrollment was rejected");
+		enrollments.remove(lookup); // consume only after the token and its intended backend both match.
 		ClientBinding existing = bindings.get(serverId);
 		if (existing != null && !existing.revoked()) throw new IllegalStateException("Server id is already enrolled");
 		HttpTlsIdentity.IssuedClientCertificate issued = identity.issueClientCertificate(serverId);
-		bindings.put(serverId, new ClientBinding(HttpTransportSecrets.certificatePin(issued.certificate()), false));
+		bindings.put(serverId, new ClientBinding(HttpTransportSecrets.certificatePin(issued.certificate()), null, false));
 		try { persistState(); }
 		catch (java.io.IOException failure) { persistenceFailure = true; throw failure; }
 		return issued;
@@ -90,9 +91,28 @@ public final class HttpEnrollmentAuthority {
 		if (!identity.validClientCertificate(serverId, certificate)) return false;
 		ClientBinding binding = bindings.get(serverId);
 		String pin = HttpTransportSecrets.certificatePin(certificate);
-		return binding != null && !binding.revoked() && !revokedCertificatePins.contains(pin)
-				&& HttpTransportSecrets.constantTimeEquals(binding.certificatePin().getBytes(StandardCharsets.US_ASCII),
-						pin.getBytes(StandardCharsets.US_ASCII));
+		if (binding == null || binding.revoked() || revokedCertificatePins.contains(pin)) return false;
+		if (samePin(binding.certificatePin(), pin)) return true;
+		if (!samePin(binding.pendingCertificatePin(), pin)) return false;
+		bindings.put(serverId, new ClientBinding(pin, null, false));
+		revokedCertificatePins.add(binding.certificatePin());
+		try { persistState(); return true; }
+		catch (java.io.IOException failure) { persistenceFailure = true; return false; }
+	}
+
+	/** Issues a replacement while the currently bound certificate is still valid. The old binding remains active
+	 * until the replacement successfully authenticates, making a lost renewal response safe to retry. */
+	public synchronized HttpTlsIdentity.IssuedClientCertificate renew(String serverId,
+			java.security.cert.X509Certificate currentCertificate) throws Exception {
+		if (!authenticate(serverId, currentCertificate)) throw new IllegalArgumentException("Certificate renewal was rejected");
+		serverId = HttpTlsIdentity.canonicalServerId(serverId);
+		ClientBinding binding = bindings.get(serverId);
+		HttpTlsIdentity.IssuedClientCertificate issued = identity.issueClientCertificate(serverId);
+		bindings.put(serverId, new ClientBinding(binding.certificatePin(),
+				HttpTransportSecrets.certificatePin(issued.certificate()), false));
+		try { persistState(); }
+		catch (java.io.IOException failure) { persistenceFailure = true; throw failure; }
+		return issued;
 	}
 
 	public synchronized void revoke(String serverId) {
@@ -100,8 +120,9 @@ public final class HttpEnrollmentAuthority {
 		catch (IllegalArgumentException invalid) { return; }
 		ClientBinding binding = bindings.get(serverId);
 		if (binding != null) {
-			bindings.put(serverId, new ClientBinding(binding.certificatePin(), true));
+			bindings.put(serverId, new ClientBinding(binding.certificatePin(), binding.pendingCertificatePin(), true));
 			revokedCertificatePins.add(binding.certificatePin());
+			if (binding.pendingCertificatePin() != null) revokedCertificatePins.add(binding.pendingCertificatePin());
 			try { persistState(); }
 			catch (java.io.IOException failure) { persistenceFailure = true; throw new IllegalStateException("Could not persist HTTP certificate revocation", failure); }
 		}
@@ -118,22 +139,31 @@ public final class HttpEnrollmentAuthority {
 				String serverId = new String(Base64.getUrlDecoder().decode(key.substring("binding.".length())), StandardCharsets.UTF_8);
 				serverId = HttpTlsIdentity.canonicalServerId(serverId);
 				String[] value = properties.getProperty(key, "").split(":", -1);
-				if (value.length != 2 || !value[0].matches("[0-9a-f]{64}") || !("0".equals(value[1]) || "1".equals(value[1])))
+				if (!((value.length == 2 && "1".equals(properties.getProperty("version")))
+						|| (value.length == 3 && "2".equals(properties.getProperty("version"))))
+						|| !value[0].matches("[0-9a-f]{64}"))
 					throw new java.io.IOException("HTTP enrollment state is invalid");
-				bindings.put(serverId, new ClientBinding(value[0], "1".equals(value[1])));
-				if ("1".equals(value[1])) revokedCertificatePins.add(value[0]);
+				String pending = value.length == 3 && !"-".equals(value[1]) ? value[1] : null;
+				String revoked = value[value.length - 1];
+				if ((pending != null && !pending.matches("[0-9a-f]{64}")) || !("0".equals(revoked) || "1".equals(revoked)))
+					throw new java.io.IOException("HTTP enrollment state is invalid");
+				bindings.put(serverId, new ClientBinding(value[0], pending, "1".equals(revoked)));
+				if ("1".equals(revoked)) { revokedCertificatePins.add(value[0]); if (pending != null) revokedCertificatePins.add(pending); }
 			} else if (!"version".equals(key)) throw new java.io.IOException("HTTP enrollment state is invalid");
 		}
-		if (!"1".equals(properties.getProperty("version"))) throw new java.io.IOException("HTTP enrollment state is invalid");
+		if (!("1".equals(properties.getProperty("version")) || "2".equals(properties.getProperty("version"))))
+			throw new java.io.IOException("HTTP enrollment state is invalid");
 	}
 
 	private synchronized void persistState() throws java.io.IOException {
 		if (stateFile == null) return;
 		Properties properties = new Properties();
-		properties.setProperty("version", "1");
+		properties.setProperty("version", "2");
 		for (Map.Entry<String, ClientBinding> entry : bindings.entrySet()) {
 			String key = Base64.getUrlEncoder().withoutPadding().encodeToString(entry.getKey().getBytes(StandardCharsets.UTF_8));
-			properties.setProperty("binding." + key, entry.getValue().certificatePin() + ":" + (entry.getValue().revoked() ? "1" : "0"));
+			properties.setProperty("binding." + key, entry.getValue().certificatePin() + ":"
+					+ (entry.getValue().pendingCertificatePin() == null ? "-" : entry.getValue().pendingCertificatePin())
+					+ ":" + (entry.getValue().revoked() ? "1" : "0"));
 		}
 		java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
 		properties.store(bytes, "VotingPlugin HTTP certificate bindings");
@@ -171,5 +201,10 @@ public final class HttpEnrollmentAuthority {
 		private Enrollment { tokenHash = tokenHash.clone(); }
 		@Override public byte[] tokenHash() { return tokenHash.clone(); }
 	}
-	private record ClientBinding(String certificatePin, boolean revoked) { }
+	private static boolean samePin(String expected, String actual) {
+		return expected != null && actual != null && HttpTransportSecrets.constantTimeEquals(
+				expected.getBytes(StandardCharsets.US_ASCII), actual.getBytes(StandardCharsets.US_ASCII));
+	}
+
+	private record ClientBinding(String certificatePin, String pendingCertificatePin, boolean revoked) { }
 }

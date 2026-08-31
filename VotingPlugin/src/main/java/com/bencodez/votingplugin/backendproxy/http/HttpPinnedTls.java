@@ -20,9 +20,9 @@ public final class HttpPinnedTls {
 	}
 
 	/**
-	 * Normal transport context: presents the enrolled client certificate and accepts only the
-	 * proxy leaf/CA pins in the connection code. Callers must not override the HttpClient default
-	 * endpoint-identification settings; hostname verification remains enabled.
+	 * Normal transport context: presents the enrolled client certificate and trusts only the
+	 * pinned private authority. Callers must not override the HttpClient default endpoint-identification
+	 * settings; hostname verification remains enabled and the proxy leaf may renew under the same CA.
 	 */
 	public static SSLContext mutualTlsContext(HttpConnectionCode code, HttpClientCredentialStore.ClientCredential credential)
 			throws Exception {
@@ -30,15 +30,24 @@ public final class HttpPinnedTls {
 			throw new IllegalArgumentException("Enrolled client credential is required");
 		char[] password = credential.password();
 		try {
+			String authorityPin = HttpTransportSecrets.certificatePin(credential.caCertificate());
+			if (!HttpTransportSecrets.constantTimeEquals(code.caCertificatePin().getBytes(java.nio.charset.StandardCharsets.US_ASCII),
+					authorityPin.getBytes(java.nio.charset.StandardCharsets.US_ASCII)))
+				throw new IllegalArgumentException("HTTP authority does not match connection code");
 			KeyStore store = KeyStore.getInstance("PKCS12");
 			store.load(null, new char[0]);
 			store.setKeyEntry("client", credential.privateKey(), password,
 					new java.security.cert.Certificate[] { credential.certificate(), credential.caCertificate() });
 			KeyManagerFactory managers = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
 			managers.init(store, password);
+			KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+			trustStore.load(null, new char[0]);
+			trustStore.setCertificateEntry("http-transport-ca", credential.caCertificate());
+			javax.net.ssl.TrustManagerFactory trusts = javax.net.ssl.TrustManagerFactory.getInstance(
+					javax.net.ssl.TrustManagerFactory.getDefaultAlgorithm());
+			trusts.init(trustStore);
 			SSLContext context = SSLContext.getInstance("TLS");
-			context.init(managers.getKeyManagers(), new TrustManager[] {
-					new PinnedServerTrustManager(code.serverCertificatePin(), code.caCertificatePin()) }, null);
+			context.init(managers.getKeyManagers(), trusts.getTrustManagers(), null);
 			return context;
 		} finally { java.util.Arrays.fill(password, '\0'); }
 	}

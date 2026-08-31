@@ -11,6 +11,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -106,6 +107,71 @@ class HttpTransportRuntimeTest {
 	}
 
 	@Test
+	void persistedBackendConnectsAfterAutomaticServerLeafRotation() throws Exception {
+		Instant now = Instant.now();
+		Path proxyDirectory = directory.resolve("proxy");
+		HttpTlsIdentity original = HttpTlsIdentity.loadOrCreate(proxyDirectory, "localhost",
+				java.time.Clock.fixed(now.minus(Duration.ofDays(340)), java.time.ZoneOffset.UTC));
+		String originalServerPin = HttpTransportSecrets.certificatePin(original.serverCertificate());
+		HttpEnrollmentAuthority authority = new HttpEnrollmentAuthority(original, directory.resolve("authority"));
+		HttpTlsIdentity rotated = HttpTlsIdentity.loadOrCreate(proxyDirectory, "localhost");
+		CountDownLatch received = new CountDownLatch(1);
+		try (HttpProxyTransportServer server = new HttpProxyTransportServer(new InetSocketAddress("localhost", 0), rotated,
+				authority, ignored -> received.countDown())) {
+			HttpConnectionCode activeCode = authority.createConnectionCode("lobby-1", server.endpoint("localhost"), Duration.ofMinutes(5));
+			HttpTlsIdentity.IssuedClientCertificate issued = authority.enroll("lobby-1", activeCode.enrollmentToken());
+			HttpConnectionCode oldProfileCode = new HttpConnectionCode(activeCode.serverId(), activeCode.endpoint(), originalServerPin,
+					activeCode.caCertificatePin(), activeCode.expiresAt(), activeCode.enrollmentToken());
+			HttpClientCredentialStore.saveEnrolled(directory.resolve("client"), oldProfileCode, issued);
+			assertFalse(oldProfileCode.serverCertificatePin().equals(rotated.serverCertificatePin()));
+			server.start();
+			try (HttpBackendTransportConnector connector = new HttpBackendTransportConnector(directory.resolve("client"), ignored -> { })) {
+				connector.start();
+				assertTrue(connector.send(JsonEnvelope.builder("after-rotation").build()));
+				assertTrue(received.await(8, TimeUnit.SECONDS));
+			}
+		}
+	}
+
+	@Test
+	void backendRenewsClientCertificateBeforeExpiryWithoutNewConnectionCode() throws Exception {
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("proxy"), "localhost");
+		HttpTlsIdentity.IssuedClientCertificate expiring = identity.issueClientCertificate("lobby-1",
+				Instant.now().minus(Duration.ofDays(340)));
+		String originalPin = HttpTransportSecrets.certificatePin(expiring.certificate());
+		Path authorityDirectory = directory.resolve("authority");
+		java.nio.file.Files.createDirectories(authorityDirectory);
+		String key = java.util.Base64.getUrlEncoder().withoutPadding()
+				.encodeToString("lobby-1".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+		java.nio.file.Files.writeString(authorityDirectory.resolve("http-transport-clients.properties"),
+				"version=2\nbinding." + key + "=" + originalPin + ":-:0\n");
+		HttpEnrollmentAuthority authority = new HttpEnrollmentAuthority(identity, authorityDirectory);
+		try (HttpProxyTransportServer server = new HttpProxyTransportServer(new InetSocketAddress("localhost", 0), identity,
+				authority, ignored -> { })) {
+			HttpConnectionCode profileCode = new HttpConnectionCode("lobby-1", server.endpoint("localhost"),
+					identity.serverCertificatePin(), identity.caCertificatePin(), Instant.now().plusSeconds(60), "A".repeat(43));
+			Path clientDirectory = directory.resolve("client");
+			HttpClientCredentialStore.saveEnrolled(clientDirectory, profileCode, expiring);
+			server.start();
+			try (HttpBackendTransportConnector connector = new HttpBackendTransportConnector(clientDirectory, ignored -> { })) {
+				connector.start();
+				long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(8);
+				String renewedPin = originalPin;
+				while (renewedPin.equals(originalPin) && System.nanoTime() < deadline) {
+					Thread.sleep(25);
+					renewedPin = HttpTransportSecrets.certificatePin(HttpClientCredentialStore.load(clientDirectory).certificate());
+				}
+				assertFalse(renewedPin.equals(originalPin));
+				HttpClientCredentialStore.ClientCredential renewed = HttpClientCredentialStore.load(clientDirectory);
+				long promotionDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+				while (authority.authenticate("lobby-1", expiring.certificate()) && System.nanoTime() < promotionDeadline) Thread.sleep(25);
+				assertTrue(authority.authenticate("lobby-1", renewed.certificate()));
+				assertFalse(authority.authenticate("lobby-1", expiring.certificate()));
+			}
+		}
+	}
+
+	@Test
 	void duplicateInboundDeliveryIsReAcknowledgedWithoutSecondDispatch() {
 		HttpProxyTransportServer.BackendState state = new HttpProxyTransportServer.BackendState();
 		String session = java.util.UUID.randomUUID().toString();
@@ -125,6 +191,24 @@ class HttpTransportRuntimeTest {
 	}
 
 	@Test
+	void proxyDedupWindowEvictsOldestCompletedDeliveryAtCapacity() {
+		HttpProxyTransportServer.BackendState state = new HttpProxyTransportServer.BackendState();
+		String oldest = null, newest = null;
+		for (int index = 0; index < HttpTransportProtocol.MAX_QUEUE + 1; index++) {
+			String id = java.util.UUID.randomUUID().toString();
+			if (index == 0) oldest = id;
+			newest = id;
+			HttpTransportProtocol.Delivery delivery = new HttpTransportProtocol.Delivery(id, JsonEnvelope.builder("x").build());
+			assertEquals(1, state.acceptIncoming(java.util.List.of(delivery)).size());
+			state.completeIncoming(id, true);
+		}
+		HttpTransportProtocol.Delivery evicted = new HttpTransportProtocol.Delivery(oldest, JsonEnvelope.builder("x").build());
+		HttpTransportProtocol.Delivery retained = new HttpTransportProtocol.Delivery(newest, JsonEnvelope.builder("x").build());
+		assertEquals(1, state.acceptIncoming(java.util.List.of(evicted)).size());
+		assertTrue(state.acceptIncoming(java.util.List.of(retained)).isEmpty());
+	}
+
+	@Test
 	void backendReAcknowledgesLostAckDuplicateWithoutSecondCallback() throws Exception {
 		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("proxy"), "localhost");
 		HttpTlsIdentity.IssuedClientCertificate issued = identity.issueClientCertificate("lobby-1");
@@ -141,6 +225,27 @@ class HttpTransportRuntimeTest {
 			assertEquals(java.util.List.of(id), connector.drainAcknowledgements());
 			assertTrue(connector.accept(java.util.List.of(delivery)).isEmpty());
 			assertEquals(java.util.List.of(id), connector.drainAcknowledgements());
+		}
+	}
+
+	@Test
+	void backendDedupWindowContinuesAfterCapacity() throws Exception {
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("proxy"), "localhost");
+		HttpTlsIdentity.IssuedClientCertificate issued = identity.issueClientCertificate("lobby-1");
+		HttpClientCredentialStore.save(directory.resolve("client"), issued);
+		HttpClientCredentialStore.HttpClientProfile profile = new HttpClientCredentialStore.HttpClientProfile("lobby-1",
+				java.net.URI.create("https://localhost:8443/"), identity.serverCertificatePin(), identity.caCertificatePin());
+		try (HttpBackendTransportConnector connector = new HttpBackendTransportConnector(profile,
+				HttpClientCredentialStore.load(directory.resolve("client")), envelope -> { })) {
+			for (int index = 0; index < HttpTransportProtocol.MAX_QUEUE; index++) {
+				String id = java.util.UUID.randomUUID().toString();
+				HttpTransportProtocol.Delivery delivery = new HttpTransportProtocol.Delivery(id, JsonEnvelope.builder("x").build());
+				assertEquals(1, connector.accept(java.util.List.of(delivery)).size());
+				connector.completeIncoming(id, true);
+			}
+			HttpTransportProtocol.Delivery next = new HttpTransportProtocol.Delivery(java.util.UUID.randomUUID().toString(),
+					JsonEnvelope.builder("x").build());
+			assertEquals(1, connector.accept(java.util.List.of(next)).size());
 		}
 	}
 }

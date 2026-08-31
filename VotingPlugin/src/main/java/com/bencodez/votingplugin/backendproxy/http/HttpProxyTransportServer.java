@@ -78,7 +78,24 @@ public final class HttpProxyTransportServer implements AutoCloseable {
 		handlerExecutor = executor("VotingPlugin-HTTP-handler", 4, 128);
 		server.setExecutor(listenerExecutor);
 		server.createContext("/v1/enroll", exchange -> enroll((HttpsExchange) exchange));
+		server.createContext("/v1/renew", exchange -> renew((HttpsExchange) exchange));
 		server.createContext("/v1/transport", exchange -> transport((HttpsExchange) exchange));
+	}
+
+	private void renew(HttpsExchange exchange) throws IOException {
+		if (!"/v1/renew".equals(exchange.getRequestURI().getPath()) || exchange.getRequestURI().getRawQuery() != null) { reply(exchange, 404, new byte[0]); return; }
+		if (!"POST".equals(exchange.getRequestMethod())) { reply(exchange, 405, new byte[0]); return; }
+		if (!json(exchange)) { reply(exchange, 415, new byte[0]); return; }
+		if (!boundedFixedBody(exchange, 1024) || !admission.tryAcquire()) { reply(exchange, 429, new byte[0]); return; }
+		try {
+			String serverId = HttpTransportProtocol.parseRenewal(read(exchange.getRequestBody(), 1024));
+			X509Certificate certificate = peerCertificate(exchange);
+			if (certificate == null || !authority.authenticate(serverId, certificate)) { reply(exchange, 401, new byte[0]); return; }
+			HttpTlsIdentity.IssuedClientCertificate issued = authority.renew(serverId, certificate);
+			reply(exchange, 201, HttpTransportProtocol.enrollmentResponse(issued));
+		} catch (IllegalArgumentException rejected) { reply(exchange, 403, new byte[0]);
+		} catch (Exception failure) { reply(exchange, 503, new byte[0]);
+		} finally { admission.release(); }
 	}
 
 	public void start() { if (closed) throw new IllegalStateException("HTTP transport is closed"); server.start(); }
@@ -221,7 +238,9 @@ public final class HttpProxyTransportServer implements AutoCloseable {
 			List<HttpTransportProtocol.Delivery> accepted = new java.util.ArrayList<>();
 			for (HttpTransportProtocol.Delivery delivery : received) {
 				if (seen.contains(delivery.id())) { queueAck(delivery.id()); continue; }
-				if (!processing.contains(delivery.id())) { if (seen.size() >= HttpTransportProtocol.MAX_QUEUE) throw new IllegalArgumentException("dedup queue exhausted"); processing.add(delivery.id()); accepted.add(delivery); }
+				if (!processing.contains(delivery.id())) {
+					processing.add(delivery.id()); accepted.add(delivery);
+				}
 			}
 			return accepted;
 		}

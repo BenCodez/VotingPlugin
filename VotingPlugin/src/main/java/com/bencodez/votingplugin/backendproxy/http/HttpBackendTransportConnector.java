@@ -35,17 +35,21 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 	private final HttpClientCredentialStore.HttpClientProfile profile;
 	private final String serverId;
 	private final Consumer<JsonEnvelope> onEnvelope;
-	private final HttpClient client;
+	private volatile HttpClient client;
+	private volatile HttpClientCredentialStore.ClientCredential credential;
+	private final Path credentialDirectory;
 	private final URI transportEndpoint;
 	private final ThreadPoolExecutor callbackExecutor;
 	private final AtomicBoolean running = new AtomicBoolean();
 	private final Object state = new Object();
+	private final Object renewal = new Object();
 	private final LinkedHashMap<String, HttpTransportProtocol.Delivery> outgoing = new LinkedHashMap<>();
 	private final Set<String> received = new LinkedHashSet<>(), processing = new LinkedHashSet<>();
 	private final ArrayDeque<String> acknowledgements = new ArrayDeque<>();
 	private final String session = UUID.randomUUID().toString();
 	private volatile Thread poller;
 	private long sequence;
+	private volatile long nextRenewalCheckNanos;
 
 	public HttpBackendTransportConnector(HttpConnectionCode code, String serverId,
 			HttpClientCredentialStore.ClientCredential credential, Consumer<JsonEnvelope> onEnvelope) throws Exception {
@@ -54,16 +58,27 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 
 	/** Starts normal transport from the non-secret profile persisted by enrollment. */
 	public HttpBackendTransportConnector(HttpClientCredentialStore.EnrolledClient enrolled, Consumer<JsonEnvelope> onEnvelope) throws Exception {
-		this(enrolled == null ? null : enrolled.profile(), enrolled == null ? null : enrolled.credential(), onEnvelope);
+		this(enrolled, onEnvelope, null);
 	}
 
 	public HttpBackendTransportConnector(HttpClientCredentialStore.HttpClientProfile profile,
 			HttpClientCredentialStore.ClientCredential credential, Consumer<JsonEnvelope> onEnvelope) throws Exception {
+		this(profile, credential, onEnvelope, null);
+	}
+
+	private HttpBackendTransportConnector(HttpClientCredentialStore.EnrolledClient enrolled, Consumer<JsonEnvelope> onEnvelope,
+			Path credentialDirectory) throws Exception {
+		this(enrolled == null ? null : enrolled.profile(), enrolled == null ? null : enrolled.credential(), onEnvelope, credentialDirectory);
+	}
+
+	private HttpBackendTransportConnector(HttpClientCredentialStore.HttpClientProfile profile,
+			HttpClientCredentialStore.ClientCredential credential, Consumer<JsonEnvelope> onEnvelope, Path credentialDirectory) throws Exception {
 		if (profile == null || credential == null || onEnvelope == null) throw new IllegalArgumentException("HTTP backend transport configuration is invalid");
 		if (!matchesCredential(profile, credential)) throw new IllegalArgumentException("HTTP client certificate does not match transport profile");
 		this.profile = profile; this.serverId = profile.serverId(); this.onEnvelope = onEnvelope;
-		client = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).followRedirects(HttpClient.Redirect.NEVER)
-			.connectTimeout(Duration.ofSeconds(5)).sslContext(clientContext(profile, credential)).build();
+		this.credential = credential;
+		this.credentialDirectory = credentialDirectory;
+		client = client(profile, credential);
 		transportEndpoint = profile.endpoint().resolve("v1/transport");
 		callbackExecutor = executor("VotingPlugin-HTTP-callback", 2, 128);
 	}
@@ -71,18 +86,20 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 	/** Convenience constructor for the owner-only credential directory produced by {@link #enroll}. */
 	public HttpBackendTransportConnector(HttpConnectionCode code, String serverId, Path credentials,
 			Consumer<JsonEnvelope> onEnvelope) throws Exception {
-		this(HttpClientCredentialStore.loadEnrolled(credentials), onEnvelope);
+		this(HttpClientCredentialStore.loadEnrolled(credentials), onEnvelope, credentials);
 		if (code == null || !profile(code, serverId).equals(this.profile)) throw new IllegalArgumentException("HTTP transport profile does not match connection code");
 	}
 
 	/** Starts normal transport using only the persisted certificate and non-secret profile. */
 	public HttpBackendTransportConnector(Path credentials, Consumer<JsonEnvelope> onEnvelope) throws Exception {
-		this(HttpClientCredentialStore.loadEnrolled(credentials), onEnvelope);
+		this(HttpClientCredentialStore.loadEnrolled(credentials), onEnvelope, credentials);
 	}
 
 	/** Performs enrollment network I/O; call this from a connector/setup worker, never a platform main thread. */
 	public static HttpClientCredentialStore.ClientCredential enroll(HttpConnectionCode code, String serverId, Path credentials) throws Exception {
 		if (code == null || credentials == null || serverId == null || !serverId.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")) throw new IllegalArgumentException("Enrollment configuration is invalid");
+		if (!code.serverId().equals(HttpTlsIdentity.canonicalServerId(serverId)))
+			throw new IllegalArgumentException("HTTP connection code belongs to a different backend");
 		code.requireActive(Clock.systemUTC());
 		byte[] payload = ("{\"server\":\"" + serverId + "\",\"token\":\"" + code.enrollmentToken() + "\"}").getBytes(StandardCharsets.UTF_8);
 		HttpClient client = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).followRedirects(HttpClient.Redirect.NEVER)
@@ -113,9 +130,10 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 		}
 	}
 	/** A synchronous single poll, useful for lifecycle-controlled integrations and tests. */
-	public boolean pollOnce() {
+	public synchronized boolean pollOnce() {
 		if (!running.get()) return false;
 		try {
+			maybeRenewCredential();
 			List<String> acks; List<HttpTransportProtocol.Delivery> messages; long requestSequence;
 			synchronized (state) {
 				acks = first(acknowledgements); requestSequence = sequence++;
@@ -149,16 +167,22 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 			List<HttpTransportProtocol.Delivery> accepted = new java.util.ArrayList<>();
 			for (HttpTransportProtocol.Delivery delivery : deliveries) {
 				if (received.contains(delivery.id())) { queueAck(delivery.id()); continue; }
-				if (!processing.contains(delivery.id())) { if (received.size() >= HttpTransportProtocol.MAX_QUEUE) break; processing.add(delivery.id()); accepted.add(delivery); }
+				if (!processing.contains(delivery.id())) {
+					processing.add(delivery.id()); accepted.add(delivery);
+				}
 			}
 			return accepted;
 		}
 	}
 	void dispatch(HttpTransportProtocol.Delivery delivery) {
 		try { callbackExecutor.execute(() -> { boolean success = false; try { onEnvelope.accept(delivery.envelope()); success = true; } catch (RuntimeException ignored) { }
-			synchronized (state) { processing.remove(delivery.id()); if (success) { received.add(delivery.id()); while (received.size() > HttpTransportProtocol.MAX_QUEUE) received.remove(received.iterator().next()); queueAck(delivery.id()); } }
-		}); } catch (RejectedExecutionException rejected) { synchronized (state) { processing.remove(delivery.id()); } }
+			completeIncoming(delivery.id(), success);
+		}); } catch (RejectedExecutionException rejected) { completeIncoming(delivery.id(), false); }
 	}
+	void completeIncoming(String id, boolean success) { synchronized (state) {
+		processing.remove(id);
+		if (success) { received.add(id); while (received.size() > HttpTransportProtocol.MAX_QUEUE) received.remove(received.iterator().next()); queueAck(id); }
+	} }
 	private void queueAck(String id) { if (acknowledgements.size() < HttpTransportProtocol.MAX_QUEUE && !acknowledgements.contains(id)) acknowledgements.add(id); }
 	int queuedOutgoing() { synchronized (state) { return outgoing.size(); } }
 	List<String> drainAcknowledgements() { synchronized (state) { return drain(acknowledgements); } }
@@ -180,25 +204,52 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 			return false;
 		} catch (Exception invalid) { return false; }
 	}
-	private static SSLContext clientContext(HttpClientCredentialStore.HttpClientProfile profile, HttpClientCredentialStore.ClientCredential credential) throws Exception {
-		KeyStore store = KeyStore.getInstance("PKCS12"); store.load(null, new char[0]);
-		store.setKeyEntry("client", credential.privateKey(), credential.password(), new java.security.cert.Certificate[] { credential.certificate(), credential.caCertificate() });
-		KeyManagerFactory keys = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm()); keys.init(store, credential.password());
-		SSLContext context = SSLContext.getInstance("TLS"); context.init(keys.getKeyManagers(), new javax.net.ssl.TrustManager[] { new PinnedTrustManager(profile) }, null); return context;
-	}
-	private static final class PinnedTrustManager implements javax.net.ssl.X509TrustManager {
-		private final HttpClientCredentialStore.HttpClientProfile profile; PinnedTrustManager(HttpClientCredentialStore.HttpClientProfile profile) { this.profile = profile; }
-		@Override public void checkClientTrusted(X509Certificate[] chain, String authType) { throw new UnsupportedOperationException(); }
-		@Override public void checkServerTrusted(X509Certificate[] chain, String authType) throws java.security.cert.CertificateException {
-			if (chain == null || chain.length < 2) throw new java.security.cert.CertificateException("Pinned HTTPS server chain is incomplete");
-			chain[0].checkValidity(); chain[chain.length - 1].checkValidity();
-			try { chain[0].verify(chain[chain.length - 1].getPublicKey()); }
-			catch (java.security.GeneralSecurityException invalid) { throw new java.security.cert.CertificateException("Pinned HTTPS server signature is invalid", invalid); }
-			if (chain[chain.length - 1].getBasicConstraints() < 0 || !HttpTransportSecrets.constantTimeEquals(profile.serverCertificatePin().getBytes(StandardCharsets.US_ASCII), HttpTransportSecrets.certificatePin(chain[0]).getBytes(StandardCharsets.US_ASCII))) throw new java.security.cert.CertificateException("Pinned HTTPS server mismatch");
-			String caPin = HttpTransportSecrets.certificatePin(chain[chain.length - 1]);
-			if (!HttpTransportSecrets.constantTimeEquals(profile.caCertificatePin().getBytes(StandardCharsets.US_ASCII), caPin.getBytes(StandardCharsets.US_ASCII)))
-				throw new java.security.cert.CertificateException("Pinned HTTPS authority mismatch");
+	private void maybeRenewCredential() {
+		synchronized (renewal) {
+			Path directory = credentialDirectory;
+			if (directory == null || !HttpTlsIdentity.needsRenewal(credential.certificate(), Clock.systemUTC())) return;
+			long now = System.nanoTime();
+			if (nextRenewalCheckNanos != 0L && now - nextRenewalCheckNanos < 0L) return;
+			nextRenewalCheckNanos = now + Duration.ofHours(6).toNanos();
+			try {
+				byte[] body = HttpTransportProtocol.renewalRequest(serverId);
+				HttpRequest request = HttpRequest.newBuilder(profile.endpoint().resolve("v1/renew")).timeout(CLIENT_TIMEOUT)
+						.header("Content-Type", "application/json").header("Cache-Control", "no-store")
+						.POST(HttpRequest.BodyPublishers.ofByteArray(body)).build();
+				HttpResponse<byte[]> response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
+				if (response.statusCode() != 201 || response.body().length > HttpTransportProtocol.MAX_BODY_BYTES) return;
+				HttpTlsIdentity.IssuedClientCertificate issued = HttpTransportProtocol.parseEnrollmentResponse(serverId, response.body());
+				HttpClientCredentialStore.StagedCredential staged = HttpClientCredentialStore.stageReplacement(directory, issued);
+				HttpClientCredentialStore.ClientCredential replacement = staged.credential();
+				if (!matchesCredential(profile, replacement)) throw new IllegalArgumentException("Renewed HTTP certificate is invalid");
+				HttpClient replacementClient = client(profile, replacement);
+				HttpClientCredentialStore.activateReplacement(directory, staged);
+				client = replacementClient;
+				credential = replacement;
+			} catch (Exception ignored) { /* The active generation is unchanged; retry on the bounded schedule. */ }
 		}
-		@Override public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+	}
+	private static HttpClient client(HttpClientCredentialStore.HttpClientProfile profile,
+			HttpClientCredentialStore.ClientCredential credential) throws Exception {
+		return HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).followRedirects(HttpClient.Redirect.NEVER)
+				.connectTimeout(Duration.ofSeconds(5)).sslContext(clientContext(profile, credential)).build();
+	}
+	private static SSLContext clientContext(HttpClientCredentialStore.HttpClientProfile profile, HttpClientCredentialStore.ClientCredential credential) throws Exception {
+		String caPin = HttpTransportSecrets.certificatePin(credential.caCertificate());
+		if (!HttpTransportSecrets.constantTimeEquals(profile.caCertificatePin().getBytes(StandardCharsets.US_ASCII),
+				caPin.getBytes(StandardCharsets.US_ASCII))) throw new IllegalArgumentException("HTTP authority does not match transport profile");
+		char[] password = credential.password();
+		try {
+			KeyStore store = KeyStore.getInstance("PKCS12"); store.load(null, new char[0]);
+			store.setKeyEntry("client", credential.privateKey(), password,
+					new java.security.cert.Certificate[] { credential.certificate(), credential.caCertificate() });
+			KeyManagerFactory keys = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm()); keys.init(store, password);
+			KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType()); trustStore.load(null, new char[0]);
+			trustStore.setCertificateEntry("http-transport-ca", credential.caCertificate());
+			javax.net.ssl.TrustManagerFactory trusts = javax.net.ssl.TrustManagerFactory.getInstance(
+					javax.net.ssl.TrustManagerFactory.getDefaultAlgorithm());
+			trusts.init(trustStore);
+			SSLContext context = SSLContext.getInstance("TLS"); context.init(keys.getKeyManagers(), trusts.getTrustManagers(), null); return context;
+		} finally { java.util.Arrays.fill(password, '\0'); }
 	}
 }

@@ -100,6 +100,23 @@ final class HttpTransportProtocol {
 		} catch (RuntimeException invalid) { throw bad(); }
 	}
 
+	static byte[] renewalRequest(String server) {
+		JsonObject root = new JsonObject();
+		root.addProperty("server", HttpTlsIdentity.canonicalServerId(server));
+		return root.toString().getBytes(StandardCharsets.UTF_8);
+	}
+
+	static String parseRenewal(byte[] body) {
+		if (body == null || body.length == 0 || body.length > 1024) throw bad();
+		try {
+			JsonElement parsed = JsonParser.parseString(new String(body, StandardCharsets.UTF_8));
+			if (!parsed.isJsonObject()) throw bad();
+			JsonObject root = parsed.getAsJsonObject();
+			requireOnly(root, "server");
+			return HttpTlsIdentity.canonicalServerId(string(root, "server", 64));
+		} catch (RuntimeException invalid) { throw bad(); }
+	}
+
 	static HttpTlsIdentity.IssuedClientCertificate parseEnrollmentResponse(String server, byte[] body) {
 		if (body == null || body.length == 0 || body.length > MAX_BODY_BYTES) throw bad();
 		try {
