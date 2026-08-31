@@ -163,7 +163,8 @@ public final class HttpProxyTransportServer implements AutoCloseable {
 			X509Certificate certificate = peerCertificate(exchange);
 			if (certificate == null || !authority.authenticate(packet.server(), certificate)) { reply(exchange, 401, new byte[0]); return; }
 			BackendState backend;
-			synchronized (backends) { backend = backends.computeIfAbsent(packet.server(), ignored -> new BackendState()); }
+			synchronized (backends) { backend = backends.computeIfAbsent(packet.server(),
+					ignored -> new BackendState(packet.server(), durableOutgoing)); }
 			if (!backend.beginPoll(packet.session())) { reply(exchange, 409, new byte[0]); return; }
 			try {
 				handlePacket(packet, backend);

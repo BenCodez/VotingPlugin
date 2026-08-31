@@ -107,6 +107,40 @@ class HttpTransportRuntimeTest {
 		}
 	}
 
+	@Test
+	void pollCreatedBackendStateUsesDurableOutgoingQueue() throws Exception {
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("poll-proxy"), "localhost");
+		HttpEnrollmentAuthority authority = new HttpEnrollmentAuthority(identity, directory.resolve("poll-authority"));
+		Path queueDirectory = directory.resolve("poll-outgoing");
+		CountDownLatch proxyReceived = new CountDownLatch(1), backendReceived = new CountDownLatch(1);
+		CountDownLatch releaseBackendCallback = new CountDownLatch(1);
+		try (HttpProxyTransportServer server = new HttpProxyTransportServer(new InetSocketAddress("localhost", 0),
+				identity, authority, queueDirectory, ignored -> proxyReceived.countDown())) {
+			server.start();
+			HttpConnectionCode code = authority.createConnectionCode("lobby-1", server.endpoint("localhost"),
+					Duration.ofMinutes(5));
+			HttpClientCredentialStore.ClientCredential credential = HttpBackendTransportConnector.enroll(code,
+					"lobby-1", directory.resolve("poll-client"));
+			try (HttpBackendTransportConnector connector = new HttpBackendTransportConnector(code, "lobby-1",
+					credential, envelope -> {
+						backendReceived.countDown();
+						try { releaseBackendCallback.await(5, TimeUnit.SECONDS); }
+						catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+					})) {
+				connector.start();
+				assertTrue(connector.send(JsonEnvelope.builder("establish-poll").build()));
+				assertTrue(proxyReceived.await(8, TimeUnit.SECONDS));
+				assertTrue(server.send("lobby-1", JsonEnvelope.builder("durable-after-poll").build()));
+				assertTrue(backendReceived.await(8, TimeUnit.SECONDS));
+				assertEquals(1L, countRegularFiles(queueDirectory),
+						"a poll-created backend state must persist before reporting acceptance");
+				releaseBackendCallback.countDown();
+			}
+		} finally {
+			releaseBackendCallback.countDown();
+		}
+	}
+
 	private static long countRegularFiles(Path root) throws Exception {
 		try (java.util.stream.Stream<Path> paths = java.nio.file.Files.walk(root)) {
 			return paths.filter(path -> java.nio.file.Files.isRegularFile(path, java.nio.file.LinkOption.NOFOLLOW_LINKS)).count();
