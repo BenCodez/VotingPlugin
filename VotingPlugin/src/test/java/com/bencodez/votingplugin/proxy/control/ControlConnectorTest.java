@@ -316,6 +316,29 @@ class ControlConnectorTest {
 		assertFalse(transport.requests.stream().map(Request::body).anyMatch(body -> body.contains("local-secret")));
 	}
 
+	@Test void proxyFileTaskIsRejectedWhenOnlyRoutingControlWasNegotiated() throws Exception {
+		Path file = dataDirectory.resolve(ProxyConfigurationFileService.FILE_NAME);
+		Files.writeString(file, "Debug: false\n");
+		connector.close();
+		connector = fileConnector(new ProxyConfigurationFileService(file, (source, target) -> {
+			throw new AssertionError("an unnegotiated proxy file task must not publish changes");
+		}));
+		transport.acceptConfiguration = true;
+		transport.operationClaim = CompletableFuture.completedFuture(new Response(200,
+				"{\"operationId\":\"00000000-0000-0000-0000-000000000099\","
+						+ "\"attemptId\":\"00000000-0000-0000-0000-000000000199\","
+						+ "\"type\":\"APPLY\",\"expectedRevision\":\"ignored\","
+						+ "\"configuration\":{\"domain\":\"file\","
+						+ "\"fileName\":\"bungeeconfig.yml\",\"content\":\"Debug: true\\n\"}}"));
+
+		connector.cycle();
+
+		JsonObject result = submittedResult();
+		assertFalse(result.get("success").getAsBoolean());
+		assertEquals("UNSUPPORTED", result.get("code").getAsString());
+		assertEquals("Debug: false\n", Files.readString(file));
+	}
+
 	@Test void proxyFileRejectsUnmanagedNamesWithAStructuredSafeFailure() throws Exception {
 		Path file = dataDirectory.resolve(ProxyConfigurationFileService.FILE_NAME);
 		Files.writeString(file, "Database:\n  Password: local-secret\n");

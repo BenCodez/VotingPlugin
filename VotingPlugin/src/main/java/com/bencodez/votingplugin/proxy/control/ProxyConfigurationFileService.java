@@ -267,22 +267,58 @@ final class ProxyConfigurationFileService {
 			Object value = entry.getValue();
 			String childPath = path + entry.getKey();
 			if (secret(childPath, entry.getKey(), value)) result.put(entry.getKey(), REDACTED);
-			else if (value instanceof Map<?, ?> map) result.put(entry.getKey(), mask((Map<String, Object>) map, childPath + "."));
-			else result.put(entry.getKey(), value);
+			else result.put(entry.getKey(), maskStructure(value, childPath));
 		}
 		return result;
 	}
 
-	private static void redactValues(Node node, Map<String, Object> source, String path, Set<String> values) {
-		if (!(node instanceof MappingNode mapping)) {
+	@SuppressWarnings("unchecked")
+	private static Object maskStructure(Object value, String path) {
+		if (value instanceof Map<?, ?> map) return mask((Map<String, Object>) map, path + ".");
+		if (value instanceof List<?> list) {
+			List<Object> result = new ArrayList<>();
+			for (int index = 0; index < list.size(); index++) {
+				Object item = list.get(index);
+				String itemPath = path + "[" + index + "]";
+				result.add(secret(itemPath, "", item) ? REDACTED : maskStructure(item, itemPath));
+			}
+			return List.copyOf(result);
+		}
+		return value;
+	}
+
+	private static void redactValues(Node node, Object source, String path, Set<String> values) {
+		if (node instanceof SequenceNode sequence && source instanceof List<?> list) {
+			redactComments(sequence, path, false, values, new LinkedHashMap<>());
+			List<Node> children = new ArrayList<>();
+			for (int index = 0; index < sequence.getValue().size(); index++) {
+				Node child = sequence.getValue().get(index);
+				Object value = index < list.size() ? list.get(index) : null;
+				String itemPath = path + "[" + index + "]";
+				if (secret(itemPath, "", value)) {
+					redactComments(child, itemPath, true, values, new LinkedHashMap<>());
+					child = marker(child);
+				} else if (value instanceof Map<?, ?> || value instanceof List<?>) {
+					redactValues(child, value, value instanceof Map<?, ?> ? itemPath + "." : itemPath, values);
+				} else {
+					redactDescendantComments(child, itemPath, false, values, new LinkedHashMap<>());
+				}
+				children.add(child);
+			}
+			sequence.getValue().clear();
+			sequence.getValue().addAll(children);
+			return;
+		}
+		if (!(node instanceof MappingNode mapping) || !(source instanceof Map<?, ?> rawSource)) {
 			redactDescendantComments(node, path, false, values, new LinkedHashMap<>());
 			return;
 		}
+		@SuppressWarnings("unchecked") Map<String, Object> sourceMap = (Map<String, Object>) rawSource;
 		redactComments(mapping, path, false, values, new LinkedHashMap<>());
 		List<NodeTuple> tuples = new ArrayList<>();
 		for (NodeTuple tuple : mapping.getValue()) {
 			String key = key(tuple.getKeyNode());
-			Object value = source.get(key);
+			Object value = sourceMap.get(key);
 			String childPath = path + key;
 			boolean hidden = secret(childPath, key, value);
 			redactComments(tuple.getKeyNode(), childPath + "#key", hidden, values, new LinkedHashMap<>());
@@ -290,9 +326,8 @@ final class ProxyConfigurationFileService {
 			if (hidden) {
 				redactComments(child, childPath, true, values, new LinkedHashMap<>());
 				child = marker(child);
-			} else if (value instanceof Map<?, ?> nested) {
-				@SuppressWarnings("unchecked") Map<String, Object> nestedValues = (Map<String, Object>) nested;
-				redactValues(child, nestedValues, childPath + ".", values);
+			} else if (value instanceof Map<?, ?> || value instanceof List<?>) {
+				redactValues(child, value, value instanceof Map<?, ?> ? childPath + "." : childPath, values);
 			} else {
 				redactDescendantComments(child, childPath, false, values, new LinkedHashMap<>());
 			}
@@ -324,40 +359,124 @@ final class ProxyConfigurationFileService {
 				@SuppressWarnings("unchecked") Map<String, Object> oldValues = (Map<String, Object>) oldMap;
 				@SuppressWarnings("unchecked") Map<String, Object> candidateValues = (Map<String, Object>) proposedMap;
 				validateRedactedValues(oldValues, candidateValues, childPath + ".");
+			} else if (old instanceof List<?> oldList) {
+				if (!(candidate instanceof List<?> proposedList)) {
+					if (containsSecrets(oldList, childPath)) {
+						throw new IllegalArgumentException("redacted placeholder is invalid");
+					}
+					continue;
+				}
+				validateRedactedList(oldList, proposedList, childPath);
+			} else if (REDACTED.equals(candidate)) {
+				throw new IllegalArgumentException("redacted placeholder is invalid");
+			}
+		}
+		for (Map.Entry<String, Object> entry : proposed.entrySet()) {
+			if (!current.containsKey(entry.getKey()) && containsMarker(entry.getValue())) {
+				throw new IllegalArgumentException("redacted placeholder is invalid");
 			}
 		}
 	}
 
 	@SuppressWarnings("unchecked")
-	private static boolean containsSecrets(Map<?, ?> source, String path) {
-		for (Map.Entry<?, ?> entry : source.entrySet()) {
-			if (!(entry.getKey() instanceof String key)) return true;
-			Object value = entry.getValue();
-			String childPath = path + key;
-			if (secret(childPath, key, value)) return true;
-			if (value instanceof Map<?, ?> nested && containsSecrets(nested, childPath + ".")) return true;
+	private static void validateRedactedList(List<?> current, List<?> proposed, String path) {
+		if (containsSecrets(current, path) && current.size() != proposed.size()) {
+			throw new IllegalArgumentException("redacted placeholder is invalid");
+		}
+		for (int index = 0; index < Math.min(current.size(), proposed.size()); index++) {
+			Object old = current.get(index);
+			Object candidate = proposed.get(index);
+			String itemPath = path + "[" + index + "]";
+			if (secret(itemPath, "", old)) {
+				if (candidate instanceof Map<?, ?> || candidate instanceof List<?>) {
+					throw new IllegalArgumentException("redacted placeholder is invalid");
+				}
+			} else if (old instanceof Map<?, ?> oldMap) {
+				if (!(candidate instanceof Map<?, ?> candidateMap)) {
+					if (containsSecrets(oldMap, itemPath + ".")) throw new IllegalArgumentException("redacted placeholder is invalid");
+				} else {
+					validateRedactedValues((Map<String, Object>) oldMap, (Map<String, Object>) candidateMap, itemPath + ".");
+				}
+			} else if (old instanceof List<?> oldList) {
+				if (!(candidate instanceof List<?> candidateList)) {
+					if (containsSecrets(oldList, itemPath)) throw new IllegalArgumentException("redacted placeholder is invalid");
+				} else validateRedactedList(oldList, candidateList, itemPath);
+			} else if (REDACTED.equals(candidate)) {
+				throw new IllegalArgumentException("redacted placeholder is invalid");
+			}
+		}
+		for (int index = current.size(); index < proposed.size(); index++) {
+			if (containsMarker(proposed.get(index))) throw new IllegalArgumentException("redacted placeholder is invalid");
+		}
+	}
+
+	private static boolean containsSecrets(Object source, String path) {
+		if (source instanceof Map<?, ?> map) {
+			for (Map.Entry<?, ?> entry : map.entrySet()) {
+				if (!(entry.getKey() instanceof String key)) return true;
+				Object value = entry.getValue();
+				String childPath = path + key;
+				if (secret(childPath, key, value) || containsSecrets(value,
+						value instanceof Map<?, ?> ? childPath + "." : childPath)) return true;
+			}
+		} else if (source instanceof List<?> list) {
+			for (int index = 0; index < list.size(); index++) {
+				Object value = list.get(index);
+				String itemPath = path + "[" + index + "]";
+				if (secret(itemPath, "", value) || containsSecrets(value,
+						value instanceof Map<?, ?> ? itemPath + "." : itemPath)) return true;
+			}
 		}
 		return false;
 	}
 
-	private static void restoreRedactedValues(Node proposed, Node current, Map<String, Object> currentValues,
-			Map<String, Object> proposedValues, String path) {
-		if (!(proposed instanceof MappingNode proposedMap) || !(current instanceof MappingNode currentMap)) return;
+	private static boolean containsMarker(Object value) {
+		if (REDACTED.equals(value)) return true;
+		if (value instanceof Map<?, ?> map) return map.values().stream().anyMatch(ProxyConfigurationFileService::containsMarker);
+		if (value instanceof List<?> list) return list.stream().anyMatch(ProxyConfigurationFileService::containsMarker);
+		return false;
+	}
+
+	private static void restoreRedactedValues(Node proposed, Node current, Object currentValues,
+			Object proposedValues, String path) {
+		if (proposed instanceof SequenceNode proposedSequence && current instanceof SequenceNode currentSequence
+				&& currentValues instanceof List<?> oldList && proposedValues instanceof List<?> candidateList) {
+			List<Node> restored = new ArrayList<>();
+			for (int index = 0; index < proposedSequence.getValue().size(); index++) {
+				Node value = proposedSequence.getValue().get(index);
+				Object old = index < oldList.size() ? oldList.get(index) : null;
+				Object candidate = index < candidateList.size() ? candidateList.get(index) : null;
+				String itemPath = path + "[" + index + "]";
+				if (index < currentSequence.getValue().size() && secret(itemPath, "", old) && REDACTED.equals(candidate)) {
+					value = restoreSecretNode(currentSequence.getValue().get(index), value);
+				} else if (index < currentSequence.getValue().size()
+						&& (old instanceof Map<?, ?> || old instanceof List<?>)) {
+					restoreRedactedValues(value, currentSequence.getValue().get(index), old, candidate,
+							old instanceof Map<?, ?> ? itemPath + "." : itemPath);
+				}
+				restored.add(value);
+			}
+			proposedSequence.getValue().clear();
+			proposedSequence.getValue().addAll(restored);
+			return;
+		}
+		if (!(proposed instanceof MappingNode proposedMap) || !(current instanceof MappingNode currentMap)
+				|| !(currentValues instanceof Map<?, ?> rawCurrent) || !(proposedValues instanceof Map<?, ?> rawProposed)) return;
+		@SuppressWarnings("unchecked") Map<String, Object> currentMapValues = (Map<String, Object>) rawCurrent;
+		@SuppressWarnings("unchecked") Map<String, Object> proposedMapValues = (Map<String, Object>) rawProposed;
 		Map<String, NodeTuple> currentTuples = tuples(currentMap);
 		List<NodeTuple> restored = new ArrayList<>();
 		for (NodeTuple tuple : proposedMap.getValue()) {
 			String key = key(tuple.getKeyNode());
-			Object old = currentValues.get(key);
+			Object old = currentMapValues.get(key);
 			String childPath = path + key;
 			Node value = tuple.getValueNode();
 			if (currentTuples.containsKey(key) && secret(childPath, key, old)
-					&& REDACTED.equals(proposedValues.get(key))) {
+					&& REDACTED.equals(proposedMapValues.get(key))) {
 				value = restoreSecretNode(currentTuples.get(key).getValueNode(), value);
-			} else if (old instanceof Map<?, ?> oldMap && proposedValues.get(key) instanceof Map<?, ?> proposedMapValue) {
-				@SuppressWarnings("unchecked") Map<String, Object> oldValues = (Map<String, Object>) oldMap;
-				@SuppressWarnings("unchecked") Map<String, Object> candidateValues = (Map<String, Object>) proposedMapValue;
+			} else if ((old instanceof Map<?, ?> || old instanceof List<?>) && currentTuples.containsKey(key)) {
 				restoreRedactedValues(value, currentTuples.containsKey(key) ? currentTuples.get(key).getValueNode() : value,
-						oldValues, candidateValues, childPath + ".");
+						old, proposedMapValues.get(key), old instanceof Map<?, ?> ? childPath + "." : childPath);
 			}
 			restored.add(new NodeTuple(tuple.getKeyNode(), value));
 		}
@@ -381,22 +500,33 @@ final class ProxyConfigurationFileService {
 		return marker;
 	}
 
-	private static Map<String, CommentLine> redactComments(Node node, Map<String, Object> source, String path,
+	private static Map<String, CommentLine> redactComments(Node node, Object source, String path,
 			Set<String> values) {
 		Map<String, CommentLine> result = new LinkedHashMap<>();
 		redactComments(node, path, false, values, result);
-		if (node instanceof MappingNode mapping) {
+		if (node instanceof MappingNode mapping && source instanceof Map<?, ?> rawSource) {
+			@SuppressWarnings("unchecked") Map<String, Object> sourceMap = (Map<String, Object>) rawSource;
 			for (NodeTuple tuple : mapping.getValue()) {
 				String key = key(tuple.getKeyNode());
-				Object value = source.get(key);
+				Object value = sourceMap.get(key);
 				String childPath = path + key;
 				boolean hidden = secret(childPath, key, value);
 				redactComments(tuple.getKeyNode(), childPath + "#key", hidden, values, result);
 				if (hidden) redactComments(tuple.getValueNode(), childPath, true, values, result);
-				else if (value instanceof Map<?, ?> nested) {
-					@SuppressWarnings("unchecked") Map<String, Object> nestedValues = (Map<String, Object>) nested;
-					result.putAll(redactComments(tuple.getValueNode(), nestedValues, childPath + ".", values));
+				else if (value instanceof Map<?, ?> || value instanceof List<?>) {
+					result.putAll(redactComments(tuple.getValueNode(), value,
+							value instanceof Map<?, ?> ? childPath + "." : childPath, values));
 				} else redactDescendantComments(tuple.getValueNode(), childPath, false, values, result);
+			}
+		} else if (node instanceof SequenceNode sequence && source instanceof List<?> list) {
+			for (int index = 0; index < sequence.getValue().size(); index++) {
+				Node child = sequence.getValue().get(index);
+				Object value = index < list.size() ? list.get(index) : null;
+				String itemPath = path + "[" + index + "]";
+				if (secret(itemPath, "", value)) redactComments(child, itemPath, true, values, result);
+				else if (value instanceof Map<?, ?> || value instanceof List<?>) {
+					result.putAll(redactComments(child, value, value instanceof Map<?, ?> ? itemPath + "." : itemPath, values));
+				} else redactDescendantComments(child, itemPath, false, values, result);
 			}
 		}
 		return result;
@@ -409,11 +539,14 @@ final class ProxyConfigurationFileService {
 			for (NodeTuple tuple : mapping.getValue()) {
 				String key = key(tuple.getKeyNode());
 				redactDescendantComments(tuple.getKeyNode(), path + key + "#key", sensitiveContext, values, redacted);
-				redactDescendantComments(tuple.getValueNode(), path + key, sensitiveContext, values, redacted);
+				Node child = tuple.getValueNode();
+				redactDescendantComments(child, path + key + (child instanceof MappingNode ? "." : ""),
+						sensitiveContext, values, redacted);
 			}
 		} else if (node instanceof SequenceNode sequence) {
 			for (int index = 0; index < sequence.getValue().size(); index++) {
-				redactDescendantComments(sequence.getValue().get(index), path + "[" + index + "]", sensitiveContext,
+				Node child = sequence.getValue().get(index);
+				redactDescendantComments(child, path + "[" + index + "]" + (child instanceof MappingNode ? "." : ""), sensitiveContext,
 						values, redacted);
 			}
 		}
@@ -477,7 +610,8 @@ final class ProxyConfigurationFileService {
 			}
 		} else if (node instanceof SequenceNode sequence) {
 			for (int index = 0; index < sequence.getValue().size(); index++) {
-				collectComments(sequence.getValue().get(index), path + "[" + index + "]", result);
+				Node child = sequence.getValue().get(index);
+				collectComments(child, path + "[" + index + "]" + (child instanceof MappingNode ? "." : ""), result);
 			}
 		}
 	}
@@ -520,18 +654,30 @@ final class ProxyConfigurationFileService {
 		return values;
 	}
 
-	@SuppressWarnings("unchecked")
-	private static void collectSensitiveValues(Node node, Map<String, Object> source, String path, Set<String> values) {
-		if (!(node instanceof MappingNode mapping)) return;
-		for (NodeTuple tuple : mapping.getValue()) {
-			String key = key(tuple.getKeyNode());
-			Object value = source.get(key);
-			String childPath = path + key;
-			if (secret(childPath, key, value) && tuple.getValueNode() instanceof ScalarNode scalar
-					&& safeSecretValue(scalar.getValue())) {
-				values.add(scalar.getValue().trim());
-			} else if (value instanceof Map<?, ?> nested) {
-				collectSensitiveValues(tuple.getValueNode(), (Map<String, Object>) nested, childPath + ".", values);
+	private static void collectSensitiveValues(Node node, Object source, String path, Set<String> values) {
+		if (node instanceof MappingNode mapping && source instanceof Map<?, ?> sourceMap) {
+			for (NodeTuple tuple : mapping.getValue()) {
+				String key = key(tuple.getKeyNode());
+				Object value = sourceMap.get(key);
+				String childPath = path + key;
+				if (secret(childPath, key, value) && tuple.getValueNode() instanceof ScalarNode scalar
+						&& safeSecretValue(scalar.getValue())) {
+					values.add(scalar.getValue().trim());
+				} else if (value instanceof Map<?, ?> || value instanceof List<?>) {
+					collectSensitiveValues(tuple.getValueNode(), value,
+							value instanceof Map<?, ?> ? childPath + "." : childPath, values);
+				}
+			}
+		} else if (node instanceof SequenceNode sequence && source instanceof List<?> list) {
+			for (int index = 0; index < sequence.getValue().size(); index++) {
+				Node child = sequence.getValue().get(index);
+				Object value = index < list.size() ? list.get(index) : null;
+				String itemPath = path + "[" + index + "]";
+				if (secret(itemPath, "", value) && child instanceof ScalarNode scalar && safeSecretValue(scalar.getValue())) {
+					values.add(scalar.getValue().trim());
+				} else if (value instanceof Map<?, ?> || value instanceof List<?>) {
+					collectSensitiveValues(child, value, value instanceof Map<?, ?> ? itemPath + "." : itemPath, values);
+				}
 			}
 		}
 	}
@@ -594,9 +740,44 @@ final class ProxyConfigurationFileService {
 				else if (old instanceof Map<?, ?> oldNested) oldValues = (Map<String, Object>) oldNested;
 				else throw new IllegalArgumentException("proxy configuration shape changed");
 				result.put(key, resolve((Map<String, Object>) nested, oldValues, childPath + "."));
+			} else if (value instanceof List<?> list) {
+				List<?> oldValues;
+				if (old == null) oldValues = List.of();
+				else if (old instanceof List<?> oldList) oldValues = oldList;
+				else throw new IllegalArgumentException("proxy configuration shape changed");
+				result.put(key, resolveList(list, oldValues, childPath));
 			} else result.put(key, value);
 		}
 		return result;
+	}
+
+	@SuppressWarnings("unchecked")
+	private static List<Object> resolveList(List<?> proposed, List<?> current, String path) {
+		List<Object> result = new ArrayList<>();
+		for (int index = 0; index < proposed.size(); index++) {
+			Object value = proposed.get(index);
+			Object old = index < current.size() ? current.get(index) : null;
+			String itemPath = path + "[" + index + "]";
+			if (REDACTED.equals(value)) {
+				if (index >= current.size() || !secret(itemPath, "", old)) {
+					throw new IllegalArgumentException("redacted placeholder is invalid");
+				}
+				result.add(old);
+			} else if (value instanceof Map<?, ?> map) {
+				Map<String, Object> oldValues;
+				if (old == null) oldValues = Map.of();
+				else if (old instanceof Map<?, ?> oldMap) oldValues = (Map<String, Object>) oldMap;
+				else throw new IllegalArgumentException("proxy configuration shape changed");
+				result.add(resolve((Map<String, Object>) map, oldValues, itemPath + "."));
+			} else if (value instanceof List<?> list) {
+				List<?> oldValues;
+				if (old == null) oldValues = List.of();
+				else if (old instanceof List<?> oldList) oldValues = oldList;
+				else throw new IllegalArgumentException("proxy configuration shape changed");
+				result.add(resolveList(list, oldValues, itemPath));
+			} else result.add(value);
+		}
+		return List.copyOf(result);
 	}
 
 	private static boolean secret(String path, String key, Object value) {
@@ -605,8 +786,11 @@ final class ProxyConfigurationFileService {
 				|| normalized.contains("apikey") || normalized.contains("authorization")
 				|| normalized.contains("webhookurl")) return true;
 		String normalizedPath = path.toLowerCase(Locale.ROOT).replace("_", "").replace("-", "");
-		if (normalizedPath.startsWith("database.") || normalizedPath.startsWith("globaldata.")) {
-			return Set.of("host", "port", "database", "username", "password", "line", "driver", "poolname")
+		if (infrastructurePath(normalizedPath, "database") || infrastructurePath(normalizedPath, "globaldata")
+				|| infrastructurePath(normalizedPath, "redis")
+				|| infrastructurePath(normalizedPath, "multiproxyredis")) {
+			return Set.of("host", "port", "database", "username", "password", "line", "driver", "poolname",
+					"prefix", "dbindex")
 					.contains(normalized);
 		}
 		if (normalizedPath.startsWith("control.")) {
@@ -617,6 +801,10 @@ final class ProxyConfigurationFileService {
 			return lowered.startsWith("jdbc:") || lowered.matches("^[a-z][a-z0-9+.-]*://[^/@\\s]+:[^/@\\s]+@.*");
 		}
 		return false;
+	}
+
+	private static boolean infrastructurePath(String normalizedPath, String section) {
+		return normalizedPath.startsWith(section + ".") || normalizedPath.contains("." + section + ".");
 	}
 
 	private static void copyPermissions(Path source, Path destination) throws IOException {

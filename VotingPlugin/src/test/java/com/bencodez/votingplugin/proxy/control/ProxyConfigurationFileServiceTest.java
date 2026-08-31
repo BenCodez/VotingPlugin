@@ -50,8 +50,109 @@ class ProxyConfigurationFileServiceTest {
 		assertFalse(content.contains("control/credential.txt"));
 		assertFalse(content.contains("control/control.jar"));
 		assertFalse(content.contains("control/data"));
-		assertTrue(content.contains("redis.internal"));
+		assertFalse(content.contains("redis.internal"));
+		assertFalse(content.contains("redis-secret"));
 		assertTrue(content.contains(ProxyConfigurationFileService.REDACTED));
+	}
+
+	@Test
+	void masksAndRestoresSecretsNestedInSequences() throws Exception {
+		Path file = write("""
+				Hooks:
+				  - Name: primary
+				    Authorization: sequence-secret # sequence-secret
+				    Enabled: true
+				  - Redis:
+				      Host: redis.internal # redis.internal
+				      Port: 6379
+				      Password: nested-password
+				      SSL: true
+				Endpoints:
+				  - jdbc:mysql://sequence-user:sequence-password@db.internal/votes # sequence-password
+				Debug: false
+				""");
+		ProxyConfigurationFileService service = service(file);
+
+		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
+		assertFalse(current.content().contains("sequence-secret"));
+		assertFalse(current.content().contains("redis.internal"));
+		assertFalse(current.content().contains("nested-password"));
+		assertFalse(current.content().contains("sequence-user"));
+		assertFalse(current.content().contains("sequence-password"));
+		assertTrue(current.content().contains("SSL: true"));
+		assertTrue(current.content().contains(ProxyConfigurationFileService.REDACTED));
+
+		String proposal = current.content().replace("Debug: false", "Debug: true");
+		ProxyConfigurationFileService.Preview preview = service.preview(ProxyConfigurationFileService.FILE_NAME, proposal);
+		assertTrue(preview.resolvedContent().contains("Authorization: sequence-secret # sequence-secret"));
+		assertTrue(preview.resolvedContent().contains("Host: redis.internal # redis.internal"));
+		assertTrue(preview.resolvedContent().contains("Password: nested-password"));
+		assertTrue(preview.resolvedContent().contains("jdbc:mysql://sequence-user:sequence-password@db.internal/votes # sequence-password"));
+		assertTrue(preview.resolvedContent().contains("SSL: true"));
+		service.apply(ProxyConfigurationFileService.FILE_NAME, proposal, current.revision());
+		String applied = Files.readString(file);
+		assertTrue(applied.contains("Authorization: sequence-secret # sequence-secret"));
+		assertTrue(applied.contains("Host: redis.internal # redis.internal"));
+		assertTrue(applied.contains("Password: nested-password"));
+		assertTrue(applied.contains("jdbc:mysql://sequence-user:sequence-password@db.internal/votes # sequence-password"));
+		assertTrue(applied.contains("Debug: true"));
+	}
+
+	@Test
+	void masksAndRestoresMultiProxyRedisInfrastructure() throws Exception {
+		Path file = write("""
+				MultiProxyRedis:
+				  Host: multi-redis.internal # multi-redis.internal
+				  Port: 6380
+				  Username: multi-user
+				  Password: multi-password
+				  Db-Index: 2
+				  SSL: true
+				Debug: false
+				""");
+		ProxyConfigurationFileService service = service(file);
+
+		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
+		assertFalse(current.content().contains("multi-redis.internal"));
+		assertFalse(current.content().contains("6380"));
+		assertFalse(current.content().contains("multi-user"));
+		assertFalse(current.content().contains("multi-password"));
+		assertFalse(current.content().contains("Db-Index: 2"));
+		assertTrue(current.content().contains("SSL: true"));
+
+		String proposal = current.content().replace("Debug: false", "Debug: true");
+		ProxyConfigurationFileService.Preview preview = service.preview(ProxyConfigurationFileService.FILE_NAME, proposal);
+		assertTrue(preview.resolvedContent().contains("Host: multi-redis.internal # multi-redis.internal"));
+		assertTrue(preview.resolvedContent().contains("Port: 6380"));
+		assertTrue(preview.resolvedContent().contains("Username: multi-user"));
+		assertTrue(preview.resolvedContent().contains("Password: multi-password"));
+		assertTrue(preview.resolvedContent().contains("Db-Index: 2"));
+		service.apply(ProxyConfigurationFileService.FILE_NAME, proposal, current.revision());
+		assertTrue(Files.readString(file).contains("Host: multi-redis.internal # multi-redis.internal"));
+	}
+
+	@Test
+	void rejectsRemovedReorderedOrIntroducedSequenceSecretMarkers() throws Exception {
+		Path file = write("""
+				Hooks:
+				  - Name: primary
+				    Authorization: sequence-secret
+				  - Name: secondary
+				    Enabled: true
+				""");
+		ProxyConfigurationFileService service = service(file);
+		String proposal = service.read(ProxyConfigurationFileService.FILE_NAME).content();
+		String removed = "Hooks:\n  - Name: primary\n  - Name: secondary\n    Enabled: true\n";
+		String reordered = "Hooks:\n  - Name: secondary\n    Enabled: true\n  - Name: primary\n"
+				+ "    Authorization: " + ProxyConfigurationFileService.REDACTED + "\n";
+
+		assertThrows(IllegalArgumentException.class,
+				() -> service.preview(ProxyConfigurationFileService.FILE_NAME, removed));
+		assertThrows(IllegalArgumentException.class,
+				() -> service.preview(ProxyConfigurationFileService.FILE_NAME, reordered));
+		assertThrows(IllegalArgumentException.class,
+				() -> service.preview(ProxyConfigurationFileService.FILE_NAME,
+						proposal + "Unexpected:\n  - " + ProxyConfigurationFileService.REDACTED + "\n"));
 	}
 
 	@Test

@@ -15,6 +15,7 @@ import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -87,6 +88,7 @@ public final class ControlConnector implements AutoCloseable {
 	private volatile boolean closed;
 	private volatile boolean registered;
 	private volatile boolean configurationAccepted;
+	private volatile Set<String> acceptedCapabilities = Set.of();
 	private volatile int failures;
 	private volatile long snapshotSequence;
 	private volatile ScheduledFuture<?> scheduled;
@@ -400,9 +402,16 @@ public final class ControlConnector implements AutoCloseable {
 			if (!contains(accepted, "presence.snapshot")) {
 				throw new ProtocolException();
 			}
-			configurationAccepted = contains(accepted, CONFIGURATION_CAPABILITY)
-					|| contains(accepted, COMMUNICATION_TEST_CAPABILITY)
-					|| contains(accepted, PROXY_METHOD_CAPABILITY) || contains(accepted, PROXY_FILE_CAPABILITY);
+			LinkedHashSet<String> negotiated = new LinkedHashSet<>();
+			for (JsonElement capability : accepted) {
+				if (!capability.isJsonPrimitive() || !capability.getAsJsonPrimitive().isString()) {
+					throw new ProtocolException();
+				}
+				negotiated.add(capability.getAsString());
+			}
+			acceptedCapabilities = Set.copyOf(negotiated);
+			configurationAccepted = acceptedCapabilities.stream().anyMatch(Set.of(CONFIGURATION_CAPABILITY,
+					COMMUNICATION_TEST_CAPABILITY, PROXY_METHOD_CAPABILITY, PROXY_FILE_CAPABILITY)::contains);
 		}
 	}
 
@@ -717,10 +726,20 @@ public final class ControlConnector implements AutoCloseable {
 	private CompletableFuture<TaskResult> executeTask(UUID operationId, JsonObject task) {
 		JsonObject requested = task.getAsJsonObject("configuration");
 		if (isProxyFile(requested)) {
+			if (!acceptedCapabilities.contains(PROXY_FILE_CAPABILITY)) {
+				return completed(TaskResult.failure("UNSUPPORTED", "Proxy file control was not negotiated"));
+			}
 			return executeProxyFile(operationId, task, requested);
 		}
-		if (isCommunicationTest(requested)) return executeCommunicationTest(task, requested);
-		if (isProxyMethod(requested)) return executeProxyMethod(operationId, task, requested);
+		if (isCommunicationTest(requested)) return acceptedCapabilities.contains(COMMUNICATION_TEST_CAPABILITY)
+				? executeCommunicationTest(task, requested)
+				: completed(TaskResult.failure("UNSUPPORTED", "Communication testing was not negotiated"));
+		if (isProxyMethod(requested)) return acceptedCapabilities.contains(PROXY_METHOD_CAPABILITY)
+				? executeProxyMethod(operationId, task, requested)
+				: completed(TaskResult.failure("UNSUPPORTED", "Proxy method control was not negotiated"));
+		if (!acceptedCapabilities.contains(CONFIGURATION_CAPABILITY)) {
+			return completed(TaskResult.failure("UNSUPPORTED", "Proxy routing control was not negotiated"));
+		}
 		if (configurationService == null) return completed(TaskResult.failure("UNSUPPORTED", "Configuration control is unavailable"));
 		String type = requireString(task, "type");
 		try {
