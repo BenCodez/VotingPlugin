@@ -77,6 +77,43 @@ class HttpTransportRuntimeTest {
 	}
 
 	@Test
+	void proxyOutgoingQueueSurvivesRestartUntilBackendAcknowledges() throws Exception {
+		Path proxyDirectory = directory.resolve("proxy");
+		Path authorityDirectory = directory.resolve("authority");
+		Path queueDirectory = directory.resolve("outgoing");
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(proxyDirectory, "localhost");
+		HttpEnrollmentAuthority authority = new HttpEnrollmentAuthority(identity, authorityDirectory);
+		HttpProxyTransportServer first = new HttpProxyTransportServer(new InetSocketAddress("localhost", 0),
+				identity, authority, queueDirectory, ignored -> { });
+		assertTrue(first.send("lobby-1", JsonEnvelope.builder("durable").build()));
+		first.close();
+
+		CountDownLatch received = new CountDownLatch(1);
+		try (HttpProxyTransportServer restarted = new HttpProxyTransportServer(
+				new InetSocketAddress("localhost", 0), identity, authority, queueDirectory, ignored -> { })) {
+			restarted.start();
+			HttpConnectionCode code = authority.createConnectionCode("lobby-1", restarted.endpoint("localhost"),
+					Duration.ofMinutes(5));
+			HttpClientCredentialStore.ClientCredential credential = HttpBackendTransportConnector.enroll(code,
+					"lobby-1", directory.resolve("durable-client"));
+			try (HttpBackendTransportConnector connector = new HttpBackendTransportConnector(code, "lobby-1",
+					credential, envelope -> received.countDown())) {
+				connector.start();
+				assertTrue(received.await(8, TimeUnit.SECONDS));
+				long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+				while (countRegularFiles(queueDirectory) != 0L && System.nanoTime() < deadline) Thread.sleep(20);
+				assertEquals(0L, countRegularFiles(queueDirectory), "backend ACK must durably remove the delivery");
+			}
+		}
+	}
+
+	private static long countRegularFiles(Path root) throws Exception {
+		try (java.util.stream.Stream<Path> paths = java.nio.file.Files.walk(root)) {
+			return paths.filter(path -> java.nio.file.Files.isRegularFile(path, java.nio.file.LinkOption.NOFOLLOW_LINKS)).count();
+		}
+	}
+
+	@Test
 	void aggregatePacketBudgetSplitsLargeValidEnvelopes() {
 		java.util.List<HttpTransportProtocol.Delivery> candidates = new java.util.ArrayList<>();
 		for (int index = 0; index < 12; index++) candidates.add(new HttpTransportProtocol.Delivery(

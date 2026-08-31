@@ -2710,7 +2710,7 @@ public abstract class VotingPluginProxy {
 			httpEnrollmentAuthority = new HttpEnrollmentAuthority(identity, directory.toPath());
 			httpTransportServer = new HttpProxyTransportServer(
 					new InetSocketAddress(getConfig().getHttpHost(), getConfig().getHttpPort()), identity,
-					httpEnrollmentAuthority, received -> {
+					httpEnrollmentAuthority, directory.toPath().resolve("outgoing-v1"), received -> {
 						GlobalMessageProxyHandler handler = globalMessageProxyHandler;
 						if (handler == null) throw new IllegalStateException("HTTP message router is not ready");
 						handler.onMessage(received.envelope());

@@ -51,6 +51,30 @@ final class HttpTransportProtocol {
 		return output;
 	}
 
+	static byte[] storedDelivery(Delivery delivery) {
+		validId(delivery.id());
+		validateEnvelope(delivery.envelope());
+		JsonObject root = new JsonObject();
+		root.addProperty("v", VERSION);
+		root.addProperty("id", delivery.id());
+		root.addProperty("payload", Base64.getUrlEncoder().withoutPadding().encodeToString(
+				JsonEnvelopeCodec.encode(delivery.envelope()).getBytes(StandardCharsets.UTF_8)));
+		return root.toString().getBytes(StandardCharsets.UTF_8);
+	}
+
+	static Delivery parseStoredDelivery(byte[] body) {
+		if (body == null || body.length == 0 || body.length > MAX_ENVELOPE_BYTES * 2) throw bad();
+		try {
+			JsonObject root = JsonParser.parseString(new String(body, StandardCharsets.UTF_8)).getAsJsonObject();
+			requireOnly(root, "v", "id", "payload");
+			if (integer(root, "v") != VERSION) throw bad();
+			String id = string(root, "id", 64); validId(id);
+			byte[] payload = Base64.getUrlDecoder().decode(string(root, "payload", MAX_ENVELOPE_BYTES * 2));
+			if (payload.length == 0 || payload.length > MAX_ENVELOPE_BYTES) throw bad();
+			return new Delivery(id, JsonEnvelopeCodec.decode(new String(payload, StandardCharsets.UTF_8)));
+		} catch (RuntimeException invalid) { throw bad(); }
+	}
+
 	static byte[] response(String server, String session, long sequence, Collection<String> acks,
 			Collection<Delivery> messages) {
 		return request(server, session, sequence, acks, messages);
