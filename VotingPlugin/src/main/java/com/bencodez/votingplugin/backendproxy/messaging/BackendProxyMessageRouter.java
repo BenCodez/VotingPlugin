@@ -123,8 +123,8 @@ public class BackendProxyMessageRouter {
 		if (update.service != null && !update.service.isEmpty() && update.time > 0) {
 			VoteSite voteSite = plugin.getVoteSiteManager().getVoteSite(update.service, true);
 			if (voteSite == null) {
-				plugin.getLogger().warning("Ignoring VoteUpdate last vote time for unknown service site: "
-						+ update.service);
+				plugin.getLogger().warning("Ignoring VoteUpdate last vote time for unresolved or disabled service site: "
+						+ ServiceSiteValidator.sanitizeForLog(update.service));
 			} else {
 				user.setTime(voteSite, update.time);
 			}

@@ -56,10 +56,11 @@ class BackendProxyMessageRouterTest {
 	@Test
 	void ignoresLastVoteTimeForUnknownServiceSite() {
 		router.handleVoteUpdate(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
-				"unknown.example", LAST_VOTE_TIME, ""));
+				"unknown.example\nforged-entry", LAST_VOTE_TIME, ""));
 
 		verify(user, never()).setTime(any(), anyLong());
-		verify(logger).warning("Ignoring VoteUpdate last vote time for unknown service site: unknown.example");
+		verify(logger).warning("Ignoring VoteUpdate last vote time for unresolved or disabled service site: "
+				+ "unknown.example?forged-entry");
 		verify(plugin).setUpdate(true);
 	}
 
