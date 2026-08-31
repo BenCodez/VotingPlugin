@@ -18,6 +18,10 @@ import java.util.Locale;
 
 import org.junit.jupiter.api.Test;
 
+import com.bencodez.advancedcore.api.user.UserStorage;
+import com.bencodez.simpleapi.sql.data.DataValue;
+import com.bencodez.simpleapi.sql.data.DataValueInt;
+import com.bencodez.simpleapi.sql.data.DataValueString;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable;
@@ -230,6 +234,46 @@ class ControlInspectionServiceTest {
 		assertEquals("Zulu", result.getAsJsonArray("lastVotes").get(1).getAsJsonObject()
 				.get("siteKey").getAsString());
 		assertFalse(result.get("lastVotesTruncated").getAsBoolean());
+		assertFalse(result.get("storageRowAvailable").getAsBoolean());
+		assertTrue(result.getAsJsonArray("columns").isEmpty());
+	}
+
+	@Test void playerInspectionShowsExactAllowListedStorageValuesWithoutInternalPayloads() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		VotingPluginUser user = mock(VotingPluginUser.class, RETURNS_DEEP_STUBS);
+		when(plugin.getUserManager().userExist("ExactName")).thenReturn(true);
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser("ExactName")).thenReturn(user);
+		when(plugin.getStorageType()).thenReturn(UserStorage.SQLITE);
+		when(user.getUUID()).thenReturn("3b0c76c1-b7ef-4a2c-a565-b7bc662531f9");
+		when(user.getPlayerName()).thenReturn("ExactName");
+		when(user.getOfflineVotes()).thenReturn(new ArrayList<>());
+		when(user.getLastVotes()).thenReturn(new HashMap<>());
+		HashMap<String, DataValue> stored = new HashMap<>();
+		stored.put("Points", new DataValueInt(42));
+		stored.put("VoteShopLimitKeys", new DataValueInt(3));
+		stored.put("TopVoterIgnore", new DataValueString("true"));
+		stored.put("VoteShopLimitInjected", new DataValueString("must not leave through a dynamic field"));
+		stored.put("DailyTotal", new DataValueString("must not leave through an integer field"));
+		stored.put("Reminded", new DataValueString("must not leave through a boolean field"));
+		stored.put("OfflineVotes", new DataValueString("private serialized vote payload"));
+		stored.put("FuturePluginSecret", new DataValueString("must not leave the backend"));
+		when(user.getUserData().getValues()).thenReturn(stored);
+		ControlInspectionService service = new ControlInspectionService(plugin);
+
+		JsonObject result = service.inspect(JsonParser.parseString(
+				"{\"kind\":\"player\",\"filters\":{\"name\":\"ExactName\"}}")
+				.getAsJsonObject()).getAsJsonObject("result");
+		assertTrue(result.get("storageRowAvailable").getAsBoolean());
+		assertEquals("SQLITE", result.get("storage").getAsString());
+		assertEquals(List.of("Points", "TopVoterIgnore", "VoteShopLimitKeys"), result.getAsJsonArray("columns").asList().stream()
+				.map(value -> value.getAsJsonObject().get("name").getAsString()).toList());
+		assertEquals(List.of("42", "true", "3"), result.getAsJsonArray("columns").asList().stream()
+				.map(value -> value.getAsJsonObject().get("value").getAsString()).toList());
+		assertFalse(result.toString().contains("private serialized vote payload"));
+		assertFalse(result.toString().contains("must not leave through a dynamic field"));
+		assertFalse(result.toString().contains("must not leave through an integer field"));
+		assertFalse(result.toString().contains("must not leave through a boolean field"));
+		assertFalse(result.toString().contains("must not leave the backend"));
 	}
 
 	@Test void voteSiteHealthIncludesPersistedDetectedInboxWithoutVoteLogging() {

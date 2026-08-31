@@ -56,6 +56,27 @@ class ProxyControlResultStoreTest {
 		assertFalse(recovered.claimRequired());
 	}
 
+	@Test void managedFileReadLargerThanLegacyJournalLimitSurvivesRestart() throws Exception {
+		UUID operationId = UUID.fromString("00000000-0000-0000-0000-000000000099");
+		Route route = new Route("proxy-old", "Proxy Old", "VELOCITY", "7.1.2",
+				URI.create("https://control.example:8443"), "old-credential.txt", 30, 3000, 5000);
+		JsonObject result = new JsonObject();
+		result.addProperty("success", true);
+		JsonObject configuration = new JsonObject();
+		configuration.addProperty("domain", "file");
+		configuration.addProperty("fileName", ProxyConfigurationFileService.FILE_NAME);
+		configuration.addProperty("content", "a".repeat(300 * 1024));
+		result.add("configuration", configuration);
+
+		ProxyControlResultStore.save(directory, route,
+				Map.of(operationId, new StoredResult(result, true, false)));
+		ProxyControlResultStore.State recovered = ProxyControlResultStore.load(directory);
+
+		assertEquals(300 * 1024, recovered.results().get(operationId).result()
+				.getAsJsonObject("configuration").get("content").getAsString().length());
+		assertTrue(Files.size(directory.resolve(".control-proxy-pending-results.json")) > 256 * 1024);
+	}
+
 	@Test void symbolicProxyResultJournalIsRejected() throws Exception {
 		Path external = directory.resolve("external.json");
 		Files.writeString(external, "{}");

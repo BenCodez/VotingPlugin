@@ -1244,6 +1244,14 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 	}
 
+	/** Applies only proxy communication settings without reloading unrelated Bukkit configuration. */
+	public synchronized void reloadBackendProxyMethodFromControl() {
+		bungeeSettings.reloadData();
+		getOptions().setServer(bungeeSettings.getServer());
+		updateAdvancedCoreHook();
+		restartBackendProxyHandler();
+	}
+
 	/** Keeps one plugin-message listener for the plugin lifetime and atomically swaps its active backend handler. */
 	public synchronized void activateBackendPluginMessageHandler(GlobalMessageHandler target) {
 		backendPluginMessageTarget.set(target);

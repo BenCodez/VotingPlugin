@@ -96,6 +96,11 @@ public final class BackendConfigurationService {
 
 	private ApplyResult apply(String fileName, String proposedContent, String expectedRevision,
 			boolean restoreRedactedSecrets) throws IOException {
+		return apply(fileName, proposedContent, expectedRevision, restoreRedactedSecrets, reload);
+	}
+
+	private ApplyResult apply(String fileName, String proposedContent, String expectedRevision,
+			boolean restoreRedactedSecrets, ApplyAction applyAction) throws IOException {
 		Path target = resolve(fileName);
 		String current = readRaw(target, false);
 		if (expectedRevision == null || !revision(current).equals(expectedRevision)) throw new StaleRevisionException();
@@ -120,11 +125,11 @@ public final class BackendConfigurationService {
 				installed = true;
 				throw published;
 			}
-			reload.run(fileName);
+			applyAction.run(fileName);
 			String applied = readRaw(target, false);
 			String installedRevision = revision(preview.resolvedContent());
 			if (!revision(applied).equals(installedRevision)) {
-				reconcileConcurrentEdit(fileName, target);
+				reconcileConcurrentEdit(fileName, target, applyAction);
 				throw new StaleRevisionException();
 			}
 			return new ApplyResult(new Document(fileName, mask(parse(applied)), revision(applied)),
@@ -146,7 +151,7 @@ public final class BackendConfigurationService {
 						// still reload it so runtime and disk cannot diverge.
 						failure.addSuppressed(published);
 					}
-					reload.run(fileName);
+					applyAction.run(fileName);
 					rolledBack = true;
 				} catch (Exception rollbackFailure) {
 					failure.addSuppressed(rollbackFailure);
@@ -159,10 +164,10 @@ public final class BackendConfigurationService {
 		}
 	}
 
-	private void reconcileConcurrentEdit(String fileName, Path target) throws Exception {
+	private void reconcileConcurrentEdit(String fileName, Path target, ApplyAction applyAction) throws Exception {
 		for (int attempt = 0; attempt < 3; attempt++) {
 			String snapshotRevision = revision(readRaw(target, false));
-			reload.run(fileName);
+			applyAction.run(fileName);
 			if (revision(readRaw(target, false)).equals(snapshotRevision)) return;
 		}
 		throw new StaleRevisionException();
@@ -330,6 +335,11 @@ public final class BackendConfigurationService {
 
 	public ApplyResult applyQuickSetup(String preset, Map<String, String> options, String expectedRevision)
 			throws IOException {
+		return applyQuickSetup(preset, options, expectedRevision, reload);
+	}
+
+	ApplyResult applyQuickSetup(String preset, Map<String, String> options, String expectedRevision,
+			ApplyAction applyAction) throws IOException {
 		String fileName = quickSetupFile(preset, options);
 		String current = readRaw(resolve(fileName), false);
 		if (expectedRevision == null || !quickSetupRevision(preset, current).equals(expectedRevision)) {
@@ -338,7 +348,7 @@ public final class BackendConfigurationService {
 		QuickProposal proposal = quickProposal(preset, options, fileName, current);
 		// Quick proposals are generated from this fresh, unmasked server snapshot.
 		// Editor placeholder restoration must remain limited to client-authored YAML.
-		ApplyResult applied = apply(proposal.fileName(), proposal.content(), revision(current), false);
+		ApplyResult applied = apply(proposal.fileName(), proposal.content(), revision(current), false, applyAction);
 		if (!"sync-vote-sites".equals(preset)) return applied;
 		Document document = applied.document();
 		String installed = readRaw(resolve(fileName), false);

@@ -111,14 +111,21 @@ public final class BackendControlConnector implements AutoCloseable {
 	}
 
 	private void reloadConfiguration(String fileName) throws Exception {
+		reloadOnServerThread(() -> {
+			plugin.reloadFromControl();
+			if ("BungeeSettings.yml".equals(fileName)) plugin.restartBackendProxyHandler();
+		});
+	}
+
+	private void reloadProxyMethod(String ignored) throws Exception {
+		reloadOnServerThread(plugin::reloadBackendProxyMethodFromControl);
+	}
+
+	private void reloadOnServerThread(Runnable action) throws Exception {
 		Future<?> reload;
 		synchronized (operationLifecycle) {
 			if (closed) throw new IllegalStateException("Bukkit Control connector is stopping");
-			reload = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
-				plugin.reloadFromControl();
-				if ("BungeeSettings.yml".equals(fileName)) plugin.restartBackendProxyHandler();
-				return null;
-			});
+			reload = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> { action.run(); return null; });
 			activeReload = reload;
 		}
 		try {
@@ -504,10 +511,20 @@ public final class BackendControlConnector implements AutoCloseable {
 	private void persistIntent(UUID operationId, TaskResult anticipated, String attemptId) throws IOException {
 		JsonObject result = anticipated.json();
 		result.addProperty("attemptId", attemptId);
+		StoredResult previous;
 		synchronized (completed) {
-			completed.put(operationId, new StoredResult(result, anticipated.restartConnector(), false, false));
+			previous = completed.put(operationId,
+					new StoredResult(result, anticipated.restartConnector(), false, false));
 		}
-		persistCompleted();
+		try {
+			persistCompleted();
+		} catch (IOException failure) {
+			synchronized (completed) {
+				if (previous == null) completed.remove(operationId);
+				else completed.put(operationId, previous);
+			}
+			throw failure;
+		}
 	}
 
 	private void prepareWriteAheadIntents() throws IOException {
@@ -527,7 +544,17 @@ public final class BackendControlConnector implements AutoCloseable {
 				}
 			}
 		}
-		if (changed) persistCompleted();
+		if (changed) {
+			try {
+				persistCompleted();
+			} catch (IOException failure) {
+				synchronized (completed) {
+					completed.clear();
+					completed.putAll(snapshot);
+				}
+				throw failure;
+			}
+		}
 	}
 
 	static StoredResult abortedIntent(StoredResult pending) {
@@ -633,8 +660,8 @@ public final class BackendControlConnector implements AutoCloseable {
 		if ("APPLY".equals(type)) {
 			BackendConfigurationService.Preview preview = configurations.preview(fileName, content);
 			persistIntent(operationId,
-					TaskResult.file(configurations.proposedDocument(preview), preview.changes(), true, false,
-							"Config.yml".equals(fileName)), string(task, "attemptId"));
+					TaskResult.fileIntent(fileName, configurations.proposedDocument(preview).revision(),
+							preview.changes(), "Config.yml".equals(fileName)), string(task, "attemptId"));
 			BackendConfigurationService.ApplyResult applied = configurations.apply(fileName, content,
 					string(task, "expectedRevision"));
 			return TaskResult.file(applied.document(), applied.changes(), true, applied.rolledBack(),
@@ -664,8 +691,10 @@ public final class BackendControlConnector implements AutoCloseable {
 					TaskResult.quick(preset, options, configurations.proposedQuickSetupRevision(preset, preview), preview.changes(),
 							true, "Config.yml".equals(preview.proposal().fileName())), string(task, "attemptId"));
 			BackendConfigurationService.ApplyResult applied = configurations.applyQuickSetup(preset, options,
-					string(task, "expectedRevision"));
-			return TaskResult.quick(preset, options, applied.document().revision(), applied.changes(), true,
+					string(task, "expectedRevision"), "proxy-method".equals(preset)
+							? this::reloadProxyMethod : this::reloadConfiguration);
+			return TaskResult.quick(preset, options, applied.document().revision(), applied.changes(),
+					!"proxy-method".equals(preset),
 					"Config.yml".equals(applied.document().fileName()));
 		}
 		return TaskResult.failure("UNSUPPORTED_TASK", "Task type is unsupported");
@@ -902,10 +931,20 @@ public final class BackendControlConnector implements AutoCloseable {
 					List.copyOf(changes), reloaded, rolledBack, restartConnector);
 		}
 
+		private static TaskResult fileIntent(String fileName, String revision, List<String> changes,
+				boolean restartConnector) {
+			JsonObject config = new JsonObject();
+			config.addProperty("domain", "file");
+			config.addProperty("fileName", fileName);
+			return new TaskResult(true, "OK", "Configuration apply is pending", revision, config,
+					List.copyOf(changes), true, false, restartConnector);
+		}
+
 		private static TaskResult quick(String preset, Map<String, String> options, String revision,
 				List<String> changes, boolean reloaded) {
 			return quick(preset, options, revision, changes, reloaded, false);
 		}
+
 		private static TaskResult quick(String preset, Map<String, String> options, String revision,
 				List<String> changes, boolean reloaded, boolean restartConnector) {
 			JsonObject config = new JsonObject();

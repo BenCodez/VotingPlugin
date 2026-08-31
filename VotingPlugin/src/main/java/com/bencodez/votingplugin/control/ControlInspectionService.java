@@ -31,6 +31,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import com.google.gson.JsonParser;
 
 /**
  * Typed, read-only data surface used by VotingPlugin Control.
@@ -280,6 +281,18 @@ public final class ControlInspectionService {
 		result.add("lastVotes", lastVotes);
 		result.addProperty("lastVotesTruncated", lastVoteSnapshot.size() > MAX_ROWS);
 		result.addProperty("pendingOfflineVotes", Math.min(user.getOfflineVotes().size(), 100000));
+		try {
+			JsonObject exact = JsonParser.parseString(new ControlPlayerDataService(plugin).readLoaded(user).content())
+					.getAsJsonObject();
+			result.addProperty("storageRowAvailable", true);
+			result.addProperty("storage", exact.get("storage").getAsString());
+			result.add("columns", exact.getAsJsonArray("columns"));
+			result.addProperty("columnsTruncated", exact.get("columnsTruncated").getAsBoolean());
+		} catch (java.io.IOException failure) {
+			result.addProperty("storageRowAvailable", false);
+			result.add("columns", new JsonArray());
+			result.addProperty("columnsTruncated", false);
+		}
 		return result;
 	}
 

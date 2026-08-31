@@ -715,6 +715,45 @@ class BackendConfigurationServiceTest {
 				Map.of("method", "PLUGINMESSAGING")));
 	}
 
+	@Test void proxyMethodApplyUsesOnlyTheTargetedRuntimeAction() throws Exception {
+		Path settings = directory.resolve("BungeeSettings.yml");
+		Files.writeString(settings, "UseBungeecord: true\nServer: lobby\nBungeeMethod: PLUGINMESSAGING\n"
+				+ "PluginMessageChannel: vp:vp\nRedis:\n  Host: localhost\n  Port: 6379\n");
+		AtomicInteger fullReloads = new AtomicInteger();
+		AtomicInteger transportSwitches = new AtomicInteger();
+		BackendConfigurationService service = new BackendConfigurationService(directory, fullReloads::incrementAndGet);
+		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("proxy-method",
+				Map.of("method", "REDIS"));
+
+		service.applyQuickSetup("proxy-method", Map.of("method", "REDIS"), preview.revision(),
+				ignored -> transportSwitches.incrementAndGet());
+
+		assertEquals(0, fullReloads.get());
+		assertEquals(1, transportSwitches.get());
+		assertTrue(Files.readString(settings).contains("BungeeMethod: REDIS"));
+	}
+
+	@Test void targetedProxyMethodFailureRollsBackWithTheSameTargetedAction() throws Exception {
+		Path settings = directory.resolve("BungeeSettings.yml");
+		String original = "UseBungeecord: true\nServer: lobby\nBungeeMethod: PLUGINMESSAGING\n"
+				+ "PluginMessageChannel: vp:vp\nRedis:\n  Host: localhost\n  Port: 6379\n";
+		Files.writeString(settings, original);
+		AtomicInteger targeted = new AtomicInteger();
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("proxy-method",
+				Map.of("method", "REDIS"));
+
+		BackendConfigurationService.ApplyFailureException failure = assertThrows(
+				BackendConfigurationService.ApplyFailureException.class,
+				() -> service.applyQuickSetup("proxy-method", Map.of("method", "REDIS"), preview.revision(), ignored -> {
+					if (targeted.incrementAndGet() == 1) throw new IOException("transport activation failed");
+				}));
+
+		assertTrue(failure.rolledBack());
+		assertEquals(2, targeted.get());
+		assertEquals(original, Files.readString(settings));
+	}
+
 	@Test void voteSitesSyncAddsAndUpdatesDefinitionsWithoutTouchingRewardsOrTargetOnlySites() throws Exception {
 		Path voteSites = directory.resolve("VoteSites.yml");
 		Files.writeString(voteSites, "VoteSites:\n"

@@ -25,7 +25,9 @@ import com.google.gson.JsonParser;
 /** Durable result journal for proxy-routing operations accepted by a specific Control node. */
 final class ProxyControlResultStore {
 	private static final int VERSION = 2;
-	private static final int MAX_BYTES = 256 * 1024;
+	/** Matches the bounded Control response envelope, including escaped managed-file content. */
+	private static final int MAX_BYTES = 4 * 1024 * 1024;
+	private static final int MAX_RESULT_BYTES = MAX_BYTES;
 	private static final int MAX_RESULTS = 128;
 	private static final String FILE_NAME = ".control-proxy-pending-results.json";
 
@@ -68,8 +70,10 @@ final class ProxyControlResultStore {
 				UUID operationId = UUID.fromString(string(item, "operationId"));
 				if (!item.has("committed") || !item.get("committed").isJsonPrimitive()
 						|| !item.has("claimRequired") || !item.get("claimRequired").isJsonPrimitive()) throw invalid();
+				JsonObject result = object(item, "result");
+				if (result.toString().getBytes(StandardCharsets.UTF_8).length > MAX_RESULT_BYTES) throw invalid();
 				StoredResult previous = results.put(operationId,
-						new StoredResult(object(item, "result").deepCopy(), item.get("committed").getAsBoolean(),
+						new StoredResult(result.deepCopy(), item.get("committed").getAsBoolean(),
 								item.get("claimRequired").getAsBoolean()));
 				if (previous != null) throw invalid();
 			}
