@@ -173,6 +173,10 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 	}
 	@Override public void close() {
 		running.getAndSet(false);
+		// Revoke this connector's journal writer before a replacement snapshots it.
+		// In-flight transitions serialize with seal(): either COMPLETED is already
+		// durable, or the delivery remains durably RUNNING and fail-closed.
+		if (inboundDeliveries != null) inboundDeliveries.seal();
 		Thread current = poller; if (current != null) current.interrupt();
 		callbackExecutor.shutdown(); try { if (!callbackExecutor.awaitTermination(5, TimeUnit.SECONDS)) callbackExecutor.shutdownNow(); }
 		catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); callbackExecutor.shutdownNow(); }

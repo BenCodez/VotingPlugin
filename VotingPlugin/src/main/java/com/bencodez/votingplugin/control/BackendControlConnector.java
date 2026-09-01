@@ -112,11 +112,12 @@ public final class BackendControlConnector implements AutoCloseable {
 
 	private void reloadConfiguration(String fileName) throws Exception {
 		Future<?> reload;
+		long validationDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(29);
 		synchronized (operationLifecycle) {
 			if (closed) throw new IllegalStateException("Bukkit Control connector is stopping");
 			reload = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
 				plugin.reloadFromControl();
-				if ("BungeeSettings.yml".equals(fileName)) plugin.restartBackendProxyHandler();
+				if ("BungeeSettings.yml".equals(fileName)) plugin.restartBackendProxyHandler(validationDeadline);
 				return null;
 			});
 			activeReload = reload;

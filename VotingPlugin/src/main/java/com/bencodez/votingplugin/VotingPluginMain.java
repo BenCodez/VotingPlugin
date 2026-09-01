@@ -1215,6 +1215,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	/** Recreates proxy transports after Control applies BungeeSettings.yml. */
 	public synchronized void restartBackendProxyHandler() {
+		restartBackendProxyHandler(System.nanoTime() + TimeUnit.SECONDS.toNanos(25));
+	}
+
+	/** Recreates proxy transports while preserving the caller's end-to-end validation deadline. */
+	public synchronized void restartBackendProxyHandler(long validationDeadlineNanos) {
 		BackendProxyHandler previous = backendProxyHandler;
 		if (!bungeeSettings.isUseBungeecoord()) {
 			backendProxyHandler = null;
@@ -1229,7 +1234,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		BackendProxyHandler replacement = new BackendProxyHandler(this, backendProcessedVoteCache);
 		try {
 			replacement.load();
-			replacement.validateTransport();
+			replacement.validateTransport(validationDeadlineNanos);
 			if (previous != null) previous.completeRedisHandoff(replacement);
 		} catch (RuntimeException failure) {
 			replacement.close();

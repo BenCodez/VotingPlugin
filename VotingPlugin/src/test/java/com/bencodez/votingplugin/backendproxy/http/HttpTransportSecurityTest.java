@@ -81,6 +81,19 @@ class HttpTransportSecurityTest {
 	}
 
 	@Test
+	void sealedInboundStoreCannotChangeAfterOwnershipHandoff() throws Exception {
+		Path credentials = directory.resolve("sealed-client");
+		Files.createDirectories(credentials);
+		String id = java.util.UUID.randomUUID().toString();
+		HttpInboundDeliveryStore store = new HttpInboundDeliveryStore(credentials);
+		store.reserve(id);
+		store.markRunning(id);
+		store.seal();
+		assertThrows(java.io.IOException.class, () -> store.markCompleted(id));
+		assertEquals(HttpInboundDeliveryStore.State.RUNNING, new HttpInboundDeliveryStore(credentials).state(id));
+	}
+
+	@Test
 	void identityIsDurableAndPinsRejectTheWrongServer() throws Exception {
 		HttpTlsIdentity created = HttpTlsIdentity.loadOrCreate(directory, "localhost");
 		HttpTlsIdentity loaded = HttpTlsIdentity.loadOrCreate(directory, "localhost");

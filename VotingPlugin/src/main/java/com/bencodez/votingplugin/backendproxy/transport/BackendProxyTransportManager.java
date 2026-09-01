@@ -70,8 +70,13 @@ public class BackendProxyTransportManager {
 	}
 
 	public void validate() {
+		validate(System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(25));
+	}
+
+	public void validate(long deadlineNanos) {
 		if (transport == null) throw new IllegalStateException("Backend proxy transport was not initialized");
-		transport.validate();
+		if (transport instanceof HttpBackendProxyTransport http) http.validate(deadlineNanos);
+		else transport.validate();
 	}
 
 	public void prepareForReplacement() {

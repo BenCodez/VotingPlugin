@@ -21,6 +21,7 @@ final class HttpInboundDeliveryStore {
 	private static final int MAX_ENTRIES = HttpTransportProtocol.MAX_QUEUE;
 	private final Path root;
 	private final Map<String, State> entries = new LinkedHashMap<>();
+	private boolean sealed;
 
 	HttpInboundDeliveryStore(Path credentialDirectory) throws IOException {
 		Path credentials = credentialDirectory.toAbsolutePath().normalize();
@@ -44,6 +45,7 @@ final class HttpInboundDeliveryStore {
 	synchronized State state(String id) { return entries.get(canonical(id)); }
 
 	synchronized void reserve(String id) throws IOException {
+		requireWritable();
 		id = canonical(id);
 		State existing = entries.get(id);
 		if (existing == State.RESERVED) return;
@@ -67,8 +69,10 @@ final class HttpInboundDeliveryStore {
 
 	synchronized void markRunning(String id) throws IOException { transition(id, State.RESERVED, State.RUNNING); }
 	synchronized void markCompleted(String id) throws IOException { transition(id, State.RUNNING, State.COMPLETED); }
+	synchronized void seal() { sealed = true; }
 
 	synchronized void remove(String id) throws IOException {
+		requireWritable();
 		id = canonical(id);
 		State state = entries.get(id);
 		if (state == null) return;
@@ -80,6 +84,7 @@ final class HttpInboundDeliveryStore {
 	synchronized Map<String, State> snapshot() { return Map.copyOf(entries); }
 
 	private void transition(String id, State expected, State replacement) throws IOException {
+		requireWritable();
 		id = canonical(id);
 		if (entries.get(id) != expected) throw new IOException("HTTP inbound delivery fence state is invalid");
 		requireRoot();
@@ -129,6 +134,9 @@ final class HttpInboundDeliveryStore {
 	}
 
 	private Path file(String id, State state) { return root.resolve(id + state.suffix); }
+	private void requireWritable() throws IOException {
+		if (sealed) throw new IOException("HTTP inbound delivery store ownership has ended");
+	}
 	private static void move(Path source, Path target) throws IOException {
 		try { Files.move(source, target, StandardCopyOption.ATOMIC_MOVE); }
 		catch (java.nio.file.AtomicMoveNotSupportedException unsupported) { Files.move(source, target); }

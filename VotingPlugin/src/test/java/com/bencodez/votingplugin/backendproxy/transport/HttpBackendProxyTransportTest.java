@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.backendproxy.transport;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -87,6 +88,44 @@ class HttpBackendProxyTransportTest {
 		long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt);
 		try { assertTrue(elapsedMillis < 500, "close blocked the calling thread for " + elapsedMillis + " ms"); }
 		finally { release.countDown(); blocked.join(TimeUnit.SECONDS.toMillis(1)); }
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void validationWaitsForThePreviousDirectoryOwner() throws Exception {
+		Path credentials = directory.resolve("http");
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("proxy-owner"), "proxy.example.test");
+		HttpConnectionCode code = new HttpConnectionCode("lobby-1", URI.create("https://proxy.example.test:1297/"),
+				identity.serverCertificatePin(), identity.caCertificatePin(), Instant.now().plusSeconds(60), "C".repeat(43));
+		HttpClientCredentialStore.saveEnrolled(credentials, code, identity.issueClientCertificate("lobby-1"));
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BungeeSettings settings = mock(BungeeSettings.class);
+		when(plugin.getDataFolder()).thenReturn(directory.toFile());
+		when(plugin.getBungeeSettings()).thenReturn(settings);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		when(settings.getServer()).thenReturn("lobby-1");
+		when(settings.getHttpConnectionCode()).thenReturn("");
+		java.lang.reflect.Field ownersField = HttpBackendProxyTransport.class.getDeclaredField("DIRECTORY_OWNERS");
+		ownersField.setAccessible(true);
+		var owners = (java.util.concurrent.ConcurrentHashMap<Path, java.util.concurrent.Semaphore>) ownersField.get(null);
+		java.util.concurrent.Semaphore predecessor = new java.util.concurrent.Semaphore(0);
+		owners.put(credentials.toAbsolutePath().normalize(), predecessor);
+		HttpBackendProxyTransport transport = new HttpBackendProxyTransport(plugin);
+		transport.start(mock(GlobalMessageHandler.class));
+		java.util.concurrent.atomic.AtomicReference<Throwable> failure = new java.util.concurrent.atomic.AtomicReference<>();
+		CountDownLatch finished = new CountDownLatch(1);
+		Thread validation = new Thread(() -> {
+			try { transport.validate(); }
+			catch (Throwable thrown) { failure.set(thrown); }
+			finally { finished.countDown(); }
+		});
+		validation.start();
+		assertFalse(finished.await(150, TimeUnit.MILLISECONDS), "validation published before journal handoff");
+		predecessor.release();
+		assertTrue(finished.await(3, TimeUnit.SECONDS));
+		validation.join(TimeUnit.SECONDS.toMillis(1));
+		assertNull(failure.get());
+		transport.close();
 	}
 
 	private static HttpConnectionCode code(String serverId, Instant expiry) {

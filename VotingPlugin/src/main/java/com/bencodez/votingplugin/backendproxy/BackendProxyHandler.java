@@ -110,10 +110,15 @@ public class BackendProxyHandler implements Listener {
 
 	/** Fails a configuration apply when its selected transport did not initialize. */
 	public void validateTransport() {
+		validateTransport(System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(25));
+	}
+
+	/** Validates transport startup without extending the caller's existing deadline. */
+	public void validateTransport(long deadlineNanos) {
 		if (method == null || globalMessageHandler == null || presenceManager == null) {
 			throw new IllegalStateException("Backend proxy handler initialization failed");
 		}
-		transportManager.validate();
+		transportManager.validate(deadlineNanos);
 	}
 
 	/** Completes the no-loss/no-duplicate same-Redis subscriber handoff after validation. */
