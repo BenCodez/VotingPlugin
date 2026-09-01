@@ -29,6 +29,10 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	private volatile RuntimeException startupFailure;
 	private volatile boolean started;
 	private volatile boolean closed;
+	private Path configuredDirectory;
+	private String configuredServerId;
+	private String configuredConnectionCode;
+	private GlobalMessageHandler configuredMessageHandler;
 	private Semaphore directoryOwner;
 	private final java.util.concurrent.atomic.AtomicBoolean queueWarning = new java.util.concurrent.atomic.AtomicBoolean();
 
@@ -41,12 +45,27 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 		Path directory = plugin.getDataFolder().toPath().resolve("http");
 		String serverId = plugin.getBungeeSettings().getServer();
 		String connectionCode = plugin.getBungeeSettings().getHttpConnectionCode();
+		start(directory, serverId, connectionCode, messageHandler);
+	}
+
+	private void start(Path directory, String serverId, String connectionCode,
+			GlobalMessageHandler messageHandler) {
 		validateConfiguration(directory, serverId, connectionCode);
+		configuredDirectory = directory;
+		configuredServerId = serverId;
+		configuredConnectionCode = connectionCode;
+		configuredMessageHandler = messageHandler;
 		started = true;
 		worker = new Thread(() -> initialize(directory, serverId, connectionCode, messageHandler),
 				"VotingPlugin-HTTP-Backend-Setup");
 		worker.setDaemon(true);
 		worker.start();
+	}
+
+	HttpBackendProxyTransport recreatePrepared() {
+		HttpBackendProxyTransport restored = new HttpBackendProxyTransport(plugin);
+		restored.start(configuredDirectory, configuredServerId, configuredConnectionCode, configuredMessageHandler);
+		return restored;
 	}
 
 	private void initialize(Path directory, String serverId, String configuredCode,

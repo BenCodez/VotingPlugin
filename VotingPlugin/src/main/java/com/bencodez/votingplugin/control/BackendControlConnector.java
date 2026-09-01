@@ -22,6 +22,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.regex.Pattern;
 
@@ -112,12 +113,20 @@ public final class BackendControlConnector implements AutoCloseable {
 
 	private void reloadConfiguration(String fileName) throws Exception {
 		long validationDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(29);
+		AtomicBoolean preparationAbandoned = new AtomicBoolean();
+		AtomicReference<VotingPluginMain.BackendProxyRestart> preparedRestart = new AtomicReference<>();
 		Future<VotingPluginMain.BackendProxyRestart> preparation;
 		synchronized (operationLifecycle) {
 			if (closed) throw new IllegalStateException("Bukkit Control connector is stopping");
 			preparation = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
 				plugin.reloadFromControl();
-				return "BungeeSettings.yml".equals(fileName) ? plugin.prepareBackendProxyHandlerRestart() : null;
+				VotingPluginMain.BackendProxyRestart prepared = "BungeeSettings.yml".equals(fileName)
+						? plugin.prepareBackendProxyHandlerRestart() : null;
+				preparedRestart.set(prepared);
+				if (prepared != null && preparationAbandoned.get()) {
+					plugin.abortBackendProxyHandlerRestart(prepared);
+				}
+				return prepared;
 			});
 			activeReload = preparation;
 		}
@@ -140,8 +149,11 @@ public final class BackendControlConnector implements AutoCloseable {
 			}
 			publication.get(remaining(validationDeadline), TimeUnit.NANOSECONDS);
 		} catch (Exception failure) {
-			// A timed-out Bukkit publication must not remain queued ahead of rollback.
+			// Timed-out Bukkit work must not remain queued ahead of configuration rollback.
+			preparationAbandoned.set(true);
+			preparation.cancel(false);
 			if (publication != null) publication.cancel(false);
+			if (restart == null) restart = preparedRestart.get();
 			if (restart != null) {
 				VotingPluginMain.BackendProxyRestart prepared = restart;
 				try {

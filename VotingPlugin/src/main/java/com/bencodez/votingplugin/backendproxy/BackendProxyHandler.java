@@ -102,10 +102,17 @@ public class BackendProxyHandler implements Listener {
 	}
 
 	/** Releases a same-method subscriber/listener before its replacement starts. */
-	public void prepareForReplacement(BungeeMethod replacementMethod) {
+	public boolean prepareForReplacement(BungeeMethod replacementMethod) {
 		if (method == replacementMethod && method != BungeeMethod.PLUGINMESSAGING && method != BungeeMethod.REDIS) {
 			transportManager.prepareForReplacement();
+			return method == BungeeMethod.HTTP;
 		}
+		return false;
+	}
+
+	/** Restores a prepared HTTP transport when its replacement fails validation. */
+	public void restoreAfterFailedReplacement() {
+		transportManager.restorePreparedTransport();
 	}
 
 	/** Fails a configuration apply when its selected transport did not initialize. */

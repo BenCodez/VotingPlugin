@@ -19,6 +19,7 @@ public class BackendProxyTransportManager {
 	private final VotingPluginMain plugin;
 	private final ProcessedVoteCache processedVoteCache;
 	private BackendProxyTransport transport;
+	private BackendProxyTransport preparedTransport;
 
 	public BackendProxyTransportManager(VotingPluginMain plugin) {
 		this(plugin, new ProcessedVoteCache());
@@ -67,6 +68,10 @@ public class BackendProxyTransportManager {
 			transport.close();
 			transport = null;
 		}
+		if (preparedTransport != null) {
+			preparedTransport.close();
+			preparedTransport = null;
+		}
 	}
 
 	public void validate() {
@@ -82,8 +87,19 @@ public class BackendProxyTransportManager {
 	public void prepareForReplacement() {
 		if (transport != null) {
 			transport.prepareForReplacement();
+			preparedTransport = transport;
 			transport = null;
 		}
+	}
+
+	public void restorePreparedTransport() {
+		if (transport != null || preparedTransport == null) return;
+		if (preparedTransport instanceof HttpBackendProxyTransport http) {
+			transport = http.recreatePrepared();
+		} else {
+			throw new IllegalStateException("Prepared backend proxy transport cannot be restored");
+		}
+		preparedTransport = null;
 	}
 
 	public void closeRedisForHandoff() {

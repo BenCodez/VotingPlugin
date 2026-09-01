@@ -1235,30 +1235,34 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		private final BackendProxyHandler previous;
 		private final BackendProxyHandler replacement;
 		private final boolean disabled;
+		private final boolean previousPrepared;
 		private boolean finished;
 
-		private BackendProxyRestart(BackendProxyHandler previous, BackendProxyHandler replacement, boolean disabled) {
+		private BackendProxyRestart(BackendProxyHandler previous, BackendProxyHandler replacement, boolean disabled,
+				boolean previousPrepared) {
 			this.previous = previous;
 			this.replacement = replacement;
 			this.disabled = disabled;
+			this.previousPrepared = previousPrepared;
 		}
 	}
 
 	public synchronized BackendProxyRestart prepareBackendProxyHandlerRestart() {
 		BackendProxyHandler previous = backendProxyHandler;
 		if (!bungeeSettings.isUseBungeecoord()) {
-			return new BackendProxyRestart(previous, null, true);
+			return new BackendProxyRestart(previous, null, true, false);
 		}
 		BungeeMethod replacementMethod = BungeeMethod.getByName(bungeeSettings.getBungeeMethod());
-		if (previous != null) previous.prepareForReplacement(replacementMethod);
+		boolean previousPrepared = previous != null && previous.prepareForReplacement(replacementMethod);
 		BackendProxyHandler replacement = new BackendProxyHandler(this, backendProcessedVoteCache);
 		try {
 			replacement.load();
 		} catch (RuntimeException failure) {
 			replacement.close();
+			if (previousPrepared) previous.restoreAfterFailedReplacement();
 			throw failure;
 		}
-		return new BackendProxyRestart(previous, replacement, false);
+		return new BackendProxyRestart(previous, replacement, false, previousPrepared);
 	}
 
 	public void validateBackendProxyHandlerRestart(BackendProxyRestart restart, long validationDeadlineNanos) {
@@ -1292,6 +1296,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	public synchronized void abortBackendProxyHandlerRestart(BackendProxyRestart restart) {
 		if (restart == null || restart.finished) return;
 		if (restart.replacement != null) restart.replacement.close();
+		if (restart.previousPrepared && backendProxyHandler == restart.previous) {
+			restart.previous.restoreAfterFailedReplacement();
+		}
 		restart.finished = true;
 	}
 
