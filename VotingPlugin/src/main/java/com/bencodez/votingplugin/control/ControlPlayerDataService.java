@@ -26,7 +26,7 @@ final class ControlPlayerDataService {
 			"BestWeekVoteStreak", "MonthVoteStreak", "BestMonthVoteStreak", "HighestDailyTotal",
 			"HighestMonthlyTotal", "HighestWeeklyTotal", "LastMonthTotal", "LastWeeklyTotal", "LastDailyTotal");
 	private static final Pattern SAFE_DYNAMIC_INTEGER_COLUMN = Pattern.compile(
-			"(?:MonthTotal_[0-9]{4}_[0-9]{1,2}|VoteShopLimit[A-Za-z0-9_-]{1,64})");
+			"(?:MonthTotal-(?:JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER)-[0-9]{4}|VoteShopLimit[A-Za-z0-9_-]{1,64})");
 	private final VotingPluginMain plugin;
 
 	ControlPlayerDataService(VotingPluginMain plugin) {

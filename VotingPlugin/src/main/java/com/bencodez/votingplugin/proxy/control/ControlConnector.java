@@ -824,7 +824,11 @@ public final class ControlConnector implements AutoCloseable {
 			String content = requireString(requested, "content");
 			ProxyConfigurationFileService.Preview preview = fileConfigurationService.preview(fileName, content);
 			if ("PREVIEW".equals(type)) {
-				return completed(TaskResult.file(fileConfigurationService.read(fileName), preview.changes(), false, false));
+				ProxyConfigurationFileService.Document current = fileConfigurationService.read(fileName);
+				if (!preview.revision().equals(current.revision())) {
+					throw new ProxyConfigurationFileService.StaleRevisionException();
+				}
+				return completed(TaskResult.file(current, preview.changes(), false, false));
 			}
 			if (!"APPLY".equals(type)) return completed(TaskResult.failure("UNSUPPORTED_TASK", "Task type is unsupported"));
 			persistIntent(operationId, TaskResult.fileIntent(fileName,

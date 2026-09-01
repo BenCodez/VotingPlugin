@@ -35,6 +35,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 class ControlConnectorTest {
 	@TempDir Path dataDirectory;
@@ -314,6 +315,45 @@ class ControlConnectorTest {
 		assertEquals("bungeeconfig.yml", configuration.get("fileName").getAsString());
 		assertTrue(configuration.get("content").getAsString().contains(ProxyConfigurationFileService.REDACTED));
 		assertFalse(transport.requests.stream().map(Request::body).anyMatch(body -> body.contains("local-secret")));
+	}
+
+	@Test void proxyFilePreviewRejectsARevisionThatChangesAfterCalculation() throws Exception {
+		Path file = dataDirectory.resolve(ProxyConfigurationFileService.FILE_NAME);
+		Files.writeString(file, "Debug: false\n");
+		ProxyConfigurationFileService actual = new ProxyConfigurationFileService(file,
+				ControlConnectorTest::atomicMove);
+		ProxyConfigurationFileService service = mock(ProxyConfigurationFileService.class);
+		AtomicBoolean mutated = new AtomicBoolean();
+		when(service.preview(ProxyConfigurationFileService.FILE_NAME, "Debug: true\n")).thenAnswer(invocation -> {
+			ProxyConfigurationFileService.Preview preview = actual.preview(
+					invocation.getArgument(0), invocation.getArgument(1));
+			if (!mutated.compareAndSet(false, true)) return preview;
+			try {
+				Files.writeString(file, "Debug: changed-locally\n");
+			} catch (java.io.IOException failure) {
+				throw new AssertionError(failure);
+			}
+			return preview;
+		});
+		when(service.read(ProxyConfigurationFileService.FILE_NAME)).thenAnswer(invocation ->
+				actual.read(invocation.getArgument(0)));
+		connector.close();
+		connector = fileConnector(service);
+		transport.acceptProxyFiles = true;
+		transport.operationClaim = CompletableFuture.completedFuture(new Response(200,
+				"{\"operationId\":\"00000000-0000-0000-0000-000000000099\","
+						+ "\"attemptId\":\"00000000-0000-0000-0000-000000000199\","
+						+ "\"type\":\"PREVIEW\",\"configuration\":{\"domain\":\"file\","
+						+ "\"fileName\":\"bungeeconfig.yml\",\"content\":\"Debug: true\\n\"}}"));
+
+		connector.cycle();
+
+		JsonObject result = submittedResult();
+		assertTrue(mutated.get());
+		assertFalse(result.get("success").getAsBoolean());
+		assertEquals("STALE_REVISION", result.get("code").getAsString());
+		assertFalse(result.has("configuration"));
+		assertEquals("Debug: changed-locally\n", Files.readString(file));
 	}
 
 	@Test void proxyFileTaskIsRejectedWhenOnlyRoutingControlWasNegotiated() throws Exception {

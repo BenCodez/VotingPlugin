@@ -250,6 +250,8 @@ class ControlInspectionServiceTest {
 		when(user.getLastVotes()).thenReturn(new HashMap<>());
 		HashMap<String, DataValue> stored = new HashMap<>();
 		stored.put("Points", new DataValueInt(42));
+		stored.put("MonthTotal-JANUARY-2025", new DataValueInt(11));
+		stored.put("MonthTotal-DECEMBER-2026", new DataValueInt(12));
 		stored.put("VoteShopLimitKeys", new DataValueInt(3));
 		stored.put("TopVoterIgnore", new DataValueString("true"));
 		stored.put("VoteShopLimitInjected", new DataValueString("must not leave through a dynamic field"));
@@ -257,6 +259,12 @@ class ControlInspectionServiceTest {
 		stored.put("Reminded", new DataValueString("must not leave through a boolean field"));
 		stored.put("OfflineVotes", new DataValueString("private serialized vote payload"));
 		stored.put("FuturePluginSecret", new DataValueString("must not leave the backend"));
+		stored.put("MonthTotal_2025_1", new DataValueInt(91));
+		stored.put("MonthTotal-JANUARY-25", new DataValueInt(92));
+		stored.put("MonthTotal-JANUARY-2025-extra", new DataValueInt(93));
+		stored.put("MonthTotal-january-2025", new DataValueInt(94));
+		stored.put("MonthTotal-SMARCH-2025", new DataValueInt(95));
+		stored.put("MonthTotal-FEBRUARY-2025", new DataValueString("wrong type"));
 		when(user.getUserData().getValues()).thenReturn(stored);
 		ControlInspectionService service = new ControlInspectionService(plugin);
 
@@ -265,15 +273,52 @@ class ControlInspectionServiceTest {
 				.getAsJsonObject()).getAsJsonObject("result");
 		assertTrue(result.get("storageRowAvailable").getAsBoolean());
 		assertEquals("SQLITE", result.get("storage").getAsString());
-		assertEquals(List.of("Points", "TopVoterIgnore", "VoteShopLimitKeys"), result.getAsJsonArray("columns").asList().stream()
+		assertEquals(List.of("MonthTotal-DECEMBER-2026", "MonthTotal-JANUARY-2025", "Points", "TopVoterIgnore", "VoteShopLimitKeys"), result.getAsJsonArray("columns").asList().stream()
 				.map(value -> value.getAsJsonObject().get("name").getAsString()).toList());
-		assertEquals(List.of("42", "true", "3"), result.getAsJsonArray("columns").asList().stream()
+		assertEquals(List.of("12", "11", "42", "true", "3"), result.getAsJsonArray("columns").asList().stream()
 				.map(value -> value.getAsJsonObject().get("value").getAsString()).toList());
 		assertFalse(result.toString().contains("private serialized vote payload"));
 		assertFalse(result.toString().contains("must not leave through a dynamic field"));
 		assertFalse(result.toString().contains("must not leave through an integer field"));
 		assertFalse(result.toString().contains("must not leave through a boolean field"));
 		assertFalse(result.toString().contains("must not leave the backend"));
+		assertFalse(result.toString().contains("MonthTotal_2025_1"));
+		assertFalse(result.toString().contains("MonthTotal-JANUARY-25"));
+		assertFalse(result.toString().contains("MonthTotal-JANUARY-2025-extra"));
+		assertFalse(result.toString().contains("MonthTotal-january-2025"));
+		assertFalse(result.toString().contains("MonthTotal-SMARCH-2025"));
+		assertFalse(result.toString().contains("MonthTotal-FEBRUARY-2025"));
+	}
+
+	@Test void playerInspectionBoundsHistoricalMonthTotalsDeterministically() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		VotingPluginUser user = mock(VotingPluginUser.class, RETURNS_DEEP_STUBS);
+		when(plugin.getUserManager().userExist("ExactName")).thenReturn(true);
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser("ExactName")).thenReturn(user);
+		when(plugin.getStorageType()).thenReturn(UserStorage.SQLITE);
+		when(user.getUUID()).thenReturn("3b0c76c1-b7ef-4a2c-a565-b7bc662531f9");
+		when(user.getPlayerName()).thenReturn("ExactName");
+		when(user.getOfflineVotes()).thenReturn(new ArrayList<>());
+		when(user.getLastVotes()).thenReturn(new HashMap<>());
+		HashMap<String, DataValue> stored = new HashMap<>();
+		List<String> expected = new ArrayList<>();
+		for (int index = 0; index <= ControlInspectionService.MAX_ROWS; index++) {
+			String name = "MonthTotal-" + java.time.Month.of(index % 12 + 1).name() + "-" + (2000 + index / 12);
+			stored.put(name, new DataValueInt(index));
+			expected.add(name);
+		}
+		expected.sort(String.CASE_INSENSITIVE_ORDER.thenComparing(java.util.Comparator.naturalOrder()));
+		when(user.getUserData().getValues()).thenReturn(stored);
+		ControlInspectionService service = new ControlInspectionService(plugin);
+
+		JsonObject result = service.inspect(JsonParser.parseString(
+				"{\"kind\":\"player\",\"filters\":{\"name\":\"ExactName\"}}")
+				.getAsJsonObject()).getAsJsonObject("result");
+
+		assertEquals(expected.subList(0, ControlInspectionService.MAX_ROWS),
+				result.getAsJsonArray("columns").asList().stream()
+						.map(value -> value.getAsJsonObject().get("name").getAsString()).toList());
+		assertTrue(result.get("columnsTruncated").getAsBoolean());
 	}
 
 	@Test void playerInspectionBoundsAllowListedStorageColumnsAtTheSharedRowLimit() {
