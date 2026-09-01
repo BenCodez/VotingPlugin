@@ -114,6 +114,9 @@ public final class HttpClientCredentialStore {
 			if (connectionCodeDigest != null) writePrivate(safe(generation.resolve(CONNECTION_CODE_DIGEST_FILE)),
 					connectionCodeDigest.getBytes(StandardCharsets.US_ASCII));
 			EnrolledClient enrolled = loadEnrolled(generation);
+			// Each file is durable within the generation, but the generation name is
+			// published by its parent. Persist it before CURRENT can activate it.
+			DurableFiles.forceDirectory(generations);
 			return new StagedCredential(name, enrolled.credential(), enrolled.profile());
 		} catch (Exception failure) {
 			try { Files.deleteIfExists(generation.resolve(BUNDLE_FILE)); Files.deleteIfExists(generation.resolve(PASSWORD_FILE));

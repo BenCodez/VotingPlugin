@@ -322,10 +322,16 @@ public final class HttpProxyTransportServer implements AutoCloseable {
 
 		private DurableOutgoingQueue(Path root) throws IOException {
 			this.root = root.toAbsolutePath().normalize();
-			Files.createDirectories(this.root);
-			if (Files.isSymbolicLink(this.root) || !Files.isDirectory(this.root, LinkOption.NOFOLLOW_LINKS))
-				throw new IOException("HTTP outgoing queue directory is invalid");
-			ownerOnlyDirectory(this.root);
+			boolean created = false;
+			try { Files.createDirectory(this.root); created = true; }
+			catch (java.nio.file.FileAlreadyExistsException existing) { }
+			try {
+				if (Files.isSymbolicLink(this.root) || !Files.isDirectory(this.root, LinkOption.NOFOLLOW_LINKS))
+					throw new IOException("HTTP outgoing queue directory is invalid");
+				ownerOnlyDirectory(this.root);
+			} finally {
+				if (created) DurableFiles.forceDirectory(this.root.getParent());
+			}
 		}
 
 		private synchronized Map<String, List<HttpTransportProtocol.Delivery>> load() throws IOException {
