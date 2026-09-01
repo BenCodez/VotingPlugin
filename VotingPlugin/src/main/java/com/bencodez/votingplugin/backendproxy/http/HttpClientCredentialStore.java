@@ -107,11 +107,14 @@ public final class HttpClientCredentialStore {
 		setOwnerOnlyDirectory(generation);
 		try {
 			save(generation, issued);
+			ClientCredential replacement = loadCredential(generation);
+			profile = new HttpClientProfile(profile.serverId(), profile.endpoint(), profile.serverCertificatePin(),
+					HttpTransportSecrets.certificatePin(replacement.caCertificate()));
 			writeProfile(generation, profile);
 			if (connectionCodeDigest != null) writePrivate(safe(generation.resolve(CONNECTION_CODE_DIGEST_FILE)),
 					connectionCodeDigest.getBytes(StandardCharsets.US_ASCII));
 			EnrolledClient enrolled = loadEnrolled(generation);
-			return new StagedCredential(name, enrolled.credential());
+			return new StagedCredential(name, enrolled.credential(), enrolled.profile());
 		} catch (Exception failure) {
 			try { Files.deleteIfExists(generation.resolve(BUNDLE_FILE)); Files.deleteIfExists(generation.resolve(PASSWORD_FILE));
 				Files.deleteIfExists(generation.resolve(PROFILE_FILE)); Files.deleteIfExists(generation.resolve(CONNECTION_CODE_DIGEST_FILE));
@@ -135,7 +138,7 @@ public final class HttpClientCredentialStore {
 		writePrivate(safe(directory.resolve(CURRENT_FILE)), staged.name().getBytes(StandardCharsets.US_ASCII));
 	}
 
-	static record StagedCredential(String name, ClientCredential credential) { }
+	static record StagedCredential(String name, ClientCredential credential, HttpClientProfile profile) { }
 
 	public static HttpClientProfile loadProfile(Path directory) throws IOException {
 		return loadProfileFile(activeDirectory(directory));

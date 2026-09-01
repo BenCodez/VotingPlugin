@@ -140,6 +140,40 @@ class HttpTransportSecurityTest {
 	}
 
 	@Test
+	void runningPrivateCaRollsOverBeforeExpiryWithoutStrandingExistingClients() throws Exception {
+		Instant now = Instant.now();
+		Clock originalClock = Clock.fixed(now.minus(Duration.ofDays(9 * 365L + 30L)), ZoneOffset.UTC);
+		HttpTlsIdentity original = HttpTlsIdentity.loadOrCreate(directory, "localhost", originalClock);
+		X509Certificate originalCa = original.caCertificate();
+		HttpTlsIdentity.IssuedClientCertificate existingClient = original.issueClientCertificate("lobby-1", now);
+		Path client = directory.resolve("client");
+		HttpConnectionCode oldCode = new HttpConnectionCode("lobby-1", URI.create("https://localhost:8443/"),
+				HttpTransportSecrets.certificatePin(original.serverCertificate()), HttpTransportSecrets.certificatePin(originalCa),
+				now.plusSeconds(60), "A".repeat(43));
+		HttpClientCredentialStore.saveEnrolled(client, oldCode, existingClient);
+
+		String renewedPin = original.caCertificatePin();
+		assertNotEquals(HttpTransportSecrets.certificatePin(originalCa), renewedPin);
+		assertEquals(originalCa.getPublicKey(), original.caCertificate().getPublicKey(),
+				"certificate rollover keeps the private authority key so old and new trust anchors overlap");
+		assertFalse(HttpTlsIdentity.needsCaRenewal(original.caCertificate(), Clock.fixed(now, ZoneOffset.UTC)));
+		assertTrue(original.validClientCertificate("lobby-1", existingClient.certificate()));
+
+		X509TrustManager oldClientTrust = Arrays.stream(HttpTlsIdentity.trustManagers(originalCa))
+				.filter(X509TrustManager.class::isInstance).map(X509TrustManager.class::cast).findFirst().orElseThrow();
+		assertDoesNotThrow(() -> oldClientTrust.checkServerTrusted(
+				new X509Certificate[] { original.serverCertificate(), original.caCertificate() }, "ECDHE_ECDSA"));
+		HttpClientCredentialStore.StagedCredential staged = HttpClientCredentialStore.stageReplacement(client,
+				original.issueClientCertificate("lobby-1", now));
+		assertEquals(HttpTransportSecrets.certificatePin(originalCa), HttpClientCredentialStore.loadProfile(client).caCertificatePin());
+		assertEquals(renewedPin, staged.profile().caCertificatePin());
+		HttpClientCredentialStore.activateReplacement(client, staged);
+		assertEquals(renewedPin, HttpClientCredentialStore.loadProfile(client).caCertificatePin());
+		assertEquals(renewedPin, HttpTlsIdentity.loadOrCreate(directory, "localhost").caCertificatePin(),
+				"live CA rollover must survive restart");
+	}
+
+	@Test
 	void activeTlsContextRotatesServerLeafInsideRenewalWindow() throws Exception {
 		Instant now = Instant.now();
 		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory, "localhost",

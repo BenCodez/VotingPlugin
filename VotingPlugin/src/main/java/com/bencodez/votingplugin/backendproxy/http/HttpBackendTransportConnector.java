@@ -32,7 +32,7 @@ import javax.net.ssl.SSLContext;
 /** Backend-side, persistent HTTP/1.1 long-poll connector. */
 public final class HttpBackendTransportConnector implements AutoCloseable {
 	public static final Duration CLIENT_TIMEOUT = Duration.ofSeconds(35);
-	private final HttpClientCredentialStore.HttpClientProfile profile;
+	private volatile HttpClientCredentialStore.HttpClientProfile profile;
 	private final String serverId;
 	private final Consumer<JsonEnvelope> onEnvelope;
 	private volatile HttpClient client;
@@ -80,7 +80,10 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 		this.credentialDirectory = credentialDirectory;
 		client = client(profile, credential);
 		transportEndpoint = profile.endpoint().resolve("v1/transport");
-		callbackExecutor = executor("VotingPlugin-HTTP-callback", 2, 128);
+		// GlobalMessageHandler routes mutate backend vote state and must observe the
+		// wire order. One bounded lane preserves batch ordering without running work on
+		// the long-poll thread.
+		callbackExecutor = executor("VotingPlugin-HTTP-callback", 1, 128);
 	}
 
 	/** Convenience constructor for the owner-only credential directory produced by {@link #enroll}. */
@@ -221,9 +224,11 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 				HttpTlsIdentity.IssuedClientCertificate issued = HttpTransportProtocol.parseEnrollmentResponse(serverId, response.body());
 				HttpClientCredentialStore.StagedCredential staged = HttpClientCredentialStore.stageReplacement(directory, issued);
 				HttpClientCredentialStore.ClientCredential replacement = staged.credential();
-				if (!matchesCredential(profile, replacement)) throw new IllegalArgumentException("Renewed HTTP certificate is invalid");
-				HttpClient replacementClient = client(profile, replacement);
+				HttpClientCredentialStore.HttpClientProfile replacementProfile = staged.profile();
+				if (!matchesCredential(replacementProfile, replacement)) throw new IllegalArgumentException("Renewed HTTP certificate is invalid");
+				HttpClient replacementClient = client(replacementProfile, replacement);
 				HttpClientCredentialStore.activateReplacement(directory, staged);
+				profile = replacementProfile;
 				client = replacementClient;
 				credential = replacement;
 			} catch (Exception ignored) { /* The active generation is unchanged; retry on the bounded schedule. */ }

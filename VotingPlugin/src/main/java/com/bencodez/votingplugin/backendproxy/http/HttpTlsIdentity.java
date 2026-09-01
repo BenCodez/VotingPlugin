@@ -56,21 +56,24 @@ public final class HttpTlsIdentity {
 	private static final String PASSWORD_FILE = "http-transport-password";
 	private static final char[] EMPTY_PASSWORD = new char[0];
 	static final Duration RENEW_BEFORE = Duration.ofDays(30);
+	static final Duration CA_RENEW_BEFORE = Duration.ofDays(365);
 	private final PrivateKey caKey;
-	private final X509Certificate caCertificate;
+	private volatile X509Certificate caCertificate;
 	private volatile PrivateKey serverKey;
 	private volatile X509Certificate serverCertificate;
 	private final char[] password;
+	private final Path caFile;
 	private final Path serverFile;
 	private final String advertisedHost;
 
 	private HttpTlsIdentity(PrivateKey caKey, X509Certificate caCertificate, PrivateKey serverKey,
-			X509Certificate serverCertificate, char[] password, Path serverFile, String advertisedHost) {
+			X509Certificate serverCertificate, char[] password, Path caFile, Path serverFile, String advertisedHost) {
 		this.caKey = caKey;
 		this.caCertificate = caCertificate;
 		this.serverKey = serverKey;
 		this.serverCertificate = serverCertificate;
 		this.password = password.clone();
+		this.caFile = caFile;
 		this.serverFile = serverFile;
 		this.advertisedHost = advertisedHost;
 	}
@@ -102,7 +105,18 @@ public final class HttpTlsIdentity {
 				X509Certificate serverCertificate = (X509Certificate) server.getCertificate("server");
 				if (caKey == null || caCertificate == null || serverKey == null || serverCertificate == null)
 					throw new IOException("HTTP TLS identity files are invalid");
-				if (!hasServerName(serverCertificate, advertisedHost) || needsRenewal(serverCertificate, clock)) {
+				boolean caRenewed = needsCaRenewal(caCertificate, clock);
+				if (caRenewed) {
+					ensureBouncyCastle();
+					KeyPair caPair = new KeyPair(caCertificate.getPublicKey(), caKey);
+					caCertificate = certificate("CN=VotingPlugin HTTP private CA", caPair, null, null,
+							CertificateRole.CA, null, clock.instant());
+					ca = KeyStore.getInstance("PKCS12");
+					ca.load(null, EMPTY_PASSWORD);
+					ca.setKeyEntry("ca", caKey, password, new Certificate[] { caCertificate });
+					writeStore(caFile, ca, password);
+				}
+				if (caRenewed || !hasServerName(serverCertificate, advertisedHost) || needsRenewal(serverCertificate, clock)) {
 					ensureBouncyCastle();
 					KeyPair serverPair = keyPair();
 					serverCertificate = certificate("CN=" + certificateName(advertisedHost), serverPair, caCertificate, caKey,
@@ -113,7 +127,8 @@ public final class HttpTlsIdentity {
 					server.setKeyEntry("server", serverKey, password, new Certificate[] { serverCertificate, caCertificate });
 					writeStore(serverFile, server, password);
 				}
-				return new HttpTlsIdentity(caKey, caCertificate, serverKey, serverCertificate, password, serverFile, advertisedHost);
+				return new HttpTlsIdentity(caKey, caCertificate, serverKey, serverCertificate, password, caFile, serverFile,
+						advertisedHost);
 			} finally { Arrays.fill(password, '\0'); }
 		}
 		ensureBouncyCastle();
@@ -137,16 +152,15 @@ public final class HttpTlsIdentity {
 		try { writePrivate(passwordFile, passwordBytes); }
 		finally { Arrays.fill(passwordBytes, (byte) 0); }
 			return new HttpTlsIdentity(caPair.getPrivate(), caCertificate, serverPair.getPrivate(), serverCertificate, password,
-					serverFile, advertisedHost);
+					caFile, serverFile, advertisedHost);
 		} finally { Arrays.fill(password, '\0'); }
 	}
 
 	public String serverCertificatePin() {
-		try { renewServerCertificateIfNeeded(); }
-		catch (Exception failure) { throw new IllegalStateException("Could not renew HTTP server certificate", failure); }
+		refreshIdentity();
 		return HttpTransportSecrets.certificatePin(serverCertificate);
 	}
-	public String caCertificatePin() { return HttpTransportSecrets.certificatePin(caCertificate); }
+	public String caCertificatePin() { refreshIdentity(); return HttpTransportSecrets.certificatePin(caCertificate); }
 	public X509Certificate caCertificate() { return caCertificate; }
 	public X509Certificate serverCertificate() { return serverCertificate; }
 
@@ -156,7 +170,7 @@ public final class HttpTlsIdentity {
 	 * additionally validate the certificate's persisted backend binding in the HTTP handler.
 	 */
 	public SSLContext serverContext() throws Exception {
-		renewServerCertificateIfNeeded();
+		renewIdentityIfNeeded();
 		SSLContext context = SSLContext.getInstance("TLS");
 		context.init(new KeyManager[] { new RotatingServerKeyManager() }, trustManagers(caCertificate), null);
 		return context;
@@ -171,16 +185,34 @@ public final class HttpTlsIdentity {
 		return factory.getTrustManagers();
 	}
 
-	private synchronized void renewServerCertificateIfNeeded() throws Exception {
-		if (!needsRenewal(serverCertificate, Clock.systemUTC())) return;
+	private void refreshIdentity() {
+		try { renewIdentityIfNeeded(); }
+		catch (Exception failure) { throw new IllegalStateException("Could not renew HTTP TLS identity", failure); }
+	}
+
+	private synchronized void renewIdentityIfNeeded() throws Exception {
+		Clock clock = Clock.systemUTC();
+		boolean renewCa = needsCaRenewal(caCertificate, clock);
+		if (!renewCa && !needsRenewal(serverCertificate, clock)) return;
 		ensureBouncyCastle();
+		X509Certificate replacementCa = caCertificate;
+		if (renewCa) {
+			KeyPair caPair = new KeyPair(caCertificate.getPublicKey(), caKey);
+			replacementCa = certificate("CN=VotingPlugin HTTP private CA", caPair, null, null,
+					CertificateRole.CA, null, clock.instant());
+			KeyStore caStore = KeyStore.getInstance("PKCS12");
+			caStore.load(null, EMPTY_PASSWORD);
+			caStore.setKeyEntry("ca", caKey, password, new Certificate[] { replacementCa });
+			writeStore(caFile, caStore, password);
+		}
 		KeyPair pair = keyPair();
-		X509Certificate replacement = certificate("CN=" + certificateName(advertisedHost), pair, caCertificate, caKey,
-				CertificateRole.SERVER, advertisedHost, Instant.now());
+		X509Certificate replacement = certificate("CN=" + certificateName(advertisedHost), pair, replacementCa, caKey,
+				CertificateRole.SERVER, advertisedHost, clock.instant());
 		KeyStore store = KeyStore.getInstance("PKCS12");
 		store.load(null, EMPTY_PASSWORD);
-		store.setKeyEntry("server", pair.getPrivate(), password, new Certificate[] { replacement, caCertificate });
+		store.setKeyEntry("server", pair.getPrivate(), password, new Certificate[] { replacement, replacementCa });
 		writeStore(serverFile, store, password);
+		caCertificate = replacementCa;
 		serverKey = pair.getPrivate();
 		serverCertificate = replacement;
 	}
@@ -288,6 +320,10 @@ public final class HttpTlsIdentity {
 		return certificate == null || !certificate.getNotAfter().toInstant().isAfter(clock.instant().plus(RENEW_BEFORE));
 	}
 
+	static boolean needsCaRenewal(X509Certificate certificate, Clock clock) {
+		return certificate == null || !certificate.getNotAfter().toInstant().isAfter(clock.instant().plus(CA_RENEW_BEFORE));
+	}
+
 	private static void ensureBouncyCastle() {
 		if (Security.getProvider("BC") == null) Security.addProvider(new BouncyCastleProvider());
 	}
@@ -363,8 +399,7 @@ public final class HttpTlsIdentity {
 	private final class RotatingServerKeyManager extends X509ExtendedKeyManager {
 		private static final String ALIAS = "server";
 		private void refresh() {
-			try { renewServerCertificateIfNeeded(); }
-			catch (Exception failure) { throw new IllegalStateException("Could not renew HTTP server certificate", failure); }
+			refreshIdentity();
 		}
 		private String alias(String keyType) {
 			refresh();
