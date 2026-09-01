@@ -102,6 +102,10 @@ public class BackendProxyTransportManager {
 		preparedTransport = null;
 	}
 
+	public void awaitPreparedTransportRestoration(long deadlineNanos) {
+		if (transport instanceof HttpBackendProxyTransport http) http.awaitCredentialRestoration(deadlineNanos);
+	}
+
 	public void closeRedisForHandoff() {
 		if (!(transport instanceof RedisBackendProxyTransport)) {
 			throw new IllegalStateException("Redis backend proxy transport is unavailable");

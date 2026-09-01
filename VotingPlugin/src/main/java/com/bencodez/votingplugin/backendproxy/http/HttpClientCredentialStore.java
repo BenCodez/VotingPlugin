@@ -183,10 +183,41 @@ public final class HttpClientCredentialStore {
 	/** Loads and cross-checks the persisted client key material and bound normal-transport profile. */
 	public static EnrolledClient loadEnrolled(Path directory) throws Exception {
 		Path active = activeDirectory(directory);
+		return loadEnrolledDirectory(active);
+	}
+
+	private static EnrolledClient loadEnrolledDirectory(Path active) throws Exception {
 		ClientCredential credential = loadCredential(active);
 		HttpClientProfile profile = loadProfileFile(active);
 		if (!matchesProfile(credential, profile)) throw new IOException("HTTP client certificate does not match its profile");
 		return new EnrolledClient(profile, credential);
+	}
+
+	/** Captures the exact credential generation used by a transport before a staged replacement starts. */
+	public static ActiveCredentialGeneration snapshotActiveGeneration(Path directory) throws Exception {
+		Path root = directory.toAbsolutePath().normalize();
+		Path active = activeDirectory(root);
+		loadEnrolledDirectory(active);
+		return new ActiveCredentialGeneration(active.equals(root) ? "" : active.getFileName().toString());
+	}
+
+	/** Atomically restores a previously validated credential generation after replacement rollback. */
+	public static void restoreActiveGeneration(Path directory, ActiveCredentialGeneration snapshot) throws Exception {
+		if (directory == null || snapshot == null) throw new IllegalArgumentException("Credential rollback is required");
+		Path root = directory.toAbsolutePath().normalize();
+		Path generations = root.resolve(GENERATIONS_DIRECTORY);
+		Path target = snapshot.name().isEmpty() ? root : generations.resolve(snapshot.name()).normalize();
+		if (!snapshot.name().isEmpty() && (!target.getParent().equals(generations)
+				|| Files.isSymbolicLink(target) || !Files.isDirectory(target, LinkOption.NOFOLLOW_LINKS)))
+			throw new IOException("HTTP client credential generation is invalid");
+		loadEnrolledDirectory(target);
+		Path current = safe(root.resolve(CURRENT_FILE));
+		if (snapshot.name().isEmpty()) {
+			Files.deleteIfExists(current);
+			DurableFiles.forceDirectory(root);
+		} else {
+			writePrivate(current, snapshot.name().getBytes(StandardCharsets.US_ASCII));
+		}
 	}
 
 	public record ClientCredential(PrivateKey privateKey, X509Certificate certificate, X509Certificate caCertificate, char[] password) {
@@ -206,6 +237,13 @@ public final class HttpClientCredentialStore {
 	}
 
 	public record EnrolledClient(HttpClientProfile profile, ClientCredential credential) { }
+
+	public record ActiveCredentialGeneration(String name) {
+		public ActiveCredentialGeneration {
+			if (name == null || (!name.isEmpty() && !name.matches("[0-9a-f-]{36}")))
+				throw new IllegalArgumentException("HTTP client credential generation is invalid");
+		}
+	}
 
 	private static boolean matchesProfile(ClientCredential credential, HttpClientProfile profile) {
 		try {

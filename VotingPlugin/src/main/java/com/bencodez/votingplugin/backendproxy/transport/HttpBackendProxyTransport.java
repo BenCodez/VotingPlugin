@@ -14,6 +14,7 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.backendproxy.http.HttpBackendTransportConnector;
 import com.bencodez.votingplugin.backendproxy.http.HttpClientCredentialStore;
 import com.bencodez.votingplugin.backendproxy.http.HttpConnectionCode;
+import com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity;
 
 /** Backend adapter for the secure outbound-only HTTP proxy transport. */
 public final class HttpBackendProxyTransport implements BackendProxyTransport {
@@ -23,16 +24,20 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	private final VotingPluginMain plugin;
 	private final Object lifecycle = new Object();
 	private final CountDownLatch startupComplete = new CountDownLatch(1);
+	private final CountDownLatch credentialRestoreComplete = new CountDownLatch(1);
 	private final ArrayDeque<JsonEnvelope> startupQueue = new ArrayDeque<>();
 	private volatile HttpBackendTransportConnector connector;
 	private volatile Thread worker;
 	private volatile RuntimeException startupFailure;
+	private volatile RuntimeException credentialRestoreFailure;
 	private volatile boolean started;
 	private volatile boolean closed;
 	private Path configuredDirectory;
 	private String configuredServerId;
 	private String configuredConnectionCode;
 	private GlobalMessageHandler configuredMessageHandler;
+	private HttpClientCredentialStore.ActiveCredentialGeneration configuredCredentialGeneration;
+	private HttpClientCredentialStore.ActiveCredentialGeneration credentialGenerationToRestore;
 	private Semaphore directoryOwner;
 	private final java.util.concurrent.atomic.AtomicBoolean queueWarning = new java.util.concurrent.atomic.AtomicBoolean();
 
@@ -50,11 +55,19 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 
 	private void start(Path directory, String serverId, String connectionCode,
 			GlobalMessageHandler messageHandler) {
-		validateConfiguration(directory, serverId, connectionCode);
+		start(directory, serverId, connectionCode, messageHandler, null);
+	}
+
+	private void start(Path directory, String serverId, String connectionCode,
+			GlobalMessageHandler messageHandler,
+			HttpClientCredentialStore.ActiveCredentialGeneration generationToRestore) {
+		if (generationToRestore == null) validateConfiguration(directory, serverId, connectionCode);
+		else HttpTlsIdentity.canonicalServerId(serverId);
 		configuredDirectory = directory;
 		configuredServerId = serverId;
 		configuredConnectionCode = connectionCode;
 		configuredMessageHandler = messageHandler;
+		credentialGenerationToRestore = generationToRestore;
 		started = true;
 		worker = new Thread(() -> initialize(directory, serverId, connectionCode, messageHandler),
 				"VotingPlugin-HTTP-Backend-Setup");
@@ -64,8 +77,19 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 
 	HttpBackendProxyTransport recreatePrepared() {
 		HttpBackendProxyTransport restored = new HttpBackendProxyTransport(plugin);
-		restored.start(configuredDirectory, configuredServerId, configuredConnectionCode, configuredMessageHandler);
+		restored.start(configuredDirectory, configuredServerId, configuredConnectionCode, configuredMessageHandler,
+				configuredCredentialGeneration);
 		return restored;
+	}
+
+	@Override
+	public void prepareForReplacement() {
+		try {
+			configuredCredentialGeneration = HttpClientCredentialStore.snapshotActiveGeneration(configuredDirectory);
+		} catch (Exception failure) {
+			throw new IllegalStateException("Could not preserve the active HTTP client credential", failure);
+		}
+		close();
 	}
 
 	private void initialize(Path directory, String serverId, String configuredCode,
@@ -77,7 +101,24 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 		try {
 			owner.acquire();
 			acquired = true;
-			synchronized (lifecycle) { if (closed) return; }
+			synchronized (lifecycle) {
+				if (closed) {
+					if (credentialGenerationToRestore != null)
+						credentialRestoreFailure = new IllegalStateException(
+								"Previous HTTP client credential restoration was cancelled");
+					return;
+				}
+			}
+			if (credentialGenerationToRestore != null) {
+				try {
+					HttpClientCredentialStore.restoreActiveGeneration(directory, credentialGenerationToRestore);
+				} catch (Exception failure) {
+					credentialRestoreFailure = new IllegalStateException(
+							"Could not restore the previous HTTP client credential", failure);
+					throw failure;
+				}
+			}
+			credentialRestoreComplete.countDown();
 			HttpConnectionCode code = enrollmentCode(directory, serverId, configuredCode);
 			if (code != null) HttpBackendTransportConnector.enroll(code, serverId, directory);
 			HttpClientCredentialStore.EnrolledClient enrolled = HttpClientCredentialStore.loadEnrolled(directory);
@@ -109,12 +150,27 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 			startupFailure = new IllegalStateException("Secure HTTP backend enrollment or connection failed", failure);
 			plugin.getLogger().severe("Secure HTTP backend transport is unavailable; check the connection code and proxy endpoint");
 		} finally {
+			credentialRestoreComplete.countDown();
 			if (!installed) {
 				if (replacement != null) replacement.close();
 				if (acquired) owner.release();
 			}
 			startupComplete.countDown();
 		}
+	}
+
+	void awaitCredentialRestoration(long deadlineNanos) {
+		if (credentialGenerationToRestore == null) return;
+		try {
+			long remaining = deadlineNanos - System.nanoTime();
+			if (remaining <= 0L || !credentialRestoreComplete.await(remaining, TimeUnit.NANOSECONDS))
+				throw new IllegalStateException("Previous HTTP client credential restoration timed out");
+		} catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt();
+			throw new IllegalStateException("Previous HTTP client credential restoration was interrupted", interrupted);
+		}
+		RuntimeException failure = credentialRestoreFailure;
+		if (failure != null) throw failure;
 	}
 
 	@Override

@@ -115,6 +115,10 @@ public class BackendProxyHandler implements Listener {
 		transportManager.restorePreparedTransport();
 	}
 
+	public void awaitRestoreAfterFailedReplacement(long deadlineNanos) {
+		transportManager.awaitPreparedTransportRestoration(deadlineNanos);
+	}
+
 	/** Fails a configuration apply when its selected transport did not initialize. */
 	public void validateTransport() {
 		validateTransport(System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(25));

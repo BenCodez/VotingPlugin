@@ -284,5 +284,29 @@ class HttpTransportSecurityTest {
 				HttpTransportSecrets.certificatePin(HttpClientCredentialStore.loadEnrolled(client).credential().certificate()));
 	}
 
+	@Test
+	void restoresCredentialGenerationAfterFailedReenrollment() throws Exception {
+		Path client = directory.resolve("client-rollback");
+		HttpTlsIdentity oldIdentity = HttpTlsIdentity.loadOrCreate(directory.resolve("old-proxy"), "old.example.test");
+		HttpConnectionCode oldCode = new HttpConnectionCode("lobby-1", URI.create("https://old.example.test:1297/"),
+				oldIdentity.serverCertificatePin(), oldIdentity.caCertificatePin(), Instant.now().plusSeconds(60),
+				"R".repeat(43));
+		HttpClientCredentialStore.saveEnrolled(client, oldCode, oldIdentity.issueClientCertificate("lobby-1"));
+		HttpClientCredentialStore.ActiveCredentialGeneration previous =
+				HttpClientCredentialStore.snapshotActiveGeneration(client);
+
+		HttpTlsIdentity replacementIdentity = HttpTlsIdentity.loadOrCreate(directory.resolve("new-proxy"), "new.example.test");
+		HttpConnectionCode replacementCode = new HttpConnectionCode("lobby-1", URI.create("https://new.example.test:1297/"),
+				replacementIdentity.serverCertificatePin(), replacementIdentity.caCertificatePin(),
+				Instant.now().plusSeconds(60), "S".repeat(43));
+		HttpClientCredentialStore.saveEnrolled(client, replacementCode,
+				replacementIdentity.issueClientCertificate("lobby-1"));
+		assertEquals(replacementCode.endpoint(), HttpClientCredentialStore.loadProfile(client).endpoint());
+
+		HttpClientCredentialStore.restoreActiveGeneration(client, previous);
+		assertEquals(oldCode.endpoint(), HttpClientCredentialStore.loadProfile(client).endpoint());
+		assertTrue(HttpClientCredentialStore.matchesEnrollmentCode(client, oldCode));
+	}
+
 	private static String pin(char character) { return String.valueOf(character).repeat(64); }
 }
