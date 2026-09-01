@@ -476,9 +476,12 @@ class HttpTransportRuntimeTest {
 			restarted.dispatch(accepted.get(0));
 			assertTrue(completed.await(2, TimeUnit.SECONDS));
 			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
-			while (new HttpInboundDeliveryStore(clientDirectory).state(id) != HttpInboundDeliveryStore.State.COMPLETED
-					&& System.nanoTime() < deadline) Thread.sleep(5);
-			assertEquals(java.util.List.of(id), restarted.drainAcknowledgements());
+			java.util.List<String> acknowledgements = java.util.List.of();
+			while (acknowledgements.isEmpty() && System.nanoTime() < deadline) {
+				acknowledgements = restarted.drainAcknowledgements();
+				if (acknowledgements.isEmpty()) Thread.sleep(5);
+			}
+			assertEquals(java.util.List.of(id), acknowledgements);
 		}
 	}
 
