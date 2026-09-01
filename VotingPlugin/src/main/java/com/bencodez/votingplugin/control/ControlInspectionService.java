@@ -315,6 +315,7 @@ public final class ControlInspectionService {
 				.forEach(count -> {
 			JsonObject row = new JsonObject();
 			row.addProperty("service", safe(count.service, 64));
+			row.addProperty("count", count.votes);
 			row.addProperty("votes", count.votes);
 			services.add(row);
 		});
@@ -326,6 +327,7 @@ public final class ControlInspectionService {
 				.forEach(count -> {
 			JsonObject row = new JsonObject();
 			row.addProperty("server", safe(count.server, 64));
+			row.addProperty("count", count.votes);
 			row.addProperty("votes", count.votes);
 			servers.add(row);
 		});

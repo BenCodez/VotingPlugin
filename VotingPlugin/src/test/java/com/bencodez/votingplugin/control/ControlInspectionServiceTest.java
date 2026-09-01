@@ -192,8 +192,16 @@ class ControlInspectionServiceTest {
 
 		assertEquals(List.of("Middle", "alpha", "Zulu"), result.getAsJsonArray("topServices").asList().stream()
 				.map(row -> row.getAsJsonObject().get("service").getAsString()).toList());
+		assertEquals(List.of(6L, 3L, 3L), result.getAsJsonArray("topServices").asList().stream()
+				.map(row -> row.getAsJsonObject().get("count").getAsLong()).toList());
+		assertEquals(List.of(6L, 3L, 3L), result.getAsJsonArray("topServices").asList().stream()
+				.map(row -> row.getAsJsonObject().get("votes").getAsLong()).toList());
 		assertEquals(List.of("hub", "Creative", "survival"), result.getAsJsonArray("topServers").asList().stream()
 				.map(row -> row.getAsJsonObject().get("server").getAsString()).toList());
+		assertEquals(List.of(8L, 2L, 2L), result.getAsJsonArray("topServers").asList().stream()
+				.map(row -> row.getAsJsonObject().get("count").getAsLong()).toList());
+		assertEquals(List.of(8L, 2L, 2L), result.getAsJsonArray("topServers").asList().stream()
+				.map(row -> row.getAsJsonObject().get("votes").getAsLong()).toList());
 	}
 
 	@Test void exactPlayerMissDoesNotLoadOrEnumerateUsers() {

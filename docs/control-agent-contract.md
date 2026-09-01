@@ -114,7 +114,7 @@ encoded `proposal` may be larger, with a 64 KiB hard limit.
 | `overview` | none | Versions, configuration health, bounded data-storage mode, proxy mode, vote-site counts, and configured/readable VoteLog state |
 | `vote-site-health` | string `days` (1–365, default 30) | Configured site status, bounded aggregate last-vote/count data, unmatched logged services, and persisted unconfigured service observations |
 | `player` | exactly one of `name` (1–16 characters) or `uuid` (canonical 36-character UUID) | Exact existing-player lookup; totals, points, streaks, up to 100 per-site last-vote rows, and pending vote count saturated at 100,000; never lists players |
-| `vote-log-summary` | string `days` (1–365, default 30) | Vote totals, immediate/cached split, unique voters, top services, and top servers |
+| `vote-log-summary` | string `days` (1–365, default 30) | Vote totals, immediate/cached split, unique voters, and bounded top-service (`service`, canonical `count`) and top-server (`server`, canonical `count`) rows; schema-v1 nodes also emit the equal legacy `votes` alias for staggered dashboard upgrades |
 | `vote-log-search` | at most one of exact `player` (1–16 characters), `service` (1–64), or `server` (1–64); optional `event` and string `days`/`limit` | Bounded recent event rows; `limit` is 1–100 and defaults to 25 |
 | `vote-trace` | required canonical 36-character UUID `voteId`; optional string `days`/`limit` | Chronological VoteLog events sharing one correlation ID |
 | `vote-site-resolution` | required valid `serviceSite` (1–64 characters); optional string boolean `includeDisabled` | Dry-runs existing resolution and reports whether auto-create would be attempted; never calls the creating resolver |
