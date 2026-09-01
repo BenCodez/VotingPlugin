@@ -11,20 +11,16 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.EnumSet;
-import java.util.LinkedHashSet;
-import java.util.Set;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 
-/**
- * Crash-durable fence for proxy deliveries that may already have caused backend side effects.
- * A delivery is reserved before its callback runs and removed only after the proxy confirms its ACK.
- */
+/** Crash-durable state for proxy deliveries around a non-transactional application callback. */
 final class HttpInboundDeliveryStore {
 	private static final String DIRECTORY = "http-transport-inbound-deliveries";
-	private static final String SUFFIX = ".seen";
 	private static final int MAX_ENTRIES = HttpTransportProtocol.MAX_QUEUE;
 	private final Path root;
-	private final Set<String> entries = new LinkedHashSet<>();
+	private final Map<String, State> entries = new LinkedHashMap<>();
 
 	HttpInboundDeliveryStore(Path credentialDirectory) throws IOException {
 		Path credentials = credentialDirectory.toAbsolutePath().normalize();
@@ -34,20 +30,21 @@ final class HttpInboundDeliveryStore {
 		root = credentials.resolve(DIRECTORY).normalize();
 		if (!root.getParent().equals(credentials)) throw new IOException("HTTP inbound delivery directory is invalid");
 		Files.createDirectories(root);
-		if (Files.isSymbolicLink(root) || !Files.isDirectory(root, LinkOption.NOFOLLOW_LINKS))
-			throw new IOException("HTTP inbound delivery directory is unsafe");
+		requireRoot();
 		ownerOnlyDirectory(root);
 		load();
 	}
 
-	synchronized boolean contains(String id) { return entries.contains(canonical(id)); }
+	synchronized State state(String id) { return entries.get(canonical(id)); }
 
 	synchronized void reserve(String id) throws IOException {
 		id = canonical(id);
-		if (entries.contains(id)) return;
+		State existing = entries.get(id);
+		if (existing == State.RESERVED) return;
+		if (existing != null) throw new IOException("HTTP inbound delivery fence is already active");
 		if (entries.size() >= MAX_ENTRIES) throw new IOException("HTTP inbound delivery fence is full");
 		requireRoot();
-		Path target = root.resolve(id + SUFFIX);
+		Path target = file(id, State.RESERVED);
 		if (Files.exists(target, LinkOption.NOFOLLOW_LINKS))
 			throw new IOException("HTTP inbound delivery fence is inconsistent");
 		Path temporary = Files.createTempFile(root, ".pending-", ".tmp");
@@ -55,24 +52,39 @@ final class HttpInboundDeliveryStore {
 			ownerOnlyFile(temporary);
 			Files.writeString(temporary, id, StandardCharsets.US_ASCII, StandardOpenOption.TRUNCATE_EXISTING);
 			DurableFiles.forceFile(temporary);
-			try { Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE); }
-			catch (java.nio.file.AtomicMoveNotSupportedException unsupported) { Files.move(temporary, target); }
+			move(temporary, target);
 			ownerOnlyFile(target);
 			DurableFiles.forceDirectory(root);
-			entries.add(id);
+			entries.put(id, State.RESERVED);
 		} finally { Files.deleteIfExists(temporary); }
 	}
 
-	synchronized boolean remove(String id) throws IOException {
+	synchronized void markRunning(String id) throws IOException { transition(id, State.RESERVED, State.RUNNING); }
+	synchronized void markCompleted(String id) throws IOException { transition(id, State.RUNNING, State.COMPLETED); }
+
+	synchronized void remove(String id) throws IOException {
 		id = canonical(id);
-		if (!entries.contains(id)) return true;
+		State state = entries.get(id);
+		if (state == null) return;
 		requireRoot();
-		DurableFiles.deleteIfExists(root.resolve(id + SUFFIX));
+		DurableFiles.deleteIfExists(file(id, state));
 		entries.remove(id);
-		return true;
 	}
 
-	synchronized Set<String> snapshot() { return Set.copyOf(entries); }
+	synchronized Map<String, State> snapshot() { return Map.copyOf(entries); }
+
+	private void transition(String id, State expected, State replacement) throws IOException {
+		id = canonical(id);
+		if (entries.get(id) != expected) throw new IOException("HTTP inbound delivery fence state is invalid");
+		requireRoot();
+		Path source = file(id, expected), target = file(id, replacement);
+		if (Files.isSymbolicLink(source) || !Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS)
+				|| Files.exists(target, LinkOption.NOFOLLOW_LINKS))
+			throw new IOException("HTTP inbound delivery fence state is unsafe");
+		move(source, target);
+		DurableFiles.forceDirectory(root);
+		entries.put(id, replacement);
+	}
 
 	private void load() throws IOException {
 		try (DirectoryStream<Path> files = Files.newDirectoryStream(root)) {
@@ -83,34 +95,48 @@ final class HttpInboundDeliveryStore {
 					DurableFiles.deleteIfExists(file);
 					continue;
 				}
-				if (Files.isSymbolicLink(file) || !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)
-						|| !name.endsWith(SUFFIX) || Files.size(file) > 64L)
+				State state = State.fromFileName(name);
+				if (state == null || Files.isSymbolicLink(file) || !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)
+						|| Files.size(file) > 64L)
 					throw new IOException("HTTP inbound delivery fence contains an invalid entry");
 				String id;
-				try { id = canonical(name.substring(0, name.length() - SUFFIX.length())); }
+				try { id = canonical(name.substring(0, name.length() - state.suffix.length())); }
 				catch (IllegalArgumentException invalid) {
 					throw new IOException("HTTP inbound delivery fence entry is invalid", invalid);
 				}
-				if (!name.equals(id + SUFFIX) || !Files.readString(file, StandardCharsets.US_ASCII).equals(id)
-						|| !entries.add(id))
+				if (!name.equals(id + state.suffix) || !Files.readString(file, StandardCharsets.US_ASCII).equals(id))
 					throw new IOException("HTTP inbound delivery fence entry is invalid");
+				State existing = entries.get(id);
+				if (existing == null) entries.put(id, state);
+				else {
+					// A provider without atomic moves may expose both names after an
+					// interrupted transition. Preserve the furthest fail-closed state:
+					// RUNNING never replays, and COMPLETED alone may be acknowledged.
+					State retained = existing.ordinal() >= state.ordinal() ? existing : state;
+					State obsolete = retained == existing ? state : existing;
+					DurableFiles.deleteIfExists(file(id, obsolete));
+					entries.put(id, retained);
+				}
 				if (entries.size() > MAX_ENTRIES) throw new IOException("HTTP inbound delivery fence exceeds its bound");
 			}
 		}
 	}
 
+	private Path file(String id, State state) { return root.resolve(id + state.suffix); }
+	private static void move(Path source, Path target) throws IOException {
+		try { Files.move(source, target, StandardCopyOption.ATOMIC_MOVE); }
+		catch (java.nio.file.AtomicMoveNotSupportedException unsupported) { Files.move(source, target); }
+	}
 	private static String canonical(String id) {
 		if (id == null) throw new IllegalArgumentException("HTTP delivery id is invalid");
 		String canonical = UUID.fromString(id).toString();
 		if (!canonical.equals(id)) throw new IllegalArgumentException("HTTP delivery id is not canonical");
 		return canonical;
 	}
-
 	private void requireRoot() throws IOException {
 		if (Files.isSymbolicLink(root) || !Files.isDirectory(root, LinkOption.NOFOLLOW_LINKS))
 			throw new IOException("HTTP inbound delivery directory is unsafe");
 	}
-
 	private static void ownerOnlyFile(Path path) throws IOException {
 		try { Files.setPosixFilePermissions(path, EnumSet.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE)); }
 		catch (UnsupportedOperationException ignored) { }
@@ -119,5 +145,15 @@ final class HttpInboundDeliveryStore {
 		try { Files.setPosixFilePermissions(path, EnumSet.of(PosixFilePermission.OWNER_READ,
 				PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE)); }
 		catch (UnsupportedOperationException ignored) { }
+	}
+
+	enum State {
+		RESERVED(".reserved"), RUNNING(".running"), COMPLETED(".completed");
+		private final String suffix;
+		State(String suffix) { this.suffix = suffix; }
+		private static State fromFileName(String name) {
+			for (State state : values()) if (name.endsWith(state.suffix)) return state;
+			return null;
+		}
 	}
 }

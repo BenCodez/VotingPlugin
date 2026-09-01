@@ -429,7 +429,7 @@ class HttpTransportRuntimeTest {
 	}
 
 	@Test
-	void failedBackendCallbackRemovesFenceAndRemainsRetryable() throws Exception {
+	void failedBackendCallbackRemainsUnacknowledgedAndIsNotReplayed() throws Exception {
 		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("retry-fence-proxy"), "localhost");
 		HttpTlsIdentity.IssuedClientCertificate issued = identity.issueClientCertificate("lobby-1");
 		HttpConnectionCode code = new HttpConnectionCode("lobby-1", java.net.URI.create("https://localhost:8443/"),
@@ -437,7 +437,7 @@ class HttpTransportRuntimeTest {
 		Path clientDirectory = directory.resolve("retry-fence-client");
 		HttpClientCredentialStore.saveEnrolled(clientDirectory, code, issued);
 		java.util.concurrent.atomic.AtomicInteger attempts = new java.util.concurrent.atomic.AtomicInteger();
-		CountDownLatch failed = new CountDownLatch(1), succeeded = new CountDownLatch(1);
+		CountDownLatch failed = new CountDownLatch(1);
 		HttpTransportProtocol.Delivery delivery = new HttpTransportProtocol.Delivery(java.util.UUID.randomUUID().toString(),
 				JsonEnvelope.builder("vote").build());
 		try (HttpBackendTransportConnector first = new HttpBackendTransportConnector(clientDirectory, ignored -> {
@@ -445,20 +445,60 @@ class HttpTransportRuntimeTest {
 		})) {
 			first.dispatch(delivery);
 			assertTrue(failed.await(2, TimeUnit.SECONDS));
-			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
-			while (countRegularFiles(clientDirectory.resolve("http-transport-inbound-deliveries")) != 0L
-					&& System.nanoTime() < deadline) Thread.sleep(5);
 			assertTrue(first.drainAcknowledgements().isEmpty());
 		}
-		try (HttpBackendTransportConnector restarted = new HttpBackendTransportConnector(clientDirectory, ignored -> {
-			attempts.incrementAndGet(); succeeded.countDown();
-		})) {
+		try (HttpBackendTransportConnector restarted = new HttpBackendTransportConnector(clientDirectory,
+				ignored -> attempts.incrementAndGet())) {
+			assertTrue(restarted.drainAcknowledgements().isEmpty());
+			java.util.List<HttpTransportProtocol.Delivery> accepted = restarted.accept(java.util.List.of(delivery));
+			assertTrue(accepted.isEmpty(), "an ambiguous callback must not be awarded twice");
+			assertEquals(1, attempts.get());
+		}
+	}
+
+	@Test
+	void reservedButNotStartedDeliveryResumesAfterRestart() throws Exception {
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("reserved-proxy"), "localhost");
+		HttpTlsIdentity.IssuedClientCertificate issued = identity.issueClientCertificate("lobby-1");
+		HttpConnectionCode code = new HttpConnectionCode("lobby-1", java.net.URI.create("https://localhost:8443/"),
+				identity.serverCertificatePin(), identity.caCertificatePin(), Instant.now().plusSeconds(300), "C".repeat(43));
+		Path clientDirectory = directory.resolve("reserved-client");
+		HttpClientCredentialStore.saveEnrolled(clientDirectory, code, issued);
+		String id = java.util.UUID.randomUUID().toString();
+		new HttpInboundDeliveryStore(clientDirectory).reserve(id);
+		CountDownLatch completed = new CountDownLatch(1);
+		HttpTransportProtocol.Delivery delivery = new HttpTransportProtocol.Delivery(id, JsonEnvelope.builder("vote").build());
+		try (HttpBackendTransportConnector restarted = new HttpBackendTransportConnector(clientDirectory, ignored -> completed.countDown())) {
+			assertTrue(restarted.drainAcknowledgements().isEmpty(), "a reservation alone must never be acknowledged");
 			java.util.List<HttpTransportProtocol.Delivery> accepted = restarted.accept(java.util.List.of(delivery));
 			assertEquals(1, accepted.size());
 			restarted.dispatch(accepted.get(0));
-			assertTrue(succeeded.await(2, TimeUnit.SECONDS));
-			assertEquals(2, attempts.get());
+			assertTrue(completed.await(2, TimeUnit.SECONDS));
+			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+			while (new HttpInboundDeliveryStore(clientDirectory).state(id) != HttpInboundDeliveryStore.State.COMPLETED
+					&& System.nanoTime() < deadline) Thread.sleep(5);
+			assertEquals(java.util.List.of(id), restarted.drainAcknowledgements());
 		}
+	}
+
+	@Test
+	void interruptedStateRenameRetainsTheFurthestSafeState() throws Exception {
+		Path clientDirectory = directory.resolve("interrupted-state-client");
+		String id = java.util.UUID.randomUUID().toString();
+		String completedId = java.util.UUID.randomUUID().toString();
+		Path states = clientDirectory.resolve("http-transport-inbound-deliveries");
+		Files.createDirectories(states);
+		Files.writeString(states.resolve(id + ".reserved"), id);
+		Files.writeString(states.resolve(id + ".running"), id);
+		Files.writeString(states.resolve(completedId + ".running"), completedId);
+		Files.writeString(states.resolve(completedId + ".completed"), completedId);
+		HttpInboundDeliveryStore store = new HttpInboundDeliveryStore(clientDirectory);
+		assertEquals(HttpInboundDeliveryStore.State.RUNNING, store.state(id));
+		assertEquals(HttpInboundDeliveryStore.State.COMPLETED, store.state(completedId));
+		assertFalse(Files.exists(states.resolve(id + ".reserved")));
+		assertTrue(Files.exists(states.resolve(id + ".running")));
+		assertFalse(Files.exists(states.resolve(completedId + ".running")));
+		assertTrue(Files.exists(states.resolve(completedId + ".completed")));
 	}
 
 	private static HttpTransportProtocol.Delivery delivery(int marker) {

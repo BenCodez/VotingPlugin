@@ -84,9 +84,11 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 		this.credential = credential;
 		this.credentialDirectory = credentialDirectory;
 		inboundDeliveries = credentialDirectory == null ? null : new HttpInboundDeliveryStore(credentialDirectory);
-		if (inboundDeliveries != null) for (String id : inboundDeliveries.snapshot()) {
-			received.add(id);
-			queueAck(id);
+		if (inboundDeliveries != null) for (var entry : inboundDeliveries.snapshot().entrySet()) {
+			if (entry.getValue() == HttpInboundDeliveryStore.State.COMPLETED) {
+				received.add(entry.getKey());
+				queueAck(entry.getKey());
+			}
 		}
 		client = client(profile, credential);
 		transportEndpoint = profile.endpoint().resolve("v1/transport");
@@ -183,9 +185,14 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 		synchronized (state) {
 			List<HttpTransportProtocol.Delivery> accepted = new java.util.ArrayList<>();
 			for (HttpTransportProtocol.Delivery delivery : deliveries) {
-				if (received.contains(delivery.id()) || inboundDeliveries != null && inboundDeliveries.contains(delivery.id())) {
+				HttpInboundDeliveryStore.State persisted = inboundDeliveries == null ? null : inboundDeliveries.state(delivery.id());
+				if (received.contains(delivery.id()) || persisted == HttpInboundDeliveryStore.State.COMPLETED) {
 					received.add(delivery.id()); queueAck(delivery.id()); continue;
 				}
+				// A callback that was running when the process stopped may already have
+				// produced external side effects. Keep the proxy copy without replaying or
+				// acknowledging it; arbitrary plugin callbacks cannot share this journal.
+				if (persisted == HttpInboundDeliveryStore.State.RUNNING) continue;
 				if (!processing.contains(delivery.id())) {
 					processing.add(delivery.id()); accepted.add(delivery);
 				}
@@ -195,20 +202,21 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 	}
 	void dispatch(HttpTransportProtocol.Delivery delivery) {
 		Runnable callback = () -> {
-			boolean success = false, reserved = false;
+			boolean success = false;
 			try {
-				if (inboundDeliveries != null) { inboundDeliveries.reserve(delivery.id()); reserved = true; }
+				if (inboundDeliveries != null) {
+					if (inboundDeliveries.state(delivery.id()) == null) inboundDeliveries.reserve(delivery.id());
+					inboundDeliveries.markRunning(delivery.id());
+				}
 				onEnvelope.accept(delivery.envelope());
+				if (inboundDeliveries != null) inboundDeliveries.markCompleted(delivery.id());
 				success = true;
 			} catch (IOException persistenceFailure) {
-				// Never run a side-effecting callback without first publishing its replay fence.
+				// Never run before RUNNING is durable and never acknowledge until
+				// COMPLETED is durable. An uncertain transition stays fail-closed.
 			} catch (RuntimeException callbackFailure) {
-				if (reserved) try { inboundDeliveries.remove(delivery.id()); }
-				catch (IOException removalFailure) {
-					// A callback can fail after partial effects. If the fence cannot be removed,
-					// fail closed as processed rather than risk awarding again on a retry.
-					success = true;
-				}
+				// The callback may have failed after partial external effects. Leave RUNNING
+				// unacknowledged so a restart cannot silently lose or duplicate the delivery.
 			}
 			completeIncoming(delivery.id(), success);
 		};
