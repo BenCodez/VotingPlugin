@@ -1576,10 +1576,6 @@ public abstract class VotingPluginProxy {
 			}
 		});
 
-		// Do not accept backend traffic until the router and all of its ordered
-		// presence/message listeners are installed.
-		if (method.equals(BungeeMethod.HTTP)) startHttpTransport();
-
 		proxyBroadcastDecider = new ProxyBroadcastDecider(() -> getConfig(), () -> getAllAvailableServers(),
 				s -> isServerValid(s),
 				s -> getConfig().getBlockedServers() != null && getConfig().getBlockedServers().contains(s));
@@ -1592,6 +1588,9 @@ public abstract class VotingPluginProxy {
 					PRESENCE_MAINTENANCE_INTERVAL_SECONDS);
 		}
 		startControlServices();
+		// Open the listener last: backend callbacks can immediately reach routing,
+		// presence, vote-log, multi-proxy, and Control-adjacent runtime helpers.
+		if (method.equals(BungeeMethod.HTTP)) startHttpTransport();
 
 		debug("VotingPluginProxy loaded, ONLINEMODE: " + getConfig().getOnlineMode());
 	}
