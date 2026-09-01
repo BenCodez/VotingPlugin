@@ -31,6 +31,15 @@ class HttpTransportSecurityTest {
 	@TempDir Path directory;
 
 	@Test
+	void backendResponseReaderRejectsBodiesBeyondTheWireLimit() throws Exception {
+		byte[] maximum = new byte[HttpTransportProtocol.MAX_BODY_BYTES];
+		assertEquals(maximum.length, HttpBackendTransportConnector.readLimited(
+				new java.io.ByteArrayInputStream(maximum)).length);
+		assertThrows(java.io.IOException.class, () -> HttpBackendTransportConnector.readLimited(
+				new java.io.ByteArrayInputStream(new byte[HttpTransportProtocol.MAX_BODY_BYTES + 1])));
+	}
+
+	@Test
 	void connectionCodeRoundTripsAndRejectsAccidentalCorruption() {
 		HttpConnectionCode original = new HttpConnectionCode("lobby", URI.create("https://Proxy.Example.test:8443/http"), pin('a'), pin('b'),
 				Instant.parse("2030-01-01T00:00:00Z"), HttpTransportSecrets.randomToken());

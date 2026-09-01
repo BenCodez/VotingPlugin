@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.backendproxy.http;
 
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -121,8 +122,8 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 			.connectTimeout(Duration.ofSeconds(5)).sslContext(HttpPinnedTls.clientContext(code)).build();
 		HttpRequest request = HttpRequest.newBuilder(code.endpoint().resolve("v1/enroll")).timeout(CLIENT_TIMEOUT)
 			.header("Content-Type", "application/json").header("Cache-Control", "no-store").POST(HttpRequest.BodyPublishers.ofByteArray(payload)).build();
-		HttpResponse<byte[]> response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
-		if (response.statusCode() != 201 || response.body().length > HttpTransportProtocol.MAX_BODY_BYTES) throw new IllegalArgumentException("Enrollment was rejected");
+		LimitedResponse response = sendLimited(client, request);
+		if (response.statusCode() != 201) throw new IllegalArgumentException("Enrollment was rejected");
 		HttpTlsIdentity.IssuedClientCertificate issued = HttpTransportProtocol.parseEnrollmentResponse(serverId, response.body());
 		HttpClientCredentialStore.saveEnrolled(credentials, code, issued); return HttpClientCredentialStore.load(credentials);
 	}
@@ -158,8 +159,8 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 			}
 			HttpRequest request = HttpRequest.newBuilder(transportEndpoint).timeout(CLIENT_TIMEOUT).header("Content-Type", "application/json")
 				.header("Cache-Control", "no-store").POST(HttpRequest.BodyPublishers.ofByteArray(HttpTransportProtocol.request(serverId, session, requestSequence, acks, messages))).build();
-			HttpResponse<byte[]> response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
-			if (response.statusCode() != 200 || response.body().length > HttpTransportProtocol.MAX_BODY_BYTES) return false;
+			LimitedResponse response = sendLimited(client, request);
+			if (response.statusCode() != 200) return false;
 			HttpTransportProtocol.Packet packet = HttpTransportProtocol.parsePacket(response.body());
 			if (!serverId.equals(packet.server()) || !session.equals(packet.session()) || packet.sequence() != requestSequence) return false;
 			confirmAcknowledgements(acks);
@@ -289,8 +290,8 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 				HttpRequest request = HttpRequest.newBuilder(profile.endpoint().resolve("v1/renew")).timeout(CLIENT_TIMEOUT)
 						.header("Content-Type", "application/json").header("Cache-Control", "no-store")
 						.POST(HttpRequest.BodyPublishers.ofByteArray(body)).build();
-				HttpResponse<byte[]> response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
-				if (response.statusCode() != 201 || response.body().length > HttpTransportProtocol.MAX_BODY_BYTES) return;
+				LimitedResponse response = sendLimited(client, request);
+				if (response.statusCode() != 201) return;
 				HttpTlsIdentity.IssuedClientCertificate issued = HttpTransportProtocol.parseEnrollmentResponse(serverId, response.body());
 				HttpClientCredentialStore.StagedCredential staged = HttpClientCredentialStore.stageReplacement(directory, issued);
 				HttpClientCredentialStore.ClientCredential replacement = staged.credential();
@@ -309,6 +310,22 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 		return HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).followRedirects(HttpClient.Redirect.NEVER)
 				.connectTimeout(Duration.ofSeconds(5)).sslContext(clientContext(profile, credential)).build();
 	}
+	private static LimitedResponse sendLimited(HttpClient client, HttpRequest request) throws IOException, InterruptedException {
+		HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+		try (InputStream body = response.body()) {
+			long declaredLength = response.headers().firstValueAsLong("Content-Length").orElse(-1L);
+			if (declaredLength > HttpTransportProtocol.MAX_BODY_BYTES)
+				throw new IOException("HTTP transport response exceeds its limit");
+			return new LimitedResponse(response.statusCode(), readLimited(body));
+		}
+	}
+	static byte[] readLimited(InputStream body) throws IOException {
+		byte[] bytes = body.readNBytes(HttpTransportProtocol.MAX_BODY_BYTES + 1);
+		if (bytes.length > HttpTransportProtocol.MAX_BODY_BYTES)
+			throw new IOException("HTTP transport response exceeds its limit");
+		return bytes;
+	}
+	private record LimitedResponse(int statusCode, byte[] body) { }
 	private static SSLContext clientContext(HttpClientCredentialStore.HttpClientProfile profile, HttpClientCredentialStore.ClientCredential credential) throws Exception {
 		String caPin = HttpTransportSecrets.certificatePin(credential.caCertificate());
 		if (!HttpTransportSecrets.constantTimeEquals(profile.caCertificatePin().getBytes(StandardCharsets.US_ASCII),

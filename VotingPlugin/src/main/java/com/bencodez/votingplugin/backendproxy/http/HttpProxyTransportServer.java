@@ -375,7 +375,18 @@ public final class HttpProxyTransportServer implements AutoCloseable {
 		private synchronized void persist(String serverId, HttpTransportProtocol.Delivery delivery) throws IOException {
 			Path directory = root.resolve(serverId).normalize();
 			if (!directory.getParent().equals(root)) throw new IOException("HTTP outgoing queue server is invalid");
-			Files.createDirectories(directory); ownerOnlyDirectory(directory);
+			boolean created = false;
+			try { Files.createDirectory(directory); created = true; }
+			catch (java.nio.file.FileAlreadyExistsException existing) { }
+			try {
+				if (Files.isSymbolicLink(directory) || !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS))
+					throw new IOException("HTTP outgoing queue server directory is invalid");
+				ownerOnlyDirectory(directory);
+			} finally {
+				// The child fsync below cannot make this newly published name durable in
+				// its parent. Persist the root entry before accepting the first message.
+				if (created) DurableFiles.forceDirectory(root);
+			}
 			if (sequence == Long.MAX_VALUE) throw new IOException("HTTP outgoing queue sequence is exhausted");
 			String name = String.format(java.util.Locale.ROOT, "%020d-%s.json", ++sequence, delivery.id());
 			Path target = directory.resolve(name);
