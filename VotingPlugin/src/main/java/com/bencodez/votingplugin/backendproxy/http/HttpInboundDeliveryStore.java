@@ -86,7 +86,11 @@ final class HttpInboundDeliveryStore {
 				if (Files.isSymbolicLink(file) || !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)
 						|| !name.endsWith(SUFFIX) || Files.size(file) > 64L)
 					throw new IOException("HTTP inbound delivery fence contains an invalid entry");
-				String id = canonical(name.substring(0, name.length() - SUFFIX.length()));
+				String id;
+				try { id = canonical(name.substring(0, name.length() - SUFFIX.length())); }
+				catch (IllegalArgumentException invalid) {
+					throw new IOException("HTTP inbound delivery fence entry is invalid", invalid);
+				}
 				if (!name.equals(id + SUFFIX) || !Files.readString(file, StandardCharsets.US_ASCII).equals(id)
 						|| !entries.add(id))
 					throw new IOException("HTTP inbound delivery fence entry is invalid");
