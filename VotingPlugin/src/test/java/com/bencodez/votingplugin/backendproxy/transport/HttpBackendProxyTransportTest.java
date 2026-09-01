@@ -92,7 +92,7 @@ class HttpBackendProxyTransportTest {
 
 	@Test
 	@SuppressWarnings("unchecked")
-	void validationWaitsForThePreviousDirectoryOwner() throws Exception {
+	void validationWaitsForThePreviousDirectoryOwnerBeforeReadinessFailure() throws Exception {
 		Path credentials = directory.resolve("http");
 		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("proxy-owner"), "proxy.example.test");
 		HttpConnectionCode code = new HttpConnectionCode("lobby-1", URI.create("https://proxy.example.test:1297/"),
@@ -115,7 +115,7 @@ class HttpBackendProxyTransportTest {
 		java.util.concurrent.atomic.AtomicReference<Throwable> failure = new java.util.concurrent.atomic.AtomicReference<>();
 		CountDownLatch finished = new CountDownLatch(1);
 		Thread validation = new Thread(() -> {
-			try { transport.validate(); }
+			try { transport.validate(System.nanoTime() + TimeUnit.SECONDS.toNanos(1)); }
 			catch (Throwable thrown) { failure.set(thrown); }
 			finally { finished.countDown(); }
 		});
@@ -124,7 +124,7 @@ class HttpBackendProxyTransportTest {
 		predecessor.release();
 		assertTrue(finished.await(3, TimeUnit.SECONDS));
 		validation.join(TimeUnit.SECONDS.toMillis(1));
-		assertNull(failure.get());
+		assertTrue(failure.get() instanceof IllegalStateException);
 		transport.close();
 	}
 

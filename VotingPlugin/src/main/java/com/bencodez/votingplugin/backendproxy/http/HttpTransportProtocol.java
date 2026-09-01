@@ -214,8 +214,15 @@ final class HttpTransportProtocol {
 		} catch (RuntimeException failure) { throw bad(); }
 	}
 	private static long nonNegative(JsonObject object, String name) { long n = integer(object, name); if (n < 0) throw bad(); return n; }
-	private static String uuid(JsonObject object, String name) { String value = string(object, name, 64); try { return UUID.fromString(value).toString(); } catch (IllegalArgumentException invalid) { throw bad(); } }
-	private static void validId(String id) { if (id == null || id.length() > 64) throw bad(); try { UUID.fromString(id); } catch (IllegalArgumentException invalid) { throw bad(); } }
+	private static String uuid(JsonObject object, String name) { return canonicalUuid(string(object, name, 64)); }
+	private static void validId(String id) { if (id == null || id.length() > 64) throw bad(); canonicalUuid(id); }
+	private static String canonicalUuid(String value) {
+		try {
+			UUID parsed = UUID.fromString(value);
+			if (!parsed.toString().equals(value)) throw bad();
+			return value;
+		} catch (IllegalArgumentException invalid) { throw bad(); }
+	}
 	private static IllegalArgumentException bad() { return new IllegalArgumentException("Invalid HTTP transport message"); }
 
 	record Delivery(String id, JsonEnvelope envelope) { }

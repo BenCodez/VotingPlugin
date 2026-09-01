@@ -86,7 +86,13 @@ public final class HttpTlsIdentity {
 		if (advertisedHost == null || advertisedHost.isBlank() || advertisedHost.length() > 253)
 			throw new IllegalArgumentException("Advertised HTTPS host is invalid");
 		if (clock == null) throw new IllegalArgumentException("Clock is required");
-		Files.createDirectories(directory);
+		Path identityDirectory = directory.toAbsolutePath().normalize();
+		boolean created = !Files.exists(identityDirectory, LinkOption.NOFOLLOW_LINKS);
+		Files.createDirectories(identityDirectory);
+		// The identity files cannot make the newly created directory entry durable.
+		// Persist its parent before the TLS identity is returned for listener use.
+		if (created) DurableFiles.forceDirectory(identityDirectory.getParent());
+		directory = identityDirectory;
 		Path caFile = safe(directory.resolve(CA_FILE));
 		Path serverFile = safe(directory.resolve(SERVER_FILE));
 		Path passwordFile = safe(directory.resolve(PASSWORD_FILE));

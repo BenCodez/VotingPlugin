@@ -1214,39 +1214,85 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	/** Recreates proxy transports after Control applies BungeeSettings.yml. */
-	public synchronized void restartBackendProxyHandler() {
+	public void restartBackendProxyHandler() {
 		restartBackendProxyHandler(System.nanoTime() + TimeUnit.SECONDS.toNanos(25));
 	}
 
 	/** Recreates proxy transports while preserving the caller's end-to-end validation deadline. */
-	public synchronized void restartBackendProxyHandler(long validationDeadlineNanos) {
+	public void restartBackendProxyHandler(long validationDeadlineNanos) {
+		BackendProxyRestart restart = prepareBackendProxyHandlerRestart();
+		try {
+			validateBackendProxyHandlerRestart(restart, validationDeadlineNanos);
+			completeBackendProxyHandlerRestart(restart);
+		} catch (RuntimeException failure) {
+			abortBackendProxyHandlerRestart(restart);
+			throw failure;
+		}
+	}
+
+	/** Prepared on the Bukkit thread, validated off-thread, then atomically published on Bukkit. */
+	public static final class BackendProxyRestart {
+		private final BackendProxyHandler previous;
+		private final BackendProxyHandler replacement;
+		private final boolean disabled;
+		private boolean finished;
+
+		private BackendProxyRestart(BackendProxyHandler previous, BackendProxyHandler replacement, boolean disabled) {
+			this.previous = previous;
+			this.replacement = replacement;
+			this.disabled = disabled;
+		}
+	}
+
+	public synchronized BackendProxyRestart prepareBackendProxyHandlerRestart() {
 		BackendProxyHandler previous = backendProxyHandler;
 		if (!bungeeSettings.isUseBungeecoord()) {
-			backendProxyHandler = null;
-			if (previous != null) previous.close();
-			BackendControlAutoEnrollment enrollment = backendControlAutoEnrollment;
-			backendControlAutoEnrollment = null;
-			if (enrollment != null) enrollment.close();
-			return;
+			return new BackendProxyRestart(previous, null, true);
 		}
 		BungeeMethod replacementMethod = BungeeMethod.getByName(bungeeSettings.getBungeeMethod());
 		if (previous != null) previous.prepareForReplacement(replacementMethod);
 		BackendProxyHandler replacement = new BackendProxyHandler(this, backendProcessedVoteCache);
 		try {
 			replacement.load();
-			replacement.validateTransport(validationDeadlineNanos);
-			if (previous != null) previous.completeRedisHandoff(replacement);
 		} catch (RuntimeException failure) {
 			replacement.close();
 			throw failure;
 		}
-		backendProxyHandler = replacement;
-		if (previous != null) previous.close();
+		return new BackendProxyRestart(previous, replacement, false);
+	}
+
+	public void validateBackendProxyHandlerRestart(BackendProxyRestart restart, long validationDeadlineNanos) {
+		if (restart == null) throw new IllegalArgumentException("Backend proxy restart is required");
+		if (restart.replacement != null) restart.replacement.validateTransport(validationDeadlineNanos);
+	}
+
+	public synchronized void completeBackendProxyHandlerRestart(BackendProxyRestart restart) {
+		if (restart == null || restart.finished) throw new IllegalStateException("Backend proxy restart is no longer active");
+		if (backendProxyHandler != restart.previous) throw new IllegalStateException("Backend proxy handler changed during restart");
+		if (restart.disabled) {
+			backendProxyHandler = null;
+			if (restart.previous != null) restart.previous.close();
+			BackendControlAutoEnrollment enrollment = backendControlAutoEnrollment;
+			backendControlAutoEnrollment = null;
+			if (enrollment != null) enrollment.close();
+			restart.finished = true;
+			return;
+		}
+		if (restart.previous != null) restart.previous.completeRedisHandoff(restart.replacement);
+		backendProxyHandler = restart.replacement;
+		if (restart.previous != null) restart.previous.close();
+		restart.finished = true;
 		try {
 			refreshBackendControlAutoEnrollment();
 		} catch (IOException e) {
 			getLogger().warning("[Control] Automatic backend enrollment was not refreshed: " + e.getMessage());
 		}
+	}
+
+	public synchronized void abortBackendProxyHandlerRestart(BackendProxyRestart restart) {
+		if (restart == null || restart.finished) return;
+		if (restart.replacement != null) restart.replacement.close();
+		restart.finished = true;
 	}
 
 	/** Keeps one plugin-message listener for the plugin lifetime and atomically swaps its active backend handler. */

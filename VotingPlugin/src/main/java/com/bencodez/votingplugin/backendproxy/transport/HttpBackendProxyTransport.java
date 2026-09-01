@@ -65,12 +65,16 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 			if (!enrolled.profile().serverId().equals(com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity.canonicalServerId(serverId)))
 				throw new IllegalStateException("Persisted HTTP identity belongs to a different backend Server name");
 			replacement = new HttpBackendTransportConnector(directory, messageHandler::onMessage);
+			replacement.start();
+			if (!replacement.awaitFirstResponse(System.nanoTime()
+					+ TimeUnit.SECONDS.toNanos(DEFAULT_STARTUP_VALIDATION_SECONDS))) {
+				throw new IllegalStateException("HTTP backend could not authenticate with the proxy");
+			}
 			boolean discard = false;
 			synchronized (lifecycle) {
 				if (closed) {
 					discard = true;
 				} else {
-					replacement.start();
 					while (!startupQueue.isEmpty()) {
 						if (!replacement.send(startupQueue.removeFirst())) {
 							throw new IllegalStateException("HTTP startup queue could not be transferred");

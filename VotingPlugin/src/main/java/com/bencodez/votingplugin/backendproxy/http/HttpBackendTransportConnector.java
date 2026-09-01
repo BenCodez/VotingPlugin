@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
@@ -45,6 +46,7 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 	private final URI transportEndpoint;
 	private final ThreadPoolExecutor callbackExecutor;
 	private final AtomicBoolean running = new AtomicBoolean();
+	private final CountDownLatch firstResponse = new CountDownLatch(1);
 	private final Object state = new Object();
 	private final Object renewal = new Object();
 	private final LinkedHashMap<String, HttpTransportProtocol.Delivery> outgoing = new LinkedHashMap<>();
@@ -132,6 +134,11 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 		if (!running.compareAndSet(false, true)) return;
 		poller = new Thread(this::pollLoop, "VotingPlugin-HTTP-poll"); poller.setDaemon(true); poller.start();
 	}
+	/** Waits for one authenticated, protocol-valid transport response. */
+	public boolean awaitFirstResponse(long deadlineNanos) throws InterruptedException {
+		long remaining = deadlineNanos - System.nanoTime();
+		return remaining > 0L && firstResponse.await(remaining, TimeUnit.NANOSECONDS) && running.get();
+	}
 	/**
 	 * Inserts an in-memory at-least-once delivery. It survives retry/lost responses while this process remains alive;
 	 * callers needing restart durability must retain the application operation independently.
@@ -167,12 +174,14 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 			acknowledgementsConfirmed = true;
 			synchronized (state) { for (String ack : packet.acks()) outgoing.remove(ack); }
 			for (HttpTransportProtocol.Delivery delivery : accept(packet.messages())) dispatch(delivery);
+			firstResponse.countDown();
 			return true;
 		} catch (Exception failure) { return false;
 		} finally { if (!acknowledgementsConfirmed) requeueAcknowledgements(acks); }
 	}
 	@Override public void close() {
 		running.getAndSet(false);
+		firstResponse.countDown();
 		// Revoke this connector's journal writer before a replacement snapshots it.
 		// In-flight transitions serialize with seal(): either COMPLETED is already
 		// durable, or the delivery remains durably RUNNING and fail-closed.

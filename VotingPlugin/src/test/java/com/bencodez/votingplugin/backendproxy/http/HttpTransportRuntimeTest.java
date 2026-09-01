@@ -38,6 +38,8 @@ class HttpTransportRuntimeTest {
 			try (HttpBackendTransportConnector connector = new HttpBackendTransportConnector(directory.resolve("client"),
 					envelope -> backendReceived.countDown())) {
 				connector.start();
+				assertTrue(connector.awaitFirstResponse(System.nanoTime() + TimeUnit.SECONDS.toNanos(8)),
+						"an authenticated transport response must make the connector ready");
 				assertTrue(connector.send(JsonEnvelope.builder("to-proxy").put("server", "forged").build()));
 				assertTrue(proxyReceived.await(8, TimeUnit.SECONDS));
 				assertEquals("lobby-1", received.get().serverId());
@@ -183,6 +185,31 @@ class HttpTransportRuntimeTest {
 			assertThrows(IllegalArgumentException.class, () -> HttpTransportProtocol.parsePacket(
 					rejected.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)), field.getKey() + "=" + token);
 		}
+	}
+
+	@Test
+	void packetParsingRejectsNoncanonicalUuidForms() {
+		String deliveryId = java.util.UUID.randomUUID().toString();
+		com.google.gson.JsonObject packet = com.google.gson.JsonParser.parseString(new String(HttpTransportProtocol.request(
+				"lobby-1", java.util.UUID.randomUUID().toString(), 0, java.util.List.of(deliveryId),
+				java.util.List.of(new HttpTransportProtocol.Delivery(deliveryId, JsonEnvelope.builder("payload").build()))),
+				java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+		String abbreviated = "1-1-1-1-1";
+
+		com.google.gson.JsonObject invalidSession = packet.deepCopy();
+		invalidSession.addProperty("session", abbreviated);
+		assertThrows(IllegalArgumentException.class, () -> HttpTransportProtocol.parsePacket(
+				invalidSession.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+
+		com.google.gson.JsonObject invalidAck = packet.deepCopy();
+		invalidAck.getAsJsonArray("acks").set(0, new com.google.gson.JsonPrimitive(abbreviated));
+		assertThrows(IllegalArgumentException.class, () -> HttpTransportProtocol.parsePacket(
+				invalidAck.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+
+		com.google.gson.JsonObject invalidMessage = packet.deepCopy();
+		invalidMessage.getAsJsonArray("messages").get(0).getAsJsonObject().addProperty("id", abbreviated);
+		assertThrows(IllegalArgumentException.class, () -> HttpTransportProtocol.parsePacket(
+				invalidMessage.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
 	}
 
 	@Test

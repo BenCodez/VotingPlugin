@@ -97,8 +97,13 @@ public final class HttpClientCredentialStore {
 	private static StagedCredential stage(Path directory, HttpTlsIdentity.IssuedClientCertificate issued,
 			HttpClientProfile profile, String connectionCodeDigest) throws Exception {
 		if (directory == null || issued == null) throw new IllegalArgumentException("Credential replacement is required");
-		Path generations = directory.toAbsolutePath().normalize().resolve(GENERATIONS_DIRECTORY);
+		Path credentialDirectory = directory.toAbsolutePath().normalize();
+		boolean created = !Files.exists(credentialDirectory, LinkOption.NOFOLLOW_LINKS);
+		Path generations = credentialDirectory.resolve(GENERATIONS_DIRECTORY);
 		Files.createDirectories(generations);
+		// Credential files cannot make the newly created credential-root entry durable.
+		// Persist its parent before an enrolled transport can activate this root.
+		if (created) DurableFiles.forceDirectory(credentialDirectory.getParent());
 		if (Files.isSymbolicLink(generations) || !Files.isDirectory(generations, LinkOption.NOFOLLOW_LINKS))
 			throw new IOException("HTTP credential generation directory is unsafe");
 		String name = java.util.UUID.randomUUID().toString();

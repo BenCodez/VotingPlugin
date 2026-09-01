@@ -111,24 +111,56 @@ public final class BackendControlConnector implements AutoCloseable {
 	}
 
 	private void reloadConfiguration(String fileName) throws Exception {
-		Future<?> reload;
 		long validationDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(29);
+		Future<VotingPluginMain.BackendProxyRestart> preparation;
 		synchronized (operationLifecycle) {
 			if (closed) throw new IllegalStateException("Bukkit Control connector is stopping");
-			reload = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+			preparation = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
 				plugin.reloadFromControl();
-				if ("BungeeSettings.yml".equals(fileName)) plugin.restartBackendProxyHandler(validationDeadline);
+				return "BungeeSettings.yml".equals(fileName) ? plugin.prepareBackendProxyHandlerRestart() : null;
+			});
+			activeReload = preparation;
+		}
+		VotingPluginMain.BackendProxyRestart restart = null;
+		try {
+			restart = preparation.get(remaining(validationDeadline), TimeUnit.NANOSECONDS);
+			if (restart == null) return;
+			// Network enrollment/readiness is deliberately awaited on this Control worker,
+			// never on Bukkit's primary thread.
+			plugin.validateBackendProxyHandlerRestart(restart, validationDeadline);
+			VotingPluginMain.BackendProxyRestart prepared = restart;
+			Future<?> publication = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+				plugin.completeBackendProxyHandlerRestart(prepared);
 				return null;
 			});
-			activeReload = reload;
-		}
-		try {
-			reload.get(30, TimeUnit.SECONDS);
+			synchronized (operationLifecycle) {
+				if (closed) publication.cancel(true);
+				activeReload = publication;
+			}
+			publication.get(remaining(validationDeadline), TimeUnit.NANOSECONDS);
+		} catch (Exception failure) {
+			if (restart != null) {
+				VotingPluginMain.BackendProxyRestart prepared = restart;
+				try {
+					Future<?> abort = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+						plugin.abortBackendProxyHandlerRestart(prepared);
+						return null;
+					});
+					abort.get(5, TimeUnit.SECONDS);
+				} catch (Exception cleanupFailure) { failure.addSuppressed(cleanupFailure); }
+			}
+			throw failure;
 		} finally {
 			synchronized (operationLifecycle) {
-				if (activeReload == reload) activeReload = null;
+				activeReload = null;
 			}
 		}
+	}
+
+	private static long remaining(long deadlineNanos) throws java.util.concurrent.TimeoutException {
+		long remaining = deadlineNanos - System.nanoTime();
+		if (remaining <= 0L) throw new java.util.concurrent.TimeoutException("Bukkit configuration reload timed out");
+		return remaining;
 	}
 
 	public static BackendControlConnector create(VotingPluginMain plugin) throws IOException {
