@@ -95,7 +95,9 @@ public final class HttpProxyTransportServer implements AutoCloseable {
 		// Long polls are blocking by design. Capacity is bounded by admission, while enough workers
 		// remain available for all admitted polls plus setup requests.
 		listenerExecutor = executor("VotingPlugin-HTTP-listener", 72, 72);
-		handlerExecutor = executor("VotingPlugin-HTTP-handler", 4, 128);
+		// The proxy router mutates shared presence, vote, and reward state. A separate
+		// bounded FIFO lane keeps wire order without blocking long-poll workers.
+		handlerExecutor = executor("VotingPlugin-HTTP-handler", 1, 128);
 		server.setExecutor(listenerExecutor);
 		server.createContext("/v1/enroll", exchange -> enroll((HttpsExchange) exchange));
 		server.createContext("/v1/renew", exchange -> renew((HttpsExchange) exchange));

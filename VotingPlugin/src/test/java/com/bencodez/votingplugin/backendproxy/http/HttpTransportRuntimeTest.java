@@ -359,6 +359,40 @@ class HttpTransportRuntimeTest {
 	}
 
 	@Test
+	void proxyCallbacksAreSerializedInDeliveryOrder() throws Exception {
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("ordered-proxy-server"), "localhost");
+		HttpEnrollmentAuthority authority = new HttpEnrollmentAuthority(identity, directory.resolve("ordered-authority"));
+		CountDownLatch firstStarted = new CountDownLatch(1), releaseFirst = new CountDownLatch(1), secondStarted = new CountDownLatch(1);
+		java.util.List<String> order = new java.util.concurrent.CopyOnWriteArrayList<>();
+		try (HttpProxyTransportServer server = new HttpProxyTransportServer(new InetSocketAddress("localhost", 0), identity,
+				authority, received -> {
+					String marker = String.valueOf(received.envelope().getFields().get("marker"));
+					order.add(marker);
+					if ("first".equals(marker)) {
+						firstStarted.countDown();
+						try { releaseFirst.await(5, TimeUnit.SECONDS); }
+						catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+					} else secondStarted.countDown();
+				})) {
+			server.start();
+			HttpConnectionCode code = authority.createConnectionCode("lobby-1", server.endpoint("localhost"), Duration.ofMinutes(5));
+			HttpClientCredentialStore.ClientCredential credential = HttpBackendTransportConnector.enroll(code, "lobby-1",
+					directory.resolve("ordered-proxy-client"));
+			try (HttpBackendTransportConnector connector = new HttpBackendTransportConnector(code, "lobby-1", credential,
+					ignored -> { })) {
+				connector.start();
+				assertTrue(connector.send(JsonEnvelope.builder("x").put("marker", "first").build()));
+				assertTrue(connector.send(JsonEnvelope.builder("x").put("marker", "second").build()));
+				assertTrue(firstStarted.await(3, TimeUnit.SECONDS));
+				assertFalse(secondStarted.await(150, TimeUnit.MILLISECONDS));
+				releaseFirst.countDown();
+				assertTrue(secondStarted.await(3, TimeUnit.SECONDS));
+				assertEquals(java.util.List.of("first", "second"), order);
+			}
+		} finally { releaseFirst.countDown(); }
+	}
+
+	@Test
 	void backendDedupWindowContinuesAfterCapacity() throws Exception {
 		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("proxy"), "localhost");
 		HttpTlsIdentity.IssuedClientCertificate issued = identity.issueClientCertificate("lobby-1");
