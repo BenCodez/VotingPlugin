@@ -10,6 +10,67 @@ has two separate lanes:
 Do not translate an inspection request into a configuration operation. Do not add raw SQL, arbitrary commands, player
 enumeration, database browsing, filesystem paths, or generic key/value reads to either contract.
 
+## Proxy file contract (`config.proxy-files.v1`)
+
+This is a proxy-only capability, advertised by an enrolled BungeeCord or Velocity node. It is separate from
+`config.proxy-routing.v1`, `config.proxy-method.v1`, and the backend `config.files.v1` capability. The only managed file
+is the proxy's top-level `bungeeconfig.yml` in the VotingPlugin data folder. `fileName` must be exactly
+`bungeeconfig.yml`; paths, subdirectories, and other filenames are rejected. The file and proposed UTF-8 content are
+bounded at 512 KiB. YAML must be a mapping, use string keys and supported scalar/map/list values, and may not contain
+aliases/merge keys, duplicate keys, invalid UTF-8, NULs, or nesting deeper than 50.
+
+The operation is carried in the normal authenticated node operation queue. Control claims an operation with
+`POST /api/v1/nodes/{nodeId}/operations` and `{"sessionId":"<connector-session-uuid>"}`. A claimed task has
+`operationId`, `attemptId`, `type`, and, for APPLY, `expectedRevision`, plus this configuration object:
+
+```json
+{
+  "domain": "file",
+  "fileName": "bungeeconfig.yml",
+  "content": "...masked YAML..."
+}
+```
+
+`content` is omitted for READ. The node submits the result through the normal operation-result endpoint; a result has
+`success`, `code`, `message`, `revision` (on success), `configuration` (on success), `changes`, `reloaded`, and
+`rolledBack`, and includes the claimed `attemptId`. A successful configuration object contains `domain`, `fileName`,
+and masked `content`. `changes` is a deterministic, lexicographically ordered list of at most 20 flattened YAML paths,
+using `added`, `changed`, or `removed` prefixes. The complete operation-result request and connector HTTP response retain
+the shared 4 MiB protocol bound; the stricter 512 KiB limit applies to the managed YAML content itself.
+
+The node posts that result to `POST /api/v1/nodes/{nodeId}/operations/{operationId}/result` with the same
+`sessionId`; there is no second proxy-file-specific envelope. `attemptId` is retained in the result so Control can
+match the leased attempt. Control's HTTP success response acknowledges receipt; a `409` `TASK_LEASE_EXPIRED` leaves
+the result journaled for recovery/retry, while `404` `OPERATION_NOT_FOUND` is treated as an acknowledgement because
+the Control-side operation is already gone. Malformed or non-success transport responses affect only this connector
+queue and are retried with its normal bounded backoff.
+
+READ returns the current masked document and its SHA-256 revision. PREVIEW parses and validates the proposal, resolves
+unchanged redacted secret markers against the local document, returns the current revision and changes, and does not
+write. APPLY requires the exact revision returned by the preview (and checks it again around staging/installation),
+writes through a staged file and atomic activation, and retains `bungeeconfig.yml.control-backup`. A stale or changed
+revision returns `success:false`, `code:"STALE_REVISION"`, with no configuration payload. Invalid file names, YAML,
+content, or redaction use `VALIDATION_ERROR`; unavailable/read or save failures use the fixed `APPLY_FAILED` result;
+an installation failure returns `APPLY_FAILED` and reports whether rollback succeeded in `rolledBack`.
+
+Proxy-file APPLY does not reload the proxy in this connector (`reloaded:false`); the success message instructs an
+operator to restart the proxy for general settings to take effect. It is not the `proxy-method` runtime-replacement
+operation. A failed installation attempts to restore the backup atomically. The result is journaled by operation ID
+until Control acknowledges it, so a leased retry does not apply the change twice; on node recovery an unfinished APPLY
+is either recognized as already installed by revision or reported as `RECOVERY_ABORTED`.
+
+Control must authenticate as the enrolled node and must include `config.proxy-files.v1` in `acceptedCapabilities`
+before assigning these tasks. If the capability was not negotiated, the node returns `UNSUPPORTED` without reading or
+writing the file. Proxy and backend nodes may be enrolled against the same Control instance, but each node has its own
+identity, credential/session, operation lease, revision, and result journal: a backend capability does not authorize a
+proxy-file task, and one peer's approval or revision cannot be used for another peer. Control should therefore present
+this editor only for a capable proxy node and require its normal authenticated admin preview/approval flow.
+
+All reads mask secrets. The mask covers password/secret/token/API-key/authorization/webhook URL fields and selected
+database, Redis, MQTT, proxy-host, and Control infrastructure fields; JDBC-style and credential-bearing URLs are also
+masked. A submitted redaction marker preserves the local secret; replacement secrets may be submitted in an authenticated
+operation but are never returned or journaled.
+
 ## Easy automatic vote-site toggle
 
 The `auto-create-vote-sites` quick-setup preset owns exactly one setting:
@@ -225,6 +286,41 @@ An exact player result includes at most 100 `lastVotes` rows with `siteKey`, `di
 `lastVotesTruncated`. These are stored last-vote values for sites that currently resolve as enabled; disabled, invalid, or
 unloaded site keys are not returned. They are not log enumeration or an end-to-end delivery history.
 `pendingOfflineVotes` is a bounded count saturated at 100,000 rather than a detailed queue view.
+
+### Exact-player storage fields (schema version 1)
+
+The `player` result additionally contains `storageRowAvailable`, `storage`, `columns`, and `columnsTruncated`.
+`storageRowAvailable` is true only when the exact loaded player has user data and a configured storage type that can be
+read. When false, `columns` is an empty array, `columnsTruncated` is false, and `storage` is omitted. `storage` is the
+storage enum name (for example `SQLITE`), not a connection or table description.
+
+Each `columns` entry is exactly `{ "name": <string>, "type": <string>, "value": <string> }`. `value` is a bounded
+string rendering: integer values are decimal text, booleans are `true`/`false` text, and string values are returned as
+text (a null string renders as empty text). `type` is exactly the underlying stored `DataValue.getType().name()`;
+the allow-list accepts only the corresponding string, boolean, or integer value type described below. Only these fields
+are eligible:
+
+- Static string names (must have a string value): `UUID`, `PlayerName`, `LastOnline`, `DayVoteStreakLastUpdate`,
+  `VoteRemindersLast`.
+- Static boolean names (native boolean, or a string exactly matching `true`/`false`, case-insensitively): `TopVoterIgnore`,
+  `Reminded`, `DisableBroadcast`.
+- Static integer names (integer value): `VotePartyVotes`, `MonthTotal`, `AllTimeTotal`, `DailyTotal`, `WeeklyTotal`,
+  `Points`, `DayVoteStreak`, `BestDayVoteStreak`, `WeekVoteStreak`, `BestWeekVoteStreak`, `MonthVoteStreak`,
+  `BestMonthVoteStreak`, `HighestDailyTotal`, `HighestMonthlyTotal`, `HighestWeeklyTotal`, `LastMonthTotal`,
+  `LastWeeklyTotal`, `LastDailyTotal`.
+- Dynamic integer names: `MonthTotal-<MONTH>-<YYYY>` where `<MONTH>` is an uppercase English month name and `<YYYY>` is
+  exactly four digits; and `VoteShopLimit<suffix>` where `<suffix>` is 1–64 characters from `[A-Za-z0-9_-]`.
+- Four runtime-derived exact names: the configured cooldown flag (`CoolDownCheck` or `CoolDownCheck_<server-storage-name>`,
+  boolean), cooldown-site list (`CoolDownCheck_Sites` or `CoolDownCheck_<server-storage-name>_Sites`, string),
+  all-sites day (`AllSitesLast` or `AllSitesLast_<server-storage-name>`, integer), and almost-all-sites day
+  (`AlmostAllSitesLast` or `AlmostAllSitesLast_<server-storage-name>`, integer). The runtime names are compared exactly;
+  they are not wildcards.
+
+Other stored keys—including serialized offline/reward payloads, plugin-specific keys, malformed dynamic spellings, and
+allow-listed names with the wrong value type—are omitted. Entries are sorted by `name` case-insensitively, then by exact
+spelling, and at most 100 eligible entries are returned. A 101st eligible entry or a value larger than 16 KiB sets
+`columnsTruncated:true`; oversized values themselves are omitted. The complete result is bounded at 512 KiB. No
+credential, secret, raw payload, SQL metadata, or arbitrary storage key is exposed.
 
 ## Data and security invariants
 
