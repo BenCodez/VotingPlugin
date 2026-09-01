@@ -47,7 +47,7 @@ class HttpBackendProxyTransportTest {
 				"invalid configuration must fail before the enrollment worker starts");
 
 		when(settings.getHttpConnectionCode()).thenReturn(code("lobby-1", Instant.now().plusSeconds(60)).encode());
-		assertDoesNotThrow(transport::validate);
+		assertDoesNotThrow(() -> transport.validate());
 	}
 
 	@Test
