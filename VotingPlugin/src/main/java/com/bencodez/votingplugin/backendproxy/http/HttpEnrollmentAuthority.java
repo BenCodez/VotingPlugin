@@ -118,6 +118,8 @@ public final class HttpEnrollmentAuthority {
 	public synchronized void revoke(String serverId) {
 		try { serverId = HttpTlsIdentity.canonicalServerId(serverId); }
 		catch (IllegalArgumentException invalid) { return; }
+		final String revokedServer = serverId;
+		enrollments.entrySet().removeIf(entry -> revokedServer.equals(entry.getValue().serverId()));
 		ClientBinding binding = bindings.get(serverId);
 		if (binding != null) {
 			bindings.put(serverId, new ClientBinding(binding.certificatePin(), binding.pendingCertificatePin(), true));

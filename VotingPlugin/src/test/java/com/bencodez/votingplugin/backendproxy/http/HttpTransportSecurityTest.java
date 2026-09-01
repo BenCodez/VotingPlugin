@@ -133,6 +133,28 @@ class HttpTransportSecurityTest {
 	}
 
 	@Test
+	void revocationInvalidatesEveryPendingCodeForTheBackend() throws Exception {
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("revoke-pending"), "localhost");
+		HttpEnrollmentAuthority authority = new HttpEnrollmentAuthority(identity,
+				Clock.fixed(Instant.parse("2030-01-01T00:00:00Z"), ZoneOffset.UTC));
+		URI endpoint = URI.create("https://localhost:8443/");
+		HttpConnectionCode beforeEnrollment = authority.createConnectionCode("lobby-1", endpoint, Duration.ofMinutes(5));
+		authority.revoke("LOBBY-1");
+		assertThrows(IllegalArgumentException.class,
+				() -> authority.enroll("lobby-1", beforeEnrollment.enrollmentToken()));
+
+		HttpConnectionCode active = authority.createConnectionCode("lobby-1", endpoint, Duration.ofMinutes(5));
+		authority.enroll("lobby-1", active.enrollmentToken());
+		HttpConnectionCode firstPending = authority.createConnectionCode("lobby-1", endpoint, Duration.ofMinutes(5));
+		HttpConnectionCode secondPending = authority.createConnectionCode("lobby-1", endpoint, Duration.ofMinutes(5));
+		authority.revoke("lobby-1");
+		assertThrows(IllegalArgumentException.class,
+				() -> authority.enroll("lobby-1", firstPending.enrollmentToken()));
+		assertThrows(IllegalArgumentException.class,
+				() -> authority.enroll("lobby-1", secondPending.enrollmentToken()));
+	}
+
+	@Test
 	void renewalKeepsOldCredentialUntilReplacementAuthenticates() throws Exception {
 		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("proxy"), "localhost");
 		HttpEnrollmentAuthority authority = new HttpEnrollmentAuthority(identity, directory.resolve("state"));
