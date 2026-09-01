@@ -17,6 +17,7 @@ import com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler;
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
+import com.bencodez.votingplugin.backendproxy.http.HttpProxyTransportServer;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
 public class VotingPluginProxyTestImpl extends VotingPluginProxy {
@@ -241,6 +242,10 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	public void handleLoginMessageForTest(JsonEnvelope envelope) {
 		handleLoginMessage(envelope);
+	}
+
+	public void handleHttpTransportEnvelopeForTest(HttpProxyTransportServer.ReceivedEnvelope received) {
+		handleHttpTransportEnvelope(received);
 	}
 
 	public void handleStatusOkayForTest(JsonEnvelope envelope) {

@@ -2710,11 +2710,7 @@ public abstract class VotingPluginProxy {
 			httpEnrollmentAuthority = new HttpEnrollmentAuthority(identity, directory.toPath());
 			httpTransportServer = new HttpProxyTransportServer(
 					new InetSocketAddress(getConfig().getHttpHost(), getConfig().getHttpPort()), identity,
-					httpEnrollmentAuthority, directory.toPath().resolve("outgoing-v1"), received -> {
-						GlobalMessageProxyHandler handler = globalMessageProxyHandler;
-						if (handler == null) throw new IllegalStateException("HTTP message router is not ready");
-						handler.onMessage(received.envelope());
-					});
+					httpEnrollmentAuthority, directory.toPath().resolve("outgoing-v1"), this::handleHttpTransportEnvelope);
 			httpTransportServer.start();
 			logInfo("HTTP transport listening securely on " + getConfig().getHttpHost() + ":"
 					+ httpTransportServer.port() + "; use /votingpluginbungee httpcode <server> for each backend");
@@ -2722,6 +2718,31 @@ public abstract class VotingPluginProxy {
 			closeHttpTransport();
 			throw new IllegalStateException("HTTP transport could not start securely", failure);
 		}
+	}
+
+	/** Keeps the authenticated mTLS backend identity attached to security-sensitive proxy routing. */
+	protected void handleHttpTransportEnvelope(HttpProxyTransportServer.ReceivedEnvelope received) {
+		if (!isAuthenticatedHttpEnvelopeAllowed(received)) {
+			debug("Ignored HTTP envelope whose player-presence claim did not match its authenticated backend");
+			return;
+		}
+		GlobalMessageProxyHandler handler = globalMessageProxyHandler;
+		if (handler == null) throw new IllegalStateException("HTTP message router is not ready");
+		handler.onMessage(received.envelope());
+	}
+
+	private boolean isAuthenticatedHttpEnvelopeAllowed(HttpProxyTransportServer.ReceivedEnvelope received) {
+		if (received == null || received.envelope() == null || received.serverId() == null) return false;
+		String stampedServer = received.envelope().getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
+		if (!received.serverId().equalsIgnoreCase(stampedServer)) return false;
+		if (!VotingPluginWire.SUB_LOGIN.equals(received.envelope().getSubChannel())) return true;
+		VotingPluginWire.PlayerPresenceEvent event = VotingPluginWire.readPlayerPresenceEvent(received.envelope());
+		boolean modern = event.connectionId != null || event.backendIncarnationId != null
+				|| event.backendStartedAt != 0L || event.presenceTimestamp != 0L;
+		if (!modern || isDedicatedVotingProxyEnabled()) return true;
+		// A player-facing proxy has a stronger authority than any backend: its live
+		// player connection supplies both the current route and (in online mode) UUID.
+		return isLegacyLoginDestinationAuthoritative(event.player, event.uuid, received.serverId());
 	}
 
 	private synchronized void closeHttpTransport() {
