@@ -53,6 +53,25 @@ class HttpTransportSecurityTest {
 	}
 
 	@Test
+	void inboundDeliveryFenceRejectsCorruptionAndPathReplacement() throws Exception {
+		Path corruptCredentials = directory.resolve("corrupt-client");
+		Path corruptFence = corruptCredentials.resolve("http-transport-inbound-deliveries");
+		Files.createDirectories(corruptFence);
+		Files.writeString(corruptFence.resolve("not-a-delivery.seen"), "not-a-delivery");
+		assertThrows(java.io.IOException.class, () -> new HttpInboundDeliveryStore(corruptCredentials));
+
+		Path replacedCredentials = directory.resolve("replaced-client");
+		Files.createDirectories(replacedCredentials);
+		HttpInboundDeliveryStore store = new HttpInboundDeliveryStore(replacedCredentials);
+		Path fence = replacedCredentials.resolve("http-transport-inbound-deliveries");
+		Path outside = directory.resolve("outside-fence");
+		Files.createDirectory(outside);
+		Files.delete(fence);
+		Files.createSymbolicLink(fence, outside);
+		assertThrows(java.io.IOException.class, () -> store.reserve(java.util.UUID.randomUUID().toString()));
+	}
+
+	@Test
 	void identityIsDurableAndPinsRejectTheWrongServer() throws Exception {
 		HttpTlsIdentity created = HttpTlsIdentity.loadOrCreate(directory, "localhost");
 		HttpTlsIdentity loaded = HttpTlsIdentity.loadOrCreate(directory, "localhost");

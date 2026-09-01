@@ -32,7 +32,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -97,7 +96,7 @@ public final class HttpProxyTransportServer implements AutoCloseable {
 		listenerExecutor = executor("VotingPlugin-HTTP-listener", 72, 72);
 		// The proxy router mutates shared presence, vote, and reward state. A separate
 		// bounded FIFO lane keeps wire order without blocking long-poll workers.
-		handlerExecutor = executor("VotingPlugin-HTTP-handler", 1, 128);
+		handlerExecutor = executor("VotingPlugin-HTTP-handler", 1, HttpBackendTransportConnector.CALLBACK_QUEUE_CAPACITY);
 		server.setExecutor(listenerExecutor);
 		server.createContext("/v1/enroll", exchange -> enroll((HttpsExchange) exchange));
 		server.createContext("/v1/renew", exchange -> renew((HttpsExchange) exchange));
@@ -178,7 +177,7 @@ public final class HttpProxyTransportServer implements AutoCloseable {
 		} finally { admission.release(); }
 	}
 
-	private void handlePacket(HttpTransportProtocol.Packet packet, BackendState backend) {
+	private void handlePacket(HttpTransportProtocol.Packet packet, BackendState backend) throws IOException {
 		List<HttpTransportProtocol.Delivery> accepted;
 		synchronized (backend) {
 			if (!backend.allowRequest()) throw new IllegalArgumentException("transport rate limited");
@@ -188,12 +187,14 @@ public final class HttpProxyTransportServer implements AutoCloseable {
 		for (HttpTransportProtocol.Delivery delivery : accepted) dispatch(packet.server(), backend, delivery);
 	}
 	private void dispatch(String serverId, BackendState backend, HttpTransportProtocol.Delivery delivery) {
-		try { handlerExecutor.execute(() -> {
+		Runnable callback = () -> {
 			boolean success = false;
 			try { onEnvelope.accept(new ReceivedEnvelope(serverId, delivery.id(), normalizeBackendIdentity(serverId, delivery.envelope()))); success = true; }
 			catch (RuntimeException ignored) { }
 			synchronized (backend) { backend.completeIncoming(delivery.id(), success); }
-		}); } catch (RejectedExecutionException rejected) { synchronized (backend) { backend.completeIncoming(delivery.id(), false); } }
+		};
+		if (!HttpBackendTransportConnector.executeOrdered(handlerExecutor, callback))
+			synchronized (backend) { backend.completeIncoming(delivery.id(), false); }
 	}
 	private static JsonEnvelope normalizeBackendIdentity(String serverId, JsonEnvelope envelope) {
 		// The authenticated TLS identity is authoritative; never forward a forged `server` field.
@@ -269,11 +270,12 @@ public final class HttpProxyTransportServer implements AutoCloseable {
 			catch (IOException failure) { return false; }
 			outgoing.put(delivery.id(), delivery); signal(); return true;
 		}
-		private void acknowledge(Collection<String> acks) {
+		private void acknowledge(Collection<String> acks) throws IOException {
 			for (String id : acks) {
 				if (!outgoing.containsKey(id)) continue;
-				if (durableOutgoing != null) try { durableOutgoing.remove(serverId, id); }
-				catch (IOException failure) { continue; }
+				// A 200 response is the backend's proof that its durable replay fence may
+				// be deleted. Never return success while the proxy delivery still exists.
+				if (durableOutgoing != null) durableOutgoing.remove(serverId, id);
 				outgoing.remove(id); delivered.remove(id);
 			}
 		}

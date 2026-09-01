@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.backendproxy.http;
 
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -32,12 +33,14 @@ import javax.net.ssl.SSLContext;
 /** Backend-side, persistent HTTP/1.1 long-poll connector. */
 public final class HttpBackendTransportConnector implements AutoCloseable {
 	public static final Duration CLIENT_TIMEOUT = Duration.ofSeconds(35);
+	static final int CALLBACK_QUEUE_CAPACITY = 128;
 	private volatile HttpClientCredentialStore.HttpClientProfile profile;
 	private final String serverId;
 	private final Consumer<JsonEnvelope> onEnvelope;
 	private volatile HttpClient client;
 	private volatile HttpClientCredentialStore.ClientCredential credential;
 	private final Path credentialDirectory;
+	private final HttpInboundDeliveryStore inboundDeliveries;
 	private final URI transportEndpoint;
 	private final ThreadPoolExecutor callbackExecutor;
 	private final AtomicBoolean running = new AtomicBoolean();
@@ -51,17 +54,19 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 	private long sequence;
 	private volatile long nextRenewalCheckNanos;
 
-	public HttpBackendTransportConnector(HttpConnectionCode code, String serverId,
+	/** In-memory test constructor; production transport must use a directory-backed constructor. */
+	HttpBackendTransportConnector(HttpConnectionCode code, String serverId,
 			HttpClientCredentialStore.ClientCredential credential, Consumer<JsonEnvelope> onEnvelope) throws Exception {
 		this(profile(code, serverId), credential, onEnvelope);
 	}
 
-	/** Starts normal transport from the non-secret profile persisted by enrollment. */
-	public HttpBackendTransportConnector(HttpClientCredentialStore.EnrolledClient enrolled, Consumer<JsonEnvelope> onEnvelope) throws Exception {
+	/** In-memory test constructor; production transport must use a directory-backed constructor. */
+	HttpBackendTransportConnector(HttpClientCredentialStore.EnrolledClient enrolled, Consumer<JsonEnvelope> onEnvelope) throws Exception {
 		this(enrolled, onEnvelope, null);
 	}
 
-	public HttpBackendTransportConnector(HttpClientCredentialStore.HttpClientProfile profile,
+	/** In-memory test constructor; production transport must use a directory-backed constructor. */
+	HttpBackendTransportConnector(HttpClientCredentialStore.HttpClientProfile profile,
 			HttpClientCredentialStore.ClientCredential credential, Consumer<JsonEnvelope> onEnvelope) throws Exception {
 		this(profile, credential, onEnvelope, null);
 	}
@@ -78,12 +83,17 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 		this.profile = profile; this.serverId = profile.serverId(); this.onEnvelope = onEnvelope;
 		this.credential = credential;
 		this.credentialDirectory = credentialDirectory;
+		inboundDeliveries = credentialDirectory == null ? null : new HttpInboundDeliveryStore(credentialDirectory);
+		if (inboundDeliveries != null) for (String id : inboundDeliveries.snapshot()) {
+			received.add(id);
+			queueAck(id);
+		}
 		client = client(profile, credential);
 		transportEndpoint = profile.endpoint().resolve("v1/transport");
 		// GlobalMessageHandler routes mutate backend vote state and must observe the
 		// wire order. One bounded lane preserves batch ordering without running work on
-		// the long-poll thread.
-		callbackExecutor = executor("VotingPlugin-HTTP-callback", 1, 128);
+		// the long-poll thread; bounded admission below backpressures this poller.
+		callbackExecutor = executor("VotingPlugin-HTTP-callback", 1, CALLBACK_QUEUE_CAPACITY);
 	}
 
 	/** Convenience constructor for the owner-only credential directory produced by {@link #enroll}. */
@@ -135,9 +145,10 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 	/** A synchronous single poll, useful for lifecycle-controlled integrations and tests. */
 	public synchronized boolean pollOnce() {
 		if (!running.get()) return false;
+		List<String> acks = List.of(); boolean acknowledgementsConfirmed = false;
 		try {
 			maybeRenewCredential();
-			List<String> acks; List<HttpTransportProtocol.Delivery> messages; long requestSequence;
+			List<HttpTransportProtocol.Delivery> messages; long requestSequence;
 			synchronized (state) {
 				acks = first(acknowledgements); requestSequence = sequence++;
 				messages = HttpTransportProtocol.fittingMessages(serverId, session, requestSequence, acks, outgoing.values());
@@ -149,10 +160,13 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 			if (response.statusCode() != 200 || response.body().length > HttpTransportProtocol.MAX_BODY_BYTES) return false;
 			HttpTransportProtocol.Packet packet = HttpTransportProtocol.parsePacket(response.body());
 			if (!serverId.equals(packet.server()) || !session.equals(packet.session()) || packet.sequence() != requestSequence) return false;
+			confirmAcknowledgements(acks);
+			acknowledgementsConfirmed = true;
 			synchronized (state) { for (String ack : packet.acks()) outgoing.remove(ack); }
 			for (HttpTransportProtocol.Delivery delivery : accept(packet.messages())) dispatch(delivery);
 			return true;
-		} catch (Exception failure) { return false; }
+		} catch (Exception failure) { return false;
+		} finally { if (!acknowledgementsConfirmed) requeueAcknowledgements(acks); }
 	}
 	@Override public void close() {
 		running.getAndSet(false);
@@ -169,7 +183,9 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 		synchronized (state) {
 			List<HttpTransportProtocol.Delivery> accepted = new java.util.ArrayList<>();
 			for (HttpTransportProtocol.Delivery delivery : deliveries) {
-				if (received.contains(delivery.id())) { queueAck(delivery.id()); continue; }
+				if (received.contains(delivery.id()) || inboundDeliveries != null && inboundDeliveries.contains(delivery.id())) {
+					received.add(delivery.id()); queueAck(delivery.id()); continue;
+				}
 				if (!processing.contains(delivery.id())) {
 					processing.add(delivery.id()); accepted.add(delivery);
 				}
@@ -178,20 +194,66 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 		}
 	}
 	void dispatch(HttpTransportProtocol.Delivery delivery) {
-		try { callbackExecutor.execute(() -> { boolean success = false; try { onEnvelope.accept(delivery.envelope()); success = true; } catch (RuntimeException ignored) { }
+		Runnable callback = () -> {
+			boolean success = false, reserved = false;
+			try {
+				if (inboundDeliveries != null) { inboundDeliveries.reserve(delivery.id()); reserved = true; }
+				onEnvelope.accept(delivery.envelope());
+				success = true;
+			} catch (IOException persistenceFailure) {
+				// Never run a side-effecting callback without first publishing its replay fence.
+			} catch (RuntimeException callbackFailure) {
+				if (reserved) try { inboundDeliveries.remove(delivery.id()); }
+				catch (IOException removalFailure) {
+					// A callback can fail after partial effects. If the fence cannot be removed,
+					// fail closed as processed rather than risk awarding again on a retry.
+					success = true;
+				}
+			}
 			completeIncoming(delivery.id(), success);
-		}); } catch (RejectedExecutionException rejected) { completeIncoming(delivery.id(), false); }
+		};
+		if (!executeOrdered(callbackExecutor, callback)) completeIncoming(delivery.id(), false);
 	}
 	void completeIncoming(String id, boolean success) { synchronized (state) {
 		processing.remove(id);
 		if (success) { received.add(id); while (received.size() > HttpTransportProtocol.MAX_QUEUE) received.remove(received.iterator().next()); queueAck(id); }
 	} }
 	private void queueAck(String id) { if (acknowledgements.size() < HttpTransportProtocol.MAX_QUEUE && !acknowledgements.contains(id)) acknowledgements.add(id); }
+	private void requeueAcknowledgements(List<String> ids) { synchronized (state) {
+		for (int index = ids.size() - 1; index >= 0; index--) {
+			String id = ids.get(index);
+			if (!acknowledgements.contains(id)) {
+				while (acknowledgements.size() >= HttpTransportProtocol.MAX_QUEUE) acknowledgements.removeLast();
+				acknowledgements.addFirst(id);
+			}
+		}
+	} }
+	private void confirmAcknowledgements(Collection<String> ids) {
+		for (String id : ids) {
+			if (inboundDeliveries != null) try { inboundDeliveries.remove(id); }
+			catch (IOException cleanupFailure) { continue; }
+			synchronized (state) { received.remove(id); }
+		}
+	}
 	int queuedOutgoing() { synchronized (state) { return outgoing.size(); } }
 	List<String> drainAcknowledgements() { synchronized (state) { return drain(acknowledgements); } }
 	private static <T> List<T> first(Collection<T> values) { List<T> output = new java.util.ArrayList<>(); for (T value : values) { output.add(value); if (output.size() == HttpTransportProtocol.MAX_BATCH) break; } return output; }
 	private static List<String> drain(ArrayDeque<String> values) { List<String> output = new java.util.ArrayList<>(); while (!values.isEmpty() && output.size() < HttpTransportProtocol.MAX_BATCH) output.add(values.remove()); return output; }
 	private static ThreadPoolExecutor executor(String name, int threads, int queue) { ThreadFactory factory = task -> { Thread thread = new Thread(task, name); thread.setDaemon(true); return thread; }; return new ThreadPoolExecutor(threads, threads, 0L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(queue), factory, new ThreadPoolExecutor.AbortPolicy()); }
+	static boolean executeOrdered(ThreadPoolExecutor executor, Runnable task) {
+		try { executor.execute(task); return true; }
+		catch (RejectedExecutionException fullOrClosed) {
+			if (executor.isShutdown()) return false;
+			try {
+				while (!executor.isShutdown()) {
+					if (!executor.getQueue().offer(task, 100L, TimeUnit.MILLISECONDS)) continue;
+					if (executor.isShutdown() && executor.remove(task)) return false;
+					return true;
+				}
+			} catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+			return false;
+		}
+	}
 	private static HttpClientCredentialStore.HttpClientProfile profile(HttpConnectionCode code, String serverId) {
 		if (code == null || serverId == null) throw new IllegalArgumentException("HTTP backend transport configuration is invalid");
 		if (!code.serverId().equals(HttpTlsIdentity.canonicalServerId(serverId))) throw new IllegalArgumentException("HTTP connection code belongs to a different backend");

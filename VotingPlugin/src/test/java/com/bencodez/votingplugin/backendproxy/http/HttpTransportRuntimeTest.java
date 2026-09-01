@@ -33,8 +33,8 @@ class HttpTransportRuntimeTest {
 				message -> { received.set(message); proxyReceived.countDown(); })) {
 			server.start();
 			HttpConnectionCode code = authority.createConnectionCode("lobby-1", server.endpoint("localhost"), Duration.ofMinutes(5));
-			HttpClientCredentialStore.ClientCredential credential = HttpBackendTransportConnector.enroll(code, "lobby-1", directory.resolve("client"));
-			try (HttpBackendTransportConnector connector = new HttpBackendTransportConnector(code, "lobby-1", credential,
+			HttpBackendTransportConnector.enroll(code, "lobby-1", directory.resolve("client"));
+			try (HttpBackendTransportConnector connector = new HttpBackendTransportConnector(directory.resolve("client"),
 					envelope -> backendReceived.countDown())) {
 				connector.start();
 				assertTrue(connector.send(JsonEnvelope.builder("to-proxy").put("server", "forged").build()));
@@ -46,6 +46,10 @@ class HttpTransportRuntimeTest {
 				assertEquals(0, connector.queuedOutgoing(), "proxy ACK must remove the exact outbound delivery ID");
 				assertTrue(server.send("lobby-1", JsonEnvelope.builder("to-backend").build()));
 				assertTrue(backendReceived.await(8, TimeUnit.SECONDS));
+				Path inboundFence = directory.resolve("client").resolve("http-transport-inbound-deliveries");
+				long fenceDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+				while (countRegularFiles(inboundFence) != 0L && System.nanoTime() < fenceDeadline) Thread.sleep(20);
+				assertEquals(0L, countRegularFiles(inboundFence), "a confirmed ACK must remove the backend replay fence");
 			}
 		}
 	}
@@ -356,6 +360,110 @@ class HttpTransportRuntimeTest {
 			assertTrue(secondStarted.await(2, TimeUnit.SECONDS));
 			assertEquals(java.util.List.of("first", "second"), order);
 		} finally { releaseFirst.countDown(); }
+	}
+
+	@Test
+	void backendCallbackQueueBackpressuresWithoutBreakingFifo() throws Exception {
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("backpressure-proxy"), "localhost");
+		HttpTlsIdentity.IssuedClientCertificate issued = identity.issueClientCertificate("lobby-1");
+		HttpClientCredentialStore.save(directory.resolve("backpressure-client"), issued);
+		HttpClientCredentialStore.HttpClientProfile profile = new HttpClientCredentialStore.HttpClientProfile("lobby-1",
+				java.net.URI.create("https://localhost:8443/"), identity.serverCertificatePin(), identity.caCertificatePin());
+		CountDownLatch firstStarted = new CountDownLatch(1), releaseFirst = new CountDownLatch(1);
+		int deliveries = HttpBackendTransportConnector.CALLBACK_QUEUE_CAPACITY + 2;
+		CountDownLatch completed = new CountDownLatch(deliveries), overflowSubmitted = new CountDownLatch(1);
+		java.util.List<Integer> order = new java.util.concurrent.CopyOnWriteArrayList<>();
+		try (HttpBackendTransportConnector connector = new HttpBackendTransportConnector(profile,
+				HttpClientCredentialStore.load(directory.resolve("backpressure-client")), envelope -> {
+			int marker = Integer.parseInt(envelope.getFields().get("marker"));
+			order.add(marker);
+			if (marker == 0) {
+				firstStarted.countDown();
+				try { releaseFirst.await(5, TimeUnit.SECONDS); }
+				catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+			}
+			completed.countDown();
+		})) {
+			connector.dispatch(delivery(0));
+			assertTrue(firstStarted.await(2, TimeUnit.SECONDS));
+			for (int marker = 1; marker <= HttpBackendTransportConnector.CALLBACK_QUEUE_CAPACITY; marker++)
+				connector.dispatch(delivery(marker));
+			Thread overflow = new Thread(() -> {
+				connector.dispatch(delivery(deliveries - 1));
+				overflowSubmitted.countDown();
+			}, "HTTP-overflow-submitter");
+			overflow.start();
+			assertFalse(overflowSubmitted.await(150, TimeUnit.MILLISECONDS), "a full ordered lane must backpressure its producer");
+			releaseFirst.countDown();
+			assertTrue(overflowSubmitted.await(2, TimeUnit.SECONDS));
+			assertTrue(completed.await(5, TimeUnit.SECONDS));
+			assertEquals(java.util.stream.IntStream.range(0, deliveries).boxed().toList(), order);
+		} finally { releaseFirst.countDown(); }
+	}
+
+	@Test
+	void durableBackendFencePreventsCallbackReplayAfterRestartBeforeAck() throws Exception {
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("fence-proxy"), "localhost");
+		HttpTlsIdentity.IssuedClientCertificate issued = identity.issueClientCertificate("lobby-1");
+		HttpConnectionCode code = new HttpConnectionCode("lobby-1", java.net.URI.create("https://localhost:8443/"),
+				identity.serverCertificatePin(), identity.caCertificatePin(), Instant.now().plusSeconds(300), "A".repeat(43));
+		Path clientDirectory = directory.resolve("fence-client");
+		HttpClientCredentialStore.saveEnrolled(clientDirectory, code, issued);
+		java.util.concurrent.atomic.AtomicInteger callbacks = new java.util.concurrent.atomic.AtomicInteger();
+		String id = java.util.UUID.randomUUID().toString();
+		HttpTransportProtocol.Delivery delivery = new HttpTransportProtocol.Delivery(id, JsonEnvelope.builder("vote").build());
+		try (HttpBackendTransportConnector first = new HttpBackendTransportConnector(clientDirectory,
+				ignored -> callbacks.incrementAndGet())) {
+			first.dispatch(delivery);
+			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+			while (callbacks.get() != 1 && System.nanoTime() < deadline) Thread.sleep(5);
+			assertEquals(1, callbacks.get());
+		}
+		try (HttpBackendTransportConnector restarted = new HttpBackendTransportConnector(clientDirectory,
+				ignored -> callbacks.incrementAndGet())) {
+			assertEquals(java.util.List.of(id), restarted.drainAcknowledgements(),
+					"restart must retain and acknowledge the pre-callback delivery fence");
+			assertTrue(restarted.accept(java.util.List.of(delivery)).isEmpty());
+			assertEquals(1, callbacks.get(), "a durable proxy replay must not award twice");
+		}
+	}
+
+	@Test
+	void failedBackendCallbackRemovesFenceAndRemainsRetryable() throws Exception {
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("retry-fence-proxy"), "localhost");
+		HttpTlsIdentity.IssuedClientCertificate issued = identity.issueClientCertificate("lobby-1");
+		HttpConnectionCode code = new HttpConnectionCode("lobby-1", java.net.URI.create("https://localhost:8443/"),
+				identity.serverCertificatePin(), identity.caCertificatePin(), Instant.now().plusSeconds(300), "B".repeat(43));
+		Path clientDirectory = directory.resolve("retry-fence-client");
+		HttpClientCredentialStore.saveEnrolled(clientDirectory, code, issued);
+		java.util.concurrent.atomic.AtomicInteger attempts = new java.util.concurrent.atomic.AtomicInteger();
+		CountDownLatch failed = new CountDownLatch(1), succeeded = new CountDownLatch(1);
+		HttpTransportProtocol.Delivery delivery = new HttpTransportProtocol.Delivery(java.util.UUID.randomUUID().toString(),
+				JsonEnvelope.builder("vote").build());
+		try (HttpBackendTransportConnector first = new HttpBackendTransportConnector(clientDirectory, ignored -> {
+			attempts.incrementAndGet(); failed.countDown(); throw new IllegalStateException("retry");
+		})) {
+			first.dispatch(delivery);
+			assertTrue(failed.await(2, TimeUnit.SECONDS));
+			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+			while (countRegularFiles(clientDirectory.resolve("http-transport-inbound-deliveries")) != 0L
+					&& System.nanoTime() < deadline) Thread.sleep(5);
+			assertTrue(first.drainAcknowledgements().isEmpty());
+		}
+		try (HttpBackendTransportConnector restarted = new HttpBackendTransportConnector(clientDirectory, ignored -> {
+			attempts.incrementAndGet(); succeeded.countDown();
+		})) {
+			java.util.List<HttpTransportProtocol.Delivery> accepted = restarted.accept(java.util.List.of(delivery));
+			assertEquals(1, accepted.size());
+			restarted.dispatch(accepted.get(0));
+			assertTrue(succeeded.await(2, TimeUnit.SECONDS));
+			assertEquals(2, attempts.get());
+		}
+	}
+
+	private static HttpTransportProtocol.Delivery delivery(int marker) {
+		return new HttpTransportProtocol.Delivery(java.util.UUID.randomUUID().toString(),
+				JsonEnvelope.builder("x").put("marker", marker).build());
 	}
 
 	@Test
