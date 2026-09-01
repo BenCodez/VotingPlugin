@@ -15,6 +15,7 @@ import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -50,13 +51,14 @@ import com.google.gson.JsonParser;
  */
 public final class ControlConnector implements AutoCloseable {
 	static final int PROTOCOL_VERSION = 1;
-	static final int MAX_RESPONSE_BYTES = 64 * 1024;
+	static final int MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 	private static final Pattern NODE_ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,63}");
 	private static final Set<String> BASE_CAPABILITIES = Set.of("presence.snapshot");
 	private static final String CONFIGURATION_CAPABILITY = "config.proxy-routing.v1";
 	private static final String COMMUNICATION_TEST_CAPABILITY = "config.transport-test.v1";
 	private static final String COMMUNICATION_TEST_PRESET = "communication-test";
 	private static final String PROXY_METHOD_CAPABILITY = "config.proxy-method.v1";
+	private static final String PROXY_FILE_CAPABILITY = "config.proxy-files.v1";
 	private static final String PROXY_METHOD_PRESET = "proxy-method";
 	private static final String INTERNAL_OPERATION_TYPE = "_controlOperationType";
 	private static final long OPERATION_POLL_MILLIS = 1000;
@@ -72,6 +74,7 @@ public final class ControlConnector implements AutoCloseable {
 	private final LongSupplier jitterSource;
 	private final ProxyRoutingConfigurationService configurationService;
 	private final ProxyMethodConfigurationService methodConfigurationService;
+	private final ProxyConfigurationFileService fileConfigurationService;
 	private final Function<String, CompletableFuture<VotingPluginProxy.CommunicationTestResult>> communicationTest;
 	private final Runnable runtimeReplacement;
 	private final Path dataDirectory;
@@ -85,6 +88,7 @@ public final class ControlConnector implements AutoCloseable {
 	private volatile boolean closed;
 	private volatile boolean registered;
 	private volatile boolean configurationAccepted;
+	private volatile Set<String> acceptedCapabilities = Set.of();
 	private volatile int failures;
 	private volatile long snapshotSequence;
 	private volatile ScheduledFuture<?> scheduled;
@@ -97,14 +101,14 @@ public final class ControlConnector implements AutoCloseable {
 			Supplier<List<ObservedBackend>> snapshotSource, Consumer<String> logger, UUID sessionId,
 			LongSupplier jitterSource) {
 		this(settings, scheduler, transport, snapshotSource, logger, sessionId, jitterSource, null,
-				null, null, false, null, null, null, null);
+				null, null, false, null, null, null, null, null);
 	}
 
 	ControlConnector(Settings settings, ScheduledExecutorService scheduler, Transport transport,
 			Supplier<List<ObservedBackend>> snapshotSource, Consumer<String> logger, UUID sessionId,
 			LongSupplier jitterSource, ProxyRoutingConfigurationService configurationService) {
 		this(settings, scheduler, transport, snapshotSource, logger, sessionId, jitterSource, configurationService,
-				null, null, false, null, null, null, null);
+				null, null, false, null, null, null, null, null);
 	}
 
 	ControlConnector(Settings settings, ScheduledExecutorService scheduler, Transport transport,
@@ -112,7 +116,7 @@ public final class ControlConnector implements AutoCloseable {
 			LongSupplier jitterSource, ProxyRoutingConfigurationService configurationService,
 			Map<UUID, StoredResult> recoveredTasks) {
 		this(settings, scheduler, transport, snapshotSource, logger, sessionId, jitterSource, configurationService,
-				null, null, false, null, null, null, null);
+				null, null, false, null, null, null, null, null);
 		completedTasks.putAll(recoveredTasks);
 	}
 
@@ -121,7 +125,8 @@ public final class ControlConnector implements AutoCloseable {
 			LongSupplier jitterSource, ProxyRoutingConfigurationService configurationService, Path dataDirectory,
 			Route route, boolean recovering, Runnable recoveryComplete,
 			Function<String, CompletableFuture<VotingPluginProxy.CommunicationTestResult>> communicationTest,
-			ProxyMethodConfigurationService methodConfigurationService, Runnable runtimeReplacement) {
+			ProxyMethodConfigurationService methodConfigurationService, Runnable runtimeReplacement,
+			ProxyConfigurationFileService fileConfigurationService) {
 		this.settings = Objects.requireNonNull(settings, "settings");
 		this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
 		this.transport = Objects.requireNonNull(transport, "transport");
@@ -133,6 +138,7 @@ public final class ControlConnector implements AutoCloseable {
 		this.methodConfigurationService = methodConfigurationService;
 		this.communicationTest = communicationTest;
 		this.runtimeReplacement = runtimeReplacement;
+		this.fileConfigurationService = fileConfigurationService;
 		this.dataDirectory = dataDirectory;
 		this.route = route;
 		this.recovering = recovering;
@@ -193,7 +199,7 @@ public final class ControlConnector implements AutoCloseable {
 				() -> ThreadLocalRandom.current().nextLong(), new ProxyRoutingConfigurationService(proxy), dataDirectory,
 				route, recovering, proxy::restartControlServicesAfterRecovery,
 				server -> proxy.testBackendCommunication(server, 5000L), new ProxyMethodConfigurationService(proxy),
-				() -> proxy.reloadCore(true));
+				() -> proxy.reloadCore(true), new ProxyConfigurationFileService(proxy));
 		if (recovered != null) connector.completedTasks.putAll(recovered.results());
 		return connector;
 	}
@@ -396,9 +402,16 @@ public final class ControlConnector implements AutoCloseable {
 			if (!contains(accepted, "presence.snapshot")) {
 				throw new ProtocolException();
 			}
-			configurationAccepted = contains(accepted, CONFIGURATION_CAPABILITY)
-					|| contains(accepted, COMMUNICATION_TEST_CAPABILITY)
-					|| contains(accepted, PROXY_METHOD_CAPABILITY);
+			LinkedHashSet<String> negotiated = new LinkedHashSet<>();
+			for (JsonElement capability : accepted) {
+				if (!capability.isJsonPrimitive() || !capability.getAsJsonPrimitive().isString()) {
+					throw new ProtocolException();
+				}
+				negotiated.add(capability.getAsString());
+			}
+			acceptedCapabilities = Set.copyOf(negotiated);
+			configurationAccepted = acceptedCapabilities.stream().anyMatch(Set.of(CONFIGURATION_CAPABILITY,
+					COMMUNICATION_TEST_CAPABILITY, PROXY_METHOD_CAPABILITY, PROXY_FILE_CAPABILITY)::contains);
 		}
 	}
 
@@ -633,10 +646,19 @@ public final class ControlConnector implements AutoCloseable {
 		JsonObject result = anticipated.json();
 		result.addProperty("attemptId", attemptId);
 		result.addProperty(INTERNAL_OPERATION_TYPE, "APPLY");
+		StoredResult previous;
 		synchronized (operationLifecycle) {
-			completedTasks.put(operationId, new StoredResult(result, false, false));
+			previous = completedTasks.put(operationId, new StoredResult(result, false, false));
 		}
-		persistCompleted();
+		try {
+			persistCompleted();
+		} catch (RuntimeException failure) {
+			synchronized (operationLifecycle) {
+				if (previous == null) completedTasks.remove(operationId);
+				else completedTasks.put(operationId, previous);
+			}
+			throw failure;
+		}
 	}
 
 	private void prepareWriteAheadIntents() {
@@ -656,7 +678,17 @@ public final class ControlConnector implements AutoCloseable {
 				}
 			}
 		}
-		if (changed) persistCompleted();
+		if (changed) {
+			try {
+				persistCompleted();
+			} catch (RuntimeException failure) {
+				synchronized (operationLifecycle) {
+					completedTasks.clear();
+					completedTasks.putAll(snapshot);
+				}
+				throw failure;
+			}
+		}
 	}
 
 	private static StoredResult abortedIntent(StoredResult pending) {
@@ -673,6 +705,14 @@ public final class ControlConnector implements AutoCloseable {
 		if (configuration != null && isProxyMethod(configuration) && methodConfigurationService != null) {
 			return result.get("revision").getAsString().equals(methodConfigurationService.read().revision());
 		}
+		if (isProxyFile(configuration) && fileConfigurationService != null) {
+			try {
+				return result.get("revision").getAsString().equals(
+						fileConfigurationService.read(requireString(configuration, "fileName")).revision());
+			} catch (IOException failure) {
+				return false;
+			}
+		}
 		return configurationService != null
 				&& result.get("revision").getAsString().equals(configurationService.read().revision());
 	}
@@ -685,8 +725,21 @@ public final class ControlConnector implements AutoCloseable {
 
 	private CompletableFuture<TaskResult> executeTask(UUID operationId, JsonObject task) {
 		JsonObject requested = task.getAsJsonObject("configuration");
-		if (isCommunicationTest(requested)) return executeCommunicationTest(task, requested);
-		if (isProxyMethod(requested)) return executeProxyMethod(operationId, task, requested);
+		if (isProxyFile(requested)) {
+			if (!acceptedCapabilities.contains(PROXY_FILE_CAPABILITY)) {
+				return completed(TaskResult.failure("UNSUPPORTED", "Proxy file control was not negotiated"));
+			}
+			return executeProxyFile(operationId, task, requested);
+		}
+		if (isCommunicationTest(requested)) return acceptedCapabilities.contains(COMMUNICATION_TEST_CAPABILITY)
+				? executeCommunicationTest(task, requested)
+				: completed(TaskResult.failure("UNSUPPORTED", "Communication testing was not negotiated"));
+		if (isProxyMethod(requested)) return acceptedCapabilities.contains(PROXY_METHOD_CAPABILITY)
+				? executeProxyMethod(operationId, task, requested)
+				: completed(TaskResult.failure("UNSUPPORTED", "Proxy method control was not negotiated"));
+		if (!acceptedCapabilities.contains(CONFIGURATION_CAPABILITY)) {
+			return completed(TaskResult.failure("UNSUPPORTED", "Proxy routing control was not negotiated"));
+		}
 		if (configurationService == null) return completed(TaskResult.failure("UNSUPPORTED", "Configuration control is unavailable"));
 		String type = requireString(task, "type");
 		try {
@@ -758,6 +811,45 @@ public final class ControlConnector implements AutoCloseable {
 		}
 	}
 
+	private CompletableFuture<TaskResult> executeProxyFile(UUID operationId, JsonObject task, JsonObject requested) {
+		if (fileConfigurationService == null) {
+			return completed(TaskResult.failure("UNSUPPORTED", "Proxy file control is unavailable"));
+		}
+		String type = requireString(task, "type");
+		String fileName = requireString(requested, "fileName");
+		try {
+			if ("READ".equals(type)) {
+				return completed(TaskResult.file(fileConfigurationService.read(fileName), List.of(), false, false));
+			}
+			String content = requireString(requested, "content");
+			ProxyConfigurationFileService.Preview preview = fileConfigurationService.preview(fileName, content);
+			if ("PREVIEW".equals(type)) {
+				ProxyConfigurationFileService.Document current = fileConfigurationService.read(fileName);
+				if (!preview.revision().equals(current.revision())) {
+					throw new ProxyConfigurationFileService.StaleRevisionException();
+				}
+				return completed(TaskResult.file(current, preview.changes(), false, false));
+			}
+			if (!"APPLY".equals(type)) return completed(TaskResult.failure("UNSUPPORTED_TASK", "Task type is unsupported"));
+			persistIntent(operationId, TaskResult.fileIntent(fileName,
+					ProxyConfigurationFileService.revision(preview.resolvedContent()), preview.changes()),
+					requireString(task, "attemptId"));
+			ProxyConfigurationFileService.ApplyResult applied = fileConfigurationService.apply(fileName, content,
+					requireString(task, "expectedRevision"));
+			return completed(TaskResult.file(applied.document(), applied.changes(), false, applied.rolledBack(),
+					"Proxy configuration saved; restart the proxy to activate general settings"));
+		} catch (ProxyConfigurationFileService.StaleRevisionException failure) {
+			return completed(TaskResult.failure("STALE_REVISION", "Proxy configuration changed after preview"));
+		} catch (ProxyConfigurationFileService.ApplyFailureException failure) {
+			return completed(new TaskResult(false, "APPLY_FAILED", "Proxy configuration could not be saved", null, null,
+					List.of(), false, failure.rolledBack()));
+		} catch (IllegalArgumentException failure) {
+			return completed(TaskResult.failure("VALIDATION_ERROR", failure.getMessage()));
+		} catch (IOException | RuntimeException failure) {
+			return completed(TaskResult.failure("APPLY_FAILED", "Proxy configuration operation failed"));
+		}
+	}
+
 	private CompletableFuture<TaskResult> executeCommunicationTest(JsonObject task, JsonObject requested) {
 		if (!"READ".equals(requireString(task, "type"))) {
 			return completed(TaskResult.failure("UNSUPPORTED_TASK", "Communication tests are read-only"));
@@ -797,6 +889,12 @@ public final class ControlConnector implements AutoCloseable {
 		return requested != null && requested.has("domain") && requested.has("preset")
 				&& "quick-setup".equals(requested.get("domain").getAsString())
 				&& PROXY_METHOD_PRESET.equals(requested.get("preset").getAsString());
+	}
+
+	private static boolean isProxyFile(JsonObject requested) {
+		return requested != null && requested.has("domain") && requested.get("domain").isJsonPrimitive()
+				&& requested.getAsJsonPrimitive("domain").isString()
+				&& "file".equals(requested.get("domain").getAsString());
 	}
 
 	private static CompletableFuture<TaskResult> completed(TaskResult result) {
@@ -868,6 +966,7 @@ public final class ControlConnector implements AutoCloseable {
 		if (configurationService != null) advertised.add(CONFIGURATION_CAPABILITY);
 		if (communicationTest != null) advertised.add(COMMUNICATION_TEST_CAPABILITY);
 		if (methodConfigurationService != null) advertised.add(PROXY_METHOD_CAPABILITY);
+		if (fileConfigurationService != null) advertised.add(PROXY_FILE_CAPABILITY);
 		body.add("capabilities", advertised);
 		JsonArray required = new JsonArray();
 		required.add("presence.snapshot");
@@ -1036,6 +1135,29 @@ public final class ControlConnector implements AutoCloseable {
 		private static TaskResult success(String revision, JsonObject configuration, List<String> changes,
 				boolean reloaded, String message) {
 			return new TaskResult(true, "OK", message, revision, configuration, changes, reloaded, false);
+		}
+		private static TaskResult file(ProxyConfigurationFileService.Document document, List<String> changes,
+				boolean reloaded, boolean rolledBack) {
+			return file(document, changes, reloaded, rolledBack, "Operation completed");
+		}
+
+		private static TaskResult file(ProxyConfigurationFileService.Document document, List<String> changes,
+				boolean reloaded, boolean rolledBack, String message) {
+			JsonObject configuration = new JsonObject();
+			configuration.addProperty("domain", "file");
+			configuration.addProperty("fileName", document.fileName());
+			configuration.addProperty("content", document.content());
+			return new TaskResult(true, "OK", message, document.revision(), configuration,
+					List.copyOf(changes), reloaded, rolledBack);
+		}
+
+		private static TaskResult fileIntent(String fileName, String revision, List<String> changes) {
+			JsonObject configuration = new JsonObject();
+			configuration.addProperty("domain", "file");
+			configuration.addProperty("fileName", fileName);
+			return new TaskResult(true, "OK",
+					"Proxy configuration saved; restart the proxy to activate general settings", revision, configuration,
+					List.copyOf(changes), false, false);
 		}
 		private static TaskResult failure(String code, String message) {
 			return new TaskResult(false, code, message == null ? "Operation failed" : message, null, null, List.of(), false, false);

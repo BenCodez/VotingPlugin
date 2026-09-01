@@ -31,6 +31,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import com.google.gson.JsonParser;
 
 /**
  * Typed, read-only data surface used by VotingPlugin Control.
@@ -43,7 +44,7 @@ import com.google.gson.JsonPrimitive;
 public final class ControlInspectionService {
 	public static final int SCHEMA_VERSION = 1;
 	public static final int MAX_DATA_BYTES = 512 * 1024;
-	private static final int MAX_ROWS = 100;
+	static final int MAX_ROWS = 100;
 	private static final int MAX_TOP_ROWS = 20;
 	private static final Comparator<ServiceHealth> SERVICE_HEALTH_ORDER = Comparator
 			.comparingLong(ServiceHealth::lastVoteTime).reversed()
@@ -280,6 +281,18 @@ public final class ControlInspectionService {
 		result.add("lastVotes", lastVotes);
 		result.addProperty("lastVotesTruncated", lastVoteSnapshot.size() > MAX_ROWS);
 		result.addProperty("pendingOfflineVotes", Math.min(user.getOfflineVotes().size(), 100000));
+		try {
+			JsonObject exact = JsonParser.parseString(new ControlPlayerDataService(plugin).readLoaded(user).content())
+					.getAsJsonObject();
+			result.addProperty("storageRowAvailable", true);
+			result.addProperty("storage", exact.get("storage").getAsString());
+			result.add("columns", exact.getAsJsonArray("columns"));
+			result.addProperty("columnsTruncated", exact.get("columnsTruncated").getAsBoolean());
+		} catch (java.io.IOException failure) {
+			result.addProperty("storageRowAvailable", false);
+			result.add("columns", new JsonArray());
+			result.addProperty("columnsTruncated", false);
+		}
 		return result;
 	}
 
@@ -302,6 +315,7 @@ public final class ControlInspectionService {
 				.forEach(count -> {
 			JsonObject row = new JsonObject();
 			row.addProperty("service", safe(count.service, 64));
+			row.addProperty("count", count.votes);
 			row.addProperty("votes", count.votes);
 			services.add(row);
 		});
@@ -313,6 +327,7 @@ public final class ControlInspectionService {
 				.forEach(count -> {
 			JsonObject row = new JsonObject();
 			row.addProperty("server", safe(count.server, 64));
+			row.addProperty("count", count.votes);
 			row.addProperty("votes", count.votes);
 			servers.add(row);
 		});
@@ -440,14 +455,17 @@ public final class ControlInspectionService {
 		result.addProperty("profile", safe(plugin.getProfile(), 80));
 		result.addProperty("javaVersion", safe(System.getProperty("java.version", "unknown"), 80));
 		result.addProperty("backgroundTaskSeconds", plugin.getLastBackgroundTaskTimeTaken());
-		JsonArray detected = new JsonArray();
 		Plugin[] plugins = plugin.getServer().getPluginManager().getPlugins();
-		java.util.Arrays.stream(plugins).map(installed -> installed.getDescription().getName())
-				.filter(name -> name != null && !name.isBlank()).distinct().sorted(String.CASE_INSENSITIVE_ORDER)
-				.limit(128).forEach(name -> detected.add(safe(name, 80)));
+		List<String> detectedNames = java.util.Arrays.stream(plugins)
+				.map(installed -> installed.getDescription().getName())
+				.filter(name -> name != null && !name.isBlank()).distinct()
+				.sorted(String.CASE_INSENSITIVE_ORDER.thenComparing(Comparator.naturalOrder())).toList();
+		JsonArray detected = new JsonArray();
+		detectedNames.stream().limit(MAX_ROWS).forEach(name -> detected.add(safe(name, 80)));
 		result.add("detectedPlugins", detected);
+		result.addProperty("detectedPluginsTruncated", detectedNames.size() > MAX_ROWS);
 		JsonArray redacted = new JsonArray();
-		List.of("credentials", "database hosts and credentials", "Redis/MQTT hosts and credentials",
+		List.of("credentials", "database and transport hosts and credentials", "Control endpoints and paths",
 				"webhook URLs", "raw configuration", "raw logs", "player records")
 				.forEach(redacted::add);
 		result.add("omittedSensitiveData", redacted);

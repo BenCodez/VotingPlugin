@@ -18,6 +18,10 @@ import java.util.Locale;
 
 import org.junit.jupiter.api.Test;
 
+import com.bencodez.advancedcore.api.user.UserStorage;
+import com.bencodez.simpleapi.sql.data.DataValue;
+import com.bencodez.simpleapi.sql.data.DataValueInt;
+import com.bencodez.simpleapi.sql.data.DataValueString;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable;
@@ -188,8 +192,16 @@ class ControlInspectionServiceTest {
 
 		assertEquals(List.of("Middle", "alpha", "Zulu"), result.getAsJsonArray("topServices").asList().stream()
 				.map(row -> row.getAsJsonObject().get("service").getAsString()).toList());
+		assertEquals(List.of(6L, 3L, 3L), result.getAsJsonArray("topServices").asList().stream()
+				.map(row -> row.getAsJsonObject().get("count").getAsLong()).toList());
+		assertEquals(List.of(6L, 3L, 3L), result.getAsJsonArray("topServices").asList().stream()
+				.map(row -> row.getAsJsonObject().get("votes").getAsLong()).toList());
 		assertEquals(List.of("hub", "Creative", "survival"), result.getAsJsonArray("topServers").asList().stream()
 				.map(row -> row.getAsJsonObject().get("server").getAsString()).toList());
+		assertEquals(List.of(8L, 2L, 2L), result.getAsJsonArray("topServers").asList().stream()
+				.map(row -> row.getAsJsonObject().get("count").getAsLong()).toList());
+		assertEquals(List.of(8L, 2L, 2L), result.getAsJsonArray("topServers").asList().stream()
+				.map(row -> row.getAsJsonObject().get("votes").getAsLong()).toList());
 	}
 
 	@Test void exactPlayerMissDoesNotLoadOrEnumerateUsers() {
@@ -230,6 +242,148 @@ class ControlInspectionServiceTest {
 		assertEquals("Zulu", result.getAsJsonArray("lastVotes").get(1).getAsJsonObject()
 				.get("siteKey").getAsString());
 		assertFalse(result.get("lastVotesTruncated").getAsBoolean());
+		assertFalse(result.get("storageRowAvailable").getAsBoolean());
+		assertTrue(result.getAsJsonArray("columns").isEmpty());
+	}
+
+	@Test void playerInspectionShowsExactAllowListedStorageValuesWithoutInternalPayloads() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		VotingPluginUser user = mock(VotingPluginUser.class, RETURNS_DEEP_STUBS);
+		when(plugin.getUserManager().userExist("ExactName")).thenReturn(true);
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser("ExactName")).thenReturn(user);
+		when(plugin.getStorageType()).thenReturn(UserStorage.SQLITE);
+		when(user.getUUID()).thenReturn("3b0c76c1-b7ef-4a2c-a565-b7bc662531f9");
+		when(user.getPlayerName()).thenReturn("ExactName");
+		when(user.getOfflineVotes()).thenReturn(new ArrayList<>());
+		when(user.getLastVotes()).thenReturn(new HashMap<>());
+		HashMap<String, DataValue> stored = new HashMap<>();
+		stored.put("Points", new DataValueInt(42));
+		stored.put("MonthTotal-JANUARY-2025", new DataValueInt(11));
+		stored.put("MonthTotal-DECEMBER-2026", new DataValueInt(12));
+		stored.put("VoteShopLimitKeys", new DataValueInt(3));
+		stored.put("TopVoterIgnore", new DataValueString("true"));
+		stored.put("VoteShopLimitInjected", new DataValueString("must not leave through a dynamic field"));
+		stored.put("DailyTotal", new DataValueString("must not leave through an integer field"));
+		stored.put("Reminded", new DataValueString("must not leave through a boolean field"));
+		stored.put("OfflineVotes", new DataValueString("private serialized vote payload"));
+		stored.put("FuturePluginSecret", new DataValueString("must not leave the backend"));
+		stored.put("MonthTotal_2025_1", new DataValueInt(91));
+		stored.put("MonthTotal-JANUARY-25", new DataValueInt(92));
+		stored.put("MonthTotal-JANUARY-2025-extra", new DataValueInt(93));
+		stored.put("MonthTotal-january-2025", new DataValueInt(94));
+		stored.put("MonthTotal-SMARCH-2025", new DataValueInt(95));
+		stored.put("MonthTotal-FEBRUARY-2025", new DataValueString("wrong type"));
+		when(user.getUserData().getValues()).thenReturn(stored);
+		ControlInspectionService service = new ControlInspectionService(plugin);
+
+		JsonObject result = service.inspect(JsonParser.parseString(
+				"{\"kind\":\"player\",\"filters\":{\"name\":\"ExactName\"}}")
+				.getAsJsonObject()).getAsJsonObject("result");
+		assertTrue(result.get("storageRowAvailable").getAsBoolean());
+		assertEquals("SQLITE", result.get("storage").getAsString());
+		assertEquals(List.of("MonthTotal-DECEMBER-2026", "MonthTotal-JANUARY-2025", "Points", "TopVoterIgnore", "VoteShopLimitKeys"), result.getAsJsonArray("columns").asList().stream()
+				.map(value -> value.getAsJsonObject().get("name").getAsString()).toList());
+		assertEquals(List.of("12", "11", "42", "true", "3"), result.getAsJsonArray("columns").asList().stream()
+				.map(value -> value.getAsJsonObject().get("value").getAsString()).toList());
+		assertFalse(result.toString().contains("private serialized vote payload"));
+		assertFalse(result.toString().contains("must not leave through a dynamic field"));
+		assertFalse(result.toString().contains("must not leave through an integer field"));
+		assertFalse(result.toString().contains("must not leave through a boolean field"));
+		assertFalse(result.toString().contains("must not leave the backend"));
+		assertFalse(result.toString().contains("MonthTotal_2025_1"));
+		assertFalse(result.toString().contains("MonthTotal-JANUARY-25"));
+		assertFalse(result.toString().contains("MonthTotal-JANUARY-2025-extra"));
+		assertFalse(result.toString().contains("MonthTotal-january-2025"));
+		assertFalse(result.toString().contains("MonthTotal-SMARCH-2025"));
+		assertFalse(result.toString().contains("MonthTotal-FEBRUARY-2025"));
+	}
+
+	@Test void playerInspectionBoundsHistoricalMonthTotalsDeterministically() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		VotingPluginUser user = mock(VotingPluginUser.class, RETURNS_DEEP_STUBS);
+		when(plugin.getUserManager().userExist("ExactName")).thenReturn(true);
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser("ExactName")).thenReturn(user);
+		when(plugin.getStorageType()).thenReturn(UserStorage.SQLITE);
+		when(user.getUUID()).thenReturn("3b0c76c1-b7ef-4a2c-a565-b7bc662531f9");
+		when(user.getPlayerName()).thenReturn("ExactName");
+		when(user.getOfflineVotes()).thenReturn(new ArrayList<>());
+		when(user.getLastVotes()).thenReturn(new HashMap<>());
+		HashMap<String, DataValue> stored = new HashMap<>();
+		List<String> expected = new ArrayList<>();
+		for (int index = 0; index <= ControlInspectionService.MAX_ROWS; index++) {
+			String name = "MonthTotal-" + java.time.Month.of(index % 12 + 1).name() + "-" + (2000 + index / 12);
+			stored.put(name, new DataValueInt(index));
+			expected.add(name);
+		}
+		expected.sort(String.CASE_INSENSITIVE_ORDER.thenComparing(java.util.Comparator.naturalOrder()));
+		when(user.getUserData().getValues()).thenReturn(stored);
+		ControlInspectionService service = new ControlInspectionService(plugin);
+
+		JsonObject result = service.inspect(JsonParser.parseString(
+				"{\"kind\":\"player\",\"filters\":{\"name\":\"ExactName\"}}")
+				.getAsJsonObject()).getAsJsonObject("result");
+
+		assertEquals(expected.subList(0, ControlInspectionService.MAX_ROWS),
+				result.getAsJsonArray("columns").asList().stream()
+						.map(value -> value.getAsJsonObject().get("name").getAsString()).toList());
+		assertTrue(result.get("columnsTruncated").getAsBoolean());
+	}
+
+	@Test void playerInspectionBoundsAllowListedStorageColumnsAtTheSharedRowLimit() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		VotingPluginUser user = mock(VotingPluginUser.class, RETURNS_DEEP_STUBS);
+		when(plugin.getUserManager().userExist("ExactName")).thenReturn(true);
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser("ExactName")).thenReturn(user);
+		when(plugin.getStorageType()).thenReturn(UserStorage.SQLITE);
+		when(user.getUUID()).thenReturn("3b0c76c1-b7ef-4a2c-a565-b7bc662531f9");
+		when(user.getPlayerName()).thenReturn("ExactName");
+		when(user.getOfflineVotes()).thenReturn(new ArrayList<>());
+		when(user.getLastVotes()).thenReturn(new HashMap<>());
+		HashMap<String, DataValue> stored = new HashMap<>();
+		for (int index = 0; index <= ControlInspectionService.MAX_ROWS; index++) {
+			stored.put(String.format("VoteShopLimit%03d", index), new DataValueInt(index));
+		}
+		when(user.getUserData().getValues()).thenReturn(stored);
+		ControlInspectionService service = new ControlInspectionService(plugin);
+
+		JsonObject result = service.inspect(JsonParser.parseString(
+				"{\"kind\":\"player\",\"filters\":{\"name\":\"ExactName\"}}")
+				.getAsJsonObject()).getAsJsonObject("result");
+
+		assertEquals(ControlInspectionService.MAX_ROWS, result.getAsJsonArray("columns").size());
+		assertEquals("VoteShopLimit000", result.getAsJsonArray("columns").get(0).getAsJsonObject()
+				.get("name").getAsString());
+		assertEquals("VoteShopLimit099", result.getAsJsonArray("columns").get(99).getAsJsonObject()
+				.get("name").getAsString());
+		assertTrue(result.get("columnsTruncated").getAsBoolean());
+	}
+
+	@Test void diagnosticsBoundsAndReportsTruncatedPluginInventory() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		org.bukkit.configuration.file.YamlConfiguration config = new org.bukkit.configuration.file.YamlConfiguration();
+		org.bukkit.configuration.file.YamlConfiguration voteSites = new org.bukkit.configuration.file.YamlConfiguration();
+		when(plugin.getConfigFile().getData()).thenReturn(config);
+		when(plugin.getConfigVoteSites().getData()).thenReturn(voteSites);
+		when(plugin.getVoteSiteManager().getVoteSites()).thenReturn(new ArrayList<>());
+		when(plugin.getVoteLogMysqlTable()).thenReturn(null);
+		org.bukkit.plugin.Plugin[] installed = new org.bukkit.plugin.Plugin[ControlInspectionService.MAX_ROWS + 1];
+		for (int index = 0; index < installed.length; index++) {
+			installed[index] = mock(org.bukkit.plugin.Plugin.class, RETURNS_DEEP_STUBS);
+			when(installed[index].getDescription().getName()).thenReturn(String.format("Plugin%03d", index));
+		}
+		when(installed[99].getDescription().getName()).thenReturn("plugina");
+		when(installed[100].getDescription().getName()).thenReturn("PluginA");
+		when(plugin.getServer().getPluginManager().getPlugins()).thenReturn(installed);
+		ControlInspectionService service = new ControlInspectionService(plugin);
+
+		JsonObject result = service.inspect(JsonParser.parseString(
+				"{\"kind\":\"diagnostics\",\"filters\":{}}")
+				.getAsJsonObject()).getAsJsonObject("result");
+
+		assertEquals(ControlInspectionService.MAX_ROWS, result.getAsJsonArray("detectedPlugins").size());
+		assertEquals("Plugin000", result.getAsJsonArray("detectedPlugins").get(0).getAsString());
+		assertEquals("PluginA", result.getAsJsonArray("detectedPlugins").get(99).getAsString());
+		assertTrue(result.get("detectedPluginsTruncated").getAsBoolean());
 	}
 
 	@Test void voteSiteHealthIncludesPersistedDetectedInboxWithoutVoteLogging() {

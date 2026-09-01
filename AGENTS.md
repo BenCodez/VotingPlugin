@@ -106,7 +106,7 @@ The allow-listed kinds are `overview`, `vote-site-health`, `player`, `vote-log-s
 Maintain these global bounds unless a versioned contract deliberately replaces them:
 
 - result JSON: 512 KiB;
-- general result rows: 100 (diagnostics may report up to 128 detected plugin names);
+- general result rows: 100 (including detected plugin names in diagnostics);
 - top lists: 20;
 - lookback: 365 days;
 - exact player lookup only;

@@ -131,6 +131,7 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 				if (!(failure instanceof DurableFiles.PublishedException)) controlInstalledSnapshot = null;
 				throw failure;
 			}
+			loadControlConfiguration();
 		} finally {
 			Files.deleteIfExists(stage);
 			if (backupStage != null) Files.deleteIfExists(backupStage);

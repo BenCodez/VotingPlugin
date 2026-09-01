@@ -70,6 +70,11 @@
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.13.0</version>
                 <configuration>
@@ -88,6 +93,10 @@
                                 <exclusion>
                                     <groupId>com.velocitypowered</groupId>
                                     <artifactId>velocity-brigadier</artifactId>
+                                </exclusion>
+                                <exclusion>
+                                    <groupId>org.yaml</groupId>
+                                    <artifactId>snakeyaml</artifactId>
                                 </exclusion>
                             </exclusions>
                         </path>
@@ -163,6 +172,10 @@
                         <relocation>
                             <pattern>io.leangen.geantyref</pattern>
                             <shadedPattern>${project.groupId}.simpleapi.geantyref</shadedPattern>
+                        </relocation>
+                        <relocation>
+                            <pattern>org.yaml.snakeyaml</pattern>
+                            <shadedPattern>${project.groupId}.votingplugin.snakeyaml</shadedPattern>
                         </relocation>
                     </relocations>
                 </configuration>
@@ -254,6 +267,12 @@
         </repository>
     </repositories>
     <dependencies>
+        <!-- Must precede Spigot, which embeds an older SnakeYAML API on its provided compile path. -->
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+            <version>2.6</version>
+        </dependency>
         <dependency>
             <groupId>org.spigotmc</groupId>
             <artifactId>spigot-api</artifactId>

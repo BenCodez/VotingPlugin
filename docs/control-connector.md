@@ -231,6 +231,20 @@ Control configuration snapshots store the redacted managed-file content returned
 Restore resolves unchanged markers against each target's current secrets during preview/apply. Protect Control's data
 directory anyway because snapshots contain complete managed configuration structure and operational values.
 
+Proxy nodes separately advertise `config.proxy-files.v1` when their proxy-file adapter is available. This capability is
+restricted to exactly the proxy's top-level `bungeeconfig.yml` (no paths or alternate filenames) and to a 512 KiB
+UTF-8/YAML content bound inside the shared 4 MiB operation-response envelope. Control uses the normal authenticated
+operation queue. READ returns masked content and its SHA-256 revision; PREVIEW validates a proposal and reports
+deterministic changes without writing; APPLY requires the
+preview's exact revision and rejects a changed file with `STALE_REVISION`. APPLY stages and atomically installs the file,
+retains `bungeeconfig.yml.control-backup`, and reports `reloaded:false`: a successful edit requires a proxy restart to
+activate general settings. Redaction markers preserve local secrets, and replacement secrets are never returned or
+journaled. Results include the normal success/code/message/revision/configuration/changes/reloaded/rolledBack fields,
+remain durable by operation ID until acknowledged, and survive leased retries/recovery. Control must show this editor
+only to an authenticated, capable proxy node; backend `config.files.v1` enrollment, approval, and revisions are not
+interchangeable with a proxy peer. See [the Control agent contract](control-agent-contract.md#proxy-file-contract-configproxy-filesv1)
+for the exact task/result envelope and error behavior.
+
 Quick setups cover standalone backend mode, proxy-connected backend mode with an explicit server identity, adding/updating
 a vote site, an easy per-site or every-site command/message reward, six common operational toggles, a dedicated
 `auto-create-vote-sites` switch that changes only `Config.yml` → `AutoCreateVoteSites`, a non-secret `vote-logging` setup,
@@ -261,6 +275,12 @@ from current readability. Results are capped at 512 KiB, general rows at 100, de
 lookbacks at 365 days. It does not expose SQL, arbitrary user enumeration, raw configuration/logs,
 commands, reward execution, or writes. The exact schemas and safety invariants are documented in
 [the Control agent contract](control-agent-contract.md).
+
+Exact-player results may include the schema-v1 storage fields `storageRowAvailable`, `storage`, `columns`, and
+`columnsTruncated`. Storage output is read-only and allow-listed, with at most 100 deterministically ordered column
+entries and per-value/content bounds; unavailable storage returns an empty column list and no storage name. It excludes
+serialized payloads, credentials, secrets, and arbitrary keys. See [the exact-player storage schema](control-agent-contract.md#exact-player-storage-fields-schema-version-1)
+for the static/dynamic names and value-type rules.
 
 Inspection filters are string values on the wire and are parsed by the selected kind's strict schema. The connector runs
 the handlers, including bounded VoteLog/player storage reads, on the dedicated inspection daemon rather than Bukkit's
