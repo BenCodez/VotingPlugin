@@ -143,6 +143,78 @@ class ProxyConfigurationFileServiceTest {
 	}
 
 	@Test
+	void masksAndRestoresPrimarySocketsEndpointsAndComments() throws Exception {
+		Path file = write("""
+				BungeeServer:
+				  Host: proxy.internal # proxy.internal
+				  Port: 1297 # listener port 1297
+				SpigotServers:
+				  Host:
+				    Host: survival.internal # survival.internal
+				    Port: 1298 # backend port 1298
+				    Enabled: true
+				BungeeMethod: SOCKETS
+				Debug: false
+				""");
+		ProxyConfigurationFileService service = service(file);
+
+		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
+		assertFalse(current.content().contains("proxy.internal"));
+		assertFalse(current.content().contains("survival.internal"));
+		assertFalse(current.content().contains("1297"));
+		assertFalse(current.content().contains("1298"));
+		assertTrue(current.content().contains("SpigotServers:\n  Host:"));
+		assertTrue(current.content().contains("Enabled: true"));
+
+		String proposal = current.content().replace("Debug: false", "Debug: true");
+		ProxyConfigurationFileService.Preview preview = service.preview(ProxyConfigurationFileService.FILE_NAME, proposal);
+		assertTrue(preview.resolvedContent().contains("Host: proxy.internal # proxy.internal"));
+		assertTrue(preview.resolvedContent().contains("Port: 1297 # listener port 1297"));
+		assertTrue(preview.resolvedContent().contains("Host: survival.internal # survival.internal"));
+		assertTrue(preview.resolvedContent().contains("Port: 1298 # backend port 1298"));
+		service.apply(ProxyConfigurationFileService.FILE_NAME, proposal, current.revision());
+		String applied = Files.readString(file);
+		assertTrue(applied.contains("Host: proxy.internal # proxy.internal"));
+		assertTrue(applied.contains("Host: survival.internal # survival.internal"));
+		assertTrue(applied.contains("Debug: true"));
+	}
+
+	@Test
+	void aliasValidationUsesYamlSyntaxInsteadOfScalarOrCommentText() throws Exception {
+		Path file = write("""
+				General:
+				  Broadcast: "Hello &aPlayer and *literal"
+				  Explanation: |
+				    Keep << text, &literal, and *literal unchanged.
+				  "<<": quoted-key
+				# use *name and &name in documentation
+				Debug: false
+				""");
+		ProxyConfigurationFileService service = service(file);
+
+		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
+		assertTrue(current.content().contains("Hello &aPlayer and *literal"));
+		assertTrue(current.content().contains("Keep << text, &literal, and *literal unchanged."));
+		assertTrue(current.content().contains("# use *name and &name in documentation"));
+		assertTrue(current.content().contains("'<<': quoted-key")
+				|| current.content().contains("\"<<\": quoted-key"));
+		String proposal = current.content().replace("Debug: false", "Debug: true");
+		ProxyConfigurationFileService.Preview preview = service.preview(ProxyConfigurationFileService.FILE_NAME, proposal);
+		assertTrue(preview.resolvedContent().contains("Hello &aPlayer and *literal"));
+		service.apply(ProxyConfigurationFileService.FILE_NAME, proposal, current.revision());
+		assertTrue(Files.readString(file).contains("Debug: true"));
+
+		assertThrows(IllegalArgumentException.class, () -> service.preview(ProxyConfigurationFileService.FILE_NAME,
+				"Primary: &name value\nCopy: *name\n"));
+		assertThrows(IllegalArgumentException.class, () -> service.preview(ProxyConfigurationFileService.FILE_NAME,
+				"Primary: &values\n  - one\nCopy: *values\n"));
+		assertThrows(IllegalArgumentException.class, () -> service.preview(ProxyConfigurationFileService.FILE_NAME,
+				"Primary: &unused value\nDebug: false\n"));
+		assertThrows(IllegalArgumentException.class, () -> service.preview(ProxyConfigurationFileService.FILE_NAME,
+				"General:\n  <<: {Debug: true}\n"));
+	}
+
+	@Test
 	void masksAndRestoresMultiProxyRedisInfrastructure() throws Exception {
 		Path file = write("""
 				MultiProxyRedis:

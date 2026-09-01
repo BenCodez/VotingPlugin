@@ -17,8 +17,10 @@ import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HexFormat;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -30,6 +32,8 @@ import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.comments.CommentLine;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
+import org.yaml.snakeyaml.error.YAMLException;
+import org.yaml.snakeyaml.nodes.AnchorNode;
 import org.yaml.snakeyaml.nodes.MappingNode;
 import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.NodeTuple;
@@ -177,10 +181,8 @@ final class ProxyConfigurationFileService {
 	@SuppressWarnings("unchecked")
 	private static Map<String, Object> parse(String yaml) {
 		ensureBounded(yaml);
-		if (yaml.matches("(?s).*(?:^|[\\s\\[{,])(?:[&*][A-Za-z0-9_-]+|<<\\s*:).*")) {
-			throw new IllegalArgumentException("proxy configuration aliases are not supported");
-		}
 		LoaderOptions loaderOptions = loaderOptions();
+		rejectAliases(yaml, loaderOptions);
 		SafeConstructor constructor = new SafeConstructor(loaderOptions);
 		Object parsed;
 		try { parsed = new Yaml(constructor).load(yaml); }
@@ -192,6 +194,34 @@ final class ProxyConfigurationFileService {
 			result.put(key, normalize(entry.getValue(), 1));
 		}
 		return result;
+	}
+
+	private static void rejectAliases(String yaml, LoaderOptions loaderOptions) {
+		Node root;
+		try {
+			root = new Yaml(loaderOptions).compose(new StringReader(yaml));
+		} catch (YAMLException failure) {
+			throw new IllegalArgumentException("proxy configuration YAML is invalid");
+		}
+		rejectAliases(root, Collections.newSetFromMap(new IdentityHashMap<>()));
+	}
+
+	private static void rejectAliases(Node node, Set<Node> visited) {
+		if (node == null || !visited.add(node)) return;
+		if (node instanceof AnchorNode || node.getAnchor() != null) {
+			throw new IllegalArgumentException("proxy configuration aliases are not supported");
+		}
+		if (node instanceof MappingNode mapping) {
+			for (NodeTuple tuple : mapping.getValue()) {
+				if (Tag.MERGE.equals(tuple.getKeyNode().getTag())) {
+					throw new IllegalArgumentException("proxy configuration aliases are not supported");
+				}
+				rejectAliases(tuple.getKeyNode(), visited);
+				rejectAliases(tuple.getValueNode(), visited);
+			}
+		} else if (node instanceof SequenceNode sequence) {
+			sequence.getValue().forEach(child -> rejectAliases(child, visited));
+		}
 	}
 
 	private static Object normalize(Object value, int depth) {
@@ -796,9 +826,12 @@ final class ProxyConfigurationFileService {
 		if (infrastructurePath(normalizedPath, "mqtt")) {
 			return Set.of("clientid", "brokerurl", "username", "password", "prefix").contains(normalized);
 		}
-		if (infrastructurePath(normalizedPath, "multiproxysockethost")
+		if (infrastructurePath(normalizedPath, "bungeeserver")
+				|| infrastructurePath(normalizedPath, "spigotservers")
+				|| infrastructurePath(normalizedPath, "multiproxysockethost")
 				|| infrastructurePath(normalizedPath, "multiproxyservers")) {
-			return Set.of("host", "port").contains(normalized);
+			return !(value instanceof Map<?, ?>) && !(value instanceof List<?>)
+					&& Set.of("host", "port").contains(normalized);
 		}
 		if (infrastructurePath(normalizedPath, "control")) {
 			return normalized.endsWith("file") || normalized.endsWith("directory")
