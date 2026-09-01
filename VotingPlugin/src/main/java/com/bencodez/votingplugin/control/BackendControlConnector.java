@@ -122,6 +122,7 @@ public final class BackendControlConnector implements AutoCloseable {
 			activeReload = preparation;
 		}
 		VotingPluginMain.BackendProxyRestart restart = null;
+		Future<?> publication = null;
 		try {
 			restart = preparation.get(remaining(validationDeadline), TimeUnit.NANOSECONDS);
 			if (restart == null) return;
@@ -129,7 +130,7 @@ public final class BackendControlConnector implements AutoCloseable {
 			// never on Bukkit's primary thread.
 			plugin.validateBackendProxyHandlerRestart(restart, validationDeadline);
 			VotingPluginMain.BackendProxyRestart prepared = restart;
-			Future<?> publication = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+			publication = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
 				plugin.completeBackendProxyHandlerRestart(prepared);
 				return null;
 			});
@@ -139,6 +140,8 @@ public final class BackendControlConnector implements AutoCloseable {
 			}
 			publication.get(remaining(validationDeadline), TimeUnit.NANOSECONDS);
 		} catch (Exception failure) {
+			// A timed-out Bukkit publication must not remain queued ahead of rollback.
+			if (publication != null) publication.cancel(false);
 			if (restart != null) {
 				VotingPluginMain.BackendProxyRestart prepared = restart;
 				try {
