@@ -308,5 +308,31 @@ class HttpTransportSecurityTest {
 		assertTrue(HttpClientCredentialStore.matchesEnrollmentCode(client, oldCode));
 	}
 
+	@Test
+	void rollbackRetainsNewerCredentialForTheSameEndpoint() throws Exception {
+		Path client = directory.resolve("client-renewal-rollback");
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("renewal-proxy"), "renew.example.test");
+		HttpConnectionCode code = new HttpConnectionCode("lobby-1", URI.create("https://renew.example.test:1297/"),
+				identity.serverCertificatePin(), identity.caCertificatePin(), Instant.now().plusSeconds(60),
+				"T".repeat(43));
+		HttpTlsIdentity.IssuedClientCertificate original = identity.issueClientCertificate("lobby-1");
+		HttpClientCredentialStore.saveEnrolled(client, code, original);
+		HttpClientCredentialStore.ActiveCredentialGeneration previous =
+				HttpClientCredentialStore.snapshotActiveGeneration(client);
+
+		HttpConnectionCode replacementCode = new HttpConnectionCode("lobby-1", code.endpoint(),
+				identity.serverCertificatePin(), identity.caCertificatePin(), Instant.now().plusSeconds(60),
+				"U".repeat(43));
+		HttpTlsIdentity.IssuedClientCertificate renewed = identity.issueClientCertificate("lobby-1");
+		HttpClientCredentialStore.saveEnrolled(client, replacementCode, renewed);
+		HttpClientCredentialStore.restoreActiveGenerationAfterReplacement(client, previous);
+
+		assertEquals(HttpTransportSecrets.certificatePin(renewed.certificate()),
+				HttpTransportSecrets.certificatePin(HttpClientCredentialStore.load(client).certificate()),
+				"rollback must not reactivate a same-endpoint certificate that renewal may have revoked");
+		assertTrue(HttpClientCredentialStore.matchesEnrollmentCode(client, code),
+				"the retained credential must recognize the connection code restored in YAML");
+	}
+
 	private static String pin(char character) { return String.valueOf(character).repeat(64); }
 }

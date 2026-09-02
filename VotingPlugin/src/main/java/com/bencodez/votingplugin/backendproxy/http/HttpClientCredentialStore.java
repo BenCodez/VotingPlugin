@@ -197,8 +197,33 @@ public final class HttpClientCredentialStore {
 	public static ActiveCredentialGeneration snapshotActiveGeneration(Path directory) throws Exception {
 		Path root = directory.toAbsolutePath().normalize();
 		Path active = activeDirectory(root);
-		loadEnrolledDirectory(active);
-		return new ActiveCredentialGeneration(active.equals(root) ? "" : active.getFileName().toString());
+		EnrolledClient enrolled = loadEnrolledDirectory(active);
+		return new ActiveCredentialGeneration(active.equals(root) ? "" : active.getFileName().toString(),
+				enrolled.profile(), readConnectionCodeDigest(active));
+	}
+
+	/**
+	 * Restores a pre-replacement generation unless the replacement already activated a
+	 * newer credential for the same backend endpoint. A successful renewal or same-endpoint
+	 * re-enrollment may revoke the snapshotted certificate at the proxy, so that newer
+	 * generation is the only safe rollback identity.
+	 */
+	public static void restoreActiveGenerationAfterReplacement(Path directory,
+			ActiveCredentialGeneration snapshot) throws Exception {
+		if (directory == null || snapshot == null) throw new IllegalArgumentException("Credential rollback is required");
+		HttpClientProfile previous = snapshot.profile();
+		Path active = null;
+		HttpClientProfile current = null;
+		if (previous != null) try {
+			active = activeDirectory(directory);
+			current = loadEnrolledDirectory(active).profile();
+		} catch (Exception unavailable) { active = null; current = null; }
+		if (active != null && previous.serverId().equals(current.serverId())
+				&& previous.endpoint().equals(current.endpoint())) {
+			restoreConnectionCodeDigest(active, snapshot.connectionCodeDigest());
+			return;
+		}
+		restoreActiveGeneration(directory, snapshot);
 	}
 
 	/** Atomically restores a previously validated credential generation after replacement rollback. */
@@ -238,10 +263,13 @@ public final class HttpClientCredentialStore {
 
 	public record EnrolledClient(HttpClientProfile profile, ClientCredential credential) { }
 
-	public record ActiveCredentialGeneration(String name) {
+	public record ActiveCredentialGeneration(String name, HttpClientProfile profile, String connectionCodeDigest) {
+		public ActiveCredentialGeneration(String name) { this(name, null, null); }
 		public ActiveCredentialGeneration {
 			if (name == null || (!name.isEmpty() && !name.matches("[0-9a-f-]{36}")))
 				throw new IllegalArgumentException("HTTP client credential generation is invalid");
+			if (connectionCodeDigest != null && !connectionCodeDigest.matches("[0-9a-f]{64}"))
+				throw new IllegalArgumentException("HTTP connection-code marker is invalid");
 		}
 	}
 
@@ -297,6 +325,16 @@ public final class HttpClientCredentialStore {
 
 	private static String connectionCodeDigest(HttpConnectionCode code) {
 		return HttpTransportSecrets.sha256Hex(code.encode().getBytes(StandardCharsets.US_ASCII));
+	}
+
+	private static void restoreConnectionCodeDigest(Path directory, String digest) throws IOException {
+		Path marker = safe(directory.resolve(CONNECTION_CODE_DIGEST_FILE));
+		if (digest == null) {
+			Files.deleteIfExists(marker);
+			DurableFiles.forceDirectory(directory);
+		} else {
+			writePrivate(marker, digest.getBytes(StandardCharsets.US_ASCII));
+		}
 	}
 
 	private static void writePrivate(Path file, byte[] contents) throws IOException {

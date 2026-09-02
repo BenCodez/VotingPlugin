@@ -37,6 +37,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.function.LongSupplier;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLPeerUnverifiedException;
 
@@ -236,18 +237,22 @@ public final class HttpProxyTransportServer implements AutoCloseable {
 	static final class BackendState {
 		private final String serverId;
 		private final DurableOutgoingQueue durableOutgoing;
+		private final LongSupplier nanoTime;
 		private String session; private long sequence = -1L;
 		private final LinkedHashMap<String, HttpTransportProtocol.Delivery> outgoing = new LinkedHashMap<>();
 		private final Set<String> seen = new LinkedHashSet<>(); private final Set<String> processing = new LinkedHashSet<>();
 		private final ArrayDeque<String> acknowledgements = new ArrayDeque<>();
-		private final Set<String> delivered = new LinkedHashSet<>();
-		private long lastDeliveryNanos;
+		private final Map<String, Long> deliveredAtNanos = new HashMap<>();
 		private double requestTokens = 24.0d;
 		private long lastTokenNanos = System.nanoTime();
 		private boolean activePoll;
-		BackendState() { this(null, null); }
+		BackendState() { this(null, null, System::nanoTime); }
+		BackendState(LongSupplier nanoTime) { this(null, null, nanoTime); }
 		private BackendState(String serverId, DurableOutgoingQueue durableOutgoing) {
-			this.serverId = serverId; this.durableOutgoing = durableOutgoing;
+			this(serverId, durableOutgoing, System::nanoTime);
+		}
+		private BackendState(String serverId, DurableOutgoingQueue durableOutgoing, LongSupplier nanoTime) {
+			this.serverId = serverId; this.durableOutgoing = durableOutgoing; this.nanoTime = nanoTime;
 		}
 		private synchronized void restore(Collection<HttpTransportProtocol.Delivery> deliveries) {
 			for (HttpTransportProtocol.Delivery delivery : deliveries) outgoing.put(delivery.id(), delivery);
@@ -259,7 +264,7 @@ public final class HttpProxyTransportServer implements AutoCloseable {
 			lastTokenNanos = now; if (requestTokens < 1.0d) return false; requestTokens -= 1.0d; return true;
 		}
 		boolean acceptSession(String requested, long requestedSequence) {
-			if (!requested.equals(session)) { session = requested; sequence = -1L; delivered.clear(); lastDeliveryNanos = 0L; }
+			if (!requested.equals(session)) { session = requested; sequence = -1L; deliveredAtNanos.clear(); }
 			// The connector allocates a fresh monotonic sequence for every attempt.  Rejecting equality
 			// prevents a captured request from being replayed with altered ACKs or a new payload.
 			if (requestedSequence <= sequence) return false; sequence = requestedSequence; return true;
@@ -276,7 +281,7 @@ public final class HttpProxyTransportServer implements AutoCloseable {
 				// A 200 response is the backend's proof that its durable replay fence may
 				// be deleted. Never return success while the proxy delivery still exists.
 				if (durableOutgoing != null) durableOutgoing.remove(serverId, id);
-				outgoing.remove(id); delivered.remove(id);
+				outgoing.remove(id); deliveredAtNanos.remove(id);
 			}
 		}
 		List<HttpTransportProtocol.Delivery> acceptIncoming(List<HttpTransportProtocol.Delivery> received) {
@@ -293,24 +298,46 @@ public final class HttpProxyTransportServer implements AutoCloseable {
 		private void queueAck(String id) { if (acknowledgements.size() < HttpTransportProtocol.MAX_QUEUE && !acknowledgements.contains(id)) acknowledgements.add(id); }
 		synchronized Response await(String serverId, String requestedSession, long requestedSequence) {
 			long deadline = System.nanoTime() + LONG_POLL.toNanos();
-			while (acknowledgements.isEmpty() && !hasUndelivered() && !redeliveryDue()) {
-				long remaining = deadline - System.nanoTime(); if (remaining <= 0) break;
-				try { TimeUnit.NANOSECONDS.timedWait(this, remaining); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); break; }
+			while (acknowledgements.isEmpty() && !hasUndelivered()) {
+				long retryRemaining = nanosUntilRedelivery(nanoTime.getAsLong());
+				if (retryRemaining <= 0L) break;
+				long requestRemaining = deadline - System.nanoTime(); if (requestRemaining <= 0L) break;
+				long wait = Math.min(requestRemaining, retryRemaining);
+				try { TimeUnit.NANOSECONDS.timedWait(this, wait); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); break; }
 			}
 			List<String> acks = new java.util.ArrayList<>(); while (!acknowledgements.isEmpty() && acks.size() < HttpTransportProtocol.MAX_BATCH) acks.add(acknowledgements.remove());
 			List<HttpTransportProtocol.Delivery> candidates = new java.util.ArrayList<>();
-			if (hasUndelivered() || redeliveryDue()) for (HttpTransportProtocol.Delivery delivery : outgoing.values()) {
-				if (!delivered.contains(delivery.id()) || redeliveryDue()) candidates.add(delivery);
+			long now = nanoTime.getAsLong();
+			if (hasUndelivered() || redeliveryDue(now)) for (HttpTransportProtocol.Delivery delivery : outgoing.values()) {
+				if (!deliveredAtNanos.containsKey(delivery.id()) || redeliveryDue(delivery.id(), now)) candidates.add(delivery);
 				if (candidates.size() == HttpTransportProtocol.MAX_BATCH) break;
 			}
 			List<HttpTransportProtocol.Delivery> messages = HttpTransportProtocol.fittingMessages(serverId, requestedSession,
 					requestedSequence, acks, candidates);
-			for (HttpTransportProtocol.Delivery delivery : messages) delivered.add(delivery.id());
-			if (!messages.isEmpty()) lastDeliveryNanos = System.nanoTime();
+			long deliveredAt = nanoTime.getAsLong();
+			for (HttpTransportProtocol.Delivery delivery : messages) deliveredAtNanos.put(delivery.id(), deliveredAt);
 			return new Response(acks, messages);
 		}
-		private boolean hasUndelivered() { for (String id : outgoing.keySet()) if (!delivered.contains(id)) return true; return false; }
-		private boolean redeliveryDue() { return !outgoing.isEmpty() && lastDeliveryNanos > 0L && System.nanoTime() - lastDeliveryNanos >= LONG_POLL.toNanos(); }
+		private boolean hasUndelivered() { for (String id : outgoing.keySet()) if (!deliveredAtNanos.containsKey(id)) return true; return false; }
+		private boolean redeliveryDue(long now) {
+			for (String id : outgoing.keySet()) if (redeliveryDue(id, now)) return true;
+			return false;
+		}
+		private boolean redeliveryDue(String id, long now) {
+			Long deliveredAt = deliveredAtNanos.get(id);
+			return deliveredAt != null && now - deliveredAt >= LONG_POLL.toNanos();
+		}
+		private long nanosUntilRedelivery(long now) {
+			long remaining = Long.MAX_VALUE;
+			for (String id : outgoing.keySet()) {
+				Long deliveredAt = deliveredAtNanos.get(id);
+				if (deliveredAt == null) continue;
+				long candidate = LONG_POLL.toNanos() - (now - deliveredAt);
+				if (candidate <= 0L) return 0L;
+				remaining = Math.min(remaining, candidate);
+			}
+			return remaining;
+		}
 		private synchronized void signal() { notifyAll(); }
 	}
 

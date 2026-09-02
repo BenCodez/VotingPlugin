@@ -189,6 +189,18 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 		Thread current = poller; if (current != null) current.interrupt();
 		callbackExecutor.shutdown(); try { if (!callbackExecutor.awaitTermination(5, TimeUnit.SECONDS)) callbackExecutor.shutdownNow(); }
 		catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); callbackExecutor.shutdownNow(); }
+		// The owning transport may release the credential-directory semaphore as soon
+		// as close returns. Wait for the interrupted poller so an in-flight renewal
+		// cannot activate an old credential generation after that ownership handoff.
+		joinPoller(current);
+	}
+	boolean pollerAlive() { Thread current = poller; return current != null && current.isAlive(); }
+	private static void joinPoller(Thread poller) {
+		if (poller == null || poller == Thread.currentThread()) return;
+		boolean interrupted = false;
+		while (poller.isAlive()) try { poller.join(); }
+		catch (InterruptedException stopRequested) { interrupted = true; poller.interrupt(); }
+		if (interrupted) Thread.currentThread().interrupt();
 	}
 
 	private void pollLoop() {

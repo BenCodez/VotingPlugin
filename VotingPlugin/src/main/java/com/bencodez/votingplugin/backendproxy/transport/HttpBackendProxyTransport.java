@@ -111,7 +111,8 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 			}
 			if (credentialGenerationToRestore != null) {
 				try {
-					HttpClientCredentialStore.restoreActiveGeneration(directory, credentialGenerationToRestore);
+					HttpClientCredentialStore.restoreActiveGenerationAfterReplacement(directory,
+							credentialGenerationToRestore);
 				} catch (Exception failure) {
 					credentialRestoreFailure = new IllegalStateException(
 							"Could not restore the previous HTTP client credential", failure);
@@ -119,7 +120,11 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 				}
 			}
 			credentialRestoreComplete.countDown();
-			HttpConnectionCode code = enrollmentCode(directory, serverId, configuredCode);
+			// A rollback always resumes a validated enrolled generation. Replaying the
+			// previous temporary code is both unnecessary and unsafe after a same-endpoint
+			// renewal/re-enrollment retained the newer active generation.
+			HttpConnectionCode code = enrollmentCode(directory, serverId,
+					credentialGenerationToRestore == null ? configuredCode : null);
 			if (code != null) HttpBackendTransportConnector.enroll(code, serverId, directory);
 			HttpClientCredentialStore.EnrolledClient enrolled = HttpClientCredentialStore.loadEnrolled(directory);
 			if (!enrolled.profile().serverId().equals(com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity.canonicalServerId(serverId)))

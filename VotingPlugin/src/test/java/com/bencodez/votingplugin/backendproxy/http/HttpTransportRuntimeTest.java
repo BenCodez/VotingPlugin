@@ -17,6 +17,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -53,6 +54,27 @@ class HttpTransportRuntimeTest {
 				long fenceDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
 				while (countRegularFiles(inboundFence) != 0L && System.nanoTime() < fenceDeadline) Thread.sleep(20);
 				assertEquals(0L, countRegularFiles(inboundFence), "a confirmed ACK must remove the backend replay fence");
+			}
+		}
+	}
+
+	@Test
+	void closeWaitsForTheCredentialOwningPollerToStop() throws Exception {
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("close-proxy"), "localhost");
+		HttpEnrollmentAuthority authority = new HttpEnrollmentAuthority(identity, directory.resolve("close-authority"));
+		try (HttpProxyTransportServer server = new HttpProxyTransportServer(new InetSocketAddress("localhost", 0),
+				identity, authority, ignored -> { })) {
+			server.start();
+			Path clientDirectory = directory.resolve("close-client");
+			HttpConnectionCode code = authority.createConnectionCode("lobby-1", server.endpoint("localhost"),
+					Duration.ofMinutes(5));
+			HttpBackendTransportConnector.enroll(code, "lobby-1", clientDirectory);
+			try (HttpBackendTransportConnector connector = new HttpBackendTransportConnector(clientDirectory, ignored -> { })) {
+				connector.start();
+				assertTrue(connector.awaitFirstResponse(System.nanoTime() + TimeUnit.SECONDS.toNanos(8)));
+				connector.close();
+				assertFalse(connector.pollerAlive(),
+						"credential-directory ownership must outlive every poller filesystem mutation");
 			}
 		}
 	}
@@ -313,6 +335,63 @@ class HttpTransportRuntimeTest {
 		assertTrue(state.acceptSession(replacementSession, 0));
 		assertTrue(state.acceptIncoming(java.util.List.of(delivery)).isEmpty());
 		assertEquals(java.util.List.of(id), state.await("lobby-1", replacementSession, 0).acks());
+	}
+
+	@Test
+	void newerDeliveriesDoNotPostponeRetryOfOlderUnacknowledgedDelivery() {
+		AtomicLong nanoTime = new AtomicLong(1L);
+		HttpProxyTransportServer.BackendState state = new HttpProxyTransportServer.BackendState(nanoTime::get);
+		String session = java.util.UUID.randomUUID().toString();
+		HttpTransportProtocol.Delivery first = new HttpTransportProtocol.Delivery(
+				java.util.UUID.randomUUID().toString(), JsonEnvelope.builder("first").build());
+		HttpTransportProtocol.Delivery second = new HttpTransportProtocol.Delivery(
+				java.util.UUID.randomUUID().toString(), JsonEnvelope.builder("second").build());
+
+		assertTrue(state.acceptSession(session, 0));
+		assertTrue(state.enqueue(first));
+		assertEquals(java.util.List.of(first), state.await("lobby-1", session, 0).messages());
+
+		nanoTime.addAndGet(TimeUnit.SECONDS.toNanos(1));
+		assertTrue(state.acceptSession(session, 1));
+		assertTrue(state.enqueue(second));
+		assertEquals(java.util.List.of(second), state.await("lobby-1", session, 1).messages());
+
+		nanoTime.addAndGet(TimeUnit.MILLISECONDS.toNanos(1100));
+		assertTrue(state.acceptSession(session, 2));
+		assertEquals(java.util.List.of(first), state.await("lobby-1", session, 2).messages(),
+				"sending newer traffic must not reset an older delivery's retry age");
+	}
+
+	@Test
+	void longPollWakesAtTheOldestDeliveryRetryDeadline() throws Exception {
+		AtomicLong nanoTime = new AtomicLong(1L);
+		HttpProxyTransportServer.BackendState state = new HttpProxyTransportServer.BackendState(nanoTime::get);
+		String session = java.util.UUID.randomUUID().toString();
+		HttpTransportProtocol.Delivery first = new HttpTransportProtocol.Delivery(
+				java.util.UUID.randomUUID().toString(), JsonEnvelope.builder("first").build());
+		HttpTransportProtocol.Delivery second = new HttpTransportProtocol.Delivery(
+				java.util.UUID.randomUUID().toString(), JsonEnvelope.builder("second").build());
+		assertTrue(state.acceptSession(session, 0));
+		assertTrue(state.enqueue(first));
+		assertEquals(java.util.List.of(first), state.await("lobby-1", session, 0).messages());
+
+		nanoTime.addAndGet(HttpProxyTransportServer.LONG_POLL.minusMillis(100).toNanos());
+		assertTrue(state.acceptSession(session, 1));
+		assertTrue(state.enqueue(second));
+		assertEquals(java.util.List.of(second), state.await("lobby-1", session, 1).messages());
+		assertTrue(state.acceptSession(session, 2));
+		Thread clock = new Thread(() -> {
+			try { Thread.sleep(50L); }
+			catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+			nanoTime.addAndGet(TimeUnit.MILLISECONDS.toNanos(100));
+		}, "HTTP-retry-test-clock");
+		clock.setDaemon(true);
+		long started = System.nanoTime();
+		clock.start();
+		assertEquals(java.util.List.of(first), state.await("lobby-1", session, 2).messages());
+		clock.join();
+		assertTrue(System.nanoTime() - started < TimeUnit.SECONDS.toNanos(1),
+				"the poll must wake at the oldest delivery deadline, not a fresh long-poll deadline");
 	}
 
 	@Test
