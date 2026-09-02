@@ -54,6 +54,9 @@ public final class HttpTlsIdentity {
 	private static final String CA_FILE = "http-transport-ca.p12";
 	private static final String SERVER_FILE = "http-transport-server.p12";
 	private static final String PASSWORD_FILE = "http-transport-password";
+	private static final String INITIALIZING_FILE = "http-transport-initializing";
+	private static final String ENROLLMENT_STATE_FILE = "http-transport-clients.properties";
+	private static final String OUTGOING_DIRECTORY = "outgoing-v1";
 	private static final char[] EMPTY_PASSWORD = new char[0];
 	static final Duration RENEW_BEFORE = Duration.ofDays(30);
 	static final Duration CA_RENEW_BEFORE = Duration.ofDays(365);
@@ -96,11 +99,26 @@ public final class HttpTlsIdentity {
 		Path caFile = safe(directory.resolve(CA_FILE));
 		Path serverFile = safe(directory.resolve(SERVER_FILE));
 		Path passwordFile = safe(directory.resolve(PASSWORD_FILE));
+		Path initializingFile = safe(directory.resolve(INITIALIZING_FILE));
 		boolean caExists = Files.exists(caFile, LinkOption.NOFOLLOW_LINKS);
 		boolean serverExists = Files.exists(serverFile, LinkOption.NOFOLLOW_LINKS);
 		boolean passwordExists = Files.exists(passwordFile, LinkOption.NOFOLLOW_LINKS);
+		boolean initializing = Files.exists(initializingFile, LinkOption.NOFOLLOW_LINKS);
+		boolean anyIdentityFile = caExists || serverExists || passwordExists;
+		boolean completeIdentity = caExists && serverExists && passwordExists;
+		boolean persistentTransportState = hasPersistentTransportState(directory);
+		if (initializing || (anyIdentityFile && !completeIdentity)) {
+			if (persistentTransportState)
+				throw new IOException("HTTP TLS identity files are incomplete");
+			if (!initializing) writeInitializationMarker(initializingFile);
+			discardUncommittedIdentity(caFile, serverFile, passwordFile);
+			caExists = false;
+			serverExists = false;
+			passwordExists = false;
+			initializing = true;
+		}
 		if (caExists || serverExists || passwordExists) {
-			if (!(caExists && serverExists && passwordExists)) throw new IOException("HTTP TLS identity files are incomplete");
+			if (!completeIdentity) throw new IOException("HTTP TLS identity files are incomplete");
 			char[] password = readPassword(passwordFile);
 			try {
 				KeyStore ca = load(caFile, password);
@@ -137,6 +155,9 @@ public final class HttpTlsIdentity {
 						advertisedHost);
 			} finally { Arrays.fill(password, '\0'); }
 		}
+		if (persistentTransportState)
+			throw new IOException("HTTP TLS identity files are missing");
+		if (!initializing) writeInitializationMarker(initializingFile);
 		ensureBouncyCastle();
 		char[] password = HttpTransportSecrets.randomToken().toCharArray();
 		try {
@@ -154,9 +175,10 @@ public final class HttpTlsIdentity {
 			server.setKeyEntry("server", serverPair.getPrivate(), password, new Certificate[] { serverCertificate, caCertificate });
 			writeStore(caFile, ca, password);
 			writeStore(serverFile, server, password);
-		byte[] passwordBytes = asciiBytes(password);
-		try { writePrivate(passwordFile, passwordBytes); }
-		finally { Arrays.fill(passwordBytes, (byte) 0); }
+			byte[] passwordBytes = asciiBytes(password);
+			try { writePrivate(passwordFile, passwordBytes); }
+			finally { Arrays.fill(passwordBytes, (byte) 0); }
+			DurableFiles.deleteIfExists(initializingFile);
 			return new HttpTlsIdentity(caPair.getPrivate(), caCertificate, serverPair.getPrivate(), serverCertificate, password,
 					caFile, serverFile, advertisedHost);
 		} finally { Arrays.fill(password, '\0'); }
@@ -389,6 +411,21 @@ public final class HttpTlsIdentity {
 			setOwnerOnly(file);
 			DurableFiles.forceDirectory(file.getParent());
 		} finally { Files.deleteIfExists(temporary); }
+	}
+
+	private static void writeInitializationMarker(Path file) throws IOException {
+		writePrivate(file, "initializing\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+	}
+
+	private static void discardUncommittedIdentity(Path caFile, Path serverFile, Path passwordFile) throws IOException {
+		DurableFiles.deleteIfExists(caFile);
+		DurableFiles.deleteIfExists(serverFile);
+		DurableFiles.deleteIfExists(passwordFile);
+	}
+
+	private static boolean hasPersistentTransportState(Path directory) {
+		return Files.exists(directory.resolve(ENROLLMENT_STATE_FILE), LinkOption.NOFOLLOW_LINKS)
+				|| Files.exists(directory.resolve(OUTGOING_DIRECTORY), LinkOption.NOFOLLOW_LINKS);
 	}
 
 	private static byte[] asciiBytes(char[] characters) {

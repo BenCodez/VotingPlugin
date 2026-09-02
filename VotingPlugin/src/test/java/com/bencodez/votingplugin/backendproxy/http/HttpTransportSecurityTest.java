@@ -132,6 +132,49 @@ class HttpTransportSecurityTest {
 	}
 
 	@Test
+	void incompleteFirstRunTlsProvisioningRecoversWithoutManualCleanup() throws Exception {
+		Path source = directory.resolve("complete-identity");
+		HttpTlsIdentity original = HttpTlsIdentity.loadOrCreate(source, "localhost");
+		Path interrupted = directory.resolve("interrupted-identity");
+		Files.createDirectories(interrupted);
+		Files.copy(source.resolve("http-transport-ca.p12"), interrupted.resolve("http-transport-ca.p12"));
+		Files.copy(source.resolve("http-transport-server.p12"), interrupted.resolve("http-transport-server.p12"));
+
+		HttpTlsIdentity recovered = HttpTlsIdentity.loadOrCreate(interrupted, "localhost");
+
+		assertNotEquals(original.caCertificatePin(), recovered.caCertificatePin());
+		assertTrue(Files.exists(interrupted.resolve("http-transport-ca.p12")));
+		assertTrue(Files.exists(interrupted.resolve("http-transport-server.p12")));
+		assertTrue(Files.exists(interrupted.resolve("http-transport-password")));
+		assertFalse(Files.exists(interrupted.resolve("http-transport-initializing")));
+	}
+
+	@Test
+	void completedFirstRunFilesRecoverWhenInitializationMarkerSurvives() throws Exception {
+		Path interrupted = directory.resolve("marked-identity");
+		HttpTlsIdentity original = HttpTlsIdentity.loadOrCreate(interrupted, "localhost");
+		String originalCaPin = original.caCertificatePin();
+		Files.writeString(interrupted.resolve("http-transport-initializing"), "initializing\n");
+
+		HttpTlsIdentity recovered = HttpTlsIdentity.loadOrCreate(interrupted, "localhost");
+
+		assertNotEquals(originalCaPin, recovered.caCertificatePin());
+		assertFalse(Files.exists(interrupted.resolve("http-transport-initializing")));
+	}
+
+	@Test
+	void incompleteEstablishedTlsIdentityFailsClosed() throws Exception {
+		Path established = directory.resolve("established-identity");
+		HttpTlsIdentity.loadOrCreate(established, "localhost");
+		Files.writeString(established.resolve("http-transport-clients.properties"), "version=2\n");
+		Files.delete(established.resolve("http-transport-server.p12"));
+
+		assertThrows(java.io.IOException.class, () -> HttpTlsIdentity.loadOrCreate(established, "localhost"));
+		assertTrue(Files.exists(established.resolve("http-transport-ca.p12")));
+		assertTrue(Files.exists(established.resolve("http-transport-password")));
+	}
+
+	@Test
 	void enrollmentIsSingleUseBoundToServerAndRevocable() throws Exception {
 		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory, "localhost");
 		Clock clock = Clock.fixed(Instant.parse("2030-01-01T00:00:00Z"), ZoneOffset.UTC);
