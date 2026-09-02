@@ -176,8 +176,11 @@ public final class HttpClientCredentialStore {
 		if (code == null) throw new IllegalArgumentException("Connection code is required");
 		String stored = readConnectionCodeDigest(activeDirectory(directory));
 		if (stored == null) return false;
-		return HttpTransportSecrets.constantTimeEquals(stored.getBytes(StandardCharsets.US_ASCII),
-				connectionCodeDigest(code).getBytes(StandardCharsets.US_ASCII));
+		byte[] storedBytes = stored.getBytes(StandardCharsets.US_ASCII);
+		return HttpTransportSecrets.constantTimeEquals(storedBytes,
+				connectionCodeDigest(code.encode()).getBytes(StandardCharsets.US_ASCII))
+				|| HttpTransportSecrets.constantTimeEquals(storedBytes,
+						connectionCodeDigest(code.encodeLegacy()).getBytes(StandardCharsets.US_ASCII));
 	}
 
 	/** Loads and cross-checks the persisted client key material and bound normal-transport profile. */
@@ -324,7 +327,11 @@ public final class HttpClientCredentialStore {
 	}
 
 	private static String connectionCodeDigest(HttpConnectionCode code) {
-		return HttpTransportSecrets.sha256Hex(code.encode().getBytes(StandardCharsets.US_ASCII));
+		return connectionCodeDigest(code.encode());
+	}
+
+	private static String connectionCodeDigest(String encoded) {
+		return HttpTransportSecrets.sha256Hex(encoded.getBytes(StandardCharsets.US_ASCII));
 	}
 
 	private static void restoreConnectionCodeDigest(Path directory, String digest) throws IOException {

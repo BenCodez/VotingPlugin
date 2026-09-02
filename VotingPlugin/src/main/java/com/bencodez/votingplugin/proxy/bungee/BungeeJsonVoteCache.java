@@ -1,7 +1,11 @@
 package com.bencodez.votingplugin.proxy.bungee;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collection;
+import java.util.Locale;
 
 import com.bencodez.simpleapi.file.BungeeJsonFile;
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
@@ -129,6 +133,19 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 		return getInt("VoteParty.Cache." + server, 0);
 	}
 
+	@Override
+	public Collection<String> getPendingVotePartyRewardServers() {
+		Collection<String> encoded = getKeys("VoteParty.PendingRewards");
+		Collection<String> servers = new ArrayList<>();
+		if (encoded != null) for (String key : encoded) servers.add(decodeServerKey(key));
+		return servers;
+	}
+
+	@Override
+	public Collection<String> getPendingVotePartyRewardIds(String server) {
+		return getKeys("VoteParty.PendingRewards." + encodeServerKey(server));
+	}
+
 	public int getVotePartyCurrentVotes() {
 		return getInt("VoteParty.CurrentVotes", 0);
 	}
@@ -139,6 +156,27 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 
 	public void setVotePartyCache(String server, int amount) {
 		setInt("VoteParty.Cache." + server, amount);
+	}
+
+	@Override
+	public void setPendingVotePartyReward(String server, String deliveryId, boolean pending) {
+		String serverPath = "VoteParty.PendingRewards." + encodeServerKey(server);
+		String path = serverPath + "." + deliveryId;
+		if (pending) setBoolean(path, true);
+		else {
+			setString(path, null);
+			Collection<String> remaining = getKeys(serverPath);
+			if (remaining == null || remaining.isEmpty()) setString(serverPath, null);
+		}
+	}
+
+	private static String encodeServerKey(String server) {
+		return Base64.getUrlEncoder().withoutPadding()
+				.encodeToString(server.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8));
+	}
+
+	private static String decodeServerKey(String server) {
+		return new String(Base64.getUrlDecoder().decode(server), StandardCharsets.UTF_8);
 	}
 
 	public void setVotePartyCurrentVotes(int amount) {

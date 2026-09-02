@@ -215,7 +215,7 @@ final class HttpTransportProtocol {
 	}
 	private static long nonNegative(JsonObject object, String name) { long n = integer(object, name); if (n < 0) throw bad(); return n; }
 	private static String uuid(JsonObject object, String name) { return canonicalUuid(string(object, name, 64)); }
-	private static void validId(String id) { if (id == null || id.length() > 64) throw bad(); canonicalUuid(id); }
+	static void validId(String id) { if (id == null || id.length() > 64) throw bad(); canonicalUuid(id); }
 	private static String canonicalUuid(String value) {
 		try {
 			UUID parsed = UUID.fromString(value);

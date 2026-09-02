@@ -59,6 +59,35 @@ class HttpTransportRuntimeTest {
 	}
 
 	@Test
+	void stableProxyDeliveryIdsAreIdempotentAndAcknowledgedBeforeRemoval() throws Exception {
+		AtomicLong acknowledged = new AtomicLong();
+		HttpProxyTransportServer.BackendState state = new HttpProxyTransportServer.BackendState("lobby-1", null,
+				(server, deliveryId) -> acknowledged.incrementAndGet());
+		String deliveryId = java.util.UUID.randomUUID().toString();
+		HttpTransportProtocol.Delivery delivery = new HttpTransportProtocol.Delivery(deliveryId,
+				JsonEnvelope.builder("vote-party").build());
+		assertTrue(state.enqueue(delivery));
+		assertTrue(state.enqueue(delivery));
+		assertFalse(state.enqueue(new HttpTransportProtocol.Delivery(deliveryId,
+				JsonEnvelope.builder("different").build())));
+		state.acknowledge(java.util.List.of(deliveryId));
+		assertEquals(1L, acknowledged.get());
+		assertTrue(state.await("lobby-1", java.util.UUID.randomUUID().toString(), 0).messages().isEmpty());
+	}
+
+	@Test
+	void failedAcknowledgementCallbackRetainsProxyDelivery() throws Exception {
+		HttpProxyTransportServer.BackendState state = new HttpProxyTransportServer.BackendState("lobby-1", null,
+				(server, deliveryId) -> { throw new java.io.IOException("cache save failed"); });
+		String deliveryId = java.util.UUID.randomUUID().toString();
+		assertTrue(state.enqueue(new HttpTransportProtocol.Delivery(deliveryId,
+				JsonEnvelope.builder("vote-party").build())));
+		assertThrows(java.io.IOException.class, () -> state.acknowledge(java.util.List.of(deliveryId)));
+		assertEquals(deliveryId, state.await("lobby-1", java.util.UUID.randomUUID().toString(), 0)
+				.messages().iterator().next().id());
+	}
+
+	@Test
 	void closeWaitsForTheCredentialOwningPollerToStop() throws Exception {
 		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("close-proxy"), "localhost");
 		HttpEnrollmentAuthority authority = new HttpEnrollmentAuthority(identity, directory.resolve("close-authority"));

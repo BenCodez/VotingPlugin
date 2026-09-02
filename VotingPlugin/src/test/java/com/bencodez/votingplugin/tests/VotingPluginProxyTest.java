@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.never;
@@ -78,6 +79,54 @@ public class VotingPluginProxyTest {
 		// Add 2 more votes
 		votingPluginProxy.addCurrentVotePartyVotes(2);
 		assertEquals(5, votingPluginProxy.getVotePartyVotes());
+	}
+
+	@Test
+	void rejectedHttpVotePartyRewardRemainsPendingUntilAccepted() throws Exception {
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(false);
+
+		votingPluginProxy.sendVoteParty("Server1");
+		assertEquals(1, votingPluginProxy.getVoteCachePendingVotePartyRewardIds("Server1").size());
+		String deliveryId = votingPluginProxy.getAttemptedVotePartyDeliveryIds().get(0);
+
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(true);
+		votingPluginProxy.retryPendingVotePartyRewardsForTest();
+		assertEquals(deliveryId, votingPluginProxy.getAttemptedVotePartyDeliveryIds().get(1));
+		assertEquals(1, votingPluginProxy.getVoteCachePendingVotePartyRewardIds("Server1").size());
+		votingPluginProxy.acknowledgeVotePartyDeliveryForTest("server1", deliveryId);
+		assertEquals(0, votingPluginProxy.getVoteCachePendingVotePartyRewardIds("Server1").size());
+	}
+
+	@Test
+	void failedVotePartyAcknowledgementSaveRestoresPendingMarker() {
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(false);
+		votingPluginProxy.sendVoteParty("Server1");
+		String deliveryId = votingPluginProxy.getAttemptedVotePartyDeliveryIds().get(0);
+
+		votingPluginProxy.failNextVoteCacheSave();
+		assertThrows(IllegalStateException.class,
+				() -> votingPluginProxy.acknowledgeVotePartyDeliveryForTest("server1", deliveryId));
+		assertTrue(votingPluginProxy.getVoteCachePendingVotePartyRewardIds("Server1").contains(deliveryId));
+	}
+
+	@Test
+	void httpVotePartyStagesEveryTargetBeforeDelivery() {
+		Mockito.when(votingPluginProxy.getConfig().getVotePartyEnabled()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getVotePartySendToAllServers()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getVotePartyBroadcast()).thenReturn("");
+		Mockito.when(votingPluginProxy.getConfig().getVotePartyBungeeCommands()).thenReturn(java.util.List.of());
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(false);
+		votingPluginProxy.setVotePartyVotes(1);
+		votingPluginProxy.setCurrentVotePartyVotesRequired(1);
+
+		votingPluginProxy.checkVoteParty();
+
+		assertEquals(1, votingPluginProxy.getVoteCachePendingVotePartyRewardIds("server1").size());
+		assertEquals(1, votingPluginProxy.getVoteCachePendingVotePartyRewardIds("SERVER2").size());
+		assertEquals(0, votingPluginProxy.getVotePartyVotes());
 	}
 
 	@Test

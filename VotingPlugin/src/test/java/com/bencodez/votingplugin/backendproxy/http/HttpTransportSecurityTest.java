@@ -41,16 +41,35 @@ class HttpTransportSecurityTest {
 
 	@Test
 	void connectionCodeRoundTripsAndRejectsAccidentalCorruption() {
-		HttpConnectionCode original = new HttpConnectionCode("lobby", URI.create("https://Proxy.Example.test:8443/http"), pin('a'), pin('b'),
+		HttpConnectionCode original = new HttpConnectionCode("lobby.eu", URI.create("https://Proxy.Example.test:8443/http"), pin('a'), pin('b'),
 				Instant.parse("2030-01-01T00:00:00Z"), HttpTransportSecrets.randomToken());
 		String encoded = original.encode();
 		HttpConnectionCode parsed = HttpConnectionCode.parse(encoded);
+		assertEquals("lobby.eu", parsed.serverId());
 		assertEquals(URI.create("https://proxy.example.test:8443/http/"), parsed.endpoint());
 		assertEquals(original.serverCertificatePin(), parsed.serverCertificatePin());
 		char last = encoded.charAt(encoded.length() - 1);
 		assertThrows(IllegalArgumentException.class, () -> HttpConnectionCode.parse(encoded.substring(0, encoded.length() - 1)
 				+ (last == 'A' ? 'B' : 'A')));
 		assertThrows(IllegalArgumentException.class, () -> HttpConnectionCode.parse("http://not-a-code"));
+	}
+
+	@Test
+	void legacyConnectionCodesAndConsumedMarkersRemainCompatible() throws Exception {
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("legacy-code-proxy"), "proxy.example.test");
+		HttpConnectionCode legacy = new HttpConnectionCode("lobby", URI.create("https://proxy.example.test:8443/"),
+				identity.serverCertificatePin(), identity.caCertificatePin(), Instant.now().plusSeconds(60),
+				HttpTransportSecrets.randomToken());
+		assertEquals(legacy, HttpConnectionCode.parse(legacy.encodeLegacy()));
+
+		Path client = directory.resolve("legacy-code-client");
+		HttpClientCredentialStore.saveEnrolled(client, legacy, identity.issueClientCertificate("lobby"));
+		Path active = client.resolve("http-transport-client-generations")
+				.resolve(Files.readString(client.resolve("http-transport-client-current")));
+		Files.writeString(active.resolve("http-transport-connection-code.sha256"),
+				HttpTransportSecrets.sha256Hex(legacy.encodeLegacy().getBytes(java.nio.charset.StandardCharsets.US_ASCII)));
+		assertTrue(HttpClientCredentialStore.matchesEnrollmentCode(client,
+				HttpConnectionCode.parse(legacy.encodeLegacy())));
 	}
 
 	@Test

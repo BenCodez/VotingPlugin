@@ -4,6 +4,8 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -29,6 +31,9 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	private JsonEnvelope lastCommunicationTestEnvelope;
 	private boolean playerOnline = true;
 	private ScheduledExecutorService scheduler;
+	private boolean failNextVoteCacheSave;
+	private final java.util.Map<String, java.util.Set<String>> pendingVotePartyRewards = new HashMap<>();
+	private final List<String> attemptedVotePartyDeliveryIds = new ArrayList<>();
 
 	public List<String> getWarnings() {
 		return warnings;
@@ -126,6 +131,17 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	}
 
 	@Override
+	public Collection<String> getVoteCachePendingVotePartyServers() {
+		return new HashSet<>(pendingVotePartyRewards.keySet());
+	}
+
+	@Override
+	public Collection<String> getVoteCachePendingVotePartyRewardIds(String server) {
+		return new HashSet<>(pendingVotePartyRewards.getOrDefault(server.toLowerCase(java.util.Locale.ROOT),
+				java.util.Set.of()));
+	}
+
+	@Override
 	public boolean isPlayerOnline(String playerName) {
 		return playerOnline;
 	}
@@ -161,7 +177,19 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	@Override
 	public void saveVoteCacheFile() {
-		// Mocked for testing
+		if (failNextVoteCacheSave) {
+			failNextVoteCacheSave = false;
+			throw new IllegalStateException("vote cache save failed");
+		}
+	}
+
+	@Override
+	public void saveVotePartyStateDurably() {
+		saveVoteCacheFile();
+	}
+
+	public void failNextVoteCacheSave() {
+		failNextVoteCacheSave = true;
 	}
 
 	@Override
@@ -227,6 +255,20 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	}
 
 	@Override
+	protected boolean sendHttpEnvelope(String server, String deliveryId, JsonEnvelope envelope) {
+		attemptedVotePartyDeliveryIds.add(deliveryId);
+		return voteEnvelopeDeliveryResult;
+	}
+
+	public List<String> getAttemptedVotePartyDeliveryIds() {
+		return attemptedVotePartyDeliveryIds;
+	}
+
+	public void acknowledgeVotePartyDeliveryForTest(String server, String deliveryId) throws java.io.IOException {
+		acknowledgeVotePartyDelivery(server, deliveryId);
+	}
+
+	@Override
 	protected boolean sendCommunicationTestEnvelopeNow(String server, JsonEnvelope envelope) {
 		lastCommunicationTestEnvelope = envelope;
 		return communicationTestDeliveryResult;
@@ -284,6 +326,10 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	public void retryPendingTimeBroadcastsForTest(String server) {
 		retryPendingTimeBroadcasts(server);
+	}
+
+	public void retryPendingVotePartyRewardsForTest() {
+		retryPendingVotePartyRewards();
 	}
 
 	public int[] getProjectedVotePartyStateForTest(int acceptedVotes) {
@@ -362,6 +408,16 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	public void setVoteCacheVotePartyIncreaseVotesRequired(int votes) {
 		// TODO Auto-generated method stub
 
+	}
+
+	@Override
+	public void setVoteCachePendingVotePartyReward(String server, String deliveryId, boolean pending) {
+		server = server.toLowerCase(java.util.Locale.ROOT);
+		if (pending) pendingVotePartyRewards.computeIfAbsent(server, ignored -> new HashSet<>()).add(deliveryId);
+		else {
+			java.util.Set<String> rewards = pendingVotePartyRewards.get(server);
+			if (rewards != null && rewards.remove(deliveryId) && rewards.isEmpty()) pendingVotePartyRewards.remove(server);
+		}
 	}
 
 	@Override

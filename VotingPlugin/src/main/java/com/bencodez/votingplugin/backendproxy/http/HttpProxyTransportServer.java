@@ -22,6 +22,7 @@ import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -67,21 +68,30 @@ public final class HttpProxyTransportServer implements AutoCloseable {
 	private final Map<String, BackendState> backends = new HashMap<>();
 	private final DurableOutgoingQueue durableOutgoing;
 	private final Consumer<ReceivedEnvelope> onEnvelope;
+	private final DeliveryAcknowledgement onAcknowledged;
 	private volatile boolean closed;
 
 	public HttpProxyTransportServer(InetSocketAddress bind, HttpTlsIdentity identity, HttpEnrollmentAuthority authority,
 			Consumer<ReceivedEnvelope> onEnvelope) throws Exception {
-		this(bind, identity, authority, null, onEnvelope);
+		this(bind, identity, authority, null, onEnvelope, (serverId, deliveryId) -> { });
 	}
 
 	public HttpProxyTransportServer(InetSocketAddress bind, HttpTlsIdentity identity, HttpEnrollmentAuthority authority,
 			Path outgoingDirectory, Consumer<ReceivedEnvelope> onEnvelope) throws Exception {
-		if (bind == null || identity == null || authority == null || onEnvelope == null) throw new IllegalArgumentException("HTTP transport configuration is required");
+		this(bind, identity, authority, outgoingDirectory, onEnvelope, (serverId, deliveryId) -> { });
+	}
+
+	public HttpProxyTransportServer(InetSocketAddress bind, HttpTlsIdentity identity, HttpEnrollmentAuthority authority,
+			Path outgoingDirectory, Consumer<ReceivedEnvelope> onEnvelope,
+			DeliveryAcknowledgement onAcknowledged) throws Exception {
+		if (bind == null || identity == null || authority == null || onEnvelope == null || onAcknowledged == null)
+			throw new IllegalArgumentException("HTTP transport configuration is required");
 		this.identity = identity; this.authority = authority; this.onEnvelope = onEnvelope;
+		this.onAcknowledged = onAcknowledged;
 		durableOutgoing = outgoingDirectory == null ? null : new DurableOutgoingQueue(outgoingDirectory);
 		if (durableOutgoing != null) for (Map.Entry<String, List<HttpTransportProtocol.Delivery>> pending
 				: durableOutgoing.load().entrySet()) {
-			BackendState state = new BackendState(pending.getKey(), durableOutgoing);
+			BackendState state = new BackendState(pending.getKey(), durableOutgoing, onAcknowledged);
 			state.restore(pending.getValue());
 			backends.put(pending.getKey(), state);
 		}
@@ -126,14 +136,23 @@ public final class HttpProxyTransportServer implements AutoCloseable {
 
 	/** Queues a proxy-origin envelope durably before reporting acceptance. */
 	public boolean send(String serverId, JsonEnvelope envelope) {
+		return send(serverId, UUID.randomUUID().toString(), envelope);
+	}
+
+	/** Queues a proxy-origin envelope with a stable, caller-persisted delivery ID. */
+	public boolean send(String serverId, String deliveryId, JsonEnvelope envelope) {
 		if (closed || serverId == null || envelope == null) return false;
-		try { serverId = HttpTlsIdentity.canonicalServerId(serverId); HttpTransportProtocol.validateEnvelope(envelope); }
+		try {
+			serverId = HttpTlsIdentity.canonicalServerId(serverId);
+			HttpTransportProtocol.validId(deliveryId);
+			HttpTransportProtocol.validateEnvelope(envelope);
+		}
 		catch (IllegalArgumentException invalid) { return false; }
 		BackendState backend;
 		final String canonicalServerId = serverId;
 		synchronized (backends) { backend = backends.computeIfAbsent(serverId,
-				ignored -> new BackendState(canonicalServerId, durableOutgoing)); }
-		return backend.enqueue(new HttpTransportProtocol.Delivery(UUID.randomUUID().toString(), envelope));
+				ignored -> new BackendState(canonicalServerId, durableOutgoing, onAcknowledged)); }
+		return backend.enqueue(new HttpTransportProtocol.Delivery(deliveryId, envelope));
 	}
 
 	@Override public void close() {
@@ -166,7 +185,7 @@ public final class HttpProxyTransportServer implements AutoCloseable {
 			if (certificate == null || !authority.authenticate(packet.server(), certificate)) { reply(exchange, 401, new byte[0]); return; }
 			BackendState backend;
 			synchronized (backends) { backend = backends.computeIfAbsent(packet.server(),
-					ignored -> new BackendState(packet.server(), durableOutgoing)); }
+					ignored -> new BackendState(packet.server(), durableOutgoing, onAcknowledged)); }
 			if (!backend.beginPoll(packet.session())) { reply(exchange, 409, new byte[0]); return; }
 			try {
 				handlePacket(packet, backend);
@@ -183,8 +202,9 @@ public final class HttpProxyTransportServer implements AutoCloseable {
 		synchronized (backend) {
 			if (!backend.allowRequest()) throw new IllegalArgumentException("transport rate limited");
 			if (!backend.acceptSession(packet.session(), packet.sequence())) throw new IllegalArgumentException("stale session request");
-			backend.acknowledge(packet.acks()); accepted = backend.acceptIncoming(packet.messages());
 		}
+		backend.acknowledge(packet.acks());
+		synchronized (backend) { accepted = backend.acceptIncoming(packet.messages()); }
 		for (HttpTransportProtocol.Delivery delivery : accepted) dispatch(packet.server(), backend, delivery);
 	}
 	private void dispatch(String serverId, BackendState backend, HttpTransportProtocol.Delivery delivery) {
@@ -233,10 +253,16 @@ public final class HttpProxyTransportServer implements AutoCloseable {
 	private static void shutdown(ExecutorService executor) { executor.shutdown(); try { if (!executor.awaitTermination(5, TimeUnit.SECONDS)) executor.shutdownNow(); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); executor.shutdownNow(); } }
 
 	public record ReceivedEnvelope(String serverId, String messageId, JsonEnvelope envelope) { }
+
+	@FunctionalInterface
+	public interface DeliveryAcknowledgement {
+		void confirm(String serverId, String deliveryId) throws IOException;
+	}
 	static record Response(Collection<String> acks, Collection<HttpTransportProtocol.Delivery> messages) { }
 	static final class BackendState {
 		private final String serverId;
 		private final DurableOutgoingQueue durableOutgoing;
+		private final DeliveryAcknowledgement onAcknowledged;
 		private final LongSupplier nanoTime;
 		private String session; private long sequence = -1L;
 		private final LinkedHashMap<String, HttpTransportProtocol.Delivery> outgoing = new LinkedHashMap<>();
@@ -246,13 +272,19 @@ public final class HttpProxyTransportServer implements AutoCloseable {
 		private double requestTokens = 24.0d;
 		private long lastTokenNanos = System.nanoTime();
 		private boolean activePoll;
-		BackendState() { this(null, null, System::nanoTime); }
-		BackendState(LongSupplier nanoTime) { this(null, null, nanoTime); }
+		BackendState() { this(null, null, (serverId, deliveryId) -> { }, System::nanoTime); }
+		BackendState(LongSupplier nanoTime) { this(null, null, (serverId, deliveryId) -> { }, nanoTime); }
 		private BackendState(String serverId, DurableOutgoingQueue durableOutgoing) {
-			this(serverId, durableOutgoing, System::nanoTime);
+			this(serverId, durableOutgoing, (ignoredServer, ignoredDelivery) -> { }, System::nanoTime);
 		}
-		private BackendState(String serverId, DurableOutgoingQueue durableOutgoing, LongSupplier nanoTime) {
-			this.serverId = serverId; this.durableOutgoing = durableOutgoing; this.nanoTime = nanoTime;
+		BackendState(String serverId, DurableOutgoingQueue durableOutgoing,
+				DeliveryAcknowledgement onAcknowledged) {
+			this(serverId, durableOutgoing, onAcknowledged, System::nanoTime);
+		}
+		private BackendState(String serverId, DurableOutgoingQueue durableOutgoing,
+				DeliveryAcknowledgement onAcknowledged, LongSupplier nanoTime) {
+			this.serverId = serverId; this.durableOutgoing = durableOutgoing;
+			this.onAcknowledged = onAcknowledged; this.nanoTime = nanoTime;
 		}
 		private synchronized void restore(Collection<HttpTransportProtocol.Delivery> deliveries) {
 			for (HttpTransportProtocol.Delivery delivery : deliveries) outgoing.put(delivery.id(), delivery);
@@ -270,18 +302,25 @@ public final class HttpProxyTransportServer implements AutoCloseable {
 			if (requestedSequence <= sequence) return false; sequence = requestedSequence; return true;
 		}
 		synchronized boolean enqueue(HttpTransportProtocol.Delivery delivery) {
+			HttpTransportProtocol.Delivery existing = outgoing.get(delivery.id());
+			if (existing != null) return Arrays.equals(HttpTransportProtocol.storedDelivery(existing),
+					HttpTransportProtocol.storedDelivery(delivery));
 			if (outgoing.size() >= HttpTransportProtocol.MAX_QUEUE) return false;
 			if (durableOutgoing != null) try { durableOutgoing.persist(serverId, delivery); }
 			catch (IOException failure) { return false; }
 			outgoing.put(delivery.id(), delivery); signal(); return true;
 		}
-		private void acknowledge(Collection<String> acks) throws IOException {
+		void acknowledge(Collection<String> acks) throws IOException {
 			for (String id : acks) {
-				if (!outgoing.containsKey(id)) continue;
+				synchronized (this) { if (!outgoing.containsKey(id)) continue; }
+				onAcknowledged.confirm(serverId, id);
+				synchronized (this) {
+					if (!outgoing.containsKey(id)) continue;
 				// A 200 response is the backend's proof that its durable replay fence may
 				// be deleted. Never return success while the proxy delivery still exists.
 				if (durableOutgoing != null) durableOutgoing.remove(serverId, id);
 				outgoing.remove(id); deliveredAtNanos.remove(id);
+				}
 			}
 		}
 		List<HttpTransportProtocol.Delivery> acceptIncoming(List<HttpTransportProtocol.Delivery> received) {

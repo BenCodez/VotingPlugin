@@ -16,7 +16,8 @@ import java.util.Locale;
  */
 public record HttpConnectionCode(String serverId, URI endpoint, String serverCertificatePin, String caCertificatePin,
 		Instant expiresAt, String enrollmentToken) {
-	private static final String VERSION = "VPH1";
+	private static final String LEGACY_VERSION = "VPH1";
+	private static final String VERSION = "VPH2";
 	private static final int MAX_CODE_LENGTH = 4096;
 
 	public HttpConnectionCode {
@@ -29,9 +30,19 @@ public record HttpConnectionCode(String serverId, URI endpoint, String serverCer
 	}
 
 	public String encode() {
+		String serverPart = Base64.getUrlEncoder().withoutPadding()
+				.encodeToString(serverId.getBytes(StandardCharsets.UTF_8));
+		return encode(VERSION, serverPart);
+	}
+
+	String encodeLegacy() {
+		return encode(LEGACY_VERSION, serverId);
+	}
+
+	private String encode(String version, String serverPart) {
 		String endpointPart = Base64.getUrlEncoder().withoutPadding()
 				.encodeToString(endpoint.toASCIIString().getBytes(StandardCharsets.UTF_8));
-		String unsigned = String.join(".", VERSION, serverId, endpointPart, serverCertificatePin, caCertificatePin,
+		String unsigned = String.join(".", version, serverPart, endpointPart, serverCertificatePin, caCertificatePin,
 				Long.toString(expiresAt.getEpochSecond()), enrollmentToken);
 		byte[] token = Base64.getUrlDecoder().decode(enrollmentToken);
 		return unsigned + "." + HttpTransportSecrets.hmacSha256Url(token, unsigned);
@@ -49,15 +60,18 @@ public record HttpConnectionCode(String serverId, URI endpoint, String serverCer
 		if (code == null || code.length() > MAX_CODE_LENGTH || code.indexOf('\n') >= 0 || code.indexOf('\r') >= 0)
 			throw new IllegalArgumentException("Connection code is invalid");
 		String[] parts = code.split("\\.", -1);
-		if (parts.length != 8 || !VERSION.equals(parts[0])) throw new IllegalArgumentException("Connection code is invalid");
+		if (parts.length != 8 || (!VERSION.equals(parts[0]) && !LEGACY_VERSION.equals(parts[0])))
+			throw new IllegalArgumentException("Connection code is invalid");
 		try {
+			String serverId = LEGACY_VERSION.equals(parts[0]) ? parts[1]
+					: new String(Base64.getUrlDecoder().decode(parts[1]), StandardCharsets.UTF_8);
 			String endpoint = new String(Base64.getUrlDecoder().decode(parts[2]), StandardCharsets.UTF_8);
 			String unsigned = String.join(".", parts[0], parts[1], parts[2], parts[3], parts[4], parts[5], parts[6]);
 			byte[] token = Base64.getUrlDecoder().decode(parts[6]);
 			String expected = HttpTransportSecrets.hmacSha256Url(token, unsigned);
 			if (!HttpTransportSecrets.constantTimeEquals(expected.getBytes(StandardCharsets.US_ASCII),
 					parts[7].getBytes(StandardCharsets.US_ASCII))) throw new IllegalArgumentException("Connection code is invalid");
-			return new HttpConnectionCode(parts[1], new URI(endpoint), parts[3], parts[4], Instant.ofEpochSecond(Long.parseLong(parts[5])),
+			return new HttpConnectionCode(serverId, new URI(endpoint), parts[3], parts[4], Instant.ofEpochSecond(Long.parseLong(parts[5])),
 					parts[6]);
 		} catch (IllegalArgumentException | URISyntaxException failure) {
 			throw new IllegalArgumentException("Connection code is invalid", failure);
