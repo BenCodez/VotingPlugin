@@ -58,7 +58,8 @@ class HttpTransportSecurityTest {
 	void legacyConnectionCodesAndConsumedMarkersRemainCompatible() throws Exception {
 		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("legacy-code-proxy"), "proxy.example.test");
 		HttpConnectionCode legacy = new HttpConnectionCode("lobby", URI.create("https://proxy.example.test:8443/"),
-				identity.serverCertificatePin(), identity.caCertificatePin(), Instant.now().plusSeconds(60),
+				identity.serverCertificatePin(), identity.caCertificatePin(),
+				Instant.now().plusSeconds(60).truncatedTo(java.time.temporal.ChronoUnit.SECONDS),
 				HttpTransportSecrets.randomToken());
 		assertEquals(legacy, HttpConnectionCode.parse(legacy.encodeLegacy()));
 
