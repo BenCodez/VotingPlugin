@@ -8,6 +8,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -27,11 +28,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import javax.net.ssl.KeyManagerFactory;
@@ -341,8 +344,23 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 				.connectTimeout(Duration.ofSeconds(5)).sslContext(clientContext(profile, credential)).build();
 	}
 	static LimitedResponse sendLimited(HttpClient client, HttpRequest request) throws IOException, InterruptedException {
-		HttpResponse<byte[]> response = client.send(request,
+		CompletableFuture<HttpResponse<byte[]>> exchange = client.sendAsync(request,
 				ignored -> new LimitedBodySubscriber(HttpTransportProtocol.MAX_BODY_BYTES));
+		HttpResponse<byte[]> response;
+		try {
+			Duration timeout = request.timeout().orElse(CLIENT_TIMEOUT);
+			response = exchange.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+		} catch (TimeoutException timeout) {
+			exchange.cancel(true);
+			throw new HttpTimeoutException("HTTP transport response timed out");
+		} catch (InterruptedException interrupted) {
+			exchange.cancel(true);
+			throw interrupted;
+		} catch (ExecutionException failure) {
+			Throwable cause = failure.getCause();
+			if (cause instanceof IOException ioFailure) throw ioFailure;
+			throw new IOException("HTTP transport request failed", cause);
+		}
 		long declaredLength = response.headers().firstValueAsLong("Content-Length").orElse(-1L);
 		if (declaredLength > HttpTransportProtocol.MAX_BODY_BYTES)
 			throw new IOException("HTTP transport response exceeds its limit");
