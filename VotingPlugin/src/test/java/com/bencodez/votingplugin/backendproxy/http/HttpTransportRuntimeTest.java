@@ -4,10 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -55,6 +57,32 @@ class HttpTransportRuntimeTest {
 				while (countRegularFiles(inboundFence) != 0L && System.nanoTime() < fenceDeadline) Thread.sleep(20);
 				assertEquals(0L, countRegularFiles(inboundFence), "a confirmed ACK must remove the backend replay fence");
 			}
+		}
+	}
+
+	@Test
+	void responseBodyConsumptionRemainsBoundedByRequestTimeout() throws Exception {
+		com.sun.net.httpserver.HttpServer server = com.sun.net.httpserver.HttpServer.create(
+				new InetSocketAddress("localhost", 0), 1);
+		CountDownLatch release = new CountDownLatch(1);
+		server.createContext("/stall", exchange -> {
+			exchange.sendResponseHeaders(200, 8);
+			try (var output = exchange.getResponseBody()) {
+				output.write(1);
+				output.flush();
+				try { release.await(5, TimeUnit.SECONDS); }
+				catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+			}
+		});
+		server.start();
+		try {
+			HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + server.getAddress().getPort()
+					+ "/stall")).timeout(Duration.ofMillis(250)).GET().build();
+			assertTimeoutPreemptively(Duration.ofSeconds(2), () -> assertThrows(java.io.IOException.class,
+					() -> HttpBackendTransportConnector.sendLimited(HttpClient.newHttpClient(), request)));
+		} finally {
+			release.countDown();
+			server.stop(0);
 		}
 	}
 

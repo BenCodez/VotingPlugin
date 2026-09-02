@@ -1,12 +1,14 @@
 package com.bencodez.votingplugin.backendproxy.http;
 
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.security.KeyStore;
@@ -21,8 +23,11 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Flow;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -335,13 +340,68 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 		return HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).followRedirects(HttpClient.Redirect.NEVER)
 				.connectTimeout(Duration.ofSeconds(5)).sslContext(clientContext(profile, credential)).build();
 	}
-	private static LimitedResponse sendLimited(HttpClient client, HttpRequest request) throws IOException, InterruptedException {
-		HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
-		try (InputStream body = response.body()) {
-			long declaredLength = response.headers().firstValueAsLong("Content-Length").orElse(-1L);
-			if (declaredLength > HttpTransportProtocol.MAX_BODY_BYTES)
-				throw new IOException("HTTP transport response exceeds its limit");
-			return new LimitedResponse(response.statusCode(), readLimited(body));
+	static LimitedResponse sendLimited(HttpClient client, HttpRequest request) throws IOException, InterruptedException {
+		HttpResponse<byte[]> response = client.send(request,
+				ignored -> new LimitedBodySubscriber(HttpTransportProtocol.MAX_BODY_BYTES));
+		long declaredLength = response.headers().firstValueAsLong("Content-Length").orElse(-1L);
+		if (declaredLength > HttpTransportProtocol.MAX_BODY_BYTES)
+			throw new IOException("HTTP transport response exceeds its limit");
+		return new LimitedResponse(response.statusCode(), response.body());
+	}
+
+	private static final class LimitedBodySubscriber implements HttpResponse.BodySubscriber<byte[]> {
+		private final int maximum;
+		private final ByteArrayOutputStream body = new ByteArrayOutputStream();
+		private final CompletableFuture<byte[]> result = new CompletableFuture<>();
+		private Flow.Subscription subscription;
+
+		private LimitedBodySubscriber(int maximum) {
+			this.maximum = maximum;
+		}
+
+		@Override
+		public CompletionStage<byte[]> getBody() {
+			return result;
+		}
+
+		@Override
+		public void onSubscribe(Flow.Subscription subscription) {
+			if (this.subscription != null) {
+				subscription.cancel();
+				return;
+			}
+			this.subscription = subscription;
+			subscription.request(1);
+		}
+
+		@Override
+		public void onNext(List<ByteBuffer> buffers) {
+			try {
+				for (ByteBuffer buffer : buffers) {
+					if (buffer.remaining() > maximum - body.size()) {
+						subscription.cancel();
+						result.completeExceptionally(new IOException("HTTP transport response exceeds its limit"));
+						return;
+					}
+					byte[] chunk = new byte[buffer.remaining()];
+					buffer.get(chunk);
+					body.writeBytes(chunk);
+				}
+				subscription.request(1);
+			} catch (RuntimeException failure) {
+				subscription.cancel();
+				result.completeExceptionally(failure);
+			}
+		}
+
+		@Override
+		public void onError(Throwable failure) {
+			result.completeExceptionally(failure);
+		}
+
+		@Override
+		public void onComplete() {
+			result.complete(body.toByteArray());
 		}
 	}
 	static byte[] readLimited(InputStream body) throws IOException {
@@ -350,7 +410,7 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 			throw new IOException("HTTP transport response exceeds its limit");
 		return bytes;
 	}
-	private record LimitedResponse(int statusCode, byte[] body) { }
+	record LimitedResponse(int statusCode, byte[] body) { }
 	private static SSLContext clientContext(HttpClientCredentialStore.HttpClientProfile profile, HttpClientCredentialStore.ClientCredential credential) throws Exception {
 		String caPin = HttpTransportSecrets.certificatePin(credential.caCertificate());
 		if (!HttpTransportSecrets.constantTimeEquals(profile.caCertificatePin().getBytes(StandardCharsets.US_ASCII),
