@@ -1270,7 +1270,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		boolean previousPrepared = previous != null && previous.prepareForReplacement(replacementMethod);
 		BackendProxyHandler replacement = new BackendProxyHandler(this, backendProcessedVoteCache);
 		try {
-			replacement.load();
+			replacement.loadForReplacement();
 		} catch (RuntimeException failure) {
 			replacement.close();
 			if (previousPrepared) {
@@ -1308,6 +1308,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				return;
 			}
 			if (restart.previous != null) restart.previous.completeRedisHandoff(restart.replacement);
+			restart.replacement.activatePresenceReporting();
 			backendProxyHandler = restart.replacement;
 			if (restart.previous != null) restart.previous.close();
 			restart.finished = true;

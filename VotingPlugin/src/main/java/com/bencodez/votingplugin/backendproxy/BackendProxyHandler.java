@@ -39,6 +39,7 @@ public class BackendProxyHandler implements Listener {
 	private final BackendGlobalDataSync globalDataSync;
 
 	private BackendPresenceManager presenceManager;
+	private boolean presenceReportingActivated;
 	private BackendVotePartySync votePartySync;
 	private BackendProxyMessageRouter messageRouter;
 
@@ -62,6 +63,15 @@ public class BackendProxyHandler implements Listener {
 	 * Loads the configured backend/proxy communication components.
 	 */
 	public void load() {
+		load(true);
+	}
+
+	/** Loads a replacement without announcing a new presence generation before publication. */
+	public void loadForReplacement() {
+		load(false);
+	}
+
+	private void load(boolean activatePresenceReporting) {
 		plugin.debug("Loading backend proxy handler");
 		method = BungeeMethod.getByName(plugin.getBungeeSettings().getBungeeMethod());
 		plugin.getLogger().info("Using BungeeMethod: " + method.toString());
@@ -84,15 +94,24 @@ public class BackendProxyHandler implements Listener {
 		if (plugin.getOptions().getServer().equalsIgnoreCase("pleaseset")) {
 			plugin.getLogger().warning("Server name for bungee voting is not set, please set it");
 		}
-		presenceManager.start();
+		if (activatePresenceReporting) activatePresenceReporting();
+	}
+
+	/** Starts presence only after a staged handler reaches the atomic publication boundary. */
+	public void activatePresenceReporting() {
+		if (presenceManager != null && !presenceReportingActivated) {
+			presenceManager.start();
+			presenceReportingActivated = true;
+		}
 	}
 
 	/**
 	 * Closes backend/proxy components and persists cached proxy state.
 	 */
 	public void close() {
-		if (presenceManager != null) {
+		if (presenceManager != null && presenceReportingActivated) {
 			presenceManager.stop();
+			presenceReportingActivated = false;
 		}
 		transportManager.close();
 		if (votePartySync != null) {
@@ -152,14 +171,15 @@ public class BackendProxyHandler implements Listener {
 	}
 
 	public void reloadPresenceReporting() {
-		if (presenceManager != null) {
+		if (presenceManager != null && presenceReportingActivated) {
 			presenceManager.reload();
 		}
 	}
 
 	public void disablePresenceReporting() {
-		if (presenceManager != null) {
+		if (presenceManager != null && presenceReportingActivated) {
 			presenceManager.stop();
+			presenceReportingActivated = false;
 		}
 	}
 

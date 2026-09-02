@@ -67,20 +67,28 @@ public class BackendPresenceManager {
 			lastResyncRequestAtNanos = 0L;
 			lastSnapshotRequestId = null;
 			lastSnapshotRequestAtNanos = 0L;
-			send(VotingPluginWire.backendStarted(server, incarnationId, startedAt, now));
-			send(VotingPluginWire.backendHeartbeat(server, incarnationId, startedAt, nextTimestamp()));
-
 			if (heartbeatTask != null) {
 				heartbeatTask.cancel(false);
 			}
-			heartbeatTask = plugin.getTimer().scheduleAtFixedRate(new Runnable() {
-				@Override
-				public void run() {
-					sendHeartbeat();
-				}
-			}, HEARTBEAT_SECONDS, HEARTBEAT_SECONDS, TimeUnit.SECONDS);
+			try {
+				heartbeatTask = plugin.getTimer().scheduleAtFixedRate(new Runnable() {
+					@Override
+					public void run() {
+						sendHeartbeat();
+					}
+				}, HEARTBEAT_SECONDS, HEARTBEAT_SECONDS, TimeUnit.SECONDS);
+				seedOnlinePlayers();
+			} catch (RuntimeException failure) {
+				if (heartbeatTask != null) heartbeatTask.cancel(false);
+				heartbeatTask = null;
+				reporting = false;
+				server = null;
+				incarnationId = null;
+				throw failure;
+			}
+			send(VotingPluginWire.backendStarted(server, incarnationId, startedAt, now));
+			send(VotingPluginWire.backendHeartbeat(server, incarnationId, startedAt, nextTimestamp()));
 		}
-		seedOnlinePlayers();
 	}
 
 	public void stop() {

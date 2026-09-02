@@ -2,9 +2,12 @@ package com.bencodez.votingplugin.backendproxy;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
 import java.util.concurrent.ScheduledExecutorService;
@@ -12,11 +15,14 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.junit.jupiter.api.Test;
 
 import com.bencodez.simpleapi.servercomm.sockets.SocketHandler;
+import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
 import com.bencodez.simpleapi.servercomm.mqtt.MqttHandler;
 import com.bencodez.simpleapi.servercomm.mysql.MySqlMessenger;
 import com.bencodez.simpleapi.servercomm.redis.RedisHandler;
 import com.bencodez.votingplugin.backendproxy.global.BackendGlobalDataSync;
 import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache;
+import com.bencodez.votingplugin.backendproxy.presence.BackendPresenceManager;
+import com.bencodez.votingplugin.config.BungeeSettings;
 import com.bencodez.votingplugin.backendproxy.transport.MqttBackendProxyTransport;
 import com.bencodez.votingplugin.backendproxy.transport.MysqlBackendProxyTransport;
 import com.bencodez.votingplugin.backendproxy.transport.BackendProxyTransport;
@@ -26,6 +32,39 @@ import com.bencodez.votingplugin.backendproxy.transport.SocketBackendProxyTransp
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 
 class BackendProxyHandlerLifecycleTest {
+	@Test
+	void failedPresenceActivationDoesNotAnnounceReplacementGeneration() {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BungeeSettings settings = mock(BungeeSettings.class);
+		ScheduledExecutorService timer = mock(ScheduledExecutorService.class);
+		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
+		when(plugin.getBungeeSettings()).thenReturn(settings);
+		when(settings.getServer()).thenReturn("lobby");
+		when(plugin.getTimer()).thenReturn(timer);
+		when(timer.scheduleAtFixedRate(org.mockito.ArgumentMatchers.any(Runnable.class),
+				org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(),
+				org.mockito.ArgumentMatchers.any())).thenThrow(new java.util.concurrent.RejectedExecutionException());
+
+		BackendPresenceManager presence = new BackendPresenceManager(plugin, BungeeMethod.HTTP, messages);
+		assertThrows(java.util.concurrent.RejectedExecutionException.class, presence::start);
+
+		verifyNoInteractions(messages);
+	}
+
+	@Test
+	void stagedPresenceStartsOnlyAtExplicitPublication() throws Exception {
+		BackendProxyHandler handler = new BackendProxyHandler(null);
+		BackendPresenceManager presence = mock(BackendPresenceManager.class);
+		Field field = BackendProxyHandler.class.getDeclaredField("presenceManager");
+		field.setAccessible(true);
+		field.set(handler, presence);
+
+		verifyNoInteractions(presence);
+		handler.activatePresenceReporting();
+		handler.activatePresenceReporting();
+
+		verify(presence, times(1)).start();
+	}
 
 	@Test
 	void sharesVoteDeduplicationAcrossHandlerReplacement() {
