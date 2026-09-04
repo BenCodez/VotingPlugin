@@ -103,6 +103,9 @@ public class BackendProxyHandler implements Listener {
 			presenceManager.start();
 			presenceReportingActivated = true;
 		}
+		// Swap shared inbound routing only after presence activation succeeds. An
+		// aborted publication must leave the previous plugin-message target intact.
+		transportManager.activateAfterPublication();
 	}
 
 	/**

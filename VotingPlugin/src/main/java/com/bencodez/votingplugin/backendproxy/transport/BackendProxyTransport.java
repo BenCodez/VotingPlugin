@@ -19,5 +19,9 @@ public interface BackendProxyTransport {
 		close();
 	}
 
+	/** Activates transport state that must not become visible before handler publication. */
+	default void activateAfterPublication() {
+	}
+
 	void close();
 }

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -25,6 +26,7 @@ import com.bencodez.votingplugin.backendproxy.presence.BackendPresenceManager;
 import com.bencodez.votingplugin.config.BungeeSettings;
 import com.bencodez.votingplugin.backendproxy.transport.MqttBackendProxyTransport;
 import com.bencodez.votingplugin.backendproxy.transport.MysqlBackendProxyTransport;
+import com.bencodez.votingplugin.backendproxy.transport.PluginMessagingBackendProxyTransport;
 import com.bencodez.votingplugin.backendproxy.transport.BackendProxyTransport;
 import com.bencodez.votingplugin.backendproxy.transport.BackendProxyTransportManager;
 import com.bencodez.votingplugin.backendproxy.transport.RedisBackendProxyTransport;
@@ -32,6 +34,33 @@ import com.bencodez.votingplugin.backendproxy.transport.SocketBackendProxyTransp
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 
 class BackendProxyHandlerLifecycleTest {
+	@Test
+	void stagedPluginMessageTransportDefersRelaySwapUntilPublication() {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BungeeSettings settings = mock(BungeeSettings.class);
+		com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessage pluginMessages =
+				mock(com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessage.class);
+		GlobalMessageHandler replacement = mock(GlobalMessageHandler.class);
+		when(plugin.getBungeeSettings()).thenReturn(settings);
+		when(plugin.getPluginMessaging()).thenReturn(pluginMessages);
+		when(settings.getPluginMessagingChannel()).thenReturn("votingplugin:main");
+
+		PluginMessagingBackendProxyTransport transport = new PluginMessagingBackendProxyTransport(plugin);
+		transport.start(replacement);
+		verify(plugin, never()).activateBackendPluginMessageHandler(replacement);
+		transport.close();
+		verify(plugin, never()).deactivateBackendPluginMessageHandler(replacement);
+
+		transport = new PluginMessagingBackendProxyTransport(plugin);
+		transport.start(replacement);
+		transport.activateAfterPublication();
+		transport.activateAfterPublication();
+		verify(plugin, times(1)).activateBackendPluginMessageHandler(replacement);
+
+		transport.close();
+		verify(plugin).deactivateBackendPluginMessageHandler(replacement);
+	}
+
 	@Test
 	void failedPresenceActivationDoesNotAnnounceReplacementGeneration() {
 		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);

@@ -63,6 +63,10 @@ public class BackendProxyTransportManager {
 		}
 	}
 
+	public void activateAfterPublication() {
+		if (transport != null) transport.activateAfterPublication();
+	}
+
 	public void close() {
 		if (transport != null) {
 			transport.close();

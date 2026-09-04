@@ -11,6 +11,7 @@ public class PluginMessagingBackendProxyTransport implements BackendProxyTranspo
 
 	private final VotingPluginMain plugin;
 	private GlobalMessageHandler messageHandler;
+	private boolean active;
 
 	public PluginMessagingBackendProxyTransport(VotingPluginMain plugin) {
 		this.plugin = plugin;
@@ -27,7 +28,14 @@ public class PluginMessagingBackendProxyTransport implements BackendProxyTranspo
 		}
 		plugin.getPluginMessaging().setEncryptionHandler(encryptionHandler);
 		plugin.getPluginMessaging().setDebug(plugin.getBungeeSettings().isBungeeDebug());
-		plugin.activateBackendPluginMessageHandler(messageHandler);
+	}
+
+	@Override
+	public void activateAfterPublication() {
+		if (messageHandler != null && !active) {
+			plugin.activateBackendPluginMessageHandler(messageHandler);
+			active = true;
+		}
 	}
 
 	@Override
@@ -37,9 +45,10 @@ public class PluginMessagingBackendProxyTransport implements BackendProxyTranspo
 
 	@Override
 	public void close() {
-		if (messageHandler != null) {
+		if (messageHandler != null && active) {
 			plugin.deactivateBackendPluginMessageHandler(messageHandler);
-			messageHandler = null;
 		}
+		active = false;
+		messageHandler = null;
 	}
 }
