@@ -137,6 +137,35 @@ class HttpTransportRuntimeTest {
 	}
 
 	@Test
+	void finalFlushDeliversMessagesQueuedBehindAnActiveLongPoll() throws Exception {
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("flush-proxy"), "localhost");
+		HttpEnrollmentAuthority authority = new HttpEnrollmentAuthority(identity, directory.resolve("flush-authority"));
+		CountDownLatch received = new CountDownLatch(1);
+		AtomicReference<JsonEnvelope> envelope = new AtomicReference<>();
+		try (HttpProxyTransportServer server = new HttpProxyTransportServer(new InetSocketAddress("localhost", 0),
+				identity, authority, message -> {
+					envelope.set(message.envelope());
+					received.countDown();
+				})) {
+			server.start();
+			Path clientDirectory = directory.resolve("flush-client");
+			HttpConnectionCode code = authority.createConnectionCode("lobby-1", server.endpoint("localhost"),
+					Duration.ofMinutes(5));
+			HttpBackendTransportConnector.enroll(code, "lobby-1", clientDirectory);
+			HttpBackendTransportConnector connector = new HttpBackendTransportConnector(clientDirectory, ignored -> { });
+			connector.start();
+			assertTrue(connector.awaitFirstResponse(System.nanoTime() + TimeUnit.SECONDS.toNanos(8)));
+			assertTrue(connector.send(JsonEnvelope.builder("backend-stopped").build()));
+			try {
+				assertTrue(connector.flushOutgoing(System.nanoTime() + TimeUnit.SECONDS.toNanos(5)));
+				assertTrue(received.await(1, TimeUnit.SECONDS));
+				assertEquals("backend-stopped", envelope.get().getSubChannel());
+				assertEquals(0, connector.queuedOutgoing());
+			} finally { connector.close(); }
+		}
+	}
+
+	@Test
 	void normalTransportRejectsAClientWithoutCertificate() throws Exception {
 		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("proxy"), "localhost");
 		HttpEnrollmentAuthority authority = new HttpEnrollmentAuthority(identity, directory.resolve("authority"));

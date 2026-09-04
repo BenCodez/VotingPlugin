@@ -162,17 +162,20 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 	}
 	/** A synchronous single poll, useful for lifecycle-controlled integrations and tests. */
 	public synchronized boolean pollOnce() {
-		if (!running.get()) return false;
+		return pollOnce(CLIENT_TIMEOUT, true, true);
+	}
+	private boolean pollOnce(Duration timeout, boolean requireRunning, boolean acceptIncoming) {
+		if (requireRunning && !running.get()) return false;
 		List<String> acks = List.of(); boolean acknowledgementsConfirmed = false;
 		try {
-			maybeRenewCredential();
+			if (requireRunning) maybeRenewCredential();
 			List<HttpTransportProtocol.Delivery> messages; long requestSequence;
 			synchronized (state) {
 				acks = first(acknowledgements); requestSequence = sequence++;
 				messages = HttpTransportProtocol.fittingMessages(serverId, session, requestSequence, acks, outgoing.values());
 				for (int index = 0; index < acks.size(); index++) acknowledgements.removeFirst();
 			}
-			HttpRequest request = HttpRequest.newBuilder(transportEndpoint).timeout(CLIENT_TIMEOUT).header("Content-Type", "application/json")
+			HttpRequest request = HttpRequest.newBuilder(transportEndpoint).timeout(timeout).header("Content-Type", "application/json")
 				.header("Cache-Control", "no-store").POST(HttpRequest.BodyPublishers.ofByteArray(HttpTransportProtocol.request(serverId, session, requestSequence, acks, messages))).build();
 			LimitedResponse response = sendLimited(client, request);
 			if (response.statusCode() != 200) return false;
@@ -181,11 +184,28 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 			confirmAcknowledgements(acks);
 			acknowledgementsConfirmed = true;
 			synchronized (state) { for (String ack : packet.acks()) outgoing.remove(ack); }
-			for (HttpTransportProtocol.Delivery delivery : accept(packet.messages())) dispatch(delivery);
+			if (acceptIncoming) for (HttpTransportProtocol.Delivery delivery : accept(packet.messages())) dispatch(delivery);
 			firstResponse.countDown();
 			return true;
 		} catch (Exception failure) { return false;
 		} finally { if (!acknowledgementsConfirmed) requeueAcknowledgements(acks); }
+	}
+	/** Stops normal polling and gives already-queued outbound messages a bounded final delivery attempt. */
+	public boolean flushOutgoing(long deadlineNanos) {
+		running.set(false);
+		firstResponse.countDown();
+		Thread current = poller;
+		if (current != null) current.interrupt();
+		if (!joinPoller(current, deadlineNanos)) return false;
+		while (queuedOutgoing() != 0) {
+			long remaining = deadlineNanos - System.nanoTime();
+			if (remaining <= 0L) return false;
+			Duration timeout = Duration.ofNanos(Math.min(CLIENT_TIMEOUT.toNanos(), remaining));
+			synchronized (this) {
+				if (!pollOnce(timeout, false, false)) return false;
+			}
+		}
+		return true;
 	}
 	@Override public void close() {
 		running.getAndSet(false);
@@ -203,6 +223,21 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 		joinPoller(current);
 	}
 	boolean pollerAlive() { Thread current = poller; return current != null && current.isAlive(); }
+	private static boolean joinPoller(Thread poller, long deadlineNanos) {
+		if (poller == null || poller == Thread.currentThread()) return true;
+		boolean interrupted = false;
+		while (poller.isAlive()) {
+			long remaining = deadlineNanos - System.nanoTime();
+			if (remaining <= 0L) {
+				if (interrupted) Thread.currentThread().interrupt();
+				return false;
+			}
+			try { TimeUnit.NANOSECONDS.timedJoin(poller, remaining); }
+			catch (InterruptedException stopRequested) { interrupted = true; poller.interrupt(); }
+		}
+		if (interrupted) Thread.currentThread().interrupt();
+		return true;
+	}
 	private static void joinPoller(Thread poller) {
 		if (poller == null || poller == Thread.currentThread()) return;
 		boolean interrupted = false;

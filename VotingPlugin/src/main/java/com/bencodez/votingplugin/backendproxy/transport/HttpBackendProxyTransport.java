@@ -20,6 +20,7 @@ import com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity;
 public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	private static final int MAX_STARTUP_QUEUE = 1024;
 	private static final long DEFAULT_STARTUP_VALIDATION_SECONDS = 25L;
+	private static final long SHUTDOWN_FLUSH_SECONDS = 5L;
 	private static final ConcurrentHashMap<Path, Semaphore> DIRECTORY_OWNERS = new ConcurrentHashMap<>();
 	private final VotingPluginMain plugin;
 	private final Object lifecycle = new Object();
@@ -271,7 +272,10 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 		try {
 			if (setup != null) try { setup.join(TimeUnit.SECONDS.toMillis(5)); }
 			catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
-			if (active != null) active.close();
+			if (active != null) {
+				active.flushOutgoing(System.nanoTime() + TimeUnit.SECONDS.toNanos(SHUTDOWN_FLUSH_SECONDS));
+				active.close();
+			}
 		} finally { if (owner != null) owner.release(); }
 	}
 }
