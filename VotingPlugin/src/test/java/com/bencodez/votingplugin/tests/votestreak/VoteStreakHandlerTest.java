@@ -275,6 +275,36 @@ class VoteStreakHandlerTest {
 	}
 
 	@Test
+	void getVoteStreakAmount_supportsStandaloneStreaks() {
+		MemoryConfiguration root = rootWithOneStreak("DailyStreak", "DAILY", true, 5, 1, 1, 7);
+		loadFromRoot(root);
+
+		VoteStreakDefinition definition = handler.getDefinition("DailyStreak");
+		Map<String, String> backing = new HashMap<>();
+		VotingPluginUser user = mapBackedUser(UUID.randomUUID(), "Ben", backing);
+		backing.put(handler.getColumnName(definition), "2026-01-10|12|1|true||1");
+
+		assertEquals(12, handler.getVoteStreakAmount(user, "dailystreak"));
+		assertEquals(-1, handler.getVoteStreakAmount(user, "missing"));
+	}
+
+	@Test
+	void getVoteStreakAmount_supportsProgressGroupAndMilestoneIds() {
+		MemoryConfiguration root = new MemoryConfiguration();
+		ConfigurationSection voteStreaks = root.createSection("VoteStreaks");
+		ConfigurationSection group = addProgressGroup(voteStreaks, "continuousstreak", "DAILY", 1, 1, 7);
+		addProgressGroupMilestone(group, "Daily3", 3, true, false);
+		loadFromRoot(root);
+
+		Map<String, String> backing = new HashMap<>();
+		VotingPluginUser user = mapBackedUser(UUID.randomUUID(), "Ben", backing);
+		backing.put("VoteStreakGroup_DAILY_continuousstreak", "2026-01-10|12|1|true||1");
+
+		assertEquals(12, handler.getVoteStreakAmount(user, "continuousstreak"));
+		assertEquals(12, handler.getVoteStreakAmount(user, "Daily3"));
+	}
+
+	@Test
 	void configLoader_skipsProgressGroupThatDuplicatesFlatStreakId() {
 		MemoryConfiguration root = new MemoryConfiguration();
 		ConfigurationSection voteStreaks = root.createSection("VoteStreaks");
