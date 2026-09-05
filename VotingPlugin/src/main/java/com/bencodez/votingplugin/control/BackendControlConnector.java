@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
@@ -22,6 +23,8 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.regex.Pattern;
 
@@ -67,6 +70,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	private final AtomicBoolean running = new AtomicBoolean();
 	private final AtomicBoolean inspecting = new AtomicBoolean();
 	private final Object operationLifecycle = new Object();
+	private final AtomicReference<PendingBackendProxyRollback> pendingBackendProxyRollback = new AtomicReference<>();
 	private final Object journalLifecycle = new Object();
 	private volatile boolean closed;
 	private volatile boolean registered;
@@ -111,23 +115,145 @@ public final class BackendControlConnector implements AutoCloseable {
 	}
 
 	private void reloadConfiguration(String fileName) throws Exception {
-		Future<?> reload;
+		finishPendingBackendProxyRollback();
+		long validationDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(29);
+		AtomicBoolean preparationAbandoned = new AtomicBoolean();
+		AtomicInteger preparationState = new AtomicInteger();
+		CountDownLatch preparationSettled = new CountDownLatch(1);
+		CountDownLatch rollbackAbortSettled = new CountDownLatch(1);
+		AtomicReference<VotingPluginMain.BackendProxyRestart> preparedRestart = new AtomicReference<>();
+		Future<VotingPluginMain.BackendProxyRestart> preparation;
 		synchronized (operationLifecycle) {
 			if (closed) throw new IllegalStateException("Bukkit Control connector is stopping");
-			reload = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
-				plugin.reloadFromControl();
-				if ("BungeeSettings.yml".equals(fileName)) plugin.restartBackendProxyHandler();
+			preparation = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+				try {
+					if (!preparationState.compareAndSet(0, 1)) return null;
+					plugin.reloadFromControl();
+					VotingPluginMain.BackendProxyRestart prepared;
+					try {
+						prepared = "BungeeSettings.yml".equals(fileName)
+								? plugin.prepareBackendProxyHandlerRestart() : null;
+					} catch (VotingPluginMain.BackendProxyRestartPreparationException failure) {
+						preparedRestart.set(failure.restart());
+						throw failure;
+					}
+					preparedRestart.set(prepared);
+					return prepared;
+				} finally {
+					try {
+						VotingPluginMain.BackendProxyRestart prepared = preparedRestart.get();
+						if (preparationAbandoned.get()) {
+							try {
+								if (prepared != null) plugin.abortBackendProxyHandlerRestart(prepared);
+							} finally { rollbackAbortSettled.countDown(); }
+						}
+					} finally {
+						preparationState.set(2);
+						preparationSettled.countDown();
+					}
+				}
+			});
+			activeReload = preparation;
+		}
+		VotingPluginMain.BackendProxyRestart restart = null;
+		Future<?> publication = null;
+		try {
+			restart = preparation.get(remaining(validationDeadline), TimeUnit.NANOSECONDS);
+			if (restart == null) return;
+			// Network enrollment/readiness is deliberately awaited on this Control worker,
+			// never on Bukkit's primary thread.
+			plugin.validateBackendProxyHandlerRestart(restart, validationDeadline);
+			VotingPluginMain.BackendProxyRestart prepared = restart;
+			publication = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+				plugin.completeBackendProxyHandlerRestart(prepared);
 				return null;
 			});
-			activeReload = reload;
-		}
-		try {
-			reload.get(30, TimeUnit.SECONDS);
+			synchronized (operationLifecycle) {
+				if (closed) publication.cancel(true);
+				activeReload = publication;
+			}
+			publication.get(remaining(validationDeadline), TimeUnit.NANOSECONDS);
+		} catch (Exception failure) {
+			// Timed-out Bukkit work must not remain queued ahead of configuration rollback.
+			preparationAbandoned.set(true);
+			boolean abandonedBeforePreparation = preparationState.compareAndSet(0, 3);
+			preparation.cancel(false);
+			boolean publicationCommitted = publication != null && restart != null
+					&& !plugin.requestBackendProxyHandlerRestartAbandonment(restart);
+			if (publication != null) publication.cancel(false);
+			// A publication that won the synchronized commit race is the successful
+			// runtime state; rolling its YAML back would create a split-brain config.
+			if (publicationCommitted) return;
+			PendingBackendProxyRollback pendingRollback = null;
+			if (restart == null && !abandonedBeforePreparation) {
+				pendingRollback = new PendingBackendProxyRollback(preparationSettled, rollbackAbortSettled, preparedRestart);
+				pendingBackendProxyRollback.set(pendingRollback);
+				try {
+					if (!preparationSettled.await(40, TimeUnit.SECONDS))
+						throw new java.util.concurrent.TimeoutException(
+								"Bukkit configuration preparation did not settle during rollback");
+				} catch (Exception preparationFailure) {
+					failure.addSuppressed(preparationFailure);
+					throw failure;
+				}
+			}
+			if (restart == null) restart = preparedRestart.get();
+			if (restart != null) {
+				if (pendingRollback == null) {
+					pendingRollback = new PendingBackendProxyRollback(
+							preparationSettled, rollbackAbortSettled, preparedRestart);
+					pendingBackendProxyRollback.set(pendingRollback);
+				}
+				VotingPluginMain.BackendProxyRestart prepared = restart;
+				try {
+					Future<?> abort = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+						try { plugin.abortBackendProxyHandlerRestart(prepared); }
+						finally { rollbackAbortSettled.countDown(); }
+						return null;
+					});
+					abort.get(5, TimeUnit.SECONDS);
+					finishPendingBackendProxyRollback();
+				} catch (Exception cleanupFailure) { failure.addSuppressed(cleanupFailure); }
+			}
+			if (pendingRollback != null && restart == null) {
+				rollbackAbortSettled.countDown();
+				pendingBackendProxyRollback.compareAndSet(pendingRollback, null);
+			}
+			throw failure;
 		} finally {
 			synchronized (operationLifecycle) {
-				if (activeReload == reload) activeReload = null;
+				activeReload = null;
 			}
 		}
+	}
+
+	private void finishPendingBackendProxyRollback() throws Exception {
+		PendingBackendProxyRollback pending = pendingBackendProxyRollback.get();
+		if (pending == null) return;
+		if (!pending.preparationSettled().await(40, TimeUnit.SECONDS))
+			throw new java.util.concurrent.TimeoutException(
+					"Previous Bukkit configuration preparation is still rolling back");
+		VotingPluginMain.BackendProxyRestart restart = pending.preparedRestart().get();
+		if (restart != null) {
+			if (!pending.rollbackAbortSettled().await(40, TimeUnit.SECONDS))
+				throw new java.util.concurrent.TimeoutException(
+						"Previous Bukkit configuration abort is still pending");
+			// Keep credential-journal I/O off Bukkit's primary thread and finish it
+			// before the configuration service starts its automatic backup reload.
+			plugin.awaitBackendProxyHandlerRollback(restart,
+					System.nanoTime() + TimeUnit.SECONDS.toNanos(40));
+		}
+		pendingBackendProxyRollback.compareAndSet(pending, null);
+	}
+
+	private record PendingBackendProxyRollback(CountDownLatch preparationSettled,
+			CountDownLatch rollbackAbortSettled,
+			AtomicReference<VotingPluginMain.BackendProxyRestart> preparedRestart) { }
+
+	private static long remaining(long deadlineNanos) throws java.util.concurrent.TimeoutException {
+		long remaining = deadlineNanos - System.nanoTime();
+		if (remaining <= 0L) throw new java.util.concurrent.TimeoutException("Bukkit configuration reload timed out");
+		return remaining;
 	}
 
 	public static BackendControlConnector create(VotingPluginMain plugin) throws IOException {

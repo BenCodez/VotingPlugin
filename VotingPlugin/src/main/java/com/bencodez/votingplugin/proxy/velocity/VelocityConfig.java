@@ -361,6 +361,21 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	}
 
 	@Override
+	public String getHttpHost() {
+		return getString(getNode("HTTP", "Host"), "0.0.0.0");
+	}
+
+	@Override
+	public String getHttpPublicEndpoint() {
+		return getString(getNode("HTTP", "PublicEndpoint"), "");
+	}
+
+	@Override
+	public int getHttpPort() {
+		return getInt(getNode("HTTP", "Port"), 1297);
+	}
+
+	@Override
 	public boolean getDebug() {
 		return getBoolean(getNode("Debug"), false);
 	}

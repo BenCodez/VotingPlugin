@@ -679,6 +679,62 @@ class BackendConfigurationServiceTest {
 		BackendConfigurationService.QuickPreview mqtt = service.previewQuickSetup("proxy-backend",
 				Map.of("server", "lobby", "method", "mqtt"));
 		assertTrue(mqtt.proposal().content().contains("BungeeMethod: MQTT"));
+		BackendConfigurationService.QuickPreview http = service.previewQuickSetup("proxy-backend",
+				Map.of("server", "lobby", "method", "http"));
+		assertTrue(http.proposal().content().contains("BungeeMethod: HTTP"));
+	}
+
+	@Test void httpConnectionCodeIsRedactedFromManagedConfiguration() throws Exception {
+		Files.writeString(directory.resolve("BungeeSettings.yml"),
+				"HTTP:\n  ConnectionCode: VPH1-sensitive-enrollment-code\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.Document read = service.read("BungeeSettings.yml");
+		assertFalse(read.content().contains("VPH1-sensitive-enrollment-code"));
+		assertTrue(read.content().contains(BackendConfigurationService.REDACTED));
+	}
+
+	@Test void httpMethodAcceptsGenerationBasedEnrolledProfile() throws Exception {
+		Files.writeString(directory.resolve("BungeeSettings.yml"),
+				"UseBungeecord: true\nServer: lobby-1\nBungeeMethod: PLUGINMESSAGING\nPluginMessageChannel: vp:vp\n");
+		com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity identity =
+				com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity.loadOrCreate(directory.resolve("proxy"), "localhost");
+		com.bencodez.votingplugin.backendproxy.http.HttpConnectionCode code =
+				new com.bencodez.votingplugin.backendproxy.http.HttpConnectionCode("lobby-1",
+						java.net.URI.create("https://localhost:1297/"), identity.serverCertificatePin(),
+						identity.caCertificatePin(), java.time.Instant.now().plusSeconds(60), "A".repeat(43));
+		com.bencodez.votingplugin.backendproxy.http.HttpClientCredentialStore.saveEnrolled(directory.resolve("http"), code,
+				identity.issueClientCertificate("lobby-1"));
+
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		assertDoesNotThrow(() -> service.previewQuickSetup("proxy-method", Map.of("method", "HTTP")));
+	}
+
+	@Test void httpMethodPreflightRejectsInvalidExpiredAndWrongServerConnectionCodes() throws Exception {
+		Path settings = directory.resolve("BungeeSettings.yml");
+		Files.writeString(settings, "UseBungeecord: true\nServer: lobby-1\nBungeeMethod: PLUGINMESSAGING\n"
+				+ "PluginMessageChannel: vp:vp\nHTTP:\n  ConnectionCode: malformed\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		assertThrows(IllegalArgumentException.class,
+				() -> service.previewQuickSetup("proxy-method", Map.of("method", "HTTP")));
+
+		com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity identity =
+				com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity.loadOrCreate(directory.resolve("code-proxy"), "localhost");
+		com.bencodez.votingplugin.backendproxy.http.HttpConnectionCode expired =
+				new com.bencodez.votingplugin.backendproxy.http.HttpConnectionCode("lobby-1",
+						java.net.URI.create("https://localhost:1297/"), identity.serverCertificatePin(),
+						identity.caCertificatePin(), java.time.Instant.now().minusSeconds(1), "A".repeat(43));
+		Files.writeString(settings, Files.readString(settings).replace("malformed", expired.encode()));
+		assertThrows(IllegalArgumentException.class,
+				() -> service.previewQuickSetup("proxy-method", Map.of("method", "HTTP")));
+
+		com.bencodez.votingplugin.backendproxy.http.HttpConnectionCode wrongServer =
+				new com.bencodez.votingplugin.backendproxy.http.HttpConnectionCode("survival",
+						expired.endpoint(), expired.serverCertificatePin(), expired.caCertificatePin(),
+						java.time.Instant.now().plusSeconds(60), "B".repeat(43));
+		Files.writeString(settings, Files.readString(settings).replace(expired.encode(), wrongServer.encode()));
+		assertThrows(IllegalArgumentException.class,
+				() -> service.previewQuickSetup("proxy-method", Map.of("method", "HTTP")));
 	}
 
 	@Test void proxyMethodSwitchPreflightsRequiredBackendSettings() throws Exception {

@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.never;
@@ -16,6 +17,7 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
+import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.simpleapi.servercomm.mysql.MySqlMessenger;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
@@ -77,6 +79,54 @@ public class VotingPluginProxyTest {
 		// Add 2 more votes
 		votingPluginProxy.addCurrentVotePartyVotes(2);
 		assertEquals(5, votingPluginProxy.getVotePartyVotes());
+	}
+
+	@Test
+	void rejectedHttpVotePartyRewardRemainsPendingUntilAccepted() throws Exception {
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(false);
+
+		votingPluginProxy.sendVoteParty("Server1");
+		assertEquals(1, votingPluginProxy.getVoteCachePendingVotePartyRewardIds("Server1").size());
+		String deliveryId = votingPluginProxy.getAttemptedVotePartyDeliveryIds().get(0);
+
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(true);
+		votingPluginProxy.retryPendingVotePartyRewardsForTest();
+		assertEquals(deliveryId, votingPluginProxy.getAttemptedVotePartyDeliveryIds().get(1));
+		assertEquals(1, votingPluginProxy.getVoteCachePendingVotePartyRewardIds("Server1").size());
+		votingPluginProxy.acknowledgeVotePartyDeliveryForTest("server1", deliveryId);
+		assertEquals(0, votingPluginProxy.getVoteCachePendingVotePartyRewardIds("Server1").size());
+	}
+
+	@Test
+	void failedVotePartyAcknowledgementSaveRestoresPendingMarker() {
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(false);
+		votingPluginProxy.sendVoteParty("Server1");
+		String deliveryId = votingPluginProxy.getAttemptedVotePartyDeliveryIds().get(0);
+
+		votingPluginProxy.failNextVoteCacheSave();
+		assertThrows(IllegalStateException.class,
+				() -> votingPluginProxy.acknowledgeVotePartyDeliveryForTest("server1", deliveryId));
+		assertTrue(votingPluginProxy.getVoteCachePendingVotePartyRewardIds("Server1").contains(deliveryId));
+	}
+
+	@Test
+	void httpVotePartyStagesEveryTargetBeforeDelivery() {
+		Mockito.when(votingPluginProxy.getConfig().getVotePartyEnabled()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getVotePartySendToAllServers()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getVotePartyBroadcast()).thenReturn("");
+		Mockito.when(votingPluginProxy.getConfig().getVotePartyBungeeCommands()).thenReturn(java.util.List.of());
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(false);
+		votingPluginProxy.setVotePartyVotes(1);
+		votingPluginProxy.setCurrentVotePartyVotesRequired(1);
+
+		votingPluginProxy.checkVoteParty();
+
+		assertEquals(1, votingPluginProxy.getVoteCachePendingVotePartyRewardIds("server1").size());
+		assertEquals(1, votingPluginProxy.getVoteCachePendingVotePartyRewardIds("SERVER2").size());
+		assertEquals(0, votingPluginProxy.getVotePartyVotes());
 	}
 
 	@Test
@@ -351,6 +401,76 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void httpModernPresenceRejectsAuthenticatedBackendThatDoesNotMatchProxyRoute() {
+		String uuid = java.util.UUID.randomUUID().toString();
+		Mockito.when(votingPluginProxy.getConfig().getOnlineMode()).thenReturn(true);
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(uuid).when(spyProxy).getUUID("Player");
+		var handler = Mockito.mock(com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler.class);
+		spyProxy.setGlobalMessageProxyHandlerForTest(handler);
+		JsonEnvelope envelope = VotingPluginWire.login("Player", uuid, "Server2", java.util.UUID.randomUUID(),
+				java.util.UUID.randomUUID(), 1000L, 1100L);
+
+		spyProxy.handleHttpTransportEnvelopeForTest(new com.bencodez.votingplugin.backendproxy.http.HttpProxyTransportServer.ReceivedEnvelope(
+				"Server2", java.util.UUID.randomUUID().toString(), envelope));
+
+		verify(handler, never()).onMessage(Mockito.any());
+		assertEquals(0, spyProxy.getBackendPlayerPresenceTracker().getOnlinePlayerCount());
+	}
+
+	@Test
+	void httpModernPresenceAcceptsAuthenticatedBackendMatchingProxyRouteAndUuid() {
+		String uuid = java.util.UUID.randomUUID().toString();
+		Mockito.when(votingPluginProxy.getConfig().getOnlineMode()).thenReturn(true);
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(uuid).when(spyProxy).getUUID("Player");
+		var handler = Mockito.mock(com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler.class);
+		spyProxy.setGlobalMessageProxyHandlerForTest(handler);
+		JsonEnvelope envelope = VotingPluginWire.login("Player", uuid, "Server1", java.util.UUID.randomUUID(),
+				java.util.UUID.randomUUID(), 1000L, 1100L);
+
+		spyProxy.handleHttpTransportEnvelopeForTest(new com.bencodez.votingplugin.backendproxy.http.HttpProxyTransportServer.ReceivedEnvelope(
+				"Server1", java.util.UUID.randomUUID().toString(), envelope));
+
+		verify(handler).onMessage(envelope);
+	}
+
+	@Test
+	void httpModernPresenceRejectsUuidThatDoesNotMatchProxyPlayer() {
+		String authoritativeUuid = java.util.UUID.randomUUID().toString();
+		String claimedUuid = java.util.UUID.randomUUID().toString();
+		Mockito.when(votingPluginProxy.getConfig().getOnlineMode()).thenReturn(true);
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(authoritativeUuid).when(spyProxy).getUUID("Player");
+		var handler = Mockito.mock(com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler.class);
+		spyProxy.setGlobalMessageProxyHandlerForTest(handler);
+		JsonEnvelope envelope = VotingPluginWire.login("Player", claimedUuid, "Server1", java.util.UUID.randomUUID(),
+				java.util.UUID.randomUUID(), 1000L, 1100L);
+
+		spyProxy.handleHttpTransportEnvelopeForTest(new com.bencodez.votingplugin.backendproxy.http.HttpProxyTransportServer.ReceivedEnvelope(
+				"Server1", java.util.UUID.randomUUID().toString(), envelope));
+
+		verify(handler, never()).onMessage(Mockito.any());
+		assertEquals(0, spyProxy.getBackendPlayerPresenceTracker().getOnlinePlayerCount());
+	}
+
+	@Test
+	void httpEnvelopeRejectsServerFieldThatDoesNotMatchAuthenticatedBackend() {
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		var handler = Mockito.mock(com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler.class);
+		votingPluginProxy.setGlobalMessageProxyHandlerForTest(handler);
+		JsonEnvelope envelope = JsonEnvelope.builder("vote").put(VotingPluginWire.K_SERVER, "Server2").build();
+
+		votingPluginProxy.handleHttpTransportEnvelopeForTest(new com.bencodez.votingplugin.backendproxy.http.HttpProxyTransportServer.ReceivedEnvelope(
+				"Server1", java.util.UUID.randomUUID().toString(), envelope));
+
+		verify(handler, never()).onMessage(Mockito.any());
+	}
+
+	@Test
 	void dedicatedVotingProxyRoutesUsingConfirmedBackendPresence() {
 		Mockito.when(votingPluginProxy.getConfig().getDedicatedVotingProxy()).thenReturn(true);
 		votingPluginProxy.setMethod(BungeeMethod.MQTT);
@@ -602,6 +722,49 @@ public class VotingPluginProxyTest {
 		assertTrue(vote.isBroadcastForwarded());
 		assertFalse(vote.isRewardDelivered());
 		verify(voteCache).updateServerVote("Server1", vote);
+	}
+
+	@Test
+	void rejectedHttpQueueDeliveryRetainsCachedServerVote() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "player-uuid",
+				"Service", 100L, true, "totals");
+		Mockito.when(voteCache.hasVotes("Server1")).thenReturn(true);
+		Mockito.when(voteCache.getVotes("Server1"))
+				.thenReturn(new java.util.ArrayList<>(java.util.List.of(vote)));
+		Mockito.when(votingPluginProxy.getConfig().getBlockedServers())
+				.thenReturn(java.util.Collections.emptyList());
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(false);
+
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		spyProxy.checkCachedVotes("Server1");
+
+		verify(voteCache).removeServerVotes(Mockito.eq("Server1"),
+				Mockito.argThat(java.util.List::isEmpty));
+	}
+
+	@Test
+	void rejectedHttpQueueDeliveryRetainsCachedOnlineVote() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "player-uuid",
+				"Service", 100L, true, "totals");
+		Mockito.when(voteCache.hasOnlineVotes("player-uuid")).thenReturn(true);
+		Mockito.when(voteCache.getOnlineVotes("player-uuid"))
+				.thenReturn(new java.util.ArrayList<>(java.util.List.of(vote)));
+		Mockito.when(votingPluginProxy.getConfig().getBlockedServers())
+				.thenReturn(java.util.Collections.emptyList());
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(false);
+
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		spyProxy.checkOnlineVotes("Player", "player-uuid", "Server1");
+
+		assertFalse(vote.isRewardDelivered());
+		verify(voteCache).addOnlineVote("player-uuid", vote);
+		verify(multiProxyHandler, never()).sendClearVote(Mockito.anyString(), Mockito.anyString());
 	}
 
 	@Test

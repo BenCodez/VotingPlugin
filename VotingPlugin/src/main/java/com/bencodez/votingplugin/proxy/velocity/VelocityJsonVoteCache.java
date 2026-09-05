@@ -1,7 +1,11 @@
 package com.bencodez.votingplugin.proxy.velocity;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collection;
+import java.util.Locale;
 
 import com.bencodez.simpleapi.file.velocity.VelocityJSONFile;
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
@@ -135,6 +139,19 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 	}
 
 	@Override
+	public Collection<String> getPendingVotePartyRewardServers() {
+		Collection<String> encoded = getKeys(getNode("VoteParty", "PendingRewards"));
+		Collection<String> servers = new ArrayList<>();
+		if (encoded != null) for (String key : encoded) servers.add(decodeServerKey(key));
+		return servers;
+	}
+
+	@Override
+	public Collection<String> getPendingVotePartyRewardIds(String server) {
+		return getKeys(getNode("VoteParty", "PendingRewards", encodeServerKey(server)));
+	}
+
+	@Override
 	public int getVotePartyCurrentVotes() {
 		return getInt(getNode("VoteParty", "CurrentVotes"), 0);
 	}
@@ -147,6 +164,26 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 	@Override
 	public void setVotePartyCache(String server, int amount) {
 		setPath(amount, "VoteParty", "Cache", server);
+	}
+
+	@Override
+	public void setPendingVotePartyReward(String server, String deliveryId, boolean pending) {
+		String serverKey = encodeServerKey(server);
+		if (pending) setPath(true, "VoteParty", "PendingRewards", serverKey, deliveryId);
+		else {
+			remove("VoteParty", "PendingRewards", serverKey, deliveryId);
+			Collection<String> remaining = getKeys(getNode("VoteParty", "PendingRewards", serverKey));
+			if (remaining == null || remaining.isEmpty()) remove("VoteParty", "PendingRewards", serverKey);
+		}
+	}
+
+	private static String encodeServerKey(String server) {
+		return Base64.getUrlEncoder().withoutPadding()
+				.encodeToString(server.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8));
+	}
+
+	private static String decodeServerKey(String server) {
+		return new String(Base64.getUrlDecoder().decode(server), StandardCharsets.UTF_8);
 	}
 
 	@Override

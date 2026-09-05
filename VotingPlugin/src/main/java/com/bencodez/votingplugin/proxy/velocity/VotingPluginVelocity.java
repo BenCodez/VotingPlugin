@@ -13,6 +13,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.security.CodeSource;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map.Entry;
@@ -715,6 +716,16 @@ public class VotingPluginVelocity {
 			}
 
 			@Override
+			public Collection<String> getVoteCachePendingVotePartyServers() {
+				return voteCacheFile.getPendingVotePartyRewardServers();
+			}
+
+			@Override
+			public Collection<String> getVoteCachePendingVotePartyRewardIds(String server) {
+				return voteCacheFile.getPendingVotePartyRewardIds(server);
+			}
+
+			@Override
 			public boolean isVoteCacheIgnoreTime() {
 				return voteCacheFile.getNode("Time", "IgnoreTime").getBoolean();
 			}
@@ -757,6 +768,11 @@ public class VotingPluginVelocity {
 			@Override
 			public void setVoteCacheVotePartyIncreaseVotesRequired(int votes) {
 				voteCacheFile.setVotePartyInreaseVotesRequired(votes);
+			}
+
+			@Override
+			public void setVoteCachePendingVotePartyReward(String server, String deliveryId, boolean pending) {
+				voteCacheFile.setPendingVotePartyReward(server, deliveryId, pending);
 			}
 
 			@Override
@@ -803,6 +819,12 @@ public class VotingPluginVelocity {
 			@Override
 			public void saveVoteCacheFile() {
 				voteCacheFile.save();
+			}
+
+			@Override
+			public void saveVotePartyStateDurably() throws java.io.IOException {
+				com.bencodez.votingplugin.proxy.cache.VotePartyCacheDurability.saveAndVerify(
+						dataDirectory.resolve("votecache.json"), voteCacheFile);
 			}
 
 			@Override

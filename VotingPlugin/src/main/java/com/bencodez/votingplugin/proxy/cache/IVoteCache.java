@@ -117,6 +117,11 @@ public interface IVoteCache {
 	 */
 	int getVotePartyCache(String server);
 
+	/** Returns backend IDs with persisted, undelivered vote-party rewards. */
+	Collection<String> getPendingVotePartyRewardServers();
+
+	Collection<String> getPendingVotePartyRewardIds(String server);
+
 	/**
 	 * Gets the current vote party votes.
 	 *
@@ -138,6 +143,8 @@ public interface IVoteCache {
 	 * @param amount the vote amount
 	 */
 	void setVotePartyCache(String server, int amount);
+
+	void setPendingVotePartyReward(String server, String deliveryId, boolean pending);
 
 	/**
 	 * Sets the current vote party votes.

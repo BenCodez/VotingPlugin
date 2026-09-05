@@ -165,6 +165,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private final ProcessedVoteCache backendProcessedVoteCache = new ProcessedVoteCache();
 	private final AtomicReference<GlobalMessageHandler> backendPluginMessageTarget = new AtomicReference<>();
 	private PluginMessageHandler backendPluginMessageRelay;
+	private com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessage backendPluginMessageRelayOwner;
 	private volatile BackendControlAutoEnrollment backendControlAutoEnrollment;
 	private volatile BackendControlConnector backendControlConnector;
 	private final ScheduledExecutorService backendControlConnectorLifecycle = Executors.newSingleThreadScheduledExecutor(runnable -> {
@@ -1214,29 +1215,106 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	/** Recreates proxy transports after Control applies BungeeSettings.yml. */
-	public synchronized void restartBackendProxyHandler() {
-		BackendProxyHandler previous = backendProxyHandler;
-		if (!bungeeSettings.isUseBungeecoord()) {
-			backendProxyHandler = null;
-			if (previous != null) previous.close();
-			BackendControlAutoEnrollment enrollment = backendControlAutoEnrollment;
-			backendControlAutoEnrollment = null;
-			if (enrollment != null) enrollment.close();
-			return;
-		}
-		BungeeMethod replacementMethod = BungeeMethod.getByName(bungeeSettings.getBungeeMethod());
-		if (previous != null) previous.prepareForReplacement(replacementMethod);
-		BackendProxyHandler replacement = new BackendProxyHandler(this, backendProcessedVoteCache);
+	public void restartBackendProxyHandler() {
+		restartBackendProxyHandler(System.nanoTime() + TimeUnit.SECONDS.toNanos(25));
+	}
+
+	/** Recreates proxy transports while preserving the caller's end-to-end validation deadline. */
+	public void restartBackendProxyHandler(long validationDeadlineNanos) {
+		BackendProxyRestart restart = prepareBackendProxyHandlerRestart();
 		try {
-			replacement.load();
-			replacement.validateTransport();
-			if (previous != null) previous.completeRedisHandoff(replacement);
+			validateBackendProxyHandlerRestart(restart, validationDeadlineNanos);
+			completeBackendProxyHandlerRestart(restart);
 		} catch (RuntimeException failure) {
-			replacement.close();
+			abortBackendProxyHandlerRestart(restart);
 			throw failure;
 		}
-		backendProxyHandler = replacement;
-		if (previous != null) previous.close();
+	}
+
+	/** Prepared on the Bukkit thread, validated off-thread, then atomically published on Bukkit. */
+	public static final class BackendProxyRestart {
+		private final BackendProxyHandler previous;
+		private final BackendProxyHandler replacement;
+		private final boolean disabled;
+		private final boolean previousPrepared;
+		private boolean finished;
+		private boolean abandonmentRequested;
+		private volatile boolean published;
+
+		private BackendProxyRestart(BackendProxyHandler previous, BackendProxyHandler replacement, boolean disabled,
+				boolean previousPrepared) {
+			this.previous = previous;
+			this.replacement = replacement;
+			this.disabled = disabled;
+			this.previousPrepared = previousPrepared;
+		}
+	}
+
+	public static final class BackendProxyRestartPreparationException extends RuntimeException {
+		private static final long serialVersionUID = 1L;
+		private final BackendProxyRestart restart;
+
+		private BackendProxyRestartPreparationException(BackendProxyRestart restart, RuntimeException cause) {
+			super(cause);
+			this.restart = restart;
+		}
+
+		public BackendProxyRestart restart() { return restart; }
+	}
+
+	public synchronized BackendProxyRestart prepareBackendProxyHandlerRestart() {
+		BackendProxyHandler previous = backendProxyHandler;
+		if (!bungeeSettings.isUseBungeecoord()) {
+			return new BackendProxyRestart(previous, null, true, false);
+		}
+		BungeeMethod replacementMethod = BungeeMethod.getByName(bungeeSettings.getBungeeMethod());
+		boolean previousPrepared = previous != null && previous.prepareForReplacement(replacementMethod);
+		BackendProxyHandler replacement = new BackendProxyHandler(this, backendProcessedVoteCache);
+		try {
+			replacement.loadForReplacement();
+		} catch (RuntimeException failure) {
+			replacement.close();
+			if (previousPrepared) {
+				previous.restoreAfterFailedReplacement();
+				BackendProxyRestart failed = new BackendProxyRestart(previous, null, false, true);
+				failed.finished = true;
+				throw new BackendProxyRestartPreparationException(failed, failure);
+			}
+			throw failure;
+		}
+		return new BackendProxyRestart(previous, replacement, false, previousPrepared);
+	}
+
+	public void validateBackendProxyHandlerRestart(BackendProxyRestart restart, long validationDeadlineNanos) {
+		if (restart == null) throw new IllegalArgumentException("Backend proxy restart is required");
+		if (restart.replacement != null) restart.replacement.validateTransport(validationDeadlineNanos);
+	}
+
+	public void completeBackendProxyHandlerRestart(BackendProxyRestart restart) {
+		synchronized (this) {
+			if (restart == null || restart.finished) throw new IllegalStateException("Backend proxy restart is no longer active");
+			if (restart.abandonmentRequested) {
+				abortBackendProxyHandlerRestart(restart);
+				return;
+			}
+			if (backendProxyHandler != restart.previous) throw new IllegalStateException("Backend proxy handler changed during restart");
+			if (restart.disabled) {
+				backendProxyHandler = null;
+				if (restart.previous != null) restart.previous.close();
+				BackendControlAutoEnrollment enrollment = backendControlAutoEnrollment;
+				backendControlAutoEnrollment = null;
+				if (enrollment != null) enrollment.close();
+				restart.finished = true;
+				restart.published = true;
+				return;
+			}
+			if (restart.previous != null) restart.previous.completeRedisHandoff(restart.replacement);
+			restart.replacement.activatePresenceReporting();
+			backendProxyHandler = restart.replacement;
+			if (restart.previous != null) restart.previous.close();
+			restart.finished = true;
+			restart.published = true;
+		}
 		try {
 			refreshBackendControlAutoEnrollment();
 		} catch (IOException e) {
@@ -1244,9 +1322,32 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 	}
 
+	/** Returns false once publication committed and can no longer be rolled back as a failed apply. */
+	public synchronized boolean requestBackendProxyHandlerRestartAbandonment(BackendProxyRestart restart) {
+		if (restart == null) return true;
+		if (restart.published) return false;
+		restart.abandonmentRequested = true;
+		return true;
+	}
+
+	public synchronized void abortBackendProxyHandlerRestart(BackendProxyRestart restart) {
+		if (restart == null || restart.finished) return;
+		if (restart.replacement != null) restart.replacement.close();
+		if (backendProxyHandler == restart.previous && restart.previous != null
+				&& (restart.previousPrepared || restart.previous.getMethod() == BungeeMethod.PLUGINMESSAGING)) {
+			restart.previous.restoreAfterFailedReplacement();
+		}
+		restart.finished = true;
+	}
+
+	public void awaitBackendProxyHandlerRollback(BackendProxyRestart restart, long deadlineNanos) {
+		if (restart != null && restart.previousPrepared) {
+			restart.previous.awaitRestoreAfterFailedReplacement(deadlineNanos);
+		}
+	}
+
 	/** Keeps one plugin-message listener for the plugin lifetime and atomically swaps its active backend handler. */
 	public synchronized void activateBackendPluginMessageHandler(GlobalMessageHandler target) {
-		backendPluginMessageTarget.set(target);
 		if (backendPluginMessageRelay == null) {
 			backendPluginMessageRelay = new PluginMessageHandler() {
 				@Override
@@ -1255,8 +1356,13 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					if (current != null) current.onMessage(envelope);
 				}
 			};
-			getPluginMessaging().add(backendPluginMessageRelay);
 		}
+		com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessage current = getPluginMessaging();
+		if (backendPluginMessageRelayOwner != current) {
+			current.add(backendPluginMessageRelay);
+			backendPluginMessageRelayOwner = current;
+		}
+		backendPluginMessageTarget.set(target);
 	}
 
 	public void deactivateBackendPluginMessageHandler(GlobalMessageHandler target) {

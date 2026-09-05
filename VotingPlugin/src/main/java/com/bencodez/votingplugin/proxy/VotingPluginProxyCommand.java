@@ -47,6 +47,24 @@ public class VotingPluginProxyCommand {
 		case "status":
 			return handleStatusCommand();
 
+		case "httpcode":
+			if (args.length != 2) return "&cUsage: httpcode <server>";
+			try {
+				return "&aTemporary HTTP backend connection code (expires in 15 minutes and works once):\n&f"
+						+ plugin.createHttpConnectionCode(args[1]);
+			} catch (IllegalArgumentException | IllegalStateException failure) {
+				return "&cThe secure HTTP transport is not running.";
+			}
+
+		case "httprevoke":
+			if (args.length != 2) return "&cUsage: httprevoke <server>";
+			try {
+				plugin.revokeHttpBackend(args[1]);
+				return "&aRevoked HTTP backend identity for " + args[1] + ". Generate a new connection code to re-enroll it.";
+			} catch (IllegalArgumentException | IllegalStateException failure) {
+				return "&cCould not revoke that HTTP backend identity.";
+			}
+
 		case "multiproxystatus":
 			plugin.getMultiProxyHandler().sendStatus();
 			return "&aSent status message across multi-proxy";
@@ -92,6 +110,8 @@ public class VotingPluginProxyCommand {
 		helpBuilder.append("/votingplugin vote <player> <site> - Send a vote\n");
 		helpBuilder.append("/votingplugin forcetimechange <TimeType> - Force a time change\n");
 		helpBuilder.append("/votingplugin status - Check connection status\n");
+		helpBuilder.append("/votingplugin httpcode <server> - Create a node-bound one-time HTTP connection code\n");
+		helpBuilder.append("/votingplugin httprevoke <server> - Revoke a backend identity before re-enrollment\n");
 		helpBuilder.append("/votingplugin multiproxystatus - Send status message across proxies\n");
 		helpBuilder.append("/votingplugin voteparty <force/setvotecount> - Trigger or modify vote party\n");
 		return helpBuilder.toString();

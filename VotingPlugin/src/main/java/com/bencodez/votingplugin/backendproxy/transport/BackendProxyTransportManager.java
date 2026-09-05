@@ -19,6 +19,7 @@ public class BackendProxyTransportManager {
 	private final VotingPluginMain plugin;
 	private final ProcessedVoteCache processedVoteCache;
 	private BackendProxyTransport transport;
+	private BackendProxyTransport preparedTransport;
 
 	public BackendProxyTransportManager(VotingPluginMain plugin) {
 		this(plugin, new ProcessedVoteCache());
@@ -41,6 +42,9 @@ public class BackendProxyTransportManager {
 		case SOCKETS:
 			transport = new SocketBackendProxyTransport(plugin);
 			break;
+		case HTTP:
+			transport = new HttpBackendProxyTransport(plugin);
+			break;
 		case REDIS:
 			transport = new RedisBackendProxyTransport(plugin, processedVoteCache);
 			break;
@@ -59,23 +63,59 @@ public class BackendProxyTransportManager {
 		}
 	}
 
+	public void activateAfterPublication() {
+		if (transport != null) transport.activateAfterPublication();
+	}
+
 	public void close() {
 		if (transport != null) {
 			transport.close();
 			transport = null;
 		}
+		if (preparedTransport != null) {
+			preparedTransport.close();
+			preparedTransport = null;
+		}
 	}
 
 	public void validate() {
+		validate(System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(25));
+	}
+
+	public void validate(long deadlineNanos) {
 		if (transport == null) throw new IllegalStateException("Backend proxy transport was not initialized");
-		transport.validate();
+		if (transport instanceof HttpBackendProxyTransport http) http.validate(deadlineNanos);
+		else transport.validate();
 	}
 
 	public void prepareForReplacement() {
 		if (transport != null) {
 			transport.prepareForReplacement();
+			preparedTransport = transport;
 			transport = null;
 		}
+	}
+
+	public void restorePreparedTransport() {
+		if (transport != null || preparedTransport == null) return;
+		if (preparedTransport instanceof HttpBackendProxyTransport http) {
+			transport = http.recreatePrepared();
+		} else {
+			throw new IllegalStateException("Prepared backend proxy transport cannot be restored");
+		}
+		preparedTransport = null;
+	}
+
+	public void restoreAfterFailedReplacement() {
+		if (transport instanceof PluginMessagingBackendProxyTransport pluginMessaging) {
+			pluginMessaging.restoreAfterFailedReplacement();
+		} else {
+			restorePreparedTransport();
+		}
+	}
+
+	public void awaitPreparedTransportRestoration(long deadlineNanos) {
+		if (transport instanceof HttpBackendProxyTransport http) http.awaitCredentialRestoration(deadlineNanos);
 	}
 
 	public void closeRedisForHandoff() {

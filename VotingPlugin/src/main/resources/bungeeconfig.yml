@@ -250,6 +250,7 @@ WhiteListedServers: []
 # https://github.com/BenCodez/VotingPlugin/wiki/Bungeecoord-Setups
 # Available:
 # PLUGINMESSAGING (Recommended)
+# HTTP (secure direct connection; one proxy port)
 # REDIS
 # MQTT
 # SOCKETS
@@ -260,6 +261,19 @@ BungeeMethod: PLUGINMESSAGING
 
 ######################################################################################
 # Settings for each setup below
+
+###########################################
+# HTTP Settings
+###########################################
+
+# HTTP uses one encrypted listener on the proxy. Backends connect outbound, so
+# they do not need an exposed port. PublicEndpoint must be the HTTPS URL that
+# backend servers can reach. VotingPlugin creates the TLS identity, enrollment
+# codes, and per-backend client certificates automatically.
+HTTP:
+  Host: '0.0.0.0'
+  Port: 1297
+  PublicEndpoint: ''
 
 ###########################################
 # PLUGINMESSAGING settings

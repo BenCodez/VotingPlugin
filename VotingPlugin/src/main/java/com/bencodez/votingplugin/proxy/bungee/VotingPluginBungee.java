@@ -7,6 +7,7 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.URL;
 import java.security.CodeSource;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map.Entry;
@@ -625,6 +626,16 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			@Override
+			public Collection<String> getVoteCachePendingVotePartyServers() {
+				return voteCacheFile.getPendingVotePartyRewardServers();
+			}
+
+			@Override
+			public Collection<String> getVoteCachePendingVotePartyRewardIds(String server) {
+				return voteCacheFile.getPendingVotePartyRewardIds(server);
+			}
+
+			@Override
 			public boolean isPlayerOnline(String playerName) {
 				ProxiedPlayer player = getProxy().getPlayer(playerName);
 				return player != null && player.isConnected();
@@ -669,6 +680,12 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			@Override
 			public void saveVoteCacheFile() {
 				voteCacheFile.save();
+			}
+
+			@Override
+			public void saveVotePartyStateDurably() throws java.io.IOException {
+				com.bencodez.votingplugin.proxy.cache.VotePartyCacheDurability.saveAndVerify(
+						new File(getDataFolder(), "votecache.json").toPath(), voteCacheFile);
 			}
 
 			@Override
@@ -717,6 +734,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			@Override
 			public void setVoteCacheVotePartyIncreaseVotesRequired(int votes) {
 				voteCacheFile.setVotePartyInreaseVotesRequired(votes);
+			}
+
+			@Override
+			public void setVoteCachePendingVotePartyReward(String server, String deliveryId, boolean pending) {
+				voteCacheFile.setPendingVotePartyReward(server, deliveryId, pending);
 			}
 
 			@Override

@@ -39,6 +39,7 @@ public class BackendProxyHandler implements Listener {
 	private final BackendGlobalDataSync globalDataSync;
 
 	private BackendPresenceManager presenceManager;
+	private boolean presenceReportingActivated;
 	private BackendVotePartySync votePartySync;
 	private BackendProxyMessageRouter messageRouter;
 
@@ -62,6 +63,15 @@ public class BackendProxyHandler implements Listener {
 	 * Loads the configured backend/proxy communication components.
 	 */
 	public void load() {
+		load(true);
+	}
+
+	/** Loads a replacement without announcing a new presence generation before publication. */
+	public void loadForReplacement() {
+		load(false);
+	}
+
+	private void load(boolean activatePresenceReporting) {
 		plugin.debug("Loading backend proxy handler");
 		method = BungeeMethod.getByName(plugin.getBungeeSettings().getBungeeMethod());
 		plugin.getLogger().info("Using BungeeMethod: " + method.toString());
@@ -84,15 +94,25 @@ public class BackendProxyHandler implements Listener {
 		if (plugin.getOptions().getServer().equalsIgnoreCase("pleaseset")) {
 			plugin.getLogger().warning("Server name for bungee voting is not set, please set it");
 		}
-		presenceManager.start();
+		if (activatePresenceReporting) activatePresenceReporting();
+	}
+
+	/** Starts presence only after a staged handler reaches the atomic publication boundary. */
+	public void activatePresenceReporting() {
+		transportManager.activateAfterPublication();
+		if (presenceManager != null && !presenceReportingActivated) {
+			presenceManager.start();
+			presenceReportingActivated = true;
+		}
 	}
 
 	/**
 	 * Closes backend/proxy components and persists cached proxy state.
 	 */
 	public void close() {
-		if (presenceManager != null) {
+		if (presenceManager != null && presenceReportingActivated) {
 			presenceManager.stop();
+			presenceReportingActivated = false;
 		}
 		transportManager.close();
 		if (votePartySync != null) {
@@ -102,18 +122,34 @@ public class BackendProxyHandler implements Listener {
 	}
 
 	/** Releases a same-method subscriber/listener before its replacement starts. */
-	public void prepareForReplacement(BungeeMethod replacementMethod) {
+	public boolean prepareForReplacement(BungeeMethod replacementMethod) {
 		if (method == replacementMethod && method != BungeeMethod.PLUGINMESSAGING && method != BungeeMethod.REDIS) {
 			transportManager.prepareForReplacement();
+			return method == BungeeMethod.HTTP;
 		}
+		return false;
+	}
+
+	/** Restores a prepared HTTP transport when its replacement fails validation. */
+	public void restoreAfterFailedReplacement() {
+		transportManager.restoreAfterFailedReplacement();
+	}
+
+	public void awaitRestoreAfterFailedReplacement(long deadlineNanos) {
+		transportManager.awaitPreparedTransportRestoration(deadlineNanos);
 	}
 
 	/** Fails a configuration apply when its selected transport did not initialize. */
 	public void validateTransport() {
+		validateTransport(System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(25));
+	}
+
+	/** Validates transport startup without extending the caller's existing deadline. */
+	public void validateTransport(long deadlineNanos) {
 		if (method == null || globalMessageHandler == null || presenceManager == null) {
 			throw new IllegalStateException("Backend proxy handler initialization failed");
 		}
-		transportManager.validate();
+		transportManager.validate(deadlineNanos);
 	}
 
 	/** Completes the no-loss/no-duplicate same-Redis subscriber handoff after validation. */
@@ -136,14 +172,15 @@ public class BackendProxyHandler implements Listener {
 	}
 
 	public void reloadPresenceReporting() {
-		if (presenceManager != null) {
+		if (presenceManager != null && presenceReportingActivated) {
 			presenceManager.reload();
 		}
 	}
 
 	public void disablePresenceReporting() {
-		if (presenceManager != null) {
+		if (presenceManager != null && presenceReportingActivated) {
 			presenceManager.stop();
+			presenceReportingActivated = false;
 		}
 	}
 
