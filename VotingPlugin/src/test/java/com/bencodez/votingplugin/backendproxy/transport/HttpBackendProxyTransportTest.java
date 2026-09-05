@@ -4,12 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.backendproxy.http.HttpBackendTransportConnector;
 import com.bencodez.votingplugin.backendproxy.http.HttpClientCredentialStore;
 import com.bencodez.votingplugin.backendproxy.http.HttpConnectionCode;
 import com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity;
@@ -88,6 +90,24 @@ class HttpBackendProxyTransportTest {
 		long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt);
 		try { assertTrue(elapsedMillis < 500, "close blocked the calling thread for " + elapsedMillis + " ms"); }
 		finally { release.countDown(); blocked.join(TimeUnit.SECONDS.toMillis(1)); }
+	}
+
+	@Test
+	void prepareForReplacementUsesConnectorSnapshotWithoutCredentialIo() throws Exception {
+		HttpBackendProxyTransport transport = new HttpBackendProxyTransport(mock(VotingPluginMain.class));
+		HttpBackendTransportConnector connector = mock(HttpBackendTransportConnector.class);
+		HttpClientCredentialStore.ActiveCredentialGeneration generation =
+				new HttpClientCredentialStore.ActiveCredentialGeneration(java.util.UUID.randomUUID().toString());
+		when(connector.activeCredentialGeneration()).thenReturn(generation);
+		java.lang.reflect.Field connectorField = HttpBackendProxyTransport.class.getDeclaredField("connector");
+		connectorField.setAccessible(true);
+		connectorField.set(transport, connector);
+
+		assertDoesNotThrow(transport::prepareForReplacement);
+		java.lang.reflect.Field generationField =
+				HttpBackendProxyTransport.class.getDeclaredField("configuredCredentialGeneration");
+		generationField.setAccessible(true);
+		assertSame(generation, generationField.get(transport));
 	}
 
 	@Test

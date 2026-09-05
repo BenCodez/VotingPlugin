@@ -130,6 +130,145 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void httpVotePartyRetriesJournaledProxyEffectsAfterExecutionFailure() {
+		configureHttpVotePartyEffects("Party time", java.util.List.of("first", "second"));
+		votingPluginProxy.failNextBroadcast();
+
+		votingPluginProxy.checkVoteParty();
+
+		assertEquals(0, votingPluginProxy.getVotePartyVotes());
+		assertEquals("Party time", votingPluginProxy.getVoteCachePendingVotePartyProxyEffects().broadcast());
+		assertEquals(java.util.List.of("first", "second"),
+				votingPluginProxy.getVoteCachePendingVotePartyProxyEffects().commands());
+		assertTrue(votingPluginProxy.getBroadcasts().isEmpty());
+		assertTrue(votingPluginProxy.getConsoleCommands().isEmpty());
+
+		assertTrue(votingPluginProxy.retryPendingVotePartyProxyEffectsForTest());
+		assertEquals(java.util.List.of("Party time"), votingPluginProxy.getBroadcasts());
+		assertEquals(java.util.List.of("first", "second"), votingPluginProxy.getConsoleCommands());
+		assertTrue(votingPluginProxy.getVoteCachePendingVotePartyProxyEffects().isEmpty());
+	}
+
+	@Test
+	void httpVotePartyRestoresExecutedEffectWhenProgressIsNotDurable() {
+		configureHttpVotePartyEffects("Party time", java.util.List.of("reward all"));
+		votingPluginProxy.failSaveAfterNextBroadcast();
+
+		votingPluginProxy.checkVoteParty();
+
+		assertEquals(java.util.List.of("Party time"), votingPluginProxy.getBroadcasts());
+		assertEquals("Party time", votingPluginProxy.getVoteCachePendingVotePartyProxyEffects().broadcast());
+		assertEquals(java.util.List.of("reward all"),
+				votingPluginProxy.getVoteCachePendingVotePartyProxyEffects().commands());
+
+		assertTrue(votingPluginProxy.retryPendingVotePartyProxyEffectsForTest());
+		assertEquals(java.util.List.of("Party time", "Party time"), votingPluginProxy.getBroadcasts());
+		assertEquals(java.util.List.of("reward all"), votingPluginProxy.getConsoleCommands());
+		assertTrue(votingPluginProxy.getVoteCachePendingVotePartyProxyEffects().isEmpty());
+	}
+
+	@Test
+	void httpVotePartyPersistsOrderedCommandProgress() {
+		configureHttpVotePartyEffects("", java.util.List.of("first", "second", "third"));
+		votingPluginProxy.failConsoleCommand("second");
+
+		votingPluginProxy.checkVoteParty();
+
+		assertEquals(java.util.List.of("first"), votingPluginProxy.getConsoleCommands());
+		assertEquals(java.util.List.of("second", "third"),
+				votingPluginProxy.getVoteCachePendingVotePartyProxyEffects().commands());
+		assertTrue(votingPluginProxy.retryPendingVotePartyProxyEffectsForTest());
+		assertEquals(java.util.List.of("first", "second", "third"), votingPluginProxy.getConsoleCommands());
+	}
+
+	@Test
+	void httpVotePartyKeepsCommandPendingUntilAsyncExecutionCompletesAndResumesReachedThreshold() {
+		configureHttpVotePartyEffects("", java.util.List.of("async command"));
+		java.util.concurrent.CompletableFuture<Void> completion =
+				votingPluginProxy.delayNextVotePartyCommandCompletion();
+
+		votingPluginProxy.checkVoteParty();
+
+		assertEquals(java.util.List.of("async command"), votingPluginProxy.getConsoleCommands());
+		assertEquals(java.util.List.of("async command"),
+				votingPluginProxy.getVoteCachePendingVotePartyProxyEffects().commands());
+		assertFalse(votingPluginProxy.retryPendingVotePartyProxyEffectsForTest());
+		votingPluginProxy.setVotePartyVotes(1);
+
+		completion.complete(null);
+
+		assertTrue(votingPluginProxy.getVoteCachePendingVotePartyProxyEffects().isEmpty());
+		assertEquals(java.util.List.of("async command", "async command"),
+				votingPluginProxy.getConsoleCommands());
+		assertEquals(0, votingPluginProxy.getVotePartyVotes());
+	}
+
+	@Test
+	void httpVotePartyQuarantinesHungCommandWithoutRetryingIt() {
+		configureHttpVotePartyEffects("", java.util.List.of("hung command", "next command"));
+		java.util.concurrent.CompletableFuture<Void> completion =
+				votingPluginProxy.delayNextVotePartyCommandCompletion();
+
+		votingPluginProxy.checkVoteParty();
+		votingPluginProxy.runVotePartyProxyCommandTimeoutForTest();
+
+		assertEquals(java.util.List.of("hung command"),
+				votingPluginProxy.getVoteCacheQuarantinedVotePartyProxyEffects().commands());
+		assertTrue(votingPluginProxy.getVoteCachePendingVotePartyProxyEffects().isEmpty());
+		assertEquals(java.util.List.of("hung command", "next command"), votingPluginProxy.getConsoleCommands());
+
+		completion.complete(null);
+		assertEquals(java.util.List.of("hung command", "next command"), votingPluginProxy.getConsoleCommands());
+		assertEquals(java.util.List.of("hung command"),
+				votingPluginProxy.getVoteCacheQuarantinedVotePartyProxyEffects().commands());
+	}
+
+	@Test
+	void httpVotePartyRetainsHungCommandFenceWhenQuarantineIsNotDurable() {
+		configureHttpVotePartyEffects("", java.util.List.of("hung command", "next command"));
+		java.util.concurrent.CompletableFuture<Void> completion =
+				votingPluginProxy.delayNextVotePartyCommandCompletion();
+		votingPluginProxy.checkVoteParty();
+		votingPluginProxy.failNextVoteCacheSave();
+
+		votingPluginProxy.runVotePartyProxyCommandTimeoutForTest();
+
+		assertEquals(java.util.List.of("hung command", "next command"),
+				votingPluginProxy.getVoteCachePendingVotePartyProxyEffects().commands());
+		assertTrue(votingPluginProxy.getVoteCacheQuarantinedVotePartyProxyEffects().isEmpty());
+		assertFalse(votingPluginProxy.retryPendingVotePartyProxyEffectsForTest());
+		assertEquals(java.util.List.of("hung command"), votingPluginProxy.getConsoleCommands());
+
+		completion.complete(null);
+		assertEquals(java.util.List.of("hung command", "next command"), votingPluginProxy.getConsoleCommands());
+		assertTrue(votingPluginProxy.getVoteCachePendingVotePartyProxyEffects().isEmpty());
+	}
+
+	@Test
+	void committedHttpProxyEffectsRecoverAfterTransportModeChanges() {
+		votingPluginProxy.setMethod(BungeeMethod.SOCKETS);
+		votingPluginProxy.setVoteCachePendingVotePartyProxyEffects(
+				new com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects(
+						"Party time", java.util.List.of("reward all")));
+
+		assertTrue(votingPluginProxy.retryPendingVotePartyProxyEffectsForTest());
+
+		assertEquals(java.util.List.of("Party time"), votingPluginProxy.getBroadcasts());
+		assertEquals(java.util.List.of("reward all"), votingPluginProxy.getConsoleCommands());
+		assertTrue(votingPluginProxy.getVoteCachePendingVotePartyProxyEffects().isEmpty());
+	}
+
+	private void configureHttpVotePartyEffects(String broadcast, java.util.List<String> commands) {
+		Mockito.when(votingPluginProxy.getConfig().getVotePartyEnabled()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getVotePartySendToAllServers()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getVotePartyBroadcast()).thenReturn(broadcast);
+		Mockito.when(votingPluginProxy.getConfig().getVotePartyBungeeCommands()).thenReturn(commands);
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVotePartyVotes(1);
+		votingPluginProxy.setCurrentVotePartyVotesRequired(1);
+	}
+
+	@Test
 	void rolloverProjectionIncludesQueuedVotesAndVotePartyThresholds() {
 		Mockito.when(votingPluginProxy.getConfig().getVotePartyEnabled()).thenReturn(true);
 		Mockito.when(votingPluginProxy.getConfig().getVotePartyIncreaseVotesRequired()).thenReturn(5);

@@ -71,6 +71,7 @@ import com.bencodez.votingplugin.backendproxy.http.HttpProxyTransportServer;
 import com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity;
 import com.bencodez.votingplugin.proxy.broadcast.ProxyBroadcastDecider;
 import com.bencodez.votingplugin.proxy.cache.IVoteCache;
+import com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects;
 import com.bencodez.votingplugin.proxy.cache.VoteCacheHandler;
 import com.bencodez.votingplugin.proxy.cache.nonvoted.INonVotedPlayersStorage;
 import com.bencodez.votingplugin.proxy.cache.nonvoted.NonVotedPlayersCache;
@@ -146,6 +147,8 @@ public abstract class VotingPluginProxy {
 	private boolean timeVoteDeliveryRetryScheduled;
 	private boolean cachedVoteDeliveryRetryScheduled;
 	private boolean votePartyDeliveryRetryScheduled;
+	private long votePartyProxyCommandAttemptSequence;
+	private long votePartyProxyCommandInFlight;
 
 	private boolean enabled;
 
@@ -959,6 +962,21 @@ public abstract class VotingPluginProxy {
 			saveVoteCacheFile();
 			return;
 		}
+		if (!retryPendingVotePartyProxyEffects()) {
+			persistRetainedVotePartyThreshold();
+			return;
+		}
+		PendingVotePartyProxyEffects stagedProxyEffects = PendingVotePartyProxyEffects.empty();
+		if (method == BungeeMethod.HTTP) {
+			try {
+				stagedProxyEffects = new PendingVotePartyProxyEffects(getConfig().getVotePartyBroadcast(),
+						getConfig().getVotePartyBungeeCommands());
+			} catch (IllegalArgumentException oversized) {
+				logSevere("HTTP vote-party proxy effects exceed the durable backlog limit; retaining the vote-party threshold");
+				persistRetainedVotePartyThreshold();
+				return;
+			}
+		}
 		Collection<String> targets = getConfig().getVotePartySendToAllServers()
 				? getAllAvailableServers() : getConfig().getVotePartyServersToSend();
 		Map<String, String> onlineTargets = onlineVotePartyTargets(targets);
@@ -982,6 +1000,9 @@ public abstract class VotingPluginProxy {
 		int previousVotes = votePartyVotes;
 		int previousRequired = currentVotePartyVotesRequired;
 		int previousIncrease = getVoteCacheVotePartyIncreaseVotesRequired();
+		PendingVotePartyProxyEffects previousProxyEffects = method == BungeeMethod.HTTP
+				? getVoteCachePendingVotePartyProxyEffects() : PendingVotePartyProxyEffects.empty();
+		if (method == BungeeMethod.HTTP) setVoteCachePendingVotePartyProxyEffects(stagedProxyEffects);
 		debug("Vote party reached");
 		addCurrentVotePartyVotes(-currentVotePartyVotesRequired);
 		currentVotePartyVotesRequired += getConfig().getVotePartyIncreaseVotesRequired();
@@ -997,14 +1018,26 @@ public abstract class VotingPluginProxy {
 			setVoteCacheVotePartyIncreaseVotesRequired(previousIncrease);
 			for (Map.Entry<String, String> staged : stagedRewards.entrySet())
 				setVoteCachePendingVotePartyReward(staged.getKey(), staged.getValue(), false);
+			if (method == BungeeMethod.HTTP) setVoteCachePendingVotePartyProxyEffects(previousProxyEffects);
 			throw failure instanceof RuntimeException runtime ? runtime
 					: new IllegalStateException("Unable to persist HTTP vote-party rewards", failure);
 		}
 
-		if (!getConfig().getVotePartyBroadcast().isEmpty()) broadcast(getConfig().getVotePartyBroadcast());
-		for (String command : getConfig().getVotePartyBungeeCommands()) runConsoleCommand(command);
-		if (method == BungeeMethod.HTTP) retryPendingVotePartyRewards();
-		else for (String server : targets) sendVoteParty(server);
+		if (method == BungeeMethod.HTTP) {
+			if (retryPendingVotePartyProxyEffects()) retryPendingVotePartyRewards();
+		} else {
+			if (!getConfig().getVotePartyBroadcast().isEmpty()) broadcast(getConfig().getVotePartyBroadcast());
+			for (String command : getConfig().getVotePartyBungeeCommands()) runConsoleCommand(command);
+			for (String server : targets) sendVoteParty(server);
+		}
+	}
+
+	private void persistRetainedVotePartyThreshold() {
+		try {
+			saveVotePartyStateDurably();
+		} catch (IOException failure) {
+			throw new IllegalStateException("Unable to retain the HTTP vote-party threshold", failure);
+		}
 	}
 
 	private Map<String, String> onlineVotePartyTargets(Collection<String> targets) {
@@ -1234,6 +1267,10 @@ public abstract class VotingPluginProxy {
 	public abstract Collection<String> getVoteCachePendingVotePartyServers();
 
 	public abstract Collection<String> getVoteCachePendingVotePartyRewardIds(String server);
+
+	public abstract PendingVotePartyProxyEffects getVoteCachePendingVotePartyProxyEffects();
+
+	public abstract PendingVotePartyProxyEffects getVoteCacheQuarantinedVotePartyProxyEffects();
 
 	public abstract void saveVotePartyStateDurably() throws IOException;
 
@@ -1643,8 +1680,8 @@ public abstract class VotingPluginProxy {
 		// presence, vote-log, multi-proxy, and Control-adjacent runtime helpers.
 		if (method.equals(BungeeMethod.HTTP)) {
 			startHttpTransport();
-			scheduleVotePartyDeliveryRetry();
 		}
+		scheduleVotePartyDeliveryRetry();
 
 		debug("VotingPluginProxy loaded, ONLINEMODE: " + getConfig().getOnlineMode());
 	}
@@ -2495,6 +2532,7 @@ public abstract class VotingPluginProxy {
 
 	/** Best-effort remainder of runtime teardown after the Control overlap gate has succeeded. */
 	public void completeRuntimeReplacementShutdown() {
+		enabled = false;
 		cancelCommunicationTests("Proxy runtime stopped before the backend replied");
 		runCleanup("vote cache", () -> getVoteCacheHandler().saveVoteCache());
 		runCleanup("proxy MySQL messenger", () -> {
@@ -2529,7 +2567,6 @@ public abstract class VotingPluginProxy {
 		runCleanup("global data", () -> {
 			if (getGlobalDataHandler() != null) getGlobalDataHandler().shutdown();
 		});
-		enabled = false;
 	}
 
 	private void runCleanup(String service, CleanupAction cleanup) {
@@ -2860,6 +2897,17 @@ public abstract class VotingPluginProxy {
 
 	public abstract void runConsoleCommand(String command);
 
+	/** Completion boundary used before durable HTTP vote-party command progress is advanced. */
+	protected CompletableFuture<Void> runVotePartyConsoleCommand(String command) {
+		runConsoleCommand(command);
+		return CompletableFuture.completedFuture(null);
+	}
+
+	/** Schedules the liveness fence for a platform command whose completion is uncertain. */
+	protected void scheduleVotePartyProxyCommandTimeout(Runnable timeout) {
+		CompletableFuture.delayedExecutor(60, TimeUnit.SECONDS).execute(timeout);
+	}
+
 	public abstract void saveVoteCacheFile();
 
 	public abstract void reloadCore(boolean mysql);
@@ -3076,6 +3124,148 @@ public abstract class VotingPluginProxy {
 		if (retryRequired) scheduleVotePartyDeliveryRetry();
 	}
 
+	protected synchronized boolean retryPendingVotePartyProxyEffects() {
+		if (!enabled) return true;
+		if (votePartyProxyCommandInFlight != 0L) return false;
+		PendingVotePartyProxyEffects pending;
+		try {
+			pending = getVoteCachePendingVotePartyProxyEffects();
+		} catch (RuntimeException invalid) {
+			logSevere("Pending HTTP vote-party proxy effects are invalid; retaining them without execution");
+			return false;
+		}
+		while (!pending.isEmpty()) {
+			PendingVotePartyProxyEffects remaining;
+			try {
+				if (!pending.broadcast().isEmpty()) {
+					broadcast(pending.broadcast());
+					remaining = new PendingVotePartyProxyEffects("", pending.commands());
+				} else {
+					CompletableFuture<Void> execution = runVotePartyConsoleCommand(pending.commands().get(0));
+					remaining = new PendingVotePartyProxyEffects("", pending.commands().subList(1, pending.commands().size()));
+					if (!execution.isDone()) {
+						long attempt = ++votePartyProxyCommandAttemptSequence;
+						if (attempt == 0L) attempt = ++votePartyProxyCommandAttemptSequence;
+						long commandAttempt = attempt;
+						votePartyProxyCommandInFlight = commandAttempt;
+						PendingVotePartyProxyEffects expected = pending;
+						PendingVotePartyProxyEffects completed = remaining;
+						execution.whenComplete((ignored, failure) ->
+								completeVotePartyProxyCommand(commandAttempt, expected, completed, failure));
+						long scheduledAttempt = commandAttempt;
+						try {
+							scheduleVotePartyProxyCommandTimeout(() ->
+									quarantineTimedOutVotePartyProxyCommand(scheduledAttempt, expected, completed, execution));
+						} catch (RuntimeException unavailable) {
+							logSevere("Unable to schedule the HTTP vote-party command liveness fence; the command remains pending");
+						}
+						return false;
+					}
+					execution.join();
+				}
+			} catch (RuntimeException failure) {
+				logSevere("A committed HTTP vote-party proxy effect failed and remains pending for retry");
+				scheduleVotePartyDeliveryRetry();
+				return false;
+			}
+
+			if (!persistVotePartyProxyEffectProgress(pending, remaining)) return false;
+			pending = remaining;
+		}
+		return true;
+	}
+
+	private void completeVotePartyProxyCommand(long attempt, PendingVotePartyProxyEffects expected,
+			PendingVotePartyProxyEffects remaining, Throwable failure) {
+		synchronized (this) {
+			if (votePartyProxyCommandInFlight != attempt) return;
+			votePartyProxyCommandInFlight = 0L;
+			if (!enabled) return;
+			if (failure != null) {
+				logSevere("A committed HTTP vote-party proxy command failed and remains pending for retry");
+				scheduleVotePartyDeliveryRetry();
+				return;
+			}
+			PendingVotePartyProxyEffects current;
+			try {
+				current = getVoteCachePendingVotePartyProxyEffects();
+			} catch (RuntimeException invalid) {
+				logSevere("Pending HTTP vote-party proxy effects became invalid while a command was running");
+				return;
+			}
+			if (!current.equals(expected)) {
+				logSevere("Pending HTTP vote-party proxy effects changed while a command was running; progress was not advanced");
+				return;
+			}
+			if (persistVotePartyProxyEffectProgress(expected, remaining)
+					&& retryPendingVotePartyProxyEffects()) {
+				if (method == BungeeMethod.HTTP) retryPendingVotePartyRewards();
+				if (votePartyVotes >= currentVotePartyVotesRequired) checkVoteParty();
+			}
+		}
+	}
+
+	private void quarantineTimedOutVotePartyProxyCommand(long attempt, PendingVotePartyProxyEffects expected,
+			PendingVotePartyProxyEffects remaining, CompletableFuture<Void> execution) {
+		synchronized (this) {
+			if (!enabled || execution.isDone() || votePartyProxyCommandInFlight != attempt) return;
+			PendingVotePartyProxyEffects current;
+			PendingVotePartyProxyEffects previousQuarantine;
+			try {
+				current = getVoteCachePendingVotePartyProxyEffects();
+				previousQuarantine = getVoteCacheQuarantinedVotePartyProxyEffects();
+			} catch (RuntimeException invalid) {
+				logSevere("Pending HTTP vote-party proxy effects became invalid while a command was running");
+				return;
+			}
+			if (!current.equals(expected)) {
+				logSevere("Pending HTTP vote-party proxy effects changed while a command was running; the attempt remains fenced");
+				return;
+			}
+			PendingVotePartyProxyEffects quarantine;
+			try {
+				java.util.List<String> commands = new java.util.ArrayList<>(previousQuarantine.commands());
+				commands.add(expected.commands().get(0));
+				quarantine = new PendingVotePartyProxyEffects(previousQuarantine.broadcast(), commands);
+			} catch (RuntimeException full) {
+				logSevere("HTTP vote-party command quarantine is full; the uncertain command remains fenced");
+				return;
+			}
+			setVoteCacheQuarantinedVotePartyProxyEffects(quarantine);
+			setVoteCachePendingVotePartyProxyEffects(remaining);
+			try {
+				saveVotePartyStateDurably();
+			} catch (IOException | RuntimeException failure) {
+				setVoteCacheQuarantinedVotePartyProxyEffects(previousQuarantine);
+				setVoteCachePendingVotePartyProxyEffects(expected);
+				logSevere("Unable to durably quarantine an uncertain HTTP vote-party command; the attempt remains fenced");
+				return;
+			}
+			votePartyProxyCommandInFlight = 0L;
+			logSevere("An HTTP vote-party proxy command did not complete within 60 seconds and was durably quarantined without retry");
+			if (retryPendingVotePartyProxyEffects()) {
+				if (method == BungeeMethod.HTTP) retryPendingVotePartyRewards();
+				if (votePartyVotes >= currentVotePartyVotesRequired) checkVoteParty();
+			}
+		}
+	}
+
+	private boolean persistVotePartyProxyEffectProgress(PendingVotePartyProxyEffects previous,
+			PendingVotePartyProxyEffects remaining) {
+		setVoteCachePendingVotePartyProxyEffects(remaining);
+		try {
+			saveVotePartyStateDurably();
+			return true;
+		} catch (IOException | RuntimeException failure) {
+			// Execution succeeded, but its progress was not durably confirmed. Restoring
+			// the marker gives at-least-once recovery rather than silently skipping it.
+			setVoteCachePendingVotePartyProxyEffects(previous);
+			logSevere("Unable to persist HTTP vote-party proxy-effect progress; the effect remains pending");
+			scheduleVotePartyDeliveryRetry();
+			return false;
+		}
+	}
+
 	private String resolveVotePartyRoutingServer(String canonicalServer) {
 		for (String configuredServer : getAllAvailableServers()) {
 			if (configuredServer.equalsIgnoreCase(canonicalServer)) return configuredServer;
@@ -3103,14 +3293,21 @@ public abstract class VotingPluginProxy {
 	}
 
 	private void scheduleVotePartyDeliveryRetry() {
-		if (!enabled || votePartyDeliveryRetryScheduled || method != BungeeMethod.HTTP || getScheduler() == null) return;
-		Collection<String> pendingServers = getVoteCachePendingVotePartyServers();
-		if (pendingServers == null || pendingServers.isEmpty()) return;
+		if (!enabled || votePartyDeliveryRetryScheduled || getScheduler() == null) return;
+		boolean pendingProxyEffects;
+		try {
+			pendingProxyEffects = !getVoteCachePendingVotePartyProxyEffects().isEmpty();
+		} catch (RuntimeException invalid) {
+			logSevere("Pending HTTP vote-party proxy effects are invalid; automatic execution is disabled");
+			return;
+		}
+		Collection<String> pendingServers = method == BungeeMethod.HTTP ? getVoteCachePendingVotePartyServers() : null;
+		if (!pendingProxyEffects && (pendingServers == null || pendingServers.isEmpty())) return;
 		votePartyDeliveryRetryScheduled = true;
 		try {
 			getScheduler().schedule(() -> {
 				synchronized (VotingPluginProxy.this) { votePartyDeliveryRetryScheduled = false; }
-				retryPendingVotePartyRewards();
+				if (retryPendingVotePartyProxyEffects() && method == BungeeMethod.HTTP) retryPendingVotePartyRewards();
 			}, 5, TimeUnit.SECONDS);
 		} catch (RuntimeException failure) {
 			votePartyDeliveryRetryScheduled = false;
@@ -3139,6 +3336,10 @@ public abstract class VotingPluginProxy {
 	public abstract void setVoteCacheVotePartyIncreaseVotesRequired(int votes);
 
 	public abstract void setVoteCachePendingVotePartyReward(String server, String deliveryId, boolean pending);
+
+	public abstract void setVoteCachePendingVotePartyProxyEffects(PendingVotePartyProxyEffects effects);
+
+	public abstract void setVoteCacheQuarantinedVotePartyProxyEffects(PendingVotePartyProxyEffects effects);
 
 	public void status() {
 		for (String s : getAllAvailableServers()) {

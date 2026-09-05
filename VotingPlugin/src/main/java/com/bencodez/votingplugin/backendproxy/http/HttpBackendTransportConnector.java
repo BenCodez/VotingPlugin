@@ -49,6 +49,7 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 	private final Consumer<JsonEnvelope> onEnvelope;
 	private volatile HttpClient client;
 	private volatile HttpClientCredentialStore.ClientCredential credential;
+	private volatile HttpClientCredentialStore.ActiveCredentialGeneration activeCredentialGeneration;
 	private final Path credentialDirectory;
 	private final HttpInboundDeliveryStore inboundDeliveries;
 	private final URI transportEndpoint;
@@ -84,15 +85,24 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 
 	private HttpBackendTransportConnector(HttpClientCredentialStore.EnrolledClient enrolled, Consumer<JsonEnvelope> onEnvelope,
 			Path credentialDirectory) throws Exception {
-		this(enrolled == null ? null : enrolled.profile(), enrolled == null ? null : enrolled.credential(), onEnvelope, credentialDirectory);
+		this(enrolled == null ? null : enrolled.profile(), enrolled == null ? null : enrolled.credential(), onEnvelope,
+				credentialDirectory, credentialDirectory == null ? null
+						: HttpClientCredentialStore.snapshotActiveGeneration(credentialDirectory));
 	}
 
 	private HttpBackendTransportConnector(HttpClientCredentialStore.HttpClientProfile profile,
 			HttpClientCredentialStore.ClientCredential credential, Consumer<JsonEnvelope> onEnvelope, Path credentialDirectory) throws Exception {
+		this(profile, credential, onEnvelope, credentialDirectory, null);
+	}
+
+	private HttpBackendTransportConnector(HttpClientCredentialStore.HttpClientProfile profile,
+			HttpClientCredentialStore.ClientCredential credential, Consumer<JsonEnvelope> onEnvelope, Path credentialDirectory,
+			HttpClientCredentialStore.ActiveCredentialGeneration activeCredentialGeneration) throws Exception {
 		if (profile == null || credential == null || onEnvelope == null) throw new IllegalArgumentException("HTTP backend transport configuration is invalid");
 		if (!matchesCredential(profile, credential)) throw new IllegalArgumentException("HTTP client certificate does not match transport profile");
 		this.profile = profile; this.serverId = profile.serverId(); this.onEnvelope = onEnvelope;
 		this.credential = credential;
+		this.activeCredentialGeneration = activeCredentialGeneration;
 		this.credentialDirectory = credentialDirectory;
 		inboundDeliveries = credentialDirectory == null ? null : new HttpInboundDeliveryStore(credentialDirectory);
 		if (inboundDeliveries != null) for (var entry : inboundDeliveries.snapshot().entrySet()) {
@@ -142,6 +152,11 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 		if (!running.compareAndSet(false, true)) return;
 		poller = new Thread(this::pollLoop, "VotingPlugin-HTTP-poll"); poller.setDaemon(true); poller.start();
 	}
+	/** Returns the credential generation already validated off the platform main thread. */
+	public HttpClientCredentialStore.ActiveCredentialGeneration activeCredentialGeneration() {
+		return activeCredentialGeneration;
+	}
+
 	/** Waits for one authenticated, protocol-valid transport response. */
 	public boolean awaitFirstResponse(long deadlineNanos) throws InterruptedException {
 		long remaining = deadlineNanos - System.nanoTime();
@@ -374,6 +389,8 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 				if (!matchesCredential(replacementProfile, replacement)) throw new IllegalArgumentException("Renewed HTTP certificate is invalid");
 				HttpClient replacementClient = client(replacementProfile, replacement);
 				HttpClientCredentialStore.activateReplacement(directory, staged);
+				activeCredentialGeneration = new HttpClientCredentialStore.ActiveCredentialGeneration(staged.name(),
+						replacementProfile, staged.connectionCodeDigest());
 				profile = replacementProfile;
 				client = replacementClient;
 				credential = replacement;

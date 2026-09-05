@@ -387,6 +387,8 @@ class HttpTransportRuntimeTest {
 			HttpClientCredentialStore.saveEnrolled(clientDirectory, profileCode, expiring);
 			server.start();
 			try (HttpBackendTransportConnector connector = new HttpBackendTransportConnector(clientDirectory, ignored -> { })) {
+				HttpClientCredentialStore.ActiveCredentialGeneration originalGeneration =
+						connector.activeCredentialGeneration();
 				connector.start();
 				long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(8);
 				String renewedPin = originalPin;
@@ -400,6 +402,10 @@ class HttpTransportRuntimeTest {
 				while (authority.authenticate("lobby-1", expiring.certificate()) && System.nanoTime() < promotionDeadline) Thread.sleep(25);
 				assertTrue(authority.authenticate("lobby-1", renewed.certificate()));
 				assertFalse(authority.authenticate("lobby-1", expiring.certificate()));
+				HttpClientCredentialStore.ActiveCredentialGeneration renewedGeneration =
+						connector.activeCredentialGeneration();
+				assertFalse(renewedGeneration.name().equals(originalGeneration.name()));
+				assertEquals(originalGeneration.connectionCodeDigest(), renewedGeneration.connectionCodeDigest());
 			}
 		}
 	}

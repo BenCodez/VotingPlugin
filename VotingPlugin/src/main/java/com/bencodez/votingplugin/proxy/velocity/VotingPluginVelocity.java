@@ -726,6 +726,16 @@ public class VotingPluginVelocity {
 			}
 
 			@Override
+			public com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects getVoteCachePendingVotePartyProxyEffects() {
+				return voteCacheFile.getPendingVotePartyProxyEffects();
+			}
+
+			@Override
+			public com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects getVoteCacheQuarantinedVotePartyProxyEffects() {
+				return voteCacheFile.getQuarantinedVotePartyProxyEffects();
+			}
+
+			@Override
 			public boolean isVoteCacheIgnoreTime() {
 				return voteCacheFile.getNode("Time", "IgnoreTime").getBoolean();
 			}
@@ -776,6 +786,18 @@ public class VotingPluginVelocity {
 			}
 
 			@Override
+			public void setVoteCachePendingVotePartyProxyEffects(
+					com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects effects) {
+				voteCacheFile.setPendingVotePartyProxyEffects(effects);
+			}
+
+			@Override
+			public void setVoteCacheQuarantinedVotePartyProxyEffects(
+					com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects effects) {
+				voteCacheFile.setQuarantinedVotePartyProxyEffects(effects);
+			}
+
+			@Override
 			public boolean isPlayerOnline(String playerName) {
 				if (playerName == null) {
 					return false;
@@ -814,6 +836,15 @@ public class VotingPluginVelocity {
 			@Override
 			public void runConsoleCommand(String command) {
 				server.getCommandManager().executeAsync(server.getConsoleCommandSource(), command);
+			}
+
+			@Override
+			protected java.util.concurrent.CompletableFuture<Void> runVotePartyConsoleCommand(String command) {
+				return server.getCommandManager().executeAsync(server.getConsoleCommandSource(), command)
+						.thenApply(executed -> {
+							if (!executed) throw new IllegalStateException("Velocity declined the vote-party proxy command");
+							return null;
+						});
 			}
 
 			@Override

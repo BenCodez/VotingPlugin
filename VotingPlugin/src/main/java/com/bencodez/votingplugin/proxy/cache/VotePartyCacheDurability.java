@@ -23,6 +23,8 @@ public final class VotePartyCacheDurability {
 		Map<String, Set<String>> expectedPending = pending(cache);
 		int expectedVotes = cache.getVotePartyCurrentVotes();
 		int expectedIncrease = cache.getVotePartyInreaseVotesRequired();
+		PendingVotePartyProxyEffects expectedProxyEffects = cache.getPendingVotePartyProxyEffects();
+		PendingVotePartyProxyEffects expectedQuarantinedEffects = cache.getQuarantinedVotePartyProxyEffects();
 		cache.save();
 		DurableFiles.forceFile(file);
 		DurableFiles.forceDirectory(file.toAbsolutePath().normalize().getParent());
@@ -31,13 +33,26 @@ public final class VotePartyCacheDurability {
 			JsonObject voteParty = object(root.get("VoteParty"));
 			if (integer(voteParty, "CurrentVotes") != expectedVotes
 					|| integer(voteParty, "IncreaseVotes") != expectedIncrease
-					|| !pending(voteParty).equals(expectedPending))
+					|| !pending(voteParty).equals(expectedPending)
+					|| !proxyEffects(voteParty, "PendingProxyEffects").equals(expectedProxyEffects)
+					|| !proxyEffects(voteParty, "QuarantinedProxyEffects").equals(expectedQuarantinedEffects))
 				throw new IOException("Vote-party cache state was not persisted");
 		} catch (IOException failure) {
 			throw failure;
 		} catch (RuntimeException invalid) {
 			throw new IOException("Vote-party cache state is unreadable", invalid);
 		}
+	}
+
+	private static PendingVotePartyProxyEffects proxyEffects(JsonObject voteParty, String name) {
+		JsonObject effects = object(voteParty.get(name));
+		String broadcast = string(effects, "Broadcast");
+		java.util.List<String> commands = new java.util.ArrayList<>();
+		JsonElement encodedCommands = effects.get("Commands");
+		if (encodedCommands != null && !encodedCommands.isJsonNull()) {
+			for (JsonElement command : encodedCommands.getAsJsonArray()) commands.add(command.getAsString());
+		}
+		return new PendingVotePartyProxyEffects(broadcast, commands);
 	}
 
 	private static Map<String, Set<String>> pending(IVoteCache cache) {
@@ -72,5 +87,10 @@ public final class VotePartyCacheDurability {
 	private static int integer(JsonObject object, String name) {
 		JsonElement value = object.get(name);
 		return value == null || value.isJsonNull() ? 0 : value.getAsInt();
+	}
+
+	private static String string(JsonObject object, String name) {
+		JsonElement value = object.get(name);
+		return value == null || value.isJsonNull() ? "" : value.getAsString();
 	}
 }

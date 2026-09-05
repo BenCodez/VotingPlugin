@@ -85,11 +85,12 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 
 	@Override
 	public void prepareForReplacement() {
-		try {
-			configuredCredentialGeneration = HttpClientCredentialStore.snapshotActiveGeneration(configuredDirectory);
-		} catch (Exception failure) {
-			throw new IllegalStateException("Could not preserve the active HTTP client credential", failure);
-		}
+		HttpBackendTransportConnector active = connector;
+		HttpClientCredentialStore.ActiveCredentialGeneration generation = active == null
+				? null : active.activeCredentialGeneration();
+		if (generation == null)
+			throw new IllegalStateException("Could not preserve the active HTTP client credential before it became ready");
+		configuredCredentialGeneration = generation;
 		close();
 	}
 

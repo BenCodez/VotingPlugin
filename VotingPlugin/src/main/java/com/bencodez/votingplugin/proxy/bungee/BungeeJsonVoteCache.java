@@ -12,6 +12,7 @@ import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 import com.bencodez.votingplugin.proxy.cache.DataNode;
 import com.bencodez.votingplugin.proxy.cache.GsonDataNode;
 import com.bencodez.votingplugin.proxy.cache.IVoteCache;
+import com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
 /**
@@ -146,6 +147,18 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 		return getKeys("VoteParty.PendingRewards." + encodeServerKey(server));
 	}
 
+	@Override
+	public PendingVotePartyProxyEffects getPendingVotePartyProxyEffects() {
+		return new PendingVotePartyProxyEffects(getString("VoteParty.PendingProxyEffects.Broadcast", ""),
+				getStringList("VoteParty.PendingProxyEffects.Commands", java.util.List.of()));
+	}
+
+	@Override
+	public PendingVotePartyProxyEffects getQuarantinedVotePartyProxyEffects() {
+		return new PendingVotePartyProxyEffects(getString("VoteParty.QuarantinedProxyEffects.Broadcast", ""),
+				getStringList("VoteParty.QuarantinedProxyEffects.Commands", java.util.List.of()));
+	}
+
 	public int getVotePartyCurrentVotes() {
 		return getInt("VoteParty.CurrentVotes", 0);
 	}
@@ -168,6 +181,26 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 			Collection<String> remaining = getKeys(serverPath);
 			if (remaining == null || remaining.isEmpty()) setString(serverPath, null);
 		}
+	}
+
+	@Override
+	public void setPendingVotePartyProxyEffects(PendingVotePartyProxyEffects effects) {
+		if (effects.isEmpty()) {
+			remove("VoteParty.PendingProxyEffects");
+			return;
+		}
+		setString("VoteParty.PendingProxyEffects.Broadcast", effects.broadcast());
+		setStringList("VoteParty.PendingProxyEffects.Commands", effects.commands());
+	}
+
+	@Override
+	public void setQuarantinedVotePartyProxyEffects(PendingVotePartyProxyEffects effects) {
+		if (effects.isEmpty()) {
+			remove("VoteParty.QuarantinedProxyEffects");
+			return;
+		}
+		setString("VoteParty.QuarantinedProxyEffects.Broadcast", effects.broadcast());
+		setStringList("VoteParty.QuarantinedProxyEffects.Commands", effects.commands());
 	}
 
 	private static String encodeServerKey(String server) {

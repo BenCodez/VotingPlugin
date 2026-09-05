@@ -636,6 +636,16 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			@Override
+			public com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects getVoteCachePendingVotePartyProxyEffects() {
+				return voteCacheFile.getPendingVotePartyProxyEffects();
+			}
+
+			@Override
+			public com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects getVoteCacheQuarantinedVotePartyProxyEffects() {
+				return voteCacheFile.getQuarantinedVotePartyProxyEffects();
+			}
+
+			@Override
 			public boolean isPlayerOnline(String playerName) {
 				ProxiedPlayer player = getProxy().getPlayer(playerName);
 				return player != null && player.isConnected();
@@ -739,6 +749,18 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			@Override
 			public void setVoteCachePendingVotePartyReward(String server, String deliveryId, boolean pending) {
 				voteCacheFile.setPendingVotePartyReward(server, deliveryId, pending);
+			}
+
+			@Override
+			public void setVoteCachePendingVotePartyProxyEffects(
+					com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects effects) {
+				voteCacheFile.setPendingVotePartyProxyEffects(effects);
+			}
+
+			@Override
+			public void setVoteCacheQuarantinedVotePartyProxyEffects(
+					com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects effects) {
+				voteCacheFile.setQuarantinedVotePartyProxyEffects(effects);
 			}
 
 			@Override

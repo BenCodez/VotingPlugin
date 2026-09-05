@@ -12,6 +12,7 @@ import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 import com.bencodez.votingplugin.proxy.cache.ConfigDataNode;
 import com.bencodez.votingplugin.proxy.cache.DataNode;
 import com.bencodez.votingplugin.proxy.cache.IVoteCache;
+import com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
 /**
@@ -152,6 +153,20 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 	}
 
 	@Override
+	public PendingVotePartyProxyEffects getPendingVotePartyProxyEffects() {
+		return new PendingVotePartyProxyEffects(
+				getString(getNode("VoteParty", "PendingProxyEffects", "Broadcast"), ""),
+				getStringList(getNode("VoteParty", "PendingProxyEffects", "Commands"), java.util.List.of()));
+	}
+
+	@Override
+	public PendingVotePartyProxyEffects getQuarantinedVotePartyProxyEffects() {
+		return new PendingVotePartyProxyEffects(
+				getString(getNode("VoteParty", "QuarantinedProxyEffects", "Broadcast"), ""),
+				getStringList(getNode("VoteParty", "QuarantinedProxyEffects", "Commands"), java.util.List.of()));
+	}
+
+	@Override
 	public int getVotePartyCurrentVotes() {
 		return getInt(getNode("VoteParty", "CurrentVotes"), 0);
 	}
@@ -175,6 +190,26 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 			Collection<String> remaining = getKeys(getNode("VoteParty", "PendingRewards", serverKey));
 			if (remaining == null || remaining.isEmpty()) remove("VoteParty", "PendingRewards", serverKey);
 		}
+	}
+
+	@Override
+	public void setPendingVotePartyProxyEffects(PendingVotePartyProxyEffects effects) {
+		if (effects.isEmpty()) {
+			remove("VoteParty", "PendingProxyEffects");
+			return;
+		}
+		set(new Object[] { "VoteParty", "PendingProxyEffects", "Broadcast" }, effects.broadcast());
+		set(new Object[] { "VoteParty", "PendingProxyEffects", "Commands" }, effects.commands());
+	}
+
+	@Override
+	public void setQuarantinedVotePartyProxyEffects(PendingVotePartyProxyEffects effects) {
+		if (effects.isEmpty()) {
+			remove("VoteParty", "QuarantinedProxyEffects");
+			return;
+		}
+		set(new Object[] { "VoteParty", "QuarantinedProxyEffects", "Broadcast" }, effects.broadcast());
+		set(new Object[] { "VoteParty", "QuarantinedProxyEffects", "Commands" }, effects.commands());
 	}
 
 	private static String encodeServerKey(String server) {

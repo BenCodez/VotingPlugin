@@ -122,6 +122,10 @@ public interface IVoteCache {
 
 	Collection<String> getPendingVotePartyRewardIds(String server);
 
+	PendingVotePartyProxyEffects getPendingVotePartyProxyEffects();
+
+	PendingVotePartyProxyEffects getQuarantinedVotePartyProxyEffects();
+
 	/**
 	 * Gets the current vote party votes.
 	 *
@@ -145,6 +149,10 @@ public interface IVoteCache {
 	void setVotePartyCache(String server, int amount);
 
 	void setPendingVotePartyReward(String server, String deliveryId, boolean pending);
+
+	void setPendingVotePartyProxyEffects(PendingVotePartyProxyEffects effects);
+
+	void setQuarantinedVotePartyProxyEffects(PendingVotePartyProxyEffects effects);
 
 	/**
 	 * Sets the current vote party votes.

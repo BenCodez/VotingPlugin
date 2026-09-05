@@ -19,6 +19,7 @@ import com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler;
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
+import com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects;
 import com.bencodez.votingplugin.backendproxy.http.HttpProxyTransportServer;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
@@ -34,6 +35,15 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	private boolean failNextVoteCacheSave;
 	private final java.util.Map<String, java.util.Set<String>> pendingVotePartyRewards = new HashMap<>();
 	private final List<String> attemptedVotePartyDeliveryIds = new ArrayList<>();
+	private PendingVotePartyProxyEffects pendingVotePartyProxyEffects = PendingVotePartyProxyEffects.empty();
+	private PendingVotePartyProxyEffects quarantinedVotePartyProxyEffects = PendingVotePartyProxyEffects.empty();
+	private final List<String> broadcasts = new ArrayList<>();
+	private final List<String> consoleCommands = new ArrayList<>();
+	private boolean failNextBroadcast;
+	private String failConsoleCommand;
+	private boolean failSaveAfterNextBroadcast;
+	private java.util.concurrent.CompletableFuture<Void> nextVotePartyCommandCompletion;
+	private Runnable votePartyProxyCommandTimeout;
 
 	public List<String> getWarnings() {
 		return warnings;
@@ -46,7 +56,15 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	@Override
 	public void broadcast(String message) {
-		// Implementation for testing purposes
+		if (failNextBroadcast) {
+			failNextBroadcast = false;
+			throw new IllegalStateException("broadcast failed");
+		}
+		broadcasts.add(message);
+		if (failSaveAfterNextBroadcast) {
+			failSaveAfterNextBroadcast = false;
+			failNextVoteCacheSave = true;
+		}
 	}
 
 	@Override
@@ -142,6 +160,16 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	}
 
 	@Override
+	public PendingVotePartyProxyEffects getVoteCachePendingVotePartyProxyEffects() {
+		return pendingVotePartyProxyEffects;
+	}
+
+	@Override
+	public PendingVotePartyProxyEffects getVoteCacheQuarantinedVotePartyProxyEffects() {
+		return quarantinedVotePartyProxyEffects;
+	}
+
+	@Override
 	public boolean isPlayerOnline(String playerName) {
 		return playerOnline;
 	}
@@ -172,7 +200,24 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	@Override
 	public void runConsoleCommand(String command) {
-		// Mocked for testing
+		if (command.equals(failConsoleCommand)) {
+			failConsoleCommand = null;
+			throw new IllegalStateException("command failed");
+		}
+		consoleCommands.add(command);
+	}
+
+	@Override
+	protected java.util.concurrent.CompletableFuture<Void> runVotePartyConsoleCommand(String command) {
+		java.util.concurrent.CompletableFuture<Void> completion = nextVotePartyCommandCompletion;
+		nextVotePartyCommandCompletion = null;
+		runConsoleCommand(command);
+		return completion == null ? java.util.concurrent.CompletableFuture.completedFuture(null) : completion;
+	}
+
+	@Override
+	protected void scheduleVotePartyProxyCommandTimeout(Runnable timeout) {
+		votePartyProxyCommandTimeout = timeout;
 	}
 
 	@Override
@@ -190,6 +235,37 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	public void failNextVoteCacheSave() {
 		failNextVoteCacheSave = true;
+	}
+
+	public void failNextBroadcast() {
+		failNextBroadcast = true;
+	}
+
+	public void failConsoleCommand(String command) {
+		failConsoleCommand = command;
+	}
+
+	public void failSaveAfterNextBroadcast() {
+		failSaveAfterNextBroadcast = true;
+	}
+
+	public List<String> getBroadcasts() {
+		return List.copyOf(broadcasts);
+	}
+
+	public List<String> getConsoleCommands() {
+		return List.copyOf(consoleCommands);
+	}
+
+	public java.util.concurrent.CompletableFuture<Void> delayNextVotePartyCommandCompletion() {
+		nextVotePartyCommandCompletion = new java.util.concurrent.CompletableFuture<>();
+		return nextVotePartyCommandCompletion;
+	}
+
+	public void runVotePartyProxyCommandTimeoutForTest() {
+		Runnable timeout = votePartyProxyCommandTimeout;
+		votePartyProxyCommandTimeout = null;
+		if (timeout != null) timeout.run();
 	}
 
 	@Override
@@ -332,6 +408,10 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 		retryPendingVotePartyRewards();
 	}
 
+	public boolean retryPendingVotePartyProxyEffectsForTest() {
+		return retryPendingVotePartyProxyEffects();
+	}
+
 	public int[] getProjectedVotePartyStateForTest(int acceptedVotes) {
 		return getProjectedVotePartyState(acceptedVotes);
 	}
@@ -418,6 +498,16 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 			java.util.Set<String> rewards = pendingVotePartyRewards.get(server);
 			if (rewards != null && rewards.remove(deliveryId) && rewards.isEmpty()) pendingVotePartyRewards.remove(server);
 		}
+	}
+
+	@Override
+	public void setVoteCachePendingVotePartyProxyEffects(PendingVotePartyProxyEffects effects) {
+		pendingVotePartyProxyEffects = effects;
+	}
+
+	@Override
+	public void setVoteCacheQuarantinedVotePartyProxyEffects(PendingVotePartyProxyEffects effects) {
+		quarantinedVotePartyProxyEffects = effects;
 	}
 
 	@Override
