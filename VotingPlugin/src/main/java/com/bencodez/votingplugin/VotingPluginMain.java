@@ -165,6 +165,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private final ProcessedVoteCache backendProcessedVoteCache = new ProcessedVoteCache();
 	private final AtomicReference<GlobalMessageHandler> backendPluginMessageTarget = new AtomicReference<>();
 	private PluginMessageHandler backendPluginMessageRelay;
+	private com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessage backendPluginMessageRelayOwner;
 	private volatile BackendControlAutoEnrollment backendControlAutoEnrollment;
 	private volatile BackendControlConnector backendControlConnector;
 	private final ScheduledExecutorService backendControlConnectorLifecycle = Executors.newSingleThreadScheduledExecutor(runnable -> {
@@ -1332,7 +1333,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	public synchronized void abortBackendProxyHandlerRestart(BackendProxyRestart restart) {
 		if (restart == null || restart.finished) return;
 		if (restart.replacement != null) restart.replacement.close();
-		if (restart.previousPrepared && backendProxyHandler == restart.previous) {
+		if (backendProxyHandler == restart.previous && restart.previous != null
+				&& (restart.previousPrepared || restart.previous.getMethod() == BungeeMethod.PLUGINMESSAGING)) {
 			restart.previous.restoreAfterFailedReplacement();
 		}
 		restart.finished = true;
@@ -1346,7 +1348,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	/** Keeps one plugin-message listener for the plugin lifetime and atomically swaps its active backend handler. */
 	public synchronized void activateBackendPluginMessageHandler(GlobalMessageHandler target) {
-		backendPluginMessageTarget.set(target);
 		if (backendPluginMessageRelay == null) {
 			backendPluginMessageRelay = new PluginMessageHandler() {
 				@Override
@@ -1355,8 +1356,13 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					if (current != null) current.onMessage(envelope);
 				}
 			};
-			getPluginMessaging().add(backendPluginMessageRelay);
 		}
+		com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessage current = getPluginMessaging();
+		if (backendPluginMessageRelayOwner != current) {
+			current.add(backendPluginMessageRelay);
+			backendPluginMessageRelayOwner = current;
+		}
+		backendPluginMessageTarget.set(target);
 	}
 
 	public void deactivateBackendPluginMessageHandler(GlobalMessageHandler target) {

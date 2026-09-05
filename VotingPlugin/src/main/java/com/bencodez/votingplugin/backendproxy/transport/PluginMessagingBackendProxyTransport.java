@@ -11,6 +11,9 @@ public class PluginMessagingBackendProxyTransport implements BackendProxyTranspo
 
 	private final VotingPluginMain plugin;
 	private GlobalMessageHandler messageHandler;
+	private String channel;
+	private EncryptionHandler encryptionHandler;
+	private boolean debug;
 	private boolean active;
 
 	public PluginMessagingBackendProxyTransport(VotingPluginMain plugin) {
@@ -20,22 +23,37 @@ public class PluginMessagingBackendProxyTransport implements BackendProxyTranspo
 	@Override
 	public void start(GlobalMessageHandler messageHandler) {
 		this.messageHandler = messageHandler;
-		plugin.registerBungeeChannels(plugin.getBungeeSettings().getPluginMessagingChannel());
-		EncryptionHandler encryptionHandler = null;
+		channel = plugin.getBungeeSettings().getPluginMessagingChannel();
+		encryptionHandler = null;
 		if (plugin.getBungeeSettings().isPluginMessageEncryption()) {
 			encryptionHandler = new EncryptionHandler(plugin.getName(),
 					new File(plugin.getDataFolder(), "secretkey.key"));
 		}
-		plugin.getPluginMessaging().setEncryptionHandler(encryptionHandler);
-		plugin.getPluginMessaging().setDebug(plugin.getBungeeSettings().isBungeeDebug());
+		debug = plugin.getBungeeSettings().isBungeeDebug();
 	}
 
 	@Override
 	public void activateAfterPublication() {
 		if (messageHandler != null && !active) {
-			plugin.activateBackendPluginMessageHandler(messageHandler);
+			publishSharedState();
 			active = true;
 		}
+	}
+
+	void restoreAfterFailedReplacement() {
+		if (messageHandler != null) {
+			publishSharedState();
+			active = true;
+		}
+	}
+
+	private void publishSharedState() {
+		if (plugin.getPluginMessaging() == null || !channel.equals(plugin.getBungeeChannel())) {
+			plugin.registerBungeeChannels(channel);
+		}
+		plugin.getPluginMessaging().setEncryptionHandler(encryptionHandler);
+		plugin.getPluginMessaging().setDebug(debug);
+		plugin.activateBackendPluginMessageHandler(messageHandler);
 	}
 
 	@Override
@@ -50,5 +68,7 @@ public class PluginMessagingBackendProxyTransport implements BackendProxyTranspo
 		}
 		active = false;
 		messageHandler = null;
+		channel = null;
+		encryptionHandler = null;
 	}
 }

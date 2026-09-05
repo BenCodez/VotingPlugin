@@ -99,13 +99,11 @@ public class BackendProxyHandler implements Listener {
 
 	/** Starts presence only after a staged handler reaches the atomic publication boundary. */
 	public void activatePresenceReporting() {
+		transportManager.activateAfterPublication();
 		if (presenceManager != null && !presenceReportingActivated) {
 			presenceManager.start();
 			presenceReportingActivated = true;
 		}
-		// Swap shared inbound routing only after presence activation succeeds. An
-		// aborted publication must leave the previous plugin-message target intact.
-		transportManager.activateAfterPublication();
 	}
 
 	/**
@@ -134,7 +132,7 @@ public class BackendProxyHandler implements Listener {
 
 	/** Restores a prepared HTTP transport when its replacement fails validation. */
 	public void restoreAfterFailedReplacement() {
-		transportManager.restorePreparedTransport();
+		transportManager.restoreAfterFailedReplacement();
 	}
 
 	public void awaitRestoreAfterFailedReplacement(long deadlineNanos) {

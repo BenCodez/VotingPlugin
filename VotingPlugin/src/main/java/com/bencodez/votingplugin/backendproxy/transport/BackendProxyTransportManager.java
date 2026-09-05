@@ -106,6 +106,14 @@ public class BackendProxyTransportManager {
 		preparedTransport = null;
 	}
 
+	public void restoreAfterFailedReplacement() {
+		if (transport instanceof PluginMessagingBackendProxyTransport pluginMessaging) {
+			pluginMessaging.restoreAfterFailedReplacement();
+		} else {
+			restorePreparedTransport();
+		}
+	}
+
 	public void awaitPreparedTransportRestoration(long deadlineNanos) {
 		if (transport instanceof HttpBackendProxyTransport http) http.awaitCredentialRestoration(deadlineNanos);
 	}

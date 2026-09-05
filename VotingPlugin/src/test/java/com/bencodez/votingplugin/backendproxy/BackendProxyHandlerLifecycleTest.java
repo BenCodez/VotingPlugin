@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.backendproxy;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
@@ -11,6 +12,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.ScheduledExecutorService;
 
 import org.junit.jupiter.api.Test;
@@ -35,6 +37,49 @@ import com.bencodez.votingplugin.proxy.BungeeMethod;
 
 class BackendProxyHandlerLifecycleTest {
 	@Test
+	void failedPluginMessagePublicationRestoresPreviousSharedState() {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BungeeSettings settings = mock(BungeeSettings.class);
+		com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessage pluginMessages =
+				mock(com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessage.class);
+		GlobalMessageHandler previousHandler = mock(GlobalMessageHandler.class);
+		GlobalMessageHandler replacementHandler = mock(GlobalMessageHandler.class);
+		AtomicReference<String> activeChannel = new AtomicReference<>("old:channel");
+		when(plugin.getBungeeSettings()).thenReturn(settings);
+		when(plugin.getPluginMessaging()).thenReturn(pluginMessages);
+		when(plugin.getBungeeChannel()).thenAnswer(ignored -> activeChannel.get());
+		org.mockito.Mockito.doAnswer(invocation -> {
+			activeChannel.set(invocation.getArgument(0));
+			return null;
+		}).when(plugin).registerBungeeChannels(org.mockito.ArgumentMatchers.anyString());
+
+		when(settings.getPluginMessagingChannel()).thenReturn("old:channel");
+		PluginMessagingBackendProxyTransport previous = new PluginMessagingBackendProxyTransport(plugin);
+		previous.start(previousHandler);
+		previous.activateAfterPublication();
+
+		when(settings.getPluginMessagingChannel()).thenReturn("new:channel");
+		PluginMessagingBackendProxyTransport replacement = new PluginMessagingBackendProxyTransport(plugin);
+		replacement.start(replacementHandler);
+		replacement.activateAfterPublication();
+		replacement.close();
+		BackendProxyTransportManager manager = new BackendProxyTransportManager(plugin);
+		try {
+			Field transportField = BackendProxyTransportManager.class.getDeclaredField("transport");
+			transportField.setAccessible(true);
+			transportField.set(manager, previous);
+			manager.restoreAfterFailedReplacement();
+		} catch (ReflectiveOperationException failure) {
+			throw new AssertionError(failure);
+		}
+
+		assertEquals("old:channel", activeChannel.get());
+		verify(plugin, times(2)).activateBackendPluginMessageHandler(previousHandler);
+		verify(plugin).activateBackendPluginMessageHandler(replacementHandler);
+		verify(plugin).deactivateBackendPluginMessageHandler(replacementHandler);
+	}
+
+	@Test
 	void stagedPluginMessageTransportDefersRelaySwapUntilPublication() {
 		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
 		BungeeSettings settings = mock(BungeeSettings.class);
@@ -48,13 +93,19 @@ class BackendProxyHandlerLifecycleTest {
 		PluginMessagingBackendProxyTransport transport = new PluginMessagingBackendProxyTransport(plugin);
 		transport.start(replacement);
 		verify(plugin, never()).activateBackendPluginMessageHandler(replacement);
+		verify(plugin, never()).registerBungeeChannels(org.mockito.ArgumentMatchers.anyString());
+		verifyNoInteractions(pluginMessages);
 		transport.close();
 		verify(plugin, never()).deactivateBackendPluginMessageHandler(replacement);
+		verifyNoInteractions(pluginMessages);
 
 		transport = new PluginMessagingBackendProxyTransport(plugin);
 		transport.start(replacement);
 		transport.activateAfterPublication();
 		transport.activateAfterPublication();
+		verify(plugin, times(1)).registerBungeeChannels("votingplugin:main");
+		verify(pluginMessages).setEncryptionHandler(null);
+		verify(pluginMessages).setDebug(false);
 		verify(plugin, times(1)).activateBackendPluginMessageHandler(replacement);
 
 		transport.close();

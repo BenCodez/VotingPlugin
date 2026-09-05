@@ -202,8 +202,15 @@ public final class HttpBackendTransportConnector implements AutoCloseable {
 			if (remaining <= 0L) return false;
 			Duration timeout = Duration.ofNanos(Math.min(CLIENT_TIMEOUT.toNanos(), remaining));
 			synchronized (this) {
-				if (!pollOnce(timeout, false, false)) return false;
+				if (pollOnce(timeout, false, false)) continue;
 			}
+			// The proxy may retain its one-active-poll guard briefly after the old
+			// client request is interrupted. Retry that transient 409 without busy
+			// spinning, but never extend the caller's shutdown deadline.
+			remaining = deadlineNanos - System.nanoTime();
+			if (remaining <= 0L) return false;
+			try { TimeUnit.NANOSECONDS.sleep(Math.min(TimeUnit.MILLISECONDS.toNanos(50), remaining)); }
+			catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); return false; }
 		}
 		return true;
 	}
