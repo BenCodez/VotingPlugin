@@ -98,6 +98,7 @@ import com.bencodez.votingplugin.placeholders.VotingPluginExpansion;
 import com.bencodez.votingplugin.presets.VoteSitePresetSetupHandler;
 import com.bencodez.votingplugin.proxy.control.HostedControlManager;
 import com.bencodez.votingplugin.util.ControlCredentialFile.PendingAutoEnrollment;
+import com.bencodez.votingplugin.util.BoundedScheduledExecutor;
 import com.bencodez.votingplugin.rewards.VotingPluginRewardRegistrar;
 import com.bencodez.votingplugin.servicesites.ServiceSiteHandler;
 import com.bencodez.votingplugin.signs.Signs;
@@ -561,7 +562,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	private void loadVoteTimer() {
-		voteTimer = Executors.newSingleThreadScheduledExecutor();
+		voteTimer = new BoundedScheduledExecutor(1, 256);
 	}
 
 	@Deprecated
