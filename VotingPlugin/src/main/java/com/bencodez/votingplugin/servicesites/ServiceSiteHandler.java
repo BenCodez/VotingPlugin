@@ -39,6 +39,10 @@ import lombok.Getter;
  * Lookups are case-insensitive while preserving original casing.
  */
 public class ServiceSiteHandler {
+	static final int MAX_RESPONSE_BYTES = 1024 * 1024;
+	static final int MAX_ENTRIES = 2048;
+	static final int MAX_KEY_LENGTH = 128;
+	static final int MAX_VALUE_LENGTH = 512;
 
 	private static final String PRIMARY_URL = "https://raw.githubusercontent.com/wiki/BenCodez/VotingPlugin/Minecraft-Server-Lists.md";
 	private static final String SECONDARY_URL = "https://wiki.bencodez.com/en/VotingPlugin/Minecraft-Server-Lists";
@@ -187,16 +191,18 @@ public class ServiceSiteHandler {
 				.header("User-Agent", "VotingPlugin/ServiceSiteHandler")
 				.build();
 
-		HttpResponse<String> response = httpClient.send(request,
-				HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+		HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
 
 		int code = response.statusCode();
 		if (code < 200 || code >= 300) {
 			throw new IOException("HTTP " + code);
 		}
+		if (response.body().length > MAX_RESPONSE_BYTES) {
+			throw new IOException("Service site response exceeds " + MAX_RESPONSE_BYTES + " bytes");
+		}
 
 		String contentType = response.headers().firstValue("Content-Type").orElse(null);
-		return new FetchResult(urlStr, response.body(), contentType);
+		return new FetchResult(urlStr, new String(response.body(), StandardCharsets.UTF_8), contentType);
 	}
 
 	private Map<String, String> parseFromWebBody(String body, String contentType) {
@@ -228,6 +234,9 @@ public class ServiceSiteHandler {
 		Map<String, String> parsed = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
 
 		for (String line : lines) {
+			if (parsed.size() >= MAX_ENTRIES) {
+				break;
+			}
 			if (line == null) {
 				continue;
 			}
@@ -248,12 +257,17 @@ public class ServiceSiteHandler {
 			String key = m.group(1).trim();
 			String val = m.group(2).trim();
 
-			if (!key.isEmpty() && !val.isEmpty()) {
+			if (isSafeEntry(key, val)) {
 				parsed.put(key, val);
 			}
 		}
 
 		return parsed;
+	}
+
+	static boolean isSafeEntry(String key, String value) {
+		return key != null && value != null && !key.isEmpty() && !value.isEmpty()
+				&& key.length() <= MAX_KEY_LENGTH && value.length() <= MAX_VALUE_LENGTH;
 	}
 
 	private static boolean mapsEqual(Map<String, String> a, Map<String, String> b) {
