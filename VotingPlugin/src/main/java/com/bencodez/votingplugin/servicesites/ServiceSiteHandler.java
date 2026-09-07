@@ -17,6 +17,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -186,6 +190,7 @@ public class ServiceSiteHandler {
 	}
 
 	private FetchResult fetch(String urlStr) throws IOException, InterruptedException {
+		long deadlineNanos = System.nanoTime() + Duration.ofSeconds(7).toNanos();
 		HttpRequest request = HttpRequest.newBuilder()
 				.uri(URI.create(urlStr))
 				.GET()
@@ -195,18 +200,49 @@ public class ServiceSiteHandler {
 
 		HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
 
-		byte[] body = readSuccessfulResponse(response);
+		long remainingNanos = deadlineNanos - System.nanoTime();
+		if (remainingNanos <= 0) {
+			response.body().close();
+			throw new IOException("Service site response timed out");
+		}
+		byte[] body = readSuccessfulResponse(response, remainingNanos, TimeUnit.NANOSECONDS);
 		String contentType = response.headers().firstValue("Content-Type").orElse(null);
 		return new FetchResult(urlStr, new String(body, StandardCharsets.UTF_8), contentType);
 	}
 
 	static byte[] readSuccessfulResponse(HttpResponse<InputStream> response) throws IOException {
+		return readSuccessfulResponse(response, 7, TimeUnit.SECONDS);
+	}
+
+	static byte[] readSuccessfulResponse(HttpResponse<InputStream> response, long timeout, TimeUnit unit)
+			throws IOException {
 		try (InputStream input = response.body()) {
 			int code = response.statusCode();
 			if (code < 200 || code >= 300) {
 				throw new IOException("HTTP " + code);
 			}
-			return readBounded(input, MAX_RESPONSE_BYTES);
+			CompletableFuture<byte[]> read = CompletableFuture.supplyAsync(() -> {
+				try {
+					return readBounded(input, MAX_RESPONSE_BYTES);
+				} catch (IOException e) {
+					throw new java.io.UncheckedIOException(e);
+				}
+			});
+			try {
+				return read.get(timeout, unit);
+			} catch (TimeoutException e) {
+				read.cancel(true);
+				throw new IOException("Service site response timed out", e);
+			} catch (ExecutionException e) {
+				if (e.getCause() instanceof java.io.UncheckedIOException) {
+					throw ((java.io.UncheckedIOException) e.getCause()).getCause();
+				}
+				throw new IOException("Unable to read service site response", e.getCause());
+			} catch (InterruptedException e) {
+				read.cancel(true);
+				Thread.currentThread().interrupt();
+				throw new IOException("Interrupted while reading service site response", e);
+			}
 		}
 	}
 
