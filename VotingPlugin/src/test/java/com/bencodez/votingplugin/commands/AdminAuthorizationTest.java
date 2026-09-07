@@ -30,6 +30,17 @@ class AdminAuthorizationTest {
 	}
 
 	@Test
+	void negativeBulkAddRequiresBulkRemovalAuthorization() {
+		CommandSender ordinary = mock(CommandSender.class);
+		CommandSender bulk = mock(CommandSender.class);
+		when(bulk.hasPermission(AdminAuthorization.REMOVE_POINTS_ALL_PERMISSION)).thenReturn(true);
+
+		assertTrue(AdminAuthorization.canAddPointsToAll(ordinary, 100));
+		assertFalse(AdminAuthorization.canAddPointsToAll(ordinary, -100));
+		assertTrue(AdminAuthorization.canAddPointsToAll(bulk, -100));
+	}
+
+	@Test
 	void configEditorsRequireTheirOwnPermissionOrAdminOverride() {
 		String permission = "VotingPlugin.Commands.AdminVote.Edit.SpecialRewards";
 		CommandSender denied = mock(CommandSender.class);
