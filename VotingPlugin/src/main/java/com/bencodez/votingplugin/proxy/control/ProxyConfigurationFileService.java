@@ -905,7 +905,7 @@ final class ProxyConfigurationFileService {
 
 	private static boolean rootDatabaseField(String normalizedPath) {
 		return !normalizedPath.contains(".") && !normalizedPath.contains("[")
-				&& Set.of("host", "port", "database", "username", "password", "line", "driver", "poolname",
+				&& Set.of("host", "port", "database", "name", "username", "password", "line", "driver", "poolname",
 						"prefix", "dbindex").contains(normalizedPath);
 	}
 

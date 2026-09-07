@@ -702,7 +702,7 @@ public final class BackendControlConnector implements AutoCloseable {
 					string(task, "expectedRevision"), "proxy-method".equals(preset)
 							? this::reloadProxyMethod : this::reloadConfiguration);
 			return TaskResult.quick(preset, options, applied.document().revision(), applied.changes(),
-					!"proxy-method".equals(preset),
+					true,
 					"Config.yml".equals(applied.document().fileName()));
 		}
 		return TaskResult.failure("UNSUPPORTED_TASK", "Task type is unsupported");

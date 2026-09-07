@@ -83,6 +83,7 @@ class ProxyConfigurationFileServiceTest {
 				Host: root.internal
 				Port: 3306
 				Database: rootdb
+				Name: legacy_table
 				Username: rootuser
 				MySQL:
 				  Host: mysql.internal
@@ -102,6 +103,7 @@ class ProxyConfigurationFileServiceTest {
 
 		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
 		assertFalse(current.content().contains("root.internal"));
+		assertFalse(current.content().contains("legacy_table"));
 		assertFalse(current.content().contains("mysql.internal"));
 		assertFalse(current.content().contains("vote-cache.internal"));
 		assertFalse(current.content().contains("non-voted.internal"));
@@ -114,6 +116,7 @@ class ProxyConfigurationFileServiceTest {
 		assertTrue(preview.resolvedContent().contains("vote-cache.internal"));
 		String applied = Files.readString(file);
 		assertTrue(applied.contains("root.internal"));
+		assertTrue(applied.contains("legacy_table"));
 		assertTrue(applied.contains("mysql.internal"));
 		assertTrue(applied.contains("non-voted.internal"));
 		assertTrue(applied.contains("vote-log.internal"));
