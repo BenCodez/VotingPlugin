@@ -8,6 +8,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.http.HttpResponse;
+import java.util.concurrent.TimeUnit;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -47,6 +48,29 @@ class ServiceSiteHandlerLimitsTest {
 		when(response.statusCode()).thenReturn(500);
 
 		assertThrows(IOException.class, () -> ServiceSiteHandler.readSuccessfulResponse(response));
+		assertTrue(stream.closed);
+	}
+
+	@Test
+	void closesStreamingBodyWhenDeadlineExpires() {
+		class StallingStream extends InputStream {
+			volatile boolean closed;
+			@Override public int read() throws IOException {
+				while (!closed) {
+					try { Thread.sleep(5); } catch (InterruptedException ignored) { }
+				}
+				throw new IOException("closed");
+			}
+			@Override public void close() { closed = true; }
+		}
+		StallingStream stream = new StallingStream();
+		@SuppressWarnings("unchecked")
+		HttpResponse<InputStream> response = mock(HttpResponse.class);
+		when(response.body()).thenReturn(stream);
+		when(response.statusCode()).thenReturn(200);
+
+		assertThrows(IOException.class,
+				() -> ServiceSiteHandler.readSuccessfulResponse(response, 20, TimeUnit.MILLISECONDS));
 		assertTrue(stream.closed);
 	}
 }
