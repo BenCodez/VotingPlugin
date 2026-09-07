@@ -143,6 +143,20 @@ class ProxyConfigurationFileServiceTest {
 	}
 
 	@Test
+	void preservesNullEntriesInSequencesAcrossReadPreviewAndApply() throws Exception {
+		Path file = write("Servers: [null, active]\nEmptyEntries:\n  -\nDebug: false\n");
+		ProxyConfigurationFileService service = service(file);
+
+		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
+		String proposal = current.content().replace("Debug: false", "Debug: true");
+		ProxyConfigurationFileService.Preview preview = service.preview(ProxyConfigurationFileService.FILE_NAME, proposal);
+		service.apply(ProxyConfigurationFileService.FILE_NAME, proposal, current.revision());
+
+		assertTrue(preview.resolvedContent().contains("null"));
+		assertTrue(Files.readString(file).contains("Debug: true"));
+	}
+
+	@Test
 	void masksAndRestoresPrimarySocketsEndpointsAndComments() throws Exception {
 		Path file = write("""
 				BungeeServer:

@@ -397,9 +397,10 @@ public final class BackendControlConnector implements AutoCloseable {
 			result = completed.get(operationId);
 		}
 		if (result != null) {
-			if (!result.committed() && !result.claimRequired() && !anticipatedResultIsInstalled(result)) {
-				result = null;
-			} else {
+			if (!result.committed() && !result.claimRequired()) {
+				result = committedInstalledForAttempt(configurations, result, string(task, "attemptId"));
+			}
+			if (result != null) {
 				result = committedForAttempt(result, string(task, "attemptId"));
 				synchronized (completed) { completed.put(operationId, result); }
 				persistCompleted();
@@ -534,9 +535,9 @@ public final class BackendControlConnector implements AutoCloseable {
 		for (Map.Entry<UUID, StoredResult> entry : snapshot.entrySet()) {
 			StoredResult pending = entry.getValue();
 			if (pending.committed() || pending.claimRequired()) continue;
-			StoredResult recovered = anticipatedResultIsInstalled(pending)
-					? committedForAttempt(pending, string(pending.result(), "attemptId"))
-					: abortedIntent(pending);
+			StoredResult recovered = committedInstalledForAttempt(configurations, pending,
+					string(pending.result(), "attemptId"));
+			if (recovered == null) recovered = abortedIntent(pending);
 			synchronized (completed) {
 				if (completed.get(entry.getKey()) == pending) {
 					completed.put(entry.getKey(), recovered);
@@ -564,20 +565,27 @@ public final class BackendControlConnector implements AutoCloseable {
 		return new StoredResult(result, false, true, false);
 	}
 
-	private boolean anticipatedResultIsInstalled(StoredResult pending) throws IOException {
+	static StoredResult committedInstalledForAttempt(BackendConfigurationService configurations,
+			StoredResult pending, String attemptId) throws IOException {
 		JsonObject result = pending.result();
-		if (!result.has("revision") || !result.has("configuration")) return false;
+		if (!result.has("revision") || !result.has("configuration")) return null;
 		String revision = result.get("revision").getAsString();
 		JsonObject configuration = result.getAsJsonObject("configuration");
 		String domain = string(configuration, "domain");
 		if ("file".equals(domain)) {
-			return revision.equals(configurations.read(string(configuration, "fileName")).revision());
+			BackendConfigurationService.Document installed = configurations.read(string(configuration, "fileName"));
+			if (!revision.equals(installed.revision())) return null;
+			result = result.deepCopy();
+			result.getAsJsonObject("configuration").addProperty("content", installed.content());
+			result.addProperty("attemptId", attemptId);
+			return new StoredResult(result, pending.restartConnector(), true, false);
 		}
 		if ("quick-setup".equals(domain)) {
-			return revision.equals(configurations.currentQuickSetupRevision(string(configuration, "preset"),
-					options(configuration.getAsJsonObject("options"))));
+			if (!revision.equals(configurations.currentQuickSetupRevision(string(configuration, "preset"),
+					options(configuration.getAsJsonObject("options"))))) return null;
+			return committedForAttempt(pending, attemptId);
 		}
-		return false;
+		return null;
 	}
 
 	private static StoredResult committedForAttempt(StoredResult pending, String attemptId) {

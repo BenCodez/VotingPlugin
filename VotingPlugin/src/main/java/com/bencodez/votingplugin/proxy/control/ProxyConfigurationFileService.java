@@ -312,7 +312,7 @@ final class ProxyConfigurationFileService {
 				String itemPath = path + "[" + index + "]";
 				result.add(secret(itemPath, "", item) ? REDACTED : maskStructure(item, itemPath));
 			}
-			return List.copyOf(result);
+			return Collections.unmodifiableList(result);
 		}
 		return value;
 	}
@@ -807,7 +807,7 @@ final class ProxyConfigurationFileService {
 				result.add(resolveList(list, oldValues, itemPath));
 			} else result.add(value);
 		}
-		return List.copyOf(result);
+		return Collections.unmodifiableList(result);
 	}
 
 	private static boolean secret(String path, String key, Object value) {
