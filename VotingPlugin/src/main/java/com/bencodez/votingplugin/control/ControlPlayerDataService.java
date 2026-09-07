@@ -38,7 +38,14 @@ final class ControlPlayerDataService {
 		if (user.getUserData() == null || plugin.getStorageType() == null) {
 			throw new IOException("player data storage is unavailable");
 		}
-		Map<String, DataValue> values = user.getUserData().getValues();
+		// User-data updates (votes and shop purchases) mutate this map in place. Take
+		// the copy while holding the same monitor used by the data object so the
+		// inspection thread never iterates a live HashMap concurrently.
+		Map<String, DataValue> values;
+		synchronized (user.getUserData()) {
+			Map<String, DataValue> liveValues = user.getUserData().getValues();
+			values = liveValues == null ? null : new java.util.HashMap<>(liveValues);
+		}
 		if (values == null) throw new IOException("player data storage is unavailable");
 		List<Map.Entry<String, DataValue>> columns = new ArrayList<>(values.entrySet());
 		columns.sort(Map.Entry.<String, DataValue>comparingByKey(String.CASE_INSENSITIVE_ORDER)

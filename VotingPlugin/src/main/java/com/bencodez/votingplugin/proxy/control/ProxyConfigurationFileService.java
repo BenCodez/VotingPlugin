@@ -535,33 +535,40 @@ final class ProxyConfigurationFileService {
 	private static Map<String, CommentLine> redactComments(Node node, Object source, String path,
 			Set<String> values) {
 		Map<String, CommentLine> result = new LinkedHashMap<>();
-		redactComments(node, path, false, values, result);
-		if (node instanceof MappingNode mapping && source instanceof Map<?, ?> rawSource) {
-			@SuppressWarnings("unchecked") Map<String, Object> sourceMap = (Map<String, Object>) rawSource;
+		redactComments(node, source, path, "root", values, result);
+		return result;
+	}
+
+	private static void redactComments(Node node, Object source, String path, String location,
+			Set<String> values, Map<String, CommentLine> result) {
+		redactComments(node, location, false, values, result);
+		if (node instanceof MappingNode mapping && source instanceof Map<?, ?> sourceMap) {
 			for (NodeTuple tuple : mapping.getValue()) {
 				String key = key(tuple.getKeyNode());
 				Object value = sourceMap.get(key);
 				String childPath = path + key;
+				String childLocation = mapLocation(location, key);
 				boolean hidden = secret(childPath, key, value);
-				redactComments(tuple.getKeyNode(), childPath + "#key", hidden, values, result);
-				if (hidden) redactComments(tuple.getValueNode(), childPath, true, values, result);
+				redactComments(tuple.getKeyNode(), childLocation + "k", hidden, values, result);
+				if (hidden) redactComments(tuple.getValueNode(), childLocation + "v", true, values, result);
 				else if (value instanceof Map<?, ?> || value instanceof List<?>) {
-					result.putAll(redactComments(tuple.getValueNode(), value,
-							value instanceof Map<?, ?> ? childPath + "." : childPath, values));
-				} else redactDescendantComments(tuple.getValueNode(), childPath, false, values, result);
+					redactComments(tuple.getValueNode(), value,
+							value instanceof Map<?, ?> ? childPath + "." : childPath, childLocation + "v", values, result);
+				} else redactDescendantComments(tuple.getValueNode(), childLocation + "v", false, values, result);
 			}
 		} else if (node instanceof SequenceNode sequence && source instanceof List<?> list) {
 			for (int index = 0; index < sequence.getValue().size(); index++) {
 				Node child = sequence.getValue().get(index);
 				Object value = index < list.size() ? list.get(index) : null;
 				String itemPath = path + "[" + index + "]";
-				if (secret(itemPath, "", value)) redactComments(child, itemPath, true, values, result);
+				String itemLocation = sequenceLocation(location, index);
+				if (secret(itemPath, "", value)) redactComments(child, itemLocation, true, values, result);
 				else if (value instanceof Map<?, ?> || value instanceof List<?>) {
-					result.putAll(redactComments(child, value, value instanceof Map<?, ?> ? itemPath + "." : itemPath, values));
-				} else redactDescendantComments(child, itemPath, false, values, result);
+					redactComments(child, value, value instanceof Map<?, ?> ? itemPath + "." : itemPath,
+							itemLocation, values, result);
+				} else redactDescendantComments(child, itemLocation, false, values, result);
 			}
 		}
-		return result;
 	}
 
 	private static void redactDescendantComments(Node node, String path, boolean sensitiveContext, Set<String> values,
@@ -570,15 +577,16 @@ final class ProxyConfigurationFileService {
 		if (node instanceof MappingNode mapping) {
 			for (NodeTuple tuple : mapping.getValue()) {
 				String key = key(tuple.getKeyNode());
-				redactDescendantComments(tuple.getKeyNode(), path + key + "#key", sensitiveContext, values, redacted);
+				String childLocation = mapLocation(path, key);
+				redactDescendantComments(tuple.getKeyNode(), childLocation + "k", sensitiveContext, values, redacted);
 				Node child = tuple.getValueNode();
-				redactDescendantComments(child, path + key + (child instanceof MappingNode ? "." : ""),
+				redactDescendantComments(child, childLocation + "v",
 						sensitiveContext, values, redacted);
 			}
 		} else if (node instanceof SequenceNode sequence) {
 			for (int index = 0; index < sequence.getValue().size(); index++) {
 				Node child = sequence.getValue().get(index);
-				redactDescendantComments(child, path + "[" + index + "]" + (child instanceof MappingNode ? "." : ""), sensitiveContext,
+				redactDescendantComments(child, sequenceLocation(path, index), sensitiveContext,
 						values, redacted);
 			}
 		}
@@ -607,7 +615,7 @@ final class ProxyConfigurationFileService {
 	}
 
 	private static void restoreRedactedComments(Node proposed, Map<String, CommentLine> expected) {
-		Map<String, CommentReference> comments = commentReferences(proposed, "");
+		Map<String, CommentReference> comments = commentReferences(proposed, "root");
 		for (Map.Entry<String, CommentLine> entry : expected.entrySet()) {
 			CommentReference reference = comments.get(entry.getKey());
 			if (reference == null || !REDACTED_COMMENT.equals(reference.line().getValue())) {
@@ -635,15 +643,14 @@ final class ProxyConfigurationFileService {
 		if (node instanceof MappingNode mapping) {
 			for (NodeTuple tuple : mapping.getValue()) {
 				String key = key(tuple.getKeyNode());
-				String childPath = path + key;
-				collectComments(tuple.getKeyNode(), childPath + "#key", result);
-				collectComments(tuple.getValueNode(), tuple.getValueNode() instanceof MappingNode ? childPath + "." : childPath,
-						result);
+				String childLocation = mapLocation(path, key);
+				collectComments(tuple.getKeyNode(), childLocation + "k", result);
+				collectComments(tuple.getValueNode(), childLocation + "v", result);
 			}
 		} else if (node instanceof SequenceNode sequence) {
 			for (int index = 0; index < sequence.getValue().size(); index++) {
 				Node child = sequence.getValue().get(index);
-				collectComments(child, path + "[" + index + "]" + (child instanceof MappingNode ? "." : ""), result);
+				collectComments(child, sequenceLocation(path, index), result);
 			}
 		}
 	}
@@ -667,6 +674,14 @@ final class ProxyConfigurationFileService {
 
 	private static String commentSlot(String path, String kind, int index) {
 		return path + "|" + kind + "|" + index;
+	}
+
+	private static String mapLocation(String parent, String key) {
+		return parent + "m" + key.length() + ":" + key;
+	}
+
+	private static String sequenceLocation(String parent, int index) {
+		return parent + "s" + index + ":";
 	}
 
 	private static boolean sensitiveComment(String comment, boolean sensitiveContext, Set<String> values) {
@@ -817,6 +832,9 @@ final class ProxyConfigurationFileService {
 	@SuppressWarnings("unchecked")
 	private static boolean sameSecretSafeListOrder(Object proposed, Object current, String path) {
 		if (REDACTED.equals(proposed)) return true;
+		if (secret(path, "", current)) {
+			return proposed != null && !(proposed instanceof Map<?, ?>) && !(proposed instanceof List<?>);
+		}
 		if (proposed instanceof Map<?, ?> proposedMap && current instanceof Map<?, ?> currentMap) {
 			if (!proposedMap.keySet().equals(currentMap.keySet())) return false;
 			String mapPath = path.endsWith(".") ? path : path + ".";

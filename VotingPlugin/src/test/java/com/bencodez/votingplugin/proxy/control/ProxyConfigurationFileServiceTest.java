@@ -474,6 +474,34 @@ class ProxyConfigurationFileServiceTest {
 	}
 
 	@Test
+	void previewAllowsAnExplicitReplacementForASecretSequenceItem() throws Exception {
+		Path file = write("Endpoints:\n  - jdbc:mysql://old-user:old-password@db.invalid/votes\n");
+		ProxyConfigurationFileService service = service(file);
+		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
+		String proposal = current.content().replace(ProxyConfigurationFileService.REDACTED,
+				"jdbc:mysql://new-user:new-password@db.invalid/votes");
+
+		ProxyConfigurationFileService.Preview preview = service.preview(
+				ProxyConfigurationFileService.FILE_NAME, proposal);
+
+		assertTrue(preview.resolvedContent().contains("jdbc:mysql://new-user:new-password@db.invalid/votes"));
+	}
+
+	@Test
+	void restoresCommentsForDottedAndNestedKeysWithoutLocationCollisions() throws Exception {
+		Path file = write("\"Database.Password\": first-secret # first secret comment\n"
+				+ "Database:\n  Password: second-secret # second secret comment\n");
+		ProxyConfigurationFileService service = service(file);
+		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
+
+		ProxyConfigurationFileService.Preview preview = service.preview(
+				ProxyConfigurationFileService.FILE_NAME, current.content());
+
+		assertTrue(preview.resolvedContent().contains("first-secret # first secret comment"));
+		assertTrue(preview.resolvedContent().contains("second-secret # second secret comment"));
+	}
+
+	@Test
 	void rejectsEditedDeletedOrMovedSecretValueAndCommentMarkers() throws Exception {
 		Path file = write("""
 				Database:

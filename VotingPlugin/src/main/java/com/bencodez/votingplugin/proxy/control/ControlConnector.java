@@ -842,9 +842,12 @@ public final class ControlConnector implements AutoCloseable {
 		if (fileConfigurationService == null) {
 			return completed(TaskResult.failure("UNSUPPORTED", "Proxy file control is unavailable"));
 		}
-		String type = requireString(task, "type");
-		String fileName = requireString(requested, "fileName");
 		try {
+			// Keep all negotiated task fields inside the durable-result boundary. A malformed
+			// claim must be acknowledged as a validation failure, not escape the operation
+			// future and leave the same lease blocking the configuration lane.
+			String type = requireString(task, "type");
+			String fileName = requireString(requested, "fileName");
 			if ("READ".equals(type)) {
 				return completed(TaskResult.file(fileConfigurationService.read(fileName), List.of(), false, false));
 			}
