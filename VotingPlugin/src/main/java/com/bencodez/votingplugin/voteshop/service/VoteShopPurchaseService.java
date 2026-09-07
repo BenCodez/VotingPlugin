@@ -23,7 +23,7 @@ import lombok.Setter;
 @Setter
 public class VoteShopPurchaseService {
 	private static final int PURCHASE_LOCK_STRIPES = 256;
-	private final Object[] purchaseLocks = createPurchaseLocks();
+	private static final Object[] PURCHASE_LOCKS = createPurchaseLocks();
 
 	private VoteShopDefinition definition;
 
@@ -131,7 +131,7 @@ public class VoteShopPurchaseService {
 	}
 
 	private Object purchaseLock(String uuid) {
-		return purchaseLocks[(uuid == null ? 0 : uuid.hashCode()) & (PURCHASE_LOCK_STRIPES - 1)];
+		return PURCHASE_LOCKS[(uuid == null ? 0 : uuid.hashCode()) & (PURCHASE_LOCK_STRIPES - 1)];
 	}
 
 	private static Object[] createPurchaseLocks() {
