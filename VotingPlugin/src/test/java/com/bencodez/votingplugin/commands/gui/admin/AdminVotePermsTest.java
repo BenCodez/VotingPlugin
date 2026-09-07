@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 
 import com.bencodez.advancedcore.api.command.CommandHandler;
 import com.bencodez.advancedcore.api.command.PlayerCommandHandler;
+import com.bencodez.votingplugin.commands.AdminAuthorization;
+import org.bukkit.command.CommandSender;
 
 class AdminVotePermsTest {
 	@Test
@@ -31,5 +33,13 @@ class AdminVotePermsTest {
 		PlayerCommandHandler handler = mock(PlayerCommandHandler.class);
 		when(handler.getPerm()).thenReturn("VotingPlugin.Commands.AdminVote.SetPoints|VotingPlugin.Admin");
 		assertEquals(Collections.emptyList(), AdminVotePerms.additionalPermissions(handler));
+	}
+
+	@Test
+	void editorPermissionStatusIncludesAdminOverride() {
+		CommandSender sender = mock(CommandSender.class);
+		when(sender.hasPermission(AdminAuthorization.ADMIN_PERMISSION)).thenReturn(true);
+		assertEquals(true, AdminVotePerms.hasEffectivePermission(sender,
+				"VotingPlugin.Commands.AdminVote.Edit.Config"));
 	}
 }
