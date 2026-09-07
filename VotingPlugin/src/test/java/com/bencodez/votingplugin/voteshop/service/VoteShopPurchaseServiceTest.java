@@ -18,7 +18,8 @@ class VoteShopPurchaseServiceTest {
 
 	@Test
 	void concurrentDebitsCannotSpendTheSameBalanceTwice() throws InterruptedException {
-		VoteShopPurchaseService service = new VoteShopPurchaseService(null, null);
+		VoteShopPurchaseService firstService = new VoteShopPurchaseService(null, null);
+		VoteShopPurchaseService reloadedService = new VoteShopPurchaseService(null, null);
 		VotingPluginUser firstWrapper = mock(VotingPluginUser.class);
 		VotingPluginUser secondWrapper = mock(VotingPluginUser.class);
 		VoteShopItem item = mock(VoteShopItem.class);
@@ -44,8 +45,8 @@ class VoteShopPurchaseServiceTest {
 		CountDownLatch start = new CountDownLatch(1);
 		AtomicReference<VoteShopPurchaseResult> first = new AtomicReference<>();
 		AtomicReference<VoteShopPurchaseResult> second = new AtomicReference<>();
-		Thread one = new Thread(() -> runDebit(service, firstWrapper, item, start, first));
-		Thread two = new Thread(() -> runDebit(service, secondWrapper, item, start, second));
+		Thread one = new Thread(() -> runDebit(firstService, firstWrapper, item, start, first));
+		Thread two = new Thread(() -> runDebit(reloadedService, secondWrapper, item, start, second));
 		one.start();
 		two.start();
 		start.countDown();
