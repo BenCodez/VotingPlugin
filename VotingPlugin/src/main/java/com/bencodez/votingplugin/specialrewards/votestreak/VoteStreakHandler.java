@@ -132,9 +132,31 @@ public class VoteStreakHandler {
 		}
 	}
 
+	private int getLegacyBestStreakProgress(VotingPluginUser user, VoteStreakType type) {
+		switch (type) {
+		case DAILY:
+			return Math.max(0, user.getBestDayVoteStreak());
+		case WEEKLY:
+			return Math.max(0, user.getBestWeekVoteStreak());
+		case MONTHLY:
+			return Math.max(0, user.getBestMonthVoteStreak());
+		default:
+			return 0;
+		}
+	}
+
+	private void migrateLegacyBestProgressIfNeeded(VotingPluginUser user, VoteStreakDefinition def,
+			StreakState state) {
+		if (state.hasBestStreakCount) {
+			return;
+		}
+		state.bestStreakCount = Math.max(state.streakCount, getLegacyBestStreakProgress(user, def.getType()));
+		state.hasBestStreakCount = true;
+	}
+
 	private void migrateLegacyProgressIfNeeded(VotingPluginUser user, VoteStreakDefinition def, StreakState state,
 			String currentPeriodKey) {
-		if (state.periodKey != null && !state.periodKey.isEmpty()) {
+		if (state.hasBestStreakCount || state.periodKey != null && !state.periodKey.isEmpty()) {
 			return;
 		}
 		int legacyProgress = getLegacyStreakProgress(user, def.getType());
@@ -173,6 +195,7 @@ public class VoteStreakHandler {
 
 		final String currentPeriodKey = periodKey(progressDef.getType(), voteTimeMillis);
 		migrateLegacyProgressIfNeeded(user, progressDef, state, currentPeriodKey);
+		migrateLegacyBestProgressIfNeeded(user, progressDef, state);
 
 		plugin.extraDebug("[VoteStreak] def=" + progressDef.getId() + " idKey=" + progressDef.getId() + " type="
 				+ progressDef.getType() + " col=" + col + " progressGroup=" + progressDef.getProgressGroup()
@@ -211,6 +234,7 @@ public class VoteStreakHandler {
 			if (state.votesThisPeriod >= votesRequired) {
 				state.countedThisPeriod = true;
 				state.streakCount++;
+				state.recordBestStreakCount();
 
 				for (VoteStreakDefinition def : defs) {
 					int interval = Math.max(1, def.getRequiredAmount());
@@ -548,6 +572,16 @@ public class VoteStreakHandler {
 		return definition;
 	}
 
+	private VoteStreakDefinition getReadableStateDefinition(String target) {
+		if (target == null || target.trim().isEmpty()) {
+			return null;
+		}
+
+		String normalized = target.trim().toLowerCase(Locale.ROOT);
+		VoteStreakDefinition definition = byProgressGroup.get(normalized);
+		return definition == null ? getDefinition(normalized) : definition;
+	}
+
 	/**
 	 * Gets every definition sharing the state identified by a vote streak ID or
 	 * progress group.
@@ -581,20 +615,30 @@ public class VoteStreakHandler {
 	 * @return current streak amount, or -1 when the user or target is invalid
 	 */
 	public int getVoteStreakAmount(VotingPluginUser user, String target) {
-		if (user == null || target == null || target.trim().isEmpty()) {
-			return -1;
-		}
-
-		String normalized = target.trim().toLowerCase(Locale.ROOT);
-		VoteStreakDefinition definition = byProgressGroup.get(normalized);
-		if (definition == null) {
-			definition = getDefinition(normalized);
-		}
-		if (definition == null) {
+		VoteStreakDefinition definition = getReadableStateDefinition(target);
+		if (user == null || definition == null) {
 			return -1;
 		}
 
 		return readState(user, definition).streakCount;
+	}
+
+	/**
+	 * Gets the highest amount reached for a configured vote streak or progress
+	 * group. Milestone IDs belonging to a progress group return that group's shared
+	 * best amount.
+	 *
+	 * @param user   voting plugin user
+	 * @param target standalone streak ID, milestone ID, or progress group ID
+	 * @return best streak amount, or -1 when the user or target is invalid
+	 */
+	public int getVoteStreakBestAmount(VotingPluginUser user, String target) {
+		VoteStreakDefinition definition = getReadableStateDefinition(target);
+		if (user == null || definition == null) {
+			return -1;
+		}
+
+		return readState(user, definition).bestStreakCount;
 	}
 
 	/**
@@ -627,6 +671,7 @@ public class VoteStreakHandler {
 
 		for (int i = 0; i < amount; i++) {
 			state.streakCount++;
+			state.recordBestStreakCount();
 			for (VoteStreakDefinition definition : definitions) {
 				if (!definition.isEnabled() || !shouldReward(definition, state, sharedProgress)) {
 					continue;
@@ -658,6 +703,7 @@ public class VoteStreakHandler {
 
 		StreakState state = readState(user, definition);
 		state.streakCount = Math.max(0, amount);
+		state.recordBestStreakCount();
 		writeState(user, definition, state);
 		return true;
 	}
@@ -678,6 +724,7 @@ public class VoteStreakHandler {
 
 		StreakState state = readState(user, definition);
 		state.streakCount = Math.max(0, state.streakCount + amount);
+		state.recordBestStreakCount();
 		writeState(user, definition, state);
 		return state.streakCount;
 	}
@@ -802,6 +849,7 @@ public class VoteStreakHandler {
 				+ (definition.getProgressGroup().isEmpty() ? "none" : definition.getProgressGroup()));
 		status.add("Period: " + (state.periodKey.isEmpty() ? "not initialized" : state.periodKey));
 		status.add("Streak amount: " + state.streakCount);
+		status.add("Best streak amount: " + state.bestStreakCount);
 		status.add("Votes this period: " + state.votesThisPeriod + "/" + definition.getVotesRequired());
 		status.add("Period satisfied: " + state.countedThisPeriod);
 		status.add("Misses used: " + state.missesUsed);
@@ -846,7 +894,7 @@ public class VoteStreakHandler {
 		Set<String> resetColumns = new LinkedHashSet<>();
 		for (VoteStreakDefinition def : ordered) {
 			if (resetColumns.add(getColumnName(def))) {
-				writeStateString(user, getColumnName(def), "");
+				writeStateString(user, getColumnName(def), new StreakState().serialize());
 				reset++;
 			}
 		}
@@ -862,7 +910,7 @@ public class VoteStreakHandler {
 		Set<String> resetColumns = new LinkedHashSet<>();
 		for (VoteStreakDefinition def : ordered) {
 			if (def.getType() == type && resetColumns.add(getColumnName(def))) {
-				writeStateString(user, getColumnName(def), "");
+				writeStateString(user, getColumnName(def), new StreakState().serialize());
 				reset++;
 			}
 		}
@@ -877,7 +925,7 @@ public class VoteStreakHandler {
 		String target = id.trim().toLowerCase(Locale.ROOT);
 		VoteStreakDefinition progressGroup = byProgressGroup.get(target);
 		if (progressGroup != null) {
-			writeStateString(user, getColumnName(progressGroup), "");
+			writeStateString(user, getColumnName(progressGroup), new StreakState().serialize());
 			return true;
 		}
 
@@ -889,7 +937,7 @@ public class VoteStreakHandler {
 			return false;
 		}
 
-		writeStateString(user, getColumnName(def), "");
+		writeStateString(user, getColumnName(def), new StreakState().serialize());
 		return true;
 	}
 
@@ -937,7 +985,9 @@ public class VoteStreakHandler {
 
 	public StreakState readState(VotingPluginUser user, VoteStreakDefinition def) {
 		String raw = readStateString(user, getColumnName(def));
-		return StreakState.deserialize(raw);
+		StreakState state = StreakState.deserialize(raw);
+		migrateLegacyBestProgressIfNeeded(user, def, state);
+		return state;
 	}
 
 	public void writeState(VotingPluginUser user, VoteStreakDefinition def, StreakState state) {
@@ -976,12 +1026,15 @@ public class VoteStreakHandler {
 		String missWindowStartKey = "";
 		int missesUsed = 0;
 		Set<String> rewardedDefinitions = new LinkedHashSet<>();
+		int bestStreakCount = 0;
+		boolean hasBestStreakCount = false;
 
 		String serialize() {
+			recordBestStreakCount();
 			String base = safe(periodKey) + "|" + streakCount + "|" + votesThisPeriod + "|" + countedThisPeriod + "|"
 					+ safe(missWindowStartKey) + "|" + missesUsed;
 			String rewarded = serializeRewardedDefinitions();
-			return rewarded.isEmpty() ? base : base + "|" + rewarded;
+			return base + "|" + rewarded + "|" + bestStreakCount;
 		}
 
 		static StreakState deserialize(String raw) {
@@ -1028,6 +1081,11 @@ public class VoteStreakHandler {
 				}
 			}
 
+			if (p.length > 7) {
+				s.bestStreakCount = parseInt(p[7], 0);
+				s.hasBestStreakCount = true;
+			}
+
 			if (s.periodKey == null)
 				s.periodKey = "";
 			if (s.missWindowStartKey == null)
@@ -1038,6 +1096,8 @@ public class VoteStreakHandler {
 				s.votesThisPeriod = 0;
 			if (s.missesUsed < 0)
 				s.missesUsed = 0;
+			if (s.bestStreakCount < 0)
+				s.bestStreakCount = 0;
 
 			return s;
 		}
@@ -1048,6 +1108,11 @@ public class VoteStreakHandler {
 
 		void markRewarded(VoteStreakDefinition def) {
 			rewardedDefinitions.add(def.getId().toLowerCase(Locale.ROOT));
+		}
+
+		void recordBestStreakCount() {
+			bestStreakCount = Math.max(bestStreakCount, streakCount);
+			hasBestStreakCount = true;
 		}
 
 		private String serializeRewardedDefinitions() {
