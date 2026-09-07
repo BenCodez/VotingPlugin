@@ -330,6 +330,12 @@
             <scope>compile</scope>
         </dependency>
         <dependency>
+            <groupId>com.bencodez</groupId>
+            <artifactId>simpleapi</artifactId>
+            <version>1.0.2-SNAPSHOT</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
             <version>5.12.2</version>
