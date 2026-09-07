@@ -526,6 +526,7 @@ public final class ControlConnector implements AutoCloseable {
 		synchronized (operationLifecycle) {
 			result = completedTasks.get(operationId);
 		}
+		if (result != null && !capabilityAccepted(result)) return CompletableFuture.completedFuture(null);
 		if (result != null) {
 			if (!result.committed() && !result.claimRequired()) {
 				result = committedIfInstalled(result, requireString(task, "attemptId"));

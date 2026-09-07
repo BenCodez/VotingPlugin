@@ -557,7 +557,11 @@ class ControlConnectorTest {
 		results.put(UUID.fromString("00000000-0000-0000-0000-000000000099"),
 				new StoredResult(result, true, false));
 		transport.acceptConfiguration = true;
-		transport.operationClaim = CompletableFuture.completedFuture(new Response(204, ""));
+		transport.operationClaim = CompletableFuture.completedFuture(new Response(200,
+				"{\"operationId\":\"00000000-0000-0000-0000-000000000099\","
+						+ "\"attemptId\":\"00000000-0000-0000-0000-000000000299\","
+						+ "\"type\":\"READ\",\"configuration\":{\"domain\":\"file\","
+						+ "\"fileName\":\"bungeeconfig.yml\"}}"));
 
 		connector.cycle();
 
