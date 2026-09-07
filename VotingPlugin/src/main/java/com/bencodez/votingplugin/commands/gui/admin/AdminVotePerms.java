@@ -15,6 +15,7 @@ import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.commands.AdminAuthorization;
 
 /**
  * Admin permissions GUI handler.
@@ -263,8 +264,11 @@ public class AdminVotePerms extends GUIHandler {
 
 	static ArrayList<String> additionalPermissions(CommandHandler handle) {
 		ArrayList<String> permissions = new ArrayList<>();
-		if (handle instanceof PlayerCommandHandler && handle.getPerm() != null && !handle.getPerm().isEmpty()) {
-			permissions.add(handle.getPerm().split(Pattern.quote("|"))[0] + ".All");
+		if (handle instanceof PlayerCommandHandler && handle.getPerm() != null) {
+			String primary = handle.getPerm().split(Pattern.quote("|"))[0];
+			if ("VotingPlugin.Commands.AdminVote.RemovePoints".equals(primary)) {
+				permissions.add(primary + ".All");
+			}
 		}
 		return permissions;
 	}
@@ -272,7 +276,9 @@ public class AdminVotePerms extends GUIHandler {
 	private static void addAdditionalPermissions(ArrayList<String> output, CommandSender sender, CommandHandler handle) {
 		for (String permission : additionalPermissions(handle)) {
 			if (sender instanceof Player) {
-				output.add("&6" + permission + (sender.hasPermission(permission) ? " : &atrue" : " : &cfalse"));
+				boolean allowed = "VotingPlugin.Commands.AdminVote.RemovePoints.All".equals(permission)
+						? AdminAuthorization.canRemovePointsFromAll(sender) : sender.hasPermission(permission);
+				output.add("&6" + permission + (allowed ? " : &atrue" : " : &cfalse"));
 			} else {
 				output.add(permission);
 			}
