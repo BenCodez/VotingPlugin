@@ -526,10 +526,12 @@ public final class ControlConnector implements AutoCloseable {
 			result = completedTasks.get(operationId);
 		}
 		if (result != null) {
-			if (!result.committed() && !result.claimRequired() && !anticipatedResultIsInstalled(result)) {
-				result = null;
+			if (!result.committed() && !result.claimRequired()) {
+				result = committedIfInstalled(result, requireString(task, "attemptId"));
 			} else {
 				result = committedForAttempt(result, requireString(task, "attemptId"));
+			}
+			if (result != null) {
 				synchronized (operationLifecycle) { completedTasks.put(operationId, result); }
 				persistCompleted();
 			}
@@ -668,9 +670,9 @@ public final class ControlConnector implements AutoCloseable {
 		for (Map.Entry<UUID, StoredResult> entry : snapshot.entrySet()) {
 			StoredResult pending = entry.getValue();
 			if (pending.committed() || pending.claimRequired()) continue;
-			StoredResult recovered = anticipatedResultIsInstalled(pending)
-					? committedForAttempt(pending, requireString(pending.result(), "attemptId"))
-					: abortedIntent(pending);
+			StoredResult recovered = committedIfInstalled(pending,
+					requireString(pending.result(), "attemptId"));
+			if (recovered == null) recovered = abortedIntent(pending);
 			synchronized (operationLifecycle) {
 				if (completedTasks.get(entry.getKey()) == pending) {
 					completedTasks.put(entry.getKey(), recovered);
@@ -698,23 +700,29 @@ public final class ControlConnector implements AutoCloseable {
 		return new StoredResult(result, true, false);
 	}
 
-	private boolean anticipatedResultIsInstalled(StoredResult pending) {
+	private StoredResult committedIfInstalled(StoredResult pending, String attemptId) {
 		JsonObject result = pending.result();
-		if (!result.has("revision")) return false;
+		if (!result.has("revision")) return null;
 		JsonObject configuration = result.getAsJsonObject("configuration");
 		if (configuration != null && isProxyMethod(configuration) && methodConfigurationService != null) {
-			return result.get("revision").getAsString().equals(methodConfigurationService.read().revision());
+			return result.get("revision").getAsString().equals(methodConfigurationService.read().revision())
+					? committedForAttempt(pending, attemptId) : null;
 		}
 		if (isProxyFile(configuration) && fileConfigurationService != null) {
 			try {
-				return result.get("revision").getAsString().equals(
-						fileConfigurationService.read(requireString(configuration, "fileName")).revision());
+				ProxyConfigurationFileService.Document installed = fileConfigurationService.read(
+						requireString(configuration, "fileName"));
+				if (!result.get("revision").getAsString().equals(installed.revision())) return null;
+				StoredResult committed = committedForAttempt(pending, attemptId);
+				committed.result().getAsJsonObject("configuration").addProperty("content", installed.content());
+				return committed;
 			} catch (IOException failure) {
-				return false;
+				return null;
 			}
 		}
 		return configurationService != null
-				&& result.get("revision").getAsString().equals(configurationService.read().revision());
+				&& result.get("revision").getAsString().equals(configurationService.read().revision())
+				? committedForAttempt(pending, attemptId) : null;
 	}
 
 	private static StoredResult committedForAttempt(StoredResult pending, String attemptId) {

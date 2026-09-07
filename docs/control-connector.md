@@ -143,10 +143,11 @@ Proxy discovery-connector timing bounds are intentional:
 
 - heartbeat: 10–300 seconds;
 - connect/request timeout: 500–30,000 milliseconds;
-- response body: at most 64 KiB;
+- response body: at most 4 MiB, including bounded managed-file/configuration operation results;
 - backend snapshot: at most 4096 entries.
 
-Do not raise these by patching around validation; correct the topology or connectivity problem instead.
+Do not raise these by patching around validation; correct the topology or connectivity problem instead. The larger
+response envelope remains bounded and exists so the proxy connector can receive managed-file operations.
 
 ### Bukkit full-configuration enrollment
 

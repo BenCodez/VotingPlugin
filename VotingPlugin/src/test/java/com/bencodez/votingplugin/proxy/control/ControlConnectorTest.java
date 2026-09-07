@@ -483,6 +483,34 @@ class ControlConnectorTest {
 		assertEquals(0, completedTaskCount());
 	}
 
+	@Test void recoveredProxyFileIntentRebuildsMaskedContent() throws Exception {
+		Path file = dataDirectory.resolve(ProxyConfigurationFileService.FILE_NAME);
+		Files.writeString(file, "Database:\n  Password: local-secret\nProxy:\n  Enabled: false\n");
+		ProxyConfigurationFileService service = new ProxyConfigurationFileService(file,
+				ControlConnectorTest::atomicMove);
+		connector.close();
+		connector = fileConnector(service);
+		ProxyConfigurationFileService.Document installed = service.read(ProxyConfigurationFileService.FILE_NAME);
+		Method fileIntent = taskResultClass().getDeclaredMethod("fileIntent", String.class, String.class, List.class);
+		fileIntent.setAccessible(true);
+		Object intent = fileIntent.invoke(null, ProxyConfigurationFileService.FILE_NAME, installed.revision(),
+				List.of("changed Proxy.Enabled"));
+		Method persistIntent = ControlConnector.class.getDeclaredMethod("persistIntent", UUID.class,
+				taskResultClass(), String.class);
+		persistIntent.setAccessible(true);
+		persistIntent.invoke(connector, UUID.fromString("00000000-0000-0000-0000-000000000099"), intent,
+				"00000000-0000-0000-0000-000000000199");
+		Method prepare = ControlConnector.class.getDeclaredMethod("prepareWriteAheadIntents");
+		prepare.setAccessible(true);
+		prepare.invoke(connector);
+
+		StoredResult recovered = ProxyControlResultStore.load(dataDirectory).results().values().iterator().next();
+		assertTrue(recovered.committed());
+		String content = recovered.result().getAsJsonObject("configuration").get("content").getAsString();
+		assertEquals(installed.content(), content);
+		assertFalse(content.contains("local-secret"));
+	}
+
 	@Test void lostResultResponseIsResubmittedBeforeAnotherOperationClaim() {
 		connector.close();
 		ProxyRoutingConfiguration current = new ProxyRoutingConfiguration(false, List.of());
