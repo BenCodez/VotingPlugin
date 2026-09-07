@@ -22,6 +22,7 @@ class ServiceSiteHandlerLimitsTest {
 
 	@Test
 	void rejectsOversizedRemoteEntries() {
+		assertTrue(ServiceSiteHandler.isSafeEntry("Example", "x".repeat(ServiceSiteHandler.MAX_VALUE_LENGTH)));
 		assertFalse(ServiceSiteHandler.isSafeEntry("x".repeat(ServiceSiteHandler.MAX_KEY_LENGTH + 1), "example.com"));
 		assertFalse(ServiceSiteHandler.isSafeEntry("Example", "x".repeat(ServiceSiteHandler.MAX_VALUE_LENGTH + 1)));
 	}
