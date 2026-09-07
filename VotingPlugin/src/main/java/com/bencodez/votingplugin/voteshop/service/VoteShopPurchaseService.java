@@ -22,6 +22,8 @@ import lombok.Setter;
 @Getter
 @Setter
 public class VoteShopPurchaseService {
+	private static final int PURCHASE_LOCK_STRIPES = 256;
+	private final Object[] purchaseLocks = createPurchaseLocks();
 
 	private VoteShopDefinition definition;
 
@@ -113,11 +115,11 @@ public class VoteShopPurchaseService {
 	}
 
 	VoteShopPurchaseResult debitForPurchase(VotingPluginUser user, VoteShopItem item) {
-		synchronized (user) {
+		synchronized (purchaseLock(user.getUUID())) {
 			if (item.getLimit() > 0 && user.getVoteShopIdentifierLimit(item.getIdentifier()) >= item.getLimit()) {
 				return VoteShopPurchaseResult.LIMIT_REACHED;
 			}
-			if (!user.removePoints(item.getCost())) {
+			if (!user.removePoints(item.getCost(), true)) {
 				return VoteShopPurchaseResult.NOT_ENOUGH_POINTS;
 			}
 			if (item.getLimit() > 0) {
@@ -126,6 +128,18 @@ public class VoteShopPurchaseService {
 			}
 			return VoteShopPurchaseResult.SUCCESS;
 		}
+	}
+
+	private Object purchaseLock(String uuid) {
+		return purchaseLocks[(uuid == null ? 0 : uuid.hashCode()) & (PURCHASE_LOCK_STRIPES - 1)];
+	}
+
+	private static Object[] createPurchaseLocks() {
+		Object[] locks = new Object[PURCHASE_LOCK_STRIPES];
+		for (int i = 0; i < locks.length; i++) {
+			locks[i] = new Object();
+		}
+		return locks;
 	}
 
 	/**
