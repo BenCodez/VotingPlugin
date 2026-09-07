@@ -10,6 +10,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.permissions.Permission;
 
 import com.bencodez.advancedcore.api.command.CommandHandler;
+import com.bencodez.advancedcore.api.command.PlayerCommandHandler;
 import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
 import com.bencodez.simpleapi.array.ArrayUtils;
@@ -83,6 +84,7 @@ public class AdminVotePerms extends GUIHandler {
 			} else {
 				msg.add(handle.getHelpLineCommand("/vote") + " : " + handle.getPerm().split(Pattern.quote("|"))[0]);
 			}
+			addAdditionalPermissions(msg, sender, handle);
 
 		}
 
@@ -98,6 +100,7 @@ public class AdminVotePerms extends GUIHandler {
 			} else {
 				msg.add(handle.getHelpLineCommand("/av") + " : " + handle.getPerm().split(Pattern.quote("|"))[0]);
 			}
+			addAdditionalPermissions(msg, sender, handle);
 		}
 
 		for (Permission perm : plugin.getDescription().getPermissions()) {
@@ -165,6 +168,7 @@ public class AdminVotePerms extends GUIHandler {
 					msg.add("&6" + handle.getHelpLineCommand("/vote") + " : "
 							+ handle.getPerm().split(Pattern.quote("|"))[0] + " : &cfalse");
 				}
+				addAdditionalPermissions(msg, p, handle);
 
 			}
 
@@ -176,6 +180,7 @@ public class AdminVotePerms extends GUIHandler {
 					msg.add("&6" + handle.getHelpLineCommand("/av") + " : "
 							+ handle.getPerm().split(Pattern.quote("|"))[0] + " : &cfalse");
 				}
+				addAdditionalPermissions(msg, p, handle);
 			}
 
 			for (Permission perm : plugin.getDescription().getPermissions()) {
@@ -233,12 +238,18 @@ public class AdminVotePerms extends GUIHandler {
 			msg.add(handle.getHelpLineCommand("/vote"));
 			msg.add("  " + handle.getPerm());
 			msg.add("  " + handle.getHelpMessage());
+			for (String permission : additionalPermissions(handle)) {
+				msg.add("  " + permission);
+			}
 		}
 
 		for (CommandHandler handle : plugin.getAdminVoteCommand()) {
 			msg.add(handle.getHelpLineCommand("/av"));
 			msg.add("  " + handle.getPerm());
 			msg.add("  " + handle.getHelpMessage());
+			for (String permission : additionalPermissions(handle)) {
+				msg.add("  " + permission);
+			}
 		}
 
 		for (Permission perm : plugin.getDescription().getPermissions()) {
@@ -248,6 +259,24 @@ public class AdminVotePerms extends GUIHandler {
 		msg = ArrayUtils.colorize(msg);
 
 		return ArrayUtils.convert(msg);
+	}
+
+	static ArrayList<String> additionalPermissions(CommandHandler handle) {
+		ArrayList<String> permissions = new ArrayList<>();
+		if (handle instanceof PlayerCommandHandler && handle.getPerm() != null && !handle.getPerm().isEmpty()) {
+			permissions.add(handle.getPerm().split(Pattern.quote("|"))[0] + ".All");
+		}
+		return permissions;
+	}
+
+	private static void addAdditionalPermissions(ArrayList<String> output, CommandSender sender, CommandHandler handle) {
+		for (String permission : additionalPermissions(handle)) {
+			if (sender instanceof Player) {
+				output.add("&6" + permission + (sender.hasPermission(permission) ? " : &atrue" : " : &cfalse"));
+			} else {
+				output.add(permission);
+			}
+		}
 	}
 
 	@Override
