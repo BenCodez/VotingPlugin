@@ -14,6 +14,10 @@ public final class AdminAuthorization {
 		return sender.hasPermission(REMOVE_POINTS_ALL_PERMISSION) || sender.hasPermission(ADMIN_PERMISSION);
 	}
 
+	public static boolean canAddPointsToAll(CommandSender sender, int amount) {
+		return amount >= 0 || canRemovePointsFromAll(sender);
+	}
+
 	public static boolean canEditConfig(CommandSender sender, String permission) {
 		return sender.hasPermission(permission) || sender.hasPermission(ADMIN_PERMISSION);
 	}
