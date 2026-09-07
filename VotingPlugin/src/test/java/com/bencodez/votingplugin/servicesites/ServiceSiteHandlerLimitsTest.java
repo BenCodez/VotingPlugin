@@ -6,6 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.http.HttpResponse;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import org.junit.jupiter.api.Test;
 
@@ -27,5 +31,22 @@ class ServiceSiteHandlerLimitsTest {
 		assertTrue(ServiceSiteHandler.readBounded(new ByteArrayInputStream(allowed), 32).length == 32);
 		assertThrows(IOException.class,
 				() -> ServiceSiteHandler.readBounded(new ByteArrayInputStream(new byte[33]), 32));
+	}
+
+	@Test
+	void closesErrorResponseStream() {
+		class TrackingStream extends ByteArrayInputStream {
+			boolean closed;
+			TrackingStream() { super(new byte[] { 1 }); }
+			@Override public void close() throws IOException { closed = true; super.close(); }
+		}
+		TrackingStream stream = new TrackingStream();
+		@SuppressWarnings("unchecked")
+		HttpResponse<InputStream> response = mock(HttpResponse.class);
+		when(response.body()).thenReturn(stream);
+		when(response.statusCode()).thenReturn(500);
+
+		assertThrows(IOException.class, () -> ServiceSiteHandler.readSuccessfulResponse(response));
+		assertTrue(stream.closed);
 	}
 }
