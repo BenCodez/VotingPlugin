@@ -512,6 +512,29 @@ class ControlConnectorTest {
 		assertFalse(content.contains("local-secret"));
 	}
 
+	@Test void malformedRecoveredProxyFileIntentIsAborted() throws Exception {
+		connector.close();
+		connector = fileConnector(new ProxyConfigurationFileService(
+				dataDirectory.resolve(ProxyConfigurationFileService.FILE_NAME), ControlConnectorTest::atomicMove));
+		Method fileIntent = taskResultClass().getDeclaredMethod("fileIntent", String.class, String.class, List.class);
+		fileIntent.setAccessible(true);
+		Object intent = fileIntent.invoke(null, "not-managed.yml", "anticipated-revision", List.of("changed"));
+		Method persistIntent = ControlConnector.class.getDeclaredMethod("persistIntent", UUID.class,
+				taskResultClass(), String.class);
+		persistIntent.setAccessible(true);
+		UUID operationId = UUID.fromString("00000000-0000-0000-0000-000000000099");
+		persistIntent.invoke(connector, operationId, intent, "00000000-0000-0000-0000-000000000199");
+
+		Method prepare = ControlConnector.class.getDeclaredMethod("prepareWriteAheadIntents");
+		prepare.setAccessible(true);
+		prepare.invoke(connector);
+
+		StoredResult recovered = ProxyControlResultStore.load(dataDirectory).results().get(operationId);
+		assertNotNull(recovered);
+		assertTrue(recovered.committed());
+		assertEquals("RECOVERY_ABORTED", recovered.result().get("code").getAsString());
+	}
+
 	@Test void lostResultResponseIsResubmittedBeforeAnotherOperationClaim() {
 		connector.close();
 		ProxyRoutingConfiguration current = new ProxyRoutingConfiguration(false, List.of());

@@ -735,7 +735,7 @@ public final class ControlConnector implements AutoCloseable {
 				StoredResult committed = committedForAttempt(pending, attemptId);
 				committed.result().getAsJsonObject("configuration").addProperty("content", installed.content());
 				return committed;
-			} catch (IOException failure) {
+			} catch (IOException | RuntimeException failure) {
 				return null;
 			}
 		}
