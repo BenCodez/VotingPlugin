@@ -108,13 +108,13 @@ public class AdminVotePerms extends GUIHandler {
 			if (sender instanceof Player) {
 				Set<String> child = perm.getChildren().keySet();
 				if (child.size() > 0) {
-					if (sender.hasPermission(perm)) {
+					if (hasEffectivePermission(sender, perm.getName())) {
 						msg.add("&6" + perm.getName() + " : &atrue");
 					} else {
 						msg.add("&6" + perm.getName() + " : &cfalse");
 					}
 				} else {
-					if (sender.hasPermission(perm)) {
+					if (hasEffectivePermission(sender, perm.getName())) {
 						msg.add("&6" + perm.getName() + " : &atrue");
 					} else {
 						msg.add("&6" + perm.getName() + " : &cfalse");
@@ -187,13 +187,13 @@ public class AdminVotePerms extends GUIHandler {
 			for (Permission perm : plugin.getDescription().getPermissions()) {
 				Set<String> child = perm.getChildren().keySet();
 				if (child.size() > 0) {
-					if (p.hasPermission(perm)) {
+					if (hasEffectivePermission(p, perm.getName())) {
 						msg.add("&6" + perm.getName() + " : &atrue");
 					} else {
 						msg.add("&6" + perm.getName() + " : &cfalse");
 					}
 				} else {
-					if (p.hasPermission(perm)) {
+					if (hasEffectivePermission(p, perm.getName())) {
 						msg.add("&6" + perm.getName() + " : &atrue");
 					} else {
 						msg.add("&6" + perm.getName() + " : &cfalse");
@@ -271,6 +271,13 @@ public class AdminVotePerms extends GUIHandler {
 			}
 		}
 		return permissions;
+	}
+
+	static boolean hasEffectivePermission(CommandSender sender, String permission) {
+		if (permission.startsWith("VotingPlugin.Commands.AdminVote.Edit.")) {
+			return AdminAuthorization.canEditConfig(sender, permission);
+		}
+		return sender.hasPermission(permission);
 	}
 
 	private static void addAdditionalPermissions(ArrayList<String> output, CommandSender sender, CommandHandler handle) {
