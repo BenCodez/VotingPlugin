@@ -3307,7 +3307,10 @@ public abstract class VotingPluginProxy {
 		try {
 			getScheduler().schedule(() -> {
 				synchronized (VotingPluginProxy.this) { votePartyDeliveryRetryScheduled = false; }
-				if (retryPendingVotePartyProxyEffects() && method == BungeeMethod.HTTP) retryPendingVotePartyRewards();
+				if (retryPendingVotePartyProxyEffects()) {
+					if (method == BungeeMethod.HTTP) retryPendingVotePartyRewards();
+					if (votePartyVotes >= currentVotePartyVotesRequired) checkVoteParty();
+				}
 			}, 5, TimeUnit.SECONDS);
 		} catch (RuntimeException failure) {
 			votePartyDeliveryRetryScheduled = false;

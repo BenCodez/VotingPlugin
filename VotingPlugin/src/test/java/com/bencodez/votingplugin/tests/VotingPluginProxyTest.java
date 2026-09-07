@@ -150,6 +150,27 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void scheduledVotePartyEffectRetryProcessesAnotherReachedThreshold() {
+		configureHttpVotePartyEffects("Party time", java.util.List.of());
+		java.util.concurrent.ScheduledExecutorService scheduler = Mockito
+				.mock(java.util.concurrent.ScheduledExecutorService.class);
+		votingPluginProxy.setSchedulerForTest(scheduler);
+		votingPluginProxy.failNextBroadcast();
+
+		votingPluginProxy.checkVoteParty();
+		votingPluginProxy.setVotePartyVotes(1);
+		org.mockito.ArgumentCaptor<Runnable> retry = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+		verify(scheduler).schedule(retry.capture(), Mockito.eq(5L),
+				Mockito.eq(java.util.concurrent.TimeUnit.SECONDS));
+
+		retry.getValue().run();
+
+		assertEquals(java.util.List.of("Party time", "Party time"), votingPluginProxy.getBroadcasts());
+		assertEquals(0, votingPluginProxy.getVotePartyVotes());
+		assertTrue(votingPluginProxy.getVoteCachePendingVotePartyProxyEffects().isEmpty());
+	}
+
+	@Test
 	void httpVotePartyRestoresExecutedEffectWhenProgressIsNotDurable() {
 		configureHttpVotePartyEffects("Party time", java.util.List.of("reward all"));
 		votingPluginProxy.failSaveAfterNextBroadcast();
