@@ -61,6 +61,7 @@ public final class ControlConnector implements AutoCloseable {
 	private static final String PROXY_FILE_CAPABILITY = "config.proxy-files.v1";
 	private static final String PROXY_METHOD_PRESET = "proxy-method";
 	private static final String INTERNAL_OPERATION_TYPE = "_controlOperationType";
+	private static final String INTERNAL_REQUIRED_CAPABILITY = "_controlRequiredCapability";
 	private static final long OPERATION_POLL_MILLIS = 1000;
 	private static final long MAX_BACKOFF_MILLIS = TimeUnit.MINUTES.toMillis(5);
 	private static final long OPERATION_SHUTDOWN_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(65);
@@ -541,6 +542,8 @@ public final class ControlConnector implements AutoCloseable {
 				JsonObject resultJson = executed.json();
 				resultJson.addProperty("attemptId", requireString(task, "attemptId"));
 				resultJson.addProperty(INTERNAL_OPERATION_TYPE, requireString(task, "type"));
+				resultJson.addProperty(INTERNAL_REQUIRED_CAPABILITY,
+						requiredCapability(task.getAsJsonObject("configuration")));
 				StoredResult completed = new StoredResult(resultJson, true, false);
 				synchronized (operationLifecycle) { completedTasks.put(operationId, completed); }
 				persistCompleted();
@@ -553,14 +556,15 @@ public final class ControlConnector implements AutoCloseable {
 	private boolean hasCompletedTask() {
 		prepareWriteAheadIntents();
 		synchronized (operationLifecycle) {
-			return completedTasks.values().stream().anyMatch(StoredResult::committed);
+			return completedTasks.values().stream().anyMatch(result -> result.committed() && capabilityAccepted(result));
 		}
 	}
 
 	private CompletableFuture<Void> submitCompletedResult() {
 		Map.Entry<UUID, StoredResult> pending;
 		synchronized (operationLifecycle) {
-			pending = completedTasks.entrySet().stream().filter(entry -> entry.getValue().committed())
+			pending = completedTasks.entrySet().stream()
+					.filter(entry -> entry.getValue().committed() && capabilityAccepted(entry.getValue()))
 					.findFirst().orElse(null);
 		}
 		if (pending == null) return CompletableFuture.completedFuture(null);
@@ -905,6 +909,21 @@ public final class ControlConnector implements AutoCloseable {
 				&& "file".equals(requested.get("domain").getAsString());
 	}
 
+	private boolean capabilityAccepted(StoredResult result) {
+		JsonObject body = result.result();
+		String required = body.has(INTERNAL_REQUIRED_CAPABILITY)
+				? body.get(INTERNAL_REQUIRED_CAPABILITY).getAsString()
+				: requiredCapability(body.getAsJsonObject("configuration"));
+		return acceptedCapabilities.contains(required);
+	}
+
+	private static String requiredCapability(JsonObject configuration) {
+		if (isProxyFile(configuration)) return PROXY_FILE_CAPABILITY;
+		if (isCommunicationTest(configuration)) return COMMUNICATION_TEST_CAPABILITY;
+		if (isProxyMethod(configuration)) return PROXY_METHOD_CAPABILITY;
+		return CONFIGURATION_CAPABILITY;
+	}
+
 	private static CompletableFuture<TaskResult> completed(TaskResult result) {
 		return CompletableFuture.completedFuture(result);
 	}
@@ -921,6 +940,7 @@ public final class ControlConnector implements AutoCloseable {
 	private Request resultRequest(UUID operationId, StoredResult result) {
 		JsonObject body = result.result().deepCopy();
 		body.remove(INTERNAL_OPERATION_TYPE);
+		body.remove(INTERNAL_REQUIRED_CAPABILITY);
 		body.addProperty("sessionId", sessionId.toString());
 		return new Request("POST", "/api/v1/nodes/" + settings.nodeId() + "/operations/" + operationId
 				+ "/result", body.toString());

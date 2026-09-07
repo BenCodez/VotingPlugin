@@ -19,6 +19,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -534,6 +535,43 @@ class ControlConnectorTest {
 
 		assertEquals(2, transport.requests.stream().filter(request -> request.path().endsWith("/result")).count());
 		assertEquals(1, transport.requests.stream().filter(request -> request.path().endsWith("/operations")).count());
+	}
+
+	@Test void recoveredProxyFileResultWaitsForItsCapabilityWithoutBlockingClaims() throws Exception {
+		Path file = dataDirectory.resolve(ProxyConfigurationFileService.FILE_NAME);
+		Files.writeString(file, "Proxy:\n  Enabled: false\n");
+		connector.close();
+		connector = fileConnector(new ProxyConfigurationFileService(file, ControlConnectorTest::atomicMove));
+		JsonObject result = new JsonObject();
+		result.addProperty("success", true);
+		result.addProperty("attemptId", "00000000-0000-0000-0000-000000000199");
+		JsonObject configuration = new JsonObject();
+		configuration.addProperty("domain", "file");
+		configuration.addProperty("fileName", ProxyConfigurationFileService.FILE_NAME);
+		configuration.addProperty("content", "Proxy:\n  Enabled: false\n");
+		result.add("configuration", configuration);
+		Field completed = ControlConnector.class.getDeclaredField("completedTasks");
+		completed.setAccessible(true);
+		@SuppressWarnings("unchecked") Map<UUID, StoredResult> results =
+				(Map<UUID, StoredResult>) completed.get(connector);
+		results.put(UUID.fromString("00000000-0000-0000-0000-000000000099"),
+				new StoredResult(result, true, false));
+		transport.acceptConfiguration = true;
+		transport.operationClaim = CompletableFuture.completedFuture(new Response(204, ""));
+
+		connector.cycle();
+
+		assertEquals(0, transport.requests.stream().filter(request -> request.path().endsWith("/result")).count());
+		assertEquals(1, transport.requests.stream().filter(request -> request.path().endsWith("/operations")).count());
+		assertEquals(1, completedTaskCount());
+
+		Field accepted = ControlConnector.class.getDeclaredField("acceptedCapabilities");
+		accepted.setAccessible(true);
+		accepted.set(connector, Set.of("presence.snapshot", "config.proxy-files.v1"));
+		transport.resultSubmission = CompletableFuture.completedFuture(new Response(200, "{}"));
+		connector.cycle();
+		assertEquals(1, transport.requests.stream().filter(request -> request.path().endsWith("/result")).count());
+		assertEquals(0, completedTaskCount());
 	}
 
 	@Test void largeProxyFileReadSurvivesLostAcknowledgementAndConnectorRestart() throws Exception {
