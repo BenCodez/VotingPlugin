@@ -195,16 +195,19 @@ public class ServiceSiteHandler {
 
 		HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
 
-		int code = response.statusCode();
-		if (code < 200 || code >= 300) {
-			throw new IOException("HTTP " + code);
-		}
+		byte[] body = readSuccessfulResponse(response);
 		String contentType = response.headers().firstValue("Content-Type").orElse(null);
-		byte[] body;
-		try (InputStream input = response.body()) {
-			body = readBounded(input, MAX_RESPONSE_BYTES);
-		}
 		return new FetchResult(urlStr, new String(body, StandardCharsets.UTF_8), contentType);
+	}
+
+	static byte[] readSuccessfulResponse(HttpResponse<InputStream> response) throws IOException {
+		try (InputStream input = response.body()) {
+			int code = response.statusCode();
+			if (code < 200 || code >= 300) {
+				throw new IOException("HTTP " + code);
+			}
+			return readBounded(input, MAX_RESPONSE_BYTES);
+		}
 	}
 
 	static byte[] readBounded(InputStream input, int maximumBytes) throws IOException {
