@@ -166,9 +166,8 @@ Control:
     RequestTimeoutMillis: 10000
 ```
 
-The Bukkit connector uses the same 10–300-second heartbeat and 500–30,000-millisecond timeout ranges, but its bounded
-response-body limit is 4 MiB so it can receive managed-file/configuration tasks. Do not apply the proxy connector's 64 KiB
-discovery-response bound to this lane.
+The Bukkit connector uses the same 10–300-second heartbeat and 500–30,000-millisecond timeout ranges, with the same
+bounded 4 MiB response envelope as the proxy connector for managed-file/configuration tasks.
 
 Use an address the backend itself can reach, normally the proxy VM/private IP. Proxy-mediated enrollment deliberately
 rejects `localhost`, `127.0.0.0/8`, and IPv6 loopback because those addresses resolve to the backend rather than the proxy
@@ -272,7 +271,7 @@ The WebUI settings catalog is a static versioned reference, not an arbitrary key
 The inspection lane provides typed overview, vote-site health (including persisted unconfigured-service observations),
 exact-player data with bounded per-site last votes, VoteLog summary/search/correlation trace, side-effect-free vote-site
 resolution, reward-proposal simulation, and redacted diagnostics. Overview/diagnostics distinguish VoteLog configuration
-from current readability. Results are capped at 512 KiB, general rows at 100, detected diagnostic plugin names at 128, and
+from current readability. Results are capped at 512 KiB, general rows at 100, detected diagnostic plugin names at 100, and
 lookbacks at 365 days. It does not expose SQL, arbitrary user enumeration, raw configuration/logs,
 commands, reward execution, or writes. The exact schemas and safety invariants are documented in
 [the Control agent contract](control-agent-contract.md).
