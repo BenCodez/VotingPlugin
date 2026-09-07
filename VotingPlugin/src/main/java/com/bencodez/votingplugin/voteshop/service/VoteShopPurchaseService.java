@@ -130,7 +130,7 @@ public class VoteShopPurchaseService {
 		}
 	}
 
-	private Object purchaseLock(String uuid) {
+	Object purchaseLock(String uuid) {
 		return PURCHASE_LOCKS[(uuid == null ? 0 : uuid.hashCode()) & (PURCHASE_LOCK_STRIPES - 1)];
 	}
 
