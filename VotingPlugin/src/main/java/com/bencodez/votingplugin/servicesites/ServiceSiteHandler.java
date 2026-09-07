@@ -1,6 +1,8 @@
 package com.bencodez.votingplugin.servicesites;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpClient.Redirect;
@@ -191,18 +193,33 @@ public class ServiceSiteHandler {
 				.header("User-Agent", "VotingPlugin/ServiceSiteHandler")
 				.build();
 
-		HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+		HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
 
 		int code = response.statusCode();
 		if (code < 200 || code >= 300) {
 			throw new IOException("HTTP " + code);
 		}
-		if (response.body().length > MAX_RESPONSE_BYTES) {
-			throw new IOException("Service site response exceeds " + MAX_RESPONSE_BYTES + " bytes");
-		}
-
 		String contentType = response.headers().firstValue("Content-Type").orElse(null);
-		return new FetchResult(urlStr, new String(response.body(), StandardCharsets.UTF_8), contentType);
+		byte[] body;
+		try (InputStream input = response.body()) {
+			body = readBounded(input, MAX_RESPONSE_BYTES);
+		}
+		return new FetchResult(urlStr, new String(body, StandardCharsets.UTF_8), contentType);
+	}
+
+	static byte[] readBounded(InputStream input, int maximumBytes) throws IOException {
+		ByteArrayOutputStream output = new ByteArrayOutputStream(Math.min(maximumBytes, 8192));
+		byte[] buffer = new byte[8192];
+		int total = 0;
+		int read;
+		while ((read = input.read(buffer, 0, Math.min(buffer.length, maximumBytes + 1 - total))) != -1) {
+			total += read;
+			if (total > maximumBytes) {
+				throw new IOException("Service site response exceeds " + maximumBytes + " bytes");
+			}
+			output.write(buffer, 0, read);
+		}
+		return output.toByteArray();
 	}
 
 	private Map<String, String> parseFromWebBody(String body, String contentType) {
