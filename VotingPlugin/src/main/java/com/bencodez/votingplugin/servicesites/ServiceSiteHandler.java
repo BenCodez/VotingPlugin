@@ -48,7 +48,7 @@ public class ServiceSiteHandler {
 	static final int MAX_RESPONSE_BYTES = 1024 * 1024;
 	static final int MAX_ENTRIES = 2048;
 	static final int MAX_KEY_LENGTH = 128;
-	static final int MAX_VALUE_LENGTH = 512;
+	static final int MAX_VALUE_LENGTH = 2048;
 
 	private static final String PRIMARY_URL = "https://raw.githubusercontent.com/wiki/BenCodez/VotingPlugin/Minecraft-Server-Lists.md";
 	private static final String SECONDARY_URL = "https://wiki.bencodez.com/en/VotingPlugin/Minecraft-Server-Lists";
