@@ -25,4 +25,11 @@ class AdminVotePermsTest {
 	void ordinaryCommandsDoNotInventAdditionalPermissions() {
 		assertEquals(Collections.emptyList(), AdminVotePerms.additionalPermissions(mock(CommandHandler.class)));
 	}
+
+	@Test
+	void unrelatedPlayerCommandsDoNotAdvertiseUnusedAllPermission() {
+		PlayerCommandHandler handler = mock(PlayerCommandHandler.class);
+		when(handler.getPerm()).thenReturn("VotingPlugin.Commands.AdminVote.SetPoints|VotingPlugin.Admin");
+		assertEquals(Collections.emptyList(), AdminVotePerms.additionalPermissions(handler));
+	}
 }
