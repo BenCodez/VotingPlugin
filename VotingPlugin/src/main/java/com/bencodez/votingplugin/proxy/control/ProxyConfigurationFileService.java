@@ -147,6 +147,8 @@ final class ProxyConfigurationFileService {
 							Files.copy(Channels.newInputStream(source), rollback, StandardCopyOption.REPLACE_EXISTING);
 						}
 						copyPermissions(backup, rollback);
+						if (!revision(readRaw()).equals(revision(preview.resolvedContent)))
+							throw new IOException("proxy configuration changed during rollback staging");
 						mover.move(rollback, target);
 					} finally { Files.deleteIfExists(rollback); }
 					rolledBack = true;
@@ -818,17 +820,22 @@ final class ProxyConfigurationFileService {
 		if (proposed instanceof Map<?, ?> proposedMap && current instanceof Map<?, ?> currentMap) {
 			if (!proposedMap.keySet().equals(currentMap.keySet())) return false;
 			String mapPath = path.endsWith(".") ? path : path + ".";
+			boolean hasIdentity = false;
+			boolean sawSecret = false;
+			boolean allSecretsRedacted = true;
 			for (Object rawKey : proposedMap.keySet()) {
 				String key = String.valueOf(rawKey);
 				Object old = currentMap.get(rawKey);
 				Object candidate = proposedMap.get(rawKey);
 				if (secret(mapPath + key, key, old)) {
-					if (!REDACTED.equals(candidate)) return false;
+					sawSecret = true;
+					if (candidate instanceof Map<?, ?> || candidate instanceof List<?> || candidate == null) return false;
+					if (!REDACTED.equals(candidate)) allSecretsRedacted = false;
 				} else if (!sameSecretSafeListOrder(candidate, old, mapPath + key)) {
 					return false;
-				}
+				} else hasIdentity = true;
 			}
-			return true;
+			return hasIdentity || sawSecret && allSecretsRedacted;
 		}
 		if (proposed instanceof List<?> proposedList && current instanceof List<?> currentList) {
 			if (proposedList.size() != currentList.size()) return false;

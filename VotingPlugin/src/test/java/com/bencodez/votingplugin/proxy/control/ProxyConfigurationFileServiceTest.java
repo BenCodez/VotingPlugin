@@ -200,6 +200,10 @@ class ProxyConfigurationFileServiceTest {
 		String unchangedOrder = current.content().replace("Debug: false", "Debug: true");
 		assertTrue(service.preview(ProxyConfigurationFileService.FILE_NAME, unchangedOrder).resolvedContent()
 				.contains("Password: alpha-secret"));
+		String rotatedSecret = current.content().replace("Password: " + ProxyConfigurationFileService.REDACTED,
+				"Password: rotated-secret");
+		assertTrue(service.preview(ProxyConfigurationFileService.FILE_NAME, rotatedSecret).resolvedContent()
+				.contains("Password: rotated-secret"));
 		String reordered = current.content().replace("Name: alpha", "Name: __swapped__")
 				.replace("Name: beta", "Name: alpha").replace("Name: __swapped__", "Name: beta");
 		assertThrows(IllegalArgumentException.class,
@@ -572,6 +576,32 @@ class ProxyConfigurationFileServiceTest {
 			assertEquals("rw-r-----", java.nio.file.attribute.PosixFilePermissions.toString(
 					Files.getPosixFilePermissions(file)));
 		} catch (UnsupportedOperationException ignored) { }
+	}
+
+	@Test
+	void doesNotRollbackOverAnAdministratorEditDuringRollbackStaging() throws Exception {
+		Path file = write("BungeeMethod: PLUGINMESSAGING\nDebug: false\n");
+		AtomicInteger moves = new AtomicInteger(), tempFiles = new AtomicInteger();
+		ProxyConfigurationFileService service = new ProxyConfigurationFileService(file, (source, destination) -> {
+			atomicMove(source, destination);
+			if (moves.incrementAndGet() == 2)
+				throw new com.bencodez.votingplugin.util.DurableFiles.PublishedException(
+						new IOException("forced publication failure"));
+		}, (parent, prefix, suffix) -> {
+			Path temporary = Files.createTempFile(parent, prefix, suffix);
+			if (tempFiles.incrementAndGet() == 3)
+				Files.writeString(file, "BungeeMethod: ADMIN_EDIT\nDebug: true\n");
+			return temporary;
+		});
+		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
+
+		ProxyConfigurationFileService.ApplyFailureException failure = assertThrows(
+				ProxyConfigurationFileService.ApplyFailureException.class,
+				() -> service.apply(ProxyConfigurationFileService.FILE_NAME,
+						current.content().replace("false", "true"), current.revision()));
+
+		assertFalse(failure.rolledBack());
+		assertEquals("BungeeMethod: ADMIN_EDIT\nDebug: true\n", Files.readString(file));
 	}
 
 	@Test
