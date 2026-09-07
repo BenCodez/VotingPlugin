@@ -613,7 +613,8 @@ public final class ControlConnector implements AutoCloseable {
 	private boolean hasLifecycleBlockingTasks() {
 		if (!registered) return !completedTasks.isEmpty();
 		return completedTasks.values().stream()
-				.anyMatch(pending -> !pending.committed() || capabilityAccepted(pending));
+				.anyMatch(pending -> !pending.committed() && !pending.claimRequired()
+						|| capabilityAccepted(pending));
 	}
 
 	static boolean requiresRuntimeReplacement(StoredResult result) {
@@ -659,6 +660,8 @@ public final class ControlConnector implements AutoCloseable {
 		JsonObject result = anticipated.json();
 		result.addProperty("attemptId", attemptId);
 		result.addProperty(INTERNAL_OPERATION_TYPE, "APPLY");
+		result.addProperty(INTERNAL_REQUIRED_CAPABILITY,
+				requiredCapability(result.getAsJsonObject("configuration")));
 		StoredResult previous;
 		synchronized (operationLifecycle) {
 			previous = completedTasks.put(operationId, new StoredResult(result, false, false));
@@ -708,6 +711,10 @@ public final class ControlConnector implements AutoCloseable {
 		JsonObject result = TaskResult.failure("RECOVERY_ABORTED",
 				"Configuration apply did not finish before node recovery").json();
 		result.addProperty("attemptId", requireString(pending.result(), "attemptId"));
+		JsonObject pendingResult = pending.result();
+		result.addProperty(INTERNAL_REQUIRED_CAPABILITY, pendingResult.has(INTERNAL_REQUIRED_CAPABILITY)
+				? pendingResult.get(INTERNAL_REQUIRED_CAPABILITY).getAsString()
+				: requiredCapability(pendingResult.getAsJsonObject("configuration")));
 		return new StoredResult(result, true, false);
 	}
 

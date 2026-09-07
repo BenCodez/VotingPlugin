@@ -824,7 +824,7 @@ final class ProxyConfigurationFileService {
 				|| infrastructurePath(normalizedPath, "votelogging")
 				|| infrastructurePath(normalizedPath, "redis")
 				|| infrastructurePath(normalizedPath, "multiproxyredis")) {
-			return Set.of("host", "port", "database", "username", "password", "line", "driver", "poolname",
+			return Set.of("host", "port", "database", "name", "username", "password", "line", "driver", "poolname",
 					"prefix", "dbindex")
 					.contains(normalized);
 		}

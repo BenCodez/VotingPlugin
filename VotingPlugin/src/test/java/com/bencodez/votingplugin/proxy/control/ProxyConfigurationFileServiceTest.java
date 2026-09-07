@@ -333,17 +333,20 @@ class ProxyConfigurationFileServiceTest {
 		Path file = write("""
 				Database:
 				  Host: db.internal
+				  Name: votes_table
 				  Password: secret
 				BungeeMethod: PLUGINMESSAGING
 				""");
 		ProxyConfigurationFileService service = service(file);
 		String proposal = service.read(ProxyConfigurationFileService.FILE_NAME).content()
 				+ "NewSection:\n  Enabled: true\n";
+		assertFalse(proposal.contains("votes_table"));
 
 		ProxyConfigurationFileService.Preview preview = service.preview(
 				ProxyConfigurationFileService.FILE_NAME, proposal);
 
 		assertTrue(preview.resolvedContent().contains("db.internal"));
+		assertTrue(preview.resolvedContent().contains("votes_table"));
 		assertTrue(preview.resolvedContent().contains("secret"));
 		assertTrue(preview.resolvedContent().contains("NewSection"));
 		assertTrue(preview.changes().contains("added NewSection.Enabled"));

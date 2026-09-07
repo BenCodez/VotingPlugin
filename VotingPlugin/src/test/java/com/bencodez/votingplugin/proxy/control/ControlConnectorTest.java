@@ -581,6 +581,15 @@ class ControlConnectorTest {
 		connector.cycle();
 		assertEquals(1, transport.requests.stream().filter(request -> request.path().endsWith("/result")).count());
 		assertEquals(0, completedTaskCount());
+
+		results.put(UUID.fromString("00000000-0000-0000-0000-000000000099"),
+				new StoredResult(result, false, true));
+		accepted.set(connector, Set.of("presence.snapshot", "config.proxy-routing.v1"));
+		replacement.set(false);
+		deferred.set(connector, (Runnable) () -> replacement.set(true));
+		finishCycle.invoke(connector);
+		assertTrue(replacement.get(), "a capability-blocked lease-expired result must not prevent replacement");
+		assertEquals(1, completedTaskCount(), "the lease-expired result must remain available for a capable session");
 	}
 
 	@Test void largeProxyFileReadSurvivesLostAcknowledgementAndConnectorRestart() throws Exception {
@@ -669,7 +678,7 @@ class ControlConnectorTest {
 		assertEquals(1, transport.requests.stream().filter(request -> request.path().endsWith("/result")).count());
 	}
 
-	@Test void abandonedWriteAheadIntentIsReportedAndReleasedWhenControlForgotTheOperation() {
+	@Test void abandonedWriteAheadIntentRetainsItsCapabilityUntilControlCanAcceptIt() throws Exception {
 		connector.close();
 		UUID operationId = UUID.fromString("00000000-0000-0000-0000-000000000099");
 		ProxyRoutingConfiguration proposal = new ProxyRoutingConfiguration(true, List.of());
@@ -679,8 +688,9 @@ class ControlConnectorTest {
 		anticipated.addProperty("message", "Configuration applied");
 		anticipated.addProperty("revision", proposal.revision());
 		JsonObject configuration = new JsonObject();
-		configuration.addProperty("sendVotesToAllServers", true);
-		configuration.add("blockedServers", new com.google.gson.JsonArray());
+		configuration.addProperty("domain", "file");
+		configuration.addProperty("fileName", ProxyConfigurationFileService.FILE_NAME);
+		configuration.addProperty("content", "Proxy:\n  Enabled: true\n");
 		anticipated.add("configuration", configuration);
 		anticipated.addProperty("attemptId", "00000000-0000-0000-0000-000000000199");
 		connector = new ControlConnector(settings(), scheduler, transport,
@@ -692,13 +702,19 @@ class ControlConnectorTest {
 				"{\"error\":{\"code\":\"OPERATION_NOT_FOUND\"}}"));
 
 		connector.cycle();
+		assertEquals(0, transport.requests.stream().filter(request -> request.path().endsWith("/result")).count());
+		assertEquals(1, transport.requests.stream().filter(request -> request.path().endsWith("/operations")).count());
+		Field accepted = ControlConnector.class.getDeclaredField("acceptedCapabilities");
+		accepted.setAccessible(true);
+		accepted.set(connector, Set.of("presence.snapshot", "config.proxy-files.v1"));
+		connector.cycle();
 		JsonObject submitted = JsonParser.parseString(transport.requests.stream()
 				.filter(request -> request.path().endsWith("/result")).findFirst().orElseThrow().body()).getAsJsonObject();
 		assertEquals("RECOVERY_ABORTED", submitted.get("code").getAsString());
 
 		transport.operationClaim = CompletableFuture.completedFuture(new Response(204, ""));
 		connector.cycle();
-		assertEquals(1, transport.requests.stream().filter(request -> request.path().endsWith("/operations")).count());
+		assertEquals(2, transport.requests.stream().filter(request -> request.path().endsWith("/operations")).count());
 		assertTrue(connector.reserveRuntimeReplacement());
 	}
 
