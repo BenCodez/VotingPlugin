@@ -816,7 +816,12 @@ final class ProxyConfigurationFileService {
 				|| normalized.contains("apikey") || normalized.contains("authorization")
 				|| normalized.contains("webhookurl")) return true;
 		String normalizedPath = path.toLowerCase(Locale.ROOT).replace("_", "").replace("-", "");
-		if (infrastructurePath(normalizedPath, "database") || infrastructurePath(normalizedPath, "globaldata")
+		if ((!(value instanceof Map<?, ?>) && !(value instanceof List<?>) && rootDatabaseField(normalizedPath))
+				|| infrastructurePath(normalizedPath, "database")
+				|| infrastructurePath(normalizedPath, "mysql") || infrastructurePath(normalizedPath, "globaldata")
+				|| infrastructurePath(normalizedPath, "votecache")
+				|| infrastructurePath(normalizedPath, "nonvotedcache")
+				|| infrastructurePath(normalizedPath, "votelogging")
 				|| infrastructurePath(normalizedPath, "redis")
 				|| infrastructurePath(normalizedPath, "multiproxyredis")) {
 			return Set.of("host", "port", "database", "username", "password", "line", "driver", "poolname",
@@ -842,6 +847,12 @@ final class ProxyConfigurationFileService {
 			return lowered.startsWith("jdbc:") || lowered.matches("^[a-z][a-z0-9+.-]*://[^/@\\s]+:[^/@\\s]+@.*");
 		}
 		return false;
+	}
+
+	private static boolean rootDatabaseField(String normalizedPath) {
+		return !normalizedPath.contains(".") && !normalizedPath.contains("[")
+				&& Set.of("host", "port", "database", "username", "password", "line", "driver", "poolname",
+						"prefix", "dbindex").contains(normalizedPath);
 	}
 
 	private static boolean infrastructurePath(String normalizedPath, String section) {

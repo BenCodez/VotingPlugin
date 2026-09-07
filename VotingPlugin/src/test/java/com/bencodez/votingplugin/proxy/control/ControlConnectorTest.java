@@ -564,6 +564,15 @@ class ControlConnectorTest {
 		assertEquals(0, transport.requests.stream().filter(request -> request.path().endsWith("/result")).count());
 		assertEquals(1, transport.requests.stream().filter(request -> request.path().endsWith("/operations")).count());
 		assertEquals(1, completedTaskCount());
+		AtomicBoolean replacement = new AtomicBoolean();
+		Field deferred = ControlConnector.class.getDeclaredField("deferredReplacement");
+		deferred.setAccessible(true);
+		deferred.set(connector, (Runnable) () -> replacement.set(true));
+		Method finishCycle = ControlConnector.class.getDeclaredMethod("finishCycle");
+		finishCycle.setAccessible(true);
+		finishCycle.invoke(connector);
+		assertTrue(replacement.get(), "a capability-blocked durable result must not prevent lifecycle replacement");
+		assertEquals(1, completedTaskCount(), "the blocked result must remain journaled for a later capable session");
 
 		Field accepted = ControlConnector.class.getDeclaredField("acceptedCapabilities");
 		accepted.setAccessible(true);

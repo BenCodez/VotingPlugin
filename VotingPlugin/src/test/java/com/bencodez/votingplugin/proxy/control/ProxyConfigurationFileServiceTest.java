@@ -78,6 +78,49 @@ class ProxyConfigurationFileServiceTest {
 	}
 
 	@Test
+	void masksAndRestoresEverySupportedDatabaseLayout() throws Exception {
+		Path file = write("""
+				Host: root.internal
+				Port: 3306
+				Database: rootdb
+				Username: rootuser
+				MySQL:
+				  Host: mysql.internal
+				  Username: mysqluser
+				VoteCache:
+				  Host: vote-cache.internal
+				  Username: cacheuser
+				NonVotedCache:
+				  Host: non-voted.internal
+				  Database: nonvoted
+				VoteLogging:
+				  Host: vote-log.internal
+				  Line: '&useSSL=true'
+				Debug: false
+				""");
+		ProxyConfigurationFileService service = service(file);
+
+		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
+		assertFalse(current.content().contains("root.internal"));
+		assertFalse(current.content().contains("mysql.internal"));
+		assertFalse(current.content().contains("vote-cache.internal"));
+		assertFalse(current.content().contains("non-voted.internal"));
+		assertFalse(current.content().contains("vote-log.internal"));
+		assertFalse(current.content().contains("cacheuser"));
+		String proposal = current.content().replace("Debug: false", "Debug: true");
+		ProxyConfigurationFileService.Preview preview = service.preview(ProxyConfigurationFileService.FILE_NAME, proposal);
+		service.apply(ProxyConfigurationFileService.FILE_NAME, proposal, current.revision());
+
+		assertTrue(preview.resolvedContent().contains("vote-cache.internal"));
+		String applied = Files.readString(file);
+		assertTrue(applied.contains("root.internal"));
+		assertTrue(applied.contains("mysql.internal"));
+		assertTrue(applied.contains("non-voted.internal"));
+		assertTrue(applied.contains("vote-log.internal"));
+		assertTrue(applied.contains("Debug: true"));
+	}
+
+	@Test
 	void masksAndRestoresSecretsNestedInSequences() throws Exception {
 		Path file = write("""
 				Hooks:

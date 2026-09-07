@@ -267,7 +267,7 @@ public final class ControlConnector implements AutoCloseable {
 	public boolean deferReplacementUntilSafe(Runnable replacement) {
 		Objects.requireNonNull(replacement, "replacement");
 		synchronized (operationLifecycle) {
-			if (inFlight.get() || !completedTasks.isEmpty()) {
+			if (inFlight.get() || hasLifecycleBlockingTasks()) {
 				deferredReplacement = replacement;
 				return true;
 			}
@@ -280,7 +280,7 @@ public final class ControlConnector implements AutoCloseable {
 	/** Reserves a quiescent connector for a full runtime replacement without losing a claimed result. */
 	public boolean reserveRuntimeReplacement() {
 		synchronized (operationLifecycle) {
-			if (inFlight.get() || !completedTasks.isEmpty()) return false;
+			if (inFlight.get() || hasLifecycleBlockingTasks()) return false;
 			closed = true;
 			status = Status.STOPPED;
 			return true;
@@ -373,7 +373,7 @@ public final class ControlConnector implements AutoCloseable {
 		Runnable replacement = null;
 		synchronized (operationLifecycle) {
 			inFlight.set(false);
-			if (completedTasks.isEmpty() && deferredReplacement != null) {
+			if (!hasLifecycleBlockingTasks() && deferredReplacement != null) {
 				replacement = deferredReplacement;
 				deferredReplacement = null;
 			}
@@ -603,10 +603,17 @@ public final class ControlConnector implements AutoCloseable {
 		boolean drained;
 		boolean replaceRuntime = requiresRuntimeReplacement(result) && runtimeReplacement != null;
 		synchronized (operationLifecycle) {
-			drained = completedTasks.isEmpty();
+			drained = !hasLifecycleBlockingTasks();
 			if (replaceRuntime) deferredReplacement = runtimeReplacement;
 		}
 		if (recovering && drained && recoveryComplete != null && !replaceRuntime) recoveryComplete.run();
+	}
+
+	/** Results rejected by this negotiated session remain durable but do not prevent its lifecycle from draining. */
+	private boolean hasLifecycleBlockingTasks() {
+		if (!registered) return !completedTasks.isEmpty();
+		return completedTasks.values().stream()
+				.anyMatch(pending -> !pending.committed() || capabilityAccepted(pending));
 	}
 
 	static boolean requiresRuntimeReplacement(StoredResult result) {
