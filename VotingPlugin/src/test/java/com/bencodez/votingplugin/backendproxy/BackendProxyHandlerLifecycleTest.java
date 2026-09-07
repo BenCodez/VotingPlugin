@@ -2,8 +2,11 @@ package com.bencodez.votingplugin.backendproxy;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -18,6 +21,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.junit.jupiter.api.Test;
 
 import com.bencodez.simpleapi.servercomm.sockets.SocketHandler;
+import com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessageHandler;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
 import com.bencodez.simpleapi.servercomm.mqtt.MqttHandler;
 import com.bencodez.simpleapi.servercomm.mysql.MySqlMessenger;
@@ -110,6 +114,43 @@ class BackendProxyHandlerLifecycleTest {
 
 		transport.close();
 		verify(plugin).deactivateBackendPluginMessageHandler(replacement);
+	}
+
+	@Test
+	void movingPluginMessageRelayDetachesItFromThePreviousPluginMessage() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class,
+				CALLS_REAL_METHODS);
+		com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessage first =
+				mock(com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessage.class);
+		com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessage second =
+				mock(com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessage.class);
+		java.util.ArrayList<PluginMessageHandler> firstHandlers = new java.util.ArrayList<>();
+		java.util.ArrayList<PluginMessageHandler> secondHandlers = new java.util.ArrayList<>();
+		GlobalMessageHandler firstTarget = mock(GlobalMessageHandler.class);
+		GlobalMessageHandler secondTarget = mock(GlobalMessageHandler.class);
+		AtomicReference<com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessage> current =
+				new AtomicReference<>(first);
+		when(plugin.getPluginMessaging()).thenAnswer(ignored -> current.get());
+		when(first.getPluginMessages()).thenReturn(firstHandlers);
+		when(second.getPluginMessages()).thenReturn(secondHandlers);
+		org.mockito.Mockito.doAnswer(invocation -> firstHandlers.add(invocation.getArgument(0))).when(first)
+				.add(org.mockito.ArgumentMatchers.any(PluginMessageHandler.class));
+		org.mockito.Mockito.doAnswer(invocation -> secondHandlers.add(invocation.getArgument(0))).when(second)
+				.add(org.mockito.ArgumentMatchers.any(PluginMessageHandler.class));
+		Field targetField = com.bencodez.votingplugin.VotingPluginMain.class
+				.getDeclaredField("backendPluginMessageTarget");
+		targetField.setAccessible(true);
+		targetField.set(plugin, new AtomicReference<GlobalMessageHandler>());
+
+		plugin.activateBackendPluginMessageHandler(firstTarget);
+		current.set(second);
+		plugin.activateBackendPluginMessageHandler(secondTarget);
+
+		assertTrue(firstHandlers.isEmpty());
+		assertEquals(1, secondHandlers.size());
+		secondHandlers.get(0).onReceive(null);
+		verify(firstTarget, never()).onMessage(null);
+		verify(secondTarget).onMessage(null);
 	}
 
 	@Test
@@ -227,6 +268,48 @@ class BackendProxyHandlerLifecycleTest {
 	}
 
 	@Test
+	void failedSameSocketReplacementLeavesExistingTransportAvailable() throws Exception {
+		BackendProxyHandler handler = handlerWithTransport(BungeeMethod.SOCKETS);
+		SocketHandler socket = mock(SocketHandler.class);
+		SocketBackendProxyTransport transport = new SocketBackendProxyTransport(null);
+		setField(transport, "socketHandler", socket);
+		setTransport(handler, transport);
+
+		assertFalse(handler.prepareForReplacement(BungeeMethod.SOCKETS));
+
+		assertSame(socket, handler.getSocketHandler());
+		verifyNoInteractions(socket);
+	}
+
+	@Test
+	void failedSameMqttReplacementLeavesExistingTransportAvailable() throws Exception {
+		BackendProxyHandler handler = handlerWithTransport(BungeeMethod.MQTT);
+		MqttHandler mqtt = mock(MqttHandler.class);
+		MqttBackendProxyTransport transport = new MqttBackendProxyTransport(null);
+		setField(transport, "mqttHandler", mqtt);
+		setTransport(handler, transport);
+
+		assertFalse(handler.prepareForReplacement(BungeeMethod.MQTT));
+
+		assertSame(mqtt, handler.getMqttHandler());
+		verifyNoInteractions(mqtt);
+	}
+
+	@Test
+	void failedSameMysqlReplacementLeavesExistingTransportAvailable() throws Exception {
+		BackendProxyHandler handler = handlerWithTransport(BungeeMethod.MYSQL);
+		MySqlMessenger messenger = mock(MySqlMessenger.class);
+		MysqlBackendProxyTransport transport = new MysqlBackendProxyTransport(null);
+		setField(transport, "messenger", messenger);
+		setTransport(handler, transport);
+
+		assertFalse(handler.prepareForReplacement(BungeeMethod.MYSQL));
+
+		assertSame(messenger, handler.getBackendMysqlMessenger());
+		verifyNoInteractions(messenger);
+	}
+
+	@Test
 	void releasesMysqlSubscriberBeforeSameMethodReplacement() throws Exception {
 		MysqlBackendProxyTransport handler = new MysqlBackendProxyTransport(null);
 		MySqlMessenger messenger = mock(MySqlMessenger.class);
@@ -252,5 +335,24 @@ class BackendProxyHandlerLifecycleTest {
 
 		verify(timer).shutdownNow();
 		assertNull(handler.getTimer());
+	}
+
+	private BackendProxyHandler handlerWithTransport(BungeeMethod method) throws Exception {
+		BackendProxyHandler handler = new BackendProxyHandler(null);
+		setField(handler, "method", method);
+		return handler;
+	}
+
+	private void setTransport(BackendProxyHandler handler, BackendProxyTransport transport) throws Exception {
+		Field managerField = BackendProxyHandler.class.getDeclaredField("transportManager");
+		managerField.setAccessible(true);
+		BackendProxyTransportManager manager = (BackendProxyTransportManager) managerField.get(handler);
+		setField(manager, "transport", transport);
+	}
+
+	private void setField(Object target, String name, Object value) throws Exception {
+		Field field = target.getClass().getDeclaredField(name);
+		field.setAccessible(true);
+		field.set(target, value);
 	}
 }

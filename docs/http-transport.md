@@ -15,7 +15,7 @@ The `HTTP` bungee method gives every backend an outbound encrypted connection to
    ```
 
 2. Allow TCP port `1297` to the proxy. `PublicEndpoint` must resolve directly to this VotingPlugin listener.
-3. Restart the proxy and run `/votingpluginbungee httpcode <server>`. The name must exactly identify the intended backend; generate a separate code for each backend.
+3. Restart the proxy and run `/votingpluginproxy httpcode <server>`. The name must exactly identify the intended backend; generate a separate code for each backend.
 4. On a backend, set a unique `Server`, enable bungee mode, select `HTTP`, and paste its code into `BungeeSettings.yml`:
 
    ```yaml
@@ -47,7 +47,7 @@ Connection codes expire after 15 minutes and can be used only once. Treat a fres
 
 The listener must terminate TLS itself because client-certificate authentication is part of the protocol. Do not put an HTTP TLS-terminating reverse proxy or CDN in front of it. A TCP/L4 proxy that passes TLS through unchanged is suitable. Internet-facing installations should also use the host firewall or provider firewall for volumetric denial-of-service protection; an application cannot fully absorb a link or TCP flood.
 
-If a backend host or its private credential is compromised, run `/votingpluginbungee httprevoke <server>` on the proxy before generating a new connection code. Revocation takes effect on the next request and permits a replacement identity to enroll under that server name. Keep the proxy's `http` data directory backed up and private: it contains the transport authority.
+If a backend host or its private credential is compromised, run `/votingpluginproxy httprevoke <server>` on the proxy before generating a new connection code. Revocation takes effect on the next request and permits a replacement identity to enroll under that server name. Keep the proxy's `http` data directory backed up and private: it contains the transport authority.
 
 ## Performance
 

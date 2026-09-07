@@ -10,11 +10,11 @@ import java.util.concurrent.TimeUnit;
 
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
+import com.bencodez.simpleapi.servercomm.http.HttpBackendTransportConnector;
+import com.bencodez.simpleapi.servercomm.http.HttpClientCredentialStore;
+import com.bencodez.simpleapi.servercomm.http.HttpConnectionCode;
+import com.bencodez.simpleapi.servercomm.http.HttpTlsIdentity;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.backendproxy.http.HttpBackendTransportConnector;
-import com.bencodez.votingplugin.backendproxy.http.HttpClientCredentialStore;
-import com.bencodez.votingplugin.backendproxy.http.HttpConnectionCode;
-import com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity;
 
 /** Backend adapter for the secure outbound-only HTTP proxy transport. */
 public final class HttpBackendProxyTransport implements BackendProxyTransport {
@@ -85,12 +85,13 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 
 	@Override
 	public void prepareForReplacement() {
-		HttpBackendTransportConnector active = connector;
-		HttpClientCredentialStore.ActiveCredentialGeneration generation = active == null
-				? null : active.activeCredentialGeneration();
-		if (generation == null)
+		if (connector == null || configuredDirectory == null)
 			throw new IllegalStateException("Could not preserve the active HTTP client credential before it became ready");
-		configuredCredentialGeneration = generation;
+		try {
+			configuredCredentialGeneration = HttpClientCredentialStore.snapshotActiveGeneration(configuredDirectory);
+		} catch (Exception failure) {
+			throw new IllegalStateException("Could not preserve the active HTTP client credential", failure);
+		}
 		close();
 	}
 
@@ -129,7 +130,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 					credentialGenerationToRestore == null ? configuredCode : null);
 			if (code != null) HttpBackendTransportConnector.enroll(code, serverId, directory);
 			HttpClientCredentialStore.EnrolledClient enrolled = HttpClientCredentialStore.loadEnrolled(directory);
-			if (!enrolled.profile().serverId().equals(com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity.canonicalServerId(serverId)))
+			if (!enrolled.profile().serverId().equals(HttpTlsIdentity.canonicalServerId(serverId)))
 				throw new IllegalStateException("Persisted HTTP identity belongs to a different backend Server name");
 			replacement = new HttpBackendTransportConnector(directory, messageHandler::onMessage);
 			replacement.start();
@@ -225,7 +226,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	}
 
 	static HttpConnectionCode enrollmentCode(Path directory, String serverId, String configuredCode) {
-		try { serverId = com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity.canonicalServerId(serverId); }
+		try { serverId = HttpTlsIdentity.canonicalServerId(serverId); }
 		catch (IllegalArgumentException invalid) { throw new IllegalStateException("HTTP requires a valid unique backend Server name", invalid); }
 		boolean enrolled = HttpClientCredentialStore.hasEnrolledProfile(directory);
 		if (configuredCode != null && !configuredCode.isBlank()) {

@@ -121,11 +121,11 @@ public class BackendProxyHandler implements Listener {
 		globalDataSync.close();
 	}
 
-	/** Releases a same-method subscriber/listener before its replacement starts. */
+	/** Prepares the restorable HTTP transport before a same-method replacement starts. */
 	public boolean prepareForReplacement(BungeeMethod replacementMethod) {
-		if (method == replacementMethod && method != BungeeMethod.PLUGINMESSAGING && method != BungeeMethod.REDIS) {
+		if (method == replacementMethod && method == BungeeMethod.HTTP) {
 			transportManager.prepareForReplacement();
-			return method == BungeeMethod.HTTP;
+			return true;
 		}
 		return false;
 	}

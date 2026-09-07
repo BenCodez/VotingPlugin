@@ -1231,22 +1231,23 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 	}
 
-	/** Prepared on the Bukkit thread, validated off-thread, then atomically published on Bukkit. */
+	/** Constructed on the Bukkit thread, prepared and validated off-thread, then atomically published on Bukkit. */
 	public static final class BackendProxyRestart {
 		private final BackendProxyHandler previous;
 		private final BackendProxyHandler replacement;
 		private final boolean disabled;
-		private final boolean previousPrepared;
+		private final boolean previousRequiresPreparation;
+		private volatile boolean previousPrepared;
 		private boolean finished;
 		private boolean abandonmentRequested;
 		private volatile boolean published;
 
 		private BackendProxyRestart(BackendProxyHandler previous, BackendProxyHandler replacement, boolean disabled,
-				boolean previousPrepared) {
+				boolean previousRequiresPreparation) {
 			this.previous = previous;
 			this.replacement = replacement;
 			this.disabled = disabled;
-			this.previousPrepared = previousPrepared;
+			this.previousRequiresPreparation = previousRequiresPreparation;
 		}
 	}
 
@@ -1268,25 +1269,25 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			return new BackendProxyRestart(previous, null, true, false);
 		}
 		BungeeMethod replacementMethod = BungeeMethod.getByName(bungeeSettings.getBungeeMethod());
-		boolean previousPrepared = previous != null && previous.prepareForReplacement(replacementMethod);
+		boolean previousRequiresPreparation = previous != null && previous.getMethod() == replacementMethod
+				&& replacementMethod == BungeeMethod.HTTP;
 		BackendProxyHandler replacement = new BackendProxyHandler(this, backendProcessedVoteCache);
 		try {
 			replacement.loadForReplacement();
 		} catch (RuntimeException failure) {
 			replacement.close();
-			if (previousPrepared) {
-				previous.restoreAfterFailedReplacement();
-				BackendProxyRestart failed = new BackendProxyRestart(previous, null, false, true);
-				failed.finished = true;
-				throw new BackendProxyRestartPreparationException(failed, failure);
-			}
 			throw failure;
 		}
-		return new BackendProxyRestart(previous, replacement, false, previousPrepared);
+		return new BackendProxyRestart(previous, replacement, false, previousRequiresPreparation);
 	}
 
 	public void validateBackendProxyHandlerRestart(BackendProxyRestart restart, long validationDeadlineNanos) {
 		if (restart == null) throw new IllegalArgumentException("Backend proxy restart is required");
+		if (restart.previousRequiresPreparation && !restart.previousPrepared) {
+			if (!restart.previous.prepareForReplacement(restart.replacement.getMethod()))
+				throw new IllegalStateException("Previous HTTP proxy transport could not be prepared for replacement");
+			restart.previousPrepared = true;
+		}
 		if (restart.replacement != null) restart.replacement.validateTransport(validationDeadlineNanos);
 	}
 
@@ -1359,6 +1360,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 		com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessage current = getPluginMessaging();
 		if (backendPluginMessageRelayOwner != current) {
+			if (backendPluginMessageRelayOwner != null) {
+				backendPluginMessageRelayOwner.getPluginMessages().remove(backendPluginMessageRelay);
+			}
 			current.add(backendPluginMessageRelay);
 			backendPluginMessageRelayOwner = current;
 		}

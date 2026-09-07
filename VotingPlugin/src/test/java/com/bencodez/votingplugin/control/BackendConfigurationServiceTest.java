@@ -697,13 +697,13 @@ class BackendConfigurationServiceTest {
 	@Test void httpMethodAcceptsGenerationBasedEnrolledProfile() throws Exception {
 		Files.writeString(directory.resolve("BungeeSettings.yml"),
 				"UseBungeecord: true\nServer: lobby-1\nBungeeMethod: PLUGINMESSAGING\nPluginMessageChannel: vp:vp\n");
-		com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity identity =
-				com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity.loadOrCreate(directory.resolve("proxy"), "localhost");
-		com.bencodez.votingplugin.backendproxy.http.HttpConnectionCode code =
-				new com.bencodez.votingplugin.backendproxy.http.HttpConnectionCode("lobby-1",
+		com.bencodez.simpleapi.servercomm.http.HttpTlsIdentity identity =
+				com.bencodez.simpleapi.servercomm.http.HttpTlsIdentity.loadOrCreate(directory.resolve("proxy"), "localhost");
+		com.bencodez.simpleapi.servercomm.http.HttpConnectionCode code =
+				new com.bencodez.simpleapi.servercomm.http.HttpConnectionCode("lobby-1",
 						java.net.URI.create("https://localhost:1297/"), identity.serverCertificatePin(),
 						identity.caCertificatePin(), java.time.Instant.now().plusSeconds(60), "A".repeat(43));
-		com.bencodez.votingplugin.backendproxy.http.HttpClientCredentialStore.saveEnrolled(directory.resolve("http"), code,
+		com.bencodez.simpleapi.servercomm.http.HttpClientCredentialStore.saveEnrolled(directory.resolve("http"), code,
 				identity.issueClientCertificate("lobby-1"));
 
 		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
@@ -718,18 +718,18 @@ class BackendConfigurationServiceTest {
 		assertThrows(IllegalArgumentException.class,
 				() -> service.previewQuickSetup("proxy-method", Map.of("method", "HTTP")));
 
-		com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity identity =
-				com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity.loadOrCreate(directory.resolve("code-proxy"), "localhost");
-		com.bencodez.votingplugin.backendproxy.http.HttpConnectionCode expired =
-				new com.bencodez.votingplugin.backendproxy.http.HttpConnectionCode("lobby-1",
+		com.bencodez.simpleapi.servercomm.http.HttpTlsIdentity identity =
+				com.bencodez.simpleapi.servercomm.http.HttpTlsIdentity.loadOrCreate(directory.resolve("code-proxy"), "localhost");
+		com.bencodez.simpleapi.servercomm.http.HttpConnectionCode expired =
+				new com.bencodez.simpleapi.servercomm.http.HttpConnectionCode("lobby-1",
 						java.net.URI.create("https://localhost:1297/"), identity.serverCertificatePin(),
 						identity.caCertificatePin(), java.time.Instant.now().minusSeconds(1), "A".repeat(43));
 		Files.writeString(settings, Files.readString(settings).replace("malformed", expired.encode()));
 		assertThrows(IllegalArgumentException.class,
 				() -> service.previewQuickSetup("proxy-method", Map.of("method", "HTTP")));
 
-		com.bencodez.votingplugin.backendproxy.http.HttpConnectionCode wrongServer =
-				new com.bencodez.votingplugin.backendproxy.http.HttpConnectionCode("survival",
+		com.bencodez.simpleapi.servercomm.http.HttpConnectionCode wrongServer =
+				new com.bencodez.simpleapi.servercomm.http.HttpConnectionCode("survival",
 						expired.endpoint(), expired.serverCertificatePin(), expired.caCertificatePin(),
 						java.time.Instant.now().plusSeconds(60), "B".repeat(43));
 		Files.writeString(settings, Files.readString(settings).replace(expired.encode(), wrongServer.encode()));

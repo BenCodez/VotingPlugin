@@ -551,7 +551,7 @@ public class VotingPluginProxyTest {
 		JsonEnvelope envelope = VotingPluginWire.login("Player", uuid, "Server2", java.util.UUID.randomUUID(),
 				java.util.UUID.randomUUID(), 1000L, 1100L);
 
-		spyProxy.handleHttpTransportEnvelopeForTest(new com.bencodez.votingplugin.backendproxy.http.HttpProxyTransportServer.ReceivedEnvelope(
+		spyProxy.handleHttpTransportEnvelopeForTest(new com.bencodez.simpleapi.servercomm.http.HttpProxyTransportServer.ReceivedEnvelope(
 				"Server2", java.util.UUID.randomUUID().toString(), envelope));
 
 		verify(handler, never()).onMessage(Mockito.any());
@@ -570,7 +570,7 @@ public class VotingPluginProxyTest {
 		JsonEnvelope envelope = VotingPluginWire.login("Player", uuid, "Server1", java.util.UUID.randomUUID(),
 				java.util.UUID.randomUUID(), 1000L, 1100L);
 
-		spyProxy.handleHttpTransportEnvelopeForTest(new com.bencodez.votingplugin.backendproxy.http.HttpProxyTransportServer.ReceivedEnvelope(
+		spyProxy.handleHttpTransportEnvelopeForTest(new com.bencodez.simpleapi.servercomm.http.HttpProxyTransportServer.ReceivedEnvelope(
 				"Server1", java.util.UUID.randomUUID().toString(), envelope));
 
 		verify(handler).onMessage(envelope);
@@ -589,7 +589,7 @@ public class VotingPluginProxyTest {
 		JsonEnvelope envelope = VotingPluginWire.login("Player", claimedUuid, "Server1", java.util.UUID.randomUUID(),
 				java.util.UUID.randomUUID(), 1000L, 1100L);
 
-		spyProxy.handleHttpTransportEnvelopeForTest(new com.bencodez.votingplugin.backendproxy.http.HttpProxyTransportServer.ReceivedEnvelope(
+		spyProxy.handleHttpTransportEnvelopeForTest(new com.bencodez.simpleapi.servercomm.http.HttpProxyTransportServer.ReceivedEnvelope(
 				"Server1", java.util.UUID.randomUUID().toString(), envelope));
 
 		verify(handler, never()).onMessage(Mockito.any());
@@ -603,7 +603,7 @@ public class VotingPluginProxyTest {
 		votingPluginProxy.setGlobalMessageProxyHandlerForTest(handler);
 		JsonEnvelope envelope = JsonEnvelope.builder("vote").put(VotingPluginWire.K_SERVER, "Server2").build();
 
-		votingPluginProxy.handleHttpTransportEnvelopeForTest(new com.bencodez.votingplugin.backendproxy.http.HttpProxyTransportServer.ReceivedEnvelope(
+		votingPluginProxy.handleHttpTransportEnvelopeForTest(new com.bencodez.simpleapi.servercomm.http.HttpProxyTransportServer.ReceivedEnvelope(
 				"Server1", java.util.UUID.randomUUID().toString(), envelope));
 
 		verify(handler, never()).onMessage(Mockito.any());

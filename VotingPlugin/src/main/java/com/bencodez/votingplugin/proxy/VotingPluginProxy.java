@@ -51,6 +51,9 @@ import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelopeCodec;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageListener;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler;
+import com.bencodez.simpleapi.servercomm.http.HttpEnrollmentAuthority;
+import com.bencodez.simpleapi.servercomm.http.HttpProxyTransportServer;
+import com.bencodez.simpleapi.servercomm.http.HttpTlsIdentity;
 import com.bencodez.simpleapi.servercomm.mqtt.MqttHandler;
 import com.bencodez.simpleapi.servercomm.mqtt.MqttServerComm;
 import com.bencodez.simpleapi.servercomm.mysql.MySqlMessenger;
@@ -66,9 +69,6 @@ import com.bencodez.simpleapi.sql.data.DataValueBoolean;
 import com.bencodez.simpleapi.sql.data.DataValueInt;
 import com.bencodez.simpleapi.sql.data.DataValueString;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
-import com.bencodez.votingplugin.backendproxy.http.HttpEnrollmentAuthority;
-import com.bencodez.votingplugin.backendproxy.http.HttpProxyTransportServer;
-import com.bencodez.votingplugin.backendproxy.http.HttpTlsIdentity;
 import com.bencodez.votingplugin.proxy.broadcast.ProxyBroadcastDecider;
 import com.bencodez.votingplugin.proxy.cache.IVoteCache;
 import com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects;
@@ -2811,7 +2811,7 @@ public abstract class VotingPluginProxy {
 					this::acknowledgeVotePartyDelivery);
 			httpTransportServer.start();
 			logInfo("HTTP transport listening securely on " + getConfig().getHttpHost() + ":"
-					+ httpTransportServer.port() + "; use /votingpluginbungee httpcode <server> for each backend");
+					+ httpTransportServer.port() + "; use /votingpluginproxy httpcode <server> for each backend");
 		} catch (Exception failure) {
 			closeHttpTransport();
 			throw new IllegalStateException("HTTP transport could not start securely", failure);

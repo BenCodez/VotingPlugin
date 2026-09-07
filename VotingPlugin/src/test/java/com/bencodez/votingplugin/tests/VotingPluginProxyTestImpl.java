@@ -20,7 +20,7 @@ import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 import com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects;
-import com.bencodez.votingplugin.backendproxy.http.HttpProxyTransportServer;
+import com.bencodez.simpleapi.servercomm.http.HttpProxyTransportServer;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
 public class VotingPluginProxyTestImpl extends VotingPluginProxy {
