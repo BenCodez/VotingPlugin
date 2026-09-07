@@ -88,8 +88,9 @@ public class VoteShopPurchaseService {
 		placeholders.put("limit", String.valueOf(item.getLimit()));
 		placeholders.put("shop", definition.getTitle());
 
-		if (!user.removePoints(item.getCost(), true)) {
-			return VoteShopPurchaseResult.NOT_ENOUGH_POINTS;
+		VoteShopPurchaseResult debit = debitForPurchase(user, item);
+		if (debit != VoteShopPurchaseResult.SUCCESS) {
+			return debit;
 		}
 
 		plugin.getLogger().info("VoteShop: " + user.getPlayerName() + "/" + user.getUUID() + " bought "
@@ -108,12 +109,23 @@ public class VoteShopPurchaseService {
 				item.getIdentifier(), item.getCost());
 		Bukkit.getPluginManager().callEvent(purchaseEvent);
 
-		if (item.getLimit() > 0) {
-			user.setVoteShopIdentifierLimit(item.getIdentifier(),
-					user.getVoteShopIdentifierLimit(item.getIdentifier()) + 1);
-		}
-
 		return VoteShopPurchaseResult.SUCCESS;
+	}
+
+	VoteShopPurchaseResult debitForPurchase(VotingPluginUser user, VoteShopItem item) {
+		synchronized (user) {
+			if (item.getLimit() > 0 && user.getVoteShopIdentifierLimit(item.getIdentifier()) >= item.getLimit()) {
+				return VoteShopPurchaseResult.LIMIT_REACHED;
+			}
+			if (!user.removePoints(item.getCost())) {
+				return VoteShopPurchaseResult.NOT_ENOUGH_POINTS;
+			}
+			if (item.getLimit() > 0) {
+				user.setVoteShopIdentifierLimit(item.getIdentifier(),
+						user.getVoteShopIdentifierLimit(item.getIdentifier()) + 1);
+			}
+			return VoteShopPurchaseResult.SUCCESS;
+		}
 	}
 
 	/**
