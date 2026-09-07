@@ -186,6 +186,27 @@ class ProxyConfigurationFileServiceTest {
 	}
 
 	@Test
+	void rejectsReorderingSecretBearingSequenceEntriesButAllowsInPlaceEdits() throws Exception {
+		Path file = write("""
+				Hooks:
+				  - Name: alpha
+				    Password: alpha-secret
+				  - Name: beta
+				    Password: beta-secret
+				Debug: false
+				""");
+		ProxyConfigurationFileService service = service(file);
+		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
+		String unchangedOrder = current.content().replace("Debug: false", "Debug: true");
+		assertTrue(service.preview(ProxyConfigurationFileService.FILE_NAME, unchangedOrder).resolvedContent()
+				.contains("Password: alpha-secret"));
+		String reordered = current.content().replace("Name: alpha", "Name: __swapped__")
+				.replace("Name: beta", "Name: alpha").replace("Name: __swapped__", "Name: beta");
+		assertThrows(IllegalArgumentException.class,
+				() -> service.preview(ProxyConfigurationFileService.FILE_NAME, reordered));
+	}
+
+	@Test
 	void preservesNullEntriesInSequencesAcrossReadPreviewAndApply() throws Exception {
 		Path file = write("Servers: [null, active]\nEmptyEntries:\n  -\nDebug: false\n");
 		ProxyConfigurationFileService service = service(file);

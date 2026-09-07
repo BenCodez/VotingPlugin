@@ -783,6 +783,8 @@ final class ProxyConfigurationFileService {
 
 	@SuppressWarnings("unchecked")
 	private static List<Object> resolveList(List<?> proposed, List<?> current, String path) {
+		if (containsSecrets(current, path) && !sameSecretSafeListOrder(proposed, current, path))
+			throw new IllegalArgumentException("reordering lists containing redacted secrets is not supported");
 		List<Object> result = new ArrayList<>();
 		for (int index = 0; index < proposed.size(); index++) {
 			Object value = proposed.get(index);
@@ -808,6 +810,33 @@ final class ProxyConfigurationFileService {
 			} else result.add(value);
 		}
 		return Collections.unmodifiableList(result);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static boolean sameSecretSafeListOrder(Object proposed, Object current, String path) {
+		if (REDACTED.equals(proposed)) return true;
+		if (proposed instanceof Map<?, ?> proposedMap && current instanceof Map<?, ?> currentMap) {
+			if (!proposedMap.keySet().equals(currentMap.keySet())) return false;
+			String mapPath = path.endsWith(".") ? path : path + ".";
+			for (Object rawKey : proposedMap.keySet()) {
+				String key = String.valueOf(rawKey);
+				Object old = currentMap.get(rawKey);
+				Object candidate = proposedMap.get(rawKey);
+				if (secret(mapPath + key, key, old)) {
+					if (!REDACTED.equals(candidate)) return false;
+				} else if (!sameSecretSafeListOrder(candidate, old, mapPath + key)) {
+					return false;
+				}
+			}
+			return true;
+		}
+		if (proposed instanceof List<?> proposedList && current instanceof List<?> currentList) {
+			if (proposedList.size() != currentList.size()) return false;
+			for (int i = 0; i < proposedList.size(); i++)
+				if (!sameSecretSafeListOrder(proposedList.get(i), currentList.get(i), path + "[" + i + "]")) return false;
+			return true;
+		}
+		return java.util.Objects.equals(proposed, current);
 	}
 
 	private static boolean secret(String path, String key, Object value) {
