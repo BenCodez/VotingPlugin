@@ -836,8 +836,11 @@ final class ProxyConfigurationFileService {
 			return proposed != null && !(proposed instanceof Map<?, ?>) && !(proposed instanceof List<?>);
 		}
 		if (proposed instanceof Map<?, ?> proposedMap && current instanceof Map<?, ?> currentMap) {
-			if (!proposedMap.keySet().equals(currentMap.keySet())) return false;
 			String mapPath = path.endsWith(".") ? path : path + ".";
+			if (containsSecrets(currentMap, mapPath) && hasStableIdentity(proposedMap, currentMap)) {
+				return preservesSecretFields(proposedMap, currentMap, mapPath);
+			}
+			if (!proposedMap.keySet().equals(currentMap.keySet())) return false;
 			boolean hasStableIdentity = false;
 			boolean sawNonSecret = false;
 			boolean allNonSecretsUnchanged = true;
@@ -875,15 +878,51 @@ final class ProxyConfigurationFileService {
 		return java.util.Objects.equals(proposed, current);
 	}
 
+	private static boolean hasStableIdentity(Map<?, ?> proposed, Map<?, ?> current) {
+		for (Object rawKey : current.keySet()) {
+			String key = String.valueOf(rawKey);
+			Object value = current.get(rawKey);
+			if (listEntryIdentityKey(key) && value != null && !(value instanceof Map<?, ?>)
+					&& !(value instanceof List<?>) && proposed.containsKey(rawKey)
+					&& java.util.Objects.equals(value, proposed.get(rawKey))) return true;
+		}
+		return false;
+	}
+
+	private static boolean preservesSecretFields(Map<?, ?> proposed, Map<?, ?> current, String path) {
+		for (Object rawKey : current.keySet()) {
+			String key = String.valueOf(rawKey);
+			Object old = current.get(rawKey);
+			String childPath = path + key;
+			if (secret(childPath, key, old)) {
+				if (!proposed.containsKey(rawKey)) return false;
+				Object candidate = proposed.get(rawKey);
+				if (candidate == null || candidate instanceof Map<?, ?> || candidate instanceof List<?>) return false;
+			} else if ((old instanceof Map<?, ?> || old instanceof List<?>) && containsSecrets(old,
+					old instanceof Map<?, ?> ? childPath + "." : childPath)) {
+				if (!proposed.containsKey(rawKey)
+						|| !sameSecretSafeListOrder(proposed.get(rawKey), old,
+							old instanceof Map<?, ?> ? childPath + "." : childPath)) return false;
+			}
+		}
+		return true;
+	}
+
 	@SuppressWarnings("unchecked")
 	private static boolean hasNonSecretEdit(Object proposed, Object current, String path) {
 		if (secret(path, "", current)) return false;
 		if (proposed instanceof Map<?, ?> proposedMap && current instanceof Map<?, ?> currentMap) {
+			String mapPath = path.endsWith(".") ? path : path + ".";
+			for (Object rawKey : currentMap.keySet()) {
+				String key = String.valueOf(rawKey);
+				Object old = currentMap.get(rawKey);
+				if (!proposedMap.containsKey(rawKey) && !secret(mapPath + key, key, old)) return true;
+			}
 			for (Object rawKey : proposedMap.keySet()) {
 				String key = String.valueOf(rawKey);
 				Object old = currentMap.get(rawKey);
-				if (!secret(path + "." + key, key, old)
-						&& hasNonSecretEdit(proposedMap.get(rawKey), old, path + "." + key)) return true;
+				if (!secret(mapPath + key, key, old)
+						&& hasNonSecretEdit(proposedMap.get(rawKey), old, mapPath + key)) return true;
 			}
 			return false;
 		}

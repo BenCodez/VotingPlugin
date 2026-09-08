@@ -220,6 +220,27 @@ class ProxyConfigurationFileServiceTest {
 	}
 
 	@Test
+	void allowsAddingOrRemovingNonSecretFieldsFromIdentifiedSecretEntries() throws Exception {
+		Path file = write("""
+				Hooks:
+				  - Name: primary
+				    Password: primary-secret
+				    Enabled: true
+				""");
+		ProxyConfigurationFileService service = service(file);
+		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
+
+		String added = current.content().replace("Password: " + ProxyConfigurationFileService.REDACTED + "\n",
+				"Password: " + ProxyConfigurationFileService.REDACTED + "\n  Description: primary\n");
+		assertTrue(service.preview(ProxyConfigurationFileService.FILE_NAME, added).resolvedContent()
+				.contains("Description: primary"));
+
+		String removed = current.content().replaceFirst("  Enabled: true\\n", "");
+		assertTrue(service.preview(ProxyConfigurationFileService.FILE_NAME, removed).resolvedContent()
+				.contains("Password: primary-secret"));
+	}
+
+	@Test
 	void rejectsPublicEditsWhenSecretBearingEntriesHaveDuplicateIdentities() throws Exception {
 		Path file = write("""
 				Hooks:
@@ -237,6 +258,9 @@ class ProxyConfigurationFileServiceTest {
 
 		assertThrows(IllegalArgumentException.class,
 				() -> service.preview(ProxyConfigurationFileService.FILE_NAME, swappedPublicValues));
+		String removedPublicField = current.replaceFirst("  Enabled: true\\n", "");
+		assertThrows(IllegalArgumentException.class,
+				() -> service.preview(ProxyConfigurationFileService.FILE_NAME, removedPublicField));
 	}
 
 	@Test
