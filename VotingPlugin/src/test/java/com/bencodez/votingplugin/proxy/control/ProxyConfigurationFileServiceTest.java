@@ -502,6 +502,124 @@ class ProxyConfigurationFileServiceTest {
 	}
 
 	@Test
+	void masksInfrastructureLabelsAndOrdinaryConnectionUrlsInComments() throws Exception {
+		Path file = write("""
+				# failover host: replica.internal
+				# ProxyHost: proxy.internal
+				# ControlEndpoint: https://control-alt.internal
+				# RedisHost: cache-alt.internal
+				# PrimaryRedisHost: redis-primary.internal
+				# FailoverDatabaseHost: db-failover.internal
+				# MultiProxyRedisHost: redis-multiproxy.internal
+				# MultiProxySocketHost: socket-multiproxy.internal
+				# BungeeServerHost: bungee.internal
+				# SpigotServersHost: spigot.internal
+				# CustomHostName: custom-db.internal
+				# FailoverDbName: votes_failover
+				# DBHost: db-acronym.internal
+				# DBPORT: 3306
+				# REDISPORT: 6379
+				# MySQLHost: mysql-acronym.internal
+				# DBURL: cluster.internal:5432
+				# APIURL: control-api.internal
+				# AuthToken: bearer-value
+				FeatureTwo: false # ApiToken: alternate-bearer
+				# Credential: secret-value
+				# AccessKey: access-value
+				# PrivateKey: private-value
+				# SSHPrivateKeyData: private-key-data
+				# AWSAccessKeyId: aws-access-id
+				# ApiKeyId: api-key-id
+				# IP: 10.0.0.8
+				# IPv4: 10.0.0.9
+				# IPv6: fd00::10
+				# connect through 10.0.0.10
+				# fail over to bare-db.internal
+				# Note: failover host: nested-label.internal
+				# management endpoint = https://control.internal:8443
+				# cache connection: redis://cache.internal:6379
+				Feature: false # database host: primary.internal
+				""");
+		ProxyConfigurationFileService service = service(file);
+
+		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
+		assertFalse(current.content().contains("replica.internal"));
+		assertFalse(current.content().contains("proxy.internal"));
+		assertFalse(current.content().contains("control-alt.internal"));
+		assertFalse(current.content().contains("cache-alt.internal"));
+		assertFalse(current.content().contains("redis-primary.internal"));
+		assertFalse(current.content().contains("db-failover.internal"));
+		assertFalse(current.content().contains("redis-multiproxy.internal"));
+		assertFalse(current.content().contains("socket-multiproxy.internal"));
+		assertFalse(current.content().contains("bungee.internal"));
+		assertFalse(current.content().contains("spigot.internal"));
+		assertFalse(current.content().contains("custom-db.internal"));
+		assertFalse(current.content().contains("votes_failover"));
+		assertFalse(current.content().contains("db-acronym.internal"));
+		assertFalse(current.content().contains("3306"));
+		assertFalse(current.content().contains("6379"));
+		assertFalse(current.content().contains("mysql-acronym.internal"));
+		assertFalse(current.content().contains("cluster.internal"));
+		assertFalse(current.content().contains("control-api.internal"));
+		assertFalse(current.content().contains("bearer-value"));
+		assertFalse(current.content().contains("alternate-bearer"));
+		assertFalse(current.content().contains("secret-value"));
+		assertFalse(current.content().contains("access-value"));
+		assertFalse(current.content().contains("private-value"));
+		assertFalse(current.content().contains("private-key-data"));
+		assertFalse(current.content().contains("aws-access-id"));
+		assertFalse(current.content().contains("api-key-id"));
+		assertFalse(current.content().contains("10.0.0.8"));
+		assertFalse(current.content().contains("10.0.0.9"));
+		assertFalse(current.content().contains("fd00::10"));
+		assertFalse(current.content().contains("10.0.0.10"));
+		assertFalse(current.content().contains("bare-db.internal"));
+		assertFalse(current.content().contains("nested-label.internal"));
+		assertFalse(current.content().contains("control.internal"));
+		assertFalse(current.content().contains("cache.internal"));
+		assertFalse(current.content().contains("primary.internal"));
+		assertTrue(current.content().contains(ProxyConfigurationFileService.REDACTED));
+
+		String proposal = current.content().replace("Feature: false", "Feature: true");
+		ProxyConfigurationFileService.Preview preview = service.preview(ProxyConfigurationFileService.FILE_NAME, proposal);
+		assertTrue(preview.resolvedContent().contains("replica.internal"));
+		assertTrue(preview.resolvedContent().contains("ProxyHost: proxy.internal"));
+		assertTrue(preview.resolvedContent().contains("ControlEndpoint: https://control-alt.internal"));
+		assertTrue(preview.resolvedContent().contains("RedisHost: cache-alt.internal"));
+		assertTrue(preview.resolvedContent().contains("PrimaryRedisHost: redis-primary.internal"));
+		assertTrue(preview.resolvedContent().contains("FailoverDatabaseHost: db-failover.internal"));
+		assertTrue(preview.resolvedContent().contains("MultiProxyRedisHost: redis-multiproxy.internal"));
+		assertTrue(preview.resolvedContent().contains("MultiProxySocketHost: socket-multiproxy.internal"));
+		assertTrue(preview.resolvedContent().contains("BungeeServerHost: bungee.internal"));
+		assertTrue(preview.resolvedContent().contains("SpigotServersHost: spigot.internal"));
+		assertTrue(preview.resolvedContent().contains("CustomHostName: custom-db.internal"));
+		assertTrue(preview.resolvedContent().contains("FailoverDbName: votes_failover"));
+		assertTrue(preview.resolvedContent().contains("DBHost: db-acronym.internal"));
+		assertTrue(preview.resolvedContent().contains("DBPORT: 3306"));
+		assertTrue(preview.resolvedContent().contains("REDISPORT: 6379"));
+		assertTrue(preview.resolvedContent().contains("MySQLHost: mysql-acronym.internal"));
+		assertTrue(preview.resolvedContent().contains("DBURL: cluster.internal:5432"));
+		assertTrue(preview.resolvedContent().contains("APIURL: control-api.internal"));
+		assertTrue(preview.resolvedContent().contains("AuthToken: bearer-value"));
+		assertTrue(preview.resolvedContent().contains("ApiToken: alternate-bearer"));
+		assertTrue(preview.resolvedContent().contains("Credential: secret-value"));
+		assertTrue(preview.resolvedContent().contains("AccessKey: access-value"));
+		assertTrue(preview.resolvedContent().contains("PrivateKey: private-value"));
+		assertTrue(preview.resolvedContent().contains("SSHPrivateKeyData: private-key-data"));
+		assertTrue(preview.resolvedContent().contains("AWSAccessKeyId: aws-access-id"));
+		assertTrue(preview.resolvedContent().contains("ApiKeyId: api-key-id"));
+		assertTrue(preview.resolvedContent().contains("IP: 10.0.0.8"));
+		assertTrue(preview.resolvedContent().contains("IPv4: 10.0.0.9"));
+		assertTrue(preview.resolvedContent().contains("IPv6: fd00::10"));
+		assertTrue(preview.resolvedContent().contains("connect through 10.0.0.10"));
+		assertTrue(preview.resolvedContent().contains("fail over to bare-db.internal"));
+		assertTrue(preview.resolvedContent().contains("Note: failover host: nested-label.internal"));
+		assertTrue(preview.resolvedContent().contains("https://control.internal:8443"));
+		assertTrue(preview.resolvedContent().contains("redis://cache.internal:6379"));
+		assertTrue(preview.resolvedContent().contains("primary.internal"));
+	}
+
+	@Test
 	void masksShortAndBooleanLikeSecretsRepeatedInOtherwisePublicComments() throws Exception {
 		Path file = write("""
 				Database:

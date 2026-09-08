@@ -26,6 +26,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.LoaderOptions;
@@ -50,6 +52,9 @@ final class ProxyConfigurationFileService {
 	static final String REDACTED = "__VOTINGPLUGIN_CONTROL_REDACTED__";
 	static final int MAX_BYTES = 512 * 1024;
 	private static final String REDACTED_COMMENT = " " + REDACTED;
+	private static final Pattern LABELED_COMMENT_DETAIL = Pattern.compile("([A-Za-z0-9 _-]+)\\s*[:=]");
+	private static final Pattern BARE_NETWORK_ADDRESS = Pattern.compile(
+			"(?i)(?<![a-z0-9_-])(?:(?:\\d{1,3}\\.){3}\\d{1,3}|(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}|(?=[0-9a-f:]*:[0-9a-f:]*:)[0-9a-f:]{3,})(?![a-z0-9_:-])");
 	private final Path target;
 	private final MoveAction mover;
 	private final TempFileAction tempFiles;
@@ -687,10 +692,47 @@ final class ProxyConfigurationFileService {
 	private static boolean sensitiveComment(String comment, boolean sensitiveContext, Set<String> values) {
 		if (sensitiveContext) return true;
 		String lowered = comment.toLowerCase(Locale.ROOT);
-		if (lowered.matches("(?s).*\\b(password|secret|token|api[ _-]?key|authorization|jdbc|webhook)\\b.*")
-				|| lowered.matches("(?s).*[a-z][a-z0-9+.-]*://[^/@\\s]+:[^/@\\s]+@.*")) return true;
+		if (lowered.matches("(?s).*\\b(password|passphrase|secret|token|credentials?|api[ _-]?key|access[ _-]?key|private[ _-]?key|client[ _-]?secret|signing[ _-]?key|authorization|jdbc|webhook)\\b.*")
+				|| lowered.matches("(?s).*[a-z][a-z0-9+.-]*://[^/@\\s]+:[^/@\\s]+@.*")
+				|| labeledSensitiveDetail(comment)
+				|| BARE_NETWORK_ADDRESS.matcher(comment).find()
+				|| lowered.matches("(?s).*\\b(?:jdbc:[a-z][a-z0-9+.-]*:|[a-z][a-z0-9+.-]*://)[^\\s#]+.*")) return true;
 		for (String value : values) {
 			if (lowered.contains(value.toLowerCase(Locale.ROOT))) return true;
+		}
+		return false;
+	}
+
+	private static boolean labeledSensitiveDetail(String comment) {
+		Matcher details = LABELED_COMMENT_DETAIL.matcher(comment);
+		while (details.find()) {
+			if (!comment.substring(details.end()).trim().isEmpty() && sensitiveCommentLabel(details.group(1))) return true;
+		}
+		return false;
+	}
+
+	private static boolean sensitiveCommentLabel(String rawLabel) {
+		String label = rawLabel
+				.replaceAll("([A-Z]+)([A-Z][a-z])", "$1 $2")
+				.replaceAll("([a-z0-9])([A-Z])", "$1 $2")
+				.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", " ").trim();
+		if (label.isEmpty()) return false;
+		Set<String> sensitiveLabels = Set.of("host", "hostname", "endpoint", "address", "port", "server", "broker",
+				"database", "db", "schema", "socket", "proxy", "redis", "mysql", "mqtt", "bungee", "connection",
+				"uri", "url", "ip", "ipv4", "ipv6", "password", "passphrase", "secret", "token", "authorization", "apikey", "webhook",
+				"credential", "credentials", "accesskey", "privatekey", "clientsecret", "signingkey", "bearer");
+		for (String token : label.split(" +")) {
+			if (sensitiveLabels.contains(token)) return true;
+		}
+		String compact = label.replace(" ", "");
+		for (String fragment : Set.of("privatekey", "accesskey", "apikey", "clientsecret", "signingkey")) {
+			if (compact.contains(fragment)) return true;
+		}
+		for (String suffix : Set.of("host", "hostname", "endpoint", "address", "port", "server", "broker", "database",
+				"dbname", "schema", "socket", "proxy", "redis", "mysql", "mqtt", "bungee", "connection", "uri",
+				"url", "ipv4", "ipv6", "password", "passphrase", "secret", "token", "authorization", "apikey", "webhook",
+				"credential", "credentials", "accesskey", "privatekey", "clientsecret", "signingkey", "bearer")) {
+			if (compact.endsWith(suffix)) return true;
 		}
 		return false;
 	}
