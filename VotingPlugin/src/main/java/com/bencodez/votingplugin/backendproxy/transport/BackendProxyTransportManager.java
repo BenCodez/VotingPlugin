@@ -21,6 +21,7 @@ public class BackendProxyTransportManager {
 	private final ProcessedVoteCache processedVoteCache;
 	private BackendProxyTransport transport;
 	private BackendProxyTransport preparedTransport;
+	private BackendProxyTransport retiredTransport;
 	private BackendProxyTransportManager forwardingManager;
 	private final java.util.ArrayDeque<JsonEnvelope> preparedSends = new java.util.ArrayDeque<>();
 	private boolean preparedQueueWarning;
@@ -93,6 +94,20 @@ public class BackendProxyTransportManager {
 			preparedTransport.close();
 			preparedTransport = null;
 		}
+		if (retiredTransport != null) {
+			BackendProxyTransport retired = retiredTransport;
+			try {
+				retired.close();
+				retiredTransport = null;
+			} catch (RuntimeException cleanupFailure) {
+				// This transport has already been fenced and replaced. Keep its handle
+				// for another cleanup attempt, but never fail or close the live replacement.
+				if (plugin != null) {
+					plugin.getLogger().warning("Retired backend proxy transport did not stop cleanly");
+					plugin.debug(cleanupFailure);
+				}
+			}
+		}
 		if (forwardingManager == null) preparedSends.clear();
 	}
 
@@ -108,19 +123,51 @@ public class BackendProxyTransportManager {
 
 	public synchronized void prepareForReplacement() {
 		if (transport != null) {
-			transport.prepareForReplacement();
 			preparedTransport = transport;
 			transport = null;
+			try {
+				preparedTransport.prepareForReplacement();
+			} catch (RuntimeException failure) {
+				HttpBackendProxyTransport http = preparedTransport instanceof HttpBackendProxyTransport candidate
+						? candidate : null;
+				if (http != null && !http.isClosedForReplacement()) {
+					// A failed flush deliberately restarts the existing connector. Reinstall
+					// that live instance instead of creating a second directory owner.
+					transport = preparedTransport;
+					preparedTransport = null;
+				} else {
+					// Enrollment cancellation may already have closed this instance. Restore
+					// from its captured configuration before configuration rollback.
+					try {
+						restorePreparedTransport();
+					} catch (RuntimeException restorationFailure) {
+						failure.addSuppressed(restorationFailure);
+					}
+				}
+				throw failure;
+			}
 		}
 	}
 
 	public synchronized void completePreparedTransportHandoff(BackendProxyTransportManager replacement) {
 		if (preparedTransport == null) return;
 		forwardingManager = java.util.Objects.requireNonNull(replacement, "replacement");
+		java.util.ArrayList<JsonEnvelope> pending = new java.util.ArrayList<>();
 		if (preparedTransport instanceof HttpBackendProxyTransport http) {
-			for (JsonEnvelope envelope : http.drainPreparedMessages()) forwardingManager.send(envelope);
+			pending.addAll(http.drainPreparedMessages());
 		}
-		while (!preparedSends.isEmpty()) forwardingManager.send(preparedSends.removeFirst());
+		while (!preparedSends.isEmpty()) pending.add(preparedSends.removeFirst());
+		if (forwardingManager.transport instanceof HttpBackendProxyTransport http) {
+			http.acceptHandoffMessages(pending);
+		} else {
+			for (JsonEnvelope envelope : pending) forwardingManager.send(envelope);
+		}
+	}
+
+	public void beginPreparedHttpHandoff() {
+		if (!(transport instanceof HttpBackendProxyTransport http))
+			throw new IllegalStateException("HTTP replacement transport is unavailable");
+		http.beginPreparedHandoff();
 	}
 
 	public synchronized void restorePreparedTransport() {
@@ -147,12 +194,20 @@ public class BackendProxyTransportManager {
 		if (transport instanceof HttpBackendProxyTransport http) http.awaitCredentialRestoration(deadlineNanos);
 	}
 
-	public void closeRedisForHandoff() {
+	public synchronized void closeRedisForHandoff() {
 		if (!(transport instanceof RedisBackendProxyTransport)) {
 			throw new IllegalStateException("Redis backend proxy transport is unavailable");
 		}
-		((RedisBackendProxyTransport) transport).closeForHandoff();
+		retiredTransport = transport;
 		transport = null;
+		try {
+			((RedisBackendProxyTransport) retiredTransport).closeForHandoff();
+			retiredTransport = null;
+		} catch (RuntimeException failure) {
+			// Retain the fenced old listener so a later manager close can retry its
+			// cleanup without ever touching the promoted replacement.
+			throw failure;
+		}
 	}
 
 	public void activateRedisAfterHandoff() {
@@ -160,6 +215,22 @@ public class BackendProxyTransportManager {
 			throw new IllegalStateException("Redis replacement transport is unavailable");
 		}
 		((RedisBackendProxyTransport) transport).activateAfterHandoff();
+	}
+
+	/** Promotes the validated standby before retiring the old Redis listener. */
+	public void completeRedisHandoff(BackendProxyTransportManager replacement) {
+		java.util.Objects.requireNonNull(replacement, "replacement").activateRedisAfterHandoff();
+		try {
+			closeRedisForHandoff();
+		} catch (RuntimeException retirementFailure) {
+			// The replacement is already active and usable. Treat failure to join the
+			// closed old listener as cleanup degradation, not a reason to tear down
+			// the newly promoted subscriber and leave the backend disconnected.
+			if (plugin != null) {
+				plugin.getLogger().warning("Previous Redis backend listener did not stop cleanly after handoff");
+				plugin.debug(retirementFailure);
+			}
+		}
 	}
 
 	public ClientHandler getClientHandler() {

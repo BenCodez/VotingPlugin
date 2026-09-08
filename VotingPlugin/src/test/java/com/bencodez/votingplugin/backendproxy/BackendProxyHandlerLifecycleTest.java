@@ -1,12 +1,15 @@
 package com.bencodez.votingplugin.backendproxy;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -188,6 +191,29 @@ class BackendProxyHandlerLifecycleTest {
 	}
 
 	@Test
+	void failedPresenceStartKeepsTransportBehindPublicationBarrier() throws Exception {
+		BackendProxyHandler handler = new BackendProxyHandler(null);
+		BackendPresenceManager presence = mock(BackendPresenceManager.class);
+		org.mockito.Mockito.doThrow(new java.util.concurrent.RejectedExecutionException()).when(presence).start();
+		Field presenceField = BackendProxyHandler.class.getDeclaredField("presenceManager");
+		presenceField.setAccessible(true);
+		presenceField.set(handler, presence);
+
+		Field managerField = BackendProxyHandler.class.getDeclaredField("transportManager");
+		managerField.setAccessible(true);
+		BackendProxyTransportManager manager = (BackendProxyTransportManager) managerField.get(handler);
+		BackendProxyTransport transport = mock(BackendProxyTransport.class);
+		Field transportField = BackendProxyTransportManager.class.getDeclaredField("transport");
+		transportField.setAccessible(true);
+		transportField.set(manager, transport);
+
+		assertThrows(java.util.concurrent.RejectedExecutionException.class, handler::activatePresenceReporting);
+
+		verify(presence).start();
+		verify(transport, never()).activateAfterPublication();
+	}
+
+	@Test
 	void sharesVoteDeduplicationAcrossHandlerReplacement() {
 		ProcessedVoteCache cache = new ProcessedVoteCache();
 		BackendProxyHandler previous = new BackendProxyHandler(null, cache);
@@ -349,6 +375,34 @@ class BackendProxyHandlerLifecycleTest {
 	}
 
 	@Test
+	void keepsPromotedRedisReplacementWhenOldListenerRetirementFails() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		java.util.logging.Logger logger = mock(java.util.logging.Logger.class);
+		when(plugin.getLogger()).thenReturn(logger);
+		BackendProxyTransportManager previous = new BackendProxyTransportManager(plugin);
+		BackendProxyTransportManager replacement = new BackendProxyTransportManager(plugin);
+		RedisBackendProxyTransport oldTransport = mock(RedisBackendProxyTransport.class);
+		RedisBackendProxyTransport newTransport = mock(RedisBackendProxyTransport.class);
+		setField(previous, "transport", oldTransport);
+		setField(replacement, "transport", newTransport);
+		doThrow(new IllegalStateException("listener did not stop")).when(oldTransport).closeForHandoff();
+		doThrow(new IllegalStateException("connection still closing")).doNothing().when(oldTransport).close();
+
+		previous.completeRedisHandoff(replacement);
+
+		org.mockito.InOrder order = inOrder(newTransport, oldTransport);
+		order.verify(newTransport).activateAfterHandoff();
+		order.verify(oldTransport).closeForHandoff();
+		assertSame(newTransport, transport(replacement));
+		assertNull(transport(previous));
+
+		assertDoesNotThrow(previous::close);
+		assertDoesNotThrow(previous::close);
+
+		verify(oldTransport, times(2)).close();
+	}
+
+	@Test
 	void stopsGlobalDataTimerWhenHandlerIsReplaced() throws Exception {
 		BackendGlobalDataSync handler = new BackendGlobalDataSync(null, null);
 		ScheduledExecutorService timer = mock(ScheduledExecutorService.class);
@@ -373,6 +427,12 @@ class BackendProxyHandlerLifecycleTest {
 		managerField.setAccessible(true);
 		BackendProxyTransportManager manager = (BackendProxyTransportManager) managerField.get(handler);
 		setField(manager, "transport", transport);
+	}
+
+	private BackendProxyTransport transport(BackendProxyTransportManager manager) throws Exception {
+		Field field = BackendProxyTransportManager.class.getDeclaredField("transport");
+		field.setAccessible(true);
+		return (BackendProxyTransport) field.get(manager);
 	}
 
 	private void setField(Object target, String name, Object value) throws Exception {

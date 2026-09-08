@@ -35,6 +35,9 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 	private final List<JsonEnvelope> bufferedLegacyDeliveries = new ArrayList<>();
 	private long bufferedLegacyDeliveryBytes;
 	private boolean legacyHandoffDegraded;
+	private boolean retiredAfterHandoff;
+	private boolean replayingHandoff;
+	private final java.util.ArrayDeque<JsonEnvelope> deliveriesAfterReplay = new java.util.ArrayDeque<>();
 	private GlobalMessageHandler messageHandler;
 
 	public RedisBackendProxyTransport(VotingPluginMain plugin) {
@@ -49,6 +52,7 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 	@Override
 	public void start(GlobalMessageHandler messageHandler) {
 		this.messageHandler = messageHandler;
+		retiredAfterHandoff = false;
 		processedVoteCache.registerRedisSubscriber(subscriberIdentity);
 		redisHandler = new RedisHandler(plugin.getBungeeSettings().getRedisHost(),
 				plugin.getBungeeSettings().getRedisPort(), plugin.getBungeeSettings().getRedisUsername(),
@@ -71,7 +75,7 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 						JsonEnvelope envelope = com.bencodez.simpleapi.servercomm.codec.JsonEnvelopeCodec.decode(payload);
 						String deliveryId = envelope.getFields().get(VotingPluginWire.K_REDIS_DELIVERY_ID);
 						if (deliveryId != null) {
-							if (processedVoteCache.reserveRedisDelivery(deliveryId)) messageHandler.onMessage(envelope);
+							dispatchIdentified(envelope, deliveryId);
 						} else {
 							dispatchLegacy(envelope);
 						}
@@ -89,12 +93,27 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 		listenerThread.start();
 	}
 
+	void dispatchIdentified(JsonEnvelope envelope, String deliveryId) {
+		boolean accepted;
+		synchronized (legacyLifecycle) {
+			if (retiredAfterHandoff) return;
+			accepted = processedVoteCache.reserveRedisDelivery(deliveryId);
+			if (accepted && replayingHandoff) {
+				deliveriesAfterReplay.addLast(envelope);
+				accepted = false;
+			}
+		}
+		if (accepted) messageHandler.onMessage(envelope);
+	}
+
 	void dispatchLegacy(JsonEnvelope envelope) {
 		String signature = com.bencodez.simpleapi.servercomm.codec.JsonEnvelopeCodec.encode(envelope);
 		int encodedBytes = ProcessedVoteCache.legacyRedisDeliveryBytes(signature);
+		boolean dispatch = false;
 		synchronized (legacyLifecycle) {
+			if (retiredAfterHandoff) return;
 			if (processedVoteCache.reserveLegacyRedisDelivery(subscriberIdentity, signature)) {
-				messageHandler.onMessage(envelope);
+				dispatch = true;
 			} else if (encodedBytes <= ProcessedVoteCache.MAX_LEGACY_REDIS_DELIVERY_BYTES
 					&& bufferedLegacyDeliveries.size() < MAX_LEGACY_HANDOFF_DELIVERIES
 					&& bufferedLegacyDeliveryBytes <= ProcessedVoteCache.MAX_LEGACY_REDIS_TOTAL_BYTES - encodedBytes) {
@@ -107,29 +126,74 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 							+ " byte buffer; temporarily degrading duplicate suppression");
 				}
 				legacyHandoffDegraded = true;
-				messageHandler.onMessage(envelope);
+				dispatch = true;
+			}
+			if (dispatch && replayingHandoff) {
+				deliveriesAfterReplay.addLast(envelope);
+				dispatch = false;
 			}
 		}
+		if (dispatch) messageHandler.onMessage(envelope);
 	}
 
 	/** Promotes a validated standby after the previous listener has completely stopped. */
 	public void activateAfterHandoff() {
+		java.util.ArrayList<JsonEnvelope> replay = new java.util.ArrayList<>();
 		synchronized (legacyLifecycle) {
+			replayingHandoff = true;
 			processedVoteCache.activateRedisSubscriber(subscriberIdentity);
 			for (JsonEnvelope envelope : bufferedLegacyDeliveries) {
-				String signature = com.bencodez.simpleapi.servercomm.codec.JsonEnvelopeCodec.encode(envelope);
-				if (!processedVoteCache.consumeLegacyRedisDelivery(signature)) messageHandler.onMessage(envelope);
+				try {
+					String signature = com.bencodez.simpleapi.servercomm.codec.JsonEnvelopeCodec.encode(envelope);
+					if (!processedVoteCache.consumeLegacyRedisDelivery(signature)) replay.add(envelope);
+				} catch (RuntimeException replayFailure) {
+					if (plugin != null) plugin.debug("Redis handoff replay failed: " + replayFailure.getMessage());
+				}
 			}
 			bufferedLegacyDeliveries.clear();
 			bufferedLegacyDeliveryBytes = 0;
 			legacyHandoffDegraded = false;
 			processedVoteCache.finishRedisHandoff();
 		}
+		dispatchReplayBatch(replay);
+		while (true) {
+			synchronized (legacyLifecycle) {
+				if (deliveriesAfterReplay.isEmpty()) {
+					replayingHandoff = false;
+					break;
+				}
+				replay = new java.util.ArrayList<>(deliveriesAfterReplay);
+				deliveriesAfterReplay.clear();
+			}
+			dispatchReplayBatch(replay);
+		}
+	}
+
+	private void dispatchReplayBatch(java.util.List<JsonEnvelope> replay) {
+		for (JsonEnvelope envelope : replay) {
+			try {
+				messageHandler.onMessage(envelope);
+			} catch (RuntimeException replayFailure) {
+				if (plugin != null) plugin.debug("Redis handoff replay failed: " + replayFailure.getMessage());
+			}
+		}
 	}
 
 	/** Stops the old listener while retaining its overlap accounting for standby promotion. */
 	public void closeForHandoff() {
+		fenceAfterHandoff();
 		closeListener(false);
+	}
+
+	/** Prevents a listener that misses its shutdown deadline from dispatching duplicates. */
+	void fenceAfterHandoff() {
+		synchronized (legacyLifecycle) {
+			retiredAfterHandoff = true;
+			replayingHandoff = false;
+			deliveriesAfterReplay.clear();
+			bufferedLegacyDeliveries.clear();
+			bufferedLegacyDeliveryBytes = 0;
+		}
 	}
 
 	@Override

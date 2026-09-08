@@ -1284,9 +1284,13 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	public void validateBackendProxyHandlerRestart(BackendProxyRestart restart, long validationDeadlineNanos) {
 		if (restart == null) throw new IllegalArgumentException("Backend proxy restart is required");
 		if (restart.previousRequiresPreparation && !restart.previousPrepared) {
+			// Preparation can close a retrying enrollment transport before a bounded
+			// worker join fails. Mark the restart first so abort/await still owns the
+			// restoration path after a partially completed preparation.
+			restart.previousPrepared = true;
+			restart.replacement.beginPreparedHttpHandoff();
 			if (!restart.previous.prepareForReplacement(restart.replacement.getMethod()))
 				throw new IllegalStateException("Previous HTTP proxy transport could not be prepared for replacement");
-			restart.previousPrepared = true;
 		}
 		if (restart.replacement != null) restart.replacement.validateTransport(validationDeadlineNanos);
 	}
@@ -1309,9 +1313,19 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				restart.published = true;
 				return;
 			}
-			if (restart.previous != null) restart.previous.completeRedisHandoff(restart.replacement);
-			if (restart.previous != null) restart.previous.completeHttpHandoff(restart.replacement);
 			publishBackendProxyHandler(restart.previous, restart.replacement);
+			try {
+				if (restart.previous != null) restart.previous.completeRedisHandoff(restart.replacement);
+			} catch (RuntimeException handoffFailure) {
+				// Redis promotion fails before the old listener is retired. Restore the
+				// published pointer so abort can close only the staged replacement.
+				backendProxyHandler = restart.previous;
+				throw handoffFailure;
+			}
+			// Keep the prepared HTTP queue owned by the previous handler until every
+			// fallible publication step succeeds. That makes activation rollback
+			// reversible even when an in-flight sender reaches the previous handler.
+			if (restart.previous != null) restart.previous.completeHttpHandoff(restart.replacement);
 			if (restart.previous != null) restart.previous.close();
 			restart.finished = true;
 			restart.published = true;

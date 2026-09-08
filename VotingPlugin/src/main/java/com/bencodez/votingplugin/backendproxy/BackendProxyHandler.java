@@ -99,11 +99,14 @@ public class BackendProxyHandler implements Listener {
 
 	/** Starts presence only after a staged handler reaches the atomic publication boundary. */
 	public void activatePresenceReporting() {
-		transportManager.activateAfterPublication();
 		if (presenceManager != null && !presenceReportingActivated) {
 			presenceManager.start();
 			presenceReportingActivated = true;
 		}
+		// Presence startup can throw while scheduling its heartbeat. Keep inbound
+		// HTTP callbacks behind the publication barrier until every fallible part of
+		// the replacement is active, so rollback cannot race a queued callback.
+		transportManager.activateAfterPublication();
 	}
 
 	/**
@@ -128,6 +131,10 @@ public class BackendProxyHandler implements Listener {
 			return true;
 		}
 		return false;
+	}
+
+	public void beginPreparedHttpHandoff() {
+		transportManager.beginPreparedHttpHandoff();
 	}
 
 	/** Restores a prepared HTTP transport when its replacement fails validation. */
@@ -155,8 +162,7 @@ public class BackendProxyHandler implements Listener {
 	/** Completes the no-loss/no-duplicate same-Redis subscriber handoff after validation. */
 	public void completeRedisHandoff(BackendProxyHandler replacement) {
 		if (method != BungeeMethod.REDIS || replacement.method != BungeeMethod.REDIS) return;
-		transportManager.closeRedisForHandoff();
-		replacement.transportManager.activateRedisAfterHandoff();
+		transportManager.completeRedisHandoff(replacement.transportManager);
 	}
 
 	/** Forwards messages buffered while the previous HTTP credentials were released. */

@@ -24,6 +24,8 @@ import com.bencodez.votingplugin.util.DurableFiles;
 /** Backend adapter for the secure outbound-only HTTP proxy transport. */
 public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	private static final int MAX_STARTUP_QUEUE = 1024;
+	private static final int MAX_PREPUBLICATION_QUEUE = 2048;
+	private static final int MAX_HANDOFF_QUEUE = 4096;
 	private static final long DEFAULT_STARTUP_VALIDATION_SECONDS = 25L;
 	private static final long ENROLLMENT_RETRY_INITIAL_MILLIS = 1_000L;
 	private static final long ENROLLMENT_RETRY_MAX_MILLIS = 60_000L;
@@ -35,6 +37,9 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	private final CountDownLatch startupComplete = new CountDownLatch(1);
 	private final CountDownLatch credentialRestoreComplete = new CountDownLatch(1);
 	private final ArrayDeque<JsonEnvelope> startupQueue = new ArrayDeque<>();
+	private final ArrayDeque<JsonEnvelope> handoffQueue = new ArrayDeque<>();
+	private volatile Thread handoffWorker;
+	private boolean awaitingPreparedHandoff;
 	private volatile HttpBackendTransportConnector connector;
 	private volatile Thread worker;
 	private volatile RuntimeException startupFailure;
@@ -117,6 +122,10 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 				configuredCredentialGeneration, configuredCredentialGeneration == null && retryInitialization,
 				restoreUnenrolledState, true);
 		return restored;
+	}
+
+	boolean isClosedForReplacement() {
+		return closed;
 	}
 
 	java.util.List<JsonEnvelope> drainPreparedMessages() {
@@ -419,17 +428,83 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	public void send(JsonEnvelope envelope) {
 		synchronized (lifecycle) {
 			if (closed) return;
+			if (awaitingPreparedHandoff || !handoffQueue.isEmpty()) {
+				int capacity = awaitingPreparedHandoff ? MAX_PREPUBLICATION_QUEUE : MAX_HANDOFF_QUEUE;
+				if (handoffQueue.size() < capacity) handoffQueue.addLast(envelope);
+				else warnRejectedSend();
+				return;
+			}
 			HttpBackendTransportConnector active = connector;
 			if (active != null) {
 				if (!active.send(envelope)) {
 					if (restartAfterFailedFlush && startupQueue.size() < MAX_STARTUP_QUEUE) startupQueue.addLast(envelope);
-					else if (queueWarning.compareAndSet(false, true))
-						plugin.getLogger().severe("Secure HTTP transport queue is full or rejected an oversized message; delivery was not accepted");
+					else warnRejectedSend();
 				}
 			} else if (startupQueue.size() < MAX_STARTUP_QUEUE) {
 				startupQueue.addLast(envelope);
 			}
 		}
+	}
+
+	void beginPreparedHandoff() {
+		synchronized (lifecycle) {
+			if (closed) throw new IllegalStateException("HTTP replacement transport is closed");
+			awaitingPreparedHandoff = true;
+		}
+	}
+
+	void acceptHandoffMessages(java.util.List<JsonEnvelope> messages) {
+		Thread drain;
+		synchronized (lifecycle) {
+			if (closed) throw new IllegalStateException("HTTP replacement transport is closed");
+			if (messages.size() > MAX_HANDOFF_QUEUE - handoffQueue.size())
+				throw new IllegalStateException("HTTP handoff queue exceeded its fixed capacity");
+			java.util.ArrayDeque<JsonEnvelope> newer = new java.util.ArrayDeque<>(handoffQueue);
+			handoffQueue.clear();
+			handoffQueue.addAll(messages);
+			handoffQueue.addAll(newer);
+			awaitingPreparedHandoff = false;
+			if (handoffQueue.isEmpty()) return;
+			if (handoffWorker != null) return;
+			drain = new Thread(this::drainHandoffMessages, "VotingPlugin-HTTP-Backend-Handoff");
+			drain.setDaemon(true);
+			handoffWorker = drain;
+		}
+		drain.start();
+	}
+
+	private void drainHandoffMessages() {
+		try {
+			while (!Thread.currentThread().isInterrupted()) {
+				boolean delivered = false;
+				synchronized (lifecycle) {
+					if (closed || handoffQueue.isEmpty()) return;
+					HttpBackendTransportConnector active = connector;
+					if (active != null && active.send(handoffQueue.peekFirst())) {
+						handoffQueue.removeFirst();
+						delivered = true;
+					}
+				}
+				if (!delivered) TimeUnit.MILLISECONDS.sleep(25L);
+			}
+		} catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt();
+		} finally {
+			synchronized (lifecycle) {
+				if (handoffWorker == Thread.currentThread()) handoffWorker = null;
+			}
+		}
+	}
+
+	java.util.List<JsonEnvelope> handoffMessagesSnapshot() {
+		synchronized (lifecycle) {
+			return java.util.List.copyOf(handoffQueue);
+		}
+	}
+
+	private void warnRejectedSend() {
+		if (queueWarning.compareAndSet(false, true))
+			plugin.getLogger().severe("Secure HTTP transport queue is full or rejected an oversized message; delivery was not accepted");
 	}
 
 	@Override
@@ -502,14 +577,19 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 
 	private void close(boolean discardQueuedMessages) {
 		Thread setup;
+		Thread pendingHandoff;
 		HttpBackendTransportConnector active;
 		Semaphore owner;
 		synchronized (lifecycle) {
 			if (closed) return;
 			closed = true;
 			if (discardQueuedMessages) startupQueue.clear();
+			if (discardQueuedMessages) handoffQueue.clear();
+			awaitingPreparedHandoff = false;
 			setup = worker;
 			worker = null;
+			pendingHandoff = handoffWorker;
+			handoffWorker = null;
 			active = connector;
 			connector = null;
 			owner = directoryOwner;
@@ -517,6 +597,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 		}
 		startupComplete.countDown();
 		if (setup != null) setup.interrupt();
+		if (pendingHandoff != null) pendingHandoff.interrupt();
 		if (setup == null && active == null && owner == null) return;
 		Thread cleanup = new Thread(() -> drain(setup, active, owner), "VotingPlugin-HTTP-Backend-Cleanup");
 		cleanup.setDaemon(true);

@@ -81,6 +81,40 @@ class HttpBackendProxyTransportTest {
 	}
 
 	@Test
+	void failedPreparationAfterCloseRestoresCapturedHttpTransport() throws Exception {
+		BackendProxyTransportManager manager = new BackendProxyTransportManager(mock(VotingPluginMain.class));
+		HttpBackendProxyTransport failed = mock(HttpBackendProxyTransport.class);
+		HttpBackendProxyTransport restored = mock(HttpBackendProxyTransport.class);
+		JsonEnvelope queued = JsonEnvelope.builder("queued-after-failure").build();
+		setField(manager, "transport", failed);
+		org.mockito.Mockito.doThrow(new IllegalStateException("worker still stopping"))
+				.when(failed).prepareForReplacement();
+		when(failed.isClosedForReplacement()).thenReturn(true);
+		when(failed.recreatePrepared()).thenReturn(restored);
+
+		assertThrows(IllegalStateException.class, manager::prepareForReplacement);
+		manager.send(queued);
+
+		verify(restored).send(queued);
+	}
+
+	@Test
+	void failedFlushKeepsTheRestartedHttpTransport() throws Exception {
+		BackendProxyTransportManager manager = new BackendProxyTransportManager(mock(VotingPluginMain.class));
+		HttpBackendProxyTransport active = mock(HttpBackendProxyTransport.class);
+		JsonEnvelope queued = JsonEnvelope.builder("queued-after-flush-timeout").build();
+		setField(manager, "transport", active);
+		org.mockito.Mockito.doThrow(new IllegalStateException("flush timed out"))
+				.when(active).prepareForReplacement();
+
+		assertThrows(IllegalStateException.class, manager::prepareForReplacement);
+		manager.send(queued);
+
+		verify(active).send(queued);
+		verify(active, org.mockito.Mockito.never()).recreatePrepared();
+	}
+
+	@Test
 	void timedOutScheduledMessageCannotExecuteLater() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		BukkitScheduler scheduler = mock(BukkitScheduler.class);
@@ -436,6 +470,25 @@ class HttpBackendProxyTransportTest {
 		connectorField.setAccessible(true);
 		assertTrue(connectorField.get(transport) instanceof HttpBackendTransportConnector,
 				"a readiness timeout must not tear down the connector's background retry loop");
+		transport.close();
+	}
+
+	@Test
+	void preparedHandoffMessagesStayAheadOfNewlyPublishedSendsWhenConnectorIsFull() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		HttpBackendProxyTransport transport = new HttpBackendProxyTransport(plugin);
+		HttpBackendTransportConnector connector = mock(HttpBackendTransportConnector.class);
+		when(connector.send(org.mockito.ArgumentMatchers.any(JsonEnvelope.class))).thenReturn(false);
+		setField(transport, "connector", connector);
+		JsonEnvelope acceptedBeforePublication = JsonEnvelope.builder("old").build();
+		JsonEnvelope sentAfterPublication = JsonEnvelope.builder("new").build();
+
+		transport.beginPreparedHandoff();
+		transport.send(sentAfterPublication);
+		transport.acceptHandoffMessages(List.of(acceptedBeforePublication));
+
+		assertEquals(List.of(acceptedBeforePublication, sentAfterPublication), transport.handoffMessagesSnapshot());
 		transport.close();
 	}
 
