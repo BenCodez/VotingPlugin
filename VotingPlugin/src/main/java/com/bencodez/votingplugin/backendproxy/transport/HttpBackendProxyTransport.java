@@ -22,6 +22,8 @@ import com.bencodez.votingplugin.VotingPluginMain;
 public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	private static final int MAX_STARTUP_QUEUE = 1024;
 	private static final long DEFAULT_STARTUP_VALIDATION_SECONDS = 25L;
+	private static final long ENROLLMENT_RETRY_INITIAL_MILLIS = 1_000L;
+	private static final long ENROLLMENT_RETRY_MAX_MILLIS = 60_000L;
 	private static final long INCOMING_DISPATCH_SECONDS = 25L;
 	private static final long SHUTDOWN_FLUSH_SECONDS = 5L;
 	private static final ConcurrentHashMap<Path, Semaphore> DIRECTORY_OWNERS = new ConcurrentHashMap<>();
@@ -53,20 +55,32 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 
 	@Override
 	public void start(GlobalMessageHandler messageHandler) {
+		start(messageHandler, true);
+	}
+
+	@Override
+	public void start(GlobalMessageHandler messageHandler, boolean retryInitialization) {
 		Path directory = plugin.getDataFolder().toPath().resolve("http");
 		String serverId = plugin.getBungeeSettings().getServer();
 		String connectionCode = plugin.getBungeeSettings().getHttpConnectionCode();
-		start(directory, serverId, connectionCode, messageHandler);
+		start(directory, serverId, connectionCode, messageHandler, null, retryInitialization);
 	}
 
 	private void start(Path directory, String serverId, String connectionCode,
 			GlobalMessageHandler messageHandler) {
-		start(directory, serverId, connectionCode, messageHandler, null);
+		start(directory, serverId, connectionCode, messageHandler, null, true);
 	}
 
 	private void start(Path directory, String serverId, String connectionCode,
 			GlobalMessageHandler messageHandler,
 			HttpClientCredentialStore.ActiveCredentialGeneration generationToRestore) {
+		start(directory, serverId, connectionCode, messageHandler, generationToRestore, false);
+	}
+
+	private void start(Path directory, String serverId, String connectionCode,
+			GlobalMessageHandler messageHandler,
+			HttpClientCredentialStore.ActiveCredentialGeneration generationToRestore,
+			boolean retryInitialization) {
 		if (generationToRestore == null) validateConfiguration(directory, serverId, connectionCode);
 		else HttpTlsIdentity.canonicalServerId(serverId);
 		configuredDirectory = directory;
@@ -75,7 +89,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 		configuredMessageHandler = messageHandler;
 		credentialGenerationToRestore = generationToRestore;
 		started = true;
-		worker = new Thread(() -> initialize(directory, serverId, connectionCode, messageHandler),
+		worker = new Thread(() -> initialize(directory, serverId, connectionCode, messageHandler, retryInitialization),
 				"VotingPlugin-HTTP-Backend-Setup");
 		worker.setDaemon(true);
 		worker.start();
@@ -134,7 +148,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	}
 
 	private void initialize(Path directory, String serverId, String configuredCode,
-			GlobalMessageHandler messageHandler) {
+			GlobalMessageHandler messageHandler, boolean retryEnrollment) {
 		Path ownerKey = directory.toAbsolutePath().normalize();
 		Semaphore owner = DIRECTORY_OWNERS.computeIfAbsent(ownerKey, ignored -> new Semaphore(1));
 		boolean acquired = false, installed = false;
@@ -166,7 +180,8 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 			// renewal/re-enrollment retained the newer active generation.
 			HttpConnectionCode code = enrollmentCode(directory, serverId,
 					credentialGenerationToRestore == null ? configuredCode : null);
-			if (code != null) HttpBackendTransportConnector.enroll(code, serverId, directory);
+			if (code != null && !enrollForStartup(code, serverId, directory, retryEnrollment,
+					this::waitForEnrollmentRetry)) return;
 			HttpClientCredentialStore.EnrolledClient enrolled = HttpClientCredentialStore.loadEnrolled(directory);
 			if (!enrolled.profile().serverId().equals(HttpTlsIdentity.canonicalServerId(serverId)))
 				throw new IllegalStateException("Persisted HTTP identity belongs to a different backend Server name");
@@ -200,6 +215,35 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 				if (acquired) owner.release();
 			}
 			startupComplete.countDown();
+		}
+	}
+
+	private boolean waitForEnrollmentRetry(long delayMillis) {
+		if (closed) return false;
+		try {
+			TimeUnit.MILLISECONDS.sleep(delayMillis);
+			return !closed;
+		} catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt();
+			return false;
+		}
+	}
+
+	/** Performs initial enrollment with a bounded backoff for ordinary startup. */
+	boolean enrollForStartup(HttpConnectionCode code, String serverId, Path directory,
+			boolean retryEnrollment, java.util.function.LongPredicate waitForRetry) throws Exception {
+		long retryDelayMillis = ENROLLMENT_RETRY_INITIAL_MILLIS;
+		while (true) {
+			if (closed) return false;
+			try {
+				HttpBackendTransportConnector.enroll(code, serverId, directory);
+				return true;
+			} catch (Exception failure) {
+				if (!retryEnrollment) throw failure;
+				plugin.getLogger().warning("Secure HTTP backend enrollment failed; retrying with bounded backoff");
+				if (!waitForRetry.test(retryDelayMillis)) return false;
+				retryDelayMillis = Math.min(ENROLLMENT_RETRY_MAX_MILLIS, retryDelayMillis * 2L);
+			}
 		}
 	}
 

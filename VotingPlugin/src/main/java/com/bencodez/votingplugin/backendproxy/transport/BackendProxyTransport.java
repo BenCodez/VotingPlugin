@@ -10,6 +10,15 @@ public interface BackendProxyTransport {
 
 	void start(GlobalMessageHandler messageHandler);
 
+	/**
+	 * Starts the transport, optionally allowing startup-only transient failures to
+	 * be retried. Replacement transports disable this so Control validation stays
+	 * fail-fast; ordinary startup retains its recovery loop.
+	 */
+	default void start(GlobalMessageHandler messageHandler, boolean retryInitialization) {
+		start(messageHandler);
+	}
+
 	void send(JsonEnvelope envelope);
 
 	default void validate() {

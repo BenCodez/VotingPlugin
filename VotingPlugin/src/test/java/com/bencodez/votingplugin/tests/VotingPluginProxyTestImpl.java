@@ -43,6 +43,7 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	private String failConsoleCommand;
 	private boolean failSaveAfterNextBroadcast;
 	private java.util.concurrent.CompletableFuture<Void> nextVotePartyCommandCompletion;
+	private boolean declineNextVotePartyCommand;
 	private Runnable votePartyProxyCommandTimeout;
 
 	public List<String> getWarnings() {
@@ -211,6 +212,11 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	protected java.util.concurrent.CompletableFuture<Void> runVotePartyConsoleCommand(String command) {
 		java.util.concurrent.CompletableFuture<Void> completion = nextVotePartyCommandCompletion;
 		nextVotePartyCommandCompletion = null;
+		if (declineNextVotePartyCommand) {
+			declineNextVotePartyCommand = false;
+			return java.util.concurrent.CompletableFuture.failedFuture(
+					new IllegalStateException("proxy declined the vote-party command"));
+		}
 		runConsoleCommand(command);
 		return completion == null ? java.util.concurrent.CompletableFuture.completedFuture(null) : completion;
 	}
@@ -243,6 +249,10 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	public void failConsoleCommand(String command) {
 		failConsoleCommand = command;
+	}
+
+	public void declineNextVotePartyCommand() {
+		declineNextVotePartyCommand = true;
 	}
 
 	public void failSaveAfterNextBroadcast() {

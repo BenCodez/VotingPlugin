@@ -35,6 +35,10 @@ public class BackendProxyTransportManager {
 	}
 
 	public void start(BungeeMethod method, GlobalMessageHandler messageHandler) {
+		start(method, messageHandler, true);
+	}
+
+	public void start(BungeeMethod method, GlobalMessageHandler messageHandler, boolean retryInitialization) {
 		close();
 		switch (method) {
 		case MYSQL:
@@ -58,7 +62,7 @@ public class BackendProxyTransportManager {
 		default:
 			throw new IllegalArgumentException("Unsupported backend proxy method: " + method);
 		}
-		transport.start(messageHandler);
+		transport.start(messageHandler, retryInitialization);
 	}
 
 	public synchronized void send(JsonEnvelope envelope) {

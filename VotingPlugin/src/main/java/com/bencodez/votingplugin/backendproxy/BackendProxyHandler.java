@@ -89,7 +89,7 @@ public class BackendProxyHandler implements Listener {
 		messageRouter = new BackendProxyMessageRouter(plugin, presenceManager, globalDataSync, votePartySync,
 				processedVoteCache);
 		messageRouter.register(globalMessageHandler, method);
-		transportManager.start(method, globalMessageHandler);
+		transportManager.start(method, globalMessageHandler, activatePresenceReporting);
 
 		if (plugin.getOptions().getServer().equalsIgnoreCase("pleaseset")) {
 			plugin.getLogger().warning("Server name for bungee voting is not set, please set it");

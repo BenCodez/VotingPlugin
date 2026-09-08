@@ -688,6 +688,15 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 
 			@Override
+			protected java.util.concurrent.CompletableFuture<Void> runVotePartyConsoleCommand(String command) {
+				if (!getProxy().getPluginManager().dispatchCommand(getProxy().getConsole(), command)) {
+					return java.util.concurrent.CompletableFuture.failedFuture(
+							new IllegalStateException("Bungee declined the vote-party proxy command"));
+				}
+				return java.util.concurrent.CompletableFuture.completedFuture(null);
+			}
+
+			@Override
 			public void saveVoteCacheFile() {
 				voteCacheFile.save();
 			}

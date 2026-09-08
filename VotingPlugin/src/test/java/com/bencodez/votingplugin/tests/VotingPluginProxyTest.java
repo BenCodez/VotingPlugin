@@ -203,6 +203,20 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void declinedVotePartyCommandRemainsPendingForRetry() {
+		configureHttpVotePartyEffects("", java.util.List.of("not-yet-registered"));
+		votingPluginProxy.declineNextVotePartyCommand();
+
+		votingPluginProxy.checkVoteParty();
+
+		assertEquals(java.util.List.of("not-yet-registered"),
+				votingPluginProxy.getVoteCachePendingVotePartyProxyEffects().commands());
+		assertTrue(votingPluginProxy.retryPendingVotePartyProxyEffectsForTest());
+		assertTrue(votingPluginProxy.getVoteCachePendingVotePartyProxyEffects().isEmpty());
+		assertEquals(java.util.List.of("not-yet-registered"), votingPluginProxy.getConsoleCommands());
+	}
+
+	@Test
 	void httpVotePartyKeepsCommandPendingUntilAsyncExecutionCompletesAndResumesReachedThreshold() {
 		configureHttpVotePartyEffects("", java.util.List.of("async command"));
 		java.util.concurrent.CompletableFuture<Void> completion =

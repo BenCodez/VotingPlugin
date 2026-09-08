@@ -24,11 +24,15 @@ import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import java.net.URI;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.MockedStatic;
 
 class HttpBackendProxyTransportTest {
 	@TempDir Path directory;
@@ -148,6 +152,44 @@ class HttpBackendProxyTransportTest {
 
 		when(settings.getHttpConnectionCode()).thenReturn(code("lobby-1", Instant.now().plusSeconds(60)).encode());
 		assertDoesNotThrow(() -> transport.validate());
+	}
+
+	@Test
+	void ordinaryStartupRetriesTransientInitialEnrollmentWithBoundedBackoff() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		HttpBackendProxyTransport transport = new HttpBackendProxyTransport(plugin);
+		HttpConnectionCode enrollment = code("lobby-1", Instant.now().plusSeconds(60));
+		List<Long> delays = new ArrayList<>();
+		java.util.concurrent.atomic.AtomicInteger attempts = new java.util.concurrent.atomic.AtomicInteger();
+
+		try (MockedStatic<HttpBackendTransportConnector> connector = org.mockito.Mockito.mockStatic(HttpBackendTransportConnector.class)) {
+			connector.when(() -> HttpBackendTransportConnector.enroll(enrollment, "lobby-1", directory))
+					.thenAnswer(ignored -> {
+						if (attempts.getAndIncrement() == 0) throw new IOException("proxy unavailable");
+						return null;
+					});
+			assertTrue(transport.enrollForStartup(enrollment, "lobby-1", directory, true,
+					delay -> { delays.add(delay); return true; }));
+		}
+
+		assertEquals(2, attempts.get());
+		assertEquals(List.of(1_000L), delays);
+	}
+
+	@Test
+	void stagedEnrollmentRemainsFailFast() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		HttpBackendProxyTransport transport = new HttpBackendProxyTransport(plugin);
+		HttpConnectionCode enrollment = code("lobby-1", Instant.now().plusSeconds(60));
+		try (MockedStatic<HttpBackendTransportConnector> connector = org.mockito.Mockito.mockStatic(HttpBackendTransportConnector.class)) {
+			connector.when(() -> HttpBackendTransportConnector.enroll(enrollment, "lobby-1", directory))
+					.thenThrow(new IOException("proxy unavailable"));
+			assertThrows(IOException.class,
+					() -> transport.enrollForStartup(enrollment, "lobby-1", directory, false,
+							delay -> { throw new AssertionError("staged enrollment must not retry"); }));
+		}
 	}
 
 	@Test
