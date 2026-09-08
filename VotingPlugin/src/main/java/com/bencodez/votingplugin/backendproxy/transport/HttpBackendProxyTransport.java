@@ -274,10 +274,10 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 			HttpClientCredentialStore.EnrolledClient enrolled = HttpClientCredentialStore.loadEnrolled(directory);
 			if (!enrolled.profile().serverId().equals(HttpTlsIdentity.canonicalServerId(serverId)))
 				throw new IllegalStateException("Persisted HTTP identity belongs to a different backend Server name");
-			replacement = new HttpBackendTransportConnector(directory,
-					envelope -> dispatchIncoming(messageHandler, envelope,
-							System.nanoTime() + TimeUnit.SECONDS.toNanos(INCOMING_DISPATCH_SECONDS)));
-			replacement.startPaused();
+			replacement = new HttpBackendTransportConnector(directory, envelope -> {
+				dispatchAfterPublication(messageHandler, envelope);
+			});
+			invokeConnectorLifecycle(replacement, "startPaused");
 			boolean discard = false;
 			synchronized (lifecycle) {
 				if (closed) {
@@ -291,7 +291,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 					connector = replacement;
 					directoryOwner = owner;
 					installed = true;
-					if (inboundActive) replacement.activateIncoming();
+					if (inboundActive) invokeConnectorLifecycle(replacement, "activateIncoming");
 				}
 			}
 			if (discard) replacement.close();
@@ -313,10 +313,55 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 		HttpBackendTransportConnector active;
 		synchronized (lifecycle) {
 			if (closed) return;
-			inboundActive = true;
 			active = connector;
 		}
-		if (active != null) active.activateIncoming();
+		if (active != null) invokeConnectorLifecycle(active, "activateIncoming");
+		synchronized (lifecycle) {
+			if (closed) return;
+			inboundActive = true;
+			lifecycle.notifyAll();
+		}
+	}
+
+	private boolean awaitInboundPublication() {
+		synchronized (lifecycle) {
+			while (!inboundActive && !closed) {
+				try {
+					lifecycle.wait();
+				} catch (InterruptedException interrupted) {
+					Thread.currentThread().interrupt();
+					return false;
+				}
+			}
+			return !closed;
+		}
+	}
+
+	void dispatchAfterPublication(GlobalMessageHandler messageHandler, JsonEnvelope envelope) {
+		if (!awaitInboundPublication())
+			throw new IllegalStateException("HTTP transport closed before inbound publication");
+		dispatchIncoming(messageHandler, envelope,
+				System.nanoTime() + TimeUnit.SECONDS.toNanos(INCOMING_DISPATCH_SECONDS));
+	}
+
+	private static void invokeConnectorLifecycle(HttpBackendTransportConnector connector, String method) {
+		try {
+			connector.getClass().getMethod(method).invoke(connector);
+		} catch (java.lang.reflect.InvocationTargetException failure) {
+			Throwable cause = failure.getCause();
+			if (cause instanceof RuntimeException runtime) throw runtime;
+			if (cause instanceof Error error) throw error;
+			throw new IllegalStateException("HTTP connector " + method + " failed", cause);
+		} catch (NoSuchMethodException unavailable) {
+			// Older published SimpleAPI snapshots do not yet expose the publication
+			// barrier. The wrapper callback above provides the same fence until #79 is
+			// deployed, while newer versions use the native connector barrier.
+			if ("startPaused".equals(method)) connector.start();
+			else if (!"activateIncoming".equals(method))
+				throw new IllegalStateException("SimpleAPI HTTP connector does not support " + method, unavailable);
+		} catch (ReflectiveOperationException failure) {
+			throw new IllegalStateException("SimpleAPI HTTP connector does not support " + method, failure);
+		}
 	}
 
 	static void restoreUnenrolledCredentialState(Path directory, String serverId, String configuredCode) throws Exception {
@@ -580,10 +625,13 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 		Thread pendingHandoff;
 		HttpBackendTransportConnector active;
 		Semaphore owner;
+		java.util.List<JsonEnvelope> finalHandoff;
 		synchronized (lifecycle) {
 			if (closed) return;
 			closed = true;
+			lifecycle.notifyAll();
 			if (discardQueuedMessages) startupQueue.clear();
+			finalHandoff = discardQueuedMessages ? java.util.List.copyOf(handoffQueue) : java.util.List.of();
 			if (discardQueuedMessages) handoffQueue.clear();
 			awaitingPreparedHandoff = false;
 			setup = worker;
@@ -599,19 +647,39 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 		if (setup != null) setup.interrupt();
 		if (pendingHandoff != null) pendingHandoff.interrupt();
 		if (setup == null && active == null && owner == null) return;
-		Thread cleanup = new Thread(() -> drain(setup, active, owner), "VotingPlugin-HTTP-Backend-Cleanup");
+		Thread cleanup = new Thread(() -> drain(setup, active, owner, finalHandoff),
+				"VotingPlugin-HTTP-Backend-Cleanup");
 		cleanup.setDaemon(true);
 		cleanup.start();
 	}
 
-	private static void drain(Thread setup, HttpBackendTransportConnector active, Semaphore owner) {
+	private static void drain(Thread setup, HttpBackendTransportConnector active, Semaphore owner,
+			java.util.List<JsonEnvelope> finalHandoff) {
 		try {
 			if (setup != null) try { setup.join(TimeUnit.SECONDS.toMillis(5)); }
 			catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
 			if (active != null) {
-				active.flushOutgoing(System.nanoTime() + TimeUnit.SECONDS.toNanos(SHUTDOWN_FLUSH_SECONDS));
+				flushHandoffForShutdown(active, finalHandoff,
+						System.nanoTime() + TimeUnit.SECONDS.toNanos(SHUTDOWN_FLUSH_SECONDS));
 				active.close();
 			}
 		} finally { if (owner != null) owner.release(); }
+	}
+
+	static boolean flushHandoffForShutdown(HttpBackendTransportConnector active,
+			java.util.List<JsonEnvelope> finalHandoff, long deadlineNanos) {
+		for (JsonEnvelope envelope : finalHandoff) {
+			while (!active.send(envelope)) {
+				long remaining = deadlineNanos - System.nanoTime();
+				if (remaining <= 0L) return false;
+				try {
+					TimeUnit.NANOSECONDS.sleep(Math.min(remaining, TimeUnit.MILLISECONDS.toNanos(25L)));
+				} catch (InterruptedException interrupted) {
+					Thread.currentThread().interrupt();
+					return false;
+				}
+			}
+		}
+		return active.flushOutgoing(deadlineNanos);
 	}
 }

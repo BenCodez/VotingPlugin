@@ -77,7 +77,31 @@ class HttpBackendProxyTransportTest {
 
 		transport.activateAfterPublication();
 
-		verify(connector).activateIncoming();
+		assertTrue((boolean) field(transport, "inboundActive"));
+	}
+
+	@Test
+	void closedPublicationGateRejectsDeliveryForReplay() {
+		HttpBackendProxyTransport transport = new HttpBackendProxyTransport(mock(VotingPluginMain.class));
+		transport.close();
+
+		assertThrows(IllegalStateException.class, () -> transport.dispatchAfterPublication(
+				mock(GlobalMessageHandler.class), JsonEnvelope.builder("test").build()));
+	}
+
+	@Test
+	void orderlyShutdownFlushesHandoffAfterMakingConnectorCapacity() {
+		HttpBackendTransportConnector connector = mock(HttpBackendTransportConnector.class);
+		JsonEnvelope pending = JsonEnvelope.builder("backend-stopped").build();
+		when(connector.send(pending)).thenReturn(false, true);
+		when(connector.flushOutgoing(org.mockito.ArgumentMatchers.anyLong())).thenReturn(true);
+
+		assertTrue(HttpBackendProxyTransport.flushHandoffForShutdown(connector, List.of(pending),
+				System.nanoTime() + TimeUnit.SECONDS.toNanos(1)));
+
+		org.mockito.InOrder order = org.mockito.Mockito.inOrder(connector);
+		order.verify(connector, org.mockito.Mockito.times(2)).send(pending);
+		order.verify(connector).flushOutgoing(org.mockito.ArgumentMatchers.anyLong());
 	}
 
 	@Test
