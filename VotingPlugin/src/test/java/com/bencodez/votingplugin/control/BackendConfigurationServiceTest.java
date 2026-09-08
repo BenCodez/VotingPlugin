@@ -131,6 +131,19 @@ class BackendConfigurationServiceTest {
 		assertTrue(read.content().contains("# rotate " + BackendConfigurationService.REDACTED + " soon"));
 	}
 
+	@Test void redactsUserAndUsernameLabelledConfigurationComments() throws Exception {
+		Path config = directory.resolve("Config.yml");
+		Files.writeString(config, "# User: database-admin\n# DatabaseUsername=database-owner\nFeature: false\n");
+
+		BackendConfigurationService.Document read = new BackendConfigurationService(directory, () -> { })
+				.read("Config.yml");
+
+		assertFalse(read.content().contains("database-admin"));
+		assertFalse(read.content().contains("database-owner"));
+		assertTrue(read.content().contains("User: " + BackendConfigurationService.REDACTED));
+		assertTrue(read.content().contains("DatabaseUsername=" + BackendConfigurationService.REDACTED));
+	}
+
 	@Test void redactsSecretsInCommentOnlyDocuments() throws Exception {
 		Files.writeString(directory.resolve("Config.yml"), "# Password: header-secret\n# owner footer\n");
 		BackendConfigurationService.Document read = new BackendConfigurationService(directory, () -> { })
@@ -260,6 +273,24 @@ class BackendConfigurationServiceTest {
 
 		assertTrue(read.content().contains(BackendConfigurationService.REDACTED));
 		assertThrows(IllegalArgumentException.class, () -> service.preview("Config.yml", "Other: true\n"));
+	}
+
+	@Test void comparesRedactedCommentOwnersRegardlessOfMappingOrder() throws Exception {
+		Files.writeString(directory.resolve("Config.yml"), "Alpha:\n  Enabled: true # Password: alpha-secret\n"
+				+ "Beta:\n  Enabled: true # Token: beta-secret\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		BackendConfigurationService.Document read = service.read("Config.yml");
+
+		String proposal = "Beta:\n  Enabled: false # Token: " + BackendConfigurationService.REDACTED + "\n"
+				+ "Alpha:\n  Enabled: true # Password: " + BackendConfigurationService.REDACTED + "\n";
+		BackendConfigurationService.Preview preview = service.preview("Config.yml", proposal);
+		assertTrue(preview.resolvedContent().contains("Token: beta-secret"));
+		assertTrue(preview.resolvedContent().contains("Password: alpha-secret"));
+
+		String moved = "Beta:\n  Enabled: false # Token: " + BackendConfigurationService.REDACTED
+				+ "\n  Extra: true # Password: " + BackendConfigurationService.REDACTED + "\n"
+				+ "Alpha:\n  Enabled: true\n";
+		assertThrows(IllegalArgumentException.class, () -> service.preview("Config.yml", moved));
 	}
 
 	@Test void rejectsMaskedDocumentsThatExpandPastTheSizeLimit() throws Exception {

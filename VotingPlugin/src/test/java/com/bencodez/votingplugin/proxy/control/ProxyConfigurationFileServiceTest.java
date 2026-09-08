@@ -994,6 +994,26 @@ class ProxyConfigurationFileServiceTest {
 	}
 
 	@Test
+	void comparesRedactedCommentOwnersRegardlessOfMappingOrder() throws Exception {
+		Path file = write("Alpha:\n  Enabled: true # Password: alpha-secret\n"
+				+ "Beta:\n  Enabled: true # Token: beta-secret\n");
+		ProxyConfigurationFileService service = service(file);
+
+		String reordered = "Beta:\n  Enabled: false # " + ProxyConfigurationFileService.REDACTED + "\n"
+				+ "Alpha:\n  Enabled: true # " + ProxyConfigurationFileService.REDACTED + "\n";
+		ProxyConfigurationFileService.Preview preview = service.preview(
+				ProxyConfigurationFileService.FILE_NAME, reordered);
+		assertTrue(preview.resolvedContent().contains("Token: beta-secret"));
+		assertTrue(preview.resolvedContent().contains("Password: alpha-secret"));
+
+		String moved = "Beta:\n  Enabled: false # " + ProxyConfigurationFileService.REDACTED
+				+ "\n  Extra: true # " + ProxyConfigurationFileService.REDACTED + "\n"
+				+ "Alpha:\n  Enabled: true\n";
+		assertThrows(IllegalArgumentException.class, () -> service.preview(
+				ProxyConfigurationFileService.FILE_NAME, moved));
+	}
+
+	@Test
 	void changeDescriptionsDistinguishDottedKeysFromNestedPaths() throws Exception {
 		Path file = write("\"a.b.x\": dotted\na:\n  b:\n    x: nested\n");
 		ProxyConfigurationFileService service = service(file);

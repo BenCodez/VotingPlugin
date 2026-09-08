@@ -47,7 +47,7 @@ public final class BackendConfigurationService {
 			"WaitUntilVoteDelay", "PermissionToView", "IgnoreCanVote", "VoteDelayDailyHour", "VoteDelayMin",
 			"GiveOffline");
 	private static final Pattern COMMENT_SECRET = Pattern.compile(
-			"(?i)([\"']?\\b(?:[\\w-]*(?:password|secret)[\\w-]*|token|api[ _.-]?key|authorization|[\\w.-]*webhook[ _.-]?url)"
+			"(?i)([\"']?\\b(?:[\\w-]*(?:password|secret|user(?:name)?)[\\w-]*|token|api[ _.-]?key|authorization|[\\w.-]*webhook[ _.-]?url)"
 					+ "\\b[\"']?\\s*[:=]\\s*)(.*)$");
 	private static final Pattern SECRET_PATH_URL = Pattern.compile("(?i)([\"']?\\burl\\b[\"']?\\s*[:=]\\s*)(.*)$");
 	private static final Pattern BLOCK_SCALAR_INDICATOR = Pattern.compile("[|>](?:[+-][1-9]?|[1-9][+-]?)?");
@@ -920,6 +920,7 @@ public final class BackendConfigurationService {
 
 	private static void restoreCommentSecrets(YamlConfiguration proposal, YamlConfiguration current,
 			YamlConfiguration redactedCurrent) {
+		validateRedactedCommentOwners(proposal, redactedCurrent);
 		proposal.options().setHeader(restoreCommentSecrets(proposal.options().getHeader(),
 				current.options().getHeader(), redactedCurrent.options().getHeader()));
 		proposal.options().setFooter(restoreCommentSecrets(proposal.options().getFooter(),
@@ -937,6 +938,31 @@ public final class BackendConfigurationService {
 				proposal.setInlineComments(path, inlineComments);
 			}
 		}
+	}
+
+	private static void validateRedactedCommentOwners(YamlConfiguration proposal, YamlConfiguration redactedCurrent) {
+		Map<String, List<String>> expected = redactedCommentsByOwner(redactedCurrent);
+		Map<String, List<String>> actual = redactedCommentsByOwner(proposal);
+		if (!expected.equals(actual)) {
+			throw new IllegalArgumentException("redacted comment placeholders must not be edited or moved");
+		}
+	}
+
+	private static Map<String, List<String>> redactedCommentsByOwner(YamlConfiguration yaml) {
+		Map<String, List<String>> markers = new LinkedHashMap<>();
+		addRedactedCommentOwner(markers, "header", yaml.options().getHeader());
+		addRedactedCommentOwner(markers, "footer", yaml.options().getFooter());
+		for (String path : yaml.getKeys(true)) {
+			addRedactedCommentOwner(markers, "comments:" + path, yaml.getComments(path));
+			addRedactedCommentOwner(markers, "inline-comments:" + path, yaml.getInlineComments(path));
+		}
+		return markers;
+	}
+
+	private static void addRedactedCommentOwner(Map<String, List<String>> markers, String owner,
+			List<String> comments) {
+		List<String> ownerMarkers = comments.stream().filter(comment -> comment.contains(REDACTED)).toList();
+		if (!ownerMarkers.isEmpty()) markers.put(owner, ownerMarkers);
 	}
 
 	private static List<String> restoreCommentSecrets(List<String> proposed, List<String> current,

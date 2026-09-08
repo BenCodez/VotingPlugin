@@ -697,10 +697,8 @@ final class ProxyConfigurationFileService {
 
 	private static void restoreRedactedComments(Node proposed, Map<String, CommentLine> expected) {
 		Map<String, CommentReference> comments = commentReferences(proposed, "root");
-		List<String> expectedOwners = expected.keySet().stream().map(ProxyConfigurationFileService::commentOwner).toList();
-		List<String> proposedOwners = comments.entrySet().stream()
-				.filter(entry -> REDACTED_COMMENT.equals(entry.getValue().line().getValue()))
-				.map(entry -> commentOwner(entry.getKey())).toList();
+		Map<String, Integer> expectedOwners = expectedRedactedCommentCountsByOwner(expected);
+		Map<String, Integer> proposedOwners = redactedCommentCountsByOwner(comments);
 		if (!expectedOwners.equals(proposedOwners)) throw new IllegalArgumentException("redacted placeholder is invalid");
 		Map<String, List<CommentLine>> originals = new LinkedHashMap<>();
 		for (Map.Entry<String, CommentLine> entry : expected.entrySet()) {
@@ -718,6 +716,24 @@ final class ProxyConfigurationFileService {
 
 	private static String commentOwner(String slot) {
 		return slot.substring(0, slot.lastIndexOf('|'));
+	}
+
+	private static Map<String, Integer> redactedCommentCountsByOwner(
+			Map<String, ? extends CommentReference> comments) {
+		Map<String, Integer> result = new LinkedHashMap<>();
+		for (Map.Entry<String, ? extends CommentReference> entry : comments.entrySet()) {
+			if (!REDACTED_COMMENT.equals(entry.getValue().line().getValue())) continue;
+			result.merge(commentOwner(entry.getKey()), 1, Integer::sum);
+		}
+		return result;
+	}
+
+	private static Map<String, Integer> expectedRedactedCommentCountsByOwner(Map<String, CommentLine> comments) {
+		Map<String, Integer> result = new LinkedHashMap<>();
+		for (Map.Entry<String, CommentLine> entry : comments.entrySet()) {
+			result.merge(commentOwner(entry.getKey()), 1, Integer::sum);
+		}
+		return result;
 	}
 
 	private static Map<String, CommentReference> commentReferences(Node root, String path) {
