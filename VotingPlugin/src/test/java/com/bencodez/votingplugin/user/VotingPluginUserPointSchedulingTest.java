@@ -34,6 +34,7 @@ import org.mockito.MockedStatic;
 
 import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.user.UserData;
+import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 import com.bencodez.simpleapi.sql.mysql.ConnectionManager;
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
@@ -41,6 +42,54 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerReceivePointsEvent;
 
 class VotingPluginUserPointSchedulingTest {
+	@Test
+	void sharedAddReturnsTheCommittedDatabaseBalanceInsteadOfAPredictedWrapperTotal() throws Exception {
+		PointFixture fixture = pointFixture();
+		UserData data = mock(UserData.class);
+		PreparedStatement read = mock(PreparedStatement.class);
+		ResultSet result = mock(ResultSet.class);
+		doReturn(data).when(fixture.user).getUserData();
+		when(fixture.statement.executeUpdate()).thenReturn(1);
+		when(data.getInt("Points", UserDataFetchMode.NO_CACHE)).thenReturn(10);
+		when(fixture.connection.prepareStatement(anyString())).thenReturn(fixture.statement, read);
+		when(read.executeQuery()).thenReturn(result);
+		when(result.next()).thenReturn(true);
+		when(result.getInt(1)).thenReturn(73);
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			PluginManager pluginManager = mock(PluginManager.class);
+			bukkit.when(Bukkit::getPluginManager).thenReturn(pluginManager);
+
+			assertEquals(73, fixture.user.addPoints(5));
+		}
+
+		InOrder mutationThenRead = inOrder(fixture.statement, read);
+		mutationThenRead.verify(fixture.statement).executeUpdate();
+		mutationThenRead.verify(read).executeQuery();
+		verify(data, never()).getInt("Points", UserDataFetchMode.NO_CACHE);
+	}
+
+	@Test
+	void sharedAsyncAddReturnsThePredictedEventAdjustedTotalWithoutJdbcOnTheCaller() throws Exception {
+		PointFixture fixture = pointFixture();
+		doReturn(10).when(fixture.user).getPoints();
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			PluginManager pluginManager = mock(PluginManager.class);
+			bukkit.when(Bukkit::getPluginManager).thenReturn(pluginManager);
+			doAnswer(invocation -> {
+				PlayerReceivePointsEvent event = invocation.getArgument(0);
+				event.setPoints(7);
+				return null;
+			}).when(pluginManager).callEvent(any(PlayerReceivePointsEvent.class));
+
+			assertEquals(17, fixture.user.addPoints(5, true));
+		}
+
+		verify(fixture.persistence).execute(any(Runnable.class));
+		verify(fixture.sql.getConnectionManager(), never()).getConnection();
+	}
+
 	@Test
 	void sharedRemoveSkipsStaleCachedPointPrecheck() throws Exception {
 		PointFixture fixture = pointFixture();

@@ -31,6 +31,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
 import com.bencodez.advancedcore.api.user.UserStorage;
+import com.bencodez.advancedcore.api.user.UserData;
+import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 import com.bencodez.advancedcore.api.rewards.RewardHandler;
@@ -170,6 +172,36 @@ class VoteShopPurchaseServiceTest {
 		verify(cache).dump();
 		verify(plugin.getUserManager().getDataManager()).removeCache(
 				java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"), null);
+	}
+
+	@Test
+	void sharedMysqlFailureReleasesDebitConnectionBeforeClassifyingTheLimit() throws Exception {
+		MySQL table = mock(MySQL.class);
+		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
+				org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		Connection connection = mock(Connection.class);
+		PreparedStatement statement = mock(PreparedStatement.class);
+		when(table.getTableName()).thenReturn("VotingPlugin_Users");
+		when(table.qi(anyString())).thenAnswer(invocation -> "`" + invocation.getArgument(0) + "`");
+		when(table.getMysql()).thenReturn(sql);
+		when(sql.getConnectionManager().getConnection()).thenReturn(connection);
+		when(connection.prepareStatement(anyString())).thenReturn(statement);
+		when(statement.executeUpdate()).thenReturn(0);
+		VotingPluginUser user = purchaseUser();
+		UserData data = mock(UserData.class);
+		when(user.getUserData()).thenReturn(data);
+		when(data.getInt("VoteShopLimitdaily", UserDataFetchMode.NO_CACHE)).thenReturn(1);
+		VoteShopItem item = mock(VoteShopItem.class);
+		when(item.getCost()).thenReturn(10);
+		when(item.getLimit()).thenReturn(1);
+		when(item.getIdentifier()).thenReturn("daily");
+
+		assertEquals(VoteShopPurchaseResult.LIMIT_REACHED,
+				new VoteShopPurchaseService(sharedMysqlPlugin(table), null).debitSharedMysql(user, item));
+
+		InOrder closeThenClassify = inOrder(connection, data);
+		closeThenClassify.verify(connection).close();
+		closeThenClassify.verify(data).getInt("VoteShopLimitdaily", UserDataFetchMode.NO_CACHE);
 	}
 
 	@Test

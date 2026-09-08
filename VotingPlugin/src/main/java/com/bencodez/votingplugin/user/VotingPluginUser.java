@@ -217,13 +217,12 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		if (event.isCancelled()) {
 			return getPoints();
 		}
-		int newTotal = getPoints() + event.getPoints();
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
 		if (sharedPoints.applies()) {
-			sharedPoints.add(this, event.getPoints(), async);
-		} else {
-			setPoints(newTotal, async);
+			return sharedPoints.add(this, event.getPoints(), async);
 		}
+		int newTotal = getPoints() + event.getPoints();
+		setPoints(newTotal, async);
 		return newTotal;
 	}
 

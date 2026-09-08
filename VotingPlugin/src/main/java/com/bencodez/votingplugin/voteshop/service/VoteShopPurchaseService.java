@@ -294,17 +294,20 @@ public class VoteShopPurchaseService {
 			statement.setString(2, user.getUUID());
 			statement.setInt(3, item.getCost());
 			if (limitColumn != null) statement.setInt(4, item.getLimit());
-			if (statement.executeUpdate() != 1) {
-				return sharedMysqlFailure(user, item, limitColumn);
+			if (statement.executeUpdate() == 1) {
+				refreshPurchaseCache(user, pointsColumn, limitColumn);
+				return VoteShopPurchaseResult.SUCCESS;
 			}
-			refreshPurchaseCache(user, pointsColumn, limitColumn);
-			return VoteShopPurchaseResult.SUCCESS;
 		} catch (SQLException failure) {
 			plugin.getLogger().severe("Unable to atomically debit vote shop points: "
 					+ failure.getClass().getSimpleName());
 			plugin.debug(failure);
 			return VoteShopPurchaseResult.NOT_ENOUGH_POINTS;
 		}
+		// The classification performs a fresh NO_CACHE database read. It must only
+		// acquire that connection after the conditional-debit handle has returned to
+		// the pool, which may be configured with a single connection.
+		return sharedMysqlFailure(user, item, limitColumn);
 	}
 
 	private void refundSharedMysqlDebit(VotingPluginUser user, VoteShopItem item) {

@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.user;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -17,6 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import com.bencodez.advancedcore.api.user.UserStorage;
+import com.bencodez.advancedcore.api.user.UserData;
+import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 import com.bencodez.votingplugin.VotingPluginMain;
 
@@ -50,11 +53,17 @@ class SharedMysqlPointMutatorTest {
 				org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		Connection connection = mock(Connection.class);
 		PreparedStatement statement = mock(PreparedStatement.class);
+		PreparedStatement read = mock(PreparedStatement.class);
+		java.sql.ResultSet result = mock(java.sql.ResultSet.class);
 		when(table.getTableName()).thenReturn("VotingPlugin_Users");
 		when(table.qi(anyString())).thenAnswer(invocation -> "`" + invocation.getArgument(0) + "`");
 		when(table.getMysql()).thenReturn(sql);
 		when(sql.getConnectionManager().getConnection()).thenReturn(connection);
-		when(connection.prepareStatement(anyString())).thenReturn(statement);
+		when(connection.prepareStatement(anyString())).thenReturn(statement, read);
+		when(result.next()).thenReturn(true);
+		when(result.getInt(1)).thenReturn(73);
+		when(read.executeQuery()).thenReturn(result);
+		when(statement.executeUpdate()).thenReturn(1);
 
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		when(plugin.getStorageType()).thenReturn(UserStorage.MYSQL);
@@ -65,14 +74,20 @@ class SharedMysqlPointMutatorTest {
 		VotingPluginUser user = mock(VotingPluginUser.class);
 		when(user.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
 		when(user.getPointsPath()).thenReturn("Points");
+		UserData data = mock(UserData.class);
+		when(user.getUserData()).thenReturn(data);
+		when(data.getInt("Points", UserDataFetchMode.NO_CACHE)).thenReturn(10);
 
-		new SharedMysqlPointMutator(plugin).add(user, 10, false);
+		assertEquals(73, new SharedMysqlPointMutator(plugin).add(user, 10, false));
 
 		ArgumentCaptor<String> query = ArgumentCaptor.forClass(String.class);
-		verify(connection).prepareStatement(query.capture());
-		assertTrue(query.getValue().contains("`Points` = `Points` + ?"));
+		verify(connection, times(2)).prepareStatement(query.capture());
+		assertTrue(query.getAllValues().get(0).contains("`Points` = `Points` + ?"));
+		assertTrue(query.getAllValues().get(1).contains("SELECT `Points`"));
 		verify(statement).setInt(1, 10);
 		verify(statement).executeUpdate();
+		verify(read).executeQuery();
+		verify(data, never()).getInt("Points", UserDataFetchMode.NO_CACHE);
 		verify(persistence, never()).execute(any(Runnable.class));
 	}
 

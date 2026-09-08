@@ -24,8 +24,15 @@ final class SharedMysqlPointMutator {
 				&& !plugin.getBungeeSettings().isPerServerPoints();
 	}
 
-	void add(VotingPluginUser user, int amount, boolean async) {
-		run(() -> update(user, amount, false), async);
+	int add(VotingPluginUser user, int amount, boolean async) {
+		if (async) {
+			int predictedTotal = user.getPoints() + amount;
+			run(() -> update(user, amount, false), true);
+			// The mutation has not happened yet, so the historical asynchronous API
+			// returns its predicted post-event total without blocking for storage.
+			return predictedTotal;
+		}
+		return addAndReadCommitted(user, amount);
 	}
 
 	void set(VotingPluginUser user, int value, boolean async) {
@@ -189,6 +196,35 @@ final class SharedMysqlPointMutator {
 		} catch (SQLException failure) {
 			logFailure(failure);
 			return false;
+		}
+	}
+
+	/**
+	 * Adds points and reads the resulting value through the same JDBC connection.
+	 * This bypasses the wrapper's temporary user-data cache, which can remain stale
+	 * even when the caller requests {@code NO_CACHE}.
+	 */
+	private int addAndReadCommitted(VotingPluginUser user, int amount) {
+		drainCache(user);
+		MySQL table = plugin.getMysql();
+		String points = user.getPointsPath();
+		String uuidMatch = table.qi("uuid") + (table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
+		String update = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(points) + " = "
+				+ table.qi(points) + " + ? WHERE " + uuidMatch;
+		String read = "SELECT " + table.qi(points) + " FROM " + table.qi(table.getTableName()) + " WHERE " + uuidMatch;
+		try (Connection connection = table.getMysql().getConnectionManager().getConnection();
+				PreparedStatement updateStatement = connection.prepareStatement(update);
+				PreparedStatement readStatement = connection.prepareStatement(read)) {
+			updateStatement.setInt(1, amount);
+			updateStatement.setString(2, user.getUUID());
+			if (updateStatement.executeUpdate() != 1) return user.getPoints();
+			readStatement.setString(1, user.getUUID());
+			try (java.sql.ResultSet result = readStatement.executeQuery()) {
+				return result.next() ? result.getInt(1) : user.getPoints();
+			}
+		} catch (SQLException failure) {
+			logFailure(failure);
+			return user.getPoints();
 		}
 	}
 
