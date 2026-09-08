@@ -15,6 +15,7 @@ import org.junit.jupiter.api.io.TempDir;
 import com.bencodez.votingplugin.proxy.control.ProxyRoutingConfiguration;
 import com.bencodez.votingplugin.proxy.control.ProxyMethodConfiguration;
 import com.bencodez.votingplugin.proxy.control.ProxyMethodConfigurationService;
+import com.bencodez.votingplugin.util.DurableFiles;
 
 class VelocityConfigControlTest {
 	@TempDir Path directory;
@@ -103,5 +104,26 @@ class VelocityConfigControlTest {
 				}));
 
 		assertTrue(Files.readString(file).contains("BungeeMethod: PLUGINMESSAGING"));
+	}
+
+	@Test
+	void postPublicationMethodReloadFailureIsReportedAsPublished() throws Exception {
+		Path file = directory.resolve("velocity.yml");
+		Files.writeString(file, "BungeeMethod: PLUGINMESSAGING\nRedis:\n  Host: localhost\n  Port: 6379\n");
+		VelocityConfig config = new VelocityConfig(file.toFile()) {
+			@Override
+			public synchronized void loadControlConfiguration() throws java.io.IOException {
+				throw new java.io.IOException("reload failed");
+			}
+		};
+		ProxyMethodConfiguration current = new ProxyMethodConfiguration(
+				com.bencodez.votingplugin.proxy.BungeeMethod.PLUGINMESSAGING);
+
+		assertThrows(DurableFiles.PublishedException.class,
+				() -> config.persistControlProxyMethod("REDIS", current.revision()));
+
+		assertTrue(Files.readString(file).contains("BungeeMethod: REDIS"));
+		assertTrue(Files.readString(file.resolveSibling(file.getFileName() + ".control-backup"))
+				.contains("BungeeMethod: PLUGINMESSAGING"));
 	}
 }

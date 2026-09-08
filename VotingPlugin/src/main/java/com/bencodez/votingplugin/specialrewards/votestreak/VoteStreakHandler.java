@@ -572,6 +572,32 @@ public class VoteStreakHandler {
 	}
 
 	/**
+	 * Gets the current amount for a configured vote streak or progress group.
+	 * Milestone IDs belonging to a progress group return that group's shared
+	 * amount.
+	 *
+	 * @param user   voting plugin user
+	 * @param target standalone streak ID, milestone ID, or progress group ID
+	 * @return current streak amount, or -1 when the user or target is invalid
+	 */
+	public int getVoteStreakAmount(VotingPluginUser user, String target) {
+		if (user == null || target == null || target.trim().isEmpty()) {
+			return -1;
+		}
+
+		String normalized = target.trim().toLowerCase(Locale.ROOT);
+		VoteStreakDefinition definition = byProgressGroup.get(normalized);
+		if (definition == null) {
+			definition = getDefinition(normalized);
+		}
+		if (definition == null) {
+			return -1;
+		}
+
+		return readState(user, definition).streakCount;
+	}
+
+	/**
 	 * Advances a configured vote streak and gives any crossed rewards.
 	 *
 	 * @param user     voting plugin user

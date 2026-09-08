@@ -182,6 +182,14 @@ permissions:
     description: Permission to create sign
   VotingPlugin.Admin.GenerateServiceSite:
     description: Permission for generating votesite message
+  VotingPlugin.Commands.AdminVote.Edit.BungeeSettings:
+    description: Permission to edit BungeeSettings.yml from the admin GUI
+  VotingPlugin.Commands.AdminVote.Edit.Config:
+    description: Permission to edit Config.yml from the admin GUI
+  VotingPlugin.Commands.AdminVote.Edit.GUI:
+    description: Permission to edit GUI.yml from the admin GUI
+  VotingPlugin.Commands.AdminVote.Edit.SpecialRewards:
+    description: Permission to edit SpecialRewards.yml from the admin GUI
   VotingPlugin.Login.RemindVotes:
     description: Permission to allow timed reminders
   VotingPlugin.Login.RemindVotes.All:

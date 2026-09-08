@@ -25,8 +25,10 @@ import com.bencodez.simpleapi.valuerequest.ValueRequest;
 import com.bencodez.advancedcore.api.yml.editor.ConfigEditor;
 import com.bencodez.advancedcore.command.gui.RewardEditGUI;
 import com.bencodez.simpleapi.array.ArrayUtils;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.simpleapi.player.PlayerUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.commands.AdminAuthorization;
 import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVoteParty;
 import com.bencodez.votingplugin.commands.gui.admin.milestones.AdminVoteVoteMilestones;
 import com.bencodez.votingplugin.commands.gui.admin.voteshop.AdminVoteVoteShop;
@@ -178,6 +180,9 @@ public class AdminGUI {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
+				if (!canEdit(clickEvent.getPlayer(), "VotingPlugin.Commands.AdminVote.Edit.BungeeSettings")) {
+					return;
+				}
 				new ConfigEditor(plugin, plugin.getBungeeSettings()).open(clickEvent.getPlayer());
 			}
 		});
@@ -187,6 +192,9 @@ public class AdminGUI {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
+				if (!canEdit(clickEvent.getPlayer(), "VotingPlugin.Commands.AdminVote.Edit.Config")) {
+					return;
+				}
 				new ConfigEditor(plugin, plugin.getConfigFile(), plugin.getOptions().getYmlConfig(),
 						plugin.getOptions().getClass()).open(clickEvent.getPlayer());
 			}
@@ -197,6 +205,9 @@ public class AdminGUI {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
+				if (!canEdit(clickEvent.getPlayer(), "VotingPlugin.Commands.AdminVote.Edit.GUI")) {
+					return;
+				}
 				new ConfigEditor(plugin, plugin.getGui()).open(clickEvent.getPlayer());
 			}
 		});
@@ -206,6 +217,9 @@ public class AdminGUI {
 
 			@Override
 			public void onClick(ClickEvent clickEvent) {
+				if (!canEdit(clickEvent.getPlayer(), "VotingPlugin.Commands.AdminVote.Edit.SpecialRewards")) {
+					return;
+				}
 				new ConfigEditor(plugin, plugin.getSpecialRewardsConfig()).open(clickEvent.getPlayer());
 			}
 		});
@@ -230,6 +244,14 @@ public class AdminGUI {
 		});
 
 		return buttons;
+	}
+
+	private boolean canEdit(Player player, String permission) {
+		if (AdminAuthorization.canEditConfig(player, permission)) {
+			return true;
+		}
+		player.sendMessage(MessageAPI.colorize(plugin.getConfigFile().getFormatNoPerms()));
+		return false;
 	}
 
 	/**
