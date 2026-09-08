@@ -91,6 +91,7 @@ import com.bencodez.votingplugin.listeners.PlayerJoinEvent;
 import com.bencodez.votingplugin.listeners.PlayerVoteListener;
 import com.bencodez.votingplugin.listeners.SignChange;
 import com.bencodez.votingplugin.listeners.VotiferEvent;
+import com.bencodez.votingplugin.listeners.VotifierVoteOverflowQueue;
 import com.bencodez.votingplugin.listeners.VotingPluginUpdateEvent;
 import com.bencodez.votingplugin.placeholders.MVdWPlaceholders;
 import com.bencodez.votingplugin.placeholders.PlaceHolders;
@@ -98,6 +99,7 @@ import com.bencodez.votingplugin.placeholders.VotingPluginExpansion;
 import com.bencodez.votingplugin.presets.VoteSitePresetSetupHandler;
 import com.bencodez.votingplugin.proxy.control.HostedControlManager;
 import com.bencodez.votingplugin.util.ControlCredentialFile.PendingAutoEnrollment;
+import com.bencodez.votingplugin.util.BoundedScheduledExecutor;
 import com.bencodez.votingplugin.rewards.VotingPluginRewardRegistrar;
 import com.bencodez.votingplugin.servicesites.ServiceSiteHandler;
 import com.bencodez.votingplugin.signs.Signs;
@@ -296,6 +298,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private VotingPluginVersionInfo versionInfo;
 	private VotingPluginConfigHealth configHealth;
 	private VotifierIntegration votifierIntegration;
+	@Getter
+	private VotifierVoteOverflowQueue votifierVoteOverflowQueue;
 	private VoteLogManager voteLogManager;
 	private VotingPluginWebhookManager webhookManager;
 
@@ -561,7 +565,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	private void loadVoteTimer() {
-		voteTimer = Executors.newSingleThreadScheduledExecutor();
+		voteTimer = new BoundedScheduledExecutor(1, 256);
 	}
 
 	@Deprecated
@@ -716,6 +720,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 
 		VotingPluginRewardRegistrar.register(this);
+		// Recovered Votifier votes may now traverse the fully initialized vote,
+		// reward, placeholder, shop, and vote-party pipeline.
+		if (votifierVoteOverflowQueue != null) {
+			votifierVoteOverflowQueue.start();
+		}
 
 		plugin.getLogger().info("Enabled VotingPlugin " + plugin.getDescription().getVersion());
 		if (plugin.getDescription().getVersion().contains("SNAPSHOT")) {
@@ -1393,6 +1402,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			e.printStackTrace();
 		}
 		voteTimer.shutdownNow();
+		if (votifierVoteOverflowQueue != null) {
+			votifierVoteOverflowQueue.close();
+			votifierVoteOverflowQueue = null;
+		}
 		if (timeQueueHandler != null) {
 			timeQueueHandler.save();
 		}
@@ -1456,7 +1469,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		pm.registerEvents(new PlayerJoinEvent(this), this);
 		if (isVotifierLoaded()) {
-			pm.registerEvents(new VotiferEvent(this), this);
+			VotiferEvent votifierEvent = new VotiferEvent(this);
+			votifierVoteOverflowQueue = new VotifierVoteOverflowQueue(this, votifierEvent::processVote);
+			pm.registerEvents(votifierEvent, this);
 		}
 		pm.registerEvents(new PlayerVoteListener(this), this);
 		pm.registerEvents(new PlayerPostVoteLoggerListener(this), this);
