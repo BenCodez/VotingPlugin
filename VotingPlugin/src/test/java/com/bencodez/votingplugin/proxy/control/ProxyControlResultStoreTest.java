@@ -131,7 +131,7 @@ class ProxyControlResultStoreTest {
 		assertEquals(configured, ProxyControlResultStore.loadPreferred(directory, configured).route());
 	}
 
-	@Test void globalResultLimitRejectsNewRouteWithoutEvictingExistingResults() throws Exception {
+	@Test void releasedRouteResultLimitDoesNotStarveAnotherRoute() throws Exception {
 		Route original = route("bounded-original");
 		Map<UUID, StoredResult> existing = new LinkedHashMap<>();
 		for (int index = 0; index < 128; index++) {
@@ -140,14 +140,14 @@ class ProxyControlResultStoreTest {
 		}
 		ProxyControlResultStore.save(directory, original, existing);
 		Route additional = route("bounded-additional");
-		assertThrows(java.io.IOException.class, () -> ProxyControlResultStore.save(directory, additional,
-				Map.of(UUID.fromString("00000000-0000-0000-0000-000000000102"),
-						new StoredResult(result(true), true, false))));
+		UUID additionalId = UUID.fromString("00000000-0000-0000-0000-000000000102");
+		ProxyControlResultStore.save(directory, additional,
+				Map.of(additionalId, new StoredResult(result(true), true, false)));
 		assertEquals(128, ProxyControlResultStore.loadForRoute(directory, original).results().size());
-		assertNull(ProxyControlResultStore.loadForRoute(directory, additional));
+		assertTrue(ProxyControlResultStore.loadForRoute(directory, additional).results().containsKey(additionalId));
 	}
 
-	@Test void byteLimitRejectsNewRouteWithoutEvictingExistingResults() throws Exception {
+	@Test void releasedRouteByteLimitDoesNotStarveAnotherRoute() throws Exception {
 		Route original = route("bytes-original");
 		JsonObject large = result(true);
 		large.addProperty("payload", "x".repeat(3_950_000));
@@ -158,11 +158,11 @@ class ProxyControlResultStoreTest {
 		Route additional = route("bytes-additional");
 		JsonObject extra = result(true);
 		extra.addProperty("payload", "y".repeat(300_000));
-		assertThrows(java.io.IOException.class, () -> ProxyControlResultStore.save(directory, additional,
-				Map.of(UUID.fromString("00000000-0000-0000-0000-000000000104"),
-						new StoredResult(extra, true, false))));
+		UUID additionalOperation = UUID.fromString("00000000-0000-0000-0000-000000000104");
+		ProxyControlResultStore.save(directory, additional,
+				Map.of(additionalOperation, new StoredResult(extra, true, false)));
 		assertTrue(ProxyControlResultStore.loadForRoute(directory, original).results().containsKey(originalOperation));
-		assertNull(ProxyControlResultStore.loadForRoute(directory, additional));
+		assertTrue(ProxyControlResultStore.loadForRoute(directory, additional).results().containsKey(additionalOperation));
 	}
 
 	@Test void legacyV2JournalLoadsByStableIdentityAndMigratesOnNextSave() throws Exception {

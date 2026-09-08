@@ -897,6 +897,12 @@ public final class ControlConnector implements AutoCloseable {
 			// claim must be acknowledged as a validation failure, not escape the operation
 			// future and leave the same lease blocking the configuration lane.
 			String type = requireString(task, "type");
+			Set<String> allowedFields;
+			if ("READ".equals(type)) allowedFields = Set.of("domain", "fileName");
+			else if ("PREVIEW".equals(type) || "APPLY".equals(type))
+				allowedFields = Set.of("domain", "fileName", "content");
+			else return completed(TaskResult.failure("UNSUPPORTED_TASK", "Task type is unsupported"));
+			if (!allowedFields.equals(requested.keySet())) throw new MalformedResponseException();
 			String fileName = requireString(requested, "fileName");
 			if ("READ".equals(type)) {
 				return completed(TaskResult.file(fileConfigurationService.read(fileName), List.of(), false, false));

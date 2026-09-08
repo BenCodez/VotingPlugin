@@ -394,7 +394,9 @@ class ControlConnectorTest {
 		transport.acceptProxyFiles = true;
 		String[] malformedTasks = {
 				"{\"domain\":\"file\",\"fileName\":\"bungeeconfig.yml\"}",
-				"{\"domain\":\"file\",\"fileName\":{},\"content\":\"Debug: true\\n\"}"
+				"{\"domain\":\"file\",\"fileName\":{},\"content\":\"Debug: true\\n\"}",
+				"{\"domain\":\"file\",\"fileName\":\"bungeeconfig.yml\","
+						+ "\"content\":\"Debug: true\\n\",\"reload\":true}"
 		};
 		for (int index = 0; index < malformedTasks.length; index++) {
 			String operationId = String.format("00000000-0000-0000-0000-%012d", 99 + index);
