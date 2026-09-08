@@ -222,7 +222,27 @@ public final class BackendControlConnector implements AutoCloseable {
 			throw failure;
 		} finally {
 			synchronized (operationLifecycle) {
-				activeReload = null;
+				if (activeReload == preparation || activeReload == publication) activeReload = null;
+			}
+		}
+	}
+
+	private void reloadProxyMethod(String ignored) throws Exception {
+		reloadOnServerThread(plugin::reloadBackendProxyMethodFromControl);
+	}
+
+	private void reloadOnServerThread(Runnable action) throws Exception {
+		Future<?> reload;
+		synchronized (operationLifecycle) {
+			if (closed) throw new IllegalStateException("Bukkit Control connector is stopping");
+			reload = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> { action.run(); return null; });
+			activeReload = reload;
+		}
+		try {
+			reload.get(30, TimeUnit.SECONDS);
+		} finally {
+			synchronized (operationLifecycle) {
+				if (activeReload == reload) activeReload = null;
 			}
 		}
 	}
@@ -516,9 +536,10 @@ public final class BackendControlConnector implements AutoCloseable {
 			result = completed.get(operationId);
 		}
 		if (result != null) {
-			if (!result.committed() && !result.claimRequired() && !anticipatedResultIsInstalled(result)) {
-				result = null;
-			} else {
+			if (!result.committed() && !result.claimRequired()) {
+				result = committedInstalledForAttempt(configurations, result, string(task, "attemptId"));
+			}
+			if (result != null) {
 				result = committedForAttempt(result, string(task, "attemptId"));
 				synchronized (completed) { completed.put(operationId, result); }
 				persistCompleted();
@@ -630,10 +651,20 @@ public final class BackendControlConnector implements AutoCloseable {
 	private void persistIntent(UUID operationId, TaskResult anticipated, String attemptId) throws IOException {
 		JsonObject result = anticipated.json();
 		result.addProperty("attemptId", attemptId);
+		StoredResult previous;
 		synchronized (completed) {
-			completed.put(operationId, new StoredResult(result, anticipated.restartConnector(), false, false));
+			previous = completed.put(operationId,
+					new StoredResult(result, anticipated.restartConnector(), false, false));
 		}
-		persistCompleted();
+		try {
+			persistCompleted();
+		} catch (IOException failure) {
+			synchronized (completed) {
+				if (previous == null) completed.remove(operationId);
+				else completed.put(operationId, previous);
+			}
+			throw failure;
+		}
 	}
 
 	private void prepareWriteAheadIntents() throws IOException {
@@ -643,9 +674,9 @@ public final class BackendControlConnector implements AutoCloseable {
 		for (Map.Entry<UUID, StoredResult> entry : snapshot.entrySet()) {
 			StoredResult pending = entry.getValue();
 			if (pending.committed() || pending.claimRequired()) continue;
-			StoredResult recovered = anticipatedResultIsInstalled(pending)
-					? committedForAttempt(pending, string(pending.result(), "attemptId"))
-					: abortedIntent(pending);
+			StoredResult recovered = committedInstalledForAttempt(configurations, pending,
+					string(pending.result(), "attemptId"));
+			if (recovered == null) recovered = abortedIntent(pending);
 			synchronized (completed) {
 				if (completed.get(entry.getKey()) == pending) {
 					completed.put(entry.getKey(), recovered);
@@ -653,7 +684,17 @@ public final class BackendControlConnector implements AutoCloseable {
 				}
 			}
 		}
-		if (changed) persistCompleted();
+		if (changed) {
+			try {
+				persistCompleted();
+			} catch (IOException failure) {
+				synchronized (completed) {
+					completed.clear();
+					completed.putAll(snapshot);
+				}
+				throw failure;
+			}
+		}
 	}
 
 	static StoredResult abortedIntent(StoredResult pending) {
@@ -663,20 +704,27 @@ public final class BackendControlConnector implements AutoCloseable {
 		return new StoredResult(result, false, true, false);
 	}
 
-	private boolean anticipatedResultIsInstalled(StoredResult pending) throws IOException {
+	static StoredResult committedInstalledForAttempt(BackendConfigurationService configurations,
+			StoredResult pending, String attemptId) throws IOException {
 		JsonObject result = pending.result();
-		if (!result.has("revision") || !result.has("configuration")) return false;
+		if (!result.has("revision") || !result.has("configuration")) return null;
 		String revision = result.get("revision").getAsString();
 		JsonObject configuration = result.getAsJsonObject("configuration");
 		String domain = string(configuration, "domain");
 		if ("file".equals(domain)) {
-			return revision.equals(configurations.read(string(configuration, "fileName")).revision());
+			BackendConfigurationService.Document installed = configurations.read(string(configuration, "fileName"));
+			if (!revision.equals(installed.revision())) return null;
+			result = result.deepCopy();
+			result.getAsJsonObject("configuration").addProperty("content", installed.content());
+			result.addProperty("attemptId", attemptId);
+			return new StoredResult(result, pending.restartConnector(), true, false);
 		}
 		if ("quick-setup".equals(domain)) {
-			return revision.equals(configurations.currentQuickSetupRevision(string(configuration, "preset"),
-					options(configuration.getAsJsonObject("options"))));
+			if (!revision.equals(configurations.currentQuickSetupRevision(string(configuration, "preset"),
+					options(configuration.getAsJsonObject("options"))))) return null;
+			return committedForAttempt(pending, attemptId);
 		}
-		return false;
+		return null;
 	}
 
 	private static StoredResult committedForAttempt(StoredResult pending, String attemptId) {
@@ -759,8 +807,8 @@ public final class BackendControlConnector implements AutoCloseable {
 		if ("APPLY".equals(type)) {
 			BackendConfigurationService.Preview preview = configurations.preview(fileName, content);
 			persistIntent(operationId,
-					TaskResult.file(configurations.proposedDocument(preview), preview.changes(), true, false,
-							"Config.yml".equals(fileName)), string(task, "attemptId"));
+					TaskResult.fileIntent(fileName, configurations.proposedDocument(preview).revision(),
+							preview.changes(), "Config.yml".equals(fileName)), string(task, "attemptId"));
 			BackendConfigurationService.ApplyResult applied = configurations.apply(fileName, content,
 					string(task, "expectedRevision"));
 			return TaskResult.file(applied.document(), applied.changes(), true, applied.rolledBack(),
@@ -790,8 +838,10 @@ public final class BackendControlConnector implements AutoCloseable {
 					TaskResult.quick(preset, options, configurations.proposedQuickSetupRevision(preset, preview), preview.changes(),
 							true, "Config.yml".equals(preview.proposal().fileName())), string(task, "attemptId"));
 			BackendConfigurationService.ApplyResult applied = configurations.applyQuickSetup(preset, options,
-					string(task, "expectedRevision"));
-			return TaskResult.quick(preset, options, applied.document().revision(), applied.changes(), true,
+					string(task, "expectedRevision"), "proxy-method".equals(preset)
+							? this::reloadProxyMethod : this::reloadConfiguration);
+			return TaskResult.quick(preset, options, applied.document().revision(), applied.changes(),
+					true,
 					"Config.yml".equals(applied.document().fileName()));
 		}
 		return TaskResult.failure("UNSUPPORTED_TASK", "Task type is unsupported");
@@ -1028,10 +1078,20 @@ public final class BackendControlConnector implements AutoCloseable {
 					List.copyOf(changes), reloaded, rolledBack, restartConnector);
 		}
 
+		private static TaskResult fileIntent(String fileName, String revision, List<String> changes,
+				boolean restartConnector) {
+			JsonObject config = new JsonObject();
+			config.addProperty("domain", "file");
+			config.addProperty("fileName", fileName);
+			return new TaskResult(true, "OK", "Configuration apply is pending", revision, config,
+					List.copyOf(changes), true, false, restartConnector);
+		}
+
 		private static TaskResult quick(String preset, Map<String, String> options, String revision,
 				List<String> changes, boolean reloaded) {
 			return quick(preset, options, revision, changes, reloaded, false);
 		}
+
 		private static TaskResult quick(String preset, Map<String, String> options, String revision,
 				List<String> changes, boolean reloaded, boolean restartConnector) {
 			JsonObject config = new JsonObject();

@@ -246,7 +246,8 @@ BlockedServers:
 WhiteListedServers: []
 
 # What type of bungee setup
-# Requires restart and set on all servers
+# Control can coordinate this method across the reported network after a successful preflight.
+# The proxy runtime is replaced only after its durable result is acknowledged.
 # https://github.com/BenCodez/VotingPlugin/wiki/Bungeecoord-Setups
 # Available:
 # PLUGINMESSAGING (Recommended)

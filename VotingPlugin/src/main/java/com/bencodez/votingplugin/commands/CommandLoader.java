@@ -89,6 +89,7 @@ import com.bencodez.votingplugin.specialrewards.votestreak.VoteStreakDefinition;
 import com.bencodez.votingplugin.specialrewards.votestreak.VoteStreakType;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.util.VoteTaskAdmission;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
 public class CommandLoader {
@@ -1238,8 +1239,9 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				sendMessage(sender, "&cTriggering vote for all voting sites...");
+				int rejected = 0;
 				for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
-					plugin.getVoteTimer().submit(new Runnable() {
+					if (!VoteTaskAdmission.trySubmit(plugin.getVoteTimer(), new Runnable() {
 
 						@Override
 						public void run() {
@@ -1255,7 +1257,13 @@ public class CommandLoader {
 							}
 							plugin.getServer().getPluginManager().callEvent(voteEvent);
 						}
-					});
+					})) {
+						rejected++;
+					}
+				}
+				if (rejected > 0) {
+					sendMessage(sender, "&cCould not trigger " + rejected
+							+ " vote(s) because vote processing is busy; please try again later.");
 				}
 
 				if (plugin.isYmlError()) {
@@ -1282,13 +1290,15 @@ public class CommandLoader {
 						sendMessage(sender, "&cTriggering vote...");
 					}
 
-					plugin.getVoteTimer().submit(new Runnable() {
+					if (!VoteTaskAdmission.trySubmit(plugin.getVoteTimer(), new Runnable() {
 
 						@Override
 						public void run() {
 							plugin.getServer().getPluginManager().callEvent(voteEvent);
 						}
-					});
+					})) {
+						sendMessage(sender, "&cCould not trigger the vote because vote processing is busy; please try again later.");
+					}
 
 					if (plugin.isYmlError()) {
 						sendMessage(sender, "&3Detected yml error, please check server log for details");
@@ -1318,13 +1328,15 @@ public class CommandLoader {
 												+ voteEvent.getServiceSite() + "?");
 							}
 						}
-						plugin.getVoteTimer().submit(new Runnable() {
+						if (!VoteTaskAdmission.trySubmit(plugin.getVoteTimer(), new Runnable() {
 
 							@Override
 							public void run() {
 								plugin.getServer().getPluginManager().callEvent(voteEvent);
 							}
-						});
+						})) {
+							sendMessage(sender, "&cCould not trigger the vote because vote processing is busy; please try again later.");
+						}
 
 						if (plugin.isYmlError()) {
 							sendMessage(sender, "&3Detected yml error, please check server log for details");

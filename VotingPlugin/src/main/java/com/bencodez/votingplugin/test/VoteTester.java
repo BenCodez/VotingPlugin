@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.test;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.bencodez.advancedcore.api.rewards.Reward;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
@@ -11,6 +12,7 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.util.VoteTaskAdmission;
 
 public class VoteTester {
 
@@ -61,7 +63,7 @@ public class VoteTester {
 	}
 
 	public void testRewards(int amount, String name, String rewardName) {
-		plugin.getVoteTimer().submit(new Runnable() {
+		if (!VoteTaskAdmission.trySubmit(plugin.getVoteTimer(), new Runnable() {
 
 			@Override
 			public void run() {
@@ -94,17 +96,20 @@ public class VoteTester {
 								+ " rewards given");
 			}
 
-		});
+		})) {
+			plugin.getLogger().warning("Unable to start reward test because vote processing is busy; retry later.");
+		}
 
 	}
 
 	public void testSpam(int amount, String name, String site) {
+		AtomicBoolean rejectionLogged = new AtomicBoolean();
 		for (int i = 0; i < amount; i++) {
 			plugin.getBukkitScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
 				@Override
 				public void run() {
-					plugin.getVoteTimer().submit(new Runnable() {
+					if (!VoteTaskAdmission.trySubmit(plugin.getVoteTimer(), new Runnable() {
 
 						@Override
 						public void run() {
@@ -112,7 +117,9 @@ public class VoteTester {
 									plugin.getVoteSiteManager().getVoteSiteServiceSite(site), false);
 							plugin.getServer().getPluginManager().callEvent(voteEvent);
 						}
-					});
+					}) && rejectionLogged.compareAndSet(false, true)) {
+						plugin.getLogger().warning("One or more spam-test votes could not be submitted because vote processing is busy.");
+					}
 				}
 			});
 
@@ -120,7 +127,7 @@ public class VoteTester {
 	}
 
 	public void testVotes(int amount, String name, String site) {
-		plugin.getVoteTimer().submit(new Runnable() {
+		if (!VoteTaskAdmission.trySubmit(plugin.getVoteTimer(), new Runnable() {
 
 			@Override
 			public void run() {
@@ -148,7 +155,9 @@ public class VoteTester {
 								+ plugin.getVoteSiteManager().getVoteSitesEnabled().size() + " votesites");
 			}
 
-		});
+		})) {
+			plugin.getLogger().warning("Unable to start vote test because vote processing is busy; retry later.");
+		}
 
 	}
 

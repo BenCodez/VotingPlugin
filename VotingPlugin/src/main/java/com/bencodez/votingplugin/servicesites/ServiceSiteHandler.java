@@ -1,6 +1,8 @@
 package com.bencodez.votingplugin.servicesites;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpClient.Redirect;
@@ -15,6 +17,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -39,6 +45,10 @@ import lombok.Getter;
  * Lookups are case-insensitive while preserving original casing.
  */
 public class ServiceSiteHandler {
+	static final int MAX_RESPONSE_BYTES = 1024 * 1024;
+	static final int MAX_ENTRIES = 2048;
+	static final int MAX_KEY_LENGTH = 128;
+	static final int MAX_VALUE_LENGTH = 2048;
 
 	private static final String PRIMARY_URL = "https://raw.githubusercontent.com/wiki/BenCodez/VotingPlugin/Minecraft-Server-Lists.md";
 	private static final String SECONDARY_URL = "https://wiki.bencodez.com/en/VotingPlugin/Minecraft-Server-Lists";
@@ -180,6 +190,7 @@ public class ServiceSiteHandler {
 	}
 
 	private FetchResult fetch(String urlStr) throws IOException, InterruptedException {
+		long deadlineNanos = System.nanoTime() + Duration.ofSeconds(7).toNanos();
 		HttpRequest request = HttpRequest.newBuilder()
 				.uri(URI.create(urlStr))
 				.GET()
@@ -187,16 +198,67 @@ public class ServiceSiteHandler {
 				.header("User-Agent", "VotingPlugin/ServiceSiteHandler")
 				.build();
 
-		HttpResponse<String> response = httpClient.send(request,
-				HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+		HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
 
-		int code = response.statusCode();
-		if (code < 200 || code >= 300) {
-			throw new IOException("HTTP " + code);
+		long remainingNanos = deadlineNanos - System.nanoTime();
+		if (remainingNanos <= 0) {
+			response.body().close();
+			throw new IOException("Service site response timed out");
 		}
-
+		byte[] body = readSuccessfulResponse(response, remainingNanos, TimeUnit.NANOSECONDS);
 		String contentType = response.headers().firstValue("Content-Type").orElse(null);
-		return new FetchResult(urlStr, response.body(), contentType);
+		return new FetchResult(urlStr, new String(body, StandardCharsets.UTF_8), contentType);
+	}
+
+	static byte[] readSuccessfulResponse(HttpResponse<InputStream> response) throws IOException {
+		return readSuccessfulResponse(response, 7, TimeUnit.SECONDS);
+	}
+
+	static byte[] readSuccessfulResponse(HttpResponse<InputStream> response, long timeout, TimeUnit unit)
+			throws IOException {
+		try (InputStream input = response.body()) {
+			int code = response.statusCode();
+			if (code < 200 || code >= 300) {
+				throw new IOException("HTTP " + code);
+			}
+			CompletableFuture<byte[]> read = CompletableFuture.supplyAsync(() -> {
+				try {
+					return readBounded(input, MAX_RESPONSE_BYTES);
+				} catch (IOException e) {
+					throw new java.io.UncheckedIOException(e);
+				}
+			});
+			try {
+				return read.get(timeout, unit);
+			} catch (TimeoutException e) {
+				read.cancel(true);
+				throw new IOException("Service site response timed out", e);
+			} catch (ExecutionException e) {
+				if (e.getCause() instanceof java.io.UncheckedIOException) {
+					throw ((java.io.UncheckedIOException) e.getCause()).getCause();
+				}
+				throw new IOException("Unable to read service site response", e.getCause());
+			} catch (InterruptedException e) {
+				read.cancel(true);
+				Thread.currentThread().interrupt();
+				throw new IOException("Interrupted while reading service site response", e);
+			}
+		}
+	}
+
+	static byte[] readBounded(InputStream input, int maximumBytes) throws IOException {
+		ByteArrayOutputStream output = new ByteArrayOutputStream(Math.min(maximumBytes, 8192));
+		byte[] buffer = new byte[8192];
+		int total = 0;
+		int read;
+		while ((read = input.read(buffer, 0, Math.min(buffer.length, maximumBytes + 1 - total))) != -1) {
+			total += read;
+			if (total > maximumBytes) {
+				throw new IOException("Service site response exceeds " + maximumBytes + " bytes");
+			}
+			output.write(buffer, 0, read);
+		}
+		return output.toByteArray();
 	}
 
 	private Map<String, String> parseFromWebBody(String body, String contentType) {
@@ -228,6 +290,9 @@ public class ServiceSiteHandler {
 		Map<String, String> parsed = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
 
 		for (String line : lines) {
+			if (parsed.size() >= MAX_ENTRIES) {
+				break;
+			}
 			if (line == null) {
 				continue;
 			}
@@ -248,12 +313,17 @@ public class ServiceSiteHandler {
 			String key = m.group(1).trim();
 			String val = m.group(2).trim();
 
-			if (!key.isEmpty() && !val.isEmpty()) {
+			if (isSafeEntry(key, val)) {
 				parsed.put(key, val);
 			}
 		}
 
 		return parsed;
+	}
+
+	static boolean isSafeEntry(String key, String value) {
+		return key != null && value != null && !key.isEmpty() && !value.isEmpty()
+				&& key.length() <= MAX_KEY_LENGTH && value.length() <= MAX_VALUE_LENGTH;
 	}
 
 	private static boolean mapsEqual(Map<String, String> a, Map<String, String> b) {

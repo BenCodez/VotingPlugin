@@ -15,6 +15,7 @@ import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -50,15 +51,18 @@ import com.google.gson.JsonParser;
  */
 public final class ControlConnector implements AutoCloseable {
 	static final int PROTOCOL_VERSION = 1;
-	static final int MAX_RESPONSE_BYTES = 64 * 1024;
+	static final int MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
+	private static final int MAX_RESULT_TEXT_CHARS = 240;
 	private static final Pattern NODE_ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,63}");
 	private static final Set<String> BASE_CAPABILITIES = Set.of("presence.snapshot");
 	private static final String CONFIGURATION_CAPABILITY = "config.proxy-routing.v1";
 	private static final String COMMUNICATION_TEST_CAPABILITY = "config.transport-test.v1";
 	private static final String COMMUNICATION_TEST_PRESET = "communication-test";
 	private static final String PROXY_METHOD_CAPABILITY = "config.proxy-method.v1";
+	private static final String PROXY_FILE_CAPABILITY = "config.proxy-files.v1";
 	private static final String PROXY_METHOD_PRESET = "proxy-method";
 	private static final String INTERNAL_OPERATION_TYPE = "_controlOperationType";
+	private static final String INTERNAL_REQUIRED_CAPABILITY = "_controlRequiredCapability";
 	private static final long OPERATION_POLL_MILLIS = 1000;
 	private static final long MAX_BACKOFF_MILLIS = TimeUnit.MINUTES.toMillis(5);
 	private static final long OPERATION_SHUTDOWN_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(65);
@@ -72,6 +76,7 @@ public final class ControlConnector implements AutoCloseable {
 	private final LongSupplier jitterSource;
 	private final ProxyRoutingConfigurationService configurationService;
 	private final ProxyMethodConfigurationService methodConfigurationService;
+	private final ProxyConfigurationFileService fileConfigurationService;
 	private final Function<String, CompletableFuture<VotingPluginProxy.CommunicationTestResult>> communicationTest;
 	private final Runnable runtimeReplacement;
 	private final Path dataDirectory;
@@ -81,10 +86,12 @@ public final class ControlConnector implements AutoCloseable {
 	private final Map<UUID, StoredResult> completedTasks = new LinkedHashMap<>();
 	private final Object operationLifecycle = new Object();
 	private final AtomicBoolean inFlight = new AtomicBoolean();
+	private final AtomicBoolean recoveryCompleted = new AtomicBoolean();
 	private Runnable deferredReplacement;
 	private volatile boolean closed;
 	private volatile boolean registered;
 	private volatile boolean configurationAccepted;
+	private volatile Set<String> acceptedCapabilities = Set.of();
 	private volatile int failures;
 	private volatile long snapshotSequence;
 	private volatile ScheduledFuture<?> scheduled;
@@ -97,14 +104,14 @@ public final class ControlConnector implements AutoCloseable {
 			Supplier<List<ObservedBackend>> snapshotSource, Consumer<String> logger, UUID sessionId,
 			LongSupplier jitterSource) {
 		this(settings, scheduler, transport, snapshotSource, logger, sessionId, jitterSource, null,
-				null, null, false, null, null, null, null);
+				null, null, false, null, null, null, null, null);
 	}
 
 	ControlConnector(Settings settings, ScheduledExecutorService scheduler, Transport transport,
 			Supplier<List<ObservedBackend>> snapshotSource, Consumer<String> logger, UUID sessionId,
 			LongSupplier jitterSource, ProxyRoutingConfigurationService configurationService) {
 		this(settings, scheduler, transport, snapshotSource, logger, sessionId, jitterSource, configurationService,
-				null, null, false, null, null, null, null);
+				null, null, false, null, null, null, null, null);
 	}
 
 	ControlConnector(Settings settings, ScheduledExecutorService scheduler, Transport transport,
@@ -112,7 +119,7 @@ public final class ControlConnector implements AutoCloseable {
 			LongSupplier jitterSource, ProxyRoutingConfigurationService configurationService,
 			Map<UUID, StoredResult> recoveredTasks) {
 		this(settings, scheduler, transport, snapshotSource, logger, sessionId, jitterSource, configurationService,
-				null, null, false, null, null, null, null);
+				null, null, false, null, null, null, null, null);
 		completedTasks.putAll(recoveredTasks);
 	}
 
@@ -121,7 +128,8 @@ public final class ControlConnector implements AutoCloseable {
 			LongSupplier jitterSource, ProxyRoutingConfigurationService configurationService, Path dataDirectory,
 			Route route, boolean recovering, Runnable recoveryComplete,
 			Function<String, CompletableFuture<VotingPluginProxy.CommunicationTestResult>> communicationTest,
-			ProxyMethodConfigurationService methodConfigurationService, Runnable runtimeReplacement) {
+			ProxyMethodConfigurationService methodConfigurationService, Runnable runtimeReplacement,
+			ProxyConfigurationFileService fileConfigurationService) {
 		this.settings = Objects.requireNonNull(settings, "settings");
 		this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
 		this.transport = Objects.requireNonNull(transport, "transport");
@@ -133,6 +141,7 @@ public final class ControlConnector implements AutoCloseable {
 		this.methodConfigurationService = methodConfigurationService;
 		this.communicationTest = communicationTest;
 		this.runtimeReplacement = runtimeReplacement;
+		this.fileConfigurationService = fileConfigurationService;
 		this.dataDirectory = dataDirectory;
 		this.route = route;
 		this.recovering = recovering;
@@ -142,18 +151,21 @@ public final class ControlConnector implements AutoCloseable {
 	/** Creates the production connector without reading a credential when the feature is disabled. */
 	public static ControlConnector create(VotingPluginProxy proxy) throws IOException {
 		Path dataDirectory = proxy.getDataFolderPlugin().toPath().toAbsolutePath().normalize();
-		ProxyControlResultStore.State recovered = ProxyControlResultStore.load(dataDirectory);
 		VotingPluginProxyConfig config = proxy.getConfig();
+		ProxyControlResultStore.State recovered;
 		Settings settings;
 		Route route;
 		String credentialName;
-		boolean recovering = recovered != null;
-		if (recovered != null) {
+		if (!config.getControlEnabled()) {
+			// With Control disabled there is no current configured route. A required
+			// result may still be retried only against its own recorded coordinator;
+			// never select a released result or redirect it to another node.
+			recovered = ProxyControlResultStore.loadRequired(dataDirectory);
+			if (recovered == null) return null;
 			route = recovered.route();
 			settings = settings(route);
 			credentialName = route.credentialFile();
 		} else {
-			if (!config.getControlEnabled()) return null;
 			String configuredNodeId = config.getControlNodeId();
 			String nodeId = configuredNodeId == null || configuredNodeId.isBlank()
 					? config.getProxyServerName() : configuredNodeId.trim();
@@ -169,7 +181,17 @@ public final class ControlConnector implements AutoCloseable {
 					URI.create(endpointValue.trim()), config.getControlHeartbeatSeconds(),
 					config.getControlConnectTimeoutMillis(), config.getControlRequestTimeoutMillis());
 			route = route(settings, credentialName);
+			recovered = ProxyControlResultStore.loadPreferred(dataDirectory, route);
+			if (recovered != null && recovered.routeRequired()
+					&& !recovered.route().identity().equals(route.identity())) {
+				// Drain an older coordinator before returning to current configuration.
+				// completeRecoveryIfDrained() restarts this service to advance the queue.
+				route = recovered.route();
+				settings = settings(route);
+				credentialName = route.credentialFile();
+			}
 		}
+		boolean recovering = recovered != null && recovered.routeRequired();
 		String credential = ControlCredentialFile.read(dataDirectory, credentialName);
 		HttpControlTransport transport = new HttpControlTransport(settings.endpoint(), credential,
 				settings.connectTimeoutMillis(), settings.requestTimeoutMillis());
@@ -193,7 +215,7 @@ public final class ControlConnector implements AutoCloseable {
 				() -> ThreadLocalRandom.current().nextLong(), new ProxyRoutingConfigurationService(proxy), dataDirectory,
 				route, recovering, proxy::restartControlServicesAfterRecovery,
 				server -> proxy.testBackendCommunication(server, 5000L), new ProxyMethodConfigurationService(proxy),
-				() -> proxy.reloadCore(true));
+				() -> proxy.reloadCore(true), new ProxyConfigurationFileService(proxy));
 		if (recovered != null) connector.completedTasks.putAll(recovered.results());
 		return connector;
 	}
@@ -260,7 +282,7 @@ public final class ControlConnector implements AutoCloseable {
 	public boolean deferReplacementUntilSafe(Runnable replacement) {
 		Objects.requireNonNull(replacement, "replacement");
 		synchronized (operationLifecycle) {
-			if (inFlight.get() || !completedTasks.isEmpty()) {
+			if (inFlight.get() || hasLifecycleBlockingTasks()) {
 				deferredReplacement = replacement;
 				return true;
 			}
@@ -273,7 +295,7 @@ public final class ControlConnector implements AutoCloseable {
 	/** Reserves a quiescent connector for a full runtime replacement without losing a claimed result. */
 	public boolean reserveRuntimeReplacement() {
 		synchronized (operationLifecycle) {
-			if (inFlight.get() || !completedTasks.isEmpty()) return false;
+			if (inFlight.get() || hasLifecycleBlockingTasks()) return false;
 			closed = true;
 			status = Status.STOPPED;
 			return true;
@@ -329,7 +351,14 @@ public final class ControlConnector implements AutoCloseable {
 			activeRequest = presence;
 			return presence.thenCompose(responseBody -> {
 				handlePresenceResponse(responseBody);
-				if (!configurationAccepted) return CompletableFuture.completedFuture(null);
+				if (!configurationAccepted) {
+					// A recovering connector may have only results for capabilities this
+					// session could not negotiate. There is no operation claim (and thus
+					// no 204) to release that drained recovery, so complete it after the
+					// registration/presence handshake instead.
+					completeRecoveryIfDrained();
+					return CompletableFuture.completedFuture(null);
+				}
 				if (hasCompletedTask()) return submitCompletedResult();
 				CompletableFuture<Response> claim = transport.send(claimRequest());
 				activeRequest = claim;
@@ -366,7 +395,7 @@ public final class ControlConnector implements AutoCloseable {
 		Runnable replacement = null;
 		synchronized (operationLifecycle) {
 			inFlight.set(false);
-			if (completedTasks.isEmpty() && deferredReplacement != null) {
+			if (!hasLifecycleBlockingTasks() && deferredReplacement != null) {
 				replacement = deferredReplacement;
 				deferredReplacement = null;
 			}
@@ -396,9 +425,16 @@ public final class ControlConnector implements AutoCloseable {
 			if (!contains(accepted, "presence.snapshot")) {
 				throw new ProtocolException();
 			}
-			configurationAccepted = contains(accepted, CONFIGURATION_CAPABILITY)
-					|| contains(accepted, COMMUNICATION_TEST_CAPABILITY)
-					|| contains(accepted, PROXY_METHOD_CAPABILITY);
+			LinkedHashSet<String> negotiated = new LinkedHashSet<>();
+			for (JsonElement capability : accepted) {
+				if (!capability.isJsonPrimitive() || !capability.getAsJsonPrimitive().isString()) {
+					throw new ProtocolException();
+				}
+				negotiated.add(capability.getAsString());
+			}
+			acceptedCapabilities = Set.copyOf(negotiated);
+			configurationAccepted = acceptedCapabilities.stream().anyMatch(Set.of(CONFIGURATION_CAPABILITY,
+					COMMUNICATION_TEST_CAPABILITY, PROXY_METHOD_CAPABILITY, PROXY_FILE_CAPABILITY)::contains);
 		}
 	}
 
@@ -500,7 +536,13 @@ public final class ControlConnector implements AutoCloseable {
 	}
 
 	private CompletableFuture<Void> handleClaimResponse(Response response) {
-		if (response.statusCode == 204) return CompletableFuture.completedFuture(null);
+		if (response.statusCode == 204) {
+			// A recovered result may be filtered because this session did not negotiate
+			// its capability.  There is then nothing to acknowledge, so the empty
+			// claim itself is the point at which recovery can be released.
+			completeRecoveryIfDrained();
+			return CompletableFuture.completedFuture(null);
+		}
 		if (response.statusCode == 404) {
 			registered = false;
 			throw new RegistryLostException();
@@ -512,11 +554,14 @@ public final class ControlConnector implements AutoCloseable {
 		synchronized (operationLifecycle) {
 			result = completedTasks.get(operationId);
 		}
+		if (result != null && !capabilityAccepted(result)) return CompletableFuture.completedFuture(null);
 		if (result != null) {
-			if (!result.committed() && !result.claimRequired() && !anticipatedResultIsInstalled(result)) {
-				result = null;
+			if (!result.committed() && !result.claimRequired()) {
+				result = committedIfInstalled(result, requireString(task, "attemptId"));
 			} else {
 				result = committedForAttempt(result, requireString(task, "attemptId"));
+			}
+			if (result != null) {
 				synchronized (operationLifecycle) { completedTasks.put(operationId, result); }
 				persistCompleted();
 			}
@@ -526,6 +571,8 @@ public final class ControlConnector implements AutoCloseable {
 				JsonObject resultJson = executed.json();
 				resultJson.addProperty("attemptId", requireString(task, "attemptId"));
 				resultJson.addProperty(INTERNAL_OPERATION_TYPE, requireString(task, "type"));
+				resultJson.addProperty(INTERNAL_REQUIRED_CAPABILITY,
+						requiredCapability(task.getAsJsonObject("configuration")));
 				StoredResult completed = new StoredResult(resultJson, true, false);
 				synchronized (operationLifecycle) { completedTasks.put(operationId, completed); }
 				persistCompleted();
@@ -538,14 +585,15 @@ public final class ControlConnector implements AutoCloseable {
 	private boolean hasCompletedTask() {
 		prepareWriteAheadIntents();
 		synchronized (operationLifecycle) {
-			return completedTasks.values().stream().anyMatch(StoredResult::committed);
+			return completedTasks.values().stream().anyMatch(result -> result.committed() && capabilityAccepted(result));
 		}
 	}
 
 	private CompletableFuture<Void> submitCompletedResult() {
 		Map.Entry<UUID, StoredResult> pending;
 		synchronized (operationLifecycle) {
-			pending = completedTasks.entrySet().stream().filter(entry -> entry.getValue().committed())
+			pending = completedTasks.entrySet().stream()
+					.filter(entry -> entry.getValue().committed() && capabilityAccepted(entry.getValue()))
 					.findFirst().orElse(null);
 		}
 		if (pending == null) return CompletableFuture.completedFuture(null);
@@ -584,10 +632,36 @@ public final class ControlConnector implements AutoCloseable {
 		boolean drained;
 		boolean replaceRuntime = requiresRuntimeReplacement(result) && runtimeReplacement != null;
 		synchronized (operationLifecycle) {
-			drained = completedTasks.isEmpty();
+			drained = !hasLifecycleBlockingTasks();
 			if (replaceRuntime) deferredReplacement = runtimeReplacement;
 		}
-		if (recovering && drained && recoveryComplete != null && !replaceRuntime) recoveryComplete.run();
+		if (drained && !replaceRuntime) completeRecoveryIfDrained();
+	}
+
+	private void completeRecoveryIfDrained() {
+		if (!recovering || recoveryComplete == null) return;
+		synchronized (operationLifecycle) {
+			if (hasLifecycleBlockingTasks()) return;
+		}
+		if (!recoveryCompleted.compareAndSet(false, true)) return;
+		try {
+			// Keep capability-filtered results durable, but release the old route so
+			// the replacement connector starts from current configuration instead of
+			// loading the same recovery route forever.
+			persistCompleted(false);
+		} catch (RuntimeException failure) {
+			recoveryCompleted.set(false);
+			throw failure;
+		}
+		recoveryComplete.run();
+	}
+
+	/** Results rejected by this negotiated session remain durable but do not prevent its lifecycle from draining. */
+	private boolean hasLifecycleBlockingTasks() {
+		if (!registered) return !completedTasks.isEmpty();
+		return completedTasks.values().stream()
+				.anyMatch(pending -> !pending.committed() && !pending.claimRequired()
+						|| capabilityAccepted(pending));
 	}
 
 	static boolean requiresRuntimeReplacement(StoredResult result) {
@@ -619,11 +693,15 @@ public final class ControlConnector implements AutoCloseable {
 	}
 
 	private void persistCompleted() {
+		persistCompleted(true);
+	}
+
+	private void persistCompleted(boolean routeRequired) {
 		if (dataDirectory == null || route == null) return;
 		Map<UUID, StoredResult> snapshot;
 		synchronized (operationLifecycle) { snapshot = new LinkedHashMap<>(completedTasks); }
 		try {
-			ProxyControlResultStore.save(dataDirectory, route, snapshot);
+			ProxyControlResultStore.save(dataDirectory, route, snapshot, routeRequired);
 		} catch (IOException e) {
 			throw new UnavailableException(e);
 		}
@@ -633,10 +711,21 @@ public final class ControlConnector implements AutoCloseable {
 		JsonObject result = anticipated.json();
 		result.addProperty("attemptId", attemptId);
 		result.addProperty(INTERNAL_OPERATION_TYPE, "APPLY");
+		result.addProperty(INTERNAL_REQUIRED_CAPABILITY,
+				requiredCapability(result.getAsJsonObject("configuration")));
+		StoredResult previous;
 		synchronized (operationLifecycle) {
-			completedTasks.put(operationId, new StoredResult(result, false, false));
+			previous = completedTasks.put(operationId, new StoredResult(result, false, false));
 		}
-		persistCompleted();
+		try {
+			persistCompleted();
+		} catch (RuntimeException failure) {
+			synchronized (operationLifecycle) {
+				if (previous == null) completedTasks.remove(operationId);
+				else completedTasks.put(operationId, previous);
+			}
+			throw failure;
+		}
 	}
 
 	private void prepareWriteAheadIntents() {
@@ -646,9 +735,9 @@ public final class ControlConnector implements AutoCloseable {
 		for (Map.Entry<UUID, StoredResult> entry : snapshot.entrySet()) {
 			StoredResult pending = entry.getValue();
 			if (pending.committed() || pending.claimRequired()) continue;
-			StoredResult recovered = anticipatedResultIsInstalled(pending)
-					? committedForAttempt(pending, requireString(pending.result(), "attemptId"))
-					: abortedIntent(pending);
+			StoredResult recovered = committedIfInstalled(pending,
+					requireString(pending.result(), "attemptId"));
+			if (recovered == null) recovered = abortedIntent(pending);
 			synchronized (operationLifecycle) {
 				if (completedTasks.get(entry.getKey()) == pending) {
 					completedTasks.put(entry.getKey(), recovered);
@@ -656,25 +745,53 @@ public final class ControlConnector implements AutoCloseable {
 				}
 			}
 		}
-		if (changed) persistCompleted();
+		if (changed) {
+			try {
+				persistCompleted();
+			} catch (RuntimeException failure) {
+				synchronized (operationLifecycle) {
+					completedTasks.clear();
+					completedTasks.putAll(snapshot);
+				}
+				throw failure;
+			}
+		}
 	}
 
 	private static StoredResult abortedIntent(StoredResult pending) {
 		JsonObject result = TaskResult.failure("RECOVERY_ABORTED",
 				"Configuration apply did not finish before node recovery").json();
 		result.addProperty("attemptId", requireString(pending.result(), "attemptId"));
+		JsonObject pendingResult = pending.result();
+		result.addProperty(INTERNAL_REQUIRED_CAPABILITY, pendingResult.has(INTERNAL_REQUIRED_CAPABILITY)
+				? pendingResult.get(INTERNAL_REQUIRED_CAPABILITY).getAsString()
+				: requiredCapability(pendingResult.getAsJsonObject("configuration")));
 		return new StoredResult(result, true, false);
 	}
 
-	private boolean anticipatedResultIsInstalled(StoredResult pending) {
+	private StoredResult committedIfInstalled(StoredResult pending, String attemptId) {
 		JsonObject result = pending.result();
-		if (!result.has("revision")) return false;
+		if (!result.has("revision")) return null;
 		JsonObject configuration = result.getAsJsonObject("configuration");
 		if (configuration != null && isProxyMethod(configuration) && methodConfigurationService != null) {
-			return result.get("revision").getAsString().equals(methodConfigurationService.read().revision());
+			return result.get("revision").getAsString().equals(methodConfigurationService.read().revision())
+					? committedForAttempt(pending, attemptId) : null;
+		}
+		if (isProxyFile(configuration) && fileConfigurationService != null) {
+			try {
+				ProxyConfigurationFileService.Document installed = fileConfigurationService.read(
+						requireString(configuration, "fileName"));
+				if (!result.get("revision").getAsString().equals(installed.revision())) return null;
+				StoredResult committed = committedForAttempt(pending, attemptId);
+				committed.result().getAsJsonObject("configuration").addProperty("content", installed.content());
+				return committed;
+			} catch (IOException | RuntimeException failure) {
+				return null;
+			}
 		}
 		return configurationService != null
-				&& result.get("revision").getAsString().equals(configurationService.read().revision());
+				&& result.get("revision").getAsString().equals(configurationService.read().revision())
+				? committedForAttempt(pending, attemptId) : null;
 	}
 
 	private static StoredResult committedForAttempt(StoredResult pending, String attemptId) {
@@ -685,8 +802,21 @@ public final class ControlConnector implements AutoCloseable {
 
 	private CompletableFuture<TaskResult> executeTask(UUID operationId, JsonObject task) {
 		JsonObject requested = task.getAsJsonObject("configuration");
-		if (isCommunicationTest(requested)) return executeCommunicationTest(task, requested);
-		if (isProxyMethod(requested)) return executeProxyMethod(operationId, task, requested);
+		if (isProxyFile(requested)) {
+			if (!acceptedCapabilities.contains(PROXY_FILE_CAPABILITY)) {
+				return completed(TaskResult.failure("UNSUPPORTED", "Proxy file control was not negotiated"));
+			}
+			return executeProxyFile(operationId, task, requested);
+		}
+		if (isCommunicationTest(requested)) return acceptedCapabilities.contains(COMMUNICATION_TEST_CAPABILITY)
+				? executeCommunicationTest(task, requested)
+				: completed(TaskResult.failure("UNSUPPORTED", "Communication testing was not negotiated"));
+		if (isProxyMethod(requested)) return acceptedCapabilities.contains(PROXY_METHOD_CAPABILITY)
+				? executeProxyMethod(operationId, task, requested)
+				: completed(TaskResult.failure("UNSUPPORTED", "Proxy method control was not negotiated"));
+		if (!acceptedCapabilities.contains(CONFIGURATION_CAPABILITY)) {
+			return completed(TaskResult.failure("UNSUPPORTED", "Proxy routing control was not negotiated"));
+		}
 		if (configurationService == null) return completed(TaskResult.failure("UNSUPPORTED", "Configuration control is unavailable"));
 		String type = requireString(task, "type");
 		try {
@@ -758,6 +888,58 @@ public final class ControlConnector implements AutoCloseable {
 		}
 	}
 
+	private CompletableFuture<TaskResult> executeProxyFile(UUID operationId, JsonObject task, JsonObject requested) {
+		if (fileConfigurationService == null) {
+			return completed(TaskResult.failure("UNSUPPORTED", "Proxy file control is unavailable"));
+		}
+		try {
+			// Keep all negotiated task fields inside the durable-result boundary. A malformed
+			// claim must be acknowledged as a validation failure, not escape the operation
+			// future and leave the same lease blocking the configuration lane.
+			String type = requireString(task, "type");
+			Set<String> allowedFields;
+			if ("READ".equals(type)) allowedFields = Set.of("domain", "fileName");
+			else if ("PREVIEW".equals(type) || "APPLY".equals(type))
+				allowedFields = Set.of("domain", "fileName", "content");
+			else return completed(TaskResult.failure("UNSUPPORTED_TASK", "Task type is unsupported"));
+			if (!allowedFields.equals(requested.keySet())) throw new MalformedResponseException();
+			String fileName = requireString(requested, "fileName");
+			if ("READ".equals(type)) {
+				return completed(TaskResult.file(fileConfigurationService.read(fileName), List.of(), false, false));
+			}
+			String content = requireString(requested, "content");
+			if ("PREVIEW".equals(type)) {
+				ProxyConfigurationFileService.Preview preview = fileConfigurationService.preview(fileName, content);
+				ProxyConfigurationFileService.Document current = fileConfigurationService.read(fileName);
+				if (!preview.revision().equals(current.revision())) {
+					throw new ProxyConfigurationFileService.StaleRevisionException();
+				}
+				return completed(TaskResult.file(current, preview.changes(), false, false));
+			}
+			if (!"APPLY".equals(type)) return completed(TaskResult.failure("UNSUPPORTED_TASK", "Task type is unsupported"));
+			ProxyConfigurationFileService.PreparedApply prepared = fileConfigurationService.prepareApply(fileName, content,
+					requireString(task, "expectedRevision"));
+			ProxyConfigurationFileService.Preview preview = prepared.preview();
+			persistIntent(operationId, TaskResult.fileIntent(fileName,
+					ProxyConfigurationFileService.revision(preview.resolvedContent()), preview.changes()),
+					requireString(task, "attemptId"));
+			ProxyConfigurationFileService.ApplyResult applied = fileConfigurationService.apply(prepared);
+			return completed(TaskResult.file(applied.document(), applied.changes(), false, applied.rolledBack(),
+					"Proxy configuration saved; restart the proxy to activate general settings"));
+		} catch (ProxyConfigurationFileService.StaleRevisionException failure) {
+			return completed(TaskResult.failure("STALE_REVISION", "Proxy configuration changed after preview"));
+		} catch (ProxyConfigurationFileService.ApplyFailureException failure) {
+			return completed(new TaskResult(false, "APPLY_FAILED", "Proxy configuration could not be saved", null, null,
+					List.of(), false, failure.rolledBack()));
+		} catch (MalformedResponseException failure) {
+			return completed(TaskResult.failure("VALIDATION_ERROR", "Proxy configuration task fields are invalid"));
+		} catch (IllegalArgumentException failure) {
+			return completed(TaskResult.failure("VALIDATION_ERROR", failure.getMessage()));
+		} catch (IOException | RuntimeException failure) {
+			return completed(TaskResult.failure("APPLY_FAILED", "Proxy configuration operation failed"));
+		}
+	}
+
 	private CompletableFuture<TaskResult> executeCommunicationTest(JsonObject task, JsonObject requested) {
 		if (!"READ".equals(requireString(task, "type"))) {
 			return completed(TaskResult.failure("UNSUPPORTED_TASK", "Communication tests are read-only"));
@@ -799,6 +981,27 @@ public final class ControlConnector implements AutoCloseable {
 				&& PROXY_METHOD_PRESET.equals(requested.get("preset").getAsString());
 	}
 
+	private static boolean isProxyFile(JsonObject requested) {
+		return requested != null && requested.has("domain") && requested.get("domain").isJsonPrimitive()
+				&& requested.getAsJsonPrimitive("domain").isString()
+				&& "file".equals(requested.get("domain").getAsString());
+	}
+
+	private boolean capabilityAccepted(StoredResult result) {
+		JsonObject body = result.result();
+		String required = body.has(INTERNAL_REQUIRED_CAPABILITY)
+				? body.get(INTERNAL_REQUIRED_CAPABILITY).getAsString()
+				: requiredCapability(body.getAsJsonObject("configuration"));
+		return acceptedCapabilities.contains(required);
+	}
+
+	private static String requiredCapability(JsonObject configuration) {
+		if (isProxyFile(configuration)) return PROXY_FILE_CAPABILITY;
+		if (isCommunicationTest(configuration)) return COMMUNICATION_TEST_CAPABILITY;
+		if (isProxyMethod(configuration)) return PROXY_METHOD_CAPABILITY;
+		return CONFIGURATION_CAPABILITY;
+	}
+
 	private static CompletableFuture<TaskResult> completed(TaskResult result) {
 		return CompletableFuture.completedFuture(result);
 	}
@@ -815,6 +1018,7 @@ public final class ControlConnector implements AutoCloseable {
 	private Request resultRequest(UUID operationId, StoredResult result) {
 		JsonObject body = result.result().deepCopy();
 		body.remove(INTERNAL_OPERATION_TYPE);
+		body.remove(INTERNAL_REQUIRED_CAPABILITY);
 		body.addProperty("sessionId", sessionId.toString());
 		return new Request("POST", "/api/v1/nodes/" + settings.nodeId() + "/operations/" + operationId
 				+ "/result", body.toString());
@@ -845,7 +1049,8 @@ public final class ControlConnector implements AutoCloseable {
 	}
 
 	private static String requireString(JsonObject body, String name) {
-		if (body == null || !body.has(name) || !body.get(name).isJsonPrimitive()) throw new MalformedResponseException();
+		if (body == null || !body.has(name) || !body.get(name).isJsonPrimitive()
+				|| !body.getAsJsonPrimitive(name).isString()) throw new MalformedResponseException();
 		return body.get(name).getAsString();
 	}
 
@@ -862,12 +1067,33 @@ public final class ControlConnector implements AutoCloseable {
 		return body;
 	}
 
+	/** Keeps persisted and submitted result fields within Control's per-entry protocol bound. */
+	static String boundedResultMessage(String message) {
+		String safe = message == null ? "Operation failed" : message.replaceAll("\\p{Cntrl}", " ").trim();
+		if (safe.isBlank()) safe = "Operation failed";
+		if (safe.length() > MAX_RESULT_TEXT_CHARS) safe = safe.substring(0, MAX_RESULT_TEXT_CHARS - 3) + "...";
+		return safe;
+	}
+
+	static List<String> boundedResultChanges(List<String> changes) {
+		if (changes == null || changes.isEmpty()) return List.of();
+		List<String> safe = new ArrayList<>();
+		int retained = changes.size() > 20 ? 19 : changes.size();
+		for (int index = 0; index < retained; index++) {
+			String change = changes.get(index);
+			safe.add(boundedResultMessage(change == null ? "change omitted" : change));
+		}
+		if (changes.size() > 20) safe.add("additional changes omitted");
+		return List.copyOf(safe);
+	}
+
 	private void addCapabilities(JsonObject body) {
 		JsonArray advertised = new JsonArray();
 		BASE_CAPABILITIES.stream().sorted().forEach(advertised::add);
 		if (configurationService != null) advertised.add(CONFIGURATION_CAPABILITY);
 		if (communicationTest != null) advertised.add(COMMUNICATION_TEST_CAPABILITY);
 		if (methodConfigurationService != null) advertised.add(PROXY_METHOD_CAPABILITY);
+		if (fileConfigurationService != null) advertised.add(PROXY_FILE_CAPABILITY);
 		body.add("capabilities", advertised);
 		JsonArray required = new JsonArray();
 		required.add("presence.snapshot");
@@ -1014,6 +1240,11 @@ public final class ControlConnector implements AutoCloseable {
 
 	private record TaskResult(boolean success, String code, String message, String revision,
 			JsonObject configuration, List<String> changes, boolean reloaded, boolean rolledBack) {
+		private TaskResult {
+			message = boundedResultMessage(message);
+			changes = boundedResultChanges(changes);
+		}
+
 		private JsonObject json() {
 			JsonObject body = new JsonObject();
 			body.addProperty("success", success);
@@ -1036,6 +1267,29 @@ public final class ControlConnector implements AutoCloseable {
 		private static TaskResult success(String revision, JsonObject configuration, List<String> changes,
 				boolean reloaded, String message) {
 			return new TaskResult(true, "OK", message, revision, configuration, changes, reloaded, false);
+		}
+		private static TaskResult file(ProxyConfigurationFileService.Document document, List<String> changes,
+				boolean reloaded, boolean rolledBack) {
+			return file(document, changes, reloaded, rolledBack, "Operation completed");
+		}
+
+		private static TaskResult file(ProxyConfigurationFileService.Document document, List<String> changes,
+				boolean reloaded, boolean rolledBack, String message) {
+			JsonObject configuration = new JsonObject();
+			configuration.addProperty("domain", "file");
+			configuration.addProperty("fileName", document.fileName());
+			configuration.addProperty("content", document.content());
+			return new TaskResult(true, "OK", message, document.revision(), configuration,
+					List.copyOf(changes), reloaded, rolledBack);
+		}
+
+		private static TaskResult fileIntent(String fileName, String revision, List<String> changes) {
+			JsonObject configuration = new JsonObject();
+			configuration.addProperty("domain", "file");
+			configuration.addProperty("fileName", fileName);
+			return new TaskResult(true, "OK",
+					"Proxy configuration saved; restart the proxy to activate general settings", revision, configuration,
+					List.copyOf(changes), false, false);
 		}
 		private static TaskResult failure(String code, String message) {
 			return new TaskResult(false, code, message == null ? "Operation failed" : message, null, null, List.of(), false, false);

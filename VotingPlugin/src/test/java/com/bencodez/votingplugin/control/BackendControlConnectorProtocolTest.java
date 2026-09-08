@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -15,12 +17,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import com.bencodez.votingplugin.control.BackendControlResultStore.StoredResult;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 class BackendControlConnectorProtocolTest {
+	@TempDir Path directory;
 	@Test void onlyTheLeaseExpiryConflictRequestsAResultReclaim() {
 		assertTrue(BackendControlConnector.taskLeaseExpired(new BackendControlConnector.Response(409,
 				"{\"error\":{\"code\":\"TASK_LEASE_EXPIRED\"}}")));
@@ -44,6 +48,26 @@ class BackendControlConnectorProtocolTest {
 		assertFalse(recovered.claimRequired());
 		assertFalse(recovered.restartConnector());
 		assertTrue("RECOVERY_ABORTED".equals(recovered.result().get("code").getAsString()));
+	}
+
+	@Test void installedFileIntentRecoveryRebuildsMaskedContent() throws Exception {
+		Files.writeString(directory.resolve("Config.yml"), "Database:\n  Password: keep-me\nDebug: true\n");
+		BackendConfigurationService configurations = new BackendConfigurationService(directory, () -> { });
+		BackendConfigurationService.Document installed = configurations.read("Config.yml");
+		JsonObject configuration = new JsonObject();
+		configuration.addProperty("domain", "file");
+		configuration.addProperty("fileName", "Config.yml");
+		JsonObject intent = new JsonObject();
+		intent.addProperty("revision", installed.revision());
+		intent.add("configuration", configuration);
+		StoredResult recovered = BackendControlConnector.committedInstalledForAttempt(configurations,
+				new StoredResult(intent, false, false, false), "00000000-0000-0000-0000-000000000198");
+
+		assertTrue(recovered.committed());
+		assertEquals("00000000-0000-0000-0000-000000000198", recovered.result().get("attemptId").getAsString());
+		String content = recovered.result().getAsJsonObject("configuration").get("content").getAsString();
+		assertFalse(content.contains("keep-me"));
+		assertTrue(content.contains(BackendConfigurationService.REDACTED));
 	}
 
 	@Test void registrationRequiresFileControlButAllowsQuickSetupToRemainOptional() {

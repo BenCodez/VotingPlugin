@@ -48,7 +48,7 @@ public final class BackendConfigurationService {
 			"WaitUntilVoteDelay", "PermissionToView", "IgnoreCanVote", "VoteDelayDailyHour", "VoteDelayMin",
 			"GiveOffline");
 	private static final Pattern COMMENT_SECRET = Pattern.compile(
-			"(?i)([\"']?\\b(?:[\\w-]*(?:password|secret)[\\w-]*|token|connection[ _.-]?code|api[ _.-]?key|authorization|[\\w.-]*webhook[ _.-]?url)"
+			"(?i)([\"']?\\b(?:[\\w-]*(?:password|secret|user(?:name)?)[\\w-]*|token|connection[ _.-]?code|api[ _.-]?key|authorization|[\\w.-]*webhook[ _.-]?url)"
 					+ "\\b[\"']?\\s*[:=]\\s*)(.*)$");
 	private static final Pattern SECRET_PATH_URL = Pattern.compile("(?i)([\"']?\\burl\\b[\"']?\\s*[:=]\\s*)(.*)$");
 	private static final Pattern BLOCK_SCALAR_INDICATOR = Pattern.compile("[|>](?:[+-][1-9]?|[1-9][+-]?)?");
@@ -97,6 +97,11 @@ public final class BackendConfigurationService {
 
 	private ApplyResult apply(String fileName, String proposedContent, String expectedRevision,
 			boolean restoreRedactedSecrets) throws IOException {
+		return apply(fileName, proposedContent, expectedRevision, restoreRedactedSecrets, reload);
+	}
+
+	private ApplyResult apply(String fileName, String proposedContent, String expectedRevision,
+			boolean restoreRedactedSecrets, ApplyAction applyAction) throws IOException {
 		Path target = resolve(fileName);
 		String current = readRaw(target, false);
 		if (expectedRevision == null || !revision(current).equals(expectedRevision)) throw new StaleRevisionException();
@@ -121,11 +126,11 @@ public final class BackendConfigurationService {
 				installed = true;
 				throw published;
 			}
-			reload.run(fileName);
+			applyAction.run(fileName);
 			String applied = readRaw(target, false);
 			String installedRevision = revision(preview.resolvedContent());
 			if (!revision(applied).equals(installedRevision)) {
-				reconcileConcurrentEdit(fileName, target);
+				reconcileConcurrentEdit(fileName, target, applyAction);
 				throw new StaleRevisionException();
 			}
 			return new ApplyResult(new Document(fileName, mask(parse(applied)), revision(applied)),
@@ -147,7 +152,7 @@ public final class BackendConfigurationService {
 						// still reload it so runtime and disk cannot diverge.
 						failure.addSuppressed(published);
 					}
-					reload.run(fileName);
+					applyAction.run(fileName);
 					rolledBack = true;
 				} catch (Exception rollbackFailure) {
 					failure.addSuppressed(rollbackFailure);
@@ -160,10 +165,10 @@ public final class BackendConfigurationService {
 		}
 	}
 
-	private void reconcileConcurrentEdit(String fileName, Path target) throws Exception {
+	private void reconcileConcurrentEdit(String fileName, Path target, ApplyAction applyAction) throws Exception {
 		for (int attempt = 0; attempt < 3; attempt++) {
 			String snapshotRevision = revision(readRaw(target, false));
-			reload.run(fileName);
+			applyAction.run(fileName);
 			if (revision(readRaw(target, false)).equals(snapshotRevision)) return;
 		}
 		throw new StaleRevisionException();
@@ -331,6 +336,11 @@ public final class BackendConfigurationService {
 
 	public ApplyResult applyQuickSetup(String preset, Map<String, String> options, String expectedRevision)
 			throws IOException {
+		return applyQuickSetup(preset, options, expectedRevision, reload);
+	}
+
+	ApplyResult applyQuickSetup(String preset, Map<String, String> options, String expectedRevision,
+			ApplyAction applyAction) throws IOException {
 		String fileName = quickSetupFile(preset, options);
 		String current = readRaw(resolve(fileName), false);
 		if (expectedRevision == null || !quickSetupRevision(preset, current).equals(expectedRevision)) {
@@ -339,7 +349,7 @@ public final class BackendConfigurationService {
 		QuickProposal proposal = quickProposal(preset, options, fileName, current);
 		// Quick proposals are generated from this fresh, unmasked server snapshot.
 		// Editor placeholder restoration must remain limited to client-authored YAML.
-		ApplyResult applied = apply(proposal.fileName(), proposal.content(), revision(current), false);
+		ApplyResult applied = apply(proposal.fileName(), proposal.content(), revision(current), false, applyAction);
 		if (!"sync-vote-sites".equals(preset)) return applied;
 		Document document = applied.document();
 		String installed = readRaw(resolve(fileName), false);
@@ -916,6 +926,7 @@ public final class BackendConfigurationService {
 
 	private static void restoreCommentSecrets(YamlConfiguration proposal, YamlConfiguration current,
 			YamlConfiguration redactedCurrent) {
+		validateRedactedCommentOwners(proposal, redactedCurrent);
 		proposal.options().setHeader(restoreCommentSecrets(proposal.options().getHeader(),
 				current.options().getHeader(), redactedCurrent.options().getHeader()));
 		proposal.options().setFooter(restoreCommentSecrets(proposal.options().getFooter(),
@@ -933,6 +944,31 @@ public final class BackendConfigurationService {
 				proposal.setInlineComments(path, inlineComments);
 			}
 		}
+	}
+
+	private static void validateRedactedCommentOwners(YamlConfiguration proposal, YamlConfiguration redactedCurrent) {
+		Map<String, List<String>> expected = redactedCommentsByOwner(redactedCurrent);
+		Map<String, List<String>> actual = redactedCommentsByOwner(proposal);
+		if (!expected.equals(actual)) {
+			throw new IllegalArgumentException("redacted comment placeholders must not be edited or moved");
+		}
+	}
+
+	private static Map<String, List<String>> redactedCommentsByOwner(YamlConfiguration yaml) {
+		Map<String, List<String>> markers = new LinkedHashMap<>();
+		addRedactedCommentOwner(markers, "header", yaml.options().getHeader());
+		addRedactedCommentOwner(markers, "footer", yaml.options().getFooter());
+		for (String path : yaml.getKeys(true)) {
+			addRedactedCommentOwner(markers, "comments:" + path, yaml.getComments(path));
+			addRedactedCommentOwner(markers, "inline-comments:" + path, yaml.getInlineComments(path));
+		}
+		return markers;
+	}
+
+	private static void addRedactedCommentOwner(Map<String, List<String>> markers, String owner,
+			List<String> comments) {
+		List<String> ownerMarkers = comments.stream().filter(comment -> comment.contains(REDACTED)).toList();
+		if (!ownerMarkers.isEmpty()) markers.put(owner, ownerMarkers);
 	}
 
 	private static List<String> restoreCommentSecrets(List<String> proposed, List<String> current,
