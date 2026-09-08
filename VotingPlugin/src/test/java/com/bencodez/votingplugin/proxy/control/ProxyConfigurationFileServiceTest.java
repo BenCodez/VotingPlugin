@@ -84,6 +84,11 @@ class ProxyConfigurationFileServiceTest {
 				Access.Key: access-key-secret
 				Client.Secret: client-secret
 				Pass.Phrase: pass-phrase-secret
+				Database.User: service_account
+				DatabaseUsername: database_operator
+				DatabaseUserName: database_named_operator
+				Database.UserName: database_dotted_operator
+				MySQLUserName: mysql_named_operator
 				Debug: false
 				""");
 		ProxyConfigurationFileService service = service(file);
@@ -93,6 +98,11 @@ class ProxyConfigurationFileServiceTest {
 		assertFalse(current.content().contains("access-key-secret"));
 		assertFalse(current.content().contains("client-secret"));
 		assertFalse(current.content().contains("pass-phrase-secret"));
+		assertFalse(current.content().contains("service_account"));
+		assertFalse(current.content().contains("database_operator"));
+		assertFalse(current.content().contains("database_named_operator"));
+		assertFalse(current.content().contains("database_dotted_operator"));
+		assertFalse(current.content().contains("mysql_named_operator"));
 
 		String proposal = current.content().replace("Debug: false", "Debug: true");
 		ProxyConfigurationFileService.Preview preview = service.preview(ProxyConfigurationFileService.FILE_NAME, proposal);
@@ -100,6 +110,11 @@ class ProxyConfigurationFileServiceTest {
 		assertTrue(preview.resolvedContent().contains("Access.Key: access-key-secret"));
 		assertTrue(preview.resolvedContent().contains("Client.Secret: client-secret"));
 		assertTrue(preview.resolvedContent().contains("Pass.Phrase: pass-phrase-secret"));
+		assertTrue(preview.resolvedContent().contains("Database.User: service_account"));
+		assertTrue(preview.resolvedContent().contains("DatabaseUsername: database_operator"));
+		assertTrue(preview.resolvedContent().contains("DatabaseUserName: database_named_operator"));
+		assertTrue(preview.resolvedContent().contains("Database.UserName: database_dotted_operator"));
+		assertTrue(preview.resolvedContent().contains("MySQLUserName: mysql_named_operator"));
 
 		service.apply(ProxyConfigurationFileService.FILE_NAME, proposal, current.revision());
 		assertTrue(Files.readString(file).contains("Debug: true"));

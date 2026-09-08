@@ -1104,7 +1104,7 @@ final class ProxyConfigurationFileService {
 				|| infrastructurePath(normalizedPath, "votelogging")
 				|| infrastructurePath(normalizedPath, "redis")
 				|| infrastructurePath(normalizedPath, "multiproxyredis")) {
-			return Set.of("host", "port", "database", "name", "username", "password", "line", "driver", "poolname",
+			return Set.of("host", "port", "database", "name", "user", "username", "password", "line", "driver", "poolname",
 					"prefix", "dbindex")
 					.contains(normalized);
 		}
@@ -1143,18 +1143,23 @@ final class ProxyConfigurationFileService {
 		if (words.isEmpty()) return false;
 		String[] tokens = words.split(" +");
 		String last = tokens[tokens.length - 1];
+		String compact = words.replace(" ", "");
+		if (compact.matches("^(database|db|mysql|redis|mqtt)(user|username)$")) return true;
 		if (tokens.length > 1 && Set.of("host", "endpoint", "address", "port", "broker", "database", "schema",
 				"socket", "uri", "url", "ipv4", "ipv6").contains(last)) return true;
 		if (tokens.length > 2 && "name".equals(last)
 				&& Set.of("host", "db").contains(tokens[tokens.length - 2])) return true;
-		String compact = words.replace(" ", "");
+		if (tokens.length > 1 && Set.of("user", "username").contains(last)
+				&& Set.of("database", "db", "mysql", "redis", "mqtt").contains(tokens[tokens.length - 2])) return true;
+		if (tokens.length > 2 && "name".equals(last) && "user".equals(tokens[tokens.length - 2])
+				&& Set.of("database", "db", "mysql", "redis", "mqtt").contains(tokens[tokens.length - 3])) return true;
 		return Set.of("dburl", "dbport", "dbhost", "dbname", "apiurl", "apiuri", "redisport", "redishost",
 				"mysqlport", "mysqlhost", "mqttport", "mqtthost").contains(compact);
 	}
 
 	private static boolean rootDatabaseField(String normalizedPath) {
 		return !normalizedPath.contains(".") && !normalizedPath.contains("[")
-				&& Set.of("host", "port", "database", "name", "username", "password", "line", "driver", "poolname",
+				&& Set.of("host", "port", "database", "name", "user", "username", "password", "line", "driver", "poolname",
 						"prefix", "dbindex").contains(normalizedPath);
 	}
 
