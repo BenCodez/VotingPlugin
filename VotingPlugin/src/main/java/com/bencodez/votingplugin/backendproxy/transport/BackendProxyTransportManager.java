@@ -202,7 +202,6 @@ public class BackendProxyTransportManager {
 		transport = null;
 		try {
 			((RedisBackendProxyTransport) retiredTransport).closeForHandoff();
-			retiredTransport = null;
 		} catch (RuntimeException failure) {
 			if (failure instanceof RedisBackendProxyTransport.HandoffQuiescenceException) {
 				transport = retiredTransport;
@@ -237,7 +236,39 @@ public class BackendProxyTransportManager {
 				plugin.debug(retirementFailure);
 			}
 		}
-		replacement.activateRedisAfterHandoff();
+		try {
+			replacement.activateRedisAfterHandoff();
+		} catch (RuntimeException activationFailure) {
+			restoreRetiredRedisAfterFailedHandoff(activationFailure);
+			throw activationFailure;
+		}
+		closeRetiredRedisAfterHandoff();
+	}
+
+	private synchronized void restoreRetiredRedisAfterFailedHandoff(RuntimeException activationFailure) {
+		if (!(retiredTransport instanceof RedisBackendProxyTransport redis)) return;
+		try {
+			redis.restoreAfterFailedHandoff();
+			transport = redis;
+			retiredTransport = null;
+		} catch (RuntimeException restorationFailure) {
+			activationFailure.addSuppressed(restorationFailure);
+		}
+	}
+
+	private synchronized void closeRetiredRedisAfterHandoff() {
+		if (retiredTransport == null) return;
+		BackendProxyTransport retired = retiredTransport;
+		retiredTransport = null;
+		try {
+			retired.close();
+		} catch (RuntimeException cleanupFailure) {
+			retiredTransport = retired;
+			if (plugin != null) {
+				plugin.getLogger().warning("Retired Redis backend listener did not stop cleanly after handoff");
+				plugin.debug(cleanupFailure);
+			}
+		}
 	}
 
 	public ClientHandler getClientHandler() {

@@ -422,6 +422,41 @@ class BackendProxyHandlerLifecycleTest {
 	}
 
 	@Test
+	void restoresOldRedisSubscriberWhenStandbyActivationFails() throws Exception {
+		BackendProxyTransportManager previous = new BackendProxyTransportManager(null);
+		BackendProxyTransportManager replacement = new BackendProxyTransportManager(null);
+		RedisBackendProxyTransport oldTransport = mock(RedisBackendProxyTransport.class);
+		RedisBackendProxyTransport newTransport = mock(RedisBackendProxyTransport.class);
+		setField(previous, "transport", oldTransport);
+		setField(replacement, "transport", newTransport);
+		doThrow(new IllegalStateException("handoff buffer overflowed")).when(newTransport).activateAfterHandoff();
+
+		assertThrows(IllegalStateException.class, () -> previous.completeRedisHandoff(replacement));
+
+		org.mockito.InOrder order = inOrder(oldTransport, newTransport);
+		order.verify(oldTransport).closeForHandoff();
+		order.verify(newTransport).activateAfterHandoff();
+		order.verify(oldTransport).restoreAfterFailedHandoff();
+		assertSame(oldTransport, transport(previous));
+		assertSame(newTransport, transport(replacement));
+	}
+
+	@Test
+	void redisRollbackForcesAFreshPresenceGeneration() throws Exception {
+		BackendProxyHandler handler = new BackendProxyHandler(null);
+		com.bencodez.votingplugin.backendproxy.presence.BackendPresenceManager presence =
+				mock(com.bencodez.votingplugin.backendproxy.presence.BackendPresenceManager.class);
+		setField(handler, "presenceManager", presence);
+		setField(handler, "presenceReportingActivated", true);
+
+		handler.refreshPresenceAfterFailedReplacement();
+
+		org.mockito.InOrder order = inOrder(presence);
+		order.verify(presence).stop();
+		order.verify(presence).start();
+	}
+
+	@Test
 	void stopsGlobalDataTimerWhenHandlerIsReplaced() throws Exception {
 		BackendGlobalDataSync handler = new BackendGlobalDataSync(null, null);
 		ScheduledExecutorService timer = mock(ScheduledExecutorService.class);

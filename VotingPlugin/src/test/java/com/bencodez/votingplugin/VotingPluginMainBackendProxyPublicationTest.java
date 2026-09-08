@@ -77,6 +77,9 @@ class VotingPluginMainBackendProxyPublicationTest {
 		assertSame(previous, plugin.getBackendProxyHandler());
 		verify(previous, never()).completeHttpHandoff(replacement);
 		verify(previous, never()).close();
+		org.mockito.InOrder rollback = org.mockito.Mockito.inOrder(replacement, previous);
+		rollback.verify(replacement).close();
+		rollback.verify(previous).refreshPresenceAfterFailedReplacement();
 	}
 
 	private VotingPluginMain.BackendProxyRestart restart(BackendProxyHandler previous,

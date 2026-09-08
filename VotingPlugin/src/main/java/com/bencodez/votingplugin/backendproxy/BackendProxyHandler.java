@@ -142,6 +142,14 @@ public class BackendProxyHandler implements Listener {
 		transportManager.restoreAfterFailedReplacement();
 	}
 
+	/** Reasserts the old handler with a fresh presence generation after rollback. */
+	public void refreshPresenceAfterFailedReplacement() {
+		if (presenceManager != null && presenceReportingActivated) {
+			presenceManager.stop();
+			presenceManager.start();
+		}
+	}
+
 	public void awaitRestoreAfterFailedReplacement(long deadlineNanos) {
 		transportManager.awaitPreparedTransportRestoration(deadlineNanos);
 	}

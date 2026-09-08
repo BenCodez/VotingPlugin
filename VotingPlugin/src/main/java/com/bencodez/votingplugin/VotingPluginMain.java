@@ -1317,9 +1317,20 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			try {
 				if (restart.previous != null) restart.previous.completeRedisHandoff(restart.replacement);
 			} catch (RuntimeException handoffFailure) {
-				// Redis promotion fails before the old listener is retired. Restore the
-				// published pointer so abort can close only the staged replacement.
+				// Stop the staged presence generation before reasserting the restored old
+				// handler. Otherwise the proxy rejects the old generation after rollback.
 				backendProxyHandler = restart.previous;
+				try {
+					restart.replacement.close();
+				} catch (RuntimeException closeFailure) {
+					handoffFailure.addSuppressed(closeFailure);
+				}
+				try {
+					restart.previous.refreshPresenceAfterFailedReplacement();
+				} catch (RuntimeException refreshFailure) {
+					handoffFailure.addSuppressed(refreshFailure);
+				}
+				restart.finished = true;
 				throw handoffFailure;
 			}
 			// Keep the prepared HTTP queue owned by the previous handler until every

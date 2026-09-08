@@ -55,6 +55,7 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 	private int dispatchesInFlight;
 	private final java.util.ArrayDeque<JsonEnvelope> deliveriesAfterReplay = new java.util.ArrayDeque<>();
 	private GlobalMessageHandler messageHandler;
+	private GlobalMessageHandler handoffMessageHandler;
 
 	public RedisBackendProxyTransport(VotingPluginMain plugin) {
 		this(plugin, new ProcessedVoteCache());
@@ -236,8 +237,17 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 
 	/** Stops the old listener while retaining its overlap accounting for standby promotion. */
 	public void closeForHandoff() {
+		handoffMessageHandler = messageHandler;
 		fenceAfterHandoff();
 		closeListener(false);
+	}
+
+	/** Reopens a fenced active subscriber when standby promotion is rejected. */
+	public void restoreAfterFailedHandoff() {
+		GlobalMessageHandler handler = handoffMessageHandler;
+		if (handler == null) throw new IllegalStateException("Redis handoff transport cannot be restored");
+		start(handler);
+		handoffMessageHandler = null;
 	}
 
 	/** Prevents a listener that misses its shutdown deadline from dispatching duplicates. */
