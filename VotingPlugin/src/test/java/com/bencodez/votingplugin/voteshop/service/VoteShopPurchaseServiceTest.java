@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.voteshop.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
@@ -13,6 +14,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Test;
 
@@ -67,13 +69,19 @@ class VoteShopPurchaseServiceTest {
 		try {
 			Future<VoteShopPurchaseResult> one = executor.submit(() -> first.debitForPurchase(user, item));
 			assertEquals(true, firstInsideDebit.await(5, TimeUnit.SECONDS));
-			CountDownLatch secondStarted = new CountDownLatch(1);
+			AtomicReference<Thread> secondThread = new AtomicReference<>();
 			Future<VoteShopPurchaseResult> two = executor.submit(() -> {
-				secondStarted.countDown();
+				secondThread.set(Thread.currentThread());
 				return second.debitForPurchase(user, item);
 			});
-			assertEquals(true, secondStarted.await(5, TimeUnit.SECONDS));
-			Thread.sleep(50);
+			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+			while (System.nanoTime() < deadline
+					&& (secondThread.get() == null || secondThread.get().getState() != Thread.State.BLOCKED)
+					&& !two.isDone()) {
+				Thread.onSpinWait();
+			}
+			assertTrue(secondThread.get() != null && secondThread.get().getState() == Thread.State.BLOCKED,
+					"the second debit did not block on the shared purchase lock");
 			assertEquals(1, calls.get());
 			releaseFirst.countDown();
 			assertEquals(VoteShopPurchaseResult.SUCCESS, one.get(5, TimeUnit.SECONDS));
