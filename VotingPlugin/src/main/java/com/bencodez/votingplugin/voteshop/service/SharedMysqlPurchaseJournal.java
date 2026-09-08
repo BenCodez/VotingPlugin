@@ -465,7 +465,7 @@ final class SharedMysqlPurchaseJournal {
 	private String uuidCast() { return table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?"; }
 
 	private static boolean isSafeColumn(String column) {
-		return column != null && column.matches("[A-Za-z][A-Za-z0-9_]{0,127}");
+		return column != null && column.matches("[A-Za-z][A-Za-z0-9_-]{0,127}");
 	}
 
 	private static void rollback(Connection connection) {

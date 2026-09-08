@@ -36,6 +36,7 @@ import com.bencodez.advancedcore.api.user.UserData;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
+import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
 import com.bencodez.simpleapi.sql.mysql.ConnectionManager;
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -237,6 +238,39 @@ class VotingPluginUserPointSchedulingTest {
 	}
 
 	@Test
+	void sharedTransferRunsRecipientApprovalOnBukkitSchedulerBeforeSettlement() throws Exception {
+		TransferSchedulingFixture fixture = transferSchedulingFixture();
+		AtomicReference<Boolean> result = new AtomicReference<>();
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			PluginManager pluginManager = mock(PluginManager.class);
+			bukkit.when(Bukkit::getPluginManager).thenReturn(pluginManager);
+			doAnswer(invocation -> {
+				PlayerReceivePointsEvent event = invocation.getArgument(0);
+				event.setPoints(4);
+				return null;
+			}).when(pluginManager).callEvent(any(PlayerReceivePointsEvent.class));
+
+			fixture.user.transferPoints(fixture.target, 10, result::set);
+			ArgumentCaptor<Runnable> firstPersistence = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.persistence).execute(firstPersistence.capture());
+			firstPersistence.getValue().run();
+
+			ArgumentCaptor<Runnable> approval = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.scheduler).runTask(eq(fixture.plugin), approval.capture());
+			assertEquals(null, result.get());
+			approval.getValue().run();
+			verify(pluginManager).callEvent(any(PlayerReceivePointsEvent.class));
+
+			ArgumentCaptor<Runnable> persistence = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.persistence, org.mockito.Mockito.times(2)).execute(persistence.capture());
+			persistence.getAllValues().get(1).run();
+		}
+
+		assertEquals(null, result.get());
+	}
+
+	@Test
 	void sharedTransferReportsCompletionOnSourceEntityScheduler() throws Exception {
 		SagaFixture fixture = sagaFixture(true);
 		AtomicReference<Boolean> result = new AtomicReference<>();
@@ -252,14 +286,19 @@ class VotingPluginUserPointSchedulingTest {
 			fixture.user.transferPoints(fixture.target, 10, result::set);
 			ArgumentCaptor<Runnable> persistenceWork = ArgumentCaptor.forClass(Runnable.class);
 			verify(fixture.persistence).execute(persistenceWork.capture());
-			Thread persistenceThread = Thread.currentThread();
 			persistenceWork.getValue().run();
+			ArgumentCaptor<Runnable> approval = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.scheduler).runTask(eq(fixture.plugin), approval.capture());
+			approval.getValue().run();
+			Thread bukkitThread = eventThread.get();
+			ArgumentCaptor<Runnable> settlementWork = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.persistence, org.mockito.Mockito.times(2)).execute(settlementWork.capture());
+			settlementWork.getAllValues().get(1).run();
 			ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
 			verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
 			assertTrue(result.get() == null);
 			completion.getValue().run();
-			assertEquals(persistenceThread, eventThread.get(),
-					"the asynchronous receive hook must not rendezvous with the server thread inside the transaction");
+			assertEquals(bukkitThread, eventThread.get(), "the receive hook must run on Bukkit's scheduler lane");
 		}
 		assertTrue(result.get());
 	}
@@ -282,6 +321,12 @@ class VotingPluginUserPointSchedulingTest {
 			ArgumentCaptor<Runnable> persistenceWork = ArgumentCaptor.forClass(Runnable.class);
 			verify(fixture.persistence).execute(persistenceWork.capture());
 			persistenceWork.getValue().run();
+			ArgumentCaptor<Runnable> approval = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.scheduler).runTask(eq(fixture.plugin), approval.capture());
+			approval.getValue().run();
+			ArgumentCaptor<Runnable> settlementWork = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.persistence, org.mockito.Mockito.times(2)).execute(settlementWork.capture());
+			settlementWork.getAllValues().get(1).run();
 			ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
 			verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
 			completion.getValue().run();
@@ -337,6 +382,12 @@ class VotingPluginUserPointSchedulingTest {
 			ArgumentCaptor<Runnable> persistenceWork = ArgumentCaptor.forClass(Runnable.class);
 			verify(fixture.persistence).execute(persistenceWork.capture());
 			persistenceWork.getValue().run();
+			ArgumentCaptor<Runnable> approval = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.scheduler).runTask(eq(fixture.plugin), approval.capture());
+			approval.getValue().run();
+			ArgumentCaptor<Runnable> settlementWork = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.persistence, org.mockito.Mockito.times(2)).execute(settlementWork.capture());
+			settlementWork.getAllValues().get(1).run();
 			ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
 			verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
 			completion.getValue().run();
@@ -386,19 +437,26 @@ class VotingPluginUserPointSchedulingTest {
 			ArgumentCaptor<Runnable> persistenceWork = ArgumentCaptor.forClass(Runnable.class);
 			verify(fixture.persistence).execute(persistenceWork.capture());
 			persistenceWork.getValue().run();
+			ArgumentCaptor<Runnable> approval = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.scheduler).runTask(eq(fixture.plugin), approval.capture());
+			approval.getValue().run();
+			ArgumentCaptor<Runnable> settlementWork = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.persistence, org.mockito.Mockito.times(2)).execute(settlementWork.capture());
+			settlementWork.getAllValues().get(1).run();
 			ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
 			verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
 			completion.getValue().run();
 		}
 
 		InOrder order = org.mockito.Mockito.inOrder(fixture.reservation, fixture.claim, fixture.listenerRead,
-				recreatedCache,
-				fixture.settlement);
+				recreatedCache, fixture.settlement, fixture.plugin.getUserManager().getDataManager());
 		order.verify(fixture.reservation).close();
 		order.verify(fixture.claim).close();
 		order.verify(fixture.listenerRead).close();
 		order.verify(recreatedCache).dump();
 		order.verify(fixture.settlement).commit();
+		order.verify((UserDataManager) fixture.plugin.getUserManager().getDataManager()).removeCache(
+				java.util.UUID.fromString("00000000-0000-0000-0000-000000000002"), null);
 		assertEquals(Boolean.TRUE, result.get());
 	}
 
@@ -590,6 +648,10 @@ class VotingPluginUserPointSchedulingTest {
 		doReturn("Points").when(fixture.user).getPointsPath();
 		doReturn(fixture.player).when(fixture.user).getPlayer();
 		doReturn(false).when(fixture.user).isCached();
+		fixture.target = mock(VotingPluginUser.class);
+		when(fixture.target.getUUID()).thenReturn("00000000-0000-0000-0000-000000000002");
+		when(fixture.target.getPointsPath()).thenReturn("Points");
+		when(fixture.target.isCached()).thenReturn(false);
 		return fixture;
 	}
 
@@ -658,6 +720,7 @@ class VotingPluginUserPointSchedulingTest {
 		Connection listenerRead;
 		Connection settlement;
 		VotingPluginUser user;
+		VotingPluginUser target;
 	}
 
 }

@@ -5,6 +5,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.function.IntFunction;
 
 import com.bencodez.advancedcore.api.user.UserStorage;
@@ -160,8 +161,16 @@ final class SharedMysqlPointMutator {
 			try {
 				creditAmount = creditAmountProvider.apply(debitAmount);
 			} catch (RuntimeException failure) {
-				SharedPointTransferJournal.SettlementOutcome outcome = journal.settleWithConfirmation(transferId, owner,
-						source.getUUID(), sourcePoints, target.getUUID(), targetPoints, debitAmount, null);
+				SharedPointTransferJournal.SettlementOutcome outcome;
+				try {
+					outcome = journal.settleWithConfirmation(transferId, owner, source.getUUID(), sourcePoints,
+							target.getUUID(), targetPoints, debitAmount, null);
+				} finally {
+					// A listener may have recreated the recipient cache while the
+					// settlement transaction was running. Discard it after the
+					// transaction without dumping stale values back to storage.
+					discardCache(target);
+				}
 				logApprovalFailure(failure);
 				return isAcceptedSettlement(outcome);
 			}
@@ -169,13 +178,98 @@ final class SharedMysqlPointMutator {
 			// cache after the initial drain. Persist and remove that cache before the
 			// settlement credit so no queued pre-settlement value can overwrite it.
 			drainCache(target);
-			SharedPointTransferJournal.SettlementOutcome outcome = journal.settleWithConfirmation(transferId, owner,
-					source.getUUID(), sourcePoints, target.getUUID(), targetPoints, debitAmount, creditAmount);
+			SharedPointTransferJournal.SettlementOutcome outcome;
+			try {
+				outcome = journal.settleWithConfirmation(transferId, owner, source.getUUID(), sourcePoints,
+						target.getUUID(), targetPoints, debitAmount, creditAmount);
+			} finally {
+				// A concurrent lookup can recreate the cache after the final
+				// pre-settlement drain. Never dump that stale snapshot after the
+				// credit commits; remove it instead.
+				discardCache(target);
+			}
 			return isAcceptedSettlement(outcome);
 		} catch (SQLException failure) {
 			logFailure(failure);
 			return false;
 		}
+	}
+
+	/**
+	 * Runs the durable transfer phases around a Bukkit-thread approval hook. The
+	 * reservation and claim happen on the persistence executor, the arbitrary
+	 * listener runs on Bukkit's thread, and settlement returns to persistence
+	 * before the completion callback is posted back to the source entity lane.
+	 */
+	void transferWithBukkitApproval(VotingPluginUser source, VotingPluginUser target, int debitAmount,
+			IntFunction<Integer> creditAmountProvider, Consumer<Boolean> completion) {
+		plugin.getTimer().execute(() -> {
+			drainCache(source);
+			drainCache(target);
+			MySQL table = plugin.getMysql();
+			String sourcePoints = source.getPointsPath();
+			String targetPoints = target.getPointsPath();
+			String transferId = UUID.randomUUID().toString();
+			String owner = UUID.randomUUID().toString();
+			SharedPointTransferJournal journal;
+			try {
+				journal = SharedPointTransferJournal.forTable(table);
+				journal.recoverAndCleanup(System.currentTimeMillis());
+				if (!journal.reserve(transferId, source.getUUID(), sourcePoints, debitAmount, target.getUUID(), debitAmount,
+						System.currentTimeMillis())) {
+					completeOnBukkit(source, completion, false);
+					return;
+				}
+				SharedPointTransferJournal.ClaimOutcome claim = journal.claimHookWithConfirmation(transferId, owner,
+						System.currentTimeMillis());
+				if (claim == SharedPointTransferJournal.ClaimOutcome.NOT_CLAIMED) {
+					journal.refundReserved(transferId, source.getUUID(), sourcePoints, debitAmount);
+					completeOnBukkit(source, completion, false);
+					return;
+				}
+				if (claim == SharedPointTransferJournal.ClaimOutcome.INDETERMINATE) {
+					logIndeterminateClaim(transferId);
+					completeOnBukkit(source, completion, true);
+					return;
+				}
+			} catch (SQLException failure) {
+				logFailure(failure);
+				completeOnBukkit(source, completion, false);
+				return;
+			}
+
+			plugin.getBukkitScheduler().runTask(plugin, () -> {
+				Integer creditAmount;
+				try {
+					creditAmount = creditAmountProvider.apply(debitAmount);
+				} catch (RuntimeException failure) {
+					creditAmount = null;
+					logApprovalFailure(failure);
+				}
+				Integer approvedAmount = creditAmount;
+				plugin.getTimer().execute(() -> {
+					boolean transferred;
+					try {
+						// The hook may have recreated the cache while it ran on Bukkit.
+						drainCache(target);
+						SharedPointTransferJournal.SettlementOutcome outcome;
+						try {
+							outcome = journal.settleWithConfirmation(transferId, owner, source.getUUID(), sourcePoints,
+									target.getUUID(), targetPoints, debitAmount, approvedAmount);
+						} finally {
+							discardCache(target);
+						}
+						transferred = isAcceptedSettlement(outcome);
+					} catch (RuntimeException failure) {
+						plugin.getLogger().severe("Unable to settle shared MySQL point transfer: "
+								+ failure.getClass().getSimpleName());
+						plugin.debug(failure);
+						transferred = false;
+					}
+					completeOnBukkit(source, completion, transferred);
+				});
+			});
+		});
 	}
 
 	private boolean isAcceptedSettlement(SharedPointTransferJournal.SettlementOutcome outcome) {
@@ -282,20 +376,25 @@ final class SharedMysqlPointMutator {
 		String update = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(points) + " = "
 				+ table.qi(points) + " + ? WHERE " + uuidMatch;
 		String read = "SELECT " + table.qi(points) + " FROM " + table.qi(table.getTableName()) + " WHERE " + uuidMatch;
+		boolean updateCommitted = false;
 		try (Connection connection = table.getMysql().getConnectionManager().getConnection();
 				PreparedStatement updateStatement = connection.prepareStatement(update);
 				PreparedStatement readStatement = connection.prepareStatement(read)) {
 			updateStatement.setInt(1, amount);
 			updateStatement.setString(2, user.getUUID());
 			if (updateStatement.executeUpdate() != 1) return new AddResult(false, user.getPoints());
+			// With JDBC auto-commit, executeUpdate returning one means the mutation
+			// completed. A later read may still fail after the points have been
+			// committed, so never turn that outcome into a retryable failure.
+			updateCommitted = true;
 			readStatement.setString(1, user.getUUID());
 			try (java.sql.ResultSet result = readStatement.executeQuery()) {
 				return result.next() ? new AddResult(true, result.getInt(1))
-						: new AddResult(false, user.getPoints());
+						: new AddResult(updateCommitted, user.getPoints());
 			}
 		} catch (SQLException failure) {
 			logFailure(failure);
-			return new AddResult(false, user.getPoints());
+			return new AddResult(updateCommitted, user.getPoints());
 		}
 	}
 
@@ -339,6 +438,16 @@ final class SharedMysqlPointMutator {
 			user.getCache().dump();
 			plugin.getUserManager().getDataManager().removeCache(UUID.fromString(user.getUUID()), null);
 		}
+	}
+
+	private void discardCache(VotingPluginUser user) {
+		if (user.isCached()) {
+			plugin.getUserManager().getDataManager().removeCache(UUID.fromString(user.getUUID()), null);
+		}
+	}
+
+	private void completeOnBukkit(VotingPluginUser source, Consumer<Boolean> completion, boolean transferred) {
+		plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(transferred), source.getPlayer());
 	}
 
 	private void logFailure(SQLException failure) {

@@ -46,7 +46,9 @@ public class RewardPoints extends RewardInjectInt {
 	public String onRewardRequest(Reward reward, com.bencodez.advancedcore.api.user.AdvancedCoreUser user, int num,
 			HashMap<String, String> placeholders) {
 		VotingPluginUser vpUser = plugin.getVotingPluginUserManager().getVotingPluginUser(user);
-		String result = "" + vpUser.addPointsStorageAware(num);
+		// RewardInjectInt is synchronous: later rewards and the newpoints
+		// placeholder must observe the committed shared-MySQL total.
+		String result = "" + vpUser.addPoints(num);
 		plugin.debug("Setting points to " + result);
 		return result;
 	}

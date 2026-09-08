@@ -169,6 +169,31 @@ class SharedMysqlPurchaseJournalTest {
 	}
 
 	@Test
+	void refundAcceptsHyphenatedConfiguredLimitIdentifier() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement select = mock(PreparedStatement.class);
+		PreparedStatement refund = mock(PreparedStatement.class);
+		PreparedStatement terminal = mock(PreparedStatement.class);
+		ResultSet pending = pendingRow();
+		when(pending.getString(4)).thenReturn("VoteShopLimitdaily-key");
+		when(pending.getString(6)).thenReturn(SharedMysqlPurchaseJournal.NO_LIMIT_RESET_GENERATION);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(select, refund, terminal);
+		when(select.executeQuery()).thenReturn(pending);
+		when(refund.executeUpdate()).thenReturn(1);
+		when(terminal.executeUpdate()).thenReturn(1);
+
+		SharedMysqlPurchaseJournal journal = new SharedMysqlPurchaseJournal(fixture.table, false);
+		boolean refunded = journal.refundPending("hyphenated-limit", 100L);
+		verify(refund).executeUpdate();
+		verify(terminal).executeUpdate();
+		assertTrue(refunded);
+
+		org.mockito.ArgumentCaptor<String> sql = org.mockito.ArgumentCaptor.forClass(String.class);
+		verify(fixture.work, org.mockito.Mockito.times(3)).prepareStatement(sql.capture());
+		assertTrue(sql.getAllValues().get(1).contains("VoteShopLimitdaily-key"));
+	}
+
+	@Test
 	void failedCompensationIsRetriedWithTheDurableMarker() throws Exception {
 		Fixture fixture = fixture();
 		PreparedStatement markFirst = mock(PreparedStatement.class);

@@ -190,6 +190,36 @@ class SharedMysqlPointMutatorTest {
 	}
 
 	@Test
+	void committedAddIsNotReportedRetryableWhenFollowUpReadFails() throws Exception {
+		MySQL table = mock(MySQL.class);
+		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
+				org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		Connection connection = mock(Connection.class);
+		PreparedStatement update = mock(PreparedStatement.class);
+		PreparedStatement read = mock(PreparedStatement.class);
+		when(table.getTableName()).thenReturn("VotingPlugin_Users");
+		when(table.qi(anyString())).thenAnswer(invocation -> "`" + invocation.getArgument(0) + "`");
+		when(table.getMysql()).thenReturn(sql);
+		when(sql.getConnectionManager().getConnection()).thenReturn(connection);
+		when(connection.prepareStatement(anyString())).thenReturn(update, read);
+		when(update.executeUpdate()).thenReturn(1);
+		when(read.executeQuery()).thenThrow(new java.sql.SQLException("connection lost after update"));
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		when(plugin.getMysql()).thenReturn(table);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		when(user.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
+		when(user.getPointsPath()).thenReturn("Points");
+		when(user.getPoints()).thenReturn(10);
+
+		SharedMysqlPointMutator.AddResult result = new SharedMysqlPointMutator(plugin).addCommitted(user, 5);
+
+		assertTrue(result.success(), "a committed update must not invite a duplicate retry");
+		assertEquals(10, result.total(), "the stale total is safer than reporting a retryable failure");
+		verify(update).executeUpdate();
+		verify(read).executeQuery();
+	}
+
+	@Test
 	void capUsesLeastSoItCannotRestoreAConcurrentDebit() throws Exception {
 		MySQL table = mock(MySQL.class);
 		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
