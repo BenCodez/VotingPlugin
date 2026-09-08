@@ -24,6 +24,7 @@ import lombok.Getter;
  * The TimeQueueHandler class manages time-based vote queue processing.
  */
 public class TimeQueueHandler implements Listener {
+	private static final long TICKS_PER_SECOND = 20L;
 	@Getter
 	private Queue<VoteTimeQueue> timeChangeQueue = new ConcurrentLinkedQueue<>();
 
@@ -93,11 +94,12 @@ public class TimeQueueHandler implements Listener {
 		if (timeChangeQueue.isEmpty() || !retryPending.compareAndSet(false, true)) return;
 		int attempt = Math.min(6, retryAttempts.getAndIncrement());
 		long delaySeconds = Math.min(60L, 1L << attempt);
+		long delayTicks = delaySeconds * TICKS_PER_SECOND;
 		try {
 			plugin.getBukkitScheduler().runTaskLaterAsynchronously(plugin, () -> {
 				retryPending.set(false);
 				if (!timeChangeQueue.isEmpty()) scheduleQueueProcessing(0, TimeUnit.SECONDS);
-			}, delaySeconds);
+			}, delayTicks);
 		} catch (RuntimeException rejected) {
 			retryPending.set(false);
 			plugin.getLogger().warning("Unable to queue a time-queue retry; pending votes remain persisted for recovery.");

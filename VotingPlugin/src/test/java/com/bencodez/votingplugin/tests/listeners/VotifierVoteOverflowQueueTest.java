@@ -47,6 +47,7 @@ class VotifierVoteOverflowQueueTest {
 		java.util.concurrent.ExecutorService enqueuer = Executors.newSingleThreadExecutor();
 		try {
 			assertTrue(queue.enqueue("Steve", "first.example.org"));
+			queue.start();
 			assertTrue(admissionStarted.await(2, TimeUnit.SECONDS));
 			java.util.concurrent.Future<Boolean> second = enqueuer.submit(
 					() -> queue.enqueue("Alex", "second.example.org"));
@@ -56,6 +57,36 @@ class VotifierVoteOverflowQueueTest {
 		} finally {
 			releaseAdmission.countDown();
 			enqueuer.shutdownNow();
+			queue.close();
+		}
+	}
+
+	@Test
+	void waitsForFullPipelineStartupBeforeDrainingPersistedVotes(@TempDir Path dataFolder) throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		ScheduledExecutorService voteTimer = mock(ScheduledExecutorService.class);
+		CountDownLatch admissionStarted = new CountDownLatch(1);
+		when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+		when(plugin.getVoteTimer()).thenReturn(voteTimer);
+
+		VotifierVoteOverflowQueue seed = new VotifierVoteOverflowQueue(plugin, (site, user) -> { });
+		assertTrue(seed.enqueue("Steve", "example.org"));
+		seed.close();
+
+		doAnswer(invocation -> {
+			admissionStarted.countDown();
+			return null;
+		}).when(voteTimer).submit(any(Runnable.class));
+
+		VotifierVoteOverflowQueue queue = new VotifierVoteOverflowQueue(plugin, (site, user) -> { });
+		try {
+			assertEquals(1, queue.size());
+			verify(voteTimer, org.mockito.Mockito.never()).submit(any(Runnable.class));
+
+			queue.start();
+			assertTrue(admissionStarted.await(2, TimeUnit.SECONDS),
+					"persisted vote was not admitted after the full pipeline started");
+		} finally {
 			queue.close();
 		}
 	}
@@ -79,6 +110,7 @@ class VotifierVoteOverflowQueueTest {
 		});
 		try {
 			assertTrue(queue.enqueue("Steve", "example.org"));
+			queue.start();
 			assertTrue(processingStarted.await(2, TimeUnit.SECONDS));
 			queue.close();
 			finishProcessing.countDown();
@@ -147,6 +179,7 @@ class VotifierVoteOverflowQueueTest {
 		VotifierVoteOverflowQueue queue = new VotifierVoteOverflowQueue(plugin, (site, user) -> { });
 		try {
 			assertTrue(queue.enqueue("Steve", "example.org"));
+			queue.start();
 			verify(logger, timeout(2_000)).warning(org.mockito.ArgumentMatchers.contains(
 					"Unable to persist queued Votifier votes"));
 			verify(voteTimer, org.mockito.Mockito.never()).submit(any(Runnable.class));

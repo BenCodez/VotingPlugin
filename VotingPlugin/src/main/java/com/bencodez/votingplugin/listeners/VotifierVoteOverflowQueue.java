@@ -51,6 +51,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	private boolean drainScheduled;
 	private boolean persistenceScheduled;
 	private boolean persistenceDirty;
+	private boolean started;
 	private boolean closed;
 	private long stateVersion;
 	private long durableVersion;
@@ -72,7 +73,19 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 		});
 		this.worker.setRemoveOnCancelPolicy(true);
 		load();
-		scheduleDrain();
+	}
+
+	/**
+	 * Starts draining persisted and newly queued votes. Call this only after the
+	 * Votifier and vote-processing listeners have been registered so a recovered
+	 * vote cannot be processed before its event handlers are available.
+	 */
+	public void start() {
+		synchronized (lock) {
+			if (closed || started) return;
+			started = true;
+			scheduleDrainLocked();
+		}
 	}
 
 	/**
@@ -113,7 +126,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	}
 
 	private void scheduleDrainLocked() {
-		if (closed || drainScheduled) return;
+		if (closed || !started || drainScheduled) return;
 		drainScheduled = true;
 		try {
 			worker.schedule(this::drain, 0, TimeUnit.MILLISECONDS);

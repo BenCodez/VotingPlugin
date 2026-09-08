@@ -720,6 +720,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 
 		VotingPluginRewardRegistrar.register(this);
+		// Recovered Votifier votes may now traverse the fully initialized vote,
+		// reward, placeholder, shop, and vote-party pipeline.
+		if (votifierVoteOverflowQueue != null) {
+			votifierVoteOverflowQueue.start();
+		}
 
 		plugin.getLogger().info("Enabled VotingPlugin " + plugin.getDescription().getVersion());
 		if (plugin.getDescription().getVersion().contains("SNAPSHOT")) {
