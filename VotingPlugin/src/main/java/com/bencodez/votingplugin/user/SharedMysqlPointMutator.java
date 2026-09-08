@@ -245,8 +245,10 @@ final class SharedMysqlPointMutator {
 						plugin.getTimer().execute(() -> claimTransferForApproval(source, target, debitAmount,
 								creditAmountProvider, completion, journal, transferId, owner, sourcePoints, targetPoints));
 					} catch (RuntimeException schedulingFailure) {
-						refundReservedAfterSchedulingFailure(source, completion, journal, transferId, sourcePoints, debitAmount,
-								schedulingFailure);
+						// This callback is on Bukkit's lane. The durable RESERVED row is
+						// intentionally left for the bounded periodic/startup recovery instead
+						// of running its JDBC refund inline after executor rejection.
+						completeRejectedPersistenceSubmission(source, completion, schedulingFailure);
 					}
 				});
 			} catch (RuntimeException schedulingFailure) {
@@ -358,6 +360,12 @@ final class SharedMysqlPointMutator {
 		} catch (SQLException refundFailure) {
 			logFailure(refundFailure);
 		}
+		plugin.debug(failure);
+		completeOnBukkit(source, completion, false);
+	}
+
+	void completeRejectedPersistenceSubmission(VotingPluginUser source, Consumer<Boolean> completion,
+			RuntimeException failure) {
 		plugin.debug(failure);
 		completeOnBukkit(source, completion, false);
 	}

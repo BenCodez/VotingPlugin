@@ -12,8 +12,10 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
@@ -23,6 +25,7 @@ import java.sql.ResultSet;
 import java.util.HashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.bukkit.entity.Player;
@@ -356,6 +359,31 @@ class VotingPluginUserPointSchedulingTest {
 
 		verify(fixture.settlementPoint).setInt(1, 10);
 		verify(fixture.settlementPoint).executeUpdate();
+		ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
+		completion.getValue().run();
+		assertEquals(Boolean.FALSE, result.get());
+	}
+
+	@Test
+	void rejectedPersistenceClaimLeavesReservedTransferForOffThreadRecovery() throws Exception {
+		SagaFixture fixture = sagaFixture(true);
+		AtomicReference<Boolean> result = new AtomicReference<>();
+
+		fixture.user.transferPoints(fixture.target, 10, result::set);
+		ArgumentCaptor<Runnable> persistence = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence).execute(persistence.capture());
+		persistence.getValue().run();
+
+		ArgumentCaptor<Runnable> gate = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), gate.capture());
+		doThrow(new RejectedExecutionException("full")).when(fixture.persistence).execute(any(Runnable.class));
+		gate.getValue().run();
+
+		// The gate runs on Bukkit's lane. A rejected persistence submission must
+		// not synchronously acquire JDBC to refund; the durable RESERVED row is
+		// recovered by the existing off-thread periodic/startup recovery.
+		verifyNoInteractions(fixture.claim);
 		ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
 		verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
 		completion.getValue().run();
