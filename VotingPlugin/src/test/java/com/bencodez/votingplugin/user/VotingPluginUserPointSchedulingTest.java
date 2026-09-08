@@ -20,6 +20,7 @@ import java.lang.reflect.Field;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.HashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
@@ -190,6 +191,24 @@ class VotingPluginUserPointSchedulingTest {
 	}
 
 	@Test
+	void storageAwareSharedAddQueuesJdbcOffTheCallingLane() throws Exception {
+		PointFixture fixture = pointFixture();
+		UserData data = mock(UserData.class);
+		doReturn(data).when(fixture.user).getUserData();
+		when(data.getInt("Points", UserDataFetchMode.TEMP_ONLY)).thenReturn(10);
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			PluginManager pluginManager = mock(PluginManager.class);
+			bukkit.when(Bukkit::getPluginManager).thenReturn(pluginManager);
+
+			assertEquals(15, fixture.user.addPointsStorageAware(5));
+		}
+
+		verify(fixture.persistence).execute(any(Runnable.class));
+		verify(fixture.sql.getConnectionManager(), never()).getConnection();
+	}
+
+	@Test
 	void sharedRemoveSkipsStaleCachedPointPrecheck() throws Exception {
 		PointFixture fixture = pointFixture();
 		doReturn(0).when(fixture.user).getPoints();
@@ -198,6 +217,38 @@ class VotingPluginUserPointSchedulingTest {
 		assertTrue(fixture.user.removePoints(10));
 		verify(fixture.user, never()).getPoints();
 		verify(fixture.statement).executeUpdate();
+	}
+
+	@Test
+	void sharedAbsoluteSetUsesTheDirectMysqlMutator() throws Exception {
+		PointFixture fixture = pointFixture();
+		UserData userData = mock(UserData.class);
+		doReturn(userData).when(fixture.user).getUserData();
+
+		fixture.user.setPoints(42);
+
+		verify(fixture.statement).setInt(1, 42);
+		verify(fixture.statement).executeUpdate();
+		verify(userData, never()).setInt(anyString(), eq(42), eq(false));
+	}
+
+	@Test
+	void sharedPointMutationInvalidatesOnlyPointsFromACacheRecreatedDuringJdbc() throws Exception {
+		PointFixture fixture = pointFixture();
+		when(fixture.statement.executeUpdate()).thenReturn(1);
+		UserDataCache recreatedCache = mock(UserDataCache.class);
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> values = new HashMap<>();
+		values.put("Points", mock(com.bencodez.simpleapi.sql.data.DataValue.class));
+		values.put("VoteStreak", mock(com.bencodez.simpleapi.sql.data.DataValue.class));
+		when(recreatedCache.getCache()).thenReturn(values);
+		doReturn(false, true).when(fixture.user).isCached();
+		doReturn(recreatedCache).when(fixture.user).getCache();
+
+		assertTrue(fixture.user.removePoints(10));
+
+		assertFalse(values.containsKey("Points"));
+		assertTrue(values.containsKey("VoteStreak"));
+		verify(fixture.plugin.getUserManager().getDataManager(), never()).removeCache(any(), any());
 	}
 
 	@Test

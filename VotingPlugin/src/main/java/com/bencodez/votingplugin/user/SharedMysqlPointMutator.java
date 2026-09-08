@@ -459,7 +459,7 @@ final class SharedMysqlPointMutator {
 			logFailure(failure);
 			return false;
 		} finally {
-			discardCache(user);
+			discardPointsCache(user);
 		}
 	}
 
@@ -500,7 +500,7 @@ final class SharedMysqlPointMutator {
 			logFailure(failure);
 			return new AddResult(updateCommitted, user.getPoints());
 		} finally {
-			discardCache(user);
+			discardPointsCache(user);
 		}
 	}
 
@@ -520,7 +520,7 @@ final class SharedMysqlPointMutator {
 		} catch (SQLException failure) {
 			logFailure(failure);
 		} finally {
-			discardCache(user);
+			discardPointsCache(user);
 		}
 	}
 
@@ -539,7 +539,7 @@ final class SharedMysqlPointMutator {
 		} catch (SQLException failure) {
 			logFailure(failure);
 		} finally {
-			discardCache(user);
+			discardPointsCache(user);
 		}
 	}
 
@@ -553,6 +553,25 @@ final class SharedMysqlPointMutator {
 	private void discardCache(VotingPluginUser user) {
 		if (user.isCached()) {
 			plugin.getUserManager().getDataManager().removeCache(UUID.fromString(user.getUUID()), null);
+		}
+	}
+
+	/**
+	 * Removes only the value made stale by a direct shared-MySQL point mutation.
+	 * The cache can be recreated while JDBC is in progress by vote processing on
+	 * the Bukkit lane; dropping that whole cache would also lose unrelated queued
+	 * streak, milestone, or cooldown updates. VotingPlugin routes every supported
+	 * Points writer through this mutator; a later generic UserData Points change is
+	 * deliberately not discarded here because it is a distinct, later write and
+	 * the generic absolute-value API cannot provide cross-server atomic semantics.
+	 */
+	private void discardPointsCache(VotingPluginUser user) {
+		if (!user.isCached()) return;
+		UserDataCache cache = user.getCache();
+		if (cache == null) return;
+		synchronized (cache) {
+			var values = cache.getCache();
+			if (values != null) values.remove(user.getPointsPath());
 		}
 	}
 

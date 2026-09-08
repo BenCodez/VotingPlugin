@@ -88,7 +88,7 @@ class SharedMysqlPointMutatorTest {
 	}
 
 	@Test
-	void pointMutationDiscardsCacheRecreatedDuringDatabaseWrite() throws Exception {
+	void pointMutationToleratesCacheRemovalDuringDatabaseWrite() throws Exception {
 		MySQL table = mock(MySQL.class);
 		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
 				org.mockito.Mockito.RETURNS_DEEP_STUBS);
@@ -110,8 +110,7 @@ class SharedMysqlPointMutatorTest {
 		assertTrue(new SharedMysqlPointMutator(plugin).remove(user, 10));
 
 		verify(statement).executeUpdate();
-		verify(plugin.getUserManager().getDataManager()).removeCache(
-				java.util.UUID.fromString(user.getUUID()), null);
+		verify(plugin.getUserManager().getDataManager(), never()).removeCache(any(), any());
 	}
 
 	@Test

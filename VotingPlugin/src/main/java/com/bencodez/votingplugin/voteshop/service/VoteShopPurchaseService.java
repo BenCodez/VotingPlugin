@@ -177,8 +177,9 @@ public class VoteShopPurchaseService {
 
 	/**
 	 * Compatibility entry point for integrations compiled against the synchronous
-	 * API. For shared MySQL, success means the durable asynchronous purchase was
-	 * accepted; use the callback overload when the final result is required.
+	 * API. Shared-MySQL purchases return {@link VoteShopPurchaseResult#PENDING}
+	 * after static validation because their final debit result is asynchronous;
+	 * use the callback overload when the final result is required.
 	 *
 	 * @deprecated use {@link #purchase(Player, VotingPluginUser, VoteShopItem, Consumer)}
 	 */
@@ -188,7 +189,7 @@ public class VoteShopPurchaseService {
 		VoteShopPurchaseResult validation = validateStaticPurchase(player, item);
 		if (validation != VoteShopPurchaseResult.SUCCESS) return validation;
 		purchase(player, user, item, ignored -> { });
-		return VoteShopPurchaseResult.SUCCESS;
+		return VoteShopPurchaseResult.PENDING;
 	}
 
 	private void completeSharedMysqlPurchase(Player player, VotingPluginUser user, VoteShopItem item,

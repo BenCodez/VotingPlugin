@@ -2493,7 +2493,10 @@ public class CommandLoader {
 						canonicalUser.getData().setInt("MonthTotal", month);
 						canonicalUser.getData().setInt("WeeklyTotal", week);
 						canonicalUser.getData().setInt("DailyTotal", day);
-						canonicalUser.getData().setInt("Points", points);
+						// Point writes must use VotingPlugin's shared-storage mutator so this
+						// repair cannot enqueue an absolute cached write that later overwrites
+						// an atomic update from another server.
+						new VotingPluginUser(plugin, canonicalUser).setPoints(points);
 
 						// Rebuild LastVotes string
 						if (!lastVotes.isEmpty()) {

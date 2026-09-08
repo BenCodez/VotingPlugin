@@ -369,6 +369,23 @@ class VoteShopPurchaseServiceTest {
 	}
 
 	@Test
+	void legacySharedMysqlPurchaseReportsPendingUntilDebitCompletes() {
+		MySQL table = mock(MySQL.class);
+		VotingPluginMain plugin = sharedMysqlPlugin(table);
+		ScheduledExecutorService persistenceExecutor = mock(ScheduledExecutorService.class);
+		when(plugin.getTimer()).thenReturn(persistenceExecutor);
+		VoteShopDefinition definition = mock(VoteShopDefinition.class);
+		when(definition.isEnabled()).thenReturn(true);
+		VoteShopItem item = mock(VoteShopItem.class);
+
+		VoteShopPurchaseResult result = new VoteShopPurchaseService(plugin, definition)
+				.purchase(mock(org.bukkit.entity.Player.class), purchaseUser(), item);
+
+		assertEquals(VoteShopPurchaseResult.PENDING, result);
+		verify(persistenceExecutor).execute(any(Runnable.class));
+	}
+
+	@Test
 	void sharedPurchaseKeepsRewardConfigurationFromBeforeShopReload() throws Exception {
 		MySQL table = mock(MySQL.class);
 		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
