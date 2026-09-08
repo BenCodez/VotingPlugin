@@ -180,13 +180,17 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public void addPoints() {
 		int points = plugin.getConfigFile().getPointsOnVote();
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		boolean sharedMysql = sharedPoints.applies();
 		if (points != 0) {
-			addPoints(points);
+			// Vote processing runs on the server lane. Shared MySQL arithmetic must
+			// use the lifecycle persistence executor instead of blocking a tick on
+			// connection acquisition and the committed-balance read.
+			addPoints(points, sharedMysql);
 		}
 		if (plugin.getConfigFile().getLimitVotePoints() > 0) {
-			SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
-			if (sharedPoints.applies()) {
-				sharedPoints.cap(this, plugin.getConfigFile().getLimitVotePoints(), false);
+			if (sharedMysql) {
+				sharedPoints.cap(this, plugin.getConfigFile().getLimitVotePoints(), true);
 			} else if (getPoints() > plugin.getConfigFile().getLimitVotePoints()) {
 				setPoints(plugin.getConfigFile().getLimitVotePoints());
 			}
@@ -224,6 +228,14 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		int newTotal = getPoints() + event.getPoints();
 		setPoints(newTotal, async);
 		return newTotal;
+	}
+
+	/**
+	 * Keeps ordinary storage writes synchronous while moving shared-MySQL atomic
+	 * arithmetic onto the persistence executor.
+	 */
+	public int addPointsStorageAware(int value) {
+		return addPoints(value, new SharedMysqlPointMutator(plugin).applies());
 	}
 
 	/**

@@ -444,7 +444,7 @@ public class CommandLoader {
 							UUID uuid = UUID.fromString(uuidStr);
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
 							user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
-							user.addPoints(num);
+							user.addPointsStorageAware(num);
 							if (user.isOnline()) {
 								user.sendMessage(plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerGiven(),
 										"amount", args[3]);
@@ -460,7 +460,7 @@ public class CommandLoader {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 						user.cache();
 						int newTotal = 0;
-						newTotal = user.addPoints(Integer.parseInt(args[3]));
+						newTotal = user.addPointsStorageAware(Integer.parseInt(args[3]));
 						if (user.isOnline()) {
 							user.sendMessage(plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerGiven(),
 									"amount", args[3]);

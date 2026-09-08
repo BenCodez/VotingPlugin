@@ -46,7 +46,7 @@ public class RewardPoints extends RewardInjectInt {
 	public String onRewardRequest(Reward reward, com.bencodez.advancedcore.api.user.AdvancedCoreUser user, int num,
 			HashMap<String, String> placeholders) {
 		VotingPluginUser vpUser = plugin.getVotingPluginUserManager().getVotingPluginUser(user);
-		String result = "" + vpUser.addPoints(num);
+		String result = "" + vpUser.addPointsStorageAware(num);
 		plugin.debug("Setting points to " + result);
 		return result;
 	}

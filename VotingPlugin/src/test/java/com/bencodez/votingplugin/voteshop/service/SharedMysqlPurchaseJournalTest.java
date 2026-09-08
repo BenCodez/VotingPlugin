@@ -44,9 +44,11 @@ class SharedMysqlPurchaseJournalTest {
 		when(fixture.work.prepareStatement(anyString())).thenReturn(insert, debit);
 
 		SharedMysqlPurchaseJournal journal = new SharedMysqlPurchaseJournal(fixture.table, false);
-		assertTrue(journal.reserve("purchase-1", "player", "Points", "VoteShopLimitdaily", 10, 1, 100L));
+		assertTrue(journal.reserve("purchase-1", "player", "Points", "VoteShopLimitdaily", 10, 1,
+				SharedMysqlPurchaseJournal.NO_LIMIT_RESET_GENERATION, 0L, 100L));
 
-		verify(insert).setString(7, "PENDING");
+		verify(insert).setString(7, SharedMysqlPurchaseJournal.NO_LIMIT_RESET_GENERATION);
+		verify(insert).setString(9, "PENDING");
 		verify(debit).setInt(1, 10);
 		verify(fixture.work).commit();
 	}
@@ -98,6 +100,50 @@ class SharedMysqlPurchaseJournalTest {
 	}
 
 	@Test
+	void staleRefundRestoresPointsWithoutDecrementingANewerLimitGeneration() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement select = mock(PreparedStatement.class);
+		PreparedStatement refund = mock(PreparedStatement.class);
+		PreparedStatement terminal = mock(PreparedStatement.class);
+		ResultSet pending = pendingRow();
+		when(pending.getString(6)).thenReturn("D:2026-09-08");
+		when(pending.getLong(7)).thenReturn(100L);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(select, refund, terminal);
+		when(select.executeQuery()).thenReturn(pending);
+		when(refund.executeUpdate()).thenReturn(1);
+		when(terminal.executeUpdate()).thenReturn(1);
+
+		SharedMysqlPurchaseJournal journal = new SharedMysqlPurchaseJournal(fixture.table, false);
+		assertTrue(journal.refundPending("old-generation", 100L));
+
+		org.mockito.ArgumentCaptor<String> sql = org.mockito.ArgumentCaptor.forClass(String.class);
+		verify(fixture.work, org.mockito.Mockito.times(3)).prepareStatement(sql.capture());
+		assertTrue(sql.getAllValues().get(1).contains("`Points` = `Points` + ?"));
+		assertFalse(sql.getAllValues().get(1).contains("`VoteShopLimitdaily` = GREATEST"));
+	}
+
+	@Test
+	void refundStillReleasesALimitThatHasNoConfiguredReset() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement select = mock(PreparedStatement.class);
+		PreparedStatement refund = mock(PreparedStatement.class);
+		PreparedStatement terminal = mock(PreparedStatement.class);
+		ResultSet pending = pendingRow();
+		when(pending.getString(6)).thenReturn(SharedMysqlPurchaseJournal.NO_LIMIT_RESET_GENERATION);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(select, refund, terminal);
+		when(select.executeQuery()).thenReturn(pending);
+		when(refund.executeUpdate()).thenReturn(1);
+		when(terminal.executeUpdate()).thenReturn(1);
+
+		SharedMysqlPurchaseJournal journal = new SharedMysqlPurchaseJournal(fixture.table, false);
+		assertTrue(journal.refundPending("unbounded-generation", 100L));
+
+		org.mockito.ArgumentCaptor<String> sql = org.mockito.ArgumentCaptor.forClass(String.class);
+		verify(fixture.work, org.mockito.Mockito.times(3)).prepareStatement(sql.capture());
+		assertTrue(sql.getAllValues().get(1).contains("`VoteShopLimitdaily` = GREATEST"));
+	}
+
+	@Test
 	void schedulerProvenUnstartedHookCanBeRefunded() throws Exception {
 		Fixture fixture = fixture();
 		PreparedStatement select = mock(PreparedStatement.class);
@@ -110,7 +156,7 @@ class SharedMysqlPurchaseJournalTest {
 		when(terminal.executeUpdate()).thenReturn(1);
 
 		SharedMysqlPurchaseJournal journal = new SharedMysqlPurchaseJournal(fixture.table, false);
-		assertTrue(journal.refundClaimedBeforeReward("scheduler-rejected"));
+		assertTrue(journal.refundUnstartedReward("scheduler-rejected"));
 
 		verify(terminal).setString(1, "REFUNDED");
 	}
@@ -142,7 +188,8 @@ class SharedMysqlPurchaseJournalTest {
 		doThrow(new java.sql.SQLException("commit acknowledgement lost")).when(reservation).commit();
 
 		SharedMysqlPurchaseJournal journal = new SharedMysqlPurchaseJournal(fixture.table, false);
-		assertTrue(journal.reserve("purchase-ambiguous", "player", "Points", null, 10, 0, 100L));
+		assertTrue(journal.reserve("purchase-ambiguous", "player", "Points", null, 10, 0,
+				null, 0L, 100L));
 
 		verify(reservation, atLeastOnce()).close();
 		verify(confirmation).prepareStatement(anyString());

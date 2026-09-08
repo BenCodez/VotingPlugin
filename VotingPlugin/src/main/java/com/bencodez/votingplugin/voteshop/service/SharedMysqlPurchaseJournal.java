@@ -33,6 +33,7 @@ final class SharedMysqlPurchaseJournal {
 	private static final String HOOK_STARTED = "HOOK_STARTED";
 	private static final String COMPLETED = "COMPLETED";
 	private static final String REFUNDED = "REFUNDED";
+	static final String NO_LIMIT_RESET_GENERATION = "NONE";
 	static final long PENDING_RECOVERY_AGE_MILLIS = TimeUnit.MINUTES.toMillis(5);
 	static final long TERMINAL_RETENTION_MILLIS = TimeUnit.DAYS.toMillis(7);
 	private static final int RECOVERY_BATCH_SIZE = 32;
@@ -104,11 +105,12 @@ final class SharedMysqlPurchaseJournal {
 
 	/** Atomically records a pending purchase and conditionally charges it. */
 	boolean reserve(String purchaseId, String uuid, String pointsColumn, String limitColumn, int cost, int limit,
-			long now) throws SQLException {
+			String limitGeneration, long limitGenerationExpiresAt, long now) throws SQLException {
 		String insert = "INSERT INTO " + qiJournal() + " (" + qi("purchase_id") + ", " + qi("player_uuid")
 				+ ", " + qi("points_column") + ", " + qi("limit_column") + ", " + qi("cost") + ", "
-				+ qi("limit_value") + ", " + qi("state") + ", " + qi("created_at")
-				+ ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+				+ qi("limit_value") + ", " + qi("limit_generation") + ", "
+				+ qi("limit_generation_expires_at") + ", " + qi("state") + ", " + qi("created_at")
+				+ ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 		String points = qi(pointsColumn);
 		StringBuilder debit = new StringBuilder("UPDATE ").append(qi(table.getTableName())).append(" SET ")
 				.append(points).append(" = ").append(points).append(" - ?");
@@ -132,8 +134,12 @@ final class SharedMysqlPurchaseJournal {
 				insertStatement.setInt(5, cost);
 				if (limitColumn == null) insertStatement.setNull(6, java.sql.Types.INTEGER);
 				else insertStatement.setInt(6, limit);
-				insertStatement.setString(7, PENDING);
-				insertStatement.setLong(8, now);
+				if (limitGeneration == null) insertStatement.setNull(7, java.sql.Types.VARCHAR);
+				else insertStatement.setString(7, limitGeneration);
+				if (limitGenerationExpiresAt <= 0L) insertStatement.setNull(8, java.sql.Types.BIGINT);
+				else insertStatement.setLong(8, limitGenerationExpiresAt);
+				insertStatement.setString(9, PENDING);
+				insertStatement.setLong(10, now);
 				insertStatement.executeUpdate();
 
 				debitStatement.setInt(1, cost);
@@ -210,27 +216,34 @@ final class SharedMysqlPurchaseJournal {
 	}
 
 	void complete(String purchaseId) throws SQLException {
-		setTerminal(purchaseId, COMPLETED, null);
+		setTerminal(purchaseId, COMPLETED, 0L);
 	}
 
 	/** Refunds only a debit whose reward hook has not started. */
 	boolean refundPending(String purchaseId) throws SQLException {
-		return setTerminal(purchaseId, REFUNDED, PENDING);
+		return refundPending(purchaseId, System.currentTimeMillis());
+	}
+
+	boolean refundPending(String purchaseId, long now) throws SQLException {
+		return setTerminal(purchaseId, REFUNDED, now, PENDING);
 	}
 
 	/**
-	 * Compensates a claimed purchase only when the local scheduler guard proves
-	 * that its reward callback can no longer start. This is never used by stale
-	 * recovery, which must leave arbitrary HOOK_STARTED work for reconciliation.
+	 * Compensates a pending or claimed purchase only when the local scheduler
+	 * guard proves that its reward callback cannot run. This is never used by
+	 * stale recovery, which must leave arbitrary HOOK_STARTED work for
+	 * reconciliation.
 	 */
-	boolean refundClaimedBeforeReward(String purchaseId) throws SQLException {
-		return setTerminal(purchaseId, REFUNDED, HOOK_STARTED);
+	boolean refundUnstartedReward(String purchaseId) throws SQLException {
+		return setTerminal(purchaseId, REFUNDED, System.currentTimeMillis(), PENDING, HOOK_STARTED);
 	}
 
-	private boolean setTerminal(String purchaseId, String terminalState, String refundableState) throws SQLException {
+	private boolean setTerminal(String purchaseId, String terminalState, long now, String... refundableStates)
+			throws SQLException {
 		boolean refund = REFUNDED.equals(terminalState);
 		String select = "SELECT " + qi("state") + ", " + qi("player_uuid") + ", " + qi("points_column")
-				+ ", " + qi("limit_column") + ", " + qi("cost") + " FROM " + qiJournal() + " WHERE "
+				+ ", " + qi("limit_column") + ", " + qi("cost") + ", " + qi("limit_generation") + ", "
+				+ qi("limit_generation_expires_at") + " FROM " + qiJournal() + " WHERE "
 				+ qi("purchase_id") + " = ? FOR UPDATE";
 		try (Connection connection = connection()) {
 			connection.setAutoCommit(false);
@@ -246,7 +259,7 @@ final class SharedMysqlPurchaseJournal {
 						rollback(connection);
 						return terminalState.equals(state);
 					}
-						if (refund && !refundableState.equals(state)) {
+					if (refund && !isRefundableState(state, refundableStates)) {
 						rollback(connection);
 						return false;
 					}
@@ -258,7 +271,12 @@ final class SharedMysqlPurchaseJournal {
 					String pointsColumn = result.getString(3);
 					String limitColumn = result.getString(4);
 					int cost = result.getInt(5);
-					if (refund) refund(connection, uuid, pointsColumn, limitColumn, cost);
+					String limitGeneration = result.getString(6);
+					long limitGenerationExpiresAt = result.getLong(7);
+					if (refund) {
+						refund(connection, uuid, pointsColumn, limitColumn, cost, limitGeneration,
+								limitGenerationExpiresAt, now);
+					}
 				}
 			}
 			String update = "UPDATE " + qiJournal() + " SET " + qi("state") + " = ? WHERE " + qi("purchase_id")
@@ -278,14 +296,24 @@ final class SharedMysqlPurchaseJournal {
 		}
 	}
 
-	private void refund(Connection connection, String uuid, String pointsColumn, String limitColumn, int cost)
-			throws SQLException {
+	private static boolean isRefundableState(String state, String... refundableStates) {
+		for (String refundableState : refundableStates) {
+			if (refundableState.equals(state)) return true;
+		}
+		return false;
+	}
+
+	private void refund(Connection connection, String uuid, String pointsColumn, String limitColumn, int cost,
+			String limitGeneration, long limitGenerationExpiresAt, long now) throws SQLException {
 		if (!isSafeColumn(pointsColumn) || (limitColumn != null && !isSafeColumn(limitColumn))) {
 			throw new SQLException("Unsafe durable purchase column");
 		}
 		StringBuilder refund = new StringBuilder("UPDATE ").append(qi(table.getTableName())).append(" SET ")
 				.append(qi(pointsColumn)).append(" = ").append(qi(pointsColumn)).append(" + ?");
-		if (limitColumn != null) {
+		// Once an item has crossed its recorded reset boundary, this is an old
+		// generation. Restore the charged points but never decrement a count that
+		// may belong to a new daily/weekly/monthly window.
+		if (limitColumn != null && canRefundLimit(limitGeneration, limitGenerationExpiresAt, now)) {
 			refund.append(", ").append(qi(limitColumn)).append(" = GREATEST(COALESCE(").append(qi(limitColumn))
 					.append(", 0) - 1, 0)");
 		}
@@ -295,6 +323,13 @@ final class SharedMysqlPurchaseJournal {
 			statement.setString(2, uuid);
 			if (statement.executeUpdate() != 1) throw new SQLException("Purchase refund player missing");
 		}
+	}
+
+	private static boolean canRefundLimit(String generation, long expiresAt, long now) {
+		if (NO_LIMIT_RESET_GENERATION.equals(generation)) return true;
+		// A row created before generation metadata existed cannot safely identify the
+		// current reset window, so preserve the newer count conservatively.
+		return generation != null && expiresAt > 0L && now < expiresAt;
 	}
 
 	void recoverAndCleanup(long now) throws SQLException {
@@ -310,7 +345,7 @@ final class SharedMysqlPurchaseJournal {
 				while (result.next()) pending.add(result.getString(1));
 			}
 		}
-		for (String purchaseId : pending) refundPending(purchaseId);
+		for (String purchaseId : pending) refundPending(purchaseId, now);
 		cleanupTerminalRows(now - TERMINAL_RETENTION_MILLIS);
 	}
 
@@ -343,11 +378,14 @@ final class SharedMysqlPurchaseJournal {
 		String create = "CREATE TABLE IF NOT EXISTS " + qiJournal() + " (" + qi("purchase_id")
 				+ " VARCHAR(36) NOT NULL, " + qi("player_uuid") + " VARCHAR(37) NOT NULL, "
 				+ qi("points_column") + " VARCHAR(128) NOT NULL, " + qi("limit_column") + " VARCHAR(128) NULL, "
-				+ qi("cost") + " INT NOT NULL, " + qi("limit_value") + " INT NULL, " + qi("state")
+				+ qi("cost") + " INT NOT NULL, " + qi("limit_value") + " INT NULL, " + qi("limit_generation")
+				+ " VARCHAR(96) NULL, " + qi("limit_generation_expires_at") + " BIGINT NULL, " + qi("state")
 				+ " VARCHAR(16) NOT NULL, " + qi("created_at") + " BIGINT NOT NULL, " + qi("hook_started_at")
 				+ " BIGINT NULL, PRIMARY KEY (" + qi("purchase_id") + "));";
 		try (Connection connection = connection(); PreparedStatement statement = connection.prepareStatement(create)) {
 			statement.executeUpdate();
+			ensureColumn(connection, "limit_generation", "VARCHAR(96) NULL");
+			ensureColumn(connection, "limit_generation_expires_at", "BIGINT NULL");
 			String index = "vp_vsp_" + Integer.toUnsignedString(journalTable.hashCode(), 36) + "_state_created";
 			String createIndex = "CREATE INDEX " + (table.getDbType() == DbType.POSTGRESQL ? "IF NOT EXISTS " : "")
 					+ qi(index) + " ON " + qiJournal() + " (" + qi("state") + ", " + qi("created_at") + ");";
@@ -356,6 +394,15 @@ final class SharedMysqlPurchaseJournal {
 			} catch (SQLException failure) {
 				if (failure.getErrorCode() != 1061 && !"42P07".equals(failure.getSQLState())) throw failure;
 			}
+		}
+	}
+
+	private void ensureColumn(Connection connection, String column, String definition) throws SQLException {
+		String alter = "ALTER TABLE " + qiJournal() + " ADD COLUMN " + qi(column) + " " + definition;
+		try (PreparedStatement statement = connection.prepareStatement(alter)) {
+			statement.executeUpdate();
+		} catch (SQLException failure) {
+			if (failure.getErrorCode() != 1060 && !"42701".equals(failure.getSQLState())) throw failure;
 		}
 	}
 

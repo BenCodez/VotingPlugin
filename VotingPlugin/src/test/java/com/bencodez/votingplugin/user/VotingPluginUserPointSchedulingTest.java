@@ -29,7 +29,6 @@ import org.bukkit.plugin.PluginManager;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
-import org.mockito.InOrder;
 import org.mockito.MockedStatic;
 
 import com.bencodez.advancedcore.api.user.UserStorage;
@@ -42,6 +41,61 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerReceivePointsEvent;
 
 class VotingPluginUserPointSchedulingTest {
+	@Test
+	void storageAwareAddStaysSynchronousOutsideSharedMysql() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		when(plugin.getStorageType()).thenReturn(UserStorage.SQLITE);
+		VotingPluginUser user = mock(VotingPluginUser.class, CALLS_REAL_METHODS);
+		Field pluginField = VotingPluginUser.class.getDeclaredField("plugin");
+		pluginField.setAccessible(true);
+		pluginField.set(user, plugin);
+		doReturn(15).when(user).addPoints(10, false);
+
+		assertEquals(15, user.addPointsStorageAware(10));
+
+		verify(user).addPoints(10, false);
+		verify(user, never()).addPoints(10, true);
+	}
+
+	@Test
+	void nonSharedTransferCreditsBeforeReportingSuccess() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		when(plugin.getStorageType()).thenReturn(UserStorage.SQLITE);
+		VotingPluginUser source = mock(VotingPluginUser.class, CALLS_REAL_METHODS);
+		VotingPluginUser target = mock(VotingPluginUser.class);
+		Field pluginField = VotingPluginUser.class.getDeclaredField("plugin");
+		pluginField.setAccessible(true);
+		pluginField.set(source, plugin);
+		doReturn(true).when(source).removePoints(10);
+		AtomicReference<Boolean> result = new AtomicReference<>();
+
+		source.transferPoints(target, 10, result::set);
+
+		InOrder order = inOrder(source, target);
+		order.verify(source).removePoints(10);
+		order.verify(target).addPoints(10);
+		assertEquals(Boolean.TRUE, result.get());
+	}
+
+	@Test
+	void votePointAwardQueuesSharedMysqlMutationOffTheServerLane() throws Exception {
+		PointFixture fixture = pointFixture();
+		UserData data = mock(UserData.class);
+		doReturn(data).when(fixture.user).getUserData();
+		when(data.getInt("Points", UserDataFetchMode.TEMP_ONLY)).thenReturn(10);
+		when(fixture.plugin.getConfigFile().getPointsOnVote()).thenReturn(5);
+		when(fixture.plugin.getConfigFile().getLimitVotePoints()).thenReturn(0);
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			PluginManager pluginManager = mock(PluginManager.class);
+			bukkit.when(Bukkit::getPluginManager).thenReturn(pluginManager);
+			fixture.user.addPoints();
+		}
+
+		verify(fixture.persistence).execute(any(Runnable.class));
+		verify(fixture.sql.getConnectionManager(), never()).getConnection();
+	}
+
 	@Test
 	void sharedAddReturnsTheCommittedDatabaseBalanceInsteadOfAPredictedWrapperTotal() throws Exception {
 		PointFixture fixture = pointFixture();
@@ -72,7 +126,9 @@ class VotingPluginUserPointSchedulingTest {
 	@Test
 	void sharedAsyncAddReturnsThePredictedEventAdjustedTotalWithoutJdbcOnTheCaller() throws Exception {
 		PointFixture fixture = pointFixture();
-		doReturn(10).when(fixture.user).getPoints();
+		UserData data = mock(UserData.class);
+		doReturn(data).when(fixture.user).getUserData();
+		when(data.getInt("Points", UserDataFetchMode.TEMP_ONLY)).thenReturn(10);
 
 		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
 			PluginManager pluginManager = mock(PluginManager.class);
@@ -88,6 +144,8 @@ class VotingPluginUserPointSchedulingTest {
 
 		verify(fixture.persistence).execute(any(Runnable.class));
 		verify(fixture.sql.getConnectionManager(), never()).getConnection();
+		verify(data).getInt("Points", UserDataFetchMode.TEMP_ONLY);
+		verify(fixture.user, never()).getPoints();
 	}
 
 	@Test
@@ -104,7 +162,9 @@ class VotingPluginUserPointSchedulingTest {
 	@Test
 	void sharedAsyncRemoveKeepsJdbcOffTheCallerThread() throws Exception {
 		PointFixture fixture = pointFixture();
-		doReturn(20).when(fixture.user).getPoints();
+		UserData data = mock(UserData.class);
+		doReturn(data).when(fixture.user).getUserData();
+		when(data.getInt("Points", UserDataFetchMode.TEMP_ONLY)).thenReturn(20);
 		when(fixture.statement.executeUpdate()).thenReturn(1);
 
 		assertTrue(fixture.user.removePoints(10, true));
@@ -112,6 +172,8 @@ class VotingPluginUserPointSchedulingTest {
 		ArgumentCaptor<Runnable> persistenceWork = ArgumentCaptor.forClass(Runnable.class);
 		verify(fixture.persistence).execute(persistenceWork.capture());
 		verify(fixture.sql.getConnectionManager(), never()).getConnection();
+		verify(data).getInt("Points", UserDataFetchMode.TEMP_ONLY);
+		verify(fixture.user, never()).getPoints();
 		persistenceWork.getValue().run();
 		verify(fixture.sql.getConnectionManager()).getConnection();
 		verify(fixture.statement).executeUpdate();
@@ -329,6 +391,7 @@ class VotingPluginUserPointSchedulingTest {
 		doReturn("Points").when(fixture.user).getPointsPath();
 		doReturn(fixture.player).when(fixture.user).getPlayer();
 		doReturn(false).when(fixture.user).isCached();
+		doReturn(null).when(fixture.user).getCache();
 		return fixture;
 	}
 

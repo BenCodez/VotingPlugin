@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.ArgumentMatchers.any;
 
 import java.sql.Connection;
@@ -21,7 +22,9 @@ import org.mockito.ArgumentCaptor;
 import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.user.UserData;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
+import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
+import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 class SharedMysqlPointMutatorTest {
@@ -40,6 +43,26 @@ class SharedMysqlPointMutatorTest {
 		verify(persistence).execute(any(Runnable.class));
 		verify(persistence).scheduleWithFixedDelay(any(Runnable.class), org.mockito.ArgumentMatchers.eq(1L),
 				org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(TimeUnit.MINUTES));
+	}
+
+	@Test
+	void userManagerSchedulesRecoveryOnceWhenReloadEnablesSharedPoints() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		ScheduledExecutorService persistence = mock(ScheduledExecutorService.class);
+		when(plugin.getStorageType()).thenReturn(UserStorage.MYSQL);
+		when(plugin.getBungeeSettings().isPerServerPoints()).thenReturn(true, false);
+		when(plugin.getTimer()).thenReturn(persistence);
+
+		UserManager manager = new UserManager(plugin);
+		manager.startSharedPointTransferRecovery(); // Startup with per-server points.
+		verifyNoInteractions(persistence);
+		manager.startSharedPointTransferRecovery(); // Reload switches to shared points.
+		manager.startSharedPointTransferRecovery(); // Later reload must not duplicate lifecycle work.
+
+		verify(persistence, times(1)).execute(any(Runnable.class));
+		verify(persistence, times(1)).scheduleWithFixedDelay(any(Runnable.class),
+				org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(1L),
+				org.mockito.ArgumentMatchers.eq(TimeUnit.MINUTES));
 	}
 
 	@Test
@@ -81,7 +104,9 @@ class SharedMysqlPointMutatorTest {
 		ScheduledExecutorService persistence = mock(ScheduledExecutorService.class);
 		when(plugin.getTimer()).thenReturn(persistence);
 		VotingPluginUser user = mock(VotingPluginUser.class);
-		when(user.getPoints()).thenReturn(20);
+		UserData data = mock(UserData.class);
+		when(user.getUserData()).thenReturn(data);
+		when(data.getInt("Points", UserDataFetchMode.TEMP_ONLY)).thenReturn(20);
 		when(user.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
 		when(user.getPointsPath()).thenReturn("Points");
 
@@ -89,10 +114,34 @@ class SharedMysqlPointMutatorTest {
 		ArgumentCaptor<Runnable> work = ArgumentCaptor.forClass(Runnable.class);
 		verify(persistence).execute(work.capture());
 		verify(sql.getConnectionManager(), never()).getConnection();
+		verify(data).getInt("Points", UserDataFetchMode.TEMP_ONLY);
 
 		work.getValue().run();
 		verify(sql.getConnectionManager()).getConnection();
 		verify(statement).executeUpdate();
+	}
+
+	@Test
+	void asynchronousAddUsesOnlyCachedPointsOnTheCallerThread() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		ScheduledExecutorService persistence = mock(ScheduledExecutorService.class);
+		when(plugin.getTimer()).thenReturn(persistence);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		UserDataCache cache = mock(UserDataCache.class);
+		DataValue points = mock(DataValue.class);
+		java.util.HashMap<String, DataValue> values = new java.util.HashMap<>();
+		values.put("Points", points);
+		when(user.getCache()).thenReturn(cache);
+		when(cache.getCache()).thenReturn(values);
+		when(points.isInt()).thenReturn(true);
+		when(points.getInt()).thenReturn(20);
+		when(user.getPointsPath()).thenReturn("Points");
+
+		assertEquals(30, new SharedMysqlPointMutator(plugin).add(user, 10, true));
+
+		verify(cache, times(2)).getCache();
+		verify(user, never()).getPoints();
+		verify(persistence).execute(any(Runnable.class));
 	}
 
 	@Test

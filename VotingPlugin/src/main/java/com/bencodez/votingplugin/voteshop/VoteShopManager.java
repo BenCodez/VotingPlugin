@@ -116,4 +116,10 @@ public class VoteShopManager {
 			Consumer<VoteShopPurchaseResult> completion) {
 		purchaseService.purchase(player, user, item, completion);
 	}
+
+	/** @deprecated use the callback overload for the final shared-storage result. */
+	@Deprecated
+	public VoteShopPurchaseResult purchase(Player player, VotingPluginUser user, VoteShopItem item) {
+		return purchaseService.purchase(player, user, item);
+	}
 }

@@ -1,6 +1,8 @@
 package com.bencodez.votingplugin.voteshop.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -17,6 +19,8 @@ import static org.mockito.Mockito.times;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -46,11 +50,26 @@ import com.bencodez.votingplugin.voteshop.shop.VoteShopItem;
 
 class VoteShopPurchaseServiceTest {
 	@Test
-	void interruptionStillRequiresRefundWhenFallbackAlreadyRequestedCompensation() {
-		AtomicInteger state = new AtomicInteger(2); // COMPLETION_COMPENSATING
-		CountDownLatch completed = new CountDownLatch(0);
+	void retainsSynchronousPurchaseDescriptorsForBinaryCompatibility() throws Exception {
+		assertEquals(VoteShopPurchaseResult.class, VoteShopPurchaseService.class
+				.getMethod("purchase", org.bukkit.entity.Player.class, VotingPluginUser.class, VoteShopItem.class)
+				.getReturnType());
+		assertEquals(VoteShopPurchaseResult.class, com.bencodez.votingplugin.voteshop.VoteShopManager.class
+				.getMethod("purchase", org.bukkit.entity.Player.class, VotingPluginUser.class, VoteShopItem.class)
+				.getReturnType());
+	}
 
-		assertTrue(VoteShopPurchaseService.compensationRequiredAfterInterruption(state, completed));
+	@Test
+	void limitGenerationUsesTheEarliestConfiguredResetBoundary() {
+		LocalDateTime current = LocalDateTime.of(2026, 9, 8, 12, 0);
+		long now = current.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+		VoteShopPurchaseService.LimitGeneration generation = VoteShopPurchaseService.limitGeneration(
+				current, now, true, true, true, 0);
+
+		assertTrue(generation.value().contains("D:2026-09-08"));
+		assertTrue(generation.value().contains("W:"));
+		assertTrue(generation.value().contains("M:2026-9"));
+		assertEquals(now + 43_200_000L, generation.expiresAt());
 	}
 
 	@Test
@@ -85,37 +104,36 @@ class VoteShopPurchaseServiceTest {
 		Connection pendingConnection = mock(Connection.class);
 		Connection cleanupConnection = mock(Connection.class);
 		Connection debitConnection = mock(Connection.class);
-		Connection claimConnection = mock(Connection.class);
 		Connection refundConnection = mock(Connection.class);
 		PreparedStatement schema = mock(PreparedStatement.class);
+		PreparedStatement schemaGeneration = mock(PreparedStatement.class);
+		PreparedStatement schemaGenerationExpiry = mock(PreparedStatement.class);
 		PreparedStatement schemaIndex = mock(PreparedStatement.class);
 		PreparedStatement pending = mock(PreparedStatement.class);
 		PreparedStatement cleanupSelect = mock(PreparedStatement.class);
 		PreparedStatement cleanupDelete = mock(PreparedStatement.class);
 		PreparedStatement reserve = mock(PreparedStatement.class);
 		PreparedStatement debit = mock(PreparedStatement.class);
-		PreparedStatement claim = mock(PreparedStatement.class);
 		PreparedStatement refundSelect = mock(PreparedStatement.class);
 		PreparedStatement refund = mock(PreparedStatement.class);
 		PreparedStatement refundUpdate = mock(PreparedStatement.class);
 		ResultSet noPendingRows = emptyRows();
 		ResultSet noTerminalRows = emptyRows();
-		ResultSet claimedPurchase = purchaseRow("HOOK_STARTED", "Points", null, 10);
+		ResultSet pendingPurchase = purchaseRow("PENDING", "Points", null, 10);
 		when(table.getTableName()).thenReturn("VotingPlugin_Users");
 		when(table.qi(anyString())).thenAnswer(invocation -> "`" + invocation.getArgument(0) + "`");
 		when(table.getMysql()).thenReturn(sql);
 		when(sql.getConnectionManager().getConnection()).thenReturn(schemaConnection, pendingConnection,
-				cleanupConnection, debitConnection, claimConnection, refundConnection);
-		when(schemaConnection.prepareStatement(anyString())).thenReturn(schema, schemaIndex);
+				cleanupConnection, debitConnection, refundConnection);
+		when(schemaConnection.prepareStatement(anyString())).thenReturn(schema, schemaGeneration,
+				schemaGenerationExpiry, schemaIndex);
 		when(pendingConnection.prepareStatement(anyString())).thenReturn(pending);
 		when(pending.executeQuery()).thenReturn(noPendingRows);
 		when(cleanupConnection.prepareStatement(anyString())).thenReturn(cleanupSelect, cleanupDelete);
 		when(cleanupSelect.executeQuery()).thenReturn(noTerminalRows);
 		when(debitConnection.prepareStatement(anyString())).thenReturn(reserve, debit);
-		when(claimConnection.prepareStatement(anyString())).thenReturn(claim);
-		when(claim.executeUpdate()).thenReturn(1);
 		when(refundConnection.prepareStatement(anyString())).thenReturn(refundSelect, refund, refundUpdate);
-		when(refundSelect.executeQuery()).thenReturn(claimedPurchase);
+		when(refundSelect.executeQuery()).thenReturn(pendingPurchase);
 		when(debit.executeUpdate()).thenReturn(1);
 		when(refund.executeUpdate()).thenReturn(1);
 		when(refundUpdate.executeUpdate()).thenReturn(1);
@@ -155,12 +173,19 @@ class VoteShopPurchaseServiceTest {
 		verify(entityScheduler, org.mockito.Mockito.timeout(1000)).runAtEntityWithFallback(
 					org.mockito.ArgumentMatchers.eq(player), scheduled.capture(), retirement.capture());
 		purchase.get(5, TimeUnit.SECONDS);
+		ArgumentCaptor<Runnable> compensation = ArgumentCaptor.forClass(Runnable.class);
+		verify(persistenceExecutor, times(2)).execute(compensation.capture());
+		compensation.getAllValues().get(1).run();
 
 		ArgumentCaptor<String> refundSql = ArgumentCaptor.forClass(String.class);
 		verify(refundConnection, times(3)).prepareStatement(refundSql.capture());
 		assertTrue(refundSql.getAllValues().get(1).contains("`Points` = `Points` + ?"));
 		verify(refund).setInt(1, 10);
 		verify(refund, times(1)).executeUpdate();
+		// Schema, stale cleanup, terminal cleanup, reservation, and refund are the
+		// only database connections in the scheduler-retirement path. A sixth
+		// checkout would be the reward claim and would make the debit unrecoverable.
+		verify(sql.getConnectionManager(), times(5)).getConnection();
 		verify(entityScheduler).runAtEntityWithFallback(
 				org.mockito.ArgumentMatchers.eq(player), any(), any(Runnable.class));
 		scheduled.getValue().accept(null);
@@ -179,6 +204,43 @@ class VoteShopPurchaseServiceTest {
 				VoteShopPurchaseResult.SHOP_DISABLED);
 
 		verify(player).sendMessage(anyString());
+	}
+
+	@Test
+	void rejectedClaimedRewardQueuesDurableRefundAndFencesLateCallback() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
+				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
+		com.bencodez.simpleapi.folialib.FoliaLib folia = mock(com.bencodez.simpleapi.folialib.FoliaLib.class);
+		com.bencodez.simpleapi.folialib.impl.ServerImplementation entityScheduler =
+				mock(com.bencodez.simpleapi.folialib.impl.ServerImplementation.class);
+		ScheduledExecutorService persistenceExecutor = mock(ScheduledExecutorService.class);
+		RewardHandler rewardHandler = mock(RewardHandler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(scheduler.getFoliaLib()).thenReturn(folia);
+		when(folia.getImpl()).thenReturn(entityScheduler);
+		when(plugin.getTimer()).thenReturn(persistenceExecutor);
+		when(plugin.getRewardHandler()).thenReturn(rewardHandler);
+		@SuppressWarnings("rawtypes")
+		ArgumentCaptor<java.util.function.Consumer> callback = ArgumentCaptor.forClass(java.util.function.Consumer.class);
+		when(entityScheduler.runAtEntityWithFallback(any(), callback.capture(), any(Runnable.class)))
+				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
+		SharedMysqlPurchaseJournal journal = mock(SharedMysqlPurchaseJournal.class);
+		when(journal.refundUnstartedReward("purchase-1")).thenReturn(false);
+		VoteShopPurchaseService.SharedPurchaseDebit debit = new VoteShopPurchaseService.SharedPurchaseDebit(
+				VoteShopPurchaseResult.SUCCESS, journal, "purchase-1", "Points", null);
+		VoteShopPurchaseService service = new VoteShopPurchaseService(plugin, mock(VoteShopDefinition.class));
+		VotingPluginUser user = mock(VotingPluginUser.class);
+
+		service.scheduleClaimedReward(mock(org.bukkit.entity.Player.class), user, mock(VoteShopItem.class),
+				new java.util.HashMap<>(), mock(FileConfiguration.class), ignored -> {}, debit);
+
+		ArgumentCaptor<Runnable> refund = ArgumentCaptor.forClass(Runnable.class);
+		verify(persistenceExecutor).execute(refund.capture());
+		refund.getValue().run();
+		verify(journal).refundUnstartedReward("purchase-1");
+		callback.getValue().accept(null);
+		verify(rewardHandler, never()).giveReward(any(), any(), any(), any());
 	}
 
 	@Test
@@ -311,6 +373,8 @@ class VoteShopPurchaseServiceTest {
 		Connection claimConnection = mock(Connection.class);
 		Connection completeConnection = mock(Connection.class);
 		PreparedStatement schema = mock(PreparedStatement.class);
+		PreparedStatement schemaGeneration = mock(PreparedStatement.class);
+		PreparedStatement schemaGenerationExpiry = mock(PreparedStatement.class);
 		PreparedStatement schemaIndex = mock(PreparedStatement.class);
 		PreparedStatement pending = mock(PreparedStatement.class);
 		PreparedStatement cleanupSelect = mock(PreparedStatement.class);
@@ -328,14 +392,19 @@ class VoteShopPurchaseServiceTest {
 		when(table.getMysql()).thenReturn(sql);
 		when(sql.getConnectionManager().getConnection()).thenReturn(schemaConnection, pendingConnection,
 				cleanupConnection, reserveConnection, claimConnection, completeConnection);
-		when(schemaConnection.prepareStatement(anyString())).thenReturn(schema, schemaIndex);
+		when(schemaConnection.prepareStatement(anyString())).thenReturn(schema, schemaGeneration,
+				schemaGenerationExpiry, schemaIndex);
 		when(pendingConnection.prepareStatement(anyString())).thenReturn(pending);
 		when(pending.executeQuery()).thenReturn(noPendingRows);
 		when(cleanupConnection.prepareStatement(anyString())).thenReturn(cleanupSelect, cleanupDelete);
 		when(cleanupSelect.executeQuery()).thenReturn(noTerminalRows);
 		when(reserveConnection.prepareStatement(anyString())).thenReturn(reserve, debit);
 		when(debit.executeUpdate()).thenReturn(1);
-		when(claimConnection.prepareStatement(anyString())).thenReturn(claim);
+		AtomicReference<String> claimThread = new AtomicReference<>();
+		when(claimConnection.prepareStatement(anyString())).thenAnswer(invocation -> {
+			claimThread.set(Thread.currentThread().getName());
+			return claim;
+		});
 		when(claim.executeUpdate()).thenReturn(1);
 		when(completeConnection.prepareStatement(anyString())).thenReturn(completeSelect, completeUpdate);
 		when(completeSelect.executeQuery()).thenReturn(hookStartedPurchase);
@@ -352,6 +421,11 @@ class VoteShopPurchaseServiceTest {
 		com.bencodez.simpleapi.folialib.impl.ServerImplementation entityScheduler =
 				mock(com.bencodez.simpleapi.folialib.impl.ServerImplementation.class);
 		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		AtomicReference<Runnable> claimWork = new AtomicReference<>();
+		doAnswer(invocation -> {
+			claimWork.set(invocation.getArgument(1, Runnable.class));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
 		when(scheduler.getFoliaLib()).thenReturn(folia);
 		when(folia.getImpl()).thenReturn(entityScheduler);
 		when(entityScheduler.runAtEntityWithFallback(any(), any(), any(Runnable.class)))
@@ -388,15 +462,29 @@ class VoteShopPurchaseServiceTest {
 			ExecutorService worker = Executors.newSingleThreadExecutor();
 			Future<?> purchase = worker.submit(work.getValue());
 			@SuppressWarnings("rawtypes")
-			ArgumentCaptor<java.util.function.Consumer> entityCallback = ArgumentCaptor.forClass(java.util.function.Consumer.class);
+			ArgumentCaptor<java.util.function.Consumer> rewardCallback = ArgumentCaptor.forClass(java.util.function.Consumer.class);
 			verify(entityScheduler, org.mockito.Mockito.timeout(1000)).runAtEntityWithFallback(any(),
-				entityCallback.capture(), any(Runnable.class));
-			InOrder claimBeforeEntityWork = inOrder(claimConnection, entityScheduler);
-			claimBeforeEntityWork.verify(claimConnection).prepareStatement(anyString());
-			claimBeforeEntityWork.verify(entityScheduler).runAtEntityWithFallback(any(), any(), any(Runnable.class));
-			entityCallback.getValue().accept(null);
+				rewardCallback.capture(), any(Runnable.class));
+			// A stopped JVM at this point must leave the durable row PENDING: the
+			// scheduler has accepted the reward callback but has not yet run it.
+			verify(claimConnection, never()).prepareStatement(anyString());
+			rewardCallback.getValue().accept(null);
+			assertNotNull(claimWork.get(), "the entity gate must hand JDBC work to the async scheduler");
+			verify(claimConnection, never()).prepareStatement(anyString());
+			Thread claimWorker = new Thread(claimWork.get(), "vote-shop-claim-worker");
+			claimWorker.start();
+			claimWorker.join(1000);
+			assertFalse(claimWorker.isAlive());
+			InOrder callbackBeforeClaim = inOrder(entityScheduler, claimConnection);
+			callbackBeforeClaim.verify(entityScheduler).runAtEntityWithFallback(any(), any(), any(Runnable.class));
+			callbackBeforeClaim.verify(claimConnection).prepareStatement(anyString());
 			verify(completeConnection, never()).prepareStatement(anyString());
 			purchase.get(5, TimeUnit.SECONDS);
+			@SuppressWarnings("rawtypes")
+			ArgumentCaptor<java.util.function.Consumer> entityCallbacks =
+					ArgumentCaptor.forClass(java.util.function.Consumer.class);
+			verify(entityScheduler, times(2)).runAtEntityWithFallback(any(), entityCallbacks.capture(), any(Runnable.class));
+			entityCallbacks.getAllValues().get(1).accept(null);
 			ArgumentCaptor<Runnable> scheduledWork = ArgumentCaptor.forClass(Runnable.class);
 			verify(persistenceExecutor, times(2)).execute(scheduledWork.capture());
 			scheduledWork.getAllValues().get(1).run();
@@ -404,6 +492,7 @@ class VoteShopPurchaseServiceTest {
 		}
 
 		assertEquals(VoteShopPurchaseResult.SUCCESS, result.get());
+		assertEquals("vote-shop-claim-worker", claimThread.get(), "the entity callback must not perform JDBC");
 		verify(rewardHandler).giveReward(eq(user), eq(oldShopData), eq("Shop.old-item.Rewards"), any());
 		verify(rewardHandler, never()).giveReward(eq(user), eq(reloadedShopData), anyString(), any());
 	}

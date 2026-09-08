@@ -3,11 +3,14 @@ package com.bencodez.votingplugin.voteshop.service;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.temporal.WeekFields;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
@@ -17,6 +20,7 @@ import org.bukkit.entity.Player;
 
 import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
+import com.bencodez.advancedcore.api.time.TimeCalculation;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.user.usercache.change.UserDataChangeInt;
@@ -158,7 +162,10 @@ public class VoteShopPurchaseService {
 		plugin.getTimer().execute(() -> {
 			SharedPurchaseDebit debit;
 			synchronized (purchaseLock(user.getUUID())) {
-				debit = reserveSharedMysqlPurchase(user, item);
+				// Sample the reset window beside the conditional debit. A queued
+				// persistence task may otherwise cross into a new limit period.
+				debit = reserveSharedMysqlPurchase(user, item,
+						limitGeneration(item, System.currentTimeMillis()));
 			}
 			if (debit.result() != VoteShopPurchaseResult.SUCCESS) {
 				plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(debit.result()), player);
@@ -168,78 +175,110 @@ public class VoteShopPurchaseService {
 		});
 	}
 
+	/**
+	 * Compatibility entry point for integrations compiled against the synchronous
+	 * API. For shared MySQL, success means the durable asynchronous purchase was
+	 * accepted; use the callback overload when the final result is required.
+	 *
+	 * @deprecated use {@link #purchase(Player, VotingPluginUser, VoteShopItem, Consumer)}
+	 */
+	@Deprecated
+	public VoteShopPurchaseResult purchase(Player player, VotingPluginUser user, VoteShopItem item) {
+		if (!usesSharedMysqlPoints()) return purchaseLocal(player, user, item);
+		VoteShopPurchaseResult validation = validateStaticPurchase(player, item);
+		if (validation != VoteShopPurchaseResult.SUCCESS) return validation;
+		purchase(player, user, item, ignored -> { });
+		return VoteShopPurchaseResult.SUCCESS;
+	}
+
 	private void completeSharedMysqlPurchase(Player player, VotingPluginUser user, VoteShopItem item,
 			HashMap<String, String> placeholders, FileConfiguration shopData,
 			Consumer<VoteShopPurchaseResult> completion, SharedPurchaseDebit debit) {
-		CountDownLatch completed = new CountDownLatch(1);
 		AtomicInteger state = new AtomicInteger(COMPLETION_PENDING);
+		Runnable compensateBeforeClaim = () -> {
+			if (!state.compareAndSet(COMPLETION_PENDING, COMPLETION_COMPENSATING)) return;
+			plugin.getTimer().execute(() -> refundSharedMysqlDebit(user, debit, true));
+		};
 		try {
-			/* Claim on the persistence worker before entering the entity scheduler.
-			 * A JDBC pool wait or database lock must never block a Bukkit/Folia entity
-			 * lane; the scheduled callback below performs reward/UI work only. */
-			SharedMysqlPurchaseJournal.ClaimOutcome claim = claimSharedMysqlPurchase(debit);
-			if (claim == SharedMysqlPurchaseJournal.ClaimOutcome.NOT_CLAIMED) {
-				refundSharedMysqlDebit(user, debit, false);
-				return;
+			/*
+			 * The first entity callback is only a nonblocking scheduling gate. Keeping
+			 * the durable row PENDING until it starts lets recovery refund a debit when
+			 * the entity scheduler never accepts work. The JDBC claim then runs off the
+			 * entity lane, and only a successful durable claim schedules the actual
+			 * reward callback.
+			 */
+			CompletableFuture<EntityTaskResult> gate = plugin.getBukkitScheduler().getFoliaLib().getImpl()
+					.runAtEntityWithFallback(player, ignored -> {
+				if (!state.compareAndSet(COMPLETION_PENDING, COMPLETION_RUNNING)) return;
+				claimSharedMysqlPurchaseAsync(debit).whenComplete((claim, failure) -> {
+					if (failure != null || claim == SharedMysqlPurchaseJournal.ClaimOutcome.NOT_CLAIMED) {
+						if (state.compareAndSet(COMPLETION_RUNNING, COMPLETION_COMPENSATING)) {
+							plugin.getTimer().execute(() -> refundSharedMysqlDebit(user, debit, true));
+						}
+						return;
+					}
+					if (claim == SharedMysqlPurchaseJournal.ClaimOutcome.INDETERMINATE) {
+						state.compareAndSet(COMPLETION_RUNNING, COMPLETION_FINISHED);
+						plugin.getLogger().severe("Shared MySQL vote shop purchase " + debit.purchaseId()
+								+ " has an indeterminate reward claim; retaining it for reconciliation");
+						return;
+					}
+					state.compareAndSet(COMPLETION_RUNNING, COMPLETION_FINISHED);
+					scheduleClaimedReward(player, user, item, placeholders, shopData, completion, debit);
+				});
+			}, compensateBeforeClaim);
+			gate.whenComplete((result, failure) -> {
+				if (failure != null || result != EntityTaskResult.SUCCESS) {
+					compensateBeforeClaim.run();
+				}
+			});
+		} catch (RuntimeException schedulingFailure) {
+			compensateBeforeClaim.run();
+			plugin.debug(schedulingFailure);
+		}
+	}
+
+	void scheduleClaimedReward(Player player, VotingPluginUser user, VoteShopItem item,
+			HashMap<String, String> placeholders, FileConfiguration shopData,
+			Consumer<VoteShopPurchaseResult> completion, SharedPurchaseDebit debit) {
+		AtomicInteger state = new AtomicInteger(COMPLETION_PENDING);
+		Runnable rejectBeforeStart = () -> {
+			if (state.compareAndSet(COMPLETION_PENDING, COMPLETION_COMPENSATING)) {
+				plugin.getTimer().execute(() -> refundSharedMysqlDebit(user, debit, true));
 			}
-			if (claim == SharedMysqlPurchaseJournal.ClaimOutcome.INDETERMINATE) {
-				plugin.getLogger().severe("Shared MySQL vote shop purchase " + debit.purchaseId()
-						+ " has an indeterminate reward claim; retaining it for reconciliation");
-				return;
-			}
-			CompletableFuture<EntityTaskResult> scheduled = plugin.getBukkitScheduler().getFoliaLib().getImpl()
+		};
+		try {
+			CompletableFuture<EntityTaskResult> reward = plugin.getBukkitScheduler().getFoliaLib().getImpl()
 					.runAtEntityWithFallback(player, ignored -> {
 				if (!state.compareAndSet(COMPLETION_PENDING, COMPLETION_RUNNING)) return;
 				try {
 					completePurchase(player, user, item, placeholders, shopData);
-					/*
-					 * The entity callback owns only reward/UI work. Queue the terminal
-					 * journal update back to the persistence executor after the reward
-					 * completes, so a JDBC pool wait cannot stall an entity lane.
-					 */
 					plugin.getTimer().execute(() -> settleSharedMysqlPurchase(player, completion, debit));
+				} catch (RuntimeException | Error rewardFailure) {
+					logClaimedRewardSchedulingFailure(debit);
+					throw rewardFailure;
 				} finally {
-					state.compareAndSet(COMPLETION_RUNNING, COMPLETION_FINISHED);
-					completed.countDown();
+					state.set(COMPLETION_FINISHED);
 				}
-			}, () -> requestCompensation(state, completed));
-			scheduled.whenComplete((result, failure) -> {
-				if (failure != null || result != EntityTaskResult.SUCCESS) requestCompensation(state, completed);
+			}, rejectBeforeStart);
+			reward.whenComplete((result, failure) -> {
+				if (failure != null || result != EntityTaskResult.SUCCESS) rejectBeforeStart.run();
 			});
-			while (!completed.await(100, TimeUnit.MILLISECONDS)) {
-				if (!plugin.isEnabled()) requestCompensation(state, completed);
-			}
-			if (state.get() == COMPLETION_COMPENSATING) refundSharedMysqlDebit(user, debit, true);
-		} catch (InterruptedException interrupted) {
-			Thread.currentThread().interrupt();
-			if (compensationRequiredAfterInterruption(state, completed)) refundSharedMysqlDebit(user, debit, true);
 		} catch (RuntimeException schedulingFailure) {
-			requestCompensation(state, completed);
-			if (state.get() == COMPLETION_COMPENSATING) refundSharedMysqlDebit(user, debit, true);
+			rejectBeforeStart.run();
 			plugin.debug(schedulingFailure);
 		}
+	}
+
+	private void logClaimedRewardSchedulingFailure(SharedPurchaseDebit debit) {
+		plugin.getLogger().severe("Shared MySQL vote shop purchase " + debit.purchaseId()
+				+ " was claimed but its reward callback did not complete; retaining it for reconciliation");
 	}
 
 	private void settleSharedMysqlPurchase(Player player, Consumer<VoteShopPurchaseResult> completion,
 			SharedPurchaseDebit debit) {
 		completeSharedMysqlPurchase(debit);
 		plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(VoteShopPurchaseResult.SUCCESS), player);
-	}
-
-	private static boolean requestCompensation(AtomicInteger state, CountDownLatch completed) {
-		if (!state.compareAndSet(COMPLETION_PENDING, COMPLETION_COMPENSATING)) return false;
-		completed.countDown();
-		return true;
-	}
-
-	/**
-	 * An entity scheduler fallback can request compensation just before the
-	 * persistence worker is interrupted.  The latter still owns the debit and
-	 * must perform the refund even though it did not win the state transition.
-	 */
-	static boolean compensationRequiredAfterInterruption(AtomicInteger state, CountDownLatch completed) {
-		requestCompensation(state, completed);
-		return state.get() == COMPLETION_COMPENSATING;
 	}
 
 	private HashMap<String, String> purchasePlaceholders(VoteShopItem item) {
@@ -357,7 +396,8 @@ public class VoteShopPurchaseService {
 		return sharedMysqlFailure(user, item, limitColumn);
 	}
 
-	private SharedPurchaseDebit reserveSharedMysqlPurchase(VotingPluginUser user, VoteShopItem item) {
+	private SharedPurchaseDebit reserveSharedMysqlPurchase(VotingPluginUser user, VoteShopItem item,
+			LimitGeneration limitGeneration) {
 		MySQL table = plugin.getMysql();
 		String pointsColumn = user.getPointsPath();
 		String limitColumn = item.getLimit() > 0 ? "VoteShopLimit" + item.getIdentifier() : null;
@@ -376,7 +416,7 @@ public class VoteShopPurchaseService {
 			journal.recoverAndCleanup(System.currentTimeMillis());
 			String purchaseId = UUID.randomUUID().toString();
 			if (journal.reserve(purchaseId, user.getUUID(), pointsColumn, limitColumn, item.getCost(), item.getLimit(),
-					System.currentTimeMillis())) {
+					limitGeneration.value(), limitGeneration.expiresAt(), System.currentTimeMillis())) {
 				// reserve() returns only after its transaction and connection are closed;
 				// NO_CACHE reads must not contend with its one-connection pool handle.
 				refreshPurchaseCache(user, pointsColumn, limitColumn);
@@ -403,6 +443,18 @@ public class VoteShopPurchaseService {
 		}
 	}
 
+	private CompletableFuture<SharedMysqlPurchaseJournal.ClaimOutcome> claimSharedMysqlPurchaseAsync(
+			SharedPurchaseDebit debit) {
+		CompletableFuture<SharedMysqlPurchaseJournal.ClaimOutcome> result = new CompletableFuture<>();
+		try {
+			plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
+					() -> result.complete(claimSharedMysqlPurchase(debit)));
+		} catch (RuntimeException schedulingFailure) {
+			result.completeExceptionally(schedulingFailure);
+		}
+		return result;
+	}
+
 	private void completeSharedMysqlPurchase(SharedPurchaseDebit debit) {
 		try {
 			debit.journal().complete(debit.purchaseId());
@@ -419,7 +471,7 @@ public class VoteShopPurchaseService {
 			boolean schedulerProvesRewardCannotRun) {
 		try {
 			boolean refunded = schedulerProvesRewardCannotRun
-					? debit.journal().refundClaimedBeforeReward(debit.purchaseId())
+					? debit.journal().refundUnstartedReward(debit.purchaseId())
 					: debit.journal().refundPending(debit.purchaseId());
 			if (refunded) {
 				// refundPending() closes its transaction handle before any NO_CACHE
@@ -450,8 +502,71 @@ public class VoteShopPurchaseService {
 		}
 	}
 
-	private record SharedPurchaseDebit(VoteShopPurchaseResult result, SharedMysqlPurchaseJournal journal,
+	private LimitGeneration limitGeneration(VoteShopItem item, long nowMillis) {
+		if (item.getLimit() <= 0) return LimitGeneration.NONE;
+		String identifier = item.getIdentifier();
+		boolean daily = plugin.getShopFile().getVoteShopResetDaily(identifier);
+		boolean weekly = plugin.getShopFile().getVoteShopResetWeekly(identifier);
+		boolean monthly = plugin.getShopFile().getVoteShopResetMonthly(identifier);
+		return limitGeneration(plugin.getTimeChecker().getTime(), nowMillis, daily, weekly, monthly,
+				plugin.getOptions().getTimeWeekOffSet(), configuredTimeZone(), plugin.getOptions().getTimeHourOffSet());
+	}
+
+	private ZoneId configuredTimeZone() {
+		String configured = plugin.getOptions().getTimeZone();
+		if (configured == null || configured.isEmpty()) return ZoneId.systemDefault();
+		try {
+			return ZoneId.of(configured);
+		} catch (RuntimeException invalidZone) {
+			return ZoneId.systemDefault();
+		}
+	}
+
+	static LimitGeneration limitGeneration(LocalDateTime current, long nowMillis, boolean daily, boolean weekly,
+			boolean monthly, int weekOffset) {
+		return limitGeneration(current, nowMillis, daily, weekly, monthly, weekOffset, ZoneId.systemDefault(), 0);
+	}
+
+	private static LimitGeneration limitGeneration(LocalDateTime current, long nowMillis, boolean daily, boolean weekly,
+			boolean monthly, int weekOffset, ZoneId timeZone, int hourOffset) {
+		if (!daily && !weekly && !monthly) return LimitGeneration.NONE;
+		LocalDateTime next = null;
+		StringBuilder generation = new StringBuilder();
+		if (daily) {
+			next = current.toLocalDate().plusDays(1).atStartOfDay();
+			generation.append("D:").append(current.toLocalDate());
+		}
+		if (weekly) {
+			LocalDateTime weekBoundary = current.toLocalDate().plusDays(1).atStartOfDay();
+			int week = TimeCalculation.weekNumber(current, weekOffset, Locale.getDefault());
+			while (TimeCalculation.weekNumber(weekBoundary, weekOffset, Locale.getDefault()) == week) {
+				weekBoundary = weekBoundary.plusDays(1);
+			}
+			if (next == null || weekBoundary.isBefore(next)) next = weekBoundary;
+			if (generation.length() > 0) generation.append('|');
+			LocalDateTime weekTime = current.plusDays(weekOffset);
+			WeekFields fields = WeekFields.of(Locale.getDefault());
+			generation.append("W:").append(weekTime.get(fields.weekBasedYear())).append('-')
+					.append(weekTime.get(fields.weekOfWeekBasedYear()));
+		}
+		if (monthly) {
+			LocalDateTime monthBoundary = current.toLocalDate().withDayOfMonth(1).plusMonths(1).atStartOfDay();
+			if (next == null || monthBoundary.isBefore(next)) next = monthBoundary;
+			if (generation.length() > 0) generation.append('|');
+			generation.append("M:").append(current.getYear()).append('-').append(current.getMonthValue());
+		}
+		long expiresAt = next.minusHours(hourOffset).atZone(timeZone).toInstant().toEpochMilli();
+		if (expiresAt <= nowMillis) expiresAt = nowMillis + Math.max(1L, Duration.between(current, next).toMillis());
+		return new LimitGeneration(generation.toString(), expiresAt);
+	}
+
+	record SharedPurchaseDebit(VoteShopPurchaseResult result, SharedMysqlPurchaseJournal journal,
 			String purchaseId, String pointsColumn, String limitColumn) {
+	}
+
+	record LimitGeneration(String value, long expiresAt) {
+		private static final LimitGeneration NONE = new LimitGeneration(
+				SharedMysqlPurchaseJournal.NO_LIMIT_RESET_GENERATION, 0L);
 	}
 
 	Object purchaseLock(String uuid) {

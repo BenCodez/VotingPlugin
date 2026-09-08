@@ -8,8 +8,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.IntFunction;
 
 import com.bencodez.advancedcore.api.user.UserStorage;
+import com.bencodez.advancedcore.api.user.UserDataFetchMode;
+import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 import com.bencodez.simpleapi.sql.mysql.DbType;
+import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 /** Performs point writes that must remain atomic across shared MySQL servers. */
@@ -51,7 +54,7 @@ final class SharedMysqlPointMutator {
 
 	int add(VotingPluginUser user, int amount, boolean async) {
 		if (async) {
-			int predictedTotal = user.getPoints() + amount;
+			int predictedTotal = cachedPoints(user) + amount;
 			run(() -> update(user, amount, false), true);
 			// The mutation has not happened yet, so the historical asynchronous API
 			// returns its predicted post-event total without blocking for storage.
@@ -74,11 +77,32 @@ final class SharedMysqlPointMutator {
 
 	boolean remove(VotingPluginUser user, int amount, boolean async) {
 		if (!async) return remove(user, amount);
-		boolean predictedSuccess = user.getPoints() >= amount;
+		boolean predictedSuccess = cachedPoints(user) >= amount;
 		run(() -> update(user, -amount, true), true);
 		// Preserve the historical asynchronous API contract: the caller receives
 		// the cached prediction while the conditional database debit runs later.
 		return predictedSuccess;
+	}
+
+	private int cachedPoints(VotingPluginUser user) {
+		String path = user.getPointsPath();
+		UserDataCache cache = user.getCache();
+		if (cache != null) {
+			synchronized (cache) {
+				DataValue value = cache.getCache() == null ? null : cache.getCache().get(path);
+				if (value != null) {
+					if (value.isInt()) return value.getInt();
+					if (value.isString()) {
+						try {
+							return Integer.parseInt(value.getString());
+						} catch (NumberFormatException ignored) {
+							// Fall through to the temporary cache/default below.
+						}
+					}
+				}
+			}
+		}
+		return user.getUserData().getInt(path, UserDataFetchMode.TEMP_ONLY);
 	}
 
 	boolean transfer(VotingPluginUser source, VotingPluginUser target, int amount) {
