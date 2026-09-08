@@ -1128,7 +1128,11 @@ final class ProxyConfigurationFileService {
 				|| normalized.contains("privatekey") || normalized.contains("signingkey")
 				|| normalized.contains("authorization")) return true;
 		if (normalized.contains("webhook")) return !(value instanceof Map<?, ?>) && !(value instanceof List<?>);
-		if (!(value instanceof Map<?, ?>) && !(value instanceof List<?>) && compoundInfrastructureField(key)) return true;
+		if (!(value instanceof Map<?, ?>) && !(value instanceof List<?>)) {
+			if (infrastructureListContext(path)) return true;
+			if (compoundInfrastructureField(key)
+					&& (!normalized.endsWith("server") || knownInfrastructureServerField(path, key))) return true;
+		}
 		String normalizedPath = path.toLowerCase(Locale.ROOT).replace("_", "").replace("-", "").replaceAll("\\s+", "");
 		if (value instanceof String text && normalizedPath.contains("webhook")) {
 			String lowered = text.trim().toLowerCase(Locale.ROOT);
@@ -1195,6 +1199,55 @@ final class ProxyConfigurationFileService {
 				"mysqlport", "mysqlhost", "mqttport", "mqtthost").contains(compact);
 	}
 
+	private static boolean knownInfrastructureServerField(String path, String key) {
+		String words = key.replaceAll("([A-Z]+)([A-Z][a-z])", "$1 $2")
+				.replaceAll("([a-z0-9])([A-Z])", "$1 $2")
+				.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", " ").trim();
+		String normalizedPath = normalizePath(path);
+		return infrastructurePath(normalizedPath, "database") || infrastructurePath(normalizedPath, "mysql")
+				|| infrastructurePath(normalizedPath, "redis") || infrastructurePath(normalizedPath, "multiproxyredis")
+				|| infrastructurePath(normalizedPath, "mqtt") || infrastructurePath(normalizedPath, "bungeeserver")
+				|| infrastructurePath(normalizedPath, "spigotservers")
+				|| infrastructurePath(normalizedPath, "multiproxysockethost")
+				|| infrastructurePath(normalizedPath, "multiproxyservers")
+				|| words.startsWith("database ") || words.startsWith("mysql ") || words.startsWith("redis ")
+				|| words.startsWith("mqtt ") || words.startsWith("bungee ") || words.startsWith("proxy ");
+	}
+
+	private static boolean infrastructureListContext(String path) {
+		String normalizedPath = normalizePath(path);
+		for (String field : Set.of("hosts", "users", "endpoints", "addresses", "ports", "servers", "brokers",
+				"databases", "schemas", "sockets", "uris", "urls")) {
+			String marker = field + "[";
+			int start = normalizedPath.indexOf(marker);
+			while (start >= 0) {
+				String containerPath = normalizedPath.substring(0, start + field.length());
+				if (containerPath.endsWith("." + field)) {
+					containerPath = containerPath.substring(0, containerPath.length() - field.length() - 1);
+				} else if (containerPath.equals(field)) {
+					containerPath = "";
+				} else {
+					start = normalizedPath.indexOf(marker, start + marker.length());
+					continue;
+				}
+				if (knownInfrastructurePath(containerPath)) return true;
+				start = normalizedPath.indexOf(marker, start + marker.length());
+			}
+		}
+		return false;
+	}
+
+	private static boolean knownInfrastructurePath(String path) {
+		return Set.of("database", "mysql", "redis", "multiproxyredis", "mqtt", "bungeeserver", "spigotservers",
+				"multiproxysockethost", "multiproxyservers", "control").stream()
+				.anyMatch(section -> path.equals(section) || path.startsWith(section + ".")
+						|| path.startsWith(section + "["));
+	}
+
+	private static String normalizePath(String path) {
+		return path.toLowerCase(Locale.ROOT).replace("_", "").replace("-", "").replaceAll("\\s+", "");
+	}
+
 	private static boolean rootDatabaseField(String normalizedPath) {
 		return !normalizedPath.contains(".") && !normalizedPath.contains("[")
 				&& Set.of("host", "port", "database", "name", "user", "username", "password", "line", "driver", "poolname",
@@ -1202,7 +1255,9 @@ final class ProxyConfigurationFileService {
 	}
 
 	private static boolean infrastructurePath(String normalizedPath, String section) {
-		return normalizedPath.startsWith(section + ".") || normalizedPath.contains("." + section + ".");
+		return normalizedPath.startsWith(section + ".")
+				|| normalizedPath.startsWith(section + "[") || normalizedPath.contains("." + section + ".")
+				|| normalizedPath.contains("." + section + "[");
 	}
 
 	private static void copyPermissions(Path source, Path destination) throws IOException {

@@ -178,6 +178,43 @@ class ProxyConfigurationFileServiceTest {
 	}
 
 	@Test
+	void masksInfrastructureConnectionListsButKeepsLogicalServerSettings() throws Exception {
+		Path file = write("Redis:\n"
+				+ "  Hosts:\n"
+				+ "    - cache-a.internal\n"
+				+ "    - cache-b.internal\n"
+				+ "  Users:\n"
+				+ "    - redis-service\n"
+				+ "Database:\n"
+				+ "  Hosts: [db-a.internal, db-b.internal]\n"
+				+ "  Users: [database-service]\n"
+				+ "PrimaryServer: false\n"
+				+ "FallBackServer: true\n"
+				+ "Debug: false\n");
+		ProxyConfigurationFileService service = service(file);
+
+		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
+		assertFalse(current.content().contains("cache-a.internal"));
+		assertFalse(current.content().contains("cache-b.internal"));
+		assertFalse(current.content().contains("redis-service"));
+		assertFalse(current.content().contains("db-a.internal"));
+		assertFalse(current.content().contains("db-b.internal"));
+		assertFalse(current.content().contains("database-service"));
+		assertTrue(current.content().contains("PrimaryServer: false"));
+		assertTrue(current.content().contains("FallBackServer: true"));
+
+		ProxyConfigurationFileService.Preview preview = service.preview(ProxyConfigurationFileService.FILE_NAME,
+				current.content().replace("Debug: false", "Debug: true"));
+		assertTrue(preview.resolvedContent().contains("cache-a.internal"));
+		assertTrue(preview.resolvedContent().contains("cache-b.internal"));
+		assertTrue(preview.resolvedContent().contains("redis-service"));
+		assertTrue(preview.resolvedContent().contains("db-a.internal"));
+		assertTrue(preview.resolvedContent().contains("database-service"));
+		assertTrue(preview.resolvedContent().contains("PrimaryServer: false"));
+		assertTrue(preview.resolvedContent().contains("FallBackServer: true"));
+	}
+
+	@Test
 	void masksAndRestoresCompoundCredentialFields() throws Exception {
 		Path file = write("""
 				AuthToken: auth-token-value
