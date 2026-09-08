@@ -78,6 +78,34 @@ class ProxyConfigurationFileServiceTest {
 	}
 
 	@Test
+	void masksAndRestoresDottedCredentialFieldNames() throws Exception {
+		Path file = write("""
+				API.Key: api-key-secret
+				Access.Key: access-key-secret
+				Client.Secret: client-secret
+				Pass.Phrase: pass-phrase-secret
+				Debug: false
+				""");
+		ProxyConfigurationFileService service = service(file);
+
+		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
+		assertFalse(current.content().contains("api-key-secret"));
+		assertFalse(current.content().contains("access-key-secret"));
+		assertFalse(current.content().contains("client-secret"));
+		assertFalse(current.content().contains("pass-phrase-secret"));
+
+		String proposal = current.content().replace("Debug: false", "Debug: true");
+		ProxyConfigurationFileService.Preview preview = service.preview(ProxyConfigurationFileService.FILE_NAME, proposal);
+		assertTrue(preview.resolvedContent().contains("API.Key: api-key-secret"));
+		assertTrue(preview.resolvedContent().contains("Access.Key: access-key-secret"));
+		assertTrue(preview.resolvedContent().contains("Client.Secret: client-secret"));
+		assertTrue(preview.resolvedContent().contains("Pass.Phrase: pass-phrase-secret"));
+
+		service.apply(ProxyConfigurationFileService.FILE_NAME, proposal, current.revision());
+		assertTrue(Files.readString(file).contains("Debug: true"));
+	}
+
+	@Test
 	void masksAndRestoresCompoundCredentialFields() throws Exception {
 		Path file = write("""
 				AuthToken: auth-token-value

@@ -1076,7 +1076,7 @@ final class ProxyConfigurationFileService {
 	}
 
 	private static boolean secret(String path, String key, Object value) {
-		String normalized = key.toLowerCase(Locale.ROOT).replace("_", "").replace("-", "").replaceAll("\\s+", "");
+		String normalized = normalizeSecretName(key);
 		if (normalized.contains("password") || normalized.contains("passphrase") || normalized.contains("secret")
 				|| normalized.contains("token") || normalized.contains("credential")
 				|| normalized.contains("apikey") || normalized.contains("accesskey")
@@ -1116,6 +1116,12 @@ final class ProxyConfigurationFileService {
 			return lowered.startsWith("jdbc:") || lowered.matches("^[a-z][a-z0-9+.-]*://[^/@\\s]+:[^/@\\s]+@.*");
 		}
 		return false;
+	}
+
+	/** Normalizes the separators accepted in credential field names before classification. */
+	private static String normalizeSecretName(String value) {
+		return value.toLowerCase(Locale.ROOT).replace("_", "").replace("-", "").replace(".", "")
+				.replaceAll("\\s+", "");
 	}
 
 	private static boolean rootDatabaseField(String normalizedPath) {
