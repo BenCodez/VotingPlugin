@@ -132,23 +132,23 @@ class ProxyControlResultStoreTest {
 		assertEquals(configured, ProxyControlResultStore.loadPreferred(directory, configured).route());
 	}
 
-	@Test void globalResultLimitRejectsAnAdditionalRouteWithoutReplacingTheJournal() throws Exception {
+	@Test void releasedRouteResultsDoNotConsumeAnotherRoutesCapacity() throws Exception {
 		Route original = route("bounded-original");
 		Map<UUID, StoredResult> existing = new LinkedHashMap<>();
 		for (int index = 0; index < 128; index++) {
 			existing.put(UUID.nameUUIDFromBytes(("operation-" + index).getBytes(java.nio.charset.StandardCharsets.UTF_8)),
 					new StoredResult(result(true), true, false));
 		}
-		ProxyControlResultStore.save(directory, original, existing);
+		ProxyControlResultStore.save(directory, original, existing, false);
 		Route additional = route("bounded-additional");
 		UUID additionalId = UUID.fromString("00000000-0000-0000-0000-000000000102");
-		assertThrows(java.io.IOException.class, () -> ProxyControlResultStore.save(directory, additional,
-				Map.of(additionalId, new StoredResult(result(true), true, false))));
+		ProxyControlResultStore.save(directory, additional,
+				Map.of(additionalId, new StoredResult(result(true), true, false)), false);
 		assertEquals(128, ProxyControlResultStore.loadForRoute(directory, original).results().size());
-		assertNull(ProxyControlResultStore.loadForRoute(directory, additional));
+		assertTrue(ProxyControlResultStore.loadForRoute(directory, additional).results().containsKey(additionalId));
 	}
 
-	@Test void currentJournalRejectsAggregateResultsAboveTheGlobalLimit() throws Exception {
+	@Test void currentJournalAcceptsAggregateResultsWithinEachRouteLimit() throws Exception {
 		Route original = route("aggregate-load-original");
 		Map<UUID, StoredResult> existing = new LinkedHashMap<>();
 		for (int index = 0; index < 65; index++) {
@@ -164,7 +164,10 @@ class ProxyControlResultStoreTest {
 		root.getAsJsonArray("routes").add(duplicate);
 		Files.writeString(journal, root.toString());
 
-		assertThrows(java.io.IOException.class, () -> ProxyControlResultStore.load(directory));
+		assertEquals(65, ProxyControlResultStore.loadForRoute(directory, original).results().size());
+		Route copied = new Route("aggregate-load-copy", "Proxy aggregate-load-original", "VELOCITY", "7.1.2",
+				URI.create("https://aggregate-copy.example:8443"), "aggregate-load-original-credential.txt", 30, 3000, 5000);
+		assertEquals(65, ProxyControlResultStore.loadForRoute(directory, copied).results().size());
 	}
 
 	@Test void releasedRouteByteLimitDoesNotStarveAnotherRoute() throws Exception {

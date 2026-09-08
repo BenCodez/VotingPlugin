@@ -121,6 +121,28 @@ class ProxyConfigurationFileServiceTest {
 	}
 
 	@Test
+	void masksAndRestoresPunctuationDelimitedCredentialFieldNames() throws Exception {
+		Path file = write("""
+				API/Key: api-slash-secret
+				Private/Key: private-slash-secret
+				Auth|Token: token-punctuation-secret
+				Debug: false
+				""");
+		ProxyConfigurationFileService service = service(file);
+
+		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
+		assertFalse(current.content().contains("api-slash-secret"));
+		assertFalse(current.content().contains("private-slash-secret"));
+		assertFalse(current.content().contains("token-punctuation-secret"));
+
+		ProxyConfigurationFileService.Preview preview = service.preview(ProxyConfigurationFileService.FILE_NAME,
+				current.content().replace("Debug: false", "Debug: true"));
+		assertTrue(preview.resolvedContent().contains("API/Key: api-slash-secret"));
+		assertTrue(preview.resolvedContent().contains("Private/Key: private-slash-secret"));
+		assertTrue(preview.resolvedContent().contains("Auth|Token: token-punctuation-secret"));
+	}
+
+	@Test
 	void masksAndRestoresCompoundInfrastructureScalarNames() throws Exception {
 		Path file = write("""
 				ControlEndpoint: https://control.internal
@@ -604,6 +626,12 @@ class ProxyConfigurationFileServiceTest {
 		ProxyConfigurationFileService shiftedSecretService = service(shiftedSecret);
 		assertThrows(IllegalArgumentException.class, () -> shiftedSecretService.preview(
 				ProxyConfigurationFileService.FILE_NAME, "Endpoints:\n  - public-endpoint\n"));
+
+		ProxyConfigurationFileService.Preview scalarRotation = shiftedSecretService.preview(
+				ProxyConfigurationFileService.FILE_NAME,
+				"Endpoints:\n  - jdbc:mysql://new-user:new-password@db.invalid/votes\n");
+		assertTrue(scalarRotation.resolvedContent().contains("jdbc:mysql://new-user:new-password@db.invalid/votes"));
+		assertFalse(scalarRotation.resolvedContent().contains("public-endpoint"));
 	}
 
 	@Test

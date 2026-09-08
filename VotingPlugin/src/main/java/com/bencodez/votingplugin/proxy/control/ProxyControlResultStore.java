@@ -42,7 +42,7 @@ final class ProxyControlResultStore {
 	private static final int MAX_ROUTES = 16;
 	private static final int MAX_JOURNAL_BYTES = MAX_ROUTES * MAX_BYTES;
 	private static final int MAX_RESULT_BYTES = MAX_BYTES;
-	/** Global bound across every coordinator route in this journal. */
+	/** Per-coordinator-route bound. Released routes must not consume another route's capacity. */
 	private static final int MAX_RESULTS = 128;
 	private static final String FILE_NAME = ".control-proxy-pending-results.json";
 
@@ -105,9 +105,9 @@ final class ProxyControlResultStore {
 
 	/**
 	 * Replaces only the requested route's results and atomically writes the merged
-	 * global journal. If the global result or byte bound would be exceeded, this
-	 * method fails before touching the existing file; unacknowledged results are
-	 * never evicted to make room.
+	 * global journal. If the per-route or global byte bound would be exceeded,
+	 * this method fails before touching the existing file; unacknowledged results
+	 * are never evicted to make room.
 	 */
 	static void save(Path dataDirectory, Route route, Map<UUID, StoredResult> results, boolean routeRequired)
 			throws IOException {
@@ -140,8 +140,6 @@ final class ProxyControlResultStore {
 				throw new IOException("Too many pending Control coordinator routes");
 			routes.put(identity, new RouteEntry(route, copiedResults, routeRequired));
 		}
-		if (totalResults(routes) > MAX_RESULTS) throw new IOException("Too many pending Control proxy results");
-
 		byte[] bytes = serialize(routes);
 		if (bytes.length > MAX_JOURNAL_BYTES) throw new IOException("Control proxy-result journal is too large");
 
@@ -217,14 +215,7 @@ final class ProxyControlResultStore {
 			if (routes.size() >= MAX_ROUTES
 					|| routes.put(route.identity(), new RouteEntry(route, results, routeRequired)) != null) throw invalid();
 		}
-		if (totalResults(routes) > MAX_RESULTS) throw invalid();
 		return new Journal(routes);
-	}
-
-	private static int totalResults(Map<String, RouteEntry> routes) {
-		long total = 0;
-		for (RouteEntry entry : routes.values()) total += entry.results().size();
-		return total > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) total;
 	}
 
 	private static Route parseRoute(JsonObject routeJson) {

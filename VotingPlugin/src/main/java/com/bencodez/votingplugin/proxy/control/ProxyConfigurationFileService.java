@@ -439,9 +439,11 @@ final class ProxyConfigurationFileService {
 			for (int index = 0; index < proposed.size(); index++) {
 				Object old = current.get(index);
 				String itemPath = path + "[" + index + "]";
-				boolean retained = secret(itemPath, "", old)
-						? REDACTED.equals(proposed.get(index))
-						: retainsOrReplacesSecretValues(proposed.get(index), old, itemPath);
+				if (secret(itemPath, "", old)
+						&& current.subList(proposed.size(), current.size()).contains(proposed.get(index))) {
+					throw new IllegalArgumentException("redacted placeholder is invalid");
+				}
+				boolean retained = retainsOrReplacesSecretValues(proposed.get(index), old, itemPath);
 				if (secretBearingValue(old, itemPath) && !retained) {
 					throw new IllegalArgumentException("redacted placeholder is invalid");
 				}
@@ -991,9 +993,7 @@ final class ProxyConfigurationFileService {
 						&& !hasUniqueStableIdentity(proposedList, currentList, i)) return false;
 				if (proposedList.size() < currentList.size()
 						&& secretBearingValue(currentList.get(i), path + "[" + i + "]")
-						&& !(secret(path + "[" + i + "]", "", currentList.get(i))
-								? REDACTED.equals(proposedList.get(i))
-								: retainsOrReplacesSecretValues(proposedList.get(i), currentList.get(i), path + "[" + i + "]"))) return false;
+						&& !retainsOrReplacesSecretValues(proposedList.get(i), currentList.get(i), path + "[" + i + "]")) return false;
 			}
 			if (proposedList.size() < currentList.size()) {
 				for (int i = proposedList.size(); i < currentList.size(); i++) {
@@ -1141,8 +1141,7 @@ final class ProxyConfigurationFileService {
 
 	/** Normalizes the separators accepted in credential field names before classification. */
 	private static String normalizeSecretName(String value) {
-		return value.toLowerCase(Locale.ROOT).replace("_", "").replace("-", "").replace(".", "")
-				.replaceAll("\\s+", "");
+		return value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "");
 	}
 
 	private static boolean compoundInfrastructureField(String key) {
