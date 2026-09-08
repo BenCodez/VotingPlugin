@@ -194,8 +194,10 @@ class ProxyConfigurationFileServiceTest {
 				Hooks:
 				  - Name: alpha
 				    Password: alpha-secret
+				    Enabled: true
 				  - Name: beta
 				    Password: beta-secret
+				    Enabled: true
 				Debug: false
 				""");
 		ProxyConfigurationFileService service = service(file);
@@ -207,10 +209,34 @@ class ProxyConfigurationFileServiceTest {
 				"Password: rotated-secret");
 		assertTrue(service.preview(ProxyConfigurationFileService.FILE_NAME, rotatedSecret).resolvedContent()
 				.contains("Password: rotated-secret"));
+		String publicEdit = current.content().replaceFirst("Enabled: true", "Enabled: false");
+		String publicEditResolved = service.preview(ProxyConfigurationFileService.FILE_NAME, publicEdit).resolvedContent();
+		assertTrue(publicEditResolved.contains("Enabled: false"));
+		assertTrue(publicEditResolved.contains("Password: alpha-secret"));
 		String reordered = current.content().replace("Name: alpha", "Name: __swapped__")
 				.replace("Name: beta", "Name: alpha").replace("Name: __swapped__", "Name: beta");
 		assertThrows(IllegalArgumentException.class,
 				() -> service.preview(ProxyConfigurationFileService.FILE_NAME, reordered));
+	}
+
+	@Test
+	void rejectsPublicEditsWhenSecretBearingEntriesHaveDuplicateIdentities() throws Exception {
+		Path file = write("""
+				Hooks:
+				  - Name: duplicate
+				    Password: first-secret
+				    Enabled: true
+				  - Name: duplicate
+				    Password: second-secret
+				    Enabled: false
+				""");
+		ProxyConfigurationFileService service = service(file);
+		String current = service.read(ProxyConfigurationFileService.FILE_NAME).content();
+		String swappedPublicValues = current.replace("Enabled: true", "Enabled: __swapped__")
+				.replace("Enabled: false", "Enabled: true").replace("Enabled: __swapped__", "Enabled: false");
+
+		assertThrows(IllegalArgumentException.class,
+				() -> service.preview(ProxyConfigurationFileService.FILE_NAME, swappedPublicValues));
 	}
 
 	@Test

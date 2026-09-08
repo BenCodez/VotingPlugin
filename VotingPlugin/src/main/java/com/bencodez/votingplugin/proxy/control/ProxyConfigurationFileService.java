@@ -838,7 +838,9 @@ final class ProxyConfigurationFileService {
 		if (proposed instanceof Map<?, ?> proposedMap && current instanceof Map<?, ?> currentMap) {
 			if (!proposedMap.keySet().equals(currentMap.keySet())) return false;
 			String mapPath = path.endsWith(".") ? path : path + ".";
-			boolean hasIdentity = false;
+			boolean hasStableIdentity = false;
+			boolean sawNonSecret = false;
+			boolean allNonSecretsUnchanged = true;
 			boolean sawSecret = false;
 			boolean allSecretsRedacted = true;
 			for (Object rawKey : proposedMap.keySet()) {
@@ -849,19 +851,78 @@ final class ProxyConfigurationFileService {
 					sawSecret = true;
 					if (candidate instanceof Map<?, ?> || candidate instanceof List<?> || candidate == null) return false;
 					if (!REDACTED.equals(candidate)) allSecretsRedacted = false;
-				} else if (!sameSecretSafeListOrder(candidate, old, mapPath + key)) {
-					return false;
-				} else hasIdentity = true;
+				} else {
+					sawNonSecret = true;
+					boolean unchanged = sameSecretSafeListOrder(candidate, old, mapPath + key);
+					if (listEntryIdentityKey(key)) {
+						if (!unchanged) return false;
+						hasStableIdentity = true;
+					} else if (!unchanged) allNonSecretsUnchanged = false;
+				}
 			}
-			return hasIdentity || sawSecret && allSecretsRedacted;
+			return hasStableIdentity || sawNonSecret && allNonSecretsUnchanged
+					|| !sawNonSecret && sawSecret && allSecretsRedacted;
 		}
 		if (proposed instanceof List<?> proposedList && current instanceof List<?> currentList) {
 			if (proposedList.size() != currentList.size()) return false;
-			for (int i = 0; i < proposedList.size(); i++)
+			for (int i = 0; i < proposedList.size(); i++) {
 				if (!sameSecretSafeListOrder(proposedList.get(i), currentList.get(i), path + "[" + i + "]")) return false;
+				if (hasNonSecretEdit(proposedList.get(i), currentList.get(i), path + "[" + i + "]")
+						&& !hasUniqueStableIdentity(proposedList, currentList, i)) return false;
+			}
 			return true;
 		}
 		return java.util.Objects.equals(proposed, current);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static boolean hasNonSecretEdit(Object proposed, Object current, String path) {
+		if (secret(path, "", current)) return false;
+		if (proposed instanceof Map<?, ?> proposedMap && current instanceof Map<?, ?> currentMap) {
+			for (Object rawKey : proposedMap.keySet()) {
+				String key = String.valueOf(rawKey);
+				Object old = currentMap.get(rawKey);
+				if (!secret(path + "." + key, key, old)
+						&& hasNonSecretEdit(proposedMap.get(rawKey), old, path + "." + key)) return true;
+			}
+			return false;
+		}
+		if (proposed instanceof List<?> proposedList && current instanceof List<?> currentList) {
+			if (proposedList.size() != currentList.size()) return true;
+			for (int i = 0; i < proposedList.size(); i++)
+				if (hasNonSecretEdit(proposedList.get(i), currentList.get(i), path + "[" + i + "]")) return true;
+			return false;
+		}
+		return !java.util.Objects.equals(proposed, current);
+	}
+
+	private static boolean hasUniqueStableIdentity(List<?> proposed, List<?> current, int index) {
+		if (!(proposed.get(index) instanceof Map<?, ?> proposedMap)
+				|| !(current.get(index) instanceof Map<?, ?> currentMap)) return false;
+		for (Object rawKey : currentMap.keySet()) {
+			String key = String.valueOf(rawKey);
+			Object old = currentMap.get(rawKey);
+			if (!listEntryIdentityKey(key) || old == null || old instanceof Map<?, ?> || old instanceof List<?>
+					|| !java.util.Objects.equals(old, proposedMap.get(rawKey))) continue;
+			long currentMatches = current.stream().filter(item -> identityMatches(item, key, old)).count();
+			long proposedMatches = proposed.stream().filter(item -> identityMatches(item, key, old)).count();
+			if (currentMatches == 1 && proposedMatches == 1) return true;
+		}
+		return false;
+	}
+
+	private static boolean identityMatches(Object item, String key, Object value) {
+		if (!(item instanceof Map<?, ?> map)) return false;
+		for (Object rawKey : map.keySet()) {
+			if (String.valueOf(rawKey).equalsIgnoreCase(key)
+					&& java.util.Objects.equals(map.get(rawKey), value)) return true;
+		}
+		return false;
+	}
+
+	private static boolean listEntryIdentityKey(String key) {
+		String normalized = key.toLowerCase(Locale.ROOT).replace("_", "").replace("-", "");
+		return Set.of("name", "id", "key", "server", "serverid", "clientid").contains(normalized);
 	}
 
 	private static boolean secret(String path, String key, Object value) {
