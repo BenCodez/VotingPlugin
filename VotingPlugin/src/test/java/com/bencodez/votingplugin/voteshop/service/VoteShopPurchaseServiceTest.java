@@ -164,12 +164,19 @@ class VoteShopPurchaseServiceTest {
 		when(item.getLimit()).thenReturn(0);
 		VotingPluginUser user = purchaseUser();
 		AtomicInteger completions = new AtomicInteger();
+		AtomicReference<VoteShopPurchaseResult> completionResult = new AtomicReference<>();
 
 		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
+		doAnswer(invocation -> {
+			invocation.getArgument(1, Runnable.class).run();
+			return null;
+		}).when(scheduler).runTask(eq(plugin), any(Runnable.class), eq(player));
 		when(entityScheduler.runAtEntityWithFallback(org.mockito.ArgumentMatchers.eq(player), any(),
 				any(Runnable.class))).thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
-		new VoteShopPurchaseService(plugin, definition).purchase(player, user, item,
-				result -> completions.incrementAndGet());
+		new VoteShopPurchaseService(plugin, definition).purchase(player, user, item, result -> {
+			completionResult.set(result);
+			completions.incrementAndGet();
+		});
 		ArgumentCaptor<Runnable> work = ArgumentCaptor.forClass(Runnable.class);
 		verify(persistenceExecutor).execute(work.capture());
 		ExecutorService worker = Executors.newSingleThreadExecutor();
@@ -196,7 +203,8 @@ class VoteShopPurchaseServiceTest {
 		verify(entityScheduler).runAtEntityWithFallback(
 				org.mockito.ArgumentMatchers.eq(player), any(), any(Runnable.class));
 		scheduled.getValue().accept(null);
-		assertEquals(0, completions.get(), "a compensated purchase must not complete its reward later");
+		assertEquals(1, completions.get(), "a compensated purchase must complete exactly once");
+		assertEquals(VoteShopPurchaseResult.FAILED, completionResult.get());
 		verify(plugin.getRewardHandler(), never()).giveReward(any(), any(), any(), any());
 		worker.shutdownNow();
 	}

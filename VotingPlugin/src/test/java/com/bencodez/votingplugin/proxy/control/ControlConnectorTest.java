@@ -9,10 +9,17 @@ import com.bencodez.votingplugin.proxy.control.ControlConnector.Transport;
 import com.bencodez.votingplugin.proxy.control.ProxyControlResultStore.StoredResult;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -20,15 +27,27 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 class ControlConnectorTest {
+	@TempDir Path dataDirectory;
 	private ScheduledExecutorService scheduler;
 	private FakeTransport transport;
 	private List<String> logs;
+
+	@Test void responseBudgetCanCarryTheLargestEscapedManagedFileTask() {
+		assertTrue(ControlConnector.MAX_RESPONSE_BYTES >= ProxyConfigurationFileService.MAX_BYTES * 6);
+	}
 	private ControlConnector connector;
 
 	@BeforeEach void setUp() {
@@ -275,6 +294,362 @@ class ControlConnectorTest {
 		assertFalse(ControlConnector.requiresRuntimeReplacement(new StoredResult(result, true, false)));
 	}
 
+	@Test void proxyFileCapabilityAdvertisesAndDispatchesMaskedReadResults() throws Exception {
+		Path file = dataDirectory.resolve(ProxyConfigurationFileService.FILE_NAME);
+		Files.writeString(file, "Database:\n  Password: local-secret\nProxy:\n  Enabled: true\n");
+		connector.close();
+		connector = fileConnector(new ProxyConfigurationFileService(file, ControlConnectorTest::atomicMove));
+		transport.acceptProxyFiles = true;
+		transport.operationClaim = CompletableFuture.completedFuture(new Response(200,
+				"{\"operationId\":\"00000000-0000-0000-0000-000000000099\","
+						+ "\"attemptId\":\"00000000-0000-0000-0000-000000000199\","
+						+ "\"type\":\"READ\",\"configuration\":{\"domain\":\"file\","
+						+ "\"fileName\":\"bungeeconfig.yml\"}}"));
+
+		connector.cycle();
+
+		JsonObject registration = JsonParser.parseString(transport.requests.get(0).body()).getAsJsonObject();
+		assertTrue(registration.getAsJsonArray("capabilities").asList().stream()
+				.anyMatch(value -> "config.proxy-files.v1".equals(value.getAsString())));
+		JsonObject result = submittedResult();
+		JsonObject configuration = result.getAsJsonObject("configuration");
+		assertEquals("file", configuration.get("domain").getAsString());
+		assertEquals("bungeeconfig.yml", configuration.get("fileName").getAsString());
+		assertTrue(configuration.get("content").getAsString().contains(ProxyConfigurationFileService.REDACTED));
+		assertFalse(transport.requests.stream().map(Request::body).anyMatch(body -> body.contains("local-secret")));
+	}
+
+	@Test void recoveredCapabilityFilteredResultCompletesRecoveryAfterAnEmptyClaim() throws Exception {
+		Path file = dataDirectory.resolve(ProxyConfigurationFileService.FILE_NAME);
+		Files.writeString(file, "Debug: false\n");
+		AtomicInteger recoveryCalls = new AtomicInteger();
+		connector.close();
+		connector = fileConnector(new ProxyConfigurationFileService(file, ControlConnectorTest::atomicMove), true,
+				recoveryCalls::incrementAndGet);
+		JsonObject result = new JsonObject();
+		result.addProperty("success", true);
+		result.addProperty("attemptId", "00000000-0000-0000-0000-000000000199");
+		JsonObject configuration = new JsonObject();
+		configuration.addProperty("domain", "file");
+		configuration.addProperty("fileName", ProxyConfigurationFileService.FILE_NAME);
+		result.add("configuration", configuration);
+		Field completed = ControlConnector.class.getDeclaredField("completedTasks");
+		completed.setAccessible(true);
+		@SuppressWarnings("unchecked") Map<UUID, StoredResult> results =
+				(Map<UUID, StoredResult>) completed.get(connector);
+		results.put(UUID.fromString("00000000-0000-0000-0000-000000000099"),
+				new StoredResult(result, true, false));
+		transport.acceptConfiguration = true;
+		transport.operationClaim = CompletableFuture.completedFuture(new Response(204, ""));
+
+		connector.cycle();
+
+		assertEquals(1, recoveryCalls.get(), "a filtered recovered result must not pin the old connector route");
+		connector.cycle();
+		assertEquals(1, recoveryCalls.get(), "recovery completion must be idempotent");
+	}
+
+	@Test void recoveredCapabilityFilteredResultCompletesWithoutAnOperationLane() throws Exception {
+		Path file = dataDirectory.resolve(ProxyConfigurationFileService.FILE_NAME);
+		Files.writeString(file, "Debug: false\n");
+		AtomicInteger recoveryCalls = new AtomicInteger();
+		connector.close();
+		connector = fileConnector(new ProxyConfigurationFileService(file, ControlConnectorTest::atomicMove), true,
+				recoveryCalls::incrementAndGet);
+		JsonObject result = new JsonObject();
+		result.addProperty("success", true);
+		result.addProperty("attemptId", "00000000-0000-0000-0000-000000000199");
+		JsonObject configuration = new JsonObject();
+		configuration.addProperty("domain", "file");
+		configuration.addProperty("fileName", ProxyConfigurationFileService.FILE_NAME);
+		result.add("configuration", configuration);
+		Field completed = ControlConnector.class.getDeclaredField("completedTasks");
+		completed.setAccessible(true);
+		@SuppressWarnings("unchecked") Map<UUID, StoredResult> results =
+				(Map<UUID, StoredResult>) completed.get(connector);
+		results.put(UUID.fromString("00000000-0000-0000-0000-000000000099"),
+				new StoredResult(result, true, false));
+		// The server can keep this node registered for presence while refusing
+		// every operation capability, leaving no operation claim to return 204.
+		transport.acceptConfiguration = false;
+		transport.acceptProxyFiles = false;
+
+		connector.cycle();
+
+		assertEquals(1, recoveryCalls.get(),
+				"a filtered recovered result must complete after the successful no-operation handshake");
+		assertTrue(transport.requests.stream().noneMatch(request -> request.path().endsWith("/operations")));
+		ProxyControlResultStore.State retained = ProxyControlResultStore.load(dataDirectory);
+		assertNotNull(retained);
+		assertFalse(retained.routeRequired(), "the retained result must not pin the next connector to the old route");
+		connector.cycle();
+		assertEquals(1, recoveryCalls.get(), "recovery completion must be idempotent");
+	}
+
+	@Test void malformedProxyFileFieldsBecomeDurableValidationFailures() throws Exception {
+		Path file = dataDirectory.resolve(ProxyConfigurationFileService.FILE_NAME);
+		Files.writeString(file, "Debug: false\n");
+		connector.close();
+		connector = fileConnector(new ProxyConfigurationFileService(file, ControlConnectorTest::atomicMove));
+		transport.acceptProxyFiles = true;
+		String[] malformedTasks = {
+				"{\"domain\":\"file\",\"fileName\":\"bungeeconfig.yml\"}",
+				"{\"domain\":\"file\",\"fileName\":{},\"content\":\"Debug: true\\n\"}",
+				"{\"domain\":\"file\",\"fileName\":\"bungeeconfig.yml\","
+						+ "\"content\":\"Debug: true\\n\",\"reload\":true}"
+		};
+		for (int index = 0; index < malformedTasks.length; index++) {
+			String operationId = String.format("00000000-0000-0000-0000-%012d", 99 + index);
+			String attemptId = String.format("00000000-0000-0000-0000-%012d", 199 + index);
+			String claim = "{\"operationId\":\"" + operationId + "\","
+					+ "\"attemptId\":\"" + attemptId + "\","
+					+ "\"type\":\"PREVIEW\",\"configuration\":" + malformedTasks[index] + "}";
+			transport.operationClaim = CompletableFuture.completedFuture(new Response(200, claim));
+			connector.cycle();
+			JsonObject result = submittedResult();
+			assertFalse(result.get("success").getAsBoolean());
+			assertEquals("VALIDATION_ERROR", result.get("code").getAsString());
+			assertEquals(Status.CONNECTED, connector.status());
+		}
+	}
+
+	@Test void proxyFilePreviewRejectsARevisionThatChangesAfterCalculation() throws Exception {
+		Path file = dataDirectory.resolve(ProxyConfigurationFileService.FILE_NAME);
+		Files.writeString(file, "Debug: false\n");
+		ProxyConfigurationFileService actual = new ProxyConfigurationFileService(file,
+				ControlConnectorTest::atomicMove);
+		ProxyConfigurationFileService service = mock(ProxyConfigurationFileService.class);
+		AtomicBoolean mutated = new AtomicBoolean();
+		when(service.preview(ProxyConfigurationFileService.FILE_NAME, "Debug: true\n")).thenAnswer(invocation -> {
+			ProxyConfigurationFileService.Preview preview = actual.preview(
+					invocation.getArgument(0), invocation.getArgument(1));
+			if (!mutated.compareAndSet(false, true)) return preview;
+			try {
+				Files.writeString(file, "Debug: changed-locally\n");
+			} catch (java.io.IOException failure) {
+				throw new AssertionError(failure);
+			}
+			return preview;
+		});
+		when(service.read(ProxyConfigurationFileService.FILE_NAME)).thenAnswer(invocation ->
+				actual.read(invocation.getArgument(0)));
+		connector.close();
+		connector = fileConnector(service);
+		transport.acceptProxyFiles = true;
+		transport.operationClaim = CompletableFuture.completedFuture(new Response(200,
+				"{\"operationId\":\"00000000-0000-0000-0000-000000000099\","
+						+ "\"attemptId\":\"00000000-0000-0000-0000-000000000199\","
+						+ "\"type\":\"PREVIEW\",\"configuration\":{\"domain\":\"file\","
+						+ "\"fileName\":\"bungeeconfig.yml\",\"content\":\"Debug: true\\n\"}}"));
+
+		connector.cycle();
+
+		JsonObject result = submittedResult();
+		assertTrue(mutated.get());
+		assertFalse(result.get("success").getAsBoolean());
+		assertEquals("STALE_REVISION", result.get("code").getAsString());
+		assertFalse(result.has("configuration"));
+		assertEquals("Debug: changed-locally\n", Files.readString(file));
+	}
+
+	@Test void proxyFileTaskIsRejectedWhenOnlyRoutingControlWasNegotiated() throws Exception {
+		Path file = dataDirectory.resolve(ProxyConfigurationFileService.FILE_NAME);
+		Files.writeString(file, "Debug: false\n");
+		connector.close();
+		connector = fileConnector(new ProxyConfigurationFileService(file, (source, target) -> {
+			throw new AssertionError("an unnegotiated proxy file task must not publish changes");
+		}));
+		transport.acceptConfiguration = true;
+		transport.operationClaim = CompletableFuture.completedFuture(new Response(200,
+				"{\"operationId\":\"00000000-0000-0000-0000-000000000099\","
+						+ "\"attemptId\":\"00000000-0000-0000-0000-000000000199\","
+						+ "\"type\":\"APPLY\",\"expectedRevision\":\"ignored\","
+						+ "\"configuration\":{\"domain\":\"file\","
+						+ "\"fileName\":\"bungeeconfig.yml\",\"content\":\"Debug: true\\n\"}}"));
+
+		connector.cycle();
+
+		JsonObject result = submittedResult();
+		assertFalse(result.get("success").getAsBoolean());
+		assertEquals("UNSUPPORTED", result.get("code").getAsString());
+		assertEquals("Debug: false\n", Files.readString(file));
+	}
+
+	@Test void proxyFileRejectsUnmanagedNamesWithAStructuredSafeFailure() throws Exception {
+		Path file = dataDirectory.resolve(ProxyConfigurationFileService.FILE_NAME);
+		Files.writeString(file, "Database:\n  Password: local-secret\n");
+		connector.close();
+		connector = fileConnector(new ProxyConfigurationFileService(file, ControlConnectorTest::atomicMove));
+		transport.acceptProxyFiles = true;
+		transport.operationClaim = CompletableFuture.completedFuture(new Response(200,
+				"{\"operationId\":\"00000000-0000-0000-0000-000000000099\","
+						+ "\"attemptId\":\"00000000-0000-0000-0000-000000000199\","
+						+ "\"type\":\"READ\",\"configuration\":{\"domain\":\"file\","
+						+ "\"fileName\":\"../../private/local-secret.yml\"}}"));
+
+		connector.cycle();
+
+		JsonObject result = submittedResult();
+		assertFalse(result.get("success").getAsBoolean());
+		assertEquals("VALIDATION_ERROR", result.get("code").getAsString());
+		assertEquals("proxy configuration file is not managed", result.get("message").getAsString());
+		assertFalse(result.toString().contains("local-secret"));
+		assertFalse(result.toString().contains("../"));
+	}
+
+	@Test void proxyFileWriteAheadIntentPersistsOnlyRecoveryMetadataBeforeTheFileIsPublished() throws Exception {
+		Path file = dataDirectory.resolve(ProxyConfigurationFileService.FILE_NAME);
+		Files.writeString(file, "Database:\n  Password: local-secret\nProxy:\n  Enabled: true\n");
+		CountDownLatch firstMove = new CountDownLatch(1);
+		CountDownLatch releaseMove = new CountDownLatch(1);
+		AtomicBoolean blockFirstMove = new AtomicBoolean(true);
+		ProxyConfigurationFileService service = new ProxyConfigurationFileService(file, (source, target) -> {
+			if (blockFirstMove.compareAndSet(true, false)) {
+				firstMove.countDown();
+				try {
+					releaseMove.await();
+				} catch (InterruptedException failure) {
+					Thread.currentThread().interrupt();
+					throw new java.io.IOException(failure);
+				}
+			}
+			atomicMove(source, target);
+		});
+		String proposed = "Database:\n  Password: " + ProxyConfigurationFileService.REDACTED
+				+ "\nProxy:\n  Enabled: false\n";
+		String expectedRevision = ProxyConfigurationFileService.revision(Files.readString(file));
+		String expectedProposedRevision = ProxyConfigurationFileService.revision(service.preview(
+				ProxyConfigurationFileService.FILE_NAME, proposed).resolvedContent());
+		connector.close();
+		connector = fileConnector(service);
+		transport.acceptProxyFiles = true;
+		transport.operationClaim = CompletableFuture.completedFuture(new Response(200,
+				"{\"operationId\":\"00000000-0000-0000-0000-000000000099\","
+						+ "\"attemptId\":\"00000000-0000-0000-0000-000000000199\","
+						+ "\"type\":\"APPLY\",\"expectedRevision\":\"" + expectedRevision + "\","
+						+ "\"configuration\":{\"domain\":\"file\",\"fileName\":\"bungeeconfig.yml\","
+						+ "\"content\":\"Database:\\n  Password: " + ProxyConfigurationFileService.REDACTED
+						+ "\\nProxy:\\n  Enabled: false\\n\"}}"));
+
+		CompletableFuture<Void> cycle = CompletableFuture.runAsync(connector::cycle);
+		assertTrue(firstMove.await(2, TimeUnit.SECONDS));
+		try {
+			String journal = Files.readString(dataDirectory.resolve(".control-proxy-pending-results.json"));
+			StoredResult intent = ProxyControlResultStore.load(dataDirectory).results().values().iterator().next();
+			JsonObject configuration = intent.result().getAsJsonObject("configuration");
+			assertFalse(intent.committed());
+			assertFalse(intent.result().get("reloaded").getAsBoolean());
+			assertTrue(intent.result().get("message").getAsString().contains("restart the proxy"));
+			assertEquals("file", configuration.get("domain").getAsString());
+			assertEquals("bungeeconfig.yml", configuration.get("fileName").getAsString());
+			assertEquals(expectedProposedRevision, intent.result().get("revision").getAsString());
+			assertFalse(configuration.has("content"));
+			assertFalse(journal.contains("local-secret"));
+			assertFalse(journal.contains("Enabled: false"));
+		} finally {
+			releaseMove.countDown();
+		}
+		cycle.get(2, TimeUnit.SECONDS);
+	}
+
+	@Test void failedProxyIntentPublicationRestoresTheInMemoryWriteAheadState() throws Exception {
+		connector.close();
+		connector = fileConnector(new ProxyConfigurationFileService(dataDirectory.resolve(
+				ProxyConfigurationFileService.FILE_NAME), ControlConnectorTest::atomicMove));
+		Path journal = dataDirectory.resolve(".control-proxy-pending-results.json");
+		Path external = dataDirectory.resolve("external-journal.json");
+		Files.writeString(external, "{}");
+		try {
+			Files.createSymbolicLink(journal, external.getFileName());
+		} catch (UnsupportedOperationException unsupported) {
+			return;
+		}
+
+		Method fileIntent = taskResultClass().getDeclaredMethod("fileIntent", String.class, String.class, List.class);
+		fileIntent.setAccessible(true);
+		Object intent = fileIntent.invoke(null, ProxyConfigurationFileService.FILE_NAME, "anticipated-revision",
+				List.of("changed Proxy.Enabled"));
+		Method persistIntent = ControlConnector.class.getDeclaredMethod("persistIntent", UUID.class,
+				taskResultClass(), String.class);
+		persistIntent.setAccessible(true);
+
+		assertThrows(java.lang.reflect.InvocationTargetException.class, () -> persistIntent.invoke(connector,
+				UUID.fromString("00000000-0000-0000-0000-000000000099"), intent,
+				"00000000-0000-0000-0000-000000000199"));
+		assertEquals(0, completedTaskCount());
+	}
+
+	@Test void proxyFileTaskResultsBoundChangeDescriptionsBeforeJournaling() throws Exception {
+		Method fileIntent = taskResultClass().getDeclaredMethod("fileIntent", String.class, String.class, List.class);
+		fileIntent.setAccessible(true);
+		Object result = fileIntent.invoke(null, ProxyConfigurationFileService.FILE_NAME, "anticipated-revision",
+				List.of("changed " + "x".repeat(1000)));
+		Method changes = taskResultClass().getDeclaredMethod("changes");
+		changes.setAccessible(true);
+
+		@SuppressWarnings("unchecked") List<String> bounded = (List<String>) changes.invoke(result);
+		assertEquals(1, bounded.size());
+		assertTrue(bounded.get(0).length() <= 240);
+		assertTrue(bounded.get(0).endsWith("..."));
+	}
+
+	@Test void resultChangeBoundsRetainExactlyTwentyRealChanges() {
+		List<String> changes = java.util.stream.IntStream.range(0, 20).mapToObj(index -> "changed Path" + index).toList();
+
+		assertEquals(changes, ControlConnector.boundedResultChanges(changes));
+	}
+
+	@Test void recoveredProxyFileIntentRebuildsMaskedContent() throws Exception {
+		Path file = dataDirectory.resolve(ProxyConfigurationFileService.FILE_NAME);
+		Files.writeString(file, "Database:\n  Password: local-secret\nProxy:\n  Enabled: false\n");
+		ProxyConfigurationFileService service = new ProxyConfigurationFileService(file,
+				ControlConnectorTest::atomicMove);
+		connector.close();
+		connector = fileConnector(service);
+		ProxyConfigurationFileService.Document installed = service.read(ProxyConfigurationFileService.FILE_NAME);
+		Method fileIntent = taskResultClass().getDeclaredMethod("fileIntent", String.class, String.class, List.class);
+		fileIntent.setAccessible(true);
+		Object intent = fileIntent.invoke(null, ProxyConfigurationFileService.FILE_NAME, installed.revision(),
+				List.of("changed Proxy.Enabled"));
+		Method persistIntent = ControlConnector.class.getDeclaredMethod("persistIntent", UUID.class,
+				taskResultClass(), String.class);
+		persistIntent.setAccessible(true);
+		persistIntent.invoke(connector, UUID.fromString("00000000-0000-0000-0000-000000000099"), intent,
+				"00000000-0000-0000-0000-000000000199");
+		Method prepare = ControlConnector.class.getDeclaredMethod("prepareWriteAheadIntents");
+		prepare.setAccessible(true);
+		prepare.invoke(connector);
+
+		StoredResult recovered = ProxyControlResultStore.load(dataDirectory).results().values().iterator().next();
+		assertTrue(recovered.committed());
+		String content = recovered.result().getAsJsonObject("configuration").get("content").getAsString();
+		assertEquals(installed.content(), content);
+		assertFalse(content.contains("local-secret"));
+	}
+
+	@Test void malformedRecoveredProxyFileIntentIsAborted() throws Exception {
+		connector.close();
+		connector = fileConnector(new ProxyConfigurationFileService(
+				dataDirectory.resolve(ProxyConfigurationFileService.FILE_NAME), ControlConnectorTest::atomicMove));
+		Method fileIntent = taskResultClass().getDeclaredMethod("fileIntent", String.class, String.class, List.class);
+		fileIntent.setAccessible(true);
+		Object intent = fileIntent.invoke(null, "not-managed.yml", "anticipated-revision", List.of("changed"));
+		Method persistIntent = ControlConnector.class.getDeclaredMethod("persistIntent", UUID.class,
+				taskResultClass(), String.class);
+		persistIntent.setAccessible(true);
+		UUID operationId = UUID.fromString("00000000-0000-0000-0000-000000000099");
+		persistIntent.invoke(connector, operationId, intent, "00000000-0000-0000-0000-000000000199");
+
+		Method prepare = ControlConnector.class.getDeclaredMethod("prepareWriteAheadIntents");
+		prepare.setAccessible(true);
+		prepare.invoke(connector);
+
+		StoredResult recovered = ProxyControlResultStore.load(dataDirectory).results().get(operationId);
+		assertNotNull(recovered);
+		assertTrue(recovered.committed());
+		assertEquals("RECOVERY_ABORTED", recovered.result().get("code").getAsString());
+	}
+
 	@Test void lostResultResponseIsResubmittedBeforeAnotherOperationClaim() {
 		connector.close();
 		ProxyRoutingConfiguration current = new ProxyRoutingConfiguration(false, List.of());
@@ -298,6 +673,95 @@ class ControlConnectorTest {
 
 		assertEquals(2, transport.requests.stream().filter(request -> request.path().endsWith("/result")).count());
 		assertEquals(1, transport.requests.stream().filter(request -> request.path().endsWith("/operations")).count());
+	}
+
+	@Test void recoveredProxyFileResultWaitsForItsCapabilityWithoutBlockingClaims() throws Exception {
+		Path file = dataDirectory.resolve(ProxyConfigurationFileService.FILE_NAME);
+		Files.writeString(file, "Proxy:\n  Enabled: false\n");
+		connector.close();
+		connector = fileConnector(new ProxyConfigurationFileService(file, ControlConnectorTest::atomicMove));
+		JsonObject result = new JsonObject();
+		result.addProperty("success", true);
+		result.addProperty("attemptId", "00000000-0000-0000-0000-000000000199");
+		JsonObject configuration = new JsonObject();
+		configuration.addProperty("domain", "file");
+		configuration.addProperty("fileName", ProxyConfigurationFileService.FILE_NAME);
+		configuration.addProperty("content", "Proxy:\n  Enabled: false\n");
+		result.add("configuration", configuration);
+		Field completed = ControlConnector.class.getDeclaredField("completedTasks");
+		completed.setAccessible(true);
+		@SuppressWarnings("unchecked") Map<UUID, StoredResult> results =
+				(Map<UUID, StoredResult>) completed.get(connector);
+		results.put(UUID.fromString("00000000-0000-0000-0000-000000000099"),
+				new StoredResult(result, true, false));
+		transport.acceptConfiguration = true;
+		transport.operationClaim = CompletableFuture.completedFuture(new Response(200,
+				"{\"operationId\":\"00000000-0000-0000-0000-000000000099\","
+						+ "\"attemptId\":\"00000000-0000-0000-0000-000000000299\","
+						+ "\"type\":\"READ\",\"configuration\":{\"domain\":\"file\","
+						+ "\"fileName\":\"bungeeconfig.yml\"}}"));
+
+		connector.cycle();
+
+		assertEquals(0, transport.requests.stream().filter(request -> request.path().endsWith("/result")).count());
+		assertEquals(1, transport.requests.stream().filter(request -> request.path().endsWith("/operations")).count());
+		assertEquals(1, completedTaskCount());
+		AtomicBoolean replacement = new AtomicBoolean();
+		Field deferred = ControlConnector.class.getDeclaredField("deferredReplacement");
+		deferred.setAccessible(true);
+		deferred.set(connector, (Runnable) () -> replacement.set(true));
+		Method finishCycle = ControlConnector.class.getDeclaredMethod("finishCycle");
+		finishCycle.setAccessible(true);
+		finishCycle.invoke(connector);
+		assertTrue(replacement.get(), "a capability-blocked durable result must not prevent lifecycle replacement");
+		assertEquals(1, completedTaskCount(), "the blocked result must remain journaled for a later capable session");
+
+		Field accepted = ControlConnector.class.getDeclaredField("acceptedCapabilities");
+		accepted.setAccessible(true);
+		accepted.set(connector, Set.of("presence.snapshot", "config.proxy-files.v1"));
+		transport.resultSubmission = CompletableFuture.completedFuture(new Response(200, "{}"));
+		connector.cycle();
+		assertEquals(1, transport.requests.stream().filter(request -> request.path().endsWith("/result")).count());
+		assertEquals(0, completedTaskCount());
+
+		results.put(UUID.fromString("00000000-0000-0000-0000-000000000099"),
+				new StoredResult(result, false, true));
+		accepted.set(connector, Set.of("presence.snapshot", "config.proxy-routing.v1"));
+		replacement.set(false);
+		deferred.set(connector, (Runnable) () -> replacement.set(true));
+		finishCycle.invoke(connector);
+		assertTrue(replacement.get(), "a capability-blocked lease-expired result must not prevent replacement");
+		assertEquals(1, completedTaskCount(), "the lease-expired result must remain available for a capable session");
+	}
+
+	@Test void largeProxyFileReadSurvivesLostAcknowledgementAndConnectorRestart() throws Exception {
+		Path file = dataDirectory.resolve(ProxyConfigurationFileService.FILE_NAME);
+		Files.writeString(file, "Large: '" + "a".repeat(300 * 1024) + "'\n");
+		ProxyConfigurationFileService service = new ProxyConfigurationFileService(file,
+				ControlConnectorTest::atomicMove);
+		connector.close();
+		connector = fileConnector(service);
+		transport.acceptProxyFiles = true;
+		transport.operationClaim = CompletableFuture.completedFuture(new Response(200,
+				"{\"operationId\":\"00000000-0000-0000-0000-000000000099\","
+						+ "\"attemptId\":\"00000000-0000-0000-0000-000000000199\","
+						+ "\"type\":\"READ\",\"configuration\":{\"domain\":\"file\","
+						+ "\"fileName\":\"bungeeconfig.yml\"}}"));
+		transport.resultSubmission = new CompletableFuture<>();
+
+		connector.cycle();
+		transport.resultSubmission.completeExceptionally(new java.io.IOException("acknowledgement lost"));
+		assertEquals(Status.UNAVAILABLE, connector.status());
+		assertTrue(Files.size(dataDirectory.resolve(".control-proxy-pending-results.json")) > 256 * 1024);
+
+		connector.close();
+		connector = fileConnector(service);
+		transport.operationClaim = CompletableFuture.completedFuture(new Response(204, ""));
+		transport.resultSubmission = CompletableFuture.completedFuture(new Response(200, "{}"));
+		connector.cycle();
+
+		assertFalse(Files.exists(dataDirectory.resolve(".control-proxy-pending-results.json")));
+		assertEquals(2, transport.requests.stream().filter(request -> request.path().endsWith("/result")).count());
 	}
 
 	@Test void expiredResultLeaseIsReclaimedAndReboundBeforeResubmission() {
@@ -356,7 +820,7 @@ class ControlConnectorTest {
 		assertEquals(1, transport.requests.stream().filter(request -> request.path().endsWith("/result")).count());
 	}
 
-	@Test void abandonedWriteAheadIntentIsReportedAndReleasedWhenControlForgotTheOperation() {
+	@Test void abandonedWriteAheadIntentRetainsItsCapabilityUntilControlCanAcceptIt() throws Exception {
 		connector.close();
 		UUID operationId = UUID.fromString("00000000-0000-0000-0000-000000000099");
 		ProxyRoutingConfiguration proposal = new ProxyRoutingConfiguration(true, List.of());
@@ -366,8 +830,9 @@ class ControlConnectorTest {
 		anticipated.addProperty("message", "Configuration applied");
 		anticipated.addProperty("revision", proposal.revision());
 		JsonObject configuration = new JsonObject();
-		configuration.addProperty("sendVotesToAllServers", true);
-		configuration.add("blockedServers", new com.google.gson.JsonArray());
+		configuration.addProperty("domain", "file");
+		configuration.addProperty("fileName", ProxyConfigurationFileService.FILE_NAME);
+		configuration.addProperty("content", "Proxy:\n  Enabled: true\n");
 		anticipated.add("configuration", configuration);
 		anticipated.addProperty("attemptId", "00000000-0000-0000-0000-000000000199");
 		connector = new ControlConnector(settings(), scheduler, transport,
@@ -379,13 +844,19 @@ class ControlConnectorTest {
 				"{\"error\":{\"code\":\"OPERATION_NOT_FOUND\"}}"));
 
 		connector.cycle();
+		assertEquals(0, transport.requests.stream().filter(request -> request.path().endsWith("/result")).count());
+		assertEquals(1, transport.requests.stream().filter(request -> request.path().endsWith("/operations")).count());
+		Field accepted = ControlConnector.class.getDeclaredField("acceptedCapabilities");
+		accepted.setAccessible(true);
+		accepted.set(connector, Set.of("presence.snapshot", "config.proxy-files.v1"));
+		connector.cycle();
 		JsonObject submitted = JsonParser.parseString(transport.requests.stream()
 				.filter(request -> request.path().endsWith("/result")).findFirst().orElseThrow().body()).getAsJsonObject();
 		assertEquals("RECOVERY_ABORTED", submitted.get("code").getAsString());
 
 		transport.operationClaim = CompletableFuture.completedFuture(new Response(204, ""));
 		connector.cycle();
-		assertEquals(1, transport.requests.stream().filter(request -> request.path().endsWith("/operations")).count());
+		assertEquals(2, transport.requests.stream().filter(request -> request.path().endsWith("/operations")).count());
 		assertTrue(connector.reserveRuntimeReplacement());
 	}
 
@@ -438,12 +909,66 @@ class ControlConnectorTest {
 				URI.create("http://127.0.0.1:8080"), 30, 3000, 5000);
 	}
 
+	private JsonObject submittedResult() {
+		return JsonParser.parseString(transport.requests.stream().filter(request -> request.path().endsWith("/result"))
+				.findFirst().orElseThrow().body()).getAsJsonObject();
+	}
+
+	private static void atomicMove(Path source, Path target) throws java.io.IOException {
+		Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+	}
+
+	private static Class<?> taskResultClass() {
+		return java.util.Arrays.stream(ControlConnector.class.getDeclaredClasses())
+				.filter(type -> type.getSimpleName().equals("TaskResult")).findFirst().orElseThrow();
+	}
+
+	@SuppressWarnings("unchecked")
+	private int completedTaskCount() throws Exception {
+		Field completed = ControlConnector.class.getDeclaredField("completedTasks");
+		completed.setAccessible(true);
+		return ((Map<UUID, StoredResult>) completed.get(connector)).size();
+	}
+
+	@SuppressWarnings("unchecked")
+	private ControlConnector fileConnector(ProxyConfigurationFileService fileService) throws Exception {
+		return fileConnector(fileService, false, null);
+	}
+
+	@SuppressWarnings("unchecked")
+	private ControlConnector fileConnector(ProxyConfigurationFileService fileService, boolean recovering,
+			Runnable recoveryComplete) throws Exception {
+		Constructor<ControlConnector> constructor = ControlConnector.class.getDeclaredConstructor(Settings.class,
+				ScheduledExecutorService.class, Transport.class, Supplier.class, Consumer.class, UUID.class,
+				LongSupplier.class, ProxyRoutingConfigurationService.class, Path.class, ProxyControlResultStore.Route.class,
+				boolean.class, Runnable.class, Function.class, ProxyMethodConfigurationService.class, Runnable.class,
+				ProxyConfigurationFileService.class);
+		constructor.setAccessible(true);
+		ProxyControlResultStore.Route connectorRoute = new ProxyControlResultStore.Route("proxy-a", "Proxy A",
+				"VELOCITY", "7.1.2", URI.create("http://127.0.0.1:8080"), "credential.txt", 30, 3000, 5000);
+		ControlConnector created = constructor.newInstance(settings(), scheduler, transport,
+				(Supplier<List<ObservedBackend>>) List::of,
+				(Consumer<String>) logs::add, UUID.randomUUID(), (LongSupplier) () -> 0L, null, dataDirectory,
+				connectorRoute,
+				recovering, recoveryComplete,
+				(Function<String, CompletableFuture<com.bencodez.votingplugin.proxy.VotingPluginProxy.CommunicationTestResult>>) null,
+				null, null, fileService);
+		ProxyControlResultStore.State recovered = ProxyControlResultStore.loadForRoute(dataDirectory, connectorRoute);
+		if (recovered != null) {
+			Field completed = ControlConnector.class.getDeclaredField("completedTasks");
+			completed.setAccessible(true);
+			((Map<UUID, StoredResult>) completed.get(created)).putAll(recovered.results());
+		}
+		return created;
+	}
+
 	private static final class FakeTransport implements Transport {
 		private final List<Request> requests = new ArrayList<>();
 		private Response nextPrimary;
 		private CompletableFuture<Response> stalled;
 		private RuntimeException synchronousFailure;
 		private boolean acceptConfiguration;
+		private boolean acceptProxyFiles;
 		private CompletableFuture<Response> operationClaim;
 		private CompletableFuture<Response> resultSubmission;
 		private CountDownLatch firstSendEntered;
@@ -488,7 +1013,9 @@ class ControlConnectorTest {
 				}
 				if ("/api/v1/nodes/register".equals(request.path())) {
 					String capabilities = acceptConfiguration
-							? "[\"presence.snapshot\",\"config.proxy-routing.v1\"]" : "[\"presence.snapshot\"]";
+							? "[\"presence.snapshot\",\"config.proxy-routing.v1\"]"
+							: acceptProxyFiles ? "[\"presence.snapshot\",\"config.proxy-files.v1\"]"
+							: "[\"presence.snapshot\"]";
 					return CompletableFuture.completedFuture(new Response(201,
 							"{\"identity\":{\"protocolVersion\":1},\"node\":{\"acceptedCapabilities\":"
 									+ capabilities + "}}"));

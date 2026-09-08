@@ -10,6 +10,7 @@ public enum VoteShopPurchaseResult {
 
 	SUCCESS,
 	PENDING,
+	FAILED,
 	SHOP_DISABLED,
 	ITEM_NOT_FOUND,
 	NO_PERMISSION,

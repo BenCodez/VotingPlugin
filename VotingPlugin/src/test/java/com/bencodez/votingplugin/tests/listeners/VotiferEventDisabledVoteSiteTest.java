@@ -4,12 +4,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.logging.Logger;
 
@@ -22,6 +24,7 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.ConfigVoteSites;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.listeners.VotiferEvent;
+import com.bencodez.votingplugin.listeners.VotifierVoteOverflowQueue;
 import com.bencodez.votingplugin.votesites.VoteSiteManager;
 import com.vexsoftware.votifier.model.Vote;
 
@@ -45,12 +48,15 @@ public class VotiferEventDisabledVoteSiteTest {
 
 	private VotiferEvent listener;
 
+	private VotifierVoteOverflowQueue overflowQueue;
+
 	@BeforeEach
 	public void setUp() {
 		plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
 		configVoteSites = mock(ConfigVoteSites.class);
 		voteSiteManager = mock(VoteSiteManager.class);
 		voteTimer = mock(ScheduledExecutorService.class);
+		overflowQueue = mock(VotifierVoteOverflowQueue.class);
 
 		Server server = mock(Server.class);
 		pluginManager = mock(PluginManager.class);
@@ -59,6 +65,7 @@ public class VotiferEventDisabledVoteSiteTest {
 		when(plugin.getConfigVoteSites()).thenReturn(configVoteSites);
 		when(plugin.getVoteSiteManager()).thenReturn(voteSiteManager);
 		when(plugin.getVoteTimer()).thenReturn(voteTimer);
+		when(plugin.getVotifierVoteOverflowQueue()).thenReturn(overflowQueue);
 		when(plugin.getServer()).thenReturn(server);
 		when(server.getPluginManager()).thenReturn(pluginManager);
 
@@ -135,5 +142,17 @@ public class VotiferEventDisabledVoteSiteTest {
 
 		verify(configVoteSites).tryAutoGenerateVoteSite(SERVICE_SITE);
 		verify(pluginManager).callEvent(any(PlayerVoteEvent.class));
+	}
+
+	@Test
+	public void testVoteIsQueuedWhenBoundedExecutorRejectsIt() {
+		doThrow(new RejectedExecutionException("capacity exhausted"))
+				.when(voteTimer).submit(any(Runnable.class));
+		when(overflowQueue.enqueue("Steve", SERVICE_SITE)).thenReturn(true);
+
+		listener.onVotiferEvent(createVoteEvent(SERVICE_SITE));
+
+		verify(overflowQueue).enqueue("Steve", SERVICE_SITE);
+		verify(pluginManager, never()).callEvent(any(PlayerVoteEvent.class));
 	}
 }

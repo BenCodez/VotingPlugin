@@ -198,7 +198,7 @@ public class VoteShopPurchaseService {
 		AtomicInteger state = new AtomicInteger(COMPLETION_PENDING);
 		Runnable compensateBeforeClaim = () -> {
 			if (!state.compareAndSet(COMPLETION_PENDING, COMPLETION_COMPENSATING)) return;
-			plugin.getTimer().execute(() -> refundSharedMysqlDebit(user, debit, true));
+			compensateSharedMysqlPurchase(player, user, completion, debit);
 		};
 		try {
 			/*
@@ -214,7 +214,7 @@ public class VoteShopPurchaseService {
 				claimSharedMysqlPurchaseAsync(debit).whenComplete((claim, failure) -> {
 					if (failure != null || claim == SharedMysqlPurchaseJournal.ClaimOutcome.NOT_CLAIMED) {
 						if (state.compareAndSet(COMPLETION_RUNNING, COMPLETION_COMPENSATING)) {
-							plugin.getTimer().execute(() -> refundSharedMysqlDebit(user, debit, true));
+							compensateSharedMysqlPurchase(player, user, completion, debit);
 						}
 						return;
 					}
@@ -245,7 +245,7 @@ public class VoteShopPurchaseService {
 		AtomicInteger state = new AtomicInteger(COMPLETION_PENDING);
 		Runnable rejectBeforeStart = () -> {
 			if (state.compareAndSet(COMPLETION_PENDING, COMPLETION_COMPENSATING)) {
-				plugin.getTimer().execute(() -> refundSharedMysqlDebit(user, debit, true));
+				compensateSharedMysqlPurchase(player, user, completion, debit);
 			}
 		};
 		try {
@@ -274,6 +274,22 @@ public class VoteShopPurchaseService {
 	private void logClaimedRewardSchedulingFailure(SharedPurchaseDebit debit) {
 		plugin.getLogger().severe("Shared MySQL vote shop purchase " + debit.purchaseId()
 				+ " was claimed but its reward callback did not complete; retaining it for reconciliation");
+	}
+
+	private void compensateSharedMysqlPurchase(Player player, VotingPluginUser user,
+			Consumer<VoteShopPurchaseResult> completion, SharedPurchaseDebit debit) {
+		Runnable compensation = () -> {
+			refundSharedMysqlDebit(user, debit, true);
+			plugin.getBukkitScheduler().runTask(plugin,
+					() -> completion.accept(VoteShopPurchaseResult.FAILED), player);
+		};
+		try {
+			plugin.getTimer().execute(compensation);
+		} catch (RuntimeException schedulingFailure) {
+			plugin.debug(schedulingFailure);
+			plugin.getBukkitScheduler().runTask(plugin,
+					() -> completion.accept(VoteShopPurchaseResult.FAILED), player);
+		}
 	}
 
 	private void settleSharedMysqlPurchase(Player player, Consumer<VoteShopPurchaseResult> completion,
@@ -613,6 +629,11 @@ public class VoteShopPurchaseService {
 			VoteShopPurchaseResult result) {
 		if (result == VoteShopPurchaseResult.SHOP_DISABLED) {
 			player.sendMessage(com.bencodez.simpleapi.messages.MessageAPI.colorize("&cVote shop disabled"));
+			return;
+		}
+		if (result == VoteShopPurchaseResult.FAILED) {
+			player.sendMessage(com.bencodez.simpleapi.messages.MessageAPI.colorize(
+					"&cUnable to complete this purchase; please try again."));
 			return;
 		}
 		if (result == VoteShopPurchaseResult.LIMIT_REACHED) {
