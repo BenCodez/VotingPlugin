@@ -55,6 +55,7 @@ final class ProxyControlResultStore {
 			if (!parsed.isJsonObject()) throw invalid();
 			JsonObject root = parsed.getAsJsonObject();
 			if (integer(root, "version") != VERSION) throw invalid();
+			boolean routeRequired = !root.has("routeRequired") || bool(root, "routeRequired");
 			JsonObject routeJson = object(root, "route");
 			Route route = new Route(string(routeJson, "nodeId"), string(routeJson, "displayName"),
 					string(routeJson, "platform"), string(routeJson, "pluginVersion"),
@@ -77,13 +78,18 @@ final class ProxyControlResultStore {
 								item.get("claimRequired").getAsBoolean()));
 				if (previous != null) throw invalid();
 			}
-			return new State(route, Map.copyOf(results));
+			return new State(route, Map.copyOf(results), routeRequired);
 		} catch (RuntimeException e) {
 			throw new IOException("Control proxy-result journal is malformed", e);
 		}
 	}
 
 	static void save(Path dataDirectory, Route route, Map<UUID, StoredResult> results) throws IOException {
+		save(dataDirectory, route, results, true);
+	}
+
+	static void save(Path dataDirectory, Route route, Map<UUID, StoredResult> results, boolean routeRequired)
+			throws IOException {
 		Path target = target(dataDirectory);
 		if (results.isEmpty()) {
 			if (Files.isSymbolicLink(target)) throw new IOException("Control proxy-result journal is unsafe");
@@ -97,6 +103,7 @@ final class ProxyControlResultStore {
 		}
 		JsonObject root = new JsonObject();
 		root.addProperty("version", VERSION);
+		root.addProperty("routeRequired", routeRequired);
 		JsonObject routeJson = new JsonObject();
 		routeJson.addProperty("nodeId", route.nodeId());
 		routeJson.addProperty("displayName", route.displayName());
@@ -162,6 +169,12 @@ final class ProxyControlResultStore {
 		return object.get(name).getAsInt();
 	}
 
+	private static boolean bool(JsonObject object, String name) {
+		if (!object.has(name) || !object.get(name).isJsonPrimitive()
+				|| !object.getAsJsonPrimitive(name).isBoolean()) throw invalid();
+		return object.get(name).getAsBoolean();
+	}
+
 	private static IllegalArgumentException invalid() {
 		return new IllegalArgumentException("invalid proxy-result journal");
 	}
@@ -173,5 +186,5 @@ final class ProxyControlResultStore {
 			if (committed && claimRequired) throw new IllegalArgumentException("committed result cannot require a claim");
 		}
 	}
-	record State(Route route, Map<UUID, StoredResult> results) { }
+	record State(Route route, Map<UUID, StoredResult> results, boolean routeRequired) { }
 }

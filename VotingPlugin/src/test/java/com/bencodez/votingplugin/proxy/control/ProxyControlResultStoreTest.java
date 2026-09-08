@@ -36,10 +36,26 @@ class ProxyControlResultStoreTest {
 		ProxyControlResultStore.State recovered = ProxyControlResultStore.load(directory);
 
 		assertEquals(route, recovered.route());
+		assertTrue(recovered.routeRequired());
 		assertEquals("applied-revision", recovered.results().get(operationId).result().get("revision").getAsString());
 		assertTrue(recovered.results().get(operationId).committed());
 		ProxyControlResultStore.save(directory, route, Map.of());
 		assertFalse(Files.exists(directory.resolve(".control-proxy-pending-results.json")));
+	}
+
+	@Test void completedRecoveryRetainsResultsWithoutPinningTheOldRoute() throws Exception {
+		UUID operationId = UUID.fromString("00000000-0000-0000-0000-000000000099");
+		Route route = new Route("proxy-old", "Proxy Old", "VELOCITY", "7.1.2",
+				URI.create("https://control.example:8443"), "old-credential.txt", 30, 3000, 5000);
+		JsonObject result = new JsonObject();
+		result.addProperty("success", true);
+
+		ProxyControlResultStore.save(directory, route,
+				Map.of(operationId, new StoredResult(result, true, false)), false);
+		ProxyControlResultStore.State recovered = ProxyControlResultStore.load(directory);
+
+		assertFalse(recovered.routeRequired());
+		assertTrue(recovered.results().containsKey(operationId));
 	}
 
 	@Test void writeAheadIntentRetainsItsUncommittedStateAcrossRestart() throws Exception {

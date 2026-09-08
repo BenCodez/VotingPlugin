@@ -86,6 +86,7 @@ public final class ControlConnector implements AutoCloseable {
 	private final Map<UUID, StoredResult> completedTasks = new LinkedHashMap<>();
 	private final Object operationLifecycle = new Object();
 	private final AtomicBoolean inFlight = new AtomicBoolean();
+	private final AtomicBoolean recoveryCompleted = new AtomicBoolean();
 	private Runnable deferredReplacement;
 	private volatile boolean closed;
 	private volatile boolean registered;
@@ -155,8 +156,8 @@ public final class ControlConnector implements AutoCloseable {
 		Settings settings;
 		Route route;
 		String credentialName;
-		boolean recovering = recovered != null;
-		if (recovered != null) {
+		boolean recovering = recovered != null && recovered.routeRequired();
+		if (recovering) {
 			route = recovered.route();
 			settings = settings(route);
 			credentialName = route.credentialFile();
@@ -337,7 +338,14 @@ public final class ControlConnector implements AutoCloseable {
 			activeRequest = presence;
 			return presence.thenCompose(responseBody -> {
 				handlePresenceResponse(responseBody);
-				if (!configurationAccepted) return CompletableFuture.completedFuture(null);
+				if (!configurationAccepted) {
+					// A recovering connector may have only results for capabilities this
+					// session could not negotiate. There is no operation claim (and thus
+					// no 204) to release that drained recovery, so complete it after the
+					// registration/presence handshake instead.
+					completeRecoveryIfDrained();
+					return CompletableFuture.completedFuture(null);
+				}
 				if (hasCompletedTask()) return submitCompletedResult();
 				CompletableFuture<Response> claim = transport.send(claimRequest());
 				activeRequest = claim;
@@ -515,7 +523,13 @@ public final class ControlConnector implements AutoCloseable {
 	}
 
 	private CompletableFuture<Void> handleClaimResponse(Response response) {
-		if (response.statusCode == 204) return CompletableFuture.completedFuture(null);
+		if (response.statusCode == 204) {
+			// A recovered result may be filtered because this session did not negotiate
+			// its capability.  There is then nothing to acknowledge, so the empty
+			// claim itself is the point at which recovery can be released.
+			completeRecoveryIfDrained();
+			return CompletableFuture.completedFuture(null);
+		}
 		if (response.statusCode == 404) {
 			registered = false;
 			throw new RegistryLostException();
@@ -608,7 +622,25 @@ public final class ControlConnector implements AutoCloseable {
 			drained = !hasLifecycleBlockingTasks();
 			if (replaceRuntime) deferredReplacement = runtimeReplacement;
 		}
-		if (recovering && drained && recoveryComplete != null && !replaceRuntime) recoveryComplete.run();
+		if (drained && !replaceRuntime) completeRecoveryIfDrained();
+	}
+
+	private void completeRecoveryIfDrained() {
+		if (!recovering || recoveryComplete == null) return;
+		synchronized (operationLifecycle) {
+			if (hasLifecycleBlockingTasks()) return;
+		}
+		if (!recoveryCompleted.compareAndSet(false, true)) return;
+		try {
+			// Keep capability-filtered results durable, but release the old route so
+			// the replacement connector starts from current configuration instead of
+			// loading the same recovery route forever.
+			persistCompleted(false);
+		} catch (RuntimeException failure) {
+			recoveryCompleted.set(false);
+			throw failure;
+		}
+		recoveryComplete.run();
 	}
 
 	/** Results rejected by this negotiated session remain durable but do not prevent its lifecycle from draining. */
@@ -648,11 +680,15 @@ public final class ControlConnector implements AutoCloseable {
 	}
 
 	private void persistCompleted() {
+		persistCompleted(true);
+	}
+
+	private void persistCompleted(boolean routeRequired) {
 		if (dataDirectory == null || route == null) return;
 		Map<UUID, StoredResult> snapshot;
 		synchronized (operationLifecycle) { snapshot = new LinkedHashMap<>(completedTasks); }
 		try {
-			ProxyControlResultStore.save(dataDirectory, route, snapshot);
+			ProxyControlResultStore.save(dataDirectory, route, snapshot, routeRequired);
 		} catch (IOException e) {
 			throw new UnavailableException(e);
 		}
@@ -874,6 +910,8 @@ public final class ControlConnector implements AutoCloseable {
 		} catch (ProxyConfigurationFileService.ApplyFailureException failure) {
 			return completed(new TaskResult(false, "APPLY_FAILED", "Proxy configuration could not be saved", null, null,
 					List.of(), false, failure.rolledBack()));
+		} catch (MalformedResponseException failure) {
+			return completed(TaskResult.failure("VALIDATION_ERROR", "Proxy configuration task fields are invalid"));
 		} catch (IllegalArgumentException failure) {
 			return completed(TaskResult.failure("VALIDATION_ERROR", failure.getMessage()));
 		} catch (IOException | RuntimeException failure) {
@@ -990,7 +1028,8 @@ public final class ControlConnector implements AutoCloseable {
 	}
 
 	private static String requireString(JsonObject body, String name) {
-		if (body == null || !body.has(name) || !body.get(name).isJsonPrimitive()) throw new MalformedResponseException();
+		if (body == null || !body.has(name) || !body.get(name).isJsonPrimitive()
+				|| !body.getAsJsonPrimitive(name).isString()) throw new MalformedResponseException();
 		return body.get(name).getAsString();
 	}
 

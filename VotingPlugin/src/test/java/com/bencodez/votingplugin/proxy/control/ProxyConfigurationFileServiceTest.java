@@ -78,6 +78,26 @@ class ProxyConfigurationFileServiceTest {
 	}
 
 	@Test
+	void masksHostedControlDownloadUrlAndRestoresItForEdits() throws Exception {
+		String downloadUrl = "https://control.internal/download/token-value";
+		Path file = write("""
+				Control:
+				  Hosted:
+				    DownloadUrl: %s
+				Debug: false
+				""".formatted(downloadUrl));
+		ProxyConfigurationFileService service = service(file);
+
+		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
+		assertFalse(current.content().contains(downloadUrl));
+		String proposal = current.content().replace("Debug: false", "Debug: true");
+		ProxyConfigurationFileService.Preview preview = service.preview(ProxyConfigurationFileService.FILE_NAME, proposal);
+		assertTrue(preview.resolvedContent().contains(downloadUrl));
+		service.apply(ProxyConfigurationFileService.FILE_NAME, proposal, current.revision());
+		assertTrue(Files.readString(file).contains(downloadUrl));
+	}
+
+	@Test
 	void masksAndRestoresEverySupportedDatabaseLayout() throws Exception {
 		Path file = write("""
 				Host: root.internal

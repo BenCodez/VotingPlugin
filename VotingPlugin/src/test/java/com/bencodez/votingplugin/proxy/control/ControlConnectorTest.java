@@ -27,6 +27,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
@@ -316,6 +317,98 @@ class ControlConnectorTest {
 		assertEquals("bungeeconfig.yml", configuration.get("fileName").getAsString());
 		assertTrue(configuration.get("content").getAsString().contains(ProxyConfigurationFileService.REDACTED));
 		assertFalse(transport.requests.stream().map(Request::body).anyMatch(body -> body.contains("local-secret")));
+	}
+
+	@Test void recoveredCapabilityFilteredResultCompletesRecoveryAfterAnEmptyClaim() throws Exception {
+		Path file = dataDirectory.resolve(ProxyConfigurationFileService.FILE_NAME);
+		Files.writeString(file, "Debug: false\n");
+		AtomicInteger recoveryCalls = new AtomicInteger();
+		connector.close();
+		connector = fileConnector(new ProxyConfigurationFileService(file, ControlConnectorTest::atomicMove), true,
+				recoveryCalls::incrementAndGet);
+		JsonObject result = new JsonObject();
+		result.addProperty("success", true);
+		result.addProperty("attemptId", "00000000-0000-0000-0000-000000000199");
+		JsonObject configuration = new JsonObject();
+		configuration.addProperty("domain", "file");
+		configuration.addProperty("fileName", ProxyConfigurationFileService.FILE_NAME);
+		result.add("configuration", configuration);
+		Field completed = ControlConnector.class.getDeclaredField("completedTasks");
+		completed.setAccessible(true);
+		@SuppressWarnings("unchecked") Map<UUID, StoredResult> results =
+				(Map<UUID, StoredResult>) completed.get(connector);
+		results.put(UUID.fromString("00000000-0000-0000-0000-000000000099"),
+				new StoredResult(result, true, false));
+		transport.acceptConfiguration = true;
+		transport.operationClaim = CompletableFuture.completedFuture(new Response(204, ""));
+
+		connector.cycle();
+
+		assertEquals(1, recoveryCalls.get(), "a filtered recovered result must not pin the old connector route");
+		connector.cycle();
+		assertEquals(1, recoveryCalls.get(), "recovery completion must be idempotent");
+	}
+
+	@Test void recoveredCapabilityFilteredResultCompletesWithoutAnOperationLane() throws Exception {
+		Path file = dataDirectory.resolve(ProxyConfigurationFileService.FILE_NAME);
+		Files.writeString(file, "Debug: false\n");
+		AtomicInteger recoveryCalls = new AtomicInteger();
+		connector.close();
+		connector = fileConnector(new ProxyConfigurationFileService(file, ControlConnectorTest::atomicMove), true,
+				recoveryCalls::incrementAndGet);
+		JsonObject result = new JsonObject();
+		result.addProperty("success", true);
+		result.addProperty("attemptId", "00000000-0000-0000-0000-000000000199");
+		JsonObject configuration = new JsonObject();
+		configuration.addProperty("domain", "file");
+		configuration.addProperty("fileName", ProxyConfigurationFileService.FILE_NAME);
+		result.add("configuration", configuration);
+		Field completed = ControlConnector.class.getDeclaredField("completedTasks");
+		completed.setAccessible(true);
+		@SuppressWarnings("unchecked") Map<UUID, StoredResult> results =
+				(Map<UUID, StoredResult>) completed.get(connector);
+		results.put(UUID.fromString("00000000-0000-0000-0000-000000000099"),
+				new StoredResult(result, true, false));
+		// The server can keep this node registered for presence while refusing
+		// every operation capability, leaving no operation claim to return 204.
+		transport.acceptConfiguration = false;
+		transport.acceptProxyFiles = false;
+
+		connector.cycle();
+
+		assertEquals(1, recoveryCalls.get(),
+				"a filtered recovered result must complete after the successful no-operation handshake");
+		assertTrue(transport.requests.stream().noneMatch(request -> request.path().endsWith("/operations")));
+		ProxyControlResultStore.State retained = ProxyControlResultStore.load(dataDirectory);
+		assertNotNull(retained);
+		assertFalse(retained.routeRequired(), "the retained result must not pin the next connector to the old route");
+		connector.cycle();
+		assertEquals(1, recoveryCalls.get(), "recovery completion must be idempotent");
+	}
+
+	@Test void malformedProxyFileFieldsBecomeDurableValidationFailures() throws Exception {
+		Path file = dataDirectory.resolve(ProxyConfigurationFileService.FILE_NAME);
+		Files.writeString(file, "Debug: false\n");
+		connector.close();
+		connector = fileConnector(new ProxyConfigurationFileService(file, ControlConnectorTest::atomicMove));
+		transport.acceptProxyFiles = true;
+		String[] malformedTasks = {
+				"{\"domain\":\"file\",\"fileName\":\"bungeeconfig.yml\"}",
+				"{\"domain\":\"file\",\"fileName\":{},\"content\":\"Debug: true\\n\"}"
+		};
+		for (int index = 0; index < malformedTasks.length; index++) {
+			String operationId = String.format("00000000-0000-0000-0000-%012d", 99 + index);
+			String attemptId = String.format("00000000-0000-0000-0000-%012d", 199 + index);
+			String claim = "{\"operationId\":\"" + operationId + "\","
+					+ "\"attemptId\":\"" + attemptId + "\","
+					+ "\"type\":\"PREVIEW\",\"configuration\":" + malformedTasks[index] + "}";
+			transport.operationClaim = CompletableFuture.completedFuture(new Response(200, claim));
+			connector.cycle();
+			JsonObject result = submittedResult();
+			assertFalse(result.get("success").getAsBoolean());
+			assertEquals("VALIDATION_ERROR", result.get("code").getAsString());
+			assertEquals(Status.CONNECTED, connector.status());
+		}
 	}
 
 	@Test void proxyFilePreviewRejectsARevisionThatChangesAfterCalculation() throws Exception {
@@ -837,6 +930,12 @@ class ControlConnectorTest {
 
 	@SuppressWarnings("unchecked")
 	private ControlConnector fileConnector(ProxyConfigurationFileService fileService) throws Exception {
+		return fileConnector(fileService, false, null);
+	}
+
+	@SuppressWarnings("unchecked")
+	private ControlConnector fileConnector(ProxyConfigurationFileService fileService, boolean recovering,
+			Runnable recoveryComplete) throws Exception {
 		Constructor<ControlConnector> constructor = ControlConnector.class.getDeclaredConstructor(Settings.class,
 				ScheduledExecutorService.class, Transport.class, Supplier.class, Consumer.class, UUID.class,
 				LongSupplier.class, ProxyRoutingConfigurationService.class, Path.class, ProxyControlResultStore.Route.class,
@@ -848,7 +947,7 @@ class ControlConnectorTest {
 				(Consumer<String>) logs::add, UUID.randomUUID(), (LongSupplier) () -> 0L, null, dataDirectory,
 				new ProxyControlResultStore.Route("proxy-a", "Proxy A", "VELOCITY", "7.1.2",
 						URI.create("http://127.0.0.1:8080"), "credential.txt", 30, 3000, 5000),
-				false, null,
+				recovering, recoveryComplete,
 				(Function<String, CompletableFuture<com.bencodez.votingplugin.proxy.VotingPluginProxy.CommunicationTestResult>>) null,
 				null, null, fileService);
 		ProxyControlResultStore.State recovered = ProxyControlResultStore.load(dataDirectory);

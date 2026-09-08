@@ -993,7 +993,8 @@ final class ProxyConfigurationFileService {
 					&& Set.of("host", "port").contains(normalized);
 		}
 		if (infrastructurePath(normalizedPath, "control")) {
-			return normalized.endsWith("file") || normalized.endsWith("directory")
+			return "control.hosted.downloadurl".equals(normalizedPath)
+					|| normalized.endsWith("file") || normalized.endsWith("directory")
 					|| Set.of("endpoint", "host", "port").contains(normalized);
 		}
 		if (value instanceof String text) {
