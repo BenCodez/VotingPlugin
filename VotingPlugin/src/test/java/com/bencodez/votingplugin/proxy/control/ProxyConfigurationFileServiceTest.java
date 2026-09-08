@@ -78,6 +78,58 @@ class ProxyConfigurationFileServiceTest {
 	}
 
 	@Test
+	void masksAndRestoresCompoundCredentialFields() throws Exception {
+		Path file = write("""
+				AuthToken: auth-token-value
+				AccessToken: access-token-value
+				Credential: credential-value
+				PrivateKey: plain-private-material
+				Private Key: spaced-private-key-value
+				Access Key: spaced-access-key-value
+				API Key: spaced-api-key-value
+				KeyPassphrase: passphrase-value
+				Debug: false
+				""");
+		ProxyConfigurationFileService service = service(file);
+
+		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
+		assertFalse(current.content().contains("auth-token-value"));
+		assertFalse(current.content().contains("access-token-value"));
+		assertFalse(current.content().contains("credential-value"));
+		assertFalse(current.content().contains("plain-private-material"));
+		assertFalse(current.content().contains("spaced-private-key-value"));
+		assertFalse(current.content().contains("spaced-access-key-value"));
+		assertFalse(current.content().contains("spaced-api-key-value"));
+		assertFalse(current.content().contains("passphrase-value"));
+
+		String proposal = current.content().replace("Debug: false", "Debug: true");
+		ProxyConfigurationFileService.Preview preview = service.preview(ProxyConfigurationFileService.FILE_NAME, proposal);
+		assertTrue(preview.resolvedContent().contains("AuthToken: auth-token-value"));
+		assertTrue(preview.resolvedContent().contains("AccessToken: access-token-value"));
+		assertTrue(preview.resolvedContent().contains("Credential: credential-value"));
+		assertTrue(preview.resolvedContent().contains("PrivateKey: plain-private-material"));
+		assertTrue(preview.resolvedContent().contains("Private Key: spaced-private-key-value"));
+		assertTrue(preview.resolvedContent().contains("Access Key: spaced-access-key-value"));
+		assertTrue(preview.resolvedContent().contains("API Key: spaced-api-key-value"));
+		assertTrue(preview.resolvedContent().contains("KeyPassphrase: passphrase-value"));
+	}
+
+	@Test
+	void previewAgainstSnapshotDoesNotResolveMarkersFromALaterFileVersion() throws Exception {
+		String revisionA = "AuthToken: secret-a\nDebug: false\n";
+		Path file = write(revisionA);
+		ProxyConfigurationFileService service = service(file);
+		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
+		Files.writeString(file, "AuthToken: secret-b\nDebug: false\n");
+
+		ProxyConfigurationFileService.Preview preview = service.previewAgainstSnapshot(
+				current.content().replace("Debug: false", "Debug: true"), revisionA);
+
+		assertTrue(preview.resolvedContent().contains("AuthToken: secret-a"));
+		assertFalse(preview.resolvedContent().contains("secret-b"));
+	}
+
+	@Test
 	void masksHostedControlDownloadUrlAndRestoresItForEdits() throws Exception {
 		String downloadUrl = "https://control.internal/download/token-value";
 		Path file = write("""

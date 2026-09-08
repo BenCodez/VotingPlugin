@@ -83,7 +83,10 @@ final class ProxyConfigurationFileService {
 
 	Preview preview(String fileName, String proposed) throws IOException {
 		requireFile(fileName);
-		String currentRaw = readRaw();
+		return previewAgainstSnapshot(proposed, readRaw());
+	}
+
+	Preview previewAgainstSnapshot(String proposed, String currentRaw) throws IOException {
 		Map<String, Object> current = parse(currentRaw);
 		Map<String, Object> proposedValues = parse(proposed);
 		Map<String, Object> resolved = resolve(proposedValues, current, "");
@@ -105,7 +108,7 @@ final class ProxyConfigurationFileService {
 		requireFile(fileName);
 		String currentRaw = readRaw();
 		if (expectedRevision == null || !revision(currentRaw).equals(expectedRevision)) throw new StaleRevisionException();
-		Preview preview = preview(fileName, proposed);
+		Preview preview = previewAgainstSnapshot(proposed, currentRaw);
 		Path backup = target.resolveSibling(FILE_NAME + ".control-backup");
 		Path stage = null;
 		Path backupStage = null;
@@ -1002,16 +1005,19 @@ final class ProxyConfigurationFileService {
 	}
 
 	private static boolean listEntryIdentityKey(String key) {
-		String normalized = key.toLowerCase(Locale.ROOT).replace("_", "").replace("-", "");
+		String normalized = key.toLowerCase(Locale.ROOT).replace("_", "").replace("-", "").replaceAll("\\s+", "");
 		return Set.of("name", "id", "key", "server", "serverid", "clientid").contains(normalized);
 	}
 
 	private static boolean secret(String path, String key, Object value) {
-		String normalized = key.toLowerCase(Locale.ROOT).replace("_", "").replace("-", "");
-		if (normalized.contains("password") || normalized.contains("secret") || normalized.equals("token")
-				|| normalized.contains("apikey") || normalized.contains("authorization")
+		String normalized = key.toLowerCase(Locale.ROOT).replace("_", "").replace("-", "").replaceAll("\\s+", "");
+		if (normalized.contains("password") || normalized.contains("passphrase") || normalized.contains("secret")
+				|| normalized.contains("token") || normalized.contains("credential")
+				|| normalized.contains("apikey") || normalized.contains("accesskey")
+				|| normalized.contains("privatekey") || normalized.contains("signingkey")
+				|| normalized.contains("authorization")
 				|| normalized.contains("webhookurl")) return true;
-		String normalizedPath = path.toLowerCase(Locale.ROOT).replace("_", "").replace("-", "");
+		String normalizedPath = path.toLowerCase(Locale.ROOT).replace("_", "").replace("-", "").replaceAll("\\s+", "");
 		if ((!(value instanceof Map<?, ?>) && !(value instanceof List<?>) && rootDatabaseField(normalizedPath))
 				|| infrastructurePath(normalizedPath, "database")
 				|| infrastructurePath(normalizedPath, "mysql") || infrastructurePath(normalizedPath, "globaldata")
