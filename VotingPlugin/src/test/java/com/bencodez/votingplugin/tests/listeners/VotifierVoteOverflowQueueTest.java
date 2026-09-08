@@ -186,6 +186,42 @@ class VotifierVoteOverflowQueueTest {
 		}
 	}
 
+	@Test
+	void stalePersistenceWorkerCannotOverwriteShutdownSnapshot(@TempDir Path dataFolder) throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		ScheduledExecutorService voteTimer = mock(ScheduledExecutorService.class);
+		when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+		when(plugin.getVoteTimer()).thenReturn(voteTimer);
+		doThrow(new RejectedExecutionException("capacity exhausted"))
+				.when(voteTimer).submit(any(Runnable.class));
+		VotifierVoteOverflowQueue queue = new VotifierVoteOverflowQueue(plugin, (site, user) -> { });
+		java.lang.reflect.Field writeLockField = VotifierVoteOverflowQueue.class
+				.getDeclaredField("persistenceWriteLock");
+		writeLockField.setAccessible(true);
+		Object writeLock = writeLockField.get(queue);
+		Thread closer;
+		synchronized (writeLock) {
+			assertTrue(queue.enqueue("Steve", "first.example.org"));
+			java.lang.reflect.Field dirtyField = VotifierVoteOverflowQueue.class.getDeclaredField("persistenceDirty");
+			dirtyField.setAccessible(true);
+			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+			while ((boolean) dirtyField.get(queue) && System.nanoTime() < deadline) Thread.onSpinWait();
+			assertEquals(false, dirtyField.get(queue), "persistence worker did not capture the older snapshot");
+			assertTrue(queue.enqueue("Alex", "second.example.org"));
+			closer = new Thread(queue::close);
+			closer.start();
+			Thread.sleep(1_100L);
+		}
+		closer.join(TimeUnit.SECONDS.toMillis(3));
+
+		VotifierVoteOverflowQueue restarted = new VotifierVoteOverflowQueue(plugin, (site, user) -> { });
+		try {
+			assertEquals(2, restarted.size());
+		} finally {
+			restarted.close();
+		}
+	}
+
 	private static void waitForFile(Path file) throws Exception {
 		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
 		while (!Files.exists(file) && System.nanoTime() < deadline) {

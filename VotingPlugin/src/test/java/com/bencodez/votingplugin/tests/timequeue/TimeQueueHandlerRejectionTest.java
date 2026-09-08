@@ -11,6 +11,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.reset;
 
 import java.util.Set;
 import java.util.concurrent.RejectedExecutionException;
@@ -70,5 +71,20 @@ class TimeQueueHandlerRejectionTest {
 		assertDoesNotThrow(() -> handler.postTimeChange((DateChangedEvent) null));
 		assertEquals(2, handler.getTimeChangeQueue().size());
 		verify(logger, org.mockito.Mockito.atLeastOnce()).warning(anyString());
+	}
+
+	@Test
+	void rejectedProcessingSchedulesOneBoundedRetry() {
+		TimeQueueHandler handler = new TimeQueueHandler(plugin);
+		org.mockito.ArgumentCaptor<Runnable> retry = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+		verify(plugin.getBukkitScheduler()).runTaskLaterAsynchronously(
+				org.mockito.ArgumentMatchers.eq(plugin), retry.capture(), org.mockito.ArgumentMatchers.longThat(delay -> delay >= 1 && delay <= 60));
+
+		reset(voteTimer);
+		retry.getValue().run();
+
+		verify(voteTimer).schedule(any(Runnable.class), org.mockito.ArgumentMatchers.eq(0L),
+				org.mockito.ArgumentMatchers.eq(TimeUnit.SECONDS));
+		assertEquals(1, handler.getTimeChangeQueue().size());
 	}
 }

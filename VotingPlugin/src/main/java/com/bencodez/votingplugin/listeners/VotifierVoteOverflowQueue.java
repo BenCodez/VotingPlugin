@@ -279,6 +279,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 
 	private void writeSnapshot(List<PendingVote> snapshot) throws IOException {
 		synchronized (persistenceWriteLock) {
+			if (closed) return;
 			writeSnapshotLocked(snapshot);
 		}
 	}
@@ -332,7 +333,9 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 			Thread.currentThread().interrupt();
 		}
 		try {
-			writeSnapshot(snapshot);
+			synchronized (persistenceWriteLock) {
+				writeSnapshotLocked(snapshot);
+			}
 		} catch (IOException failure) {
 			plugin.getLogger().warning("Unable to persist queued Votifier votes during shutdown: "
 					+ failure.getClass().getSimpleName());

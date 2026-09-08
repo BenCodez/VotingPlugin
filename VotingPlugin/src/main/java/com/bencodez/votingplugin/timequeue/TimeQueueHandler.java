@@ -5,6 +5,8 @@ import java.time.ZoneId;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.event.EventHandler;
@@ -26,6 +28,8 @@ public class TimeQueueHandler implements Listener {
 	private Queue<VoteTimeQueue> timeChangeQueue = new ConcurrentLinkedQueue<>();
 
 	private VotingPluginMain plugin;
+	private final AtomicBoolean retryPending = new AtomicBoolean();
+	private final AtomicInteger retryAttempts = new AtomicInteger();
 
 	/**
 	 * Constructs a new TimeQueueHandler.
@@ -79,6 +83,24 @@ public class TimeQueueHandler implements Listener {
 		}, delay, unit);
 		if (!admitted) {
 			plugin.getLogger().warning("Unable to schedule time-queue processing because vote processing is busy; queued votes were retained.");
+			scheduleRetry();
+		} else {
+			retryAttempts.set(0);
+		}
+	}
+
+	private void scheduleRetry() {
+		if (timeChangeQueue.isEmpty() || !retryPending.compareAndSet(false, true)) return;
+		int attempt = Math.min(6, retryAttempts.getAndIncrement());
+		long delaySeconds = Math.min(60L, 1L << attempt);
+		try {
+			plugin.getBukkitScheduler().runTaskLaterAsynchronously(plugin, () -> {
+				retryPending.set(false);
+				if (!timeChangeQueue.isEmpty()) scheduleQueueProcessing(0, TimeUnit.SECONDS);
+			}, delaySeconds);
+		} catch (RuntimeException rejected) {
+			retryPending.set(false);
+			plugin.getLogger().warning("Unable to queue a time-queue retry; pending votes remain persisted for recovery.");
 		}
 	}
 
