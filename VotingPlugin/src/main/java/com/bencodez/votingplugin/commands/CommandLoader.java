@@ -411,8 +411,29 @@ public class CommandLoader {
 						"VotingPlugin.Commands.AdminVote.AddPoints|" + adminPerm, "Add to players voting points") {
 
 					@Override
+					public boolean hasPerm(CommandSender sender) {
+						return AdminAuthorization.hasCommandOrAdmin(sender,
+								"VotingPlugin.Commands.AdminVote.AddPoints");
+					}
+
+					@Override
+					public void execute(CommandSender sender, String[] args) {
+						// The permission for this bulk form depends on the sign of the
+						// amount, so the generic <command>.All rule cannot decide it.
+						if (args[1].equalsIgnoreCase("all")) {
+							executeAll(sender, args);
+							return;
+						}
+						super.execute(sender, args);
+					}
+
+					@Override
 					public void executeAll(CommandSender sender, String[] args) {
 						int num = Integer.parseInt(args[3]);
+						if (!AdminAuthorization.canAddPointsToAll(sender, num)) {
+							sender.sendMessage(MessageAPI.colorize(plugin.getConfigFile().getFormatNoPerms()));
+							return;
+						}
 
 						sender.sendMessage(
 								MessageAPI.colorize("&cGiving " + "all players" + " " + args[3] + " points"));
@@ -454,7 +475,22 @@ public class CommandLoader {
 						"VotingPlugin.Commands.AdminVote.RemovePoints|" + adminPerm, "Remove voting points") {
 
 					@Override
+					public boolean hasPerm(CommandSender sender) {
+						return AdminAuthorization.hasCommandOrAdmin(sender,
+								"VotingPlugin.Commands.AdminVote.RemovePoints");
+					}
+
+					@Override
+					public boolean hasAllPermission(CommandSender sender) {
+						return AdminAuthorization.canRemovePointsFromAll(sender);
+					}
+
+					@Override
 					public void executeAll(CommandSender sender, String[] args) {
+						if (!AdminAuthorization.canRemovePointsFromAll(sender)) {
+							sender.sendMessage(MessageAPI.colorize(plugin.getConfigFile().getFormatNoPerms()));
+							return;
+						}
 						int num = Integer.parseInt(args[3]);
 
 						sender.sendMessage(
@@ -571,7 +607,13 @@ public class CommandLoader {
 		});
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "Edit", "BungeeSettings" },
-				"VotingPlugin.Commands.AdminVote.Edit.BungeeSettings", "Edit BungeeSettings.yml", false) {
+				"VotingPlugin.Commands.AdminVote.Edit.BungeeSettings|" + adminPerm, "Edit BungeeSettings.yml", false) {
+
+			@Override
+			public boolean hasPerm(CommandSender sender) {
+				return AdminAuthorization.canEditConfig(sender,
+						"VotingPlugin.Commands.AdminVote.Edit.BungeeSettings");
+			}
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
