@@ -106,6 +106,35 @@ class ProxyConfigurationFileServiceTest {
 	}
 
 	@Test
+	void masksAndRestoresCompoundInfrastructureScalarNames() throws Exception {
+		Path file = write("""
+				ControlEndpoint: https://control.internal
+				RedisHost: cache.internal
+				BungeeMethod: PLUGINMESSAGING
+				DedicatedVotingProxy: true
+				ProxyServerName: public-name
+				MultiProxySupport: true
+				HttpTransport: enabled
+				Debug: false
+				""");
+		ProxyConfigurationFileService service = service(file);
+
+		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
+		assertFalse(current.content().contains("control.internal"));
+		assertFalse(current.content().contains("cache.internal"));
+		assertTrue(current.content().contains("BungeeMethod: PLUGINMESSAGING"));
+		assertTrue(current.content().contains("DedicatedVotingProxy: true"));
+		assertTrue(current.content().contains("ProxyServerName: public-name"));
+		assertTrue(current.content().contains("MultiProxySupport: true"));
+		assertTrue(current.content().contains("HttpTransport: enabled"));
+
+		String proposal = current.content().replace("Debug: false", "Debug: true");
+		ProxyConfigurationFileService.Preview preview = service.preview(ProxyConfigurationFileService.FILE_NAME, proposal);
+		assertTrue(preview.resolvedContent().contains("ControlEndpoint: https://control.internal"));
+		assertTrue(preview.resolvedContent().contains("RedisHost: cache.internal"));
+	}
+
+	@Test
 	void masksAndRestoresCompoundCredentialFields() throws Exception {
 		Path file = write("""
 				AuthToken: auth-token-value
@@ -962,6 +991,30 @@ class ProxyConfigurationFileServiceTest {
 			assertEquals("rw-------", java.nio.file.attribute.PosixFilePermissions.toString(
 					Files.getPosixFilePermissions(file)));
 		} catch (UnsupportedOperationException ignored) { }
+	}
+
+	@Test
+	void preparedApplyBindsResolutionAndPublicationToOneRevisionCheckedSnapshot() throws Exception {
+		String original = "Password: secret-b\nDebug: false\n";
+		Path file = write(original);
+		ProxyConfigurationFileService service = service(file);
+		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
+		String proposal = current.content().replace("Debug: false", "Debug: true");
+
+		Files.writeString(file, "Password: secret-a\nDebug: false\n");
+		assertThrows(ProxyConfigurationFileService.StaleRevisionException.class,
+				() -> service.prepareApply(ProxyConfigurationFileService.FILE_NAME, proposal, current.revision()));
+
+		Files.writeString(file, original);
+		ProxyConfigurationFileService.PreparedApply prepared = service.prepareApply(
+				ProxyConfigurationFileService.FILE_NAME, proposal, current.revision());
+		assertTrue(prepared.preview().resolvedContent().contains("Password: secret-b"));
+		ProxyConfigurationFileService.ApplyResult applied = service.apply(prepared);
+
+		assertTrue(Files.readString(file).contains("Password: secret-b"));
+		assertTrue(Files.readString(file).contains("Debug: true"));
+		assertEquals(ProxyConfigurationFileService.revision(prepared.preview().resolvedContent()),
+				applied.document().revision());
 	}
 
 	@Test

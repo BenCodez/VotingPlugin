@@ -109,10 +109,21 @@ final class ProxyConfigurationFileService {
 	}
 
 	ApplyResult apply(String fileName, String proposed, String expectedRevision) throws IOException {
+		return apply(prepareApply(fileName, proposed, expectedRevision));
+	}
+
+	PreparedApply prepareApply(String fileName, String proposed, String expectedRevision) throws IOException {
 		requireFile(fileName);
 		String currentRaw = readRaw();
 		if (expectedRevision == null || !revision(currentRaw).equals(expectedRevision)) throw new StaleRevisionException();
 		Preview preview = previewAgainstSnapshot(proposed, currentRaw);
+		return new PreparedApply(currentRaw, expectedRevision, preview);
+	}
+
+	ApplyResult apply(PreparedApply prepared) throws IOException {
+		String currentRaw = prepared.currentRaw();
+		String expectedRevision = prepared.expectedRevision();
+		Preview preview = prepared.preview();
 		Path backup = target.resolveSibling(FILE_NAME + ".control-backup");
 		Path stage = null;
 		Path backupStage = null;
@@ -1083,6 +1094,7 @@ final class ProxyConfigurationFileService {
 				|| normalized.contains("privatekey") || normalized.contains("signingkey")
 				|| normalized.contains("authorization")
 				|| normalized.contains("webhookurl")) return true;
+		if (!(value instanceof Map<?, ?>) && !(value instanceof List<?>) && compoundInfrastructureField(key)) return true;
 		String normalizedPath = path.toLowerCase(Locale.ROOT).replace("_", "").replace("-", "").replaceAll("\\s+", "");
 		if ((!(value instanceof Map<?, ?>) && !(value instanceof List<?>) && rootDatabaseField(normalizedPath))
 				|| infrastructurePath(normalizedPath, "database")
@@ -1122,6 +1134,22 @@ final class ProxyConfigurationFileService {
 	private static String normalizeSecretName(String value) {
 		return value.toLowerCase(Locale.ROOT).replace("_", "").replace("-", "").replace(".", "")
 				.replaceAll("\\s+", "");
+	}
+
+	private static boolean compoundInfrastructureField(String key) {
+		String words = key.replaceAll("([A-Z]+)([A-Z][a-z])", "$1 $2")
+				.replaceAll("([a-z0-9])([A-Z])", "$1 $2")
+				.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", " ").trim();
+		if (words.isEmpty()) return false;
+		String[] tokens = words.split(" +");
+		String last = tokens[tokens.length - 1];
+		if (tokens.length > 1 && Set.of("host", "endpoint", "address", "port", "broker", "database", "schema",
+				"socket", "uri", "url", "ipv4", "ipv6").contains(last)) return true;
+		if (tokens.length > 2 && "name".equals(last)
+				&& Set.of("host", "db").contains(tokens[tokens.length - 2])) return true;
+		String compact = words.replace(" ", "");
+		return Set.of("dburl", "dbport", "dbhost", "dbname", "apiurl", "apiuri", "redisport", "redishost",
+				"mysqlport", "mysqlhost", "mqttport", "mqtthost").contains(compact);
 	}
 
 	private static boolean rootDatabaseField(String normalizedPath) {
@@ -1236,6 +1264,7 @@ final class ProxyConfigurationFileService {
 
 	record Document(String fileName, String content, String revision) { }
 	record Preview(String resolvedContent, String revision, List<String> changes) { }
+	record PreparedApply(String currentRaw, String expectedRevision, Preview preview) { }
 	record ApplyResult(Document document, List<String> changes, boolean rolledBack) { }
 	@FunctionalInterface interface MoveAction { void move(Path source, Path destination) throws IOException; }
 	@FunctionalInterface interface TempFileAction { Path create(Path directory, String prefix, String suffix) throws IOException; }

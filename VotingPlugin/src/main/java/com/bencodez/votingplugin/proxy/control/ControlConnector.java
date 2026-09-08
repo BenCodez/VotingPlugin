@@ -908,8 +908,8 @@ public final class ControlConnector implements AutoCloseable {
 				return completed(TaskResult.file(fileConfigurationService.read(fileName), List.of(), false, false));
 			}
 			String content = requireString(requested, "content");
-			ProxyConfigurationFileService.Preview preview = fileConfigurationService.preview(fileName, content);
 			if ("PREVIEW".equals(type)) {
+				ProxyConfigurationFileService.Preview preview = fileConfigurationService.preview(fileName, content);
 				ProxyConfigurationFileService.Document current = fileConfigurationService.read(fileName);
 				if (!preview.revision().equals(current.revision())) {
 					throw new ProxyConfigurationFileService.StaleRevisionException();
@@ -917,11 +917,13 @@ public final class ControlConnector implements AutoCloseable {
 				return completed(TaskResult.file(current, preview.changes(), false, false));
 			}
 			if (!"APPLY".equals(type)) return completed(TaskResult.failure("UNSUPPORTED_TASK", "Task type is unsupported"));
+			ProxyConfigurationFileService.PreparedApply prepared = fileConfigurationService.prepareApply(fileName, content,
+					requireString(task, "expectedRevision"));
+			ProxyConfigurationFileService.Preview preview = prepared.preview();
 			persistIntent(operationId, TaskResult.fileIntent(fileName,
 					ProxyConfigurationFileService.revision(preview.resolvedContent()), preview.changes()),
 					requireString(task, "attemptId"));
-			ProxyConfigurationFileService.ApplyResult applied = fileConfigurationService.apply(fileName, content,
-					requireString(task, "expectedRevision"));
+			ProxyConfigurationFileService.ApplyResult applied = fileConfigurationService.apply(prepared);
 			return completed(TaskResult.file(applied.document(), applied.changes(), false, applied.rolledBack(),
 					"Proxy configuration saved; restart the proxy to activate general settings"));
 		} catch (ProxyConfigurationFileService.StaleRevisionException failure) {
