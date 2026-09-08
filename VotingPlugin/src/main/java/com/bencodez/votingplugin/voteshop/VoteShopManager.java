@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.voteshop;
 
+import java.util.function.Consumer;
+
 import org.bukkit.entity.Player;
 
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -91,9 +93,10 @@ public class VoteShopManager {
 	 * @param player the player
 	 * @param user the user
 	 * @param item the item
-	 * @return the result
+	 * @param completion completion callback on the Bukkit thread
 	 */
-	public VoteShopPurchaseResult purchase(Player player, VotingPluginUser user, VoteShopItem item) {
-		return purchaseService.purchase(player, user, item);
+	public void purchase(Player player, VotingPluginUser user, VoteShopItem item,
+			Consumer<VoteShopPurchaseResult> completion) {
+		purchaseService.purchase(player, user, item, completion);
 	}
 }

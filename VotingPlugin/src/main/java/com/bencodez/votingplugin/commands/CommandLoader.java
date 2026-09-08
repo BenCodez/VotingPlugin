@@ -89,6 +89,9 @@ import com.bencodez.votingplugin.specialrewards.votestreak.VoteStreakDefinition;
 import com.bencodez.votingplugin.specialrewards.votestreak.VoteStreakType;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseResult;
+import com.bencodez.votingplugin.voteshop.shop.VoteShopEntry;
+import com.bencodez.votingplugin.voteshop.shop.VoteShopItem;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
 public class CommandLoader {
@@ -495,34 +498,49 @@ public class CommandLoader {
 
 						sender.sendMessage(
 								MessageAPI.colorize("&cGiving " + "all players" + " " + args[3] + " points"));
-						for (String uuidStr : plugin.getUserManager().getAllUUIDs()) {
+						java.util.List<String> userIds = new java.util.ArrayList<>(plugin.getUserManager().getAllUUIDs());
+						if (userIds.isEmpty()) {
+							sender.sendMessage(MessageAPI.colorize("&cNo players were available to update"));
+							return;
+						}
+						java.util.concurrent.atomic.AtomicInteger remaining =
+								new java.util.concurrent.atomic.AtomicInteger(userIds.size());
+						java.util.concurrent.atomic.AtomicInteger removed = new java.util.concurrent.atomic.AtomicInteger();
+						for (String uuidStr : userIds) {
 							UUID uuid = UUID.fromString(uuidStr);
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
 							user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
-							user.removePoints(num);
-							if (user.isOnline()) {
-								user.sendMessage(plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerRemoved(),
-										"amount", args[3]);
-							}
+							user.removePoints(num, success -> {
+								if (success) {
+									removed.incrementAndGet();
+									if (user.isOnline()) user.sendMessage(
+											plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerRemoved(),
+											"amount", args[3]);
+								}
+								if (remaining.decrementAndGet() == 0) {
+									sender.sendMessage(MessageAPI.colorize("&cRemoved " + args[3] + " points from "
+											+ removed.get() + "/" + userIds.size() + " players"));
+									plugin.getPlaceholders().onUpdate();
+								}
+							});
 						}
-						sender.sendMessage(
-								MessageAPI.colorize("&cRemoved " + "all players" + " " + args[3] + " points"));
-
-						plugin.getPlaceholders().onUpdate();
 					}
 
 					@Override
 					public void executeSinglePlayer(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 						user.cache();
-						user.removePoints(Integer.parseInt(args[3]));
-						if (user.isOnline()) {
-							user.sendMessage(plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerRemoved(),
-									"amount", args[3]);
-						}
-						sender.sendMessage(MessageAPI.colorize("&cRemoved " + args[3] + " points from " + args[1] + ", "
-								+ args[1] + " now has " + user.getPoints() + " points"));
-						plugin.getPlaceholders().onUpdate(user, false);
+						user.removePoints(Integer.parseInt(args[3]), removed -> {
+							if (!removed) {
+								sender.sendMessage(MessageAPI.colorize("&cUnable to remove " + args[3] + " points from "
+										+ args[1]));
+								return;
+							}
+							if (user.isOnline()) user.sendMessage(
+									plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerRemoved(), "amount", args[3]);
+							sender.sendMessage(MessageAPI.colorize("&cRemoved " + args[3] + " points from " + args[1]));
+							plugin.getPlaceholders().onUpdate(user, false);
+						});
 					}
 				});
 
@@ -3236,11 +3254,6 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (!plugin.getShopFile().isVoteShopEnabled()) {
-					sender.sendMessage(MessageAPI.colorize("&cVote shop disabled"));
-					return;
-				}
-
 				String identifier = args[1];
 				Set<String> identifiers = plugin.getShopFile().getShopIdentifiers();
 				if (ArrayUtils.containsIgnoreCase(identifiers, identifier)) {
@@ -3250,61 +3263,19 @@ public class CommandLoader {
 						}
 					}
 
-					String perm = plugin.getShopFile().getVoteShopPermission(identifier);
-					boolean hasPerm = false;
-					if (perm.isEmpty()) {
-						hasPerm = true;
-					} else {
-						hasPerm = sender.hasPermission(perm);
-					}
-
-					int limit = plugin.getShopFile().getShopIdentifierLimit(identifier);
-
 					VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(sender.getName());
-					boolean limitPass = true;
-					if (limit > 0) {
-
-						if (user.getVoteShopIdentifierLimit(identifier) >= limit) {
-							limitPass = false;
-						}
+					VoteShopEntry entry = plugin.getVoteShopManager().getMainEntry(identifier);
+					if (!(entry instanceof VoteShopItem)) {
+						sendMessage(sender, "&cWrong voteshop item");
+						return;
 					}
-
-					if (!plugin.getShopFile().getVoteShopNotBuyable(identifier)) {
-						if (hasPerm) {
-							if (plugin.getConfigFile().isExtraVoteShopCheck()) {
-								user.cache();
-							}
-							int points = plugin.getShopFile().getShopIdentifierCost(identifier);
-							if (identifier != null) {
-
-								if (limitPass) {
-									HashMap<String, String> placeholders = new HashMap<>();
-									placeholders.put("identifier", identifier);
-									placeholders.put("points", "" + points);
-									placeholders.put("limit", "" + limit);
-									if (user.removePoints(points, true)) {
-
-										plugin.getRewardHandler().giveReward(user, plugin.getShopFile().getData(),
-												plugin.getShopFile().getShopIdentifierRewardsPath(identifier),
-												new RewardOptions().setPlaceholders(placeholders));
-
-										user.sendMessage(PlaceholderUtils.replacePlaceHolder(
-												plugin.getConfigFile().getFormatShopPurchaseMsg(), placeholders));
-										if (limit > 0) {
-											user.setVoteShopIdentifierLimit(identifier,
-													user.getVoteShopIdentifierLimit(identifier) + 1);
-										}
-									} else {
-										user.sendMessage(PlaceholderUtils.replacePlaceHolder(
-												plugin.getConfigFile().getFormatShopFailedMsg(), placeholders));
-									}
-								} else {
-									user.sendMessage(plugin.getShopFile().getVoteShopLimitReached());
-								}
-							}
-
+					VoteShopItem item = (VoteShopItem) entry;
+					plugin.getVoteShopManager().purchase((Player) sender, user, item, result -> {
+						if (result != VoteShopPurchaseResult.SUCCESS) {
+							plugin.getVoteShopManager().getPurchaseService().sendFailureMessage((Player) sender, user,
+									item, result);
 						}
-					}
+					});
 				} else {
 					sendMessage(sender, "&cWrong voteshop item");
 				}
@@ -3739,9 +3710,8 @@ public class CommandLoader {
 									}
 									int pointsToGive = Integer.parseInt(args[2]);
 									if (pointsToGive > 0) {
-										if (cPlayer.getPoints() >= pointsToGive) {
-											user.addPoints(pointsToGive);
-											cPlayer.removePoints(pointsToGive);
+										cPlayer.transferPoints(user, pointsToGive, transferred -> {
+											if (transferred) {
 											HashMap<String, String> placeholders = new HashMap<>();
 											placeholders.put("transfer", "" + pointsToGive);
 											placeholders.put("touser", "" + user.getPlayerName());
@@ -3754,10 +3724,11 @@ public class CommandLoader {
 											user.sendMessage(PlaceholderUtils.replacePlaceHolder(
 													plugin.getConfigFile().getFormatCommandsVoteGivePointsTransferTo(),
 													placeholders));
-										} else {
-											sendMessage(sender, plugin.getConfigFile()
-													.getFormatCommandsVoteGivePointsNotEnoughPoints());
-										}
+											} else {
+												sendMessage(sender, plugin.getConfigFile()
+														.getFormatCommandsVoteGivePointsNotEnoughPoints());
+											}
+										});
 									} else {
 										sendMessage(sender, plugin.getConfigFile()
 												.getFormatCommandsVoteGivePointsNumberLowerThanZero());

@@ -1,12 +1,28 @@
 package com.bencodez.votingplugin.voteshop.service;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.HashMap;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
+import com.bencodez.advancedcore.api.user.UserDataFetchMode;
+import com.bencodez.advancedcore.api.user.UserStorage;
+import com.bencodez.advancedcore.api.user.usercache.change.UserDataChangeInt;
+import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
+import com.bencodez.simpleapi.folialib.enums.EntityTaskResult;
+import com.bencodez.simpleapi.sql.DataType;
+import com.bencodez.simpleapi.sql.mysql.DbType;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.VoteShopPurchaseEvent;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -24,6 +40,10 @@ import lombok.Setter;
 public class VoteShopPurchaseService {
 	private static final int PURCHASE_LOCK_STRIPES = 256;
 	private static final Object[] PURCHASE_LOCKS = createPurchaseLocks();
+	private static final int COMPLETION_PENDING = 0;
+	private static final int COMPLETION_RUNNING = 1;
+	private static final int COMPLETION_COMPENSATING = 2;
+	private static final int COMPLETION_FINISHED = 3;
 
 	private VoteShopDefinition definition;
 
@@ -49,6 +69,20 @@ public class VoteShopPurchaseService {
 	 * @return the result
 	 */
 	public VoteShopPurchaseResult validatePurchase(Player player, VotingPluginUser user, VoteShopItem item) {
+		VoteShopPurchaseResult staticValidation = validateStaticPurchase(player, item);
+		if (staticValidation != VoteShopPurchaseResult.SUCCESS) {
+			return staticValidation;
+		}
+		if (item.getLimit() > 0 && user.getVoteShopIdentifierLimit(item.getIdentifier()) >= item.getLimit()) {
+			return VoteShopPurchaseResult.LIMIT_REACHED;
+		}
+		if (user.getPoints() < item.getCost()) {
+			return VoteShopPurchaseResult.NOT_ENOUGH_POINTS;
+		}
+		return VoteShopPurchaseResult.SUCCESS;
+	}
+
+	private VoteShopPurchaseResult validateStaticPurchase(Player player, VoteShopItem item) {
 		if (!definition.isEnabled()) {
 			return VoteShopPurchaseResult.SHOP_DISABLED;
 		}
@@ -61,12 +95,6 @@ public class VoteShopPurchaseService {
 		if (!hasPermission(player, item.getPermission())) {
 			return VoteShopPurchaseResult.NO_PERMISSION;
 		}
-		if (item.getLimit() > 0 && user.getVoteShopIdentifierLimit(item.getIdentifier()) >= item.getLimit()) {
-			return VoteShopPurchaseResult.LIMIT_REACHED;
-		}
-		if (user.getPoints() < item.getCost()) {
-			return VoteShopPurchaseResult.NOT_ENOUGH_POINTS;
-		}
 		return VoteShopPurchaseResult.SUCCESS;
 	}
 
@@ -78,7 +106,8 @@ public class VoteShopPurchaseService {
 	 * @param item   the item
 	 * @return the result
 	 */
-	public VoteShopPurchaseResult purchase(Player player, VotingPluginUser user, VoteShopItem item) {
+	private VoteShopPurchaseResult purchaseLocal(Player player, VotingPluginUser user, VoteShopItem item) {
+		if (plugin.getConfigFile().isExtraVoteShopCheck()) user.cache();
 		VoteShopPurchaseResult validation = validatePurchase(player, user, item);
 		if (validation != VoteShopPurchaseResult.SUCCESS) {
 			return validation;
@@ -94,6 +123,94 @@ public class VoteShopPurchaseService {
 		if (debit != VoteShopPurchaseResult.SUCCESS) {
 			return debit;
 		}
+		completePurchase(player, user, item, placeholders);
+		return VoteShopPurchaseResult.SUCCESS;
+	}
+
+	/**
+	 * Executes a purchase and reports its result on the Bukkit thread. Shared
+	 * MySQL debits run on AdvancedCore's ordered persistence executor so earlier
+	 * asynchronous user writes complete before the conditional debit.
+	 *
+	 * @param player the player
+	 * @param user the user
+	 * @param item the item
+	 * @param completion completion callback
+	 */
+	public void purchase(Player player, VotingPluginUser user, VoteShopItem item,
+			Consumer<VoteShopPurchaseResult> completion) {
+		if (!usesSharedMysqlPoints()) {
+			completion.accept(purchaseLocal(player, user, item));
+			return;
+		}
+		VoteShopPurchaseResult validation = validateStaticPurchase(player, item);
+		if (validation != VoteShopPurchaseResult.SUCCESS) {
+			completion.accept(validation);
+			return;
+		}
+		HashMap<String, String> placeholders = purchasePlaceholders(item);
+		plugin.getTimer().execute(() -> {
+			VoteShopPurchaseResult debit;
+			synchronized (purchaseLock(user.getUUID())) {
+				debit = debitSharedMysql(user, item);
+			}
+			if (debit != VoteShopPurchaseResult.SUCCESS) {
+				plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(debit), player);
+				return;
+			}
+			completeSharedMysqlPurchase(player, user, item, placeholders, completion);
+		});
+	}
+
+	private void completeSharedMysqlPurchase(Player player, VotingPluginUser user, VoteShopItem item,
+			HashMap<String, String> placeholders, Consumer<VoteShopPurchaseResult> completion) {
+		CountDownLatch completed = new CountDownLatch(1);
+		AtomicInteger state = new AtomicInteger(COMPLETION_PENDING);
+		try {
+			CompletableFuture<EntityTaskResult> scheduled = plugin.getBukkitScheduler().getFoliaLib().getImpl()
+					.runAtEntityWithFallback(player, ignored -> {
+				if (!state.compareAndSet(COMPLETION_PENDING, COMPLETION_RUNNING)) return;
+				try {
+					completePurchase(player, user, item, placeholders);
+					completion.accept(VoteShopPurchaseResult.SUCCESS);
+				} finally {
+					state.set(COMPLETION_FINISHED);
+					completed.countDown();
+				}
+			}, () -> requestCompensation(state, completed));
+			scheduled.whenComplete((result, failure) -> {
+				if (failure != null || result != EntityTaskResult.SUCCESS) requestCompensation(state, completed);
+			});
+			while (!completed.await(100, TimeUnit.MILLISECONDS)) {
+				if (!plugin.isEnabled()) requestCompensation(state, completed);
+			}
+			if (state.get() == COMPLETION_COMPENSATING) refundSharedMysqlDebit(user, item);
+		} catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt();
+			if (requestCompensation(state, completed)) refundSharedMysqlDebit(user, item);
+		} catch (RuntimeException schedulingFailure) {
+			if (requestCompensation(state, completed)) refundSharedMysqlDebit(user, item);
+			plugin.debug(schedulingFailure);
+		}
+	}
+
+	private static boolean requestCompensation(AtomicInteger state, CountDownLatch completed) {
+		if (!state.compareAndSet(COMPLETION_PENDING, COMPLETION_COMPENSATING)) return false;
+		completed.countDown();
+		return true;
+	}
+
+	private HashMap<String, String> purchasePlaceholders(VoteShopItem item) {
+		HashMap<String, String> placeholders = new HashMap<String, String>();
+		placeholders.put("identifier", item.getIdentifierName());
+		placeholders.put("points", String.valueOf(item.getCost()));
+		placeholders.put("limit", String.valueOf(item.getLimit()));
+		placeholders.put("shop", definition.getTitle());
+		return placeholders;
+	}
+
+	private void completePurchase(Player player, VotingPluginUser user, VoteShopItem item,
+			HashMap<String, String> placeholders) {
 
 		plugin.getLogger().info("VoteShop: " + user.getPlayerName() + "/" + user.getUUID() + " bought "
 				+ item.getIdentifier() + " for " + item.getCost());
@@ -110,12 +227,13 @@ public class VoteShopPurchaseService {
 		VoteShopPurchaseEvent purchaseEvent = new VoteShopPurchaseEvent(player.getUniqueId(), player.getName(), user,
 				item.getIdentifier(), item.getCost());
 		Bukkit.getPluginManager().callEvent(purchaseEvent);
-
-		return VoteShopPurchaseResult.SUCCESS;
 	}
 
 	VoteShopPurchaseResult debitForPurchase(VotingPluginUser user, VoteShopItem item) {
 		synchronized (purchaseLock(user.getUUID())) {
+			if (usesSharedMysqlPoints()) {
+				return debitSharedMysql(user, item);
+			}
 			if (item.getLimit() > 0 && user.getVoteShopIdentifierLimit(item.getIdentifier()) >= item.getLimit()) {
 				return VoteShopPurchaseResult.LIMIT_REACHED;
 			}
@@ -127,6 +245,100 @@ public class VoteShopPurchaseService {
 						user.getVoteShopIdentifierLimit(item.getIdentifier()) + 1);
 			}
 			return VoteShopPurchaseResult.SUCCESS;
+		}
+	}
+
+	private boolean usesSharedMysqlPoints() {
+		return plugin != null && UserStorage.MYSQL.equals(plugin.getStorageType())
+				&& !plugin.getBungeeSettings().isPerServerPoints();
+	}
+
+	VoteShopPurchaseResult debitSharedMysql(VotingPluginUser user, VoteShopItem item) {
+		MySQL table = plugin.getMysql();
+		String pointsColumn = user.getPointsPath();
+		String limitColumn = item.getLimit() > 0 ? "VoteShopLimit" + item.getIdentifier() : null;
+		if (user.isCached()) {
+			// dump() waits for a cache batch that has already left its queue. Removing
+			// the drained cache also prevents an older absolute write from racing the
+			// conditional debit on the shared database.
+			user.getCache().dump();
+			plugin.getUserManager().getDataManager().removeCache(UUID.fromString(user.getUUID()), null);
+		}
+		if (limitColumn != null) {
+			table.checkColumn(limitColumn, DataType.INTEGER);
+		}
+
+		StringBuilder sql = new StringBuilder("UPDATE ").append(table.qi(table.getTableName())).append(" SET ")
+				.append(table.qi(pointsColumn)).append(" = ").append(table.qi(pointsColumn)).append(" - ?");
+		if (limitColumn != null) {
+			sql.append(", ").append(table.qi(limitColumn)).append(" = COALESCE(")
+					.append(table.qi(limitColumn)).append(", 0) + 1");
+		}
+		sql.append(" WHERE ").append(table.qi("uuid"))
+				.append(table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?")
+				.append(" AND ").append(table.qi(pointsColumn)).append(" >= ?");
+		if (limitColumn != null) {
+			sql.append(" AND COALESCE(").append(table.qi(limitColumn)).append(", 0) < ?");
+		}
+
+		try (Connection connection = table.getMysql().getConnectionManager().getConnection();
+				PreparedStatement statement = connection.prepareStatement(sql.toString())) {
+			statement.setInt(1, item.getCost());
+			statement.setString(2, user.getUUID());
+			statement.setInt(3, item.getCost());
+			if (limitColumn != null) statement.setInt(4, item.getLimit());
+			if (statement.executeUpdate() != 1) {
+				return sharedMysqlFailure(user, item, limitColumn);
+			}
+			refreshPurchaseCache(user, pointsColumn, limitColumn);
+			return VoteShopPurchaseResult.SUCCESS;
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to atomically debit vote shop points: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+			return VoteShopPurchaseResult.NOT_ENOUGH_POINTS;
+		}
+	}
+
+	private void refundSharedMysqlDebit(VotingPluginUser user, VoteShopItem item) {
+		MySQL table = plugin.getMysql();
+		String pointsColumn = user.getPointsPath();
+		String limitColumn = item.getLimit() > 0 ? "VoteShopLimit" + item.getIdentifier() : null;
+		StringBuilder sql = new StringBuilder("UPDATE ").append(table.qi(table.getTableName())).append(" SET ")
+				.append(table.qi(pointsColumn)).append(" = ").append(table.qi(pointsColumn)).append(" + ?");
+		if (limitColumn != null) {
+			sql.append(", ").append(table.qi(limitColumn)).append(" = GREATEST(COALESCE(")
+					.append(table.qi(limitColumn)).append(", 0) - 1, 0)");
+		}
+		sql.append(" WHERE ").append(table.qi("uuid"))
+				.append(table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
+		try (Connection connection = table.getMysql().getConnectionManager().getConnection();
+				PreparedStatement statement = connection.prepareStatement(sql.toString())) {
+			statement.setInt(1, item.getCost());
+			statement.setString(2, user.getUUID());
+			statement.executeUpdate();
+			refreshPurchaseCache(user, pointsColumn, limitColumn);
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to refund an incomplete vote shop purchase: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+		}
+	}
+
+	private VoteShopPurchaseResult sharedMysqlFailure(VotingPluginUser user, VoteShopItem item, String limitColumn) {
+		if (limitColumn != null && user.getUserData().getInt(limitColumn, UserDataFetchMode.NO_CACHE) >= item.getLimit()) {
+			return VoteShopPurchaseResult.LIMIT_REACHED;
+		}
+		return VoteShopPurchaseResult.NOT_ENOUGH_POINTS;
+	}
+
+	private void refreshPurchaseCache(VotingPluginUser user, String pointsColumn, String limitColumn) {
+		if (!user.isCached()) return;
+		user.getCache().addChange(new UserDataChangeInt(pointsColumn,
+				user.getUserData().getInt(pointsColumn, UserDataFetchMode.NO_CACHE)), false);
+		if (limitColumn != null) {
+			user.getCache().addChange(new UserDataChangeInt(limitColumn,
+					user.getUserData().getInt(limitColumn, UserDataFetchMode.NO_CACHE)), false);
 		}
 	}
 
@@ -171,6 +383,10 @@ public class VoteShopPurchaseService {
 	 */
 	public void sendFailureMessage(Player player, VotingPluginUser user, VoteShopItem item,
 			VoteShopPurchaseResult result) {
+		if (result == VoteShopPurchaseResult.SHOP_DISABLED) {
+			player.sendMessage(com.bencodez.simpleapi.messages.MessageAPI.colorize("&cVote shop disabled"));
+			return;
+		}
 		if (result == VoteShopPurchaseResult.LIMIT_REACHED) {
 			user.sendMessage(definition.getLimitReachedMessage());
 			return;

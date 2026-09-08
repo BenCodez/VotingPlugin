@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.bukkit.Bukkit;
@@ -183,7 +184,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			addPoints(points);
 		}
 		if (plugin.getConfigFile().getLimitVotePoints() > 0) {
-			if (getPoints() > plugin.getConfigFile().getLimitVotePoints()) {
+			SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+			if (sharedPoints.applies()) {
+				sharedPoints.cap(this, plugin.getConfigFile().getLimitVotePoints(), false);
+			} else if (getPoints() > plugin.getConfigFile().getLimitVotePoints()) {
 				setPoints(plugin.getConfigFile().getLimitVotePoints());
 			}
 		}
@@ -214,7 +218,12 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			return getPoints();
 		}
 		int newTotal = getPoints() + event.getPoints();
-		setPoints(newTotal, async);
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		if (sharedPoints.applies()) {
+			sharedPoints.add(this, event.getPoints(), async);
+		} else {
+			setPoints(newTotal, async);
+		}
 		return newTotal;
 	}
 
@@ -1301,6 +1310,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return true if the points were removed, false otherwise
 	 */
 	public boolean removePoints(int points) {
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		if (sharedPoints.applies()) return sharedPoints.remove(this, points);
 		if (getPoints() >= points) {
 			setPoints(getPoints() - points);
 			return true;
@@ -1316,11 +1327,52 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return true if the points were removed, false otherwise
 	 */
 	public boolean removePoints(int points, boolean async) {
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		if (sharedPoints.applies()) return sharedPoints.remove(this, points);
 		if (getPoints() >= points) {
 			setPoints(getPoints() - points, async);
 			return true;
 		}
 		return false;
+	}
+
+	/** Removes points without performing shared-database I/O on the caller thread. */
+	public void removePoints(int points, Consumer<Boolean> completion) {
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		if (!sharedPoints.applies()) {
+			completion.accept(removePoints(points));
+			return;
+		}
+		Player player = getPlayer();
+		plugin.getTimer().execute(() -> {
+			boolean removed = sharedPoints.remove(this, points);
+			plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(removed), player);
+		});
+	}
+
+	/**
+	 * Atomically transfers points to another user when points are shared through
+	 * MySQL, reporting completion on the Bukkit thread.
+	 *
+	 * @param target recipient
+	 * @param points positive number of points
+	 * @param completion whether the transfer completed
+	 */
+	public void transferPoints(VotingPluginUser target, int points, Consumer<Boolean> completion) {
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		if (sharedPoints.applies()) {
+			Player player = getPlayer();
+			plugin.getTimer().execute(() -> {
+				boolean transferred = sharedPoints.transfer(this, target, points);
+				plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(transferred), player);
+			});
+			return;
+		}
+		boolean transferred = removePoints(points);
+		if (transferred) {
+			target.addPoints(points);
+		}
+		completion.accept(transferred);
 	}
 
 	/**
@@ -1590,7 +1642,12 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param value the number of points
 	 */
 	public void setPoints(int value) {
-		getUserData().setInt(getPointsPath(), value, false);
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		if (sharedPoints.applies()) {
+			sharedPoints.set(this, value, false);
+		} else {
+			getUserData().setInt(getPointsPath(), value, false);
+		}
 	}
 
 	/**
@@ -1600,7 +1657,12 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param async whether to set the points asynchronously
 	 */
 	public void setPoints(int value, boolean async) {
-		getUserData().setInt(getPointsPath(), value, false, async);
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		if (sharedPoints.applies()) {
+			sharedPoints.set(this, value, async);
+		} else {
+			getUserData().setInt(getPointsPath(), value, false, async);
+		}
 	}
 
 	/**
