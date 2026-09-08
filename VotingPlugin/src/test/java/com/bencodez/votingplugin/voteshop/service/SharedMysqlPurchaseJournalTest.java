@@ -165,6 +165,7 @@ class SharedMysqlPurchaseJournalTest {
 		SharedMysqlPurchaseJournal journal = new SharedMysqlPurchaseJournal(fixture.table, false);
 		assertTrue(journal.refundUnstartedReward("scheduler-rejected"));
 
+		verify(fixture.work, org.mockito.Mockito.times(2)).setAutoCommit(false);
 		verify(terminal).setString(1, "REFUNDED");
 	}
 
@@ -287,6 +288,84 @@ class SharedMysqlPurchaseJournalTest {
 
 		verify(claimConnection, atLeastOnce()).close();
 		verify(confirmation).prepareStatement(anyString());
+	}
+
+	@Test
+	void ambiguousRefundCommitIsConfirmedBeforeReturningSuccess() throws Exception {
+		Fixture fixture = fixture();
+		Connection refundConnection = mock(Connection.class);
+		Connection confirmation = mock(Connection.class);
+		PreparedStatement selectRefund = mock(PreparedStatement.class);
+		PreparedStatement credit = mock(PreparedStatement.class);
+		PreparedStatement terminal = mock(PreparedStatement.class);
+		PreparedStatement selectConfirmation = mock(PreparedStatement.class);
+		ResultSet pending = pendingRow();
+		ResultSet refunded = mock(ResultSet.class);
+		when(refundConnection.prepareStatement(anyString())).thenReturn(selectRefund, credit, terminal);
+		when(selectRefund.executeQuery()).thenReturn(pending);
+		when(credit.executeUpdate()).thenReturn(1);
+		when(terminal.executeUpdate()).thenReturn(1);
+		when(confirmation.prepareStatement(anyString())).thenReturn(selectConfirmation);
+		when(selectConfirmation.executeQuery()).thenReturn(refunded);
+		when(refunded.next()).thenReturn(true);
+		when(refunded.getString(1)).thenReturn("REFUNDED");
+		AtomicBoolean refundClosed = new AtomicBoolean();
+		org.mockito.Mockito.doAnswer(ignored -> {
+			refundClosed.set(true);
+			return null;
+		}).when(refundConnection).close();
+		when(fixture.sql.getConnectionManager().getConnection()).thenReturn(refundConnection).thenAnswer(ignored -> {
+			assertTrue(refundClosed.get(), "The ambiguous refund handle must be released before confirmation");
+			return confirmation;
+		});
+		doThrow(new java.sql.SQLException("commit acknowledgement lost")).when(refundConnection).commit();
+
+		SharedMysqlPurchaseJournal journal = new SharedMysqlPurchaseJournal(fixture.table, false);
+		assertTrue(journal.refundPending("purchase-ambiguous-refund", 100L));
+
+		verify(refundConnection, atLeastOnce()).close();
+		verify(confirmation).prepareStatement(anyString());
+	}
+
+	@Test
+	void unstartedRewardRetryRecognizesAnAlreadyCommittedRefund() throws Exception {
+		Fixture fixture = fixture();
+		Connection mark = mock(Connection.class);
+		Connection refund = mock(Connection.class);
+		Connection failedConfirmation = mock(Connection.class);
+		Connection retryMark = mock(Connection.class);
+		Connection finalConfirmation = mock(Connection.class);
+		PreparedStatement markStatement = mock(PreparedStatement.class);
+		PreparedStatement refundSelect = mock(PreparedStatement.class);
+		PreparedStatement credit = mock(PreparedStatement.class);
+		PreparedStatement terminal = mock(PreparedStatement.class);
+		PreparedStatement failedSelect = mock(PreparedStatement.class);
+		PreparedStatement retryMarkStatement = mock(PreparedStatement.class);
+		PreparedStatement finalSelect = mock(PreparedStatement.class);
+		ResultSet compensating = pendingRow("COMPENSATING");
+		ResultSet refunded = mock(ResultSet.class);
+		when(mark.prepareStatement(anyString())).thenReturn(markStatement);
+		when(markStatement.executeUpdate()).thenReturn(1);
+		when(refund.prepareStatement(anyString())).thenReturn(refundSelect, credit, terminal);
+		when(refundSelect.executeQuery()).thenReturn(compensating);
+		when(credit.executeUpdate()).thenReturn(1);
+		when(terminal.executeUpdate()).thenReturn(1);
+		doThrow(new java.sql.SQLException("commit acknowledgement lost")).when(refund).commit();
+		when(failedConfirmation.prepareStatement(anyString())).thenReturn(failedSelect);
+		doThrow(new java.sql.SQLException("confirmation unavailable")).when(failedSelect).executeQuery();
+		when(retryMark.prepareStatement(anyString())).thenReturn(retryMarkStatement);
+		when(retryMarkStatement.executeUpdate()).thenReturn(0);
+		when(finalConfirmation.prepareStatement(anyString())).thenReturn(finalSelect);
+		when(finalSelect.executeQuery()).thenReturn(refunded);
+		when(refunded.next()).thenReturn(true);
+		when(refunded.getString(1)).thenReturn("REFUNDED");
+		when(fixture.sql.getConnectionManager().getConnection()).thenReturn(mark, refund, failedConfirmation,
+				retryMark, finalConfirmation);
+
+		SharedMysqlPurchaseJournal journal = new SharedMysqlPurchaseJournal(fixture.table, false);
+		assertTrue(journal.refundUnstartedReward("already-refunded"));
+
+		verify(finalSelect).executeQuery();
 	}
 
 	private static Fixture fixture() throws Exception {

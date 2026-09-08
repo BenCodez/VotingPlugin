@@ -88,6 +88,33 @@ class SharedMysqlPointMutatorTest {
 	}
 
 	@Test
+	void pointMutationDiscardsCacheRecreatedDuringDatabaseWrite() throws Exception {
+		MySQL table = mock(MySQL.class);
+		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
+				org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		Connection connection = mock(Connection.class);
+		PreparedStatement statement = mock(PreparedStatement.class);
+		when(table.getTableName()).thenReturn("VotingPlugin_Users");
+		when(table.qi(anyString())).thenAnswer(invocation -> "`" + invocation.getArgument(0) + "`");
+		when(table.getMysql()).thenReturn(sql);
+		when(sql.getConnectionManager().getConnection()).thenReturn(connection);
+		when(connection.prepareStatement(anyString())).thenReturn(statement);
+		when(statement.executeUpdate()).thenReturn(1);
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		when(plugin.getMysql()).thenReturn(table);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		when(user.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
+		when(user.getPointsPath()).thenReturn("Points");
+		when(user.isCached()).thenReturn(false, true);
+
+		assertTrue(new SharedMysqlPointMutator(plugin).remove(user, 10));
+
+		verify(statement).executeUpdate();
+		verify(plugin.getUserManager().getDataManager()).removeCache(
+				java.util.UUID.fromString(user.getUUID()), null);
+	}
+
+	@Test
 	void asynchronousRemoveDoesNotAcquireJdbcOnTheCallerThread() throws Exception {
 		MySQL table = mock(MySQL.class);
 		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,

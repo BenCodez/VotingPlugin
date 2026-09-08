@@ -4,7 +4,9 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.IntFunction;
 
@@ -14,6 +16,7 @@ import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 import com.bencodez.simpleapi.sql.mysql.DbType;
 import com.bencodez.simpleapi.sql.data.DataValue;
+import com.bencodez.simpleapi.folialib.enums.EntityTaskResult;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 /** Performs point writes that must remain atomic across shared MySQL servers. */
@@ -220,56 +223,155 @@ final class SharedMysqlPointMutator {
 					completeOnBukkit(source, completion, false);
 					return;
 				}
-				SharedPointTransferJournal.ClaimOutcome claim = journal.claimHookWithConfirmation(transferId, owner,
-						System.currentTimeMillis());
-				if (claim == SharedPointTransferJournal.ClaimOutcome.NOT_CLAIMED) {
-					journal.refundReserved(transferId, source.getUUID(), sourcePoints, debitAmount);
-					completeOnBukkit(source, completion, false);
-					return;
-				}
-				if (claim == SharedPointTransferJournal.ClaimOutcome.INDETERMINATE) {
-					logIndeterminateClaim(transferId);
-					completeOnBukkit(source, completion, true);
-					return;
-				}
+				// The source cache may have been recreated while the reservation was being
+				// committed. Discard it after the durable debit, before any later dump can
+				// restore the pre-debit balance.
+				discardCache(source);
 			} catch (SQLException failure) {
 				logFailure(failure);
 				completeOnBukkit(source, completion, false);
 				return;
 			}
 
-			plugin.getBukkitScheduler().runTask(plugin, () -> {
-				Integer creditAmount;
+			/*
+			 * Do not claim the reservation until the Bukkit approval task has actually
+			 * started. If scheduling is rejected, the row remains RESERVED and startup
+			 * recovery can safely return the debit. JDBC claim work remains on the
+			 * persistence executor, never on the Bukkit lane.
+			 */
+			try {
+				plugin.getBukkitScheduler().runTask(plugin, () -> {
+					try {
+						plugin.getTimer().execute(() -> claimTransferForApproval(source, target, debitAmount,
+								creditAmountProvider, completion, journal, transferId, owner, sourcePoints, targetPoints));
+					} catch (RuntimeException schedulingFailure) {
+						refundReservedAfterSchedulingFailure(source, completion, journal, transferId, sourcePoints, debitAmount,
+								schedulingFailure);
+					}
+				});
+			} catch (RuntimeException schedulingFailure) {
+				refundReservedAfterSchedulingFailure(source, completion, journal, transferId, sourcePoints, debitAmount,
+						schedulingFailure);
+			}
+		});
+	}
+
+	private void claimTransferForApproval(VotingPluginUser source, VotingPluginUser target, int debitAmount,
+			IntFunction<Integer> creditAmountProvider, Consumer<Boolean> completion,
+			SharedPointTransferJournal journal, String transferId, String owner, String sourcePoints, String targetPoints) {
+		SharedPointTransferJournal.ClaimOutcome claim = journal.claimHookWithConfirmation(transferId, owner,
+				System.currentTimeMillis());
+		if (claim == SharedPointTransferJournal.ClaimOutcome.NOT_CLAIMED) {
+			try {
+				journal.refundReserved(transferId, source.getUUID(), sourcePoints, debitAmount);
+				discardCache(source);
+			} catch (SQLException failure) {
+				logFailure(failure);
+			}
+			completeOnBukkit(source, completion, false);
+			return;
+		}
+		if (claim == SharedPointTransferJournal.ClaimOutcome.INDETERMINATE) {
+			logIndeterminateClaim(transferId);
+			completeOnBukkit(source, completion, true);
+			return;
+		}
+		discardCache(source);
+		org.bukkit.entity.Player targetPlayer = target.getPlayer();
+		org.bukkit.entity.Player approvalPlayer = targetPlayer != null ? targetPlayer : source.getPlayer();
+		AtomicInteger approvalState = new AtomicInteger(0);
+		Runnable rejectBeforeStart = () -> {
+			if (!approvalState.compareAndSet(0, 2)) return;
+			try {
+				plugin.getTimer().execute(() -> refundClaimedAfterSchedulingFailure(source, completion, journal,
+						transferId, sourcePoints, debitAmount,
+						new IllegalStateException("Transfer approval task did not start")));
+			} catch (RuntimeException persistenceRejected) {
+				plugin.debug(persistenceRejected);
+				completeOnBukkit(source, completion, false);
+			}
+		};
+		try {
+			CompletableFuture<EntityTaskResult> approval = plugin.getBukkitScheduler().getFoliaLib().getImpl()
+					.runAtEntityWithFallback(approvalPlayer, ignored -> {
+				if (!approvalState.compareAndSet(0, 1)) return;
+				Integer approvedAmount;
 				try {
-					creditAmount = creditAmountProvider.apply(debitAmount);
+					approvedAmount = creditAmountProvider.apply(debitAmount);
 				} catch (RuntimeException failure) {
-					creditAmount = null;
+					approvedAmount = null;
 					logApprovalFailure(failure);
 				}
-				Integer approvedAmount = creditAmount;
-				plugin.getTimer().execute(() -> {
-					boolean transferred;
-					try {
-						// The hook may have recreated the cache while it ran on Bukkit.
-						drainCache(target);
-						SharedPointTransferJournal.SettlementOutcome outcome;
-						try {
-							outcome = journal.settleWithConfirmation(transferId, owner, source.getUUID(), sourcePoints,
-									target.getUUID(), targetPoints, debitAmount, approvedAmount);
-						} finally {
-							discardCache(target);
-						}
-						transferred = isAcceptedSettlement(outcome);
-					} catch (RuntimeException failure) {
-						plugin.getLogger().severe("Unable to settle shared MySQL point transfer: "
-								+ failure.getClass().getSimpleName());
-						plugin.debug(failure);
-						transferred = false;
-					}
-					completeOnBukkit(source, completion, transferred);
-				});
+				Integer finalApprovedAmount = approvedAmount;
+				try {
+					plugin.getTimer().execute(() -> settleTransfer(source, target, debitAmount, completion, journal,
+							transferId, owner, sourcePoints, targetPoints, finalApprovedAmount));
+				} catch (RuntimeException schedulingFailure) {
+					// The approval callback already ran and may have had side effects. Keep the
+					// claimed row for explicit reconciliation instead of refunding it.
+					plugin.debug(schedulingFailure);
+					logIndeterminateClaim(transferId);
+					completeOnBukkit(source, completion, true);
+				} finally {
+					approvalState.set(2);
+				}
+			}, rejectBeforeStart);
+			approval.whenComplete((result, failure) -> {
+				if (failure != null || result != EntityTaskResult.SUCCESS) rejectBeforeStart.run();
 			});
-		});
+		} catch (RuntimeException schedulingFailure) {
+			plugin.debug(schedulingFailure);
+			rejectBeforeStart.run();
+		}
+	}
+
+	private void settleTransfer(VotingPluginUser source, VotingPluginUser target, int debitAmount,
+			Consumer<Boolean> completion, SharedPointTransferJournal journal, String transferId, String owner,
+			String sourcePoints, String targetPoints, Integer approvedAmount) {
+		boolean transferred;
+		try {
+			// The hook may have recreated either cache while it ran on Bukkit.
+			drainCache(target);
+			SharedPointTransferJournal.SettlementOutcome outcome;
+			try {
+				outcome = journal.settleWithConfirmation(transferId, owner, source.getUUID(), sourcePoints,
+						target.getUUID(), targetPoints, debitAmount, approvedAmount);
+			} finally {
+				discardCache(source);
+				discardCache(target);
+			}
+			transferred = isAcceptedSettlement(outcome);
+		} catch (RuntimeException failure) {
+			plugin.getLogger().severe("Unable to settle shared MySQL point transfer: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+			transferred = false;
+		}
+		completeOnBukkit(source, completion, transferred);
+	}
+
+	private void refundReservedAfterSchedulingFailure(VotingPluginUser source, Consumer<Boolean> completion,
+			SharedPointTransferJournal journal, String transferId, String sourcePoints, int debitAmount,
+			RuntimeException failure) {
+		try {
+			if (journal.refundReserved(transferId, source.getUUID(), sourcePoints, debitAmount)) discardCache(source);
+		} catch (SQLException refundFailure) {
+			logFailure(refundFailure);
+		}
+		plugin.debug(failure);
+		completeOnBukkit(source, completion, false);
+	}
+
+	private void refundClaimedAfterSchedulingFailure(VotingPluginUser source, Consumer<Boolean> completion,
+			SharedPointTransferJournal journal, String transferId, String sourcePoints, int debitAmount,
+			RuntimeException failure) {
+		try {
+			if (journal.refundHookStarted(transferId, source.getUUID(), sourcePoints, debitAmount)) discardCache(source);
+		} catch (SQLException refundFailure) {
+			logFailure(refundFailure);
+		}
+		plugin.debug(failure);
+		completeOnBukkit(source, completion, false);
 	}
 
 	private boolean isAcceptedSettlement(SharedPointTransferJournal.SettlementOutcome outcome) {
@@ -356,6 +458,8 @@ final class SharedMysqlPointMutator {
 		} catch (SQLException failure) {
 			logFailure(failure);
 			return false;
+		} finally {
+			discardCache(user);
 		}
 	}
 
@@ -395,6 +499,8 @@ final class SharedMysqlPointMutator {
 		} catch (SQLException failure) {
 			logFailure(failure);
 			return new AddResult(updateCommitted, user.getPoints());
+		} finally {
+			discardCache(user);
 		}
 	}
 
@@ -413,6 +519,8 @@ final class SharedMysqlPointMutator {
 			statement.executeUpdate();
 		} catch (SQLException failure) {
 			logFailure(failure);
+		} finally {
+			discardCache(user);
 		}
 	}
 
@@ -430,6 +538,8 @@ final class SharedMysqlPointMutator {
 			statement.executeUpdate();
 		} catch (SQLException failure) {
 			logFailure(failure);
+		} finally {
+			discardCache(user);
 		}
 	}
 

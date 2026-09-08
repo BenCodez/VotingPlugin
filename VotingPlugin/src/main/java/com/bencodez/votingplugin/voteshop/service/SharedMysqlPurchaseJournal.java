@@ -238,7 +238,10 @@ final class SharedMysqlPurchaseJournal {
 		SQLException lastFailure = null;
 		for (int attempt = 0; attempt < 3; attempt++) {
 			try {
-				if (!requestUnstartedRewardRefund(purchaseId)) return false;
+				if (!requestUnstartedRewardRefund(purchaseId)) {
+					PurchaseRow row = find(purchaseId);
+					return row != null && REFUNDED.equals(row.state());
+				}
 				return refundCompensatingReward(purchaseId);
 			} catch (SQLException failure) {
 				lastFailure = failure;
@@ -252,14 +255,20 @@ final class SharedMysqlPurchaseJournal {
 		String update = "UPDATE " + qiJournal() + " SET " + qi("state") + " = ? WHERE " + qi("purchase_id")
 				+ " = ? AND " + qi("state") + " IN (?, ?, ?)";
 		try (Connection connection = connection(); PreparedStatement statement = connection.prepareStatement(update)) {
+			connection.setAutoCommit(false);
 			statement.setString(1, COMPENSATING);
 			statement.setString(2, purchaseId);
 			statement.setString(3, PENDING);
 			statement.setString(4, HOOK_STARTED);
 			statement.setString(5, COMPENSATING);
 			if (statement.executeUpdate() != 1) return false;
-			connection.commit();
-			return true;
+			try {
+				connection.commit();
+				return true;
+			} catch (SQLException failure) {
+				rollback(connection);
+				throw failure;
+			}
 		}
 	}
 
@@ -319,8 +328,7 @@ final class SharedMysqlPurchaseJournal {
 					return false;
 				}
 			}
-			connection.commit();
-			return true;
+			return commitAndConfirm(connection, purchaseId, terminalState);
 		} catch (SQLException failure) {
 			throw failure;
 		}

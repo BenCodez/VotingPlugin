@@ -109,6 +109,27 @@ class SharedPointTransferJournalTest {
 	}
 
 	@Test
+	void rejectedApprovalTaskCanRefundAClaimedTransfer() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement select = mock(PreparedStatement.class);
+		ResultSet row = row("HOOK_STARTED", "owner-1");
+		PreparedStatement refund = mock(PreparedStatement.class);
+		PreparedStatement journalUpdate = mock(PreparedStatement.class);
+		when(select.executeQuery()).thenReturn(row);
+		when(refund.executeUpdate()).thenReturn(1);
+		when(journalUpdate.executeUpdate()).thenReturn(1);
+		when(fixture.lookup.prepareStatement(anyString())).thenReturn(select, refund, journalUpdate);
+
+		SharedPointTransferJournal journal = new SharedPointTransferJournal(fixture.table);
+		assertTrue(journal.refundHookStarted("transfer-rejected", "source", "Points", 10));
+
+		verify(fixture.lookup).setAutoCommit(false);
+		verify(refund).setInt(1, 10);
+		verify(journalUpdate).setString(1, "REFUNDED");
+		verify(fixture.lookup).commit();
+	}
+
+	@Test
 	void acceptedHookCreditsAdjustedAmountAndMarksTerminalState() throws Exception {
 		Fixture fixture = fixture();
 		PreparedStatement select = mock(PreparedStatement.class);

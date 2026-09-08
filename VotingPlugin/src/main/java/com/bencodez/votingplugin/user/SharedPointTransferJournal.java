@@ -257,6 +257,7 @@ final class SharedPointTransferJournal {
 	 */
 	boolean refundReserved(String transferId, String sourceUuid, String sourcePointsColumn, int debitPoints)
 			throws SQLException {
+		if (!isSafeColumn(sourcePointsColumn)) return false;
 		String select = "SELECT " + qi("state") + " FROM " + qiJournal() + " WHERE " + qi("transfer_id")
 				+ " = ? FOR UPDATE";
 		String points = qi(sourcePointsColumn);
@@ -292,6 +293,63 @@ final class SharedPointTransferJournal {
 				}
 			}
 			return commitAndConfirm(connection, transferId, REFUNDED);
+		}
+	}
+
+	/**
+	 * Refunds a claimed transfer when the second Bukkit approval task was rejected
+	 * before its callback could start. The caller has the scheduler's proof that
+	 * no listener ran, so it is safe to reverse the source debit.
+	 */
+	boolean refundHookStarted(String transferId, String sourceUuid, String sourcePointsColumn, int debitPoints)
+			throws SQLException {
+		if (!isSafeColumn(sourcePointsColumn)) return false;
+		String select = "SELECT " + qi("state") + " FROM " + qiJournal() + " WHERE " + qi("transfer_id")
+				+ " = ? FOR UPDATE";
+		String points = qi(sourcePointsColumn);
+		String refund = "UPDATE " + qi(table.getTableName()) + " SET " + points + " = " + points
+				+ " + ? WHERE " + qi("uuid") + uuidCast();
+		String update = "UPDATE " + qiJournal() + " SET " + qi("state") + " = ? WHERE " + qi("transfer_id")
+				+ " = ?";
+		try (Connection connection = connection()) {
+			connection.setAutoCommit(false);
+			try (PreparedStatement selectStatement = connection.prepareStatement(select)) {
+				selectStatement.setString(1, transferId);
+				try (ResultSet result = selectStatement.executeQuery()) {
+					if (!result.next()) {
+						connection.rollback();
+						return false;
+					}
+					String state = result.getString(1);
+					if (REFUNDED.equals(state)) {
+						connection.rollback();
+						return true;
+					}
+					if (!HOOK_STARTED.equals(state)) {
+						connection.rollback();
+						return false;
+					}
+				}
+			}
+			try (PreparedStatement refundStatement = connection.prepareStatement(refund)) {
+				refundStatement.setInt(1, debitPoints);
+				refundStatement.setString(2, sourceUuid);
+				if (refundStatement.executeUpdate() != 1) {
+					connection.rollback();
+					return false;
+				}
+			}
+			try (PreparedStatement updateStatement = connection.prepareStatement(update)) {
+				updateStatement.setString(1, REFUNDED);
+				updateStatement.setString(2, transferId);
+				if (updateStatement.executeUpdate() != 1) {
+					connection.rollback();
+					return false;
+				}
+			}
+			return commitAndConfirm(connection, transferId, REFUNDED);
+		} catch (SQLException failure) {
+			throw failure;
 		}
 	}
 
