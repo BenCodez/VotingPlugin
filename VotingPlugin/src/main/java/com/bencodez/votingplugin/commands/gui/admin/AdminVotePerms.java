@@ -10,10 +10,12 @@ import org.bukkit.entity.Player;
 import org.bukkit.permissions.Permission;
 
 import com.bencodez.advancedcore.api.command.CommandHandler;
+import com.bencodez.advancedcore.api.command.PlayerCommandHandler;
 import com.bencodez.advancedcore.api.gui.GUIHandler;
 import com.bencodez.advancedcore.api.gui.GUIMethod;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.commands.AdminAuthorization;
 
 /**
  * Admin permissions GUI handler.
@@ -83,6 +85,7 @@ public class AdminVotePerms extends GUIHandler {
 			} else {
 				msg.add(handle.getHelpLineCommand("/vote") + " : " + handle.getPerm().split(Pattern.quote("|"))[0]);
 			}
+			addAdditionalPermissions(msg, sender, handle);
 
 		}
 
@@ -98,19 +101,20 @@ public class AdminVotePerms extends GUIHandler {
 			} else {
 				msg.add(handle.getHelpLineCommand("/av") + " : " + handle.getPerm().split(Pattern.quote("|"))[0]);
 			}
+			addAdditionalPermissions(msg, sender, handle);
 		}
 
 		for (Permission perm : plugin.getDescription().getPermissions()) {
 			if (sender instanceof Player) {
 				Set<String> child = perm.getChildren().keySet();
 				if (child.size() > 0) {
-					if (sender.hasPermission(perm)) {
+					if (hasEffectivePermission(sender, perm.getName())) {
 						msg.add("&6" + perm.getName() + " : &atrue");
 					} else {
 						msg.add("&6" + perm.getName() + " : &cfalse");
 					}
 				} else {
-					if (sender.hasPermission(perm)) {
+					if (hasEffectivePermission(sender, perm.getName())) {
 						msg.add("&6" + perm.getName() + " : &atrue");
 					} else {
 						msg.add("&6" + perm.getName() + " : &cfalse");
@@ -165,6 +169,7 @@ public class AdminVotePerms extends GUIHandler {
 					msg.add("&6" + handle.getHelpLineCommand("/vote") + " : "
 							+ handle.getPerm().split(Pattern.quote("|"))[0] + " : &cfalse");
 				}
+				addAdditionalPermissions(msg, p, handle);
 
 			}
 
@@ -176,18 +181,19 @@ public class AdminVotePerms extends GUIHandler {
 					msg.add("&6" + handle.getHelpLineCommand("/av") + " : "
 							+ handle.getPerm().split(Pattern.quote("|"))[0] + " : &cfalse");
 				}
+				addAdditionalPermissions(msg, p, handle);
 			}
 
 			for (Permission perm : plugin.getDescription().getPermissions()) {
 				Set<String> child = perm.getChildren().keySet();
 				if (child.size() > 0) {
-					if (p.hasPermission(perm)) {
+					if (hasEffectivePermission(p, perm.getName())) {
 						msg.add("&6" + perm.getName() + " : &atrue");
 					} else {
 						msg.add("&6" + perm.getName() + " : &cfalse");
 					}
 				} else {
-					if (p.hasPermission(perm)) {
+					if (hasEffectivePermission(p, perm.getName())) {
 						msg.add("&6" + perm.getName() + " : &atrue");
 					} else {
 						msg.add("&6" + perm.getName() + " : &cfalse");
@@ -233,12 +239,18 @@ public class AdminVotePerms extends GUIHandler {
 			msg.add(handle.getHelpLineCommand("/vote"));
 			msg.add("  " + handle.getPerm());
 			msg.add("  " + handle.getHelpMessage());
+			for (String permission : additionalPermissions(handle)) {
+				msg.add("  " + permission);
+			}
 		}
 
 		for (CommandHandler handle : plugin.getAdminVoteCommand()) {
 			msg.add(handle.getHelpLineCommand("/av"));
 			msg.add("  " + handle.getPerm());
 			msg.add("  " + handle.getHelpMessage());
+			for (String permission : additionalPermissions(handle)) {
+				msg.add("  " + permission);
+			}
 		}
 
 		for (Permission perm : plugin.getDescription().getPermissions()) {
@@ -248,6 +260,36 @@ public class AdminVotePerms extends GUIHandler {
 		msg = ArrayUtils.colorize(msg);
 
 		return ArrayUtils.convert(msg);
+	}
+
+	static ArrayList<String> additionalPermissions(CommandHandler handle) {
+		ArrayList<String> permissions = new ArrayList<>();
+		if (handle instanceof PlayerCommandHandler && handle.getPerm() != null) {
+			String primary = handle.getPerm().split(Pattern.quote("|"))[0];
+			if ("VotingPlugin.Commands.AdminVote.RemovePoints".equals(primary)) {
+				permissions.add(primary + ".All");
+			}
+		}
+		return permissions;
+	}
+
+	static boolean hasEffectivePermission(CommandSender sender, String permission) {
+		if (permission.startsWith("VotingPlugin.Commands.AdminVote.Edit.")) {
+			return AdminAuthorization.canEditConfig(sender, permission);
+		}
+		return sender.hasPermission(permission);
+	}
+
+	private static void addAdditionalPermissions(ArrayList<String> output, CommandSender sender, CommandHandler handle) {
+		for (String permission : additionalPermissions(handle)) {
+			if (sender instanceof Player) {
+				boolean allowed = "VotingPlugin.Commands.AdminVote.RemovePoints.All".equals(permission)
+						? AdminAuthorization.canRemovePointsFromAll(sender) : sender.hasPermission(permission);
+				output.add("&6" + permission + (allowed ? " : &atrue" : " : &cfalse"));
+			} else {
+				output.add(permission);
+			}
+		}
 	}
 
 	@Override
