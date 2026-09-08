@@ -45,18 +45,84 @@ final class SharedMysqlPointMutator {
 	}
 
 	boolean transfer(VotingPluginUser source, VotingPluginUser target, int debitAmount, int creditAmount) {
-		return transfer(source, target, debitAmount, ignored -> creditAmount);
+		return transferAtomically(source, target, debitAmount, creditAmount);
 	}
 
 	/**
 	 * Transfers points while allowing the recipient hook to approve or adjust the
-	 * credit after the conditional debit has succeeded. The approval callback is
-	 * invoked on the persistence worker after the conditional debit. The receive
-	 * event is explicitly asynchronous, so no server-thread rendezvous is needed
-	 * while the transaction is open and cancellation can still roll back atomically.
+	 * credit after the conditional debit has succeeded. The reservation transaction
+	 * is committed and its connection is closed before the callback is invoked, so
+	 * arbitrary listeners may safely read from the database. A durable journal then
+	 * makes the refund/credit settlement idempotent.
 	 */
 	boolean transfer(VotingPluginUser source, VotingPluginUser target, int debitAmount,
 			IntFunction<Integer> creditAmountProvider) {
+		drainCache(source);
+		drainCache(target);
+		MySQL table = plugin.getMysql();
+		String sourcePoints = source.getPointsPath();
+		String targetPoints = target.getPointsPath();
+		String transferId = UUID.randomUUID().toString();
+		String owner = UUID.randomUUID().toString();
+		SharedPointTransferJournal journal = null;
+		try {
+			journal = SharedPointTransferJournal.forTable(table);
+			journal.recoverAndCleanup(System.currentTimeMillis());
+			try {
+				if (!journal.reserve(transferId, source.getUUID(), sourcePoints, debitAmount, target.getUUID(), debitAmount,
+						System.currentTimeMillis())) return false;
+			} catch (SQLException failure) {
+				// If reservation commit acknowledgement was lost, release the source
+				// only when the journal still proves the hook never started.
+				journal.refundReserved(transferId, source.getUUID(), sourcePoints, debitAmount);
+				throw failure;
+			}
+			SharedPointTransferJournal.ClaimOutcome claim = journal.claimHookWithConfirmation(transferId, owner,
+					System.currentTimeMillis());
+			if (claim == SharedPointTransferJournal.ClaimOutcome.NOT_CLAIMED) {
+				journal.refundReserved(transferId, source.getUUID(), sourcePoints, debitAmount);
+				return false;
+			}
+			if (claim == SharedPointTransferJournal.ClaimOutcome.INDETERMINATE) {
+				logIndeterminateClaim(transferId);
+				return true;
+			}
+			Integer creditAmount;
+			try {
+				creditAmount = creditAmountProvider.apply(debitAmount);
+			} catch (RuntimeException failure) {
+				SharedPointTransferJournal.SettlementOutcome outcome = journal.settleWithConfirmation(transferId, owner,
+						source.getUUID(), sourcePoints, target.getUUID(), targetPoints, debitAmount, null);
+				logApprovalFailure(failure);
+				return isAcceptedSettlement(outcome);
+			}
+			SharedPointTransferJournal.SettlementOutcome outcome = journal.settleWithConfirmation(transferId, owner,
+					source.getUUID(), sourcePoints, target.getUUID(), targetPoints, debitAmount, creditAmount);
+			return isAcceptedSettlement(outcome);
+		} catch (SQLException failure) {
+			logFailure(failure);
+			return false;
+		}
+	}
+
+	private boolean isAcceptedSettlement(SharedPointTransferJournal.SettlementOutcome outcome) {
+		if (outcome == SharedPointTransferJournal.SettlementOutcome.INDETERMINATE) {
+			// The callback has already run. Reporting a retryable failure could create
+			// a second transfer after an unconfirmed credit, so retain the journal row
+			// for explicit reconciliation and suppress a new debit attempt.
+			plugin.getLogger().severe("Shared MySQL point transfer outcome is indeterminate; retaining journal entry for reconciliation");
+			return true;
+		}
+		return outcome == SharedPointTransferJournal.SettlementOutcome.COMPLETED;
+	}
+
+	private void logIndeterminateClaim(String transferId) {
+		plugin.getLogger().severe("Shared MySQL point transfer " + transferId
+				+ " has indeterminate claim state (RESERVED or HOOK_STARTED); retaining it for explicit reconciliation");
+	}
+
+	private boolean transferAtomically(VotingPluginUser source, VotingPluginUser target,
+			int debitAmount, int creditAmount) {
 		drainCache(source);
 		drainCache(target);
 		MySQL table = plugin.getMysql();
@@ -75,18 +141,6 @@ final class SharedMysqlPointMutator {
 				debitStatement.setString(2, source.getUUID());
 				debitStatement.setInt(3, debitAmount);
 				if (debitStatement.executeUpdate() != 1) {
-					connection.rollback();
-					return false;
-				}
-				Integer creditAmount;
-				try {
-					creditAmount = creditAmountProvider.apply(debitAmount);
-				} catch (RuntimeException failure) {
-					connection.rollback();
-					logApprovalFailure(failure);
-					return false;
-				}
-				if (creditAmount == null) {
 					connection.rollback();
 					return false;
 				}

@@ -33,6 +33,7 @@ import org.mockito.InOrder;
 import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
+import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.simpleapi.folialib.enums.EntityTaskResult;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.voteshop.shop.VoteShopDefinition;
@@ -211,6 +212,9 @@ class VoteShopPurchaseServiceTest {
 		when(connection.prepareStatement(anyString())).thenReturn(statement);
 		when(statement.executeUpdate()).thenReturn(1);
 		VotingPluginMain plugin = sharedMysqlPlugin(table);
+		when(plugin.isEnabled()).thenReturn(true);
+		RewardHandler rewardHandler = mock(RewardHandler.class);
+		when(plugin.getRewardHandler()).thenReturn(rewardHandler);
 		ScheduledExecutorService persistenceExecutor = mock(ScheduledExecutorService.class);
 		when(plugin.getTimer()).thenReturn(persistenceExecutor);
 		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
@@ -260,8 +264,8 @@ class VoteShopPurchaseServiceTest {
 		}
 
 		assertEquals(VoteShopPurchaseResult.SUCCESS, result.get());
-		verify(plugin.getRewardHandler()).giveReward(eq(user), eq(oldShopData), eq("Shop.old-item.Rewards"), any());
-		verify(plugin.getRewardHandler(), never()).giveReward(eq(user), eq(reloadedShopData), anyString(), any());
+		verify(rewardHandler).giveReward(eq(user), eq(oldShopData), eq("Shop.old-item.Rewards"), any());
+		verify(rewardHandler, never()).giveReward(eq(user), eq(reloadedShopData), anyString(), any());
 	}
 
 	@Test
