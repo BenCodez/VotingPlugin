@@ -167,6 +167,23 @@ public class VotingPluginProxyTest {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		OfflineBungeeVote state = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "player-uuid",
 				"Service", 100L, true, "totals", false, true, java.util.Set.of("Server1"),
+				java.util.Collections.emptySet(), true, java.util.Collections.emptyMap(),
+				java.util.Map.of("Server1", "00000000-0000-0000-0000-000000000169"));
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+
+		spyProxy.persistUncachedStandaloneBroadcastForTest("player-uuid", state, false);
+
+		assertTrue(state.isRewardDelivered());
+		assertFalse(state.isBroadcastForwarded());
+		verify(voteCache).addOnlineVote("player-uuid", state);
+	}
+
+	@Test
+	void uncachedStandaloneBroadcastPersistsAsBroadcastOnlyState() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		OfflineBungeeVote state = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "player-uuid",
+				"Service", 100L, true, "totals", false, true, java.util.Set.of("Server1"),
 				java.util.Collections.emptySet(), false, java.util.Collections.emptyMap(),
 				java.util.Map.of("Server1", "00000000-0000-0000-0000-000000000169"));
 		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
@@ -177,6 +194,50 @@ public class VotingPluginProxyTest {
 		assertTrue(state.isRewardDelivered());
 		assertFalse(state.isBroadcastForwarded());
 		verify(voteCache).addOnlineVote("player-uuid", state);
+	}
+
+	@Test
+	void standaloneBackendCacheRowDoesNotCopyCanonicalMultiTargetState() {
+		OfflineBungeeVote row = votingPluginProxy.createCachedRewardVoteForTest(
+				java.util.UUID.randomUUID(), "Player", "player-uuid", "Service", 100L, true, "totals", true);
+
+		assertTrue(row.isBroadcastForwarded());
+		assertFalse(row.isProxyBroadcastHandled());
+		assertTrue(row.getBroadcastTargets().isEmpty());
+		assertTrue(row.getBroadcastForwardedServers().isEmpty());
+		assertTrue(row.getHttpBroadcastDeliveryIds().isEmpty());
+	}
+
+	@Test
+	void queuedRolloverReplayReusesStableStandaloneBroadcastDeliveryId() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		java.util.Queue<VoteTimeQueue> queue = new java.util.concurrent.ConcurrentLinkedQueue<>();
+		String deliveryId = "00000000-0000-0000-0000-000000000172";
+		VoteTimeQueue queued = new VoteTimeQueue(java.util.UUID.randomUUID(), "Player", "Service", 100L, true,
+				java.util.Set.of("Server1", "Server2"), java.util.Set.of("Server1"), "totals", false,
+				"player-uuid", java.util.Map.of("Server2", deliveryId));
+		queue.add(queued);
+		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(queue);
+		Mockito.when(voteCache.updateTimeVote(queued)).thenReturn(true);
+		Mockito.when(voteCache.removeTimeVote(queued)).thenAnswer(invocation -> queue.remove(queued));
+		Mockito.when(votingPluginProxy.getConfig().getPrimaryServer()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getBungeeManageTotals()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getProxyBroadcastEnabled()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getProxyBroadcastOfflineMode()).thenReturn("FORWARD");
+		votingPluginProxy.setGlobalMessageProxyHandlerForTest(
+				Mockito.mock(com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler.class));
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(true);
+
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		spyProxy.processQueue();
+
+		assertTrue(queue.isEmpty());
+		assertEquals(java.util.List.of(deliveryId), spyProxy.getAttemptedVotePartyDeliveryIds());
+		verify(voteCache).updateTimeVote(queued);
+		verify(voteCache).removeTimeVote(queued);
+		verify(voteCache, never()).addOnlineVote(Mockito.anyString(), Mockito.any(OfflineBungeeVote.class));
 	}
 
 	@Test

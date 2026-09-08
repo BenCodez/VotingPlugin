@@ -4015,9 +4015,12 @@ public abstract class VotingPluginProxy {
 				remainingTargets.removeAll(broadcastForwardedServers);
 				standaloneBroadcastState = new OfflineBungeeVote(voteId, player, uuid, service, time, realVote,
 						text == null ? "" : text.toString(), false, true, proxyBroadcastTargets,
-						broadcastForwardedServers, false);
-				broadcastForwardedServers.addAll(sendProxyBroadcast(remainingTargets, uuid, player, service, time,
-						text == null ? "" : text.toString(), false, standaloneBroadcastState));
+						broadcastForwardedServers, false, Collections.emptyMap(), queuedVote == null
+							? Collections.emptyMap() : queuedVote.getHttpBroadcastDeliveryIds());
+				Set<String> forwarded = sendProxyBroadcast(remainingTargets, uuid, player, service, time,
+						text == null ? "" : text.toString(), false, standaloneBroadcastState);
+				broadcastForwardedServers.addAll(forwarded);
+				standaloneBroadcastState.getBroadcastForwardedServers().addAll(forwarded);
 			}
 
 			// ===========================
@@ -4035,15 +4038,8 @@ public abstract class VotingPluginProxy {
 
 					if ((!isSomeoneOnlineServerForVoteRouting(s) && method.requiresPlayerOnline()) || forceCache) {
 						voteStatus = VoteLogStatus.CACHED;
-						boolean broadcastForwarded = standaloneProxyBroadcast
-								&& broadcastForwardedServers.containsAll(proxyBroadcastTargets);
-						getVoteCacheHandler().addServerVote(s,
-							new OfflineBungeeVote(voteId, player, uuid, service, time, realVote,
-									text.toString(), broadcastForwarded, standaloneProxyBroadcast,
-									proxyBroadcastTargets, broadcastForwardedServers, false, Collections.emptyMap(),
-									standaloneBroadcastState == null ? Collections.emptyMap()
-										: standaloneBroadcastState.getHttpBroadcastDeliveryIds()));
-						standaloneBroadcastStatePersisted |= standaloneBroadcastState != null;
+						getVoteCacheHandler().addServerVote(s, createCachedRewardVote(voteId, player, uuid, service, time,
+								realVote, text.toString(), standaloneProxyBroadcast));
 						debug("Caching vote for " + player + " on " + service + " for " + s);
 					} else {
 						boolean broadcastHere = !broadcastForwardedServers.contains(s);
@@ -4053,20 +4049,21 @@ public abstract class VotingPluginProxy {
 							broadcastHere = proxyBroadcastDecider.shouldBroadcast(s, targets);
 						}
 
-						boolean broadcastForwarded = standaloneProxyBroadcast
-								&& broadcastForwardedServers.containsAll(proxyBroadcastTargets);
-						OfflineBungeeVote pendingVote = new OfflineBungeeVote(voteId, player, uuid, service, time, realVote,
-								text.toString(), broadcastForwarded, standaloneProxyBroadcast, proxyBroadcastTargets,
-								broadcastForwardedServers, false, Collections.emptyMap(),
-								standaloneBroadcastState == null ? Collections.emptyMap()
-										: standaloneBroadcastState.getHttpBroadcastDeliveryIds());
-						if (!sendVoteEnvelopeAccepted(s, 2,
+						OfflineBungeeVote pendingVote = standaloneProxyBroadcast
+								? new OfflineBungeeVote(voteId, player, uuid, service, time, realVote, text.toString(), false,
+										true, proxyBroadcastTargets, broadcastForwardedServers, false,
+										Collections.emptyMap(), standaloneBroadcastState.getHttpBroadcastDeliveryIds())
+								: createCachedRewardVote(voteId, player, uuid, service, time, realVote, text.toString(), false);
+						boolean rewardAccepted = sendVoteEnvelopeAccepted(s, 2,
 								VotingPluginWire.vote(player, uuid, service, time, true, realVote, text.toString(),
-										voteId, getConfig().getBungeeManageTotals(), broadcastHere, 1, 1), pendingVote)) {
+										voteId, getConfig().getBungeeManageTotals(), broadcastHere, 1, 1), pendingVote);
+						if (!rewardAccepted) {
 							voteStatus = VoteLogStatus.CACHED;
-							getVoteCacheHandler().addServerVote(s, pendingVote);
-							standaloneBroadcastStatePersisted |= standaloneBroadcastState != null;
+							getVoteCacheHandler().addServerVote(s, standaloneProxyBroadcast
+									? createCachedRewardVote(pendingVote, true) : pendingVote);
 							debug("Caching vote after the transport rejected delivery for " + s);
+						} else if (standaloneBroadcastState != null) {
+							standaloneBroadcastState.setRewardDelivered(true);
 						}
 					}
 				}
@@ -4083,13 +4080,11 @@ public abstract class VotingPluginProxy {
 						broadcastHere = proxyBroadcastDecider.shouldBroadcast(server, targets);
 					}
 
-					boolean broadcastForwarded = standaloneProxyBroadcast
-							&& broadcastForwardedServers.containsAll(proxyBroadcastTargets);
-					OfflineBungeeVote pendingVote = new OfflineBungeeVote(voteId, player, uuid, service, time, realVote,
-							text.toString(), broadcastForwarded, standaloneProxyBroadcast, proxyBroadcastTargets,
-							broadcastForwardedServers, false, Collections.emptyMap(),
-							standaloneBroadcastState == null ? Collections.emptyMap()
-									: standaloneBroadcastState.getHttpBroadcastDeliveryIds());
+					OfflineBungeeVote pendingVote = standaloneProxyBroadcast
+							? new OfflineBungeeVote(voteId, player, uuid, service, time, realVote, text.toString(), false,
+									true, proxyBroadcastTargets, broadcastForwardedServers, false, Collections.emptyMap(),
+									standaloneBroadcastState.getHttpBroadcastDeliveryIds())
+							: createCachedRewardVote(voteId, player, uuid, service, time, realVote, text.toString(), false);
 					boolean rewardAccepted = sendVoteEnvelopeAccepted(server, 1,
 							VotingPluginWire.voteOnline(player, uuid, service, time, true, realVote, text.toString(),
 									voteId, getConfig().getBungeeManageTotals(), broadcastHere, 1, 1), pendingVote);
@@ -4098,6 +4093,8 @@ public abstract class VotingPluginProxy {
 						getVoteCacheHandler().addOnlineVote(uuid, pendingVote);
 						standaloneBroadcastStatePersisted |= standaloneBroadcastState != null;
 						debug("Caching online vote after the transport rejected delivery for " + server);
+					} else if (standaloneBroadcastState != null) {
+						standaloneBroadcastState.setRewardDelivered(true);
 					}
 
 					if (rewardAccepted && canValidateStandaloneBroadcast && getConfig().getProxyBroadcastEnabled()
@@ -4127,14 +4124,11 @@ public abstract class VotingPluginProxy {
 					}
 				} else {
 					voteStatus = VoteLogStatus.CACHED;
-					boolean broadcastForwarded = standaloneProxyBroadcast
-							&& broadcastForwardedServers.containsAll(proxyBroadcastTargets);
-					getVoteCacheHandler().addOnlineVote(uuid,
-						new OfflineBungeeVote(voteId, player, uuid, service, time, realVote, text.toString(),
-								broadcastForwarded, standaloneProxyBroadcast, proxyBroadcastTargets,
-								broadcastForwardedServers, false, Collections.emptyMap(),
-								standaloneBroadcastState == null ? Collections.emptyMap()
-									: standaloneBroadcastState.getHttpBroadcastDeliveryIds()));
+					getVoteCacheHandler().addOnlineVote(uuid, standaloneProxyBroadcast
+							? new OfflineBungeeVote(voteId, player, uuid, service, time, realVote, text.toString(), false,
+									true, proxyBroadcastTargets, broadcastForwardedServers, false, Collections.emptyMap(),
+									standaloneBroadcastState.getHttpBroadcastDeliveryIds())
+							: createCachedRewardVote(voteId, player, uuid, service, time, realVote, text.toString(), false));
 					standaloneBroadcastStatePersisted |= standaloneBroadcastState != null;
 					debug("Caching online vote for " + player + " on " + service);
 				}
@@ -4197,9 +4191,32 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
+	/**
+	 * Creates the reward cache entry for a backend. Standalone proxy broadcast
+	 * progress belongs to the single voter-keyed canonical state, not to every
+	 * backend row. Marking the local row as already broadcast prevents it from
+	 * emitting a second broadcast while its reward waits for the player.
+	 */
+	protected OfflineBungeeVote createCachedRewardVote(UUID voteId, String player, String uuid, String service, long time,
+			boolean realVote, String text, boolean standaloneProxyBroadcast) {
+		return new OfflineBungeeVote(voteId, player, uuid, service, time, realVote, text,
+				standaloneProxyBroadcast, false, Collections.emptySet(), Collections.emptySet(), false,
+				Collections.emptyMap(), Collections.emptyMap());
+	}
+
+	private OfflineBungeeVote createCachedRewardVote(OfflineBungeeVote deliveryState,
+			boolean standaloneProxyBroadcast) {
+		return new OfflineBungeeVote(deliveryState.getVoteId(), deliveryState.getPlayerName(), deliveryState.getUuid(),
+				deliveryState.getService(), deliveryState.getTime(), deliveryState.isRealVote(), deliveryState.getText(),
+				standaloneProxyBroadcast, false, Collections.emptySet(), Collections.emptySet(), false,
+				OfflineBungeeVote.decodeHttpDeliveryIds(deliveryState.encodeHttpDeliveryIds()), Collections.emptyMap());
+	}
+
 	protected void persistUncachedStandaloneBroadcast(String uuid, OfflineBungeeVote state,
 			boolean alreadyPersisted) {
 		if (alreadyPersisted || state == null || state.isProxyBroadcastComplete()) return;
+		// This canonical row retries only the standalone broadcast. Reward delivery
+		// remains owned by the target-specific server/online cache entry.
 		state.setRewardDelivered(true);
 		state.setBroadcastForwarded(false);
 		getVoteCacheHandler().addOnlineVote(uuid, state);

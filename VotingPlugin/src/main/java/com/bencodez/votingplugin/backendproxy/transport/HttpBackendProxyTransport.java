@@ -118,8 +118,10 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	HttpBackendProxyTransport recreatePrepared() {
 		HttpBackendProxyTransport restored = new HttpBackendProxyTransport(plugin);
 		synchronized (lifecycle) {
-			restored.startupQueue.addAll(startupQueue);
-			startupQueue.clear();
+			// Startup and handoff queues are one FIFO from the caller's perspective.
+			// The handoff queue can still contain messages accepted by the previous
+			// replacement, so rollback must carry it into the restored transport too.
+			restored.startupQueue.addAll(takeQueuedMessages());
 		}
 		restored.start(configuredDirectory, configuredServerId, configuredConnectionCode, configuredMessageHandler,
 				configuredCredentialGeneration, configuredCredentialGeneration == null && retryInitialization,
@@ -133,10 +135,18 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 
 	java.util.List<JsonEnvelope> drainPreparedMessages() {
 		synchronized (lifecycle) {
-			java.util.List<JsonEnvelope> pending = java.util.List.copyOf(startupQueue);
-			startupQueue.clear();
-			return pending;
+			return takeQueuedMessages();
 		}
+	}
+
+	/** Takes both pending queues in their original FIFO order for replacement handoff. */
+	private java.util.List<JsonEnvelope> takeQueuedMessages() {
+		java.util.List<JsonEnvelope> pending = new java.util.ArrayList<>(startupQueue.size() + handoffQueue.size());
+		pending.addAll(startupQueue);
+		pending.addAll(handoffQueue);
+		startupQueue.clear();
+		handoffQueue.clear();
+		return pending;
 	}
 
 	@Override

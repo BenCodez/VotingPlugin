@@ -554,6 +554,60 @@ class HttpBackendProxyTransportTest {
 		transport.close();
 	}
 
+	@Test
+	@SuppressWarnings("unchecked")
+	void preparedDrainPreservesStartupAndExistingHandoffMessagesInFifoOrder() throws Exception {
+		HttpBackendProxyTransport transport = new HttpBackendProxyTransport(mock(VotingPluginMain.class));
+		JsonEnvelope startup = JsonEnvelope.builder("startup").build();
+		JsonEnvelope handoff = JsonEnvelope.builder("handoff").build();
+		((java.util.ArrayDeque<JsonEnvelope>) field(transport, "startupQueue")).add(startup);
+		((java.util.ArrayDeque<JsonEnvelope>) field(transport, "handoffQueue")).add(handoff);
+
+		assertEquals(List.of(startup, handoff), transport.drainPreparedMessages());
+		assertTrue(((java.util.ArrayDeque<JsonEnvelope>) field(transport, "startupQueue")).isEmpty());
+		assertTrue(((java.util.ArrayDeque<JsonEnvelope>) field(transport, "handoffQueue")).isEmpty());
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void rollbackRecreateCarriesExistingHandoffMessagesAfterStartupMessages() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		HttpBackendProxyTransport transport = new HttpBackendProxyTransport(plugin);
+		Path credentials = directory.resolve("http");
+		setField(transport, "configuredDirectory", credentials);
+		setField(transport, "configuredServerId", "lobby-1");
+		setField(transport, "configuredConnectionCode", "");
+		setField(transport, "configuredMessageHandler", mock(GlobalMessageHandler.class));
+		setField(transport, "restoreUnenrolledState", true);
+		JsonEnvelope startup = JsonEnvelope.builder("startup").build();
+		JsonEnvelope handoff = JsonEnvelope.builder("handoff").build();
+		((java.util.ArrayDeque<JsonEnvelope>) field(transport, "startupQueue")).add(startup);
+		((java.util.ArrayDeque<JsonEnvelope>) field(transport, "handoffQueue")).add(handoff);
+
+		java.lang.reflect.Field ownersField = HttpBackendProxyTransport.class.getDeclaredField("DIRECTORY_OWNERS");
+		ownersField.setAccessible(true);
+		var owners = (java.util.concurrent.ConcurrentHashMap<Path, java.util.concurrent.Semaphore>) ownersField.get(null);
+		Path ownerKey = credentials.toAbsolutePath().normalize();
+		java.util.concurrent.Semaphore owner = new java.util.concurrent.Semaphore(0);
+		owners.put(ownerKey, owner);
+		HttpBackendProxyTransport restored = null;
+		Thread setup = null;
+		try {
+			restored = transport.recreatePrepared();
+			assertEquals(List.of(startup, handoff),
+					new java.util.ArrayList<>((java.util.ArrayDeque<JsonEnvelope>) field(restored, "startupQueue")));
+			assertTrue(((java.util.ArrayDeque<JsonEnvelope>) field(restored, "handoffQueue")).isEmpty());
+			assertTrue(((java.util.ArrayDeque<JsonEnvelope>) field(transport, "startupQueue")).isEmpty());
+			assertTrue(((java.util.ArrayDeque<JsonEnvelope>) field(transport, "handoffQueue")).isEmpty());
+			setup = (Thread) field(restored, "worker");
+		} finally {
+			if (restored != null) restored.close();
+			if (setup != null) setup.join(TimeUnit.SECONDS.toMillis(1));
+			owners.remove(ownerKey, owner);
+		}
+	}
+
 	private static HttpConnectionCode code(String serverId, Instant expiry) {
 		return new HttpConnectionCode(serverId, URI.create("https://proxy.example.test:1297/"), "a".repeat(64),
 				"b".repeat(64), expiry, "A".repeat(43));
