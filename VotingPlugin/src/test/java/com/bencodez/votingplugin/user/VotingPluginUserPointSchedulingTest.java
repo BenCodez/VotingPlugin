@@ -1,12 +1,15 @@
 package com.bencodez.votingplugin.user;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verify;
@@ -25,6 +28,7 @@ import org.bukkit.plugin.PluginManager;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
+import org.mockito.InOrder;
 
 import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
@@ -76,20 +80,27 @@ class VotingPluginUserPointSchedulingTest {
 		when(fixture.statement.executeUpdate()).thenReturn(1);
 		when(credit.executeUpdate()).thenReturn(1);
 		AtomicReference<Boolean> result = new AtomicReference<>();
+		AtomicReference<Thread> eventThread = new AtomicReference<>();
 
 		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
 			PluginManager pluginManager = mock(PluginManager.class);
 			bukkit.when(Bukkit::getPluginManager).thenReturn(pluginManager);
+			doAnswer(invocation -> {
+				eventThread.set(Thread.currentThread());
+				return null;
+			}).when(pluginManager).callEvent(any(PlayerReceivePointsEvent.class));
 			fixture.user.transferPoints(target, 10, result::set);
+			ArgumentCaptor<Runnable> persistenceWork = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.persistence).execute(persistenceWork.capture());
+			Thread persistenceThread = Thread.currentThread();
+			persistenceWork.getValue().run();
+			ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
+			assertTrue(result.get() == null);
+			completion.getValue().run();
+			assertEquals(persistenceThread, eventThread.get(),
+					"the asynchronous receive hook must not rendezvous with the server thread inside the transaction");
 		}
-
-		ArgumentCaptor<Runnable> persistenceWork = ArgumentCaptor.forClass(Runnable.class);
-		verify(fixture.persistence).execute(persistenceWork.capture());
-		persistenceWork.getValue().run();
-		ArgumentCaptor<Runnable> entityWork = ArgumentCaptor.forClass(Runnable.class);
-		verify(fixture.scheduler).runTask(eq(fixture.plugin), entityWork.capture(), eq(fixture.player));
-		assertTrue(result.get() == null);
-		entityWork.getValue().run();
 		assertTrue(result.get());
 	}
 
@@ -118,9 +129,13 @@ class VotingPluginUserPointSchedulingTest {
 			ArgumentCaptor<Runnable> persistenceWork = ArgumentCaptor.forClass(Runnable.class);
 			verify(fixture.persistence).execute(persistenceWork.capture());
 			persistenceWork.getValue().run();
-			ArgumentCaptor<Runnable> entityWork = ArgumentCaptor.forClass(Runnable.class);
-			verify(fixture.scheduler).runTask(eq(fixture.plugin), entityWork.capture(), eq(fixture.player));
-			entityWork.getValue().run();
+			ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
+			completion.getValue().run();
+			InOrder transferOrder = inOrder(fixture.statement, pluginManager, credit);
+			transferOrder.verify(fixture.statement).executeUpdate();
+			transferOrder.verify(pluginManager).callEvent(any(PlayerReceivePointsEvent.class));
+			transferOrder.verify(credit).executeUpdate();
 		}
 
 		assertTrue(result.get());
@@ -128,7 +143,37 @@ class VotingPluginUserPointSchedulingTest {
 	}
 
 	@Test
-	void cancelledSharedTransferDoesNotDebitOrQueueDatabaseWork() {
+	void sharedTransferDoesNotFireRecipientEventWhenConditionalDebitFails() throws Exception {
+		PointFixture fixture = pointFixture();
+		VotingPluginUser target = mock(VotingPluginUser.class);
+		when(target.getUUID()).thenReturn("00000000-0000-0000-0000-000000000002");
+		when(target.getPointsPath()).thenReturn("Points");
+		PreparedStatement credit = mock(PreparedStatement.class);
+		when(fixture.connection.prepareStatement(anyString())).thenReturn(fixture.statement, credit);
+		when(fixture.statement.executeUpdate()).thenReturn(0);
+		AtomicReference<Boolean> result = new AtomicReference<>();
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			PluginManager pluginManager = mock(PluginManager.class);
+			bukkit.when(Bukkit::getPluginManager).thenReturn(pluginManager);
+			fixture.user.transferPoints(target, 10, result::set);
+
+			ArgumentCaptor<Runnable> persistenceWork = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.persistence).execute(persistenceWork.capture());
+			persistenceWork.getValue().run();
+			ArgumentCaptor<Runnable> entityWork = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.scheduler).runTask(eq(fixture.plugin), entityWork.capture(), eq(fixture.player));
+			entityWork.getValue().run();
+
+			verify(pluginManager, never()).callEvent(any(PlayerReceivePointsEvent.class));
+			verify(credit, never()).executeUpdate();
+		}
+
+		assertFalse(result.get());
+	}
+
+	@Test
+	void cancelledSharedTransferRollsBackTheConditionalDebit() throws Exception {
 		PointFixture fixture;
 		try {
 			fixture = pointFixture();
@@ -136,6 +181,11 @@ class VotingPluginUserPointSchedulingTest {
 			throw new AssertionError(failure);
 		}
 		VotingPluginUser target = mock(VotingPluginUser.class);
+		when(target.getUUID()).thenReturn("00000000-0000-0000-0000-000000000002");
+		when(target.getPointsPath()).thenReturn("Points");
+		PreparedStatement credit = mock(PreparedStatement.class);
+		when(fixture.connection.prepareStatement(anyString())).thenReturn(fixture.statement, credit);
+		when(fixture.statement.executeUpdate()).thenReturn(1);
 		AtomicReference<Boolean> result = new AtomicReference<>();
 
 		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
@@ -147,10 +197,21 @@ class VotingPluginUserPointSchedulingTest {
 				return null;
 			}).when(pluginManager).callEvent(any(PlayerReceivePointsEvent.class));
 			fixture.user.transferPoints(target, 10, result::set);
+
+			ArgumentCaptor<Runnable> persistenceWork = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.persistence).execute(persistenceWork.capture());
+			persistenceWork.getValue().run();
+			ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
+			completion.getValue().run();
+
+			verify(pluginManager).callEvent(any(PlayerReceivePointsEvent.class));
+			verify(fixture.connection).rollback();
+			verify(fixture.connection, never()).commit();
+			verify(credit, never()).executeUpdate();
 		}
 
 		assertTrue(Boolean.FALSE.equals(result.get()));
-		verify(fixture.persistence, never()).execute(any(Runnable.class));
 	}
 
 	private static PointFixture pointFixture() throws Exception {
@@ -196,4 +257,5 @@ class VotingPluginUserPointSchedulingTest {
 		PreparedStatement statement;
 		VotingPluginUser user;
 	}
+
 }

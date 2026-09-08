@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.UUID;
+import java.util.function.IntFunction;
 
 import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
@@ -44,6 +45,18 @@ final class SharedMysqlPointMutator {
 	}
 
 	boolean transfer(VotingPluginUser source, VotingPluginUser target, int debitAmount, int creditAmount) {
+		return transfer(source, target, debitAmount, ignored -> creditAmount);
+	}
+
+	/**
+	 * Transfers points while allowing the recipient hook to approve or adjust the
+	 * credit after the conditional debit has succeeded. The approval callback is
+	 * invoked on the persistence worker after the conditional debit. The receive
+	 * event is explicitly asynchronous, so no server-thread rendezvous is needed
+	 * while the transaction is open and cancellation can still roll back atomically.
+	 */
+	boolean transfer(VotingPluginUser source, VotingPluginUser target, int debitAmount,
+			IntFunction<Integer> creditAmountProvider) {
 		drainCache(source);
 		drainCache(target);
 		MySQL table = plugin.getMysql();
@@ -62,6 +75,18 @@ final class SharedMysqlPointMutator {
 				debitStatement.setString(2, source.getUUID());
 				debitStatement.setInt(3, debitAmount);
 				if (debitStatement.executeUpdate() != 1) {
+					connection.rollback();
+					return false;
+				}
+				Integer creditAmount;
+				try {
+					creditAmount = creditAmountProvider.apply(debitAmount);
+				} catch (RuntimeException failure) {
+					connection.rollback();
+					logApprovalFailure(failure);
+					return false;
+				}
+				if (creditAmount == null) {
 					connection.rollback();
 					return false;
 				}
@@ -155,6 +180,12 @@ final class SharedMysqlPointMutator {
 
 	private void logFailure(SQLException failure) {
 		plugin.getLogger().severe("Unable to update shared MySQL vote points: " + failure.getClass().getSimpleName());
+		plugin.debug(failure);
+	}
+
+	private void logApprovalFailure(RuntimeException failure) {
+		plugin.getLogger().severe("Unable to approve shared MySQL point transfer on the persistence worker: "
+				+ failure.getClass().getSimpleName());
 		plugin.debug(failure);
 	}
 }

@@ -13,7 +13,6 @@ import static org.mockito.ArgumentMatchers.any;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.util.concurrent.ScheduledExecutorService;
-
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -133,4 +132,5 @@ class SharedMysqlPointMutatorTest {
 		verify(connection).commit();
 		verify(connection, times(0)).rollback();
 	}
+
 }
