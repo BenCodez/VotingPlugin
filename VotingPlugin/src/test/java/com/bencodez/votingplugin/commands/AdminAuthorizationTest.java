@@ -34,10 +34,13 @@ class AdminAuthorizationTest {
 		CommandSender ordinary = mock(CommandSender.class);
 		CommandSender bulk = mock(CommandSender.class);
 		when(bulk.hasPermission(AdminAuthorization.REMOVE_POINTS_ALL_PERMISSION)).thenReturn(true);
+		CommandSender admin = mock(CommandSender.class);
+		when(admin.hasPermission(AdminAuthorization.ADMIN_PERMISSION)).thenReturn(true);
 
 		assertTrue(AdminAuthorization.canAddPointsToAll(ordinary, 100));
 		assertFalse(AdminAuthorization.canAddPointsToAll(ordinary, -100));
 		assertTrue(AdminAuthorization.canAddPointsToAll(bulk, -100));
+		assertTrue(AdminAuthorization.canAddPointsToAll(admin, -100));
 	}
 
 	@Test
@@ -52,5 +55,19 @@ class AdminAuthorizationTest {
 		assertFalse(AdminAuthorization.canEditConfig(denied, permission));
 		assertTrue(AdminAuthorization.canEditConfig(editor, permission));
 		assertTrue(AdminAuthorization.canEditConfig(admin, permission));
+	}
+
+	@Test
+	void commandAdmissionAlwaysHonorsAdminOverride() {
+		String permission = "VotingPlugin.Commands.AdminVote.AddPoints";
+		CommandSender denied = mock(CommandSender.class);
+		CommandSender command = mock(CommandSender.class);
+		when(command.hasPermission(permission)).thenReturn(true);
+		CommandSender admin = mock(CommandSender.class);
+		when(admin.hasPermission(AdminAuthorization.ADMIN_PERMISSION)).thenReturn(true);
+
+		assertFalse(AdminAuthorization.hasCommandOrAdmin(denied, permission));
+		assertTrue(AdminAuthorization.hasCommandOrAdmin(command, permission));
+		assertTrue(AdminAuthorization.hasCommandOrAdmin(admin, permission));
 	}
 }

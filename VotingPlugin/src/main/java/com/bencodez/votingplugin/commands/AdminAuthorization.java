@@ -21,4 +21,8 @@ public final class AdminAuthorization {
 	public static boolean canEditConfig(CommandSender sender, String permission) {
 		return sender.hasPermission(permission) || sender.hasPermission(ADMIN_PERMISSION);
 	}
+
+	public static boolean hasCommandOrAdmin(CommandSender sender, String permission) {
+		return sender.hasPermission(permission) || sender.hasPermission(ADMIN_PERMISSION);
+	}
 }
