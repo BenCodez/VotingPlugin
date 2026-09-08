@@ -70,6 +70,17 @@ class HttpBackendProxyTransportTest {
 	}
 
 	@Test
+	void publicationActivatesTheSimpleApiInboundBarrier() throws Exception {
+		HttpBackendProxyTransport transport = new HttpBackendProxyTransport(mock(VotingPluginMain.class));
+		HttpBackendTransportConnector connector = mock(HttpBackendTransportConnector.class);
+		setField(transport, "connector", connector);
+
+		transport.activateAfterPublication();
+
+		verify(connector).activateIncoming();
+	}
+
+	@Test
 	void timedOutScheduledMessageCannotExecuteLater() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		BukkitScheduler scheduler = mock(BukkitScheduler.class);

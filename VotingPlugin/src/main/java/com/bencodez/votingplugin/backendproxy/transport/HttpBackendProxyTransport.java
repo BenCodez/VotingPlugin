@@ -51,6 +51,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	private HttpClientCredentialStore.ActiveCredentialGeneration credentialGenerationToRestore;
 	private boolean retryInitialization;
 	private boolean restoreUnenrolledState;
+	private boolean inboundActive;
 	private Semaphore directoryOwner;
 	private final java.util.concurrent.atomic.AtomicBoolean queueWarning = new java.util.concurrent.atomic.AtomicBoolean();
 
@@ -68,24 +69,25 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 		Path directory = plugin.getDataFolder().toPath().resolve("http");
 		String serverId = plugin.getBungeeSettings().getServer();
 		String connectionCode = plugin.getBungeeSettings().getHttpConnectionCode();
-		start(directory, serverId, connectionCode, messageHandler, null, retryInitialization, false);
+		start(directory, serverId, connectionCode, messageHandler, null, retryInitialization, false,
+				retryInitialization);
 	}
 
 	private void start(Path directory, String serverId, String connectionCode,
 			GlobalMessageHandler messageHandler) {
-		start(directory, serverId, connectionCode, messageHandler, null, true, false);
+		start(directory, serverId, connectionCode, messageHandler, null, true, false, true);
 	}
 
 	private void start(Path directory, String serverId, String connectionCode,
 			GlobalMessageHandler messageHandler,
 			HttpClientCredentialStore.ActiveCredentialGeneration generationToRestore) {
-		start(directory, serverId, connectionCode, messageHandler, generationToRestore, false, false);
+		start(directory, serverId, connectionCode, messageHandler, generationToRestore, false, false, true);
 	}
 
 	private void start(Path directory, String serverId, String connectionCode,
 			GlobalMessageHandler messageHandler,
 			HttpClientCredentialStore.ActiveCredentialGeneration generationToRestore,
-			boolean retryInitialization, boolean restoreUnenrolledState) {
+			boolean retryInitialization, boolean restoreUnenrolledState, boolean inboundActive) {
 		if (generationToRestore == null && !restoreUnenrolledState)
 			validateConfiguration(directory, serverId, connectionCode);
 		else HttpTlsIdentity.canonicalServerId(serverId);
@@ -96,6 +98,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 		credentialGenerationToRestore = generationToRestore;
 		this.retryInitialization = retryInitialization;
 		this.restoreUnenrolledState = restoreUnenrolledState;
+		this.inboundActive = inboundActive;
 		started = true;
 		worker = new Thread(() -> initialize(directory, serverId, connectionCode, messageHandler, retryInitialization,
 				restoreUnenrolledState),
@@ -112,7 +115,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 		}
 		restored.start(configuredDirectory, configuredServerId, configuredConnectionCode, configuredMessageHandler,
 				configuredCredentialGeneration, configuredCredentialGeneration == null && retryInitialization,
-				restoreUnenrolledState);
+				restoreUnenrolledState, true);
 		return restored;
 	}
 
@@ -265,7 +268,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 			replacement = new HttpBackendTransportConnector(directory,
 					envelope -> dispatchIncoming(messageHandler, envelope,
 							System.nanoTime() + TimeUnit.SECONDS.toNanos(INCOMING_DISPATCH_SECONDS)));
-			replacement.start();
+			replacement.startPaused();
 			boolean discard = false;
 			synchronized (lifecycle) {
 				if (closed) {
@@ -279,6 +282,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 					connector = replacement;
 					directoryOwner = owner;
 					installed = true;
+					if (inboundActive) replacement.activateIncoming();
 				}
 			}
 			if (discard) replacement.close();
@@ -293,6 +297,17 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 			}
 			startupComplete.countDown();
 		}
+	}
+
+	@Override
+	public void activateAfterPublication() {
+		HttpBackendTransportConnector active;
+		synchronized (lifecycle) {
+			if (closed) return;
+			inboundActive = true;
+			active = connector;
+		}
+		if (active != null) active.activateIncoming();
 	}
 
 	static void restoreUnenrolledCredentialState(Path directory, String serverId, String configuredCode) throws Exception {

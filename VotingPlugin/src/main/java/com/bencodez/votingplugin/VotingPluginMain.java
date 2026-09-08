@@ -1311,8 +1311,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 			if (restart.previous != null) restart.previous.completeRedisHandoff(restart.replacement);
 			if (restart.previous != null) restart.previous.completeHttpHandoff(restart.replacement);
-			restart.replacement.activatePresenceReporting();
-			backendProxyHandler = restart.replacement;
+			publishBackendProxyHandler(restart.previous, restart.replacement);
 			if (restart.previous != null) restart.previous.close();
 			restart.finished = true;
 			restart.published = true;
@@ -1321,6 +1320,17 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			refreshBackendControlAutoEnrollment();
 		} catch (IOException e) {
 			getLogger().warning("[Control] Automatic backend enrollment was not refreshed: " + e.getMessage());
+		}
+	}
+
+	/** Publishes the handler before opening any transport callback or presence gate. */
+	void publishBackendProxyHandler(BackendProxyHandler previous, BackendProxyHandler replacement) {
+		backendProxyHandler = replacement;
+		try {
+			replacement.activatePresenceReporting();
+		} catch (RuntimeException activationFailure) {
+			backendProxyHandler = previous;
+			throw activationFailure;
 		}
 	}
 
