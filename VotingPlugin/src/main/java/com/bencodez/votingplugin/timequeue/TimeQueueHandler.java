@@ -14,6 +14,7 @@ import org.bukkit.event.Listener;
 import com.bencodez.advancedcore.api.time.events.DateChangedEvent;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
+import com.bencodez.votingplugin.util.VoteTaskAdmission;
 
 import lombok.Getter;
 
@@ -56,14 +57,7 @@ public class TimeQueueHandler implements Listener {
 			timeChangeQueue
 					.add(new VoteTimeQueue(data.getString("Name"), data.getString("Service"), data.getLong("Time")));
 		}
-		plugin.getServerData().clearTimedVoteCache();
-		plugin.getVoteTimer().schedule(new Runnable() {
-
-			@Override
-			public void run() {
-				processQueue();
-			}
-		}, 120, TimeUnit.SECONDS);
+		scheduleQueueProcessing(120, TimeUnit.SECONDS);
 	}
 
 	/**
@@ -73,13 +67,19 @@ public class TimeQueueHandler implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void postTimeChange(DateChangedEvent event) {
-		plugin.getVoteTimer().schedule(new Runnable() {
+		scheduleQueueProcessing(5, TimeUnit.SECONDS);
+	}
 
-			@Override
-			public void run() {
-				processQueue();
-			}
-		}, 5, TimeUnit.SECONDS);
+	private void scheduleQueueProcessing(long delay, TimeUnit unit) {
+		boolean admitted = VoteTaskAdmission.trySchedule(plugin.getVoteTimer(), () -> {
+			// Clear only after the bounded executor has admitted the task. If it is
+			// rejected, shutdown persistence can still recover the in-memory queue.
+			plugin.getServerData().clearTimedVoteCache();
+			processQueue();
+		}, delay, unit);
+		if (!admitted) {
+			plugin.getLogger().warning("Unable to schedule time-queue processing because vote processing is busy; queued votes were retained.");
+		}
 	}
 
 	/**

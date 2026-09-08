@@ -33,6 +33,7 @@ import com.bencodez.votingplugin.commands.gui.admin.AdminVoteVoteParty;
 import com.bencodez.votingplugin.commands.gui.admin.milestones.AdminVoteVoteMilestones;
 import com.bencodez.votingplugin.commands.gui.admin.voteshop.AdminVoteVoteShop;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
+import com.bencodez.votingplugin.util.VoteTaskAdmission;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
 /**
@@ -324,13 +325,16 @@ public class AdminGUI {
 								if (ob != null) {
 									VoteSite site = (VoteSite) ob;
 									PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, value, site.getServiceSite(), false);
-									plugin.getVoteTimer().submit(new Runnable() {
+									if (!VoteTaskAdmission.trySubmit(plugin.getVoteTimer(), new Runnable() {
 
 										@Override
 										public void run() {
 											plugin.getServer().getPluginManager().callEvent(voteEvent);
 										}
-									});
+									})) {
+										player.sendMessage(
+												"Vote could not be triggered because vote processing is busy; please try again later.");
+									}
 								}
 							}
 						});

@@ -91,6 +91,7 @@ import com.bencodez.votingplugin.listeners.PlayerJoinEvent;
 import com.bencodez.votingplugin.listeners.PlayerVoteListener;
 import com.bencodez.votingplugin.listeners.SignChange;
 import com.bencodez.votingplugin.listeners.VotiferEvent;
+import com.bencodez.votingplugin.listeners.VotifierVoteOverflowQueue;
 import com.bencodez.votingplugin.listeners.VotingPluginUpdateEvent;
 import com.bencodez.votingplugin.placeholders.MVdWPlaceholders;
 import com.bencodez.votingplugin.placeholders.PlaceHolders;
@@ -297,6 +298,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private VotingPluginVersionInfo versionInfo;
 	private VotingPluginConfigHealth configHealth;
 	private VotifierIntegration votifierIntegration;
+	@Getter
+	private VotifierVoteOverflowQueue votifierVoteOverflowQueue;
 	private VoteLogManager voteLogManager;
 	private VotingPluginWebhookManager webhookManager;
 
@@ -1386,6 +1389,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			e.printStackTrace();
 		}
 		voteTimer.shutdownNow();
+		if (votifierVoteOverflowQueue != null) {
+			votifierVoteOverflowQueue.close();
+			votifierVoteOverflowQueue = null;
+		}
 		if (timeQueueHandler != null) {
 			timeQueueHandler.save();
 		}
@@ -1449,7 +1456,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		pm.registerEvents(new PlayerJoinEvent(this), this);
 		if (isVotifierLoaded()) {
-			pm.registerEvents(new VotiferEvent(this), this);
+			VotiferEvent votifierEvent = new VotiferEvent(this);
+			votifierVoteOverflowQueue = new VotifierVoteOverflowQueue(this, votifierEvent::processVote);
+			pm.registerEvents(votifierEvent, this);
 		}
 		pm.registerEvents(new PlayerVoteListener(this), this);
 		pm.registerEvents(new PlayerPostVoteLoggerListener(this), this);
