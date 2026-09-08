@@ -1,0 +1,1375 @@
+package com.bencodez.votingplugin.proxy.control;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.nio.channels.Channels;
+import java.nio.channels.SeekableByteChannel;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HexFormat;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.yaml.snakeyaml.DumperOptions;
+import org.yaml.snakeyaml.LoaderOptions;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.comments.CommentLine;
+import org.yaml.snakeyaml.constructor.SafeConstructor;
+import org.yaml.snakeyaml.error.YAMLException;
+import org.yaml.snakeyaml.nodes.AnchorNode;
+import org.yaml.snakeyaml.nodes.MappingNode;
+import org.yaml.snakeyaml.nodes.Node;
+import org.yaml.snakeyaml.nodes.NodeTuple;
+import org.yaml.snakeyaml.nodes.ScalarNode;
+import org.yaml.snakeyaml.nodes.SequenceNode;
+import org.yaml.snakeyaml.nodes.Tag;
+
+import com.bencodez.votingplugin.proxy.VotingPluginProxy;
+import com.bencodez.votingplugin.util.DurableFiles;
+
+/** Strict, revisioned access to the proxy's single bungeeconfig.yml file. */
+final class ProxyConfigurationFileService {
+	static final String FILE_NAME = "bungeeconfig.yml";
+	static final String REDACTED = "__VOTINGPLUGIN_CONTROL_REDACTED__";
+	static final int MAX_BYTES = 512 * 1024;
+	private static final String REDACTED_COMMENT = " " + REDACTED;
+	private static final Pattern LABELED_COMMENT_DETAIL = Pattern.compile("([A-Za-z0-9 _-]+)\\s*[:=]");
+	private static final Pattern BARE_NETWORK_ADDRESS = Pattern.compile(
+			"(?i)(?<![a-z0-9_-])(?:(?:\\d{1,3}\\.){3}\\d{1,3}|(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}|(?=[0-9a-f:]*:[0-9a-f:]*:)[0-9a-f:]{3,})(?![a-z0-9_:-])");
+	private static final Pattern DELIMITER_FREE_INFRASTRUCTURE_HOST = Pattern.compile(
+			"(?i)\\b(?:host|hostname|endpoint|address|port|url|uri|server|broker|database|db|redis|mysql|mqtt|bungee|proxy|socket)\\b"
+					+ "(?:\\s+(?:is|at|on|through|via|to|for|named|called|connection|server|endpoint|host|hostname|address|port|url|uri|broker|database|db|redis|mysql|mqtt|bungee|proxy|socket)){0,3}"
+					+ "\\s+[a-z0-9](?:[a-z0-9_-]{0,61}[a-z0-9])?(?::\\d{1,5})?(?=\\s*(?:$|[\\s,;.)\\]}]))");
+	private final Path target;
+	private final MoveAction mover;
+	private final TempFileAction tempFiles;
+
+	ProxyConfigurationFileService(VotingPluginProxy proxy) {
+		this(proxy.getDataFolderPlugin().toPath().toAbsolutePath().normalize().resolve(FILE_NAME),
+				ProxyConfigurationFileService::move, Files::createTempFile);
+	}
+
+	ProxyConfigurationFileService(Path target, MoveAction mover) {
+		this(target, mover, Files::createTempFile);
+	}
+
+	ProxyConfigurationFileService(Path target, MoveAction mover, TempFileAction tempFiles) {
+		this.target = target.toAbsolutePath().normalize();
+		this.mover = java.util.Objects.requireNonNull(mover, "mover");
+		this.tempFiles = java.util.Objects.requireNonNull(tempFiles, "tempFiles");
+	}
+
+	Document read(String fileName) throws IOException {
+		requireFile(fileName);
+		String raw = readRaw();
+		Map<String, Object> parsed = parse(raw);
+		return new Document(FILE_NAME, renderMasked(raw, parsed), revision(raw));
+	}
+
+	Preview preview(String fileName, String proposed) throws IOException {
+		requireFile(fileName);
+		return previewAgainstSnapshot(proposed, readRaw());
+	}
+
+	Preview previewAgainstSnapshot(String proposed, String currentRaw) throws IOException {
+		Map<String, Object> current = parse(currentRaw);
+		Map<String, Object> proposedValues = parse(proposed);
+		Map<String, Object> resolved = resolve(proposedValues, current, "");
+		validateRedactedValues(current, proposedValues, "");
+		Node currentTree = compose(currentRaw);
+		Node currentValuesTree = compose(currentRaw);
+		Map<String, CommentLine> redactedComments = redactComments(currentTree, current, "",
+				sensitiveValues(currentTree, current));
+		Node proposedTree = compose(proposed);
+		restoreRedactedComments(proposedTree, redactedComments);
+		restoreRedactedValues(proposedTree, currentValuesTree, current, proposedValues, "");
+		String content = serialize(proposedTree);
+		ensureBounded(content);
+		if (!resolved.equals(parse(content))) throw new IllegalArgumentException("proxy configuration content is invalid");
+		return new Preview(content, revision(currentRaw), changes(current, resolved));
+	}
+
+	ApplyResult apply(String fileName, String proposed, String expectedRevision) throws IOException {
+		return apply(prepareApply(fileName, proposed, expectedRevision));
+	}
+
+	PreparedApply prepareApply(String fileName, String proposed, String expectedRevision) throws IOException {
+		requireFile(fileName);
+		String currentRaw = readRaw();
+		if (expectedRevision == null || !revision(currentRaw).equals(expectedRevision)) throw new StaleRevisionException();
+		Preview preview = previewAgainstSnapshot(proposed, currentRaw);
+		return new PreparedApply(currentRaw, expectedRevision, preview);
+	}
+
+	ApplyResult apply(PreparedApply prepared) throws IOException {
+		String currentRaw = prepared.currentRaw();
+		String expectedRevision = prepared.expectedRevision();
+		Preview preview = prepared.preview();
+		Path backup = target.resolveSibling(FILE_NAME + ".control-backup");
+		Path stage = null;
+		Path backupStage = null;
+		boolean installed = false;
+		try {
+			stage = tempFiles.create(target.getParent(), ".control-proxy-", ".yml");
+			backupStage = tempFiles.create(target.getParent(), ".control-proxy-backup-", ".yml");
+			Files.writeString(stage, preview.resolvedContent, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING);
+			copyPermissions(target, stage);
+			parse(readStrict(stage));
+			if (Files.isSymbolicLink(backup)) throw new IOException("unsafe proxy configuration backup");
+			Files.writeString(backupStage, currentRaw, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING);
+			copyPermissions(target, backupStage);
+			if (!revision(readRaw()).equals(expectedRevision)) throw new StaleRevisionException();
+			mover.move(backupStage, backup);
+			if (!revision(readRaw()).equals(expectedRevision)) throw new StaleRevisionException();
+			try {
+				mover.move(stage, target);
+				installed = true;
+			} catch (DurableFiles.PublishedException published) {
+				installed = true;
+				throw published;
+			}
+			String applied = readRaw();
+			if (!revision(applied).equals(revision(preview.resolvedContent))) throw new StaleRevisionException();
+			return new ApplyResult(new Document(FILE_NAME, renderMasked(applied, parse(applied)), revision(applied)),
+					preview.changes, false);
+		} catch (StaleRevisionException stale) {
+			throw stale;
+		} catch (Exception failure) {
+			boolean rolledBack = false;
+			if (installed) {
+				try {
+					if (!revision(readRaw()).equals(revision(preview.resolvedContent))) {
+						throw new IOException("proxy configuration changed during rollback");
+					}
+					if (!Files.isRegularFile(backup, LinkOption.NOFOLLOW_LINKS)) {
+						throw new IOException("proxy configuration backup is unavailable");
+					}
+					Path rollback = tempFiles.create(target.getParent(), ".control-proxy-rollback-", ".yml");
+					try {
+						try (SeekableByteChannel source = Files.newByteChannel(backup,
+								Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS))) {
+							Files.copy(Channels.newInputStream(source), rollback, StandardCopyOption.REPLACE_EXISTING);
+						}
+						copyPermissions(backup, rollback);
+						if (!revision(readRaw()).equals(revision(preview.resolvedContent)))
+							throw new IOException("proxy configuration changed during rollback staging");
+						mover.move(rollback, target);
+					} finally { Files.deleteIfExists(rollback); }
+					rolledBack = true;
+				} catch (Exception rollbackFailure) { failure.addSuppressed(rollbackFailure); }
+			}
+			throw new ApplyFailureException(rolledBack, failure);
+		} finally {
+			if (stage != null) Files.deleteIfExists(stage);
+			if (backupStage != null) Files.deleteIfExists(backupStage);
+		}
+	}
+
+	private String readRaw() throws IOException {
+		if (!Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) throw new IOException("proxy configuration is unavailable");
+		return readStrict(target);
+	}
+
+	private static String readStrict(Path path) throws IOException {
+		long size = Files.size(path);
+		if (size < 0 || size > MAX_BYTES) throw new IOException("proxy configuration exceeds limits");
+		byte[] bytes;
+		try (InputStream input = Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS)) {
+			bytes = input.readNBytes(MAX_BYTES + 1);
+		}
+		if (bytes.length > MAX_BYTES) throw new IOException("proxy configuration exceeds limits");
+		try {
+			return StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
+					.onUnmappableCharacter(CodingErrorAction.REPORT).decode(java.nio.ByteBuffer.wrap(bytes)).toString();
+		} catch (CharacterCodingException failure) { throw new IOException("proxy configuration is not UTF-8", failure); }
+	}
+
+	@SuppressWarnings("unchecked")
+	private static Map<String, Object> parse(String yaml) {
+		ensureBounded(yaml);
+		LoaderOptions loaderOptions = loaderOptions();
+		rejectAliases(yaml, loaderOptions);
+		SafeConstructor constructor = new SafeConstructor(loaderOptions);
+		Object parsed;
+		try { parsed = new Yaml(constructor).load(yaml); }
+		catch (RuntimeException failure) { throw new IllegalArgumentException("proxy configuration YAML is invalid"); }
+		if (!(parsed instanceof Map<?, ?> root)) throw new IllegalArgumentException("proxy configuration must be a mapping");
+		Map<String, Object> result = new LinkedHashMap<>();
+		for (Map.Entry<?, ?> entry : root.entrySet()) {
+			if (!(entry.getKey() instanceof String key)) throw new IllegalArgumentException("proxy configuration keys must be strings");
+			result.put(key, normalize(entry.getValue(), 1));
+		}
+		return result;
+	}
+
+	private static void rejectAliases(String yaml, LoaderOptions loaderOptions) {
+		Node root;
+		try {
+			root = new Yaml(loaderOptions).compose(new StringReader(yaml));
+		} catch (YAMLException failure) {
+			throw new IllegalArgumentException("proxy configuration YAML is invalid");
+		}
+		rejectAliases(root, Collections.newSetFromMap(new IdentityHashMap<>()));
+	}
+
+	private static void rejectAliases(Node node, Set<Node> visited) {
+		if (node == null || !visited.add(node)) return;
+		if (node instanceof AnchorNode || node.getAnchor() != null) {
+			throw new IllegalArgumentException("proxy configuration aliases are not supported");
+		}
+		if (node instanceof MappingNode mapping) {
+			for (NodeTuple tuple : mapping.getValue()) {
+				if (Tag.MERGE.equals(tuple.getKeyNode().getTag())) {
+					throw new IllegalArgumentException("proxy configuration aliases are not supported");
+				}
+				rejectAliases(tuple.getKeyNode(), visited);
+				rejectAliases(tuple.getValueNode(), visited);
+			}
+		} else if (node instanceof SequenceNode sequence) {
+			sequence.getValue().forEach(child -> rejectAliases(child, visited));
+		}
+	}
+
+	private static Object normalize(Object value, int depth) {
+		if (depth > 50) throw new IllegalArgumentException("proxy configuration is too deeply nested");
+		if (value == null || value instanceof String || value instanceof Boolean || value instanceof Number) return value;
+		if (value instanceof Map<?, ?> map) {
+			Map<String, Object> result = new LinkedHashMap<>();
+			for (Map.Entry<?, ?> entry : map.entrySet()) {
+				if (!(entry.getKey() instanceof String key)) throw new IllegalArgumentException("proxy configuration keys must be strings");
+				result.put(key, normalize(entry.getValue(), depth + 1));
+			}
+			return result;
+		}
+		if (value instanceof List<?> list) return list.stream().map(item -> normalize(item, depth + 1)).toList();
+		throw new IllegalArgumentException("proxy configuration contains an unsupported YAML value");
+	}
+
+	private static String renderMasked(String raw, Map<String, Object> parsed) {
+		Node tree = compose(raw);
+		redactValues(tree, parsed, "", sensitiveValues(tree, parsed));
+		String content = serialize(tree);
+		ensureBounded(content);
+		if (!mask(parsed).equals(parse(content))) throw new IllegalArgumentException("proxy configuration content is invalid");
+		return content;
+	}
+
+	private static Node compose(String yaml) {
+		// Construct first so comment parsing cannot bypass the strict SafeConstructor checks.
+		parse(yaml);
+		LoaderOptions options = loaderOptions();
+		options.setProcessComments(true);
+		try {
+			Node node = new Yaml(options, dumperOptions()).compose(new StringReader(yaml));
+			if (!(node instanceof MappingNode)) throw new IllegalArgumentException("proxy configuration must be a mapping");
+			return node;
+		} catch (RuntimeException failure) {
+			throw new IllegalArgumentException("proxy configuration YAML is invalid");
+		}
+	}
+
+	private static String serialize(Node node) {
+		StringWriter writer = new StringWriter();
+		new Yaml(dumperOptions()).serialize(node, writer);
+		return writer.toString();
+	}
+
+	private static LoaderOptions loaderOptions() {
+		LoaderOptions loaderOptions = new LoaderOptions();
+		loaderOptions.setAllowDuplicateKeys(false);
+		loaderOptions.setMaxAliasesForCollections(0);
+		loaderOptions.setNestingDepthLimit(50);
+		loaderOptions.setCodePointLimit(MAX_BYTES);
+		return loaderOptions;
+	}
+
+	private static DumperOptions dumperOptions() {
+		DumperOptions options = new DumperOptions();
+		options.setIndent(2);
+		options.setPrettyFlow(true);
+		options.setProcessComments(true);
+		return options;
+	}
+
+	@SuppressWarnings("unchecked")
+	private static Map<String, Object> mask(Map<String, Object> source) {
+		return mask(source, "");
+	}
+
+	@SuppressWarnings("unchecked")
+	private static Map<String, Object> mask(Map<String, Object> source, String path) {
+		Map<String, Object> result = new LinkedHashMap<>();
+		for (Map.Entry<String, Object> entry : source.entrySet()) {
+			Object value = entry.getValue();
+			String childPath = path + entry.getKey();
+			if (secret(childPath, entry.getKey(), value)) result.put(entry.getKey(), REDACTED);
+			else result.put(entry.getKey(), maskStructure(value, childPath));
+		}
+		return result;
+	}
+
+	@SuppressWarnings("unchecked")
+	private static Object maskStructure(Object value, String path) {
+		if (value instanceof Map<?, ?> map) return mask((Map<String, Object>) map, path + ".");
+		if (value instanceof List<?> list) {
+			List<Object> result = new ArrayList<>();
+			for (int index = 0; index < list.size(); index++) {
+				Object item = list.get(index);
+				String itemPath = path + "[" + index + "]";
+				result.add(secret(itemPath, "", item) ? REDACTED : maskStructure(item, itemPath));
+			}
+			return Collections.unmodifiableList(result);
+		}
+		return value;
+	}
+
+	private static void redactValues(Node node, Object source, String path, Set<String> values) {
+		if (node instanceof SequenceNode sequence && source instanceof List<?> list) {
+			redactComments(sequence, path, false, values, new LinkedHashMap<>());
+			List<Node> children = new ArrayList<>();
+			for (int index = 0; index < sequence.getValue().size(); index++) {
+				Node child = sequence.getValue().get(index);
+				Object value = index < list.size() ? list.get(index) : null;
+				String itemPath = path + "[" + index + "]";
+				if (secret(itemPath, "", value)) {
+					redactComments(child, itemPath, true, values, new LinkedHashMap<>());
+					child = marker(child);
+				} else if (value instanceof Map<?, ?> || value instanceof List<?>) {
+					redactValues(child, value, value instanceof Map<?, ?> ? itemPath + "." : itemPath, values);
+				} else {
+					redactDescendantComments(child, itemPath, false, values, new LinkedHashMap<>());
+				}
+				children.add(child);
+			}
+			sequence.getValue().clear();
+			sequence.getValue().addAll(children);
+			return;
+		}
+		if (!(node instanceof MappingNode mapping) || !(source instanceof Map<?, ?> rawSource)) {
+			redactDescendantComments(node, path, false, values, new LinkedHashMap<>());
+			return;
+		}
+		@SuppressWarnings("unchecked") Map<String, Object> sourceMap = (Map<String, Object>) rawSource;
+		redactComments(mapping, path, false, values, new LinkedHashMap<>());
+		List<NodeTuple> tuples = new ArrayList<>();
+		for (NodeTuple tuple : mapping.getValue()) {
+			String key = key(tuple.getKeyNode());
+			Object value = sourceMap.get(key);
+			String childPath = path + key;
+			boolean hidden = secret(childPath, key, value);
+			redactComments(tuple.getKeyNode(), childPath + "#key", hidden, values, new LinkedHashMap<>());
+			Node child = tuple.getValueNode();
+			if (hidden) {
+				redactComments(child, childPath, true, values, new LinkedHashMap<>());
+				child = marker(child);
+			} else if (value instanceof Map<?, ?> || value instanceof List<?>) {
+				redactValues(child, value, value instanceof Map<?, ?> ? childPath + "." : childPath, values);
+			} else {
+				redactDescendantComments(child, childPath, false, values, new LinkedHashMap<>());
+			}
+			tuples.add(new NodeTuple(tuple.getKeyNode(), child));
+		}
+		mapping.setValue(tuples);
+	}
+
+	private static void validateRedactedValues(Map<String, Object> current, Map<String, Object> proposed, String path) {
+		for (Map.Entry<String, Object> entry : current.entrySet()) {
+			String key = entry.getKey();
+			Object old = entry.getValue();
+			String childPath = path + key;
+			if (secret(childPath, key, old)) {
+				if (!proposed.containsKey(key) || proposed.get(key) instanceof Map<?, ?>
+						|| proposed.get(key) instanceof List<?>) {
+					throw new IllegalArgumentException("redacted placeholder is invalid");
+				}
+				continue;
+			}
+			Object candidate = proposed.get(key);
+			if (old instanceof Map<?, ?> oldMap) {
+				if (!(candidate instanceof Map<?, ?> proposedMap)) {
+					if (containsSecrets(oldMap, childPath + ".")) {
+						throw new IllegalArgumentException("redacted placeholder is invalid");
+					}
+					continue;
+				}
+				@SuppressWarnings("unchecked") Map<String, Object> oldValues = (Map<String, Object>) oldMap;
+				@SuppressWarnings("unchecked") Map<String, Object> candidateValues = (Map<String, Object>) proposedMap;
+				validateRedactedValues(oldValues, candidateValues, childPath + ".");
+			} else if (old instanceof List<?> oldList) {
+				if (!(candidate instanceof List<?> proposedList)) {
+					if (containsSecrets(oldList, childPath)) {
+						throw new IllegalArgumentException("redacted placeholder is invalid");
+					}
+					continue;
+				}
+				validateRedactedList(oldList, proposedList, childPath);
+			} else if (REDACTED.equals(candidate)) {
+				throw new IllegalArgumentException("redacted placeholder is invalid");
+			}
+		}
+		for (Map.Entry<String, Object> entry : proposed.entrySet()) {
+			if (!current.containsKey(entry.getKey()) && containsMarker(entry.getValue())) {
+				throw new IllegalArgumentException("redacted placeholder is invalid");
+			}
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private static void validateRedactedList(List<?> current, List<?> proposed, String path) {
+		if (proposed.size() < current.size()) {
+			for (int index = 0; index < proposed.size(); index++) {
+				Object old = current.get(index);
+				String itemPath = path + "[" + index + "]";
+				if (secret(itemPath, "", old)
+						&& current.subList(proposed.size(), current.size()).contains(proposed.get(index))) {
+					throw new IllegalArgumentException("redacted placeholder is invalid");
+				}
+				boolean retained = retainsOrReplacesSecretValues(proposed.get(index), old, itemPath);
+				if (secretBearingValue(old, itemPath) && !retained) {
+					throw new IllegalArgumentException("redacted placeholder is invalid");
+				}
+			}
+			for (int index = proposed.size(); index < current.size(); index++) {
+				if (secretBearingValue(current.get(index), path + "[" + index + "]")) {
+					throw new IllegalArgumentException("redacted placeholder is invalid");
+				}
+			}
+		}
+		for (int index = 0; index < Math.min(current.size(), proposed.size()); index++) {
+			Object old = current.get(index);
+			Object candidate = proposed.get(index);
+			String itemPath = path + "[" + index + "]";
+			if (secret(itemPath, "", old)) {
+				if (candidate instanceof Map<?, ?> || candidate instanceof List<?>) {
+					throw new IllegalArgumentException("redacted placeholder is invalid");
+				}
+			} else if (old instanceof Map<?, ?> oldMap) {
+				if (!(candidate instanceof Map<?, ?> candidateMap)) {
+					if (containsSecrets(oldMap, itemPath + ".")) throw new IllegalArgumentException("redacted placeholder is invalid");
+				} else {
+					validateRedactedValues((Map<String, Object>) oldMap, (Map<String, Object>) candidateMap, itemPath + ".");
+				}
+			} else if (old instanceof List<?> oldList) {
+				if (!(candidate instanceof List<?> candidateList)) {
+					if (containsSecrets(oldList, itemPath)) throw new IllegalArgumentException("redacted placeholder is invalid");
+				} else validateRedactedList(oldList, candidateList, itemPath);
+			} else if (REDACTED.equals(candidate)) {
+				throw new IllegalArgumentException("redacted placeholder is invalid");
+			}
+		}
+		for (int index = current.size(); index < proposed.size(); index++) {
+			if (containsMarker(proposed.get(index))) throw new IllegalArgumentException("redacted placeholder is invalid");
+		}
+	}
+
+	private static boolean containsSecrets(Object source, String path) {
+		if (source instanceof Map<?, ?> map) {
+			for (Map.Entry<?, ?> entry : map.entrySet()) {
+				if (!(entry.getKey() instanceof String key)) return true;
+				Object value = entry.getValue();
+				String childPath = path + key;
+				if (secret(childPath, key, value) || containsSecrets(value,
+						value instanceof Map<?, ?> ? childPath + "." : childPath)) return true;
+			}
+		} else if (source instanceof List<?> list) {
+			for (int index = 0; index < list.size(); index++) {
+				Object value = list.get(index);
+				String itemPath = path + "[" + index + "]";
+				if (secret(itemPath, "", value) || containsSecrets(value,
+						value instanceof Map<?, ?> ? itemPath + "." : itemPath)) return true;
+			}
+		}
+		return false;
+	}
+
+	private static boolean secretBearingValue(Object value, String path) {
+		return secret(path, "", value) || containsSecrets(value,
+				value instanceof Map<?, ?> ? path + "." : path);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static boolean retainsOrReplacesSecretValues(Object proposed, Object current, String path) {
+		// A retained secret position can either preserve its redaction marker or
+		// explicitly rotate to another scalar. List ordering and the public-only
+		// suffix checks still bind that replacement to its original position.
+		if (secret(path, "", current)) {
+			return proposed != null && !(proposed instanceof Map<?, ?>) && !(proposed instanceof List<?>);
+		}
+		if (current instanceof Map<?, ?> currentMap) {
+			if (!(proposed instanceof Map<?, ?> proposedMap)) return false;
+			String mapPath = path.endsWith(".") ? path : path + ".";
+			for (Map.Entry<?, ?> entry : currentMap.entrySet()) {
+				if (!(entry.getKey() instanceof String key)) return false;
+				Object old = entry.getValue();
+				String childPath = mapPath + key;
+				if (!secretBearingValue(old, childPath)) continue;
+				if (!proposedMap.containsKey(key)
+						|| !retainsOrReplacesSecretValues(proposedMap.get(key), old, childPath)) return false;
+			}
+			return true;
+		}
+		if (current instanceof List<?> currentList) {
+			if (!(proposed instanceof List<?> proposedList) || proposedList.size() > currentList.size()) return false;
+			for (int index = 0; index < proposedList.size(); index++) {
+				Object old = currentList.get(index);
+				String itemPath = path + "[" + index + "]";
+				if (secretBearingValue(old, itemPath)
+						&& !retainsOrReplacesSecretValues(proposedList.get(index), old, itemPath)) return false;
+			}
+			for (int index = proposedList.size(); index < currentList.size(); index++) {
+				if (secretBearingValue(currentList.get(index), path + "[" + index + "]")) return false;
+			}
+			return true;
+		}
+		return true;
+	}
+
+	private static boolean containsMarker(Object value) {
+		if (REDACTED.equals(value)) return true;
+		if (value instanceof Map<?, ?> map) return map.values().stream().anyMatch(ProxyConfigurationFileService::containsMarker);
+		if (value instanceof List<?> list) return list.stream().anyMatch(ProxyConfigurationFileService::containsMarker);
+		return false;
+	}
+
+	private static void restoreRedactedValues(Node proposed, Node current, Object currentValues,
+			Object proposedValues, String path) {
+		if (proposed instanceof SequenceNode proposedSequence && current instanceof SequenceNode currentSequence
+				&& currentValues instanceof List<?> oldList && proposedValues instanceof List<?> candidateList) {
+			List<Node> restored = new ArrayList<>();
+			for (int index = 0; index < proposedSequence.getValue().size(); index++) {
+				Node value = proposedSequence.getValue().get(index);
+				Object old = index < oldList.size() ? oldList.get(index) : null;
+				Object candidate = index < candidateList.size() ? candidateList.get(index) : null;
+				String itemPath = path + "[" + index + "]";
+				if (index < currentSequence.getValue().size() && secret(itemPath, "", old) && REDACTED.equals(candidate)) {
+					value = restoreSecretNode(currentSequence.getValue().get(index), value);
+				} else if (index < currentSequence.getValue().size()
+						&& (old instanceof Map<?, ?> || old instanceof List<?>)) {
+					restoreRedactedValues(value, currentSequence.getValue().get(index), old, candidate,
+							old instanceof Map<?, ?> ? itemPath + "." : itemPath);
+				}
+				restored.add(value);
+			}
+			proposedSequence.getValue().clear();
+			proposedSequence.getValue().addAll(restored);
+			return;
+		}
+		if (!(proposed instanceof MappingNode proposedMap) || !(current instanceof MappingNode currentMap)
+				|| !(currentValues instanceof Map<?, ?> rawCurrent) || !(proposedValues instanceof Map<?, ?> rawProposed)) return;
+		@SuppressWarnings("unchecked") Map<String, Object> currentMapValues = (Map<String, Object>) rawCurrent;
+		@SuppressWarnings("unchecked") Map<String, Object> proposedMapValues = (Map<String, Object>) rawProposed;
+		Map<String, NodeTuple> currentTuples = tuples(currentMap);
+		List<NodeTuple> restored = new ArrayList<>();
+		for (NodeTuple tuple : proposedMap.getValue()) {
+			String key = key(tuple.getKeyNode());
+			Object old = currentMapValues.get(key);
+			String childPath = path + key;
+			Node value = tuple.getValueNode();
+			if (currentTuples.containsKey(key) && secret(childPath, key, old)
+					&& REDACTED.equals(proposedMapValues.get(key))) {
+				value = restoreSecretNode(currentTuples.get(key).getValueNode(), value);
+			} else if ((old instanceof Map<?, ?> || old instanceof List<?>) && currentTuples.containsKey(key)) {
+				restoreRedactedValues(value, currentTuples.containsKey(key) ? currentTuples.get(key).getValueNode() : value,
+						old, proposedMapValues.get(key), old instanceof Map<?, ?> ? childPath + "." : childPath);
+			}
+			restored.add(new NodeTuple(tuple.getKeyNode(), value));
+		}
+		proposedMap.setValue(restored);
+	}
+
+	private static Node restoreSecretNode(Node current, Node proposed) {
+		if (current instanceof ScalarNode oldScalar && proposed instanceof ScalarNode proposedScalar) {
+			ScalarNode restored = new ScalarNode(oldScalar.getTag(), oldScalar.getValue(), proposedScalar.getStartMark(),
+					proposedScalar.getEndMark(), oldScalar.getScalarStyle());
+			copyComments(proposedScalar, restored);
+			return restored;
+		}
+		return current;
+	}
+
+	private static Node marker(Node source) {
+		ScalarNode marker = new ScalarNode(Tag.STR, REDACTED, source.getStartMark(), source.getEndMark(),
+				DumperOptions.ScalarStyle.PLAIN);
+		copyComments(source, marker);
+		return marker;
+	}
+
+	private static Map<String, CommentLine> redactComments(Node node, Object source, String path,
+			Set<String> values) {
+		Map<String, CommentLine> result = new LinkedHashMap<>();
+		redactComments(node, source, path, "root", values, result);
+		return result;
+	}
+
+	private static void redactComments(Node node, Object source, String path, String location,
+			Set<String> values, Map<String, CommentLine> result) {
+		redactComments(node, location, false, values, result);
+		if (node instanceof MappingNode mapping && source instanceof Map<?, ?> sourceMap) {
+			for (NodeTuple tuple : mapping.getValue()) {
+				String key = key(tuple.getKeyNode());
+				Object value = sourceMap.get(key);
+				String childPath = path + key;
+				String childLocation = mapLocation(location, key);
+				boolean hidden = secret(childPath, key, value);
+				redactComments(tuple.getKeyNode(), childLocation + "k", hidden, values, result);
+				if (hidden) redactComments(tuple.getValueNode(), childLocation + "v", true, values, result);
+				else if (value instanceof Map<?, ?> || value instanceof List<?>) {
+					redactComments(tuple.getValueNode(), value,
+							value instanceof Map<?, ?> ? childPath + "." : childPath, childLocation + "v", values, result);
+				} else redactDescendantComments(tuple.getValueNode(), childLocation + "v", false, values, result);
+			}
+		} else if (node instanceof SequenceNode sequence && source instanceof List<?> list) {
+			for (int index = 0; index < sequence.getValue().size(); index++) {
+				Node child = sequence.getValue().get(index);
+				Object value = index < list.size() ? list.get(index) : null;
+				String itemPath = path + "[" + index + "]";
+				String itemLocation = sequenceLocation(location, index);
+				if (secret(itemPath, "", value)) redactComments(child, itemLocation, true, values, result);
+				else if (value instanceof Map<?, ?> || value instanceof List<?>) {
+					redactComments(child, value, value instanceof Map<?, ?> ? itemPath + "." : itemPath,
+							itemLocation, values, result);
+				} else redactDescendantComments(child, itemLocation, false, values, result);
+			}
+		}
+	}
+
+	private static void redactDescendantComments(Node node, String path, boolean sensitiveContext, Set<String> values,
+			Map<String, CommentLine> redacted) {
+		redactComments(node, path, sensitiveContext, values, redacted);
+		if (node instanceof MappingNode mapping) {
+			for (NodeTuple tuple : mapping.getValue()) {
+				String key = key(tuple.getKeyNode());
+				String childLocation = mapLocation(path, key);
+				redactDescendantComments(tuple.getKeyNode(), childLocation + "k", sensitiveContext, values, redacted);
+				Node child = tuple.getValueNode();
+				redactDescendantComments(child, childLocation + "v",
+						sensitiveContext, values, redacted);
+			}
+		} else if (node instanceof SequenceNode sequence) {
+			for (int index = 0; index < sequence.getValue().size(); index++) {
+				Node child = sequence.getValue().get(index);
+				redactDescendantComments(child, sequenceLocation(path, index), sensitiveContext,
+						values, redacted);
+			}
+		}
+	}
+
+	private static void redactComments(Node node, String path, boolean sensitiveContext, Set<String> values,
+			Map<String, CommentLine> redacted) {
+		redactCommentList(node, path, "block", node.getBlockComments(), sensitiveContext, values, redacted);
+		redactCommentList(node, path, "inline", node.getInLineComments(), sensitiveContext, values, redacted);
+		redactCommentList(node, path, "end", node.getEndComments(), sensitiveContext, values, redacted);
+	}
+
+	private static void redactCommentList(Node node, String path, String kind, List<CommentLine> comments,
+			boolean sensitiveContext, Set<String> values, Map<String, CommentLine> redacted) {
+		if (comments == null) return;
+		List<CommentLine> replacement = new ArrayList<>(comments);
+		for (int index = 0; index < replacement.size(); index++) {
+			CommentLine line = replacement.get(index);
+			if (!sensitiveComment(line.getValue(), sensitiveContext, values)) continue;
+			String slot = commentSlot(path, kind, index);
+			redacted.put(slot, line);
+			replacement.set(index, new CommentLine(line.getStartMark(), line.getEndMark(), REDACTED_COMMENT,
+					line.getCommentType()));
+		}
+		setComments(node, kind, replacement);
+	}
+
+	private static void restoreRedactedComments(Node proposed, Map<String, CommentLine> expected) {
+		Map<String, CommentReference> comments = commentReferences(proposed, "root");
+		Map<String, Integer> expectedOwners = expectedRedactedCommentCountsByOwner(expected);
+		Map<String, Integer> proposedOwners = redactedCommentCountsByOwner(comments);
+		if (!expectedOwners.equals(proposedOwners)) throw new IllegalArgumentException("redacted placeholder is invalid");
+		Map<String, List<CommentLine>> originals = new LinkedHashMap<>();
+		for (Map.Entry<String, CommentLine> entry : expected.entrySet()) {
+			originals.computeIfAbsent(commentOwner(entry.getKey()), ignored -> new ArrayList<>()).add(entry.getValue());
+		}
+		Map<String, Integer> indexes = new LinkedHashMap<>();
+		for (Map.Entry<String, CommentReference> entry : comments.entrySet()) {
+			if (!REDACTED_COMMENT.equals(entry.getValue().line().getValue())) continue;
+			String owner = commentOwner(entry.getKey());
+			int index = indexes.getOrDefault(owner, 0);
+			entry.getValue().replace(originals.get(owner).get(index));
+			indexes.put(owner, index + 1);
+		}
+	}
+
+	private static String commentOwner(String slot) {
+		return slot.substring(0, slot.lastIndexOf('|'));
+	}
+
+	private static Map<String, Integer> redactedCommentCountsByOwner(
+			Map<String, ? extends CommentReference> comments) {
+		Map<String, Integer> result = new LinkedHashMap<>();
+		for (Map.Entry<String, ? extends CommentReference> entry : comments.entrySet()) {
+			if (!REDACTED_COMMENT.equals(entry.getValue().line().getValue())) continue;
+			result.merge(commentOwner(entry.getKey()), 1, Integer::sum);
+		}
+		return result;
+	}
+
+	private static Map<String, Integer> expectedRedactedCommentCountsByOwner(Map<String, CommentLine> comments) {
+		Map<String, Integer> result = new LinkedHashMap<>();
+		for (Map.Entry<String, CommentLine> entry : comments.entrySet()) {
+			result.merge(commentOwner(entry.getKey()), 1, Integer::sum);
+		}
+		return result;
+	}
+
+	private static Map<String, CommentReference> commentReferences(Node root, String path) {
+		Map<String, CommentReference> result = new LinkedHashMap<>();
+		collectComments(root, path, result);
+		return result;
+	}
+
+	private static void collectComments(Node node, String path, Map<String, CommentReference> result) {
+		collectCommentReferences(node, path, "block", node.getBlockComments(), result);
+		collectCommentReferences(node, path, "inline", node.getInLineComments(), result);
+		collectCommentReferences(node, path, "end", node.getEndComments(), result);
+		if (node instanceof MappingNode mapping) {
+			for (NodeTuple tuple : mapping.getValue()) {
+				String key = key(tuple.getKeyNode());
+				String childLocation = mapLocation(path, key);
+				collectComments(tuple.getKeyNode(), childLocation + "k", result);
+				collectComments(tuple.getValueNode(), childLocation + "v", result);
+			}
+		} else if (node instanceof SequenceNode sequence) {
+			for (int index = 0; index < sequence.getValue().size(); index++) {
+				Node child = sequence.getValue().get(index);
+				collectComments(child, sequenceLocation(path, index), result);
+			}
+		}
+	}
+
+	private static void collectCommentReferences(Node node, String path, String kind, List<CommentLine> comments,
+			Map<String, CommentReference> result) {
+		if (comments == null) return;
+		for (int index = 0; index < comments.size(); index++) {
+			result.put(commentSlot(path, kind, index), new CommentReference(node, kind, index, comments.get(index)));
+		}
+	}
+
+	private static void setComments(Node node, String kind, List<CommentLine> comments) {
+		switch (kind) {
+		case "block" -> node.setBlockComments(comments);
+		case "inline" -> node.setInLineComments(comments);
+		case "end" -> node.setEndComments(comments);
+		default -> throw new IllegalArgumentException("invalid comment kind");
+		}
+	}
+
+	private static String commentSlot(String path, String kind, int index) {
+		return path + "|" + kind + "|" + index;
+	}
+
+	private static String mapLocation(String parent, String key) {
+		return parent + "m" + key.length() + ":" + key;
+	}
+
+	private static String sequenceLocation(String parent, int index) {
+		return parent + "s" + index + ":";
+	}
+
+	private static boolean sensitiveComment(String comment, boolean sensitiveContext, Set<String> values) {
+		if (sensitiveContext) return true;
+		String lowered = comment.toLowerCase(Locale.ROOT);
+		if (lowered.matches("(?s).*\\b(password|passphrase|secret|token|credentials?|api[ _-]?key|access[ _-]?key|private[ _-]?key|client[ _-]?secret|signing[ _-]?key|authorization|jdbc|webhook)\\b.*")
+				|| lowered.matches("(?s).*[a-z][a-z0-9+.-]*://[^/@\\s]+:[^/@\\s]+@.*")
+				|| labeledSensitiveDetail(comment)
+				|| DELIMITER_FREE_INFRASTRUCTURE_HOST.matcher(comment).find()
+				|| BARE_NETWORK_ADDRESS.matcher(comment).find()
+				|| lowered.matches("(?s).*\\b(?:jdbc:[a-z][a-z0-9+.-]*:|[a-z][a-z0-9+.-]*://)[^\\s#]+.*")) return true;
+		for (String value : values) {
+			if (lowered.contains(value.toLowerCase(Locale.ROOT))) return true;
+		}
+		return false;
+	}
+
+	private static boolean labeledSensitiveDetail(String comment) {
+		Matcher details = LABELED_COMMENT_DETAIL.matcher(comment);
+		while (details.find()) {
+			if (!comment.substring(details.end()).trim().isEmpty() && sensitiveCommentLabel(details.group(1))) return true;
+		}
+		return false;
+	}
+
+	private static boolean sensitiveCommentLabel(String rawLabel) {
+		String label = rawLabel
+				.replaceAll("([A-Z]+)([A-Z][a-z])", "$1 $2")
+				.replaceAll("([a-z0-9])([A-Z])", "$1 $2")
+				.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", " ").trim();
+		if (label.isEmpty()) return false;
+		Set<String> sensitiveLabels = Set.of("host", "hostname", "endpoint", "address", "port", "server", "broker",
+				"database", "db", "schema", "socket", "proxy", "redis", "mysql", "mqtt", "bungee", "connection",
+				"uri", "url", "ip", "ipv4", "ipv6", "password", "passphrase", "secret", "token", "authorization", "apikey", "webhook",
+				"credential", "credentials", "accesskey", "privatekey", "clientsecret", "signingkey", "bearer");
+		for (String token : label.split(" +")) {
+			if (sensitiveLabels.contains(token)) return true;
+		}
+		String compact = label.replace(" ", "");
+		for (String fragment : Set.of("privatekey", "accesskey", "apikey", "clientsecret", "signingkey")) {
+			if (compact.contains(fragment)) return true;
+		}
+		for (String suffix : Set.of("host", "hostname", "endpoint", "address", "port", "server", "broker", "database",
+				"dbname", "schema", "socket", "proxy", "redis", "mysql", "mqtt", "bungee", "connection", "uri",
+				"url", "ipv4", "ipv6", "password", "passphrase", "secret", "token", "authorization", "apikey", "webhook",
+				"credential", "credentials", "accesskey", "privatekey", "clientsecret", "signingkey", "bearer")) {
+			if (compact.endsWith(suffix)) return true;
+		}
+		return false;
+	}
+
+	private static Set<String> sensitiveValues(Node node, Map<String, Object> source) {
+		Set<String> values = new java.util.LinkedHashSet<>();
+		collectSensitiveValues(node, source, "", values);
+		return values;
+	}
+
+	private static void collectSensitiveValues(Node node, Object source, String path, Set<String> values) {
+		if (node instanceof MappingNode mapping && source instanceof Map<?, ?> sourceMap) {
+			for (NodeTuple tuple : mapping.getValue()) {
+				String key = key(tuple.getKeyNode());
+				Object value = sourceMap.get(key);
+				String childPath = path + key;
+				if (secret(childPath, key, value) && tuple.getValueNode() instanceof ScalarNode scalar
+						&& safeSecretValue(scalar.getValue())) {
+					values.add(scalar.getValue().trim());
+				} else if (value instanceof Map<?, ?> || value instanceof List<?>) {
+					collectSensitiveValues(tuple.getValueNode(), value,
+							value instanceof Map<?, ?> ? childPath + "." : childPath, values);
+				}
+			}
+		} else if (node instanceof SequenceNode sequence && source instanceof List<?> list) {
+			for (int index = 0; index < sequence.getValue().size(); index++) {
+				Node child = sequence.getValue().get(index);
+				Object value = index < list.size() ? list.get(index) : null;
+				String itemPath = path + "[" + index + "]";
+				if (secret(itemPath, "", value) && child instanceof ScalarNode scalar && safeSecretValue(scalar.getValue())) {
+					values.add(scalar.getValue().trim());
+				} else if (value instanceof Map<?, ?> || value instanceof List<?>) {
+					collectSensitiveValues(child, value, value instanceof Map<?, ?> ? itemPath + "." : itemPath, values);
+				}
+			}
+		}
+	}
+
+	private static boolean safeSecretValue(Object value) {
+		if (value == null) return false;
+		String text = String.valueOf(value).trim();
+		return !text.isEmpty();
+	}
+
+	private static Map<String, NodeTuple> tuples(MappingNode node) {
+		Map<String, NodeTuple> result = new LinkedHashMap<>();
+		for (NodeTuple tuple : node.getValue()) result.put(key(tuple.getKeyNode()), tuple);
+		return result;
+	}
+
+	private static String key(Node node) {
+		if (!(node instanceof ScalarNode scalar)) throw new IllegalArgumentException("proxy configuration keys must be strings");
+		return scalar.getValue();
+	}
+
+	private static void copyComments(Node source, Node target) {
+		target.setBlockComments(copyCommentList(source.getBlockComments()));
+		target.setInLineComments(copyCommentList(source.getInLineComments()));
+		target.setEndComments(copyCommentList(source.getEndComments()));
+	}
+
+	private static List<CommentLine> copyCommentList(List<CommentLine> comments) {
+		return comments == null ? null : new ArrayList<>(comments);
+	}
+
+	private record CommentReference(Node node, String kind, int index, CommentLine line) {
+		void replace(CommentLine replacement) {
+			List<CommentLine> comments = switch (kind) {
+			case "block" -> node.getBlockComments();
+			case "inline" -> node.getInLineComments();
+			case "end" -> node.getEndComments();
+			default -> throw new IllegalArgumentException("invalid comment kind");
+			};
+			List<CommentLine> updated = new ArrayList<>(comments);
+			updated.set(index, replacement);
+			setComments(node, kind, updated);
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private static Map<String, Object> resolve(Map<String, Object> proposed, Map<String, Object> current, String path) {
+		Map<String, Object> result = new LinkedHashMap<>();
+		for (Map.Entry<String, Object> entry : proposed.entrySet()) {
+			String key = entry.getKey();
+			Object value = entry.getValue();
+			Object old = current.get(key);
+			String childPath = path + key;
+			if (REDACTED.equals(value)) {
+				if (!secret(childPath, key, old) || !current.containsKey(key)) throw new IllegalArgumentException("redacted placeholder is invalid");
+				result.put(key, old);
+			} else if (value instanceof Map<?, ?> nested) {
+				Map<String, Object> oldValues;
+				if (old == null) oldValues = Map.of();
+				else if (old instanceof Map<?, ?> oldNested) oldValues = (Map<String, Object>) oldNested;
+				else throw new IllegalArgumentException("proxy configuration shape changed");
+				result.put(key, resolve((Map<String, Object>) nested, oldValues, childPath + "."));
+			} else if (value instanceof List<?> list) {
+				List<?> oldValues;
+				if (old == null) oldValues = List.of();
+				else if (old instanceof List<?> oldList) oldValues = oldList;
+				else throw new IllegalArgumentException("proxy configuration shape changed");
+				result.put(key, resolveList(list, oldValues, childPath));
+			} else result.put(key, value);
+		}
+		return result;
+	}
+
+	@SuppressWarnings("unchecked")
+	private static List<Object> resolveList(List<?> proposed, List<?> current, String path) {
+		if (containsSecrets(current, path) && !sameSecretSafeListOrder(proposed, current, path))
+			throw new IllegalArgumentException("reordering lists containing redacted secrets is not supported");
+		List<Object> result = new ArrayList<>();
+		for (int index = 0; index < proposed.size(); index++) {
+			Object value = proposed.get(index);
+			Object old = index < current.size() ? current.get(index) : null;
+			String itemPath = path + "[" + index + "]";
+			if (REDACTED.equals(value)) {
+				if (index >= current.size() || !secret(itemPath, "", old)) {
+					throw new IllegalArgumentException("redacted placeholder is invalid");
+				}
+				result.add(old);
+			} else if (value instanceof Map<?, ?> map) {
+				Map<String, Object> oldValues;
+				if (old == null) oldValues = Map.of();
+				else if (old instanceof Map<?, ?> oldMap) oldValues = (Map<String, Object>) oldMap;
+				else throw new IllegalArgumentException("proxy configuration shape changed");
+				result.add(resolve((Map<String, Object>) map, oldValues, itemPath + "."));
+			} else if (value instanceof List<?> list) {
+				List<?> oldValues;
+				if (old == null) oldValues = List.of();
+				else if (old instanceof List<?> oldList) oldValues = oldList;
+				else throw new IllegalArgumentException("proxy configuration shape changed");
+				result.add(resolveList(list, oldValues, itemPath));
+			} else result.add(value);
+		}
+		return Collections.unmodifiableList(result);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static boolean sameSecretSafeListOrder(Object proposed, Object current, String path) {
+		if (REDACTED.equals(proposed)) return true;
+		if (secret(path, "", current)) {
+			return proposed != null && !(proposed instanceof Map<?, ?>) && !(proposed instanceof List<?>);
+		}
+		if (proposed instanceof Map<?, ?> proposedMap && current instanceof Map<?, ?> currentMap) {
+			String mapPath = path.endsWith(".") ? path : path + ".";
+			if (containsSecrets(currentMap, mapPath) && hasStableIdentity(proposedMap, currentMap)) {
+				return preservesSecretFields(proposedMap, currentMap, mapPath);
+			}
+			if (!proposedMap.keySet().equals(currentMap.keySet())) return false;
+			boolean hasStableIdentity = false;
+			boolean sawNonSecret = false;
+			boolean allNonSecretsUnchanged = true;
+			boolean sawSecret = false;
+			boolean allSecretsRedacted = true;
+			for (Object rawKey : proposedMap.keySet()) {
+				String key = String.valueOf(rawKey);
+				Object old = currentMap.get(rawKey);
+				Object candidate = proposedMap.get(rawKey);
+				if (secret(mapPath + key, key, old)) {
+					sawSecret = true;
+					if (candidate instanceof Map<?, ?> || candidate instanceof List<?> || candidate == null) return false;
+					if (!REDACTED.equals(candidate)) allSecretsRedacted = false;
+				} else {
+					sawNonSecret = true;
+					boolean unchanged = sameSecretSafeListOrder(candidate, old, mapPath + key);
+					if (listEntryIdentityKey(key)) {
+						if (!unchanged) return false;
+						hasStableIdentity = true;
+					} else if (!unchanged) allNonSecretsUnchanged = false;
+				}
+			}
+			return hasStableIdentity || sawNonSecret && allNonSecretsUnchanged
+					|| !sawNonSecret && sawSecret && allSecretsRedacted;
+		}
+		if (proposed instanceof List<?> proposedList && current instanceof List<?> currentList) {
+			int retained = Math.min(proposedList.size(), currentList.size());
+			for (int i = 0; i < retained; i++) {
+				if (!sameSecretSafeListOrder(proposedList.get(i), currentList.get(i), path + "[" + i + "]")) return false;
+				if (hasNonSecretEdit(proposedList.get(i), currentList.get(i), path + "[" + i + "]")
+						&& !hasUniqueStableIdentity(proposedList, currentList, i)) return false;
+				if (proposedList.size() < currentList.size()
+						&& secretBearingValue(currentList.get(i), path + "[" + i + "]")
+						&& !retainsOrReplacesSecretValues(proposedList.get(i), currentList.get(i), path + "[" + i + "]")) return false;
+			}
+			if (proposedList.size() < currentList.size()) {
+				for (int i = proposedList.size(); i < currentList.size(); i++) {
+					if (secretBearingValue(currentList.get(i), path + "[" + i + "]")) return false;
+				}
+				return true;
+			}
+			for (int i = currentList.size(); i < proposedList.size(); i++) {
+				if (containsMarker(proposedList.get(i))) return false;
+			}
+			return true;
+		}
+		return java.util.Objects.equals(proposed, current);
+	}
+
+	private static boolean hasStableIdentity(Map<?, ?> proposed, Map<?, ?> current) {
+		for (Object rawKey : current.keySet()) {
+			String key = String.valueOf(rawKey);
+			Object value = current.get(rawKey);
+			if (listEntryIdentityKey(key) && value != null && !(value instanceof Map<?, ?>)
+					&& !(value instanceof List<?>) && proposed.containsKey(rawKey)
+					&& java.util.Objects.equals(value, proposed.get(rawKey))) return true;
+		}
+		return false;
+	}
+
+	private static boolean preservesSecretFields(Map<?, ?> proposed, Map<?, ?> current, String path) {
+		for (Object rawKey : current.keySet()) {
+			String key = String.valueOf(rawKey);
+			Object old = current.get(rawKey);
+			String childPath = path + key;
+			if (secret(childPath, key, old)) {
+				if (!proposed.containsKey(rawKey)) return false;
+				Object candidate = proposed.get(rawKey);
+				if (candidate == null || candidate instanceof Map<?, ?> || candidate instanceof List<?>) return false;
+			} else if ((old instanceof Map<?, ?> || old instanceof List<?>) && containsSecrets(old,
+					old instanceof Map<?, ?> ? childPath + "." : childPath)) {
+				if (!proposed.containsKey(rawKey)
+						|| !sameSecretSafeListOrder(proposed.get(rawKey), old,
+							old instanceof Map<?, ?> ? childPath + "." : childPath)) return false;
+			}
+		}
+		return true;
+	}
+
+	@SuppressWarnings("unchecked")
+	private static boolean hasNonSecretEdit(Object proposed, Object current, String path) {
+		if (secret(path, "", current)) return false;
+		if (proposed instanceof Map<?, ?> proposedMap && current instanceof Map<?, ?> currentMap) {
+			String mapPath = path.endsWith(".") ? path : path + ".";
+			for (Object rawKey : currentMap.keySet()) {
+				String key = String.valueOf(rawKey);
+				Object old = currentMap.get(rawKey);
+				if (!proposedMap.containsKey(rawKey) && !secret(mapPath + key, key, old)) return true;
+			}
+			for (Object rawKey : proposedMap.keySet()) {
+				String key = String.valueOf(rawKey);
+				Object old = currentMap.get(rawKey);
+				if (!secret(mapPath + key, key, old)
+						&& hasNonSecretEdit(proposedMap.get(rawKey), old, mapPath + key)) return true;
+			}
+			return false;
+		}
+		if (proposed instanceof List<?> proposedList && current instanceof List<?> currentList) {
+			if (proposedList.size() != currentList.size()) return true;
+			for (int i = 0; i < proposedList.size(); i++)
+				if (hasNonSecretEdit(proposedList.get(i), currentList.get(i), path + "[" + i + "]")) return true;
+			return false;
+		}
+		return !java.util.Objects.equals(proposed, current);
+	}
+
+	private static boolean hasUniqueStableIdentity(List<?> proposed, List<?> current, int index) {
+		if (!(proposed.get(index) instanceof Map<?, ?> proposedMap)
+				|| !(current.get(index) instanceof Map<?, ?> currentMap)) return false;
+		for (Object rawKey : currentMap.keySet()) {
+			String key = String.valueOf(rawKey);
+			Object old = currentMap.get(rawKey);
+			if (!listEntryIdentityKey(key) || old == null || old instanceof Map<?, ?> || old instanceof List<?>
+					|| !java.util.Objects.equals(old, proposedMap.get(rawKey))) continue;
+			long currentMatches = current.stream().filter(item -> identityMatches(item, key, old)).count();
+			long proposedMatches = proposed.stream().filter(item -> identityMatches(item, key, old)).count();
+			if (currentMatches == 1 && proposedMatches == 1) return true;
+		}
+		return false;
+	}
+
+	private static boolean identityMatches(Object item, String key, Object value) {
+		if (!(item instanceof Map<?, ?> map)) return false;
+		for (Object rawKey : map.keySet()) {
+			if (String.valueOf(rawKey).equalsIgnoreCase(key)
+					&& java.util.Objects.equals(map.get(rawKey), value)) return true;
+		}
+		return false;
+	}
+
+	private static boolean listEntryIdentityKey(String key) {
+		String normalized = key.toLowerCase(Locale.ROOT).replace("_", "").replace("-", "").replaceAll("\\s+", "");
+		return Set.of("name", "id", "key", "server", "serverid", "clientid").contains(normalized);
+	}
+
+	private static boolean secret(String path, String key, Object value) {
+		String normalized = normalizeSecretName(key);
+		if (normalized.contains("password") || normalized.contains("passphrase") || normalized.contains("secret")
+				|| normalized.contains("token") || normalized.contains("credential")
+				|| normalized.contains("apikey") || normalized.contains("accesskey")
+				|| normalized.contains("privatekey") || normalized.contains("signingkey")
+				|| normalized.contains("authorization")) return true;
+		if (normalized.contains("webhook")) return !(value instanceof Map<?, ?>) && !(value instanceof List<?>);
+		if (!(value instanceof Map<?, ?>) && !(value instanceof List<?>)) {
+			if (infrastructureListContext(path)) return true;
+			if (compoundInfrastructureField(key)
+					&& (!normalized.endsWith("server") || knownInfrastructureServerField(path, key))) return true;
+		}
+		String normalizedPath = path.toLowerCase(Locale.ROOT).replace("_", "").replace("-", "").replaceAll("\\s+", "");
+		if (value instanceof String text && normalizedPath.contains("webhook")) {
+			String lowered = text.trim().toLowerCase(Locale.ROOT);
+			if (Set.of("url", "uri", "endpoint", "address", "callback").contains(normalized)
+					|| lowered.startsWith("http://") || lowered.startsWith("https://")) return true;
+		}
+		if ((!(value instanceof Map<?, ?>) && !(value instanceof List<?>) && rootDatabaseField(normalizedPath))
+				|| infrastructurePath(normalizedPath, "database")
+				|| infrastructurePath(normalizedPath, "mysql") || infrastructurePath(normalizedPath, "globaldata")
+				|| infrastructurePath(normalizedPath, "votecache")
+				|| infrastructurePath(normalizedPath, "nonvotedcache")
+				|| infrastructurePath(normalizedPath, "votelogging")
+				|| infrastructurePath(normalizedPath, "redis")
+				|| infrastructurePath(normalizedPath, "multiproxyredis")) {
+			return Set.of("host", "port", "database", "name", "user", "username", "password", "line", "driver", "poolname",
+					"prefix", "dbindex")
+					.contains(normalized);
+		}
+		if (infrastructurePath(normalizedPath, "mqtt")) {
+			return Set.of("clientid", "brokerurl", "username", "password", "prefix").contains(normalized);
+		}
+		if (infrastructurePath(normalizedPath, "bungeeserver")
+				|| infrastructurePath(normalizedPath, "spigotservers")
+				|| infrastructurePath(normalizedPath, "multiproxysockethost")
+				|| infrastructurePath(normalizedPath, "multiproxyservers")) {
+			return !(value instanceof Map<?, ?>) && !(value instanceof List<?>)
+					&& Set.of("host", "port").contains(normalized);
+		}
+		if (infrastructurePath(normalizedPath, "control")) {
+			return "control.hosted.downloadurl".equals(normalizedPath)
+					|| normalized.endsWith("file") || normalized.endsWith("directory")
+					|| Set.of("endpoint", "host", "port").contains(normalized);
+		}
+		if (value instanceof String text) {
+			String lowered = text.trim().toLowerCase(Locale.ROOT);
+			return lowered.startsWith("jdbc:") || lowered.matches("^[a-z][a-z0-9+.-]*://[^/@\\s]+:[^/@\\s]+@.*");
+		}
+		return false;
+	}
+
+	/** Normalizes the separators accepted in credential field names before classification. */
+	private static String normalizeSecretName(String value) {
+		return value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "");
+	}
+
+	private static boolean compoundInfrastructureField(String key) {
+		String words = key.replaceAll("([A-Z]+)([A-Z][a-z])", "$1 $2")
+				.replaceAll("([a-z0-9])([A-Z])", "$1 $2")
+				.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", " ").trim();
+		if (words.isEmpty()) return false;
+		String[] tokens = words.split(" +");
+		String last = tokens[tokens.length - 1];
+		String compact = words.replace(" ", "");
+		if (compact.matches("^(database|db|mysql|redis|mqtt)(user|username)$")) return true;
+		if (tokens.length > 1 && Set.of("host", "endpoint", "address", "port", "broker", "database", "schema", "server",
+				"socket", "uri", "url", "ipv4", "ipv6").contains(last)) return true;
+		if (tokens.length > 2 && "name".equals(last)
+				&& Set.of("host", "db").contains(tokens[tokens.length - 2])) return true;
+		if (tokens.length > 1 && Set.of("user", "username").contains(last)
+				&& Set.of("database", "db", "mysql", "redis", "mqtt").contains(tokens[tokens.length - 2])) return true;
+		if (tokens.length > 2 && "name".equals(last) && "user".equals(tokens[tokens.length - 2])
+				&& Set.of("database", "db", "mysql", "redis", "mqtt").contains(tokens[tokens.length - 3])) return true;
+		return Set.of("dburl", "dbport", "dbhost", "dbname", "apiurl", "apiuri", "redisport", "redishost",
+				"mysqlport", "mysqlhost", "mqttport", "mqtthost").contains(compact);
+	}
+
+	private static boolean knownInfrastructureServerField(String path, String key) {
+		String words = key.replaceAll("([A-Z]+)([A-Z][a-z])", "$1 $2")
+				.replaceAll("([a-z0-9])([A-Z])", "$1 $2")
+				.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", " ").trim();
+		String normalizedPath = normalizePath(path);
+		return infrastructurePath(normalizedPath, "database") || infrastructurePath(normalizedPath, "mysql")
+				|| infrastructurePath(normalizedPath, "redis") || infrastructurePath(normalizedPath, "multiproxyredis")
+				|| infrastructurePath(normalizedPath, "mqtt") || infrastructurePath(normalizedPath, "bungeeserver")
+				|| infrastructurePath(normalizedPath, "spigotservers")
+				|| infrastructurePath(normalizedPath, "multiproxysockethost")
+				|| infrastructurePath(normalizedPath, "multiproxyservers")
+				|| words.startsWith("database ") || words.startsWith("mysql ") || words.startsWith("redis ")
+				|| words.startsWith("mqtt ") || words.startsWith("bungee ") || words.startsWith("proxy ");
+	}
+
+	private static boolean infrastructureListContext(String path) {
+		String normalizedPath = normalizePath(path);
+		for (String field : Set.of("hosts", "users", "endpoints", "addresses", "ports", "servers", "brokers",
+				"databases", "schemas", "sockets", "uris", "urls")) {
+			String marker = field + "[";
+			int start = normalizedPath.indexOf(marker);
+			while (start >= 0) {
+				String containerPath = normalizedPath.substring(0, start + field.length());
+				if (containerPath.endsWith("." + field)) {
+					containerPath = containerPath.substring(0, containerPath.length() - field.length() - 1);
+				} else if (containerPath.equals(field)) {
+					containerPath = "";
+				} else {
+					start = normalizedPath.indexOf(marker, start + marker.length());
+					continue;
+				}
+				if (knownInfrastructurePath(containerPath)) return true;
+				start = normalizedPath.indexOf(marker, start + marker.length());
+			}
+		}
+		return false;
+	}
+
+	private static boolean knownInfrastructurePath(String path) {
+		return Set.of("database", "mysql", "redis", "multiproxyredis", "mqtt", "bungeeserver", "spigotservers",
+				"multiproxysockethost", "multiproxyservers", "control").stream()
+				.anyMatch(section -> path.equals(section) || path.startsWith(section + ".")
+						|| path.startsWith(section + "["));
+	}
+
+	private static String normalizePath(String path) {
+		return path.toLowerCase(Locale.ROOT).replace("_", "").replace("-", "").replaceAll("\\s+", "");
+	}
+
+	private static boolean rootDatabaseField(String normalizedPath) {
+		return !normalizedPath.contains(".") && !normalizedPath.contains("[")
+				&& Set.of("host", "port", "database", "name", "user", "username", "password", "line", "driver", "poolname",
+						"prefix", "dbindex").contains(normalizedPath);
+	}
+
+	private static boolean infrastructurePath(String normalizedPath, String section) {
+		return normalizedPath.startsWith(section + ".")
+				|| normalizedPath.startsWith(section + "[") || normalizedPath.contains("." + section + ".")
+				|| normalizedPath.contains("." + section + "[");
+	}
+
+	private static void copyPermissions(Path source, Path destination) throws IOException {
+		java.nio.file.attribute.PosixFileAttributeView sourceView = Files.getFileAttributeView(source,
+				java.nio.file.attribute.PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+		java.nio.file.attribute.PosixFileAttributeView destinationView = Files.getFileAttributeView(destination,
+				java.nio.file.attribute.PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+		if (sourceView != null && destinationView != null) {
+			destinationView.setPermissions(sourceView.readAttributes().permissions());
+		}
+	}
+
+	private static List<String> changes(Map<String, Object> before, Map<String, Object> after) {
+		Map<StructuralPath, Object> left = flatten(before, List.of());
+		Map<StructuralPath, Object> right = flatten(after, List.of());
+		Set<StructuralPath> keys = new java.util.TreeSet<>(ProxyConfigurationFileService::comparePaths);
+		keys.addAll(left.keySet());
+		keys.addAll(right.keySet());
+		List<String> result = new ArrayList<>();
+		for (StructuralPath key : keys) {
+			if (java.util.Objects.equals(left.get(key), right.get(key))) continue;
+			result.add((left.containsKey(key) ? right.containsKey(key) ? "changed " : "removed " : "added ")
+					+ key.display());
+			if (result.size() == 20) break;
+		}
+		return List.copyOf(result);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static Map<StructuralPath, Object> flatten(Map<String, Object> source, List<String> prefix) {
+		Map<StructuralPath, Object> result = new LinkedHashMap<>();
+			source.entrySet().stream().sorted(Map.Entry.comparingByKey(Comparator.naturalOrder())).forEach(entry -> {
+			List<String> path = new ArrayList<>(prefix);
+			path.add(entry.getKey());
+			if (entry.getValue() instanceof Map<?, ?> nested) {
+				if (nested.isEmpty()) result.put(new StructuralPath(path), StructuralLeaf.EMPTY_MAPPING);
+				else result.putAll(flatten((Map<String, Object>) nested, path));
+			} else {
+				result.put(new StructuralPath(path), entry.getValue());
+			}
+		});
+		return result;
+	}
+
+	private enum StructuralLeaf {
+		EMPTY_MAPPING
+	}
+
+	private static int comparePaths(StructuralPath left, StructuralPath right) {
+		int common = Math.min(left.segments().size(), right.segments().size());
+		for (int index = 0; index < common; index++) {
+			int comparison = left.segments().get(index).compareTo(right.segments().get(index));
+			if (comparison != 0) return comparison;
+		}
+		return Integer.compare(left.segments().size(), right.segments().size());
+	}
+
+	private record StructuralPath(List<String> segments) {
+		private StructuralPath {
+			segments = List.copyOf(segments);
+		}
+
+		private String display() {
+			StringBuilder path = new StringBuilder();
+			for (String segment : segments) {
+				if (segment.matches("[A-Za-z_][A-Za-z0-9_-]*")) {
+					if (!path.isEmpty()) path.append('.');
+					path.append(segment);
+				} else {
+					path.append("[\"").append(segment.replace("\\", "\\\\").replace("\"", "\\\""))
+							.append("\"]");
+				}
+			}
+			return path.toString();
+		}
+	}
+
+	private static void move(Path source, Path destination) throws IOException {
+		try {
+			DurableFiles.forceFile(source);
+			Files.move(source, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+			DurableFiles.forceMoveDirectories(source, destination);
+		} catch (java.nio.file.AtomicMoveNotSupportedException failure) {
+			throw new IOException("atomic proxy configuration activation is unsupported", failure);
+		}
+	}
+
+	private static void requireFile(String name) {
+		if (!FILE_NAME.equals(name)) throw new IllegalArgumentException("proxy configuration file is not managed");
+	}
+
+	private static void ensureBounded(String value) {
+		if (value == null || value.indexOf('\0') >= 0 || value.getBytes(StandardCharsets.UTF_8).length > MAX_BYTES) {
+			throw new IllegalArgumentException("proxy configuration content is invalid");
+		}
+	}
+
+	static String revision(String value) {
+		try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))); }
+		catch (NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }
+	}
+
+	record Document(String fileName, String content, String revision) { }
+	record Preview(String resolvedContent, String revision, List<String> changes) { }
+	record PreparedApply(String currentRaw, String expectedRevision, Preview preview) { }
+	record ApplyResult(Document document, List<String> changes, boolean rolledBack) { }
+	@FunctionalInterface interface MoveAction { void move(Path source, Path destination) throws IOException; }
+	@FunctionalInterface interface TempFileAction { Path create(Path directory, String prefix, String suffix) throws IOException; }
+	@SuppressWarnings("serial") static final class StaleRevisionException extends RuntimeException { }
+	@SuppressWarnings("serial") static final class ApplyFailureException extends IOException {
+		private final boolean rolledBack;
+		private ApplyFailureException(boolean rolledBack, Throwable cause) { super(cause); this.rolledBack = rolledBack; }
+		boolean rolledBack() { return rolledBack; }
+	}
+}

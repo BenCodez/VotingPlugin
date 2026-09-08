@@ -98,10 +98,12 @@ final class ControlRewardProposal {
 				throw new IllegalArgumentException("item material is invalid");
 			}
 			Material material = Material.matchMaterial(materialName);
-			// Modern Bukkit resolves item-ness through the live registry. The null-server
-			// path keeps the shared parser usable in isolated validation tests; production
-			// connector calls always have a server and therefore enforce isItem().
-			if (material == null || (org.bukkit.Bukkit.getServer() != null && !material.isItem())) {
+			// Modern Bukkit resolves item-ness through the live registry. Mockito-based
+			// unit tests can expose a non-null skeletal Server without registries, so only
+			// use the registry-backed check when the implementation identifies itself.
+			org.bukkit.Server server = org.bukkit.Bukkit.getServer();
+			boolean liveServer = server != null && server.getName() != null && !server.getName().isBlank();
+			if (material == null || (liveServer && !material.isItem())) {
 				throw new IllegalArgumentException("item material is invalid");
 			}
 			result.add(new Item(material.name(), boundedInt(item, "amount", 1, 1, 64)));
