@@ -23,6 +23,7 @@ import com.bencodez.votingplugin.topvoter.TopVoter;
  */
 public class UserManager {
 	private VotingPluginMain plugin;
+	private boolean sharedPointTransferRecoveryScheduled;
 
 	/**
 	 * Constructs a new user manager.
@@ -32,6 +33,12 @@ public class UserManager {
 		this.plugin = plugin;
 	}
 
+	/** Starts the durable shared-point transfer recovery exactly once per plugin lifecycle. */
+	public synchronized void startSharedPointTransferRecovery() {
+		if (sharedPointTransferRecoveryScheduled || !SharedMysqlPointMutator.usesSharedMysqlPoints(plugin)) return;
+		sharedPointTransferRecoveryScheduled = true;
+		SharedMysqlPointMutator.scheduleTransferRecovery(plugin);
+	}
 	/**
 	 * Adds caching keys to the user data manager.
 	 */

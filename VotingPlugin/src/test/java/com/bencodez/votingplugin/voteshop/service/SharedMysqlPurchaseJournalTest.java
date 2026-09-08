@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.voteshop.service;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -20,6 +21,20 @@ import org.junit.jupiter.api.Test;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 
 class SharedMysqlPurchaseJournalTest {
+	@Test
+	void journalTableNameIsPortableAndCollisionResistantForLongSourceNames() {
+		String source = "u".repeat(80);
+		String journalTable = SharedMysqlPurchaseJournal.journalTableName(source);
+
+		assertEquals(journalTable, SharedMysqlPurchaseJournal.journalTableName(source));
+		assertTrue(journalTable.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 63);
+		assertTrue(journalTable.matches("vp_vsp_[0-9a-f]{32}"));
+		assertNotEquals(journalTable, SharedMysqlPurchaseJournal.journalTableName(source + "x"));
+		assertTrue(SharedMysqlPurchaseJournal.journalTableName("é".repeat(30)).matches("vp_vsp_[0-9a-f]{32}"));
+		assertEquals("VotingPlugin_Users_VoteShopPurchases",
+				SharedMysqlPurchaseJournal.journalTableName("VotingPlugin_Users"));
+	}
+
 	@Test
 	void reservationPersistsPendingDebitInTheSameTransaction() throws Exception {
 		Fixture fixture = fixture();

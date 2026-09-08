@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.function.IntFunction;
 
 import com.bencodez.advancedcore.api.user.UserStorage;
@@ -20,8 +21,32 @@ final class SharedMysqlPointMutator {
 	}
 
 	boolean applies() {
+		return usesSharedMysqlPoints(plugin);
+	}
+
+	static boolean usesSharedMysqlPoints(VotingPluginMain plugin) {
 		return plugin != null && UserStorage.MYSQL.equals(plugin.getStorageType())
 				&& !plugin.getBungeeSettings().isPerServerPoints();
+	}
+
+	/**
+	 * Recovers a bounded batch immediately and periodically. The executor belongs
+	 * to the plugin lifecycle, so no independent task survives shutdown.
+	 */
+	static void scheduleTransferRecovery(VotingPluginMain plugin) {
+		plugin.getTimer().execute(() -> recoverTransfers(plugin));
+		plugin.getTimer().scheduleWithFixedDelay(() -> recoverTransfers(plugin), 1L, 1L, TimeUnit.MINUTES);
+	}
+
+	private static void recoverTransfers(VotingPluginMain plugin) {
+		if (!usesSharedMysqlPoints(plugin)) return;
+		try {
+			SharedPointTransferJournal.forTable(plugin.getMysql()).recoverAndCleanup(System.currentTimeMillis());
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to recover shared MySQL point transfers: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+		}
 	}
 
 	int add(VotingPluginUser user, int amount, boolean async) {

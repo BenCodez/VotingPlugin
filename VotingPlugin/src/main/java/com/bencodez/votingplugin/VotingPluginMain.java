@@ -605,6 +605,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		voteTester = new VoteTester(plugin);
 
 		loadVoteTimer();
+		getVotingPluginUserManager().startSharedPointTransferRecovery();
 
 		if (bungeeSettings.isUseBungeecoord()) {
 			loadBungeeHandler();

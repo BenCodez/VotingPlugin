@@ -14,6 +14,7 @@ import static org.mockito.ArgumentMatchers.any;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -24,6 +25,23 @@ import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 class SharedMysqlPointMutatorTest {
+	@Test
+	void userManagerSchedulesOneBoundedSharedTransferRecoveryPerLifecycle() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		ScheduledExecutorService persistence = mock(ScheduledExecutorService.class);
+		when(plugin.getStorageType()).thenReturn(UserStorage.MYSQL);
+		when(plugin.getBungeeSettings().isPerServerPoints()).thenReturn(false);
+		when(plugin.getTimer()).thenReturn(persistence);
+
+		UserManager manager = new UserManager(plugin);
+		manager.startSharedPointTransferRecovery();
+		manager.startSharedPointTransferRecovery();
+
+		verify(persistence).execute(any(Runnable.class));
+		verify(persistence).scheduleWithFixedDelay(any(Runnable.class), org.mockito.ArgumentMatchers.eq(1L),
+				org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(TimeUnit.MINUTES));
+	}
+
 	@Test
 	void removeReportsARejectedConditionalDebit() throws Exception {
 		MySQL table = mock(MySQL.class);

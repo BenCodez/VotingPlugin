@@ -1,6 +1,8 @@
 package com.bencodez.votingplugin.user;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -20,6 +22,20 @@ import org.junit.jupiter.api.Test;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 
 class SharedPointTransferJournalTest {
+	@Test
+	void journalTableNameIsPortableAndCollisionResistantForLongSourceNames() {
+		String source = "u".repeat(80);
+		String journalTable = SharedPointTransferJournal.journalTableName(source);
+
+		assertEquals(journalTable, SharedPointTransferJournal.journalTableName(source));
+		assertTrue(journalTable.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 63);
+		assertTrue(journalTable.matches("vp_pt_[0-9a-f]{32}"));
+		assertNotEquals(journalTable, SharedPointTransferJournal.journalTableName(source + "x"));
+		assertTrue(SharedPointTransferJournal.journalTableName("é".repeat(30)).matches("vp_pt_[0-9a-f]{32}"));
+		assertEquals("VotingPlugin_Users_PointTransfers",
+				SharedPointTransferJournal.journalTableName("VotingPlugin_Users"));
+	}
+
 	@Test
 	void schemaInitializationIsOncePerLiveMysqlHandle() throws Exception {
 		Fixture fixture = fixture();

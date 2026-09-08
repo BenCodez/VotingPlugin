@@ -2,6 +2,9 @@ package com.bencodez.votingplugin.voteshop.service;
 
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -34,6 +37,11 @@ final class SharedMysqlPurchaseJournal {
 	static final long TERMINAL_RETENTION_MILLIS = TimeUnit.DAYS.toMillis(7);
 	private static final int RECOVERY_BATCH_SIZE = 32;
 	private static final int CLEANUP_BATCH_SIZE = 100;
+	/* PostgreSQL permits 63 bytes and is the tighter supported database limit. */
+	private static final int MAX_IDENTIFIER_BYTES = 63;
+	private static final String JOURNAL_SUFFIX = "_VoteShopPurchases";
+	private static final String HASHED_TABLE_PREFIX = "vp_vsp_";
+	private static final int HASHED_TABLE_HEX_LENGTH = 32;
 
 	private static final ReferenceQueue<MySQL> INITIALIZED_QUEUE = new ReferenceQueue<>();
 	private static final Set<IdentityWeakReference> INITIALIZED = new HashSet<>();
@@ -43,8 +51,33 @@ final class SharedMysqlPurchaseJournal {
 
 	SharedMysqlPurchaseJournal(MySQL table, boolean initializeSchema) throws SQLException {
 		this.table = table;
-		journalTable = table.getTableName() + "_VoteShopPurchases";
+		journalTable = journalTableName(table.getTableName());
 		if (initializeSchema) ensureSchema();
+	}
+
+	/**
+	 * Keeps the historic auxiliary-table name where it is portable, while using
+	 * a fixed, collision-resistant name for source tables which would exceed the
+	 * PostgreSQL identifier limit.
+	 */
+	static String journalTableName(String sourceTable) {
+		String legacyName = sourceTable + JOURNAL_SUFFIX;
+		if (legacyName.getBytes(StandardCharsets.UTF_8).length <= MAX_IDENTIFIER_BYTES) return legacyName;
+		return HASHED_TABLE_PREFIX + hash(sourceTable + '\0' + JOURNAL_SUFFIX).substring(0, HASHED_TABLE_HEX_LENGTH);
+	}
+
+	private static String hash(String value) {
+		try {
+			byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
+			StringBuilder hex = new StringBuilder(digest.length * 2);
+			for (byte valueByte : digest) {
+				hex.append(Character.forDigit((valueByte >>> 4) & 0x0f, 16));
+				hex.append(Character.forDigit(valueByte & 0x0f, 16));
+			}
+			return hex.toString();
+		} catch (NoSuchAlgorithmException failure) {
+			throw new IllegalStateException("SHA-256 is unavailable", failure);
+		}
 	}
 
 	static SharedMysqlPurchaseJournal forTable(MySQL table) throws SQLException {
