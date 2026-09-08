@@ -942,15 +942,16 @@ class ControlConnectorTest {
 				boolean.class, Runnable.class, Function.class, ProxyMethodConfigurationService.class, Runnable.class,
 				ProxyConfigurationFileService.class);
 		constructor.setAccessible(true);
+		ProxyControlResultStore.Route connectorRoute = new ProxyControlResultStore.Route("proxy-a", "Proxy A",
+				"VELOCITY", "7.1.2", URI.create("http://127.0.0.1:8080"), "credential.txt", 30, 3000, 5000);
 		ControlConnector created = constructor.newInstance(settings(), scheduler, transport,
 				(Supplier<List<ObservedBackend>>) List::of,
 				(Consumer<String>) logs::add, UUID.randomUUID(), (LongSupplier) () -> 0L, null, dataDirectory,
-				new ProxyControlResultStore.Route("proxy-a", "Proxy A", "VELOCITY", "7.1.2",
-						URI.create("http://127.0.0.1:8080"), "credential.txt", 30, 3000, 5000),
+				connectorRoute,
 				recovering, recoveryComplete,
 				(Function<String, CompletableFuture<com.bencodez.votingplugin.proxy.VotingPluginProxy.CommunicationTestResult>>) null,
 				null, null, fileService);
-		ProxyControlResultStore.State recovered = ProxyControlResultStore.load(dataDirectory);
+		ProxyControlResultStore.State recovered = ProxyControlResultStore.loadForRoute(dataDirectory, connectorRoute);
 		if (recovered != null) {
 			Field completed = ControlConnector.class.getDeclaredField("completedTasks");
 			completed.setAccessible(true);

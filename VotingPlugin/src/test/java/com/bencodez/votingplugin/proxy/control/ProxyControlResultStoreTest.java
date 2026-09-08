@@ -2,6 +2,8 @@ package com.bencodez.votingplugin.proxy.control;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -56,6 +58,145 @@ class ProxyControlResultStoreTest {
 
 		assertFalse(recovered.routeRequired());
 		assertTrue(recovered.results().containsKey(operationId));
+	}
+
+	@Test void releasedResultsStayBoundWhenTheConfiguredRouteChanges() throws Exception {
+		UUID oldOperation = UUID.fromString("00000000-0000-0000-0000-000000000099");
+		UUID newOperation = UUID.fromString("00000000-0000-0000-0000-000000000100");
+		Route oldRoute = new Route("proxy-old", "Proxy Old", "VELOCITY", "7.1.2",
+				URI.create("https://old-control.example:8443"), "old-credential.txt", 30, 3000, 5000);
+		Route newRoute = new Route("proxy-new", "Proxy New", "VELOCITY", "7.1.2",
+				URI.create("https://new-control.example:8443"), "new-credential.txt", 30, 3000, 5000);
+		JsonObject oldResult = new JsonObject();
+		oldResult.addProperty("success", true);
+		JsonObject newResult = new JsonObject();
+		newResult.addProperty("success", true);
+
+		ProxyControlResultStore.save(directory, oldRoute,
+				Map.of(oldOperation, new StoredResult(oldResult, true, false)), false);
+		ProxyControlResultStore.save(directory, newRoute,
+				Map.of(newOperation, new StoredResult(newResult, true, false)));
+
+		assertEquals(oldRoute, ProxyControlResultStore.loadForRoute(directory, oldRoute).route(),
+				"the released old route must remain durably bound");
+		assertNull(ProxyControlResultStore.loadForRoute(directory, new Route("other", "Other", "VELOCITY", "7.1.2",
+				URI.create("https://other-control.example:8443"), "other-credential.txt", 30, 3000, 5000)));
+		ProxyControlResultStore.State current = ProxyControlResultStore.loadForRoute(directory, newRoute);
+		assertNotNull(current);
+		assertEquals(newRoute, current.route());
+		assertTrue(current.results().containsKey(newOperation));
+
+		ProxyControlResultStore.save(directory, newRoute, Map.of());
+		assertNull(ProxyControlResultStore.loadForRoute(directory, newRoute));
+		assertTrue(ProxyControlResultStore.loadForRoute(directory, oldRoute).results().containsKey(oldOperation),
+				"acknowledging the new route must not remove the old route result");
+	}
+
+	@Test void stableRouteIdentityIgnoresVersionTimingAndCredentialRotation() throws Exception {
+		Route original = new Route("proxy-stable", "Old display name", "VELOCITY", "7.1.2",
+				URI.create("https://CONTROL.example:443"), "credential.txt", 30, 3000, 5000);
+		Route updated = new Route("proxy-stable", "New display name", "VELOCITY", "7.2.0",
+				URI.create("https://control.example"), "rotated-credential.txt", 120, 10000, 15000);
+		UUID operationId = UUID.fromString("00000000-0000-0000-0000-000000000101");
+
+		ProxyControlResultStore.save(directory, original,
+				Map.of(operationId, new StoredResult(result(true), true, false)));
+		ProxyControlResultStore.save(directory, updated,
+				Map.of(operationId, new StoredResult(result(true), true, false)));
+
+		ProxyControlResultStore.State recovered = ProxyControlResultStore.loadForRoute(directory, updated);
+		assertNotNull(recovered);
+		assertEquals(updated, recovered.route(), "metadata may refresh without changing route identity");
+		assertEquals(1, recovered.results().size(), "runtime and credential changes must not split the coordinator");
+		assertEquals(3, com.google.gson.JsonParser.parseString(
+				Files.readString(directory.resolve(".control-proxy-pending-results.json")))
+				.getAsJsonObject().get("version").getAsInt());
+	}
+
+	@Test void requiredOriginRoutesAreSelectedBeforeCurrentConfiguration() throws Exception {
+		Route first = route("required-first");
+		Route second = route("required-second");
+		Route configured = route("configured");
+		ProxyControlResultStore.save(directory, first,
+				Map.of(UUID.randomUUID(), new StoredResult(result(true), true, false)), true);
+		ProxyControlResultStore.save(directory, second,
+				Map.of(UUID.randomUUID(), new StoredResult(result(true), true, false)), true);
+		ProxyControlResultStore.save(directory, configured,
+				Map.of(UUID.randomUUID(), new StoredResult(result(true), true, false)), false);
+
+		assertEquals(first, ProxyControlResultStore.loadPreferred(directory, configured).route());
+		ProxyControlResultStore.save(directory, first, Map.of());
+		assertEquals(second, ProxyControlResultStore.loadPreferred(directory, configured).route());
+		ProxyControlResultStore.save(directory, second, Map.of());
+		assertEquals(configured, ProxyControlResultStore.loadPreferred(directory, configured).route());
+	}
+
+	@Test void globalResultLimitRejectsNewRouteWithoutEvictingExistingResults() throws Exception {
+		Route original = route("bounded-original");
+		Map<UUID, StoredResult> existing = new LinkedHashMap<>();
+		for (int index = 0; index < 128; index++) {
+			existing.put(UUID.nameUUIDFromBytes(("operation-" + index).getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+					new StoredResult(result(true), true, false));
+		}
+		ProxyControlResultStore.save(directory, original, existing);
+		Route additional = route("bounded-additional");
+		assertThrows(java.io.IOException.class, () -> ProxyControlResultStore.save(directory, additional,
+				Map.of(UUID.fromString("00000000-0000-0000-0000-000000000102"),
+						new StoredResult(result(true), true, false))));
+		assertEquals(128, ProxyControlResultStore.loadForRoute(directory, original).results().size());
+		assertNull(ProxyControlResultStore.loadForRoute(directory, additional));
+	}
+
+	@Test void byteLimitRejectsNewRouteWithoutEvictingExistingResults() throws Exception {
+		Route original = route("bytes-original");
+		JsonObject large = result(true);
+		large.addProperty("payload", "x".repeat(3_950_000));
+		UUID originalOperation = UUID.fromString("00000000-0000-0000-0000-000000000103");
+		ProxyControlResultStore.save(directory, original,
+				Map.of(originalOperation, new StoredResult(large, true, false)));
+
+		Route additional = route("bytes-additional");
+		JsonObject extra = result(true);
+		extra.addProperty("payload", "y".repeat(300_000));
+		assertThrows(java.io.IOException.class, () -> ProxyControlResultStore.save(directory, additional,
+				Map.of(UUID.fromString("00000000-0000-0000-0000-000000000104"),
+						new StoredResult(extra, true, false))));
+		assertTrue(ProxyControlResultStore.loadForRoute(directory, original).results().containsKey(originalOperation));
+		assertNull(ProxyControlResultStore.loadForRoute(directory, additional));
+	}
+
+	@Test void legacyV2JournalLoadsByStableIdentityAndMigratesOnNextSave() throws Exception {
+		Route legacy = route("legacy");
+		UUID operationId = UUID.fromString("00000000-0000-0000-0000-000000000105");
+		String legacyJson = "{\"version\":2,\"routeRequired\":true,\"route\":{"
+				+ "\"nodeId\":\"legacy\",\"displayName\":\"Proxy legacy\",\"platform\":\"VELOCITY\","
+				+ "\"pluginVersion\":\"7.1.2\",\"endpoint\":\"https://legacy.control.example:8443\","
+				+ "\"credentialFile\":\"legacy-credential.txt\",\"heartbeatSeconds\":30,"
+				+ "\"connectTimeoutMillis\":3000,\"requestTimeoutMillis\":5000},\"results\":[{"
+				+ "\"operationId\":\"" + operationId + "\",\"result\":{\"success\":true},"
+				+ "\"committed\":true,\"claimRequired\":false}]}";
+		Files.writeString(directory.resolve(".control-proxy-pending-results.json"), legacyJson);
+
+		ProxyControlResultStore.State recovered = ProxyControlResultStore.loadForRoute(directory, legacy);
+		assertNotNull(recovered);
+		assertTrue(recovered.results().containsKey(operationId));
+		ProxyControlResultStore.save(directory, legacy, recovered.results(), recovered.routeRequired());
+		JsonObject migrated = com.google.gson.JsonParser.parseString(
+				Files.readString(directory.resolve(".control-proxy-pending-results.json"))).getAsJsonObject();
+		assertEquals(3, migrated.get("version").getAsInt());
+		assertEquals(1, migrated.getAsJsonArray("routes").size());
+	}
+
+	private static JsonObject result(boolean success) {
+		JsonObject result = new JsonObject();
+		result.addProperty("success", success);
+		return result;
+	}
+
+	private static Route route(String nodeId) {
+		return new Route(nodeId, "Proxy " + nodeId, "VELOCITY", "7.1.2",
+				URI.create("https://" + nodeId + ".control.example:8443"), nodeId + "-credential.txt",
+				30, 3000, 5000);
 	}
 
 	@Test void writeAheadIntentRetainsItsUncommittedStateAcrossRestart() throws Exception {

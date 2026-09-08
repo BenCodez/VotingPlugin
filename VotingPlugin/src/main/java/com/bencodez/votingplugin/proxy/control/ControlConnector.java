@@ -151,18 +151,21 @@ public final class ControlConnector implements AutoCloseable {
 	/** Creates the production connector without reading a credential when the feature is disabled. */
 	public static ControlConnector create(VotingPluginProxy proxy) throws IOException {
 		Path dataDirectory = proxy.getDataFolderPlugin().toPath().toAbsolutePath().normalize();
-		ProxyControlResultStore.State recovered = ProxyControlResultStore.load(dataDirectory);
 		VotingPluginProxyConfig config = proxy.getConfig();
+		ProxyControlResultStore.State recovered;
 		Settings settings;
 		Route route;
 		String credentialName;
-		boolean recovering = recovered != null && recovered.routeRequired();
-		if (recovering) {
+		if (!config.getControlEnabled()) {
+			// With Control disabled there is no current configured route. A required
+			// result may still be retried only against its own recorded coordinator;
+			// never select a released result or redirect it to another node.
+			recovered = ProxyControlResultStore.loadRequired(dataDirectory);
+			if (recovered == null) return null;
 			route = recovered.route();
 			settings = settings(route);
 			credentialName = route.credentialFile();
 		} else {
-			if (!config.getControlEnabled()) return null;
 			String configuredNodeId = config.getControlNodeId();
 			String nodeId = configuredNodeId == null || configuredNodeId.isBlank()
 					? config.getProxyServerName() : configuredNodeId.trim();
@@ -178,7 +181,17 @@ public final class ControlConnector implements AutoCloseable {
 					URI.create(endpointValue.trim()), config.getControlHeartbeatSeconds(),
 					config.getControlConnectTimeoutMillis(), config.getControlRequestTimeoutMillis());
 			route = route(settings, credentialName);
+			recovered = ProxyControlResultStore.loadPreferred(dataDirectory, route);
+			if (recovered != null && recovered.routeRequired()
+					&& !recovered.route().identity().equals(route.identity())) {
+				// Drain an older coordinator before returning to current configuration.
+				// completeRecoveryIfDrained() restarts this service to advance the queue.
+				route = recovered.route();
+				settings = settings(route);
+				credentialName = route.credentialFile();
+			}
 		}
+		boolean recovering = recovered != null && recovered.routeRequired();
 		String credential = ControlCredentialFile.read(dataDirectory, credentialName);
 		HttpControlTransport transport = new HttpControlTransport(settings.endpoint(), credential,
 				settings.connectTimeoutMillis(), settings.requestTimeoutMillis());
