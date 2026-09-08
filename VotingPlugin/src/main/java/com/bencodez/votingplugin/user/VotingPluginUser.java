@@ -1327,7 +1327,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public boolean removePoints(int points, boolean async) {
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
-		if (sharedPoints.applies()) return sharedPoints.remove(this, points);
+		if (sharedPoints.applies()) return sharedPoints.remove(this, points, async);
 		if (getPoints() >= points) {
 			setPoints(getPoints() - points, async);
 			return true;

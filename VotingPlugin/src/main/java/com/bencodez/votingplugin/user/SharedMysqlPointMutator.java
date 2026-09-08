@@ -47,6 +47,15 @@ final class SharedMysqlPointMutator {
 		return update(user, -amount, true);
 	}
 
+	boolean remove(VotingPluginUser user, int amount, boolean async) {
+		if (!async) return remove(user, amount);
+		boolean predictedSuccess = user.getPoints() >= amount;
+		run(() -> update(user, -amount, true), true);
+		// Preserve the historical asynchronous API contract: the caller receives
+		// the cached prediction while the conditional database debit runs later.
+		return predictedSuccess;
+	}
+
 	boolean transfer(VotingPluginUser source, VotingPluginUser target, int amount) {
 		return transfer(source, target, amount, amount);
 	}

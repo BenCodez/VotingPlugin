@@ -1,0 +1,217 @@
+package com.bencodez.votingplugin.voteshop.service;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.junit.jupiter.api.Test;
+
+import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
+
+class SharedMysqlPurchaseJournalTest {
+	@Test
+	void reservationPersistsPendingDebitInTheSameTransaction() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement insert = mock(PreparedStatement.class);
+		PreparedStatement debit = mock(PreparedStatement.class);
+		when(debit.executeUpdate()).thenReturn(1);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(insert, debit);
+
+		SharedMysqlPurchaseJournal journal = new SharedMysqlPurchaseJournal(fixture.table, false);
+		assertTrue(journal.reserve("purchase-1", "player", "Points", "VoteShopLimitdaily", 10, 1, 100L));
+
+		verify(insert).setString(7, "PENDING");
+		verify(debit).setInt(1, 10);
+		verify(fixture.work).commit();
+	}
+
+	@Test
+	void recoveryRefundsOnlyExpiredPendingPurchase() throws Exception {
+		Fixture fixture = fixture();
+		Connection candidates = mock(Connection.class);
+		Connection refund = mock(Connection.class);
+		Connection cleanup = mock(Connection.class);
+		PreparedStatement candidateStatement = mock(PreparedStatement.class);
+		PreparedStatement select = mock(PreparedStatement.class);
+		PreparedStatement credit = mock(PreparedStatement.class);
+		PreparedStatement terminal = mock(PreparedStatement.class);
+		PreparedStatement cleanupSelect = mock(PreparedStatement.class);
+		PreparedStatement cleanupDelete = mock(PreparedStatement.class);
+		ResultSet expiredPending = ids("expired-pending");
+		ResultSet pending = pendingRow();
+		ResultSet noTerminalRows = ids();
+		when(candidates.prepareStatement(anyString())).thenReturn(candidateStatement);
+		when(candidateStatement.executeQuery()).thenReturn(expiredPending);
+		when(refund.prepareStatement(anyString())).thenReturn(select, credit, terminal);
+		when(select.executeQuery()).thenReturn(pending);
+		when(credit.executeUpdate()).thenReturn(1);
+		when(terminal.executeUpdate()).thenReturn(1);
+		when(cleanup.prepareStatement(anyString())).thenReturn(cleanupSelect, cleanupDelete);
+		when(cleanupSelect.executeQuery()).thenReturn(noTerminalRows);
+		when(fixture.sql.getConnectionManager().getConnection()).thenReturn(candidates, refund, cleanup);
+
+		SharedMysqlPurchaseJournal journal = new SharedMysqlPurchaseJournal(fixture.table, false);
+		journal.recoverAndCleanup(SharedMysqlPurchaseJournal.PENDING_RECOVERY_AGE_MILLIS + 1L);
+
+		verify(credit).setInt(1, 10);
+		verify(credit).setString(2, "player");
+		verify(terminal).setString(1, "REFUNDED");
+		verify(refund).commit();
+	}
+
+	@Test
+	void hookStartedPurchaseIsNeverRefundedByCompensation() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement select = mock(PreparedStatement.class);
+		ResultSet hookStarted = hookStartedRow();
+		when(fixture.work.prepareStatement(anyString())).thenReturn(select);
+		when(select.executeQuery()).thenReturn(hookStarted);
+
+		SharedMysqlPurchaseJournal journal = new SharedMysqlPurchaseJournal(fixture.table, false);
+		assertFalse(journal.refundPending("claimed-purchase"));
+	}
+
+	@Test
+	void schedulerProvenUnstartedHookCanBeRefunded() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement select = mock(PreparedStatement.class);
+		PreparedStatement credit = mock(PreparedStatement.class);
+		PreparedStatement terminal = mock(PreparedStatement.class);
+		ResultSet hookStarted = pendingRow("HOOK_STARTED");
+		when(fixture.work.prepareStatement(anyString())).thenReturn(select, credit, terminal);
+		when(select.executeQuery()).thenReturn(hookStarted);
+		when(credit.executeUpdate()).thenReturn(1);
+		when(terminal.executeUpdate()).thenReturn(1);
+
+		SharedMysqlPurchaseJournal journal = new SharedMysqlPurchaseJournal(fixture.table, false);
+		assertTrue(journal.refundClaimedBeforeReward("scheduler-rejected"));
+
+		verify(terminal).setString(1, "REFUNDED");
+	}
+
+	@Test
+	void ambiguousReservationCommitIsConfirmedAfterItsConnectionIsReleased() throws Exception {
+		Fixture fixture = fixture();
+		Connection reservation = mock(Connection.class);
+		Connection confirmation = mock(Connection.class);
+		PreparedStatement insert = mock(PreparedStatement.class);
+		PreparedStatement debit = mock(PreparedStatement.class);
+		PreparedStatement select = mock(PreparedStatement.class);
+		ResultSet committed = mock(ResultSet.class);
+		when(reservation.prepareStatement(anyString())).thenReturn(insert, debit);
+		when(debit.executeUpdate()).thenReturn(1);
+		when(confirmation.prepareStatement(anyString())).thenReturn(select);
+		when(select.executeQuery()).thenReturn(committed);
+		when(committed.next()).thenReturn(true);
+		when(committed.getString(1)).thenReturn("PENDING");
+		AtomicBoolean reservationClosed = new AtomicBoolean();
+		org.mockito.Mockito.doAnswer(ignored -> {
+			reservationClosed.set(true);
+			return null;
+		}).when(reservation).close();
+		when(fixture.sql.getConnectionManager().getConnection()).thenReturn(reservation).thenAnswer(ignored -> {
+			assertTrue(reservationClosed.get(), "The ambiguous reservation handle must be released before confirmation");
+			return confirmation;
+		});
+		doThrow(new java.sql.SQLException("commit acknowledgement lost")).when(reservation).commit();
+
+		SharedMysqlPurchaseJournal journal = new SharedMysqlPurchaseJournal(fixture.table, false);
+		assertTrue(journal.reserve("purchase-ambiguous", "player", "Points", null, 10, 0, 100L));
+
+		verify(reservation, atLeastOnce()).close();
+		verify(confirmation).prepareStatement(anyString());
+	}
+
+	@Test
+	void ambiguousClaimUpdateIsConfirmedBeforeRewardMayRun() throws Exception {
+		Fixture fixture = fixture();
+		Connection claimConnection = mock(Connection.class);
+		Connection confirmation = mock(Connection.class);
+		PreparedStatement claim = mock(PreparedStatement.class);
+		PreparedStatement select = mock(PreparedStatement.class);
+		ResultSet committed = mock(ResultSet.class);
+		when(claimConnection.prepareStatement(anyString())).thenReturn(claim);
+		when(confirmation.prepareStatement(anyString())).thenReturn(select);
+		when(select.executeQuery()).thenReturn(committed);
+		when(committed.next()).thenReturn(true);
+		when(committed.getString(1)).thenReturn("HOOK_STARTED");
+		AtomicBoolean claimConnectionClosed = new AtomicBoolean();
+		org.mockito.Mockito.doAnswer(ignored -> {
+			claimConnectionClosed.set(true);
+			return null;
+		}).when(claimConnection).close();
+		when(fixture.sql.getConnectionManager().getConnection()).thenReturn(claimConnection).thenAnswer(ignored -> {
+			assertTrue(claimConnectionClosed.get(), "The ambiguous claim handle must be released before confirmation");
+			return confirmation;
+		});
+		doThrow(new java.sql.SQLException("update acknowledgement lost")).when(claim).executeUpdate();
+
+		SharedMysqlPurchaseJournal journal = new SharedMysqlPurchaseJournal(fixture.table, false);
+		assertEquals(SharedMysqlPurchaseJournal.ClaimOutcome.CLAIMED,
+				journal.claimReward("purchase-ambiguous-claim", 200L));
+
+		verify(claimConnection, atLeastOnce()).close();
+		verify(confirmation).prepareStatement(anyString());
+	}
+
+	private static Fixture fixture() throws Exception {
+		Fixture fixture = new Fixture();
+		fixture.table = mock(MySQL.class);
+		fixture.sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		fixture.work = mock(Connection.class);
+		when(fixture.table.getTableName()).thenReturn("VotingPlugin_Users");
+		when(fixture.table.qi(anyString())).thenAnswer(invocation -> "`" + invocation.getArgument(0) + "`");
+		when(fixture.table.getMysql()).thenReturn(fixture.sql);
+		when(fixture.sql.getConnectionManager().getConnection()).thenReturn(fixture.work);
+		return fixture;
+	}
+
+	private static ResultSet ids(String... values) throws Exception {
+		ResultSet rows = mock(ResultSet.class);
+		Boolean[] next = new Boolean[values.length + 1];
+		for (int index = 0; index < values.length; index++) next[index] = Boolean.TRUE;
+		next[values.length] = Boolean.FALSE;
+		when(rows.next()).thenReturn(next[0], java.util.Arrays.copyOfRange(next, 1, next.length));
+		if (values.length > 0) when(rows.getString(1)).thenReturn(values[0]);
+		return rows;
+	}
+
+	private static ResultSet pendingRow() throws Exception {
+		return pendingRow("PENDING");
+	}
+
+	private static ResultSet pendingRow(String state) throws Exception {
+		ResultSet row = mock(ResultSet.class);
+		when(row.next()).thenReturn(true);
+		when(row.getString(1)).thenReturn(state);
+		when(row.getString(2)).thenReturn("player");
+		when(row.getString(3)).thenReturn("Points");
+		when(row.getString(4)).thenReturn("VoteShopLimitdaily");
+		when(row.getInt(5)).thenReturn(10);
+		return row;
+	}
+
+	private static ResultSet hookStartedRow() throws Exception {
+		ResultSet row = mock(ResultSet.class);
+		when(row.next()).thenReturn(true);
+		when(row.getString(1)).thenReturn("HOOK_STARTED");
+		return row;
+	}
+
+	private static final class Fixture {
+		private MySQL table;
+		private com.bencodez.simpleapi.sql.mysql.MySQL sql;
+		private Connection work;
+	}
+}

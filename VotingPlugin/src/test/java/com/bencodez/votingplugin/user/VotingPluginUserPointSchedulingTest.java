@@ -102,6 +102,22 @@ class VotingPluginUserPointSchedulingTest {
 	}
 
 	@Test
+	void sharedAsyncRemoveKeepsJdbcOffTheCallerThread() throws Exception {
+		PointFixture fixture = pointFixture();
+		doReturn(20).when(fixture.user).getPoints();
+		when(fixture.statement.executeUpdate()).thenReturn(1);
+
+		assertTrue(fixture.user.removePoints(10, true));
+
+		ArgumentCaptor<Runnable> persistenceWork = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence).execute(persistenceWork.capture());
+		verify(fixture.sql.getConnectionManager(), never()).getConnection();
+		persistenceWork.getValue().run();
+		verify(fixture.sql.getConnectionManager()).getConnection();
+		verify(fixture.statement).executeUpdate();
+	}
+
+	@Test
 	void sharedRemoveConsumerRunsJdbcOnPersistenceExecutorAndReportsOnEntity() throws Exception {
 		PointFixture fixture = pointFixture();
 		when(fixture.statement.executeUpdate()).thenReturn(1);

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -15,6 +16,7 @@ import static org.mockito.Mockito.times;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -44,6 +46,14 @@ import com.bencodez.votingplugin.voteshop.shop.VoteShopItem;
 
 class VoteShopPurchaseServiceTest {
 	@Test
+	void interruptionStillRequiresRefundWhenFallbackAlreadyRequestedCompensation() {
+		AtomicInteger state = new AtomicInteger(2); // COMPLETION_COMPENSATING
+		CountDownLatch completed = new CountDownLatch(0);
+
+		assertTrue(VoteShopPurchaseService.compensationRequiredAfterInterruption(state, completed));
+	}
+
+	@Test
 	void localPurchaseRefreshesCacheBeforeCheckingPointsWhenConfigured() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		when(plugin.getStorageType()).thenReturn(UserStorage.FLAT);
@@ -71,17 +81,44 @@ class VoteShopPurchaseServiceTest {
 		MySQL table = mock(MySQL.class);
 		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
 				org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		Connection schemaConnection = mock(Connection.class);
+		Connection pendingConnection = mock(Connection.class);
+		Connection cleanupConnection = mock(Connection.class);
 		Connection debitConnection = mock(Connection.class);
+		Connection claimConnection = mock(Connection.class);
 		Connection refundConnection = mock(Connection.class);
+		PreparedStatement schema = mock(PreparedStatement.class);
+		PreparedStatement schemaIndex = mock(PreparedStatement.class);
+		PreparedStatement pending = mock(PreparedStatement.class);
+		PreparedStatement cleanupSelect = mock(PreparedStatement.class);
+		PreparedStatement cleanupDelete = mock(PreparedStatement.class);
+		PreparedStatement reserve = mock(PreparedStatement.class);
 		PreparedStatement debit = mock(PreparedStatement.class);
+		PreparedStatement claim = mock(PreparedStatement.class);
+		PreparedStatement refundSelect = mock(PreparedStatement.class);
 		PreparedStatement refund = mock(PreparedStatement.class);
+		PreparedStatement refundUpdate = mock(PreparedStatement.class);
+		ResultSet noPendingRows = emptyRows();
+		ResultSet noTerminalRows = emptyRows();
+		ResultSet claimedPurchase = purchaseRow("HOOK_STARTED", "Points", null, 10);
 		when(table.getTableName()).thenReturn("VotingPlugin_Users");
 		when(table.qi(anyString())).thenAnswer(invocation -> "`" + invocation.getArgument(0) + "`");
 		when(table.getMysql()).thenReturn(sql);
-		when(sql.getConnectionManager().getConnection()).thenReturn(debitConnection, refundConnection);
-		when(debitConnection.prepareStatement(anyString())).thenReturn(debit);
-		when(refundConnection.prepareStatement(anyString())).thenReturn(refund);
+		when(sql.getConnectionManager().getConnection()).thenReturn(schemaConnection, pendingConnection,
+				cleanupConnection, debitConnection, claimConnection, refundConnection);
+		when(schemaConnection.prepareStatement(anyString())).thenReturn(schema, schemaIndex);
+		when(pendingConnection.prepareStatement(anyString())).thenReturn(pending);
+		when(pending.executeQuery()).thenReturn(noPendingRows);
+		when(cleanupConnection.prepareStatement(anyString())).thenReturn(cleanupSelect, cleanupDelete);
+		when(cleanupSelect.executeQuery()).thenReturn(noTerminalRows);
+		when(debitConnection.prepareStatement(anyString())).thenReturn(reserve, debit);
+		when(claimConnection.prepareStatement(anyString())).thenReturn(claim);
+		when(claim.executeUpdate()).thenReturn(1);
+		when(refundConnection.prepareStatement(anyString())).thenReturn(refundSelect, refund, refundUpdate);
+		when(refundSelect.executeQuery()).thenReturn(claimedPurchase);
 		when(debit.executeUpdate()).thenReturn(1);
+		when(refund.executeUpdate()).thenReturn(1);
+		when(refundUpdate.executeUpdate()).thenReturn(1);
 		VotingPluginMain plugin = sharedMysqlPlugin(table);
 		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
 				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
@@ -120,8 +157,8 @@ class VoteShopPurchaseServiceTest {
 		purchase.get(5, TimeUnit.SECONDS);
 
 		ArgumentCaptor<String> refundSql = ArgumentCaptor.forClass(String.class);
-		verify(refundConnection).prepareStatement(refundSql.capture());
-		assertTrue(refundSql.getValue().contains("`Points` = `Points` + ?"));
+		verify(refundConnection, times(3)).prepareStatement(refundSql.capture());
+		assertTrue(refundSql.getAllValues().get(1).contains("`Points` = `Points` + ?"));
 		verify(refund).setInt(1, 10);
 		verify(refund, times(1)).executeUpdate();
 		verify(entityScheduler).runAtEntityWithFallback(
@@ -172,6 +209,38 @@ class VoteShopPurchaseServiceTest {
 		verify(cache).dump();
 		verify(plugin.getUserManager().getDataManager()).removeCache(
 				java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"), null);
+	}
+
+	@Test
+	void sharedMysqlDebitClosesItsConnectionBeforeRefreshingTheCache() throws Exception {
+		MySQL table = mock(MySQL.class);
+		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
+				org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		Connection connection = mock(Connection.class);
+		PreparedStatement statement = mock(PreparedStatement.class);
+		UserData data = mock(UserData.class);
+		UserDataCache cache = mock(UserDataCache.class);
+		when(table.getTableName()).thenReturn("VotingPlugin_Users");
+		when(table.qi(anyString())).thenAnswer(invocation -> "`" + invocation.getArgument(0) + "`");
+		when(table.getMysql()).thenReturn(sql);
+		when(sql.getConnectionManager().getConnection()).thenReturn(connection);
+		when(connection.prepareStatement(anyString())).thenReturn(statement);
+		when(statement.executeUpdate()).thenReturn(1);
+		VotingPluginUser user = purchaseUser();
+		when(user.isCached()).thenReturn(false, true);
+		when(user.getUserData()).thenReturn(data);
+		when(user.getCache()).thenReturn(cache);
+		when(data.getInt("Points", UserDataFetchMode.NO_CACHE)).thenReturn(90);
+		VoteShopItem item = mock(VoteShopItem.class);
+		when(item.getCost()).thenReturn(10);
+		when(item.getLimit()).thenReturn(0);
+
+		assertEquals(VoteShopPurchaseResult.SUCCESS,
+				new VoteShopPurchaseService(sharedMysqlPlugin(table), null).debitSharedMysql(user, item));
+
+		InOrder closeBeforeRefresh = inOrder(connection, data);
+		closeBeforeRefresh.verify(connection).close();
+		closeBeforeRefresh.verify(data).getInt("Points", UserDataFetchMode.NO_CACHE);
 	}
 
 	@Test
@@ -235,14 +304,42 @@ class VoteShopPurchaseServiceTest {
 		MySQL table = mock(MySQL.class);
 		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
 				org.mockito.Mockito.RETURNS_DEEP_STUBS);
-		Connection connection = mock(Connection.class);
-		PreparedStatement statement = mock(PreparedStatement.class);
+		Connection schemaConnection = mock(Connection.class);
+		Connection pendingConnection = mock(Connection.class);
+		Connection cleanupConnection = mock(Connection.class);
+		Connection reserveConnection = mock(Connection.class);
+		Connection claimConnection = mock(Connection.class);
+		Connection completeConnection = mock(Connection.class);
+		PreparedStatement schema = mock(PreparedStatement.class);
+		PreparedStatement schemaIndex = mock(PreparedStatement.class);
+		PreparedStatement pending = mock(PreparedStatement.class);
+		PreparedStatement cleanupSelect = mock(PreparedStatement.class);
+		PreparedStatement cleanupDelete = mock(PreparedStatement.class);
+		PreparedStatement reserve = mock(PreparedStatement.class);
+		PreparedStatement debit = mock(PreparedStatement.class);
+		PreparedStatement claim = mock(PreparedStatement.class);
+		PreparedStatement completeSelect = mock(PreparedStatement.class);
+		PreparedStatement completeUpdate = mock(PreparedStatement.class);
+		ResultSet noPendingRows = emptyRows();
+		ResultSet noTerminalRows = emptyRows();
+		ResultSet hookStartedPurchase = purchaseRow("HOOK_STARTED", "Points", null, 10);
 		when(table.getTableName()).thenReturn("VotingPlugin_Users");
 		when(table.qi(anyString())).thenAnswer(invocation -> "`" + invocation.getArgument(0) + "`");
 		when(table.getMysql()).thenReturn(sql);
-		when(sql.getConnectionManager().getConnection()).thenReturn(connection);
-		when(connection.prepareStatement(anyString())).thenReturn(statement);
-		when(statement.executeUpdate()).thenReturn(1);
+		when(sql.getConnectionManager().getConnection()).thenReturn(schemaConnection, pendingConnection,
+				cleanupConnection, reserveConnection, claimConnection, completeConnection);
+		when(schemaConnection.prepareStatement(anyString())).thenReturn(schema, schemaIndex);
+		when(pendingConnection.prepareStatement(anyString())).thenReturn(pending);
+		when(pending.executeQuery()).thenReturn(noPendingRows);
+		when(cleanupConnection.prepareStatement(anyString())).thenReturn(cleanupSelect, cleanupDelete);
+		when(cleanupSelect.executeQuery()).thenReturn(noTerminalRows);
+		when(reserveConnection.prepareStatement(anyString())).thenReturn(reserve, debit);
+		when(debit.executeUpdate()).thenReturn(1);
+		when(claimConnection.prepareStatement(anyString())).thenReturn(claim);
+		when(claim.executeUpdate()).thenReturn(1);
+		when(completeConnection.prepareStatement(anyString())).thenReturn(completeSelect, completeUpdate);
+		when(completeSelect.executeQuery()).thenReturn(hookStartedPurchase);
+		when(completeUpdate.executeUpdate()).thenReturn(1);
 		VotingPluginMain plugin = sharedMysqlPlugin(table);
 		when(plugin.isEnabled()).thenReturn(true);
 		RewardHandler rewardHandler = mock(RewardHandler.class);
@@ -271,6 +368,10 @@ class VoteShopPurchaseServiceTest {
 		when(item.getPurchaseMessage()).thenReturn("");
 		VotingPluginUser user = purchaseUser();
 		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
+		doAnswer(invocation -> {
+			invocation.getArgument(1, Runnable.class).run();
+			return null;
+		}).when(scheduler).runTask(eq(plugin), any(Runnable.class), eq(player));
 		FileConfiguration oldShopData = mock(FileConfiguration.class);
 		FileConfiguration reloadedShopData = mock(FileConfiguration.class);
 		when(plugin.getShopFile().getData()).thenReturn(oldShopData, reloadedShopData);
@@ -290,8 +391,15 @@ class VoteShopPurchaseServiceTest {
 			ArgumentCaptor<java.util.function.Consumer> entityCallback = ArgumentCaptor.forClass(java.util.function.Consumer.class);
 			verify(entityScheduler, org.mockito.Mockito.timeout(1000)).runAtEntityWithFallback(any(),
 				entityCallback.capture(), any(Runnable.class));
+			InOrder claimBeforeEntityWork = inOrder(claimConnection, entityScheduler);
+			claimBeforeEntityWork.verify(claimConnection).prepareStatement(anyString());
+			claimBeforeEntityWork.verify(entityScheduler).runAtEntityWithFallback(any(), any(), any(Runnable.class));
 			entityCallback.getValue().accept(null);
+			verify(completeConnection, never()).prepareStatement(anyString());
 			purchase.get(5, TimeUnit.SECONDS);
+			ArgumentCaptor<Runnable> scheduledWork = ArgumentCaptor.forClass(Runnable.class);
+			verify(persistenceExecutor, times(2)).execute(scheduledWork.capture());
+			scheduledWork.getAllValues().get(1).run();
 			worker.shutdownNow();
 		}
 
@@ -350,6 +458,24 @@ class VoteShopPurchaseServiceTest {
 			return balance.compareAndSet(10, 0) ? 1 : 0;
 		});
 		return statement;
+	}
+
+	private static ResultSet emptyRows() throws Exception {
+		ResultSet rows = mock(ResultSet.class);
+		when(rows.next()).thenReturn(false);
+		return rows;
+	}
+
+	private static ResultSet purchaseRow(String state, String pointsColumn, String limitColumn, int cost)
+			throws Exception {
+		ResultSet row = mock(ResultSet.class);
+		when(row.next()).thenReturn(true);
+		when(row.getString(1)).thenReturn(state);
+		when(row.getString(2)).thenReturn("00000000-0000-0000-0000-000000000001");
+		when(row.getString(3)).thenReturn(pointsColumn);
+		when(row.getString(4)).thenReturn(limitColumn);
+		when(row.getInt(5)).thenReturn(cost);
+		return row;
 	}
 
 	private static VotingPluginMain sharedMysqlPlugin(MySQL table) {

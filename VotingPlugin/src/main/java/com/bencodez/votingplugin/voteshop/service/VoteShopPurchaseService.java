@@ -156,32 +156,50 @@ public class VoteShopPurchaseService {
 		FileConfiguration shopData = plugin.getShopFile().getData();
 		HashMap<String, String> placeholders = purchasePlaceholders(item);
 		plugin.getTimer().execute(() -> {
-			VoteShopPurchaseResult debit;
+			SharedPurchaseDebit debit;
 			synchronized (purchaseLock(user.getUUID())) {
-				debit = debitSharedMysql(user, item);
+				debit = reserveSharedMysqlPurchase(user, item);
 			}
-			if (debit != VoteShopPurchaseResult.SUCCESS) {
-				plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(debit), player);
+			if (debit.result() != VoteShopPurchaseResult.SUCCESS) {
+				plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(debit.result()), player);
 				return;
 			}
-			completeSharedMysqlPurchase(player, user, item, placeholders, shopData, completion);
+			completeSharedMysqlPurchase(player, user, item, placeholders, shopData, completion, debit);
 		});
 	}
 
 	private void completeSharedMysqlPurchase(Player player, VotingPluginUser user, VoteShopItem item,
 			HashMap<String, String> placeholders, FileConfiguration shopData,
-			Consumer<VoteShopPurchaseResult> completion) {
+			Consumer<VoteShopPurchaseResult> completion, SharedPurchaseDebit debit) {
 		CountDownLatch completed = new CountDownLatch(1);
 		AtomicInteger state = new AtomicInteger(COMPLETION_PENDING);
 		try {
+			/* Claim on the persistence worker before entering the entity scheduler.
+			 * A JDBC pool wait or database lock must never block a Bukkit/Folia entity
+			 * lane; the scheduled callback below performs reward/UI work only. */
+			SharedMysqlPurchaseJournal.ClaimOutcome claim = claimSharedMysqlPurchase(debit);
+			if (claim == SharedMysqlPurchaseJournal.ClaimOutcome.NOT_CLAIMED) {
+				refundSharedMysqlDebit(user, debit, false);
+				return;
+			}
+			if (claim == SharedMysqlPurchaseJournal.ClaimOutcome.INDETERMINATE) {
+				plugin.getLogger().severe("Shared MySQL vote shop purchase " + debit.purchaseId()
+						+ " has an indeterminate reward claim; retaining it for reconciliation");
+				return;
+			}
 			CompletableFuture<EntityTaskResult> scheduled = plugin.getBukkitScheduler().getFoliaLib().getImpl()
 					.runAtEntityWithFallback(player, ignored -> {
 				if (!state.compareAndSet(COMPLETION_PENDING, COMPLETION_RUNNING)) return;
 				try {
 					completePurchase(player, user, item, placeholders, shopData);
-					completion.accept(VoteShopPurchaseResult.SUCCESS);
+					/*
+					 * The entity callback owns only reward/UI work. Queue the terminal
+					 * journal update back to the persistence executor after the reward
+					 * completes, so a JDBC pool wait cannot stall an entity lane.
+					 */
+					plugin.getTimer().execute(() -> settleSharedMysqlPurchase(player, completion, debit));
 				} finally {
-					state.set(COMPLETION_FINISHED);
+					state.compareAndSet(COMPLETION_RUNNING, COMPLETION_FINISHED);
 					completed.countDown();
 				}
 			}, () -> requestCompensation(state, completed));
@@ -191,20 +209,37 @@ public class VoteShopPurchaseService {
 			while (!completed.await(100, TimeUnit.MILLISECONDS)) {
 				if (!plugin.isEnabled()) requestCompensation(state, completed);
 			}
-			if (state.get() == COMPLETION_COMPENSATING) refundSharedMysqlDebit(user, item);
+			if (state.get() == COMPLETION_COMPENSATING) refundSharedMysqlDebit(user, debit, true);
 		} catch (InterruptedException interrupted) {
 			Thread.currentThread().interrupt();
-			if (requestCompensation(state, completed)) refundSharedMysqlDebit(user, item);
+			if (compensationRequiredAfterInterruption(state, completed)) refundSharedMysqlDebit(user, debit, true);
 		} catch (RuntimeException schedulingFailure) {
-			if (requestCompensation(state, completed)) refundSharedMysqlDebit(user, item);
+			requestCompensation(state, completed);
+			if (state.get() == COMPLETION_COMPENSATING) refundSharedMysqlDebit(user, debit, true);
 			plugin.debug(schedulingFailure);
 		}
+	}
+
+	private void settleSharedMysqlPurchase(Player player, Consumer<VoteShopPurchaseResult> completion,
+			SharedPurchaseDebit debit) {
+		completeSharedMysqlPurchase(debit);
+		plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(VoteShopPurchaseResult.SUCCESS), player);
 	}
 
 	private static boolean requestCompensation(AtomicInteger state, CountDownLatch completed) {
 		if (!state.compareAndSet(COMPLETION_PENDING, COMPLETION_COMPENSATING)) return false;
 		completed.countDown();
 		return true;
+	}
+
+	/**
+	 * An entity scheduler fallback can request compensation just before the
+	 * persistence worker is interrupted.  The latter still owns the debit and
+	 * must perform the refund even though it did not win the state transition.
+	 */
+	static boolean compensationRequiredAfterInterruption(AtomicInteger state, CountDownLatch completed) {
+		requestCompensation(state, completed);
+		return state.get() == COMPLETION_COMPENSATING;
 	}
 
 	private HashMap<String, String> purchasePlaceholders(VoteShopItem item) {
@@ -256,11 +291,73 @@ public class VoteShopPurchaseService {
 	}
 
 	private boolean usesSharedMysqlPoints() {
+		return usesSharedMysqlPoints(plugin);
+	}
+
+	private static boolean usesSharedMysqlPoints(VotingPluginMain plugin) {
 		return plugin != null && UserStorage.MYSQL.equals(plugin.getStorageType())
 				&& !plugin.getBungeeSettings().isPerServerPoints();
 	}
 
+	/** Runs bounded stale-purchase recovery from the plugin lifecycle executor. */
+	public static void recoverSharedMysqlPurchases(VotingPluginMain plugin) {
+		if (!usesSharedMysqlPoints(plugin)) return;
+		try {
+			SharedMysqlPurchaseJournal.forTable(plugin.getMysql()).recoverAndCleanup(System.currentTimeMillis());
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to recover pending shared MySQL vote shop purchases: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+		}
+	}
+
 	VoteShopPurchaseResult debitSharedMysql(VotingPluginUser user, VoteShopItem item) {
+		// This package-visible synchronous helper has no reward lifecycle to settle
+		// later. Keep its conditional debit self-contained; asynchronous purchases
+		// exclusively use reserveSharedMysqlPurchase() below so they can retain a
+		// durable PENDING record until the reward hook is settled or refunded.
+		MySQL table = plugin.getMysql();
+		String pointsColumn = user.getPointsPath();
+		String limitColumn = item.getLimit() > 0 ? "VoteShopLimit" + item.getIdentifier() : null;
+		if (user.isCached()) {
+			user.getCache().dump();
+			plugin.getUserManager().getDataManager().removeCache(UUID.fromString(user.getUUID()), null);
+		}
+		if (limitColumn != null) table.checkColumn(limitColumn, DataType.INTEGER);
+		StringBuilder sql = new StringBuilder("UPDATE ").append(table.qi(table.getTableName())).append(" SET ")
+				.append(table.qi(pointsColumn)).append(" = ").append(table.qi(pointsColumn)).append(" - ?");
+		if (limitColumn != null) {
+			sql.append(", ").append(table.qi(limitColumn)).append(" = COALESCE(")
+					.append(table.qi(limitColumn)).append(", 0) + 1");
+		}
+		sql.append(" WHERE ").append(table.qi("uuid"))
+				.append(table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?")
+				.append(" AND ").append(table.qi(pointsColumn)).append(" >= ?");
+		if (limitColumn != null) sql.append(" AND COALESCE(").append(table.qi(limitColumn)).append(", 0) < ?");
+
+		boolean debited = false;
+		try (Connection connection = table.getMysql().getConnectionManager().getConnection();
+				PreparedStatement statement = connection.prepareStatement(sql.toString())) {
+			statement.setInt(1, item.getCost());
+			statement.setString(2, user.getUUID());
+			statement.setInt(3, item.getCost());
+			if (limitColumn != null) statement.setInt(4, item.getLimit());
+			debited = statement.executeUpdate() == 1;
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to atomically debit vote shop points: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+			return VoteShopPurchaseResult.NOT_ENOUGH_POINTS;
+		}
+		if (debited) {
+			// The conditional debit connection has been closed before NO_CACHE reads.
+			refreshPurchaseCache(user, pointsColumn, limitColumn);
+			return VoteShopPurchaseResult.SUCCESS;
+		}
+		return sharedMysqlFailure(user, item, limitColumn);
+	}
+
+	private SharedPurchaseDebit reserveSharedMysqlPurchase(VotingPluginUser user, VoteShopItem item) {
 		MySQL table = plugin.getMysql();
 		String pointsColumn = user.getPointsPath();
 		String limitColumn = item.getLimit() > 0 ? "VoteShopLimit" + item.getIdentifier() : null;
@@ -274,60 +371,61 @@ public class VoteShopPurchaseService {
 		if (limitColumn != null) {
 			table.checkColumn(limitColumn, DataType.INTEGER);
 		}
-
-		StringBuilder sql = new StringBuilder("UPDATE ").append(table.qi(table.getTableName())).append(" SET ")
-				.append(table.qi(pointsColumn)).append(" = ").append(table.qi(pointsColumn)).append(" - ?");
-		if (limitColumn != null) {
-			sql.append(", ").append(table.qi(limitColumn)).append(" = COALESCE(")
-					.append(table.qi(limitColumn)).append(", 0) + 1");
-		}
-		sql.append(" WHERE ").append(table.qi("uuid"))
-				.append(table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?")
-				.append(" AND ").append(table.qi(pointsColumn)).append(" >= ?");
-		if (limitColumn != null) {
-			sql.append(" AND COALESCE(").append(table.qi(limitColumn)).append(", 0) < ?");
-		}
-
-		try (Connection connection = table.getMysql().getConnectionManager().getConnection();
-				PreparedStatement statement = connection.prepareStatement(sql.toString())) {
-			statement.setInt(1, item.getCost());
-			statement.setString(2, user.getUUID());
-			statement.setInt(3, item.getCost());
-			if (limitColumn != null) statement.setInt(4, item.getLimit());
-			if (statement.executeUpdate() == 1) {
+		try {
+			SharedMysqlPurchaseJournal journal = SharedMysqlPurchaseJournal.forTable(table);
+			journal.recoverAndCleanup(System.currentTimeMillis());
+			String purchaseId = UUID.randomUUID().toString();
+			if (journal.reserve(purchaseId, user.getUUID(), pointsColumn, limitColumn, item.getCost(), item.getLimit(),
+					System.currentTimeMillis())) {
+				// reserve() returns only after its transaction and connection are closed;
+				// NO_CACHE reads must not contend with its one-connection pool handle.
 				refreshPurchaseCache(user, pointsColumn, limitColumn);
-				return VoteShopPurchaseResult.SUCCESS;
+				return new SharedPurchaseDebit(VoteShopPurchaseResult.SUCCESS, journal, purchaseId, pointsColumn,
+						limitColumn);
 			}
 		} catch (SQLException failure) {
 			plugin.getLogger().severe("Unable to atomically debit vote shop points: "
 					+ failure.getClass().getSimpleName());
 			plugin.debug(failure);
-			return VoteShopPurchaseResult.NOT_ENOUGH_POINTS;
+			return new SharedPurchaseDebit(VoteShopPurchaseResult.NOT_ENOUGH_POINTS, null, null, null, null);
 		}
-		// The classification performs a fresh NO_CACHE database read. It must only
-		// acquire that connection after the conditional-debit handle has returned to
-		// the pool, which may be configured with a single connection.
-		return sharedMysqlFailure(user, item, limitColumn);
+		return new SharedPurchaseDebit(sharedMysqlFailure(user, item, limitColumn), null, null, null, null);
 	}
 
-	private void refundSharedMysqlDebit(VotingPluginUser user, VoteShopItem item) {
-		MySQL table = plugin.getMysql();
-		String pointsColumn = user.getPointsPath();
-		String limitColumn = item.getLimit() > 0 ? "VoteShopLimit" + item.getIdentifier() : null;
-		StringBuilder sql = new StringBuilder("UPDATE ").append(table.qi(table.getTableName())).append(" SET ")
-				.append(table.qi(pointsColumn)).append(" = ").append(table.qi(pointsColumn)).append(" + ?");
-		if (limitColumn != null) {
-			sql.append(", ").append(table.qi(limitColumn)).append(" = GREATEST(COALESCE(")
-					.append(table.qi(limitColumn)).append(", 0) - 1, 0)");
+	private SharedMysqlPurchaseJournal.ClaimOutcome claimSharedMysqlPurchase(SharedPurchaseDebit debit) {
+		try {
+			return debit.journal().claimReward(debit.purchaseId(), System.currentTimeMillis());
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to claim a pending vote shop purchase: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+			return SharedMysqlPurchaseJournal.ClaimOutcome.INDETERMINATE;
 		}
-		sql.append(" WHERE ").append(table.qi("uuid"))
-				.append(table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
-		try (Connection connection = table.getMysql().getConnectionManager().getConnection();
-				PreparedStatement statement = connection.prepareStatement(sql.toString())) {
-			statement.setInt(1, item.getCost());
-			statement.setString(2, user.getUUID());
-			statement.executeUpdate();
-			refreshPurchaseCache(user, pointsColumn, limitColumn);
+	}
+
+	private void completeSharedMysqlPurchase(SharedPurchaseDebit debit) {
+		try {
+			debit.journal().complete(debit.purchaseId());
+		} catch (SQLException failure) {
+			// A HOOK_STARTED record is intentionally retained for reconciliation:
+			// the arbitrary reward hook may already have side effects.
+			plugin.getLogger().severe("Unable to settle a completed vote shop purchase: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+		}
+	}
+
+	private void refundSharedMysqlDebit(VotingPluginUser user, SharedPurchaseDebit debit,
+			boolean schedulerProvesRewardCannotRun) {
+		try {
+			boolean refunded = schedulerProvesRewardCannotRun
+					? debit.journal().refundClaimedBeforeReward(debit.purchaseId())
+					: debit.journal().refundPending(debit.purchaseId());
+			if (refunded) {
+				// refundPending() closes its transaction handle before any NO_CACHE
+				// cache refresh, including when the cache reappears concurrently.
+				refreshPurchaseCache(user, debit.pointsColumn(), debit.limitColumn());
+			}
 		} catch (SQLException failure) {
 			plugin.getLogger().severe("Unable to refund an incomplete vote shop purchase: "
 					+ failure.getClass().getSimpleName());
@@ -350,6 +448,10 @@ public class VoteShopPurchaseService {
 			user.getCache().addChange(new UserDataChangeInt(limitColumn,
 					user.getUserData().getInt(limitColumn, UserDataFetchMode.NO_CACHE)), false);
 		}
+	}
+
+	private record SharedPurchaseDebit(VoteShopPurchaseResult result, SharedMysqlPurchaseJournal journal,
+			String purchaseId, String pointsColumn, String limitColumn) {
 	}
 
 	Object purchaseLock(String uuid) {

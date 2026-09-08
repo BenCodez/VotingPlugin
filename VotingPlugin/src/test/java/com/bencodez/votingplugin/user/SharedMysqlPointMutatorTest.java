@@ -47,6 +47,37 @@ class SharedMysqlPointMutatorTest {
 	}
 
 	@Test
+	void asynchronousRemoveDoesNotAcquireJdbcOnTheCallerThread() throws Exception {
+		MySQL table = mock(MySQL.class);
+		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
+				org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		Connection connection = mock(Connection.class);
+		PreparedStatement statement = mock(PreparedStatement.class);
+		when(table.getTableName()).thenReturn("VotingPlugin_Users");
+		when(table.qi(anyString())).thenAnswer(invocation -> "`" + invocation.getArgument(0) + "`");
+		when(table.getMysql()).thenReturn(sql);
+		when(sql.getConnectionManager().getConnection()).thenReturn(connection);
+		when(connection.prepareStatement(anyString())).thenReturn(statement);
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		when(plugin.getMysql()).thenReturn(table);
+		ScheduledExecutorService persistence = mock(ScheduledExecutorService.class);
+		when(plugin.getTimer()).thenReturn(persistence);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		when(user.getPoints()).thenReturn(20);
+		when(user.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
+		when(user.getPointsPath()).thenReturn("Points");
+
+		assertTrue(new SharedMysqlPointMutator(plugin).remove(user, 10, true));
+		ArgumentCaptor<Runnable> work = ArgumentCaptor.forClass(Runnable.class);
+		verify(persistence).execute(work.capture());
+		verify(sql.getConnectionManager(), never()).getConnection();
+
+		work.getValue().run();
+		verify(sql.getConnectionManager()).getConnection();
+		verify(statement).executeUpdate();
+	}
+
+	@Test
 	void addUsesAtomicDatabaseArithmeticInsteadOfAnAbsoluteCachedWrite() throws Exception {
 		MySQL table = mock(MySQL.class);
 		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
