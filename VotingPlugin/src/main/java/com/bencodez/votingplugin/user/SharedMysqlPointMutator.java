@@ -5,8 +5,6 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.UUID;
 
-import org.bukkit.Bukkit;
-
 import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 import com.bencodez.simpleapi.sql.mysql.DbType;
@@ -82,7 +80,7 @@ final class SharedMysqlPointMutator {
 	}
 
 	private void run(Runnable operation, boolean async) {
-		if (async || (Bukkit.getServer() != null && Bukkit.isPrimaryThread())) {
+		if (async) {
 			plugin.getTimer().execute(operation);
 		} else {
 			operation.run();

@@ -7,9 +7,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.any;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.util.concurrent.ScheduledExecutorService;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -58,6 +61,8 @@ class SharedMysqlPointMutatorTest {
 		when(plugin.getStorageType()).thenReturn(UserStorage.MYSQL);
 		when(plugin.getBungeeSettings().isPerServerPoints()).thenReturn(false);
 		when(plugin.getMysql()).thenReturn(table);
+		ScheduledExecutorService persistence = mock(ScheduledExecutorService.class);
+		when(plugin.getTimer()).thenReturn(persistence);
 		VotingPluginUser user = mock(VotingPluginUser.class);
 		when(user.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
 		when(user.getPointsPath()).thenReturn("Points");
@@ -69,6 +74,7 @@ class SharedMysqlPointMutatorTest {
 		assertTrue(query.getValue().contains("`Points` = `Points` + ?"));
 		verify(statement).setInt(1, 10);
 		verify(statement).executeUpdate();
+		verify(persistence, never()).execute(any(Runnable.class));
 	}
 
 	@Test
