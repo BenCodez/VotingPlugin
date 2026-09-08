@@ -438,37 +438,56 @@ public class CommandLoader {
 							return;
 						}
 
+						java.util.List<String> userIds = new java.util.ArrayList<>(plugin.getUserManager().getAllUUIDs());
+						if (userIds.isEmpty()) {
+							sender.sendMessage(MessageAPI.colorize("&cNo players were available to update"));
+							return;
+						}
 						sender.sendMessage(
 								MessageAPI.colorize("&cGiving " + "all players" + " " + args[3] + " points"));
-						for (String uuidStr : plugin.getUserManager().getAllUUIDs()) {
+						java.util.concurrent.atomic.AtomicInteger remaining =
+								new java.util.concurrent.atomic.AtomicInteger(userIds.size());
+						java.util.concurrent.atomic.AtomicInteger updated =
+								new java.util.concurrent.atomic.AtomicInteger();
+						for (String uuidStr : userIds) {
 							UUID uuid = UUID.fromString(uuidStr);
 							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
 							user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
-							user.addPointsStorageAware(num);
-							if (user.isOnline()) {
-								user.sendMessage(plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerGiven(),
-										"amount", args[3]);
-							}
+							user.addPointsStorageAware(num, (success, ignored) -> {
+								if (success) {
+									updated.incrementAndGet();
+									if (user.isOnline()) {
+										user.sendMessage(plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerGiven(),
+												"amount", args[3]);
+									}
+								}
+								if (remaining.decrementAndGet() == 0) {
+									sender.sendMessage(MessageAPI.colorize("&cGave all players " + args[3]
+											+ " points to " + updated.get() + "/" + userIds.size() + " players"));
+									plugin.getPlaceholders().onUpdate();
+								}
+							});
 						}
-						sender.sendMessage(MessageAPI.colorize("&cGave " + "all players" + " " + args[3] + " points"));
-
-						plugin.getPlaceholders().onUpdate();
 					}
 
 					@Override
 					public void executeSinglePlayer(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 						user.cache();
-						int newTotal = 0;
-						newTotal = user.addPointsStorageAware(Integer.parseInt(args[3]));
-						if (user.isOnline()) {
-							user.sendMessage(plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerGiven(),
-									"amount", args[3]);
-						}
-						sender.sendMessage(MessageAPI.colorize("&cGave " + args[1] + " " + args[3] + " points" + ", "
-								+ args[1] + " now has " + newTotal + " points"));
-
-						plugin.getPlaceholders().onUpdate(user, false);
+						int amount = Integer.parseInt(args[3]);
+						user.addPointsStorageAware(amount, (success, newTotal) -> {
+							if (!success) {
+								sender.sendMessage(MessageAPI.colorize("&cUnable to add " + args[3] + " points to " + args[1]));
+								return;
+							}
+							if (user.isOnline()) {
+								user.sendMessage(plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerGiven(),
+										"amount", args[3]);
+							}
+							sender.sendMessage(MessageAPI.colorize("&cGave " + args[1] + " " + args[3] + " points" + ", "
+									+ args[1] + " now has " + newTotal + " points"));
+							plugin.getPlaceholders().onUpdate(user, false);
+						});
 
 					}
 				});

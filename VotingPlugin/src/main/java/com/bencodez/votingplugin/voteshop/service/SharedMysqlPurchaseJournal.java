@@ -31,6 +31,7 @@ import com.bencodez.simpleapi.sql.mysql.DbType;
 final class SharedMysqlPurchaseJournal {
 	private static final String PENDING = "PENDING";
 	private static final String HOOK_STARTED = "HOOK_STARTED";
+	private static final String COMPENSATING = "COMPENSATING";
 	private static final String COMPLETED = "COMPLETED";
 	private static final String REFUNDED = "REFUNDED";
 	static final String NO_LIMIT_RESET_GENERATION = "NONE";
@@ -230,12 +231,41 @@ final class SharedMysqlPurchaseJournal {
 
 	/**
 	 * Compensates a pending or claimed purchase only when the local scheduler
-	 * guard proves that its reward callback cannot run. This is never used by
-	 * stale recovery, which must leave arbitrary HOOK_STARTED work for
-	 * reconciliation.
+	 * guard proves that its reward callback cannot run. The intermediate durable
+	 * state makes a failed refund retryable after a database outage or restart.
 	 */
 	boolean refundUnstartedReward(String purchaseId) throws SQLException {
-		return setTerminal(purchaseId, REFUNDED, System.currentTimeMillis(), PENDING, HOOK_STARTED);
+		SQLException lastFailure = null;
+		for (int attempt = 0; attempt < 3; attempt++) {
+			try {
+				if (!requestUnstartedRewardRefund(purchaseId)) return false;
+				return refundCompensatingReward(purchaseId);
+			} catch (SQLException failure) {
+				lastFailure = failure;
+			}
+		}
+		throw lastFailure;
+	}
+
+	/** Durable marker used before attempting compensation, so recovery can retry it. */
+	private boolean requestUnstartedRewardRefund(String purchaseId) throws SQLException {
+		String update = "UPDATE " + qiJournal() + " SET " + qi("state") + " = ? WHERE " + qi("purchase_id")
+				+ " = ? AND " + qi("state") + " IN (?, ?, ?)";
+		try (Connection connection = connection(); PreparedStatement statement = connection.prepareStatement(update)) {
+			statement.setString(1, COMPENSATING);
+			statement.setString(2, purchaseId);
+			statement.setString(3, PENDING);
+			statement.setString(4, HOOK_STARTED);
+			statement.setString(5, COMPENSATING);
+			if (statement.executeUpdate() != 1) return false;
+			connection.commit();
+			return true;
+		}
+	}
+
+	/** Retries the already-marked compensation without reopening the hook. */
+	private boolean refundCompensatingReward(String purchaseId) throws SQLException {
+		return setTerminal(purchaseId, REFUNDED, System.currentTimeMillis(), COMPENSATING);
 	}
 
 	private boolean setTerminal(String purchaseId, String terminalState, long now, String... refundableStates)
@@ -346,7 +376,27 @@ final class SharedMysqlPurchaseJournal {
 			}
 		}
 		for (String purchaseId : pending) refundPending(purchaseId, now);
+		// COMPENSATING is safe to refund: the local scheduler fence was persisted
+		// before the first attempt, so the reward callback cannot run. Retry these
+		// rows promptly after an outage rather than leaving them charged forever.
+		for (String purchaseId : findTransferIds(COMPENSATING, RECOVERY_BATCH_SIZE)) {
+			refundCompensatingReward(purchaseId);
+		}
 		cleanupTerminalRows(now - TERMINAL_RETENTION_MILLIS);
+	}
+
+	private List<String> findTransferIds(String state, int limit) throws SQLException {
+		String select = "SELECT " + qi("purchase_id") + " FROM " + qiJournal() + " WHERE " + qi("state")
+				+ " = ? ORDER BY " + qi("created_at") + " ASC LIMIT ?";
+		List<String> purchaseIds = new ArrayList<>();
+		try (Connection connection = connection(); PreparedStatement statement = connection.prepareStatement(select)) {
+			statement.setString(1, state);
+			statement.setInt(2, limit);
+			try (ResultSet result = statement.executeQuery()) {
+				while (result.next()) purchaseIds.add(result.getString(1));
+			}
+		}
+		return purchaseIds;
 	}
 
 	private void cleanupTerminalRows(long cutoff) throws SQLException {

@@ -57,26 +57,31 @@ class SharedMysqlPurchaseJournalTest {
 	void recoveryRefundsOnlyExpiredPendingPurchase() throws Exception {
 		Fixture fixture = fixture();
 		Connection candidates = mock(Connection.class);
+		Connection compensatingCandidates = mock(Connection.class);
 		Connection refund = mock(Connection.class);
 		Connection cleanup = mock(Connection.class);
 		PreparedStatement candidateStatement = mock(PreparedStatement.class);
+		PreparedStatement compensatingStatement = mock(PreparedStatement.class);
 		PreparedStatement select = mock(PreparedStatement.class);
 		PreparedStatement credit = mock(PreparedStatement.class);
 		PreparedStatement terminal = mock(PreparedStatement.class);
 		PreparedStatement cleanupSelect = mock(PreparedStatement.class);
 		PreparedStatement cleanupDelete = mock(PreparedStatement.class);
 		ResultSet expiredPending = ids("expired-pending");
+		ResultSet noCompensating = ids();
 		ResultSet pending = pendingRow();
 		ResultSet noTerminalRows = ids();
 		when(candidates.prepareStatement(anyString())).thenReturn(candidateStatement);
 		when(candidateStatement.executeQuery()).thenReturn(expiredPending);
+		when(compensatingCandidates.prepareStatement(anyString())).thenReturn(compensatingStatement);
+		when(compensatingStatement.executeQuery()).thenReturn(noCompensating);
 		when(refund.prepareStatement(anyString())).thenReturn(select, credit, terminal);
 		when(select.executeQuery()).thenReturn(pending);
 		when(credit.executeUpdate()).thenReturn(1);
 		when(terminal.executeUpdate()).thenReturn(1);
 		when(cleanup.prepareStatement(anyString())).thenReturn(cleanupSelect, cleanupDelete);
 		when(cleanupSelect.executeQuery()).thenReturn(noTerminalRows);
-		when(fixture.sql.getConnectionManager().getConnection()).thenReturn(candidates, refund, cleanup);
+		when(fixture.sql.getConnectionManager().getConnection()).thenReturn(candidates, refund, compensatingCandidates, cleanup);
 
 		SharedMysqlPurchaseJournal journal = new SharedMysqlPurchaseJournal(fixture.table, false);
 		journal.recoverAndCleanup(SharedMysqlPurchaseJournal.PENDING_RECOVERY_AGE_MILLIS + 1L);
@@ -146,12 +151,14 @@ class SharedMysqlPurchaseJournalTest {
 	@Test
 	void schedulerProvenUnstartedHookCanBeRefunded() throws Exception {
 		Fixture fixture = fixture();
+		PreparedStatement markCompensating = mock(PreparedStatement.class);
 		PreparedStatement select = mock(PreparedStatement.class);
 		PreparedStatement credit = mock(PreparedStatement.class);
 		PreparedStatement terminal = mock(PreparedStatement.class);
-		ResultSet hookStarted = pendingRow("HOOK_STARTED");
-		when(fixture.work.prepareStatement(anyString())).thenReturn(select, credit, terminal);
-		when(select.executeQuery()).thenReturn(hookStarted);
+		ResultSet compensating = pendingRow("COMPENSATING");
+		when(fixture.work.prepareStatement(anyString())).thenReturn(markCompensating, select, credit, terminal);
+		when(markCompensating.executeUpdate()).thenReturn(1);
+		when(select.executeQuery()).thenReturn(compensating);
 		when(credit.executeUpdate()).thenReturn(1);
 		when(terminal.executeUpdate()).thenReturn(1);
 
@@ -159,6 +166,36 @@ class SharedMysqlPurchaseJournalTest {
 		assertTrue(journal.refundUnstartedReward("scheduler-rejected"));
 
 		verify(terminal).setString(1, "REFUNDED");
+	}
+
+	@Test
+	void failedCompensationIsRetriedWithTheDurableMarker() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement markFirst = mock(PreparedStatement.class);
+		PreparedStatement selectFirst = mock(PreparedStatement.class);
+		PreparedStatement creditFirst = mock(PreparedStatement.class);
+		PreparedStatement markSecond = mock(PreparedStatement.class);
+		PreparedStatement selectSecond = mock(PreparedStatement.class);
+		PreparedStatement creditSecond = mock(PreparedStatement.class);
+		PreparedStatement terminalSecond = mock(PreparedStatement.class);
+		ResultSet compensating = pendingRow("COMPENSATING");
+		when(fixture.work.prepareStatement(anyString())).thenReturn(markFirst, selectFirst, creditFirst,
+				markSecond, selectSecond, creditSecond, terminalSecond);
+		when(markFirst.executeUpdate()).thenReturn(1);
+		when(selectFirst.executeQuery()).thenReturn(compensating);
+		doThrow(new java.sql.SQLException("temporary database outage")).when(creditFirst).executeUpdate();
+		when(markSecond.executeUpdate()).thenReturn(1);
+		when(selectSecond.executeQuery()).thenReturn(compensating);
+		when(creditSecond.executeUpdate()).thenReturn(1);
+		when(terminalSecond.executeUpdate()).thenReturn(1);
+
+		SharedMysqlPurchaseJournal journal = new SharedMysqlPurchaseJournal(fixture.table, false);
+		assertTrue(journal.refundUnstartedReward("retry-compensation"));
+
+		verify(markFirst).setString(1, "COMPENSATING");
+		verify(markSecond).setString(1, "COMPENSATING");
+		verify(creditSecond).executeUpdate();
+		verify(terminalSecond).setString(1, "REFUNDED");
 	}
 
 	@Test

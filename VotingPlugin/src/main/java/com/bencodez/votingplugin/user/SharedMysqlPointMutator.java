@@ -63,6 +63,10 @@ final class SharedMysqlPointMutator {
 		return addAndReadCommitted(user, amount);
 	}
 
+	AddResult addCommitted(VotingPluginUser user, int amount) {
+		return addAndReadCommittedResult(user, amount);
+	}
+
 	void set(VotingPluginUser user, int value, boolean async) {
 		run(() -> setAbsolute(user, value), async);
 	}
@@ -161,6 +165,10 @@ final class SharedMysqlPointMutator {
 				logApprovalFailure(failure);
 				return isAcceptedSettlement(outcome);
 			}
+			// The approval hook may inspect or mutate the recipient and recreate its
+			// cache after the initial drain. Persist and remove that cache before the
+			// settlement credit so no queued pre-settlement value can overwrite it.
+			drainCache(target);
 			SharedPointTransferJournal.SettlementOutcome outcome = journal.settleWithConfirmation(transferId, owner,
 					source.getUUID(), sourcePoints, target.getUUID(), targetPoints, debitAmount, creditAmount);
 			return isAcceptedSettlement(outcome);
@@ -263,6 +271,10 @@ final class SharedMysqlPointMutator {
 	 * even when the caller requests {@code NO_CACHE}.
 	 */
 	private int addAndReadCommitted(VotingPluginUser user, int amount) {
+		return addAndReadCommittedResult(user, amount).total();
+	}
+
+	private AddResult addAndReadCommittedResult(VotingPluginUser user, int amount) {
 		drainCache(user);
 		MySQL table = plugin.getMysql();
 		String points = user.getPointsPath();
@@ -275,16 +287,19 @@ final class SharedMysqlPointMutator {
 				PreparedStatement readStatement = connection.prepareStatement(read)) {
 			updateStatement.setInt(1, amount);
 			updateStatement.setString(2, user.getUUID());
-			if (updateStatement.executeUpdate() != 1) return user.getPoints();
+			if (updateStatement.executeUpdate() != 1) return new AddResult(false, user.getPoints());
 			readStatement.setString(1, user.getUUID());
 			try (java.sql.ResultSet result = readStatement.executeQuery()) {
-				return result.next() ? result.getInt(1) : user.getPoints();
+				return result.next() ? new AddResult(true, result.getInt(1))
+						: new AddResult(false, user.getPoints());
 			}
 		} catch (SQLException failure) {
 			logFailure(failure);
-			return user.getPoints();
+			return new AddResult(false, user.getPoints());
 		}
 	}
+
+	record AddResult(boolean success, int total) {}
 
 	private void setAbsolute(VotingPluginUser user, int value) {
 		drainCache(user);

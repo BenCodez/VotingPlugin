@@ -102,6 +102,7 @@ class VoteShopPurchaseServiceTest {
 				org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		Connection schemaConnection = mock(Connection.class);
 		Connection pendingConnection = mock(Connection.class);
+		Connection compensatingConnection = mock(Connection.class);
 		Connection cleanupConnection = mock(Connection.class);
 		Connection debitConnection = mock(Connection.class);
 		Connection refundConnection = mock(Connection.class);
@@ -110,31 +111,37 @@ class VoteShopPurchaseServiceTest {
 		PreparedStatement schemaGenerationExpiry = mock(PreparedStatement.class);
 		PreparedStatement schemaIndex = mock(PreparedStatement.class);
 		PreparedStatement pending = mock(PreparedStatement.class);
+		PreparedStatement compensating = mock(PreparedStatement.class);
 		PreparedStatement cleanupSelect = mock(PreparedStatement.class);
 		PreparedStatement cleanupDelete = mock(PreparedStatement.class);
 		PreparedStatement reserve = mock(PreparedStatement.class);
 		PreparedStatement debit = mock(PreparedStatement.class);
+		PreparedStatement refundMark = mock(PreparedStatement.class);
 		PreparedStatement refundSelect = mock(PreparedStatement.class);
 		PreparedStatement refund = mock(PreparedStatement.class);
 		PreparedStatement refundUpdate = mock(PreparedStatement.class);
 		ResultSet noPendingRows = emptyRows();
+		ResultSet noCompensatingRows = emptyRows();
 		ResultSet noTerminalRows = emptyRows();
-		ResultSet pendingPurchase = purchaseRow("PENDING", "Points", null, 10);
+		ResultSet pendingPurchase = purchaseRow("COMPENSATING", "Points", null, 10);
 		when(table.getTableName()).thenReturn("VotingPlugin_Users");
 		when(table.qi(anyString())).thenAnswer(invocation -> "`" + invocation.getArgument(0) + "`");
 		when(table.getMysql()).thenReturn(sql);
 		when(sql.getConnectionManager().getConnection()).thenReturn(schemaConnection, pendingConnection,
-				cleanupConnection, debitConnection, refundConnection);
+				compensatingConnection, cleanupConnection, debitConnection, refundConnection);
 		when(schemaConnection.prepareStatement(anyString())).thenReturn(schema, schemaGeneration,
 				schemaGenerationExpiry, schemaIndex);
 		when(pendingConnection.prepareStatement(anyString())).thenReturn(pending);
 		when(pending.executeQuery()).thenReturn(noPendingRows);
+		when(compensatingConnection.prepareStatement(anyString())).thenReturn(compensating);
+		when(compensating.executeQuery()).thenReturn(noCompensatingRows);
 		when(cleanupConnection.prepareStatement(anyString())).thenReturn(cleanupSelect, cleanupDelete);
 		when(cleanupSelect.executeQuery()).thenReturn(noTerminalRows);
 		when(debitConnection.prepareStatement(anyString())).thenReturn(reserve, debit);
-		when(refundConnection.prepareStatement(anyString())).thenReturn(refundSelect, refund, refundUpdate);
+		when(refundConnection.prepareStatement(anyString())).thenReturn(refundMark, refundSelect, refund, refundUpdate);
 		when(refundSelect.executeQuery()).thenReturn(pendingPurchase);
 		when(debit.executeUpdate()).thenReturn(1);
+		when(refundMark.executeUpdate()).thenReturn(1);
 		when(refund.executeUpdate()).thenReturn(1);
 		when(refundUpdate.executeUpdate()).thenReturn(1);
 		VotingPluginMain plugin = sharedMysqlPlugin(table);
@@ -178,14 +185,14 @@ class VoteShopPurchaseServiceTest {
 		compensation.getAllValues().get(1).run();
 
 		ArgumentCaptor<String> refundSql = ArgumentCaptor.forClass(String.class);
-		verify(refundConnection, times(3)).prepareStatement(refundSql.capture());
-		assertTrue(refundSql.getAllValues().get(1).contains("`Points` = `Points` + ?"));
+		verify(refundConnection, times(4)).prepareStatement(refundSql.capture());
+		assertTrue(refundSql.getAllValues().get(2).contains("`Points` = `Points` + ?"));
 		verify(refund).setInt(1, 10);
 		verify(refund, times(1)).executeUpdate();
-		// Schema, stale cleanup, terminal cleanup, reservation, and refund are the
-		// only database connections in the scheduler-retirement path. A sixth
+		// Schema, stale cleanup, compensating cleanup, terminal cleanup, reservation,
+		// and refund are the only database connections in the scheduler-retirement path. An eighth
 		// checkout would be the reward claim and would make the debit unrecoverable.
-		verify(sql.getConnectionManager(), times(5)).getConnection();
+		verify(sql.getConnectionManager(), times(7)).getConnection();
 		verify(entityScheduler).runAtEntityWithFallback(
 				org.mockito.ArgumentMatchers.eq(player), any(), any(Runnable.class));
 		scheduled.getValue().accept(null);
@@ -368,6 +375,7 @@ class VoteShopPurchaseServiceTest {
 				org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		Connection schemaConnection = mock(Connection.class);
 		Connection pendingConnection = mock(Connection.class);
+		Connection compensatingConnection = mock(Connection.class);
 		Connection cleanupConnection = mock(Connection.class);
 		Connection reserveConnection = mock(Connection.class);
 		Connection claimConnection = mock(Connection.class);
@@ -377,6 +385,7 @@ class VoteShopPurchaseServiceTest {
 		PreparedStatement schemaGenerationExpiry = mock(PreparedStatement.class);
 		PreparedStatement schemaIndex = mock(PreparedStatement.class);
 		PreparedStatement pending = mock(PreparedStatement.class);
+		PreparedStatement compensating = mock(PreparedStatement.class);
 		PreparedStatement cleanupSelect = mock(PreparedStatement.class);
 		PreparedStatement cleanupDelete = mock(PreparedStatement.class);
 		PreparedStatement reserve = mock(PreparedStatement.class);
@@ -385,17 +394,20 @@ class VoteShopPurchaseServiceTest {
 		PreparedStatement completeSelect = mock(PreparedStatement.class);
 		PreparedStatement completeUpdate = mock(PreparedStatement.class);
 		ResultSet noPendingRows = emptyRows();
+		ResultSet noCompensatingRows = emptyRows();
 		ResultSet noTerminalRows = emptyRows();
 		ResultSet hookStartedPurchase = purchaseRow("HOOK_STARTED", "Points", null, 10);
 		when(table.getTableName()).thenReturn("VotingPlugin_Users");
 		when(table.qi(anyString())).thenAnswer(invocation -> "`" + invocation.getArgument(0) + "`");
 		when(table.getMysql()).thenReturn(sql);
 		when(sql.getConnectionManager().getConnection()).thenReturn(schemaConnection, pendingConnection,
-				cleanupConnection, reserveConnection, claimConnection, completeConnection);
+				compensatingConnection, cleanupConnection, reserveConnection, claimConnection, completeConnection);
 		when(schemaConnection.prepareStatement(anyString())).thenReturn(schema, schemaGeneration,
 				schemaGenerationExpiry, schemaIndex);
 		when(pendingConnection.prepareStatement(anyString())).thenReturn(pending);
 		when(pending.executeQuery()).thenReturn(noPendingRows);
+		when(compensatingConnection.prepareStatement(anyString())).thenReturn(compensating);
+		when(compensating.executeQuery()).thenReturn(noCompensatingRows);
 		when(cleanupConnection.prepareStatement(anyString())).thenReturn(cleanupSelect, cleanupDelete);
 		when(cleanupSelect.executeQuery()).thenReturn(noTerminalRows);
 		when(reserveConnection.prepareStatement(anyString())).thenReturn(reserve, debit);

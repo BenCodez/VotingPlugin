@@ -35,6 +35,7 @@ import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.user.UserData;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
+import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
 import com.bencodez.simpleapi.sql.mysql.ConnectionManager;
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -121,6 +122,41 @@ class VotingPluginUserPointSchedulingTest {
 		mutationThenRead.verify(fixture.statement).executeUpdate();
 		mutationThenRead.verify(read).executeQuery();
 		verify(data, never()).getInt("Points", UserDataFetchMode.NO_CACHE);
+	}
+
+	@Test
+	void storageAwareAddReportsOnlyAfterCommittedSharedWrite() throws Exception {
+		PointFixture fixture = pointFixture();
+		UserData data = mock(UserData.class);
+		PreparedStatement read = mock(PreparedStatement.class);
+		ResultSet result = mock(ResultSet.class);
+		doReturn(data).when(fixture.user).getUserData();
+		when(fixture.statement.executeUpdate()).thenReturn(1);
+		when(fixture.connection.prepareStatement(anyString())).thenReturn(fixture.statement, read);
+		when(read.executeQuery()).thenReturn(result);
+		when(result.next()).thenReturn(true);
+		when(result.getInt(1)).thenReturn(23);
+		AtomicReference<Boolean> success = new AtomicReference<>();
+		AtomicReference<Integer> total = new AtomicReference<>();
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			PluginManager pluginManager = mock(PluginManager.class);
+			bukkit.when(Bukkit::getPluginManager).thenReturn(pluginManager);
+			fixture.user.addPointsStorageAware(5, (written, committed) -> {
+				success.set(written);
+				total.set(committed);
+			});
+		}
+
+		assertTrue(success.get() == null, "the command callback must wait for persistence");
+		ArgumentCaptor<Runnable> persistenceWork = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence).execute(persistenceWork.capture());
+		persistenceWork.getValue().run();
+		ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
+		completion.getValue().run();
+		assertEquals(Boolean.TRUE, success.get());
+		assertEquals(23, total.get());
 	}
 
 	@Test
@@ -324,7 +360,9 @@ class VotingPluginUserPointSchedulingTest {
 		pluginField.set(target, fixture.plugin);
 		doReturn("00000000-0000-0000-0000-000000000002").when(target).getUUID();
 		doReturn("Points").when(target).getPointsPath();
-		doReturn(false).when(target).isCached();
+		UserDataCache recreatedCache = mock(UserDataCache.class);
+		doReturn(false, true).when(target).isCached();
+		doReturn(recreatedCache).when(target).getCache();
 		UserData targetData = mock(UserData.class);
 		doReturn(targetData).when(target).getUserData();
 		doAnswer(invocation -> {
@@ -354,11 +392,13 @@ class VotingPluginUserPointSchedulingTest {
 		}
 
 		InOrder order = org.mockito.Mockito.inOrder(fixture.reservation, fixture.claim, fixture.listenerRead,
+				recreatedCache,
 				fixture.settlement);
 		order.verify(fixture.reservation).close();
 		order.verify(fixture.claim).close();
 		order.verify(fixture.listenerRead).close();
-		verify(fixture.settlement).commit();
+		order.verify(recreatedCache).dump();
+		order.verify(fixture.settlement).commit();
 		assertEquals(Boolean.TRUE, result.get());
 	}
 

@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -236,6 +237,36 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public int addPointsStorageAware(int value) {
 		return addPoints(value, new SharedMysqlPointMutator(plugin).applies());
+	}
+
+	/**
+	 * Adds points and reports the committed total after shared-MySQL persistence
+	 * completes. The callback runs on the user's Bukkit/entity lane.
+	 */
+	public void addPointsStorageAware(int value, Consumer<Integer> completion) {
+		addPointsStorageAware(value, (success, total) -> completion.accept(total));
+	}
+
+	/** Adds points and reports both persistence success and the committed total. */
+	public synchronized void addPointsStorageAware(int value, BiConsumer<Boolean, Integer> completion) {
+		PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, value);
+		Bukkit.getPluginManager().callEvent(event);
+		if (event.isCancelled()) {
+			completion.accept(false, getPoints());
+			return;
+		}
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		if (!sharedPoints.applies()) {
+			int newTotal = getPoints() + event.getPoints();
+			setPoints(newTotal, false);
+			completion.accept(true, newTotal);
+			return;
+		}
+		Player player = getPlayer();
+		plugin.getTimer().execute(() -> {
+			SharedMysqlPointMutator.AddResult result = sharedPoints.addCommitted(this, event.getPoints());
+			plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(result.success(), result.total()), player);
+		});
 	}
 
 	/**
