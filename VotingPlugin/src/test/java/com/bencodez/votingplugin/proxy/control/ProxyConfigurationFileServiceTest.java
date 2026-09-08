@@ -963,6 +963,37 @@ class ProxyConfigurationFileServiceTest {
 	}
 
 	@Test
+	void masksBareAndNestedWebhookFields() throws Exception {
+		Path file = write("Webhook: https://hooks.example.invalid/services/private-token\n"
+				+ "Notifications:\n  Webhook: https://notify.example.invalid/private-token\n"
+				+ "Webhooks:\n  Primary:\n    URL: https://primary.example.invalid/private-token\n"
+				+ "  Secondary:\n    URI: https://secondary.example.invalid/private-token\n"
+				+ "Debug: false\n");
+
+		String content = service(file).read(ProxyConfigurationFileService.FILE_NAME).content();
+
+		assertFalse(content.contains("hooks.example.invalid"));
+		assertFalse(content.contains("notify.example.invalid"));
+		assertFalse(content.contains("primary.example.invalid"));
+		assertFalse(content.contains("secondary.example.invalid"));
+		assertEquals(4, content.lines().filter(line -> line.contains(ProxyConfigurationFileService.REDACTED)).count());
+	}
+
+	@Test
+	void permitsPublicCommentInsertionAroundRedactedCommentButRequiresSameMarkerOwners() throws Exception {
+		Path file = write("Database:\n  # Password: secret\n  Password: secret\nDebug: false\n");
+		ProxyConfigurationFileService service = service(file);
+		String current = service.read(ProxyConfigurationFileService.FILE_NAME).content();
+		String withPublicComment = current.replace("# " + ProxyConfigurationFileService.REDACTED,
+				"# public documentation\n  # " + ProxyConfigurationFileService.REDACTED);
+
+		assertTrue(service.preview(ProxyConfigurationFileService.FILE_NAME, withPublicComment).resolvedContent()
+				.contains("Password: secret"));
+		assertThrows(IllegalArgumentException.class, () -> service.preview(ProxyConfigurationFileService.FILE_NAME,
+				withPublicComment.replace("# " + ProxyConfigurationFileService.REDACTED, "# removed")));
+	}
+
+	@Test
 	void changeDescriptionsDistinguishDottedKeysFromNestedPaths() throws Exception {
 		Path file = write("\"a.b.x\": dotted\na:\n  b:\n    x: nested\n");
 		ProxyConfigurationFileService service = service(file);

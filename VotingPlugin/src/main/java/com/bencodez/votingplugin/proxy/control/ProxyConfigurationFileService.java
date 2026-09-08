@@ -697,18 +697,27 @@ final class ProxyConfigurationFileService {
 
 	private static void restoreRedactedComments(Node proposed, Map<String, CommentLine> expected) {
 		Map<String, CommentReference> comments = commentReferences(proposed, "root");
+		List<String> expectedOwners = expected.keySet().stream().map(ProxyConfigurationFileService::commentOwner).toList();
+		List<String> proposedOwners = comments.entrySet().stream()
+				.filter(entry -> REDACTED_COMMENT.equals(entry.getValue().line().getValue()))
+				.map(entry -> commentOwner(entry.getKey())).toList();
+		if (!expectedOwners.equals(proposedOwners)) throw new IllegalArgumentException("redacted placeholder is invalid");
+		Map<String, List<CommentLine>> originals = new LinkedHashMap<>();
 		for (Map.Entry<String, CommentLine> entry : expected.entrySet()) {
-			CommentReference reference = comments.get(entry.getKey());
-			if (reference == null || !REDACTED_COMMENT.equals(reference.line().getValue())) {
-				throw new IllegalArgumentException("redacted placeholder is invalid");
-			}
-			reference.replace(entry.getValue());
+			originals.computeIfAbsent(commentOwner(entry.getKey()), ignored -> new ArrayList<>()).add(entry.getValue());
 		}
+		Map<String, Integer> indexes = new LinkedHashMap<>();
 		for (Map.Entry<String, CommentReference> entry : comments.entrySet()) {
-			if (REDACTED_COMMENT.equals(entry.getValue().line().getValue()) && !expected.containsKey(entry.getKey())) {
-				throw new IllegalArgumentException("redacted placeholder is invalid");
-			}
+			if (!REDACTED_COMMENT.equals(entry.getValue().line().getValue())) continue;
+			String owner = commentOwner(entry.getKey());
+			int index = indexes.getOrDefault(owner, 0);
+			entry.getValue().replace(originals.get(owner).get(index));
+			indexes.put(owner, index + 1);
 		}
+	}
+
+	private static String commentOwner(String slot) {
+		return slot.substring(0, slot.lastIndexOf('|'));
 	}
 
 	private static Map<String, CommentReference> commentReferences(Node root, String path) {
@@ -1101,10 +1110,15 @@ final class ProxyConfigurationFileService {
 				|| normalized.contains("token") || normalized.contains("credential")
 				|| normalized.contains("apikey") || normalized.contains("accesskey")
 				|| normalized.contains("privatekey") || normalized.contains("signingkey")
-				|| normalized.contains("authorization")
-				|| normalized.contains("webhookurl")) return true;
+				|| normalized.contains("authorization")) return true;
+		if (normalized.contains("webhook")) return !(value instanceof Map<?, ?>) && !(value instanceof List<?>);
 		if (!(value instanceof Map<?, ?>) && !(value instanceof List<?>) && compoundInfrastructureField(key)) return true;
 		String normalizedPath = path.toLowerCase(Locale.ROOT).replace("_", "").replace("-", "").replaceAll("\\s+", "");
+		if (value instanceof String text && normalizedPath.contains("webhook")) {
+			String lowered = text.trim().toLowerCase(Locale.ROOT);
+			if (Set.of("url", "uri", "endpoint", "address", "callback").contains(normalized)
+					|| lowered.startsWith("http://") || lowered.startsWith("https://")) return true;
+		}
 		if ((!(value instanceof Map<?, ?>) && !(value instanceof List<?>) && rootDatabaseField(normalizedPath))
 				|| infrastructurePath(normalizedPath, "database")
 				|| infrastructurePath(normalizedPath, "mysql") || infrastructurePath(normalizedPath, "globaldata")
