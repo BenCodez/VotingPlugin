@@ -479,6 +479,50 @@ class ProxyConfigurationFileServiceTest {
 	}
 
 	@Test
+	void allowsOnlySafeSuffixRemovalFromSecretBearingLists() throws Exception {
+		Path file = write("""
+				Hooks:
+				  - Name: primary
+				    Password: primary-secret
+				  - Name: removable-tail
+				    Enabled: true
+				Debug: false
+				""");
+		ProxyConfigurationFileService service = service(file);
+		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
+		String safeSuffixRemoval = "Hooks:\n  - Name: primary\n    Password: "
+				+ ProxyConfigurationFileService.REDACTED + "\nDebug: false\n";
+
+		ProxyConfigurationFileService.Preview preview = service.preview(
+				ProxyConfigurationFileService.FILE_NAME, safeSuffixRemoval);
+		assertTrue(preview.resolvedContent().contains("Password: primary-secret"));
+		assertFalse(preview.resolvedContent().contains("removable-tail"));
+		service.apply(ProxyConfigurationFileService.FILE_NAME, safeSuffixRemoval, current.revision());
+		assertFalse(Files.readString(file).contains("removable-tail"));
+
+		Path secretTail = write("""
+				Hooks:
+				  - Name: public
+				    Enabled: true
+				  - Name: protected-tail
+				    Password: protected-secret
+				Debug: false
+				""");
+		ProxyConfigurationFileService protectedTailService = service(secretTail);
+		assertThrows(IllegalArgumentException.class, () -> protectedTailService.preview(
+				ProxyConfigurationFileService.FILE_NAME, "Hooks:\n  - Name: public\n    Enabled: true\nDebug: false\n"));
+
+		Path shiftedSecret = write("""
+				Endpoints:
+				  - jdbc:mysql://old-user:old-password@db.invalid/votes
+				  - public-endpoint
+				""");
+		ProxyConfigurationFileService shiftedSecretService = service(shiftedSecret);
+		assertThrows(IllegalArgumentException.class, () -> shiftedSecretService.preview(
+				ProxyConfigurationFileService.FILE_NAME, "Endpoints:\n  - public-endpoint\n"));
+	}
+
+	@Test
 	void previewRestoresMaskedValuesAndAllowsSafeNestedAdditions() throws Exception {
 		Path file = write("""
 				Database:

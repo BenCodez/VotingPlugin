@@ -424,8 +424,20 @@ final class ProxyConfigurationFileService {
 
 	@SuppressWarnings("unchecked")
 	private static void validateRedactedList(List<?> current, List<?> proposed, String path) {
-		if (containsSecrets(current, path) && proposed.size() < current.size()) {
-			throw new IllegalArgumentException("redacted placeholder is invalid");
+		if (proposed.size() < current.size()) {
+			for (int index = 0; index < proposed.size(); index++) {
+				Object old = current.get(index);
+				String itemPath = path + "[" + index + "]";
+				if (secretBearingValue(old, itemPath)
+						&& !retainsRedactedMarkers(proposed.get(index), old, itemPath)) {
+					throw new IllegalArgumentException("redacted placeholder is invalid");
+				}
+			}
+			for (int index = proposed.size(); index < current.size(); index++) {
+				if (secretBearingValue(current.get(index), path + "[" + index + "]")) {
+					throw new IllegalArgumentException("redacted placeholder is invalid");
+				}
+			}
 		}
 		for (int index = 0; index < Math.min(current.size(), proposed.size()); index++) {
 			Object old = current.get(index);
@@ -472,6 +484,43 @@ final class ProxyConfigurationFileService {
 			}
 		}
 		return false;
+	}
+
+	private static boolean secretBearingValue(Object value, String path) {
+		return secret(path, "", value) || containsSecrets(value,
+				value instanceof Map<?, ?> ? path + "." : path);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static boolean retainsRedactedMarkers(Object proposed, Object current, String path) {
+		if (secret(path, "", current)) return REDACTED.equals(proposed);
+		if (current instanceof Map<?, ?> currentMap) {
+			if (!(proposed instanceof Map<?, ?> proposedMap)) return false;
+			String mapPath = path.endsWith(".") ? path : path + ".";
+			for (Map.Entry<?, ?> entry : currentMap.entrySet()) {
+				if (!(entry.getKey() instanceof String key)) return false;
+				Object old = entry.getValue();
+				String childPath = mapPath + key;
+				if (!secretBearingValue(old, childPath)) continue;
+				if (!proposedMap.containsKey(key)
+						|| !retainsRedactedMarkers(proposedMap.get(key), old, childPath)) return false;
+			}
+			return true;
+		}
+		if (current instanceof List<?> currentList) {
+			if (!(proposed instanceof List<?> proposedList) || proposedList.size() > currentList.size()) return false;
+			for (int index = 0; index < proposedList.size(); index++) {
+				Object old = currentList.get(index);
+				String itemPath = path + "[" + index + "]";
+				if (secretBearingValue(old, itemPath)
+						&& !retainsRedactedMarkers(proposedList.get(index), old, itemPath)) return false;
+			}
+			for (int index = proposedList.size(); index < currentList.size(); index++) {
+				if (secretBearingValue(currentList.get(index), path + "[" + index + "]")) return false;
+			}
+			return true;
+		}
+		return true;
 	}
 
 	private static boolean containsMarker(Object value) {
@@ -917,11 +966,20 @@ final class ProxyConfigurationFileService {
 					|| !sawNonSecret && sawSecret && allSecretsRedacted;
 		}
 		if (proposed instanceof List<?> proposedList && current instanceof List<?> currentList) {
-			if (proposedList.size() < currentList.size()) return false;
-			for (int i = 0; i < currentList.size(); i++) {
+			int retained = Math.min(proposedList.size(), currentList.size());
+			for (int i = 0; i < retained; i++) {
 				if (!sameSecretSafeListOrder(proposedList.get(i), currentList.get(i), path + "[" + i + "]")) return false;
 				if (hasNonSecretEdit(proposedList.get(i), currentList.get(i), path + "[" + i + "]")
 						&& !hasUniqueStableIdentity(proposedList, currentList, i)) return false;
+				if (proposedList.size() < currentList.size()
+						&& secretBearingValue(currentList.get(i), path + "[" + i + "]")
+						&& !retainsRedactedMarkers(proposedList.get(i), currentList.get(i), path + "[" + i + "]")) return false;
+			}
+			if (proposedList.size() < currentList.size()) {
+				for (int i = proposedList.size(); i < currentList.size(); i++) {
+					if (secretBearingValue(currentList.get(i), path + "[" + i + "]")) return false;
+				}
+				return true;
 			}
 			for (int i = currentList.size(); i < proposedList.size(); i++) {
 				if (containsMarker(proposedList.get(i))) return false;
