@@ -11,6 +11,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
@@ -1616,7 +1617,7 @@ public abstract class VotingPluginProxy {
 					sendSocketEnvelope(server, envelope);
 					break;
 				case HTTP:
-					sendHttpEnvelope(server, envelope);
+					sendGenericHttpEnvelope(server, envelope);
 					break;
 				default:
 					break;
@@ -2911,6 +2912,34 @@ public abstract class VotingPluginProxy {
 		return sendHttpEnvelopeWithRecovery(server, envelope, null);
 	}
 
+	/**
+	 * Sends a non-reward HTTP message without allowing a transport handoff failure
+	 * to retry the surrounding vote transaction. An ambiguous durable publication
+	 * is recovered with its original ID; a definite rejection is reported and
+	 * logged, rather than escaping through the void global-message adapter.
+	 */
+	protected boolean sendGenericHttpEnvelope(String server, JsonEnvelope envelope) {
+		try {
+			boolean accepted = sendHttpEnvelopeWithRecovery(server, envelope);
+			if (!accepted) debug("HTTP transport rejected auxiliary delivery for " + server);
+			return accepted;
+		} catch (RuntimeException failure) {
+			debug("Unable to send HTTP auxiliary delivery: " + failure.getMessage());
+			return false;
+		}
+	}
+
+	protected boolean sendStableHttpEnvelope(String server, String deliveryId, JsonEnvelope envelope) {
+		try {
+			boolean accepted = sendHttpEnvelope(server, deliveryId, envelope);
+			if (!accepted) debug("HTTP transport rejected auxiliary delivery for " + server);
+			return accepted;
+		} catch (RuntimeException failure) {
+			debug("Unable to send HTTP auxiliary delivery: " + failure.getMessage());
+			return false;
+		}
+	}
+
 	protected boolean sendHttpEnvelopeWithRecovery(String server, JsonEnvelope envelope, OfflineBungeeVote cachedVote) {
 		String stableId = cachedVote == null ? null : cachedVote.getHttpDeliveryId(server);
 		try {
@@ -3601,15 +3630,21 @@ public abstract class VotingPluginProxy {
 	private record PendingCommunicationTest(String server, BungeeMethod method, long startedAtNanos,
 			CompletableFuture<CommunicationTestResult> result) { }
 
-	private void sendVoteDelayRejected(String player, String uuid, String service, boolean playerOnline,
-			String playerServer) {
+	private boolean sendVoteDelayRejected(UUID voteId, String player, String uuid, String service,
+			boolean playerOnline, String playerServer) {
 		if (!playerOnline || playerServer == null || !getAllAvailableServers().contains(playerServer)) {
 			debug("Not sending vote delay rejection for " + player + " because the player is offline");
-			return;
+			return true;
 		}
 
-		globalMessageProxyHandler.sendMessage(playerServer, 1,
-				VotingPluginWire.voteDelayRejected(player, uuid, service, true));
+		JsonEnvelope envelope = VotingPluginWire.voteDelayRejected(player, uuid, service, true);
+		if (method == BungeeMethod.HTTP) {
+			String key = voteId + "\u0000vote-delay-rejected\u0000" + playerServer.toLowerCase(Locale.ROOT);
+			String deliveryId = UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8)).toString();
+			return sendStableHttpEnvelope(playerServer, deliveryId, envelope);
+		}
+		globalMessageProxyHandler.sendMessage(playerServer, 1, envelope);
+		return true;
 	}
 
 	public String getWaitUntilDelaySiteFromService(String service) {
@@ -3868,7 +3903,8 @@ public abstract class VotingPluginProxy {
 				data = getProxyMySQL().getExactQuery(new Column("uuid", new DataValueString(uuid)));
 				if (!checkVoteDelay(uuid, player, service, data, queuedVote == null)) {
 					log("Vote delay is not met for " + player + "/" + service + ", skipping vote");
-					sendVoteDelayRejected(player, uuid, service, playerOnline, playerServer);
+					if (!sendVoteDelayRejected(voteId, player, uuid, service, playerOnline, playerServer)
+							&& queuedVote != null) return QueuedVoteResult.RETRY;
 					return QueuedVoteResult.TERMINAL;
 				}
 			}

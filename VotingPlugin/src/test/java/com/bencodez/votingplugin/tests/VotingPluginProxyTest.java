@@ -64,6 +64,42 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void indeterminateGenericHttpSendRecoversWithoutEscapingToRetryTheVote() {
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(true);
+		String deliveryId = "00000000-0000-0000-0000-00000000016a";
+		votingPluginProxy.failNextGeneratedHttpSend(deliveryId);
+
+		assertTrue(votingPluginProxy.sendGenericHttpEnvelopeForTest("Server1",
+				VotingPluginWire.voteUpdate("uuid", 1, 10, "Service", 100L, "totals")));
+		assertEquals(java.util.List.of(deliveryId), votingPluginProxy.getAttemptedVotePartyDeliveryIds());
+	}
+
+	@Test
+	void rejectedGenericHttpSendIsHandledWithoutEscapingToRetryTheVote() {
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(false);
+
+		assertFalse(votingPluginProxy.sendGenericHttpEnvelopeForTest("Server1",
+				VotingPluginWire.voteUpdate("uuid", 1, 10, "Service", 100L, "totals")));
+	}
+
+	@Test
+	void rejectedRewardBearingAuxiliarySendRetainsItsStableDeliveryIdForRetry() {
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(false);
+		String deliveryId = "00000000-0000-0000-0000-00000000016b";
+		JsonEnvelope envelope = VotingPluginWire.voteDelayRejected("Player",
+				"00000000-0000-0000-0000-000000000001", "Service", true);
+
+		assertFalse(votingPluginProxy.sendStableHttpEnvelopeForTest("Server1", deliveryId, envelope));
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(true);
+		assertTrue(votingPluginProxy.sendStableHttpEnvelopeForTest("Server1", deliveryId, envelope));
+		assertEquals(java.util.List.of(deliveryId, deliveryId),
+				votingPluginProxy.getAttemptedVotePartyDeliveryIds());
+	}
+
+	@Test
 	void rejectedIndeterminateHttpVoteRetainsStableIdAcrossCacheSerialization() {
 		votingPluginProxy.setMethod(BungeeMethod.HTTP);
 		votingPluginProxy.setVoteEnvelopeDeliveryResult(false);

@@ -390,6 +390,14 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 		return sendHttpEnvelopeWithRecovery(server, envelope);
 	}
 
+	public boolean sendGenericHttpEnvelopeForTest(String server, JsonEnvelope envelope) {
+		return sendGenericHttpEnvelope(server, envelope);
+	}
+
+	public boolean sendStableHttpEnvelopeForTest(String server, String deliveryId, JsonEnvelope envelope) {
+		return sendStableHttpEnvelope(server, deliveryId, envelope);
+	}
+
 	public boolean sendHttpVoteEnvelopeWithRecoveryForTest(String server, JsonEnvelope envelope,
 			OfflineBungeeVote cachedVote) {
 		return sendHttpEnvelopeWithRecovery(server, envelope, cachedVote);
