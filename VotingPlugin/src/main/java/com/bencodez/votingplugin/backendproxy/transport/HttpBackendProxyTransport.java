@@ -7,6 +7,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
@@ -20,6 +22,7 @@ import com.bencodez.votingplugin.VotingPluginMain;
 public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	private static final int MAX_STARTUP_QUEUE = 1024;
 	private static final long DEFAULT_STARTUP_VALIDATION_SECONDS = 25L;
+	private static final long INCOMING_DISPATCH_SECONDS = 25L;
 	private static final long SHUTDOWN_FLUSH_SECONDS = 5L;
 	private static final ConcurrentHashMap<Path, Semaphore> DIRECTORY_OWNERS = new ConcurrentHashMap<>();
 	private final VotingPluginMain plugin;
@@ -167,12 +170,10 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 			HttpClientCredentialStore.EnrolledClient enrolled = HttpClientCredentialStore.loadEnrolled(directory);
 			if (!enrolled.profile().serverId().equals(HttpTlsIdentity.canonicalServerId(serverId)))
 				throw new IllegalStateException("Persisted HTTP identity belongs to a different backend Server name");
-			replacement = new HttpBackendTransportConnector(directory, messageHandler::onMessage);
+			replacement = new HttpBackendTransportConnector(directory,
+					envelope -> dispatchIncoming(messageHandler, envelope,
+							System.nanoTime() + TimeUnit.SECONDS.toNanos(INCOMING_DISPATCH_SECONDS)));
 			replacement.start();
-			if (!replacement.awaitFirstResponse(System.nanoTime()
-					+ TimeUnit.SECONDS.toNanos(DEFAULT_STARTUP_VALIDATION_SECONDS))) {
-				throw new IllegalStateException("HTTP backend could not authenticate with the proxy");
-			}
 			boolean discard = false;
 			synchronized (lifecycle) {
 				if (closed) {
@@ -200,6 +201,44 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 			}
 			startupComplete.countDown();
 		}
+	}
+
+	void dispatchIncoming(GlobalMessageHandler messageHandler, JsonEnvelope envelope, long deadlineNanos) {
+		CountDownLatch completed = new CountDownLatch(1);
+		AtomicReference<Throwable> failure = new AtomicReference<>();
+		AtomicInteger state = new AtomicInteger(0); // pending, running, cancelled, finished
+		try {
+			plugin.getBukkitScheduler().runTask(plugin, () -> {
+				if (!state.compareAndSet(0, 1)) {
+					completed.countDown();
+					return;
+				}
+				try {
+					messageHandler.onMessage(envelope);
+				} catch (Throwable thrown) {
+					failure.set(thrown);
+				} finally {
+					state.set(3);
+					completed.countDown();
+				}
+			});
+		} catch (Throwable rejected) {
+			throw new IllegalStateException("Could not schedule an incoming HTTP message on the server thread", rejected);
+		}
+		try {
+			long remaining = deadlineNanos - System.nanoTime();
+			if (remaining <= 0L || !completed.await(remaining, TimeUnit.NANOSECONDS)) {
+				state.compareAndSet(0, 2);
+				throw new IllegalStateException("Incoming HTTP message handling exceeded its delivery deadline");
+			}
+		} catch (InterruptedException interrupted) {
+			state.compareAndSet(0, 2);
+			Thread.currentThread().interrupt();
+			throw new IllegalStateException("Incoming HTTP message handling was interrupted", interrupted);
+		}
+		Throwable thrown = failure.get();
+		if (thrown != null)
+			throw new IllegalStateException("Incoming HTTP message handling failed", thrown);
 	}
 
 	void awaitCredentialRestoration(long deadlineNanos) {
@@ -256,7 +295,15 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 		}
 		RuntimeException failure = startupFailure;
 		if (failure != null) throw failure;
-		if (closed || connector == null) throw new IllegalStateException("Secure HTTP backend transport did not become ready");
+		HttpBackendTransportConnector active = connector;
+		if (closed || active == null) throw new IllegalStateException("Secure HTTP backend transport did not initialize");
+		try {
+			if (!active.awaitFirstResponse(deadlineNanos))
+				throw new IllegalStateException("HTTP backend could not authenticate with the proxy");
+		} catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt();
+			throw new IllegalStateException("Secure HTTP backend readiness validation was interrupted", interrupted);
+		}
 	}
 
 	public static void validateConfiguration(Path directory, String serverId, String configuredCode) {

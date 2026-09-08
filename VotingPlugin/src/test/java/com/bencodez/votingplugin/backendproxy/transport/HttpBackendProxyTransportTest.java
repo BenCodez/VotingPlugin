@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -17,16 +18,113 @@ import com.bencodez.simpleapi.servercomm.http.HttpTlsIdentity;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.BungeeSettings;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
+import com.bencodez.simpleapi.servercomm.global.GlobalMessageListener;
+import com.bencodez.simpleapi.scheduler.BukkitScheduler;
+import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import java.net.URI;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class HttpBackendProxyTransportTest {
 	@TempDir Path directory;
+
+	@Test
+	void dispatchesIncomingMessagesOnTheServerSchedulerAndWaitsForCompletion() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		AtomicReference<String> callbackThread = new AtomicReference<>();
+		CountDownLatch callbackFinished = new CountDownLatch(1);
+		GlobalMessageHandler handler = new GlobalMessageHandler() {
+			@Override public void sendMessage(JsonEnvelope envelope) { }
+		};
+		handler.addListener(new GlobalMessageListener("test") {
+			@Override public void onReceive(JsonEnvelope envelope) {
+				callbackThread.set(Thread.currentThread().getName());
+				callbackFinished.countDown();
+			}
+		});
+		doAnswer(invocation -> {
+			Runnable task = invocation.getArgument(1);
+			Thread serverThread = new Thread(task, "test-server-thread");
+			serverThread.start();
+			return null;
+		}).when(scheduler).runTask(org.mockito.ArgumentMatchers.eq(plugin), org.mockito.ArgumentMatchers.any(Runnable.class));
+		JsonEnvelope envelope = JsonEnvelope.builder("test").put("message", "payload").build();
+
+		new HttpBackendProxyTransport(plugin).dispatchIncoming(handler, envelope,
+				System.nanoTime() + TimeUnit.SECONDS.toNanos(1));
+
+		assertTrue(callbackFinished.await(1, TimeUnit.SECONDS));
+		assertEquals("test-server-thread", callbackThread.get());
+	}
+
+	@Test
+	void timedOutScheduledMessageCannotExecuteLater() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		AtomicReference<Runnable> scheduled = new AtomicReference<>();
+		doAnswer(invocation -> {
+			scheduled.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTask(org.mockito.ArgumentMatchers.eq(plugin), org.mockito.ArgumentMatchers.any(Runnable.class));
+		java.util.concurrent.atomic.AtomicInteger deliveries = new java.util.concurrent.atomic.AtomicInteger();
+		GlobalMessageHandler handler = new GlobalMessageHandler() {
+			@Override public void sendMessage(JsonEnvelope envelope) { }
+		};
+		handler.addListener(new GlobalMessageListener("test") {
+			@Override public void onReceive(JsonEnvelope envelope) { deliveries.incrementAndGet(); }
+		});
+
+		assertThrows(IllegalStateException.class,
+				() -> new HttpBackendProxyTransport(plugin).dispatchIncoming(handler,
+						JsonEnvelope.builder("test").build(), System.nanoTime()));
+		assertTrue(scheduled.get() != null);
+		scheduled.get().run();
+		assertEquals(0, deliveries.get(), "a delivery rejected at its deadline must stay fenced");
+	}
+
+	@Test
+	void interruptedScheduledMessageCannotExecuteLater() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		AtomicReference<Runnable> scheduled = new AtomicReference<>();
+		doAnswer(invocation -> {
+			scheduled.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTask(org.mockito.ArgumentMatchers.eq(plugin), org.mockito.ArgumentMatchers.any(Runnable.class));
+		java.util.concurrent.atomic.AtomicInteger deliveries = new java.util.concurrent.atomic.AtomicInteger();
+		GlobalMessageHandler handler = new GlobalMessageHandler() {
+			@Override public void sendMessage(JsonEnvelope envelope) { }
+		};
+		handler.addListener(new GlobalMessageListener("test") {
+			@Override public void onReceive(JsonEnvelope envelope) { deliveries.incrementAndGet(); }
+		});
+		AtomicReference<Throwable> dispatchFailure = new AtomicReference<>();
+		Thread dispatch = new Thread(() -> {
+			try {
+				new HttpBackendProxyTransport(plugin).dispatchIncoming(handler,
+						JsonEnvelope.builder("test").build(), System.nanoTime() + TimeUnit.SECONDS.toNanos(5));
+			} catch (Throwable thrown) {
+				dispatchFailure.set(thrown);
+			}
+		});
+		dispatch.start();
+		while (scheduled.get() == null) Thread.onSpinWait();
+		dispatch.interrupt();
+		dispatch.join(TimeUnit.SECONDS.toMillis(1));
+
+		assertTrue(dispatchFailure.get() instanceof IllegalStateException);
+		scheduled.get().run();
+		assertEquals(0, deliveries.get(), "an interrupted delivery must stay fenced");
+	}
 
 	@Test
 	void validatesInitialConnectionCodeSynchronously() {
@@ -165,6 +263,10 @@ class HttpBackendProxyTransportTest {
 		assertTrue(finished.await(3, TimeUnit.SECONDS));
 		validation.join(TimeUnit.SECONDS.toMillis(1));
 		assertTrue(failure.get() instanceof IllegalStateException);
+		java.lang.reflect.Field connectorField = HttpBackendProxyTransport.class.getDeclaredField("connector");
+		connectorField.setAccessible(true);
+		assertTrue(connectorField.get(transport) instanceof HttpBackendTransportConnector,
+				"a readiness timeout must not tear down the connector's background retry loop");
 		transport.close();
 	}
 
