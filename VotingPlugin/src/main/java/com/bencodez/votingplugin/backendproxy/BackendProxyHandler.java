@@ -159,6 +159,12 @@ public class BackendProxyHandler implements Listener {
 		replacement.transportManager.activateRedisAfterHandoff();
 	}
 
+	/** Forwards messages buffered while the previous HTTP credentials were released. */
+	public void completeHttpHandoff(BackendProxyHandler replacement) {
+		if (method != BungeeMethod.HTTP || replacement.method != BungeeMethod.HTTP) return;
+		transportManager.completePreparedTransportHandoff(replacement.transportManager);
+	}
+
 	public void playerOnline(String playerName, String uuid) {
 		if (presenceManager != null) {
 			presenceManager.playerOnline(playerName, uuid);

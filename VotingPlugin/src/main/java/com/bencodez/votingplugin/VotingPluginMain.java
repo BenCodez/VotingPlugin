@@ -1310,6 +1310,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				return;
 			}
 			if (restart.previous != null) restart.previous.completeRedisHandoff(restart.replacement);
+			if (restart.previous != null) restart.previous.completeHttpHandoff(restart.replacement);
 			restart.replacement.activatePresenceReporting();
 			backendProxyHandler = restart.replacement;
 			if (restart.previous != null) restart.previous.close();

@@ -15,11 +15,15 @@ import com.bencodez.votingplugin.proxy.BungeeMethod;
  * Selects and owns the active backend-to-proxy transport.
  */
 public class BackendProxyTransportManager {
+	private static final int MAX_PREPARED_SENDS = 1024;
 
 	private final VotingPluginMain plugin;
 	private final ProcessedVoteCache processedVoteCache;
 	private BackendProxyTransport transport;
 	private BackendProxyTransport preparedTransport;
+	private BackendProxyTransportManager forwardingManager;
+	private final java.util.ArrayDeque<JsonEnvelope> preparedSends = new java.util.ArrayDeque<>();
+	private boolean preparedQueueWarning;
 
 	public BackendProxyTransportManager(VotingPluginMain plugin) {
 		this(plugin, new ProcessedVoteCache());
@@ -57,9 +61,18 @@ public class BackendProxyTransportManager {
 		transport.start(messageHandler);
 	}
 
-	public void send(JsonEnvelope envelope) {
+	public synchronized void send(JsonEnvelope envelope) {
 		if (transport != null) {
 			transport.send(envelope);
+		} else if (forwardingManager != null) {
+			forwardingManager.send(envelope);
+		} else if (preparedTransport != null) {
+			if (preparedSends.size() < MAX_PREPARED_SENDS) {
+				preparedSends.addLast(envelope);
+			} else if (!preparedQueueWarning) {
+				preparedQueueWarning = true;
+				plugin.getLogger().severe("HTTP replacement handoff queue is full; delivery was not accepted");
+			}
 		}
 	}
 
@@ -67,7 +80,7 @@ public class BackendProxyTransportManager {
 		if (transport != null) transport.activateAfterPublication();
 	}
 
-	public void close() {
+	public synchronized void close() {
 		if (transport != null) {
 			transport.close();
 			transport = null;
@@ -76,6 +89,7 @@ public class BackendProxyTransportManager {
 			preparedTransport.close();
 			preparedTransport = null;
 		}
+		if (forwardingManager == null) preparedSends.clear();
 	}
 
 	public void validate() {
@@ -88,7 +102,7 @@ public class BackendProxyTransportManager {
 		else transport.validate();
 	}
 
-	public void prepareForReplacement() {
+	public synchronized void prepareForReplacement() {
 		if (transport != null) {
 			transport.prepareForReplacement();
 			preparedTransport = transport;
@@ -96,7 +110,13 @@ public class BackendProxyTransportManager {
 		}
 	}
 
-	public void restorePreparedTransport() {
+	public synchronized void completePreparedTransportHandoff(BackendProxyTransportManager replacement) {
+		if (preparedTransport == null) return;
+		forwardingManager = java.util.Objects.requireNonNull(replacement, "replacement");
+		while (!preparedSends.isEmpty()) forwardingManager.send(preparedSends.removeFirst());
+	}
+
+	public synchronized void restorePreparedTransport() {
 		if (transport != null || preparedTransport == null) return;
 		if (preparedTransport instanceof HttpBackendProxyTransport http) {
 			transport = http.recreatePrepared();
@@ -104,6 +124,8 @@ public class BackendProxyTransportManager {
 			throw new IllegalStateException("Prepared backend proxy transport cannot be restored");
 		}
 		preparedTransport = null;
+		while (!preparedSends.isEmpty()) transport.send(preparedSends.removeFirst());
+		preparedQueueWarning = false;
 	}
 
 	public void restoreAfterFailedReplacement() {

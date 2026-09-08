@@ -33,6 +33,8 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	private volatile RuntimeException credentialRestoreFailure;
 	private volatile boolean started;
 	private volatile boolean closed;
+	private volatile boolean restartAfterFailedFlush;
+	private final java.util.concurrent.atomic.AtomicBoolean flushRecoveryRunning = new java.util.concurrent.atomic.AtomicBoolean();
 	private Path configuredDirectory;
 	private String configuredServerId;
 	private String configuredConnectionCode;
@@ -92,7 +94,40 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 		} catch (Exception failure) {
 			throw new IllegalStateException("Could not preserve the active HTTP client credential", failure);
 		}
+		flushForReplacement(connector, System.nanoTime() + TimeUnit.SECONDS.toNanos(SHUTDOWN_FLUSH_SECONDS));
 		close();
+	}
+
+	void flushForReplacement(HttpBackendTransportConnector connector, long deadlineNanos) {
+		if (connector.flushOutgoing(deadlineNanos)) return;
+		restartAfterFailedFlush = true;
+		connector.start();
+		if (flushRecoveryRunning.compareAndSet(false, true)) {
+			Thread recovery = new Thread(() -> resumeAfterFailedFlush(connector),
+					"VotingPlugin-HTTP-Backend-Flush-Recovery");
+			recovery.setDaemon(true);
+			recovery.start();
+		}
+		throw new IllegalStateException("Could not drain the active HTTP transport before replacement");
+	}
+
+	private void resumeAfterFailedFlush(HttpBackendTransportConnector active) {
+		try {
+			// start() intentionally does nothing while the interrupted long-poll worker is
+			// still winding down. Keep a single recovery owner alive until this transport is
+			// closed or replaced so the connector's already-accepted queue cannot be stranded.
+			while (!closed && connector == active) {
+				active.start();
+				synchronized (lifecycle) {
+					while (!startupQueue.isEmpty() && active.send(startupQueue.peekFirst())) startupQueue.removeFirst();
+				}
+				try { TimeUnit.SECONDS.sleep(1); }
+				catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); break; }
+			}
+		} finally {
+			flushRecoveryRunning.set(false);
+			if (closed || connector != active) restartAfterFailedFlush = false;
+		}
 	}
 
 	private void initialize(Path directory, String serverId, String configuredCode,
@@ -187,8 +222,11 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 			if (closed) return;
 			HttpBackendTransportConnector active = connector;
 			if (active != null) {
-				if (!active.send(envelope) && queueWarning.compareAndSet(false, true))
-					plugin.getLogger().severe("Secure HTTP transport queue is full or rejected an oversized message; delivery was not accepted");
+				if (!active.send(envelope)) {
+					if (restartAfterFailedFlush && startupQueue.size() < MAX_STARTUP_QUEUE) startupQueue.addLast(envelope);
+					else if (queueWarning.compareAndSet(false, true))
+						plugin.getLogger().severe("Secure HTTP transport queue is full or rejected an oversized message; delivery was not accepted");
+				}
 			} else if (startupQueue.size() < MAX_STARTUP_QUEUE) {
 				startupQueue.addLast(envelope);
 			}

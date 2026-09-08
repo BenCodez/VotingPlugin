@@ -7,8 +7,10 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bencodez.simpleapi.servercomm.http.HttpBackendTransportConnector;
 import com.bencodez.simpleapi.servercomm.http.HttpClientCredentialStore;
 import com.bencodez.simpleapi.servercomm.http.HttpConnectionCode;
 import com.bencodez.simpleapi.servercomm.http.HttpTlsIdentity;
@@ -69,6 +71,18 @@ class HttpBackendProxyTransportTest {
 	}
 
 	@Test
+	void failedReplacementFlushResumesTheExistingConnector() {
+		HttpBackendTransportConnector connector = mock(HttpBackendTransportConnector.class);
+		when(connector.flushOutgoing(org.mockito.ArgumentMatchers.anyLong())).thenReturn(false);
+		HttpBackendProxyTransport transport = new HttpBackendProxyTransport(mock(VotingPluginMain.class));
+
+		assertThrows(IllegalStateException.class,
+				() -> transport.flushForReplacement(connector, System.nanoTime()));
+
+		verify(connector).start();
+	}
+
+	@Test
 	void closeNeverWaitsForSetupOnTheCallingThread() throws Exception {
 		HttpBackendProxyTransport transport = new HttpBackendProxyTransport(mock(VotingPluginMain.class));
 		CountDownLatch started = new CountDownLatch(1), release = new CountDownLatch(1);
@@ -105,7 +119,9 @@ class HttpBackendProxyTransportTest {
 		directoryField.set(transport, credentials);
 		java.lang.reflect.Field connectorField = HttpBackendProxyTransport.class.getDeclaredField("connector");
 		connectorField.setAccessible(true);
-		connectorField.set(transport, mock(com.bencodez.simpleapi.servercomm.http.HttpBackendTransportConnector.class));
+		HttpBackendTransportConnector connector = mock(HttpBackendTransportConnector.class);
+		when(connector.flushOutgoing(org.mockito.ArgumentMatchers.anyLong())).thenReturn(true);
+		connectorField.set(transport, connector);
 
 		assertDoesNotThrow(transport::prepareForReplacement);
 		java.lang.reflect.Field generationField =

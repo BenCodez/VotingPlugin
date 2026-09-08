@@ -310,6 +310,31 @@ class BackendProxyHandlerLifecycleTest {
 	}
 
 	@Test
+	void forwardsMessagesBufferedDuringPreparedHttpReplacement() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BackendProxyTransportManager previous = new BackendProxyTransportManager(plugin);
+		BackendProxyTransportManager replacement = new BackendProxyTransportManager(plugin);
+		BackendProxyTransport previousTransport = mock(BackendProxyTransport.class);
+		BackendProxyTransport replacementTransport = mock(BackendProxyTransport.class);
+		setField(previous, "transport", previousTransport);
+		setField(replacement, "transport", replacementTransport);
+		com.bencodez.simpleapi.servercomm.codec.JsonEnvelope duringValidation =
+				com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.builder("during-validation").build();
+		com.bencodez.simpleapi.servercomm.codec.JsonEnvelope afterPublication =
+				com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.builder("after-publication").build();
+
+		previous.prepareForReplacement();
+		previous.send(duringValidation);
+		verifyNoInteractions(replacementTransport);
+
+		previous.completePreparedTransportHandoff(replacement);
+		previous.send(afterPublication);
+
+		verify(replacementTransport).send(duringValidation);
+		verify(replacementTransport).send(afterPublication);
+	}
+
+	@Test
 	void releasesMysqlSubscriberBeforeSameMethodReplacement() throws Exception {
 		MysqlBackendProxyTransport handler = new MysqlBackendProxyTransport(null);
 		MySqlMessenger messenger = mock(MySqlMessenger.class);
