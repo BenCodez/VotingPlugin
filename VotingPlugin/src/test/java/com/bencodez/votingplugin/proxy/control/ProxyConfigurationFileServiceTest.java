@@ -672,6 +672,68 @@ class ProxyConfigurationFileServiceTest {
 	}
 
 	@Test
+	void masksDelimiterFreeSingleLabelInfrastructureHostsInComments() throws Exception {
+		Path file = write("""
+				# alternate Redis host redis-primary
+				# failover endpoint control
+				# database host db-production
+				# broker localhost:1883
+				# port 25565
+				# Control URL control-proxy
+				Feature: false
+				""");
+		ProxyConfigurationFileService service = service(file);
+
+		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
+		assertFalse(current.content().contains("redis-primary"));
+		assertFalse(current.content().contains("control"));
+		assertFalse(current.content().contains("db-production"));
+		assertFalse(current.content().contains("localhost"));
+		assertFalse(current.content().contains("25565"));
+		assertFalse(current.content().contains("control-proxy"));
+		assertTrue(current.content().contains(ProxyConfigurationFileService.REDACTED));
+
+		String proposal = current.content().replace("Feature: false", "Feature: true");
+		ProxyConfigurationFileService.Preview preview = service.preview(ProxyConfigurationFileService.FILE_NAME, proposal);
+		assertTrue(preview.resolvedContent().contains("alternate Redis host redis-primary"));
+		assertTrue(preview.resolvedContent().contains("failover endpoint control"));
+		assertTrue(preview.resolvedContent().contains("database host db-production"));
+		assertTrue(preview.resolvedContent().contains("broker localhost:1883"));
+		assertTrue(preview.resolvedContent().contains("port 25565"));
+		assertTrue(preview.resolvedContent().contains("Control URL control-proxy"));
+	}
+
+	@Test
+	void allowsSafeEndAppendsToSecretBearingLists() throws Exception {
+		Path file = write("""
+				Hooks:
+				  - Name: primary
+				    Password: primary-secret
+				  - Name: secondary
+				    Password: secondary-secret
+				Debug: false
+				""");
+		ProxyConfigurationFileService service = service(file);
+		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
+
+		String proposal = current.content().replace("Debug: false",
+				"- Name: tertiary\n  Password: tertiary-secret\nDebug: false");
+		ProxyConfigurationFileService.Preview preview = service.preview(ProxyConfigurationFileService.FILE_NAME, proposal);
+
+		assertTrue(preview.resolvedContent().contains("Name: primary"));
+		assertTrue(preview.resolvedContent().contains("Password: primary-secret"));
+		assertTrue(preview.resolvedContent().contains("Name: secondary"));
+		assertTrue(preview.resolvedContent().contains("Password: secondary-secret"));
+		assertTrue(preview.resolvedContent().contains("Name: tertiary"));
+		assertTrue(preview.resolvedContent().contains("Password: tertiary-secret"));
+
+		String markerAppend = current.content().replace("Debug: false",
+				"- Name: tertiary\n  Password: " + ProxyConfigurationFileService.REDACTED + "\nDebug: false");
+		assertThrows(IllegalArgumentException.class,
+				() -> service.preview(ProxyConfigurationFileService.FILE_NAME, markerAppend));
+	}
+
+	@Test
 	void masksShortAndBooleanLikeSecretsRepeatedInOtherwisePublicComments() throws Exception {
 		Path file = write("""
 				Database:

@@ -55,6 +55,10 @@ final class ProxyConfigurationFileService {
 	private static final Pattern LABELED_COMMENT_DETAIL = Pattern.compile("([A-Za-z0-9 _-]+)\\s*[:=]");
 	private static final Pattern BARE_NETWORK_ADDRESS = Pattern.compile(
 			"(?i)(?<![a-z0-9_-])(?:(?:\\d{1,3}\\.){3}\\d{1,3}|(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}|(?=[0-9a-f:]*:[0-9a-f:]*:)[0-9a-f:]{3,})(?![a-z0-9_:-])");
+	private static final Pattern DELIMITER_FREE_INFRASTRUCTURE_HOST = Pattern.compile(
+			"(?i)\\b(?:host|hostname|endpoint|address|port|url|uri|server|broker|database|db|redis|mysql|mqtt|bungee|proxy|socket)\\b"
+					+ "(?:\\s+(?:is|at|on|through|via|to|for|named|called|connection|server|endpoint|host|hostname|address|port|url|uri|broker|database|db|redis|mysql|mqtt|bungee|proxy|socket)){0,3}"
+					+ "\\s+[a-z0-9](?:[a-z0-9_-]{0,61}[a-z0-9])?(?::\\d{1,5})?(?=\\s*(?:$|[\\s,;.)\\]}]))");
 	private final Path target;
 	private final MoveAction mover;
 	private final TempFileAction tempFiles;
@@ -420,7 +424,7 @@ final class ProxyConfigurationFileService {
 
 	@SuppressWarnings("unchecked")
 	private static void validateRedactedList(List<?> current, List<?> proposed, String path) {
-		if (containsSecrets(current, path) && current.size() != proposed.size()) {
+		if (containsSecrets(current, path) && proposed.size() < current.size()) {
 			throw new IllegalArgumentException("redacted placeholder is invalid");
 		}
 		for (int index = 0; index < Math.min(current.size(), proposed.size()); index++) {
@@ -698,6 +702,7 @@ final class ProxyConfigurationFileService {
 		if (lowered.matches("(?s).*\\b(password|passphrase|secret|token|credentials?|api[ _-]?key|access[ _-]?key|private[ _-]?key|client[ _-]?secret|signing[ _-]?key|authorization|jdbc|webhook)\\b.*")
 				|| lowered.matches("(?s).*[a-z][a-z0-9+.-]*://[^/@\\s]+:[^/@\\s]+@.*")
 				|| labeledSensitiveDetail(comment)
+				|| DELIMITER_FREE_INFRASTRUCTURE_HOST.matcher(comment).find()
 				|| BARE_NETWORK_ADDRESS.matcher(comment).find()
 				|| lowered.matches("(?s).*\\b(?:jdbc:[a-z][a-z0-9+.-]*:|[a-z][a-z0-9+.-]*://)[^\\s#]+.*")) return true;
 		for (String value : values) {
@@ -912,11 +917,14 @@ final class ProxyConfigurationFileService {
 					|| !sawNonSecret && sawSecret && allSecretsRedacted;
 		}
 		if (proposed instanceof List<?> proposedList && current instanceof List<?> currentList) {
-			if (proposedList.size() != currentList.size()) return false;
-			for (int i = 0; i < proposedList.size(); i++) {
+			if (proposedList.size() < currentList.size()) return false;
+			for (int i = 0; i < currentList.size(); i++) {
 				if (!sameSecretSafeListOrder(proposedList.get(i), currentList.get(i), path + "[" + i + "]")) return false;
 				if (hasNonSecretEdit(proposedList.get(i), currentList.get(i), path + "[" + i + "]")
 						&& !hasUniqueStableIdentity(proposedList, currentList, i)) return false;
+			}
+			for (int i = currentList.size(); i < proposedList.size(); i++) {
+				if (containsMarker(proposedList.get(i))) return false;
 			}
 			return true;
 		}
