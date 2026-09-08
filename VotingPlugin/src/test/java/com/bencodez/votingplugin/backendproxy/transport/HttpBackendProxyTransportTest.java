@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.backendproxy.transport;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -178,6 +179,121 @@ class HttpBackendProxyTransportTest {
 	}
 
 	@Test
+	void replacementCancelsRetryingInitialEnrollmentWithoutCredential() throws Exception {
+		HttpBackendProxyTransport transport = new HttpBackendProxyTransport(mock(VotingPluginMain.class));
+		Path credentials = directory.resolve("http");
+		java.lang.reflect.Field directoryField = HttpBackendProxyTransport.class.getDeclaredField("configuredDirectory");
+		directoryField.setAccessible(true);
+		directoryField.set(transport, credentials);
+		java.lang.reflect.Field ownersField = HttpBackendProxyTransport.class.getDeclaredField("DIRECTORY_OWNERS");
+		ownersField.setAccessible(true);
+		@SuppressWarnings("unchecked")
+		var owners = (java.util.concurrent.ConcurrentHashMap<Path, java.util.concurrent.Semaphore>) ownersField.get(null);
+		Path ownerKey = credentials.toAbsolutePath().normalize();
+		java.util.concurrent.Semaphore owner = new java.util.concurrent.Semaphore(0);
+		owners.put(ownerKey, owner);
+		CountDownLatch workerStarted = new CountDownLatch(1);
+		Thread retryingEnrollment = new Thread(() -> {
+			workerStarted.countDown();
+			try { Thread.sleep(Long.MAX_VALUE); }
+			catch (InterruptedException expected) { Thread.currentThread().interrupt(); }
+			finally { owner.release(); }
+		});
+		java.lang.reflect.Field workerField = HttpBackendProxyTransport.class.getDeclaredField("worker");
+		workerField.setAccessible(true);
+		workerField.set(transport, retryingEnrollment);
+		retryingEnrollment.start();
+		assertTrue(workerStarted.await(1, TimeUnit.SECONDS));
+		JsonEnvelope queued = JsonEnvelope.builder("queued-before-replacement").build();
+		transport.send(queued);
+
+		assertDoesNotThrow(transport::prepareForReplacement,
+				"a staged Control replacement must cancel a first-time retry loop without an active credential");
+		java.lang.reflect.Field restoreAbsent =
+				HttpBackendProxyTransport.class.getDeclaredField("restoreUnenrolledState");
+		restoreAbsent.setAccessible(true);
+		assertTrue(restoreAbsent.getBoolean(transport), "rollback must remember that no credential existed");
+		assertEquals(List.of(queued), transport.drainPreparedMessages(),
+				"messages accepted before replacement must remain available for handoff");
+
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+		while (owner.availablePermits() == 0 && System.nanoTime() < deadline) Thread.onSpinWait();
+		assertEquals(1, owner.availablePermits(),
+				"cancelled enrollment must release the credential-directory ownership");
+		owners.remove(ownerKey, owner);
+	}
+
+	@Test
+	void replacementSnapshotsInitialEnrollmentPublishedWhileCancellationCompletes() throws Exception {
+		HttpBackendProxyTransport transport = new HttpBackendProxyTransport(mock(VotingPluginMain.class));
+		Path credentials = directory.resolve("http");
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("original-proxy"),
+				"proxy.example.test");
+		HttpConnectionCode original = new HttpConnectionCode("lobby-1", URI.create("https://proxy.example.test:8443/"),
+				identity.serverCertificatePin(), identity.caCertificatePin(), Instant.now().plusSeconds(60), "G".repeat(43));
+		setField(transport, "configuredDirectory", credentials);
+		setField(transport, "configuredServerId", "lobby-1");
+		setField(transport, "configuredConnectionCode", original.encode());
+		CountDownLatch workerStarted = new CountDownLatch(1);
+		java.util.concurrent.atomic.AtomicReference<Throwable> failure = new java.util.concurrent.atomic.AtomicReference<>();
+		Thread finishingEnrollment = new Thread(() -> {
+			workerStarted.countDown();
+			try {
+				Thread.sleep(Long.MAX_VALUE);
+			} catch (InterruptedException expected) {
+				try {
+					HttpClientCredentialStore.saveEnrolled(credentials, original,
+							identity.issueClientCertificate("lobby-1"));
+				} catch (Throwable thrown) { failure.set(thrown); }
+			}
+		});
+		setField(transport, "worker", finishingEnrollment);
+		finishingEnrollment.start();
+		assertTrue(workerStarted.await(1, TimeUnit.SECONDS));
+
+		transport.prepareForReplacement();
+
+		assertNull(failure.get());
+		assertNotNull(field(transport, "configuredCredentialGeneration"),
+				"a credential published while cancellation finishes must be retained for rollback");
+		assertFalse((boolean) field(transport, "restoreUnenrolledState"));
+	}
+
+	@Test
+	void rollbackRestoresAnExplicitlyUnenrolledCredentialState() throws Exception {
+		Path credentials = directory.resolve("http");
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("replacement-proxy"),
+				"proxy.example.test");
+		HttpConnectionCode stagedCode = new HttpConnectionCode("lobby-1",
+				URI.create("https://proxy.example.test:1297/"), identity.serverCertificatePin(),
+				identity.caCertificatePin(), Instant.now().plusSeconds(60), "E".repeat(43));
+		HttpClientCredentialStore.saveEnrolled(credentials, stagedCode,
+				identity.issueClientCertificate("lobby-1"));
+		assertTrue(HttpClientCredentialStore.hasEnrolledProfile(credentials));
+
+		HttpConnectionCode original = code("lobby-1", Instant.now().plusSeconds(60));
+		HttpBackendProxyTransport.restoreUnenrolledCredentialState(credentials, "lobby-1", original.encode());
+
+		assertFalse(HttpClientCredentialStore.hasEnrolledProfile(credentials),
+				"a failed staged first enrollment must not remain active during rollback");
+	}
+
+	@Test
+	void rollbackRetainsEnrollmentIssuedForTheOriginalOneTimeCode() throws Exception {
+		Path credentials = directory.resolve("http");
+		HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.resolve("same-code-proxy"),
+				"proxy.example.test");
+		HttpConnectionCode original = new HttpConnectionCode("lobby-1", URI.create("https://proxy.example.test:1297/"),
+				identity.serverCertificatePin(), identity.caCertificatePin(), Instant.now().plusSeconds(60), "F".repeat(43));
+		HttpClientCredentialStore.saveEnrolled(credentials, original, identity.issueClientCertificate("lobby-1"));
+
+		HttpBackendProxyTransport.restoreUnenrolledCredentialState(credentials, "lobby-1", original.encode());
+
+		assertTrue(HttpClientCredentialStore.hasEnrolledProfile(credentials),
+				"a credential issued for the consumed original code must remain recoverable");
+	}
+
+	@Test
 	void stagedEnrollmentRemainsFailFast() throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
@@ -315,5 +431,17 @@ class HttpBackendProxyTransportTest {
 	private static HttpConnectionCode code(String serverId, Instant expiry) {
 		return new HttpConnectionCode(serverId, URI.create("https://proxy.example.test:1297/"), "a".repeat(64),
 				"b".repeat(64), expiry, "A".repeat(43));
+	}
+
+	private static void setField(Object target, String name, Object value) throws Exception {
+		java.lang.reflect.Field field = target.getClass().getDeclaredField(name);
+		field.setAccessible(true);
+		field.set(target, value);
+	}
+
+	private static Object field(Object target, String name) throws Exception {
+		java.lang.reflect.Field field = target.getClass().getDeclaredField(name);
+		field.setAccessible(true);
+		return field.get(target);
 	}
 }

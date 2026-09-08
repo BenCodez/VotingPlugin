@@ -117,6 +117,9 @@ public class BackendProxyTransportManager {
 	public synchronized void completePreparedTransportHandoff(BackendProxyTransportManager replacement) {
 		if (preparedTransport == null) return;
 		forwardingManager = java.util.Objects.requireNonNull(replacement, "replacement");
+		if (preparedTransport instanceof HttpBackendProxyTransport http) {
+			for (JsonEnvelope envelope : http.drainPreparedMessages()) forwardingManager.send(envelope);
+		}
 		while (!preparedSends.isEmpty()) forwardingManager.send(preparedSends.removeFirst());
 	}
 

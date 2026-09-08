@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.backendproxy.transport;
 
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.util.ArrayDeque;
@@ -17,6 +19,7 @@ import com.bencodez.simpleapi.servercomm.http.HttpClientCredentialStore;
 import com.bencodez.simpleapi.servercomm.http.HttpConnectionCode;
 import com.bencodez.simpleapi.servercomm.http.HttpTlsIdentity;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.util.DurableFiles;
 
 /** Backend adapter for the secure outbound-only HTTP proxy transport. */
 public final class HttpBackendProxyTransport implements BackendProxyTransport {
@@ -46,6 +49,8 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	private GlobalMessageHandler configuredMessageHandler;
 	private HttpClientCredentialStore.ActiveCredentialGeneration configuredCredentialGeneration;
 	private HttpClientCredentialStore.ActiveCredentialGeneration credentialGenerationToRestore;
+	private boolean retryInitialization;
+	private boolean restoreUnenrolledState;
 	private Semaphore directoryOwner;
 	private final java.util.concurrent.atomic.AtomicBoolean queueWarning = new java.util.concurrent.atomic.AtomicBoolean();
 
@@ -63,33 +68,37 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 		Path directory = plugin.getDataFolder().toPath().resolve("http");
 		String serverId = plugin.getBungeeSettings().getServer();
 		String connectionCode = plugin.getBungeeSettings().getHttpConnectionCode();
-		start(directory, serverId, connectionCode, messageHandler, null, retryInitialization);
+		start(directory, serverId, connectionCode, messageHandler, null, retryInitialization, false);
 	}
 
 	private void start(Path directory, String serverId, String connectionCode,
 			GlobalMessageHandler messageHandler) {
-		start(directory, serverId, connectionCode, messageHandler, null, true);
+		start(directory, serverId, connectionCode, messageHandler, null, true, false);
 	}
 
 	private void start(Path directory, String serverId, String connectionCode,
 			GlobalMessageHandler messageHandler,
 			HttpClientCredentialStore.ActiveCredentialGeneration generationToRestore) {
-		start(directory, serverId, connectionCode, messageHandler, generationToRestore, false);
+		start(directory, serverId, connectionCode, messageHandler, generationToRestore, false, false);
 	}
 
 	private void start(Path directory, String serverId, String connectionCode,
 			GlobalMessageHandler messageHandler,
 			HttpClientCredentialStore.ActiveCredentialGeneration generationToRestore,
-			boolean retryInitialization) {
-		if (generationToRestore == null) validateConfiguration(directory, serverId, connectionCode);
+			boolean retryInitialization, boolean restoreUnenrolledState) {
+		if (generationToRestore == null && !restoreUnenrolledState)
+			validateConfiguration(directory, serverId, connectionCode);
 		else HttpTlsIdentity.canonicalServerId(serverId);
 		configuredDirectory = directory;
 		configuredServerId = serverId;
 		configuredConnectionCode = connectionCode;
 		configuredMessageHandler = messageHandler;
 		credentialGenerationToRestore = generationToRestore;
+		this.retryInitialization = retryInitialization;
+		this.restoreUnenrolledState = restoreUnenrolledState;
 		started = true;
-		worker = new Thread(() -> initialize(directory, serverId, connectionCode, messageHandler, retryInitialization),
+		worker = new Thread(() -> initialize(directory, serverId, connectionCode, messageHandler, retryInitialization,
+				restoreUnenrolledState),
 				"VotingPlugin-HTTP-Backend-Setup");
 		worker.setDaemon(true);
 		worker.start();
@@ -97,22 +106,88 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 
 	HttpBackendProxyTransport recreatePrepared() {
 		HttpBackendProxyTransport restored = new HttpBackendProxyTransport(plugin);
+		synchronized (lifecycle) {
+			restored.startupQueue.addAll(startupQueue);
+			startupQueue.clear();
+		}
 		restored.start(configuredDirectory, configuredServerId, configuredConnectionCode, configuredMessageHandler,
-				configuredCredentialGeneration);
+				configuredCredentialGeneration, configuredCredentialGeneration == null && retryInitialization,
+				restoreUnenrolledState);
 		return restored;
+	}
+
+	java.util.List<JsonEnvelope> drainPreparedMessages() {
+		synchronized (lifecycle) {
+			java.util.List<JsonEnvelope> pending = java.util.List.copyOf(startupQueue);
+			startupQueue.clear();
+			return pending;
+		}
 	}
 
 	@Override
 	public void prepareForReplacement() {
-		if (connector == null || configuredDirectory == null)
-			throw new IllegalStateException("Could not preserve the active HTTP client credential before it became ready");
-		try {
-			configuredCredentialGeneration = HttpClientCredentialStore.snapshotActiveGeneration(configuredDirectory);
-		} catch (Exception failure) {
-			throw new IllegalStateException("Could not preserve the active HTTP client credential", failure);
+		HttpBackendTransportConnector active;
+		Thread cancelledInitialization = null;
+		/*
+		 * Keep the check, credential snapshot, and cancellation in one lifecycle
+		 * critical section.  During ordinary first-time enrollment the setup worker
+		 * owns DIRECTORY_OWNERS while it retries and connector is intentionally null.
+		 * A Control replacement must be able to cancel that worker before claiming
+		 * the same credential directory; there is no credential to preserve in that
+		 * state.  If enrollment has already published a credential but the connector
+		 * has not yet been installed, retain the generation just as we do for an
+		 * established connector.
+		 */
+		synchronized (lifecycle) {
+			if (configuredDirectory == null)
+				throw new IllegalStateException("Could not preserve the active HTTP client credential before it became ready");
+			active = connector;
+			if (active == null && !HttpClientCredentialStore.hasEnrolledProfile(configuredDirectory)) {
+				restoreUnenrolledState = true;
+				cancelledInitialization = worker;
+				closeForReplacement();
+			} else try {
+				configuredCredentialGeneration = HttpClientCredentialStore.snapshotActiveGeneration(configuredDirectory);
+			} catch (Exception failure) {
+				throw new IllegalStateException("Could not preserve the active HTTP client credential", failure);
+			}
+			if (cancelledInitialization == null && active == null) {
+				closeForReplacement();
+				return;
+			}
 		}
-		flushForReplacement(connector, System.nanoTime() + TimeUnit.SECONDS.toNanos(SHUTDOWN_FLUSH_SECONDS));
-		close();
+		if (cancelledInitialization != null) {
+			awaitCancelledInitialization(cancelledInitialization);
+			captureEnrollmentPublishedDuringCancellation();
+			return;
+		}
+		flushForReplacement(active, System.nanoTime() + TimeUnit.SECONDS.toNanos(SHUTDOWN_FLUSH_SECONDS));
+		closeForReplacement();
+	}
+
+	private void awaitCancelledInitialization(Thread setup) {
+		try { setup.join(TimeUnit.SECONDS.toMillis(SHUTDOWN_FLUSH_SECONDS)); }
+		catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt();
+			throw new IllegalStateException("Interrupted while stopping HTTP client enrollment", interrupted);
+		}
+		if (setup.isAlive())
+			throw new IllegalStateException("Could not stop HTTP client enrollment before replacement");
+	}
+
+	private void captureEnrollmentPublishedDuringCancellation() {
+		if (!HttpClientCredentialStore.hasEnrolledProfile(configuredDirectory)) return;
+		try {
+			HttpConnectionCode original = HttpConnectionCode.parse(configuredConnectionCode);
+			if (!original.serverId().equals(HttpTlsIdentity.canonicalServerId(configuredServerId))
+					|| !HttpClientCredentialStore.matchesEnrollmentCode(configuredDirectory, original))
+				throw new IllegalStateException("HTTP client enrollment changed during replacement preparation");
+			configuredCredentialGeneration = HttpClientCredentialStore.snapshotActiveGeneration(configuredDirectory);
+			restoreUnenrolledState = false;
+		} catch (IllegalStateException failure) { throw failure; }
+		catch (Exception failure) {
+			throw new IllegalStateException("Could not preserve the completed HTTP client enrollment", failure);
+		}
 	}
 
 	void flushForReplacement(HttpBackendTransportConnector connector, long deadlineNanos) {
@@ -148,7 +223,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	}
 
 	private void initialize(Path directory, String serverId, String configuredCode,
-			GlobalMessageHandler messageHandler, boolean retryEnrollment) {
+			GlobalMessageHandler messageHandler, boolean retryEnrollment, boolean restoreUnenrolledState) {
 		Path ownerKey = directory.toAbsolutePath().normalize();
 		Semaphore owner = DIRECTORY_OWNERS.computeIfAbsent(ownerKey, ignored -> new Semaphore(1));
 		boolean acquired = false, installed = false;
@@ -158,26 +233,28 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 			acquired = true;
 			synchronized (lifecycle) {
 				if (closed) {
-					if (credentialGenerationToRestore != null)
+					if (credentialGenerationToRestore != null || restoreUnenrolledState)
 						credentialRestoreFailure = new IllegalStateException(
-								"Previous HTTP client credential restoration was cancelled");
+								"Previous HTTP client credential state restoration was cancelled");
 					return;
 				}
 			}
-			if (credentialGenerationToRestore != null) {
-				try {
+			try {
+				if (restoreUnenrolledState)
+					restoreUnenrolledCredentialState(directory, serverId, configuredCode);
+				if (credentialGenerationToRestore != null) {
 					HttpClientCredentialStore.restoreActiveGenerationAfterReplacement(directory,
 							credentialGenerationToRestore);
-				} catch (Exception failure) {
-					credentialRestoreFailure = new IllegalStateException(
-							"Could not restore the previous HTTP client credential", failure);
-					throw failure;
 				}
+			} catch (Exception failure) {
+				credentialRestoreFailure = new IllegalStateException(
+						"Could not restore the previous HTTP client credential state", failure);
+				throw failure;
 			}
 			credentialRestoreComplete.countDown();
-			// A rollback always resumes a validated enrolled generation. Replaying the
-			// previous temporary code is both unnecessary and unsafe after a same-endpoint
-			// renewal/re-enrollment retained the newer active generation.
+			// An enrolled rollback resumes the validated generation without replaying its
+			// temporary code. An un-enrolled rollback reuses the original startup code
+			// only after the staged credential has been made inactive.
 			HttpConnectionCode code = enrollmentCode(directory, serverId,
 					credentialGenerationToRestore == null ? configuredCode : null);
 			if (code != null && !enrollForStartup(code, serverId, directory, retryEnrollment,
@@ -216,6 +293,30 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 			}
 			startupComplete.countDown();
 		}
+	}
+
+	static void restoreUnenrolledCredentialState(Path directory, String serverId, String configuredCode) throws Exception {
+		Path root = directory.toAbsolutePath().normalize();
+		if (configuredCode != null && !configuredCode.isBlank()
+				&& HttpClientCredentialStore.hasEnrolledProfile(root)) {
+			try {
+				HttpConnectionCode original = HttpConnectionCode.parse(configuredCode);
+				if (original.serverId().equals(HttpTlsIdentity.canonicalServerId(serverId))
+						&& HttpClientCredentialStore.matchesEnrollmentCode(root, original)) return;
+			} catch (Exception ignored) {
+				// The pre-replacement state was un-enrolled; never retain a credential
+				// that cannot be tied to its already-validated original code.
+			}
+		}
+		Path current = root.resolve("http-transport-client-current").normalize();
+		if (!current.getParent().equals(root) || Files.isSymbolicLink(current))
+			throw new java.io.IOException("HTTP client credential pointer is unsafe");
+		if (Files.exists(current, LinkOption.NOFOLLOW_LINKS)
+				&& !Files.isRegularFile(current, LinkOption.NOFOLLOW_LINKS))
+			throw new java.io.IOException("HTTP client credential pointer is unsafe");
+		DurableFiles.deleteIfExists(current);
+		if (HttpClientCredentialStore.hasEnrolledProfile(root))
+			throw new java.io.IOException("HTTP client credential rollback did not restore the un-enrolled state");
 	}
 
 	private boolean waitForEnrollmentRetry(long delayMillis) {
@@ -286,7 +387,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	}
 
 	void awaitCredentialRestoration(long deadlineNanos) {
-		if (credentialGenerationToRestore == null) return;
+		if (credentialGenerationToRestore == null && !restoreUnenrolledState) return;
 		try {
 			long remaining = deadlineNanos - System.nanoTime();
 			if (remaining <= 0L || !credentialRestoreComplete.await(remaining, TimeUnit.NANOSECONDS))
@@ -377,13 +478,21 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 
 	@Override
 	public void close() {
+		close(true);
+	}
+
+	private void closeForReplacement() {
+		close(false);
+	}
+
+	private void close(boolean discardQueuedMessages) {
 		Thread setup;
 		HttpBackendTransportConnector active;
 		Semaphore owner;
 		synchronized (lifecycle) {
 			if (closed) return;
 			closed = true;
-			startupQueue.clear();
+			if (discardQueuedMessages) startupQueue.clear();
 			setup = worker;
 			worker = null;
 			active = connector;
