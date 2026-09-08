@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.backendproxy.transport;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doAnswer;
@@ -104,7 +105,119 @@ class RedisBackendProxyTransportTest {
 	}
 
 	@Test
-	void fencingDoesNotWaitForAnIdentifiedMessageHandler() throws Exception {
+	void standbyBuffersIdentifiedDeliveriesUntilItIsPublished() throws Exception {
+		ProcessedVoteCache cache = new ProcessedVoteCache();
+		cache.registerRedisSubscriber(new Object());
+		RedisBackendProxyTransport transport = new RedisBackendProxyTransport(null, cache);
+		Field identity = RedisBackendProxyTransport.class.getDeclaredField("subscriberIdentity");
+		identity.setAccessible(true);
+		cache.registerRedisSubscriber(identity.get(transport));
+		Field standby = RedisBackendProxyTransport.class.getDeclaredField("standbySubscriber");
+		standby.setAccessible(true);
+		standby.setBoolean(transport, true);
+		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
+		Field handler = RedisBackendProxyTransport.class.getDeclaredField("messageHandler");
+		handler.setAccessible(true);
+		handler.set(transport, messages);
+		String deliveryId = "00000000-0000-0000-0000-000000000002";
+		JsonEnvelope envelope = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE_UPDATE)
+				.put(VotingPluginWire.K_REDIS_DELIVERY_ID, deliveryId).build();
+
+		transport.dispatchIdentified(envelope, deliveryId);
+
+		verifyNoInteractions(messages);
+		transport.activateAfterHandoff();
+		verify(messages).onMessage(envelope);
+		assertFalse(cache.reserveRedisDelivery(deliveryId),
+				"publication must reserve the delivery exactly when its buffered callback is replayed");
+	}
+
+	@Test
+	void standbyReplaysMixedLegacyAndIdentifiedDeliveriesInArrivalOrder() throws Exception {
+		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
+		when(cache.reserveRedisDelivery(org.mockito.ArgumentMatchers.anyString())).thenReturn(true);
+		when(cache.consumeLegacyRedisDelivery(org.mockito.ArgumentMatchers.anyString())).thenReturn(false);
+		RedisBackendProxyTransport transport = new RedisBackendProxyTransport(null, cache);
+		setBoolean(transport, "standbySubscriber", true);
+		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
+		setField(transport, "messageHandler", messages);
+		JsonEnvelope legacy = JsonEnvelope.builder("legacy").build();
+		String deliveryId = "00000000-0000-0000-0000-000000000003";
+		JsonEnvelope identified = JsonEnvelope.builder("identified")
+				.put(VotingPluginWire.K_REDIS_DELIVERY_ID, deliveryId).build();
+
+		transport.dispatchLegacy(legacy);
+		transport.dispatchIdentified(identified, deliveryId);
+		transport.activateAfterHandoff();
+
+		org.mockito.InOrder order = org.mockito.Mockito.inOrder(messages);
+		order.verify(messages).onMessage(legacy);
+		order.verify(messages).onMessage(identified);
+	}
+
+	@Test
+	void identifiedStandbyOverflowAbortsPublication() throws Exception {
+		RedisBackendProxyTransport transport = new RedisBackendProxyTransport(null, mock(ProcessedVoteCache.class));
+		setBoolean(transport, "standbySubscriber", true);
+		setField(transport, "messageHandler", mock(GlobalMessageHandler.class));
+		for (int index = 0; index <= RedisBackendProxyTransport.MAX_IDENTIFIED_HANDOFF_DELIVERIES; index++) {
+			String deliveryId = String.format("00000000-0000-0000-0000-%012d", index);
+			transport.dispatchIdentified(JsonEnvelope.builder("identified")
+					.put(VotingPluginWire.K_REDIS_DELIVERY_ID, deliveryId).build(), deliveryId);
+		}
+
+		assertThrows(IllegalStateException.class, transport::activateAfterHandoff);
+	}
+
+	@Test
+	void oversizedLegacyStandbyDeliveryAbortsPublicationWithoutDispatching() throws Exception {
+		RedisBackendProxyTransport transport = new RedisBackendProxyTransport(null, mock(ProcessedVoteCache.class));
+		setBoolean(transport, "standbySubscriber", true);
+		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
+		setField(transport, "messageHandler", messages);
+		JsonEnvelope oversized = JsonEnvelope.builder("legacy")
+				.put("payload", "x".repeat(ProcessedVoteCache.MAX_LEGACY_REDIS_DELIVERY_BYTES + 1)).build();
+
+		transport.dispatchLegacy(oversized);
+
+		verifyNoInteractions(messages);
+		assertThrows(IllegalStateException.class, transport::activateAfterHandoff);
+	}
+
+	@Test
+	void legacyStandbyBufferOverflowAbortsPublicationWithoutDispatching() throws Exception {
+		RedisBackendProxyTransport transport = new RedisBackendProxyTransport(null, mock(ProcessedVoteCache.class));
+		setBoolean(transport, "standbySubscriber", true);
+		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
+		setField(transport, "messageHandler", messages);
+
+		for (int index = 0; index <= RedisBackendProxyTransport.MAX_LEGACY_HANDOFF_DELIVERIES; index++)
+			transport.dispatchLegacy(JsonEnvelope.builder("legacy-" + index).build());
+
+		verifyNoInteractions(messages);
+		assertThrows(IllegalStateException.class, transport::activateAfterHandoff);
+	}
+
+	@Test
+	void activeLegacyAccountingOverflowAbortsLaggingStandbyPublication() throws Exception {
+		ProcessedVoteCache cache = new ProcessedVoteCache();
+		Object previousIdentity = new Object();
+		cache.registerRedisSubscriber(previousIdentity);
+		RedisBackendProxyTransport replacement = new RedisBackendProxyTransport(null, cache);
+		Field identity = RedisBackendProxyTransport.class.getDeclaredField("subscriberIdentity");
+		identity.setAccessible(true);
+		cache.registerRedisSubscriber(identity.get(replacement));
+		setBoolean(replacement, "standbySubscriber", true);
+
+		for (int index = 0; index <= 4096; index++) {
+			cache.reserveLegacyRedisDelivery(previousIdentity, "old-only-" + index);
+		}
+
+		assertThrows(IllegalStateException.class, replacement::activateAfterHandoff);
+	}
+
+	@Test
+	void fencingWaitsForAnIdentifiedMessageHandler() throws Exception {
 		RedisBackendProxyTransport transport = new RedisBackendProxyTransport(null, new ProcessedVoteCache());
 		CountDownLatch entered = new CountDownLatch(1);
 		CountDownLatch release = new CountDownLatch(1);
@@ -127,12 +240,21 @@ class RedisBackendProxyTransportTest {
 		assertTrue(entered.await(1, TimeUnit.SECONDS));
 
 		CountDownLatch fenced = new CountDownLatch(1);
+		java.util.concurrent.atomic.AtomicReference<Throwable> fenceFailure =
+				new java.util.concurrent.atomic.AtomicReference<>();
 		Thread retirement = new Thread(() -> {
-			transport.fenceAfterHandoff();
-			fenced.countDown();
+			try {
+				transport.fenceAfterHandoff();
+			} catch (Throwable failure) {
+				fenceFailure.set(failure);
+			} finally {
+				fenced.countDown();
+			}
 		});
 		retirement.start();
 		try {
+			assertFalse(fenced.await(100, TimeUnit.MILLISECONDS));
+			retirement.interrupt();
 			assertTrue(fenced.await(1, TimeUnit.SECONDS));
 		} finally {
 			release.countDown();
@@ -141,10 +263,53 @@ class RedisBackendProxyTransportTest {
 		retirement.join(TimeUnit.SECONDS.toMillis(1));
 		assertFalse(delivery.isAlive());
 		assertFalse(retirement.isAlive());
+		assertTrue(fenceFailure.get() instanceof RedisBackendProxyTransport.HandoffQuiescenceException);
 	}
 
 	@Test
-	@SuppressWarnings("unchecked")
+	void legacyPromotionWaitsForReservedDeliveryBeforeReplayingStandbyCopy() throws Exception {
+		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
+		when(cache.reserveLegacyRedisDelivery(org.mockito.ArgumentMatchers.any(),
+				org.mockito.ArgumentMatchers.anyString())).thenReturn(true, false);
+		when(cache.consumeLegacyRedisDelivery(org.mockito.ArgumentMatchers.anyString())).thenReturn(true);
+		RedisBackendProxyTransport previous = new RedisBackendProxyTransport(null, cache);
+		RedisBackendProxyTransport replacement = new RedisBackendProxyTransport(null, cache);
+		setBoolean(replacement, "standbySubscriber", true);
+		CountDownLatch entered = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		GlobalMessageHandler previousMessages = mock(GlobalMessageHandler.class);
+		doAnswer(invocation -> {
+			entered.countDown();
+			release.await();
+			return null;
+		}).when(previousMessages).onMessage(org.mockito.ArgumentMatchers.any(JsonEnvelope.class));
+		GlobalMessageHandler replacementMessages = mock(GlobalMessageHandler.class);
+		setField(previous, "messageHandler", previousMessages);
+		setField(replacement, "messageHandler", replacementMessages);
+		JsonEnvelope envelope = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE_UPDATE).build();
+
+		Thread delivery = new Thread(() -> previous.dispatchLegacy(envelope));
+		delivery.start();
+		assertTrue(entered.await(1, TimeUnit.SECONDS));
+		replacement.dispatchLegacy(envelope);
+		CountDownLatch promoted = new CountDownLatch(1);
+		Thread promotion = new Thread(() -> {
+			previous.fenceAfterHandoff();
+			replacement.activateAfterHandoff();
+			promoted.countDown();
+		});
+		promotion.start();
+		assertFalse(promoted.await(100, TimeUnit.MILLISECONDS));
+
+		release.countDown();
+		assertTrue(promoted.await(1, TimeUnit.SECONDS));
+		delivery.join(TimeUnit.SECONDS.toMillis(1));
+		promotion.join(TimeUnit.SECONDS.toMillis(1));
+		verify(previousMessages).onMessage(envelope);
+		verifyNoInteractions(replacementMessages);
+	}
+
+	@Test
 	void replayCompletesBeforeNewlyAdmittedDeliveries() throws Exception {
 		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
 		when(cache.reserveRedisDelivery("new-delivery")).thenReturn(true);
@@ -152,9 +317,6 @@ class RedisBackendProxyTransportTest {
 		RedisBackendProxyTransport transport = new RedisBackendProxyTransport(null, cache);
 		JsonEnvelope replayed = JsonEnvelope.builder("old").build();
 		JsonEnvelope newer = JsonEnvelope.builder("new").build();
-		Field buffered = RedisBackendProxyTransport.class.getDeclaredField("bufferedLegacyDeliveries");
-		buffered.setAccessible(true);
-		((java.util.List<JsonEnvelope>) buffered.get(transport)).add(replayed);
 		CopyOnWriteArrayList<JsonEnvelope> order = new CopyOnWriteArrayList<>();
 		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
 		doAnswer(invocation -> {
@@ -170,9 +332,22 @@ class RedisBackendProxyTransportTest {
 		Field handler = RedisBackendProxyTransport.class.getDeclaredField("messageHandler");
 		handler.setAccessible(true);
 		handler.set(transport, messages);
+		transport.dispatchLegacy(replayed);
 
 		transport.activateAfterHandoff();
 
 		assertEquals(java.util.List.of(replayed, newer), order);
+	}
+
+	private static void setBoolean(Object target, String name, boolean value) throws Exception {
+		Field field = target.getClass().getDeclaredField(name);
+		field.setAccessible(true);
+		field.setBoolean(target, value);
+	}
+
+	private static void setField(Object target, String name, Object value) throws Exception {
+		Field field = target.getClass().getDeclaredField(name);
+		field.setAccessible(true);
+		field.set(target, value);
 	}
 }

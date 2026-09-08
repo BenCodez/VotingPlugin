@@ -43,6 +43,8 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 		setPath(voteTimedQueue.encodeBroadcastTargets(), "TimedVoteCache", String.valueOf(num), "BroadcastTargets");
 		setPath(voteTimedQueue.encodeBroadcastForwardedServers(), "TimedVoteCache", String.valueOf(num),
 				"BroadcastForwardedServers");
+		setPath(voteTimedQueue.encodeHttpBroadcastDeliveryIds(), "TimedVoteCache", String.valueOf(num),
+				"HttpBroadcastDeliveryIds");
 	}
 
 	@Override
@@ -61,6 +63,8 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 		setPath(voteData.encodeBroadcastForwardedServers(), "VoteCache", server, String.valueOf(num),
 				"BroadcastForwardedServers");
 		setPath(voteData.isRewardDelivered(), "VoteCache", server, String.valueOf(num), "RewardDelivered");
+		setPath(voteData.encodeHttpDeliveryIds(), "VoteCache", server, String.valueOf(num), "HttpDeliveryIds");
+		setPath(voteData.encodeHttpBroadcastDeliveryIds(), "VoteCache", server, String.valueOf(num), "HttpBroadcastDeliveryIds");
 	}
 
 	@Override
@@ -79,6 +83,8 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 		setPath(voteData.encodeBroadcastForwardedServers(), "OnlineCache", player, String.valueOf(num),
 				"BroadcastForwardedServers");
 		setPath(voteData.isRewardDelivered(), "OnlineCache", player, String.valueOf(num), "RewardDelivered");
+		setPath(voteData.encodeHttpDeliveryIds(), "OnlineCache", player, String.valueOf(num), "HttpDeliveryIds");
+		setPath(voteData.encodeHttpBroadcastDeliveryIds(), "OnlineCache", player, String.valueOf(num), "HttpBroadcastDeliveryIds");
 	}
 
 	@Override

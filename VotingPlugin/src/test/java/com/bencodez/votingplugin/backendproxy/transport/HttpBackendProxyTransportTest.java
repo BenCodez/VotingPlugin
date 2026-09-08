@@ -105,6 +105,44 @@ class HttpBackendProxyTransportTest {
 	}
 
 	@Test
+	@SuppressWarnings("unchecked")
+	void unpublishedHandoffMessagesAreDiscardedOnRollback() throws Exception {
+		HttpBackendProxyTransport transport = new HttpBackendProxyTransport(mock(VotingPluginMain.class));
+		HttpBackendTransportConnector connector = mock(HttpBackendTransportConnector.class);
+		setField(transport, "connector", connector);
+		((java.util.ArrayDeque<JsonEnvelope>) field(transport, "handoffQueue"))
+				.add(JsonEnvelope.builder("unpublished").build());
+
+		transport.close();
+
+		verify(connector, org.mockito.Mockito.timeout(1000)).close();
+		verify(connector, org.mockito.Mockito.never()).send(org.mockito.ArgumentMatchers.any(JsonEnvelope.class));
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void orderlyShutdownFlushesRecoveryQueueBeforeHandoffQueue() throws Exception {
+		HttpBackendProxyTransport transport = new HttpBackendProxyTransport(mock(VotingPluginMain.class));
+		HttpBackendTransportConnector connector = mock(HttpBackendTransportConnector.class);
+		JsonEnvelope recovery = JsonEnvelope.builder("recovery").build();
+		JsonEnvelope handoff = JsonEnvelope.builder("handoff").build();
+		setField(transport, "connector", connector);
+		setField(transport, "published", true);
+		((java.util.ArrayDeque<JsonEnvelope>) field(transport, "startupQueue")).add(recovery);
+		((java.util.ArrayDeque<JsonEnvelope>) field(transport, "handoffQueue")).add(handoff);
+		when(connector.send(org.mockito.ArgumentMatchers.any(JsonEnvelope.class))).thenReturn(true);
+		when(connector.flushOutgoing(org.mockito.ArgumentMatchers.anyLong())).thenReturn(true);
+
+		transport.close();
+
+		verify(connector, org.mockito.Mockito.timeout(1000)).flushOutgoing(org.mockito.ArgumentMatchers.anyLong());
+		org.mockito.InOrder order = org.mockito.Mockito.inOrder(connector);
+		order.verify(connector).send(recovery);
+		order.verify(connector).send(handoff);
+		order.verify(connector).flushOutgoing(org.mockito.ArgumentMatchers.anyLong());
+	}
+
+	@Test
 	void failedPreparationAfterCloseRestoresCapturedHttpTransport() throws Exception {
 		BackendProxyTransportManager manager = new BackendProxyTransportManager(mock(VotingPluginMain.class));
 		HttpBackendProxyTransport failed = mock(HttpBackendProxyTransport.class);

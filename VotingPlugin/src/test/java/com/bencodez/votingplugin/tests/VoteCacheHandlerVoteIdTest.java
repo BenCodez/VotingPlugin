@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -223,6 +224,19 @@ public class VoteCacheHandlerVoteIdTest {
 	}
 
 	@Test
+	public void timedVoteHttpBroadcastDeliveryIdsRoundTripThroughStorageEncoding() {
+		String deliveryId = "00000000-0000-0000-0000-000000000164";
+		VoteTimeQueue vote = new VoteTimeQueue(UUID.randomUUID(), "Player", "Service", 100L, true,
+				Set.of("Server1"), Set.of(), "totals", false, "uuid",
+				Map.of("Server1", deliveryId));
+
+		assertEquals(deliveryId, vote.getHttpBroadcastDeliveryId("server1"));
+		assertEquals(deliveryId,
+				VoteTimeQueue.decodeHttpBroadcastDeliveryIds(vote.encodeHttpBroadcastDeliveryIds())
+						.get("server1"));
+	}
+
+	@Test
 	public void cachedBroadcastStateSuppressesNonTargetsAndDeliveredTargets() {
 		OfflineBungeeVote vote = new OfflineBungeeVote(UUID.randomUUID(), "Player", "player-uuid", "Service", 100L,
 				true, "totals", false, true, Set.of("Lobby", "Survival"), Set.of("Lobby"), false);
@@ -368,6 +382,35 @@ public class VoteCacheHandlerVoteIdTest {
 		assertEquals(Set.of("Server1"), loaded.getBroadcastForwardedServers());
 		assertEquals(totals, loaded.getTotals());
 		assertTrue(loaded.isProcessed());
+	}
+
+	@Test
+	public void timedVoteHttpBroadcastDeliveryIdLoadsFromJsonCache() {
+		IVoteCache stored = mock(IVoteCache.class);
+		DataNode timedNode = mock(DataNode.class);
+		when(stored.getTimedVoteCache()).thenReturn(List.of("0"));
+		when(stored.getTimedVoteCache("0")).thenReturn(timedNode);
+		when(stored.getServers()).thenReturn(Collections.emptyList());
+		when(stored.getPlayers()).thenReturn(Collections.emptyList());
+		when(timedNode.isObject()).thenReturn(true);
+		String deliveryId = "00000000-0000-0000-0000-000000000165";
+		UUID voteId = UUID.randomUUID();
+		stubString(timedNode, "Name", "Player");
+		stubString(timedNode, "Service", "Service");
+		stubLong(timedNode, "Time", 100L);
+		stubString(timedNode, "VoteId", voteId.toString());
+		stubString(timedNode, "UUID", "uuid");
+		stubBoolean(timedNode, "ProxyBroadcastHandled", true);
+		stubString(timedNode, "BroadcastTargets", VoteTimeQueue.encodeBroadcastServers(Set.of("Server1")));
+		stubString(timedNode, "BroadcastForwardedServers", "");
+		stubString(timedNode, "HttpBroadcastDeliveryIds", new VoteTimeQueue(voteId, "Player", "Service", 100L,
+				true, Set.of("Server1"), Set.of(), "", false, "uuid", Map.of("Server1", deliveryId))
+					.encodeHttpBroadcastDeliveryIds());
+
+		handler = newHandler(stored);
+		handler.load();
+
+		assertEquals(deliveryId, handler.getTimeChangeQueue().element().getHttpBroadcastDeliveryId("SERVER1"));
 	}
 
 	@Test

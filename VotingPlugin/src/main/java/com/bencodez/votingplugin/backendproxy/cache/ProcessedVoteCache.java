@@ -25,6 +25,7 @@ public class ProcessedVoteCache {
 	private final LinkedHashMap<String, Long> processedRedisDeliveries = new LinkedHashMap<>();
 	private final LinkedHashMap<String, Integer> legacyRedisDeliveries = new LinkedHashMap<>();
 	private long legacyRedisDeliveryBytes;
+	private boolean legacyRedisHandoffOverflowed;
 	private Object activeRedisSubscriber;
 	private Object standbyRedisSubscriber;
 
@@ -82,14 +83,18 @@ public class ProcessedVoteCache {
 		return true;
 	}
 
-	public synchronized void registerRedisSubscriber(Object subscriber) {
+	public synchronized boolean registerRedisSubscriber(Object subscriber) {
 		if (activeRedisSubscriber == null) {
 			activeRedisSubscriber = subscriber;
+			return true;
 		} else if (activeRedisSubscriber != subscriber) {
 			standbyRedisSubscriber = subscriber;
 			legacyRedisDeliveries.clear();
 			legacyRedisDeliveryBytes = 0;
+			legacyRedisHandoffOverflowed = false;
+			return false;
 		}
+		return true;
 	}
 
 	/** Returns true only for the active subscriber and counts its legacy delivery during overlap. */
@@ -107,10 +112,14 @@ public class ProcessedVoteCache {
 						&& legacyRedisDeliveryBytes <= MAX_LEGACY_REDIS_TOTAL_BYTES - bytes) {
 					legacyRedisDeliveries.put(signature, 1);
 					legacyRedisDeliveryBytes += bytes;
-				}
+				} else legacyRedisHandoffOverflowed = true;
 			}
 		}
 		return true;
+	}
+
+	public synchronized boolean isLegacyRedisHandoffOverflowed() {
+		return legacyRedisHandoffOverflowed;
 	}
 
 	public synchronized void activateRedisSubscriber(Object subscriber) {
@@ -135,6 +144,7 @@ public class ProcessedVoteCache {
 	public synchronized void finishRedisHandoff() {
 		legacyRedisDeliveries.clear();
 		legacyRedisDeliveryBytes = 0;
+		legacyRedisHandoffOverflowed = false;
 	}
 
 	public synchronized void unregisterRedisSubscriber(Object subscriber) {
@@ -142,6 +152,7 @@ public class ProcessedVoteCache {
 			standbyRedisSubscriber = null;
 			legacyRedisDeliveries.clear();
 			legacyRedisDeliveryBytes = 0;
+			legacyRedisHandoffOverflowed = false;
 		}
 		if (activeRedisSubscriber == subscriber) activeRedisSubscriber = null;
 	}

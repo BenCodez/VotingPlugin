@@ -375,7 +375,7 @@ class BackendProxyHandlerLifecycleTest {
 	}
 
 	@Test
-	void keepsPromotedRedisReplacementWhenOldListenerRetirementFails() throws Exception {
+	void promotesRedisReplacementAfterOldListenerIsFencedEvenWhenRetirementFails() throws Exception {
 		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
 		java.util.logging.Logger logger = mock(java.util.logging.Logger.class);
 		when(plugin.getLogger()).thenReturn(logger);
@@ -391,8 +391,8 @@ class BackendProxyHandlerLifecycleTest {
 		previous.completeRedisHandoff(replacement);
 
 		org.mockito.InOrder order = inOrder(newTransport, oldTransport);
-		order.verify(newTransport).activateAfterHandoff();
 		order.verify(oldTransport).closeForHandoff();
+		order.verify(newTransport).activateAfterHandoff();
 		assertSame(newTransport, transport(replacement));
 		assertNull(transport(previous));
 
@@ -400,6 +400,25 @@ class BackendProxyHandlerLifecycleTest {
 		assertDoesNotThrow(previous::close);
 
 		verify(oldTransport, times(2)).close();
+	}
+
+	@Test
+	void doesNotPromoteRedisReplacementWhenOldCallbacksDoNotQuiesce() throws Exception {
+		BackendProxyTransportManager previous = new BackendProxyTransportManager(null);
+		BackendProxyTransportManager replacement = new BackendProxyTransportManager(null);
+		RedisBackendProxyTransport oldTransport = mock(RedisBackendProxyTransport.class);
+		RedisBackendProxyTransport newTransport = mock(RedisBackendProxyTransport.class);
+		setField(previous, "transport", oldTransport);
+		setField(replacement, "transport", newTransport);
+		doThrow(new RedisBackendProxyTransport.HandoffQuiescenceException("busy"))
+				.when(oldTransport).closeForHandoff();
+
+		assertThrows(RedisBackendProxyTransport.HandoffQuiescenceException.class,
+				() -> previous.completeRedisHandoff(replacement));
+
+		verify(newTransport, never()).activateAfterHandoff();
+		assertSame(oldTransport, transport(previous));
+		assertSame(newTransport, transport(replacement));
 	}
 
 	@Test

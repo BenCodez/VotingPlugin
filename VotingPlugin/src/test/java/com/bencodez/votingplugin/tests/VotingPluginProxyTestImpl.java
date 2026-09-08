@@ -28,6 +28,8 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	private VotingPluginProxyConfig config;
 	private boolean pluginMessageDeliveryResult = true;
 	private boolean voteEnvelopeDeliveryResult = true;
+	private Boolean stableHttpDeliveryResult;
+	private JsonEnvelope lastVoteEnvelope;
 	private boolean communicationTestDeliveryResult = true;
 	private JsonEnvelope lastCommunicationTestEnvelope;
 	private boolean playerOnline = true;
@@ -35,6 +37,8 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	private boolean failNextVoteCacheSave;
 	private final java.util.Map<String, java.util.Set<String>> pendingVotePartyRewards = new HashMap<>();
 	private final List<String> attemptedVotePartyDeliveryIds = new ArrayList<>();
+	private boolean failNextGeneratedHttpSend;
+	private String generatedHttpRetryId;
 	private PendingVotePartyProxyEffects pendingVotePartyProxyEffects = PendingVotePartyProxyEffects.empty();
 	private PendingVotePartyProxyEffects quarantinedVotePartyProxyEffects = PendingVotePartyProxyEffects.empty();
 	private final List<String> broadcasts = new ArrayList<>();
@@ -330,6 +334,7 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	@Override
 	protected boolean sendVoteEnvelopeAccepted(String server, int delay, JsonEnvelope envelope) {
+		lastVoteEnvelope = envelope;
 		if (getMethod() == com.bencodez.votingplugin.proxy.BungeeMethod.HTTP) {
 			return voteEnvelopeDeliveryResult;
 		}
@@ -341,13 +346,58 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	}
 
 	@Override
+	protected boolean sendHttpEnvelope(String server, JsonEnvelope envelope) {
+		lastVoteEnvelope = envelope;
+		if (failNextGeneratedHttpSend) {
+			failNextGeneratedHttpSend = false;
+			try {
+				java.lang.reflect.Constructor<HttpProxyTransportServer.DeliveryRetryException> constructor =
+						HttpProxyTransportServer.DeliveryRetryException.class
+								.getDeclaredConstructor(String.class, Throwable.class);
+				constructor.setAccessible(true);
+				throw constructor.newInstance(generatedHttpRetryId, new IllegalStateException("publication ambiguous"));
+			} catch (ReflectiveOperationException failure) {
+				throw new AssertionError(failure);
+			}
+		}
+		return voteEnvelopeDeliveryResult;
+	}
+
+	@Override
 	protected boolean sendHttpEnvelope(String server, String deliveryId, JsonEnvelope envelope) {
 		attemptedVotePartyDeliveryIds.add(deliveryId);
-		return voteEnvelopeDeliveryResult;
+		return stableHttpDeliveryResult == null ? voteEnvelopeDeliveryResult : stableHttpDeliveryResult;
+	}
+
+	public void setStableHttpDeliveryResult(Boolean stableHttpDeliveryResult) {
+		this.stableHttpDeliveryResult = stableHttpDeliveryResult;
+	}
+
+	public JsonEnvelope getLastVoteEnvelope() {
+		return lastVoteEnvelope;
 	}
 
 	public List<String> getAttemptedVotePartyDeliveryIds() {
 		return attemptedVotePartyDeliveryIds;
+	}
+
+	public void failNextGeneratedHttpSend(String deliveryId) {
+		failNextGeneratedHttpSend = true;
+		generatedHttpRetryId = deliveryId;
+	}
+
+	public boolean sendHttpVoteEnvelopeWithRecoveryForTest(String server, JsonEnvelope envelope) {
+		return sendHttpEnvelopeWithRecovery(server, envelope);
+	}
+
+	public boolean sendHttpVoteEnvelopeWithRecoveryForTest(String server, JsonEnvelope envelope,
+			OfflineBungeeVote cachedVote) {
+		return sendHttpEnvelopeWithRecovery(server, envelope, cachedVote);
+	}
+
+	public boolean sendHttpBroadcastEnvelopeWithRecoveryForTest(String server, JsonEnvelope envelope,
+			OfflineBungeeVote cachedVote) {
+		return sendHttpBroadcastEnvelopeWithRecovery(server, envelope, cachedVote);
 	}
 
 	public void acknowledgeVotePartyDeliveryForTest(String server, String deliveryId) throws java.io.IOException {
@@ -408,6 +458,11 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	public void retryPendingOnlineBroadcastsForTest(String server) {
 		retryPendingOnlineBroadcasts(server);
+	}
+
+	public void persistUncachedStandaloneBroadcastForTest(String uuid, OfflineBungeeVote state,
+			boolean alreadyPersisted) {
+		persistUncachedStandaloneBroadcast(uuid, state, alreadyPersisted);
 	}
 
 	public void retryPendingTimeBroadcastsForTest(String server) {

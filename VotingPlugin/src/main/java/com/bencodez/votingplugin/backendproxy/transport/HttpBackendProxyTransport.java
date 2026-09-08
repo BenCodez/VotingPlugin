@@ -46,6 +46,8 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	private volatile RuntimeException credentialRestoreFailure;
 	private volatile boolean started;
 	private volatile boolean closed;
+	/** True only after this transport has crossed the handler publication boundary. */
+	private boolean published;
 	private volatile boolean restartAfterFailedFlush;
 	private final java.util.concurrent.atomic.AtomicBoolean flushRecoveryRunning = new java.util.concurrent.atomic.AtomicBoolean();
 	private Path configuredDirectory;
@@ -104,6 +106,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 		this.retryInitialization = retryInitialization;
 		this.restoreUnenrolledState = restoreUnenrolledState;
 		this.inboundActive = inboundActive;
+		this.published = inboundActive;
 		started = true;
 		worker = new Thread(() -> initialize(directory, serverId, connectionCode, messageHandler, retryInitialization,
 				restoreUnenrolledState),
@@ -319,6 +322,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 		synchronized (lifecycle) {
 			if (closed) return;
 			inboundActive = true;
+			published = true;
 			lifecycle.notifyAll();
 		}
 	}
@@ -630,9 +634,19 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 			if (closed) return;
 			closed = true;
 			lifecycle.notifyAll();
-			if (discardQueuedMessages) startupQueue.clear();
-			finalHandoff = discardQueuedMessages ? java.util.List.copyOf(handoffQueue) : java.util.List.of();
-			if (discardQueuedMessages) handoffQueue.clear();
+			if (discardQueuedMessages) {
+				if (published) {
+					finalHandoff = new java.util.ArrayList<>(startupQueue.size() + handoffQueue.size());
+					finalHandoff.addAll(startupQueue);
+					finalHandoff.addAll(handoffQueue);
+				} else {
+					// A staged replacement never became authoritative. Its presence and
+					// handoff messages must not be flushed after rollback.
+					finalHandoff = java.util.List.of();
+				}
+				startupQueue.clear();
+				handoffQueue.clear();
+			} else finalHandoff = java.util.List.of();
 			awaitingPreparedHandoff = false;
 			setup = worker;
 			worker = null;

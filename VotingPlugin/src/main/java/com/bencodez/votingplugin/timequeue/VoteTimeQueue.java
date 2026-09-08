@@ -4,6 +4,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -45,6 +48,8 @@ public class VoteTimeQueue {
 	private Set<String> broadcastTargets;
 	@Getter
 	private Set<String> broadcastForwardedServers;
+	/** Stable HTTP standalone-broadcast delivery IDs by target server. */
+	private final Map<String, String> httpBroadcastDeliveryIds;
 
 	/**
 	 * Creates a legacy-compatible queued vote without an identifier.
@@ -124,6 +129,14 @@ public class VoteTimeQueue {
 	public VoteTimeQueue(UUID voteId, String name, String service, long time, boolean proxyBroadcastHandled,
 			Set<String> broadcastTargets, Set<String> broadcastForwardedServers, String totals, boolean processed,
 			String uuid) {
+		this(voteId, name, service, time, proxyBroadcastHandled, broadcastTargets, broadcastForwardedServers, totals,
+				processed, uuid, Collections.emptyMap());
+	}
+
+	/** Creates a queued vote with persisted HTTP standalone-broadcast IDs. */
+	public VoteTimeQueue(UUID voteId, String name, String service, long time, boolean proxyBroadcastHandled,
+			Set<String> broadcastTargets, Set<String> broadcastForwardedServers, String totals, boolean processed,
+			String uuid, Map<String, String> httpBroadcastDeliveryIds) {
 		this.voteId = voteId;
 		this.uuid = uuid == null ? "" : uuid;
 		this.name = name;
@@ -140,6 +153,64 @@ public class VoteTimeQueue {
 		if (broadcastForwardedServers != null) {
 			this.broadcastForwardedServers.addAll(broadcastForwardedServers);
 		}
+		this.httpBroadcastDeliveryIds = new LinkedHashMap<>();
+		if (httpBroadcastDeliveryIds != null) {
+			httpBroadcastDeliveryIds.forEach(this::setHttpBroadcastDeliveryId);
+		}
+	}
+
+	public String getHttpBroadcastDeliveryId(String server) {
+		return server == null ? null : httpBroadcastDeliveryIds.get(server.toLowerCase(Locale.ROOT));
+	}
+
+	public void setHttpBroadcastDeliveryId(String server, String deliveryId) {
+		if (server == null || server.isBlank()) return;
+		String key = server.toLowerCase(Locale.ROOT);
+		if (deliveryId == null || deliveryId.isBlank()) httpBroadcastDeliveryIds.remove(key);
+		else httpBroadcastDeliveryIds.put(key, deliveryId);
+	}
+
+	public Map<String, String> getHttpBroadcastDeliveryIds() {
+		return new LinkedHashMap<>(httpBroadcastDeliveryIds);
+	}
+
+	/** Returns whether any standalone HTTP broadcast still has to be delivered. */
+	public boolean hasPendingHttpBroadcastDeliveryIds() {
+		return !httpBroadcastDeliveryIds.isEmpty();
+	}
+
+	public String encodeHttpBroadcastDeliveryIds() {
+		StringBuilder encoded = new StringBuilder();
+		for (Map.Entry<String, String> entry : httpBroadcastDeliveryIds.entrySet()) {
+			if (encoded.length() > 0) encoded.append('.');
+			encoded.append(Base64.getUrlEncoder().withoutPadding()
+					.encodeToString(entry.getKey().getBytes(StandardCharsets.UTF_8)));
+			encoded.append('~');
+			encoded.append(Base64.getUrlEncoder().withoutPadding()
+					.encodeToString(entry.getValue().getBytes(StandardCharsets.UTF_8)));
+		}
+		return encoded.toString();
+	}
+
+	public static Map<String, String> decodeHttpBroadcastDeliveryIds(String encoded) {
+		Map<String, String> decoded = new LinkedHashMap<>();
+		if (encoded == null || encoded.isBlank()) return decoded;
+		for (String entry : encoded.split("\\.", -1)) {
+			int separator = entry.indexOf('~');
+			if (separator <= 0 || separator == entry.length() - 1) continue;
+			try {
+				String server = new String(Base64.getUrlDecoder().decode(entry.substring(0, separator)),
+						StandardCharsets.UTF_8);
+				String deliveryId = new String(Base64.getUrlDecoder().decode(entry.substring(separator + 1)),
+						StandardCharsets.UTF_8);
+				if (!server.isBlank() && deliveryId.matches("[0-9a-fA-F-]{36}")) {
+					decoded.put(server.toLowerCase(Locale.ROOT), deliveryId);
+				}
+			} catch (IllegalArgumentException ignored) {
+				// Ignore corrupt optional delivery state and retain the queued vote.
+			}
+		}
+		return decoded;
 	}
 
 	/**

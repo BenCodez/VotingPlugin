@@ -204,6 +204,10 @@ public class BackendProxyTransportManager {
 			((RedisBackendProxyTransport) retiredTransport).closeForHandoff();
 			retiredTransport = null;
 		} catch (RuntimeException failure) {
+			if (failure instanceof RedisBackendProxyTransport.HandoffQuiescenceException) {
+				transport = retiredTransport;
+				retiredTransport = null;
+			}
 			// Retain the fenced old listener so a later manager close can retry its
 			// cleanup without ever touching the promoted replacement.
 			throw failure;
@@ -217,20 +221,23 @@ public class BackendProxyTransportManager {
 		((RedisBackendProxyTransport) transport).activateAfterHandoff();
 	}
 
-	/** Promotes the validated standby before retiring the old Redis listener. */
+	/** Fences the old Redis listener before promoting the validated standby. */
 	public void completeRedisHandoff(BackendProxyTransportManager replacement) {
-		java.util.Objects.requireNonNull(replacement, "replacement").activateRedisAfterHandoff();
+		java.util.Objects.requireNonNull(replacement, "replacement");
 		try {
 			closeRedisForHandoff();
 		} catch (RuntimeException retirementFailure) {
-			// The replacement is already active and usable. Treat failure to join the
-			// closed old listener as cleanup degradation, not a reason to tear down
-			// the newly promoted subscriber and leave the backend disconnected.
+			if (retirementFailure instanceof RedisBackendProxyTransport.HandoffQuiescenceException) {
+				throw retirementFailure;
+			}
+			// The old listener is already fenced. Treat failure to join it as cleanup
+			// degradation; promotion remains safe because callbacks can no longer enter.
 			if (plugin != null) {
 				plugin.getLogger().warning("Previous Redis backend listener did not stop cleanly after handoff");
 				plugin.debug(retirementFailure);
 			}
 		}
+		replacement.activateRedisAfterHandoff();
 	}
 
 	public ClientHandler getClientHandler() {

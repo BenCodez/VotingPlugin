@@ -52,6 +52,98 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void indeterminateHttpVoteRetriesWithThePublishedStableDeliveryId() {
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(true);
+		String deliveryId = "00000000-0000-0000-0000-000000000159";
+		votingPluginProxy.failNextGeneratedHttpSend(deliveryId);
+
+		assertTrue(votingPluginProxy.sendHttpVoteEnvelopeWithRecoveryForTest("Server1",
+				JsonEnvelope.builder("vote").build()));
+		assertEquals(java.util.List.of(deliveryId), votingPluginProxy.getAttemptedVotePartyDeliveryIds());
+	}
+
+	@Test
+	void rejectedIndeterminateHttpVoteRetainsStableIdAcrossCacheSerialization() {
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(false);
+		String deliveryId = "00000000-0000-0000-0000-000000000160";
+		votingPluginProxy.failNextGeneratedHttpSend(deliveryId);
+		OfflineBungeeVote pending = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "uuid",
+				"Service", 100L, false, "totals");
+
+		assertFalse(votingPluginProxy.sendHttpVoteEnvelopeWithRecoveryForTest("Server1",
+				JsonEnvelope.builder("vote").build(), pending));
+		assertEquals(deliveryId, pending.getHttpDeliveryId("server1"));
+
+		OfflineBungeeVote restored = new OfflineBungeeVote(pending.getVoteId(), pending.getPlayerName(),
+				pending.getUuid(), pending.getService(), pending.getTime(), pending.isRealVote(), pending.getText(),
+				pending.isBroadcastForwarded(), pending.isProxyBroadcastHandled(), pending.getBroadcastTargets(),
+				pending.getBroadcastForwardedServers(), pending.isRewardDelivered(),
+				OfflineBungeeVote.decodeHttpDeliveryIds(pending.encodeHttpDeliveryIds()));
+		assertEquals(deliveryId, restored.getHttpDeliveryId("SERVER1"));
+		assertFalse(votingPluginProxy.sendHttpVoteEnvelopeWithRecoveryForTest("Server1",
+				JsonEnvelope.builder("vote").build(), restored));
+		assertEquals(java.util.List.of(deliveryId, deliveryId), votingPluginProxy.getAttemptedVotePartyDeliveryIds());
+	}
+
+	@Test
+	void standaloneHttpBroadcastUsesSeparateStableIdFromRewardDelivery() {
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(true);
+		String broadcastId = "00000000-0000-0000-0000-000000000161";
+		OfflineBungeeVote pending = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "uuid",
+				"Service", 100L, true, "totals");
+		pending.setHttpDeliveryId("Server1", "00000000-0000-0000-0000-000000000162");
+		votingPluginProxy.failNextGeneratedHttpSend(broadcastId);
+
+		assertTrue(votingPluginProxy.sendHttpBroadcastEnvelopeWithRecoveryForTest("Server1",
+				JsonEnvelope.builder("vote").build(), pending));
+		assertEquals(java.util.List.of(broadcastId), votingPluginProxy.getAttemptedVotePartyDeliveryIds());
+		assertEquals("00000000-0000-0000-0000-000000000162", pending.getHttpDeliveryId("Server1"));
+		assertEquals(null, pending.getHttpBroadcastDeliveryId("Server1"));
+	}
+
+	@Test
+	void rejectedStandaloneHttpBroadcastRetainsStableIdAcrossCacheSerialization() {
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(false);
+		String deliveryId = "00000000-0000-0000-0000-000000000163";
+		votingPluginProxy.failNextGeneratedHttpSend(deliveryId);
+		OfflineBungeeVote pending = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "uuid",
+				"Service", 100L, true, "totals");
+
+		assertFalse(votingPluginProxy.sendHttpBroadcastEnvelopeWithRecoveryForTest("Server1",
+				JsonEnvelope.builder("broadcast").build(), pending));
+		assertEquals(deliveryId, pending.getHttpBroadcastDeliveryId("server1"));
+		OfflineBungeeVote restored = new OfflineBungeeVote(pending.getVoteId(), pending.getPlayerName(), pending.getUuid(),
+				pending.getService(), pending.getTime(), pending.isRealVote(), pending.getText(), false, true,
+				java.util.Set.of("Server1"), java.util.Set.of(), pending.isRewardDelivered(),
+				OfflineBungeeVote.decodeHttpDeliveryIds(pending.encodeHttpDeliveryIds()),
+				OfflineBungeeVote.decodeHttpBroadcastDeliveryIds(pending.encodeHttpBroadcastDeliveryIds()));
+		assertFalse(votingPluginProxy.sendHttpBroadcastEnvelopeWithRecoveryForTest("Server1",
+				JsonEnvelope.builder("broadcast").build(), restored));
+		assertEquals(java.util.List.of(deliveryId, deliveryId), votingPluginProxy.getAttemptedVotePartyDeliveryIds());
+	}
+
+	@Test
+	void acceptedRewardStillPersistsUnresolvedStandaloneBroadcast() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		OfflineBungeeVote state = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "player-uuid",
+				"Service", 100L, true, "totals", false, true, java.util.Set.of("Server1"),
+				java.util.Collections.emptySet(), false, java.util.Collections.emptyMap(),
+				java.util.Map.of("Server1", "00000000-0000-0000-0000-000000000169"));
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+
+		spyProxy.persistUncachedStandaloneBroadcastForTest("player-uuid", state, false);
+
+		assertTrue(state.isRewardDelivered());
+		assertFalse(state.isBroadcastForwarded());
+		verify(voteCache).addOnlineVote("player-uuid", state);
+	}
+
+	@Test
 	void testAddVoteParty() {
 		// Initial votePartyVotes should be 0
 		assertEquals(0, votingPluginProxy.getVotePartyVotes());
@@ -872,6 +964,32 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void processedRolloverVoteIsRetainedUntilStableHttpBroadcastDeliveryCompletes() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		String deliveryId = "00000000-0000-0000-0000-000000000167";
+		VoteTimeQueue processed = new VoteTimeQueue(java.util.UUID.randomUUID(), "Player", "Service", 100L, true,
+				java.util.Set.of("Server1"), java.util.Collections.emptySet(), "totals", true, "player-uuid",
+				java.util.Map.of("Server1", deliveryId));
+		java.util.Queue<VoteTimeQueue> queue = new java.util.concurrent.ConcurrentLinkedQueue<>();
+		queue.add(processed);
+		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(queue);
+		Mockito.when(voteCache.updateTimeVote(processed)).thenReturn(true);
+		Mockito.when(voteCache.removeTimeVote(processed)).thenAnswer(invocation -> queue.remove(processed));
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(true);
+
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		spyProxy.processQueue();
+
+		assertTrue(queue.isEmpty());
+		assertFalse(processed.hasPendingHttpBroadcastDeliveryIds());
+		verify(voteCache).updateTimeVote(processed);
+		verify(voteCache).removeTimeVote(processed);
+		verify(spyProxy, never()).getUUID(Mockito.anyString());
+	}
+
+	@Test
 	void pendingServerBroadcastRetriesBeforeOfflineRewardDelivery() {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "player-uuid",
@@ -896,6 +1014,34 @@ public class VotingPluginProxyTest {
 		assertTrue(vote.isBroadcastForwarded());
 		assertFalse(vote.isRewardDelivered());
 		verify(voteCache).updateServerVote("Server1", vote);
+	}
+
+	@Test
+	void acceptedCachedRewardRetainsAmbiguousStandaloneBroadcastWithoutRebroadcasting() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "player-uuid",
+				"Service", 100L, true, "totals", false, true, java.util.Set.of("Server1"),
+				java.util.Collections.emptySet(), false, java.util.Collections.emptyMap(),
+				java.util.Map.of("Server1", "00000000-0000-0000-0000-000000000170"));
+		Mockito.when(voteCache.hasVotes("Server1")).thenReturn(true);
+		Mockito.when(voteCache.getVotes("Server1"))
+				.thenReturn(new java.util.ArrayList<>(java.util.List.of(vote)));
+		Mockito.when(voteCache.updateServerVote("Server1", vote)).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getBlockedServers()).thenReturn(java.util.Collections.emptyList());
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(true);
+		votingPluginProxy.setStableHttpDeliveryResult(false);
+
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		spyProxy.checkCachedVotes("Server1");
+
+		assertTrue(vote.isRewardDelivered());
+		assertFalse(vote.isProxyBroadcastComplete());
+		assertEquals("false", spyProxy.getLastVoteEnvelope().getFields()
+				.get(VotingPluginWire.K_BUNGEE_BROADCAST));
+		verify(voteCache).updateServerVote("Server1", vote);
+		verify(voteCache).removeServerVotes(Mockito.eq("Server1"), Mockito.argThat(java.util.List::isEmpty));
 	}
 
 	@Test
@@ -939,6 +1085,32 @@ public class VotingPluginProxyTest {
 		assertFalse(vote.isRewardDelivered());
 		verify(voteCache).addOnlineVote("player-uuid", vote);
 		verify(multiProxyHandler, never()).sendClearVote(Mockito.anyString(), Mockito.anyString());
+	}
+
+	@Test
+	void acceptedOnlineRewardRetainsAmbiguousStandaloneBroadcastWithoutRebroadcasting() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "player-uuid",
+				"Service", 100L, true, "totals", false, true, java.util.Set.of("Server1"),
+				java.util.Collections.emptySet(), false, java.util.Collections.emptyMap(),
+				java.util.Map.of("Server1", "00000000-0000-0000-0000-000000000171"));
+		Mockito.when(voteCache.hasOnlineVotes("player-uuid")).thenReturn(true);
+		Mockito.when(voteCache.getOnlineVotes("player-uuid"))
+				.thenReturn(new java.util.ArrayList<>(java.util.List.of(vote)));
+		Mockito.when(votingPluginProxy.getConfig().getBlockedServers()).thenReturn(java.util.Collections.emptyList());
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(true);
+		votingPluginProxy.setStableHttpDeliveryResult(false);
+
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		spyProxy.checkOnlineVotes("Player", "player-uuid", "Server1");
+
+		assertTrue(vote.isRewardDelivered());
+		assertFalse(vote.isProxyBroadcastComplete());
+		assertEquals("false", spyProxy.getLastVoteEnvelope().getFields()
+				.get(VotingPluginWire.K_BUNGEE_BROADCAST));
+		verify(voteCache).addOnlineVote("player-uuid", vote);
 	}
 
 	@Test
@@ -991,6 +1163,54 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void failedPeriodicHttpBroadcastPersistsGeneratedStableId() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "OfflineVoter", "voter-uuid",
+				"Service", 100L, true, "totals", false, true, java.util.Set.of("Server1"),
+				java.util.Collections.emptySet(), false);
+		Mockito.when(voteCache.getOnlineVoteUUIDs()).thenReturn(java.util.Set.of("voter-uuid"));
+		Mockito.when(voteCache.getOnlineVotes("voter-uuid"))
+				.thenReturn(new java.util.ArrayList<>(java.util.List.of(vote)));
+		Mockito.when(voteCache.updateOnlineVote("voter-uuid", vote)).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getBlockedServers()).thenReturn(java.util.Collections.emptyList());
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(false);
+		String deliveryId = "00000000-0000-0000-0000-000000000167";
+		votingPluginProxy.failNextGeneratedHttpSend(deliveryId);
+
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		spyProxy.retryPendingOnlineBroadcasts();
+
+		assertEquals(deliveryId, vote.getHttpBroadcastDeliveryId("Server1"));
+		verify(voteCache).updateOnlineVote("voter-uuid", vote);
+	}
+
+	@Test
+	void failedCarrierHttpBroadcastPersistsGeneratedStableId() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		OfflineBungeeVote vote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "OfflineVoter", "voter-uuid",
+				"Service", 100L, true, "totals", false, true, java.util.Set.of("Server1"),
+				java.util.Collections.emptySet(), false);
+		Mockito.when(voteCache.getOnlineVoteUUIDs()).thenReturn(java.util.Set.of("voter-uuid"));
+		Mockito.when(voteCache.getOnlineVotes("voter-uuid"))
+				.thenReturn(new java.util.ArrayList<>(java.util.List.of(vote)));
+		Mockito.when(voteCache.updateOnlineVote("voter-uuid", vote)).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getBlockedServers()).thenReturn(java.util.Collections.emptyList());
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(false);
+		String deliveryId = "00000000-0000-0000-0000-000000000168";
+		votingPluginProxy.failNextGeneratedHttpSend(deliveryId);
+
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		spyProxy.retryPendingOnlineBroadcastsForTest("Server1");
+
+		assertEquals(deliveryId, vote.getHttpBroadcastDeliveryId("Server1"));
+		verify(voteCache).updateOnlineVote("voter-uuid", vote);
+	}
+
+	@Test
 	void timedBroadcastRetriesWhileRolloverIsStillActive() {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		VoteTimeQueue vote = new VoteTimeQueue(java.util.UUID.randomUUID(), "OfflineVoter", "Service", 100L, true,
@@ -1007,6 +1227,43 @@ public class VotingPluginProxyTest {
 
 		assertEquals(java.util.Set.of("Server1"), vote.getBroadcastForwardedServers());
 		verify(voteCache).updateTimeVote(vote);
+	}
+
+	@Test
+	void timedHttpBroadcastRetainsStableIdWhenPublicationIsAmbiguous() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		VoteTimeQueue vote = new VoteTimeQueue(java.util.UUID.randomUUID(), "OfflineVoter", "Service", 100L, true,
+				java.util.Set.of("Server1"), java.util.Collections.emptySet(), "totals", false, "voter-uuid");
+		java.util.Queue<VoteTimeQueue> queue = new java.util.concurrent.ConcurrentLinkedQueue<>();
+		queue.add(vote);
+		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(queue);
+		Mockito.when(voteCache.updateTimeVote(vote)).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getBlockedServers()).thenReturn(java.util.Collections.emptyList());
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(false);
+		String deliveryId = "00000000-0000-0000-0000-000000000166";
+		votingPluginProxy.failNextGeneratedHttpSend(deliveryId);
+
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		spyProxy.retryPendingTimeBroadcastsForTest("Server1");
+
+		assertEquals(deliveryId, vote.getHttpBroadcastDeliveryId("Server1"));
+		verify(voteCache).updateTimeVote(vote);
+
+		VoteTimeQueue restored = new VoteTimeQueue(vote.getVoteId(), vote.getName(), vote.getService(), vote.getTime(),
+				vote.isProxyBroadcastHandled(), vote.getBroadcastTargets(), vote.getBroadcastForwardedServers(),
+				vote.getTotals(), vote.isProcessed(), vote.getUuid(),
+				VoteTimeQueue.decodeHttpBroadcastDeliveryIds(vote.encodeHttpBroadcastDeliveryIds()));
+		java.util.Queue<VoteTimeQueue> restoredQueue = new java.util.concurrent.ConcurrentLinkedQueue<>();
+		restoredQueue.add(restored);
+		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(restoredQueue);
+		spyProxy.setVoteEnvelopeDeliveryResult(true);
+		spyProxy.retryPendingTimeBroadcastsForTest("Server1");
+
+		assertTrue(restored.getBroadcastForwardedServers().contains("Server1"));
+		assertEquals(null, restored.getHttpBroadcastDeliveryId("Server1"));
+		assertEquals(java.util.List.of(deliveryId, deliveryId), votingPluginProxy.getAttemptedVotePartyDeliveryIds());
 	}
 
 	@Test
