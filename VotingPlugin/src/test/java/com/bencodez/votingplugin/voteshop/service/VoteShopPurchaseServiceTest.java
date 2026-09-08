@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
@@ -24,6 +25,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.bukkit.configuration.file.FileConfiguration;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
@@ -193,6 +195,73 @@ class VoteShopPurchaseServiceTest {
 
 		verify(persistenceExecutor).execute(any(Runnable.class));
 		verify(sql.getConnectionManager(), never()).getConnection();
+	}
+
+	@Test
+	void sharedPurchaseKeepsRewardConfigurationFromBeforeShopReload() throws Exception {
+		MySQL table = mock(MySQL.class);
+		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
+				org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		Connection connection = mock(Connection.class);
+		PreparedStatement statement = mock(PreparedStatement.class);
+		when(table.getTableName()).thenReturn("VotingPlugin_Users");
+		when(table.qi(anyString())).thenAnswer(invocation -> "`" + invocation.getArgument(0) + "`");
+		when(table.getMysql()).thenReturn(sql);
+		when(sql.getConnectionManager().getConnection()).thenReturn(connection);
+		when(connection.prepareStatement(anyString())).thenReturn(statement);
+		when(statement.executeUpdate()).thenReturn(1);
+		VotingPluginMain plugin = sharedMysqlPlugin(table);
+		ScheduledExecutorService persistenceExecutor = mock(ScheduledExecutorService.class);
+		when(plugin.getTimer()).thenReturn(persistenceExecutor);
+		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
+				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
+		com.bencodez.simpleapi.folialib.FoliaLib folia = mock(com.bencodez.simpleapi.folialib.FoliaLib.class);
+		com.bencodez.simpleapi.folialib.impl.ServerImplementation entityScheduler =
+				mock(com.bencodez.simpleapi.folialib.impl.ServerImplementation.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(scheduler.getFoliaLib()).thenReturn(folia);
+		when(folia.getImpl()).thenReturn(entityScheduler);
+		when(entityScheduler.runAtEntityWithFallback(any(), any(), any(Runnable.class)))
+				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SUCCESS));
+		VoteShopDefinition definition = mock(VoteShopDefinition.class);
+		when(definition.isEnabled()).thenReturn(true);
+		when(definition.getTitle()).thenReturn("Vote Shop");
+		VoteShopItem item = mock(VoteShopItem.class);
+		when(item.getCost()).thenReturn(10);
+		when(item.getLimit()).thenReturn(0);
+		when(item.getIdentifier()).thenReturn("old-item");
+		when(item.getIdentifierName()).thenReturn("Old item");
+		when(item.getRewardsPath()).thenReturn("Shop.old-item.Rewards");
+		when(item.getPurchaseMessage()).thenReturn("");
+		VotingPluginUser user = purchaseUser();
+		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
+		FileConfiguration oldShopData = mock(FileConfiguration.class);
+		FileConfiguration reloadedShopData = mock(FileConfiguration.class);
+		when(plugin.getShopFile().getData()).thenReturn(oldShopData, reloadedShopData);
+		org.bukkit.plugin.PluginManager pluginManager = mock(org.bukkit.plugin.PluginManager.class);
+		AtomicReference<VoteShopPurchaseResult> result = new AtomicReference<>();
+
+		try (org.mockito.MockedStatic<org.bukkit.Bukkit> bukkit = org.mockito.Mockito.mockStatic(org.bukkit.Bukkit.class)) {
+			bukkit.when(org.bukkit.Bukkit::getPluginManager).thenReturn(pluginManager);
+			new VoteShopPurchaseService(plugin, definition).purchase(player, user, item, result::set);
+			ArgumentCaptor<Runnable> work = ArgumentCaptor.forClass(Runnable.class);
+			verify(persistenceExecutor).execute(work.capture());
+			// Simulate a reload replacing ShopFile's active configuration before the
+			// delayed database/entity work gets to the reward executor.
+			ExecutorService worker = Executors.newSingleThreadExecutor();
+			Future<?> purchase = worker.submit(work.getValue());
+			@SuppressWarnings("rawtypes")
+			ArgumentCaptor<java.util.function.Consumer> entityCallback = ArgumentCaptor.forClass(java.util.function.Consumer.class);
+			verify(entityScheduler, org.mockito.Mockito.timeout(1000)).runAtEntityWithFallback(any(),
+				entityCallback.capture(), any(Runnable.class));
+			entityCallback.getValue().accept(null);
+			purchase.get(5, TimeUnit.SECONDS);
+			worker.shutdownNow();
+		}
+
+		assertEquals(VoteShopPurchaseResult.SUCCESS, result.get());
+		verify(plugin.getRewardHandler()).giveReward(eq(user), eq(oldShopData), eq("Shop.old-item.Rewards"), any());
+		verify(plugin.getRewardHandler(), never()).giveReward(eq(user), eq(reloadedShopData), anyString(), any());
 	}
 
 	@Test

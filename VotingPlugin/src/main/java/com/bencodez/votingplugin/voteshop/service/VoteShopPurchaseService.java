@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import org.bukkit.Bukkit;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 
 import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
@@ -113,6 +114,7 @@ public class VoteShopPurchaseService {
 			return validation;
 		}
 
+		FileConfiguration shopData = plugin.getShopFile().getData();
 		HashMap<String, String> placeholders = new HashMap<String, String>();
 		placeholders.put("identifier", item.getIdentifierName());
 		placeholders.put("points", String.valueOf(item.getCost()));
@@ -123,7 +125,7 @@ public class VoteShopPurchaseService {
 		if (debit != VoteShopPurchaseResult.SUCCESS) {
 			return debit;
 		}
-		completePurchase(player, user, item, placeholders);
+		completePurchase(player, user, item, placeholders, shopData);
 		return VoteShopPurchaseResult.SUCCESS;
 	}
 
@@ -148,6 +150,10 @@ public class VoteShopPurchaseService {
 			completion.accept(validation);
 			return;
 		}
+		// Keep the loaded configuration object with the queued purchase. reloadData()
+		// replaces ShopFile's FileConfiguration, so looking it up after the worker
+		// or entity task runs could pair an old debit with a newly loaded reward.
+		FileConfiguration shopData = plugin.getShopFile().getData();
 		HashMap<String, String> placeholders = purchasePlaceholders(item);
 		plugin.getTimer().execute(() -> {
 			VoteShopPurchaseResult debit;
@@ -158,12 +164,13 @@ public class VoteShopPurchaseService {
 				plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(debit), player);
 				return;
 			}
-			completeSharedMysqlPurchase(player, user, item, placeholders, completion);
+			completeSharedMysqlPurchase(player, user, item, placeholders, shopData, completion);
 		});
 	}
 
 	private void completeSharedMysqlPurchase(Player player, VotingPluginUser user, VoteShopItem item,
-			HashMap<String, String> placeholders, Consumer<VoteShopPurchaseResult> completion) {
+			HashMap<String, String> placeholders, FileConfiguration shopData,
+			Consumer<VoteShopPurchaseResult> completion) {
 		CountDownLatch completed = new CountDownLatch(1);
 		AtomicInteger state = new AtomicInteger(COMPLETION_PENDING);
 		try {
@@ -171,7 +178,7 @@ public class VoteShopPurchaseService {
 					.runAtEntityWithFallback(player, ignored -> {
 				if (!state.compareAndSet(COMPLETION_PENDING, COMPLETION_RUNNING)) return;
 				try {
-					completePurchase(player, user, item, placeholders);
+					completePurchase(player, user, item, placeholders, shopData);
 					completion.accept(VoteShopPurchaseResult.SUCCESS);
 				} finally {
 					state.set(COMPLETION_FINISHED);
@@ -210,12 +217,12 @@ public class VoteShopPurchaseService {
 	}
 
 	private void completePurchase(Player player, VotingPluginUser user, VoteShopItem item,
-			HashMap<String, String> placeholders) {
+			HashMap<String, String> placeholders, FileConfiguration shopData) {
 
 		plugin.getLogger().info("VoteShop: " + user.getPlayerName() + "/" + user.getUUID() + " bought "
 				+ item.getIdentifier() + " for " + item.getCost());
 
-		plugin.getRewardHandler().giveReward(user, plugin.getShopFile().getData(), item.getRewardsPath(),
+		plugin.getRewardHandler().giveReward(user, shopData, item.getRewardsPath(),
 				new RewardOptions().setPlaceholders(placeholders));
 
 		String purchaseMessage = item.getPurchaseMessage();

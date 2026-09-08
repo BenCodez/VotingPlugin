@@ -1361,9 +1361,19 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public void transferPoints(VotingPluginUser target, int points, Consumer<Boolean> completion) {
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
 		if (sharedPoints.applies()) {
+			// Preserve the established recipient hook before the shared transaction is
+			// queued. The event may cancel or adjust the amount that is credited, while
+			// the source debit remains the requested transfer amount as in the local path.
+			PlayerReceivePointsEvent receiveEvent = new PlayerReceivePointsEvent(target, points);
+			Bukkit.getPluginManager().callEvent(receiveEvent);
+			if (receiveEvent.isCancelled()) {
+				completion.accept(false);
+				return;
+			}
+			int receivedPoints = receiveEvent.getPoints();
 			Player player = getPlayer();
 			plugin.getTimer().execute(() -> {
-				boolean transferred = sharedPoints.transfer(this, target, points);
+				boolean transferred = sharedPoints.transfer(this, target, points, receivedPoints);
 				plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(transferred), player);
 			});
 			return;

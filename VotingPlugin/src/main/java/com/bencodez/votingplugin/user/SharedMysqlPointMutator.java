@@ -40,6 +40,10 @@ final class SharedMysqlPointMutator {
 	}
 
 	boolean transfer(VotingPluginUser source, VotingPluginUser target, int amount) {
+		return transfer(source, target, amount, amount);
+	}
+
+	boolean transfer(VotingPluginUser source, VotingPluginUser target, int debitAmount, int creditAmount) {
 		drainCache(source);
 		drainCache(target);
 		MySQL table = plugin.getMysql();
@@ -54,14 +58,14 @@ final class SharedMysqlPointMutator {
 			connection.setAutoCommit(false);
 			try (PreparedStatement debitStatement = connection.prepareStatement(debit);
 					PreparedStatement creditStatement = connection.prepareStatement(credit)) {
-				debitStatement.setInt(1, amount);
+				debitStatement.setInt(1, debitAmount);
 				debitStatement.setString(2, source.getUUID());
-				debitStatement.setInt(3, amount);
+				debitStatement.setInt(3, debitAmount);
 				if (debitStatement.executeUpdate() != 1) {
 					connection.rollback();
 					return false;
 				}
-				creditStatement.setInt(1, amount);
+				creditStatement.setInt(1, creditAmount);
 				creditStatement.setString(2, target.getUUID());
 				if (creditStatement.executeUpdate() != 1) {
 					connection.rollback();
