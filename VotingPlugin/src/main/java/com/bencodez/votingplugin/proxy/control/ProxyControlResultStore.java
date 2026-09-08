@@ -140,6 +140,7 @@ final class ProxyControlResultStore {
 				throw new IOException("Too many pending Control coordinator routes");
 			routes.put(identity, new RouteEntry(route, copiedResults, routeRequired));
 		}
+		if (totalResults(routes) > MAX_RESULTS) throw new IOException("Too many pending Control proxy results");
 
 		byte[] bytes = serialize(routes);
 		if (bytes.length > MAX_JOURNAL_BYTES) throw new IOException("Control proxy-result journal is too large");
@@ -216,7 +217,14 @@ final class ProxyControlResultStore {
 			if (routes.size() >= MAX_ROUTES
 					|| routes.put(route.identity(), new RouteEntry(route, results, routeRequired)) != null) throw invalid();
 		}
+		if (totalResults(routes) > MAX_RESULTS) throw invalid();
 		return new Journal(routes);
+	}
+
+	private static int totalResults(Map<String, RouteEntry> routes) {
+		long total = 0;
+		for (RouteEntry entry : routes.values()) total += entry.results().size();
+		return total > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) total;
 	}
 
 	private static Route parseRoute(JsonObject routeJson) {

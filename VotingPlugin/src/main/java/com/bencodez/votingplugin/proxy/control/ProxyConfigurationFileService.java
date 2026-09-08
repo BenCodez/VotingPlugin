@@ -439,8 +439,10 @@ final class ProxyConfigurationFileService {
 			for (int index = 0; index < proposed.size(); index++) {
 				Object old = current.get(index);
 				String itemPath = path + "[" + index + "]";
-				if (secretBearingValue(old, itemPath)
-						&& !retainsRedactedMarkers(proposed.get(index), old, itemPath)) {
+				boolean retained = secret(itemPath, "", old)
+						? REDACTED.equals(proposed.get(index))
+						: retainsOrReplacesSecretValues(proposed.get(index), old, itemPath);
+				if (secretBearingValue(old, itemPath) && !retained) {
 					throw new IllegalArgumentException("redacted placeholder is invalid");
 				}
 			}
@@ -503,8 +505,13 @@ final class ProxyConfigurationFileService {
 	}
 
 	@SuppressWarnings("unchecked")
-	private static boolean retainsRedactedMarkers(Object proposed, Object current, String path) {
-		if (secret(path, "", current)) return REDACTED.equals(proposed);
+	private static boolean retainsOrReplacesSecretValues(Object proposed, Object current, String path) {
+		// A retained secret position can either preserve its redaction marker or
+		// explicitly rotate to another scalar. List ordering and the public-only
+		// suffix checks still bind that replacement to its original position.
+		if (secret(path, "", current)) {
+			return proposed != null && !(proposed instanceof Map<?, ?>) && !(proposed instanceof List<?>);
+		}
 		if (current instanceof Map<?, ?> currentMap) {
 			if (!(proposed instanceof Map<?, ?> proposedMap)) return false;
 			String mapPath = path.endsWith(".") ? path : path + ".";
@@ -514,7 +521,7 @@ final class ProxyConfigurationFileService {
 				String childPath = mapPath + key;
 				if (!secretBearingValue(old, childPath)) continue;
 				if (!proposedMap.containsKey(key)
-						|| !retainsRedactedMarkers(proposedMap.get(key), old, childPath)) return false;
+						|| !retainsOrReplacesSecretValues(proposedMap.get(key), old, childPath)) return false;
 			}
 			return true;
 		}
@@ -524,7 +531,7 @@ final class ProxyConfigurationFileService {
 				Object old = currentList.get(index);
 				String itemPath = path + "[" + index + "]";
 				if (secretBearingValue(old, itemPath)
-						&& !retainsRedactedMarkers(proposedList.get(index), old, itemPath)) return false;
+						&& !retainsOrReplacesSecretValues(proposedList.get(index), old, itemPath)) return false;
 			}
 			for (int index = proposedList.size(); index < currentList.size(); index++) {
 				if (secretBearingValue(currentList.get(index), path + "[" + index + "]")) return false;
@@ -984,7 +991,9 @@ final class ProxyConfigurationFileService {
 						&& !hasUniqueStableIdentity(proposedList, currentList, i)) return false;
 				if (proposedList.size() < currentList.size()
 						&& secretBearingValue(currentList.get(i), path + "[" + i + "]")
-						&& !retainsRedactedMarkers(proposedList.get(i), currentList.get(i), path + "[" + i + "]")) return false;
+						&& !(secret(path + "[" + i + "]", "", currentList.get(i))
+								? REDACTED.equals(proposedList.get(i))
+								: retainsOrReplacesSecretValues(proposedList.get(i), currentList.get(i), path + "[" + i + "]"))) return false;
 			}
 			if (proposedList.size() < currentList.size()) {
 				for (int i = proposedList.size(); i < currentList.size(); i++) {
@@ -1145,7 +1154,7 @@ final class ProxyConfigurationFileService {
 		String last = tokens[tokens.length - 1];
 		String compact = words.replace(" ", "");
 		if (compact.matches("^(database|db|mysql|redis|mqtt)(user|username)$")) return true;
-		if (tokens.length > 1 && Set.of("host", "endpoint", "address", "port", "broker", "database", "schema",
+		if (tokens.length > 1 && Set.of("host", "endpoint", "address", "port", "broker", "database", "schema", "server",
 				"socket", "uri", "url", "ipv4", "ipv6").contains(last)) return true;
 		if (tokens.length > 2 && "name".equals(last)
 				&& Set.of("host", "db").contains(tokens[tokens.length - 2])) return true;

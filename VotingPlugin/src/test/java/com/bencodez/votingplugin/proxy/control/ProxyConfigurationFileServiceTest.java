@@ -125,6 +125,8 @@ class ProxyConfigurationFileServiceTest {
 		Path file = write("""
 				ControlEndpoint: https://control.internal
 				RedisHost: cache.internal
+				DatabaseServer: database.internal
+				RedisServer: redis.internal
 				BungeeMethod: PLUGINMESSAGING
 				DedicatedVotingProxy: true
 				ProxyServerName: public-name
@@ -137,6 +139,8 @@ class ProxyConfigurationFileServiceTest {
 		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
 		assertFalse(current.content().contains("control.internal"));
 		assertFalse(current.content().contains("cache.internal"));
+		assertFalse(current.content().contains("database.internal"));
+		assertFalse(current.content().contains("redis.internal"));
 		assertTrue(current.content().contains("BungeeMethod: PLUGINMESSAGING"));
 		assertTrue(current.content().contains("DedicatedVotingProxy: true"));
 		assertTrue(current.content().contains("ProxyServerName: public-name"));
@@ -147,6 +151,8 @@ class ProxyConfigurationFileServiceTest {
 		ProxyConfigurationFileService.Preview preview = service.preview(ProxyConfigurationFileService.FILE_NAME, proposal);
 		assertTrue(preview.resolvedContent().contains("ControlEndpoint: https://control.internal"));
 		assertTrue(preview.resolvedContent().contains("RedisHost: cache.internal"));
+		assertTrue(preview.resolvedContent().contains("DatabaseServer: database.internal"));
+		assertTrue(preview.resolvedContent().contains("RedisServer: redis.internal"));
 	}
 
 	@Test
@@ -564,6 +570,12 @@ class ProxyConfigurationFileServiceTest {
 		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
 		String safeSuffixRemoval = "Hooks:\n  - Name: primary\n    Password: "
 				+ ProxyConfigurationFileService.REDACTED + "\nDebug: false\n";
+		String rotationWithSafeSuffixRemoval = "Hooks:\n  - Name: primary\n    Password: rotated-secret\nDebug: false\n";
+
+		ProxyConfigurationFileService.Preview rotated = service.preview(
+				ProxyConfigurationFileService.FILE_NAME, rotationWithSafeSuffixRemoval);
+		assertTrue(rotated.resolvedContent().contains("Password: rotated-secret"));
+		assertFalse(rotated.resolvedContent().contains("removable-tail"));
 
 		ProxyConfigurationFileService.Preview preview = service.preview(
 				ProxyConfigurationFileService.FILE_NAME, safeSuffixRemoval);

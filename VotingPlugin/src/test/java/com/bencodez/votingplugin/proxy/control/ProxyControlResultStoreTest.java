@@ -20,6 +20,7 @@ import org.junit.jupiter.api.io.TempDir;
 import com.bencodez.votingplugin.proxy.control.ProxyControlResultStore.Route;
 import com.bencodez.votingplugin.proxy.control.ProxyControlResultStore.StoredResult;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 class ProxyControlResultStoreTest {
 	@TempDir Path directory;
@@ -131,7 +132,7 @@ class ProxyControlResultStoreTest {
 		assertEquals(configured, ProxyControlResultStore.loadPreferred(directory, configured).route());
 	}
 
-	@Test void releasedRouteResultLimitDoesNotStarveAnotherRoute() throws Exception {
+	@Test void globalResultLimitRejectsAnAdditionalRouteWithoutReplacingTheJournal() throws Exception {
 		Route original = route("bounded-original");
 		Map<UUID, StoredResult> existing = new LinkedHashMap<>();
 		for (int index = 0; index < 128; index++) {
@@ -141,10 +142,29 @@ class ProxyControlResultStoreTest {
 		ProxyControlResultStore.save(directory, original, existing);
 		Route additional = route("bounded-additional");
 		UUID additionalId = UUID.fromString("00000000-0000-0000-0000-000000000102");
-		ProxyControlResultStore.save(directory, additional,
-				Map.of(additionalId, new StoredResult(result(true), true, false)));
+		assertThrows(java.io.IOException.class, () -> ProxyControlResultStore.save(directory, additional,
+				Map.of(additionalId, new StoredResult(result(true), true, false))));
 		assertEquals(128, ProxyControlResultStore.loadForRoute(directory, original).results().size());
-		assertTrue(ProxyControlResultStore.loadForRoute(directory, additional).results().containsKey(additionalId));
+		assertNull(ProxyControlResultStore.loadForRoute(directory, additional));
+	}
+
+	@Test void currentJournalRejectsAggregateResultsAboveTheGlobalLimit() throws Exception {
+		Route original = route("aggregate-load-original");
+		Map<UUID, StoredResult> existing = new LinkedHashMap<>();
+		for (int index = 0; index < 65; index++) {
+			existing.put(UUID.nameUUIDFromBytes(("aggregate-operation-" + index)
+					.getBytes(java.nio.charset.StandardCharsets.UTF_8)), new StoredResult(result(true), true, false));
+		}
+		ProxyControlResultStore.save(directory, original, existing);
+		Path journal = directory.resolve(".control-proxy-pending-results.json");
+		JsonObject root = JsonParser.parseString(Files.readString(journal)).getAsJsonObject();
+		JsonObject duplicate = root.getAsJsonArray("routes").get(0).getAsJsonObject().deepCopy();
+		duplicate.getAsJsonObject("route").addProperty("nodeId", "aggregate-load-copy");
+		duplicate.getAsJsonObject("route").addProperty("endpoint", "https://aggregate-copy.example:8443");
+		root.getAsJsonArray("routes").add(duplicate);
+		Files.writeString(journal, root.toString());
+
+		assertThrows(java.io.IOException.class, () -> ProxyControlResultStore.load(directory));
 	}
 
 	@Test void releasedRouteByteLimitDoesNotStarveAnotherRoute() throws Exception {
