@@ -52,6 +52,7 @@ import com.google.gson.JsonParser;
 public final class ControlConnector implements AutoCloseable {
 	static final int PROTOCOL_VERSION = 1;
 	static final int MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
+	private static final int MAX_RESULT_TEXT_CHARS = 240;
 	private static final Pattern NODE_ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,63}");
 	private static final Set<String> BASE_CAPABILITIES = Set.of("presence.snapshot");
 	private static final String CONFIGURATION_CAPABILITY = "config.proxy-routing.v1";
@@ -1006,6 +1007,26 @@ public final class ControlConnector implements AutoCloseable {
 		return body;
 	}
 
+	/** Keeps persisted and submitted result fields within Control's per-entry protocol bound. */
+	static String boundedResultMessage(String message) {
+		String safe = message == null ? "Operation failed" : message.replaceAll("\\p{Cntrl}", " ").trim();
+		if (safe.isBlank()) safe = "Operation failed";
+		if (safe.length() > MAX_RESULT_TEXT_CHARS) safe = safe.substring(0, MAX_RESULT_TEXT_CHARS - 3) + "...";
+		return safe;
+	}
+
+	static List<String> boundedResultChanges(List<String> changes) {
+		if (changes == null || changes.isEmpty()) return List.of();
+		List<String> safe = new ArrayList<>();
+		int retained = changes.size() > 20 ? 19 : changes.size();
+		for (int index = 0; index < retained; index++) {
+			String change = changes.get(index);
+			safe.add(boundedResultMessage(change == null ? "change omitted" : change));
+		}
+		if (changes.size() > 20) safe.add("additional changes omitted");
+		return List.copyOf(safe);
+	}
+
 	private void addCapabilities(JsonObject body) {
 		JsonArray advertised = new JsonArray();
 		BASE_CAPABILITIES.stream().sorted().forEach(advertised::add);
@@ -1159,6 +1180,11 @@ public final class ControlConnector implements AutoCloseable {
 
 	private record TaskResult(boolean success, String code, String message, String revision,
 			JsonObject configuration, List<String> changes, boolean reloaded, boolean rolledBack) {
+		private TaskResult {
+			message = boundedResultMessage(message);
+			changes = boundedResultChanges(changes);
+		}
+
 		private JsonObject json() {
 			JsonObject body = new JsonObject();
 			body.addProperty("success", success);

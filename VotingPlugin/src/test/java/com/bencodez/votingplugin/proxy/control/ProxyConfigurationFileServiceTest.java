@@ -555,6 +555,44 @@ class ProxyConfigurationFileServiceTest {
 	}
 
 	@Test
+	void changeDescriptionsDistinguishDottedKeysFromNestedPaths() throws Exception {
+		Path file = write("\"a.b.x\": dotted\na:\n  b:\n    x: nested\n");
+		ProxyConfigurationFileService service = service(file);
+		ProxyConfigurationFileService.Document current = service.read(ProxyConfigurationFileService.FILE_NAME);
+
+		String proposal = current.content().replace("dotted", "changed-dotted").replace("x: nested", "x: changed-nested");
+		ProxyConfigurationFileService.Preview preview = service.preview(ProxyConfigurationFileService.FILE_NAME, proposal);
+
+		assertEquals(java.util.List.of("changed a.b.x", "changed [\"a.b.x\"]"), preview.changes());
+	}
+
+	@Test
+	void changeDescriptionsPreserveYamlValueTypes() throws Exception {
+		Path file = write("Enabled: \"true\"\nPort: \"1\"\n");
+		ProxyConfigurationFileService service = service(file);
+
+		ProxyConfigurationFileService.Preview preview = service.preview(ProxyConfigurationFileService.FILE_NAME,
+				"Enabled: true\nPort: 1\n");
+
+		assertEquals(java.util.List.of("changed Enabled", "changed Port"), preview.changes());
+	}
+
+	@Test
+	void changeDescriptionsReportEmptyMappingAdditionsAndRemovals() throws Exception {
+		Path file = write("Enabled: true\nSection: {}\n");
+		ProxyConfigurationFileService service = service(file);
+
+		ProxyConfigurationFileService.Preview removal = service.preview(ProxyConfigurationFileService.FILE_NAME,
+				"Enabled: true\n");
+		assertEquals(java.util.List.of("removed Section"), removal.changes());
+
+		Files.writeString(file, "Enabled: true\n");
+		ProxyConfigurationFileService.Preview addition = service.preview(ProxyConfigurationFileService.FILE_NAME,
+				"Enabled: true\nSection: {}\n");
+		assertEquals(java.util.List.of("added Section"), addition.changes());
+	}
+
+	@Test
 	void rejectsEditedDeletedOrMovedSecretValueAndCommentMarkers() throws Exception {
 		Path file = write("""
 				Database:

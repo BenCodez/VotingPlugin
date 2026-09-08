@@ -484,6 +484,26 @@ class ControlConnectorTest {
 		assertEquals(0, completedTaskCount());
 	}
 
+	@Test void proxyFileTaskResultsBoundChangeDescriptionsBeforeJournaling() throws Exception {
+		Method fileIntent = taskResultClass().getDeclaredMethod("fileIntent", String.class, String.class, List.class);
+		fileIntent.setAccessible(true);
+		Object result = fileIntent.invoke(null, ProxyConfigurationFileService.FILE_NAME, "anticipated-revision",
+				List.of("changed " + "x".repeat(1000)));
+		Method changes = taskResultClass().getDeclaredMethod("changes");
+		changes.setAccessible(true);
+
+		@SuppressWarnings("unchecked") List<String> bounded = (List<String>) changes.invoke(result);
+		assertEquals(1, bounded.size());
+		assertTrue(bounded.get(0).length() <= 240);
+		assertTrue(bounded.get(0).endsWith("..."));
+	}
+
+	@Test void resultChangeBoundsRetainExactlyTwentyRealChanges() {
+		List<String> changes = java.util.stream.IntStream.range(0, 20).mapToObj(index -> "changed Path" + index).toList();
+
+		assertEquals(changes, ControlConnector.boundedResultChanges(changes));
+	}
+
 	@Test void recoveredProxyFileIntentRebuildsMaskedContent() throws Exception {
 		Path file = dataDirectory.resolve(ProxyConfigurationFileService.FILE_NAME);
 		Files.writeString(file, "Database:\n  Password: local-secret\nProxy:\n  Enabled: false\n");

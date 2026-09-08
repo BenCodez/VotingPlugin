@@ -1024,27 +1024,68 @@ final class ProxyConfigurationFileService {
 	}
 
 	private static List<String> changes(Map<String, Object> before, Map<String, Object> after) {
-		Map<String, String> left = flatten(before, "");
-		Map<String, String> right = flatten(after, "");
-		Set<String> keys = new java.util.TreeSet<>(); keys.addAll(left.keySet()); keys.addAll(right.keySet());
+		Map<StructuralPath, Object> left = flatten(before, List.of());
+		Map<StructuralPath, Object> right = flatten(after, List.of());
+		Set<StructuralPath> keys = new java.util.TreeSet<>(ProxyConfigurationFileService::comparePaths);
+		keys.addAll(left.keySet());
+		keys.addAll(right.keySet());
 		List<String> result = new ArrayList<>();
-		for (String key : keys) {
+		for (StructuralPath key : keys) {
 			if (java.util.Objects.equals(left.get(key), right.get(key))) continue;
-			result.add((left.containsKey(key) ? right.containsKey(key) ? "changed " : "removed " : "added ") + key);
+			result.add((left.containsKey(key) ? right.containsKey(key) ? "changed " : "removed " : "added ")
+					+ key.display());
 			if (result.size() == 20) break;
 		}
 		return List.copyOf(result);
 	}
 
 	@SuppressWarnings("unchecked")
-	private static Map<String, String> flatten(Map<String, Object> source, String prefix) {
-		Map<String, String> result = new LinkedHashMap<>();
-		source.entrySet().stream().sorted(Map.Entry.comparingByKey(Comparator.naturalOrder())).forEach(entry -> {
-			String path = prefix + entry.getKey();
-			if (entry.getValue() instanceof Map<?, ?> nested) result.putAll(flatten((Map<String, Object>) nested, path + "."));
-			else result.put(path, String.valueOf(entry.getValue()));
+	private static Map<StructuralPath, Object> flatten(Map<String, Object> source, List<String> prefix) {
+		Map<StructuralPath, Object> result = new LinkedHashMap<>();
+			source.entrySet().stream().sorted(Map.Entry.comparingByKey(Comparator.naturalOrder())).forEach(entry -> {
+			List<String> path = new ArrayList<>(prefix);
+			path.add(entry.getKey());
+			if (entry.getValue() instanceof Map<?, ?> nested) {
+				if (nested.isEmpty()) result.put(new StructuralPath(path), StructuralLeaf.EMPTY_MAPPING);
+				else result.putAll(flatten((Map<String, Object>) nested, path));
+			} else {
+				result.put(new StructuralPath(path), entry.getValue());
+			}
 		});
 		return result;
+	}
+
+	private enum StructuralLeaf {
+		EMPTY_MAPPING
+	}
+
+	private static int comparePaths(StructuralPath left, StructuralPath right) {
+		int common = Math.min(left.segments().size(), right.segments().size());
+		for (int index = 0; index < common; index++) {
+			int comparison = left.segments().get(index).compareTo(right.segments().get(index));
+			if (comparison != 0) return comparison;
+		}
+		return Integer.compare(left.segments().size(), right.segments().size());
+	}
+
+	private record StructuralPath(List<String> segments) {
+		private StructuralPath {
+			segments = List.copyOf(segments);
+		}
+
+		private String display() {
+			StringBuilder path = new StringBuilder();
+			for (String segment : segments) {
+				if (segment.matches("[A-Za-z_][A-Za-z0-9_-]*")) {
+					if (!path.isEmpty()) path.append('.');
+					path.append(segment);
+				} else {
+					path.append("[\"").append(segment.replace("\\", "\\\\").replace("\"", "\\\""))
+							.append("\"]");
+				}
+			}
+			return path.toString();
+		}
 	}
 
 	private static void move(Path source, Path destination) throws IOException {
