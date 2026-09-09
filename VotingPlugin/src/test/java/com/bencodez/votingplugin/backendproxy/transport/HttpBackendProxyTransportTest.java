@@ -177,6 +177,46 @@ class HttpBackendProxyTransportTest {
 	}
 
 	@Test
+	void sendsRemainNonBlockingWhileReplacementFlushes() throws Exception {
+		BackendProxyTransportManager manager = new BackendProxyTransportManager(mock(VotingPluginMain.class));
+		BackendProxyTransport active = mock(BackendProxyTransport.class);
+		BackendProxyTransportManager replacement = new BackendProxyTransportManager(mock(VotingPluginMain.class));
+		BackendProxyTransport replacementTransport = mock(BackendProxyTransport.class);
+		JsonEnvelope queued = JsonEnvelope.builder("queued-during-flush").build();
+		setField(manager, "transport", active);
+		setField(replacement, "transport", replacementTransport);
+		java.util.concurrent.CountDownLatch flushStarted = new java.util.concurrent.CountDownLatch(1);
+		java.util.concurrent.CountDownLatch releaseFlush = new java.util.concurrent.CountDownLatch(1);
+		doAnswer(invocation -> {
+			flushStarted.countDown();
+			assertTrue(releaseFlush.await(2, java.util.concurrent.TimeUnit.SECONDS));
+			return null;
+		}).when(active).prepareForReplacement();
+
+		java.util.concurrent.atomic.AtomicReference<Throwable> preparationFailure = new java.util.concurrent.atomic.AtomicReference<>();
+		Thread preparation = new Thread(() -> {
+			try {
+				manager.prepareForReplacement();
+			} catch (Throwable failure) {
+				preparationFailure.set(failure);
+			}
+		});
+		preparation.start();
+		assertTrue(flushStarted.await(1, java.util.concurrent.TimeUnit.SECONDS));
+
+		java.util.concurrent.CompletableFuture<Void> sent = java.util.concurrent.CompletableFuture.runAsync(
+				() -> manager.send(queued));
+		assertDoesNotThrow(() -> sent.get(1, java.util.concurrent.TimeUnit.SECONDS));
+		releaseFlush.countDown();
+		preparation.join(2000L);
+		assertFalse(preparation.isAlive());
+		assertNull(preparationFailure.get());
+
+		manager.completePreparedTransportHandoff(replacement);
+		verify(replacementTransport).send(queued);
+	}
+
+	@Test
 	void timedOutScheduledMessageCannotExecuteLater() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		BukkitScheduler scheduler = mock(BukkitScheduler.class);
@@ -552,6 +592,78 @@ class HttpBackendProxyTransportTest {
 
 		assertEquals(List.of(acceptedBeforePublication, sentAfterPublication), transport.handoffMessagesSnapshot());
 		transport.close();
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void reservationKeepsPreparedHandoffWithinTheReplacementCapacity() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		BackendProxyTransportManager previous = new BackendProxyTransportManager(plugin);
+		BackendProxyTransportManager replacement = new BackendProxyTransportManager(plugin);
+		HttpBackendProxyTransport oldTransport = new HttpBackendProxyTransport(plugin);
+		HttpBackendProxyTransport newTransport = new HttpBackendProxyTransport(plugin);
+		setField(previous, "preparedTransport", oldTransport);
+		setField(replacement, "transport", newTransport);
+		java.util.ArrayDeque<JsonEnvelope> oldQueue =
+				(java.util.ArrayDeque<JsonEnvelope>) field(oldTransport, "handoffQueue");
+		List<JsonEnvelope> oldMessages = new ArrayList<>();
+		List<JsonEnvelope> preparedMessages = new ArrayList<>();
+		List<JsonEnvelope> replacementMessages = new ArrayList<>();
+		for (int index = 0; index < 2048; index++) {
+			JsonEnvelope envelope = JsonEnvelope.builder("old-" + index).build();
+			oldQueue.addLast(envelope);
+			oldMessages.add(envelope);
+		}
+		for (int index = 0; index < 1024; index++) {
+			JsonEnvelope envelope = JsonEnvelope.builder("prepared-" + index).build();
+			previous.send(envelope);
+			preparedMessages.add(envelope);
+		}
+
+		replacement.beginPreparedHttpHandoff();
+		previous.reservePreparedTransportHandoff(replacement);
+		for (int index = 0; index < 2048; index++) {
+			JsonEnvelope envelope = JsonEnvelope.builder("new-" + index).build();
+			replacement.send(envelope);
+			replacementMessages.add(envelope);
+		}
+
+		assertDoesNotThrow(() -> previous.completePreparedTransportHandoff(replacement));
+		List<JsonEnvelope> queued = newTransport.handoffMessagesSnapshot();
+		assertEquals(4096, queued.size());
+		assertEquals(oldMessages, queued.subList(0, 2048));
+		assertEquals(preparedMessages, queued.subList(2048, 3072));
+		assertEquals(replacementMessages.subList(0, 1024), queued.subList(3072, 4096));
+		assertEquals(0, oldTransport.preparedMessageCount());
+		assertTrue(((java.util.ArrayDeque<JsonEnvelope>) field(previous, "preparedSends")).isEmpty());
+		newTransport.close();
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void failedHandoffAdmissionLeavesTheOldPreparedQueuesIntact() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BackendProxyTransportManager previous = new BackendProxyTransportManager(plugin);
+		BackendProxyTransportManager replacement = new BackendProxyTransportManager(plugin);
+		HttpBackendProxyTransport oldTransport = new HttpBackendProxyTransport(plugin);
+		HttpBackendProxyTransport newTransport = new HttpBackendProxyTransport(plugin);
+		JsonEnvelope old = JsonEnvelope.builder("old").build();
+		JsonEnvelope prepared = JsonEnvelope.builder("prepared").build();
+		setField(previous, "preparedTransport", oldTransport);
+		setField(replacement, "transport", newTransport);
+		((java.util.ArrayDeque<JsonEnvelope>) field(oldTransport, "startupQueue")).addLast(old);
+		previous.send(prepared);
+		java.util.ArrayDeque<JsonEnvelope> replacementQueue =
+				(java.util.ArrayDeque<JsonEnvelope>) field(newTransport, "handoffQueue");
+		for (int index = 0; index < 4096; index++)
+			replacementQueue.addLast(JsonEnvelope.builder("replacement-" + index).build());
+
+		assertThrows(IllegalStateException.class, () -> previous.completePreparedTransportHandoff(replacement));
+
+		assertEquals(List.of(old), oldTransport.preparedMessagesSnapshot());
+		assertEquals(List.of(prepared), new ArrayList<>((java.util.ArrayDeque<JsonEnvelope>) field(previous, "preparedSends")));
+		assertNull(field(previous, "forwardingManager"));
 	}
 
 	@Test

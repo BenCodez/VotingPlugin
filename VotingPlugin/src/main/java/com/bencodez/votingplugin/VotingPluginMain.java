@@ -1300,6 +1300,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			restart.replacement.beginPreparedHttpHandoff();
 			if (!restart.previous.prepareForReplacement(restart.replacement.getMethod()))
 				throw new IllegalStateException("Previous HTTP proxy transport could not be prepared for replacement");
+			restart.previous.reservePreparedHttpHandoff(restart.replacement);
 		}
 		if (restart.replacement != null) restart.replacement.validateTransport(validationDeadlineNanos);
 	}

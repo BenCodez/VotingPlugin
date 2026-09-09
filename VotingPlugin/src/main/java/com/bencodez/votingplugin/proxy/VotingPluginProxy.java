@@ -560,13 +560,35 @@ public abstract class VotingPluginProxy {
 			String text, boolean wasOnline, VoteTimeQueue cachedVote) {
 		Set<String> forwarded = new LinkedHashSet<>();
 		for (String targetServer : targets) {
+			// A timed vote can survive a proxy restart. Persist its HTTP delivery ID before
+			// publication so a crash after the transport accepts it replays with the same
+			// ID rather than creating a second backend broadcast.
+			if (method == BungeeMethod.HTTP && !prepareTimedHttpBroadcastDelivery(targetServer, cachedVote)) {
+				continue;
+			}
 			JsonEnvelope envelope = VotingPluginWire.voteBroadcast(uuid, player, service, time, text, wasOnline);
 			boolean accepted = method == BungeeMethod.HTTP
 					? sendHttpBroadcastEnvelopeWithRecovery(targetServer, envelope, cachedVote)
 					: sendProxyBroadcastEnvelopeNow(targetServer, envelope);
-			if (accepted) forwarded.add(targetServer);
+			if (accepted) {
+				forwarded.add(targetServer);
+				if (method == BungeeMethod.HTTP) {
+					cachedVote.getBroadcastForwardedServers().add(targetServer);
+					// Persist completion before preparing another target. Otherwise persisting
+					// that target's ID could leave this accepted target looking pending after a
+					// crash, and it would be replayed under a newly generated ID.
+					if (!persistTimeVoteDelivery(cachedVote)) break;
+				}
+			}
 		}
 		return forwarded;
+	}
+
+	private boolean prepareTimedHttpBroadcastDelivery(String server, VoteTimeQueue vote) {
+		if (vote.getHttpBroadcastDeliveryId(server) != null) return true;
+		vote.setHttpBroadcastDeliveryId(server, UUID.randomUUID().toString());
+		vote.setDeliveryStateDirty(true);
+		return persistTimeVoteDelivery(vote);
 	}
 
 	protected boolean sendHttpBroadcastEnvelopeWithRecovery(String server, JsonEnvelope envelope,
@@ -584,13 +606,12 @@ public abstract class VotingPluginProxy {
 			if (cachedVote != null) {
 				cachedVote.setHttpBroadcastDeliveryId(server, failure.deliveryId());
 				cachedVote.setDeliveryStateDirty(true);
+				// Let the caller persist the recovered ID before retrying. Retrying here
+				// would create a crash window after acceptance but before durable cache state.
+				return false;
 			}
 			try {
 				boolean accepted = sendHttpEnvelope(server, failure.deliveryId(), envelope);
-				if (accepted && cachedVote != null) {
-					cachedVote.setHttpBroadcastDeliveryId(server, null);
-					cachedVote.setDeliveryStateDirty(true);
-				}
 				return accepted;
 			} catch (RuntimeException retryFailure) {
 				debug("Unable to recover HTTP standalone delivery " + failure.deliveryId() + ": "
@@ -605,32 +626,18 @@ public abstract class VotingPluginProxy {
 
 	private boolean sendHttpBroadcastEnvelopeWithRecovery(String server, JsonEnvelope envelope,
 			VoteTimeQueue cachedVote) {
-		String stableId = cachedVote == null ? null : cachedVote.getHttpBroadcastDeliveryId(server);
+		String stableId = cachedVote.getHttpBroadcastDeliveryId(server);
+		if (stableId == null) {
+			debug("Skipping HTTP timed broadcast without a persisted delivery ID for " + server);
+			return false;
+		}
 		try {
-			boolean accepted = stableId == null ? sendProxyBroadcastEnvelopeNow(server, envelope)
-					: sendHttpEnvelope(server, stableId, envelope);
-			if (accepted && cachedVote != null && stableId != null) {
+			boolean accepted = sendHttpEnvelope(server, stableId, envelope);
+			if (accepted) {
 				cachedVote.setHttpBroadcastDeliveryId(server, null);
 				cachedVote.setDeliveryStateDirty(true);
 			}
 			return accepted;
-		} catch (HttpProxyTransportServer.DeliveryRetryException failure) {
-			if (cachedVote != null) {
-				cachedVote.setHttpBroadcastDeliveryId(server, failure.deliveryId());
-				cachedVote.setDeliveryStateDirty(true);
-			}
-			try {
-				boolean accepted = sendHttpEnvelope(server, failure.deliveryId(), envelope);
-				if (accepted && cachedVote != null) {
-					cachedVote.setHttpBroadcastDeliveryId(server, null);
-					cachedVote.setDeliveryStateDirty(true);
-				}
-				return accepted;
-			} catch (RuntimeException retryFailure) {
-				debug("Unable to recover HTTP timed broadcast delivery " + failure.deliveryId() + ": "
-						+ retryFailure.getMessage());
-				return false;
-			}
 		} catch (RuntimeException failure) {
 			debug("Unable to send HTTP timed broadcast delivery: " + failure.getMessage());
 			return false;
@@ -2972,13 +2979,11 @@ public abstract class VotingPluginProxy {
 			if (cachedVote != null) {
 				cachedVote.setHttpDeliveryId(server, failure.deliveryId());
 				cachedVote.setDeliveryStateDirty(true);
+				// Retry only after the caller durably records the recovered transport ID.
+				return false;
 			}
 			try {
 				boolean accepted = sendHttpEnvelope(server, failure.deliveryId(), envelope);
-				if (accepted && cachedVote != null) {
-					cachedVote.setHttpDeliveryId(server, null);
-					cachedVote.setDeliveryStateDirty(true);
-				}
 				return accepted;
 			} catch (RuntimeException retryFailure) {
 				debug("Unable to recover HTTP vote delivery " + failure.deliveryId() + ": " + retryFailure.getMessage());
@@ -3978,9 +3983,9 @@ public abstract class VotingPluginProxy {
 					for (String target : broadcastTargets) {
 						Set<String> forwarded = sendProxyBroadcast(Collections.singleton(target), uuid, player,
 								service, time, projectedTotals == null ? "" : projectedTotals.toString(), false, delayedVote);
-							if (delayedVote.getBroadcastForwardedServers().addAll(forwarded)
-									|| delayedVote.isDeliveryStateDirty()) {
-								broadcastForwardedServers.addAll(forwarded);
+						boolean newlyForwarded = delayedVote.getBroadcastForwardedServers().addAll(forwarded);
+						broadcastForwardedServers.addAll(forwarded);
+						if (newlyForwarded || delayedVote.isDeliveryStateDirty()) {
 							persistTimeVoteDelivery(delayedVote);
 						}
 					}

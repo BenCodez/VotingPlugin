@@ -40,6 +40,8 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	private final ArrayDeque<JsonEnvelope> handoffQueue = new ArrayDeque<>();
 	private volatile Thread handoffWorker;
 	private boolean awaitingPreparedHandoff;
+	/** Capacity reserved for the prepared predecessor before this transport is published. */
+	private int preparedHandoffReservation;
 	private volatile HttpBackendTransportConnector connector;
 	private volatile Thread worker;
 	private volatile RuntimeException startupFailure;
@@ -136,6 +138,21 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	java.util.List<JsonEnvelope> drainPreparedMessages() {
 		synchronized (lifecycle) {
 			return takeQueuedMessages();
+		}
+	}
+
+	int preparedMessageCount() {
+		synchronized (lifecycle) {
+			return startupQueue.size() + handoffQueue.size();
+		}
+	}
+
+	java.util.List<JsonEnvelope> preparedMessagesSnapshot() {
+		synchronized (lifecycle) {
+			java.util.List<JsonEnvelope> pending = new java.util.ArrayList<>(startupQueue.size() + handoffQueue.size());
+			pending.addAll(startupQueue);
+			pending.addAll(handoffQueue);
+			return pending;
 		}
 	}
 
@@ -488,7 +505,9 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 		synchronized (lifecycle) {
 			if (closed) return;
 			if (awaitingPreparedHandoff || !handoffQueue.isEmpty()) {
-				int capacity = awaitingPreparedHandoff ? MAX_PREPUBLICATION_QUEUE : MAX_HANDOFF_QUEUE;
+				int capacity = awaitingPreparedHandoff
+						? Math.min(MAX_PREPUBLICATION_QUEUE, MAX_HANDOFF_QUEUE - preparedHandoffReservation)
+						: MAX_HANDOFF_QUEUE;
 				if (handoffQueue.size() < capacity) handoffQueue.addLast(envelope);
 				else warnRejectedSend();
 				return;
@@ -512,6 +531,24 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 		}
 	}
 
+	/**
+	 * Reserves enough of the bounded handoff queue for the predecessor before callers
+	 * can send through this staged replacement. This turns an otherwise late,
+	 * destructive capacity failure into a pre-publication validation failure.
+	 */
+	void reservePreparedHandoffCapacity(int messages) {
+		if (messages < 0 || messages > MAX_HANDOFF_QUEUE)
+			throw new IllegalStateException("HTTP prepared handoff exceeds its fixed capacity");
+		synchronized (lifecycle) {
+			if (closed) throw new IllegalStateException("HTTP replacement transport is closed");
+			if (!awaitingPreparedHandoff)
+				throw new IllegalStateException("HTTP replacement transport is not awaiting a prepared handoff");
+			if (handoffQueue.size() > MAX_HANDOFF_QUEUE - messages)
+				throw new IllegalStateException("HTTP handoff queue exceeded its reserved capacity");
+			preparedHandoffReservation = messages;
+		}
+	}
+
 	void acceptHandoffMessages(java.util.List<JsonEnvelope> messages) {
 		Thread drain;
 		synchronized (lifecycle) {
@@ -523,6 +560,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 			handoffQueue.addAll(messages);
 			handoffQueue.addAll(newer);
 			awaitingPreparedHandoff = false;
+			preparedHandoffReservation = 0;
 			if (handoffQueue.isEmpty()) return;
 			if (handoffWorker != null) return;
 			drain = new Thread(this::drainHandoffMessages, "VotingPlugin-HTTP-Backend-Handoff");

@@ -121,20 +121,30 @@ public class BackendProxyTransportManager {
 		else transport.validate();
 	}
 
-	public synchronized void prepareForReplacement() {
-		if (transport != null) {
-			preparedTransport = transport;
+	public void prepareForReplacement() {
+		BackendProxyTransport candidate;
+		synchronized (this) {
+			if (transport == null) return;
+			candidate = transport;
+			preparedTransport = candidate;
 			transport = null;
-			try {
-				preparedTransport.prepareForReplacement();
-			} catch (RuntimeException failure) {
-				HttpBackendProxyTransport http = preparedTransport instanceof HttpBackendProxyTransport candidate
-						? candidate : null;
+		}
+		try {
+			// HTTP preparation can wait on a bounded network flush. Keep send() free to
+			// enqueue presence and vote messages while that I/O is in progress.
+			candidate.prepareForReplacement();
+		} catch (RuntimeException failure) {
+			synchronized (this) {
+				if (preparedTransport != candidate) throw failure;
+				HttpBackendProxyTransport http = candidate instanceof HttpBackendProxyTransport prepared
+						? prepared : null;
 				if (http != null && !http.isClosedForReplacement()) {
 					// A failed flush deliberately restarts the existing connector. Reinstall
 					// that live instance instead of creating a second directory owner.
-					transport = preparedTransport;
+					transport = candidate;
 					preparedTransport = null;
+					while (!preparedSends.isEmpty()) transport.send(preparedSends.removeFirst());
+					preparedQueueWarning = false;
 				} else {
 					// Enrollment cancellation may already have closed this instance. Restore
 					// from its captured configuration before configuration rollback.
@@ -144,24 +154,41 @@ public class BackendProxyTransportManager {
 						failure.addSuppressed(restorationFailure);
 					}
 				}
-				throw failure;
 			}
+			throw failure;
 		}
 	}
 
 	public synchronized void completePreparedTransportHandoff(BackendProxyTransportManager replacement) {
 		if (preparedTransport == null) return;
-		forwardingManager = java.util.Objects.requireNonNull(replacement, "replacement");
+		BackendProxyTransportManager target = java.util.Objects.requireNonNull(replacement, "replacement");
 		java.util.ArrayList<JsonEnvelope> pending = new java.util.ArrayList<>();
 		if (preparedTransport instanceof HttpBackendProxyTransport http) {
-			pending.addAll(http.drainPreparedMessages());
+			pending.addAll(http.preparedMessagesSnapshot());
 		}
-		while (!preparedSends.isEmpty()) pending.add(preparedSends.removeFirst());
-		if (forwardingManager.transport instanceof HttpBackendProxyTransport http) {
+		pending.addAll(preparedSends);
+		if (target.transport instanceof HttpBackendProxyTransport http) {
 			http.acceptHandoffMessages(pending);
 		} else {
-			for (JsonEnvelope envelope : pending) forwardingManager.send(envelope);
+			for (JsonEnvelope envelope : pending) target.send(envelope);
 		}
+		// Do not consume the old queues or forward subsequent sends until the
+		// replacement has admitted every snapshot. A failed admission therefore
+		// leaves rollback with the complete original FIFO intact.
+		if (preparedTransport instanceof HttpBackendProxyTransport http) http.drainPreparedMessages();
+		preparedSends.clear();
+		forwardingManager = target;
+	}
+
+	/** Reserves replacement capacity for every old queued message and future prepared send. */
+	public synchronized void reservePreparedTransportHandoff(BackendProxyTransportManager replacement) {
+		if (!(preparedTransport instanceof HttpBackendProxyTransport previous)) return;
+		if (!(java.util.Objects.requireNonNull(replacement, "replacement").transport
+				instanceof HttpBackendProxyTransport target))
+			throw new IllegalStateException("HTTP replacement transport is unavailable");
+		// send() remains available while the previous credential is fenced. Reserve
+		// its whole remaining bounded allowance, not only the current queue size.
+		target.reservePreparedHandoffCapacity(previous.preparedMessageCount() + MAX_PREPARED_SENDS);
 	}
 
 	public void beginPreparedHttpHandoff() {

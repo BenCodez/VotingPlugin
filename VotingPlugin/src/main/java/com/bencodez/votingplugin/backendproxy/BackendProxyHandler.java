@@ -137,6 +137,11 @@ public class BackendProxyHandler implements Listener {
 		transportManager.beginPreparedHttpHandoff();
 	}
 
+	/** Reserves staged HTTP capacity before publication can admit replacement sends. */
+	public void reservePreparedHttpHandoff(BackendProxyHandler replacement) {
+		transportManager.reservePreparedTransportHandoff(replacement.transportManager);
+	}
+
 	/** Restores a prepared HTTP transport when its replacement fails validation. */
 	public void restoreAfterFailedReplacement() {
 		transportManager.restoreAfterFailedReplacement();

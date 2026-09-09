@@ -482,6 +482,10 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 		retryPendingTimeBroadcasts(server);
 	}
 
+	public void retryPendingTimeBroadcastsForTest() {
+		retryPendingTimeBroadcasts();
+	}
+
 	public void retryPendingVotePartyRewardsForTest() {
 		retryPendingVotePartyRewards();
 	}
