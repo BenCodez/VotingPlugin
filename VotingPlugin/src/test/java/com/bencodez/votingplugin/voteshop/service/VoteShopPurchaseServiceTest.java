@@ -105,6 +105,14 @@ class VoteShopPurchaseServiceTest {
 		PreparedStatement wipe = mock(PreparedStatement.class);
 		PreparedStatement advance = mock(PreparedStatement.class);
 		ResultSet epoch = mock(ResultSet.class);
+		UserDataCache initialCache = mock(UserDataCache.class);
+		UserDataCache recreatedCache = mock(UserDataCache.class);
+		UUID cachedUuid = UUID.fromString("00000000-0000-0000-0000-000000000001");
+		HashMap<String, DataValue> recreatedValues = new HashMap<>();
+		recreatedValues.put("VoteShopLimitdaily", mock(DataValue.class));
+		recreatedValues.put("DailyTotal", mock(DataValue.class));
+		var liveCaches = new java.util.concurrent.ConcurrentHashMap<UUID, UserDataCache>();
+		liveCaches.put(cachedUuid, initialCache);
 		when(table.getTableName()).thenReturn("VotingPlugin_Users");
 		when(table.qi(anyString())).thenAnswer(invocation -> "`" + invocation.getArgument(0) + "`");
 		when(table.getMysql()).thenReturn(sql);
@@ -116,14 +124,27 @@ class VoteShopPurchaseServiceTest {
 		when(epoch.getLong(1)).thenReturn(11L);
 		when(markerSelect.executeQuery()).thenReturn(epoch);
 		when(advance.executeUpdate()).thenReturn(1);
+		when(initialCache.isCached("VoteShopLimitdaily")).thenReturn(true);
+		when(recreatedCache.getCache()).thenReturn(recreatedValues);
+		doAnswer(invocation -> {
+			liveCaches.put(cachedUuid, recreatedCache);
+			return 1;
+		}).when(wipe).executeUpdate();
+		VotingPluginMain plugin = sharedMysqlPlugin(table);
+		when(plugin.getUserManager().getDataManager().getUserDataCache()).thenReturn(liveCaches);
 
-		VoteShopPurchaseService.resetSharedMysqlLimit(sharedMysqlPlugin(table), "VoteShopLimitdaily");
+		VoteShopPurchaseService.resetSharedMysqlLimit(plugin, "VoteShopLimitdaily");
 
 		verify(table).checkColumn("VoteShopLimitdaily", com.bencodez.simpleapi.sql.DataType.INTEGER);
 		verify(resetConnection).commit();
 		ArgumentCaptor<String> sqlText = ArgumentCaptor.forClass(String.class);
 		verify(resetConnection, times(4)).prepareStatement(sqlText.capture());
 		assertTrue(sqlText.getAllValues().get(2).contains("`VoteShopLimitdaily` = 0"));
+		InOrder cacheBeforeReset = inOrder(initialCache, wipe);
+		cacheBeforeReset.verify(initialCache).dump();
+		cacheBeforeReset.verify(wipe).executeUpdate();
+		assertFalse(recreatedValues.containsKey("VoteShopLimitdaily"));
+		assertTrue(recreatedValues.containsKey("DailyTotal"));
 	}
 
 	@Test

@@ -27,6 +27,8 @@ import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
+import com.bencodez.advancedcore.api.user.UserDataFetchMode;
+import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.simpleapi.sql.data.DataValueInt;
@@ -1090,7 +1092,9 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return the vote shop identifier limit
 	 */
 	public int getVoteShopIdentifierLimit(String identifier) {
-		return getData().getInt("VoteShopLimit" + identifier);
+		String path = "VoteShopLimit" + identifier;
+		if (usesSharedMysqlPoints()) return getData().getInt(path, UserDataFetchMode.NO_CACHE);
+		return getData().getInt(path);
 	}
 
 	/**
@@ -1794,7 +1798,15 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param value      the limit to set
 	 */
 	public void setVoteShopIdentifierLimit(String identifier, int value) {
-		getData().setInt("VoteShopLimit" + identifier, value);
+		String path = "VoteShopLimit" + identifier;
+		// Shared-MySQL purchase/reset transactions own these columns. Never leave an
+		// absolute queued cache write that another backend's reset cannot fence.
+		getData().setInt(path, value, !usesSharedMysqlPoints());
+	}
+
+	private boolean usesSharedMysqlPoints() {
+		return plugin != null && UserStorage.MYSQL.equals(plugin.getStorageType())
+				&& !plugin.getBungeeSettings().isPerServerPoints();
 	}
 
 	/**

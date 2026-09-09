@@ -369,6 +369,7 @@ public class VoteShopPurchaseService {
 	/** Applies a named reset at most once across all backends sharing the table. */
 	public static void resetSharedMysqlLimit(VotingPluginMain plugin, String limitColumn, String resetGeneration) {
 		if (!usesSharedMysqlPoints(plugin)) return;
+		SharedMysqlCacheReconciler.drainAll(plugin, limitColumn);
 		try {
 			MySQL table = plugin.getMysql();
 			table.checkColumn(limitColumn, DataType.INTEGER);
@@ -377,6 +378,8 @@ public class VoteShopPurchaseService {
 			plugin.getLogger().severe("Unable to atomically reset shared MySQL vote shop limit: "
 					+ failure.getClass().getSimpleName());
 			plugin.debug(failure);
+		} finally {
+			SharedMysqlCacheReconciler.invalidateAll(plugin, limitColumn);
 		}
 	}
 

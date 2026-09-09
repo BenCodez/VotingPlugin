@@ -341,6 +341,7 @@ class VotingPluginUserPointSchedulingTest {
 	@Test
 	void retiredApprovalSchedulerRefundsClaimedTransferBeforeTheHookCanRun() throws Exception {
 		SagaFixture fixture = sagaFixture(true);
+		configureRejectedSagaConnections(fixture);
 		when(fixture.entityScheduler.runAtEntityWithFallback(any(), any(), any(Runnable.class)))
 				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
 		AtomicReference<Boolean> result = new AtomicReference<>();
@@ -370,6 +371,7 @@ class VotingPluginUserPointSchedulingTest {
 	@Test
 	void rejectedClaimedTransferCompensationUsesAsyncFallback() throws Exception {
 		SagaFixture fixture = sagaFixture(true);
+		configureRejectedSagaConnections(fixture);
 		when(fixture.entityScheduler.runAtEntityWithFallback(any(), any(), any(Runnable.class)))
 				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
 		AtomicReference<Boolean> result = new AtomicReference<>();
@@ -392,6 +394,37 @@ class VotingPluginUserPointSchedulingTest {
 		asyncRefund.getValue().run();
 		verify(fixture.settlementPoint).setInt(1, 10);
 		verify(fixture.settlementPoint).executeUpdate();
+		ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
+		completion.getValue().run();
+		assertEquals(Boolean.FALSE, result.get());
+	}
+
+	@Test
+	void rejectedClaimedTransferRetainsDurableCompensationWhenBothFallbackSchedulersReject() throws Exception {
+		SagaFixture fixture = sagaFixture(true);
+		configureRejectedSagaConnections(fixture);
+		when(fixture.entityScheduler.runAtEntityWithFallback(any(), any(), any(Runnable.class)))
+				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
+		AtomicReference<Boolean> result = new AtomicReference<>();
+
+		fixture.user.transferPoints(fixture.target, 10, result::set);
+		ArgumentCaptor<Runnable> persistence = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence).execute(persistence.capture());
+		persistence.getValue().run();
+		ArgumentCaptor<Runnable> gate = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), gate.capture());
+		gate.getValue().run();
+		ArgumentCaptor<Runnable> claimed = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence, org.mockito.Mockito.times(2)).execute(claimed.capture());
+		doThrow(new RejectedExecutionException("stopping")).when(fixture.persistence).execute(any(Runnable.class));
+		doThrow(new RejectedExecutionException("disabling")).when(fixture.scheduler)
+				.runTaskAsynchronously(eq(fixture.plugin), any(Runnable.class));
+		claimed.getAllValues().get(1).run();
+
+		verify(fixture.compensationUpdate).setString(1, "COMPENSATING");
+		verify(fixture.scheduler).runTaskAsynchronously(eq(fixture.plugin), any(Runnable.class));
+		verify(fixture.settlementPoint, never()).executeUpdate();
 		ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
 		verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
 		completion.getValue().run();
@@ -708,6 +741,7 @@ class VotingPluginUserPointSchedulingTest {
 		fixture.lookup = mock(Connection.class);
 		fixture.reservation = mock(Connection.class);
 		fixture.claim = mock(Connection.class);
+		fixture.compensation = mock(Connection.class);
 		fixture.settlement = mock(Connection.class);
 		when(fixture.plugin.getStorageType()).thenReturn(UserStorage.MYSQL);
 		when(fixture.plugin.getBungeeSettings().isPerServerPoints()).thenReturn(false);
@@ -747,6 +781,9 @@ class VotingPluginUserPointSchedulingTest {
 		when(claimSelect.executeQuery()).thenReturn(reserved);
 		when(fixture.claimUpdate.executeUpdate()).thenReturn(1);
 		when(fixture.claim.prepareStatement(anyString())).thenReturn(claimSelect, fixture.claimUpdate);
+		fixture.compensationUpdate = mock(PreparedStatement.class);
+		when(fixture.compensationUpdate.executeUpdate()).thenReturn(1);
+		when(fixture.compensation.prepareStatement(anyString())).thenReturn(fixture.compensationUpdate);
 
 		PreparedStatement settleSelect = mock(PreparedStatement.class);
 		fixture.settlementPoint = mock(PreparedStatement.class);
@@ -884,6 +921,11 @@ class VotingPluginUserPointSchedulingTest {
 		when(cleanupQuery.executeQuery()).thenReturn(noCleanupRows);
 	}
 
+	private static void configureRejectedSagaConnections(SagaFixture fixture) {
+		when(fixture.manager.getConnection()).thenReturn(fixture.schema, fixture.recoveryReserved, fixture.cleanup,
+				fixture.lookup, fixture.reservation, fixture.claim, fixture.compensation, fixture.settlement);
+	}
+
 	private static final class PointFixture {
 		VotingPluginMain plugin;
 		ScheduledExecutorService persistence;
@@ -914,9 +956,11 @@ class VotingPluginUserPointSchedulingTest {
 		Connection lookup;
 		Connection reservation;
 		Connection claim;
+		Connection compensation;
 		Connection settlement;
 		PreparedStatement debit;
 		PreparedStatement claimUpdate;
+		PreparedStatement compensationUpdate;
 		PreparedStatement settlementPoint;
 		VotingPluginUser user;
 		VotingPluginUser target;

@@ -130,6 +130,23 @@ class SharedPointTransferJournalTest {
 	}
 
 	@Test
+	void compensationMarkerIsDurableAfterTheSchedulerFenceRejectsTheHook() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement update = mock(PreparedStatement.class);
+		when(update.executeUpdate()).thenReturn(1);
+		when(fixture.lookup.prepareStatement(anyString())).thenReturn(update);
+
+		SharedPointTransferJournal journal = new SharedPointTransferJournal(fixture.table);
+		assertTrue(journal.markCompensating("transfer-compensating"));
+
+		verify(update).setString(1, "COMPENSATING");
+		verify(update).setString(2, "transfer-compensating");
+		verify(update).setString(3, "HOOK_STARTED");
+		verify(update).setString(4, "COMPENSATING");
+		verify(fixture.lookup).commit();
+	}
+
+	@Test
 	void acceptedHookCreditsAdjustedAmountAndMarksTerminalState() throws Exception {
 		Fixture fixture = fixture();
 		PreparedStatement select = mock(PreparedStatement.class);
@@ -309,6 +326,42 @@ class SharedPointTransferJournalTest {
 		assertEquals(1, refunded.size());
 		assertEquals("source", refunded.get(0).uuid());
 		assertEquals("Points", refunded.get(0).pointsColumn());
+	}
+
+	@Test
+	void recoveryRefundsACompensatingTransferImmediatelyUsingItsPersistedSourceColumn() throws Exception {
+		Fixture fixture = fixture();
+		Connection recoverableCandidates = mock(Connection.class);
+		Connection recovery = mock(Connection.class);
+		Connection cleanup = mock(Connection.class);
+		PreparedStatement recoverableCandidateQuery = mock(PreparedStatement.class);
+		PreparedStatement recoverySelect = mock(PreparedStatement.class);
+		PreparedStatement recoveryRefund = mock(PreparedStatement.class);
+		PreparedStatement recoveryUpdate = mock(PreparedStatement.class);
+		PreparedStatement cleanupSelect = mock(PreparedStatement.class);
+		PreparedStatement cleanupDelete = mock(PreparedStatement.class);
+		ResultSet expiredCompensation = ids("expired-compensation");
+		ResultSet compensationRecovery = recoveryRow("COMPENSATING", 1L, "source", "Points", 10);
+		ResultSet noCleanupCandidates = ids();
+		when(recoverableCandidates.prepareStatement(anyString())).thenReturn(recoverableCandidateQuery);
+		when(recoverableCandidateQuery.executeQuery()).thenReturn(expiredCompensation);
+		when(recovery.prepareStatement(anyString())).thenReturn(recoverySelect, recoveryRefund, recoveryUpdate);
+		when(recoverySelect.executeQuery()).thenReturn(compensationRecovery);
+		when(recoveryRefund.executeUpdate()).thenReturn(1);
+		when(recoveryUpdate.executeUpdate()).thenReturn(1);
+		when(cleanup.prepareStatement(anyString())).thenReturn(cleanupSelect, cleanupDelete);
+		when(cleanupSelect.executeQuery()).thenReturn(noCleanupCandidates);
+		when(fixture.sql.getConnectionManager().getConnection()).thenReturn(fixture.schema, recoverableCandidates,
+				recovery, cleanup);
+
+		SharedPointTransferJournal journal = new SharedPointTransferJournal(fixture.table);
+		var refunded = journal.recoverAndCleanup(0L);
+
+		verify(recoverableCandidateQuery).setString(3, "COMPENSATING");
+		verify(recoveryRefund).setString(2, "source");
+		verify(recoveryUpdate).setString(1, "REFUNDED");
+		verify(recovery).commit();
+		assertEquals(1, refunded.size());
 	}
 
 	@Test

@@ -30,6 +30,12 @@ import com.bencodez.simpleapi.sql.mysql.DbType;
 final class SharedPointTransferJournal {
 	private static final String RESERVED = "RESERVED";
 	private static final String HOOK_STARTED = "HOOK_STARTED";
+	/*
+	 * The approval callback has proved it did not run while this state is
+	 * present. It is written only after the scheduler fence rejects the callback,
+	 * so startup/periodic recovery can compensate it immediately.
+	 */
+	private static final String COMPENSATING = "COMPENSATING";
 	private static final String COMPLETED = "COMPLETED";
 	private static final String REFUNDED = "REFUNDED";
 	static final long RESERVED_RECOVERY_AGE_MILLIS = TimeUnit.MINUTES.toMillis(5);
@@ -251,6 +257,29 @@ final class SharedPointTransferJournal {
 	}
 
 	/**
+	 * Persists a recoverable marker after the scheduler has proved that the
+	 * Bukkit approval callback did not begin.
+	 */
+	boolean markCompensating(String transferId) throws SQLException {
+		String update = "UPDATE " + qiJournal() + " SET " + qi("state") + " = ? WHERE "
+				+ qi("transfer_id") + " = ? AND " + qi("state") + " IN (?, ?)";
+		try (Connection connection = connection()) {
+			connection.setAutoCommit(false);
+			try (PreparedStatement updateStatement = connection.prepareStatement(update)) {
+				updateStatement.setString(1, COMPENSATING);
+				updateStatement.setString(2, transferId);
+				updateStatement.setString(3, HOOK_STARTED);
+				updateStatement.setString(4, COMPENSATING);
+				if (updateStatement.executeUpdate() != 1) {
+					connection.rollback();
+					return false;
+				}
+				return commitAndConfirm(connection, transferId, COMPENSATING);
+			}
+		}
+	}
+
+	/**
 	 * Safely releases a reservation when the hook was never claimed. A
 	 * {@code HOOK_STARTED} row is deliberately left alone because a listener may
 	 * already be executing and replaying/refunding it automatically is unsafe.
@@ -325,7 +354,7 @@ final class SharedPointTransferJournal {
 						connection.rollback();
 						return true;
 					}
-					if (!HOOK_STARTED.equals(state)) {
+					if (!HOOK_STARTED.equals(state) && !COMPENSATING.equals(state)) {
 						connection.rollback();
 						return false;
 					}
@@ -452,7 +481,8 @@ final class SharedPointTransferJournal {
 	}
 
 	/**
-	 * Reclaims only old reservations that have never entered an external hook,
+	 * Reclaims old reservations and compensation markers that have never entered
+	 * an external hook,
 	 * then removes a small batch of old terminal rows. Each candidate is locked
 	 * and checked again before a refund, so another server cannot compensate a
 	 * transfer that it has just claimed. HOOK_STARTED rows require explicit
@@ -461,23 +491,27 @@ final class SharedPointTransferJournal {
 	List<RefundedTransfer> recoverAndCleanup(long now) throws SQLException {
 		long reservationCutoff = now - RESERVED_RECOVERY_AGE_MILLIS;
 		List<RefundedTransfer> refunded = new ArrayList<>();
-		for (String transferId : findExpiredTransferIds(RESERVED, "created_at", reservationCutoff, RECOVERY_BATCH_SIZE)) {
-			RefundedTransfer result = recoverExpiredReservation(transferId, reservationCutoff);
+		for (String transferId : findExpiredRecoverableTransferIds(reservationCutoff, RECOVERY_BATCH_SIZE)) {
+			RefundedTransfer result = recoverRecoverableTransfer(transferId, reservationCutoff);
 			if (result != null) refunded.add(result);
 		}
 		cleanupTerminalRows(now - TERMINAL_RETENTION_MILLIS, CLEANUP_BATCH_SIZE);
 		return List.copyOf(refunded);
 	}
 
-	private List<String> findExpiredTransferIds(String state, String timeColumn, long cutoff, int limit)
+	private List<String> findExpiredRecoverableTransferIds(long cutoff, int limit)
 			throws SQLException {
-		String sql = "SELECT " + qi("transfer_id") + " FROM " + qiJournal() + " WHERE " + qi("state")
-				+ " = ? AND " + qi(timeColumn) + " <= ? ORDER BY " + qi(timeColumn) + " ASC LIMIT ?";
+		String sql = "SELECT " + qi("transfer_id") + " FROM " + qiJournal() + " WHERE (" + qi("state")
+				+ " = ? AND " + qi("created_at") + " <= ?) OR " + qi("state") + " = ? ORDER BY "
+				+ "CASE WHEN " + qi("state") + " = ? THEN 0 ELSE 1 END ASC, " + qi("created_at")
+				+ " ASC LIMIT ?";
 		List<String> transferIds = new ArrayList<>();
 		try (Connection connection = connection(); PreparedStatement statement = connection.prepareStatement(sql)) {
-			statement.setString(1, state);
+			statement.setString(1, RESERVED);
 			statement.setLong(2, cutoff);
-			statement.setInt(3, limit);
+			statement.setString(3, COMPENSATING);
+			statement.setString(4, COMPENSATING);
+			statement.setInt(5, limit);
 			try (ResultSet result = statement.executeQuery()) {
 				while (result.next()) {
 					transferIds.add(result.getString(1));
@@ -487,7 +521,7 @@ final class SharedPointTransferJournal {
 		return transferIds;
 	}
 
-	private RefundedTransfer recoverExpiredReservation(String transferId, long reservationCutoff) throws SQLException {
+	private RefundedTransfer recoverRecoverableTransfer(String transferId, long reservationCutoff) throws SQLException {
 		String select = "SELECT " + qi("state") + ", " + qi("created_at") + ", " + qi("source_uuid")
 				+ ", " + qi("source_points_column") + ", " + qi("debit_points") + " FROM " + qiJournal()
 				+ " WHERE " + qi("transfer_id") + " = ? FOR UPDATE";
@@ -501,7 +535,9 @@ final class SharedPointTransferJournal {
 			try (PreparedStatement selectStatement = connection.prepareStatement(select)) {
 				selectStatement.setString(1, transferId);
 				try (ResultSet result = selectStatement.executeQuery()) {
-					if (!result.next() || !RESERVED.equals(result.getString(1)) || result.getLong(2) > reservationCutoff) {
+					if (!result.next() || (!RESERVED.equals(result.getString(1))
+							&& !COMPENSATING.equals(result.getString(1)))
+							|| (RESERVED.equals(result.getString(1)) && result.getLong(2) > reservationCutoff)) {
 						connection.rollback();
 						return null;
 					}

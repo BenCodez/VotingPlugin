@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.commands.gui.player;
 
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -30,6 +31,8 @@ public class VoteShopConfirm extends GUIHandler {
 	private VotingPluginMain plugin;
 
 	private VotingPluginUser user;
+
+	private final AtomicBoolean purchaseSubmitted = new AtomicBoolean();
 
 	/**
 	 * Creates the GUI.
@@ -71,6 +74,8 @@ public class VoteShopConfirm extends GUIHandler {
 
 			@Override
 			public void onClick(ClickEvent event) {
+				if (!beginPurchase()) return;
+				event.closeInventory();
 				user.cache();
 				plugin.getVoteShopManager().purchase(player, user, item, result -> {
 					if (result != VoteShopPurchaseResult.SUCCESS) {
@@ -102,6 +107,10 @@ public class VoteShopConfirm extends GUIHandler {
 		inv.openInventory(player);
 	}
 
+	boolean beginPurchase() {
+		return purchaseSubmitted.compareAndSet(false, true);
+	}
+
 	@Override
 	public void onDialog(Player player) {
 		PlayerUtils.setPlayerMeta(plugin, player, "ident", item.getIdentifier());
@@ -114,7 +123,7 @@ public class VoteShopConfirm extends GUIHandler {
 				.noText(new ItemBuilder(plugin.getShopFile().getShopConfirmPurchaseNoItem()).getName())
 				.onYes(payload -> {
 					Player clicked = player.getServer().getPlayer(payload.owner());
-					if (clicked == null) {
+					if (clicked == null || !beginPurchase()) {
 						return;
 					}
 

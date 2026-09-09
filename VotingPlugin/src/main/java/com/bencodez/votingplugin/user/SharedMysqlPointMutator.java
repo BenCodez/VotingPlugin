@@ -292,6 +292,28 @@ final class SharedMysqlPointMutator {
 		Runnable rejectBeforeStart = () -> {
 			if (!approvalState.compareAndSet(0, 2)) return;
 			try {
+				// The CAS fence proves the approval callback cannot run. Write the
+				// recoverable state before relying on either remaining scheduler.
+				if (!journal.markCompensating(transferId)) {
+					completeOnBukkit(source, completion, false);
+					return;
+				}
+			} catch (SQLException markerFailure) {
+				try {
+					// A lost marker acknowledgement may still have committed. The direct,
+					// idempotent refund accepts either HOOK_STARTED or COMPENSATING and
+					// avoids depending on another scheduler while shutdown is in progress.
+					if (journal.refundHookStarted(transferId, source.getUUID(), sourcePoints, debitAmount)) {
+						discardPointsCache(source, sourcePoints);
+					}
+				} catch (SQLException refundFailure) {
+					logFailure(refundFailure);
+				}
+				logFailure(markerFailure);
+				completeOnBukkit(source, completion, false);
+				return;
+			}
+			try {
 				plugin.getTimer().execute(() -> refundClaimedAfterSchedulingFailure(source, completion, journal,
 						transferId, sourcePoints, debitAmount,
 						new IllegalStateException("Transfer approval task did not start")));
@@ -300,9 +322,15 @@ final class SharedMysqlPointMutator {
 				// The approval hook is fenced by approvalState, so an executor rejection
 				// can safely compensate on Bukkit's independent async scheduler without
 				// leaving HOOK_STARTED forever or blocking the entity lane.
-				plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
-						() -> refundClaimedAfterSchedulingFailure(source, completion, journal, transferId,
-								sourcePoints, debitAmount, persistenceRejected));
+				try {
+					plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
+							() -> refundClaimedAfterSchedulingFailure(source, completion, journal, transferId,
+									sourcePoints, debitAmount, persistenceRejected));
+				} catch (RuntimeException asyncSchedulingRejected) {
+					// Recovery can compensate the durable COMPENSATING row after shutdown.
+					plugin.debug(asyncSchedulingRejected);
+					completeOnBukkit(source, completion, false);
+				}
 			}
 		};
 		try {
