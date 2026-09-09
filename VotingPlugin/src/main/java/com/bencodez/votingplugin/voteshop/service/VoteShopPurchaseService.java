@@ -23,7 +23,6 @@ import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.time.TimeCalculation;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.UserStorage;
-import com.bencodez.advancedcore.api.user.usercache.change.UserDataChangeInt;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 import com.bencodez.simpleapi.folialib.enums.EntityTaskResult;
 import com.bencodez.simpleapi.sql.DataType;
@@ -518,13 +517,10 @@ public class VoteShopPurchaseService {
 	}
 
 	private void refreshPurchaseCache(VotingPluginUser user, String pointsColumn, String limitColumn) {
-		if (!user.isCached()) return;
-		user.getCache().addChange(new UserDataChangeInt(pointsColumn,
-				user.getUserData().getInt(pointsColumn, UserDataFetchMode.NO_CACHE)), false);
-		if (limitColumn != null) {
-			user.getCache().addChange(new UserDataChangeInt(limitColumn,
-					user.getUserData().getInt(limitColumn, UserDataFetchMode.NO_CACHE)), false);
-		}
+		// The shared-MySQL mutation already committed. Invalidate only the fields it
+		// changed; adding absolute values to the cache would turn a concurrent
+		// snapshot into a dirty write that can overwrite another backend's update.
+		SharedMysqlCacheReconciler.invalidate(plugin, user.getUUID(), pointsColumn, limitColumn);
 	}
 
 	private LimitGeneration limitGeneration(VoteShopItem item, long nowMillis) {

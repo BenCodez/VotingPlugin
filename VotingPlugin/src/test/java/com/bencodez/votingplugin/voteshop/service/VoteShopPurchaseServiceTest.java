@@ -30,6 +30,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.HashMap;
+import java.util.UUID;
 
 import org.bukkit.configuration.file.FileConfiguration;
 import org.junit.jupiter.api.Test;
@@ -40,6 +42,7 @@ import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.user.UserData;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
+import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.simpleapi.folialib.enums.EntityTaskResult;
@@ -295,7 +298,6 @@ class VoteShopPurchaseServiceTest {
 				org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		Connection connection = mock(Connection.class);
 		PreparedStatement statement = mock(PreparedStatement.class);
-		UserData data = mock(UserData.class);
 		UserDataCache cache = mock(UserDataCache.class);
 		when(table.getTableName()).thenReturn("VotingPlugin_Users");
 		when(table.qi(anyString())).thenAnswer(invocation -> "`" + invocation.getArgument(0) + "`");
@@ -303,21 +305,26 @@ class VoteShopPurchaseServiceTest {
 		when(sql.getConnectionManager().getConnection()).thenReturn(connection);
 		when(connection.prepareStatement(anyString())).thenReturn(statement);
 		when(statement.executeUpdate()).thenReturn(1);
+		VotingPluginMain plugin = sharedMysqlPlugin(table);
 		VotingPluginUser user = purchaseUser();
-		when(user.isCached()).thenReturn(false, true);
-		when(user.getUserData()).thenReturn(data);
-		when(user.getCache()).thenReturn(cache);
-		when(data.getInt("Points", UserDataFetchMode.NO_CACHE)).thenReturn(90);
+		UUID userUuid = UUID.fromString(user.getUUID());
+		HashMap<String, DataValue> cachedValues = new HashMap<>();
+		cachedValues.put("Points", mock(DataValue.class));
+		when(plugin.getUserManager().getDataManager().getUserDataCache()).thenReturn(
+				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(userUuid, cache)));
+		when(cache.getCache()).thenReturn(cachedValues);
 		VoteShopItem item = mock(VoteShopItem.class);
 		when(item.getCost()).thenReturn(10);
 		when(item.getLimit()).thenReturn(0);
 
 		assertEquals(VoteShopPurchaseResult.SUCCESS,
-				new VoteShopPurchaseService(sharedMysqlPlugin(table), null).debitSharedMysql(user, item));
+				new VoteShopPurchaseService(plugin, null).debitSharedMysql(user, item));
 
-		InOrder closeBeforeRefresh = inOrder(connection, data);
+		InOrder closeBeforeRefresh = inOrder(connection, cache);
 		closeBeforeRefresh.verify(connection).close();
-		closeBeforeRefresh.verify(data).getInt("Points", UserDataFetchMode.NO_CACHE);
+		closeBeforeRefresh.verify(cache).getCache();
+		assertFalse(cachedValues.containsKey("Points"));
+		verify(cache, never()).addChange(any(), org.mockito.ArgumentMatchers.anyBoolean());
 	}
 
 	@Test

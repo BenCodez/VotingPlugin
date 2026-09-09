@@ -496,27 +496,32 @@ final class SharedMysqlPointMutator {
 				+ table.qi(points) + " + ? WHERE " + uuidMatch;
 		String read = "SELECT " + table.qi(points) + " FROM " + table.qi(table.getTableName()) + " WHERE " + uuidMatch;
 		boolean updateCommitted = false;
+		Integer committedTotal = null;
 		try (Connection connection = table.getMysql().getConnectionManager().getConnection();
 				PreparedStatement updateStatement = connection.prepareStatement(update);
 				PreparedStatement readStatement = connection.prepareStatement(read)) {
 			updateStatement.setInt(1, amount);
 			updateStatement.setString(2, user.getUUID());
-			if (updateStatement.executeUpdate() != 1) return new AddResult(false, user.getPoints());
-			// With JDBC auto-commit, executeUpdate returning one means the mutation
-			// completed. A later read may still fail after the points have been
-			// committed, so never turn that outcome into a retryable failure.
-			updateCommitted = true;
-			readStatement.setString(1, user.getUUID());
-			try (java.sql.ResultSet result = readStatement.executeQuery()) {
-				return result.next() ? new AddResult(true, result.getInt(1))
-						: new AddResult(updateCommitted, user.getPoints());
+			if (updateStatement.executeUpdate() == 1) {
+				// With JDBC auto-commit, executeUpdate returning one means the mutation
+				// completed. A later read may still fail after the points have been
+				// committed, so never turn that outcome into a retryable failure.
+				updateCommitted = true;
+				readStatement.setString(1, user.getUUID());
+				try (java.sql.ResultSet result = readStatement.executeQuery()) {
+					if (result.next()) committedTotal = result.getInt(1);
+				}
 			}
 		} catch (SQLException failure) {
 			logFailure(failure);
-			return new AddResult(updateCommitted, user.getPoints());
 		} finally {
 			discardPointsCache(user);
 		}
+		// Do not evaluate the fallback while the JDBC handle is still held. With a
+		// one-connection pool, getPoints() may need that same handle after a missing
+		// row or a failed follow-up read.
+		return committedTotal == null ? new AddResult(updateCommitted, user.getPoints())
+				: new AddResult(true, committedTotal);
 	}
 
 	record AddResult(boolean success, int total) {}
