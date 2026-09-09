@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -17,6 +18,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.util.HashMap;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -86,6 +88,25 @@ class SharedMysqlPointMutatorTest {
 		verify(persistence, times(1)).scheduleWithFixedDelay(any(Runnable.class),
 				org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(1L),
 				org.mockito.ArgumentMatchers.eq(TimeUnit.MINUTES));
+	}
+
+	@Test
+	void rejectedRecoverySchedulingCanRetryLater() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		ScheduledExecutorService persistence = mock(ScheduledExecutorService.class);
+		when(plugin.getStorageType()).thenReturn(UserStorage.MYSQL);
+		when(plugin.getBungeeSettings().isPerServerPoints()).thenReturn(false);
+		when(plugin.getTimer()).thenReturn(persistence);
+		doThrow(new RejectedExecutionException("stopping")).doNothing()
+				.when(persistence).execute(any(Runnable.class));
+
+		UserManager manager = new UserManager(plugin);
+		manager.startSharedPointTransferRecovery();
+		manager.startSharedPointTransferRecovery();
+
+		verify(persistence, times(2)).execute(any(Runnable.class));
+		verify(persistence).scheduleWithFixedDelay(any(Runnable.class), org.mockito.ArgumentMatchers.eq(1L),
+				org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(TimeUnit.MINUTES));
 	}
 
 	@Test

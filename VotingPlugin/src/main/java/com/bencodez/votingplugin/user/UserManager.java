@@ -36,8 +36,14 @@ public class UserManager {
 	/** Starts the durable shared-point transfer recovery exactly once per plugin lifecycle. */
 	public synchronized void startSharedPointTransferRecovery() {
 		if (sharedPointTransferRecoveryScheduled || !SharedMysqlPointMutator.usesSharedMysqlPoints(plugin)) return;
-		sharedPointTransferRecoveryScheduled = true;
-		SharedMysqlPointMutator.scheduleTransferRecovery(plugin);
+		try {
+			SharedMysqlPointMutator.scheduleTransferRecovery(plugin);
+			sharedPointTransferRecoveryScheduled = true;
+		} catch (RuntimeException rejected) {
+			// Shutdown can reject either the immediate recovery or its periodic task.
+			// Leave the lifecycle guard open so a later reload can retry scheduling.
+			plugin.debug(rejected);
+		}
 	}
 	/**
 	 * Adds caching keys to the user data manager.

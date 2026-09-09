@@ -46,10 +46,10 @@ public class RewardPoints extends RewardInjectInt {
 	public String onRewardRequest(Reward reward, com.bencodez.advancedcore.api.user.AdvancedCoreUser user, int num,
 			HashMap<String, String> placeholders) {
 		VotingPluginUser vpUser = plugin.getVotingPluginUserManager().getVotingPluginUser(user);
-		// Shared-MySQL arithmetic is queued on the ordered persistence lane. Its
-		// optimistic cached total preserves reward-chain/newpoints semantics without
-		// blocking vote or entity workers on JDBC.
-		String result = "" + vpUser.addPointsStorageAware(num);
+		// Reward injection is a synchronous chain: later rewards can consume the
+		// newpoints placeholder immediately. Wait for the atomic shared-MySQL update
+		// and committed balance rather than publishing an optimistic queued value.
+		String result = "" + vpUser.addPoints(num);
 		plugin.debug("Setting points to " + result);
 		return result;
 	}
