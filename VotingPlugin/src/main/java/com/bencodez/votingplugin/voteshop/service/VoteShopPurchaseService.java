@@ -226,16 +226,10 @@ public class VoteShopPurchaseService {
 					.runAtEntityWithFallback(player, ignored -> {
 				if (!state.compareAndSet(COMPLETION_PENDING, COMPLETION_RUNNING)) return;
 				claimSharedMysqlPurchaseAsync(debit).whenComplete((claim, failure) -> {
-					if (failure != null || claim == SharedMysqlPurchaseJournal.ClaimOutcome.NOT_CLAIMED) {
+					if (failure != null || requiresCompensation(claim)) {
 						if (state.compareAndSet(COMPLETION_RUNNING, COMPLETION_COMPENSATING)) {
 							compensateSharedMysqlPurchase(player, user, completion, debit);
 						}
-						return;
-					}
-					if (claim == SharedMysqlPurchaseJournal.ClaimOutcome.INDETERMINATE) {
-						state.compareAndSet(COMPLETION_RUNNING, COMPLETION_FINISHED);
-						plugin.getLogger().severe("Shared MySQL vote shop purchase " + debit.purchaseId()
-								+ " has an indeterminate reward claim; retaining it for reconciliation");
 						return;
 					}
 					state.compareAndSet(COMPLETION_RUNNING, COMPLETION_FINISHED);
@@ -251,6 +245,12 @@ public class VoteShopPurchaseService {
 			compensateBeforeClaim.run();
 			plugin.debug(schedulingFailure);
 		}
+	}
+
+	static boolean requiresCompensation(SharedMysqlPurchaseJournal.ClaimOutcome claim) {
+		// The local reward callback has not started yet, so both a rejected claim
+		// and an unconfirmed claim are safe to fence and refund.
+		return claim != SharedMysqlPurchaseJournal.ClaimOutcome.CLAIMED;
 	}
 
 	void scheduleClaimedReward(Player player, VotingPluginUser user, VoteShopItem item,

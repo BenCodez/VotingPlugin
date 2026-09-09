@@ -53,6 +53,16 @@ import com.bencodez.votingplugin.voteshop.shop.VoteShopItem;
 
 class VoteShopPurchaseServiceTest {
 	@Test
+	void unconfirmedRewardClaimIsCompensatedBeforeTheRewardCanStart() {
+		assertTrue(VoteShopPurchaseService.requiresCompensation(
+				SharedMysqlPurchaseJournal.ClaimOutcome.INDETERMINATE));
+		assertTrue(VoteShopPurchaseService.requiresCompensation(
+				SharedMysqlPurchaseJournal.ClaimOutcome.NOT_CLAIMED));
+		assertFalse(VoteShopPurchaseService.requiresCompensation(
+				SharedMysqlPurchaseJournal.ClaimOutcome.CLAIMED));
+	}
+
+	@Test
 	void retainsSynchronousPurchaseDescriptorsForBinaryCompatibility() throws Exception {
 		assertEquals(VoteShopPurchaseResult.class, VoteShopPurchaseService.class
 				.getMethod("purchase", org.bukkit.entity.Player.class, VotingPluginUser.class, VoteShopItem.class)

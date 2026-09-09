@@ -186,17 +186,30 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		int points = plugin.getConfigFile().getPointsOnVote();
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
 		boolean sharedMysql = sharedPoints.applies();
+		int limit = plugin.getConfigFile().getLimitVotePoints();
+		if (sharedMysql && points != 0 && limit > 0) {
+			// Keep the receive hook semantics of addPoints(int, boolean), while
+			// accepting the addition and upper bound as one persistence task.
+			PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, points);
+			Bukkit.getPluginManager().callEvent(event);
+			if (!event.isCancelled()) {
+				sharedPoints.addAndCap(this, event.getPoints(), limit, true);
+			} else {
+				sharedPoints.cap(this, limit, true);
+			}
+			return;
+		}
 		if (points != 0) {
 			// Vote processing runs on the server lane. Shared MySQL arithmetic must
 			// use the lifecycle persistence executor instead of blocking a tick on
 			// connection acquisition and the committed-balance read.
 			addPoints(points, sharedMysql);
 		}
-		if (plugin.getConfigFile().getLimitVotePoints() > 0) {
+		if (limit > 0) {
 			if (sharedMysql) {
-				sharedPoints.cap(this, plugin.getConfigFile().getLimitVotePoints(), true);
-			} else if (getPoints() > plugin.getConfigFile().getLimitVotePoints()) {
-				setPoints(plugin.getConfigFile().getLimitVotePoints());
+				sharedPoints.cap(this, limit, true);
+			} else if (getPoints() > limit) {
+				setPoints(limit);
 			}
 		}
 	}

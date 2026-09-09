@@ -105,6 +105,15 @@ final class SharedMysqlPointMutator {
 		run(() -> capAt(user, maximum), async);
 	}
 
+	/**
+	 * Adds points and applies the configured upper bound in one accepted
+	 * persistence operation. This prevents executor saturation from accepting
+	 * the addition while dropping a separately submitted cap.
+	 */
+	void addAndCap(VotingPluginUser user, int amount, int maximum, boolean async) {
+		run(() -> addAndCapAt(user, amount, maximum), async);
+	}
+
 	boolean remove(VotingPluginUser user, int amount) {
 		return update(user, -amount, true);
 	}
@@ -232,7 +241,8 @@ final class SharedMysqlPointMutator {
 	 */
 	void transferWithBukkitApproval(VotingPluginUser source, VotingPluginUser target, int debitAmount,
 			IntFunction<Integer> creditAmountProvider, Consumer<Boolean> completion) {
-		plugin.getTimer().execute(() -> {
+		try {
+			plugin.getTimer().execute(() -> {
 			drainCache(source);
 			drainCache(target);
 			MySQL table = plugin.getMysql();
@@ -281,7 +291,13 @@ final class SharedMysqlPointMutator {
 				refundReservedAfterSchedulingFailure(source, completion, journal, transferId, sourcePoints, debitAmount,
 						schedulingFailure);
 			}
-		});
+			});
+		} catch (RuntimeException schedulingFailure) {
+			// No reservation exists when the initial persistence task is rejected.
+			// Still complete the command contract on the source entity lane.
+			plugin.debug(schedulingFailure);
+			completeOnBukkit(source, completion, false);
+		}
 	}
 
 	private void claimTransferForApproval(VotingPluginUser source, VotingPluginUser target, int debitAmount,
@@ -300,8 +316,11 @@ final class SharedMysqlPointMutator {
 			return;
 		}
 		if (claim == SharedPointTransferJournal.ClaimOutcome.INDETERMINATE) {
-			logIndeterminateClaim(transferId);
-			completeOnBukkit(source, completion, true);
+			// The approval task has not been submitted yet, so an ambiguous claim
+			// cannot have invoked the recipient hook. Compensate the durable claim
+			// instead of reporting success and leaving a HOOK_STARTED debit behind.
+			refundIndeterminateClaimBeforeApproval(source, completion, journal, transferId, sourcePoints,
+					debitAmount);
 			return;
 		}
 		discardPointsCache(source, sourcePoints);
@@ -422,6 +441,35 @@ final class SharedMysqlPointMutator {
 			logFailure(refundFailure);
 		}
 		plugin.debug(failure);
+		completeOnBukkit(source, completion, false);
+	}
+
+	private void refundIndeterminateClaimBeforeApproval(VotingPluginUser source, Consumer<Boolean> completion,
+			SharedPointTransferJournal journal, String transferId, String sourcePoints, int debitAmount) {
+		boolean refunded = false;
+		try {
+			// HOOK_STARTED is safe to compensate because the approval task has not
+			// been submitted yet. A RESERVED row is handled by its normal refund.
+			if (journal.markCompensating(transferId)) {
+				refunded = journal.refundHookStarted(transferId, source.getUUID(), sourcePoints, debitAmount);
+			} else {
+				refunded = journal.refundReserved(transferId, source.getUUID(), sourcePoints, debitAmount);
+			}
+		} catch (SQLException markerFailure) {
+			// A lost marker acknowledgement may still have committed. Both refund
+			// operations are idempotent and cover either durable pre-hook state.
+			try {
+				refunded = journal.refundHookStarted(transferId, source.getUUID(), sourcePoints, debitAmount);
+				if (!refunded) {
+					refunded = journal.refundReserved(transferId, source.getUUID(), sourcePoints, debitAmount);
+				}
+			} catch (SQLException refundFailure) {
+				logFailure(refundFailure);
+			}
+			logFailure(markerFailure);
+		}
+		if (refunded) discardPointsCache(source, sourcePoints);
+		if (!refunded) logIndeterminateClaim(transferId);
 		completeOnBukkit(source, completion, false);
 	}
 
@@ -619,6 +667,26 @@ final class SharedMysqlPointMutator {
 				PreparedStatement statement = connection.prepareStatement(sql)) {
 			statement.setInt(1, maximum);
 			statement.setString(2, user.getUUID());
+			statement.executeUpdate();
+		} catch (SQLException failure) {
+			logFailure(failure);
+		} finally {
+			discardPointsCache(user);
+		}
+	}
+
+	private void addAndCapAt(VotingPluginUser user, int amount, int maximum) {
+		drainCache(user);
+		MySQL table = plugin.getMysql();
+		String points = user.getPointsPath();
+		String sql = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(points) + " = LEAST("
+				+ table.qi(points) + " + ?, ?) WHERE " + table.qi("uuid")
+				+ (table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
+		try (Connection connection = table.getMysql().getConnectionManager().getConnection();
+				PreparedStatement statement = connection.prepareStatement(sql)) {
+			statement.setInt(1, amount);
+			statement.setInt(2, maximum);
+			statement.setString(3, user.getUUID());
 			statement.executeUpdate();
 		} catch (SQLException failure) {
 			logFailure(failure);

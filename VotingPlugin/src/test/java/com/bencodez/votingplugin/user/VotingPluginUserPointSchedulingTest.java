@@ -202,6 +202,72 @@ class VotingPluginUserPointSchedulingTest {
 	}
 
 	@Test
+	void votePointAwardCombinesSharedAdditionAndCapInOnePersistenceTask() throws Exception {
+		PointFixture fixture = pointFixture();
+		when(fixture.plugin.getConfigFile().getPointsOnVote()).thenReturn(5);
+		when(fixture.plugin.getConfigFile().getLimitVotePoints()).thenReturn(100);
+		PluginManager pluginManager = mock(PluginManager.class);
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getPluginManager).thenReturn(pluginManager);
+			fixture.user.addPoints();
+		}
+
+		ArgumentCaptor<Runnable> persistenceTask = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence).execute(persistenceTask.capture());
+		verify(fixture.persistence, org.mockito.Mockito.times(1)).execute(any(Runnable.class));
+		persistenceTask.getValue().run();
+
+		verify(fixture.connection).prepareStatement(org.mockito.ArgumentMatchers.argThat(
+				query -> query.contains("`Points` = LEAST(`Points` + ?, ?)")));
+		verify(fixture.statement).setInt(1, 5);
+		verify(fixture.statement).setInt(2, 100);
+	}
+
+	@Test
+	void rejectedInitialSharedTransferSubmissionCompletesAsFailure() throws Exception {
+		TransferSchedulingFixture fixture = transferSchedulingFixture();
+		AtomicReference<Boolean> result = new AtomicReference<>();
+		doThrow(new RejectedExecutionException("stopping")).when(fixture.persistence).execute(any(Runnable.class));
+
+		fixture.user.transferPoints(fixture.target, 10, result::set);
+
+		ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
+		verifyNoInteractions(fixture.manager);
+		completion.getValue().run();
+		assertEquals(Boolean.FALSE, result.get());
+	}
+
+	@Test
+	void indeterminateSharedTransferClaimDoesNotReportSuccessBeforeApproval() throws Exception {
+		SagaFixture fixture = sagaFixture(true);
+		Connection unavailable = mock(Connection.class);
+		when(unavailable.prepareStatement(anyString())).thenThrow(new java.sql.SQLException("unavailable"));
+		when(fixture.manager.getConnection()).thenReturn(fixture.schema, fixture.recoveryReserved, fixture.cleanup,
+				fixture.lookup, fixture.reservation, fixture.claim).thenAnswer(invocation -> unavailable);
+		doThrow(new java.sql.SQLException("claim acknowledgement lost")).when(fixture.claim).commit();
+		AtomicReference<Boolean> result = new AtomicReference<>();
+
+		fixture.user.transferPoints(fixture.target, 10, result::set);
+		ArgumentCaptor<Runnable> persistence = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence).execute(persistence.capture());
+		persistence.getValue().run();
+		ArgumentCaptor<Runnable> gate = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), gate.capture());
+		gate.getValue().run();
+		ArgumentCaptor<Runnable> claim = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence, org.mockito.Mockito.times(2)).execute(claim.capture());
+		claim.getAllValues().get(1).run();
+
+		ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
+		verify(fixture.entityScheduler, never()).runAtEntityWithFallback(any(), any(), any(Runnable.class));
+		completion.getValue().run();
+		assertEquals(Boolean.FALSE, result.get());
+	}
+
+	@Test
 	void sharedAddReturnsTheCommittedDatabaseBalanceInsteadOfAPredictedWrapperTotal() throws Exception {
 		PointFixture fixture = pointFixture();
 		UserData data = mock(UserData.class);

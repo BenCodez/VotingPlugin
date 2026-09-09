@@ -352,6 +352,43 @@ class SharedMysqlPointMutatorTest {
 	}
 
 	@Test
+	void addAndCapUsesOneAtomicPersistenceMutation() throws Exception {
+		MySQL table = mock(MySQL.class);
+		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
+				org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		Connection connection = mock(Connection.class);
+		PreparedStatement statement = mock(PreparedStatement.class);
+		when(table.getTableName()).thenReturn("VotingPlugin_Users");
+		when(table.qi(anyString())).thenAnswer(invocation -> "`" + invocation.getArgument(0) + "`");
+		when(table.getMysql()).thenReturn(sql);
+		when(sql.getConnectionManager().getConnection()).thenReturn(connection);
+		when(connection.prepareStatement(anyString())).thenReturn(statement);
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		when(plugin.getMysql()).thenReturn(table);
+		ScheduledExecutorService persistence = mock(ScheduledExecutorService.class);
+		when(plugin.getTimer()).thenReturn(persistence);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		when(user.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
+		when(user.getPointsPath()).thenReturn("Points");
+
+		new SharedMysqlPointMutator(plugin).addAndCap(user, 10, 100, true);
+
+		ArgumentCaptor<Runnable> task = ArgumentCaptor.forClass(Runnable.class);
+		verify(persistence).execute(task.capture());
+		verify(persistence, times(1)).execute(any(Runnable.class));
+		verify(sql.getConnectionManager(), never()).getConnection();
+		task.getValue().run();
+
+		ArgumentCaptor<String> query = ArgumentCaptor.forClass(String.class);
+		verify(connection).prepareStatement(query.capture());
+		assertTrue(query.getValue().contains("`Points` = LEAST(`Points` + ?, ?)"));
+		verify(statement).setInt(1, 10);
+		verify(statement).setInt(2, 100);
+		verify(statement).setString(3, "00000000-0000-0000-0000-000000000001");
+		verify(statement).executeUpdate();
+	}
+
+	@Test
 	void transferCreditsOnlyAfterConditionalDebitSucceeds() throws Exception {
 		MySQL table = mock(MySQL.class);
 		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
