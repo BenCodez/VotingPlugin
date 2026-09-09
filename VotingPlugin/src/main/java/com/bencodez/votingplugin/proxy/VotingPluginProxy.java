@@ -1473,6 +1473,7 @@ public abstract class VotingPluginProxy {
 			}
 		};
 		voteCacheHandler.load();
+		method = retainHttpForPendingVotePartyRewards(method);
 
 		nonVotedPlayersCache = new NonVotedPlayersCache(getNonVotedCacheMySQLConfig(),
 				getConfig().getNonVotedCacheUseMySQL(), getConfig().getNonVotedCacheUseMainMySQL(),
@@ -2624,6 +2625,9 @@ public abstract class VotingPluginProxy {
 
 	/** Fail-closed gate that must complete before a replacement proxy runtime is created. */
 	public void prepareForRuntimeReplacement() {
+		if (!quarantineInFlightVotePartyProxyCommandForReplacement()) {
+			throw new IllegalStateException("In-flight vote-party command must be durably quarantined before proxy runtime replacement");
+		}
 		controlServicesGeneration.incrementAndGet();
 		synchronized (controlLifecycleLock) {
 			ControlConnector connector = controlConnector;
@@ -2848,10 +2852,9 @@ public abstract class VotingPluginProxy {
 	}
 
 	private void reloadRuntime(boolean restartControlServices) {
-		method = BungeeMethod.getByName(getConfig().getBungeeMethod());
-		if (getMethod() == null) {
-			method = BungeeMethod.PLUGINMESSAGING;
-		}
+		BungeeMethod configuredMethod = BungeeMethod.getByName(getConfig().getBungeeMethod());
+		if (configuredMethod == null) configuredMethod = BungeeMethod.PLUGINMESSAGING;
+		method = retainHttpForPendingVotePartyRewards(configuredMethod);
 		warnUnsupportedDedicatedVotingProxyMode();
 		if (!restartControlServices && method == BungeeMethod.SOCKETS) {
 			rebuildSocketClients();
@@ -2863,6 +2866,21 @@ public abstract class VotingPluginProxy {
 			loadMultiProxySupport();
 			restartControlServicesAsync();
 		}
+	}
+
+	private synchronized BungeeMethod retainHttpForPendingVotePartyRewards(BungeeMethod configuredMethod) {
+		if (configuredMethod == BungeeMethod.HTTP) return configuredMethod;
+		Collection<String> servers = getVoteCachePendingVotePartyServers();
+		if (servers != null) {
+			for (String server : servers) {
+				Collection<String> rewards = getVoteCachePendingVotePartyRewardIds(server);
+				if (rewards != null && !rewards.isEmpty()) {
+					logSevere("Retaining HTTP transport until pending vote-party rewards are acknowledged");
+					return BungeeMethod.HTTP;
+				}
+			}
+		}
+		return configuredMethod;
 	}
 
 	private synchronized void rebuildSocketClients() {
@@ -3428,6 +3446,36 @@ public abstract class VotingPluginProxy {
 				if (method == BungeeMethod.HTTP) retryPendingVotePartyRewards();
 				if (votePartyVotes >= currentVotePartyVotesRequired) checkVoteParty();
 			}
+		}
+	}
+
+	protected synchronized boolean quarantineInFlightVotePartyProxyCommandForReplacement() {
+		if (votePartyProxyCommandInFlight == 0L) return true;
+		PendingVotePartyProxyEffects pending;
+		PendingVotePartyProxyEffects previousQuarantine;
+		try {
+			pending = getVoteCachePendingVotePartyProxyEffects();
+			previousQuarantine = getVoteCacheQuarantinedVotePartyProxyEffects();
+			if (pending.commands().isEmpty()) return false;
+			java.util.List<String> commands = new java.util.ArrayList<>(previousQuarantine.commands());
+			commands.add(pending.commands().get(0));
+			PendingVotePartyProxyEffects quarantine = new PendingVotePartyProxyEffects(previousQuarantine.broadcast(), commands);
+			PendingVotePartyProxyEffects remaining = new PendingVotePartyProxyEffects("",
+					pending.commands().subList(1, pending.commands().size()));
+			setVoteCacheQuarantinedVotePartyProxyEffects(quarantine);
+			setVoteCachePendingVotePartyProxyEffects(remaining);
+			try {
+				saveVotePartyStateDurably();
+			} catch (IOException | RuntimeException failure) {
+				setVoteCacheQuarantinedVotePartyProxyEffects(previousQuarantine);
+				setVoteCachePendingVotePartyProxyEffects(pending);
+				return false;
+			}
+			votePartyProxyCommandInFlight = 0L;
+			logSevere("An in-flight HTTP vote-party proxy command was durably quarantined for runtime replacement");
+			return true;
+		} catch (RuntimeException invalid) {
+			return false;
 		}
 	}
 

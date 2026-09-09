@@ -490,6 +490,10 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 		return retryPendingVotePartyProxyEffects();
 	}
 
+	public boolean quarantineInFlightVotePartyProxyCommandForReplacementForTest() {
+		return quarantineInFlightVotePartyProxyCommandForReplacement();
+	}
+
 	public int[] getProjectedVotePartyStateForTest(int acceptedVotes) {
 		return getProjectedVotePartyState(acceptedVotes);
 	}

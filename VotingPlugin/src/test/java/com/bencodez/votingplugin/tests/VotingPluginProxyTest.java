@@ -448,6 +448,37 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void runtimeReplacementQuarantinesAnInFlightVotePartyCommandBeforeHandoff() {
+		configureHttpVotePartyEffects("", java.util.List.of("in flight", "next command"));
+		java.util.concurrent.CompletableFuture<Void> completion =
+				votingPluginProxy.delayNextVotePartyCommandCompletion();
+		votingPluginProxy.checkVoteParty();
+
+		assertTrue(votingPluginProxy.quarantineInFlightVotePartyProxyCommandForReplacementForTest());
+
+		assertEquals(java.util.List.of("in flight"),
+				votingPluginProxy.getVoteCacheQuarantinedVotePartyProxyEffects().commands());
+		assertEquals(java.util.List.of("next command"),
+				votingPluginProxy.getVoteCachePendingVotePartyProxyEffects().commands());
+		completion.complete(null);
+		assertEquals(java.util.List.of("in flight"), votingPluginProxy.getConsoleCommands());
+	}
+
+	@Test
+	void transportReloadRetainsHttpUntilPendingVotePartyRewardsAreAcknowledged() {
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteCachePendingVotePartyReward("Server1", "delivery", true);
+		Mockito.when(votingPluginProxy.getConfig().getBungeeMethod()).thenReturn("MYSQL");
+
+		votingPluginProxy.reloadFromControl();
+
+		assertEquals(BungeeMethod.HTTP, votingPluginProxy.getMethod());
+		votingPluginProxy.setVoteCachePendingVotePartyReward("Server1", "delivery", false);
+		votingPluginProxy.reloadFromControl();
+		assertEquals(BungeeMethod.MYSQL, votingPluginProxy.getMethod());
+	}
+
+	@Test
 	void httpVotePartyRetainsHungCommandFenceWhenQuarantineIsNotDurable() {
 		configureHttpVotePartyEffects("", java.util.List.of("hung command", "next command"));
 		java.util.concurrent.CompletableFuture<Void> completion =
