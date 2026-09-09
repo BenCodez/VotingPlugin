@@ -1273,7 +1273,13 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public int getVoteShopIdentifierLimit(String identifier) {
 		String path = "VoteShopLimit" + identifier;
-		if (usesSharedMysqlPoints()) return getData().getInt(path, UserDataFetchMode.NO_CACHE);
+		if (usesSharedMysqlPoints()) {
+			// Placeholder and GUI rendering may run on the Bukkit main thread or a
+			// Folia-owned tick thread. This accessor therefore never performs JDBC for
+			// shared MySQL; purchases remain protected by their atomic reservation.
+			return getData().getInt(path,
+					isCached() ? UserDataFetchMode.CACHE_ONLY : UserDataFetchMode.TEMP_ONLY);
+		}
 		return getData().getInt(path);
 	}
 
