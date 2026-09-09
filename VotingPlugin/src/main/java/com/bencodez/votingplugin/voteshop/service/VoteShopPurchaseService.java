@@ -78,6 +78,10 @@ public class VoteShopPurchaseService {
 		if (staticValidation != VoteShopPurchaseResult.SUCCESS) {
 			return staticValidation;
 		}
+		// Shared points and limits are decided atomically by the queued reservation.
+		// GUI rendering/click validation runs on Bukkit/Folia lanes and must not turn
+		// an advisory precheck into a synchronous database read.
+		if (usesSharedMysqlPoints()) return VoteShopPurchaseResult.SUCCESS;
 		if (item.getLimit() > 0 && user.getVoteShopIdentifierLimit(item.getIdentifier()) >= item.getLimit()) {
 			return VoteShopPurchaseResult.LIMIT_REACHED;
 		}
@@ -85,6 +89,11 @@ public class VoteShopPurchaseService {
 			return VoteShopPurchaseResult.NOT_ENOUGH_POINTS;
 		}
 		return VoteShopPurchaseResult.SUCCESS;
+	}
+
+	/** Refreshes dynamic GUI validation state only when that refresh cannot block on shared MySQL. */
+	public void refreshUserForPurchaseValidation(VotingPluginUser user, boolean requested) {
+		if (requested && !usesSharedMysqlPoints()) user.cache();
 	}
 
 	private VoteShopPurchaseResult validateStaticPurchase(Player player, VoteShopItem item) {

@@ -76,7 +76,7 @@ public class VoteShopConfirm extends GUIHandler {
 			public void onClick(ClickEvent event) {
 				if (!beginPurchase()) return;
 				event.closeInventory();
-				user.cache();
+				plugin.getVoteShopManager().getPurchaseService().refreshUserForPurchaseValidation(user, true);
 				plugin.getVoteShopManager().purchase(player, user, item, result -> {
 					if (result != VoteShopPurchaseResult.SUCCESS) {
 						plugin.getVoteShopManager().getPurchaseService().sendFailureMessage(player, user, item, result);
@@ -127,7 +127,7 @@ public class VoteShopConfirm extends GUIHandler {
 						return;
 					}
 
-					user.cache();
+					plugin.getVoteShopManager().getPurchaseService().refreshUserForPurchaseValidation(user, true);
 					plugin.getVoteShopManager().purchase(clicked, user, item, result -> {
 						if (result != VoteShopPurchaseResult.SUCCESS) {
 							plugin.getVoteShopManager().getPurchaseService().sendFailureMessage(clicked, user, item,

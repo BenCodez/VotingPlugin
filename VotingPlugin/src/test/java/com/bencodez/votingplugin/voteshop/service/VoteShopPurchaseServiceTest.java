@@ -172,6 +172,28 @@ class VoteShopPurchaseServiceTest {
 	}
 
 	@Test
+	void sharedMysqlGuiValidationDoesNotReadOrRefreshDynamicUserState() {
+		VotingPluginMain plugin = sharedMysqlPlugin(mock(MySQL.class));
+		VoteShopDefinition definition = mock(VoteShopDefinition.class);
+		when(definition.isEnabled()).thenReturn(true);
+		VoteShopItem item = mock(VoteShopItem.class);
+		when(item.getPermission()).thenReturn("");
+		when(item.getLimit()).thenReturn(1);
+		when(item.getIdentifier()).thenReturn("daily");
+		when(item.getCost()).thenReturn(10);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		VoteShopPurchaseService service = new VoteShopPurchaseService(plugin, definition);
+
+		service.refreshUserForPurchaseValidation(user, true);
+		VoteShopPurchaseResult result = service.validatePurchase(mock(org.bukkit.entity.Player.class), user, item);
+
+		assertEquals(VoteShopPurchaseResult.SUCCESS, result);
+		verify(user, never()).cache();
+		verify(user, never()).getVoteShopIdentifierLimit(anyString());
+		verify(user, never()).getPoints();
+	}
+
+	@Test
 	void rejectedInitialSharedMysqlSubmissionCompletesAsFailed() {
 		MySQL table = mock(MySQL.class);
 		VotingPluginMain plugin = sharedMysqlPlugin(table);
