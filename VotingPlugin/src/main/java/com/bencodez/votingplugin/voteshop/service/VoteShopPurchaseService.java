@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.voteshop.service;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -305,6 +306,7 @@ public class VoteShopPurchaseService {
 				return;
 			}
 		} catch (SQLException markerFailure) {
+			rememberPendingCompensationMarker(plugin, debit.purchaseId());
 			plugin.getLogger().severe("Unable to mark an incomplete vote shop purchase for compensation: "
 					+ markerFailure.getClass().getSimpleName());
 			plugin.debug(markerFailure);
@@ -442,7 +444,7 @@ public class VoteShopPurchaseService {
 					+ failure.getClass().getSimpleName());
 			plugin.debug(failure);
 		} finally {
-			SharedMysqlCacheReconciler.invalidateAll(plugin, limitColumn);
+			SharedMysqlCacheReconciler.invalidateAllAndRefresh(plugin, limitColumn);
 		}
 	}
 
@@ -458,10 +460,12 @@ public class VoteShopPurchaseService {
 		}
 	}
 
-	private static void recoverSharedMysqlPurchases(VotingPluginMain plugin, SharedMysqlPurchaseJournal journal)
+	static void recoverSharedMysqlPurchases(VotingPluginMain plugin, SharedMysqlPurchaseJournal journal)
 			throws SQLException {
+		retryPendingCompensationMarkers(plugin, journal);
 		for (SharedMysqlPurchaseJournal.RefundedPurchase refund : journal.recoverAndCleanup(System.currentTimeMillis())) {
-			SharedMysqlCacheReconciler.invalidate(plugin, refund.uuid(), refund.pointsColumn(), refund.limitColumn());
+			SharedMysqlCacheReconciler.invalidateAndRefresh(plugin, refund.uuid(), refund.pointsColumn(),
+					refund.limitColumn());
 		}
 	}
 
@@ -490,7 +494,7 @@ public class VoteShopPurchaseService {
 		if (limitColumn != null) sql.append(" AND COALESCE(").append(table.qi(limitColumn)).append(", 0) < ?");
 
 		boolean debited = false;
-		try (Connection connection = table.getMysql().getConnectionManager().getConnection();
+		try (Connection connection = requireConnection(table);
 				PreparedStatement statement = connection.prepareStatement(sql.toString())) {
 			statement.setInt(1, item.getCost());
 			statement.setString(2, user.getUUID());
@@ -501,7 +505,7 @@ public class VoteShopPurchaseService {
 			plugin.getLogger().severe("Unable to atomically debit vote shop points: "
 					+ failure.getClass().getSimpleName());
 			plugin.debug(failure);
-			return VoteShopPurchaseResult.NOT_ENOUGH_POINTS;
+			return VoteShopPurchaseResult.FAILED;
 		}
 		if (debited) {
 			// The conditional debit connection has been closed before NO_CACHE reads.
@@ -509,6 +513,12 @@ public class VoteShopPurchaseService {
 			return VoteShopPurchaseResult.SUCCESS;
 		}
 		return sharedMysqlFailure(user, item, limitColumn);
+	}
+
+	private static Connection requireConnection(MySQL table) throws SQLException {
+		Connection connection = table.getMysql().getConnectionManager().getConnection();
+		if (connection == null) throw new SQLException("Unable to acquire shared MySQL connection");
+		return connection;
 	}
 
 	private SharedPurchaseDebit reserveSharedMysqlPurchase(VotingPluginUser user, VoteShopItem item,
@@ -542,7 +552,7 @@ public class VoteShopPurchaseService {
 			plugin.getLogger().severe("Unable to atomically debit vote shop points: "
 					+ failure.getClass().getSimpleName());
 			plugin.debug(failure);
-			return new SharedPurchaseDebit(VoteShopPurchaseResult.NOT_ENOUGH_POINTS, null, null, null, null);
+			return new SharedPurchaseDebit(VoteShopPurchaseResult.FAILED, null, null, null, null);
 		}
 		return new SharedPurchaseDebit(sharedMysqlFailure(user, item, limitColumn), null, null, null, null);
 	}
@@ -593,7 +603,44 @@ public class VoteShopPurchaseService {
 		// The shared-MySQL mutation already committed. Invalidate only the fields it
 		// changed; adding absolute values to the cache would turn a concurrent
 		// snapshot into a dirty write that can overwrite another backend's update.
-		SharedMysqlCacheReconciler.invalidate(plugin, user.getUUID(), pointsColumn, limitColumn);
+		SharedMysqlCacheReconciler.invalidateAndRefresh(plugin, user.getUUID(), pointsColumn, limitColumn);
+	}
+
+	private static void rememberPendingCompensationMarker(VotingPluginMain plugin, String purchaseId) {
+		if (plugin == null || purchaseId == null) return;
+		try {
+			compensationStore(plugin).record(purchaseId);
+		} catch (IOException persistenceFailure) {
+			plugin.getLogger().severe("Unable to persist a vote shop compensation marker: "
+					+ persistenceFailure.getClass().getSimpleName());
+			plugin.debug(persistenceFailure);
+		}
+	}
+
+	private static void retryPendingCompensationMarkers(VotingPluginMain plugin,
+			SharedMysqlPurchaseJournal journal) {
+		SharedMysqlCompensationStore store = compensationStore(plugin);
+		final java.util.List<String> pending;
+		try {
+			pending = store.loadBatch();
+		} catch (IOException loadFailure) {
+			plugin.debug(loadFailure);
+			return;
+		}
+		for (String purchaseId : pending) {
+			try {
+				journal.markCompensating(purchaseId);
+				store.remove(purchaseId);
+			} catch (SQLException retryFailure) {
+				plugin.debug(retryFailure);
+			} catch (IOException removalFailure) {
+				plugin.debug(removalFailure);
+			}
+		}
+	}
+
+	private static SharedMysqlCompensationStore compensationStore(VotingPluginMain plugin) {
+		return new SharedMysqlCompensationStore(plugin.getDataFolder().toPath());
 	}
 
 	private LimitGeneration limitGeneration(VoteShopItem item, long nowMillis) {

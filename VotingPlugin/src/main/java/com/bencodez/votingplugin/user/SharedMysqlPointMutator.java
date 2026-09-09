@@ -111,7 +111,17 @@ final class SharedMysqlPointMutator {
 	 * the addition while dropping a separately submitted cap.
 	 */
 	void addAndCap(VotingPluginUser user, int amount, int maximum, boolean async) {
-		run(() -> addAndCapAt(user, amount, maximum), async);
+		if (!async) {
+			addAndCapAt(user, amount, maximum);
+			return;
+		}
+		int previousTotal = cachedPoints(user);
+		int predictedTotal = (int) Math.max(Integer.MIN_VALUE,
+				Math.min((long) previousTotal + amount, maximum));
+		cachePredictedPoints(user, predictedTotal);
+		if (!run(() -> addAndCapAt(user, amount, maximum), true)) {
+			discardPointsCache(user);
+		}
 	}
 
 	boolean remove(VotingPluginUser user, int amount) {

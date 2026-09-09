@@ -34,6 +34,17 @@ public final class SharedMysqlCacheReconciler {
 		}
 	}
 
+	/** Invalidates changed fields and schedules a nonblocking authoritative refill. */
+	public static void invalidateAndRefresh(VotingPluginMain plugin, String uuid, String... columns) {
+		invalidate(plugin, uuid, columns);
+		if (plugin == null || uuid == null) return;
+		try {
+			plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid), false).cacheAsync();
+		} catch (RuntimeException refreshFailure) {
+			plugin.debug(refreshFailure);
+		}
+	}
+
 	/** Removes a reset column from every currently live cache without flushing it. */
 	public static void invalidateAll(VotingPluginMain plugin, String column) {
 		if (plugin == null || column == null) return;
@@ -45,6 +56,28 @@ public final class SharedMysqlCacheReconciler {
 				var values = cache.getCache();
 				if (values != null) values.remove(column);
 			}
+		}
+	}
+
+	/** Invalidates a shared column and repopulates live user caches asynchronously. */
+	public static void invalidateAllAndRefresh(VotingPluginMain plugin, String column) {
+		if (plugin == null || column == null) return;
+		var caches = plugin.getUserManager().getDataManager().getUserDataCache();
+		if (caches == null) return;
+		UUID[] users = caches.keySet().toArray(UUID[]::new);
+		invalidateAll(plugin, column);
+		try {
+			plugin.getBukkitScheduler().runTaskAsynchronously(plugin, () -> {
+				for (UUID uuid : users) {
+					try {
+						plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false).cache();
+					} catch (RuntimeException refreshFailure) {
+						plugin.debug(refreshFailure);
+					}
+				}
+			});
+		} catch (RuntimeException schedulingFailure) {
+			plugin.debug(schedulingFailure);
 		}
 	}
 }

@@ -204,6 +204,15 @@ class VotingPluginUserPointSchedulingTest {
 	@Test
 	void votePointAwardCombinesSharedAdditionAndCapInOnePersistenceTask() throws Exception {
 		PointFixture fixture = pointFixture();
+		UserDataCache cache = mock(UserDataCache.class);
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> values = new HashMap<>();
+		values.put("Points", new com.bencodez.simpleapi.sql.data.DataValueInt(98));
+		doReturn(true).when(fixture.user).isCached();
+		doReturn(cache).when(fixture.user).getCache();
+		when(cache.getCache()).thenReturn(values);
+		java.util.UUID userUuid = java.util.UUID.fromString("00000000-0000-0000-0000-000000000001");
+		when(fixture.plugin.getUserManager().getDataManager().getUserDataCache()).thenReturn(
+				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(userUuid, cache)));
 		when(fixture.plugin.getConfigFile().getPointsOnVote()).thenReturn(5);
 		when(fixture.plugin.getConfigFile().getLimitVotePoints()).thenReturn(100);
 		PluginManager pluginManager = mock(PluginManager.class);
@@ -212,11 +221,13 @@ class VotingPluginUserPointSchedulingTest {
 			bukkit.when(Bukkit::getPluginManager).thenReturn(pluginManager);
 			fixture.user.addPoints();
 		}
+		assertEquals(100, values.get("Points").getInt());
 
 		ArgumentCaptor<Runnable> persistenceTask = ArgumentCaptor.forClass(Runnable.class);
 		verify(fixture.persistence).execute(persistenceTask.capture());
 		verify(fixture.persistence, org.mockito.Mockito.times(1)).execute(any(Runnable.class));
 		persistenceTask.getValue().run();
+		assertFalse(values.containsKey("Points"));
 
 		verify(fixture.connection).prepareStatement(org.mockito.ArgumentMatchers.argThat(
 				query -> query.contains("`Points` = LEAST(`Points` + ?, ?)")));
@@ -361,6 +372,7 @@ class VotingPluginUserPointSchedulingTest {
 		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> values = new HashMap<>();
 		values.put("Points", new com.bencodez.simpleapi.sql.data.DataValueInt(10));
 		doReturn(cache).when(fixture.user).getCache();
+		doReturn(true).when(fixture.user).isCached();
 		when(cache.getCache()).thenReturn(values);
 
 		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {

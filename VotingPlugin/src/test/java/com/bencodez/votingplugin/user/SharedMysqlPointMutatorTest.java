@@ -17,6 +17,7 @@ import static org.mockito.ArgumentMatchers.any;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.util.HashMap;
+import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -29,6 +30,7 @@ import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 import com.bencodez.simpleapi.sql.data.DataValue;
+import com.bencodez.simpleapi.sql.data.DataValueInt;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 class SharedMysqlPointMutatorTest {
@@ -202,6 +204,7 @@ class SharedMysqlPointMutatorTest {
 		java.util.HashMap<String, DataValue> values = new java.util.HashMap<>();
 		values.put("Points", points);
 		when(user.getCache()).thenReturn(cache);
+		when(user.isCached()).thenReturn(true);
 		when(cache.getCache()).thenReturn(values);
 		when(points.isInt()).thenReturn(true);
 		when(points.getInt()).thenReturn(20);
@@ -370,8 +373,18 @@ class SharedMysqlPointMutatorTest {
 		VotingPluginUser user = mock(VotingPluginUser.class);
 		when(user.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
 		when(user.getPointsPath()).thenReturn("Points");
+		UserDataCache cache = mock(UserDataCache.class);
+		HashMap<String, DataValue> values = new HashMap<>();
+		values.put("Points", new DataValueInt(95));
+		when(user.isCached()).thenReturn(true);
+		when(user.getCache()).thenReturn(cache);
+		when(cache.getCache()).thenReturn(values);
+		UUID uuid = UUID.fromString("00000000-0000-0000-0000-000000000001");
+		when(plugin.getUserManager().getDataManager().getUserDataCache()).thenReturn(
+				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(uuid, cache)));
 
 		new SharedMysqlPointMutator(plugin).addAndCap(user, 10, 100, true);
+		assertEquals(100, values.get("Points").getInt());
 
 		ArgumentCaptor<Runnable> task = ArgumentCaptor.forClass(Runnable.class);
 		verify(persistence).execute(task.capture());
@@ -386,6 +399,32 @@ class SharedMysqlPointMutatorTest {
 		verify(statement).setInt(2, 100);
 		verify(statement).setString(3, "00000000-0000-0000-0000-000000000001");
 		verify(statement).executeUpdate();
+		assertFalse(values.containsKey("Points"));
+	}
+
+	@Test
+	void rejectedAddAndCapSubmissionDiscardsItsPrediction() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		ScheduledExecutorService persistence = mock(ScheduledExecutorService.class);
+		when(plugin.getTimer()).thenReturn(persistence);
+		doThrow(new RejectedExecutionException("saturated")).when(persistence).execute(any(Runnable.class));
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		when(user.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
+		when(user.getPointsPath()).thenReturn("Points");
+		UserDataCache cache = mock(UserDataCache.class);
+		HashMap<String, DataValue> values = new HashMap<>();
+		values.put("Points", new DataValueInt(95));
+		when(user.isCached()).thenReturn(true);
+		when(user.getCache()).thenReturn(cache);
+		when(cache.getCache()).thenReturn(values);
+		UUID uuid = UUID.fromString("00000000-0000-0000-0000-000000000001");
+		when(plugin.getUserManager().getDataManager().getUserDataCache()).thenReturn(
+				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(uuid, cache)));
+
+		new SharedMysqlPointMutator(plugin).addAndCap(user, 10, 100, true);
+
+		assertFalse(values.containsKey("Points"));
+		verify(plugin.getMysql(), never()).getMysql();
 	}
 
 	@Test
