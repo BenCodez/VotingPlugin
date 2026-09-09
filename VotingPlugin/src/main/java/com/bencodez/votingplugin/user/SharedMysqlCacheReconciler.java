@@ -1,6 +1,8 @@
 package com.bencodez.votingplugin.user;
 
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -48,24 +50,24 @@ public final class SharedMysqlCacheReconciler {
 	/** Removes a reset column from every currently live cache without flushing it. */
 	public static void invalidateAll(VotingPluginMain plugin, String column) {
 		if (plugin == null || column == null) return;
-		var caches = plugin.getUserManager().getDataManager().getUserDataCache();
+		ConcurrentHashMap<UUID, UserDataCache> caches = plugin.getUserManager().getDataManager().getUserDataCache();
 		if (caches == null) return;
-		for (UserDataCache cache : caches.values()) {
-			if (cache == null) continue;
-			synchronized (cache) {
-				var values = cache.getCache();
-				if (values != null) values.remove(column);
-			}
+		for (Map.Entry<UUID, UserDataCache> entry : snapshot(caches)) {
+			invalidate(entry.getValue(), column);
 		}
 	}
 
 	/** Invalidates a shared column and repopulates live user caches asynchronously. */
 	public static void invalidateAllAndRefresh(VotingPluginMain plugin, String column) {
 		if (plugin == null || column == null) return;
-		var caches = plugin.getUserManager().getDataManager().getUserDataCache();
+		ConcurrentHashMap<UUID, UserDataCache> caches = plugin.getUserManager().getDataManager().getUserDataCache();
 		if (caches == null) return;
-		UUID[] users = caches.keySet().toArray(UUID[]::new);
-		invalidateAll(plugin, column);
+		Map.Entry<UUID, UserDataCache>[] entries = snapshot(caches);
+		UUID[] users = new UUID[entries.length];
+		for (int i = 0; i < entries.length; i++) {
+			users[i] = entries[i].getKey();
+			invalidate(entries[i].getValue(), column);
+		}
 		try {
 			plugin.getBukkitScheduler().runTaskAsynchronously(plugin, () -> {
 				for (UUID uuid : users) {
@@ -78,6 +80,20 @@ public final class SharedMysqlCacheReconciler {
 			});
 		} catch (RuntimeException schedulingFailure) {
 			plugin.debug(schedulingFailure);
+		}
+	}
+
+	/** Copies the registry before any cache is touched; the registry is live. */
+	@SuppressWarnings("unchecked")
+	private static Map.Entry<UUID, UserDataCache>[] snapshot(ConcurrentHashMap<UUID, UserDataCache> caches) {
+		return caches.entrySet().toArray(new Map.Entry[0]);
+	}
+
+	private static void invalidate(UserDataCache cache, String column) {
+		if (cache == null) return;
+		synchronized (cache) {
+			var values = cache.getCache();
+			if (values != null) values.remove(column);
 		}
 	}
 }

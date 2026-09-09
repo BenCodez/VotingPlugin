@@ -578,6 +578,79 @@ class VotingPluginUserPointSchedulingTest {
 	}
 
 	@Test
+	void rejectedApprovalSettlementSubmissionUsesBukkitAsyncFallbackWithApprovedAmount() throws Exception {
+		SagaFixture fixture = sagaFixture(true);
+		AtomicReference<Boolean> result = new AtomicReference<>();
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			PluginManager pluginManager = mock(PluginManager.class);
+			bukkit.when(Bukkit::getPluginManager).thenReturn(pluginManager);
+			doAnswer(invocation -> {
+				invocation.<PlayerReceivePointsEvent>getArgument(0).setPoints(4);
+				return null;
+			}).when(pluginManager).callEvent(any(PlayerReceivePointsEvent.class));
+			fixture.user.transferPoints(fixture.target, 10, result::set);
+			ArgumentCaptor<Runnable> reservation = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.persistence).execute(reservation.capture());
+			reservation.getValue().run();
+			ArgumentCaptor<Runnable> gate = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.scheduler).runTask(eq(fixture.plugin), gate.capture());
+			gate.getValue().run();
+			ArgumentCaptor<Runnable> claim = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.persistence, org.mockito.Mockito.times(2)).execute(claim.capture());
+			claim.getAllValues().get(1).run();
+			doThrow(new RejectedExecutionException("stopping")).when(fixture.persistence).execute(any(Runnable.class));
+			@SuppressWarnings("rawtypes")
+			ArgumentCaptor<java.util.function.Consumer> approval = ArgumentCaptor.forClass(java.util.function.Consumer.class);
+			verify(fixture.entityScheduler).runAtEntityWithFallback(eq(fixture.targetPlayer), approval.capture(), any(Runnable.class));
+			approval.getValue().accept(null);
+
+			ArgumentCaptor<Runnable> asyncSettlement = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.scheduler).runTaskAsynchronously(eq(fixture.plugin), asyncSettlement.capture());
+			verify(fixture.settlementPoint, never()).executeUpdate();
+			asyncSettlement.getValue().run();
+			verify(fixture.settlementPoint).setInt(1, 4);
+			verify(fixture.settlementPoint).executeUpdate();
+			ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
+			completion.getValue().run();
+		}
+
+		assertEquals(Boolean.TRUE, result.get());
+	}
+
+	@Test
+	void rejectedApprovalSettlementSchedulersRetainHookStartedForReconciliation() throws Exception {
+		SagaFixture fixture = sagaFixture(true);
+		AtomicReference<Boolean> result = new AtomicReference<>();
+
+		fixture.user.transferPoints(fixture.target, 10, result::set);
+		ArgumentCaptor<Runnable> reservation = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence).execute(reservation.capture());
+		reservation.getValue().run();
+		ArgumentCaptor<Runnable> gate = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), gate.capture());
+		gate.getValue().run();
+		ArgumentCaptor<Runnable> claim = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence, org.mockito.Mockito.times(2)).execute(claim.capture());
+		claim.getAllValues().get(1).run();
+		doThrow(new RejectedExecutionException("stopping")).when(fixture.persistence).execute(any(Runnable.class));
+		doThrow(new RejectedExecutionException("disabling")).when(fixture.scheduler)
+				.runTaskAsynchronously(eq(fixture.plugin), any(Runnable.class));
+		@SuppressWarnings("rawtypes")
+		ArgumentCaptor<java.util.function.Consumer> approval = ArgumentCaptor.forClass(java.util.function.Consumer.class);
+		verify(fixture.entityScheduler).runAtEntityWithFallback(eq(fixture.targetPlayer), approval.capture(), any(Runnable.class));
+		approval.getValue().accept(null);
+
+		verify(fixture.scheduler).runTaskAsynchronously(eq(fixture.plugin), any(Runnable.class));
+		verify(fixture.settlementPoint, never()).executeUpdate();
+		ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
+		completion.getValue().run();
+		assertEquals(Boolean.TRUE, result.get());
+	}
+
+	@Test
 	void retiredApprovalSchedulerRefundsClaimedTransferBeforeTheHookCanRun() throws Exception {
 		SagaFixture fixture = sagaFixture(true);
 		configureRejectedSagaConnections(fixture);

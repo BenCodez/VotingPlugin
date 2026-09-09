@@ -397,11 +397,22 @@ final class SharedMysqlPointMutator {
 					plugin.getTimer().execute(() -> settleTransfer(source, target, debitAmount, completion, journal,
 							transferId, owner, sourcePoints, targetPoints, finalApprovedAmount));
 				} catch (RuntimeException schedulingFailure) {
-					// The approval callback already ran and may have had side effects. Keep the
-					// claimed row for explicit reconciliation instead of refunding it.
 					plugin.debug(schedulingFailure);
-					logIndeterminateClaim(transferId);
-					completeOnBukkit(source, completion, true);
+					// The approval callback already ran and may have had side effects. Submit
+					// the same idempotent settlement through Bukkit's independent async
+					// scheduler before retaining the claimed row for reconciliation.
+					try {
+						plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
+								() -> settleTransfer(source, target, debitAmount, completion, journal, transferId, owner,
+										sourcePoints, targetPoints, finalApprovedAmount));
+					} catch (RuntimeException asyncSchedulingFailure) {
+						// Neither scheduler accepted settlement. The hook may have had side
+						// effects, so preserve the durable HOOK_STARTED row for explicit
+						// reconciliation and suppress a duplicate transfer attempt.
+						plugin.debug(asyncSchedulingFailure);
+						logIndeterminateClaim(transferId);
+						completeOnBukkit(source, completion, true);
+					}
 				} finally {
 					approvalState.set(2);
 				}
