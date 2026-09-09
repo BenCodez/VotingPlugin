@@ -42,7 +42,9 @@ final class SharedMysqlPurchaseJournal {
 	/* PostgreSQL permits 63 bytes and is the tighter supported database limit. */
 	private static final int MAX_IDENTIFIER_BYTES = 63;
 	private static final String JOURNAL_SUFFIX = "_VoteShopPurchases";
+	private static final String EPOCH_SUFFIX = "_VoteShopLimitEpochs";
 	private static final String HASHED_TABLE_PREFIX = "vp_vsp_";
+	private static final String HASHED_EPOCH_TABLE_PREFIX = "vp_vse_";
 	private static final int HASHED_TABLE_HEX_LENGTH = 32;
 
 	private static final ReferenceQueue<MySQL> INITIALIZED_QUEUE = new ReferenceQueue<>();
@@ -50,10 +52,12 @@ final class SharedMysqlPurchaseJournal {
 
 	private final MySQL table;
 	private final String journalTable;
+	private final String epochTable;
 
 	SharedMysqlPurchaseJournal(MySQL table, boolean initializeSchema) throws SQLException {
 		this.table = table;
 		journalTable = journalTableName(table.getTableName());
+		epochTable = epochTableName(table.getTableName());
 		if (initializeSchema) ensureSchema();
 	}
 
@@ -63,9 +67,17 @@ final class SharedMysqlPurchaseJournal {
 	 * PostgreSQL identifier limit.
 	 */
 	static String journalTableName(String sourceTable) {
-		String legacyName = sourceTable + JOURNAL_SUFFIX;
+		return auxiliaryTableName(sourceTable, JOURNAL_SUFFIX, HASHED_TABLE_PREFIX);
+	}
+
+	static String epochTableName(String sourceTable) {
+		return auxiliaryTableName(sourceTable, EPOCH_SUFFIX, HASHED_EPOCH_TABLE_PREFIX);
+	}
+
+	private static String auxiliaryTableName(String sourceTable, String suffix, String hashedPrefix) {
+		String legacyName = sourceTable + suffix;
 		if (legacyName.getBytes(StandardCharsets.UTF_8).length <= MAX_IDENTIFIER_BYTES) return legacyName;
-		return HASHED_TABLE_PREFIX + hash(sourceTable + '\0' + JOURNAL_SUFFIX).substring(0, HASHED_TABLE_HEX_LENGTH);
+		return hashedPrefix + hash(sourceTable + '\0' + suffix).substring(0, HASHED_TABLE_HEX_LENGTH);
 	}
 
 	private static String hash(String value) {
@@ -110,8 +122,8 @@ final class SharedMysqlPurchaseJournal {
 		String insert = "INSERT INTO " + qiJournal() + " (" + qi("purchase_id") + ", " + qi("player_uuid")
 				+ ", " + qi("points_column") + ", " + qi("limit_column") + ", " + qi("cost") + ", "
 				+ qi("limit_value") + ", " + qi("limit_generation") + ", "
-				+ qi("limit_generation_expires_at") + ", " + qi("state") + ", " + qi("created_at")
-				+ ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+				+ qi("limit_generation_expires_at") + ", " + qi("limit_epoch") + ", " + qi("state")
+				+ ", " + qi("created_at") + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 		String points = qi(pointsColumn);
 		StringBuilder debit = new StringBuilder("UPDATE ").append(qi(table.getTableName())).append(" SET ")
 				.append(points).append(" = ").append(points).append(" - ?");
@@ -126,32 +138,85 @@ final class SharedMysqlPurchaseJournal {
 		}
 		try (Connection connection = connection()) {
 			connection.setAutoCommit(false);
-			try (PreparedStatement insertStatement = connection.prepareStatement(insert);
-					PreparedStatement debitStatement = connection.prepareStatement(debit.toString())) {
-				insertStatement.setString(1, purchaseId);
-				insertStatement.setString(2, uuid);
-				insertStatement.setString(3, pointsColumn);
-				insertStatement.setString(4, limitColumn);
-				insertStatement.setInt(5, cost);
-				if (limitColumn == null) insertStatement.setNull(6, java.sql.Types.INTEGER);
-				else insertStatement.setInt(6, limit);
-				if (limitGeneration == null) insertStatement.setNull(7, java.sql.Types.VARCHAR);
-				else insertStatement.setString(7, limitGeneration);
-				if (limitGenerationExpiresAt <= 0L) insertStatement.setNull(8, java.sql.Types.BIGINT);
-				else insertStatement.setLong(8, limitGenerationExpiresAt);
-				insertStatement.setString(9, PENDING);
-				insertStatement.setLong(10, now);
-				insertStatement.executeUpdate();
+			try {
+				Long limitEpoch = tracksResetEpoch(limitColumn, limitGeneration)
+						? lockLimitEpoch(connection, limitColumn) : null;
+				try (PreparedStatement insertStatement = connection.prepareStatement(insert);
+						PreparedStatement debitStatement = connection.prepareStatement(debit.toString())) {
+					insertStatement.setString(1, purchaseId);
+					insertStatement.setString(2, uuid);
+					insertStatement.setString(3, pointsColumn);
+					insertStatement.setString(4, limitColumn);
+					insertStatement.setInt(5, cost);
+					if (limitColumn == null) insertStatement.setNull(6, java.sql.Types.INTEGER);
+					else insertStatement.setInt(6, limit);
+					if (limitGeneration == null) insertStatement.setNull(7, java.sql.Types.VARCHAR);
+					else insertStatement.setString(7, limitGeneration);
+					if (limitGenerationExpiresAt <= 0L) insertStatement.setNull(8, java.sql.Types.BIGINT);
+					else insertStatement.setLong(8, limitGenerationExpiresAt);
+					if (limitEpoch == null) insertStatement.setNull(9, java.sql.Types.BIGINT);
+					else insertStatement.setLong(9, limitEpoch.longValue());
+					insertStatement.setString(10, PENDING);
+					insertStatement.setLong(11, now);
+					insertStatement.executeUpdate();
 
-				debitStatement.setInt(1, cost);
-				debitStatement.setString(2, uuid);
-				debitStatement.setInt(3, cost);
-				if (limitColumn != null) debitStatement.setInt(4, limit);
-				if (debitStatement.executeUpdate() != 1) {
-					rollback(connection);
-					return false;
+					debitStatement.setInt(1, cost);
+					debitStatement.setString(2, uuid);
+					debitStatement.setInt(3, cost);
+					if (limitColumn != null) debitStatement.setInt(4, limit);
+					if (debitStatement.executeUpdate() != 1) {
+						rollback(connection);
+						return false;
+					}
+					return commitAndConfirm(connection, purchaseId, PENDING);
 				}
-				return commitAndConfirm(connection, purchaseId, PENDING);
+			} catch (SQLException failure) {
+				rollback(connection);
+				throw failure;
+			}
+		}
+	}
+
+	/**
+	 * Wipes a resettable limit and advances its epoch while holding the same row
+	 * that reservations lock before they debit. A reservation can therefore land
+	 * wholly before or wholly after the reset, never in the wiped interval.
+	 */
+	void resetLimit(String limitColumn, String resetGeneration) throws SQLException {
+		if (!isSafeColumn(limitColumn)) throw new SQLException("Unsafe vote shop limit column");
+		if (resetGeneration == null || resetGeneration.isEmpty() || resetGeneration.length() > 128) {
+			throw new SQLException("Invalid vote shop reset generation");
+		}
+		try (Connection connection = connection()) {
+			connection.setAutoCommit(false);
+			try {
+				EpochRow marker = lockLimitEpochRow(connection, limitColumn);
+				if (resetGeneration.equals(marker.lastResetGeneration())) {
+					rollback(connection);
+					return;
+				}
+				long oldEpoch = marker.epoch();
+				if (oldEpoch == Long.MAX_VALUE) throw new SQLException("Vote shop limit epoch overflow");
+				long expectedEpoch = oldEpoch + 1L;
+				try (PreparedStatement wipe = connection.prepareStatement("UPDATE " + qi(table.getTableName()) + " SET "
+						+ qi(limitColumn) + " = 0");
+						PreparedStatement advance = connection.prepareStatement("UPDATE " + qiEpoch() + " SET "
+								+ qi("epoch") + " = ?, " + qi("last_reset_generation") + " = ? WHERE "
+								+ qi("limit_column") + " = ?")) {
+					wipe.executeUpdate();
+					advance.setLong(1, expectedEpoch);
+					advance.setString(2, resetGeneration);
+					advance.setString(3, limitColumn);
+					if (advance.executeUpdate() != 1) throw new SQLException("Vote shop limit epoch marker missing");
+				}
+				try {
+					connection.commit();
+				} catch (SQLException ambiguousCommit) {
+					closeQuietly(connection);
+					EpochRow confirmed = findLimitEpoch(limitColumn);
+					if (confirmed != null && resetGeneration.equals(confirmed.lastResetGeneration())) return;
+					throw ambiguousCommit;
+				}
 			} catch (SQLException failure) {
 				rollback(connection);
 				throw failure;
@@ -299,7 +364,7 @@ final class SharedMysqlPurchaseJournal {
 		String refundedLimitColumn = null;
 		String select = "SELECT " + qi("state") + ", " + qi("player_uuid") + ", " + qi("points_column")
 				+ ", " + qi("limit_column") + ", " + qi("cost") + ", " + qi("limit_generation") + ", "
-				+ qi("limit_generation_expires_at") + " FROM " + qiJournal() + " WHERE "
+				+ qi("limit_generation_expires_at") + ", " + qi("limit_epoch") + " FROM " + qiJournal() + " WHERE "
 				+ qi("purchase_id") + " = ? FOR UPDATE";
 		try (Connection connection = connection()) {
 			connection.setAutoCommit(false);
@@ -331,10 +396,10 @@ final class SharedMysqlPurchaseJournal {
 					refundedLimitColumn = limitColumn;
 					int cost = result.getInt(5);
 					String limitGeneration = result.getString(6);
-					long limitGenerationExpiresAt = result.getLong(7);
+					Long limitEpoch = nullableLong(result, 8);
 					if (refund) {
-						refund(connection, uuid, pointsColumn, limitColumn, cost, limitGeneration,
-								limitGenerationExpiresAt, now);
+						refund(connection, uuid, pointsColumn, limitColumn, cost,
+								shouldRefundLimit(connection, limitColumn, limitGeneration, limitEpoch));
 					}
 				}
 			}
@@ -364,16 +429,13 @@ final class SharedMysqlPurchaseJournal {
 	}
 
 	private void refund(Connection connection, String uuid, String pointsColumn, String limitColumn, int cost,
-			String limitGeneration, long limitGenerationExpiresAt, long now) throws SQLException {
+			boolean refundLimit) throws SQLException {
 		if (!isSafeColumn(pointsColumn) || (limitColumn != null && !isSafeColumn(limitColumn))) {
 			throw new SQLException("Unsafe durable purchase column");
 		}
 		StringBuilder refund = new StringBuilder("UPDATE ").append(qi(table.getTableName())).append(" SET ")
 				.append(qi(pointsColumn)).append(" = ").append(qi(pointsColumn)).append(" + ?");
-		// Once an item has crossed its recorded reset boundary, this is an old
-		// generation. Restore the charged points but never decrement a count that
-		// may belong to a new daily/weekly/monthly window.
-		if (limitColumn != null && canRefundLimit(limitGeneration, limitGenerationExpiresAt, now)) {
+		if (refundLimit) {
 			refund.append(", ").append(qi(limitColumn)).append(" = GREATEST(COALESCE(").append(qi(limitColumn))
 					.append(", 0) - 1, 0)");
 		}
@@ -385,11 +447,16 @@ final class SharedMysqlPurchaseJournal {
 		}
 	}
 
-	private static boolean canRefundLimit(String generation, long expiresAt, long now) {
-		if (NO_LIMIT_RESET_GENERATION.equals(generation)) return true;
-		// A row created before generation metadata existed cannot safely identify the
-		// current reset window, so preserve the newer count conservatively.
-		return generation != null && expiresAt > 0L && now < expiresAt;
+	private boolean shouldRefundLimit(Connection connection, String limitColumn, String generation, Long storedEpoch)
+			throws SQLException {
+		if (limitColumn == null) return false;
+		if (storedEpoch != null) {
+			EpochRow currentEpoch = findAndLockLimitEpoch(connection, limitColumn);
+			return currentEpoch != null && storedEpoch.longValue() == currentEpoch.epoch();
+		}
+		// Legacy rows did not capture a durable epoch, so a resettable limit cannot
+		// be identified safely. NONE has never reset and keeps its historic refund.
+		return NO_LIMIT_RESET_GENERATION.equals(generation);
 	}
 
 	List<RefundedPurchase> recoverAndCleanup(long now) throws SQLException {
@@ -465,13 +532,16 @@ final class SharedMysqlPurchaseJournal {
 				+ " VARCHAR(36) NOT NULL, " + qi("player_uuid") + " VARCHAR(37) NOT NULL, "
 				+ qi("points_column") + " VARCHAR(128) NOT NULL, " + qi("limit_column") + " VARCHAR(128) NULL, "
 				+ qi("cost") + " INT NOT NULL, " + qi("limit_value") + " INT NULL, " + qi("limit_generation")
-				+ " VARCHAR(96) NULL, " + qi("limit_generation_expires_at") + " BIGINT NULL, " + qi("state")
+				+ " VARCHAR(96) NULL, " + qi("limit_generation_expires_at") + " BIGINT NULL, " + qi("limit_epoch")
+				+ " BIGINT NULL, " + qi("state")
 				+ " VARCHAR(16) NOT NULL, " + qi("created_at") + " BIGINT NOT NULL, " + qi("hook_started_at")
 				+ " BIGINT NULL, PRIMARY KEY (" + qi("purchase_id") + "));";
 		try (Connection connection = connection(); PreparedStatement statement = connection.prepareStatement(create)) {
 			statement.executeUpdate();
 			ensureColumn(connection, "limit_generation", "VARCHAR(96) NULL");
 			ensureColumn(connection, "limit_generation_expires_at", "BIGINT NULL");
+			ensureColumn(connection, "limit_epoch", "BIGINT NULL");
+			ensureEpochSchema(connection);
 			String index = "vp_vsp_" + Integer.toUnsignedString(journalTable.hashCode(), 36) + "_state_created";
 			String createIndex = "CREATE INDEX " + (table.getDbType() == DbType.POSTGRESQL ? "IF NOT EXISTS " : "")
 					+ qi(index) + " ON " + qiJournal() + " (" + qi("state") + ", " + qi("created_at") + ");";
@@ -480,6 +550,26 @@ final class SharedMysqlPurchaseJournal {
 			} catch (SQLException failure) {
 				if (failure.getErrorCode() != 1061 && !"42P07".equals(failure.getSQLState())) throw failure;
 			}
+		}
+	}
+
+	private void ensureEpochSchema(Connection connection) throws SQLException {
+		String create = "CREATE TABLE IF NOT EXISTS " + qiEpoch() + " (" + qi("limit_column")
+				+ " VARCHAR(128) NOT NULL, " + qi("epoch") + " BIGINT NOT NULL, "
+				+ qi("last_reset_generation") + " VARCHAR(128) NULL, PRIMARY KEY ("
+				+ qi("limit_column") + "));";
+		try (PreparedStatement statement = connection.prepareStatement(create)) {
+			statement.executeUpdate();
+		}
+		ensureEpochColumn(connection, "last_reset_generation", "VARCHAR(128) NULL");
+	}
+
+	private void ensureEpochColumn(Connection connection, String column, String definition) throws SQLException {
+		String alter = "ALTER TABLE " + qiEpoch() + " ADD COLUMN " + qi(column) + " " + definition;
+		try (PreparedStatement statement = connection.prepareStatement(alter)) {
+			statement.executeUpdate();
+		} catch (SQLException failure) {
+			if (failure.getErrorCode() != 1060 && !"42701".equals(failure.getSQLState())) throw failure;
 		}
 	}
 
@@ -497,8 +587,68 @@ final class SharedMysqlPurchaseJournal {
 	}
 
 	private String qiJournal() { return table.qi(journalTable); }
+	private String qiEpoch() { return table.qi(epochTable); }
 	private String qi(String identifier) { return table.qi(identifier); }
 	private String uuidCast() { return table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?"; }
+
+	private static boolean tracksResetEpoch(String limitColumn, String generation) {
+		return limitColumn != null && generation != null && !NO_LIMIT_RESET_GENERATION.equals(generation);
+	}
+
+	private long lockLimitEpoch(Connection connection, String limitColumn) throws SQLException {
+		return lockLimitEpochRow(connection, limitColumn).epoch();
+	}
+
+	private EpochRow lockLimitEpochRow(Connection connection, String limitColumn) throws SQLException {
+		ensureLimitEpochRow(connection, limitColumn);
+		EpochRow epoch = findAndLockLimitEpoch(connection, limitColumn);
+		if (epoch == null) throw new SQLException("Vote shop limit epoch marker missing");
+		return epoch;
+	}
+
+	private void ensureLimitEpochRow(Connection connection, String limitColumn) throws SQLException {
+		String insert = table.getDbType() == DbType.POSTGRESQL
+				? "INSERT INTO " + qiEpoch() + " (" + qi("limit_column") + ", " + qi("epoch")
+						+ ") VALUES (?, 0) ON CONFLICT DO NOTHING"
+				: "INSERT IGNORE INTO " + qiEpoch() + " (" + qi("limit_column") + ", " + qi("epoch")
+						+ ") VALUES (?, 0)";
+		try (PreparedStatement statement = connection.prepareStatement(insert)) {
+			statement.setString(1, limitColumn);
+			statement.executeUpdate();
+		}
+	}
+
+	private EpochRow findAndLockLimitEpoch(Connection connection, String limitColumn) throws SQLException {
+		String select = "SELECT " + qi("epoch") + ", " + qi("last_reset_generation") + " FROM " + qiEpoch()
+				+ " WHERE " + qi("limit_column")
+				+ " = ? FOR UPDATE";
+		try (PreparedStatement statement = connection.prepareStatement(select)) {
+			statement.setString(1, limitColumn);
+			try (ResultSet result = statement.executeQuery()) {
+				return result.next() ? new EpochRow(result.getLong(1), result.getString(2)) : null;
+			}
+		}
+	}
+
+	private EpochRow findLimitEpoch(String limitColumn) throws SQLException {
+		String select = "SELECT " + qi("epoch") + ", " + qi("last_reset_generation") + " FROM " + qiEpoch()
+				+ " WHERE " + qi("limit_column")
+				+ " = ?";
+		try (Connection connection = connection(); PreparedStatement statement = connection.prepareStatement(select)) {
+			statement.setString(1, limitColumn);
+			try (ResultSet result = statement.executeQuery()) {
+				return result.next() ? new EpochRow(result.getLong(1), result.getString(2)) : null;
+			}
+		}
+	}
+
+	private static Long nullableLong(ResultSet result, int index) throws SQLException {
+		Object value = result.getObject(index);
+		return value instanceof Number number ? number.longValue() : null;
+	}
+
+	private record EpochRow(long epoch, String lastResetGeneration) {
+	}
 
 	private static boolean isSafeColumn(String column) {
 		return column != null && column.matches("[A-Za-z][A-Za-z0-9_-]{0,127}");

@@ -177,9 +177,9 @@ final class SharedMysqlPointMutator {
 							target.getUUID(), targetPoints, debitAmount, null);
 				} finally {
 					// A listener may have recreated the recipient cache while the
-					// settlement transaction was running. Discard it after the
-					// transaction without dumping stale values back to storage.
-					discardCache(target);
+					// settlement transaction was running. Invalidate only its stale
+					// points value without dumping it back to storage.
+					discardPointsCache(target, targetPoints);
 				}
 				logApprovalFailure(failure);
 				return isAcceptedSettlement(outcome);
@@ -194,9 +194,9 @@ final class SharedMysqlPointMutator {
 						target.getUUID(), targetPoints, debitAmount, creditAmount);
 			} finally {
 				// A concurrent lookup can recreate the cache after the final
-				// pre-settlement drain. Never dump that stale snapshot after the
-				// credit commits; remove it instead.
-				discardCache(target);
+				// pre-settlement drain. Never dump its stale points snapshot after
+				// the credit commits; preserve unrelated cached fields.
+				discardPointsCache(target, targetPoints);
 			}
 			return isAcceptedSettlement(outcome);
 		} catch (SQLException failure) {
@@ -231,9 +231,9 @@ final class SharedMysqlPointMutator {
 					return;
 				}
 				// The source cache may have been recreated while the reservation was being
-				// committed. Discard it after the durable debit, before any later dump can
-				// restore the pre-debit balance.
-				discardCache(source);
+				// committed. Invalidate its points after the durable debit, before any later
+				// dump can restore the pre-debit balance.
+				discardPointsCache(source, sourcePoints);
 			} catch (SQLException failure) {
 				logFailure(failure);
 				completeOnBukkit(source, completion, false);
@@ -273,7 +273,7 @@ final class SharedMysqlPointMutator {
 		if (claim == SharedPointTransferJournal.ClaimOutcome.NOT_CLAIMED) {
 			try {
 				journal.refundReserved(transferId, source.getUUID(), sourcePoints, debitAmount);
-				discardCache(source);
+				discardPointsCache(source, sourcePoints);
 			} catch (SQLException failure) {
 				logFailure(failure);
 			}
@@ -285,7 +285,7 @@ final class SharedMysqlPointMutator {
 			completeOnBukkit(source, completion, true);
 			return;
 		}
-		discardCache(source);
+		discardPointsCache(source, sourcePoints);
 		org.bukkit.entity.Player targetPlayer = target.getPlayer();
 		org.bukkit.entity.Player approvalPlayer = targetPlayer != null ? targetPlayer : source.getPlayer();
 		AtomicInteger approvalState = new AtomicInteger(0);
@@ -297,7 +297,12 @@ final class SharedMysqlPointMutator {
 						new IllegalStateException("Transfer approval task did not start")));
 			} catch (RuntimeException persistenceRejected) {
 				plugin.debug(persistenceRejected);
-				completeOnBukkit(source, completion, false);
+				// The approval hook is fenced by approvalState, so an executor rejection
+				// can safely compensate on Bukkit's independent async scheduler without
+				// leaving HOOK_STARTED forever or blocking the entity lane.
+				plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
+						() -> refundClaimedAfterSchedulingFailure(source, completion, journal, transferId,
+								sourcePoints, debitAmount, persistenceRejected));
 			}
 		};
 		try {
@@ -346,8 +351,8 @@ final class SharedMysqlPointMutator {
 				outcome = journal.settleWithConfirmation(transferId, owner, source.getUUID(), sourcePoints,
 						target.getUUID(), targetPoints, debitAmount, approvedAmount);
 			} finally {
-				discardCache(source);
-				discardCache(target);
+				discardPointsCache(source, sourcePoints);
+				discardPointsCache(target, targetPoints);
 			}
 			transferred = isAcceptedSettlement(outcome);
 		} catch (RuntimeException failure) {
@@ -363,7 +368,9 @@ final class SharedMysqlPointMutator {
 			SharedPointTransferJournal journal, String transferId, String sourcePoints, int debitAmount,
 			RuntimeException failure) {
 		try {
-			if (journal.refundReserved(transferId, source.getUUID(), sourcePoints, debitAmount)) discardCache(source);
+			if (journal.refundReserved(transferId, source.getUUID(), sourcePoints, debitAmount)) {
+				discardPointsCache(source, sourcePoints);
+			}
 		} catch (SQLException refundFailure) {
 			logFailure(refundFailure);
 		}
@@ -381,7 +388,9 @@ final class SharedMysqlPointMutator {
 			SharedPointTransferJournal journal, String transferId, String sourcePoints, int debitAmount,
 			RuntimeException failure) {
 		try {
-			if (journal.refundHookStarted(transferId, source.getUUID(), sourcePoints, debitAmount)) discardCache(source);
+			if (journal.refundHookStarted(transferId, source.getUUID(), sourcePoints, debitAmount)) {
+				discardPointsCache(source, sourcePoints);
+			}
 		} catch (SQLException refundFailure) {
 			logFailure(refundFailure);
 		}
@@ -570,12 +579,6 @@ final class SharedMysqlPointMutator {
 		}
 	}
 
-	private void discardCache(VotingPluginUser user) {
-		if (user.isCached()) {
-			plugin.getUserManager().getDataManager().removeCache(UUID.fromString(user.getUUID()), null);
-		}
-	}
-
 	/**
 	 * Removes only the value made stale by a direct shared-MySQL point mutation.
 	 * The cache can be recreated while JDBC is in progress by vote processing on
@@ -586,13 +589,11 @@ final class SharedMysqlPointMutator {
 	 * the generic absolute-value API cannot provide cross-server atomic semantics.
 	 */
 	private void discardPointsCache(VotingPluginUser user) {
-		if (!user.isCached()) return;
-		UserDataCache cache = user.getCache();
-		if (cache == null) return;
-		synchronized (cache) {
-			var values = cache.getCache();
-			if (values != null) values.remove(user.getPointsPath());
-		}
+		discardPointsCache(user, user.getPointsPath());
+	}
+
+	private void discardPointsCache(VotingPluginUser user, String pointsColumn) {
+		SharedMysqlCacheReconciler.invalidate(plugin, user.getUUID(), pointsColumn);
 	}
 
 	private void completeOnBukkit(VotingPluginUser source, Consumer<Boolean> completion, boolean transferred) {

@@ -287,8 +287,11 @@ public class VoteShopPurchaseService {
 			plugin.getTimer().execute(compensation);
 		} catch (RuntimeException schedulingFailure) {
 			plugin.debug(schedulingFailure);
-			plugin.getBukkitScheduler().runTask(plugin,
-					() -> completion.accept(VoteShopPurchaseResult.FAILED), player);
+			// The row may already be HOOK_STARTED even though the guarded reward
+			// callback was rejected. Do not leave that state permanently charged just
+			// because the persistence executor is concurrently shutting down. Bukkit's
+			// independent async scheduler also keeps JDBC off the entity lane.
+			plugin.getBukkitScheduler().runTaskAsynchronously(plugin, compensation);
 		}
 	}
 
@@ -353,6 +356,28 @@ public class VoteShopPurchaseService {
 	private static boolean usesSharedMysqlPoints(VotingPluginMain plugin) {
 		return plugin != null && UserStorage.MYSQL.equals(plugin.getStorageType())
 				&& !plugin.getBungeeSettings().isPerServerPoints();
+	}
+
+	/**
+	 * Resets a shared-MySQL vote-shop limit with the durable epoch marker used by
+	 * reservations. Other storage modes retain the established UserManager reset.
+	 */
+	public static void resetSharedMysqlLimit(VotingPluginMain plugin, String limitColumn) {
+		resetSharedMysqlLimit(plugin, limitColumn, UUID.randomUUID().toString());
+	}
+
+	/** Applies a named reset at most once across all backends sharing the table. */
+	public static void resetSharedMysqlLimit(VotingPluginMain plugin, String limitColumn, String resetGeneration) {
+		if (!usesSharedMysqlPoints(plugin)) return;
+		try {
+			MySQL table = plugin.getMysql();
+			table.checkColumn(limitColumn, DataType.INTEGER);
+			SharedMysqlPurchaseJournal.forTable(table).resetLimit(limitColumn, resetGeneration);
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to atomically reset shared MySQL vote shop limit: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+		}
 	}
 
 	/** Runs bounded stale-purchase recovery from the plugin lifecycle executor. */
@@ -525,15 +550,24 @@ public class VoteShopPurchaseService {
 
 	private LimitGeneration limitGeneration(VoteShopItem item, long nowMillis) {
 		if (item.getLimit() <= 0) return LimitGeneration.NONE;
-		String identifier = item.getIdentifier();
+		return limitGeneration(plugin, item.getIdentifier(), nowMillis);
+	}
+
+	/** Stable identifier shared by every backend processing the same reset period. */
+	public static String currentLimitGenerationId(VotingPluginMain plugin, String identifier) {
+		return limitGeneration(plugin, identifier, System.currentTimeMillis()).value();
+	}
+
+	private static LimitGeneration limitGeneration(VotingPluginMain plugin, String identifier, long nowMillis) {
 		boolean daily = plugin.getShopFile().getVoteShopResetDaily(identifier);
 		boolean weekly = plugin.getShopFile().getVoteShopResetWeekly(identifier);
 		boolean monthly = plugin.getShopFile().getVoteShopResetMonthly(identifier);
 		return limitGeneration(plugin.getTimeChecker().getTime(), nowMillis, daily, weekly, monthly,
-				plugin.getOptions().getTimeWeekOffSet(), configuredTimeZone(), plugin.getOptions().getTimeHourOffSet());
+				plugin.getOptions().getTimeWeekOffSet(), configuredTimeZone(plugin),
+				plugin.getOptions().getTimeHourOffSet());
 	}
 
-	private ZoneId configuredTimeZone() {
+	private static ZoneId configuredTimeZone(VotingPluginMain plugin) {
 		String configured = plugin.getOptions().getTimeZone();
 		if (configured == null || configured.isEmpty()) return ZoneId.systemDefault();
 		try {
@@ -565,10 +599,7 @@ public class VoteShopPurchaseService {
 			}
 			if (next == null || weekBoundary.isBefore(next)) next = weekBoundary;
 			if (generation.length() > 0) generation.append('|');
-			LocalDateTime weekTime = current.plusDays(weekOffset);
-			WeekFields fields = WeekFields.of(Locale.getDefault());
-			generation.append("W:").append(weekTime.get(fields.weekBasedYear())).append('-')
-					.append(weekTime.get(fields.weekOfWeekBasedYear()));
+			generation.append(weeklyGenerationId(current, weekOffset));
 		}
 		if (monthly) {
 			LocalDateTime monthBoundary = current.toLocalDate().withDayOfMonth(1).plusMonths(1).atStartOfDay();
@@ -579,6 +610,13 @@ public class VoteShopPurchaseService {
 		long expiresAt = next.minusHours(hourOffset).atZone(timeZone).toInstant().toEpochMilli();
 		if (expiresAt <= nowMillis) expiresAt = nowMillis + Math.max(1L, Duration.between(current, next).toMillis());
 		return new LimitGeneration(generation.toString(), expiresAt);
+	}
+
+	static String weeklyGenerationId(LocalDateTime current, int weekOffset) {
+		LocalDateTime weekTime = current.plusDays(weekOffset).toLocalDate()
+				.with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.MONDAY)).atStartOfDay();
+		WeekFields fields = WeekFields.ISO;
+		return "W:" + weekTime.get(fields.weekBasedYear()) + '-' + weekTime.get(fields.weekOfWeekBasedYear());
 	}
 
 	record SharedPurchaseDebit(VoteShopPurchaseResult result, SharedMysqlPurchaseJournal journal,

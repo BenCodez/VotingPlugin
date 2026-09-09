@@ -41,7 +41,6 @@ import com.bencodez.advancedcore.api.user.UserData;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
-import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
 import com.bencodez.simpleapi.sql.mysql.ConnectionManager;
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.simpleapi.folialib.FoliaLib;
@@ -246,6 +245,9 @@ class VotingPluginUserPointSchedulingTest {
 		when(recreatedCache.getCache()).thenReturn(values);
 		doReturn(false, true).when(fixture.user).isCached();
 		doReturn(recreatedCache).when(fixture.user).getCache();
+		java.util.UUID userUuid = java.util.UUID.fromString(fixture.user.getUUID());
+		when(fixture.plugin.getUserManager().getDataManager().getUserDataCache()).thenReturn(
+				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(userUuid, recreatedCache)));
 
 		assertTrue(fixture.user.removePoints(10));
 
@@ -357,6 +359,37 @@ class VotingPluginUserPointSchedulingTest {
 		verify(fixture.persistence, org.mockito.Mockito.times(3)).execute(refunded.capture());
 		refunded.getAllValues().get(2).run();
 
+		verify(fixture.settlementPoint).setInt(1, 10);
+		verify(fixture.settlementPoint).executeUpdate();
+		ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
+		completion.getValue().run();
+		assertEquals(Boolean.FALSE, result.get());
+	}
+
+	@Test
+	void rejectedClaimedTransferCompensationUsesAsyncFallback() throws Exception {
+		SagaFixture fixture = sagaFixture(true);
+		when(fixture.entityScheduler.runAtEntityWithFallback(any(), any(), any(Runnable.class)))
+				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
+		AtomicReference<Boolean> result = new AtomicReference<>();
+
+		fixture.user.transferPoints(fixture.target, 10, result::set);
+		ArgumentCaptor<Runnable> persistence = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence).execute(persistence.capture());
+		persistence.getValue().run();
+		ArgumentCaptor<Runnable> gate = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), gate.capture());
+		gate.getValue().run();
+		ArgumentCaptor<Runnable> claimed = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence, org.mockito.Mockito.times(2)).execute(claimed.capture());
+		doThrow(new RejectedExecutionException("stopping")).when(fixture.persistence).execute(any(Runnable.class));
+		claimed.getAllValues().get(1).run();
+
+		ArgumentCaptor<Runnable> asyncRefund = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler).runTaskAsynchronously(eq(fixture.plugin), asyncRefund.capture());
+		verify(fixture.settlementPoint, never()).executeUpdate();
+		asyncRefund.getValue().run();
 		verify(fixture.settlementPoint).setInt(1, 10);
 		verify(fixture.settlementPoint).executeUpdate();
 		ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
@@ -552,6 +585,13 @@ class VotingPluginUserPointSchedulingTest {
 		UserDataCache recreatedCache = mock(UserDataCache.class);
 		doReturn(false, true).when(target).isCached();
 		doReturn(recreatedCache).when(target).getCache();
+		java.util.HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> recreatedValues = new java.util.HashMap<>();
+		recreatedValues.put("Points", mock(com.bencodez.simpleapi.sql.data.DataValue.class));
+		recreatedValues.put("DailyTotal", mock(com.bencodez.simpleapi.sql.data.DataValue.class));
+		when(recreatedCache.getCache()).thenReturn(recreatedValues);
+		when(fixture.plugin.getUserManager().getDataManager().getUserDataCache()).thenReturn(
+				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(
+						java.util.UUID.fromString("00000000-0000-0000-0000-000000000002"), recreatedCache)));
 		UserData targetData = mock(UserData.class);
 		doReturn(targetData).when(target).getUserData();
 		doAnswer(invocation -> {
@@ -592,8 +632,10 @@ class VotingPluginUserPointSchedulingTest {
 		order.verify(fixture.listenerRead).close();
 		order.verify(recreatedCache).dump();
 		order.verify(fixture.settlement).commit();
-		order.verify((UserDataManager) fixture.plugin.getUserManager().getDataManager()).removeCache(
-				java.util.UUID.fromString("00000000-0000-0000-0000-000000000002"), null);
+		order.verify(recreatedCache).getCache();
+		assertFalse(recreatedValues.containsKey("Points"));
+		assertTrue(recreatedValues.containsKey("DailyTotal"),
+				"settlement must preserve unrelated changes in a concurrently recreated cache");
 		assertEquals(Boolean.TRUE, result.get());
 	}
 

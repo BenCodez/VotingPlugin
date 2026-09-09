@@ -33,6 +33,9 @@ class SharedMysqlPurchaseJournalTest {
 		assertTrue(SharedMysqlPurchaseJournal.journalTableName("é".repeat(30)).matches("vp_vsp_[0-9a-f]{32}"));
 		assertEquals("VotingPlugin_Users_VoteShopPurchases",
 				SharedMysqlPurchaseJournal.journalTableName("VotingPlugin_Users"));
+		assertTrue(SharedMysqlPurchaseJournal.epochTableName(source).matches("vp_vse_[0-9a-f]{32}"));
+		assertEquals("VotingPlugin_Users_VoteShopLimitEpochs",
+				SharedMysqlPurchaseJournal.epochTableName("VotingPlugin_Users"));
 	}
 
 	@Test
@@ -48,7 +51,8 @@ class SharedMysqlPurchaseJournalTest {
 				SharedMysqlPurchaseJournal.NO_LIMIT_RESET_GENERATION, 0L, 100L));
 
 		verify(insert).setString(7, SharedMysqlPurchaseJournal.NO_LIMIT_RESET_GENERATION);
-		verify(insert).setString(9, "PENDING");
+		verify(insert).setNull(9, java.sql.Types.BIGINT);
+		verify(insert).setString(10, "PENDING");
 		verify(debit).setInt(1, 10);
 		verify(fixture.work).commit();
 	}
@@ -109,14 +113,14 @@ class SharedMysqlPurchaseJournalTest {
 	}
 
 	@Test
-	void staleRefundRestoresPointsWithoutDecrementingANewerLimitGeneration() throws Exception {
+	void legacyRefundRestoresPointsWithoutDecrementingAResettableLimit() throws Exception {
 		Fixture fixture = fixture();
 		PreparedStatement select = mock(PreparedStatement.class);
 		PreparedStatement refund = mock(PreparedStatement.class);
 		PreparedStatement terminal = mock(PreparedStatement.class);
 		ResultSet pending = pendingRow();
 		when(pending.getString(6)).thenReturn("D:2026-09-08");
-		when(pending.getLong(7)).thenReturn(100L);
+		when(pending.getLong(7)).thenReturn(Long.MAX_VALUE);
 		when(fixture.work.prepareStatement(anyString())).thenReturn(select, refund, terminal);
 		when(select.executeQuery()).thenReturn(pending);
 		when(refund.executeUpdate()).thenReturn(1);
@@ -129,6 +133,162 @@ class SharedMysqlPurchaseJournalTest {
 		verify(fixture.work, org.mockito.Mockito.times(3)).prepareStatement(sql.capture());
 		assertTrue(sql.getAllValues().get(1).contains("`Points` = `Points` + ?"));
 		assertFalse(sql.getAllValues().get(1).contains("`VoteShopLimitdaily` = GREATEST"));
+	}
+
+	@Test
+	void reservationLocksTheCurrentEpochBeforeItsConditionalDebit() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement markerInsert = mock(PreparedStatement.class);
+		PreparedStatement markerSelect = mock(PreparedStatement.class);
+		PreparedStatement insert = mock(PreparedStatement.class);
+		PreparedStatement debit = mock(PreparedStatement.class);
+		ResultSet epoch = mock(ResultSet.class);
+		when(epoch.next()).thenReturn(true);
+		when(epoch.getLong(1)).thenReturn(7L);
+		when(markerSelect.executeQuery()).thenReturn(epoch);
+		when(debit.executeUpdate()).thenReturn(1);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(markerInsert, markerSelect, insert, debit);
+
+		SharedMysqlPurchaseJournal journal = new SharedMysqlPurchaseJournal(fixture.table, false);
+		assertTrue(journal.reserve("epoch-purchase", "player", "Points", "VoteShopLimitdaily", 10, 1,
+				"D:2026-09-08", 100L, 10L));
+
+		verify(insert).setLong(9, 7L);
+		org.mockito.InOrder lockBeforeDebit = org.mockito.Mockito.inOrder(markerSelect, debit);
+		lockBeforeDebit.verify(markerSelect).executeQuery();
+		lockBeforeDebit.verify(debit).executeUpdate();
+	}
+
+	@Test
+	void epochMismatchRefundRestoresPointsWithoutTouchingTheNewLimit() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement select = mock(PreparedStatement.class);
+		PreparedStatement epochSelect = mock(PreparedStatement.class);
+		PreparedStatement refund = mock(PreparedStatement.class);
+		PreparedStatement terminal = mock(PreparedStatement.class);
+		ResultSet pending = pendingRow();
+		ResultSet currentEpoch = mock(ResultSet.class);
+		when(pending.getObject(8)).thenReturn(4L);
+		when(currentEpoch.next()).thenReturn(true);
+		when(currentEpoch.getLong(1)).thenReturn(5L);
+		when(select.executeQuery()).thenReturn(pending);
+		when(epochSelect.executeQuery()).thenReturn(currentEpoch);
+		when(refund.executeUpdate()).thenReturn(1);
+		when(terminal.executeUpdate()).thenReturn(1);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(select, epochSelect, refund, terminal);
+
+		SharedMysqlPurchaseJournal journal = new SharedMysqlPurchaseJournal(fixture.table, false);
+		assertTrue(journal.refundPending("old-epoch", 100L));
+
+		org.mockito.ArgumentCaptor<String> sql = org.mockito.ArgumentCaptor.forClass(String.class);
+		verify(fixture.work, org.mockito.Mockito.times(4)).prepareStatement(sql.capture());
+		assertFalse(sql.getAllValues().get(2).contains("`VoteShopLimitdaily` = GREATEST"));
+	}
+
+	@Test
+	void matchingEpochRefundReleasesTheReservedLimit() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement select = mock(PreparedStatement.class);
+		PreparedStatement epochSelect = mock(PreparedStatement.class);
+		PreparedStatement refund = mock(PreparedStatement.class);
+		PreparedStatement terminal = mock(PreparedStatement.class);
+		ResultSet pending = pendingRow();
+		ResultSet currentEpoch = mock(ResultSet.class);
+		when(pending.getObject(8)).thenReturn(5L);
+		when(currentEpoch.next()).thenReturn(true);
+		when(currentEpoch.getLong(1)).thenReturn(5L);
+		when(select.executeQuery()).thenReturn(pending);
+		when(epochSelect.executeQuery()).thenReturn(currentEpoch);
+		when(refund.executeUpdate()).thenReturn(1);
+		when(terminal.executeUpdate()).thenReturn(1);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(select, epochSelect, refund, terminal);
+
+		assertTrue(new SharedMysqlPurchaseJournal(fixture.table, false).refundPending("current-epoch", 100L));
+
+		org.mockito.ArgumentCaptor<String> sql = org.mockito.ArgumentCaptor.forClass(String.class);
+		verify(fixture.work, org.mockito.Mockito.times(4)).prepareStatement(sql.capture());
+		assertTrue(sql.getAllValues().get(2).contains("`VoteShopLimitdaily` = GREATEST"));
+	}
+
+	@Test
+	void resetRollsBackWhenItsEpochAdvanceDoesNotAffectTheMarker() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement markerInsert = mock(PreparedStatement.class);
+		PreparedStatement markerSelect = mock(PreparedStatement.class);
+		PreparedStatement wipe = mock(PreparedStatement.class);
+		PreparedStatement advance = mock(PreparedStatement.class);
+		ResultSet epoch = mock(ResultSet.class);
+		when(epoch.next()).thenReturn(true);
+		when(epoch.getLong(1)).thenReturn(2L);
+		when(markerSelect.executeQuery()).thenReturn(epoch);
+		when(advance.executeUpdate()).thenReturn(0);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(markerInsert, markerSelect, wipe, advance);
+
+		SharedMysqlPurchaseJournal journal = new SharedMysqlPurchaseJournal(fixture.table, false);
+		org.junit.jupiter.api.Assertions.assertThrows(java.sql.SQLException.class,
+				() -> journal.resetLimit("VoteShopLimitdaily", "D:2026-09-08"));
+
+		verify(fixture.work).rollback();
+		verify(fixture.work, org.mockito.Mockito.never()).commit();
+	}
+
+	@Test
+	void repeatedResetGenerationDoesNotWipeNewPeriodPurchases() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement markerInsert = mock(PreparedStatement.class);
+		PreparedStatement markerSelect = mock(PreparedStatement.class);
+		ResultSet epoch = mock(ResultSet.class);
+		when(epoch.next()).thenReturn(true);
+		when(epoch.getLong(1)).thenReturn(3L);
+		when(epoch.getString(2)).thenReturn("D:2026-09-08");
+		when(markerSelect.executeQuery()).thenReturn(epoch);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(markerInsert, markerSelect);
+
+		new SharedMysqlPurchaseJournal(fixture.table, false).resetLimit(
+				"VoteShopLimitdaily", "D:2026-09-08");
+
+		verify(fixture.work, org.mockito.Mockito.times(2)).prepareStatement(anyString());
+		verify(fixture.work).rollback();
+		verify(fixture.work, org.mockito.Mockito.never()).commit();
+	}
+
+	@Test
+	void ambiguousResetCommitIsConfirmedAfterTheConnectionIsReleased() throws Exception {
+		Fixture fixture = fixture();
+		Connection reset = mock(Connection.class);
+		Connection confirmation = mock(Connection.class);
+		PreparedStatement markerInsert = mock(PreparedStatement.class);
+		PreparedStatement markerSelect = mock(PreparedStatement.class);
+		PreparedStatement wipe = mock(PreparedStatement.class);
+		PreparedStatement advance = mock(PreparedStatement.class);
+		PreparedStatement confirm = mock(PreparedStatement.class);
+		ResultSet epoch = mock(ResultSet.class);
+		ResultSet confirmedEpoch = mock(ResultSet.class);
+		when(epoch.next()).thenReturn(true);
+		when(epoch.getLong(1)).thenReturn(2L);
+		when(markerSelect.executeQuery()).thenReturn(epoch);
+		when(advance.executeUpdate()).thenReturn(1);
+		when(reset.prepareStatement(anyString())).thenReturn(markerInsert, markerSelect, wipe, advance);
+		when(confirmedEpoch.next()).thenReturn(true);
+		when(confirmedEpoch.getLong(1)).thenReturn(3L);
+		when(confirmedEpoch.getString(2)).thenReturn("D:2026-09-08");
+		when(confirm.executeQuery()).thenReturn(confirmedEpoch);
+		when(confirmation.prepareStatement(anyString())).thenReturn(confirm);
+		AtomicBoolean resetClosed = new AtomicBoolean();
+		doThrow(new java.sql.SQLException("commit acknowledgement lost")).when(reset).commit();
+		org.mockito.Mockito.doAnswer(ignored -> {
+			resetClosed.set(true);
+			return null;
+		}).when(reset).close();
+		when(fixture.sql.getConnectionManager().getConnection()).thenReturn(reset).thenAnswer(ignored -> {
+			assertTrue(resetClosed.get());
+			return confirmation;
+		});
+
+		new SharedMysqlPurchaseJournal(fixture.table, false).resetLimit("VoteShopLimitdaily", "D:2026-09-08");
+
+		verify(reset, atLeastOnce()).close();
+		verify(confirm).executeQuery();
 	}
 
 	@Test
