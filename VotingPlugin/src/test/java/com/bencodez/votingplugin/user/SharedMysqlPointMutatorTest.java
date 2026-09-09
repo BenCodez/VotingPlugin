@@ -188,7 +188,8 @@ class SharedMysqlPointMutatorTest {
 
 		assertEquals(30, new SharedMysqlPointMutator(plugin).add(user, 10, true));
 
-		verify(cache, times(2)).getCache();
+		verify(cache, times(3)).getCache();
+		assertEquals(30, values.get("Points").getInt());
 		verify(user, never()).getPoints();
 		verify(persistence).execute(any(Runnable.class));
 	}

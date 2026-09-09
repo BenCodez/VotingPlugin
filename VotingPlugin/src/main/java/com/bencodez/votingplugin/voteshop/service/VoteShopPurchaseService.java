@@ -159,20 +159,25 @@ public class VoteShopPurchaseService {
 		// or entity task runs could pair an old debit with a newly loaded reward.
 		FileConfiguration shopData = plugin.getShopFile().getData();
 		HashMap<String, String> placeholders = purchasePlaceholders(item);
-		plugin.getTimer().execute(() -> {
-			SharedPurchaseDebit debit;
-			synchronized (purchaseLock(user.getUUID())) {
-				// Sample the reset window beside the conditional debit. A queued
-				// persistence task may otherwise cross into a new limit period.
-				debit = reserveSharedMysqlPurchase(user, item,
-						limitGeneration(item, System.currentTimeMillis()));
-			}
-			if (debit.result() != VoteShopPurchaseResult.SUCCESS) {
-				plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(debit.result()), player);
-				return;
-			}
-			completeSharedMysqlPurchase(player, user, item, placeholders, shopData, completion, debit);
-		});
+		try {
+			plugin.getTimer().execute(() -> {
+				SharedPurchaseDebit debit;
+				synchronized (purchaseLock(user.getUUID())) {
+					// Sample the reset window beside the conditional debit. A queued
+					// persistence task may otherwise cross into a new limit period.
+					debit = reserveSharedMysqlPurchase(user, item,
+							limitGeneration(item, System.currentTimeMillis()));
+				}
+				if (debit.result() != VoteShopPurchaseResult.SUCCESS) {
+					plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(debit.result()), player);
+					return;
+				}
+				completeSharedMysqlPurchase(player, user, item, placeholders, shopData, completion, debit);
+			});
+		} catch (RuntimeException persistenceRejected) {
+			plugin.debug(persistenceRejected);
+			completeFailedPurchase(player, completion);
+		}
 	}
 
 	/**
@@ -278,8 +283,27 @@ public class VoteShopPurchaseService {
 
 	private void compensateSharedMysqlPurchase(Player player, VotingPluginUser user,
 			Consumer<VoteShopPurchaseResult> completion, SharedPurchaseDebit debit) {
+		try {
+			// The local state CAS proves that neither reward callback can start. Persist
+			// that fence before relying on either remaining scheduler; otherwise a task
+			// accepted by the persistence executor could be lost with HOOK_STARTED
+			// still charged and outside automatic recovery.
+			if (!debit.journal().markCompensating(debit.purchaseId())) {
+				// A terminal row may have been handled by recovery already. Do not
+				// enqueue another scheduler task when this invocation did not obtain
+				// the durable compensation fence.
+				completeFailedPurchase(player, completion);
+				return;
+			}
+		} catch (SQLException markerFailure) {
+			plugin.getLogger().severe("Unable to mark an incomplete vote shop purchase for compensation: "
+					+ markerFailure.getClass().getSimpleName());
+			plugin.debug(markerFailure);
+			completeFailedPurchase(player, completion);
+			return;
+		}
 		Runnable compensation = () -> {
-			refundSharedMysqlDebit(user, debit, true);
+			refundCompensatingMysqlDebit(user, debit);
 			plugin.getBukkitScheduler().runTask(plugin,
 					() -> completion.accept(VoteShopPurchaseResult.FAILED), player);
 		};
@@ -287,11 +311,38 @@ public class VoteShopPurchaseService {
 			plugin.getTimer().execute(compensation);
 		} catch (RuntimeException schedulingFailure) {
 			plugin.debug(schedulingFailure);
-			// The row may already be HOOK_STARTED even though the guarded reward
-			// callback was rejected. Do not leave that state permanently charged just
-			// because the persistence executor is concurrently shutting down. Bukkit's
+			// The row is already COMPENSATING even though the guarded reward callback
+			// was rejected. Do not leave that recoverable debit pending just because
+			// the persistence executor is concurrently shutting down. Bukkit's
 			// independent async scheduler also keeps JDBC off the entity lane.
-			plugin.getBukkitScheduler().runTaskAsynchronously(plugin, compensation);
+			try {
+				plugin.getBukkitScheduler().runTaskAsynchronously(plugin, compensation);
+			} catch (RuntimeException asyncSchedulingFailure) {
+				// Recovery owns the already-durable COMPENSATING row after shutdown.
+				plugin.debug(asyncSchedulingFailure);
+				completeFailedPurchase(player, completion);
+			}
+		}
+	}
+
+	private void completeFailedPurchase(Player player, Consumer<VoteShopPurchaseResult> completion) {
+		try {
+			plugin.getBukkitScheduler().runTask(plugin,
+					() -> completion.accept(VoteShopPurchaseResult.FAILED), player);
+		} catch (RuntimeException completionFailure) {
+			plugin.debug(completionFailure);
+		}
+	}
+
+	private void refundCompensatingMysqlDebit(VotingPluginUser user, SharedPurchaseDebit debit) {
+		try {
+			if (debit.journal().refundCompensatingReward(debit.purchaseId())) {
+				refreshPurchaseCache(user, debit.pointsColumn(), debit.limitColumn());
+			}
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to refund an incomplete vote shop purchase: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
 		}
 	}
 
@@ -369,7 +420,10 @@ public class VoteShopPurchaseService {
 	/** Applies a named reset at most once across all backends sharing the table. */
 	public static void resetSharedMysqlLimit(VotingPluginMain plugin, String limitColumn, String resetGeneration) {
 		if (!usesSharedMysqlPoints(plugin)) return;
-		SharedMysqlCacheReconciler.drainAll(plugin, limitColumn);
+		// Shared limit writes are deliberately nonqueued. Drop read snapshots
+		// without dumping them, so a backend arriving after another server's reset
+		// can never replay a pre-reset absolute value.
+		SharedMysqlCacheReconciler.invalidateAll(plugin, limitColumn);
 		try {
 			MySQL table = plugin.getMysql();
 			table.checkColumn(limitColumn, DataType.INTEGER);
@@ -514,24 +568,6 @@ public class VoteShopPurchaseService {
 			// A HOOK_STARTED record is intentionally retained for reconciliation:
 			// the arbitrary reward hook may already have side effects.
 			plugin.getLogger().severe("Unable to settle a completed vote shop purchase: "
-					+ failure.getClass().getSimpleName());
-			plugin.debug(failure);
-		}
-	}
-
-	private void refundSharedMysqlDebit(VotingPluginUser user, SharedPurchaseDebit debit,
-			boolean schedulerProvesRewardCannotRun) {
-		try {
-			boolean refunded = schedulerProvesRewardCannotRun
-					? debit.journal().refundUnstartedReward(debit.purchaseId())
-					: debit.journal().refundPending(debit.purchaseId());
-			if (refunded) {
-				// refundPending() closes its transaction handle before any NO_CACHE
-				// cache refresh, including when the cache reappears concurrently.
-				refreshPurchaseCache(user, debit.pointsColumn(), debit.limitColumn());
-			}
-		} catch (SQLException failure) {
-			plugin.getLogger().severe("Unable to refund an incomplete vote shop purchase: "
 					+ failure.getClass().getSimpleName());
 			plugin.debug(failure);
 		}

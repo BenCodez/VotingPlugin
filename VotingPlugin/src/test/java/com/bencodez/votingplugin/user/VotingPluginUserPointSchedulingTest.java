@@ -51,6 +51,102 @@ import com.bencodez.votingplugin.events.PlayerReceivePointsEvent;
 
 class VotingPluginUserPointSchedulingTest {
 	@Test
+	void sharedBulkPointMutationsUseOnePersistenceSubmission() throws Exception {
+		PointFixture fixture = pointFixture();
+		VotingPluginUser second = mock(VotingPluginUser.class);
+		java.util.List<VotingPluginUser> users = java.util.List.of(fixture.user, second);
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getPluginManager).thenReturn(mock(PluginManager.class));
+			VotingPluginUser.addPointsStorageAware(fixture.plugin, users, 5, (user, success) -> { });
+			VotingPluginUser.setPointsStorageAware(fixture.plugin, users, 42, (user, success) -> { });
+			VotingPluginUser.removePointsStorageAware(fixture.plugin, users, 3, (user, success) -> { });
+		}
+
+		verify(fixture.persistence, org.mockito.Mockito.times(3)).execute(any(Runnable.class));
+		verify(fixture.sql.getConnectionManager(), never()).getConnection();
+	}
+
+	@Test
+	void rejectedSharedBulkMutationCompletesEveryUserAsFailed() throws Exception {
+		PointFixture fixture = pointFixture();
+		VotingPluginUser second = mock(VotingPluginUser.class);
+		java.util.List<Boolean> results = new java.util.ArrayList<>();
+		doThrow(new RejectedExecutionException()).when(fixture.persistence).execute(any(Runnable.class));
+		doAnswer(invocation -> {
+			invocation.<Runnable>getArgument(1).run();
+			return null;
+		}).when(fixture.scheduler).runTask(eq(fixture.plugin), any(Runnable.class));
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getPluginManager).thenReturn(mock(PluginManager.class));
+			VotingPluginUser.addPointsStorageAware(fixture.plugin, java.util.List.of(fixture.user, second), 5,
+					(user, success) -> results.add(success));
+		}
+
+		assertEquals(java.util.List.of(false, false), results);
+	}
+
+	@Test
+	void sharedBulkAddPreservesPerUserCancellationBeforePersistence() throws Exception {
+		PointFixture fixture = pointFixture();
+		java.util.List<Boolean> results = new java.util.ArrayList<>();
+		PluginManager pluginManager = mock(PluginManager.class);
+		doAnswer(invocation -> {
+			invocation.<PlayerReceivePointsEvent>getArgument(0).setCancelled(true);
+			return null;
+		}).when(pluginManager).callEvent(any(PlayerReceivePointsEvent.class));
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getPluginManager).thenReturn(pluginManager);
+			VotingPluginUser.addPointsStorageAware(fixture.plugin, java.util.List.of(fixture.user), 5,
+					(user, success) -> results.add(success));
+		}
+
+		ArgumentCaptor<Runnable> persistenceTask = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence).execute(persistenceTask.capture());
+		persistenceTask.getValue().run();
+		verify(fixture.sql.getConnectionManager(), never()).getConnection();
+		verify(pluginManager).callEvent(any(PlayerReceivePointsEvent.class));
+	}
+
+	@Test
+	void sharedBulkPointMutationResubmitsBoundedChunks() throws Exception {
+		PointFixture fixture = pointFixture();
+		PluginManager pluginManager = mock(PluginManager.class);
+		doAnswer(invocation -> {
+			invocation.<PlayerReceivePointsEvent>getArgument(0).setCancelled(true);
+			return null;
+		}).when(pluginManager).callEvent(any(PlayerReceivePointsEvent.class));
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getPluginManager).thenReturn(pluginManager);
+			VotingPluginUser.addPointsStorageAware(fixture.plugin,
+					java.util.Collections.nCopies(65, fixture.user), 5, (user, success) -> { });
+		}
+
+		ArgumentCaptor<Runnable> persistenceTasks = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence).execute(persistenceTasks.capture());
+		persistenceTasks.getValue().run();
+		verify(fixture.persistence, org.mockito.Mockito.times(2)).execute(persistenceTasks.capture());
+		persistenceTasks.getAllValues().get(persistenceTasks.getAllValues().size() - 1).run();
+		verify(fixture.sql.getConnectionManager(), never()).getConnection();
+		verify(fixture.scheduler, org.mockito.Mockito.times(2)).runTask(eq(fixture.plugin), any(Runnable.class));
+	}
+
+	@Test
+	void storageAwareSetDoesNotUseJdbcOnCallerThread() throws Exception {
+		PointFixture fixture = pointFixture();
+		java.util.List<Boolean> results = new java.util.ArrayList<>();
+
+		fixture.user.setPointsStorageAware(42, results::add);
+
+		ArgumentCaptor<Runnable> persistenceTask = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence).execute(persistenceTask.capture());
+		verify(fixture.sql.getConnectionManager(), never()).getConnection();
+	}
+
+	@Test
 	void storageAwareAddStaysSynchronousOutsideSharedMysql() throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		when(plugin.getStorageType()).thenReturn(UserStorage.SQLITE);
@@ -190,6 +286,26 @@ class VotingPluginUserPointSchedulingTest {
 		verify(fixture.sql.getConnectionManager(), never()).getConnection();
 		verify(data).getInt("Points", UserDataFetchMode.TEMP_ONLY);
 		verify(fixture.user, never()).getPoints();
+	}
+
+	@Test
+	void consecutiveSharedAsyncAddsComposeThroughTheOptimisticCache() throws Exception {
+		PointFixture fixture = pointFixture();
+		UserDataCache cache = mock(UserDataCache.class);
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> values = new HashMap<>();
+		values.put("Points", new com.bencodez.simpleapi.sql.data.DataValueInt(10));
+		doReturn(cache).when(fixture.user).getCache();
+		when(cache.getCache()).thenReturn(values);
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getPluginManager).thenReturn(mock(PluginManager.class));
+			assertEquals(15, fixture.user.addPointsStorageAware(5));
+			assertEquals(22, fixture.user.addPointsStorageAware(7));
+		}
+
+		assertEquals(22, values.get("Points").getInt());
+		verify(fixture.persistence, org.mockito.Mockito.times(2)).execute(any(Runnable.class));
+		verify(fixture.sql.getConnectionManager(), never()).getConnection();
 	}
 
 	@Test

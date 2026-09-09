@@ -319,6 +319,25 @@ final class SharedMysqlPurchaseJournal {
 		throw lastFailure;
 	}
 
+	/**
+	 * Durably fences a rejected reward callback before another scheduler is used.
+	 *
+	 * <p>The caller has already won the local scheduler state race, so recovery may
+	 * safely refund this row even if the persistence or Bukkit fallback scheduler
+	 * is rejected or the process stops before its refund task starts.</p>
+	 */
+	boolean markCompensating(String purchaseId) throws SQLException {
+		SQLException lastFailure = null;
+		for (int attempt = 0; attempt < 3; attempt++) {
+			try {
+				return requestUnstartedRewardRefund(purchaseId);
+			} catch (SQLException failure) {
+				lastFailure = failure;
+			}
+		}
+		throw lastFailure;
+	}
+
 	/** Durable marker used before attempting compensation, so recovery can retry it. */
 	private boolean requestUnstartedRewardRefund(String purchaseId) throws SQLException {
 		String update = "UPDATE " + qiJournal() + " SET " + qi("state") + " = ? WHERE " + qi("purchase_id")
@@ -331,18 +350,12 @@ final class SharedMysqlPurchaseJournal {
 			statement.setString(4, HOOK_STARTED);
 			statement.setString(5, COMPENSATING);
 			if (statement.executeUpdate() != 1) return false;
-			try {
-				connection.commit();
-				return true;
-			} catch (SQLException failure) {
-				rollback(connection);
-				throw failure;
-			}
+			return commitAndConfirm(connection, purchaseId, COMPENSATING);
 		}
 	}
 
 	/** Retries the already-marked compensation without reopening the hook. */
-	private boolean refundCompensatingReward(String purchaseId) throws SQLException {
+	boolean refundCompensatingReward(String purchaseId) throws SQLException {
 		return setTerminal(purchaseId, REFUNDED, System.currentTimeMillis(), COMPENSATING);
 	}
 

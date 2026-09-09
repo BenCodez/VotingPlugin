@@ -50,6 +50,7 @@ import com.bencodez.votingplugin.votesites.VoteSite;
  * functionality specific to the VotingPlugin.
  */
 public class VotingPluginUser extends com.bencodez.advancedcore.api.user.AdvancedCoreUser {
+	private static final int BULK_POINT_BATCH_SIZE = 64;
 
 	/** The plugin instance. */
 	private VotingPluginMain plugin;
@@ -247,6 +248,166 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public void addPointsStorageAware(int value, Consumer<Integer> completion) {
 		addPointsStorageAware(value, (success, total) -> completion.accept(total));
+	}
+
+	/**
+	 * Applies one shared-MySQL add operation for a collection of users on a
+	 * single persistence task. This keeps administrative bulk commands from
+	 * flooding the bounded persistence executor with one task per user.
+	 *
+	 * @param plugin plugin owning the persistence executor
+	 * @param users users to update
+	 * @param value points delta
+	 * @param completion callback invoked on the Bukkit lane for every user
+	 */
+	public static void addPointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users, int value,
+			BiConsumer<VotingPluginUser, Boolean> completion) {
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		if (!sharedPoints.applies()) {
+			for (VotingPluginUser user : users) {
+				user.addPointsStorageAware(value, (success, ignored) -> completion.accept(user, success));
+			}
+			return;
+		}
+		java.util.IdentityHashMap<VotingPluginUser, Integer> eventAmounts = new java.util.IdentityHashMap<>();
+		for (VotingPluginUser user : users) {
+			PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(user, value);
+			Bukkit.getPluginManager().callEvent(event);
+			if (!event.isCancelled()) eventAmounts.put(user, event.getPoints());
+		}
+		bulkSharedMysqlMutation(plugin, users, completion,
+				(mutator, user) -> {
+					Integer amount = eventAmounts.get(user);
+					return amount != null && mutator.addCommitted(user, amount).success();
+				},
+				(user, done) -> done.accept(false));
+	}
+
+	/**
+	 * Applies one shared-MySQL absolute point update for a collection of users
+	 * on a single persistence task.
+	 *
+	 * @param plugin plugin owning the persistence executor
+	 * @param users users to update
+	 * @param value new point total
+	 * @param completion callback invoked on the Bukkit lane for every user
+	 */
+	public static void setPointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users, int value,
+			BiConsumer<VotingPluginUser, Boolean> completion) {
+		bulkSharedMysqlMutation(plugin, users, completion,
+				(mutator, user) -> mutator.setCommitted(user, value),
+				(user, done) -> {
+					user.setPoints(value);
+					done.accept(true);
+				});
+	}
+
+	/**
+	 * Sets points without performing shared-MySQL I/O on the caller thread and
+	 * reports whether the durable update affected the user row.
+	 *
+	 * @param value new point total
+	 * @param completion completion callback on the user's Bukkit/entity lane
+	 */
+	public void setPointsStorageAware(int value, Consumer<Boolean> completion) {
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		if (!sharedPoints.applies()) {
+			setPoints(value);
+			completion.accept(true);
+			return;
+		}
+		Player player = getPlayer();
+		try {
+			plugin.getTimer().execute(() -> {
+				boolean updated = sharedPoints.setCommitted(this, value);
+				plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(updated), player);
+			});
+		} catch (RuntimeException rejected) {
+			plugin.debug(rejected);
+			plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(false), player);
+		}
+	}
+
+	/**
+	 * Applies one shared-MySQL conditional removal for a collection of users on
+	 * a single persistence task.
+	 *
+	 * @param plugin plugin owning the persistence executor
+	 * @param users users to update
+	 * @param value points to remove
+	 * @param completion callback invoked on the Bukkit lane for every user
+	 */
+	public static void removePointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users, int value,
+			BiConsumer<VotingPluginUser, Boolean> completion) {
+		bulkSharedMysqlMutation(plugin, users, completion,
+				(mutator, user) -> mutator.remove(user, value),
+				(user, done) -> user.removePoints(value, done));
+	}
+
+	@FunctionalInterface
+	private interface SharedPointMutation {
+		boolean apply(SharedMysqlPointMutator mutator, VotingPluginUser user);
+	}
+
+	@FunctionalInterface
+	private interface OrdinaryPointMutation {
+		void apply(VotingPluginUser user, Consumer<Boolean> completion);
+	}
+
+	private static void bulkSharedMysqlMutation(VotingPluginMain plugin, List<VotingPluginUser> users,
+			BiConsumer<VotingPluginUser, Boolean> completion, SharedPointMutation sharedMutation,
+			OrdinaryPointMutation ordinaryMutation) {
+		if (users.isEmpty()) return;
+		if (!new SharedMysqlPointMutator(plugin).applies()) {
+			for (VotingPluginUser user : users) {
+				ordinaryMutation.apply(user, success -> completion.accept(user, success));
+			}
+			return;
+		}
+		submitSharedMysqlChunk(plugin, users, 0, completion, sharedMutation);
+	}
+
+	private static void submitSharedMysqlChunk(VotingPluginMain plugin, List<VotingPluginUser> users, int start,
+			BiConsumer<VotingPluginUser, Boolean> completion, SharedPointMutation sharedMutation) {
+		int end = Math.min(start + BULK_POINT_BATCH_SIZE, users.size());
+		Runnable persistenceWork = () -> {
+			boolean[] results = new boolean[end - start];
+			SharedMysqlPointMutator mutator = new SharedMysqlPointMutator(plugin);
+			for (int index = start; index < end; index++) {
+				try {
+					results[index - start] = sharedMutation.apply(mutator, users.get(index));
+				} catch (RuntimeException failure) {
+					plugin.debug(failure);
+				}
+			}
+			scheduleBulkCompletions(plugin, users, start, end, results, completion);
+			if (end < users.size()) {
+				submitSharedMysqlChunk(plugin, users, end, completion, sharedMutation);
+			}
+		};
+		try {
+			plugin.getTimer().execute(persistenceWork);
+		} catch (RuntimeException rejected) {
+			plugin.debug(rejected);
+			scheduleBulkCompletions(plugin, users, start, users.size(), null, completion);
+		}
+	}
+
+	private static void scheduleBulkCompletions(VotingPluginMain plugin, List<VotingPluginUser> users, int start,
+			int end, boolean[] results, BiConsumer<VotingPluginUser, Boolean> completion) {
+		try {
+			plugin.getBukkitScheduler().runTask(plugin, () -> {
+				for (int index = start; index < end; index++) {
+					try {
+						completion.accept(users.get(index), results != null && results[index - start]);
+					} catch (RuntimeException failure) {
+						plugin.debug(failure);
+					}
+				}
+			});
+		} catch (RuntimeException schedulingFailure) {
+			plugin.debug(schedulingFailure);
+		}
 	}
 
 	/** Adds points and reports both persistence success and the committed total. */

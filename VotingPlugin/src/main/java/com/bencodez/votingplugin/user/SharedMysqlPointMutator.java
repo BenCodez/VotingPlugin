@@ -16,6 +16,7 @@ import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 import com.bencodez.simpleapi.sql.mysql.DbType;
 import com.bencodez.simpleapi.sql.data.DataValue;
+import com.bencodez.simpleapi.sql.data.DataValueInt;
 import com.bencodez.simpleapi.folialib.enums.EntityTaskResult;
 import com.bencodez.votingplugin.VotingPluginMain;
 
@@ -66,6 +67,7 @@ final class SharedMysqlPointMutator {
 	int add(VotingPluginUser user, int amount, boolean async) {
 		if (async) {
 			int predictedTotal = cachedPoints(user) + amount;
+			cachePredictedPoints(user, predictedTotal);
 			run(() -> update(user, amount, false), true);
 			// The mutation has not happened yet, so the historical asynchronous API
 			// returns its predicted post-event total without blocking for storage.
@@ -74,12 +76,25 @@ final class SharedMysqlPointMutator {
 		return addAndReadCommitted(user, amount);
 	}
 
+	private void cachePredictedPoints(VotingPluginUser user, int predictedTotal) {
+		UserDataCache cache = user.getCache();
+		if (cache == null) return;
+		synchronized (cache) {
+			var values = cache.getCache();
+			if (values != null) values.put(user.getPointsPath(), new DataValueInt(predictedTotal));
+		}
+	}
+
 	AddResult addCommitted(VotingPluginUser user, int amount) {
 		return addAndReadCommittedResult(user, amount);
 	}
 
 	void set(VotingPluginUser user, int value, boolean async) {
 		run(() -> setAbsolute(user, value), async);
+	}
+
+	boolean setCommitted(VotingPluginUser user, int value) {
+		return setAbsolute(user, value);
 	}
 
 	void cap(VotingPluginUser user, int maximum, boolean async) {
@@ -563,7 +578,7 @@ final class SharedMysqlPointMutator {
 
 	record AddResult(boolean success, int total) {}
 
-	private void setAbsolute(VotingPluginUser user, int value) {
+	private boolean setAbsolute(VotingPluginUser user, int value) {
 		drainCache(user);
 		MySQL table = plugin.getMysql();
 		String sql = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(user.getPointsPath())
@@ -573,9 +588,10 @@ final class SharedMysqlPointMutator {
 				PreparedStatement statement = connection.prepareStatement(sql)) {
 			statement.setInt(1, value);
 			statement.setString(2, user.getUUID());
-			statement.executeUpdate();
+			return statement.executeUpdate() == 1;
 		} catch (SQLException failure) {
 			logFailure(failure);
+			return false;
 		} finally {
 			discardPointsCache(user);
 		}

@@ -312,22 +312,39 @@ public class CommandLoader {
 						int num = Integer.parseInt(args[3]);
 
 						sender.sendMessage(MessageAPI.colorize("&cSetting all players points to " + args[3]));
+						java.util.List<VotingPluginUser> users = new java.util.ArrayList<>();
 						for (String uuidStr : plugin.getUserManager().getAllUUIDs()) {
 							UUID uuid = UUID.fromString(uuidStr);
-							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
-							user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
-							user.setPoints(num);
+							users.add(plugin.getVotingPluginUserManager().getVotingPluginUser(uuid));
 						}
-						sender.sendMessage(MessageAPI.colorize("&cDone setting all players points to " + args[3]));
-						plugin.getPlaceholders().onUpdate();
-					}
+						if (users.isEmpty()) {
+							sender.sendMessage(MessageAPI.colorize("&cNo players were available to update"));
+							return;
+						}
+						java.util.concurrent.atomic.AtomicInteger remaining =
+								new java.util.concurrent.atomic.AtomicInteger(users.size());
+						java.util.concurrent.atomic.AtomicInteger updated = new java.util.concurrent.atomic.AtomicInteger();
+						VotingPluginUser.setPointsStorageAware(plugin, users, num, (user, success) -> {
+							if (success) updated.incrementAndGet();
+							if (remaining.decrementAndGet() == 0) {
+								sender.sendMessage(MessageAPI.colorize("&cSet all players points to " + args[3]
+										+ " for " + updated.get() + "/" + users.size() + " players"));
+								plugin.getPlaceholders().onUpdate();
+							}
+						});
+						}
 
 					@Override
 					public void executeSinglePlayer(CommandSender sender, String[] args) {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
-						user.setPoints(Integer.parseInt(args[3]));
-						sender.sendMessage(MessageAPI.colorize("&cSet " + args[1] + " points to " + args[3]));
-						plugin.getPlaceholders().onUpdate(user, false);
+						user.setPointsStorageAware(Integer.parseInt(args[3]), success -> {
+							if (!success) {
+								sender.sendMessage(MessageAPI.colorize("&cUnable to set " + args[1] + " points to " + args[3]));
+								return;
+							}
+							sender.sendMessage(MessageAPI.colorize("&cSet " + args[1] + " points to " + args[3]));
+							plugin.getPlaceholders().onUpdate(user, false);
+						});
 					}
 				});
 
@@ -446,15 +463,17 @@ public class CommandLoader {
 						}
 						sender.sendMessage(
 								MessageAPI.colorize("&cGiving " + "all players" + " " + args[3] + " points"));
-						java.util.concurrent.atomic.AtomicInteger remaining =
-								new java.util.concurrent.atomic.AtomicInteger(userIds.size());
-						java.util.concurrent.atomic.AtomicInteger updated =
-								new java.util.concurrent.atomic.AtomicInteger();
+						java.util.List<VotingPluginUser> users = new java.util.ArrayList<>();
 						for (String uuidStr : userIds) {
 							UUID uuid = UUID.fromString(uuidStr);
-							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
-							user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
-							user.addPointsStorageAware(num, (success, ignored) -> {
+							users.add(plugin.getVotingPluginUserManager().getVotingPluginUser(uuid));
+						}
+						java.util.concurrent.atomic.AtomicInteger remaining =
+								new java.util.concurrent.atomic.AtomicInteger(users.size());
+						java.util.concurrent.atomic.AtomicInteger updated =
+								new java.util.concurrent.atomic.AtomicInteger();
+						VotingPluginUser.addPointsStorageAware(plugin, users, num, (user, success) -> {
+							try {
 								if (success) {
 									updated.incrementAndGet();
 									if (user.isOnline()) {
@@ -462,13 +481,14 @@ public class CommandLoader {
 												"amount", args[3]);
 									}
 								}
+							} finally {
 								if (remaining.decrementAndGet() == 0) {
 									sender.sendMessage(MessageAPI.colorize("&cGave all players " + args[3]
-											+ " points to " + updated.get() + "/" + userIds.size() + " players"));
+											+ " points to " + updated.get() + "/" + users.size() + " players"));
 									plugin.getPlaceholders().onUpdate();
 								}
-							});
-						}
+							}
+						});
 					}
 
 					@Override
@@ -523,27 +543,30 @@ public class CommandLoader {
 							sender.sendMessage(MessageAPI.colorize("&cNo players were available to update"));
 							return;
 						}
-						java.util.concurrent.atomic.AtomicInteger remaining =
-								new java.util.concurrent.atomic.AtomicInteger(userIds.size());
-						java.util.concurrent.atomic.AtomicInteger removed = new java.util.concurrent.atomic.AtomicInteger();
+						java.util.List<VotingPluginUser> users = new java.util.ArrayList<>();
 						for (String uuidStr : userIds) {
 							UUID uuid = UUID.fromString(uuidStr);
-							VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
-							user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
-							user.removePoints(num, success -> {
+							users.add(plugin.getVotingPluginUserManager().getVotingPluginUser(uuid));
+						}
+						java.util.concurrent.atomic.AtomicInteger remaining =
+								new java.util.concurrent.atomic.AtomicInteger(users.size());
+						java.util.concurrent.atomic.AtomicInteger removed = new java.util.concurrent.atomic.AtomicInteger();
+						VotingPluginUser.removePointsStorageAware(plugin, users, num, (user, success) -> {
+							try {
 								if (success) {
 									removed.incrementAndGet();
 									if (user.isOnline()) user.sendMessage(
 											plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerRemoved(),
 											"amount", args[3]);
 								}
+							} finally {
 								if (remaining.decrementAndGet() == 0) {
 									sender.sendMessage(MessageAPI.colorize("&cRemoved " + args[3] + " points from "
 											+ removed.get() + "/" + userIds.size() + " players"));
 									plugin.getPlaceholders().onUpdate();
 								}
-							});
-						}
+							}
+						});
 					}
 
 					@Override
