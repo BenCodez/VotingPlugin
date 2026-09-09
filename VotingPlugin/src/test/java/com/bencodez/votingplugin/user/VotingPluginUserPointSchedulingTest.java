@@ -327,6 +327,51 @@ class VotingPluginUserPointSchedulingTest {
 	}
 
 	@Test
+	void rejectedAsyncAddDiscardsOptimisticPointsAndKeepsCallerAlive() throws Exception {
+		PointFixture fixture = pointFixture();
+		UserDataCache cache = mock(UserDataCache.class);
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> values = new HashMap<>();
+		values.put("Points", new com.bencodez.simpleapi.sql.data.DataValueInt(10));
+		doReturn(true).when(fixture.user).isCached();
+		doReturn(cache).when(fixture.user).getCache();
+		when(cache.getCache()).thenReturn(values);
+		when(fixture.plugin.getUserManager().getDataManager().getUserDataCache()).thenReturn(
+				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(
+						java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"), cache)));
+		doThrow(new RejectedExecutionException("full")).when(fixture.persistence).execute(any(Runnable.class));
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getPluginManager).thenReturn(mock(PluginManager.class));
+			assertEquals(10, fixture.user.addPointsStorageAware(5));
+		}
+
+		assertFalse(values.containsKey("Points"));
+		verify(fixture.sql.getConnectionManager(), never()).getConnection();
+	}
+
+	@Test
+	void rejectedSingleUserPointCallbacksCompleteAsFailures() throws Exception {
+		PointFixture fixture = pointFixture();
+		AtomicReference<Boolean> addResult = new AtomicReference<>();
+		AtomicReference<Boolean> removeResult = new AtomicReference<>();
+		doThrow(new RejectedExecutionException("full")).when(fixture.persistence).execute(any(Runnable.class));
+		doAnswer(invocation -> {
+			invocation.<Runnable>getArgument(1).run();
+			return null;
+		}).when(fixture.scheduler).runTask(eq(fixture.plugin), any(Runnable.class), eq(fixture.player));
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getPluginManager).thenReturn(mock(PluginManager.class));
+			fixture.user.addPointsStorageAware(5, (success, ignored) -> addResult.set(success));
+			fixture.user.removePoints(5, removeResult::set);
+		}
+
+		assertEquals(Boolean.FALSE, addResult.get());
+		assertEquals(Boolean.FALSE, removeResult.get());
+		verify(fixture.sql.getConnectionManager(), never()).getConnection();
+	}
+
+	@Test
 	void sharedRemoveSkipsStaleCachedPointPrecheck() throws Exception {
 		PointFixture fixture = pointFixture();
 		doReturn(0).when(fixture.user).getPoints();

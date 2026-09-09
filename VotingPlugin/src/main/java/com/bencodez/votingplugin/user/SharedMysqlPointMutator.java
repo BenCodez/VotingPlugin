@@ -66,9 +66,13 @@ final class SharedMysqlPointMutator {
 
 	int add(VotingPluginUser user, int amount, boolean async) {
 		if (async) {
-			int predictedTotal = cachedPoints(user) + amount;
+			int previousTotal = cachedPoints(user);
+			int predictedTotal = previousTotal + amount;
 			cachePredictedPoints(user, predictedTotal);
-			run(() -> update(user, amount, false), true);
+			if (!run(() -> update(user, amount, false), true)) {
+				discardPointsCache(user);
+				return previousTotal;
+			}
 			// The mutation has not happened yet, so the historical asynchronous API
 			// returns its predicted post-event total without blocking for storage.
 			return predictedTotal;
@@ -108,10 +112,10 @@ final class SharedMysqlPointMutator {
 	boolean remove(VotingPluginUser user, int amount, boolean async) {
 		if (!async) return remove(user, amount);
 		boolean predictedSuccess = cachedPoints(user) >= amount;
-		run(() -> update(user, -amount, true), true);
+		boolean submitted = run(() -> update(user, -amount, true), true);
 		// Preserve the historical asynchronous API contract: the caller receives
 		// the cached prediction while the conditional database debit runs later.
-		return predictedSuccess;
+		return submitted && predictedSuccess;
 	}
 
 	private int cachedPoints(VotingPluginUser user) {
@@ -498,11 +502,18 @@ final class SharedMysqlPointMutator {
 		}
 	}
 
-	private void run(Runnable operation, boolean async) {
+	private boolean run(Runnable operation, boolean async) {
 		if (async) {
-			plugin.getTimer().execute(operation);
+			try {
+				plugin.getTimer().execute(operation);
+				return true;
+			} catch (RuntimeException rejected) {
+				plugin.debug(rejected);
+				return false;
+			}
 		} else {
 			operation.run();
+			return true;
 		}
 	}
 

@@ -426,10 +426,16 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			return;
 		}
 		Player player = getPlayer();
-		plugin.getTimer().execute(() -> {
-			SharedMysqlPointMutator.AddResult result = sharedPoints.addCommitted(this, event.getPoints());
-			plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(result.success(), result.total()), player);
-		});
+		try {
+			plugin.getTimer().execute(() -> {
+				SharedMysqlPointMutator.AddResult result = sharedPoints.addCommitted(this, event.getPoints());
+				plugin.getBukkitScheduler().runTask(plugin,
+						() -> completion.accept(result.success(), result.total()), player);
+			});
+		} catch (RuntimeException rejected) {
+			plugin.debug(rejected);
+			plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(false, 0), player);
+		}
 	}
 
 	/**
@@ -1551,10 +1557,15 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			return;
 		}
 		Player player = getPlayer();
-		plugin.getTimer().execute(() -> {
-			boolean removed = sharedPoints.remove(this, points);
-			plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(removed), player);
-		});
+		try {
+			plugin.getTimer().execute(() -> {
+				boolean removed = sharedPoints.remove(this, points);
+				plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(removed), player);
+			});
+		} catch (RuntimeException rejected) {
+			plugin.debug(rejected);
+			plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(false), player);
+		}
 	}
 
 	/**
