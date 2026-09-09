@@ -14,6 +14,7 @@ import static org.mockito.ArgumentMatchers.any;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.util.HashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,27 @@ import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 class SharedMysqlPointMutatorTest {
+	@Test
+	void recoveryInvalidatesOnlyRefundedColumnsAfterJdbcCompletes() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		UserDataCache cache = mock(UserDataCache.class);
+		HashMap<String, DataValue> values = new HashMap<>();
+		values.put("Points", mock(DataValue.class));
+		values.put("VoteShopLimitdaily", mock(DataValue.class));
+		values.put("DailyTotal", mock(DataValue.class));
+		when(plugin.getUserManager().getDataManager().getUserDataCache())
+				.thenReturn(new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(
+						java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"), cache)));
+		when(cache.getCache()).thenReturn(values);
+
+		SharedMysqlCacheReconciler.invalidate(plugin, "00000000-0000-0000-0000-000000000001", "Points",
+				"VoteShopLimitdaily");
+
+		assertFalse(values.containsKey("Points"));
+		assertFalse(values.containsKey("VoteShopLimitdaily"));
+		assertTrue(values.containsKey("DailyTotal"));
+	}
+
 	@Test
 	void userManagerSchedulesOneBoundedSharedTransferRecoveryPerLifecycle() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);

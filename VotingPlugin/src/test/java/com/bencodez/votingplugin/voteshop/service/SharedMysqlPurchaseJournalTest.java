@@ -84,12 +84,16 @@ class SharedMysqlPurchaseJournalTest {
 		when(fixture.sql.getConnectionManager().getConnection()).thenReturn(candidates, refund, compensatingCandidates, cleanup);
 
 		SharedMysqlPurchaseJournal journal = new SharedMysqlPurchaseJournal(fixture.table, false);
-		journal.recoverAndCleanup(SharedMysqlPurchaseJournal.PENDING_RECOVERY_AGE_MILLIS + 1L);
+		var refunded = journal.recoverAndCleanup(SharedMysqlPurchaseJournal.PENDING_RECOVERY_AGE_MILLIS + 1L);
 
 		verify(credit).setInt(1, 10);
 		verify(credit).setString(2, "player");
 		verify(terminal).setString(1, "REFUNDED");
 		verify(refund).commit();
+		assertEquals(1, refunded.size());
+		assertEquals("player", refunded.get(0).uuid());
+		assertEquals("Points", refunded.get(0).pointsColumn());
+		assertEquals("VoteShopLimitdaily", refunded.get(0).limitColumn());
 	}
 
 	@Test

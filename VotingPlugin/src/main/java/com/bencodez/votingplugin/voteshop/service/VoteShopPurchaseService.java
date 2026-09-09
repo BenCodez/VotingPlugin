@@ -31,6 +31,7 @@ import com.bencodez.simpleapi.sql.mysql.DbType;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.VoteShopPurchaseEvent;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.user.SharedMysqlCacheReconciler;
 import com.bencodez.votingplugin.voteshop.shop.VoteShopDefinition;
 import com.bencodez.votingplugin.voteshop.shop.VoteShopItem;
 
@@ -359,11 +360,18 @@ public class VoteShopPurchaseService {
 	public static void recoverSharedMysqlPurchases(VotingPluginMain plugin) {
 		if (!usesSharedMysqlPoints(plugin)) return;
 		try {
-			SharedMysqlPurchaseJournal.forTable(plugin.getMysql()).recoverAndCleanup(System.currentTimeMillis());
+			recoverSharedMysqlPurchases(plugin, SharedMysqlPurchaseJournal.forTable(plugin.getMysql()));
 		} catch (SQLException failure) {
 			plugin.getLogger().severe("Unable to recover pending shared MySQL vote shop purchases: "
 					+ failure.getClass().getSimpleName());
 			plugin.debug(failure);
+		}
+	}
+
+	private static void recoverSharedMysqlPurchases(VotingPluginMain plugin, SharedMysqlPurchaseJournal journal)
+			throws SQLException {
+		for (SharedMysqlPurchaseJournal.RefundedPurchase refund : journal.recoverAndCleanup(System.currentTimeMillis())) {
+			SharedMysqlCacheReconciler.invalidate(plugin, refund.uuid(), refund.pointsColumn(), refund.limitColumn());
 		}
 	}
 
@@ -430,7 +438,7 @@ public class VoteShopPurchaseService {
 		}
 		try {
 			SharedMysqlPurchaseJournal journal = SharedMysqlPurchaseJournal.forTable(table);
-			journal.recoverAndCleanup(System.currentTimeMillis());
+			recoverSharedMysqlPurchases(plugin, journal);
 			String purchaseId = UUID.randomUUID().toString();
 			if (journal.reserve(purchaseId, user.getUUID(), pointsColumn, limitColumn, item.getCost(), item.getLimit(),
 					limitGeneration.value(), limitGeneration.expiresAt(), System.currentTimeMillis())) {

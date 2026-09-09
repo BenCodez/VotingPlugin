@@ -48,11 +48,18 @@ final class SharedMysqlPointMutator {
 	private static void recoverTransfers(VotingPluginMain plugin) {
 		if (!usesSharedMysqlPoints(plugin)) return;
 		try {
-			SharedPointTransferJournal.forTable(plugin.getMysql()).recoverAndCleanup(System.currentTimeMillis());
+			recoverTransfers(plugin, SharedPointTransferJournal.forTable(plugin.getMysql()));
 		} catch (SQLException failure) {
 			plugin.getLogger().severe("Unable to recover shared MySQL point transfers: "
 					+ failure.getClass().getSimpleName());
 			plugin.debug(failure);
+		}
+	}
+
+	private static void recoverTransfers(VotingPluginMain plugin, SharedPointTransferJournal journal)
+			throws SQLException {
+		for (SharedPointTransferJournal.RefundedTransfer refund : journal.recoverAndCleanup(System.currentTimeMillis())) {
+			SharedMysqlCacheReconciler.invalidate(plugin, refund.uuid(), refund.pointsColumn());
 		}
 	}
 
@@ -140,7 +147,7 @@ final class SharedMysqlPointMutator {
 		SharedPointTransferJournal journal = null;
 		try {
 			journal = SharedPointTransferJournal.forTable(table);
-			journal.recoverAndCleanup(System.currentTimeMillis());
+			recoverTransfers(plugin, journal);
 			try {
 				if (!journal.reserve(transferId, source.getUUID(), sourcePoints, debitAmount, target.getUUID(), debitAmount,
 						System.currentTimeMillis())) return false;
@@ -217,7 +224,7 @@ final class SharedMysqlPointMutator {
 			SharedPointTransferJournal journal;
 			try {
 				journal = SharedPointTransferJournal.forTable(table);
-				journal.recoverAndCleanup(System.currentTimeMillis());
+				recoverTransfers(plugin, journal);
 				if (!journal.reserve(transferId, source.getUUID(), sourcePoints, debitAmount, target.getUUID(), debitAmount,
 						System.currentTimeMillis())) {
 					completeOnBukkit(source, completion, false);

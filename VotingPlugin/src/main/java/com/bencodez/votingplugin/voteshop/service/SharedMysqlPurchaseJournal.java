@@ -229,6 +229,10 @@ final class SharedMysqlPurchaseJournal {
 		return setTerminal(purchaseId, REFUNDED, now, PENDING);
 	}
 
+	RefundedPurchase refundPendingDetails(String purchaseId, long now) throws SQLException {
+		return setTerminalDetails(purchaseId, REFUNDED, now, PENDING);
+	}
+
 	/**
 	 * Compensates a pending or claimed purchase only when the local scheduler
 	 * guard proves that its reward callback cannot run. The intermediate durable
@@ -277,9 +281,22 @@ final class SharedMysqlPurchaseJournal {
 		return setTerminal(purchaseId, REFUNDED, System.currentTimeMillis(), COMPENSATING);
 	}
 
+	private RefundedPurchase refundCompensatingRewardDetails(String purchaseId) throws SQLException {
+		return setTerminalDetails(purchaseId, REFUNDED, System.currentTimeMillis(), COMPENSATING);
+	}
+
 	private boolean setTerminal(String purchaseId, String terminalState, long now, String... refundableStates)
 			throws SQLException {
+		return setTerminalDetails(purchaseId, terminalState, now, refundableStates) != null;
+	}
+
+	private RefundedPurchase setTerminalDetails(String purchaseId, String terminalState, long now,
+			String... refundableStates)
+			throws SQLException {
 		boolean refund = REFUNDED.equals(terminalState);
+		String refundedUuid = null;
+		String refundedPointsColumn = null;
+		String refundedLimitColumn = null;
 		String select = "SELECT " + qi("state") + ", " + qi("player_uuid") + ", " + qi("points_column")
 				+ ", " + qi("limit_column") + ", " + qi("cost") + ", " + qi("limit_generation") + ", "
 				+ qi("limit_generation_expires_at") + " FROM " + qiJournal() + " WHERE "
@@ -291,24 +308,27 @@ final class SharedMysqlPurchaseJournal {
 				try (ResultSet result = selectStatement.executeQuery()) {
 					if (!result.next()) {
 						rollback(connection);
-						return false;
+						return null;
 					}
 					String state = result.getString(1);
 					if (COMPLETED.equals(state) || REFUNDED.equals(state)) {
 						rollback(connection);
-						return terminalState.equals(state);
+						return terminalState.equals(state) ? new RefundedPurchase(null, null, null) : null;
 					}
 					if (refund && !isRefundableState(state, refundableStates)) {
 						rollback(connection);
-						return false;
+						return null;
 					}
 					if (!refund && !HOOK_STARTED.equals(state)) {
 						rollback(connection);
-						return false;
+						return null;
 					}
 					String uuid = result.getString(2);
 					String pointsColumn = result.getString(3);
 					String limitColumn = result.getString(4);
+					refundedUuid = uuid;
+					refundedPointsColumn = pointsColumn;
+					refundedLimitColumn = limitColumn;
 					int cost = result.getInt(5);
 					String limitGeneration = result.getString(6);
 					long limitGenerationExpiresAt = result.getLong(7);
@@ -325,10 +345,12 @@ final class SharedMysqlPurchaseJournal {
 				updateStatement.setString(2, purchaseId);
 				if (updateStatement.executeUpdate() != 1) {
 					rollback(connection);
-					return false;
+					return null;
 				}
 			}
-			return commitAndConfirm(connection, purchaseId, terminalState);
+			if (!commitAndConfirm(connection, purchaseId, terminalState)) return null;
+			return refund ? new RefundedPurchase(refundedUuid, refundedPointsColumn, refundedLimitColumn)
+					: new RefundedPurchase(null, null, null);
 		} catch (SQLException failure) {
 			throw failure;
 		}
@@ -370,7 +392,7 @@ final class SharedMysqlPurchaseJournal {
 		return generation != null && expiresAt > 0L && now < expiresAt;
 	}
 
-	void recoverAndCleanup(long now) throws SQLException {
+	List<RefundedPurchase> recoverAndCleanup(long now) throws SQLException {
 		long cutoff = now - PENDING_RECOVERY_AGE_MILLIS;
 		String select = "SELECT " + qi("purchase_id") + " FROM " + qiJournal() + " WHERE " + qi("state")
 				+ " = ? AND " + qi("created_at") + " <= ? ORDER BY " + qi("created_at") + " ASC LIMIT ?";
@@ -383,14 +405,20 @@ final class SharedMysqlPurchaseJournal {
 				while (result.next()) pending.add(result.getString(1));
 			}
 		}
-		for (String purchaseId : pending) refundPending(purchaseId, now);
+		List<RefundedPurchase> refunded = new ArrayList<>();
+		for (String purchaseId : pending) {
+			RefundedPurchase result = refundPendingDetails(purchaseId, now);
+			if (result != null) refunded.add(result);
+		}
 		// COMPENSATING is safe to refund: the local scheduler fence was persisted
 		// before the first attempt, so the reward callback cannot run. Retry these
 		// rows promptly after an outage rather than leaving them charged forever.
 		for (String purchaseId : findTransferIds(COMPENSATING, RECOVERY_BATCH_SIZE)) {
-			refundCompensatingReward(purchaseId);
+			RefundedPurchase result = refundCompensatingRewardDetails(purchaseId);
+			if (result != null) refunded.add(result);
 		}
 		cleanupTerminalRows(now - TERMINAL_RETENTION_MILLIS);
+		return List.copyOf(refunded);
 	}
 
 	private List<String> findTransferIds(String state, int limit) throws SQLException {
@@ -493,6 +521,9 @@ final class SharedMysqlPurchaseJournal {
 	}
 
 	private record PurchaseRow(String state) {
+	}
+
+	record RefundedPurchase(String uuid, String pointsColumn, String limitColumn) {
 	}
 
 	enum ClaimOutcome {

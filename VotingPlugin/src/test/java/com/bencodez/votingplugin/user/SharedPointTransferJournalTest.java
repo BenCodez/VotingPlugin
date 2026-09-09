@@ -300,12 +300,15 @@ class SharedPointTransferJournalTest {
 				cleanup);
 
 		SharedPointTransferJournal journal = new SharedPointTransferJournal(fixture.table);
-		journal.recoverAndCleanup(SharedPointTransferJournal.RESERVED_RECOVERY_AGE_MILLIS + 2L);
+		var refunded = journal.recoverAndCleanup(SharedPointTransferJournal.RESERVED_RECOVERY_AGE_MILLIS + 2L);
 
 		verify(recoveryRefund).setString(2, "source");
 		verify(recoveryRefund).setInt(1, 10);
 		verify(recoveryUpdate).setString(1, "REFUNDED");
 		verify(recovery).commit();
+		assertEquals(1, refunded.size());
+		assertEquals("source", refunded.get(0).uuid());
+		assertEquals("Points", refunded.get(0).pointsColumn());
 	}
 
 	@Test

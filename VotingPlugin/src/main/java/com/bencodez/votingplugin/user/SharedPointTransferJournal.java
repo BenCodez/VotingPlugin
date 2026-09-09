@@ -448,6 +448,9 @@ final class SharedPointTransferJournal {
 		INDETERMINATE
 	}
 
+	record RefundedTransfer(String uuid, String pointsColumn) {
+	}
+
 	/**
 	 * Reclaims only old reservations that have never entered an external hook,
 	 * then removes a small batch of old terminal rows. Each candidate is locked
@@ -455,12 +458,15 @@ final class SharedPointTransferJournal {
 	 * transfer that it has just claimed. HOOK_STARTED rows require explicit
 	 * reconciliation because an arbitrary listener may still have side effects.
 	 */
-	void recoverAndCleanup(long now) throws SQLException {
+	List<RefundedTransfer> recoverAndCleanup(long now) throws SQLException {
 		long reservationCutoff = now - RESERVED_RECOVERY_AGE_MILLIS;
+		List<RefundedTransfer> refunded = new ArrayList<>();
 		for (String transferId : findExpiredTransferIds(RESERVED, "created_at", reservationCutoff, RECOVERY_BATCH_SIZE)) {
-			recoverExpiredReservation(transferId, reservationCutoff);
+			RefundedTransfer result = recoverExpiredReservation(transferId, reservationCutoff);
+			if (result != null) refunded.add(result);
 		}
 		cleanupTerminalRows(now - TERMINAL_RETENTION_MILLIS, CLEANUP_BATCH_SIZE);
+		return List.copyOf(refunded);
 	}
 
 	private List<String> findExpiredTransferIds(String state, String timeColumn, long cutoff, int limit)
@@ -481,7 +487,7 @@ final class SharedPointTransferJournal {
 		return transferIds;
 	}
 
-	private boolean recoverExpiredReservation(String transferId, long reservationCutoff) throws SQLException {
+	private RefundedTransfer recoverExpiredReservation(String transferId, long reservationCutoff) throws SQLException {
 		String select = "SELECT " + qi("state") + ", " + qi("created_at") + ", " + qi("source_uuid")
 				+ ", " + qi("source_points_column") + ", " + qi("debit_points") + " FROM " + qiJournal()
 				+ " WHERE " + qi("transfer_id") + " = ? FOR UPDATE";
@@ -497,7 +503,7 @@ final class SharedPointTransferJournal {
 				try (ResultSet result = selectStatement.executeQuery()) {
 					if (!result.next() || !RESERVED.equals(result.getString(1)) || result.getLong(2) > reservationCutoff) {
 						connection.rollback();
-						return false;
+						return null;
 					}
 					sourceUuid = result.getString(3);
 					sourcePointsColumn = result.getString(4);
@@ -506,7 +512,7 @@ final class SharedPointTransferJournal {
 			}
 			if (!isSafeColumn(sourcePointsColumn)) {
 				connection.rollback();
-				return false;
+				return null;
 			}
 			String points = qi(sourcePointsColumn);
 			String refund = "UPDATE " + qi(table.getTableName()) + " SET " + points + " = " + points
@@ -516,7 +522,7 @@ final class SharedPointTransferJournal {
 				refundStatement.setString(2, sourceUuid);
 				if (refundStatement.executeUpdate() != 1) {
 					connection.rollback();
-					return false;
+					return null;
 				}
 			}
 			try (PreparedStatement updateStatement = connection.prepareStatement(update)) {
@@ -524,10 +530,11 @@ final class SharedPointTransferJournal {
 				updateStatement.setString(2, transferId);
 				if (updateStatement.executeUpdate() != 1) {
 					connection.rollback();
-					return false;
+					return null;
 				}
 			}
-			return commitAndConfirm(connection, transferId, REFUNDED);
+			if (!commitAndConfirm(connection, transferId, REFUNDED)) return null;
+			return new RefundedTransfer(sourceUuid, sourcePointsColumn);
 		}
 	}
 
