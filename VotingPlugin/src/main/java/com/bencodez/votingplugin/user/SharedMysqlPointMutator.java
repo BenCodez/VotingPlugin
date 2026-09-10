@@ -4,7 +4,10 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.Collections;
+import java.util.Map;
 import java.util.UUID;
+import java.util.WeakHashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -24,6 +27,17 @@ import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
 
 /** Performs point writes that must remain atomic across shared MySQL servers. */
 final class SharedMysqlPointMutator {
+	/*
+	 * An async addition may return a predicted total to its caller before its
+	 * atomic database operation begins. UserDataCache is flushable, however, so
+	 * that prediction must never be mistaken for an ordinary pending write when
+	 * the persistence task drains unrelated cached fields. Keep the identity of
+	 * those transient values separately rather than making the persisted cache
+	 * format carry an optimistic-write flag.
+	 */
+	private static final Map<UserDataCache, Map<String, DataValue>> OPTIMISTIC_POINT_VALUES =
+			Collections.synchronizedMap(new WeakHashMap<>());
+
 	private final VotingPluginMain plugin;
 
 	SharedMysqlPointMutator(VotingPluginMain plugin) {
@@ -73,7 +87,7 @@ final class SharedMysqlPointMutator {
 			int predictedTotal = previousTotal + amount;
 			cachePredictedPoints(user, predictedTotal);
 			if (!run(() -> update(user, amount, false), true)) {
-				discardPointsCache(user);
+				discardOptimisticPoints(user);
 				return previousTotal;
 			}
 			// The mutation has not happened yet, so the historical asynchronous API
@@ -88,8 +102,40 @@ final class SharedMysqlPointMutator {
 		if (cache == null) return;
 		synchronized (cache) {
 			var values = cache.getCache();
-			if (values != null) values.put(user.getPointsPath(), new DataValueInt(predictedTotal));
+			if (values == null) return;
+			DataValue prediction = new DataValueInt(predictedTotal);
+			values.put(user.getPointsPath(), prediction);
+			synchronized (OPTIMISTIC_POINT_VALUES) {
+				OPTIMISTIC_POINT_VALUES.computeIfAbsent(cache, ignored -> new java.util.HashMap<>())
+						.put(user.getPointsPath(), prediction);
+			}
 		}
+	}
+
+	/**
+	 * Drops an optimistic value, if it is still the current cache value, before
+	 * {@link UserDataCache#dump()} flushes other pending fields. The identity
+	 * comparison deliberately preserves a later real point write that replaced
+	 * the prediction while the async operation waited in the executor.
+	 */
+	private void discardOptimisticPoints(VotingPluginUser user) {
+		UserDataCache cache = user.getCache();
+		if (cache == null) return;
+		synchronized (cache) {
+			discardOptimisticPoints(cache, user.getPointsPath());
+		}
+	}
+
+	/** Caller holds {@code cache}'s monitor. */
+	private void discardOptimisticPoints(UserDataCache cache, String path) {
+		DataValue prediction;
+		synchronized (OPTIMISTIC_POINT_VALUES) {
+			Map<String, DataValue> predictions = OPTIMISTIC_POINT_VALUES.get(cache);
+			prediction = predictions == null ? null : predictions.remove(path);
+			if (predictions != null && predictions.isEmpty()) OPTIMISTIC_POINT_VALUES.remove(cache);
+		}
+		var values = cache.getCache();
+		if (prediction != null && values != null && values.get(path) == prediction) values.remove(path);
 	}
 
 	AddResult addCommitted(VotingPluginUser user, int amount) {
@@ -123,7 +169,7 @@ final class SharedMysqlPointMutator {
 				Math.min((long) previousTotal + amount, maximum));
 		cachePredictedPoints(user, predictedTotal);
 		if (!run(() -> addAndCapAt(user, amount, maximum), true)) {
-			discardPointsCache(user);
+			discardOptimisticPoints(user);
 		}
 	}
 
@@ -763,8 +809,12 @@ final class SharedMysqlPointMutator {
 	}
 
 	private void drainCache(VotingPluginUser user) {
-		if (user.isCached()) {
-			user.getCache().dump();
+		if (!user.isCached()) return;
+		UserDataCache cache = user.getCache();
+		if (cache == null) return;
+		synchronized (cache) {
+			discardOptimisticPoints(cache, user.getPointsPath());
+			cache.dump();
 			plugin.getUserManager().getDataManager().removeCache(UUID.fromString(user.getUUID()), null);
 		}
 	}

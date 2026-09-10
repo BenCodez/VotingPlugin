@@ -219,6 +219,51 @@ class SharedMysqlPointMutatorTest {
 	}
 
 	@Test
+	void asynchronousAddDoesNotFlushItsOptimisticPointsPrediction() throws Exception {
+		MySQL table = mock(MySQL.class);
+		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
+				org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		Connection connection = mock(Connection.class);
+		PreparedStatement statement = mock(PreparedStatement.class);
+		when(table.getTableName()).thenReturn("VotingPlugin_Users");
+		when(table.qi(anyString())).thenAnswer(invocation -> "`" + invocation.getArgument(0) + "`");
+		when(table.getMysql()).thenReturn(sql);
+		when(sql.getConnectionManager().getConnection()).thenReturn(connection);
+		when(connection.prepareStatement(anyString())).thenReturn(statement);
+		when(statement.executeUpdate()).thenReturn(1);
+
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		when(plugin.getMysql()).thenReturn(table);
+		ScheduledExecutorService persistence = mock(ScheduledExecutorService.class);
+		when(plugin.getTimer()).thenReturn(persistence);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		when(user.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
+		when(user.getPointsPath()).thenReturn("Points");
+		when(user.isCached()).thenReturn(true);
+		UserDataCache cache = mock(UserDataCache.class);
+		HashMap<String, DataValue> values = new HashMap<>();
+		values.put("Points", new DataValueInt(20));
+		values.put("DailyTotal", new DataValueInt(4));
+		when(user.getCache()).thenReturn(cache);
+		when(cache.getCache()).thenReturn(values);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			assertFalse(values.containsKey("Points"), "the predicted value must not be persisted by dump");
+			assertTrue(values.containsKey("DailyTotal"), "unrelated pending values must still be flushed");
+			return null;
+		}).when(cache).dump();
+
+		assertEquals(30, new SharedMysqlPointMutator(plugin).add(user, 10, true));
+		assertEquals(30, values.get("Points").getInt());
+		ArgumentCaptor<Runnable> task = ArgumentCaptor.forClass(Runnable.class);
+		verify(persistence).execute(task.capture());
+
+		task.getValue().run();
+
+		verify(cache).dump();
+		verify(statement).executeUpdate();
+	}
+
+	@Test
 	void addUsesAtomicDatabaseArithmeticInsteadOfAnAbsoluteCachedWrite() throws Exception {
 		MySQL table = mock(MySQL.class);
 		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
@@ -382,6 +427,10 @@ class SharedMysqlPointMutatorTest {
 		UUID uuid = UUID.fromString("00000000-0000-0000-0000-000000000001");
 		when(plugin.getUserManager().getDataManager().getUserDataCache()).thenReturn(
 				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(uuid, cache)));
+		org.mockito.Mockito.doAnswer(invocation -> {
+			assertFalse(values.containsKey("Points"), "the capped prediction must not be dumped before SQL caps it");
+			return null;
+		}).when(cache).dump();
 
 		new SharedMysqlPointMutator(plugin).addAndCap(user, 10, 100, true);
 		assertEquals(100, values.get("Points").getInt());
