@@ -26,6 +26,8 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.permissions.Permission;
+import org.bukkit.permissions.PermissionDefault;
+import org.bukkit.plugin.PluginManager;
 
 import com.bencodez.advancedcore.api.command.CommandHandler;
 import com.bencodez.advancedcore.api.command.PlayerCommandHandler;
@@ -301,7 +303,7 @@ public class CommandLoader {
 		});
 
 		plugin.getAdminVoteCommand()
-				.add(new PlayerCommandHandler(plugin, new String[] { "User", "(player)", "SetPoints", "(number)" },
+				.add(configureAllPermissionOverride(new PlayerCommandHandler(plugin, new String[] { "User", "(player)", "SetPoints", "(number)" },
 						"VotingPlugin.Commands.AdminVote.SetPoints|" + adminPerm, "Set players voting points") {
 
 					@Override
@@ -326,7 +328,7 @@ public class CommandLoader {
 						sender.sendMessage(MessageAPI.colorize("&cSet " + args[1] + " points to " + args[3]));
 						plugin.getPlaceholders().onUpdate(user, false);
 					}
-				});
+				}, adminPerm));
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(plugin, new String[] { "ResyncMilestones" },
@@ -408,30 +410,14 @@ public class CommandLoader {
 				});
 
 		plugin.getAdminVoteCommand()
-				.add(new PlayerCommandHandler(plugin, new String[] { "User", "(player)", "AddPoints", "(number)" },
+				.add(configureAllPermissionOverride(new PlayerCommandHandler(plugin, new String[] { "User", "(player)", "AddPoints", "(number)" },
 						"VotingPlugin.Commands.AdminVote.AddPoints|" + adminPerm, "Add to players voting points") {
-
-					@Override
-					public boolean hasPerm(CommandSender sender) {
-						return AdminAuthorization.hasCommandOrAdmin(sender,
-								"VotingPlugin.Commands.AdminVote.AddPoints");
-					}
-
-					@Override
-					public void execute(CommandSender sender, String[] args) {
-						// The permission for this bulk form depends on the sign of the
-						// amount, so the generic <command>.All rule cannot decide it.
-						if (args[1].equalsIgnoreCase("all")) {
-							executeAll(sender, args);
-							return;
-						}
-						super.execute(sender, args);
-					}
 
 					@Override
 					public void executeAll(CommandSender sender, String[] args) {
 						int num = Integer.parseInt(args[3]);
-						if (!AdminAuthorization.canAddPointsToAll(sender, num)) {
+						if (!AdminAuthorization.canAddPointsToAll(sender, num,
+								plugin.getOptions().isMultiplePermissionChecks())) {
 							sender.sendMessage(MessageAPI.colorize(plugin.getConfigFile().getFormatNoPerms()));
 							return;
 						}
@@ -469,22 +455,11 @@ public class CommandLoader {
 						plugin.getPlaceholders().onUpdate(user, false);
 
 					}
-				});
+				}, adminPerm));
 
 		plugin.getAdminVoteCommand()
-				.add(new PlayerCommandHandler(plugin, new String[] { "User", "(player)", "RemovePoints", "(number)" },
+				.add(configureAllPermissionOverride(new PlayerCommandHandler(plugin, new String[] { "User", "(player)", "RemovePoints", "(number)" },
 						"VotingPlugin.Commands.AdminVote.RemovePoints|" + adminPerm, "Remove voting points") {
-
-					@Override
-					public boolean hasPerm(CommandSender sender) {
-						return AdminAuthorization.hasCommandOrAdmin(sender,
-								"VotingPlugin.Commands.AdminVote.RemovePoints");
-					}
-
-					@Override
-					public boolean hasAllPermission(CommandSender sender) {
-						return AdminAuthorization.canRemovePointsFromAll(sender);
-					}
 
 					@Override
 					public void executeAll(CommandSender sender, String[] args) {
@@ -525,7 +500,7 @@ public class CommandLoader {
 								+ args[1] + " now has " + user.getPoints() + " points"));
 						plugin.getPlaceholders().onUpdate(user, false);
 					}
-				});
+				}, adminPerm));
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "Help&?" },
 				"VotingPlugin.Commands.AdminVote.Help|" + adminPerm, "See this page") {
@@ -2714,9 +2689,31 @@ public class CommandLoader {
 				.getBasicAdminCommands("VotingPlugin");
 		for (CommandHandler cmd : avCommands) {
 			cmd.setPerm(cmd.getPerm() + "|" + adminPerm);
+			if (cmd instanceof PlayerCommandHandler playerHandler) {
+				configureAllPermissionOverride(playerHandler, adminPerm);
+			}
 		}
 		plugin.getAdminVoteCommand().addAll(avCommands);
 
+	}
+
+	/**
+	 * Configures the shared bulk administrator override when supported by the
+	 * AdvancedCore dependency. The reflective bridge keeps this consumer source
+	 * compatible with the currently published snapshot while AdvancedCore #316 is
+	 * awaiting release. Runtime use with that older implementation fails closed
+	 * because it does not enforce the required base-plus-bulk permission contract.
+	 */
+	static PlayerCommandHandler configureAllPermissionOverride(PlayerCommandHandler handler, String adminPermission) {
+		try {
+			PlayerCommandHandler.class.getMethod("withAllPermissionOverrides", String[].class)
+					.invoke(handler, (Object) new String[] { adminPermission });
+		} catch (NoSuchMethodException exception) {
+			throw new IllegalStateException("AdvancedCore with secure bulk permission support is required", exception);
+		} catch (ReflectiveOperationException exception) {
+			throw new IllegalStateException("Failed to configure bulk permission override", exception);
+		}
+		return handler;
 	}
 
 	private final Set<String> aliasCommandNames = new HashSet<>();
@@ -2777,6 +2774,7 @@ public class CommandLoader {
 			} catch (Exception e) {
 				plugin.debug("Failed to set permission for /vote" + arg0);
 			}
+			registerAdditionalPermissions(Bukkit.getPluginManager(), cmdHandle);
 
 			if (argLength > 0) {
 				String[] args = cmdHandle.getArgs()[0].split("&");
@@ -2854,6 +2852,7 @@ public class CommandLoader {
 			} catch (Exception e) {
 				plugin.debug("Failed to set permission for /adminvote" + arg0);
 			}
+			registerAdditionalPermissions(Bukkit.getPluginManager(), cmdHandle);
 
 			if (argLength > 0) {
 				String[] args = cmdHandle.getArgs()[0].split("&");
@@ -2899,6 +2898,22 @@ public class CommandLoader {
 								+ ex.getMessage());
 					}
 				}
+			}
+		}
+	}
+
+	static void registerAdditionalPermissions(PluginManager manager, CommandHandler handler) {
+		if (manager == null || !(handler instanceof PlayerCommandHandler playerHandler)) return;
+		List<String> additionalPermissions = playerHandler.getAdditionalPermissions();
+		for (String permissionName : additionalPermissions) {
+			Permission permission = manager.getPermission(permissionName);
+			if (permission == null) {
+				permission = new Permission(permissionName, "Allows use of the all target for its player command",
+						PermissionDefault.FALSE);
+				manager.addPermission(permission);
+			} else if (permission.getDefault() != PermissionDefault.FALSE) {
+				permission.setDefault(PermissionDefault.FALSE);
+				permission.recalculatePermissibles();
 			}
 		}
 	}

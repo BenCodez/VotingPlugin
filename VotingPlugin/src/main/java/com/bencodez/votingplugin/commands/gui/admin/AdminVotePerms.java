@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.commands.gui.admin;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -85,7 +86,7 @@ public class AdminVotePerms extends GUIHandler {
 			} else {
 				msg.add(handle.getHelpLineCommand("/vote") + " : " + handle.getPerm().split(Pattern.quote("|"))[0]);
 			}
-			addAdditionalPermissions(msg, sender, handle);
+			addAdditionalPermissions(msg, sender, handle, "/vote");
 
 		}
 
@@ -101,7 +102,7 @@ public class AdminVotePerms extends GUIHandler {
 			} else {
 				msg.add(handle.getHelpLineCommand("/av") + " : " + handle.getPerm().split(Pattern.quote("|"))[0]);
 			}
-			addAdditionalPermissions(msg, sender, handle);
+			addAdditionalPermissions(msg, sender, handle, "/av");
 		}
 
 		for (Permission perm : plugin.getDescription().getPermissions()) {
@@ -169,7 +170,7 @@ public class AdminVotePerms extends GUIHandler {
 					msg.add("&6" + handle.getHelpLineCommand("/vote") + " : "
 							+ handle.getPerm().split(Pattern.quote("|"))[0] + " : &cfalse");
 				}
-				addAdditionalPermissions(msg, p, handle);
+				addAdditionalPermissions(msg, p, handle, "/vote");
 
 			}
 
@@ -181,7 +182,7 @@ public class AdminVotePerms extends GUIHandler {
 					msg.add("&6" + handle.getHelpLineCommand("/av") + " : "
 							+ handle.getPerm().split(Pattern.quote("|"))[0] + " : &cfalse");
 				}
-				addAdditionalPermissions(msg, p, handle);
+				addAdditionalPermissions(msg, p, handle, "/av");
 			}
 
 			for (Permission perm : plugin.getDescription().getPermissions()) {
@@ -240,7 +241,7 @@ public class AdminVotePerms extends GUIHandler {
 			msg.add("  " + handle.getPerm());
 			msg.add("  " + handle.getHelpMessage());
 			for (String permission : additionalPermissions(handle)) {
-				msg.add("  " + permission);
+				msg.add("  Additional permission for all target: " + permission);
 			}
 		}
 
@@ -249,7 +250,7 @@ public class AdminVotePerms extends GUIHandler {
 			msg.add("  " + handle.getPerm());
 			msg.add("  " + handle.getHelpMessage());
 			for (String permission : additionalPermissions(handle)) {
-				msg.add("  " + permission);
+				msg.add("  Additional permission for all target: " + permission);
 			}
 		}
 
@@ -263,14 +264,12 @@ public class AdminVotePerms extends GUIHandler {
 	}
 
 	static ArrayList<String> additionalPermissions(CommandHandler handle) {
-		ArrayList<String> permissions = new ArrayList<>();
-		if (handle instanceof PlayerCommandHandler && handle.getPerm() != null) {
-			String primary = handle.getPerm().split(Pattern.quote("|"))[0];
-			if ("VotingPlugin.Commands.AdminVote.RemovePoints".equals(primary)) {
-				permissions.add(primary + ".All");
-			}
-		}
-		return permissions;
+		if (!(handle instanceof PlayerCommandHandler playerHandler)) return new ArrayList<>();
+		return new ArrayList<>(new LinkedHashSet<>(playerHandler.getAdditionalPermissions()));
+	}
+
+	static boolean hasEffectiveBulkPermission(CommandSender sender, CommandHandler handle) {
+		return handle instanceof PlayerCommandHandler playerHandler && playerHandler.hasAllPermission(sender);
 	}
 
 	static boolean hasEffectivePermission(CommandSender sender, String permission) {
@@ -280,14 +279,16 @@ public class AdminVotePerms extends GUIHandler {
 		return sender.hasPermission(permission);
 	}
 
-	private static void addAdditionalPermissions(ArrayList<String> output, CommandSender sender, CommandHandler handle) {
+	private static void addAdditionalPermissions(ArrayList<String> output, CommandSender sender, CommandHandler handle,
+			String command) {
 		for (String permission : additionalPermissions(handle)) {
+			String description = handle.getHelpLineCommand(command) + " : Additional permission for all target: "
+					+ permission;
 			if (sender instanceof Player) {
-				boolean allowed = "VotingPlugin.Commands.AdminVote.RemovePoints.All".equals(permission)
-						? AdminAuthorization.canRemovePointsFromAll(sender) : sender.hasPermission(permission);
-				output.add("&6" + permission + (allowed ? " : &atrue" : " : &cfalse"));
+				boolean allowed = hasEffectiveBulkPermission(sender, handle);
+				output.add("&6" + description + (allowed ? " : &atrue" : " : &cfalse"));
 			} else {
-				output.add(permission);
+				output.add(description);
 			}
 		}
 	}
