@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -19,6 +21,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -32,6 +35,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.PluginManager;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.MockedStatic;
@@ -71,12 +75,14 @@ class VotingPluginUserPointSchedulingTest {
 	void rejectedSharedBulkMutationCompletesEveryUserAsFailed() throws Exception {
 		PointFixture fixture = pointFixture();
 		VotingPluginUser second = mock(VotingPluginUser.class);
+		Player secondPlayer = mock(Player.class);
+		when(second.getPlayer()).thenReturn(secondPlayer);
 		java.util.List<Boolean> results = new java.util.ArrayList<>();
 		doThrow(new RejectedExecutionException()).when(fixture.persistence).execute(any(Runnable.class));
 		doAnswer(invocation -> {
 			invocation.<Runnable>getArgument(1).run();
 			return null;
-		}).when(fixture.scheduler).runTask(eq(fixture.plugin), any(Runnable.class));
+		}).when(fixture.scheduler).runTask(eq(fixture.plugin), any(Runnable.class), any(Player.class));
 
 		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
 			bukkit.when(Bukkit::getPluginManager).thenReturn(mock(PluginManager.class));
@@ -85,6 +91,8 @@ class VotingPluginUserPointSchedulingTest {
 		}
 
 		assertEquals(java.util.List.of(false, false), results);
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), any(Runnable.class), eq(fixture.player));
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), any(Runnable.class), eq(secondPlayer));
 	}
 
 	@Test
@@ -131,7 +139,8 @@ class VotingPluginUserPointSchedulingTest {
 		verify(fixture.persistence, org.mockito.Mockito.times(2)).execute(persistenceTasks.capture());
 		persistenceTasks.getAllValues().get(persistenceTasks.getAllValues().size() - 1).run();
 		verify(fixture.sql.getConnectionManager(), never()).getConnection();
-		verify(fixture.scheduler, org.mockito.Mockito.times(2)).runTask(eq(fixture.plugin), any(Runnable.class));
+		verify(fixture.scheduler, org.mockito.Mockito.times(65)).runTask(eq(fixture.plugin), any(Runnable.class),
+				eq(fixture.player));
 	}
 
 	@Test
@@ -273,7 +282,7 @@ class VotingPluginUserPointSchedulingTest {
 
 		ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
 		verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
-		verify(fixture.entityScheduler, never()).runAtEntityWithFallback(any(), any(), any(Runnable.class));
+		verify(fixture.entityScheduler).runAtEntityWithFallback(eq(fixture.player), any(), any(Runnable.class));
 		completion.getValue().run();
 		assertEquals(Boolean.FALSE, result.get());
 	}
@@ -458,6 +467,57 @@ class VotingPluginUserPointSchedulingTest {
 		assertTrue(fixture.user.removePoints(10));
 		verify(fixture.user, never()).getPoints();
 		verify(fixture.statement).executeUpdate();
+	}
+
+	@Test
+	void nullSharedPointConnectionIsReportedAsASqlFailure() throws Exception {
+		PointFixture fixture = pointFixture();
+		when(fixture.sql.getConnectionManager().getConnection()).thenReturn((Connection) null);
+
+		assertFalse(fixture.user.removePoints(10));
+		verify(fixture.plugin.getLogger()).severe(org.mockito.ArgumentMatchers.contains("SQLException"));
+	}
+
+	@Test
+	void nullSharedAddConnectionCompletesCallbackWithoutASecondLookup() throws Exception {
+		PointFixture fixture = pointFixture();
+		when(fixture.sql.getConnectionManager().getConnection()).thenReturn((Connection) null);
+		doAnswer(invocation -> {
+			invocation.<Runnable>getArgument(1).run();
+			return null;
+		}).when(fixture.scheduler).runTask(eq(fixture.plugin), any(Runnable.class), eq(fixture.player));
+		AtomicReference<Boolean> success = new AtomicReference<>();
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getPluginManager).thenReturn(mock(PluginManager.class));
+			fixture.user.addPointsStorageAware(5, (written, ignored) -> success.set(written));
+		}
+		ArgumentCaptor<Runnable> persistence = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence).execute(persistence.capture());
+		persistence.getValue().run();
+
+		assertEquals(Boolean.FALSE, success.get());
+		verify(fixture.user, never()).getPoints();
+		verify(fixture.sql.getConnectionManager()).getConnection();
+	}
+
+	@Test
+	void nullTransferJournalConnectionCompletesTheTransferAsFailure() throws Exception {
+		TransferSchedulingFixture fixture = transferSchedulingFixture();
+		when(fixture.manager.getConnection()).thenReturn((Connection) null);
+		AtomicReference<Boolean> result = new AtomicReference<>();
+		doAnswer(invocation -> {
+			invocation.<Runnable>getArgument(1).run();
+			return null;
+		}).when(fixture.scheduler).runTask(eq(fixture.plugin), any(Runnable.class), eq(fixture.player));
+
+		fixture.user.transferPoints(fixture.target, 10, result::set);
+		ArgumentCaptor<Runnable> persistence = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence).execute(persistence.capture());
+		persistence.getValue().run();
+
+		assertEquals(Boolean.FALSE, result.get());
+		verify(fixture.plugin.getLogger()).severe(org.mockito.ArgumentMatchers.contains("SQLException"));
 	}
 
 	@Test
@@ -675,8 +735,8 @@ class VotingPluginUserPointSchedulingTest {
 		verify(fixture.settlementPoint).setInt(1, 10);
 		verify(fixture.settlementPoint).executeUpdate();
 		ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
-		verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
-		completion.getValue().run();
+		verify(fixture.scheduler, org.mockito.Mockito.times(2)).runTask(eq(fixture.plugin), completion.capture());
+		completion.getAllValues().get(1).run();
 		assertEquals(Boolean.FALSE, result.get());
 	}
 
@@ -707,14 +767,16 @@ class VotingPluginUserPointSchedulingTest {
 		verify(fixture.settlementPoint).setInt(1, 10);
 		verify(fixture.settlementPoint).executeUpdate();
 		ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
-		verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
-		completion.getValue().run();
+		verify(fixture.scheduler, org.mockito.Mockito.times(2)).runTask(eq(fixture.plugin), completion.capture());
+		completion.getAllValues().get(1).run();
 		assertEquals(Boolean.FALSE, result.get());
 	}
 
 	@Test
-	void rejectedClaimedTransferRetainsDurableCompensationWhenBothFallbackSchedulersReject() throws Exception {
+	void rejectedClaimedTransferRetainsDurableCompensationWhenBothFallbackSchedulersReject(
+			@TempDir Path temporaryDirectory) throws Exception {
 		SagaFixture fixture = sagaFixture(true);
+		when(fixture.plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
 		configureRejectedSagaConnections(fixture);
 		when(fixture.entityScheduler.runAtEntityWithFallback(any(), any(), any(Runnable.class)))
 				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
@@ -734,13 +796,36 @@ class VotingPluginUserPointSchedulingTest {
 				.runTaskAsynchronously(eq(fixture.plugin), any(Runnable.class));
 		claimed.getAllValues().get(1).run();
 
-		verify(fixture.compensationUpdate).setString(1, "COMPENSATING");
+		verify(fixture.compensationUpdate, never()).setString(anyInt(), anyString());
 		verify(fixture.scheduler).runTaskAsynchronously(eq(fixture.plugin), any(Runnable.class));
 		verify(fixture.settlementPoint, never()).executeUpdate();
+		assertEquals(1, new SharedPointTransferCompensationStore(temporaryDirectory).loadBatch().size());
 		ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
-		verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
-		completion.getValue().run();
+		verify(fixture.scheduler, org.mockito.Mockito.times(2)).runTask(eq(fixture.plugin), completion.capture());
+		completion.getAllValues().get(1).run();
 		assertEquals(Boolean.FALSE, result.get());
+	}
+
+	@Test
+	void failedTransferCompensationMarkerIsRetriedByRecovery(@TempDir Path temporaryDirectory) throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		when(plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
+		SharedPointTransferJournal journal = mock(SharedPointTransferJournal.class);
+		when(journal.markCompensating("transfer-1"))
+				.thenThrow(new java.sql.SQLException("down"))
+				.thenReturn(true);
+		when(journal.recoverAndCleanup(anyLong())).thenReturn(java.util.List.of());
+		SharedPointTransferCompensationStore store =
+				new SharedPointTransferCompensationStore(temporaryDirectory);
+		store.record("transfer-1");
+
+		SharedMysqlPointMutator.recoverTransfers(plugin, journal);
+		assertEquals(java.util.List.of("transfer-1"), store.loadBatch());
+		SharedMysqlPointMutator.recoverTransfers(plugin, journal);
+
+		assertTrue(store.loadBatch().isEmpty());
+		verify(journal, org.mockito.Mockito.times(2)).markCompensating("transfer-1");
+		verify(journal, org.mockito.Mockito.times(2)).recoverAndCleanup(anyLong());
 	}
 
 	@Test

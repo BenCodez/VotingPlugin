@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.user;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -19,6 +20,7 @@ import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.simpleapi.sql.data.DataValueInt;
 import com.bencodez.simpleapi.folialib.enums.EntityTaskResult;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
 
 /** Performs point writes that must remain atomic across shared MySQL servers. */
 final class SharedMysqlPointMutator {
@@ -57,8 +59,9 @@ final class SharedMysqlPointMutator {
 		}
 	}
 
-	private static void recoverTransfers(VotingPluginMain plugin, SharedPointTransferJournal journal)
+	static void recoverTransfers(VotingPluginMain plugin, SharedPointTransferJournal journal)
 			throws SQLException {
+		retryPendingCompensationMarkers(plugin, journal);
 		for (SharedPointTransferJournal.RefundedTransfer refund : journal.recoverAndCleanup(System.currentTimeMillis())) {
 			SharedMysqlCacheReconciler.invalidate(plugin, refund.uuid(), refund.pointsColumn());
 		}
@@ -339,47 +342,7 @@ final class SharedMysqlPointMutator {
 		AtomicInteger approvalState = new AtomicInteger(0);
 		Runnable rejectBeforeStart = () -> {
 			if (!approvalState.compareAndSet(0, 2)) return;
-			try {
-				// The CAS fence proves the approval callback cannot run. Write the
-				// recoverable state before relying on either remaining scheduler.
-				if (!journal.markCompensating(transferId)) {
-					completeOnBukkit(source, completion, false);
-					return;
-				}
-			} catch (SQLException markerFailure) {
-				try {
-					// A lost marker acknowledgement may still have committed. The direct,
-					// idempotent refund accepts either HOOK_STARTED or COMPENSATING and
-					// avoids depending on another scheduler while shutdown is in progress.
-					if (journal.refundHookStarted(transferId, source.getUUID(), sourcePoints, debitAmount)) {
-						discardPointsCache(source, sourcePoints);
-					}
-				} catch (SQLException refundFailure) {
-					logFailure(refundFailure);
-				}
-				logFailure(markerFailure);
-				completeOnBukkit(source, completion, false);
-				return;
-			}
-			try {
-				plugin.getTimer().execute(() -> refundClaimedAfterSchedulingFailure(source, completion, journal,
-						transferId, sourcePoints, debitAmount,
-						new IllegalStateException("Transfer approval task did not start")));
-			} catch (RuntimeException persistenceRejected) {
-				plugin.debug(persistenceRejected);
-				// The approval hook is fenced by approvalState, so an executor rejection
-				// can safely compensate on Bukkit's independent async scheduler without
-				// leaving HOOK_STARTED forever or blocking the entity lane.
-				try {
-					plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
-							() -> refundClaimedAfterSchedulingFailure(source, completion, journal, transferId,
-									sourcePoints, debitAmount, persistenceRejected));
-				} catch (RuntimeException asyncSchedulingRejected) {
-					// Recovery can compensate the durable COMPENSATING row after shutdown.
-					plugin.debug(asyncSchedulingRejected);
-					completeOnBukkit(source, completion, false);
-				}
-			}
+			scheduleRejectedTransferCompensation(source, completion, journal, transferId, sourcePoints, debitAmount);
 		};
 		try {
 			CompletableFuture<EntityTaskResult> approval = plugin.getBukkitScheduler().getFoliaLib().getImpl()
@@ -398,17 +361,11 @@ final class SharedMysqlPointMutator {
 							transferId, owner, sourcePoints, targetPoints, finalApprovedAmount));
 				} catch (RuntimeException schedulingFailure) {
 					plugin.debug(schedulingFailure);
-					// The approval callback already ran and may have had side effects. Submit
-					// the same idempotent settlement through Bukkit's independent async
-					// scheduler before retaining the claimed row for reconciliation.
 					try {
 						plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
 								() -> settleTransfer(source, target, debitAmount, completion, journal, transferId, owner,
 										sourcePoints, targetPoints, finalApprovedAmount));
 					} catch (RuntimeException asyncSchedulingFailure) {
-						// Neither scheduler accepted settlement. The hook may have had side
-						// effects, so preserve the durable HOOK_STARTED row for explicit
-						// reconciliation and suppress a duplicate transfer attempt.
 						plugin.debug(asyncSchedulingFailure);
 						logIndeterminateClaim(transferId);
 						completeOnBukkit(source, completion, true);
@@ -424,6 +381,85 @@ final class SharedMysqlPointMutator {
 			plugin.debug(schedulingFailure);
 			rejectBeforeStart.run();
 		}
+	}
+
+	private void scheduleRejectedTransferCompensation(VotingPluginUser source, Consumer<Boolean> completion,
+			SharedPointTransferJournal journal, String transferId, String sourcePoints, int debitAmount) {
+		Runnable compensation = () -> compensateRejectedTransfer(source, completion, journal, transferId,
+				sourcePoints, debitAmount);
+		try {
+			plugin.getTimer().execute(compensation);
+		} catch (RuntimeException persistenceRejected) {
+			plugin.debug(persistenceRejected);
+			try {
+				plugin.getBukkitScheduler().runTaskAsynchronously(plugin, compensation);
+			} catch (RuntimeException asyncRejected) {
+				plugin.debug(asyncRejected);
+				rememberPendingCompensationMarker(plugin, transferId);
+				completeOnBukkit(source, completion, false);
+			}
+		}
+	}
+
+	private void rememberPendingCompensationMarker(VotingPluginMain plugin, String transferId) {
+		try {
+			compensationStore(plugin).record(transferId);
+		} catch (IOException persistenceFailure) {
+			plugin.getLogger().severe("Unable to persist a shared point transfer compensation marker: "
+					+ persistenceFailure.getClass().getSimpleName());
+			plugin.debug(persistenceFailure);
+		}
+	}
+
+	private static void retryPendingCompensationMarkers(VotingPluginMain plugin,
+			SharedPointTransferJournal journal) {
+		SharedPointTransferCompensationStore store = compensationStore(plugin);
+		final java.util.List<String> pending;
+		try {
+			pending = store.loadBatch();
+		} catch (IOException loadFailure) {
+			plugin.debug(loadFailure);
+			return;
+		}
+		for (String transferId : pending) {
+			try {
+				journal.markCompensating(transferId);
+				store.remove(transferId);
+			} catch (SQLException retryFailure) {
+				plugin.debug(retryFailure);
+			} catch (IOException removalFailure) {
+				plugin.debug(removalFailure);
+			}
+		}
+	}
+
+	private static SharedPointTransferCompensationStore compensationStore(VotingPluginMain plugin) {
+		return new SharedPointTransferCompensationStore(plugin.getDataFolder().toPath());
+	}
+
+	private void compensateRejectedTransfer(VotingPluginUser source, Consumer<Boolean> completion,
+			SharedPointTransferJournal journal, String transferId, String sourcePoints, int debitAmount) {
+		try {
+			// The CAS fence proves the approval callback cannot run. Write the
+			// recoverable state before relying on completion delivery.
+			if (!journal.markCompensating(transferId)) {
+				completeOnBukkit(source, completion, false);
+				return;
+			}
+		} catch (SQLException markerFailure) {
+			try {
+				if (journal.refundHookStarted(transferId, source.getUUID(), sourcePoints, debitAmount)) {
+					discardPointsCache(source, sourcePoints);
+				}
+			} catch (SQLException refundFailure) {
+				logFailure(refundFailure);
+			}
+			logFailure(markerFailure);
+			completeOnBukkit(source, completion, false);
+			return;
+		}
+		refundClaimedAfterSchedulingFailure(source, completion, journal, transferId, sourcePoints,
+				debitAmount, new IllegalStateException("Transfer approval task did not start"));
 	}
 
 	private void settleTransfer(VotingPluginUser source, VotingPluginUser target, int debitAmount,
@@ -542,7 +578,7 @@ final class SharedMysqlPointMutator {
 				+ table.qi(sourcePoints) + " - ? WHERE " + uuidMatch + " AND " + table.qi(sourcePoints) + " >= ?";
 		String credit = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(targetPoints) + " = "
 				+ table.qi(targetPoints) + " + ? WHERE " + uuidMatch;
-		try (Connection connection = table.getMysql().getConnectionManager().getConnection()) {
+		try (Connection connection = requireConnection(table)) {
 			connection.setAutoCommit(false);
 			try (PreparedStatement debitStatement = connection.prepareStatement(debit);
 					PreparedStatement creditStatement = connection.prepareStatement(credit)) {
@@ -596,7 +632,7 @@ final class SharedMysqlPointMutator {
 		if (requireNonnegative) {
 			sql.append(" AND ").append(table.qi(points)).append(" >= ?");
 		}
-		try (Connection connection = table.getMysql().getConnectionManager().getConnection();
+		try (Connection connection = requireConnection(table);
 				PreparedStatement statement = connection.prepareStatement(sql.toString())) {
 			statement.setInt(1, delta);
 			statement.setString(2, user.getUUID());
@@ -629,7 +665,7 @@ final class SharedMysqlPointMutator {
 		String read = "SELECT " + table.qi(points) + " FROM " + table.qi(table.getTableName()) + " WHERE " + uuidMatch;
 		boolean updateCommitted = false;
 		Integer committedTotal = null;
-		try (Connection connection = table.getMysql().getConnectionManager().getConnection();
+		try (Connection connection = requireConnection(table);
 				PreparedStatement updateStatement = connection.prepareStatement(update);
 				PreparedStatement readStatement = connection.prepareStatement(read)) {
 			updateStatement.setInt(1, amount);
@@ -652,8 +688,12 @@ final class SharedMysqlPointMutator {
 		// Do not evaluate the fallback while the JDBC handle is still held. With a
 		// one-connection pool, getPoints() may need that same handle after a missing
 		// row or a failed follow-up read.
-		return committedTotal == null ? new AddResult(updateCommitted, user.getPoints())
-				: new AddResult(true, committedTotal);
+		if (committedTotal != null) return new AddResult(true, committedTotal);
+		// A failed acquisition cannot support the fallback read either. Report the
+		// mutation failure without checking out a second connection and let callers
+		// complete their callback deterministically.
+		if (!updateCommitted) return new AddResult(false, 0);
+		return new AddResult(true, user.getPoints());
 	}
 
 	record AddResult(boolean success, int total) {}
@@ -664,7 +704,7 @@ final class SharedMysqlPointMutator {
 		String sql = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(user.getPointsPath())
 				+ " = ? WHERE " + table.qi("uuid")
 				+ (table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
-		try (Connection connection = table.getMysql().getConnectionManager().getConnection();
+		try (Connection connection = requireConnection(table);
 				PreparedStatement statement = connection.prepareStatement(sql)) {
 			statement.setInt(1, value);
 			statement.setString(2, user.getUUID());
@@ -684,7 +724,7 @@ final class SharedMysqlPointMutator {
 		String sql = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(points) + " = LEAST("
 				+ table.qi(points) + ", ?) WHERE " + table.qi("uuid")
 				+ (table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
-		try (Connection connection = table.getMysql().getConnectionManager().getConnection();
+		try (Connection connection = requireConnection(table);
 				PreparedStatement statement = connection.prepareStatement(sql)) {
 			statement.setInt(1, maximum);
 			statement.setString(2, user.getUUID());
@@ -703,7 +743,7 @@ final class SharedMysqlPointMutator {
 		String sql = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(points) + " = LEAST("
 				+ table.qi(points) + " + ?, ?) WHERE " + table.qi("uuid")
 				+ (table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
-		try (Connection connection = table.getMysql().getConnectionManager().getConnection();
+		try (Connection connection = requireConnection(table);
 				PreparedStatement statement = connection.prepareStatement(sql)) {
 			statement.setInt(1, amount);
 			statement.setInt(2, maximum);
@@ -721,6 +761,12 @@ final class SharedMysqlPointMutator {
 			user.getCache().dump();
 			plugin.getUserManager().getDataManager().removeCache(UUID.fromString(user.getUUID()), null);
 		}
+	}
+
+	private static Connection requireConnection(MySQL table) throws SQLException {
+		Connection connection = table.getMysql().getConnectionManager().getConnection();
+		if (connection == null) throw new SQLException("Unable to acquire shared MySQL connection");
+		return connection;
 	}
 
 	/**
@@ -741,7 +787,7 @@ final class SharedMysqlPointMutator {
 	}
 
 	private void completeOnBukkit(VotingPluginUser source, Consumer<Boolean> completion, boolean transferred) {
-		plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(transferred), source.getPlayer());
+		BukkitCompletionScheduler.run(plugin, source.getPlayer(), () -> completion.accept(transferred));
 	}
 
 	private void logFailure(SQLException failure) {

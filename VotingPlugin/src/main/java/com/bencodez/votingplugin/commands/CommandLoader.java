@@ -90,6 +90,7 @@ import com.bencodez.votingplugin.specialrewards.votestreak.VoteStreakType;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.util.VoteTaskAdmission;
+import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
 import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseResult;
 import com.bencodez.votingplugin.voteshop.shop.VoteShopEntry;
 import com.bencodez.votingplugin.voteshop.shop.VoteShopItem;
@@ -115,6 +116,14 @@ public class CommandLoader {
 	 */
 	public CommandLoader(VotingPluginMain plugin) {
 		this.plugin = plugin;
+	}
+
+	void runForCommandSender(CommandSender sender, Runnable task) {
+		BukkitCompletionScheduler.run(plugin, sender instanceof Player player ? player : null, task);
+	}
+
+	void runForVotingUser(VotingPluginUser user, Runnable task) {
+		BukkitCompletionScheduler.run(plugin, user.getPlayer(), task);
 	}
 
 	/**
@@ -327,9 +336,11 @@ public class CommandLoader {
 						VotingPluginUser.setPointsStorageAware(plugin, users, num, (user, success) -> {
 							if (success) updated.incrementAndGet();
 							if (remaining.decrementAndGet() == 0) {
-								sender.sendMessage(MessageAPI.colorize("&cSet all players points to " + args[3]
-										+ " for " + updated.get() + "/" + users.size() + " players"));
-								plugin.getPlaceholders().onUpdate();
+								runForCommandSender(sender, () -> {
+									sender.sendMessage(MessageAPI.colorize("&cSet all players points to " + args[3]
+											+ " for " + updated.get() + "/" + users.size() + " players"));
+									plugin.getPlaceholders().onUpdate();
+								});
 							}
 						});
 						}
@@ -339,10 +350,12 @@ public class CommandLoader {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 						user.setPointsStorageAware(Integer.parseInt(args[3]), success -> {
 							if (!success) {
-								sender.sendMessage(MessageAPI.colorize("&cUnable to set " + args[1] + " points to " + args[3]));
+								runForCommandSender(sender, () -> sender.sendMessage(
+										MessageAPI.colorize("&cUnable to set " + args[1] + " points to " + args[3])));
 								return;
 							}
-							sender.sendMessage(MessageAPI.colorize("&cSet " + args[1] + " points to " + args[3]));
+							runForCommandSender(sender, () -> sender.sendMessage(
+									MessageAPI.colorize("&cSet " + args[1] + " points to " + args[3])));
 							plugin.getPlaceholders().onUpdate(user, false);
 						});
 					}
@@ -483,9 +496,11 @@ public class CommandLoader {
 								}
 							} finally {
 								if (remaining.decrementAndGet() == 0) {
-									sender.sendMessage(MessageAPI.colorize("&cGave all players " + args[3]
-											+ " points to " + updated.get() + "/" + users.size() + " players"));
-									plugin.getPlaceholders().onUpdate();
+									runForCommandSender(sender, () -> {
+										sender.sendMessage(MessageAPI.colorize("&cGave all players " + args[3]
+												+ " points to " + updated.get() + "/" + users.size() + " players"));
+										plugin.getPlaceholders().onUpdate();
+									});
 								}
 							}
 						});
@@ -498,15 +513,16 @@ public class CommandLoader {
 						int amount = Integer.parseInt(args[3]);
 						user.addPointsStorageAware(amount, (success, newTotal) -> {
 							if (!success) {
-								sender.sendMessage(MessageAPI.colorize("&cUnable to add " + args[3] + " points to " + args[1]));
+								runForCommandSender(sender, () -> sender.sendMessage(
+										MessageAPI.colorize("&cUnable to add " + args[3] + " points to " + args[1])));
 								return;
 							}
 							if (user.isOnline()) {
 								user.sendMessage(plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerGiven(),
 										"amount", args[3]);
 							}
-							sender.sendMessage(MessageAPI.colorize("&cGave " + args[1] + " " + args[3] + " points" + ", "
-									+ args[1] + " now has " + newTotal + " points"));
+							runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize("&cGave " + args[1]
+									+ " " + args[3] + " points" + ", " + args[1] + " now has " + newTotal + " points")));
 							plugin.getPlaceholders().onUpdate(user, false);
 						});
 
@@ -561,9 +577,11 @@ public class CommandLoader {
 								}
 							} finally {
 								if (remaining.decrementAndGet() == 0) {
-									sender.sendMessage(MessageAPI.colorize("&cRemoved " + args[3] + " points from "
-											+ removed.get() + "/" + userIds.size() + " players"));
-									plugin.getPlaceholders().onUpdate();
+									runForCommandSender(sender, () -> {
+										sender.sendMessage(MessageAPI.colorize("&cRemoved " + args[3] + " points from "
+												+ removed.get() + "/" + userIds.size() + " players"));
+										plugin.getPlaceholders().onUpdate();
+									});
 								}
 							}
 						});
@@ -575,13 +593,14 @@ public class CommandLoader {
 						user.cache();
 						user.removePoints(Integer.parseInt(args[3]), removed -> {
 							if (!removed) {
-								sender.sendMessage(MessageAPI.colorize("&cUnable to remove " + args[3] + " points from "
-										+ args[1]));
+								runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize(
+										"&cUnable to remove " + args[3] + " points from " + args[1])));
 								return;
 							}
 							if (user.isOnline()) user.sendMessage(
 									plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerRemoved(), "amount", args[3]);
-							sender.sendMessage(MessageAPI.colorize("&cRemoved " + args[3] + " points from " + args[1]));
+							runForCommandSender(sender, () -> sender.sendMessage(
+									MessageAPI.colorize("&cRemoved " + args[3] + " points from " + args[1])));
 							plugin.getPlaceholders().onUpdate(user, false);
 						});
 					}
@@ -3778,9 +3797,10 @@ public class CommandLoader {
 															plugin.getConfigFile()
 																	.getFormatCommandsVoteGivePointsTransferFrom(),
 															placeholders));
-											user.sendMessage(PlaceholderUtils.replacePlaceHolder(
-													plugin.getConfigFile().getFormatCommandsVoteGivePointsTransferTo(),
-													placeholders));
+												runForVotingUser(user,
+														() -> user.sendMessage(PlaceholderUtils.replacePlaceHolder(plugin
+																.getConfigFile().getFormatCommandsVoteGivePointsTransferTo(),
+																placeholders)));
 											} else {
 												sendMessage(sender, plugin.getConfigFile()
 														.getFormatCommandsVoteGivePointsNotEnoughPoints());

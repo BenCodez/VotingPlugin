@@ -41,6 +41,7 @@ import com.bencodez.votingplugin.events.SpecialRewardType;
 import com.bencodez.votingplugin.proxy.VoteTotalsSnapshot;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
+import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
 import com.bencodez.votingplugin.votesites.NextSite;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
@@ -333,11 +334,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		try {
 			plugin.getTimer().execute(() -> {
 				boolean updated = sharedPoints.setCommitted(this, value);
-				plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(updated), player);
+				BukkitCompletionScheduler.run(plugin, player, () -> completion.accept(updated));
 			});
 		} catch (RuntimeException rejected) {
 			plugin.debug(rejected);
-			plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(false), player);
+			BukkitCompletionScheduler.run(plugin, player, () -> completion.accept(false));
 		}
 	}
 
@@ -408,18 +409,20 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	private static void scheduleBulkCompletions(VotingPluginMain plugin, List<VotingPluginUser> users, int start,
 			int end, boolean[] results, BiConsumer<VotingPluginUser, Boolean> completion) {
-		try {
-			plugin.getBukkitScheduler().runTask(plugin, () -> {
-				for (int index = start; index < end; index++) {
+		for (int index = start; index < end; index++) {
+			VotingPluginUser user = users.get(index);
+			boolean success = results != null && results[index - start];
+			try {
+				BukkitCompletionScheduler.run(plugin, user.getPlayer(), () -> {
 					try {
-						completion.accept(users.get(index), results != null && results[index - start]);
+						completion.accept(user, success);
 					} catch (RuntimeException failure) {
 						plugin.debug(failure);
 					}
-				}
-			});
-		} catch (RuntimeException schedulingFailure) {
-			plugin.debug(schedulingFailure);
+				});
+			} catch (RuntimeException schedulingFailure) {
+				plugin.debug(schedulingFailure);
+			}
 		}
 	}
 
@@ -442,12 +445,12 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		try {
 			plugin.getTimer().execute(() -> {
 				SharedMysqlPointMutator.AddResult result = sharedPoints.addCommitted(this, event.getPoints());
-				plugin.getBukkitScheduler().runTask(plugin,
-						() -> completion.accept(result.success(), result.total()), player);
+				BukkitCompletionScheduler.run(plugin, player,
+						() -> completion.accept(result.success(), result.total()));
 			});
 		} catch (RuntimeException rejected) {
 			plugin.debug(rejected);
-			plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(false, 0), player);
+			BukkitCompletionScheduler.run(plugin, player, () -> completion.accept(false, 0));
 		}
 	}
 
@@ -1579,11 +1582,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		try {
 			plugin.getTimer().execute(() -> {
 				boolean removed = sharedPoints.remove(this, points);
-				plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(removed), player);
+				BukkitCompletionScheduler.run(plugin, player, () -> completion.accept(removed));
 			});
 		} catch (RuntimeException rejected) {
 			plugin.debug(rejected);
-			plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(false), player);
+			BukkitCompletionScheduler.run(plugin, player, () -> completion.accept(false));
 		}
 	}
 

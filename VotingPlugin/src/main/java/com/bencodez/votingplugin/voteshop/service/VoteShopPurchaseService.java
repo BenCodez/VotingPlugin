@@ -32,6 +32,7 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.VoteShopPurchaseEvent;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.user.SharedMysqlCacheReconciler;
+import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
 import com.bencodez.votingplugin.voteshop.shop.VoteShopDefinition;
 import com.bencodez.votingplugin.voteshop.shop.VoteShopItem;
 
@@ -179,7 +180,7 @@ public class VoteShopPurchaseService {
 							limitGeneration(item, System.currentTimeMillis()));
 				}
 				if (debit.result() != VoteShopPurchaseResult.SUCCESS) {
-					plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(debit.result()), player);
+					BukkitCompletionScheduler.run(plugin, player, () -> completion.accept(debit.result()));
 					return;
 				}
 				completeSharedMysqlPurchase(player, user, item, placeholders, shopData, completion, debit);
@@ -213,7 +214,7 @@ public class VoteShopPurchaseService {
 		AtomicInteger state = new AtomicInteger(COMPLETION_PENDING);
 		Runnable compensateBeforeClaim = () -> {
 			if (!state.compareAndSet(COMPLETION_PENDING, COMPLETION_COMPENSATING)) return;
-			compensateSharedMysqlPurchase(player, user, completion, debit);
+			scheduleSharedMysqlCompensation(player, user, completion, debit);
 		};
 		try {
 			/*
@@ -260,7 +261,7 @@ public class VoteShopPurchaseService {
 		AtomicInteger state = new AtomicInteger(COMPLETION_PENDING);
 		Runnable rejectBeforeStart = () -> {
 			if (state.compareAndSet(COMPLETION_PENDING, COMPLETION_COMPENSATING)) {
-				compensateSharedMysqlPurchase(player, user, completion, debit);
+				scheduleSharedMysqlCompensation(player, user, completion, debit);
 			}
 		};
 		try {
@@ -269,10 +270,33 @@ public class VoteShopPurchaseService {
 				if (!state.compareAndSet(COMPLETION_PENDING, COMPLETION_RUNNING)) return;
 				try {
 					completePurchase(player, user, item, placeholders, shopData);
-					plugin.getTimer().execute(() -> settleSharedMysqlPurchase(player, completion, debit));
 				} catch (RuntimeException | Error rewardFailure) {
+					state.set(COMPLETION_FINISHED);
 					logClaimedRewardSchedulingFailure(debit);
+					// This callback is already running on the player's entity lane. The
+					// claimed journal row must remain for reconciliation because the reward
+					// may have partially executed, but callers must not wait forever.
+					completeClaimedRewardFailure(completion);
 					throw rewardFailure;
+				}
+				try {
+					plugin.getTimer().execute(() -> settleSharedMysqlPurchase(player, completion, debit));
+				} catch (RuntimeException schedulingFailure) {
+					plugin.debug(schedulingFailure);
+					// The reward has already run, so settlement must retain the same
+					// idempotent journal operation even when the persistence executor is
+					// saturated or stopping. Bukkit's async scheduler keeps JDBC off the
+					// entity lane and is independent from that executor.
+					try {
+						plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
+								() -> settleSharedMysqlPurchase(player, completion, debit));
+					} catch (RuntimeException asyncSchedulingFailure) {
+						// A shutdown can reject both schedulers. The reward cannot be run
+						// again, so retain HOOK_STARTED for explicit reconciliation while
+						// still completing the already-successful purchase exactly once.
+						plugin.debug(asyncSchedulingFailure);
+						completeSuccessfulPurchase(player, completion);
+					}
 				} finally {
 					state.set(COMPLETION_FINISHED);
 				}
@@ -313,24 +337,29 @@ public class VoteShopPurchaseService {
 			completeFailedPurchase(player, completion);
 			return;
 		}
-		Runnable compensation = () -> {
-			refundCompensatingMysqlDebit(user, debit);
-			plugin.getBukkitScheduler().runTask(plugin,
-					() -> completion.accept(VoteShopPurchaseResult.FAILED), player);
-		};
+		// This method only runs on a persistence worker or Bukkit's independent
+		// async fallback, so completing the fenced refund here cannot block an
+		// entity lane and needs no second executor admission.
+		refundCompensatingMysqlDebit(user, debit);
+		BukkitCompletionScheduler.run(plugin, player,
+				() -> completion.accept(VoteShopPurchaseResult.FAILED));
+	}
+
+	private void scheduleSharedMysqlCompensation(Player player, VotingPluginUser user,
+			Consumer<VoteShopPurchaseResult> completion, SharedPurchaseDebit debit) {
+		Runnable compensation = () -> compensateSharedMysqlPurchase(player, user, completion, debit);
 		try {
 			plugin.getTimer().execute(compensation);
-		} catch (RuntimeException schedulingFailure) {
-			plugin.debug(schedulingFailure);
-			// The row is already COMPENSATING even though the guarded reward callback
-			// was rejected. Do not leave that recoverable debit pending just because
-			// the persistence executor is concurrently shutting down. Bukkit's
-			// independent async scheduler also keeps JDBC off the entity lane.
+		} catch (RuntimeException persistenceRejected) {
+			plugin.debug(persistenceRejected);
 			try {
 				plugin.getBukkitScheduler().runTaskAsynchronously(plugin, compensation);
-			} catch (RuntimeException asyncSchedulingFailure) {
-				// Recovery owns the already-durable COMPENSATING row after shutdown.
-				plugin.debug(asyncSchedulingFailure);
+			} catch (RuntimeException asyncRejected) {
+				plugin.debug(asyncRejected);
+				// Both lifecycle executors are unavailable. Preserve local durable
+				// proof that the reward callback never started so startup recovery can
+				// safely move the otherwise ambiguous HOOK_STARTED row to compensation.
+				rememberPendingCompensationMarker(plugin, debit.purchaseId());
 				completeFailedPurchase(player, completion);
 			}
 		}
@@ -338,8 +367,16 @@ public class VoteShopPurchaseService {
 
 	private void completeFailedPurchase(Player player, Consumer<VoteShopPurchaseResult> completion) {
 		try {
-			plugin.getBukkitScheduler().runTask(plugin,
-					() -> completion.accept(VoteShopPurchaseResult.FAILED), player);
+			BukkitCompletionScheduler.run(plugin, player,
+					() -> completion.accept(VoteShopPurchaseResult.FAILED));
+		} catch (RuntimeException completionFailure) {
+			plugin.debug(completionFailure);
+		}
+	}
+
+	private void completeClaimedRewardFailure(Consumer<VoteShopPurchaseResult> completion) {
+		try {
+			completion.accept(VoteShopPurchaseResult.RECONCILIATION_REQUIRED);
 		} catch (RuntimeException completionFailure) {
 			plugin.debug(completionFailure);
 		}
@@ -360,7 +397,16 @@ public class VoteShopPurchaseService {
 	private void settleSharedMysqlPurchase(Player player, Consumer<VoteShopPurchaseResult> completion,
 			SharedPurchaseDebit debit) {
 		completeSharedMysqlPurchase(debit);
-		plugin.getBukkitScheduler().runTask(plugin, () -> completion.accept(VoteShopPurchaseResult.SUCCESS), player);
+		completeSuccessfulPurchase(player, completion);
+	}
+
+	private void completeSuccessfulPurchase(Player player, Consumer<VoteShopPurchaseResult> completion) {
+		try {
+			BukkitCompletionScheduler.run(plugin, player,
+					() -> completion.accept(VoteShopPurchaseResult.SUCCESS));
+		} catch (RuntimeException completionFailure) {
+			plugin.debug(completionFailure);
+		}
 	}
 
 	private HashMap<String, String> purchasePlaceholders(VoteShopItem item) {
@@ -771,6 +817,11 @@ public class VoteShopPurchaseService {
 		if (result == VoteShopPurchaseResult.FAILED) {
 			player.sendMessage(com.bencodez.simpleapi.messages.MessageAPI.colorize(
 					"&cUnable to complete this purchase; please try again."));
+			return;
+		}
+		if (result == VoteShopPurchaseResult.RECONCILIATION_REQUIRED) {
+			player.sendMessage(com.bencodez.simpleapi.messages.MessageAPI.colorize(
+					"&cThis purchase requires administrator review; do not retry it."));
 			return;
 		}
 		if (result == VoteShopPurchaseResult.LIMIT_REACHED) {

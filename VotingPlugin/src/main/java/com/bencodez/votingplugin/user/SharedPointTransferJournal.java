@@ -670,7 +670,9 @@ final class SharedPointTransferJournal {
 	}
 
 	private Connection connection() throws SQLException {
-		return table.getMysql().getConnectionManager().getConnection();
+		Connection connection = table.getMysql().getConnectionManager().getConnection();
+		if (connection == null) throw new SQLException("Unable to acquire shared MySQL connection");
+		return connection;
 	}
 
 	private String qiJournal() {
