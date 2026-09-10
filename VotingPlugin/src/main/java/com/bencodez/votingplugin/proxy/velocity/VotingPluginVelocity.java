@@ -466,6 +466,19 @@ public class VotingPluginVelocity {
 				// =========================
 				// FULL RELOAD (WITH MYSQL)
 				// =========================
+				// Preserve the current live HTTP listener while it owns retained durable
+				// deliveries. A fresh runtime would read the newly loaded endpoint, which
+				// may have been removed or changed before that FIFO is acknowledged.
+				if (votingPluginProxy != null
+						&& votingPluginProxy.requiresHttpRetentionCheckBeforeRuntimeReplacement()) {
+					votingPluginProxy.reload();
+					if (votingPluginProxy.isRetainingHttpTransportForDeferredReconciliation()) {
+						scheduleTasks();
+						reloading = false;
+						drainQueuedPluginMessagesAfterReloadLock();
+						return;
+					}
+				}
 
 				// Best-effort save caches before shutdown
 				try {
@@ -569,6 +582,18 @@ public class VotingPluginVelocity {
 			}
 		} catch (Exception ignored) {
 		}
+	}
+
+	/** The retention branch returns from inside reloadLock; drain only after that lock is released. */
+	private void drainQueuedPluginMessagesAfterReloadLock() {
+		Thread drain = new Thread(() -> {
+			synchronized (reloadLock) {
+				// Acquire/release establishes that the returning reload has left its lock.
+			}
+			drainQueuedPluginMessages();
+		}, "VotingPlugin-Velocity-Reload-Queue-Drain");
+		drain.setDaemon(true);
+		drain.start();
 	}
 
 	/** Runs a scheduled deferred replacement only if it is still current while holding reloadLock. */

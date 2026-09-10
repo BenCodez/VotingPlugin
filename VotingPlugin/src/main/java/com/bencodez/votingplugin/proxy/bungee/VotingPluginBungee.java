@@ -381,6 +381,20 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			// =========================
 			// FULL RELOAD (WITH MYSQL)
 			// =========================
+			// Keep the old listener and its original runtime alive when a changed
+			// config selects a non-HTTP transport while its durable HTTP queue is not
+			// empty. Recreating first would make the new (possibly blank/changed)
+			// HTTP endpoint own that queue and can prevent it from draining.
+			if (votingPluginProxy != null
+					&& votingPluginProxy.requiresHttpRetentionCheckBeforeRuntimeReplacement()) {
+				votingPluginProxy.reload();
+				if (votingPluginProxy.isRetainingHttpTransportForDeferredReconciliation()) {
+					schedulePlatformTasks();
+					reloading = false;
+					drainQueuedPluginMessagesAfterReloadLock();
+					return;
+				}
+			}
 
 			// Save caches best-effort before teardown
 			try {
@@ -488,6 +502,18 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			getVotingPluginProxy().sendServerNameMessage();
 		} catch (Exception ignored) {
 		}
+	}
+
+	/** The retention branch returns from inside reloadLock; drain only after that lock is released. */
+	private void drainQueuedPluginMessagesAfterReloadLock() {
+		Thread drain = new Thread(() -> {
+			synchronized (reloadLock) {
+				// Acquire/release establishes that the returning reload has left its lock.
+			}
+			drainQueuedPluginMessages();
+		}, "VotingPlugin-Bungee-Reload-Queue-Drain");
+		drain.setDaemon(true);
+		drain.start();
 	}
 
 	/** Runs a scheduled deferred replacement only if it is still current while holding reloadLock. */

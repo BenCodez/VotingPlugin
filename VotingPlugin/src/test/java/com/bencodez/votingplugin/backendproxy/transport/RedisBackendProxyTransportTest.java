@@ -378,6 +378,21 @@ class RedisBackendProxyTransportTest {
 	}
 
 	@Test
+	void rollbackDoesNotRestartAListenerThatMissedItsHandoffShutdownDeadline() throws Exception {
+		RedisBackendProxyTransport transport = new RedisBackendProxyTransport(null, mock(ProcessedVoteCache.class));
+		Thread retiredListener = mock(Thread.class);
+		when(retiredListener.isAlive()).thenReturn(true);
+		setField(transport, "listenerThread", retiredListener);
+		setField(transport, "handoffMessageHandler", mock(GlobalMessageHandler.class));
+		setField(transport, "retiredAfterHandoff", true);
+
+		assertThrows(IllegalStateException.class, () -> transport.restoreAfterFailedHandoff(java.util.List.of()));
+		verify(retiredListener).isAlive();
+		assertTrue(getBoolean(transport, "retiredAfterHandoff"),
+				"a listener that missed shutdown must remain fenced after rollback is rejected");
+	}
+
+	@Test
 	void legacyPromotionWaitsForReservedDeliveryBeforeReplayingStandbyCopy() throws Exception {
 		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
 		when(cache.reserveLegacyRedisDelivery(org.mockito.ArgumentMatchers.any(),
@@ -812,6 +827,12 @@ class RedisBackendProxyTransportTest {
 		Field field = target.getClass().getDeclaredField(name);
 		field.setAccessible(true);
 		field.setBoolean(target, value);
+	}
+
+	private static boolean getBoolean(Object target, String name) throws Exception {
+		Field field = target.getClass().getDeclaredField(name);
+		field.setAccessible(true);
+		return field.getBoolean(target);
 	}
 
 	private static void setField(Object target, String name, Object value) throws Exception {

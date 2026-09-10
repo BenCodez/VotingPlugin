@@ -602,6 +602,9 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 	public void restoreAfterFailedHandoff(java.util.List<JsonEnvelope> replacementReplay) {
 		GlobalMessageHandler handler = handoffMessageHandler;
 		if (handler == null) throw new IllegalStateException("Redis handoff transport cannot be restored");
+		Thread retiredListener = listenerThread;
+		if (retiredListener != null && retiredListener.isAlive())
+			throw new IllegalStateException("Redis handoff listener did not stop before rollback restart");
 		synchronized (legacyLifecycle) {
 			if (replacementReplay.size() > MAX_REPLAY_HANDOFF_DELIVERIES)
 				throw new IllegalStateException("Redis rollback replay exceeds its bounded handoff capacity");

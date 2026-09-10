@@ -115,6 +115,11 @@ public final class BackendControlConnector implements AutoCloseable {
 	}
 
 	private void reloadConfiguration(String fileName) throws Exception {
+		reloadConfiguration(fileName, false);
+	}
+
+	/** Reuses the split restart lifecycle while retaining proxy-method's narrow reload scope. */
+	private void reloadConfiguration(String fileName, boolean proxyMethodOnly) throws Exception {
 		finishPendingBackendProxyRollback();
 		long validationDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(29);
 		AtomicBoolean preparationAbandoned = new AtomicBoolean();
@@ -128,11 +133,12 @@ public final class BackendControlConnector implements AutoCloseable {
 			preparation = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
 				try {
 					if (!preparationState.compareAndSet(0, 1)) return null;
-					plugin.reloadFromControl();
+					if (!proxyMethodOnly) plugin.reloadFromControl();
 					VotingPluginMain.BackendProxyRestart prepared;
 					try {
-						prepared = "BungeeSettings.yml".equals(fileName)
-								? plugin.prepareBackendProxyHandlerRestart() : null;
+						if (!"BungeeSettings.yml".equals(fileName)) prepared = null;
+						else if (proxyMethodOnly) prepared = plugin.prepareBackendProxyMethodRestartFromControl();
+						else prepared = plugin.prepareBackendProxyHandlerRestart();
 					} catch (VotingPluginMain.BackendProxyRestartPreparationException failure) {
 						preparedRestart.set(failure.restart());
 						throw failure;
@@ -228,7 +234,10 @@ public final class BackendControlConnector implements AutoCloseable {
 	}
 
 	private void reloadProxyMethod(String ignored) throws Exception {
-		reloadOnServerThread(plugin::reloadBackendProxyMethodFromControl);
+		// Proxy-method APPLY can select HTTP or Redis. Reuse the BungeeSettings
+		// split lifecycle so Bukkit only prepares/publishes while validation and
+		// bounded transport handoff waits remain on this connector worker.
+		reloadConfiguration("BungeeSettings.yml", true);
 	}
 
 	private void reloadOnServerThread(Runnable action) throws Exception {

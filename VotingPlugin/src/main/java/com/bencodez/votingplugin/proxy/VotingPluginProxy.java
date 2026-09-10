@@ -133,6 +133,9 @@ public abstract class VotingPluginProxy {
 	private SocketHandler socketHandler;
 	private HttpProxyTransportServer httpTransportServer;
 	private HttpEnrollmentAuthority httpEnrollmentAuthority;
+	private String liveHttpHost;
+	private String liveHttpPublicEndpoint;
+	private int liveHttpPort;
 
 	@Getter
 	@Setter
@@ -2893,7 +2896,7 @@ public abstract class VotingPluginProxy {
 	}
 
 	private synchronized BungeeMethod retainHttpForPendingDeliveries(BungeeMethod configuredMethod) {
-		if (configuredMethod == BungeeMethod.HTTP) {
+		if (configuredMethod == BungeeMethod.HTTP && !hasChangedLiveHttpConfiguration()) {
 			deferredHttpTransportReconciliation = false;
 			return configuredMethod;
 		}
@@ -2937,6 +2940,12 @@ public abstract class VotingPluginProxy {
 		}
 		deferredHttpTransportReconciliation = false;
 		return configuredMethod;
+	}
+
+	private boolean hasChangedLiveHttpConfiguration() {
+		return httpTransportServer != null && (!java.util.Objects.equals(liveHttpHost, getConfig().getHttpHost())
+				|| liveHttpPort != getConfig().getHttpPort()
+				|| !java.util.Objects.equals(liveHttpPublicEndpoint, getConfig().getHttpPublicEndpoint()));
 	}
 
 	/** Uses SimpleAPI #80 when deployed while remaining safe with an older published snapshot. */
@@ -3163,6 +3172,9 @@ public abstract class VotingPluginProxy {
 					httpEnrollmentAuthority, directory.toPath().resolve("outgoing-v1"), this::handleHttpTransportEnvelope,
 				this::acknowledgeHttpDelivery);
 			httpTransportServer.start();
+			liveHttpHost = getConfig().getHttpHost();
+			liveHttpPort = getConfig().getHttpPort();
+			liveHttpPublicEndpoint = getConfig().getHttpPublicEndpoint();
 			logInfo("HTTP transport listening securely on " + getConfig().getHttpHost() + ":"
 					+ httpTransportServer.port() + "; use /votingpluginproxy httpcode <server> for each backend");
 		} catch (Exception failure) {
@@ -3200,6 +3212,9 @@ public abstract class VotingPluginProxy {
 		HttpProxyTransportServer transport = httpTransportServer;
 		httpTransportServer = null;
 		httpEnrollmentAuthority = null;
+		liveHttpHost = null;
+		liveHttpPort = 0;
+		liveHttpPublicEndpoint = null;
 		if (transport != null) transport.close();
 	}
 
@@ -3304,7 +3319,9 @@ public abstract class VotingPluginProxy {
 		if (method != BungeeMethod.HTTP || authority == null) {
 			throw new IllegalStateException("The HTTP transport is not running");
 		}
-		return authority.createConnectionCode(serverId, URI.create(getConfig().getHttpPublicEndpoint()), Duration.ofMinutes(15))
+		String publicEndpoint = liveHttpPublicEndpoint != null
+				? liveHttpPublicEndpoint : getConfig().getHttpPublicEndpoint();
+		return authority.createConnectionCode(serverId, URI.create(publicEndpoint), Duration.ofMinutes(15))
 				.encode();
 	}
 
@@ -3369,6 +3386,19 @@ public abstract class VotingPluginProxy {
 	protected synchronized boolean isDeferredHttpTransportGenerationCurrent(long generation) {
 		return enabled && generation == httpTransportReconciliationGeneration
 				&& httpTransportReconciliationRunning && method == BungeeMethod.HTTP;
+	}
+
+	/** True when a changed configured transport must not retire this runtime's live HTTP queue yet. */
+	public synchronized boolean isRetainingHttpTransportForDeferredReconciliation() {
+		return deferredHttpTransportReconciliation && method == BungeeMethod.HTTP;
+	}
+
+	/** An active HTTP runtime changing method or endpoint needs a pre-teardown retention probe. */
+	public synchronized boolean requiresHttpRetentionCheckBeforeRuntimeReplacement() {
+		BungeeMethod configuredMethod = BungeeMethod.getByName(getConfig().getBungeeMethod());
+		if (configuredMethod == null) configuredMethod = BungeeMethod.PLUGINMESSAGING;
+		return method == BungeeMethod.HTTP
+				&& (configuredMethod != BungeeMethod.HTTP || hasChangedLiveHttpConfiguration());
 	}
 
 	/** Strict Control reload path; failures propagate so the caller can restore its backup. */

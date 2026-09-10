@@ -533,6 +533,37 @@ public class VotingPluginProxyTest {
 		votingPluginProxy.reloadFromControl();
 
 		assertEquals(BungeeMethod.HTTP, votingPluginProxy.getMethod());
+		assertTrue(votingPluginProxy.isRetainingHttpTransportForDeferredReconciliation(),
+				"a full platform reload must keep this runtime's live HTTP listener until its queue drains");
+		assertTrue(votingPluginProxy.requiresHttpRetentionCheckBeforeRuntimeReplacement());
+	}
+
+	@Test
+	void ordinaryFullReloadsDoNotProbeHttpRetention() {
+		votingPluginProxy.setMethod(BungeeMethod.REDIS);
+		Mockito.when(votingPluginProxy.getConfig().getBungeeMethod()).thenReturn("HTTP");
+		assertFalse(votingPluginProxy.requiresHttpRetentionCheckBeforeRuntimeReplacement());
+
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		Mockito.when(votingPluginProxy.getConfig().getBungeeMethod()).thenReturn("HTTP");
+		assertFalse(votingPluginProxy.requiresHttpRetentionCheckBeforeRuntimeReplacement());
+	}
+
+	@Test
+	void changedHttpEndpointProbesRetentionButAnUnchangedListenerDoesNot() throws Exception {
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		setProxyField(votingPluginProxy, "httpTransportServer", Mockito.mock(HttpProxyTransportServer.class));
+		setProxyField(votingPluginProxy, "liveHttpHost", "127.0.0.1");
+		setProxyField(votingPluginProxy, "liveHttpPort", 8080);
+		setProxyField(votingPluginProxy, "liveHttpPublicEndpoint", "https://old.example:8080");
+		Mockito.when(votingPluginProxy.getConfig().getHttpHost()).thenReturn("127.0.0.1");
+		Mockito.when(votingPluginProxy.getConfig().getHttpPort()).thenReturn(8080);
+		Mockito.when(votingPluginProxy.getConfig().getHttpPublicEndpoint()).thenReturn("https://old.example:8080");
+		Mockito.when(votingPluginProxy.getConfig().getBungeeMethod()).thenReturn("HTTP");
+		assertFalse(votingPluginProxy.requiresHttpRetentionCheckBeforeRuntimeReplacement());
+
+		Mockito.when(votingPluginProxy.getConfig().getHttpPublicEndpoint()).thenReturn("https://new.example:8443");
+		assertTrue(votingPluginProxy.requiresHttpRetentionCheckBeforeRuntimeReplacement());
 	}
 
 	@Test

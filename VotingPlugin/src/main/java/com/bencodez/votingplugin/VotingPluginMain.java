@@ -1414,7 +1414,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 						throw handoffFailure;
 					}
 				}
-				try {
+				if (restart.redisHandoffCompleted) closeStagedRedisReplacementAsync(restart.replacement);
+				else try {
 					restart.replacement.close();
 				} catch (RuntimeException closeFailure) {
 					handoffFailure.addSuppressed(closeFailure);
@@ -1494,7 +1495,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 		if (restart.replacement != null) {
 			restart.replacement.abortStagedInboundTo(restart.previous);
-			restart.replacement.close();
+			if (restart.redisHandoffCompleted) closeStagedRedisReplacementAsync(restart.replacement);
+			else restart.replacement.close();
 		}
 		if (backendProxyHandler == restart.previous && restart.previous != null
 				&& (restart.previousPrepared || restart.redisHandoffCompleted
@@ -1502,6 +1504,20 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			if (!restart.redisHandoffCompleted) restart.previous.restoreAfterFailedReplacement();
 		}
 		restart.finished = true;
+	}
+
+	/** A staged Redis listener can spend its bounded join timeout in close(); abort runs on Bukkit. */
+	private void closeStagedRedisReplacementAsync(BackendProxyHandler replacement) {
+		Thread cleanup = new Thread(() -> {
+			try {
+				replacement.close();
+			} catch (RuntimeException cleanupFailure) {
+				getLogger().warning("Staged Redis backend proxy handler did not stop cleanly after rollback");
+				debug(cleanupFailure);
+			}
+		}, "VotingPlugin-Staged-Redis-Rollback");
+		cleanup.setDaemon(true);
+		cleanup.start();
 	}
 
 	public void awaitBackendProxyHandlerRollback(BackendProxyRestart restart, long deadlineNanos) {
@@ -1512,10 +1528,20 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	/** Applies only proxy communication settings without reloading unrelated Bukkit configuration. */
 	public synchronized void reloadBackendProxyMethodFromControl() {
+		reloadBackendProxyMethodSettingsFromControl();
+		restartBackendProxyHandler();
+	}
+
+	/** Bukkit-side narrow preparation for a proxy-method Control APPLY. */
+	public synchronized BackendProxyRestart prepareBackendProxyMethodRestartFromControl() {
+		reloadBackendProxyMethodSettingsFromControl();
+		return prepareBackendProxyHandlerRestart();
+	}
+
+	private void reloadBackendProxyMethodSettingsFromControl() {
 		bungeeSettings.reloadData();
 		getOptions().setServer(bungeeSettings.getServer());
 		updateAdvancedCoreHook();
-		restartBackendProxyHandler();
 	}
 
 	/** Keeps one plugin-message listener for the plugin lifetime and atomically swaps its active backend handler. */
