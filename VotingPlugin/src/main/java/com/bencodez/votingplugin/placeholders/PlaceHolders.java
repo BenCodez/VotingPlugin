@@ -434,6 +434,16 @@ public class PlaceHolders {
 			}
 		}.withDescription("Current amount for a VoteStreak ID or progress group").useStartsWith());
 
+		placeholders.add(new PlaceHolder<VotingPluginUser>("VoteStreakBestAmount_") {
+
+			@Override
+			public String placeholderRequest(VotingPluginUser user, String identifier) {
+				String target = identifier.substring("VoteStreakBestAmount_".length());
+				int amount = plugin.getVoteStreakHandler().getVoteStreakBestAmount(user, target);
+				return amount >= 0 ? Integer.toString(amount) : "invalid";
+			}
+		}.withDescription("Best amount for a VoteStreak ID or progress group").useStartsWith());
+
 		placeholders.add(new PlaceHolder<VotingPluginUser>("BestDailyVoteStreak") {
 
 			@Override
