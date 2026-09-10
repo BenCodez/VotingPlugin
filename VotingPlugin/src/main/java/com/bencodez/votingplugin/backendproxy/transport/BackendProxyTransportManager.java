@@ -512,6 +512,10 @@ public class BackendProxyTransportManager {
 		((RedisBackendProxyTransport) transport).activateAfterHandoff();
 	}
 
+	public void replayRedisAfterHandoffPublication() {
+		if (transport instanceof RedisBackendProxyTransport redis) redis.replayAfterHandoffPublication();
+	}
+
 	/** Fences the old Redis listener before promoting the validated standby. */
 	public void completeRedisHandoff(BackendProxyTransportManager replacement) {
 		java.util.Objects.requireNonNull(replacement, "replacement");

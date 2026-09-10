@@ -127,6 +127,8 @@ class RedisBackendProxyTransportTest {
 
 		verifyNoInteractions(messages);
 		transport.activateAfterHandoff();
+		verifyNoInteractions(messages);
+		transport.replayAfterHandoffPublication();
 		verify(messages).onMessage(envelope);
 		assertFalse(cache.reserveRedisDelivery(deliveryId),
 				"publication must reserve the delivery exactly when its buffered callback is replayed");
@@ -149,6 +151,7 @@ class RedisBackendProxyTransportTest {
 		transport.dispatchLegacy(legacy);
 		transport.dispatchIdentified(identified, deliveryId);
 		transport.activateAfterHandoff();
+		transport.replayAfterHandoffPublication();
 
 		org.mockito.InOrder order = org.mockito.Mockito.inOrder(messages);
 		order.verify(messages).onMessage(legacy);
@@ -335,6 +338,7 @@ class RedisBackendProxyTransportTest {
 		transport.dispatchLegacy(replayed);
 
 		transport.activateAfterHandoff();
+		transport.replayAfterHandoffPublication();
 
 		assertEquals(java.util.List.of(replayed, newer), order);
 	}

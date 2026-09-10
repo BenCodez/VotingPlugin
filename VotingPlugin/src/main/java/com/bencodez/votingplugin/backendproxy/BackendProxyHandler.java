@@ -257,6 +257,11 @@ public class BackendProxyHandler implements Listener {
 		transportManager.completeRedisHandoff(replacement.transportManager);
 	}
 
+	/** Replays Redis handoff deliveries only after inbound publication is open. */
+	public void replayRedisAfterHandoffPublication() {
+		transportManager.replayRedisAfterHandoffPublication();
+	}
+
 	/** Forwards messages buffered while the previous transport was fenced. */
 	public void completeHttpHandoff(BackendProxyHandler replacement) {
 		if (replacement == null) return;

@@ -1387,6 +1387,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				throw handoffFailure;
 			}
 			restart.replacement.activateInboundMessages();
+			restart.replacement.replayRedisAfterHandoffPublication();
 			restart.finished = true;
 			restart.published = true;
 			if (restart.previous != null) {

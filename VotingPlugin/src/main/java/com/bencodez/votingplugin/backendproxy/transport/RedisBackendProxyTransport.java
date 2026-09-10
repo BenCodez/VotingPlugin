@@ -181,7 +181,6 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 
 	/** Promotes a validated standby after the previous listener has completely stopped. */
 	public void activateAfterHandoff() {
-		java.util.ArrayList<JsonEnvelope> replay = new java.util.ArrayList<>();
 		synchronized (legacyLifecycle) {
 			if (identifiedHandoffOverflowed || legacyHandoffOverflowed
 					|| processedVoteCache.isLegacyRedisHandoffOverflowed())
@@ -199,7 +198,7 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 					boolean dispatch = delivery.identified()
 							? processedVoteCache.reserveRedisDelivery(delivery.identity())
 							: !processedVoteCache.consumeLegacyRedisDelivery(delivery.identity());
-					if (dispatch) replay.add(delivery.envelope());
+					if (dispatch) deliveriesAfterReplay.addLast(delivery.envelope());
 				} catch (RuntimeException replayFailure) {
 					if (plugin != null) plugin.debug("Redis handoff replay failed: " + replayFailure.getMessage());
 				}
@@ -213,7 +212,11 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 			legacyHandoffDegraded = false;
 			processedVoteCache.finishRedisHandoff();
 		}
-		dispatchReplayBatch(replay);
+	}
+
+	/** Replays buffered deliveries after the owning handler opens its publication gate. */
+	public void replayAfterHandoffPublication() {
+		java.util.ArrayList<JsonEnvelope> replay;
 		while (true) {
 			synchronized (legacyLifecycle) {
 				if (deliveriesAfterReplay.isEmpty()) {

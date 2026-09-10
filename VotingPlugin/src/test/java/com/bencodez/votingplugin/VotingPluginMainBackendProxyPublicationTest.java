@@ -135,6 +135,7 @@ class VotingPluginMainBackendProxyPublicationTest {
 		org.mockito.InOrder publication = org.mockito.Mockito.inOrder(previous, replacement);
 		publication.verify(previous).completeHttpHandoff(replacement);
 		publication.verify(replacement).activateInboundMessages();
+		publication.verify(replacement).replayRedisAfterHandoffPublication();
 		publication.verify(previous).close();
 	}
 
