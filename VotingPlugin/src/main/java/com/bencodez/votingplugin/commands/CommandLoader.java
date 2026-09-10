@@ -2720,6 +2720,7 @@ public class CommandLoader {
 	}
 
 	private final Set<String> aliasCommandNames = new HashSet<>();
+	private final Set<String> disabledAliasCommandNames = new HashSet<>();
 
 	/**
 	 * Gets the set of alias command names.
@@ -2740,6 +2741,8 @@ public class CommandLoader {
 		// Bukkit registers plugin.yml commands before this loader runs.
 		if (!plugin.getConfigFile().isLoadCommandAliases()) {
 			unregisterOptionalPluginYMLCommands();
+		} else {
+			unregisterDisabledPluginYMLCommands();
 		}
 
 		// If false: still wire permissions, but don't wire alias executors/tab
@@ -2921,6 +2924,21 @@ public class CommandLoader {
 		}
 	}
 
+	/** Removes standalone plugin.yml aliases for handlers disabled in Config.yml. */
+	private void unregisterDisabledPluginYMLCommands() {
+		try {
+			CommandMap commandMap = getCommandMap();
+			for (String commandName : disabledAliasCommandNames) {
+				PluginCommand command = plugin.getCommand(commandName);
+				if (command != null) {
+					unregisterCommand(commandMap, command);
+				}
+			}
+		} catch (Exception e) {
+			plugin.getLogger().warning("Unable to unregister disabled command aliases: " + e.getMessage());
+		}
+	}
+
 	/** Removes the command and all labels that still point to it from Bukkit's map. */
 	private void unregisterCommand(CommandMap commandMap, PluginCommand command) throws ReflectiveOperationException {
 		command.unregister(commandMap);
@@ -2946,18 +2964,24 @@ public class CommandLoader {
 				removedLabels.add(entry.getKey());
 			}
 		}
-		knownCommands.entrySet().removeIf(entry -> entry.getValue() == command);
+		for (String label : removedLabels) {
+			knownCommands.remove(label, command);
+		}
 		for (String label : removedLabels) {
 			if (knownCommands.containsKey(label)) {
 				continue;
 			}
+			org.bukkit.command.Command fallbackCommand = null;
 			for (Map.Entry<String, org.bukkit.command.Command> entry : knownCommands.entrySet()) {
 				String fallback = entry.getKey();
 				int separator = fallback.indexOf(':');
 				if (separator > 0 && fallback.substring(separator + 1).equalsIgnoreCase(label)) {
-					knownCommands.put(label, entry.getValue());
+					fallbackCommand = entry.getValue();
 					break;
 				}
+			}
+			if (fallbackCommand != null) {
+				knownCommands.put(label, fallbackCommand);
 			}
 		}
 	}
@@ -2972,6 +2996,7 @@ public class CommandLoader {
 	 * Load commands.
 	 */
 	public void loadCommands() {
+		disabledAliasCommandNames.clear();
 		loadAdminVoteCommand();
 		loadVoteCommand();
 		plugin.getBukkitScheduler().runTaskAsynchronously(plugin, new Runnable() {
@@ -3860,7 +3885,13 @@ public class CommandLoader {
 			}
 
 			if (remove) {
-				plugin.debug("Disabling: " + ArrayUtils.makeStringList(ArrayUtils.convert(list.get(i).getArgs())));
+				CommandHandler disabled = list.get(i);
+				plugin.debug("Disabling: " + ArrayUtils.makeStringList(ArrayUtils.convert(disabled.getArgs())));
+				if (disabled.getArgs().length > 0) {
+					for (String alias : disabled.getArgs()[0].split("&")) {
+						disabledAliasCommandNames.add(("vote" + alias).toLowerCase(Locale.ROOT));
+					}
+				}
 				list.remove(i);
 			}
 		}
