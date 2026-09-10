@@ -10,6 +10,7 @@ import com.bencodez.simpleapi.servercomm.sockets.SocketHandler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
+import com.bencodez.votingplugin.proxy.VotingPluginWire;
 
 /**
  * Selects and owns the active backend-to-proxy transport.
@@ -36,6 +37,7 @@ public class BackendProxyTransportManager {
 	private long handoffGeneration;
 	private boolean preparedSendFence;
 	private boolean rejectPreparedSends;
+	private boolean allowStoppedPresenceDuringDisable;
 	private boolean preparedQueueWarning;
 	private boolean rejectedSendWarning;
 	private boolean asyncHandoffRetryWarning;
@@ -82,6 +84,14 @@ public class BackendProxyTransportManager {
 
 	public synchronized void send(JsonEnvelope envelope) {
 		if (rejectPreparedSends) {
+			if (allowStoppedPresenceDuringDisable && envelope != null
+					&& VotingPluginWire.SUB_BACKEND_STOPPED.equals(envelope.getSubChannel())) {
+				allowStoppedPresenceDuringDisable = false;
+				BackendProxyTransport stoppingTransport = transport != null ? transport : preparedTransport;
+				if (stoppingTransport == null || !stoppingTransport.send(envelope))
+					throw new IllegalStateException("Backend stopped presence was not accepted before disabling transport");
+				return;
+			}
 			if (!rejectedSendWarning) {
 				rejectedSendWarning = true;
 				plugin.getLogger().severe("Backend proxy transport is disabled; delivery was not accepted");
@@ -254,6 +264,19 @@ public class BackendProxyTransportManager {
 		if (!preparedSends.isEmpty()) return false;
 		rejectPreparedSends = true;
 		return true;
+	}
+
+	/** Fences ordinary sends while allowing one final stopped-presence envelope. */
+	public synchronized void beginPreparedDisable() {
+		rejectPreparedSends = true;
+		allowStoppedPresenceDuringDisable = true;
+	}
+
+	/** Reopens delivery when a prepared disable is rolled back. */
+	public synchronized void cancelPreparedDisable() {
+		rejectPreparedSends = false;
+		allowStoppedPresenceDuringDisable = false;
+		rejectedSendWarning = false;
 	}
 
 	public synchronized boolean hasPendingAsyncHandoff() {

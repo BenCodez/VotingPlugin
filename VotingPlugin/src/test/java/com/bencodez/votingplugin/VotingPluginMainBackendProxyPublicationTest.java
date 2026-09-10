@@ -347,9 +347,12 @@ class VotingPluginMainBackendProxyPublicationTest {
 		plugin.validateBackendProxyHandlerRestart(restart, System.nanoTime() + 1_000_000_000L);
 		plugin.completeBackendProxyHandlerRestart(restart);
 
-		verify(previous).prepareForReplacement(org.mockito.ArgumentMatchers.isNull(),
+		org.mockito.InOrder disable = org.mockito.Mockito.inOrder(previous);
+		disable.verify(previous).preparePresenceForDisable();
+		disable.verify(previous).prepareForReplacement(org.mockito.ArgumentMatchers.isNull(),
 				org.mockito.ArgumentMatchers.anyLong());
-		verify(previous).close();
+		disable.verify(previous).commitPreparedDisable();
+		disable.verify(previous).close();
 		assertNull(plugin.getBackendProxyHandler());
 	}
 
@@ -369,9 +372,33 @@ class VotingPluginMainBackendProxyPublicationTest {
 
 		plugin.validateBackendProxyHandlerRestart(restart, System.nanoTime() + 1_000_000_000L);
 		assertThrows(IllegalStateException.class, () -> plugin.completeBackendProxyHandlerRestart(restart));
+		plugin.abortBackendProxyHandlerRestart(restart);
 
 		assertSame(previous, plugin.getBackendProxyHandler());
 		verify(previous, never()).close();
+		verify(previous).restoreAfterFailedReplacement();
+		verify(previous).restorePresenceAfterFailedDisablePreparation();
+	}
+
+	@Test
+	void disablingUnpreparedTransportStopsPresenceBeforeRejectingFurtherSends() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+		BungeeSettings settings = mock(BungeeSettings.class);
+		when(settings.isUseBungeecoord()).thenReturn(false);
+		setField(plugin, "bungeeSettings", settings);
+		BackendProxyHandler previous = mock(BackendProxyHandler.class);
+		when(previous.commitPreparedDisable()).thenReturn(true);
+		setBackendProxyHandler(plugin, previous);
+		VotingPluginMain.BackendProxyRestart restart = plugin.prepareBackendProxyHandlerRestart();
+
+		plugin.validateBackendProxyHandlerRestart(restart, System.nanoTime() + 1_000_000_000L);
+		plugin.completeBackendProxyHandlerRestart(restart);
+
+		org.mockito.InOrder disable = org.mockito.Mockito.inOrder(previous);
+		disable.verify(previous).preparePresenceForDisable();
+		disable.verify(previous).commitPreparedDisable();
+		disable.verify(previous).close();
+		assertNull(plugin.getBackendProxyHandler());
 	}
 
 	private VotingPluginMain.BackendProxyRestart restart(BackendProxyHandler previous,

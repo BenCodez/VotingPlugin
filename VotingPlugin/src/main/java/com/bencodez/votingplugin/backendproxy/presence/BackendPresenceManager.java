@@ -92,6 +92,15 @@ public class BackendPresenceManager {
 	}
 
 	public void stop() {
+		stop(false);
+	}
+
+	/** Stops presence and propagates rejection when a configuration disable must be transactional. */
+	public void stopForDisable() {
+		stop(true);
+	}
+
+	private void stop(boolean requireStoppedDelivery) {
 		synchronized (lifecycleLock) {
 			String activeServer = server;
 			UUID activeIncarnationId = incarnationId;
@@ -104,8 +113,10 @@ public class BackendPresenceManager {
 				heartbeatTask = null;
 			}
 			if (wasReporting && activeServer != null && activeIncarnationId != null) {
-				send(VotingPluginWire.backendStopped(activeServer, activeIncarnationId, activeStartedAt,
-						nextTimestamp()));
+				JsonEnvelope stopped = VotingPluginWire.backendStopped(activeServer, activeIncarnationId,
+						activeStartedAt, nextTimestamp());
+				if (requireStoppedDelivery) globalMessageHandler.sendMessage(stopped);
+				else send(stopped);
 			}
 			incarnationId = null;
 			lastResyncRequestId = null;

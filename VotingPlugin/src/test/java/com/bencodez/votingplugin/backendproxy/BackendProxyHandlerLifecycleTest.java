@@ -27,6 +27,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 import org.junit.jupiter.api.Test;
 
@@ -237,6 +238,37 @@ class BackendProxyHandlerLifecycleTest {
 		assertThrows(java.util.concurrent.RejectedExecutionException.class, presence::start);
 
 		verifyNoInteractions(messages);
+	}
+
+	@Test
+	void preparedDisablePropagatesRejectedStoppedPresence() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
+		BackendPresenceManager presence = new BackendPresenceManager(plugin, BungeeMethod.HTTP, messages);
+		setField(presence, "reporting", true);
+		setField(presence, "server", "backend-1");
+		setField(presence, "incarnationId", java.util.UUID.randomUUID());
+		setField(presence, "startedAt", 1L);
+		doThrow(new IllegalStateException("outbound queue full")).when(messages).sendMessage(any());
+
+		assertThrows(IllegalStateException.class, presence::stopForDisable);
+		assertFalse(presence.isReporting());
+	}
+
+	@Test
+	void failedPreparedDisableCanRestartPresenceDuringRollback() throws Exception {
+		BackendProxyHandler handler = new BackendProxyHandler(null);
+		BackendPresenceManager presence = mock(BackendPresenceManager.class);
+		setField(handler, "presenceManager", presence);
+		setField(handler, "presenceReportingActivated", true);
+		doThrow(new IllegalStateException("outbound queue full")).when(presence).stopForDisable();
+
+		assertThrows(IllegalStateException.class, handler::preparePresenceForDisable);
+		handler.restorePresenceAfterFailedDisablePreparation();
+
+		org.mockito.InOrder rollback = inOrder(presence);
+		rollback.verify(presence).stopForDisable();
+		rollback.verify(presence).start();
 	}
 
 	@Test
@@ -559,6 +591,45 @@ class BackendProxyHandlerLifecycleTest {
 
 		assertFalse(manager.commitPreparedDisable());
 		verify(transport, never()).close();
+	}
+
+	@Test
+	void preparedDisableRejectsOrdinarySendsButDeliversOnlyOneFinalStoppedPresence() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		when(plugin.getLogger()).thenReturn(Logger.getLogger(getClass().getName()));
+		BackendProxyTransportManager manager = new BackendProxyTransportManager(plugin);
+		BackendProxyTransport transport = mock(BackendProxyTransport.class);
+		setField(manager, "transport", transport);
+		JsonEnvelope ordinary = JsonEnvelope.builder("ordinary").build();
+		JsonEnvelope stopped = com.bencodez.votingplugin.proxy.VotingPluginWire.backendStopped("backend-1");
+		when(transport.send(stopped)).thenReturn(true);
+
+		manager.beginPreparedDisable();
+		manager.send(ordinary);
+		manager.send(stopped);
+		manager.send(stopped);
+
+		verify(transport, never()).send(ordinary);
+		verify(transport, times(1)).send(stopped);
+	}
+
+	@Test
+	void preparedHttpDisableDeliversTheFinalStoppedPresenceBeforeClosingForReplacement() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BackendProxyTransportManager manager = new BackendProxyTransportManager(plugin);
+		HttpBackendProxyTransport transport = mock(HttpBackendProxyTransport.class);
+		setField(manager, "transport", transport);
+		JsonEnvelope stopped = com.bencodez.votingplugin.proxy.VotingPluginWire.backendStopped("backend-1");
+		when(transport.send(stopped)).thenReturn(true);
+
+		manager.beginPreparedDisable();
+		manager.send(stopped);
+		manager.prepareForReplacement();
+		assertTrue(manager.commitPreparedDisable());
+
+		org.mockito.InOrder disable = inOrder(transport);
+		disable.verify(transport).send(stopped);
+		disable.verify(transport).prepareForReplacement();
 	}
 
 	@Test

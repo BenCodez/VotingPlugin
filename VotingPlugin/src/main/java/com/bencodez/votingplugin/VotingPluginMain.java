@@ -1247,6 +1247,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		private final boolean disabled;
 		private final boolean previousRequiresPreparation;
 		private volatile boolean previousPrepared;
+		private boolean presenceStoppedForDisablePreparation;
 		// Redis listener retirement can wait for callbacks and listener shutdown. It is
 		// completed by the Control worker during validation, before the final Bukkit
 		// publication callback, and must be restored if that publication is abandoned.
@@ -1307,6 +1308,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			// worker join fails. Mark the restart first so abort/await still owns the
 			// restoration path after a partially completed preparation.
 			restart.previousPrepared = true;
+			if (restart.disabled) {
+				restart.presenceStoppedForDisablePreparation = true;
+				restart.previous.preparePresenceForDisable();
+			}
 			BungeeMethod replacementMethod = restart.replacement == null ? null : restart.replacement.getMethod();
 			if (restart.replacement != null) restart.replacement.beginPreparedHttpHandoff();
 			if (!restart.previous.prepareForReplacement(replacementMethod, validationDeadlineNanos))
@@ -1365,6 +1370,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 			if (backendProxyHandler != restart.previous) throw new IllegalStateException("Backend proxy handler changed during restart");
 			if (restart.disabled) {
+				if (restart.previous != null && !restart.presenceStoppedForDisablePreparation) {
+					restart.presenceStoppedForDisablePreparation = true;
+					restart.previous.preparePresenceForDisable();
+				}
 				if (restart.previous != null && !restart.previous.commitPreparedDisable())
 					throw new IllegalStateException("Backend proxy transport accepted a delivery while disabling");
 				backendProxyHandler = null;
@@ -1507,6 +1516,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				&& (restart.previousPrepared || restart.redisHandoffCompleted
 						|| restart.previous.getMethod() == BungeeMethod.PLUGINMESSAGING)) {
 			if (!restart.redisHandoffCompleted) restart.previous.restoreAfterFailedReplacement();
+		}
+		if (backendProxyHandler == restart.previous && restart.previous != null
+				&& restart.presenceStoppedForDisablePreparation) {
+			restart.previous.restorePresenceAfterFailedDisablePreparation();
 		}
 		restart.finished = true;
 	}

@@ -224,6 +224,23 @@ public class BackendProxyHandler implements Listener {
 		return transportManager.commitPreparedDisable();
 	}
 
+	/** Publishes the final presence update while fencing other sends before transport preparation. */
+	public void preparePresenceForDisable() {
+		transportManager.beginPreparedDisable();
+		if (presenceManager != null && presenceReportingActivated) {
+			// stopForDisable may reject when the transport cannot accept the final
+			// presence update. Mark this inactive first so rollback can start it again.
+			presenceReportingActivated = false;
+			presenceManager.stopForDisable();
+		}
+	}
+
+	/** Restores delivery and presence when a prepared disable is abandoned. */
+	public void restorePresenceAfterFailedDisablePreparation() {
+		transportManager.cancelPreparedDisable();
+		activatePresenceReporting();
+	}
+
 	public void beginPreparedHttpHandoff() {
 		transportManager.beginPreparedHttpHandoff();
 	}
