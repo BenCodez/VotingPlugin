@@ -166,6 +166,10 @@ credentials, generated JARs, dependency caches, IDE output, or unrelated formatt
 ## Safe change checklist
 
 - Trace whether the code runs on the connector worker, proxy thread, Bukkit primary thread, or a SQL executor.
+- Preserve queued votes across saturation, shutdown, and restart; overflow handling must be bounded, durable when promised, and observable rather than silently dropping work.
+- Treat scheduler units explicitly. Verify whether each delay is in ticks, milliseconds, or seconds, especially across Bukkit, Folia, BungeeCord, and Velocity adapters.
+- Register listeners and lifecycle wakeups before producers can publish work; startup/reload ordering must not strand already-persisted or newly-arriving operations.
+- Protocol-mode changes must not silently broaden legacy v1/RSA acceptance when token-only operation is configured or intended; cover downgrade behavior with tests.
 - Add strict type/field/range/count validation before calling plugin services.
 - Snapshot synchronized live collections before iterating; do not return mutable collections across threads.
 - Distinguish “not configured/unavailable”, “not found”, and a genuine empty result.
