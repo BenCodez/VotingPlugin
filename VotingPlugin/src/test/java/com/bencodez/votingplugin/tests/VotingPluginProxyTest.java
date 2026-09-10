@@ -595,6 +595,41 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void deferredHttpEndpointChangeReconcilesAfterTheFinalAcknowledgement() throws Exception {
+		HttpProxyTransportServer transport = Mockito.mock(HttpProxyTransportServer.class);
+		setProxyField(votingPluginProxy, "httpTransportServer", transport);
+		setProxyField(votingPluginProxy, "liveHttpHost", "old.example");
+		setProxyField(votingPluginProxy, "liveHttpPort", 8080);
+		setProxyField(votingPluginProxy, "liveHttpPublicEndpoint", "https://old.example:8080");
+		java.util.concurrent.ScheduledExecutorService scheduler = java.util.concurrent.Executors
+				.newSingleThreadScheduledExecutor();
+		try {
+			votingPluginProxy.setSchedulerForTest(scheduler);
+			votingPluginProxy.setPendingHttpTransportDeliveries(true);
+			votingPluginProxy.setMethod(BungeeMethod.HTTP);
+			Mockito.when(votingPluginProxy.getConfig().getBungeeMethod()).thenReturn("HTTP");
+			Mockito.when(votingPluginProxy.getConfig().getHttpHost()).thenReturn("new.example");
+			Mockito.when(votingPluginProxy.getConfig().getHttpPort()).thenReturn(8443);
+			Mockito.when(votingPluginProxy.getConfig().getHttpPublicEndpoint())
+					.thenReturn("https://new.example:8443");
+
+			votingPluginProxy.reloadFromControl();
+			assertEquals(BungeeMethod.HTTP, votingPluginProxy.getMethod());
+
+			votingPluginProxy.setPendingHttpTransportDeliveries(false);
+			votingPluginProxy.acknowledgeHttpDeliveryForTest("Server1", "delivery");
+			long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(2);
+			while (votingPluginProxy.getReloadCoreCalls() == 0 && System.nanoTime() < deadline)
+				Thread.sleep(10L);
+
+			assertEquals(1, votingPluginProxy.getReloadCoreCalls(),
+					"a changed HTTP endpoint must replace the retained runtime after its queue drains");
+		} finally {
+			scheduler.shutdownNow();
+		}
+	}
+
+	@Test
 	void deferredHttpTransportChangePollsWhenAckPrecedesQueueRemoval() throws Exception {
 		HttpProxyTransportServer transport = Mockito.mock(HttpProxyTransportServer.class);
 		setProxyField(votingPluginProxy, "httpTransportServer", transport);

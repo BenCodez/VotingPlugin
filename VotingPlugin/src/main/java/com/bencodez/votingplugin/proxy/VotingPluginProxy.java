@@ -3278,7 +3278,8 @@ public abstract class VotingPluginProxy {
 			if (!enabled || !deferredHttpTransportReconciliation || method != BungeeMethod.HTTP) return;
 			configuredMethod = BungeeMethod.getByName(getConfig().getBungeeMethod());
 			if (configuredMethod == null) configuredMethod = BungeeMethod.PLUGINMESSAGING;
-			stillPending = retainHttpForPendingDeliveries(configuredMethod) == BungeeMethod.HTTP;
+			retainHttpForPendingDeliveries(configuredMethod);
+			stillPending = deferredHttpTransportReconciliation;
 			if (!stillPending) httpTransportReconciliationRunning = true;
 		}
 		if (stillPending) {

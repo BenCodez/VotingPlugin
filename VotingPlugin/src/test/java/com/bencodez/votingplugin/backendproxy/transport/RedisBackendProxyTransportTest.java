@@ -696,6 +696,10 @@ class RedisBackendProxyTransportTest {
 				System.nanoTime() + TimeUnit.SECONDS.toNanos(1)));
 		assertTrue(manager.prepareRedisReplayTransition(BungeeMethod.PLUGINMESSAGING,
 				System.nanoTime() + TimeUnit.SECONDS.toNanos(1)));
+		JsonEnvelope duringCutover = JsonEnvelope.builder("during-cutover").build();
+		manager.send(duringCutover);
+		assertEquals(java.util.List.of(duringCutover), new java.util.ArrayList<>(preparedSendQueue(manager)),
+				"outbound sends must be fenced until publication can transfer them to the replacement");
 	}
 
 	@Test
@@ -839,6 +843,14 @@ class RedisBackendProxyTransportTest {
 		Field field = target.getClass().getDeclaredField(name);
 		field.setAccessible(true);
 		field.set(target, value);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static java.util.ArrayDeque<JsonEnvelope> preparedSendQueue(BackendProxyTransportManager manager)
+			throws Exception {
+		Field field = BackendProxyTransportManager.class.getDeclaredField("preparedSends");
+		field.setAccessible(true);
+		return (java.util.ArrayDeque<JsonEnvelope>) field.get(manager);
 	}
 
 	private static int replayTrackedDeliveries(RedisBackendProxyTransport transport) throws Exception {

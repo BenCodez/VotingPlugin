@@ -275,6 +275,11 @@ public class BackendProxyHandler implements Listener {
 		transportManager.completeRedisHandoff(replacement.transportManager);
 	}
 
+	/** Returns whether this handler owns a Redis listener whose shutdown can block. */
+	public boolean requiresRedisRetirement() {
+		return method == BungeeMethod.REDIS;
+	}
+
 	/** Returns whether this replacement needs the bounded same-Redis retirement path. */
 	public boolean requiresRedisHandoff(BackendProxyHandler replacement) {
 		return replacement != null && method == BungeeMethod.REDIS && replacement.method == BungeeMethod.REDIS;

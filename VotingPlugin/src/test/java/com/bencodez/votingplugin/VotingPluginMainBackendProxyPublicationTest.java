@@ -122,6 +122,56 @@ class VotingPluginMainBackendProxyPublicationTest {
 	}
 
 	@Test
+	void preparesRedisBeforePublishingAndRetiresItOffTheBukkitThread() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+		BackendProxyHandler previous = mock(BackendProxyHandler.class);
+		BackendProxyHandler replacement = mock(BackendProxyHandler.class);
+		setBackendProxyHandler(plugin, previous);
+		when(previous.requiresRedisRetirement()).thenReturn(true);
+		when(previous.requiresRedisHandoff(replacement)).thenReturn(false);
+		when(replacement.getMethod()).thenReturn(BungeeMethod.HTTP);
+		when(previous.prepareForReplacement(org.mockito.ArgumentMatchers.eq(BungeeMethod.HTTP),
+				org.mockito.ArgumentMatchers.anyLong())).thenReturn(true);
+		CountDownLatch closed = new CountDownLatch(1);
+		java.util.concurrent.atomic.AtomicReference<String> closeThread = new java.util.concurrent.atomic.AtomicReference<>();
+		doAnswer(invocation -> {
+			closeThread.set(Thread.currentThread().getName());
+			closed.countDown();
+			return null;
+		}).when(previous).close();
+		VotingPluginMain.BackendProxyRestart restart = restart(previous, replacement, true);
+
+		plugin.validateBackendProxyHandlerRestart(restart, System.nanoTime() + TimeUnit.SECONDS.toNanos(1));
+
+		org.mockito.InOrder retirement = org.mockito.Mockito.inOrder(previous);
+		retirement.verify(previous).prepareForReplacement(org.mockito.ArgumentMatchers.eq(BungeeMethod.HTTP),
+				org.mockito.ArgumentMatchers.anyLong());
+		verify(previous, never()).close();
+
+		plugin.closePublishedPreviousBackendProxyHandler(previous, "after publication");
+		assertTrue(closed.await(1, TimeUnit.SECONDS));
+		assertTrue(closeThread.get().startsWith("VotingPlugin-Retired-Redis-Backend"));
+	}
+
+	@Test
+	void preparesRedisBeforePublishingDisabledState() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+		BackendProxyHandler previous = mock(BackendProxyHandler.class);
+		setBackendProxyHandler(plugin, previous);
+		when(previous.requiresRedisRetirement()).thenReturn(true);
+		when(previous.prepareForReplacement(org.mockito.ArgumentMatchers.isNull(),
+				org.mockito.ArgumentMatchers.anyLong())).thenReturn(true);
+		VotingPluginMain.BackendProxyRestart restart = restart(previous, null, true);
+
+		plugin.validateBackendProxyHandlerRestart(restart, System.nanoTime() + TimeUnit.SECONDS.toNanos(1));
+
+		org.mockito.InOrder retirement = org.mockito.Mockito.inOrder(previous);
+		retirement.verify(previous).prepareForReplacement(org.mockito.ArgumentMatchers.isNull(),
+				org.mockito.ArgumentMatchers.anyLong());
+		verify(previous, never()).close();
+	}
+
+	@Test
 	void restoresWorkerRetiredRedisListenerWhenPublicationIsAborted() throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
 		BackendProxyHandler previous = mock(BackendProxyHandler.class);
@@ -326,10 +376,15 @@ class VotingPluginMainBackendProxyPublicationTest {
 
 	private VotingPluginMain.BackendProxyRestart restart(BackendProxyHandler previous,
 			BackendProxyHandler replacement) throws Exception {
+		return restart(previous, replacement, false);
+	}
+
+	private VotingPluginMain.BackendProxyRestart restart(BackendProxyHandler previous,
+			BackendProxyHandler replacement, boolean previousRequiresPreparation) throws Exception {
 		Constructor<VotingPluginMain.BackendProxyRestart> constructor = VotingPluginMain.BackendProxyRestart.class
 				.getDeclaredConstructor(BackendProxyHandler.class, BackendProxyHandler.class, boolean.class, boolean.class);
 		constructor.setAccessible(true);
-		return constructor.newInstance(previous, replacement, false, false);
+		return constructor.newInstance(previous, replacement, replacement == null, previousRequiresPreparation);
 	}
 
 	private void setBackendProxyHandler(VotingPluginMain plugin, BackendProxyHandler handler) throws Exception {

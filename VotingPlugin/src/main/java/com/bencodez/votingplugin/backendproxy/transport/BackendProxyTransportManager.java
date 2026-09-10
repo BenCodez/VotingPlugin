@@ -550,7 +550,12 @@ public class BackendProxyTransportManager {
 			if (replacementMethod == BungeeMethod.REDIS || !(transport instanceof RedisBackendProxyTransport)) return true;
 			redis = (RedisBackendProxyTransport) transport;
 		}
-		return redis.awaitReplayDrainForNonRedisReplacement(deadlineNanos);
+		if (!redis.awaitReplayDrainForNonRedisReplacement(deadlineNanos)) return false;
+		synchronized (this) {
+			if (transport != redis) return false;
+			preparedSendFence = true;
+		}
+		return true;
 	}
 
 	public java.util.List<JsonEnvelope> closeRedisForHandoff(BackendProxyTransportManager replacement) {

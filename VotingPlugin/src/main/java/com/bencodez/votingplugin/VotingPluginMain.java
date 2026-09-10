@@ -1280,17 +1280,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	public synchronized BackendProxyRestart prepareBackendProxyHandlerRestart() {
 		BackendProxyHandler previous = backendProxyHandler;
 		if (!bungeeSettings.isUseBungeecoord()) {
-			boolean previousRequiresPreparation = previous != null && previous.requiresPreparationForReplacement();
+			boolean previousRequiresPreparation = previous != null
+					&& (previous.requiresPreparationForReplacement() || previous.requiresRedisRetirement());
 			return new BackendProxyRestart(previous, null, true, previousRequiresPreparation);
 		}
 		BungeeMethod replacementMethod = BungeeMethod.getByName(bungeeSettings.getBungeeMethod());
 		// Every transition away from an active HTTP transport must first drain its
 		// durable outgoing queue. Restricting preparation to HTTP-to-HTTP swaps can
 		// strand accepted deliveries when another transport is published.
-		boolean sameRedisHandoff = previous != null && previous.getMethod() == BungeeMethod.REDIS
-				&& replacementMethod == BungeeMethod.REDIS;
 		boolean previousRequiresPreparation = previous != null
-				&& (previous.requiresPreparationForReplacement() || sameRedisHandoff);
+				&& (previous.requiresPreparationForReplacement() || previous.requiresRedisRetirement());
 		BackendProxyHandler replacement = new BackendProxyHandler(this, backendProcessedVoteCache);
 		try {
 			replacement.loadForReplacement();
@@ -1373,14 +1372,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				backendControlAutoEnrollment = null;
 				restart.finished = true;
 				restart.published = true;
-				if (restart.previous != null) {
-					try {
-						restart.previous.close();
-					} catch (RuntimeException cleanupFailure) {
-						getLogger().warning("Previous backend proxy handler did not stop cleanly after disabling");
-						debug(cleanupFailure);
-					}
-				}
+				closePublishedPreviousBackendProxyHandler(restart.previous, "after disabling");
 				if (enrollment != null) {
 					try {
 						enrollment.close();
@@ -1435,22 +1427,35 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			restart.replacement.replayRedisAfterHandoffPublication();
 			restart.finished = true;
 			restart.published = true;
-			if (restart.previous != null) {
-				try {
-					restart.previous.close();
-				} catch (RuntimeException cleanupFailure) {
-					// Publication and handoff are already committed. A predecessor that
-					// misses its shutdown deadline must not make Control roll back the
-					// replacement and close the only live handler.
-					getLogger().warning("Previous backend proxy handler did not stop cleanly after publication");
-					debug(cleanupFailure);
-				}
-			}
+			closePublishedPreviousBackendProxyHandler(restart.previous, "after publication");
 		}
 		try {
 			refreshBackendControlAutoEnrollment();
 		} catch (IOException e) {
 			getLogger().warning("[Control] Automatic backend enrollment was not refreshed: " + e.getMessage());
+		}
+	}
+
+	/** Retires Redis predecessors asynchronously so listener joins never block Bukkit publication. */
+	void closePublishedPreviousBackendProxyHandler(BackendProxyHandler previous, String phase) {
+		if (previous == null) return;
+		if (previous.requiresRedisRetirement()) {
+			Thread cleanup = new Thread(() -> closePublishedPreviousBackendProxyHandlerNow(previous, phase),
+					"VotingPlugin-Retired-Redis-Backend");
+			cleanup.setDaemon(true);
+			cleanup.start();
+			return;
+		}
+		closePublishedPreviousBackendProxyHandlerNow(previous, phase);
+	}
+
+	private void closePublishedPreviousBackendProxyHandlerNow(BackendProxyHandler previous, String phase) {
+		try {
+			previous.close();
+		} catch (RuntimeException cleanupFailure) {
+			// Publication is committed. Cleanup failure must not roll back the only live handler.
+			getLogger().warning("Previous backend proxy handler did not stop cleanly " + phase);
+			debug(cleanupFailure);
 		}
 	}
 
