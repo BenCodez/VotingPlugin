@@ -446,6 +446,50 @@ class VoteShopPurchaseServiceTest {
 	}
 
 	@Test
+	void synchronousAsyncClaimRejectionSchedulesCompensationOffTheEntityLane() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
+				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
+		com.bencodez.simpleapi.folialib.FoliaLib folia = mock(com.bencodez.simpleapi.folialib.FoliaLib.class);
+		com.bencodez.simpleapi.folialib.impl.ServerImplementation entityScheduler =
+				mock(com.bencodez.simpleapi.folialib.impl.ServerImplementation.class);
+		ScheduledExecutorService persistenceExecutor = mock(ScheduledExecutorService.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(scheduler.getFoliaLib()).thenReturn(folia);
+		when(folia.getImpl()).thenReturn(entityScheduler);
+		when(plugin.getTimer()).thenReturn(persistenceExecutor);
+		doAnswer(invocation -> {
+			@SuppressWarnings("rawtypes")
+			java.util.function.Consumer callback = invocation.getArgument(1, java.util.function.Consumer.class);
+			callback.accept(null);
+			return CompletableFuture.completedFuture(EntityTaskResult.SUCCESS);
+		}).when(entityScheduler).runAtEntityWithFallback(any(), any(), any(Runnable.class));
+		org.mockito.Mockito.doThrow(new java.util.concurrent.RejectedExecutionException("stopping"))
+				.when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		SharedMysqlPurchaseJournal journal = mock(SharedMysqlPurchaseJournal.class);
+		when(journal.markCompensating("purchase-1")).thenReturn(true);
+		when(journal.refundCompensatingReward("purchase-1")).thenReturn(false);
+		VoteShopPurchaseService.SharedPurchaseDebit debit = new VoteShopPurchaseService.SharedPurchaseDebit(
+				VoteShopPurchaseResult.SUCCESS, journal, "purchase-1", "Points", null);
+		VoteShopPurchaseService service = new VoteShopPurchaseService(plugin, mock(VoteShopDefinition.class));
+
+		java.lang.reflect.Method complete = VoteShopPurchaseService.class.getDeclaredMethod("completeSharedMysqlPurchase",
+				org.bukkit.entity.Player.class, VotingPluginUser.class, VoteShopItem.class, HashMap.class,
+				FileConfiguration.class, java.util.function.Consumer.class,
+				VoteShopPurchaseService.SharedPurchaseDebit.class);
+		complete.setAccessible(true);
+		complete.invoke(service, mock(org.bukkit.entity.Player.class), mock(VotingPluginUser.class), mock(VoteShopItem.class),
+				new HashMap<>(), mock(FileConfiguration.class), (java.util.function.Consumer<VoteShopPurchaseResult>) ignored -> { },
+				debit);
+
+		ArgumentCaptor<Runnable> compensation = ArgumentCaptor.forClass(Runnable.class);
+		verify(persistenceExecutor).execute(compensation.capture());
+		verify(journal, never()).markCompensating(anyString());
+		compensation.getValue().run();
+		verify(journal).markCompensating("purchase-1");
+	}
+
+	@Test
 	void rejectedClaimedRewardSettlementUsesAsyncFallbackAndCompletes() throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =

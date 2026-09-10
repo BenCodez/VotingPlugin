@@ -447,13 +447,19 @@ final class SharedMysqlPointMutator {
 				return;
 			}
 		} catch (SQLException markerFailure) {
+			boolean refunded = false;
 			try {
-				if (journal.refundHookStarted(transferId, source.getUUID(), sourcePoints, debitAmount)) {
+				refunded = journal.refundHookStarted(transferId, source.getUUID(), sourcePoints, debitAmount);
+				if (refunded) {
 					discardPointsCache(source, sourcePoints);
 				}
 			} catch (SQLException refundFailure) {
 				logFailure(refundFailure);
 			}
+			// The scheduler fence proves the approval hook cannot run. If neither
+			// MySQL compensation operation completed, retain the local durable proof
+			// so periodic recovery can move the HOOK_STARTED row to COMPENSATING.
+			if (!refunded) rememberPendingCompensationMarker(plugin, transferId);
 			logFailure(markerFailure);
 			completeOnBukkit(source, completion, false);
 			return;

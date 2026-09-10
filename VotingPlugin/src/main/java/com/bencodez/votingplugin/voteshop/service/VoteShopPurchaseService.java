@@ -230,7 +230,11 @@ public class VoteShopPurchaseService {
 				claimSharedMysqlPurchaseAsync(debit).whenComplete((claim, failure) -> {
 					if (failure != null || requiresCompensation(claim)) {
 						if (state.compareAndSet(COMPLETION_RUNNING, COMPLETION_COMPENSATING)) {
-							compensateSharedMysqlPurchase(player, user, completion, debit);
+							// runTaskAsynchronously may reject before returning its future.
+							// CompletableFuture then invokes this callback inline on the
+							// entity lane, so compensation must be admitted through its own
+							// off-thread scheduling path instead of doing JDBC here.
+							scheduleSharedMysqlCompensation(player, user, completion, debit);
 						}
 						return;
 					}

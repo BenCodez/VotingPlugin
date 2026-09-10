@@ -666,7 +666,12 @@ final class SharedMysqlPurchaseJournal {
 	}
 
 	private static boolean isSafeColumn(String column) {
-		return column != null && column.matches("[A-Za-z][A-Za-z0-9_-]{0,127}");
+		// Columns are passed through AbstractSqlTable.qi(), which escapes the
+		// database-specific identifier delimiter. Preserve configured shop keys
+		// such as "Daily Reward" in the durable journal so their debit can always
+		// be recovered; reject only values that cannot be represented by its
+		// bounded VARCHAR journal column or a SQL identifier.
+		return column != null && !column.isEmpty() && column.length() <= 128 && column.indexOf('\0') < 0;
 	}
 
 	private static void rollback(Connection connection) {

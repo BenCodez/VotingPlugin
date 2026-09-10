@@ -807,6 +807,36 @@ class VotingPluginUserPointSchedulingTest {
 	}
 
 	@Test
+	void failedClaimedTransferCompensationKeepsRecoveryMarkerWhenMysqlFenceAndRefundFail(
+			@TempDir Path temporaryDirectory) throws Exception {
+		SagaFixture fixture = sagaFixture(true);
+		when(fixture.plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
+		configureRejectedSagaConnections(fixture);
+		when(fixture.entityScheduler.runAtEntityWithFallback(any(), any(), any(Runnable.class)))
+				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
+
+		fixture.user.transferPoints(fixture.target, 10, ignored -> { });
+		ArgumentCaptor<Runnable> persistence = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence).execute(persistence.capture());
+		persistence.getValue().run();
+		ArgumentCaptor<Runnable> gate = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), gate.capture());
+		gate.getValue().run();
+		ArgumentCaptor<Runnable> claimed = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence, org.mockito.Mockito.times(2)).execute(claimed.capture());
+		claimed.getAllValues().get(1).run();
+		ArgumentCaptor<Runnable> compensation = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence, org.mockito.Mockito.times(3)).execute(compensation.capture());
+
+		Connection unavailable = mock(Connection.class);
+		doThrow(new java.sql.SQLException("database unavailable")).when(unavailable).prepareStatement(anyString());
+		when(fixture.manager.getConnection()).thenReturn(unavailable);
+		compensation.getAllValues().get(2).run();
+
+		assertEquals(1, new SharedPointTransferCompensationStore(temporaryDirectory).loadBatch().size());
+	}
+
+	@Test
 	void failedTransferCompensationMarkerIsRetriedByRecovery(@TempDir Path temporaryDirectory) throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		when(plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
