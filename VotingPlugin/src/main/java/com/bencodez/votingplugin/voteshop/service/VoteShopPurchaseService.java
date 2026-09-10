@@ -398,6 +398,12 @@ public class VoteShopPurchaseService {
 				refreshPurchaseCache(user, debit.pointsColumn(), debit.limitColumn());
 			}
 		} catch (SQLException failure) {
+			// A commit/confirmation failure is indeterminate: the refund transaction
+			// may have committed even though this worker could not observe its terminal
+			// journal state. Drop the affected snapshots before any later cache dump so
+			// a stale debit cannot overwrite a durable refund. Recovery will reconcile
+			// the journal state if the transaction did not commit.
+			refreshPurchaseCache(user, debit.pointsColumn(), debit.limitColumn());
 			plugin.getLogger().severe("Unable to refund an incomplete vote shop purchase: "
 					+ failure.getClass().getSimpleName());
 			plugin.debug(failure);

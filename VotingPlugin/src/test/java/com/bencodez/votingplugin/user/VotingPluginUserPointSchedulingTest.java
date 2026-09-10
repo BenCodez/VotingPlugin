@@ -352,6 +352,33 @@ class VotingPluginUserPointSchedulingTest {
 	}
 
 	@Test
+	void storageAwareAsyncStageWaitsForCommittedSharedWrite() throws Exception {
+		PointFixture fixture = pointFixture();
+		UserData data = mock(UserData.class);
+		PreparedStatement read = mock(PreparedStatement.class);
+		ResultSet result = mock(ResultSet.class);
+		doReturn(data).when(fixture.user).getUserData();
+		when(fixture.statement.executeUpdate()).thenReturn(1);
+		when(fixture.connection.prepareStatement(anyString())).thenReturn(fixture.statement, read);
+		when(read.executeQuery()).thenReturn(result);
+		when(result.next()).thenReturn(true);
+		when(result.getInt(1)).thenReturn(23);
+		CompletableFuture<Integer> completion;
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getPluginManager).thenReturn(mock(PluginManager.class));
+			completion = fixture.user.addPointsStorageAwareAsync(5).toCompletableFuture();
+		}
+
+		assertFalse(completion.isDone(), "the reward stage must wait for persistence");
+		ArgumentCaptor<Runnable> persistenceWork = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence).execute(persistenceWork.capture());
+		persistenceWork.getValue().run();
+		assertEquals(23, completion.join());
+		verifyNoInteractions(fixture.scheduler);
+	}
+
+	@Test
 	void sharedAsyncAddReturnsThePredictedEventAdjustedTotalWithoutJdbcOnTheCaller() throws Exception {
 		PointFixture fixture = pointFixture();
 		UserData data = mock(UserData.class);

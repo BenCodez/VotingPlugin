@@ -15,6 +15,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -254,6 +256,46 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public int addPointsStorageAware(int value) {
 		return addPoints(value, new SharedMysqlPointMutator(plugin).applies());
+	}
+
+	/**
+	 * Adds points and completes with the committed total. Shared-MySQL work runs on
+	 * the persistence executor; ordinary storage preserves its synchronous write.
+	 * The returned stage never reports a predicted shared-MySQL value.
+	 *
+	 * @param value point delta
+	 * @return committed point total, or an exceptional stage when persistence fails
+	 */
+	public synchronized CompletionStage<Integer> addPointsStorageAwareAsync(int value) {
+		PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, value);
+		Bukkit.getPluginManager().callEvent(event);
+		if (event.isCancelled()) {
+			return CompletableFuture.completedFuture(getPoints());
+		}
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		if (!sharedPoints.applies()) {
+			int newTotal = getPoints() + event.getPoints();
+			setPoints(newTotal, false);
+			return CompletableFuture.completedFuture(newTotal);
+		}
+
+		CompletableFuture<Integer> completion = new CompletableFuture<>();
+		try {
+			plugin.getTimer().execute(() -> {
+				try {
+					SharedMysqlPointMutator.AddResult result = sharedPoints.addCommitted(this, event.getPoints());
+					if (result.success()) completion.complete(result.total());
+					else completion.completeExceptionally(
+							new IllegalStateException("Unable to persist shared MySQL points"));
+				} catch (Throwable failure) {
+					completion.completeExceptionally(failure);
+				}
+			});
+		} catch (RuntimeException rejected) {
+			plugin.debug(rejected);
+			completion.completeExceptionally(rejected);
+		}
+		return completion;
 	}
 
 	/**

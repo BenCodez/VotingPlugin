@@ -478,6 +478,36 @@ class VoteShopPurchaseServiceTest {
 	}
 
 	@Test
+	void indeterminateRefundInvalidatesPointAndLimitSnapshots() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		String uuid = "00000000-0000-0000-0000-000000000001";
+		when(user.getUUID()).thenReturn(uuid);
+		UserDataCache cache = mock(UserDataCache.class);
+		java.util.HashMap<String, DataValue> values = new java.util.HashMap<>();
+		values.put("Points", mock(DataValue.class));
+		values.put("VoteShopLimit-item", mock(DataValue.class));
+		when(cache.getCache()).thenReturn(values);
+		when(plugin.getUserManager().getDataManager().getUserDataCache()).thenReturn(
+				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(UUID.fromString(uuid), cache)));
+		SharedMysqlPurchaseJournal journal = mock(SharedMysqlPurchaseJournal.class);
+		when(journal.refundCompensatingReward("purchase-1"))
+				.thenThrow(new java.sql.SQLException("commit acknowledgement lost"));
+		VoteShopPurchaseService.SharedPurchaseDebit debit = new VoteShopPurchaseService.SharedPurchaseDebit(
+				VoteShopPurchaseResult.SUCCESS, journal, "purchase-1", "Points", "VoteShopLimit-item");
+
+		java.lang.reflect.Method refund = VoteShopPurchaseService.class.getDeclaredMethod(
+				"refundCompensatingMysqlDebit", VotingPluginUser.class,
+				VoteShopPurchaseService.SharedPurchaseDebit.class);
+		refund.setAccessible(true);
+		refund.invoke(new VoteShopPurchaseService(plugin, mock(VoteShopDefinition.class)), user, debit);
+
+		assertFalse(values.containsKey("Points"));
+		assertFalse(values.containsKey("VoteShopLimit-item"));
+		verify(journal).refundCompensatingReward("purchase-1");
+	}
+
+	@Test
 	void rejectedCompensationExecutorStillRunsTheDurableRefund() throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =

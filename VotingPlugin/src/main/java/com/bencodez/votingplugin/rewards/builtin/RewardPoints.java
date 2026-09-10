@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.rewards.builtin;
 
 import java.util.HashMap;
+import java.util.concurrent.CompletionStage;
 
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
@@ -52,5 +53,22 @@ public class RewardPoints extends RewardInjectInt {
 		String result = "" + vpUser.addPointsStorageAware(num);
 		plugin.debug("Setting points to " + result);
 		return result;
+	}
+
+	@Override
+	public boolean supportsAsyncRequest() {
+		return true;
+	}
+
+	@Override
+	public CompletionStage<String> onRewardRequestAsync(Reward reward,
+			com.bencodez.advancedcore.api.user.AdvancedCoreUser user, int num,
+			HashMap<String, String> placeholders) {
+		VotingPluginUser vpUser = plugin.getVotingPluginUserManager().getVotingPluginUser(user);
+		return vpUser.addPointsStorageAwareAsync(num).thenApply(total -> {
+			String result = String.valueOf(total);
+			plugin.debug("Setting points to " + result);
+			return result;
+		});
 	}
 }
