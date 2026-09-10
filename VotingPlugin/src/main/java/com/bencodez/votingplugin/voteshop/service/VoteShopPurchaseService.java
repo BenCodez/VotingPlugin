@@ -738,8 +738,8 @@ public class VoteShopPurchaseService {
 		}
 		if (weekly) {
 			LocalDateTime weekBoundary = current.toLocalDate().plusDays(1).atStartOfDay();
-			int week = TimeCalculation.weekNumber(current, weekOffset, Locale.getDefault());
-			while (TimeCalculation.weekNumber(weekBoundary, weekOffset, Locale.getDefault()) == week) {
+			int week = TimeCalculation.weekNumber(current, weekOffset, Locale.ROOT);
+			while (TimeCalculation.weekNumber(weekBoundary, weekOffset, Locale.ROOT) == week) {
 				weekBoundary = weekBoundary.plusDays(1);
 			}
 			if (next == null || weekBoundary.isBefore(next)) next = weekBoundary;
@@ -759,7 +759,7 @@ public class VoteShopPurchaseService {
 
 	static String weeklyGenerationId(LocalDateTime current, int weekOffset) {
 		LocalDateTime weekTime = current.plusDays(weekOffset);
-		WeekFields fields = WeekFields.of(Locale.getDefault());
+		WeekFields fields = WeekFields.of(Locale.ROOT);
 		return "W:" + weekTime.get(fields.weekBasedYear()) + '-' + weekTime.get(fields.weekOfWeekBasedYear());
 	}
 

@@ -1599,6 +1599,22 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param completion whether the transfer completed
 	 */
 	public void transferPoints(VotingPluginUser target, int points, Consumer<Boolean> completion) {
+		transferPointsWithResult(target, points, result -> completion.accept(completesLegacyTransfer(result)));
+	}
+
+	/**
+	 * Legacy callers must not retry an indeterminate transfer: its approval hook
+	 * has run and its durable journal row is retained for reconciliation.
+	 */
+	static boolean completesLegacyTransfer(PointTransferResult result) {
+		return result == PointTransferResult.SUCCESS || result == PointTransferResult.PENDING_CONFIRMATION;
+	}
+
+	/**
+	 * Transfers points and reports whether a failed transfer was caused by a
+	 * conditional debit or by cancellation/availability.
+	 */
+	public void transferPointsWithResult(VotingPluginUser target, int points, Consumer<PointTransferResult> completion) {
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
 		if (sharedPoints.applies()) {
 			sharedPoints.transferWithBukkitApproval(this, target, points, ignored -> {
@@ -1612,7 +1628,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		if (transferred) {
 			target.addPoints(points);
 		}
-		completion.accept(transferred);
+		completion.accept(transferred ? PointTransferResult.SUCCESS : PointTransferResult.INSUFFICIENT_POINTS);
 	}
 
 	/**

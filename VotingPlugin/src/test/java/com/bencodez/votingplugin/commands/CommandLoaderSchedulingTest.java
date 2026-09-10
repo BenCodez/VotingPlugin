@@ -18,6 +18,8 @@ import com.bencodez.simpleapi.folialib.FoliaLib;
 import com.bencodez.simpleapi.folialib.enums.EntityTaskResult;
 import com.bencodez.simpleapi.folialib.impl.ServerImplementation;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.config.Config;
+import com.bencodez.votingplugin.user.PointTransferResult;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 class CommandLoaderSchedulingTest {
@@ -80,6 +82,24 @@ class CommandLoaderSchedulingTest {
 
 		verify(scheduler).runTask(eq(plugin), any(Runnable.class));
 		verify(scheduler, never()).runTask(eq(plugin), any(Runnable.class), any(Player.class));
+	}
+
+	@Test
+	void transferFailureMessagesDoNotDiagnoseAvailabilityAsInsufficientPoints() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		Config config = mock(Config.class);
+		when(plugin.getConfigFile()).thenReturn(config);
+		when(config.getFormatCommandsVoteGivePointsNotEnoughPoints()).thenReturn("insufficient");
+		when(config.getFormatCommandsVoteGivePointsUnavailable()).thenReturn("retry");
+		when(config.getFormatCommandsVoteGivePointsPendingConfirmation()).thenReturn("pending; do not retry");
+		CommandLoader loader = new CommandLoader(plugin);
+
+		org.junit.jupiter.api.Assertions.assertEquals("insufficient",
+				loader.transferFailureMessage(PointTransferResult.INSUFFICIENT_POINTS));
+		org.junit.jupiter.api.Assertions.assertEquals("retry", loader.transferFailureMessage(PointTransferResult.CANCELLED));
+		org.junit.jupiter.api.Assertions.assertEquals("retry", loader.transferFailureMessage(PointTransferResult.UNAVAILABLE));
+		org.junit.jupiter.api.Assertions.assertEquals("pending; do not retry",
+				loader.transferFailureMessage(PointTransferResult.PENDING_CONFIRMATION));
 	}
 
 	private static void configureEntityScheduler(BukkitScheduler scheduler) {

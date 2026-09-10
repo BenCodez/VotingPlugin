@@ -95,9 +95,9 @@ class VoteShopPurchaseServiceTest {
 	@Test
 	void weeklyGenerationChangesAtEveryConfiguredWeekBoundary() {
 		LocalDateTime current = LocalDateTime.of(2026, 9, 8, 12, 0);
-		int currentWeek = TimeCalculation.weekNumber(current, 0, Locale.getDefault());
+		int currentWeek = TimeCalculation.weekNumber(current, 0, Locale.ROOT);
 		LocalDateTime nextBoundary = current.toLocalDate().plusDays(1).atStartOfDay();
-		while (TimeCalculation.weekNumber(nextBoundary, 0, Locale.getDefault()) == currentWeek) {
+		while (TimeCalculation.weekNumber(nextBoundary, 0, Locale.ROOT) == currentWeek) {
 			nextBoundary = nextBoundary.plusDays(1);
 		}
 
@@ -105,6 +105,29 @@ class VoteShopPurchaseServiceTest {
 				VoteShopPurchaseService.weeklyGenerationId(nextBoundary.minusNanos(1), 0));
 		assertNotEquals(VoteShopPurchaseService.weeklyGenerationId(current, 0),
 				VoteShopPurchaseService.weeklyGenerationId(nextBoundary, 0));
+	}
+
+	@Test
+	void weeklyGenerationDoesNotDependOnTheJvmDefaultLocale() {
+		Locale previous = Locale.getDefault();
+		LocalDateTime current = LocalDateTime.of(2027, 1, 3, 12, 0);
+		long now = current.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+		try {
+			Locale.setDefault(Locale.US);
+			String usGeneration = VoteShopPurchaseService.weeklyGenerationId(current, 0);
+			VoteShopPurchaseService.LimitGeneration usLimit = VoteShopPurchaseService.limitGeneration(
+					current, now, false, true, false, 0);
+			Locale.setDefault(Locale.GERMANY);
+			String germanGeneration = VoteShopPurchaseService.weeklyGenerationId(current, 0);
+			VoteShopPurchaseService.LimitGeneration germanLimit = VoteShopPurchaseService.limitGeneration(
+					current, now, false, true, false, 0);
+
+			assertEquals(usGeneration, germanGeneration);
+			assertEquals(usLimit.value(), germanLimit.value());
+			assertEquals(usLimit.expiresAt(), germanLimit.expiresAt());
+		} finally {
+			Locale.setDefault(previous);
+		}
 	}
 
 	@Test

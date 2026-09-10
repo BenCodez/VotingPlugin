@@ -247,21 +247,22 @@ class VotingPluginUserPointSchedulingTest {
 	@Test
 	void rejectedInitialSharedTransferSubmissionCompletesAsFailure() throws Exception {
 		TransferSchedulingFixture fixture = transferSchedulingFixture();
-		AtomicReference<Boolean> result = new AtomicReference<>();
+		AtomicReference<PointTransferResult> result = new AtomicReference<>();
 		doThrow(new RejectedExecutionException("stopping")).when(fixture.persistence).execute(any(Runnable.class));
 
-		fixture.user.transferPoints(fixture.target, 10, result::set);
+		fixture.user.transferPointsWithResult(fixture.target, 10, result::set);
 
 		ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
 		verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
 		verifyNoInteractions(fixture.manager);
 		completion.getValue().run();
-		assertEquals(Boolean.FALSE, result.get());
+		assertEquals(PointTransferResult.UNAVAILABLE, result.get());
 	}
 
 	@Test
-	void indeterminateSharedTransferClaimDoesNotReportSuccessBeforeApproval() throws Exception {
+	void indeterminateSharedTransferClaimDoesNotReportSuccessBeforeApproval(@TempDir Path temporaryDirectory) throws Exception {
 		SagaFixture fixture = sagaFixture(true);
+		when(fixture.plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
 		Connection unavailable = mock(Connection.class);
 		when(unavailable.prepareStatement(anyString())).thenThrow(new java.sql.SQLException("unavailable"));
 		when(fixture.manager.getConnection()).thenReturn(fixture.schema, fixture.recoveryReserved, fixture.cleanup,
@@ -285,6 +286,7 @@ class VotingPluginUserPointSchedulingTest {
 		verify(fixture.entityScheduler).runAtEntityWithFallback(eq(fixture.player), any(), any(Runnable.class));
 		completion.getValue().run();
 		assertEquals(Boolean.FALSE, result.get());
+		assertEquals(1, new SharedPointTransferCompensationStore(temporaryDirectory).loadBatch().size());
 	}
 
 	@Test
@@ -505,18 +507,18 @@ class VotingPluginUserPointSchedulingTest {
 	void nullTransferJournalConnectionCompletesTheTransferAsFailure() throws Exception {
 		TransferSchedulingFixture fixture = transferSchedulingFixture();
 		when(fixture.manager.getConnection()).thenReturn((Connection) null);
-		AtomicReference<Boolean> result = new AtomicReference<>();
+		AtomicReference<PointTransferResult> result = new AtomicReference<>();
 		doAnswer(invocation -> {
 			invocation.<Runnable>getArgument(1).run();
 			return null;
 		}).when(fixture.scheduler).runTask(eq(fixture.plugin), any(Runnable.class), eq(fixture.player));
 
-		fixture.user.transferPoints(fixture.target, 10, result::set);
+		fixture.user.transferPointsWithResult(fixture.target, 10, result::set);
 		ArgumentCaptor<Runnable> persistence = ArgumentCaptor.forClass(Runnable.class);
 		verify(fixture.persistence).execute(persistence.capture());
 		persistence.getValue().run();
 
-		assertEquals(Boolean.FALSE, result.get());
+		assertEquals(PointTransferResult.UNAVAILABLE, result.get());
 		verify(fixture.plugin.getLogger()).severe(org.mockito.ArgumentMatchers.contains("SQLException"));
 	}
 
@@ -680,11 +682,11 @@ class VotingPluginUserPointSchedulingTest {
 	}
 
 	@Test
-	void rejectedApprovalSettlementSchedulersRetainHookStartedForReconciliation() throws Exception {
+	void rejectedApprovalSettlementSchedulersReportPendingConfirmation() throws Exception {
 		SagaFixture fixture = sagaFixture(true);
-		AtomicReference<Boolean> result = new AtomicReference<>();
+		AtomicReference<PointTransferResult> result = new AtomicReference<>();
 
-		fixture.user.transferPoints(fixture.target, 10, result::set);
+		fixture.user.transferPointsWithResult(fixture.target, 10, result::set);
 		ArgumentCaptor<Runnable> reservation = ArgumentCaptor.forClass(Runnable.class);
 		verify(fixture.persistence).execute(reservation.capture());
 		reservation.getValue().run();
@@ -707,7 +709,13 @@ class VotingPluginUserPointSchedulingTest {
 		ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
 		verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
 		completion.getValue().run();
-		assertEquals(Boolean.TRUE, result.get());
+		assertEquals(PointTransferResult.PENDING_CONFIRMATION, result.get());
+	}
+
+	@Test
+	void legacyTransferCallbackTreatsPendingConfirmationAsSuccessfulToSuppressRetry() {
+		assertTrue(VotingPluginUser.completesLegacyTransfer(PointTransferResult.PENDING_CONFIRMATION));
+		assertFalse(VotingPluginUser.completesLegacyTransfer(PointTransferResult.UNAVAILABLE));
 	}
 
 	@Test
@@ -969,6 +977,36 @@ class VotingPluginUserPointSchedulingTest {
 
 		assertTrue(result.get());
 		verify(fixture.settlementPoint).setInt(1, 4);
+	}
+
+	@Test
+	void indeterminateSettlementConfirmationReportsPendingConfirmation() throws Exception {
+		SagaFixture fixture = sagaFixture(true);
+		Connection unavailable = mock(Connection.class);
+		when(unavailable.prepareStatement(anyString())).thenThrow(new java.sql.SQLException("confirmation unavailable"));
+		when(fixture.manager.getConnection()).thenReturn(fixture.schema, fixture.recoveryReserved, fixture.cleanup,
+				fixture.lookup, fixture.reservation, fixture.claim, fixture.settlement,
+				unavailable, unavailable, unavailable);
+		doThrow(new java.sql.SQLException("settlement acknowledgement lost")).when(fixture.settlement).commit();
+		AtomicReference<PointTransferResult> result = new AtomicReference<>();
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getPluginManager).thenReturn(mock(PluginManager.class));
+			fixture.user.transferPointsWithResult(fixture.target, 10, result::set);
+			ArgumentCaptor<Runnable> persistenceWork = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.persistence).execute(persistenceWork.capture());
+			persistenceWork.getValue().run();
+			runTransferApprovalGate(fixture.persistence, fixture.scheduler, fixture.plugin,
+					fixture.entityScheduler, fixture.targetPlayer);
+			ArgumentCaptor<Runnable> settlementWork = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.persistence, org.mockito.Mockito.times(3)).execute(settlementWork.capture());
+			settlementWork.getAllValues().get(2).run();
+			ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
+			completion.getValue().run();
+		}
+
+		assertEquals(PointTransferResult.PENDING_CONFIRMATION, result.get());
 	}
 
 	@Test

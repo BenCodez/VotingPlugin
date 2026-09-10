@@ -89,6 +89,7 @@ import com.bencodez.votingplugin.specialrewards.votestreak.VoteStreakDefinition;
 import com.bencodez.votingplugin.specialrewards.votestreak.VoteStreakType;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.user.PointTransferResult;
 import com.bencodez.votingplugin.util.VoteTaskAdmission;
 import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
 import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseResult;
@@ -124,6 +125,16 @@ public class CommandLoader {
 
 	void runForVotingUser(VotingPluginUser user, Runnable task) {
 		BukkitCompletionScheduler.run(plugin, user.getPlayer(), task);
+	}
+
+	String transferFailureMessage(PointTransferResult result) {
+		if (result == PointTransferResult.INSUFFICIENT_POINTS) {
+			return plugin.getConfigFile().getFormatCommandsVoteGivePointsNotEnoughPoints();
+		}
+		if (result == PointTransferResult.PENDING_CONFIRMATION) {
+			return plugin.getConfigFile().getFormatCommandsVoteGivePointsPendingConfirmation();
+		}
+		return plugin.getConfigFile().getFormatCommandsVoteGivePointsUnavailable();
 	}
 
 	/**
@@ -3786,8 +3797,8 @@ public class CommandLoader {
 									}
 									int pointsToGive = Integer.parseInt(args[2]);
 									if (pointsToGive > 0) {
-										cPlayer.transferPoints(user, pointsToGive, transferred -> {
-											if (transferred) {
+										cPlayer.transferPointsWithResult(user, pointsToGive, result -> {
+											if (result == PointTransferResult.SUCCESS) {
 											HashMap<String, String> placeholders = new HashMap<>();
 											placeholders.put("transfer", "" + pointsToGive);
 											placeholders.put("touser", "" + user.getPlayerName());
@@ -3802,8 +3813,7 @@ public class CommandLoader {
 																.getConfigFile().getFormatCommandsVoteGivePointsTransferTo(),
 																placeholders)));
 											} else {
-												sendMessage(sender, plugin.getConfigFile()
-														.getFormatCommandsVoteGivePointsNotEnoughPoints());
+												sendMessage(sender, transferFailureMessage(result));
 											}
 										});
 									} else {
