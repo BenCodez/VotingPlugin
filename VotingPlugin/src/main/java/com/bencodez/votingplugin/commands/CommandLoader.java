@@ -303,7 +303,7 @@ public class CommandLoader {
 		});
 
 		plugin.getAdminVoteCommand()
-				.add(new PlayerCommandHandler(plugin, new String[] { "User", "(player)", "SetPoints", "(number)" },
+				.add(configureAllPermissionOverride(new PlayerCommandHandler(plugin, new String[] { "User", "(player)", "SetPoints", "(number)" },
 						"VotingPlugin.Commands.AdminVote.SetPoints|" + adminPerm, "Set players voting points") {
 
 					@Override
@@ -328,7 +328,7 @@ public class CommandLoader {
 						sender.sendMessage(MessageAPI.colorize("&cSet " + args[1] + " points to " + args[3]));
 						plugin.getPlaceholders().onUpdate(user, false);
 					}
-				}.withAllPermissionOverrides(adminPerm));
+				}, adminPerm));
 
 		plugin.getAdminVoteCommand()
 				.add(new CommandHandler(plugin, new String[] { "ResyncMilestones" },
@@ -410,7 +410,7 @@ public class CommandLoader {
 				});
 
 		plugin.getAdminVoteCommand()
-				.add(new PlayerCommandHandler(plugin, new String[] { "User", "(player)", "AddPoints", "(number)" },
+				.add(configureAllPermissionOverride(new PlayerCommandHandler(plugin, new String[] { "User", "(player)", "AddPoints", "(number)" },
 						"VotingPlugin.Commands.AdminVote.AddPoints|" + adminPerm, "Add to players voting points") {
 
 					@Override
@@ -455,10 +455,10 @@ public class CommandLoader {
 						plugin.getPlaceholders().onUpdate(user, false);
 
 					}
-				}.withAllPermissionOverrides(adminPerm));
+				}, adminPerm));
 
 		plugin.getAdminVoteCommand()
-				.add(new PlayerCommandHandler(plugin, new String[] { "User", "(player)", "RemovePoints", "(number)" },
+				.add(configureAllPermissionOverride(new PlayerCommandHandler(plugin, new String[] { "User", "(player)", "RemovePoints", "(number)" },
 						"VotingPlugin.Commands.AdminVote.RemovePoints|" + adminPerm, "Remove voting points") {
 
 					@Override
@@ -500,7 +500,7 @@ public class CommandLoader {
 								+ args[1] + " now has " + user.getPoints() + " points"));
 						plugin.getPlaceholders().onUpdate(user, false);
 					}
-				}.withAllPermissionOverrides(adminPerm));
+				}, adminPerm));
 
 		plugin.getAdminVoteCommand().add(new CommandHandler(plugin, new String[] { "Help&?" },
 				"VotingPlugin.Commands.AdminVote.Help|" + adminPerm, "See this page") {
@@ -2690,11 +2690,30 @@ public class CommandLoader {
 		for (CommandHandler cmd : avCommands) {
 			cmd.setPerm(cmd.getPerm() + "|" + adminPerm);
 			if (cmd instanceof PlayerCommandHandler playerHandler) {
-				playerHandler.withAllPermissionOverrides(adminPerm);
+				configureAllPermissionOverride(playerHandler, adminPerm);
 			}
 		}
 		plugin.getAdminVoteCommand().addAll(avCommands);
 
+	}
+
+	/**
+	 * Configures the shared bulk administrator override when supported by the
+	 * AdvancedCore dependency. The reflective bridge keeps this consumer source
+	 * compatible with the currently published snapshot while AdvancedCore #316 is
+	 * awaiting release. Runtime use with that older implementation fails closed
+	 * because it does not enforce the required base-plus-bulk permission contract.
+	 */
+	static PlayerCommandHandler configureAllPermissionOverride(PlayerCommandHandler handler, String adminPermission) {
+		try {
+			PlayerCommandHandler.class.getMethod("withAllPermissionOverrides", String[].class)
+					.invoke(handler, (Object) new String[] { adminPermission });
+		} catch (NoSuchMethodException exception) {
+			throw new IllegalStateException("AdvancedCore with secure bulk permission support is required", exception);
+		} catch (ReflectiveOperationException exception) {
+			throw new IllegalStateException("Failed to configure bulk permission override", exception);
+		}
+		return handler;
 	}
 
 	private final Set<String> aliasCommandNames = new HashSet<>();

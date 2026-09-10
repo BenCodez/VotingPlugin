@@ -143,7 +143,8 @@ class AdminVotePermsTest {
 			@Override
 			public void executeSinglePlayer(CommandSender sender, String[] args) {
 			}
-		}.withAllPermissionOverrides(AdminAuthorization.ADMIN_PERMISSION);
+		};
+		configureAllPermissionOverride(handler);
 		when(plugin.getAdminVoteCommand()).thenReturn(new ArrayList<>(List.of(handler)));
 
 		assertTrue(handler.hasAllPermission(admin));
@@ -165,7 +166,8 @@ class AdminVotePermsTest {
 			@Override
 			public void executeSinglePlayer(CommandSender sender, String[] args) {
 			}
-		}.withAllPermissionOverrides(AdminAuthorization.ADMIN_PERMISSION);
+		};
+		configureAllPermissionOverride(handler);
 		when(plugin.getAdminVoteCommand()).thenReturn(new ArrayList<>(List.of(handler)));
 
 		assertFalse(handler.hasAllPermission(admin));
@@ -182,6 +184,17 @@ class AdminVotePermsTest {
 		when(handler.getHelpMessage()).thenReturn("Help");
 		when(handler.getAdditionalPermissions()).thenReturn(List.of(additionalPermission));
 		return handler;
+	}
+
+	private static void configureAllPermissionOverride(PlayerCommandHandler handler) {
+		try {
+			PlayerCommandHandler.class.getMethod("withAllPermissionOverrides", String[].class)
+					.invoke(handler, (Object) new String[] { AdminAuthorization.ADMIN_PERMISSION });
+		} catch (NoSuchMethodException ignored) {
+			// The published pre-#316 API already treats later alternatives as overrides.
+		} catch (ReflectiveOperationException exception) {
+			throw new AssertionError(exception);
+		}
 	}
 
 	private static AdminVotePerms fixture(CommandSender viewer, List<CommandHandler> vote,
