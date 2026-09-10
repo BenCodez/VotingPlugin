@@ -48,10 +48,12 @@ public class SocketBackendProxyTransport implements BackendProxyTransport {
 	}
 
 	@Override
-	public void send(JsonEnvelope envelope) {
+	public boolean send(JsonEnvelope envelope) {
 		if (clientHandler != null) {
 			clientHandler.sendEnvelope(envelope);
+			return true;
 		}
+		return false;
 	}
 
 	@Override

@@ -306,11 +306,13 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 			boolean identified) {}
 
 	@Override
-	public void send(JsonEnvelope envelope) {
+	public boolean send(JsonEnvelope envelope) {
 		if (redisHandler != null) {
 			redisHandler.publishEnvelope(publishChannel,
 					VotingPluginWire.withRedisDeliveryId(envelope));
+			return true;
 		}
+		return false;
 	}
 
 	@Override

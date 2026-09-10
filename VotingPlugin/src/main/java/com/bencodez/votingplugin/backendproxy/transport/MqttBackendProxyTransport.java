@@ -46,14 +46,19 @@ public class MqttBackendProxyTransport implements BackendProxyTransport {
 	}
 
 	@Override
-	public void send(JsonEnvelope envelope) {
+	public boolean send(JsonEnvelope envelope) {
 		if (mqttHandler == null) {
-			return;
+			return false;
 		}
 		try {
 			mqttHandler.publishEnvelope(publishTopic, envelope);
+			return true;
 		} catch (Exception e) {
-			e.printStackTrace();
+			if (plugin != null && plugin.getLogger() != null) {
+				plugin.getLogger().warning("MQTT backend proxy delivery failed");
+				plugin.debug(e);
+			}
+			return false;
 		}
 	}
 

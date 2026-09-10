@@ -34,6 +34,7 @@ public class BackendProxyTransportManager {
 	private boolean rejectPreparedSends;
 	private boolean preparedQueueWarning;
 	private boolean rejectedSendWarning;
+	private boolean asyncHandoffRetryWarning;
 
 	public BackendProxyTransportManager(VotingPluginMain plugin) {
 		this(plugin, new ProcessedVoteCache());
@@ -173,7 +174,8 @@ public class BackendProxyTransportManager {
 					// that live instance instead of creating a second directory owner.
 					transport = candidate;
 					preparedTransport = null;
-					while (!preparedSends.isEmpty()) transport.send(preparedSends.removeFirst());
+					while (!preparedSends.isEmpty() && transport.send(preparedSends.peekFirst()))
+						preparedSends.removeFirst();
 					preparedQueueWarning = false;
 				} else {
 					// Enrollment cancellation may already have closed this instance. Restore
@@ -345,8 +347,28 @@ public class BackendProxyTransportManager {
 					target = transport;
 				}
 				if (target == null) return;
-				target.send(envelope);
+				boolean accepted;
+				try {
+					accepted = target.send(envelope);
+				} catch (RuntimeException sendFailure) {
+					accepted = false;
+				}
 				synchronized (this) {
+					if (!accepted) {
+						if (!asyncHandoffRetryWarning && plugin != null && plugin.getLogger() != null) {
+							asyncHandoffRetryWarning = true;
+							plugin.getLogger().warning(
+									"Backend proxy handoff delivery was rejected; retaining it for retry");
+						}
+						try {
+							wait(250L);
+						} catch (InterruptedException interrupted) {
+							Thread.currentThread().interrupt();
+							return;
+						}
+						continue;
+					}
+					asyncHandoffRetryWarning = false;
 					if (asyncHandoffSends.peekFirst() == envelope) asyncHandoffSends.removeFirst();
 					notifyAll();
 				}
@@ -388,7 +410,10 @@ public class BackendProxyTransportManager {
 			}
 			if (!(target instanceof PluginMessagingBackendProxyTransport)) return;
 			try {
-				target.send(envelope);
+				if (!target.send(envelope)) {
+					schedulePluginMessageHandoff(generation);
+					return;
+				}
 			} catch (RuntimeException failure) {
 				synchronized (this) {
 					if (handoffGeneration == generation) pluginMessageHandoffScheduled = false;
@@ -434,8 +459,7 @@ public class BackendProxyTransportManager {
 	public synchronized void restorePreparedTransport() {
 		if (preparedTransport == null) {
 			if (!preparedSendFence) return;
-			preparedSendFence = false;
-			while (!preparedSends.isEmpty()) send(preparedSends.removeFirst());
+			acceptPreparedHandoffMessages(java.util.Collections.emptyList());
 			preparedQueueWarning = false;
 			return;
 		}
@@ -447,7 +471,7 @@ public class BackendProxyTransportManager {
 		}
 		preparedTransport = null;
 		preparedSendFence = false;
-		while (!preparedSends.isEmpty()) transport.send(preparedSends.removeFirst());
+		while (!preparedSends.isEmpty() && transport.send(preparedSends.peekFirst())) preparedSends.removeFirst();
 		preparedQueueWarning = false;
 	}
 

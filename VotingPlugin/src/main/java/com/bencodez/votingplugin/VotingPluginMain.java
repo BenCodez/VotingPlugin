@@ -1351,6 +1351,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				// Stop the staged presence generation before reasserting the restored old
 				// handler. Otherwise the proxy rejects the old generation after rollback.
 				backendProxyHandler = restart.previous;
+				restart.replacement.abortStagedInboundTo(restart.previous);
 				try {
 					restart.replacement.close();
 				} catch (RuntimeException closeFailure) {
@@ -1370,6 +1371,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				if (restart.previous != null) restart.previous.completeHttpHandoff(restart.replacement);
 			} catch (RuntimeException handoffFailure) {
 				backendProxyHandler = restart.previous;
+				restart.replacement.abortStagedInboundTo(restart.previous);
 				try {
 					restart.replacement.close();
 				} catch (RuntimeException closeFailure) {
@@ -1384,6 +1386,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				restart.finished = true;
 				throw handoffFailure;
 			}
+			restart.replacement.activateInboundMessages();
 			restart.finished = true;
 			restart.published = true;
 			if (restart.previous != null) {
@@ -1412,6 +1415,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			replacement.activatePresenceReporting();
 		} catch (RuntimeException activationFailure) {
 			backendProxyHandler = previous;
+			replacement.abortStagedInboundTo(previous);
 			throw activationFailure;
 		}
 	}
@@ -1426,7 +1430,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	public synchronized void abortBackendProxyHandlerRestart(BackendProxyRestart restart) {
 		if (restart == null || restart.finished) return;
-		if (restart.replacement != null) restart.replacement.close();
+		if (restart.replacement != null) {
+			restart.replacement.abortStagedInboundTo(restart.previous);
+			restart.replacement.close();
+		}
 		if (backendProxyHandler == restart.previous && restart.previous != null
 				&& (restart.previousPrepared || restart.previous.getMethod() == BungeeMethod.PLUGINMESSAGING)) {
 			restart.previous.restoreAfterFailedReplacement();

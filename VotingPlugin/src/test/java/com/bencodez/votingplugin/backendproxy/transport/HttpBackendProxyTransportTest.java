@@ -182,6 +182,7 @@ class HttpBackendProxyTransportTest {
 		BackendProxyTransport active = mock(BackendProxyTransport.class);
 		BackendProxyTransportManager replacement = new BackendProxyTransportManager(mock(VotingPluginMain.class));
 		BackendProxyTransport replacementTransport = mock(BackendProxyTransport.class);
+		when(replacementTransport.send(org.mockito.ArgumentMatchers.any(JsonEnvelope.class))).thenReturn(true);
 		JsonEnvelope queued = JsonEnvelope.builder("queued-during-flush").build();
 		setField(manager, "transport", active);
 		setField(replacement, "transport", replacementTransport);

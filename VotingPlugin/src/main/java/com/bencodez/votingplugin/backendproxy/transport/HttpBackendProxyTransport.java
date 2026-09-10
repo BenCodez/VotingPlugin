@@ -501,26 +501,38 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	}
 
 	@Override
-	public void send(JsonEnvelope envelope) {
+	public boolean send(JsonEnvelope envelope) {
 		synchronized (lifecycle) {
-			if (closed) return;
+			if (closed) return false;
 			if (awaitingPreparedHandoff || !handoffQueue.isEmpty()) {
 				int capacity = awaitingPreparedHandoff
 						? Math.min(MAX_PREPUBLICATION_QUEUE, MAX_HANDOFF_QUEUE - preparedHandoffReservation)
 						: MAX_HANDOFF_QUEUE;
-				if (handoffQueue.size() < capacity) handoffQueue.addLast(envelope);
-				else warnRejectedSend();
-				return;
+				if (handoffQueue.size() < capacity) {
+					handoffQueue.addLast(envelope);
+					return true;
+				}
+				warnRejectedSend();
+				return false;
 			}
 			HttpBackendTransportConnector active = connector;
 			if (active != null) {
 				if (!active.send(envelope)) {
-					if (restartAfterFailedFlush && startupQueue.size() < MAX_STARTUP_QUEUE) startupQueue.addLast(envelope);
-					else warnRejectedSend();
+					if (restartAfterFailedFlush && startupQueue.size() < MAX_STARTUP_QUEUE) {
+						startupQueue.addLast(envelope);
+						return true;
+					}
+					warnRejectedSend();
+					return false;
 				}
 			} else if (startupQueue.size() < MAX_STARTUP_QUEUE) {
 				startupQueue.addLast(envelope);
+				return true;
+			} else {
+				warnRejectedSend();
+				return false;
 			}
+			return true;
 		}
 	}
 

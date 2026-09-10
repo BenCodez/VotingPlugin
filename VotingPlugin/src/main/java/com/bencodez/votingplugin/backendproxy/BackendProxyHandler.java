@@ -40,6 +40,10 @@ public class BackendProxyHandler implements Listener {
 
 	private BackendPresenceManager presenceManager;
 	private boolean presenceReportingActivated;
+	private final Object inboundPublication = new Object();
+	private boolean inboundPublished;
+	private boolean inboundAborted;
+	private BackendProxyHandler inboundRollbackTarget;
 	private BackendVotePartySync votePartySync;
 	private BackendProxyMessageRouter messageRouter;
 
@@ -79,6 +83,11 @@ public class BackendProxyHandler implements Listener {
 		globalDataSync.load();
 		globalMessageHandler = new GlobalMessageHandler() {
 			@Override
+			public void onMessage(JsonEnvelope envelope) {
+				BackendProxyHandler.this.dispatchIncomingAfterPublication(envelope, () -> super.onMessage(envelope));
+			}
+
+			@Override
 			public void sendMessage(JsonEnvelope envelope) {
 				transportManager.send(envelope);
 			}
@@ -94,7 +103,10 @@ public class BackendProxyHandler implements Listener {
 		if (plugin.getOptions().getServer().equalsIgnoreCase("pleaseset")) {
 			plugin.getLogger().warning("Server name for bungee voting is not set, please set it");
 		}
-		if (activatePresenceReporting) activatePresenceReporting();
+		if (activatePresenceReporting) {
+			activatePresenceReporting();
+			activateInboundMessages();
+		}
 	}
 
 	/** Starts presence only after a staged handler reaches the atomic publication boundary. */
@@ -113,6 +125,10 @@ public class BackendProxyHandler implements Listener {
 	 * Closes backend/proxy components and persists cached proxy state.
 	 */
 	public void close() {
+		synchronized (inboundPublication) {
+			if (!inboundPublished && !inboundAborted) inboundAborted = true;
+			inboundPublication.notifyAll();
+		}
 		if (presenceManager != null && presenceReportingActivated) {
 			presenceManager.stop();
 			presenceReportingActivated = false;
@@ -122,6 +138,47 @@ public class BackendProxyHandler implements Listener {
 			votePartySync.persist();
 		}
 		globalDataSync.close();
+	}
+
+	/** Opens inbound dispatch only after the replacement and all handoffs are committed. */
+	public void activateInboundMessages() {
+		synchronized (inboundPublication) {
+			if (inboundAborted) return;
+			inboundPublished = true;
+			inboundPublication.notifyAll();
+		}
+	}
+
+	/** Routes an already accepted staged callback through the restored predecessor on rollback. */
+	public void abortStagedInboundTo(BackendProxyHandler previous) {
+		synchronized (inboundPublication) {
+			if (inboundPublished || inboundAborted) return;
+			inboundRollbackTarget = previous;
+			inboundAborted = true;
+			inboundPublication.notifyAll();
+		}
+	}
+
+	void dispatchIncomingAfterPublication(JsonEnvelope envelope, Runnable localDispatch) {
+		BackendProxyHandler rollbackTarget;
+		synchronized (inboundPublication) {
+			while (!inboundPublished && !inboundAborted) {
+				try {
+					inboundPublication.wait();
+				} catch (InterruptedException interrupted) {
+					Thread.currentThread().interrupt();
+					return;
+				}
+			}
+			rollbackTarget = inboundPublished ? null : inboundRollbackTarget;
+			if (!inboundPublished && rollbackTarget == null) return;
+		}
+		if (rollbackTarget != null) {
+			GlobalMessageHandler rollbackHandler = rollbackTarget.globalMessageHandler;
+			if (rollbackHandler != null) rollbackHandler.onMessage(envelope);
+			return;
+		}
+		plugin.getBukkitScheduler().executeOrScheduleSync(plugin, localDispatch);
 	}
 
 	/** Returns whether replacement preparation must preserve accepted deliveries. */
@@ -146,7 +203,7 @@ public class BackendProxyHandler implements Listener {
 			return true;
 		}
 		if (!transportManager.hasPendingAsyncHandoff()) return false;
-		transportManager.awaitAsyncHandoff(deadlineNanos);
+		transportManager.prepareAsyncHandoffForReplacement(deadlineNanos);
 		return true;
 	}
 

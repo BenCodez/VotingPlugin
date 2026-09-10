@@ -593,11 +593,13 @@ public abstract class VotingPluginProxy {
 
 	protected boolean sendHttpBroadcastEnvelopeWithRecovery(String server, JsonEnvelope envelope,
 			OfflineBungeeVote cachedVote) {
-		String stableId = cachedVote == null ? null : cachedVote.getHttpBroadcastDeliveryId(server);
+		String persistedId = cachedVote == null ? null : cachedVote.getHttpBroadcastDeliveryId(server);
+		String stableId = persistedId != null ? persistedId
+				: stableCachedHttpDeliveryId("broadcast", server, envelope, cachedVote);
 		try {
 			boolean accepted = stableId == null ? sendProxyBroadcastEnvelopeNow(server, envelope)
 					: sendHttpEnvelope(server, stableId, envelope);
-			if (accepted && cachedVote != null && stableId != null) {
+			if (accepted && persistedId != null) {
 				cachedVote.setHttpBroadcastDeliveryId(server, null);
 				cachedVote.setDeliveryStateDirty(true);
 			}
@@ -2878,13 +2880,13 @@ public abstract class VotingPluginProxy {
 	private synchronized BungeeMethod retainHttpForPendingDeliveries(BungeeMethod configuredMethod) {
 		if (configuredMethod == BungeeMethod.HTTP) return configuredMethod;
 		HttpProxyTransportServer transport = httpTransportServer;
-		if (transport != null && transport.hasPendingDeliveries()) {
+		if (transport != null && httpTransportHasPendingDeliveries(transport)) {
 			logSevere("Retaining HTTP transport until durable deliveries are acknowledged");
 			return BungeeMethod.HTTP;
 		}
 		if (transport == null) {
 			try {
-				if (HttpProxyTransportServer.hasPersistedDeliveries(
+				if (httpQueueHasPersistedDeliveries(
 						getDataFolderPlugin().toPath().resolve("http").resolve("outgoing-v1"))) {
 					logSevere("Retaining HTTP transport until persisted deliveries are acknowledged");
 					return BungeeMethod.HTTP;
@@ -2911,6 +2913,58 @@ public abstract class VotingPluginProxy {
 			}
 		}
 		return configuredMethod;
+	}
+
+	/** Uses SimpleAPI #80 when deployed while remaining safe with an older published snapshot. */
+	protected boolean httpTransportHasPendingDeliveries(HttpProxyTransportServer transport) {
+		try {
+			return Boolean.TRUE.equals(transport.getClass().getMethod("hasPendingDeliveries").invoke(transport));
+		} catch (NoSuchMethodException unavailable) {
+			// Without an authoritative query, the live durable server cannot be proven empty.
+			return true;
+		} catch (ReflectiveOperationException | SecurityException failure) {
+			logSevere("Retaining HTTP transport because its live delivery queue could not be inspected");
+			return true;
+		}
+	}
+
+	/** Invokes the additive SimpleAPI disk probe, with an equivalent bounded compatibility fallback. */
+	protected boolean httpQueueHasPersistedDeliveries(java.nio.file.Path outgoingDirectory) throws IOException {
+		try {
+			Object result = HttpProxyTransportServer.class.getMethod("hasPersistedDeliveries", java.nio.file.Path.class)
+					.invoke(null, outgoingDirectory);
+			return Boolean.TRUE.equals(result);
+		} catch (NoSuchMethodException unavailable) {
+			return inspectPersistedHttpDeliveries(outgoingDirectory);
+		} catch (java.lang.reflect.InvocationTargetException failure) {
+			Throwable cause = failure.getCause();
+			if (cause instanceof IOException io) throw io;
+			throw new IOException("HTTP outgoing queue inspection failed", cause);
+		} catch (ReflectiveOperationException | SecurityException failure) {
+			throw new IOException("HTTP outgoing queue inspection failed", failure);
+		}
+	}
+
+	private boolean inspectPersistedHttpDeliveries(java.nio.file.Path outgoingDirectory) throws IOException {
+		java.nio.file.Path root = outgoingDirectory.toAbsolutePath().normalize();
+		if (!java.nio.file.Files.exists(root, java.nio.file.LinkOption.NOFOLLOW_LINKS)) return false;
+		if (java.nio.file.Files.isSymbolicLink(root)
+				|| !java.nio.file.Files.isDirectory(root, java.nio.file.LinkOption.NOFOLLOW_LINKS))
+			throw new IOException("HTTP outgoing queue directory is invalid");
+		int backendCount = 0;
+		try (java.nio.file.DirectoryStream<java.nio.file.Path> backends = java.nio.file.Files.newDirectoryStream(root)) {
+			for (java.nio.file.Path backend : backends) {
+				if (java.nio.file.Files.isSymbolicLink(backend)
+						|| !java.nio.file.Files.isDirectory(backend, java.nio.file.LinkOption.NOFOLLOW_LINKS))
+					throw new IOException("HTTP outgoing queue contains an invalid entry");
+				if (++backendCount > 128) throw new IOException("HTTP outgoing queue exceeds its backend bound");
+				try (java.nio.file.DirectoryStream<java.nio.file.Path> entries =
+						java.nio.file.Files.newDirectoryStream(backend)) {
+					if (entries.iterator().hasNext()) return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	private boolean hasPendingCachedHttpDeliveries() {
@@ -3023,11 +3077,13 @@ public abstract class VotingPluginProxy {
 	}
 
 	protected boolean sendHttpEnvelopeWithRecovery(String server, JsonEnvelope envelope, OfflineBungeeVote cachedVote) {
-		String stableId = cachedVote == null ? null : cachedVote.getHttpDeliveryId(server);
+		String persistedId = cachedVote == null ? null : cachedVote.getHttpDeliveryId(server);
+		String stableId = persistedId != null ? persistedId
+				: stableCachedHttpDeliveryId("reward", server, envelope, cachedVote);
 		try {
 			boolean accepted = stableId == null ? sendHttpEnvelope(server, envelope)
 					: sendHttpEnvelope(server, stableId, envelope);
-			if (accepted && cachedVote != null && stableId != null) {
+			if (accepted && persistedId != null) {
 				cachedVote.setHttpDeliveryId(server, null);
 				cachedVote.setDeliveryStateDirty(true);
 			}
@@ -3047,6 +3103,18 @@ public abstract class VotingPluginProxy {
 				return false;
 			}
 		}
+	}
+
+	/** Derives the same transport identity after a crash before cache cleanup. */
+	private String stableCachedHttpDeliveryId(String purpose, String server, JsonEnvelope envelope,
+			OfflineBungeeVote cachedVote) {
+		if (cachedVote == null || server == null || envelope == null) return null;
+		String voteIdentity = cachedVote.getVoteId() == null
+				? cachedVote.getUuid() + "\u0000" + cachedVote.getService() + "\u0000" + cachedVote.getTime()
+				: cachedVote.getVoteId().toString();
+		String key = "VotingPlugin:http-cache:v1\u0000" + purpose + "\u0000"
+				+ server.toLowerCase(Locale.ROOT) + "\u0000" + envelope.getSubChannel() + "\u0000" + voteIdentity;
+		return UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8)).toString();
 	}
 
 	protected synchronized boolean sendHttpEnvelope(String server, String deliveryId, JsonEnvelope envelope) {

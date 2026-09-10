@@ -19,7 +19,8 @@ public interface BackendProxyTransport {
 		start(messageHandler);
 	}
 
-	void send(JsonEnvelope envelope);
+	/** Returns true only when the delivery was accepted by the transport or its durable queue. */
+	boolean send(JsonEnvelope envelope);
 
 	default void validate() {
 	}

@@ -29,6 +29,7 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	private boolean pluginMessageDeliveryResult = true;
 	private boolean voteEnvelopeDeliveryResult = true;
 	private Boolean stableHttpDeliveryResult;
+	private final java.util.ArrayDeque<Boolean> stableHttpDeliveryResults = new java.util.ArrayDeque<>();
 	private JsonEnvelope lastVoteEnvelope;
 	private boolean communicationTestDeliveryResult = true;
 	private JsonEnvelope lastCommunicationTestEnvelope;
@@ -49,9 +50,20 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	private java.util.concurrent.CompletableFuture<Void> nextVotePartyCommandCompletion;
 	private boolean declineNextVotePartyCommand;
 	private Runnable votePartyProxyCommandTimeout;
+	private Boolean pendingHttpTransportDeliveries;
 
 	public List<String> getWarnings() {
 		return warnings;
+	}
+
+	public void setPendingHttpTransportDeliveries(Boolean pending) {
+		pendingHttpTransportDeliveries = pending;
+	}
+
+	@Override
+	protected boolean httpTransportHasPendingDeliveries(HttpProxyTransportServer transport) {
+		return pendingHttpTransportDeliveries != null ? pendingHttpTransportDeliveries
+				: super.httpTransportHasPendingDeliveries(transport);
 	}
 
 	@Override
@@ -365,12 +377,19 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	@Override
 	protected boolean sendHttpEnvelope(String server, String deliveryId, JsonEnvelope envelope) {
+		lastVoteEnvelope = envelope;
 		attemptedVotePartyDeliveryIds.add(deliveryId);
+		if (!stableHttpDeliveryResults.isEmpty()) return stableHttpDeliveryResults.removeFirst();
 		return stableHttpDeliveryResult == null ? voteEnvelopeDeliveryResult : stableHttpDeliveryResult;
 	}
 
 	public void setStableHttpDeliveryResult(Boolean stableHttpDeliveryResult) {
 		this.stableHttpDeliveryResult = stableHttpDeliveryResult;
+	}
+
+	public void setStableHttpDeliveryResults(Boolean... results) {
+		stableHttpDeliveryResults.clear();
+		java.util.Collections.addAll(stableHttpDeliveryResults, results);
 	}
 
 	public JsonEnvelope getLastVoteEnvelope() {

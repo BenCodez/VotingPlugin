@@ -57,8 +57,9 @@ public class PluginMessagingBackendProxyTransport implements BackendProxyTranspo
 	}
 
 	@Override
-	public void send(JsonEnvelope envelope) {
+	public boolean send(JsonEnvelope envelope) {
 		plugin.getPluginMessaging().sendEnvelope(envelope);
+		return true;
 	}
 
 	@Override

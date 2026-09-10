@@ -52,6 +52,7 @@ class VotingPluginMainBackendProxyPublicationTest {
 				() -> plugin.publishBackendProxyHandler(previous, replacement));
 
 		assertSame(previous, plugin.getBackendProxyHandler());
+		verify(replacement).abortStagedInboundTo(previous);
 	}
 
 	@Test
@@ -88,6 +89,7 @@ class VotingPluginMainBackendProxyPublicationTest {
 		verify(previous, never()).completeHttpHandoff(replacement);
 		verify(previous, never()).close();
 		org.mockito.InOrder rollback = org.mockito.Mockito.inOrder(replacement, previous);
+		rollback.verify(replacement).abortStagedInboundTo(previous);
 		rollback.verify(replacement).close();
 		rollback.verify(previous).refreshPresenceAfterFailedReplacement();
 	}
@@ -130,7 +132,10 @@ class VotingPluginMainBackendProxyPublicationTest {
 		assertSame(replacement, plugin.getBackendProxyHandler());
 		assertFalse(plugin.requestBackendProxyHandlerRestartAbandonment(restart),
 				"published runtime state must not be treated as rollbackable");
-		verify(previous).completeHttpHandoff(replacement);
+		org.mockito.InOrder publication = org.mockito.Mockito.inOrder(previous, replacement);
+		publication.verify(previous).completeHttpHandoff(replacement);
+		publication.verify(replacement).activateInboundMessages();
+		publication.verify(previous).close();
 	}
 
 	@Test
