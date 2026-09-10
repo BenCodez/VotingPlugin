@@ -92,27 +92,44 @@ public abstract class VoteCacheHandler {
 	 * @param vote the vote to add
 	 */
 	public synchronized void addServerVote(String server, OfflineBungeeVote vote) {
-		if (containsServerVote(server, vote.getVoteId())) {
+		addServerVoteDurably(server, vote);
+	}
+
+	/**
+	 * Adds a server vote only when it has been durably stored. MySQL failures use
+	 * the JSON cache as an emergency journal when it is available.
+	 *
+	 * @param server the server name
+	 * @param vote the vote to add
+	 * @return true when the vote is durable (including an already cached vote)
+	 */
+	public synchronized boolean addServerVoteDurably(String server, OfflineBungeeVote vote) {
+		if (server == null || vote == null) {
+			return false;
+		}
+		if (containsServerVote(server, vote)) {
 			debug1("Not caching duplicate vote " + vote.getVoteId() + " for server " + server);
-			return;
+			return true;
 		}
 
-		cachedVotes.putIfAbsent(server, new ArrayList<>());
-		cachedVotes.get(server).add(vote);
-
+		boolean stored;
 		if (useMySQL) {
-			voteCacheTable.insertVote(vote.getVoteId(), vote.getUuid(), vote.getPlayerName(), vote.getService(),
+			stored = voteCacheTable.tryInsertVote(vote.getVoteId(), vote.getUuid(), vote.getPlayerName(), vote.getService(),
 					vote.getTime(), vote.isRealVote(), vote.getText(), vote.isBroadcastForwarded(),
 					vote.isProxyBroadcastHandled(), vote.encodeBroadcastTargets(),
 					vote.encodeBroadcastForwardedServers(), vote.isRewardDelivered(), vote.encodeHttpDeliveryIds(),
 					vote.encodeHttpBroadcastDeliveryIds(), server);
+			if (!stored) {
+				stored = persistServerVoteToJson(server, vote);
+			}
 		} else {
-			// IMPORTANT: index must come from JSON, not from cachedVotes (cache can be out
-			// of sync with JSON)
-			int idx = jsonStorage.getServerVotes(server).size();
-			jsonStorage.addVote(server, idx, vote);
-			jsonStorage.save();
+			stored = persistServerVoteToJson(server, vote);
 		}
+		if (stored) {
+			cachedVotes.putIfAbsent(server, new ArrayList<>());
+			cachedVotes.get(server).add(vote);
+		}
+		return stored;
 	}
 
 	/**
@@ -123,7 +140,10 @@ public abstract class VoteCacheHandler {
 	 */
 	public synchronized boolean updateServerVote(String server, OfflineBungeeVote vote) {
 		if (useMySQL) {
-			return voteCacheTable.updateProxyBroadcastState(vote, server);
+			if (voteCacheTable.updateProxyBroadcastState(vote, server)) {
+				return true;
+			}
+			return updateServerVoteJson(server, vote);
 		}
 
 		Collection<String> keys = jsonStorage.getServerVotes(server);
@@ -159,13 +179,13 @@ public abstract class VoteCacheHandler {
 		if (cachedVotes.containsKey(server)) {
 			ArrayList<OfflineBungeeVote> votes = cachedVotes.get(server);
 			votes.removeIf(vote -> vote.getUuid().equals(uuid));
-
-			if (useMySQL) {
-				voteCacheTable.removeVotesByServerAndUUID(server, uuid);
-			} else {
-				jsonStorage.removeServerVote(server, uuid);
-				jsonStorage.save();
-			}
+		}
+		if (useMySQL) {
+			voteCacheTable.removeVotesByServerAndUUID(server, uuid);
+		}
+		if (jsonStorage != null) {
+			jsonStorage.removeServerVote(server, uuid);
+			jsonStorage.save();
 		}
 	}
 
@@ -177,7 +197,8 @@ public abstract class VoteCacheHandler {
 		cachedVotes.remove(server);
 		if (useMySQL) {
 			voteCacheTable.removeVotesByServer(server);
-		} else {
+		}
+		if (jsonStorage != null) {
 			jsonStorage.removeServerVotes(server);
 			jsonStorage.save();
 		}
@@ -216,27 +237,44 @@ public abstract class VoteCacheHandler {
 	 * @param vote the vote to add
 	 */
 	public synchronized void addOnlineVote(String uuid, OfflineBungeeVote vote) {
-		if (containsOnlineVote(uuid, vote.getVoteId())) {
+		addOnlineVoteDurably(uuid, vote);
+	}
+
+	/**
+	 * Adds an online vote only when it has been durably stored. MySQL failures use
+	 * the JSON cache as an emergency journal when it is available.
+	 *
+	 * @param uuid voter UUID
+	 * @param vote the vote to add
+	 * @return true when the vote is durable (including an already cached vote)
+	 */
+	public synchronized boolean addOnlineVoteDurably(String uuid, OfflineBungeeVote vote) {
+		if (uuid == null || vote == null) {
+			return false;
+		}
+		if (containsOnlineVote(uuid, vote)) {
 			debug1("Not caching duplicate online vote " + vote.getVoteId() + " for " + uuid);
-			return;
+			return true;
 		}
 
-		cachedOnlineVotes.putIfAbsent(uuid, new ArrayList<>());
-		cachedOnlineVotes.get(uuid).add(vote);
-
+		boolean stored;
 		if (useMySQL) {
-			onlineVoteCacheTable.insertVote(vote.getVoteId(), vote.getUuid(), vote.getPlayerName(), vote.getService(),
+			stored = onlineVoteCacheTable.tryInsertVote(vote.getVoteId(), vote.getUuid(), vote.getPlayerName(), vote.getService(),
 					vote.getTime(), vote.isRealVote(), vote.getText(), vote.isBroadcastForwarded(),
 					vote.isProxyBroadcastHandled(), vote.encodeBroadcastTargets(),
 					vote.encodeBroadcastForwardedServers(), vote.isRewardDelivered(), vote.encodeHttpDeliveryIds(),
 					vote.encodeHttpBroadcastDeliveryIds());
+			if (!stored) {
+				stored = persistOnlineVoteToJson(uuid, vote);
+			}
 		} else {
-			// IMPORTANT: index must come from JSON, not from cachedOnlineVotes (cache can
-			// be out of sync with JSON)
-			int idx = jsonStorage.getOnlineVotes(uuid).size();
-			jsonStorage.addVoteOnline(uuid, idx, vote);
-			jsonStorage.save();
+			stored = persistOnlineVoteToJson(uuid, vote);
 		}
+		if (stored) {
+			cachedOnlineVotes.putIfAbsent(uuid, new ArrayList<>());
+			cachedOnlineVotes.get(uuid).add(vote);
+		}
+		return stored;
 	}
 
 	/**
@@ -247,7 +285,10 @@ public abstract class VoteCacheHandler {
 	 */
 	public synchronized boolean updateOnlineVote(String uuid, OfflineBungeeVote vote) {
 		if (useMySQL) {
-			return onlineVoteCacheTable.updateProxyBroadcastState(vote);
+			if (onlineVoteCacheTable.updateProxyBroadcastState(vote)) {
+				return true;
+			}
+			return updateOnlineVoteJson(uuid, vote);
 		}
 
 		Collection<String> keys = jsonStorage.getOnlineVotes(uuid);
@@ -333,7 +374,8 @@ public abstract class VoteCacheHandler {
 		cachedOnlineVotes.remove(uuid);
 		if (useMySQL) {
 			onlineVoteCacheTable.removeVotesByUuid(uuid);
-		} else {
+		}
+		if (jsonStorage != null) {
 			jsonStorage.removeOnlineVotes(uuid);
 			jsonStorage.save();
 		}
@@ -376,38 +418,18 @@ public abstract class VoteCacheHandler {
 		}
 	}
 
-	/**
-	 * Checks whether a vote is already cached for a server.
-	 *
-	 * @param server target server
-	 * @param voteId unique vote identifier
-	 * @return true if the vote is already cached for the server
-	 */
-	private boolean containsServerVote(String server, UUID voteId) {
-		if (voteId == null) {
-			return false;
-		}
+	private boolean containsServerVote(String server, OfflineBungeeVote candidate) {
 		for (OfflineBungeeVote vote : getVotes(server)) {
-			if (voteId.equals(vote.getVoteId())) {
+			if (sameVoteIdentity(vote, candidate)) {
 				return true;
 			}
 		}
 		return false;
 	}
 
-	/**
-	 * Checks whether a vote is already cached for an online player.
-	 *
-	 * @param uuid player UUID
-	 * @param voteId unique vote identifier
-	 * @return true if the vote is already cached for the player
-	 */
-	private boolean containsOnlineVote(String uuid, UUID voteId) {
-		if (voteId == null) {
-			return false;
-		}
+	private boolean containsOnlineVote(String uuid, OfflineBungeeVote candidate) {
 		for (OfflineBungeeVote vote : getOnlineVotes(uuid)) {
-			if (voteId.equals(vote.getVoteId())) {
+			if (sameVoteIdentity(vote, candidate)) {
 				return true;
 			}
 		}
@@ -462,6 +484,96 @@ public abstract class VoteCacheHandler {
 				&& vote.getTime() == data.get("Time").asLong();
 	}
 
+	/** Persists a server vote in the JSON emergency journal. */
+	private boolean persistServerVoteToJson(String server, OfflineBungeeVote vote) {
+		if (jsonStorage == null) {
+			return false;
+		}
+		try {
+			Collection<String> keys = jsonStorage.getServerVotes(server);
+			int index = nextCacheIndex(keys);
+			jsonStorage.addVote(server, index, vote);
+			jsonStorage.save();
+			return true;
+		} catch (RuntimeException e) {
+			debug1(e);
+			return false;
+		}
+	}
+
+	/** Persists an online vote in the JSON emergency journal. */
+	private boolean persistOnlineVoteToJson(String uuid, OfflineBungeeVote vote) {
+		if (jsonStorage == null) {
+			return false;
+		}
+		try {
+			Collection<String> keys = jsonStorage.getOnlineVotes(uuid);
+			int index = nextCacheIndex(keys);
+			jsonStorage.addVoteOnline(uuid, index, vote);
+			jsonStorage.save();
+			return true;
+		} catch (RuntimeException e) {
+			debug1(e);
+			return false;
+		}
+	}
+
+	private int nextCacheIndex(Collection<String> keys) {
+		int index = 0;
+		while (keys != null && keys.contains(String.valueOf(index))) {
+			index++;
+		}
+		return index;
+	}
+
+	private boolean updateServerVoteJson(String server, OfflineBungeeVote vote) {
+		if (jsonStorage == null) {
+			return false;
+		}
+		Collection<String> keys = jsonStorage.getServerVotes(server);
+		if (keys == null) {
+			return false;
+		}
+		for (String key : keys) {
+			DataNode data = jsonStorage.getServerVotes(server, key);
+			if (data != null && data.isObject() && matchesStoredVote(data, vote)) {
+				try {
+					jsonStorage.addVote(server, Integer.parseInt(key), vote);
+					jsonStorage.save();
+					return true;
+				} catch (RuntimeException e) {
+					debug1(e);
+					return false;
+				}
+			}
+		}
+		return false;
+	}
+
+	private boolean updateOnlineVoteJson(String uuid, OfflineBungeeVote vote) {
+		if (jsonStorage == null) {
+			return false;
+		}
+		Collection<String> keys = jsonStorage.getOnlineVotes(uuid);
+		if (keys == null) {
+			return false;
+		}
+		for (String key : keys) {
+			DataNode data = jsonStorage.getOnlineVotes(uuid, key);
+			if (data != null && data.isObject() && matchesStoredVote(data, vote)) {
+				try {
+					jsonStorage.addVoteOnline(uuid, Integer.parseInt(key), vote);
+					jsonStorage.save();
+					return true;
+				} catch (RuntimeException e) {
+					debug1(e);
+					return false;
+				}
+			}
+		}
+		return false;
+	}
+
 	private boolean sameVoteIdentity(OfflineBungeeVote first, OfflineBungeeVote second) {
 		if (first.getVoteId() != null && second.getVoteId() != null) {
 			return first.getVoteId().equals(second.getVoteId());
@@ -485,7 +597,7 @@ public abstract class VoteCacheHandler {
 	 * Saves the vote cache to storage.
 	 */
 	public void saveVoteCache() {
-		if (!useMySQL) {
+		if (jsonStorage != null) {
 			jsonStorage.save();
 		}
 	}
@@ -638,6 +750,7 @@ public abstract class VoteCacheHandler {
 				timedVotes.add(voteTimeQueue);
 			});
 			timeChangeQueue.addAll(timedVotes);
+			loadJsonEmergencyVotes();
 
 		} else {
 			try {
@@ -782,6 +895,79 @@ public abstract class VoteCacheHandler {
 
 	}
 
+	/**
+	 * Loads entries written to the JSON emergency journal while MySQL was
+	 * unavailable. Entries already present in SQL are de-duplicated by vote ID (or
+	 * the legacy UUID/service/time identity).
+	 */
+	private void loadJsonEmergencyVotes() {
+		if (jsonStorage == null) {
+			return;
+		}
+		try {
+			Collection<String> servers = jsonStorage.getServers();
+			if (servers != null) {
+				for (String server : servers) {
+					Collection<String> keys = jsonStorage.getServerVotes(server);
+					if (keys == null) {
+						continue;
+					}
+					for (String key : keys) {
+						OfflineBungeeVote vote = decodeJsonVote(jsonStorage.getServerVotes(server, key));
+						if (vote != null && !containsServerVote(server, vote)) {
+							cachedVotes.computeIfAbsent(server, ignored -> new ArrayList<>()).add(vote);
+						}
+					}
+				}
+			}
+			Collection<String> players = jsonStorage.getPlayers();
+			if (players != null) {
+				for (String player : players) {
+					Collection<String> keys = jsonStorage.getOnlineVotes(player);
+					if (keys == null) {
+						continue;
+					}
+					for (String key : keys) {
+						OfflineBungeeVote vote = decodeJsonVote(jsonStorage.getOnlineVotes(player, key));
+						if (vote != null && !containsOnlineVote(player, vote)) {
+							cachedOnlineVotes.computeIfAbsent(player, ignored -> new ArrayList<>()).add(vote);
+						}
+					}
+				}
+			}
+		} catch (RuntimeException e) {
+			debug1(e);
+		}
+	}
+
+	private OfflineBungeeVote decodeJsonVote(DataNode data) {
+		if (data == null || !data.isObject()) {
+			return null;
+		}
+		String name = data.has("Name") ? data.get("Name").asString() : "";
+		String uuid = data.has("UUID") ? data.get("UUID").asString() : "";
+		String service = data.has("Service") ? data.get("Service").asString() : "";
+		long time = data.has("Time") ? data.get("Time").asLong() : 0L;
+		boolean real = data.has("Real") && data.get("Real").asBoolean();
+		String text = data.has("Text") ? data.get("Text").asString() : "";
+		String voteId = readVoteId(data);
+		boolean broadcastForwarded = data.has("BroadcastForwarded") && data.get("BroadcastForwarded").asBoolean();
+		boolean proxyBroadcastHandled = data.has("ProxyBroadcastHandled")
+				&& data.get("ProxyBroadcastHandled").asBoolean();
+		String broadcastTargets = data.has("BroadcastTargets") ? data.get("BroadcastTargets").asString() : "";
+		String broadcastForwardedServers = data.has("BroadcastForwardedServers")
+				? data.get("BroadcastForwardedServers").asString() : "";
+		String httpDeliveryIds = data.has("HttpDeliveryIds") ? data.get("HttpDeliveryIds").asString() : "";
+		String httpBroadcastDeliveryIds = data.has("HttpBroadcastDeliveryIds")
+				? data.get("HttpBroadcastDeliveryIds").asString() : "";
+		boolean rewardDelivered = data.has("RewardDelivered") && data.get("RewardDelivered").asBoolean();
+		return new OfflineBungeeVote(voteId, name, uuid, service, time, real, text, broadcastForwarded,
+				proxyBroadcastHandled, VoteTimeQueue.decodeBroadcastForwardedServers(broadcastTargets),
+				VoteTimeQueue.decodeBroadcastForwardedServers(broadcastForwardedServers), rewardDelivered,
+				OfflineBungeeVote.decodeHttpDeliveryIds(httpDeliveryIds),
+				OfflineBungeeVote.decodeHttpBroadcastDeliveryIds(httpBroadcastDeliveryIds));
+	}
+
 	private final boolean useMySQL;
 	private ProxyVoteCacheTable voteCacheTable;
 	private ProxyTimedVoteCacheTable timedVoteCacheTable;
@@ -831,6 +1017,9 @@ public abstract class VoteCacheHandler {
 	public VoteCacheHandler(MysqlConfig mysqlConfig, boolean useMySQL, boolean useExistingConnection, MySQL mysql,
 			boolean debug, IVoteCache jsonStorage) {
 		this.useMySQL = useMySQL;
+		// Keep the JSON store available as a durable emergency journal even when
+		// MySQL is the primary cache backend.
+		this.jsonStorage = jsonStorage;
 
 		if (useMySQL) {
 			if (useExistingConnection) {
@@ -974,8 +1163,6 @@ public abstract class VoteCacheHandler {
 					}
 				};
 			}
-		} else {
-			this.jsonStorage = jsonStorage;
 		}
 	}
 
@@ -1002,7 +1189,8 @@ public abstract class VoteCacheHandler {
 			}
 			if (useMySQL) {
 				voteCacheTable.removeVote(vote, server);
-			} else {
+			}
+			if (jsonStorage != null) {
 				jsonStorage.removeVote(server, vote);
 				jsonStorage.save();
 			}
@@ -1021,7 +1209,8 @@ public abstract class VoteCacheHandler {
 			}
 			if (useMySQL) {
 				onlineVoteCacheTable.removeVote(vote);
-			} else {
+			}
+			if (jsonStorage != null) {
 				jsonStorage.removeOnlineVote(vote);
 				jsonStorage.save();
 			}

@@ -113,6 +113,22 @@ public class VoteCacheHandlerVoteIdTest {
 	}
 
 	@Test
+	public void serverVoteIsNotExposedWhenJsonJournalCannotSave() {
+		doThrow(new RuntimeException("save failed")).when(storage).save();
+
+		assertFalse(handler.addServerVoteDurably("server", vote(UUID.randomUUID(), 100L)));
+		assertTrue(handler.getVotes("server").isEmpty());
+	}
+
+	@Test
+	public void onlineVoteIsNotExposedWhenJsonJournalCannotSave() {
+		doThrow(new RuntimeException("save failed")).when(storage).save();
+
+		assertFalse(handler.addOnlineVoteDurably("player-uuid", vote(UUID.randomUUID(), 100L)));
+		assertTrue(handler.getOnlineVotes("player-uuid").isEmpty());
+	}
+
+	@Test
 	public void currentVoteIdKeyLoadsFromJsonCache() {
 		UUID voteId = UUID.randomUUID();
 		handler = handlerForStoredVote("VoteId", voteId);

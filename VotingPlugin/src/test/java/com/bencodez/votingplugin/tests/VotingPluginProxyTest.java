@@ -52,7 +52,24 @@ public class VotingPluginProxyTest {
 		votingPluginProxy.setProxyMySQL(proxyMySQL);
 		votingPluginProxy.setGlobalDataHandler(globalDataHandler);
 		votingPluginProxy.setMultiProxyHandler(multiProxyHandler);
+		votingPluginProxy.setDataFolder(temporaryDirectory.toFile());
 
+	}
+
+	@Test
+	void httpMethodPreparationRejectsAnOccupiedPortBeforeConfigurationPublication() throws Exception {
+		try (java.net.ServerSocket occupied = new java.net.ServerSocket(0, 1,
+				java.net.InetAddress.getByName("127.0.0.1"))) {
+			com.bencodez.votingplugin.proxy.VotingPluginProxyConfig candidate =
+					Mockito.mock(com.bencodez.votingplugin.proxy.VotingPluginProxyConfig.class);
+			Mockito.when(candidate.getHttpHost()).thenReturn("127.0.0.1");
+			Mockito.when(candidate.getHttpPort()).thenReturn(occupied.getLocalPort());
+			Mockito.when(candidate.getHttpPublicEndpoint())
+					.thenReturn("https://proxy.example.test:" + occupied.getLocalPort());
+
+			assertThrows(IllegalStateException.class,
+					() -> votingPluginProxy.prepareHttpTransportChange(candidate));
+		}
 	}
 
 	@Test
@@ -464,6 +481,42 @@ public class VotingPluginProxyTest {
 				votingPluginProxy.getVoteCachePendingVotePartyProxyEffects().commands());
 		completion.complete(null);
 		assertEquals(java.util.List.of("in flight"), votingPluginProxy.getConsoleCommands());
+	}
+
+	@Test
+	void finalShutdownQuarantinesAnInFlightVotePartyCommandBeforeTeardown() {
+		configureHttpVotePartyEffects("", java.util.List.of("in flight", "next command"));
+		java.util.concurrent.CompletableFuture<Void> completion =
+				votingPluginProxy.delayNextVotePartyCommandCompletion();
+		votingPluginProxy.checkVoteParty();
+
+		votingPluginProxy.onDisable(false);
+
+		assertEquals(java.util.List.of("in flight"),
+				votingPluginProxy.getVoteCacheQuarantinedVotePartyProxyEffects().commands());
+		assertEquals(java.util.List.of("next command"),
+				votingPluginProxy.getVoteCachePendingVotePartyProxyEffects().commands());
+		completion.complete(null);
+		assertEquals(java.util.List.of("in flight"), votingPluginProxy.getConsoleCommands());
+	}
+
+	@Test
+	void finalShutdownLeavesInFlightCommandFencedWhenQuarantineIsNotDurable() {
+		configureHttpVotePartyEffects("", java.util.List.of("in flight", "next command"));
+		java.util.concurrent.CompletableFuture<Void> completion =
+				votingPluginProxy.delayNextVotePartyCommandCompletion();
+		votingPluginProxy.checkVoteParty();
+		votingPluginProxy.failNextVoteCacheSave();
+
+		votingPluginProxy.onDisable(false);
+
+		assertTrue(votingPluginProxy.getVoteCacheQuarantinedVotePartyProxyEffects().isEmpty());
+		assertEquals(java.util.List.of("in flight", "next command"),
+				votingPluginProxy.getVoteCachePendingVotePartyProxyEffects().commands());
+		completion.complete(null);
+		assertEquals(java.util.List.of("in flight"), votingPluginProxy.getConsoleCommands());
+		assertEquals(java.util.List.of("in flight", "next command"),
+				votingPluginProxy.getVoteCachePendingVotePartyProxyEffects().commands());
 	}
 
 	@Test

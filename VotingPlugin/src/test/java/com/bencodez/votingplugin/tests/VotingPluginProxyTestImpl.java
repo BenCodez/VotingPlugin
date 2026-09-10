@@ -52,6 +52,7 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	private Runnable votePartyProxyCommandTimeout;
 	private Boolean pendingHttpTransportDeliveries;
 	private volatile int reloadCoreCalls;
+	private File dataFolder = new File(".");
 
 	public List<String> getWarnings() {
 		return warnings;
@@ -113,7 +114,11 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	@Override
 	public File getDataFolderPlugin() {
-		return new File(".");
+		return dataFolder;
+	}
+
+	public void setDataFolder(File dataFolder) {
+		this.dataFolder = dataFolder;
 	}
 
 	@Override

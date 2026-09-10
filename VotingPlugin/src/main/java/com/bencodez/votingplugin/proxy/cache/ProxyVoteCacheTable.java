@@ -344,6 +344,16 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 			String text, boolean broadcastForwarded, boolean proxyBroadcastHandled, String broadcastTargets,
 			String broadcastForwardedServers, boolean rewardDelivered, String httpDeliveryIds,
 			String httpBroadcastDeliveryIds, String server) {
+		tryInsertVote(voteId, uuid, playerName, service, time, real, text, broadcastForwarded,
+				proxyBroadcastHandled, broadcastTargets, broadcastForwardedServers, rewardDelivered,
+				httpDeliveryIds, httpBroadcastDeliveryIds, server);
+	}
+
+	/** Inserts a vote and reports whether the database accepted it. */
+	public boolean tryInsertVote(UUID voteId, String uuid, String playerName, String service, long time, boolean real,
+			String text, boolean broadcastForwarded, boolean proxyBroadcastHandled, String broadcastTargets,
+			String broadcastForwardedServers, boolean rewardDelivered, String httpDeliveryIds,
+			String httpBroadcastDeliveryIds, String server) {
 
 		String sql = "INSERT INTO " + qi(getTableName()) + " (" + qi("uuid") + ", " + qi("voteid") + ", "
 				+ qi("playerName") + ", " + qi("service") + ", " + qi("time") + ", " + qi("realVote") + ", "
@@ -388,9 +398,10 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 			ps.setString(14, httpBroadcastDeliveryIds);
 			ps.setString(15, server);
 
-			ps.executeUpdate();
+			return ps.executeUpdate() > 0;
 		} catch (SQLException | IllegalArgumentException e) {
 			debug(e);
+			return false;
 		}
 	}
 

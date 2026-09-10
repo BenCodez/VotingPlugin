@@ -12,6 +12,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
@@ -37,6 +38,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import javax.net.ssl.SSLParameters;
 
@@ -113,6 +115,7 @@ public abstract class VotingPluginProxy {
 	// poll armed while a replacement is deferred so state cleared after an ack (or
 	// from the durable cache) cannot strand the old HTTP runtime indefinitely.
 	private static final long HTTP_TRANSPORT_RECONCILIATION_POLL_MILLIS = 1_000L;
+	private static final Map<Path, PreparedHttpTransport> PREPARED_HTTP_TRANSPORTS = new ConcurrentHashMap<>();
 
 	@Getter
 	@Setter
@@ -136,6 +139,35 @@ public abstract class VotingPluginProxy {
 	private String liveHttpHost;
 	private String liveHttpPublicEndpoint;
 	private int liveHttpPort;
+
+	private static final class PreparedHttpTransport {
+		private final HttpProxyTransportServer server;
+		private final HttpEnrollmentAuthority authority;
+		private final AtomicReference<VotingPluginProxy> owner;
+		private final String host;
+		private final int port;
+		private final String publicEndpoint;
+
+		private PreparedHttpTransport(HttpProxyTransportServer server, HttpEnrollmentAuthority authority,
+				AtomicReference<VotingPluginProxy> owner, String host, int port, String publicEndpoint) {
+			this.server = server;
+			this.authority = authority;
+			this.owner = owner;
+			this.host = host;
+			this.port = port;
+			this.publicEndpoint = publicEndpoint;
+		}
+
+		private boolean matches(VotingPluginProxyConfig config) {
+			return java.util.Objects.equals(host, config.getHttpHost()) && port == config.getHttpPort()
+					&& java.util.Objects.equals(publicEndpoint, config.getHttpPublicEndpoint());
+		}
+
+		private void close() {
+			owner.set(null);
+			server.close();
+		}
+	}
 
 	@Getter
 	@Setter
@@ -2638,6 +2670,10 @@ public abstract class VotingPluginProxy {
 		if (waitForHosted) {
 			prepareForRuntimeReplacement();
 		} else {
+			if (!quarantineInFlightVotePartyProxyCommandForReplacement()) {
+				logSevere("Unable to durably quarantine an in-flight HTTP vote-party command during final shutdown; the attempt remains fenced");
+			}
+			cancelPreparedHttpTransportChange();
 			controlServicesGeneration.incrementAndGet();
 			controlLifecycleExecutor.shutdownNow();
 			stopControlServices(false);
@@ -3157,21 +3193,26 @@ public abstract class VotingPluginProxy {
 
 	private void startHttpTransport() {
 		try {
-			URI endpoint = URI.create(getConfig().getHttpPublicEndpoint());
-			if (!"https".equalsIgnoreCase(endpoint.getScheme()) || endpoint.getHost() == null
-					|| endpoint.getPort() == 0 || endpoint.getPort() > 65535
-					|| endpoint.getUserInfo() != null || endpoint.getQuery() != null || endpoint.getFragment() != null
-					|| (endpoint.getPath() != null && !endpoint.getPath().isEmpty() && !"/".equals(endpoint.getPath()))) {
-				throw new IllegalArgumentException("HTTP.PublicEndpoint must be an HTTPS origin");
+			PreparedHttpTransport prepared = PREPARED_HTTP_TRANSPORTS.remove(httpTransportPreparationKey());
+			if (prepared != null) {
+				if (!prepared.matches(getConfig())) {
+					prepared.close();
+					throw new IllegalStateException("Prepared HTTP transport does not match the installed configuration");
+				}
+				httpTransportServer = prepared.server;
+				httpEnrollmentAuthority = prepared.authority;
+				prepared.owner.set(this);
+			} else {
+				URI endpoint = validatedHttpEndpoint(getConfig().getHttpPublicEndpoint());
+				File directory = new File(getDataFolderPlugin(), "http");
+				HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.toPath(), endpoint.getHost());
+				httpEnrollmentAuthority = new HttpEnrollmentAuthority(identity, directory.toPath());
+				httpTransportServer = new HttpProxyTransportServer(
+						new InetSocketAddress(getConfig().getHttpHost(), getConfig().getHttpPort()), identity,
+						httpEnrollmentAuthority, directory.toPath().resolve("outgoing-v1"),
+						this::handleHttpTransportEnvelope, this::acknowledgeHttpDelivery);
+				httpTransportServer.start();
 			}
-			File directory = new File(getDataFolderPlugin(), "http");
-			HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.toPath(), endpoint.getHost());
-			httpEnrollmentAuthority = new HttpEnrollmentAuthority(identity, directory.toPath());
-			httpTransportServer = new HttpProxyTransportServer(
-					new InetSocketAddress(getConfig().getHttpHost(), getConfig().getHttpPort()), identity,
-					httpEnrollmentAuthority, directory.toPath().resolve("outgoing-v1"), this::handleHttpTransportEnvelope,
-				this::acknowledgeHttpDelivery);
-			httpTransportServer.start();
 			liveHttpHost = getConfig().getHttpHost();
 			liveHttpPort = getConfig().getHttpPort();
 			liveHttpPublicEndpoint = getConfig().getHttpPublicEndpoint();
@@ -3216,6 +3257,66 @@ public abstract class VotingPluginProxy {
 		liveHttpPort = 0;
 		liveHttpPublicEndpoint = null;
 		if (transport != null) transport.close();
+	}
+
+	/**
+	 * Starts the candidate HTTP listener before Control publishes an HTTP method
+	 * change. The replacement runtime adopts this listener, avoiding a bind/TLS/
+	 * queue failure after the old runtime has already been torn down.
+	 */
+	public synchronized void prepareHttpTransportChange(VotingPluginProxyConfig candidate) {
+		cancelPreparedHttpTransportChange();
+		PreparedHttpTransport prepared = createPreparedHttpTransport(candidate);
+		PREPARED_HTTP_TRANSPORTS.put(httpTransportPreparationKey(), prepared);
+	}
+
+	/** Cancels a candidate listener when configuration publication fails. */
+	public synchronized void cancelPreparedHttpTransportChange() {
+		PreparedHttpTransport prepared = PREPARED_HTTP_TRANSPORTS.remove(httpTransportPreparationKey());
+		if (prepared != null) prepared.close();
+	}
+
+	private PreparedHttpTransport createPreparedHttpTransport(VotingPluginProxyConfig candidate) {
+		HttpProxyTransportServer server = null;
+		try {
+			URI endpoint = validatedHttpEndpoint(candidate.getHttpPublicEndpoint());
+			File directory = new File(getDataFolderPlugin(), "http");
+			HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.toPath(), endpoint.getHost());
+			HttpEnrollmentAuthority authority = new HttpEnrollmentAuthority(identity, directory.toPath());
+			AtomicReference<VotingPluginProxy> owner = new AtomicReference<>();
+			server = new HttpProxyTransportServer(
+					new InetSocketAddress(candidate.getHttpHost(), candidate.getHttpPort()), identity, authority,
+					directory.toPath().resolve("outgoing-v1"), received -> {
+						VotingPluginProxy active = owner.get();
+						if (active == null) throw new IllegalStateException("HTTP runtime replacement is not active");
+						active.handleHttpTransportEnvelope(received);
+					}, (backend, deliveryId) -> {
+						VotingPluginProxy active = owner.get();
+						if (active == null) throw new IOException("HTTP runtime replacement is not active");
+						active.acknowledgeHttpDelivery(backend, deliveryId);
+					});
+			server.start();
+			return new PreparedHttpTransport(server, authority, owner, candidate.getHttpHost(), candidate.getHttpPort(),
+					candidate.getHttpPublicEndpoint());
+		} catch (Exception failure) {
+			if (server != null) server.close();
+			throw new IllegalStateException("HTTP transport could not be prepared securely", failure);
+		}
+	}
+
+	private Path httpTransportPreparationKey() {
+		return getDataFolderPlugin().toPath().toAbsolutePath().normalize();
+	}
+
+	private URI validatedHttpEndpoint(String publicEndpoint) {
+		URI endpoint = URI.create(publicEndpoint);
+		if (!"https".equalsIgnoreCase(endpoint.getScheme()) || endpoint.getHost() == null
+				|| endpoint.getPort() == 0 || endpoint.getPort() > 65535
+				|| endpoint.getUserInfo() != null || endpoint.getQuery() != null || endpoint.getFragment() != null
+				|| (endpoint.getPath() != null && !endpoint.getPath().isEmpty() && !"/".equals(endpoint.getPath()))) {
+			throw new IllegalArgumentException("HTTP.PublicEndpoint must be an HTTPS origin");
+		}
+		return endpoint;
 	}
 
 	/**
@@ -4397,9 +4498,13 @@ public abstract class VotingPluginProxy {
 								VotingPluginWire.vote(player, uuid, service, time, true, realVote, text.toString(),
 										voteId, getConfig().getBungeeManageTotals(), broadcastHere, 1, 1), pendingVote);
 						if (!rewardAccepted) {
+							OfflineBungeeVote fallbackVote = standaloneProxyBroadcast
+									? createCachedRewardVote(pendingVote, true) : pendingVote;
+							if (!getVoteCacheHandler().addServerVoteDurably(s, fallbackVote)) {
+								logSevere("Unable to durably cache the rejected vote delivery for " + s);
+								return QueuedVoteResult.RETRY;
+							}
 							voteStatus = VoteLogStatus.CACHED;
-							getVoteCacheHandler().addServerVote(s, standaloneProxyBroadcast
-									? createCachedRewardVote(pendingVote, true) : pendingVote);
 							debug("Caching vote after the transport rejected delivery for " + s);
 						} else if (standaloneBroadcastState != null) {
 							standaloneBroadcastState.setRewardDelivered(true);
@@ -4428,8 +4533,11 @@ public abstract class VotingPluginProxy {
 							VotingPluginWire.voteOnline(player, uuid, service, time, true, realVote, text.toString(),
 									voteId, getConfig().getBungeeManageTotals(), broadcastHere, 1, 1), pendingVote);
 					if (!rewardAccepted) {
+						if (!getVoteCacheHandler().addOnlineVoteDurably(uuid, pendingVote)) {
+							logSevere("Unable to durably cache the rejected online vote delivery for " + uuid);
+							return QueuedVoteResult.RETRY;
+						}
 						voteStatus = VoteLogStatus.CACHED;
-						getVoteCacheHandler().addOnlineVote(uuid, pendingVote);
 						standaloneBroadcastStatePersisted |= standaloneBroadcastState != null;
 						debug("Caching online vote after the transport rejected delivery for " + server);
 					} else if (standaloneBroadcastState != null) {

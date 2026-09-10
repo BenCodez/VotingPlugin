@@ -86,19 +86,28 @@ public final class ProxyMethodConfigurationService {
 
 	public void apply(ProxyMethodConfiguration proposal, String expectedRevision) throws IOException {
 		if (expectedRevision == null) throw new StaleRevisionException();
+		boolean prepareHttp = proposal.method() == BungeeMethod.HTTP && read().method() != BungeeMethod.HTTP;
 		try {
 			proxy.getConfig().persistControlProxyMethod(proposal.method().name(), expectedRevision,
-					latest -> validate(proposal, latest));
+					latest -> {
+						validate(proposal, latest);
+						if (prepareHttp) proxy.prepareHttpTransportChange(latest);
+					});
 			proxy.getConfig().verifyControlProxyRoutingInstalled();
 		} catch (VotingPluginProxyConfig.StaleControlRevisionException e) {
+			if (prepareHttp) proxy.cancelPreparedHttpTransportChange();
 			throw new StaleRevisionException();
 		} catch (IllegalArgumentException validation) {
+			if (prepareHttp) proxy.cancelPreparedHttpTransportChange();
 			throw validation;
 		} catch (DurableFiles.PublishedException published) {
+			if (prepareHttp) proxy.cancelPreparedHttpTransportChange();
 			throw rollbackAfterFailure(published);
 		} catch (IOException failure) {
+			if (prepareHttp) proxy.cancelPreparedHttpTransportChange();
 			throw failure;
 		} catch (RuntimeException failure) {
+			if (prepareHttp) proxy.cancelPreparedHttpTransportChange();
 			throw rollbackAfterFailure(failure);
 		}
 	}
