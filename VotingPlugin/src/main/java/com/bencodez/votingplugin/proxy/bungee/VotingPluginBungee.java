@@ -18,6 +18,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -489,6 +490,14 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		}
 	}
 
+	/** Runs a scheduled deferred replacement only if it is still current while holding reloadLock. */
+	private void reloadPluginIfCurrent(boolean loadMysql, BooleanSupplier stillCurrent) {
+		synchronized (reloadLock) {
+			if (!stillCurrent.getAsBoolean()) return;
+			reloadPlugin(loadMysql);
+		}
+	}
+
 	/**
 	 * Creates a new VotingPluginProxy instance wired to this platform.
 	 *
@@ -781,6 +790,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			public void reloadCore(boolean mysql) {
 				// mysql==true should do full reloadall behavior on the platform
 				reloadPlugin(mysql);
+			}
+
+			@Override
+			protected void reloadDeferredHttpTransportCore(long generation) {
+				reloadPluginIfCurrent(true, () -> isDeferredHttpTransportGenerationCurrent(generation));
 			}
 
 			@Override

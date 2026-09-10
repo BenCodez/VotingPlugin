@@ -108,6 +108,11 @@ public abstract class VotingPluginProxy {
 	private static final long PRESENCE_BACKEND_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(90);
 	private static final long CONTROL_ENROLLMENT_MIN_INTERVAL_NANOS = TimeUnit.SECONDS.toNanos(10);
 	private static final int MAX_PENDING_VOTE_PARTY_REWARDS = 1024;
+	private static final long HTTP_TRANSPORT_RECONCILIATION_DELAY_MILLIS = 100L;
+	// Acks run before SimpleAPI removes an entry. Keep one bounded, single-flight
+	// poll armed while a replacement is deferred so state cleared after an ack (or
+	// from the durable cache) cannot strand the old HTTP runtime indefinitely.
+	private static final long HTTP_TRANSPORT_RECONCILIATION_POLL_MILLIS = 1_000L;
 
 	@Getter
 	@Setter
@@ -148,6 +153,10 @@ public abstract class VotingPluginProxy {
 	private boolean timeVoteDeliveryRetryScheduled;
 	private boolean cachedVoteDeliveryRetryScheduled;
 	private boolean votePartyDeliveryRetryScheduled;
+	private boolean deferredHttpTransportReconciliation;
+	private boolean httpTransportReconciliationScheduled;
+	private boolean httpTransportReconciliationRunning;
+	private long httpTransportReconciliationGeneration;
 	private long votePartyProxyCommandAttemptSequence;
 	private long votePartyProxyCommandInFlight;
 
@@ -2622,6 +2631,7 @@ public abstract class VotingPluginProxy {
 
 	/** Full runtime replacement waits for hosted workers; final proxy stop remains non-blocking. */
 	public void onDisable(boolean waitForHosted) {
+		invalidateDeferredHttpTransportReconciliation();
 		if (waitForHosted) {
 			prepareForRuntimeReplacement();
 		} else {
@@ -2861,9 +2871,14 @@ public abstract class VotingPluginProxy {
 	}
 
 	private void reloadRuntime(boolean restartControlServices) {
+		// A manual reload supersedes any nested deferred reload scheduled by an old
+		// runtime. The generation check prevents that task from rebuilding after
+		// shutdown or racing this explicit replacement.
+		invalidateDeferredHttpTransportReconciliation();
 		BungeeMethod configuredMethod = BungeeMethod.getByName(getConfig().getBungeeMethod());
 		if (configuredMethod == null) configuredMethod = BungeeMethod.PLUGINMESSAGING;
 		method = retainHttpForPendingDeliveries(configuredMethod);
+		scheduleDeferredHttpTransportReconciliation();
 		warnUnsupportedDedicatedVotingProxyMode();
 		if (!restartControlServices && method == BungeeMethod.SOCKETS) {
 			rebuildSocketClients();
@@ -2878,9 +2893,13 @@ public abstract class VotingPluginProxy {
 	}
 
 	private synchronized BungeeMethod retainHttpForPendingDeliveries(BungeeMethod configuredMethod) {
-		if (configuredMethod == BungeeMethod.HTTP) return configuredMethod;
+		if (configuredMethod == BungeeMethod.HTTP) {
+			deferredHttpTransportReconciliation = false;
+			return configuredMethod;
+		}
 		HttpProxyTransportServer transport = httpTransportServer;
 		if (transport != null && httpTransportHasPendingDeliveries(transport)) {
+			deferredHttpTransportReconciliation = true;
 			logSevere("Retaining HTTP transport until durable deliveries are acknowledged");
 			return BungeeMethod.HTTP;
 		}
@@ -2888,17 +2907,20 @@ public abstract class VotingPluginProxy {
 			try {
 				if (httpQueueHasPersistedDeliveries(
 						getDataFolderPlugin().toPath().resolve("http").resolve("outgoing-v1"))) {
+					deferredHttpTransportReconciliation = true;
 					logSevere("Retaining HTTP transport until persisted deliveries are acknowledged");
 					return BungeeMethod.HTTP;
 				}
 			} catch (IOException unreadableQueue) {
 				// An unreadable durable queue is not proof that it is empty. Reopen HTTP so
 				// its normal bounded loader can validate or recover the state.
+				deferredHttpTransportReconciliation = true;
 				logSevere("Retaining HTTP transport because its persisted delivery queue could not be inspected");
 				return BungeeMethod.HTTP;
 			}
 		}
 		if (hasPendingCachedHttpDeliveries()) {
+			deferredHttpTransportReconciliation = true;
 			logSevere("Retaining HTTP transport until cached deliveries are acknowledged");
 			return BungeeMethod.HTTP;
 		}
@@ -2907,11 +2929,13 @@ public abstract class VotingPluginProxy {
 			for (String server : servers) {
 				Collection<String> rewards = getVoteCachePendingVotePartyRewardIds(server);
 				if (rewards != null && !rewards.isEmpty()) {
+					deferredHttpTransportReconciliation = true;
 					logSevere("Retaining HTTP transport until pending vote-party rewards are acknowledged");
 					return BungeeMethod.HTTP;
 				}
 			}
 		}
+		deferredHttpTransportReconciliation = false;
 		return configuredMethod;
 	}
 
@@ -3137,7 +3161,7 @@ public abstract class VotingPluginProxy {
 			httpTransportServer = new HttpProxyTransportServer(
 					new InetSocketAddress(getConfig().getHttpHost(), getConfig().getHttpPort()), identity,
 					httpEnrollmentAuthority, directory.toPath().resolve("outgoing-v1"), this::handleHttpTransportEnvelope,
-					this::acknowledgeVotePartyDelivery);
+				this::acknowledgeHttpDelivery);
 			httpTransportServer.start();
 			logInfo("HTTP transport listening securely on " + getConfig().getHttpHost() + ":"
 					+ httpTransportServer.port() + "; use /votingpluginproxy httpcode <server> for each backend");
@@ -3177,6 +3201,102 @@ public abstract class VotingPluginProxy {
 		httpTransportServer = null;
 		httpEnrollmentAuthority = null;
 		if (transport != null) transport.close();
+	}
+
+	/**
+	 * Receives every durable HTTP acknowledgement, including non-vote-party
+	 * deliveries. The SimpleAPI queue removes the acknowledged entry immediately
+	 * after this callback returns, so defer inspection to the proxy scheduler.
+	 */
+	protected void acknowledgeHttpDelivery(String server, String deliveryId) throws IOException {
+		acknowledgeVotePartyDelivery(server, deliveryId);
+		scheduleDeferredHttpTransportReconciliation();
+	}
+
+	/** Rebuilds the proxy runtime only after the retained HTTP transport is proven empty. */
+	private void invalidateDeferredHttpTransportReconciliation() {
+		synchronized (this) {
+			httpTransportReconciliationGeneration++;
+			httpTransportReconciliationScheduled = false;
+			// Older work is fenced by its generation and must not suppress the
+			// replacement runtime's own single-flight probe.
+			httpTransportReconciliationRunning = false;
+		}
+	}
+
+	private void scheduleDeferredHttpTransportReconciliation() {
+		scheduleDeferredHttpTransportReconciliation(HTTP_TRANSPORT_RECONCILIATION_DELAY_MILLIS);
+	}
+
+	private void scheduleDeferredHttpTransportReconciliation(long delayMillis) {
+		scheduleDeferredHttpTransportReconciliation(delayMillis, -1L);
+	}
+
+	private void scheduleDeferredHttpTransportReconciliation(long delayMillis, long requiredGeneration) {
+		ScheduledExecutorService scheduler = getScheduler();
+		if (scheduler == null) return;
+		long generation;
+		synchronized (this) {
+			if (requiredGeneration >= 0L && requiredGeneration != httpTransportReconciliationGeneration) return;
+			if (!deferredHttpTransportReconciliation || method != BungeeMethod.HTTP
+					|| httpTransportReconciliationScheduled || httpTransportReconciliationRunning) return;
+			httpTransportReconciliationScheduled = true;
+			generation = httpTransportReconciliationGeneration;
+		}
+		try {
+			scheduler.schedule(() -> reconcileDeferredHttpTransport(generation), delayMillis, TimeUnit.MILLISECONDS);
+		} catch (RuntimeException unavailable) {
+			synchronized (this) {
+				if (generation == httpTransportReconciliationGeneration)
+					httpTransportReconciliationScheduled = false;
+			}
+			debug("Unable to schedule deferred HTTP transport reconciliation: " + unavailable.getMessage());
+		}
+	}
+
+	private void reconcileDeferredHttpTransport(long generation) {
+		BungeeMethod configuredMethod;
+		boolean stillPending;
+		synchronized (this) {
+			if (generation != httpTransportReconciliationGeneration) return;
+			httpTransportReconciliationScheduled = false;
+			if (!enabled || !deferredHttpTransportReconciliation || method != BungeeMethod.HTTP) return;
+			configuredMethod = BungeeMethod.getByName(getConfig().getBungeeMethod());
+			if (configuredMethod == null) configuredMethod = BungeeMethod.PLUGINMESSAGING;
+			stillPending = retainHttpForPendingDeliveries(configuredMethod) == BungeeMethod.HTTP;
+			if (!stillPending) httpTransportReconciliationRunning = true;
+		}
+		if (stillPending) {
+			// The acknowledgement callback happens before queue removal. Re-arm the
+			// same single-flight probe so the final removal/cached-state clear is
+			// observed without relying on another inbound message.
+			scheduleDeferredHttpTransportReconciliation(HTTP_TRANSPORT_RECONCILIATION_POLL_MILLIS, generation);
+			return;
+		}
+		synchronized (this) {
+			if (generation != httpTransportReconciliationGeneration || !enabled) {
+				httpTransportReconciliationRunning = false;
+				return;
+			}
+		}
+		try {
+			// The concrete platform checks this generation again while holding its
+			// reload lock. That closes the gap between this scheduler callback and a
+			// manual platform reload/shutdown without introducing lock inversion.
+			reloadDeferredHttpTransportCore(generation);
+		} catch (RuntimeException reconciliationFailure) {
+			debug("Deferred HTTP transport reconciliation failed: " + reconciliationFailure.getMessage());
+		} finally {
+			boolean retry;
+			synchronized (this) {
+				retry = generation == httpTransportReconciliationGeneration && enabled
+						&& deferredHttpTransportReconciliation && method == BungeeMethod.HTTP;
+				if (generation == httpTransportReconciliationGeneration)
+					httpTransportReconciliationRunning = false;
+			}
+			if (retry)
+				scheduleDeferredHttpTransportReconciliation(HTTP_TRANSPORT_RECONCILIATION_POLL_MILLIS, generation);
+		}
 	}
 
 	public String createHttpConnectionCode(String serverId) {
@@ -3240,6 +3360,16 @@ public abstract class VotingPluginProxy {
 	public abstract void saveVoteCacheFile();
 
 	public abstract void reloadCore(boolean mysql);
+
+	/** Platform implementations recheck this under their reload lock before replacing the runtime. */
+	protected void reloadDeferredHttpTransportCore(long generation) {
+		if (isDeferredHttpTransportGenerationCurrent(generation)) reloadCore(true);
+	}
+
+	protected synchronized boolean isDeferredHttpTransportGenerationCurrent(long generation) {
+		return enabled && generation == httpTransportReconciliationGeneration
+				&& httpTransportReconciliationRunning && method == BungeeMethod.HTTP;
+	}
 
 	/** Strict Control reload path; failures propagate so the caller can restore its backup. */
 	public abstract void reloadControlConfiguration() throws Exception;

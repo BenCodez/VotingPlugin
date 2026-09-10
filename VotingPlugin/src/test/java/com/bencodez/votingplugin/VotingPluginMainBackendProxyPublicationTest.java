@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
@@ -15,6 +16,8 @@ import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.bukkit.configuration.file.FileConfiguration;
 import org.junit.jupiter.api.Test;
@@ -74,24 +77,107 @@ class VotingPluginMainBackendProxyPublicationTest {
 	}
 
 	@Test
-	void restoresPreviousHandlerWhenRedisPromotionFails() throws Exception {
+	void failsRedisRetirementDuringWorkerValidationBeforeBukkitPublication() throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
 		BackendProxyHandler previous = mock(BackendProxyHandler.class);
 		BackendProxyHandler replacement = mock(BackendProxyHandler.class);
 		setBackendProxyHandler(plugin, previous);
+		when(previous.requiresRedisHandoff(replacement)).thenReturn(true);
 		doAnswer(invocation -> { throw new IllegalStateException("promotion failed"); })
 				.when(previous).completeRedisHandoff(replacement);
 
 		org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
-				() -> plugin.completeBackendProxyHandlerRestart(restart(previous, replacement)));
+				() -> plugin.validateBackendProxyHandlerRestart(restart(previous, replacement),
+						System.nanoTime() + 1_000_000_000L));
 
 		assertSame(previous, plugin.getBackendProxyHandler());
 		verify(previous, never()).completeHttpHandoff(replacement);
 		verify(previous, never()).close();
-		org.mockito.InOrder rollback = org.mockito.Mockito.inOrder(replacement, previous);
-		rollback.verify(replacement).abortStagedInboundTo(previous);
+		verify(replacement, never()).abortStagedInboundTo(previous);
+		verify(replacement, never()).close();
+		verify(previous, never()).refreshPresenceAfterFailedReplacement();
+	}
+
+	@Test
+	void restoresWorkerRetiredRedisListenerWhenPublicationIsAborted() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+		BackendProxyHandler previous = mock(BackendProxyHandler.class);
+		BackendProxyHandler replacement = mock(BackendProxyHandler.class);
+		setBackendProxyHandler(plugin, previous);
+		when(previous.requiresRedisHandoff(replacement)).thenReturn(true);
+		VotingPluginMain.BackendProxyRestart restart = restart(previous, replacement);
+
+		plugin.validateBackendProxyHandlerRestart(restart, System.nanoTime() + 1_000_000_000L);
+		plugin.abortBackendProxyHandlerRestart(restart);
+
+		verify(previous).completeRedisHandoff(replacement);
+		verify(replacement).close();
+		verify(previous).restoreAfterFailedReplacement(replacement);
+	}
+
+	@Test
+	void rollbackRestoresPromotedRedisReplayBeforeClosingReplacement() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+		BackendProxyHandler previous = mock(BackendProxyHandler.class);
+		BackendProxyHandler replacement = mock(BackendProxyHandler.class);
+		setBackendProxyHandler(plugin, previous);
+		when(previous.requiresRedisHandoff(replacement)).thenReturn(true);
+		doThrow(new IllegalStateException("publication admission failed"))
+				.when(previous).completeHttpHandoff(replacement);
+		VotingPluginMain.BackendProxyRestart restart = restart(previous, replacement);
+		plugin.validateBackendProxyHandlerRestart(restart, System.nanoTime() + TimeUnit.SECONDS.toNanos(1));
+
+		assertThrows(IllegalStateException.class, () -> plugin.completeBackendProxyHandlerRestart(restart));
+
+		org.mockito.InOrder rollback = org.mockito.Mockito.inOrder(previous, replacement);
+		rollback.verify(previous).restoreAfterFailedReplacement(replacement);
 		rollback.verify(replacement).close();
-		rollback.verify(previous).refreshPresenceAfterFailedReplacement();
+	}
+
+	@Test
+	void refusesRedisPublicationUntilWorkerHandoffWasValidated() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+		BackendProxyHandler previous = mock(BackendProxyHandler.class);
+		BackendProxyHandler replacement = mock(BackendProxyHandler.class);
+		setBackendProxyHandler(plugin, previous);
+		when(previous.requiresRedisHandoff(replacement)).thenReturn(true);
+
+		assertThrows(IllegalStateException.class,
+				() -> plugin.completeBackendProxyHandlerRestart(restart(previous, replacement)));
+
+		assertSame(previous, plugin.getBackendProxyHandler());
+		verify(previous, never()).completeRedisHandoff(replacement);
+		verify(replacement, never()).activateInboundMessages();
+	}
+
+	@Test
+	void abortWaitsForInProgressRedisHandoffAndRestoresItAfterValidation() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+		BackendProxyHandler previous = mock(BackendProxyHandler.class);
+		BackendProxyHandler replacement = mock(BackendProxyHandler.class);
+		setBackendProxyHandler(plugin, previous);
+		when(previous.requiresRedisHandoff(replacement)).thenReturn(true);
+		CountDownLatch entered = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		doAnswer(invocation -> {
+			entered.countDown();
+			assertTrue(release.await(1, TimeUnit.SECONDS));
+			return null;
+		}).when(previous).completeRedisHandoff(replacement);
+		VotingPluginMain.BackendProxyRestart restart = restart(previous, replacement);
+		Thread validation = new Thread(() -> plugin.validateBackendProxyHandlerRestart(restart,
+				System.nanoTime() + TimeUnit.SECONDS.toNanos(1)));
+		validation.start();
+		assertTrue(entered.await(1, TimeUnit.SECONDS));
+
+		plugin.abortBackendProxyHandlerRestart(restart);
+		verify(replacement, never()).close();
+		release.countDown();
+		validation.join(TimeUnit.SECONDS.toMillis(1));
+		assertFalse(validation.isAlive(), "validation must finish and perform the requested rollback");
+
+		verify(replacement).close();
+		verify(previous).restoreAfterFailedReplacement(replacement);
 	}
 
 	@Test
@@ -189,7 +275,7 @@ class VotingPluginMainBackendProxyPublicationTest {
 		Constructor<VotingPluginMain.BackendProxyRestart> constructor = VotingPluginMain.BackendProxyRestart.class
 				.getDeclaredConstructor(BackendProxyHandler.class, BackendProxyHandler.class, boolean.class, boolean.class);
 		constructor.setAccessible(true);
-		return constructor.newInstance(previous, replacement, false, true);
+		return constructor.newInstance(previous, replacement, false, false);
 	}
 
 	private void setBackendProxyHandler(VotingPluginMain plugin, BackendProxyHandler handler) throws Exception {

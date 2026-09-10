@@ -51,6 +51,7 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	private boolean declineNextVotePartyCommand;
 	private Runnable votePartyProxyCommandTimeout;
 	private Boolean pendingHttpTransportDeliveries;
+	private volatile int reloadCoreCalls;
 
 	public List<String> getWarnings() {
 		return warnings;
@@ -296,7 +297,11 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	@Override
 	public void reloadCore(boolean mysql) {
-		// Mocked for testing
+		reloadCoreCalls++;
+	}
+
+	public int getReloadCoreCalls() {
+		return reloadCoreCalls;
 	}
 
 	@Override
@@ -429,6 +434,10 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	public void acknowledgeVotePartyDeliveryForTest(String server, String deliveryId) throws java.io.IOException {
 		acknowledgeVotePartyDelivery(server, deliveryId);
+	}
+
+	public void acknowledgeHttpDeliveryForTest(String server, String deliveryId) throws java.io.IOException {
+		acknowledgeHttpDelivery(server, deliveryId);
 	}
 
 	@Override

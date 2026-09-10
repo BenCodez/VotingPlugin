@@ -130,6 +130,15 @@ public class ProcessedVoteCache {
 		standbyRedisSubscriber = null;
 	}
 
+	/** Restores the retired active listener after a promoted replacement is rolled back. */
+	public synchronized void restoreRedisSubscriber(Object subscriber) {
+		activeRedisSubscriber = subscriber;
+		standbyRedisSubscriber = null;
+		legacyRedisDeliveries.clear();
+		legacyRedisDeliveryBytes = 0;
+		legacyRedisHandoffOverflowed = false;
+	}
+
 	/** Consumes one matching delivery processed by the previous active subscriber. */
 	public synchronized boolean consumeLegacyRedisDelivery(String signature) {
 		Integer count = legacyRedisDeliveries.get(signature);

@@ -14,6 +14,7 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -692,7 +693,56 @@ class BackendProxyHandlerLifecycleTest {
 		assertDoesNotThrow(previous::close);
 		assertDoesNotThrow(previous::close);
 
-		verify(oldTransport, times(2)).close();
+		verify(oldTransport, timeout(1_000).times(2)).close();
+	}
+
+	@Test
+	void sameRedisHandoffBuffersOutboundSendsUntilPublicationAdmission() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		BackendProxyTransportManager previous = new BackendProxyTransportManager(plugin);
+		BackendProxyTransportManager replacement = new BackendProxyTransportManager(plugin);
+		RedisBackendProxyTransport oldTransport = mock(RedisBackendProxyTransport.class);
+		RedisBackendProxyTransport newTransport = mock(RedisBackendProxyTransport.class);
+		JsonEnvelope envelope = JsonEnvelope.builder("outbound-during-redis-handoff").build();
+		when(newTransport.send(envelope)).thenReturn(true);
+		setField(previous, "transport", oldTransport);
+		setField(replacement, "transport", newTransport);
+
+		// Validation fences the staged replacement before the old Redis listener is
+		// retired. Its send FIFO must be admitted only after publication succeeds.
+		replacement.beginPreparedTransportHandoff();
+		previous.completeRedisHandoff(replacement);
+		previous.send(envelope);
+
+		verify(oldTransport, never()).send(envelope);
+		verify(newTransport, never()).send(envelope);
+
+		previous.completePreparedTransportHandoff(replacement);
+
+		verify(newTransport, timeout(1_000).times(1)).send(envelope);
+	}
+
+	@Test
+	void sameRedisHandoffRollbackDrainsBufferedOutboundSendsThroughRestoredListener() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		BackendProxyTransportManager previous = new BackendProxyTransportManager(plugin);
+		BackendProxyTransportManager replacement = new BackendProxyTransportManager(plugin);
+		RedisBackendProxyTransport oldTransport = mock(RedisBackendProxyTransport.class);
+		RedisBackendProxyTransport newTransport = mock(RedisBackendProxyTransport.class);
+		JsonEnvelope envelope = JsonEnvelope.builder("outbound-redis-rollback").build();
+		when(oldTransport.send(envelope)).thenReturn(true);
+		setField(previous, "transport", oldTransport);
+		setField(replacement, "transport", newTransport);
+
+		replacement.beginPreparedTransportHandoff();
+		previous.completeRedisHandoff(replacement);
+		previous.send(envelope);
+		previous.restoreAfterFailedReplacement(replacement);
+
+		verify(newTransport, never()).send(envelope);
+		verify(oldTransport, timeout(1_000).times(1)).send(envelope);
 	}
 
 	@Test
@@ -729,7 +779,7 @@ class BackendProxyHandlerLifecycleTest {
 		org.mockito.InOrder order = inOrder(oldTransport, newTransport);
 		order.verify(oldTransport).closeForHandoff();
 		order.verify(newTransport).activateAfterHandoff();
-		order.verify(oldTransport).restoreAfterFailedHandoff();
+		order.verify(oldTransport).restoreAfterFailedHandoff(java.util.Collections.emptyList());
 		assertSame(oldTransport, transport(previous));
 		assertSame(newTransport, transport(replacement));
 	}

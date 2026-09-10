@@ -1247,6 +1247,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		private final boolean disabled;
 		private final boolean previousRequiresPreparation;
 		private volatile boolean previousPrepared;
+		// Redis listener retirement can wait for callbacks and listener shutdown. It is
+		// completed by the Control worker during validation, before the final Bukkit
+		// publication callback, and must be restored if that publication is abandoned.
+		private volatile boolean redisHandoffCompleted;
+		private boolean redisHandoffInProgress;
 		private boolean finished;
 		private boolean abandonmentRequested;
 		private volatile boolean published;
@@ -1282,7 +1287,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		// Every transition away from an active HTTP transport must first drain its
 		// durable outgoing queue. Restricting preparation to HTTP-to-HTTP swaps can
 		// strand accepted deliveries when another transport is published.
-		boolean previousRequiresPreparation = previous != null && previous.requiresPreparationForReplacement();
+		boolean sameRedisHandoff = previous != null && previous.getMethod() == BungeeMethod.REDIS
+				&& replacementMethod == BungeeMethod.REDIS;
+		boolean previousRequiresPreparation = previous != null
+				&& (previous.requiresPreparationForReplacement() || sameRedisHandoff);
 		BackendProxyHandler replacement = new BackendProxyHandler(this, backendProcessedVoteCache);
 		try {
 			replacement.loadForReplacement();
@@ -1308,12 +1316,51 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				restart.previous.reservePreparedHttpHandoff(restart.replacement);
 		}
 		if (restart.replacement != null) restart.replacement.validateTransport(validationDeadlineNanos);
+		// Same-Redis handoff fences callbacks and joins the retiring listener. Those
+		// waits are bounded, but they must never run on the Bukkit publication task.
+		// The staged replacement still keeps all inbound callbacks behind its
+		// publication gate, so doing this on the Control worker cannot expose it early.
+		if (restart.previous != null && restart.replacement != null
+				&& restart.previous.requiresRedisHandoff(restart.replacement)) {
+			synchronized (restart) {
+				if (restart.redisHandoffCompleted) return;
+				if (restart.redisHandoffInProgress)
+					throw new IllegalStateException("Redis handoff validation is already in progress");
+				restart.redisHandoffInProgress = true;
+			}
+			boolean abandonAfterHandoff;
+			try {
+				restart.previous.completeRedisHandoff(restart.replacement);
+			} catch (RuntimeException handoffFailure) {
+				synchronized (restart) {
+					restart.redisHandoffInProgress = false;
+					restart.notifyAll();
+				}
+				throw handoffFailure;
+			}
+			synchronized (restart) {
+				restart.redisHandoffInProgress = false;
+				restart.redisHandoffCompleted = true;
+				abandonAfterHandoff = restart.abandonmentRequested;
+				restart.notifyAll();
+			}
+			if (abandonAfterHandoff) abortBackendProxyHandlerRestart(restart);
+		}
 	}
 
 	public void completeBackendProxyHandlerRestart(BackendProxyRestart restart) {
 		synchronized (this) {
 			if (restart == null || restart.finished) throw new IllegalStateException("Backend proxy restart is no longer active");
-			if (restart.abandonmentRequested) {
+			boolean requiresRedisHandoff = restart.previous != null && restart.replacement != null
+					&& restart.previous.requiresRedisHandoff(restart.replacement);
+			boolean abandonmentRequested;
+			synchronized (restart) {
+				if (requiresRedisHandoff && (!restart.redisHandoffCompleted || restart.redisHandoffInProgress)) {
+					throw new IllegalStateException("Redis handoff must complete during validation before publication");
+				}
+				abandonmentRequested = restart.abandonmentRequested;
+			}
+			if (abandonmentRequested) {
 				abortBackendProxyHandlerRestart(restart);
 				return;
 			}
@@ -1345,26 +1392,6 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				return;
 			}
 			publishBackendProxyHandler(restart.previous, restart.replacement);
-			try {
-				if (restart.previous != null) restart.previous.completeRedisHandoff(restart.replacement);
-			} catch (RuntimeException handoffFailure) {
-				// Stop the staged presence generation before reasserting the restored old
-				// handler. Otherwise the proxy rejects the old generation after rollback.
-				backendProxyHandler = restart.previous;
-				restart.replacement.abortStagedInboundTo(restart.previous);
-				try {
-					restart.replacement.close();
-				} catch (RuntimeException closeFailure) {
-					handoffFailure.addSuppressed(closeFailure);
-				}
-				try {
-					restart.previous.refreshPresenceAfterFailedReplacement();
-				} catch (RuntimeException refreshFailure) {
-					handoffFailure.addSuppressed(refreshFailure);
-				}
-				restart.finished = true;
-				throw handoffFailure;
-			}
 			// Keep the prepared queue owned by the previous handler until every fallible
 			// publication step succeeds. Admission performs no network I/O.
 			try {
@@ -1372,16 +1399,33 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			} catch (RuntimeException handoffFailure) {
 				backendProxyHandler = restart.previous;
 				restart.replacement.abortStagedInboundTo(restart.previous);
+				// A validated Redis promotion may already own accepted, deduplicated
+				// replay envelopes even though inbound publication has not opened. Move
+				// those envelopes back before closing the staged replacement, whose
+				// normal close path deliberately clears its replay queue.
+				if (restart.redisHandoffCompleted && restart.previous != null) {
+					try {
+						restart.previous.restoreAfterFailedReplacement(restart.replacement);
+						restart.previous.refreshPresenceAfterFailedReplacement();
+					} catch (RuntimeException restorationFailure) {
+						handoffFailure.addSuppressed(restorationFailure);
+						// Retain the staged replacement and its replay queue for the caller's
+						// subsequent rollback retry rather than clearing accepted envelopes.
+						throw handoffFailure;
+					}
+				}
 				try {
 					restart.replacement.close();
 				} catch (RuntimeException closeFailure) {
 					handoffFailure.addSuppressed(closeFailure);
 				}
-				try {
-					restart.previous.restoreAfterFailedReplacement();
-					restart.previous.refreshPresenceAfterFailedReplacement();
-				} catch (RuntimeException restorationFailure) {
-					handoffFailure.addSuppressed(restorationFailure);
+				if (!restart.redisHandoffCompleted) {
+					try {
+						restart.previous.restoreAfterFailedReplacement();
+						restart.previous.refreshPresenceAfterFailedReplacement();
+					} catch (RuntimeException restorationFailure) {
+						handoffFailure.addSuppressed(restorationFailure);
+					}
 				}
 				restart.finished = true;
 				throw handoffFailure;
@@ -1424,20 +1468,38 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	/** Returns false once publication committed and can no longer be rolled back as a failed apply. */
 	public synchronized boolean requestBackendProxyHandlerRestartAbandonment(BackendProxyRestart restart) {
 		if (restart == null) return true;
-		if (restart.published) return false;
-		restart.abandonmentRequested = true;
+		synchronized (restart) {
+			if (restart.published) return false;
+			restart.abandonmentRequested = true;
+			restart.notifyAll();
+		}
 		return true;
 	}
 
 	public synchronized void abortBackendProxyHandlerRestart(BackendProxyRestart restart) {
 		if (restart == null || restart.finished) return;
+		synchronized (restart) {
+			// Validation owns the retiring Redis listener until its handoff either
+			// succeeds or fails. Deferring rollback closes the race where abort could
+			// observe a false completion flag and leave that listener fenced.
+			if (restart.redisHandoffInProgress) {
+				restart.abandonmentRequested = true;
+				return;
+			}
+		}
+		if (restart.redisHandoffCompleted && restart.previous != null && restart.replacement != null) {
+			// Preserve the promoted replacement's pre-publication replay queue before
+			// its close fences and clears it, then retire that staged listener.
+			restart.previous.restoreAfterFailedReplacement(restart.replacement);
+		}
 		if (restart.replacement != null) {
 			restart.replacement.abortStagedInboundTo(restart.previous);
 			restart.replacement.close();
 		}
 		if (backendProxyHandler == restart.previous && restart.previous != null
-				&& (restart.previousPrepared || restart.previous.getMethod() == BungeeMethod.PLUGINMESSAGING)) {
-			restart.previous.restoreAfterFailedReplacement();
+				&& (restart.previousPrepared || restart.redisHandoffCompleted
+						|| restart.previous.getMethod() == BungeeMethod.PLUGINMESSAGING)) {
+			if (!restart.redisHandoffCompleted) restart.previous.restoreAfterFailedReplacement();
 		}
 		restart.finished = true;
 	}

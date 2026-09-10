@@ -24,6 +24,10 @@ public class BackendProxyTransportManager {
 	private BackendProxyTransport transport;
 	private BackendProxyTransport preparedTransport;
 	private BackendProxyTransport retiredTransport;
+	// The old Redis instance is already stopped after a successful worker-side
+	// handoff, but keeps its captured handler long enough to restore it if Bukkit
+	// publication subsequently fails or is abandoned.
+	private RedisBackendProxyTransport completedRedisHandoffTransport;
 	private BackendProxyTransportManager forwardingManager;
 	private final java.util.ArrayDeque<JsonEnvelope> preparedSends = new java.util.ArrayDeque<>();
 	private final java.util.ArrayDeque<JsonEnvelope> asyncHandoffSends = new java.util.ArrayDeque<>();
@@ -127,7 +131,13 @@ public class BackendProxyTransportManager {
 		}
 		if (retiredTransport != null) {
 			BackendProxyTransport retired = retiredTransport;
-			try {
+			if (retired instanceof RedisBackendProxyTransport redis) {
+				// A failed Redis listener shutdown can spend its bounded join timeout in
+				// close(). Publication calls the predecessor's close on Bukkit, so retry
+				// that fenced cleanup independently instead of stalling publication.
+				retiredTransport = null;
+				closeRetiredRedisAsync(redis);
+			} else try {
 				retired.close();
 				retiredTransport = null;
 			} catch (RuntimeException cleanupFailure) {
@@ -139,7 +149,36 @@ public class BackendProxyTransportManager {
 				}
 			}
 		}
+		completedRedisHandoffTransport = null;
 		if (forwardingManager == null) preparedSends.clear();
+	}
+
+	/** Retries only a fenced retired Redis listener off the Bukkit publication callback. */
+	private void closeRetiredRedisAsync(RedisBackendProxyTransport retired) {
+		Thread cleanup = new Thread(() -> {
+			RuntimeException cleanupFailure = null;
+			for (int attempt = 0; attempt < 3; attempt++) {
+				try {
+					retired.close();
+					return;
+				} catch (RuntimeException failure) {
+					cleanupFailure = failure;
+					if (attempt == 2) break;
+					try {
+						Thread.sleep(250L);
+					} catch (InterruptedException interrupted) {
+						Thread.currentThread().interrupt();
+						break;
+					}
+				}
+			}
+			if (cleanupFailure != null && plugin != null) {
+				plugin.getLogger().warning("Retired Redis backend listener did not stop cleanly during async cleanup");
+				plugin.debug(cleanupFailure);
+			}
+		}, "VotingPlugin-Retired-Redis-Cleanup");
+		cleanup.setDaemon(true);
+		cleanup.start();
 	}
 
 	public void validate() {
@@ -476,17 +515,45 @@ public class BackendProxyTransportManager {
 	}
 
 	public void restoreAfterFailedReplacement() {
+		restoreAfterFailedReplacement(null);
+	}
+
+	/** Restores an old Redis listener together with a promoted replacement's unplayed replay FIFO. */
+	public void restoreAfterFailedReplacement(BackendProxyTransportManager failedReplacement) {
+		java.util.List<JsonEnvelope> replacementReplay = failedReplacement == null
+				? java.util.Collections.emptyList() : failedReplacement.detachRedisReplayForFailedHandoff();
+		restoreRetiredRedisAfterFailedHandoff(replacementReplay);
+		restoreCompletedRedisAfterFailedHandoff(replacementReplay);
 		if (transport instanceof PluginMessagingBackendProxyTransport pluginMessaging) {
 			pluginMessaging.restoreAfterFailedReplacement();
 		}
 		restorePreparedTransport();
 	}
 
+	private synchronized java.util.List<JsonEnvelope> detachRedisReplayForFailedHandoff() {
+		if (!(transport instanceof RedisBackendProxyTransport redis)) return java.util.Collections.emptyList();
+		return redis.detachReplayForFailedHandoff();
+	}
+
 	public void awaitPreparedTransportRestoration(long deadlineNanos) {
 		if (transport instanceof HttpBackendProxyTransport http) http.awaitCredentialRestoration(deadlineNanos);
 	}
 
-	public void closeRedisForHandoff() {
+	/** Requires an off-thread drain before abandoning active Redis replay for another transport. */
+	public synchronized boolean hasPendingRedisReplay() {
+		return transport instanceof RedisBackendProxyTransport redis && redis.hasPendingReplayForReplacement();
+	}
+
+	public boolean prepareRedisReplayTransition(BungeeMethod replacementMethod, long deadlineNanos) {
+		RedisBackendProxyTransport redis;
+		synchronized (this) {
+			if (replacementMethod == BungeeMethod.REDIS || !(transport instanceof RedisBackendProxyTransport)) return true;
+			redis = (RedisBackendProxyTransport) transport;
+		}
+		return redis.awaitReplayDrainForNonRedisReplacement(deadlineNanos);
+	}
+
+	public java.util.List<JsonEnvelope> closeRedisForHandoff(BackendProxyTransportManager replacement) {
 		RedisBackendProxyTransport retiring;
 		synchronized (this) {
 			if (!(transport instanceof RedisBackendProxyTransport)) {
@@ -494,6 +561,23 @@ public class BackendProxyTransportManager {
 			}
 			retiring = (RedisBackendProxyTransport) transport;
 			retiredTransport = retiring;
+			// The Redis listener is fenced off-thread before Bukkit publishes the
+			// staged replacement. Keep sends accepted in that interval in the same
+			// bounded predecessor FIFO instead of dropping them once transport is
+			// detached below. Publication transfers this queue ahead of messages the
+			// staged replacement accepted, while rollback drains it through the
+			// restored Redis transport.
+			preparedSendFence = true;
+		}
+		java.util.List<JsonEnvelope> replay = retiring.freezeReplayForSuccessiveHandoff();
+		try {
+			replacement.acceptRedisReplayFromPreviousHandoff(replay);
+		} catch (RuntimeException admissionFailure) {
+			retiring.restoreFrozenReplayAfterFailedSuccessiveHandoff(replay);
+			synchronized (this) {
+				if (retiredTransport == retiring) retiredTransport = null;
+			}
+			throw admissionFailure;
 		}
 		try {
 			// closeForHandoff() waits for already-running Redis callbacks. Those callbacks
@@ -504,18 +588,34 @@ public class BackendProxyTransportManager {
 			synchronized (this) {
 				if (failure instanceof RedisBackendProxyTransport.HandoffQuiescenceException
 						&& retiredTransport == retiring && transport == retiring) {
+					replacement.removeRedisReplayFromPreviousHandoff(replay);
+					retiring.restoreFrozenReplayAfterFailedSuccessiveHandoff(replay);
 					retiredTransport = null;
 				} else if (transport == retiring) {
 					transport = null;
 				}
 			}
+			if (failure instanceof RedisBackendProxyTransport.HandoffQuiescenceException) throw failure;
 			// Retain the fenced old listener so a later manager close can retry its
 			// cleanup without ever touching the promoted replacement.
-			throw failure;
+			if (plugin != null) {
+				plugin.getLogger().warning("Previous Redis backend listener did not stop cleanly after handoff");
+				plugin.debug(failure);
+			}
 		}
 		synchronized (this) {
 			if (transport == retiring) transport = null;
 		}
+		return replay;
+	}
+
+	private void acceptRedisReplayFromPreviousHandoff(java.util.List<JsonEnvelope> replay) {
+		if (transport instanceof RedisBackendProxyTransport redis) redis.acceptReplayFromPreviousHandoff(replay);
+		else if (!replay.isEmpty()) throw new IllegalStateException("Redis replacement transport is unavailable");
+	}
+
+	private void removeRedisReplayFromPreviousHandoff(java.util.List<JsonEnvelope> replay) {
+		if (transport instanceof RedisBackendProxyTransport redis) redis.removeReplayFromPreviousHandoff(replay);
 	}
 
 	public void activateRedisAfterHandoff() {
@@ -532,36 +632,51 @@ public class BackendProxyTransportManager {
 	/** Fences the old Redis listener before promoting the validated standby. */
 	public void completeRedisHandoff(BackendProxyTransportManager replacement) {
 		java.util.Objects.requireNonNull(replacement, "replacement");
-		try {
-			closeRedisForHandoff();
-		} catch (RuntimeException retirementFailure) {
-			if (retirementFailure instanceof RedisBackendProxyTransport.HandoffQuiescenceException) {
-				throw retirementFailure;
-			}
-			// The old listener is already fenced. Treat failure to join it as cleanup
-			// degradation; promotion remains safe because callbacks can no longer enter.
-			if (plugin != null) {
-				plugin.getLogger().warning("Previous Redis backend listener did not stop cleanly after handoff");
-				plugin.debug(retirementFailure);
-			}
-		}
+		java.util.List<JsonEnvelope> replay = closeRedisForHandoff(replacement);
 		try {
 			replacement.activateRedisAfterHandoff();
 		} catch (RuntimeException activationFailure) {
-			restoreRetiredRedisAfterFailedHandoff(activationFailure);
+			java.util.List<JsonEnvelope> rollbackReplay = replacement.detachRedisReplayForFailedHandoff();
+			restoreRetiredRedisAfterFailedHandoff(activationFailure,
+					mergeRedisRollbackReplay(replay, rollbackReplay));
 			throw activationFailure;
 		}
 		closeRetiredRedisAfterHandoff();
 	}
 
-	private synchronized void restoreRetiredRedisAfterFailedHandoff(RuntimeException activationFailure) {
+	private static java.util.List<JsonEnvelope> mergeRedisRollbackReplay(java.util.List<JsonEnvelope> predecessorReplay,
+			java.util.List<JsonEnvelope> standbyReplay) {
+		if (standbyReplay.isEmpty()) return predecessorReplay;
+		if (predecessorReplay.isEmpty()) return standbyReplay;
+		if (standbyReplay.size() >= predecessorReplay.size()
+				&& standbyReplay.subList(0, predecessorReplay.size()).equals(predecessorReplay)) return standbyReplay;
+		java.util.ArrayList<JsonEnvelope> merged = new java.util.ArrayList<>(
+				predecessorReplay.size() + standbyReplay.size());
+		merged.addAll(predecessorReplay);
+		merged.addAll(standbyReplay);
+		if (merged.size() > RedisBackendProxyTransport.MAX_REPLAY_HANDOFF_DELIVERIES)
+			throw new IllegalStateException("Redis rollback replay exceeds its bounded handoff capacity");
+		return merged;
+	}
+
+	private synchronized void restoreRetiredRedisAfterFailedHandoff(RuntimeException activationFailure,
+			java.util.List<JsonEnvelope> replacementReplay) {
+		try {
+			restoreRetiredRedisAfterFailedHandoff(replacementReplay);
+		} catch (RuntimeException restorationFailure) {
+			activationFailure.addSuppressed(restorationFailure);
+		}
+	}
+
+	private synchronized void restoreRetiredRedisAfterFailedHandoff(java.util.List<JsonEnvelope> replacementReplay) {
+		if (transport != null) return;
 		if (!(retiredTransport instanceof RedisBackendProxyTransport redis)) return;
 		try {
-			redis.restoreAfterFailedHandoff();
+			redis.restoreAfterFailedHandoff(replacementReplay);
 			transport = redis;
 			retiredTransport = null;
 		} catch (RuntimeException restorationFailure) {
-			activationFailure.addSuppressed(restorationFailure);
+			throw new IllegalStateException("Retired Redis backend listener could not be restored", restorationFailure);
 		}
 	}
 
@@ -571,12 +686,26 @@ public class BackendProxyTransportManager {
 		retiredTransport = null;
 		try {
 			retired.close();
+			if (retired instanceof RedisBackendProxyTransport redis) completedRedisHandoffTransport = redis;
 		} catch (RuntimeException cleanupFailure) {
 			retiredTransport = retired;
 			if (plugin != null) {
 				plugin.getLogger().warning("Retired Redis backend listener did not stop cleanly after handoff");
 				plugin.debug(cleanupFailure);
 			}
+		}
+	}
+
+	/** Restores a worker-retired Redis listener when publication did not commit. */
+	private synchronized void restoreCompletedRedisAfterFailedHandoff(java.util.List<JsonEnvelope> replacementReplay) {
+		if (transport != null || completedRedisHandoffTransport == null) return;
+		RedisBackendProxyTransport retired = completedRedisHandoffTransport;
+		try {
+			retired.restoreAfterFailedHandoff(replacementReplay);
+			transport = retired;
+			completedRedisHandoffTransport = null;
+		} catch (RuntimeException restorationFailure) {
+			throw new IllegalStateException("Retired Redis backend listener could not be restored", restorationFailure);
 		}
 	}
 

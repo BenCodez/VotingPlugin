@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -570,6 +571,14 @@ public class VotingPluginVelocity {
 		}
 	}
 
+	/** Runs a scheduled deferred replacement only if it is still current while holding reloadLock. */
+	private void reloadAllInternalIfCurrent(boolean loadMysql, BooleanSupplier stillCurrent) {
+		synchronized (reloadLock) {
+			if (!stillCurrent.getAsBoolean()) return;
+			reloadAllInternal(loadMysql);
+		}
+	}
+
 	/**
 	 * Create proxy runtime.
 	 *
@@ -876,6 +885,11 @@ public class VotingPluginVelocity {
 			public void reloadCore(boolean mysql) {
 				// mysql=true is reloadall behavior
 				reloadAllInternal(mysql);
+			}
+
+			@Override
+			protected void reloadDeferredHttpTransportCore(long generation) {
+				reloadAllInternalIfCurrent(true, () -> isDeferredHttpTransportGenerationCurrent(generation));
 			}
 
 			@Override

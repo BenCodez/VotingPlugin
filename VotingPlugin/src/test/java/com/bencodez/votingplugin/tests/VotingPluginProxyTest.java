@@ -536,6 +536,95 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void deferredHttpTransportChangeReconcilesAfterTheFinalAcknowledgement() throws Exception {
+		HttpProxyTransportServer transport = Mockito.mock(HttpProxyTransportServer.class);
+		setProxyField(votingPluginProxy, "httpTransportServer", transport);
+		java.util.concurrent.ScheduledExecutorService scheduler = java.util.concurrent.Executors
+				.newSingleThreadScheduledExecutor();
+		try {
+			votingPluginProxy.setSchedulerForTest(scheduler);
+			votingPluginProxy.setPendingHttpTransportDeliveries(true);
+			votingPluginProxy.setMethod(BungeeMethod.HTTP);
+			Mockito.when(votingPluginProxy.getConfig().getBungeeMethod()).thenReturn("REDIS");
+
+			votingPluginProxy.reloadFromControl();
+			assertEquals(BungeeMethod.HTTP, votingPluginProxy.getMethod());
+
+			votingPluginProxy.setPendingHttpTransportDeliveries(false);
+			votingPluginProxy.acknowledgeHttpDeliveryForTest("Server1", "delivery");
+			long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(2);
+			while (votingPluginProxy.getReloadCoreCalls() == 0 && System.nanoTime() < deadline)
+				Thread.sleep(10L);
+
+			assertEquals(1, votingPluginProxy.getReloadCoreCalls(),
+					"the retained HTTP runtime must be rebuilt after its durable queue drains");
+		} finally {
+			scheduler.shutdownNow();
+		}
+	}
+
+	@Test
+	void deferredHttpTransportChangePollsWhenAckPrecedesQueueRemoval() throws Exception {
+		HttpProxyTransportServer transport = Mockito.mock(HttpProxyTransportServer.class);
+		setProxyField(votingPluginProxy, "httpTransportServer", transport);
+		java.util.concurrent.ScheduledExecutorService scheduler = java.util.concurrent.Executors
+				.newSingleThreadScheduledExecutor();
+		try {
+			votingPluginProxy.setSchedulerForTest(scheduler);
+			votingPluginProxy.setPendingHttpTransportDeliveries(true);
+			votingPluginProxy.setMethod(BungeeMethod.HTTP);
+			Mockito.when(votingPluginProxy.getConfig().getBungeeMethod()).thenReturn("REDIS");
+
+			votingPluginProxy.reloadFromControl();
+			// The acknowledgement callback is intentionally observed before SimpleAPI
+			// removes its entry, so the first reconciliation still sees it as pending.
+			votingPluginProxy.acknowledgeHttpDeliveryForTest("Server1", "delivery");
+			Thread.sleep(200L);
+			assertEquals(0, votingPluginProxy.getReloadCoreCalls());
+
+			votingPluginProxy.setPendingHttpTransportDeliveries(false);
+			long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(3);
+			while (votingPluginProxy.getReloadCoreCalls() == 0 && System.nanoTime() < deadline)
+				Thread.sleep(10L);
+
+			assertEquals(1, votingPluginProxy.getReloadCoreCalls(),
+					"the deferred runtime must observe queue removal even without another acknowledgement");
+		} finally {
+			scheduler.shutdownNow();
+		}
+	}
+
+	@Test
+	void concurrentManualReloadInvalidatesQueuedDeferredHttpReload() throws Exception {
+		HttpProxyTransportServer transport = Mockito.mock(HttpProxyTransportServer.class);
+		setProxyField(votingPluginProxy, "httpTransportServer", transport);
+		java.util.concurrent.ScheduledExecutorService scheduler = java.util.concurrent.Executors
+				.newSingleThreadScheduledExecutor();
+		try {
+			votingPluginProxy.setSchedulerForTest(scheduler);
+			votingPluginProxy.setPendingHttpTransportDeliveries(true);
+			votingPluginProxy.setMethod(BungeeMethod.HTTP);
+			Mockito.when(votingPluginProxy.getConfig().getBungeeMethod()).thenReturn("REDIS");
+			votingPluginProxy.reloadFromControl();
+
+			// A direct platform reload changes the configured transport while the old
+			// acknowledgement task is queued. It must invalidate that task before it
+			// can enter the platform's reload coordination path.
+			Mockito.when(votingPluginProxy.getConfig().getBungeeMethod()).thenReturn("HTTP");
+			Thread manualReload = new Thread(votingPluginProxy::reloadFromControl);
+			manualReload.start();
+			manualReload.join(java.util.concurrent.TimeUnit.SECONDS.toMillis(1));
+			assertFalse(manualReload.isAlive());
+			Thread.sleep(300L);
+
+			assertEquals(0, votingPluginProxy.getReloadCoreCalls(),
+					"an invalidated deferred generation must not perform a stale full replacement");
+		} finally {
+			scheduler.shutdownNow();
+		}
+	}
+
+	@Test
 	void startupRetainsHttpForPersistedQueueWithoutLiveServer() throws Exception {
 		java.nio.file.Path backendQueue = temporaryDirectory.resolve("http/outgoing-v1/lobby-1");
 		java.nio.file.Files.createDirectories(backendQueue);

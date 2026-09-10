@@ -184,7 +184,7 @@ public class BackendProxyHandler implements Listener {
 	/** Returns whether replacement preparation must preserve accepted deliveries. */
 	public boolean requiresPreparationForReplacement() {
 		return method == BungeeMethod.HTTP || method == BungeeMethod.PLUGINMESSAGING
-				|| transportManager.hasPendingAsyncHandoff();
+				|| transportManager.hasPendingAsyncHandoff() || transportManager.hasPendingRedisReplay();
 	}
 
 	/** Prepares HTTP state or waits off-thread for an earlier cross-transport handoff. */
@@ -200,6 +200,18 @@ public class BackendProxyHandler implements Listener {
 		}
 		if (method == BungeeMethod.PLUGINMESSAGING) {
 			transportManager.prepareAsyncHandoffForReplacement(deadlineNanos);
+			return true;
+		}
+		if (method == BungeeMethod.REDIS && replacementMethod != BungeeMethod.REDIS) {
+			if (transportManager.hasPendingAsyncHandoff())
+				transportManager.prepareAsyncHandoffForReplacement(deadlineNanos);
+			return transportManager.prepareRedisReplayTransition(replacementMethod, deadlineNanos);
+		}
+		if (method == BungeeMethod.REDIS) {
+			// Same-Redis retirement installs its send fence during the bounded
+			// off-thread handoff. Returning true here lets the staged replacement
+			// buffer its own sends until the predecessor FIFO is admitted at Bukkit
+			// publication.
 			return true;
 		}
 		if (!transportManager.hasPendingAsyncHandoff()) return false;
@@ -224,6 +236,12 @@ public class BackendProxyHandler implements Listener {
 	/** Restores a prepared HTTP transport when its replacement fails validation. */
 	public void restoreAfterFailedReplacement() {
 		transportManager.restoreAfterFailedReplacement();
+	}
+
+	/** Restores a failed same-Redis predecessor without discarding its replacement's replay FIFO. */
+	public void restoreAfterFailedReplacement(BackendProxyHandler failedReplacement) {
+		transportManager.restoreAfterFailedReplacement(
+				failedReplacement == null ? null : failedReplacement.transportManager);
 	}
 
 	/** Reasserts the old handler with a fresh presence generation after rollback. */
@@ -253,8 +271,13 @@ public class BackendProxyHandler implements Listener {
 
 	/** Completes the no-loss/no-duplicate same-Redis subscriber handoff after validation. */
 	public void completeRedisHandoff(BackendProxyHandler replacement) {
-		if (method != BungeeMethod.REDIS || replacement.method != BungeeMethod.REDIS) return;
+		if (!requiresRedisHandoff(replacement)) return;
 		transportManager.completeRedisHandoff(replacement.transportManager);
+	}
+
+	/** Returns whether this replacement needs the bounded same-Redis retirement path. */
+	public boolean requiresRedisHandoff(BackendProxyHandler replacement) {
+		return replacement != null && method == BungeeMethod.REDIS && replacement.method == BungeeMethod.REDIS;
 	}
 
 	/** Replays Redis handoff deliveries only after inbound publication is open. */
