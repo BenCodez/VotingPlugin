@@ -272,7 +272,7 @@ Coverage: <complete, static-only, partial, or stale; material limitations>
 
 Determine review completeness independently from findings and publishing readiness:
 
-- Complete review with findings: report the verified findings in priority order and keep coverage marked complete.
+- Complete review with findings: report the verified findings in priority order and record the review as complete. Keep `Coverage: static-only` for an explicitly scoped static-only review; otherwise mark coverage complete.
 - Complete review without findings: the findings section is exactly `No findings.`
 - Incomplete review: only when required coverage or validation is missing, unresolved, or stale, use `Review incomplete.` with the actual limitations while still reporting verified findings.
 
