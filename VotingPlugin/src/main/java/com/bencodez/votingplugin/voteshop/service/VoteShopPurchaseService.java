@@ -758,9 +758,8 @@ public class VoteShopPurchaseService {
 	}
 
 	static String weeklyGenerationId(LocalDateTime current, int weekOffset) {
-		LocalDateTime weekTime = current.plusDays(weekOffset).toLocalDate()
-				.with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.MONDAY)).atStartOfDay();
-		WeekFields fields = WeekFields.ISO;
+		LocalDateTime weekTime = current.plusDays(weekOffset);
+		WeekFields fields = WeekFields.of(Locale.getDefault());
 		return "W:" + weekTime.get(fields.weekBasedYear()) + '-' + weekTime.get(fields.weekOfWeekBasedYear());
 	}
 

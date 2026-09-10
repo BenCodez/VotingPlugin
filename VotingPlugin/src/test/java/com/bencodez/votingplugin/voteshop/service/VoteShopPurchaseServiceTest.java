@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.voteshop.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -34,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.UUID;
 
 import org.bukkit.configuration.file.FileConfiguration;
@@ -43,6 +45,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
 import com.bencodez.advancedcore.api.user.UserStorage;
+import com.bencodez.advancedcore.api.time.TimeCalculation;
 import com.bencodez.advancedcore.api.user.UserData;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
@@ -90,14 +93,18 @@ class VoteShopPurchaseServiceTest {
 	}
 
 	@Test
-	void weeklyGenerationUsesANetworkWideCalendarConvention() {
-		LocalDateTime saturday = LocalDateTime.of(2026, 9, 5, 12, 0);
-		LocalDateTime sunday = saturday.plusDays(1);
-		LocalDateTime monday = sunday.plusDays(1);
-		assertEquals("W:2026-37", VoteShopPurchaseService.weeklyGenerationId(saturday, 0));
-		assertEquals("W:2026-37", VoteShopPurchaseService.weeklyGenerationId(sunday, 0));
-		assertEquals("W:2026-37", VoteShopPurchaseService.weeklyGenerationId(monday, 0));
-		assertEquals("W:2026-38", VoteShopPurchaseService.weeklyGenerationId(saturday.plusWeeks(1), 0));
+	void weeklyGenerationChangesAtEveryConfiguredWeekBoundary() {
+		LocalDateTime current = LocalDateTime.of(2026, 9, 8, 12, 0);
+		int currentWeek = TimeCalculation.weekNumber(current, 0, Locale.getDefault());
+		LocalDateTime nextBoundary = current.toLocalDate().plusDays(1).atStartOfDay();
+		while (TimeCalculation.weekNumber(nextBoundary, 0, Locale.getDefault()) == currentWeek) {
+			nextBoundary = nextBoundary.plusDays(1);
+		}
+
+		assertEquals(VoteShopPurchaseService.weeklyGenerationId(current, 0),
+				VoteShopPurchaseService.weeklyGenerationId(nextBoundary.minusNanos(1), 0));
+		assertNotEquals(VoteShopPurchaseService.weeklyGenerationId(current, 0),
+				VoteShopPurchaseService.weeklyGenerationId(nextBoundary, 0));
 	}
 
 	@Test
