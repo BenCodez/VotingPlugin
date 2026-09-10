@@ -18,20 +18,20 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 
 class RewardPointsTest {
 	@Test
-	void waitsForCommittedPointTotalBeforePublishingNewpoints() {
+	void publishesStorageAwarePointTotalWithoutBlockingTheRewardLane() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		UserManager manager = mock(UserManager.class);
 		AdvancedCoreUser advancedUser = mock(AdvancedCoreUser.class);
 		VotingPluginUser user = mock(VotingPluginUser.class);
 		when(plugin.getVotingPluginUserManager()).thenReturn(manager);
 		when(manager.getVotingPluginUser(advancedUser)).thenReturn(user);
-		when(user.addPoints(5)).thenReturn(73);
+		when(user.addPointsStorageAware(5)).thenReturn(73);
 
 		String result = new RewardPoints(plugin).onRewardRequest(mock(Reward.class), advancedUser, 5,
 				new HashMap<>());
 
 		assertEquals("73", result);
-		verify(user).addPoints(5);
-		verify(user, never()).addPointsStorageAware(5);
+		verify(user).addPointsStorageAware(5);
+		verify(user, never()).addPoints(5);
 	}
 }

@@ -4,10 +4,7 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.util.Collections;
-import java.util.Map;
 import java.util.UUID;
-import java.util.WeakHashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -35,9 +32,6 @@ final class SharedMysqlPointMutator {
 	 * those transient values separately rather than making the persisted cache
 	 * format carry an optimistic-write flag.
 	 */
-	private static final Map<UserDataCache, Map<String, DataValue>> OPTIMISTIC_POINT_VALUES =
-			Collections.synchronizedMap(new WeakHashMap<>());
-
 	private final VotingPluginMain plugin;
 
 	SharedMysqlPointMutator(VotingPluginMain plugin) {
@@ -105,10 +99,7 @@ final class SharedMysqlPointMutator {
 			if (values == null) return;
 			DataValue prediction = new DataValueInt(predictedTotal);
 			values.put(user.getPointsPath(), prediction);
-			synchronized (OPTIMISTIC_POINT_VALUES) {
-				OPTIMISTIC_POINT_VALUES.computeIfAbsent(cache, ignored -> new java.util.HashMap<>())
-						.put(user.getPointsPath(), prediction);
-			}
+			SharedMysqlCacheReconciler.recordOptimisticPoint(cache, user.getPointsPath(), prediction);
 		}
 	}
 
@@ -122,20 +113,8 @@ final class SharedMysqlPointMutator {
 		UserDataCache cache = user.getCache();
 		if (cache == null) return;
 		synchronized (cache) {
-			discardOptimisticPoints(cache, user.getPointsPath());
+			SharedMysqlCacheReconciler.discardOptimisticPoint(cache, user.getPointsPath());
 		}
-	}
-
-	/** Caller holds {@code cache}'s monitor. */
-	private void discardOptimisticPoints(UserDataCache cache, String path) {
-		DataValue prediction;
-		synchronized (OPTIMISTIC_POINT_VALUES) {
-			Map<String, DataValue> predictions = OPTIMISTIC_POINT_VALUES.get(cache);
-			prediction = predictions == null ? null : predictions.remove(path);
-			if (predictions != null && predictions.isEmpty()) OPTIMISTIC_POINT_VALUES.remove(cache);
-		}
-		var values = cache.getCache();
-		if (prediction != null && values != null && values.get(path) == prediction) values.remove(path);
 	}
 
 	AddResult addCommitted(VotingPluginUser user, int amount) {
@@ -302,8 +281,14 @@ final class SharedMysqlPointMutator {
 			IntFunction<Integer> creditAmountProvider, Consumer<PointTransferResult> completion) {
 		try {
 			plugin.getTimer().execute(() -> {
-			drainCache(source);
-			drainCache(target);
+			try {
+				drainCache(source);
+				drainCache(target);
+			} catch (RuntimeException cacheFailure) {
+				plugin.debug(cacheFailure);
+				completeOnBukkit(source, completion, PointTransferResult.UNAVAILABLE);
+				return;
+			}
 			MySQL table = plugin.getMysql();
 			String sourcePoints = source.getPointsPath();
 			String targetPoints = target.getPointsPath();
@@ -536,7 +521,7 @@ final class SharedMysqlPointMutator {
 			plugin.getLogger().severe("Unable to settle shared MySQL point transfer: "
 					+ failure.getClass().getSimpleName());
 			plugin.debug(failure);
-			result = PointTransferResult.UNAVAILABLE;
+			result = PointTransferResult.PENDING_CONFIRMATION;
 		}
 		completeOnBukkit(source, completion, result);
 	}
@@ -818,7 +803,7 @@ final class SharedMysqlPointMutator {
 		UserDataCache cache = user.getCache();
 		if (cache == null) return;
 		synchronized (cache) {
-			discardOptimisticPoints(cache, user.getPointsPath());
+			SharedMysqlCacheReconciler.discardOptimisticPoint(cache, user.getPointsPath());
 			cache.dump();
 			plugin.getUserManager().getDataManager().removeCache(UUID.fromString(user.getUUID()), null);
 		}

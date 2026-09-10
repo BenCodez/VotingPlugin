@@ -1010,6 +1010,58 @@ class VotingPluginUserPointSchedulingTest {
 	}
 
 	@Test
+	void postApprovalCacheFailureReportsPendingConfirmation() throws Exception {
+		SagaFixture fixture = sagaFixture(true);
+		UserDataCache targetCache = mock(UserDataCache.class);
+		when(fixture.target.isCached()).thenReturn(false, true);
+		when(fixture.target.getCache()).thenReturn(targetCache);
+		when(targetCache.getCache()).thenReturn(new HashMap<>());
+		doThrow(new IllegalStateException("cache dump failed")).when(targetCache).dump();
+		AtomicReference<PointTransferResult> result = new AtomicReference<>();
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getPluginManager).thenReturn(mock(PluginManager.class));
+			fixture.user.transferPointsWithResult(fixture.target, 10, result::set);
+			ArgumentCaptor<Runnable> persistenceWork = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.persistence).execute(persistenceWork.capture());
+			persistenceWork.getValue().run();
+			runTransferApprovalGate(fixture.persistence, fixture.scheduler, fixture.plugin,
+					fixture.entityScheduler, fixture.targetPlayer);
+			ArgumentCaptor<Runnable> settlementWork = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.persistence, org.mockito.Mockito.times(3)).execute(settlementWork.capture());
+			settlementWork.getAllValues().get(2).run();
+			ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
+			completion.getValue().run();
+		}
+
+		assertEquals(PointTransferResult.PENDING_CONFIRMATION, result.get());
+		verify(fixture.settlementPoint, never()).executeUpdate();
+	}
+
+	@Test
+	void initialTransferCacheFailureCompletesAsUnavailable() throws Exception {
+		SagaFixture fixture = sagaFixture(true);
+		UserDataCache sourceCache = mock(UserDataCache.class);
+		doReturn(true).when(fixture.user).isCached();
+		doReturn(sourceCache).when(fixture.user).getCache();
+		when(sourceCache.getCache()).thenReturn(new HashMap<>());
+		doThrow(new IllegalStateException("cache dump failed")).when(sourceCache).dump();
+		AtomicReference<PointTransferResult> result = new AtomicReference<>();
+
+		fixture.user.transferPointsWithResult(fixture.target, 10, result::set);
+		ArgumentCaptor<Runnable> persistenceWork = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence).execute(persistenceWork.capture());
+		persistenceWork.getValue().run();
+		ArgumentCaptor<Runnable> completion = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), completion.capture(), eq(fixture.player));
+		completion.getValue().run();
+
+		assertEquals(PointTransferResult.UNAVAILABLE, result.get());
+		verify(fixture.debit, never()).executeUpdate();
+	}
+
+	@Test
 	void sharedTransferDoesNotFireRecipientEventWhenConditionalDebitFails() throws Exception {
 		SagaFixture fixture = sagaFixture(false);
 		AtomicReference<Boolean> result = new AtomicReference<>();

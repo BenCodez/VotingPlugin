@@ -54,6 +54,7 @@ import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.simpleapi.folialib.enums.EntityTaskResult;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.user.SharedMysqlCacheReconciler;
 import com.bencodez.votingplugin.voteshop.shop.VoteShopDefinition;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.voteshop.shop.VoteShopItem;
@@ -269,6 +270,41 @@ class VoteShopPurchaseServiceTest {
 
 		assertEquals(VoteShopPurchaseResult.FAILED, result.get());
 		verify(persistenceExecutor).execute(any(Runnable.class));
+		verify(table, never()).getMysql();
+	}
+
+	@Test
+	void sharedMysqlCacheDrainFailureCompletesAsFailed() {
+		MySQL table = mock(MySQL.class);
+		VotingPluginMain plugin = sharedMysqlPlugin(table);
+		ScheduledExecutorService persistenceExecutor = mock(ScheduledExecutorService.class);
+		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
+				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
+		when(plugin.getTimer()).thenReturn(persistenceExecutor);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
+		doAnswer(invocation -> {
+			invocation.getArgument(1, Runnable.class).run();
+			return null;
+		}).when(scheduler).runTask(eq(plugin), any(Runnable.class), eq(player));
+		VoteShopDefinition definition = mock(VoteShopDefinition.class);
+		when(definition.isEnabled()).thenReturn(true);
+		VoteShopItem item = mock(VoteShopItem.class);
+		when(item.getPermission()).thenReturn("");
+		VotingPluginUser user = purchaseUser();
+		UserDataCache cache = mock(UserDataCache.class);
+		when(user.isCached()).thenReturn(true);
+		when(user.getCache()).thenReturn(cache);
+		when(cache.getCache()).thenReturn(new HashMap<>());
+		org.mockito.Mockito.doThrow(new IllegalStateException("cache dump failed")).when(cache).dump();
+		AtomicReference<VoteShopPurchaseResult> result = new AtomicReference<>();
+
+		new VoteShopPurchaseService(plugin, definition).purchase(player, user, item, result::set);
+		ArgumentCaptor<Runnable> databaseWork = ArgumentCaptor.forClass(Runnable.class);
+		verify(persistenceExecutor).execute(databaseWork.capture());
+		databaseWork.getValue().run();
+
+		assertEquals(VoteShopPurchaseResult.FAILED, result.get());
 		verify(table, never()).getMysql();
 	}
 
@@ -739,6 +775,49 @@ class VoteShopPurchaseServiceTest {
 		verify(cache).dump();
 		verify(plugin.getUserManager().getDataManager()).removeCache(
 				java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"), null);
+	}
+
+	@Test
+	void sharedMysqlDebitStripsOptimisticPointsBeforeDumpingOtherCachedFields() throws Exception {
+		MySQL table = mock(MySQL.class);
+		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
+				org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		Connection connection = mock(Connection.class);
+		PreparedStatement statement = mock(PreparedStatement.class);
+		when(table.getTableName()).thenReturn("VotingPlugin_Users");
+		when(table.qi(anyString())).thenAnswer(invocation -> "`" + invocation.getArgument(0) + "`");
+		when(table.getMysql()).thenReturn(sql);
+		when(sql.getConnectionManager().getConnection()).thenReturn(connection);
+		when(connection.prepareStatement(anyString())).thenReturn(statement);
+		when(statement.executeUpdate()).thenReturn(1);
+		VotingPluginMain plugin = sharedMysqlPlugin(table);
+		VotingPluginUser user = purchaseUser();
+		UserDataCache cache = mock(UserDataCache.class);
+		DataValue prediction = mock(DataValue.class);
+		DataValue dailyTotal = mock(DataValue.class);
+		HashMap<String, DataValue> values = new HashMap<>();
+		values.put("Points", prediction);
+		values.put("DailyTotal", dailyTotal);
+		when(user.isCached()).thenReturn(true, false);
+		when(user.getCache()).thenReturn(cache);
+		when(cache.getCache()).thenReturn(values);
+		java.lang.reflect.Method record = SharedMysqlCacheReconciler.class.getDeclaredMethod(
+				"recordOptimisticPoint", UserDataCache.class, String.class, DataValue.class);
+		record.setAccessible(true);
+		record.invoke(null, cache, "Points", prediction);
+		doAnswer(invocation -> {
+			assertFalse(values.containsKey("Points"));
+			assertSame(dailyTotal, values.get("DailyTotal"));
+			return null;
+		}).when(cache).dump();
+		VoteShopItem item = mock(VoteShopItem.class);
+		when(item.getCost()).thenReturn(10);
+		when(item.getLimit()).thenReturn(0);
+
+		assertEquals(VoteShopPurchaseResult.SUCCESS,
+				new VoteShopPurchaseService(plugin, null).debitSharedMysql(user, item));
+
+		verify(cache).dump();
 	}
 
 	@Test

@@ -24,6 +24,7 @@ import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.time.TimeCalculation;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.UserStorage;
+import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 import com.bencodez.simpleapi.folialib.enums.EntityTaskResult;
 import com.bencodez.simpleapi.sql.DataType;
@@ -172,18 +173,23 @@ public class VoteShopPurchaseService {
 		HashMap<String, String> placeholders = purchasePlaceholders(item);
 		try {
 			plugin.getTimer().execute(() -> {
-				SharedPurchaseDebit debit;
-				synchronized (purchaseLock(user.getUUID())) {
-					// Sample the reset window beside the conditional debit. A queued
-					// persistence task may otherwise cross into a new limit period.
-					debit = reserveSharedMysqlPurchase(user, item,
-							limitGeneration(item, System.currentTimeMillis()));
+				try {
+					SharedPurchaseDebit debit;
+					synchronized (purchaseLock(user.getUUID())) {
+						// Sample the reset window beside the conditional debit. A queued
+						// persistence task may otherwise cross into a new limit period.
+						debit = reserveSharedMysqlPurchase(user, item,
+								limitGeneration(item, System.currentTimeMillis()));
+					}
+					if (debit.result() != VoteShopPurchaseResult.SUCCESS) {
+						BukkitCompletionScheduler.run(plugin, player, () -> completion.accept(debit.result()));
+						return;
+					}
+					completeSharedMysqlPurchase(player, user, item, placeholders, shopData, completion, debit);
+				} catch (RuntimeException workerFailure) {
+					plugin.debug(workerFailure);
+					completeFailedPurchase(player, completion);
 				}
-				if (debit.result() != VoteShopPurchaseResult.SUCCESS) {
-					BukkitCompletionScheduler.run(plugin, player, () -> completion.accept(debit.result()));
-					return;
-				}
-				completeSharedMysqlPurchase(player, user, item, placeholders, shopData, completion, debit);
 			});
 		} catch (RuntimeException persistenceRejected) {
 			plugin.debug(persistenceRejected);
@@ -527,10 +533,7 @@ public class VoteShopPurchaseService {
 		MySQL table = plugin.getMysql();
 		String pointsColumn = user.getPointsPath();
 		String limitColumn = item.getLimit() > 0 ? "VoteShopLimit" + item.getIdentifier() : null;
-		if (user.isCached()) {
-			user.getCache().dump();
-			plugin.getUserManager().getDataManager().removeCache(UUID.fromString(user.getUUID()), null);
-		}
+		drainPurchaseCache(user, pointsColumn);
 		if (limitColumn != null) table.checkColumn(limitColumn, DataType.INTEGER);
 		StringBuilder sql = new StringBuilder("UPDATE ").append(table.qi(table.getTableName())).append(" SET ")
 				.append(table.qi(pointsColumn)).append(" = ").append(table.qi(pointsColumn)).append(" - ?");
@@ -576,13 +579,7 @@ public class VoteShopPurchaseService {
 		MySQL table = plugin.getMysql();
 		String pointsColumn = user.getPointsPath();
 		String limitColumn = item.getLimit() > 0 ? "VoteShopLimit" + item.getIdentifier() : null;
-		if (user.isCached()) {
-			// dump() waits for a cache batch that has already left its queue. Removing
-			// the drained cache also prevents an older absolute write from racing the
-			// conditional debit on the shared database.
-			user.getCache().dump();
-			plugin.getUserManager().getDataManager().removeCache(UUID.fromString(user.getUUID()), null);
-		}
+		drainPurchaseCache(user, pointsColumn);
 		if (limitColumn != null) {
 			table.checkColumn(limitColumn, DataType.INTEGER);
 		}
@@ -605,6 +602,19 @@ public class VoteShopPurchaseService {
 			return new SharedPurchaseDebit(VoteShopPurchaseResult.FAILED, null, null, null, null);
 		}
 		return new SharedPurchaseDebit(sharedMysqlFailure(user, item, limitColumn), null, null, null, null);
+	}
+
+	private void drainPurchaseCache(VotingPluginUser user, String pointsColumn) {
+		if (!user.isCached()) return;
+		UserDataCache cache = user.getCache();
+		if (cache == null) return;
+		synchronized (cache) {
+			// dump() waits for a cache batch that has already left its queue. Strip an
+			// async point prediction first so it cannot be persisted ahead of this debit.
+			SharedMysqlCacheReconciler.discardOptimisticPoint(cache, pointsColumn);
+			cache.dump();
+			plugin.getUserManager().getDataManager().removeCache(UUID.fromString(user.getUUID()), null);
+		}
 	}
 
 	private SharedMysqlPurchaseJournal.ClaimOutcome claimSharedMysqlPurchase(SharedPurchaseDebit debit) {

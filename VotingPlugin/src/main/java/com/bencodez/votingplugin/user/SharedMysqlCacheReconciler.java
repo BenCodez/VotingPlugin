@@ -2,14 +2,41 @@ package com.bencodez.votingplugin.user;
 
 import java.util.Map;
 import java.util.UUID;
+import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
+import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 /** Invalidates only fields changed directly by a shared-MySQL mutation. */
 public final class SharedMysqlCacheReconciler {
+	private static final Map<UserDataCache, Map<String, DataValue>> OPTIMISTIC_POINT_VALUES =
+			java.util.Collections.synchronizedMap(new WeakHashMap<>());
+
 	private SharedMysqlCacheReconciler() {
+	}
+
+	static void recordOptimisticPoint(UserDataCache cache, String path, DataValue prediction) {
+		synchronized (OPTIMISTIC_POINT_VALUES) {
+			OPTIMISTIC_POINT_VALUES.computeIfAbsent(cache, ignored -> new java.util.HashMap<>())
+					.put(path, prediction);
+		}
+	}
+
+	/** Removes only the still-current predicted point value before any cache dump. */
+	public static void discardOptimisticPoint(UserDataCache cache, String path) {
+		if (cache == null || path == null) return;
+		synchronized (cache) {
+			DataValue prediction;
+			synchronized (OPTIMISTIC_POINT_VALUES) {
+				Map<String, DataValue> predictions = OPTIMISTIC_POINT_VALUES.get(cache);
+				prediction = predictions == null ? null : predictions.remove(path);
+				if (predictions != null && predictions.isEmpty()) OPTIMISTIC_POINT_VALUES.remove(cache);
+			}
+			var values = cache.getCache();
+			if (prediction != null && values != null && values.get(path) == prediction) values.remove(path);
+		}
 	}
 
 	/**
