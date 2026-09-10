@@ -1480,7 +1480,7 @@ public abstract class VotingPluginProxy {
 			}
 		};
 		voteCacheHandler.load();
-		method = retainHttpForPendingVotePartyRewards(method);
+		method = retainHttpForPendingDeliveries(method);
 
 		nonVotedPlayersCache = new NonVotedPlayersCache(getNonVotedCacheMySQLConfig(),
 				getConfig().getNonVotedCacheUseMySQL(), getConfig().getNonVotedCacheUseMainMySQL(),
@@ -2861,7 +2861,7 @@ public abstract class VotingPluginProxy {
 	private void reloadRuntime(boolean restartControlServices) {
 		BungeeMethod configuredMethod = BungeeMethod.getByName(getConfig().getBungeeMethod());
 		if (configuredMethod == null) configuredMethod = BungeeMethod.PLUGINMESSAGING;
-		method = retainHttpForPendingVotePartyRewards(configuredMethod);
+		method = retainHttpForPendingDeliveries(configuredMethod);
 		warnUnsupportedDedicatedVotingProxyMode();
 		if (!restartControlServices && method == BungeeMethod.SOCKETS) {
 			rebuildSocketClients();
@@ -2875,8 +2875,31 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
-	private synchronized BungeeMethod retainHttpForPendingVotePartyRewards(BungeeMethod configuredMethod) {
+	private synchronized BungeeMethod retainHttpForPendingDeliveries(BungeeMethod configuredMethod) {
 		if (configuredMethod == BungeeMethod.HTTP) return configuredMethod;
+		HttpProxyTransportServer transport = httpTransportServer;
+		if (transport != null && transport.hasPendingDeliveries()) {
+			logSevere("Retaining HTTP transport until durable deliveries are acknowledged");
+			return BungeeMethod.HTTP;
+		}
+		if (transport == null) {
+			try {
+				if (HttpProxyTransportServer.hasPersistedDeliveries(
+						getDataFolderPlugin().toPath().resolve("http").resolve("outgoing-v1"))) {
+					logSevere("Retaining HTTP transport until persisted deliveries are acknowledged");
+					return BungeeMethod.HTTP;
+				}
+			} catch (IOException unreadableQueue) {
+				// An unreadable durable queue is not proof that it is empty. Reopen HTTP so
+				// its normal bounded loader can validate or recover the state.
+				logSevere("Retaining HTTP transport because its persisted delivery queue could not be inspected");
+				return BungeeMethod.HTTP;
+			}
+		}
+		if (hasPendingCachedHttpDeliveries()) {
+			logSevere("Retaining HTTP transport until cached deliveries are acknowledged");
+			return BungeeMethod.HTTP;
+		}
 		Collection<String> servers = getVoteCachePendingVotePartyServers();
 		if (servers != null) {
 			for (String server : servers) {
@@ -2888,6 +2911,40 @@ public abstract class VotingPluginProxy {
 			}
 		}
 		return configuredMethod;
+	}
+
+	private boolean hasPendingCachedHttpDeliveries() {
+		VoteCacheHandler cache = getVoteCacheHandler();
+		if (cache == null) return false;
+		String[] cachedServers = cache.getCachedVotesServers();
+		if (cachedServers != null) {
+			for (String server : cachedServers) {
+				Collection<OfflineBungeeVote> votes = cache.getVotes(server);
+				if (hasPendingHttpDelivery(votes)) return true;
+			}
+		}
+		Collection<String> onlinePlayers = cache.getOnlineVoteUUIDs();
+		if (onlinePlayers != null) {
+			for (String uuid : onlinePlayers) {
+				Collection<OfflineBungeeVote> votes = cache.getOnlineVotes(uuid);
+				if (hasPendingHttpDelivery(votes)) return true;
+			}
+		}
+		Collection<VoteTimeQueue> timedVotes = cache.getTimeChangeQueue();
+		if (timedVotes != null) {
+			for (VoteTimeQueue vote : timedVotes) {
+				if (vote != null && vote.hasPendingHttpBroadcastDeliveryIds()) return true;
+			}
+		}
+		return false;
+	}
+
+	private static boolean hasPendingHttpDelivery(Collection<OfflineBungeeVote> votes) {
+		if (votes == null) return false;
+		for (OfflineBungeeVote vote : votes) {
+			if (vote != null && vote.hasPendingHttpDeliveryIds()) return true;
+		}
+		return false;
 	}
 
 	private synchronized void rebuildSocketClients() {

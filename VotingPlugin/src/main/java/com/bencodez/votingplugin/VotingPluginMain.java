@@ -1275,11 +1275,14 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	public synchronized BackendProxyRestart prepareBackendProxyHandlerRestart() {
 		BackendProxyHandler previous = backendProxyHandler;
 		if (!bungeeSettings.isUseBungeecoord()) {
-			return new BackendProxyRestart(previous, null, true, false);
+			boolean previousRequiresPreparation = previous != null && previous.requiresPreparationForReplacement();
+			return new BackendProxyRestart(previous, null, true, previousRequiresPreparation);
 		}
 		BungeeMethod replacementMethod = BungeeMethod.getByName(bungeeSettings.getBungeeMethod());
-		boolean previousRequiresPreparation = previous != null && previous.getMethod() == replacementMethod
-				&& replacementMethod == BungeeMethod.HTTP;
+		// Every transition away from an active HTTP transport must first drain its
+		// durable outgoing queue. Restricting preparation to HTTP-to-HTTP swaps can
+		// strand accepted deliveries when another transport is published.
+		boolean previousRequiresPreparation = previous != null && previous.requiresPreparationForReplacement();
 		BackendProxyHandler replacement = new BackendProxyHandler(this, backendProcessedVoteCache);
 		try {
 			replacement.loadForReplacement();
@@ -1297,10 +1300,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			// worker join fails. Mark the restart first so abort/await still owns the
 			// restoration path after a partially completed preparation.
 			restart.previousPrepared = true;
-			restart.replacement.beginPreparedHttpHandoff();
-			if (!restart.previous.prepareForReplacement(restart.replacement.getMethod()))
-				throw new IllegalStateException("Previous HTTP proxy transport could not be prepared for replacement");
-			restart.previous.reservePreparedHttpHandoff(restart.replacement);
+			BungeeMethod replacementMethod = restart.replacement == null ? null : restart.replacement.getMethod();
+			if (restart.replacement != null) restart.replacement.beginPreparedHttpHandoff();
+			if (!restart.previous.prepareForReplacement(replacementMethod, validationDeadlineNanos))
+				throw new IllegalStateException("Previous proxy transport could not be prepared for replacement");
+			if (replacementMethod == BungeeMethod.HTTP)
+				restart.previous.reservePreparedHttpHandoff(restart.replacement);
 		}
 		if (restart.replacement != null) restart.replacement.validateTransport(validationDeadlineNanos);
 	}
@@ -1314,13 +1319,29 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 			if (backendProxyHandler != restart.previous) throw new IllegalStateException("Backend proxy handler changed during restart");
 			if (restart.disabled) {
+				if (restart.previous != null && !restart.previous.commitPreparedDisable())
+					throw new IllegalStateException("Backend proxy transport accepted a delivery while disabling");
 				backendProxyHandler = null;
-				if (restart.previous != null) restart.previous.close();
 				BackendControlAutoEnrollment enrollment = backendControlAutoEnrollment;
 				backendControlAutoEnrollment = null;
-				if (enrollment != null) enrollment.close();
 				restart.finished = true;
 				restart.published = true;
+				if (restart.previous != null) {
+					try {
+						restart.previous.close();
+					} catch (RuntimeException cleanupFailure) {
+						getLogger().warning("Previous backend proxy handler did not stop cleanly after disabling");
+						debug(cleanupFailure);
+					}
+				}
+				if (enrollment != null) {
+					try {
+						enrollment.close();
+					} catch (RuntimeException cleanupFailure) {
+						getLogger().warning("Backend Control enrollment did not stop cleanly after disabling");
+						debug(cleanupFailure);
+					}
+				}
 				return;
 			}
 			publishBackendProxyHandler(restart.previous, restart.replacement);
@@ -1343,13 +1364,39 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				restart.finished = true;
 				throw handoffFailure;
 			}
-			// Keep the prepared HTTP queue owned by the previous handler until every
-			// fallible publication step succeeds. That makes activation rollback
-			// reversible even when an in-flight sender reaches the previous handler.
-			if (restart.previous != null) restart.previous.completeHttpHandoff(restart.replacement);
-			if (restart.previous != null) restart.previous.close();
+			// Keep the prepared queue owned by the previous handler until every fallible
+			// publication step succeeds. Admission performs no network I/O.
+			try {
+				if (restart.previous != null) restart.previous.completeHttpHandoff(restart.replacement);
+			} catch (RuntimeException handoffFailure) {
+				backendProxyHandler = restart.previous;
+				try {
+					restart.replacement.close();
+				} catch (RuntimeException closeFailure) {
+					handoffFailure.addSuppressed(closeFailure);
+				}
+				try {
+					restart.previous.restoreAfterFailedReplacement();
+					restart.previous.refreshPresenceAfterFailedReplacement();
+				} catch (RuntimeException restorationFailure) {
+					handoffFailure.addSuppressed(restorationFailure);
+				}
+				restart.finished = true;
+				throw handoffFailure;
+			}
 			restart.finished = true;
 			restart.published = true;
+			if (restart.previous != null) {
+				try {
+					restart.previous.close();
+				} catch (RuntimeException cleanupFailure) {
+					// Publication and handoff are already committed. A predecessor that
+					// misses its shutdown deadline must not make Control roll back the
+					// replacement and close the only live handler.
+					getLogger().warning("Previous backend proxy handler did not stop cleanly after publication");
+					debug(cleanupFailure);
+				}
+			}
 		}
 		try {
 			refreshBackendControlAutoEnrollment();

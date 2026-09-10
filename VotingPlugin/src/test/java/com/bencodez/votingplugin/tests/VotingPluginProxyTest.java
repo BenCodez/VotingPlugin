@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -18,6 +19,7 @@ import org.mockito.MockitoAnnotations;
 
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
+import com.bencodez.simpleapi.servercomm.http.HttpProxyTransportServer;
 import com.bencodez.simpleapi.servercomm.mysql.MySqlMessenger;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
@@ -29,6 +31,8 @@ import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyHandler;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
 public class VotingPluginProxyTest {
+	@TempDir
+	java.nio.file.Path temporaryDirectory;
 
 	@InjectMocks
 	private VotingPluginProxyTestImpl votingPluginProxy;
@@ -478,6 +482,76 @@ public class VotingPluginProxyTest {
 		votingPluginProxy.setVoteCachePendingVotePartyReward("Server1", "delivery", false);
 		votingPluginProxy.reloadFromControl();
 		assertEquals(BungeeMethod.MYSQL, votingPluginProxy.getMethod());
+	}
+
+	@Test
+	void transportReloadRetainsHttpForPendingServerAndOnlineDeliveries() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		OfflineBungeeVote serverVote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "uuid",
+				"Service", 100L, true, "totals");
+		serverVote.setHttpDeliveryId("Server1", "00000000-0000-0000-0000-000000000180");
+		OfflineBungeeVote onlineVote = new OfflineBungeeVote(java.util.UUID.randomUUID(), "Player", "uuid",
+				"Service", 101L, true, "totals");
+		onlineVote.setHttpBroadcastDeliveryId("Server2", "00000000-0000-0000-0000-000000000181");
+		Mockito.when(voteCache.getCachedVotesServers()).thenReturn(new String[] { "Server1" });
+		Mockito.when(voteCache.getVotes("Server1"))
+				.thenReturn(new java.util.ArrayList<>(java.util.List.of(serverVote)));
+		Mockito.when(voteCache.getOnlineVoteUUIDs()).thenReturn(java.util.Set.of("uuid"));
+		Mockito.when(voteCache.getOnlineVotes("uuid"))
+				.thenReturn(new java.util.ArrayList<>(java.util.List.of(onlineVote)));
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		spyProxy.setMethod(BungeeMethod.HTTP);
+		Mockito.when(spyProxy.getConfig().getBungeeMethod()).thenReturn("MYSQL");
+
+		spyProxy.reloadFromControl();
+
+		assertEquals(BungeeMethod.HTTP, spyProxy.getMethod());
+	}
+
+	@Test
+	void transportReloadRetainsHttpForPendingTimedBroadcast() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		VoteTimeQueue timed = new VoteTimeQueue(java.util.UUID.randomUUID(), "Player", "Service", 100L);
+		timed.setHttpBroadcastDeliveryId("Server1", "00000000-0000-0000-0000-000000000182");
+		Mockito.when(voteCache.getTimeChangeQueue())
+				.thenReturn(new java.util.concurrent.ConcurrentLinkedQueue<>(java.util.List.of(timed)));
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		spyProxy.setMethod(BungeeMethod.HTTP);
+		Mockito.when(spyProxy.getConfig().getBungeeMethod()).thenReturn("REDIS");
+
+		spyProxy.reloadFromControl();
+
+		assertEquals(BungeeMethod.HTTP, spyProxy.getMethod());
+	}
+
+	@Test
+	void transportReloadRetainsHttpForOrdinaryDurableQueueEntry() throws Exception {
+		HttpProxyTransportServer transport = Mockito.mock(HttpProxyTransportServer.class);
+		Mockito.when(transport.hasPendingDeliveries()).thenReturn(true);
+		setProxyField(votingPluginProxy, "httpTransportServer", transport);
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		Mockito.when(votingPluginProxy.getConfig().getBungeeMethod()).thenReturn("MQTT");
+
+		votingPluginProxy.reloadFromControl();
+
+		assertEquals(BungeeMethod.HTTP, votingPluginProxy.getMethod());
+	}
+
+	@Test
+	void startupRetainsHttpForPersistedQueueWithoutLiveServer() throws Exception {
+		java.nio.file.Path backendQueue = temporaryDirectory.resolve("http/outgoing-v1/lobby-1");
+		java.nio.file.Files.createDirectories(backendQueue);
+		java.nio.file.Files.writeString(backendQueue.resolve(".pending-delivery.json"), "pending");
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(temporaryDirectory.toFile()).when(spyProxy).getDataFolderPlugin();
+		spyProxy.setMethod(BungeeMethod.HTTP);
+		Mockito.when(spyProxy.getConfig().getBungeeMethod()).thenReturn("REDIS");
+
+		spyProxy.reloadFromControl();
+
+		assertEquals(BungeeMethod.HTTP, spyProxy.getMethod());
 	}
 
 	@Test
@@ -1533,5 +1607,11 @@ public class VotingPluginProxyTest {
 		assertTrue(vote.isProxyBroadcastComplete());
 		verify(voteCache).removeOnlineVote("voter-uuid", vote);
 		verify(voteCache, never()).updateOnlineVote("voter-uuid", vote);
+	}
+
+	private static void setProxyField(VotingPluginProxy target, String name, Object value) throws Exception {
+		java.lang.reflect.Field field = VotingPluginProxy.class.getDeclaredField(name);
+		field.setAccessible(true);
+		field.set(target, value);
 	}
 }

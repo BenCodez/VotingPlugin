@@ -295,6 +295,11 @@ public class OfflineBungeeVote {
 		return new LinkedHashMap<>(httpBroadcastDeliveryIds);
 	}
 
+	/** Returns whether any reward or standalone HTTP delivery is still pending. */
+	public boolean hasPendingHttpDeliveryIds() {
+		return !httpDeliveryIds.isEmpty() || !httpBroadcastDeliveryIds.isEmpty();
+	}
+
 	/**
 	 * Encodes stable delivery IDs for JSON/SQL cache storage.
 	 * @return bounded delimiter-safe encoding

@@ -185,6 +185,7 @@ class HttpBackendProxyTransportTest {
 		JsonEnvelope queued = JsonEnvelope.builder("queued-during-flush").build();
 		setField(manager, "transport", active);
 		setField(replacement, "transport", replacementTransport);
+		replacement.beginPreparedTransportHandoff();
 		java.util.concurrent.CountDownLatch flushStarted = new java.util.concurrent.CountDownLatch(1);
 		java.util.concurrent.CountDownLatch releaseFlush = new java.util.concurrent.CountDownLatch(1);
 		doAnswer(invocation -> {
@@ -213,7 +214,7 @@ class HttpBackendProxyTransportTest {
 		assertNull(preparationFailure.get());
 
 		manager.completePreparedTransportHandoff(replacement);
-		verify(replacementTransport).send(queued);
+		verify(replacementTransport, org.mockito.Mockito.timeout(1000)).send(queued);
 	}
 
 	@Test

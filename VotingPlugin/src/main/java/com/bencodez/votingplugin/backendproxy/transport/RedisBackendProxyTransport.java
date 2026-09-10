@@ -56,6 +56,7 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 	private final java.util.ArrayDeque<JsonEnvelope> deliveriesAfterReplay = new java.util.ArrayDeque<>();
 	private GlobalMessageHandler messageHandler;
 	private GlobalMessageHandler handoffMessageHandler;
+	private String publishChannel;
 
 	public RedisBackendProxyTransport(VotingPluginMain plugin) {
 		this(plugin, new ProcessedVoteCache());
@@ -69,6 +70,7 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 	@Override
 	public void start(GlobalMessageHandler messageHandler) {
 		this.messageHandler = messageHandler;
+		publishChannel = plugin.getBungeeSettings().getRedisPrefix() + "VotingPlugin";
 		retiredAfterHandoff = false;
 		standbySubscriber = !processedVoteCache.registerRedisSubscriber(subscriberIdentity);
 		redisHandler = new RedisHandler(plugin.getBungeeSettings().getRedisHost(),
@@ -306,7 +308,7 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 	@Override
 	public void send(JsonEnvelope envelope) {
 		if (redisHandler != null) {
-			redisHandler.publishEnvelope(plugin.getBungeeSettings().getRedisPrefix() + "VotingPlugin",
+			redisHandler.publishEnvelope(publishChannel,
 					VotingPluginWire.withRedisDeliveryId(envelope));
 		}
 	}

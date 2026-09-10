@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -16,6 +17,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 
 import java.lang.reflect.Field;
 import java.util.concurrent.atomic.AtomicReference;
@@ -38,6 +41,7 @@ import com.bencodez.votingplugin.backendproxy.transport.MysqlBackendProxyTranspo
 import com.bencodez.votingplugin.backendproxy.transport.PluginMessagingBackendProxyTransport;
 import com.bencodez.votingplugin.backendproxy.transport.BackendProxyTransport;
 import com.bencodez.votingplugin.backendproxy.transport.BackendProxyTransportManager;
+import com.bencodez.votingplugin.backendproxy.transport.HttpBackendProxyTransport;
 import com.bencodez.votingplugin.backendproxy.transport.RedisBackendProxyTransport;
 import com.bencodez.votingplugin.backendproxy.transport.SocketBackendProxyTransport;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
@@ -336,6 +340,51 @@ class BackendProxyHandlerLifecycleTest {
 	}
 
 	@Test
+	void preparesHttpDeliveryQueueWhenSwitchingToAnotherMethod() throws Exception {
+		BackendProxyHandler handler = handlerWithTransport(BungeeMethod.HTTP);
+		HttpBackendProxyTransport transport = mock(HttpBackendProxyTransport.class);
+		setTransport(handler, transport);
+
+		assertTrue(handler.prepareForReplacement(BungeeMethod.REDIS));
+
+		verify(transport).prepareForReplacement();
+	}
+
+	@Test
+	void redisSendKeepsTheChannelCapturedByTheActiveTransport() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin =
+				mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BungeeSettings settings = mock(BungeeSettings.class);
+		when(plugin.getBungeeSettings()).thenReturn(settings);
+		when(settings.getRedisPrefix()).thenReturn("new:");
+		RedisBackendProxyTransport transport = new RedisBackendProxyTransport(plugin);
+		RedisHandler redis = mock(RedisHandler.class);
+		setField(transport, "redisHandler", redis);
+		setField(transport, "publishChannel", "old:VotingPlugin");
+
+		transport.send(com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.builder("vote").build());
+
+		verify(redis).publishEnvelope(eq("old:VotingPlugin"), any());
+	}
+
+	@Test
+	void mqttSendKeepsTheTopicCapturedByTheActiveTransport() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin =
+				mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BungeeSettings settings = mock(BungeeSettings.class);
+		when(plugin.getBungeeSettings()).thenReturn(settings);
+		when(settings.getMqttPrefix()).thenReturn("new/");
+		MqttBackendProxyTransport transport = new MqttBackendProxyTransport(plugin);
+		MqttHandler mqtt = mock(MqttHandler.class);
+		setField(transport, "mqttHandler", mqtt);
+		setField(transport, "publishTopic", "old/votingplugin/servers/proxy");
+
+		transport.send(com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.builder("vote").build());
+
+		verify(mqtt).publishEnvelope(eq("old/votingplugin/servers/proxy"), any());
+	}
+
+	@Test
 	void forwardsMessagesBufferedDuringPreparedHttpReplacement() throws Exception {
 		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
 		BackendProxyTransportManager previous = new BackendProxyTransportManager(plugin);
@@ -348,16 +397,145 @@ class BackendProxyHandlerLifecycleTest {
 				com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.builder("during-validation").build();
 		com.bencodez.simpleapi.servercomm.codec.JsonEnvelope afterPublication =
 				com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.builder("after-publication").build();
+		com.bencodez.simpleapi.servercomm.codec.JsonEnvelope replacementStarted =
+				com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.builder("replacement-started").build();
 
+		replacement.beginPreparedTransportHandoff();
 		previous.prepareForReplacement();
 		previous.send(duringValidation);
+		replacement.send(replacementStarted);
 		verifyNoInteractions(replacementTransport);
 
 		previous.completePreparedTransportHandoff(replacement);
 		previous.send(afterPublication);
 
-		verify(replacementTransport).send(duringValidation);
-		verify(replacementTransport).send(afterPublication);
+		org.mockito.InOrder order = inOrder(replacementTransport);
+		order.verify(replacementTransport, org.mockito.Mockito.timeout(1000)).send(duringValidation);
+		order.verify(replacementTransport).send(replacementStarted);
+		order.verify(replacementTransport).send(afterPublication);
+	}
+
+	@Test
+	void crossTransportPreparedHandoffDoesNotPerformNetworkSendOnCallerThread() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BackendProxyTransportManager previous = new BackendProxyTransportManager(plugin);
+		BackendProxyTransportManager replacement = new BackendProxyTransportManager(plugin);
+		BackendProxyTransport previousTransport = mock(BackendProxyTransport.class);
+		BackendProxyTransport replacementTransport = mock(BackendProxyTransport.class);
+		setField(previous, "transport", previousTransport);
+		setField(replacement, "transport", replacementTransport);
+		java.util.concurrent.CountDownLatch sendStarted = new java.util.concurrent.CountDownLatch(1);
+		java.util.concurrent.CountDownLatch releaseSend = new java.util.concurrent.CountDownLatch(1);
+		doAnswer(invocation -> {
+			sendStarted.countDown();
+			releaseSend.await(2, java.util.concurrent.TimeUnit.SECONDS);
+			return null;
+		}).when(replacementTransport).send(any());
+
+		replacement.beginPreparedTransportHandoff();
+		previous.prepareForReplacement();
+		previous.send(com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.builder("buffered").build());
+		org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(java.time.Duration.ofSeconds(1),
+				() -> previous.completePreparedTransportHandoff(replacement));
+
+		org.junit.jupiter.api.Assertions.assertTrue(sendStarted.await(1, java.util.concurrent.TimeUnit.SECONDS));
+		releaseSend.countDown();
+		verify(replacementTransport, org.mockito.Mockito.timeout(1000)).send(any());
+	}
+
+	@Test
+	void preparedDisableRefusesToDiscardMessagesAcceptedDuringPreparation() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BackendProxyTransportManager manager = new BackendProxyTransportManager(plugin);
+		HttpBackendProxyTransport transport = mock(HttpBackendProxyTransport.class);
+		setField(manager, "transport", transport);
+
+		manager.prepareForReplacement();
+		manager.send(com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.builder("during-disable").build());
+
+		assertFalse(manager.commitPreparedDisable());
+		verify(transport, never()).close();
+	}
+
+	@Test
+	void laterReplacementWaitsForAnEarlierAsyncHandoff() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BackendProxyTransportManager source = new BackendProxyTransportManager(plugin);
+		BackendProxyHandler target = handlerWithTransport(BungeeMethod.REDIS);
+		Field managerField = BackendProxyHandler.class.getDeclaredField("transportManager");
+		managerField.setAccessible(true);
+		BackendProxyTransportManager targetManager = (BackendProxyTransportManager) managerField.get(target);
+		BackendProxyTransport sourceTransport = mock(BackendProxyTransport.class);
+		BackendProxyTransport targetTransport = mock(BackendProxyTransport.class);
+		setField(source, "transport", sourceTransport);
+		setField(targetManager, "transport", targetTransport);
+		java.util.concurrent.CountDownLatch sendStarted = new java.util.concurrent.CountDownLatch(1);
+		java.util.concurrent.CountDownLatch releaseSend = new java.util.concurrent.CountDownLatch(1);
+		doAnswer(invocation -> {
+			sendStarted.countDown();
+			releaseSend.await(2, java.util.concurrent.TimeUnit.SECONDS);
+			return null;
+		}).when(targetTransport).send(any());
+
+		targetManager.beginPreparedTransportHandoff();
+		source.prepareForReplacement();
+		source.send(com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.builder("buffered").build());
+		source.completePreparedTransportHandoff(targetManager);
+		assertTrue(sendStarted.await(1, java.util.concurrent.TimeUnit.SECONDS));
+		assertTrue(target.requiresPreparationForReplacement());
+		java.util.concurrent.CompletableFuture<Boolean> preparation = java.util.concurrent.CompletableFuture.supplyAsync(
+				() -> target.prepareForReplacement(BungeeMethod.MQTT,
+						System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(2)));
+		try {
+			Thread.sleep(50);
+			assertFalse(preparation.isDone(), "replacement must wait while an admitted send is in flight");
+		} finally {
+			releaseSend.countDown();
+		}
+		assertTrue(preparation.get(1, java.util.concurrent.TimeUnit.SECONDS));
+		assertFalse(targetManager.hasPendingAsyncHandoff());
+	}
+
+	@Test
+	void pluginMessageHandoffRunsThroughTheBukkitScheduler() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
+				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		java.util.concurrent.atomic.AtomicReference<Runnable> scheduled = new java.util.concurrent.atomic.AtomicReference<>();
+		doAnswer(invocation -> {
+			scheduled.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTask(eq(plugin), any(Runnable.class));
+		BackendProxyTransportManager source = new BackendProxyTransportManager(plugin);
+		BackendProxyTransportManager target = new BackendProxyTransportManager(plugin);
+		BackendProxyTransport sourceTransport = mock(BackendProxyTransport.class);
+		PluginMessagingBackendProxyTransport targetTransport = mock(PluginMessagingBackendProxyTransport.class);
+		setField(source, "transport", sourceTransport);
+		setField(target, "transport", targetTransport);
+
+		target.beginPreparedTransportHandoff();
+		source.prepareForReplacement();
+		source.send(com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.builder("buffered").build());
+		source.completePreparedTransportHandoff(target);
+
+		verify(targetTransport, never()).send(any());
+		assertTrue(scheduled.get() != null);
+		scheduled.get().run();
+		verify(targetTransport).send(any());
+		assertFalse(target.hasPendingAsyncHandoff());
+
+		target.prepareAsyncHandoffForReplacement(
+				System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(1));
+		com.bencodez.simpleapi.servercomm.codec.JsonEnvelope afterPreparation =
+				com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.builder("after-preparation").build();
+		target.send(afterPreparation);
+		BackendProxyTransportManager next = new BackendProxyTransportManager(plugin);
+		BackendProxyTransport nextTransport = mock(BackendProxyTransport.class);
+		setField(next, "transport", nextTransport);
+		next.beginPreparedTransportHandoff();
+		target.completePreparedTransportHandoff(next);
+		verify(nextTransport, org.mockito.Mockito.timeout(1000)).send(afterPreparation);
 	}
 
 	@Test

@@ -124,13 +124,35 @@ public class BackendProxyHandler implements Listener {
 		globalDataSync.close();
 	}
 
-	/** Prepares the restorable HTTP transport before a same-method replacement starts. */
+	/** Returns whether replacement preparation must preserve accepted deliveries. */
+	public boolean requiresPreparationForReplacement() {
+		return method == BungeeMethod.HTTP || method == BungeeMethod.PLUGINMESSAGING
+				|| transportManager.hasPendingAsyncHandoff();
+	}
+
+	/** Prepares HTTP state or waits off-thread for an earlier cross-transport handoff. */
 	public boolean prepareForReplacement(BungeeMethod replacementMethod) {
-		if (method == replacementMethod && method == BungeeMethod.HTTP) {
+		return prepareForReplacement(replacementMethod,
+				System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(25));
+	}
+
+	public boolean prepareForReplacement(BungeeMethod replacementMethod, long deadlineNanos) {
+		if (method == BungeeMethod.HTTP) {
 			transportManager.prepareForReplacement();
 			return true;
 		}
-		return false;
+		if (method == BungeeMethod.PLUGINMESSAGING) {
+			transportManager.prepareAsyncHandoffForReplacement(deadlineNanos);
+			return true;
+		}
+		if (!transportManager.hasPendingAsyncHandoff()) return false;
+		transportManager.awaitAsyncHandoff(deadlineNanos);
+		return true;
+	}
+
+	/** Atomically fences new sends only when disabling cannot discard prepared HTTP messages. */
+	public boolean commitPreparedDisable() {
+		return transportManager.commitPreparedDisable();
 	}
 
 	public void beginPreparedHttpHandoff() {
@@ -178,9 +200,9 @@ public class BackendProxyHandler implements Listener {
 		transportManager.completeRedisHandoff(replacement.transportManager);
 	}
 
-	/** Forwards messages buffered while the previous HTTP credentials were released. */
+	/** Forwards messages buffered while the previous transport was fenced. */
 	public void completeHttpHandoff(BackendProxyHandler replacement) {
-		if (method != BungeeMethod.HTTP || replacement.method != BungeeMethod.HTTP) return;
+		if (replacement == null) return;
 		transportManager.completePreparedTransportHandoff(replacement.transportManager);
 	}
 

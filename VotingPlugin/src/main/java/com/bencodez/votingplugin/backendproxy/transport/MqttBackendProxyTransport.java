@@ -15,6 +15,7 @@ public class MqttBackendProxyTransport implements BackendProxyTransport {
 	private final VotingPluginMain plugin;
 	@Getter
 	private MqttHandler mqttHandler;
+	private String publishTopic;
 
 	public MqttBackendProxyTransport(VotingPluginMain plugin) {
 		this.plugin = plugin;
@@ -23,6 +24,7 @@ public class MqttBackendProxyTransport implements BackendProxyTransport {
 	@Override
 	public void start(GlobalMessageHandler messageHandler) {
 		try {
+			publishTopic = plugin.getBungeeSettings().getMqttPrefix() + "votingplugin/servers/proxy";
 			String id = plugin.getBungeeSettings().getMqttClientID();
 			if (id.isEmpty()) {
 				id = plugin.getOptions().getServer();
@@ -49,8 +51,7 @@ public class MqttBackendProxyTransport implements BackendProxyTransport {
 			return;
 		}
 		try {
-			mqttHandler.publishEnvelope(plugin.getBungeeSettings().getMqttPrefix() + "votingplugin/servers/proxy",
-					envelope);
+			mqttHandler.publishEnvelope(publishTopic, envelope);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
