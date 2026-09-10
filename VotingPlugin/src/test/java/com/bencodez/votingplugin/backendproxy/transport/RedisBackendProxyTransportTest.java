@@ -2,14 +2,17 @@ package com.bencodez.votingplugin.backendproxy.transport;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.spy;
 
 import java.lang.reflect.Field;
 import java.util.concurrent.CountDownLatch;
@@ -270,6 +273,62 @@ class RedisBackendProxyTransportTest {
 	}
 
 	@Test
+	void managerDoesNotHoldItsMonitorWhileWaitingForRedisCallbackReplies() throws Exception {
+		BackendProxyTransportManager manager = new BackendProxyTransportManager(null);
+		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
+		when(cache.reserveLegacyRedisDelivery(org.mockito.ArgumentMatchers.any(),
+				org.mockito.ArgumentMatchers.anyString())).thenReturn(true);
+		RedisBackendProxyTransport transport = spy(new RedisBackendProxyTransport(null, cache));
+		doReturn(true).when(transport).send(org.mockito.ArgumentMatchers.any(JsonEnvelope.class));
+		setField(manager, "transport", transport);
+		CountDownLatch callbackEntered = new CountDownLatch(1);
+		CountDownLatch allowReply = new CountDownLatch(1);
+		CountDownLatch callbackCompleted = new CountDownLatch(1);
+		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
+		doAnswer(invocation -> {
+			callbackEntered.countDown();
+			allowReply.await();
+			manager.send(JsonEnvelope.builder("reply").build());
+			callbackCompleted.countDown();
+			return null;
+		}).when(messages).onMessage(org.mockito.ArgumentMatchers.any(JsonEnvelope.class));
+		setField(transport, "messageHandler", messages);
+
+		Thread delivery = new Thread(() -> transport.dispatchLegacy(
+				JsonEnvelope.builder(VotingPluginWire.SUB_VOTE_UPDATE).build()));
+		delivery.start();
+		assertTrue(callbackEntered.await(1, TimeUnit.SECONDS));
+
+		java.util.concurrent.atomic.AtomicReference<Throwable> closeFailure =
+				new java.util.concurrent.atomic.AtomicReference<>();
+		Thread retirement = new Thread(() -> {
+			try {
+				manager.closeRedisForHandoff();
+			} catch (Throwable failure) {
+				closeFailure.set(failure);
+			}
+		});
+		retirement.start();
+		try {
+			assertTrue(awaitRetiredAfterHandoff(transport));
+
+			allowReply.countDown();
+			assertTrue(callbackCompleted.await(1, TimeUnit.SECONDS));
+			retirement.join(TimeUnit.SECONDS.toMillis(1));
+			delivery.join(TimeUnit.SECONDS.toMillis(1));
+			assertFalse(retirement.isAlive());
+			assertFalse(delivery.isAlive());
+			assertNull(closeFailure.get());
+			verify(transport).send(org.mockito.ArgumentMatchers.any(JsonEnvelope.class));
+		} finally {
+			allowReply.countDown();
+			if (retirement.isAlive()) retirement.interrupt();
+			delivery.join(TimeUnit.SECONDS.toMillis(1));
+			retirement.join(TimeUnit.SECONDS.toMillis(1));
+		}
+	}
+
+	@Test
 	void legacyPromotionWaitsForReservedDeliveryBeforeReplayingStandbyCopy() throws Exception {
 		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
 		when(cache.reserveLegacyRedisDelivery(org.mockito.ArgumentMatchers.any(),
@@ -353,5 +412,21 @@ class RedisBackendProxyTransportTest {
 		Field field = target.getClass().getDeclaredField(name);
 		field.setAccessible(true);
 		field.set(target, value);
+	}
+
+	private static boolean awaitRetiredAfterHandoff(RedisBackendProxyTransport transport) throws Exception {
+		Field lifecycleField = RedisBackendProxyTransport.class.getDeclaredField("legacyLifecycle");
+		lifecycleField.setAccessible(true);
+		Object lifecycle = lifecycleField.get(transport);
+		Field retiredField = RedisBackendProxyTransport.class.getDeclaredField("retiredAfterHandoff");
+		retiredField.setAccessible(true);
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(1);
+		while (System.nanoTime() < deadline) {
+			synchronized (lifecycle) {
+				if (retiredField.getBoolean(transport)) return true;
+			}
+			Thread.sleep(10L);
+		}
+		return false;
 	}
 }

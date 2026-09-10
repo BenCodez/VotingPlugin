@@ -486,22 +486,35 @@ public class BackendProxyTransportManager {
 		if (transport instanceof HttpBackendProxyTransport http) http.awaitCredentialRestoration(deadlineNanos);
 	}
 
-	public synchronized void closeRedisForHandoff() {
-		if (!(transport instanceof RedisBackendProxyTransport)) {
-			throw new IllegalStateException("Redis backend proxy transport is unavailable");
+	public void closeRedisForHandoff() {
+		RedisBackendProxyTransport retiring;
+		synchronized (this) {
+			if (!(transport instanceof RedisBackendProxyTransport)) {
+				throw new IllegalStateException("Redis backend proxy transport is unavailable");
+			}
+			retiring = (RedisBackendProxyTransport) transport;
+			retiredTransport = retiring;
 		}
-		retiredTransport = transport;
-		transport = null;
 		try {
-			((RedisBackendProxyTransport) retiredTransport).closeForHandoff();
+			// closeForHandoff() waits for already-running Redis callbacks. Those callbacks
+			// may publish a reply through send(), so never retain this manager's monitor
+			// while waiting for them to drain.
+			retiring.closeForHandoff();
 		} catch (RuntimeException failure) {
-			if (failure instanceof RedisBackendProxyTransport.HandoffQuiescenceException) {
-				transport = retiredTransport;
-				retiredTransport = null;
+			synchronized (this) {
+				if (failure instanceof RedisBackendProxyTransport.HandoffQuiescenceException
+						&& retiredTransport == retiring && transport == retiring) {
+					retiredTransport = null;
+				} else if (transport == retiring) {
+					transport = null;
+				}
 			}
 			// Retain the fenced old listener so a later manager close can retry its
 			// cleanup without ever touching the promoted replacement.
 			throw failure;
+		}
+		synchronized (this) {
+			if (transport == retiring) transport = null;
 		}
 	}
 
