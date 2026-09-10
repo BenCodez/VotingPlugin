@@ -18,6 +18,11 @@ public final class AdminAuthorization {
 		return amount >= 0 || canRemovePointsFromAll(sender);
 	}
 
+	public static boolean canAddPointsToAll(CommandSender sender, int amount, boolean allowAdminOverride) {
+		return amount >= 0 || sender.hasPermission(REMOVE_POINTS_ALL_PERMISSION)
+				|| allowAdminOverride && sender.hasPermission(ADMIN_PERMISSION);
+	}
+
 	public static boolean canEditConfig(CommandSender sender, String permission) {
 		return sender.hasPermission(permission) || sender.hasPermission(ADMIN_PERMISSION);
 	}
