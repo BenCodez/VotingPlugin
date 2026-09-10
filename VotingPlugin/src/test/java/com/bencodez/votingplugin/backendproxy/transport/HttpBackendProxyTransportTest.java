@@ -120,6 +120,19 @@ class HttpBackendProxyTransportTest {
 	}
 
 	@Test
+	void failedStartupTransferRetainsTheUnacceptedEnvelope() {
+		java.util.ArrayDeque<JsonEnvelope> queue = new java.util.ArrayDeque<>();
+		JsonEnvelope pending = JsonEnvelope.builder("pending").build();
+		queue.add(pending);
+		HttpBackendTransportConnector connector = mock(HttpBackendTransportConnector.class);
+		when(connector.send(pending)).thenReturn(false);
+
+		assertThrows(IllegalStateException.class,
+				() -> HttpBackendProxyTransport.transferStartupQueue(queue, connector));
+		assertEquals(java.util.List.of(pending), new java.util.ArrayList<>(queue));
+	}
+
+	@Test
 	@SuppressWarnings("unchecked")
 	void orderlyShutdownFlushesRecoveryQueueBeforeHandoffQueue() throws Exception {
 		HttpBackendProxyTransport transport = new HttpBackendProxyTransport(mock(VotingPluginMain.class));

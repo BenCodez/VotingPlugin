@@ -194,6 +194,8 @@ public abstract class VotingPluginProxy {
 	private long httpTransportReconciliationGeneration;
 	private long votePartyProxyCommandAttemptSequence;
 	private long votePartyProxyCommandInFlight;
+	private volatile CompletableFuture<Void> votePartyProxyCommandExecution;
+	private boolean votePartyProxyCommandCompletedUnpersisted;
 
 	private boolean enabled;
 
@@ -2671,7 +2673,10 @@ public abstract class VotingPluginProxy {
 			prepareForRuntimeReplacement();
 		} else {
 			if (!quarantineInFlightVotePartyProxyCommandForReplacement()) {
-				logSevere("Unable to durably quarantine an in-flight HTTP vote-party command during final shutdown; the attempt remains fenced");
+				awaitInFlightVotePartyProxyCommand();
+				if (!quarantineInFlightVotePartyProxyCommandForReplacement()) {
+					logSevere("Unable to durably quarantine an in-flight HTTP vote-party command after the bounded final-shutdown wait; operator reconciliation may be required after restart");
+				}
 			}
 			cancelPreparedHttpTransportChange();
 			controlServicesGeneration.incrementAndGet();
@@ -3718,6 +3723,11 @@ public abstract class VotingPluginProxy {
 	protected synchronized boolean retryPendingVotePartyProxyEffects() {
 		if (!enabled) return true;
 		if (votePartyProxyCommandInFlight != 0L) return false;
+		if (votePartyProxyCommandCompletedUnpersisted
+				&& !quarantineInFlightVotePartyProxyCommandForReplacement()) {
+			scheduleVotePartyDeliveryRetry();
+			return false;
+		}
 		PendingVotePartyProxyEffects pending;
 		try {
 			pending = getVoteCachePendingVotePartyProxyEffects();
@@ -3739,6 +3749,8 @@ public abstract class VotingPluginProxy {
 						if (attempt == 0L) attempt = ++votePartyProxyCommandAttemptSequence;
 						long commandAttempt = attempt;
 						votePartyProxyCommandInFlight = commandAttempt;
+						votePartyProxyCommandExecution = execution;
+						votePartyProxyCommandCompletedUnpersisted = false;
 						PendingVotePartyProxyEffects expected = pending;
 						PendingVotePartyProxyEffects completed = remaining;
 						execution.whenComplete((ignored, failure) ->
@@ -3771,10 +3783,10 @@ public abstract class VotingPluginProxy {
 		synchronized (this) {
 			if (votePartyProxyCommandInFlight != attempt) return;
 			votePartyProxyCommandInFlight = 0L;
-			if (!enabled) return;
+			votePartyProxyCommandExecution = null;
 			if (failure != null) {
 				logSevere("A committed HTTP vote-party proxy command failed and remains pending for retry");
-				scheduleVotePartyDeliveryRetry();
+				if (enabled) scheduleVotePartyDeliveryRetry();
 				return;
 			}
 			PendingVotePartyProxyEffects current;
@@ -3788,8 +3800,13 @@ public abstract class VotingPluginProxy {
 				logSevere("Pending HTTP vote-party proxy effects changed while a command was running; progress was not advanced");
 				return;
 			}
-			if (persistVotePartyProxyEffectProgress(expected, remaining)
-					&& retryPendingVotePartyProxyEffects()) {
+			if (!persistVotePartyProxyEffectProgress(expected, remaining)) {
+				votePartyProxyCommandCompletedUnpersisted = true;
+				if (!enabled) quarantineInFlightVotePartyProxyCommandForReplacement();
+				return;
+			}
+			votePartyProxyCommandCompletedUnpersisted = false;
+			if (enabled && retryPendingVotePartyProxyEffects()) {
 				if (method == BungeeMethod.HTTP) retryPendingVotePartyRewards();
 				if (votePartyVotes >= currentVotePartyVotesRequired) checkVoteParty();
 			}
@@ -3833,6 +3850,7 @@ public abstract class VotingPluginProxy {
 				return;
 			}
 			votePartyProxyCommandInFlight = 0L;
+			votePartyProxyCommandExecution = null;
 			logSevere("An HTTP vote-party proxy command did not complete within 60 seconds and was durably quarantined without retry");
 			if (retryPendingVotePartyProxyEffects()) {
 				if (method == BungeeMethod.HTTP) retryPendingVotePartyRewards();
@@ -3842,7 +3860,7 @@ public abstract class VotingPluginProxy {
 	}
 
 	protected synchronized boolean quarantineInFlightVotePartyProxyCommandForReplacement() {
-		if (votePartyProxyCommandInFlight == 0L) return true;
+		if (votePartyProxyCommandInFlight == 0L && !votePartyProxyCommandCompletedUnpersisted) return true;
 		PendingVotePartyProxyEffects pending;
 		PendingVotePartyProxyEffects previousQuarantine;
 		try {
@@ -3864,10 +3882,28 @@ public abstract class VotingPluginProxy {
 				return false;
 			}
 			votePartyProxyCommandInFlight = 0L;
+			votePartyProxyCommandExecution = null;
+			votePartyProxyCommandCompletedUnpersisted = false;
 			logSevere("An in-flight HTTP vote-party proxy command was durably quarantined for runtime replacement");
 			return true;
 		} catch (RuntimeException invalid) {
 			return false;
+		}
+	}
+
+	/** Gives an executing platform command a bounded chance to finish and persist progress before final teardown. */
+	protected void awaitInFlightVotePartyProxyCommand() {
+		CompletableFuture<Void> execution = votePartyProxyCommandExecution;
+		if (execution == null || execution.isDone()) return;
+		try {
+			execution.get(5, TimeUnit.SECONDS);
+		} catch (java.util.concurrent.ExecutionException ignored) {
+			// The completion callback retains failed commands for retry.
+		} catch (java.util.concurrent.TimeoutException timeout) {
+			logSevere("Timed out waiting for an in-flight HTTP vote-party command during final shutdown");
+		} catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt();
+			logSevere("Interrupted while waiting for an in-flight HTTP vote-party command during final shutdown");
 		}
 	}
 

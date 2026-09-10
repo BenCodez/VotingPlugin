@@ -249,6 +249,11 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	}
 
 	@Override
+	protected void awaitInFlightVotePartyProxyCommand() {
+		// Keep shutdown-path tests deterministic; production performs the bounded wait.
+	}
+
+	@Override
 	public void saveVoteCacheFile() {
 		if (failNextVoteCacheSave) {
 			failNextVoteCacheSave = false;

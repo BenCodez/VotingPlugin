@@ -2,6 +2,9 @@ package com.bencodez.votingplugin.proxy.bungee;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
@@ -14,6 +17,8 @@ import com.bencodez.votingplugin.proxy.cache.GsonDataNode;
 import com.bencodez.votingplugin.proxy.cache.IVoteCache;
 import com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
+import com.bencodez.votingplugin.util.DurableFiles;
+import com.google.gson.GsonBuilder;
 
 /**
  * JSON file-based vote cache for Bungee.
@@ -53,6 +58,27 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 		setString(path + ".BroadcastTargets", voteTimedQueue.encodeBroadcastTargets());
 		setString(path + ".BroadcastForwardedServers", voteTimedQueue.encodeBroadcastForwardedServers());
 		setString(path + ".HttpBroadcastDeliveryIds", voteTimedQueue.encodeHttpBroadcastDeliveryIds());
+	}
+
+	@Override
+	public java.nio.file.Path getStoragePath() {
+		return getFile().toPath();
+	}
+
+	@Override
+	public synchronized void saveDurably() throws IOException {
+		Path target = getStoragePath().toAbsolutePath().normalize();
+		Path parent = target.getParent();
+		if (parent == null) throw new IOException("Vote cache has no parent directory");
+		Files.createDirectories(parent);
+		Path staged = Files.createTempFile(parent, target.getFileName().toString(), ".tmp");
+		try {
+			Files.writeString(staged, new GsonBuilder().setPrettyPrinting().create().toJson(getConf()),
+					StandardCharsets.UTF_8);
+			DurableFiles.publishStagedFile(staged, target);
+		} finally {
+			Files.deleteIfExists(staged);
+		}
 	}
 
 	public void addVote(String server, int num, OfflineBungeeVote voteData) {

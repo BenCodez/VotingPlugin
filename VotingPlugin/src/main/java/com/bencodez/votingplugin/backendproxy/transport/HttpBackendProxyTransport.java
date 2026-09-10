@@ -313,11 +313,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 				if (closed) {
 					discard = true;
 				} else {
-					while (!startupQueue.isEmpty()) {
-						if (!replacement.send(startupQueue.removeFirst())) {
-							throw new IllegalStateException("HTTP startup queue could not be transferred");
-						}
-					}
+					transferStartupQueue(startupQueue, replacement);
 					connector = replacement;
 					directoryOwner = owner;
 					installed = true;
@@ -335,6 +331,16 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 				if (acquired) owner.release();
 			}
 			startupComplete.countDown();
+		}
+	}
+
+	static void transferStartupQueue(ArrayDeque<JsonEnvelope> queue, HttpBackendTransportConnector connector) {
+		while (!queue.isEmpty()) {
+			JsonEnvelope envelope = queue.peekFirst();
+			if (!connector.send(envelope)) {
+				throw new IllegalStateException("HTTP startup queue could not be transferred");
+			}
+			queue.removeFirst();
 		}
 	}
 

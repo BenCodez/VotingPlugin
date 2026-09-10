@@ -2,6 +2,9 @@ package com.bencodez.votingplugin.proxy.velocity;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
@@ -14,6 +17,9 @@ import com.bencodez.votingplugin.proxy.cache.DataNode;
 import com.bencodez.votingplugin.proxy.cache.IVoteCache;
 import com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
+import com.bencodez.votingplugin.util.DurableFiles;
+
+import org.spongepowered.configurate.gson.GsonConfigurationLoader;
 
 /**
  * JSON-based vote cache implementation for Velocity proxy.
@@ -26,6 +32,26 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 	 */
 	public VelocityJsonVoteCache(File file) {
 		super(file);
+	}
+
+	@Override
+	public java.nio.file.Path getStoragePath() {
+		return getPath();
+	}
+
+	@Override
+	public synchronized void saveDurably() throws IOException {
+		Path target = getStoragePath().toAbsolutePath().normalize();
+		Path parent = target.getParent();
+		if (parent == null) throw new IOException("Vote cache has no parent directory");
+		Files.createDirectories(parent);
+		Path staged = Files.createTempFile(parent, target.getFileName().toString(), ".tmp");
+		try {
+			GsonConfigurationLoader.builder().path(staged).build().save(getConf());
+			DurableFiles.publishStagedFile(staged, target);
+		} finally {
+			Files.deleteIfExists(staged);
+		}
 	}
 
 	@Override

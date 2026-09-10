@@ -447,6 +447,23 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void completedCommandWithUnpersistedProgressIsQuarantinedInsteadOfReplayed() {
+		configureHttpVotePartyEffects("", java.util.List.of("async command", "next command"));
+		java.util.concurrent.CompletableFuture<Void> completion =
+				votingPluginProxy.delayNextVotePartyCommandCompletion();
+
+		votingPluginProxy.checkVoteParty();
+		votingPluginProxy.failNextVoteCacheSave();
+		completion.complete(null);
+
+		assertTrue(votingPluginProxy.retryPendingVotePartyProxyEffectsForTest());
+		assertEquals(java.util.List.of("async command", "next command"), votingPluginProxy.getConsoleCommands());
+		assertEquals(java.util.List.of("async command"),
+				votingPluginProxy.getVoteCacheQuarantinedVotePartyProxyEffects().commands());
+		assertTrue(votingPluginProxy.getVoteCachePendingVotePartyProxyEffects().isEmpty());
+	}
+
+	@Test
 	void httpVotePartyQuarantinesHungCommandWithoutRetryingIt() {
 		configureHttpVotePartyEffects("", java.util.List.of("hung command", "next command"));
 		java.util.concurrent.CompletableFuture<Void> completion =
@@ -501,7 +518,7 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
-	void finalShutdownLeavesInFlightCommandFencedWhenQuarantineIsNotDurable() {
+	void finalShutdownRetriesTheDurableFenceBeforeTeardown() {
 		configureHttpVotePartyEffects("", java.util.List.of("in flight", "next command"));
 		java.util.concurrent.CompletableFuture<Void> completion =
 				votingPluginProxy.delayNextVotePartyCommandCompletion();
@@ -510,12 +527,13 @@ public class VotingPluginProxyTest {
 
 		votingPluginProxy.onDisable(false);
 
-		assertTrue(votingPluginProxy.getVoteCacheQuarantinedVotePartyProxyEffects().isEmpty());
-		assertEquals(java.util.List.of("in flight", "next command"),
+		assertEquals(java.util.List.of("in flight"),
+				votingPluginProxy.getVoteCacheQuarantinedVotePartyProxyEffects().commands());
+		assertEquals(java.util.List.of("next command"),
 				votingPluginProxy.getVoteCachePendingVotePartyProxyEffects().commands());
 		completion.complete(null);
 		assertEquals(java.util.List.of("in flight"), votingPluginProxy.getConsoleCommands());
-		assertEquals(java.util.List.of("in flight", "next command"),
+		assertEquals(java.util.List.of("next command"),
 				votingPluginProxy.getVoteCachePendingVotePartyProxyEffects().commands());
 	}
 

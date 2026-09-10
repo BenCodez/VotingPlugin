@@ -23,6 +23,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -126,6 +128,43 @@ public class VoteCacheHandlerVoteIdTest {
 
 		assertFalse(handler.addOnlineVoteDurably("player-uuid", vote(UUID.randomUUID(), 100L)));
 		assertTrue(handler.getOnlineVotes("player-uuid").isEmpty());
+	}
+
+	@Test
+	public void serverVoteIsNotExposedWhenJsonSaveDoesNotReachDisk() throws Exception {
+		Path journal = Files.createTempFile("votingplugin-empty-journal", ".json");
+		try {
+			when(storage.getStoragePath()).thenReturn(journal);
+			handler = newVerifyingHandler(storage);
+
+			assertFalse(handler.addServerVoteDurably("server", vote(UUID.randomUUID(), 100L)));
+			assertTrue(handler.getVotes("server").isEmpty());
+			verify(storage).reload();
+		} finally {
+			Files.deleteIfExists(journal);
+		}
+	}
+
+	@Test
+	public void serverVoteUpdateIsRejectedWhenJsonSaveDoesNotReachDisk() throws Exception {
+		Path journal = Files.createTempFile("votingplugin-empty-update-journal", ".json");
+		try {
+			DataNode voteNode = mock(DataNode.class);
+			when(voteNode.isObject()).thenReturn(true);
+			stubString(voteNode, "UUID", "player-uuid");
+			stubString(voteNode, "Service", "Service");
+			stubLong(voteNode, "Time", 100L);
+			when(storage.getStoragePath()).thenReturn(journal);
+			when(storage.getServerVotes("server")).thenReturn(List.of("4"));
+			when(storage.getServerVotes("server", "4")).thenReturn(voteNode, (DataNode) null);
+			handler = newVerifyingHandler(storage);
+			OfflineBungeeVote updated = vote(null, 100L);
+
+			assertFalse(handler.updateServerVote("server", updated));
+			verify(storage).reload();
+		} finally {
+			Files.deleteIfExists(journal);
+		}
 	}
 
 	@Test
@@ -566,6 +605,24 @@ public class VoteCacheHandlerVoteIdTest {
 	private static VoteCacheHandler newHandler(IVoteCache storage) {
 		return new VoteCacheHandler(null, false, false, null, false, storage) {
 			@Override
+			protected boolean verifyJsonServerVote(String server, int index, OfflineBungeeVote vote) {
+				storage.save();
+				return true;
+			}
+
+			@Override
+			protected boolean verifyJsonOnlineVote(String uuid, int index, OfflineBungeeVote vote) {
+				storage.save();
+				return true;
+			}
+
+			@Override
+			protected boolean verifyJsonTimeVote(int index, VoteTimeQueue vote) {
+				storage.save();
+				return true;
+			}
+
+			@Override
 			public void logInfo1(String msg) {
 			}
 
@@ -584,6 +641,16 @@ public class VoteCacheHandlerVoteIdTest {
 			@Override
 			public void debug1(String msg) {
 			}
+		};
+	}
+
+	private static VoteCacheHandler newVerifyingHandler(IVoteCache storage) {
+		return new VoteCacheHandler(null, false, false, null, false, storage) {
+			@Override public void logInfo1(String msg) { }
+			@Override public void logSevere1(String msg) { }
+			@Override public void debug1(Exception e) { }
+			@Override public void debug1(Throwable e) { }
+			@Override public void debug1(String msg) { }
 		};
 	}
 }

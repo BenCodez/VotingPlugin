@@ -10,10 +10,10 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import com.bencodez.votingplugin.util.DurableFiles;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.bencodez.votingplugin.util.DurableFiles;
 
 /** Verifies that the cache library actually persisted the vote-party transaction. */
 public final class VotePartyCacheDurability {
@@ -25,9 +25,12 @@ public final class VotePartyCacheDurability {
 		int expectedIncrease = cache.getVotePartyInreaseVotesRequired();
 		PendingVotePartyProxyEffects expectedProxyEffects = cache.getPendingVotePartyProxyEffects();
 		PendingVotePartyProxyEffects expectedQuarantinedEffects = cache.getQuarantinedVotePartyProxyEffects();
-		cache.save();
-		DurableFiles.forceFile(file);
-		DurableFiles.forceDirectory(file.toAbsolutePath().normalize().getParent());
+		try {
+			cache.saveDurably();
+		} catch (DurableFiles.PublishedException published) {
+			// The replacement is installed; validate it instead of letting callers
+			// restore stale in-memory state over the published file.
+		}
 		try {
 			JsonObject root = JsonParser.parseString(Files.readString(file, StandardCharsets.UTF_8)).getAsJsonObject();
 			JsonObject voteParty = object(root.get("VoteParty"));

@@ -158,9 +158,9 @@ public abstract class VoteCacheHandler {
 			}
 			if (matchesStoredVote(data, vote)) {
 				try {
-					jsonStorage.addVote(server, Integer.parseInt(key), vote);
-					jsonStorage.save();
-					return true;
+					int index = Integer.parseInt(key);
+					jsonStorage.addVote(server, index, vote);
+					return verifyJsonServerVote(server, index, vote);
 				} catch (RuntimeException e) {
 					debug1(e);
 					return false;
@@ -303,9 +303,9 @@ public abstract class VoteCacheHandler {
 			}
 			if (matchesStoredVote(data, vote)) {
 				try {
-					jsonStorage.addVoteOnline(uuid, Integer.parseInt(key), vote);
-					jsonStorage.save();
-					return true;
+					int index = Integer.parseInt(key);
+					jsonStorage.addVoteOnline(uuid, index, vote);
+					return verifyJsonOnlineVote(uuid, index, vote);
 				} catch (RuntimeException e) {
 					debug1(e);
 					return false;
@@ -493,8 +493,7 @@ public abstract class VoteCacheHandler {
 			Collection<String> keys = jsonStorage.getServerVotes(server);
 			int index = nextCacheIndex(keys);
 			jsonStorage.addVote(server, index, vote);
-			jsonStorage.save();
-			return true;
+			return verifyJsonServerVote(server, index, vote);
 		} catch (RuntimeException e) {
 			debug1(e);
 			return false;
@@ -510,12 +509,23 @@ public abstract class VoteCacheHandler {
 			Collection<String> keys = jsonStorage.getOnlineVotes(uuid);
 			int index = nextCacheIndex(keys);
 			jsonStorage.addVoteOnline(uuid, index, vote);
-			jsonStorage.save();
-			return true;
+			return verifyJsonOnlineVote(uuid, index, vote);
 		} catch (RuntimeException e) {
 			debug1(e);
 			return false;
 		}
+	}
+
+	protected boolean verifyJsonServerVote(String server, int index, OfflineBungeeVote vote) {
+		return VoteCacheDurability.saveAndVerifyServerVote(jsonStorage, server, index, vote);
+	}
+
+	protected boolean verifyJsonOnlineVote(String uuid, int index, OfflineBungeeVote vote) {
+		return VoteCacheDurability.saveAndVerifyOnlineVote(jsonStorage, uuid, index, vote);
+	}
+
+	protected boolean verifyJsonTimeVote(int index, VoteTimeQueue vote) {
+		return VoteCacheDurability.saveAndVerifyTimeVote(jsonStorage, index, vote);
 	}
 
 	private int nextCacheIndex(Collection<String> keys) {
@@ -538,9 +548,9 @@ public abstract class VoteCacheHandler {
 			DataNode data = jsonStorage.getServerVotes(server, key);
 			if (data != null && data.isObject() && matchesStoredVote(data, vote)) {
 				try {
-					jsonStorage.addVote(server, Integer.parseInt(key), vote);
-					jsonStorage.save();
-					return true;
+					int index = Integer.parseInt(key);
+					jsonStorage.addVote(server, index, vote);
+					return verifyJsonServerVote(server, index, vote);
 				} catch (RuntimeException e) {
 					debug1(e);
 					return false;
@@ -562,9 +572,9 @@ public abstract class VoteCacheHandler {
 			DataNode data = jsonStorage.getOnlineVotes(uuid, key);
 			if (data != null && data.isObject() && matchesStoredVote(data, vote)) {
 				try {
-					jsonStorage.addVoteOnline(uuid, Integer.parseInt(key), vote);
-					jsonStorage.save();
-					return true;
+					int index = Integer.parseInt(key);
+					jsonStorage.addVoteOnline(uuid, index, vote);
+					return verifyJsonOnlineVote(uuid, index, vote);
 				} catch (RuntimeException e) {
 					debug1(e);
 					return false;
@@ -630,8 +640,9 @@ public abstract class VoteCacheHandler {
 				index++;
 			}
 			jsonStorage.addTimedVote(index, vote);
-			jsonStorage.save();
-			return true;
+			if (verifyJsonTimeVote(index, vote)) return true;
+			timeChangeQueue.remove(vote);
+			return false;
 		} catch (RuntimeException e) {
 			timeChangeQueue.remove(vote);
 			debug1(e);
@@ -658,9 +669,9 @@ public abstract class VoteCacheHandler {
 			DataNode data = jsonStorage.getTimedVoteCache(key);
 			if (data != null && data.isObject() && matchesStoredTimeVote(data, vote)) {
 				try {
-					jsonStorage.addTimedVote(Integer.parseInt(key), vote);
-					jsonStorage.save();
-					return true;
+					int index = Integer.parseInt(key);
+					jsonStorage.addTimedVote(index, vote);
+					return verifyJsonTimeVote(index, vote);
 				} catch (NumberFormatException e) {
 					debug1(e);
 					return false;

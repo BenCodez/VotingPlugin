@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.StandardCopyOption;
 import java.util.Locale;
 
 /** Cross-platform helpers for forcing file contents and published directory entries. */
@@ -31,6 +32,17 @@ public final class DurableFiles {
 			if (!isWindowsName(System.getProperty("os.name", ""))) throw unsupportedDirectoryHandle;
 		} catch (UnsupportedOperationException unsupportedDirectoryForce) {
 			// Some providers support atomic moves but expose no directory-force operation.
+		}
+	}
+
+	/** Forces a staged file, atomically publishes it, then forces the directory entry. */
+	public static void publishStagedFile(Path staged, Path target) throws IOException {
+		forceFile(staged);
+		Files.move(staged, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+		try {
+			forceDirectory(target.toAbsolutePath().normalize().getParent());
+		} catch (IOException failure) {
+			throw new PublishedException(failure);
 		}
 	}
 
