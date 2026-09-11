@@ -29,6 +29,7 @@ import java.nio.file.Path;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 import com.bencodez.votingplugin.proxy.cache.DataNode;
@@ -40,6 +41,8 @@ import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
  * Regression tests for proxy vote identity across caches and delayed processing.
  */
 public class VoteCacheHandlerVoteIdTest {
+	@TempDir
+	Path tempDir;
 
 	private IVoteCache storage;
 	private VoteCacheHandler handler;
@@ -47,6 +50,7 @@ public class VoteCacheHandlerVoteIdTest {
 	@BeforeEach
 	public void setUp() {
 		storage = mock(IVoteCache.class);
+		when(storage.getStoragePath()).thenReturn(tempDir.resolve("vote-cache.json"));
 		when(storage.getServerVotes("server")).thenReturn(Collections.emptyList());
 		when(storage.getOnlineVotes("player-uuid")).thenReturn(Collections.emptyList());
 		handler = newHandler(storage);
@@ -388,24 +392,37 @@ public class VoteCacheHandlerVoteIdTest {
 	}
 
 	@Test
-	public void timedVoteIsRemovedFromMemoryOnlyAfterJsonSaveSucceeds() {
+	public void timedVoteIsRemovedFromMemoryOnlyAfterJsonSaveSucceeds() throws Exception {
 		VoteTimeQueue queued = new VoteTimeQueue(UUID.randomUUID(), "Player", "Service", 100L);
 		assertTrue(handler.addTimeVoteToCache(queued));
 
 		assertTrue(handler.removeTimeVote(queued));
 
 		assertTrue(handler.getTimeChangeQueue().isEmpty());
+		verify(storage).saveDurably();
 	}
 
 	@Test
-	public void timedVoteRemainsQueuedWhenJsonDeleteCannotBeSaved() {
+	public void timedVoteRemainsQueuedWhenJsonDeleteCannotBeSaved() throws Exception {
 		VoteTimeQueue queued = new VoteTimeQueue(UUID.randomUUID(), "Player", "Service", 100L);
 		assertTrue(handler.addTimeVoteToCache(queued));
-		doThrow(new RuntimeException("save failed")).when(storage).save();
+		doThrow(new java.io.IOException("save failed")).when(storage).saveDurably();
 
 		assertFalse(handler.removeTimeVote(queued));
 
 		assertTrue(handler.getTimeChangeQueue().contains(queued));
+	}
+
+	@Test
+	public void timedVoteCompletionTombstoneSurvivesIndependentCacheFailure() {
+		VoteTimeQueue queued = new VoteTimeQueue(UUID.randomUUID(), "Player", "Service", 100L, false,
+				Set.of(), Set.of(), "totals", false, "player-uuid");
+
+		assertTrue(handler.markTimeVoteCompletedDurably(queued));
+		assertTrue(handler.hasTimeVoteCompletion(queued));
+
+		handler.clearTimeVoteCompletion(queued);
+		assertFalse(handler.hasTimeVoteCompletion(queued));
 	}
 
 	@Test

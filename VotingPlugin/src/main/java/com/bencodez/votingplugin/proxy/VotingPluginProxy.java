@@ -121,6 +121,7 @@ public abstract class VotingPluginProxy {
 	private boolean runtimeReplacementPrepared;
 
 	private static final class LiveVoteRetryState {
+		private String requestIdentity;
 		private VoteTotalsSnapshot totals;
 		private ArrayList<Column> totalsInput;
 		private boolean votePartyApplied;
@@ -652,6 +653,9 @@ public abstract class VotingPluginProxy {
 					// that target's ID could leave this accepted target looking pending after a
 					// crash, and it would be replayed under a newly generated ID.
 					if (!persistTimeVoteDelivery(cachedVote)) break;
+				} else if (cachedVote.getHttpBroadcastDeliveryId(targetServer) != null) {
+					cachedVote.setHttpBroadcastDeliveryId(targetServer, null);
+					cachedVote.setDeliveryStateDirty(true);
 				}
 			}
 		}
@@ -2920,6 +2924,10 @@ public abstract class VotingPluginProxy {
 	public synchronized void processQueue() {
 		while (getVoteCacheHandler().getTimeChangeQueue().size() > 0) {
 			VoteTimeQueue vote = getVoteCacheHandler().getTimeChangeQueue().element();
+			if (!vote.isProcessed() && getVoteCacheHandler().hasTimeVoteCompletion(vote)) {
+				vote.setProcessed(true);
+				vote.setDeliveryStateDirty(true);
+			}
 			if (vote.isProcessed() && vote.hasPendingHttpBroadcastDeliveryIds()) {
 				// The reward/totals work is already complete. Only retry the durable
 				// standalone broadcasts; removing this row would lose their stable IDs.
@@ -2929,6 +2937,11 @@ public abstract class VotingPluginProxy {
 					return;
 				}
 			}
+			if (vote.isProcessed() && vote.isDeliveryStateDirty() && !persistTimeVoteDelivery(vote)) {
+				scheduleTimeVoteRetry();
+				return;
+			}
+			if (vote.isProcessed()) liveVoteRetries.remove(vote.getVoteId());
 			if (!vote.isProcessed()) {
 				VoteTotalsSnapshot queuedTotals = vote.getTotals() == null || vote.getTotals().isEmpty() ? null
 						: VoteTotalsSnapshot.parseStorage(vote.getTotals());
@@ -2942,11 +2955,16 @@ public abstract class VotingPluginProxy {
 					warn("Removing terminal rollover vote " + vote.getVoteId() + " for " + vote.getName() + "/"
 							+ ServiceSiteValidator.sanitizeForLog(vote.getService()));
 				}
+				if (!getVoteCacheHandler().getTimeChangeQueue().contains(vote)) {
+					getVoteCacheHandler().clearTimeVoteCompletion(vote);
+					continue;
+				}
 			}
 			if (!getVoteCacheHandler().removeTimeVote(vote)) {
 				scheduleTimeVoteRetry();
 				return;
 			}
+			getVoteCacheHandler().clearTimeVoteCompletion(vote);
 		}
 	}
 
@@ -4352,6 +4370,7 @@ public abstract class VotingPluginProxy {
 						+ MinecraftUsernameValidator.sanitizeForLog(service) + "'");
 				return QueuedVoteResult.TERMINAL;
 			}
+			String requestIdentity = player.toLowerCase(Locale.ROOT) + "\u0000" + service.toLowerCase(Locale.ROOT);
 			// A platform listener can receive a vote in the small interval after the
 			// replacement gate succeeds and before the platform publishes its fresh
 			// runtime. Tell its bounded retry wrapper to retry against that fresh
@@ -4363,6 +4382,9 @@ public abstract class VotingPluginProxy {
 				voteId = requestedVoteId == null ? UUID.randomUUID() : requestedVoteId;
 			}
 			LiveVoteRetryState retryState = liveVoteRetries.get(voteId);
+			if (retryState != null && !requestIdentity.equals(retryState.requestIdentity)) {
+				throw new IllegalArgumentException("Retry ID does not match the original vote");
+			}
 			boolean resumingAfterTotals = retryState != null;
 
 			// UUID resolution
@@ -4516,6 +4538,7 @@ public abstract class VotingPluginProxy {
 			if (retryState == null) {
 				if (liveVoteRetries.size() >= MAX_LIVE_VOTE_RETRIES) return QueuedVoteResult.RETRY;
 				retryState = new LiveVoteRetryState();
+				retryState.requestIdentity = requestIdentity;
 				retryState.totalsInput = data;
 				liveVoteRetries.put(voteId, retryState);
 			}
@@ -4635,6 +4658,16 @@ public abstract class VotingPluginProxy {
 				if (!standaloneBroadcastStatePersisted) {
 					logSevere("Unable to durably journal standalone broadcast for " + uuid);
 					return QueuedVoteResult.RETRY;
+				}
+				if (queuedVote != null) {
+					// Keep the source row's in-memory completion state aligned with the
+					// canonical broadcast journal. If persisting the final processed marker
+					// fails, processQueue can retry that marker without publishing an already
+					// accepted broadcast again.
+					queuedVote.getBroadcastForwardedServers().addAll(broadcastForwardedServers);
+					for (String forwardedServer : broadcastForwardedServers) {
+						queuedVote.setHttpBroadcastDeliveryId(forwardedServer, null);
+					}
 				}
 			}
 
@@ -4882,13 +4915,26 @@ public abstract class VotingPluginProxy {
 			}
 			if (queuedVote != null) {
 				queuedVote.setProcessed(true);
-				if (!getVoteCacheHandler().updateTimeVote(queuedVote)) {
-					warn("Unable to persist completed rollover vote " + queuedVote.getVoteId()
-							+ "; attempting durable removal immediately");
+				if (!persistTimeVoteDelivery(queuedVote)) {
+					// Deleting the completed source row is itself a durable completion
+					// record. Prefer that fallback when updating the marker is unavailable.
+					if (getVoteCacheHandler().removeTimeVote(queuedVote)) {
+						liveVoteRetries.remove(voteId);
+						return QueuedVoteResult.SUCCESS;
+					}
+					if (getVoteCacheHandler().markTimeVoteCompletedDurably(queuedVote)) {
+						liveVoteRetries.remove(voteId);
+						return QueuedVoteResult.SUCCESS;
+					}
+					warn("Unable to persist or remove completed rollover vote " + queuedVote.getVoteId()
+							+ "; retaining its live completion fence for retry");
+					return QueuedVoteResult.RETRY;
 				}
 			}
 			liveVoteRetries.remove(voteId);
 			return QueuedVoteResult.SUCCESS;
+		} catch (IllegalArgumentException e) {
+			throw e;
 		} catch (Exception e) {
 			e.printStackTrace();
 			return QueuedVoteResult.RETRY;

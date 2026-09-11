@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.proxy;
 
+import java.util.UUID;
+
 import com.bencodez.advancedcore.api.time.TimeType;
 
 public class VotingPluginProxyCommand {
@@ -32,14 +34,22 @@ public class VotingPluginProxyCommand {
 			if (args.length >= 3) {
 				String user = args[1];
 				String site = args[2];
+				UUID voteId;
 				try {
-					plugin.vote(user, site, false, true, 0, null, null);
+					voteId = args.length >= 4 ? UUID.fromString(args[3]) : UUID.randomUUID();
+				} catch (IllegalArgumentException invalidId) {
+					return "&cUsage: vote <player> <site> [retry-id]";
+				}
+				try {
+					plugin.vote(user, site, false, true, 0, null, null, voteId);
 					return "&aVote sent for " + user + " on " + site;
+				} catch (IllegalArgumentException mismatchedRetry) {
+					return "&cRetry ID does not match that player and site.";
 				} catch (VotingPluginProxy.VoteRetryException retryable) {
-					return "&cVote could not be stored safely. Please retry shortly.";
+					return "&cVote could not be stored safely. Retry with: vote " + user + " " + site + " " + voteId;
 				}
 			}
-			return "&cUsage: vote <player> <site>";
+			return "&cUsage: vote <player> <site> [retry-id]";
 
 		case "forcetimechange":
 			if (args.length >= 2) {

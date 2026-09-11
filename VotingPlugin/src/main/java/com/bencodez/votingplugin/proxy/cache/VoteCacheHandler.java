@@ -1,5 +1,9 @@
 package com.bencodez.votingplugin.proxy.cache;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -17,6 +21,7 @@ import com.bencodez.simpleapi.sql.mysql.MySQL;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
+import com.bencodez.votingplugin.util.DurableFiles;
 
 import lombok.Getter;
 
@@ -828,13 +833,91 @@ public abstract class VoteCacheHandler {
 			for (VoteTimeQueue queued : remaining) {
 				jsonStorage.addTimedVote(index++, queued);
 			}
-			jsonStorage.save();
+			boolean removedDurably = VoteCacheDurability.saveAndVerifyRemoval(jsonStorage, () -> {
+				Collection<String> keys = jsonStorage.getTimedVoteCache();
+				if (keys == null) return true;
+				for (String key : keys) {
+					DataNode data = jsonStorage.getTimedVoteCache(key);
+					if (data != null && data.isObject() && matchesStoredTimeVote(data, vote)) return false;
+				}
+				return true;
+			});
+			if (!removedDurably) return false;
 			timeChangeQueue.remove(vote);
 			return true;
+		} catch (VoteCacheDurability.ReloadFailedException failure) {
+			jsonStorageQuarantined = true;
+			debug1(failure);
+			return false;
 		} catch (RuntimeException e) {
 			debug1(e);
 			return false;
 		}
+	}
+
+	/**
+	 * Records completed timed-vote side effects outside the mutable queue file.
+	 * This tombstone closes the crash window where both updating and deleting the
+	 * queue row fail after those side effects have already committed.
+	 */
+	public synchronized boolean markTimeVoteCompletedDurably(VoteTimeQueue vote) {
+		Path target = timeVoteCompletionPath(vote);
+		if (target == null) return false;
+		Path staged = null;
+		try {
+			Files.createDirectories(target.getParent());
+			staged = Files.createTempFile(target.getParent(), ".completion-", ".tmp");
+			Files.writeString(staged, timeVoteCompletionIdentity(vote), StandardCharsets.UTF_8);
+			try {
+				DurableFiles.publishStagedFile(staged, target);
+			} catch (DurableFiles.PublishedException published) {
+				// The tombstone is already visible; the read-back below is authoritative.
+			}
+			return hasTimeVoteCompletion(vote);
+		} catch (IOException | RuntimeException failure) {
+			debug1(failure);
+			return false;
+		} finally {
+			if (staged != null) {
+				try { Files.deleteIfExists(staged); } catch (IOException ignored) { }
+			}
+		}
+	}
+
+	public synchronized boolean hasTimeVoteCompletion(VoteTimeQueue vote) {
+		Path target = timeVoteCompletionPath(vote);
+		if (target == null || !Files.isRegularFile(target)) return false;
+		try {
+			return timeVoteCompletionIdentity(vote).equals(Files.readString(target, StandardCharsets.UTF_8));
+		} catch (IOException | RuntimeException failure) {
+			debug1(failure);
+			return false;
+		}
+	}
+
+	public synchronized void clearTimeVoteCompletion(VoteTimeQueue vote) {
+		Path target = timeVoteCompletionPath(vote);
+		if (target == null) return;
+		try {
+			DurableFiles.deleteIfExists(target);
+		} catch (IOException | RuntimeException failure) {
+			debug1(failure);
+		}
+	}
+
+	private Path timeVoteCompletionPath(VoteTimeQueue vote) {
+		if (vote == null || jsonStorage == null || jsonStorage.getStoragePath() == null) return null;
+		Path storage = jsonStorage.getStoragePath().toAbsolutePath().normalize();
+		Path name = storage.getFileName();
+		if (name == null) return null;
+		UUID key = vote.getVoteId() != null ? vote.getVoteId()
+				: UUID.nameUUIDFromBytes(timeVoteCompletionIdentity(vote).getBytes(StandardCharsets.UTF_8));
+		return storage.resolveSibling(name + ".completed-timed-votes").resolve(key.toString());
+	}
+
+	private String timeVoteCompletionIdentity(VoteTimeQueue vote) {
+		return (vote.getVoteId() == null ? "" : vote.getVoteId()) + "\n" + vote.getUuid() + "\n"
+				+ vote.getName() + "\n" + vote.getService() + "\n" + vote.getTime();
 	}
 
 	/**

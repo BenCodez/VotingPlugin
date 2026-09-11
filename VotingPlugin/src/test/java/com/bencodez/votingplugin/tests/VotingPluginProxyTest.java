@@ -418,6 +418,9 @@ public class VotingPluginProxyTest {
 		assertThrows(VotingPluginProxy.VoteRetryException.class,
 				() -> spyProxy.vote("Player", "Service", true, false, 100L, null,
 						"00000000-0000-0000-0000-000000000001", voteId));
+		assertThrows(IllegalArgumentException.class,
+				() -> spyProxy.vote("OtherPlayer", "Service", true, false, 100L, null,
+						"00000000-0000-0000-0000-000000000002", voteId));
 		spyProxy.vote("Player", "Service", true, false, 100L, null,
 				"00000000-0000-0000-0000-000000000001", voteId);
 
@@ -502,8 +505,10 @@ public class VotingPluginProxyTest {
 				.thenReturn(true);
 		Mockito.when(voteCache.updateOnlineVote(Mockito.anyString(), Mockito.any(OfflineBungeeVote.class)))
 				.thenReturn(true);
-		Mockito.when(voteCache.updateTimeVote(queued)).thenReturn(true);
-		Mockito.when(voteCache.removeTimeVote(queued)).thenAnswer(invocation -> queue.remove(queued));
+		Mockito.when(voteCache.updateTimeVote(queued)).thenReturn(false, true);
+		java.util.concurrent.atomic.AtomicInteger removeAttempts = new java.util.concurrent.atomic.AtomicInteger();
+		Mockito.when(voteCache.removeTimeVote(queued)).thenAnswer(invocation ->
+				removeAttempts.getAndIncrement() == 0 ? false : queue.remove(queued));
 		Mockito.when(votingPluginProxy.getConfig().getPrimaryServer()).thenReturn(true);
 		Mockito.when(votingPluginProxy.getConfig().getBungeeManageTotals()).thenReturn(true);
 		Mockito.when(votingPluginProxy.getConfig().getProxyBroadcastEnabled()).thenReturn(true);
@@ -515,15 +520,44 @@ public class VotingPluginProxyTest {
 
 		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
 		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		Mockito.doNothing().when(spyProxy).addVoteParty();
+		spyProxy.processQueue();
+
+		assertFalse(queue.isEmpty());
+		assertThrows(IllegalStateException.class, spyProxy::prepareForRuntimeReplacement);
+		verify(voteCache).removeTimeVote(queued);
+
 		spyProxy.processQueue();
 
 		assertTrue(queue.isEmpty());
 		assertEquals(deliveryId, spyProxy.getAttemptedVotePartyDeliveryIds().get(0));
 		assertEquals(2, spyProxy.getAttemptedVotePartyDeliveryIds().size());
 		assertFalse(deliveryId.equals(spyProxy.getAttemptedVotePartyDeliveryIds().get(1)));
-		verify(voteCache).updateTimeVote(queued);
-		verify(voteCache).removeTimeVote(queued);
+		verify(voteCache, Mockito.times(2)).updateTimeVote(queued);
+		verify(voteCache, Mockito.times(2)).removeTimeVote(queued);
+		verify(spyProxy).addVoteParty();
 		verify(voteCache, never()).addOnlineVote(Mockito.anyString(), Mockito.any(OfflineBungeeVote.class));
+	}
+
+	@Test
+	void durableCompletionTombstoneSkipsTimedVoteSideEffectsAfterRestart() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		java.util.Queue<VoteTimeQueue> queue = new java.util.concurrent.ConcurrentLinkedQueue<>();
+		VoteTimeQueue queued = new VoteTimeQueue(java.util.UUID.randomUUID(), "Player", "Service", 100L, false,
+				java.util.Set.of(), java.util.Set.of(), "totals", false, "player-uuid");
+		queue.add(queued);
+		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(queue);
+		Mockito.when(voteCache.hasTimeVoteCompletion(queued)).thenReturn(true);
+		Mockito.when(voteCache.updateTimeVote(queued)).thenReturn(true);
+		Mockito.when(voteCache.removeTimeVote(queued)).thenAnswer(invocation -> queue.remove(queued));
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+
+		spyProxy.processQueue();
+
+		assertTrue(queue.isEmpty());
+		verify(spyProxy, never()).addVoteParty();
+		verify(voteCache).clearTimeVoteCompletion(queued);
 	}
 
 	@Test
@@ -1903,7 +1937,8 @@ public class VotingPluginProxyTest {
 	void timedBroadcastRetriesWhileRolloverIsStillActive() {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		VoteTimeQueue vote = new VoteTimeQueue(java.util.UUID.randomUUID(), "OfflineVoter", "Service", 100L, true,
-				java.util.Set.of("Server1"), java.util.Collections.emptySet(), "totals", false, "voter-uuid");
+				java.util.Set.of("Server1"), java.util.Collections.emptySet(), "totals", false, "voter-uuid",
+				java.util.Map.of("Server1", "stale-http-delivery-id"));
 		java.util.Queue<VoteTimeQueue> queue = new java.util.concurrent.ConcurrentLinkedQueue<>();
 		queue.add(vote);
 		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(queue);
@@ -1915,6 +1950,7 @@ public class VotingPluginProxyTest {
 		spyProxy.retryPendingTimeBroadcastsForTest("Server1");
 
 		assertEquals(java.util.Set.of("Server1"), vote.getBroadcastForwardedServers());
+		assertEquals(null, vote.getHttpBroadcastDeliveryId("Server1"));
 		verify(voteCache).updateTimeVote(vote);
 	}
 
