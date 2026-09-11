@@ -305,6 +305,14 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 			if (node == null) {
 				continue;
 			}
+			DataNode voteIdNode = node.has("VoteId") ? node.get("VoteId")
+					: node.has("VoteID") ? node.get("VoteID") : null;
+			if (vote.getVoteId() != null && voteIdNode != null) {
+				if (vote.getVoteId().toString().equals(voteIdNode.asString())) {
+					setString("VoteCache." + server + "." + num, null);
+				}
+				continue;
+			}
 			DataNode uuidNode = node.get("UUID");
 			DataNode serviceNode = node.get("Service");
 			DataNode timeNode = node.get("Time");
@@ -335,6 +343,14 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 			for (String num : onlineVotes) {
 				GsonDataNode node = getOnlineVotes(player, num);
 				if (node == null) {
+					continue;
+				}
+				DataNode voteIdNode = node.has("VoteId") ? node.get("VoteId")
+						: node.has("VoteID") ? node.get("VoteID") : null;
+				if (vote.getVoteId() != null && voteIdNode != null) {
+					if (vote.getVoteId().toString().equals(voteIdNode.asString())) {
+						setString("OnlineCache." + player + "." + num, null);
+					}
 					continue;
 				}
 				DataNode uuidNode = node.get("UUID");

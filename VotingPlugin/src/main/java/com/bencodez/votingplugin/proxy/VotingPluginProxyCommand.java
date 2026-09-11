@@ -32,8 +32,12 @@ public class VotingPluginProxyCommand {
 			if (args.length >= 3) {
 				String user = args[1];
 				String site = args[2];
-				plugin.vote(user, site, false, true, 0, null, null);
-				return "&aVote sent for " + user + " on " + site;
+				try {
+					plugin.vote(user, site, false, true, 0, null, null);
+					return "&aVote sent for " + user + " on " + site;
+				} catch (VotingPluginProxy.VoteRetryException retryable) {
+					return "&cVote could not be stored safely. Please retry shortly.";
+				}
 			}
 			return "&cUsage: vote <player> <site>";
 

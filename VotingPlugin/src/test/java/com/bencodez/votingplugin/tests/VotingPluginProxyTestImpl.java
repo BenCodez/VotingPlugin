@@ -34,11 +34,14 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	private boolean communicationTestDeliveryResult = true;
 	private JsonEnvelope lastCommunicationTestEnvelope;
 	private boolean playerOnline = true;
+	private Set<String> availableServers = new HashSet<>(Arrays.asList("Server1", "Server2"));
+	private Boolean standaloneBroadcastForwarding;
 	private ScheduledExecutorService scheduler;
 	private boolean failNextVoteCacheSave;
 	private final java.util.Map<String, java.util.Set<String>> pendingVotePartyRewards = new HashMap<>();
 	private final List<String> attemptedVotePartyDeliveryIds = new ArrayList<>();
 	private boolean failNextGeneratedHttpSend;
+	private boolean failNextStableHttpSend;
 	private String generatedHttpRetryId;
 	private PendingVotePartyProxyEffects pendingVotePartyProxyEffects = PendingVotePartyProxyEffects.empty();
 	private PendingVotePartyProxyEffects quarantinedVotePartyProxyEffects = PendingVotePartyProxyEffects.empty();
@@ -88,7 +91,21 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	@Override
 	public Set<String> getAllAvailableServers() {
-		return new HashSet<>(Arrays.asList("Server1", "Server2"));
+		return new HashSet<>(availableServers);
+	}
+
+	public void setAvailableServers(String... servers) {
+		availableServers = new HashSet<>(Arrays.asList(servers));
+	}
+
+	public void setStandaloneBroadcastForwarding(Boolean enabled) {
+		standaloneBroadcastForwarding = enabled;
+	}
+
+	@Override
+	protected boolean canForwardStandaloneBroadcast(boolean managesTotals) {
+		return standaloneBroadcastForwarding == null
+				? super.canForwardStandaloneBroadcast(managesTotals) : standaloneBroadcastForwarding.booleanValue();
 	}
 
 	@Override
@@ -394,6 +411,10 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	protected boolean sendHttpEnvelope(String server, String deliveryId, JsonEnvelope envelope) {
 		lastVoteEnvelope = envelope;
 		attemptedVotePartyDeliveryIds.add(deliveryId);
+		if (failNextStableHttpSend) {
+			failNextStableHttpSend = false;
+			throw deliveryRetryException(generatedHttpRetryId);
+		}
 		if (!stableHttpDeliveryResults.isEmpty()) return stableHttpDeliveryResults.removeFirst();
 		return stableHttpDeliveryResult == null ? voteEnvelopeDeliveryResult : stableHttpDeliveryResult;
 	}
@@ -418,6 +439,23 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	public void failNextGeneratedHttpSend(String deliveryId) {
 		failNextGeneratedHttpSend = true;
 		generatedHttpRetryId = deliveryId;
+	}
+
+	public void failNextStableHttpSend(String deliveryId) {
+		failNextStableHttpSend = true;
+		generatedHttpRetryId = deliveryId;
+	}
+
+	private static RuntimeException deliveryRetryException(String deliveryId) {
+		try {
+			java.lang.reflect.Constructor<HttpProxyTransportServer.DeliveryRetryException> constructor =
+					HttpProxyTransportServer.DeliveryRetryException.class
+							.getDeclaredConstructor(String.class, Throwable.class);
+			constructor.setAccessible(true);
+			return constructor.newInstance(deliveryId, new IllegalStateException("publication ambiguous"));
+		} catch (ReflectiveOperationException failure) {
+			throw new AssertionError(failure);
+		}
 	}
 
 	public boolean sendHttpVoteEnvelopeWithRecoveryForTest(String server, JsonEnvelope envelope) {
@@ -506,9 +544,14 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 		retryPendingOnlineBroadcasts(server);
 	}
 
-	public void persistUncachedStandaloneBroadcastForTest(String uuid, OfflineBungeeVote state,
+	public boolean persistUncachedStandaloneBroadcastForTest(String uuid, OfflineBungeeVote state,
 			boolean alreadyPersisted) {
-		persistUncachedStandaloneBroadcast(uuid, state, alreadyPersisted);
+		return persistUncachedStandaloneBroadcast(uuid, state, alreadyPersisted);
+	}
+
+	public boolean persistAndSendStandaloneBroadcastForTest(String uuid, OfflineBungeeVote state,
+			java.util.Set<String> remainingTargets, java.util.Set<String> forwardedServers) {
+		return persistAndSendStandaloneBroadcast(uuid, state, remainingTargets, forwardedServers);
 	}
 
 	public OfflineBungeeVote createCachedRewardVoteForTest(UUID voteId, String player, String uuid, String service,

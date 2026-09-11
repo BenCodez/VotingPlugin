@@ -529,25 +529,37 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 	 * @param server the server name
 	 */
 	public void removeVote(OfflineBungeeVote vote, String server) {
-		String sql = "DELETE FROM " + qi(getTableName()) + " WHERE " + qi("uuid") + " = ? AND " + qi("service")
-				+ " = ? AND " + qi("time") + " = ? AND " + qi("server") + " = ?;";
+		tryRemoveVote(vote, server);
+	}
+
+	/** Removes one stable vote identity and reports whether the statement completed. */
+	public boolean tryRemoveVote(OfflineBungeeVote vote, String server) {
+		boolean byVoteId = vote.getVoteId() != null;
+		String sql = "DELETE FROM " + qi(getTableName()) + " WHERE "
+				+ (byVoteId ? qi("voteid") + " = ?" : qi("uuid") + " = ? AND " + qi("service")
+						+ " = ? AND " + qi("time") + " = ?")
+				+ " AND " + qi("server") + " = ?;";
 
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
-
-			if (getDbType() == DbType.POSTGRESQL) {
-				ps.setObject(1, UUID.fromString(vote.getUuid()));
+			if (byVoteId) {
+				ps.setString(1, vote.getVoteId().toString());
+				ps.setString(2, server);
 			} else {
-				ps.setString(1, vote.getUuid());
+				if (getDbType() == DbType.POSTGRESQL) {
+					ps.setObject(1, UUID.fromString(vote.getUuid()));
+				} else {
+					ps.setString(1, vote.getUuid());
+				}
+				ps.setString(2, vote.getService());
+				ps.setLong(3, vote.getTime());
+				ps.setString(4, server);
 			}
-
-			ps.setString(2, vote.getService());
-			ps.setLong(3, vote.getTime());
-			ps.setString(4, server);
-
 			ps.executeUpdate();
+			return true;
 		} catch (SQLException | IllegalArgumentException e) {
 			debug(e);
+			return false;
 		}
 	}
 

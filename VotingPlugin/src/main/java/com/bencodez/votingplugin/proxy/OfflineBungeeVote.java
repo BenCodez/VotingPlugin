@@ -264,6 +264,11 @@ public class OfflineBungeeVote {
 		return server == null ? null : httpDeliveryIds.get(server.toLowerCase(Locale.ROOT));
 	}
 
+	/** Returns a copy of stable reward delivery IDs by normalized target key. */
+	public Map<String, String> getHttpDeliveryIds() {
+		return new LinkedHashMap<>(httpDeliveryIds);
+	}
+
 	/**
 	 * Stores or removes a stable HTTP delivery ID for a target.
 	 * @param server target server

@@ -14,6 +14,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -128,6 +129,157 @@ public class VoteCacheHandlerVoteIdTest {
 
 		assertFalse(handler.addOnlineVoteDurably("player-uuid", vote(UUID.randomUUID(), 100L)));
 		assertTrue(handler.getOnlineVotes("player-uuid").isEmpty());
+	}
+
+	@Test
+	public void failedServerInsertIsPublishedOnlyAfterPersistenceRetrySucceeds() {
+		OfflineBungeeVote pending = vote(UUID.randomUUID(), 100L);
+		doThrow(new RuntimeException("save failed")).doNothing().when(storage).save();
+
+		assertFalse(handler.addServerVoteDurably("server", pending));
+		assertTrue(handler.retainServerVoteForPersistenceRetry("server", pending));
+		assertTrue(handler.getVotes("server").isEmpty());
+
+		assertTrue(handler.retryPendingVotePersistence());
+		assertEquals(List.of(pending), handler.getVotes("server"));
+	}
+
+	@Test
+	public void failedOnlineInsertIsPublishedOnlyAfterPersistenceRetrySucceeds() {
+		OfflineBungeeVote pending = vote(UUID.randomUUID(), 100L);
+		doThrow(new RuntimeException("save failed")).doNothing().when(storage).save();
+
+		assertFalse(handler.addOnlineVoteDurably("player-uuid", pending));
+		assertTrue(handler.retainOnlineVoteForPersistenceRetry("player-uuid", pending));
+		assertTrue(handler.getOnlineVotes("player-uuid").isEmpty());
+
+		assertTrue(handler.retryPendingVotePersistence());
+		assertEquals(List.of(pending), handler.getOnlineVotes("player-uuid"));
+	}
+
+	@Test
+	public void failedPersistenceRetryAdmissionIsBoundedAcrossCacheTypes() {
+		OfflineBungeeVote first = vote(UUID.randomUUID(), 0L);
+		assertTrue(handler.retainServerVoteForPersistenceRetry("server", first));
+		for (int i = 1; i < 1024; i++) {
+			assertTrue(handler.retainServerVoteForPersistenceRetry("server", vote(UUID.randomUUID(), i)));
+		}
+
+		assertFalse(handler.retainOnlineVoteForPersistenceRetry("another-player", vote(UUID.randomUUID(), 1025L)));
+		assertTrue(handler.retainServerVoteForPersistenceRetry("server", first));
+	}
+
+	@Test
+	public void expiredOnlineVoteRemovalKeepsCollidingVoteId() {
+		UUID retainedId = UUID.randomUUID();
+		OfflineBungeeVote expired = vote(UUID.randomUUID(), 100L);
+		OfflineBungeeVote retained = vote(retainedId, 100L);
+		handler.addOnlineVote("player-uuid", expired);
+		handler.addOnlineVote("player-uuid", retained);
+
+		handler.removeOnlineVotes(new ArrayList<>(List.of(expired)));
+
+		assertEquals(List.of(retained), handler.getOnlineVotes("player-uuid"));
+		verify(storage).removeOnlineVote(same(expired));
+	}
+
+	@Test
+	public void failedExpiredOnlineVoteRemovalKeepsInMemoryEntries() {
+		OfflineBungeeVote expired = vote(UUID.randomUUID(), 100L);
+		OfflineBungeeVote retained = vote(UUID.randomUUID(), 101L);
+		handler = newHandler(storage, false);
+		handler.addOnlineVote("player-uuid", expired);
+		handler.addOnlineVote("player-uuid", retained);
+
+		handler.removeOnlineVotes(new ArrayList<>(List.of(expired)));
+
+		assertEquals(List.of(expired, retained), handler.getOnlineVotes("player-uuid"));
+	}
+
+	@Test
+	public void failedDurableServerSaveRollsBackJsonMutationBeforeRetry() throws Exception {
+		Path journal = Files.createTempFile("votingplugin-server-rollback", ".json");
+		try {
+			ArrayList<String> keys = new ArrayList<>();
+			when(storage.getStoragePath()).thenReturn(journal);
+			when(storage.getServerVotes("server")).thenAnswer(invocation -> new ArrayList<>(keys));
+			org.mockito.Mockito.doAnswer(invocation -> {
+				keys.add(String.valueOf(invocation.getArgument(1, Integer.class)));
+				return null;
+			}).when(storage).addVote(eq("server"), org.mockito.ArgumentMatchers.anyInt(),
+					org.mockito.ArgumentMatchers.any(OfflineBungeeVote.class));
+			doThrow(new java.io.IOException("save failed")).when(storage).saveDurably();
+			org.mockito.Mockito.doAnswer(invocation -> { keys.clear(); return null; }).when(storage).reload();
+			handler = newVerifyingHandler(storage);
+
+			assertFalse(handler.addServerVoteDurably("server", vote(UUID.randomUUID(), 100L)));
+			assertFalse(handler.addServerVoteDurably("server", vote(UUID.randomUUID(), 101L)));
+
+			verify(storage, times(2)).addVote(eq("server"), eq(0),
+					org.mockito.ArgumentMatchers.any(OfflineBungeeVote.class));
+			verify(storage, never()).addVote(eq("server"), eq(1),
+					org.mockito.ArgumentMatchers.any(OfflineBungeeVote.class));
+			verify(storage, times(2)).reload();
+		} finally {
+			Files.deleteIfExists(journal);
+		}
+	}
+
+	@Test
+	public void failedDurableOnlineSaveRollsBackJsonMutationBeforeRetry() throws Exception {
+		Path journal = Files.createTempFile("votingplugin-online-rollback", ".json");
+		try {
+			ArrayList<String> keys = new ArrayList<>();
+			when(storage.getStoragePath()).thenReturn(journal);
+			when(storage.getOnlineVotes("player-uuid")).thenAnswer(invocation -> new ArrayList<>(keys));
+			org.mockito.Mockito.doAnswer(invocation -> {
+				keys.add(String.valueOf(invocation.getArgument(1, Integer.class)));
+				return null;
+			}).when(storage).addVoteOnline(eq("player-uuid"), org.mockito.ArgumentMatchers.anyInt(),
+					org.mockito.ArgumentMatchers.any(OfflineBungeeVote.class));
+			doThrow(new java.io.IOException("save failed")).when(storage).saveDurably();
+			org.mockito.Mockito.doAnswer(invocation -> { keys.clear(); return null; }).when(storage).reload();
+			handler = newVerifyingHandler(storage);
+
+			assertFalse(handler.addOnlineVoteDurably("player-uuid", vote(UUID.randomUUID(), 100L)));
+			assertFalse(handler.addOnlineVoteDurably("player-uuid", vote(UUID.randomUUID(), 101L)));
+
+			verify(storage, times(2)).addVoteOnline(eq("player-uuid"), eq(0),
+					org.mockito.ArgumentMatchers.any(OfflineBungeeVote.class));
+			verify(storage, never()).addVoteOnline(eq("player-uuid"), eq(1),
+					org.mockito.ArgumentMatchers.any(OfflineBungeeVote.class));
+			verify(storage, times(2)).reload();
+		} finally {
+			Files.deleteIfExists(journal);
+		}
+	}
+
+	@Test
+	public void failedRollbackReloadQuarantinesJsonJournal() throws Exception {
+		Path journal = Files.createTempFile("votingplugin-quarantined-journal", ".json");
+		try {
+			when(storage.getStoragePath()).thenReturn(journal);
+			doThrow(new java.io.IOException("save failed")).when(storage).saveDurably();
+			doThrow(new IllegalStateException("reload failed")).when(storage).reload();
+			handler = newVerifyingHandler(storage);
+
+			assertFalse(handler.addServerVoteDurably("server", vote(UUID.randomUUID(), 100L)));
+			assertFalse(handler.addServerVoteDurably("server", vote(UUID.randomUUID(), 101L)));
+			handler.removeVote("server", "player-uuid");
+			handler.removeVotes("server");
+			handler.removeOnlineVotes("player-uuid");
+			handler.saveVoteCache();
+
+			verify(storage, times(1)).addVote(eq("server"), eq(0),
+					org.mockito.ArgumentMatchers.any(OfflineBungeeVote.class));
+			verify(storage, times(1)).saveDurably();
+			verify(storage, never()).removeServerVote("server", "player-uuid");
+			verify(storage, never()).removeServerVotes("server");
+			verify(storage, never()).removeOnlineVotes("player-uuid");
+			verify(storage, never()).save();
+		} finally {
+			Files.deleteIfExists(journal);
+		}
 	}
 
 	@Test
@@ -402,6 +554,18 @@ public class VoteCacheHandlerVoteIdTest {
 	}
 
 	@Test
+	public void completedServerVoteRemovalKeepsCollidingVoteId() {
+		OfflineBungeeVote removed = vote(UUID.randomUUID(), 100L);
+		OfflineBungeeVote retained = vote(UUID.randomUUID(), 100L);
+		handler.addServerVote("server", removed);
+		handler.addServerVote("server", retained);
+
+		handler.removeServerVotes("server", new ArrayList<>(List.of(removed)));
+
+		assertEquals(List.of(retained), handler.getVotes("server"));
+	}
+
+	@Test
 	public void timedVoteBroadcastStateLoadsFromJsonCache() {
 		IVoteCache stored = mock(IVoteCache.class);
 		DataNode timedNode = mock(DataNode.class);
@@ -603,6 +767,10 @@ public class VoteCacheHandlerVoteIdTest {
 	}
 
 	private static VoteCacheHandler newHandler(IVoteCache storage) {
+		return newHandler(storage, true);
+	}
+
+	private static VoteCacheHandler newHandler(IVoteCache storage, boolean removalSucceeds) {
 		return new VoteCacheHandler(null, false, false, null, false, storage) {
 			@Override
 			protected boolean verifyJsonServerVote(String server, int index, OfflineBungeeVote vote) {
@@ -618,6 +786,20 @@ public class VoteCacheHandlerVoteIdTest {
 
 			@Override
 			protected boolean verifyJsonTimeVote(int index, VoteTimeQueue vote) {
+				storage.save();
+				return true;
+			}
+
+			@Override
+			protected boolean removeJsonOnlineVoteDurably(String uuid, OfflineBungeeVote vote) {
+				storage.removeOnlineVote(vote);
+				storage.save();
+				return removalSucceeds;
+			}
+
+			@Override
+			protected boolean removeJsonServerVoteDurably(String server, OfflineBungeeVote vote) {
+				storage.removeVote(server, vote);
 				storage.save();
 				return true;
 			}

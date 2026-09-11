@@ -308,6 +308,14 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 			if (node == null) {
 				continue;
 			}
+			DataNode voteIdNode = node.has("VoteId") ? node.get("VoteId")
+					: node.has("VoteID") ? node.get("VoteID") : null;
+			if (vote.getVoteId() != null && voteIdNode != null) {
+				if (vote.getVoteId().toString().equals(voteIdNode.asString())) {
+					remove("VoteCache", server, num);
+				}
+				continue;
+			}
 			DataNode uuidNode = node.get("UUID");
 			DataNode serviceNode = node.get("Service");
 			DataNode timeNode = node.get("Time");
@@ -339,6 +347,14 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 			for (String num : onlineVotes) {
 				ConfigDataNode node = getOnlineVotes(player, num);
 				if (node == null) {
+					continue;
+				}
+				DataNode voteIdNode = node.has("VoteId") ? node.get("VoteId")
+						: node.has("VoteID") ? node.get("VoteID") : null;
+				if (vote.getVoteId() != null && voteIdNode != null) {
+					if (vote.getVoteId().toString().equals(voteIdNode.asString())) {
+						remove("OnlineCache", player, num);
+					}
 					continue;
 				}
 				DataNode uuidNode = node.get("UUID");
