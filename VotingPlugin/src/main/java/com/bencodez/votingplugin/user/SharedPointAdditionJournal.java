@@ -12,6 +12,7 @@ import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 import com.bencodez.simpleapi.sql.mysql.DbType;
@@ -25,6 +26,10 @@ import com.bencodez.simpleapi.sql.mysql.DbType;
  */
 final class SharedPointAdditionJournal {
 	private static final String COMPLETED = "COMPLETED";
+	private static final String ACKNOWLEDGED = "ACKNOWLEDGED";
+	/* Matches the bounded durable reconciliation window used by shared transfers. */
+	static final long COMPLETED_RETENTION_MILLIS = TimeUnit.DAYS.toMillis(7);
+	private static final int CLEANUP_BATCH_SIZE = 100;
 	private static final int MAX_IDENTIFIER_BYTES = 63;
 	private static final String JOURNAL_SUFFIX = "_PointAdditions";
 	private static final String HASHED_TABLE_PREFIX = "vp_pa_";
@@ -129,10 +134,48 @@ final class SharedPointAdditionJournal {
 	private AdditionResult existingResult(String operationId, AdditionRow row, String uuid, String pointsColumn,
 			int amount) throws SQLException {
 		if (!row.matches(uuid, pointsColumn, amount)) throw new SQLException("Mismatched shared point addition operation");
-		if (!COMPLETED.equals(row.state) || row.total == null) {
+		if (!(COMPLETED.equals(row.state) || ACKNOWLEDGED.equals(row.state)) || row.total == null) {
 			throw new SQLException("Shared point addition operation is not confirmable: " + operationId);
 		}
 		return new AdditionResult(row.total.intValue());
+	}
+
+	/** Marks an applied operation safe to retire after its replay checkpoint is durable. */
+	void acknowledge(String operationId, long now) throws SQLException {
+		String update = "UPDATE " + qiJournal() + " SET " + qi("state") + " = ?, " + qi("created_at")
+				+ " = ? WHERE " + qi("operation_id") + " = ? AND " + qi("state") + " = ?";
+		try (Connection connection = connection(); PreparedStatement statement = connection.prepareStatement(update)) {
+			statement.setString(1, ACKNOWLEDGED);
+			statement.setLong(2, now);
+			statement.setString(3, operationId);
+			statement.setString(4, COMPLETED);
+			statement.executeUpdate();
+		}
+	}
+
+	/** Removes a bounded batch of replay-acknowledged entries after the retention window. */
+	void cleanupAcknowledged(long now) throws SQLException {
+		long cutoff = now - COMPLETED_RETENTION_MILLIS;
+		String select = "SELECT " + qi("operation_id") + " FROM " + qiJournal() + " WHERE " + qi("state")
+				+ " = ? AND " + qi("created_at") + " <= ? ORDER BY " + qi("created_at") + " ASC LIMIT ?";
+		String delete = "DELETE FROM " + qiJournal() + " WHERE " + qi("operation_id") + " = ? AND "
+				+ qi("state") + " = ? AND " + qi("created_at") + " <= ?";
+		try (Connection connection = connection(); PreparedStatement selectStatement = connection.prepareStatement(select);
+				PreparedStatement deleteStatement = connection.prepareStatement(delete)) {
+			selectStatement.setString(1, ACKNOWLEDGED);
+			selectStatement.setLong(2, cutoff);
+			selectStatement.setInt(3, CLEANUP_BATCH_SIZE);
+			Set<String> operationIds = new java.util.LinkedHashSet<>();
+			try (ResultSet result = selectStatement.executeQuery()) {
+				while (result.next()) operationIds.add(result.getString(1));
+			}
+			for (String operationId : operationIds) {
+				deleteStatement.setString(1, operationId);
+				deleteStatement.setString(2, ACKNOWLEDGED);
+				deleteStatement.setLong(3, cutoff);
+				deleteStatement.executeUpdate();
+			}
+		}
 	}
 
 	private void commitAndConfirm(Connection connection, String operationId) throws SQLException {
@@ -168,6 +211,18 @@ final class SharedPointAdditionJournal {
 				+ qi("created_at") + " BIGINT NOT NULL, PRIMARY KEY (" + qi("operation_id") + "));";
 		try (Connection connection = connection(); PreparedStatement statement = connection.prepareStatement(create)) {
 			statement.executeUpdate();
+			createIndex(connection);
+		}
+	}
+
+	private void createIndex(Connection connection) throws SQLException {
+		String indexName = "vp_pa_" + Integer.toUnsignedString(journalTable.hashCode(), 36) + "_state_created";
+		String create = "CREATE INDEX " + (table.getDbType() == DbType.POSTGRESQL ? "IF NOT EXISTS " : "")
+				+ qi(indexName) + " ON " + qiJournal() + " (" + qi("state") + ", " + qi("created_at") + ");";
+		try (PreparedStatement statement = connection.prepareStatement(create)) {
+			statement.executeUpdate();
+		} catch (SQLException failure) {
+			if (!isDuplicateIndex(failure)) throw failure;
 		}
 	}
 
@@ -225,6 +280,10 @@ final class SharedPointAdditionJournal {
 
 	private static boolean isDuplicate(SQLException failure) {
 		return "23505".equals(failure.getSQLState()) || failure.getErrorCode() == 1062;
+	}
+
+	private static boolean isDuplicateIndex(SQLException failure) {
+		return failure.getErrorCode() == 1061 || "42P07".equals(failure.getSQLState());
 	}
 
 	private static final class IdentityWeakReference extends WeakReference<MySQL> {

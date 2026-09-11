@@ -311,6 +311,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return completion;
 	}
 
+	/** Retires an idempotent point-addition record after its replay checkpoint is durable. */
+	public CompletionStage<Void> acknowledgeStorageAwarePointOperation(String operationId) {
+		return new SharedMysqlPointMutator(plugin).acknowledgePointAddition(operationId);
+	}
+
 	/**
 	 * Adds points and reports the committed total after shared-MySQL persistence
 	 * completes. The callback runs on the user's Bukkit/entity lane.

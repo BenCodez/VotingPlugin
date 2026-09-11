@@ -79,6 +79,15 @@ public class RewardPoints extends RewardInjectInt {
 		});
 	}
 
+	@Override
+	public CompletionStage<Void> onReplayCheckpointPersisted(Reward reward,
+			com.bencodez.advancedcore.api.user.AdvancedCoreUser user, String occurrenceId, String injectionKey) {
+		VotingPluginUser vpUser = plugin.getVotingPluginUserManager().getVotingPluginUser(user);
+		String operationId = replayOperationId(vpUser, occurrenceId, injectionKey);
+		return operationId == null ? java.util.concurrent.CompletableFuture.completedFuture(null)
+				: vpUser.acknowledgeStorageAwarePointOperation(operationId);
+	}
+
 	/**
 	 * AdvancedCore #317 exposes a durable occurrence identity for a queued replay
 	 * plus its active stage path. Use both when present, but retain compatibility
@@ -92,10 +101,16 @@ public class RewardPoints extends RewardInjectInt {
 			Object value = currentReplayKey.invoke(null);
 			if (!(occurrence instanceof String) || ((String) occurrence).isEmpty()
 					|| !(value instanceof String) || ((String) value).isEmpty()) return null;
-			return sha256("VotingPlugin:shared-points-reward:v1\0" + user.getUUID() + '\0' + occurrence + '\0' + value);
+			return replayOperationId(user, (String) occurrence, (String) value);
 		} catch (ReflectiveOperationException | SecurityException ignored) {
 			return null;
 		}
+	}
+
+	private static String replayOperationId(VotingPluginUser user, String occurrenceId, String injectionKey) {
+		if (occurrenceId == null || occurrenceId.isEmpty() || injectionKey == null || injectionKey.isEmpty()) return null;
+		return sha256("VotingPlugin:shared-points-reward:v1\0" + user.getUUID() + '\0' + occurrenceId + '\0'
+				+ injectionKey);
 	}
 
 	private static String sha256(String value) {

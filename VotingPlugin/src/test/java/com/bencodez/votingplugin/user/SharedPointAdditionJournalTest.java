@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 
@@ -101,6 +102,55 @@ class SharedPointAdditionJournalTest {
 		assertTrue(name.matches("vp_pa_[0-9a-f]{32}"));
 		assertEquals("VotingPlugin_Users_PointAdditions",
 				SharedPointAdditionJournal.journalTableName("VotingPlugin_Users"));
+	}
+
+	@Test
+	void onlyReplayAcknowledgedEntriesAreExpiredInABoundedRetentionBatch() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement select = mock(PreparedStatement.class);
+		PreparedStatement delete = mock(PreparedStatement.class);
+		ResultSet completed = mock(ResultSet.class);
+		when(completed.next()).thenReturn(true, true, false);
+		when(completed.getString(1)).thenReturn("old-one", "old-two");
+		when(select.executeQuery()).thenReturn(completed);
+		when(fixture.initialLookup.prepareStatement(anyString())).thenReturn(select, delete);
+
+		long now = TimeUnit.DAYS.toMillis(10);
+		new SharedPointAdditionJournal(fixture.table, false).cleanupAcknowledged(now);
+
+		verify(select).setString(1, "ACKNOWLEDGED");
+		verify(select).setLong(2, now - SharedPointAdditionJournal.COMPLETED_RETENTION_MILLIS);
+		verify(select).setInt(3, 100);
+		verify(delete, times(2)).executeUpdate();
+	}
+
+	@Test
+	void durableReplayCheckpointAcknowledgesAnAdditionBeforeRetentionStarts() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement update = mock(PreparedStatement.class);
+		when(fixture.initialLookup.prepareStatement(anyString())).thenReturn(update);
+
+		new SharedPointAdditionJournal(fixture.table, false).acknowledge("reward-operation", 123L);
+
+		verify(update).setString(1, "ACKNOWLEDGED");
+		verify(update).setLong(2, 123L);
+		verify(update).setString(3, "reward-operation");
+		verify(update).setString(4, "COMPLETED");
+		verify(update).executeUpdate();
+	}
+
+	@Test
+	void schemaIndexesTheBoundedCleanupPredicate() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement createTable = mock(PreparedStatement.class);
+		PreparedStatement createIndex = mock(PreparedStatement.class);
+		when(fixture.initialLookup.prepareStatement(anyString())).thenReturn(createTable, createIndex);
+
+		new SharedPointAdditionJournal(fixture.table, true);
+
+		org.mockito.ArgumentCaptor<String> statements = org.mockito.ArgumentCaptor.forClass(String.class);
+		verify(fixture.initialLookup, times(2)).prepareStatement(statements.capture());
+		assertTrue(statements.getAllValues().get(1).contains("(`state`, `created_at`)"));
 	}
 
 	private static ResultSet completedRow(String uuid, String pointsColumn, int amount, int total) throws Exception {

@@ -37,6 +37,53 @@ import com.bencodez.votingplugin.VotingPluginMain;
 
 class SharedMysqlPointMutatorTest {
 	@Test
+	void indeterminateTransferReservationInvalidatesRecreatedSourcePoints() throws Exception {
+		MySQL table = mock(MySQL.class);
+		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
+				org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		when(table.getTableName()).thenReturn("VotingPlugin_Users");
+		when(table.qi(anyString())).thenAnswer(invocation -> "`" + invocation.getArgument(0) + "`");
+		when(table.getMysql()).thenReturn(sql);
+		when(sql.getConnectionManager().getConnection()).thenReturn(null);
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		when(plugin.getMysql()).thenReturn(table);
+		ScheduledExecutorService persistence = mock(ScheduledExecutorService.class);
+		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
+				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
+		when(plugin.getTimer()).thenReturn(persistence);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			invocation.getArgument(1, Runnable.class).run();
+			return null;
+		}).when(scheduler).runTask(eq(plugin), any(Runnable.class));
+
+		String sourceUuid = "00000000-0000-0000-0000-000000000001";
+		VotingPluginUser source = mock(VotingPluginUser.class);
+		when(source.getUUID()).thenReturn(sourceUuid);
+		when(source.getPointsPath()).thenReturn("Points");
+		VotingPluginUser target = mock(VotingPluginUser.class);
+		when(target.getUUID()).thenReturn("00000000-0000-0000-0000-000000000002");
+		when(target.getPointsPath()).thenReturn("Points");
+		UserDataCache recreatedCache = mock(UserDataCache.class);
+		HashMap<String, DataValue> recreatedValues = new HashMap<>();
+		recreatedValues.put("Points", new DataValueInt(20));
+		recreatedValues.put("DailyTotal", new DataValueInt(4));
+		when(recreatedCache.getCache()).thenReturn(recreatedValues);
+		when(plugin.getUserManager().getDataManager().getUserDataCache()).thenReturn(
+				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(UUID.fromString(sourceUuid), recreatedCache)));
+		AtomicReference<PointTransferResult> result = new AtomicReference<>();
+
+		new SharedMysqlPointMutator(plugin).transferWithBukkitApproval(source, target, 10, value -> value, result::set);
+		ArgumentCaptor<Runnable> reservation = ArgumentCaptor.forClass(Runnable.class);
+		verify(persistence).execute(reservation.capture());
+		reservation.getValue().run();
+
+		assertFalse(recreatedValues.containsKey("Points"));
+		assertTrue(recreatedValues.containsKey("DailyTotal"));
+		assertEquals(PointTransferResult.UNAVAILABLE, result.get());
+	}
+
+	@Test
 	void indeterminateClaimedRefundStillInvalidatesSourcePoints() throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =

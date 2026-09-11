@@ -75,4 +75,23 @@ class RewardPointsTest {
 
 		org.junit.jupiter.api.Assertions.assertThrows(CompletionException.class, result::join);
 	}
+
+	@Test
+	void durableReplayCheckpointAcknowledgesTheMatchingPointOperation() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		UserManager manager = mock(UserManager.class);
+		AdvancedCoreUser advancedUser = mock(AdvancedCoreUser.class);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		when(plugin.getVotingPluginUserManager()).thenReturn(manager);
+		when(manager.getVotingPluginUser(advancedUser)).thenReturn(user);
+		when(user.getUUID()).thenReturn("player-uuid");
+		when(user.acknowledgeStorageAwarePointOperation(org.mockito.ArgumentMatchers.anyString()))
+				.thenReturn(CompletableFuture.completedFuture(null));
+
+		new RewardPoints(plugin).onReplayCheckpointPersisted(mock(Reward.class), advancedUser, "occurrence-1",
+				"AsyncReward/0").toCompletableFuture().join();
+
+		verify(user).acknowledgeStorageAwarePointOperation(
+				"1d257d984bf6531c07e366b02a5373043961a6e44c23528f91d027c0d2c83f64");
+	}
 }

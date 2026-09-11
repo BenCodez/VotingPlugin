@@ -6,6 +6,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -52,8 +53,20 @@ final class SharedMysqlPointMutator {
 	 * to the plugin lifecycle, so no independent task survives shutdown.
 	 */
 	static void scheduleTransferRecovery(VotingPluginMain plugin) {
-		plugin.getTimer().execute(() -> recoverTransfers(plugin));
-		plugin.getTimer().scheduleWithFixedDelay(() -> recoverTransfers(plugin), 1L, 1L, TimeUnit.MINUTES);
+		plugin.getTimer().execute(() -> recoverSharedPointJournals(plugin));
+		plugin.getTimer().scheduleWithFixedDelay(() -> recoverSharedPointJournals(plugin), 1L, 1L, TimeUnit.MINUTES);
+	}
+
+	private static void recoverSharedPointJournals(VotingPluginMain plugin) {
+		recoverTransfers(plugin);
+		if (!usesSharedMysqlPoints(plugin)) return;
+		try {
+			SharedPointAdditionJournal.forTable(plugin.getMysql()).cleanupAcknowledged(System.currentTimeMillis());
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to clean up shared MySQL point additions: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+		}
 	}
 
 	private static void recoverTransfers(VotingPluginMain plugin) {
@@ -139,6 +152,27 @@ final class SharedMysqlPointMutator {
 		} finally {
 			discardPointsCache(user);
 		}
+	}
+
+	CompletionStage<Void> acknowledgePointAddition(String operationId) {
+		if (!applies() || operationId == null || operationId.isEmpty()) {
+			return CompletableFuture.completedFuture(null);
+		}
+		CompletableFuture<Void> completion = new CompletableFuture<>();
+		try {
+			plugin.getTimer().execute(() -> {
+				try {
+					SharedPointAdditionJournal.forTable(plugin.getMysql()).acknowledge(operationId,
+							System.currentTimeMillis());
+					completion.complete(null);
+				} catch (Throwable failure) {
+					completion.completeExceptionally(failure);
+				}
+			});
+		} catch (RuntimeException rejected) {
+			completion.completeExceptionally(rejected);
+		}
+		return completion;
 	}
 
 	void set(VotingPluginUser user, int value, boolean async) {
@@ -328,6 +362,10 @@ final class SharedMysqlPointMutator {
 				// dump can restore the pre-debit balance.
 				discardPointsCache(source, sourcePoints);
 			} catch (SQLException failure) {
+				// An acknowledgement/confirmation failure can follow a committed
+				// reservation debit. Never allow a cache recreated during the unknown
+				// outcome to flush the pre-debit source balance over it.
+				discardPointsCache(source, sourcePoints);
 				logFailure(failure);
 				completeOnBukkit(source, completion, PointTransferResult.UNAVAILABLE);
 				return;

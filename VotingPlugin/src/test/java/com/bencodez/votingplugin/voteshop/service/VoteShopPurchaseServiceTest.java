@@ -956,6 +956,15 @@ class VoteShopPurchaseServiceTest {
 				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
 		when(plugin.getTimer()).thenReturn(persistenceExecutor);
 		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		UUID uuid = UUID.fromString("00000000-0000-0000-0000-000000000001");
+		UserDataCache recreatedCache = mock(UserDataCache.class);
+		HashMap<String, DataValue> recreatedValues = new HashMap<>();
+		recreatedValues.put("Points", mock(DataValue.class));
+		recreatedValues.put("VoteShopLimititem", mock(DataValue.class));
+		recreatedValues.put("DailyTotal", mock(DataValue.class));
+		when(recreatedCache.getCache()).thenReturn(recreatedValues);
+		when(plugin.getUserManager().getDataManager().getUserDataCache()).thenReturn(
+				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(uuid, recreatedCache)));
 		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
 		doAnswer(invocation -> {
 			invocation.getArgument(1, Runnable.class).run();
@@ -965,6 +974,8 @@ class VoteShopPurchaseServiceTest {
 		when(definition.isEnabled()).thenReturn(true);
 		VoteShopItem item = mock(VoteShopItem.class);
 		when(item.getPermission()).thenReturn("");
+		when(item.getLimit()).thenReturn(1);
+		when(item.getIdentifier()).thenReturn("item");
 		AtomicReference<VoteShopPurchaseResult> result = new AtomicReference<>();
 
 		new VoteShopPurchaseService(plugin, definition).purchase(player, purchaseUser(), item, result::set);
@@ -973,6 +984,9 @@ class VoteShopPurchaseServiceTest {
 		databaseWork.getValue().run();
 
 		assertEquals(VoteShopPurchaseResult.FAILED, result.get());
+		assertFalse(recreatedValues.containsKey("Points"));
+		assertFalse(recreatedValues.containsKey("VoteShopLimititem"));
+		assertTrue(recreatedValues.containsKey("DailyTotal"));
 		verify(plugin.getRewardHandler(), never()).giveReward(any(), any(), any(), any());
 	}
 

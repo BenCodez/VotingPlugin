@@ -561,6 +561,10 @@ public class VoteShopPurchaseService {
 			if (limitColumn != null) statement.setInt(4, item.getLimit());
 			debited = statement.executeUpdate() == 1;
 		} catch (SQLException failure) {
+			// JDBC can fail after a server has applied the conditional update. Drop
+			// snapshots recreated during that unknown outcome so a later cache dump
+			// cannot restore the pre-debit values.
+			refreshPurchaseCache(user, pointsColumn, limitColumn);
 			plugin.getLogger().severe("Unable to atomically debit vote shop points: "
 					+ failure.getClass().getSimpleName());
 			plugin.debug(failure);
@@ -602,6 +606,11 @@ public class VoteShopPurchaseService {
 						limitColumn);
 			}
 		} catch (SQLException failure) {
+			// reserve() can throw after its commit acknowledgement and confirmation
+			// both fail. The debit may therefore be durable even though this caller
+			// reports FAILED; drop snapshots recreated during that transaction so a
+			// later cache dump cannot restore the pre-reservation values.
+			refreshPurchaseCache(user, pointsColumn, limitColumn);
 			plugin.getLogger().severe("Unable to atomically debit vote shop points: "
 					+ failure.getClass().getSimpleName());
 			plugin.debug(failure);
