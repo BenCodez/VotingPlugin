@@ -41,6 +41,26 @@ public class VoteTimeQueue {
 	@Getter
 	@Setter
 	private boolean processed;
+	/** Whether multi-proxy forwarding was durably handled for this queued vote. */
+	@Getter
+	@Setter
+	private boolean multiProxyForwardingHandled;
+	/** True when this row is a durable multi-proxy delivery outbox. */
+	@Getter
+	@Setter
+	private boolean multiProxyForwardingRequired;
+	/** Original vote type; legacy rows default to a real vote. */
+	@Getter
+	@Setter
+	private boolean realVote = true;
+	/** Sender identity used to route acknowledgement envelopes. */
+	@Getter
+	@Setter
+	private String multiProxyOrigin = "";
+	/** Receiver completion is durable in this row but still needs a completion tombstone/ACK. */
+	@Getter
+	@Setter
+	private boolean multiProxyCompletionPending;
 	@Getter
 	@Setter
 	private boolean deliveryStateDirty;
@@ -48,6 +68,12 @@ public class VoteTimeQueue {
 	private Set<String> broadcastTargets;
 	@Getter
 	private Set<String> broadcastForwardedServers;
+	/** Configured recipient proxy names for the durable multi-proxy outbox. */
+	@Getter
+	private Set<String> multiProxyRecipients;
+	/** Recipients whose durable completion acknowledgement was received. */
+	@Getter
+	private Set<String> multiProxyAcknowledgedServers;
 	/** Stable HTTP standalone-broadcast delivery IDs by target server. */
 	private final Map<String, String> httpBroadcastDeliveryIds;
 
@@ -137,6 +163,18 @@ public class VoteTimeQueue {
 	public VoteTimeQueue(UUID voteId, String name, String service, long time, boolean proxyBroadcastHandled,
 			Set<String> broadcastTargets, Set<String> broadcastForwardedServers, String totals, boolean processed,
 			String uuid, Map<String, String> httpBroadcastDeliveryIds) {
+		this(voteId, name, service, time, proxyBroadcastHandled, broadcastTargets, broadcastForwardedServers, totals,
+				processed, false, uuid, httpBroadcastDeliveryIds);
+	}
+
+	/**
+	 * Creates a queued vote with all durable delivery fences.
+	 *
+	 * @param multiProxyForwardingHandled whether multi-proxy forwarding already completed
+	 */
+	public VoteTimeQueue(UUID voteId, String name, String service, long time, boolean proxyBroadcastHandled,
+			Set<String> broadcastTargets, Set<String> broadcastForwardedServers, String totals, boolean processed,
+			boolean multiProxyForwardingHandled, String uuid, Map<String, String> httpBroadcastDeliveryIds) {
 		this.voteId = voteId;
 		this.uuid = uuid == null ? "" : uuid;
 		this.name = name;
@@ -145,6 +183,7 @@ public class VoteTimeQueue {
 		this.proxyBroadcastHandled = proxyBroadcastHandled;
 		this.totals = totals == null ? "" : totals;
 		this.processed = processed;
+		this.multiProxyForwardingHandled = multiProxyForwardingHandled;
 		this.broadcastTargets = new LinkedHashSet<>();
 		if (broadcastTargets != null) {
 			this.broadcastTargets.addAll(broadcastTargets);
@@ -153,9 +192,69 @@ public class VoteTimeQueue {
 		if (broadcastForwardedServers != null) {
 			this.broadcastForwardedServers.addAll(broadcastForwardedServers);
 		}
+		this.multiProxyRecipients = new LinkedHashSet<>();
+		this.multiProxyAcknowledgedServers = new LinkedHashSet<>();
 		this.httpBroadcastDeliveryIds = new LinkedHashMap<>();
 		if (httpBroadcastDeliveryIds != null) {
 			httpBroadcastDeliveryIds.forEach(this::setHttpBroadcastDeliveryId);
+		}
+	}
+
+	/** Configures the durable acknowledgement fence before the first send. */
+	public void requireMultiProxyAcknowledgements(String origin, Set<String> recipients) {
+		multiProxyForwardingRequired = true;
+		multiProxyOrigin = origin == null ? "" : origin;
+		multiProxyRecipients.clear();
+		if (recipients != null) {
+			for (String recipient : recipients) {
+				if (recipient != null && !recipient.isBlank()) {
+					multiProxyRecipients.add(recipient.toLowerCase(Locale.ROOT));
+				}
+			}
+		}
+	}
+
+	/** Adds an acknowledgement only for a configured recipient. */
+	public boolean acknowledgeMultiProxyRecipient(String recipient) {
+		if (recipient == null || recipient.isBlank()) return false;
+		String normalized = recipient.toLowerCase(Locale.ROOT);
+		if (!multiProxyRecipients.contains(normalized)) return false;
+		return multiProxyAcknowledgedServers.add(normalized);
+	}
+
+	/** Returns whether every intended receiver durably acknowledged the vote. */
+	public boolean hasCompletedMultiProxyAcknowledgements() {
+		return multiProxyForwardingRequired && !multiProxyRecipients.isEmpty()
+				&& multiProxyAcknowledgedServers.containsAll(multiProxyRecipients);
+	}
+
+	public String encodeMultiProxyRecipients() {
+		return encodeBroadcastServers(multiProxyRecipients);
+	}
+
+	public String encodeMultiProxyAcknowledgedServers() {
+		return encodeBroadcastServers(multiProxyAcknowledgedServers);
+	}
+
+	public void setMultiProxyRecipients(Set<String> recipients) {
+		multiProxyRecipients.clear();
+		if (recipients != null) {
+			for (String recipient : recipients) {
+				if (recipient != null && !recipient.isBlank()) {
+					multiProxyRecipients.add(recipient.toLowerCase(Locale.ROOT));
+				}
+			}
+		}
+	}
+
+	public void setMultiProxyAcknowledgedServers(Set<String> recipients) {
+		multiProxyAcknowledgedServers.clear();
+		if (recipients != null) {
+			for (String recipient : recipients) {
+				if (recipient != null && !recipient.isBlank()) {
+					multiProxyAcknowledgedServers.add(recipient.toLowerCase(Locale.ROOT));
+				}
+			}
 		}
 	}
 

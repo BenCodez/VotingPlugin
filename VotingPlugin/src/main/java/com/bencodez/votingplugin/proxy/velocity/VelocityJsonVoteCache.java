@@ -66,6 +66,18 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 				"ProxyBroadcastHandled");
 		setPath(voteTimedQueue.getTotals(), "TimedVoteCache", String.valueOf(num), "Totals");
 		setPath(voteTimedQueue.isProcessed(), "TimedVoteCache", String.valueOf(num), "Processed");
+		setPath(voteTimedQueue.isMultiProxyForwardingHandled(), "TimedVoteCache", String.valueOf(num),
+				"MultiProxyForwardingHandled");
+		setPath(voteTimedQueue.isMultiProxyForwardingRequired(), "TimedVoteCache", String.valueOf(num),
+				"MultiProxyForwardingRequired");
+		setPath(voteTimedQueue.isRealVote(), "TimedVoteCache", String.valueOf(num), "RealVote");
+		setPath(voteTimedQueue.getMultiProxyOrigin(), "TimedVoteCache", String.valueOf(num), "MultiProxyOrigin");
+		setPath(voteTimedQueue.isMultiProxyCompletionPending(), "TimedVoteCache", String.valueOf(num),
+				"MultiProxyCompletionPending");
+		setPath(voteTimedQueue.encodeMultiProxyRecipients(), "TimedVoteCache", String.valueOf(num),
+				"MultiProxyRecipients");
+		setPath(voteTimedQueue.encodeMultiProxyAcknowledgedServers(), "TimedVoteCache", String.valueOf(num),
+				"MultiProxyAcknowledgedServers");
 		setPath(voteTimedQueue.encodeBroadcastTargets(), "TimedVoteCache", String.valueOf(num), "BroadcastTargets");
 		setPath(voteTimedQueue.encodeBroadcastForwardedServers(), "TimedVoteCache", String.valueOf(num),
 				"BroadcastForwardedServers");

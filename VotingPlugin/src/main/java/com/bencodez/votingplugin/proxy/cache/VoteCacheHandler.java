@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -16,6 +17,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.stream.Stream;
 
 import com.bencodez.simpleapi.sql.mysql.MySQL;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
@@ -30,6 +32,7 @@ import lombok.Getter;
  */
 public abstract class VoteCacheHandler {
 	private static final int MAX_PENDING_PERSISTENCE_VOTES = 1024;
+	private static final int MAX_MULTI_PROXY_COMPLETIONS = 4096;
 
 	/**
 	 * Queue of timed votes for time change processing.
@@ -743,10 +746,7 @@ public abstract class VoteCacheHandler {
 		}
 		timeChangeQueue.add(vote);
 		if (useMySQL) {
-			boolean stored = timedVoteCacheTable.insertTimedVote(vote.getVoteId(), vote.getUuid(), vote.getName(), vote.getService(),
-					vote.getTime(), vote.isProxyBroadcastHandled(), vote.encodeBroadcastTargets(),
-					vote.encodeBroadcastForwardedServers(), vote.getTotals(), vote.isProcessed(),
-					vote.encodeHttpBroadcastDeliveryIds());
+			boolean stored = timedVoteCacheTable.insertTimedVote(vote);
 			if (!stored) {
 				timeChangeQueue.remove(vote);
 			}
@@ -905,6 +905,88 @@ public abstract class VoteCacheHandler {
 		}
 	}
 
+	/**
+	 * Records a consumed multi-proxy vote before the receiver drops its in-memory
+	 * retry fence. This deliberately uses the JSON cache's sibling directory even
+	 * when SQL is the primary cache, so it remains available during SQL recovery.
+	 *
+	 * @param voteId stable multi-proxy vote identity
+	 * @return true when the completion record is durably readable
+	 */
+	public synchronized boolean markMultiProxyVoteCompletedDurably(UUID voteId) {
+		Path target = multiProxyVoteCompletionPath(voteId);
+		if (target == null) return false;
+		Path staged = null;
+		try {
+			Files.createDirectories(target.getParent());
+			if (hasMultiProxyVoteCompletion(voteId)) return true;
+			staged = Files.createTempFile(target.getParent(), ".multiproxy-completion-", ".tmp");
+			Files.writeString(staged, voteId.toString(), StandardCharsets.UTF_8);
+			try {
+				DurableFiles.publishStagedFile(staged, target);
+			} catch (DurableFiles.PublishedException published) {
+				// The record is visible; the read-back below decides whether it is usable.
+			}
+			if (!hasMultiProxyVoteCompletion(voteId)) return false;
+			// Publish the new fence before pruning old fences. A pruning failure may
+			// leave the bounded journal temporarily one entry over capacity, but it
+			// must never remove an existing fence and then lose the new one.
+			if (!pruneMultiProxyVoteCompletions(target.getParent())) {
+				debug1("Unable to prune completed multi-proxy vote fences after publishing " + voteId);
+			}
+			return true;
+		} catch (IOException | RuntimeException failure) {
+			debug1(failure);
+			return false;
+		} finally {
+			if (staged != null) {
+				try { Files.deleteIfExists(staged); } catch (IOException ignored) { }
+			}
+		}
+	}
+
+	/** Checks whether a multi-proxy receiver completion survived this runtime. */
+	public synchronized boolean hasMultiProxyVoteCompletion(UUID voteId) {
+		Path target = multiProxyVoteCompletionPath(voteId);
+		if (target == null || !Files.isRegularFile(target)) return false;
+		try {
+			return voteId.toString().equals(Files.readString(target, StandardCharsets.UTF_8));
+		} catch (IOException | RuntimeException failure) {
+			debug1(failure);
+			return false;
+		}
+	}
+
+	private boolean pruneMultiProxyVoteCompletions(Path directory) {
+		ArrayList<Path> records = new ArrayList<>();
+		try (Stream<Path> files = Files.list(directory)) {
+			files.filter(Files::isRegularFile).forEach(records::add);
+		} catch (IOException | RuntimeException failure) {
+			debug1(failure);
+			return false;
+		}
+		records.sort(Comparator.comparingLong(this::multiProxyCompletionModifiedTime));
+		while (records.size() > MAX_MULTI_PROXY_COMPLETIONS) {
+			Path oldest = records.remove(0);
+			try {
+				DurableFiles.deleteIfExists(oldest);
+			} catch (IOException | RuntimeException failure) {
+				debug1(failure);
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private long multiProxyCompletionModifiedTime(Path record) {
+		try {
+			return Files.getLastModifiedTime(record).toMillis();
+		} catch (IOException | RuntimeException failure) {
+			debug1(failure);
+			return Long.MIN_VALUE;
+		}
+	}
+
 	private Path timeVoteCompletionPath(VoteTimeQueue vote) {
 		if (vote == null || jsonStorage == null || jsonStorage.getStoragePath() == null) return null;
 		Path storage = jsonStorage.getStoragePath().toAbsolutePath().normalize();
@@ -913,6 +995,14 @@ public abstract class VoteCacheHandler {
 		UUID key = vote.getVoteId() != null ? vote.getVoteId()
 				: UUID.nameUUIDFromBytes(timeVoteCompletionIdentity(vote).getBytes(StandardCharsets.UTF_8));
 		return storage.resolveSibling(name + ".completed-timed-votes").resolve(key.toString());
+	}
+
+	private Path multiProxyVoteCompletionPath(UUID voteId) {
+		if (voteId == null || jsonStorage == null || jsonStorage.getStoragePath() == null) return null;
+		Path storage = jsonStorage.getStoragePath().toAbsolutePath().normalize();
+		Path name = storage.getFileName();
+		if (name == null) return null;
+		return storage.resolveSibling(name + ".completed-multiproxy-votes").resolve(voteId.toString());
 	}
 
 	private String timeVoteCompletionIdentity(VoteTimeQueue vote) {
@@ -960,8 +1050,18 @@ public abstract class VoteCacheHandler {
 						timedVoteRow.getService(), timedVoteRow.getTime(), timedVoteRow.isProxyBroadcastHandled(),
 						VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getBroadcastTargets()),
 						VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getBroadcastForwardedServers()),
-						timedVoteRow.getTotals(), timedVoteRow.isProcessed(), timedVoteRow.getUuid(),
+						timedVoteRow.getTotals(), timedVoteRow.isProcessed(),
+						timedVoteRow.isMultiProxyForwardingHandled(), timedVoteRow.getUuid(),
 						VoteTimeQueue.decodeHttpBroadcastDeliveryIds(timedVoteRow.getHttpBroadcastDeliveryIds()));
+				voteTimeQueue.setMultiProxyForwardingRequired(timedVoteRow.isMultiProxyForwardingRequired());
+				voteTimeQueue.setRealVote(timedVoteRow.isRealVote());
+				voteTimeQueue.setMultiProxyOrigin(timedVoteRow.getMultiProxyOrigin() == null ? ""
+						: timedVoteRow.getMultiProxyOrigin());
+				voteTimeQueue.setMultiProxyCompletionPending(timedVoteRow.isMultiProxyCompletionPending());
+				voteTimeQueue.setMultiProxyRecipients(
+						VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getMultiProxyRecipients()));
+				voteTimeQueue.setMultiProxyAcknowledgedServers(
+						VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getMultiProxyAcknowledgedServers()));
 				timedVotes.add(voteTimeQueue);
 			});
 			timeChangeQueue.addAll(timedVotes);
@@ -988,13 +1088,29 @@ public abstract class VoteCacheHandler {
 								: "";
 						String totals = data.has("Totals") ? data.get("Totals").asString() : "";
 						boolean processed = data.has("Processed") && data.get("Processed").asBoolean();
+						boolean multiProxyForwardingHandled = data.has("MultiProxyForwardingHandled")
+								&& data.get("MultiProxyForwardingHandled").asBoolean();
 						String httpBroadcastDeliveryIds = data.has("HttpBroadcastDeliveryIds")
 							? data.get("HttpBroadcastDeliveryIds").asString() : "";
 
-						getTimeChangeQueue().add(new VoteTimeQueue(voteId, name, service, time, proxyBroadcastHandled,
+						VoteTimeQueue queuedVote = new VoteTimeQueue(voteId, name, service, time, proxyBroadcastHandled,
 								VoteTimeQueue.decodeBroadcastForwardedServers(broadcastTargets),
-								VoteTimeQueue.decodeBroadcastForwardedServers(forwardedServers), totals, processed, uuid,
-								VoteTimeQueue.decodeHttpBroadcastDeliveryIds(httpBroadcastDeliveryIds)));
+								VoteTimeQueue.decodeBroadcastForwardedServers(forwardedServers), totals, processed,
+								multiProxyForwardingHandled, uuid,
+								VoteTimeQueue.decodeHttpBroadcastDeliveryIds(httpBroadcastDeliveryIds));
+						queuedVote.setMultiProxyForwardingRequired(data.has("MultiProxyForwardingRequired")
+								&& data.get("MultiProxyForwardingRequired").asBoolean());
+						queuedVote.setRealVote(!data.has("RealVote") || data.get("RealVote").asBoolean());
+						queuedVote.setMultiProxyOrigin(data.has("MultiProxyOrigin")
+								? data.get("MultiProxyOrigin").asString() : "");
+						queuedVote.setMultiProxyCompletionPending(data.has("MultiProxyCompletionPending")
+								&& data.get("MultiProxyCompletionPending").asBoolean());
+						queuedVote.setMultiProxyRecipients(VoteTimeQueue.decodeBroadcastForwardedServers(
+								data.has("MultiProxyRecipients") ? data.get("MultiProxyRecipients").asString() : ""));
+						queuedVote.setMultiProxyAcknowledgedServers(VoteTimeQueue.decodeBroadcastForwardedServers(
+								data.has("MultiProxyAcknowledgedServers")
+										? data.get("MultiProxyAcknowledgedServers").asString() : ""));
+						getTimeChangeQueue().add(queuedVote);
 					}
 				}
 

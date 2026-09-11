@@ -104,6 +104,36 @@ public class VoteCacheHandlerVoteIdTest {
 	}
 
 	@Test
+	public void multiProxyCompletionSurvivesHandlerRestart() {
+		UUID voteId = UUID.randomUUID();
+
+		assertTrue(handler.markMultiProxyVoteCompletedDurably(voteId));
+		assertTrue(handler.hasMultiProxyVoteCompletion(voteId));
+
+		VoteCacheHandler restarted = newHandler(storage);
+		assertTrue(restarted.hasMultiProxyVoteCompletion(voteId));
+	}
+
+	@Test
+	public void failedCompletionPublicationDoesNotEvictAnExistingFence() throws Exception {
+		Path completionDirectory = tempDir.resolve("vote-cache.json.completed-multiproxy-votes");
+		Files.createDirectories(completionDirectory);
+		for (int index = 0; index < 4096; index++) {
+			Files.writeString(completionDirectory.resolve(UUID.randomUUID().toString()), "existing-" + index);
+		}
+		UUID blockedVoteId = UUID.randomUUID();
+		// A directory at the target path makes the atomic publication fail after
+		// staging, exercising the failure window without changing file permissions.
+		Files.createDirectory(completionDirectory.resolve(blockedVoteId.toString()));
+
+		assertFalse(handler.markMultiProxyVoteCompletedDurably(blockedVoteId));
+		try (java.util.stream.Stream<Path> files = Files.list(completionDirectory)) {
+			assertEquals(4096L, files.filter(Files::isRegularFile).count());
+		}
+		assertTrue(Files.isDirectory(completionDirectory.resolve(blockedVoteId.toString())));
+	}
+
+	@Test
 	public void distinctVoteIdsAreNotCollapsed() {
 		handler.addServerVote("server", vote(UUID.randomUUID(), 100L));
 		handler.addServerVote("server", vote(UUID.randomUUID(), 101L));
@@ -637,6 +667,7 @@ public class VoteCacheHandlerVoteIdTest {
 		stubString(timedNode, "VoteId", voteId.toString());
 		stubString(timedNode, "UUID", "uuid");
 		stubBoolean(timedNode, "ProxyBroadcastHandled", true);
+		stubBoolean(timedNode, "MultiProxyForwardingHandled", true);
 		stubString(timedNode, "BroadcastTargets", VoteTimeQueue.encodeBroadcastServers(Set.of("Server1")));
 		stubString(timedNode, "BroadcastForwardedServers", "");
 		stubString(timedNode, "HttpBroadcastDeliveryIds", new VoteTimeQueue(voteId, "Player", "Service", 100L,
@@ -647,6 +678,16 @@ public class VoteCacheHandlerVoteIdTest {
 		handler.load();
 
 		assertEquals(deliveryId, handler.getTimeChangeQueue().element().getHttpBroadcastDeliveryId("SERVER1"));
+		assertTrue(handler.getTimeChangeQueue().element().isMultiProxyForwardingHandled());
+	}
+
+	@Test
+	public void legacyTimedVoteDefaultsMultiProxyForwardingFenceToFalse() {
+		VoteTimeQueue vote = new VoteTimeQueue(UUID.randomUUID(), "Player", "Service", 100L);
+
+		assertFalse(vote.isMultiProxyForwardingHandled());
+		vote.setMultiProxyForwardingHandled(true);
+		assertTrue(vote.isMultiProxyForwardingHandled());
 	}
 
 	@Test
