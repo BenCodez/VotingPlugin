@@ -121,6 +121,26 @@ final class SharedMysqlPointMutator {
 		return addAndReadCommittedResult(user, amount);
 	}
 
+	/**
+	 * Adds points under a caller-supplied durable operation id. Retryable reward
+	 * stages use this overload so an ambiguous commit can be confirmed on their
+	 * next invocation without applying the credit again.
+	 */
+	AddResult addCommitted(VotingPluginUser user, int amount, String operationId) {
+		if (operationId == null || operationId.isEmpty()) return addCommitted(user, amount);
+		drainCache(user);
+		try {
+			SharedPointAdditionJournal.AdditionResult result = SharedPointAdditionJournal.forTable(plugin.getMysql())
+					.add(operationId, user.getUUID(), user.getPointsPath(), amount, System.currentTimeMillis());
+			return new AddResult(true, result.total());
+		} catch (SQLException failure) {
+			logFailure(failure);
+			return new AddResult(false, 0);
+		} finally {
+			discardPointsCache(user);
+		}
+	}
+
 	void set(VotingPluginUser user, int value, boolean async) {
 		run(() -> setAbsolute(user, value), async);
 	}
@@ -578,15 +598,18 @@ final class SharedMysqlPointMutator {
 		completeOnBukkit(source, completion, PointTransferResult.UNAVAILABLE);
 	}
 
-	private void refundClaimedAfterSchedulingFailure(VotingPluginUser source, Consumer<PointTransferResult> completion,
+	void refundClaimedAfterSchedulingFailure(VotingPluginUser source, Consumer<PointTransferResult> completion,
 			SharedPointTransferJournal journal, String transferId, String sourcePoints, int debitAmount,
 			RuntimeException failure) {
 		try {
-			if (journal.refundHookStarted(transferId, source.getUUID(), sourcePoints, debitAmount)) {
-				discardPointsCache(source, sourcePoints);
-			}
+			journal.refundHookStarted(transferId, source.getUUID(), sourcePoints, debitAmount);
 		} catch (SQLException refundFailure) {
 			logFailure(refundFailure);
+		} finally {
+			// The refund may have committed even when its acknowledgement and
+			// confirmation read both failed. Invalidate a cache recreated after the
+			// original debit so it cannot later overwrite either durable outcome.
+			discardPointsCache(source, sourcePoints);
 		}
 		plugin.debug(failure);
 		completeOnBukkit(source, completion, PointTransferResult.UNAVAILABLE);

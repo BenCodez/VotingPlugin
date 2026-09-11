@@ -267,6 +267,19 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return committed point total, or an exceptional stage when persistence fails
 	 */
 	public synchronized CompletionStage<Integer> addPointsStorageAwareAsync(int value) {
+		return addPointsStorageAwareAsync(value, null);
+	}
+
+	/**
+	 * Adds points and completes with the committed total, optionally binding the
+	 * addition to a durable operation id supplied by a retryable reward stage.
+	 * Callers without a stable id retain the historical behavior.
+	 *
+	 * @param value point delta
+	 * @param operationId stable id for a retry of the same logical addition, or null
+	 * @return committed point total, or an exceptional stage when persistence fails
+	 */
+	public synchronized CompletionStage<Integer> addPointsStorageAwareAsync(int value, String operationId) {
 		PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, value);
 		Bukkit.getPluginManager().callEvent(event);
 		if (event.isCancelled()) {
@@ -283,7 +296,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		try {
 			plugin.getTimer().execute(() -> {
 				try {
-					SharedMysqlPointMutator.AddResult result = sharedPoints.addCommitted(this, event.getPoints());
+					SharedMysqlPointMutator.AddResult result = sharedPoints.addCommitted(this, event.getPoints(), operationId);
 					if (result.success()) completion.complete(result.total());
 					else completion.completeExceptionally(
 							new IllegalStateException("Unable to persist shared MySQL points"));

@@ -1,5 +1,9 @@
 package com.bencodez.votingplugin.rewards.builtin;
 
+import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.concurrent.CompletionStage;
 
@@ -65,10 +69,46 @@ public class RewardPoints extends RewardInjectInt {
 			com.bencodez.advancedcore.api.user.AdvancedCoreUser user, int num,
 			HashMap<String, String> placeholders) {
 		VotingPluginUser vpUser = plugin.getVotingPluginUserManager().getVotingPluginUser(user);
-		return vpUser.addPointsStorageAwareAsync(num).thenApply(total -> {
+		String operationId = replayOperationId(vpUser);
+		CompletionStage<Integer> addition = operationId == null ? vpUser.addPointsStorageAwareAsync(num)
+				: vpUser.addPointsStorageAwareAsync(num, operationId);
+		return addition.thenApply(total -> {
 			String result = String.valueOf(total);
 			plugin.debug("Setting points to " + result);
 			return result;
 		});
+	}
+
+	/**
+	 * AdvancedCore #317 exposes a durable occurrence identity for a queued replay
+	 * plus its active stage path. Use both when present, but retain compatibility
+	 * with releases that cannot distinguish a retry from a new reward occurrence.
+	 */
+	private static String replayOperationId(VotingPluginUser user) {
+		try {
+			Method currentReplayOccurrenceId = Reward.class.getMethod("currentReplayOccurrenceId");
+			Method currentReplayKey = Reward.class.getMethod("currentReplayKey");
+			Object occurrence = currentReplayOccurrenceId.invoke(null);
+			Object value = currentReplayKey.invoke(null);
+			if (!(occurrence instanceof String) || ((String) occurrence).isEmpty()
+					|| !(value instanceof String) || ((String) value).isEmpty()) return null;
+			return sha256("VotingPlugin:shared-points-reward:v1\0" + user.getUUID() + '\0' + occurrence + '\0' + value);
+		} catch (ReflectiveOperationException | SecurityException ignored) {
+			return null;
+		}
+	}
+
+	private static String sha256(String value) {
+		try {
+			byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
+			StringBuilder result = new StringBuilder(digest.length * 2);
+			for (byte element : digest) {
+				result.append(Character.forDigit((element >>> 4) & 0xf, 16));
+				result.append(Character.forDigit(element & 0xf, 16));
+			}
+			return result.toString();
+		} catch (NoSuchAlgorithmException failure) {
+			throw new IllegalStateException("SHA-256 is unavailable", failure);
+		}
 	}
 }

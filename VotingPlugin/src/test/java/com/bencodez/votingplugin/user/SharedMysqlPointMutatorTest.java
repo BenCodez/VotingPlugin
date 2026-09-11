@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
@@ -21,6 +22,7 @@ import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -34,6 +36,39 @@ import com.bencodez.simpleapi.sql.data.DataValueInt;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 class SharedMysqlPointMutatorTest {
+	@Test
+	void indeterminateClaimedRefundStillInvalidatesSourcePoints() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
+				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			invocation.<Runnable>getArgument(1).run();
+			return null;
+		}).when(scheduler).runTask(eq(plugin), any(Runnable.class));
+		VotingPluginUser source = mock(VotingPluginUser.class);
+		String sourceUuid = "00000000-0000-0000-0000-000000000001";
+		when(source.getUUID()).thenReturn(sourceUuid);
+		when(source.getPointsPath()).thenReturn("Points");
+		UserDataCache cache = mock(UserDataCache.class);
+		HashMap<String, DataValue> values = new HashMap<>();
+		values.put("Points", new DataValueInt(10));
+		when(cache.getCache()).thenReturn(values);
+		when(plugin.getUserManager().getDataManager().getUserDataCache()).thenReturn(
+				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(
+						java.util.UUID.fromString(sourceUuid), cache)));
+		SharedPointTransferJournal journal = mock(SharedPointTransferJournal.class);
+		when(journal.refundHookStarted("transfer-1", source.getUUID(), "Points", 10))
+				.thenThrow(new java.sql.SQLException("lost acknowledgement and confirmation"));
+		AtomicReference<PointTransferResult> result = new AtomicReference<>();
+
+		new SharedMysqlPointMutator(plugin).refundClaimedAfterSchedulingFailure(source, result::set, journal,
+				"transfer-1", "Points", 10, new RejectedExecutionException("worker stopped"));
+
+		assertFalse(values.containsKey("Points"));
+		assertEquals(PointTransferResult.UNAVAILABLE, result.get());
+	}
+
 	@Test
 	void recoveryInvalidatesOnlyRefundedColumnsAfterJdbcCompletes() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
