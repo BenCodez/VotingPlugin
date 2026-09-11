@@ -116,6 +116,9 @@ public abstract class VotingPluginProxy {
 	private static final int MAX_LIVE_VOTE_RETRIES = 1024;
 	private static final String REWARD_JOURNAL_TARGET_PREFIX = "__vp_reward_target__:";
 	private final Map<UUID, LiveVoteRetryState> liveVoteRetries = new LinkedHashMap<>();
+	// Set only after all replacement gates have succeeded. Vote entry points are
+	// synchronized, so no new side-effecting vote can race the handoff window.
+	private boolean runtimeReplacementPrepared;
 
 	private static final class LiveVoteRetryState {
 		private VoteTotalsSnapshot totals;
@@ -2738,7 +2741,15 @@ public abstract class VotingPluginProxy {
 	}
 
 	/** Fail-closed gate that must complete before a replacement proxy runtime is created. */
-	public void prepareForRuntimeReplacement() {
+	public synchronized void prepareForRuntimeReplacement() {
+		// Live retry markers fence side effects (including vote-party and totals) that
+		// have already run but whose durable outbox write has not. They are owned by
+		// this runtime only, so replacing it would let the scheduled listener retry
+		// start with an empty map and reapply those effects. Keep this runtime alive
+		// until the retry settles instead of dropping or replaying an uncertain vote.
+		if (!liveVoteRetries.isEmpty()) {
+			throw new IllegalStateException("Live vote retries must settle before proxy runtime replacement");
+		}
 		if (!quarantineInFlightVotePartyProxyCommandForReplacement()) {
 			throw new IllegalStateException("In-flight vote-party command must be durably quarantined before proxy runtime replacement");
 		}
@@ -2751,6 +2762,7 @@ public abstract class VotingPluginProxy {
 			controlLifecycleExecutor.shutdown();
 			stopControlServicesLocked(true);
 		}
+		runtimeReplacementPrepared = true;
 	}
 
 	/** Best-effort remainder of runtime teardown after the Control overlap gate has succeeded. */
@@ -4340,6 +4352,11 @@ public abstract class VotingPluginProxy {
 						+ MinecraftUsernameValidator.sanitizeForLog(service) + "'");
 				return QueuedVoteResult.TERMINAL;
 			}
+			// A platform listener can receive a vote in the small interval after the
+			// replacement gate succeeds and before the platform publishes its fresh
+			// runtime. Tell its bounded retry wrapper to retry against that fresh
+			// runtime rather than creating state that would be lost with this one.
+			if (runtimeReplacementPrepared) return QueuedVoteResult.RETRY;
 
 			UUID voteId = queuedVote == null ? null : queuedVote.getVoteId();
 			if (voteId == null) {

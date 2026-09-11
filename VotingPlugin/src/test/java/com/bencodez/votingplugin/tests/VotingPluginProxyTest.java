@@ -319,19 +319,46 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
-	void legacyVoteEntryPointClearsUnownedRetryState() throws Exception {
+	void runtimeReplacementWaitsForLiveVoteRetryToSettle() {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		Mockito.when(votingPluginProxy.getConfig().getSendVotesToAllServers()).thenReturn(true);
-		Mockito.when(voteCache.addServerVoteDurably(Mockito.anyString(), Mockito.any())).thenReturn(false);
+		Mockito.when(voteCache.addServerVoteDurably(Mockito.anyString(), Mockito.any()))
+				.thenReturn(false, true, true);
+		Mockito.when(voteCache.addOnlineVoteDurably(Mockito.anyString(), Mockito.any())).thenReturn(true);
+		Mockito.when(voteCache.updateOnlineVote(Mockito.anyString(), Mockito.any())).thenReturn(true);
+		Mockito.when(voteCache.updateServerVote(Mockito.anyString(), Mockito.any())).thenReturn(true);
 		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(true);
 		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
 		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
 		Mockito.doNothing().when(spyProxy).addVoteParty();
+		java.util.UUID voteId = java.util.UUID.randomUUID();
 
 		assertThrows(VotingPluginProxy.VoteRetryException.class,
 				() -> spyProxy.vote("Player", "Service", true, false, 100L, null,
-						"00000000-0000-0000-0000-000000000001"));
+						"00000000-0000-0000-0000-000000000001", voteId));
+		IllegalStateException blocked = assertThrows(IllegalStateException.class,
+				spyProxy::prepareForRuntimeReplacement);
+		assertTrue(blocked.getMessage().contains("Live vote retries"));
 
+		spyProxy.setAvailableServers("Server1", "Server2", "Server3");
+		spyProxy.vote("Player", "Service", true, false, 100L, null,
+				"00000000-0000-0000-0000-000000000001", voteId);
+
+		verify(spyProxy).addVoteParty();
+	}
+
+	@Test
+	void preparedRuntimeDoesNotStartAReplacementWindowVote() throws Exception {
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doNothing().when(spyProxy).addVoteParty();
+
+		spyProxy.prepareForRuntimeReplacement();
+
+		assertThrows(VotingPluginProxy.VoteRetryException.class,
+				() -> spyProxy.vote("Player", "Service", true, false, 100L, null,
+						"00000000-0000-0000-0000-000000000001", java.util.UUID.randomUUID()));
+		verify(spyProxy, never()).addVoteParty();
 		java.lang.reflect.Field retries = VotingPluginProxy.class.getDeclaredField("liveVoteRetries");
 		retries.setAccessible(true);
 		assertTrue(((java.util.Map<?, ?>) retries.get(spyProxy)).isEmpty());
