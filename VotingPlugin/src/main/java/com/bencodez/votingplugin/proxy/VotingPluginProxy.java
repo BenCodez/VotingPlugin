@@ -114,6 +114,7 @@ public abstract class VotingPluginProxy {
 	private static final long PRESENCE_HANDOFF_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(2);
 	private static final long PRESENCE_STARTUP_RESYNC_DELAY_SECONDS = 5L;
 	private static final int MAX_LIVE_VOTE_RETRIES = 1024;
+	private static final int FINAL_SHUTDOWN_PERSISTENCE_ATTEMPTS = 3;
 	private static final String REWARD_JOURNAL_TARGET_PREFIX = "__vp_reward_target__:";
 	private final Map<UUID, LiveVoteRetryState> liveVoteRetries = new LinkedHashMap<>();
 	// Set only after all replacement gates have succeeded. Vote entry points are
@@ -133,6 +134,13 @@ public abstract class VotingPluginProxy {
 		private boolean rewardJournalsDurable;
 		private OfflineBungeeVote standaloneBroadcastState;
 		private OfflineBungeeVote rewardJournalOwner;
+		private OfflineBungeeVote pendingOnlineRewardState;
+		private VoteTimeQueue queuedVote;
+		private String player;
+		private String service;
+		private String uuid;
+		private long time;
+		private boolean realVote;
 
 	}
 	private static final long PRESENCE_MAINTENANCE_INTERVAL_SECONDS = 30L;
@@ -2730,6 +2738,15 @@ public abstract class VotingPluginProxy {
 		if (waitForHosted) {
 			prepareForRuntimeReplacement();
 		} else {
+			boolean liveRetriesSettled;
+			try {
+				liveRetriesSettled = settleLiveVoteRetriesForFinalShutdown();
+			} catch (RuntimeException failure) {
+				liveRetriesSettled = false;
+			}
+			if (!liveRetriesSettled) {
+				logSevere("Unable to durably quarantine live vote retries after bounded final-shutdown persistence attempts; operator reconciliation may be required after restart");
+			}
 			if (!quarantineInFlightVotePartyProxyCommandForReplacement()) {
 				awaitInFlightVotePartyProxyCommand();
 				if (!quarantineInFlightVotePartyProxyCommandForReplacement()) {
@@ -2742,6 +2759,43 @@ public abstract class VotingPluginProxy {
 			stopControlServices(false);
 		}
 		completeRuntimeReplacementShutdown();
+	}
+
+	/** Moves every in-memory live retry into the ordinary durable vote outbox before final teardown. */
+	protected synchronized boolean settleLiveVoteRetriesForFinalShutdown() {
+		if (liveVoteRetries.isEmpty()) return true;
+		VoteCacheHandler cache = getVoteCacheHandler();
+		boolean retained = true;
+		for (LiveVoteRetryState retry : liveVoteRetries.values()) {
+			Set<OfflineBungeeVote> onlineStates = Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+			if (retry.rewardJournalOwner != null) onlineStates.add(retry.rewardJournalOwner);
+			if (retry.standaloneBroadcastState != null) onlineStates.add(retry.standaloneBroadcastState);
+			if (retry.pendingOnlineRewardState != null) onlineStates.add(retry.pendingOnlineRewardState);
+			for (OfflineBungeeVote state : onlineStates) {
+				retained &= cache.retainOnlineVoteForPersistenceRetry(state.getUuid(), state);
+			}
+			for (Map.Entry<String, OfflineBungeeVote> entry : retry.rewardStates.entrySet()) {
+				String server = entry.getKey();
+				for (String configured : getAllConfiguredServers()) {
+					if (configured.equalsIgnoreCase(server)) {
+						server = configured;
+						break;
+					}
+				}
+				retained &= cache.retainServerVoteForPersistenceRetry(server, entry.getValue());
+			}
+		}
+		for (int attempt = 0; attempt < FINAL_SHUTDOWN_PERSISTENCE_ATTEMPTS; attempt++) {
+			if (!retained || !cache.retryPendingVotePersistence()) continue;
+			for (Map.Entry<UUID, LiveVoteRetryState> entry : new ArrayList<>(liveVoteRetries.entrySet())) {
+				LiveVoteRetryState retry = entry.getValue();
+				QueuedVoteResult result = vote(retry.player, retry.service, retry.realVote, false, retry.time,
+						retry.totals, retry.uuid, retry.queuedVote, entry.getKey());
+				if (result == QueuedVoteResult.TERMINAL) liveVoteRetries.remove(entry.getKey());
+			}
+			if (liveVoteRetries.isEmpty()) return true;
+		}
+		return false;
 	}
 
 	/** Fail-closed gate that must complete before a replacement proxy runtime is created. */
@@ -4360,6 +4414,7 @@ public abstract class VotingPluginProxy {
 	private synchronized QueuedVoteResult vote(String player, String service, boolean realVote, boolean timeQueue,
 			long queueTime, VoteTotalsSnapshot text, String uuid, VoteTimeQueue queuedVote, UUID requestedVoteId) {
 		try {
+			String requestPlayer = player;
 			if (!ServiceSiteValidator.isValid(service)) {
 				warn("Rejected vote with invalid service site '" + ServiceSiteValidator.sanitizeForLog(service) + "'");
 				return QueuedVoteResult.TERMINAL;
@@ -4540,8 +4595,14 @@ public abstract class VotingPluginProxy {
 				retryState = new LiveVoteRetryState();
 				retryState.requestIdentity = requestIdentity;
 				retryState.totalsInput = data;
+				retryState.player = requestPlayer;
+				retryState.service = service;
+				retryState.uuid = uuid;
+				retryState.time = time;
+				retryState.realVote = realVote;
 				liveVoteRetries.put(voteId, retryState);
 			}
+			if (queuedVote != null) retryState.queuedVote = queuedVote;
 			if (!retryState.votePartyApplied) {
 				// Fence the side effect before invoking it. If the call reports an
 				// indeterminate failure, a listener retry must not increment the party again.
@@ -4682,6 +4743,9 @@ public abstract class VotingPluginProxy {
 					markRewardJournalTargets(rewardJournalOwner, rewardServers);
 					retryState.rewardJournalOwner = rewardJournalOwner;
 					if (!getVoteCacheHandler().addOnlineVoteDurably(uuid, rewardJournalOwner)) {
+						if (getVoteCacheHandler().retainOnlineVoteForPersistenceRetry(uuid, rewardJournalOwner)) {
+							scheduleCachedVoteDeliveryRetry();
+						}
 						return QueuedVoteResult.RETRY;
 					}
 				}
@@ -4852,6 +4916,7 @@ public abstract class VotingPluginProxy {
 									true, proxyBroadcastTargets, broadcastForwardedServers, false, Collections.emptyMap(),
 									standaloneBroadcastState.getHttpBroadcastDeliveryIds())
 							: createCachedRewardVote(voteId, player, uuid, service, time, realVote, text.toString(), false);
+					retryState.pendingOnlineRewardState = cachedReward;
 					boolean cachedDurably = getVoteCacheHandler().addOnlineVoteDurably(uuid, cachedReward);
 					if (!cachedDurably) {
 						if (getVoteCacheHandler().retainOnlineVoteForPersistenceRetry(uuid, cachedReward)) {
@@ -4861,6 +4926,7 @@ public abstract class VotingPluginProxy {
 								+ "; retaining it for persistence retry");
 						return QueuedVoteResult.RETRY;
 					}
+					retryState.pendingOnlineRewardState = null;
 					standaloneBroadcastStatePersisted |= standaloneBroadcastState != null;
 					debug("Caching online vote for " + player + " on " + service);
 				}
