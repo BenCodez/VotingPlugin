@@ -351,6 +351,10 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 
 	@Override
 	public void removeOnlineVote(OfflineBungeeVote vote) {
+		if (vote.getOnlineVoteCacheJsonKey() != null && vote.getUuid() != null) {
+			remove("OnlineCache", vote.getUuid(), vote.getOnlineVoteCacheJsonKey());
+			return;
+		}
 		Collection<String> players = getPlayers();
 		if (players == null) {
 			return;
@@ -361,11 +365,6 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 				continue;
 			}
 			for (String num : onlineVotes) {
-				if (vote.getOnlineVoteCacheJsonKey() != null
-						&& vote.getOnlineVoteCacheJsonKey().equals(num)) {
-					remove("OnlineCache", player, num);
-					return;
-				}
 				ConfigDataNode node = getOnlineVotes(player, num);
 				if (node == null) {
 					continue;

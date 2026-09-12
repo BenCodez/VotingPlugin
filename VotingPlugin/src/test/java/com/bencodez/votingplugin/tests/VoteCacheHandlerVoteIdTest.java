@@ -545,6 +545,25 @@ public class VoteCacheHandlerVoteIdTest {
 	}
 
 	@Test
+	public void onlineJsonEntryKeysAreScopedToTheirPlayer() throws Exception {
+		VotingPluginBungee plugin = mock(VotingPluginBungee.class);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		Files.writeString(tempDir.resolve("votecache.json"), """
+				{"OnlineCache":{"player-a":{"0":{"Name":"A","Service":"Service","UUID":"player-a","Time":100}},
+				"player-b":{"0":{"Name":"B","Service":"Service","UUID":"player-b","Time":100}}}}
+				""");
+		BungeeJsonVoteCache durableStorage = new BungeeJsonVoteCache(plugin);
+		VoteCacheHandler durableHandler = newVerifyingHandler(durableStorage);
+		durableHandler.load();
+		OfflineBungeeVote playerB = durableHandler.getOnlineVotes("player-b").get(0);
+
+		assertTrue(durableHandler.tryRemoveOnlineVote("player-b", playerB));
+
+		assertTrue(durableStorage.getOnlineVotes("player-a").contains("0"));
+		assertFalse(durableStorage.getOnlineVotes("player-b").contains("0"));
+	}
+
+	@Test
 	public void identicalLegacyTimedSqlRowsUsePrimaryKeysForDistinctStableIds() {
 		VoteTimeQueue first = legacyTimedVote();
 		VoteTimeQueue second = legacyTimedVote();

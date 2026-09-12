@@ -342,6 +342,10 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 
 	@Override
 	public void removeOnlineVote(OfflineBungeeVote vote) {
+		if (vote.getOnlineVoteCacheJsonKey() != null && vote.getUuid() != null) {
+			setString("OnlineCache." + vote.getUuid() + "." + vote.getOnlineVoteCacheJsonKey(), null);
+			return;
+		}
 		Collection<String> players = getPlayers();
 		if (players == null) {
 			return;
@@ -352,11 +356,6 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 				continue;
 			}
 			for (String num : onlineVotes) {
-				if (vote.getOnlineVoteCacheJsonKey() != null
-						&& vote.getOnlineVoteCacheJsonKey().equals(num)) {
-					setString("OnlineCache." + player + "." + num, null);
-					return;
-				}
 				GsonDataNode node = getOnlineVotes(player, num);
 				if (node == null) {
 					continue;
