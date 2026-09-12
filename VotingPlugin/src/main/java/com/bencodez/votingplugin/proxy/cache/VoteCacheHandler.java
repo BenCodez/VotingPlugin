@@ -570,34 +570,21 @@ public abstract class VoteCacheHandler {
 	}
 
 	private OfflineBungeeVote findServerVoteSqlTwin(String server, OfflineBungeeVote emergency) {
+		if (emergency.getVoteId() == null) return null;
 		for (OfflineBungeeVote candidate : getVotes(server)) {
-			if (candidate.getServerVoteCacheRowId() <= 0 || candidate.getServerVoteCacheJsonKey() != null) continue;
-			if (candidate.getVoteId() != null || emergency.getVoteId() != null) {
-				if (candidate.getVoteId() != null && candidate.getVoteId().equals(emergency.getVoteId())) return candidate;
-				continue;
-			}
-			if (matchesLegacyVote(candidate, emergency)) return candidate;
+			if (candidate.getServerVoteCacheRowId() > 0 && candidate.getServerVoteCacheJsonKey() == null
+					&& emergency.getVoteId().equals(candidate.getVoteId())) return candidate;
 		}
 		return null;
 	}
 
 	private OfflineBungeeVote findOnlineVoteSqlTwin(String uuid, OfflineBungeeVote emergency) {
+		if (emergency.getVoteId() == null) return null;
 		for (OfflineBungeeVote candidate : getOnlineVotes(uuid)) {
-			if (candidate.getOnlineVoteCacheRowId() <= 0 || candidate.getOnlineVoteCacheJsonKey() != null) continue;
-			if (candidate.getVoteId() != null || emergency.getVoteId() != null) {
-				if (candidate.getVoteId() != null && candidate.getVoteId().equals(emergency.getVoteId())) return candidate;
-				continue;
-			}
-			if (matchesLegacyVote(candidate, emergency)) return candidate;
+			if (candidate.getOnlineVoteCacheRowId() > 0 && candidate.getOnlineVoteCacheJsonKey() == null
+					&& emergency.getVoteId().equals(candidate.getVoteId())) return candidate;
 		}
 		return null;
-	}
-
-	private boolean matchesLegacyVote(OfflineBungeeVote first, OfflineBungeeVote second) {
-		return Objects.equals(first.getUuid(), second.getUuid())
-				&& Objects.equals(first.getPlayerName(), second.getPlayerName())
-				&& Objects.equals(first.getService(), second.getService())
-				&& first.getTime() == second.getTime();
 	}
 
 	/**
@@ -901,16 +888,11 @@ public abstract class VoteCacheHandler {
 	}
 
 	private VoteTimeQueue findSqlEmergencyTwin(VoteTimeQueue emergency) {
+		if (emergency.getVoteId() == null) return null;
 		for (VoteTimeQueue candidate : timeChangeQueue) {
 			if (candidate == null || candidate.getTimedVoteCacheRowId() <= 0
 					|| candidate.getTimedVoteCacheJsonKey() != null) continue;
-			if (candidate.getVoteId() != null || emergency.getVoteId() != null) {
-				if (candidate.getVoteId() != null && candidate.getVoteId().equals(emergency.getVoteId())) return candidate;
-				continue;
-			}
-			if (Objects.equals(candidate.getUuid(), emergency.getUuid())
-					&& Objects.equals(candidate.getService(), emergency.getService())
-					&& candidate.getTime() == emergency.getTime()) return candidate;
+			if (emergency.getVoteId().equals(candidate.getVoteId())) return candidate;
 		}
 		return null;
 	}
