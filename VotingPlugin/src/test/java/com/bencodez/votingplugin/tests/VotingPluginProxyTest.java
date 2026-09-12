@@ -383,7 +383,7 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
-	void finalShutdownPersistsAckOutboxWhoseInitialInsertFailed() throws Exception {
+	void runtimeRetryPersistsAckOutboxWhoseInitialInsertFailedBeforePublishing() throws Exception {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		java.util.Queue<VoteTimeQueue> queue = new java.util.concurrent.ConcurrentLinkedQueue<>();
 		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(queue);
@@ -410,7 +410,7 @@ public class VotingPluginProxyTest {
 		Mockito.when(votingPluginProxy.getConfig().getProxyServerName()).thenReturn("Proxy1");
 		Mockito.when(multiProxyHandler.getMultiProxyVoteRecipients()).thenReturn(java.util.Set.of("Proxy2"));
 		Mockito.when(multiProxyHandler.getConfiguredMultiProxyVoteRecipients())
-				.thenReturn(new java.util.LinkedHashSet<>(java.util.Set.of("Proxy2")));
+				.thenReturn(new java.util.LinkedHashSet<>(java.util.Set.of("Proxy2", "ProxyLegacy")));
 		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
 		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
 		Mockito.doNothing().when(spyProxy).addVoteParty();
@@ -444,6 +444,15 @@ public class VotingPluginProxyTest {
 		begin.setAccessible(true);
 		assertFalse((Boolean) begin.invoke(spyProxy, retry, null, "Player",
 				"00000000-0000-0000-0000-000000000001", "Service", 100L, true, null));
+		verify(multiProxyHandler, never()).sendMultiProxyEnvelopeAccepted(Mockito.any(), Mockito.any());
+		assertFalse((Boolean) begin.invoke(spyProxy, retry, null, "Player",
+				"00000000-0000-0000-0000-000000000001", "Service", 100L, true, null));
+		@SuppressWarnings({ "rawtypes", "unchecked" })
+		org.mockito.ArgumentCaptor<java.util.Collection<String>> recipients =
+				(org.mockito.ArgumentCaptor) org.mockito.ArgumentCaptor.forClass(java.util.Collection.class);
+		verify(multiProxyHandler, Mockito.times(2)).sendMultiProxyEnvelopeAccepted(Mockito.any(), recipients.capture());
+		assertEquals(java.util.Set.of(java.util.Set.of("proxy2"), java.util.Set.of("ProxyLegacy")),
+				new java.util.HashSet<>(recipients.getAllValues()));
 		java.lang.reflect.Method settle = VotingPluginProxy.class
 				.getDeclaredMethod("settleLiveVoteRetriesForFinalShutdown");
 		settle.setAccessible(true);

@@ -137,6 +137,26 @@ public class VoteCacheHandlerVoteIdTest {
 	}
 
 	@Test
+	public void completionFencesRemainWhileSenderOutboxesCanRetryIndefinitely() throws Exception {
+		Path completionDirectory = tempDir.resolve("vote-cache.json.completed-multiproxy-votes");
+		Files.createDirectories(completionDirectory);
+		UUID oldestVoteId = UUID.randomUUID();
+		Files.writeString(completionDirectory.resolve(oldestVoteId.toString()), oldestVoteId.toString());
+		for (int index = 1; index < 4096; index++) {
+			UUID voteId = UUID.randomUUID();
+			Files.writeString(completionDirectory.resolve(voteId.toString()), voteId.toString());
+		}
+		UUID newestVoteId = UUID.randomUUID();
+
+		assertTrue(handler.markMultiProxyVoteCompletedDurably(newestVoteId));
+		assertTrue(handler.hasMultiProxyVoteCompletion(oldestVoteId));
+		assertTrue(handler.hasMultiProxyVoteCompletion(newestVoteId));
+		try (java.util.stream.Stream<Path> files = Files.list(completionDirectory)) {
+			assertEquals(4097L, files.filter(Files::isRegularFile).count());
+		}
+	}
+
+	@Test
 	public void distinctVoteIdsAreNotCollapsed() {
 		handler.addServerVote("server", vote(UUID.randomUUID(), 100L));
 		handler.addServerVote("server", vote(UUID.randomUUID(), 101L));

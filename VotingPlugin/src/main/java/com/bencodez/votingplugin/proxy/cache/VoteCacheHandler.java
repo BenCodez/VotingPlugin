@@ -8,7 +8,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -17,7 +16,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.stream.Stream;
 
 import com.bencodez.simpleapi.sql.mysql.MySQL;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
@@ -32,7 +30,6 @@ import lombok.Getter;
  */
 public abstract class VoteCacheHandler {
 	private static final int MAX_PENDING_PERSISTENCE_VOTES = 1024;
-	private static final int MAX_MULTI_PROXY_COMPLETIONS = 4096;
 
 	/**
 	 * Queue of timed votes for time change processing.
@@ -1021,12 +1018,9 @@ public abstract class VoteCacheHandler {
 				// The record is visible; the read-back below decides whether it is usable.
 			}
 			if (!hasMultiProxyVoteCompletion(voteId)) return false;
-			// Publish the new fence before pruning old fences. A pruning failure may
-			// leave the bounded journal temporarily one entry over capacity, but it
-			// must never remove an existing fence and then lose the new one.
-			if (!pruneMultiProxyVoteCompletions(target.getParent())) {
-				debug1("Unable to prune completed multi-proxy vote fences after publishing " + voteId);
-			}
+			// Sender outboxes have no expiry, so their matching receiver fences must
+			// remain for the same lifetime. Pruning by count can turn a late retry into
+			// a second reward after enough newer votes complete.
 			return true;
 		} catch (IOException | RuntimeException failure) {
 			debug1(failure);
@@ -1047,36 +1041,6 @@ public abstract class VoteCacheHandler {
 		} catch (IOException | RuntimeException failure) {
 			debug1(failure);
 			return false;
-		}
-	}
-
-	private boolean pruneMultiProxyVoteCompletions(Path directory) {
-		ArrayList<Path> records = new ArrayList<>();
-		try (Stream<Path> files = Files.list(directory)) {
-			files.filter(Files::isRegularFile).forEach(records::add);
-		} catch (IOException | RuntimeException failure) {
-			debug1(failure);
-			return false;
-		}
-		records.sort(Comparator.comparingLong(this::multiProxyCompletionModifiedTime));
-		while (records.size() > MAX_MULTI_PROXY_COMPLETIONS) {
-			Path oldest = records.remove(0);
-			try {
-				DurableFiles.deleteIfExists(oldest);
-			} catch (IOException | RuntimeException failure) {
-				debug1(failure);
-				return false;
-			}
-		}
-		return true;
-	}
-
-	private long multiProxyCompletionModifiedTime(Path record) {
-		try {
-			return Files.getLastModifiedTime(record).toMillis();
-		} catch (IOException | RuntimeException failure) {
-			debug1(failure);
-			return Long.MIN_VALUE;
 		}
 	}
 

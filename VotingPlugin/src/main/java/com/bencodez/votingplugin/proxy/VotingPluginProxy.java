@@ -5454,6 +5454,23 @@ public abstract class VotingPluginProxy {
 			retryState.queuedVote = outbox;
 			if (outbox.getVoteId() == null || !getVoteCacheHandler().addTimeVoteToCache(outbox)) return false;
 			newlyCreated = true;
+		} else {
+			boolean alreadyQueued = false;
+			for (VoteTimeQueue candidate : getVoteCacheHandler().getTimeChangeQueue()) {
+				if (candidate != null && outbox.getVoteId().equals(candidate.getVoteId())) {
+					alreadyQueued = true;
+					break;
+				}
+			}
+			if (!alreadyQueued && !getVoteCacheHandler().addTimeVoteToCache(outbox)) {
+				// A previous durable admission may have failed after the retry state kept
+				// this object in memory. Re-admit it before any publish;
+				// addTimeVoteToCache is idempotent for an already-durable queue entry.
+				return false;
+			}
+			// A recovered admission is the first safe chance to publish to legacy peers.
+			// Already-queued retries must not repeat that fire-and-forget copy.
+			newlyCreated = !alreadyQueued;
 		}
 		if (!outbox.isMultiProxyForwardingRequired()) {
 			outbox.requireMultiProxyAcknowledgements(getConfig().getProxyServerName(), recipients);
