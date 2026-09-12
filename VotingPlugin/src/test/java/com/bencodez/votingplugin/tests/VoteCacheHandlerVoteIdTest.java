@@ -549,6 +549,28 @@ public class VoteCacheHandlerVoteIdTest {
 	}
 
 	@Test
+	public void expirationDoesNotReuseAJsonEntryKeyAcrossServers() throws Exception {
+		VotingPluginBungee plugin = mock(VotingPluginBungee.class);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		long expired = System.currentTimeMillis() - java.util.concurrent.TimeUnit.DAYS.toMillis(2);
+		long current = System.currentTimeMillis();
+		Files.writeString(tempDir.resolve("votecache.json"), """
+				{"VoteCache":{"server-a":{"0":{"Name":"A","Service":"Service","UUID":"player-a","Time":%d}},
+				"server-b":{"0":{"Name":"B","Service":"Service","UUID":"player-b","Time":%d}}}}
+				""".formatted(expired, current));
+		BungeeJsonVoteCache durableStorage = new BungeeJsonVoteCache(plugin);
+		VoteCacheHandler durableHandler = newVerifyingHandler(durableStorage);
+		durableHandler.load();
+
+		durableHandler.checkVoteCacheTime(1);
+
+		assertTrue(durableStorage.getServerVotes("server-a") == null
+				|| durableStorage.getServerVotes("server-a").isEmpty());
+		assertTrue(durableStorage.getServerVotes("server-b").contains("0"));
+		assertEquals(1, durableHandler.getVotes("server-b").size());
+	}
+
+	@Test
 	public void identicalLegacyOnlineJsonRowsKeepDistinctEntryIdentitiesAndDeleteIndividually() throws Exception {
 		VotingPluginBungee plugin = mock(VotingPluginBungee.class);
 		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());

@@ -110,7 +110,8 @@ public class BackendPresenceManager {
 		// marshal the transactional stopped-presence send before returning the
 		// result to that worker. Unit-test and shutdown contexts without a server
 		// retain the direct path used by the non-Control lifecycle.
-		if (plugin != null && plugin.getServer() != null && !plugin.getServer().isPrimaryThread()) {
+		if (method == BungeeMethod.PLUGINMESSAGING && plugin != null && plugin.getServer() != null
+				&& !plugin.getServer().isPrimaryThread()) {
 			CompletableFuture<Void> scheduled = new CompletableFuture<>();
 			try {
 				plugin.getBukkitScheduler().executeOrScheduleSync(plugin, () -> {

@@ -294,6 +294,29 @@ class BackendProxyHandlerLifecycleTest {
 	}
 
 	@Test
+	void preparedDisableKeepsHttpStoppedPresenceOffTheBukkitThread() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		org.bukkit.Server server = mock(org.bukkit.Server.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
+		when(plugin.getServer()).thenReturn(server);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(server.isPrimaryThread()).thenReturn(false);
+
+		BackendPresenceManager presence = new BackendPresenceManager(plugin, BungeeMethod.HTTP, messages);
+		setField(presence, "reporting", true);
+		setField(presence, "server", "backend-1");
+		setField(presence, "incarnationId", java.util.UUID.randomUUID());
+		setField(presence, "startedAt", 1L);
+
+		presence.stopForDisable();
+
+		verify(scheduler, never()).executeOrScheduleSync(eq(plugin), any(Runnable.class));
+		verify(messages).sendMessage(any());
+		assertFalse(presence.isReporting());
+	}
+
+	@Test
 	void failedPreparedDisableCanRestartPresenceDuringRollback() throws Exception {
 		BackendProxyHandler handler = new BackendProxyHandler(null);
 		BackendPresenceManager presence = mock(BackendPresenceManager.class);

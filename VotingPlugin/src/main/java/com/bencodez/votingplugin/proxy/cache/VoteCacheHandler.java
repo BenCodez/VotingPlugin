@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -540,20 +541,21 @@ public abstract class VoteCacheHandler {
 		}
 		removeOnlineVotes(expiredOnlineVotes);
 
-		// Collect expired server votes
-		ArrayList<OfflineBungeeVote> expiredServerVotes = new ArrayList<>();
+		// Keep JSON entry keys scoped to their owning server. Numeric keys are reused
+		// independently below every VoteCache.<server> node, so a combined removal
+		// list can otherwise delete an unrelated row with the same key.
+		Map<String, ArrayList<OfflineBungeeVote>> expiredServerVotes = new LinkedHashMap<>();
 		for (Entry<String, ArrayList<OfflineBungeeVote>> entry : cachedVotes.entrySet()) {
-			ArrayList<OfflineBungeeVote> votes = entry.getValue();
-			for (OfflineBungeeVote vote : votes) {
+			for (OfflineBungeeVote vote : entry.getValue()) {
 				if (vote.getTime() + (voteCacheTime * 24 * 60 * 60 * 1000L) < cTime) {
 					debug1("Removing vote from cache: " + vote.toString());
-					expiredServerVotes.add(vote);
+					expiredServerVotes.computeIfAbsent(entry.getKey(), ignored -> new ArrayList<>()).add(vote);
 				}
 			}
 		}
 
-		for (String server : cachedVotes.keySet()) {
-			removeServerVotes(server, expiredServerVotes);
+		for (Entry<String, ArrayList<OfflineBungeeVote>> entry : expiredServerVotes.entrySet()) {
+			removeServerVotes(entry.getKey(), entry.getValue());
 		}
 	}
 
