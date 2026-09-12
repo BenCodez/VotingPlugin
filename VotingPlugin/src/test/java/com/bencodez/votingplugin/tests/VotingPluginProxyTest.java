@@ -1715,18 +1715,36 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
-	void startupRetainsHttpForPersistedQueueWithoutLiveServer() throws Exception {
+	void startupRetainsHttpForPersistedQueueWithItsLastListenerSettings() throws Exception {
 		java.nio.file.Path backendQueue = temporaryDirectory.resolve("http/outgoing-v1/lobby-1");
 		java.nio.file.Files.createDirectories(backendQueue);
 		java.nio.file.Files.writeString(backendQueue.resolve(".pending-delivery.json"), "pending");
-		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
-		Mockito.doReturn(temporaryDirectory.toFile()).when(spyProxy).getDataFolderPlugin();
-		spyProxy.setMethod(BungeeMethod.HTTP);
-		Mockito.when(spyProxy.getConfig().getBungeeMethod()).thenReturn("REDIS");
+		setProxyField(votingPluginProxy, "httpTransportServer", Mockito.mock(HttpProxyTransportServer.class));
+		setProxyField(votingPluginProxy, "liveHttpHost", "127.0.0.1");
+		setProxyField(votingPluginProxy, "liveHttpPort", 8080);
+		setProxyField(votingPluginProxy, "liveHttpPublicEndpoint", "https://old.example.test:8080");
+		votingPluginProxy.setPendingHttpTransportDeliveries(true);
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		Mockito.when(votingPluginProxy.getConfig().getBungeeMethod()).thenReturn("REDIS");
+		votingPluginProxy.reloadFromControl();
+		assertTrue(java.nio.file.Files.isRegularFile(
+				temporaryDirectory.resolve("http/retained-listener-v1.bin")));
 
-		spyProxy.reloadFromControl();
+		VotingPluginProxyTestImpl restarted = new VotingPluginProxyTestImpl();
+		restarted.setDataFolder(temporaryDirectory.toFile());
+		restarted.setMethod(BungeeMethod.HTTP);
+		Mockito.when(restarted.getConfig().getBungeeMethod()).thenReturn("REDIS");
+		Mockito.when(restarted.getConfig().getHttpHost()).thenReturn("");
+		Mockito.when(restarted.getConfig().getHttpPort()).thenReturn(0);
+		Mockito.when(restarted.getConfig().getHttpPublicEndpoint()).thenReturn("");
 
-		assertEquals(BungeeMethod.HTTP, spyProxy.getMethod());
+		restarted.reloadFromControl();
+
+		assertEquals(BungeeMethod.HTTP, restarted.getMethod());
+		Object retained = getProxyField(restarted, "retainedHttpStartupSettings");
+		assertEquals("127.0.0.1", getField(retained, "host"));
+		assertEquals(8080, getField(retained, "port"));
+		assertEquals("https://old.example.test:8080", getField(retained, "publicEndpoint"));
 	}
 
 	@Test
@@ -2831,5 +2849,17 @@ public class VotingPluginProxyTest {
 		java.lang.reflect.Field field = VotingPluginProxy.class.getDeclaredField(name);
 		field.setAccessible(true);
 		field.set(target, value);
+	}
+
+	private static Object getProxyField(VotingPluginProxy target, String name) throws Exception {
+		java.lang.reflect.Field field = VotingPluginProxy.class.getDeclaredField(name);
+		field.setAccessible(true);
+		return field.get(target);
+	}
+
+	private static Object getField(Object target, String name) throws Exception {
+		java.lang.reflect.Field field = target.getClass().getDeclaredField(name);
+		field.setAccessible(true);
+		return field.get(target);
 	}
 }

@@ -11,8 +11,12 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.Base64;
 import java.sql.SQLException;
 import java.time.Duration;
@@ -200,6 +204,7 @@ public abstract class VotingPluginProxy {
 	// poll armed while a replacement is deferred so state cleared after an ack (or
 	// from the durable cache) cannot strand the old HTTP runtime indefinitely.
 	private static final long HTTP_TRANSPORT_RECONCILIATION_POLL_MILLIS = 1_000L;
+	private static final String HTTP_RETAINED_LISTENER_MAGIC = "VotingPlugin HTTP retained listener v1";
 	private static final Map<Path, PreparedHttpTransport> PREPARED_HTTP_TRANSPORTS = new ConcurrentHashMap<>();
 
 	@Getter
@@ -224,6 +229,19 @@ public abstract class VotingPluginProxy {
 	private String liveHttpHost;
 	private String liveHttpPublicEndpoint;
 	private int liveHttpPort;
+	private HttpListenerSettings retainedHttpStartupSettings;
+
+	private static final class HttpListenerSettings {
+		private final String host;
+		private final int port;
+		private final String publicEndpoint;
+
+		private HttpListenerSettings(String host, int port, String publicEndpoint) {
+			this.host = host;
+			this.port = port;
+			this.publicEndpoint = publicEndpoint;
+		}
+	}
 
 	private static final class PreparedHttpTransport {
 		private final HttpProxyTransportServer server;
@@ -3470,12 +3488,14 @@ public abstract class VotingPluginProxy {
 	}
 
 	private synchronized BungeeMethod retainHttpForPendingDeliveries(BungeeMethod configuredMethod) {
-		if (configuredMethod == BungeeMethod.HTTP && !hasChangedLiveHttpConfiguration()) {
+		if (configuredMethod == BungeeMethod.HTTP && httpTransportServer != null
+				&& !hasChangedLiveHttpConfiguration()) {
 			deferredHttpTransportReconciliation = false;
 			return configuredMethod;
 		}
 		HttpProxyTransportServer transport = httpTransportServer;
 		if (transport != null && httpTransportHasPendingDeliveries(transport)) {
+			persistLiveHttpListenerSettings();
 			deferredHttpTransportReconciliation = true;
 			logSevere("Retaining HTTP transport until durable deliveries are acknowledged");
 			return BungeeMethod.HTTP;
@@ -3484,6 +3504,7 @@ public abstract class VotingPluginProxy {
 			try {
 				if (httpQueueHasPersistedDeliveries(
 						getDataFolderPlugin().toPath().resolve("http").resolve("outgoing-v1"))) {
+					retainedHttpStartupSettings = loadRetainedHttpListenerSettingsUnchecked();
 					deferredHttpTransportReconciliation = true;
 					logSevere("Retaining HTTP transport until persisted deliveries are acknowledged");
 					return BungeeMethod.HTTP;
@@ -3491,12 +3512,15 @@ public abstract class VotingPluginProxy {
 			} catch (IOException unreadableQueue) {
 				// An unreadable durable queue is not proof that it is empty. Reopen HTTP so
 				// its normal bounded loader can validate or recover the state.
+				retainedHttpStartupSettings = loadRetainedHttpListenerSettingsUnchecked();
 				deferredHttpTransportReconciliation = true;
 				logSevere("Retaining HTTP transport because its persisted delivery queue could not be inspected");
 				return BungeeMethod.HTTP;
 			}
 		}
 		if (hasPendingCachedHttpDeliveries()) {
+			if (transport != null) persistLiveHttpListenerSettings();
+			else retainedHttpStartupSettings = loadRetainedHttpListenerSettingsUnchecked();
 			deferredHttpTransportReconciliation = true;
 			logSevere("Retaining HTTP transport until cached deliveries are acknowledged");
 			return BungeeMethod.HTTP;
@@ -3506,6 +3530,8 @@ public abstract class VotingPluginProxy {
 			for (String server : servers) {
 				Collection<String> rewards = getVoteCachePendingVotePartyRewardIds(server);
 				if (rewards != null && !rewards.isEmpty()) {
+					if (transport != null) persistLiveHttpListenerSettings();
+					else retainedHttpStartupSettings = loadRetainedHttpListenerSettingsUnchecked();
 					deferredHttpTransportReconciliation = true;
 					logSevere("Retaining HTTP transport until pending vote-party rewards are acknowledged");
 					return BungeeMethod.HTTP;
@@ -3513,7 +3539,86 @@ public abstract class VotingPluginProxy {
 			}
 		}
 		deferredHttpTransportReconciliation = false;
+		retainedHttpStartupSettings = null;
+		if (configuredMethod != BungeeMethod.HTTP || hasChangedLiveHttpConfiguration()) {
+			clearRetainedHttpListenerSettings();
+		}
 		return configuredMethod;
+	}
+
+	private Path retainedHttpListenerSettingsPath() {
+		return getDataFolderPlugin().toPath().resolve("http").resolve("retained-listener-v1.bin");
+	}
+
+	private void persistLiveHttpListenerSettings() {
+		if (liveHttpHost == null || liveHttpPublicEndpoint == null || liveHttpPort <= 0) return;
+		try {
+			persistRetainedHttpListenerSettings(
+					new HttpListenerSettings(liveHttpHost, liveHttpPort, liveHttpPublicEndpoint));
+		} catch (IOException failure) {
+			throw new IllegalStateException("HTTP listener settings could not be retained for queued deliveries", failure);
+		}
+	}
+
+	private void persistRetainedHttpListenerSettings(HttpListenerSettings settings) throws IOException {
+		Path target = retainedHttpListenerSettingsPath();
+		Files.createDirectories(target.getParent());
+		ByteArrayOutputStream encoded = new ByteArrayOutputStream();
+		try (DataOutputStream output = new DataOutputStream(encoded)) {
+			output.writeUTF(HTTP_RETAINED_LISTENER_MAGIC);
+			output.writeUTF(settings.host);
+			output.writeInt(settings.port);
+			output.writeUTF(settings.publicEndpoint);
+		}
+		Path temporary = target.resolveSibling(target.getFileName() + "." + UUID.randomUUID() + ".tmp");
+		try {
+			Files.write(temporary, encoded.toByteArray(), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+			try {
+				Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+			} catch (AtomicMoveNotSupportedException unsupported) {
+				Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
+			}
+		} finally {
+			Files.deleteIfExists(temporary);
+		}
+	}
+
+	private HttpListenerSettings loadRetainedHttpListenerSettingsUnchecked() {
+		try {
+			return loadRetainedHttpListenerSettings();
+		} catch (IOException failure) {
+			throw new IllegalStateException("Retained HTTP listener settings could not be read", failure);
+		}
+	}
+
+	private HttpListenerSettings loadRetainedHttpListenerSettings() throws IOException {
+		Path source = retainedHttpListenerSettingsPath();
+		if (!Files.isRegularFile(source)) return null;
+		try (DataInputStream input = new DataInputStream(Files.newInputStream(source))) {
+			if (!HTTP_RETAINED_LISTENER_MAGIC.equals(input.readUTF())) {
+				throw new IOException("Unsupported retained HTTP listener settings");
+			}
+			String host = input.readUTF();
+			int port = input.readInt();
+			String publicEndpoint = input.readUTF();
+			if (input.read() != -1 || host.isBlank() || port < 1 || port > 65535) {
+				throw new IOException("Invalid retained HTTP listener settings");
+			}
+			try {
+				validatedHttpEndpoint(publicEndpoint);
+			} catch (IllegalArgumentException invalid) {
+				throw new IOException("Invalid retained HTTP public endpoint", invalid);
+			}
+			return new HttpListenerSettings(host, port, publicEndpoint);
+		}
+	}
+
+	private void clearRetainedHttpListenerSettings() {
+		try {
+			Files.deleteIfExists(retainedHttpListenerSettingsPath());
+		} catch (IOException failure) {
+			logSevere("Unable to remove obsolete retained HTTP listener settings: " + failure.getMessage());
+		}
 	}
 
 	private boolean hasChangedLiveHttpConfiguration() {
@@ -3746,8 +3851,14 @@ public abstract class VotingPluginProxy {
 
 	private void startHttpTransport() {
 		try {
+			HttpListenerSettings startup = deferredHttpTransportReconciliation
+					? retainedHttpStartupSettings : null;
+			if (startup == null) {
+				startup = new HttpListenerSettings(getConfig().getHttpHost(), getConfig().getHttpPort(),
+						getConfig().getHttpPublicEndpoint());
+			}
 			PreparedHttpTransport prepared = PREPARED_HTTP_TRANSPORTS.remove(httpTransportPreparationKey());
-			if (prepared != null) {
+			if (prepared != null && retainedHttpStartupSettings == null) {
 				if (!prepared.matches(getConfig())) {
 					prepared.close();
 					throw new IllegalStateException("Prepared HTTP transport does not match the installed configuration");
@@ -3755,21 +3866,25 @@ public abstract class VotingPluginProxy {
 				httpTransportServer = prepared.server;
 				httpEnrollmentAuthority = prepared.authority;
 				prepared.owner.set(this);
+				startup = new HttpListenerSettings(prepared.host, prepared.port, prepared.publicEndpoint);
 			} else {
-				URI endpoint = validatedHttpEndpoint(getConfig().getHttpPublicEndpoint());
+				if (prepared != null) prepared.close();
+				URI endpoint = validatedHttpEndpoint(startup.publicEndpoint);
 				File directory = new File(getDataFolderPlugin(), "http");
 				HttpTlsIdentity identity = HttpTlsIdentity.loadOrCreate(directory.toPath(), endpoint.getHost());
 				httpEnrollmentAuthority = new HttpEnrollmentAuthority(identity, directory.toPath());
 				httpTransportServer = new HttpProxyTransportServer(
-						new InetSocketAddress(getConfig().getHttpHost(), getConfig().getHttpPort()), identity,
+						new InetSocketAddress(startup.host, startup.port), identity,
 						httpEnrollmentAuthority, directory.toPath().resolve("outgoing-v1"),
 						this::handleHttpTransportEnvelope, this::acknowledgeHttpDelivery);
 				httpTransportServer.start();
 			}
-			liveHttpHost = getConfig().getHttpHost();
-			liveHttpPort = getConfig().getHttpPort();
-			liveHttpPublicEndpoint = getConfig().getHttpPublicEndpoint();
-			logInfo("HTTP transport listening securely on " + getConfig().getHttpHost() + ":"
+			persistRetainedHttpListenerSettings(startup);
+			liveHttpHost = startup.host;
+			liveHttpPort = startup.port;
+			liveHttpPublicEndpoint = startup.publicEndpoint;
+			retainedHttpStartupSettings = null;
+			logInfo("HTTP transport listening securely on " + liveHttpHost + ":"
 					+ httpTransportServer.port() + "; use /votingpluginproxy httpcode <server> for each backend");
 		} catch (Exception failure) {
 			closeHttpTransport();
