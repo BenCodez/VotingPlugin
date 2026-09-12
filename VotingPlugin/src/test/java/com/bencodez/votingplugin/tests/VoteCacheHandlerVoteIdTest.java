@@ -495,6 +495,56 @@ public class VoteCacheHandlerVoteIdTest {
 	}
 
 	@Test
+	public void identicalLegacyServerJsonRowsKeepDistinctEntryIdentitiesAndDeleteIndividually() throws Exception {
+		VotingPluginBungee plugin = mock(VotingPluginBungee.class);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		Files.writeString(tempDir.resolve("votecache.json"), """
+				{"VoteCache":{"server":{"0":{"Name":"Player","Service":"Service","UUID":"player-uuid","Time":100},
+				"1":{"Name":"Player","Service":"Service","UUID":"player-uuid","Time":100}}}}
+				""");
+		BungeeJsonVoteCache durableStorage = new BungeeJsonVoteCache(plugin);
+		VoteCacheHandler durableHandler = newVerifyingHandler(durableStorage);
+
+		durableHandler.load();
+		OfflineBungeeVote first = durableHandler.getVotes("server").stream()
+				.filter(vote -> "0".equals(vote.getServerVoteCacheJsonKey())).findFirst().orElseThrow();
+		OfflineBungeeVote second = durableHandler.getVotes("server").stream()
+				.filter(vote -> "1".equals(vote.getServerVoteCacheJsonKey())).findFirst().orElseThrow();
+
+		assertEquals(2, durableHandler.getVotes("server").size());
+		durableHandler.removeServerVotes("server", new ArrayList<>(List.of(first)));
+
+		assertFalse(durableStorage.getServerVotes("server").contains("0"));
+		assertTrue(durableStorage.getServerVotes("server").contains("1"));
+		assertEquals("1", second.getServerVoteCacheJsonKey());
+	}
+
+	@Test
+	public void identicalLegacyOnlineJsonRowsKeepDistinctEntryIdentitiesAndDeleteIndividually() throws Exception {
+		VotingPluginBungee plugin = mock(VotingPluginBungee.class);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		Files.writeString(tempDir.resolve("votecache.json"), """
+				{"OnlineCache":{"player-uuid":{"0":{"Name":"Player","Service":"Service","UUID":"player-uuid","Time":100},
+				"1":{"Name":"Player","Service":"Service","UUID":"player-uuid","Time":100}}}}
+				""");
+		BungeeJsonVoteCache durableStorage = new BungeeJsonVoteCache(plugin);
+		VoteCacheHandler durableHandler = newVerifyingHandler(durableStorage);
+
+		durableHandler.load();
+		OfflineBungeeVote first = durableHandler.getOnlineVotes("player-uuid").stream()
+				.filter(vote -> "0".equals(vote.getOnlineVoteCacheJsonKey())).findFirst().orElseThrow();
+		OfflineBungeeVote second = durableHandler.getOnlineVotes("player-uuid").stream()
+				.filter(vote -> "1".equals(vote.getOnlineVoteCacheJsonKey())).findFirst().orElseThrow();
+
+		assertEquals(2, durableHandler.getOnlineVotes("player-uuid").size());
+		assertTrue(durableHandler.tryRemoveOnlineVote("player-uuid", first));
+
+		assertFalse(durableStorage.getOnlineVotes("player-uuid").contains("0"));
+		assertTrue(durableStorage.getOnlineVotes("player-uuid").contains("1"));
+		assertEquals("1", second.getOnlineVoteCacheJsonKey());
+	}
+
+	@Test
 	public void identicalLegacyTimedSqlRowsUsePrimaryKeysForDistinctStableIds() {
 		VoteTimeQueue first = legacyTimedVote();
 		VoteTimeQueue second = legacyTimedVote();

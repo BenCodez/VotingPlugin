@@ -3716,12 +3716,27 @@ public abstract class VotingPluginProxy {
 	private String stableCachedHttpDeliveryId(String purpose, String server, JsonEnvelope envelope,
 			OfflineBungeeVote cachedVote) {
 		if (cachedVote == null || server == null || envelope == null) return null;
-		String voteIdentity = cachedVote.getVoteId() == null
-				? cachedVote.getUuid() + "\u0000" + cachedVote.getService() + "\u0000" + cachedVote.getTime()
+		String voteIdentity = cachedVote.getVoteId() == null ? stableCachedVoteRowIdentity(cachedVote)
 				: cachedVote.getVoteId().toString();
 		String key = "VotingPlugin:http-cache:v1\u0000" + purpose + "\u0000"
 				+ server.toLowerCase(Locale.ROOT) + "\u0000" + envelope.getSubChannel() + "\u0000" + voteIdentity;
 		return UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8)).toString();
+	}
+
+	/**
+	 * Distinguishes pre-vote-ID cache rows that can otherwise share every visible
+	 * vote field. SQL primary keys and JSON entry keys are durable before this
+	 * fallback is used; the tuple remains only for callers holding an unbound
+	 * legacy object during a mixed-version transition.
+	 */
+	private String stableCachedVoteRowIdentity(OfflineBungeeVote vote) {
+		if (vote.getServerVoteCacheRowId() > 0) return "server-sql:" + vote.getServerVoteCacheRowId();
+		if (vote.getOnlineVoteCacheRowId() > 0) return "online-sql:" + vote.getOnlineVoteCacheRowId();
+		if (vote.getServerVoteCacheJsonKey() != null) return "server-json:" + vote.getServerVoteCacheJsonKey();
+		if (vote.getOnlineVoteCacheJsonKey() != null) {
+			return "online-json:" + vote.getUuid() + ":" + vote.getOnlineVoteCacheJsonKey();
+		}
+		return "legacy:" + vote.getUuid() + "\u0000" + vote.getService() + "\u0000" + vote.getTime();
 	}
 
 	protected synchronized boolean sendHttpEnvelope(String server, String deliveryId, JsonEnvelope envelope) {

@@ -127,12 +127,13 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 			return false;
 		}
 
+		boolean hasRowId = vote.getServerVoteCacheRowId() > 0;
 		boolean hasVoteId = vote.getVoteId() != null;
 		String sql = "UPDATE " + qi(getTableName()) + " SET " + qi("broadcastForwarded") + " = ?, "
 				+ qi("proxyBroadcastHandled") + " = ?, " + qi("broadcastTargets") + " = ?, "
 				+ qi("broadcastForwardedServers") + " = ?, " + qi("rewardDelivered") + " = ?, "
 				+ qi("httpDeliveryIds") + " = ?, " + qi("httpBroadcastDeliveryIds") + " = ? WHERE "
-				+ (hasVoteId ? qi("voteid") + " = ? AND " + qi("server") + " = ?;"
+				+ (hasRowId ? qi("id") + " = ?;" : hasVoteId ? qi("voteid") + " = ? AND " + qi("server") + " = ?;"
 						: qi("uuid") + " = ? AND " + qi("service") + " = ? AND " + qi("time") + " = ? AND "
 								+ qi("server") + " = ?;");
 
@@ -151,7 +152,9 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 			ps.setString(4, vote.encodeBroadcastForwardedServers());
 			ps.setString(6, vote.encodeHttpDeliveryIds());
 			ps.setString(7, vote.encodeHttpBroadcastDeliveryIds());
-			if (hasVoteId) {
+			if (hasRowId) {
+				ps.setInt(8, vote.getServerVoteCacheRowId());
+			} else if (hasVoteId) {
 				ps.setString(8, vote.getVoteId().toString());
 				ps.setString(9, server);
 			} else {
@@ -354,6 +357,22 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 			String text, boolean broadcastForwarded, boolean proxyBroadcastHandled, String broadcastTargets,
 			String broadcastForwardedServers, boolean rewardDelivered, String httpDeliveryIds,
 			String httpBroadcastDeliveryIds, String server) {
+		return tryInsertVoteAndGetId(voteId, uuid, playerName, service, time, real, text, broadcastForwarded,
+				proxyBroadcastHandled, broadcastTargets, broadcastForwardedServers, rewardDelivered, httpDeliveryIds,
+				httpBroadcastDeliveryIds, server) > 0;
+	}
+
+	/**
+	 * Inserts a vote and returns its durable primary key. Delivery-state updates
+	 * must use this row identity because legacy cache rows need not have a vote ID.
+	 *
+	 * @return the generated primary key, or {@code -1} when insertion or key
+	 *         retrieval failed
+	 */
+	public int tryInsertVoteAndGetId(UUID voteId, String uuid, String playerName, String service, long time,
+			boolean real, String text, boolean broadcastForwarded, boolean proxyBroadcastHandled,
+			String broadcastTargets, String broadcastForwardedServers, boolean rewardDelivered,
+			String httpDeliveryIds, String httpBroadcastDeliveryIds, String server) {
 
 		String sql = "INSERT INTO " + qi(getTableName()) + " (" + qi("uuid") + ", " + qi("voteid") + ", "
 				+ qi("playerName") + ", " + qi("service") + ", " + qi("time") + ", " + qi("realVote") + ", "
@@ -363,7 +382,7 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 				+ ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
 		try (Connection conn = mysql.getConnectionManager().getConnection();
-				PreparedStatement ps = conn.prepareStatement(sql)) {
+				PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
 			if (getDbType() == DbType.POSTGRESQL) {
 				ps.setObject(1, UUID.fromString(uuid));
@@ -398,10 +417,13 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 			ps.setString(14, httpBroadcastDeliveryIds);
 			ps.setString(15, server);
 
-			return ps.executeUpdate() > 0;
+			if (ps.executeUpdate() != 1) return -1;
+			try (ResultSet keys = ps.getGeneratedKeys()) {
+				return keys.next() ? keys.getInt(1) : -1;
+			}
 		} catch (SQLException | IllegalArgumentException e) {
 			debug(e);
-			return false;
+			return -1;
 		}
 	}
 
@@ -534,15 +556,19 @@ public abstract class ProxyVoteCacheTable extends AbstractSqlTable {
 
 	/** Removes one stable vote identity and reports whether the statement completed. */
 	public boolean tryRemoveVote(OfflineBungeeVote vote, String server) {
+		boolean hasRowId = vote.getServerVoteCacheRowId() > 0;
 		boolean byVoteId = vote.getVoteId() != null;
 		String sql = "DELETE FROM " + qi(getTableName()) + " WHERE "
-				+ (byVoteId ? qi("voteid") + " = ?" : qi("uuid") + " = ? AND " + qi("service")
+				+ (hasRowId ? qi("id") + " = ?" : byVoteId ? qi("voteid") + " = ?" : qi("uuid") + " = ? AND " + qi("service")
 						+ " = ? AND " + qi("time") + " = ?")
 				+ " AND " + qi("server") + " = ?;";
 
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
-			if (byVoteId) {
+			if (hasRowId) {
+				ps.setInt(1, vote.getServerVoteCacheRowId());
+				ps.setString(2, server);
+			} else if (byVoteId) {
 				ps.setString(1, vote.getVoteId().toString());
 				ps.setString(2, server);
 			} else {

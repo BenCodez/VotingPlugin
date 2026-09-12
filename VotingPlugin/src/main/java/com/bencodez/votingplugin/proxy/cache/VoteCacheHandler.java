@@ -131,12 +131,15 @@ public abstract class VoteCacheHandler {
 
 		boolean stored;
 		if (useMySQL) {
-			stored = voteCacheTable.tryInsertVote(vote.getVoteId(), vote.getUuid(), vote.getPlayerName(), vote.getService(),
+			int rowId = voteCacheTable.tryInsertVoteAndGetId(vote.getVoteId(), vote.getUuid(), vote.getPlayerName(), vote.getService(),
 					vote.getTime(), vote.isRealVote(), vote.getText(), vote.isBroadcastForwarded(),
 					vote.isProxyBroadcastHandled(), vote.encodeBroadcastTargets(),
 					vote.encodeBroadcastForwardedServers(), vote.isRewardDelivered(), vote.encodeHttpDeliveryIds(),
 					vote.encodeHttpBroadcastDeliveryIds(), server);
-			if (!stored) {
+			stored = rowId > 0;
+			if (stored) {
+				vote.setServerVoteCacheRowId(rowId);
+			} else {
 				stored = persistServerVoteToJson(server, vote);
 			}
 		} else {
@@ -171,7 +174,9 @@ public abstract class VoteCacheHandler {
 	public synchronized boolean updateServerVote(String server, OfflineBungeeVote vote) {
 		if (useMySQL) {
 			if (voteCacheTable.updateProxyBroadcastState(vote, server)) {
-				return true;
+				// SQL rows can have an emergency JSON twin after a mixed-version or
+				// recovery path. Keep that exact twin current before publishing again.
+				return !hasJsonServerVote(vote, server) || updateServerVoteJson(server, vote);
 			}
 			return updateServerVoteJson(server, vote);
 		}
@@ -187,9 +192,10 @@ public abstract class VoteCacheHandler {
 					|| !data.has("Time")) {
 				continue;
 			}
-			if (matchesStoredVote(data, vote)) {
+			if (matchesStoredServerVote(key, data, vote)) {
 				try {
 					int index = Integer.parseInt(key);
+					vote.setServerVoteCacheJsonKey(key);
 					jsonStorage.addVote(server, index, vote);
 					return verifyJsonServerVote(server, index, vote);
 				} catch (RuntimeException e) {
@@ -290,12 +296,15 @@ public abstract class VoteCacheHandler {
 
 		boolean stored;
 		if (useMySQL) {
-			stored = onlineVoteCacheTable.tryInsertVote(vote.getVoteId(), vote.getUuid(), vote.getPlayerName(), vote.getService(),
+			int rowId = onlineVoteCacheTable.tryInsertVoteAndGetId(vote.getVoteId(), vote.getUuid(), vote.getPlayerName(), vote.getService(),
 					vote.getTime(), vote.isRealVote(), vote.getText(), vote.isBroadcastForwarded(),
 					vote.isProxyBroadcastHandled(), vote.encodeBroadcastTargets(),
 					vote.encodeBroadcastForwardedServers(), vote.isRewardDelivered(), vote.encodeHttpDeliveryIds(),
 					vote.encodeHttpBroadcastDeliveryIds());
-			if (!stored) {
+			stored = rowId > 0;
+			if (stored) {
+				vote.setOnlineVoteCacheRowId(rowId);
+			} else {
 				stored = persistOnlineVoteToJson(uuid, vote);
 			}
 		} else {
@@ -364,7 +373,7 @@ public abstract class VoteCacheHandler {
 	public synchronized boolean updateOnlineVote(String uuid, OfflineBungeeVote vote) {
 		if (useMySQL) {
 			if (onlineVoteCacheTable.updateProxyBroadcastState(vote)) {
-				return true;
+				return !hasJsonOnlineVote(vote, uuid) || updateOnlineVoteJson(uuid, vote);
 			}
 			return updateOnlineVoteJson(uuid, vote);
 		}
@@ -380,9 +389,10 @@ public abstract class VoteCacheHandler {
 					|| !data.has("Time")) {
 				continue;
 			}
-			if (matchesStoredVote(data, vote)) {
+			if (matchesStoredOnlineVote(key, data, vote)) {
 				try {
 					int index = Integer.parseInt(key);
+					vote.setOnlineVoteCacheJsonKey(key);
 					jsonStorage.addVoteOnline(uuid, index, vote);
 					return verifyJsonOnlineVote(uuid, index, vote);
 				} catch (RuntimeException e) {
@@ -459,12 +469,32 @@ public abstract class VoteCacheHandler {
 		}
 	}
 
+	/** Returns whether this vote has an exact voter-cache JSON emergency twin. */
+	private boolean hasJsonOnlineVote(OfflineBungeeVote vote, String uuid) {
+		if (jsonStorage == null) return false;
+		if (jsonStorageQuarantined) return true;
+		try {
+			Collection<String> keys = jsonStorage.getOnlineVotes(uuid);
+			if (keys == null) return false;
+			for (String key : keys) {
+				DataNode data = jsonStorage.getOnlineVotes(uuid, key);
+				if (data != null && data.isObject() && matchesStoredOnlineVote(key, data, vote)) return true;
+			}
+			return false;
+		} catch (RuntimeException failure) {
+			debug1(failure);
+			// A JSON journal we cannot inspect may be the only stale twin after a
+			// restart. Do not claim a delivery-state update is durable.
+			return true;
+		}
+	}
+
 	private boolean containsStoredOnlineVote(String uuid, OfflineBungeeVote expected) {
 		Collection<String> keys = jsonStorage.getOnlineVotes(uuid);
 		if (keys == null) return false;
 		for (String key : keys) {
 			DataNode data = jsonStorage.getOnlineVotes(uuid, key);
-			if (data != null && matchesStoredVote(data, expected)) return true;
+			if (data != null && matchesStoredOnlineVote(key, data, expected)) return true;
 		}
 		return false;
 	}
@@ -539,6 +569,37 @@ public abstract class VoteCacheHandler {
 		return false;
 	}
 
+	private OfflineBungeeVote findServerVoteSqlTwin(String server, OfflineBungeeVote emergency) {
+		for (OfflineBungeeVote candidate : getVotes(server)) {
+			if (candidate.getServerVoteCacheRowId() <= 0 || candidate.getServerVoteCacheJsonKey() != null) continue;
+			if (candidate.getVoteId() != null || emergency.getVoteId() != null) {
+				if (candidate.getVoteId() != null && candidate.getVoteId().equals(emergency.getVoteId())) return candidate;
+				continue;
+			}
+			if (matchesLegacyVote(candidate, emergency)) return candidate;
+		}
+		return null;
+	}
+
+	private OfflineBungeeVote findOnlineVoteSqlTwin(String uuid, OfflineBungeeVote emergency) {
+		for (OfflineBungeeVote candidate : getOnlineVotes(uuid)) {
+			if (candidate.getOnlineVoteCacheRowId() <= 0 || candidate.getOnlineVoteCacheJsonKey() != null) continue;
+			if (candidate.getVoteId() != null || emergency.getVoteId() != null) {
+				if (candidate.getVoteId() != null && candidate.getVoteId().equals(emergency.getVoteId())) return candidate;
+				continue;
+			}
+			if (matchesLegacyVote(candidate, emergency)) return candidate;
+		}
+		return null;
+	}
+
+	private boolean matchesLegacyVote(OfflineBungeeVote first, OfflineBungeeVote second) {
+		return Objects.equals(first.getUuid(), second.getUuid())
+				&& Objects.equals(first.getPlayerName(), second.getPlayerName())
+				&& Objects.equals(first.getService(), second.getService())
+				&& first.getTime() == second.getTime();
+	}
+
 	/**
 	 * Reads a vote identifier using the current key and the legacy key.
 	 *
@@ -587,6 +648,28 @@ public abstract class VoteCacheHandler {
 				&& vote.getTime() == data.get("Time").asLong();
 	}
 
+	private boolean matchesStoredServerVote(String key, DataNode data, OfflineBungeeVote vote) {
+		if (vote.getServerVoteCacheJsonKey() != null) return vote.getServerVoteCacheJsonKey().equals(key);
+		String storedVoteId = readVoteId(data);
+		if (vote.getVoteId() != null && !storedVoteId.isEmpty()) {
+			return vote.getVoteId().toString().equals(storedVoteId);
+		}
+		// A SQL row is not a JSON emergency twin merely because a legacy tuple
+		// matches. Pre-ID rows are not unique by those fields.
+		if (vote.getServerVoteCacheRowId() > 0) return false;
+		return matchesStoredVote(data, vote);
+	}
+
+	private boolean matchesStoredOnlineVote(String key, DataNode data, OfflineBungeeVote vote) {
+		if (vote.getOnlineVoteCacheJsonKey() != null) return vote.getOnlineVoteCacheJsonKey().equals(key);
+		String storedVoteId = readVoteId(data);
+		if (vote.getVoteId() != null && !storedVoteId.isEmpty()) {
+			return vote.getVoteId().toString().equals(storedVoteId);
+		}
+		if (vote.getOnlineVoteCacheRowId() > 0) return false;
+		return matchesStoredVote(data, vote);
+	}
+
 	/** Persists a server vote in the JSON emergency journal. */
 	private boolean persistServerVoteToJson(String server, OfflineBungeeVote vote) {
 		if (jsonStorage == null || jsonStorageQuarantined) {
@@ -595,6 +678,7 @@ public abstract class VoteCacheHandler {
 		try {
 			Collection<String> keys = jsonStorage.getServerVotes(server);
 			int index = nextCacheIndex(keys);
+			vote.setServerVoteCacheJsonKey(String.valueOf(index));
 			jsonStorage.addVote(server, index, vote);
 			return verifyJsonServerVote(server, index, vote);
 		} catch (RuntimeException e) {
@@ -611,6 +695,7 @@ public abstract class VoteCacheHandler {
 		try {
 			Collection<String> keys = jsonStorage.getOnlineVotes(uuid);
 			int index = nextCacheIndex(keys);
+			vote.setOnlineVoteCacheJsonKey(String.valueOf(index));
 			jsonStorage.addVoteOnline(uuid, index, vote);
 			return verifyJsonOnlineVote(uuid, index, vote);
 		} catch (RuntimeException e) {
@@ -667,9 +752,10 @@ public abstract class VoteCacheHandler {
 		}
 		for (String key : keys) {
 			DataNode data = jsonStorage.getServerVotes(server, key);
-			if (data != null && data.isObject() && matchesStoredVote(data, vote)) {
+			if (data != null && data.isObject() && matchesStoredServerVote(key, data, vote)) {
 				try {
 					int index = Integer.parseInt(key);
+					vote.setServerVoteCacheJsonKey(key);
 					jsonStorage.addVote(server, index, vote);
 					return verifyJsonServerVote(server, index, vote);
 				} catch (RuntimeException e) {
@@ -691,9 +777,10 @@ public abstract class VoteCacheHandler {
 		}
 		for (String key : keys) {
 			DataNode data = jsonStorage.getOnlineVotes(uuid, key);
-			if (data != null && data.isObject() && matchesStoredVote(data, vote)) {
+			if (data != null && data.isObject() && matchesStoredOnlineVote(key, data, vote)) {
 				try {
 					int index = Integer.parseInt(key);
+					vote.setOnlineVoteCacheJsonKey(key);
 					jsonStorage.addVoteOnline(uuid, index, vote);
 					return verifyJsonOnlineVote(uuid, index, vote);
 				} catch (RuntimeException e) {
@@ -706,8 +793,22 @@ public abstract class VoteCacheHandler {
 	}
 
 	private boolean sameVoteIdentity(OfflineBungeeVote first, OfflineBungeeVote second) {
-		if (first.getVoteId() != null && second.getVoteId() != null) {
-			return first.getVoteId().equals(second.getVoteId());
+		if (first.getVoteId() != null || second.getVoteId() != null) {
+			return first.getVoteId() != null && first.getVoteId().equals(second.getVoteId());
+		}
+		if (first.getServerVoteCacheRowId() > 0 || second.getServerVoteCacheRowId() > 0) {
+			return first.getServerVoteCacheRowId() > 0
+					&& first.getServerVoteCacheRowId() == second.getServerVoteCacheRowId();
+		}
+		if (first.getOnlineVoteCacheRowId() > 0 || second.getOnlineVoteCacheRowId() > 0) {
+			return first.getOnlineVoteCacheRowId() > 0
+					&& first.getOnlineVoteCacheRowId() == second.getOnlineVoteCacheRowId();
+		}
+		if (first.getServerVoteCacheJsonKey() != null || second.getServerVoteCacheJsonKey() != null) {
+			return Objects.equals(first.getServerVoteCacheJsonKey(), second.getServerVoteCacheJsonKey());
+		}
+		if (first.getOnlineVoteCacheJsonKey() != null || second.getOnlineVoteCacheJsonKey() != null) {
+			return Objects.equals(first.getOnlineVoteCacheJsonKey(), second.getOnlineVoteCacheJsonKey());
 		}
 		return first.getUuid().equals(second.getUuid()) && first.getService().equals(second.getService())
 				&& first.getTime() == second.getTime();
@@ -1148,6 +1249,7 @@ public abstract class VoteCacheHandler {
 						VoteTimeQueue.decodeBroadcastForwardedServers(voteRow.getBroadcastForwardedServers()),
 						voteRow.isRewardDelivered(), OfflineBungeeVote.decodeHttpDeliveryIds(voteRow.getHttpDeliveryIds()),
 						OfflineBungeeVote.decodeHttpBroadcastDeliveryIds(voteRow.getHttpBroadcastDeliveryIds()));
+				vote.setServerVoteCacheRowId(voteRow.getId());
 				String server = voteRow.getServer();
 				cachedVotes.putIfAbsent(server, new ArrayList<>());
 				cachedVotes.get(server).add(vote);
@@ -1162,6 +1264,7 @@ public abstract class VoteCacheHandler {
 						VoteTimeQueue.decodeBroadcastForwardedServers(voteRow.getBroadcastForwardedServers()),
 						voteRow.isRewardDelivered(), OfflineBungeeVote.decodeHttpDeliveryIds(voteRow.getHttpDeliveryIds()),
 						OfflineBungeeVote.decodeHttpBroadcastDeliveryIds(voteRow.getHttpBroadcastDeliveryIds()));
+				vote.setOnlineVoteCacheRowId(voteRow.getId());
 				String player = vote.getUuid();
 				cachedOnlineVotes.putIfAbsent(player, new ArrayList<>());
 				cachedOnlineVotes.get(player).add(vote);
@@ -1237,12 +1340,14 @@ public abstract class VoteCacheHandler {
 							boolean rewardDelivered = data.has("RewardDelivered")
 									&& data.get("RewardDelivered").asBoolean();
 
-							votes.add(new OfflineBungeeVote(voteId, name, uuid, service, time, real, text,
+							OfflineBungeeVote vote = new OfflineBungeeVote(voteId, name, uuid, service, time, real, text,
 									broadcastForwarded, proxyBroadcastHandled,
 									VoteTimeQueue.decodeBroadcastForwardedServers(broadcastTargets),
 									VoteTimeQueue.decodeBroadcastForwardedServers(broadcastForwardedServers),
 								rewardDelivered, OfflineBungeeVote.decodeHttpDeliveryIds(httpDeliveryIds),
-								OfflineBungeeVote.decodeHttpBroadcastDeliveryIds(httpBroadcastDeliveryIds)));
+								OfflineBungeeVote.decodeHttpBroadcastDeliveryIds(httpBroadcastDeliveryIds));
+							vote.setServerVoteCacheJsonKey(num);
+							votes.add(vote);
 						}
 					}
 					cachedVotes.put(server, votes);
@@ -1283,12 +1388,14 @@ public abstract class VoteCacheHandler {
 							boolean rewardDelivered = data.has("RewardDelivered")
 									&& data.get("RewardDelivered").asBoolean();
 
-							votes.add(new OfflineBungeeVote(voteId, name, uuid, service, time, real, text,
+							OfflineBungeeVote vote = new OfflineBungeeVote(voteId, name, uuid, service, time, real, text,
 									broadcastForwarded, proxyBroadcastHandled,
 									VoteTimeQueue.decodeBroadcastForwardedServers(broadcastTargets),
 									VoteTimeQueue.decodeBroadcastForwardedServers(broadcastForwardedServers),
 								rewardDelivered, OfflineBungeeVote.decodeHttpDeliveryIds(httpDeliveryIds),
-								OfflineBungeeVote.decodeHttpBroadcastDeliveryIds(httpBroadcastDeliveryIds)));
+								OfflineBungeeVote.decodeHttpBroadcastDeliveryIds(httpBroadcastDeliveryIds));
+							vote.setOnlineVoteCacheJsonKey(num);
+							votes.add(vote);
 						}
 					}
 					cachedOnlineVotes.put(player, votes);
@@ -1353,9 +1460,11 @@ public abstract class VoteCacheHandler {
 					}
 					for (String key : keys) {
 						OfflineBungeeVote vote = decodeJsonVote(jsonStorage.getServerVotes(server, key));
-						if (vote != null && !containsServerVote(server, vote)) {
-							cachedVotes.computeIfAbsent(server, ignored -> new ArrayList<>()).add(vote);
-						}
+						if (vote == null) continue;
+						vote.setServerVoteCacheJsonKey(key);
+						OfflineBungeeVote sqlTwin = findServerVoteSqlTwin(server, vote);
+						if (sqlTwin != null) sqlTwin.setServerVoteCacheJsonKey(key);
+						else cachedVotes.computeIfAbsent(server, ignored -> new ArrayList<>()).add(vote);
 					}
 				}
 			}
@@ -1368,9 +1477,11 @@ public abstract class VoteCacheHandler {
 					}
 					for (String key : keys) {
 						OfflineBungeeVote vote = decodeJsonVote(jsonStorage.getOnlineVotes(player, key));
-						if (vote != null && !containsOnlineVote(player, vote)) {
-							cachedOnlineVotes.computeIfAbsent(player, ignored -> new ArrayList<>()).add(vote);
-						}
+						if (vote == null) continue;
+						vote.setOnlineVoteCacheJsonKey(key);
+						OfflineBungeeVote sqlTwin = findOnlineVoteSqlTwin(player, vote);
+						if (sqlTwin != null) sqlTwin.setOnlineVoteCacheJsonKey(key);
+						else cachedOnlineVotes.computeIfAbsent(player, ignored -> new ArrayList<>()).add(vote);
 					}
 				}
 			}
@@ -1686,12 +1797,30 @@ public abstract class VoteCacheHandler {
 		}
 	}
 
+	/** Returns whether this vote has an exact server-cache JSON emergency twin. */
+	private boolean hasJsonServerVote(OfflineBungeeVote vote, String server) {
+		if (jsonStorage == null) return false;
+		if (jsonStorageQuarantined) return true;
+		try {
+			Collection<String> keys = jsonStorage.getServerVotes(server);
+			if (keys == null) return false;
+			for (String key : keys) {
+				DataNode data = jsonStorage.getServerVotes(server, key);
+				if (data != null && data.isObject() && matchesStoredServerVote(key, data, vote)) return true;
+			}
+			return false;
+		} catch (RuntimeException failure) {
+			debug1(failure);
+			return true;
+		}
+	}
+
 	private boolean containsStoredServerVote(String server, OfflineBungeeVote expected) {
 		Collection<String> keys = jsonStorage.getServerVotes(server);
 		if (keys == null) return false;
 		for (String key : keys) {
 			DataNode data = jsonStorage.getServerVotes(server, key);
-			if (data != null && matchesStoredVote(data, expected)) return true;
+			if (data != null && matchesStoredServerVote(key, data, expected)) return true;
 		}
 		return false;
 	}

@@ -51,6 +51,22 @@ public class OfflineBungeeVote {
 	@Getter
 	@Setter
 	private boolean deliveryStateDirty;
+	/** SQL primary key for this vote's server-keyed cache row, when applicable. */
+	@Getter
+	@Setter
+	private int serverVoteCacheRowId;
+	/** JSON entry key for this vote's server-keyed emergency cache row, when applicable. */
+	@Getter
+	@Setter
+	private String serverVoteCacheJsonKey;
+	/** SQL primary key for this vote's voter-keyed cache row, when applicable. */
+	@Getter
+	@Setter
+	private int onlineVoteCacheRowId;
+	/** JSON entry key for this vote's voter-keyed emergency cache row, when applicable. */
+	@Getter
+	@Setter
+	private String onlineVoteCacheJsonKey;
 	/** Stable HTTP delivery IDs that must be reused for each target server. */
 	private final Map<String, String> httpDeliveryIds;
 	/** Stable HTTP standalone-broadcast IDs, separate from reward delivery IDs. */
