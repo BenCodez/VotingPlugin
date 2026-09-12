@@ -345,6 +345,38 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 		}
 	}
 
+	/** Assigns a stable ID to a pre-ID timed row before reliable forwarding. */
+	public boolean assignLegacyTimedVoteId(VoteTimeQueue vote, UUID voteId) {
+		if (vote == null || voteId == null) return false;
+		String sql = "UPDATE " + qi(getTableName()) + " SET " + qi("voteId") + " = ? WHERE "
+				+ qi("playerName") + " = ? AND " + qi("service") + " = ? AND " + qi("time") + " = ? AND ("
+				+ qi("voteId") + " IS NULL OR " + qi("voteId") + " = '' OR " + qi("voteId") + " = ?);";
+		try (Connection conn = mysql.getConnectionManager().getConnection();
+				PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setString(1, voteId.toString());
+			ps.setString(2, vote.getName());
+			ps.setString(3, vote.getService());
+			ps.setLong(4, vote.getTime());
+			ps.setString(5, voteId.toString());
+			if (ps.executeUpdate() > 0) return true;
+			String verifySql = "SELECT " + qi("id") + " FROM " + qi(getTableName()) + " WHERE "
+					+ qi("playerName") + " = ? AND " + qi("service") + " = ? AND " + qi("time") + " = ? AND "
+					+ qi("voteId") + " = ?;";
+			try (PreparedStatement verify = conn.prepareStatement(verifySql)) {
+				verify.setString(1, vote.getName());
+				verify.setString(2, vote.getService());
+				verify.setLong(3, vote.getTime());
+				verify.setString(4, voteId.toString());
+				try (ResultSet rows = verify.executeQuery()) {
+					return rows.next();
+				}
+			}
+		} catch (SQLException failure) {
+			debug(failure);
+			return false;
+		}
+	}
+
 	// --- GET ---
 	/**
 	 * Gets all timed votes.

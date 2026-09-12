@@ -823,6 +823,23 @@ public abstract class VoteCacheHandler {
 		return updateTimeVoteJson(vote);
 	}
 
+	/**
+	 * Durably upgrades a legacy timed row with the stable ID required by reliable
+	 * multi-proxy delivery. The in-memory object is restored on failure so callers
+	 * cannot mistake an unpersisted identifier for a durable one.
+	 */
+	public synchronized boolean assignLegacyTimeVoteId(VoteTimeQueue vote, UUID voteId) {
+		if (vote == null || voteId == null) return false;
+		if (vote.getVoteId() != null) return voteId.equals(vote.getVoteId());
+		vote.setVoteId(voteId);
+		boolean jsonPresent = hasJsonTimeVote(vote);
+		boolean jsonStored = !jsonPresent || updateTimeVoteJson(vote);
+		boolean primaryStored = useMySQL ? timedVoteCacheTable.assignLegacyTimedVoteId(vote, voteId) : jsonStored;
+		if (primaryStored && jsonStored) return true;
+		vote.setVoteId(null);
+		return false;
+	}
+
 	private boolean updateTimeVoteJson(VoteTimeQueue vote) {
 		if (jsonStorage == null || jsonStorageQuarantined) return false;
 

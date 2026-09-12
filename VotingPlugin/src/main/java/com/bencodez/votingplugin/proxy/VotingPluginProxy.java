@@ -4806,7 +4806,13 @@ public abstract class VotingPluginProxy {
 
 			UUID voteId = queuedVote == null ? null : queuedVote.getVoteId();
 			if (voteId == null) {
-				voteId = requestedVoteId == null ? UUID.randomUUID() : requestedVoteId;
+				voteId = requestedVoteId == null
+						? queuedVote == null ? UUID.randomUUID() : legacyTimedVoteId(queuedVote)
+						: requestedVoteId;
+				if (queuedVote != null && !getVoteCacheHandler().assignLegacyTimeVoteId(queuedVote, voteId)) {
+					warn("Unable to assign a stable ID to a legacy timed vote; retaining it for retry");
+					return QueuedVoteResult.RETRY;
+				}
 			}
 			LiveVoteRetryState retryState = liveVoteRetries.get(voteId);
 			if (retryState != null && !requestIdentity.equals(retryState.requestIdentity)) {
@@ -5413,6 +5419,12 @@ public abstract class VotingPluginProxy {
 		}
 	}
 
+	private UUID legacyTimedVoteId(VoteTimeQueue vote) {
+		String identity = "legacy-timed-vote\u0000" + vote.getUuid() + "\u0000" + vote.getName() + "\u0000"
+				+ vote.getService() + "\u0000" + vote.getTime();
+		return UUID.nameUUIDFromBytes(identity.getBytes(StandardCharsets.UTF_8));
+	}
+
 	/**
 	 * Creates/persists the sender outbox before the first publish. Redis and socket
 	 * publish APIs are fire-and-forget, so their return value is never a delivery
@@ -5457,7 +5469,7 @@ public abstract class VotingPluginProxy {
 		} else {
 			boolean alreadyQueued = false;
 			for (VoteTimeQueue candidate : getVoteCacheHandler().getTimeChangeQueue()) {
-				if (candidate != null && outbox.getVoteId().equals(candidate.getVoteId())) {
+				if (candidate != null && java.util.Objects.equals(outbox.getVoteId(), candidate.getVoteId())) {
 					alreadyQueued = true;
 					break;
 				}

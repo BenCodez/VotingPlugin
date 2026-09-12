@@ -24,6 +24,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicReference;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -425,6 +426,28 @@ public class VoteCacheHandlerVoteIdTest {
 		verify(storage).addTimedVote(eq(0), same(queued));
 		verify(storage).save();
 		assertEquals(voteId, handler.getTimeChangeQueue().element().getVoteId());
+	}
+
+	@Test
+	public void legacyTimedVoteIdIsDurableBeforeReliableForwarding() {
+		VoteTimeQueue queued = new VoteTimeQueue("Player", "Service", 100L);
+		JsonObject legacyJson = new JsonObject();
+		legacyJson.addProperty("Name", "Player");
+		legacyJson.addProperty("Service", "Service");
+		legacyJson.addProperty("Time", 100L);
+		AtomicReference<DataNode> stored = new AtomicReference<>(new GsonDataNode(legacyJson));
+		when(storage.getTimedVoteCache()).thenReturn(List.of("2"));
+		when(storage.getTimedVoteCache("2")).thenAnswer(ignored -> stored.get());
+		org.mockito.Mockito.doAnswer(invocation -> {
+			stored.set(timedVoteNode(invocation.getArgument(1)));
+			return null;
+		}).when(storage).addTimedVote(eq(2), org.mockito.ArgumentMatchers.any(VoteTimeQueue.class));
+		UUID voteId = UUID.randomUUID();
+
+		assertTrue(handler.assignLegacyTimeVoteId(queued, voteId));
+		assertEquals(voteId, queued.getVoteId());
+		assertEquals(voteId.toString(), stored.get().get("VoteId").asString());
+		verify(storage).save();
 	}
 
 	@Test

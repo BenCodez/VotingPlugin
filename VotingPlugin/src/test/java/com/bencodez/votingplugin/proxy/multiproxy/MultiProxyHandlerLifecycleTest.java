@@ -114,6 +114,23 @@ class MultiProxyHandlerLifecycleTest {
 	}
 
 	@Test
+	void rejectsReliableVoteEnvelopeWithoutStableId() throws Exception {
+		MultiProxyHandler handler = mock(MultiProxyHandler.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+		Method handleEnvelope = MultiProxyHandler.class.getDeclaredMethod("handleEnvelope", JsonEnvelope.class);
+		handleEnvelope.setAccessible(true);
+
+		handleEnvelope.invoke(handler, VotingPluginWire.multiProxyVote("Player",
+				"00000000-0000-0000-0000-000000000001", "Service", 100L, false, true, "totals", null,
+				false, false, 1, 1, "Primary"));
+
+		verify(handler, org.mockito.Mockito.never()).triggerVote(org.mockito.ArgumentMatchers.anyString(),
+				org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyBoolean(),
+				org.mockito.ArgumentMatchers.anyBoolean(), org.mockito.ArgumentMatchers.anyLong(),
+				org.mockito.ArgumentMatchers.any(VoteTotalsSnapshot.class), org.mockito.ArgumentMatchers.anyString(),
+				org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString());
+	}
+
+	@Test
 	void routesOnlyTheOriginatingProxyAcknowledgement() throws Exception {
 		MultiProxyHandler handler = mock(MultiProxyHandler.class, org.mockito.Mockito.CALLS_REAL_METHODS);
 		org.mockito.Mockito.when(handler.getMultiProxyServerName()).thenReturn("Primary");

@@ -600,6 +600,11 @@ public abstract class MultiProxyHandler {
 			final String totals = f.getOrDefault(VotingPluginWire.K_TOTALS, "");
 			final boolean realVote = Boolean.parseBoolean(f.getOrDefault(VotingPluginWire.K_REAL_VOTE, "false"));
 			final String origin = f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_ORIGIN, "");
+			if (!origin.isBlank() && wireVote.voteId == null) {
+				// Reliable envelopes must never enter receiver processing without the
+				// stable identity used by its durable completion fence.
+				return;
+			}
 
 			if (!player.isEmpty() && !uuid.isEmpty() && !service.isEmpty()) {
 				triggerVote(player, service, realVote, true, 0L, VoteTotalsSnapshot.parseStorage(totals), uuid,
