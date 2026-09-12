@@ -11,6 +11,7 @@
         <github.global.server>github</github.global.server>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <build.number>NOTSET</build.number>
+        <packaged.jar.name>${project.name}</packaged.jar.name>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <maven.compiler.release>21</maven.compiler.release>
@@ -192,6 +193,28 @@
                             <minimizeJar>false</minimizeJar>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <filters>
+                                <!-- Keep this PR buildable against both the current published
+                                     AdvancedCore SNAPSHOT and its coordinated slimmer successor. -->
+                                <filter>
+                                    <artifact>com.bencodez:advancedcore</artifact>
+                                    <excludes>
+                                        <exclude>org/bouncycastle/**</exclude>
+                                        <exclude>com/bencodez/simpleapi/servercomm/http/**</exclude>
+                                        <exclude>redis/clients/**</exclude>
+                                        <exclude>org/eclipse/paho/**</exclude>
+                                        <exclude>META-INF/versions/**</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>com.bencodez:simpleapi</artifact>
+                                    <excludes>
+                                        <exclude>org/bouncycastle/**</exclude>
+                                        <exclude>com/bencodez/simpleapi/servercomm/http/**</exclude>
+                                        <exclude>redis/clients/**</exclude>
+                                        <exclude>org/eclipse/paho/**</exclude>
+                                        <exclude>META-INF/versions/**</exclude>
+                                    </excludes>
+                                </filter>
                                 <filter>
                                     <artifact>*:*</artifact>
                                     <excludes>
@@ -231,7 +254,7 @@
                             <includes><include>**/PackagedArtifactTest.java</include></includes>
                             <reportsDirectory>${project.build.directory}/packaged-artifact-reports</reportsDirectory>
                             <systemPropertyVariables>
-                                <votingplugin.packagedJar>${project.build.directory}/${project.name}.jar</votingplugin.packagedJar>
+                                <votingplugin.packagedJar>${project.build.directory}/${packaged.jar.name}.jar</votingplugin.packagedJar>
                             </systemPropertyVariables>
                         </configuration>
                     </execution>
@@ -382,6 +405,26 @@
                     <groupId>org.mozilla</groupId>
                     <artifactId>rhino</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.bouncycastle</groupId>
+                    <artifactId>bcpkix-jdk18on</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.bouncycastle</groupId>
+                    <artifactId>bcprov-jdk18on</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.bouncycastle</groupId>
+                    <artifactId>bcutil-jdk18on</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.eclipse.paho</groupId>
+                    <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>redis.clients</groupId>
+                    <artifactId>jedis</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
         <dependency>
@@ -461,6 +504,7 @@
             <id>deploy-snapshot</id>
             <properties>
                 <build.profile.id>dev-snapshot</build.profile.id>
+                <packaged.jar.name>${project.name}-${build.number}</packaged.jar.name>
             </properties>
             <distributionManagement>
                 <snapshotRepository>
