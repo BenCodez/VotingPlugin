@@ -63,6 +63,22 @@ class MultiProxyHandlerLifecycleTest {
 	}
 
 	@Test
+	void redisSubsetSendPreservesConfiguredChannelCasing() throws Exception {
+		MultiProxyHandler handler = mock(MultiProxyHandler.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+		org.mockito.Mockito.when(handler.getMultiProxyMethod()).thenReturn(MultiProxyMethod.REDIS);
+		com.bencodez.simpleapi.servercomm.redis.RedisHandler redis =
+				mock(com.bencodez.simpleapi.servercomm.redis.RedisHandler.class);
+		java.lang.reflect.Field connection = MultiProxyHandler.class.getDeclaredField("multiProxyRedis");
+		connection.setAccessible(true);
+		connection.set(handler, redis);
+		JsonEnvelope envelope = JsonEnvelope.builder("vote").build();
+
+		assertTrue(handler.sendMultiProxyEnvelopeAccepted(envelope, List.of("Proxy2")));
+
+		verify(redis).publishEnvelope("VotingPluginProxy_Proxy2", envelope);
+	}
+
+	@Test
 	void stopsEveryReplacedSocketClientEvenWhenOneStopFails() {
 		ClientHandler failing = mock(ClientHandler.class);
 		ClientHandler healthy = mock(ClientHandler.class);

@@ -3343,7 +3343,12 @@ public abstract class VotingPluginProxy {
 				scheduleTimeVoteRetry();
 				return;
 			}
-			if (vote.isProcessed()) liveVoteRetries.remove(vote.getVoteId());
+			// A direct listener retry can still be queued after its ACK outbox completes.
+			// Keep that in-memory fence until the listener consumes it; queued-vote
+			// processing removes its own fence in vote() when no listener retry exists.
+			if (vote.isProcessed() && !vote.isMultiProxyForwardingRequired()) {
+				liveVoteRetries.remove(vote.getVoteId());
+			}
 			if (!vote.isProcessed()) {
 				String[] forwardedTotals = decodeForwardedQueueTotals(vote.getTotals());
 				boolean queuedRealVote = vote.isRealVote();
@@ -5362,7 +5367,27 @@ public abstract class VotingPluginProxy {
 			}
 			if (queuedVote != null) {
 				queuedVote.setProcessed(true);
+				if (!queuedVote.getMultiProxyOrigin().isBlank()) {
+					// Persist the receiver's completion phase with the processed fence. A
+					// failed tombstone write must resume completion, never skip to deletion.
+					queuedVote.setMultiProxyCompletionPending(true);
+				}
 				if (!persistTimeVoteDelivery(queuedVote)) {
+					if (!queuedVote.getMultiProxyOrigin().isBlank()) {
+						// The receiver may delete its queue row only after a durable completion
+						// fence exists. That tombstone also makes a sender retry idempotent.
+						if (getVoteCacheHandler().hasMultiProxyVoteCompletion(voteId)
+								|| getVoteCacheHandler().markMultiProxyVoteCompletedDurably(voteId)) {
+							acknowledgeCompletedMultiProxyVote(voteId, queuedVote.getMultiProxyOrigin());
+							if (getVoteCacheHandler().removeTimeVote(queuedVote)) {
+								liveVoteRetries.remove(voteId);
+								return QueuedVoteResult.SUCCESS;
+							}
+						}
+						warn("Unable to persist completed forwarded vote " + queuedVote.getVoteId()
+								+ "; retaining its receiver completion fence for retry");
+						return QueuedVoteResult.RETRY;
+					}
 					// Deleting the completed source row is itself a durable completion
 					// record. Prefer that fallback when updating the marker is unavailable.
 					if (getVoteCacheHandler().removeTimeVote(queuedVote)) {
@@ -5565,6 +5590,7 @@ public abstract class VotingPluginProxy {
 	/** Retries cleanup for an owner whose target rows were already materialized. */
 	private boolean retryCompletedRewardJournalOwner(String uuid, OfflineBungeeVote vote) {
 		if (uuid == null || vote == null || !vote.isRewardDelivered() || !isRewardJournalOwner(vote)) return false;
+		if (vote.isProxyBroadcastHandled() && !vote.isProxyBroadcastComplete()) return false;
 		if (!getVoteCacheHandler().tryRemoveOnlineVote(uuid, vote)) {
 			scheduleCachedVoteDeliveryRetry();
 		}

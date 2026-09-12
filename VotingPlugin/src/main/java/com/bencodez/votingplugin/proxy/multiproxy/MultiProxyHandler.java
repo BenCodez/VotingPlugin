@@ -4,6 +4,7 @@ package com.bencodez.votingplugin.proxy.multiproxy;
 import java.io.File;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -453,9 +454,11 @@ public abstract class MultiProxyHandler {
 	public synchronized boolean sendMultiProxyEnvelopeAccepted(JsonEnvelope envelope, Collection<String> recipients) {
 		if (envelope == null) return false;
 		if (recipients == null || recipients.isEmpty()) return false;
-		Set<String> requested = new LinkedHashSet<>();
+		Map<String, String> requested = new LinkedHashMap<>();
 		for (String recipient : recipients) {
-			if (recipient != null && !recipient.isBlank()) requested.add(recipient.toLowerCase(Locale.ROOT));
+			if (recipient != null && !recipient.isBlank()) {
+				requested.putIfAbsent(recipient.toLowerCase(Locale.ROOT), recipient);
+			}
 		}
 		if (requested.isEmpty()) return false;
 		if (getMultiProxyMethod().equals(MultiProxyMethod.SOCKETS)) {
@@ -463,7 +466,7 @@ public abstract class MultiProxyHandler {
 			boolean accepted = true;
 			int destinations = 0;
 			for (Map.Entry<String, ClientHandler> entry : multiproxyClientHandles.entrySet()) {
-				if (entry.getKey() == null || !requested.contains(entry.getKey().toLowerCase(Locale.ROOT))) continue;
+				if (entry.getKey() == null || !requested.containsKey(entry.getKey().toLowerCase(Locale.ROOT))) continue;
 				ClientHandler h = entry.getValue();
 				if (h == null) {
 					accepted = false;
@@ -481,7 +484,7 @@ public abstract class MultiProxyHandler {
 			if (multiProxyRedis == null) return false;
 			boolean accepted = true;
 			int destinations = 0;
-			for (String server : requested) {
+			for (String server : requested.values()) {
 				destinations++;
 				try {
 					multiProxyRedis.publishEnvelope("VotingPluginProxy_" + server, envelope);

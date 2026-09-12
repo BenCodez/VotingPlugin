@@ -815,7 +815,9 @@ public abstract class VoteCacheHandler {
 	 */
 	public synchronized boolean updateTimeVote(VoteTimeQueue vote) {
 		if (useMySQL) {
-			if (timedVoteCacheTable.updateTimedVote(vote)) return true;
+			if (timedVoteCacheTable.updateTimedVote(vote)) {
+				return !hasJsonTimeVote(vote) || updateTimeVoteJson(vote);
+			}
 			// A timed vote can have been admitted to the JSON emergency journal when
 			// its initial SQL insert failed. Keep delivery-state ACKs durable there
 			// until the SQL row is available again.
@@ -859,6 +861,7 @@ public abstract class VoteCacheHandler {
 	public synchronized boolean removeTimeVote(VoteTimeQueue vote) {
 		if (useMySQL) {
 			if (timedVoteCacheTable.removeVote(vote)) {
+				if (hasJsonTimeVote(vote) && !removeEmergencyTimeVoteJson(vote)) return false;
 				timeChangeQueue.remove(vote);
 				return true;
 			}
@@ -868,6 +871,24 @@ public abstract class VoteCacheHandler {
 			return removeEmergencyTimeVoteJson(vote);
 		}
 		return removeTimeVoteJson(vote);
+	}
+
+	private boolean hasJsonTimeVote(VoteTimeQueue vote) {
+		if (jsonStorage == null) return false;
+		try {
+			Collection<String> keys = jsonStorage.getTimedVoteCache();
+			if (keys == null) return false;
+			for (String key : keys) {
+				DataNode data = jsonStorage.getTimedVoteCache(key);
+				if (data != null && data.isObject() && matchesStoredTimeVote(data, vote)) return true;
+			}
+			return false;
+		} catch (RuntimeException failure) {
+			debug1(failure);
+			// An unreadable emergency journal may contain the same vote. Fail closed
+			// instead of removing the only in-memory reference and replaying it later.
+			return true;
+		}
 	}
 
 	private boolean removeEmergencyTimeVoteJson(VoteTimeQueue vote) {
