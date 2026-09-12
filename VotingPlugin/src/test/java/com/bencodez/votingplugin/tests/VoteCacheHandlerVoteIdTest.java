@@ -495,6 +495,33 @@ public class VoteCacheHandlerVoteIdTest {
 	}
 
 	@Test
+	public void legacySqlAndJsonTimedRowsRemainDistinctWithoutVoteIds() throws Exception {
+		DataNode jsonVote = mock(DataNode.class);
+		when(storage.getTimedVoteCache()).thenReturn(List.of("2"));
+		when(storage.getTimedVoteCache("2")).thenReturn(jsonVote);
+		when(storage.getServers()).thenReturn(Collections.emptyList());
+		when(storage.getPlayers()).thenReturn(Collections.emptyList());
+		when(jsonVote.isObject()).thenReturn(true);
+		stubString(jsonVote, "Name", "Player");
+		stubString(jsonVote, "Service", "Service");
+		stubLong(jsonVote, "Time", 100L);
+
+		VoteTimeQueue sqlVote = legacyTimedVote();
+		sqlVote.setTimedVoteCacheRowId(41);
+		handler.getTimeChangeQueue().add(sqlVote);
+		var loadEmergencyVotes = VoteCacheHandler.class.getDeclaredMethod("loadJsonEmergencyVotes");
+		loadEmergencyVotes.setAccessible(true);
+
+		loadEmergencyVotes.invoke(handler);
+
+		assertEquals(2, handler.getTimeChangeQueue().size());
+		VoteTimeQueue jsonLoaded = handler.getTimeChangeQueue().stream()
+				.filter(vote -> "2".equals(vote.getTimedVoteCacheJsonKey())).findFirst().orElseThrow();
+		assertNull(jsonLoaded.getVoteId());
+		assertEquals(-1, jsonLoaded.getTimedVoteCacheRowId());
+	}
+
+	@Test
 	public void identicalLegacyServerJsonRowsKeepDistinctEntryIdentitiesAndDeleteIndividually() throws Exception {
 		VotingPluginBungee plugin = mock(VotingPluginBungee.class);
 		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());

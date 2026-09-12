@@ -1404,8 +1404,9 @@ public abstract class VoteCacheHandler {
 
 	/**
 	 * Loads entries written to the JSON emergency journal while MySQL was
-	 * unavailable. Entries already present in SQL are de-duplicated by vote ID (or
-	 * the legacy UUID/service/time identity).
+	 * unavailable. Entries already present in SQL are de-duplicated only by vote
+	 * ID. Legacy entries without an ID remain distinct because equal fields cannot
+	 * prove that two durable rows represent the same vote.
 	 */
 	private void loadJsonEmergencyVotes() {
 		if (jsonStorage == null) {
@@ -1428,7 +1429,7 @@ public abstract class VoteCacheHandler {
 						// later state updates and deletion clean up both copies without
 						// collapsing separate identical rows.
 						sqlTwin.setTimedVoteCacheJsonKey(key);
-					} else if (!containsTimeVote(vote)) {
+					} else {
 						timeChangeQueue.add(vote);
 					}
 				}
