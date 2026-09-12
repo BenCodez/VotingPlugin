@@ -41,6 +41,8 @@ import com.bencodez.votingplugin.proxy.bungee.VotingPluginBungee;
 import com.bencodez.votingplugin.proxy.cache.DataNode;
 import com.bencodez.votingplugin.proxy.cache.IVoteCache;
 import com.bencodez.votingplugin.proxy.cache.GsonDataNode;
+import com.bencodez.votingplugin.proxy.cache.ProxyOnlineVoteCacheTable;
+import com.bencodez.votingplugin.proxy.cache.ProxyVoteCacheTable;
 import com.bencodez.votingplugin.proxy.cache.VoteCacheHandler;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
@@ -591,6 +593,38 @@ public class VoteCacheHandlerVoteIdTest {
 	}
 
 	@Test
+	public void unpairedLegacyServerSqlRowDoesNotDeleteJsonRows() throws Exception {
+		OfflineBungeeVote sqlVote = vote(null, 100L);
+		sqlVote.setServerVoteCacheRowId(41);
+		cachedVotes(handler, "cachedVotes").put("server", new ArrayList<>(List.of(sqlVote)));
+		ProxyVoteCacheTable sql = mock(ProxyVoteCacheTable.class);
+		when(sql.tryRemoveVote(same(sqlVote), eq("server"))).thenReturn(true);
+		setPrivateField(handler, "useMySQL", true);
+		setPrivateField(handler, "voteCacheTable", sql);
+
+		handler.removeServerVotes("server", new ArrayList<>(List.of(sqlVote)));
+
+		verify(storage, never()).removeVote(eq("server"), same(sqlVote));
+		assertTrue(handler.getVotes("server").isEmpty());
+	}
+
+	@Test
+	public void unpairedLegacyOnlineSqlRowDoesNotDeleteJsonRows() throws Exception {
+		OfflineBungeeVote sqlVote = vote(null, 100L);
+		sqlVote.setOnlineVoteCacheRowId(42);
+		cachedVotes(handler, "cachedOnlineVotes").put("player-uuid", new ArrayList<>(List.of(sqlVote)));
+		ProxyOnlineVoteCacheTable sql = mock(ProxyOnlineVoteCacheTable.class);
+		when(sql.tryRemoveVote(same(sqlVote))).thenReturn(true);
+		setPrivateField(handler, "useMySQL", true);
+		setPrivateField(handler, "onlineVoteCacheTable", sql);
+
+		assertTrue(handler.tryRemoveOnlineVote("player-uuid", sqlVote));
+
+		verify(storage, never()).removeOnlineVote(same(sqlVote));
+		assertTrue(handler.getOnlineVotes("player-uuid").isEmpty());
+	}
+
+	@Test
 	public void identicalLegacyTimedSqlRowsUsePrimaryKeysForDistinctStableIds() {
 		VoteTimeQueue first = legacyTimedVote();
 		VoteTimeQueue second = legacyTimedVote();
@@ -1133,6 +1167,20 @@ public class VoteCacheHandlerVoteIdTest {
 			public void debug1(String msg) {
 			}
 		};
+	}
+
+	@SuppressWarnings("unchecked")
+	private static Map<String, ArrayList<OfflineBungeeVote>> cachedVotes(VoteCacheHandler target, String fieldName)
+			throws Exception {
+		var field = VoteCacheHandler.class.getDeclaredField(fieldName);
+		field.setAccessible(true);
+		return (Map<String, ArrayList<OfflineBungeeVote>>) field.get(target);
+	}
+
+	private static void setPrivateField(VoteCacheHandler target, String fieldName, Object value) throws Exception {
+		var field = VoteCacheHandler.class.getDeclaredField(fieldName);
+		field.setAccessible(true);
+		field.set(target, value);
 	}
 
 	private static VoteCacheHandler newVerifyingHandler(IVoteCache storage) {

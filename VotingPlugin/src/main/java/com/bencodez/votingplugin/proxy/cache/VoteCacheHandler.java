@@ -447,8 +447,14 @@ public abstract class VoteCacheHandler {
 		}
 		boolean mysqlRemoved = !useMySQL || onlineVoteCacheTable.tryRemoveVote(removedVote);
 		boolean jsonRemoved = jsonStorage == null;
-		if (jsonStorage != null && !jsonStorageQuarantined) {
+		if (jsonStorage != null && !jsonStorageQuarantined
+				&& (!useMySQL || removedVote.getOnlineVoteCacheRowId() <= 0
+						|| removedVote.getOnlineVoteCacheJsonKey() != null)) {
 			jsonRemoved = removeJsonOnlineVoteDurably(uuid, removedVote);
+		} else if (jsonStorage != null && !jsonStorageQuarantined) {
+			// An unpaired SQL row has no exact JSON identity. Equal legacy fields do
+			// not prove that a JSON row is its emergency twin.
+			jsonRemoved = true;
 		}
 		boolean removedDurably = mysqlRemoved && jsonRemoved;
 		if (!removedDurably) return false;
@@ -1755,8 +1761,14 @@ public abstract class VoteCacheHandler {
 		for (OfflineBungeeVote vote : removed) {
 			boolean mysqlRemoved = !useMySQL || voteCacheTable.tryRemoveVote(vote, server);
 			boolean jsonRemoved = jsonStorage == null;
-			if (jsonStorage != null && !jsonStorageQuarantined) {
+			if (jsonStorage != null && !jsonStorageQuarantined
+					&& (!useMySQL || vote.getServerVoteCacheRowId() <= 0
+							|| vote.getServerVoteCacheJsonKey() != null)) {
 				jsonRemoved = removeJsonServerVoteDurably(server, vote);
+			} else if (jsonStorage != null && !jsonStorageQuarantined) {
+				// An unpaired SQL row has no exact JSON identity. Equal legacy fields do
+				// not prove that a JSON row is its emergency twin.
+				jsonRemoved = true;
 			}
 			boolean removedDurably = mysqlRemoved && jsonRemoved;
 			if (!removedDurably) continue;
