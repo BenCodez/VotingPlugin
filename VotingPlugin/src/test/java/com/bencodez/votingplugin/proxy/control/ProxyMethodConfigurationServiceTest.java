@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -160,6 +161,24 @@ class ProxyMethodConfigurationServiceTest {
 		service.apply(new ProxyMethodConfiguration(BungeeMethod.HTTP), service.read().revision());
 
 		verify(proxy).prepareHttpTransportChange(fresh);
+		verify(config).verifyControlProxyRoutingInstalled();
+	}
+
+	@Test
+	void reusesRetainedMatchingHttpListenerWhenRevertingDeferredMethod() throws Exception {
+		when(config.getBungeeMethod()).thenReturn("REDIS");
+		VotingPluginProxyConfig fresh = validHttpConfig();
+		when(proxy.hasMatchingLiveHttpTransport(fresh)).thenReturn(true);
+		doAnswer(invocation -> {
+			VotingPluginProxyConfig.ControlProxyMethodValidator validator = invocation.getArgument(2);
+			validator.validate(fresh);
+			return null;
+		}).when(config).persistControlProxyMethod(org.mockito.ArgumentMatchers.eq("HTTP"),
+				org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any());
+
+		service.apply(new ProxyMethodConfiguration(BungeeMethod.HTTP), service.read().revision());
+
+		verify(proxy, never()).prepareHttpTransportChange(fresh);
 		verify(config).verifyControlProxyRoutingInstalled();
 	}
 

@@ -3823,6 +3823,14 @@ public abstract class VotingPluginProxy {
 		PREPARED_HTTP_TRANSPORTS.put(httpTransportPreparationKey(), prepared);
 	}
 
+	/** Returns whether the live listener already implements this HTTP snapshot. */
+	public synchronized boolean hasMatchingLiveHttpTransport(VotingPluginProxyConfig candidate) {
+		return candidate != null && httpTransportServer != null
+				&& java.util.Objects.equals(liveHttpHost, candidate.getHttpHost())
+				&& liveHttpPort == candidate.getHttpPort()
+				&& java.util.Objects.equals(liveHttpPublicEndpoint, candidate.getHttpPublicEndpoint());
+	}
+
 	/** Cancels a candidate listener when configuration publication fails. */
 	public synchronized void cancelPreparedHttpTransportChange() {
 		PreparedHttpTransport prepared = PREPARED_HTTP_TRANSPORTS.remove(httpTransportPreparationKey());
