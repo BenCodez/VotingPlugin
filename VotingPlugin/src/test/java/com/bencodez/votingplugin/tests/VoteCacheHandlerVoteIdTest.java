@@ -119,6 +119,16 @@ public class VoteCacheHandlerVoteIdTest {
 	}
 
 	@Test
+	public void multiProxyCompletionRetirementIsDurableAndIdempotent() {
+		UUID voteId = UUID.randomUUID();
+		assertTrue(handler.markMultiProxyVoteCompletedDurably(voteId));
+
+		assertTrue(handler.removeMultiProxyVoteCompletion(voteId));
+		assertFalse(handler.hasMultiProxyVoteCompletion(voteId));
+		assertTrue(handler.removeMultiProxyVoteCompletion(voteId));
+	}
+
+	@Test
 	public void failedCompletionPublicationDoesNotEvictAnExistingFence() throws Exception {
 		Path completionDirectory = tempDir.resolve("vote-cache.json.completed-multiproxy-votes");
 		Files.createDirectories(completionDirectory);
@@ -475,6 +485,7 @@ public class VoteCacheHandlerVoteIdTest {
 				Map.of("backend-1", "00000000-0000-0000-0000-000000000181"));
 		queued.requireMultiProxyAcknowledgements("origin-proxy", Set.of("backend-1"));
 		queued.acknowledgeMultiProxyRecipient("backend-1");
+		queued.acknowledgeMultiProxyRetirement("backend-1");
 		handler.addTimeVoteToCache(queued);
 
 		when(storage.getTimedVoteCache()).thenReturn(List.of("0"));
@@ -486,7 +497,7 @@ public class VoteCacheHandlerVoteIdTest {
 		assertEquals(voteId, recovered.getVoteId());
 		assertTrue(recovered.isMultiProxyForwardingRequired());
 		assertEquals(Set.of("backend-1"), recovered.getMultiProxyRecipients());
-		assertEquals(Set.of("backend-1"), recovered.getMultiProxyAcknowledgedServers());
+		assertTrue(recovered.hasCompletedMultiProxyRetirements());
 		assertEquals("00000000-0000-0000-0000-000000000181",
 				recovered.getHttpBroadcastDeliveryId("backend-1"));
 	}

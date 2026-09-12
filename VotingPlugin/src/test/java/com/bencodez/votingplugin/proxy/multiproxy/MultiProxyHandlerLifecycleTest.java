@@ -145,6 +145,37 @@ class MultiProxyHandlerLifecycleTest {
 	}
 
 	@Test
+	void routesOnlyAuthenticatedTargetedRetirementMessages() throws Exception {
+		MultiProxyHandler handler = mock(MultiProxyHandler.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+		org.mockito.Mockito.when(handler.getMultiProxyServerName()).thenReturn("Replica");
+		org.mockito.Mockito.doReturn(new java.util.LinkedHashSet<>(List.of("primary")))
+				.when(handler).getConfiguredMultiProxyVoteRecipients();
+		UUID voteId = UUID.randomUUID();
+		Method handleEnvelope = MultiProxyHandler.class.getDeclaredMethod("handleEnvelope", JsonEnvelope.class);
+		handleEnvelope.setAccessible(true);
+
+		handleEnvelope.invoke(handler, VotingPluginWire.multiProxyVoteRetire(voteId, "Primary", "Replica"));
+		handleEnvelope.invoke(handler, VotingPluginWire.multiProxyVoteRetire(voteId, "Other", "Replica"));
+		handleEnvelope.invoke(handler, VotingPluginWire.multiProxyVoteRetire(voteId, "Primary", "Other"));
+
+		verify(handler).onMultiProxyVoteRetirementRequested(voteId, "Primary");
+	}
+
+	@Test
+	void routesOnlyTheOriginatingProxyRetirementAcknowledgement() throws Exception {
+		MultiProxyHandler handler = mock(MultiProxyHandler.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+		org.mockito.Mockito.when(handler.getMultiProxyServerName()).thenReturn("Primary");
+		UUID voteId = UUID.randomUUID();
+		Method handleEnvelope = MultiProxyHandler.class.getDeclaredMethod("handleEnvelope", JsonEnvelope.class);
+		handleEnvelope.setAccessible(true);
+
+		handleEnvelope.invoke(handler, VotingPluginWire.multiProxyVoteRetireAck(voteId, "Primary", "Replica"));
+		handleEnvelope.invoke(handler, VotingPluginWire.multiProxyVoteRetireAck(voteId, "Other", "Replica"));
+
+		verify(handler).onMultiProxyVoteRetirementAcknowledged(voteId, "Replica");
+	}
+
+	@Test
 	void fencesOnlyPeersThatAdvertiseDurableAcknowledgements() throws Exception {
 		MultiProxyHandler handler = mock(MultiProxyHandler.class,
 				org.mockito.Mockito.withSettings().useConstructor().defaultAnswer(org.mockito.Mockito.CALLS_REAL_METHODS));

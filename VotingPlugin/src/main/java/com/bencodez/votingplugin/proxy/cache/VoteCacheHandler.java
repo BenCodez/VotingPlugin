@@ -1061,6 +1061,19 @@ public abstract class VoteCacheHandler {
 		}
 	}
 
+	/** Idempotently removes a completion fence after its origin retired the outbox. */
+	public synchronized boolean removeMultiProxyVoteCompletion(UUID voteId) {
+		Path target = multiProxyVoteCompletionPath(voteId);
+		if (target == null) return false;
+		try {
+			DurableFiles.deleteIfExists(target);
+			return !Files.exists(target);
+		} catch (IOException | RuntimeException failure) {
+			debug1(failure);
+			return false;
+		}
+	}
+
 	private Path timeVoteCompletionPath(VoteTimeQueue vote) {
 		if (vote == null || jsonStorage == null || jsonStorage.getStoragePath() == null) return null;
 		Path storage = jsonStorage.getStoragePath().toAbsolutePath().normalize();

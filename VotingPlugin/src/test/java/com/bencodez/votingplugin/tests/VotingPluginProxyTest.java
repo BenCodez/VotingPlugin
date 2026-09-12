@@ -499,6 +499,64 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void completedAckOutboxWaitsForDurableFenceRetirementBeforeFinishing() throws Exception {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		java.util.UUID voteId = java.util.UUID.randomUUID();
+		VoteTimeQueue outbox = new VoteTimeQueue(voteId, "Player", "Service", 100L, false,
+				java.util.Collections.emptySet(), java.util.Collections.emptySet(), "totals", true,
+				"00000000-0000-0000-0000-000000000001");
+		outbox.requireMultiProxyAcknowledgements("Proxy1", java.util.Set.of("Proxy2"));
+		assertTrue(outbox.acknowledgeMultiProxyRecipient("Proxy2"));
+		Mockito.when(voteCache.updateTimeVote(outbox)).thenReturn(true);
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		Class<?> retryType = Class.forName("com.bencodez.votingplugin.proxy.VotingPluginProxy$LiveVoteRetryState");
+		java.lang.reflect.Constructor<?> retryConstructor = retryType.getDeclaredConstructor();
+		retryConstructor.setAccessible(true);
+		Object retry = retryConstructor.newInstance();
+		java.lang.reflect.Method finish = VotingPluginProxy.class.getDeclaredMethod("finishMultiProxyRetirement",
+				retryType, VoteTimeQueue.class);
+		finish.setAccessible(true);
+
+		assertFalse((Boolean) finish.invoke(spyProxy, retry, outbox));
+		assertFalse(outbox.isMultiProxyForwardingHandled());
+		verify(multiProxyHandler).requestMultiProxyVoteRetirement(voteId, "Proxy1", "proxy2");
+
+		assertTrue(outbox.acknowledgeMultiProxyRetirement("Proxy2"));
+		assertTrue((Boolean) finish.invoke(spyProxy, retry, outbox));
+		assertTrue(outbox.isMultiProxyForwardingHandled());
+		verify(voteCache).updateTimeVote(outbox);
+	}
+
+	@Test
+	void receiverKeepsCompletionFenceUntilItsProcessedQueueRowIsRemoved() throws Exception {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		java.util.UUID voteId = java.util.UUID.randomUUID();
+		VoteTimeQueue received = new VoteTimeQueue(voteId, "Player", "Service", 100L, false,
+				java.util.Collections.emptySet(), java.util.Collections.emptySet(), "totals", true,
+				"00000000-0000-0000-0000-000000000001");
+		received.setMultiProxyOrigin("Primary");
+		java.util.Queue<VoteTimeQueue> queue = new java.util.concurrent.ConcurrentLinkedQueue<>();
+		queue.add(received);
+		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(queue);
+		Mockito.when(voteCache.removeTimeVote(received)).thenReturn(false, true);
+		Mockito.when(voteCache.removeMultiProxyVoteCompletion(voteId)).thenReturn(true);
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		java.lang.reflect.Method retire = VotingPluginProxy.class.getDeclaredMethod(
+				"handleMultiProxyVoteRetirementRequest", java.util.UUID.class, String.class);
+		retire.setAccessible(true);
+
+		retire.invoke(spyProxy, voteId, "Primary");
+		verify(voteCache, never()).removeMultiProxyVoteCompletion(voteId);
+		verify(multiProxyHandler, never()).acknowledgeMultiProxyVoteRetirement(voteId, "Primary");
+
+		retire.invoke(spyProxy, voteId, "Primary");
+		verify(voteCache).removeMultiProxyVoteCompletion(voteId);
+		verify(multiProxyHandler).acknowledgeMultiProxyVoteRetirement(voteId, "Primary");
+	}
+
+	@Test
 	void finalShutdownFencesQueuedVoteBeforeClearingLiveRetry() throws Exception {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		java.util.Queue<VoteTimeQueue> queue = new java.util.concurrent.ConcurrentLinkedQueue<>();

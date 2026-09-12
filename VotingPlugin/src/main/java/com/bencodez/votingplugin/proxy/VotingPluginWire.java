@@ -70,6 +70,8 @@ public final class VotingPluginWire {
 	public static final String SUB_CLEAR_VOTE_PRIMARY = "ClearVotePrimary";
 	/** Additive acknowledgement for the reliable multi-proxy vote envelope. */
 	public static final String SUB_MULTI_PROXY_VOTE_ACK = "MultiProxyVoteAck";
+	public static final String SUB_MULTI_PROXY_VOTE_RETIRE = "MultiProxyVoteRetire";
+	public static final String SUB_MULTI_PROXY_VOTE_RETIRE_ACK = "MultiProxyVoteRetireAck";
 	/** Additive capability advertisement for durable multi-proxy acknowledgements. */
 	public static final String SUB_MULTI_PROXY_CAPABILITIES = "MultiProxyCapabilities";
 
@@ -403,6 +405,18 @@ public final class VotingPluginWire {
 	/** Acknowledges durable completion to the originating proxy. */
 	public static JsonEnvelope multiProxyVoteAck(UUID voteId, String origin, String recipient) {
 		return base(SUB_MULTI_PROXY_VOTE_ACK).put(K_VOTE_ID, voteId == null ? "" : voteId.toString())
+				.put(K_MULTI_PROXY_ORIGIN, safe(origin)).put(K_MULTI_PROXY_RECIPIENT, safe(recipient)).build();
+	}
+
+	/** Requests deletion of a receiver fence after every vote ACK is durable. */
+	public static JsonEnvelope multiProxyVoteRetire(UUID voteId, String origin, String recipient) {
+		return base(SUB_MULTI_PROXY_VOTE_RETIRE).put(K_VOTE_ID, voteId == null ? "" : voteId.toString())
+				.put(K_MULTI_PROXY_ORIGIN, safe(origin)).put(K_MULTI_PROXY_RECIPIENT, safe(recipient)).build();
+	}
+
+	/** Confirms idempotent receiver-fence retirement to the originating proxy. */
+	public static JsonEnvelope multiProxyVoteRetireAck(UUID voteId, String origin, String recipient) {
+		return base(SUB_MULTI_PROXY_VOTE_RETIRE_ACK).put(K_VOTE_ID, voteId == null ? "" : voteId.toString())
 				.put(K_MULTI_PROXY_ORIGIN, safe(origin)).put(K_MULTI_PROXY_RECIPIENT, safe(recipient)).build();
 	}
 

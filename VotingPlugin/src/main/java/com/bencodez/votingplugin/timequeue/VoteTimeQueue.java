@@ -17,6 +17,7 @@ import lombok.Setter;
  * Represents a vote delayed while a proxy time change is active.
  */
 public class VoteTimeQueue {
+	private static final String MULTI_PROXY_RETIRED_PREFIX = "retired:";
 	@Getter
 	@Setter
 	private String name;
@@ -226,6 +227,32 @@ public class VoteTimeQueue {
 	public boolean hasCompletedMultiProxyAcknowledgements() {
 		return multiProxyForwardingRequired && !multiProxyRecipients.isEmpty()
 				&& multiProxyAcknowledgedServers.containsAll(multiProxyRecipients);
+	}
+
+	/** Records that a receiver durably removed its completion fence. */
+	public boolean acknowledgeMultiProxyRetirement(String recipient) {
+		if (recipient == null || recipient.isBlank()) return false;
+		String normalized = recipient.toLowerCase(Locale.ROOT);
+		if (!multiProxyRecipients.contains(normalized)) return false;
+		return multiProxyAcknowledgedServers.add(MULTI_PROXY_RETIRED_PREFIX + normalized);
+	}
+
+	/** Returns whether every receiver acknowledged completion-fence retirement. */
+	public boolean hasCompletedMultiProxyRetirements() {
+		if (!hasCompletedMultiProxyAcknowledgements()) return false;
+		for (String recipient : multiProxyRecipients) {
+			if (!multiProxyAcknowledgedServers.contains(MULTI_PROXY_RETIRED_PREFIX + recipient)) return false;
+		}
+		return true;
+	}
+
+	/** Returns receivers that still need an idempotent retirement request. */
+	public Set<String> getPendingMultiProxyRetirements() {
+		Set<String> pending = new LinkedHashSet<>();
+		for (String recipient : multiProxyRecipients) {
+			if (!multiProxyAcknowledgedServers.contains(MULTI_PROXY_RETIRED_PREFIX + recipient)) pending.add(recipient);
+		}
+		return pending;
 	}
 
 	public String encodeMultiProxyRecipients() {

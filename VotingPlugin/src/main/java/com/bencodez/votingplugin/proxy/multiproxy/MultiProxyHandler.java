@@ -281,6 +281,16 @@ public abstract class MultiProxyHandler {
 		// Optional for legacy implementations.
 	}
 
+	/** Called on the origin when a receiver confirms fence retirement. */
+	public void onMultiProxyVoteRetirementAcknowledged(UUID voteId, String recipient) {
+		// Optional for legacy implementations.
+	}
+
+	/** Called on a receiver after a targeted retirement request is authenticated. */
+	public void onMultiProxyVoteRetirementRequested(UUID voteId, String origin) {
+		// Optional for legacy implementations.
+	}
+
 	/**
 	 * Publishes an acknowledgement after receiver completion is durable. The
 	 * broadcast route keeps sockets and Redis compatible; recipients filter it by
@@ -289,6 +299,18 @@ public abstract class MultiProxyHandler {
 	public void acknowledgeMultiProxyVote(UUID voteId, String origin) {
 		if (voteId == null || origin == null || origin.isBlank()) return;
 		sendMultiProxyEnvelopeAccepted(VotingPluginWire.multiProxyVoteAck(voteId, origin, getMultiProxyServerName()));
+	}
+
+	public void requestMultiProxyVoteRetirement(UUID voteId, String origin, String recipient) {
+		if (voteId == null || origin == null || origin.isBlank() || recipient == null || recipient.isBlank()) return;
+		sendMultiProxyEnvelopeAccepted(VotingPluginWire.multiProxyVoteRetire(voteId, origin, recipient),
+				java.util.Set.of(recipient));
+	}
+
+	public void acknowledgeMultiProxyVoteRetirement(UUID voteId, String origin) {
+		if (voteId == null || origin == null || origin.isBlank()) return;
+		sendMultiProxyEnvelopeAccepted(
+				VotingPluginWire.multiProxyVoteRetireAck(voteId, origin, getMultiProxyServerName()));
 	}
 
 	/** Returns every configured remote proxy recipient, independent of version. */
@@ -566,6 +588,29 @@ public abstract class MultiProxyHandler {
 			} catch (IllegalArgumentException ignored) {
 				// Ignore malformed acknowledgements; they must never clear a sender fence.
 			}
+			return;
+		}
+
+		if (sub.equalsIgnoreCase(VotingPluginWire.SUB_MULTI_PROXY_VOTE_RETIRE)) {
+			String origin = f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_ORIGIN, "");
+			String recipient = f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_RECIPIENT, "");
+			if (!recipient.equalsIgnoreCase(getMultiProxyServerName()) || origin.isBlank()
+					|| !getConfiguredMultiProxyVoteRecipients().contains(origin.toLowerCase(Locale.ROOT))) return;
+			try {
+				onMultiProxyVoteRetirementRequested(
+						UUID.fromString(f.getOrDefault(VotingPluginWire.K_VOTE_ID, "")), origin);
+			} catch (IllegalArgumentException ignored) { }
+			return;
+		}
+
+		if (sub.equalsIgnoreCase(VotingPluginWire.SUB_MULTI_PROXY_VOTE_RETIRE_ACK)) {
+			String origin = f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_ORIGIN, "");
+			String recipient = f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_RECIPIENT, "");
+			if (!origin.equalsIgnoreCase(getMultiProxyServerName())) return;
+			try {
+				onMultiProxyVoteRetirementAcknowledged(
+						UUID.fromString(f.getOrDefault(VotingPluginWire.K_VOTE_ID, "")), recipient);
+			} catch (IllegalArgumentException ignored) { }
 			return;
 		}
 
