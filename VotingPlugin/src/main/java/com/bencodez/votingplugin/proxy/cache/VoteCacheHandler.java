@@ -11,6 +11,7 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
@@ -712,11 +713,17 @@ public abstract class VoteCacheHandler {
 				&& first.getTime() == second.getTime();
 	}
 
-	private boolean matchesStoredTimeVote(DataNode data, VoteTimeQueue vote) {
+	private boolean matchesStoredTimeVote(String key, DataNode data, VoteTimeQueue vote) {
+		if (vote.getTimedVoteCacheJsonKey() != null) {
+			return vote.getTimedVoteCacheJsonKey().equals(key);
+		}
 		String storedVoteId = readVoteId(data);
 		if (vote.getVoteId() != null && storedVoteId != null && !storedVoteId.isEmpty()) {
 			return vote.getVoteId().toString().equals(storedVoteId);
 		}
+		// A SQL row is not an emergency JSON entry merely because its legacy
+		// fields happen to match. Without a JSON entry key, leave it alone.
+		if (vote.getTimedVoteCacheRowId() > 0) return false;
 		return data.has("Name") && data.has("Service") && data.has("Time")
 				&& vote.getName().equals(data.get("Name").asString())
 				&& vote.getService().equals(data.get("Service").asString())
@@ -768,6 +775,7 @@ public abstract class VoteCacheHandler {
 			while (keys != null && keys.contains(String.valueOf(index))) {
 				index++;
 			}
+			vote.setTimedVoteCacheJsonKey(String.valueOf(index));
 			jsonStorage.addTimedVote(index, vote);
 			if (verifyJsonTimeVote(index, vote)) return true;
 			timeChangeQueue.remove(vote);
@@ -791,11 +799,27 @@ public abstract class VoteCacheHandler {
 		return false;
 	}
 
+	private VoteTimeQueue findSqlEmergencyTwin(VoteTimeQueue emergency) {
+		for (VoteTimeQueue candidate : timeChangeQueue) {
+			if (candidate == null || candidate.getTimedVoteCacheRowId() <= 0
+					|| candidate.getTimedVoteCacheJsonKey() != null) continue;
+			if (candidate.getVoteId() != null || emergency.getVoteId() != null) {
+				if (candidate.getVoteId() != null && candidate.getVoteId().equals(emergency.getVoteId())) return candidate;
+				continue;
+			}
+			if (Objects.equals(candidate.getUuid(), emergency.getUuid())
+					&& Objects.equals(candidate.getService(), emergency.getService())
+					&& candidate.getTime() == emergency.getTime()) return candidate;
+		}
+		return null;
+	}
+
 	/** Persists a timed vote in the JSON emergency journal. */
 	private boolean persistTimeVoteToJson(VoteTimeQueue vote) {
 		if (jsonStorage == null || jsonStorageQuarantined) return false;
 		try {
 			int index = nextCacheIndex(jsonStorage.getTimedVoteCache());
+			vote.setTimedVoteCacheJsonKey(String.valueOf(index));
 			jsonStorage.addTimedVote(index, vote);
 			return verifyJsonTimeVote(index, vote);
 		} catch (RuntimeException failure) {
@@ -831,10 +855,12 @@ public abstract class VoteCacheHandler {
 	public synchronized boolean assignLegacyTimeVoteId(VoteTimeQueue vote, UUID voteId) {
 		if (vote == null || voteId == null) return false;
 		if (vote.getVoteId() != null) return voteId.equals(vote.getVoteId());
+		if (vote.getTimedVoteCacheRowId() <= 0 && vote.getTimedVoteCacheJsonKey() == null) return false;
 		vote.setVoteId(voteId);
-		boolean jsonPresent = hasJsonTimeVote(vote);
+		boolean jsonPresent = vote.getTimedVoteCacheJsonKey() != null || hasJsonTimeVote(vote);
 		boolean jsonStored = !jsonPresent || updateTimeVoteJson(vote);
-		boolean primaryStored = useMySQL ? timedVoteCacheTable.assignLegacyTimedVoteId(vote, voteId) : jsonStored;
+		boolean primaryStored = !useMySQL || vote.getTimedVoteCacheRowId() <= 0
+				|| timedVoteCacheTable.assignLegacyTimedVoteId(vote, voteId);
 		if (primaryStored && jsonStored) return true;
 		vote.setVoteId(null);
 		return false;
@@ -849,9 +875,10 @@ public abstract class VoteCacheHandler {
 		}
 		for (String key : keys) {
 			DataNode data = jsonStorage.getTimedVoteCache(key);
-			if (data != null && data.isObject() && matchesStoredTimeVote(data, vote)) {
+			if (data != null && data.isObject() && matchesStoredTimeVote(key, data, vote)) {
 				try {
 					int index = Integer.parseInt(key);
+					vote.setTimedVoteCacheJsonKey(key);
 					jsonStorage.addTimedVote(index, vote);
 					return verifyJsonTimeVote(index, vote);
 				} catch (NumberFormatException e) {
@@ -894,7 +921,7 @@ public abstract class VoteCacheHandler {
 			if (keys == null) return false;
 			for (String key : keys) {
 				DataNode data = jsonStorage.getTimedVoteCache(key);
-				if (data != null && data.isObject() && matchesStoredTimeVote(data, vote)) return true;
+				if (data != null && data.isObject() && matchesStoredTimeVote(key, data, vote)) return true;
 			}
 			return false;
 		} catch (RuntimeException failure) {
@@ -914,11 +941,11 @@ public abstract class VoteCacheHandler {
 		for (String key : keys) {
 			DataNode data = jsonStorage.getTimedVoteCache(key);
 			if (data == null || !data.isObject()) return false;
-			if (matchesStoredTimeVote(data, vote)) {
+			if (matchesStoredTimeVote(key, data, vote)) {
 				found = true;
 				continue;
 			}
-			VoteTimeQueue queued = decodeJsonTimedVote(data);
+			VoteTimeQueue queued = decodeJsonTimedVote(key, data);
 			if (queued == null) return false;
 			remaining.add(queued);
 		}
@@ -937,15 +964,25 @@ public abstract class VoteCacheHandler {
 		try {
 			jsonStorage.removeTimedVotes();
 			int index = 0;
+			Set<String> usedKeys = new LinkedHashSet<>();
 			for (VoteTimeQueue queued : remaining) {
-				jsonStorage.addTimedVote(index++, queued);
+				String key = queued.getTimedVoteCacheJsonKey();
+				if (key == null || !key.matches("\\d+") || !usedKeys.add(key)) {
+					while (usedKeys.contains(String.valueOf(index))) index++;
+					key = String.valueOf(index);
+					usedKeys.add(key);
+				}
+				int entryIndex = Integer.parseInt(key);
+				queued.setTimedVoteCacheJsonKey(key);
+				jsonStorage.addTimedVote(entryIndex, queued);
+				index = Math.max(index, entryIndex + 1);
 			}
 			boolean removedDurably = VoteCacheDurability.saveAndVerifyRemoval(jsonStorage, () -> {
 				Collection<String> keys = jsonStorage.getTimedVoteCache();
 				if (keys == null) return true;
 				for (String key : keys) {
 					DataNode data = jsonStorage.getTimedVoteCache(key);
-					if (data != null && data.isObject() && matchesStoredTimeVote(data, vote)) return false;
+					if (data != null && data.isObject() && matchesStoredTimeVote(key, data, vote)) return false;
 				}
 				return true;
 			});
@@ -1149,6 +1186,7 @@ public abstract class VoteCacheHandler {
 						VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getMultiProxyRecipients()));
 				voteTimeQueue.setMultiProxyAcknowledgedServers(
 						VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getMultiProxyAcknowledgedServers()));
+				voteTimeQueue.setTimedVoteCacheRowId(timedVoteRow.getId());
 				timedVotes.add(voteTimeQueue);
 			});
 			timeChangeQueue.addAll(timedVotes);
@@ -1159,46 +1197,8 @@ public abstract class VoteCacheHandler {
 				for (String key : jsonStorage.getTimedVoteCache()) {
 					DataNode data = jsonStorage.getTimedVoteCache(key);
 
-					if (data != null && data.isObject()) {
-						String name = data.has("Name") ? data.get("Name").asString() : "";
-						String service = data.has("Service") ? data.get("Service").asString() : "";
-						long time = data.has("Time") ? data.get("Time").asLong() : 0L;
-						UUID voteId = readUuid(data, "VoteId");
-						String uuid = data.has("UUID") ? data.get("UUID").asString() : "";
-						boolean proxyBroadcastHandled = data.has("ProxyBroadcastHandled")
-								&& data.get("ProxyBroadcastHandled").asBoolean();
-						String forwardedServers = data.has("BroadcastForwardedServers")
-								? data.get("BroadcastForwardedServers").asString()
-								: "";
-						String broadcastTargets = data.has("BroadcastTargets")
-								? data.get("BroadcastTargets").asString()
-								: "";
-						String totals = data.has("Totals") ? data.get("Totals").asString() : "";
-						boolean processed = data.has("Processed") && data.get("Processed").asBoolean();
-						boolean multiProxyForwardingHandled = data.has("MultiProxyForwardingHandled")
-								&& data.get("MultiProxyForwardingHandled").asBoolean();
-						String httpBroadcastDeliveryIds = data.has("HttpBroadcastDeliveryIds")
-							? data.get("HttpBroadcastDeliveryIds").asString() : "";
-
-						VoteTimeQueue queuedVote = new VoteTimeQueue(voteId, name, service, time, proxyBroadcastHandled,
-								VoteTimeQueue.decodeBroadcastForwardedServers(broadcastTargets),
-								VoteTimeQueue.decodeBroadcastForwardedServers(forwardedServers), totals, processed,
-								multiProxyForwardingHandled, uuid,
-								VoteTimeQueue.decodeHttpBroadcastDeliveryIds(httpBroadcastDeliveryIds));
-						queuedVote.setMultiProxyForwardingRequired(data.has("MultiProxyForwardingRequired")
-								&& data.get("MultiProxyForwardingRequired").asBoolean());
-						queuedVote.setRealVote(!data.has("RealVote") || data.get("RealVote").asBoolean());
-						queuedVote.setMultiProxyOrigin(data.has("MultiProxyOrigin")
-								? data.get("MultiProxyOrigin").asString() : "");
-						queuedVote.setMultiProxyCompletionPending(data.has("MultiProxyCompletionPending")
-								&& data.get("MultiProxyCompletionPending").asBoolean());
-						queuedVote.setMultiProxyRecipients(VoteTimeQueue.decodeBroadcastForwardedServers(
-								data.has("MultiProxyRecipients") ? data.get("MultiProxyRecipients").asString() : ""));
-						queuedVote.setMultiProxyAcknowledgedServers(VoteTimeQueue.decodeBroadcastForwardedServers(
-								data.has("MultiProxyAcknowledgedServers")
-										? data.get("MultiProxyAcknowledgedServers").asString() : ""));
-						getTimeChangeQueue().add(queuedVote);
-					}
+					VoteTimeQueue queuedVote = decodeJsonTimedVote(key, data);
+					if (queuedVote != null) getTimeChangeQueue().add(queuedVote);
 				}
 
 			} catch (Exception e) {
@@ -1330,8 +1330,18 @@ public abstract class VoteCacheHandler {
 			if (timedKeys != null) {
 				for (String key : timedKeys) {
 					DataNode data = jsonStorage.getTimedVoteCache(key);
-					VoteTimeQueue vote = decodeJsonTimedVote(data);
-					if (vote != null && !containsTimeVote(vote)) timeChangeQueue.add(vote);
+					VoteTimeQueue vote = decodeJsonTimedVote(key, data);
+					if (vote == null) continue;
+					VoteTimeQueue sqlTwin = findSqlEmergencyTwin(vote);
+					if (sqlTwin != null) {
+						// A failed/uncertain SQL insert can leave the same durable vote in
+						// both stores. Bind this exact emergency entry to one SQL row so
+						// later state updates and deletion clean up both copies without
+						// collapsing separate identical rows.
+						sqlTwin.setTimedVoteCacheJsonKey(key);
+					} else if (!containsTimeVote(vote)) {
+						timeChangeQueue.add(vote);
+					}
 				}
 			}
 			Collection<String> servers = jsonStorage.getServers();
@@ -1369,7 +1379,7 @@ public abstract class VoteCacheHandler {
 		}
 	}
 
-	private VoteTimeQueue decodeJsonTimedVote(DataNode data) {
+	private VoteTimeQueue decodeJsonTimedVote(String key, DataNode data) {
 		if (data == null || !data.isObject()) return null;
 		String name = data.has("Name") ? data.get("Name").asString() : "";
 		String service = data.has("Service") ? data.get("Service").asString() : "";
@@ -1404,6 +1414,7 @@ public abstract class VoteCacheHandler {
 		queuedVote.setMultiProxyAcknowledgedServers(VoteTimeQueue.decodeBroadcastForwardedServers(
 				data.has("MultiProxyAcknowledgedServers")
 						? data.get("MultiProxyAcknowledgedServers").asString() : ""));
+		queuedVote.setTimedVoteCacheJsonKey(key);
 		return queuedVote;
 	}
 

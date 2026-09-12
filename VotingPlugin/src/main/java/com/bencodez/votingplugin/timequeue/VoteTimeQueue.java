@@ -30,6 +30,14 @@ public class VoteTimeQueue {
 	@Getter
 	@Setter
 	private UUID voteId;
+	/** SQL primary key for a legacy timed-cache row, or {@code -1} when not SQL-backed. */
+	@Getter
+	@Setter
+	private int timedVoteCacheRowId = -1;
+	/** Stable key of a JSON timed-cache entry, or {@code null} when not JSON-backed. */
+	@Getter
+	@Setter
+	private String timedVoteCacheJsonKey;
 	@Getter
 	@Setter
 	private String uuid;
@@ -115,6 +123,25 @@ public class VoteTimeQueue {
 			Set<String> broadcastForwardedServers) {
 		this(voteId, name, service, time, proxyBroadcastHandled, Collections.emptySet(), broadcastForwardedServers, "",
 				false, "");
+	}
+
+	/**
+	 * Returns the durable identity of a legacy timed-cache entry. It distinguishes
+	 * rows that have the same historical vote fields before they receive a vote ID.
+	 */
+	public String getTimedVoteCachePersistenceIdentity() {
+		if (timedVoteCacheRowId > 0) return "sql:" + timedVoteCacheRowId;
+		if (timedVoteCacheJsonKey != null && !timedVoteCacheJsonKey.isEmpty()) {
+			return "json:" + timedVoteCacheJsonKey;
+		}
+		return "";
+	}
+
+	/** Creates the deterministic ID used when a legacy timed-cache entry has none. */
+	public UUID legacyTimedVoteId() {
+		String identity = "legacy-timed-vote\u0000" + uuid + "\u0000" + name + "\u0000" + service + "\u0000"
+				+ time + "\u0000" + getTimedVoteCachePersistenceIdentity();
+		return UUID.nameUUIDFromBytes(identity.getBytes(StandardCharsets.UTF_8));
 	}
 
 	/**

@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.tests;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
@@ -35,6 +36,8 @@ import org.junit.jupiter.api.io.TempDir;
 import com.google.gson.JsonObject;
 
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
+import com.bencodez.votingplugin.proxy.bungee.BungeeJsonVoteCache;
+import com.bencodez.votingplugin.proxy.bungee.VotingPluginBungee;
 import com.bencodez.votingplugin.proxy.cache.DataNode;
 import com.bencodez.votingplugin.proxy.cache.IVoteCache;
 import com.bencodez.votingplugin.proxy.cache.GsonDataNode;
@@ -441,6 +444,7 @@ public class VoteCacheHandlerVoteIdTest {
 	@Test
 	public void legacyTimedVoteIdIsDurableBeforeReliableForwarding() {
 		VoteTimeQueue queued = new VoteTimeQueue("Player", "Service", 100L);
+		queued.setTimedVoteCacheJsonKey("2");
 		JsonObject legacyJson = new JsonObject();
 		legacyJson.addProperty("Name", "Player");
 		legacyJson.addProperty("Service", "Service");
@@ -458,6 +462,47 @@ public class VoteCacheHandlerVoteIdTest {
 		assertEquals(voteId, queued.getVoteId());
 		assertEquals(voteId.toString(), stored.get().get("VoteId").asString());
 		verify(storage).save();
+	}
+
+	@Test
+	public void identicalLegacyTimedJsonRowsKeepDistinctIdsAndDeleteIndividually() throws Exception {
+		VotingPluginBungee plugin = mock(VotingPluginBungee.class);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		Files.writeString(tempDir.resolve("votecache.json"), """
+				{"TimedVoteCache":{"0":{"Name":"Player","Service":"Service","Time":100,"UUID":"player-uuid"},
+				"1":{"Name":"Player","Service":"Service","Time":100,"UUID":"player-uuid"}}}
+				""");
+		BungeeJsonVoteCache durableStorage = new BungeeJsonVoteCache(plugin);
+
+		VoteCacheHandler durableHandler = newVerifyingHandler(durableStorage);
+		durableHandler.load();
+		VoteTimeQueue first = durableHandler.getTimeChangeQueue().stream()
+				.filter(vote -> "0".equals(vote.getTimedVoteCacheJsonKey())).findFirst().orElseThrow();
+		VoteTimeQueue second = durableHandler.getTimeChangeQueue().stream()
+				.filter(vote -> "1".equals(vote.getTimedVoteCacheJsonKey())).findFirst().orElseThrow();
+		UUID firstId = first.legacyTimedVoteId();
+		UUID secondId = second.legacyTimedVoteId();
+
+		assertNotEquals(firstId, secondId);
+		assertEquals(firstId, first.legacyTimedVoteId());
+		assertTrue(durableHandler.assignLegacyTimeVoteId(first, firstId));
+		assertTrue(durableHandler.assignLegacyTimeVoteId(second, secondId));
+		assertTrue(durableHandler.removeTimeVote(first));
+
+		assertFalse(durableStorage.getTimedVoteCache().contains("0"));
+		assertTrue(durableStorage.getTimedVoteCache().contains("1"));
+		assertEquals(secondId.toString(), durableStorage.getTimedVoteCache("1").get("VoteId").asString());
+	}
+
+	@Test
+	public void identicalLegacyTimedSqlRowsUsePrimaryKeysForDistinctStableIds() {
+		VoteTimeQueue first = legacyTimedVote();
+		VoteTimeQueue second = legacyTimedVote();
+		first.setTimedVoteCacheRowId(41);
+		second.setTimedVoteCacheRowId(42);
+
+		assertNotEquals(first.legacyTimedVoteId(), second.legacyTimedVoteId());
+		assertEquals(first.legacyTimedVoteId(), first.legacyTimedVoteId());
 	}
 
 	@Test
@@ -903,6 +948,12 @@ public class VoteCacheHandlerVoteIdTest {
 
 	private static OfflineBungeeVote vote(UUID voteId, long time) {
 		return new OfflineBungeeVote(voteId, "Player", "player-uuid", "Service", time, true, "totals");
+	}
+
+	private static VoteTimeQueue legacyTimedVote() {
+		VoteTimeQueue vote = new VoteTimeQueue("Player", "Service", 100L);
+		vote.setUuid("player-uuid");
+		return vote;
 	}
 
 	private static DataNode timedVoteNode(VoteTimeQueue vote) {

@@ -5446,9 +5446,7 @@ public abstract class VotingPluginProxy {
 	}
 
 	private UUID legacyTimedVoteId(VoteTimeQueue vote) {
-		String identity = "legacy-timed-vote\u0000" + vote.getUuid() + "\u0000" + vote.getName() + "\u0000"
-				+ vote.getService() + "\u0000" + vote.getTime();
-		return UUID.nameUUIDFromBytes(identity.getBytes(StandardCharsets.UTF_8));
+		return vote.legacyTimedVoteId();
 	}
 
 	/**

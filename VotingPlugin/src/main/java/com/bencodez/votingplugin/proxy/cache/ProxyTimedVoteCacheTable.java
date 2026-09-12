@@ -288,6 +288,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 	 * @return true when the durable state update completed
 	 */
 	public boolean updateTimedVote(VoteTimeQueue vote) {
+		boolean hasRowId = vote.getTimedVoteCacheRowId() > 0;
 		boolean hasVoteId = vote.getVoteId() != null;
 		String sql = "UPDATE " + qi(getTableName()) + " SET " + qi("proxyBroadcastHandled") + " = ?, "
 				+ qi("broadcastTargets") + " = ?, " + qi("broadcastForwardedServers") + " = ?, " + qi("totals")
@@ -297,7 +298,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				+ qi("multiProxyRecipients") + " = ?, "
 				+ qi("multiProxyAcknowledgedServers") + " = ?, " + qi("uuid") + " = ?, "
 				+ qi("httpBroadcastDeliveryIds") + " = ? WHERE "
-				+ (hasVoteId ? qi("voteId") + " = ?;"
+				+ (hasRowId ? qi("id") + " = ?;" : hasVoteId ? qi("voteId") + " = ?;"
 						: qi("playerName") + " = ? AND " + qi("service") + " = ? AND " + qi("time") + " = ?;");
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -330,7 +331,9 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 			ps.setString(12, vote.encodeMultiProxyAcknowledgedServers());
 			ps.setString(13, vote.getUuid());
 			ps.setString(14, vote.encodeHttpBroadcastDeliveryIds());
-			if (hasVoteId) {
+			if (hasRowId) {
+				ps.setInt(15, vote.getTimedVoteCacheRowId());
+			} else if (hasVoteId) {
 				ps.setString(15, vote.getVoteId().toString());
 			} else {
 				ps.setString(15, vote.getName());
@@ -347,26 +350,21 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 
 	/** Assigns a stable ID to a pre-ID timed row before reliable forwarding. */
 	public boolean assignLegacyTimedVoteId(VoteTimeQueue vote, UUID voteId) {
-		if (vote == null || voteId == null) return false;
+		if (vote == null || voteId == null || vote.getTimedVoteCacheRowId() <= 0) return false;
 		String sql = "UPDATE " + qi(getTableName()) + " SET " + qi("voteId") + " = ? WHERE "
-				+ qi("playerName") + " = ? AND " + qi("service") + " = ? AND " + qi("time") + " = ? AND ("
+				+ qi("id") + " = ? AND ("
 				+ qi("voteId") + " IS NULL OR " + qi("voteId") + " = '' OR " + qi("voteId") + " = ?);";
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setString(1, voteId.toString());
-			ps.setString(2, vote.getName());
-			ps.setString(3, vote.getService());
-			ps.setLong(4, vote.getTime());
-			ps.setString(5, voteId.toString());
+			ps.setInt(2, vote.getTimedVoteCacheRowId());
+			ps.setString(3, voteId.toString());
 			if (ps.executeUpdate() > 0) return true;
 			String verifySql = "SELECT " + qi("id") + " FROM " + qi(getTableName()) + " WHERE "
-					+ qi("playerName") + " = ? AND " + qi("service") + " = ? AND " + qi("time") + " = ? AND "
-					+ qi("voteId") + " = ?;";
+					+ qi("id") + " = ? AND " + qi("voteId") + " = ?;";
 			try (PreparedStatement verify = conn.prepareStatement(verifySql)) {
-				verify.setString(1, vote.getName());
-				verify.setString(2, vote.getService());
-				verify.setLong(3, vote.getTime());
-				verify.setString(4, voteId.toString());
+				verify.setInt(1, vote.getTimedVoteCacheRowId());
+				verify.setString(2, voteId.toString());
 				try (ResultSet rows = verify.executeQuery()) {
 					return rows.next();
 				}
@@ -419,13 +417,16 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 	 * @return true when the durable delete completed
 	 */
 	public boolean removeVote(VoteTimeQueue vote) {
+		boolean hasRowId = vote.getTimedVoteCacheRowId() > 0;
 		boolean hasVoteId = vote.getVoteId() != null;
 		String sql = "DELETE FROM " + qi(getTableName()) + " WHERE "
-				+ (hasVoteId ? qi("voteId") + " = ?;"
+				+ (hasRowId ? qi("id") + " = ?;" : hasVoteId ? qi("voteId") + " = ?;"
 						: qi("playerName") + " = ? AND " + qi("service") + " = ? AND " + qi("time") + " = ?;");
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
-			if (hasVoteId) {
+			if (hasRowId) {
+				ps.setInt(1, vote.getTimedVoteCacheRowId());
+			} else if (hasVoteId) {
 				ps.setString(1, vote.getVoteId().toString());
 			} else {
 				ps.setString(1, vote.getName());
