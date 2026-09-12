@@ -29,6 +29,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -947,7 +948,9 @@ public abstract class VotingPluginProxy {
 						if (isIncompleteRewardJournalOwner(cache)) {
 							if (!materializeRewardJournalOwner(uuid, cache)) continue;
 							if (!cache.isProxyBroadcastHandled() || cache.isProxyBroadcastComplete()) {
-								getVoteCacheHandler().removeOnlineVote(uuid, cache);
+								if (!getVoteCacheHandler().tryRemoveOnlineVote(uuid, cache)) {
+									scheduleCachedVoteDeliveryRetry();
+								}
 							}
 							continue;
 						}
@@ -1024,6 +1027,9 @@ public abstract class VotingPluginProxy {
 				if (isIncompleteRewardJournalOwner(cache) && !materializeRewardJournalOwner(cachedUuid, cache)) {
 					continue;
 				}
+				if (retryCompletedRewardJournalOwner(cachedUuid, cache)) {
+					continue;
+				}
 				if (cache.isDeliveryStateDirty() && !persistOnlineVoteDelivery(cachedUuid, cache)) {
 					continue;
 				}
@@ -1082,6 +1088,9 @@ public abstract class VotingPluginProxy {
 		for (String cachedUuid : new LinkedHashSet<>(getVoteCacheHandler().getOnlineVoteUUIDs())) {
 			for (OfflineBungeeVote cache : new ArrayList<>(getVoteCacheHandler().getOnlineVotes(cachedUuid))) {
 				if (isIncompleteRewardJournalOwner(cache) && !materializeRewardJournalOwner(cachedUuid, cache)) {
+					continue;
+				}
+				if (retryCompletedRewardJournalOwner(cachedUuid, cache)) {
 					continue;
 				}
 				if (cache.isDeliveryStateDirty() && !persistOnlineVoteDelivery(cachedUuid, cache)) {
@@ -1222,6 +1231,7 @@ public abstract class VotingPluginProxy {
 		}
 		for (String uuid : new LinkedHashSet<>(getVoteCacheHandler().getOnlineVoteUUIDs())) {
 			for (OfflineBungeeVote vote : new ArrayList<>(getVoteCacheHandler().getOnlineVotes(uuid))) {
+				if (retryCompletedRewardJournalOwner(uuid, vote)) continue;
 				if (vote.isDeliveryStateDirty()) {
 					persistOnlineVoteDelivery(uuid, vote);
 				}
@@ -3078,6 +3088,12 @@ public abstract class VotingPluginProxy {
 		VoteCacheHandler cache = getVoteCacheHandler();
 		boolean retained = true;
 		for (LiveVoteRetryState retry : liveVoteRetries.values()) {
+			if (retry.queuedVote != null) {
+				Queue<VoteTimeQueue> queuedVotes = cache.getTimeChangeQueue();
+				if (queuedVotes == null || !queuedVotes.contains(retry.queuedVote)) {
+					retained &= cache.addTimeVoteToCache(retry.queuedVote);
+				}
+			}
 			Set<OfflineBungeeVote> onlineStates = Collections.newSetFromMap(new java.util.IdentityHashMap<>());
 			if (retry.rewardJournalOwner != null) onlineStates.add(retry.rewardJournalOwner);
 			if (retry.standaloneBroadcastState != null) onlineStates.add(retry.standaloneBroadcastState);
@@ -5133,7 +5149,9 @@ public abstract class VotingPluginProxy {
 					if (!persistOnlineVoteDelivery(uuid, rewardJournalOwner)) return QueuedVoteResult.RETRY;
 					retryState.rewardJournalsDurable = true;
 					if (!rewardJournalOwner.isProxyBroadcastHandled() || rewardJournalOwner.isProxyBroadcastComplete()) {
-						getVoteCacheHandler().removeOnlineVote(uuid, rewardJournalOwner);
+						if (!getVoteCacheHandler().tryRemoveOnlineVote(uuid, rewardJournalOwner)) {
+							scheduleCachedVoteDeliveryRetry();
+						}
 					}
 				}
 				for (String s : rewardServers) {
@@ -5408,8 +5426,8 @@ public abstract class VotingPluginProxy {
 			outbox.requireMultiProxyAcknowledgements(getConfig().getProxyServerName(), recipients);
 			outbox.setRealVote(realVote);
 			outbox.setDeliveryStateDirty(true);
-			if (outbox.getVoteId() == null || !getVoteCacheHandler().addTimeVoteToCache(outbox)) return false;
 			retryState.queuedVote = outbox;
+			if (outbox.getVoteId() == null || !getVoteCacheHandler().addTimeVoteToCache(outbox)) return false;
 			newlyCreated = true;
 		}
 		if (!outbox.isMultiProxyForwardingRequired()) {
@@ -5536,6 +5554,23 @@ public abstract class VotingPluginProxy {
 		return encoded;
 	}
 
+	private boolean isRewardJournalOwner(OfflineBungeeVote vote) {
+		if (vote == null) return false;
+		for (String key : vote.getHttpDeliveryIds().keySet()) {
+			if (key.startsWith(REWARD_JOURNAL_TARGET_PREFIX)) return true;
+		}
+		return false;
+	}
+
+	/** Retries cleanup for an owner whose target rows were already materialized. */
+	private boolean retryCompletedRewardJournalOwner(String uuid, OfflineBungeeVote vote) {
+		if (uuid == null || vote == null || !vote.isRewardDelivered() || !isRewardJournalOwner(vote)) return false;
+		if (!getVoteCacheHandler().tryRemoveOnlineVote(uuid, vote)) {
+			scheduleCachedVoteDeliveryRetry();
+		}
+		return true;
+	}
+
 	private boolean materializeRewardJournalOwner(String uuid, OfflineBungeeVote owner) {
 		for (Map.Entry<String, String> entry : owner.getHttpDeliveryIds().entrySet()) {
 			if (!entry.getKey().startsWith(REWARD_JOURNAL_TARGET_PREFIX)) continue;
@@ -5559,7 +5594,9 @@ public abstract class VotingPluginProxy {
 		owner.setDeliveryStateDirty(true);
 		if (!persistOnlineVoteDelivery(uuid, owner)) return false;
 		if (!owner.isProxyBroadcastHandled() || owner.isProxyBroadcastComplete()) {
-			getVoteCacheHandler().removeOnlineVote(uuid, owner);
+			if (!getVoteCacheHandler().tryRemoveOnlineVote(uuid, owner)) {
+				scheduleCachedVoteDeliveryRetry();
+			}
 		}
 		return true;
 	}

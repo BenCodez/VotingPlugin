@@ -256,6 +256,44 @@ class BackendProxyHandlerLifecycleTest {
 	}
 
 	@Test
+	void preparedDisableSchedulesStoppedPresenceOnTheBukkitThread() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		org.bukkit.Server server = mock(org.bukkit.Server.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
+		when(plugin.getServer()).thenReturn(server);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(server.isPrimaryThread()).thenReturn(false);
+		java.util.concurrent.atomic.AtomicBoolean onScheduledTask = new java.util.concurrent.atomic.AtomicBoolean();
+		org.mockito.Mockito.doAnswer(invocation -> {
+			onScheduledTask.set(true);
+			try {
+				Runnable task = invocation.getArgument(1);
+				task.run();
+			} finally {
+				onScheduledTask.set(false);
+			}
+			return null;
+		}).when(scheduler).executeOrScheduleSync(eq(plugin), any(Runnable.class));
+		org.mockito.Mockito.doAnswer(invocation -> {
+			assertTrue(onScheduledTask.get(), "stopped presence must be sent by the scheduled Bukkit task");
+			return null;
+		}).when(messages).sendMessage(any());
+
+		BackendPresenceManager presence = new BackendPresenceManager(plugin, BungeeMethod.PLUGINMESSAGING, messages);
+		setField(presence, "reporting", true);
+		setField(presence, "server", "backend-1");
+		setField(presence, "incarnationId", java.util.UUID.randomUUID());
+		setField(presence, "startedAt", 1L);
+
+		presence.stopForDisable();
+
+		verify(scheduler).executeOrScheduleSync(eq(plugin), any(Runnable.class));
+		verify(messages).sendMessage(any());
+		assertFalse(presence.isReporting());
+	}
+
+	@Test
 	void failedPreparedDisableCanRestartPresenceDuringRollback() throws Exception {
 		BackendProxyHandler handler = new BackendProxyHandler(null);
 		BackendPresenceManager presence = mock(BackendPresenceManager.class);

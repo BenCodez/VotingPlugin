@@ -226,12 +226,22 @@ public class BackendProxyHandler implements Listener {
 
 	/** Publishes the final presence update while fencing other sends before transport preparation. */
 	public void preparePresenceForDisable() {
+		preparePresenceForDisableInternal(null);
+	}
+
+	/** Publishes the final presence update before the caller's validation deadline. */
+	public void preparePresenceForDisable(long deadlineNanos) {
+		preparePresenceForDisableInternal(deadlineNanos);
+	}
+
+	private void preparePresenceForDisableInternal(Long deadlineNanos) {
 		transportManager.beginPreparedDisable();
 		if (presenceManager != null && presenceReportingActivated) {
 			// stopForDisable may reject when the transport cannot accept the final
 			// presence update. Mark this inactive first so rollback can start it again.
 			presenceReportingActivated = false;
-			presenceManager.stopForDisable();
+			if (deadlineNanos == null) presenceManager.stopForDisable();
+			else presenceManager.stopForDisable(deadlineNanos);
 		}
 	}
 

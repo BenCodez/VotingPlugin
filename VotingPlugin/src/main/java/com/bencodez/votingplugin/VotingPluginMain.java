@@ -1310,7 +1310,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			restart.previousPrepared = true;
 			if (restart.disabled) {
 				restart.presenceStoppedForDisablePreparation = true;
-				restart.previous.preparePresenceForDisable();
+				restart.previous.preparePresenceForDisable(validationDeadlineNanos);
 			}
 			BungeeMethod replacementMethod = restart.replacement == null ? null : restart.replacement.getMethod();
 			if (restart.replacement != null) restart.replacement.beginPreparedHttpHandoff();

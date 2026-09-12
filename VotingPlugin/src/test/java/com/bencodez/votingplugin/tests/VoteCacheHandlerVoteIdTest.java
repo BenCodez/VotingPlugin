@@ -31,9 +31,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.google.gson.JsonObject;
+
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 import com.bencodez.votingplugin.proxy.cache.DataNode;
 import com.bencodez.votingplugin.proxy.cache.IVoteCache;
+import com.bencodez.votingplugin.proxy.cache.GsonDataNode;
 import com.bencodez.votingplugin.proxy.cache.VoteCacheHandler;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
@@ -419,6 +422,30 @@ public class VoteCacheHandlerVoteIdTest {
 
 		verify(storage).addTimedVote(2, queued);
 		verify(storage).save();
+	}
+
+	@Test
+	public void timedVoteAcknowledgementOutboxSurvivesHandlerRestart() {
+		UUID voteId = UUID.randomUUID();
+		VoteTimeQueue queued = new VoteTimeQueue(voteId, "Player", "Service", 100L, true,
+				Set.of("backend-1"), Set.of("backend-1"), "totals", false, false, "player-uuid",
+				Map.of("backend-1", "00000000-0000-0000-0000-000000000181"));
+		queued.requireMultiProxyAcknowledgements("origin-proxy", Set.of("backend-1"));
+		queued.acknowledgeMultiProxyRecipient("backend-1");
+		handler.addTimeVoteToCache(queued);
+
+		when(storage.getTimedVoteCache()).thenReturn(List.of("0"));
+		when(storage.getTimedVoteCache("0")).thenReturn(timedVoteNode(queued));
+		VoteCacheHandler restarted = newHandler(storage);
+		restarted.load();
+
+		VoteTimeQueue recovered = restarted.getTimeChangeQueue().element();
+		assertEquals(voteId, recovered.getVoteId());
+		assertTrue(recovered.isMultiProxyForwardingRequired());
+		assertEquals(Set.of("backend-1"), recovered.getMultiProxyRecipients());
+		assertEquals(Set.of("backend-1"), recovered.getMultiProxyAcknowledgedServers());
+		assertEquals("00000000-0000-0000-0000-000000000181",
+				recovered.getHttpBroadcastDeliveryId("backend-1"));
 	}
 
 	@Test
@@ -822,6 +849,29 @@ public class VoteCacheHandlerVoteIdTest {
 
 	private static OfflineBungeeVote vote(UUID voteId, long time) {
 		return new OfflineBungeeVote(voteId, "Player", "player-uuid", "Service", time, true, "totals");
+	}
+
+	private static DataNode timedVoteNode(VoteTimeQueue vote) {
+		JsonObject data = new JsonObject();
+		data.addProperty("Name", vote.getName());
+		data.addProperty("Service", vote.getService());
+		data.addProperty("Time", vote.getTime());
+		data.addProperty("VoteId", vote.getVoteId().toString());
+		data.addProperty("UUID", vote.getUuid());
+		data.addProperty("ProxyBroadcastHandled", vote.isProxyBroadcastHandled());
+		data.addProperty("Totals", vote.getTotals());
+		data.addProperty("Processed", vote.isProcessed());
+		data.addProperty("MultiProxyForwardingHandled", vote.isMultiProxyForwardingHandled());
+		data.addProperty("MultiProxyForwardingRequired", vote.isMultiProxyForwardingRequired());
+		data.addProperty("RealVote", vote.isRealVote());
+		data.addProperty("MultiProxyOrigin", vote.getMultiProxyOrigin());
+		data.addProperty("MultiProxyCompletionPending", vote.isMultiProxyCompletionPending());
+		data.addProperty("MultiProxyRecipients", vote.encodeMultiProxyRecipients());
+		data.addProperty("MultiProxyAcknowledgedServers", vote.encodeMultiProxyAcknowledgedServers());
+		data.addProperty("BroadcastTargets", vote.encodeBroadcastTargets());
+		data.addProperty("BroadcastForwardedServers", vote.encodeBroadcastForwardedServers());
+		data.addProperty("HttpBroadcastDeliveryIds", vote.encodeHttpBroadcastDeliveryIds());
+		return new GsonDataNode(data);
 	}
 
 	private static VoteCacheHandler newHandler(IVoteCache storage) {

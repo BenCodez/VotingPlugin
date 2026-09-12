@@ -3,9 +3,12 @@ package com.bencodez.votingplugin.backendproxy.presence;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -97,6 +100,39 @@ public class BackendPresenceManager {
 
 	/** Stops presence and propagates rejection when a configuration disable must be transactional. */
 	public void stopForDisable() {
+		stopForDisable(System.nanoTime() + TimeUnit.SECONDS.toNanos(5));
+	}
+
+	/** Stops presence before the caller's transactional validation deadline. */
+	public void stopForDisable(long deadlineNanos) {
+		// Plugin-message transport ultimately calls Bukkit's sendPluginMessage API,
+		// which is primary-thread-only. Control validation runs on its worker, so
+		// marshal the transactional stopped-presence send before returning the
+		// result to that worker. Unit-test and shutdown contexts without a server
+		// retain the direct path used by the non-Control lifecycle.
+		if (plugin != null && plugin.getServer() != null && !plugin.getServer().isPrimaryThread()) {
+			CompletableFuture<Void> scheduled = new CompletableFuture<>();
+			try {
+				plugin.getBukkitScheduler().executeOrScheduleSync(plugin, () -> {
+					try {
+						stop(true);
+						scheduled.complete(null);
+					} catch (Throwable failure) {
+						scheduled.completeExceptionally(failure);
+					}
+				});
+				long remaining = deadlineNanos - System.nanoTime();
+				if (remaining <= 0L) throw new TimeoutException("Backend stopped presence deadline expired");
+				scheduled.get(remaining, TimeUnit.NANOSECONDS);
+				return;
+			} catch (Exception failure) {
+				scheduled.cancel(false);
+				Throwable cause = failure instanceof ExecutionException && failure.getCause() != null
+						? failure.getCause() : failure;
+				if (cause instanceof RuntimeException runtime) throw runtime;
+				throw new IllegalStateException("Backend stopped presence could not run on the Bukkit thread", cause);
+			}
+		}
 		stop(true);
 	}
 

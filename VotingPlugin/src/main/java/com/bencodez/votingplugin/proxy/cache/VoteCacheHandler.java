@@ -744,11 +744,19 @@ public abstract class VoteCacheHandler {
 		if (vote == null) {
 			return false;
 		}
+		if (containsTimeVote(vote)) {
+			debug1("Not caching duplicate timed vote " + vote.getVoteId());
+			return true;
+		}
 		timeChangeQueue.add(vote);
 		if (useMySQL) {
 			boolean stored = timedVoteCacheTable.insertTimedVote(vote);
 			if (!stored) {
-				timeChangeQueue.remove(vote);
+				// Keep the ACK outbox durable even while SQL is unavailable. The JSON
+				// store is the same emergency journal used by the other cache lanes and
+				// is loaded again by loadJsonEmergencyVotes() after a restart.
+				stored = persistTimeVoteToJson(vote);
+				if (!stored) timeChangeQueue.remove(vote);
 			}
 			return stored;
 		}
@@ -774,6 +782,31 @@ public abstract class VoteCacheHandler {
 		}
 	}
 
+	private boolean containsTimeVote(VoteTimeQueue expected) {
+		for (VoteTimeQueue candidate : timeChangeQueue) {
+			if (candidate == null) continue;
+			if (expected.getVoteId() != null && expected.getVoteId().equals(candidate.getVoteId())) return true;
+			if (expected.getVoteId() == null && candidate.getVoteId() == null
+					&& expected.getUuid().equals(candidate.getUuid())
+					&& expected.getService().equals(candidate.getService())
+					&& expected.getTime() == candidate.getTime()) return true;
+		}
+		return false;
+	}
+
+	/** Persists a timed vote in the JSON emergency journal. */
+	private boolean persistTimeVoteToJson(VoteTimeQueue vote) {
+		if (jsonStorage == null || jsonStorageQuarantined) return false;
+		try {
+			int index = nextCacheIndex(jsonStorage.getTimedVoteCache());
+			jsonStorage.addTimedVote(index, vote);
+			return verifyJsonTimeVote(index, vote);
+		} catch (RuntimeException failure) {
+			debug1(failure);
+			return false;
+		}
+	}
+
 	/**
 	 * Persists changed delivery state for a queued rollover vote.
 	 *
@@ -782,8 +815,16 @@ public abstract class VoteCacheHandler {
 	 */
 	public synchronized boolean updateTimeVote(VoteTimeQueue vote) {
 		if (useMySQL) {
-			return timedVoteCacheTable.updateTimedVote(vote);
+			if (timedVoteCacheTable.updateTimedVote(vote)) return true;
+			// A timed vote can have been admitted to the JSON emergency journal when
+			// its initial SQL insert failed. Keep delivery-state ACKs durable there
+			// until the SQL row is available again.
+			return updateTimeVoteJson(vote);
 		}
+		return updateTimeVoteJson(vote);
+	}
+
+	private boolean updateTimeVoteJson(VoteTimeQueue vote) {
 		if (jsonStorage == null || jsonStorageQuarantined) return false;
 
 		Collection<String> keys = jsonStorage.getTimedVoteCache();
@@ -817,16 +858,47 @@ public abstract class VoteCacheHandler {
 	 */
 	public synchronized boolean removeTimeVote(VoteTimeQueue vote) {
 		if (useMySQL) {
-			if (!timedVoteCacheTable.removeVote(vote)) {
-				return false;
+			if (timedVoteCacheTable.removeVote(vote)) {
+				timeChangeQueue.remove(vote);
+				return true;
 			}
-			timeChangeQueue.remove(vote);
-			return true;
+			// The SQL row may never have existed when this vote was admitted to the
+			// JSON emergency journal. Remove that durable fallback before dropping the
+			// in-memory ACK outbox.
+			return removeEmergencyTimeVoteJson(vote);
 		}
+		return removeTimeVoteJson(vote);
+	}
 
+	private boolean removeEmergencyTimeVoteJson(VoteTimeQueue vote) {
+		if (jsonStorage == null || jsonStorageQuarantined) return false;
+		Collection<String> keys = jsonStorage.getTimedVoteCache();
+		if (keys == null) return false;
+		ArrayList<VoteTimeQueue> remaining = new ArrayList<>();
+		boolean found = false;
+		for (String key : keys) {
+			DataNode data = jsonStorage.getTimedVoteCache(key);
+			if (data == null || !data.isObject()) return false;
+			if (matchesStoredTimeVote(data, vote)) {
+				found = true;
+				continue;
+			}
+			VoteTimeQueue queued = decodeJsonTimedVote(data);
+			if (queued == null) return false;
+			remaining.add(queued);
+		}
+		if (!found) return false;
+		return rewriteJsonTimeVotesAndRemove(vote, remaining);
+	}
+
+	private boolean removeTimeVoteJson(VoteTimeQueue vote) {
 		ArrayList<VoteTimeQueue> remaining = new ArrayList<>(timeChangeQueue);
 		remaining.remove(vote);
 		if (jsonStorage == null || jsonStorageQuarantined) return false;
+		return rewriteJsonTimeVotesAndRemove(vote, remaining);
+	}
+
+	private boolean rewriteJsonTimeVotesAndRemove(VoteTimeQueue vote, Collection<VoteTimeQueue> remaining) {
 		try {
 			jsonStorage.removeTimedVotes();
 			int index = 0;
@@ -1236,6 +1308,17 @@ public abstract class VoteCacheHandler {
 			return;
 		}
 		try {
+			// Timed votes use the JSON store as an emergency outbox when the SQL
+			// insert failed. Merge them before the ordinary cache lanes so an ACK
+			// outbox is not lost across a proxy restart.
+			Collection<String> timedKeys = jsonStorage.getTimedVoteCache();
+			if (timedKeys != null) {
+				for (String key : timedKeys) {
+					DataNode data = jsonStorage.getTimedVoteCache(key);
+					VoteTimeQueue vote = decodeJsonTimedVote(data);
+					if (vote != null && !containsTimeVote(vote)) timeChangeQueue.add(vote);
+				}
+			}
 			Collection<String> servers = jsonStorage.getServers();
 			if (servers != null) {
 				for (String server : servers) {
@@ -1269,6 +1352,44 @@ public abstract class VoteCacheHandler {
 		} catch (RuntimeException e) {
 			debug1(e);
 		}
+	}
+
+	private VoteTimeQueue decodeJsonTimedVote(DataNode data) {
+		if (data == null || !data.isObject()) return null;
+		String name = data.has("Name") ? data.get("Name").asString() : "";
+		String service = data.has("Service") ? data.get("Service").asString() : "";
+		long time = data.has("Time") ? data.get("Time").asLong() : 0L;
+		UUID voteId = readUuid(data, "VoteId");
+		String uuid = data.has("UUID") ? data.get("UUID").asString() : "";
+		boolean proxyBroadcastHandled = data.has("ProxyBroadcastHandled")
+				&& data.get("ProxyBroadcastHandled").asBoolean();
+		String forwardedServers = data.has("BroadcastForwardedServers")
+				? data.get("BroadcastForwardedServers").asString() : "";
+		String broadcastTargets = data.has("BroadcastTargets") ? data.get("BroadcastTargets").asString() : "";
+		String totals = data.has("Totals") ? data.get("Totals").asString() : "";
+		boolean processed = data.has("Processed") && data.get("Processed").asBoolean();
+		boolean multiProxyForwardingHandled = data.has("MultiProxyForwardingHandled")
+				&& data.get("MultiProxyForwardingHandled").asBoolean();
+		String httpBroadcastDeliveryIds = data.has("HttpBroadcastDeliveryIds")
+				? data.get("HttpBroadcastDeliveryIds").asString() : "";
+		VoteTimeQueue queuedVote = new VoteTimeQueue(voteId, name, service, time, proxyBroadcastHandled,
+				VoteTimeQueue.decodeBroadcastForwardedServers(broadcastTargets),
+				VoteTimeQueue.decodeBroadcastForwardedServers(forwardedServers), totals, processed,
+				multiProxyForwardingHandled, uuid,
+				VoteTimeQueue.decodeHttpBroadcastDeliveryIds(httpBroadcastDeliveryIds));
+		queuedVote.setMultiProxyForwardingRequired(data.has("MultiProxyForwardingRequired")
+				&& data.get("MultiProxyForwardingRequired").asBoolean());
+		queuedVote.setRealVote(!data.has("RealVote") || data.get("RealVote").asBoolean());
+		queuedVote.setMultiProxyOrigin(data.has("MultiProxyOrigin")
+				? data.get("MultiProxyOrigin").asString() : "");
+		queuedVote.setMultiProxyCompletionPending(data.has("MultiProxyCompletionPending")
+				&& data.get("MultiProxyCompletionPending").asBoolean());
+		queuedVote.setMultiProxyRecipients(VoteTimeQueue.decodeBroadcastForwardedServers(
+				data.has("MultiProxyRecipients") ? data.get("MultiProxyRecipients").asString() : ""));
+		queuedVote.setMultiProxyAcknowledgedServers(VoteTimeQueue.decodeBroadcastForwardedServers(
+				data.has("MultiProxyAcknowledgedServers")
+						? data.get("MultiProxyAcknowledgedServers").asString() : ""));
+		return queuedVote;
 	}
 
 	private OfflineBungeeVote decodeJsonVote(DataNode data) {

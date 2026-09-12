@@ -348,7 +348,7 @@ class VotingPluginMainBackendProxyPublicationTest {
 		plugin.completeBackendProxyHandlerRestart(restart);
 
 		org.mockito.InOrder disable = org.mockito.Mockito.inOrder(previous);
-		disable.verify(previous).preparePresenceForDisable();
+		disable.verify(previous).preparePresenceForDisable(org.mockito.ArgumentMatchers.anyLong());
 		disable.verify(previous).prepareForReplacement(org.mockito.ArgumentMatchers.isNull(),
 				org.mockito.ArgumentMatchers.anyLong());
 		disable.verify(previous).commitPreparedDisable();

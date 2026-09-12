@@ -383,6 +383,81 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void finalShutdownPersistsAckOutboxWhoseInitialInsertFailed() throws Exception {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		java.util.Queue<VoteTimeQueue> queue = new java.util.concurrent.ConcurrentLinkedQueue<>();
+		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(queue);
+		Mockito.when(voteCache.addOnlineVoteDurably(Mockito.anyString(), Mockito.any())).thenReturn(true);
+		Mockito.when(voteCache.updateOnlineVote(Mockito.anyString(), Mockito.any())).thenReturn(true);
+		Mockito.when(voteCache.tryRemoveOnlineVote(Mockito.anyString(), Mockito.any())).thenReturn(true);
+		Mockito.when(voteCache.retryPendingVotePersistence()).thenReturn(true);
+		Mockito.when(voteCache.addTimeVoteToCache(Mockito.any())).thenAnswer(new org.mockito.stubbing.Answer<Boolean>() {
+			private int attempts;
+
+			@Override
+			public Boolean answer(org.mockito.invocation.InvocationOnMock invocation) {
+				VoteTimeQueue outbox = invocation.getArgument(0);
+				if (++attempts == 1) return false;
+				queue.add(outbox);
+				return true;
+			}
+		});
+		Mockito.when(votingPluginProxy.getConfig().getMultiProxySupport()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getPrimaryServer()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getSendVotesToAllServers()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getBungeeManageTotals()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getMultiProxyOneGlobalReward()).thenReturn(false);
+		Mockito.when(votingPluginProxy.getConfig().getProxyServerName()).thenReturn("Proxy1");
+		Mockito.when(multiProxyHandler.getMultiProxyVoteRecipients()).thenReturn(java.util.Set.of("Proxy2"));
+		Mockito.when(multiProxyHandler.getConfiguredMultiProxyVoteRecipients())
+				.thenReturn(new java.util.LinkedHashSet<>(java.util.Set.of("Proxy2")));
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		Mockito.doNothing().when(spyProxy).addVoteParty();
+		Mockito.doReturn(true).when(spyProxy).checkVoteDelay(Mockito.anyString(), Mockito.anyString(),
+				Mockito.anyString(), Mockito.any(), Mockito.anyBoolean());
+		Mockito.when(proxyMySQL.getExactQuery(Mockito.any())).thenReturn(new java.util.ArrayList<>());
+		spyProxy.setAvailableServers();
+		java.util.UUID voteId = java.util.UUID.randomUUID();
+
+		Class<?> retryType = Class.forName("com.bencodez.votingplugin.proxy.VotingPluginProxy$LiveVoteRetryState");
+		java.lang.reflect.Constructor<?> constructor = retryType.getDeclaredConstructor();
+		constructor.setAccessible(true);
+		Object retry = constructor.newInstance();
+		for (java.util.Map.Entry<String, Object> field : java.util.Map.<String, Object>of(
+				"player", "Player", "service", "Service", "uuid",
+				"00000000-0000-0000-0000-000000000001", "time", 100L, "realVote", true,
+				"requestIdentity", "player\u0000service").entrySet()) {
+			java.lang.reflect.Field target = retryType.getDeclaredField(field.getKey());
+			target.setAccessible(true);
+			target.set(retry, field.getValue());
+		}
+		java.lang.reflect.Field retriesField = VotingPluginProxy.class.getDeclaredField("liveVoteRetries");
+		retriesField.setAccessible(true);
+		@SuppressWarnings("unchecked")
+		java.util.Map<java.util.UUID, Object> retries =
+				(java.util.Map<java.util.UUID, Object>) retriesField.get(spyProxy);
+		retries.put(voteId, retry);
+		java.lang.reflect.Method begin = VotingPluginProxy.class.getDeclaredMethod("beginMultiProxyForwarding",
+				retryType, VoteTimeQueue.class, String.class, String.class, String.class, long.class,
+				boolean.class, com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.class);
+		begin.setAccessible(true);
+		assertFalse((Boolean) begin.invoke(spyProxy, retry, null, "Player",
+				"00000000-0000-0000-0000-000000000001", "Service", 100L, true, null));
+		java.lang.reflect.Method settle = VotingPluginProxy.class
+				.getDeclaredMethod("settleLiveVoteRetriesForFinalShutdown");
+		settle.setAccessible(true);
+		assertFalse((Boolean) settle.invoke(spyProxy));
+
+		org.mockito.ArgumentCaptor<VoteTimeQueue> outboxes = org.mockito.ArgumentCaptor.forClass(VoteTimeQueue.class);
+		verify(voteCache, Mockito.atLeast(2)).addTimeVoteToCache(outboxes.capture());
+		assertTrue(outboxes.getAllValues().stream().allMatch(outbox -> voteId.equals(outbox.getVoteId())));
+		assertEquals(1, queue.size());
+		assertEquals(voteId, queue.element().getVoteId());
+		assertEquals(java.util.Set.of("proxy2"), queue.element().getMultiProxyRecipients());
+	}
+
+	@Test
 	void finalShutdownFencesQueuedVoteBeforeClearingLiveRetry() throws Exception {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		java.util.Queue<VoteTimeQueue> queue = new java.util.concurrent.ConcurrentLinkedQueue<>();
@@ -573,6 +648,7 @@ public class VotingPluginProxyTest {
 		Mockito.when(votingPluginProxy.getConfig().getSendVotesToAllServers()).thenReturn(true);
 		Mockito.when(voteCache.addOnlineVoteDurably(Mockito.anyString(), Mockito.any())).thenReturn(true);
 		Mockito.when(voteCache.updateOnlineVote(Mockito.anyString(), Mockito.any())).thenReturn(true);
+		Mockito.when(voteCache.tryRemoveOnlineVote(Mockito.anyString(), Mockito.any())).thenReturn(true);
 		Mockito.when(voteCache.markMultiProxyVoteCompletedDurably(Mockito.any())).thenReturn(false, true);
 		java.util.concurrent.ScheduledExecutorService scheduler = Mockito
 				.mock(java.util.concurrent.ScheduledExecutorService.class);
@@ -808,6 +884,7 @@ public class VotingPluginProxyTest {
 				.thenReturn(new java.util.ArrayList<>(java.util.List.of(owner)));
 		Mockito.when(voteCache.addServerVoteDurably(Mockito.eq("Server1"), Mockito.any())).thenReturn(true);
 		Mockito.when(voteCache.updateOnlineVote("player-uuid", owner)).thenReturn(true);
+		Mockito.when(voteCache.tryRemoveOnlineVote("player-uuid", owner)).thenReturn(true);
 		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
 		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
 
@@ -817,7 +894,7 @@ public class VotingPluginProxyTest {
 		verify(voteCache).addServerVoteDurably(Mockito.eq("Server1"), Mockito.argThat(vote ->
 				"00000000-0000-0000-0000-000000000199".equals(vote.getHttpDeliveryId("Server1"))));
 		verify(voteCache).updateOnlineVote("player-uuid", owner);
-		verify(voteCache).removeOnlineVote("player-uuid", owner);
+		verify(voteCache, Mockito.atLeastOnce()).tryRemoveOnlineVote("player-uuid", owner);
 	}
 
 	@Test
@@ -2312,6 +2389,29 @@ public class VotingPluginProxyTest {
 		assertTrue(vote.isProxyBroadcastComplete());
 		assertEquals(java.util.Set.of("Server1", "Server2"), vote.getBroadcastForwardedServers());
 		verify(voteCache).updateOnlineVote("voter-uuid", vote);
+	}
+
+	@Test
+	void periodicRetryRemovesCompletedRewardJournalOwnerAfterTransientDeleteFailure() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		OfflineBungeeVote owner = new OfflineBungeeVote(java.util.UUID.randomUUID(), "OfflineVoter", "voter-uuid",
+				"Service", 100L, true, "totals", false, false, java.util.Collections.emptySet(),
+				java.util.Collections.emptySet(), true,
+				java.util.Map.of("__vp_reward_target__:Server1",
+						"00000000-0000-0000-0000-000000000172"), java.util.Collections.emptyMap());
+		Mockito.when(voteCache.getOnlineVoteUUIDs()).thenReturn(java.util.Set.of("voter-uuid"));
+		Mockito.when(voteCache.getOnlineVotes("voter-uuid"))
+				.thenReturn(new java.util.ArrayList<>(java.util.List.of(owner)));
+		Mockito.when(voteCache.tryRemoveOnlineVote("voter-uuid", owner)).thenReturn(false, true);
+		votingPluginProxy.setSchedulerForTest(null);
+
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+		spyProxy.retryPendingOnlineBroadcasts();
+		spyProxy.retryPendingOnlineBroadcasts();
+
+		verify(voteCache, Mockito.times(2)).tryRemoveOnlineVote("voter-uuid", owner);
+		verify(voteCache, never()).updateOnlineVote("voter-uuid", owner);
 	}
 
 	@Test
