@@ -12,6 +12,14 @@ import com.bencodez.votingplugin.VotingPluginMain;
 
 /** Invalidates only fields changed directly by a shared-MySQL mutation. */
 public final class SharedMysqlCacheReconciler {
+	/*
+	 * This fence is intentionally JVM-local. Cross-backend reset correctness does
+	 * not depend on it: shared-MySQL VoteShopLimit setters enqueue=false, and
+	 * UserDataCache.dump() persists only queued UserDataChange entries, not the
+	 * read-through value map. Purchases and resets mutate limit columns through the
+	 * epoch-serialized JDBC journal. The fence only orders this JVM's cache drains
+	 * around its own reset transaction.
+	 */
 	private static final ReentrantReadWriteLock RESET_FENCE = new ReentrantReadWriteLock(true);
 	private static final Map<UserDataCache, Map<String, DataValue>> OPTIMISTIC_POINT_VALUES =
 			java.util.Collections.synchronizedMap(new WeakHashMap<>());
