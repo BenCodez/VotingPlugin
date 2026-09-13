@@ -123,7 +123,9 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 			// Startup and handoff queues are one FIFO from the caller's perspective.
 			// The handoff queue can still contain messages accepted by the previous
 			// replacement, so rollback must carry it into the restored transport too.
-			restored.startupQueue.addAll(takeQueuedMessages());
+			// Keep the combined queue in the asynchronously drained handoff lane: it can
+			// be larger than the connector's bounded startup queue.
+			restored.handoffQueue.addAll(takeQueuedMessages());
 		}
 		restored.start(configuredDirectory, configuredServerId, configuredConnectionCode, configuredMessageHandler,
 				configuredCredentialGeneration, configuredCredentialGeneration == null && retryInitialization,
@@ -321,6 +323,7 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 				}
 			}
 			if (discard) replacement.close();
+			else startHandoffDrainIfNeeded();
 		} catch (Exception failure) {
 			startupFailure = new IllegalStateException("Secure HTTP backend enrollment or connection failed", failure);
 			plugin.getLogger().severe("Secure HTTP backend transport is unavailable; check the connection code and proxy endpoint");
@@ -568,7 +571,6 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 	}
 
 	void acceptHandoffMessages(java.util.List<JsonEnvelope> messages) {
-		Thread drain;
 		synchronized (lifecycle) {
 			if (closed) throw new IllegalStateException("HTTP replacement transport is closed");
 			if (messages.size() > MAX_HANDOFF_QUEUE - handoffQueue.size())
@@ -579,8 +581,14 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 			handoffQueue.addAll(newer);
 			awaitingPreparedHandoff = false;
 			preparedHandoffReservation = 0;
-			if (handoffQueue.isEmpty()) return;
-			if (handoffWorker != null) return;
+		}
+		startHandoffDrainIfNeeded();
+	}
+
+	private void startHandoffDrainIfNeeded() {
+		Thread drain;
+		synchronized (lifecycle) {
+			if (closed || handoffQueue.isEmpty() || handoffWorker != null || connector == null) return;
 			drain = new Thread(this::drainHandoffMessages, "VotingPlugin-HTTP-Backend-Handoff");
 			drain.setDaemon(true);
 			handoffWorker = drain;

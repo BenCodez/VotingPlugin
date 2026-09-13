@@ -697,7 +697,7 @@ class HttpBackendProxyTransportTest {
 
 	@Test
 	@SuppressWarnings("unchecked")
-	void rollbackRecreateCarriesExistingHandoffMessagesAfterStartupMessages() throws Exception {
+	void rollbackRecreateKeepsAnOversizedCombinedQueueInTheDrainedHandoffLane() throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
 		HttpBackendProxyTransport transport = new HttpBackendProxyTransport(plugin);
@@ -707,10 +707,15 @@ class HttpBackendProxyTransportTest {
 		setField(transport, "configuredConnectionCode", "");
 		setField(transport, "configuredMessageHandler", mock(GlobalMessageHandler.class));
 		setField(transport, "restoreUnenrolledState", true);
+		List<JsonEnvelope> queued = new ArrayList<>();
 		JsonEnvelope startup = JsonEnvelope.builder("startup").build();
-		JsonEnvelope handoff = JsonEnvelope.builder("handoff").build();
+		queued.add(startup);
 		((java.util.ArrayDeque<JsonEnvelope>) field(transport, "startupQueue")).add(startup);
-		((java.util.ArrayDeque<JsonEnvelope>) field(transport, "handoffQueue")).add(handoff);
+		for (int index = 0; index < 1024; index++) {
+			JsonEnvelope handoff = JsonEnvelope.builder("handoff-" + index).build();
+			queued.add(handoff);
+			((java.util.ArrayDeque<JsonEnvelope>) field(transport, "handoffQueue")).add(handoff);
+		}
 
 		java.lang.reflect.Field ownersField = HttpBackendProxyTransport.class.getDeclaredField("DIRECTORY_OWNERS");
 		ownersField.setAccessible(true);
@@ -722,9 +727,10 @@ class HttpBackendProxyTransportTest {
 		Thread setup = null;
 		try {
 			restored = transport.recreatePrepared();
-			assertEquals(List.of(startup, handoff),
-					new java.util.ArrayList<>((java.util.ArrayDeque<JsonEnvelope>) field(restored, "startupQueue")));
-			assertTrue(((java.util.ArrayDeque<JsonEnvelope>) field(restored, "handoffQueue")).isEmpty());
+			assertTrue(((java.util.ArrayDeque<JsonEnvelope>) field(restored, "startupQueue")).isEmpty(),
+					"rollback must not synchronously overfill the connector's 1024-entry queue");
+			assertEquals(queued,
+					new java.util.ArrayList<>((java.util.ArrayDeque<JsonEnvelope>) field(restored, "handoffQueue")));
 			assertTrue(((java.util.ArrayDeque<JsonEnvelope>) field(transport, "startupQueue")).isEmpty());
 			assertTrue(((java.util.ArrayDeque<JsonEnvelope>) field(transport, "handoffQueue")).isEmpty());
 			setup = (Thread) field(restored, "worker");
