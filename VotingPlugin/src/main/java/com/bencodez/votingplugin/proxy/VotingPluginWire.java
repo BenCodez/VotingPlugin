@@ -68,6 +68,12 @@ public final class VotingPluginWire {
 	// =========================
 	public static final String SUB_CLEAR_VOTE = "ClearVote";
 	public static final String SUB_CLEAR_VOTE_PRIMARY = "ClearVotePrimary";
+	/** Additive acknowledgement for the reliable multi-proxy vote envelope. */
+	public static final String SUB_MULTI_PROXY_VOTE_ACK = "MultiProxyVoteAck";
+	public static final String SUB_MULTI_PROXY_VOTE_RETIRE = "MultiProxyVoteRetire";
+	public static final String SUB_MULTI_PROXY_VOTE_RETIRE_ACK = "MultiProxyVoteRetireAck";
+	/** Additive capability advertisement for durable multi-proxy acknowledgements. */
+	public static final String SUB_MULTI_PROXY_CAPABILITIES = "MultiProxyCapabilities";
 
 	// =========================
 	// Field keys (public where referenced externally)
@@ -102,6 +108,11 @@ public final class VotingPluginWire {
 	public static final String K_BUNGEE_BROADCAST = "bungeeBroadcast";
 	public static final String K_NUM = "num";
 	public static final String K_NUMBER_OF_VOTES = "numberOfVotes";
+	/** Origin and receiving proxy names for reliable multi-proxy delivery. */
+	public static final String K_MULTI_PROXY_ORIGIN = "multiProxyOrigin";
+	public static final String K_MULTI_PROXY_RECIPIENT = "multiProxyRecipient";
+	public static final String K_MULTI_PROXY_ACK_VERSION = "multiProxyAckVersion";
+	public static final String K_MULTI_PROXY_CAPABILITY_REPLY = "multiProxyCapabilityReply";
 
 	// VoteUpdate extras
 	public static final String K_PLAYER_UUID = "playerUuid";
@@ -138,6 +149,31 @@ public final class VotingPluginWire {
 				.put(K_VOTE_ID, voteId == null ? "" : voteId.toString())
 				.put(K_SET_TOTALS, true).put(K_MANAGE_TOTALS, manageTotals).put(K_BUNGEE_BROADCAST, bungeeBroadcast)
 				.put(K_NUM, num).put(K_NUMBER_OF_VOTES, numberOfVotes).build();
+	}
+
+	/**
+	 * Builds a multi-proxy vote with an additive sender identity for its durable
+	 * acknowledgement. Older receivers safely ignore the extra field.
+	 */
+	public static JsonEnvelope multiProxyVote(String player, String uuid, String service, long time, boolean wasOnline,
+			boolean realVote, String totals, UUID voteId, boolean manageTotals, boolean bungeeBroadcast, int num,
+			int numberOfVotes, String origin) {
+		return base(SUB_VOTE).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid)).put(K_SERVICE, safe(service))
+				.put(K_TIME, time).put(K_WAS_ONLINE, wasOnline).put(K_REAL_VOTE, realVote).put(K_TOTALS, safe(totals))
+				.put(K_VOTE_ID, voteId == null ? "" : voteId.toString()).put(K_SET_TOTALS, true)
+				.put(K_MANAGE_TOTALS, manageTotals).put(K_BUNGEE_BROADCAST, bungeeBroadcast).put(K_NUM, num)
+				.put(K_NUMBER_OF_VOTES, numberOfVotes).put(K_MULTI_PROXY_ORIGIN, safe(origin)).build();
+	}
+
+	/** Reliable multi-proxy variant of {@link #voteOnline}. */
+	public static JsonEnvelope multiProxyVoteOnline(String player, String uuid, String service, long time,
+			boolean wasOnline, boolean realVote, String totals, UUID voteId, boolean manageTotals,
+			boolean bungeeBroadcast, int num, int numberOfVotes, String origin) {
+		return base(SUB_VOTE_ONLINE).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid)).put(K_SERVICE, safe(service))
+				.put(K_TIME, time).put(K_WAS_ONLINE, wasOnline).put(K_REAL_VOTE, realVote).put(K_TOTALS, safe(totals))
+				.put(K_VOTE_ID, voteId == null ? "" : voteId.toString()).put(K_SET_TOTALS, true)
+				.put(K_MANAGE_TOTALS, manageTotals).put(K_BUNGEE_BROADCAST, bungeeBroadcast).put(K_NUM, num)
+				.put(K_NUMBER_OF_VOTES, numberOfVotes).put(K_MULTI_PROXY_ORIGIN, safe(origin)).build();
 	}
 
 	public static JsonEnvelope voteDelayRejected(String player, String uuid, String service, boolean wasOnline) {
@@ -364,6 +400,36 @@ public final class VotingPluginWire {
 	public static JsonEnvelope clearVotePrimary(String uuid, String player, String server) {
 		return base(SUB_CLEAR_VOTE_PRIMARY).put(K_UUID, safe(uuid)).put(K_PLAYER, safe(player))
 				.put(K_SERVER, safe(server)).build();
+	}
+
+	/** Acknowledges durable completion to the originating proxy. */
+	public static JsonEnvelope multiProxyVoteAck(UUID voteId, String origin, String recipient) {
+		return base(SUB_MULTI_PROXY_VOTE_ACK).put(K_VOTE_ID, voteId == null ? "" : voteId.toString())
+				.put(K_MULTI_PROXY_ORIGIN, safe(origin)).put(K_MULTI_PROXY_RECIPIENT, safe(recipient)).build();
+	}
+
+	/** Requests deletion of a receiver fence after every vote ACK is durable. */
+	public static JsonEnvelope multiProxyVoteRetire(UUID voteId, String origin, String recipient) {
+		return base(SUB_MULTI_PROXY_VOTE_RETIRE).put(K_VOTE_ID, voteId == null ? "" : voteId.toString())
+				.put(K_MULTI_PROXY_ORIGIN, safe(origin)).put(K_MULTI_PROXY_RECIPIENT, safe(recipient)).build();
+	}
+
+	/** Confirms idempotent receiver-fence retirement to the originating proxy. */
+	public static JsonEnvelope multiProxyVoteRetireAck(UUID voteId, String origin, String recipient) {
+		return base(SUB_MULTI_PROXY_VOTE_RETIRE_ACK).put(K_VOTE_ID, voteId == null ? "" : voteId.toString())
+				.put(K_MULTI_PROXY_ORIGIN, safe(origin)).put(K_MULTI_PROXY_RECIPIENT, safe(recipient)).build();
+	}
+
+	/** Advertises support for the additive durable multi-proxy acknowledgement protocol. */
+	public static JsonEnvelope multiProxyCapabilities(String recipient, int acknowledgementVersion) {
+		return multiProxyCapabilities(recipient, acknowledgementVersion, false);
+	}
+
+	/** Capability response used to complete a bounded bidirectional handshake. */
+	public static JsonEnvelope multiProxyCapabilities(String recipient, int acknowledgementVersion, boolean reply) {
+		return base(SUB_MULTI_PROXY_CAPABILITIES).put(K_MULTI_PROXY_RECIPIENT, safe(recipient))
+				.put(K_MULTI_PROXY_ACK_VERSION, acknowledgementVersion)
+				.put(K_MULTI_PROXY_CAPABILITY_REPLY, reply).build();
 	}
 
 	// =========================

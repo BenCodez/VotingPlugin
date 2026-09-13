@@ -4,8 +4,13 @@ package com.bencodez.votingplugin.proxy.multiproxy;
 import java.io.File;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 import com.bencodez.simpleapi.encryption.EncryptionHandler;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
@@ -25,6 +30,9 @@ import lombok.Getter;
 public abstract class MultiProxyHandler {
 	private HashMap<String, ClientHandler> multiproxyClientHandles;
 	private SocketHandler multiproxySocketHandler;
+	/** A renewable lease prevents a restarted/rolled-back peer staying ACK-capable forever. */
+	static final long VOTE_CAPABILITY_LEASE_MILLIS = 5 * 60 * 1000L;
+	private final Map<String, Long> acknowledgedVoteCapabilityPeers = new HashMap<>();
 
 	@Getter
 	private RedisHandler multiProxyRedis;
@@ -33,6 +41,10 @@ public abstract class MultiProxyHandler {
 	 * Constructs a new multi-proxy handler.
 	 */
 	public MultiProxyHandler() {
+	}
+
+	long capabilityNowMillis() {
+		return System.currentTimeMillis();
 	}
 
 	/**
@@ -64,6 +76,7 @@ public abstract class MultiProxyHandler {
 		multiProxyRedis = null;
 		stopSocketClients(multiproxyClientHandles);
 		multiproxyClientHandles = null;
+		acknowledgedVoteCapabilityPeers.clear();
 	}
 
 	/**
@@ -250,9 +263,92 @@ public abstract class MultiProxyHandler {
 			VoteTotalsSnapshot text, String uuid);
 
 	/**
+	 * Triggers a vote using the stable ID carried by a multi-proxy envelope.
+	 * Existing implementations retain the legacy callback contract; implementations
+	 * that support durable retries should override this overload.
+	 */
+	public void triggerVote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
+			VoteTotalsSnapshot text, String uuid, UUID voteId) {
+		triggerVote(player, service, realVote, timeQueue, queueTime, text, uuid);
+	}
+
+	/**
+	 * Additive reliable-delivery overload. Existing integrations retain the
+	 * stable-ID behavior without needing to understand acknowledgements.
+	 */
+	public void triggerVote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
+			VoteTotalsSnapshot text, String uuid, UUID voteId, String origin) {
+		triggerVote(player, service, realVote, timeQueue, queueTime, text, uuid, voteId);
+	}
+
+	/** Called when a receiver acknowledges this proxy's stable vote ID. */
+	public void onMultiProxyVoteAcknowledged(UUID voteId, String recipient) {
+		// Optional for legacy implementations.
+	}
+
+	/** Called on the origin when a receiver confirms fence retirement. */
+	public void onMultiProxyVoteRetirementAcknowledged(UUID voteId, String recipient) {
+		// Optional for legacy implementations.
+	}
+
+	/** Called on a receiver after a targeted retirement request is authenticated. */
+	public void onMultiProxyVoteRetirementRequested(UUID voteId, String origin) {
+		// Optional for legacy implementations.
+	}
+
+	/**
+	 * Publishes an acknowledgement after receiver completion is durable. The
+	 * broadcast route keeps sockets and Redis compatible; recipients filter it by
+	 * the origin field, and duplicate votes cause the receiver to acknowledge again.
+	 */
+	public void acknowledgeMultiProxyVote(UUID voteId, String origin) {
+		if (voteId == null || origin == null || origin.isBlank()) return;
+		sendMultiProxyEnvelopeAccepted(VotingPluginWire.multiProxyVoteAck(voteId, origin, getMultiProxyServerName()));
+	}
+
+	public void requestMultiProxyVoteRetirement(UUID voteId, String origin, String recipient) {
+		if (voteId == null || origin == null || origin.isBlank() || recipient == null || recipient.isBlank()) return;
+		sendMultiProxyEnvelopeAccepted(VotingPluginWire.multiProxyVoteRetire(voteId, origin, recipient),
+				java.util.Set.of(recipient));
+	}
+
+	public void acknowledgeMultiProxyVoteRetirement(UUID voteId, String origin) {
+		if (voteId == null || origin == null || origin.isBlank()) return;
+		sendMultiProxyEnvelopeAccepted(
+				VotingPluginWire.multiProxyVoteRetireAck(voteId, origin, getMultiProxyServerName()));
+	}
+
+	/** Returns every configured remote proxy recipient, independent of version. */
+	public synchronized Set<String> getConfiguredMultiProxyVoteRecipients() {
+		Collection<String> source = getMultiProxyMethod().equals(MultiProxyMethod.SOCKETS)
+				? getMultiProxyServers() : getProxyServers();
+		Set<String> recipients = new LinkedHashSet<>();
+		if (source == null) return recipients;
+		for (String server : source) {
+			if (server != null && !server.isBlank()) recipients.add(server.toLowerCase(Locale.ROOT));
+		}
+		return recipients;
+	}
+
+	/** Returns only configured peers that explicitly support durable acknowledgements. */
+	public synchronized Set<String> getMultiProxyVoteRecipients() {
+		long now = capabilityNowMillis();
+		acknowledgedVoteCapabilityPeers.entrySet().removeIf(entry -> entry.getValue() <= now);
+		Set<String> recipients = getConfiguredMultiProxyVoteRecipients();
+		recipients.retainAll(acknowledgedVoteCapabilityPeers.keySet());
+		return recipients;
+	}
+
+	/** Broadcasts this node's durable-ACK capability to configured peers. */
+	public synchronized void announceMultiProxyVoteCapability() {
+		sendMultiProxyEnvelopeAccepted(VotingPluginWire.multiProxyCapabilities(getMultiProxyServerName(), 1));
+	}
+
+	/**
 	 * Loads multi-proxy support.
 	 */
 	public synchronized void loadMultiProxySupport() {
+		acknowledgedVoteCapabilityPeers.clear();
 		if (!getMultiProxySupportEnabled()) {
 			return;
 		}
@@ -315,6 +411,7 @@ public abstract class MultiProxyHandler {
 		}
 
 		logInfo("Loaded multi-proxy support: " + getMultiProxyMethod().toString());
+		announceMultiProxyVoteCapability();
 	}
 
 	/**
@@ -359,24 +456,75 @@ public abstract class MultiProxyHandler {
 	 * @param envelope the envelope to send
 	 */
 	public synchronized void sendMultiProxyEnvelope(JsonEnvelope envelope) {
-		if (envelope == null) {
-			return;
+		sendMultiProxyEnvelopeAccepted(envelope);
+	}
+
+	/**
+	 * Sends an envelope and reports whether the configured transport accepted it.
+	 *
+	 * <p>The legacy send method is intentionally retained for callers that do not
+	 * need delivery fencing. A vote producer must use this result: a missing
+	 * client, an unavailable Redis connection, an empty destination list, or a
+	 * transport exception must leave the vote retryable instead of claiming that
+	 * forwarding completed. Socket clients are fire-and-forget in SimpleAPI, so
+	 * acceptance means that the configured client accepted the send invocation;
+	 * the stable wire vote ID remains the receiver-side duplicate fence.</p>
+	 *
+	 * @param envelope the envelope to send
+	 * @return true only when every configured destination accepted the envelope
+	 */
+	public synchronized boolean sendMultiProxyEnvelopeAccepted(JsonEnvelope envelope) {
+		return sendMultiProxyEnvelopeAccepted(envelope, getConfiguredMultiProxyVoteRecipients());
+	}
+
+	/**
+	 * Sends an envelope to a selected subset of configured peers. Reliable senders
+	 * use this to retry only ACK-capable peers, avoiding duplicate legacy delivery.
+	 */
+	public synchronized boolean sendMultiProxyEnvelopeAccepted(JsonEnvelope envelope, Collection<String> recipients) {
+		if (envelope == null) return false;
+		if (recipients == null || recipients.isEmpty()) return false;
+		Map<String, String> requested = new LinkedHashMap<>();
+		for (String recipient : recipients) {
+			if (recipient != null && !recipient.isBlank()) {
+				requested.putIfAbsent(recipient.toLowerCase(Locale.ROOT), recipient);
+			}
 		}
+		if (requested.isEmpty()) return false;
 		if (getMultiProxyMethod().equals(MultiProxyMethod.SOCKETS)) {
-			if (multiproxyClientHandles == null) {
-				return;
+			if (multiproxyClientHandles == null || multiproxyClientHandles.isEmpty()) return false;
+			boolean accepted = true;
+			int destinations = 0;
+			for (Map.Entry<String, ClientHandler> entry : multiproxyClientHandles.entrySet()) {
+				if (entry.getKey() == null || !requested.containsKey(entry.getKey().toLowerCase(Locale.ROOT))) continue;
+				ClientHandler h = entry.getValue();
+				if (h == null) {
+					accepted = false;
+					continue;
+				}
+				destinations++;
+				try {
+					h.sendEnvelope(envelope);
+				} catch (RuntimeException failure) {
+					accepted = false;
+				}
 			}
-			for (ClientHandler h : multiproxyClientHandles.values()) {
-				h.sendEnvelope(envelope);
-			}
+			return accepted && destinations == requested.size();
 		} else if (getMultiProxyMethod().equals(MultiProxyMethod.REDIS)) {
-			if (multiProxyRedis == null) {
-				return;
+			if (multiProxyRedis == null) return false;
+			boolean accepted = true;
+			int destinations = 0;
+			for (String server : requested.values()) {
+				destinations++;
+				try {
+					multiProxyRedis.publishEnvelope("VotingPluginProxy_" + server, envelope);
+				} catch (RuntimeException failure) {
+					accepted = false;
+				}
 			}
-			for (String server : getProxyServers()) {
-				multiProxyRedis.publishEnvelope("VotingPluginProxy_" + server, envelope);
-			}
+			return accepted && destinations == requested.size();
 		}
+		return false;
 	}
 
 	static void stopSocketClients(Map<String, ClientHandler> clients) {
@@ -439,15 +587,86 @@ public abstract class MultiProxyHandler {
 			return;
 		}
 
+		if (sub.equalsIgnoreCase(VotingPluginWire.SUB_MULTI_PROXY_VOTE_ACK)) {
+			String origin = f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_ORIGIN, "");
+			String recipient = f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_RECIPIENT, "");
+			if (!origin.equalsIgnoreCase(getMultiProxyServerName())) return;
+			try {
+				onMultiProxyVoteAcknowledged(UUID.fromString(f.getOrDefault(VotingPluginWire.K_VOTE_ID, "")), recipient);
+			} catch (IllegalArgumentException ignored) {
+				// Ignore malformed acknowledgements; they must never clear a sender fence.
+			}
+			return;
+		}
+
+		if (sub.equalsIgnoreCase(VotingPluginWire.SUB_MULTI_PROXY_VOTE_RETIRE)) {
+			String origin = f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_ORIGIN, "");
+			String recipient = f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_RECIPIENT, "");
+			if (!recipient.equalsIgnoreCase(getMultiProxyServerName()) || origin.isBlank()
+					|| !getConfiguredMultiProxyVoteRecipients().contains(origin.toLowerCase(Locale.ROOT))) return;
+			try {
+				onMultiProxyVoteRetirementRequested(
+						UUID.fromString(f.getOrDefault(VotingPluginWire.K_VOTE_ID, "")), origin);
+			} catch (IllegalArgumentException ignored) { }
+			return;
+		}
+
+		if (sub.equalsIgnoreCase(VotingPluginWire.SUB_MULTI_PROXY_VOTE_RETIRE_ACK)) {
+			String origin = f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_ORIGIN, "");
+			String recipient = f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_RECIPIENT, "");
+			if (!origin.equalsIgnoreCase(getMultiProxyServerName())) return;
+			try {
+				onMultiProxyVoteRetirementAcknowledged(
+						UUID.fromString(f.getOrDefault(VotingPluginWire.K_VOTE_ID, "")), recipient);
+			} catch (IllegalArgumentException ignored) { }
+			return;
+		}
+
+		if (sub.equalsIgnoreCase(VotingPluginWire.SUB_MULTI_PROXY_CAPABILITIES)) {
+			String recipient = f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_RECIPIENT, "");
+			boolean reply = Boolean.parseBoolean(f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_CAPABILITY_REPLY, "false"));
+			boolean replyRequired = false;
+			try {
+				int version = Integer.parseInt(f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_ACK_VERSION, "0"));
+				String normalized = recipient.toLowerCase(Locale.ROOT);
+				synchronized (this) {
+					if (version >= 1 && getConfiguredMultiProxyVoteRecipients().contains(normalized)) {
+						acknowledgedVoteCapabilityPeers.put(normalized,
+								capabilityNowMillis() + VOTE_CAPABILITY_LEASE_MILLIS);
+						replyRequired = !reply;
+					}
+				}
+			} catch (IllegalArgumentException ignored) {
+				// A malformed capability must leave the peer on the legacy route.
+			}
+			if (replyRequired) {
+				sendMultiProxyEnvelopeAccepted(
+						VotingPluginWire.multiProxyCapabilities(getMultiProxyServerName(), 1, true));
+			}
+			return;
+		}
+
 		if (sub.equalsIgnoreCase(VotingPluginWire.SUB_VOTE) || sub.equalsIgnoreCase(VotingPluginWire.SUB_VOTE_ONLINE)) {
+			final VotingPluginWire.Vote wireVote = VotingPluginWire.readVote(envelope);
 			final String player = f.getOrDefault(VotingPluginWire.K_PLAYER, "");
 			final String uuid = f.getOrDefault(VotingPluginWire.K_UUID, "");
 			final String service = f.getOrDefault(VotingPluginWire.K_SERVICE, "");
 			final String totals = f.getOrDefault(VotingPluginWire.K_TOTALS, "");
 			final boolean realVote = Boolean.parseBoolean(f.getOrDefault(VotingPluginWire.K_REAL_VOTE, "false"));
+			final String origin = f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_ORIGIN, "");
+			if (!origin.isBlank() && wireVote.voteId == null) {
+				// Reliable envelopes must never enter receiver processing without the
+				// stable identity used by its durable completion fence.
+				return;
+			}
 
 			if (!player.isEmpty() && !uuid.isEmpty() && !service.isEmpty()) {
-				triggerVote(player, service, realVote, true, 0L, VoteTotalsSnapshot.parseStorage(totals), uuid);
+				if (origin.isBlank()) {
+					triggerVote(player, service, realVote, true, 0L, VoteTotalsSnapshot.parseStorage(totals), uuid);
+				} else {
+					triggerVote(player, service, realVote, true, 0L, VoteTotalsSnapshot.parseStorage(totals), uuid,
+							wireVote.voteId, origin);
+				}
 			}
 			return;
 		}

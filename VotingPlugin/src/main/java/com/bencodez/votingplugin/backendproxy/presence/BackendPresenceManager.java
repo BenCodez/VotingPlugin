@@ -3,9 +3,12 @@ package com.bencodez.votingplugin.backendproxy.presence;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -34,6 +37,8 @@ public class BackendPresenceManager {
 	private final Object lifecycleLock = new Object();
 
 	private boolean reporting;
+	/** Invalidates delayed lifecycle callbacks when a fresh incarnation starts. */
+	private long lifecycleGeneration;
 	private String server;
 	private UUID incarnationId;
 	private long startedAt;
@@ -57,6 +62,7 @@ public class BackendPresenceManager {
 		}
 		String configuredServer = plugin.getBungeeSettings().getServer();
 		synchronized (lifecycleLock) {
+			lifecycleGeneration++;
 			long now = System.currentTimeMillis();
 			incarnationId = UUID.randomUUID();
 			startedAt = now;
@@ -67,24 +73,90 @@ public class BackendPresenceManager {
 			lastResyncRequestAtNanos = 0L;
 			lastSnapshotRequestId = null;
 			lastSnapshotRequestAtNanos = 0L;
-			send(VotingPluginWire.backendStarted(server, incarnationId, startedAt, now));
-			send(VotingPluginWire.backendHeartbeat(server, incarnationId, startedAt, nextTimestamp()));
-
 			if (heartbeatTask != null) {
 				heartbeatTask.cancel(false);
 			}
-			heartbeatTask = plugin.getTimer().scheduleAtFixedRate(new Runnable() {
-				@Override
-				public void run() {
-					sendHeartbeat();
-				}
-			}, HEARTBEAT_SECONDS, HEARTBEAT_SECONDS, TimeUnit.SECONDS);
+			try {
+				heartbeatTask = plugin.getTimer().scheduleAtFixedRate(new Runnable() {
+					@Override
+					public void run() {
+						sendHeartbeat();
+					}
+				}, HEARTBEAT_SECONDS, HEARTBEAT_SECONDS, TimeUnit.SECONDS);
+				seedOnlinePlayers();
+			} catch (RuntimeException failure) {
+				if (heartbeatTask != null) heartbeatTask.cancel(false);
+				heartbeatTask = null;
+				reporting = false;
+				server = null;
+				incarnationId = null;
+				throw failure;
+			}
+			send(VotingPluginWire.backendStarted(server, incarnationId, startedAt, now));
+			send(VotingPluginWire.backendHeartbeat(server, incarnationId, startedAt, nextTimestamp()));
 		}
-		seedOnlinePlayers();
 	}
 
 	public void stop() {
+		stop(false);
+	}
+
+	/** Stops presence and propagates rejection when a configuration disable must be transactional. */
+	public void stopForDisable() {
+		stopForDisable(System.nanoTime() + TimeUnit.SECONDS.toNanos(5));
+	}
+
+	/** Stops presence before the caller's transactional validation deadline. */
+	public void stopForDisable(long deadlineNanos) {
+		// Plugin-message transport ultimately calls Bukkit's sendPluginMessage API,
+		// which is primary-thread-only. Control validation runs on its worker, so
+		// marshal the transactional stopped-presence send before returning the
+		// result to that worker. Unit-test and shutdown contexts without a server
+		// retain the direct path used by the non-Control lifecycle.
+		if (method == BungeeMethod.PLUGINMESSAGING && plugin != null && plugin.getServer() != null
+				&& !plugin.getServer().isPrimaryThread()) {
+			long expectedGeneration;
+			synchronized (lifecycleLock) {
+				expectedGeneration = lifecycleGeneration;
+			}
+			CompletableFuture<Void> scheduled = new CompletableFuture<>();
+			try {
+				plugin.getBukkitScheduler().executeOrScheduleSync(plugin, () -> {
+					try {
+						stop(true, expectedGeneration);
+						scheduled.complete(null);
+					} catch (Throwable failure) {
+						scheduled.completeExceptionally(failure);
+					}
+				});
+				long remaining = deadlineNanos - System.nanoTime();
+				if (remaining <= 0L) throw new TimeoutException("Backend stopped presence deadline expired");
+				scheduled.get(remaining, TimeUnit.NANOSECONDS);
+				return;
+			} catch (Exception failure) {
+				scheduled.cancel(false);
+				Throwable cause = failure instanceof ExecutionException && failure.getCause() != null
+						? failure.getCause() : failure;
+				if (cause instanceof RuntimeException runtime) throw runtime;
+				throw new IllegalStateException("Backend stopped presence could not run on the Bukkit thread", cause);
+			}
+		}
+		stop(true);
+	}
+
+	private void stop(boolean requireStoppedDelivery) {
+		stop(requireStoppedDelivery, -1L);
+	}
+
+	/**
+	 * Stops only the generation captured by a delayed callback. A cancelled future
+	 * does not necessarily cancel a task already queued on the Bukkit scheduler.
+	 */
+	private void stop(boolean requireStoppedDelivery, long expectedGeneration) {
 		synchronized (lifecycleLock) {
+			if (expectedGeneration >= 0L && lifecycleGeneration != expectedGeneration) {
+				return;
+			}
 			String activeServer = server;
 			UUID activeIncarnationId = incarnationId;
 			long activeStartedAt = startedAt;
@@ -95,16 +167,21 @@ public class BackendPresenceManager {
 				heartbeatTask.cancel(false);
 				heartbeatTask = null;
 			}
-			if (wasReporting && activeServer != null && activeIncarnationId != null) {
-				send(VotingPluginWire.backendStopped(activeServer, activeIncarnationId, activeStartedAt,
-						nextTimestamp()));
+			try {
+				if (wasReporting && activeServer != null && activeIncarnationId != null) {
+					JsonEnvelope stopped = VotingPluginWire.backendStopped(activeServer, activeIncarnationId,
+							activeStartedAt, nextTimestamp());
+					if (requireStoppedDelivery) globalMessageHandler.sendMessage(stopped);
+					else send(stopped);
+				}
+			} finally {
+				incarnationId = null;
+				lastResyncRequestId = null;
+				lastResyncRequestAtNanos = 0L;
+				lastSnapshotRequestId = null;
+				lastSnapshotRequestAtNanos = 0L;
+				playerSessions.clear();
 			}
-			incarnationId = null;
-			lastResyncRequestId = null;
-			lastResyncRequestAtNanos = 0L;
-			lastSnapshotRequestId = null;
-			lastSnapshotRequestAtNanos = 0L;
-			playerSessions.clear();
 		}
 	}
 

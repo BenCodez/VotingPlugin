@@ -157,6 +157,10 @@
                                 ${project.groupId}.votingplugin.bstats</shadedPattern>
                         </relocation>
                         <relocation>
+                            <pattern>org.bouncycastle</pattern>
+                            <shadedPattern>${project.groupId}.votingplugin.bouncycastle</shadedPattern>
+                        </relocation>
+                        <relocation>
                             <pattern>xyz.upperlevel.spigot</pattern>
                             <shadedPattern>
                                 ${project.groupId}.votingplugin.advancedcore.xyz.upperlevel.spigot</shadedPattern>
@@ -213,6 +217,12 @@
                                         <exclude>redis/clients/**</exclude>
                                         <exclude>org/eclipse/paho/**</exclude>
                                         <exclude>META-INF/versions/**</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>org.bouncycastle:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/versions/25/**</exclude>
                                     </excludes>
                                 </filter>
                                 <filter>
@@ -426,6 +436,12 @@
                     <artifactId>jedis</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>com.bencodez</groupId>
+            <artifactId>simpleapi</artifactId>
+            <version>1.0.2-SNAPSHOT</version>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>

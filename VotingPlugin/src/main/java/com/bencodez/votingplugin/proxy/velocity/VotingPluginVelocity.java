@@ -13,6 +13,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.security.CodeSource;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map.Entry;
@@ -23,6 +24,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -464,6 +466,19 @@ public class VotingPluginVelocity {
 				// =========================
 				// FULL RELOAD (WITH MYSQL)
 				// =========================
+				// Preserve the current live HTTP listener while it owns retained durable
+				// deliveries. A fresh runtime would read the newly loaded endpoint, which
+				// may have been removed or changed before that FIFO is acknowledged.
+				if (votingPluginProxy != null
+						&& votingPluginProxy.requiresHttpRetentionCheckBeforeRuntimeReplacement()) {
+					votingPluginProxy.reload();
+					if (votingPluginProxy.isRetainingHttpTransportForDeferredReconciliation()) {
+						scheduleTasks();
+						reloading = false;
+						drainQueuedPluginMessagesAfterReloadLock();
+						return;
+					}
+				}
 
 				// Best-effort save caches before shutdown
 				try {
@@ -566,6 +581,26 @@ public class VotingPluginVelocity {
 				votingPluginProxy.sendServerNameMessage();
 			}
 		} catch (Exception ignored) {
+		}
+	}
+
+	/** The retention branch returns from inside reloadLock; drain only after that lock is released. */
+	private void drainQueuedPluginMessagesAfterReloadLock() {
+		Thread drain = new Thread(() -> {
+			synchronized (reloadLock) {
+				// Acquire/release establishes that the returning reload has left its lock.
+			}
+			drainQueuedPluginMessages();
+		}, "VotingPlugin-Velocity-Reload-Queue-Drain");
+		drain.setDaemon(true);
+		drain.start();
+	}
+
+	/** Runs a scheduled deferred replacement only if it is still current while holding reloadLock. */
+	private void reloadAllInternalIfCurrent(boolean loadMysql, BooleanSupplier stillCurrent) {
+		synchronized (reloadLock) {
+			if (!stillCurrent.getAsBoolean()) return;
+			reloadAllInternal(loadMysql);
 		}
 	}
 
@@ -715,6 +750,26 @@ public class VotingPluginVelocity {
 			}
 
 			@Override
+			public Collection<String> getVoteCachePendingVotePartyServers() {
+				return voteCacheFile.getPendingVotePartyRewardServers();
+			}
+
+			@Override
+			public Collection<String> getVoteCachePendingVotePartyRewardIds(String server) {
+				return voteCacheFile.getPendingVotePartyRewardIds(server);
+			}
+
+			@Override
+			public com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects getVoteCachePendingVotePartyProxyEffects() {
+				return voteCacheFile.getPendingVotePartyProxyEffects();
+			}
+
+			@Override
+			public com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects getVoteCacheQuarantinedVotePartyProxyEffects() {
+				return voteCacheFile.getQuarantinedVotePartyProxyEffects();
+			}
+
+			@Override
 			public boolean isVoteCacheIgnoreTime() {
 				return voteCacheFile.getNode("Time", "IgnoreTime").getBoolean();
 			}
@@ -760,6 +815,23 @@ public class VotingPluginVelocity {
 			}
 
 			@Override
+			public void setVoteCachePendingVotePartyReward(String server, String deliveryId, boolean pending) {
+				voteCacheFile.setPendingVotePartyReward(server, deliveryId, pending);
+			}
+
+			@Override
+			public void setVoteCachePendingVotePartyProxyEffects(
+					com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects effects) {
+				voteCacheFile.setPendingVotePartyProxyEffects(effects);
+			}
+
+			@Override
+			public void setVoteCacheQuarantinedVotePartyProxyEffects(
+					com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects effects) {
+				voteCacheFile.setQuarantinedVotePartyProxyEffects(effects);
+			}
+
+			@Override
 			public boolean isPlayerOnline(String playerName) {
 				if (playerName == null) {
 					return false;
@@ -801,8 +873,23 @@ public class VotingPluginVelocity {
 			}
 
 			@Override
+			protected java.util.concurrent.CompletableFuture<Void> runVotePartyConsoleCommand(String command) {
+				return server.getCommandManager().executeAsync(server.getConsoleCommandSource(), command)
+						.thenApply(executed -> {
+							if (!executed) throw new IllegalStateException("Velocity declined the vote-party proxy command");
+							return null;
+						});
+			}
+
+			@Override
 			public void saveVoteCacheFile() {
 				voteCacheFile.save();
+			}
+
+			@Override
+			public void saveVotePartyStateDurably() throws java.io.IOException {
+				com.bencodez.votingplugin.proxy.cache.VotePartyCacheDurability.saveAndVerify(
+						dataDirectory.resolve("votecache.json"), voteCacheFile);
 			}
 
 			@Override
@@ -823,6 +910,11 @@ public class VotingPluginVelocity {
 			public void reloadCore(boolean mysql) {
 				// mysql=true is reloadall behavior
 				reloadAllInternal(mysql);
+			}
+
+			@Override
+			protected void reloadDeferredHttpTransportCore(long generation) {
+				reloadAllInternalIfCurrent(true, () -> isDeferredHttpTransportGenerationCurrent(generation));
 			}
 
 			@Override

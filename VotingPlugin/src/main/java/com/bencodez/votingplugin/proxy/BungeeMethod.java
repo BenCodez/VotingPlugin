@@ -10,6 +10,8 @@ public enum BungeeMethod {
 	PLUGINMESSAGING,
 	/** Socket connection. */
 	SOCKETS,
+	/** Encrypted single-port HTTP connector. */
+	HTTP,
 	/** Redis connection. */
 	REDIS,
 	/** MQTT message broker. */

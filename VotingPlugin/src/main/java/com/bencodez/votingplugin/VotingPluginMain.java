@@ -167,6 +167,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private final ProcessedVoteCache backendProcessedVoteCache = new ProcessedVoteCache();
 	private final AtomicReference<GlobalMessageHandler> backendPluginMessageTarget = new AtomicReference<>();
 	private PluginMessageHandler backendPluginMessageRelay;
+	private com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessage backendPluginMessageRelayOwner;
 	private volatile BackendControlAutoEnrollment backendControlAutoEnrollment;
 	private volatile BackendControlConnector backendControlConnector;
 	private final ScheduledExecutorService backendControlConnectorLifecycle = Executors.newSingleThreadScheduledExecutor(runnable -> {
@@ -1223,29 +1224,254 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	/** Recreates proxy transports after Control applies BungeeSettings.yml. */
-	public synchronized void restartBackendProxyHandler() {
-		BackendProxyHandler previous = backendProxyHandler;
-		if (!bungeeSettings.isUseBungeecoord()) {
-			backendProxyHandler = null;
-			if (previous != null) previous.close();
-			BackendControlAutoEnrollment enrollment = backendControlAutoEnrollment;
-			backendControlAutoEnrollment = null;
-			if (enrollment != null) enrollment.close();
-			return;
-		}
-		BungeeMethod replacementMethod = BungeeMethod.getByName(bungeeSettings.getBungeeMethod());
-		if (previous != null) previous.prepareForReplacement(replacementMethod);
-		BackendProxyHandler replacement = new BackendProxyHandler(this, backendProcessedVoteCache);
+	public void restartBackendProxyHandler() {
+		restartBackendProxyHandler(System.nanoTime() + TimeUnit.SECONDS.toNanos(25));
+	}
+
+	/** Recreates proxy transports while preserving the caller's end-to-end validation deadline. */
+	public void restartBackendProxyHandler(long validationDeadlineNanos) {
+		BackendProxyRestart restart = prepareBackendProxyHandlerRestart();
 		try {
-			replacement.load();
-			replacement.validateTransport();
-			if (previous != null) previous.completeRedisHandoff(replacement);
+			validateBackendProxyHandlerRestart(restart, validationDeadlineNanos);
+			completeBackendProxyHandlerRestart(restart);
 		} catch (RuntimeException failure) {
-			replacement.close();
+			abortBackendProxyHandlerRestart(restart);
 			throw failure;
 		}
-		backendProxyHandler = replacement;
-		if (previous != null) previous.close();
+	}
+
+	/** Constructed on the Bukkit thread, prepared and validated off-thread, then atomically published on Bukkit. */
+	public static final class BackendProxyRestart {
+		private final BackendProxyHandler previous;
+		private final BackendProxyHandler replacement;
+		private final boolean disabled;
+		private final boolean previousRequiresPreparation;
+		private volatile boolean previousPrepared;
+		private boolean presenceStoppedForDisablePreparation;
+		// Redis listener retirement can wait for callbacks and listener shutdown. It is
+		// completed by the Control worker during validation, before the final Bukkit
+		// publication callback, and must be restored if that publication is abandoned.
+		private volatile boolean redisHandoffCompleted;
+		private boolean redisHandoffInProgress;
+		private boolean finished;
+		private boolean abandonmentRequested;
+		// Same-method socket and MQTT replacements must not start a second runtime
+		// endpoint before worker-side preparation retires the predecessor.
+		private boolean replacementLoadDeferred;
+		private volatile boolean published;
+
+		private BackendProxyRestart(BackendProxyHandler previous, BackendProxyHandler replacement, boolean disabled,
+				boolean previousRequiresPreparation) {
+			this.previous = previous;
+			this.replacement = replacement;
+			this.disabled = disabled;
+			this.previousRequiresPreparation = previousRequiresPreparation;
+		}
+
+		/** Only exclusive same-method transports may be restored by the Control worker. */
+		public boolean requiresWorkerRollback() {
+			return previousPrepared && previous != null && replacement != null
+					&& ((previous.getMethod() == BungeeMethod.SOCKETS && replacement.getMethod() == BungeeMethod.SOCKETS)
+							|| (previous.getMethod() == BungeeMethod.MQTT
+									&& replacement.getMethod() == BungeeMethod.MQTT));
+		}
+	}
+
+	public static final class BackendProxyRestartPreparationException extends RuntimeException {
+		private static final long serialVersionUID = 1L;
+		private final BackendProxyRestart restart;
+
+		private BackendProxyRestartPreparationException(BackendProxyRestart restart, RuntimeException cause) {
+			super(cause);
+			this.restart = restart;
+		}
+
+		public BackendProxyRestart restart() { return restart; }
+	}
+
+	public synchronized BackendProxyRestart prepareBackendProxyHandlerRestart() {
+		BackendProxyHandler previous = backendProxyHandler;
+		if (!bungeeSettings.isUseBungeecoord()) {
+			boolean previousRequiresPreparation = previous != null
+					&& (previous.requiresPreparationForReplacement() || previous.requiresRedisRetirement());
+			return new BackendProxyRestart(previous, null, true, previousRequiresPreparation);
+		}
+		BungeeMethod replacementMethod = BungeeMethod.getByName(bungeeSettings.getBungeeMethod());
+		boolean sameSocketReplacement = previous != null && previous.getMethod() == BungeeMethod.SOCKETS
+				&& replacementMethod == BungeeMethod.SOCKETS;
+		boolean sameMqttReplacement = previous != null && previous.getMethod() == BungeeMethod.MQTT
+				&& replacementMethod == BungeeMethod.MQTT;
+		boolean deferredReplacementLoad = sameSocketReplacement || sameMqttReplacement;
+		// Every transition away from an active HTTP transport must first drain its
+		// durable outgoing queue. Restricting preparation to HTTP-to-HTTP swaps can
+		// strand accepted deliveries when another transport is published.
+		boolean previousRequiresPreparation = previous != null
+				&& (deferredReplacementLoad || previous.requiresPreparationForReplacement()
+						|| previous.requiresRedisRetirement());
+		BackendProxyHandler replacement = new BackendProxyHandler(this, backendProcessedVoteCache);
+		if (!deferredReplacementLoad) {
+			try {
+				replacement.loadForReplacement();
+			} catch (RuntimeException failure) {
+				replacement.close();
+				throw failure;
+			}
+		}
+		BackendProxyRestart restart = new BackendProxyRestart(previous, replacement, false, previousRequiresPreparation);
+		restart.replacementLoadDeferred = deferredReplacementLoad;
+		return restart;
+	}
+
+	public void validateBackendProxyHandlerRestart(BackendProxyRestart restart, long validationDeadlineNanos) {
+		if (restart == null) throw new IllegalArgumentException("Backend proxy restart is required");
+		// Disabling always stops a live predecessor's presence transport. That stop
+		// can perform network/backend work for MQTT, MySQL, and socket transports
+		// even when they have no HTTP/plugin-message handoff to prepare. Keep it on
+		// the Control worker rather than falling through to Bukkit publication.
+		if (restart.disabled && restart.previous != null && !restart.presenceStoppedForDisablePreparation) {
+			restart.presenceStoppedForDisablePreparation = true;
+			restart.previous.preparePresenceForDisable(validationDeadlineNanos);
+		}
+		if (restart.previousRequiresPreparation && !restart.previousPrepared) {
+			// Preparation can close a retrying enrollment transport before a bounded
+			// worker join fails. Mark the restart first so abort/await still owns the
+			// restoration path after a partially completed preparation.
+			restart.previousPrepared = true;
+			BungeeMethod replacementMethod = restart.replacement == null ? null : restart.replacement.getMethod();
+			if (restart.replacement != null) restart.replacement.beginPreparedHttpHandoff();
+			if (!restart.previous.prepareForReplacement(replacementMethod, validationDeadlineNanos))
+				throw new IllegalStateException("Previous proxy transport could not be prepared for replacement");
+			if (replacementMethod == BungeeMethod.HTTP)
+				restart.previous.reservePreparedHttpHandoff(restart.replacement);
+		}
+		if (restart.replacement != null && restart.replacementLoadDeferred) {
+			restart.replacement.loadForReplacement();
+			restart.replacementLoadDeferred = false;
+		}
+		if (restart.replacement != null) restart.replacement.validateTransport(validationDeadlineNanos);
+		// Same-Redis handoff fences callbacks and joins the retiring listener. Those
+		// waits are bounded, but they must never run on the Bukkit publication task.
+		// The staged replacement still keeps all inbound callbacks behind its
+		// publication gate, so doing this on the Control worker cannot expose it early.
+		if (restart.previous != null && restart.replacement != null
+				&& restart.previous.requiresRedisHandoff(restart.replacement)) {
+			synchronized (restart) {
+				if (restart.redisHandoffCompleted) return;
+				if (restart.redisHandoffInProgress)
+					throw new IllegalStateException("Redis handoff validation is already in progress");
+				restart.redisHandoffInProgress = true;
+			}
+			boolean abandonAfterHandoff;
+			try {
+				restart.previous.completeRedisHandoff(restart.replacement);
+			} catch (RuntimeException handoffFailure) {
+				synchronized (restart) {
+					restart.redisHandoffInProgress = false;
+					restart.notifyAll();
+				}
+				throw handoffFailure;
+			}
+			synchronized (restart) {
+				restart.redisHandoffInProgress = false;
+				restart.redisHandoffCompleted = true;
+				abandonAfterHandoff = restart.abandonmentRequested;
+				restart.notifyAll();
+			}
+			if (abandonAfterHandoff) abortBackendProxyHandlerRestart(restart);
+		}
+	}
+
+	public void completeBackendProxyHandlerRestart(BackendProxyRestart restart) {
+		synchronized (this) {
+			if (restart == null || restart.finished) throw new IllegalStateException("Backend proxy restart is no longer active");
+			boolean requiresRedisHandoff = restart.previous != null && restart.replacement != null
+					&& restart.previous.requiresRedisHandoff(restart.replacement);
+			boolean abandonmentRequested;
+			synchronized (restart) {
+				if (requiresRedisHandoff && (!restart.redisHandoffCompleted || restart.redisHandoffInProgress)) {
+					throw new IllegalStateException("Redis handoff must complete during validation before publication");
+				}
+				abandonmentRequested = restart.abandonmentRequested;
+			}
+			if (abandonmentRequested) {
+				abortBackendProxyHandlerRestart(restart);
+				return;
+			}
+			if (backendProxyHandler != restart.previous) throw new IllegalStateException("Backend proxy handler changed during restart");
+			if (restart.disabled) {
+				if (restart.previous != null && !restart.presenceStoppedForDisablePreparation)
+					throw new IllegalStateException("Backend proxy disable must be prepared before Bukkit publication");
+				if (restart.previous != null && !restart.previous.commitPreparedDisable())
+					throw new IllegalStateException("Backend proxy transport accepted a delivery while disabling");
+				backendProxyHandler = null;
+				BackendControlAutoEnrollment enrollment = backendControlAutoEnrollment;
+				backendControlAutoEnrollment = null;
+				restart.finished = true;
+				restart.published = true;
+				closePublishedPreviousBackendProxyHandler(restart.previous, "after disabling");
+				if (enrollment != null) {
+					try {
+						enrollment.close();
+					} catch (RuntimeException cleanupFailure) {
+						getLogger().warning("Backend Control enrollment did not stop cleanly after disabling");
+						debug(cleanupFailure);
+					}
+				}
+				return;
+			}
+			publishBackendProxyHandler(restart.previous, restart.replacement);
+			// Keep the prepared queue owned by the previous handler until every fallible
+			// publication step succeeds. Admission performs no network I/O.
+			try {
+				if (restart.previous != null) restart.previous.completeHttpHandoff(restart.replacement);
+			} catch (RuntimeException handoffFailure) {
+				backendProxyHandler = restart.previous;
+				restart.replacement.abortStagedInboundTo(restart.previous);
+				if (restart.requiresWorkerRollback()) {
+					// The Control worker owns exclusive socket/MQTT teardown and
+					// predecessor reconnection. Publication has only restored the
+					// Bukkit-visible handler and fenced staged inbound callbacks.
+					throw handoffFailure;
+				}
+				// A validated Redis promotion may already own accepted, deduplicated
+				// replay envelopes even though inbound publication has not opened. Move
+				// those envelopes back before closing the staged replacement, whose
+				// normal close path deliberately clears its replay queue.
+				if (restart.redisHandoffCompleted && restart.previous != null) {
+					try {
+						restart.previous.restoreAfterFailedReplacement(restart.replacement);
+						restart.previous.refreshPresenceAfterFailedReplacement();
+					} catch (RuntimeException restorationFailure) {
+						handoffFailure.addSuppressed(restorationFailure);
+						// Retain the staged replacement and its replay queue for the caller's
+						// subsequent rollback retry rather than clearing accepted envelopes.
+						throw handoffFailure;
+					}
+				}
+				if (requiresAsyncStagedReplacementClose(restart))
+					closeStagedRedisReplacementAsync(restart.replacement);
+				else try {
+					restart.replacement.close();
+				} catch (RuntimeException closeFailure) {
+					handoffFailure.addSuppressed(closeFailure);
+				}
+				if (!restart.redisHandoffCompleted) {
+					try {
+						restart.previous.restoreAfterFailedReplacement();
+						restart.previous.refreshPresenceAfterFailedReplacement();
+					} catch (RuntimeException restorationFailure) {
+						handoffFailure.addSuppressed(restorationFailure);
+					}
+				}
+				restart.finished = true;
+				throw handoffFailure;
+			}
+			restart.replacement.activateInboundMessages();
+			restart.replacement.replayRedisAfterHandoffPublication();
+			restart.finished = true;
+			restart.published = true;
+			closePublishedPreviousBackendProxyHandler(restart.previous, "after publication");
+		}
 		try {
 			refreshBackendControlAutoEnrollment();
 		} catch (IOException e) {
@@ -1253,17 +1479,146 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 	}
 
+	/** Retires network-backed predecessors without blocking the Bukkit publication callback. */
+	void closePublishedPreviousBackendProxyHandler(BackendProxyHandler previous, String phase) {
+		if (previous == null) return;
+		Thread cleanup = new Thread(() -> closePublishedPreviousBackendProxyHandlerNow(previous, phase),
+				"VotingPlugin-Retired-Backend");
+		cleanup.setDaemon(true);
+		cleanup.start();
+	}
+
+	private void closePublishedPreviousBackendProxyHandlerNow(BackendProxyHandler previous, String phase) {
+		try {
+			previous.close();
+		} catch (RuntimeException cleanupFailure) {
+			// Publication is committed. Cleanup failure must not roll back the only live handler.
+			getLogger().warning("Previous backend proxy handler did not stop cleanly " + phase);
+			debug(cleanupFailure);
+		}
+	}
+
+	/** Publishes the handler before opening any transport callback or presence gate. */
+	void publishBackendProxyHandler(BackendProxyHandler previous, BackendProxyHandler replacement) {
+		backendProxyHandler = replacement;
+		try {
+			replacement.activatePresenceReporting();
+		} catch (RuntimeException activationFailure) {
+			backendProxyHandler = previous;
+			replacement.abortStagedInboundTo(previous);
+			throw activationFailure;
+		}
+	}
+
+	/** Returns false once publication committed and can no longer be rolled back as a failed apply. */
+	public synchronized boolean requestBackendProxyHandlerRestartAbandonment(BackendProxyRestart restart) {
+		if (restart == null) return true;
+		synchronized (restart) {
+			if (restart.published) return false;
+			restart.abandonmentRequested = true;
+			restart.notifyAll();
+		}
+		return true;
+	}
+
+	public synchronized void abortBackendProxyHandlerRestart(BackendProxyRestart restart) {
+		if (restart == null || restart.finished) return;
+		synchronized (restart) {
+			// Validation owns the retiring Redis listener until its handoff either
+			// succeeds or fails. Deferring rollback closes the race where abort could
+			// observe a false completion flag and leave that listener fenced.
+			if (restart.redisHandoffInProgress) {
+				restart.abandonmentRequested = true;
+				return;
+			}
+		}
+		RuntimeException cleanupFailure = null;
+		if (restart.redisHandoffCompleted && restart.previous != null && restart.replacement != null) {
+			// Preserve the promoted replacement's pre-publication replay queue before
+			// its close fences and clears it, then retire that staged listener.
+			try {
+				restart.previous.restoreAfterFailedReplacement(restart.replacement);
+			} catch (RuntimeException failure) {
+				cleanupFailure = failure;
+			}
+		}
+		if (restart.replacement != null) {
+			try {
+				restart.replacement.abortStagedInboundTo(restart.previous);
+				if (requiresAsyncStagedReplacementClose(restart)) closeStagedRedisReplacementAsync(restart.replacement);
+				else restart.replacement.close();
+			} catch (RuntimeException failure) {
+				if (cleanupFailure == null) cleanupFailure = failure;
+				else cleanupFailure.addSuppressed(failure);
+			}
+		}
+		if (backendProxyHandler == restart.previous && restart.previous != null
+				&& (restart.previousPrepared || restart.redisHandoffCompleted
+						|| restart.previous.getMethod() == BungeeMethod.PLUGINMESSAGING)) {
+			if (!restart.redisHandoffCompleted) try {
+				restart.previous.restoreAfterFailedReplacement();
+			} catch (RuntimeException failure) {
+				if (cleanupFailure == null) cleanupFailure = failure;
+				else cleanupFailure.addSuppressed(failure);
+			}
+		}
+		if (backendProxyHandler == restart.previous && restart.previous != null
+				&& restart.presenceStoppedForDisablePreparation) {
+			try {
+				restart.previous.restorePresenceAfterFailedDisablePreparation();
+			} catch (RuntimeException failure) {
+				if (cleanupFailure == null) cleanupFailure = failure;
+				else cleanupFailure.addSuppressed(failure);
+			}
+		}
+		restart.finished = true;
+		if (cleanupFailure != null) throw cleanupFailure;
+	}
+
+	private boolean requiresAsyncStagedReplacementClose(BackendProxyRestart restart) {
+		return restart.redisHandoffCompleted || restart.replacement.getMethod() == BungeeMethod.REDIS;
+	}
+
+	/** A staged Redis listener can spend its bounded join timeout in close(); abort runs on Bukkit. */
+	private void closeStagedRedisReplacementAsync(BackendProxyHandler replacement) {
+		Thread cleanup = new Thread(() -> {
+			try {
+				replacement.close();
+			} catch (RuntimeException cleanupFailure) {
+				getLogger().warning("Staged Redis backend proxy handler did not stop cleanly after rollback");
+				debug(cleanupFailure);
+			}
+		}, "VotingPlugin-Staged-Redis-Rollback");
+		cleanup.setDaemon(true);
+		cleanup.start();
+	}
+
+	public void awaitBackendProxyHandlerRollback(BackendProxyRestart restart, long deadlineNanos) {
+		if (restart != null && restart.previousPrepared) {
+			restart.previous.awaitRestoreAfterFailedReplacement(deadlineNanos);
+		}
+	}
+
 	/** Applies only proxy communication settings without reloading unrelated Bukkit configuration. */
 	public synchronized void reloadBackendProxyMethodFromControl() {
+		reloadBackendProxyMethodSettingsFromControl();
+		restartBackendProxyHandler();
+	}
+
+	/** Bukkit-side narrow preparation for a proxy-method Control APPLY. */
+	public synchronized BackendProxyRestart prepareBackendProxyMethodRestartFromControl() {
+		reloadBackendProxyMethodSettingsFromControl();
+		return prepareBackendProxyHandlerRestart();
+	}
+
+	private void reloadBackendProxyMethodSettingsFromControl() {
 		bungeeSettings.reloadData();
 		getOptions().setServer(bungeeSettings.getServer());
 		updateAdvancedCoreHook();
-		restartBackendProxyHandler();
 	}
 
 	/** Keeps one plugin-message listener for the plugin lifetime and atomically swaps its active backend handler. */
 	public synchronized void activateBackendPluginMessageHandler(GlobalMessageHandler target) {
-		backendPluginMessageTarget.set(target);
 		if (backendPluginMessageRelay == null) {
 			backendPluginMessageRelay = new PluginMessageHandler() {
 				@Override
@@ -1272,8 +1627,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					if (current != null) current.onMessage(envelope);
 				}
 			};
-			getPluginMessaging().add(backendPluginMessageRelay);
 		}
+		com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessage current = getPluginMessaging();
+		if (backendPluginMessageRelayOwner != current) {
+			if (backendPluginMessageRelayOwner != null) {
+				backendPluginMessageRelayOwner.getPluginMessages().remove(backendPluginMessageRelay);
+			}
+			current.add(backendPluginMessageRelay);
+			backendPluginMessageRelayOwner = current;
+		}
+		backendPluginMessageTarget.set(target);
 	}
 
 	public void deactivateBackendPluginMessageHandler(GlobalMessageHandler target) {

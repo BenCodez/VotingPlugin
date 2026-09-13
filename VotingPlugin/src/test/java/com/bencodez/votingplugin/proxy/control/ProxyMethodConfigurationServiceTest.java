@@ -4,9 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -58,6 +62,27 @@ class ProxyMethodConfigurationServiceTest {
 		when(config.getBlockedServers()).thenReturn(List.of("blocked"));
 		when(config.getSpigotServerConfiguration("lobby")).thenReturn(Map.of("Host", "localhost"));
 		assertDoesNotThrow(() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.SOCKETS)));
+
+		assertThrows(IllegalArgumentException.class,
+				() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.HTTP)));
+		when(config.getHttpHost()).thenReturn("0.0.0.0");
+		when(config.getHttpPort()).thenReturn(1297);
+		when(config.getHttpPublicEndpoint()).thenReturn("http://proxy.example.test:1297");
+		assertThrows(IllegalArgumentException.class,
+				() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.HTTP)));
+		when(config.getHttpPublicEndpoint()).thenReturn("https://proxy.example.test:1297/terminated-path");
+		assertThrows(IllegalArgumentException.class,
+				() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.HTTP)));
+		when(config.getHttpPublicEndpoint()).thenReturn("https://proxy.example.test:0");
+		assertThrows(IllegalArgumentException.class,
+				() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.HTTP)));
+		when(config.getHttpPublicEndpoint()).thenReturn("https://proxy.example.test:65536");
+		assertThrows(IllegalArgumentException.class,
+				() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.HTTP)));
+		when(config.getHttpPublicEndpoint()).thenReturn("https://proxy.example.test");
+		assertDoesNotThrow(() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.HTTP)));
+		when(config.getHttpPublicEndpoint()).thenReturn("https://proxy.example.test:1297");
+		assertDoesNotThrow(() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.HTTP)));
 
 		assertThrows(IllegalArgumentException.class,
 				() -> service.validate(new ProxyMethodConfiguration(BungeeMethod.MYSQL)));
@@ -120,5 +145,67 @@ class ProxyMethodConfigurationServiceTest {
 
 		ProxyMethodConfiguration proposal = new ProxyMethodConfiguration(BungeeMethod.REDIS);
 		assertDoesNotThrow(() -> service.apply(proposal, service.read().revision()));
+	}
+
+	@Test
+	void preparesHttpListenerFromFreshSnapshotBeforePublishingMethod() throws Exception {
+		when(config.getBungeeMethod()).thenReturn("PLUGINMESSAGING");
+		VotingPluginProxyConfig fresh = validHttpConfig();
+		doAnswer(invocation -> {
+			VotingPluginProxyConfig.ControlProxyMethodValidator validator = invocation.getArgument(2);
+			validator.validate(fresh);
+			return null;
+		}).when(config).persistControlProxyMethod(org.mockito.ArgumentMatchers.eq("HTTP"),
+				org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any());
+
+		service.apply(new ProxyMethodConfiguration(BungeeMethod.HTTP), service.read().revision());
+
+		verify(proxy).prepareHttpTransportChange(fresh);
+		verify(config).verifyControlProxyRoutingInstalled();
+	}
+
+	@Test
+	void reusesRetainedMatchingHttpListenerWhenRevertingDeferredMethod() throws Exception {
+		when(config.getBungeeMethod()).thenReturn("REDIS");
+		VotingPluginProxyConfig fresh = validHttpConfig();
+		when(proxy.hasMatchingLiveHttpTransport(fresh)).thenReturn(true);
+		doAnswer(invocation -> {
+			VotingPluginProxyConfig.ControlProxyMethodValidator validator = invocation.getArgument(2);
+			validator.validate(fresh);
+			return null;
+		}).when(config).persistControlProxyMethod(org.mockito.ArgumentMatchers.eq("HTTP"),
+				org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any());
+
+		service.apply(new ProxyMethodConfiguration(BungeeMethod.HTTP), service.read().revision());
+
+		verify(proxy, never()).prepareHttpTransportChange(fresh);
+		verify(config).verifyControlProxyRoutingInstalled();
+	}
+
+	@Test
+	void closesPreparedHttpListenerWhenPublicationVerificationFails() throws Exception {
+		when(config.getBungeeMethod()).thenReturn("PLUGINMESSAGING");
+		VotingPluginProxyConfig fresh = validHttpConfig();
+		doAnswer(invocation -> {
+			VotingPluginProxyConfig.ControlProxyMethodValidator validator = invocation.getArgument(2);
+			validator.validate(fresh);
+			return null;
+		}).when(config).persistControlProxyMethod(org.mockito.ArgumentMatchers.eq("HTTP"),
+				org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any());
+		doThrow(new IOException("verification failed")).when(config).verifyControlProxyRoutingInstalled();
+
+		assertThrows(IOException.class,
+				() -> service.apply(new ProxyMethodConfiguration(BungeeMethod.HTTP), service.read().revision()));
+
+		verify(proxy).prepareHttpTransportChange(fresh);
+		verify(proxy).cancelPreparedHttpTransportChange();
+	}
+
+	private VotingPluginProxyConfig validHttpConfig() {
+		VotingPluginProxyConfig fresh = mock(VotingPluginProxyConfig.class);
+		when(fresh.getHttpHost()).thenReturn("127.0.0.1");
+		when(fresh.getHttpPort()).thenReturn(1297);
+		when(fresh.getHttpPublicEndpoint()).thenReturn("https://proxy.example.test:1297");
+		return fresh;
 	}
 }

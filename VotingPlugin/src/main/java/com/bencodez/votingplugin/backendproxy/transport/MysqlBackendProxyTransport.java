@@ -43,14 +43,19 @@ public class MysqlBackendProxyTransport implements BackendProxyTransport {
 	}
 
 	@Override
-	public void send(JsonEnvelope envelope) {
+	public boolean send(JsonEnvelope envelope) {
 		if (messenger == null) {
-			return;
+			return false;
 		}
 		try {
 			messenger.sendToProxy(envelope);
+			return true;
 		} catch (SQLException e) {
-			e.printStackTrace();
+			if (plugin != null && plugin.getLogger() != null) {
+				plugin.getLogger().warning("MySQL backend proxy delivery failed");
+				plugin.debug(e);
+			}
+			return false;
 		}
 	}
 

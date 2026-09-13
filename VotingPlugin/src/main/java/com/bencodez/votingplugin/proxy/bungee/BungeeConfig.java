@@ -214,6 +214,21 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 	}
 
 	@Override
+	public String getHttpHost() {
+		return getData().getString("HTTP.Host", "0.0.0.0");
+	}
+
+	@Override
+	public String getHttpPublicEndpoint() {
+		return getData().getString("HTTP.PublicEndpoint", "");
+	}
+
+	@Override
+	public int getHttpPort() {
+		return getData().getInt("HTTP.Port", 1297);
+	}
+
+	@Override
 	public boolean getDebug() {
 		return getData().getBoolean("Debug", false);
 	}

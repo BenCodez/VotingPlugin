@@ -1,6 +1,10 @@
 package com.bencodez.votingplugin.proxy.cache;
 
 import java.util.Collection;
+import java.nio.file.Path;
+import java.io.IOException;
+
+import com.bencodez.votingplugin.util.DurableFiles;
 
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
@@ -9,6 +13,28 @@ import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
  * Interface for vote caching operations.
  */
 public interface IVoteCache {
+
+	/**
+	 * Returns the file backing this JSON cache, when one exists.
+	 *
+	 * @return backing file path, or {@code null} for non-file implementations
+	 */
+	default Path getStoragePath() {
+		return null;
+	}
+
+	/** Persists the complete cache and forces it to stable storage. */
+	default void saveDurably() throws IOException {
+		Path path = getStoragePath();
+		if (path == null) throw new IOException("Vote cache has no durable storage path");
+		save();
+		DurableFiles.forceFile(path);
+		try {
+			DurableFiles.forceDirectory(path.toAbsolutePath().normalize().getParent());
+		} catch (IOException failure) {
+			throw new DurableFiles.PublishedException(failure);
+		}
+	}
 
 	/**
 	 * Adds a timed vote to the cache.
@@ -117,6 +143,15 @@ public interface IVoteCache {
 	 */
 	int getVotePartyCache(String server);
 
+	/** Returns backend IDs with persisted, undelivered vote-party rewards. */
+	Collection<String> getPendingVotePartyRewardServers();
+
+	Collection<String> getPendingVotePartyRewardIds(String server);
+
+	PendingVotePartyProxyEffects getPendingVotePartyProxyEffects();
+
+	PendingVotePartyProxyEffects getQuarantinedVotePartyProxyEffects();
+
 	/**
 	 * Gets the current vote party votes.
 	 *
@@ -138,6 +173,12 @@ public interface IVoteCache {
 	 * @param amount the vote amount
 	 */
 	void setVotePartyCache(String server, int amount);
+
+	void setPendingVotePartyReward(String server, String deliveryId, boolean pending);
+
+	void setPendingVotePartyProxyEffects(PendingVotePartyProxyEffects effects);
+
+	void setQuarantinedVotePartyProxyEffects(PendingVotePartyProxyEffects effects);
 
 	/**
 	 * Sets the current vote party votes.

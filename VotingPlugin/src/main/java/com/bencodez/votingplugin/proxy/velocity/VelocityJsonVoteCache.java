@@ -1,14 +1,25 @@
 package com.bencodez.votingplugin.proxy.velocity;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collection;
+import java.util.Locale;
 
 import com.bencodez.simpleapi.file.velocity.VelocityJSONFile;
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 import com.bencodez.votingplugin.proxy.cache.ConfigDataNode;
 import com.bencodez.votingplugin.proxy.cache.DataNode;
 import com.bencodez.votingplugin.proxy.cache.IVoteCache;
+import com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
+import com.bencodez.votingplugin.util.DurableFiles;
+
+import org.spongepowered.configurate.gson.GsonConfigurationLoader;
 
 /**
  * JSON-based vote cache implementation for Velocity proxy.
@@ -24,6 +35,26 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 	}
 
 	@Override
+	public java.nio.file.Path getStoragePath() {
+		return getPath();
+	}
+
+	@Override
+	public synchronized void saveDurably() throws IOException {
+		Path target = getStoragePath().toAbsolutePath().normalize();
+		Path parent = target.getParent();
+		if (parent == null) throw new IOException("Vote cache has no parent directory");
+		Files.createDirectories(parent);
+		Path staged = Files.createTempFile(parent, target.getFileName().toString(), ".tmp");
+		try {
+			GsonConfigurationLoader.builder().path(staged).build().save(getConf());
+			DurableFiles.publishStagedFile(staged, target);
+		} finally {
+			Files.deleteIfExists(staged);
+		}
+	}
+
+	@Override
 	public void addTimedVote(int num, VoteTimeQueue voteTimedQueue) {
 		setPath(voteTimedQueue.getName(), "TimedVoteCache", String.valueOf(num), "Name");
 		setPath(voteTimedQueue.getService(), "TimedVoteCache", String.valueOf(num), "Service");
@@ -35,9 +66,25 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 				"ProxyBroadcastHandled");
 		setPath(voteTimedQueue.getTotals(), "TimedVoteCache", String.valueOf(num), "Totals");
 		setPath(voteTimedQueue.isProcessed(), "TimedVoteCache", String.valueOf(num), "Processed");
+		setPath(voteTimedQueue.isMultiProxyForwardingHandled(), "TimedVoteCache", String.valueOf(num),
+				"MultiProxyForwardingHandled");
+		setPath(voteTimedQueue.isMultiProxyForwardingRequired(), "TimedVoteCache", String.valueOf(num),
+				"MultiProxyForwardingRequired");
+		setPath(voteTimedQueue.isRealVote(), "TimedVoteCache", String.valueOf(num), "RealVote");
+		setPath(voteTimedQueue.getMultiProxyOrigin(), "TimedVoteCache", String.valueOf(num), "MultiProxyOrigin");
+		setPath(voteTimedQueue.isMultiProxyCompletionPending(), "TimedVoteCache", String.valueOf(num),
+				"MultiProxyCompletionPending");
+		setPath(voteTimedQueue.encodeMultiProxyRecipients(), "TimedVoteCache", String.valueOf(num),
+				"MultiProxyRecipients");
+		setPath(voteTimedQueue.encodeMultiProxyAcknowledgedServers(), "TimedVoteCache", String.valueOf(num),
+				"MultiProxyAcknowledgedServers");
+		setPath(voteTimedQueue.encodeMultiProxyLegacyPendingRecipients(), "TimedVoteCache", String.valueOf(num),
+				"MultiProxyLegacyPendingRecipients");
 		setPath(voteTimedQueue.encodeBroadcastTargets(), "TimedVoteCache", String.valueOf(num), "BroadcastTargets");
 		setPath(voteTimedQueue.encodeBroadcastForwardedServers(), "TimedVoteCache", String.valueOf(num),
 				"BroadcastForwardedServers");
+		setPath(voteTimedQueue.encodeHttpBroadcastDeliveryIds(), "TimedVoteCache", String.valueOf(num),
+				"HttpBroadcastDeliveryIds");
 	}
 
 	@Override
@@ -56,6 +103,8 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 		setPath(voteData.encodeBroadcastForwardedServers(), "VoteCache", server, String.valueOf(num),
 				"BroadcastForwardedServers");
 		setPath(voteData.isRewardDelivered(), "VoteCache", server, String.valueOf(num), "RewardDelivered");
+		setPath(voteData.encodeHttpDeliveryIds(), "VoteCache", server, String.valueOf(num), "HttpDeliveryIds");
+		setPath(voteData.encodeHttpBroadcastDeliveryIds(), "VoteCache", server, String.valueOf(num), "HttpBroadcastDeliveryIds");
 	}
 
 	@Override
@@ -74,6 +123,8 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 		setPath(voteData.encodeBroadcastForwardedServers(), "OnlineCache", player, String.valueOf(num),
 				"BroadcastForwardedServers");
 		setPath(voteData.isRewardDelivered(), "OnlineCache", player, String.valueOf(num), "RewardDelivered");
+		setPath(voteData.encodeHttpDeliveryIds(), "OnlineCache", player, String.valueOf(num), "HttpDeliveryIds");
+		setPath(voteData.encodeHttpBroadcastDeliveryIds(), "OnlineCache", player, String.valueOf(num), "HttpBroadcastDeliveryIds");
 	}
 
 	@Override
@@ -135,6 +186,33 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 	}
 
 	@Override
+	public Collection<String> getPendingVotePartyRewardServers() {
+		Collection<String> encoded = getKeys(getNode("VoteParty", "PendingRewards"));
+		Collection<String> servers = new ArrayList<>();
+		if (encoded != null) for (String key : encoded) servers.add(decodeServerKey(key));
+		return servers;
+	}
+
+	@Override
+	public Collection<String> getPendingVotePartyRewardIds(String server) {
+		return getKeys(getNode("VoteParty", "PendingRewards", encodeServerKey(server)));
+	}
+
+	@Override
+	public PendingVotePartyProxyEffects getPendingVotePartyProxyEffects() {
+		return new PendingVotePartyProxyEffects(
+				getString(getNode("VoteParty", "PendingProxyEffects", "Broadcast"), ""),
+				getStringList(getNode("VoteParty", "PendingProxyEffects", "Commands"), java.util.List.of()));
+	}
+
+	@Override
+	public PendingVotePartyProxyEffects getQuarantinedVotePartyProxyEffects() {
+		return new PendingVotePartyProxyEffects(
+				getString(getNode("VoteParty", "QuarantinedProxyEffects", "Broadcast"), ""),
+				getStringList(getNode("VoteParty", "QuarantinedProxyEffects", "Commands"), java.util.List.of()));
+	}
+
+	@Override
 	public int getVotePartyCurrentVotes() {
 		return getInt(getNode("VoteParty", "CurrentVotes"), 0);
 	}
@@ -147,6 +225,46 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 	@Override
 	public void setVotePartyCache(String server, int amount) {
 		setPath(amount, "VoteParty", "Cache", server);
+	}
+
+	@Override
+	public void setPendingVotePartyReward(String server, String deliveryId, boolean pending) {
+		String serverKey = encodeServerKey(server);
+		if (pending) setPath(true, "VoteParty", "PendingRewards", serverKey, deliveryId);
+		else {
+			remove("VoteParty", "PendingRewards", serverKey, deliveryId);
+			Collection<String> remaining = getKeys(getNode("VoteParty", "PendingRewards", serverKey));
+			if (remaining == null || remaining.isEmpty()) remove("VoteParty", "PendingRewards", serverKey);
+		}
+	}
+
+	@Override
+	public void setPendingVotePartyProxyEffects(PendingVotePartyProxyEffects effects) {
+		if (effects.isEmpty()) {
+			remove("VoteParty", "PendingProxyEffects");
+			return;
+		}
+		set(new Object[] { "VoteParty", "PendingProxyEffects", "Broadcast" }, effects.broadcast());
+		set(new Object[] { "VoteParty", "PendingProxyEffects", "Commands" }, effects.commands());
+	}
+
+	@Override
+	public void setQuarantinedVotePartyProxyEffects(PendingVotePartyProxyEffects effects) {
+		if (effects.isEmpty()) {
+			remove("VoteParty", "QuarantinedProxyEffects");
+			return;
+		}
+		set(new Object[] { "VoteParty", "QuarantinedProxyEffects", "Broadcast" }, effects.broadcast());
+		set(new Object[] { "VoteParty", "QuarantinedProxyEffects", "Commands" }, effects.commands());
+	}
+
+	private static String encodeServerKey(String server) {
+		return Base64.getUrlEncoder().withoutPadding()
+				.encodeToString(server.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8));
+	}
+
+	private static String decodeServerKey(String server) {
+		return new String(Base64.getUrlDecoder().decode(server), StandardCharsets.UTF_8);
 	}
 
 	@Override
@@ -195,6 +313,10 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 
 	@Override
 	public void removeVote(String server, OfflineBungeeVote vote) {
+		if (vote.getServerVoteCacheJsonKey() != null) {
+			remove("VoteCache", server, vote.getServerVoteCacheJsonKey());
+			return;
+		}
 		Collection<String> votes = getServerVotes(server);
 		if (votes == null) {
 			return;
@@ -202,6 +324,14 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 		for (String num : votes) {
 			ConfigDataNode node = getServerVotes(server, num);
 			if (node == null) {
+				continue;
+			}
+			DataNode voteIdNode = node.has("VoteId") ? node.get("VoteId")
+					: node.has("VoteID") ? node.get("VoteID") : null;
+			if (vote.getVoteId() != null && voteIdNode != null) {
+				if (vote.getVoteId().toString().equals(voteIdNode.asString())) {
+					remove("VoteCache", server, num);
+				}
 				continue;
 			}
 			DataNode uuidNode = node.get("UUID");
@@ -223,6 +353,10 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 
 	@Override
 	public void removeOnlineVote(OfflineBungeeVote vote) {
+		if (vote.getOnlineVoteCacheJsonKey() != null && vote.getUuid() != null) {
+			remove("OnlineCache", vote.getUuid(), vote.getOnlineVoteCacheJsonKey());
+			return;
+		}
 		Collection<String> players = getPlayers();
 		if (players == null) {
 			return;
@@ -235,6 +369,14 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 			for (String num : onlineVotes) {
 				ConfigDataNode node = getOnlineVotes(player, num);
 				if (node == null) {
+					continue;
+				}
+				DataNode voteIdNode = node.has("VoteId") ? node.get("VoteId")
+						: node.has("VoteID") ? node.get("VoteID") : null;
+				if (vote.getVoteId() != null && voteIdNode != null) {
+					if (vote.getVoteId().toString().equals(voteIdNode.asString())) {
+						remove("OnlineCache", player, num);
+					}
 					continue;
 				}
 				DataNode uuidNode = node.get("UUID");

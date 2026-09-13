@@ -4,6 +4,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -14,6 +17,7 @@ import lombok.Setter;
  * Represents a vote delayed while a proxy time change is active.
  */
 public class VoteTimeQueue {
+	private static final String MULTI_PROXY_RETIRED_PREFIX = "retired:";
 	@Getter
 	@Setter
 	private String name;
@@ -26,6 +30,14 @@ public class VoteTimeQueue {
 	@Getter
 	@Setter
 	private UUID voteId;
+	/** SQL primary key for a legacy timed-cache row, or {@code -1} when not SQL-backed. */
+	@Getter
+	@Setter
+	private int timedVoteCacheRowId = -1;
+	/** Stable key of a JSON timed-cache entry, or {@code null} when not JSON-backed. */
+	@Getter
+	@Setter
+	private String timedVoteCacheJsonKey;
 	@Getter
 	@Setter
 	private String uuid;
@@ -38,6 +50,26 @@ public class VoteTimeQueue {
 	@Getter
 	@Setter
 	private boolean processed;
+	/** Whether multi-proxy forwarding was durably handled for this queued vote. */
+	@Getter
+	@Setter
+	private boolean multiProxyForwardingHandled;
+	/** True when this row is a durable multi-proxy delivery outbox. */
+	@Getter
+	@Setter
+	private boolean multiProxyForwardingRequired;
+	/** Original vote type; legacy rows default to a real vote. */
+	@Getter
+	@Setter
+	private boolean realVote = true;
+	/** Sender identity used to route acknowledgement envelopes. */
+	@Getter
+	@Setter
+	private String multiProxyOrigin = "";
+	/** Receiver completion is durable in this row but still needs a completion tombstone/ACK. */
+	@Getter
+	@Setter
+	private boolean multiProxyCompletionPending;
 	@Getter
 	@Setter
 	private boolean deliveryStateDirty;
@@ -45,6 +77,17 @@ public class VoteTimeQueue {
 	private Set<String> broadcastTargets;
 	@Getter
 	private Set<String> broadcastForwardedServers;
+	/** Configured recipient proxy names for the durable multi-proxy outbox. */
+	@Getter
+	private Set<String> multiProxyRecipients;
+	/** Recipients whose durable completion acknowledgement was received. */
+	@Getter
+	private Set<String> multiProxyAcknowledgedServers;
+	/** Legacy peers whose one-way copy has not yet been accepted by the transport. */
+	@Getter
+	private Set<String> multiProxyLegacyPendingRecipients;
+	/** Stable HTTP standalone-broadcast delivery IDs by target server. */
+	private final Map<String, String> httpBroadcastDeliveryIds;
 
 	/**
 	 * Creates a legacy-compatible queued vote without an identifier.
@@ -86,6 +129,25 @@ public class VoteTimeQueue {
 	}
 
 	/**
+	 * Returns the durable identity of a legacy timed-cache entry. It distinguishes
+	 * rows that have the same historical vote fields before they receive a vote ID.
+	 */
+	public String getTimedVoteCachePersistenceIdentity() {
+		if (timedVoteCacheRowId > 0) return "sql:" + timedVoteCacheRowId;
+		if (timedVoteCacheJsonKey != null && !timedVoteCacheJsonKey.isEmpty()) {
+			return "json:" + timedVoteCacheJsonKey;
+		}
+		return "";
+	}
+
+	/** Creates the deterministic ID used when a legacy timed-cache entry has none. */
+	public UUID legacyTimedVoteId() {
+		String identity = "legacy-timed-vote\u0000" + uuid + "\u0000" + name + "\u0000" + service + "\u0000"
+				+ time + "\u0000" + getTimedVoteCachePersistenceIdentity();
+		return UUID.nameUUIDFromBytes(identity.getBytes(StandardCharsets.UTF_8));
+	}
+
+	/**
 	 * Creates a queued vote with the original proxy broadcast routing state.
 	 *
 	 * @param voteId unique vote identifier
@@ -124,6 +186,26 @@ public class VoteTimeQueue {
 	public VoteTimeQueue(UUID voteId, String name, String service, long time, boolean proxyBroadcastHandled,
 			Set<String> broadcastTargets, Set<String> broadcastForwardedServers, String totals, boolean processed,
 			String uuid) {
+		this(voteId, name, service, time, proxyBroadcastHandled, broadcastTargets, broadcastForwardedServers, totals,
+				processed, uuid, Collections.emptyMap());
+	}
+
+	/** Creates a queued vote with persisted HTTP standalone-broadcast IDs. */
+	public VoteTimeQueue(UUID voteId, String name, String service, long time, boolean proxyBroadcastHandled,
+			Set<String> broadcastTargets, Set<String> broadcastForwardedServers, String totals, boolean processed,
+			String uuid, Map<String, String> httpBroadcastDeliveryIds) {
+		this(voteId, name, service, time, proxyBroadcastHandled, broadcastTargets, broadcastForwardedServers, totals,
+				processed, false, uuid, httpBroadcastDeliveryIds);
+	}
+
+	/**
+	 * Creates a queued vote with all durable delivery fences.
+	 *
+	 * @param multiProxyForwardingHandled whether multi-proxy forwarding already completed
+	 */
+	public VoteTimeQueue(UUID voteId, String name, String service, long time, boolean proxyBroadcastHandled,
+			Set<String> broadcastTargets, Set<String> broadcastForwardedServers, String totals, boolean processed,
+			boolean multiProxyForwardingHandled, String uuid, Map<String, String> httpBroadcastDeliveryIds) {
 		this.voteId = voteId;
 		this.uuid = uuid == null ? "" : uuid;
 		this.name = name;
@@ -132,6 +214,7 @@ public class VoteTimeQueue {
 		this.proxyBroadcastHandled = proxyBroadcastHandled;
 		this.totals = totals == null ? "" : totals;
 		this.processed = processed;
+		this.multiProxyForwardingHandled = multiProxyForwardingHandled;
 		this.broadcastTargets = new LinkedHashSet<>();
 		if (broadcastTargets != null) {
 			this.broadcastTargets.addAll(broadcastTargets);
@@ -140,6 +223,164 @@ public class VoteTimeQueue {
 		if (broadcastForwardedServers != null) {
 			this.broadcastForwardedServers.addAll(broadcastForwardedServers);
 		}
+		this.multiProxyRecipients = new LinkedHashSet<>();
+		this.multiProxyAcknowledgedServers = new LinkedHashSet<>();
+		this.multiProxyLegacyPendingRecipients = new LinkedHashSet<>();
+		this.httpBroadcastDeliveryIds = new LinkedHashMap<>();
+		if (httpBroadcastDeliveryIds != null) {
+			httpBroadcastDeliveryIds.forEach(this::setHttpBroadcastDeliveryId);
+		}
+	}
+
+	/** Configures the durable acknowledgement fence before the first send. */
+	public void requireMultiProxyAcknowledgements(String origin, Set<String> recipients) {
+		multiProxyForwardingRequired = true;
+		multiProxyOrigin = origin == null ? "" : origin;
+		multiProxyRecipients.clear();
+		if (recipients != null) {
+			for (String recipient : recipients) {
+				if (recipient != null && !recipient.isBlank()) {
+					multiProxyRecipients.add(recipient.toLowerCase(Locale.ROOT));
+				}
+			}
+		}
+	}
+
+	/** Adds an acknowledgement only for a configured recipient. */
+	public boolean acknowledgeMultiProxyRecipient(String recipient) {
+		if (recipient == null || recipient.isBlank()) return false;
+		String normalized = recipient.toLowerCase(Locale.ROOT);
+		if (!multiProxyRecipients.contains(normalized)) return false;
+		return multiProxyAcknowledgedServers.add(normalized);
+	}
+
+	/** Returns whether every intended receiver durably acknowledged the vote. */
+	public boolean hasCompletedMultiProxyAcknowledgements() {
+		return multiProxyForwardingRequired && !multiProxyRecipients.isEmpty()
+				&& multiProxyAcknowledgedServers.containsAll(multiProxyRecipients);
+	}
+
+	/** Records that a receiver durably removed its completion fence. */
+	public boolean acknowledgeMultiProxyRetirement(String recipient) {
+		if (recipient == null || recipient.isBlank()) return false;
+		String normalized = recipient.toLowerCase(Locale.ROOT);
+		if (!multiProxyRecipients.contains(normalized)) return false;
+		return multiProxyAcknowledgedServers.add(MULTI_PROXY_RETIRED_PREFIX + normalized);
+	}
+
+	/** Returns whether every receiver acknowledged completion-fence retirement. */
+	public boolean hasCompletedMultiProxyRetirements() {
+		if (!hasCompletedMultiProxyAcknowledgements()) return false;
+		for (String recipient : multiProxyRecipients) {
+			if (!multiProxyAcknowledgedServers.contains(MULTI_PROXY_RETIRED_PREFIX + recipient)) return false;
+		}
+		return true;
+	}
+
+	/** Returns receivers that still need an idempotent retirement request. */
+	public Set<String> getPendingMultiProxyRetirements() {
+		Set<String> pending = new LinkedHashSet<>();
+		for (String recipient : multiProxyRecipients) {
+			if (!multiProxyAcknowledgedServers.contains(MULTI_PROXY_RETIRED_PREFIX + recipient)) pending.add(recipient);
+		}
+		return pending;
+	}
+
+	public String encodeMultiProxyRecipients() {
+		return encodeBroadcastServers(multiProxyRecipients);
+	}
+
+	public String encodeMultiProxyLegacyPendingRecipients() {
+		return encodeBroadcastServers(multiProxyLegacyPendingRecipients);
+	}
+
+	public String encodeMultiProxyAcknowledgedServers() {
+		return encodeBroadcastServers(multiProxyAcknowledgedServers);
+	}
+
+	public void setMultiProxyRecipients(Set<String> recipients) {
+		multiProxyRecipients.clear();
+		if (recipients != null) {
+			for (String recipient : recipients) {
+				if (recipient != null && !recipient.isBlank()) {
+					multiProxyRecipients.add(recipient.toLowerCase(Locale.ROOT));
+				}
+			}
+		}
+	}
+
+	public void setMultiProxyLegacyPendingRecipients(Set<String> recipients) {
+		multiProxyLegacyPendingRecipients.clear();
+		if (recipients != null) {
+			for (String recipient : recipients) {
+				if (recipient != null && !recipient.isBlank()) multiProxyLegacyPendingRecipients.add(recipient);
+			}
+		}
+	}
+
+	public void setMultiProxyAcknowledgedServers(Set<String> recipients) {
+		multiProxyAcknowledgedServers.clear();
+		if (recipients != null) {
+			for (String recipient : recipients) {
+				if (recipient != null && !recipient.isBlank()) {
+					multiProxyAcknowledgedServers.add(recipient.toLowerCase(Locale.ROOT));
+				}
+			}
+		}
+	}
+
+	public String getHttpBroadcastDeliveryId(String server) {
+		return server == null ? null : httpBroadcastDeliveryIds.get(server.toLowerCase(Locale.ROOT));
+	}
+
+	public void setHttpBroadcastDeliveryId(String server, String deliveryId) {
+		if (server == null || server.isBlank()) return;
+		String key = server.toLowerCase(Locale.ROOT);
+		if (deliveryId == null || deliveryId.isBlank()) httpBroadcastDeliveryIds.remove(key);
+		else httpBroadcastDeliveryIds.put(key, deliveryId);
+	}
+
+	public Map<String, String> getHttpBroadcastDeliveryIds() {
+		return new LinkedHashMap<>(httpBroadcastDeliveryIds);
+	}
+
+	/** Returns whether any standalone HTTP broadcast still has to be delivered. */
+	public boolean hasPendingHttpBroadcastDeliveryIds() {
+		return !httpBroadcastDeliveryIds.isEmpty();
+	}
+
+	public String encodeHttpBroadcastDeliveryIds() {
+		StringBuilder encoded = new StringBuilder();
+		for (Map.Entry<String, String> entry : httpBroadcastDeliveryIds.entrySet()) {
+			if (encoded.length() > 0) encoded.append('.');
+			encoded.append(Base64.getUrlEncoder().withoutPadding()
+					.encodeToString(entry.getKey().getBytes(StandardCharsets.UTF_8)));
+			encoded.append('~');
+			encoded.append(Base64.getUrlEncoder().withoutPadding()
+					.encodeToString(entry.getValue().getBytes(StandardCharsets.UTF_8)));
+		}
+		return encoded.toString();
+	}
+
+	public static Map<String, String> decodeHttpBroadcastDeliveryIds(String encoded) {
+		Map<String, String> decoded = new LinkedHashMap<>();
+		if (encoded == null || encoded.isBlank()) return decoded;
+		for (String entry : encoded.split("\\.", -1)) {
+			int separator = entry.indexOf('~');
+			if (separator <= 0 || separator == entry.length() - 1) continue;
+			try {
+				String server = new String(Base64.getUrlDecoder().decode(entry.substring(0, separator)),
+						StandardCharsets.UTF_8);
+				String deliveryId = new String(Base64.getUrlDecoder().decode(entry.substring(separator + 1)),
+						StandardCharsets.UTF_8);
+				if (!server.isBlank() && deliveryId.matches("[0-9a-fA-F-]{36}")) {
+					decoded.put(server.toLowerCase(Locale.ROOT), deliveryId);
+				}
+			} catch (IllegalArgumentException ignored) {
+				// Ignore corrupt optional delivery state and retain the queued vote.
+			}
+		}
+		return decoded;
 	}
 
 	/**

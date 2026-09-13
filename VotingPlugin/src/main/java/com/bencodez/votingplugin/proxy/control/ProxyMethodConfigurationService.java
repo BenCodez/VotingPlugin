@@ -58,6 +58,22 @@ public final class ProxyMethodConfigurationService {
 				}
 			}
 			break;
+		case HTTP:
+			if (blank(config.getHttpHost()) || config.getHttpPort() < 1 || config.getHttpPort() > 65535) {
+				throw new IllegalArgumentException("HTTP.Host and HTTP.Port must be set");
+			}
+			String endpoint = config.getHttpPublicEndpoint();
+			if (blank(endpoint)) throw new IllegalArgumentException("HTTP.PublicEndpoint must be an HTTPS origin");
+			URI httpEndpoint;
+			try { httpEndpoint = URI.create(endpoint); }
+			catch (RuntimeException invalid) { throw new IllegalArgumentException("HTTP.PublicEndpoint must be an HTTPS origin"); }
+			if (!"https".equalsIgnoreCase(httpEndpoint.getScheme()) || httpEndpoint.getHost() == null
+					|| httpEndpoint.getPort() == 0 || httpEndpoint.getPort() > 65535
+					|| httpEndpoint.getUserInfo() != null || httpEndpoint.getQuery() != null || httpEndpoint.getFragment() != null
+					|| (httpEndpoint.getPath() != null && !httpEndpoint.getPath().isEmpty() && !"/".equals(httpEndpoint.getPath()))) {
+				throw new IllegalArgumentException("HTTP.PublicEndpoint must be an HTTPS origin");
+			}
+			break;
 		case MYSQL:
 			if (!config.hasDatabaseConfigured()) {
 				throw new IllegalArgumentException("The proxy database Host must be configured for MYSQL");
@@ -70,19 +86,32 @@ public final class ProxyMethodConfigurationService {
 
 	public void apply(ProxyMethodConfiguration proposal, String expectedRevision) throws IOException {
 		if (expectedRevision == null) throw new StaleRevisionException();
+		boolean[] preparedHttp = { false };
 		try {
 			proxy.getConfig().persistControlProxyMethod(proposal.method().name(), expectedRevision,
-					latest -> validate(proposal, latest));
+					latest -> {
+						validate(proposal, latest);
+						if (proposal.method() == BungeeMethod.HTTP
+								&& !proxy.hasMatchingLiveHttpTransport(latest)) {
+							proxy.prepareHttpTransportChange(latest);
+							preparedHttp[0] = true;
+						}
+					});
 			proxy.getConfig().verifyControlProxyRoutingInstalled();
 		} catch (VotingPluginProxyConfig.StaleControlRevisionException e) {
+			if (preparedHttp[0]) proxy.cancelPreparedHttpTransportChange();
 			throw new StaleRevisionException();
 		} catch (IllegalArgumentException validation) {
+			if (preparedHttp[0]) proxy.cancelPreparedHttpTransportChange();
 			throw validation;
 		} catch (DurableFiles.PublishedException published) {
+			if (preparedHttp[0]) proxy.cancelPreparedHttpTransportChange();
 			throw rollbackAfterFailure(published);
 		} catch (IOException failure) {
+			if (preparedHttp[0]) proxy.cancelPreparedHttpTransportChange();
 			throw failure;
 		} catch (RuntimeException failure) {
+			if (preparedHttp[0]) proxy.cancelPreparedHttpTransportChange();
 			throw rollbackAfterFailure(failure);
 		}
 	}
