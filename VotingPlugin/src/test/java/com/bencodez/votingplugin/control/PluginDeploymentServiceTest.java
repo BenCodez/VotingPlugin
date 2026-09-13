@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.control;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
@@ -10,6 +11,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -103,6 +109,56 @@ class PluginDeploymentServiceTest {
 		assertFalse(active.get());
 	}
 
+	@Test void markerPublicationFailureRestoresThePreviousArtifact() throws Exception {
+		Path update = directory.resolve("update");
+		Files.createDirectories(update);
+		byte[] original = jar("name: VotingPlugin\nversion: original\n");
+		byte[] candidate = jar("name: VotingPlugin\nversion: candidate\n");
+		Path target = update.resolve("VotingPlugin.jar");
+		Files.write(target, original);
+		Path marker = update.resolve("VotingPlugin.jar.control-deployment");
+		Files.createDirectory(marker);
+		Files.writeString(marker.resolve("keep"), "marker publication must fail");
+		PluginDeploymentService service = PluginDeploymentService.backend(update);
+
+		assertThrows(IOException.class, () -> service.stage(task(candidate), new ByteArrayInputStream(candidate), () -> true));
+
+		assertArrayEquals(original, Files.readAllBytes(target));
+	}
+
+	@Test void proxyMarkerPublicationFailureRestoresTheCurrentJarAndKeepsItsBackup() throws Exception {
+		byte[] original = jar("name: VotingPlugin\nversion: original\n");
+		byte[] candidate = jar("name: VotingPlugin\nversion: candidate\n");
+		Path target = directory.resolve("VotingPlugin.jar");
+		Files.write(target, original);
+		Path marker = directory.resolve("VotingPlugin.jar.control-deployment");
+		Files.createDirectory(marker);
+		Files.writeString(marker.resolve("keep"), "marker publication must fail");
+		PluginDeploymentService service = PluginDeploymentService.proxy(target);
+
+		assertThrows(IOException.class, () -> service.stage(task(candidate), new ByteArrayInputStream(candidate), () -> true));
+
+		assertArrayEquals(original, Files.readAllBytes(target));
+		assertArrayEquals(original, Files.readAllBytes(directory.resolve("VotingPlugin.jar.control-backup")));
+	}
+
+	@Test void cancellationClosesAStalledArtifactStream() throws Exception {
+		PluginDeploymentService service = PluginDeploymentService.backend(directory.resolve("update"));
+		AtomicBoolean active = new AtomicBoolean(true);
+		BlockingInputStream stalled = new BlockingInputStream(active);
+		ExecutorService executor = Executors.newSingleThreadExecutor();
+		try {
+			Future<PluginDeploymentService.Result> result = executor.submit(() -> service.stage(
+					task(new byte[] { 1 }), stalled, active::get));
+			assertTrue(stalled.awaitRead());
+			service.cancel();
+			assertEquals("CANCELLED", result.get(5, TimeUnit.SECONDS).code());
+			assertFalse(Files.exists(directory.resolve("update/VotingPlugin.jar")));
+		} finally {
+			executor.shutdownNow();
+		}
+	}
+
 	private static PluginDeploymentService.Task task(byte[] artifact) throws Exception {
 		String digest = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(artifact));
 		return new PluginDeploymentService.Task(UUID.randomUUID(), "votingplugin.jar", digest, artifact.length,
@@ -144,5 +200,35 @@ class PluginDeploymentServiceTest {
 
 		@Override
 		public int read() throws IOException { return delegate.read(); }
+	}
+
+	private static class BlockingInputStream extends InputStream {
+		private final AtomicBoolean active;
+		private final CountDownLatch reading = new CountDownLatch(1);
+		private boolean closed;
+
+		private BlockingInputStream(AtomicBoolean active) { this.active = active; }
+
+		private boolean awaitRead() throws InterruptedException { return reading.await(5, TimeUnit.SECONDS); }
+
+		@Override
+		public synchronized int read(byte[] bytes, int start, int length) throws IOException {
+			reading.countDown();
+			while (!closed) {
+				try { wait(); }
+				catch (InterruptedException failure) { Thread.currentThread().interrupt(); throw new IOException(failure); }
+			}
+			throw new IOException("stream closed");
+		}
+
+		@Override
+		public int read() throws IOException { return read(new byte[1], 0, 1); }
+
+		@Override
+		public synchronized void close() {
+			closed = true;
+			active.set(false);
+			notifyAll();
+		}
 	}
 }

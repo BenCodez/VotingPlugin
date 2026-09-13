@@ -1128,6 +1128,7 @@ public final class BackendControlConnector implements AutoCloseable {
 		if (inspection != null) inspection.cancel(false);
 		ScheduledFuture<?> deployment = deploymentPolling;
 		if (deployment != null) deployment.cancel(false);
+		if (deployments != null) deployments.cancel();
 		inspectionExecutor.shutdownNow();
 		if (reload != null && Bukkit.isPrimaryThread()) reload.cancel(false);
 		awaitShutdown(executor, operation);

@@ -554,6 +554,17 @@ class BackendConfigurationServiceTest {
 		assertEquals("true", service.readQuickSetup("vote-party", Map.of()).options().get("enabled"));
 	}
 
+	@Test void legacyVotePartyQuickSetupDefaultsAnOmittedEnabledOptionToTrue() throws Exception {
+		Files.writeString(directory.resolve("SpecialRewards.yml"), "VoteParty:\n  Enabled: false\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("vote-party", Map.of(
+				"votesRequired", "25", "command", "", "broadcast", "", "giveAllPlayers", "false",
+				"onlineOnly", "true"));
+
+		assertTrue(preview.proposal().content().contains("Enabled: true"));
+	}
+
 	@Test void oversizedInstalledGuidedValuesFailInsteadOfWedgingResultSubmission() throws Exception {
 		Files.writeString(directory.resolve("SpecialRewards.yml"),
 				"VoteParty:\n  Broadcast: '" + "é".repeat(251) + "'\n");

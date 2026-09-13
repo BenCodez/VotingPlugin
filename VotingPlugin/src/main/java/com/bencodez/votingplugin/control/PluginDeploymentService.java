@@ -21,6 +21,7 @@ import java.util.HexFormat;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -44,6 +45,7 @@ public final class PluginDeploymentService {
 	private final Path marker;
 	private final boolean replaceExisting;
 	private final AtomicBoolean staging = new AtomicBoolean();
+	private final AtomicReference<InputStream> activeResponse = new AtomicReference<>();
 
 	private PluginDeploymentService(Path target, boolean replaceExisting) throws IOException {
 		this.target = target.toAbsolutePath().normalize();
@@ -83,6 +85,14 @@ public final class PluginDeploymentService {
 
 	public boolean isStaging() { return staging.get(); }
 
+	/** Unblocks an in-progress response read during connector shutdown. */
+	public void cancel() {
+		InputStream response = activeResponse.getAndSet(null);
+		if (response != null) {
+			try { response.close(); } catch (IOException ignored) { /* Shutdown is already in progress. */ }
+		}
+	}
+
 	public Result deploy(Task task, URI endpoint, String nodeId, UUID sessionId, String credential,
 			HttpClient http, Duration timeout, BooleanSupplier active) {
 		if (!staging.compareAndSet(false, true)) return Result.failure("DEPLOYMENT_FAILED", "Another deployment is still staging");
@@ -97,20 +107,31 @@ public final class PluginDeploymentService {
 					.header("X-Node-Session", sessionId.toString())
 					.header("X-Deployment-Attempt", task.attemptId().toString()).GET().build();
 			HttpResponse<InputStream> response = http.send(request, HttpResponse.BodyHandlers.ofInputStream());
-			if (response.statusCode() != 200) {
-				response.body().close();
-				return Result.failure("DOWNLOAD_FAILED", "Artifact download was rejected");
-			}
-			String contentLength = response.headers().firstValue("Content-Length").orElse(null);
-			if (contentLength != null && (!contentLength.matches("[0-9]{1,9}")
-					|| Long.parseLong(contentLength) != task.size())) {
-				response.body().close();
-				return Result.failure("SIZE_MISMATCH", "Artifact size did not match the deployment task");
-			}
-			try (InputStream body = response.body()) {
-				return stage(task, body, active);
-			} catch (IOException failure) {
-				return Result.failure("STAGING_FAILED", "Artifact could not be verified or staged on this node");
+			InputStream body = response.body();
+			activeResponse.set(body);
+			try {
+				if (response.statusCode() != 200) {
+					body.close();
+					return Result.failure("DOWNLOAD_FAILED", "Artifact download was rejected");
+				}
+				String contentLength = response.headers().firstValue("Content-Length").orElse(null);
+				if (contentLength != null && (!contentLength.matches("[0-9]{1,9}")
+						|| Long.parseLong(contentLength) != task.size())) {
+					body.close();
+					return Result.failure("SIZE_MISMATCH", "Artifact size did not match the deployment task");
+				}
+				if (!active.getAsBoolean()) {
+					body.close();
+					return Result.failure("CANCELLED", "Deployment was cancelled before download");
+				}
+				try (body) {
+					return stage(task, body, active);
+				} catch (IOException failure) {
+					if (!active.getAsBoolean()) return Result.failure("CANCELLED", "Deployment was cancelled before staging");
+					return Result.failure("STAGING_FAILED", "Artifact could not be verified or staged on this node");
+				}
+			} finally {
+				activeResponse.compareAndSet(body, null);
 			}
 		} catch (InterruptedException failure) {
 			Thread.currentThread().interrupt();
@@ -126,7 +147,9 @@ public final class PluginDeploymentService {
 	Result stage(Task task, InputStream body, BooleanSupplier active) throws IOException {
 		validate(task);
 		if (alreadyStaged(task)) return Result.restartRequired();
+		activeResponse.compareAndSet(null, body);
 		Path temporary = Files.createTempFile(root, target.getFileName().toString() + ".", ".download");
+		Activation activation = null;
 		try {
 			MessageDigest digest = sha256();
 			long written = copyExact(body, temporary, task.size(), digest, active);
@@ -137,14 +160,24 @@ public final class PluginDeploymentService {
 			}
 			inspectJar(temporary);
 			if (!active.getAsBoolean()) return Result.failure("CANCELLED", "Deployment was cancelled before staging");
-			activate(temporary);
+			activation = new Activation();
+			activate(temporary, activation);
 			writeMarker(task);
+			activation.discard();
 			return Result.restartRequired();
 		} catch (CancelledDeploymentException failure) {
 			return Result.failure("CANCELLED", "Deployment was cancelled before staging");
 		} catch (InvalidArtifactException failure) {
 			return Result.failure("INVALID_ARTIFACT", "Artifact is not a bounded VotingPlugin JAR");
+		} catch (IOException failure) {
+			if (activation != null) {
+				try { activation.rollback(); }
+				catch (IOException rollbackFailure) { failure.addSuppressed(rollbackFailure); }
+			}
+			if (!active.getAsBoolean()) return Result.failure("CANCELLED", "Deployment was cancelled before staging");
+			throw failure;
 		} finally {
+			activeResponse.compareAndSet(body, null);
 			Files.deleteIfExists(temporary);
 		}
 	}
@@ -154,8 +187,10 @@ public final class PluginDeploymentService {
 		long total = 0;
 		byte[] buffer = new byte[BUFFER_BYTES];
 		try (var output = Files.newOutputStream(temporary, StandardOpenOption.TRUNCATE_EXISTING)) {
-			for (int read; (read = input.read(buffer)) != -1;) {
+			for (;;) {
 				if (!active.getAsBoolean()) throw new CancelledDeploymentException();
+				int read = input.read(buffer);
+				if (read == -1) break;
 				total += read;
 				if (total > expected || total > MAX_ARTIFACT_BYTES) throw new InvalidArtifactException();
 				digest.update(buffer, 0, read);
@@ -229,7 +264,7 @@ public final class PluginDeploymentService {
 				|| (value.startsWith("'") && value.endsWith("'"))) ? value.substring(1, value.length() - 1) : value;
 	}
 
-	private void activate(Path temporary) throws IOException {
+	private void activate(Path temporary, Activation activation) throws IOException {
 		if (replaceExisting) {
 			if (!Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(target)) {
 				throw new IOException("current proxy plugin JAR is unsafe");
@@ -248,8 +283,52 @@ public final class PluginDeploymentService {
 			} finally { Files.deleteIfExists(backupTemp); }
 		}
 		move(temporary, target);
+		activation.published = true;
 		force(target);
 		forceDirectory(root);
+	}
+
+	/** Holds a private copy until the durable idempotency marker has been published. */
+	private final class Activation {
+		private final Path previous;
+		private boolean published;
+
+		private Activation() throws IOException {
+			if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+				previous = null;
+				return;
+			}
+			if (!Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(target)) {
+				throw new IOException("deployment target is unsafe");
+			}
+			previous = Files.createTempFile(root, target.getFileName().toString() + ".", ".rollback");
+			Files.copy(target, previous, StandardCopyOption.REPLACE_EXISTING);
+			force(previous);
+		}
+
+		private void rollback() throws IOException {
+			if (!published) {
+				discard();
+				return;
+			}
+			if (previous == null) {
+				if (!Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(target)) {
+					throw new IOException("deployed target cannot be safely removed");
+				}
+				Files.delete(target);
+			} else {
+				move(previous, target);
+				force(target);
+			}
+			forceDirectory(root);
+			discard();
+		}
+
+		private void discard() {
+			if (previous == null) return;
+			try { Files.deleteIfExists(previous); }
+			catch (IOException ignored) { /* A private stale rollback copy is safer than a false deployment result. */ }
+		}
 	}
 
 	private void writeMarker(Task task) throws IOException {

@@ -1255,6 +1255,7 @@ public final class ControlConnector implements AutoCloseable {
 		if (polling != null) polling.cancel(false);
 		ScheduledFuture<?> deployment = deploymentPolling;
 		if (deployment != null) deployment.cancel(false);
+		if (deployments != null) deployments.cancel();
 		CompletableFuture<?> request = activeRequest;
 		if (request != null) {
 			request.cancel(true);

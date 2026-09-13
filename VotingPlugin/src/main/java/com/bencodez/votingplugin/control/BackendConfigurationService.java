@@ -500,7 +500,10 @@ public final class BackendConfigurationService {
 			return new QuickProposal(fileName, yaml.saveToString());
 		}
 		if ("vote-party".equals(preset)) {
-			yaml.set("VoteParty.Enabled", booleanOption(options, "enabled"));
+			// config.quick-setup.v1 historically always enabled VoteParty and therefore
+			// never sent this field. Keep that wire contract valid while newer clients
+			// can still explicitly choose either state.
+			yaml.set("VoteParty.Enabled", booleanOption(options, "enabled", true));
 			yaml.set("VoteParty.VotesRequired", boundedInteger(option(options, "votesRequired", "[0-9]{1,6}"), 1, 100000));
 			yaml.set("VoteParty.GiveAllPlayers", booleanOption(options, "giveAllPlayers"));
 			yaml.set("VoteParty.GiveOnlinePlayersOnly", booleanOption(options, "onlineOnly"));
