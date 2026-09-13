@@ -427,6 +427,38 @@
                 </exclusion>
             </exclusions>
         </dependency>
+        <!-- AdvancedCore embeds the SimpleAPI subset it uses and intentionally
+             publishes SimpleAPI as optional. VotingPlugin uses additional
+             SimpleAPI APIs, so own that input explicitly and filter its
+             self-contained optional payload during shading. -->
+        <dependency>
+            <groupId>com.bencodez</groupId>
+            <artifactId>simpleapi</artifactId>
+            <version>1.0.2-SNAPSHOT</version>
+            <scope>compile</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.bouncycastle</groupId>
+                    <artifactId>bcpkix-jdk18on</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.bouncycastle</groupId>
+                    <artifactId>bcprov-jdk18on</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.bouncycastle</groupId>
+                    <artifactId>bcutil-jdk18on</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.eclipse.paho</groupId>
+                    <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>redis.clients</groupId>
+                    <artifactId>jedis</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>

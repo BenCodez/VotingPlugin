@@ -1,10 +1,14 @@
 # JAR packaging contract
 
-VotingPlugin consumes AdvancedCore's normal artifact and applies a narrow
-artifact-specific filter so both the currently published SNAPSHOT and the
-coordinated slimmer successor produce the same dependency ownership. VotingPlugin
-directly declares the Jedis and Paho libraries used by its Redis and MQTT
-transports. Gson is platform-supplied and is therefore `provided`.
+VotingPlugin consumes AdvancedCore's normal artifact and directly declares
+SimpleAPI because it uses APIs outside the subset embedded by AdvancedCore.
+AdvancedCore publishes that embedded input as optional so downstream shaders do
+not pull the unfiltered self-contained SimpleAPI JAR back into their output.
+VotingPlugin applies narrow artifact-specific filters so both the currently
+published SNAPSHOT and the coordinated slimmer successor produce the same
+dependency ownership. It directly declares the Jedis and Paho libraries used by
+its Redis and MQTT transports. Gson is platform-supplied and is therefore
+`provided`.
 
 AdvancedCore already contains the relocated Rhino implementation needed by its
 JavaScript support, so VotingPlugin excludes the second unrelocated Rhino
