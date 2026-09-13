@@ -44,15 +44,15 @@ public final class SharedVoteProcessor {
                 return call(() -> rewards.prepareVoteRewards(normalized, identity, executeNow), "reward preparation")
                         .thenCompose(rewardPlan -> {
                             if (rewardPlan == null) return failed("Reward services returned null prepared reward plan");
-                            return call(() -> users.persistVoteWithReward(normalized, identity, mutation, executeNow, rewardPlan),
+                            // Preserve the ingress sentinel for the atomic uniqueness check. The
+                            // mutation carries this caller's normalized candidate; if another
+                            // concurrent caller wins, the returned receipt is authoritative.
+                            return call(() -> users.persistVoteWithReward(input, identity, mutation, executeNow, rewardPlan),
                                     "atomic persistence").thenCompose(receipt -> {
                                 if (receipt == null) return failed("User services returned null vote receipt");
                                 receipt.requireInput(input);
                                 if (!receipt.identity().uuid().equals(identity.uuid())) {
                                     return failed("Vote receipt belongs to a different resolved identity");
-                                }
-                                if (!receipt.rewardPlan().equals(rewardPlan)) {
-                                    return failed("Vote receipt belongs to a different prepared reward version");
                                 }
                                 return deliver(receipt);
                             });
