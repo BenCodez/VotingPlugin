@@ -377,8 +377,7 @@ class VoteShopPurchaseServiceTest {
 		when(table.getTableName()).thenReturn("VotingPlugin_Users");
 		when(table.qi(anyString())).thenAnswer(invocation -> "`" + invocation.getArgument(0) + "`");
 		when(table.getMysql()).thenReturn(sql);
-		when(sql.getConnectionManager().getConnection()).thenReturn(schemaConnection, pendingConnection,
-				compensatingConnection, cleanupConnection, debitConnection, refundConnection);
+		when(sql.getConnectionManager().getConnection()).thenReturn(schemaConnection, debitConnection, refundConnection);
 		when(schemaConnection.prepareStatement(anyString())).thenReturn(schema, schemaGeneration,
 				schemaGenerationExpiry, schemaIndex);
 		when(pendingConnection.prepareStatement(anyString())).thenReturn(pending);
@@ -438,7 +437,7 @@ class VoteShopPurchaseServiceTest {
 					org.mockito.ArgumentMatchers.eq(player), scheduled.capture(), retirement.capture());
 		purchase.get(5, TimeUnit.SECONDS);
 		ArgumentCaptor<Runnable> compensation = ArgumentCaptor.forClass(Runnable.class);
-		verify(persistenceExecutor, times(2)).execute(compensation.capture());
+		verify(persistenceExecutor, org.mockito.Mockito.timeout(1000).times(2)).execute(compensation.capture());
 		compensation.getAllValues().get(1).run();
 
 		ArgumentCaptor<String> refundSql = ArgumentCaptor.forClass(String.class);
@@ -446,10 +445,9 @@ class VoteShopPurchaseServiceTest {
 		assertTrue(refundSql.getAllValues().get(2).contains("`Points` = `Points` + ?"));
 		verify(refund).setInt(1, 10);
 		verify(refund, times(1)).executeUpdate();
-		// Schema, stale cleanup, compensating cleanup, terminal cleanup, reservation,
-		// and refund are the only database connections in the scheduler-retirement path. An eighth
-		// checkout would be the reward claim and would make the debit unrecoverable.
-		verify(sql.getConnectionManager(), times(7)).getConnection();
+		// Schema, reservation, cache refresh, and refund are the only database connections in the
+		// scheduler-retirement path. Another checkout would be the reward claim and would make the debit unrecoverable.
+		verify(sql.getConnectionManager(), times(4)).getConnection();
 		verify(entityScheduler, times(2)).runAtEntityWithFallback(
 				org.mockito.ArgumentMatchers.eq(player), any(), any(Runnable.class));
 		ArgumentCaptor<Runnable> fallbackCompletion = ArgumentCaptor.forClass(Runnable.class);
@@ -1076,8 +1074,8 @@ class VoteShopPurchaseServiceTest {
 		when(table.getTableName()).thenReturn("VotingPlugin_Users");
 		when(table.qi(anyString())).thenAnswer(invocation -> "`" + invocation.getArgument(0) + "`");
 		when(table.getMysql()).thenReturn(sql);
-		when(sql.getConnectionManager().getConnection()).thenReturn(schemaConnection, pendingConnection,
-				compensatingConnection, cleanupConnection, reserveConnection, claimConnection, completeConnection);
+		when(sql.getConnectionManager().getConnection()).thenReturn(schemaConnection, reserveConnection,
+				claimConnection, completeConnection);
 		when(schemaConnection.prepareStatement(anyString())).thenReturn(schema, schemaGeneration,
 				schemaGenerationExpiry, schemaIndex);
 		when(pendingConnection.prepareStatement(anyString())).thenReturn(pending);

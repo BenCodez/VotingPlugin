@@ -131,6 +131,27 @@ final class SharedPointAdditionJournal {
 		}
 	}
 
+	/**
+	 * Returns a previously committed addition before a retry invokes its Bukkit
+	 * receive hook. The amount deliberately remains part of {@link #add}: a
+	 * listener may have adjusted it during the original invocation, so comparing
+	 * it to a retry's pre-listener amount would make a completed operation look
+	 * new. The immutable operation id is still bound to its player and points
+	 * column before its total can be replayed.
+	 */
+	AdditionResult findCompleted(String operationId, String uuid, String pointsColumn) throws SQLException {
+		if (!isSafeColumn(pointsColumn)) throw new SQLException("Unsafe shared point column");
+		AdditionRow existing = find(operationId);
+		if (existing == null) return null;
+		if (!existing.matchesTarget(uuid, pointsColumn)) {
+			throw new SQLException("Mismatched shared point addition operation");
+		}
+		if (!(COMPLETED.equals(existing.state) || ACKNOWLEDGED.equals(existing.state)) || existing.total == null) {
+			throw new SQLException("Shared point addition operation is not confirmable: " + operationId);
+		}
+		return new AdditionResult(existing.total.intValue());
+	}
+
 	private AdditionResult existingResult(String operationId, AdditionRow row, String uuid, String pointsColumn,
 			int amount) throws SQLException {
 		if (!row.matches(uuid, pointsColumn, amount)) throw new SQLException("Mismatched shared point addition operation");
@@ -305,6 +326,10 @@ final class SharedPointAdditionJournal {
 	private record AdditionRow(String uuid, String pointsColumn, int amount, String state, Integer total) {
 		boolean matches(String expectedUuid, String expectedPointsColumn, int expectedAmount) {
 			return uuid.equals(expectedUuid) && pointsColumn.equals(expectedPointsColumn) && amount == expectedAmount;
+		}
+
+		boolean matchesTarget(String expectedUuid, String expectedPointsColumn) {
+			return uuid.equals(expectedUuid) && pointsColumn.equals(expectedPointsColumn);
 		}
 	}
 }

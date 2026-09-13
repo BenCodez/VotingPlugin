@@ -52,9 +52,19 @@ public class VoteShopManager {
 	}
 
 	static void scheduleSharedPurchaseRecovery(VotingPluginMain plugin) {
-		plugin.getTimer().execute(() -> VoteShopPurchaseService.recoverSharedMysqlPurchases(plugin));
+		plugin.getTimer().execute(() -> recoverSharedMysqlPurchasesSafely(plugin));
 		plugin.getTimer().scheduleWithFixedDelay(
-				() -> VoteShopPurchaseService.recoverSharedMysqlPurchases(plugin), 1L, 1L, TimeUnit.MINUTES);
+				() -> recoverSharedMysqlPurchasesSafely(plugin), 1L, 1L, TimeUnit.MINUTES);
+	}
+
+	private static void recoverSharedMysqlPurchasesSafely(VotingPluginMain plugin) {
+		try {
+			VoteShopPurchaseService.recoverSharedMysqlPurchases(plugin);
+		} catch (RuntimeException failure) {
+			plugin.getLogger().severe("Unable to recover shared MySQL vote shop purchases: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+		}
 	}
 
 	/**

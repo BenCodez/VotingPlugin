@@ -497,7 +497,10 @@ public final class BackendConfigurationService {
 			return new QuickProposal(fileName, yaml.saveToString());
 		}
 		if ("vote-party".equals(preset)) {
-			yaml.set("VoteParty.Enabled", booleanOption(options, "enabled"));
+			// v1 did not carry Enabled and historically enabled Vote Party when applied.
+			// v2 supplies the field so its actual state can round-trip unchanged.
+			yaml.set("VoteParty.Enabled", options.containsKey("enabled")
+					? booleanOption(options, "enabled") : true);
 			yaml.set("VoteParty.VotesRequired", boundedInteger(option(options, "votesRequired", "[0-9]{1,6}"), 1, 100000));
 			yaml.set("VoteParty.GiveAllPlayers", booleanOption(options, "giveAllPlayers"));
 			yaml.set("VoteParty.GiveOnlinePlayersOnly", booleanOption(options, "onlineOnly"));

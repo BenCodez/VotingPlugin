@@ -684,11 +684,11 @@ public final class BackendControlConnector implements AutoCloseable {
 	private TaskResult executeQuick(UUID operationId, String type, JsonObject configuration, JsonObject task)
 			throws IOException {
 		String preset = string(configuration, "preset");
+		Map<String, String> options = options(configuration.getAsJsonObject("options"));
 		if (!quickSetupCapabilityAccepted(preset, quickSetupsAccepted, votePartySetupsAccepted,
-				voteSitesSyncAccepted)) {
+				voteSitesSyncAccepted, options)) {
 			return TaskResult.failure("UNSUPPORTED_TASK", "The required quick setup capability was not negotiated");
 		}
-		Map<String, String> options = options(configuration.getAsJsonObject("options"));
 		if ("READ".equals(type)) {
 			BackendConfigurationService.QuickState state = configurations.readQuickSetup(preset, options);
 			return TaskResult.quick(preset, state.options(), state.revision(), List.of(), false);
@@ -737,6 +737,16 @@ public final class BackendControlConnector implements AutoCloseable {
 			boolean votePartySetupsAccepted, boolean voteSitesSyncAccepted) {
 		if ("vote-party".equals(preset)) return votePartySetupsAccepted;
 		return quickSetupsAccepted && (!"sync-vote-sites".equals(preset) || voteSitesSyncAccepted);
+	}
+
+	static boolean quickSetupCapabilityAccepted(String preset, boolean quickSetupsAccepted,
+			boolean votePartySetupsAccepted, boolean voteSitesSyncAccepted, Map<String, String> options) {
+		if ("vote-party".equals(preset)) {
+			return options != null && options.containsKey("enabled")
+					? votePartySetupsAccepted : quickSetupsAccepted;
+		}
+		return quickSetupCapabilityAccepted(preset, quickSetupsAccepted, votePartySetupsAccepted,
+			voteSitesSyncAccepted);
 	}
 
 	private Response send(String method, String path, JsonObject body) throws Exception {

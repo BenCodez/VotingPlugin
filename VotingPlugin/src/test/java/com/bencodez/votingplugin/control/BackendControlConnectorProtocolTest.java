@@ -130,6 +130,15 @@ class BackendControlConnectorProtocolTest {
 		assertTrue(BackendControlConnector.quickSetupCapabilityAccepted("vote-party", false, true, false));
 	}
 
+	@Test void legacyVotePartyOptionsUseV1ButEnabledRequiresV2() {
+		assertTrue(BackendControlConnector.quickSetupCapabilityAccepted("vote-party", true, false, false,
+				Map.of("threshold", "10")));
+		assertFalse(BackendControlConnector.quickSetupCapabilityAccepted("vote-party", true, false, false,
+				Map.of("enabled", "true")));
+		assertTrue(BackendControlConnector.quickSetupCapabilityAccepted("vote-party", false, true, false,
+				Map.of("enabled", "true")));
+	}
+
 	@Test void rewardBuilderResultsKeepOnlyTheSafeRecoveryTarget() {
 		String proposal = "{\"scope\":\"site\",\"site\":\"PMC\",\"commands\":[\"secret command\"]}";
 		Map<String, String> result = BackendControlConnector.resultQuickOptions("reward-builder",

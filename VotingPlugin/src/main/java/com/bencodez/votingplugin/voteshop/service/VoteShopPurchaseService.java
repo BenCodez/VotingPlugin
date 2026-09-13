@@ -605,7 +605,6 @@ public class VoteShopPurchaseService {
 		}
 		try {
 			SharedMysqlPurchaseJournal journal = SharedMysqlPurchaseJournal.forTable(table);
-			recoverSharedMysqlPurchases(plugin, journal);
 			String purchaseId = UUID.randomUUID().toString();
 			if (journal.reserve(purchaseId, user.getUUID(), pointsColumn, limitColumn, item.getCost(), item.getLimit(),
 					limitGeneration.value(), limitGeneration.expiresAt(), System.currentTimeMillis())) {

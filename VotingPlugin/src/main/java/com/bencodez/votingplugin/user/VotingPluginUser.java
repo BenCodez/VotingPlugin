@@ -17,6 +17,8 @@ import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -54,6 +56,8 @@ import com.bencodez.votingplugin.votesites.VoteSite;
  */
 public class VotingPluginUser extends com.bencodez.advancedcore.api.user.AdvancedCoreUser {
 	private static final int BULK_POINT_BATCH_SIZE = 64;
+	private static final ConcurrentMap<ReplayPointKey, CompletableFuture<Integer>> IN_FLIGHT_POINT_REPLAYS =
+			new ConcurrentHashMap<>();
 
 	/** The plugin instance. */
 	private VotingPluginMain plugin;
@@ -280,17 +284,22 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return committed point total, or an exceptional stage when persistence fails
 	 */
 	public synchronized CompletionStage<Integer> addPointsStorageAwareAsync(int value, String operationId) {
-		PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, value);
-		Bukkit.getPluginManager().callEvent(event);
-		if (event.isCancelled()) {
-			return CompletableFuture.completedFuture(getPoints());
-		}
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
 		if (!sharedPoints.applies()) {
+			PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, value);
+			Bukkit.getPluginManager().callEvent(event);
+			if (event.isCancelled()) return CompletableFuture.completedFuture(getPoints());
 			int newTotal = getPoints() + event.getPoints();
 			setPoints(newTotal, false);
 			return CompletableFuture.completedFuture(newTotal);
 		}
+		if (operationId != null && !operationId.isEmpty()) {
+			return addSharedPointsWithReplayLookup(sharedPoints, value, operationId);
+		}
+
+		PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, value);
+		Bukkit.getPluginManager().callEvent(event);
+		if (event.isCancelled()) return CompletableFuture.completedFuture(getPoints());
 
 		CompletableFuture<Integer> completion = new CompletableFuture<>();
 		try {
@@ -309,6 +318,71 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			completion.completeExceptionally(rejected);
 		}
 		return completion;
+	}
+
+	/**
+	 * Checks the durable reward-operation journal before returning to the Bukkit
+	 * lane for the receive event. JDBC therefore never blocks that lane, and a
+	 * completed retry cannot invoke listeners a second time.
+	 */
+	private CompletionStage<Integer> addSharedPointsWithReplayLookup(SharedMysqlPointMutator sharedPoints, int value,
+			String operationId) {
+		CompletableFuture<Integer> completion = new CompletableFuture<>();
+		String uuid = getUUID();
+		String pointsPath = getPointsPath();
+		ReplayPointKey replayKey = new ReplayPointKey(plugin, operationId, uuid, pointsPath);
+		CompletableFuture<Integer> existing = IN_FLIGHT_POINT_REPLAYS.putIfAbsent(replayKey, completion);
+		if (existing != null) return existing;
+		completion.whenComplete((ignored, failure) -> IN_FLIGHT_POINT_REPLAYS.remove(replayKey, completion));
+		// Entity lookup is Bukkit-owned, so retain the player before persistence
+		// submission just as callback-based point mutations do.
+		Player player = getPlayer();
+		try {
+			plugin.getTimer().execute(() -> {
+				try {
+					Integer total = sharedPoints.completedPointAdditionTotal(operationId, uuid, pointsPath);
+					if (total != null) {
+						completion.complete(total.intValue());
+						return;
+					}
+					BukkitCompletionScheduler.run(plugin, player,
+							() -> submitSharedPointAdditionAfterReplayLookup(sharedPoints, value, operationId, completion));
+				} catch (Throwable failure) {
+					completion.completeExceptionally(failure);
+				}
+			});
+		} catch (RuntimeException rejected) {
+			plugin.debug(rejected);
+			completion.completeExceptionally(rejected);
+		}
+		return completion;
+	}
+
+	private record ReplayPointKey(VotingPluginMain plugin, String operationId, String uuid, String pointsPath) { }
+
+	private void submitSharedPointAdditionAfterReplayLookup(SharedMysqlPointMutator sharedPoints, int value,
+			String operationId, CompletableFuture<Integer> completion) {
+		PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, value);
+		Bukkit.getPluginManager().callEvent(event);
+		if (event.isCancelled()) {
+			completion.complete(getPoints());
+			return;
+		}
+		try {
+			plugin.getTimer().execute(() -> {
+				try {
+					SharedMysqlPointMutator.AddResult result = sharedPoints.addCommitted(this, event.getPoints(), operationId);
+					if (result.success()) completion.complete(result.total());
+					else completion.completeExceptionally(
+							new IllegalStateException("Unable to persist shared MySQL points"));
+				} catch (Throwable failure) {
+					completion.completeExceptionally(failure);
+				}
+			});
+		} catch (RuntimeException rejected) {
+			plugin.debug(rejected);
+			completion.completeExceptionally(rejected);
+		}
 	}
 
 	/** Retires an idempotent point-addition record after its replay checkpoint is durable. */
@@ -438,10 +512,15 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			}
 			return;
 		}
-		submitSharedMysqlChunk(plugin, users, 0, completion, sharedMutation);
+		List<Player> players = new ArrayList<>(users.size());
+		for (VotingPluginUser user : users) {
+			players.add(user.getPlayer());
+		}
+		submitSharedMysqlChunk(plugin, users, players, 0, completion, sharedMutation);
 	}
 
-	private static void submitSharedMysqlChunk(VotingPluginMain plugin, List<VotingPluginUser> users, int start,
+	private static void submitSharedMysqlChunk(VotingPluginMain plugin, List<VotingPluginUser> users, List<Player> players,
+			int start,
 			BiConsumer<VotingPluginUser, Boolean> completion, SharedPointMutation sharedMutation) {
 		int end = Math.min(start + BULK_POINT_BATCH_SIZE, users.size());
 		Runnable persistenceWork = () -> {
@@ -454,26 +533,28 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 					plugin.debug(failure);
 				}
 			}
-			scheduleBulkCompletions(plugin, users, start, end, results, completion);
+			scheduleBulkCompletions(plugin, users, players, start, end, results, completion);
 			if (end < users.size()) {
-				submitSharedMysqlChunk(plugin, users, end, completion, sharedMutation);
+				submitSharedMysqlChunk(plugin, users, players, end, completion, sharedMutation);
 			}
 		};
 		try {
 			plugin.getTimer().execute(persistenceWork);
 		} catch (RuntimeException rejected) {
 			plugin.debug(rejected);
-			scheduleBulkCompletions(plugin, users, start, users.size(), null, completion);
+			scheduleBulkCompletions(plugin, users, players, start, users.size(), null, completion);
 		}
 	}
 
-	private static void scheduleBulkCompletions(VotingPluginMain plugin, List<VotingPluginUser> users, int start,
+	private static void scheduleBulkCompletions(VotingPluginMain plugin, List<VotingPluginUser> users, List<Player> players,
+			int start,
 			int end, boolean[] results, BiConsumer<VotingPluginUser, Boolean> completion) {
 		for (int index = start; index < end; index++) {
 			VotingPluginUser user = users.get(index);
+			Player player = players.get(index);
 			boolean success = results != null && results[index - start];
 			try {
-				BukkitCompletionScheduler.run(plugin, user.getPlayer(), () -> {
+				BukkitCompletionScheduler.run(plugin, player, () -> {
 					try {
 						completion.accept(user, success);
 					} catch (RuntimeException failure) {

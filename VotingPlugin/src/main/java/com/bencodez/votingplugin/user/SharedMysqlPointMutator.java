@@ -53,8 +53,19 @@ final class SharedMysqlPointMutator {
 	 * to the plugin lifecycle, so no independent task survives shutdown.
 	 */
 	static void scheduleTransferRecovery(VotingPluginMain plugin) {
-		plugin.getTimer().execute(() -> recoverSharedPointJournals(plugin));
-		plugin.getTimer().scheduleWithFixedDelay(() -> recoverSharedPointJournals(plugin), 1L, 1L, TimeUnit.MINUTES);
+		plugin.getTimer().execute(() -> recoverSharedPointJournalsSafely(plugin));
+		plugin.getTimer().scheduleWithFixedDelay(() -> recoverSharedPointJournalsSafely(plugin), 1L, 1L,
+				TimeUnit.MINUTES);
+	}
+
+	private static void recoverSharedPointJournalsSafely(VotingPluginMain plugin) {
+		try {
+			recoverSharedPointJournals(plugin);
+		} catch (RuntimeException failure) {
+			plugin.getLogger().severe("Unable to recover shared MySQL point journals: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+		}
 	}
 
 	private static void recoverSharedPointJournals(VotingPluginMain plugin) {
@@ -151,6 +162,18 @@ final class SharedMysqlPointMutator {
 			return new AddResult(false, 0);
 		} finally {
 			discardPointsCache(user);
+		}
+	}
+
+	/** Looks up a completed retry before its Bukkit receive event is dispatched. */
+	Integer completedPointAdditionTotal(String operationId, String uuid, String pointsColumn) {
+		try {
+			SharedPointAdditionJournal.AdditionResult result = SharedPointAdditionJournal.forTable(plugin.getMysql())
+					.findCompleted(operationId, uuid, pointsColumn);
+			return result == null ? null : Integer.valueOf(result.total());
+		} catch (SQLException failure) {
+			logFailure(failure);
+			throw new IllegalStateException("Unable to look up shared MySQL point addition", failure);
 		}
 	}
 

@@ -505,6 +505,10 @@ class BackendConfigurationServiceTest {
 				"giveAllPlayers", "false", "onlineOnly", "true"));
 		assertTrue(party.proposal().content().contains("VotesRequired: 25"));
 		assertTrue(party.proposal().content().contains("Enabled: false"));
+		BackendConfigurationService.QuickPreview legacyParty = service.previewQuickSetup("vote-party", Map.of(
+				"votesRequired", "25", "command", "", "broadcast", "",
+				"giveAllPlayers", "false", "onlineOnly", "true"));
+		assertTrue(legacyParty.proposal().content().contains("Enabled: true"));
 	}
 
 	@Test void guidedSettingsReadTheInstalledValuesInsteadOfAssumingDefaults() throws Exception {

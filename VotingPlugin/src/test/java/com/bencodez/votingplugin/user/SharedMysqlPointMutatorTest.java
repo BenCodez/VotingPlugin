@@ -244,6 +244,22 @@ class SharedMysqlPointMutatorTest {
 	}
 
 	@Test
+	void scheduledRecoveryLogsRuntimeFailureWithoutCancellingFixedDelayTask() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		ScheduledExecutorService persistence = mock(ScheduledExecutorService.class);
+		when(plugin.getTimer()).thenReturn(persistence);
+		when(plugin.getStorageType()).thenThrow(new IllegalStateException("storage unavailable"));
+
+		SharedMysqlPointMutator.scheduleTransferRecovery(plugin);
+
+		ArgumentCaptor<Runnable> scheduled = ArgumentCaptor.forClass(Runnable.class);
+		verify(persistence).scheduleWithFixedDelay(scheduled.capture(), org.mockito.ArgumentMatchers.eq(1L),
+				org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(TimeUnit.MINUTES));
+		org.junit.jupiter.api.Assertions.assertDoesNotThrow(scheduled.getValue()::run);
+		verify(plugin.getLogger()).severe("Unable to recover shared MySQL point journals: IllegalStateException");
+	}
+
+	@Test
 	void removeReportsARejectedConditionalDebit() throws Exception {
 		MySQL table = mock(MySQL.class);
 		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,

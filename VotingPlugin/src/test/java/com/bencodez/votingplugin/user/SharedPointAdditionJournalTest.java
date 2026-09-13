@@ -77,6 +77,22 @@ class SharedPointAdditionJournalTest {
 	}
 
 	@Test
+	void completedOperationCanBeFoundBeforeReplayingTheReceiveHook() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement lookup = mock(PreparedStatement.class);
+		ResultSet completed = completedRow("player", "Points", 7, 17);
+		when(lookup.executeQuery()).thenReturn(completed);
+		when(fixture.initialLookup.prepareStatement(anyString())).thenReturn(lookup);
+
+		SharedPointAdditionJournal.AdditionResult result = new SharedPointAdditionJournal(fixture.table, false)
+				.findCompleted("reward-operation", "player", "Points");
+
+		assertEquals(17, result.total());
+		verify(lookup).setString(1, "reward-operation");
+		verify(fixture.firstAttempt, org.mockito.Mockito.never()).prepareStatement(anyString());
+	}
+
+	@Test
 	void distinctRewardOccurrencesCreditIndependentlyWhileRetryingOneDoesNot() throws Exception {
 		Fixture fixture = fixture();
 		Connection firstLookup = missingLookup();
