@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.core.vote;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -33,6 +34,26 @@ class SharedVoteReviewFollowupTest {
     }
 
     @Test
+    void concurrentZeroSentinelCandidatesUseTheFirstAtomicReceipt() {
+        SharedVoteTestStore store = new SharedVoteTestStore(directory.resolve("zero-race.properties"), 5);
+        UUID voteId = UUID.randomUUID();
+        SharedVoteInput sentinel = new SharedVoteInput(voteId, "Ben", "Example", 0, true, true, false, true);
+        SharedVoteIdentity identity = new SharedVoteIdentity(USER, "Ben", true);
+        SharedVoteRewardPlan firstPlan = new SharedVoteRewardPlan("vote-site:Example", "v1");
+        SharedVoteRewardPlan losingPlan = new SharedVoteRewardPlan("vote-site:Example", "v2");
+        SharedVoteReceipt first = store.persistVoteWithReward(sentinel, identity,
+                new SharedVoteMutation(voteId, "Example", 1001, true, true), true, firstPlan)
+                .toCompletableFuture().join();
+        SharedVoteReceipt retry = store.persistVoteWithReward(sentinel, identity,
+                new SharedVoteMutation(voteId, "Example", 2002, true, true), true, losingPlan)
+                .toCompletableFuture().join();
+        assertEquals(1001, first.input().voteTime());
+        assertEquals(first, retry);
+        assertEquals(firstPlan, retry.rewardPlan());
+        assertEquals(1, store.mutationCount);
+    }
+
+    @Test
     void restartUsesThePersistedPreparedRewardVersionInsteadOfCurrentConfiguration() {
         Path file = directory.resolve("plan.properties");
         SharedVoteTestStore first = new SharedVoteTestStore(file, 5);
@@ -47,6 +68,23 @@ class SharedVoteReviewFollowupTest {
         runtime(reopened).recover(input.voteId()).toCompletableFuture().join();
         assertEquals("config-v1", reopened.lastDeliveredPlanVersion);
         assertEquals("config-v1", reopened.findVote(input.voteId()).toCompletableFuture().join().rewardPlan().versionReference());
+    }
+
+    @Test
+    void proxyOriginAndForcedRoutingRemainIndependentAcrossPersistence() {
+        SharedVoteTestStore store = new SharedVoteTestStore(directory.resolve("proxy-flags.properties"), 5);
+        UUID voteId = UUID.randomUUID();
+        SharedVoteInput input = new SharedVoteInput(voteId, "Ben", "Example", 1234,
+                true, true, true, false, true);
+        SharedVoteIdentity identity = new SharedVoteIdentity(USER, "Ben", true);
+        SharedVoteReceipt receipt = store.persistVoteWithReward(input, identity,
+                new SharedVoteMutation(voteId, "Example", 1234, true, true), true,
+                new SharedVoteRewardPlan("vote-site:Example", "v1")).toCompletableFuture().join();
+        assertTrue(receipt.input().proxyVote());
+        assertFalse(receipt.input().forceProxyRouting());
+        SharedVoteReceipt reopened = new SharedVoteTestStore(store.file, 5).findVote(voteId).toCompletableFuture().join();
+        assertTrue(reopened.input().proxyVote());
+        assertFalse(reopened.input().forceProxyRouting());
     }
 
     private static SharedVoteProcessor runtime(SharedVoteTestStore store) {
