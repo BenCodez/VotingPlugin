@@ -1004,6 +1004,7 @@ public abstract class VoteCacheHandler {
 				timeChangeQueue.remove(vote);
 				return true;
 			}
+			if (vote.getTimedVoteCacheRowId() > 0) return false;
 			// The SQL row may never have existed when this vote was admitted to the
 			// JSON emergency journal. Remove that durable fallback before dropping the
 			// in-memory ACK outbox.

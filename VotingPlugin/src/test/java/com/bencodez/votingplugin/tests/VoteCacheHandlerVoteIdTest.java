@@ -698,6 +698,30 @@ public class VoteCacheHandlerVoteIdTest {
 	}
 
 	@Test
+	public void timedVoteSqlTwinRejectsJsonOnlyRemoval() throws Exception {
+		UUID voteId = UUID.randomUUID();
+		VoteTimeQueue queued = new VoteTimeQueue(voteId, "Player", "Service", 100L);
+		queued.setTimedVoteCacheRowId(42);
+		queued.setTimedVoteCacheJsonKey("2");
+		handler.getTimeChangeQueue().add(queued);
+		DataNode stored = mock(DataNode.class);
+		when(stored.isObject()).thenReturn(true);
+		stubString(stored, "VoteId", voteId.toString());
+		when(storage.getTimedVoteCache()).thenReturn(List.of("2"));
+		when(storage.getTimedVoteCache("2")).thenReturn(stored);
+		ProxyTimedVoteCacheTable sql = mock(ProxyTimedVoteCacheTable.class);
+		when(sql.removeVote(queued)).thenReturn(false);
+		setPrivateField(handler, "useMySQL", true);
+		setPrivateField(handler, "timedVoteCacheTable", sql);
+
+		assertFalse(handler.removeTimeVote(queued));
+
+		assertTrue(handler.getTimeChangeQueue().contains(queued));
+		verify(sql).removeVote(queued);
+		verify(storage, never()).removeTimedVotes();
+	}
+
+	@Test
 	public void serverVoteSqlTwinRejectsJsonOnlyDeliveryUpdate() throws Exception {
 		OfflineBungeeVote vote = vote(UUID.randomUUID(), 100L);
 		vote.setServerVoteCacheRowId(41);
