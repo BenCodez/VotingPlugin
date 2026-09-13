@@ -501,9 +501,10 @@ class BackendConfigurationServiceTest {
 
 		Files.writeString(directory.resolve("SpecialRewards.yml"), "VoteParty:\n  Enabled: false\n");
 		BackendConfigurationService.QuickPreview party = service.previewQuickSetup("vote-party", Map.of(
-				"votesRequired", "25", "command", "give %player% diamond 1", "broadcast", "Party!",
+				"enabled", "false", "votesRequired", "25", "command", "give %player% diamond 1", "broadcast", "Party!",
 				"giveAllPlayers", "false", "onlineOnly", "true"));
 		assertTrue(party.proposal().content().contains("VotesRequired: 25"));
+		assertTrue(party.proposal().content().contains("Enabled: false"));
 	}
 
 	@Test void guidedSettingsReadTheInstalledValuesInsteadOfAssumingDefaults() throws Exception {
@@ -607,7 +608,7 @@ class BackendConfigurationServiceTest {
 		assertFalse(reward.proposal().content().contains("New message"));
 
 		BackendConfigurationService.QuickPreview party = service.previewQuickSetup("vote-party", Map.of(
-				"votesRequired", "20", "command", "new party", "broadcast", "Party!",
+				"enabled", "true", "votesRequired", "20", "command", "new party", "broadcast", "Party!",
 				"giveAllPlayers", "false", "onlineOnly", "true"));
 		assertTrue(party.proposal().content().contains("existing party"));
 		assertTrue(party.proposal().content().contains("new party"));

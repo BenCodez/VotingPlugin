@@ -393,7 +393,7 @@ public final class BackendConfigurationService {
 		case "vote-logging" -> Set.of("enabled", "purgeDays", "useMainMySQL");
 		case "common-settings" -> Set.of("processRewards", "autoCreateVoteSites", "extraAllSitesCheck",
 				"countFakeVotes", "disableNoServiceSiteMessage", "disableUpdateChecking");
-		case "vote-party" -> Set.of("votesRequired", "broadcast", "giveAllPlayers", "onlineOnly", "command");
+		case "vote-party" -> Set.of("enabled", "votesRequired", "broadcast", "giveAllPlayers", "onlineOnly", "command");
 		case "sync-vote-sites" -> Set.of("sourceContent");
 		default -> throw new IllegalArgumentException("quick setup preset is unsupported");
 		});
@@ -497,7 +497,7 @@ public final class BackendConfigurationService {
 			return new QuickProposal(fileName, yaml.saveToString());
 		}
 		if ("vote-party".equals(preset)) {
-			yaml.set("VoteParty.Enabled", true);
+			yaml.set("VoteParty.Enabled", booleanOption(options, "enabled"));
 			yaml.set("VoteParty.VotesRequired", boundedInteger(option(options, "votesRequired", "[0-9]{1,6}"), 1, 100000));
 			yaml.set("VoteParty.GiveAllPlayers", booleanOption(options, "giveAllPlayers"));
 			yaml.set("VoteParty.GiveOnlinePlayersOnly", booleanOption(options, "onlineOnly"));

@@ -48,7 +48,8 @@ public final class BackendControlConnector implements AutoCloseable {
 	private static final long INSPECTION_SHUTDOWN_TIMEOUT_SECONDS = 5;
 	private static final Pattern NODE_ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,63}");
 	private static final Set<String> CAPABILITIES = Set.of("config.files.v1", "config.file-comments.v1",
-			"config.quick-setup.v1", "config.vote-sites-sync.v1", "config.proxy-method.v1", "data.inspect.v1");
+			"config.quick-setup.v1", "config.quick-setup.v2", "config.vote-sites-sync.v1",
+			"config.proxy-method.v1", "data.inspect.v1");
 
 	private final VotingPluginMain plugin;
 	private final Path dataDirectory;
@@ -72,6 +73,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	private volatile boolean registered;
 	private volatile boolean operationsAccepted;
 	private volatile boolean quickSetupsAccepted;
+	private volatile boolean votePartySetupsAccepted;
 	private volatile boolean voteSitesSyncAccepted;
 	private volatile boolean inspectionsAccepted;
 	private volatile int inspectionFailures;
@@ -305,6 +307,7 @@ public final class BackendControlConnector implements AutoCloseable {
 			}
 			operationsAccepted = negotiatedCapability(node, "config.files.v1", operationsAccepted);
 			quickSetupsAccepted = negotiatedCapability(node, "config.quick-setup.v1", quickSetupsAccepted);
+			votePartySetupsAccepted = negotiatedCapability(node, "config.quick-setup.v2", votePartySetupsAccepted);
 			voteSitesSyncAccepted = negotiatedCapability(node, "config.vote-sites-sync.v1", voteSitesSyncAccepted);
 			boolean inspectionsWereAccepted = inspectionsAccepted;
 			inspectionsAccepted = negotiatedCapability(node, "data.inspect.v1", inspectionsAccepted);
@@ -356,6 +359,7 @@ public final class BackendControlConnector implements AutoCloseable {
 		// A registration must explicitly establish required capabilities. Heartbeats may omit the unchanged set.
 		operationsAccepted = false;
 		quickSetupsAccepted = false;
+		votePartySetupsAccepted = false;
 		voteSitesSyncAccepted = false;
 		inspectionsAccepted = false;
 		JsonObject body = sessionBody();
@@ -608,7 +612,6 @@ public final class BackendControlConnector implements AutoCloseable {
 			String domain = string(configuration, "domain");
 			if ("file".equals(domain)) return executeFile(operationId, type, configuration, task);
 			if ("quick-setup".equals(domain)) {
-				if (!quickSetupsAccepted) return TaskResult.failure("UNSUPPORTED_TASK", "Quick setups were not negotiated");
 				return executeQuick(operationId, type, configuration, task);
 			}
 			return TaskResult.failure("UNSUPPORTED_TASK", "Configuration domain is unsupported");
@@ -681,8 +684,9 @@ public final class BackendControlConnector implements AutoCloseable {
 	private TaskResult executeQuick(UUID operationId, String type, JsonObject configuration, JsonObject task)
 			throws IOException {
 		String preset = string(configuration, "preset");
-		if (!quickSetupCapabilityAccepted(preset, quickSetupsAccepted, voteSitesSyncAccepted)) {
-			return TaskResult.failure("UNSUPPORTED_TASK", "VoteSites sync was not negotiated");
+		if (!quickSetupCapabilityAccepted(preset, quickSetupsAccepted, votePartySetupsAccepted,
+				voteSitesSyncAccepted)) {
+			return TaskResult.failure("UNSUPPORTED_TASK", "The required quick setup capability was not negotiated");
 		}
 		Map<String, String> options = options(configuration.getAsJsonObject("options"));
 		if ("READ".equals(type)) {
@@ -730,7 +734,8 @@ public final class BackendControlConnector implements AutoCloseable {
 	}
 
 	static boolean quickSetupCapabilityAccepted(String preset, boolean quickSetupsAccepted,
-			boolean voteSitesSyncAccepted) {
+			boolean votePartySetupsAccepted, boolean voteSitesSyncAccepted) {
+		if ("vote-party".equals(preset)) return votePartySetupsAccepted;
 		return quickSetupsAccepted && (!"sync-vote-sites".equals(preset) || voteSitesSyncAccepted);
 	}
 

@@ -85,6 +85,8 @@ class BackendControlConnectorProtocolTest {
 		assertTrue(advertised.asList().stream()
 				.anyMatch(value -> "config.vote-sites-sync.v1".equals(value.getAsString())));
 		assertTrue(advertised.asList().stream()
+				.anyMatch(value -> "config.quick-setup.v2".equals(value.getAsString())));
+		assertTrue(advertised.asList().stream()
 				.anyMatch(value -> "data.inspect.v1".equals(value.getAsString())));
 		JsonArray required = registration.getAsJsonArray("requiredCapabilities");
 		assertTrue(required.asList().stream()
@@ -117,10 +119,15 @@ class BackendControlConnectorProtocolTest {
 	}
 
 	@Test void voteSitesSyncRequiresBothNegotiatedCapabilities() {
-		assertFalse(BackendControlConnector.quickSetupCapabilityAccepted("sync-vote-sites", true, false));
-		assertFalse(BackendControlConnector.quickSetupCapabilityAccepted("sync-vote-sites", false, true));
-		assertTrue(BackendControlConnector.quickSetupCapabilityAccepted("sync-vote-sites", true, true));
-		assertTrue(BackendControlConnector.quickSetupCapabilityAccepted("common-settings", true, false));
+		assertFalse(BackendControlConnector.quickSetupCapabilityAccepted("sync-vote-sites", true, false, false));
+		assertFalse(BackendControlConnector.quickSetupCapabilityAccepted("sync-vote-sites", false, false, true));
+		assertTrue(BackendControlConnector.quickSetupCapabilityAccepted("sync-vote-sites", true, false, true));
+		assertTrue(BackendControlConnector.quickSetupCapabilityAccepted("common-settings", true, false, false));
+	}
+
+	@Test void votePartyRequiresItsVersionedCapability() {
+		assertFalse(BackendControlConnector.quickSetupCapabilityAccepted("vote-party", true, false, false));
+		assertTrue(BackendControlConnector.quickSetupCapabilityAccepted("vote-party", false, true, false));
 	}
 
 	@Test void rewardBuilderResultsKeepOnlyTheSafeRecoveryTarget() {
