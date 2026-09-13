@@ -860,14 +860,16 @@ final class SharedMysqlPointMutator {
 	}
 
 	private void drainCache(VotingPluginUser user) {
-		if (!user.isCached()) return;
-		UserDataCache cache = user.getCache();
-		if (cache == null) return;
-		synchronized (cache) {
-			SharedMysqlCacheReconciler.discardOptimisticPoint(cache, user.getPointsPath());
-			cache.dump();
-			plugin.getUserManager().getDataManager().removeCache(UUID.fromString(user.getUUID()), null);
-		}
+		SharedMysqlCacheReconciler.withCacheDumpFence(() -> {
+			if (!user.isCached()) return;
+			UserDataCache cache = user.getCache();
+			if (cache == null) return;
+			synchronized (cache) {
+				SharedMysqlCacheReconciler.discardOptimisticPoint(cache, user.getPointsPath());
+				cache.dump();
+				plugin.getUserManager().getDataManager().removeCache(UUID.fromString(user.getUUID()), null);
+			}
+		});
 	}
 
 	private static Connection requireConnection(MySQL table) throws SQLException {

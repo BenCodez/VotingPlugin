@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
 import com.bencodez.simpleapi.sql.data.DataValue;
@@ -11,10 +12,33 @@ import com.bencodez.votingplugin.VotingPluginMain;
 
 /** Invalidates only fields changed directly by a shared-MySQL mutation. */
 public final class SharedMysqlCacheReconciler {
+	private static final ReentrantReadWriteLock RESET_FENCE = new ReentrantReadWriteLock(true);
 	private static final Map<UserDataCache, Map<String, DataValue>> OPTIMISTIC_POINT_VALUES =
 			java.util.Collections.synchronizedMap(new WeakHashMap<>());
 
 	private SharedMysqlCacheReconciler() {
+	}
+
+	/** Excludes every shared-MySQL cache dump while a limit reset is committing. */
+	public static void withResetFence(Runnable action) {
+		var lock = RESET_FENCE.writeLock();
+		lock.lock();
+		try {
+			action.run();
+		} finally {
+			lock.unlock();
+		}
+	}
+
+	/** Allows concurrent cache drains while excluding a shared-MySQL limit reset. */
+	public static void withCacheDumpFence(Runnable action) {
+		var lock = RESET_FENCE.readLock();
+		lock.lock();
+		try {
+			action.run();
+		} finally {
+			lock.unlock();
+		}
 	}
 
 	static void recordOptimisticPoint(UserDataCache cache, String path, DataValue prediction) {

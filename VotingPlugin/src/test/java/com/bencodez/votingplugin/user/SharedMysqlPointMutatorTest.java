@@ -37,6 +37,56 @@ import com.bencodez.votingplugin.VotingPluginMain;
 
 class SharedMysqlPointMutatorTest {
 	@Test
+	void pointMutationDumpHoldsTheSharedLimitResetFence() throws Exception {
+		MySQL table = mock(MySQL.class);
+		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
+				org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		Connection connection = mock(Connection.class);
+		PreparedStatement statement = mock(PreparedStatement.class);
+		when(table.getTableName()).thenReturn("VotingPlugin_Users");
+		when(table.qi(anyString())).thenAnswer(invocation -> "`" + invocation.getArgument(0) + "`");
+		when(table.getMysql()).thenReturn(sql);
+		when(sql.getConnectionManager().getConnection()).thenReturn(connection);
+		when(connection.prepareStatement(anyString())).thenReturn(statement);
+		when(statement.executeUpdate()).thenReturn(1);
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		when(plugin.getMysql()).thenReturn(table);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		when(user.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
+		when(user.getPointsPath()).thenReturn("Points");
+		when(user.isCached()).thenReturn(true);
+		UserDataCache cache = mock(UserDataCache.class);
+		when(user.getCache()).thenReturn(cache);
+
+		java.util.concurrent.CountDownLatch dumpEntered = new java.util.concurrent.CountDownLatch(1);
+		java.util.concurrent.CountDownLatch releaseDump = new java.util.concurrent.CountDownLatch(1);
+		java.util.concurrent.CountDownLatch resetEntered = new java.util.concurrent.CountDownLatch(1);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			dumpEntered.countDown();
+			assertTrue(releaseDump.await(2, TimeUnit.SECONDS));
+			return null;
+		}).when(cache).dump();
+		java.util.concurrent.ExecutorService workers = java.util.concurrent.Executors.newFixedThreadPool(2);
+		try {
+			java.util.concurrent.Future<Boolean> mutation = workers.submit(
+					() -> new SharedMysqlPointMutator(plugin).setCommitted(user, 20));
+			assertTrue(dumpEntered.await(1, TimeUnit.SECONDS));
+			java.util.concurrent.Future<?> reset = workers.submit(
+					() -> SharedMysqlCacheReconciler.withResetFence(resetEntered::countDown));
+
+			assertFalse(resetEntered.await(100, TimeUnit.MILLISECONDS),
+					"a limit reset must wait for an in-flight point-mutation cache dump");
+			releaseDump.countDown();
+			assertTrue(mutation.get(1, TimeUnit.SECONDS));
+			reset.get(1, TimeUnit.SECONDS);
+			assertEquals(0, resetEntered.getCount());
+		} finally {
+			releaseDump.countDown();
+			workers.shutdownNow();
+		}
+	}
+
+	@Test
 	void indeterminateTransferReservationInvalidatesRecreatedSourcePoints() throws Exception {
 		MySQL table = mock(MySQL.class);
 		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,

@@ -13,7 +13,6 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 
 import org.bukkit.Bukkit;
@@ -49,8 +48,6 @@ import lombok.Setter;
 public class VoteShopPurchaseService {
 	private static final int PURCHASE_LOCK_STRIPES = 256;
 	private static final Object[] PURCHASE_LOCKS = createPurchaseLocks();
-	private static final ReentrantReadWriteLock SHARED_MYSQL_CACHE_RESET_FENCE =
-			new ReentrantReadWriteLock(true);
 	private static final int COMPLETION_PENDING = 0;
 	private static final int COMPLETION_RUNNING = 1;
 	private static final int COMPLETION_COMPENSATING = 2;
@@ -516,23 +513,11 @@ public class VoteShopPurchaseService {
 	}
 
 	static void withSharedMysqlCacheResetFence(Runnable action) {
-		var lock = SHARED_MYSQL_CACHE_RESET_FENCE.writeLock();
-		lock.lock();
-		try {
-			action.run();
-		} finally {
-			lock.unlock();
-		}
+		SharedMysqlCacheReconciler.withResetFence(action);
 	}
 
 	static void withSharedMysqlCacheDumpFence(Runnable action) {
-		var lock = SHARED_MYSQL_CACHE_RESET_FENCE.readLock();
-		lock.lock();
-		try {
-			action.run();
-		} finally {
-			lock.unlock();
-		}
+		SharedMysqlCacheReconciler.withCacheDumpFence(action);
 	}
 
 	/** Runs bounded stale-purchase recovery from the plugin lifecycle executor. */
