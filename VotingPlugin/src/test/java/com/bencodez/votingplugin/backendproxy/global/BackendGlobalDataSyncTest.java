@@ -22,7 +22,6 @@ import org.junit.jupiter.api.Test;
 import com.bencodez.advancedcore.api.time.TimeChecker;
 import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.api.user.UserManager;
-import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandler;
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
@@ -48,7 +47,6 @@ class BackendGlobalDataSyncTest {
 		when(plugin.getBungeeSettings()).thenReturn(bungeeSettings);
 		when(bungeeSettings.getServer()).thenReturn("lobby");
 		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
-		when(plugin.getStorageType()).thenReturn(UserStorage.FLAT);
 		when(plugin.getUserManager()).thenReturn(userManager);
 		when(userManager.getDataManager()).thenReturn(dataManager);
 

@@ -55,7 +55,7 @@ public class BackendGlobalDataSync {
 				&& forceUpdateInProgress.compareAndSet(false, true)) {
 			String serverName = plugin.getBungeeSettings().getServer();
 			try {
-				if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
+				if (UserStorage.MYSQL.equals(plugin.getStorageType())) {
 					plugin.getMysql().clearCacheBasic();
 				}
 				plugin.getBukkitScheduler().executeOrScheduleSync(plugin, () -> {
