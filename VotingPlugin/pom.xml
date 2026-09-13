@@ -202,6 +202,12 @@
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <filters>
                                 <filter>
+                                    <artifact>org.bouncycastle:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/versions/25/**</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
                                     <artifact>*:*</artifact>
                                     <excludes>
                                         <exclude>META-INF/*.SF</exclude>

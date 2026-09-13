@@ -285,6 +285,35 @@ class VotingPluginMainBackendProxyPublicationTest {
 	}
 
 	@Test
+	void stagedRedisAbortBeforeHandoffClosesTheReplacementOffThread() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+		BackendProxyHandler previous = mock(BackendProxyHandler.class);
+		BackendProxyHandler replacement = mock(BackendProxyHandler.class);
+		when(replacement.getMethod()).thenReturn(BungeeMethod.REDIS);
+		setBackendProxyHandler(plugin, previous);
+		VotingPluginMain.BackendProxyRestart restart = restart(previous, replacement);
+		CountDownLatch closeStarted = new CountDownLatch(1);
+		CountDownLatch releaseClose = new CountDownLatch(1);
+		java.util.concurrent.atomic.AtomicReference<String> closeThread = new java.util.concurrent.atomic.AtomicReference<>();
+		doAnswer(invocation -> {
+			closeThread.set(Thread.currentThread().getName());
+			closeStarted.countDown();
+			releaseClose.await(1, TimeUnit.SECONDS);
+			return null;
+		}).when(replacement).close();
+
+		try {
+			org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(java.time.Duration.ofMillis(250),
+					() -> plugin.abortBackendProxyHandlerRestart(restart));
+			assertTrue(closeStarted.await(1, TimeUnit.SECONDS));
+			assertTrue(closeThread.get().startsWith("VotingPlugin-Staged-Redis-Rollback"));
+		} finally {
+			releaseClose.countDown();
+		}
+		verify(replacement, org.mockito.Mockito.timeout(1_000)).close();
+	}
+
+	@Test
 	void restoresPreviousHandlerWhenPreparedDeliveryAdmissionFails() throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
 		BackendProxyHandler previous = mock(BackendProxyHandler.class);

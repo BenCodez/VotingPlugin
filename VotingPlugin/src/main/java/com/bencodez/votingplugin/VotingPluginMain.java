@@ -1415,7 +1415,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 						throw handoffFailure;
 					}
 				}
-				if (restart.redisHandoffCompleted) closeStagedRedisReplacementAsync(restart.replacement);
+				if (requiresAsyncStagedReplacementClose(restart))
+					closeStagedRedisReplacementAsync(restart.replacement);
 				else try {
 					restart.replacement.close();
 				} catch (RuntimeException closeFailure) {
@@ -1509,7 +1510,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 		if (restart.replacement != null) {
 			restart.replacement.abortStagedInboundTo(restart.previous);
-			if (restart.redisHandoffCompleted) closeStagedRedisReplacementAsync(restart.replacement);
+			if (requiresAsyncStagedReplacementClose(restart)) closeStagedRedisReplacementAsync(restart.replacement);
 			else restart.replacement.close();
 		}
 		if (backendProxyHandler == restart.previous && restart.previous != null
@@ -1522,6 +1523,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			restart.previous.restorePresenceAfterFailedDisablePreparation();
 		}
 		restart.finished = true;
+	}
+
+	private boolean requiresAsyncStagedReplacementClose(BackendProxyRestart restart) {
+		return restart.redisHandoffCompleted || restart.replacement.getMethod() == BungeeMethod.REDIS;
 	}
 
 	/** A staged Redis listener can spend its bounded join timeout in close(); abort runs on Bukkit. */
