@@ -64,6 +64,14 @@ class SharedVoteTestStore implements SharedVoteUserServices, SharedVoteRewardSer
                 if (!existing.identity().uuid().equals(identity.uuid())) throw new IllegalStateException("Conflicting user");
                 return CompletableFuture.completedFuture(existing);
             }
+            if (!input.voteId().equals(mutation.voteId()) || !input.serviceSite().equals(mutation.serviceSite())) {
+                throw new IllegalStateException("Mutation origin does not match vote input");
+            }
+            if (input.voteTime() != 0 && input.voteTime() != mutation.voteTime()) {
+                throw new IllegalStateException("Explicit vote timestamp changed before persistence");
+            }
+            SharedVoteInput persistedInput = input.voteTime() == 0
+                    ? input.normalizedVoteTime(mutation.voteTime()) : input;
             if (failBeforeCommit) { failBeforeCommit = false; throw new IOException("before commit"); }
             String prefix = identity.uuid() + ".";
             SharedVoteUserSnapshot previous = snapshot(properties, prefix);
@@ -72,7 +80,7 @@ class SharedVoteTestStore implements SharedVoteUserServices, SharedVoteRewardSer
                     previous.monthTotal() + increment, previous.weeklyTotal() + increment, previous.dailyTotal() + increment,
                     previous.points() + (mutation.awardConfiguredPoints() ? pointsPerVote : 0));
             putSnapshot(properties, prefix, next);
-            SharedVoteReceipt created = new SharedVoteReceipt(input, identity, mutation, next, execute, rewardPlan, null);
+            SharedVoteReceipt created = new SharedVoteReceipt(persistedInput, identity, mutation, next, execute, rewardPlan, null);
             putReceipt(properties, created);
             write(file, properties);
             mutationCount++;
@@ -188,6 +196,7 @@ class SharedVoteTestStore implements SharedVoteUserServices, SharedVoteRewardSer
         p.setProperty(k + "real", Boolean.toString(r.input().realVote()));
         p.setProperty(k + "add", Boolean.toString(r.input().addTotals()));
         p.setProperty(k + "proxy", Boolean.toString(r.input().proxyVote()));
+        p.setProperty(k + "forceProxy", Boolean.toString(r.input().forceProxyRouting()));
         p.setProperty(k + "wasOnline", Boolean.toString(r.input().wasOnline()));
         p.setProperty(k + "uuid", r.identity().uuid().toString());
         p.setProperty(k + "resolvedName", r.identity().playerName());
@@ -204,7 +213,8 @@ class SharedVoteTestStore implements SharedVoteUserServices, SharedVoteRewardSer
         String k = "receipt." + id + ".";
         if (!p.containsKey(k + "done")) return null;
         SharedVoteInput input = new SharedVoteInput(id, p.getProperty(k + "name"), p.getProperty(k + "site"),
-                Long.parseLong(p.getProperty(k + "time")), bool(p, k + "real"), bool(p, k + "add"), bool(p, k + "proxy"), bool(p, k + "wasOnline"));
+                Long.parseLong(p.getProperty(k + "time")), bool(p, k + "real"), bool(p, k + "add"),
+                bool(p, k + "proxy"), bool(p, k + "forceProxy"), bool(p, k + "wasOnline"));
         SharedVoteIdentity identity = new SharedVoteIdentity(UUID.fromString(p.getProperty(k + "uuid")),
                 p.getProperty(k + "resolvedName"), bool(p, k + "online"));
         SharedVoteMutation mutation = new SharedVoteMutation(id, input.serviceSite(), input.voteTime(), bool(p, k + "count"), bool(p, k + "award"));
