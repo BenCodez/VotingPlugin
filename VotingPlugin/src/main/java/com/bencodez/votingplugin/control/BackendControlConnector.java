@@ -149,9 +149,15 @@ public final class BackendControlConnector implements AutoCloseable {
 					try {
 						VotingPluginMain.BackendProxyRestart prepared = preparedRestart.get();
 						if (preparationAbandoned.get()) {
-							try {
-								if (prepared != null) plugin.abortBackendProxyHandlerRestart(prepared);
-							} finally { rollbackAbortSettled.countDown(); }
+							// The Control worker performs transport restoration after this
+							// Bukkit callback has marked the staged handler unavailable.
+							if (prepared != null && prepared.requiresWorkerRollback()) {
+								plugin.requestBackendProxyHandlerRestartAbandonment(prepared);
+							} else if (prepared != null) {
+								try {
+									plugin.abortBackendProxyHandlerRestart(prepared);
+								} finally { rollbackAbortSettled.countDown(); }
+							}
 						}
 					} finally {
 						preparationState.set(2);
@@ -212,14 +218,24 @@ public final class BackendControlConnector implements AutoCloseable {
 				}
 				VotingPluginMain.BackendProxyRestart prepared = restart;
 				try {
-					Future<?> abort = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
-						try { plugin.abortBackendProxyHandlerRestart(prepared); }
-						finally { rollbackAbortSettled.countDown(); }
-						return null;
-					});
-					abort.get(5, TimeUnit.SECONDS);
+					if (prepared.requiresWorkerRollback()) {
+						// This worker owns the exclusive socket/MQTT teardown and restoration.
+						// Bukkit state was already fenced by requestBackendProxyHandlerRestartAbandonment.
+						plugin.abortBackendProxyHandlerRestart(prepared);
+						rollbackAbortSettled.countDown();
+					} else {
+						Future<?> abort = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+							try { plugin.abortBackendProxyHandlerRestart(prepared); }
+							finally { rollbackAbortSettled.countDown(); }
+							return null;
+						});
+						abort.get(5, TimeUnit.SECONDS);
+					}
 					finishPendingBackendProxyRollback();
-				} catch (Exception cleanupFailure) { failure.addSuppressed(cleanupFailure); }
+				} catch (Exception cleanupFailure) {
+					rollbackAbortSettled.countDown();
+					failure.addSuppressed(cleanupFailure);
+				}
 			}
 			if (pendingRollback != null && restart == null) {
 				rollbackAbortSettled.countDown();

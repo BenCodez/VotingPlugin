@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.backendproxy;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -22,6 +23,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 
 import java.lang.reflect.Field;
+import java.net.ServerSocket;
+import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
@@ -30,6 +33,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.eclipse.paho.client.mqttv3.MqttException;
 
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
@@ -37,6 +42,7 @@ import com.bencodez.simpleapi.servercomm.sockets.SocketHandler;
 import com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessageHandler;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
 import com.bencodez.simpleapi.servercomm.mqtt.MqttHandler;
+import com.bencodez.simpleapi.servercomm.mqtt.MqttServerComm;
 import com.bencodez.simpleapi.servercomm.mysql.MySqlMessenger;
 import com.bencodez.simpleapi.servercomm.redis.RedisHandler;
 import com.bencodez.votingplugin.backendproxy.global.BackendGlobalDataSync;
@@ -430,6 +436,43 @@ class BackendProxyHandlerLifecycleTest {
 	}
 
 	@Test
+	void rejectsSamePortSocketReplacementUntilThePreviousListenerIsPrepared(@TempDir Path dataFolder)
+			throws Exception {
+		int port;
+		try (ServerSocket allocation = new ServerSocket(0)) {
+			port = allocation.getLocalPort();
+		}
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BungeeSettings settings = mock(BungeeSettings.class);
+		when(plugin.getBungeeSettings()).thenReturn(settings);
+		when(plugin.getName()).thenReturn("socket-lifecycle-test");
+		when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("socket-lifecycle-test"));
+		when(settings.getBungeeServerHost()).thenReturn("127.0.0.1");
+		when(settings.getBungeeServerPort()).thenReturn(1);
+		when(settings.getSpigotServerHost()).thenReturn("127.0.0.1");
+		when(settings.getSpigotServerPort()).thenReturn(port);
+
+		SocketBackendProxyTransport previous = new SocketBackendProxyTransport(plugin);
+		SocketBackendProxyTransport replacement = new SocketBackendProxyTransport(plugin);
+		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
+		try {
+			previous.start(messages);
+			assertThrows(IllegalStateException.class, () -> replacement.start(messages));
+			assertNull(replacement.getClientHandler());
+
+			previous.prepareForReplacement();
+			assertDoesNotThrow(() -> replacement.start(messages));
+			replacement.close();
+			assertDoesNotThrow(previous::restoreAfterFailedReplacement);
+			assertNotNull(previous.getSocketHandler());
+		} finally {
+			replacement.close();
+			previous.close();
+		}
+	}
+
+	@Test
 	void keepsRedisSubscriberUntilReplacementIsReady() throws Exception {
 		BackendProxyHandler handler = new BackendProxyHandler(null);
 		Field method = BackendProxyHandler.class.getDeclaredField("method");
@@ -468,31 +511,83 @@ class BackendProxyHandlerLifecycleTest {
 	}
 
 	@Test
-	void failedSameSocketReplacementLeavesExistingTransportAvailable() throws Exception {
+	void preparesSameSocketReplacementByRetiringTheExistingListener() throws Exception {
 		BackendProxyHandler handler = handlerWithTransport(BungeeMethod.SOCKETS);
 		SocketHandler socket = mock(SocketHandler.class);
 		SocketBackendProxyTransport transport = new SocketBackendProxyTransport(null);
 		setField(transport, "socketHandler", socket);
 		setTransport(handler, transport);
 
-		assertFalse(handler.prepareForReplacement(BungeeMethod.SOCKETS));
+		assertTrue(handler.prepareForReplacement(BungeeMethod.SOCKETS));
 
-		assertSame(socket, handler.getSocketHandler());
-		verifyNoInteractions(socket);
+		assertNull(handler.getSocketHandler());
+		verify(socket).closeConnection();
 	}
 
 	@Test
-	void failedSameMqttReplacementLeavesExistingTransportAvailable() throws Exception {
+	void preparesSameMqttReplacementByRetiringTheExistingClient() throws Exception {
 		BackendProxyHandler handler = handlerWithTransport(BungeeMethod.MQTT);
 		MqttHandler mqtt = mock(MqttHandler.class);
 		MqttBackendProxyTransport transport = new MqttBackendProxyTransport(null);
 		setField(transport, "mqttHandler", mqtt);
 		setTransport(handler, transport);
 
-		assertFalse(handler.prepareForReplacement(BungeeMethod.MQTT));
+		assertTrue(handler.prepareForReplacement(BungeeMethod.MQTT));
 
-		assertSame(mqtt, handler.getMqttHandler());
-		verifyNoInteractions(mqtt);
+		assertNull(handler.getMqttHandler());
+		verify(mqtt).disconnect();
+	}
+
+	@Test
+	void restoresPreparedMqttClientWhenReplacementValidationIsAbandoned() throws Exception {
+		BackendProxyTransportManager manager = new BackendProxyTransportManager(null);
+		MqttBackendProxyTransport mqtt = mock(MqttBackendProxyTransport.class);
+		setField(manager, "preparedTransport", mqtt);
+
+		manager.restoreAfterFailedReplacement();
+
+		assertSame(mqtt, transport(manager));
+		verify(mqtt).restoreAfterFailedReplacement();
+	}
+
+	@Test
+	void failedMqttDisconnectKeepsAStillConnectedPredecessor() throws Exception {
+		BackendProxyTransportManager manager = new BackendProxyTransportManager(null);
+		MqttBackendProxyTransport mqtt = mock(MqttBackendProxyTransport.class);
+		doThrow(new IllegalStateException("disconnect failed")).when(mqtt).prepareForReplacement();
+		when(mqtt.isConnected()).thenReturn(true);
+		setField(manager, "transport", mqtt);
+
+		assertThrows(IllegalStateException.class, manager::prepareForReplacement);
+
+		assertSame(mqtt, transport(manager));
+		verify(mqtt, never()).restoreAfterFailedReplacement();
+	}
+
+	@Test
+	void disconnectsPartialMqttClientWhenSubscriptionFails() throws Exception {
+		MqttHandler partial = mock(MqttHandler.class);
+		doThrow(new MqttException(0)).when(partial).subscribeEnvelopes(any(), any());
+		MqttBackendProxyTransport transport = new MqttBackendProxyTransport(null) {
+			@Override
+			protected MqttServerComm createMqttServerComm() {
+				return mock(MqttServerComm.class);
+			}
+
+			@Override
+			protected MqttHandler createMqttHandler(MqttServerComm server) {
+				return partial;
+			}
+		};
+		setField(transport, "messageHandler", mock(GlobalMessageHandler.class));
+		setField(transport, "clientId", "backend-1");
+		setField(transport, "brokerUrl", "tcp://broker.invalid:1883");
+		setField(transport, "subscriptionTopic", "votingplugin/servers/backend-1");
+
+		assertThrows(IllegalStateException.class, transport::restoreAfterFailedReplacement);
+
+		assertNull(transport.getMqttHandler());
+		verify(partial).disconnect();
 	}
 
 	@Test
@@ -982,8 +1077,17 @@ class BackendProxyHandlerLifecycleTest {
 	}
 
 	private void setField(Object target, String name, Object value) throws Exception {
-		Field field = target.getClass().getDeclaredField(name);
-		field.setAccessible(true);
-		field.set(target, value);
+		Class<?> type = target.getClass();
+		while (type != null) {
+			try {
+				Field field = type.getDeclaredField(name);
+				field.setAccessible(true);
+				field.set(target, value);
+				return;
+			} catch (NoSuchFieldException ignored) {
+				type = type.getSuperclass();
+			}
+		}
+		throw new NoSuchFieldException(name);
 	}
 }

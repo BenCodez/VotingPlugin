@@ -19,6 +19,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.bukkit.configuration.file.FileConfiguration;
 import org.junit.jupiter.api.Test;
@@ -154,6 +155,48 @@ class VotingPluginMainBackendProxyPublicationTest {
 	}
 
 	@Test
+	void loadsDeferredSocketReplacementAfterPredecessorPreparation() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+		BackendProxyHandler previous = mock(BackendProxyHandler.class);
+		BackendProxyHandler replacement = mock(BackendProxyHandler.class);
+		setBackendProxyHandler(plugin, previous);
+		when(replacement.getMethod()).thenReturn(BungeeMethod.SOCKETS);
+		when(previous.prepareForReplacement(org.mockito.ArgumentMatchers.eq(BungeeMethod.SOCKETS),
+				org.mockito.ArgumentMatchers.anyLong())).thenReturn(true);
+		VotingPluginMain.BackendProxyRestart restart = restart(previous, replacement, true);
+		setRestartField(restart, "replacementLoadDeferred", true);
+
+		plugin.validateBackendProxyHandlerRestart(restart, System.nanoTime() + TimeUnit.SECONDS.toNanos(1));
+
+		org.mockito.InOrder order = org.mockito.Mockito.inOrder(previous, replacement);
+		order.verify(previous).prepareForReplacement(org.mockito.ArgumentMatchers.eq(BungeeMethod.SOCKETS),
+				org.mockito.ArgumentMatchers.anyLong());
+		order.verify(replacement).loadForReplacement();
+		order.verify(replacement).validateTransport(org.mockito.ArgumentMatchers.anyLong());
+	}
+
+	@Test
+	void loadsDeferredMqttReplacementAfterPredecessorPreparation() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+		BackendProxyHandler previous = mock(BackendProxyHandler.class);
+		BackendProxyHandler replacement = mock(BackendProxyHandler.class);
+		setBackendProxyHandler(plugin, previous);
+		when(replacement.getMethod()).thenReturn(BungeeMethod.MQTT);
+		when(previous.prepareForReplacement(org.mockito.ArgumentMatchers.eq(BungeeMethod.MQTT),
+				org.mockito.ArgumentMatchers.anyLong())).thenReturn(true);
+		VotingPluginMain.BackendProxyRestart restart = restart(previous, replacement, true);
+		setRestartField(restart, "replacementLoadDeferred", true);
+
+		plugin.validateBackendProxyHandlerRestart(restart, System.nanoTime() + TimeUnit.SECONDS.toNanos(1));
+
+		org.mockito.InOrder order = org.mockito.Mockito.inOrder(previous, replacement);
+		order.verify(previous).prepareForReplacement(org.mockito.ArgumentMatchers.eq(BungeeMethod.MQTT),
+				org.mockito.ArgumentMatchers.anyLong());
+		order.verify(replacement).loadForReplacement();
+		order.verify(replacement).validateTransport(org.mockito.ArgumentMatchers.anyLong());
+	}
+
+	@Test
 	void retiresNonRedisNetworkTransportOffTheBukkitThread() throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
 		BackendProxyHandler previous = mock(BackendProxyHandler.class);
@@ -212,6 +255,76 @@ class VotingPluginMainBackendProxyPublicationTest {
 		verify(previous).completeRedisHandoff(replacement);
 		verify(replacement, org.mockito.Mockito.timeout(1_000).times(1)).close();
 		verify(previous).restoreAfterFailedReplacement(replacement);
+	}
+
+	@Test
+	void controlWorkerRollbackRestoresPreparedPredecessorAfterStagedCloseFailure() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+		BackendProxyHandler previous = mock(BackendProxyHandler.class);
+		BackendProxyHandler replacement = mock(BackendProxyHandler.class);
+		setBackendProxyHandler(plugin, previous);
+		when(previous.getMethod()).thenReturn(BungeeMethod.MQTT);
+		when(replacement.getMethod()).thenReturn(BungeeMethod.MQTT);
+		doThrow(new IllegalStateException("candidate close failed")).when(replacement).close();
+		AtomicReference<String> restoreThread = new AtomicReference<>();
+		doAnswer(ignored -> {
+			restoreThread.set(Thread.currentThread().getName());
+			return null;
+		}).when(previous).restoreAfterFailedReplacement();
+		VotingPluginMain.BackendProxyRestart restart = restart(previous, replacement, true);
+		setRestartField(restart, "previousPrepared", true);
+		assertTrue(restart.requiresWorkerRollback());
+		AtomicReference<RuntimeException> failure = new AtomicReference<>();
+		Thread controlWorker = new Thread(() -> {
+			try {
+				plugin.abortBackendProxyHandlerRestart(restart);
+			} catch (RuntimeException expected) {
+				failure.set(expected);
+			}
+		}, "votingplugin-control-backend");
+
+		controlWorker.start();
+		controlWorker.join(TimeUnit.SECONDS.toMillis(1));
+
+		assertFalse(controlWorker.isAlive());
+		assertTrue(failure.get() instanceof IllegalStateException);
+		verify(replacement).close();
+		verify(previous).restoreAfterFailedReplacement();
+		assertTrue(restoreThread.get().startsWith("votingplugin-control-backend"));
+	}
+
+	@Test
+	void exclusiveHandoffFailureDefersRollbackNetworkWorkToControlWorker() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+		BackendProxyHandler previous = mock(BackendProxyHandler.class);
+		BackendProxyHandler replacement = mock(BackendProxyHandler.class);
+		setBackendProxyHandler(plugin, previous);
+		when(previous.getMethod()).thenReturn(BungeeMethod.SOCKETS);
+		when(replacement.getMethod()).thenReturn(BungeeMethod.SOCKETS);
+		doThrow(new IllegalStateException("handoff admission failed"))
+				.when(previous).completeHttpHandoff(replacement);
+		VotingPluginMain.BackendProxyRestart restart = restart(previous, replacement, true);
+		setRestartField(restart, "previousPrepared", true);
+
+		assertThrows(IllegalStateException.class, () -> plugin.completeBackendProxyHandlerRestart(restart));
+
+		verify(replacement).abortStagedInboundTo(previous);
+		verify(replacement, never()).close();
+		verify(previous, never()).restoreAfterFailedReplacement();
+		AtomicReference<String> restoreThread = new AtomicReference<>();
+		doAnswer(ignored -> {
+			restoreThread.set(Thread.currentThread().getName());
+			return null;
+		}).when(previous).restoreAfterFailedReplacement();
+		Thread controlWorker = new Thread(() -> plugin.abortBackendProxyHandlerRestart(restart),
+				"votingplugin-control-backend");
+		controlWorker.start();
+		controlWorker.join(TimeUnit.SECONDS.toMillis(1));
+
+		assertFalse(controlWorker.isAlive());
+		verify(replacement).close();
+		verify(previous).restoreAfterFailedReplacement();
+		assertTrue(restoreThread.get().startsWith("votingplugin-control-backend"));
 	}
 
 	@Test
@@ -484,5 +597,12 @@ class VotingPluginMainBackendProxyPublicationTest {
 		Field field = VotingPluginMain.class.getDeclaredField(name);
 		field.setAccessible(true);
 		field.set(plugin, value);
+	}
+
+	private void setRestartField(VotingPluginMain.BackendProxyRestart restart, String name, Object value)
+			throws Exception {
+		Field field = VotingPluginMain.BackendProxyRestart.class.getDeclaredField(name);
+		field.setAccessible(true);
+		field.set(restart, value);
 	}
 }

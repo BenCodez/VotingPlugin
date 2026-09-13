@@ -202,6 +202,19 @@ public class BackendProxyHandler implements Listener {
 	}
 
 	public boolean prepareForReplacement(BungeeMethod replacementMethod, long deadlineNanos) {
+		// SocketHandler swallows a listener bind failure. A same-method replacement
+		// must therefore retire its listener before the staged handler is started;
+		// rollback recreates this prepared transport if validation later fails.
+		if (method == BungeeMethod.SOCKETS && replacementMethod == BungeeMethod.SOCKETS) {
+			transportManager.prepareForReplacement();
+			return true;
+		}
+		if (method == BungeeMethod.MQTT && replacementMethod == BungeeMethod.MQTT) {
+			// A duplicate MQTT ClientID disconnects the live broker session, so stage
+			// only after retiring the predecessor and restore it on validation rollback.
+			transportManager.prepareForReplacement();
+			return true;
+		}
 		if (method == BungeeMethod.HTTP) {
 			transportManager.prepareForReplacement();
 			return true;

@@ -218,9 +218,11 @@ public class BackendProxyTransportManager {
 				if (preparedTransport != candidate) throw failure;
 				HttpBackendProxyTransport http = candidate instanceof HttpBackendProxyTransport prepared
 						? prepared : null;
-				if (http != null && !http.isClosedForReplacement()) {
+				MqttBackendProxyTransport mqtt = candidate instanceof MqttBackendProxyTransport prepared
+						? prepared : null;
+				if ((http != null && !http.isClosedForReplacement()) || (mqtt != null && mqtt.isConnected())) {
 					// A failed flush deliberately restarts the existing connector. Reinstall
-					// that live instance instead of creating a second directory owner.
+					// that live instance instead of creating a second directory owner/client.
 					transport = candidate;
 					preparedTransport = null;
 					while (!preparedSends.isEmpty() && transport.send(preparedSends.peekFirst()))
@@ -528,6 +530,12 @@ public class BackendProxyTransportManager {
 		if (transport != null) return;
 		if (preparedTransport instanceof HttpBackendProxyTransport http) {
 			transport = http.recreatePrepared();
+		} else if (preparedTransport instanceof SocketBackendProxyTransport socket) {
+			socket.restoreAfterFailedReplacement();
+			transport = socket;
+		} else if (preparedTransport instanceof MqttBackendProxyTransport mqtt) {
+			mqtt.restoreAfterFailedReplacement();
+			transport = mqtt;
 		} else {
 			throw new IllegalStateException("Prepared backend proxy transport cannot be restored");
 		}

@@ -1255,6 +1255,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		private boolean redisHandoffInProgress;
 		private boolean finished;
 		private boolean abandonmentRequested;
+		// Same-method socket and MQTT replacements must not start a second runtime
+		// endpoint before worker-side preparation retires the predecessor.
+		private boolean replacementLoadDeferred;
 		private volatile boolean published;
 
 		private BackendProxyRestart(BackendProxyHandler previous, BackendProxyHandler replacement, boolean disabled,
@@ -1263,6 +1266,14 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			this.replacement = replacement;
 			this.disabled = disabled;
 			this.previousRequiresPreparation = previousRequiresPreparation;
+		}
+
+		/** Only exclusive same-method transports may be restored by the Control worker. */
+		public boolean requiresWorkerRollback() {
+			return previousPrepared && previous != null && replacement != null
+					&& ((previous.getMethod() == BungeeMethod.SOCKETS && replacement.getMethod() == BungeeMethod.SOCKETS)
+							|| (previous.getMethod() == BungeeMethod.MQTT
+									&& replacement.getMethod() == BungeeMethod.MQTT));
 		}
 	}
 
@@ -1286,19 +1297,29 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			return new BackendProxyRestart(previous, null, true, previousRequiresPreparation);
 		}
 		BungeeMethod replacementMethod = BungeeMethod.getByName(bungeeSettings.getBungeeMethod());
+		boolean sameSocketReplacement = previous != null && previous.getMethod() == BungeeMethod.SOCKETS
+				&& replacementMethod == BungeeMethod.SOCKETS;
+		boolean sameMqttReplacement = previous != null && previous.getMethod() == BungeeMethod.MQTT
+				&& replacementMethod == BungeeMethod.MQTT;
+		boolean deferredReplacementLoad = sameSocketReplacement || sameMqttReplacement;
 		// Every transition away from an active HTTP transport must first drain its
 		// durable outgoing queue. Restricting preparation to HTTP-to-HTTP swaps can
 		// strand accepted deliveries when another transport is published.
 		boolean previousRequiresPreparation = previous != null
-				&& (previous.requiresPreparationForReplacement() || previous.requiresRedisRetirement());
+				&& (deferredReplacementLoad || previous.requiresPreparationForReplacement()
+						|| previous.requiresRedisRetirement());
 		BackendProxyHandler replacement = new BackendProxyHandler(this, backendProcessedVoteCache);
-		try {
-			replacement.loadForReplacement();
-		} catch (RuntimeException failure) {
-			replacement.close();
-			throw failure;
+		if (!deferredReplacementLoad) {
+			try {
+				replacement.loadForReplacement();
+			} catch (RuntimeException failure) {
+				replacement.close();
+				throw failure;
+			}
 		}
-		return new BackendProxyRestart(previous, replacement, false, previousRequiresPreparation);
+		BackendProxyRestart restart = new BackendProxyRestart(previous, replacement, false, previousRequiresPreparation);
+		restart.replacementLoadDeferred = deferredReplacementLoad;
+		return restart;
 	}
 
 	public void validateBackendProxyHandlerRestart(BackendProxyRestart restart, long validationDeadlineNanos) {
@@ -1322,6 +1343,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				throw new IllegalStateException("Previous proxy transport could not be prepared for replacement");
 			if (replacementMethod == BungeeMethod.HTTP)
 				restart.previous.reservePreparedHttpHandoff(restart.replacement);
+		}
+		if (restart.replacement != null && restart.replacementLoadDeferred) {
+			restart.replacement.loadForReplacement();
+			restart.replacementLoadDeferred = false;
 		}
 		if (restart.replacement != null) restart.replacement.validateTransport(validationDeadlineNanos);
 		// Same-Redis handoff fences callbacks and joins the retiring listener. Those
@@ -1402,6 +1427,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			} catch (RuntimeException handoffFailure) {
 				backendProxyHandler = restart.previous;
 				restart.replacement.abortStagedInboundTo(restart.previous);
+				if (restart.requiresWorkerRollback()) {
+					// The Control worker owns exclusive socket/MQTT teardown and
+					// predecessor reconnection. Publication has only restored the
+					// Bukkit-visible handler and fenced staged inbound callbacks.
+					throw handoffFailure;
+				}
 				// A validated Redis promotion may already own accepted, deduplicated
 				// replay envelopes even though inbound publication has not opened. Move
 				// those envelopes back before closing the staged replacement, whose
@@ -1501,26 +1532,47 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				return;
 			}
 		}
+		RuntimeException cleanupFailure = null;
 		if (restart.redisHandoffCompleted && restart.previous != null && restart.replacement != null) {
 			// Preserve the promoted replacement's pre-publication replay queue before
 			// its close fences and clears it, then retire that staged listener.
-			restart.previous.restoreAfterFailedReplacement(restart.replacement);
+			try {
+				restart.previous.restoreAfterFailedReplacement(restart.replacement);
+			} catch (RuntimeException failure) {
+				cleanupFailure = failure;
+			}
 		}
 		if (restart.replacement != null) {
-			restart.replacement.abortStagedInboundTo(restart.previous);
-			if (requiresAsyncStagedReplacementClose(restart)) closeStagedRedisReplacementAsync(restart.replacement);
-			else restart.replacement.close();
+			try {
+				restart.replacement.abortStagedInboundTo(restart.previous);
+				if (requiresAsyncStagedReplacementClose(restart)) closeStagedRedisReplacementAsync(restart.replacement);
+				else restart.replacement.close();
+			} catch (RuntimeException failure) {
+				if (cleanupFailure == null) cleanupFailure = failure;
+				else cleanupFailure.addSuppressed(failure);
+			}
 		}
 		if (backendProxyHandler == restart.previous && restart.previous != null
 				&& (restart.previousPrepared || restart.redisHandoffCompleted
 						|| restart.previous.getMethod() == BungeeMethod.PLUGINMESSAGING)) {
-			if (!restart.redisHandoffCompleted) restart.previous.restoreAfterFailedReplacement();
+			if (!restart.redisHandoffCompleted) try {
+				restart.previous.restoreAfterFailedReplacement();
+			} catch (RuntimeException failure) {
+				if (cleanupFailure == null) cleanupFailure = failure;
+				else cleanupFailure.addSuppressed(failure);
+			}
 		}
 		if (backendProxyHandler == restart.previous && restart.previous != null
 				&& restart.presenceStoppedForDisablePreparation) {
-			restart.previous.restorePresenceAfterFailedDisablePreparation();
+			try {
+				restart.previous.restorePresenceAfterFailedDisablePreparation();
+			} catch (RuntimeException failure) {
+				if (cleanupFailure == null) cleanupFailure = failure;
+				else cleanupFailure.addSuppressed(failure);
+			}
 		}
 		restart.finished = true;
+		if (cleanupFailure != null) throw cleanupFailure;
 	}
 
 	private boolean requiresAsyncStagedReplacementClose(BackendProxyRestart restart) {
