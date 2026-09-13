@@ -8,11 +8,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.spy;
 
 import java.util.Collections;
 import java.util.ArrayList;
@@ -938,18 +940,42 @@ public class VoteCacheHandlerVoteIdTest {
 
 	@Test
 	public void globalRewardClearRetainsOnlyIncompleteForwardBroadcasts() {
+		VoteCacheHandler guarded = spy(handler);
 		OfflineBungeeVote pending = new OfflineBungeeVote(UUID.randomUUID(), "Player", "player-uuid", "Service",
 				100L, true, "totals", false, true, Set.of("Lobby", "Survival"), Set.of("Lobby"), false);
 		OfflineBungeeVote complete = new OfflineBungeeVote(UUID.randomUUID(), "Player", "player-uuid", "Service",
 				101L, true, "totals", true, true, Set.of("Lobby"), Set.of("Lobby"), false);
-		handler.addOnlineVote("player-uuid", pending);
-		handler.addOnlineVote("player-uuid", complete);
+		guarded.addOnlineVote("player-uuid", pending);
+		guarded.addOnlineVote("player-uuid", complete);
+		doReturn(true).when(guarded).updateOnlineVote(eq("player-uuid"), org.mockito.ArgumentMatchers.any());
 
-		handler.clearOnlineVoteRewards("player-uuid");
+		guarded.clearOnlineVoteRewards("player-uuid");
 
-		assertEquals(List.of(pending), handler.getOnlineVotes("player-uuid"));
+		assertEquals(List.of(pending), guarded.getOnlineVotes("player-uuid"));
 		assertTrue(pending.isRewardDelivered());
 		assertTrue(pending.needsBroadcastOn("Survival"));
+	}
+
+	@Test
+	public void failedGlobalRewardClearCannotLeaveRetainedVoteEligible() {
+		VoteCacheHandler guarded = spy(handler);
+		OfflineBungeeVote vote = vote(UUID.randomUUID(), 100L);
+		guarded.addOnlineVote("player-uuid", vote);
+		doReturn(false, true).when(guarded).updateOnlineVote("player-uuid", vote);
+		doReturn(false).when(guarded).tryRemoveOnlineVote("player-uuid", vote);
+
+		guarded.clearOnlineVoteRewards("player-uuid");
+
+		assertTrue(vote.isRewardDelivered());
+		assertTrue(vote.isDeliveryStateDirty());
+		assertEquals(List.of(vote), guarded.getOnlineVotes("player-uuid"));
+		verify(guarded, never()).tryRemoveOnlineVote("player-uuid", vote);
+
+		guarded.clearOnlineVoteRewards("player-uuid");
+
+		assertFalse(vote.isDeliveryStateDirty());
+		assertEquals(List.of(vote), guarded.getOnlineVotes("player-uuid"));
+		verify(guarded).tryRemoveOnlineVote("player-uuid", vote);
 	}
 
 	@Test

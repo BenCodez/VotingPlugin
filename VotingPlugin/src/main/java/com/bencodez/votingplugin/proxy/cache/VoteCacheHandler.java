@@ -432,7 +432,18 @@ public abstract class VoteCacheHandler {
 				if (vote.isDeliveryStateDirty() && updateOnlineVote(uuid, vote)) vote.setDeliveryStateDirty(false);
 				continue;
 			}
-			removeOnlineVote(uuid, vote);
+			// Another proxy has already delivered this reward. Persist that monotonic
+			// ineligible state before attempting deletion, so a transient delete
+			// failure cannot leave the retained row eligible for local delivery.
+			if (!vote.isRewardDelivered()) {
+				vote.setRewardDelivered(true);
+				vote.setDeliveryStateDirty(true);
+			}
+			if (vote.isDeliveryStateDirty()) {
+				if (!updateOnlineVote(uuid, vote)) continue;
+				vote.setDeliveryStateDirty(false);
+			}
+			tryRemoveOnlineVote(uuid, vote);
 		}
 	}
 

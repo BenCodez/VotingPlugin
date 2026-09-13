@@ -5634,6 +5634,7 @@ public abstract class VotingPluginProxy {
 		}
 		VoteTimeQueue outbox = queuedVote;
 		boolean newlyCreated = false;
+		boolean sendLegacyCopy = false;
 		if (outbox == null) {
 			outbox = new VoteTimeQueue(null, player, service, time, false, Collections.emptySet(),
 					Collections.emptySet(), totals == null ? "" : totals.toString(), true, uuid);
@@ -5646,6 +5647,7 @@ public abstract class VotingPluginProxy {
 			retryState.queuedVote = outbox;
 			if (outbox.getVoteId() == null || !getVoteCacheHandler().addTimeVoteToCache(outbox)) return false;
 			newlyCreated = true;
+			sendLegacyCopy = true;
 		} else {
 			boolean alreadyQueued = false;
 			for (VoteTimeQueue candidate : getVoteCacheHandler().getTimeChangeQueue()) {
@@ -5663,6 +5665,7 @@ public abstract class VotingPluginProxy {
 			// A recovered admission is the first safe chance to publish to legacy peers.
 			// Already-queued retries must not repeat that fire-and-forget copy.
 			newlyCreated = !alreadyQueued;
+			sendLegacyCopy = newlyCreated || !outbox.isMultiProxyForwardingRequired();
 		}
 		if (!outbox.isMultiProxyForwardingRequired()) {
 			outbox.requireMultiProxyAcknowledgements(getConfig().getProxyServerName(), recipients);
@@ -5676,7 +5679,7 @@ public abstract class VotingPluginProxy {
 		}
 		// A successful publish only means the transport accepted the invocation.
 		// Keep the durable row and wait for an acknowledgement before continuing.
-		if (newlyCreated && !legacyRecipients.isEmpty()) {
+		if (sendLegacyCopy && !legacyRecipients.isEmpty()) {
 			// Never retry this legacy copy as part of the ACK outbox: a legacy peer has
 			// no receiver dedupe/ACK contract, while capable peers stay fully durable.
 			multiProxyHandler.sendMultiProxyEnvelopeAccepted(VotingPluginWire.multiProxyVote(player, uuid, service, time,

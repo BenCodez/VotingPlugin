@@ -743,6 +743,8 @@ public class VotingPluginProxyTest {
 		Mockito.when(votingPluginProxy.getConfig().getMultiProxyOneGlobalReward()).thenReturn(false);
 		Mockito.when(votingPluginProxy.getConfig().getProxyServerName()).thenReturn("Proxy1");
 		Mockito.when(multiProxyHandler.getMultiProxyVoteRecipients()).thenReturn(java.util.Set.of("Proxy2"));
+		Mockito.when(multiProxyHandler.getConfiguredMultiProxyVoteRecipients())
+				.thenReturn(new java.util.LinkedHashSet<>(java.util.Set.of("Proxy2", "ProxyLegacy")));
 		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
 		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
 		Mockito.doNothing().when(spyProxy).addVoteParty();
@@ -773,7 +775,14 @@ public class VotingPluginProxyTest {
 
 		spyProxy.processQueue();
 
-		verify(multiProxyHandler, Mockito.times(2)).sendMultiProxyEnvelopeAccepted(Mockito.any(), Mockito.any());
+		@SuppressWarnings({ "rawtypes", "unchecked" })
+		org.mockito.ArgumentCaptor<java.util.Collection<String>> recipients =
+				(org.mockito.ArgumentCaptor) org.mockito.ArgumentCaptor.forClass(java.util.Collection.class);
+		verify(multiProxyHandler, Mockito.times(3)).sendMultiProxyEnvelopeAccepted(Mockito.any(), recipients.capture());
+		assertEquals(1, recipients.getAllValues().stream()
+				.filter(value -> new java.util.HashSet<>(value).equals(java.util.Set.of("ProxyLegacy"))).count());
+		assertEquals(2, recipients.getAllValues().stream()
+				.filter(value -> new java.util.HashSet<>(value).equals(java.util.Set.of("proxy2"))).count());
 	}
 
 	@Test
