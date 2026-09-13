@@ -11,11 +11,9 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.Base64;
 import java.sql.SQLException;
@@ -94,6 +92,7 @@ import com.bencodez.votingplugin.proxy.presence.BackendPlayerPresenceTracker;
 import com.bencodez.votingplugin.proxy.presence.PlayerPresence;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import com.bencodez.votingplugin.topvoter.TopVoter;
+import com.bencodez.votingplugin.util.DurableFiles;
 import com.bencodez.votingplugin.util.MinecraftUsernameValidator;
 import com.bencodez.votingplugin.util.ServiceSiteValidator;
 import com.bencodez.votingplugin.votelog.VoteLogMysqlTable;
@@ -3573,11 +3572,7 @@ public abstract class VotingPluginProxy {
 		Path temporary = target.resolveSibling(target.getFileName() + "." + UUID.randomUUID() + ".tmp");
 		try {
 			Files.write(temporary, encoded.toByteArray(), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
-			try {
-				Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-			} catch (AtomicMoveNotSupportedException unsupported) {
-				Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
-			}
+			DurableFiles.publishStagedFile(temporary, target);
 		} finally {
 			Files.deleteIfExists(temporary);
 		}
@@ -3615,7 +3610,7 @@ public abstract class VotingPluginProxy {
 
 	private void clearRetainedHttpListenerSettings() {
 		try {
-			Files.deleteIfExists(retainedHttpListenerSettingsPath());
+			DurableFiles.deleteIfExists(retainedHttpListenerSettingsPath());
 		} catch (IOException failure) {
 			logSevere("Unable to remove obsolete retained HTTP listener settings: " + failure.getMessage());
 		}
