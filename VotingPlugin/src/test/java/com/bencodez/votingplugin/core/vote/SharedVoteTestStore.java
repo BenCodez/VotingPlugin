@@ -15,11 +15,7 @@ import java.util.concurrent.CompletionStage;
 
 import com.bencodez.votingplugin.core.vote.SharedVoteProcessingResult.RewardDisposition;
 
-/**
- * TEST ONLY: atomic file snapshots model the existing user transaction and a
- * separate keyed reward owner. Recorded command/message strings are test effects,
- * not live server commands or an exactly-once external-effect implementation.
- */
+/** TEST ONLY atomic file snapshot/reward owner. */
 class SharedVoteTestStore implements SharedVoteUserServices, SharedVoteRewardServices {
     final Path file;
     final Path rewardFile;
@@ -28,6 +24,8 @@ class SharedVoteTestStore implements SharedVoteUserServices, SharedVoteRewardSer
     boolean failBeforeDelivery, failAfterDelivery;
     CompletableFuture<Void> commitAck = CompletableFuture.completedFuture(null);
     int mutationCount;
+    String preparedPlanVersion = "fixture-v1";
+    String lastDeliveredPlanVersion;
 
     SharedVoteTestStore(Path file, int pointsPerVote) {
         this.file = file;
@@ -49,8 +47,15 @@ class SharedVoteTestStore implements SharedVoteUserServices, SharedVoteRewardSer
         catch (Exception failure) { return CompletableFuture.failedFuture(failure); }
     }
 
+    @Override
+    public CompletionStage<SharedVoteRewardPlan> prepareVoteRewards(SharedVoteInput input,
+            SharedVoteIdentity identity, boolean executeRewardsNow) {
+        return CompletableFuture.completedFuture(
+                new SharedVoteRewardPlan("vote-site:" + input.serviceSite(), preparedPlanVersion));
+    }
+
     @Override public synchronized CompletionStage<SharedVoteReceipt> persistVoteWithReward(SharedVoteInput input,
-            SharedVoteIdentity identity, SharedVoteMutation mutation, boolean execute) {
+            SharedVoteIdentity identity, SharedVoteMutation mutation, boolean execute, SharedVoteRewardPlan rewardPlan) {
         try {
             Properties properties = read(file);
             SharedVoteReceipt existing = receipt(properties, input.voteId());
@@ -67,9 +72,8 @@ class SharedVoteTestStore implements SharedVoteUserServices, SharedVoteRewardSer
                     previous.monthTotal() + increment, previous.weeklyTotal() + increment, previous.dailyTotal() + increment,
                     previous.points() + (mutation.awardConfiguredPoints() ? pointsPerVote : 0));
             putSnapshot(properties, prefix, next);
-            SharedVoteReceipt created = new SharedVoteReceipt(input, identity, mutation, next, execute, null);
+            SharedVoteReceipt created = new SharedVoteReceipt(input, identity, mutation, next, execute, rewardPlan, null);
             putReceipt(properties, created);
-            // A SINGLE replace commits BOTH user state and the pending reward receipt.
             write(file, properties);
             mutationCount++;
             if (failAfterCommit) { failAfterCommit = false; throw new IOException("lost commit acknowledgement"); }
@@ -110,11 +114,13 @@ class SharedVoteTestStore implements SharedVoteUserServices, SharedVoteRewardSer
             Properties properties = read(rewardFile);
             String prefix = receipt.input().voteId() + ".";
             String origin = receipt.input() + "|" + receipt.identity() + "|" + receipt.mutation()
-                    + "|" + receipt.persistedState() + "|" + receipt.executeRewardsNow();
+                    + "|" + receipt.persistedState() + "|" + receipt.executeRewardsNow() + "|" + receipt.rewardPlan();
             if (properties.containsKey(prefix + "done")) {
                 if (!origin.equals(properties.getProperty(prefix + "origin"))) throw new IllegalStateException("Conflicting reward receipt");
+                lastDeliveredPlanVersion = receipt.rewardPlan().versionReference();
                 return CompletableFuture.completedFuture(RewardDisposition.valueOf(properties.getProperty(prefix + "done")));
             }
+            lastDeliveredPlanVersion = receipt.rewardPlan().versionReference();
             RewardDisposition disposition = receipt.executeRewardsNow() ? RewardDisposition.EXECUTED : RewardDisposition.DEFERRED;
             if (receipt.executeRewardsNow()) {
                 effect(properties, "command:say Thanks " + receipt.identity().playerName() + ":" + receipt.persistedState().allTimeTotal());
@@ -189,6 +195,8 @@ class SharedVoteTestStore implements SharedVoteUserServices, SharedVoteRewardSer
         p.setProperty(k + "count", Boolean.toString(r.mutation().countTotals()));
         p.setProperty(k + "award", Boolean.toString(r.mutation().awardConfiguredPoints()));
         p.setProperty(k + "execute", Boolean.toString(r.executeRewardsNow()));
+        p.setProperty(k + "planId", r.rewardPlan().planId());
+        p.setProperty(k + "planVersion", r.rewardPlan().versionReference());
         p.setProperty(k + "done", r.pending() ? "" : r.completedDisposition().name());
         putSnapshot(p, k + "state.", r.persistedState());
     }
@@ -200,8 +208,9 @@ class SharedVoteTestStore implements SharedVoteUserServices, SharedVoteRewardSer
         SharedVoteIdentity identity = new SharedVoteIdentity(UUID.fromString(p.getProperty(k + "uuid")),
                 p.getProperty(k + "resolvedName"), bool(p, k + "online"));
         SharedVoteMutation mutation = new SharedVoteMutation(id, input.serviceSite(), input.voteTime(), bool(p, k + "count"), bool(p, k + "award"));
+        SharedVoteRewardPlan plan = new SharedVoteRewardPlan(p.getProperty(k + "planId"), p.getProperty(k + "planVersion"));
         String done = p.getProperty(k + "done");
-        return new SharedVoteReceipt(input, identity, mutation, snapshot(p, k + "state."), bool(p, k + "execute"),
+        return new SharedVoteReceipt(input, identity, mutation, snapshot(p, k + "state."), bool(p, k + "execute"), plan,
                 done.isEmpty() ? null : RewardDisposition.valueOf(done));
     }
 }

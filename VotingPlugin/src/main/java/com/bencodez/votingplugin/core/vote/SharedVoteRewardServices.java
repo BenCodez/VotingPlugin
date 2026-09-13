@@ -14,20 +14,23 @@ public interface SharedVoteRewardServices {
             SharedVoteUserSnapshot persistedState);
 
     /**
+     * Resolve and freeze the exact reward configuration BEFORE the vote transaction.
+     * versionReference must resolve to this same definition after reload/restart.
+     */
+    default CompletionStage<SharedVoteRewardPlan> prepareVoteRewards(SharedVoteInput input,
+            SharedVoteIdentity identity, boolean executeRewardsNow) {
+        return CompletableFuture.failedFuture(new UnsupportedOperationException(
+                "Shared vote rewards require a persistable prepared reward version"));
+    }
+
+    /**
      * Admit/deduplicate by receipt.input().voteId() in the existing reward owner.
-     * Serialize concurrent delivery/recovery for that occurrence, bind its prepared
-     * reward definition, preserve step checkpoints and durably remember the terminal
-     * disposition. A repeated call, including after restart or lost acknowledgement,
-     * resumes pending work or returns the same result without redoing completed work.
-     *
-     * <p>Complete only after actual execution/checkpoints or durable offline handoff,
-     * never task submission. Recheck live player availability in native adapters;
-     * receipt.identity().online() describes the original vote, not a current player.
-     * Native actions retain their documented delivery semantics; this port alone is
-     * not a claim of exactly-once arbitrary external commands across process death.</p>
+     * Use receipt.rewardPlan() rather than current configuration. Serialize concurrent
+     * delivery/recovery for that occurrence, preserve step checkpoints and durably
+     * remember the terminal disposition. A repeated call resumes pending work or
+     * returns the same result without redoing completed work.
      */
     default CompletionStage<RewardDisposition> deliverOnce(SharedVoteReceipt receipt) {
-        // Existing unkeyed methods cannot safely implement durable retry implicitly.
         return CompletableFuture.failedFuture(new UnsupportedOperationException(
                 "Shared vote rewards require keyed durable replay support"));
     }

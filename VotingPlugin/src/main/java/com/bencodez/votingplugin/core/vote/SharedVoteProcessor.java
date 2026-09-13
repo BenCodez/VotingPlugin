@@ -11,12 +11,6 @@ import java.util.function.Supplier;
 
 import com.bencodez.votingplugin.core.vote.SharedVoteProcessingResult.RewardDisposition;
 
-/**
- * Accepted vote -> atomic user mutation/pending reward receipt -> keyed reward
- * delivery -> durable acknowledgement. Ingress validation, proxy/global ownership
- * and duplicate filtering remain upstream; these receipt checks make local retries
- * recoverable and do not replace or bypass those ingress/security contracts.
- */
 public final class SharedVoteProcessor {
     private static final int MAX_RECOVERY_BATCH = 100;
     private final SharedVoteIdentityResolver identities;
@@ -38,44 +32,43 @@ public final class SharedVoteProcessor {
                 existing.requireInput(input);
                 return deliver(existing);
             }
-            return call(() -> identities.resolve(input), "identity resolution").thenCompose(identity -> {
+            SharedVoteInput normalized = input.normalizedVoteTime(System.currentTimeMillis());
+            return call(() -> identities.resolve(normalized), "identity resolution").thenCompose(identity -> {
                 if (identity == null) return failed("Identity resolver returned null identity");
-                // Totals follow the user's live resolved state, matching PlayerVoteListener.
-                // wasOnline is retained only for proxy reward semantics.
                 boolean currentOnline = identity.online();
-                boolean rewardOnline = input.proxyVote() ? input.wasOnline() : currentOnline;
-                SharedVoteMutation mutation = new SharedVoteMutation(input.voteId(), input.serviceSite(), input.voteTime(),
-                        policy.shouldCountTotals(input, currentOnline), policy.shouldAwardConfiguredPoints(input));
-                boolean executeNow = policy.shouldExecuteRewardsNow(input, rewardOnline);
-                return call(() -> users.persistVoteWithReward(input, identity, mutation, executeNow), "atomic persistence")
-                        .thenCompose(receipt -> {
-                            if (receipt == null) return failed("User services returned null vote receipt");
-                            receipt.requireInput(input);
-                            if (!receipt.identity().uuid().equals(identity.uuid())) {
-                                return failed("Vote receipt belongs to a different resolved identity");
-                            }
-                            return deliver(receipt);
+                boolean rewardOnline = normalized.proxyVote() ? normalized.wasOnline() : currentOnline;
+                SharedVoteMutation mutation = new SharedVoteMutation(normalized.voteId(), normalized.serviceSite(),
+                        normalized.voteTime(), policy.shouldCountTotals(normalized, currentOnline),
+                        policy.shouldAwardConfiguredPoints(normalized));
+                boolean executeNow = policy.shouldExecuteRewardsNow(normalized, rewardOnline);
+                return call(() -> rewards.prepareVoteRewards(normalized, identity, executeNow), "reward preparation")
+                        .thenCompose(rewardPlan -> {
+                            if (rewardPlan == null) return failed("Reward services returned null prepared reward plan");
+                            return call(() -> users.persistVoteWithReward(normalized, identity, mutation, executeNow, rewardPlan),
+                                    "atomic persistence").thenCompose(receipt -> {
+                                if (receipt == null) return failed("User services returned null vote receipt");
+                                receipt.requireInput(input);
+                                if (!receipt.identity().uuid().equals(identity.uuid())) {
+                                    return failed("Vote receipt belongs to a different resolved identity");
+                                }
+                                if (!receipt.rewardPlan().equals(rewardPlan)) {
+                                    return failed("Vote receipt belongs to a different prepared reward version");
+                                }
+                                return deliver(receipt);
+                            });
                         });
             });
         });
     }
 
-    /** Recover one persisted occurrence without recounting or resolving the player again. */
     public CompletionStage<SharedVoteProcessingResult> recover(UUID voteId) {
         Objects.requireNonNull(voteId, "voteId");
         return call(() -> users.findVote(voteId), "receipt lookup").thenCompose(receipt -> {
-            if (receipt == null || !voteId.equals(receipt.input().voteId())) {
-                return failed("Pending vote receipt was not found");
-            }
+            if (receipt == null || !voteId.equals(receipt.input().voteId())) return failed("Pending vote receipt was not found");
             return deliver(receipt);
         });
     }
 
-    /**
-     * Bounded startup batch; individual failures remain pending and do not prevent
-     * other entries from recovering. The returned failed stage aggregates failures
-     * after the batch, so callers cannot mistake a partial recovery for success.
-     */
     public CompletionStage<List<SharedVoteProcessingResult>> recoverPending(int limit) {
         if (limit < 1 || limit > MAX_RECOVERY_BATCH) throw new IllegalArgumentException("Recovery limit must be 1..100");
         return call(() -> users.pendingVotes(limit), "pending receipt scan").thenCompose(receipts -> {
@@ -90,8 +83,7 @@ public final class SharedVoteProcessor {
             CompletionStage<Void> chain = CompletableFuture.completedFuture(null);
             for (SharedVoteReceipt receipt : batch) {
                 chain = chain.thenCompose(ignored -> deliver(receipt).handle((result, failure) -> {
-                    if (failure == null) results.add(result);
-                    else failures.add(failure);
+                    if (failure == null) results.add(result); else failures.add(failure);
                     return null;
                 }));
             }
@@ -128,9 +120,7 @@ public final class SharedVoteProcessor {
         try {
             CompletionStage<T> stage = operation.get();
             return stage == null ? failed("Adapter returned null stage for " + name) : stage;
-        } catch (Throwable failure) {
-            return CompletableFuture.failedFuture(failure);
-        }
+        } catch (Throwable failure) { return CompletableFuture.failedFuture(failure); }
     }
 
     private static <T> CompletionStage<T> failed(String message) {
