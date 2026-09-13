@@ -3375,7 +3375,7 @@ public abstract class VotingPluginProxy {
 				retryPendingTimeBroadcasts();
 				if (vote.hasPendingHttpBroadcastDeliveryIds()) {
 					scheduleTimeVoteRetry();
-					return;
+					continue;
 				}
 			}
 			if (vote.isProcessed() && vote.isDeliveryStateDirty() && !persistTimeVoteDelivery(vote)) {

@@ -687,6 +687,9 @@ public abstract class VoteCacheHandler {
 		if (jsonStorage == null || jsonStorageQuarantined) {
 			return false;
 		}
+		if (!ensureEmergencyJournalMarker()) {
+			return false;
+		}
 		try {
 			Collection<String> keys = jsonStorage.getServerVotes(server);
 			int index = nextCacheIndex(keys);
@@ -702,6 +705,9 @@ public abstract class VoteCacheHandler {
 	/** Persists an online vote in the JSON emergency journal. */
 	private boolean persistOnlineVoteToJson(String uuid, OfflineBungeeVote vote) {
 		if (jsonStorage == null || jsonStorageQuarantined) {
+			return false;
+		}
+		if (!ensureEmergencyJournalMarker()) {
 			return false;
 		}
 		try {
@@ -925,6 +931,9 @@ public abstract class VoteCacheHandler {
 	/** Persists a timed vote in the JSON emergency journal. */
 	private boolean persistTimeVoteToJson(VoteTimeQueue vote) {
 		if (jsonStorage == null || jsonStorageQuarantined) return false;
+		if (!ensureEmergencyJournalMarker()) {
+			return false;
+		}
 		try {
 			int index = nextCacheIndex(jsonStorage.getTimedVoteCache());
 			vote.setTimedVoteCacheJsonKey(String.valueOf(index));
@@ -1439,7 +1448,7 @@ public abstract class VoteCacheHandler {
 	 * prove that two durable rows represent the same vote.
 	 */
 	private void loadJsonEmergencyVotes() {
-		if (jsonStorage == null) {
+		if (jsonStorage == null || !jsonStorage.hasEmergencyJournalMarker()) {
 			return;
 		}
 		try {
@@ -1500,6 +1509,28 @@ public abstract class VoteCacheHandler {
 			}
 		} catch (RuntimeException e) {
 			debug1(e);
+		}
+	}
+
+	private boolean ensureEmergencyJournalMarker() {
+		if (jsonStorage == null) {
+			return false;
+		}
+		if (jsonStorage.hasEmergencyJournalMarker()) {
+			return true;
+		}
+		try {
+			if (useMySQL) {
+				// During MySQL recovery, only trust post-mark emergency data by discarding
+				// stale legacy JSON cache rows before the first durable marker write.
+				jsonStorage.clearData();
+				jsonStorage.saveDurably();
+			}
+			jsonStorage.markEmergencyJournalUsed();
+			return true;
+		} catch (IOException | RuntimeException failure) {
+			debug1(failure);
+			return false;
 		}
 	}
 

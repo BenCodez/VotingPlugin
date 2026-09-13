@@ -51,7 +51,8 @@ public final class BackendControlConnector implements AutoCloseable {
 	private static final long INSPECTION_SHUTDOWN_TIMEOUT_SECONDS = 5;
 	private static final Pattern NODE_ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,63}");
 	private static final Set<String> CAPABILITIES = Set.of("config.files.v1", "config.file-comments.v1",
-			"config.quick-setup.v1", "config.vote-sites-sync.v1", "config.proxy-method.v1", "data.inspect.v1");
+			"config.quick-setup.v1", "config.vote-sites-sync.v1", "config.proxy-method.v1",
+			"config.proxy-method.v2", "data.inspect.v1");
 
 	private final VotingPluginMain plugin;
 	private final Path dataDirectory;
@@ -64,6 +65,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	private final HttpClient http;
 	private final BackendConfigurationService configurations;
 	private final ControlInspectionService inspections;
+	private final PluginDeploymentService deployments;
 	private final UUID sessionId = UUID.randomUUID();
 	private final Map<UUID, StoredResult> completed = new LinkedHashMap<>();
 	private final boolean recovering;
@@ -78,12 +80,14 @@ public final class BackendControlConnector implements AutoCloseable {
 	private volatile boolean quickSetupsAccepted;
 	private volatile boolean voteSitesSyncAccepted;
 	private volatile boolean inspectionsAccepted;
+	private volatile boolean deploymentsAccepted;
 	private volatile int inspectionFailures;
 	private volatile long inspectionRetryAtNanos;
 	private volatile int failures;
 	private volatile ScheduledFuture<?> scheduled;
 	private volatile ScheduledFuture<?> operationPolling;
 	private volatile ScheduledFuture<?> inspectionPolling;
+	private volatile ScheduledFuture<?> deploymentPolling;
 	private volatile Future<?> activeReload;
 	private volatile CompletableFuture<Void> activeOperation;
 
@@ -112,6 +116,13 @@ public final class BackendControlConnector implements AutoCloseable {
 				.followRedirects(HttpClient.Redirect.NEVER).build();
 		configurations = new BackendConfigurationService(plugin.getDataFolder().toPath(), this::reloadConfiguration);
 		inspections = new ControlInspectionService(plugin);
+		PluginDeploymentService prepared = null;
+		try {
+			prepared = PluginDeploymentService.backend(plugin.getServer().getUpdateFolderFile().toPath());
+		} catch (Exception failure) {
+			plugin.getLogger().warning("[Control] Plugin deployment staging is unavailable; capability not advertised");
+		}
+		deployments = prepared;
 	}
 
 	private void reloadConfiguration(String fileName) throws Exception {
@@ -354,6 +365,64 @@ public final class BackendControlConnector implements AutoCloseable {
 				OPERATION_POLL_MILLIS, OPERATION_POLL_MILLIS, TimeUnit.MILLISECONDS);
 		inspectionPolling = inspectionExecutor.scheduleWithFixedDelay(this::pollInspections,
 				OPERATION_POLL_MILLIS, OPERATION_POLL_MILLIS, TimeUnit.MILLISECONDS);
+		deploymentPolling = executor.scheduleWithFixedDelay(this::pollDeployments,
+				OPERATION_POLL_MILLIS, OPERATION_POLL_MILLIS, TimeUnit.MILLISECONDS);
+	}
+
+	/** Deployment is a separate leased lane; its 64 MiB I/O never runs on Bukkit's primary thread. */
+	private void pollDeployments() {
+		if (closed || deployments == null || !registered || failures != 0 || !deploymentsAccepted
+				|| !running.compareAndSet(false, true)) return;
+		CompletableFuture<Void> operation = new CompletableFuture<>();
+		synchronized (operationLifecycle) {
+			if (closed) { running.set(false); return; }
+			activeOperation = operation;
+		}
+		try {
+			claimAndDeploy();
+		} catch (Exception failure) {
+			registered = false;
+			failures = Math.min(30, failures + 1);
+			if (failures == 1 || failures % 10 == 0) {
+				plugin.getLogger().warning("[Control] Bukkit deployment polling unavailable; VotingPlugin remains active");
+			}
+			ScheduledFuture<?> heartbeat = scheduled;
+			if (heartbeat != null) heartbeat.cancel(false);
+			if (!closed) schedule(Math.min(TimeUnit.MINUTES.toMillis(5), 1000L << Math.min(failures - 1, 8)));
+		} finally {
+			operation.complete(null);
+			synchronized (operationLifecycle) { if (activeOperation == operation) activeOperation = null; }
+			running.set(false);
+		}
+	}
+
+	private void claimAndDeploy() throws Exception {
+		JsonObject body = new JsonObject();
+		body.addProperty("sessionId", sessionId.toString());
+		Response response = send("POST", "/api/v1/nodes/" + settings.nodeId() + "/deployments", body);
+		if (response.status() == 204 || closed) return;
+		JsonObject claimed = requireObject(response, 200);
+		PluginDeploymentService.Task task = deploymentTask(claimed);
+		PluginDeploymentService.Result result = deployments.deploy(task, settings.endpoint(), settings.nodeId(), sessionId,
+				credential, http, Duration.ofMillis(settings.requestTimeoutMillis()), () -> !closed);
+		if (closed) return;
+		JsonObject submitted = new JsonObject();
+		submitted.addProperty("sessionId", sessionId.toString());
+		submitted.addProperty("success", result.success());
+		submitted.addProperty("code", result.code());
+		submitted.addProperty("message", boundedResultMessage(result.message()));
+		submitted.addProperty("attemptId", task.attemptId().toString());
+		requireObject(send("POST", "/api/v1/nodes/" + settings.nodeId() + "/deployments/" + task.deploymentId()
+				+ "/result", submitted), 200);
+	}
+
+	private static PluginDeploymentService.Task deploymentTask(JsonObject task) {
+		try {
+			return new PluginDeploymentService.Task(UUID.fromString(string(task, "deploymentId")), string(task, "artifactId"),
+					string(task, "sha256"), Long.parseLong(string(task, "size")), UUID.fromString(string(task, "attemptId")));
+		} catch (RuntimeException failure) {
+			throw new IllegalArgumentException("deployment task is invalid");
+		}
 	}
 
 	/** Polls the separately negotiated read-only lane on the connector worker. */
@@ -471,7 +540,9 @@ public final class BackendControlConnector implements AutoCloseable {
 			quickSetupsAccepted = negotiatedCapability(node, "config.quick-setup.v1", quickSetupsAccepted);
 			voteSitesSyncAccepted = negotiatedCapability(node, "config.vote-sites-sync.v1", voteSitesSyncAccepted);
 			boolean inspectionsWereAccepted = inspectionsAccepted;
-			inspectionsAccepted = negotiatedCapability(node, "data.inspect.v1", inspectionsAccepted);
+		inspectionsAccepted = negotiatedCapability(node, "data.inspect.v1", inspectionsAccepted);
+		deploymentsAccepted = deployments != null
+				&& negotiatedCapability(node, PluginDeploymentService.CAPABILITY, deploymentsAccepted);
 			if (inspectionsAccepted && !inspectionsWereAccepted) {
 				inspectionFailures = 0;
 				inspectionRetryAtNanos = 0;
@@ -522,6 +593,7 @@ public final class BackendControlConnector implements AutoCloseable {
 		quickSetupsAccepted = false;
 		voteSitesSyncAccepted = false;
 		inspectionsAccepted = false;
+		deploymentsAccepted = false;
 		JsonObject body = sessionBody();
 		body.addProperty("nodeId", settings.nodeId());
 		body.addProperty("displayName", settings.nodeId());
@@ -532,13 +604,13 @@ public final class BackendControlConnector implements AutoCloseable {
 				.map(installed -> installed.getDescription().getName()).filter(name -> name != null && !name.isBlank())
 				.distinct().sorted(String.CASE_INSENSITIVE_ORDER).limit(128).forEach(detectedPlugins::add);
 		body.add("detectedPlugins", detectedPlugins);
-		addCapabilities(body);
+		addCapabilities(body, deployments != null);
 		return requireObject(send("POST", "/api/v1/nodes/register", body), 200, 201);
 	}
 
 	private JsonObject heartbeat() throws Exception {
 		JsonObject body = sessionBody();
-		addCapabilities(body);
+		addCapabilities(body, deployments != null);
 		Response response = send("PUT", "/api/v1/nodes/" + settings.nodeId() + "/heartbeat", body);
 		if (response.status() == 404) {
 			registered = false;
@@ -779,8 +851,9 @@ public final class BackendControlConnector implements AutoCloseable {
 		} catch (BackendConfigurationService.StaleRevisionException e) {
 			return TaskResult.failure("STALE_REVISION", "Configuration changed after preview");
 		} catch (BackendConfigurationService.ApplyFailureException e) {
-			logConfigurationFailure("reload", e);
-			return TaskResult.failure("RELOAD_FAILED", reloadFailureMessage(e), e.rolledBack());
+			logConfigurationFailure(e.reloadAttempted() ? "reload" : "write", e);
+			return TaskResult.failure(e.reloadAttempted() ? "RELOAD_FAILED" : "WRITE_FAILED",
+					applyFailureMessage(e), e.rolledBack());
 		} catch (IllegalArgumentException e) {
 			return TaskResult.failure("VALIDATION_ERROR", e.getMessage());
 		} catch (Exception e) {
@@ -789,7 +862,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	}
 
 	private TaskResult operationFailure(String type, Throwable failure) {
-		String code = operationFailureCode(type);
+		String code = operationFailureCode(type, failure);
 		String action = "READ".equals(type) ? "read" : "PREVIEW".equals(type) ? "preview" : "apply";
 		logConfigurationFailure(action, failure);
 		return TaskResult.failure(code, operationFailureMessage(type, failure));
@@ -799,20 +872,75 @@ public final class BackendControlConnector implements AutoCloseable {
 		plugin.getLogger().log(Level.WARNING, "[Control] Configuration " + action + " failed", failure);
 	}
 
-	static String operationFailureMessage(String type, Throwable ignored) {
-		if ("READ".equals(type)) return "Configuration read failed; see the backend log";
-		if ("PREVIEW".equals(type)) return "Configuration preview failed; see the backend log";
-		return "Configuration apply failed; see the backend log";
+	static String operationFailureMessage(String type, Throwable failure) {
+		if ("READ".equals(type)) {
+			if (hasCause(failure, java.nio.file.NoSuchFileException.class)) {
+				return "The managed configuration file does not exist on this backend";
+			}
+			if (hasCause(failure, java.nio.file.AccessDeniedException.class)
+					|| hasCause(failure, SecurityException.class)) {
+				return "The managed configuration file is not readable by the backend";
+			}
+			BackendConfigurationService.ConfigurationReadException readFailure = cause(
+					failure, BackendConfigurationService.ConfigurationReadException.class);
+			if (readFailure != null) return switch (readFailure.failure()) {
+			case TOO_LARGE -> "The managed configuration file exceeds the 512 KiB limit";
+			case INVALID_ENCODING -> "The managed configuration file is not valid UTF-8";
+			case UNSAFE -> "The managed configuration path is not a safe regular file";
+			};
+			return "The backend could not safely read the managed configuration file";
+		}
+		if ("PREVIEW".equals(type)) return "The backend could not prepare a configuration preview";
+		return "The backend could not apply the managed configuration";
 	}
 
-	static String reloadFailureMessage(Throwable ignored) {
-		return "Configuration reload failed; see the backend log";
+	static String applyFailureMessage(BackendConfigurationService.ApplyFailureException failure) {
+		if (!failure.reloadAttempted()) {
+			return failure.rolledBack() ? "Configuration write failed; the previous file was restored"
+					: "Configuration write failed before runtime reload";
+		}
+		String reason = hasCause(failure, java.util.concurrent.TimeoutException.class)
+				|| hasCause(failure, java.net.SocketTimeoutException.class)
+				? "the configured transport did not become ready before its deadline"
+				: hasCause(failure, java.net.ConnectException.class)
+				? "the configured transport endpoint was unavailable"
+				: "the backend runtime rejected the new configuration";
+		return failure.rolledBack()
+				? "Runtime reload failed because " + reason + "; the previous file was restored"
+				: "Runtime reload failed because " + reason + "; automatic rollback did not complete";
 	}
 
 	static String operationFailureCode(String type) {
+		return operationFailureCode(type, null);
+	}
+
+	static String operationFailureCode(String type, Throwable failure) {
+		if ("READ".equals(type) && hasCause(failure, java.nio.file.NoSuchFileException.class)) {
+			return "CONFIGURATION_MISSING";
+		}
+		if ("READ".equals(type) && (hasCause(failure, java.nio.file.AccessDeniedException.class)
+				|| hasCause(failure, SecurityException.class))) return "CONFIGURATION_UNREADABLE";
+		BackendConfigurationService.ConfigurationReadException readFailure = cause(
+				failure, BackendConfigurationService.ConfigurationReadException.class);
+		if ("READ".equals(type) && readFailure != null) return switch (readFailure.failure()) {
+		case TOO_LARGE -> "CONFIGURATION_TOO_LARGE";
+		case INVALID_ENCODING -> "CONFIGURATION_INVALID_ENCODING";
+		case UNSAFE -> "CONFIGURATION_UNSAFE";
+		};
 		if ("READ".equals(type)) return "READ_FAILED";
 		if ("PREVIEW".equals(type)) return "PREVIEW_FAILED";
 		return "APPLY_FAILED";
+	}
+
+	private static boolean hasCause(Throwable failure, Class<? extends Throwable> type) {
+		return cause(failure, type) != null;
+	}
+
+	private static <T extends Throwable> T cause(Throwable failure, Class<T> type) {
+		for (Throwable current = failure; current != null; current = current.getCause()) {
+			if (type.isInstance(current)) return type.cast(current);
+		}
+		return null;
 	}
 
 	private TaskResult executeFile(UUID operationId, String type, JsonObject configuration, JsonObject task)
@@ -925,9 +1053,12 @@ public final class BackendControlConnector implements AutoCloseable {
 		return body;
 	}
 
-	static void addCapabilities(JsonObject body) {
+	static void addCapabilities(JsonObject body) { addCapabilities(body, false); }
+
+	static void addCapabilities(JsonObject body, boolean deploymentReady) {
 		JsonArray capabilities = new JsonArray();
 		CAPABILITIES.stream().sorted().forEach(capabilities::add);
+		if (deploymentReady) capabilities.add(PluginDeploymentService.CAPABILITY);
 		body.add("capabilities", capabilities);
 		JsonArray required = new JsonArray();
 		required.add("config.files.v1");
@@ -995,6 +1126,8 @@ public final class BackendControlConnector implements AutoCloseable {
 		if (polling != null) polling.cancel(false);
 		ScheduledFuture<?> inspection = inspectionPolling;
 		if (inspection != null) inspection.cancel(false);
+		ScheduledFuture<?> deployment = deploymentPolling;
+		if (deployment != null) deployment.cancel(false);
 		inspectionExecutor.shutdownNow();
 		if (reload != null && Bukkit.isPrimaryThread()) reload.cancel(false);
 		awaitShutdown(executor, operation);

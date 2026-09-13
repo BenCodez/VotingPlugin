@@ -202,6 +202,15 @@ restores the previous hosted settings until that result is acknowledged, preserv
 
 ## Discovery semantics
 
+When Control and a node both negotiate `plugin.deploy.v1`, the authenticated WebUI may explicitly select and upload a
+VotingPlugin JAR for staging on that capable node. The connector downloads only its leased assignment, verifies its
+declared size, SHA-256, bounded JAR structure, and root `plugin.yml`, and performs disk work on a dedicated background
+worker. Bukkit stages into the configured update folder; BungeeCord and Velocity refresh a local backup and atomically
+replace the currently discovered plugin JAR. A successful result is `RESTART_REQUIRED`: Control never automatically
+reloads or restarts a server. Older nodes simply omit the capability and remain usable for their negotiated features.
+See [the Control agent contract](control-agent-contract.md#verified-plugin-deployment-plugindeployv1) for the exact lease,
+download, result, and safety contract.
+
 Both platforms use the same connector implementation and protocol version `1`. Each proxy process creates a new session
 ID, registers, and sends full replacement backend snapshots with a monotonically increasing sequence. Registration and
 retries are idempotent. A Control restart is detected by a 404 heartbeat/presence response and causes re-registration.

@@ -406,6 +406,79 @@ public class VoteCacheHandlerVoteIdTest {
 	}
 
 	@Test
+	public void legacyMySqlEmergencyRowsAreIgnoredWithoutJournalMarker() throws Exception {
+		VotingPluginBungee plugin = mock(VotingPluginBungee.class);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		Path cacheFile = tempDir.resolve("votecache.json");
+		Files.writeString(cacheFile, """
+				{"VoteCache":{"server":{"0":{"Name":"Player","Service":"Service","UUID":"player-uuid","Time":100}}},
+				"OnlineCache":{"player-uuid":{"0":{"Name":"Player","Service":"Service","UUID":"player-uuid","Time":100}}},
+				"TimedVoteCache":{"0":{"Name":"Player","Service":"Service","Time":100}}}
+				""");
+		BungeeJsonVoteCache durableStorage = new BungeeJsonVoteCache(plugin);
+		VoteCacheHandler mysqlEnabled = newMysqlEnabledLoadHandler(durableStorage);
+
+		mysqlEnabled.load();
+
+		assertTrue(mysqlEnabled.getVotes("server").isEmpty());
+		assertTrue(mysqlEnabled.getOnlineVotes("player-uuid").isEmpty());
+		assertTrue(mysqlEnabled.getTimeChangeQueue().isEmpty());
+	}
+
+	@Test
+	public void markedMySqlEmergencyRowsAreRecoveredFromJournal() throws Exception {
+		VotingPluginBungee plugin = mock(VotingPluginBungee.class);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		Path cacheFile = tempDir.resolve("votecache.json");
+		Files.writeString(cacheFile, """
+				{"VoteCache":{"server":{"0":{"Name":"Player","Service":"Service","UUID":"player-uuid","Time":100}}},
+				"OnlineCache":{"player-uuid":{"0":{"Name":"Player","Service":"Service","UUID":"player-uuid","Time":100}}},
+				"TimedVoteCache":{"0":{"Name":"Player","Service":"Service","Time":100}}}
+				""");
+		BungeeJsonVoteCache durableStorage = new BungeeJsonVoteCache(plugin);
+		durableStorage.markEmergencyJournalUsed();
+		VoteCacheHandler mysqlEnabled = newMysqlEnabledLoadHandler(durableStorage);
+
+		mysqlEnabled.load();
+
+		assertEquals(1, mysqlEnabled.getVotes("server").size());
+		assertEquals(1, mysqlEnabled.getOnlineVotes("player-uuid").size());
+		assertEquals(1, mysqlEnabled.getTimeChangeQueue().size());
+	}
+
+	@Test
+	public void legacyRowsNeverImportAfterMySqlStartsEmergencyJournal() throws Exception {
+		VotingPluginBungee plugin = mock(VotingPluginBungee.class);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		Path cacheFile = tempDir.resolve("votecache.json");
+		Files.writeString(cacheFile, """
+				{"VoteCache":{"server":{"0":{"Name":"LegacyPlayer","Service":"Service","UUID":"legacy-uuid","Time":100}}},
+				"OnlineCache":{"legacy-uuid":{"0":{"Name":"LegacyPlayer","Service":"Service","UUID":"legacy-uuid","Time":100}}},
+				"TimedVoteCache":{"0":{"Name":"LegacyPlayer","Service":"Service","Time":100}}}
+				""");
+		BungeeJsonVoteCache durableStorage = new BungeeJsonVoteCache(plugin);
+		VoteCacheHandler writer = newMysqlEnabledLoadHandler(durableStorage);
+
+		assertTrue(writer.addServerVoteDurably("server-new",
+				new OfflineBungeeVote(UUID.randomUUID(), "NewPlayer", "new-uuid", "Service", 200L, true, "")));
+		assertTrue(writer.addOnlineVoteDurably("new-uuid",
+				new OfflineBungeeVote(UUID.randomUUID(), "NewPlayer", "new-uuid", "Service", 200L, true, "")));
+		VoteTimeQueue emergencyTimed = new VoteTimeQueue(UUID.randomUUID(), "NewPlayer", "Service", 300L);
+		emergencyTimed.setUuid("new-uuid");
+		assertTrue(writer.addTimeVoteToCache(emergencyTimed));
+
+		VoteCacheHandler restarted = newMysqlEnabledLoadHandler(durableStorage);
+		restarted.load();
+
+		assertEquals(1, restarted.getVotes("server-new").size());
+		assertTrue(restarted.getVotes("server").isEmpty());
+		assertEquals(1, restarted.getOnlineVotes("new-uuid").size());
+		assertTrue(restarted.getOnlineVotes("legacy-uuid").isEmpty());
+		assertEquals(1, restarted.getTimeChangeQueue().size());
+		assertEquals("new-uuid", restarted.getTimeChangeQueue().element().getUuid());
+	}
+
+	@Test
 	public void legacyVoteIdKeyLoadsFromJsonCache() {
 		UUID voteId = UUID.randomUUID();
 		handler = handlerForStoredVote("VoteID", voteId);
@@ -502,6 +575,7 @@ public class VoteCacheHandlerVoteIdTest {
 	@Test
 	public void legacySqlAndJsonTimedRowsRemainDistinctWithoutVoteIds() throws Exception {
 		DataNode jsonVote = mock(DataNode.class);
+		when(storage.hasEmergencyJournalMarker()).thenReturn(true);
 		when(storage.getTimedVoteCache()).thenReturn(List.of("2"));
 		when(storage.getTimedVoteCache("2")).thenReturn(jsonVote);
 		when(storage.getServers()).thenReturn(Collections.emptyList());
@@ -1305,6 +1379,22 @@ public class VoteCacheHandlerVoteIdTest {
 			public void debug1(String msg) {
 			}
 		};
+	}
+
+	private static VoteCacheHandler newMysqlEnabledLoadHandler(IVoteCache storage) throws Exception {
+		ProxyVoteCacheTable voteTable = mock(ProxyVoteCacheTable.class);
+		ProxyOnlineVoteCacheTable onlineTable = mock(ProxyOnlineVoteCacheTable.class);
+		ProxyTimedVoteCacheTable timedTable = mock(ProxyTimedVoteCacheTable.class);
+		when(voteTable.getAllVotes()).thenReturn(Collections.emptyList());
+		when(onlineTable.getAllVotes()).thenReturn(Collections.emptyList());
+		when(timedTable.getAllVotes()).thenReturn(Collections.emptyList());
+
+		VoteCacheHandler mysqlEnabled = newHandler(storage);
+		setPrivateField(mysqlEnabled, "useMySQL", true);
+		setPrivateField(mysqlEnabled, "voteCacheTable", voteTable);
+		setPrivateField(mysqlEnabled, "onlineVoteCacheTable", onlineTable);
+		setPrivateField(mysqlEnabled, "timedVoteCacheTable", timedTable);
+		return mysqlEnabled;
 	}
 
 	@SuppressWarnings("unchecked")

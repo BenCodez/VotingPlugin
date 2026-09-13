@@ -587,6 +587,31 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void retainedHttpRolloverRowWithPendingBroadcastIdsDoesNotStarveLaterQueueRows() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		VoteTimeQueue retained = new VoteTimeQueue(java.util.UUID.randomUUID(), "Player", "Service", 100L, false,
+				java.util.Collections.emptySet(), java.util.Collections.emptySet(), "totals", true, "player-uuid",
+				java.util.Map.of("Server1", "00000000-0000-0000-0000-000000000123"));
+		VoteTimeQueue completed = new VoteTimeQueue(java.util.UUID.randomUUID(), "Other", "Service", 101L, false,
+				java.util.Collections.emptySet(), java.util.Collections.emptySet(), "totals", true);
+		java.util.Queue<VoteTimeQueue> queue = new java.util.concurrent.ConcurrentLinkedQueue<>();
+		queue.add(retained);
+		queue.add(completed);
+		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(queue);
+		Mockito.when(voteCache.removeTimeVote(completed)).thenAnswer(invocation -> queue.remove(completed));
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+
+		spyProxy.processQueue();
+
+		assertEquals(1, queue.size());
+		assertEquals(java.util.List.of(retained), new java.util.ArrayList<>(queue));
+		assertTrue(retained.hasPendingHttpBroadcastDeliveryIds());
+		verify(voteCache, Mockito.never()).removeTimeVote(retained);
+		verify(voteCache).removeTimeVote(completed);
+	}
+
+	@Test
 	void completedAckOutboxWaitsForDurableFenceRetirementBeforeFinishing() throws Exception {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		java.util.UUID voteId = java.util.UUID.randomUUID();

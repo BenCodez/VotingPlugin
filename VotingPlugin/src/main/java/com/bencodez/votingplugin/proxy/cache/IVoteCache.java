@@ -1,8 +1,12 @@
 package com.bencodez.votingplugin.proxy.cache;
 
 import java.util.Collection;
-import java.nio.file.Path;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 
 import com.bencodez.votingplugin.util.DurableFiles;
 
@@ -13,6 +17,75 @@ import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
  * Interface for vote caching operations.
  */
 public interface IVoteCache {
+
+	static final String EMERGENCY_JOURNAL_MARKER_FILE_SUFFIX = ".vote-emergency-journal";
+	static final String EMERGENCY_JOURNAL_MARKER_VERSION = "1";
+
+	/**
+	 * Returns the marker file used for emergency-journal recovery coordination.
+	 *
+	 * @return marker file path, or {@code null} when no file-backed cache exists
+	 */
+	default Path getEmergencyJournalMarkerPath() {
+		Path storagePath = getStoragePath();
+		if (storagePath == null) {
+			return null;
+		}
+		return storagePath.resolveSibling(storagePath.getFileName() + EMERGENCY_JOURNAL_MARKER_FILE_SUFFIX);
+	}
+
+	/**
+	 * Returns whether this JSON cache has a marker that indicates emergency journal
+	 * compatibility for MySQL recovery. Legacy files without this marker are not
+	 * treated as emergency recoverables.
+	 *
+	 * @return true when the marker file exists
+	 */
+	default boolean hasEmergencyJournalMarker() {
+		Path markerPath = getEmergencyJournalMarkerPath();
+		if (markerPath == null) {
+			return false;
+		}
+		try {
+			return Files.isRegularFile(markerPath, LinkOption.NOFOLLOW_LINKS) && !Files.isSymbolicLink(markerPath)
+					&& Files.size(markerPath) <= 8
+					&& EMERGENCY_JOURNAL_MARKER_VERSION.equals(Files.readString(markerPath, StandardCharsets.UTF_8).trim());
+		} catch (IOException ignored) {
+			return false;
+		}
+	}
+
+	/**
+	 * Writes the emergency-journal marker file used to indicate that this cache has
+	 * participated in emergency journal recovery flow.
+	 *
+	 * @throws IOException when marker publication fails
+	 */
+	default void markEmergencyJournalUsed() throws IOException {
+		Path markerPath = getEmergencyJournalMarkerPath();
+		if (markerPath == null) {
+			throw new IOException("Vote cache has no emergency journal marker path");
+		}
+		Path normalizedMarker = markerPath.toAbsolutePath().normalize();
+		Path parent = normalizedMarker.getParent();
+		if (parent != null && Files.isSymbolicLink(parent)) {
+			throw new IOException("Emergency journal marker parent is a symbolic link");
+		}
+		if (Files.isSymbolicLink(normalizedMarker)) {
+			throw new IOException("Emergency journal marker is a symbolic link");
+		}
+		if (parent != null) {
+			Files.createDirectories(parent);
+		}
+		Path staged = Files.createTempFile(parent, normalizedMarker.getFileName().toString(), ".journal");
+		try {
+			Files.writeString(staged, EMERGENCY_JOURNAL_MARKER_VERSION, StandardCharsets.UTF_8, StandardOpenOption.CREATE,
+					StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+			DurableFiles.publishStagedFile(staged, normalizedMarker);
+		} finally {
+			Files.deleteIfExists(staged);
+		}
+	}
 
 	/**
 	 * Returns the file backing this JSON cache, when one exists.

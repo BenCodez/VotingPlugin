@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.proxy.control;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -22,6 +23,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
@@ -36,6 +39,7 @@ import java.util.regex.Pattern;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 import com.bencodez.votingplugin.proxy.presence.BackendPresenceStatus;
+import com.bencodez.votingplugin.control.PluginDeploymentService;
 import com.bencodez.votingplugin.proxy.control.ProxyControlResultStore.Route;
 import com.bencodez.votingplugin.proxy.control.ProxyControlResultStore.StoredResult;
 import com.bencodez.votingplugin.util.BoundedHttpBodyHandler;
@@ -59,6 +63,7 @@ public final class ControlConnector implements AutoCloseable {
 	private static final String COMMUNICATION_TEST_CAPABILITY = "config.transport-test.v1";
 	private static final String COMMUNICATION_TEST_PRESET = "communication-test";
 	private static final String PROXY_METHOD_CAPABILITY = "config.proxy-method.v1";
+	private static final String PROXY_METHOD_HTTP_CAPABILITY = "config.proxy-method.v2";
 	private static final String PROXY_FILE_CAPABILITY = "config.proxy-files.v1";
 	private static final String PROXY_METHOD_PRESET = "proxy-method";
 	private static final String INTERNAL_OPERATION_TYPE = "_controlOperationType";
@@ -77,6 +82,10 @@ public final class ControlConnector implements AutoCloseable {
 	private final ProxyRoutingConfigurationService configurationService;
 	private final ProxyMethodConfigurationService methodConfigurationService;
 	private final ProxyConfigurationFileService fileConfigurationService;
+	private final PluginDeploymentService deployments;
+	private final HttpClient deploymentHttp;
+	private final String deploymentCredential;
+	private final ExecutorService deploymentExecutor;
 	private final Function<String, CompletableFuture<VotingPluginProxy.CommunicationTestResult>> communicationTest;
 	private final Runnable runtimeReplacement;
 	private final Path dataDirectory;
@@ -91,11 +100,13 @@ public final class ControlConnector implements AutoCloseable {
 	private volatile boolean closed;
 	private volatile boolean registered;
 	private volatile boolean configurationAccepted;
+	private volatile boolean deploymentsAccepted;
 	private volatile Set<String> acceptedCapabilities = Set.of();
 	private volatile int failures;
 	private volatile long snapshotSequence;
 	private volatile ScheduledFuture<?> scheduled;
 	private volatile ScheduledFuture<?> operationPolling;
+	private volatile ScheduledFuture<?> deploymentPolling;
 	private volatile CompletableFuture<?> activeRequest;
 	private volatile CompletableFuture<Void> activeOperation;
 	private volatile Status status = Status.STARTING;
@@ -104,14 +115,14 @@ public final class ControlConnector implements AutoCloseable {
 			Supplier<List<ObservedBackend>> snapshotSource, Consumer<String> logger, UUID sessionId,
 			LongSupplier jitterSource) {
 		this(settings, scheduler, transport, snapshotSource, logger, sessionId, jitterSource, null,
-				null, null, false, null, null, null, null, null);
+				null, null, false, null, null, null, null, null, null, null, null);
 	}
 
 	ControlConnector(Settings settings, ScheduledExecutorService scheduler, Transport transport,
 			Supplier<List<ObservedBackend>> snapshotSource, Consumer<String> logger, UUID sessionId,
 			LongSupplier jitterSource, ProxyRoutingConfigurationService configurationService) {
 		this(settings, scheduler, transport, snapshotSource, logger, sessionId, jitterSource, configurationService,
-				null, null, false, null, null, null, null, null);
+				null, null, false, null, null, null, null, null, null, null, null);
 	}
 
 	ControlConnector(Settings settings, ScheduledExecutorService scheduler, Transport transport,
@@ -119,8 +130,21 @@ public final class ControlConnector implements AutoCloseable {
 			LongSupplier jitterSource, ProxyRoutingConfigurationService configurationService,
 			Map<UUID, StoredResult> recoveredTasks) {
 		this(settings, scheduler, transport, snapshotSource, logger, sessionId, jitterSource, configurationService,
-				null, null, false, null, null, null, null, null);
+				null, null, false, null, null, null, null, null, null, null, null);
 		completedTasks.putAll(recoveredTasks);
+	}
+
+	@SuppressWarnings("unused")
+	private ControlConnector(Settings settings, ScheduledExecutorService scheduler, Transport transport,
+			Supplier<List<ObservedBackend>> snapshotSource, Consumer<String> logger, UUID sessionId,
+			LongSupplier jitterSource, ProxyRoutingConfigurationService configurationService, Path dataDirectory,
+			Route route, boolean recovering, Runnable recoveryComplete,
+			Function<String, CompletableFuture<VotingPluginProxy.CommunicationTestResult>> communicationTest,
+			ProxyMethodConfigurationService methodConfigurationService, Runnable runtimeReplacement,
+			ProxyConfigurationFileService fileConfigurationService) {
+		this(settings, scheduler, transport, snapshotSource, logger, sessionId, jitterSource, configurationService,
+				dataDirectory, route, recovering, recoveryComplete, communicationTest, methodConfigurationService,
+				runtimeReplacement, fileConfigurationService, null, null, null);
 	}
 
 	private ControlConnector(Settings settings, ScheduledExecutorService scheduler, Transport transport,
@@ -129,7 +153,8 @@ public final class ControlConnector implements AutoCloseable {
 			Route route, boolean recovering, Runnable recoveryComplete,
 			Function<String, CompletableFuture<VotingPluginProxy.CommunicationTestResult>> communicationTest,
 			ProxyMethodConfigurationService methodConfigurationService, Runnable runtimeReplacement,
-			ProxyConfigurationFileService fileConfigurationService) {
+			ProxyConfigurationFileService fileConfigurationService, PluginDeploymentService deployments,
+			HttpClient deploymentHttp, String deploymentCredential) {
 		this.settings = Objects.requireNonNull(settings, "settings");
 		this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
 		this.transport = Objects.requireNonNull(transport, "transport");
@@ -142,6 +167,14 @@ public final class ControlConnector implements AutoCloseable {
 		this.communicationTest = communicationTest;
 		this.runtimeReplacement = runtimeReplacement;
 		this.fileConfigurationService = fileConfigurationService;
+		this.deployments = deployments;
+		this.deploymentHttp = deploymentHttp;
+		this.deploymentCredential = deploymentCredential;
+		this.deploymentExecutor = deployments == null ? null : Executors.newSingleThreadExecutor(runnable -> {
+			Thread thread = new Thread(runnable, "votingplugin-control-proxy-deployment");
+			thread.setDaemon(true);
+			return thread;
+		});
 		this.dataDirectory = dataDirectory;
 		this.route = route;
 		this.recovering = recovering;
@@ -210,12 +243,15 @@ public final class ControlConnector implements AutoCloseable {
 			backends.sort(Comparator.comparing(ObservedBackend::backendId));
 			return List.copyOf(backends);
 		};
+		PluginDeploymentService deployments = prepareDeployment(proxy);
+		HttpClient deploymentHttp = deployments == null ? null : HttpClient.newBuilder()
+				.connectTimeout(Duration.ofMillis(settings.connectTimeoutMillis())).followRedirects(HttpClient.Redirect.NEVER).build();
 		ControlConnector connector = new ControlConnector(settings, proxy.getScheduler(), transport, snapshot,
 				message -> proxy.log("[Control] " + message), UUID.randomUUID(),
 				() -> ThreadLocalRandom.current().nextLong(), new ProxyRoutingConfigurationService(proxy), dataDirectory,
 				route, recovering, proxy::restartControlServicesAfterRecovery,
 				server -> proxy.testBackendCommunication(server, 5000L), new ProxyMethodConfigurationService(proxy),
-				() -> proxy.reloadCore(true), new ProxyConfigurationFileService(proxy));
+				() -> proxy.reloadCore(true), new ProxyConfigurationFileService(proxy), deployments, deploymentHttp, credential);
 		if (recovered != null) connector.completedTasks.putAll(recovered.results());
 		return connector;
 	}
@@ -228,6 +264,80 @@ public final class ControlConnector implements AutoCloseable {
 		schedule(0);
 		operationPolling = scheduler.scheduleWithFixedDelay(this::pollOperations,
 				OPERATION_POLL_MILLIS, OPERATION_POLL_MILLIS, TimeUnit.MILLISECONDS);
+		deploymentPolling = scheduler.scheduleWithFixedDelay(this::pollDeployments,
+				OPERATION_POLL_MILLIS, OPERATION_POLL_MILLIS, TimeUnit.MILLISECONDS);
+	}
+
+	/** Keeps large artifact transfer and disk staging off proxy event threads and serializes it with operations. */
+	private void pollDeployments() {
+		synchronized (operationLifecycle) {
+			if (closed || !registered || status != Status.CONNECTED || !deploymentsAccepted || deployments == null
+					|| !inFlight.compareAndSet(false, true)) return;
+		}
+		CompletableFuture<Void> done = new CompletableFuture<>();
+		activeOperation = done;
+		CompletableFuture<Void> work;
+		try {
+			CompletableFuture<Response> claim = transport.send(deploymentClaimRequest());
+			activeRequest = claim;
+			work = claim.thenCompose(this::handleDeploymentClaim);
+		} catch (RuntimeException failure) {
+			work = CompletableFuture.failedFuture(failure);
+		}
+		work.whenComplete((ignored, failure) -> {
+			activeRequest = null;
+			if (failure == null) done.complete(null); else { registered = false; done.completeExceptionally(unwrap(failure)); }
+			if (activeOperation == done) activeOperation = null;
+			finishCycle();
+			if (failure != null && !closed) onFailure(unwrap(failure));
+		});
+	}
+
+	private Request deploymentClaimRequest() {
+		JsonObject body = sessionBody();
+		return new Request("POST", "/api/v1/nodes/" + settings.nodeId() + "/deployments", body.toString());
+	}
+
+	private CompletableFuture<Void> handleDeploymentClaim(Response response) {
+		if (response.statusCode == 204 || closed) return CompletableFuture.completedFuture(null);
+		if (response.statusCode == 404) { registered = false; throw new RegistryLostException(); }
+		requireSuccess(response);
+		PluginDeploymentService.Task task = deploymentTask(parseObject(response.body));
+		return CompletableFuture.supplyAsync(() -> deployments.deploy(task, settings.endpoint(), settings.nodeId(), sessionId,
+				deploymentCredential, deploymentHttp, Duration.ofMillis(settings.requestTimeoutMillis()), () -> !closed),
+				deploymentExecutor)
+				.thenCompose(result -> {
+					if (closed) return CompletableFuture.completedFuture(null);
+					JsonObject body = new JsonObject();
+					body.addProperty("sessionId", sessionId.toString());
+					body.addProperty("success", result.success());
+					body.addProperty("code", result.code());
+					body.addProperty("message", boundedResultMessage(result.message()));
+					body.addProperty("attemptId", task.attemptId().toString());
+					CompletableFuture<Response> submitted = transport.send(new Request("POST", "/api/v1/nodes/"
+							+ settings.nodeId() + "/deployments/" + task.deploymentId() + "/result", body.toString()));
+					activeRequest = submitted;
+					return submitted.thenAccept(ControlConnector::requireSuccess);
+				});
+	}
+
+	private static PluginDeploymentService.Task deploymentTask(JsonObject task) {
+		try {
+			return new PluginDeploymentService.Task(UUID.fromString(requireString(task, "deploymentId")),
+					requireString(task, "artifactId"), requireString(task, "sha256"),
+					Long.parseLong(requireString(task, "size")), UUID.fromString(requireString(task, "attemptId")));
+		} catch (RuntimeException failure) { throw new MalformedResponseException(); }
+	}
+
+	private static PluginDeploymentService prepareDeployment(VotingPluginProxy proxy) {
+		try {
+			var source = proxy.getClass().getProtectionDomain().getCodeSource();
+			if (source == null || !"file".equalsIgnoreCase(source.getLocation().getProtocol())) return null;
+			return PluginDeploymentService.proxy(Path.of(source.getLocation().toURI()));
+		} catch (IOException | URISyntaxException | RuntimeException failure) {
+			proxy.log("[Control] Plugin deployment staging is unavailable; capability not advertised");
+			return null;
+		}
 	}
 
 	/** Polls only the operation queue; heartbeat and presence retain their configured cadence. */
@@ -434,7 +544,9 @@ public final class ControlConnector implements AutoCloseable {
 			}
 			acceptedCapabilities = Set.copyOf(negotiated);
 			configurationAccepted = acceptedCapabilities.stream().anyMatch(Set.of(CONFIGURATION_CAPABILITY,
-					COMMUNICATION_TEST_CAPABILITY, PROXY_METHOD_CAPABILITY, PROXY_FILE_CAPABILITY)::contains);
+					COMMUNICATION_TEST_CAPABILITY, PROXY_METHOD_CAPABILITY, PROXY_METHOD_HTTP_CAPABILITY,
+					PROXY_FILE_CAPABILITY)::contains);
+			deploymentsAccepted = deployments != null && acceptedCapabilities.contains(PluginDeploymentService.CAPABILITY);
 		}
 	}
 
@@ -811,7 +923,7 @@ public final class ControlConnector implements AutoCloseable {
 		if (isCommunicationTest(requested)) return acceptedCapabilities.contains(COMMUNICATION_TEST_CAPABILITY)
 				? executeCommunicationTest(task, requested)
 				: completed(TaskResult.failure("UNSUPPORTED", "Communication testing was not negotiated"));
-		if (isProxyMethod(requested)) return acceptedCapabilities.contains(PROXY_METHOD_CAPABILITY)
+		if (isProxyMethod(requested)) return acceptedCapabilities.contains(proxyMethodCapability(requested))
 				? executeProxyMethod(operationId, task, requested)
 				: completed(TaskResult.failure("UNSUPPORTED", "Proxy method control was not negotiated"));
 		if (!acceptedCapabilities.contains(CONFIGURATION_CAPABILITY)) {
@@ -998,8 +1110,14 @@ public final class ControlConnector implements AutoCloseable {
 	private static String requiredCapability(JsonObject configuration) {
 		if (isProxyFile(configuration)) return PROXY_FILE_CAPABILITY;
 		if (isCommunicationTest(configuration)) return COMMUNICATION_TEST_CAPABILITY;
-		if (isProxyMethod(configuration)) return PROXY_METHOD_CAPABILITY;
+		if (isProxyMethod(configuration)) return proxyMethodCapability(configuration);
 		return CONFIGURATION_CAPABILITY;
+	}
+
+	private static String proxyMethodCapability(JsonObject configuration) {
+		JsonObject options = configuration == null ? null : configuration.getAsJsonObject("options");
+		return options != null && options.has("method") && "HTTP".equals(options.get("method").getAsString())
+				? PROXY_METHOD_HTTP_CAPABILITY : PROXY_METHOD_CAPABILITY;
 	}
 
 	private static CompletableFuture<TaskResult> completed(TaskResult result) {
@@ -1093,7 +1211,9 @@ public final class ControlConnector implements AutoCloseable {
 		if (configurationService != null) advertised.add(CONFIGURATION_CAPABILITY);
 		if (communicationTest != null) advertised.add(COMMUNICATION_TEST_CAPABILITY);
 		if (methodConfigurationService != null) advertised.add(PROXY_METHOD_CAPABILITY);
+		if (methodConfigurationService != null) advertised.add(PROXY_METHOD_HTTP_CAPABILITY);
 		if (fileConfigurationService != null) advertised.add(PROXY_FILE_CAPABILITY);
+		if (deployments != null) advertised.add(PluginDeploymentService.CAPABILITY);
 		body.add("capabilities", advertised);
 		JsonArray required = new JsonArray();
 		required.add("presence.snapshot");
@@ -1133,10 +1253,13 @@ public final class ControlConnector implements AutoCloseable {
 		}
 		ScheduledFuture<?> polling = operationPolling;
 		if (polling != null) polling.cancel(false);
+		ScheduledFuture<?> deployment = deploymentPolling;
+		if (deployment != null) deployment.cancel(false);
 		CompletableFuture<?> request = activeRequest;
 		if (request != null) {
 			request.cancel(true);
 		}
+		if (deploymentExecutor != null) deploymentExecutor.shutdownNow();
 		CompletableFuture<Void> operation = activeOperation;
 		if (operation != null) {
 			try {
@@ -1148,6 +1271,16 @@ public final class ControlConnector implements AutoCloseable {
 			} catch (InterruptedException e) {
 				Thread.currentThread().interrupt();
 				throw new IllegalStateException("Interrupted while waiting for the Control operation", e);
+			}
+		}
+		if (deploymentExecutor != null) {
+			try {
+				if (!deploymentExecutor.awaitTermination(OPERATION_SHUTDOWN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
+					throw new IllegalStateException("Control deployment worker did not stop before connector shutdown");
+				}
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				throw new IllegalStateException("Interrupted while waiting for the Control deployment worker", e);
 			}
 		}
 		transport.close();

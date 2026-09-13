@@ -501,9 +501,10 @@ class BackendConfigurationServiceTest {
 
 		Files.writeString(directory.resolve("SpecialRewards.yml"), "VoteParty:\n  Enabled: false\n");
 		BackendConfigurationService.QuickPreview party = service.previewQuickSetup("vote-party", Map.of(
-				"votesRequired", "25", "command", "give %player% diamond 1", "broadcast", "Party!",
+				"enabled", "false", "votesRequired", "25", "command", "give %player% diamond 1", "broadcast", "Party!",
 				"giveAllPlayers", "false", "onlineOnly", "true"));
 		assertTrue(party.proposal().content().contains("VotesRequired: 25"));
+		assertTrue(party.proposal().content().contains("Enabled: false"));
 	}
 
 	@Test void guidedSettingsReadTheInstalledValuesInsteadOfAssumingDefaults() throws Exception {
@@ -527,6 +528,30 @@ class BackendConfigurationServiceTest {
 		assertEquals("EMERALD", service.readQuickSetup("vote-site", Map.of("name", "PMC"))
 				.options().get("material"));
 		assertEquals("2", service.readQuickSetup("vote-party", Map.of()).options().get("rewardCommandCount"));
+	}
+
+	@Test void votePartyEnabledOnlyChangesWhenExplicitlyEdited() throws Exception {
+		Path rewards = directory.resolve("SpecialRewards.yml");
+		Files.writeString(rewards, "VoteParty:\n  Enabled: false\n  VotesRequired: 20\n"
+				+ "  GiveAllPlayers: false\n  GiveOnlinePlayersOnly: true\n  Broadcast: Keep\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.QuickState disabled = service.readQuickSetup("vote-party", Map.of());
+		assertEquals("false", disabled.options().get("enabled"));
+		BackendConfigurationService.QuickPreview unrelated = service.previewQuickSetup("vote-party", Map.of(
+				"enabled", disabled.options().get("enabled"), "votesRequired", "25", "command", "",
+				"broadcast", "Keep", "giveAllPlayers", "false", "onlineOnly", "true"));
+		assertTrue(unrelated.proposal().content().contains("Enabled: false"));
+		service.applyQuickSetup("vote-party", Map.of("enabled", "false", "votesRequired", "25", "command", "",
+				"broadcast", "Keep", "giveAllPlayers", "false", "onlineOnly", "true"), unrelated.revision());
+		assertEquals("false", service.readQuickSetup("vote-party", Map.of()).options().get("enabled"));
+
+		BackendConfigurationService.QuickPreview enable = service.previewQuickSetup("vote-party", Map.of(
+				"enabled", "true", "votesRequired", "25", "command", "", "broadcast", "Keep",
+				"giveAllPlayers", "false", "onlineOnly", "true"));
+		service.applyQuickSetup("vote-party", Map.of("enabled", "true", "votesRequired", "25", "command", "",
+				"broadcast", "Keep", "giveAllPlayers", "false", "onlineOnly", "true"), enable.revision());
+		assertEquals("true", service.readQuickSetup("vote-party", Map.of()).options().get("enabled"));
 	}
 
 	@Test void oversizedInstalledGuidedValuesFailInsteadOfWedgingResultSubmission() throws Exception {
@@ -607,7 +632,7 @@ class BackendConfigurationServiceTest {
 		assertFalse(reward.proposal().content().contains("New message"));
 
 		BackendConfigurationService.QuickPreview party = service.previewQuickSetup("vote-party", Map.of(
-				"votesRequired", "20", "command", "new party", "broadcast", "Party!",
+				"enabled", "true", "votesRequired", "20", "command", "new party", "broadcast", "Party!",
 				"giveAllPlayers", "false", "onlineOnly", "true"));
 		assertTrue(party.proposal().content().contains("existing party"));
 		assertTrue(party.proposal().content().contains("new party"));
@@ -837,6 +862,7 @@ class BackendConfigurationServiceTest {
 				}));
 
 		assertTrue(failure.rolledBack());
+		assertTrue(failure.reloadAttempted());
 		assertEquals(2, targeted.get());
 		assertEquals(original, Files.readString(settings));
 	}

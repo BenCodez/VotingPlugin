@@ -110,6 +110,7 @@ public final class BackendConfigurationService {
 		Path staging = Files.createTempFile(target.getParent(), ".control-", ".yml");
 		Path backupStaging = Files.createTempFile(target.getParent(), ".control-backup-", ".yml");
 		boolean installed = false;
+		boolean reloadAttempted = false;
 		try {
 			Files.writeString(staging, preview.resolvedContent(), StandardCharsets.UTF_8,
 					StandardOpenOption.TRUNCATE_EXISTING);
@@ -126,6 +127,7 @@ public final class BackendConfigurationService {
 				installed = true;
 				throw published;
 			}
+			reloadAttempted = true;
 			applyAction.run(fileName);
 			String applied = readRaw(target, false);
 			String installedRevision = revision(preview.resolvedContent());
@@ -158,7 +160,7 @@ public final class BackendConfigurationService {
 					failure.addSuppressed(rollbackFailure);
 				}
 			}
-			throw new ApplyFailureException(rolledBack, failure);
+			throw new ApplyFailureException(rolledBack, reloadAttempted, failure);
 		} finally {
 			Files.deleteIfExists(staging);
 			Files.deleteIfExists(backupStaging);
@@ -394,7 +396,7 @@ public final class BackendConfigurationService {
 		case "vote-logging" -> Set.of("enabled", "purgeDays", "useMainMySQL");
 		case "common-settings" -> Set.of("processRewards", "autoCreateVoteSites", "extraAllSitesCheck",
 				"countFakeVotes", "disableNoServiceSiteMessage", "disableUpdateChecking");
-		case "vote-party" -> Set.of("votesRequired", "broadcast", "giveAllPlayers", "onlineOnly", "command");
+		case "vote-party" -> Set.of("enabled", "votesRequired", "broadcast", "giveAllPlayers", "onlineOnly", "command");
 		case "sync-vote-sites" -> Set.of("sourceContent");
 		default -> throw new IllegalArgumentException("quick setup preset is unsupported");
 		});
@@ -498,7 +500,7 @@ public final class BackendConfigurationService {
 			return new QuickProposal(fileName, yaml.saveToString());
 		}
 		if ("vote-party".equals(preset)) {
-			yaml.set("VoteParty.Enabled", true);
+			yaml.set("VoteParty.Enabled", booleanOption(options, "enabled"));
 			yaml.set("VoteParty.VotesRequired", boundedInteger(option(options, "votesRequired", "[0-9]{1,6}"), 1, 100000));
 			yaml.set("VoteParty.GiveAllPlayers", booleanOption(options, "giveAllPlayers"));
 			yaml.set("VoteParty.GiveOnlinePlayersOnly", booleanOption(options, "onlineOnly"));
@@ -811,17 +813,25 @@ public final class BackendConfigurationService {
 	}
 
 	private static String readRaw(Path path, boolean allowMissing) throws IOException {
-		if (!Files.exists(path) && allowMissing) return "";
-		if (!Files.isRegularFile(path, java.nio.file.LinkOption.NOFOLLOW_LINKS)
-				|| Files.size(path) > MAX_CONTENT_BYTES) {
-			throw new IOException("configuration file is missing or too large");
+		if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
+			if (allowMissing) return "";
+			throw new java.nio.file.NoSuchFileException(path.toString());
+		}
+		if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
+			throw new ConfigurationReadException(ConfigurationReadFailure.UNSAFE,
+					"configuration file is not a regular file");
+		}
+		if (Files.size(path) > MAX_CONTENT_BYTES) {
+			throw new ConfigurationReadException(ConfigurationReadFailure.TOO_LARGE,
+					"configuration file exceeds the managed size limit");
 		}
 		byte[] bytes = Files.readAllBytes(path);
 		try {
 			return StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
 					.onUnmappableCharacter(CodingErrorAction.REPORT).decode(java.nio.ByteBuffer.wrap(bytes)).toString();
 		} catch (CharacterCodingException e) {
-			throw new IOException("configuration file is not valid UTF-8", e);
+			throw new ConfigurationReadException(ConfigurationReadFailure.INVALID_ENCODING,
+					"configuration file is not valid UTF-8", e);
 		}
 	}
 
@@ -1135,10 +1145,29 @@ public final class BackendConfigurationService {
 	@FunctionalInterface public interface ReloadAction { void run() throws Exception; }
 	@FunctionalInterface public interface ApplyAction { void run(String fileName) throws Exception; }
 	@FunctionalInterface interface MoveAction { void move(Path source, Path target) throws IOException; }
+	public enum ConfigurationReadFailure { UNSAFE, TOO_LARGE, INVALID_ENCODING }
+	@SuppressWarnings("serial") public static final class ConfigurationReadException extends IOException {
+		private final ConfigurationReadFailure failure;
+		private ConfigurationReadException(ConfigurationReadFailure failure, String message) {
+			super(message);
+			this.failure = failure;
+		}
+		private ConfigurationReadException(ConfigurationReadFailure failure, String message, Throwable cause) {
+			super(message, cause);
+			this.failure = failure;
+		}
+		public ConfigurationReadFailure failure() { return failure; }
+	}
 	@SuppressWarnings("serial") public static final class StaleRevisionException extends RuntimeException { }
 	@SuppressWarnings("serial") public static final class ApplyFailureException extends IOException {
 		private final boolean rolledBack;
-		private ApplyFailureException(boolean rolledBack, Throwable cause) { super(cause); this.rolledBack = rolledBack; }
+		private final boolean reloadAttempted;
+		private ApplyFailureException(boolean rolledBack, boolean reloadAttempted, Throwable cause) {
+			super(cause);
+			this.rolledBack = rolledBack;
+			this.reloadAttempted = reloadAttempted;
+		}
 		public boolean rolledBack() { return rolledBack; }
+		public boolean reloadAttempted() { return reloadAttempted; }
 	}
 }
