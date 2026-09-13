@@ -3347,8 +3347,11 @@ public abstract class VotingPluginProxy {
 	}
 
 	public synchronized void processQueue() {
-		while (getVoteCacheHandler().getTimeChangeQueue().size() > 0) {
-			VoteTimeQueue vote = getVoteCacheHandler().getTimeChangeQueue().element();
+		java.util.Queue<VoteTimeQueue> timeChangeQueue = getVoteCacheHandler().getTimeChangeQueue();
+		// Work from a bounded snapshot so an already-processed ACK outbox can remain
+		// durable without monopolizing the head of the rollover queue.
+		for (VoteTimeQueue vote : new ArrayList<>(timeChangeQueue)) {
+			if (!timeChangeQueue.contains(vote)) continue;
 			if (vote.isMultiProxyCompletionPending()) {
 				if (!getVoteCacheHandler().hasMultiProxyVoteCompletion(vote.getVoteId())
 						&& !getVoteCacheHandler().markMultiProxyVoteCompletedDurably(vote.getVoteId())) {
@@ -3383,7 +3386,7 @@ public abstract class VotingPluginProxy {
 					&& !vote.isMultiProxyForwardingHandled()) {
 				if (!retryDurableMultiProxyOutbox(vote)) {
 					scheduleTimeVoteRetry();
-					return;
+					continue;
 				}
 			}
 			// A direct listener retry can still be queued after its ACK outbox completes.
