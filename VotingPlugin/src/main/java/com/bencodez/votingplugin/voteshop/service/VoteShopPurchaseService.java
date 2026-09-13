@@ -13,6 +13,7 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 
 import org.bukkit.Bukkit;
@@ -48,6 +49,8 @@ import lombok.Setter;
 public class VoteShopPurchaseService {
 	private static final int PURCHASE_LOCK_STRIPES = 256;
 	private static final Object[] PURCHASE_LOCKS = createPurchaseLocks();
+	private static final ReentrantReadWriteLock SHARED_MYSQL_CACHE_RESET_FENCE =
+			new ReentrantReadWriteLock(true);
 	private static final int COMPLETION_PENDING = 0;
 	private static final int COMPLETION_RUNNING = 1;
 	private static final int COMPLETION_COMPENSATING = 2;
@@ -493,20 +496,42 @@ public class VoteShopPurchaseService {
 	/** Applies a named reset at most once across all backends sharing the table. */
 	public static void resetSharedMysqlLimit(VotingPluginMain plugin, String limitColumn, String resetGeneration) {
 		if (!usesSharedMysqlPoints(plugin)) return;
-		// Shared limit writes are deliberately nonqueued. Drop read snapshots
-		// without dumping them, so a backend arriving after another server's reset
-		// can never replay a pre-reset absolute value.
-		SharedMysqlCacheReconciler.invalidateAll(plugin, limitColumn);
+		withSharedMysqlCacheResetFence(() -> {
+			// Shared limit writes are deliberately nonqueued. Drop read snapshots
+			// without dumping them, so a backend arriving after another server's reset
+			// can never replay a pre-reset absolute value.
+			SharedMysqlCacheReconciler.invalidateAll(plugin, limitColumn);
+			try {
+				MySQL table = plugin.getMysql();
+				table.checkColumn(limitColumn, DataType.INTEGER);
+				SharedMysqlPurchaseJournal.forTable(table).resetLimit(limitColumn, resetGeneration);
+			} catch (SQLException failure) {
+				plugin.getLogger().severe("Unable to atomically reset shared MySQL vote shop limit: "
+						+ failure.getClass().getSimpleName());
+				plugin.debug(failure);
+			} finally {
+				SharedMysqlCacheReconciler.invalidateAllAndRefresh(plugin, limitColumn);
+			}
+		});
+	}
+
+	static void withSharedMysqlCacheResetFence(Runnable action) {
+		var lock = SHARED_MYSQL_CACHE_RESET_FENCE.writeLock();
+		lock.lock();
 		try {
-			MySQL table = plugin.getMysql();
-			table.checkColumn(limitColumn, DataType.INTEGER);
-			SharedMysqlPurchaseJournal.forTable(table).resetLimit(limitColumn, resetGeneration);
-		} catch (SQLException failure) {
-			plugin.getLogger().severe("Unable to atomically reset shared MySQL vote shop limit: "
-					+ failure.getClass().getSimpleName());
-			plugin.debug(failure);
+			action.run();
 		} finally {
-			SharedMysqlCacheReconciler.invalidateAllAndRefresh(plugin, limitColumn);
+			lock.unlock();
+		}
+	}
+
+	static void withSharedMysqlCacheDumpFence(Runnable action) {
+		var lock = SHARED_MYSQL_CACHE_RESET_FENCE.readLock();
+		lock.lock();
+		try {
+			action.run();
+		} finally {
+			lock.unlock();
 		}
 	}
 
@@ -620,16 +645,18 @@ public class VoteShopPurchaseService {
 	}
 
 	private void drainPurchaseCache(VotingPluginUser user, String pointsColumn) {
-		if (!user.isCached()) return;
-		UserDataCache cache = user.getCache();
-		if (cache == null) return;
-		synchronized (cache) {
-			// dump() waits for a cache batch that has already left its queue. Strip an
-			// async point prediction first so it cannot be persisted ahead of this debit.
-			SharedMysqlCacheReconciler.discardOptimisticPoint(cache, pointsColumn);
-			cache.dump();
-			plugin.getUserManager().getDataManager().removeCache(UUID.fromString(user.getUUID()), null);
-		}
+		withSharedMysqlCacheDumpFence(() -> {
+			if (!user.isCached()) return;
+			UserDataCache cache = user.getCache();
+			if (cache == null) return;
+			synchronized (cache) {
+				// dump() waits for a cache batch that has already left its queue. Strip an
+				// async point prediction first so it cannot be persisted ahead of this debit.
+				SharedMysqlCacheReconciler.discardOptimisticPoint(cache, pointsColumn);
+				cache.dump();
+				plugin.getUserManager().getDataManager().removeCache(UUID.fromString(user.getUUID()), null);
+			}
+		});
 	}
 
 	private SharedMysqlPurchaseJournal.ClaimOutcome claimSharedMysqlPurchase(SharedPurchaseDebit debit) {

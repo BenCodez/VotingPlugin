@@ -200,9 +200,46 @@ class VoteShopPurchaseServiceTest {
 	}
 
 	@Test
+	void sharedMysqlResetWaitsForAnInFlightCacheDump() throws Exception {
+		CountDownLatch dumpEntered = new CountDownLatch(1);
+		CountDownLatch releaseDump = new CountDownLatch(1);
+		CountDownLatch resetAttempted = new CountDownLatch(1);
+		CountDownLatch resetEntered = new CountDownLatch(1);
+		ExecutorService workers = Executors.newFixedThreadPool(2);
+		try {
+			Future<?> dump = workers.submit(() -> VoteShopPurchaseService.withSharedMysqlCacheDumpFence(() -> {
+				dumpEntered.countDown();
+				try {
+					assertTrue(releaseDump.await(2, TimeUnit.SECONDS));
+				} catch (InterruptedException interrupted) {
+					Thread.currentThread().interrupt();
+					throw new AssertionError(interrupted);
+				}
+			}));
+			assertTrue(dumpEntered.await(1, TimeUnit.SECONDS));
+
+			Future<?> reset = workers.submit(() -> {
+				resetAttempted.countDown();
+				VoteShopPurchaseService.withSharedMysqlCacheResetFence(resetEntered::countDown);
+			});
+			assertTrue(resetAttempted.await(1, TimeUnit.SECONDS));
+			assertFalse(resetEntered.await(100, TimeUnit.MILLISECONDS),
+					"a reset must not commit while an older cache dump can still write");
+
+			releaseDump.countDown();
+			dump.get(1, TimeUnit.SECONDS);
+			reset.get(1, TimeUnit.SECONDS);
+			assertEquals(0, resetEntered.getCount());
+		} finally {
+			releaseDump.countDown();
+			workers.shutdownNow();
+		}
+	}
+
+	@Test
 	void localPurchaseRefreshesCacheBeforeCheckingPointsWhenConfigured() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
-		when(plugin.getStorageType()).thenReturn(UserStorage.FLAT);
+		when(plugin.getStorageType()).thenReturn(UserStorage.SQLITE);
 		when(plugin.getConfigFile().isExtraVoteShopCheck()).thenReturn(true);
 		VoteShopDefinition definition = mock(VoteShopDefinition.class);
 		when(definition.isEnabled()).thenReturn(true);
