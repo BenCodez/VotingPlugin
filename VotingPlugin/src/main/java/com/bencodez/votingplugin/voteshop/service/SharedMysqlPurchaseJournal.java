@@ -139,8 +139,7 @@ final class SharedMysqlPurchaseJournal {
 		try (Connection connection = connection()) {
 			connection.setAutoCommit(false);
 			try {
-				Long limitEpoch = tracksResetEpoch(limitColumn, limitGeneration)
-						? lockLimitEpoch(connection, limitColumn) : null;
+				Long limitEpoch = limitColumn == null ? null : lockLimitEpoch(connection, limitColumn);
 				try (PreparedStatement insertStatement = connection.prepareStatement(insert);
 						PreparedStatement debitStatement = connection.prepareStatement(debit.toString())) {
 					insertStatement.setString(1, purchaseId);
@@ -605,10 +604,6 @@ final class SharedMysqlPurchaseJournal {
 	private String qiEpoch() { return table.qi(epochTable); }
 	private String qi(String identifier) { return table.qi(identifier); }
 	private String uuidCast() { return table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?"; }
-
-	private static boolean tracksResetEpoch(String limitColumn, String generation) {
-		return limitColumn != null && generation != null && !NO_LIMIT_RESET_GENERATION.equals(generation);
-	}
 
 	private long lockLimitEpoch(Connection connection, String limitColumn) throws SQLException {
 		return lockLimitEpochRow(connection, limitColumn).epoch();

@@ -41,17 +41,23 @@ class SharedMysqlPurchaseJournalTest {
 	@Test
 	void reservationPersistsPendingDebitInTheSameTransaction() throws Exception {
 		Fixture fixture = fixture();
+		PreparedStatement markerInsert = mock(PreparedStatement.class);
+		PreparedStatement markerSelect = mock(PreparedStatement.class);
 		PreparedStatement insert = mock(PreparedStatement.class);
 		PreparedStatement debit = mock(PreparedStatement.class);
+		ResultSet epoch = mock(ResultSet.class);
+		when(epoch.next()).thenReturn(true);
+		when(epoch.getLong(1)).thenReturn(3L);
+		when(markerSelect.executeQuery()).thenReturn(epoch);
 		when(debit.executeUpdate()).thenReturn(1);
-		when(fixture.work.prepareStatement(anyString())).thenReturn(insert, debit);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(markerInsert, markerSelect, insert, debit);
 
 		SharedMysqlPurchaseJournal journal = new SharedMysqlPurchaseJournal(fixture.table, false);
 		assertTrue(journal.reserve("purchase-1", "player", "Points", "VoteShopLimitdaily", 10, 1,
 				SharedMysqlPurchaseJournal.NO_LIMIT_RESET_GENERATION, 0L, 100L));
 
 		verify(insert).setString(7, SharedMysqlPurchaseJournal.NO_LIMIT_RESET_GENERATION);
-		verify(insert).setNull(9, java.sql.Types.BIGINT);
+		verify(insert).setLong(9, 3L);
 		verify(insert).setString(10, "PENDING");
 		verify(debit).setInt(1, 10);
 		verify(fixture.work).commit();
