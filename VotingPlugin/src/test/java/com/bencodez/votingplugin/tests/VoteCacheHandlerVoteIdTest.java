@@ -698,6 +698,46 @@ public class VoteCacheHandlerVoteIdTest {
 	}
 
 	@Test
+	public void serverVoteSqlTwinRejectsJsonOnlyDeliveryUpdate() throws Exception {
+		OfflineBungeeVote vote = vote(UUID.randomUUID(), 100L);
+		vote.setServerVoteCacheRowId(41);
+		vote.setServerVoteCacheJsonKey("4");
+		DataNode stored = mock(DataNode.class);
+		when(stored.isObject()).thenReturn(true);
+		when(storage.getServerVotes("server")).thenReturn(List.of("4"));
+		when(storage.getServerVotes("server", "4")).thenReturn(stored);
+		ProxyVoteCacheTable sql = mock(ProxyVoteCacheTable.class);
+		when(sql.updateProxyBroadcastState(vote, "server")).thenReturn(false);
+		setPrivateField(handler, "useMySQL", true);
+		setPrivateField(handler, "voteCacheTable", sql);
+
+		assertFalse(handler.updateServerVote("server", vote));
+
+		verify(sql).updateProxyBroadcastState(vote, "server");
+		verify(storage, never()).addVote(eq("server"), org.mockito.ArgumentMatchers.anyInt(), same(vote));
+	}
+
+	@Test
+	public void onlineVoteSqlTwinRejectsJsonOnlyDeliveryUpdate() throws Exception {
+		OfflineBungeeVote vote = vote(UUID.randomUUID(), 100L);
+		vote.setOnlineVoteCacheRowId(42);
+		vote.setOnlineVoteCacheJsonKey("3");
+		DataNode stored = mock(DataNode.class);
+		when(stored.isObject()).thenReturn(true);
+		when(storage.getOnlineVotes("player-uuid")).thenReturn(List.of("3"));
+		when(storage.getOnlineVotes("player-uuid", "3")).thenReturn(stored);
+		ProxyOnlineVoteCacheTable sql = mock(ProxyOnlineVoteCacheTable.class);
+		when(sql.updateProxyBroadcastState(vote)).thenReturn(false);
+		setPrivateField(handler, "useMySQL", true);
+		setPrivateField(handler, "onlineVoteCacheTable", sql);
+
+		assertFalse(handler.updateOnlineVote("player-uuid", vote));
+
+		verify(sql).updateProxyBroadcastState(vote);
+		verify(storage, never()).addVoteOnline(eq("player-uuid"), org.mockito.ArgumentMatchers.anyInt(), same(vote));
+	}
+
+	@Test
 	public void timedVoteAcknowledgementOutboxSurvivesHandlerRestart() {
 		UUID voteId = UUID.randomUUID();
 		VoteTimeQueue queued = new VoteTimeQueue(voteId, "Player", "Service", 100L, true,

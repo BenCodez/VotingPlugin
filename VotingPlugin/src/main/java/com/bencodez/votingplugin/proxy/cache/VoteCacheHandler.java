@@ -179,6 +179,9 @@ public abstract class VoteCacheHandler {
 				// recovery path. Keep that exact twin current before publishing again.
 				return !hasJsonServerVote(vote, server) || updateServerVoteJson(server, vote);
 			}
+			// Do not advance only an emergency JSON twin once this vote has a known
+			// SQL row. A later SQL retry could otherwise replay stale delivery state.
+			if (vote.getServerVoteCacheRowId() > 0) return false;
 			return updateServerVoteJson(server, vote);
 		}
 		if (jsonStorage == null || jsonStorageQuarantined) return false;
@@ -376,6 +379,9 @@ public abstract class VoteCacheHandler {
 			if (onlineVoteCacheTable.updateProxyBroadcastState(vote)) {
 				return !hasJsonOnlineVote(vote, uuid) || updateOnlineVoteJson(uuid, vote);
 			}
+			// Do not advance only an emergency JSON twin once this vote has a known
+			// SQL row. A later SQL retry could otherwise replay stale delivery state.
+			if (vote.getOnlineVoteCacheRowId() > 0) return false;
 			return updateOnlineVoteJson(uuid, vote);
 		}
 		if (jsonStorage == null || jsonStorageQuarantined) return false;
