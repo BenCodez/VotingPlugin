@@ -25,6 +25,7 @@ import com.bencodez.votingplugin.backendproxy.presence.BackendPresenceManager;
 import com.bencodez.votingplugin.backendproxy.transport.BackendProxyTransportManager;
 import com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
+import com.bencodez.votingplugin.proxy.VotingPluginWire;
 
 import lombok.Getter;
 
@@ -176,6 +177,13 @@ public class BackendProxyHandler implements Listener {
 		if (rollbackTarget != null) {
 			GlobalMessageHandler rollbackHandler = rollbackTarget.globalMessageHandler;
 			if (rollbackHandler != null) rollbackHandler.onMessage(envelope);
+			return;
+		}
+		// Global-data checks perform synchronous SQL and already run on their own
+		// timer worker. Explicitly dispatch an inbound wake-up asynchronously too:
+		// plugin messaging can invoke this method on Bukkit's primary thread.
+		if (VotingPluginWire.SUB_BUNGEE_TIME_CHANGE.equals(envelope.getSubChannel())) {
+			plugin.getBukkitScheduler().runTaskAsynchronously(plugin, localDispatch);
 			return;
 		}
 		plugin.getBukkitScheduler().executeOrScheduleSync(plugin, localDispatch);

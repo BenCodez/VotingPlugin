@@ -30,8 +30,9 @@ import lombok.Getter;
 public abstract class MultiProxyHandler {
 	private HashMap<String, ClientHandler> multiproxyClientHandles;
 	private SocketHandler multiproxySocketHandler;
-	/** Peers that have explicitly advertised the additive durable-ACK protocol. */
-	private final Set<String> acknowledgedVoteCapabilityPeers = new LinkedHashSet<>();
+	/** A renewable lease prevents a restarted/rolled-back peer staying ACK-capable forever. */
+	static final long VOTE_CAPABILITY_LEASE_MILLIS = 5 * 60 * 1000L;
+	private final Map<String, Long> acknowledgedVoteCapabilityPeers = new HashMap<>();
 
 	@Getter
 	private RedisHandler multiProxyRedis;
@@ -40,6 +41,10 @@ public abstract class MultiProxyHandler {
 	 * Constructs a new multi-proxy handler.
 	 */
 	public MultiProxyHandler() {
+	}
+
+	long capabilityNowMillis() {
+		return System.currentTimeMillis();
 	}
 
 	/**
@@ -327,8 +332,10 @@ public abstract class MultiProxyHandler {
 
 	/** Returns only configured peers that explicitly support durable acknowledgements. */
 	public synchronized Set<String> getMultiProxyVoteRecipients() {
+		long now = capabilityNowMillis();
+		acknowledgedVoteCapabilityPeers.entrySet().removeIf(entry -> entry.getValue() <= now);
 		Set<String> recipients = getConfiguredMultiProxyVoteRecipients();
-		recipients.retainAll(acknowledgedVoteCapabilityPeers);
+		recipients.retainAll(acknowledgedVoteCapabilityPeers.keySet());
 		return recipients;
 	}
 
@@ -341,6 +348,7 @@ public abstract class MultiProxyHandler {
 	 * Loads multi-proxy support.
 	 */
 	public synchronized void loadMultiProxySupport() {
+		acknowledgedVoteCapabilityPeers.clear();
 		if (!getMultiProxySupportEnabled()) {
 			return;
 		}
@@ -623,7 +631,8 @@ public abstract class MultiProxyHandler {
 				String normalized = recipient.toLowerCase(Locale.ROOT);
 				synchronized (this) {
 					if (version >= 1 && getConfiguredMultiProxyVoteRecipients().contains(normalized)) {
-						acknowledgedVoteCapabilityPeers.add(normalized);
+						acknowledgedVoteCapabilityPeers.put(normalized,
+								capabilityNowMillis() + VOTE_CAPABILITY_LEASE_MILLIS);
 						replyRequired = !reply;
 					}
 				}
@@ -652,8 +661,12 @@ public abstract class MultiProxyHandler {
 			}
 
 			if (!player.isEmpty() && !uuid.isEmpty() && !service.isEmpty()) {
-				triggerVote(player, service, realVote, true, 0L, VoteTotalsSnapshot.parseStorage(totals), uuid,
-						wireVote.voteId, origin);
+				if (origin.isBlank()) {
+					triggerVote(player, service, realVote, true, 0L, VoteTotalsSnapshot.parseStorage(totals), uuid);
+				} else {
+					triggerVote(player, service, realVote, true, 0L, VoteTotalsSnapshot.parseStorage(totals), uuid,
+							wireVote.voteId, origin);
+				}
 			}
 			return;
 		}

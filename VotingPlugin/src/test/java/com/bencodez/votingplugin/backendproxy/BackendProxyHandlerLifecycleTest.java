@@ -43,6 +43,7 @@ import com.bencodez.votingplugin.backendproxy.global.BackendGlobalDataSync;
 import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache;
 import com.bencodez.votingplugin.backendproxy.presence.BackendPresenceManager;
 import com.bencodez.votingplugin.config.BungeeSettings;
+import com.bencodez.votingplugin.proxy.VotingPluginWire;
 import com.bencodez.votingplugin.backendproxy.transport.MqttBackendProxyTransport;
 import com.bencodez.votingplugin.backendproxy.transport.MysqlBackendProxyTransport;
 import com.bencodez.votingplugin.backendproxy.transport.PluginMessagingBackendProxyTransport;
@@ -54,6 +55,22 @@ import com.bencodez.votingplugin.backendproxy.transport.SocketBackendProxyTransp
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 
 class BackendProxyHandlerLifecycleTest {
+	@Test
+	void globalDataWakeupMovesOffTheCallingAndPrimaryThreads() {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		BackendProxyHandler handler = new BackendProxyHandler(plugin);
+		handler.activateInboundMessages();
+		Runnable localDispatch = mock(Runnable.class);
+
+		handler.dispatchIncomingAfterPublication(
+				JsonEnvelope.builder(VotingPluginWire.SUB_BUNGEE_TIME_CHANGE).build(), localDispatch);
+
+		verify(scheduler).runTaskAsynchronously(plugin, localDispatch);
+		verify(localDispatch, never()).run();
+	}
+
 	@Test
 	void stagedInboundWaitsForPublicationAndUsesTheBukkitScheduler() throws Exception {
 		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
