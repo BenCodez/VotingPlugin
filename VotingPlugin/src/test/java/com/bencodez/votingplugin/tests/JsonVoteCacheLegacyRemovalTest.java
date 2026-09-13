@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.tests;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -49,6 +50,27 @@ class JsonVoteCacheLegacyRemovalTest {
 
 		assertFalse(cache.contains("VoteCache", "server", "0"));
 		assertTrue(cache.contains("VoteCache", "server", "1"));
+	}
+
+	@Test
+	void bungeePendingRewardEnumerationSkipsMalformedServerKeys() {
+		VotingPluginBungee plugin = mock(VotingPluginBungee.class);
+		when(plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
+		BungeeJsonVoteCache cache = new BungeeJsonVoteCache(plugin);
+		cache.setBoolean("VoteParty.PendingRewards.invalid*.delivery", true);
+		cache.setPendingVotePartyReward("Lobby", "delivery", true);
+
+		assertEquals(java.util.List.of("lobby"), cache.getPendingVotePartyRewardServers());
+	}
+
+	@Test
+	void velocityPendingRewardEnumerationSkipsMalformedServerKeys() {
+		VelocityJsonVoteCache cache = new VelocityJsonVoteCache(
+				temporaryDirectory.resolve("velocity-pending-rewards.json").toFile());
+		cache.set(new Object[] { "VoteParty", "PendingRewards", "invalid*", "delivery" }, true);
+		cache.setPendingVotePartyReward("Lobby", "delivery", true);
+
+		assertEquals(java.util.List.of("lobby"), cache.getPendingVotePartyRewardServers());
 	}
 
 	private static OfflineBungeeVote vote(UUID voteId) {

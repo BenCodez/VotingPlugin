@@ -522,8 +522,11 @@ public class VotingPluginProxyTest {
 
 		assertFalse((Boolean) begin.invoke(votingPluginProxy, retry, null, "Player",
 				"00000000-0000-0000-0000-000000000001", "Service", 100L, true, null));
-		verify(multiProxyHandler).sendMultiProxyEnvelopeAccepted(Mockito.any(),
+		org.mockito.ArgumentCaptor<JsonEnvelope> envelope = org.mockito.ArgumentCaptor.forClass(JsonEnvelope.class);
+		verify(multiProxyHandler).sendMultiProxyEnvelopeAccepted(envelope.capture(),
 				Mockito.eq(java.util.Set.of("ProxyLegacy")));
+		assertEquals("", envelope.getValue().getFields()
+				.getOrDefault(VotingPluginWire.K_MULTI_PROXY_ORIGIN, ""));
 	}
 
 	@Test

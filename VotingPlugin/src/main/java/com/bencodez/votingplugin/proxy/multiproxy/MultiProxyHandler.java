@@ -320,12 +320,17 @@ public abstract class MultiProxyHandler {
 
 	/** Returns every configured remote proxy recipient, independent of version. */
 	public synchronized Set<String> getConfiguredMultiProxyVoteRecipients() {
-		Collection<String> source = getMultiProxyMethod().equals(MultiProxyMethod.SOCKETS)
+		return new LinkedHashSet<>(configuredMultiProxyRecipientNames().values());
+	}
+
+	private synchronized Map<String, String> configuredMultiProxyRecipientNames() {
+		Collection<String> source = MultiProxyMethod.SOCKETS.equals(getMultiProxyMethod())
 				? getMultiProxyServers() : getProxyServers();
-		Set<String> recipients = new LinkedHashSet<>();
+		Map<String, String> recipients = new LinkedHashMap<>();
 		if (source == null) return recipients;
 		for (String server : source) {
-			if (server != null && !server.isBlank()) recipients.add(server.toLowerCase(Locale.ROOT));
+			if (server != null && !server.isBlank())
+				recipients.putIfAbsent(server.toLowerCase(Locale.ROOT), server);
 		}
 		return recipients;
 	}
@@ -334,8 +339,10 @@ public abstract class MultiProxyHandler {
 	public synchronized Set<String> getMultiProxyVoteRecipients() {
 		long now = capabilityNowMillis();
 		acknowledgedVoteCapabilityPeers.entrySet().removeIf(entry -> entry.getValue() <= now);
-		Set<String> recipients = getConfiguredMultiProxyVoteRecipients();
-		recipients.retainAll(acknowledgedVoteCapabilityPeers.keySet());
+		Set<String> recipients = new LinkedHashSet<>();
+		for (Map.Entry<String, String> configured : configuredMultiProxyRecipientNames().entrySet()) {
+			if (acknowledgedVoteCapabilityPeers.containsKey(configured.getKey())) recipients.add(configured.getValue());
+		}
 		return recipients;
 	}
 
@@ -485,9 +492,11 @@ public abstract class MultiProxyHandler {
 		if (envelope == null) return false;
 		if (recipients == null || recipients.isEmpty()) return false;
 		Map<String, String> requested = new LinkedHashMap<>();
+		Map<String, String> configuredNames = configuredMultiProxyRecipientNames();
 		for (String recipient : recipients) {
 			if (recipient != null && !recipient.isBlank()) {
-				requested.putIfAbsent(recipient.toLowerCase(Locale.ROOT), recipient);
+				String normalized = recipient.toLowerCase(Locale.ROOT);
+				requested.putIfAbsent(normalized, configuredNames.getOrDefault(normalized, recipient));
 			}
 		}
 		if (requested.isEmpty()) return false;
@@ -603,7 +612,7 @@ public abstract class MultiProxyHandler {
 			String origin = f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_ORIGIN, "");
 			String recipient = f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_RECIPIENT, "");
 			if (!recipient.equalsIgnoreCase(getMultiProxyServerName()) || origin.isBlank()
-					|| !getConfiguredMultiProxyVoteRecipients().contains(origin.toLowerCase(Locale.ROOT))) return;
+					|| !configuredMultiProxyRecipientNames().containsKey(origin.toLowerCase(Locale.ROOT))) return;
 			try {
 				onMultiProxyVoteRetirementRequested(
 						UUID.fromString(f.getOrDefault(VotingPluginWire.K_VOTE_ID, "")), origin);
@@ -630,7 +639,7 @@ public abstract class MultiProxyHandler {
 				int version = Integer.parseInt(f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_ACK_VERSION, "0"));
 				String normalized = recipient.toLowerCase(Locale.ROOT);
 				synchronized (this) {
-					if (version >= 1 && getConfiguredMultiProxyVoteRecipients().contains(normalized)) {
+					if (version >= 1 && configuredMultiProxyRecipientNames().containsKey(normalized)) {
 						acknowledgedVoteCapabilityPeers.put(normalized,
 								capabilityNowMillis() + VOTE_CAPABILITY_LEASE_MILLIS);
 						replyRequired = !reply;

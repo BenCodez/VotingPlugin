@@ -66,6 +66,7 @@ class MultiProxyHandlerLifecycleTest {
 	void redisSubsetSendPreservesConfiguredChannelCasing() throws Exception {
 		MultiProxyHandler handler = mock(MultiProxyHandler.class, org.mockito.Mockito.CALLS_REAL_METHODS);
 		org.mockito.Mockito.when(handler.getMultiProxyMethod()).thenReturn(MultiProxyMethod.REDIS);
+		org.mockito.Mockito.when(handler.getProxyServers()).thenReturn(List.of("Proxy2"));
 		com.bencodez.simpleapi.servercomm.redis.RedisHandler redis =
 				mock(com.bencodez.simpleapi.servercomm.redis.RedisHandler.class);
 		java.lang.reflect.Field connection = MultiProxyHandler.class.getDeclaredField("multiProxyRedis");
@@ -73,7 +74,8 @@ class MultiProxyHandlerLifecycleTest {
 		connection.set(handler, redis);
 		JsonEnvelope envelope = JsonEnvelope.builder("vote").build();
 
-		assertTrue(handler.sendMultiProxyEnvelopeAccepted(envelope, List.of("Proxy2")));
+		assertEquals(java.util.Set.of("Proxy2"), handler.getConfiguredMultiProxyVoteRecipients());
+		assertTrue(handler.sendMultiProxyEnvelopeAccepted(envelope, List.of("proxy2")));
 
 		verify(redis).publishEnvelope("VotingPluginProxy_Proxy2", envelope);
 	}
@@ -171,8 +173,8 @@ class MultiProxyHandlerLifecycleTest {
 	void routesOnlyAuthenticatedTargetedRetirementMessages() throws Exception {
 		MultiProxyHandler handler = mock(MultiProxyHandler.class, org.mockito.Mockito.CALLS_REAL_METHODS);
 		org.mockito.Mockito.when(handler.getMultiProxyServerName()).thenReturn("Replica");
-		org.mockito.Mockito.doReturn(new java.util.LinkedHashSet<>(List.of("primary")))
-				.when(handler).getConfiguredMultiProxyVoteRecipients();
+		org.mockito.Mockito.when(handler.getMultiProxyMethod()).thenReturn(MultiProxyMethod.REDIS);
+		org.mockito.Mockito.when(handler.getProxyServers()).thenReturn(List.of("Primary"));
 		UUID voteId = UUID.randomUUID();
 		Method handleEnvelope = MultiProxyHandler.class.getDeclaredMethod("handleEnvelope", JsonEnvelope.class);
 		handleEnvelope.setAccessible(true);
@@ -209,7 +211,7 @@ class MultiProxyHandlerLifecycleTest {
 
 		handleEnvelope.invoke(handler, VotingPluginWire.multiProxyCapabilities("Capable", 1));
 
-		assertEquals(java.util.Set.of("capable"), handler.getMultiProxyVoteRecipients());
+		assertEquals(java.util.Set.of("Capable"), handler.getMultiProxyVoteRecipients());
 	}
 
 	@Test
@@ -226,10 +228,10 @@ class MultiProxyHandlerLifecycleTest {
 		handleEnvelope.setAccessible(true);
 
 		handleEnvelope.invoke(handler, VotingPluginWire.multiProxyCapabilities("Capable", 1, true));
-		assertEquals(java.util.Set.of("capable"), handler.getMultiProxyVoteRecipients());
+		assertEquals(java.util.Set.of("Capable"), handler.getMultiProxyVoteRecipients());
 		assertTrue(handler.getMultiProxyVoteRecipients().isEmpty());
 
 		handleEnvelope.invoke(handler, VotingPluginWire.multiProxyCapabilities("Capable", 1, true));
-		assertEquals(java.util.Set.of("capable"), handler.getMultiProxyVoteRecipients());
+		assertEquals(java.util.Set.of("Capable"), handler.getMultiProxyVoteRecipients());
 	}
 }

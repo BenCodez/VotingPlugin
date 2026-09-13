@@ -31,7 +31,8 @@ public class VoteEventBungee implements net.md_5.bungee.api.plugin.Listener {
 	@EventHandler
 	public void onVote(VotifierEvent event) {
 		Vote vote = event.getVote();
-		String serviceSite = vote.getServiceName().isEmpty() ? "Empty" : vote.getServiceName();
+		String serviceName = vote.getServiceName();
+		String serviceSite = serviceName == null || serviceName.isEmpty() ? "Empty" : serviceName;
 		plugin.getProxy().getScheduler().runAsync(plugin,
 				new RetryingVote(vote.getUsername(), serviceSite));
 

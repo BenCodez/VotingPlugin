@@ -30,7 +30,8 @@ public class VoteEventVelocity {
 	public void onVotifierEvent(VotifierEvent event) {
 		final String serviceSiteVote = event.getVote().getServiceName();
 		final String name = event.getVote().getUsername();
-		plugin.getTimer().execute(new RetryingVote(name, serviceSiteVote.isEmpty() ? "Empty" : serviceSiteVote));
+		plugin.getTimer().execute(new RetryingVote(name,
+				serviceSiteVote == null || serviceSiteVote.isEmpty() ? "Empty" : serviceSiteVote));
 
 	}
 

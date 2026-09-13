@@ -189,7 +189,11 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 	public Collection<String> getPendingVotePartyRewardServers() {
 		Collection<String> encoded = getKeys(getNode("VoteParty", "PendingRewards"));
 		Collection<String> servers = new ArrayList<>();
-		if (encoded != null) for (String key : encoded) servers.add(decodeServerKey(key));
+		if (encoded != null) for (String key : encoded) try {
+			servers.add(decodeServerKey(key));
+		} catch (IllegalArgumentException malformedKey) {
+			// Preserve later valid deliveries when one persisted key is malformed.
+		}
 		return servers;
 	}
 
