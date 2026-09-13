@@ -1446,17 +1446,13 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 	}
 
-	/** Retires Redis predecessors asynchronously so listener joins never block Bukkit publication. */
+	/** Retires network-backed predecessors without blocking the Bukkit publication callback. */
 	void closePublishedPreviousBackendProxyHandler(BackendProxyHandler previous, String phase) {
 		if (previous == null) return;
-		if (previous.requiresRedisRetirement()) {
-			Thread cleanup = new Thread(() -> closePublishedPreviousBackendProxyHandlerNow(previous, phase),
-					"VotingPlugin-Retired-Redis-Backend");
-			cleanup.setDaemon(true);
-			cleanup.start();
-			return;
-		}
-		closePublishedPreviousBackendProxyHandlerNow(previous, phase);
+		Thread cleanup = new Thread(() -> closePublishedPreviousBackendProxyHandlerNow(previous, phase),
+				"VotingPlugin-Retired-Backend");
+		cleanup.setDaemon(true);
+		cleanup.start();
 	}
 
 	private void closePublishedPreviousBackendProxyHandlerNow(BackendProxyHandler previous, String phase) {

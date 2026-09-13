@@ -3376,16 +3376,16 @@ public abstract class VotingPluginProxy {
 					return;
 				}
 			}
+			if (vote.isProcessed() && vote.isDeliveryStateDirty() && !persistTimeVoteDelivery(vote)) {
+				scheduleTimeVoteRetry();
+				return;
+			}
 			if (vote.isProcessed() && vote.isMultiProxyForwardingRequired()
 					&& !vote.isMultiProxyForwardingHandled()) {
 				if (!retryDurableMultiProxyOutbox(vote)) {
 					scheduleTimeVoteRetry();
 					return;
 				}
-			}
-			if (vote.isProcessed() && vote.isDeliveryStateDirty() && !persistTimeVoteDelivery(vote)) {
-				scheduleTimeVoteRetry();
-				return;
 			}
 			// A direct listener retry can still be queued after its ACK outbox completes.
 			// Keep that in-memory fence until the listener consumes it; queued-vote

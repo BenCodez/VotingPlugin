@@ -42,6 +42,7 @@ import com.bencodez.votingplugin.proxy.cache.DataNode;
 import com.bencodez.votingplugin.proxy.cache.IVoteCache;
 import com.bencodez.votingplugin.proxy.cache.GsonDataNode;
 import com.bencodez.votingplugin.proxy.cache.ProxyOnlineVoteCacheTable;
+import com.bencodez.votingplugin.proxy.cache.ProxyTimedVoteCacheTable;
 import com.bencodez.votingplugin.proxy.cache.ProxyVoteCacheTable;
 import com.bencodez.votingplugin.proxy.cache.VoteCacheHandler;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
@@ -672,6 +673,28 @@ public class VoteCacheHandlerVoteIdTest {
 
 		verify(storage).addTimedVote(2, queued);
 		verify(storage).save();
+	}
+
+	@Test
+	public void timedVoteSqlTwinRejectsJsonOnlyDeliveryUpdate() throws Exception {
+		UUID voteId = UUID.randomUUID();
+		VoteTimeQueue queued = new VoteTimeQueue(voteId, "Player", "Service", 100L);
+		queued.setTimedVoteCacheRowId(42);
+		queued.setTimedVoteCacheJsonKey("2");
+		DataNode stored = mock(DataNode.class);
+		when(stored.isObject()).thenReturn(true);
+		stubString(stored, "VoteId", voteId.toString());
+		when(storage.getTimedVoteCache()).thenReturn(List.of("2"));
+		when(storage.getTimedVoteCache("2")).thenReturn(stored);
+		ProxyTimedVoteCacheTable sql = mock(ProxyTimedVoteCacheTable.class);
+		when(sql.updateTimedVote(queued)).thenReturn(false);
+		setPrivateField(handler, "useMySQL", true);
+		setPrivateField(handler, "timedVoteCacheTable", sql);
+
+		assertFalse(handler.updateTimeVote(queued));
+
+		verify(sql).updateTimedVote(queued);
+		verify(storage, never()).addTimedVote(org.mockito.ArgumentMatchers.anyInt(), same(queued));
 	}
 
 	@Test

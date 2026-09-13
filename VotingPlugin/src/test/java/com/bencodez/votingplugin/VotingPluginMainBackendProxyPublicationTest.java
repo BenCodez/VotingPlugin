@@ -150,7 +150,33 @@ class VotingPluginMainBackendProxyPublicationTest {
 
 		plugin.closePublishedPreviousBackendProxyHandler(previous, "after publication");
 		assertTrue(closed.await(1, TimeUnit.SECONDS));
-		assertTrue(closeThread.get().startsWith("VotingPlugin-Retired-Redis-Backend"));
+		assertTrue(closeThread.get().startsWith("VotingPlugin-Retired-Backend"));
+	}
+
+	@Test
+	void retiresNonRedisNetworkTransportOffTheBukkitThread() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+		BackendProxyHandler previous = mock(BackendProxyHandler.class);
+		when(previous.getMethod()).thenReturn(BungeeMethod.MQTT);
+		CountDownLatch closeStarted = new CountDownLatch(1);
+		CountDownLatch releaseClose = new CountDownLatch(1);
+		java.util.concurrent.atomic.AtomicReference<String> closeThread = new java.util.concurrent.atomic.AtomicReference<>();
+		doAnswer(invocation -> {
+			closeThread.set(Thread.currentThread().getName());
+			closeStarted.countDown();
+			releaseClose.await(1, TimeUnit.SECONDS);
+			return null;
+		}).when(previous).close();
+
+		try {
+			org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(java.time.Duration.ofMillis(250),
+					() -> plugin.closePublishedPreviousBackendProxyHandler(previous, "after publication"));
+			assertTrue(closeStarted.await(1, TimeUnit.SECONDS));
+			assertTrue(closeThread.get().startsWith("VotingPlugin-Retired-Backend"));
+		} finally {
+			releaseClose.countDown();
+		}
+		verify(previous, org.mockito.Mockito.timeout(1_000)).close();
 	}
 
 	@Test
@@ -351,6 +377,7 @@ class VotingPluginMainBackendProxyPublicationTest {
 		assertSame(replacement, plugin.getBackendProxyHandler());
 		assertFalse(plugin.requestBackendProxyHandlerRestartAbandonment(restart),
 				"published runtime state must not be treated as rollbackable");
+		verify(previous, org.mockito.Mockito.timeout(1_000)).close();
 		org.mockito.InOrder publication = org.mockito.Mockito.inOrder(previous, replacement);
 		publication.verify(previous).completeHttpHandoff(replacement);
 		publication.verify(replacement).activateInboundMessages();
@@ -376,6 +403,7 @@ class VotingPluginMainBackendProxyPublicationTest {
 		plugin.validateBackendProxyHandlerRestart(restart, System.nanoTime() + 1_000_000_000L);
 		plugin.completeBackendProxyHandlerRestart(restart);
 
+		verify(previous, org.mockito.Mockito.timeout(1_000)).close();
 		org.mockito.InOrder disable = org.mockito.Mockito.inOrder(previous);
 		disable.verify(previous).preparePresenceForDisable(org.mockito.ArgumentMatchers.anyLong());
 		disable.verify(previous).prepareForReplacement(org.mockito.ArgumentMatchers.isNull(),
@@ -423,6 +451,7 @@ class VotingPluginMainBackendProxyPublicationTest {
 		plugin.validateBackendProxyHandlerRestart(restart, System.nanoTime() + 1_000_000_000L);
 		plugin.completeBackendProxyHandlerRestart(restart);
 
+		verify(previous, org.mockito.Mockito.timeout(1_000)).close();
 		org.mockito.InOrder disable = org.mockito.Mockito.inOrder(previous);
 		disable.verify(previous).preparePresenceForDisable();
 		disable.verify(previous).commitPreparedDisable();

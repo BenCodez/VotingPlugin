@@ -930,6 +930,7 @@ public abstract class VoteCacheHandler {
 			if (timedVoteCacheTable.updateTimedVote(vote)) {
 				return !hasJsonTimeVote(vote) || updateTimeVoteJson(vote);
 			}
+			if (vote.getTimedVoteCacheRowId() > 0) return false;
 			// A timed vote can have been admitted to the JSON emergency journal when
 			// its initial SQL insert failed. Keep delivery-state ACKs durable there
 			// until the SQL row is available again.

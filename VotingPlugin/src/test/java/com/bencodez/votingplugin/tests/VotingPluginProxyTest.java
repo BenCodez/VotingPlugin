@@ -529,6 +529,30 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void completedAckOutboxPersistsAckProgressBeforeRequestingRetirement() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		java.util.UUID voteId = java.util.UUID.randomUUID();
+		VoteTimeQueue outbox = new VoteTimeQueue(voteId, "Player", "Service", 100L, false,
+				java.util.Collections.emptySet(), java.util.Collections.emptySet(), "totals", true,
+				"00000000-0000-0000-0000-000000000001");
+		outbox.requireMultiProxyAcknowledgements("Proxy1", java.util.Set.of("Proxy2"));
+		assertTrue(outbox.acknowledgeMultiProxyRecipient("Proxy2"));
+		outbox.setDeliveryStateDirty(true);
+		java.util.Queue<VoteTimeQueue> queue = new java.util.concurrent.ConcurrentLinkedQueue<>();
+		queue.add(outbox);
+		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(queue);
+		Mockito.when(voteCache.updateTimeVote(outbox)).thenReturn(false);
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+
+		spyProxy.processQueue();
+
+		verify(voteCache).updateTimeVote(outbox);
+		verify(multiProxyHandler, never()).requestMultiProxyVoteRetirement(Mockito.any(), Mockito.anyString(),
+				Mockito.anyString());
+	}
+
+	@Test
 	void receiverKeepsCompletionFenceUntilItsProcessedQueueRowIsRemoved() throws Exception {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		java.util.UUID voteId = java.util.UUID.randomUUID();
