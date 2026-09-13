@@ -9,6 +9,9 @@ import lombok.Getter;
 public enum VoteShopPurchaseResult {
 
 	SUCCESS,
+	PENDING,
+	RECONCILIATION_REQUIRED,
+	FAILED,
 	SHOP_DISABLED,
 	ITEM_NOT_FOUND,
 	NO_PERMISSION,

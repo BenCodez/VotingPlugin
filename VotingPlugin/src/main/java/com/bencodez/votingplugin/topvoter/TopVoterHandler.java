@@ -38,6 +38,7 @@ import com.bencodez.simpleapi.sql.Column;
 import com.bencodez.simpleapi.sql.DataType;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseService;
 
 /**
  * Handles top voter rankings and statistics.
@@ -235,7 +236,8 @@ public class TopVoterHandler implements Listener {
 
 			for (String shopIdent : plugin.getShopFile().getShopIdentifiers()) {
 				if (plugin.getShopFile().getVoteShopResetDaily(shopIdent)) {
-					resetVoteShopLimit(shopIdent);
+					resetVoteShopLimit(shopIdent,
+							VoteShopPurchaseService.currentLimitGenerationId(plugin, shopIdent));
 				}
 			}
 
@@ -357,7 +359,8 @@ public class TopVoterHandler implements Listener {
 
 			for (String shopIdent : plugin.getShopFile().getShopIdentifiers()) {
 				if (plugin.getShopFile().getVoteShopResetMonthly(shopIdent)) {
-					resetVoteShopLimit(shopIdent);
+					resetVoteShopLimit(shopIdent,
+							VoteShopPurchaseService.currentLimitGenerationId(plugin, shopIdent));
 				}
 			}
 
@@ -480,7 +483,8 @@ public class TopVoterHandler implements Listener {
 
 			for (String shopIdent : plugin.getShopFile().getShopIdentifiers()) {
 				if (plugin.getShopFile().getVoteShopResetWeekly(shopIdent)) {
-					resetVoteShopLimit(shopIdent);
+					resetVoteShopLimit(shopIdent,
+							VoteShopPurchaseService.currentLimitGenerationId(plugin, shopIdent));
 				}
 			}
 
@@ -526,7 +530,17 @@ public class TopVoterHandler implements Listener {
 	 * @param shopIdent the shop identifier
 	 */
 	public void resetVoteShopLimit(String shopIdent) {
-		plugin.getUserManager().removeAllKeyValues("VoteShopLimit" + shopIdent, DataType.INTEGER);
+		resetVoteShopLimit(shopIdent, null);
+	}
+
+	private void resetVoteShopLimit(String shopIdent, String resetGeneration) {
+		String limitColumn = "VoteShopLimit" + shopIdent;
+		if (UserStorage.MYSQL.equals(plugin.getStorageType()) && !plugin.getBungeeSettings().isPerServerPoints()) {
+			if (resetGeneration == null) VoteShopPurchaseService.resetSharedMysqlLimit(plugin, limitColumn);
+			else VoteShopPurchaseService.resetSharedMysqlLimit(plugin, limitColumn, resetGeneration);
+			return;
+		}
+		plugin.getUserManager().removeAllKeyValues(limitColumn, DataType.INTEGER);
 	}
 
 	/**

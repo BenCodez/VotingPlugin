@@ -15,6 +15,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.bukkit.Bukkit;
@@ -25,6 +29,8 @@ import com.bencodez.advancedcore.api.misc.MiscUtils;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
+import com.bencodez.advancedcore.api.user.UserDataFetchMode;
+import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.simpleapi.sql.data.DataValueInt;
@@ -37,6 +43,7 @@ import com.bencodez.votingplugin.events.SpecialRewardType;
 import com.bencodez.votingplugin.proxy.VoteTotalsSnapshot;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
+import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
 import com.bencodez.votingplugin.votesites.NextSite;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
@@ -46,6 +53,7 @@ import com.bencodez.votingplugin.votesites.VoteSite;
  * functionality specific to the VotingPlugin.
  */
 public class VotingPluginUser extends com.bencodez.advancedcore.api.user.AdvancedCoreUser {
+	private static final int BULK_POINT_BATCH_SIZE = 64;
 
 	/** The plugin instance. */
 	private VotingPluginMain plugin;
@@ -179,12 +187,32 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public void addPoints() {
 		int points = plugin.getConfigFile().getPointsOnVote();
-		if (points != 0) {
-			addPoints(points);
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		boolean sharedMysql = sharedPoints.applies();
+		int limit = plugin.getConfigFile().getLimitVotePoints();
+		if (sharedMysql && points != 0 && limit > 0) {
+			// Keep the receive hook semantics of addPoints(int, boolean), while
+			// accepting the addition and upper bound as one persistence task.
+			PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, points);
+			Bukkit.getPluginManager().callEvent(event);
+			if (!event.isCancelled()) {
+				sharedPoints.addAndCap(this, event.getPoints(), limit, true);
+			} else {
+				sharedPoints.cap(this, limit, true);
+			}
+			return;
 		}
-		if (plugin.getConfigFile().getLimitVotePoints() > 0) {
-			if (getPoints() > plugin.getConfigFile().getLimitVotePoints()) {
-				setPoints(plugin.getConfigFile().getLimitVotePoints());
+		if (points != 0) {
+			// Vote processing runs on the server lane. Shared MySQL arithmetic must
+			// use the lifecycle persistence executor instead of blocking a tick on
+			// connection acquisition and the committed-balance read.
+			addPoints(points, sharedMysql);
+		}
+		if (limit > 0) {
+			if (sharedMysql) {
+				sharedPoints.cap(this, limit, true);
+			} else if (getPoints() > limit) {
+				setPoints(limit);
 			}
 		}
 	}
@@ -213,9 +241,277 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		if (event.isCancelled()) {
 			return getPoints();
 		}
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		if (sharedPoints.applies()) {
+			return sharedPoints.add(this, event.getPoints(), async);
+		}
 		int newTotal = getPoints() + event.getPoints();
 		setPoints(newTotal, async);
 		return newTotal;
+	}
+
+	/**
+	 * Keeps ordinary storage writes synchronous while moving shared-MySQL atomic
+	 * arithmetic onto the persistence executor.
+	 */
+	public int addPointsStorageAware(int value) {
+		return addPoints(value, new SharedMysqlPointMutator(plugin).applies());
+	}
+
+	/**
+	 * Adds points and completes with the committed total. Shared-MySQL work runs on
+	 * the persistence executor; ordinary storage preserves its synchronous write.
+	 * The returned stage never reports a predicted shared-MySQL value.
+	 *
+	 * @param value point delta
+	 * @return committed point total, or an exceptional stage when persistence fails
+	 */
+	public synchronized CompletionStage<Integer> addPointsStorageAwareAsync(int value) {
+		return addPointsStorageAwareAsync(value, null);
+	}
+
+	/**
+	 * Adds points and completes with the committed total, optionally binding the
+	 * addition to a durable operation id supplied by a retryable reward stage.
+	 * Callers without a stable id retain the historical behavior.
+	 *
+	 * @param value point delta
+	 * @param operationId stable id for a retry of the same logical addition, or null
+	 * @return committed point total, or an exceptional stage when persistence fails
+	 */
+	public synchronized CompletionStage<Integer> addPointsStorageAwareAsync(int value, String operationId) {
+		PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, value);
+		Bukkit.getPluginManager().callEvent(event);
+		if (event.isCancelled()) {
+			return CompletableFuture.completedFuture(getPoints());
+		}
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		if (!sharedPoints.applies()) {
+			int newTotal = getPoints() + event.getPoints();
+			setPoints(newTotal, false);
+			return CompletableFuture.completedFuture(newTotal);
+		}
+
+		CompletableFuture<Integer> completion = new CompletableFuture<>();
+		try {
+			plugin.getTimer().execute(() -> {
+				try {
+					SharedMysqlPointMutator.AddResult result = sharedPoints.addCommitted(this, event.getPoints(), operationId);
+					if (result.success()) completion.complete(result.total());
+					else completion.completeExceptionally(
+							new IllegalStateException("Unable to persist shared MySQL points"));
+				} catch (Throwable failure) {
+					completion.completeExceptionally(failure);
+				}
+			});
+		} catch (RuntimeException rejected) {
+			plugin.debug(rejected);
+			completion.completeExceptionally(rejected);
+		}
+		return completion;
+	}
+
+	/** Retires an idempotent point-addition record after its replay checkpoint is durable. */
+	public CompletionStage<Void> acknowledgeStorageAwarePointOperation(String operationId) {
+		return new SharedMysqlPointMutator(plugin).acknowledgePointAddition(operationId);
+	}
+
+	/**
+	 * Adds points and reports the committed total after shared-MySQL persistence
+	 * completes. The callback runs on the user's Bukkit/entity lane.
+	 */
+	public void addPointsStorageAware(int value, Consumer<Integer> completion) {
+		addPointsStorageAware(value, (success, total) -> completion.accept(total));
+	}
+
+	/**
+	 * Applies one shared-MySQL add operation for a collection of users on a
+	 * single persistence task. This keeps administrative bulk commands from
+	 * flooding the bounded persistence executor with one task per user.
+	 *
+	 * @param plugin plugin owning the persistence executor
+	 * @param users users to update
+	 * @param value points delta
+	 * @param completion callback invoked on the Bukkit lane for every user
+	 */
+	public static void addPointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users, int value,
+			BiConsumer<VotingPluginUser, Boolean> completion) {
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		if (!sharedPoints.applies()) {
+			for (VotingPluginUser user : users) {
+				user.addPointsStorageAware(value, (success, ignored) -> completion.accept(user, success));
+			}
+			return;
+		}
+		java.util.IdentityHashMap<VotingPluginUser, Integer> eventAmounts = new java.util.IdentityHashMap<>();
+		for (VotingPluginUser user : users) {
+			PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(user, value);
+			Bukkit.getPluginManager().callEvent(event);
+			if (!event.isCancelled()) eventAmounts.put(user, event.getPoints());
+		}
+		bulkSharedMysqlMutation(plugin, users, completion,
+				(mutator, user) -> {
+					Integer amount = eventAmounts.get(user);
+					return amount != null && mutator.addCommitted(user, amount).success();
+				},
+				(user, done) -> done.accept(false));
+	}
+
+	/**
+	 * Applies one shared-MySQL absolute point update for a collection of users
+	 * on a single persistence task.
+	 *
+	 * @param plugin plugin owning the persistence executor
+	 * @param users users to update
+	 * @param value new point total
+	 * @param completion callback invoked on the Bukkit lane for every user
+	 */
+	public static void setPointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users, int value,
+			BiConsumer<VotingPluginUser, Boolean> completion) {
+		bulkSharedMysqlMutation(plugin, users, completion,
+				(mutator, user) -> mutator.setCommitted(user, value),
+				(user, done) -> {
+					user.setPoints(value);
+					done.accept(true);
+				});
+	}
+
+	/**
+	 * Sets points without performing shared-MySQL I/O on the caller thread and
+	 * reports whether the durable update affected the user row.
+	 *
+	 * @param value new point total
+	 * @param completion completion callback on the user's Bukkit/entity lane
+	 */
+	public void setPointsStorageAware(int value, Consumer<Boolean> completion) {
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		if (!sharedPoints.applies()) {
+			setPoints(value);
+			completion.accept(true);
+			return;
+		}
+		Player player = getPlayer();
+		try {
+			plugin.getTimer().execute(() -> {
+				boolean updated = sharedPoints.setCommitted(this, value);
+				BukkitCompletionScheduler.run(plugin, player, () -> completion.accept(updated));
+			});
+		} catch (RuntimeException rejected) {
+			plugin.debug(rejected);
+			BukkitCompletionScheduler.run(plugin, player, () -> completion.accept(false));
+		}
+	}
+
+	/**
+	 * Applies one shared-MySQL conditional removal for a collection of users on
+	 * a single persistence task.
+	 *
+	 * @param plugin plugin owning the persistence executor
+	 * @param users users to update
+	 * @param value points to remove
+	 * @param completion callback invoked on the Bukkit lane for every user
+	 */
+	public static void removePointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users, int value,
+			BiConsumer<VotingPluginUser, Boolean> completion) {
+		bulkSharedMysqlMutation(plugin, users, completion,
+				(mutator, user) -> mutator.remove(user, value),
+				(user, done) -> user.removePoints(value, done));
+	}
+
+	@FunctionalInterface
+	private interface SharedPointMutation {
+		boolean apply(SharedMysqlPointMutator mutator, VotingPluginUser user);
+	}
+
+	@FunctionalInterface
+	private interface OrdinaryPointMutation {
+		void apply(VotingPluginUser user, Consumer<Boolean> completion);
+	}
+
+	private static void bulkSharedMysqlMutation(VotingPluginMain plugin, List<VotingPluginUser> users,
+			BiConsumer<VotingPluginUser, Boolean> completion, SharedPointMutation sharedMutation,
+			OrdinaryPointMutation ordinaryMutation) {
+		if (users.isEmpty()) return;
+		if (!new SharedMysqlPointMutator(plugin).applies()) {
+			for (VotingPluginUser user : users) {
+				ordinaryMutation.apply(user, success -> completion.accept(user, success));
+			}
+			return;
+		}
+		submitSharedMysqlChunk(plugin, users, 0, completion, sharedMutation);
+	}
+
+	private static void submitSharedMysqlChunk(VotingPluginMain plugin, List<VotingPluginUser> users, int start,
+			BiConsumer<VotingPluginUser, Boolean> completion, SharedPointMutation sharedMutation) {
+		int end = Math.min(start + BULK_POINT_BATCH_SIZE, users.size());
+		Runnable persistenceWork = () -> {
+			boolean[] results = new boolean[end - start];
+			SharedMysqlPointMutator mutator = new SharedMysqlPointMutator(plugin);
+			for (int index = start; index < end; index++) {
+				try {
+					results[index - start] = sharedMutation.apply(mutator, users.get(index));
+				} catch (RuntimeException failure) {
+					plugin.debug(failure);
+				}
+			}
+			scheduleBulkCompletions(plugin, users, start, end, results, completion);
+			if (end < users.size()) {
+				submitSharedMysqlChunk(plugin, users, end, completion, sharedMutation);
+			}
+		};
+		try {
+			plugin.getTimer().execute(persistenceWork);
+		} catch (RuntimeException rejected) {
+			plugin.debug(rejected);
+			scheduleBulkCompletions(plugin, users, start, users.size(), null, completion);
+		}
+	}
+
+	private static void scheduleBulkCompletions(VotingPluginMain plugin, List<VotingPluginUser> users, int start,
+			int end, boolean[] results, BiConsumer<VotingPluginUser, Boolean> completion) {
+		for (int index = start; index < end; index++) {
+			VotingPluginUser user = users.get(index);
+			boolean success = results != null && results[index - start];
+			try {
+				BukkitCompletionScheduler.run(plugin, user.getPlayer(), () -> {
+					try {
+						completion.accept(user, success);
+					} catch (RuntimeException failure) {
+						plugin.debug(failure);
+					}
+				});
+			} catch (RuntimeException schedulingFailure) {
+				plugin.debug(schedulingFailure);
+			}
+		}
+	}
+
+	/** Adds points and reports both persistence success and the committed total. */
+	public synchronized void addPointsStorageAware(int value, BiConsumer<Boolean, Integer> completion) {
+		PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, value);
+		Bukkit.getPluginManager().callEvent(event);
+		if (event.isCancelled()) {
+			completion.accept(false, getPoints());
+			return;
+		}
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		if (!sharedPoints.applies()) {
+			int newTotal = getPoints() + event.getPoints();
+			setPoints(newTotal, false);
+			completion.accept(true, newTotal);
+			return;
+		}
+		Player player = getPlayer();
+		try {
+			plugin.getTimer().execute(() -> {
+				SharedMysqlPointMutator.AddResult result = sharedPoints.addCommitted(this, event.getPoints());
+				BukkitCompletionScheduler.run(plugin, player,
+						() -> completion.accept(result.success(), result.total()));
+			});
+		} catch (RuntimeException rejected) {
+			plugin.debug(rejected);
+			BukkitCompletionScheduler.run(plugin, player, () -> completion.accept(false, 0));
+		}
 	}
 
 	/**
@@ -1039,7 +1335,15 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return the vote shop identifier limit
 	 */
 	public int getVoteShopIdentifierLimit(String identifier) {
-		return getData().getInt("VoteShopLimit" + identifier);
+		String path = "VoteShopLimit" + identifier;
+		if (usesSharedMysqlPoints()) {
+			// Placeholder and GUI rendering may run on the Bukkit main thread or a
+			// Folia-owned tick thread. This accessor therefore never performs JDBC for
+			// shared MySQL; purchases remain protected by their atomic reservation.
+			return getData().getInt(path,
+					isCached() ? UserDataFetchMode.CACHE_ONLY : UserDataFetchMode.TEMP_ONLY);
+		}
+		return getData().getInt(path);
 	}
 
 	/**
@@ -1301,6 +1605,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return true if the points were removed, false otherwise
 	 */
 	public boolean removePoints(int points) {
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		if (sharedPoints.applies()) return sharedPoints.remove(this, points);
 		if (getPoints() >= points) {
 			setPoints(getPoints() - points);
 			return true;
@@ -1316,11 +1622,73 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @return true if the points were removed, false otherwise
 	 */
 	public boolean removePoints(int points, boolean async) {
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		if (sharedPoints.applies()) return sharedPoints.remove(this, points, async);
 		if (getPoints() >= points) {
 			setPoints(getPoints() - points, async);
 			return true;
 		}
 		return false;
+	}
+
+	/** Removes points without performing shared-database I/O on the caller thread. */
+	public void removePoints(int points, Consumer<Boolean> completion) {
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		if (!sharedPoints.applies()) {
+			completion.accept(removePoints(points));
+			return;
+		}
+		Player player = getPlayer();
+		try {
+			plugin.getTimer().execute(() -> {
+				boolean removed = sharedPoints.remove(this, points);
+				BukkitCompletionScheduler.run(plugin, player, () -> completion.accept(removed));
+			});
+		} catch (RuntimeException rejected) {
+			plugin.debug(rejected);
+			BukkitCompletionScheduler.run(plugin, player, () -> completion.accept(false));
+		}
+	}
+
+	/**
+	 * Atomically transfers points to another user when points are shared through
+	 * MySQL, reporting completion on the Bukkit thread.
+	 *
+	 * @param target recipient
+	 * @param points positive number of points
+	 * @param completion whether the transfer completed
+	 */
+	public void transferPoints(VotingPluginUser target, int points, Consumer<Boolean> completion) {
+		transferPointsWithResult(target, points, result -> completion.accept(completesLegacyTransfer(result)));
+	}
+
+	/**
+	 * Legacy callers must not retry an indeterminate transfer: its approval hook
+	 * has run and its durable journal row is retained for reconciliation.
+	 */
+	static boolean completesLegacyTransfer(PointTransferResult result) {
+		return result == PointTransferResult.SUCCESS || result == PointTransferResult.PENDING_CONFIRMATION;
+	}
+
+	/**
+	 * Transfers points and reports whether a failed transfer was caused by a
+	 * conditional debit or by cancellation/availability.
+	 */
+	public void transferPointsWithResult(VotingPluginUser target, int points, Consumer<PointTransferResult> completion) {
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		if (sharedPoints.applies()) {
+			sharedPoints.transferWithBukkitApproval(this, target, points, ignored -> {
+					PlayerReceivePointsEvent receiveEvent = new PlayerReceivePointsEvent(target, points);
+					Bukkit.getPluginManager().callEvent(receiveEvent);
+					return receiveEvent.isCancelled() ? null : receiveEvent.getPoints();
+				}, completion);
+			return;
+		}
+		boolean transferred = removePoints(points);
+		if (transferred) {
+			target.addPoints(points);
+		}
+		completion.accept(transferred ? PointTransferResult.SUCCESS : PointTransferResult.INSUFFICIENT_POINTS);
 	}
 
 	/**
@@ -1590,7 +1958,12 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param value the number of points
 	 */
 	public void setPoints(int value) {
-		getUserData().setInt(getPointsPath(), value, false);
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		if (sharedPoints.applies()) {
+			sharedPoints.set(this, value, false);
+		} else {
+			getUserData().setInt(getPointsPath(), value, false);
+		}
 	}
 
 	/**
@@ -1600,7 +1973,12 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param async whether to set the points asynchronously
 	 */
 	public void setPoints(int value, boolean async) {
-		getUserData().setInt(getPointsPath(), value, false, async);
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		if (sharedPoints.applies()) {
+			sharedPoints.set(this, value, async);
+		} else {
+			getUserData().setInt(getPointsPath(), value, false, async);
+		}
 	}
 
 	/**
@@ -1690,7 +2068,15 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param value      the limit to set
 	 */
 	public void setVoteShopIdentifierLimit(String identifier, int value) {
-		getData().setInt("VoteShopLimit" + identifier, value);
+		String path = "VoteShopLimit" + identifier;
+		// Shared-MySQL purchase/reset transactions own these columns. Never leave an
+		// absolute queued cache write that another backend's reset cannot fence.
+		getData().setInt(path, value, !usesSharedMysqlPoints());
+	}
+
+	private boolean usesSharedMysqlPoints() {
+		return plugin != null && UserStorage.MYSQL.equals(plugin.getStorageType())
+				&& !plugin.getBungeeSettings().isPerServerPoints();
 	}
 
 	/**

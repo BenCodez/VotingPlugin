@@ -387,6 +387,15 @@ public class Config extends YMLFile {
 	@Getter
 	private String formatCommandsVoteGivePointsNotEnoughPoints = "&cNot enough points";
 
+	@ConfigDataString(path = "Format.Commands.Vote.GivePoints.Unavailable")
+	@Getter
+	private String formatCommandsVoteGivePointsUnavailable = "&cUnable to transfer points right now, please try again";
+
+	@ConfigDataString(path = "Format.Commands.Vote.GivePoints.PendingConfirmation")
+	@Getter
+	private String formatCommandsVoteGivePointsPendingConfirmation =
+				"&eTransfer pending confirmation; do not retry it";
+
 	@ConfigDataString(path = "Format.Commands.Vote.GivePoints.NotJoinedServer")
 	@Getter
 	private String formatCommandsVoteGivePointsNotJoinedServer = "&c%player% has not joined the server";
