@@ -497,6 +497,36 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void rejectedLegacyOnlyMultiProxySendKeepsLiveVoteForRetry() throws Exception {
+		Mockito.when(multiProxyHandler.getMultiProxyVoteRecipients()).thenReturn(java.util.Collections.emptySet());
+		Mockito.when(multiProxyHandler.getConfiguredMultiProxyVoteRecipients())
+				.thenReturn(new java.util.LinkedHashSet<>(java.util.Set.of("ProxyLegacy")));
+		Mockito.when(multiProxyHandler.sendMultiProxyEnvelopeAccepted(Mockito.any(), Mockito.any())).thenReturn(false);
+		Mockito.when(votingPluginProxy.getConfig().getProxyServerName()).thenReturn("Proxy1");
+
+		Class<?> retryType = Class.forName("com.bencodez.votingplugin.proxy.VotingPluginProxy$LiveVoteRetryState");
+		java.lang.reflect.Constructor<?> constructor = retryType.getDeclaredConstructor();
+		constructor.setAccessible(true);
+		Object retry = constructor.newInstance();
+		java.util.UUID voteId = java.util.UUID.randomUUID();
+		java.lang.reflect.Field retriesField = VotingPluginProxy.class.getDeclaredField("liveVoteRetries");
+		retriesField.setAccessible(true);
+		@SuppressWarnings("unchecked")
+		java.util.Map<java.util.UUID, Object> retries =
+				(java.util.Map<java.util.UUID, Object>) retriesField.get(votingPluginProxy);
+		retries.put(voteId, retry);
+		java.lang.reflect.Method begin = VotingPluginProxy.class.getDeclaredMethod("beginMultiProxyForwarding",
+				retryType, VoteTimeQueue.class, String.class, String.class, String.class, long.class,
+				boolean.class, com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.class);
+		begin.setAccessible(true);
+
+		assertFalse((Boolean) begin.invoke(votingPluginProxy, retry, null, "Player",
+				"00000000-0000-0000-0000-000000000001", "Service", 100L, true, null));
+		verify(multiProxyHandler).sendMultiProxyEnvelopeAccepted(Mockito.any(),
+				Mockito.eq(java.util.Set.of("ProxyLegacy")));
+	}
+
+	@Test
 	void completedAckOutboxKeepsFenceForAlreadyScheduledListenerRetry() throws Exception {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		java.util.UUID voteId = java.util.UUID.randomUUID();

@@ -37,6 +37,8 @@ public class BackendPresenceManager {
 	private final Object lifecycleLock = new Object();
 
 	private boolean reporting;
+	/** Invalidates delayed lifecycle callbacks when a fresh incarnation starts. */
+	private long lifecycleGeneration;
 	private String server;
 	private UUID incarnationId;
 	private long startedAt;
@@ -60,6 +62,7 @@ public class BackendPresenceManager {
 		}
 		String configuredServer = plugin.getBungeeSettings().getServer();
 		synchronized (lifecycleLock) {
+			lifecycleGeneration++;
 			long now = System.currentTimeMillis();
 			incarnationId = UUID.randomUUID();
 			startedAt = now;
@@ -112,11 +115,15 @@ public class BackendPresenceManager {
 		// retain the direct path used by the non-Control lifecycle.
 		if (method == BungeeMethod.PLUGINMESSAGING && plugin != null && plugin.getServer() != null
 				&& !plugin.getServer().isPrimaryThread()) {
+			long expectedGeneration;
+			synchronized (lifecycleLock) {
+				expectedGeneration = lifecycleGeneration;
+			}
 			CompletableFuture<Void> scheduled = new CompletableFuture<>();
 			try {
 				plugin.getBukkitScheduler().executeOrScheduleSync(plugin, () -> {
 					try {
-						stop(true);
+						stop(true, expectedGeneration);
 						scheduled.complete(null);
 					} catch (Throwable failure) {
 						scheduled.completeExceptionally(failure);
@@ -138,7 +145,18 @@ public class BackendPresenceManager {
 	}
 
 	private void stop(boolean requireStoppedDelivery) {
+		stop(requireStoppedDelivery, -1L);
+	}
+
+	/**
+	 * Stops only the generation captured by a delayed callback. A cancelled future
+	 * does not necessarily cancel a task already queued on the Bukkit scheduler.
+	 */
+	private void stop(boolean requireStoppedDelivery, long expectedGeneration) {
 		synchronized (lifecycleLock) {
+			if (expectedGeneration >= 0L && lifecycleGeneration != expectedGeneration) {
+				return;
+			}
 			String activeServer = server;
 			UUID activeIncarnationId = incarnationId;
 			long activeStartedAt = startedAt;
@@ -149,18 +167,21 @@ public class BackendPresenceManager {
 				heartbeatTask.cancel(false);
 				heartbeatTask = null;
 			}
-			if (wasReporting && activeServer != null && activeIncarnationId != null) {
-				JsonEnvelope stopped = VotingPluginWire.backendStopped(activeServer, activeIncarnationId,
-						activeStartedAt, nextTimestamp());
-				if (requireStoppedDelivery) globalMessageHandler.sendMessage(stopped);
-				else send(stopped);
+			try {
+				if (wasReporting && activeServer != null && activeIncarnationId != null) {
+					JsonEnvelope stopped = VotingPluginWire.backendStopped(activeServer, activeIncarnationId,
+							activeStartedAt, nextTimestamp());
+					if (requireStoppedDelivery) globalMessageHandler.sendMessage(stopped);
+					else send(stopped);
+				}
+			} finally {
+				incarnationId = null;
+				lastResyncRequestId = null;
+				lastResyncRequestAtNanos = 0L;
+				lastSnapshotRequestId = null;
+				lastSnapshotRequestAtNanos = 0L;
+				playerSessions.clear();
 			}
-			incarnationId = null;
-			lastResyncRequestId = null;
-			lastResyncRequestAtNanos = 0L;
-			lastSnapshotRequestId = null;
-			lastSnapshotRequestAtNanos = 0L;
-			playerSessions.clear();
 		}
 	}
 

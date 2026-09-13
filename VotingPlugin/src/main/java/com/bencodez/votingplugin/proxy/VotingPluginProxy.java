@@ -5627,10 +5627,9 @@ public abstract class VotingPluginProxy {
 		if (recipients.isEmpty()) {
 			// Older peers do not understand acknowledgements. Preserve their historical
 			// fire-and-forget route instead of creating an outbox they can never ACK.
-			multiProxyHandler.sendMultiProxyEnvelopeAccepted(VotingPluginWire.multiProxyVote(player, uuid, service, time,
+			return multiProxyHandler.sendMultiProxyEnvelopeAccepted(VotingPluginWire.multiProxyVote(player, uuid, service, time,
 					false, realVote, totals == null ? "" : totals.toString(), findLiveVoteId(retryState), false, false,
 					1, 1, getConfig().getProxyServerName()), legacyRecipients);
-			return true;
 		}
 		VoteTimeQueue outbox = queuedVote;
 		if (outbox == null) {

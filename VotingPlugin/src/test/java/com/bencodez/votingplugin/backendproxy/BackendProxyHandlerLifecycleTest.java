@@ -272,10 +272,67 @@ class BackendProxyHandlerLifecycleTest {
 		setField(presence, "server", "backend-1");
 		setField(presence, "incarnationId", java.util.UUID.randomUUID());
 		setField(presence, "startedAt", 1L);
+		@SuppressWarnings("unchecked")
+		java.util.concurrent.ConcurrentHashMap<String, com.bencodez.votingplugin.backendproxy.presence.BackendPlayerPresenceSession> sessions =
+				(java.util.concurrent.ConcurrentHashMap<String, com.bencodez.votingplugin.backendproxy.presence.BackendPlayerPresenceSession>) getField(
+						presence, "playerSessions");
+		sessions.put("player", com.bencodez.votingplugin.backendproxy.presence.BackendPlayerPresenceSession
+				.create("Player", "550e8400-e29b-41d4-a716-446655440000"));
+		setField(presence, "lastResyncRequestId", java.util.UUID.randomUUID());
+		setField(presence, "lastResyncRequestAtNanos", 42L);
+		setField(presence, "lastSnapshotRequestId", java.util.UUID.randomUUID());
+		setField(presence, "lastSnapshotRequestAtNanos", 84L);
 		doThrow(new IllegalStateException("outbound queue full")).when(messages).sendMessage(any());
 
 		assertThrows(IllegalStateException.class, presence::stopForDisable);
 		assertFalse(presence.isReporting());
+		assertNull(getField(presence, "incarnationId"));
+		assertEquals(0, presence.getTrackedSessionCount());
+		assertNull(getField(presence, "lastResyncRequestId"));
+		assertEquals(0L, getField(presence, "lastResyncRequestAtNanos"));
+		assertNull(getField(presence, "lastSnapshotRequestId"));
+		assertEquals(0L, getField(presence, "lastSnapshotRequestAtNanos"));
+	}
+
+	@Test
+	void delayedPreparedDisableCannotStopANewerPresenceGeneration() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		org.bukkit.Server server = mock(org.bukkit.Server.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
+		when(plugin.getServer()).thenReturn(server);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(server.isPrimaryThread()).thenReturn(false);
+		AtomicReference<Runnable> queued = new AtomicReference<>();
+		org.mockito.Mockito.doAnswer(invocation -> {
+			queued.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).executeOrScheduleSync(eq(plugin), any(Runnable.class));
+
+		BackendPresenceManager presence = new BackendPresenceManager(plugin, BungeeMethod.PLUGINMESSAGING, messages);
+		java.util.UUID firstIncarnation = java.util.UUID.randomUUID();
+		setField(presence, "lifecycleGeneration", 1L);
+		setField(presence, "reporting", true);
+		setField(presence, "server", "backend-1");
+		setField(presence, "incarnationId", firstIncarnation);
+		setField(presence, "startedAt", 1L);
+
+		assertThrows(IllegalStateException.class,
+				() -> presence.stopForDisable(System.nanoTime() - 1L));
+		assertNotNull(queued.get());
+
+		java.util.UUID replacementIncarnation = java.util.UUID.randomUUID();
+		setField(presence, "lifecycleGeneration", 2L);
+		setField(presence, "reporting", true);
+		setField(presence, "server", "backend-1");
+		setField(presence, "incarnationId", replacementIncarnation);
+		setField(presence, "startedAt", 2L);
+
+		queued.get().run();
+
+		assertTrue(presence.isReporting());
+		assertEquals(replacementIncarnation, getField(presence, "incarnationId"));
+		verifyNoInteractions(messages);
 	}
 
 	@Test
@@ -1084,6 +1141,20 @@ class BackendProxyHandlerLifecycleTest {
 				field.setAccessible(true);
 				field.set(target, value);
 				return;
+			} catch (NoSuchFieldException ignored) {
+				type = type.getSuperclass();
+			}
+		}
+		throw new NoSuchFieldException(name);
+	}
+
+	private Object getField(Object target, String name) throws Exception {
+		Class<?> type = target.getClass();
+		while (type != null) {
+			try {
+				Field field = type.getDeclaredField(name);
+				field.setAccessible(true);
+				return field.get(target);
 			} catch (NoSuchFieldException ignored) {
 				type = type.getSuperclass();
 			}
