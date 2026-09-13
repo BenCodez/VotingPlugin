@@ -40,10 +40,13 @@ public final class SharedVoteProcessor {
             }
             return call(() -> identities.resolve(input), "identity resolution").thenCompose(identity -> {
                 if (identity == null) return failed("Identity resolver returned null identity");
-                boolean online = input.proxyVote() ? input.wasOnline() : identity.online();
+                // Totals follow the user's live resolved state, matching PlayerVoteListener.
+                // wasOnline is retained only for proxy reward semantics.
+                boolean currentOnline = identity.online();
+                boolean rewardOnline = input.proxyVote() ? input.wasOnline() : currentOnline;
                 SharedVoteMutation mutation = new SharedVoteMutation(input.voteId(), input.serviceSite(), input.voteTime(),
-                        policy.shouldCountTotals(input, online), policy.shouldAwardConfiguredPoints(input));
-                boolean executeNow = policy.shouldExecuteRewardsNow(input, online);
+                        policy.shouldCountTotals(input, currentOnline), policy.shouldAwardConfiguredPoints(input));
+                boolean executeNow = policy.shouldExecuteRewardsNow(input, rewardOnline);
                 return call(() -> users.persistVoteWithReward(input, identity, mutation, executeNow), "atomic persistence")
                         .thenCompose(receipt -> {
                             if (receipt == null) return failed("User services returned null vote receipt");

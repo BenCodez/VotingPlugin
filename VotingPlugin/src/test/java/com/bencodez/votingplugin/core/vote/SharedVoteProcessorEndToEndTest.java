@@ -41,8 +41,6 @@ class SharedVoteProcessorEndToEndTest {
         assertTrue(Files.isRegularFile(storeFile));
         assertEquals(List.of("command:say Thanks Ben:1", "message:Thanks Ben:10"), rewards);
 
-        // Simulate a process restart: construct new storage/core objects and reload the
-        // same durable file before processing a vote while the user is offline.
         SharedVoteTestStore restartedStore = new SharedVoteTestStore(storeFile, 10);
         assertEquals(first.persistedState(), restartedStore.load(uuid).toCompletableFuture().join());
         SharedVoteProcessor restartedRuntime = new SharedVoteProcessor(
@@ -82,6 +80,30 @@ class SharedVoteProcessorEndToEndTest {
     }
 
     @Test
+    void proxyTotalsUseLiveStateInsteadOfHistoricalWasOnline() {
+        UUID uuid = UUID.randomUUID();
+        SharedVotePolicy policy = new SharedVotePolicy(false, true, false, true, true);
+
+        SharedVoteTestStore offlineStore = new SharedVoteTestStore(tempDir.resolve("proxy-offline.properties"), 2);
+        SharedVoteProcessor offlineRuntime = new SharedVoteProcessor(
+                input -> CompletableFuture.completedFuture(new SharedVoteIdentity(uuid, "Ben", false)),
+                offlineStore, recording(offlineStore, new ArrayList<>()));
+        SharedVoteProcessingResult offline = offlineRuntime.process(
+                new SharedVoteInput(UUID.randomUUID(), "Ben", "ExampleSite", 3100L, true, true, true, true),
+                policy).toCompletableFuture().join();
+        assertEquals(new SharedVoteUserSnapshot(0, 0, 0, 0, 2), offline.persistedState());
+
+        SharedVoteTestStore onlineStore = new SharedVoteTestStore(tempDir.resolve("proxy-online.properties"), 2);
+        SharedVoteProcessor onlineRuntime = new SharedVoteProcessor(
+                input -> CompletableFuture.completedFuture(new SharedVoteIdentity(uuid, "Ben", true)),
+                onlineStore, recording(onlineStore, new ArrayList<>()));
+        SharedVoteProcessingResult online = onlineRuntime.process(
+                new SharedVoteInput(UUID.randomUUID(), "Ben", "ExampleSite", 3200L, true, true, true, false),
+                policy).toCompletableFuture().join();
+        assertEquals(new SharedVoteUserSnapshot(1, 1, 1, 1, 2), online.persistedState());
+    }
+
+    @Test
     void persistenceFailurePreventsRewardExecution() {
         ArrayList<String> rewards = new ArrayList<>();
         SharedVoteTestStore failing = new SharedVoteTestStore(tempDir.resolve("failure.properties"), 1) {
@@ -118,8 +140,6 @@ class SharedVoteProcessorEndToEndTest {
         SharedVoteProcessingResult countedFake = runtime.process(
                 new SharedVoteInput(UUID.randomUUID(), "Ben", "ExampleSite", 6000L, false, true, false, true),
                 new SharedVotePolicy(true, false, true, true, true)).toCompletableFuture().join();
-        // Config.AddTotals=false suppresses totals, but current Bukkit behavior still
-        // awards configured points when the event itself allows totals.
         assertEquals(new SharedVoteUserSnapshot(0, 0, 0, 0, 5), countedFake.persistedState());
     }
 
