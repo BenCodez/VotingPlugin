@@ -120,6 +120,16 @@ class MultiProxyHandlerLifecycleTest {
 	}
 
 	@Test
+	void legacyVoteEnvelopeHasNoReliableOriginMetadata() {
+		UUID voteId = UUID.randomUUID();
+		JsonEnvelope envelope = VotingPluginWire.vote("Player", "00000000-0000-0000-0000-000000000001",
+				"Service", 100L, false, true, "totals", voteId, false, false, 1, 1);
+
+		assertEquals(voteId.toString(), envelope.getFields().get(VotingPluginWire.K_VOTE_ID));
+		assertFalse(envelope.getFields().containsKey(VotingPluginWire.K_MULTI_PROXY_ORIGIN));
+	}
+
+	@Test
 	void forwardsOriginAndStableWireVoteIdToDurableTrigger() throws Exception {
 		MultiProxyHandler handler = mock(MultiProxyHandler.class, org.mockito.Mockito.CALLS_REAL_METHODS);
 		UUID voteId = UUID.randomUUID();

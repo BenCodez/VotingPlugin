@@ -176,7 +176,11 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 	}
 
 	void dispatchLegacy(JsonEnvelope envelope) {
-		String signature = com.bencodez.simpleapi.servercomm.codec.JsonEnvelopeCodec.encode(envelope);
+		// A mixed-version publisher may put the reliable-only identity on a payload
+		// that is delivered through the legacy path. Do not expose that identity to
+		// handlers or let it alter legacy duplicate accounting.
+		JsonEnvelope legacyEnvelope = withoutReliableFields(envelope);
+		String signature = com.bencodez.simpleapi.servercomm.codec.JsonEnvelopeCodec.encode(legacyEnvelope);
 		int encodedBytes = ProcessedVoteCache.legacyRedisDeliveryBytes(signature);
 		boolean dispatch = false;
 		synchronized (legacyLifecycle) {
@@ -191,7 +195,7 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 					&& handoffDeliveryCount() < MAX_REPLAY_HANDOFF_DELIVERIES
 					&& bufferedLegacyDeliveryBytes <= ProcessedVoteCache.MAX_LEGACY_REDIS_TOTAL_BYTES - encodedBytes) {
 				bufferedLegacyDeliveries.add(new BufferedHandoffDelivery(
-						nextHandoffSequence++, envelope, signature, false));
+						nextHandoffSequence++, legacyEnvelope, signature, false));
 				bufferedLegacyDeliveryBytes += encodedBytes;
 			} else {
 				if (standbySubscriber) {
@@ -214,7 +218,16 @@ public class RedisBackendProxyTransport implements BackendProxyTransport {
 			}
 			if (dispatch) dispatchesInFlight++;
 		}
-		if (dispatch) dispatchTracked(envelope);
+		if (dispatch) dispatchTracked(legacyEnvelope);
+	}
+
+	private static JsonEnvelope withoutReliableFields(JsonEnvelope envelope) {
+		if (!envelope.getFields().containsKey(VotingPluginWire.K_REDIS_DELIVERY_ID)) return envelope;
+		JsonEnvelope.Builder builder = JsonEnvelope.builder(envelope.getSubChannel()).schema(envelope.getSchema());
+		for (java.util.Map.Entry<String, String> field : envelope.getFields().entrySet()) {
+			if (!VotingPluginWire.K_REDIS_DELIVERY_ID.equals(field.getKey())) builder.put(field.getKey(), field.getValue());
+		}
+		return builder.build();
 	}
 
 	/** Holds a consumed subscriber callback until a same-Redis transfer commits or rolls back. */

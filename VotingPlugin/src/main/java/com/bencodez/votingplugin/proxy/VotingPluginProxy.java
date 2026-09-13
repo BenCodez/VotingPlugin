@@ -5676,9 +5676,8 @@ public abstract class VotingPluginProxy {
 			// Never retry this legacy copy as part of the ACK outbox: a legacy peer has
 			// no receiver dedupe/ACK contract, while capable peers stay fully durable.
 			// Persist the exact pending set until the transport accepts the copy.
-			if (!multiProxyHandler.sendMultiProxyEnvelopeAccepted(VotingPluginWire.multiProxyVote(player, uuid, service, time,
-					false, realVote, totals == null ? "" : totals.toString(), outbox.getVoteId(), false, false, 1, 1,
-					outbox.getMultiProxyOrigin()),
+			if (!multiProxyHandler.sendMultiProxyEnvelopeAccepted(VotingPluginWire.vote(player, uuid, service, time,
+					false, realVote, totals == null ? "" : totals.toString(), outbox.getVoteId(), false, false, 1, 1),
 					new LinkedHashSet<>(outbox.getMultiProxyLegacyPendingRecipients()))) return false;
 			outbox.setMultiProxyLegacyPendingRecipients(Collections.emptySet());
 			outbox.setDeliveryStateDirty(true);
@@ -5702,9 +5701,9 @@ public abstract class VotingPluginProxy {
 			return finishMultiProxyRetirement(null, outbox);
 		}
 		if (!outbox.getMultiProxyLegacyPendingRecipients().isEmpty()) {
-			if (!multiProxyHandler.sendMultiProxyEnvelopeAccepted(VotingPluginWire.multiProxyVote(outbox.getName(),
+			if (!multiProxyHandler.sendMultiProxyEnvelopeAccepted(VotingPluginWire.vote(outbox.getName(),
 					outbox.getUuid(), outbox.getService(), outbox.getTime(), false, outbox.isRealVote(),
-					outbox.getTotals(), outbox.getVoteId(), false, false, 1, 1, outbox.getMultiProxyOrigin()),
+					outbox.getTotals(), outbox.getVoteId(), false, false, 1, 1),
 					new LinkedHashSet<>(outbox.getMultiProxyLegacyPendingRecipients()))) return false;
 			outbox.setMultiProxyLegacyPendingRecipients(Collections.emptySet());
 			outbox.setDeliveryStateDirty(true);

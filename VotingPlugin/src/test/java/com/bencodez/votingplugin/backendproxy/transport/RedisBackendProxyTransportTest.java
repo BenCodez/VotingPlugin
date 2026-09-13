@@ -165,6 +165,27 @@ class RedisBackendProxyTransportTest {
 	}
 
 	@Test
+	void legacyCopiesDoNotExposeReliableDeliveryIdentity() throws Exception {
+		ProcessedVoteCache cache = new ProcessedVoteCache();
+		RedisBackendProxyTransport transport = new RedisBackendProxyTransport(null, cache);
+		Field identity = RedisBackendProxyTransport.class.getDeclaredField("subscriberIdentity");
+		identity.setAccessible(true);
+		cache.registerRedisSubscriber(identity.get(transport));
+		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
+		setField(transport, "messageHandler", messages);
+		String deliveryId = "00000000-0000-0000-0000-000000000099";
+		JsonEnvelope mixed = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE_UPDATE)
+				.put(VotingPluginWire.K_REDIS_DELIVERY_ID, deliveryId).put("payload", "legacy").build();
+
+		transport.dispatchLegacy(mixed);
+
+		org.mockito.ArgumentCaptor<JsonEnvelope> captured = org.mockito.ArgumentCaptor.forClass(JsonEnvelope.class);
+		verify(messages).onMessage(captured.capture());
+		assertFalse(captured.getValue().getFields().containsKey(VotingPluginWire.K_REDIS_DELIVERY_ID));
+		assertEquals("legacy", captured.getValue().getFields().get("payload"));
+	}
+
+	@Test
 	void identifiedStandbyOverflowAbortsPublication() throws Exception {
 		RedisBackendProxyTransport transport = new RedisBackendProxyTransport(null, mock(ProcessedVoteCache.class));
 		setBoolean(transport, "standbySubscriber", true);
