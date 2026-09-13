@@ -11,6 +11,7 @@
         <github.global.server>github</github.global.server>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <build.number>NOTSET</build.number>
+        <packaged.jar.name>${project.name}</packaged.jar.name>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <maven.compiler.release>21</maven.compiler.release>
@@ -68,11 +69,6 @@
             </plugins>
         </pluginManagement>
         <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.4</version>
-            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -197,6 +193,28 @@
                             <minimizeJar>false</minimizeJar>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <filters>
+                                <!-- Keep this PR buildable against both the current published
+                                     AdvancedCore SNAPSHOT and its coordinated slimmer successor. -->
+                                <filter>
+                                    <artifact>com.bencodez:advancedcore</artifact>
+                                    <excludes>
+                                        <exclude>org/bouncycastle/**</exclude>
+                                        <exclude>com/bencodez/simpleapi/servercomm/http/**</exclude>
+                                        <exclude>redis/clients/**</exclude>
+                                        <exclude>org/eclipse/paho/**</exclude>
+                                        <exclude>META-INF/versions/**</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>com.bencodez:simpleapi</artifact>
+                                    <excludes>
+                                        <exclude>org/bouncycastle/**</exclude>
+                                        <exclude>com/bencodez/simpleapi/servercomm/http/**</exclude>
+                                        <exclude>redis/clients/**</exclude>
+                                        <exclude>org/eclipse/paho/**</exclude>
+                                        <exclude>META-INF/versions/**</exclude>
+                                    </excludes>
+                                </filter>
                                 <filter>
                                     <artifact>*:*</artifact>
                                     <excludes>
@@ -211,6 +229,33 @@
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer" />
                             </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.4</version>
+                <executions>
+                    <execution>
+                        <id>default-test</id>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/PackagedArtifactTest.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>packaged-artifact-test</id>
+                        <phase>package</phase>
+                        <goals><goal>test</goal></goals>
+                        <configuration>
+                            <includes><include>**/PackagedArtifactTest.java</include></includes>
+                            <reportsDirectory>${project.build.directory}/packaged-artifact-reports</reportsDirectory>
+                            <systemPropertyVariables>
+                                <votingplugin.packagedJar>${project.build.directory}/${packaged.jar.name}.jar</votingplugin.packagedJar>
+                            </systemPropertyVariables>
                         </configuration>
                     </execution>
                 </executions>
@@ -292,6 +337,12 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.14.0</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
             <groupId>net.md-5</groupId>
             <artifactId>bungeecord-api</artifactId>
             <version>1.21-R0.4</version>
@@ -328,6 +379,16 @@
             <scope>compile</scope>
         </dependency>
         <dependency>
+            <groupId>org.eclipse.paho</groupId>
+            <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+            <version>1.2.5</version>
+        </dependency>
+        <dependency>
+            <groupId>redis.clients</groupId>
+            <artifactId>jedis</artifactId>
+            <version>7.5.3</version>
+        </dependency>
+        <dependency>
             <groupId>me.clip</groupId>
             <artifactId>placeholderapi</artifactId>
             <version>2.12.2</version>
@@ -338,6 +399,33 @@
             <artifactId>advancedcore</artifactId>
             <version>3.8.2-SNAPSHOT</version>
             <scope>compile</scope>
+            <!-- AdvancedCore already embeds its relocated Rhino implementation. -->
+            <exclusions>
+                <exclusion>
+                    <groupId>org.mozilla</groupId>
+                    <artifactId>rhino</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.bouncycastle</groupId>
+                    <artifactId>bcpkix-jdk18on</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.bouncycastle</groupId>
+                    <artifactId>bcprov-jdk18on</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.bouncycastle</groupId>
+                    <artifactId>bcutil-jdk18on</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.eclipse.paho</groupId>
+                    <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>redis.clients</groupId>
+                    <artifactId>jedis</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -416,6 +504,7 @@
             <id>deploy-snapshot</id>
             <properties>
                 <build.profile.id>dev-snapshot</build.profile.id>
+                <packaged.jar.name>${project.name}-${build.number}</packaged.jar.name>
             </properties>
             <distributionManagement>
                 <snapshotRepository>
