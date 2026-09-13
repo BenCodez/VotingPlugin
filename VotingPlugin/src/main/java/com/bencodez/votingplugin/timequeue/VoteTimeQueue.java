@@ -83,6 +83,9 @@ public class VoteTimeQueue {
 	/** Recipients whose durable completion acknowledgement was received. */
 	@Getter
 	private Set<String> multiProxyAcknowledgedServers;
+	/** Legacy peers whose one-way copy has not yet been accepted by the transport. */
+	@Getter
+	private Set<String> multiProxyLegacyPendingRecipients;
 	/** Stable HTTP standalone-broadcast delivery IDs by target server. */
 	private final Map<String, String> httpBroadcastDeliveryIds;
 
@@ -222,6 +225,7 @@ public class VoteTimeQueue {
 		}
 		this.multiProxyRecipients = new LinkedHashSet<>();
 		this.multiProxyAcknowledgedServers = new LinkedHashSet<>();
+		this.multiProxyLegacyPendingRecipients = new LinkedHashSet<>();
 		this.httpBroadcastDeliveryIds = new LinkedHashMap<>();
 		if (httpBroadcastDeliveryIds != null) {
 			httpBroadcastDeliveryIds.forEach(this::setHttpBroadcastDeliveryId);
@@ -286,6 +290,10 @@ public class VoteTimeQueue {
 		return encodeBroadcastServers(multiProxyRecipients);
 	}
 
+	public String encodeMultiProxyLegacyPendingRecipients() {
+		return encodeBroadcastServers(multiProxyLegacyPendingRecipients);
+	}
+
 	public String encodeMultiProxyAcknowledgedServers() {
 		return encodeBroadcastServers(multiProxyAcknowledgedServers);
 	}
@@ -297,6 +305,15 @@ public class VoteTimeQueue {
 				if (recipient != null && !recipient.isBlank()) {
 					multiProxyRecipients.add(recipient.toLowerCase(Locale.ROOT));
 				}
+			}
+		}
+	}
+
+	public void setMultiProxyLegacyPendingRecipients(Set<String> recipients) {
+		multiProxyLegacyPendingRecipients.clear();
+		if (recipients != null) {
+			for (String recipient : recipients) {
+				if (recipient != null && !recipient.isBlank()) multiProxyLegacyPendingRecipients.add(recipient);
 			}
 		}
 	}

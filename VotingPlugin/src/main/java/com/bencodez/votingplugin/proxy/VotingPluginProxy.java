@@ -5633,8 +5633,6 @@ public abstract class VotingPluginProxy {
 			return true;
 		}
 		VoteTimeQueue outbox = queuedVote;
-		boolean newlyCreated = false;
-		boolean sendLegacyCopy = false;
 		if (outbox == null) {
 			outbox = new VoteTimeQueue(null, player, service, time, false, Collections.emptySet(),
 					Collections.emptySet(), totals == null ? "" : totals.toString(), true, uuid);
@@ -5642,12 +5640,11 @@ public abstract class VotingPluginProxy {
 			// by locating its identity rather than creating a new duplicate record.
 			outbox.setVoteId(findLiveVoteId(retryState));
 			outbox.requireMultiProxyAcknowledgements(getConfig().getProxyServerName(), recipients);
+			outbox.setMultiProxyLegacyPendingRecipients(legacyRecipients);
 			outbox.setRealVote(realVote);
 			outbox.setDeliveryStateDirty(true);
 			retryState.queuedVote = outbox;
 			if (outbox.getVoteId() == null || !getVoteCacheHandler().addTimeVoteToCache(outbox)) return false;
-			newlyCreated = true;
-			sendLegacyCopy = true;
 		} else {
 			boolean alreadyQueued = false;
 			for (VoteTimeQueue candidate : getVoteCacheHandler().getTimeChangeQueue()) {
@@ -5662,13 +5659,10 @@ public abstract class VotingPluginProxy {
 				// addTimeVoteToCache is idempotent for an already-durable queue entry.
 				return false;
 			}
-			// A recovered admission is the first safe chance to publish to legacy peers.
-			// Already-queued retries must not repeat that fire-and-forget copy.
-			newlyCreated = !alreadyQueued;
-			sendLegacyCopy = newlyCreated || !outbox.isMultiProxyForwardingRequired();
 		}
 		if (!outbox.isMultiProxyForwardingRequired()) {
 			outbox.requireMultiProxyAcknowledgements(getConfig().getProxyServerName(), recipients);
+			outbox.setMultiProxyLegacyPendingRecipients(legacyRecipients);
 			outbox.setRealVote(realVote);
 			outbox.setProcessed(true);
 			outbox.setDeliveryStateDirty(true);
@@ -5679,12 +5673,17 @@ public abstract class VotingPluginProxy {
 		}
 		// A successful publish only means the transport accepted the invocation.
 		// Keep the durable row and wait for an acknowledgement before continuing.
-		if (sendLegacyCopy && !legacyRecipients.isEmpty()) {
+		if (!outbox.getMultiProxyLegacyPendingRecipients().isEmpty()) {
 			// Never retry this legacy copy as part of the ACK outbox: a legacy peer has
 			// no receiver dedupe/ACK contract, while capable peers stay fully durable.
-			multiProxyHandler.sendMultiProxyEnvelopeAccepted(VotingPluginWire.multiProxyVote(player, uuid, service, time,
+			// Persist the exact pending set until the transport accepts the copy.
+			if (!multiProxyHandler.sendMultiProxyEnvelopeAccepted(VotingPluginWire.multiProxyVote(player, uuid, service, time,
 					false, realVote, totals == null ? "" : totals.toString(), outbox.getVoteId(), false, false, 1, 1,
-					outbox.getMultiProxyOrigin()), legacyRecipients);
+					outbox.getMultiProxyOrigin()),
+					new LinkedHashSet<>(outbox.getMultiProxyLegacyPendingRecipients()))) return false;
+			outbox.setMultiProxyLegacyPendingRecipients(Collections.emptySet());
+			outbox.setDeliveryStateDirty(true);
+			if (!persistTimeVoteDelivery(outbox)) return false;
 		}
 		if (!sendDurableMultiProxyOutbox(outbox)) return false;
 		scheduleTimeVoteRetry();
@@ -5702,6 +5701,15 @@ public abstract class VotingPluginProxy {
 	private boolean retryDurableMultiProxyOutbox(VoteTimeQueue outbox) {
 		if (outbox.hasCompletedMultiProxyAcknowledgements()) {
 			return finishMultiProxyRetirement(null, outbox);
+		}
+		if (!outbox.getMultiProxyLegacyPendingRecipients().isEmpty()) {
+			if (!multiProxyHandler.sendMultiProxyEnvelopeAccepted(VotingPluginWire.multiProxyVote(outbox.getName(),
+					outbox.getUuid(), outbox.getService(), outbox.getTime(), false, outbox.isRealVote(),
+					outbox.getTotals(), outbox.getVoteId(), false, false, 1, 1, outbox.getMultiProxyOrigin()),
+					new LinkedHashSet<>(outbox.getMultiProxyLegacyPendingRecipients()))) return false;
+			outbox.setMultiProxyLegacyPendingRecipients(Collections.emptySet());
+			outbox.setDeliveryStateDirty(true);
+			if (!persistTimeVoteDelivery(outbox)) return false;
 		}
 		sendDurableMultiProxyOutbox(outbox);
 		return false;

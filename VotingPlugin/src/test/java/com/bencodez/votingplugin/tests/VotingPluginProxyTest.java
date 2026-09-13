@@ -419,6 +419,8 @@ public class VotingPluginProxyTest {
 		Mockito.when(voteCache.updateOnlineVote(Mockito.anyString(), Mockito.any())).thenReturn(true);
 		Mockito.when(voteCache.tryRemoveOnlineVote(Mockito.anyString(), Mockito.any())).thenReturn(true);
 		Mockito.when(voteCache.retryPendingVotePersistence()).thenReturn(true);
+		Mockito.when(voteCache.updateTimeVote(Mockito.any())).thenReturn(true);
+		Mockito.when(multiProxyHandler.sendMultiProxyEnvelopeAccepted(Mockito.any(), Mockito.any())).thenReturn(true);
 		Mockito.when(voteCache.addTimeVoteToCache(Mockito.any())).thenAnswer(new org.mockito.stubbing.Answer<Boolean>() {
 			private int attempts;
 
@@ -733,7 +735,8 @@ public class VotingPluginProxyTest {
 		Mockito.when(voteCache.addServerVoteDurably(Mockito.anyString(), Mockito.any())).thenReturn(true);
 		Mockito.when(voteCache.updateOnlineVote(Mockito.anyString(), Mockito.any())).thenReturn(true);
 		Mockito.when(voteCache.updateServerVote(Mockito.anyString(), Mockito.any())).thenReturn(true);
-		Mockito.when(voteCache.updateTimeVote(queued)).thenReturn(true, false);
+		Mockito.when(voteCache.updateTimeVote(Mockito.any())).thenReturn(true, false, true);
+		Mockito.when(multiProxyHandler.sendMultiProxyEnvelopeAccepted(Mockito.any(), Mockito.any())).thenReturn(true);
 		Mockito.when(voteCache.removeTimeVote(queued)).thenReturn(false);
 		Mockito.when(voteCache.markTimeVoteCompletedDurably(queued)).thenReturn(false);
 		Mockito.when(votingPluginProxy.getConfig().getSendVotesToAllServers()).thenReturn(true);
@@ -767,6 +770,9 @@ public class VotingPluginProxyTest {
 		restored.setMultiProxyOrigin(queued.getMultiProxyOrigin());
 		restored.setMultiProxyRecipients(queued.getMultiProxyRecipients());
 		restored.setMultiProxyAcknowledgedServers(queued.getMultiProxyAcknowledgedServers());
+		// The failed post-publication update means durable storage still contains the
+		// pending legacy recipient captured before the first publish.
+		restored.setMultiProxyLegacyPendingRecipients(java.util.Set.of("ProxyLegacy"));
 		queue.clear();
 		queue.add(restored);
 		java.lang.reflect.Field retries = VotingPluginProxy.class.getDeclaredField("liveVoteRetries");
@@ -779,9 +785,9 @@ public class VotingPluginProxyTest {
 		org.mockito.ArgumentCaptor<java.util.Collection<String>> recipients =
 				(org.mockito.ArgumentCaptor) org.mockito.ArgumentCaptor.forClass(java.util.Collection.class);
 		verify(multiProxyHandler, Mockito.times(3)).sendMultiProxyEnvelopeAccepted(Mockito.any(), recipients.capture());
-		assertEquals(1, recipients.getAllValues().stream()
-				.filter(value -> new java.util.HashSet<>(value).equals(java.util.Set.of("ProxyLegacy"))).count());
 		assertEquals(2, recipients.getAllValues().stream()
+				.filter(value -> new java.util.HashSet<>(value).equals(java.util.Set.of("ProxyLegacy"))).count());
+		assertEquals(1, recipients.getAllValues().stream()
 				.filter(value -> new java.util.HashSet<>(value).equals(java.util.Set.of("proxy2"))).count());
 	}
 

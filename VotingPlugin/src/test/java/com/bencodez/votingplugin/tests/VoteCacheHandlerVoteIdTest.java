@@ -770,6 +770,7 @@ public class VoteCacheHandlerVoteIdTest {
 				Set.of("backend-1"), Set.of("backend-1"), "totals", false, false, "player-uuid",
 				Map.of("backend-1", "00000000-0000-0000-0000-000000000181"));
 		queued.requireMultiProxyAcknowledgements("origin-proxy", Set.of("backend-1"));
+		queued.setMultiProxyLegacyPendingRecipients(Set.of("legacy-proxy"));
 		queued.acknowledgeMultiProxyRecipient("backend-1");
 		queued.acknowledgeMultiProxyRetirement("backend-1");
 		handler.addTimeVoteToCache(queued);
@@ -783,6 +784,7 @@ public class VoteCacheHandlerVoteIdTest {
 		assertEquals(voteId, recovered.getVoteId());
 		assertTrue(recovered.isMultiProxyForwardingRequired());
 		assertEquals(Set.of("backend-1"), recovered.getMultiProxyRecipients());
+		assertEquals(Set.of("legacy-proxy"), recovered.getMultiProxyLegacyPendingRecipients());
 		assertTrue(recovered.hasCompletedMultiProxyRetirements());
 		assertEquals("00000000-0000-0000-0000-000000000181",
 				recovered.getHttpBroadcastDeliveryId("backend-1"));
@@ -1238,6 +1240,7 @@ public class VoteCacheHandlerVoteIdTest {
 		data.addProperty("MultiProxyCompletionPending", vote.isMultiProxyCompletionPending());
 		data.addProperty("MultiProxyRecipients", vote.encodeMultiProxyRecipients());
 		data.addProperty("MultiProxyAcknowledgedServers", vote.encodeMultiProxyAcknowledgedServers());
+		data.addProperty("MultiProxyLegacyPendingRecipients", vote.encodeMultiProxyLegacyPendingRecipients());
 		data.addProperty("BroadcastTargets", vote.encodeBroadcastTargets());
 		data.addProperty("BroadcastForwardedServers", vote.encodeBroadcastForwardedServers());
 		data.addProperty("HttpBroadcastDeliveryIds", vote.encodeHttpBroadcastDeliveryIds());

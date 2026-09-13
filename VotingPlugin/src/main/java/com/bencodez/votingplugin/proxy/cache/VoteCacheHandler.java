@@ -1298,6 +1298,9 @@ public abstract class VoteCacheHandler {
 						VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getMultiProxyRecipients()));
 				voteTimeQueue.setMultiProxyAcknowledgedServers(
 						VoteTimeQueue.decodeBroadcastForwardedServers(timedVoteRow.getMultiProxyAcknowledgedServers()));
+				voteTimeQueue.setMultiProxyLegacyPendingRecipients(
+						VoteTimeQueue.decodeBroadcastForwardedServers(
+								timedVoteRow.getMultiProxyLegacyPendingRecipients()));
 				voteTimeQueue.setTimedVoteCacheRowId(timedVoteRow.getId());
 				timedVotes.add(voteTimeQueue);
 			});
@@ -1535,6 +1538,9 @@ public abstract class VoteCacheHandler {
 		queuedVote.setMultiProxyAcknowledgedServers(VoteTimeQueue.decodeBroadcastForwardedServers(
 				data.has("MultiProxyAcknowledgedServers")
 						? data.get("MultiProxyAcknowledgedServers").asString() : ""));
+		queuedVote.setMultiProxyLegacyPendingRecipients(VoteTimeQueue.decodeBroadcastForwardedServers(
+				data.has("MultiProxyLegacyPendingRecipients")
+						? data.get("MultiProxyLegacyPendingRecipients").asString() : ""));
 		queuedVote.setTimedVoteCacheJsonKey(key);
 		return queuedVote;
 	}
