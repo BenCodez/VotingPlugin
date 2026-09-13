@@ -438,12 +438,13 @@ class VotingPluginMainBackendProxyPublicationTest {
 	}
 
 	@Test
-	void disablingUnpreparedTransportStopsPresenceBeforeRejectingFurtherSends() throws Exception {
+	void disablingMqttTransportPreparesPresenceOffTheBukkitPublicationPath() throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
 		BungeeSettings settings = mock(BungeeSettings.class);
 		when(settings.isUseBungeecoord()).thenReturn(false);
 		setField(plugin, "bungeeSettings", settings);
 		BackendProxyHandler previous = mock(BackendProxyHandler.class);
+		when(previous.getMethod()).thenReturn(BungeeMethod.MQTT);
 		when(previous.commitPreparedDisable()).thenReturn(true);
 		setBackendProxyHandler(plugin, previous);
 		VotingPluginMain.BackendProxyRestart restart = plugin.prepareBackendProxyHandlerRestart();
@@ -453,7 +454,10 @@ class VotingPluginMainBackendProxyPublicationTest {
 
 		verify(previous, org.mockito.Mockito.timeout(1_000)).close();
 		org.mockito.InOrder disable = org.mockito.Mockito.inOrder(previous);
-		disable.verify(previous).preparePresenceForDisable();
+		disable.verify(previous).preparePresenceForDisable(org.mockito.ArgumentMatchers.anyLong());
+		verify(previous, never()).preparePresenceForDisable();
+		verify(previous, never()).prepareForReplacement(org.mockito.ArgumentMatchers.isNull(),
+				org.mockito.ArgumentMatchers.anyLong());
 		disable.verify(previous).commitPreparedDisable();
 		disable.verify(previous).close();
 		assertNull(plugin.getBackendProxyHandler());

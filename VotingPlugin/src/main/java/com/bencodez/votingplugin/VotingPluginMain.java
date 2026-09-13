@@ -1303,15 +1303,19 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	public void validateBackendProxyHandlerRestart(BackendProxyRestart restart, long validationDeadlineNanos) {
 		if (restart == null) throw new IllegalArgumentException("Backend proxy restart is required");
+		// Disabling always stops a live predecessor's presence transport. That stop
+		// can perform network/backend work for MQTT, MySQL, and socket transports
+		// even when they have no HTTP/plugin-message handoff to prepare. Keep it on
+		// the Control worker rather than falling through to Bukkit publication.
+		if (restart.disabled && restart.previous != null && !restart.presenceStoppedForDisablePreparation) {
+			restart.presenceStoppedForDisablePreparation = true;
+			restart.previous.preparePresenceForDisable(validationDeadlineNanos);
+		}
 		if (restart.previousRequiresPreparation && !restart.previousPrepared) {
 			// Preparation can close a retrying enrollment transport before a bounded
 			// worker join fails. Mark the restart first so abort/await still owns the
 			// restoration path after a partially completed preparation.
 			restart.previousPrepared = true;
-			if (restart.disabled) {
-				restart.presenceStoppedForDisablePreparation = true;
-				restart.previous.preparePresenceForDisable(validationDeadlineNanos);
-			}
 			BungeeMethod replacementMethod = restart.replacement == null ? null : restart.replacement.getMethod();
 			if (restart.replacement != null) restart.replacement.beginPreparedHttpHandoff();
 			if (!restart.previous.prepareForReplacement(replacementMethod, validationDeadlineNanos))
@@ -1370,10 +1374,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 			if (backendProxyHandler != restart.previous) throw new IllegalStateException("Backend proxy handler changed during restart");
 			if (restart.disabled) {
-				if (restart.previous != null && !restart.presenceStoppedForDisablePreparation) {
-					restart.presenceStoppedForDisablePreparation = true;
-					restart.previous.preparePresenceForDisable();
-				}
+				if (restart.previous != null && !restart.presenceStoppedForDisablePreparation)
+					throw new IllegalStateException("Backend proxy disable must be prepared before Bukkit publication");
 				if (restart.previous != null && !restart.previous.commitPreparedDisable())
 					throw new IllegalStateException("Backend proxy transport accepted a delivery while disabling");
 				backendProxyHandler = null;
