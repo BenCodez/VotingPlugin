@@ -137,6 +137,11 @@ class BackendControlConnectorProtocolTest {
 				Map.of("enabled", "true")));
 		assertTrue(BackendControlConnector.quickSetupCapabilityAccepted("vote-party", false, true, false,
 				Map.of("enabled", "true")));
+		Map<String, String> state = Map.of("enabled", "false", "votesRequired", "20");
+		assertEquals(Map.of("votesRequired", "20"),
+				BackendControlConnector.resultQuickReadOptions("vote-party", state, Map.of()));
+		assertEquals(state, BackendControlConnector.resultQuickReadOptions("vote-party", state,
+				Map.of("enabled", "false")));
 	}
 
 	@Test void rewardBuilderResultsKeepOnlyTheSafeRecoveryTarget() {

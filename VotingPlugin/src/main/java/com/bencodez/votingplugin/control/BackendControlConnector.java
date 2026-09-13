@@ -691,7 +691,8 @@ public final class BackendControlConnector implements AutoCloseable {
 		}
 		if ("READ".equals(type)) {
 			BackendConfigurationService.QuickState state = configurations.readQuickSetup(preset, options);
-			return TaskResult.quick(preset, state.options(), state.revision(), List.of(), false);
+			return TaskResult.quick(preset, resultQuickReadOptions(preset, state.options(), options),
+					state.revision(), List.of(), false);
 		}
 		if ("PREVIEW".equals(type)) {
 			BackendConfigurationService.QuickPreview preview = configurations.previewQuickSetup(preset, options);
@@ -824,6 +825,16 @@ public final class BackendControlConnector implements AutoCloseable {
 			return Map.of("targetFile", ControlRewardProposal.parse(proposal).fileName());
 		}
 		return options == null ? Map.of() : Map.copyOf(options);
+	}
+
+	static Map<String, String> resultQuickReadOptions(String preset, Map<String, String> state,
+			Map<String, String> requestOptions) {
+		if (!"vote-party".equals(preset) || requestOptions != null && requestOptions.containsKey("enabled")) {
+			return resultQuickOptions(preset, state);
+		}
+		Map<String, String> legacy = new LinkedHashMap<>(state);
+		legacy.remove("enabled");
+		return Map.copyOf(legacy);
 	}
 
 	private static int bounded(int value, int min, int max, String name) {

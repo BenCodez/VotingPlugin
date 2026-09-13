@@ -508,7 +508,7 @@ class BackendConfigurationServiceTest {
 		BackendConfigurationService.QuickPreview legacyParty = service.previewQuickSetup("vote-party", Map.of(
 				"votesRequired", "25", "command", "", "broadcast", "",
 				"giveAllPlayers", "false", "onlineOnly", "true"));
-		assertTrue(legacyParty.proposal().content().contains("Enabled: true"));
+		assertTrue(legacyParty.proposal().content().contains("Enabled: false"));
 	}
 
 	@Test void guidedSettingsReadTheInstalledValuesInsteadOfAssumingDefaults() throws Exception {
@@ -532,6 +532,10 @@ class BackendConfigurationServiceTest {
 		assertEquals("EMERALD", service.readQuickSetup("vote-site", Map.of("name", "PMC"))
 				.options().get("material"));
 		assertEquals("2", service.readQuickSetup("vote-party", Map.of()).options().get("rewardCommandCount"));
+		assertEquals("true", service.readQuickSetup("vote-party", Map.of("enabled", "false"))
+				.options().get("enabled"));
+		assertThrows(IllegalArgumentException.class,
+				() -> service.readQuickSetup("vote-party", Map.of("enabled", "not-a-boolean")));
 	}
 
 	@Test void oversizedInstalledGuidedValuesFailInsteadOfWedgingResultSubmission() throws Exception {

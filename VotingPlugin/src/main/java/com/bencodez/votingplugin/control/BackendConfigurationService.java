@@ -227,8 +227,12 @@ public final class BackendConfigurationService {
 		if (!READABLE_QUICK_SETUPS.contains(preset)) {
 			throw new IllegalArgumentException("quick setup preset cannot be read");
 		}
-		rejectUnknownOptions(options, "vote-site".equals(preset) ? Set.of("name") : Set.of());
+		rejectUnknownOptions(options, "vote-site".equals(preset) ? Set.of("name")
+				: "vote-party".equals(preset) ? Set.of("enabled") : Set.of());
 		if ("vote-site".equals(preset)) option(options, "name", "[A-Za-z0-9_-]{1,64}");
+		if ("vote-party".equals(preset) && options.containsKey("enabled")) {
+			booleanOption(options, "enabled");
+		}
 		return retryRead(() -> readQuickSetupOnce(preset, options));
 	}
 
@@ -497,10 +501,11 @@ public final class BackendConfigurationService {
 			return new QuickProposal(fileName, yaml.saveToString());
 		}
 		if ("vote-party".equals(preset)) {
-			// v1 did not carry Enabled and historically enabled Vote Party when applied.
-			// v2 supplies the field so its actual state can round-trip unchanged.
-			yaml.set("VoteParty.Enabled", options.containsKey("enabled")
-					? booleanOption(options, "enabled") : true);
+			// v1 does not carry Enabled, so it must leave the installed value untouched.
+			// v2 supplies the field so its actual state can round-trip explicitly.
+			if (options.containsKey("enabled")) {
+				yaml.set("VoteParty.Enabled", booleanOption(options, "enabled"));
+			}
 			yaml.set("VoteParty.VotesRequired", boundedInteger(option(options, "votesRequired", "[0-9]{1,6}"), 1, 100000));
 			yaml.set("VoteParty.GiveAllPlayers", booleanOption(options, "giveAllPlayers"));
 			yaml.set("VoteParty.GiveOnlinePlayersOnly", booleanOption(options, "onlineOnly"));

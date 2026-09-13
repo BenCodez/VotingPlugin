@@ -76,8 +76,8 @@ automation because it copies a JAR into a developer-specific server directory.
 Keep these paths separate:
 
 - discovery/presence advertises current node identity and topology;
-- configuration capabilities (`config.*.v1`) poll `/operations`, may read/preview/apply typed configuration, and journal
-  results;
+- configuration capabilities (`config.*.v1` plus explicitly negotiated successors) poll `/operations`, may
+  read/preview/apply typed configuration, and journal results;
 - inspection capability `data.inspect.v1` polls `/inspections`, executes only `ControlInspectionService`, and does not
   journal because a lost acknowledgement can safely repeat a read. Repeated failures back this lane off exponentially
   from one second to five minutes without changing voting or configuration availability.
@@ -159,6 +159,14 @@ limit:
 
 Prefer one cohesive PR per repository for a paired feature, keeping its implementation, tests, and docs together. Split
 further only when a part is independently deployable or has materially different review/rollback risk.
+
+`config.proxy-method.v1` covers plugin messaging and Redis; `config.proxy-method.v2` adds HTTP. Dispatch and validate the
+exact capability for the requested method. `config.quick-setup.v2` adds `VoteParty.Enabled`; keep legacy Vote Party
+payloads on v1, preserve the installed Enabled value when they omit it, and reject the `enabled` field unless v2 was
+accepted. The VotingPlugin connector may deploy first and
+advertise these successors without using them until Control accepts them. A newer Control deployed first must leave its
+v2-only actions unavailable on older nodes. Merge the VotingPlugin capability implementation before relying on the new
+Control behavior in production.
 
 Before pushing, run the focused tests, the full Maven build, and `git diff --check`. Do not commit server runtime data,
 credentials, generated JARs, dependency caches, IDE output, or unrelated formatting.
