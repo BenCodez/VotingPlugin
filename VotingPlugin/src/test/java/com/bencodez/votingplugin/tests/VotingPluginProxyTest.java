@@ -125,6 +125,34 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void rejectedOnlineHttpBroadcastRetriesWithTheSameDeliveryId() throws Exception {
+		Mockito.when(votingPluginProxy.getConfig().getProxyBroadcastEnabled()).thenReturn(true);
+		votingPluginProxy.setStandaloneBroadcastForwarding(true);
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		votingPluginProxy.setVoteEnvelopeDeliveryResult(true);
+		votingPluginProxy.setStableHttpDeliveryResults(true, false, true);
+		votingPluginProxy.setGlobalMessageProxyHandlerForTest(
+				Mockito.mock(com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler.class));
+		java.lang.reflect.Field decider = VotingPluginProxy.class.getDeclaredField("proxyBroadcastDecider");
+		decider.setAccessible(true);
+		decider.set(votingPluginProxy, new ProxyBroadcastDecider(votingPluginProxy::getConfig,
+				votingPluginProxy::getAllAvailableServers, server -> true, server -> false));
+		java.util.UUID voteId = java.util.UUID.randomUUID();
+
+		assertThrows(VotingPluginProxy.VoteRetryException.class,
+				() -> votingPluginProxy.vote("Player", "Service", true, false, 100L, null,
+						"00000000-0000-0000-0000-000000000001", voteId));
+		votingPluginProxy.vote("Player", "Service", true, false, 100L, null,
+				"00000000-0000-0000-0000-000000000001", voteId);
+
+		assertEquals(3, votingPluginProxy.getAttemptedVotePartyDeliveryIds().size());
+		assertFalse(votingPluginProxy.getAttemptedVotePartyDeliveryIds().get(0)
+				.equals(votingPluginProxy.getAttemptedVotePartyDeliveryIds().get(1)));
+		assertEquals(votingPluginProxy.getAttemptedVotePartyDeliveryIds().get(1),
+				votingPluginProxy.getAttemptedVotePartyDeliveryIds().get(2));
+	}
+
+	@Test
 	void cachedHttpVoteReusesItsDeterministicIdAfterRestart() {
 		votingPluginProxy.setMethod(BungeeMethod.HTTP);
 		votingPluginProxy.setVoteEnvelopeDeliveryResult(true);

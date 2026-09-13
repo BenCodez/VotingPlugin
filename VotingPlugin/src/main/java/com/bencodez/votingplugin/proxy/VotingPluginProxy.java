@@ -3823,6 +3823,13 @@ public abstract class VotingPluginProxy {
 		return UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8)).toString();
 	}
 
+	/** Keeps a live vote's auxiliary broadcast idempotent across listener retries. */
+	private String stableLiveHttpBroadcastDeliveryId(UUID voteId, String server) {
+		String key = "VotingPlugin:http-live-broadcast:v1\u0000" + voteId + "\u0000"
+				+ server.toLowerCase(Locale.ROOT);
+		return UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8)).toString();
+	}
+
 	/**
 	 * Distinguishes pre-vote-ID cache rows that can otherwise share every visible
 	 * vote field. SQL primary keys and JSON entry keys are durable before this
@@ -5433,10 +5440,23 @@ public abstract class VotingPluginProxy {
 							if (getConfig().getBlockedServers().contains(targetServer)) {
 								continue;
 							}
+							if (broadcastForwardedServers.contains(targetServer)) {
+								continue;
+							}
 
-							globalMessageProxyHandler.sendMessage(targetServer, bDelay,
-									VotingPluginWire.voteBroadcast(uuid, player, service, time,
-											text == null ? "" : text.toString(), true));
+							JsonEnvelope broadcast = VotingPluginWire.voteBroadcast(uuid, player, service, time,
+									text == null ? "" : text.toString(), true);
+							if (method == BungeeMethod.HTTP) {
+								String deliveryId = stableLiveHttpBroadcastDeliveryId(voteId, targetServer);
+								if (!sendStableHttpEnvelope(targetServer, deliveryId, broadcast)) {
+									retryState.broadcastForwardedServers.addAll(broadcastForwardedServers);
+									return QueuedVoteResult.RETRY;
+								}
+								broadcastForwardedServers.add(targetServer);
+								retryState.broadcastForwardedServers.add(targetServer);
+							} else {
+								globalMessageProxyHandler.sendMessage(targetServer, bDelay, broadcast);
+							}
 							bDelay++;
 						}
 					}
