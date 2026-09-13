@@ -472,7 +472,13 @@ public class BackendProxyTransportManager {
 				}
 				target = transport;
 			}
-			if (!(target instanceof PluginMessagingBackendProxyTransport)) return;
+			if (!(target instanceof PluginMessagingBackendProxyTransport)) {
+				synchronized (this) {
+					if (handoffGeneration == generation) pluginMessageHandoffScheduled = false;
+					notifyAll();
+				}
+				return;
+			}
 			try {
 				if (!target.send(envelope)) {
 					schedulePluginMessageHandoff(generation);

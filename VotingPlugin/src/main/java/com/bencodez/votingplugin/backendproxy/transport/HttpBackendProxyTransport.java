@@ -322,18 +322,28 @@ public final class HttpBackendProxyTransport implements BackendProxyTransport {
 					if (inboundActive) invokeConnectorLifecycle(replacement, "activateIncoming");
 				}
 			}
-			if (discard) replacement.close();
-			else startHandoffDrainIfNeeded();
+			if (!discard) startHandoffDrainIfNeeded();
 		} catch (Exception failure) {
 			startupFailure = new IllegalStateException("Secure HTTP backend enrollment or connection failed", failure);
 			plugin.getLogger().severe("Secure HTTP backend transport is unavailable; check the connection code and proxy endpoint");
 		} finally {
 			credentialRestoreComplete.countDown();
+			finishInitialization(installed, replacement, acquired, owner, startupComplete);
+		}
+	}
+
+	static void finishInitialization(boolean installed, HttpBackendTransportConnector replacement,
+			boolean acquired, Semaphore owner, CountDownLatch completion) {
+		try {
 			if (!installed) {
-				if (replacement != null) replacement.close();
-				if (acquired) owner.release();
+				try {
+					if (replacement != null) replacement.close();
+				} finally {
+					if (acquired) owner.release();
+				}
 			}
-			startupComplete.countDown();
+		} finally {
+			completion.countDown();
 		}
 	}
 

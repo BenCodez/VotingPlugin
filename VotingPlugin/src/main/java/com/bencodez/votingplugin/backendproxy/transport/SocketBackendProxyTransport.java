@@ -104,13 +104,34 @@ public class SocketBackendProxyTransport implements BackendProxyTransport {
 
 	@Override
 	public void close() {
+		close(false);
+	}
+
+	@Override
+	public void prepareForReplacement() {
+		close(true);
+	}
+
+	private void close(boolean strict) {
+		RuntimeException failure = null;
 		try {
 			closeSocketListener();
-		} finally {
-			if (clientHandler != null) {
-				clientHandler.stopConnection();
-				clientHandler = null;
-			}
+		} catch (RuntimeException listenerFailure) {
+			failure = listenerFailure;
+		}
+		ClientHandler closingClient = clientHandler;
+		clientHandler = null;
+		if (closingClient != null) try {
+			closingClient.stopConnection();
+		} catch (RuntimeException clientFailure) {
+			if (failure == null) failure = clientFailure;
+			else failure.addSuppressed(clientFailure);
+		}
+		if (failure == null) return;
+		if (strict) throw failure;
+		if (plugin != null && plugin.getLogger() != null) {
+			plugin.getLogger().warning("Socket backend proxy transport did not stop cleanly");
+			plugin.debug(failure);
 		}
 	}
 

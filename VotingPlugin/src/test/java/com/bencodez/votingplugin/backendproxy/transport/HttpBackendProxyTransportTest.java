@@ -133,6 +133,21 @@ class HttpBackendProxyTransportTest {
 	}
 
 	@Test
+	void failedUninstalledConnectorCloseStillReleasesOwnerAndCompletesStartup() {
+		HttpBackendTransportConnector connector = mock(HttpBackendTransportConnector.class);
+		org.mockito.Mockito.doThrow(new IllegalStateException("close failed")).when(connector).close();
+		java.util.concurrent.Semaphore owner = new java.util.concurrent.Semaphore(0);
+		CountDownLatch completion = new CountDownLatch(1);
+
+		assertThrows(IllegalStateException.class,
+				() -> HttpBackendProxyTransport.finishInitialization(false, connector, true, owner, completion));
+
+		verify(connector).close();
+		assertEquals(1, owner.availablePermits());
+		assertEquals(0L, completion.getCount());
+	}
+
+	@Test
 	@SuppressWarnings("unchecked")
 	void orderlyShutdownFlushesRecoveryQueueBeforeHandoffQueue() throws Exception {
 		HttpBackendProxyTransport transport = new HttpBackendProxyTransport(mock(VotingPluginMain.class));

@@ -493,6 +493,35 @@ class BackendProxyHandlerLifecycleTest {
 	}
 
 	@Test
+	void ordinarySocketCloseToleratesListenerTimeoutButReplacementPreparationRejectsIt() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+		SocketHandler ordinarySocket = mock(SocketHandler.class);
+		com.bencodez.simpleapi.servercomm.sockets.SocketServer ordinaryServer =
+				mock(com.bencodez.simpleapi.servercomm.sockets.SocketServer.class);
+		when(ordinarySocket.getServer()).thenReturn(ordinaryServer);
+		when(ordinaryServer.isAlive()).thenReturn(true);
+		SocketBackendProxyTransport ordinary = new SocketBackendProxyTransport(plugin);
+		setField(ordinary, "socketHandler", ordinarySocket);
+
+		assertDoesNotThrow(ordinary::close);
+		verify(ordinarySocket).closeConnection();
+		verify(ordinaryServer).close();
+
+		SocketHandler replacementSocket = mock(SocketHandler.class);
+		com.bencodez.simpleapi.servercomm.sockets.SocketServer replacementServer =
+				mock(com.bencodez.simpleapi.servercomm.sockets.SocketServer.class);
+		when(replacementSocket.getServer()).thenReturn(replacementServer);
+		when(replacementServer.isAlive()).thenReturn(true);
+		SocketBackendProxyTransport replacement = new SocketBackendProxyTransport(plugin);
+		setField(replacement, "socketHandler", replacementSocket);
+
+		assertThrows(IllegalStateException.class, replacement::prepareForReplacement);
+		verify(replacementSocket).closeConnection();
+		verify(replacementServer).close();
+	}
+
+	@Test
 	void rejectsSamePortSocketReplacementUntilThePreviousListenerIsPrepared(@TempDir Path dataFolder)
 			throws Exception {
 		int port;
@@ -953,6 +982,31 @@ class BackendProxyHandlerLifecycleTest {
 		next.beginPreparedTransportHandoff();
 		target.completePreparedTransportHandoff(next);
 		verify(nextTransport, org.mockito.Mockito.timeout(1000)).send(afterPreparation);
+	}
+
+	@Test
+	void stalePluginMessageHandoffCallbackClearsItsScheduledFlag() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
+				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		java.util.concurrent.atomic.AtomicReference<Runnable> scheduled = new java.util.concurrent.atomic.AtomicReference<>();
+		doAnswer(invocation -> {
+			scheduled.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTask(eq(plugin), any(Runnable.class));
+		BackendProxyTransportManager manager = new BackendProxyTransportManager(plugin);
+		PluginMessagingBackendProxyTransport pluginMessages = mock(PluginMessagingBackendProxyTransport.class);
+		setField(manager, "transport", pluginMessages);
+
+		manager.send(com.bencodez.simpleapi.servercomm.codec.JsonEnvelope.builder("queued").build());
+		assertNotNull(scheduled.get());
+		assertTrue((boolean) getField(manager, "pluginMessageHandoffScheduled"));
+		setField(manager, "transport", null);
+
+		scheduled.get().run();
+
+		assertFalse((boolean) getField(manager, "pluginMessageHandoffScheduled"));
 	}
 
 	@Test
