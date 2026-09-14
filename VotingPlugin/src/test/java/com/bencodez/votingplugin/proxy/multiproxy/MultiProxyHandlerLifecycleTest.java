@@ -6,14 +6,18 @@ import static org.mockito.Mockito.verify;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import com.bencodez.simpleapi.servercomm.sockets.ClientHandler;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
@@ -260,6 +264,99 @@ class MultiProxyHandlerLifecycleTest {
 		handleEnvelope.invoke(handler, VotingPluginWire.multiProxyCapabilities("Capable", 1, true));
 		assertTrue(handler.getMultiProxyVoteRecipients().isEmpty());
 		assertEquals(java.util.Set.of("Capable"), handler.getMultiProxyVoteRecipientsAwaitingCapabilityRenewal());
+	}
+
+	@Test
+	void durableCapabilityIdentitySurvivesRestartAndFencesAnOfflinePeer(@TempDir Path dataDirectory) throws Exception {
+		MultiProxyHandler beforeRestart = capabilityHandler(dataDirectory, "Capable", "Legacy");
+		handleCapability(beforeRestart, "Capable");
+		assertEquals(java.util.Set.of("Capable"), beforeRestart.getMultiProxyVoteRecipients());
+
+		MultiProxyHandler afterRestart = capabilityHandler(dataDirectory, "Capable", "Legacy");
+		afterRestart.restoreVoteCapabilityPeers();
+
+		assertTrue(afterRestart.getMultiProxyVoteRecipients().isEmpty());
+		assertEquals(java.util.Set.of("Capable"),
+				afterRestart.getMultiProxyVoteRecipientsAwaitingCapabilityRenewal());
+		assertFalse(afterRestart.getMultiProxyVoteRecipientsAwaitingCapabilityRenewal().contains("Legacy"));
+	}
+
+	@Test
+	void malformedCapabilityStateBlocksForwardingUntilTheOperatorRepairsItAndRestarts(@TempDir Path dataDirectory)
+			throws Exception {
+		Files.writeString(dataDirectory.resolve(".multiproxy-capability-peers.json"), "not-json");
+		MultiProxyHandler handler = capabilityHandler(dataDirectory, "Capable", "Legacy");
+		handler.restoreVoteCapabilityPeers();
+
+		assertTrue(handler.isMultiProxyVoteCapabilityRecoveryBlocked());
+		assertTrue(handler.getMultiProxyVoteRecipientsAwaitingCapabilityRenewal().isEmpty());
+		handleCapability(handler, "Capable");
+		assertTrue(handler.getMultiProxyVoteRecipients().isEmpty());
+		assertTrue(handler.isMultiProxyVoteCapabilityRecoveryBlocked());
+
+		// Removing the invalid local state and restarting deterministically returns
+		// to fresh-install semantics: Legacy remains legacy and a new handshake
+		// classifies only Capable as an ACK peer.
+		Files.delete(dataDirectory.resolve(".multiproxy-capability-peers.json"));
+		MultiProxyHandler recovered = capabilityHandler(dataDirectory, "Capable", "Legacy");
+		recovered.restoreVoteCapabilityPeers();
+		assertFalse(recovered.isMultiProxyVoteCapabilityRecoveryBlocked());
+		assertTrue(recovered.getMultiProxyVoteRecipientsAwaitingCapabilityRenewal().isEmpty());
+		handleCapability(recovered, "Capable");
+		assertEquals(java.util.Set.of("Capable"), recovered.getMultiProxyVoteRecipients());
+		assertFalse(recovered.getMultiProxyVoteRecipientsAwaitingCapabilityRenewal().contains("Legacy"));
+	}
+
+	@Test
+	void nonCanonicalCapabilityPeerBlocksForwardingInsteadOfBecomingLegacy(@TempDir Path dataDirectory)
+			throws Exception {
+		Files.writeString(dataDirectory.resolve(".multiproxy-capability-peers.json"),
+				"{\"version\":1,\"peers\":[\"Capable\"]}");
+
+		MultiProxyHandler handler = capabilityHandler(dataDirectory, "Capable", "Legacy");
+		handler.restoreVoteCapabilityPeers();
+
+		assertTrue(handler.isMultiProxyVoteCapabilityRecoveryBlocked());
+		assertTrue(handler.getMultiProxyVoteRecipientsAwaitingCapabilityRenewal().isEmpty());
+	}
+
+	@Test
+	void freshInstallKeepsLegacyPeersOnTheHistoricalRoute(@TempDir Path dataDirectory) {
+		MultiProxyHandler handler = capabilityHandler(dataDirectory, "Legacy");
+		handler.restoreVoteCapabilityPeers();
+		assertTrue(handler.getMultiProxyVoteRecipientsAwaitingCapabilityRenewal().isEmpty());
+	}
+
+	@Test
+	void capabilityStoreRejectsSymlinkedState(@TempDir Path dataDirectory) throws Exception {
+		Path outside = Files.createTempFile("multiproxy-capability-outside", ".json");
+		try {
+			Files.createSymbolicLink(dataDirectory.resolve(".multiproxy-capability-peers.json"), outside);
+			assertThrows(java.io.IOException.class, () -> MultiProxyCapabilityStore.load(dataDirectory));
+			MultiProxyHandler handler = capabilityHandler(dataDirectory, "Capable");
+			handler.restoreVoteCapabilityPeers();
+			handleCapability(handler, "Capable");
+			assertTrue(handler.getMultiProxyVoteRecipients().isEmpty());
+			assertTrue(handler.isMultiProxyVoteCapabilityRecoveryBlocked());
+			assertTrue(handler.getMultiProxyVoteRecipientsAwaitingCapabilityRenewal().isEmpty());
+		} finally {
+			Files.deleteIfExists(outside);
+		}
+	}
+
+	private static MultiProxyHandler capabilityHandler(Path dataDirectory, String... peers) {
+		MultiProxyHandler handler = mock(MultiProxyHandler.class,
+				org.mockito.Mockito.withSettings().useConstructor().defaultAnswer(org.mockito.Mockito.CALLS_REAL_METHODS));
+		org.mockito.Mockito.when(handler.getMultiProxyMethod()).thenReturn(MultiProxyMethod.SOCKETS);
+		org.mockito.Mockito.when(handler.getMultiProxyServers()).thenReturn(List.of(peers));
+		org.mockito.Mockito.when(handler.getPluginDataFolder()).thenReturn(dataDirectory.toFile());
+		return handler;
+	}
+
+	private static void handleCapability(MultiProxyHandler handler, String peer) throws Exception {
+		Method handleEnvelope = MultiProxyHandler.class.getDeclaredMethod("handleEnvelope", JsonEnvelope.class);
+		handleEnvelope.setAccessible(true);
+		handleEnvelope.invoke(handler, VotingPluginWire.multiProxyCapabilities(peer, 1, true));
 	}
 
 	@Test

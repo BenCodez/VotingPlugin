@@ -2,6 +2,8 @@
 package com.bencodez.votingplugin.proxy.multiproxy;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.HashMap;
@@ -43,6 +45,14 @@ public abstract class MultiProxyHandler {
 	 * as success and lose the sender's durable completion fence.
 	 */
 	private final Set<String> knownVoteCapabilityPeers = new HashSet<>();
+	/**
+	 * We cannot safely classify configured peers after the durable state is corrupt
+	 * or cannot be updated.  Do not create a new mixed-version outbox in that
+	 * state: an old peer can never acknowledge it, while demoting a formerly
+	 * capable peer would lose its sender fence.  Recovery is deliberately an
+	 * operator action (repair/remove the named state file, then restart).
+	 */
+	private boolean voteCapabilityRecoveryBlocked;
 	private long lastVoteCapabilityAdvertisementMillis = Long.MIN_VALUE;
 
 	@Getter
@@ -89,6 +99,7 @@ public abstract class MultiProxyHandler {
 		multiproxyClientHandles = null;
 		acknowledgedVoteCapabilityPeers.clear();
 		knownVoteCapabilityPeers.clear();
+		voteCapabilityRecoveryBlocked = false;
 		lastVoteCapabilityAdvertisementMillis = Long.MIN_VALUE;
 	}
 
@@ -404,12 +415,83 @@ public abstract class MultiProxyHandler {
 	}
 
 	/**
+	 * Whether durable peer classification needs an explicit on-disk recovery.
+	 * Callers must not start a new multi-proxy forwarding attempt while this is
+	 * true, because a legacy peer cannot complete an acknowledgement outbox.
+	 */
+	public synchronized boolean isMultiProxyVoteCapabilityRecoveryBlocked() {
+		return voteCapabilityRecoveryBlocked;
+	}
+
+	/** Restores durable peer identities without restoring any expired lease. */
+	synchronized void restoreVoteCapabilityPeers() {
+		acknowledgedVoteCapabilityPeers.clear();
+		knownVoteCapabilityPeers.clear();
+		voteCapabilityRecoveryBlocked = false;
+		Path dataDirectory = capabilityStateDirectory();
+		// Third-party MultiProxyHandler integrations predate durable state and may
+		// intentionally provide no plugin folder. Preserve their established
+		// in-memory handshake behavior; built-in proxy handlers always provide one.
+		if (dataDirectory == null) return;
+		try {
+			MultiProxyCapabilityStore.State restored = MultiProxyCapabilityStore.load(dataDirectory);
+			Set<String> configured = configuredMultiProxyRecipientNames().keySet();
+			for (String peer : restored.peers()) {
+				if (configured.contains(peer)) knownVoteCapabilityPeers.add(peer);
+			}
+		} catch (IOException | IllegalArgumentException stateFailure) {
+			blockVoteCapabilityRecovery();
+		}
+	}
+
+	/**
+	 * Makes a peer eligible for durable publishes only after its durable identity is
+	 * recorded.  A failed write never silently converts an acknowledged-capable
+	 * peer to the legacy route during this process.
+	 */
+	private boolean acceptVoteCapabilityPeer(String normalized) {
+		if (voteCapabilityRecoveryBlocked) return false;
+		boolean newPeer = !knownVoteCapabilityPeers.contains(normalized);
+		if (!newPeer) return true;
+		Set<String> updated = new HashSet<>(knownVoteCapabilityPeers);
+		updated.add(normalized);
+		Path dataDirectory = capabilityStateDirectory();
+		if (dataDirectory == null) {
+			knownVoteCapabilityPeers.clear();
+			knownVoteCapabilityPeers.addAll(updated);
+			return true;
+		}
+		try {
+			MultiProxyCapabilityStore.save(dataDirectory, updated);
+			knownVoteCapabilityPeers.clear();
+			knownVoteCapabilityPeers.addAll(updated);
+			return true;
+		} catch (IOException | IllegalArgumentException stateFailure) {
+			blockVoteCapabilityRecovery();
+			return false;
+		}
+	}
+
+	private void blockVoteCapabilityRecovery() {
+		voteCapabilityRecoveryBlocked = true;
+		logInfo("Multi-proxy forwarding is blocked: repair or remove " + MultiProxyCapabilityStore.FILE_NAME
+				+ " and restart before forwarding votes");
+	}
+
+	private Path capabilityStateDirectory() {
+		File dataFolder = getPluginDataFolder();
+		return dataFolder == null ? null : dataFolder.toPath();
+	}
+
+	/**
 	 * Loads multi-proxy support.
 	 */
 	public synchronized void loadMultiProxySupport() {
 		acknowledgedVoteCapabilityPeers.clear();
 		knownVoteCapabilityPeers.clear();
+		voteCapabilityRecoveryBlocked = false;
 		lastVoteCapabilityAdvertisementMillis = Long.MIN_VALUE;
+		restoreVoteCapabilityPeers();
 		if (!getMultiProxySupportEnabled()) {
 			return;
 		}
@@ -694,9 +776,10 @@ public abstract class MultiProxyHandler {
 				String normalized = recipient.toLowerCase(Locale.ROOT);
 				synchronized (this) {
 					if (version >= 1 && configuredMultiProxyRecipientNames().containsKey(normalized)) {
-						knownVoteCapabilityPeers.add(normalized);
-						acknowledgedVoteCapabilityPeers.put(normalized,
-								capabilityNowMillis() + VOTE_CAPABILITY_LEASE_MILLIS);
+						if (acceptVoteCapabilityPeer(normalized)) {
+							acknowledgedVoteCapabilityPeers.put(normalized,
+									capabilityNowMillis() + VOTE_CAPABILITY_LEASE_MILLIS);
+						}
 						replyRequired = !reply;
 					}
 				}

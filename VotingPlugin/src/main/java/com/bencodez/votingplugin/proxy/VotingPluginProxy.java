@@ -5621,6 +5621,10 @@ public abstract class VotingPluginProxy {
 	private boolean beginMultiProxyForwarding(LiveVoteRetryState retryState, VoteTimeQueue queuedVote, String player,
 			String uuid, String service, long time, boolean realVote, VoteTotalsSnapshot totals) {
 		if (multiProxyHandler == null) return false;
+		// A corrupt or unpersistable peer-classification file cannot safely identify
+		// which targets are legacy.  Stop before creating an ACK outbox that a legacy
+		// peer could never complete; the handler emits the operator recovery message.
+		if (multiProxyHandler.isMultiProxyVoteCapabilityRecoveryBlocked()) return false;
 		multiProxyHandler.announceMultiProxyVoteCapability();
 		Set<String> recipients = multiProxyHandler.getMultiProxyVoteRecipients();
 		Set<String> renewingRecipients = multiProxyHandler.getMultiProxyVoteRecipientsAwaitingCapabilityRenewal();
