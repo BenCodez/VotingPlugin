@@ -367,8 +367,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 									reportIndeterminateSharedPointAddition(sharedPoints, operationId, uuid, pointsPath, value,
 											claimOwner, completion, failure);
 								}
-							}, () -> reportIndeterminateSharedPointAddition(sharedPoints, operationId, uuid, pointsPath, value,
-									claimOwner, completion, null));
+					}, () -> releaseUnstartedSharedPointAddition(sharedPoints, operationId, uuid, pointsPath, value,
+							claimOwner, completion));
 				} catch (Throwable failure) {
 					completion.completeExceptionally(failure);
 				}
@@ -413,6 +413,46 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				plugin.debug(asyncRejected);
 				// HOOK_STARTED is itself recognized as reconciliation-required after a
 				// restart, so rejected lifecycle executors cannot make a retry unsafe.
+			}
+		}
+	}
+
+	/**
+	 * A rejected scheduler never invoked the receive hook. Queue release of that
+	 * exact durable claim on a database-safe worker. Scheduler completions can run
+	 * on a Folia entity lane, so this callback must never open a JDBC connection
+	 * directly. If shutdown rejects every database-safe worker, HOOK_STARTED is
+	 * deliberately retained for reconciliation instead of making a retry unsafe.
+	 * Started hooks still use the indeterminate path above.
+	 */
+	private void releaseUnstartedSharedPointAddition(SharedMysqlPointMutator sharedPoints, String operationId,
+			String uuid, String pointsPath, int requestedAmount, String claimOwner, CompletableFuture<Integer> completion) {
+		Runnable release = () -> {
+			try {
+				sharedPoints.releaseUnstartedPointAdditionHook(operationId, uuid, pointsPath, requestedAmount, claimOwner);
+				completion.completeExceptionally(
+						new IllegalStateException("Shared MySQL point addition was not started; retry is safe"));
+			} catch (SQLException failure) {
+				plugin.getLogger().severe("Unable to release unstarted shared MySQL point addition " + operationId
+						+ "; retaining its claim for manual reconciliation");
+				plugin.debug(failure);
+				completion.completeExceptionally(
+						new IllegalStateException("Unable to release unstarted shared MySQL point addition", failure));
+			}
+		};
+		try {
+			plugin.getTimer().execute(release);
+		} catch (RuntimeException persistenceRejected) {
+			plugin.debug(persistenceRejected);
+			try {
+				plugin.getBukkitScheduler().runTaskAsynchronously(plugin, release);
+			} catch (RuntimeException asyncRejected) {
+				plugin.debug(asyncRejected);
+				plugin.getLogger().severe("Unable to schedule release of unstarted shared MySQL point addition "
+						+ operationId + "; retaining its claim for manual reconciliation");
+				completion.completeExceptionally(new IllegalStateException(
+							"Unable to schedule release of unstarted shared MySQL point addition; retry requires reconciliation",
+							asyncRejected));
 			}
 		}
 	}
@@ -2248,9 +2288,13 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public void setVoteShopIdentifierLimit(String identifier, int value) {
 		String path = "VoteShopLimit" + identifier;
-		// Shared-MySQL purchase/reset transactions own these columns. Never leave an
-		// absolute queued cache write that another backend's reset cannot fence.
-		getData().setInt(path, value, !usesSharedMysqlPoints());
+		// VoteShopLimit columns are not server-suffixed, even when points are. On
+		// MySQL, always make their writes direct: an asynchronous absolute cache
+		// write can otherwise land after a journalled reset (or a PerServerPoints
+		// mode change) and restore a stale period's limit. Non-MySQL storage keeps
+		// its established queued-write behavior.
+		boolean queue = plugin == null || !UserStorage.MYSQL.equals(plugin.getStorageType());
+		getData().setInt(path, value, queue);
 	}
 
 	private boolean usesSharedMysqlPoints() {

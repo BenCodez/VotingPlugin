@@ -197,8 +197,8 @@ final class SharedMysqlPurchaseJournal {
 				long oldEpoch = marker.epoch();
 				if (oldEpoch == Long.MAX_VALUE) throw new SQLException("Vote shop limit epoch overflow");
 				long expectedEpoch = oldEpoch + 1L;
-				try (PreparedStatement wipe = connection.prepareStatement("UPDATE " + qi(table.getTableName()) + " SET "
-						+ qi(limitColumn) + " = 0");
+				try (PreparedStatement wipe = connection.prepareStatement("UPDATE " + qi(table.getTableName())
+						+ " SET " + qi(limitColumn) + " = 0");
 						PreparedStatement advance = connection.prepareStatement("UPDATE " + qiEpoch() + " SET "
 								+ qi("epoch") + " = ?, " + qi("last_reset_generation") + " = ? WHERE "
 								+ qi("limit_column") + " = ?")) {

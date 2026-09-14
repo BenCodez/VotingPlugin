@@ -46,7 +46,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
 import com.bencodez.advancedcore.api.user.UserStorage;
-import com.bencodez.advancedcore.api.time.TimeCalculation;
 import com.bencodez.advancedcore.api.user.UserData;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
@@ -139,9 +138,9 @@ class VoteShopPurchaseServiceTest {
 	@Test
 	void weeklyGenerationChangesAtEveryConfiguredWeekBoundary() {
 		LocalDateTime current = LocalDateTime.of(2026, 9, 8, 12, 0);
-		int currentWeek = TimeCalculation.weekNumber(current, 0, Locale.ROOT);
+		String currentGeneration = VoteShopPurchaseService.weeklyGenerationId(current, 0);
 		LocalDateTime nextBoundary = current.toLocalDate().plusDays(1).atStartOfDay();
-		while (TimeCalculation.weekNumber(nextBoundary, 0, Locale.ROOT) == currentWeek) {
+		while (VoteShopPurchaseService.weeklyGenerationId(nextBoundary, 0).equals(currentGeneration)) {
 			nextBoundary = nextBoundary.plusDays(1);
 		}
 
@@ -152,7 +151,7 @@ class VoteShopPurchaseServiceTest {
 	}
 
 	@Test
-	void weeklyGenerationDoesNotDependOnTheJvmDefaultLocale() {
+	void weeklyGenerationAndBoundaryIgnoreJvmDefaultLocale() {
 		Locale previous = Locale.getDefault();
 		LocalDateTime current = LocalDateTime.of(2027, 1, 3, 12, 0);
 		long now = current.atZone(ZoneId.of("UTC")).toInstant().toEpochMilli();
@@ -167,8 +166,7 @@ class VoteShopPurchaseServiceTest {
 					current, now, false, true, false, 0);
 
 			assertEquals(usGeneration, germanGeneration);
-			assertEquals(usLimit.value(), germanLimit.value());
-			assertEquals(usLimit.expiresAt(), germanLimit.expiresAt());
+			assertEquals(usLimit, germanLimit);
 		} finally {
 			Locale.setDefault(previous);
 		}
@@ -240,6 +238,59 @@ class VoteShopPurchaseServiceTest {
 		verify(plugin.getBukkitScheduler()).runTaskAsynchronously(eq(plugin), refill.capture());
 		refill.getValue().run();
 		verify(refreshedUser).cache();
+	}
+
+	@Test
+	void perServerMysqlResetWipesAndAdvancesLegacySharedPurchaseEpochInOneTransaction() throws Exception {
+		MySQL table = mock(MySQL.class);
+		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
+				org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		Connection schemaConnection = mock(Connection.class);
+		Connection resetConnection = mock(Connection.class);
+		PreparedStatement schema = mock(PreparedStatement.class);
+		PreparedStatement generation = mock(PreparedStatement.class);
+		PreparedStatement generationExpiry = mock(PreparedStatement.class);
+		PreparedStatement epochColumn = mock(PreparedStatement.class);
+		PreparedStatement epochTable = mock(PreparedStatement.class);
+		PreparedStatement epochGeneration = mock(PreparedStatement.class);
+		PreparedStatement index = mock(PreparedStatement.class);
+		PreparedStatement markerInsert = mock(PreparedStatement.class);
+		PreparedStatement markerSelect = mock(PreparedStatement.class);
+		PreparedStatement wipe = mock(PreparedStatement.class);
+		PreparedStatement advance = mock(PreparedStatement.class);
+		ResultSet epoch = mock(ResultSet.class);
+		when(table.getTableName()).thenReturn("PerServerUsers");
+		when(table.qi(anyString())).thenAnswer(invocation -> "`" + invocation.getArgument(0) + "`");
+		when(table.getMysql()).thenReturn(sql);
+		when(sql.getConnectionManager().getConnection()).thenReturn(schemaConnection, resetConnection);
+		when(schemaConnection.prepareStatement(anyString())).thenReturn(schema, generation, generationExpiry,
+				epochColumn, epochTable, epochGeneration, index);
+		when(resetConnection.prepareStatement(anyString())).thenReturn(markerInsert, markerSelect, wipe, advance);
+		when(epoch.next()).thenReturn(true);
+		when(epoch.getLong(1)).thenReturn(4L);
+		when(markerSelect.executeQuery()).thenReturn(epoch);
+		when(advance.executeUpdate()).thenReturn(1);
+		VotingPluginMain plugin = sharedMysqlPlugin(table);
+		when(plugin.getBungeeSettings().isPerServerPoints()).thenReturn(true);
+		when(plugin.getUserManager().getDataManager().getUserDataCache())
+				.thenReturn(new java.util.concurrent.ConcurrentHashMap<>());
+
+		assertTrue(VoteShopPurchaseService.resetMysqlLimitWithPurchaseFence(
+				plugin, "VoteShopLimitdaily", "D:2026-09-13"));
+
+		verify(table).checkColumn("VoteShopLimitdaily", com.bencodez.simpleapi.sql.DataType.INTEGER);
+		verify(resetConnection).commit();
+		ArgumentCaptor<String> sqlText = ArgumentCaptor.forClass(String.class);
+		verify(resetConnection, times(4)).prepareStatement(sqlText.capture());
+		assertTrue(sqlText.getAllValues().stream().anyMatch(statement -> statement.contains("`VoteShopLimitdaily` = 0")));
+		verify(wipe).executeUpdate();
+		verify(advance).setLong(1, 5L);
+		verify(advance).setString(2, "D:2026-09-13");
+		InOrder serializedReset = inOrder(markerSelect, wipe, advance, resetConnection);
+		serializedReset.verify(markerSelect).executeQuery();
+		serializedReset.verify(wipe).executeUpdate();
+		serializedReset.verify(advance).executeUpdate();
+		serializedReset.verify(resetConnection).commit();
 	}
 
 	@Test
@@ -322,6 +373,68 @@ class VoteShopPurchaseServiceTest {
 		verify(user, never()).cache();
 		verify(user, never()).getVoteShopIdentifierLimit(anyString());
 		verify(user, never()).getPoints();
+	}
+
+	@Test
+	void perServerMysqlLimitedPurchaseStillDefersSharedLimitValidationToTheJournal() {
+		VotingPluginMain plugin = sharedMysqlPlugin(mock(MySQL.class));
+		when(plugin.getBungeeSettings().isPerServerPoints()).thenReturn(true);
+		VoteShopDefinition definition = mock(VoteShopDefinition.class);
+		when(definition.isEnabled()).thenReturn(true);
+		VoteShopItem item = mock(VoteShopItem.class);
+		when(item.getPermission()).thenReturn("");
+		when(item.getLimit()).thenReturn(1);
+		when(item.getIdentifier()).thenReturn("daily");
+		when(item.getCost()).thenReturn(10);
+		VotingPluginUser user = purchaseUser();
+		when(user.getVoteShopIdentifierLimit("daily")).thenReturn(1);
+		when(user.getPoints()).thenReturn(0);
+
+		assertEquals(VoteShopPurchaseResult.SUCCESS,
+				new VoteShopPurchaseService(plugin, definition).validatePurchase(mock(org.bukkit.entity.Player.class), user, item));
+
+		verify(user, never()).getVoteShopIdentifierLimit(anyString());
+		verify(user, never()).getPoints();
+	}
+
+	@Test
+	void claimedRewardUsesLegacyEntitySchedulerWhenFoliaIsUnavailable() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
+				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
+		RewardHandler rewardHandler = mock(RewardHandler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(scheduler.getFoliaLib()).thenReturn(null);
+		when(plugin.getRewardHandler()).thenReturn(rewardHandler);
+		when(plugin.getLogger()).thenReturn(mock(java.util.logging.Logger.class));
+		ScheduledExecutorService persistenceExecutor = mock(ScheduledExecutorService.class);
+		when(plugin.getTimer()).thenReturn(persistenceExecutor);
+		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
+		when(player.getUniqueId()).thenReturn(UUID.fromString("00000000-0000-0000-0000-000000000001"));
+		when(player.getName()).thenReturn("player");
+		doAnswer(invocation -> {
+			invocation.getArgument(1, Runnable.class).run();
+			return null;
+		}).when(scheduler).runTask(eq(plugin), any(Runnable.class), eq(player));
+		VotingPluginUser user = purchaseUser();
+		when(user.getPlayerName()).thenReturn("player");
+		VoteShopItem item = mock(VoteShopItem.class);
+		when(item.getIdentifier()).thenReturn("daily");
+		when(item.getCost()).thenReturn(10);
+		when(item.getRewardsPath()).thenReturn("Shop.daily.Rewards");
+		when(item.getPurchaseMessage()).thenReturn("Purchased");
+		SharedMysqlPurchaseJournal journal = mock(SharedMysqlPurchaseJournal.class);
+		VoteShopPurchaseService.SharedPurchaseDebit debit = new VoteShopPurchaseService.SharedPurchaseDebit(
+				VoteShopPurchaseResult.SUCCESS, journal, "purchase-1", "Points", "VoteShopLimitdaily");
+
+		try (org.mockito.MockedStatic<org.bukkit.Bukkit> bukkit = org.mockito.Mockito.mockStatic(org.bukkit.Bukkit.class)) {
+			bukkit.when(org.bukkit.Bukkit::getPluginManager).thenReturn(mock(org.bukkit.plugin.PluginManager.class));
+			new VoteShopPurchaseService(plugin, mock(VoteShopDefinition.class)).scheduleClaimedReward(player, user, item,
+					new HashMap<>(), mock(FileConfiguration.class), ignored -> { }, debit);
+		}
+
+		verify(scheduler).runTask(eq(plugin), any(Runnable.class), eq(player));
+		verify(rewardHandler).giveReward(eq(user), any(FileConfiguration.class), eq("Shop.daily.Rewards"), any());
 	}
 
 	@Test
@@ -995,11 +1108,12 @@ class VoteShopPurchaseServiceTest {
 	}
 
 	@Test
-	void sharedMysqlPurchaseQueuesDatabaseWorkOffCallingThread() throws Exception {
+	void perServerMysqlLimitedPurchaseQueuesJournalReservationOffCallingThread() throws Exception {
 		MySQL table = mock(MySQL.class);
 		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
 				org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		VotingPluginMain plugin = sharedMysqlPlugin(table);
+		when(plugin.getBungeeSettings().isPerServerPoints()).thenReturn(true);
 		ScheduledExecutorService persistenceExecutor = mock(ScheduledExecutorService.class);
 		when(plugin.getTimer()).thenReturn(persistenceExecutor);
 		when(table.getMysql()).thenReturn(sql);

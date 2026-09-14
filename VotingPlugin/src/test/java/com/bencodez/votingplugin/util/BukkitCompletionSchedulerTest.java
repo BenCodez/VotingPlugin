@@ -4,11 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.bukkit.entity.Player;
@@ -61,6 +63,22 @@ class BukkitCompletionSchedulerTest {
 
 		assertEquals(1, completions.get());
 		verify(fixture.scheduler).runTask(eq(fixture.plugin), any(Runnable.class));
+	}
+
+	@Test
+	void rejectedEveryFallbackCallsRejectedOnlyWhenTaskNeverBegan() {
+		Fixture fixture = fixture();
+		when(fixture.entityScheduler.runAtEntityWithFallback(eq(fixture.player), any(), any(Runnable.class)))
+				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
+		doThrow(new RejectedExecutionException("stopping")).when(fixture.scheduler).runTask(eq(fixture.plugin),
+				any(Runnable.class));
+		AtomicInteger completed = new AtomicInteger();
+		AtomicInteger rejected = new AtomicInteger();
+
+		BukkitCompletionScheduler.run(fixture.plugin, fixture.player, completed::incrementAndGet, rejected::incrementAndGet);
+
+		assertEquals(0, completed.get());
+		assertEquals(1, rejected.get());
 	}
 
 	private static Fixture fixture() {

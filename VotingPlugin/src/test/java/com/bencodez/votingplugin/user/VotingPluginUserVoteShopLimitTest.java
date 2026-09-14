@@ -59,4 +59,22 @@ class VotingPluginUserVoteShopLimitTest {
 		verify(data, never()).getInt("VoteShopLimitdaily", UserDataFetchMode.NO_CACHE);
 		verify(data).setInt("VoteShopLimitdaily", 4, false);
 	}
+
+	@Test
+	void perServerMysqlLimitsAlsoUseDirectWritesBecauseTheirColumnIsShared() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		when(plugin.getStorageType()).thenReturn(UserStorage.MYSQL);
+		when(plugin.getBungeeSettings().isPerServerPoints()).thenReturn(true);
+		UserData data = mock(UserData.class);
+		AdvancedCoreUser base = mock(AdvancedCoreUser.class);
+		when(base.getUserData()).thenReturn(data);
+		when(base.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
+		when(base.getPlayerName()).thenReturn("Player");
+
+		VotingPluginUser user = spy(new VotingPluginUser(plugin, base));
+		doReturn(data).when(user).getData();
+		user.setVoteShopIdentifierLimit("daily", 4);
+
+		verify(data).setInt("VoteShopLimitdaily", 4, false);
+	}
 }

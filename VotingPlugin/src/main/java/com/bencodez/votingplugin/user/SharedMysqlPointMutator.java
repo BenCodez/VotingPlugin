@@ -216,6 +216,12 @@ final class SharedMysqlPointMutator {
 				requestedAmount, owner);
 	}
 
+	void releaseUnstartedPointAdditionHook(String operationId, String uuid, String pointsColumn, int requestedAmount,
+			String owner) throws SQLException {
+		SharedPointAdditionJournal.forTable(plugin.getMysql()).releaseUnstartedHook(operationId, uuid, pointsColumn,
+				requestedAmount, owner);
+	}
+
 	AddResult settleClaimedPointAddition(VotingPluginUser user, String operationId, String uuid, String pointsColumn,
 			int requestedAmount, String owner, Integer adjustedAmount) {
 		drainCache(user);
@@ -523,8 +529,7 @@ final class SharedMysqlPointMutator {
 			scheduleRejectedTransferCompensation(source, completion, journal, transferId, sourcePoints, debitAmount);
 		};
 		try {
-			CompletableFuture<EntityTaskResult> approval = plugin.getBukkitScheduler().getFoliaLib().getImpl()
-					.runAtEntityWithFallback(approvalPlayer, ignored -> {
+			runTransferApprovalEntityTask(approvalPlayer, () -> {
 				if (!approvalState.compareAndSet(0, 1)) return;
 				Integer approvedAmount;
 				try {
@@ -552,13 +557,23 @@ final class SharedMysqlPointMutator {
 					approvalState.set(2);
 				}
 			}, rejectBeforeStart);
-			approval.whenComplete((result, failure) -> {
-				if (failure != null || result != EntityTaskResult.SUCCESS) rejectBeforeStart.run();
-			});
 		} catch (RuntimeException schedulingFailure) {
 			plugin.debug(schedulingFailure);
 			rejectBeforeStart.run();
 		}
+	}
+
+	/** Keeps Folia's entity-retirement result while safely supporting legacy Bukkit scheduling. */
+	private void runTransferApprovalEntityTask(org.bukkit.entity.Player player, Runnable task, Runnable rejected) {
+		if (plugin.getBukkitScheduler().getFoliaLib() == null) {
+			BukkitCompletionScheduler.run(plugin, player, task, rejected);
+			return;
+		}
+		CompletableFuture<EntityTaskResult> result = plugin.getBukkitScheduler().getFoliaLib().getImpl()
+				.runAtEntityWithFallback(player, ignored -> task.run(), rejected);
+		result.whenComplete((status, failure) -> {
+			if (failure != null || status != EntityTaskResult.SUCCESS) rejected.run();
+		});
 	}
 
 	private void scheduleRejectedTransferCompensation(VotingPluginUser source, Consumer<PointTransferResult> completion,

@@ -176,6 +176,53 @@ class SharedPointAdditionJournalTest {
 	}
 
 	@Test
+	void provenUnstartedHookClaimIsReleasedForASafeRetry() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement select = mock(PreparedStatement.class);
+		PreparedStatement delete = mock(PreparedStatement.class);
+		ResultSet claimed = hookStartedRow("player", "Points", 5, "first-backend");
+		when(select.executeQuery()).thenReturn(claimed);
+		when(delete.executeUpdate()).thenReturn(1);
+		when(fixture.initialLookup.prepareStatement(anyString())).thenReturn(select, delete);
+
+		new SharedPointAdditionJournal(fixture.table, false).releaseUnstartedHook("reward-operation", "player",
+				"Points", 5, "first-backend");
+
+		verify(delete).setString(1, "reward-operation");
+		verify(delete).setString(2, "HOOK_STARTED");
+		verify(delete).setString(3, "first-backend");
+		verify(delete).executeUpdate();
+		verify(fixture.initialLookup).commit();
+	}
+
+	@Test
+	void ambiguousUnstartedHookReleaseCommitIsConfirmedAsSafeAfterRestart() throws Exception {
+		Fixture fixture = fixture();
+		Connection release = mock(Connection.class);
+		Connection confirmation = mock(Connection.class);
+		PreparedStatement select = mock(PreparedStatement.class);
+		PreparedStatement delete = mock(PreparedStatement.class);
+		PreparedStatement lookup = mock(PreparedStatement.class);
+		ResultSet claimed = hookStartedRow("player", "Points", 5, "first-backend");
+		ResultSet missing = mock(ResultSet.class);
+		when(claimed.next()).thenReturn(true);
+		when(select.executeQuery()).thenReturn(claimed);
+		when(delete.executeUpdate()).thenReturn(1);
+		when(release.prepareStatement(anyString())).thenReturn(select, delete);
+		doThrow(new java.sql.SQLException("commit acknowledgement lost")).when(release).commit();
+		when(missing.next()).thenReturn(false);
+		when(lookup.executeQuery()).thenReturn(missing);
+		when(confirmation.prepareStatement(anyString())).thenReturn(lookup);
+		when(fixture.sql.getConnectionManager().getConnection()).thenReturn(release, confirmation);
+
+		new SharedPointAdditionJournal(fixture.table, false).releaseUnstartedHook("reward-operation", "player",
+				"Points", 5, "first-backend");
+
+		verify(release, atLeastOnce()).close();
+		verify(lookup).setString(1, "reward-operation");
+	}
+
+	@Test
 	void restartedBackendReportsIndeterminateClaimInsteadOfWaitingForADeadOwner() throws Exception {
 		Fixture fixture = fixture();
 		PreparedStatement lookup = mock(PreparedStatement.class);

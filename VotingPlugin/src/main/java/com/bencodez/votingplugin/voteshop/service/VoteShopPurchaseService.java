@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
@@ -22,7 +23,6 @@ import org.bukkit.entity.Player;
 
 import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
-import com.bencodez.advancedcore.api.time.TimeCalculation;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
@@ -53,6 +53,14 @@ public class VoteShopPurchaseService {
 	private static final int COMPLETION_RUNNING = 1;
 	private static final int COMPLETION_COMPENSATING = 2;
 	private static final int COMPLETION_FINISHED = 3;
+	/*
+	 * Reset generations are persisted and compared by every backend sharing a
+	 * MySQL table.  Do not derive them from a host locale: that makes Sunday- and
+	 * Monday-first JVMs publish different generations for one network period.
+	 * Locale.ROOT is the historic convention here, but retain the WeekFields as a
+	 * constant so the network contract is explicit and cannot track JVM defaults.
+	 */
+	private static final WeekFields NETWORK_WEEK_FIELDS = WeekFields.of(Locale.ROOT);
 
 	private VoteShopDefinition definition;
 
@@ -85,7 +93,7 @@ public class VoteShopPurchaseService {
 		// Shared points and limits are decided atomically by the queued reservation.
 		// GUI rendering/click validation runs on Bukkit/Folia lanes and must not turn
 		// an advisory precheck into a synchronous database read.
-		if (usesSharedMysqlPoints()) return VoteShopPurchaseResult.SUCCESS;
+		if (usesMysqlPurchaseReservation(item)) return VoteShopPurchaseResult.SUCCESS;
 		if (item.getLimit() > 0 && user.getVoteShopIdentifierLimit(item.getIdentifier()) >= item.getLimit()) {
 			return VoteShopPurchaseResult.LIMIT_REACHED;
 		}
@@ -97,7 +105,7 @@ public class VoteShopPurchaseService {
 
 	/** Refreshes dynamic GUI validation state only when that refresh cannot block on shared MySQL. */
 	public void refreshUserForPurchaseValidation(VotingPluginUser user, boolean requested) {
-		if (requested && !usesSharedMysqlPoints()) user.cache();
+		if (requested && !usesMysqlPurchaseReservation(null)) user.cache();
 	}
 
 	private VoteShopPurchaseResult validateStaticPurchase(Player player, VoteShopItem item) {
@@ -158,7 +166,7 @@ public class VoteShopPurchaseService {
 	 */
 	public void purchase(Player player, VotingPluginUser user, VoteShopItem item,
 			Consumer<VoteShopPurchaseResult> completion) {
-		if (!usesSharedMysqlPoints()) {
+		if (!usesMysqlPurchaseReservation(item)) {
 			completion.accept(purchaseLocal(player, user, item));
 			return;
 		}
@@ -208,7 +216,7 @@ public class VoteShopPurchaseService {
 	 */
 	@Deprecated
 	public VoteShopPurchaseResult purchase(Player player, VotingPluginUser user, VoteShopItem item) {
-		if (!usesSharedMysqlPoints()) return purchaseLocal(player, user, item);
+		if (!usesMysqlPurchaseReservation(item)) return purchaseLocal(player, user, item);
 		VoteShopPurchaseResult validation = validateStaticPurchase(player, item);
 		if (validation != VoteShopPurchaseResult.SUCCESS) return validation;
 		purchase(player, user, item, ignored -> { });
@@ -229,31 +237,34 @@ public class VoteShopPurchaseService {
 			 * the durable row PENDING until it starts lets recovery refund a debit when
 			 * the entity scheduler never accepts work. The JDBC claim then runs off the
 			 * entity lane, and only a successful durable claim schedules the actual
-			 * reward callback.
+			 * reward callback. BukkitCompletionScheduler retains that entity/global
+			 * fallback behavior on Folia and safely uses Bukkit scheduling when Folia
+			 * support is absent.
 			 */
-			CompletableFuture<EntityTaskResult> gate = plugin.getBukkitScheduler().getFoliaLib().getImpl()
-					.runAtEntityWithFallback(player, ignored -> {
+			runPurchaseEntityTask(player, () -> {
 				if (!state.compareAndSet(COMPLETION_PENDING, COMPLETION_RUNNING)) return;
-				claimSharedMysqlPurchaseAsync(debit).whenComplete((claim, failure) -> {
-					if (failure != null || requiresCompensation(claim)) {
-						if (state.compareAndSet(COMPLETION_RUNNING, COMPLETION_COMPENSATING)) {
-							// runTaskAsynchronously may reject before returning its future.
-							// CompletableFuture then invokes this callback inline on the
-							// entity lane, so compensation must be admitted through its own
-							// off-thread scheduling path instead of doing JDBC here.
-							scheduleSharedMysqlCompensation(player, user, completion, debit);
+				try {
+					claimSharedMysqlPurchaseAsync(debit).whenComplete((claim, failure) -> {
+						if (failure != null || requiresCompensation(claim)) {
+							if (state.compareAndSet(COMPLETION_RUNNING, COMPLETION_COMPENSATING)) {
+								// runTaskAsynchronously may reject before returning its future.
+								// CompletableFuture then invokes this callback inline on the
+								// entity lane, so compensation must be admitted through its own
+								// off-thread scheduling path instead of doing JDBC here.
+								scheduleSharedMysqlCompensation(player, user, completion, debit);
+							}
+							return;
 						}
-						return;
+						state.compareAndSet(COMPLETION_RUNNING, COMPLETION_FINISHED);
+						scheduleClaimedReward(player, user, item, placeholders, shopData, completion, debit);
+					});
+				} catch (RuntimeException claimSchedulingFailure) {
+					if (state.compareAndSet(COMPLETION_RUNNING, COMPLETION_COMPENSATING)) {
+						scheduleSharedMysqlCompensation(player, user, completion, debit);
 					}
-					state.compareAndSet(COMPLETION_RUNNING, COMPLETION_FINISHED);
-					scheduleClaimedReward(player, user, item, placeholders, shopData, completion, debit);
-				});
-			}, compensateBeforeClaim);
-			gate.whenComplete((result, failure) -> {
-				if (failure != null || result != EntityTaskResult.SUCCESS) {
-					compensateBeforeClaim.run();
+					plugin.debug(claimSchedulingFailure);
 				}
-			});
+			}, compensateBeforeClaim);
 		} catch (RuntimeException schedulingFailure) {
 			compensateBeforeClaim.run();
 			plugin.debug(schedulingFailure);
@@ -276,8 +287,7 @@ public class VoteShopPurchaseService {
 			}
 		};
 		try {
-			CompletableFuture<EntityTaskResult> reward = plugin.getBukkitScheduler().getFoliaLib().getImpl()
-					.runAtEntityWithFallback(player, ignored -> {
+			runPurchaseEntityTask(player, () -> {
 				if (!state.compareAndSet(COMPLETION_PENDING, COMPLETION_RUNNING)) return;
 				try {
 					completePurchase(player, user, item, placeholders, shopData);
@@ -312,9 +322,6 @@ public class VoteShopPurchaseService {
 					state.set(COMPLETION_FINISHED);
 				}
 			}, rejectBeforeStart);
-			reward.whenComplete((result, failure) -> {
-				if (failure != null || result != EntityTaskResult.SUCCESS) rejectBeforeStart.run();
-			});
 		} catch (RuntimeException schedulingFailure) {
 			rejectBeforeStart.run();
 			plugin.debug(schedulingFailure);
@@ -324,6 +331,24 @@ public class VoteShopPurchaseService {
 	private void logClaimedRewardSchedulingFailure(SharedPurchaseDebit debit) {
 		plugin.getLogger().severe("Shared MySQL vote shop purchase " + debit.purchaseId()
 				+ " was claimed but its reward callback did not complete; retaining it for reconciliation");
+	}
+
+	/**
+	 * Folia provides the entity-retirement signal that decides whether a durable
+	 * reservation must be compensated. Preserve that lifecycle when it is
+	 * available, but route legacy Bukkit/Paper through the safe entity/global
+	 * completion scheduler instead of dereferencing a missing Folia adapter.
+	 */
+	private void runPurchaseEntityTask(Player player, Runnable task, Runnable rejected) {
+		if (plugin.getBukkitScheduler().getFoliaLib() == null) {
+			BukkitCompletionScheduler.run(plugin, player, task, rejected);
+			return;
+		}
+		CompletableFuture<EntityTaskResult> result = plugin.getBukkitScheduler().getFoliaLib().getImpl()
+				.runAtEntityWithFallback(player, ignored -> task.run(), rejected);
+		result.whenComplete((status, failure) -> {
+			if (failure != null || status != EntityTaskResult.SUCCESS) rejected.run();
+		});
 	}
 
 	private void compensateSharedMysqlPurchase(Player player, VotingPluginUser user,
@@ -478,6 +503,17 @@ public class VoteShopPurchaseService {
 		return usesSharedMysqlPoints(plugin);
 	}
 
+	/**
+	 * A vote-shop limit belongs to the shared MySQL user row even when point
+	 * balances are server-suffixed. Limited MySQL purchases must therefore reserve
+	 * both the selected points column and the shared limit under the journal epoch
+	 * lock; otherwise two servers can independently pass a stale local limit read.
+	 */
+	private boolean usesMysqlPurchaseReservation(VoteShopItem item) {
+		return usesSharedMysqlPoints() || plugin != null && item != null && item.getLimit() > 0
+				&& UserStorage.MYSQL.equals(plugin.getStorageType());
+	}
+
 	private static boolean usesSharedMysqlPoints(VotingPluginMain plugin) {
 		return plugin != null && UserStorage.MYSQL.equals(plugin.getStorageType())
 				&& !plugin.getBungeeSettings().isPerServerPoints();
@@ -516,6 +552,36 @@ public class VoteShopPurchaseService {
 				SharedMysqlCacheReconciler.invalidateAllAndRefresh(plugin, limitColumn);
 			}
 		});
+	}
+
+	/**
+	 * Resets a MySQL limit during a per-server-points transition.  Some backends
+	 * can still be using shared points, so use the purchase journal rather than
+	 * UserManager's independent wipe: {@code resetLimit} locks the epoch row,
+	 * wipes precisely this limit column, and publishes the new epoch in one
+	 * transaction.  Reservations and refunds take that same row lock.
+	 */
+	public static boolean resetMysqlLimitWithPurchaseFence(VotingPluginMain plugin, String limitColumn,
+			String resetGeneration) {
+		if (!canRecoverSharedMysqlPurchases(plugin)) return false;
+		AtomicBoolean reset = new AtomicBoolean();
+		withSharedMysqlCacheResetFence(() -> {
+			// Do not dump cached absolute values around the direct journal update.
+			SharedMysqlCacheReconciler.invalidateAll(plugin, limitColumn);
+			try {
+				MySQL table = plugin.getMysql();
+				table.checkColumn(limitColumn, DataType.INTEGER);
+				SharedMysqlPurchaseJournal.forTable(table).resetLimit(limitColumn, resetGeneration);
+				reset.set(true);
+			} catch (SQLException failure) {
+				plugin.getLogger().severe("Unable to atomically reset MySQL vote shop limit: "
+						+ failure.getClass().getSimpleName());
+				plugin.debug(failure);
+			} finally {
+				SharedMysqlCacheReconciler.invalidateAllAndRefresh(plugin, limitColumn);
+			}
+		});
+		return reset.get();
 	}
 
 	static void withSharedMysqlCacheResetFence(Runnable action) {
@@ -789,8 +855,8 @@ public class VoteShopPurchaseService {
 		}
 		if (weekly) {
 			LocalDateTime weekBoundary = current.toLocalDate().plusDays(1).atStartOfDay();
-			int week = TimeCalculation.weekNumber(current, weekOffset, Locale.ROOT);
-			while (TimeCalculation.weekNumber(weekBoundary, weekOffset, Locale.ROOT) == week) {
+			int week = networkWeekNumber(current, weekOffset);
+			while (networkWeekNumber(weekBoundary, weekOffset) == week) {
 				weekBoundary = weekBoundary.plusDays(1);
 			}
 			if (next == null || weekBoundary.isBefore(next)) next = weekBoundary;
@@ -810,8 +876,12 @@ public class VoteShopPurchaseService {
 
 	static String weeklyGenerationId(LocalDateTime current, int weekOffset) {
 		LocalDateTime weekTime = current.plusDays(weekOffset);
-		WeekFields fields = WeekFields.of(Locale.ROOT);
-		return "W:" + weekTime.get(fields.weekBasedYear()) + '-' + weekTime.get(fields.weekOfWeekBasedYear());
+		return "W:" + weekTime.get(NETWORK_WEEK_FIELDS.weekBasedYear()) + '-'
+				+ weekTime.get(NETWORK_WEEK_FIELDS.weekOfWeekBasedYear());
+	}
+
+	private static int networkWeekNumber(LocalDateTime time, int weekOffset) {
+		return time.plusDays(weekOffset).get(NETWORK_WEEK_FIELDS.weekOfWeekBasedYear());
 	}
 
 	record SharedPurchaseDebit(VoteShopPurchaseResult result, SharedMysqlPurchaseJournal journal,

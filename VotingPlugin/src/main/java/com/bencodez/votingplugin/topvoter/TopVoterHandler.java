@@ -540,6 +540,15 @@ public class TopVoterHandler implements Listener {
 			else VoteShopPurchaseService.resetSharedMysqlLimit(plugin, limitColumn, resetGeneration);
 			return;
 		}
+		if (UserStorage.MYSQL.equals(plugin.getStorageType())) {
+			// The limit column is still shared with backends that have not switched to
+			// per-server points.  Its wipe and epoch advance must therefore use the
+			// journal's one transaction; doing the UserManager wipe after advancing the
+			// epoch can erase a new-epoch reservation.
+			VoteShopPurchaseService.resetMysqlLimitWithPurchaseFence(plugin, limitColumn,
+					resetGeneration == null ? UUID.randomUUID().toString() : resetGeneration);
+			return;
+		}
 		plugin.getUserManager().removeAllKeyValues(limitColumn, DataType.INTEGER);
 	}
 

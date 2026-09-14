@@ -405,6 +405,66 @@ final class SharedPointAdditionJournal {
 	}
 
 	/**
+	 * Releases a hook claim only when the scheduler proved that its callback never
+	 * began. Unlike {@link #markIndeterminate(String, String, String, int, String)},
+	 * this makes an idempotent retry safe because no listener was invoked.
+	 */
+	void releaseUnstartedHook(String operationId, String uuid, String pointsColumn, int requestedAmount, String owner)
+			throws SQLException {
+		if (!isSafeColumn(pointsColumn)) throw new SQLException("Unsafe shared point column");
+		String select = "SELECT " + qi("player_uuid") + ", " + qi("points_column") + ", " + qi("amount")
+				+ ", " + qi("state") + ", " + qi("total_points") + ", " + qi("requested_amount") + ", "
+				+ qi("hook_owner") + ", " + qi("created_at") + " FROM " + qiJournal() + " WHERE "
+				+ qi("operation_id") + " = ? FOR UPDATE";
+		String delete = "DELETE FROM " + qiJournal() + " WHERE " + qi("operation_id") + " = ? AND "
+				+ qi("state") + " = ? AND " + qi("hook_owner") + " = ?";
+		try (Connection connection = connection()) {
+			connection.setAutoCommit(false);
+			try (PreparedStatement selectStatement = connection.prepareStatement(select)) {
+				selectStatement.setString(1, operationId);
+				try (ResultSet result = selectStatement.executeQuery()) {
+					if (!result.next()) {
+						rollback(connection);
+						return;
+					}
+					Integer total = result.getObject(5) == null ? null : Integer.valueOf(result.getInt(5));
+					Integer requested = result.getObject(6) == null ? null : Integer.valueOf(result.getInt(6));
+					AdditionRow row = new AdditionRow(result.getString(1), result.getString(2), result.getInt(3),
+							result.getString(4), total, requested, result.getString(7), result.getLong(8));
+					if (!row.matchesTarget(uuid, pointsColumn)
+							|| row.requestedAmount != null && row.requestedAmount.intValue() != requestedAmount) {
+						rollback(connection);
+						throw new SQLException("Mismatched shared point addition operation");
+					}
+					if (!HOOK_STARTED.equals(row.state) || !owner.equals(row.hookOwner)) {
+						rollback(connection);
+						return;
+					}
+				}
+			}
+			try (PreparedStatement deleteStatement = connection.prepareStatement(delete)) {
+				deleteStatement.setString(1, operationId);
+				deleteStatement.setString(2, HOOK_STARTED);
+				deleteStatement.setString(3, owner);
+				if (deleteStatement.executeUpdate() != 1) {
+					rollback(connection);
+					return;
+				}
+			}
+			try {
+				connection.commit();
+			} catch (SQLException ambiguousCommit) {
+				// A shutdown can interrupt the acknowledgement after the delete reached
+				// MySQL. Confirm through a fresh connection before classifying a
+				// scheduler-proven unstarted hook as unresolved.
+				closeQuietly(connection);
+				if (find(operationId) == null) return;
+				throw ambiguousCommit;
+			}
+		}
+	}
+
+	/**
 	 * Returns a previously committed addition before a retry invokes its Bukkit
 	 * receive hook. The amount deliberately remains part of {@link #add}: a
 	 * listener may have adjusted it during the original invocation, so comparing

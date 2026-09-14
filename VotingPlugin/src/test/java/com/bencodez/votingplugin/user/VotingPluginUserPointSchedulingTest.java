@@ -456,6 +456,110 @@ class VotingPluginUserPointSchedulingTest {
 	}
 
 	@Test
+	void retiredEntitySchedulerQueuesUnstartedHookReleaseWithoutJdbcOnCompletionLane() throws Exception {
+		PointFixture fixture = pointFixture();
+		CompletableFuture<EntityTaskResult> entityCompletion = new CompletableFuture<>();
+		when(fixture.entityScheduler.runAtEntityWithFallback(eq(fixture.player), any(), any(Runnable.class)))
+				.thenReturn(entityCompletion);
+		PreparedStatement statement = fixture.statement;
+		ResultSet missing = mock(ResultSet.class);
+		when(missing.next()).thenReturn(false);
+		ResultSet claimed = mock(ResultSet.class);
+		when(claimed.next()).thenReturn(true);
+		when(claimed.getString(1)).thenReturn("00000000-0000-0000-0000-000000000001");
+		when(claimed.getString(2)).thenReturn("Points");
+		when(claimed.getInt(3)).thenReturn(5);
+		when(claimed.getString(4)).thenReturn("HOOK_STARTED");
+		when(claimed.getObject(5)).thenReturn(null);
+		when(claimed.getObject(6)).thenReturn(Integer.valueOf(5));
+		when(claimed.getInt(6)).thenReturn(5);
+		AtomicReference<String> owner = new AtomicReference<>();
+		doAnswer(invocation -> {
+			owner.set(invocation.getArgument(1));
+			return null;
+		}).when(statement).setString(eq(8), anyString());
+		when(claimed.getString(7)).thenAnswer(invocation -> owner.get());
+		when(claimed.getLong(8)).thenReturn(1L);
+		when(statement.executeQuery()).thenReturn(missing, claimed);
+		when(statement.executeUpdate()).thenReturn(1);
+		doThrow(new RejectedExecutionException("retired")).when(fixture.scheduler)
+				.runTask(eq(fixture.plugin), any(Runnable.class), eq(fixture.player));
+		doThrow(new RejectedExecutionException("stopping")).when(fixture.scheduler)
+				.runTask(eq(fixture.plugin), any(Runnable.class));
+
+		CompletableFuture<Integer> completion = fixture.user.addPointsStorageAwareAsync(5, "reward-operation")
+				.toCompletableFuture();
+		ArgumentCaptor<Runnable> claimedWork = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence).execute(claimedWork.capture());
+		claimedWork.getValue().run();
+
+		com.bencodez.simpleapi.sql.mysql.ConnectionManager manager = fixture.sql.getConnectionManager();
+		org.mockito.Mockito.clearInvocations(fixture.persistence, manager, fixture.connection, statement);
+		entityCompletion.complete(EntityTaskResult.SCHEDULER_RETIRED);
+
+		ArgumentCaptor<Runnable> releaseWork = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence).execute(releaseWork.capture());
+		verifyNoInteractions(manager, fixture.connection, statement);
+		assertFalse(completion.isDone());
+		releaseWork.getValue().run();
+
+		assertTrue(completion.isCompletedExceptionally());
+		verify(fixture.scheduler, never()).runTaskAsynchronously(eq(fixture.plugin), any(Runnable.class));
+		verify(fixture.connection).commit();
+		verify(statement).setString(2, "HOOK_STARTED");
+	}
+
+	@Test
+	void retiredEntitySchedulerRetainsClaimWhenNoDatabaseSafeReleaseWorkerAcceptsWork() throws Exception {
+		PointFixture fixture = pointFixture();
+		CompletableFuture<EntityTaskResult> entityCompletion = new CompletableFuture<>();
+		when(fixture.entityScheduler.runAtEntityWithFallback(eq(fixture.player), any(), any(Runnable.class)))
+				.thenReturn(entityCompletion);
+		PreparedStatement statement = fixture.statement;
+		ResultSet missing = mock(ResultSet.class);
+		when(missing.next()).thenReturn(false);
+		ResultSet claimed = mock(ResultSet.class);
+		when(claimed.next()).thenReturn(true);
+		when(claimed.getString(1)).thenReturn("00000000-0000-0000-0000-000000000001");
+		when(claimed.getString(2)).thenReturn("Points");
+		when(claimed.getInt(3)).thenReturn(5);
+		when(claimed.getString(4)).thenReturn("HOOK_STARTED");
+		when(claimed.getObject(5)).thenReturn(null);
+		when(claimed.getObject(6)).thenReturn(Integer.valueOf(5));
+		when(claimed.getInt(6)).thenReturn(5);
+		AtomicReference<String> owner = new AtomicReference<>();
+		doAnswer(invocation -> {
+			owner.set(invocation.getArgument(1));
+			return null;
+		}).when(statement).setString(eq(8), anyString());
+		when(claimed.getString(7)).thenAnswer(invocation -> owner.get());
+		when(claimed.getLong(8)).thenReturn(1L);
+		when(statement.executeQuery()).thenReturn(missing, claimed);
+		when(statement.executeUpdate()).thenReturn(1);
+		doThrow(new RejectedExecutionException("retired")).when(fixture.scheduler)
+				.runTask(eq(fixture.plugin), any(Runnable.class), eq(fixture.player));
+		doThrow(new RejectedExecutionException("stopping")).when(fixture.scheduler)
+				.runTask(eq(fixture.plugin), any(Runnable.class));
+
+		CompletableFuture<Integer> completion = fixture.user.addPointsStorageAwareAsync(5, "reward-operation")
+				.toCompletableFuture();
+		ArgumentCaptor<Runnable> claimedWork = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence).execute(claimedWork.capture());
+		claimedWork.getValue().run();
+
+		com.bencodez.simpleapi.sql.mysql.ConnectionManager manager = fixture.sql.getConnectionManager();
+		org.mockito.Mockito.clearInvocations(fixture.persistence, manager, fixture.connection, statement);
+		doThrow(new RejectedExecutionException("stopping")).when(fixture.persistence).execute(any(Runnable.class));
+		doThrow(new RejectedExecutionException("disabling")).when(fixture.scheduler)
+				.runTaskAsynchronously(eq(fixture.plugin), any(Runnable.class));
+		entityCompletion.complete(EntityTaskResult.SCHEDULER_RETIRED);
+
+		assertTrue(completion.isCompletedExceptionally());
+		verify(fixture.scheduler).runTaskAsynchronously(eq(fixture.plugin), any(Runnable.class));
+		verifyNoInteractions(manager, fixture.connection, statement);
+	}
+
+	@Test
 	void sharedAsyncAddReturnsThePredictedEventAdjustedTotalWithoutJdbcOnTheCaller() throws Exception {
 		PointFixture fixture = pointFixture();
 		UserData data = mock(UserData.class);

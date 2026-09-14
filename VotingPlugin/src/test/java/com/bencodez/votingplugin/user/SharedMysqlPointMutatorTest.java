@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -17,6 +18,7 @@ import static org.mockito.ArgumentMatchers.any;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
@@ -36,6 +38,56 @@ import com.bencodez.simpleapi.sql.data.DataValueInt;
 import com.bencodez.votingplugin.VotingPluginMain;
 
 class SharedMysqlPointMutatorTest {
+	@Test
+	void transferApprovalUsesLegacyEntitySchedulerWhenFoliaIsUnavailable() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
+				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
+		ScheduledExecutorService persistence = mock(ScheduledExecutorService.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(scheduler.getFoliaLib()).thenReturn(null);
+		when(plugin.getTimer()).thenReturn(persistence);
+		when(plugin.getUserManager().getDataManager().getUserDataCache())
+				.thenReturn(new java.util.concurrent.ConcurrentHashMap<>());
+		doAnswer(invocation -> {
+			invocation.getArgument(1, Runnable.class).run();
+			return null;
+		}).when(scheduler).runTask(eq(plugin), any(Runnable.class), any(org.bukkit.entity.Player.class));
+		doAnswer(invocation -> {
+			invocation.getArgument(0, Runnable.class).run();
+			return null;
+		}).when(persistence).execute(any(Runnable.class));
+
+		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
+		VotingPluginUser source = mock(VotingPluginUser.class);
+		when(source.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
+		when(source.getPointsPath()).thenReturn("Points_server_a");
+		when(source.getPlayer()).thenReturn(player);
+		VotingPluginUser target = mock(VotingPluginUser.class);
+		when(target.getUUID()).thenReturn("00000000-0000-0000-0000-000000000002");
+		when(target.getPointsPath()).thenReturn("Points_server_b");
+		when(target.getPlayer()).thenReturn(player);
+		SharedPointTransferJournal journal = mock(SharedPointTransferJournal.class);
+		when(journal.claimHookWithConfirmation(eq("transfer-1"), eq("owner"), org.mockito.ArgumentMatchers.anyLong()))
+				.thenReturn(SharedPointTransferJournal.ClaimOutcome.CLAIMED);
+		when(journal.settleWithConfirmation(eq("transfer-1"), eq("owner"), anyString(), anyString(), anyString(),
+				anyString(), eq(10), eq(10))).thenReturn(SharedPointTransferJournal.SettlementOutcome.COMPLETED);
+		AtomicReference<PointTransferResult> completion = new AtomicReference<>();
+		java.util.function.Consumer<PointTransferResult> resultConsumer = completion::set;
+
+		Method claim = SharedMysqlPointMutator.class.getDeclaredMethod("claimTransferForApproval",
+				VotingPluginUser.class, VotingPluginUser.class, int.class, java.util.function.IntFunction.class,
+				java.util.function.Consumer.class, SharedPointTransferJournal.class, String.class, String.class,
+				String.class, String.class);
+		claim.setAccessible(true);
+		claim.invoke(new SharedMysqlPointMutator(plugin), source, target, 10,
+				(java.util.function.IntFunction<Integer>) value -> value, resultConsumer, journal, "transfer-1", "owner",
+				"Points_server_a", "Points_server_b");
+
+		assertEquals(PointTransferResult.SUCCESS, completion.get());
+		verify(scheduler, times(2)).runTask(eq(plugin), any(Runnable.class), eq(player));
+	}
+
 	@Test
 	void pointMutationDumpHoldsTheSharedLimitResetFence() throws Exception {
 		MySQL table = mock(MySQL.class);
