@@ -5,6 +5,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.WeekFields;
@@ -743,24 +744,33 @@ public class VoteShopPurchaseService {
 		boolean daily = plugin.getShopFile().getVoteShopResetDaily(identifier);
 		boolean weekly = plugin.getShopFile().getVoteShopResetWeekly(identifier);
 		boolean monthly = plugin.getShopFile().getVoteShopResetMonthly(identifier);
-		return limitGeneration(plugin.getTimeChecker().getTime(), nowMillis, daily, weekly, monthly,
-				plugin.getOptions().getTimeWeekOffSet(), configuredTimeZone(plugin),
-				plugin.getOptions().getTimeHourOffSet());
+		ZoneId timeZone = configuredTimeZone(plugin);
+		int hourOffset = plugin.getOptions().getTimeHourOffSet();
+		LocalDateTime current = networkCurrentTime(nowMillis, timeZone, hourOffset);
+		return limitGeneration(current, nowMillis, daily, weekly, monthly,
+				plugin.getOptions().getTimeWeekOffSet(), timeZone, hourOffset);
 	}
 
 	private static ZoneId configuredTimeZone(VotingPluginMain plugin) {
-		String configured = plugin.getOptions().getTimeZone();
-		if (configured == null || configured.isEmpty()) return ZoneId.systemDefault();
+		return networkTimeZone(plugin.getOptions().getTimeZone());
+	}
+
+	static ZoneId networkTimeZone(String configured) {
+		if (configured == null || configured.isBlank()) return ZoneId.of("UTC");
 		try {
 			return ZoneId.of(configured);
 		} catch (RuntimeException invalidZone) {
-			return ZoneId.systemDefault();
+			return ZoneId.of("UTC");
 		}
+	}
+
+	static LocalDateTime networkCurrentTime(long nowMillis, ZoneId timeZone, int hourOffset) {
+		return LocalDateTime.ofInstant(Instant.ofEpochMilli(nowMillis), timeZone).plusHours(hourOffset);
 	}
 
 	static LimitGeneration limitGeneration(LocalDateTime current, long nowMillis, boolean daily, boolean weekly,
 			boolean monthly, int weekOffset) {
-		return limitGeneration(current, nowMillis, daily, weekly, monthly, weekOffset, ZoneId.systemDefault(), 0);
+		return limitGeneration(current, nowMillis, daily, weekly, monthly, weekOffset, ZoneId.of("UTC"), 0);
 	}
 
 	private static LimitGeneration limitGeneration(LocalDateTime current, long nowMillis, boolean daily, boolean weekly,

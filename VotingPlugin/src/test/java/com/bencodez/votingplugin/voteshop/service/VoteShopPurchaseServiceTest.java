@@ -36,6 +36,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.HashMap;
 import java.util.Locale;
+import java.util.TimeZone;
 import java.util.UUID;
 
 import org.bukkit.configuration.file.FileConfiguration;
@@ -61,6 +62,39 @@ import com.bencodez.votingplugin.voteshop.shop.VoteShopItem;
 
 class VoteShopPurchaseServiceTest {
 	@Test
+	void missingOrInvalidNetworkTimeZoneUsesUtc() {
+		assertEquals(ZoneId.of("UTC"), VoteShopPurchaseService.networkTimeZone(null));
+		assertEquals(ZoneId.of("UTC"), VoteShopPurchaseService.networkTimeZone("  "));
+		assertEquals(ZoneId.of("UTC"), VoteShopPurchaseService.networkTimeZone("not/a-zone"));
+		assertEquals(ZoneId.of("America/Regina"),
+				VoteShopPurchaseService.networkTimeZone("America/Regina"));
+	}
+
+	@Test
+	void utcLimitGenerationDoesNotDependOnJvmDefaultTimeZone() {
+		TimeZone previous = TimeZone.getDefault();
+		LocalDateTime current = LocalDateTime.of(2026, 9, 8, 23, 30);
+		long now = current.atZone(ZoneId.of("UTC")).toInstant().toEpochMilli();
+		try {
+			TimeZone.setDefault(TimeZone.getTimeZone("Pacific/Honolulu"));
+			LocalDateTime honoluluCurrent = VoteShopPurchaseService.networkCurrentTime(
+					now, VoteShopPurchaseService.networkTimeZone(""), 0);
+			VoteShopPurchaseService.LimitGeneration honolulu = VoteShopPurchaseService.limitGeneration(
+					honoluluCurrent, now, true, true, true, 0);
+			TimeZone.setDefault(TimeZone.getTimeZone("Pacific/Kiritimati"));
+			LocalDateTime kiritimatiCurrent = VoteShopPurchaseService.networkCurrentTime(
+					now, VoteShopPurchaseService.networkTimeZone("invalid"), 0);
+			VoteShopPurchaseService.LimitGeneration kiritimati = VoteShopPurchaseService.limitGeneration(
+					kiritimatiCurrent, now, true, true, true, 0);
+			assertEquals(current, honoluluCurrent);
+			assertEquals(current, kiritimatiCurrent);
+			assertEquals(honolulu, kiritimati);
+		} finally {
+			TimeZone.setDefault(previous);
+		}
+	}
+
+	@Test
 	void unconfirmedRewardClaimIsCompensatedBeforeTheRewardCanStart() {
 		assertTrue(VoteShopPurchaseService.requiresCompensation(
 				SharedMysqlPurchaseJournal.ClaimOutcome.INDETERMINATE));
@@ -83,7 +117,7 @@ class VoteShopPurchaseServiceTest {
 	@Test
 	void limitGenerationUsesTheEarliestConfiguredResetBoundary() {
 		LocalDateTime current = LocalDateTime.of(2026, 9, 8, 12, 0);
-		long now = current.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+		long now = current.atZone(ZoneId.of("UTC")).toInstant().toEpochMilli();
 		VoteShopPurchaseService.LimitGeneration generation = VoteShopPurchaseService.limitGeneration(
 				current, now, true, true, true, 0);
 
@@ -112,7 +146,7 @@ class VoteShopPurchaseServiceTest {
 	void weeklyGenerationDoesNotDependOnTheJvmDefaultLocale() {
 		Locale previous = Locale.getDefault();
 		LocalDateTime current = LocalDateTime.of(2027, 1, 3, 12, 0);
-		long now = current.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+		long now = current.atZone(ZoneId.of("UTC")).toInstant().toEpochMilli();
 		try {
 			Locale.setDefault(Locale.US);
 			String usGeneration = VoteShopPurchaseService.weeklyGenerationId(current, 0);
