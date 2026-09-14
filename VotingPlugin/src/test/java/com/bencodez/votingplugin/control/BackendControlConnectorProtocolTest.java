@@ -127,7 +127,8 @@ class BackendControlConnectorProtocolTest {
 
 	@Test void votePartyRequiresItsVersionedCapability() {
 		assertFalse(BackendControlConnector.quickSetupCapabilityAccepted("vote-party", true, false, false));
-		assertTrue(BackendControlConnector.quickSetupCapabilityAccepted("vote-party", false, true, false));
+		assertFalse(BackendControlConnector.quickSetupCapabilityAccepted("vote-party", false, true, false));
+		assertTrue(BackendControlConnector.quickSetupCapabilityAccepted("vote-party", true, true, false));
 	}
 
 	@Test void legacyVotePartyOptionsUseV1ButEnabledRequiresV2() {
@@ -135,7 +136,9 @@ class BackendControlConnectorProtocolTest {
 				Map.of("threshold", "10")));
 		assertFalse(BackendControlConnector.quickSetupCapabilityAccepted("vote-party", true, false, false,
 				Map.of("enabled", "true")));
-		assertTrue(BackendControlConnector.quickSetupCapabilityAccepted("vote-party", false, true, false,
+		assertFalse(BackendControlConnector.quickSetupCapabilityAccepted("vote-party", false, true, false,
+				Map.of("enabled", "true")));
+		assertTrue(BackendControlConnector.quickSetupCapabilityAccepted("vote-party", true, true, false,
 				Map.of("enabled", "true")));
 		Map<String, String> state = Map.of("enabled", "false", "votesRequired", "20");
 		assertEquals(Map.of("votesRequired", "20"),

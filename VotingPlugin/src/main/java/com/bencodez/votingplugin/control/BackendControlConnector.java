@@ -736,7 +736,7 @@ public final class BackendControlConnector implements AutoCloseable {
 
 	static boolean quickSetupCapabilityAccepted(String preset, boolean quickSetupsAccepted,
 			boolean votePartySetupsAccepted, boolean voteSitesSyncAccepted) {
-		if ("vote-party".equals(preset)) return votePartySetupsAccepted;
+		if ("vote-party".equals(preset)) return quickSetupsAccepted && votePartySetupsAccepted;
 		return quickSetupsAccepted && (!"sync-vote-sites".equals(preset) || voteSitesSyncAccepted);
 	}
 
@@ -744,7 +744,7 @@ public final class BackendControlConnector implements AutoCloseable {
 			boolean votePartySetupsAccepted, boolean voteSitesSyncAccepted, Map<String, String> options) {
 		if ("vote-party".equals(preset)) {
 			return options != null && options.containsKey("enabled")
-					? votePartySetupsAccepted : quickSetupsAccepted;
+					? quickSetupsAccepted && votePartySetupsAccepted : quickSetupsAccepted;
 		}
 		return quickSetupCapabilityAccepted(preset, quickSetupsAccepted, votePartySetupsAccepted,
 			voteSitesSyncAccepted);

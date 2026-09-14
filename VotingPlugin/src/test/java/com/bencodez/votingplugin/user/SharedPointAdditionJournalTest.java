@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.user;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -93,6 +94,147 @@ class SharedPointAdditionJournalTest {
 	}
 
 	@Test
+	void claimedHookPreventsAnotherBackendFromReplayingTheReceiveEvent() throws Exception {
+		Fixture fixture = fixture();
+		Connection missing = missingLookup();
+		Connection claim = mock(Connection.class);
+		PreparedStatement insert = mock(PreparedStatement.class);
+		when(claim.prepareStatement(anyString())).thenReturn(insert);
+		Connection otherBackend = mock(Connection.class);
+		PreparedStatement lookup = mock(PreparedStatement.class);
+		ResultSet claimed = hookStartedRow("player", "Points", 5, "first-backend");
+		when(lookup.executeQuery()).thenReturn(claimed);
+		when(otherBackend.prepareStatement(anyString())).thenReturn(lookup);
+		when(fixture.sql.getConnectionManager().getConnection()).thenReturn(missing, claim, otherBackend);
+
+		SharedPointAdditionJournal journal = new SharedPointAdditionJournal(fixture.table, false);
+		assertTrue(journal.claimHook("reward-operation", "player", "Points", 5, "first-backend", 100L).claimed());
+		SharedPointAdditionJournal.HookClaim duplicate = journal.claimHook("reward-operation", "player", "Points", 5,
+				"second-backend", 101L);
+
+		assertFalse(duplicate.claimed());
+		assertFalse(duplicate.completed());
+		assertTrue(duplicate.requiresReconciliation());
+		verify(insert, times(1)).executeUpdate();
+	}
+
+	@Test
+	void rejectedOrStoppedHookClaimIsDurablyMarkedForManualReconciliation() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement select = mock(PreparedStatement.class);
+		PreparedStatement update = mock(PreparedStatement.class);
+		ResultSet claimed = hookStartedRow("player", "Points", 5, "first-backend");
+		when(select.executeQuery()).thenReturn(claimed);
+		when(update.executeUpdate()).thenReturn(1);
+		when(fixture.initialLookup.prepareStatement(anyString())).thenReturn(select, update);
+
+		new SharedPointAdditionJournal(fixture.table, false).markIndeterminate("reward-operation", "player",
+				"Points", 5, "first-backend");
+
+		verify(update).setString(1, "INDETERMINATE");
+		verify(update).setString(2, "reward-operation");
+		verify(update).setString(3, "HOOK_STARTED");
+		verify(update).setString(4, "first-backend");
+		verify(fixture.initialLookup).commit();
+	}
+
+	@Test
+	void restartedBackendReportsIndeterminateClaimInsteadOfWaitingForADeadOwner() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement lookup = mock(PreparedStatement.class);
+		ResultSet indeterminate = hookStartedRow("player", "Points", 5, "stopped-backend");
+		when(indeterminate.getString(4)).thenReturn("INDETERMINATE");
+		when(lookup.executeQuery()).thenReturn(indeterminate);
+		when(fixture.initialLookup.prepareStatement(anyString())).thenReturn(lookup);
+
+		SharedPointAdditionJournal.HookClaim claim = new SharedPointAdditionJournal(fixture.table, false)
+				.claimHook("reward-operation", "player", "Points", 5, "restarted-backend", 101L);
+
+		assertFalse(claim.claimed());
+		assertTrue(claim.requiresReconciliation());
+	}
+
+	@Test
+	void liveForeignHookClaimIsNotPreemptedBeforeItsRecoveryLeaseExpires() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement lookup = mock(PreparedStatement.class);
+		ResultSet live = hookStartedRow("player", "Points", 5, "live-backend", 100L);
+		when(lookup.executeQuery()).thenReturn(live);
+		when(fixture.initialLookup.prepareStatement(anyString())).thenReturn(lookup);
+
+		SharedPointAdditionJournal.HookClaim claim = new SharedPointAdditionJournal(fixture.table, false)
+				.claimHook("reward-operation", "player", "Points", 5, "replacement",
+						100L + SharedPointAdditionJournal.HOOK_RECOVERY_LEASE_MILLIS - 1L);
+
+		assertFalse(claim.claimed());
+		assertTrue(claim.requiresReconciliation());
+		verify(fixture.sql.getConnectionManager(), times(1)).getConnection();
+	}
+
+	@Test
+	void staleForeignHookClaimTransitionsDurablyToReconciliation() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement lookup = mock(PreparedStatement.class);
+		ResultSet stale = hookStartedRow("player", "Points", 5, "stopped-backend", 100L);
+		when(lookup.executeQuery()).thenReturn(stale);
+		when(fixture.initialLookup.prepareStatement(anyString())).thenReturn(lookup);
+		Connection transition = mock(Connection.class);
+		PreparedStatement update = mock(PreparedStatement.class);
+		when(update.executeUpdate()).thenReturn(1);
+		when(transition.prepareStatement(anyString())).thenReturn(update);
+		when(fixture.sql.getConnectionManager().getConnection()).thenReturn(fixture.initialLookup, transition);
+		long now = 100L + SharedPointAdditionJournal.HOOK_RECOVERY_LEASE_MILLIS;
+
+		SharedPointAdditionJournal.HookClaim claim = new SharedPointAdditionJournal(fixture.table, false)
+				.claimHook("reward-operation", "player", "Points", 5, "replacement", now);
+
+		assertFalse(claim.claimed());
+		assertTrue(claim.requiresReconciliation());
+		verify(update).setString(1, "INDETERMINATE");
+		verify(update).setString(2, "reward-operation");
+		verify(update).setString(3, "HOOK_STARTED");
+		verify(update).setLong(4, 100L);
+		verify(transition).commit();
+	}
+
+	@Test
+	void cancelledHookSettlesWithARepresentableZeroCredit() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement select = mock(PreparedStatement.class);
+		PreparedStatement read = mock(PreparedStatement.class);
+		PreparedStatement complete = mock(PreparedStatement.class);
+		ResultSet claimed = hookStartedRow("player", "Points", 5, "owner");
+		ResultSet total = mock(ResultSet.class);
+		when(total.next()).thenReturn(true);
+		when(total.getInt(1)).thenReturn(12);
+		when(select.executeQuery()).thenReturn(claimed);
+		when(read.executeQuery()).thenReturn(total);
+		when(complete.executeUpdate()).thenReturn(1);
+		when(fixture.initialLookup.prepareStatement(anyString())).thenReturn(select, read, complete);
+
+		assertEquals(12, new SharedPointAdditionJournal(fixture.table, false).settleClaim("reward-operation",
+				"player", "Points", 5, "owner", null).total());
+
+		verify(complete).setInt(1, 0);
+		verify(complete, org.mockito.Mockito.never()).setNull(org.mockito.ArgumentMatchers.eq(1),
+				org.mockito.ArgumentMatchers.anyInt());
+	}
+
+	@Test
+	void claimedHookRejectsAConflictingRequestedAmountBeforeAnotherEventCanRun() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement lookup = mock(PreparedStatement.class);
+		ResultSet claimed = hookStartedRow("player", "Points", 5, "first-backend");
+		when(lookup.executeQuery()).thenReturn(claimed);
+		when(fixture.initialLookup.prepareStatement(anyString())).thenReturn(lookup);
+
+		SharedPointAdditionJournal journal = new SharedPointAdditionJournal(fixture.table, false);
+		assertThrows(java.sql.SQLException.class,
+				() -> journal.claimHook("reward-operation", "player", "Points", 6, "second-backend", 101L));
+		verify(fixture.firstAttempt, org.mockito.Mockito.never()).prepareStatement(anyString());
+	}
+
+	@Test
 	void distinctRewardOccurrencesCreditIndependentlyWhileRetryingOneDoesNot() throws Exception {
 		Fixture fixture = fixture();
 		Connection firstLookup = missingLookup();
@@ -159,14 +301,17 @@ class SharedPointAdditionJournalTest {
 	void schemaIndexesTheBoundedCleanupPredicate() throws Exception {
 		Fixture fixture = fixture();
 		PreparedStatement createTable = mock(PreparedStatement.class);
+		PreparedStatement addRequestedAmount = mock(PreparedStatement.class);
+		PreparedStatement addHookOwner = mock(PreparedStatement.class);
 		PreparedStatement createIndex = mock(PreparedStatement.class);
-		when(fixture.initialLookup.prepareStatement(anyString())).thenReturn(createTable, createIndex);
+		when(fixture.initialLookup.prepareStatement(anyString())).thenReturn(createTable, addRequestedAmount,
+				addHookOwner, createIndex);
 
 		new SharedPointAdditionJournal(fixture.table, true);
 
 		org.mockito.ArgumentCaptor<String> statements = org.mockito.ArgumentCaptor.forClass(String.class);
-		verify(fixture.initialLookup, times(2)).prepareStatement(statements.capture());
-		assertTrue(statements.getAllValues().get(1).contains("(`state`, `created_at`)"));
+		verify(fixture.initialLookup, times(4)).prepareStatement(statements.capture());
+		assertTrue(statements.getAllValues().get(3).contains("(`state`, `created_at`)"));
 	}
 
 	private static ResultSet completedRow(String uuid, String pointsColumn, int amount, int total) throws Exception {
@@ -178,6 +323,27 @@ class SharedPointAdditionJournalTest {
 		when(row.getString(4)).thenReturn("COMPLETED");
 		when(row.getObject(5)).thenReturn(Integer.valueOf(total));
 		when(row.getInt(5)).thenReturn(total);
+		return row;
+	}
+
+	private static ResultSet hookStartedRow(String uuid, String pointsColumn, int requestedAmount, String owner)
+			throws Exception {
+		return hookStartedRow(uuid, pointsColumn, requestedAmount, owner, 0L);
+	}
+
+	private static ResultSet hookStartedRow(String uuid, String pointsColumn, int requestedAmount, String owner,
+			long createdAt) throws Exception {
+		ResultSet row = mock(ResultSet.class);
+		when(row.next()).thenReturn(true);
+		when(row.getString(1)).thenReturn(uuid);
+		when(row.getString(2)).thenReturn(pointsColumn);
+		when(row.getInt(3)).thenReturn(requestedAmount);
+		when(row.getString(4)).thenReturn("HOOK_STARTED");
+		when(row.getObject(5)).thenReturn(null);
+		when(row.getObject(6)).thenReturn(Integer.valueOf(requestedAmount));
+		when(row.getInt(6)).thenReturn(requestedAmount);
+		when(row.getString(7)).thenReturn(owner);
+		when(row.getLong(8)).thenReturn(createdAt);
 		return row;
 	}
 

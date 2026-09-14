@@ -177,6 +177,38 @@ final class SharedMysqlPointMutator {
 		}
 	}
 
+	SharedPointAdditionJournal.HookClaim claimPointAdditionHook(String operationId, String uuid, String pointsColumn,
+			int requestedAmount, String owner) {
+		try {
+			return SharedPointAdditionJournal.forTable(plugin.getMysql()).claimHook(operationId, uuid, pointsColumn,
+					requestedAmount, owner, System.currentTimeMillis());
+		} catch (SQLException failure) {
+			logFailure(failure);
+			throw new IllegalStateException("Unable to claim shared MySQL point addition", failure);
+		}
+	}
+
+	void markPointAdditionIndeterminate(String operationId, String uuid, String pointsColumn, int requestedAmount,
+			String owner) throws SQLException {
+		SharedPointAdditionJournal.forTable(plugin.getMysql()).markIndeterminate(operationId, uuid, pointsColumn,
+				requestedAmount, owner);
+	}
+
+	AddResult settleClaimedPointAddition(VotingPluginUser user, String operationId, String uuid, String pointsColumn,
+			int requestedAmount, String owner, Integer adjustedAmount) {
+		drainCache(user);
+		try {
+			SharedPointAdditionJournal.AdditionResult result = SharedPointAdditionJournal.forTable(plugin.getMysql())
+					.settleClaim(operationId, uuid, pointsColumn, requestedAmount, owner, adjustedAmount);
+			return new AddResult(true, result.total());
+		} catch (SQLException failure) {
+			logFailure(failure);
+			return new AddResult(false, 0);
+		} finally {
+			discardPointsCache(user, pointsColumn);
+		}
+	}
+
 	CompletionStage<Void> acknowledgePointAddition(String operationId) {
 		if (!applies() || operationId == null || operationId.isEmpty()) {
 			return CompletableFuture.completedFuture(null);

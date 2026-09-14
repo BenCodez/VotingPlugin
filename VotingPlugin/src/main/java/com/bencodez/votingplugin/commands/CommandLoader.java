@@ -522,20 +522,26 @@ public class CommandLoader {
 						VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(args[1]);
 						user.cache();
 						int amount = Integer.parseInt(args[3]);
-						user.addPointsStorageAware(amount, (success, newTotal) -> {
-							if (!success) {
-								runForCommandSender(sender, () -> sender.sendMessage(
-										MessageAPI.colorize("&cUnable to add " + args[3] + " points to " + args[1])));
-								return;
-							}
-							if (user.isOnline()) {
-								user.sendMessage(plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerGiven(),
-										"amount", args[3]);
-							}
-							runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize("&cGave " + args[1]
-									+ " " + args[3] + " points" + ", " + args[1] + " now has " + newTotal + " points")));
-							plugin.getPlaceholders().onUpdate(user, false);
-						});
+						String operationId = "admin-points/" + UUID.randomUUID();
+						user.addPointsStorageAwareAsync(amount, operationId).whenComplete((newTotal, failure) ->
+								runForVotingUser(user, () -> {
+									if (failure != null) {
+										runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize(
+												"&cUnable to confirm the point addition; do not retry this command")));
+										return;
+									}
+									if (user.isOnline()) {
+										user.sendMessage(plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerGiven(),
+												"amount", args[3]);
+									}
+									runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize("&cGave " + args[1]
+												+ " " + args[3] + " points" + ", " + args[1] + " now has " + newTotal + " points")));
+									plugin.getPlaceholders().onUpdate(user, false);
+									user.acknowledgeStorageAwarePointOperation(operationId)
+											.whenComplete((ignored, acknowledgementFailure) -> {
+												if (acknowledgementFailure != null) plugin.debug(acknowledgementFailure);
+											});
+								}));
 
 					}
 				});

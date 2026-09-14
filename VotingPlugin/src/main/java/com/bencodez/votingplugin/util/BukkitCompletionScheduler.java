@@ -14,17 +14,26 @@ public final class BukkitCompletionScheduler {
 	}
 
 	public static void run(VotingPluginMain plugin, Player player, Runnable task) {
+		run(plugin, player, task, () -> { });
+	}
+
+	/**
+	 * Schedules completion work and invokes {@code rejected} only after every
+	 * entity/global fallback was rejected before the task began. Callers whose
+	 * work has a durable pre-scheduler claim use this to record a recovery state.
+	 */
+	public static void run(VotingPluginMain plugin, Player player, Runnable task, Runnable rejected) {
 		AtomicBoolean executed = new AtomicBoolean();
 		Runnable once = () -> {
 			if (executed.compareAndSet(false, true)) task.run();
 		};
 		if (player == null) {
-			runGlobal(plugin, once);
+			runGlobal(plugin, once, rejected);
 			return;
 		}
 		AtomicBoolean fallbackSubmitted = new AtomicBoolean();
 		Runnable fallback = () -> {
-			if (fallbackSubmitted.compareAndSet(false, true)) runGlobal(plugin, once);
+			if (fallbackSubmitted.compareAndSet(false, true)) runGlobal(plugin, once, rejected);
 		};
 		try {
 			if (plugin.getBukkitScheduler().getFoliaLib() == null) {
@@ -59,11 +68,12 @@ public final class BukkitCompletionScheduler {
 		}
 	}
 
-	private static void runGlobal(VotingPluginMain plugin, Runnable task) {
+	private static void runGlobal(VotingPluginMain plugin, Runnable task, Runnable rejected) {
 		try {
 			plugin.getBukkitScheduler().runTask(plugin, task);
 		} catch (RuntimeException schedulingFailure) {
 			plugin.debug(schedulingFailure);
+			rejected.run();
 		}
 	}
 }

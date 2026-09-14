@@ -4,10 +4,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -21,6 +23,7 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.user.PointTransferResult;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
 
 class CommandLoaderSchedulingTest {
 	@Test
@@ -100,6 +103,21 @@ class CommandLoaderSchedulingTest {
 		org.junit.jupiter.api.Assertions.assertEquals("retry", loader.transferFailureMessage(PointTransferResult.UNAVAILABLE));
 		org.junit.jupiter.api.Assertions.assertEquals("pending; do not retry",
 				loader.transferFailureMessage(PointTransferResult.PENDING_CONFIRMATION));
+	}
+
+	@Test
+	void durableClaimRecoveryRunsOnlyWhenTheGlobalSchedulerRejectsBeforeTaskStart() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		doThrow(new IllegalStateException("stopping")).when(scheduler).runTask(eq(plugin), any(Runnable.class));
+		AtomicBoolean taskRan = new AtomicBoolean();
+		AtomicBoolean rejected = new AtomicBoolean();
+
+		BukkitCompletionScheduler.run(plugin, null, () -> taskRan.set(true), () -> rejected.set(true));
+
+		org.junit.jupiter.api.Assertions.assertFalse(taskRan.get());
+		org.junit.jupiter.api.Assertions.assertTrue(rejected.get());
 	}
 
 	private static void configureEntityScheduler(BukkitScheduler scheduler) {
