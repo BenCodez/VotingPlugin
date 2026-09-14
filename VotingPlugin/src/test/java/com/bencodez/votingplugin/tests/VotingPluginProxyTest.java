@@ -553,6 +553,9 @@ public class VotingPluginProxyTest {
 							"legacy recipients must be durably cleared before the non-deduplicating send");
 					return true;
 				});
+		java.util.concurrent.ScheduledExecutorService scheduler = Mockito
+				.mock(java.util.concurrent.ScheduledExecutorService.class);
+		votingPluginProxy.setSchedulerForTest(scheduler);
 		VotingPluginProxyTestImpl proxy = Mockito.spy(votingPluginProxy);
 		Mockito.doReturn(voteCache).when(proxy).getVoteCacheHandler();
 
@@ -578,6 +581,8 @@ public class VotingPluginProxyTest {
 		assertEquals(1, queue.size());
 		assertTrue(queue.element().isMultiProxyCapabilityDiscoveryPending());
 		assertTrue(queue.element().isProcessed());
+		verify(scheduler).schedule(Mockito.any(Runnable.class), Mockito.eq(5L),
+				Mockito.eq(java.util.concurrent.TimeUnit.SECONDS));
 
 		assertTrue((Boolean) begin.invoke(proxy, retry, queue.element(), "Player",
 				"00000000-0000-0000-0000-000000000001", "Service", 100L, true, null));
@@ -590,7 +595,7 @@ public class VotingPluginProxyTest {
 				"00000000-0000-0000-0000-000000000001", "Service", 100L, true, null));
 		verify(multiProxyHandler, Mockito.times(1)).sendMultiProxyEnvelopeAccepted(Mockito.any(),
 				Mockito.eq(java.util.Set.of("Candidate")));
-		verify(multiProxyHandler, Mockito.times(4)).renewMultiProxyVoteCapabilityIfDue();
+		verify(multiProxyHandler).renewMultiProxyVoteCapabilityDiscoveryIfDue();
 	}
 
 	@Test
@@ -682,6 +687,52 @@ public class VotingPluginProxyTest {
 		assertEquals(java.util.Set.of("capable"), queue.element().getMultiProxyRecipients());
 		assertTrue(queue.element().getMultiProxyLegacyPendingRecipients().isEmpty());
 		verify(multiProxyHandler, Mockito.never()).sendMultiProxyEnvelopeAccepted(Mockito.any(), Mockito.any());
+	}
+
+	@Test
+	void deferredDurableMultiProxyLeaseRetrySchedulesThePersistedOutbox() throws Exception {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		java.util.Queue<VoteTimeQueue> queue = new java.util.concurrent.ConcurrentLinkedQueue<>();
+		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(queue);
+		Mockito.when(voteCache.addTimeVoteToCache(Mockito.any())).thenAnswer(invocation -> {
+			queue.add(invocation.getArgument(0));
+			return true;
+		});
+		Mockito.when(multiProxyHandler.getMultiProxyVoteRecipients()).thenReturn(java.util.Collections.emptySet());
+		Mockito.when(multiProxyHandler.getMultiProxyVoteRecipientsAwaitingCapabilityRenewal())
+				.thenReturn(java.util.Set.of("Capable"));
+		Mockito.when(multiProxyHandler.getMultiProxyVoteRecipientsAwaitingCapabilityDiscovery())
+				.thenReturn(java.util.Collections.emptySet());
+		Mockito.when(multiProxyHandler.getConfiguredMultiProxyVoteRecipients())
+				.thenReturn(new java.util.LinkedHashSet<>(java.util.Set.of("Capable")));
+		Mockito.when(votingPluginProxy.getConfig().getProxyServerName()).thenReturn("Proxy1");
+		java.util.concurrent.ScheduledExecutorService scheduler = Mockito
+				.mock(java.util.concurrent.ScheduledExecutorService.class);
+		votingPluginProxy.setSchedulerForTest(scheduler);
+		VotingPluginProxyTestImpl proxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(proxy).getVoteCacheHandler();
+
+		Class<?> retryType = Class.forName("com.bencodez.votingplugin.proxy.VotingPluginProxy$LiveVoteRetryState");
+		java.lang.reflect.Constructor<?> constructor = retryType.getDeclaredConstructor();
+		constructor.setAccessible(true);
+		Object retry = constructor.newInstance();
+		java.util.UUID voteId = java.util.UUID.randomUUID();
+		java.lang.reflect.Field retriesField = VotingPluginProxy.class.getDeclaredField("liveVoteRetries");
+		retriesField.setAccessible(true);
+		@SuppressWarnings("unchecked")
+		java.util.Map<java.util.UUID, Object> retries =
+				(java.util.Map<java.util.UUID, Object>) retriesField.get(proxy);
+		retries.put(voteId, retry);
+		java.lang.reflect.Method begin = VotingPluginProxy.class.getDeclaredMethod("beginMultiProxyForwarding",
+				retryType, VoteTimeQueue.class, String.class, String.class, String.class, long.class,
+				boolean.class, com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.class);
+		begin.setAccessible(true);
+
+		assertFalse((Boolean) begin.invoke(proxy, retry, null, "Player",
+				"00000000-0000-0000-0000-000000000001", "Service", 100L, true, null));
+		assertEquals(1, queue.size());
+		verify(scheduler).schedule(Mockito.any(Runnable.class), Mockito.eq(5L),
+				Mockito.eq(java.util.concurrent.TimeUnit.SECONDS));
 	}
 
 	@Test

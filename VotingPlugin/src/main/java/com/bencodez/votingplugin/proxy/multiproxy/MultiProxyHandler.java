@@ -38,6 +38,13 @@ public abstract class MultiProxyHandler {
 	/** Bound retry-driven capability advertisements while a durable outbox is waiting. */
 	static final long VOTE_CAPABILITY_RENEWAL_MIN_INTERVAL_MILLIS = 30 * 1000L;
 	/**
+	 * A discovery reply can arrive asynchronously (notably through Redis). Renew
+	 * before the bounded discovery window closes, leaving the final announcement a
+	 * real interval to be observed instead of classifying a peer as legacy in the
+	 * same retry that sent its last handshake.
+	 */
+	static final long VOTE_CAPABILITY_DISCOVERY_RENEWAL_MIN_INTERVAL_MILLIS = 10 * 1000L;
+	/**
 	 * A newly configured peer gets this one bounded opportunity to answer the
 	 * capability handshake before it is treated as a legacy one-way peer. The
 	 * deadline is durable so a restart cannot extend the window indefinitely.
@@ -62,6 +69,8 @@ public abstract class MultiProxyHandler {
 	 */
 	private boolean voteCapabilityRecoveryBlocked;
 	private long lastVoteCapabilityAdvertisementMillis = Long.MIN_VALUE;
+	/** A newly persisted discovery deadline must cause an initial handshake promptly. */
+	private boolean voteCapabilityDiscoveryAnnouncementRequired;
 	/** Last wall-clock observation durably associated with discovery deadlines. */
 	private long lastVoteCapabilityObservationMillis;
 
@@ -426,15 +435,37 @@ public abstract class MultiProxyHandler {
 		boolean changed = updated.keySet().removeIf(peer -> !configured.containsKey(peer)
 				|| knownVoteCapabilityPeers.contains(peer));
 		changed |= clockRolledBack && !updated.equals(voteCapabilityDiscoveryDeadlines);
+		boolean addedDiscoveryDeadline = false;
 		for (String peer : configured.keySet()) {
 			if (knownVoteCapabilityPeers.contains(peer) || updated.containsKey(peer)) continue;
 			updated.put(peer, discoveryDeadline(now));
 			changed = true;
+			addedDiscoveryDeadline = true;
 		}
 		long observed = Math.max(0L, now);
-		boolean observationChanged = !updated.isEmpty() && observed != lastVoteCapabilityObservationMillis;
+		boolean activeDiscovery = false;
+		boolean discoveryExpiredSinceLastObservation = false;
+		for (Long deadline : updated.values()) {
+			if (deadline == null) continue;
+			if (deadline > now) {
+				activeDiscovery = true;
+			} else if (deadline > lastVoteCapabilityObservationMillis) {
+				// Preserve the first observation after expiry. Without it, a later
+				// clock rollback could make this already-consumed window live again.
+				discoveryExpiredSinceLastObservation = true;
+			}
+		}
+		// Keep a persisted high-water mark while discovery is live, but do so at
+		// the same bounded cadence as advertisements. Once an expired deadline is
+		// recorded, repeated legacy forwarding must not fsync this state per vote.
+		boolean observationChanged = !updated.isEmpty() && (clockRolledBack
+				|| discoveryExpiredSinceLastObservation || (activeDiscovery
+						&& (lastVoteCapabilityObservationMillis == 0L
+								|| now - lastVoteCapabilityObservationMillis
+										>= VOTE_CAPABILITY_DISCOVERY_RENEWAL_MIN_INTERVAL_MILLIS)));
 		if ((changed || observationChanged)
 				&& !saveVoteCapabilityState(knownVoteCapabilityPeers, updated, observed)) return Set.of();
+		if (addedDiscoveryDeadline) voteCapabilityDiscoveryAnnouncementRequired = true;
 		Set<String> recipients = new LinkedHashSet<>();
 		for (Map.Entry<String, String> configuredPeer : configured.entrySet()) {
 			Long deadline = voteCapabilityDiscoveryDeadlines.get(configuredPeer.getKey());
@@ -448,6 +479,7 @@ public abstract class MultiProxyHandler {
 	/** Broadcasts this node's durable-ACK capability to configured peers. */
 	public synchronized void announceMultiProxyVoteCapability() {
 		lastVoteCapabilityAdvertisementMillis = capabilityNowMillis();
+		voteCapabilityDiscoveryAnnouncementRequired = false;
 		sendMultiProxyEnvelopeAccepted(VotingPluginWire.multiProxyCapabilities(getMultiProxyServerName(), 1));
 	}
 
@@ -459,13 +491,27 @@ public abstract class MultiProxyHandler {
 	 * @return whether an advertisement was attempted
 	 */
 	public synchronized boolean renewMultiProxyVoteCapabilityIfDue() {
+		return renewMultiProxyVoteCapabilityIfDue(VOTE_CAPABILITY_RENEWAL_MIN_INTERVAL_MILLIS);
+	}
+
+	/**
+	 * Re-advertises while an initial discovery deadline is still live. The shorter
+	 * cadence guarantees a settling interval before the durable deadline expires;
+	 * callers must not invoke this after the discovery query says the window ended.
+	 */
+	public synchronized boolean renewMultiProxyVoteCapabilityDiscoveryIfDue() {
+		return renewMultiProxyVoteCapabilityIfDue(VOTE_CAPABILITY_DISCOVERY_RENEWAL_MIN_INTERVAL_MILLIS);
+	}
+
+	private boolean renewMultiProxyVoteCapabilityIfDue(long minimumIntervalMillis) {
 		long now = capabilityNowMillis();
-		if (lastVoteCapabilityAdvertisementMillis != Long.MIN_VALUE
+		if (!voteCapabilityDiscoveryAnnouncementRequired && lastVoteCapabilityAdvertisementMillis != Long.MIN_VALUE
 				&& now >= lastVoteCapabilityAdvertisementMillis
-				&& now - lastVoteCapabilityAdvertisementMillis < VOTE_CAPABILITY_RENEWAL_MIN_INTERVAL_MILLIS) {
+				&& now - lastVoteCapabilityAdvertisementMillis < minimumIntervalMillis) {
 			return false;
 		}
 		lastVoteCapabilityAdvertisementMillis = now;
+		voteCapabilityDiscoveryAnnouncementRequired = false;
 		sendMultiProxyEnvelopeAccepted(VotingPluginWire.multiProxyCapabilities(getMultiProxyServerName(), 1));
 		return true;
 	}
@@ -536,7 +582,9 @@ public abstract class MultiProxyHandler {
 		updated.add(normalized);
 		Map<String, Long> updatedDeadlines = new HashMap<>(voteCapabilityDiscoveryDeadlines);
 		updatedDeadlines.remove(normalized);
-		return saveVoteCapabilityState(updated, updatedDeadlines, lastVoteCapabilityObservationMillis);
+		boolean accepted = saveVoteCapabilityState(updated, updatedDeadlines, lastVoteCapabilityObservationMillis);
+		if (accepted) voteCapabilityDiscoveryAnnouncementRequired = false;
+		return accepted;
 	}
 
 	private long discoveryDeadline(long now) {
@@ -583,6 +631,7 @@ public abstract class MultiProxyHandler {
 		voteCapabilityDiscoveryDeadlines.clear();
 		voteCapabilityRecoveryBlocked = false;
 		lastVoteCapabilityAdvertisementMillis = Long.MIN_VALUE;
+		voteCapabilityDiscoveryAnnouncementRequired = false;
 		lastVoteCapabilityObservationMillis = 0L;
 		restoreVoteCapabilityPeers();
 		if (!getMultiProxySupportEnabled()) {

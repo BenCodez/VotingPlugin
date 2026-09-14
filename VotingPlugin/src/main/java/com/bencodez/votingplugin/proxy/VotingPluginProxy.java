@@ -5625,13 +5625,18 @@ public abstract class VotingPluginProxy {
 		// which targets are legacy.  Stop before creating an ACK outbox that a legacy
 		// peer could never complete; the handler emits the operator recovery message.
 		if (multiProxyHandler.isMultiProxyVoteCapabilityRecoveryBlocked()) return false;
-		// Capability retries can be much more frequent than a normal vote. Start
-		// discovery promptly, but rate-limit repeated advertisements while the vote
-		// waits for a newly configured peer to identify itself.
-		multiProxyHandler.renewMultiProxyVoteCapabilityIfDue();
 		Set<String> recipients = multiProxyHandler.getMultiProxyVoteRecipients();
 		Set<String> renewingRecipients = multiProxyHandler.getMultiProxyVoteRecipientsAwaitingCapabilityRenewal();
 		Set<String> discoveringRecipients = multiProxyHandler.getMultiProxyVoteRecipientsAwaitingCapabilityDiscovery();
+		// Query discovery before advertising. A retry that reaches the durable
+		// deadline must classify the peer rather than sending a final handshake and
+		// immediately falling through to legacy; live discovery instead renews early
+		// with a bounded settling interval for asynchronous Redis replies.
+		if (!discoveringRecipients.isEmpty()) {
+			multiProxyHandler.renewMultiProxyVoteCapabilityDiscoveryIfDue();
+		} else if (!renewingRecipients.isEmpty()) {
+			multiProxyHandler.renewMultiProxyVoteCapabilityIfDue();
+		}
 		// Recording a first-observation deadline can itself fail and transition the
 		// handler into recovery-blocked state. Recheck before interpreting an empty
 		// discovery set as permission to use the lossy legacy route.
@@ -5648,7 +5653,8 @@ public abstract class VotingPluginProxy {
 			// now would make the later legacy fallback hard to fence without a second,
 			// duplicate-prone outbox. The durable peer deadline bounds this retry even
 			// across a proxy restart.
-			admitMultiProxyDiscoveryOutbox(retryState, queuedVote, player, uuid, service, time, realVote, totals);
+			if (admitMultiProxyDiscoveryOutbox(retryState, queuedVote, player, uuid, service, time, realVote, totals)
+					!= null) scheduleTimeVoteRetry();
 			return false;
 		}
 		Set<String> durableRecipients = new LinkedHashSet<>(recipients);
@@ -5778,10 +5784,14 @@ public abstract class VotingPluginProxy {
 	/** Resolves a restored discovery-pending outbox and persists its recipient split before sending. */
 	private boolean resolveMultiProxyDiscoveryOutbox(VoteTimeQueue outbox) {
 		if (multiProxyHandler == null || multiProxyHandler.isMultiProxyVoteCapabilityRecoveryBlocked()) return false;
-		multiProxyHandler.renewMultiProxyVoteCapabilityIfDue();
 		Set<String> recipients = multiProxyHandler.getMultiProxyVoteRecipients();
 		Set<String> renewingRecipients = multiProxyHandler.getMultiProxyVoteRecipientsAwaitingCapabilityRenewal();
 		Set<String> discoveringRecipients = multiProxyHandler.getMultiProxyVoteRecipientsAwaitingCapabilityDiscovery();
+		if (!discoveringRecipients.isEmpty()) {
+			multiProxyHandler.renewMultiProxyVoteCapabilityDiscoveryIfDue();
+		} else if (!renewingRecipients.isEmpty()) {
+			multiProxyHandler.renewMultiProxyVoteCapabilityIfDue();
+		}
 		if (multiProxyHandler.isMultiProxyVoteCapabilityRecoveryBlocked() || !discoveringRecipients.isEmpty()) return false;
 		Set<String> configuredRecipients = multiProxyHandler.getConfiguredMultiProxyVoteRecipients();
 		if (configuredRecipients.isEmpty() && !recipients.isEmpty()) configuredRecipients.addAll(recipients);
@@ -5861,7 +5871,13 @@ public abstract class VotingPluginProxy {
 		}
 		pending.removeIf(recipient -> recipient != null
 				&& awaitingRenewal.contains(recipient.toLowerCase(Locale.ROOT)));
-		if (pending.isEmpty()) return false;
+		if (pending.isEmpty()) {
+			// This method is also reached directly from the listener path, where no
+			// enclosing queue loop schedules the next lease-renewal attempt. Keep the
+			// durable row live until the peer answers the bounded handshake.
+			scheduleTimeVoteRetry();
+			return false;
+		}
 		return multiProxyHandler.sendMultiProxyEnvelopeAccepted(VotingPluginWire.multiProxyVote(outbox.getName(),
 				outbox.getUuid(), outbox.getService(), outbox.getTime(), false, outbox.isRealVote(), outbox.getTotals(),
 				outbox.getVoteId(), false, false, 1, 1, outbox.getMultiProxyOrigin()),

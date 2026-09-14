@@ -362,6 +362,51 @@ class MultiProxyHandlerLifecycleTest {
 	}
 
 	@Test
+	void expiredDiscoveryPersistsItsFinalObservationOnlyOnce(@TempDir Path dataDirectory) {
+		MultiProxyHandler handler = capabilityHandler(dataDirectory, "Legacy");
+		org.mockito.Mockito.when(handler.capabilityNowMillis()).thenReturn(1_000L,
+				1_000L + MultiProxyHandler.VOTE_CAPABILITY_DISCOVERY_WINDOW_MILLIS,
+				1_000L + MultiProxyHandler.VOTE_CAPABILITY_DISCOVERY_WINDOW_MILLIS + 1L);
+
+		assertEquals(java.util.Set.of("Legacy"),
+				handler.getMultiProxyVoteRecipientsAwaitingCapabilityDiscovery());
+		assertTrue(handler.getMultiProxyVoteRecipientsAwaitingCapabilityDiscovery().isEmpty());
+		assertEquals(1_000L + MultiProxyHandler.VOTE_CAPABILITY_DISCOVERY_WINDOW_MILLIS,
+				assertDoesNotThrow(() -> MultiProxyCapabilityStore.load(dataDirectory)).lastObservedMillis());
+
+		assertTrue(handler.getMultiProxyVoteRecipientsAwaitingCapabilityDiscovery().isEmpty());
+		assertEquals(1_000L + MultiProxyHandler.VOTE_CAPABILITY_DISCOVERY_WINDOW_MILLIS,
+				assertDoesNotThrow(() -> MultiProxyCapabilityStore.load(dataDirectory)).lastObservedMillis());
+	}
+
+	@Test
+	void discoveryRenewsBeforeItsBoundedFallbackInsteadOfAtExpiry() throws Exception {
+		MultiProxyHandler handler = mock(MultiProxyHandler.class,
+				org.mockito.Mockito.withSettings().useConstructor().defaultAnswer(org.mockito.Mockito.CALLS_REAL_METHODS));
+		org.mockito.Mockito.when(handler.getMultiProxyMethod()).thenReturn(MultiProxyMethod.SOCKETS);
+		org.mockito.Mockito.when(handler.getMultiProxyServers()).thenReturn(List.of("Candidate"));
+		org.mockito.Mockito.when(handler.getMultiProxyServerName()).thenReturn("Primary");
+		org.mockito.Mockito.when(handler.sendMultiProxyEnvelopeAccepted(org.mockito.ArgumentMatchers.any())).thenReturn(true);
+		org.mockito.Mockito.when(handler.capabilityNowMillis()).thenReturn(1_000L, 1_000L,
+				11_000L, 11_000L, 21_000L, 21_000L, 30_000L, 31_000L);
+		org.mockito.Mockito.clearInvocations(handler);
+
+		assertEquals(java.util.Set.of("Candidate"), handler.getMultiProxyVoteRecipientsAwaitingCapabilityDiscovery());
+		assertTrue(handler.renewMultiProxyVoteCapabilityDiscoveryIfDue());
+		assertEquals(java.util.Set.of("Candidate"), handler.getMultiProxyVoteRecipientsAwaitingCapabilityDiscovery());
+		assertTrue(handler.renewMultiProxyVoteCapabilityDiscoveryIfDue());
+		assertEquals(java.util.Set.of("Candidate"), handler.getMultiProxyVoteRecipientsAwaitingCapabilityDiscovery());
+		assertTrue(handler.renewMultiProxyVoteCapabilityDiscoveryIfDue());
+		// This reply is asynchronous from the final early advertisement, but it is
+		// still accepted before the durable fallback boundary.
+		handleCapability(handler, "Candidate");
+		assertTrue(handler.getMultiProxyVoteRecipientsAwaitingCapabilityDiscovery().isEmpty());
+		assertEquals(java.util.Set.of("Candidate"), handler.getMultiProxyVoteRecipients());
+		org.mockito.Mockito.verify(handler, org.mockito.Mockito.times(3))
+				.sendMultiProxyEnvelopeAccepted(org.mockito.ArgumentMatchers.any());
+	}
+
+	@Test
 	void clockRollbackExpiresDiscoveryInsteadOfExtendingItsPersistedWindow(@TempDir Path dataDirectory) {
 		MultiProxyHandler handler = capabilityHandler(dataDirectory, "Candidate");
 		org.mockito.Mockito.when(handler.capabilityNowMillis()).thenReturn(1_000L, 500L);
