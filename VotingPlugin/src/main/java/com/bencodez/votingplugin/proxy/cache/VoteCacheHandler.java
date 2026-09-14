@@ -1299,6 +1299,8 @@ public abstract class VoteCacheHandler {
 						timedVoteRow.isMultiProxyForwardingHandled(), timedVoteRow.getUuid(),
 						VoteTimeQueue.decodeHttpBroadcastDeliveryIds(timedVoteRow.getHttpBroadcastDeliveryIds()));
 				voteTimeQueue.setMultiProxyForwardingRequired(timedVoteRow.isMultiProxyForwardingRequired());
+				voteTimeQueue.setMultiProxyCapabilityDiscoveryPending(
+						timedVoteRow.isMultiProxyCapabilityDiscoveryPending());
 				voteTimeQueue.setRealVote(timedVoteRow.isRealVote());
 				voteTimeQueue.setMultiProxyOrigin(timedVoteRow.getMultiProxyOrigin() == null ? ""
 						: timedVoteRow.getMultiProxyOrigin());
@@ -1559,6 +1561,8 @@ public abstract class VoteCacheHandler {
 				VoteTimeQueue.decodeHttpBroadcastDeliveryIds(httpBroadcastDeliveryIds));
 		queuedVote.setMultiProxyForwardingRequired(data.has("MultiProxyForwardingRequired")
 				&& data.get("MultiProxyForwardingRequired").asBoolean());
+		queuedVote.setMultiProxyCapabilityDiscoveryPending(data.has("MultiProxyCapabilityDiscoveryPending")
+				&& data.get("MultiProxyCapabilityDiscoveryPending").asBoolean());
 		queuedVote.setRealVote(!data.has("RealVote") || data.get("RealVote").asBoolean());
 		queuedVote.setMultiProxyOrigin(data.has("MultiProxyOrigin")
 				? data.get("MultiProxyOrigin").asString() : "");

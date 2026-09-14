@@ -57,6 +57,8 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 		setBoolean(path + ".Processed", voteTimedQueue.isProcessed());
 		setBoolean(path + ".MultiProxyForwardingHandled", voteTimedQueue.isMultiProxyForwardingHandled());
 		setBoolean(path + ".MultiProxyForwardingRequired", voteTimedQueue.isMultiProxyForwardingRequired());
+		setBoolean(path + ".MultiProxyCapabilityDiscoveryPending",
+				voteTimedQueue.isMultiProxyCapabilityDiscoveryPending());
 		setBoolean(path + ".RealVote", voteTimedQueue.isRealVote());
 		setString(path + ".MultiProxyOrigin", voteTimedQueue.getMultiProxyOrigin());
 		setBoolean(path + ".MultiProxyCompletionPending", voteTimedQueue.isMultiProxyCompletionPending());

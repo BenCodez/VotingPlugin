@@ -58,6 +58,15 @@ public class VoteTimeQueue {
 	@Getter
 	@Setter
 	private boolean multiProxyForwardingRequired;
+	/**
+	 * The forwarding intent is durable, but peer capability discovery has not
+	 * finished yet. This is deliberately distinct from an ACK outbox with an
+	 * empty recipient set: recovery must classify the configured peers before it
+	 * can choose either the durable or legacy route.
+	 */
+	@Getter
+	@Setter
+	private boolean multiProxyCapabilityDiscoveryPending;
 	/** Original vote type; legacy rows default to a real vote. */
 	@Getter
 	@Setter

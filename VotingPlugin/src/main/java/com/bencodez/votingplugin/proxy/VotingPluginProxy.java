@@ -5625,27 +5625,47 @@ public abstract class VotingPluginProxy {
 		// which targets are legacy.  Stop before creating an ACK outbox that a legacy
 		// peer could never complete; the handler emits the operator recovery message.
 		if (multiProxyHandler.isMultiProxyVoteCapabilityRecoveryBlocked()) return false;
-		multiProxyHandler.announceMultiProxyVoteCapability();
+		// Capability retries can be much more frequent than a normal vote. Start
+		// discovery promptly, but rate-limit repeated advertisements while the vote
+		// waits for a newly configured peer to identify itself.
+		multiProxyHandler.renewMultiProxyVoteCapabilityIfDue();
 		Set<String> recipients = multiProxyHandler.getMultiProxyVoteRecipients();
 		Set<String> renewingRecipients = multiProxyHandler.getMultiProxyVoteRecipientsAwaitingCapabilityRenewal();
+		Set<String> discoveringRecipients = multiProxyHandler.getMultiProxyVoteRecipientsAwaitingCapabilityDiscovery();
+		// Recording a first-observation deadline can itself fail and transition the
+		// handler into recovery-blocked state. Recheck before interpreting an empty
+		// discovery set as permission to use the lossy legacy route.
+		if (multiProxyHandler.isMultiProxyVoteCapabilityRecoveryBlocked()) return false;
 		Set<String> configuredRecipients = multiProxyHandler.getConfiguredMultiProxyVoteRecipients();
 		// Keep custom MultiProxyHandler integrations that override only the
 		// established recipient method source-compatible while the base handler
 		// learns capabilities.
 		if (configuredRecipients.isEmpty() && !recipients.isEmpty()) configuredRecipients.addAll(recipients);
 		if (configuredRecipients.isEmpty()) return true;
+		if (!discoveringRecipients.isEmpty()) {
+			// Do not publish any part of this vote while a newly configured peer can
+			// still complete the capability handshake. Capturing only the known peers
+			// now would make the later legacy fallback hard to fence without a second,
+			// duplicate-prone outbox. The durable peer deadline bounds this retry even
+			// across a proxy restart.
+			admitMultiProxyDiscoveryOutbox(retryState, queuedVote, player, uuid, service, time, realVote, totals);
+			return false;
+		}
 		Set<String> durableRecipients = new LinkedHashSet<>(recipients);
 		durableRecipients.addAll(renewingRecipients);
 		Set<String> legacyRecipients = new LinkedHashSet<>(configuredRecipients);
 		legacyRecipients.removeAll(durableRecipients);
-		if (durableRecipients.isEmpty()) {
+		VoteTimeQueue outbox = queuedVote;
+		if (outbox != null && outbox.isMultiProxyCapabilityDiscoveryPending()
+				&& !resolveMultiProxyDiscoveryOutbox(outbox)) return false;
+		if (durableRecipients.isEmpty()
+				&& (outbox == null || !outbox.isMultiProxyForwardingRequired())) {
 			// Older peers do not understand acknowledgements. Preserve their historical
 			// fire-and-forget route instead of creating an outbox they can never ACK.
 			return multiProxyHandler.sendMultiProxyEnvelopeAccepted(VotingPluginWire.vote(player, uuid, service, time,
 					false, realVote, totals == null ? "" : totals.toString(), findLiveVoteId(retryState), false, false,
 					1, 1), legacyRecipients);
 		}
-		VoteTimeQueue outbox = queuedVote;
 		if (outbox == null) {
 			outbox = new VoteTimeQueue(null, player, service, time, false, Collections.emptySet(),
 					Collections.emptySet(), totals == null ? "" : totals.toString(), true, uuid);
@@ -5673,7 +5693,11 @@ public abstract class VotingPluginProxy {
 				return false;
 			}
 		}
-		if (!outbox.isMultiProxyForwardingRequired()) {
+		if (outbox.isMultiProxyCapabilityDiscoveryPending()) {
+			// A crash can leave this row before classification. Resolve and persist the
+			// recipient split before publishing either route.
+			if (!resolveMultiProxyDiscoveryOutbox(outbox)) return false;
+		} else if (!outbox.isMultiProxyForwardingRequired()) {
 			outbox.requireMultiProxyAcknowledgements(getConfig().getProxyServerName(), durableRecipients);
 			outbox.setMultiProxyLegacyPendingRecipients(legacyRecipients);
 			outbox.setRealVote(realVote);
@@ -5689,17 +5713,87 @@ public abstract class VotingPluginProxy {
 		if (!outbox.getMultiProxyLegacyPendingRecipients().isEmpty()) {
 			// Never retry this legacy copy as part of the ACK outbox: a legacy peer has
 			// no receiver dedupe/ACK contract, while capable peers stay fully durable.
-			// Persist the exact pending set until the transport accepts the copy.
-			if (!multiProxyHandler.sendMultiProxyEnvelopeAccepted(VotingPluginWire.vote(player, uuid, service, time,
-					false, realVote, totals == null ? "" : totals.toString(), outbox.getVoteId(), false, false, 1, 1),
-					new LinkedHashSet<>(outbox.getMultiProxyLegacyPendingRecipients()))) return false;
+			// Clear the replayable set durably before publishing. If the transport
+			// rejects synchronously, restore it for retry; a process crash retains the
+			// historical legacy at-most-once behavior instead of duplicating rewards.
+			Set<String> legacyPending = new LinkedHashSet<>(outbox.getMultiProxyLegacyPendingRecipients());
 			outbox.setMultiProxyLegacyPendingRecipients(Collections.emptySet());
 			outbox.setDeliveryStateDirty(true);
 			if (!persistTimeVoteDelivery(outbox)) return false;
+			if (!multiProxyHandler.sendMultiProxyEnvelopeAccepted(VotingPluginWire.vote(player, uuid, service, time,
+					false, realVote, totals == null ? "" : totals.toString(), outbox.getVoteId(), false, false, 1, 1),
+					legacyPending)) {
+				outbox.setMultiProxyLegacyPendingRecipients(legacyPending);
+				outbox.setDeliveryStateDirty(true);
+				persistTimeVoteDelivery(outbox);
+				return false;
+			}
+		}
+		if (outbox.getMultiProxyRecipients().isEmpty()) {
+			// Discovery resolved every peer to the legacy route. There can be no ACK
+			// retirement phase, so retire the durable intent after the one-way copy was
+			// durably marked accepted.
+			boolean handled = markMultiProxyForwardingHandled(retryState, outbox);
+			if (handled) scheduleTimeVoteRetry();
+			return handled;
 		}
 		if (!sendDurableMultiProxyOutbox(outbox)) return false;
 		scheduleTimeVoteRetry();
 		return false;
+	}
+
+	/**
+	 * Persists a forwarding intent before the first discovery-induced retry. The
+	 * local vote effects have already completed at this point; without this row a
+	 * shutdown between the retry result and the next listener attempt loses the
+	 * only record that the vote still needs forwarding.
+	 */
+	private VoteTimeQueue admitMultiProxyDiscoveryOutbox(LiveVoteRetryState retryState, VoteTimeQueue queuedVote,
+			String player, String uuid, String service, long time, boolean realVote, VoteTotalsSnapshot totals) {
+		VoteTimeQueue outbox = queuedVote;
+		if (outbox == null) {
+			outbox = new VoteTimeQueue(null, player, service, time, false, Collections.emptySet(),
+					Collections.emptySet(), totals == null ? "" : totals.toString(), true, uuid);
+			outbox.setVoteId(findLiveVoteId(retryState));
+			if (outbox.getVoteId() == null) return null;
+			retryState.queuedVote = outbox;
+		}
+		outbox.requireMultiProxyAcknowledgements(getConfig().getProxyServerName(), Collections.emptySet());
+		outbox.setMultiProxyCapabilityDiscoveryPending(true);
+		outbox.setMultiProxyLegacyPendingRecipients(Collections.emptySet());
+		outbox.setRealVote(realVote);
+		outbox.setProcessed(true);
+		outbox.setDeliveryStateDirty(true);
+		boolean alreadyQueued = false;
+		for (VoteTimeQueue candidate : getVoteCacheHandler().getTimeChangeQueue()) {
+			if (candidate != null && java.util.Objects.equals(outbox.getVoteId(), candidate.getVoteId())) {
+				alreadyQueued = true;
+				break;
+			}
+		}
+		if (!alreadyQueued) return getVoteCacheHandler().addTimeVoteToCache(outbox) ? outbox : null;
+		return persistTimeVoteDelivery(outbox) ? outbox : null;
+	}
+
+	/** Resolves a restored discovery-pending outbox and persists its recipient split before sending. */
+	private boolean resolveMultiProxyDiscoveryOutbox(VoteTimeQueue outbox) {
+		if (multiProxyHandler == null || multiProxyHandler.isMultiProxyVoteCapabilityRecoveryBlocked()) return false;
+		multiProxyHandler.renewMultiProxyVoteCapabilityIfDue();
+		Set<String> recipients = multiProxyHandler.getMultiProxyVoteRecipients();
+		Set<String> renewingRecipients = multiProxyHandler.getMultiProxyVoteRecipientsAwaitingCapabilityRenewal();
+		Set<String> discoveringRecipients = multiProxyHandler.getMultiProxyVoteRecipientsAwaitingCapabilityDiscovery();
+		if (multiProxyHandler.isMultiProxyVoteCapabilityRecoveryBlocked() || !discoveringRecipients.isEmpty()) return false;
+		Set<String> configuredRecipients = multiProxyHandler.getConfiguredMultiProxyVoteRecipients();
+		if (configuredRecipients.isEmpty() && !recipients.isEmpty()) configuredRecipients.addAll(recipients);
+		Set<String> durableRecipients = new LinkedHashSet<>(recipients);
+		durableRecipients.addAll(renewingRecipients);
+		Set<String> legacyRecipients = new LinkedHashSet<>(configuredRecipients);
+		legacyRecipients.removeAll(durableRecipients);
+		outbox.requireMultiProxyAcknowledgements(getConfig().getProxyServerName(), durableRecipients);
+		outbox.setMultiProxyLegacyPendingRecipients(legacyRecipients);
+		outbox.setMultiProxyCapabilityDiscoveryPending(false);
+		outbox.setDeliveryStateDirty(true);
+		return persistTimeVoteDelivery(outbox);
 	}
 
 	private UUID findLiveVoteId(LiveVoteRetryState retryState) {
@@ -5711,17 +5805,28 @@ public abstract class VotingPluginProxy {
 
 	/** Re-sends an unacknowledged outbox using the exact persisted stable ID. */
 	private boolean retryDurableMultiProxyOutbox(VoteTimeQueue outbox) {
+		if (outbox.isMultiProxyCapabilityDiscoveryPending() && !resolveMultiProxyDiscoveryOutbox(outbox)) return false;
 		if (outbox.hasCompletedMultiProxyAcknowledgements()) {
 			return finishMultiProxyRetirement(null, outbox);
 		}
 		if (!outbox.getMultiProxyLegacyPendingRecipients().isEmpty()) {
-			if (!multiProxyHandler.sendMultiProxyEnvelopeAccepted(VotingPluginWire.vote(outbox.getName(),
-					outbox.getUuid(), outbox.getService(), outbox.getTime(), false, outbox.isRealVote(),
-					outbox.getTotals(), outbox.getVoteId(), false, false, 1, 1),
-					new LinkedHashSet<>(outbox.getMultiProxyLegacyPendingRecipients()))) return false;
+			Set<String> legacyPending = new LinkedHashSet<>(outbox.getMultiProxyLegacyPendingRecipients());
 			outbox.setMultiProxyLegacyPendingRecipients(Collections.emptySet());
 			outbox.setDeliveryStateDirty(true);
 			if (!persistTimeVoteDelivery(outbox)) return false;
+			if (!multiProxyHandler.sendMultiProxyEnvelopeAccepted(VotingPluginWire.vote(outbox.getName(),
+					outbox.getUuid(), outbox.getService(), outbox.getTime(), false, outbox.isRealVote(),
+					outbox.getTotals(), outbox.getVoteId(), false, false, 1, 1), legacyPending)) {
+				outbox.setMultiProxyLegacyPendingRecipients(legacyPending);
+				outbox.setDeliveryStateDirty(true);
+				persistTimeVoteDelivery(outbox);
+				return false;
+			}
+		}
+		if (outbox.getMultiProxyRecipients().isEmpty()) {
+			boolean handled = markMultiProxyForwardingHandled(null, outbox);
+			if (handled) scheduleTimeVoteRetry();
+			return handled;
 		}
 		sendDurableMultiProxyOutbox(outbox);
 		return false;
@@ -5825,6 +5930,7 @@ public abstract class VotingPluginProxy {
 		if (retryState != null) retryState.multiProxyForwardingHandled = true;
 		if (queuedVote == null) return true;
 		queuedVote.setMultiProxyForwardingHandled(true);
+		queuedVote.setMultiProxyCapabilityDiscoveryPending(false);
 		queuedVote.setDeliveryStateDirty(true);
 		return persistTimeVoteDelivery(queuedVote);
 	}

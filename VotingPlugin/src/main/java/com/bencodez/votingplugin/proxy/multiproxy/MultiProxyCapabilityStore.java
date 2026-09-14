@@ -9,8 +9,10 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 import com.bencodez.votingplugin.util.DurableFiles;
@@ -21,13 +23,15 @@ import com.google.gson.JsonParser;
 
 /**
  * Stores only the stable identities of peers that have completed the
- * durable-delivery capability handshake.  A lease is deliberately not stored:
+ * durable-delivery capability handshake and the bounded discovery deadlines
+ * for peers which have not advertised yet. A lease is deliberately not stored:
  * every process must renew a peer's current handshake before publishing a
  * durable outbox retry.
  */
 final class MultiProxyCapabilityStore {
 	static final String FILE_NAME = ".multiproxy-capability-peers.json";
-	private static final int VERSION = 1;
+	private static final int VERSION = 2;
+	private static final int LEGACY_VERSION = 1;
 	private static final int MAX_BYTES = 64 * 1024;
 	private static final int MAX_PEERS = 256;
 	private static final int MAX_PEER_LENGTH = 256;
@@ -53,7 +57,8 @@ final class MultiProxyCapabilityStore {
 			JsonElement parsed = JsonParser.parseString(new String(bytes, StandardCharsets.UTF_8));
 			if (!parsed.isJsonObject()) throw invalid();
 			JsonObject root = parsed.getAsJsonObject();
-			if (!root.has("version") || root.get("version").getAsInt() != VERSION
+			if (!root.has("version") || (root.get("version").getAsInt() != VERSION
+					&& root.get("version").getAsInt() != LEGACY_VERSION)
 					|| !root.has("peers") || !root.get("peers").isJsonArray()) throw invalid();
 			JsonArray peers = root.getAsJsonArray("peers");
 			if (peers.size() > MAX_PEERS) throw invalid();
@@ -63,14 +68,45 @@ final class MultiProxyCapabilityStore {
 				String name = peer.getAsString();
 				if (!validPeer(name) || !restored.add(name)) throw invalid();
 			}
-			return new State(restored);
+			Map<String, Long> discoveryDeadlines = new LinkedHashMap<>();
+			if (root.has("discoveryDeadlines")) {
+				if (!root.get("discoveryDeadlines").isJsonObject()) throw invalid();
+				JsonObject storedDeadlines = root.getAsJsonObject("discoveryDeadlines");
+				if (storedDeadlines.size() > MAX_PEERS) throw invalid();
+				for (Map.Entry<String, JsonElement> entry : storedDeadlines.entrySet()) {
+					if (!validPeer(entry.getKey()) || !entry.getValue().isJsonPrimitive()
+							|| !entry.getValue().getAsJsonPrimitive().isNumber()) throw invalid();
+					long deadline = entry.getValue().getAsLong();
+					if (deadline <= 0L || discoveryDeadlines.put(entry.getKey(), deadline) != null) throw invalid();
+				}
+			}
+			long lastObservedMillis = 0L;
+			if (root.has("lastObservedMillis")) {
+				if (!root.get("lastObservedMillis").isJsonPrimitive()
+						|| !root.get("lastObservedMillis").getAsJsonPrimitive().isNumber()) throw invalid();
+				lastObservedMillis = root.get("lastObservedMillis").getAsLong();
+				if (lastObservedMillis < 0L) throw invalid();
+			}
+			return new State(restored, discoveryDeadlines, lastObservedMillis);
 		} catch (RuntimeException malformed) {
 			throw new IOException("Multi-proxy capability state is malformed", malformed);
 		}
 	}
 
 	static void save(Path dataDirectory, Collection<String> peers) throws IOException {
-		if (dataDirectory == null || peers == null || peers.size() > MAX_PEERS) throw new IOException("Invalid capability state");
+		save(dataDirectory, peers, Map.of());
+	}
+
+	static void save(Path dataDirectory, Collection<String> peers, Map<String, Long> discoveryDeadlines)
+			throws IOException {
+		save(dataDirectory, peers, discoveryDeadlines, 0L);
+	}
+
+	static void save(Path dataDirectory, Collection<String> peers, Map<String, Long> discoveryDeadlines,
+			long lastObservedMillis) throws IOException {
+		if (dataDirectory == null || peers == null || discoveryDeadlines == null || peers.size() > MAX_PEERS
+				|| discoveryDeadlines.size() > MAX_PEERS || lastObservedMillis < 0L)
+			throw new IOException("Invalid capability state");
 		Set<String> copy = new LinkedHashSet<>();
 		for (String peer : peers) {
 			if (!validPeer(peer) || !copy.add(peer)) throw new IOException("Invalid capability peer");
@@ -80,6 +116,16 @@ final class MultiProxyCapabilityStore {
 		JsonArray listed = new JsonArray();
 		copy.stream().sorted().forEach(listed::add);
 		root.add("peers", listed);
+		JsonObject storedDeadlines = new JsonObject();
+		for (String peer : discoveryDeadlines.keySet().stream().sorted().toList()) {
+			Long deadline = discoveryDeadlines.get(peer);
+			if (!validPeer(peer) || deadline == null || deadline <= 0L) {
+				throw new IOException("Invalid capability discovery state");
+			}
+			storedDeadlines.addProperty(peer, deadline);
+		}
+		root.add("discoveryDeadlines", storedDeadlines);
+		root.addProperty("lastObservedMillis", lastObservedMillis);
 		byte[] serialized = root.toString().getBytes(StandardCharsets.UTF_8);
 		if (serialized.length > MAX_BYTES) throw new IOException("Multi-proxy capability state is too large");
 
@@ -112,13 +158,14 @@ final class MultiProxyCapabilityStore {
 		return new IllegalArgumentException("Invalid capability state");
 	}
 
-	record State(Set<String> peers) {
+	record State(Set<String> peers, Map<String, Long> discoveryDeadlines, long lastObservedMillis) {
 		State {
 			peers = Set.copyOf(peers);
+			discoveryDeadlines = Map.copyOf(discoveryDeadlines);
 		}
 
 		static State empty() {
-			return new State(Set.of());
+			return new State(Set.of(), Map.of(), 0L);
 		}
 	}
 }

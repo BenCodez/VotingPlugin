@@ -70,6 +70,8 @@ public class VelocityJsonVoteCache extends VelocityJSONFile implements IVoteCach
 				"MultiProxyForwardingHandled");
 		setPath(voteTimedQueue.isMultiProxyForwardingRequired(), "TimedVoteCache", String.valueOf(num),
 				"MultiProxyForwardingRequired");
+		setPath(voteTimedQueue.isMultiProxyCapabilityDiscoveryPending(), "TimedVoteCache", String.valueOf(num),
+				"MultiProxyCapabilityDiscoveryPending");
 		setPath(voteTimedQueue.isRealVote(), "TimedVoteCache", String.valueOf(num), "RealVote");
 		setPath(voteTimedQueue.getMultiProxyOrigin(), "TimedVoteCache", String.valueOf(num), "MultiProxyOrigin");
 		setPath(voteTimedQueue.isMultiProxyCompletionPending(), "TimedVoteCache", String.valueOf(num),

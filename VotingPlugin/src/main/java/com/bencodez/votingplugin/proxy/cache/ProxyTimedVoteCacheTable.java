@@ -41,6 +41,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 					+ qi("processed") + " BOOLEAN NOT NULL DEFAULT FALSE, "
 					+ qi("multiProxyForwardingHandled") + " BOOLEAN NOT NULL DEFAULT FALSE, "
 					+ qi("multiProxyForwardingRequired") + " BOOLEAN NOT NULL DEFAULT FALSE, "
+					+ qi("multiProxyCapabilityDiscoveryPending") + " BOOLEAN NOT NULL DEFAULT FALSE, "
 					+ qi("realVote") + " BOOLEAN NOT NULL DEFAULT TRUE, "
 					+ qi("multiProxyOrigin") + " VARCHAR(100), "
 					+ qi("multiProxyCompletionPending") + " BOOLEAN NOT NULL DEFAULT FALSE, "
@@ -65,6 +66,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				+ qi("processed") + " TINYINT(1) NOT NULL DEFAULT 0,"
 				+ qi("multiProxyForwardingHandled") + " TINYINT(1) NOT NULL DEFAULT 0,"
 				+ qi("multiProxyForwardingRequired") + " TINYINT(1) NOT NULL DEFAULT 0,"
+				+ qi("multiProxyCapabilityDiscoveryPending") + " TINYINT(1) NOT NULL DEFAULT 0,"
 				+ qi("realVote") + " TINYINT(1) NOT NULL DEFAULT 1,"
 				+ qi("multiProxyOrigin") + " VARCHAR(100),"
 				+ qi("multiProxyCompletionPending") + " TINYINT(1) NOT NULL DEFAULT 0,"
@@ -135,6 +137,9 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 		ensureColumn("multiProxyForwardingRequired", getDbType() == DbType.POSTGRESQL
 				? "BOOLEAN NOT NULL DEFAULT FALSE"
 				: "TINYINT(1) NOT NULL DEFAULT 0");
+		ensureColumn("multiProxyCapabilityDiscoveryPending", getDbType() == DbType.POSTGRESQL
+				? "BOOLEAN NOT NULL DEFAULT FALSE"
+				: "TINYINT(1) NOT NULL DEFAULT 0");
 		ensureColumn("realVote", getDbType() == DbType.POSTGRESQL
 				? "BOOLEAN NOT NULL DEFAULT TRUE"
 				: "TINYINT(1) NOT NULL DEFAULT 1");
@@ -194,6 +199,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 	private boolean insertTimedVote(UUID voteId, String uuid, String playerName, String service, long time,
 			boolean proxyBroadcastHandled, String broadcastTargets, String broadcastForwardedServers, String totals,
 			boolean processed, boolean multiProxyForwardingHandled, boolean multiProxyForwardingRequired,
+			boolean multiProxyCapabilityDiscoveryPending,
 			boolean realVote, String multiProxyOrigin, boolean multiProxyCompletionPending, String multiProxyRecipients,
 			String multiProxyAcknowledgedServers, String httpBroadcastDeliveryIds,
 			String multiProxyLegacyPendingRecipients) {
@@ -202,10 +208,11 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				+ qi("broadcastTargets") + ", " + qi("broadcastForwardedServers") + ", " + qi("totals") + ", "
 				+ qi("processed") + ", " + qi("multiProxyForwardingHandled") + ", "
 				+ qi("multiProxyForwardingRequired") + ", " + qi("realVote") + ", " + qi("multiProxyOrigin")
+				+ ", " + qi("multiProxyCapabilityDiscoveryPending")
 				+ ", " + qi("multiProxyCompletionPending") + ", " + qi("multiProxyRecipients") + ", "
 				+ qi("multiProxyAcknowledgedServers") + ", " + qi("httpBroadcastDeliveryIds") + ", "
 				+ qi("multiProxyLegacyPendingRecipients")
-				+ ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+				+ ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setString(1, playerName);
@@ -236,12 +243,14 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				ps.setInt(13, realVote ? 1 : 0);
 			}
 			ps.setString(14, multiProxyOrigin);
-			if (getDbType() == DbType.POSTGRESQL) ps.setBoolean(15, multiProxyCompletionPending);
-			else ps.setInt(15, multiProxyCompletionPending ? 1 : 0);
-			ps.setString(16, multiProxyRecipients);
-			ps.setString(17, multiProxyAcknowledgedServers);
-			ps.setString(18, httpBroadcastDeliveryIds);
-			ps.setString(19, multiProxyLegacyPendingRecipients);
+			if (getDbType() == DbType.POSTGRESQL) ps.setBoolean(15, multiProxyCapabilityDiscoveryPending);
+			else ps.setInt(15, multiProxyCapabilityDiscoveryPending ? 1 : 0);
+			if (getDbType() == DbType.POSTGRESQL) ps.setBoolean(16, multiProxyCompletionPending);
+			else ps.setInt(16, multiProxyCompletionPending ? 1 : 0);
+			ps.setString(17, multiProxyRecipients);
+			ps.setString(18, multiProxyAcknowledgedServers);
+			ps.setString(19, httpBroadcastDeliveryIds);
+			ps.setString(20, multiProxyLegacyPendingRecipients);
 			ps.executeUpdate();
 			return true;
 		} catch (SQLException e) {
@@ -256,7 +265,8 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 		return insertTimedVote(vote.getVoteId(), vote.getUuid(), vote.getName(), vote.getService(), vote.getTime(),
 				vote.isProxyBroadcastHandled(), vote.encodeBroadcastTargets(), vote.encodeBroadcastForwardedServers(),
 				vote.getTotals(), vote.isProcessed(), vote.isMultiProxyForwardingHandled(),
-				vote.isMultiProxyForwardingRequired(), vote.isRealVote(), vote.getMultiProxyOrigin(),
+				vote.isMultiProxyForwardingRequired(), vote.isMultiProxyCapabilityDiscoveryPending(), vote.isRealVote(),
+				vote.getMultiProxyOrigin(),
 				vote.isMultiProxyCompletionPending(),
 				vote.encodeMultiProxyRecipients(), vote.encodeMultiProxyAcknowledgedServers(),
 				vote.encodeHttpBroadcastDeliveryIds(), vote.encodeMultiProxyLegacyPendingRecipients());
@@ -267,7 +277,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 			boolean proxyBroadcastHandled, String broadcastTargets, String broadcastForwardedServers, String totals,
 			boolean processed, boolean multiProxyForwardingHandled, String httpBroadcastDeliveryIds) {
 		return insertTimedVote(voteId, uuid, playerName, service, time, proxyBroadcastHandled, broadcastTargets,
-				broadcastForwardedServers, totals, processed, multiProxyForwardingHandled, false, true, "", false, "", "",
+				broadcastForwardedServers, totals, processed, multiProxyForwardingHandled, false, false, true, "", false, "", "",
 				httpBroadcastDeliveryIds, "");
 	}
 
@@ -300,7 +310,8 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				+ qi("broadcastTargets") + " = ?, " + qi("broadcastForwardedServers") + " = ?, " + qi("totals")
 				+ " = ?, " + qi("processed") + " = ?, " + qi("multiProxyForwardingHandled") + " = ?, "
 				+ qi("multiProxyForwardingRequired") + " = ?, " + qi("realVote") + " = ?, "
-				+ qi("multiProxyOrigin") + " = ?, " + qi("multiProxyCompletionPending") + " = ?, "
+				+ qi("multiProxyOrigin") + " = ?, " + qi("multiProxyCapabilityDiscoveryPending") + " = ?, "
+				+ qi("multiProxyCompletionPending") + " = ?, "
 				+ qi("multiProxyRecipients") + " = ?, "
 				+ qi("multiProxyAcknowledgedServers") + " = ?, " + qi("uuid") + " = ?, "
 				+ qi("httpBroadcastDeliveryIds") + " = ?, " + qi("multiProxyLegacyPendingRecipients") + " = ? WHERE "
@@ -331,21 +342,23 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				ps.setInt(8, vote.isRealVote() ? 1 : 0);
 			}
 			ps.setString(9, vote.getMultiProxyOrigin());
-			if (getDbType() == DbType.POSTGRESQL) ps.setBoolean(10, vote.isMultiProxyCompletionPending());
-			else ps.setInt(10, vote.isMultiProxyCompletionPending() ? 1 : 0);
-			ps.setString(11, vote.encodeMultiProxyRecipients());
-			ps.setString(12, vote.encodeMultiProxyAcknowledgedServers());
-			ps.setString(13, vote.getUuid());
-			ps.setString(14, vote.encodeHttpBroadcastDeliveryIds());
-			ps.setString(15, vote.encodeMultiProxyLegacyPendingRecipients());
+			if (getDbType() == DbType.POSTGRESQL) ps.setBoolean(10, vote.isMultiProxyCapabilityDiscoveryPending());
+			else ps.setInt(10, vote.isMultiProxyCapabilityDiscoveryPending() ? 1 : 0);
+			if (getDbType() == DbType.POSTGRESQL) ps.setBoolean(11, vote.isMultiProxyCompletionPending());
+			else ps.setInt(11, vote.isMultiProxyCompletionPending() ? 1 : 0);
+			ps.setString(12, vote.encodeMultiProxyRecipients());
+			ps.setString(13, vote.encodeMultiProxyAcknowledgedServers());
+			ps.setString(14, vote.getUuid());
+			ps.setString(15, vote.encodeHttpBroadcastDeliveryIds());
+			ps.setString(16, vote.encodeMultiProxyLegacyPendingRecipients());
 			if (hasRowId) {
-				ps.setInt(16, vote.getTimedVoteCacheRowId());
+				ps.setInt(17, vote.getTimedVoteCacheRowId());
 			} else if (hasVoteId) {
-				ps.setString(16, vote.getVoteId().toString());
+				ps.setString(17, vote.getVoteId().toString());
 			} else {
-				ps.setString(16, vote.getName());
-				ps.setString(17, vote.getService());
-				ps.setLong(18, vote.getTime());
+				ps.setString(17, vote.getName());
+				ps.setString(18, vote.getService());
+				ps.setLong(19, vote.getTime());
 			}
 			ps.executeUpdate();
 			return true;
@@ -505,6 +518,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 							rs.getBoolean("processed"),
 							rs.getBoolean("multiProxyForwardingHandled"),
 							rs.getBoolean("multiProxyForwardingRequired"),
+							rs.getBoolean("multiProxyCapabilityDiscoveryPending"),
 							rs.getBoolean("realVote"),
 							rs.getString("multiProxyOrigin"),
 							rs.getBoolean("multiProxyCompletionPending"),
@@ -549,6 +563,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 		private final boolean processed;
 		private final boolean multiProxyForwardingHandled;
 		private final boolean multiProxyForwardingRequired;
+		private final boolean multiProxyCapabilityDiscoveryPending;
 		private final boolean realVote;
 		private final String multiProxyOrigin;
 		private final boolean multiProxyCompletionPending;
@@ -573,7 +588,8 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 		public TimedVoteRow(int id, String playerName, String service, long time, UUID voteId, String uuid,
 				boolean proxyBroadcastHandled, String broadcastTargets, String broadcastForwardedServers, String totals,
 				boolean processed, boolean multiProxyForwardingHandled, boolean multiProxyForwardingRequired,
-				boolean realVote, String multiProxyOrigin, boolean multiProxyCompletionPending, String multiProxyRecipients,
+				boolean multiProxyCapabilityDiscoveryPending, boolean realVote, String multiProxyOrigin,
+				boolean multiProxyCompletionPending, String multiProxyRecipients,
 				String multiProxyAcknowledgedServers, String httpBroadcastDeliveryIds,
 				String multiProxyLegacyPendingRecipients) {
 			this.id = id;
@@ -589,6 +605,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 			this.processed = processed;
 			this.multiProxyForwardingHandled = multiProxyForwardingHandled;
 			this.multiProxyForwardingRequired = multiProxyForwardingRequired;
+			this.multiProxyCapabilityDiscoveryPending = multiProxyCapabilityDiscoveryPending;
 			this.realVote = realVote;
 			this.multiProxyOrigin = multiProxyOrigin;
 			this.multiProxyCompletionPending = multiProxyCompletionPending;
@@ -603,7 +620,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				boolean proxyBroadcastHandled, String broadcastTargets, String broadcastForwardedServers, String totals,
 				boolean processed) {
 			this(id, playerName, service, time, voteId, uuid, proxyBroadcastHandled, broadcastTargets,
-					broadcastForwardedServers, totals, processed, false, false, true, "", false, "", "", null, null);
+					broadcastForwardedServers, totals, processed, false, false, false, true, "", false, "", "", null, null);
 		}
 
 		/** Backward-compatible row constructor without the durable multi-proxy forwarding fence. */
@@ -611,7 +628,7 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 				boolean proxyBroadcastHandled, String broadcastTargets, String broadcastForwardedServers, String totals,
 				boolean processed, String httpBroadcastDeliveryIds) {
 			this(id, playerName, service, time, voteId, uuid, proxyBroadcastHandled, broadcastTargets,
-					broadcastForwardedServers, totals, processed, false, false, true, "", false, "", "",
+					broadcastForwardedServers, totals, processed, false, false, false, true, "", false, "", "",
 					httpBroadcastDeliveryIds, null);
 		}
 
@@ -693,6 +710,8 @@ public abstract class ProxyTimedVoteCacheTable extends AbstractSqlTable {
 		}
 
 		public boolean isMultiProxyForwardingRequired() { return multiProxyForwardingRequired; }
+
+		public boolean isMultiProxyCapabilityDiscoveryPending() { return multiProxyCapabilityDiscoveryPending; }
 		public boolean isRealVote() { return realVote; }
 		public String getMultiProxyOrigin() { return multiProxyOrigin; }
 		public boolean isMultiProxyCompletionPending() { return multiProxyCompletionPending; }

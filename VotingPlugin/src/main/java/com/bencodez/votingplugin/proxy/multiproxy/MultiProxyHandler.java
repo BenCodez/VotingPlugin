@@ -37,6 +37,12 @@ public abstract class MultiProxyHandler {
 	static final long VOTE_CAPABILITY_LEASE_MILLIS = 5 * 60 * 1000L;
 	/** Bound retry-driven capability advertisements while a durable outbox is waiting. */
 	static final long VOTE_CAPABILITY_RENEWAL_MIN_INTERVAL_MILLIS = 30 * 1000L;
+	/**
+	 * A newly configured peer gets this one bounded opportunity to answer the
+	 * capability handshake before it is treated as a legacy one-way peer. The
+	 * deadline is durable so a restart cannot extend the window indefinitely.
+	 */
+	static final long VOTE_CAPABILITY_DISCOVERY_WINDOW_MILLIS = 30 * 1000L;
 	private final Map<String, Long> acknowledgedVoteCapabilityPeers = new HashMap<>();
 	/**
 	 * Peers which have previously completed the durable-delivery handshake. Retain
@@ -45,6 +51,8 @@ public abstract class MultiProxyHandler {
 	 * as success and lose the sender's durable completion fence.
 	 */
 	private final Set<String> knownVoteCapabilityPeers = new HashSet<>();
+	/** Durable, per-peer deadlines for the initial capability discovery window. */
+	private final Map<String, Long> voteCapabilityDiscoveryDeadlines = new HashMap<>();
 	/**
 	 * We cannot safely classify configured peers after the durable state is corrupt
 	 * or cannot be updated.  Do not create a new mixed-version outbox in that
@@ -54,6 +62,8 @@ public abstract class MultiProxyHandler {
 	 */
 	private boolean voteCapabilityRecoveryBlocked;
 	private long lastVoteCapabilityAdvertisementMillis = Long.MIN_VALUE;
+	/** Last wall-clock observation durably associated with discovery deadlines. */
+	private long lastVoteCapabilityObservationMillis;
 
 	@Getter
 	private RedisHandler multiProxyRedis;
@@ -99,8 +109,10 @@ public abstract class MultiProxyHandler {
 		multiproxyClientHandles = null;
 		acknowledgedVoteCapabilityPeers.clear();
 		knownVoteCapabilityPeers.clear();
+		voteCapabilityDiscoveryDeadlines.clear();
 		voteCapabilityRecoveryBlocked = false;
 		lastVoteCapabilityAdvertisementMillis = Long.MIN_VALUE;
+		lastVoteCapabilityObservationMillis = 0L;
 	}
 
 	/**
@@ -389,6 +401,50 @@ public abstract class MultiProxyHandler {
 		return recipients;
 	}
 
+	/**
+	 * Returns never-observed configured peers whose initial capability handshake
+	 * is still within its bounded discovery window. Callers retain the vote for a
+	 * retry while this set is non-empty, rather than publishing a one-way legacy
+	 * copy before a newly upgraded peer can identify itself.
+	 *
+	 * <p>The deadline is recorded before it is exposed. If recording it fails, we
+	 * block forwarding rather than allowing repeated restarts to make this window
+	 * unbounded or silently demoting a peer to legacy.</p>
+	 */
+	public synchronized Set<String> getMultiProxyVoteRecipientsAwaitingCapabilityDiscovery() {
+		if (voteCapabilityRecoveryBlocked) return Set.of();
+		long now = capabilityNowMillis();
+		Map<String, String> configured = configuredMultiProxyRecipientNames();
+		Map<String, Long> updated = new HashMap<>(voteCapabilityDiscoveryDeadlines);
+		boolean clockRolledBack = lastVoteCapabilityObservationMillis > 0L && now < lastVoteCapabilityObservationMillis;
+		// A wall clock moving backwards must never grant a second discovery window.
+		// Expire the already-recorded opportunity rather than waiting for the clock
+		// to catch up (which can otherwise retain a vote indefinitely after reboot).
+		if (clockRolledBack) {
+			updated.replaceAll((peer, deadline) -> deadline > now ? now : deadline);
+		}
+		boolean changed = updated.keySet().removeIf(peer -> !configured.containsKey(peer)
+				|| knownVoteCapabilityPeers.contains(peer));
+		changed |= clockRolledBack && !updated.equals(voteCapabilityDiscoveryDeadlines);
+		for (String peer : configured.keySet()) {
+			if (knownVoteCapabilityPeers.contains(peer) || updated.containsKey(peer)) continue;
+			updated.put(peer, discoveryDeadline(now));
+			changed = true;
+		}
+		long observed = Math.max(0L, now);
+		boolean observationChanged = !updated.isEmpty() && observed != lastVoteCapabilityObservationMillis;
+		if ((changed || observationChanged)
+				&& !saveVoteCapabilityState(knownVoteCapabilityPeers, updated, observed)) return Set.of();
+		Set<String> recipients = new LinkedHashSet<>();
+		for (Map.Entry<String, String> configuredPeer : configured.entrySet()) {
+			Long deadline = voteCapabilityDiscoveryDeadlines.get(configuredPeer.getKey());
+			if (!knownVoteCapabilityPeers.contains(configuredPeer.getKey()) && deadline != null && deadline > now) {
+				recipients.add(configuredPeer.getValue());
+			}
+		}
+		return recipients;
+	}
+
 	/** Broadcasts this node's durable-ACK capability to configured peers. */
 	public synchronized void announceMultiProxyVoteCapability() {
 		lastVoteCapabilityAdvertisementMillis = capabilityNowMillis();
@@ -427,7 +483,9 @@ public abstract class MultiProxyHandler {
 	synchronized void restoreVoteCapabilityPeers() {
 		acknowledgedVoteCapabilityPeers.clear();
 		knownVoteCapabilityPeers.clear();
+		voteCapabilityDiscoveryDeadlines.clear();
 		voteCapabilityRecoveryBlocked = false;
+		lastVoteCapabilityObservationMillis = 0L;
 		Path dataDirectory = capabilityStateDirectory();
 		// Third-party MultiProxyHandler integrations predate durable state and may
 		// intentionally provide no plugin folder. Preserve their established
@@ -436,9 +494,30 @@ public abstract class MultiProxyHandler {
 		try {
 			MultiProxyCapabilityStore.State restored = MultiProxyCapabilityStore.load(dataDirectory);
 			Set<String> configured = configuredMultiProxyRecipientNames().keySet();
-			for (String peer : restored.peers()) {
-				if (configured.contains(peer)) knownVoteCapabilityPeers.add(peer);
+			Set<String> restoredPeers = new HashSet<>();
+			for (String peer : restored.peers()) if (configured.contains(peer)) restoredPeers.add(peer);
+			Map<String, Long> restoredDeadlines = new HashMap<>();
+			for (Map.Entry<String, Long> entry : restored.discoveryDeadlines().entrySet()) {
+				if (configured.contains(entry.getKey()) && !restoredPeers.contains(entry.getKey())) {
+					restoredDeadlines.put(entry.getKey(), entry.getValue());
+				}
 			}
+			long now = capabilityNowMillis();
+			boolean clockRolledBack = restored.lastObservedMillis() > 0L && now < restored.lastObservedMillis();
+			if (clockRolledBack) {
+				restoredDeadlines.replaceAll((peer, deadline) -> deadline > now ? now : deadline);
+			}
+			long observed = Math.max(0L, clockRolledBack ? now : Math.max(now, restored.lastObservedMillis()));
+			boolean pruned = !restoredPeers.equals(restored.peers())
+					|| !restoredDeadlines.equals(restored.discoveryDeadlines());
+			boolean observationChanged = !restoredDeadlines.isEmpty() && observed != restored.lastObservedMillis();
+			// Persist removal before installing the filtered identities. Otherwise a
+			// later re-add of the same name could resurrect an ACK-capable identity.
+			if ((pruned || observationChanged)
+					&& !saveVoteCapabilityState(restoredPeers, restoredDeadlines, observed)) return;
+			knownVoteCapabilityPeers.addAll(restoredPeers);
+			voteCapabilityDiscoveryDeadlines.putAll(restoredDeadlines);
+			lastVoteCapabilityObservationMillis = observed;
 		} catch (IOException | IllegalArgumentException stateFailure) {
 			blockVoteCapabilityRecovery();
 		}
@@ -455,16 +534,28 @@ public abstract class MultiProxyHandler {
 		if (!newPeer) return true;
 		Set<String> updated = new HashSet<>(knownVoteCapabilityPeers);
 		updated.add(normalized);
+		Map<String, Long> updatedDeadlines = new HashMap<>(voteCapabilityDiscoveryDeadlines);
+		updatedDeadlines.remove(normalized);
+		return saveVoteCapabilityState(updated, updatedDeadlines, lastVoteCapabilityObservationMillis);
+	}
+
+	private long discoveryDeadline(long now) {
+		return now > Long.MAX_VALUE - VOTE_CAPABILITY_DISCOVERY_WINDOW_MILLIS ? Long.MAX_VALUE
+				: now + VOTE_CAPABILITY_DISCOVERY_WINDOW_MILLIS;
+	}
+
+	/** Saves and installs peer classification atomically from the sender's view. */
+	private boolean saveVoteCapabilityState(Collection<String> peers, Map<String, Long> discoveryDeadlines,
+			long lastObservedMillis) {
 		Path dataDirectory = capabilityStateDirectory();
-		if (dataDirectory == null) {
-			knownVoteCapabilityPeers.clear();
-			knownVoteCapabilityPeers.addAll(updated);
-			return true;
-		}
 		try {
-			MultiProxyCapabilityStore.save(dataDirectory, updated);
+			if (dataDirectory != null) MultiProxyCapabilityStore.save(dataDirectory, peers, discoveryDeadlines,
+					lastObservedMillis);
 			knownVoteCapabilityPeers.clear();
-			knownVoteCapabilityPeers.addAll(updated);
+			knownVoteCapabilityPeers.addAll(peers);
+			voteCapabilityDiscoveryDeadlines.clear();
+			voteCapabilityDiscoveryDeadlines.putAll(discoveryDeadlines);
+			lastVoteCapabilityObservationMillis = lastObservedMillis;
 			return true;
 		} catch (IOException | IllegalArgumentException stateFailure) {
 			blockVoteCapabilityRecovery();
@@ -489,8 +580,10 @@ public abstract class MultiProxyHandler {
 	public synchronized void loadMultiProxySupport() {
 		acknowledgedVoteCapabilityPeers.clear();
 		knownVoteCapabilityPeers.clear();
+		voteCapabilityDiscoveryDeadlines.clear();
 		voteCapabilityRecoveryBlocked = false;
 		lastVoteCapabilityAdvertisementMillis = Long.MIN_VALUE;
+		lastVoteCapabilityObservationMillis = 0L;
 		restoreVoteCapabilityPeers();
 		if (!getMultiProxySupportEnabled()) {
 			return;

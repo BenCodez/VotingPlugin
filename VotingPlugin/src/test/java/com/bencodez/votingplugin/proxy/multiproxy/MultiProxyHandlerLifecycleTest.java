@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import java.lang.reflect.Method;
 import java.nio.file.Files;
@@ -325,6 +326,87 @@ class MultiProxyHandlerLifecycleTest {
 		MultiProxyHandler handler = capabilityHandler(dataDirectory, "Legacy");
 		handler.restoreVoteCapabilityPeers();
 		assertTrue(handler.getMultiProxyVoteRecipientsAwaitingCapabilityRenewal().isEmpty());
+	}
+
+	@Test
+	void newlyConfiguredPeerWaitsForCapabilityAnnouncementBeforeItIsClassified() throws Exception {
+		MultiProxyHandler handler = mock(MultiProxyHandler.class,
+				org.mockito.Mockito.withSettings().useConstructor().defaultAnswer(org.mockito.Mockito.CALLS_REAL_METHODS));
+		org.mockito.Mockito.when(handler.getMultiProxyMethod()).thenReturn(MultiProxyMethod.SOCKETS);
+		org.mockito.Mockito.when(handler.getMultiProxyServers()).thenReturn(List.of("Candidate"));
+		org.mockito.Mockito.when(handler.capabilityNowMillis()).thenReturn(1_000L);
+
+		assertEquals(java.util.Set.of("Candidate"),
+				handler.getMultiProxyVoteRecipientsAwaitingCapabilityDiscovery());
+		handleCapability(handler, "Candidate");
+
+		assertTrue(handler.getMultiProxyVoteRecipientsAwaitingCapabilityDiscovery().isEmpty());
+		assertEquals(java.util.Set.of("Candidate"), handler.getMultiProxyVoteRecipients());
+	}
+
+	@Test
+	void missedCapabilityAnnouncementFallsBackOnlyAfterItsBoundedPersistedWindow(@TempDir Path dataDirectory) {
+		MultiProxyHandler beforeRestart = capabilityHandler(dataDirectory, "Legacy");
+		org.mockito.Mockito.when(beforeRestart.capabilityNowMillis()).thenReturn(1_000L);
+		assertEquals(java.util.Set.of("Legacy"),
+				beforeRestart.getMultiProxyVoteRecipientsAwaitingCapabilityDiscovery());
+
+		MultiProxyHandler afterRestart = capabilityHandler(dataDirectory, "Legacy");
+		afterRestart.restoreVoteCapabilityPeers();
+		org.mockito.Mockito.when(afterRestart.capabilityNowMillis()).thenReturn(
+				1_000L + MultiProxyHandler.VOTE_CAPABILITY_DISCOVERY_WINDOW_MILLIS);
+		assertTrue(afterRestart.getMultiProxyVoteRecipientsAwaitingCapabilityDiscovery().isEmpty());
+		// The expired deadline remains a legacy classification rather than beginning
+		// another discovery window on every retry/restart.
+		assertTrue(afterRestart.getMultiProxyVoteRecipientsAwaitingCapabilityDiscovery().isEmpty());
+	}
+
+	@Test
+	void clockRollbackExpiresDiscoveryInsteadOfExtendingItsPersistedWindow(@TempDir Path dataDirectory) {
+		MultiProxyHandler handler = capabilityHandler(dataDirectory, "Candidate");
+		org.mockito.Mockito.when(handler.capabilityNowMillis()).thenReturn(1_000L, 500L);
+
+		assertEquals(java.util.Set.of("Candidate"), handler.getMultiProxyVoteRecipientsAwaitingCapabilityDiscovery());
+		assertTrue(handler.getMultiProxyVoteRecipientsAwaitingCapabilityDiscovery().isEmpty());
+
+		MultiProxyCapabilityStore.State persisted = assertDoesNotThrow(() -> MultiProxyCapabilityStore.load(dataDirectory));
+		assertEquals(500L, persisted.discoveryDeadlines().get("candidate"));
+		assertEquals(500L, persisted.lastObservedMillis());
+	}
+
+	@Test
+	void removedCapabilityPeerIsPrunedDurablyBeforeSameNameIsReadded(@TempDir Path dataDirectory) throws Exception {
+		MultiProxyHandler original = capabilityHandler(dataDirectory, "Capable");
+		handleCapability(original, "Capable");
+
+		MultiProxyHandler removed = capabilityHandler(dataDirectory, "Legacy");
+		removed.restoreVoteCapabilityPeers();
+		assertTrue(MultiProxyCapabilityStore.load(dataDirectory).peers().isEmpty());
+
+		MultiProxyHandler readded = capabilityHandler(dataDirectory, "Capable");
+		readded.restoreVoteCapabilityPeers();
+		assertTrue(readded.getMultiProxyVoteRecipientsAwaitingCapabilityRenewal().isEmpty());
+		assertEquals(java.util.Set.of("Capable"),
+				readded.getMultiProxyVoteRecipientsAwaitingCapabilityDiscovery());
+	}
+
+	@Test
+	void failedConfigurationPruningBlocksForwardingWithoutInstallingStalePeerState(@TempDir Path dataDirectory)
+			throws Exception {
+		MultiProxyCapabilityStore.save(dataDirectory, java.util.Set.of("capable"), Map.of(), 0L);
+		MultiProxyHandler removed = capabilityHandler(dataDirectory, "Legacy");
+		try (org.mockito.MockedStatic<MultiProxyCapabilityStore> store = org.mockito.Mockito.mockStatic(
+				MultiProxyCapabilityStore.class, org.mockito.Mockito.CALLS_REAL_METHODS)) {
+			store.when(() -> MultiProxyCapabilityStore.save(org.mockito.ArgumentMatchers.eq(dataDirectory),
+					org.mockito.ArgumentMatchers.anyCollection(), org.mockito.ArgumentMatchers.anyMap(),
+					org.mockito.ArgumentMatchers.anyLong()))
+					.thenThrow(new java.io.IOException("read-only capability state"));
+			removed.restoreVoteCapabilityPeers();
+		}
+
+		assertTrue(removed.isMultiProxyVoteCapabilityRecoveryBlocked());
+		assertTrue(removed.getMultiProxyVoteRecipientsAwaitingCapabilityRenewal().isEmpty());
+		assertEquals(java.util.Set.of("capable"), MultiProxyCapabilityStore.load(dataDirectory).peers());
 	}
 
 	@Test
