@@ -244,4 +244,39 @@ class MultiProxyHandlerLifecycleTest {
 		handleEnvelope.invoke(handler, VotingPluginWire.multiProxyCapabilities("Capable", 1, true));
 		assertEquals(java.util.Set.of("Capable"), handler.getMultiProxyVoteRecipients());
 	}
+
+	@Test
+	void expiredKnownCapabilityWaitsForRenewalInsteadOfBecomingLegacy() throws Exception {
+		MultiProxyHandler handler = mock(MultiProxyHandler.class,
+				org.mockito.Mockito.withSettings().useConstructor().defaultAnswer(org.mockito.Mockito.CALLS_REAL_METHODS));
+		org.mockito.Mockito.when(handler.getMultiProxyMethod()).thenReturn(MultiProxyMethod.SOCKETS);
+		org.mockito.Mockito.when(handler.getMultiProxyServers()).thenReturn(List.of("Capable"));
+		org.mockito.Mockito.when(handler.capabilityNowMillis()).thenReturn(1_000L,
+				1_000L + MultiProxyHandler.VOTE_CAPABILITY_LEASE_MILLIS,
+				1_000L + MultiProxyHandler.VOTE_CAPABILITY_LEASE_MILLIS);
+		Method handleEnvelope = MultiProxyHandler.class.getDeclaredMethod("handleEnvelope", JsonEnvelope.class);
+		handleEnvelope.setAccessible(true);
+
+		handleEnvelope.invoke(handler, VotingPluginWire.multiProxyCapabilities("Capable", 1, true));
+		assertTrue(handler.getMultiProxyVoteRecipients().isEmpty());
+		assertEquals(java.util.Set.of("Capable"), handler.getMultiProxyVoteRecipientsAwaitingCapabilityRenewal());
+	}
+
+	@Test
+	void renewalAdvertisementIsRateLimitedAfterAnInitialHandshake() {
+		MultiProxyHandler handler = mock(MultiProxyHandler.class,
+				org.mockito.Mockito.withSettings().useConstructor().defaultAnswer(org.mockito.Mockito.CALLS_REAL_METHODS));
+		org.mockito.Mockito.when(handler.getMultiProxyServerName()).thenReturn("Primary");
+		org.mockito.Mockito.when(handler.capabilityNowMillis()).thenReturn(1_000L,
+				1_000L + MultiProxyHandler.VOTE_CAPABILITY_RENEWAL_MIN_INTERVAL_MILLIS - 1,
+				1_000L + MultiProxyHandler.VOTE_CAPABILITY_RENEWAL_MIN_INTERVAL_MILLIS);
+		org.mockito.Mockito.when(handler.sendMultiProxyEnvelopeAccepted(org.mockito.ArgumentMatchers.any())).thenReturn(true);
+		org.mockito.Mockito.clearInvocations(handler);
+
+		handler.announceMultiProxyVoteCapability();
+		assertFalse(handler.renewMultiProxyVoteCapabilityIfDue());
+		assertTrue(handler.renewMultiProxyVoteCapabilityIfDue());
+		org.mockito.Mockito.verify(handler, org.mockito.Mockito.times(2))
+				.sendMultiProxyEnvelopeAccepted(org.mockito.ArgumentMatchers.any());
+	}
 }

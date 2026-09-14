@@ -5623,15 +5623,18 @@ public abstract class VotingPluginProxy {
 		if (multiProxyHandler == null) return false;
 		multiProxyHandler.announceMultiProxyVoteCapability();
 		Set<String> recipients = multiProxyHandler.getMultiProxyVoteRecipients();
+		Set<String> renewingRecipients = multiProxyHandler.getMultiProxyVoteRecipientsAwaitingCapabilityRenewal();
 		Set<String> configuredRecipients = multiProxyHandler.getConfiguredMultiProxyVoteRecipients();
 		// Keep custom MultiProxyHandler integrations that override only the
 		// established recipient method source-compatible while the base handler
 		// learns capabilities.
 		if (configuredRecipients.isEmpty() && !recipients.isEmpty()) configuredRecipients.addAll(recipients);
 		if (configuredRecipients.isEmpty()) return true;
+		Set<String> durableRecipients = new LinkedHashSet<>(recipients);
+		durableRecipients.addAll(renewingRecipients);
 		Set<String> legacyRecipients = new LinkedHashSet<>(configuredRecipients);
-		legacyRecipients.removeAll(recipients);
-		if (recipients.isEmpty()) {
+		legacyRecipients.removeAll(durableRecipients);
+		if (durableRecipients.isEmpty()) {
 			// Older peers do not understand acknowledgements. Preserve their historical
 			// fire-and-forget route instead of creating an outbox they can never ACK.
 			return multiProxyHandler.sendMultiProxyEnvelopeAccepted(VotingPluginWire.vote(player, uuid, service, time,
@@ -5645,7 +5648,7 @@ public abstract class VotingPluginProxy {
 			// The live retry key is the stable vote ID; copy it from the enclosing state
 			// by locating its identity rather than creating a new duplicate record.
 			outbox.setVoteId(findLiveVoteId(retryState));
-			outbox.requireMultiProxyAcknowledgements(getConfig().getProxyServerName(), recipients);
+			outbox.requireMultiProxyAcknowledgements(getConfig().getProxyServerName(), durableRecipients);
 			outbox.setMultiProxyLegacyPendingRecipients(legacyRecipients);
 			outbox.setRealVote(realVote);
 			outbox.setDeliveryStateDirty(true);
@@ -5667,7 +5670,7 @@ public abstract class VotingPluginProxy {
 			}
 		}
 		if (!outbox.isMultiProxyForwardingRequired()) {
-			outbox.requireMultiProxyAcknowledgements(getConfig().getProxyServerName(), recipients);
+			outbox.requireMultiProxyAcknowledgements(getConfig().getProxyServerName(), durableRecipients);
 			outbox.setMultiProxyLegacyPendingRecipients(legacyRecipients);
 			outbox.setRealVote(realVote);
 			outbox.setProcessed(true);
@@ -5725,6 +5728,31 @@ public abstract class VotingPluginProxy {
 		Set<String> pending = new LinkedHashSet<>(outbox.getMultiProxyRecipients());
 		pending.removeAll(outbox.getMultiProxyAcknowledgedServers());
 		if (pending.isEmpty()) return true;
+		// A durable outbox recipient is known to have required acknowledgements when
+		// the row was created. It must therefore have a *current* capability lease
+		// before a retry publishes to it. In particular, a proxy restart/reload clears
+		// in-memory capability knowledge while the outbox survives; treating that
+		// recipient as legacy would let a rolled-back peer execute every retry without
+		// ever acknowledging it.
+		Set<String> leasedRecipients = new LinkedHashSet<>();
+		for (String recipient : multiProxyHandler.getMultiProxyVoteRecipients()) {
+			if (recipient != null) leasedRecipients.add(recipient.toLowerCase(Locale.ROOT));
+		}
+		Set<String> awaitingRenewal = new LinkedHashSet<>();
+		for (String recipient : pending) {
+			if (recipient != null && !leasedRecipients.contains(recipient.toLowerCase(Locale.ROOT))) {
+				awaitingRenewal.add(recipient.toLowerCase(Locale.ROOT));
+			}
+		}
+		if (!awaitingRenewal.isEmpty()) {
+			// Queue retries may be the only activity after an ACK was lost. Renew the
+			// handshake here so a recovered peer can become eligible without waiting
+			// for an unrelated new vote, while the handler bounds advertisements.
+			multiProxyHandler.renewMultiProxyVoteCapabilityIfDue();
+		}
+		pending.removeIf(recipient -> recipient != null
+				&& awaitingRenewal.contains(recipient.toLowerCase(Locale.ROOT)));
+		if (pending.isEmpty()) return false;
 		return multiProxyHandler.sendMultiProxyEnvelopeAccepted(VotingPluginWire.multiProxyVote(outbox.getName(),
 				outbox.getUuid(), outbox.getService(), outbox.getTime(), false, outbox.isRealVote(), outbox.getTotals(),
 				outbox.getVoteId(), false, false, 1, 1, outbox.getMultiProxyOrigin()),

@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.proxy.multiproxy;
 
 import java.io.File;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -32,7 +33,17 @@ public abstract class MultiProxyHandler {
 	private SocketHandler multiproxySocketHandler;
 	/** A renewable lease prevents a restarted/rolled-back peer staying ACK-capable forever. */
 	static final long VOTE_CAPABILITY_LEASE_MILLIS = 5 * 60 * 1000L;
+	/** Bound retry-driven capability advertisements while a durable outbox is waiting. */
+	static final long VOTE_CAPABILITY_RENEWAL_MIN_INTERVAL_MILLIS = 30 * 1000L;
 	private final Map<String, Long> acknowledgedVoteCapabilityPeers = new HashMap<>();
+	/**
+	 * Peers which have previously completed the durable-delivery handshake. Retain
+	 * this separately from the renewable lease: once a known-capable peer drops
+	 * offline, sending it a legacy vote would acknowledge a fire-and-forget publish
+	 * as success and lose the sender's durable completion fence.
+	 */
+	private final Set<String> knownVoteCapabilityPeers = new HashSet<>();
+	private long lastVoteCapabilityAdvertisementMillis = Long.MIN_VALUE;
 
 	@Getter
 	private RedisHandler multiProxyRedis;
@@ -77,6 +88,8 @@ public abstract class MultiProxyHandler {
 		stopSocketClients(multiproxyClientHandles);
 		multiproxyClientHandles = null;
 		acknowledgedVoteCapabilityPeers.clear();
+		knownVoteCapabilityPeers.clear();
+		lastVoteCapabilityAdvertisementMillis = Long.MIN_VALUE;
 	}
 
 	/**
@@ -346,9 +359,48 @@ public abstract class MultiProxyHandler {
 		return recipients;
 	}
 
+	/**
+	 * Returns configured peers which previously advertised durable acknowledgements
+	 * but whose renewable lease has expired. A sender must retain these recipients
+	 * in its durable outbox and wait for the capability handshake to renew instead
+	 * of demoting them to the legacy one-way route.
+	 */
+	public synchronized Set<String> getMultiProxyVoteRecipientsAwaitingCapabilityRenewal() {
+		long now = capabilityNowMillis();
+		acknowledgedVoteCapabilityPeers.entrySet().removeIf(entry -> entry.getValue() <= now);
+		Set<String> recipients = new LinkedHashSet<>();
+		for (Map.Entry<String, String> configured : configuredMultiProxyRecipientNames().entrySet()) {
+			if (knownVoteCapabilityPeers.contains(configured.getKey())
+					&& !acknowledgedVoteCapabilityPeers.containsKey(configured.getKey())) {
+				recipients.add(configured.getValue());
+			}
+		}
+		return recipients;
+	}
+
 	/** Broadcasts this node's durable-ACK capability to configured peers. */
 	public synchronized void announceMultiProxyVoteCapability() {
+		lastVoteCapabilityAdvertisementMillis = capabilityNowMillis();
 		sendMultiProxyEnvelopeAccepted(VotingPluginWire.multiProxyCapabilities(getMultiProxyServerName(), 1));
+	}
+
+	/**
+	 * Re-advertises durable delivery support for an outbox that is waiting for an
+	 * expired peer lease. This is deliberately rate limited: the queue retries
+	 * much more frequently than the handshake needs to be broadcast.
+	 *
+	 * @return whether an advertisement was attempted
+	 */
+	public synchronized boolean renewMultiProxyVoteCapabilityIfDue() {
+		long now = capabilityNowMillis();
+		if (lastVoteCapabilityAdvertisementMillis != Long.MIN_VALUE
+				&& now >= lastVoteCapabilityAdvertisementMillis
+				&& now - lastVoteCapabilityAdvertisementMillis < VOTE_CAPABILITY_RENEWAL_MIN_INTERVAL_MILLIS) {
+			return false;
+		}
+		lastVoteCapabilityAdvertisementMillis = now;
+		sendMultiProxyEnvelopeAccepted(VotingPluginWire.multiProxyCapabilities(getMultiProxyServerName(), 1));
+		return true;
 	}
 
 	/**
@@ -356,6 +408,8 @@ public abstract class MultiProxyHandler {
 	 */
 	public synchronized void loadMultiProxySupport() {
 		acknowledgedVoteCapabilityPeers.clear();
+		knownVoteCapabilityPeers.clear();
+		lastVoteCapabilityAdvertisementMillis = Long.MIN_VALUE;
 		if (!getMultiProxySupportEnabled()) {
 			return;
 		}
@@ -640,6 +694,7 @@ public abstract class MultiProxyHandler {
 				String normalized = recipient.toLowerCase(Locale.ROOT);
 				synchronized (this) {
 					if (version >= 1 && configuredMultiProxyRecipientNames().containsKey(normalized)) {
+						knownVoteCapabilityPeers.add(normalized);
 						acknowledgedVoteCapabilityPeers.put(normalized,
 								capabilityNowMillis() + VOTE_CAPABILITY_LEASE_MILLIS);
 						replyRequired = !reply;

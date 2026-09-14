@@ -530,6 +530,79 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void expiredCapableMultiProxyPeerStaysInDurableOutboxUntilRenewal() throws Exception {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		java.util.Queue<VoteTimeQueue> queue = new java.util.concurrent.ConcurrentLinkedQueue<>();
+		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(queue);
+		Mockito.when(voteCache.addTimeVoteToCache(Mockito.any())).thenAnswer(invocation -> {
+			queue.add(invocation.getArgument(0));
+			return true;
+		});
+		Mockito.when(voteCache.updateTimeVote(Mockito.any())).thenReturn(true);
+		Mockito.when(multiProxyHandler.getMultiProxyVoteRecipients()).thenReturn(java.util.Collections.emptySet());
+		Mockito.when(multiProxyHandler.getMultiProxyVoteRecipientsAwaitingCapabilityRenewal())
+				.thenReturn(java.util.Set.of("Capable"));
+		Mockito.when(multiProxyHandler.getConfiguredMultiProxyVoteRecipients())
+				.thenReturn(new java.util.LinkedHashSet<>(java.util.Set.of("Capable")));
+		Mockito.when(votingPluginProxy.getConfig().getProxyServerName()).thenReturn("Proxy1");
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+
+		Class<?> retryType = Class.forName("com.bencodez.votingplugin.proxy.VotingPluginProxy$LiveVoteRetryState");
+		java.lang.reflect.Constructor<?> constructor = retryType.getDeclaredConstructor();
+		constructor.setAccessible(true);
+		Object retry = constructor.newInstance();
+		java.util.UUID voteId = java.util.UUID.randomUUID();
+		java.lang.reflect.Field retriesField = VotingPluginProxy.class.getDeclaredField("liveVoteRetries");
+		retriesField.setAccessible(true);
+		@SuppressWarnings("unchecked")
+		java.util.Map<java.util.UUID, Object> retries =
+				(java.util.Map<java.util.UUID, Object>) retriesField.get(spyProxy);
+		retries.put(voteId, retry);
+		java.lang.reflect.Method begin = VotingPluginProxy.class.getDeclaredMethod("beginMultiProxyForwarding",
+				retryType, VoteTimeQueue.class, String.class, String.class, String.class, long.class,
+				boolean.class, com.bencodez.votingplugin.proxy.VoteTotalsSnapshot.class);
+		begin.setAccessible(true);
+
+		assertFalse((Boolean) begin.invoke(spyProxy, retry, null, "Player",
+				"00000000-0000-0000-0000-000000000001", "Service", 100L, true, null));
+		assertEquals(1, queue.size());
+		assertEquals(java.util.Set.of("capable"), queue.element().getMultiProxyRecipients());
+		assertTrue(queue.element().getMultiProxyLegacyPendingRecipients().isEmpty());
+		verify(multiProxyHandler, Mockito.never()).sendMultiProxyEnvelopeAccepted(Mockito.any(), Mockito.any());
+	}
+
+	@Test
+	void persistedOutboxWaitsForFreshCapabilityLeaseAfterRestart() {
+		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
+		VoteTimeQueue outbox = new VoteTimeQueue(java.util.UUID.randomUUID(), "Player", "Service", 100L, false,
+				java.util.Collections.emptySet(), java.util.Collections.emptySet(), "totals", true,
+				"00000000-0000-0000-0000-000000000001");
+		outbox.requireMultiProxyAcknowledgements("Proxy1", java.util.Set.of("Capable"));
+		java.util.Queue<VoteTimeQueue> queue = new java.util.concurrent.ConcurrentLinkedQueue<>();
+		queue.add(outbox);
+		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(queue);
+		// A restart loses in-memory capability knowledge, but the durable outbox
+		// still records that Capable requires acknowledgements. Do not publish the
+		// reliable envelope until a new capability exchange restores its lease.
+		Mockito.when(multiProxyHandler.getMultiProxyVoteRecipients())
+				.thenReturn(java.util.Collections.emptySet(), java.util.Set.of("Capable"));
+		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
+		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
+
+		spyProxy.processQueue();
+
+		verify(multiProxyHandler).renewMultiProxyVoteCapabilityIfDue();
+		verify(multiProxyHandler, Mockito.never()).sendMultiProxyEnvelopeAccepted(Mockito.any(), Mockito.any());
+		assertTrue(queue.contains(outbox));
+
+		spyProxy.processQueue();
+
+		verify(multiProxyHandler).sendMultiProxyEnvelopeAccepted(Mockito.any(), Mockito.eq(java.util.Set.of("capable")));
+		assertTrue(queue.contains(outbox));
+	}
+
+	@Test
 	void completedAckOutboxKeepsFenceForAlreadyScheduledListenerRetry() throws Exception {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		java.util.UUID voteId = java.util.UUID.randomUUID();
@@ -576,6 +649,7 @@ public class VotingPluginProxyTest {
 		queue.add(completed);
 		Mockito.when(voteCache.getTimeChangeQueue()).thenReturn(queue);
 		Mockito.when(voteCache.removeTimeVote(completed)).thenAnswer(invocation -> queue.remove(completed));
+		Mockito.when(multiProxyHandler.getMultiProxyVoteRecipients()).thenReturn(java.util.Set.of("Proxy2"));
 		VotingPluginProxyTestImpl spyProxy = Mockito.spy(votingPluginProxy);
 		Mockito.doReturn(voteCache).when(spyProxy).getVoteCacheHandler();
 
