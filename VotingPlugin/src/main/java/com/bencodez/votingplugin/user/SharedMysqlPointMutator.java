@@ -48,6 +48,11 @@ final class SharedMysqlPointMutator {
 				&& !plugin.getBungeeSettings().isPerServerPoints();
 	}
 
+	/** Existing durable rows must be recovered even after shared points are disabled. */
+	static boolean canRecoverSharedMysqlPointJournals(VotingPluginMain plugin) {
+		return plugin != null && UserStorage.MYSQL.equals(plugin.getStorageType());
+	}
+
 	/**
 	 * Recovers a bounded batch immediately and periodically. The executor belongs
 	 * to the plugin lifecycle, so no independent task survives shutdown.
@@ -70,7 +75,7 @@ final class SharedMysqlPointMutator {
 
 	private static void recoverSharedPointJournals(VotingPluginMain plugin) {
 		recoverTransfers(plugin);
-		if (!usesSharedMysqlPoints(plugin)) return;
+		if (!canRecoverSharedMysqlPointJournals(plugin)) return;
 		try {
 			SharedPointAdditionJournal.forTable(plugin.getMysql()).cleanupAcknowledged(System.currentTimeMillis());
 		} catch (SQLException failure) {
@@ -81,7 +86,7 @@ final class SharedMysqlPointMutator {
 	}
 
 	private static void recoverTransfers(VotingPluginMain plugin) {
-		if (!usesSharedMysqlPoints(plugin)) return;
+		if (!canRecoverSharedMysqlPointJournals(plugin)) return;
 		try {
 			recoverTransfers(plugin, SharedPointTransferJournal.forTable(plugin.getMysql()));
 		} catch (SQLException failure) {

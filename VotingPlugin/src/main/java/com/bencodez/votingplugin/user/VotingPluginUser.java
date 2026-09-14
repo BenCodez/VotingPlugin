@@ -422,7 +422,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	private void submitSharedPointAdditionAfterReplayLookup(SharedMysqlPointMutator sharedPoints, int value,
 			String operationId, String uuid, String pointsPath, String claimOwner, CompletableFuture<Integer> completion) {
-		PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, value);
+		PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, value, false);
 		Bukkit.getPluginManager().callEvent(event);
 		try {
 			plugin.getTimer().execute(() -> {
@@ -1857,7 +1857,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
 		if (sharedPoints.applies()) {
 			sharedPoints.transferWithBukkitApproval(this, target, points, ignored -> {
-					PlayerReceivePointsEvent receiveEvent = new PlayerReceivePointsEvent(target, points);
+					PlayerReceivePointsEvent receiveEvent = new PlayerReceivePointsEvent(target, points, false);
 					Bukkit.getPluginManager().callEvent(receiveEvent);
 					return receiveEvent.isCancelled() ? null : receiveEvent.getPoints();
 				}, completion);

@@ -45,7 +45,18 @@ public class PlayerReceivePointsEvent extends Event {
 	 * @param points the points received
 	 */
 	public PlayerReceivePointsEvent(VotingPluginUser user, int points) {
-		super(true);
+		this(user, points, true);
+	}
+
+	/**
+	 * Constructs an event with an explicit Bukkit dispatch context.
+	 *
+	 * @param user the voting plugin user
+	 * @param points the points received
+	 * @param async whether the event is being dispatched off the Bukkit/entity lane
+	 */
+	public PlayerReceivePointsEvent(VotingPluginUser user, int points, boolean async) {
+		super(async);
 		this.player = user;
 		this.points = points;
 	}

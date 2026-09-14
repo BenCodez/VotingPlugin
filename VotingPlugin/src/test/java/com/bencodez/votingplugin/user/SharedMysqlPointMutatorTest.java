@@ -205,23 +205,31 @@ class SharedMysqlPointMutatorTest {
 	}
 
 	@Test
-	void userManagerSchedulesRecoveryOnceWhenReloadEnablesSharedPoints() {
+	void userManagerSchedulesRecoveryAtStartupEvenWithPerServerPoints() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		ScheduledExecutorService persistence = mock(ScheduledExecutorService.class);
 		when(plugin.getStorageType()).thenReturn(UserStorage.MYSQL);
-		when(plugin.getBungeeSettings().isPerServerPoints()).thenReturn(true, false);
+		when(plugin.getBungeeSettings().isPerServerPoints()).thenReturn(true);
 		when(plugin.getTimer()).thenReturn(persistence);
 
 		UserManager manager = new UserManager(plugin);
-		manager.startSharedPointTransferRecovery(); // Startup with per-server points.
-		verifyNoInteractions(persistence);
-		manager.startSharedPointTransferRecovery(); // Reload switches to shared points.
+		manager.startSharedPointTransferRecovery(); // Old shared-point rows still need recovery.
 		manager.startSharedPointTransferRecovery(); // Later reload must not duplicate lifecycle work.
 
 		verify(persistence, times(1)).execute(any(Runnable.class));
 		verify(persistence, times(1)).scheduleWithFixedDelay(any(Runnable.class),
 				org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(1L),
 				org.mockito.ArgumentMatchers.eq(TimeUnit.MINUTES));
+	}
+
+	@Test
+	void transferRecoveryEligibilityIgnoresCurrentPerServerPointsSetting() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		when(plugin.getStorageType()).thenReturn(UserStorage.MYSQL);
+		when(plugin.getBungeeSettings().isPerServerPoints()).thenReturn(true);
+
+		assertTrue(SharedMysqlPointMutator.canRecoverSharedMysqlPointJournals(plugin));
+		assertFalse(SharedMysqlPointMutator.usesSharedMysqlPoints(plugin));
 	}
 
 	@Test

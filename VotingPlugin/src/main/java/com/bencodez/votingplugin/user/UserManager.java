@@ -35,7 +35,8 @@ public class UserManager {
 
 	/** Starts the durable shared-point transfer recovery exactly once per plugin lifecycle. */
 	public synchronized void startSharedPointTransferRecovery() {
-		if (sharedPointTransferRecoveryScheduled || !SharedMysqlPointMutator.usesSharedMysqlPoints(plugin)) return;
+		if (sharedPointTransferRecoveryScheduled
+				|| !SharedMysqlPointMutator.canRecoverSharedMysqlPointJournals(plugin)) return;
 		try {
 			SharedMysqlPointMutator.scheduleTransferRecovery(plugin);
 			sharedPointTransferRecoveryScheduled = true;

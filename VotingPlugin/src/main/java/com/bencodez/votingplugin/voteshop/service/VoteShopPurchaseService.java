@@ -483,6 +483,11 @@ public class VoteShopPurchaseService {
 				&& !plugin.getBungeeSettings().isPerServerPoints();
 	}
 
+	/** Existing durable purchases remain recoverable after shared points are disabled. */
+	static boolean canRecoverSharedMysqlPurchases(VotingPluginMain plugin) {
+		return plugin != null && UserStorage.MYSQL.equals(plugin.getStorageType());
+	}
+
 	/**
 	 * Resets a shared-MySQL vote-shop limit with the durable epoch marker used by
 	 * reservations. Other storage modes retain the established UserManager reset.
@@ -523,7 +528,7 @@ public class VoteShopPurchaseService {
 
 	/** Runs bounded stale-purchase recovery from the plugin lifecycle executor. */
 	public static void recoverSharedMysqlPurchases(VotingPluginMain plugin) {
-		if (!usesSharedMysqlPoints(plugin)) return;
+		if (!canRecoverSharedMysqlPurchases(plugin)) return;
 		try {
 			recoverSharedMysqlPurchases(plugin, SharedMysqlPurchaseJournal.forTable(plugin.getMysql()));
 		} catch (SQLException failure) {

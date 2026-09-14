@@ -62,6 +62,15 @@ import com.bencodez.votingplugin.voteshop.shop.VoteShopItem;
 
 class VoteShopPurchaseServiceTest {
 	@Test
+	void purchaseRecoveryEligibilityIgnoresCurrentPerServerPointsSetting() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		when(plugin.getStorageType()).thenReturn(UserStorage.MYSQL);
+		when(plugin.getBungeeSettings().isPerServerPoints()).thenReturn(true);
+
+		assertTrue(VoteShopPurchaseService.canRecoverSharedMysqlPurchases(plugin));
+	}
+
+	@Test
 	void missingOrInvalidNetworkTimeZoneUsesUtc() {
 		assertEquals(ZoneId.of("UTC"), VoteShopPurchaseService.networkTimeZone(null));
 		assertEquals(ZoneId.of("UTC"), VoteShopPurchaseService.networkTimeZone("  "));

@@ -734,6 +734,7 @@ class VotingPluginUserPointSchedulingTest {
 			bukkit.when(Bukkit::getPluginManager).thenReturn(pluginManager);
 			doAnswer(invocation -> {
 				PlayerReceivePointsEvent event = invocation.getArgument(0);
+				assertFalse(event.isAsynchronous());
 				event.setPoints(4);
 				return null;
 			}).when(pluginManager).callEvent(any(PlayerReceivePointsEvent.class));
