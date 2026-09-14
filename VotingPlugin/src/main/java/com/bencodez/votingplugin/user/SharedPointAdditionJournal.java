@@ -76,6 +76,19 @@ final class SharedPointAdditionJournal {
 
 	/** Applies the operation exactly once and returns the resulting durable total. */
 	AdditionResult add(String operationId, String uuid, String pointsColumn, int amount, long now) throws SQLException {
+		return mutate(operationId, uuid, pointsColumn, amount, now, false);
+	}
+
+	/** Applies a durable conditional debit. A retry confirms the journal row and
+	 * never debits the player twice; a row with insufficient points is a definite
+	 * rejection and is not recorded as a successful mutation. */
+	AdditionResult subtract(String operationId, String uuid, String pointsColumn, int amount, long now) throws SQLException {
+		if (amount < 0) throw new SQLException("Invalid shared point debit");
+		return mutate(operationId, uuid, pointsColumn, -amount, now, true);
+	}
+
+	private AdditionResult mutate(String operationId, String uuid, String pointsColumn, int amount, long now,
+			boolean requireNonnegative) throws SQLException {
 		if (!isSafeColumn(pointsColumn)) throw new SQLException("Unsafe shared point column");
 		AdditionRow existing = find(operationId);
 		if (existing != null) return existingResult(operationId, existing, uuid, pointsColumn, amount);
@@ -85,7 +98,8 @@ final class SharedPointAdditionJournal {
 				+ qi("state") + ", " + qi("total_points") + ", " + qi("created_at") + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 		String points = qi(pointsColumn);
 		String update = "UPDATE " + qi(table.getTableName()) + " SET " + points + " = " + points
-				+ " + ? WHERE " + qi("uuid") + uuidCast();
+				+ " + ? WHERE " + qi("uuid") + uuidCast()
+				+ (requireNonnegative ? " AND " + points + " >= ?" : "");
 		String read = "SELECT " + points + " FROM " + qi(table.getTableName()) + " WHERE " + qi("uuid") + uuidCast();
 		String complete = "UPDATE " + qiJournal() + " SET " + qi("state") + " = ?, " + qi("total_points")
 				+ " = ? WHERE " + qi("operation_id") + " = ?";
@@ -107,8 +121,10 @@ final class SharedPointAdditionJournal {
 
 				updateStatement.setInt(1, amount);
 				updateStatement.setString(2, uuid);
+				if (requireNonnegative) updateStatement.setInt(3, -amount);
 				if (updateStatement.executeUpdate() != 1) {
 					rollback(connection);
+					if (requireNonnegative) throw new DebitRejectedException();
 					throw new SQLException("Shared point user row missing");
 				}
 				readStatement.setString(1, uuid);
@@ -138,6 +154,14 @@ final class SharedPointAdditionJournal {
 				}
 				throw failure;
 			}
+		}
+	}
+
+	static final class DebitRejectedException extends SQLException {
+		private static final long serialVersionUID = 1L;
+
+		DebitRejectedException() {
+			super("Shared point debit rejected: insufficient points or missing user");
 		}
 	}
 

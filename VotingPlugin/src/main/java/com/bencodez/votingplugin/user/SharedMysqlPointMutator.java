@@ -159,7 +159,24 @@ final class SharedMysqlPointMutator {
 			return new AddResult(true, result.total());
 		} catch (SQLException failure) {
 			logFailure(failure);
-			return new AddResult(false, 0);
+			return new AddResult(MutationOutcome.INDETERMINATE, 0);
+		} finally {
+			discardPointsCache(user);
+		}
+	}
+
+	/** Durable, confirmable conditional debit for administrative and purchase retries. */
+	AddResult removeCommitted(VotingPluginUser user, int amount, String operationId) {
+		if (operationId == null || operationId.isEmpty()) return new AddResult(false, 0);
+		drainCache(user);
+		try {
+			SharedPointAdditionJournal.AdditionResult result = SharedPointAdditionJournal.forTable(plugin.getMysql())
+					.subtract(operationId, user.getUUID(), user.getPointsPath(), amount, System.currentTimeMillis());
+			return new AddResult(true, result.total());
+		} catch (SQLException failure) {
+			logFailure(failure);
+			return new AddResult(failure instanceof SharedPointAdditionJournal.DebitRejectedException
+					? MutationOutcome.REJECTED : MutationOutcome.INDETERMINATE, 0);
 		} finally {
 			discardPointsCache(user);
 		}
@@ -228,6 +245,18 @@ final class SharedMysqlPointMutator {
 			completion.completeExceptionally(rejected);
 		}
 		return completion;
+	}
+
+	void acknowledgePointAdditionNow(String operationId) {
+		if (!applies() || operationId == null || operationId.isEmpty()) return;
+		try {
+			SharedPointAdditionJournal.forTable(plugin.getMysql()).acknowledge(operationId,
+					System.currentTimeMillis());
+		} catch (SQLException failure) {
+			// The mutation is already confirmed. Keep the COMPLETED row as a safe
+			// replay record when its retirement checkpoint cannot be persisted.
+			logFailure(failure);
+		}
 	}
 
 	void set(VotingPluginUser user, int value, boolean async) {
@@ -854,7 +883,14 @@ final class SharedMysqlPointMutator {
 		return new AddResult(true, user.getPoints());
 	}
 
-	record AddResult(boolean success, int total) {}
+	enum MutationOutcome { CONFIRMED, REJECTED, INDETERMINATE }
+
+	record AddResult(MutationOutcome outcome, int total) {
+		AddResult(boolean success, int total) {
+			this(success ? MutationOutcome.CONFIRMED : MutationOutcome.INDETERMINATE, total);
+		}
+		boolean success() { return outcome == MutationOutcome.CONFIRMED; }
+	}
 
 	private boolean setAbsolute(VotingPluginUser user, int value) {
 		drainCache(user);

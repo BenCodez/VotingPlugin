@@ -55,6 +55,16 @@ import com.bencodez.votingplugin.events.PlayerReceivePointsEvent;
 
 class VotingPluginUserPointSchedulingTest {
 	@Test
+	void bulkPointOperationIdsAreDeterministicDistinctAndFitTheJournalSchema() {
+		String first = VotingPluginUser.bulkPointOperationId("admin-bulk-points/", "batch", "player-a");
+		String retry = VotingPluginUser.bulkPointOperationId("admin-bulk-points/", "batch", "player-a");
+		String other = VotingPluginUser.bulkPointOperationId("admin-bulk-points/", "batch", "player-b");
+
+		assertEquals(first, retry);
+		assertFalse(first.equals(other));
+		assertTrue(first.length() <= 64);
+	}
+	@Test
 	void sharedBulkPointMutationsUseOnePersistenceSubmission() throws Exception {
 		PointFixture fixture = pointFixture();
 		VotingPluginUser second = mock(VotingPluginUser.class);
@@ -674,7 +684,28 @@ class VotingPluginUserPointSchedulingTest {
 	@Test
 	void sharedRemoveConsumerRunsJdbcOnPersistenceExecutorAndReportsOnEntity() throws Exception {
 		PointFixture fixture = pointFixture();
-		when(fixture.statement.executeUpdate()).thenReturn(1);
+		PreparedStatement lookup = mock(PreparedStatement.class);
+		ResultSet missing = mock(ResultSet.class);
+		when(lookup.executeQuery()).thenReturn(missing);
+		PreparedStatement insert = mock(PreparedStatement.class);
+		PreparedStatement debit = mock(PreparedStatement.class);
+		PreparedStatement read = mock(PreparedStatement.class);
+		PreparedStatement complete = mock(PreparedStatement.class);
+		when(debit.executeUpdate()).thenReturn(1);
+		ResultSet total = mock(ResultSet.class);
+		when(total.next()).thenReturn(true);
+		when(total.getInt(1)).thenReturn(10);
+		when(read.executeQuery()).thenReturn(total);
+		when(complete.executeUpdate()).thenReturn(1);
+		when(fixture.connection.prepareStatement(anyString())).thenAnswer(invocation -> {
+			String sql = invocation.getArgument(0, String.class);
+			if (sql.startsWith("SELECT `player_uuid`")) return lookup;
+			if (sql.startsWith("INSERT INTO `VotingPlugin_Users_PointAdditions`")) return insert;
+			if (sql.startsWith("UPDATE `VotingPlugin_Users` SET")) return debit;
+			if (sql.startsWith("SELECT `Points` FROM `VotingPlugin_Users`")) return read;
+			if (sql.startsWith("UPDATE `VotingPlugin_Users_PointAdditions` SET `state`")) return complete;
+			return fixture.statement;
+		});
 		AtomicReference<Boolean> result = new AtomicReference<>();
 
 		fixture.user.removePoints(10, result::set);
@@ -689,7 +720,8 @@ class VotingPluginUserPointSchedulingTest {
 		assertTrue(result.get() == null);
 		entityWork.getValue().run();
 		assertTrue(result.get());
-		verify(fixture.sql.getConnectionManager()).getConnection();
+		verify(complete, org.mockito.Mockito.times(2)).executeUpdate();
+		verify(fixture.sql.getConnectionManager(), org.mockito.Mockito.atLeastOnce()).getConnection();
 	}
 
 	@Test

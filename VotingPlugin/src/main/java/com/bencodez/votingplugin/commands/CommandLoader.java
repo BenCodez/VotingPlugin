@@ -496,7 +496,8 @@ public class CommandLoader {
 								new java.util.concurrent.atomic.AtomicInteger(users.size());
 						java.util.concurrent.atomic.AtomicInteger updated =
 								new java.util.concurrent.atomic.AtomicInteger();
-						VotingPluginUser.addPointsStorageAware(plugin, users, num, (user, success) -> {
+						String batchOperationId = "admin-bulk-points/" + UUID.randomUUID();
+						VotingPluginUser.addPointsStorageAware(plugin, users, num, batchOperationId, (user, success) -> {
 							try {
 								if (success) {
 									updated.incrementAndGet();
@@ -509,7 +510,8 @@ public class CommandLoader {
 								if (remaining.decrementAndGet() == 0) {
 									runForCommandSender(sender, () -> {
 										sender.sendMessage(MessageAPI.colorize("&cGave all players " + args[3]
-												+ " points to " + updated.get() + "/" + users.size() + " players"));
+												+ " points to " + updated.get() + "/" + users.size()
+												+ " players. Any failure may be indeterminate; do not rerun without reconciliation."));
 										plugin.getPlaceholders().onUpdate();
 									});
 								}
@@ -584,7 +586,8 @@ public class CommandLoader {
 						java.util.concurrent.atomic.AtomicInteger remaining =
 								new java.util.concurrent.atomic.AtomicInteger(users.size());
 						java.util.concurrent.atomic.AtomicInteger removed = new java.util.concurrent.atomic.AtomicInteger();
-						VotingPluginUser.removePointsStorageAware(plugin, users, num, (user, success) -> {
+						String batchOperationId = "admin-bulk-remove/" + UUID.randomUUID();
+						VotingPluginUser.removePointsStorageAware(plugin, users, num, batchOperationId, (user, success) -> {
 							try {
 								if (success) {
 									removed.incrementAndGet();
@@ -596,7 +599,8 @@ public class CommandLoader {
 								if (remaining.decrementAndGet() == 0) {
 									runForCommandSender(sender, () -> {
 										sender.sendMessage(MessageAPI.colorize("&cRemoved " + args[3] + " points from "
-												+ removed.get() + "/" + userIds.size() + " players"));
+												+ removed.get() + "/" + userIds.size()
+												+ " players. Any failure may be indeterminate; do not rerun without reconciliation."));
 										plugin.getPlaceholders().onUpdate();
 									});
 								}
@@ -611,7 +615,8 @@ public class CommandLoader {
 						user.removePoints(Integer.parseInt(args[3]), removed -> {
 							if (!removed) {
 								runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize(
-										"&cUnable to remove " + args[3] + " points from " + args[1])));
+										"&cUnable to confirm removing " + args[3] + " points from " + args[1]
+												+ "; do not retry without reconciliation")));
 								return;
 							}
 							if (user.isOnline()) user.sendMessage(

@@ -469,6 +469,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public static void addPointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users, int value,
 			BiConsumer<VotingPluginUser, Boolean> completion) {
+		addPointsStorageAware(plugin, users, value, "admin-bulk-points/" + UUID.randomUUID(), completion);
+	}
+
+	public static void addPointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users, int value,
+			String batchOperationId, BiConsumer<VotingPluginUser, Boolean> completion) {
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
 		if (!sharedPoints.applies()) {
 			for (VotingPluginUser user : users) {
@@ -485,7 +490,15 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		bulkSharedMysqlMutation(plugin, users, completion,
 				(mutator, user) -> {
 					Integer amount = eventAmounts.get(user);
-					return amount != null && mutator.addCommitted(user, amount).success();
+					if (amount == null) return false;
+					// Every member of a bulk operation gets its own durable id. A
+					// connection loss after commit must be confirmable per player;
+					// sharing one id would make a retry unable to distinguish which
+					// rows were already credited.
+					String operationId = bulkPointOperationId("admin-bulk-points/", batchOperationId, user.getUUID());
+					boolean success = mutator.addCommitted(user, amount, operationId).success();
+					if (success) mutator.acknowledgePointAdditionNow(operationId);
+					return success;
 				},
 				(user, done) -> done.accept(false));
 	}
@@ -546,9 +559,25 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public static void removePointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users, int value,
 			BiConsumer<VotingPluginUser, Boolean> completion) {
+		removePointsStorageAware(plugin, users, value, "admin-bulk-remove/" + UUID.randomUUID(), completion);
+	}
+
+	public static void removePointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users, int value,
+			String batchOperationId, BiConsumer<VotingPluginUser, Boolean> completion) {
 		bulkSharedMysqlMutation(plugin, users, completion,
-				(mutator, user) -> mutator.remove(user, value),
+				(mutator, user) -> {
+					String operationId = bulkPointOperationId("admin-bulk-remove/", batchOperationId, user.getUUID());
+					boolean success = mutator.removeCommitted(user, value, operationId).success();
+					if (success) mutator.acknowledgePointAdditionNow(operationId);
+					return success;
+				},
 				(user, done) -> user.removePoints(value, done));
+	}
+
+	static String bulkPointOperationId(String prefix, String batchOperationId, String userId) {
+		UUID digest = UUID.nameUUIDFromBytes((batchOperationId + "/" + userId)
+				.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+		return prefix + digest;
 	}
 
 	@FunctionalInterface
@@ -1773,20 +1802,30 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	/** Removes points without performing shared-database I/O on the caller thread. */
 	public void removePoints(int points, Consumer<Boolean> completion) {
+		removePointsOutcome(points, outcome -> completion.accept(outcome == SharedMysqlPointMutator.MutationOutcome.CONFIRMED));
+	}
+
+	void removePointsOutcome(int points, Consumer<SharedMysqlPointMutator.MutationOutcome> completion) {
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
 		if (!sharedPoints.applies()) {
-			completion.accept(removePoints(points));
+			completion.accept(removePoints(points) ? SharedMysqlPointMutator.MutationOutcome.CONFIRMED
+					: SharedMysqlPointMutator.MutationOutcome.REJECTED);
 			return;
 		}
 		Player player = getPlayer();
 		try {
+			String operationId = "remove-points/" + UUID.randomUUID();
 			plugin.getTimer().execute(() -> {
-				boolean removed = sharedPoints.remove(this, points);
-				BukkitCompletionScheduler.run(plugin, player, () -> completion.accept(removed));
+				SharedMysqlPointMutator.AddResult result = sharedPoints.removeCommitted(this, points, operationId);
+				if (result.outcome() == SharedMysqlPointMutator.MutationOutcome.CONFIRMED) {
+					sharedPoints.acknowledgePointAdditionNow(operationId);
+				}
+				BukkitCompletionScheduler.run(plugin, player, () -> completion.accept(result.outcome()));
 			});
 		} catch (RuntimeException rejected) {
 			plugin.debug(rejected);
-			BukkitCompletionScheduler.run(plugin, player, () -> completion.accept(false));
+			BukkitCompletionScheduler.run(plugin, player,
+					() -> completion.accept(SharedMysqlPointMutator.MutationOutcome.INDETERMINATE));
 		}
 	}
 

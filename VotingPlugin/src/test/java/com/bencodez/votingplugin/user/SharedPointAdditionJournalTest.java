@@ -23,6 +23,43 @@ import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 
 class SharedPointAdditionJournalTest {
 	@Test
+	void conditionalDebitIsJournaledAndCanBeRetriedWithoutASecondDebit() throws Exception {
+		Fixture fixture = fixture();
+		Connection missing = missingLookup();
+		Attempt debit = successfulAttempt(7);
+		Connection completed = completedLookup("player", "Points", -3, 7);
+		when(fixture.sql.getConnectionManager().getConnection()).thenReturn(missing, debit.connection(), completed);
+
+		SharedPointAdditionJournal journal = new SharedPointAdditionJournal(fixture.table, false);
+		assertEquals(7, journal.subtract("admin-remove", "player", "Points", 3, 100L).total());
+		assertEquals(7, journal.subtract("admin-remove", "player", "Points", 3, 101L).total());
+
+		verify(debit.credit(), times(1)).executeUpdate();
+		verify(debit.credit()).setInt(1, -3);
+		verify(debit.credit()).setInt(3, 3);
+	}
+
+	@Test
+	void conditionalDebitRejectsMissingOrInsufficientUserWithoutCompletingTheJournal() throws Exception {
+		Fixture fixture = fixture();
+		Connection missing = missingLookup();
+		Connection attempt = mock(Connection.class);
+		PreparedStatement insert = mock(PreparedStatement.class);
+		PreparedStatement debit = mock(PreparedStatement.class);
+		PreparedStatement read = mock(PreparedStatement.class);
+		PreparedStatement complete = mock(PreparedStatement.class);
+		when(debit.executeUpdate()).thenReturn(0);
+		when(attempt.prepareStatement(anyString())).thenReturn(insert, debit, read, complete);
+		when(fixture.sql.getConnectionManager().getConnection()).thenReturn(missing, attempt);
+
+		SharedPointAdditionJournal journal = new SharedPointAdditionJournal(fixture.table, false);
+		assertThrows(SharedPointAdditionJournal.DebitRejectedException.class,
+				() -> journal.subtract("admin-remove", "player", "Points", 11, 100L));
+		verify(attempt, atLeastOnce()).rollback();
+		verify(complete, org.mockito.Mockito.never()).executeUpdate();
+	}
+
+	@Test
 	void lostCommitAcknowledgementAndFailedConfirmationRetryCreditsExactlyOnce() throws Exception {
 		Fixture fixture = fixture();
 		PreparedStatement missingLookup = mock(PreparedStatement.class);

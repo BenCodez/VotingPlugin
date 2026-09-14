@@ -230,7 +230,7 @@ public final class BackendConfigurationService {
 		rejectUnknownOptions(options, "vote-site".equals(preset) ? Set.of("name")
 				: "vote-party".equals(preset) ? Set.of("enabled") : Set.of());
 		if ("vote-site".equals(preset)) option(options, "name", "[A-Za-z0-9_-]{1,64}");
-		if ("vote-party".equals(preset) && options.containsKey("enabled")) {
+		if ("vote-party".equals(preset) && options != null && options.containsKey("enabled")) {
 			booleanOption(options, "enabled");
 		}
 		return retryRead(() -> readQuickSetupOnce(preset, options));
@@ -503,7 +503,7 @@ public final class BackendConfigurationService {
 		if ("vote-party".equals(preset)) {
 			// v1 does not carry Enabled, so it must leave the installed value untouched.
 			// v2 supplies the field so its actual state can round-trip explicitly.
-			if (options.containsKey("enabled")) {
+			if (options != null && options.containsKey("enabled")) {
 				yaml.set("VoteParty.Enabled", booleanOption(options, "enabled"));
 			}
 			yaml.set("VoteParty.VotesRequired", boundedInteger(option(options, "votesRequired", "[0-9]{1,6}"), 1, 100000));
