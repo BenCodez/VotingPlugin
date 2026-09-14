@@ -201,6 +201,26 @@ class ProxyMethodConfigurationServiceTest {
 		verify(proxy).cancelPreparedHttpTransportChange();
 	}
 
+	@Test
+	void rejectsPublicEndpointChangeOnAnOccupiedListenerBeforePublishing() throws Exception {
+		when(config.getBungeeMethod()).thenReturn("HTTP");
+		VotingPluginProxyConfig fresh = validHttpConfig();
+		when(fresh.getHttpPublicEndpoint()).thenReturn("https://new.example.test:1297");
+		when(proxy.hasMatchingLiveHttpTransport(fresh)).thenReturn(false);
+		when(proxy.hasLiveHttpBind(fresh)).thenReturn(true);
+		doAnswer(invocation -> {
+			VotingPluginProxyConfig.ControlProxyMethodValidator validator = invocation.getArgument(2);
+			validator.validate(fresh);
+			return null;
+		}).when(config).persistControlProxyMethod(org.mockito.ArgumentMatchers.eq("HTTP"),
+				org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any());
+
+		assertThrows(IllegalArgumentException.class,
+				() -> service.apply(new ProxyMethodConfiguration(BungeeMethod.HTTP), service.read().revision()));
+		verify(proxy, never()).prepareHttpTransportChange(fresh);
+		verify(config, never()).verifyControlProxyRoutingInstalled();
+	}
+
 	private VotingPluginProxyConfig validHttpConfig() {
 		VotingPluginProxyConfig fresh = mock(VotingPluginProxyConfig.class);
 		when(fresh.getHttpHost()).thenReturn("127.0.0.1");

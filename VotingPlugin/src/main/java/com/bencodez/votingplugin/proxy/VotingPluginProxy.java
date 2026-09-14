@@ -3951,6 +3951,13 @@ public abstract class VotingPluginProxy {
 				&& java.util.Objects.equals(liveHttpPublicEndpoint, candidate.getHttpPublicEndpoint());
 	}
 
+	/** Returns whether a candidate would collide with the currently bound HTTP listener. */
+	public synchronized boolean hasLiveHttpBind(VotingPluginProxyConfig candidate) {
+		return candidate != null && httpTransportServer != null
+				&& java.util.Objects.equals(liveHttpHost, candidate.getHttpHost())
+				&& liveHttpPort == candidate.getHttpPort();
+	}
+
 	/** Cancels a candidate listener when configuration publication fails. */
 	public synchronized void cancelPreparedHttpTransportChange() {
 		PreparedHttpTransport prepared = PREPARED_HTTP_TRANSPORTS.remove(httpTransportPreparationKey());

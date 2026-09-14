@@ -22,6 +22,10 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -39,6 +43,11 @@ public final class PluginDeploymentService {
 	private static final long MAX_INSPECTED_UNCOMPRESSED_BYTES = 256L * 1024L * 1024L;
 	private static final int MAX_PLUGIN_YML_BYTES = 64 * 1024;
 	private static final String MARKER = ".control-deployment";
+	private static final ScheduledExecutorService BODY_DEADLINE_EXECUTOR = Executors.newSingleThreadScheduledExecutor(r -> {
+		Thread thread = new Thread(r, "VotingPlugin-control-artifact-deadline");
+		thread.setDaemon(true);
+		return thread;
+	});
 
 	private final Path target;
 	private final Path root;
@@ -109,6 +118,9 @@ public final class PluginDeploymentService {
 			HttpResponse<InputStream> response = http.send(request, HttpResponse.BodyHandlers.ofInputStream());
 			InputStream body = response.body();
 			activeResponse.set(body);
+			ScheduledFuture<?> bodyDeadline = BODY_DEADLINE_EXECUTOR.schedule(() -> {
+				try { body.close(); } catch (IOException ignored) { /* The staging operation reports the timeout. */ }
+			}, timeout.toMillis(), TimeUnit.MILLISECONDS);
 			try {
 				if (response.statusCode() != 200) {
 					body.close();
@@ -131,6 +143,7 @@ public final class PluginDeploymentService {
 					return Result.failure("STAGING_FAILED", "Artifact could not be verified or staged on this node");
 				}
 			} finally {
+				bodyDeadline.cancel(false);
 				activeResponse.compareAndSet(body, null);
 			}
 		} catch (InterruptedException failure) {

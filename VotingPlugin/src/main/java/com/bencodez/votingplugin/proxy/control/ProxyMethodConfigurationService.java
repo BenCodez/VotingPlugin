@@ -91,8 +91,12 @@ public final class ProxyMethodConfigurationService {
 			proxy.getConfig().persistControlProxyMethod(proposal.method().name(), expectedRevision,
 					latest -> {
 						validate(proposal, latest);
-						if (proposal.method() == BungeeMethod.HTTP
+				if (proposal.method() == BungeeMethod.HTTP
 								&& !proxy.hasMatchingLiveHttpTransport(latest)) {
+						if (proxy.hasLiveHttpBind(latest)) {
+							throw new IllegalArgumentException(
+									"HTTP.PublicEndpoint changed while the HTTP listener is bound; restart is required before applying it");
+						}
 							proxy.prepareHttpTransportChange(latest);
 							preparedHttp[0] = true;
 						}
