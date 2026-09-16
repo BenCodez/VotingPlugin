@@ -159,7 +159,7 @@ public final class PluginDeploymentService {
 	/** Package-visible for deterministic artifact-validation tests. */
 	Result stage(Task task, InputStream body, BooleanSupplier active) throws IOException {
 		validate(task);
-		if (alreadyStaged(task)) return Result.restartRequired();
+		if (alreadyStaged(task) || recoverInterruptedActivation(task)) return Result.restartRequired();
 		activeResponse.compareAndSet(null, body);
 		Path temporary = Files.createTempFile(root, target.getFileName().toString() + ".", ".download");
 		Activation activation = null;
@@ -357,11 +357,28 @@ public final class PluginDeploymentService {
 
 	private boolean alreadyStaged(Task task) throws IOException {
 		if (!Files.isRegularFile(marker, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(marker)
-				|| Files.size(marker) > 256 || !Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)
-				|| Files.isSymbolicLink(target) || Files.size(target) != task.size()) return false;
+				|| Files.size(marker) > 256) return false;
 		String[] fields = Files.readString(marker, StandardCharsets.US_ASCII).split("\\R", -1);
 		if (fields.length < 3 || !task.deploymentId().toString().equals(fields[0])
 				|| !task.sha256().equals(fields[1]) || !Long.toString(task.size()).equals(fields[2])) return false;
+		return targetMatches(task);
+	}
+
+	/** Complete the durable marker half of an activation interrupted after publish. */
+	private boolean recoverInterruptedActivation(Task task) throws IOException {
+		// Proxy replacement creates a durable backup before publishing the target;
+		// that transaction shape lets a retry distinguish the activation crash window.
+		// Backend update folders have no such evidence and must still consume/verify
+		// the newly supplied body when a different deployment id is requested.
+		if (!replaceExisting) return false;
+		if (!targetMatches(task)) return false;
+		writeMarker(task);
+		return true;
+	}
+
+	private boolean targetMatches(Task task) throws IOException {
+		if (!Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(target)
+				|| Files.size(target) != task.size()) return false;
 		MessageDigest digest = sha256();
 		try (InputStream input = Files.newInputStream(target, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
 			byte[] bytes = new byte[BUFFER_BYTES];

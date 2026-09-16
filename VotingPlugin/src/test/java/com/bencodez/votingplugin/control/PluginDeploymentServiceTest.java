@@ -90,6 +90,28 @@ class PluginDeploymentServiceTest {
 		assertArrayEquals(second, Files.readAllBytes(current));
 	}
 
+	@Test void proxyRecoversActivationInterruptedBeforeMarkerWithoutReplacingBackup() throws Exception {
+		Path current = directory.resolve("VotingPlugin.jar");
+		Path backup = directory.resolve("VotingPlugin.jar.control-backup");
+		Path marker = directory.resolve("VotingPlugin.jar.control-deployment");
+		byte[] original = jar("name: VotingPlugin\nversion: original\n");
+		byte[] candidate = jar("name: VotingPlugin\nversion: candidate\n");
+		PluginDeploymentService.Task task = task(candidate);
+		Files.write(current, candidate);
+		Files.write(backup, original);
+		PluginDeploymentService service = PluginDeploymentService.proxy(current);
+
+		assertEquals("RESTART_REQUIRED",
+				service.stage(task, new ByteArrayInputStream(new byte[0]), () -> true).code());
+
+		assertArrayEquals(candidate, Files.readAllBytes(current));
+		assertArrayEquals(original, Files.readAllBytes(backup));
+		String state = Files.readString(marker, StandardCharsets.US_ASCII);
+		assertTrue(state.contains(task.deploymentId().toString()));
+		assertTrue(state.contains(task.sha256()));
+		assertTrue(state.contains(Long.toString(task.size())));
+	}
+
 	@Test void cancellationDuringCopyDoesNotPublish() throws Exception {
 		byte[] artifact = jar("name: VotingPlugin\n");
 		PluginDeploymentService service = PluginDeploymentService.backend(directory.resolve("update"));
