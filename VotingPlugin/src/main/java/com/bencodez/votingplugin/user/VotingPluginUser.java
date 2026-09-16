@@ -34,6 +34,7 @@ import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.UserStorage;
+import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.simpleapi.sql.data.DataValueInt;
@@ -2597,6 +2598,20 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public void setVoteStreakState(String columnName, String value) {
 		getData().setString(columnName, value);
+	}
+
+	/**
+	 * An asynchronous shared-MySQL point addition exposes a predicted value until
+	 * its persistence task commits.  A generic cache clear may dump the cache
+	 * first, so remove only that still-current prediction before delegating to the
+	 * normal flush-and-clear lifecycle.
+	 */
+	@Override
+	public void clearCache() {
+		if (!isCached()) return;
+		UserDataCache cache = getCache();
+		SharedMysqlCacheReconciler.discardOptimisticPoint(cache, getPointsPath());
+		cache.clearCache();
 	}
 
 }

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.inOrder;
@@ -469,6 +470,30 @@ class SharedMysqlPointMutatorTest {
 
 		verify(cache).dump();
 		verify(statement).executeUpdate();
+	}
+
+	@Test
+	void clearingAnOfflineUserCacheCannotFlushAnOptimisticPointsPrediction() {
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		UserDataCache cache = mock(UserDataCache.class);
+		HashMap<String, DataValue> values = new HashMap<>();
+		DataValue prediction = new DataValueInt(30);
+		values.put("Points", prediction);
+		when(user.isCached()).thenReturn(true);
+		when(user.getCache()).thenReturn(cache);
+		when(user.getPointsPath()).thenReturn("Points");
+		when(cache.getCache()).thenReturn(values);
+		doCallRealMethod().when(user).clearCache();
+		doAnswer(invocation -> {
+			assertFalse(values.containsKey("Points"),
+					"the prediction must be removed before clearCache can dump it");
+			return null;
+		}).when(cache).clearCache();
+		SharedMysqlCacheReconciler.recordOptimisticPoint(cache, "Points", prediction);
+
+		user.clearCache();
+
+		verify(cache).clearCache();
 	}
 
 	@Test
