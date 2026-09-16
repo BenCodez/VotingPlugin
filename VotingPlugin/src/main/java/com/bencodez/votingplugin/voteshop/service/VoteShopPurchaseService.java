@@ -476,7 +476,7 @@ public class VoteShopPurchaseService {
 		user.sendMessage(PlaceholderUtils.replacePlaceHolder(purchaseMessage, placeholders));
 
 		VoteShopPurchaseEvent purchaseEvent = new VoteShopPurchaseEvent(player.getUniqueId(), player.getName(), user,
-				item.getIdentifier(), item.getCost());
+				item.getIdentifier(), item.getCost(), false);
 		Bukkit.getPluginManager().callEvent(purchaseEvent);
 	}
 

@@ -32,7 +32,17 @@ public class VoteShopPurchaseEvent extends Event {
 
 	public VoteShopPurchaseEvent(UUID playerUUID, String playerName, VotingPluginUser user, String identifier,
 			int cost) {
-		super(true);
+		this(playerUUID, playerName, user, identifier, cost, true);
+	}
+
+	/**
+	 * Creates a purchase event with the dispatch lane made explicit. Internal
+	 * entity-lane purchases are synchronous; the legacy constructor remains
+	 * asynchronous for source and behavioral compatibility with external callers.
+	 */
+	public VoteShopPurchaseEvent(UUID playerUUID, String playerName, VotingPluginUser user, String identifier,
+			int cost, boolean async) {
+		super(async);
 		this.playerName = playerName;
 		this.user = user;
 		this.playerUuid = playerUUID;
