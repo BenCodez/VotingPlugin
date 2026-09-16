@@ -78,11 +78,12 @@ class SharedMysqlPointMutatorTest {
 		java.util.function.Consumer<PointTransferResult> resultConsumer = completion::set;
 
 		Method claim = SharedMysqlPointMutator.class.getDeclaredMethod("claimTransferForApproval",
-				VotingPluginUser.class, VotingPluginUser.class, int.class, java.util.function.IntFunction.class,
-				java.util.function.Consumer.class, SharedPointTransferJournal.class, String.class, String.class,
-				String.class, String.class);
+				VotingPluginUser.class, VotingPluginUser.class, org.bukkit.entity.Player.class,
+				org.bukkit.entity.Player.class, int.class, java.util.function.IntFunction.class,
+				java.util.function.Consumer.class, SharedPointTransferJournal.class, String.class, String.class, String.class,
+				String.class);
 		claim.setAccessible(true);
-		claim.invoke(new SharedMysqlPointMutator(plugin), source, target, 10,
+		claim.invoke(new SharedMysqlPointMutator(plugin), source, target, player, player, 10,
 				(java.util.function.IntFunction<Integer>) value -> value, resultConsumer, journal, "transfer-1", "owner",
 				"Points_server_a", "Points_server_b");
 
@@ -213,7 +214,7 @@ class SharedMysqlPointMutatorTest {
 				.thenThrow(new java.sql.SQLException("lost acknowledgement and confirmation"));
 		AtomicReference<PointTransferResult> result = new AtomicReference<>();
 
-		new SharedMysqlPointMutator(plugin).refundClaimedAfterSchedulingFailure(source, result::set, journal,
+		new SharedMysqlPointMutator(plugin).refundClaimedAfterSchedulingFailure(source, null, result::set, journal,
 				"transfer-1", "Points", 10, new RejectedExecutionException("worker stopped"));
 
 		assertFalse(values.containsKey("Points"));

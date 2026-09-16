@@ -969,14 +969,17 @@ class VotingPluginUserPointSchedulingTest {
 			}).when(pluginManager).callEvent(any(PlayerReceivePointsEvent.class));
 
 			fixture.user.transferPoints(fixture.target, 10, result::set);
+			verify(fixture.user).getPlayer();
+			verify(fixture.target).getPlayer();
+			org.mockito.Mockito.clearInvocations(fixture.user, fixture.target);
 			ArgumentCaptor<Runnable> firstPersistence = ArgumentCaptor.forClass(Runnable.class);
-				verify(fixture.persistence).execute(firstPersistence.capture());
-				firstPersistence.getValue().run();
+			verify(fixture.persistence).execute(firstPersistence.capture());
+			firstPersistence.getValue().run();
 
-				ArgumentCaptor<Runnable> approval = ArgumentCaptor.forClass(Runnable.class);
-				verify(fixture.scheduler).runTask(eq(fixture.plugin), approval.capture());
-				verify(fixture.claim, never()).prepareStatement(any(String.class));
-				assertEquals(null, result.get());
+			ArgumentCaptor<Runnable> approval = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.scheduler).runTask(eq(fixture.plugin), approval.capture());
+			verify(fixture.claim, never()).prepareStatement(any(String.class));
+			assertEquals(null, result.get());
 			approval.getValue().run();
 			ArgumentCaptor<Runnable> persistence = ArgumentCaptor.forClass(Runnable.class);
 			verify(fixture.persistence, org.mockito.Mockito.times(2)).execute(persistence.capture());
@@ -990,6 +993,8 @@ class VotingPluginUserPointSchedulingTest {
 			ArgumentCaptor<Runnable> settlement = ArgumentCaptor.forClass(Runnable.class);
 			verify(fixture.persistence, org.mockito.Mockito.times(3)).execute(settlement.capture());
 			settlement.getAllValues().get(2).run();
+			verify(fixture.user, never()).getPlayer();
+			verify(fixture.target, never()).getPlayer();
 		}
 
 		assertEquals(null, result.get());
