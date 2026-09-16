@@ -766,6 +766,28 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void deferredPersistedDurableOutboxSchedulesItsOwnLeaseRetry() throws Exception {
+		VoteTimeQueue outbox = new VoteTimeQueue(java.util.UUID.randomUUID(), "Player", "Service", 100L, false,
+				java.util.Collections.emptySet(), java.util.Collections.emptySet(), "totals", true,
+				"00000000-0000-0000-0000-000000000001");
+		outbox.requireMultiProxyAcknowledgements("Proxy1", java.util.Set.of("Capable"));
+		Mockito.when(multiProxyHandler.getMultiProxyVoteRecipients()).thenReturn(java.util.Collections.emptySet());
+		java.util.concurrent.ScheduledExecutorService scheduler = Mockito
+				.mock(java.util.concurrent.ScheduledExecutorService.class);
+		votingPluginProxy.setSchedulerForTest(scheduler);
+		java.lang.reflect.Method retry = VotingPluginProxy.class.getDeclaredMethod("retryDurableMultiProxyOutbox",
+				VoteTimeQueue.class);
+		retry.setAccessible(true);
+
+		assertFalse((Boolean) retry.invoke(votingPluginProxy, outbox));
+
+		verify(multiProxyHandler).renewMultiProxyVoteCapabilityIfDue();
+		verify(multiProxyHandler, Mockito.never()).sendMultiProxyEnvelopeAccepted(Mockito.any(), Mockito.any());
+		verify(scheduler).schedule(Mockito.any(Runnable.class), Mockito.eq(5L),
+				Mockito.eq(java.util.concurrent.TimeUnit.SECONDS));
+	}
+
+	@Test
 	void restartResumesDurableDiscoveryOutboxBeforePublishingIt() {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		VoteTimeQueue outbox = new VoteTimeQueue(java.util.UUID.randomUUID(), "Player", "Service", 100L, false,
