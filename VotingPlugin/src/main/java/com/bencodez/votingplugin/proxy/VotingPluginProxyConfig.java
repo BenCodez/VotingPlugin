@@ -241,6 +241,21 @@ public interface VotingPluginProxyConfig {
 	 */
 	public int getBungeePort();
 
+	/** Bind address for the single-port HTTP transport listener. */
+	default String getHttpHost() {
+		return "0.0.0.0";
+	}
+
+	/** Public HTTPS origin embedded in newly generated backend connection codes. */
+	default String getHttpPublicEndpoint() {
+		return "";
+	}
+
+	/** Listener port for the single-port HTTP transport. */
+	default int getHttpPort() {
+		return 1297;
+	}
+
 	/**
 	 * Gets the plugin message channel.
 	 *

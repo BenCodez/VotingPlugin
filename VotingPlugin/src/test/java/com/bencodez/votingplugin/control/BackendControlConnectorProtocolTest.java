@@ -95,6 +95,18 @@ class BackendControlConnectorProtocolTest {
 				.anyMatch(value -> "data.inspect.v1".equals(value.getAsString())));
 	}
 
+	@Test void deploymentCapabilityIsOnlyAddedWhenStagingWasPrepared() {
+		JsonObject unavailable = new JsonObject();
+		BackendControlConnector.addCapabilities(unavailable);
+		assertFalse(unavailable.getAsJsonArray("capabilities").asList().stream()
+				.anyMatch(value -> PluginDeploymentService.CAPABILITY.equals(value.getAsString())));
+
+		JsonObject ready = new JsonObject();
+		BackendControlConnector.addCapabilities(ready, true);
+		assertTrue(ready.getAsJsonArray("capabilities").asList().stream()
+				.anyMatch(value -> PluginDeploymentService.CAPABILITY.equals(value.getAsString())));
+	}
+
 	@Test void heartbeatRetainsOmittedCapabilitiesAndHonorsExplicitReplacement() {
 		JsonObject omitted = new JsonObject();
 		assertTrue(BackendControlConnector.negotiatedCapability(omitted, "config.files.v1", true));
@@ -136,16 +148,17 @@ class BackendControlConnectorProtocolTest {
 		IllegalStateException failure = new IllegalStateException(
 				"/srv/private/VoteSites.yml jdbc:mysql://database.internal user=secret");
 
-		assertEquals("Configuration read failed; see the backend log",
+		assertEquals("The backend could not safely read the managed configuration file",
 				BackendControlConnector.operationFailureMessage("READ", failure));
-		assertEquals("Configuration preview failed; see the backend log",
+		assertEquals("The backend could not prepare a configuration preview",
 				BackendControlConnector.operationFailureMessage("PREVIEW", failure));
-		assertEquals("Configuration apply failed; see the backend log",
+		assertEquals("The backend could not apply the managed configuration",
 				BackendControlConnector.operationFailureMessage("APPLY", failure));
-		assertEquals("Configuration reload failed; see the backend log",
-				BackendControlConnector.reloadFailureMessage(failure));
 		assertFalse(BackendControlConnector.operationFailureMessage("READ", failure).contains("/srv"));
-		assertFalse(BackendControlConnector.reloadFailureMessage(failure).contains("secret"));
+		assertEquals("CONFIGURATION_MISSING", BackendControlConnector.operationFailureCode("READ",
+				new java.nio.file.NoSuchFileException("/srv/private/Config.yml")));
+		assertEquals("CONFIGURATION_UNREADABLE", BackendControlConnector.operationFailureCode("READ",
+				new java.nio.file.AccessDeniedException("/srv/private/Config.yml")));
 	}
 
 	@Test void unexpectedInspectionFailureMessagesNeverExposeTheCause() {

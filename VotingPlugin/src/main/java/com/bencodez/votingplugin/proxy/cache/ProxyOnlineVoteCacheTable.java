@@ -42,7 +42,8 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 					+ " BOOLEAN NOT NULL DEFAULT FALSE, " + qi("proxyBroadcastHandled")
 					+ " BOOLEAN NOT NULL DEFAULT FALSE, " + qi("broadcastTargets") + " TEXT, "
 					+ qi("broadcastForwardedServers") + " TEXT, " + qi("rewardDelivered")
-					+ " BOOLEAN NOT NULL DEFAULT FALSE" + ");";
+					+ " BOOLEAN NOT NULL DEFAULT FALSE, " + qi("httpDeliveryIds") + " TEXT, "
+					+ qi("httpBroadcastDeliveryIds") + " TEXT" + ");";
 		}
 
 		return "CREATE TABLE IF NOT EXISTS " + qi(getTableName()) + " (" + qi("id") + " INT AUTO_INCREMENT PRIMARY KEY,"
@@ -51,7 +52,8 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 				+ qi("text") + " TEXT," + qi("broadcastForwarded") + " TINYINT(1) NOT NULL DEFAULT 0,"
 				+ qi("proxyBroadcastHandled") + " TINYINT(1) NOT NULL DEFAULT 0," + qi("broadcastTargets")
 				+ " TEXT," + qi("broadcastForwardedServers") + " TEXT," + qi("rewardDelivered")
-				+ " TINYINT(1) NOT NULL DEFAULT 0,"
+				+ " TINYINT(1) NOT NULL DEFAULT 0," + qi("httpDeliveryIds") + " TEXT,"
+				+ qi("httpBroadcastDeliveryIds") + " TEXT,"
 				+ "INDEX idx_uuid (" + qi("uuid") + ")," + "INDEX idx_time (" + qi("time") + ")"
 				+ ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
 	}
@@ -160,11 +162,13 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 			return false;
 		}
 
+		boolean hasRowId = vote.getOnlineVoteCacheRowId() > 0;
 		boolean hasVoteId = vote.getVoteId() != null;
 		String sql = "UPDATE " + qi(getTableName()) + " SET " + qi("broadcastForwarded") + " = ?, "
 				+ qi("proxyBroadcastHandled") + " = ?, " + qi("broadcastTargets") + " = ?, "
-				+ qi("broadcastForwardedServers") + " = ?, " + qi("rewardDelivered") + " = ? WHERE "
-				+ (hasVoteId ? qi("voteid") + " = ?;"
+				+ qi("broadcastForwardedServers") + " = ?, " + qi("rewardDelivered") + " = ?, "
+				+ qi("httpDeliveryIds") + " = ?, " + qi("httpBroadcastDeliveryIds") + " = ? WHERE "
+				+ (hasRowId ? qi("id") + " = ?;" : hasVoteId ? qi("voteid") + " = ?;"
 						: qi("uuid") + " = ? AND " + qi("service") + " = ? AND " + qi("time") + " = ?;");
 
 		try (Connection conn = mysql.getConnectionManager().getConnection();
@@ -180,16 +184,20 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 			}
 			ps.setString(3, vote.encodeBroadcastTargets());
 			ps.setString(4, vote.encodeBroadcastForwardedServers());
-			if (hasVoteId) {
-				ps.setString(6, vote.getVoteId().toString());
+			ps.setString(6, vote.encodeHttpDeliveryIds());
+			ps.setString(7, vote.encodeHttpBroadcastDeliveryIds());
+			if (hasRowId) {
+				ps.setInt(8, vote.getOnlineVoteCacheRowId());
+			} else if (hasVoteId) {
+				ps.setString(8, vote.getVoteId().toString());
 			} else {
 				if (getDbType() == DbType.POSTGRESQL) {
-					ps.setObject(6, UUID.fromString(vote.getUuid()));
+					ps.setObject(8, UUID.fromString(vote.getUuid()));
 				} else {
-					ps.setString(6, vote.getUuid());
+					ps.setString(8, vote.getUuid());
 				}
-				ps.setString(7, vote.getService());
-				ps.setLong(8, vote.getTime());
+				ps.setString(9, vote.getService());
+				ps.setLong(10, vote.getTime());
 			}
 			return ps.executeUpdate() > 0;
 		} catch (SQLException | IllegalArgumentException e) {
@@ -269,6 +277,8 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 		ensureColumn("broadcastTargets", "TEXT");
 		ensureColumn("broadcastForwardedServers", "TEXT");
 		ensureColumn("rewardDelivered", booleanType);
+		ensureColumn("httpDeliveryIds", "TEXT");
+		ensureColumn("httpBroadcastDeliveryIds", "TEXT");
 	}
 
 	private void ensureColumn(String column, String type) {
@@ -317,16 +327,44 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 	 */
 	public void insertVote(UUID voteId, String uuid, String playerName, String service, long time, boolean real,
 			String text, boolean broadcastForwarded, boolean proxyBroadcastHandled, String broadcastTargets,
-			String broadcastForwardedServers, boolean rewardDelivered) {
+			String broadcastForwardedServers, boolean rewardDelivered, String httpDeliveryIds,
+			String httpBroadcastDeliveryIds) {
+		tryInsertVote(voteId, uuid, playerName, service, time, real, text, broadcastForwarded,
+				proxyBroadcastHandled, broadcastTargets, broadcastForwardedServers, rewardDelivered,
+				httpDeliveryIds, httpBroadcastDeliveryIds);
+	}
+
+	/** Inserts a vote and reports whether the database accepted it. */
+	public boolean tryInsertVote(UUID voteId, String uuid, String playerName, String service, long time, boolean real,
+			String text, boolean broadcastForwarded, boolean proxyBroadcastHandled, String broadcastTargets,
+			String broadcastForwardedServers, boolean rewardDelivered, String httpDeliveryIds,
+			String httpBroadcastDeliveryIds) {
+		return tryInsertVoteAndGetId(voteId, uuid, playerName, service, time, real, text, broadcastForwarded,
+				proxyBroadcastHandled, broadcastTargets, broadcastForwardedServers, rewardDelivered, httpDeliveryIds,
+				httpBroadcastDeliveryIds) > 0;
+	}
+
+	/**
+	 * Inserts a vote and returns its durable primary key. Legacy rows can share
+	 * their visible vote fields, so this identity is required for exact updates.
+	 *
+	 * @return the generated primary key, or {@code -1} when insertion or key
+	 *         retrieval failed
+	 */
+	public int tryInsertVoteAndGetId(UUID voteId, String uuid, String playerName, String service, long time,
+			boolean real, String text, boolean broadcastForwarded, boolean proxyBroadcastHandled,
+			String broadcastTargets, String broadcastForwardedServers, boolean rewardDelivered,
+			String httpDeliveryIds, String httpBroadcastDeliveryIds) {
 
 		String sql = "INSERT INTO " + qi(getTableName()) + " (" + qi("uuid") + ", " + qi("voteid") + ", "
 				+ qi("playerName") + ", " + qi("service") + ", " + qi("time") + ", " + qi("realVote") + ", "
 				+ qi("text") + ", " + qi("broadcastForwarded") + ", " + qi("proxyBroadcastHandled") + ", "
 				+ qi("broadcastTargets") + ", " + qi("broadcastForwardedServers") + ", " + qi("rewardDelivered")
-				+ ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+				+ ", " + qi("httpDeliveryIds") + ", " + qi("httpBroadcastDeliveryIds")
+				+ ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
 		try (Connection conn = mysql.getConnectionManager().getConnection();
-				PreparedStatement ps = conn.prepareStatement(sql)) {
+				PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
 			if (getDbType() == DbType.POSTGRESQL) {
 				ps.setObject(1, UUID.fromString(uuid));
@@ -357,10 +395,16 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 			}
 			ps.setString(10, broadcastTargets);
 			ps.setString(11, broadcastForwardedServers);
+			ps.setString(13, httpDeliveryIds);
+			ps.setString(14, httpBroadcastDeliveryIds);
 
-			ps.executeUpdate();
+			if (ps.executeUpdate() != 1) return -1;
+			try (ResultSet keys = ps.getGeneratedKeys()) {
+				return keys.next() ? keys.getInt(1) : -1;
+			}
 		} catch (SQLException | IllegalArgumentException e) {
 			debug(e);
+			return -1;
 		}
 	}
 
@@ -407,24 +451,37 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 	 * @param vote the vote to remove
 	 */
 	public void removeVote(OfflineBungeeVote vote) {
-		String sql = "DELETE FROM " + qi(getTableName()) + " WHERE " + qi("uuid") + " = ? AND " + qi("service")
-				+ " = ? AND " + qi("time") + " = ?;";
+		tryRemoveVote(vote);
+	}
+
+	/** Removes one stable vote identity and reports whether the statement completed. */
+	public boolean tryRemoveVote(OfflineBungeeVote vote) {
+		boolean hasRowId = vote.getOnlineVoteCacheRowId() > 0;
+		boolean byVoteId = vote.getVoteId() != null;
+		String sql = "DELETE FROM " + qi(getTableName()) + " WHERE "
+				+ (hasRowId ? qi("id") + " = ?" : byVoteId ? qi("voteid") + " = ?" : qi("uuid") + " = ? AND " + qi("service")
+						+ " = ? AND " + qi("time") + " = ?") + ";";
 
 		try (Connection conn = mysql.getConnectionManager().getConnection();
 				PreparedStatement ps = conn.prepareStatement(sql)) {
-
-			if (getDbType() == DbType.POSTGRESQL) {
-				ps.setObject(1, UUID.fromString(vote.getUuid()));
+			if (hasRowId) {
+				ps.setInt(1, vote.getOnlineVoteCacheRowId());
+			} else if (byVoteId) {
+				ps.setString(1, vote.getVoteId().toString());
 			} else {
-				ps.setString(1, vote.getUuid());
+				if (getDbType() == DbType.POSTGRESQL) {
+					ps.setObject(1, UUID.fromString(vote.getUuid()));
+				} else {
+					ps.setString(1, vote.getUuid());
+				}
+				ps.setString(2, vote.getService());
+				ps.setLong(3, vote.getTime());
 			}
-
-			ps.setString(2, vote.getService());
-			ps.setLong(3, vote.getTime());
-
 			ps.executeUpdate();
+			return true;
 		} catch (SQLException | IllegalArgumentException e) {
 			debug(e);
+			return false;
 		}
 	}
 
@@ -463,7 +520,8 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 							(getDbType() == DbType.POSTGRESQL ? rs.getBoolean("realVote") : rs.getInt("realVote") == 1),
 							rs.getString("text"), rs.getBoolean("broadcastForwarded"),
 							rs.getBoolean("proxyBroadcastHandled"), rs.getString("broadcastTargets"),
-							rs.getString("broadcastForwardedServers"), rs.getBoolean("rewardDelivered")));
+							rs.getString("broadcastForwardedServers"), rs.getBoolean("rewardDelivered"),
+							rs.getString("httpDeliveryIds"), rs.getString("httpBroadcastDeliveryIds")));
 				}
 			}
 		} catch (SQLException e) {
@@ -489,6 +547,8 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 		private final String broadcastTargets;
 		private final String broadcastForwardedServers;
 		private final boolean rewardDelivered;
+		private final String httpDeliveryIds;
+		private final String httpBroadcastDeliveryIds;
 
 		/**
 		 * Constructor for VoteRow.
@@ -508,7 +568,8 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 		 */
 		public VoteRow(int id, String voteId, String uuid, String playerName, String service, long time,
 				boolean realVote, String text, boolean broadcastForwarded, boolean proxyBroadcastHandled,
-				String broadcastTargets, String broadcastForwardedServers, boolean rewardDelivered) {
+				String broadcastTargets, String broadcastForwardedServers, boolean rewardDelivered, String httpDeliveryIds,
+				String httpBroadcastDeliveryIds) {
 			this.id = id;
 			this.voteId = voteId;
 			this.uuid = uuid;
@@ -522,6 +583,8 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 			this.broadcastTargets = broadcastTargets;
 			this.broadcastForwardedServers = broadcastForwardedServers;
 			this.rewardDelivered = rewardDelivered;
+			this.httpDeliveryIds = httpDeliveryIds;
+			this.httpBroadcastDeliveryIds = httpBroadcastDeliveryIds;
 		}
 
 		/**
@@ -610,6 +673,14 @@ public abstract class ProxyOnlineVoteCacheTable extends AbstractSqlTable {
 
 		public boolean isRewardDelivered() {
 			return rewardDelivered;
+		}
+
+		public String getHttpDeliveryIds() {
+			return httpDeliveryIds;
+		}
+
+		public String getHttpBroadcastDeliveryIds() {
+			return httpBroadcastDeliveryIds;
 		}
 	}
 }

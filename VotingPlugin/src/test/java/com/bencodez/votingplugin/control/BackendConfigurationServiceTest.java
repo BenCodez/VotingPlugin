@@ -501,9 +501,10 @@ class BackendConfigurationServiceTest {
 
 		Files.writeString(directory.resolve("SpecialRewards.yml"), "VoteParty:\n  Enabled: false\n");
 		BackendConfigurationService.QuickPreview party = service.previewQuickSetup("vote-party", Map.of(
-				"votesRequired", "25", "command", "give %player% diamond 1", "broadcast", "Party!",
+				"enabled", "false", "votesRequired", "25", "command", "give %player% diamond 1", "broadcast", "Party!",
 				"giveAllPlayers", "false", "onlineOnly", "true"));
 		assertTrue(party.proposal().content().contains("VotesRequired: 25"));
+		assertTrue(party.proposal().content().contains("Enabled: false"));
 	}
 
 	@Test void guidedSettingsReadTheInstalledValuesInsteadOfAssumingDefaults() throws Exception {
@@ -527,6 +528,41 @@ class BackendConfigurationServiceTest {
 		assertEquals("EMERALD", service.readQuickSetup("vote-site", Map.of("name", "PMC"))
 				.options().get("material"));
 		assertEquals("2", service.readQuickSetup("vote-party", Map.of()).options().get("rewardCommandCount"));
+	}
+
+	@Test void votePartyEnabledOnlyChangesWhenExplicitlyEdited() throws Exception {
+		Path rewards = directory.resolve("SpecialRewards.yml");
+		Files.writeString(rewards, "VoteParty:\n  Enabled: false\n  VotesRequired: 20\n"
+				+ "  GiveAllPlayers: false\n  GiveOnlinePlayersOnly: true\n  Broadcast: Keep\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.QuickState disabled = service.readQuickSetup("vote-party", Map.of());
+		assertEquals("false", disabled.options().get("enabled"));
+		BackendConfigurationService.QuickPreview unrelated = service.previewQuickSetup("vote-party", Map.of(
+				"enabled", disabled.options().get("enabled"), "votesRequired", "25", "command", "",
+				"broadcast", "Keep", "giveAllPlayers", "false", "onlineOnly", "true"));
+		assertTrue(unrelated.proposal().content().contains("Enabled: false"));
+		service.applyQuickSetup("vote-party", Map.of("enabled", "false", "votesRequired", "25", "command", "",
+				"broadcast", "Keep", "giveAllPlayers", "false", "onlineOnly", "true"), unrelated.revision());
+		assertEquals("false", service.readQuickSetup("vote-party", Map.of()).options().get("enabled"));
+
+		BackendConfigurationService.QuickPreview enable = service.previewQuickSetup("vote-party", Map.of(
+				"enabled", "true", "votesRequired", "25", "command", "", "broadcast", "Keep",
+				"giveAllPlayers", "false", "onlineOnly", "true"));
+		service.applyQuickSetup("vote-party", Map.of("enabled", "true", "votesRequired", "25", "command", "",
+				"broadcast", "Keep", "giveAllPlayers", "false", "onlineOnly", "true"), enable.revision());
+		assertEquals("true", service.readQuickSetup("vote-party", Map.of()).options().get("enabled"));
+	}
+
+	@Test void legacyVotePartyQuickSetupDefaultsAnOmittedEnabledOptionToTrue() throws Exception {
+		Files.writeString(directory.resolve("SpecialRewards.yml"), "VoteParty:\n  Enabled: false\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("vote-party", Map.of(
+				"votesRequired", "25", "command", "", "broadcast", "", "giveAllPlayers", "false",
+				"onlineOnly", "true"));
+
+		assertTrue(preview.proposal().content().contains("Enabled: true"));
 	}
 
 	@Test void oversizedInstalledGuidedValuesFailInsteadOfWedgingResultSubmission() throws Exception {
@@ -607,7 +643,7 @@ class BackendConfigurationServiceTest {
 		assertFalse(reward.proposal().content().contains("New message"));
 
 		BackendConfigurationService.QuickPreview party = service.previewQuickSetup("vote-party", Map.of(
-				"votesRequired", "20", "command", "new party", "broadcast", "Party!",
+				"enabled", "true", "votesRequired", "20", "command", "new party", "broadcast", "Party!",
 				"giveAllPlayers", "false", "onlineOnly", "true"));
 		assertTrue(party.proposal().content().contains("existing party"));
 		assertTrue(party.proposal().content().contains("new party"));
@@ -710,6 +746,62 @@ class BackendConfigurationServiceTest {
 		BackendConfigurationService.QuickPreview mqtt = service.previewQuickSetup("proxy-backend",
 				Map.of("server", "lobby", "method", "mqtt"));
 		assertTrue(mqtt.proposal().content().contains("BungeeMethod: MQTT"));
+		BackendConfigurationService.QuickPreview http = service.previewQuickSetup("proxy-backend",
+				Map.of("server", "lobby", "method", "http"));
+		assertTrue(http.proposal().content().contains("BungeeMethod: HTTP"));
+	}
+
+	@Test void httpConnectionCodeIsRedactedFromManagedConfiguration() throws Exception {
+		Files.writeString(directory.resolve("BungeeSettings.yml"),
+				"HTTP:\n  ConnectionCode: VPH1-sensitive-enrollment-code\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		BackendConfigurationService.Document read = service.read("BungeeSettings.yml");
+		assertFalse(read.content().contains("VPH1-sensitive-enrollment-code"));
+		assertTrue(read.content().contains(BackendConfigurationService.REDACTED));
+	}
+
+	@Test void httpMethodAcceptsGenerationBasedEnrolledProfile() throws Exception {
+		Files.writeString(directory.resolve("BungeeSettings.yml"),
+				"UseBungeecord: true\nServer: lobby-1\nBungeeMethod: PLUGINMESSAGING\nPluginMessageChannel: vp:vp\n");
+		com.bencodez.simpleapi.servercomm.http.HttpTlsIdentity identity =
+				com.bencodez.simpleapi.servercomm.http.HttpTlsIdentity.loadOrCreate(directory.resolve("proxy"), "localhost");
+		com.bencodez.simpleapi.servercomm.http.HttpConnectionCode code =
+				new com.bencodez.simpleapi.servercomm.http.HttpConnectionCode("lobby-1",
+						java.net.URI.create("https://localhost:1297/"), identity.serverCertificatePin(),
+						identity.caCertificatePin(), java.time.Instant.now().plusSeconds(60), "A".repeat(43));
+		com.bencodez.simpleapi.servercomm.http.HttpClientCredentialStore.saveEnrolled(directory.resolve("http"), code,
+				identity.issueClientCertificate("lobby-1"));
+
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		assertDoesNotThrow(() -> service.previewQuickSetup("proxy-method", Map.of("method", "HTTP")));
+	}
+
+	@Test void httpMethodPreflightRejectsInvalidExpiredAndWrongServerConnectionCodes() throws Exception {
+		Path settings = directory.resolve("BungeeSettings.yml");
+		Files.writeString(settings, "UseBungeecord: true\nServer: lobby-1\nBungeeMethod: PLUGINMESSAGING\n"
+				+ "PluginMessageChannel: vp:vp\nHTTP:\n  ConnectionCode: malformed\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		assertThrows(IllegalArgumentException.class,
+				() -> service.previewQuickSetup("proxy-method", Map.of("method", "HTTP")));
+
+		com.bencodez.simpleapi.servercomm.http.HttpTlsIdentity identity =
+				com.bencodez.simpleapi.servercomm.http.HttpTlsIdentity.loadOrCreate(directory.resolve("code-proxy"), "localhost");
+		com.bencodez.simpleapi.servercomm.http.HttpConnectionCode expired =
+				new com.bencodez.simpleapi.servercomm.http.HttpConnectionCode("lobby-1",
+						java.net.URI.create("https://localhost:1297/"), identity.serverCertificatePin(),
+						identity.caCertificatePin(), java.time.Instant.now().minusSeconds(1), "A".repeat(43));
+		Files.writeString(settings, Files.readString(settings).replace("malformed", expired.encode()));
+		assertThrows(IllegalArgumentException.class,
+				() -> service.previewQuickSetup("proxy-method", Map.of("method", "HTTP")));
+
+		com.bencodez.simpleapi.servercomm.http.HttpConnectionCode wrongServer =
+				new com.bencodez.simpleapi.servercomm.http.HttpConnectionCode("survival",
+						expired.endpoint(), expired.serverCertificatePin(), expired.caCertificatePin(),
+						java.time.Instant.now().plusSeconds(60), "B".repeat(43));
+		Files.writeString(settings, Files.readString(settings).replace(expired.encode(), wrongServer.encode()));
+		assertThrows(IllegalArgumentException.class,
+				() -> service.previewQuickSetup("proxy-method", Map.of("method", "HTTP")));
 	}
 
 	@Test void proxyMethodSwitchPreflightsRequiredBackendSettings() throws Exception {
@@ -781,6 +873,7 @@ class BackendConfigurationServiceTest {
 				}));
 
 		assertTrue(failure.rolledBack());
+		assertTrue(failure.reloadAttempted());
 		assertEquals(2, targeted.get());
 		assertEquals(original, Files.readString(settings));
 	}

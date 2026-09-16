@@ -4,9 +4,12 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import com.bencodez.advancedcore.api.time.TimeType;
@@ -29,6 +32,8 @@ public class BackendGlobalDataSync {
 
 	private final VotingPluginMain plugin;
 	private final Consumer<JsonEnvelope> sender;
+	private final AtomicBoolean forceUpdateInProgress = new AtomicBoolean(false);
+	private final Set<TimeType> timeChangesInProgress = ConcurrentHashMap.newKeySet();
 
 	@Getter
 	private GlobalDataHandler globalDataHandler;
@@ -46,26 +51,40 @@ public class BackendGlobalDataSync {
 		}
 		HashMap<String, DataValue> data = globalDataHandler.getExact(plugin.getBungeeSettings().getServer());
 
-		if (data.containsKey("ForceUpdate") && checkGlobalDataTimeValue(data.get("ForceUpdate"))) {
-			if (plugin.getStorageType().equals(UserStorage.MYSQL)) {
-				plugin.getMysql().clearCacheBasic();
+		if (data.containsKey("ForceUpdate") && checkGlobalDataTimeValue(data.get("ForceUpdate"))
+				&& forceUpdateInProgress.compareAndSet(false, true)) {
+			String serverName = plugin.getBungeeSettings().getServer();
+			try {
+				if (UserStorage.MYSQL.equals(plugin.getStorageType())) {
+					plugin.getMysql().clearCacheBasic();
+				}
+				plugin.getBukkitScheduler().executeOrScheduleSync(plugin, () -> {
+					try {
+						plugin.getUserManager().getDataManager().clearCache();
+						plugin.setUpdate(true);
+						plugin.update();
+					} catch (RuntimeException failure) {
+						forceUpdateInProgress.set(false);
+						plugin.debug(failure);
+						return;
+					}
+					try {
+						plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
+								() -> clearForceUpdateFlag(serverName));
+					} catch (RuntimeException failure) {
+						forceUpdateInProgress.set(false);
+						plugin.debug(failure);
+					}
+				});
+			} catch (RuntimeException failure) {
+				forceUpdateInProgress.set(false);
+				plugin.debug(failure);
 			}
-			plugin.getUserManager().getDataManager().clearCache();
-			plugin.setUpdate(true);
-			plugin.update();
-			globalDataHandler.setBoolean(plugin.getBungeeSettings().getServer(), "ForceUpdate", false);
 		}
 
-		boolean forceUpdate = checkGlobalDataTime(TimeType.MONTH, data);
-		forceUpdate |= checkGlobalDataTime(TimeType.WEEK, data);
-		forceUpdate |= checkGlobalDataTime(TimeType.DAY, data);
-
-		if (forceUpdate) {
-			HashMap<String, DataValue> dataToSet = new HashMap<>();
-			dataToSet.put("FinishedProcessing", new DataValueBoolean(true));
-			dataToSet.put("Processing", new DataValueBoolean(false));
-			globalDataHandler.setData(plugin.getBungeeSettings().getServer(), dataToSet);
-		}
+		checkGlobalDataTime(TimeType.MONTH, data);
+		checkGlobalDataTime(TimeType.WEEK, data);
+		checkGlobalDataTime(TimeType.DAY, data);
 	}
 
 	public boolean checkGlobalDataTime(TimeType type, HashMap<String, DataValue> data) {
@@ -80,16 +99,56 @@ public class BackendGlobalDataSync {
 			globalDataHandler.setBoolean(plugin.getBungeeSettings().getServer(), type.toString(), false);
 			return false;
 		}
+		if (!timeChangesInProgress.add(type)) {
+			return false;
+		}
 
-		globalDataHandler.setBoolean(plugin.getBungeeSettings().getServer(), "Processing", true);
+		String serverName = plugin.getBungeeSettings().getServer();
+		globalDataHandler.setBoolean(serverName, "Processing", true);
 		plugin.debug("Detected time change from bungee: " + type.toString());
-		plugin.getTimeChecker().forceChanged(type, false, true, true);
-		globalDataHandler.setBoolean(plugin.getBungeeSettings().getServer(), type.toString(), false);
-
-		JsonEnvelope.Builder builder = JsonEnvelope.builder("TimeChangeFinished").schema(VotingPluginWire.SCHEMA_VERSION);
-		builder.put("server", plugin.getBungeeSettings().getServer());
-		sender.accept(builder.build());
+		try {
+			plugin.getBukkitScheduler().executeOrScheduleSync(plugin, () -> {
+				try {
+					plugin.getTimeChecker().forceChanged(type, false, true, true);
+				} catch (RuntimeException failure) {
+					timeChangesInProgress.remove(type);
+					plugin.debug(failure);
+					return;
+				}
+				try {
+					plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
+							() -> finishTimeChange(type, serverName));
+				} catch (RuntimeException failure) {
+					timeChangesInProgress.remove(type);
+					plugin.debug(failure);
+				}
+			});
+		} catch (RuntimeException failure) {
+			timeChangesInProgress.remove(type);
+			plugin.debug(failure);
+			return false;
+		}
 		return true;
+	}
+
+	private void finishTimeChange(TimeType type, String serverName) {
+		boolean completed = false;
+		try {
+			globalDataHandler.setBoolean(serverName, type.toString(), false);
+			JsonEnvelope.Builder builder = JsonEnvelope.builder("TimeChangeFinished")
+					.schema(VotingPluginWire.SCHEMA_VERSION);
+			builder.put("server", serverName);
+			sender.accept(builder.build());
+			completed = true;
+		} finally {
+			timeChangesInProgress.remove(type);
+			if (completed && timeChangesInProgress.isEmpty()) {
+				HashMap<String, DataValue> dataToSet = new HashMap<>();
+				dataToSet.put("FinishedProcessing", new DataValueBoolean(true));
+				dataToSet.put("Processing", new DataValueBoolean(false));
+				globalDataHandler.setData(serverName, dataToSet);
+			}
+		}
 	}
 
 	public boolean checkGlobalDataTimeValue(DataValue data) {
@@ -97,6 +156,14 @@ public class BackendGlobalDataSync {
 			return data.getBoolean();
 		}
 		return Boolean.valueOf(data.getString());
+	}
+
+	private void clearForceUpdateFlag(String serverName) {
+		try {
+			globalDataHandler.setBoolean(serverName, "ForceUpdate", false);
+		} finally {
+			forceUpdateInProgress.set(false);
+		}
 	}
 
 	public void load() {

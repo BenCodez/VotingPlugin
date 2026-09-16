@@ -82,6 +82,7 @@ public class ProcessedVoteCacheTest {
 		Field deliveries = ProcessedVoteCache.class.getDeclaredField("legacyRedisDeliveries");
 		deliveries.setAccessible(true);
 		assertEquals(4096, ((Map<?, ?>) deliveries.get(cache)).size());
+		assertTrue(cache.isLegacyRedisHandoffOverflowed());
 	}
 
 	@Test
@@ -97,5 +98,6 @@ public class ProcessedVoteCacheTest {
 		Field deliveries = ProcessedVoteCache.class.getDeclaredField("legacyRedisDeliveries");
 		deliveries.setAccessible(true);
 		assertTrue(((Map<?, ?>) deliveries.get(cache)).isEmpty());
+		assertTrue(cache.isLegacyRedisHandoffOverflowed());
 	}
 }
