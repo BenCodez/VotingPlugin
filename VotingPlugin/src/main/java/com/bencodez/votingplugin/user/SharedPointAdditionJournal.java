@@ -507,26 +507,40 @@ final class SharedPointAdditionJournal {
 		}
 	}
 
-	/** Removes a bounded batch of replay-acknowledged entries after the retention window. */
+	/**
+	 * Removes a bounded batch after the retention window. Replay operations still
+	 * require an explicit acknowledgement; ephemeral administrator operations may
+	 * also retire directly from COMPLETED because their generated IDs are never
+	 * reused after the command has reported its confirmed result.
+	 */
 	void cleanupAcknowledged(long now) throws SQLException {
 		long cutoff = now - COMPLETED_RETENTION_MILLIS;
-		String select = "SELECT " + qi("operation_id") + " FROM " + qiJournal() + " WHERE " + qi("state")
-				+ " = ? AND " + qi("created_at") + " <= ? ORDER BY " + qi("created_at") + " ASC LIMIT ?";
+		String select = "SELECT " + qi("operation_id") + " FROM " + qiJournal() + " WHERE (" + qi("state")
+				+ " = ? OR (" + qi("state") + " = ? AND (" + qi("operation_id") + " LIKE ? OR "
+				+ qi("operation_id") + " LIKE ? OR " + qi("operation_id") + " LIKE ? OR "
+				+ qi("operation_id") + " LIKE ?))) AND "
+				+ qi("created_at") + " <= ? ORDER BY " + qi("created_at") + " ASC LIMIT ?";
 		String delete = "DELETE FROM " + qiJournal() + " WHERE " + qi("operation_id") + " = ? AND "
-				+ qi("state") + " = ? AND " + qi("created_at") + " <= ?";
+				+ qi("created_at") + " <= ? AND (" + qi("state") + " = ? OR " + qi("state") + " = ?)";
 		try (Connection connection = connection(); PreparedStatement selectStatement = connection.prepareStatement(select);
 				PreparedStatement deleteStatement = connection.prepareStatement(delete)) {
 			selectStatement.setString(1, ACKNOWLEDGED);
-			selectStatement.setLong(2, cutoff);
-			selectStatement.setInt(3, CLEANUP_BATCH_SIZE);
+			selectStatement.setString(2, COMPLETED);
+			selectStatement.setString(3, "admin-points/%");
+			selectStatement.setString(4, "admin-bulk-points/%");
+			selectStatement.setString(5, "admin-bulk-remove/%");
+			selectStatement.setString(6, "remove-points/%");
+			selectStatement.setLong(7, cutoff);
+			selectStatement.setInt(8, CLEANUP_BATCH_SIZE);
 			Set<String> operationIds = new java.util.LinkedHashSet<>();
 			try (ResultSet result = selectStatement.executeQuery()) {
 				while (result.next()) operationIds.add(result.getString(1));
 			}
 			for (String operationId : operationIds) {
 				deleteStatement.setString(1, operationId);
-				deleteStatement.setString(2, ACKNOWLEDGED);
-				deleteStatement.setLong(3, cutoff);
+				deleteStatement.setLong(2, cutoff);
+				deleteStatement.setString(3, ACKNOWLEDGED);
+				deleteStatement.setString(4, COMPLETED);
 				deleteStatement.executeUpdate();
 			}
 		}

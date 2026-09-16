@@ -525,25 +525,30 @@ public class CommandLoader {
 						user.cache();
 						int amount = Integer.parseInt(args[3]);
 						String operationId = "admin-points/" + UUID.randomUUID();
-						user.addPointsStorageAwareAsync(amount, operationId).whenComplete((newTotal, failure) ->
-								runForVotingUser(user, () -> {
-									if (failure != null) {
-										runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize(
-												"&cUnable to confirm the point addition; do not retry this command")));
-										return;
-									}
+						user.addPointsStorageAwareAsync(amount, operationId).whenComplete((newTotal, failure) -> {
+							if (failure != null) {
+								runForVotingUser(user, () ->
+									runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize(
+											"&cUnable to confirm the point addition; do not retry this command"))));
+								return;
+							}
+							// Retire the durable admin operation independently of UI scheduling. If
+							// acknowledgement remains unavailable, its prefix makes the completed
+							// row eligible for bounded retention cleanup.
+							user.acknowledgeStorageAwarePointOperation(operationId)
+									.whenComplete((ignored, acknowledgementFailure) -> {
+										if (acknowledgementFailure != null) plugin.debug(acknowledgementFailure);
+									});
+							runForVotingUser(user, () -> {
 									if (user.isOnline()) {
 										user.sendMessage(plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerGiven(),
 												"amount", args[3]);
 									}
 									runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize("&cGave " + args[1]
-												+ " " + args[3] + " points" + ", " + args[1] + " now has " + newTotal + " points")));
+											+ " " + args[3] + " points" + ", " + args[1] + " now has " + newTotal + " points")));
 									plugin.getPlaceholders().onUpdate(user, false);
-									user.acknowledgeStorageAwarePointOperation(operationId)
-											.whenComplete((ignored, acknowledgementFailure) -> {
-												if (acknowledgementFailure != null) plugin.debug(acknowledgementFailure);
-											});
-								}));
+								});
+						});
 
 					}
 				});

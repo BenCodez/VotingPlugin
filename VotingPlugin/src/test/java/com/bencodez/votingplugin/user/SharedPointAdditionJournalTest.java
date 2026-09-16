@@ -347,7 +347,7 @@ class SharedPointAdditionJournalTest {
 	}
 
 	@Test
-	void onlyReplayAcknowledgedEntriesAreExpiredInABoundedRetentionBatch() throws Exception {
+	void onlyAcknowledgedOrEphemeralAdminEntriesExpireInABoundedRetentionBatch() throws Exception {
 		Fixture fixture = fixture();
 		PreparedStatement select = mock(PreparedStatement.class);
 		PreparedStatement delete = mock(PreparedStatement.class);
@@ -361,8 +361,15 @@ class SharedPointAdditionJournalTest {
 		new SharedPointAdditionJournal(fixture.table, false).cleanupAcknowledged(now);
 
 		verify(select).setString(1, "ACKNOWLEDGED");
-		verify(select).setLong(2, now - SharedPointAdditionJournal.COMPLETED_RETENTION_MILLIS);
-		verify(select).setInt(3, 100);
+		verify(select).setString(2, "COMPLETED");
+		verify(select).setString(3, "admin-points/%");
+		verify(select).setString(4, "admin-bulk-points/%");
+		verify(select).setString(5, "admin-bulk-remove/%");
+		verify(select).setString(6, "remove-points/%");
+		verify(select).setLong(7, now - SharedPointAdditionJournal.COMPLETED_RETENTION_MILLIS);
+		verify(select).setInt(8, 100);
+		verify(delete, times(2)).setString(3, "ACKNOWLEDGED");
+		verify(delete, times(2)).setString(4, "COMPLETED");
 		verify(delete, times(2)).executeUpdate();
 	}
 
