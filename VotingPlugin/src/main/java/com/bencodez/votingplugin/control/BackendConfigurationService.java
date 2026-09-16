@@ -227,8 +227,12 @@ public final class BackendConfigurationService {
 		if (!READABLE_QUICK_SETUPS.contains(preset)) {
 			throw new IllegalArgumentException("quick setup preset cannot be read");
 		}
-		rejectUnknownOptions(options, "vote-site".equals(preset) ? Set.of("name") : Set.of());
+		rejectUnknownOptions(options, "vote-site".equals(preset) ? Set.of("name")
+				: "vote-party".equals(preset) ? Set.of("enabled") : Set.of());
 		if ("vote-site".equals(preset)) option(options, "name", "[A-Za-z0-9_-]{1,64}");
+		if ("vote-party".equals(preset) && options != null && options.containsKey("enabled")) {
+			booleanOption(options, "enabled");
+		}
 		return retryRead(() -> readQuickSetupOnce(preset, options));
 	}
 
@@ -393,7 +397,7 @@ public final class BackendConfigurationService {
 		case "vote-logging" -> Set.of("enabled", "purgeDays", "useMainMySQL");
 		case "common-settings" -> Set.of("processRewards", "autoCreateVoteSites", "extraAllSitesCheck",
 				"countFakeVotes", "disableNoServiceSiteMessage", "disableUpdateChecking");
-		case "vote-party" -> Set.of("votesRequired", "broadcast", "giveAllPlayers", "onlineOnly", "command");
+		case "vote-party" -> Set.of("enabled", "votesRequired", "broadcast", "giveAllPlayers", "onlineOnly", "command");
 		case "sync-vote-sites" -> Set.of("sourceContent");
 		default -> throw new IllegalArgumentException("quick setup preset is unsupported");
 		});
@@ -497,7 +501,11 @@ public final class BackendConfigurationService {
 			return new QuickProposal(fileName, yaml.saveToString());
 		}
 		if ("vote-party".equals(preset)) {
-			yaml.set("VoteParty.Enabled", true);
+			// v1 does not carry Enabled, so it must leave the installed value untouched.
+			// v2 supplies the field so its actual state can round-trip explicitly.
+			if (options != null && options.containsKey("enabled")) {
+				yaml.set("VoteParty.Enabled", booleanOption(options, "enabled"));
+			}
 			yaml.set("VoteParty.VotesRequired", boundedInteger(option(options, "votesRequired", "[0-9]{1,6}"), 1, 100000));
 			yaml.set("VoteParty.GiveAllPlayers", booleanOption(options, "giveAllPlayers"));
 			yaml.set("VoteParty.GiveOnlinePlayersOnly", booleanOption(options, "onlineOnly"));

@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.commands.gui.player;
 
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -30,6 +31,8 @@ public class VoteShopConfirm extends GUIHandler {
 	private VotingPluginMain plugin;
 
 	private VotingPluginUser user;
+
+	private final AtomicBoolean purchaseSubmitted = new AtomicBoolean();
 
 	/**
 	 * Creates the GUI.
@@ -71,20 +74,23 @@ public class VoteShopConfirm extends GUIHandler {
 
 			@Override
 			public void onClick(ClickEvent event) {
-				user.cache();
-				VoteShopPurchaseResult result = plugin.getVoteShopManager().purchase(player, user, item);
-				if (result != VoteShopPurchaseResult.SUCCESS) {
-					plugin.getVoteShopManager().getPurchaseService().sendFailureMessage(player, user, item, result);
-					returnToPrevious(event.getPlayer());
-					return;
-				}
+				if (!beginPurchase()) return;
+				event.closeInventory();
+				plugin.getVoteShopManager().getPurchaseService().refreshUserForPurchaseValidation(user, true);
+				plugin.getVoteShopManager().purchase(player, user, item, result -> {
+					if (result != VoteShopPurchaseResult.SUCCESS) {
+						plugin.getVoteShopManager().getPurchaseService().sendFailureMessage(player, user, item, result);
+						returnToPrevious(event.getPlayer());
+						return;
+					}
 
-				plugin.getCommandLoader().processSlotClick(player, user, item.getIdentifier());
-				if (item.isCloseGUI()) {
-					event.closeInventory();
-				} else {
-					returnToPrevious(event.getPlayer());
-				}
+					plugin.getCommandLoader().processSlotClick(player, user, item.getIdentifier());
+					if (item.isCloseGUI()) {
+						event.closeInventory();
+					} else {
+						returnToPrevious(event.getPlayer());
+					}
+				});
 			}
 		});
 		inv.addButton(new BInventoryButton(new ItemBuilder(plugin.getShopFile().getShopConfirmPurchaseNoItem())) {
@@ -101,6 +107,10 @@ public class VoteShopConfirm extends GUIHandler {
 		inv.openInventory(player);
 	}
 
+	boolean beginPurchase() {
+		return purchaseSubmitted.compareAndSet(false, true);
+	}
+
 	@Override
 	public void onDialog(Player player) {
 		PlayerUtils.setPlayerMeta(plugin, player, "ident", item.getIdentifier());
@@ -113,23 +123,24 @@ public class VoteShopConfirm extends GUIHandler {
 				.noText(new ItemBuilder(plugin.getShopFile().getShopConfirmPurchaseNoItem()).getName())
 				.onYes(payload -> {
 					Player clicked = player.getServer().getPlayer(payload.owner());
-					if (clicked == null) {
+					if (clicked == null || !beginPurchase()) {
 						return;
 					}
 
-					user.cache();
-					VoteShopPurchaseResult result = plugin.getVoteShopManager().purchase(clicked, user, item);
-					if (result != VoteShopPurchaseResult.SUCCESS) {
-						plugin.getVoteShopManager().getPurchaseService().sendFailureMessage(clicked, user, item,
-								result);
-						returnToPrevious(clicked);
-						return;
-					}
+					plugin.getVoteShopManager().getPurchaseService().refreshUserForPurchaseValidation(user, true);
+					plugin.getVoteShopManager().purchase(clicked, user, item, result -> {
+						if (result != VoteShopPurchaseResult.SUCCESS) {
+							plugin.getVoteShopManager().getPurchaseService().sendFailureMessage(clicked, user, item,
+									result);
+							returnToPrevious(clicked);
+							return;
+						}
 
-					plugin.getCommandLoader().processSlotClick(clicked, user, item.getIdentifier());
-					if (!item.isCloseGUI()) {
-						returnToPrevious(clicked);
-					}
+						plugin.getCommandLoader().processSlotClick(clicked, user, item.getIdentifier());
+						if (!item.isCloseGUI()) {
+							returnToPrevious(clicked);
+						}
+					});
 				}).onNo(payload -> {
 					Player clicked = player.getServer().getPlayer(payload.owner());
 					if (clicked != null) {

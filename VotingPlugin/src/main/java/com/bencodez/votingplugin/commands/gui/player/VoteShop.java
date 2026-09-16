@@ -125,9 +125,8 @@ public class VoteShop extends GUIHandler {
 			@Override
 			public void onClick(ClickEvent event) {
 				VotingPluginUser clickedUser = getUser(event.getPlayer());
-				if (plugin.getConfigFile().isExtraVoteShopCheck()) {
-					clickedUser.cache();
-				}
+				plugin.getVoteShopManager().getPurchaseService().refreshUserForPurchaseValidation(clickedUser,
+						plugin.getConfigFile().isExtraVoteShopCheck());
 
 				if (item.isNotBuyable()) {
 					clickedUser.sendMessage(plugin.getConfigFile().getFormatShopNotPurchasable());
@@ -224,20 +223,21 @@ public class VoteShop extends GUIHandler {
 	 */
 	protected void handlePurchase(Player player, VotingPluginUser currentUser, VoteShopItem item,
 			VoteShopCategory category) {
-		VoteShopPurchaseResult result = plugin.getVoteShopManager().purchase(player, currentUser, item);
-		if (result != VoteShopPurchaseResult.SUCCESS) {
-			plugin.getVoteShopManager().getPurchaseService().sendFailureMessage(player, currentUser, item, result);
-			return;
-		}
-
-		plugin.getCommandLoader().processSlotClick(player, currentUser, item.getIdentifier());
-		if (plugin.getVoteShopManager().getDefinition().isReopenGuiOnPurchase()) {
-			if (category != null) {
-				new VoteShopCategoryMenu(plugin, player, currentUser, category).open(GUIMethod.CHEST);
-			} else {
-				plugin.getCommandLoader().processSlotClick(player, currentUser, "shop");
+		plugin.getVoteShopManager().purchase(player, currentUser, item, result -> {
+			if (result != VoteShopPurchaseResult.SUCCESS) {
+				plugin.getVoteShopManager().getPurchaseService().sendFailureMessage(player, currentUser, item, result);
+				return;
 			}
-		}
+
+			plugin.getCommandLoader().processSlotClick(player, currentUser, item.getIdentifier());
+			if (plugin.getVoteShopManager().getDefinition().isReopenGuiOnPurchase()) {
+				if (category != null) {
+					new VoteShopCategoryMenu(plugin, player, currentUser, category).open(GUIMethod.CHEST);
+				} else {
+					plugin.getCommandLoader().processSlotClick(player, currentUser, "shop");
+				}
+			}
+		});
 	}
 
 	/**
