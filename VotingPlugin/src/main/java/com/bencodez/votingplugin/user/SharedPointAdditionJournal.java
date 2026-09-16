@@ -203,8 +203,22 @@ final class SharedPointAdditionJournal {
 				return HookClaim.claimedByCaller();
 			} catch (SQLException ambiguousCommit) {
 				closeQuietly(connection);
-				AdditionRow confirmed = find(operationId);
-				if (confirmed != null) return claimForExisting(confirmed, uuid, pointsColumn, requestedAmount, owner);
+				try {
+					AdditionRow confirmed = find(operationId);
+					if (confirmed != null) {
+						return claimForExisting(confirmed, uuid, pointsColumn, requestedAmount, owner);
+					}
+				} catch (SQLException confirmationFailure) {
+					ambiguousCommit.addSuppressed(confirmationFailure);
+				}
+				// The receive hook has not been scheduled yet. Delete only this owner's
+				// exact HOOK_STARTED claim so an ambiguous insert cannot turn a safe
+				// retry into manual reconciliation.
+				try {
+					releaseUnstartedHook(operationId, uuid, pointsColumn, requestedAmount, owner);
+				} catch (SQLException releaseFailure) {
+					ambiguousCommit.addSuppressed(releaseFailure);
+				}
 				throw ambiguousCommit;
 			}
 		} catch (SQLException failure) {

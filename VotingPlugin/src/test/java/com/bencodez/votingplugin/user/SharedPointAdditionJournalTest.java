@@ -196,6 +196,37 @@ class SharedPointAdditionJournalTest {
 	}
 
 	@Test
+	void ambiguousHookClaimReleasesTheExactUnstartedOwnerBeforeFailing() throws Exception {
+		Fixture fixture = fixture();
+		Connection missing = missingLookup();
+		Connection claim = mock(Connection.class);
+		Connection confirmation = mock(Connection.class);
+		Connection release = mock(Connection.class);
+		PreparedStatement insert = mock(PreparedStatement.class);
+		PreparedStatement select = mock(PreparedStatement.class);
+		PreparedStatement delete = mock(PreparedStatement.class);
+		when(claim.prepareStatement(anyString())).thenReturn(insert);
+		doThrow(new java.sql.SQLException("claim acknowledgement lost")).when(claim).commit();
+		when(confirmation.prepareStatement(anyString()))
+				.thenThrow(new java.sql.SQLException("confirmation unavailable"));
+		ResultSet claimed = hookStartedRow("player", "Points", 5, "first-backend");
+		when(select.executeQuery()).thenReturn(claimed);
+		when(delete.executeUpdate()).thenReturn(1);
+		when(release.prepareStatement(anyString())).thenReturn(select, delete);
+		when(fixture.sql.getConnectionManager().getConnection())
+				.thenReturn(missing, claim, confirmation, release);
+
+		assertThrows(java.sql.SQLException.class, () -> new SharedPointAdditionJournal(fixture.table, false)
+				.claimHook("reward-operation", "player", "Points", 5, "first-backend", 100L));
+
+		verify(delete).setString(1, "reward-operation");
+		verify(delete).setString(2, "HOOK_STARTED");
+		verify(delete).setString(3, "first-backend");
+		verify(delete).executeUpdate();
+		verify(release).commit();
+	}
+
+	@Test
 	void ambiguousUnstartedHookReleaseCommitIsConfirmedAsSafeAfterRestart() throws Exception {
 		Fixture fixture = fixture();
 		Connection release = mock(Connection.class);
