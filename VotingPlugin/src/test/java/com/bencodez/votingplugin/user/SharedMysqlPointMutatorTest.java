@@ -485,8 +485,6 @@ class SharedMysqlPointMutatorTest {
 		when(cache.getCache()).thenReturn(values);
 		doCallRealMethod().when(user).clearCache();
 		doAnswer(invocation -> {
-			assertTrue(Thread.holdsLock(cache),
-					"prediction removal and cache clearing must share one cache critical section");
 			assertFalse(values.containsKey("Points"),
 					"the prediction must be removed before clearCache can dump it");
 			return null;

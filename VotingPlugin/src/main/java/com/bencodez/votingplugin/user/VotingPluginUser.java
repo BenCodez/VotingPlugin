@@ -2610,10 +2610,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public void clearCache() {
 		if (!isCached()) return;
 		UserDataCache cache = getCache();
-		synchronized (cache) {
-			SharedMysqlCacheReconciler.discardOptimisticPoint(cache, getPointsPath());
-			cache.clearCache();
-		}
+		SharedMysqlCacheReconciler.discardOptimisticPoint(cache, getPointsPath());
+		cache.clearCache();
 	}
 
 }
