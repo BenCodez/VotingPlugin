@@ -366,7 +366,7 @@ class VoteShopPurchaseServiceTest {
 		VotingPluginUser user = mock(VotingPluginUser.class);
 		VoteShopPurchaseService service = new VoteShopPurchaseService(plugin, definition);
 
-		service.refreshUserForPurchaseValidation(user, true);
+		service.refreshUserForPurchaseValidation(user, item, true);
 		VoteShopPurchaseResult result = service.validatePurchase(mock(org.bukkit.entity.Player.class), user, item);
 
 		assertEquals(VoteShopPurchaseResult.SUCCESS, result);
@@ -389,10 +389,13 @@ class VoteShopPurchaseServiceTest {
 		VotingPluginUser user = purchaseUser();
 		when(user.getVoteShopIdentifierLimit("daily")).thenReturn(1);
 		when(user.getPoints()).thenReturn(0);
+		VoteShopPurchaseService service = new VoteShopPurchaseService(plugin, definition);
+		service.refreshUserForPurchaseValidation(user, item, true);
 
 		assertEquals(VoteShopPurchaseResult.SUCCESS,
-				new VoteShopPurchaseService(plugin, definition).validatePurchase(mock(org.bukkit.entity.Player.class), user, item));
+				service.validatePurchase(mock(org.bukkit.entity.Player.class), user, item));
 
+		verify(user, never()).cache();
 		verify(user, never()).getVoteShopIdentifierLimit(anyString());
 		verify(user, never()).getPoints();
 	}

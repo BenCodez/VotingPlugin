@@ -518,6 +518,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
 		if (!sharedPoints.applies()) {
 			for (VotingPluginUser user : users) {
+				user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 				user.addPointsStorageAware(value, (success, ignored) -> completion.accept(user, success));
 			}
 			return;
@@ -541,7 +542,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 					if (success) mutator.acknowledgePointAdditionNow(operationId);
 					return success;
 				},
-				(user, done) -> done.accept(false));
+				(user, done) -> done.accept(false), false);
 	}
 
 	/**
@@ -560,7 +561,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				(user, done) -> {
 					user.setPoints(value);
 					done.accept(true);
-				});
+				}, false);
 	}
 
 	/**
@@ -612,7 +613,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 					if (success) mutator.acknowledgePointAdditionNow(operationId);
 					return success;
 				},
-				(user, done) -> user.removePoints(value, done));
+				(user, done) -> user.removePoints(value, done), true);
 	}
 
 	static String bulkPointOperationId(String prefix, String batchOperationId, String userId) {
@@ -633,10 +634,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	private static void bulkSharedMysqlMutation(VotingPluginMain plugin, List<VotingPluginUser> users,
 			BiConsumer<VotingPluginUser, Boolean> completion, SharedPointMutation sharedMutation,
-			OrdinaryPointMutation ordinaryMutation) {
+			OrdinaryPointMutation ordinaryMutation, boolean authoritativeReadRequired) {
 		if (users.isEmpty()) return;
 		if (!new SharedMysqlPointMutator(plugin).applies()) {
 			for (VotingPluginUser user : users) {
+				if (authoritativeReadRequired) user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 				ordinaryMutation.apply(user, success -> completion.accept(user, success));
 			}
 			return;

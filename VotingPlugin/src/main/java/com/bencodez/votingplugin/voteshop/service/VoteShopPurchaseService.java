@@ -104,8 +104,14 @@ public class VoteShopPurchaseService {
 	}
 
 	/** Refreshes dynamic GUI validation state only when that refresh cannot block on shared MySQL. */
+	public void refreshUserForPurchaseValidation(VotingPluginUser user, VoteShopItem item, boolean requested) {
+		if (requested && !usesMysqlPurchaseReservation(item)) user.cache();
+	}
+
+	/** @deprecated Pass the item so limited MySQL purchases can avoid a blocking refresh. */
+	@Deprecated
 	public void refreshUserForPurchaseValidation(VotingPluginUser user, boolean requested) {
-		if (requested && !usesMysqlPurchaseReservation(null)) user.cache();
+		refreshUserForPurchaseValidation(user, null, requested);
 	}
 
 	private VoteShopPurchaseResult validateStaticPurchase(Player player, VoteShopItem item) {

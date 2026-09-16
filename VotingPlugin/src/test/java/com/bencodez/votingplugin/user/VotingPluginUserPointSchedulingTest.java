@@ -64,6 +64,25 @@ class VotingPluginUserPointSchedulingTest {
 		assertFalse(first.equals(other));
 		assertTrue(first.length() <= 64);
 	}
+
+	@Test
+	void ordinaryBulkPointArithmeticUsesAuthoritativeUserReads() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		when(plugin.getStorageType()).thenReturn(UserStorage.SQLITE);
+
+		VotingPluginUser.addPointsStorageAware(plugin, java.util.List.of(user), 5,
+				(ignored, success) -> { });
+		VotingPluginUser.setPointsStorageAware(plugin, java.util.List.of(user), 11,
+				(ignored, success) -> { });
+		VotingPluginUser.removePointsStorageAware(plugin, java.util.List.of(user), 3,
+				(ignored, success) -> { });
+
+		verify(user, org.mockito.Mockito.times(2)).userDataFetechMode(UserDataFetchMode.NO_CACHE);
+		verify(user).addPointsStorageAware(eq(5), org.mockito.ArgumentMatchers.<java.util.function.BiConsumer<Boolean, Integer>>any());
+		verify(user).setPoints(11);
+		verify(user).removePoints(eq(3), org.mockito.ArgumentMatchers.<java.util.function.Consumer<Boolean>>any());
+	}
 	@Test
 	void sharedBulkPointMutationsUseOnePersistenceSubmission() throws Exception {
 		PointFixture fixture = pointFixture();

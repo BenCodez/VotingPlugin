@@ -126,7 +126,7 @@ public class VoteShop extends GUIHandler {
 			public void onClick(ClickEvent event) {
 				VotingPluginUser clickedUser = getUser(event.getPlayer());
 				plugin.getVoteShopManager().getPurchaseService().refreshUserForPurchaseValidation(clickedUser,
-						plugin.getConfigFile().isExtraVoteShopCheck());
+						item, plugin.getConfigFile().isExtraVoteShopCheck());
 
 				if (item.isNotBuyable()) {
 					clickedUser.sendMessage(plugin.getConfigFile().getFormatShopNotPurchasable());
