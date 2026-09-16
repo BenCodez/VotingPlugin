@@ -14,6 +14,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
@@ -472,6 +473,111 @@ class VotingPluginUserPointSchedulingTest {
 		assertEquals(23, completion.join());
 		verifyNoInteractions(pluginManager);
 		verifyNoInteractions(fixture.scheduler);
+	}
+
+	@Test
+	void durableSharedAsyncRetrySurvivesSwitchToPerServerPoints() throws Exception {
+		PointFixture fixture = pointFixture();
+		when(fixture.plugin.getBungeeSettings().isPerServerPoints()).thenReturn(true);
+		doReturn("lobby_Points").when(fixture.user).getPointsPath();
+		PreparedStatement createTable = mock(PreparedStatement.class);
+		PreparedStatement createIndex = mock(PreparedStatement.class);
+		PreparedStatement lookup = mock(PreparedStatement.class);
+		ResultSet completed = mock(ResultSet.class);
+		when(completed.next()).thenReturn(true);
+		when(completed.getString(1)).thenReturn("00000000-0000-0000-0000-000000000001");
+		when(completed.getString(2)).thenReturn("Points");
+		when(completed.getInt(3)).thenReturn(7);
+		when(completed.getString(4)).thenReturn("COMPLETED");
+		when(completed.getObject(5)).thenReturn(Integer.valueOf(23));
+		when(completed.getInt(5)).thenReturn(23);
+		when(lookup.executeQuery()).thenReturn(completed);
+		when(fixture.connection.prepareStatement(anyString())).thenReturn(createTable, createIndex, lookup);
+		PluginManager pluginManager = mock(PluginManager.class);
+		CompletableFuture<Integer> completion;
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getPluginManager).thenReturn(pluginManager);
+			completion = fixture.user.addPointsStorageAwareAsync(5, "reward-operation").toCompletableFuture();
+		}
+
+		assertFalse(completion.isDone());
+		ArgumentCaptor<Runnable> persistenceWork = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence).execute(persistenceWork.capture());
+		persistenceWork.getValue().run();
+		assertEquals(23, completion.join());
+		verifyNoInteractions(pluginManager);
+		verifyNoInteractions(fixture.scheduler);
+		verify(fixture.user, never()).setPoints(anyInt(), eq(false));
+	}
+
+	@Test
+	void perServerPointAdditionRunsOnlyAfterHistoricJournalMissAndBukkitHandoff() throws Exception {
+		PointFixture fixture = pointFixture();
+		when(fixture.plugin.getBungeeSettings().isPerServerPoints()).thenReturn(true);
+		doReturn("lobby_Points").when(fixture.user).getPointsPath();
+		doReturn(10).when(fixture.user).getPoints();
+		doNothing().when(fixture.user).setPoints(15, false);
+		PreparedStatement schema = mock(PreparedStatement.class);
+		PreparedStatement lookup = mock(PreparedStatement.class);
+		ResultSet missing = mock(ResultSet.class);
+		when(missing.next()).thenReturn(false);
+		when(lookup.executeQuery()).thenReturn(missing);
+		when(fixture.connection.prepareStatement(anyString())).thenReturn(schema, schema, lookup);
+		PluginManager pluginManager = mock(PluginManager.class);
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getPluginManager).thenReturn(pluginManager);
+			CompletableFuture<Integer> completion = fixture.user
+					.addPointsStorageAwareAsync(5, "per-server-operation").toCompletableFuture();
+			ArgumentCaptor<Runnable> persistenceWork = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.persistence).execute(persistenceWork.capture());
+			verifyNoInteractions(pluginManager);
+			verify(fixture.user, never()).setPoints(anyInt(), eq(false));
+
+			persistenceWork.getValue().run();
+			ArgumentCaptor<Runnable> bukkitWork = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.scheduler).runTask(eq(fixture.plugin), bukkitWork.capture(), eq(fixture.player));
+			assertFalse(completion.isDone());
+			verifyNoInteractions(pluginManager);
+			verify(fixture.user, never()).setPoints(anyInt(), eq(false));
+
+			bukkitWork.getValue().run();
+			assertEquals(15, completion.join());
+			verify(pluginManager).callEvent(any(PlayerReceivePointsEvent.class));
+			verify(fixture.user).setPoints(15, false);
+		}
+	}
+
+	@Test
+	void perServerPointAdditionFailsWithoutWritingWhenBukkitHandoffIsRejected() throws Exception {
+		PointFixture fixture = pointFixture();
+		when(fixture.plugin.getBungeeSettings().isPerServerPoints()).thenReturn(true);
+		doReturn("lobby_Points").when(fixture.user).getPointsPath();
+		PreparedStatement schema = mock(PreparedStatement.class);
+		PreparedStatement lookup = mock(PreparedStatement.class);
+		ResultSet missing = mock(ResultSet.class);
+		when(missing.next()).thenReturn(false);
+		when(lookup.executeQuery()).thenReturn(missing);
+		when(fixture.connection.prepareStatement(anyString())).thenReturn(schema, schema, lookup);
+		when(fixture.entityScheduler.runAtEntityWithFallback(eq(fixture.player), any(), any(Runnable.class)))
+				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
+		doThrow(new RejectedExecutionException("stopping")).when(fixture.scheduler)
+				.runTask(eq(fixture.plugin), any(Runnable.class));
+		PluginManager pluginManager = mock(PluginManager.class);
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getPluginManager).thenReturn(pluginManager);
+			CompletableFuture<Integer> completion = fixture.user
+					.addPointsStorageAwareAsync(5, "per-server-operation").toCompletableFuture();
+			ArgumentCaptor<Runnable> persistenceWork = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.persistence).execute(persistenceWork.capture());
+			persistenceWork.getValue().run();
+
+			assertTrue(completion.isCompletedExceptionally());
+			verifyNoInteractions(pluginManager);
+			verify(fixture.user, never()).setPoints(anyInt(), eq(false));
+		}
 	}
 
 	@Test

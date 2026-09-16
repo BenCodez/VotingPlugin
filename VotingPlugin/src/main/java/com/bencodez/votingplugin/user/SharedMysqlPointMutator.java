@@ -238,7 +238,7 @@ final class SharedMysqlPointMutator {
 	}
 
 	CompletionStage<Void> acknowledgePointAddition(String operationId) {
-		if (!applies() || operationId == null || operationId.isEmpty()) {
+		if (!canRecoverSharedMysqlPointJournals(plugin) || operationId == null || operationId.isEmpty()) {
 			return CompletableFuture.completedFuture(null);
 		}
 		CompletableFuture<Void> completion = new CompletableFuture<>();
@@ -259,7 +259,7 @@ final class SharedMysqlPointMutator {
 	}
 
 	void acknowledgePointAdditionNow(String operationId) {
-		if (!applies() || operationId == null || operationId.isEmpty()) return;
+		if (!canRecoverSharedMysqlPointJournals(plugin) || operationId == null || operationId.isEmpty()) return;
 		try {
 			SharedPointAdditionJournal.forTable(plugin.getMysql()).acknowledge(operationId,
 					System.currentTimeMillis());

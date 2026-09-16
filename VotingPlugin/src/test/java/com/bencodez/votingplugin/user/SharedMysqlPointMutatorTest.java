@@ -23,6 +23,7 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -283,6 +284,38 @@ class SharedMysqlPointMutatorTest {
 
 		assertTrue(SharedMysqlPointMutator.canRecoverSharedMysqlPointJournals(plugin));
 		assertFalse(SharedMysqlPointMutator.usesSharedMysqlPoints(plugin));
+	}
+
+	@Test
+	void pointAdditionAcknowledgementSurvivesPerServerModeSwitch() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		ScheduledExecutorService persistence = mock(ScheduledExecutorService.class);
+		MySQL table = mock(MySQL.class);
+		com.bencodez.simpleapi.sql.mysql.MySQL sql =
+				mock(com.bencodez.simpleapi.sql.mysql.MySQL.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		Connection connection = mock(Connection.class);
+		PreparedStatement statement = mock(PreparedStatement.class);
+		when(plugin.getStorageType()).thenReturn(UserStorage.MYSQL);
+		when(plugin.getBungeeSettings().isPerServerPoints()).thenReturn(true);
+		when(plugin.getTimer()).thenReturn(persistence);
+		when(plugin.getMysql()).thenReturn(table);
+		when(table.getTableName()).thenReturn("VotingPlugin_Ack_Mode_Switch");
+		when(table.qi(anyString())).thenAnswer(call -> "`" + call.getArgument(0) + "`");
+		when(table.getMysql()).thenReturn(sql);
+		when(sql.getConnectionManager().getConnection()).thenReturn(connection);
+		when(connection.prepareStatement(anyString())).thenReturn(statement);
+
+		CompletableFuture<Void> completion = new SharedMysqlPointMutator(plugin)
+				.acknowledgePointAddition("reward-operation").toCompletableFuture();
+		assertFalse(completion.isDone());
+		ArgumentCaptor<Runnable> work = ArgumentCaptor.forClass(Runnable.class);
+		verify(persistence).execute(work.capture());
+		work.getValue().run();
+		completion.join();
+
+		verify(statement).setString(1, "ACKNOWLEDGED");
+		verify(statement).setString(3, "reward-operation");
+		verify(statement).setString(4, "COMPLETED");
 	}
 
 	@Test

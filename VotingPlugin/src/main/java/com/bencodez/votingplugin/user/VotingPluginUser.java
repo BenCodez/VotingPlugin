@@ -288,6 +288,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public synchronized CompletionStage<Integer> addPointsStorageAwareAsync(int value, String operationId) {
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
 		if (!sharedPoints.applies()) {
+			if (operationId != null && !operationId.isEmpty()
+					&& SharedMysqlPointMutator.canRecoverSharedMysqlPointJournals(plugin)) {
+				return addOrdinaryPointsAfterSharedReplayLookup(sharedPoints, value, operationId);
+			}
 			PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, value);
 			Bukkit.getPluginManager().callEvent(event);
 			if (event.isCancelled()) return CompletableFuture.completedFuture(getPoints());
@@ -320,6 +324,70 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			completion.completeExceptionally(rejected);
 		}
 		return completion;
+	}
+
+	/**
+	 * A retry may arrive after PerServerPoints was enabled. Consult the durable
+	 * shared-points journal before touching the now-local balance so an already
+	 * committed global credit cannot be applied a second time.
+	 */
+	private CompletionStage<Integer> addOrdinaryPointsAfterSharedReplayLookup(SharedMysqlPointMutator sharedPoints,
+			int value, String operationId) {
+		CompletableFuture<Integer> completion = new CompletableFuture<>();
+		String uuid = getUUID();
+		String journalPointsPath = "Points";
+		ReplayPointKey replayKey = new ReplayPointKey(plugin, operationId, uuid, journalPointsPath, value);
+		CompletableFuture<Integer> existing = IN_FLIGHT_POINT_REPLAYS.putIfAbsent(replayKey, completion);
+		if (existing != null) return existing;
+		completion.whenComplete((ignored, failure) -> IN_FLIGHT_POINT_REPLAYS.remove(replayKey, completion));
+		Player player = getPlayer();
+		try {
+			plugin.getTimer().execute(() -> {
+				try {
+					Integer completed = sharedPoints.completedPointAdditionTotal(operationId, uuid, journalPointsPath);
+					if (completed != null) {
+						completion.complete(completed);
+						return;
+					}
+					BukkitCompletionScheduler.run(plugin, player,
+							() -> completeOrdinaryPointAddition(sharedPoints, value, completion),
+							() -> completion.completeExceptionally(new IllegalStateException(
+									"Unable to schedule point addition after replay lookup")));
+				} catch (Throwable failure) {
+					completion.completeExceptionally(failure);
+				}
+			});
+		} catch (RuntimeException rejected) {
+			plugin.debug(rejected);
+			completion.completeExceptionally(rejected);
+		}
+		return completion;
+	}
+
+	private void completeOrdinaryPointAddition(SharedMysqlPointMutator sharedPoints, int value,
+			CompletableFuture<Integer> completion) {
+		try {
+			synchronized (this) {
+				// The persistence mode may have changed while the journal lookup was in
+				// flight. A retry can safely restart through the shared journal path.
+				if (sharedPoints.applies()) {
+					completion.completeExceptionally(
+							new IllegalStateException("Point storage mode changed during replay lookup"));
+					return;
+				}
+				PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, value);
+				Bukkit.getPluginManager().callEvent(event);
+				if (event.isCancelled()) {
+					completion.complete(getPoints());
+					return;
+				}
+				int newTotal = getPoints() + event.getPoints();
+				setPoints(newTotal, false);
+				completion.complete(newTotal);
+			}
+		} catch (Throwable failure) {
+			completion.completeExceptionally(failure);
+		}
 	}
 
 	/**
