@@ -746,6 +746,24 @@ class BackendConfigurationServiceTest {
 				Map.of("method", "PLUGINMESSAGING")));
 	}
 
+	@Test void proxyMethodApplyPreservesBlankCommentMetadataWithoutRollingBack() throws Exception {
+		Path settings = directory.resolve("BungeeSettings.yml");
+		Files.writeString(settings, "# Proxy settings\n#\n# Method selection\n"
+				+ "UseBungeecord: true\nServer: server\nBungeeMethod: PLUGINMESSAGING\n"
+				+ "PluginMessageChannel: vp:vp\nRedis:\n  Host: localhost\n  Port: 6379\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("proxy-method",
+				Map.of("method", "REDIS"));
+
+		BackendConfigurationService.ApplyResult applied = service.applyQuickSetup("proxy-method",
+				Map.of("method", "REDIS"), preview.revision(), ignored -> { });
+
+		assertFalse(applied.rolledBack());
+		assertTrue(Files.readString(settings).contains("BungeeMethod: REDIS"));
+		assertTrue(applied.document().content().contains("# Proxy settings"));
+		assertTrue(applied.document().content().contains("# Method selection"));
+	}
+
 	@Test void proxyMethodApplyUsesOnlyTheTargetedRuntimeAction() throws Exception {
 		Path settings = directory.resolve("BungeeSettings.yml");
 		Files.writeString(settings, "UseBungeecord: true\nServer: lobby\nBungeeMethod: PLUGINMESSAGING\n"
