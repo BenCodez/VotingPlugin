@@ -61,6 +61,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	private final HttpClient http;
 	private final BackendConfigurationService configurations;
 	private final ControlInspectionService inspections;
+	private final PluginDeploymentService deployments;
 	private final UUID sessionId = UUID.randomUUID();
 	private final Map<UUID, StoredResult> completed = new LinkedHashMap<>();
 	private final boolean recovering;
@@ -74,12 +75,14 @@ public final class BackendControlConnector implements AutoCloseable {
 	private volatile boolean quickSetupsAccepted;
 	private volatile boolean voteSitesSyncAccepted;
 	private volatile boolean inspectionsAccepted;
+	private volatile boolean deploymentsAccepted;
 	private volatile int inspectionFailures;
 	private volatile long inspectionRetryAtNanos;
 	private volatile int failures;
 	private volatile ScheduledFuture<?> scheduled;
 	private volatile ScheduledFuture<?> operationPolling;
 	private volatile ScheduledFuture<?> inspectionPolling;
+	private volatile ScheduledFuture<?> deploymentPolling;
 	private volatile Future<?> activeReload;
 	private volatile CompletableFuture<Void> activeOperation;
 
@@ -108,6 +111,13 @@ public final class BackendControlConnector implements AutoCloseable {
 				.followRedirects(HttpClient.Redirect.NEVER).build();
 		configurations = new BackendConfigurationService(plugin.getDataFolder().toPath(), this::reloadConfiguration);
 		inspections = new ControlInspectionService(plugin);
+		PluginDeploymentService prepared = null;
+		try {
+			prepared = PluginDeploymentService.backend(plugin.getServer().getUpdateFolderFile().toPath());
+		} catch (Exception failure) {
+			plugin.getLogger().warning("[Control] Plugin deployment staging is unavailable; capability not advertised");
+		}
+		deployments = prepared;
 	}
 
 	private void reloadConfiguration(String fileName) throws Exception {
@@ -190,6 +200,73 @@ public final class BackendControlConnector implements AutoCloseable {
 				OPERATION_POLL_MILLIS, OPERATION_POLL_MILLIS, TimeUnit.MILLISECONDS);
 		inspectionPolling = inspectionExecutor.scheduleWithFixedDelay(this::pollInspections,
 				OPERATION_POLL_MILLIS, OPERATION_POLL_MILLIS, TimeUnit.MILLISECONDS);
+		if (deployments != null) {
+			deploymentPolling = executor.scheduleWithFixedDelay(this::pollDeployments,
+					OPERATION_POLL_MILLIS, OPERATION_POLL_MILLIS, TimeUnit.MILLISECONDS);
+		}
+	}
+
+	/** Deployment is a separate leased lane; its large I/O never runs on Bukkit's primary thread. */
+	private void pollDeployments() {
+		if (closed || deployments == null || !registered || failures != 0 || !deploymentsAccepted
+				|| !running.compareAndSet(false, true)) return;
+		CompletableFuture<Void> operation = new CompletableFuture<>();
+		synchronized (operationLifecycle) {
+			if (closed) {
+				running.set(false);
+				return;
+			}
+			activeOperation = operation;
+		}
+		try {
+			claimAndDeploy();
+		} catch (Exception failure) {
+			registered = false;
+			failures = Math.min(30, failures + 1);
+			if (failures == 1 || failures % 10 == 0) {
+				plugin.getLogger().warning("[Control] Bukkit deployment polling unavailable; VotingPlugin remains active");
+			}
+			ScheduledFuture<?> heartbeat = scheduled;
+			if (heartbeat != null) heartbeat.cancel(false);
+			if (!closed) schedule(Math.min(TimeUnit.MINUTES.toMillis(5),
+					1000L << Math.min(failures - 1, 8)));
+		} finally {
+			operation.complete(null);
+			synchronized (operationLifecycle) {
+				if (activeOperation == operation) activeOperation = null;
+			}
+			running.set(false);
+		}
+	}
+
+	private void claimAndDeploy() throws Exception {
+		JsonObject body = new JsonObject();
+		body.addProperty("sessionId", sessionId.toString());
+		Response response = send("POST", "/api/v1/nodes/" + settings.nodeId() + "/deployments", body);
+		if (response.status() == 204 || closed) return;
+		JsonObject claimed = requireObject(response, 200);
+		PluginDeploymentService.Task task = deploymentTask(claimed);
+		PluginDeploymentService.Result result = deployments.deploy(task, settings.endpoint(), settings.nodeId(), sessionId,
+				credential, http, Duration.ofMillis(settings.requestTimeoutMillis()), () -> !closed);
+		if (closed) return;
+		JsonObject submitted = new JsonObject();
+		submitted.addProperty("sessionId", sessionId.toString());
+		submitted.addProperty("success", result.success());
+		submitted.addProperty("code", result.code());
+		submitted.addProperty("message", boundedResultMessage(result.message()));
+		submitted.addProperty("attemptId", task.attemptId().toString());
+		requireObject(send("POST", "/api/v1/nodes/" + settings.nodeId() + "/deployments/" + task.deploymentId()
+				+ "/result", submitted), 200);
+	}
+
+	private static PluginDeploymentService.Task deploymentTask(JsonObject task) {
+		try {
+			return new PluginDeploymentService.Task(UUID.fromString(string(task, "deploymentId")),
+					string(task, "artifactId"), string(task, "sha256"), Long.parseLong(string(task, "size")),
+					UUID.fromString(string(task, "attemptId")));
+		} catch (RuntimeException failure) {
+			throw new IllegalArgumentException("deployment task is invalid");
+		}
 	}
 
 	/** Polls the separately negotiated read-only lane on the connector worker. */
@@ -308,6 +385,8 @@ public final class BackendControlConnector implements AutoCloseable {
 			voteSitesSyncAccepted = negotiatedCapability(node, "config.vote-sites-sync.v1", voteSitesSyncAccepted);
 			boolean inspectionsWereAccepted = inspectionsAccepted;
 			inspectionsAccepted = negotiatedCapability(node, "data.inspect.v1", inspectionsAccepted);
+			deploymentsAccepted = deployments != null
+					&& negotiatedCapability(node, PluginDeploymentService.CAPABILITY, deploymentsAccepted);
 			if (inspectionsAccepted && !inspectionsWereAccepted) {
 				inspectionFailures = 0;
 				inspectionRetryAtNanos = 0;
@@ -358,6 +437,7 @@ public final class BackendControlConnector implements AutoCloseable {
 		quickSetupsAccepted = false;
 		voteSitesSyncAccepted = false;
 		inspectionsAccepted = false;
+		deploymentsAccepted = false;
 		JsonObject body = sessionBody();
 		body.addProperty("nodeId", settings.nodeId());
 		body.addProperty("displayName", settings.nodeId());
@@ -368,13 +448,13 @@ public final class BackendControlConnector implements AutoCloseable {
 				.map(installed -> installed.getDescription().getName()).filter(name -> name != null && !name.isBlank())
 				.distinct().sorted(String.CASE_INSENSITIVE_ORDER).limit(128).forEach(detectedPlugins::add);
 		body.add("detectedPlugins", detectedPlugins);
-		addCapabilities(body);
+		addCapabilities(body, deployments != null);
 		return requireObject(send("POST", "/api/v1/nodes/register", body), 200, 201);
 	}
 
 	private JsonObject heartbeat() throws Exception {
 		JsonObject body = sessionBody();
-		addCapabilities(body);
+		addCapabilities(body, deployments != null);
 		Response response = send("PUT", "/api/v1/nodes/" + settings.nodeId() + "/heartbeat", body);
 		if (response.status() == 404) {
 			registered = false;
@@ -762,8 +842,13 @@ public final class BackendControlConnector implements AutoCloseable {
 	}
 
 	static void addCapabilities(JsonObject body) {
+		addCapabilities(body, false);
+	}
+
+	static void addCapabilities(JsonObject body, boolean deploymentReady) {
 		JsonArray capabilities = new JsonArray();
 		CAPABILITIES.stream().sorted().forEach(capabilities::add);
+		if (deploymentReady) capabilities.add(PluginDeploymentService.CAPABILITY);
 		body.add("capabilities", capabilities);
 		JsonArray required = new JsonArray();
 		required.add("config.files.v1");
@@ -831,6 +916,9 @@ public final class BackendControlConnector implements AutoCloseable {
 		if (polling != null) polling.cancel(false);
 		ScheduledFuture<?> inspection = inspectionPolling;
 		if (inspection != null) inspection.cancel(false);
+		ScheduledFuture<?> deployment = deploymentPolling;
+		if (deployment != null) deployment.cancel(false);
+		if (deployments != null) deployments.cancel();
 		inspectionExecutor.shutdownNow();
 		if (reload != null && Bukkit.isPrimaryThread()) reload.cancel(false);
 		awaitShutdown(executor, operation);
