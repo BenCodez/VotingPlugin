@@ -765,7 +765,7 @@ public final class BackendConfigurationService {
 	}
 
 	private static List<String> withoutRedactedComments(List<String> comments) {
-		return comments.stream().filter(comment -> !comment.contains(REDACTED)).toList();
+		return comments.stream().filter(comment -> comment == null || !comment.contains(REDACTED)).toList();
 	}
 
 	private static String matchingKey(ConfigurationSection section, String expected, boolean ignoreCase) {
@@ -876,6 +876,13 @@ public final class BackendConfigurationService {
 		List<String> sanitized = new ArrayList<>(comments.size());
 		boolean redactContinuation = false;
 		for (String original : comments) {
+			if (original == null) {
+				// Bukkit comment metadata uses null entries to preserve blank lines.
+				// Keep that structural marker instead of treating it as text.
+				sanitized.add(null);
+				redactContinuation = false;
+				continue;
+			}
 			String comment = original;
 			if (redactContinuation) {
 				if (original.isBlank()) {
@@ -961,7 +968,8 @@ public final class BackendConfigurationService {
 
 	private static void addRedactedCommentOwner(Map<String, List<String>> markers, String owner,
 			List<String> comments) {
-		List<String> ownerMarkers = comments.stream().filter(comment -> comment.contains(REDACTED)).toList();
+		List<String> ownerMarkers = comments.stream()
+				.filter(comment -> comment != null && comment.contains(REDACTED)).toList();
 		if (!ownerMarkers.isEmpty()) markers.put(owner, ownerMarkers);
 	}
 
@@ -969,7 +977,7 @@ public final class BackendConfigurationService {
 			List<String> redactedCurrent) {
 		for (int index = 0; index < redactedCurrent.size(); index++) {
 			String redacted = redactedCurrent.get(index);
-			if (redacted.contains(REDACTED)
+			if (redacted != null && redacted.contains(REDACTED)
 					&& (index >= proposed.size() || !redacted.equals(proposed.get(index)))) {
 				throw new IllegalArgumentException("redacted comment placeholders must not be edited or moved");
 			}
@@ -977,7 +985,7 @@ public final class BackendConfigurationService {
 		List<String> restored = new ArrayList<>(proposed.size());
 		for (int index = 0; index < proposed.size(); index++) {
 			String comment = proposed.get(index);
-			if (!comment.contains(REDACTED)) {
+			if (comment == null || !comment.contains(REDACTED)) {
 				restored.add(comment);
 				continue;
 			}
