@@ -1212,13 +1212,19 @@ public final class ControlConnector implements AutoCloseable {
 	}
 
 	private void addCapabilities(JsonObject body) {
+		addCapabilities(body, configurationService != null, communicationTest != null, methodConfigurationService != null,
+				fileConfigurationService != null, deployments != null);
+	}
+
+	static void addCapabilities(JsonObject body, boolean configurationReady, boolean communicationReady,
+			boolean methodReady, boolean fileReady, boolean deploymentReady) {
 		JsonArray advertised = new JsonArray();
 		BASE_CAPABILITIES.stream().sorted().forEach(advertised::add);
-		if (configurationService != null) advertised.add(CONFIGURATION_CAPABILITY);
-		if (communicationTest != null) advertised.add(COMMUNICATION_TEST_CAPABILITY);
-		if (methodConfigurationService != null) advertised.add(PROXY_METHOD_CAPABILITY);
-		if (fileConfigurationService != null) advertised.add(PROXY_FILE_CAPABILITY);
-		if (deployments != null) advertised.add(PluginDeploymentService.CAPABILITY);
+		if (configurationReady) advertised.add(CONFIGURATION_CAPABILITY);
+		if (communicationReady) advertised.add(COMMUNICATION_TEST_CAPABILITY);
+		if (methodReady) advertised.add(PROXY_METHOD_CAPABILITY);
+		if (fileReady) advertised.add(PROXY_FILE_CAPABILITY);
+		if (deploymentReady) advertised.add(PluginDeploymentService.CAPABILITY);
 		body.add("capabilities", advertised);
 		JsonArray required = new JsonArray();
 		required.add("presence.snapshot");
