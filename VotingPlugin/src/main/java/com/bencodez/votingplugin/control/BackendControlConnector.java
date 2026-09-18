@@ -31,6 +31,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.control.BackendControlResultStore.Route;
 import com.bencodez.votingplugin.control.BackendControlResultStore.StoredResult;
+import com.bencodez.votingplugin.proxy.control.HostedControlManager;
 import com.bencodez.votingplugin.proxy.control.HostedControlManager.HostConfiguration;
 import com.bencodez.votingplugin.util.BoundedHttpBodyHandler;
 import com.bencodez.votingplugin.util.ControlCredentialFile;
@@ -62,6 +63,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	private final BackendConfigurationService configurations;
 	private final ControlInspectionService inspections;
 	private final PluginDeploymentService deployments;
+	private final boolean directLocalDeploymentEndpoint;
 	private final UUID sessionId = UUID.randomUUID();
 	private final Map<UUID, StoredResult> completed = new LinkedHashMap<>();
 	private final boolean recovering;
@@ -111,11 +113,19 @@ public final class BackendControlConnector implements AutoCloseable {
 				.followRedirects(HttpClient.Redirect.NEVER).build();
 		configurations = new BackendConfigurationService(plugin.getDataFolder().toPath(), this::reloadConfiguration);
 		inspections = new ControlInspectionService(plugin);
+		directLocalDeploymentEndpoint = HostedControlManager.isDirectLocalEndpoint(
+				settings.endpoint().toString(), hostedConfiguration);
 		PluginDeploymentService prepared = null;
-		try {
-			prepared = PluginDeploymentService.backend(plugin.getServer().getUpdateFolderFile().toPath());
-		} catch (Exception failure) {
-			plugin.getLogger().warning("[Control] Plugin deployment staging is unavailable; capability not advertised");
+		boolean deploymentEndpointAllowed = PluginDeploymentService.credentialEndpointAllowed(
+				settings.endpoint(), directLocalDeploymentEndpoint);
+		if (!recovering && deploymentEndpointAllowed) {
+			try {
+				prepared = PluginDeploymentService.backend(plugin.getServer().getUpdateFolderFile().toPath());
+			} catch (Exception failure) {
+				plugin.getLogger().warning("[Control] Plugin deployment staging is unavailable; capability not advertised");
+			}
+		} else if (!recovering && !deploymentEndpointAllowed) {
+			plugin.getLogger().warning("[Control] Plugin deployment staging requires HTTPS unless Control is hosted directly on this node");
 		}
 		deployments = prepared;
 	}
@@ -246,8 +256,9 @@ public final class BackendControlConnector implements AutoCloseable {
 		if (response.status() == 204 || closed) return;
 		JsonObject claimed = requireObject(response, 200);
 		PluginDeploymentService.Task task = deploymentTask(claimed);
-		PluginDeploymentService.Result result = deployments.deploy(task, settings.endpoint(), settings.nodeId(), sessionId,
-				credential, http, Duration.ofMillis(settings.requestTimeoutMillis()), () -> !closed);
+		PluginDeploymentService.Result result = deployments.deploy(task, settings.endpoint(), directLocalDeploymentEndpoint,
+				settings.nodeId(), sessionId, credential, http, Duration.ofMillis(settings.requestTimeoutMillis()),
+				() -> !closed);
 		if (closed) return;
 		JsonObject submitted = new JsonObject();
 		submitted.addProperty("sessionId", sessionId.toString());
