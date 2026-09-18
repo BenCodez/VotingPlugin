@@ -88,6 +88,18 @@ class ControlConnectorTest {
 		assertEquals(1, secondSnapshot.get("sequence").getAsLong());
 	}
 
+	@Test void deploymentCapabilityIsAdvertisedOnlyWhenProxyStagingIsReady() {
+		JsonObject unavailable = new JsonObject();
+		ControlConnector.addCapabilities(unavailable, true, true, true, true, false);
+		assertFalse(unavailable.getAsJsonArray("capabilities").asList().stream()
+				.anyMatch(value -> "plugin.deploy.v1".equals(value.getAsString())));
+
+		JsonObject ready = new JsonObject();
+		ControlConnector.addCapabilities(ready, true, true, true, true, true);
+		assertTrue(ready.getAsJsonArray("capabilities").asList().stream()
+				.anyMatch(value -> "plugin.deploy.v1".equals(value.getAsString())));
+	}
+
 	@Test void unavailableAuthenticationProtocolAndMalformedResponsesOnlyChangeConnectorState() {
 		transport.nextPrimary = new Response(401, "{\"error\":{}}");
 		connector.cycle();
