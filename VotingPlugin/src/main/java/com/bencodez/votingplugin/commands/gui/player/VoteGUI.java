@@ -180,6 +180,15 @@ public class VoteGUI extends GUIHandler {
 		// not available
 	}
 
+	static String getRequiredPermission(VotingPluginMain plugin, Player player, VotingPluginUser viewedUser) {
+		VotingPluginUser viewingUser = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
+		String viewingUuid = viewingUser == null ? null : viewingUser.getUUID();
+		if (viewingUuid != null && viewedUser != null && viewingUuid.equals(viewedUser.getUUID())) {
+			return "VotingPlugin.Commands.Vote.GUI";
+		}
+		return "VotingPlugin.Commands.Vote.GUI.Other";
+	}
+
 	@Override
 	public void onChest(Player player) {
 		if (this.user == null) {
@@ -190,11 +199,7 @@ public class VoteGUI extends GUIHandler {
 			inv.dontClose();
 		}
 
-		if (player.getUniqueId().toString().equals(user.getUUID())) {
-			inv.requirePermission("VotingPlugin.Commands.Vote.GUI");
-		} else {
-			inv.requirePermission("VotingPlugin.Commands.Vote.GUI.Other");
-		}
+		inv.requirePermission(getRequiredPermission(plugin, player, user));
 
 		inv.addPlaceholder("points", "" + user.getPoints());
 		inv.addPlaceholder("player", user.getPlayerName());
