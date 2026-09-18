@@ -1,7 +1,6 @@
 package com.bencodez.votingplugin.commands.gui.player;
 
 import java.util.ArrayList;
-import java.util.Objects;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -183,8 +182,8 @@ public class VoteGUI extends GUIHandler {
 
 	static String getRequiredPermission(VotingPluginMain plugin, Player player, VotingPluginUser viewedUser) {
 		VotingPluginUser viewingUser = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
-		if (viewingUser != null && viewedUser != null
-				&& Objects.equals(viewingUser.getUUID(), viewedUser.getUUID())) {
+		String viewingUuid = viewingUser == null ? null : viewingUser.getUUID();
+		if (viewingUuid != null && viewedUser != null && viewingUuid.equals(viewedUser.getUUID())) {
 			return "VotingPlugin.Commands.Vote.GUI";
 		}
 		return "VotingPlugin.Commands.Vote.GUI.Other";

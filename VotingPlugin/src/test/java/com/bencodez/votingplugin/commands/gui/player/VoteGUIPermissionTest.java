@@ -38,6 +38,23 @@ class VoteGUIPermissionTest {
 	}
 
 	@Test
+	void nullUserUuidsNeverGrantSelfGuiPermission() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		UserManager userManager = mock(UserManager.class);
+		Player player = mock(Player.class);
+		VotingPluginUser viewingUser = mock(VotingPluginUser.class);
+		VotingPluginUser viewedUser = mock(VotingPluginUser.class);
+
+		when(plugin.getVotingPluginUserManager()).thenReturn(userManager);
+		when(userManager.getVotingPluginUser(player)).thenReturn(viewingUser);
+		when(viewingUser.getUUID()).thenReturn(null);
+		when(viewedUser.getUUID()).thenReturn(null);
+
+		assertEquals("VotingPlugin.Commands.Vote.GUI.Other",
+				VoteGUI.getRequiredPermission(plugin, player, viewedUser));
+	}
+
+	@Test
 	void otherPlayerGuiStillRequiresOtherPermission() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		UserManager userManager = mock(UserManager.class);
