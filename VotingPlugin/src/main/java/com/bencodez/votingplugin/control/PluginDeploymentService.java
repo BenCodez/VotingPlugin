@@ -30,6 +30,8 @@ import java.util.function.BooleanSupplier;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
+import com.bencodez.votingplugin.util.DurableFiles;
+
 /**
  * Bounded, pull-only staging for the optional {@code plugin.deploy.v1} capability.
  * It deliberately never reloads a plugin or starts a server.  The small on-disk
@@ -102,11 +104,15 @@ public final class PluginDeploymentService {
 		}
 	}
 
-	public Result deploy(Task task, URI endpoint, String nodeId, UUID sessionId, String credential,
-			HttpClient http, Duration timeout, BooleanSupplier active) {
+	public Result deploy(Task task, URI endpoint, boolean directLocalHosted, String nodeId, UUID sessionId,
+			String credential, HttpClient http, Duration timeout, BooleanSupplier active) {
 		if (!staging.compareAndSet(false, true)) return Result.failure("DEPLOYMENT_FAILED", "Another deployment is still staging");
 		try {
 			validate(task);
+			if (!credentialEndpointAllowed(endpoint, directLocalHosted)) {
+				return Result.failure("INSECURE_ENDPOINT",
+						"Verified update staging requires HTTPS unless Control is hosted directly on this node");
+			}
 			if (alreadyStaged(task)) return Result.restartRequired();
 			if (!active.getAsBoolean()) return Result.failure("CANCELLED", "Deployment was cancelled before download");
 			URI artifact = endpoint.resolve("/api/v1/nodes/" + nodeId + "/deployments/" + task.deploymentId()
@@ -361,6 +367,11 @@ public final class PluginDeploymentService {
 		String[] fields = Files.readString(marker, StandardCharsets.US_ASCII).split("\\R", -1);
 		if (fields.length < 3 || !task.deploymentId().toString().equals(fields[0])
 				|| !task.sha256().equals(fields[1]) || !Long.toString(task.size()).equals(fields[2])) return false;
+		if (!replaceExisting && !Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+			// Bukkit removes the staged update JAR after consuming it on restart. The
+			// durable matching marker still proves this exact deployment was staged.
+			return true;
+		}
 		return targetMatches(task);
 	}
 
@@ -403,8 +414,12 @@ public final class PluginDeploymentService {
 	}
 
 	private static void forceDirectory(Path directory) throws IOException {
-		try (FileChannel channel = FileChannel.open(directory, StandardOpenOption.READ)) { channel.force(true); }
-		catch (UnsupportedOperationException ignored) { /* Some supported filesystems cannot fsync directories. */ }
+		DurableFiles.forceDirectory(directory);
+	}
+
+	static boolean credentialEndpointAllowed(URI endpoint, boolean directLocalHosted) {
+		return endpoint != null && ("https".equalsIgnoreCase(endpoint.getScheme())
+				|| directLocalHosted && "http".equalsIgnoreCase(endpoint.getScheme()));
 	}
 
 	private static MessageDigest sha256() {
