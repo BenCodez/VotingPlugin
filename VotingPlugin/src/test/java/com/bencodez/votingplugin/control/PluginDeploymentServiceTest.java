@@ -45,6 +45,31 @@ class PluginDeploymentServiceTest {
 		assertTrue(service.stage(task, new ByteArrayInputStream(new byte[0]), () -> true).success());
 	}
 
+	@Test void backendMatchingMarkerSurvivesBukkitConsumingTheStagedJar() throws Exception {
+		byte[] artifact = jar("name: VotingPlugin\n");
+		Path update = directory.resolve("update");
+		PluginDeploymentService service = PluginDeploymentService.backend(update);
+		PluginDeploymentService.Task task = task(artifact);
+
+		assertTrue(service.stage(task, new ByteArrayInputStream(artifact), () -> true).success());
+		Files.delete(update.resolve("VotingPlugin.jar"));
+
+		assertTrue(service.stage(task, new ByteArrayInputStream(new byte[0]), () -> true).success());
+		assertFalse(Files.exists(update.resolve("VotingPlugin.jar")),
+				"a lost result acknowledgement after restart must not stage the consumed update again");
+	}
+
+	@Test void credentialedDeploymentRequiresHttpsUnlessSameNodeHostedHttpWasProven() {
+		assertTrue(PluginDeploymentService.credentialEndpointAllowed(
+				java.net.URI.create("https://control.example.test"), false));
+		assertFalse(PluginDeploymentService.credentialEndpointAllowed(
+				java.net.URI.create("http://192.0.2.10:8080"), false));
+		assertFalse(PluginDeploymentService.credentialEndpointAllowed(
+				java.net.URI.create("http://127.0.0.1:8080"), false));
+		assertTrue(PluginDeploymentService.credentialEndpointAllowed(
+				java.net.URI.create("http://127.0.0.1:8080"), true));
+	}
+
 	@Test void backendIgnoresMatchingMarkerOnlyWhenTargetIsValidThenRestagesWhenCorrupted() throws Exception {
 		byte[] artifact = jar("name: VotingPlugin\n");
 		PluginDeploymentService service = PluginDeploymentService.backend(directory.resolve("update"));
