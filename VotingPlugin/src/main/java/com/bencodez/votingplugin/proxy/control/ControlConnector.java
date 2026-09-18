@@ -38,6 +38,7 @@ import java.util.regex.Pattern;
 
 import com.bencodez.votingplugin.control.PluginDeploymentService;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
+import com.bencodez.votingplugin.proxy.control.HostedControlManager.HostConfiguration;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 import com.bencodez.votingplugin.proxy.presence.BackendPresenceStatus;
 import com.bencodez.votingplugin.proxy.control.ProxyControlResultStore.Route;
@@ -84,6 +85,7 @@ public final class ControlConnector implements AutoCloseable {
 	private final PluginDeploymentService deployments;
 	private final HttpClient deploymentHttp;
 	private final String deploymentCredential;
+	private final boolean directLocalDeploymentEndpoint;
 	private final ExecutorService deploymentExecutor;
 	private final Function<String, CompletableFuture<VotingPluginProxy.CommunicationTestResult>> communicationTest;
 	private final Runnable runtimeReplacement;
@@ -142,7 +144,7 @@ public final class ControlConnector implements AutoCloseable {
 			ProxyConfigurationFileService fileConfigurationService) {
 		this(settings, scheduler, transport, snapshotSource, logger, sessionId, jitterSource, configurationService,
 				dataDirectory, route, recovering, recoveryComplete, communicationTest, methodConfigurationService,
-				runtimeReplacement, fileConfigurationService, null, null, null);
+				runtimeReplacement, fileConfigurationService, null, null, null, false);
 	}
 
 	private ControlConnector(Settings settings, ScheduledExecutorService scheduler, Transport transport,
@@ -152,7 +154,7 @@ public final class ControlConnector implements AutoCloseable {
 			Function<String, CompletableFuture<VotingPluginProxy.CommunicationTestResult>> communicationTest,
 			ProxyMethodConfigurationService methodConfigurationService, Runnable runtimeReplacement,
 			ProxyConfigurationFileService fileConfigurationService, PluginDeploymentService deployments,
-			HttpClient deploymentHttp, String deploymentCredential) {
+			HttpClient deploymentHttp, String deploymentCredential, boolean directLocalDeploymentEndpoint) {
 		this.settings = Objects.requireNonNull(settings, "settings");
 		this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
 		this.transport = Objects.requireNonNull(transport, "transport");
@@ -168,6 +170,7 @@ public final class ControlConnector implements AutoCloseable {
 		this.deployments = deployments;
 		this.deploymentHttp = deploymentHttp;
 		this.deploymentCredential = deploymentCredential;
+		this.directLocalDeploymentEndpoint = directLocalDeploymentEndpoint;
 		this.deploymentExecutor = deployments == null ? null : Executors.newSingleThreadExecutor(runnable -> {
 			Thread thread = new Thread(runnable, "votingplugin-control-proxy-deployment");
 			thread.setDaemon(true);
@@ -223,6 +226,7 @@ public final class ControlConnector implements AutoCloseable {
 			}
 		}
 		boolean recovering = recovered != null && recovered.routeRequired();
+		boolean deploymentRouteCurrent = config.getControlEnabled() && !recovering;
 		String credential = ControlCredentialFile.read(dataDirectory, credentialName);
 		HttpControlTransport transport = new HttpControlTransport(settings.endpoint(), credential,
 				settings.connectTimeoutMillis(), settings.requestTimeoutMillis());
@@ -241,7 +245,21 @@ public final class ControlConnector implements AutoCloseable {
 			backends.sort(Comparator.comparing(ObservedBackend::backendId));
 			return List.copyOf(backends);
 		};
-		PluginDeploymentService deployments = prepareDeployment(proxy);
+		HostConfiguration hosted = new HostConfiguration(config.getControlHostedEnabled(),
+				config.getControlHostedAutoDownload(), config.getControlHostedAutoUpdate(),
+				config.getControlHostedDownloadUrl(), config.getControlHostedSha256(),
+				config.getControlHostedJarFile(), config.getControlHostedDataDirectory(),
+				config.getControlHostedHost(), config.getControlHostedPort(),
+				config.getControlHostedStartupTimeoutSeconds(), config.getControlHostedDownloadTimeoutSeconds());
+		boolean directLocalDeploymentEndpoint = HostedControlManager.isDirectLocalEndpoint(
+				settings.endpoint().toString(), hosted);
+		boolean deploymentEndpointAllowed = PluginDeploymentService.credentialEndpointAllowed(
+				settings.endpoint(), directLocalDeploymentEndpoint);
+		PluginDeploymentService deployments = deploymentRouteCurrent && deploymentEndpointAllowed
+				? prepareDeployment(proxy) : null;
+		if (deploymentRouteCurrent && !deploymentEndpointAllowed) {
+			proxy.log("[Control] Plugin deployment staging requires HTTPS unless Control is hosted directly on this node");
+		}
 		HttpClient deploymentHttp = deployments == null ? null : HttpClient.newBuilder()
 				.connectTimeout(Duration.ofMillis(settings.connectTimeoutMillis()))
 				.followRedirects(HttpClient.Redirect.NEVER).build();
@@ -251,7 +269,7 @@ public final class ControlConnector implements AutoCloseable {
 				route, recovering, proxy::restartControlServicesAfterRecovery,
 				server -> proxy.testBackendCommunication(server, 5000L), new ProxyMethodConfigurationService(proxy),
 				() -> proxy.reloadCore(true), new ProxyConfigurationFileService(proxy),
-				deployments, deploymentHttp, credential);
+				deployments, deploymentHttp, credential, directLocalDeploymentEndpoint);
 		if (recovered != null) connector.completedTasks.putAll(recovered.results());
 		return connector;
 	}
@@ -272,12 +290,12 @@ public final class ControlConnector implements AutoCloseable {
 
 	/** Keeps large artifact transfer and disk staging off proxy event threads and serializes it with operations. */
 	private void pollDeployments() {
+		CompletableFuture<Void> done = new CompletableFuture<>();
 		synchronized (operationLifecycle) {
 			if (closed || !registered || status != Status.CONNECTED || !deploymentsAccepted || deployments == null
 					|| !inFlight.compareAndSet(false, true)) return;
+			activeOperation = done;
 		}
-		CompletableFuture<Void> done = new CompletableFuture<>();
-		activeOperation = done;
 		CompletableFuture<Void> work;
 		try {
 			CompletableFuture<Response> claim = transport.send(deploymentClaimRequest());
@@ -297,7 +315,11 @@ public final class ControlConnector implements AutoCloseable {
 			}
 			if (activeOperation == done) activeOperation = null;
 			finishCycle();
-			if (cause != null && !closed) onFailure(cause);
+			if (cause != null && !closed) {
+				ScheduledFuture<?> heartbeat = scheduled;
+				if (heartbeat != null) heartbeat.cancel(false);
+				onFailure(cause);
+			}
 		});
 	}
 
@@ -314,8 +336,9 @@ public final class ControlConnector implements AutoCloseable {
 		}
 		requireSuccess(response);
 		PluginDeploymentService.Task task = deploymentTask(parseObject(response.body));
-		return CompletableFuture.supplyAsync(() -> deployments.deploy(task, settings.endpoint(), settings.nodeId(), sessionId,
-				deploymentCredential, deploymentHttp, Duration.ofMillis(settings.requestTimeoutMillis()), () -> !closed),
+		return CompletableFuture.supplyAsync(() -> deployments.deploy(task, settings.endpoint(),
+				directLocalDeploymentEndpoint, settings.nodeId(), sessionId, deploymentCredential, deploymentHttp,
+				Duration.ofMillis(settings.requestTimeoutMillis()), () -> !closed),
 				deploymentExecutor).thenCompose(result -> {
 					if (closed) return CompletableFuture.completedFuture(null);
 					JsonObject body = new JsonObject();
