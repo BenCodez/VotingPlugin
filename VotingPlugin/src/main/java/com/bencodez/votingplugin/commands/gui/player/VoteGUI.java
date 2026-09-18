@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.commands.gui.player;
 
 import java.util.ArrayList;
+import java.util.Objects;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -180,6 +181,15 @@ public class VoteGUI extends GUIHandler {
 		// not available
 	}
 
+	static String getRequiredPermission(VotingPluginMain plugin, Player player, VotingPluginUser viewedUser) {
+		VotingPluginUser viewingUser = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
+		if (viewingUser != null && viewedUser != null
+				&& Objects.equals(viewingUser.getUUID(), viewedUser.getUUID())) {
+			return "VotingPlugin.Commands.Vote.GUI";
+		}
+		return "VotingPlugin.Commands.Vote.GUI.Other";
+	}
+
 	@Override
 	public void onChest(Player player) {
 		if (this.user == null) {
@@ -190,11 +200,7 @@ public class VoteGUI extends GUIHandler {
 			inv.dontClose();
 		}
 
-		if (player.getUniqueId().toString().equals(user.getUUID())) {
-			inv.requirePermission("VotingPlugin.Commands.Vote.GUI");
-		} else {
-			inv.requirePermission("VotingPlugin.Commands.Vote.GUI.Other");
-		}
+		inv.requirePermission(getRequiredPermission(plugin, player, user));
 
 		inv.addPlaceholder("points", "" + user.getPoints());
 		inv.addPlaceholder("player", user.getPlayerName());
