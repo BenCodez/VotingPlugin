@@ -54,12 +54,14 @@ public final class PluginDeploymentService {
 	private final Path target;
 	private final Path root;
 	private final Path marker;
+	private final Path installedBackendJar;
 	private final boolean replaceExisting;
 	private final AtomicBoolean staging = new AtomicBoolean();
 	private final AtomicReference<InputStream> activeResponse = new AtomicReference<>();
 
-	private PluginDeploymentService(Path target, boolean replaceExisting) throws IOException {
+	private PluginDeploymentService(Path target, Path installedBackendJar, boolean replaceExisting) throws IOException {
 		this.target = target.toAbsolutePath().normalize();
+		this.installedBackendJar = installedBackendJar == null ? null : installedBackendJar.toAbsolutePath().normalize();
 		this.replaceExisting = replaceExisting;
 		Path parent = this.target.getParent();
 		if (parent == null) throw new IOException("deployment target has no parent");
@@ -78,10 +80,15 @@ public final class PluginDeploymentService {
 		this.marker = root.resolve(this.target.getFileName() + MARKER);
 	}
 
-	/** Bukkit's update folder preserves the currently loaded plugin JAR. */
-	public static PluginDeploymentService backend(Path updateDirectory) throws IOException {
+	/** Bukkit consumes an update only when its file name matches the currently loaded plugin JAR. */
+	public static PluginDeploymentService backend(Path updateDirectory, Path currentPluginJar) throws IOException {
 		if (updateDirectory == null) throw new IOException("Bukkit update folder is unavailable");
-		return new PluginDeploymentService(updateDirectory.resolve("VotingPlugin.jar"), false);
+		if (currentPluginJar == null || currentPluginJar.getFileName() == null
+				|| !currentPluginJar.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".jar")) {
+			throw new IOException("Bukkit plugin JAR is unavailable");
+		}
+		return new PluginDeploymentService(updateDirectory.resolve(currentPluginJar.getFileName().toString()),
+				currentPluginJar, false);
 	}
 
 	/** Proxies atomically replace their discovered plugin JAR only after a durable backup. */
@@ -91,7 +98,7 @@ public final class PluginDeploymentService {
 		}
 		if (!Files.isRegularFile(currentPluginJar, LinkOption.NOFOLLOW_LINKS)
 				|| Files.isSymbolicLink(currentPluginJar)) throw new IOException("proxy plugin JAR is unsafe");
-		return new PluginDeploymentService(currentPluginJar, true);
+		return new PluginDeploymentService(currentPluginJar, null, true);
 	}
 
 	public boolean isStaging() { return staging.get(); }
@@ -181,7 +188,7 @@ public final class PluginDeploymentService {
 			if (!active.getAsBoolean()) return Result.failure("CANCELLED", "Deployment was cancelled before staging");
 			activation = new Activation();
 			activate(temporary, activation);
-			writeMarker(task);
+			writeMarker(task, activation);
 			activation.discard();
 			return Result.restartRequired();
 		} catch (CancelledDeploymentException failure) {
@@ -311,6 +318,7 @@ public final class PluginDeploymentService {
 	private final class Activation {
 		private final Path previous;
 		private boolean published;
+		private boolean markerPublished;
 
 		private Activation() throws IOException {
 			if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
@@ -330,6 +338,7 @@ public final class PluginDeploymentService {
 				discard();
 				return;
 			}
+			if (markerPublished) DurableFiles.deleteIfExists(marker);
 			if (previous == null) {
 				if (!Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(target)) {
 					throw new IOException("deployed target cannot be safely removed");
@@ -351,12 +360,17 @@ public final class PluginDeploymentService {
 	}
 
 	private void writeMarker(Task task) throws IOException {
+		writeMarker(task, null);
+	}
+
+	private void writeMarker(Task task, Activation activation) throws IOException {
 		Path temporary = Files.createTempFile(root, target.getFileName().toString() + ".", ".marker");
 		try {
 			Files.writeString(temporary, task.deploymentId() + "\n" + task.sha256() + "\n" + task.size() + "\n",
 					StandardCharsets.US_ASCII, StandardOpenOption.TRUNCATE_EXISTING);
 			force(temporary);
 			move(temporary, marker);
+			if (activation != null) activation.markerPublished = true;
 			forceDirectory(root);
 		} finally { Files.deleteIfExists(temporary); }
 	}
@@ -368,9 +382,10 @@ public final class PluginDeploymentService {
 		if (fields.length < 3 || !task.deploymentId().toString().equals(fields[0])
 				|| !task.sha256().equals(fields[1]) || !Long.toString(task.size()).equals(fields[2])) return false;
 		if (!replaceExisting && !Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
-			// Bukkit removes the staged update JAR after consuming it on restart. The
-			// durable matching marker still proves this exact deployment was staged.
-			return true;
+			// Bukkit removes the staged update JAR after consuming it on restart. A
+			// missing staging file alone is not proof: it may have been deleted or
+			// quarantined. Confirm the installed backend JAR is the exact artifact.
+			return installedBackendJar != null && fileMatches(installedBackendJar, task);
 		}
 		return targetMatches(task);
 	}
@@ -388,16 +403,20 @@ public final class PluginDeploymentService {
 	}
 
 	private boolean targetMatches(Task task) throws IOException {
-		if (!Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(target)
-				|| Files.size(target) != task.size()) return false;
+		return fileMatches(target, task);
+	}
+
+	private boolean fileMatches(Path candidate, Task task) throws IOException {
+		if (!Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(candidate)
+				|| Files.size(candidate) != task.size()) return false;
 		MessageDigest digest = sha256();
-		try (InputStream input = Files.newInputStream(target, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
+		try (InputStream input = Files.newInputStream(candidate, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
 			byte[] bytes = new byte[BUFFER_BYTES];
 			for (int read; (read = input.read(bytes)) != -1;) digest.update(bytes, 0, read);
 		}
 		if (!task.sha256().equals(HexFormat.of().formatHex(digest.digest()))) return false;
 		try {
-			inspectJar(target);
+			inspectJar(candidate);
 			return true;
 		} catch (InvalidArtifactException invalid) {
 			return false;
@@ -417,9 +436,29 @@ public final class PluginDeploymentService {
 		DurableFiles.forceDirectory(directory);
 	}
 
-	static boolean credentialEndpointAllowed(URI endpoint, boolean directLocalHosted) {
-		return endpoint != null && ("https".equalsIgnoreCase(endpoint.getScheme())
-				|| directLocalHosted && "http".equalsIgnoreCase(endpoint.getScheme()));
+	/** True when a deployment bearer credential may be sent to this Control endpoint. */
+	public static boolean credentialEndpointAllowed(URI endpoint, boolean directLocalHosted) {
+		if (endpoint == null) return false;
+		if ("https".equalsIgnoreCase(endpoint.getScheme())) return true;
+		return directLocalHosted && "http".equalsIgnoreCase(endpoint.getScheme())
+				&& isLoopbackHost(endpoint.getHost());
+	}
+
+	private static boolean isLoopbackHost(String host) {
+		if (host == null) return false;
+		String normalized = host;
+		if (normalized.length() >= 2 && normalized.charAt(0) == '['
+				&& normalized.charAt(normalized.length() - 1) == ']') {
+			normalized = normalized.substring(1, normalized.length() - 1);
+		}
+		if ("localhost".equalsIgnoreCase(normalized) || "::1".equalsIgnoreCase(normalized)
+				|| "0:0:0:0:0:0:0:1".equalsIgnoreCase(normalized)) return true;
+		String[] octets = normalized.split("\\.", -1);
+		if (octets.length != 4 || !"127".equals(octets[0])) return false;
+		for (int index = 1; index < octets.length; index++) {
+			if (!octets[index].matches("[0-9]{1,3}") || Integer.parseInt(octets[index]) > 255) return false;
+		}
+		return true;
 	}
 
 	private static MessageDigest sha256() {

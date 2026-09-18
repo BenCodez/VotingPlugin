@@ -45,6 +45,7 @@ import com.bencodez.votingplugin.proxy.control.ProxyControlResultStore.Route;
 import com.bencodez.votingplugin.proxy.control.ProxyControlResultStore.StoredResult;
 import com.bencodez.votingplugin.util.BoundedHttpBodyHandler;
 import com.bencodez.votingplugin.util.ControlCredentialFile;
+import com.bencodez.votingplugin.util.DurableFiles;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -365,6 +366,10 @@ public final class ControlConnector implements AutoCloseable {
 	}
 
 	private static PluginDeploymentService prepareDeployment(VotingPluginProxy proxy) {
+		if (!proxyDeploymentSupported(System.getProperty("os.name", ""))) {
+			proxy.log("[Control] Plugin deployment staging is unavailable on Windows proxies; capability not advertised");
+			return null;
+		}
 		try {
 			var source = proxy.getClass().getProtectionDomain().getCodeSource();
 			if (source == null || !"file".equalsIgnoreCase(source.getLocation().getProtocol())) return null;
@@ -373,6 +378,10 @@ public final class ControlConnector implements AutoCloseable {
 			proxy.log("[Control] Plugin deployment staging is unavailable; capability not advertised");
 			return null;
 		}
+	}
+
+	static boolean proxyDeploymentSupported(String osName) {
+		return !DurableFiles.isWindowsName(osName);
 	}
 
 	/** Polls only the operation queue; heartbeat and presence retain their configured cadence. */

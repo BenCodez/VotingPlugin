@@ -34,7 +34,7 @@ class PluginDeploymentServiceTest {
 
 	@Test void backendStagesOnlyAnExactVerifiedVotingPluginJarAndIsIdempotent() throws Exception {
 		byte[] artifact = jar("name: VotingPlugin\nmain: example.Main\n");
-		PluginDeploymentService service = PluginDeploymentService.backend(directory.resolve("update"));
+		PluginDeploymentService service = PluginDeploymentService.backend(directory.resolve("update"), Path.of("VotingPlugin.jar"));
 		PluginDeploymentService.Task task = task(artifact);
 
 		PluginDeploymentService.Result staged = service.stage(task, new ByteArrayInputStream(artifact), () -> true);
@@ -45,18 +45,48 @@ class PluginDeploymentServiceTest {
 		assertTrue(service.stage(task, new ByteArrayInputStream(new byte[0]), () -> true).success());
 	}
 
-	@Test void backendMatchingMarkerSurvivesBukkitConsumingTheStagedJar() throws Exception {
+	@Test void backendStagesUsingTheInstalledPluginJarFileName() throws Exception {
 		byte[] artifact = jar("name: VotingPlugin\n");
 		Path update = directory.resolve("update");
-		PluginDeploymentService service = PluginDeploymentService.backend(update);
+		PluginDeploymentService service = PluginDeploymentService.backend(update,
+				directory.resolve("plugins/VotingPlugin-7.1.2.jar"));
+
+		assertEquals("RESTART_REQUIRED", service.stage(task(artifact), new ByteArrayInputStream(artifact), () -> true).code());
+		assertArrayEquals(artifact, Files.readAllBytes(update.resolve("VotingPlugin-7.1.2.jar")));
+		assertFalse(Files.exists(update.resolve("VotingPlugin.jar")));
+	}
+
+	@Test void backendMatchingMarkerSurvivesBukkitConsumingTheStagedJar() throws Exception {
+		byte[] artifact = jar("name: VotingPlugin\nversion: candidate\n");
+		Path update = directory.resolve("update");
+		Path installed = directory.resolve("VotingPlugin.jar");
+		Files.write(installed, jar("name: VotingPlugin\nversion: old\n"));
+		PluginDeploymentService service = PluginDeploymentService.backend(update, installed);
+		PluginDeploymentService.Task task = task(artifact);
+
+		assertTrue(service.stage(task, new ByteArrayInputStream(artifact), () -> true).success());
+		Files.write(installed, artifact);
+		Files.delete(update.resolve("VotingPlugin.jar"));
+
+		assertTrue(service.stage(task, new ByteArrayInputStream(new byte[0]), () -> true).success());
+		assertFalse(Files.exists(update.resolve("VotingPlugin.jar")),
+				"a lost acknowledgement after restart must recognize the artifact Bukkit already consumed");
+	}
+
+	@Test void backendRestagesWhenTheUpdateJarDisappearsBeforeBukkitConsumesIt() throws Exception {
+		byte[] artifact = jar("name: VotingPlugin\nversion: candidate\n");
+		Path update = directory.resolve("update");
+		Path installed = directory.resolve("VotingPlugin.jar");
+		Files.write(installed, jar("name: VotingPlugin\nversion: old\n"));
+		PluginDeploymentService service = PluginDeploymentService.backend(update, installed);
 		PluginDeploymentService.Task task = task(artifact);
 
 		assertTrue(service.stage(task, new ByteArrayInputStream(artifact), () -> true).success());
 		Files.delete(update.resolve("VotingPlugin.jar"));
 
-		assertTrue(service.stage(task, new ByteArrayInputStream(new byte[0]), () -> true).success());
-		assertFalse(Files.exists(update.resolve("VotingPlugin.jar")),
-				"a lost result acknowledgement after restart must not stage the consumed update again");
+		assertTrue(service.stage(task, new ByteArrayInputStream(artifact), () -> true).success());
+		assertArrayEquals(artifact, Files.readAllBytes(update.resolve("VotingPlugin.jar")),
+				"a deleted or quarantined update must be staged again before restart");
 	}
 
 	@Test void credentialedDeploymentRequiresHttpsUnlessSameNodeHostedHttpWasProven() {
@@ -68,11 +98,15 @@ class PluginDeploymentServiceTest {
 				java.net.URI.create("http://127.0.0.1:8080"), false));
 		assertTrue(PluginDeploymentService.credentialEndpointAllowed(
 				java.net.URI.create("http://127.0.0.1:8080"), true));
+		assertTrue(PluginDeploymentService.credentialEndpointAllowed(
+				java.net.URI.create("http://[::1]:8080"), true));
+		assertFalse(PluginDeploymentService.credentialEndpointAllowed(
+				java.net.URI.create("http://127.example.com:8080"), true));
 	}
 
 	@Test void backendIgnoresMatchingMarkerOnlyWhenTargetIsValidThenRestagesWhenCorrupted() throws Exception {
 		byte[] artifact = jar("name: VotingPlugin\n");
-		PluginDeploymentService service = PluginDeploymentService.backend(directory.resolve("update"));
+		PluginDeploymentService service = PluginDeploymentService.backend(directory.resolve("update"), Path.of("VotingPlugin.jar"));
 		PluginDeploymentService.Task task = task(artifact);
 
 		service.stage(task, new ByteArrayInputStream(artifact), () -> true);
@@ -89,7 +123,7 @@ class PluginDeploymentServiceTest {
 
 	@Test void invalidPluginIdentityAndDigestNeverReachTheUpdateFolder() throws Exception {
 		byte[] wrongPlugin = jar("name: NotVotingPlugin\n");
-		PluginDeploymentService service = PluginDeploymentService.backend(directory.resolve("update"));
+		PluginDeploymentService service = PluginDeploymentService.backend(directory.resolve("update"), Path.of("VotingPlugin.jar"));
 		PluginDeploymentService.Result invalid = service.stage(task(wrongPlugin), new ByteArrayInputStream(wrongPlugin), () -> true);
 		assertFalse(invalid.success());
 		assertEquals("INVALID_ARTIFACT", invalid.code());
@@ -139,7 +173,7 @@ class PluginDeploymentServiceTest {
 
 	@Test void cancellationDuringCopyDoesNotPublish() throws Exception {
 		byte[] artifact = jar("name: VotingPlugin\n");
-		PluginDeploymentService service = PluginDeploymentService.backend(directory.resolve("update"));
+		PluginDeploymentService service = PluginDeploymentService.backend(directory.resolve("update"), Path.of("VotingPlugin.jar"));
 		PluginDeploymentService.Task task = task(artifact);
 
 		assertEquals("RESTART_REQUIRED", service.stage(task, new ByteArrayInputStream(artifact), () -> true).code());
@@ -166,7 +200,7 @@ class PluginDeploymentServiceTest {
 		Path marker = update.resolve("VotingPlugin.jar.control-deployment");
 		Files.createDirectory(marker);
 		Files.writeString(marker.resolve("keep"), "marker publication must fail");
-		PluginDeploymentService service = PluginDeploymentService.backend(update);
+		PluginDeploymentService service = PluginDeploymentService.backend(update, Path.of("VotingPlugin.jar"));
 
 		assertThrows(IOException.class, () -> service.stage(task(candidate), new ByteArrayInputStream(candidate), () -> true));
 
@@ -190,7 +224,7 @@ class PluginDeploymentServiceTest {
 	}
 
 	@Test void cancellationClosesAStalledArtifactStream() throws Exception {
-		PluginDeploymentService service = PluginDeploymentService.backend(directory.resolve("update"));
+		PluginDeploymentService service = PluginDeploymentService.backend(directory.resolve("update"), Path.of("VotingPlugin.jar"));
 		AtomicBoolean active = new AtomicBoolean(true);
 		BlockingInputStream stalled = new BlockingInputStream(active);
 		ExecutorService executor = Executors.newSingleThreadExecutor();

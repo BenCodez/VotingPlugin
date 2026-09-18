@@ -120,7 +120,8 @@ public final class BackendControlConnector implements AutoCloseable {
 				settings.endpoint(), directLocalDeploymentEndpoint);
 		if (!recovering && deploymentEndpointAllowed) {
 			try {
-				prepared = PluginDeploymentService.backend(plugin.getServer().getUpdateFolderFile().toPath());
+				prepared = PluginDeploymentService.backend(plugin.getServer().getUpdateFolderFile().toPath(),
+						plugin.getLoadedPluginJarFile().toPath());
 			} catch (Exception failure) {
 				plugin.getLogger().warning("[Control] Plugin deployment staging is unavailable; capability not advertised");
 			}

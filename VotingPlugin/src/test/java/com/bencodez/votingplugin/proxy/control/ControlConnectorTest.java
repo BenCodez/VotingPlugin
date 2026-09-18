@@ -891,6 +891,13 @@ class ControlConnectorTest {
 		assertEquals(Status.STOPPED, connector.status());
 	}
 
+	@Test void proxyDeploymentIsNotAdvertisedOnWindowsWhereTheLiveJarCannotBeReplaced() {
+		assertFalse(ControlConnector.proxyDeploymentSupported("Windows 11"));
+		assertFalse(ControlConnector.proxyDeploymentSupported("Windows Server 2022"));
+		assertTrue(ControlConnector.proxyDeploymentSupported("Linux"));
+		assertTrue(ControlConnector.proxyDeploymentSupported("Darwin"));
+	}
+
 	@Test void backoffIsBoundedExponentialAndJitteredWithoutSleeping() {
 		assertEquals(1000, ControlConnector.backoffMillis(1, 0));
 		assertEquals(2000, ControlConnector.backoffMillis(2, 0));
