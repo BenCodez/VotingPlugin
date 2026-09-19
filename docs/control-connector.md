@@ -231,7 +231,7 @@ The separate `config.reward-files.v1` capability permits bounded inventory and t
 workflow for existing, directly contained `Rewards/<name>.yml` files. It is not a general file browser or file-creation
 API. Names are restricted to simple ASCII basenames, case-only ambiguity is rejected, and symlinked reward paths are
 not followed. The inventory exposes names only. The optional capability is advertised only on filesystems with secure
-directory handles and private POSIX staging-file support. An older Control or connector can continue using the other negotiated
+directory handles, pinned directory-force support and private POSIX staging-file support. An older Control or connector can continue using the other negotiated
 capabilities without named reward-file editing; see [the agent contract](control-agent-contract.md#named-reward-files-configreward-filesv1).
 
 Control configuration snapshots store the redacted managed-file content returned by this read path, not raw credentials.

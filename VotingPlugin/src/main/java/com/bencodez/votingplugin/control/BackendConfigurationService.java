@@ -13,6 +13,7 @@ import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
@@ -65,6 +66,8 @@ public final class BackendConfigurationService {
 	private final Path dataDirectory;
 	private final ApplyAction reload;
 	private final MoveAction mover;
+	private Object checkedStagingDirectory;
+	private boolean privateStagingAvailable;
 
 	public BackendConfigurationService(Path dataDirectory, ReloadAction reload) {
 		this(dataDirectory, ignored -> reload.run());
@@ -81,28 +84,49 @@ public final class BackendConfigurationService {
 	}
 
 	/** Whether this filesystem can provide the pinned, private writes required by named rewards. */
-	boolean supportsNamedRewardFiles() {
-		return supportsNamedRewardFiles(dataDirectory);
+	synchronized boolean supportsNamedRewardFiles() {
+		return supportsNamedRewardFiles(dataDirectory, channel -> channel.force(true), directory -> {
+			Object key = rewardDirectoryKey(directory);
+			if (!key.equals(checkedStagingDirectory)) {
+				try {
+					privateStagingAvailable = privateStagingSupported(directory);
+				} catch (IOException | UnsupportedOperationException unavailable) {
+					privateStagingAvailable = false;
+				}
+				checkedStagingDirectory = key;
+			}
+			return privateStagingAvailable;
+		});
 	}
 
 	static boolean supportsNamedRewardFiles(Path directory) {
+		return supportsNamedRewardFiles(directory, channel -> channel.force(true));
+	}
+
+	static boolean supportsNamedRewardFiles(Path directory, DirectoryForcer force) {
+		return supportsNamedRewardFiles(directory, force, BackendConfigurationService::privateStagingSupported);
+	}
+
+	static boolean supportsNamedRewardFiles(Path directory, DirectoryForcer force, DirectoryStagingSupport staging) {
 		try {
-			if (!Files.getFileStore(directory).supportsFileAttributeView("posix")) return false;
 			try (DirectoryStream<Path> entries = Files.newDirectoryStream(directory)) {
 				if (!(entries instanceof java.nio.file.SecureDirectoryStream<?> secure)) return false;
 				@SuppressWarnings("unchecked")
 				java.nio.file.SecureDirectoryStream<Path> root =
 						(java.nio.file.SecureDirectoryStream<Path>) secure;
 				rewardDirectoryKey(root);
-				try (java.nio.file.SecureDirectoryStream<Path> rewards = root.newDirectoryStream(Path.of("Rewards"),
-						LinkOption.NOFOLLOW_LINKS)) {
-					rewardDirectoryKey(rewards);
-					return true;
+				java.nio.file.SecureDirectoryStream<Path> openedRewards;
+				try {
+					openedRewards = root.newDirectoryStream(Path.of("Rewards"), LinkOption.NOFOLLOW_LINKS);
 				} catch (java.nio.file.NoSuchFileException absent) {
-					return true;
+					return staging.supports(root) && pinnedDirectoryForceAvailable(root, force);
+				}
+				try (java.nio.file.SecureDirectoryStream<Path> rewards = openedRewards) {
+					rewardDirectoryKey(rewards);
+					return staging.supports(rewards) && pinnedDirectoryForceAvailable(rewards, force);
 				}
 			}
-		} catch (IOException | SecurityException unavailable) {
+		} catch (IOException | SecurityException | UnsupportedOperationException unavailable) {
 			return false;
 		}
 	}
@@ -123,9 +147,14 @@ public final class BackendConfigurationService {
 	 * exposed, while unsafe links or ambiguous case-only names fail closed.
 	 */
 	static List<String> rewardFileInventory(Path dataDirectory) throws IOException {
+		return rewardFileInventory(dataDirectory, BackendConfigurationService::rewardFileInventory);
+	}
+
+	static List<String> rewardFileInventory(Path dataDirectory, RewardDirectoryAction<List<String>> scan)
+			throws IOException {
 		try {
-			return withRewardDirectory(dataDirectory.toAbsolutePath().normalize(), BackendConfigurationService::rewardFileInventory);
-		} catch (java.nio.file.NoSuchFileException missing) {
+			return withRewardDirectory(dataDirectory.toAbsolutePath().normalize(), scan);
+		} catch (MissingRewardDirectoryException missing) {
 			return List.of();
 		}
 	}
@@ -281,10 +310,11 @@ public final class BackendConfigurationService {
 				writeRaw(rewards, backupStaging, current, true);
 				if (!revision(readRaw(rewards, name, false)).equals(expectedRevision)) throw new StaleRevisionException();
 				rewards.move(Path.of(backupStaging), rewards, Path.of(backup));
+				forcePinnedRewardDirectory(rewards, directoryKey);
 				if (!revision(readRaw(rewards, name, false)).equals(expectedRevision)) throw new StaleRevisionException();
 				rewards.move(Path.of(staging), rewards, Path.of(name));
 				installed = true;
-				requireCurrentRewardDirectory(directoryKey);
+				forcePinnedRewardDirectory(rewards, directoryKey);
 				applyAction.runNamedReward(fileName, preview.resolvedContent());
 				requireCurrentRewardDirectory(directoryKey);
 				String applied = readRaw(rewards, name, false);
@@ -308,7 +338,7 @@ public final class BackendConfigurationService {
 							throw new IOException("Managed configuration changed while rollback was staged");
 						}
 						rewards.move(Path.of(rollbackStaging), rewards, Path.of(name));
-						requireCurrentRewardDirectory(directoryKey);
+						forcePinnedRewardDirectory(rewards, directoryKey);
 						applyAction.runNamedReward(fileName, current);
 						requireCurrentRewardDirectory(directoryKey);
 						rolledBack = true;
@@ -331,6 +361,56 @@ public final class BackendConfigurationService {
 		return key;
 	}
 
+	private static boolean pinnedDirectoryForceAvailable(java.nio.file.SecureDirectoryStream<Path> directory,
+			DirectoryForcer force)
+			throws IOException {
+		try (SeekableByteChannel channel = directory.newByteChannel(Path.of("."),
+				Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS))) {
+			if (!(channel instanceof FileChannel fileChannel)) return false;
+			force.force(fileChannel);
+			return true;
+		}
+	}
+
+	private static boolean privateStagingSupported(java.nio.file.SecureDirectoryStream<Path> directory)
+			throws IOException {
+		PosixFileAttributeView view = directory.getFileAttributeView(PosixFileAttributeView.class);
+		if (view == null) return false;
+		view.readAttributes();
+		// The view alone does not prove that this provider permits the exact
+		// descriptor-relative, private create and force path used by APPLY.
+		Path probe = Path.of(".control-capability-" + UUID.randomUUID() + ".tmp");
+		boolean created = false;
+		try {
+			try (SeekableByteChannel channel = directory.newByteChannel(probe,
+					Set.of(StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS),
+					PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")))) {
+				created = true;
+				if (!(channel instanceof FileChannel fileChannel)) return false;
+				fileChannel.force(true);
+			}
+			PosixFileAttributeView staged = directory.getFileAttributeView(probe,
+					PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+			return staged != null && staged.readAttributes().permissions().equals(
+					PosixFilePermissions.fromString("rw-------"));
+		} finally {
+			if (created) directory.deleteFile(probe);
+		}
+	}
+
+	private void forcePinnedRewardDirectory(java.nio.file.SecureDirectoryStream<Path> rewards, Object directoryKey)
+			throws IOException {
+		requireCurrentRewardDirectory(directoryKey);
+		try (SeekableByteChannel channel = rewards.newByteChannel(Path.of("."),
+				Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS))) {
+			if (!(channel instanceof FileChannel fileChannel)) {
+				throw new IOException("durable named reward directory publication is unavailable");
+			}
+			fileChannel.force(true);
+		}
+		requireCurrentRewardDirectory(directoryKey);
+	}
+
 	private void requireCurrentRewardDirectory(Object pinnedKey) throws IOException {
 		BasicFileAttributes current = Files.readAttributes(dataDirectory.resolve("Rewards"),
 				BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
@@ -351,8 +431,13 @@ public final class BackendConfigurationService {
 			@SuppressWarnings("unchecked")
 			java.nio.file.SecureDirectoryStream<Path> root =
 					(java.nio.file.SecureDirectoryStream<Path>) secureRoot;
-			try (java.nio.file.SecureDirectoryStream<Path> rewards = root.newDirectoryStream(Path.of("Rewards"),
-					LinkOption.NOFOLLOW_LINKS)) {
+			java.nio.file.SecureDirectoryStream<Path> openedRewards;
+			try {
+				openedRewards = root.newDirectoryStream(Path.of("Rewards"), LinkOption.NOFOLLOW_LINKS);
+			} catch (java.nio.file.NoSuchFileException missing) {
+				throw new MissingRewardDirectoryException(missing);
+			}
+			try (java.nio.file.SecureDirectoryStream<Path> rewards = openedRewards) {
 				return action.run(rewards);
 			}
 		}
@@ -1434,8 +1519,17 @@ public final class BackendConfigurationService {
 	public record QuickPreview(QuickProposal proposal, String revision, List<String> changes) { }
 	public record QuickState(Map<String, String> options, String revision) { }
 	@FunctionalInterface interface ReadAction<T> { T run() throws IOException; }
-	@FunctionalInterface private interface RewardDirectoryAction<T> {
+	@FunctionalInterface interface DirectoryForcer { void force(FileChannel channel) throws IOException; }
+	@FunctionalInterface interface DirectoryStagingSupport {
+		boolean supports(java.nio.file.SecureDirectoryStream<Path> directory) throws IOException;
+	}
+	@FunctionalInterface interface RewardDirectoryAction<T> {
 		T run(java.nio.file.SecureDirectoryStream<Path> directory) throws IOException;
+	}
+	@SuppressWarnings("serial") private static final class MissingRewardDirectoryException extends IOException {
+		private MissingRewardDirectoryException(java.nio.file.NoSuchFileException cause) {
+			super("named reward directory is absent", cause);
+		}
 	}
 
 	@FunctionalInterface public interface ReloadAction { void run() throws Exception; }

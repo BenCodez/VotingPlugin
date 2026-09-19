@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Arrays;
 import java.util.List;
@@ -391,12 +392,46 @@ class BackendConfigurationServiceTest {
 		assertThrows(IOException.class, () -> service.read("Rewards/Oversized.yml"));
 	}
 
+	@Test void onlyAnAbsentRewardsDirectoryProducesAnEmptyInventory() throws Exception {
+		assertEquals(List.of(), BackendConfigurationService.rewardFileInventory(directory));
+		assertThrows(IOException.class, () -> BackendConfigurationService.rewardFileInventory(directory.resolve("missing")));
+		Files.createDirectory(directory.resolve("Rewards"));
+		assertThrows(java.nio.file.NoSuchFileException.class,
+				() -> BackendConfigurationService.rewardFileInventory(directory,
+						ignored -> { throw new java.nio.file.NoSuchFileException("disappeared-entry.yml"); }));
+	}
+
 	@Test void namedRewardCapabilityRequiresSecureDirectoryAndPrivateFileSupport() throws Exception {
 		assertTrue(BackendConfigurationService.supportsNamedRewardFiles(directory));
+		try (var entries = Files.list(directory)) {
+			assertFalse(entries.anyMatch(path -> path.getFileName().toString().startsWith(".control-capability-")));
+		}
+		assertFalse(BackendConfigurationService.supportsNamedRewardFiles(directory,
+				ignored -> { throw new IOException("directory forcing is unavailable"); }));
 		Path outside = Files.createDirectory(directory.resolve("outside"));
 		Files.createSymbolicLink(directory.resolve("Rewards"), outside);
 		assertFalse(BackendConfigurationService.supportsNamedRewardFiles(directory));
 		Files.delete(directory.resolve("Rewards"));
+		Files.createDirectory(directory.resolve("Rewards"));
+		assertTrue(BackendConfigurationService.supportsNamedRewardFiles(directory));
+		AtomicInteger checkedRewardDirectory = new AtomicInteger();
+		assertFalse(BackendConfigurationService.supportsNamedRewardFiles(directory,
+				channel -> channel.force(true), ignored -> {
+					checkedRewardDirectory.incrementAndGet();
+					return false;
+				}));
+		assertEquals(1, checkedRewardDirectory.get());
+		assertFalse(BackendConfigurationService.supportsNamedRewardFiles(directory,
+				channel -> channel.force(true),
+				ignored -> { throw new java.nio.file.NoSuchFileException("vanished-reward-entry"); }));
+		assertFalse(BackendConfigurationService.supportsNamedRewardFiles(directory,
+				channel -> channel.force(true), pinned -> {
+					assertTrue(pinned.getFileAttributeView(PosixFileAttributeView.class) != null);
+					throw new UnsupportedOperationException("private staging creation is unavailable");
+				}));
+		try (var entries = Files.list(directory.resolve("Rewards"))) {
+			assertFalse(entries.anyMatch(path -> path.getFileName().toString().startsWith(".control-capability-")));
+		}
 		Path archive = directory.resolve("unsupported.zip");
 		try (var zip = FileSystems.newFileSystem(URI.create("jar:" + archive.toUri()), Map.of("create", "true"))) {
 			Path plugin = Files.createDirectory(zip.getPath("/plugin"));

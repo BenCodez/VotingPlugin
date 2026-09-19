@@ -23,7 +23,8 @@ Inventory is the read-only `reward-file-inventory` inspection with empty filters
 It requires both `data.inspect.v1` and `config.reward-files.v1` to be accepted. A named file READ/PREVIEW/APPLY uses the
 existing configuration operation envelope with `domain:"file"` and `fileName:"Rewards/<name>.yml"`; the new capability
 must be accepted before the connector dispatches it. PREVIEW does not write. APPLY requires the approved exact revision,
-serializes competing applies on the node, stages a private file under the pinned Rewards directory handle, retains a
+serializes competing applies on the node, stages a private file under the pinned Rewards directory handle, forces
+published directory entries on providers that expose a pinned directory channel, retains a
 `.control-backup`, reloads VotingPlugin, verifies the named reward became active against the pinned proposal, and attempts local rollback and reload
 if that step fails. Directory replacement during apply fails closed; a restore to the pinned directory is not reported
 as an active rollback when the live Rewards path points elsewhere. Read results and inventory remain bounded and redact configuration secrets. This capability does not
