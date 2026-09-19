@@ -416,8 +416,8 @@ final class SharedPointTransferJournal {
 		String select = "SELECT " + qi("state") + ", " + qi("hook_owner") + " FROM " + qiJournal()
 				+ " WHERE " + qi("transfer_id") + " = ? FOR UPDATE";
 		String points = qi(adjustedCreditPoints == null ? sourcePointsColumn : targetPointsColumn);
-		String credit = "UPDATE " + qi(table.getTableName()) + " SET " + points + " = " + points
-				+ " + ? WHERE " + qi("uuid") + uuidCast();
+		String credit = "UPDATE " + qi(table.getTableName()) + " SET " + points + " = COALESCE(" + points
+				+ ", 0) + ? WHERE " + qi("uuid") + uuidCast();
 		String updateJournal = "UPDATE " + qiJournal() + " SET " + qi("state") + " = ?, "
 				+ qi("adjusted_credit_points") + " = ? WHERE " + qi("transfer_id") + " = ?";
 		try (Connection connection = connection()) {
@@ -602,7 +602,10 @@ final class SharedPointTransferJournal {
 	}
 
 	private static boolean isSafeColumn(String column) {
-		return column != null && column.matches("[A-Za-z][A-Za-z0-9_]{0,127}");
+		// AbstractSqlTable.qi escapes the dialect delimiter. Existing PerServerPoints
+		// names may begin with a digit or contain spaces; bound the value and reject
+		// only the NUL character before quoting it.
+		return column != null && !column.isEmpty() && column.length() <= 128 && column.indexOf('\0') < 0;
 	}
 
 	private TransferRow find(String transferId) throws SQLException {

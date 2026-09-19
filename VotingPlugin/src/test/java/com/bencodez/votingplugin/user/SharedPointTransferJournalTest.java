@@ -18,6 +18,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 
@@ -166,6 +167,10 @@ class SharedPointTransferJournalTest {
 		verify(journalUpdate).setString(1, "COMPLETED");
 		verify(journalUpdate).setInt(2, 4);
 		verify(fixture.lookup).commit();
+		ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+		verify(fixture.lookup, times(3)).prepareStatement(sql.capture());
+		assertTrue(sql.getAllValues().stream().anyMatch(statement ->
+				statement.contains("`Points` = COALESCE(`Points`, 0) + ?")));
 	}
 
 	@Test
@@ -303,7 +308,7 @@ class SharedPointTransferJournalTest {
 		PreparedStatement cleanupSelect = mock(PreparedStatement.class);
 		PreparedStatement cleanupDelete = mock(PreparedStatement.class);
 		ResultSet expiredReservation = ids("expired-reservation");
-		ResultSet reservedRecovery = recoveryRow("RESERVED", 1L, "source", "Points", 10);
+		ResultSet reservedRecovery = recoveryRow("RESERVED", 1L, "source", "9 Server Points", 10);
 		ResultSet noCleanupCandidates = ids();
 		when(reservedCandidates.prepareStatement(anyString())).thenReturn(reservedCandidateQuery);
 		when(reservedCandidateQuery.executeQuery()).thenReturn(expiredReservation);
@@ -325,7 +330,7 @@ class SharedPointTransferJournalTest {
 		verify(recovery).commit();
 		assertEquals(1, refunded.size());
 		assertEquals("source", refunded.get(0).uuid());
-		assertEquals("Points", refunded.get(0).pointsColumn());
+		assertEquals("9 Server Points", refunded.get(0).pointsColumn());
 	}
 
 	@Test
