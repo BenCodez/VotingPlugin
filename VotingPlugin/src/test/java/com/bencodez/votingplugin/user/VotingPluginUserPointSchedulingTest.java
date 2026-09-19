@@ -254,6 +254,77 @@ class VotingPluginUserPointSchedulingTest {
 	}
 
 	@Test
+	void perServerMysqlTransferQueuesPersistenceBeforeAnyDatabaseOrPointWrite() throws Exception {
+		PointFixture fixture = pointFixture();
+		when(fixture.plugin.getBungeeSettings().isPerServerPoints()).thenReturn(true);
+		VotingPluginUser target = mock(VotingPluginUser.class);
+		AtomicReference<PointTransferResult> result = new AtomicReference<>();
+
+		fixture.user.transferPointsWithResult(target, 10, result::set);
+
+		verify(fixture.persistence).execute(any(Runnable.class));
+		verify(fixture.sql.getConnectionManager(), never()).getConnection();
+		verify(fixture.user, never()).removePoints(10);
+		verify(target, never()).addPoints(10);
+		assertEquals(null, result.get());
+	}
+
+	@Test
+	void queuedPerServerPointCreditKeepsItsAdmissionColumnAfterModeReload() throws Exception {
+		PointFixture fixture = pointFixture();
+		when(fixture.plugin.getBungeeSettings().isPerServerPoints()).thenReturn(true);
+		java.util.concurrent.atomic.AtomicReference<String> currentColumn =
+				new java.util.concurrent.atomic.AtomicReference<>("hub_Points");
+		doAnswer(ignored -> currentColumn.get()).when(fixture.user).getPointsPath();
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getPluginManager).thenReturn(mock(PluginManager.class));
+			fixture.user.addPointsStorageAware(5, (success, total) -> { });
+		}
+		ArgumentCaptor<Runnable> queued = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence).execute(queued.capture());
+		verify(fixture.sql.getConnectionManager(), never()).getConnection();
+
+		currentColumn.set("Points");
+		when(fixture.plugin.getBungeeSettings().isPerServerPoints()).thenReturn(false);
+		queued.getValue().run();
+
+		verify(fixture.connection).prepareStatement(org.mockito.ArgumentMatchers.argThat(
+				query -> query.contains("`hub_Points` = COALESCE(`hub_Points`, 0) + ?")));
+		verify(fixture.connection, never()).prepareStatement(org.mockito.ArgumentMatchers.argThat(
+				query -> query.contains("`Points` = COALESCE(`Points`, 0) + ?")));
+	}
+
+	@Test
+	void queuedVotePointCreditKeepsItsAdmissionColumnAfterModeReload() throws Exception {
+		PointFixture fixture = pointFixture();
+		when(fixture.plugin.getBungeeSettings().isPerServerPoints()).thenReturn(true);
+		java.util.concurrent.atomic.AtomicReference<String> currentColumn =
+				new java.util.concurrent.atomic.AtomicReference<>("hub_Points");
+		doAnswer(ignored -> currentColumn.get()).when(fixture.user).getPointsPath();
+		UserData data = mock(UserData.class);
+		doReturn(data).when(fixture.user).getUserData();
+		when(data.getInt("hub_Points", UserDataFetchMode.TEMP_ONLY)).thenReturn(10);
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getPluginManager).thenReturn(mock(PluginManager.class));
+			assertEquals(15, fixture.user.addPointsStorageAware(5));
+		}
+		ArgumentCaptor<Runnable> queued = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.persistence).execute(queued.capture());
+		verify(fixture.sql.getConnectionManager(), never()).getConnection();
+
+		currentColumn.set("Points");
+		when(fixture.plugin.getBungeeSettings().isPerServerPoints()).thenReturn(false);
+		queued.getValue().run();
+
+		verify(fixture.connection).prepareStatement(org.mockito.ArgumentMatchers.argThat(
+				query -> query.contains("`hub_Points` = COALESCE(`hub_Points`, 0) + ?")));
+		verify(fixture.connection, never()).prepareStatement(org.mockito.ArgumentMatchers.argThat(
+				query -> query.contains("`Points` = COALESCE(`Points`, 0) + ?")));
+	}
+
+	@Test
 	void votePointAwardQueuesSharedMysqlMutationOffTheServerLane() throws Exception {
 		PointFixture fixture = pointFixture();
 		UserData data = mock(UserData.class);

@@ -117,11 +117,12 @@ final class SharedMysqlPointMutator {
 
 	int add(VotingPluginUser user, int amount, boolean async) {
 		if (async) {
-			int previousTotal = cachedPoints(user);
+			String pointsColumn = user.getPointsPath();
+			int previousTotal = cachedPoints(user, pointsColumn);
 			int predictedTotal = previousTotal + amount;
-			cachePredictedPoints(user, predictedTotal);
-			if (!run(() -> update(user, amount, false), true)) {
-				discardOptimisticPoints(user);
+			cachePredictedPoints(user, predictedTotal, pointsColumn);
+			if (!run(() -> update(user, amount, false, pointsColumn), true)) {
+				discardOptimisticPoints(user, pointsColumn);
 				return previousTotal;
 			}
 			// The mutation has not happened yet, so the historical asynchronous API
@@ -132,14 +133,18 @@ final class SharedMysqlPointMutator {
 	}
 
 	private void cachePredictedPoints(VotingPluginUser user, int predictedTotal) {
+		cachePredictedPoints(user, predictedTotal, user.getPointsPath());
+	}
+
+	private void cachePredictedPoints(VotingPluginUser user, int predictedTotal, String pointsColumn) {
 		UserDataCache cache = user.getCache();
 		if (cache == null) return;
 		synchronized (cache) {
 			var values = cache.getCache();
 			if (values == null) return;
 			DataValue prediction = new DataValueInt(predictedTotal);
-			values.put(user.getPointsPath(), prediction);
-			SharedMysqlCacheReconciler.recordOptimisticPoint(cache, user.getPointsPath(), prediction);
+			values.put(pointsColumn, prediction);
+			SharedMysqlCacheReconciler.recordOptimisticPoint(cache, pointsColumn, prediction);
 		}
 	}
 
@@ -150,10 +155,14 @@ final class SharedMysqlPointMutator {
 	 * the prediction while the async operation waited in the executor.
 	 */
 	private void discardOptimisticPoints(VotingPluginUser user) {
+		discardOptimisticPoints(user, user.getPointsPath());
+	}
+
+	private void discardOptimisticPoints(VotingPluginUser user, String pointsColumn) {
 		UserDataCache cache = user.getCache();
 		if (cache == null) return;
 		synchronized (cache) {
-			SharedMysqlCacheReconciler.discardOptimisticPoint(cache, user.getPointsPath());
+			SharedMysqlCacheReconciler.discardOptimisticPoint(cache, pointsColumn);
 		}
 	}
 
@@ -167,34 +176,46 @@ final class SharedMysqlPointMutator {
 	 * next invocation without applying the credit again.
 	 */
 	AddResult addCommitted(VotingPluginUser user, int amount, String operationId) {
-		if (operationId == null || operationId.isEmpty()) return addCommitted(user, amount);
-		drainCache(user);
+		return addCommittedToColumn(user, amount, operationId, user.getPointsPath());
+	}
+
+	AddResult addCommittedToColumn(VotingPluginUser user, int amount, String operationId, String pointsColumn) {
+		if (operationId == null || operationId.isEmpty()) return addCommittedToColumn(user, amount, pointsColumn);
+		drainCache(user, pointsColumn);
 		try {
 			SharedPointAdditionJournal.AdditionResult result = SharedPointAdditionJournal.forTable(plugin.getMysql())
-					.add(operationId, user.getUUID(), user.getPointsPath(), amount, System.currentTimeMillis());
+					.add(operationId, user.getUUID(), pointsColumn, amount, System.currentTimeMillis());
 			return new AddResult(true, result.total());
 		} catch (SQLException failure) {
 			logFailure(failure);
 			return new AddResult(MutationOutcome.INDETERMINATE, 0);
 		} finally {
-			discardPointsCache(user);
+			discardPointsCache(user, pointsColumn);
 		}
+	}
+
+	AddResult addCommittedToColumn(VotingPluginUser user, int amount, String pointsColumn) {
+		return addAndReadCommittedResult(user, amount, pointsColumn);
 	}
 
 	/** Durable, confirmable conditional debit for administrative and purchase retries. */
 	AddResult removeCommitted(VotingPluginUser user, int amount, String operationId) {
+		return removeCommittedFromColumn(user, amount, operationId, user.getPointsPath());
+	}
+
+	AddResult removeCommittedFromColumn(VotingPluginUser user, int amount, String operationId, String pointsColumn) {
 		if (operationId == null || operationId.isEmpty()) return new AddResult(false, 0);
-		drainCache(user);
+		drainCache(user, pointsColumn);
 		try {
 			SharedPointAdditionJournal.AdditionResult result = SharedPointAdditionJournal.forTable(plugin.getMysql())
-					.subtract(operationId, user.getUUID(), user.getPointsPath(), amount, System.currentTimeMillis());
+					.subtract(operationId, user.getUUID(), pointsColumn, amount, System.currentTimeMillis());
 			return new AddResult(true, result.total());
 		} catch (SQLException failure) {
 			logFailure(failure);
 			return new AddResult(failure instanceof SharedPointAdditionJournal.DebitRejectedException
 					? MutationOutcome.REJECTED : MutationOutcome.INDETERMINATE, 0);
 		} finally {
-			discardPointsCache(user);
+			discardPointsCache(user, pointsColumn);
 		}
 	}
 
@@ -300,15 +321,21 @@ final class SharedMysqlPointMutator {
 	}
 
 	void set(VotingPluginUser user, int value, boolean async) {
-		run(() -> setAbsolute(user, value), async);
+		String pointsColumn = user.getPointsPath();
+		run(() -> setAbsolute(user, value, pointsColumn), async);
 	}
 
 	boolean setCommitted(VotingPluginUser user, int value) {
 		return setAbsolute(user, value);
 	}
 
+	boolean setCommittedInColumn(VotingPluginUser user, int value, String pointsColumn) {
+		return setAbsolute(user, value, pointsColumn);
+	}
+
 	void cap(VotingPluginUser user, int maximum, boolean async) {
-		run(() -> capAt(user, maximum), async);
+		String pointsColumn = user.getPointsPath();
+		run(() -> capAt(user, maximum, pointsColumn), async);
 	}
 
 	/**
@@ -317,16 +344,17 @@ final class SharedMysqlPointMutator {
 	 * the addition while dropping a separately submitted cap.
 	 */
 	void addAndCap(VotingPluginUser user, int amount, int maximum, boolean async) {
+		String pointsColumn = user.getPointsPath();
 		if (!async) {
-			addAndCapAt(user, amount, maximum);
+			addAndCapAt(user, amount, maximum, pointsColumn);
 			return;
 		}
-		int previousTotal = cachedPoints(user);
+		int previousTotal = cachedPoints(user, pointsColumn);
 		int predictedTotal = (int) Math.max(Integer.MIN_VALUE,
 				Math.min((long) previousTotal + amount, maximum));
-		cachePredictedPoints(user, predictedTotal);
-		if (!run(() -> addAndCapAt(user, amount, maximum), true)) {
-			discardOptimisticPoints(user);
+		cachePredictedPoints(user, predictedTotal, pointsColumn);
+		if (!run(() -> addAndCapAt(user, amount, maximum, pointsColumn), true)) {
+			discardOptimisticPoints(user, pointsColumn);
 		}
 	}
 
@@ -336,15 +364,19 @@ final class SharedMysqlPointMutator {
 
 	boolean remove(VotingPluginUser user, int amount, boolean async) {
 		if (!async) return remove(user, amount);
-		boolean predictedSuccess = cachedPoints(user) >= amount;
-		boolean submitted = run(() -> update(user, -amount, true), true);
+		String pointsColumn = user.getPointsPath();
+		boolean predictedSuccess = cachedPoints(user, pointsColumn) >= amount;
+		boolean submitted = run(() -> update(user, -amount, true, pointsColumn), true);
 		// Preserve the historical asynchronous API contract: the caller receives
 		// the cached prediction while the conditional database debit runs later.
 		return submitted && predictedSuccess;
 	}
 
 	private int cachedPoints(VotingPluginUser user) {
-		String path = user.getPointsPath();
+		return cachedPoints(user, user.getPointsPath());
+	}
+
+	private int cachedPoints(VotingPluginUser user, String path) {
 		UserDataCache cache = user.getCache();
 		if (cache != null) {
 			synchronized (cache) {
@@ -460,6 +492,8 @@ final class SharedMysqlPointMutator {
 		org.bukkit.entity.Player sourcePlayer = source.getPlayer();
 		org.bukkit.entity.Player targetPlayer = target.getPlayer();
 		org.bukkit.entity.Player approvalPlayer = targetPlayer != null ? targetPlayer : sourcePlayer;
+		String sourcePoints = source.getPointsPath();
+		String targetPoints = target.getPointsPath();
 		try {
 			plugin.getTimer().execute(() -> {
 				try {
@@ -471,8 +505,6 @@ final class SharedMysqlPointMutator {
 					return;
 				}
 				MySQL table = plugin.getMysql();
-				String sourcePoints = source.getPointsPath();
-				String targetPoints = target.getPointsPath();
 				String transferId = UUID.randomUUID().toString();
 				String owner = UUID.randomUUID().toString();
 				SharedPointTransferJournal journal;
@@ -870,9 +902,12 @@ final class SharedMysqlPointMutator {
 	}
 
 	private boolean update(VotingPluginUser user, int delta, boolean requireNonnegative) {
-		drainCache(user);
+		return update(user, delta, requireNonnegative, user.getPointsPath());
+	}
+
+	private boolean update(VotingPluginUser user, int delta, boolean requireNonnegative, String points) {
+		drainCache(user, points);
 		MySQL table = plugin.getMysql();
-		String points = user.getPointsPath();
 		StringBuilder sql = new StringBuilder("UPDATE ").append(table.qi(table.getTableName())).append(" SET ")
 				.append(table.qi(points)).append(" = COALESCE(").append(table.qi(points)).append(", 0) + ? WHERE ")
 				.append(table.qi("uuid")).append(table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
@@ -889,7 +924,7 @@ final class SharedMysqlPointMutator {
 			logFailure(failure);
 			return false;
 		} finally {
-			discardPointsCache(user);
+			discardPointsCache(user, points);
 		}
 	}
 
@@ -903,9 +938,12 @@ final class SharedMysqlPointMutator {
 	}
 
 	private AddResult addAndReadCommittedResult(VotingPluginUser user, int amount) {
-		drainCache(user);
+		return addAndReadCommittedResult(user, amount, user.getPointsPath());
+	}
+
+	private AddResult addAndReadCommittedResult(VotingPluginUser user, int amount, String points) {
+		drainCache(user, points);
 		MySQL table = plugin.getMysql();
-		String points = user.getPointsPath();
 		String uuidMatch = table.qi("uuid") + (table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
 		String update = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(points) + " = COALESCE("
 				+ table.qi(points) + ", 0) + ? WHERE " + uuidMatch;
@@ -930,7 +968,7 @@ final class SharedMysqlPointMutator {
 		} catch (SQLException failure) {
 			logFailure(failure);
 		} finally {
-			discardPointsCache(user);
+			discardPointsCache(user, points);
 		}
 		// Do not evaluate the fallback while the JDBC handle is still held. With a
 		// one-connection pool, getPoints() may need that same handle after a missing
@@ -940,6 +978,9 @@ final class SharedMysqlPointMutator {
 		// mutation failure without checking out a second connection and let callers
 		// complete their callback deterministically.
 		if (!updateCommitted) return new AddResult(false, 0);
+		// A live mode reload can change getPointsPath() while this queued write is
+		// running. Keep the fallback on the column that received the credit.
+		if (!points.equals(user.getPointsPath())) return new AddResult(true, user.getUserData().getInt(points));
 		return new AddResult(true, user.getPoints());
 	}
 
@@ -953,9 +994,13 @@ final class SharedMysqlPointMutator {
 	}
 
 	private boolean setAbsolute(VotingPluginUser user, int value) {
-		drainCache(user);
+		return setAbsolute(user, value, user.getPointsPath());
+	}
+
+	private boolean setAbsolute(VotingPluginUser user, int value, String points) {
+		drainCache(user, points);
 		MySQL table = plugin.getMysql();
-		String sql = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(user.getPointsPath())
+		String sql = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(points)
 				+ " = ? WHERE " + table.qi("uuid")
 				+ (table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
 		try (Connection connection = requireConnection(table);
@@ -967,14 +1012,17 @@ final class SharedMysqlPointMutator {
 			logFailure(failure);
 			return false;
 		} finally {
-			discardPointsCache(user);
+			discardPointsCache(user, points);
 		}
 	}
 
 	private void capAt(VotingPluginUser user, int maximum) {
-		drainCache(user);
+		capAt(user, maximum, user.getPointsPath());
+	}
+
+	private void capAt(VotingPluginUser user, int maximum, String points) {
+		drainCache(user, points);
 		MySQL table = plugin.getMysql();
-		String points = user.getPointsPath();
 		String sql = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(points) + " = LEAST(COALESCE("
 				+ table.qi(points) + ", 0), ?) WHERE " + table.qi("uuid")
 				+ (table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
@@ -986,14 +1034,17 @@ final class SharedMysqlPointMutator {
 		} catch (SQLException failure) {
 			logFailure(failure);
 		} finally {
-			discardPointsCache(user);
+			discardPointsCache(user, points);
 		}
 	}
 
 	private void addAndCapAt(VotingPluginUser user, int amount, int maximum) {
-		drainCache(user);
+		addAndCapAt(user, amount, maximum, user.getPointsPath());
+	}
+
+	private void addAndCapAt(VotingPluginUser user, int amount, int maximum, String points) {
+		drainCache(user, points);
 		MySQL table = plugin.getMysql();
-		String points = user.getPointsPath();
 		String sql = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(points) + " = LEAST(COALESCE("
 				+ table.qi(points) + ", 0) + ?, ?) WHERE " + table.qi("uuid")
 				+ (table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
@@ -1006,7 +1057,7 @@ final class SharedMysqlPointMutator {
 		} catch (SQLException failure) {
 			logFailure(failure);
 		} finally {
-			discardPointsCache(user);
+			discardPointsCache(user, points);
 		}
 	}
 
@@ -1015,7 +1066,7 @@ final class SharedMysqlPointMutator {
 	}
 
 	private void drainCache(VotingPluginUser user, String pointsColumn) {
-		if (plugin.getBungeeSettings().isPerServerPoints()) {
+		if (!"Points".equals(pointsColumn)) {
 			plugin.getMysql().checkColumn(pointsColumn, DataType.INTEGER);
 		}
 		SharedMysqlCacheReconciler.withCacheDumpFence(() -> {

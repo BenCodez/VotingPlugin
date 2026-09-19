@@ -308,10 +308,12 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		if (event.isCancelled()) return CompletableFuture.completedFuture(getPoints());
 
 		CompletableFuture<Integer> completion = new CompletableFuture<>();
+		String pointsColumn = getPointsPath();
 		try {
 			plugin.getTimer().execute(() -> {
 				try {
-					SharedMysqlPointMutator.AddResult result = sharedPoints.addCommitted(this, event.getPoints(), operationId);
+					SharedMysqlPointMutator.AddResult result = sharedPoints.addCommittedToColumn(this,
+							event.getPoints(), operationId, pointsColumn);
 					if (result.success()) completion.complete(result.total());
 					else completion.completeExceptionally(
 							new IllegalStateException("Unable to persist shared MySQL points"));
@@ -644,10 +646,14 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			return;
 		}
 		java.util.IdentityHashMap<VotingPluginUser, Integer> eventAmounts = new java.util.IdentityHashMap<>();
+		java.util.IdentityHashMap<VotingPluginUser, String> pointColumns = new java.util.IdentityHashMap<>();
 		for (VotingPluginUser user : users) {
 			PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(user, value);
 			Bukkit.getPluginManager().callEvent(event);
-			if (!event.isCancelled()) eventAmounts.put(user, event.getPoints());
+			if (!event.isCancelled()) {
+				eventAmounts.put(user, event.getPoints());
+				pointColumns.put(user, user.getPointsPath());
+			}
 		}
 		bulkSharedMysqlMutation(plugin, users, completion,
 				(mutator, user) -> {
@@ -658,7 +664,8 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 					// sharing one id would make a retry unable to distinguish which
 					// rows were already credited.
 					String operationId = bulkPointOperationId("admin-bulk-points/", batchOperationId, user.getUUID());
-					boolean success = mutator.addCommitted(user, amount, operationId).success();
+					boolean success = mutator.addCommittedToColumn(user, amount, operationId,
+							pointColumns.get(user)).success();
 					if (success) mutator.acknowledgePointAdditionNow(operationId);
 					return success;
 				},
@@ -676,8 +683,9 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public static void setPointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users, int value,
 			BiConsumer<VotingPluginUser, Boolean> completion) {
+		java.util.IdentityHashMap<VotingPluginUser, String> pointColumns = capturePointColumns(users);
 		bulkSharedMysqlMutation(plugin, users, completion,
-				(mutator, user) -> mutator.setCommitted(user, value),
+				(mutator, user) -> mutator.setCommittedInColumn(user, value, pointColumns.get(user)),
 				(user, done) -> {
 					user.setPoints(value);
 					done.accept(true);
@@ -699,9 +707,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			return;
 		}
 		Player player = getPlayer();
+		String pointsColumn = getPointsPath();
 		try {
 			plugin.getTimer().execute(() -> {
-				boolean updated = sharedPoints.setCommitted(this, value);
+				boolean updated = sharedPoints.setCommittedInColumn(this, value, pointsColumn);
 				BukkitCompletionScheduler.run(plugin, player, () -> completion.accept(updated));
 			});
 		} catch (RuntimeException rejected) {
@@ -726,14 +735,23 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public static void removePointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users, int value,
 			String batchOperationId, BiConsumer<VotingPluginUser, Boolean> completion) {
+		java.util.IdentityHashMap<VotingPluginUser, String> pointColumns = capturePointColumns(users);
 		bulkSharedMysqlMutation(plugin, users, completion,
 				(mutator, user) -> {
 					String operationId = bulkPointOperationId("admin-bulk-remove/", batchOperationId, user.getUUID());
-					boolean success = mutator.removeCommitted(user, value, operationId).success();
+					boolean success = mutator.removeCommittedFromColumn(user, value, operationId,
+							pointColumns.get(user)).success();
 					if (success) mutator.acknowledgePointAdditionNow(operationId);
 					return success;
 				},
 				(user, done) -> user.removePoints(value, done), true);
+	}
+
+	private static java.util.IdentityHashMap<VotingPluginUser, String> capturePointColumns(
+			List<VotingPluginUser> users) {
+		java.util.IdentityHashMap<VotingPluginUser, String> pointColumns = new java.util.IdentityHashMap<>();
+		for (VotingPluginUser user : users) pointColumns.put(user, user.getPointsPath());
+		return pointColumns;
 	}
 
 	static String bulkPointOperationId(String prefix, String batchOperationId, String userId) {
@@ -834,9 +852,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			return;
 		}
 		Player player = getPlayer();
+		String pointsColumn = getPointsPath();
 		try {
 			plugin.getTimer().execute(() -> {
-				SharedMysqlPointMutator.AddResult result = sharedPoints.addCommitted(this, event.getPoints());
+				SharedMysqlPointMutator.AddResult result = sharedPoints.addCommittedToColumn(this,
+						event.getPoints(), pointsColumn);
 				BukkitCompletionScheduler.run(plugin, player,
 						() -> completion.accept(result.success(), result.total()));
 			});
@@ -1976,10 +1996,12 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			return;
 		}
 		Player player = getPlayer();
+		String pointsColumn = getPointsPath();
 		try {
 			String operationId = "remove-points/" + UUID.randomUUID();
 			plugin.getTimer().execute(() -> {
-				SharedMysqlPointMutator.AddResult result = sharedPoints.removeCommitted(this, points, operationId);
+				SharedMysqlPointMutator.AddResult result = sharedPoints.removeCommittedFromColumn(this,
+						points, operationId, pointsColumn);
 				if (result.outcome() == SharedMysqlPointMutator.MutationOutcome.CONFIRMED) {
 					sharedPoints.acknowledgePointAdditionNow(operationId);
 				}
@@ -2018,7 +2040,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public void transferPointsWithResult(VotingPluginUser target, int points, Consumer<PointTransferResult> completion) {
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
-		if (sharedPoints.applies()) {
+		if (sharedPoints.usesMysqlPointMutations()) {
 			sharedPoints.transferWithBukkitApproval(this, target, points, ignored -> {
 					PlayerReceivePointsEvent receiveEvent = new PlayerReceivePointsEvent(target, points, false);
 					Bukkit.getPluginManager().callEvent(receiveEvent);
