@@ -5,6 +5,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.file.LinkOption;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -27,6 +28,8 @@ import java.util.regex.Pattern;
 
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.InvalidConfigurationException;
+import org.bukkit.configuration.file.YamlConfiguration;
 
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.control.BackendControlResultStore.Route;
@@ -49,7 +52,8 @@ public final class BackendControlConnector implements AutoCloseable {
 	private static final long INSPECTION_SHUTDOWN_TIMEOUT_SECONDS = 5;
 	private static final Pattern NODE_ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,63}");
 	private static final Set<String> CAPABILITIES = Set.of("config.files.v1", "config.file-comments.v1",
-			"config.quick-setup.v1", "config.vote-sites-sync.v1", "config.proxy-method.v1", "data.inspect.v1");
+			"config.quick-setup.v1", "config.vote-sites-sync.v1", "config.proxy-method.v1", "config.reward-files.v1",
+			"data.inspect.v1");
 
 	private final VotingPluginMain plugin;
 	private final Path dataDirectory;
@@ -76,6 +80,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	private volatile boolean operationsAccepted;
 	private volatile boolean quickSetupsAccepted;
 	private volatile boolean voteSitesSyncAccepted;
+	private volatile boolean rewardFilesAccepted;
 	private volatile boolean inspectionsAccepted;
 	private volatile boolean deploymentsAccepted;
 	private volatile int inspectionFailures;
@@ -111,7 +116,21 @@ public final class BackendControlConnector implements AutoCloseable {
 		inspectionExecutor = Executors.newSingleThreadScheduledExecutor(inspectionFactory);
 		http = HttpClient.newBuilder().connectTimeout(Duration.ofMillis(settings.connectTimeoutMillis()))
 				.followRedirects(HttpClient.Redirect.NEVER).build();
-		configurations = new BackendConfigurationService(plugin.getDataFolder().toPath(), this::reloadConfiguration);
+		configurations = new BackendConfigurationService(plugin.getDataFolder().toPath(),
+				new BackendConfigurationService.ApplyAction() {
+					@Override public void run(String fileName) throws Exception {
+						reloadConfiguration(fileName, null);
+					}
+
+					@Override public void runNamedReward(String fileName, String expectedContent) throws Exception {
+						reloadConfiguration(fileName, expectedContent);
+					}
+
+					@Override public void runNamedReward(String fileName, String expectedContent,
+							BackendConfigurationService.NamedRewardGuard guard) throws Exception {
+						reloadConfiguration(fileName, expectedContent, guard);
+					}
+				});
 		inspections = new ControlInspectionService(plugin);
 		directLocalDeploymentEndpoint = HostedControlManager.isDirectLocalEndpoint(
 				settings.endpoint().toString(), hostedConfiguration);
@@ -131,18 +150,74 @@ public final class BackendControlConnector implements AutoCloseable {
 		deployments = prepared;
 	}
 
-	private void reloadConfiguration(String fileName) throws Exception {
+	private void reloadConfiguration(String fileName, String expectedContent) throws Exception {
+		reloadConfiguration(fileName, expectedContent, null);
+	}
+
+	private void reloadConfiguration(String fileName, String expectedContent,
+			BackendConfigurationService.NamedRewardGuard guard) throws Exception {
 		reloadOnServerThread(() -> {
+			// Publication happens off-thread, but the plugin reads Rewards by path
+			// on this owner thread. Recheck the pinned identity at that boundary.
+			if (guard != null) guard.verify();
 			plugin.reloadFromControl();
+			if (guard != null) guard.verify();
+			if (BackendConfigurationService.managedRewardFile(fileName)) verifyNamedRewardLoaded(fileName, expectedContent);
 			if ("BungeeSettings.yml".equals(fileName)) plugin.restartBackendProxyHandler();
 		});
+	}
+
+	private void reloadConfiguration(String fileName) throws Exception {
+		reloadConfiguration(fileName, null);
+	}
+
+	private void verifyNamedRewardLoaded(String fileName, String expectedContent) {
+		String name = fileName.substring("Rewards/".length(), fileName.length() - ".yml".length());
+		// getReward(name) can synthesize an on-demand Reward even when reload rejected the file.
+		if (!plugin.getRewardHandler().rewardExist(name)) {
+			throw new IllegalStateException("Named reward did not load after configuration reload");
+		}
+		var reward = plugin.getRewardHandler().getReward(name);
+		if (reward == null || reward.getFile() == null) {
+			throw new IllegalStateException("Named reward did not load after configuration reload");
+		}
+		try {
+			// Compare loaded values with the proposal read from the pinned directory handle;
+			// reopening Rewards here could validate a substituted directory instead.
+			if (expectedContent == null) throw new IllegalStateException("Named reward verification source is unavailable");
+			Path expected = dataDirectory.resolve(fileName).toRealPath(LinkOption.NOFOLLOW_LINKS);
+			Path actual = reward.getFile().toPath().toRealPath(LinkOption.NOFOLLOW_LINKS);
+			if (!expected.equals(actual)) {
+				throw new IllegalStateException("Named reward did not load after configuration reload");
+			}
+			YamlConfiguration source = new YamlConfiguration();
+			source.loadFromString(expectedContent);
+			if (!sameConfigurationValues(source, reward.getConfig().getFileData())) {
+				throw new IllegalStateException("Named reward content did not become active after reload");
+			}
+		} catch (IOException | InvalidConfigurationException unavailable) {
+			throw new IllegalStateException("Named reward could not be verified after configuration reload", unavailable);
+		}
+	}
+
+	private static boolean sameConfigurationValues(ConfigurationSection source, ConfigurationSection loaded) {
+		if (loaded == null) return false;
+		Set<String> paths = new java.util.HashSet<>(source.getKeys(true));
+		paths.addAll(loaded.getKeys(true));
+		for (String path : paths) {
+			boolean sourceSection = source.isConfigurationSection(path);
+			boolean loadedSection = loaded.isConfigurationSection(path);
+			if (sourceSection != loadedSection) return false;
+			if (!sourceSection && !java.util.Objects.equals(source.get(path), loaded.get(path))) return false;
+		}
+		return true;
 	}
 
 	private void reloadProxyMethod(String ignored) throws Exception {
 		reloadOnServerThread(plugin::reloadBackendProxyMethodFromControl);
 	}
 
-	private void reloadOnServerThread(Runnable action) throws Exception {
+	private void reloadOnServerThread(ThrowingRunnable action) throws Exception {
 		Future<?> reload;
 		synchronized (operationLifecycle) {
 			if (closed) throw new IllegalStateException("Bukkit Control connector is stopping");
@@ -157,6 +232,8 @@ public final class BackendControlConnector implements AutoCloseable {
 			}
 		}
 	}
+
+	@FunctionalInterface private interface ThrowingRunnable { void run() throws Exception; }
 
 	public static BackendControlConnector create(VotingPluginMain plugin) throws IOException {
 		Path root = plugin.getDataFolder().toPath().toAbsolutePath().normalize();
@@ -324,8 +401,12 @@ public final class BackendControlConnector implements AutoCloseable {
 				+ "/result", submitted), 200);
 	}
 
-	private InspectionTaskResult executeInspection(JsonObject query) {
+	InspectionTaskResult executeInspection(JsonObject query) {
 		try {
+			if (ControlInspectionService.rewardFileInventoryQuery(query) && !rewardFilesAccepted) {
+				return InspectionTaskResult.failure("UNAVAILABLE",
+						"Named reward files were not negotiated");
+			}
 			return InspectionTaskResult.success(inspections.inspect(query));
 		} catch (ControlInspectionService.ResultTooLargeException failure) {
 			return InspectionTaskResult.failure("RESULT_TOO_LARGE", failure.getMessage());
@@ -395,6 +476,8 @@ public final class BackendControlConnector implements AutoCloseable {
 			operationsAccepted = negotiatedCapability(node, "config.files.v1", operationsAccepted);
 			quickSetupsAccepted = negotiatedCapability(node, "config.quick-setup.v1", quickSetupsAccepted);
 			voteSitesSyncAccepted = negotiatedCapability(node, "config.vote-sites-sync.v1", voteSitesSyncAccepted);
+			rewardFilesAccepted = configurations.supportsNamedRewardFiles()
+					&& negotiatedCapability(node, "config.reward-files.v1", rewardFilesAccepted);
 			boolean inspectionsWereAccepted = inspectionsAccepted;
 			inspectionsAccepted = negotiatedCapability(node, "data.inspect.v1", inspectionsAccepted);
 			deploymentsAccepted = deployments != null
@@ -448,6 +531,7 @@ public final class BackendControlConnector implements AutoCloseable {
 		operationsAccepted = false;
 		quickSetupsAccepted = false;
 		voteSitesSyncAccepted = false;
+		rewardFilesAccepted = false;
 		inspectionsAccepted = false;
 		deploymentsAccepted = false;
 		JsonObject body = sessionBody();
@@ -460,13 +544,13 @@ public final class BackendControlConnector implements AutoCloseable {
 				.map(installed -> installed.getDescription().getName()).filter(name -> name != null && !name.isBlank())
 				.distinct().sorted(String.CASE_INSENSITIVE_ORDER).limit(128).forEach(detectedPlugins::add);
 		body.add("detectedPlugins", detectedPlugins);
-		addCapabilities(body, deployments != null);
+		addCapabilities(body, configurations.supportsNamedRewardFiles(), deployments != null);
 		return requireObject(send("POST", "/api/v1/nodes/register", body), 200, 201);
 	}
 
 	private JsonObject heartbeat() throws Exception {
 		JsonObject body = sessionBody();
-		addCapabilities(body, deployments != null);
+		addCapabilities(body, configurations.supportsNamedRewardFiles(), deployments != null);
 		Response response = send("PUT", "/api/v1/nodes/" + settings.nodeId() + "/heartbeat", body);
 		if (response.status() == 404) {
 			registered = false;
@@ -665,8 +749,18 @@ public final class BackendControlConnector implements AutoCloseable {
 		JsonObject configuration = result.getAsJsonObject("configuration");
 		String domain = string(configuration, "domain");
 		if ("file".equals(domain)) {
-			BackendConfigurationService.Document installed = configurations.read(string(configuration, "fileName"));
-			if (!revision.equals(installed.revision())) return null;
+			String fileName = string(configuration, "fileName");
+			BackendConfigurationService.Document installed;
+			try {
+				installed = configurations.readForRecovery(fileName, revision);
+			} catch (IOException unavailable) {
+				// A missing or case-ambiguous named reward cannot be confirmed after
+				// restart. Abort only that intent; unrelated I/O remains retryable.
+				if (BackendConfigurationService.managedRewardFile(fileName)
+						&& BackendConfigurationService.namedRewardCannotBeConfirmed(unavailable)) return null;
+				throw unavailable;
+			}
+			if (installed == null) return null;
 			result = result.deepCopy();
 			result.getAsJsonObject("configuration").addProperty("content", installed.content());
 			result.addProperty("attemptId", attemptId);
@@ -717,9 +811,9 @@ public final class BackendControlConnector implements AutoCloseable {
 	}
 
 	private TaskResult operationFailure(String type, Throwable failure) {
-		String code = operationFailureCode(type);
 		String action = "READ".equals(type) ? "read" : "PREVIEW".equals(type) ? "preview" : "apply";
 		logConfigurationFailure(action, failure);
+		String code = operationFailureCode(type, failure);
 		return TaskResult.failure(code, operationFailureMessage(type, failure));
 	}
 
@@ -727,7 +821,10 @@ public final class BackendControlConnector implements AutoCloseable {
 		plugin.getLogger().log(Level.WARNING, "[Control] Configuration " + action + " failed", failure);
 	}
 
-	static String operationFailureMessage(String type, Throwable ignored) {
+	static String operationFailureMessage(String type, Throwable failure) {
+		if ("READ".equals(type) && failure instanceof IOException) {
+			return "Configuration file is unavailable or unreadable";
+		}
 		if ("READ".equals(type)) return "Configuration read failed; see the backend log";
 		if ("PREVIEW".equals(type)) return "Configuration preview failed; see the backend log";
 		return "Configuration apply failed; see the backend log";
@@ -738,6 +835,10 @@ public final class BackendControlConnector implements AutoCloseable {
 	}
 
 	static String operationFailureCode(String type) {
+		return operationFailureCode(type, null);
+	}
+
+	static String operationFailureCode(String type, Throwable failure) {
 		if ("READ".equals(type)) return "READ_FAILED";
 		if ("PREVIEW".equals(type)) return "PREVIEW_FAILED";
 		return "APPLY_FAILED";
@@ -746,6 +847,9 @@ public final class BackendControlConnector implements AutoCloseable {
 	private TaskResult executeFile(UUID operationId, String type, JsonObject configuration, JsonObject task)
 			throws IOException {
 		String fileName = string(configuration, "fileName");
+		if (BackendConfigurationService.managedRewardFile(fileName) && !rewardFilesAccepted) {
+			return TaskResult.failure("UNSUPPORTED_TASK", "Named reward files were not negotiated");
+		}
 		if ("READ".equals(type)) {
 			BackendConfigurationService.Document document = configurations.read(fileName);
 			return TaskResult.file(document, List.of(), false, false, false);
@@ -854,12 +958,13 @@ public final class BackendControlConnector implements AutoCloseable {
 	}
 
 	static void addCapabilities(JsonObject body) {
-		addCapabilities(body, false);
+		addCapabilities(body, false, false);
 	}
 
-	static void addCapabilities(JsonObject body, boolean deploymentReady) {
+	static void addCapabilities(JsonObject body, boolean rewardFilesSupported, boolean deploymentReady) {
 		JsonArray capabilities = new JsonArray();
-		CAPABILITIES.stream().sorted().forEach(capabilities::add);
+		CAPABILITIES.stream().sorted().filter(capability -> rewardFilesSupported
+				|| !"config.reward-files.v1".equals(capability)).forEach(capabilities::add);
 		if (deploymentReady) capabilities.add(PluginDeploymentService.CAPABILITY);
 		body.add("capabilities", capabilities);
 		JsonArray required = new JsonArray();
@@ -1072,7 +1177,7 @@ public final class BackendControlConnector implements AutoCloseable {
 		}
 	}
 
-	private record InspectionTaskResult(boolean success, String code, String message, JsonObject data) {
+	record InspectionTaskResult(boolean success, String code, String message, JsonObject data) {
 		private JsonObject json() {
 			JsonObject body = new JsonObject();
 			body.addProperty("success", success);

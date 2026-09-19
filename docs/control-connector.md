@@ -250,6 +250,13 @@ if reload fails. Returned YAML is normalized and masks password/secret/token/API
 with `__VOTINGPLUGIN_CONTROL_REDACTED__`; leaving the marker unchanged preserves the local value. A replacement secret may
 be submitted through the authenticated preview, but is never returned or audited.
 
+The separate `config.reward-files.v1` capability permits bounded inventory and the same READ/PREVIEW/approved APPLY
+workflow for existing, directly contained `Rewards/<name>.yml` files. It is not a general file browser or file-creation
+API. Names are restricted to simple ASCII basenames, case-only ambiguity is rejected, and symlinked reward paths are
+not followed. The inventory exposes names only. The optional capability is advertised only on filesystems with secure
+directory handles, pinned directory-force support and private POSIX staging-file support. An older Control or connector can continue using the other negotiated
+capabilities without named reward-file editing; see [the agent contract](control-agent-contract.md#named-reward-files-configreward-filesv1).
+
 Control configuration snapshots store the redacted managed-file content returned by this read path, not raw credentials.
 Restore resolves unchanged markers against each target's current secrets during preview/apply. Protect Control's data
 directory anyway because snapshots contain complete managed configuration structure and operational values.

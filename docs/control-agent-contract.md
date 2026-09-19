@@ -10,6 +10,41 @@ has two separate lanes:
 Do not translate an inspection request into a configuration operation. Do not add raw SQL, arbitrary commands, player
 enumeration, database browsing, filesystem paths, or generic key/value reads to either contract.
 
+## Named reward files (`config.reward-files.v1`)
+
+This additive Bukkit capability manages only existing `Rewards/<name>.yml` files directly under VotingPlugin's Rewards
+directory. `<name>` starts with an ASCII letter or digit and then contains at most 99 ASCII letters, digits, `_`, or `-`.
+Paths, `.yaml`, symlinks, case-only duplicate names, files over 512 KiB, and inventories over 100 eligible files are
+rejected. A missing Rewards directory yields an empty inventory. Other configuration and inspection capabilities remain
+independent, so an older peer simply leaves named reward files unavailable. The connector advertises this optional
+capability only when the local filesystem supports secure directory handles and private POSIX staging files.
+An unsuccessful private-staging probe is retried on a later registration or heartbeat; only a successful probe is
+cached for the current Rewards directory identity.
+
+Inventory is the read-only `reward-file-inventory` inspection with empty filters and a names-only `result.files` array.
+It requires both `data.inspect.v1` and `config.reward-files.v1` to be accepted. A named file READ/PREVIEW/APPLY uses the
+existing configuration operation envelope with `domain:"file"` and `fileName:"Rewards/<name>.yml"`; the new capability
+must be accepted before the connector dispatches it. PREVIEW does not write. APPLY requires the approved exact revision,
+serializes competing applies on the node, stages a private file under the pinned Rewards directory handle, and forces
+every published directory entry through that pinned handle. A forceable pinned directory channel is required before
+advertising `config.reward-files.v1`. The connector retains a
+`.control-backup`, reloads VotingPlugin, verifies the named reward became active against the pinned proposal, and attempts local rollback and reload
+if that step fails. Directory identity is rechecked on the server owner thread immediately before and after plugin
+reload. A replacement causes apply failure; a restore to the pinned directory is not reported as an active rollback
+when the live Rewards path points elsewhere. Plugin reload still reads files by path, so Control cannot make a
+concurrent local filesystem actor's mutations atomic. Read results and inventory remain bounded; inventory rejects
+more than 1,024 total Rewards directory entries, including ignored entries, and redacts configuration secrets. This
+capability does not create or delete reward files or grant access outside Rewards.
+
+Recovery of a pending named-file result checks that exact file and bounded case-only aliases, without validating
+unrelated Rewards entries. A missing, case-ambiguous, or permanently unsafe target (symlink, directory, FIFO, or
+oversized file) cannot be confirmed as a successful apply and terminates that pending intent; transient I/O failures
+remain retryable. Unrelated invalid entries do not stall the whole configuration lane. Recovery compares the raw revision before parsing YAML, so a later malformed edit
+with a different revision aborts that pending intent without blocking new work. Inventory accepts regular files;
+subsequent named-file reads require a writable, seekable handle. A raced FIFO or other non-seekable replacement is
+rejected before body reading rather than blocking
+the single connector worker on supported Unix providers.
+
 ## Proxy file contract (`config.proxy-files.v1`)
 
 This is a proxy-only capability, advertised by an enrolled BungeeCord or Velocity node. It is separate from
@@ -239,6 +274,7 @@ encoded `proposal` may be larger, with a 64 KiB hard limit.
 | `vote-trace` | required canonical 36-character UUID `voteId`; optional string `days`/`limit` | Chronological VoteLog events sharing one correlation ID |
 | `vote-site-resolution` | required valid `serviceSite` (1–64 characters); optional string boolean `includeDisabled` | Dry-runs existing resolution and reports whether auto-create would be attempted; never calls the creating resolver |
 | `reward-simulation` | required `proposal`, a JSON object encoded as one filter string | Validates and normalizes typed actions, reports the plan, and never invokes `RewardBuilder` |
+| `reward-file-inventory` | none; also requires `config.reward-files.v1` | Lists at most 100 approved named `Rewards/*.yml` basenames without reading their contents |
 | `diagnostics` | none | Bounded redacted environment/configuration status, configured/readable VoteLog state, and up to 100 detected plugin names with an explicit truncation indicator |
 
 Valid VoteLog `event` values are `VOTE_RECEIVED`, `VOTEMILESTONE`, `VOTE_STREAK_REWARD`, `TOP_VOTER_REWARD`, and
