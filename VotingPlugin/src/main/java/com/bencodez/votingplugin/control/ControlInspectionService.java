@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.control;
 
 import java.nio.charset.StandardCharsets;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -54,7 +55,7 @@ public final class ControlInspectionService {
 	private static final Pattern SERVICE_NAME = Pattern.compile("[^\\p{Cntrl}]{1,64}");
 	private static final Set<String> KINDS = Set.of("overview", "vote-site-health", "player",
 			"vote-log-summary", "vote-log-search", "vote-trace", "vote-site-resolution",
-			"reward-simulation", "diagnostics");
+			"reward-simulation", "reward-file-inventory", "diagnostics");
 
 	private final VotingPluginMain plugin;
 
@@ -83,6 +84,7 @@ public final class ControlInspectionService {
 		case "vote-trace" -> voteTrace(filters);
 		case "vote-site-resolution" -> voteSiteResolution(filters);
 		case "reward-simulation" -> rewardSimulation(filters);
+		case "reward-file-inventory" -> rewardFileInventory(filters);
 		case "diagnostics" -> diagnostics(filters);
 		default -> throw new IllegalArgumentException("inspection kind is unsupported");
 		};
@@ -93,6 +95,24 @@ public final class ControlInspectionService {
 		envelope.add("result", result);
 		ensureBounded(envelope);
 		return envelope;
+	}
+
+	static boolean rewardFileInventoryQuery(JsonObject query) {
+		return query != null && query.has("kind") && query.get("kind").isJsonPrimitive()
+				&& "reward-file-inventory".equals(query.get("kind").getAsString());
+	}
+
+	private JsonObject rewardFileInventory(JsonObject filters) {
+		rejectUnknown(filters, Set.of(), "reward file inventory filters");
+		try {
+			JsonArray files = new JsonArray();
+			for (String name : BackendConfigurationService.rewardFileInventory(plugin.getDataFolder().toPath())) files.add(name);
+			JsonObject result = new JsonObject();
+			result.add("files", files);
+			return result;
+		} catch (IOException failure) {
+			throw new InspectionUnavailableException("named reward files are unavailable");
+		}
 	}
 
 	private JsonObject overview(JsonObject filters) {
