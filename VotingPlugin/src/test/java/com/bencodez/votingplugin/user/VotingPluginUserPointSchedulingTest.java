@@ -585,7 +585,7 @@ class VotingPluginUserPointSchedulingTest {
 			verify(settleCredit).setInt(1, 5);
 			verify(settleCredit).setString(2, "00000000-0000-0000-0000-000000000001");
 			verify(claimInsert).setString(3, "Points");
-			verify(fixture.connection).prepareStatement(org.mockito.ArgumentMatchers.contains("`1Lobby West_Points` = `1Lobby West_Points` + ?"));
+			verify(fixture.connection).prepareStatement(org.mockito.ArgumentMatchers.contains("`1Lobby West_Points` = COALESCE(`1Lobby West_Points`, 0) + ?"));
 		}
 	}
 

@@ -363,7 +363,7 @@ class SharedPointAdditionJournalTest {
 		org.mockito.ArgumentCaptor<String> statements = org.mockito.ArgumentCaptor.forClass(String.class);
 		verify(fixture.initialLookup, times(4)).prepareStatement(statements.capture());
 		assertTrue(statements.getAllValues().stream().anyMatch(statement -> statement.startsWith(
-				"UPDATE `VotingPlugin_Users` SET `lobby_Points` = `lobby_Points` + ?")));
+				"UPDATE `VotingPlugin_Users` SET `lobby_Points` = COALESCE(`lobby_Points`, 0) + ?")));
 		assertTrue(statements.getAllValues().stream().anyMatch(statement -> statement.startsWith(
 				"SELECT `lobby_Points` FROM `VotingPlugin_Users`")));
 		assertTrue(statements.getAllValues().stream().noneMatch(statement -> statement.startsWith(

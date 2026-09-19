@@ -250,8 +250,11 @@ final class SharedPointAdditionJournal {
 				+ qi("hook_owner") + ", " + qi("created_at") + " FROM " + qiJournal() + " WHERE "
 				+ qi("operation_id") + " = ? FOR UPDATE";
 		String points = qi(creditPointsColumn);
-		String updatePoints = "UPDATE " + qi(table.getTableName()) + " SET " + points + " = " + points
-				+ " + ? WHERE " + qi("uuid") + uuidCast();
+		// A first-use PerServerPoints column is nullable for existing player rows.
+		// Coalesce inside the same transaction so completion cannot record a credit
+		// while NULL arithmetic left the physical balance unchanged.
+		String updatePoints = "UPDATE " + qi(table.getTableName()) + " SET " + points + " = COALESCE(" + points
+				+ ", 0) + ? WHERE " + qi("uuid") + uuidCast();
 		String readPoints = "SELECT " + points + " FROM " + qi(table.getTableName()) + " WHERE " + qi("uuid")
 				+ uuidCast();
 		String complete = "UPDATE " + qiJournal() + " SET " + qi("amount") + " = ?, " + qi("state")
