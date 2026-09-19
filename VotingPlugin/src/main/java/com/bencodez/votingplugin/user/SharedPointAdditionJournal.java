@@ -98,9 +98,10 @@ final class SharedPointAdditionJournal {
 				+ ", " + qi("points_column") + ", " + qi("amount") + ", " + qi("requested_amount") + ", "
 				+ qi("state") + ", " + qi("total_points") + ", " + qi("created_at") + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 		String points = qi(pointsColumn);
-		String update = "UPDATE " + qi(table.getTableName()) + " SET " + points + " = " + points
+		String coalescedPoints = "COALESCE(" + points + ", 0)";
+		String update = "UPDATE " + qi(table.getTableName()) + " SET " + points + " = " + coalescedPoints
 				+ " + ? WHERE " + qi("uuid") + uuidCast()
-				+ (requireNonnegative ? " AND " + points + " >= ?" : "");
+				+ (requireNonnegative ? " AND " + coalescedPoints + " >= ?" : "");
 		String read = "SELECT " + points + " FROM " + qi(table.getTableName()) + " WHERE " + qi("uuid") + uuidCast();
 		String complete = "UPDATE " + qiJournal() + " SET " + qi("state") + " = ?, " + qi("total_points")
 				+ " = ? WHERE " + qi("operation_id") + " = ?";

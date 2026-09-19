@@ -1111,7 +1111,7 @@ class VoteShopPurchaseServiceTest {
 	}
 
 	@Test
-	void perServerMysqlLimitedPurchaseQueuesJournalReservationOffCallingThread() throws Exception {
+	void perServerMysqlUnlimitedPurchaseQueuesJournalReservationOffCallingThread() throws Exception {
 		MySQL table = mock(MySQL.class);
 		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
 				org.mockito.Mockito.RETURNS_DEEP_STUBS);
@@ -1127,14 +1127,15 @@ class VoteShopPurchaseServiceTest {
 		when(user.getPoints()).thenReturn(0);
 		VoteShopItem item = mock(VoteShopItem.class);
 		when(item.getCost()).thenReturn(10);
-		when(item.getLimit()).thenReturn(1);
-		when(user.getVoteShopIdentifierLimit(anyString())).thenReturn(1);
+		when(item.getLimit()).thenReturn(0);
 
 		new VoteShopPurchaseService(plugin, definition).purchase(mock(org.bukkit.entity.Player.class), user, item,
 				result -> { });
 
 		verify(persistenceExecutor).execute(any(Runnable.class));
 		verify(sql.getConnectionManager(), never()).getConnection();
+		verify(user, never()).removePoints(org.mockito.ArgumentMatchers.anyInt(),
+				org.mockito.ArgumentMatchers.anyBoolean());
 	}
 
 	@Test

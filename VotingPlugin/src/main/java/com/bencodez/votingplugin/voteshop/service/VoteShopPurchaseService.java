@@ -510,14 +510,13 @@ public class VoteShopPurchaseService {
 	}
 
 	/**
-	 * A vote-shop limit belongs to the shared MySQL user row even when point
-	 * balances are server-suffixed. Limited MySQL purchases must therefore reserve
-	 * both the selected points column and the shared limit under the journal epoch
-	 * lock; otherwise two servers can independently pass a stale local limit read.
+	 * Every MySQL purchase must reserve its selected points column through the
+	 * durable journal. Per-server balances still share a MySQL row with ordinary
+	 * point writers, so queuing a legacy debit before the reward can acknowledge a
+	 * purchase that has not committed and can be overwritten by a concurrent write.
 	 */
 	private boolean usesMysqlPurchaseReservation(VoteShopItem item) {
-		return usesSharedMysqlPoints() || plugin != null && item != null && item.getLimit() > 0
-				&& UserStorage.MYSQL.equals(plugin.getStorageType());
+		return plugin != null && UserStorage.MYSQL.equals(plugin.getStorageType());
 	}
 
 	private static boolean usesSharedMysqlPoints(VotingPluginMain plugin) {

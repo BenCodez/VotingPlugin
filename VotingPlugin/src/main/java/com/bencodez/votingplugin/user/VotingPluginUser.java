@@ -248,7 +248,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			return getPoints();
 		}
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
-		if (sharedPoints.applies()) {
+		if (sharedPoints.usesMysqlPointMutations()) {
 			return sharedPoints.add(this, event.getPoints(), async);
 		}
 		int newTotal = getPoints() + event.getPoints();

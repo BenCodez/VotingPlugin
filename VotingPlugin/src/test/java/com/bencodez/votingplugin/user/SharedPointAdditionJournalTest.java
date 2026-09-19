@@ -102,6 +102,22 @@ class SharedPointAdditionJournalTest {
 	}
 
 	@Test
+	void firstPerServerColumnCreditTreatsNullAsZero() throws Exception {
+		Fixture fixture = fixture();
+		Connection missing = missingLookup();
+		Attempt credit = successfulAttempt(5);
+		when(fixture.sql.getConnectionManager().getConnection()).thenReturn(missing, credit.connection());
+
+		assertEquals(5, new SharedPointAdditionJournal(fixture.table, false)
+				.add("bulk-add", "player", "hub_Points", 5, 100L).total());
+
+		org.mockito.ArgumentCaptor<String> statements = org.mockito.ArgumentCaptor.forClass(String.class);
+		verify(credit.connection(), times(4)).prepareStatement(statements.capture());
+		assertTrue(statements.getAllValues().get(1)
+				.contains("SET `hub_Points` = COALESCE(`hub_Points`, 0) + ?"));
+	}
+
+	@Test
 	void completedOperationRejectsAConflictingRetryInsteadOfChangingPoints() throws Exception {
 		Fixture fixture = fixture();
 		PreparedStatement lookup = mock(PreparedStatement.class);

@@ -379,6 +379,33 @@ class VotingPluginUserPointSchedulingTest {
 	}
 
 	@Test
+	void perServerMysqlAddUsesTheAtomicDeltaInsteadOfALegacyAbsoluteWrite() throws Exception {
+		PointFixture fixture = pointFixture();
+		when(fixture.plugin.getBungeeSettings().isPerServerPoints()).thenReturn(true);
+		doReturn("hub_Points").when(fixture.user).getPointsPath();
+		PreparedStatement read = mock(PreparedStatement.class);
+		ResultSet result = mock(ResultSet.class);
+		when(fixture.statement.executeUpdate()).thenReturn(1);
+		when(fixture.connection.prepareStatement(anyString())).thenReturn(fixture.statement, read);
+		when(read.executeQuery()).thenReturn(result);
+		when(result.next()).thenReturn(true);
+		when(result.getInt(1)).thenReturn(15);
+		UserData userData = mock(UserData.class);
+		doReturn(userData).when(fixture.user).getUserData();
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getPluginManager).thenReturn(mock(PluginManager.class));
+			assertEquals(15, fixture.user.addPoints(5));
+		}
+
+		verify(fixture.table).checkColumn("hub_Points", com.bencodez.simpleapi.sql.DataType.INTEGER);
+		ArgumentCaptor<String> update = ArgumentCaptor.forClass(String.class);
+		verify(fixture.connection, org.mockito.Mockito.times(2)).prepareStatement(update.capture());
+		assertTrue(update.getAllValues().get(0).contains("SET `hub_Points` = COALESCE(`hub_Points`, 0) + ?"));
+		verify(userData, never()).setInt(anyString(), anyInt(), org.mockito.ArgumentMatchers.anyBoolean());
+	}
+
+	@Test
 	void storageAwareAddReportsOnlyAfterCommittedSharedWrite() throws Exception {
 		PointFixture fixture = pointFixture();
 		UserData data = mock(UserData.class);
