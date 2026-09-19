@@ -657,7 +657,10 @@ final class SharedPointAdditionJournal {
 	}
 
 	private static boolean isSafeColumn(String column) {
-		return column != null && column.matches("[A-Za-z][A-Za-z0-9_]{0,127}");
+		// AbstractSqlTable.qi escapes the dialect's identifier delimiter. Existing
+		// PerServerPoints names may begin with a digit or contain spaces; keep
+		// those legacy columns usable while bounding the journal value.
+		return column != null && !column.isEmpty() && column.length() <= 128 && column.indexOf('\0') < 0;
 	}
 
 	private Connection connection() throws SQLException {

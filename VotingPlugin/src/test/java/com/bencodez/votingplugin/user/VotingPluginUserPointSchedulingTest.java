@@ -517,7 +517,7 @@ class VotingPluginUserPointSchedulingTest {
 	void perServerPointAdditionRunsOnlyAfterHistoricJournalMissAndBukkitHandoff() throws Exception {
 		PointFixture fixture = pointFixture();
 		when(fixture.plugin.getBungeeSettings().isPerServerPoints()).thenReturn(true);
-		doReturn("lobby_Points").when(fixture.user).getPointsPath();
+		doReturn("1Lobby West_Points").when(fixture.user).getPointsPath();
 		PreparedStatement schema = mock(PreparedStatement.class);
 		PreparedStatement lookup = mock(PreparedStatement.class);
 		PreparedStatement claimInsert = mock(PreparedStatement.class);
@@ -580,6 +580,7 @@ class VotingPluginUserPointSchedulingTest {
 			verify(settleCredit).setInt(1, 5);
 			verify(settleCredit).setString(2, "00000000-0000-0000-0000-000000000001");
 			verify(claimInsert).setString(3, "Points");
+			verify(fixture.connection).prepareStatement(org.mockito.ArgumentMatchers.contains("`1Lobby West_Points` = `1Lobby West_Points` + ?"));
 		}
 	}
 

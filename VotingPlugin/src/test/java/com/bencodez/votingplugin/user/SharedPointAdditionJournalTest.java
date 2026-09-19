@@ -396,7 +396,7 @@ class SharedPointAdditionJournalTest {
 		Fixture fixture = fixture();
 
 		assertThrows(java.sql.SQLException.class, () -> new SharedPointAdditionJournal(fixture.table, false)
-				.settleClaim("reward-operation", "player", "Points", "lobby Points", 5, "owner",
+				.settleClaim("reward-operation", "player", "Points", "lobby\0Points", 5, "owner",
 						Integer.valueOf(3)));
 		verify(fixture.sql.getConnectionManager(), org.mockito.Mockito.never()).getConnection();
 	}
