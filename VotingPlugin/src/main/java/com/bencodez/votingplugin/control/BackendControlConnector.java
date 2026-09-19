@@ -747,7 +747,6 @@ public final class BackendControlConnector implements AutoCloseable {
 	}
 
 	static String operationFailureCode(String type, Throwable failure) {
-		if ("READ".equals(type) && failure instanceof IOException) return "READ_UNAVAILABLE";
 		if ("READ".equals(type)) return "READ_FAILED";
 		if ("PREVIEW".equals(type)) return "PREVIEW_FAILED";
 		return "APPLY_FAILED";

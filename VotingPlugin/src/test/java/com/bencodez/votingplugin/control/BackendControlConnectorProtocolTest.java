@@ -289,10 +289,10 @@ class BackendControlConnectorProtocolTest {
 		assertFalse(BackendControlConnector.reloadFailureMessage(failure).contains("secret"));
 	}
 
-	@Test void unavailableConfigurationReadsUseASafeStructuredReason() {
-		// The connector reports an actionable category without returning a path,
-		// credential, or underlying filesystem exception detail.
-		assertEquals("READ_UNAVAILABLE", BackendControlConnector.operationFailureCode("READ",
+	@Test void unavailableConfigurationReadsPreserveV1CodeAndUseASafeReason() {
+		// Existing config.files.v1 peers retain the negotiated code while the
+		// message gives a useful reason without exposing sensitive paths.
+		assertEquals("READ_FAILED", BackendControlConnector.operationFailureCode("READ",
 				new IOException("/srv/private/Config.yml")));
 		assertEquals("Configuration file is unavailable or unreadable",
 				BackendControlConnector.operationFailureMessage("READ", new IOException("/srv/private/Config.yml")));
