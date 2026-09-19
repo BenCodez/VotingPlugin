@@ -45,7 +45,7 @@ public final class BackendConfigurationService {
 	public static final int MAX_CONTENT_BYTES = 512 * 1024;
 	public static final int MAX_REWARD_FILES = 100;
 	public static final int MAX_REWARD_FILE_BASENAME_LENGTH = 100;
-	private static final int MAX_REWARD_RECOVERY_ENTRIES = 1024;
+	static final int MAX_REWARD_DIRECTORY_ENTRIES = 1024;
 	private static final int READ_ATTEMPTS = 3;
 	private static final long READ_RETRY_MILLIS = 25;
 	private static final Set<String> READABLE_QUICK_SETUPS = Set.of("standalone", "proxy-backend", "vote-site",
@@ -165,7 +165,7 @@ public final class BackendConfigurationService {
 			throws IOException {
 		int entries = 0;
 		for (Path entry : rewards) {
-			if (++entries > MAX_REWARD_RECOVERY_ENTRIES) throw new UnconfirmableNamedRewardException();
+			if (++entries > MAX_REWARD_DIRECTORY_ENTRIES) throw new UnconfirmableNamedRewardException();
 			String candidate = entry.getFileName().toString();
 			if (!candidate.equals(name) && candidate.equalsIgnoreCase(name)) {
 				throw new UnconfirmableNamedRewardException();
@@ -194,7 +194,9 @@ public final class BackendConfigurationService {
 	private static List<String> rewardFileInventory(java.nio.file.SecureDirectoryStream<Path> rewards) throws IOException {
 		List<String> files = new ArrayList<>();
 		Set<String> logicalNames = new HashSet<>();
+		int entries = 0;
 		for (Path entry : rewards) {
+			if (++entries > MAX_REWARD_DIRECTORY_ENTRIES) throw new IOException("reward directory exceeds the 1024 entry limit");
 			String name = entry.getFileName().toString();
 			java.nio.file.attribute.BasicFileAttributes attributes = rewards.getFileAttributeView(Path.of(name),
 					java.nio.file.attribute.BasicFileAttributeView.class, LinkOption.NOFOLLOW_LINKS).readAttributes();

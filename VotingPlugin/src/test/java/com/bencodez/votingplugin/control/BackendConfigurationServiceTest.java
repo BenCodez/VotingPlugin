@@ -533,6 +533,25 @@ class BackendConfigurationServiceTest {
 		assertThrows(IOException.class, () -> BackendConfigurationService.rewardFileInventory(directory));
 	}
 
+	@Test void rewardInventoryBoundsIgnoredEntriesBeforeReadPreviewOrApply() throws Exception {
+		Path rewards = Files.createDirectories(directory.resolve("Rewards"));
+		Path daily = rewards.resolve("Daily.yml");
+		Files.writeString(daily, "Money: 1\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		String revision = service.read("Rewards/Daily.yml").revision();
+		for (int index = 0; index < BackendConfigurationService.MAX_REWARD_DIRECTORY_ENTRIES - 1; index++) {
+			Files.createDirectory(rewards.resolve("Ignored" + index));
+		}
+		assertEquals(List.of("Daily.yml"), BackendConfigurationService.rewardFileInventory(directory));
+		assertEquals(revision, service.read("Rewards/Daily.yml").revision());
+		Files.createDirectory(rewards.resolve("Overflow"));
+		assertThrows(IOException.class, () -> BackendConfigurationService.rewardFileInventory(directory));
+		assertThrows(IOException.class, () -> service.read("Rewards/Daily.yml"));
+		assertThrows(IOException.class, () -> service.preview("Rewards/Daily.yml", "Money: 2\n"));
+		assertThrows(IOException.class, () -> service.apply("Rewards/Daily.yml", "Money: 2\n", revision));
+		assertEquals("Money: 1\n", Files.readString(daily));
+	}
+
 	@Test void namedRewardApplyKeepsBackupAndRollbackInPinnedDirectoryAfterParentSwap() throws Exception {
 		Path plugin = Files.createDirectories(directory.resolve("plugin"));
 		Path rewards = Files.createDirectories(plugin.resolve("Rewards"));

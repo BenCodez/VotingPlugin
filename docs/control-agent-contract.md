@@ -30,15 +30,16 @@ advertising `config.reward-files.v1`. The connector retains a
 if that step fails. Directory identity is rechecked on the server owner thread immediately before and after plugin
 reload. A replacement causes apply failure; a restore to the pinned directory is not reported as an active rollback
 when the live Rewards path points elsewhere. Plugin reload still reads files by path, so Control cannot make a
-concurrent local filesystem actor's mutations atomic. Read results and inventory remain bounded and redact configuration secrets. This capability does not
-create or delete reward files or grant access outside Rewards.
+concurrent local filesystem actor's mutations atomic. Read results and inventory remain bounded; inventory rejects
+more than 1,024 total Rewards directory entries, including ignored entries, and redacts configuration secrets. This
+capability does not create or delete reward files or grant access outside Rewards.
 
 Recovery of a pending named-file result checks that exact file and bounded case-only aliases, without validating
 unrelated Rewards entries. A case ambiguity cannot be confirmed as a successful apply; unrelated invalid entries do not
 stall the whole configuration lane. Recovery compares the raw revision before parsing YAML, so a later malformed edit
 with a different revision aborts that pending intent without blocking new work. Inventory accepts regular files;
-subsequent named-file reads require a writable,
-seekable handle. A raced FIFO or other non-seekable replacement is rejected before body reading rather than blocking
+subsequent named-file reads require a writable, seekable handle. A raced FIFO or other non-seekable replacement is
+rejected before body reading rather than blocking
 the single connector worker on supported Unix providers.
 
 ## Proxy file contract (`config.proxy-files.v1`)
