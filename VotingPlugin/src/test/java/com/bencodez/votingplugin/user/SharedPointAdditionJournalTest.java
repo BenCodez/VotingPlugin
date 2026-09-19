@@ -328,11 +328,77 @@ class SharedPointAdditionJournalTest {
 		when(fixture.initialLookup.prepareStatement(anyString())).thenReturn(select, read, complete);
 
 		assertEquals(12, new SharedPointAdditionJournal(fixture.table, false).settleClaim("reward-operation",
-				"player", "Points", 5, "owner", null).total());
+				"player", "Points", "Points", 5, "owner", null).total());
 
 		verify(complete).setInt(1, 0);
 		verify(complete, org.mockito.Mockito.never()).setNull(org.mockito.ArgumentMatchers.eq(1),
 				org.mockito.ArgumentMatchers.anyInt());
+	}
+
+	@Test
+	void perServerSettlementCreditsTheLocalColumnAndCompletesTheSharedClaimAtomically() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement select = mock(PreparedStatement.class);
+		PreparedStatement credit = mock(PreparedStatement.class);
+		PreparedStatement read = mock(PreparedStatement.class);
+		PreparedStatement complete = mock(PreparedStatement.class);
+		ResultSet claimed = hookStartedRow("player", "Points", 5, "owner");
+		ResultSet total = mock(ResultSet.class);
+		when(credit.executeUpdate()).thenReturn(1);
+		when(total.next()).thenReturn(true);
+		when(total.getInt(1)).thenReturn(17);
+		when(select.executeQuery()).thenReturn(claimed);
+		when(read.executeQuery()).thenReturn(total);
+		when(complete.executeUpdate()).thenReturn(1);
+		when(fixture.initialLookup.prepareStatement(anyString())).thenReturn(select, credit, read, complete);
+
+		assertEquals(17, new SharedPointAdditionJournal(fixture.table, false).settleClaim("reward-operation",
+				"player", "Points", "lobby_Points", 5, "owner", Integer.valueOf(3)).total());
+
+		verify(credit).setInt(1, 3);
+		verify(credit).setString(2, "player");
+		verify(complete).setInt(1, 3);
+		verify(complete).setString(2, "COMPLETED");
+		verify(complete).setInt(3, 17);
+		org.mockito.ArgumentCaptor<String> statements = org.mockito.ArgumentCaptor.forClass(String.class);
+		verify(fixture.initialLookup, times(4)).prepareStatement(statements.capture());
+		assertTrue(statements.getAllValues().stream().anyMatch(statement -> statement.startsWith(
+				"UPDATE `VotingPlugin_Users` SET `lobby_Points` = `lobby_Points` + ?")));
+		assertTrue(statements.getAllValues().stream().anyMatch(statement -> statement.startsWith(
+				"SELECT `lobby_Points` FROM `VotingPlugin_Users`")));
+		assertTrue(statements.getAllValues().stream().noneMatch(statement -> statement.startsWith(
+				"UPDATE `VotingPlugin_Users` SET `Points` = `Points` + ?")));
+		verify(fixture.initialLookup).commit();
+	}
+
+	@Test
+	void failedPerServerLocalCreditRollsBackBeforeTheJournalCanComplete() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement select = mock(PreparedStatement.class);
+		PreparedStatement credit = mock(PreparedStatement.class);
+		PreparedStatement read = mock(PreparedStatement.class);
+		PreparedStatement complete = mock(PreparedStatement.class);
+		ResultSet claimed = hookStartedRow("player", "Points", 5, "owner");
+		when(select.executeQuery()).thenReturn(claimed);
+		when(credit.executeUpdate()).thenThrow(new java.sql.SQLException("local write failed"));
+		when(fixture.initialLookup.prepareStatement(anyString())).thenReturn(select, credit, read, complete);
+
+		assertThrows(java.sql.SQLException.class, () -> new SharedPointAdditionJournal(fixture.table, false)
+				.settleClaim("reward-operation", "player", "Points", "lobby_Points", 5, "owner",
+						Integer.valueOf(3)));
+
+		verify(fixture.initialLookup, atLeastOnce()).rollback();
+		verify(complete, org.mockito.Mockito.never()).executeUpdate();
+	}
+
+	@Test
+	void settlementRejectsAnUnsafePhysicalCreditColumnBeforeOpeningSql() throws Exception {
+		Fixture fixture = fixture();
+
+		assertThrows(java.sql.SQLException.class, () -> new SharedPointAdditionJournal(fixture.table, false)
+				.settleClaim("reward-operation", "player", "Points", "lobby Points", 5, "owner",
+						Integer.valueOf(3)));
+		verify(fixture.sql.getConnectionManager(), org.mockito.Mockito.never()).getConnection();
 	}
 
 	@Test

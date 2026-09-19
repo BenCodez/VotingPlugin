@@ -290,7 +290,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		if (!sharedPoints.applies()) {
 			if (operationId != null && !operationId.isEmpty()
 					&& SharedMysqlPointMutator.canRecoverSharedMysqlPointJournals(plugin)) {
-				return addOrdinaryPointsAfterSharedReplayLookup(sharedPoints, value, operationId);
+				return addPerServerPointsWithReplayClaim(sharedPoints, value, operationId);
 			}
 			PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, value);
 			Bukkit.getPluginManager().callEvent(event);
@@ -327,11 +327,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	/**
-	 * A retry may arrive after PerServerPoints was enabled. Consult the durable
-	 * shared-points journal before touching the now-local balance so an already
-	 * committed global credit cannot be applied a second time.
+	 * Claims the shared reward-operation journal before invoking a PerServerPoints
+	 * receive hook. The journal prevents another backend from running that hook
+	 * and creating a second server-local credit for the same operation.
 	 */
-	private CompletionStage<Integer> addOrdinaryPointsAfterSharedReplayLookup(SharedMysqlPointMutator sharedPoints,
+	private CompletionStage<Integer> addPerServerPointsWithReplayClaim(SharedMysqlPointMutator sharedPoints,
 			int value, String operationId) {
 		CompletableFuture<Integer> completion = new CompletableFuture<>();
 		String uuid = getUUID();
@@ -341,18 +341,31 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		if (existing != null) return existing;
 		completion.whenComplete((ignored, failure) -> IN_FLIGHT_POINT_REPLAYS.remove(replayKey, completion));
 		Player player = getPlayer();
+		String claimOwner = UUID.randomUUID().toString();
 		try {
 			plugin.getTimer().execute(() -> {
 				try {
-					Integer completed = sharedPoints.completedPointAdditionTotal(operationId, uuid, journalPointsPath);
-					if (completed != null) {
-						completion.complete(completed);
+					SharedPointAdditionJournal.HookClaim claim = sharedPoints.claimPointAdditionHook(operationId, uuid,
+							journalPointsPath, value, claimOwner);
+					if (claim.completed()) {
+						completion.complete(claim.total());
+						return;
+					}
+					if (!claim.claimed()) {
+						if (claim.requiresReconciliation()) {
+							reportIndeterminateSharedPointAddition(sharedPoints, operationId, uuid, journalPointsPath, value,
+									claimOwner, completion, null);
+						} else {
+							completion.completeExceptionally(new IllegalStateException(
+										"Shared MySQL point addition is already being confirmed"));
+						}
 						return;
 					}
 					BukkitCompletionScheduler.run(plugin, player,
-							() -> completeOrdinaryPointAddition(sharedPoints, value, completion),
-							() -> completion.completeExceptionally(new IllegalStateException(
-									"Unable to schedule point addition after replay lookup")));
+							() -> completePerServerPointAddition(sharedPoints, value, operationId, uuid, journalPointsPath,
+									claimOwner, completion),
+							() -> releaseUnstartedSharedPointAddition(sharedPoints, operationId, uuid, journalPointsPath, value,
+									claimOwner, completion));
 				} catch (Throwable failure) {
 					completion.completeExceptionally(failure);
 				}
@@ -364,29 +377,68 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return completion;
 	}
 
-	private void completeOrdinaryPointAddition(SharedMysqlPointMutator sharedPoints, int value,
-			CompletableFuture<Integer> completion) {
+	private void completePerServerPointAddition(SharedMysqlPointMutator sharedPoints, int value, String operationId,
+			String uuid, String journalPointsPath, String claimOwner, CompletableFuture<Integer> completion) {
+		boolean hookStarted = false;
 		try {
+			String localPointsPath;
+			Integer adjusted;
 			synchronized (this) {
-				// The persistence mode may have changed while the journal lookup was in
-				// flight. A retry can safely restart through the shared journal path.
+				// A pre-hook mode flip proves no listener has run, so release the exact
+				// claim rather than allowing a shared-points retry to see a live owner.
 				if (sharedPoints.applies()) {
-					completion.completeExceptionally(
-							new IllegalStateException("Point storage mode changed during replay lookup"));
+					releaseUnstartedSharedPointAddition(sharedPoints, operationId, uuid, journalPointsPath, value,
+							claimOwner, completion);
 					return;
 				}
 				PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, value);
+				hookStarted = true;
 				Bukkit.getPluginManager().callEvent(event);
-				if (event.isCancelled()) {
-					completion.complete(getPoints());
-					return;
-				}
-				int newTotal = getPoints() + event.getPoints();
-				setPoints(newTotal, false);
-				completion.complete(newTotal);
+				// Capture the local key and listener-adjusted delta while still on the
+				// entity lane. The persistence transaction reads and credits that key.
+				localPointsPath = getPointsPath();
+				adjusted = event.isCancelled() ? null : Integer.valueOf(event.getPoints());
+			}
+			String capturedLocalPointsPath = localPointsPath;
+			Integer capturedAdjusted = adjusted;
+			try {
+				plugin.getTimer().execute(() -> {
+					try {
+						// The receive hook already ran. Do not write to a potentially shared
+						// column if a reload changed the mode or local key after that hook.
+						if (sharedPoints.applies() || !capturedLocalPointsPath.equals(getPointsPath())) {
+							reportIndeterminateSharedPointAddition(sharedPoints, operationId, uuid, journalPointsPath,
+									value, claimOwner, completion, new IllegalStateException(
+											"Point storage mode changed after the PerServerPoints receive hook"));
+							return;
+						}
+						// This transaction credits the local column and completes the shared
+						// journal together. It bypasses legacy UserData writes, which cannot
+						// report a durable MySQL failure to this caller.
+						SharedMysqlPointMutator.AddResult result = sharedPoints.settlePerServerClaimedPointAddition(
+								this, operationId, uuid, journalPointsPath, capturedLocalPointsPath, value, claimOwner,
+								capturedAdjusted);
+						if (result.success()) completion.complete(result.total());
+						else reportIndeterminateSharedPointAddition(sharedPoints, operationId, uuid, journalPointsPath,
+										value, claimOwner, completion, new IllegalStateException(
+												"Unable to persist PerServerPoints reward completion"));
+					} catch (Throwable failure) {
+						reportIndeterminateSharedPointAddition(sharedPoints, operationId, uuid, journalPointsPath, value,
+								claimOwner, completion, failure);
+					}
+				});
+			} catch (RuntimeException rejected) {
+				reportIndeterminateSharedPointAddition(sharedPoints, operationId, uuid, journalPointsPath, value,
+						claimOwner, completion, rejected);
 			}
 		} catch (Throwable failure) {
-			completion.completeExceptionally(failure);
+			if (hookStarted) {
+				reportIndeterminateSharedPointAddition(sharedPoints, operationId, uuid, journalPointsPath, value,
+						claimOwner, completion, failure);
+			} else {
+				releaseUnstartedSharedPointAddition(sharedPoints, operationId, uuid, journalPointsPath, value,
+						claimOwner, completion);
+			}
 		}
 	}
 

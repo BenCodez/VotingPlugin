@@ -229,15 +229,22 @@ final class SharedPointAdditionJournal {
 		}
 	}
 
-	/** Completes a claimed hook exactly once, including a durable cancellation outcome. */
-	AdditionResult settleClaim(String operationId, String uuid, String pointsColumn, int requestedAmount, String owner,
-			Integer adjustedAmount) throws SQLException {
-		if (!isSafeColumn(pointsColumn)) throw new SQLException("Unsafe shared point column");
+	/**
+	 * Completes a claimed hook exactly once, including a durable cancellation
+	 * outcome. The journal identity is kept separate from the physical credit
+	 * column so a PerServerPoints hook can atomically credit its local column
+	 * while retaining the shared {@code Points} replay identity.
+	 */
+	AdditionResult settleClaim(String operationId, String uuid, String journalPointsColumn, String creditPointsColumn,
+			int requestedAmount, String owner, Integer adjustedAmount) throws SQLException {
+		if (!isSafeColumn(journalPointsColumn) || !isSafeColumn(creditPointsColumn)) {
+			throw new SQLException("Unsafe shared point column");
+		}
 		String select = "SELECT " + qi("player_uuid") + ", " + qi("points_column") + ", " + qi("amount")
 				+ ", " + qi("state") + ", " + qi("total_points") + ", " + qi("requested_amount") + ", "
 				+ qi("hook_owner") + ", " + qi("created_at") + " FROM " + qiJournal() + " WHERE "
 				+ qi("operation_id") + " = ? FOR UPDATE";
-		String points = qi(pointsColumn);
+		String points = qi(creditPointsColumn);
 		String updatePoints = "UPDATE " + qi(table.getTableName()) + " SET " + points + " = " + points
 				+ " + ? WHERE " + qi("uuid") + uuidCast();
 		String readPoints = "SELECT " + points + " FROM " + qi(table.getTableName()) + " WHERE " + qi("uuid")
@@ -246,76 +253,80 @@ final class SharedPointAdditionJournal {
 				+ " = ?, " + qi("total_points") + " = ? WHERE " + qi("operation_id") + " = ?";
 		try (Connection connection = connection()) {
 			connection.setAutoCommit(false);
-			try (PreparedStatement selectStatement = connection.prepareStatement(select)) {
-				selectStatement.setString(1, operationId);
-				AdditionRow row;
-				try (ResultSet result = selectStatement.executeQuery()) {
-					if (!result.next()) {
-						rollback(connection);
-						throw new SQLException("Shared point addition claim disappeared");
+			try {
+				try (PreparedStatement selectStatement = connection.prepareStatement(select)) {
+					selectStatement.setString(1, operationId);
+					AdditionRow row;
+					try (ResultSet result = selectStatement.executeQuery()) {
+						if (!result.next()) {
+							rollback(connection);
+							throw new SQLException("Shared point addition claim disappeared");
+						}
+						Integer total = result.getObject(5) == null ? null : Integer.valueOf(result.getInt(5));
+						Integer requested = result.getObject(6) == null ? null : Integer.valueOf(result.getInt(6));
+						row = new AdditionRow(result.getString(1), result.getString(2), result.getInt(3), result.getString(4),
+								total, requested, result.getString(7), result.getLong(8));
 					}
-					Integer total = result.getObject(5) == null ? null : Integer.valueOf(result.getInt(5));
-					Integer requested = result.getObject(6) == null ? null : Integer.valueOf(result.getInt(6));
-					row = new AdditionRow(result.getString(1), result.getString(2), result.getInt(3), result.getString(4),
-							total, requested, result.getString(7), result.getLong(8));
+					HookClaim resolved = claimForExisting(row, uuid, journalPointsColumn, requestedAmount, owner);
+					if (resolved.completed()) {
+						rollback(connection);
+						return new AdditionResult(resolved.total());
+					}
+					if (!resolved.claimed()) {
+						rollback(connection);
+						throw new SQLException("Shared point addition claim is not owned by this operation");
+					}
 				}
-				HookClaim resolved = claimForExisting(row, uuid, pointsColumn, requestedAmount, owner);
-				if (resolved.completed()) {
-					rollback(connection);
-					return new AdditionResult(resolved.total());
+				if (adjustedAmount != null) {
+					try (PreparedStatement statement = connection.prepareStatement(updatePoints)) {
+						statement.setInt(1, adjustedAmount.intValue());
+						statement.setString(2, uuid);
+						if (statement.executeUpdate() != 1) {
+							rollback(connection);
+							throw new SQLException("Shared point user row missing");
+						}
+					}
 				}
-				if (!resolved.claimed()) {
-					rollback(connection);
-					throw new SQLException("Shared point addition claim is not owned by this operation");
+				int total;
+				try (PreparedStatement statement = connection.prepareStatement(readPoints)) {
+					statement.setString(1, uuid);
+					try (ResultSet result = statement.executeQuery()) {
+						if (!result.next()) {
+							rollback(connection);
+							throw new SQLException("Shared point user row disappeared");
+						}
+						total = result.getInt(1);
+					}
 				}
-			}
-			if (adjustedAmount != null) {
-				try (PreparedStatement statement = connection.prepareStatement(updatePoints)) {
-					statement.setInt(1, adjustedAmount.intValue());
-					statement.setString(2, uuid);
+				try (PreparedStatement statement = connection.prepareStatement(complete)) {
+					// amount is a durable, non-null actual credit. A cancelled hook has
+					// no credit, rather than a nullable/ambiguous amount.
+					statement.setInt(1, adjustedAmount == null ? 0 : adjustedAmount.intValue());
+					statement.setString(2, COMPLETED);
+					statement.setInt(3, total);
+					statement.setString(4, operationId);
 					if (statement.executeUpdate() != 1) {
 						rollback(connection);
-						throw new SQLException("Shared point user row missing");
+						throw new SQLException("Shared point addition journal row missing");
 					}
 				}
-			}
-			int total;
-			try (PreparedStatement statement = connection.prepareStatement(readPoints)) {
-				statement.setString(1, uuid);
-				try (ResultSet result = statement.executeQuery()) {
-					if (!result.next()) {
-						rollback(connection);
-						throw new SQLException("Shared point user row disappeared");
-					}
-					total = result.getInt(1);
+				try {
+					connection.commit();
+					return new AdditionResult(total);
+				} catch (SQLException ambiguousCommit) {
+					closeQuietly(connection);
+					AdditionRow confirmed = find(operationId);
+					HookClaim resolved = confirmed == null ? null
+							: claimForExisting(confirmed, uuid, journalPointsColumn, requestedAmount, owner);
+					if (resolved != null && resolved.completed()) return new AdditionResult(resolved.total());
+					throw ambiguousCommit;
 				}
-			}
-			try (PreparedStatement statement = connection.prepareStatement(complete)) {
-				// amount is a durable, non-null actual credit. A cancelled hook has
-				// no credit, rather than a nullable/ambiguous amount.
-				statement.setInt(1, adjustedAmount == null ? 0 : adjustedAmount.intValue());
-				statement.setString(2, COMPLETED);
-				statement.setInt(3, total);
-				statement.setString(4, operationId);
-				if (statement.executeUpdate() != 1) {
-					rollback(connection);
-					throw new SQLException("Shared point addition journal row missing");
-				}
-			}
-			try {
-				connection.commit();
-				return new AdditionResult(total);
-			} catch (SQLException ambiguousCommit) {
-				closeQuietly(connection);
-				AdditionRow confirmed = find(operationId);
-				HookClaim resolved = confirmed == null ? null
-						: claimForExisting(confirmed, uuid, pointsColumn, requestedAmount, owner);
-				if (resolved != null && resolved.completed()) return new AdditionResult(resolved.total());
-				throw ambiguousCommit;
+			} catch (SQLException failure) {
+				rollback(connection);
+				throw failure;
 			}
 		}
 	}
-
 	private HookClaim claimForExisting(AdditionRow row, String uuid, String pointsColumn, int requestedAmount,
 			String owner) throws SQLException {
 		if (!row.matchesTarget(uuid, pointsColumn)

@@ -227,13 +227,31 @@ final class SharedMysqlPointMutator {
 		drainCache(user);
 		try {
 			SharedPointAdditionJournal.AdditionResult result = SharedPointAdditionJournal.forTable(plugin.getMysql())
-					.settleClaim(operationId, uuid, pointsColumn, requestedAmount, owner, adjustedAmount);
+					.settleClaim(operationId, uuid, pointsColumn, pointsColumn, requestedAmount, owner, adjustedAmount);
 			return new AddResult(true, result.total());
 		} catch (SQLException failure) {
 			logFailure(failure);
 			return new AddResult(false, 0);
 		} finally {
 			discardPointsCache(user, pointsColumn);
+		}
+	}
+
+	/** Atomically records a PerServerPoints hook outcome and credits its local column. */
+	AddResult settlePerServerClaimedPointAddition(VotingPluginUser user, String operationId, String uuid,
+			String journalPointsColumn, String creditPointsColumn, int requestedAmount, String owner,
+			Integer adjustedAmount) {
+		drainCache(user, creditPointsColumn);
+		try {
+			SharedPointAdditionJournal.AdditionResult result = SharedPointAdditionJournal.forTable(plugin.getMysql())
+					.settleClaim(operationId, uuid, journalPointsColumn, creditPointsColumn, requestedAmount, owner,
+							adjustedAmount);
+			return new AddResult(true, result.total());
+		} catch (SQLException failure) {
+			logFailure(failure);
+			return new AddResult(false, 0);
+		} finally {
+			discardPointsCache(user, creditPointsColumn);
 		}
 	}
 
@@ -982,12 +1000,16 @@ final class SharedMysqlPointMutator {
 	}
 
 	private void drainCache(VotingPluginUser user) {
+		drainCache(user, user.getPointsPath());
+	}
+
+	private void drainCache(VotingPluginUser user, String pointsColumn) {
 		SharedMysqlCacheReconciler.withCacheDumpFence(() -> {
 			if (!user.isCached()) return;
 			UserDataCache cache = user.getCache();
 			if (cache == null) return;
 			synchronized (cache) {
-				SharedMysqlCacheReconciler.discardOptimisticPoint(cache, user.getPointsPath());
+				SharedMysqlCacheReconciler.discardOptimisticPoint(cache, pointsColumn);
 				cache.dump();
 				plugin.getUserManager().getDataManager().removeCache(UUID.fromString(user.getUUID()), null);
 			}

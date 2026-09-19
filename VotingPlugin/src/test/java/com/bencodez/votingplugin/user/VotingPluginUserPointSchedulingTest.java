@@ -27,9 +27,11 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.HashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.bukkit.entity.Player;
@@ -516,14 +518,40 @@ class VotingPluginUserPointSchedulingTest {
 		PointFixture fixture = pointFixture();
 		when(fixture.plugin.getBungeeSettings().isPerServerPoints()).thenReturn(true);
 		doReturn("lobby_Points").when(fixture.user).getPointsPath();
-		doReturn(10).when(fixture.user).getPoints();
-		doNothing().when(fixture.user).setPoints(15, false);
 		PreparedStatement schema = mock(PreparedStatement.class);
 		PreparedStatement lookup = mock(PreparedStatement.class);
+		PreparedStatement claimInsert = mock(PreparedStatement.class);
+		PreparedStatement settleSelect = mock(PreparedStatement.class);
+		PreparedStatement settleCredit = mock(PreparedStatement.class);
+		PreparedStatement settleRead = mock(PreparedStatement.class);
+		PreparedStatement settleComplete = mock(PreparedStatement.class);
 		ResultSet missing = mock(ResultSet.class);
 		when(missing.next()).thenReturn(false);
 		when(lookup.executeQuery()).thenReturn(missing);
-		when(fixture.connection.prepareStatement(anyString())).thenReturn(schema, schema, lookup);
+		AtomicReference<String> owner = new AtomicReference<>();
+		doAnswer(invocation -> {
+			owner.set(invocation.getArgument(1));
+			return null;
+		}).when(claimInsert).setString(eq(8), anyString());
+		ResultSet claimed = mock(ResultSet.class);
+		when(claimed.next()).thenReturn(true);
+		when(claimed.getString(1)).thenReturn("00000000-0000-0000-0000-000000000001");
+		when(claimed.getString(2)).thenReturn("Points");
+		when(claimed.getInt(3)).thenReturn(5);
+		when(claimed.getString(4)).thenReturn("HOOK_STARTED");
+		when(claimed.getObject(5)).thenReturn(null);
+		when(claimed.getObject(6)).thenReturn(Integer.valueOf(5));
+		when(claimed.getInt(6)).thenReturn(5);
+		when(claimed.getString(7)).thenAnswer(invocation -> owner.get());
+		when(settleSelect.executeQuery()).thenReturn(claimed);
+		when(settleCredit.executeUpdate()).thenReturn(1);
+		ResultSet completedTotal = mock(ResultSet.class);
+		when(completedTotal.next()).thenReturn(true);
+		when(completedTotal.getInt(1)).thenReturn(15);
+		when(settleRead.executeQuery()).thenReturn(completedTotal);
+		when(settleComplete.executeUpdate()).thenReturn(1);
+		when(fixture.connection.prepareStatement(anyString())).thenReturn(schema, schema, schema, schema, lookup,
+				claimInsert, settleSelect, settleCredit, settleRead, settleComplete);
 		PluginManager pluginManager = mock(PluginManager.class);
 
 		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
@@ -543,9 +571,84 @@ class VotingPluginUserPointSchedulingTest {
 			verify(fixture.user, never()).setPoints(anyInt(), eq(false));
 
 			bukkitWork.getValue().run();
+			assertFalse(completion.isDone());
+			ArgumentCaptor<Runnable> settlementWork = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.persistence, org.mockito.Mockito.times(2)).execute(settlementWork.capture());
+			settlementWork.getAllValues().get(1).run();
 			assertEquals(15, completion.join());
 			verify(pluginManager).callEvent(any(PlayerReceivePointsEvent.class));
-			verify(fixture.user).setPoints(15, false);
+			verify(settleCredit).setInt(1, 5);
+			verify(settleCredit).setString(2, "00000000-0000-0000-0000-000000000001");
+			verify(claimInsert).setString(3, "Points");
+		}
+	}
+
+	@Test
+	void perServerPointAdditionDoesNotSettleJournalBeforeLocalPersistenceCompletes() throws Exception {
+		PointFixture fixture = pointFixture();
+		when(fixture.plugin.getBungeeSettings().isPerServerPoints()).thenReturn(true);
+		doReturn("lobby_Points").when(fixture.user).getPointsPath();
+		CountDownLatch localCreditStarted = new CountDownLatch(1);
+		CountDownLatch releaseLocalCredit = new CountDownLatch(1);
+		PreparedStatement schema = mock(PreparedStatement.class);
+		PreparedStatement lookup = mock(PreparedStatement.class);
+		PreparedStatement claimInsert = mock(PreparedStatement.class);
+		PreparedStatement settleSelect = mock(PreparedStatement.class);
+		PreparedStatement settleCredit = mock(PreparedStatement.class);
+		PreparedStatement settleRead = mock(PreparedStatement.class);
+		PreparedStatement settleComplete = mock(PreparedStatement.class);
+		ResultSet missing = mock(ResultSet.class);
+		when(missing.next()).thenReturn(false);
+		when(lookup.executeQuery()).thenReturn(missing);
+		AtomicReference<String> owner = new AtomicReference<>();
+		doAnswer(invocation -> {
+			owner.set(invocation.getArgument(1));
+			return null;
+		}).when(claimInsert).setString(eq(8), anyString());
+		ResultSet claimed = mock(ResultSet.class);
+		when(claimed.next()).thenReturn(true);
+		when(claimed.getString(1)).thenReturn("00000000-0000-0000-0000-000000000001");
+		when(claimed.getString(2)).thenReturn("Points");
+		when(claimed.getInt(3)).thenReturn(5);
+		when(claimed.getString(4)).thenReturn("HOOK_STARTED");
+		when(claimed.getObject(5)).thenReturn(null);
+		when(claimed.getObject(6)).thenReturn(Integer.valueOf(5));
+		when(claimed.getInt(6)).thenReturn(5);
+		when(claimed.getString(7)).thenAnswer(invocation -> owner.get());
+		when(settleSelect.executeQuery()).thenReturn(claimed);
+		doAnswer(invocation -> {
+			localCreditStarted.countDown();
+			assertTrue(releaseLocalCredit.await(5, TimeUnit.SECONDS));
+			throw new java.sql.SQLException("local credit failed");
+		}).when(settleCredit).executeUpdate();
+		when(settleComplete.executeUpdate()).thenReturn(1);
+		when(fixture.connection.prepareStatement(anyString())).thenReturn(schema, schema, schema, schema, lookup,
+				claimInsert, settleSelect, settleCredit, settleRead, settleComplete);
+		PluginManager pluginManager = mock(PluginManager.class);
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getPluginManager).thenReturn(pluginManager);
+			CompletableFuture<Integer> completion = fixture.user
+					.addPointsStorageAwareAsync(5, "per-server-operation").toCompletableFuture();
+			ArgumentCaptor<Runnable> persistenceWork = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.persistence).execute(persistenceWork.capture());
+			persistenceWork.getValue().run();
+
+			ArgumentCaptor<Runnable> bukkitWork = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.scheduler).runTask(eq(fixture.plugin), bukkitWork.capture(), eq(fixture.player));
+			bukkitWork.getValue().run();
+
+			ArgumentCaptor<Runnable> settlementWork = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.persistence, org.mockito.Mockito.times(2)).execute(settlementWork.capture());
+			CompletableFuture<Void> runningSettlement = CompletableFuture.runAsync(settlementWork.getAllValues().get(1));
+			assertTrue(localCreditStarted.await(5, TimeUnit.SECONDS));
+			verify(settleComplete, never()).executeUpdate();
+			releaseLocalCredit.countDown();
+			runningSettlement.get(5, TimeUnit.SECONDS);
+
+			assertTrue(completion.isCompletedExceptionally());
+			verify(settleComplete, never()).executeUpdate();
+			verify(pluginManager).callEvent(any(PlayerReceivePointsEvent.class));
 		}
 	}
 
@@ -556,10 +659,31 @@ class VotingPluginUserPointSchedulingTest {
 		doReturn("lobby_Points").when(fixture.user).getPointsPath();
 		PreparedStatement schema = mock(PreparedStatement.class);
 		PreparedStatement lookup = mock(PreparedStatement.class);
+		PreparedStatement claimInsert = mock(PreparedStatement.class);
+		PreparedStatement releaseSelect = mock(PreparedStatement.class);
+		PreparedStatement releaseDelete = mock(PreparedStatement.class);
 		ResultSet missing = mock(ResultSet.class);
 		when(missing.next()).thenReturn(false);
 		when(lookup.executeQuery()).thenReturn(missing);
-		when(fixture.connection.prepareStatement(anyString())).thenReturn(schema, schema, lookup);
+		AtomicReference<String> owner = new AtomicReference<>();
+		doAnswer(invocation -> {
+			owner.set(invocation.getArgument(1));
+			return null;
+		}).when(claimInsert).setString(eq(8), anyString());
+		ResultSet claimed = mock(ResultSet.class);
+		when(claimed.next()).thenReturn(true);
+		when(claimed.getString(1)).thenReturn("00000000-0000-0000-0000-000000000001");
+		when(claimed.getString(2)).thenReturn("Points");
+		when(claimed.getInt(3)).thenReturn(5);
+		when(claimed.getString(4)).thenReturn("HOOK_STARTED");
+		when(claimed.getObject(5)).thenReturn(null);
+		when(claimed.getObject(6)).thenReturn(Integer.valueOf(5));
+		when(claimed.getInt(6)).thenReturn(5);
+		when(claimed.getString(7)).thenAnswer(invocation -> owner.get());
+		when(releaseSelect.executeQuery()).thenReturn(claimed);
+		when(releaseDelete.executeUpdate()).thenReturn(1);
+		when(fixture.connection.prepareStatement(anyString())).thenReturn(schema, schema, schema, schema, lookup,
+				claimInsert, releaseSelect, releaseDelete);
 		when(fixture.entityScheduler.runAtEntityWithFallback(eq(fixture.player), any(), any(Runnable.class)))
 				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
 		doThrow(new RejectedExecutionException("stopping")).when(fixture.scheduler)
@@ -574,9 +698,13 @@ class VotingPluginUserPointSchedulingTest {
 			verify(fixture.persistence).execute(persistenceWork.capture());
 			persistenceWork.getValue().run();
 
+			ArgumentCaptor<Runnable> releaseWork = ArgumentCaptor.forClass(Runnable.class);
+			verify(fixture.persistence, org.mockito.Mockito.times(2)).execute(releaseWork.capture());
+			releaseWork.getAllValues().get(1).run();
 			assertTrue(completion.isCompletedExceptionally());
 			verifyNoInteractions(pluginManager);
 			verify(fixture.user, never()).setPoints(anyInt(), eq(false));
+			verify(releaseDelete).setString(2, "HOOK_STARTED");
 		}
 	}
 
