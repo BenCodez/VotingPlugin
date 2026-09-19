@@ -197,7 +197,7 @@ class VoteStreakHandlerTest {
 	}
 
 	/**
-	 * periodKey|streakCount|votesThisPeriod|countedThisPeriod|missWindowStartKey|missesUsed
+	 * periodKey|streakCount|votesThisPeriod|countedThisPeriod|missWindowStartKey|missesUsed|rewardedDefinitions|bestStreakCount
 	 *
 	 * @param raw raw streak state
 	 * @return parsed state fields
@@ -210,6 +210,18 @@ class VoteStreakHandlerTest {
 		assertTrue(p.length >= 6, "expected >= 6 fields, got " + p.length + " raw=" + raw);
 
 		return p;
+	}
+
+	private static void assertResetState(String raw) {
+		String[] p = parseState(raw);
+		assertEquals("", p[0]);
+		assertEquals("0", p[1]);
+		assertEquals("0", p[2]);
+		assertEquals("false", p[3]);
+		assertEquals("", p[4]);
+		assertEquals("0", p[5]);
+		assertEquals("", p[6]);
+		assertEquals("0", p[7]);
 	}
 
 	private void loadFromRoot(ConfigurationSection root) {
@@ -302,6 +314,61 @@ class VoteStreakHandlerTest {
 
 		assertEquals(12, handler.getVoteStreakAmount(user, "continuousstreak"));
 		assertEquals(12, handler.getVoteStreakAmount(user, "Daily3"));
+	}
+
+	@Test
+	void getVoteStreakBestAmount_migratesLegacyBestWithoutLosingNewerProgress() {
+		MemoryConfiguration root = rootWithOneStreak("DailyStreak", "DAILY", true, 5, 1, 1, 7);
+		loadFromRoot(root);
+
+		VoteStreakDefinition definition = handler.getDefinition("DailyStreak");
+		Map<String, String> backing = new HashMap<>();
+		VotingPluginUser user = mapBackedUser(UUID.randomUUID(), "Ben", backing);
+		when(user.getBestDayVoteStreak()).thenReturn(15);
+		backing.put(handler.getColumnName(definition), "2026-01-10|12|1|true||1");
+
+		assertEquals(15, handler.getVoteStreakBestAmount(user, "dailystreak"));
+		assertEquals(-1, handler.getVoteStreakBestAmount(user, "missing"));
+
+		when(user.getBestDayVoteStreak()).thenReturn(10);
+		backing.put(handler.getColumnName(definition), "2026-01-10|12|1|true||1");
+		assertEquals(12, handler.getVoteStreakBestAmount(user, "dailystreak"));
+	}
+
+	@Test
+	void getVoteStreakBestAmount_supportsProgressGroupAndMilestoneIds() {
+		MemoryConfiguration root = new MemoryConfiguration();
+		ConfigurationSection voteStreaks = root.createSection("VoteStreaks");
+		ConfigurationSection group = addProgressGroup(voteStreaks, "continuousstreak", "DAILY", 1, 1, 7);
+		addProgressGroupMilestone(group, "Daily3", 3, true, false);
+		loadFromRoot(root);
+
+		Map<String, String> backing = new HashMap<>();
+		VotingPluginUser user = mapBackedUser(UUID.randomUUID(), "Ben", backing);
+		backing.put("VoteStreakGroup_DAILY_continuousstreak", "2026-01-10|12|1|true||1||19");
+
+		assertEquals(19, handler.getVoteStreakBestAmount(user, "continuousstreak"));
+		assertEquals(19, handler.getVoteStreakBestAmount(user, "Daily3"));
+	}
+
+	@Test
+	void setVoteStreakAmount_preservesAndRaisesBestAmount() {
+		MemoryConfiguration root = rootWithOneStreak("DailyStreak", "DAILY", true, 5, 1, 1, 7);
+		loadFromRoot(root);
+
+		VoteStreakDefinition definition = handler.getDefinition("DailyStreak");
+		Map<String, String> backing = new HashMap<>();
+		VotingPluginUser user = mapBackedUser(UUID.randomUUID(), "Ben", backing);
+		String column = handler.getColumnName(definition);
+		backing.put(column, "2026-01-10|12|1|true||1||15");
+
+		assertTrue(handler.setVoteStreakAmount(user, "dailystreak", 5));
+		assertEquals("5", parseState(backing.get(column))[1]);
+		assertEquals("15", parseState(backing.get(column))[7]);
+
+		assertTrue(handler.setVoteStreakAmount(user, "dailystreak", 20));
+		assertEquals("20", parseState(backing.get(column))[1]);
+		assertEquals("20", parseState(backing.get(column))[7]);
 	}
 
 	@Test
@@ -561,7 +628,7 @@ class VoteStreakHandlerTest {
 
 		assertEquals(3, reset);
 		for (VoteStreakDefinition def : handler.getDefinitions()) {
-			assertEquals("", backing.get(handler.getColumnName(def)));
+			assertResetState(backing.get(handler.getColumnName(def)));
 		}
 	}
 
@@ -582,8 +649,8 @@ class VoteStreakHandlerTest {
 		int reset = handler.resetVoteStreaks(user, VoteStreakType.DAILY);
 
 		assertEquals(2, reset);
-		assertEquals("", backing.get(handler.getColumnName(daily3)));
-		assertEquals("", backing.get(handler.getColumnName(daily7)));
+		assertResetState(backing.get(handler.getColumnName(daily3)));
+		assertResetState(backing.get(handler.getColumnName(daily7)));
 		assertEquals("2026-W02|2|1|true||0", backing.get(handler.getColumnName(weekly2)));
 	}
 
@@ -600,7 +667,7 @@ class VoteStreakHandlerTest {
 		backing.put(handler.getColumnName(weekly2), "2026-W02|2|1|true||0");
 
 		assertTrue(handler.resetVoteStreak(user, "daily3"));
-		assertEquals("", backing.get(handler.getColumnName(daily3)));
+		assertResetState(backing.get(handler.getColumnName(daily3)));
 		assertEquals("2026-W02|2|1|true||0", backing.get(handler.getColumnName(weekly2)));
 	}
 
@@ -623,8 +690,22 @@ class VoteStreakHandlerTest {
 
 		assertTrue(handler.resetVoteStreak(user, "continuousstreak"));
 
-		assertEquals("", backing.get(groupCol));
+		assertResetState(backing.get(groupCol));
 		assertEquals("2026-01-10|1|1|true||0", backing.get(controlCol));
+	}
+
+	@Test
+	void resetVoteStreak_doesNotReimportLegacyBest() {
+		MemoryConfiguration root = rootWithOneStreak("DailyStreak", "DAILY", true, 5, 1, 1, 7);
+		loadFromRoot(root);
+
+		Map<String, String> backing = new HashMap<>();
+		VotingPluginUser user = mapBackedUser(UUID.randomUUID(), "Ben", backing);
+		when(user.getBestDayVoteStreak()).thenReturn(15);
+
+		assertTrue(handler.resetVoteStreak(user, "dailystreak"));
+		assertEquals(0, handler.getVoteStreakAmount(user, "dailystreak"));
+		assertEquals(0, handler.getVoteStreakBestAmount(user, "dailystreak"));
 	}
 
 	@Test

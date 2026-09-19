@@ -7,15 +7,26 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
+import java.nio.file.FileSystems;
 import java.nio.file.Path;
+import java.nio.file.SecureDirectoryStream;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.bencodez.votingplugin.util.DurableFiles;
@@ -33,6 +44,16 @@ class BackendConfigurationServiceTest {
 
 		assertEquals("loaded", value);
 		assertEquals(3, attempts.get());
+	}
+
+	@Test void nullYamlCommentMetadataDoesNotBreakControlReads() {
+		List<String> sanitized = BackendConfigurationService.sanitizeComments(
+				Arrays.asList(null, "# Token: generated-secret", "# ordinary owner note"),
+				List.of("generated-secret"), false);
+
+		assertEquals(Arrays.asList(null, "# Token: " + BackendConfigurationService.REDACTED,
+				"# ordinary owner note"), sanitized);
+		assertEquals(List.of(), BackendConfigurationService.sanitizeComments(null, List.of(), false));
 	}
 
 	@Test void malformedQuickReadInputRemainsAValidationFailure() {
@@ -351,6 +372,344 @@ class BackendConfigurationServiceTest {
 		Files.writeString(outside.resolve("sites/External.yml"), "VoteSites: {}\n");
 		Files.createSymbolicLink(root.resolve("VoteSites"), outside.resolve("sites"));
 		assertThrows(java.io.IOException.class, () -> service.read("VoteSites/External.yml"));
+		Files.createSymbolicLink(root.resolve("Rewards"), outside.resolve("sites"));
+		assertThrows(java.io.IOException.class, () -> service.read("Rewards/External.yml"));
+	}
+
+	@Test void namedRewardFilesRemainBoundedToOneSafeDirectory() throws Exception {
+		Path rewards = Files.createDirectories(directory.resolve("Rewards"));
+		Files.writeString(rewards.resolve("Daily.yml"), "Commands: []\n");
+		Files.writeString(rewards.resolve("Standard.yml"), "Messages: {}\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+
+		assertEquals(List.of("Daily.yml", "Standard.yml"), BackendConfigurationService.rewardFileInventory(directory));
+		assertDoesNotThrow(() -> service.read("Rewards/Daily.yml"));
+		assertThrows(IllegalArgumentException.class, () -> service.read("Rewards/../Config.yml"));
+		assertThrows(IllegalArgumentException.class, () -> service.read("Rewards/%2e%2e%2fConfig.yml"));
+		assertThrows(IllegalArgumentException.class, () -> service.read("Rewards\\Daily.yml"));
+		assertThrows(IllegalArgumentException.class, () -> service.read("Rewards/Daily.yaml"));
+		assertThrows(IllegalArgumentException.class, () -> service.read("Rewards/DirectlyDefined.snapshot.yml"));
+		Files.writeString(rewards.resolve("Oversized.yml"), "x".repeat(BackendConfigurationService.MAX_CONTENT_BYTES + 1));
+		assertThrows(IOException.class, () -> service.read("Rewards/Oversized.yml"));
+	}
+
+	@Test void onlyAnAbsentRewardsDirectoryProducesAnEmptyInventory() throws Exception {
+		assertEquals(List.of(), BackendConfigurationService.rewardFileInventory(directory));
+		assertThrows(IOException.class, () -> BackendConfigurationService.rewardFileInventory(directory.resolve("missing")));
+		Files.createDirectory(directory.resolve("Rewards"));
+		assertThrows(java.nio.file.NoSuchFileException.class,
+				() -> BackendConfigurationService.rewardFileInventory(directory,
+						ignored -> { throw new java.nio.file.NoSuchFileException("disappeared-entry.yml"); }));
+	}
+
+	@Test void namedRewardCapabilityRequiresSecureDirectoryAndPrivateFileSupport() throws Exception {
+		assertTrue(BackendConfigurationService.supportsNamedRewardFiles(directory));
+		try (var entries = Files.list(directory)) {
+			assertFalse(entries.anyMatch(path -> path.getFileName().toString().startsWith(".control-capability-")));
+		}
+		assertFalse(BackendConfigurationService.supportsNamedRewardFiles(directory,
+				ignored -> { throw new IOException("directory forcing is unavailable"); }));
+		Path outside = Files.createDirectory(directory.resolve("outside"));
+		Files.createSymbolicLink(directory.resolve("Rewards"), outside);
+		assertFalse(BackendConfigurationService.supportsNamedRewardFiles(directory));
+		Files.delete(directory.resolve("Rewards"));
+		Files.createDirectory(directory.resolve("Rewards"));
+		assertTrue(BackendConfigurationService.supportsNamedRewardFiles(directory));
+		AtomicInteger checkedRewardDirectory = new AtomicInteger();
+		assertFalse(BackendConfigurationService.supportsNamedRewardFiles(directory,
+				channel -> channel.force(true), ignored -> {
+					checkedRewardDirectory.incrementAndGet();
+					return false;
+				}));
+		assertEquals(1, checkedRewardDirectory.get());
+		assertFalse(BackendConfigurationService.supportsNamedRewardFiles(directory,
+				channel -> channel.force(true),
+				ignored -> { throw new java.nio.file.NoSuchFileException("vanished-reward-entry"); }));
+		assertFalse(BackendConfigurationService.supportsNamedRewardFiles(directory,
+				channel -> channel.force(true), pinned -> {
+					assertTrue(pinned.getFileAttributeView(PosixFileAttributeView.class) != null);
+					throw new UnsupportedOperationException("private staging creation is unavailable");
+				}));
+		try (var entries = Files.list(directory.resolve("Rewards"))) {
+			assertFalse(entries.anyMatch(path -> path.getFileName().toString().startsWith(".control-capability-")));
+		}
+		Path archive = directory.resolve("unsupported.zip");
+		try (var zip = FileSystems.newFileSystem(URI.create("jar:" + archive.toUri()), Map.of("create", "true"))) {
+			Path plugin = Files.createDirectory(zip.getPath("/plugin"));
+			assertFalse(BackendConfigurationService.supportsNamedRewardFiles(plugin));
+		}
+	}
+
+	@Test void namedRewardCapabilityReprobesAfterTransientStagingFailure() throws Exception {
+		Files.createDirectory(directory.resolve("Rewards"));
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		AtomicInteger attempts = new AtomicInteger();
+		BackendConfigurationService.DirectoryStagingSupport probe = ignored -> {
+			if (attempts.incrementAndGet() == 1) throw new IOException("temporary staging failure");
+			return true;
+		};
+		assertFalse(service.supportsNamedRewardFiles(probe));
+		assertTrue(service.supportsNamedRewardFiles(probe));
+		assertTrue(service.supportsNamedRewardFiles(probe));
+		assertEquals(2, attempts.get(), "only a successful probe may be cached for this directory");
+	}
+
+	@Test void namedRewardApplyKeepsPublishedAndBackupFilesPrivate() throws Exception {
+		Assumptions.assumeTrue(Files.getFileStore(directory).supportsFileAttributeView("posix"));
+		Path rewards = Files.createDirectories(directory.resolve("Rewards"));
+		Path file = rewards.resolve("Daily.yml");
+		Files.writeString(file, "Money: 1\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		String revision = service.read("Rewards/Daily.yml").revision();
+
+		service.apply("Rewards/Daily.yml", "Money: 2\n", revision);
+
+		var privatePermissions = PosixFilePermissions.fromString("rw-------");
+		assertEquals(privatePermissions, Files.getPosixFilePermissions(file));
+		assertEquals(privatePermissions, Files.getPosixFilePermissions(rewards.resolve("Daily.yml.control-backup")));
+	}
+
+	@Test void racedNamedRewardFifoDoesNotBlockTheConfigurationWorker() throws Exception {
+		Assumptions.assumeTrue(System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("linux"));
+		Assumptions.assumeTrue(Files.isExecutable(Path.of("/usr/bin/mkfifo")));
+		Path rewards = Files.createDirectory(directory.resolve("Rewards"));
+		Path fifo = rewards.resolve("Daily.yml");
+		Process create = new ProcessBuilder("/usr/bin/mkfifo", fifo.toString()).start();
+		assertTrue(create.waitFor(5, TimeUnit.SECONDS));
+		assertEquals(0, create.exitValue());
+		try (var entries = Files.newDirectoryStream(rewards)) {
+			Assumptions.assumeTrue(entries instanceof SecureDirectoryStream<?>);
+			@SuppressWarnings("unchecked")
+			SecureDirectoryStream<Path> pinned = (SecureDirectoryStream<Path>) entries;
+			var worker = Executors.newSingleThreadExecutor(task -> {
+				Thread thread = new Thread(task, "named-reward-fifo-regression");
+				thread.setDaemon(true);
+				return thread;
+			});
+			try {
+				worker.submit(() -> assertThrows(IOException.class,
+						() -> BackendConfigurationService.readRaw(pinned, "Daily.yml", false)))
+						.get(2, TimeUnit.SECONDS);
+			} finally {
+				worker.shutdownNow();
+			}
+		}
+	}
+
+	@Test void namedRewardRollbackUsesRetainedOriginalWhenBackupIsReplaced() throws Exception {
+		Path rewards = Files.createDirectories(directory.resolve("Rewards"));
+		Path file = rewards.resolve("Daily.yml");
+		Files.writeString(file, "Money: 1\n");
+		AtomicInteger reloads = new AtomicInteger();
+		BackendConfigurationService.ApplyAction reload = new BackendConfigurationService.ApplyAction() {
+			@Override public void run(String fileName) { }
+
+			@Override public void runNamedReward(String fileName, String expectedContent) throws Exception {
+				assertEquals("Rewards/Daily.yml", fileName);
+				if (reloads.incrementAndGet() == 1) {
+					assertEquals("Money: 2\n", expectedContent);
+					Files.writeString(rewards.resolve("Daily.yml.control-backup"), "Money: 999\n");
+					throw new IOException("disposable reload failed");
+				}
+				assertEquals("Money: 1\n", expectedContent);
+			}
+		};
+		BackendConfigurationService service = new BackendConfigurationService(directory, reload);
+		String revision = service.read("Rewards/Daily.yml").revision();
+		BackendConfigurationService.ApplyFailureException failure = assertThrows(
+				BackendConfigurationService.ApplyFailureException.class,
+				() -> service.apply("Rewards/Daily.yml", "Money: 2\n", revision));
+		assertTrue(failure.rolledBack());
+		assertEquals(2, reloads.get());
+		assertEquals("Money: 1\n", Files.readString(file));
+	}
+
+	@Test void rewardInventoryFailsClosedForSymlinksAmbiguousNamesAndExcess() throws Exception {
+		Path rewards = Files.createDirectories(directory.resolve("Rewards"));
+		Path outside = directory.resolve("outside.yml");
+		Files.writeString(outside, "outside: true\n");
+		Files.createSymbolicLink(rewards.resolve("External.yml"), outside);
+		assertThrows(IOException.class, () -> BackendConfigurationService.rewardFileInventory(directory));
+		Files.delete(rewards.resolve("External.yml"));
+		Files.writeString(rewards.resolve("Daily.yml"), "one: true\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		String revision = service.read("Rewards/Daily.yml").revision();
+		Files.writeString(rewards.resolve("daily.yml"), "two: true\n");
+		assertThrows(IOException.class, () -> BackendConfigurationService.rewardFileInventory(directory));
+		assertThrows(IOException.class, () -> service.read("Rewards/Daily.yml"));
+		assertThrows(IOException.class, () -> service.preview("Rewards/Daily.yml", "one: false\n"));
+		assertThrows(IOException.class, () -> service.apply("Rewards/Daily.yml", "one: false\n", revision));
+		assertEquals("one: true\n", Files.readString(rewards.resolve("Daily.yml")));
+		Files.delete(rewards.resolve("daily.yml"));
+		for (int index = 0; index <= BackendConfigurationService.MAX_REWARD_FILES; index++) {
+			Files.writeString(rewards.resolve("Reward" + index + ".yml"), "value: true\n");
+		}
+		assertThrows(IOException.class, () -> BackendConfigurationService.rewardFileInventory(directory));
+	}
+
+	@Test void rewardInventoryBoundsIgnoredEntriesBeforeReadPreviewOrApply() throws Exception {
+		Path rewards = Files.createDirectories(directory.resolve("Rewards"));
+		Path daily = rewards.resolve("Daily.yml");
+		Files.writeString(daily, "Money: 1\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		String revision = service.read("Rewards/Daily.yml").revision();
+		for (int index = 0; index < BackendConfigurationService.MAX_REWARD_DIRECTORY_ENTRIES - 1; index++) {
+			Files.createDirectory(rewards.resolve("Ignored" + index));
+		}
+		assertEquals(List.of("Daily.yml"), BackendConfigurationService.rewardFileInventory(directory));
+		assertEquals(revision, service.read("Rewards/Daily.yml").revision());
+		Files.createDirectory(rewards.resolve("Overflow"));
+		assertThrows(IOException.class, () -> BackendConfigurationService.rewardFileInventory(directory));
+		assertThrows(IOException.class, () -> service.read("Rewards/Daily.yml"));
+		assertThrows(IOException.class, () -> service.preview("Rewards/Daily.yml", "Money: 2\n"));
+		assertThrows(IOException.class, () -> service.apply("Rewards/Daily.yml", "Money: 2\n", revision));
+		assertEquals("Money: 1\n", Files.readString(daily));
+	}
+
+	@Test void namedRewardApplyKeepsBackupAndRollbackInPinnedDirectoryAfterParentSwap() throws Exception {
+		Path plugin = Files.createDirectories(directory.resolve("plugin"));
+		Path rewards = Files.createDirectories(plugin.resolve("Rewards"));
+		Path outside = Files.createDirectories(directory.resolve("external"));
+		Files.writeString(rewards.resolve("Daily.yml"), "Money: 1\n");
+		Files.writeString(outside.resolve("Daily.yml"), "Money: 999\n");
+		AtomicInteger reloads = new AtomicInteger();
+		BackendConfigurationService service = new BackendConfigurationService(plugin,
+				(BackendConfigurationService.ApplyAction) ignored -> {
+					if (reloads.incrementAndGet() == 1) {
+						Files.move(rewards, plugin.resolve("Rewards-original"));
+						Files.createSymbolicLink(rewards, outside);
+						throw new IOException("disposable reload failed");
+					}
+				});
+		String revision = service.read("Rewards/Daily.yml").revision();
+		BackendConfigurationService.ApplyFailureException failure = assertThrows(
+				BackendConfigurationService.ApplyFailureException.class,
+				() -> service.apply("Rewards/Daily.yml", "Money: 2\n", revision));
+		assertFalse(failure.rolledBack());
+		assertEquals("Money: 1\n", Files.readString(plugin.resolve("Rewards-original/Daily.yml")));
+		assertEquals("Money: 999\n", Files.readString(outside.resolve("Daily.yml")));
+		assertThrows(IOException.class, () -> service.read("Rewards/Daily.yml"));
+	}
+
+	@Test void namedRewardApplyRejectsOrdinaryReplacementDirectoryAfterReload() throws Exception {
+		Path plugin = Files.createDirectories(directory.resolve("plugin"));
+		Path rewards = Files.createDirectories(plugin.resolve("Rewards"));
+		Path replacement = Files.createDirectories(directory.resolve("replacement"));
+		Files.writeString(rewards.resolve("Daily.yml"), "Money: 1\n");
+		Files.writeString(replacement.resolve("Daily.yml"), "Money: 999\n");
+		AtomicInteger reloads = new AtomicInteger();
+		BackendConfigurationService service = new BackendConfigurationService(plugin,
+				(BackendConfigurationService.ApplyAction) ignored -> {
+					if (reloads.incrementAndGet() == 1) {
+						Files.move(rewards, plugin.resolve("Rewards-original"));
+						Files.move(replacement, rewards);
+					}
+				});
+		String revision = service.read("Rewards/Daily.yml").revision();
+		BackendConfigurationService.ApplyFailureException failure = assertThrows(
+				BackendConfigurationService.ApplyFailureException.class,
+				() -> service.apply("Rewards/Daily.yml", "Money: 2\n", revision));
+		assertFalse(failure.rolledBack());
+		assertEquals(1, reloads.get());
+		assertEquals("Money: 1\n", Files.readString(plugin.resolve("Rewards-original/Daily.yml")));
+		assertEquals("Money: 999\n", Files.readString(rewards.resolve("Daily.yml")));
+	}
+
+	@Test void namedRewardReloadReceivesPinnedProposalDuringTransientDirectoryReplacement() throws Exception {
+		Path plugin = Files.createDirectories(directory.resolve("plugin"));
+		Path rewards = Files.createDirectories(plugin.resolve("Rewards"));
+		Path replacement = Files.createDirectories(directory.resolve("replacement"));
+		Files.writeString(rewards.resolve("Daily.yml"), "Money: 1\n");
+		Files.writeString(replacement.resolve("Daily.yml"), "Money: 999\n");
+		AtomicInteger reloads = new AtomicInteger();
+		BackendConfigurationService.ApplyAction reload = new BackendConfigurationService.ApplyAction() {
+			@Override public void run(String fileName) { }
+
+			@Override public void runNamedReward(String fileName, String expectedContent) throws Exception {
+				assertEquals("Rewards/Daily.yml", fileName);
+				if (reloads.incrementAndGet() == 1) {
+					assertEquals("Money: 2\n", expectedContent);
+					Files.move(rewards, plugin.resolve("Rewards-original"));
+					Files.move(replacement, rewards);
+					try {
+						assertFalse(expectedContent.equals(Files.readString(rewards.resolve("Daily.yml"))));
+						throw new IOException("loaded reward did not match pinned proposal");
+					} finally {
+						Files.move(rewards, replacement);
+						Files.move(plugin.resolve("Rewards-original"), rewards);
+					}
+				}
+				assertEquals("Money: 1\n", expectedContent);
+			}
+		};
+		BackendConfigurationService service = new BackendConfigurationService(plugin, reload);
+		String revision = service.read("Rewards/Daily.yml").revision();
+		BackendConfigurationService.ApplyFailureException failure = assertThrows(
+				BackendConfigurationService.ApplyFailureException.class,
+				() -> service.apply("Rewards/Daily.yml", "Money: 2\n", revision));
+		assertTrue(failure.rolledBack());
+		assertEquals(2, reloads.get());
+		assertEquals("Money: 1\n", Files.readString(rewards.resolve("Daily.yml")));
+		assertEquals("Money: 999\n", Files.readString(replacement.resolve("Daily.yml")));
+	}
+
+	@Test void directoryReplacementBeforeScheduledReloadNeverStartsThatReload() throws Exception {
+		Path plugin = Files.createDirectories(directory.resolve("plugin"));
+		Path rewards = Files.createDirectories(plugin.resolve("Rewards"));
+		Path replacement = Files.createDirectories(directory.resolve("replacement"));
+		Files.writeString(rewards.resolve("Daily.yml"), "Money: 1\n");
+		Files.writeString(replacement.resolve("Daily.yml"), "Money: 999\n");
+		AtomicInteger callbacks = new AtomicInteger();
+		AtomicInteger reloads = new AtomicInteger();
+		BackendConfigurationService.ApplyAction action = new BackendConfigurationService.ApplyAction() {
+			@Override public void run(String fileName) { }
+			@Override public void runNamedReward(String fileName, String expectedContent,
+					BackendConfigurationService.NamedRewardGuard guard) throws Exception {
+				if (callbacks.incrementAndGet() == 1) {
+					Files.move(rewards, plugin.resolve("Rewards-original"));
+					Files.move(replacement, rewards);
+				}
+				guard.verify();
+				reloads.incrementAndGet();
+			}
+		};
+		BackendConfigurationService service = new BackendConfigurationService(plugin, action);
+		String revision = service.read("Rewards/Daily.yml").revision();
+		BackendConfigurationService.ApplyFailureException failure = assertThrows(
+				BackendConfigurationService.ApplyFailureException.class,
+				() -> service.apply("Rewards/Daily.yml", "Money: 2\n", revision));
+		assertFalse(failure.rolledBack());
+		assertEquals(0, reloads.get());
+		assertEquals("Money: 999\n", Files.readString(rewards.resolve("Daily.yml")));
+		assertEquals("Money: 1\n", Files.readString(plugin.resolve("Rewards-original/Daily.yml")));
+	}
+
+	@Test void concurrentNamedRewardAppliesCannotBothPublishTheSameRevision() throws Exception {
+		Path rewards = Files.createDirectories(directory.resolve("Rewards"));
+		Path file = rewards.resolve("Daily.yml");
+		Files.writeString(file, "Money: 1\n");
+		CountDownLatch firstReload = new CountDownLatch(1);
+		CountDownLatch allowReload = new CountDownLatch(1);
+		BackendConfigurationService service = new BackendConfigurationService(directory,
+				(BackendConfigurationService.ApplyAction) ignored -> {
+					firstReload.countDown();
+					if (!allowReload.await(5, TimeUnit.SECONDS)) throw new IOException("test reload timed out");
+				});
+		String revision = service.read("Rewards/Daily.yml").revision();
+		var pool = Executors.newFixedThreadPool(2);
+		try {
+			var first = pool.submit(() -> service.apply("Rewards/Daily.yml", "Money: 2\n", revision));
+			assertTrue(firstReload.await(5, TimeUnit.SECONDS));
+			var second = pool.submit(() -> service.apply("Rewards/Daily.yml", "Money: 3\n", revision));
+			allowReload.countDown();
+			assertTrue(first.get(5, TimeUnit.SECONDS).document().revision() != null);
+			ExecutionException stale = assertThrows(ExecutionException.class, () -> second.get(5, TimeUnit.SECONDS));
+			assertTrue(stale.getCause() instanceof BackendConfigurationService.StaleRevisionException);
+			assertEquals("Money: 2\n", Files.readString(file));
+		} finally {
+			allowReload.countDown();
+			pool.shutdownNow();
+		}
 	}
 
 	@Test void rejectsSymlinkedBackupSidecarsWithoutTouchingTheirTargets() throws Exception {
@@ -753,6 +1112,24 @@ class BackendConfigurationServiceTest {
 
 		assertThrows(IllegalArgumentException.class, () -> service.previewQuickSetup("proxy-method",
 				Map.of("method", "PLUGINMESSAGING")));
+	}
+
+	@Test void proxyMethodApplyPreservesBlankCommentMetadataWithoutRollingBack() throws Exception {
+		Path settings = directory.resolve("BungeeSettings.yml");
+		Files.writeString(settings, "# Proxy settings\n#\n# Method selection\n"
+				+ "UseBungeecord: true\nServer: server\nBungeeMethod: PLUGINMESSAGING\n"
+				+ "PluginMessageChannel: vp:vp\nRedis:\n  Host: localhost\n  Port: 6379\n");
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		BackendConfigurationService.QuickPreview preview = service.previewQuickSetup("proxy-method",
+				Map.of("method", "REDIS"));
+
+		BackendConfigurationService.ApplyResult applied = service.applyQuickSetup("proxy-method",
+				Map.of("method", "REDIS"), preview.revision(), ignored -> { });
+
+		assertFalse(applied.rolledBack());
+		assertTrue(Files.readString(settings).contains("BungeeMethod: REDIS"));
+		assertTrue(applied.document().content().contains("# Proxy settings"));
+		assertTrue(applied.document().content().contains("# Method selection"));
 	}
 
 	@Test void proxyMethodApplyUsesOnlyTheTargetedRuntimeAction() throws Exception {

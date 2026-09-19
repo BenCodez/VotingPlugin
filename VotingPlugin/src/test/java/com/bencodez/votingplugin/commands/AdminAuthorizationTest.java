@@ -44,6 +44,18 @@ class AdminAuthorizationTest {
 	}
 
 	@Test
+	void negativeBulkAddAdminOverrideHonorsMultiplePermissionPolicy() {
+		CommandSender admin = mock(CommandSender.class);
+		when(admin.hasPermission(AdminAuthorization.ADMIN_PERMISSION)).thenReturn(true);
+		CommandSender dedicated = mock(CommandSender.class);
+		when(dedicated.hasPermission(AdminAuthorization.REMOVE_POINTS_ALL_PERMISSION)).thenReturn(true);
+
+		assertTrue(AdminAuthorization.canAddPointsToAll(admin, -100, true));
+		assertFalse(AdminAuthorization.canAddPointsToAll(admin, -100, false));
+		assertTrue(AdminAuthorization.canAddPointsToAll(dedicated, -100, false));
+	}
+
+	@Test
 	void configEditorsRequireTheirOwnPermissionOrAdminOverride() {
 		String permission = "VotingPlugin.Commands.AdminVote.Edit.SpecialRewards";
 		CommandSender denied = mock(CommandSender.class);
