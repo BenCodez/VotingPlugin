@@ -90,6 +90,10 @@ public class BungeeSettings extends YMLFile {
 	@Getter
 	private int bungeeServerPort = 1297;
 
+	@ConfigDataString(path = "HTTP.ConnectionCode")
+	@Getter
+	private String httpConnectionCode = "";
+
 	@ConfigDataBoolean(path = "PerServerPoints")
 	@Getter
 	private boolean perServerPoints = false;

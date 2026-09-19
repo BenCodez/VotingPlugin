@@ -1,14 +1,38 @@
 # VotingPlugin Control agent contract
 
 This is the compact source of truth for an AI agent or Control client implementing the Bukkit integration. The connector
-has two separate lanes:
+has three separate lanes:
 
 - configuration operations use the negotiated `config.files.v1` / `config.quick-setup.v1` contract and may write only
   managed VotingPlugin YAML after preview and approval;
 - inspections use the optional `data.inspect.v1` contract and are always read-only.
+- plugin deployment uses the optional `plugin.deploy.v1` contract and only stages a verified JAR for an explicit
+  administrator-selected restart; it never reloads or restarts the process.
 
 Do not translate an inspection request into a configuration operation. Do not add raw SQL, arbitrary commands, player
 enumeration, database browsing, filesystem paths, or generic key/value reads to either contract.
+
+## Verified plugin deployment (`plugin.deploy.v1`)
+
+The capability is advertised only when the node can identify a safe staging target. Control assigns work through
+`POST /api/v1/nodes/{nodeId}/deployments` with the current `sessionId`. A task contains `deploymentId`, `artifactId`,
+lowercase `sha256`, byte `size`, and a leased `attemptId`. The node downloads only that assignment from
+`GET /api/v1/nodes/{nodeId}/deployments/{deploymentId}/artifact`, authenticating with its enrolled credential and the
+exact `X-Node-Session` and `X-Deployment-Attempt` headers.
+
+Downloads are limited to 64 MiB, do not follow redirects, require the assigned length and SHA-256, and must be a bounded
+JAR with exactly one root `plugin.yml` declaring `VotingPlugin`. Staging rejects unsafe ZIP entries, symlinked targets,
+oversized expansion, and compression bombs. Bukkit nodes atomically publish `VotingPlugin.jar` to the server update
+folder. Proxy nodes first refresh a durable `.control-backup` from the current verified JAR, then atomically replace the
+same discovered plugin JAR. Both write a small idempotency marker only after activation; a marker is trusted only after
+rehashing and reinspecting the target.
+
+The node reports the result to `POST /api/v1/nodes/{nodeId}/deployments/{deploymentId}/result` with its `sessionId` and
+the leased `attemptId`. Success is `RESTART_REQUIRED`; it means the JAR was staged, not loaded. Failures distinguish
+download, size/hash, invalid artifact, staging/write, cancellation, and lost capability. Transfer and disk work run on a
+dedicated background worker. Disable/reload marks the worker inactive, interrupts it, and prevents a stale completion
+from submitting success. Mixed-version nodes that do not negotiate `plugin.deploy.v1` remain connected but are excluded
+from deployment targets.
 
 ## Proxy file contract (`config.proxy-files.v1`)
 

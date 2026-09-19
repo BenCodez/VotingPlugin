@@ -41,10 +41,11 @@ public class VotiferEvent implements Listener {
 			if (plugin.getBungeeSettings().isUseBungeecoord() && !plugin.getBungeeSettings().isVotifierBypass()
 					&& (plugin.getBackendProxyHandler().getMethod().equals(BungeeMethod.PLUGINMESSAGING)
 							|| plugin.getBackendProxyHandler().getMethod().equals(BungeeMethod.SOCKETS)
+							|| plugin.getBackendProxyHandler().getMethod().equals(BungeeMethod.HTTP)
 							|| plugin.getBackendProxyHandler().getMethod().equals(BungeeMethod.MQTT)
 							|| plugin.getBackendProxyHandler().getMethod().equals(BungeeMethod.REDIS))) {
 				plugin.getLogger().severe(
-						"Ignoring vote from votifier since pluginmessaging, socket, redis, or mqtt bungee method is enabled, this means you aren't setup correctly for those methods, please check: https://github.com/BenCodez/VotingPlugin/wiki/Bungeecord-Setups");
+						"Ignoring vote from votifier since a proxy vote transport is enabled; receive votes on the proxy or enable VotifierBypass, then check: https://github.com/BenCodez/VotingPlugin/wiki/Bungeecord-Setups");
 				return;
 			}
 
@@ -123,7 +124,7 @@ public class VotiferEvent implements Listener {
 		if (!MinecraftUsernameValidator.isValid(voteUsername, plugin.getOptions().getBedrockPlayerPrefix())) {
 			plugin.getLogger().warning("Rejected vote with invalid Minecraft username '"
 					+ MinecraftUsernameValidator.sanitizeForLog(voteUsername) + "' from service '"
-					+ MinecraftUsernameValidator.sanitizeForLog(voteSite) + "'");
+					+ ServiceSiteValidator.sanitizeForLog(voteSite) + "'");
 			return;
 		}
 

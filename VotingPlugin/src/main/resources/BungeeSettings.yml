@@ -10,7 +10,7 @@
 # 📑 Config Index (matches this file)
 # ─────────────────────────────────────────────────────────────────────────────
 #  • Core proxy toggle (UseBungeecord) + method selection (BungeeMethod)
-#  • Method configs (PLUGINMESSAGING / REDIS / MQTT / MYSQL / SOCKETS)
+#  • Method configs (PLUGINMESSAGING / HTTP / REDIS / MQTT / MYSQL / SOCKETS)
 #  • Broadcast behavior (BungeeBroadcast / DisableBroadcast / Always)
 #  • Per-server behavior (PerServerRewards / Milestones / Points)
 #  • VoteParty (proxy rewards + global commands)
@@ -62,11 +62,18 @@ UseBungeecord: false
 # https://github.com/BenCodez/VotingPlugin/wiki/Bungeecord-Setups
 # Available:
 # PLUGINMESSAGING (Recommended)
+# HTTP (secure direct connection; one proxy port)
 # REDIS (2nd Most Recommended)
 # MQTT
 # MYSQL
 # SOCKETS (Not recommended)
 BungeeMethod: PLUGINMESSAGING
+
+# Secure direct transport. The proxy generates a temporary ConnectionCode.
+# Paste it here once, start the backend, then remove it after enrollment succeeds.
+# The backend stores its private client identity in the VotingPlugin data folder.
+HTTP:
+  ConnectionCode: ''
 
 # Use Redis for between server communication, set BungeeMethod to REDIS to use this
 Redis:

@@ -2,10 +2,18 @@
 package com.bencodez.votingplugin.proxy.multiproxy;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 import com.bencodez.simpleapi.encryption.EncryptionHandler;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
@@ -25,6 +33,46 @@ import lombok.Getter;
 public abstract class MultiProxyHandler {
 	private HashMap<String, ClientHandler> multiproxyClientHandles;
 	private SocketHandler multiproxySocketHandler;
+	/** A renewable lease prevents a restarted/rolled-back peer staying ACK-capable forever. */
+	static final long VOTE_CAPABILITY_LEASE_MILLIS = 5 * 60 * 1000L;
+	/** Bound retry-driven capability advertisements while a durable outbox is waiting. */
+	static final long VOTE_CAPABILITY_RENEWAL_MIN_INTERVAL_MILLIS = 30 * 1000L;
+	/**
+	 * A discovery reply can arrive asynchronously (notably through Redis). Renew
+	 * before the bounded discovery window closes, leaving the final announcement a
+	 * real interval to be observed instead of classifying a peer as legacy in the
+	 * same retry that sent its last handshake.
+	 */
+	static final long VOTE_CAPABILITY_DISCOVERY_RENEWAL_MIN_INTERVAL_MILLIS = 10 * 1000L;
+	/**
+	 * A newly configured peer gets this one bounded opportunity to answer the
+	 * capability handshake before it is treated as a legacy one-way peer. The
+	 * deadline is durable so a restart cannot extend the window indefinitely.
+	 */
+	static final long VOTE_CAPABILITY_DISCOVERY_WINDOW_MILLIS = 30 * 1000L;
+	private final Map<String, Long> acknowledgedVoteCapabilityPeers = new HashMap<>();
+	/**
+	 * Peers which have previously completed the durable-delivery handshake. Retain
+	 * this separately from the renewable lease: once a known-capable peer drops
+	 * offline, sending it a legacy vote would acknowledge a fire-and-forget publish
+	 * as success and lose the sender's durable completion fence.
+	 */
+	private final Set<String> knownVoteCapabilityPeers = new HashSet<>();
+	/** Durable, per-peer deadlines for the initial capability discovery window. */
+	private final Map<String, Long> voteCapabilityDiscoveryDeadlines = new HashMap<>();
+	/**
+	 * We cannot safely classify configured peers after the durable state is corrupt
+	 * or cannot be updated.  Do not create a new mixed-version outbox in that
+	 * state: an old peer can never acknowledge it, while demoting a formerly
+	 * capable peer would lose its sender fence.  Recovery is deliberately an
+	 * operator action (repair/remove the named state file, then restart).
+	 */
+	private boolean voteCapabilityRecoveryBlocked;
+	private long lastVoteCapabilityAdvertisementMillis = Long.MIN_VALUE;
+	/** A newly persisted discovery deadline must cause an initial handshake promptly. */
+	private boolean voteCapabilityDiscoveryAnnouncementRequired;
+	/** Last wall-clock observation durably associated with discovery deadlines. */
+	private long lastVoteCapabilityObservationMillis;
 
 	@Getter
 	private RedisHandler multiProxyRedis;
@@ -33,6 +81,10 @@ public abstract class MultiProxyHandler {
 	 * Constructs a new multi-proxy handler.
 	 */
 	public MultiProxyHandler() {
+	}
+
+	long capabilityNowMillis() {
+		return System.currentTimeMillis();
 	}
 
 	/**
@@ -64,6 +116,12 @@ public abstract class MultiProxyHandler {
 		multiProxyRedis = null;
 		stopSocketClients(multiproxyClientHandles);
 		multiproxyClientHandles = null;
+		acknowledgedVoteCapabilityPeers.clear();
+		knownVoteCapabilityPeers.clear();
+		voteCapabilityDiscoveryDeadlines.clear();
+		voteCapabilityRecoveryBlocked = false;
+		lastVoteCapabilityAdvertisementMillis = Long.MIN_VALUE;
+		lastVoteCapabilityObservationMillis = 0L;
 	}
 
 	/**
@@ -250,9 +308,332 @@ public abstract class MultiProxyHandler {
 			VoteTotalsSnapshot text, String uuid);
 
 	/**
+	 * Triggers a vote using the stable ID carried by a multi-proxy envelope.
+	 * Existing implementations retain the legacy callback contract; implementations
+	 * that support durable retries should override this overload.
+	 */
+	public void triggerVote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
+			VoteTotalsSnapshot text, String uuid, UUID voteId) {
+		triggerVote(player, service, realVote, timeQueue, queueTime, text, uuid);
+	}
+
+	/**
+	 * Additive reliable-delivery overload. Existing integrations retain the
+	 * stable-ID behavior without needing to understand acknowledgements.
+	 */
+	public void triggerVote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
+			VoteTotalsSnapshot text, String uuid, UUID voteId, String origin) {
+		triggerVote(player, service, realVote, timeQueue, queueTime, text, uuid, voteId);
+	}
+
+	/** Called when a receiver acknowledges this proxy's stable vote ID. */
+	public void onMultiProxyVoteAcknowledged(UUID voteId, String recipient) {
+		// Optional for legacy implementations.
+	}
+
+	/** Called on the origin when a receiver confirms fence retirement. */
+	public void onMultiProxyVoteRetirementAcknowledged(UUID voteId, String recipient) {
+		// Optional for legacy implementations.
+	}
+
+	/** Called on a receiver after a targeted retirement request is authenticated. */
+	public void onMultiProxyVoteRetirementRequested(UUID voteId, String origin) {
+		// Optional for legacy implementations.
+	}
+
+	/**
+	 * Publishes an acknowledgement after receiver completion is durable. The
+	 * broadcast route keeps sockets and Redis compatible; recipients filter it by
+	 * the origin field, and duplicate votes cause the receiver to acknowledge again.
+	 */
+	public void acknowledgeMultiProxyVote(UUID voteId, String origin) {
+		if (voteId == null || origin == null || origin.isBlank()) return;
+		sendMultiProxyEnvelopeAccepted(VotingPluginWire.multiProxyVoteAck(voteId, origin, getMultiProxyServerName()));
+	}
+
+	public void requestMultiProxyVoteRetirement(UUID voteId, String origin, String recipient) {
+		if (voteId == null || origin == null || origin.isBlank() || recipient == null || recipient.isBlank()) return;
+		sendMultiProxyEnvelopeAccepted(VotingPluginWire.multiProxyVoteRetire(voteId, origin, recipient),
+				java.util.Set.of(recipient));
+	}
+
+	public void acknowledgeMultiProxyVoteRetirement(UUID voteId, String origin) {
+		if (voteId == null || origin == null || origin.isBlank()) return;
+		sendMultiProxyEnvelopeAccepted(
+				VotingPluginWire.multiProxyVoteRetireAck(voteId, origin, getMultiProxyServerName()));
+	}
+
+	/** Returns every configured remote proxy recipient, independent of version. */
+	public synchronized Set<String> getConfiguredMultiProxyVoteRecipients() {
+		return new LinkedHashSet<>(configuredMultiProxyRecipientNames().values());
+	}
+
+	private synchronized Map<String, String> configuredMultiProxyRecipientNames() {
+		Collection<String> source = MultiProxyMethod.SOCKETS.equals(getMultiProxyMethod())
+				? getMultiProxyServers() : getProxyServers();
+		Map<String, String> recipients = new LinkedHashMap<>();
+		if (source == null) return recipients;
+		for (String server : source) {
+			if (server != null && !server.isBlank())
+				recipients.putIfAbsent(server.toLowerCase(Locale.ROOT), server);
+		}
+		return recipients;
+	}
+
+	/** Returns only configured peers that explicitly support durable acknowledgements. */
+	public synchronized Set<String> getMultiProxyVoteRecipients() {
+		long now = capabilityNowMillis();
+		acknowledgedVoteCapabilityPeers.entrySet().removeIf(entry -> entry.getValue() <= now);
+		Set<String> recipients = new LinkedHashSet<>();
+		for (Map.Entry<String, String> configured : configuredMultiProxyRecipientNames().entrySet()) {
+			if (acknowledgedVoteCapabilityPeers.containsKey(configured.getKey())) recipients.add(configured.getValue());
+		}
+		return recipients;
+	}
+
+	/**
+	 * Returns configured peers which previously advertised durable acknowledgements
+	 * but whose renewable lease has expired. A sender must retain these recipients
+	 * in its durable outbox and wait for the capability handshake to renew instead
+	 * of demoting them to the legacy one-way route.
+	 */
+	public synchronized Set<String> getMultiProxyVoteRecipientsAwaitingCapabilityRenewal() {
+		long now = capabilityNowMillis();
+		acknowledgedVoteCapabilityPeers.entrySet().removeIf(entry -> entry.getValue() <= now);
+		Set<String> recipients = new LinkedHashSet<>();
+		for (Map.Entry<String, String> configured : configuredMultiProxyRecipientNames().entrySet()) {
+			if (knownVoteCapabilityPeers.contains(configured.getKey())
+					&& !acknowledgedVoteCapabilityPeers.containsKey(configured.getKey())) {
+				recipients.add(configured.getValue());
+			}
+		}
+		return recipients;
+	}
+
+	/**
+	 * Returns never-observed configured peers whose initial capability handshake
+	 * is still within its bounded discovery window. Callers retain the vote for a
+	 * retry while this set is non-empty, rather than publishing a one-way legacy
+	 * copy before a newly upgraded peer can identify itself.
+	 *
+	 * <p>The deadline is recorded before it is exposed. If recording it fails, we
+	 * block forwarding rather than allowing repeated restarts to make this window
+	 * unbounded or silently demoting a peer to legacy.</p>
+	 */
+	public synchronized Set<String> getMultiProxyVoteRecipientsAwaitingCapabilityDiscovery() {
+		if (voteCapabilityRecoveryBlocked) return Set.of();
+		long now = capabilityNowMillis();
+		Map<String, String> configured = configuredMultiProxyRecipientNames();
+		Map<String, Long> updated = new HashMap<>(voteCapabilityDiscoveryDeadlines);
+		boolean clockRolledBack = lastVoteCapabilityObservationMillis > 0L && now < lastVoteCapabilityObservationMillis;
+		// A wall clock moving backwards must never grant a second discovery window.
+		// Expire the already-recorded opportunity rather than waiting for the clock
+		// to catch up (which can otherwise retain a vote indefinitely after reboot).
+		if (clockRolledBack) {
+			updated.replaceAll((peer, deadline) -> deadline > now ? now : deadline);
+		}
+		boolean changed = updated.keySet().removeIf(peer -> !configured.containsKey(peer)
+				|| knownVoteCapabilityPeers.contains(peer));
+		changed |= clockRolledBack && !updated.equals(voteCapabilityDiscoveryDeadlines);
+		boolean addedDiscoveryDeadline = false;
+		for (String peer : configured.keySet()) {
+			if (knownVoteCapabilityPeers.contains(peer) || updated.containsKey(peer)) continue;
+			updated.put(peer, discoveryDeadline(now));
+			changed = true;
+			addedDiscoveryDeadline = true;
+		}
+		long observed = Math.max(0L, now);
+		boolean activeDiscovery = false;
+		boolean discoveryExpiredSinceLastObservation = false;
+		for (Long deadline : updated.values()) {
+			if (deadline == null) continue;
+			if (deadline > now) {
+				activeDiscovery = true;
+			} else if (deadline > lastVoteCapabilityObservationMillis) {
+				// Preserve the first observation after expiry. Without it, a later
+				// clock rollback could make this already-consumed window live again.
+				discoveryExpiredSinceLastObservation = true;
+			}
+		}
+		// Keep a persisted high-water mark while discovery is live, but do so at
+		// the same bounded cadence as advertisements. Once an expired deadline is
+		// recorded, repeated legacy forwarding must not fsync this state per vote.
+		boolean observationChanged = !updated.isEmpty() && (clockRolledBack
+				|| discoveryExpiredSinceLastObservation || (activeDiscovery
+						&& (lastVoteCapabilityObservationMillis == 0L
+								|| now - lastVoteCapabilityObservationMillis
+										>= VOTE_CAPABILITY_DISCOVERY_RENEWAL_MIN_INTERVAL_MILLIS)));
+		if ((changed || observationChanged)
+				&& !saveVoteCapabilityState(knownVoteCapabilityPeers, updated, observed)) return Set.of();
+		if (addedDiscoveryDeadline) voteCapabilityDiscoveryAnnouncementRequired = true;
+		Set<String> recipients = new LinkedHashSet<>();
+		for (Map.Entry<String, String> configuredPeer : configured.entrySet()) {
+			Long deadline = voteCapabilityDiscoveryDeadlines.get(configuredPeer.getKey());
+			if (!knownVoteCapabilityPeers.contains(configuredPeer.getKey()) && deadline != null && deadline > now) {
+				recipients.add(configuredPeer.getValue());
+			}
+		}
+		return recipients;
+	}
+
+	/** Broadcasts this node's durable-ACK capability to configured peers. */
+	public synchronized void announceMultiProxyVoteCapability() {
+		lastVoteCapabilityAdvertisementMillis = capabilityNowMillis();
+		voteCapabilityDiscoveryAnnouncementRequired = false;
+		sendMultiProxyEnvelopeAccepted(VotingPluginWire.multiProxyCapabilities(getMultiProxyServerName(), 1));
+	}
+
+	/**
+	 * Re-advertises durable delivery support for an outbox that is waiting for an
+	 * expired peer lease. This is deliberately rate limited: the queue retries
+	 * much more frequently than the handshake needs to be broadcast.
+	 *
+	 * @return whether an advertisement was attempted
+	 */
+	public synchronized boolean renewMultiProxyVoteCapabilityIfDue() {
+		return renewMultiProxyVoteCapabilityIfDue(VOTE_CAPABILITY_RENEWAL_MIN_INTERVAL_MILLIS);
+	}
+
+	/**
+	 * Re-advertises while an initial discovery deadline is still live. The shorter
+	 * cadence guarantees a settling interval before the durable deadline expires;
+	 * callers must not invoke this after the discovery query says the window ended.
+	 */
+	public synchronized boolean renewMultiProxyVoteCapabilityDiscoveryIfDue() {
+		return renewMultiProxyVoteCapabilityIfDue(VOTE_CAPABILITY_DISCOVERY_RENEWAL_MIN_INTERVAL_MILLIS);
+	}
+
+	private boolean renewMultiProxyVoteCapabilityIfDue(long minimumIntervalMillis) {
+		long now = capabilityNowMillis();
+		if (!voteCapabilityDiscoveryAnnouncementRequired && lastVoteCapabilityAdvertisementMillis != Long.MIN_VALUE
+				&& now >= lastVoteCapabilityAdvertisementMillis
+				&& now - lastVoteCapabilityAdvertisementMillis < minimumIntervalMillis) {
+			return false;
+		}
+		lastVoteCapabilityAdvertisementMillis = now;
+		voteCapabilityDiscoveryAnnouncementRequired = false;
+		sendMultiProxyEnvelopeAccepted(VotingPluginWire.multiProxyCapabilities(getMultiProxyServerName(), 1));
+		return true;
+	}
+
+	/**
+	 * Whether durable peer classification needs an explicit on-disk recovery.
+	 * Callers must not start a new multi-proxy forwarding attempt while this is
+	 * true, because a legacy peer cannot complete an acknowledgement outbox.
+	 */
+	public synchronized boolean isMultiProxyVoteCapabilityRecoveryBlocked() {
+		return voteCapabilityRecoveryBlocked;
+	}
+
+	/** Restores durable peer identities without restoring any expired lease. */
+	synchronized void restoreVoteCapabilityPeers() {
+		acknowledgedVoteCapabilityPeers.clear();
+		knownVoteCapabilityPeers.clear();
+		voteCapabilityDiscoveryDeadlines.clear();
+		voteCapabilityRecoveryBlocked = false;
+		lastVoteCapabilityObservationMillis = 0L;
+		Path dataDirectory = capabilityStateDirectory();
+		// Third-party MultiProxyHandler integrations predate durable state and may
+		// intentionally provide no plugin folder. Preserve their established
+		// in-memory handshake behavior; built-in proxy handlers always provide one.
+		if (dataDirectory == null) return;
+		try {
+			MultiProxyCapabilityStore.State restored = MultiProxyCapabilityStore.load(dataDirectory);
+			Set<String> configured = configuredMultiProxyRecipientNames().keySet();
+			Set<String> restoredPeers = new HashSet<>();
+			for (String peer : restored.peers()) if (configured.contains(peer)) restoredPeers.add(peer);
+			Map<String, Long> restoredDeadlines = new HashMap<>();
+			for (Map.Entry<String, Long> entry : restored.discoveryDeadlines().entrySet()) {
+				if (configured.contains(entry.getKey()) && !restoredPeers.contains(entry.getKey())) {
+					restoredDeadlines.put(entry.getKey(), entry.getValue());
+				}
+			}
+			long now = capabilityNowMillis();
+			boolean clockRolledBack = restored.lastObservedMillis() > 0L && now < restored.lastObservedMillis();
+			if (clockRolledBack) {
+				restoredDeadlines.replaceAll((peer, deadline) -> deadline > now ? now : deadline);
+			}
+			long observed = Math.max(0L, clockRolledBack ? now : Math.max(now, restored.lastObservedMillis()));
+			boolean pruned = !restoredPeers.equals(restored.peers())
+					|| !restoredDeadlines.equals(restored.discoveryDeadlines());
+			boolean observationChanged = !restoredDeadlines.isEmpty() && observed != restored.lastObservedMillis();
+			// Persist removal before installing the filtered identities. Otherwise a
+			// later re-add of the same name could resurrect an ACK-capable identity.
+			if ((pruned || observationChanged)
+					&& !saveVoteCapabilityState(restoredPeers, restoredDeadlines, observed)) return;
+			knownVoteCapabilityPeers.addAll(restoredPeers);
+			voteCapabilityDiscoveryDeadlines.putAll(restoredDeadlines);
+			lastVoteCapabilityObservationMillis = observed;
+		} catch (IOException | IllegalArgumentException stateFailure) {
+			blockVoteCapabilityRecovery();
+		}
+	}
+
+	/**
+	 * Makes a peer eligible for durable publishes only after its durable identity is
+	 * recorded.  A failed write never silently converts an acknowledged-capable
+	 * peer to the legacy route during this process.
+	 */
+	private boolean acceptVoteCapabilityPeer(String normalized) {
+		if (voteCapabilityRecoveryBlocked) return false;
+		boolean newPeer = !knownVoteCapabilityPeers.contains(normalized);
+		if (!newPeer) return true;
+		Set<String> updated = new HashSet<>(knownVoteCapabilityPeers);
+		updated.add(normalized);
+		Map<String, Long> updatedDeadlines = new HashMap<>(voteCapabilityDiscoveryDeadlines);
+		updatedDeadlines.remove(normalized);
+		boolean accepted = saveVoteCapabilityState(updated, updatedDeadlines, lastVoteCapabilityObservationMillis);
+		if (accepted) voteCapabilityDiscoveryAnnouncementRequired = false;
+		return accepted;
+	}
+
+	private long discoveryDeadline(long now) {
+		return now > Long.MAX_VALUE - VOTE_CAPABILITY_DISCOVERY_WINDOW_MILLIS ? Long.MAX_VALUE
+				: now + VOTE_CAPABILITY_DISCOVERY_WINDOW_MILLIS;
+	}
+
+	/** Saves and installs peer classification atomically from the sender's view. */
+	private boolean saveVoteCapabilityState(Collection<String> peers, Map<String, Long> discoveryDeadlines,
+			long lastObservedMillis) {
+		Path dataDirectory = capabilityStateDirectory();
+		try {
+			if (dataDirectory != null) MultiProxyCapabilityStore.save(dataDirectory, peers, discoveryDeadlines,
+					lastObservedMillis);
+			knownVoteCapabilityPeers.clear();
+			knownVoteCapabilityPeers.addAll(peers);
+			voteCapabilityDiscoveryDeadlines.clear();
+			voteCapabilityDiscoveryDeadlines.putAll(discoveryDeadlines);
+			lastVoteCapabilityObservationMillis = lastObservedMillis;
+			return true;
+		} catch (IOException | IllegalArgumentException stateFailure) {
+			blockVoteCapabilityRecovery();
+			return false;
+		}
+	}
+
+	private void blockVoteCapabilityRecovery() {
+		voteCapabilityRecoveryBlocked = true;
+		logInfo("Multi-proxy forwarding is blocked: repair or remove " + MultiProxyCapabilityStore.FILE_NAME
+				+ " and restart before forwarding votes");
+	}
+
+	private Path capabilityStateDirectory() {
+		File dataFolder = getPluginDataFolder();
+		return dataFolder == null ? null : dataFolder.toPath();
+	}
+
+	/**
 	 * Loads multi-proxy support.
 	 */
 	public synchronized void loadMultiProxySupport() {
+		acknowledgedVoteCapabilityPeers.clear();
+		knownVoteCapabilityPeers.clear();
+		voteCapabilityDiscoveryDeadlines.clear();
+		voteCapabilityRecoveryBlocked = false;
+		lastVoteCapabilityAdvertisementMillis = Long.MIN_VALUE;
+		voteCapabilityDiscoveryAnnouncementRequired = false;
+		lastVoteCapabilityObservationMillis = 0L;
+		restoreVoteCapabilityPeers();
 		if (!getMultiProxySupportEnabled()) {
 			return;
 		}
@@ -315,6 +696,7 @@ public abstract class MultiProxyHandler {
 		}
 
 		logInfo("Loaded multi-proxy support: " + getMultiProxyMethod().toString());
+		announceMultiProxyVoteCapability();
 	}
 
 	/**
@@ -359,24 +741,77 @@ public abstract class MultiProxyHandler {
 	 * @param envelope the envelope to send
 	 */
 	public synchronized void sendMultiProxyEnvelope(JsonEnvelope envelope) {
-		if (envelope == null) {
-			return;
+		sendMultiProxyEnvelopeAccepted(envelope);
+	}
+
+	/**
+	 * Sends an envelope and reports whether the configured transport accepted it.
+	 *
+	 * <p>The legacy send method is intentionally retained for callers that do not
+	 * need delivery fencing. A vote producer must use this result: a missing
+	 * client, an unavailable Redis connection, an empty destination list, or a
+	 * transport exception must leave the vote retryable instead of claiming that
+	 * forwarding completed. Socket clients are fire-and-forget in SimpleAPI, so
+	 * acceptance means that the configured client accepted the send invocation;
+	 * the stable wire vote ID remains the receiver-side duplicate fence.</p>
+	 *
+	 * @param envelope the envelope to send
+	 * @return true only when every configured destination accepted the envelope
+	 */
+	public synchronized boolean sendMultiProxyEnvelopeAccepted(JsonEnvelope envelope) {
+		return sendMultiProxyEnvelopeAccepted(envelope, getConfiguredMultiProxyVoteRecipients());
+	}
+
+	/**
+	 * Sends an envelope to a selected subset of configured peers. Reliable senders
+	 * use this to retry only ACK-capable peers, avoiding duplicate legacy delivery.
+	 */
+	public synchronized boolean sendMultiProxyEnvelopeAccepted(JsonEnvelope envelope, Collection<String> recipients) {
+		if (envelope == null) return false;
+		if (recipients == null || recipients.isEmpty()) return false;
+		Map<String, String> requested = new LinkedHashMap<>();
+		Map<String, String> configuredNames = configuredMultiProxyRecipientNames();
+		for (String recipient : recipients) {
+			if (recipient != null && !recipient.isBlank()) {
+				String normalized = recipient.toLowerCase(Locale.ROOT);
+				requested.putIfAbsent(normalized, configuredNames.getOrDefault(normalized, recipient));
+			}
 		}
+		if (requested.isEmpty()) return false;
 		if (getMultiProxyMethod().equals(MultiProxyMethod.SOCKETS)) {
-			if (multiproxyClientHandles == null) {
-				return;
+			if (multiproxyClientHandles == null || multiproxyClientHandles.isEmpty()) return false;
+			boolean accepted = true;
+			int destinations = 0;
+			for (Map.Entry<String, ClientHandler> entry : multiproxyClientHandles.entrySet()) {
+				if (entry.getKey() == null || !requested.containsKey(entry.getKey().toLowerCase(Locale.ROOT))) continue;
+				ClientHandler h = entry.getValue();
+				if (h == null) {
+					accepted = false;
+					continue;
+				}
+				destinations++;
+				try {
+					h.sendEnvelope(envelope);
+				} catch (RuntimeException failure) {
+					accepted = false;
+				}
 			}
-			for (ClientHandler h : multiproxyClientHandles.values()) {
-				h.sendEnvelope(envelope);
-			}
+			return accepted && destinations == requested.size();
 		} else if (getMultiProxyMethod().equals(MultiProxyMethod.REDIS)) {
-			if (multiProxyRedis == null) {
-				return;
+			if (multiProxyRedis == null) return false;
+			boolean accepted = true;
+			int destinations = 0;
+			for (String server : requested.values()) {
+				destinations++;
+				try {
+					multiProxyRedis.publishEnvelope("VotingPluginProxy_" + server, envelope);
+				} catch (RuntimeException failure) {
+					accepted = false;
+				}
 			}
-			for (String server : getProxyServers()) {
-				multiProxyRedis.publishEnvelope("VotingPluginProxy_" + server, envelope);
-			}
+			return accepted && destinations == requested.size();
 		}
+		return false;
 	}
 
 	static void stopSocketClients(Map<String, ClientHandler> clients) {
@@ -439,15 +874,88 @@ public abstract class MultiProxyHandler {
 			return;
 		}
 
+		if (sub.equalsIgnoreCase(VotingPluginWire.SUB_MULTI_PROXY_VOTE_ACK)) {
+			String origin = f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_ORIGIN, "");
+			String recipient = f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_RECIPIENT, "");
+			if (!origin.equalsIgnoreCase(getMultiProxyServerName())) return;
+			try {
+				onMultiProxyVoteAcknowledged(UUID.fromString(f.getOrDefault(VotingPluginWire.K_VOTE_ID, "")), recipient);
+			} catch (IllegalArgumentException ignored) {
+				// Ignore malformed acknowledgements; they must never clear a sender fence.
+			}
+			return;
+		}
+
+		if (sub.equalsIgnoreCase(VotingPluginWire.SUB_MULTI_PROXY_VOTE_RETIRE)) {
+			String origin = f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_ORIGIN, "");
+			String recipient = f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_RECIPIENT, "");
+			if (!recipient.equalsIgnoreCase(getMultiProxyServerName()) || origin.isBlank()
+					|| !configuredMultiProxyRecipientNames().containsKey(origin.toLowerCase(Locale.ROOT))) return;
+			try {
+				onMultiProxyVoteRetirementRequested(
+						UUID.fromString(f.getOrDefault(VotingPluginWire.K_VOTE_ID, "")), origin);
+			} catch (IllegalArgumentException ignored) { }
+			return;
+		}
+
+		if (sub.equalsIgnoreCase(VotingPluginWire.SUB_MULTI_PROXY_VOTE_RETIRE_ACK)) {
+			String origin = f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_ORIGIN, "");
+			String recipient = f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_RECIPIENT, "");
+			if (!origin.equalsIgnoreCase(getMultiProxyServerName())) return;
+			try {
+				onMultiProxyVoteRetirementAcknowledged(
+						UUID.fromString(f.getOrDefault(VotingPluginWire.K_VOTE_ID, "")), recipient);
+			} catch (IllegalArgumentException ignored) { }
+			return;
+		}
+
+		if (sub.equalsIgnoreCase(VotingPluginWire.SUB_MULTI_PROXY_CAPABILITIES)) {
+			String recipient = f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_RECIPIENT, "");
+			boolean reply = Boolean.parseBoolean(f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_CAPABILITY_REPLY, "false"));
+			boolean replyRequired = false;
+			try {
+				int version = Integer.parseInt(f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_ACK_VERSION, "0"));
+				String normalized = recipient.toLowerCase(Locale.ROOT);
+				synchronized (this) {
+					if (version >= 1 && configuredMultiProxyRecipientNames().containsKey(normalized)) {
+						if (acceptVoteCapabilityPeer(normalized)) {
+							acknowledgedVoteCapabilityPeers.put(normalized,
+									capabilityNowMillis() + VOTE_CAPABILITY_LEASE_MILLIS);
+						}
+						replyRequired = !reply;
+					}
+				}
+			} catch (IllegalArgumentException ignored) {
+				// A malformed capability must leave the peer on the legacy route.
+			}
+			if (replyRequired) {
+				sendMultiProxyEnvelopeAccepted(
+						VotingPluginWire.multiProxyCapabilities(getMultiProxyServerName(), 1, true));
+			}
+			return;
+		}
+
 		if (sub.equalsIgnoreCase(VotingPluginWire.SUB_VOTE) || sub.equalsIgnoreCase(VotingPluginWire.SUB_VOTE_ONLINE)) {
+			final VotingPluginWire.Vote wireVote = VotingPluginWire.readVote(envelope);
 			final String player = f.getOrDefault(VotingPluginWire.K_PLAYER, "");
 			final String uuid = f.getOrDefault(VotingPluginWire.K_UUID, "");
 			final String service = f.getOrDefault(VotingPluginWire.K_SERVICE, "");
 			final String totals = f.getOrDefault(VotingPluginWire.K_TOTALS, "");
 			final boolean realVote = Boolean.parseBoolean(f.getOrDefault(VotingPluginWire.K_REAL_VOTE, "false"));
+			final String origin = f.getOrDefault(VotingPluginWire.K_MULTI_PROXY_ORIGIN, "");
+			if (!origin.isBlank() && wireVote.voteId == null) {
+				// Reliable envelopes must never enter receiver processing without the
+				// stable identity used by its durable completion fence.
+				return;
+			}
 
 			if (!player.isEmpty() && !uuid.isEmpty() && !service.isEmpty()) {
-				triggerVote(player, service, realVote, true, 0L, VoteTotalsSnapshot.parseStorage(totals), uuid);
+				if (origin.isBlank()) {
+					triggerVote(player, service, realVote, true, 0L, VoteTotalsSnapshot.parseStorage(totals), uuid);
+				} else {
+					triggerVote(player, service, realVote, true, 0L, VoteTotalsSnapshot.parseStorage(totals), uuid,
+							wireVote.voteId, origin);
+				}
 			}
 			return;
 		}
