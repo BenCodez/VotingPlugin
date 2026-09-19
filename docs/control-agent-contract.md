@@ -3,7 +3,8 @@
 This is the compact source of truth for an AI agent or Control client implementing the Bukkit integration. The connector
 has two separate lanes:
 
-- configuration operations use the negotiated `config.files.v1` / `config.quick-setup.v1` contract and may write only
+- configuration operations use the negotiated `config.files.v1` / `config.quick-setup.v1` contracts; Vote Party
+  proposals that include `enabled` additionally require `config.quick-setup.v2`, and configuration operations may write only
   managed VotingPlugin YAML after preview and approval;
 - inspections use the optional `data.inspect.v1` contract and are always read-only.
 

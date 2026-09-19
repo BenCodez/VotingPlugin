@@ -1,5 +1,8 @@
 package com.bencodez.votingplugin.voteshop;
 
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+
 import org.bukkit.entity.Player;
 
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -36,6 +39,32 @@ public class VoteShopManager {
 	public VoteShopManager(VotingPluginMain plugin) {
 		this.plugin = plugin;
 		reload();
+		startSharedPurchaseRecovery();
+	}
+
+	/**
+	 * Recover stale durable shared-MySQL purchase reservations even when no player
+	 * opens the vote shop after a restart. The inherited persistence executor is
+	 * shut down with the plugin, so this task has no independent lifecycle.
+	 */
+	private void startSharedPurchaseRecovery() {
+		scheduleSharedPurchaseRecovery(plugin);
+	}
+
+	static void scheduleSharedPurchaseRecovery(VotingPluginMain plugin) {
+		plugin.getTimer().execute(() -> recoverSharedMysqlPurchasesSafely(plugin));
+		plugin.getTimer().scheduleWithFixedDelay(
+				() -> recoverSharedMysqlPurchasesSafely(plugin), 1L, 1L, TimeUnit.MINUTES);
+	}
+
+	private static void recoverSharedMysqlPurchasesSafely(VotingPluginMain plugin) {
+		try {
+			VoteShopPurchaseService.recoverSharedMysqlPurchases(plugin);
+		} catch (RuntimeException failure) {
+			plugin.getLogger().severe("Unable to recover shared MySQL vote shop purchases: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+		}
 	}
 
 	/**
@@ -91,8 +120,15 @@ public class VoteShopManager {
 	 * @param player the player
 	 * @param user the user
 	 * @param item the item
-	 * @return the result
+	 * @param completion completion callback on the Bukkit thread
 	 */
+	public void purchase(Player player, VotingPluginUser user, VoteShopItem item,
+			Consumer<VoteShopPurchaseResult> completion) {
+		purchaseService.purchase(player, user, item, completion);
+	}
+
+	/** @deprecated use the callback overload for the final shared-storage result. */
+	@Deprecated
 	public VoteShopPurchaseResult purchase(Player player, VotingPluginUser user, VoteShopItem item) {
 		return purchaseService.purchase(player, user, item);
 	}

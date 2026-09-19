@@ -860,9 +860,14 @@ class BackendConfigurationServiceTest {
 
 		Files.writeString(directory.resolve("SpecialRewards.yml"), "VoteParty:\n  Enabled: false\n");
 		BackendConfigurationService.QuickPreview party = service.previewQuickSetup("vote-party", Map.of(
-				"votesRequired", "25", "command", "give %player% diamond 1", "broadcast", "Party!",
+				"enabled", "false", "votesRequired", "25", "command", "give %player% diamond 1", "broadcast", "Party!",
 				"giveAllPlayers", "false", "onlineOnly", "true"));
 		assertTrue(party.proposal().content().contains("VotesRequired: 25"));
+		assertTrue(party.proposal().content().contains("Enabled: false"));
+		BackendConfigurationService.QuickPreview legacyParty = service.previewQuickSetup("vote-party", Map.of(
+				"votesRequired", "25", "command", "", "broadcast", "",
+				"giveAllPlayers", "false", "onlineOnly", "true"));
+		assertTrue(legacyParty.proposal().content().contains("Enabled: false"));
 	}
 
 	@Test void guidedSettingsReadTheInstalledValuesInsteadOfAssumingDefaults() throws Exception {
@@ -886,6 +891,10 @@ class BackendConfigurationServiceTest {
 		assertEquals("EMERALD", service.readQuickSetup("vote-site", Map.of("name", "PMC"))
 				.options().get("material"));
 		assertEquals("2", service.readQuickSetup("vote-party", Map.of()).options().get("rewardCommandCount"));
+		assertEquals("true", service.readQuickSetup("vote-party", Map.of("enabled", "false"))
+				.options().get("enabled"));
+		assertThrows(IllegalArgumentException.class,
+				() -> service.readQuickSetup("vote-party", Map.of("enabled", "not-a-boolean")));
 	}
 
 	@Test void oversizedInstalledGuidedValuesFailInsteadOfWedgingResultSubmission() throws Exception {
@@ -966,7 +975,7 @@ class BackendConfigurationServiceTest {
 		assertFalse(reward.proposal().content().contains("New message"));
 
 		BackendConfigurationService.QuickPreview party = service.previewQuickSetup("vote-party", Map.of(
-				"votesRequired", "20", "command", "new party", "broadcast", "Party!",
+				"enabled", "true", "votesRequired", "20", "command", "new party", "broadcast", "Party!",
 				"giveAllPlayers", "false", "onlineOnly", "true"));
 		assertTrue(party.proposal().content().contains("existing party"));
 		assertTrue(party.proposal().content().contains("new party"));
