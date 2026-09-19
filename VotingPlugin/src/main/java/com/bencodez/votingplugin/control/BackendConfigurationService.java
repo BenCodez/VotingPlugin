@@ -5,11 +5,17 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.DirectoryStream;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.BasicFileAttributeView;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -22,6 +28,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 import org.bukkit.configuration.ConfigurationSection;
@@ -35,12 +42,15 @@ import com.bencodez.votingplugin.util.DurableFiles;
 public final class BackendConfigurationService {
 	public static final String REDACTED = "__VOTINGPLUGIN_CONTROL_REDACTED__";
 	public static final int MAX_CONTENT_BYTES = 512 * 1024;
+	public static final int MAX_REWARD_FILES = 100;
+	public static final int MAX_REWARD_FILE_BASENAME_LENGTH = 100;
 	private static final int READ_ATTEMPTS = 3;
 	private static final long READ_RETRY_MILLIS = 25;
 	private static final Set<String> READABLE_QUICK_SETUPS = Set.of("standalone", "proxy-backend", "vote-site",
 			"common-settings", "vote-party", "auto-create-vote-sites", "vote-logging");
 	private static final Set<String> TOP_LEVEL = Set.of("Config.yml", "VoteSites.yml", "SpecialRewards.yml",
 			"GUI.yml", "Shop.yml", "BungeeSettings.yml");
+	private static final Pattern REWARD_FILE_NAME = Pattern.compile("[A-Za-z0-9][A-Za-z0-9_-]{0,99}\\.yml");
 	private static final Set<String> VOTE_SITE_FIELDS = Set.of("AdvancedPriority", "Amount", "Chance",
 			"DisplayItem", "Enabled", "Fallback", "ForceOffline", "Hidden", "Items", "Material", "Messages",
 			"Name", "Player", "Priority", "ServiceSite", "VoteDelay", "VoteDelayDaily", "VoteURL",
@@ -70,7 +80,35 @@ public final class BackendConfigurationService {
 		this.mover = mover;
 	}
 
+	/** Whether this filesystem can provide the pinned, private writes required by named rewards. */
+	boolean supportsNamedRewardFiles() {
+		return supportsNamedRewardFiles(dataDirectory);
+	}
+
+	static boolean supportsNamedRewardFiles(Path directory) {
+		try {
+			if (!Files.getFileStore(directory).supportsFileAttributeView("posix")) return false;
+			try (DirectoryStream<Path> entries = Files.newDirectoryStream(directory)) {
+				if (!(entries instanceof java.nio.file.SecureDirectoryStream<?> secure)) return false;
+				@SuppressWarnings("unchecked")
+				java.nio.file.SecureDirectoryStream<Path> root =
+						(java.nio.file.SecureDirectoryStream<Path>) secure;
+				rewardDirectoryKey(root);
+				try (java.nio.file.SecureDirectoryStream<Path> rewards = root.newDirectoryStream(Path.of("Rewards"),
+						LinkOption.NOFOLLOW_LINKS)) {
+					rewardDirectoryKey(rewards);
+					return true;
+				} catch (java.nio.file.NoSuchFileException absent) {
+					return true;
+				}
+			}
+		} catch (IOException | SecurityException unavailable) {
+			return false;
+		}
+	}
+
 	public Document read(String fileName) throws IOException {
+		if (managedRewardFile(fileName)) return retryRead(() -> readNamedReward(fileName));
 		Path path = resolve(fileName);
 		return retryRead(() -> {
 			String raw = readRaw(path, false);
@@ -79,7 +117,47 @@ public final class BackendConfigurationService {
 		});
 	}
 
+	/**
+	 * Lists only directly-contained, approved named reward files. This is not a
+	 * filesystem browser: unrecognised extensions and subdirectories are not
+	 * exposed, while unsafe links or ambiguous case-only names fail closed.
+	 */
+	static List<String> rewardFileInventory(Path dataDirectory) throws IOException {
+		try {
+			return withRewardDirectory(dataDirectory.toAbsolutePath().normalize(), BackendConfigurationService::rewardFileInventory);
+		} catch (java.nio.file.NoSuchFileException missing) {
+			return List.of();
+		}
+	}
+
+	private static List<String> rewardFileInventory(java.nio.file.SecureDirectoryStream<Path> rewards) throws IOException {
+		List<String> files = new ArrayList<>();
+		Set<String> logicalNames = new HashSet<>();
+		for (Path entry : rewards) {
+			String name = entry.getFileName().toString();
+			java.nio.file.attribute.BasicFileAttributes attributes = rewards.getFileAttributeView(Path.of(name),
+					java.nio.file.attribute.BasicFileAttributeView.class, LinkOption.NOFOLLOW_LINKS).readAttributes();
+			if (attributes.isSymbolicLink()) throw new IOException("reward file inventory contains symbolic link");
+			if (!attributes.isRegularFile()) continue;
+			if (!rewardFileName(name)) continue;
+			if (!logicalNames.add(name.toLowerCase(Locale.ROOT))) {
+				throw new IOException("reward file inventory contains ambiguous names");
+			}
+			if (attributes.size() > MAX_CONTENT_BYTES) throw new IOException("reward file exceeds the 512 KiB limit");
+			files.add(name);
+			if (files.size() > MAX_REWARD_FILES) throw new IOException("reward file inventory exceeds the 100 file limit");
+		}
+		files.sort(String.CASE_INSENSITIVE_ORDER.thenComparing(java.util.Comparator.naturalOrder()));
+		return List.copyOf(files);
+	}
+
 	public Preview preview(String fileName, String proposedContent) throws IOException {
+		if (managedRewardFile(fileName)) {
+			return withRewardDirectory(rewards -> {
+				validateNamedReward(rewards, rewardFileNamePart(fileName));
+				return preview(fileName, proposedContent, readRaw(rewards, rewardFileNamePart(fileName), false));
+			});
+		}
 		Path path = resolve(fileName);
 		String current = readRaw(path, false);
 		return preview(fileName, proposedContent, current);
@@ -101,6 +179,9 @@ public final class BackendConfigurationService {
 
 	private ApplyResult apply(String fileName, String proposedContent, String expectedRevision,
 			boolean restoreRedactedSecrets, ApplyAction applyAction) throws IOException {
+		if (managedRewardFile(fileName)) {
+			return applyNamedReward(fileName, proposedContent, expectedRevision, restoreRedactedSecrets, applyAction);
+		}
 		Path target = resolve(fileName);
 		String current = readRaw(target, false);
 		if (expectedRevision == null || !revision(current).equals(expectedRevision)) throw new StaleRevisionException();
@@ -162,6 +243,208 @@ public final class BackendConfigurationService {
 			Files.deleteIfExists(staging);
 			Files.deleteIfExists(backupStaging);
 		}
+	}
+
+	/*
+	 * A named reward lives below a directory an administrator can manipulate while
+	 * Control is running. Do not turn its validated Path back into a pathname: a
+	 * rename of Rewards after validation would otherwise make the subsequent read
+	 * or atomic move operate in an attacker-selected directory. SecureDirectoryStream
+	 * keeps the directory handle pinned for the complete operation.
+	 */
+	private Document readNamedReward(String fileName) throws IOException {
+		return withRewardDirectory(rewards -> {
+			validateNamedReward(rewards, rewardFileNamePart(fileName));
+			String raw = readRaw(rewards, rewardFileNamePart(fileName), false);
+			return new Document(fileName, mask(parse(raw)), revision(raw));
+		});
+	}
+
+	private synchronized ApplyResult applyNamedReward(String fileName, String proposedContent, String expectedRevision,
+			boolean restoreRedactedSecrets, ApplyAction applyAction) throws IOException {
+		return withRewardDirectory(rewards -> {
+			Object directoryKey = rewardDirectoryKey(rewards);
+			requireCurrentRewardDirectory(directoryKey);
+			String name = rewardFileNamePart(fileName);
+			validateNamedReward(rewards, name);
+			String current = readRaw(rewards, name, false);
+			if (expectedRevision == null || !revision(current).equals(expectedRevision)) throw new StaleRevisionException();
+			Preview preview = preview(fileName, proposedContent, current, restoreRedactedSecrets);
+			String staging = controlTemporaryName(".control-");
+			String backupStaging = controlTemporaryName(".control-backup-");
+			String rollbackStaging = null;
+			String backup = name + ".control-backup";
+			boolean installed = false;
+			try {
+				writeRaw(rewards, staging, preview.resolvedContent(), true);
+				rejectSymbolicBackup(rewards, backup);
+				writeRaw(rewards, backupStaging, current, true);
+				if (!revision(readRaw(rewards, name, false)).equals(expectedRevision)) throw new StaleRevisionException();
+				rewards.move(Path.of(backupStaging), rewards, Path.of(backup));
+				if (!revision(readRaw(rewards, name, false)).equals(expectedRevision)) throw new StaleRevisionException();
+				rewards.move(Path.of(staging), rewards, Path.of(name));
+				installed = true;
+				requireCurrentRewardDirectory(directoryKey);
+				applyAction.runNamedReward(fileName, preview.resolvedContent());
+				requireCurrentRewardDirectory(directoryKey);
+				String applied = readRaw(rewards, name, false);
+				if (!revision(applied).equals(revision(preview.resolvedContent()))) {
+					reconcileConcurrentEdit(rewards, name, fileName, directoryKey, applyAction);
+					throw new StaleRevisionException();
+				}
+				return new ApplyResult(new Document(fileName, mask(parse(applied)), revision(applied)), preview.changes(), false);
+			} catch (StaleRevisionException stale) {
+				throw stale;
+			} catch (Exception failure) {
+				boolean rolledBack = false;
+				if (installed) {
+					try {
+						if (!revision(readRaw(rewards, name, false)).equals(revision(preview.resolvedContent()))) {
+							throw new IOException("Managed configuration changed while reload failed; backup was not restored");
+						}
+						rollbackStaging = controlTemporaryName(".control-rollback-");
+						writeRaw(rewards, rollbackStaging, readRaw(rewards, backup, false), true);
+						if (!revision(readRaw(rewards, name, false)).equals(revision(preview.resolvedContent()))) {
+							throw new IOException("Managed configuration changed while rollback was staged");
+						}
+						rewards.move(Path.of(rollbackStaging), rewards, Path.of(name));
+						requireCurrentRewardDirectory(directoryKey);
+						applyAction.runNamedReward(fileName, current);
+						requireCurrentRewardDirectory(directoryKey);
+						rolledBack = true;
+					} catch (Exception rollbackFailure) {
+						failure.addSuppressed(rollbackFailure);
+					}
+				}
+				throw new ApplyFailureException(rolledBack, failure);
+			} finally {
+				deleteIfPresent(rewards, staging);
+				deleteIfPresent(rewards, backupStaging);
+				if (rollbackStaging != null) deleteIfPresent(rewards, rollbackStaging);
+			}
+		});
+	}
+
+	private static Object rewardDirectoryKey(java.nio.file.SecureDirectoryStream<Path> rewards) throws IOException {
+		Object key = rewards.getFileAttributeView(BasicFileAttributeView.class).readAttributes().fileKey();
+		if (key == null) throw new IOException("named reward directory identity is unavailable");
+		return key;
+	}
+
+	private void requireCurrentRewardDirectory(Object pinnedKey) throws IOException {
+		BasicFileAttributes current = Files.readAttributes(dataDirectory.resolve("Rewards"),
+				BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+		if (!current.isDirectory() || !pinnedKey.equals(current.fileKey())) {
+			throw new IOException("named reward directory changed during apply");
+		}
+	}
+
+	private <T> T withRewardDirectory(RewardDirectoryAction<T> action) throws IOException {
+		return withRewardDirectory(dataDirectory, action);
+	}
+
+	private static <T> T withRewardDirectory(Path directory, RewardDirectoryAction<T> action) throws IOException {
+		try (DirectoryStream<Path> rootEntries = Files.newDirectoryStream(directory)) {
+			if (!(rootEntries instanceof java.nio.file.SecureDirectoryStream<?> secureRoot)) {
+				throw new IOException("secure named reward file access is unavailable");
+			}
+			@SuppressWarnings("unchecked")
+			java.nio.file.SecureDirectoryStream<Path> root =
+					(java.nio.file.SecureDirectoryStream<Path>) secureRoot;
+			try (java.nio.file.SecureDirectoryStream<Path> rewards = root.newDirectoryStream(Path.of("Rewards"),
+					LinkOption.NOFOLLOW_LINKS)) {
+				return action.run(rewards);
+			}
+		}
+	}
+
+	private static void validateNamedReward(java.nio.file.SecureDirectoryStream<Path> directory, String name)
+			throws IOException {
+		List<String> names = rewardFileInventory(directory);
+		if (!names.contains(name)) throw new IOException("named reward file is unavailable");
+	}
+
+	private static String rewardFileNamePart(String fileName) {
+		return fileName.substring("Rewards/".length());
+	}
+
+	private static String controlTemporaryName(String prefix) {
+		return prefix + UUID.randomUUID() + ".yml";
+	}
+
+	private static String readRaw(java.nio.file.SecureDirectoryStream<Path> directory, String name,
+			boolean allowMissing) throws IOException {
+		try (SeekableByteChannel channel = directory.newByteChannel(Path.of(name),
+				Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS))) {
+			if (channel.size() > MAX_CONTENT_BYTES) throw new IOException("configuration file is missing or too large");
+			byte[] bytes = Channels.newInputStream(channel).readNBytes(MAX_CONTENT_BYTES + 1);
+			if (bytes.length > MAX_CONTENT_BYTES) throw new IOException("configuration file is missing or too large");
+			try {
+				return StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
+						.onUnmappableCharacter(CodingErrorAction.REPORT).decode(java.nio.ByteBuffer.wrap(bytes)).toString();
+			} catch (CharacterCodingException e) {
+				throw new IOException("configuration file is not valid UTF-8", e);
+			}
+		} catch (java.nio.file.NoSuchFileException missing) {
+			if (allowMissing) return "";
+			throw new IOException("configuration file is missing or too large", missing);
+		}
+	}
+
+	private static void writeRaw(java.nio.file.SecureDirectoryStream<Path> directory, String name, String content,
+			boolean createNew) throws IOException {
+		Set<java.nio.file.OpenOption> options = new HashSet<>();
+		options.add(StandardOpenOption.WRITE);
+		options.add(createNew ? StandardOpenOption.CREATE_NEW : StandardOpenOption.TRUNCATE_EXISTING);
+		options.add(LinkOption.NOFOLLOW_LINKS);
+		// Staging and backup files contain the unredacted document. Establish private
+		// permissions atomically at creation rather than narrowing them afterward.
+		FileAttribute<?>[] attributes = createNew
+				? new FileAttribute<?>[] {PosixFilePermissions.asFileAttribute(
+						PosixFilePermissions.fromString("rw-------"))}
+				: new FileAttribute<?>[0];
+		try (SeekableByteChannel channel = directory.newByteChannel(Path.of(name), options, attributes)) {
+			java.nio.ByteBuffer bytes = StandardCharsets.UTF_8.encode(content);
+			while (bytes.hasRemaining()) channel.write(bytes);
+			if (!(channel instanceof FileChannel fileChannel)) {
+				throw new IOException("durable named reward file write is unavailable");
+			}
+			fileChannel.force(true);
+		}
+	}
+
+	private static void rejectSymbolicBackup(java.nio.file.SecureDirectoryStream<Path> directory, String name)
+			throws IOException {
+		try {
+			if (directory.getFileAttributeView(Path.of(name), java.nio.file.attribute.BasicFileAttributeView.class,
+					LinkOption.NOFOLLOW_LINKS).readAttributes().isSymbolicLink()) {
+				throw new IOException("Symbolic configuration backups are not allowed");
+			}
+		} catch (java.nio.file.NoSuchFileException ignored) {
+			// A missing backup is expected on the first successful apply.
+		}
+	}
+
+	private static void deleteIfPresent(java.nio.file.SecureDirectoryStream<Path> directory, String name)
+			throws IOException {
+		try {
+			directory.deleteFile(Path.of(name));
+		} catch (java.nio.file.NoSuchFileException ignored) {
+			// The entry was atomically published or did not get created.
+		}
+	}
+
+	private void reconcileConcurrentEdit(java.nio.file.SecureDirectoryStream<Path> directory, String name,
+			String fileName, Object directoryKey, ApplyAction applyAction) throws Exception {
+		for (int attempt = 0; attempt < 3; attempt++) {
+			requireCurrentRewardDirectory(directoryKey);
+			String snapshot = readRaw(directory, name, false);
+			String snapshotRevision = revision(snapshot);
+			applyAction.runNamedReward(fileName, snapshot);
+			requireCurrentRewardDirectory(directoryKey);
+			if (revision(readRaw(directory, name, false)).equals(snapshotRevision)) return;
+		}
+		throw new StaleRevisionException();
 	}
 
 	private void reconcileConcurrentEdit(String fileName, Path target, ApplyAction applyAction) throws Exception {
@@ -765,7 +1048,7 @@ public final class BackendConfigurationService {
 	}
 
 	private static List<String> withoutRedactedComments(List<String> comments) {
-		return comments.stream().filter(comment -> !comment.contains(REDACTED)).toList();
+		return comments.stream().filter(comment -> comment == null || !comment.contains(REDACTED)).toList();
 	}
 
 	private static String matchingKey(ConfigurationSection section, String expected, boolean ignoreCase) {
@@ -804,13 +1087,31 @@ public final class BackendConfigurationService {
 		return target;
 	}
 
+	static boolean managedRewardFile(String fileName) {
+		if (fileName == null || !fileName.startsWith("Rewards/")) return false;
+		String name = fileName.substring("Rewards/".length());
+		return rewardFileName(name);
+	}
+
+	private static boolean rewardFileName(String name) {
+		return name != null && name.length() <= MAX_REWARD_FILE_BASENAME_LENGTH + ".yml".length()
+				&& REWARD_FILE_NAME.matcher(name).matches();
+	}
+
 	private static String readRaw(Path path, boolean allowMissing) throws IOException {
-		if (!Files.exists(path) && allowMissing) return "";
-		if (!Files.isRegularFile(path, java.nio.file.LinkOption.NOFOLLOW_LINKS)
-				|| Files.size(path) > MAX_CONTENT_BYTES) {
+		if (allowMissing && !Files.exists(path, LinkOption.NOFOLLOW_LINKS)) return "";
+		if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
 			throw new IOException("configuration file is missing or too large");
 		}
-		byte[] bytes = Files.readAllBytes(path);
+		byte[] bytes;
+		// Keep the no-follow check attached to the opened file. A separate Files.size/readAllBytes
+		// would follow a link swapped in after the regular-file check.
+		try (SeekableByteChannel channel = Files.newByteChannel(path,
+				Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS))) {
+			if (channel.size() > MAX_CONTENT_BYTES) throw new IOException("configuration file is missing or too large");
+			bytes = Channels.newInputStream(channel).readNBytes(MAX_CONTENT_BYTES + 1);
+			if (bytes.length > MAX_CONTENT_BYTES) throw new IOException("configuration file is missing or too large");
+		}
 		try {
 			return StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
 					.onUnmappableCharacter(CodingErrorAction.REPORT).decode(java.nio.ByteBuffer.wrap(bytes)).toString();
@@ -872,10 +1173,17 @@ public final class BackendConfigurationService {
 		}
 	}
 
-	private static List<String> sanitizeComments(List<String> comments, List<String> secretValues, boolean secretPath) {
+	/** Bukkit uses null comment entries to preserve blank lines. */
+	static List<String> sanitizeComments(List<String> comments, List<String> secretValues, boolean secretPath) {
+		if (comments == null || comments.isEmpty()) return List.of();
 		List<String> sanitized = new ArrayList<>(comments.size());
 		boolean redactContinuation = false;
 		for (String original : comments) {
+			if (original == null) {
+				sanitized.add(null);
+				redactContinuation = false;
+				continue;
+			}
 			String comment = original;
 			if (redactContinuation) {
 				if (original.isBlank()) {
@@ -961,7 +1269,8 @@ public final class BackendConfigurationService {
 
 	private static void addRedactedCommentOwner(Map<String, List<String>> markers, String owner,
 			List<String> comments) {
-		List<String> ownerMarkers = comments.stream().filter(comment -> comment.contains(REDACTED)).toList();
+		List<String> ownerMarkers = comments.stream()
+				.filter(comment -> comment != null && comment.contains(REDACTED)).toList();
 		if (!ownerMarkers.isEmpty()) markers.put(owner, ownerMarkers);
 	}
 
@@ -969,7 +1278,7 @@ public final class BackendConfigurationService {
 			List<String> redactedCurrent) {
 		for (int index = 0; index < redactedCurrent.size(); index++) {
 			String redacted = redactedCurrent.get(index);
-			if (redacted.contains(REDACTED)
+			if (redacted != null && redacted.contains(REDACTED)
 					&& (index >= proposed.size() || !redacted.equals(proposed.get(index)))) {
 				throw new IllegalArgumentException("redacted comment placeholders must not be edited or moved");
 			}
@@ -977,7 +1286,7 @@ public final class BackendConfigurationService {
 		List<String> restored = new ArrayList<>(proposed.size());
 		for (int index = 0; index < proposed.size(); index++) {
 			String comment = proposed.get(index);
-			if (!comment.contains(REDACTED)) {
+			if (comment == null || !comment.contains(REDACTED)) {
 				restored.add(comment);
 				continue;
 			}
@@ -1125,9 +1434,19 @@ public final class BackendConfigurationService {
 	public record QuickPreview(QuickProposal proposal, String revision, List<String> changes) { }
 	public record QuickState(Map<String, String> options, String revision) { }
 	@FunctionalInterface interface ReadAction<T> { T run() throws IOException; }
+	@FunctionalInterface private interface RewardDirectoryAction<T> {
+		T run(java.nio.file.SecureDirectoryStream<Path> directory) throws IOException;
+	}
 
 	@FunctionalInterface public interface ReloadAction { void run() throws Exception; }
-	@FunctionalInterface public interface ApplyAction { void run(String fileName) throws Exception; }
+	@FunctionalInterface public interface ApplyAction {
+		void run(String fileName) throws Exception;
+
+		/** The expected bytes come from the pinned Rewards handle, never a reopened pathname. */
+		default void runNamedReward(String fileName, String expectedContent) throws Exception {
+			run(fileName);
+		}
+	}
 	@FunctionalInterface interface MoveAction { void move(Path source, Path target) throws IOException; }
 	@SuppressWarnings("serial") public static final class StaleRevisionException extends RuntimeException { }
 	@SuppressWarnings("serial") public static final class ApplyFailureException extends IOException {

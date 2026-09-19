@@ -22,6 +22,7 @@ import org.junit.jupiter.api.io.TempDir;
 import com.bencodez.votingplugin.control.BackendControlResultStore.StoredResult;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 class BackendControlConnectorProtocolTest {
 	@TempDir Path directory;
@@ -77,13 +78,15 @@ class BackendControlConnectorProtocolTest {
 
 	@Test void registrationAdvertisesCommentPreservingFilesAsAnOptionalCapability() {
 		JsonObject registration = new JsonObject();
-		BackendControlConnector.addCapabilities(registration);
+		BackendControlConnector.addCapabilities(registration, true);
 
 		JsonArray advertised = registration.getAsJsonArray("capabilities");
 		assertTrue(advertised.asList().stream()
 				.anyMatch(value -> "config.file-comments.v1".equals(value.getAsString())));
 		assertTrue(advertised.asList().stream()
 				.anyMatch(value -> "config.vote-sites-sync.v1".equals(value.getAsString())));
+		assertTrue(advertised.asList().stream()
+				.anyMatch(value -> "config.reward-files.v1".equals(value.getAsString())));
 		assertTrue(advertised.asList().stream()
 				.anyMatch(value -> "data.inspect.v1".equals(value.getAsString())));
 		JsonArray required = registration.getAsJsonArray("requiredCapabilities");
@@ -93,6 +96,15 @@ class BackendControlConnectorProtocolTest {
 				.anyMatch(value -> "config.file-comments.v1".equals(value.getAsString())));
 		assertFalse(required.asList().stream()
 				.anyMatch(value -> "data.inspect.v1".equals(value.getAsString())));
+	}
+
+	@Test void unsupportedFilesystemDoesNotAdvertiseNamedRewards() {
+		JsonObject registration = new JsonObject();
+		BackendControlConnector.addCapabilities(registration, false);
+		assertFalse(registration.getAsJsonArray("capabilities").asList().stream()
+				.anyMatch(value -> "config.reward-files.v1".equals(value.getAsString())));
+		assertTrue(registration.getAsJsonArray("capabilities").asList().stream()
+				.anyMatch(value -> "config.files.v1".equals(value.getAsString())));
 	}
 
 	@Test void heartbeatRetainsOmittedCapabilitiesAndHonorsExplicitReplacement() {
@@ -146,6 +158,22 @@ class BackendControlConnectorProtocolTest {
 				BackendControlConnector.reloadFailureMessage(failure));
 		assertFalse(BackendControlConnector.operationFailureMessage("READ", failure).contains("/srv"));
 		assertFalse(BackendControlConnector.reloadFailureMessage(failure).contains("secret"));
+	}
+
+	@Test void unavailableConfigurationReadsUseASafeStructuredReason() {
+		// The connector reports an actionable category without returning a path,
+		// credential, or underlying filesystem exception detail.
+		assertEquals("READ_UNAVAILABLE", BackendControlConnector.operationFailureCode("READ",
+				new IOException("/srv/private/Config.yml")));
+		assertEquals("Configuration file is unavailable or unreadable",
+				BackendControlConnector.operationFailureMessage("READ", new IOException("/srv/private/Config.yml")));
+	}
+
+	@Test void namedRewardInventoryRequiresItsExplicitCapability() {
+		assertTrue(ControlInspectionService.rewardFileInventoryQuery(JsonParser.parseString(
+				"{\"kind\":\"reward-file-inventory\"}").getAsJsonObject()));
+		assertFalse(ControlInspectionService.rewardFileInventoryQuery(JsonParser.parseString(
+				"{\"kind\":\"overview\"}").getAsJsonObject()));
 	}
 
 	@Test void unexpectedInspectionFailureMessagesNeverExposeTheCause() {
