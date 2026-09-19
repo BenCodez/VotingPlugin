@@ -45,6 +45,7 @@ public final class BackendConfigurationService {
 	public static final int MAX_CONTENT_BYTES = 512 * 1024;
 	public static final int MAX_REWARD_FILES = 100;
 	public static final int MAX_REWARD_FILE_BASENAME_LENGTH = 100;
+	private static final int MAX_REWARD_RECOVERY_ENTRIES = 1024;
 	private static final int READ_ATTEMPTS = 3;
 	private static final long READ_RETRY_MILLIS = 25;
 	private static final Set<String> READABLE_QUICK_SETUPS = Set.of("standalone", "proxy-backend", "vote-site",
@@ -141,13 +142,27 @@ public final class BackendConfigurationService {
 		});
 	}
 
-	/** Recovery checks only the intended file; unrelated inventory damage must not stop configuration polling. */
+	/** Recovery checks the intended file and bounded case aliases, without validating unrelated inventory entries. */
 	Document readForRecovery(String fileName) throws IOException {
 		if (!managedRewardFile(fileName)) return read(fileName);
 		return retryRead(() -> withRewardDirectory(rewards -> {
-			String raw = readRaw(rewards, rewardFileNamePart(fileName), false);
+			String name = rewardFileNamePart(fileName);
+			rejectRewardCaseAliases(rewards, name);
+			String raw = readRaw(rewards, name, false);
 			return new Document(fileName, mask(parse(raw)), revision(raw));
 		}));
+	}
+
+	private static void rejectRewardCaseAliases(java.nio.file.SecureDirectoryStream<Path> rewards, String name)
+			throws IOException {
+		int entries = 0;
+		for (Path entry : rewards) {
+			if (++entries > MAX_REWARD_RECOVERY_ENTRIES) throw new UnconfirmableNamedRewardException();
+			String candidate = entry.getFileName().toString();
+			if (!candidate.equals(name) && candidate.equalsIgnoreCase(name)) {
+				throw new UnconfirmableNamedRewardException();
+			}
+		}
 	}
 
 	/**
@@ -492,8 +507,9 @@ public final class BackendConfigurationService {
 		}
 	}
 
-	static boolean namedRewardIsMissing(IOException failure) {
-		return failure instanceof MissingRewardDirectoryException || failure instanceof MissingNamedRewardException;
+	static boolean namedRewardCannotBeConfirmed(IOException failure) {
+		return failure instanceof MissingRewardDirectoryException || failure instanceof MissingNamedRewardException
+				|| failure instanceof UnconfirmableNamedRewardException;
 	}
 
 	private static void writeRaw(java.nio.file.SecureDirectoryStream<Path> directory, String name, String content,
@@ -1556,6 +1572,11 @@ public final class BackendConfigurationService {
 		private MissingNamedRewardException() { super("named reward file is unavailable"); }
 		private MissingNamedRewardException(java.nio.file.NoSuchFileException cause) {
 			super("named reward file is unavailable", cause);
+		}
+	}
+	@SuppressWarnings("serial") private static final class UnconfirmableNamedRewardException extends IOException {
+		private UnconfirmableNamedRewardException() {
+			super("named reward identity cannot be confirmed during recovery");
 		}
 	}
 

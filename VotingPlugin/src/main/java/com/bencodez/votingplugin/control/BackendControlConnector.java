@@ -662,11 +662,10 @@ public final class BackendControlConnector implements AutoCloseable {
 			try {
 				installed = configurations.readForRecovery(fileName);
 			} catch (IOException unavailable) {
-				// A deleted named reward cannot be confirmed after restart. Complete
-				// this intent as aborted so it cannot block every later operation;
-				// other I/O failures remain retryable rather than guessing state.
+				// A missing or case-ambiguous named reward cannot be confirmed after
+				// restart. Abort only that intent; unrelated I/O remains retryable.
 				if (BackendConfigurationService.managedRewardFile(fileName)
-						&& BackendConfigurationService.namedRewardIsMissing(unavailable)) return null;
+						&& BackendConfigurationService.namedRewardCannotBeConfirmed(unavailable)) return null;
 				throw unavailable;
 			}
 			if (!revision.equals(installed.revision())) return null;

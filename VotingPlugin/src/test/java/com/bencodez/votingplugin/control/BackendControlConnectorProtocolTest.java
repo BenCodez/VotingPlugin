@@ -106,6 +106,7 @@ class BackendControlConnectorProtocolTest {
 		configuration.addProperty("domain", "file");
 		configuration.addProperty("fileName", "Rewards/Daily.yml");
 		JsonObject intent = new JsonObject();
+		intent.addProperty("attemptId", "00000000-0000-0000-0000-000000000198");
 		intent.addProperty("revision", revision);
 		intent.add("configuration", configuration);
 		StoredResult pending = new StoredResult(intent, false, false, false);
@@ -120,8 +121,8 @@ class BackendControlConnectorProtocolTest {
 		Path ambiguous = rewards.resolve("daily.yml");
 		Files.writeString(ambiguous, "Money: 2\n");
 		assertThrows(IOException.class, () -> configurations.read("Rewards/Daily.yml"));
-		assertEquals(revision, BackendControlConnector.committedInstalledForAttempt(configurations,
-				pending, "attempt").result().get("revision").getAsString());
+		assertNull(BackendControlConnector.committedInstalledForAttempt(configurations, pending, "attempt"));
+		assertTrue(BackendControlConnector.abortedIntent(pending).committed());
 		Files.delete(ambiguous);
 
 		Path oversized = rewards.resolve("Oversized.yml");
