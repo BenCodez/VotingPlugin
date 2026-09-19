@@ -95,6 +95,18 @@ class BackendControlConnectorProtocolTest {
 				.anyMatch(value -> "data.inspect.v1".equals(value.getAsString())));
 	}
 
+	@Test void deploymentCapabilityIsOnlyAddedWhenStagingWasPrepared() {
+		JsonObject unavailable = new JsonObject();
+		BackendControlConnector.addCapabilities(unavailable);
+		assertFalse(unavailable.getAsJsonArray("capabilities").asList().stream()
+				.anyMatch(value -> PluginDeploymentService.CAPABILITY.equals(value.getAsString())));
+
+		JsonObject ready = new JsonObject();
+		BackendControlConnector.addCapabilities(ready, true);
+		assertTrue(ready.getAsJsonArray("capabilities").asList().stream()
+				.anyMatch(value -> PluginDeploymentService.CAPABILITY.equals(value.getAsString())));
+	}
+
 	@Test void heartbeatRetainsOmittedCapabilitiesAndHonorsExplicitReplacement() {
 		JsonObject omitted = new JsonObject();
 		assertTrue(BackendControlConnector.negotiatedCapability(omitted, "config.files.v1", true));
