@@ -141,6 +141,15 @@ public final class BackendConfigurationService {
 		});
 	}
 
+	/** Recovery checks only the intended file; unrelated inventory damage must not stop configuration polling. */
+	Document readForRecovery(String fileName) throws IOException {
+		if (!managedRewardFile(fileName)) return read(fileName);
+		return retryRead(() -> withRewardDirectory(rewards -> {
+			String raw = readRaw(rewards, rewardFileNamePart(fileName), false);
+			return new Document(fileName, mask(parse(raw)), revision(raw));
+		}));
+	}
+
 	/**
 	 * Lists only directly-contained, approved named reward files. This is not a
 	 * filesystem browser: unrecognised extensions and subdirectories are not
@@ -459,10 +468,15 @@ public final class BackendConfigurationService {
 		return prefix + UUID.randomUUID() + ".yml";
 	}
 
-	private static String readRaw(java.nio.file.SecureDirectoryStream<Path> directory, String name,
+	static String readRaw(java.nio.file.SecureDirectoryStream<Path> directory, String name,
 			boolean allowMissing) throws IOException {
 		try (SeekableByteChannel channel = directory.newByteChannel(Path.of(name),
-				Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS))) {
+				Set.of(StandardOpenOption.READ, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS))) {
+			// A raced FIFO can block forever when opened read-only. Read/write opens it
+			// without waiting for a writer on supported Unix providers; seeking then
+			// rejects that non-regular handle before any body read. A read-only file
+			// fails closed rather than risking a blocking open on the connector worker.
+			channel.position(0);
 			if (channel.size() > MAX_CONTENT_BYTES) throw new IOException("configuration file is missing or too large");
 			byte[] bytes = Channels.newInputStream(channel).readNBytes(MAX_CONTENT_BYTES + 1);
 			if (bytes.length > MAX_CONTENT_BYTES) throw new IOException("configuration file is missing or too large");

@@ -97,6 +97,48 @@ class BackendControlConnectorProtocolTest {
 				() -> BackendControlConnector.committedInstalledForAttempt(configurations, pending, "attempt"));
 	}
 
+	@Test void namedRewardRecoveryIgnoresUnrelatedInvalidInventoryEntries() throws Exception {
+		Path rewards = Files.createDirectory(directory.resolve("Rewards"));
+		Files.writeString(rewards.resolve("Daily.yml"), "Money: 1\n");
+		BackendConfigurationService configurations = new BackendConfigurationService(directory, () -> { });
+		String revision = configurations.read("Rewards/Daily.yml").revision();
+		JsonObject configuration = new JsonObject();
+		configuration.addProperty("domain", "file");
+		configuration.addProperty("fileName", "Rewards/Daily.yml");
+		JsonObject intent = new JsonObject();
+		intent.addProperty("revision", revision);
+		intent.add("configuration", configuration);
+		StoredResult pending = new StoredResult(intent, false, false, false);
+
+		Path unsafe = rewards.resolve("Unrelated.yml");
+		Files.createSymbolicLink(unsafe, directory.resolve("outside.yml"));
+		assertThrows(IOException.class, () -> configurations.read("Rewards/Daily.yml"));
+		assertEquals(revision, BackendControlConnector.committedInstalledForAttempt(configurations,
+				pending, "attempt").result().get("revision").getAsString());
+		Files.delete(unsafe);
+
+		Path ambiguous = rewards.resolve("daily.yml");
+		Files.writeString(ambiguous, "Money: 2\n");
+		assertThrows(IOException.class, () -> configurations.read("Rewards/Daily.yml"));
+		assertEquals(revision, BackendControlConnector.committedInstalledForAttempt(configurations,
+				pending, "attempt").result().get("revision").getAsString());
+		Files.delete(ambiguous);
+
+		Path oversized = rewards.resolve("Oversized.yml");
+		Files.writeString(oversized, "x".repeat(BackendConfigurationService.MAX_CONTENT_BYTES + 1));
+		assertThrows(IOException.class, () -> configurations.read("Rewards/Daily.yml"));
+		assertEquals(revision, BackendControlConnector.committedInstalledForAttempt(configurations,
+				pending, "attempt").result().get("revision").getAsString());
+		Files.delete(oversized);
+
+		for (int index = 0; index < BackendConfigurationService.MAX_REWARD_FILES; index++) {
+			Files.writeString(rewards.resolve("Extra" + index + ".yml"), "Money: 0\n");
+		}
+		assertThrows(IOException.class, () -> configurations.read("Rewards/Daily.yml"));
+		assertEquals(revision, BackendControlConnector.committedInstalledForAttempt(configurations,
+				pending, "attempt").result().get("revision").getAsString());
+	}
+
 	@Test void registrationRequiresFileControlButAllowsQuickSetupToRemainOptional() {
 		assertThrows(RuntimeException.class, () -> BackendControlConnector.requireFileCapability(false));
 		assertDoesNotThrow(() -> BackendControlConnector.requireFileCapability(true));

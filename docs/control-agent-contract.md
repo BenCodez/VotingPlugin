@@ -33,6 +33,11 @@ when the live Rewards path points elsewhere. Plugin reload still reads files by 
 concurrent local filesystem actor's mutations atomic. Read results and inventory remain bounded and redact configuration secrets. This capability does not
 create or delete reward files or grant access outside Rewards.
 
+Recovery of a pending named-file result reads only that exact file, so an unrelated invalid Rewards entry cannot
+stall the whole configuration lane. Inventory accepts regular files; subsequent named-file reads require a writable,
+seekable handle. A raced FIFO or other non-seekable replacement is rejected before body reading rather than blocking
+the single connector worker on supported Unix providers.
+
 ## Proxy file contract (`config.proxy-files.v1`)
 
 This is a proxy-only capability, advertised by an enrolled BungeeCord or Velocity node. It is separate from

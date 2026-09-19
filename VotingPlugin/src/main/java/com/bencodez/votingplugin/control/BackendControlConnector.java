@@ -660,7 +660,7 @@ public final class BackendControlConnector implements AutoCloseable {
 			String fileName = string(configuration, "fileName");
 			BackendConfigurationService.Document installed;
 			try {
-				installed = configurations.read(fileName);
+				installed = configurations.readForRecovery(fileName);
 			} catch (IOException unavailable) {
 				// A deleted named reward cannot be confirmed after restart. Complete
 				// this intent as aborted so it cannot block every later operation;

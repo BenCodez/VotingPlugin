@@ -11,6 +11,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
+import java.nio.file.SecureDirectoryStream;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermissions;
@@ -452,6 +453,33 @@ class BackendConfigurationServiceTest {
 		var privatePermissions = PosixFilePermissions.fromString("rw-------");
 		assertEquals(privatePermissions, Files.getPosixFilePermissions(file));
 		assertEquals(privatePermissions, Files.getPosixFilePermissions(rewards.resolve("Daily.yml.control-backup")));
+	}
+
+	@Test void racedNamedRewardFifoDoesNotBlockTheConfigurationWorker() throws Exception {
+		Assumptions.assumeTrue(System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("linux"));
+		Assumptions.assumeTrue(Files.isExecutable(Path.of("/usr/bin/mkfifo")));
+		Path rewards = Files.createDirectory(directory.resolve("Rewards"));
+		Path fifo = rewards.resolve("Daily.yml");
+		Process create = new ProcessBuilder("/usr/bin/mkfifo", fifo.toString()).start();
+		assertTrue(create.waitFor(5, TimeUnit.SECONDS));
+		assertEquals(0, create.exitValue());
+		try (var entries = Files.newDirectoryStream(rewards)) {
+			Assumptions.assumeTrue(entries instanceof SecureDirectoryStream<?>);
+			@SuppressWarnings("unchecked")
+			SecureDirectoryStream<Path> pinned = (SecureDirectoryStream<Path>) entries;
+			var worker = Executors.newSingleThreadExecutor(task -> {
+				Thread thread = new Thread(task, "named-reward-fifo-regression");
+				thread.setDaemon(true);
+				return thread;
+			});
+			try {
+				worker.submit(() -> assertThrows(IOException.class,
+						() -> BackendConfigurationService.readRaw(pinned, "Daily.yml", false)))
+						.get(2, TimeUnit.SECONDS);
+			} finally {
+				worker.shutdownNow();
+			}
+		}
 	}
 
 	@Test void namedRewardRollbackUsesRetainedOriginalWhenBackupIsReplaced() throws Exception {
