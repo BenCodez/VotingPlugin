@@ -73,6 +73,28 @@ class PluginDeploymentServiceTest {
 				"a lost acknowledgement after restart must recognize the artifact Bukkit already consumed");
 	}
 
+	@Test void retryWithNewDeploymentIdAcknowledgesOnlyTheSameVerifiedArtifact() throws Exception {
+		byte[] artifact = jar("name: VotingPlugin\nversion: candidate\n");
+		Path update = directory.resolve("update");
+		Path installed = directory.resolve("VotingPlugin.jar");
+		Files.write(installed, jar("name: VotingPlugin\nversion: old\n"));
+		PluginDeploymentService service = PluginDeploymentService.backend(update, installed);
+		PluginDeploymentService.Task original = task(artifact);
+		PluginDeploymentService.Task retry = task(artifact);
+		assertTrue(service.stage(original, new ByteArrayInputStream(artifact), () -> true).success());
+		assertFalse(original.deploymentId().equals(retry.deploymentId()));
+
+		assertEquals("RESTART_REQUIRED",
+				service.stage(retry, new ByteArrayInputStream(new byte[0]), () -> true).code());
+		assertArrayEquals(artifact, Files.readAllBytes(update.resolve("VotingPlugin.jar")));
+
+		Files.write(installed, artifact);
+		Files.delete(update.resolve("VotingPlugin.jar"));
+		assertEquals("RESTART_REQUIRED",
+				service.stage(retry, new ByteArrayInputStream(new byte[0]), () -> true).code());
+		assertFalse(Files.exists(update.resolve("VotingPlugin.jar")));
+	}
+
 	@Test void backendRestagesWhenTheUpdateJarDisappearsBeforeBukkitConsumesIt() throws Exception {
 		byte[] artifact = jar("name: VotingPlugin\nversion: candidate\n");
 		Path update = directory.resolve("update");
@@ -181,8 +203,9 @@ class PluginDeploymentServiceTest {
 		byte[] targetBefore = Files.readAllBytes(directory.resolve("update/VotingPlugin.jar"));
 
 		AtomicBoolean active = new AtomicBoolean(true);
-		InputStream body = new CancellingInputStream(new ByteArrayInputStream(artifact), active);
-		PluginDeploymentService.Task replacement = task(artifact);
+		byte[] replacementArtifact = jar("name: VotingPlugin\nversion: replacement\n");
+		InputStream body = new CancellingInputStream(new ByteArrayInputStream(replacementArtifact), active);
+		PluginDeploymentService.Task replacement = task(replacementArtifact);
 		assertEquals("CANCELLED", service.stage(replacement, body, active::get).code());
 
 		assertEquals(markerBefore, Files.readString(directory.resolve("update/VotingPlugin.jar.control-deployment")));

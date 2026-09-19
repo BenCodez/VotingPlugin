@@ -120,8 +120,8 @@ public final class PluginDeploymentService {
 				return Result.failure("INSECURE_ENDPOINT",
 						"Verified update staging requires HTTPS unless Control is hosted directly on this node");
 			}
-			if (alreadyStaged(task)) return Result.restartRequired();
 			if (!active.getAsBoolean()) return Result.failure("CANCELLED", "Deployment was cancelled before download");
+			if (alreadyStaged(task)) return Result.restartRequired();
 			URI artifact = endpoint.resolve("/api/v1/nodes/" + nodeId + "/deployments/" + task.deploymentId()
 					+ "/artifact");
 			HttpRequest request = HttpRequest.newBuilder(artifact).timeout(timeout)
@@ -172,6 +172,7 @@ public final class PluginDeploymentService {
 	/** Package-visible for deterministic artifact-validation tests. */
 	Result stage(Task task, InputStream body, BooleanSupplier active) throws IOException {
 		validate(task);
+		if (!active.getAsBoolean()) return Result.failure("CANCELLED", "Deployment was cancelled before staging");
 		if (alreadyStaged(task) || recoverInterruptedActivation(task)) return Result.restartRequired();
 		activeResponse.compareAndSet(null, body);
 		Path temporary = Files.createTempFile(root, target.getFileName().toString() + ".", ".download");
@@ -379,8 +380,12 @@ public final class PluginDeploymentService {
 		if (!Files.isRegularFile(marker, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(marker)
 				|| Files.size(marker) > 256) return false;
 		String[] fields = Files.readString(marker, StandardCharsets.US_ASCII).split("\\R", -1);
-		if (fields.length < 3 || !task.deploymentId().toString().equals(fields[0])
-				|| !task.sha256().equals(fields[1]) || !Long.toString(task.size()).equals(fields[2])) return false;
+		// A lost acknowledgement can cause Control to issue a new deployment ID
+		// for the same verified artifact after reconnect or restart. The marker
+		// only proves a completed prior stage; the target is checked below by
+		// exact size, digest and plugin identity before acknowledging the retry.
+		if (fields.length < 3 || !task.sha256().equals(fields[1])
+				|| !Long.toString(task.size()).equals(fields[2])) return false;
 		if (!replaceExisting && !Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
 			// Bukkit removes the staged update JAR after consuming it on restart. A
 			// missing staging file alone is not proof: it may have been deleted or
@@ -394,8 +399,8 @@ public final class PluginDeploymentService {
 	private boolean recoverInterruptedActivation(Task task) throws IOException {
 		// Proxy replacement creates a durable backup before publishing the target;
 		// that transaction shape lets a retry distinguish the activation crash window.
-		// Backend update folders have no such evidence and must still consume/verify
-		// the newly supplied body when a different deployment id is requested.
+		// Backend update folders have no such evidence and must consume/verify
+		// a new body unless a matching durable marker and artifact remain.
 		if (!replaceExisting) return false;
 		if (!targetMatches(task)) return false;
 		writeMarker(task);
