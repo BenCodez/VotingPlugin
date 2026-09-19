@@ -120,13 +120,27 @@ public final class BackendControlConnector implements AutoCloseable {
 					@Override public void runNamedReward(String fileName, String expectedContent) throws Exception {
 						reloadConfiguration(fileName, expectedContent);
 					}
+
+					@Override public void runNamedReward(String fileName, String expectedContent,
+							BackendConfigurationService.NamedRewardGuard guard) throws Exception {
+						reloadConfiguration(fileName, expectedContent, guard);
+					}
 				});
 		inspections = new ControlInspectionService(plugin);
 	}
 
 	private void reloadConfiguration(String fileName, String expectedContent) throws Exception {
+		reloadConfiguration(fileName, expectedContent, null);
+	}
+
+	private void reloadConfiguration(String fileName, String expectedContent,
+			BackendConfigurationService.NamedRewardGuard guard) throws Exception {
 		reloadOnServerThread(() -> {
+			// Publication happens off-thread, but the plugin reads Rewards by path
+			// on this owner thread. Recheck the pinned identity at that boundary.
+			if (guard != null) guard.verify();
 			plugin.reloadFromControl();
+			if (guard != null) guard.verify();
 			if (BackendConfigurationService.managedRewardFile(fileName)) verifyNamedRewardLoaded(fileName, expectedContent);
 			if ("BungeeSettings.yml".equals(fileName)) plugin.restartBackendProxyHandler();
 		});
@@ -182,7 +196,7 @@ public final class BackendControlConnector implements AutoCloseable {
 		reloadOnServerThread(plugin::reloadBackendProxyMethodFromControl);
 	}
 
-	private void reloadOnServerThread(Runnable action) throws Exception {
+	private void reloadOnServerThread(ThrowingRunnable action) throws Exception {
 		Future<?> reload;
 		synchronized (operationLifecycle) {
 			if (closed) throw new IllegalStateException("Bukkit Control connector is stopping");
@@ -197,6 +211,8 @@ public final class BackendControlConnector implements AutoCloseable {
 			}
 		}
 	}
+
+	@FunctionalInterface private interface ThrowingRunnable { void run() throws Exception; }
 
 	public static BackendControlConnector create(VotingPluginMain plugin) throws IOException {
 		Path root = plugin.getDataFolder().toPath().toAbsolutePath().normalize();
@@ -296,10 +312,10 @@ public final class BackendControlConnector implements AutoCloseable {
 				+ "/result", submitted), 200);
 	}
 
-	private InspectionTaskResult executeInspection(JsonObject query) {
+	InspectionTaskResult executeInspection(JsonObject query) {
 		try {
 			if (ControlInspectionService.rewardFileInventoryQuery(query) && !rewardFilesAccepted) {
-				return InspectionTaskResult.failure("UNSUPPORTED_CAPABILITY",
+				return InspectionTaskResult.failure("UNAVAILABLE",
 						"Named reward files were not negotiated");
 			}
 			return InspectionTaskResult.success(inspections.inspect(query));
@@ -641,7 +657,18 @@ public final class BackendControlConnector implements AutoCloseable {
 		JsonObject configuration = result.getAsJsonObject("configuration");
 		String domain = string(configuration, "domain");
 		if ("file".equals(domain)) {
-			BackendConfigurationService.Document installed = configurations.read(string(configuration, "fileName"));
+			String fileName = string(configuration, "fileName");
+			BackendConfigurationService.Document installed;
+			try {
+				installed = configurations.read(fileName);
+			} catch (IOException unavailable) {
+				// A deleted named reward cannot be confirmed after restart. Complete
+				// this intent as aborted so it cannot block every later operation;
+				// other I/O failures remain retryable rather than guessing state.
+				if (BackendConfigurationService.managedRewardFile(fileName)
+						&& BackendConfigurationService.namedRewardIsMissing(unavailable)) return null;
+				throw unavailable;
+			}
 			if (!revision.equals(installed.revision())) return null;
 			result = result.deepCopy();
 			result.getAsJsonObject("configuration").addProperty("content", installed.content());
@@ -1052,7 +1079,7 @@ public final class BackendControlConnector implements AutoCloseable {
 		}
 	}
 
-	private record InspectionTaskResult(boolean success, String code, String message, JsonObject data) {
+	record InspectionTaskResult(boolean success, String code, String message, JsonObject data) {
 		private JsonObject json() {
 			JsonObject body = new JsonObject();
 			body.addProperty("success", success);

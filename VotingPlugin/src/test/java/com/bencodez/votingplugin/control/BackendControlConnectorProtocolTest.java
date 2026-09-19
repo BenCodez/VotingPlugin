@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.control;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -69,6 +70,31 @@ class BackendControlConnectorProtocolTest {
 		String content = recovered.result().getAsJsonObject("configuration").get("content").getAsString();
 		assertFalse(content.contains("keep-me"));
 		assertTrue(content.contains(BackendConfigurationService.REDACTED));
+	}
+
+	@Test void missingNamedRewardIntentTerminatesWithoutMaskingOtherIoFailure() throws Exception {
+		Path rewards = Files.createDirectory(directory.resolve("Rewards"));
+		Path daily = rewards.resolve("Daily.yml");
+		Files.writeString(daily, "Money: 1\n");
+		BackendConfigurationService configurations = new BackendConfigurationService(directory, () -> { });
+		String revision = configurations.read("Rewards/Daily.yml").revision();
+		JsonObject configuration = new JsonObject();
+		configuration.addProperty("domain", "file");
+		configuration.addProperty("fileName", "Rewards/Daily.yml");
+		JsonObject intent = new JsonObject();
+		intent.addProperty("attemptId", "00000000-0000-0000-0000-000000000197");
+		intent.addProperty("revision", revision);
+		intent.add("configuration", configuration);
+		StoredResult pending = new StoredResult(intent, false, false, false);
+		Files.delete(daily);
+		assertNull(BackendControlConnector.committedInstalledForAttempt(configurations, pending, "attempt"));
+		assertTrue(BackendControlConnector.abortedIntent(pending).committed());
+		Files.delete(rewards);
+		assertNull(BackendControlConnector.committedInstalledForAttempt(configurations, pending, "attempt"));
+		Files.createDirectory(rewards);
+		Files.createSymbolicLink(daily, directory.resolve("not-a-reward.yml"));
+		assertThrows(IOException.class,
+				() -> BackendControlConnector.committedInstalledForAttempt(configurations, pending, "attempt"));
 	}
 
 	@Test void registrationRequiresFileControlButAllowsQuickSetupToRemainOptional() {
@@ -174,6 +200,10 @@ class BackendControlConnectorProtocolTest {
 				"{\"kind\":\"reward-file-inventory\"}").getAsJsonObject()));
 		assertFalse(ControlInspectionService.rewardFileInventoryQuery(JsonParser.parseString(
 				"{\"kind\":\"overview\"}").getAsJsonObject()));
+		BackendControlConnector connector = org.mockito.Mockito.mock(BackendControlConnector.class,
+				org.mockito.Mockito.CALLS_REAL_METHODS);
+		assertEquals("UNAVAILABLE", connector.executeInspection(JsonParser.parseString(
+				"{\"kind\":\"reward-file-inventory\"}").getAsJsonObject()).code());
 	}
 
 	@Test void unexpectedInspectionFailureMessagesNeverExposeTheCause() {

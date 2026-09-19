@@ -454,6 +454,34 @@ class BackendConfigurationServiceTest {
 		assertEquals(privatePermissions, Files.getPosixFilePermissions(rewards.resolve("Daily.yml.control-backup")));
 	}
 
+	@Test void namedRewardRollbackUsesRetainedOriginalWhenBackupIsReplaced() throws Exception {
+		Path rewards = Files.createDirectories(directory.resolve("Rewards"));
+		Path file = rewards.resolve("Daily.yml");
+		Files.writeString(file, "Money: 1\n");
+		AtomicInteger reloads = new AtomicInteger();
+		BackendConfigurationService.ApplyAction reload = new BackendConfigurationService.ApplyAction() {
+			@Override public void run(String fileName) { }
+
+			@Override public void runNamedReward(String fileName, String expectedContent) throws Exception {
+				assertEquals("Rewards/Daily.yml", fileName);
+				if (reloads.incrementAndGet() == 1) {
+					assertEquals("Money: 2\n", expectedContent);
+					Files.writeString(rewards.resolve("Daily.yml.control-backup"), "Money: 999\n");
+					throw new IOException("disposable reload failed");
+				}
+				assertEquals("Money: 1\n", expectedContent);
+			}
+		};
+		BackendConfigurationService service = new BackendConfigurationService(directory, reload);
+		String revision = service.read("Rewards/Daily.yml").revision();
+		BackendConfigurationService.ApplyFailureException failure = assertThrows(
+				BackendConfigurationService.ApplyFailureException.class,
+				() -> service.apply("Rewards/Daily.yml", "Money: 2\n", revision));
+		assertTrue(failure.rolledBack());
+		assertEquals(2, reloads.get());
+		assertEquals("Money: 1\n", Files.readString(file));
+	}
+
 	@Test void rewardInventoryFailsClosedForSymlinksAmbiguousNamesAndExcess() throws Exception {
 		Path rewards = Files.createDirectories(directory.resolve("Rewards"));
 		Path outside = directory.resolve("outside.yml");
@@ -562,6 +590,37 @@ class BackendConfigurationServiceTest {
 		assertEquals(2, reloads.get());
 		assertEquals("Money: 1\n", Files.readString(rewards.resolve("Daily.yml")));
 		assertEquals("Money: 999\n", Files.readString(replacement.resolve("Daily.yml")));
+	}
+
+	@Test void directoryReplacementBeforeScheduledReloadNeverStartsThatReload() throws Exception {
+		Path plugin = Files.createDirectories(directory.resolve("plugin"));
+		Path rewards = Files.createDirectories(plugin.resolve("Rewards"));
+		Path replacement = Files.createDirectories(directory.resolve("replacement"));
+		Files.writeString(rewards.resolve("Daily.yml"), "Money: 1\n");
+		Files.writeString(replacement.resolve("Daily.yml"), "Money: 999\n");
+		AtomicInteger callbacks = new AtomicInteger();
+		AtomicInteger reloads = new AtomicInteger();
+		BackendConfigurationService.ApplyAction action = new BackendConfigurationService.ApplyAction() {
+			@Override public void run(String fileName) { }
+			@Override public void runNamedReward(String fileName, String expectedContent,
+					BackendConfigurationService.NamedRewardGuard guard) throws Exception {
+				if (callbacks.incrementAndGet() == 1) {
+					Files.move(rewards, plugin.resolve("Rewards-original"));
+					Files.move(replacement, rewards);
+				}
+				guard.verify();
+				reloads.incrementAndGet();
+			}
+		};
+		BackendConfigurationService service = new BackendConfigurationService(plugin, action);
+		String revision = service.read("Rewards/Daily.yml").revision();
+		BackendConfigurationService.ApplyFailureException failure = assertThrows(
+				BackendConfigurationService.ApplyFailureException.class,
+				() -> service.apply("Rewards/Daily.yml", "Money: 2\n", revision));
+		assertFalse(failure.rolledBack());
+		assertEquals(0, reloads.get());
+		assertEquals("Money: 999\n", Files.readString(rewards.resolve("Daily.yml")));
+		assertEquals("Money: 1\n", Files.readString(plugin.resolve("Rewards-original/Daily.yml")));
 	}
 
 	@Test void concurrentNamedRewardAppliesCannotBothPublishTheSameRevision() throws Exception {

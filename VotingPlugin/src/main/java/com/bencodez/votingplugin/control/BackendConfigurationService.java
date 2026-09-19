@@ -315,7 +315,8 @@ public final class BackendConfigurationService {
 				rewards.move(Path.of(staging), rewards, Path.of(name));
 				installed = true;
 				forcePinnedRewardDirectory(rewards, directoryKey);
-				applyAction.runNamedReward(fileName, preview.resolvedContent());
+				applyAction.runNamedReward(fileName, preview.resolvedContent(),
+						() -> requireCurrentRewardDirectory(directoryKey));
 				requireCurrentRewardDirectory(directoryKey);
 				String applied = readRaw(rewards, name, false);
 				if (!revision(applied).equals(revision(preview.resolvedContent()))) {
@@ -333,13 +334,14 @@ public final class BackendConfigurationService {
 							throw new IOException("Managed configuration changed while reload failed; backup was not restored");
 						}
 						rollbackStaging = controlTemporaryName(".control-rollback-");
-						writeRaw(rewards, rollbackStaging, readRaw(rewards, backup, false), true);
+						writeRaw(rewards, rollbackStaging, current, true);
 						if (!revision(readRaw(rewards, name, false)).equals(revision(preview.resolvedContent()))) {
 							throw new IOException("Managed configuration changed while rollback was staged");
 						}
 						rewards.move(Path.of(rollbackStaging), rewards, Path.of(name));
 						forcePinnedRewardDirectory(rewards, directoryKey);
-						applyAction.runNamedReward(fileName, current);
+						applyAction.runNamedReward(fileName, current,
+								() -> requireCurrentRewardDirectory(directoryKey));
 						requireCurrentRewardDirectory(directoryKey);
 						rolledBack = true;
 					} catch (Exception rollbackFailure) {
@@ -446,7 +448,7 @@ public final class BackendConfigurationService {
 	private static void validateNamedReward(java.nio.file.SecureDirectoryStream<Path> directory, String name)
 			throws IOException {
 		List<String> names = rewardFileInventory(directory);
-		if (!names.contains(name)) throw new IOException("named reward file is unavailable");
+		if (!names.contains(name)) throw new MissingNamedRewardException();
 	}
 
 	private static String rewardFileNamePart(String fileName) {
@@ -472,8 +474,12 @@ public final class BackendConfigurationService {
 			}
 		} catch (java.nio.file.NoSuchFileException missing) {
 			if (allowMissing) return "";
-			throw new IOException("configuration file is missing or too large", missing);
+			throw new MissingNamedRewardException(missing);
 		}
+	}
+
+	static boolean namedRewardIsMissing(IOException failure) {
+		return failure instanceof MissingRewardDirectoryException || failure instanceof MissingNamedRewardException;
 	}
 
 	private static void writeRaw(java.nio.file.SecureDirectoryStream<Path> directory, String name, String content,
@@ -525,7 +531,8 @@ public final class BackendConfigurationService {
 			requireCurrentRewardDirectory(directoryKey);
 			String snapshot = readRaw(directory, name, false);
 			String snapshotRevision = revision(snapshot);
-			applyAction.runNamedReward(fileName, snapshot);
+			applyAction.runNamedReward(fileName, snapshot,
+					() -> requireCurrentRewardDirectory(directoryKey));
 			requireCurrentRewardDirectory(directoryKey);
 			if (revision(readRaw(directory, name, false)).equals(snapshotRevision)) return;
 		}
@@ -1531,14 +1538,27 @@ public final class BackendConfigurationService {
 			super("named reward directory is absent", cause);
 		}
 	}
+	@SuppressWarnings("serial") private static final class MissingNamedRewardException extends IOException {
+		private MissingNamedRewardException() { super("named reward file is unavailable"); }
+		private MissingNamedRewardException(java.nio.file.NoSuchFileException cause) {
+			super("named reward file is unavailable", cause);
+		}
+	}
 
 	@FunctionalInterface public interface ReloadAction { void run() throws Exception; }
+	@FunctionalInterface public interface NamedRewardGuard { void verify() throws IOException; }
 	@FunctionalInterface public interface ApplyAction {
 		void run(String fileName) throws Exception;
 
 		/** The expected bytes come from the pinned Rewards handle, never a reopened pathname. */
 		default void runNamedReward(String fileName, String expectedContent) throws Exception {
 			run(fileName);
+		}
+
+		/** The connector checks the pinned directory inside the scheduled reload, not only before scheduling it. */
+		default void runNamedReward(String fileName, String expectedContent, NamedRewardGuard guard) throws Exception {
+			guard.verify();
+			runNamedReward(fileName, expectedContent);
 		}
 	}
 	@FunctionalInterface interface MoveAction { void move(Path source, Path target) throws IOException; }
