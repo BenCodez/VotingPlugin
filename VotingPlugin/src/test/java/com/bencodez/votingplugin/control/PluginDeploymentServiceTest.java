@@ -171,7 +171,7 @@ class PluginDeploymentServiceTest {
 		assertArrayEquals(second, Files.readAllBytes(current));
 	}
 
-	@Test void proxyRecoversActivationInterruptedBeforeMarkerWithoutReplacingBackup() throws Exception {
+	@Test void proxyMissingMarkerRequiresNormalVerifiedStaging() throws Exception {
 		Path current = directory.resolve("VotingPlugin.jar");
 		Path backup = directory.resolve("VotingPlugin.jar.control-backup");
 		Path marker = directory.resolve("VotingPlugin.jar.control-deployment");
@@ -182,15 +182,34 @@ class PluginDeploymentServiceTest {
 		Files.write(backup, original);
 		PluginDeploymentService service = PluginDeploymentService.proxy(current);
 
-		assertEquals("RESTART_REQUIRED",
+		assertEquals("SIZE_MISMATCH",
 				service.stage(task, new ByteArrayInputStream(new byte[0]), () -> true).code());
+		assertFalse(Files.exists(marker));
+		assertArrayEquals(original, Files.readAllBytes(backup));
+		assertEquals("RESTART_REQUIRED",
+				service.stage(task, new ByteArrayInputStream(candidate), () -> true).code());
 
 		assertArrayEquals(candidate, Files.readAllBytes(current));
-		assertArrayEquals(original, Files.readAllBytes(backup));
+		assertArrayEquals(candidate, Files.readAllBytes(backup));
 		String state = Files.readString(marker, StandardCharsets.US_ASCII);
 		assertTrue(state.contains(task.deploymentId().toString()));
 		assertTrue(state.contains(task.sha256()));
 		assertTrue(state.contains(Long.toString(task.size())));
+	}
+
+	@Test void proxyDoesNotAcknowledgeAStagedArtifactWithoutItsBackup() throws Exception {
+		Path current = directory.resolve("VotingPlugin.jar");
+		Path backup = directory.resolve("VotingPlugin.jar.control-backup");
+		byte[] original = jar("name: VotingPlugin\nversion: original\n");
+		byte[] candidate = jar("name: VotingPlugin\nversion: candidate\n");
+		Files.write(current, original);
+		PluginDeploymentService service = PluginDeploymentService.proxy(current);
+		PluginDeploymentService.Task task = task(candidate);
+		assertEquals("RESTART_REQUIRED", service.stage(task, new ByteArrayInputStream(candidate), () -> true).code());
+		Files.delete(backup);
+		assertEquals("SIZE_MISMATCH", service.stage(task, new ByteArrayInputStream(new byte[0]), () -> true).code());
+		assertEquals("RESTART_REQUIRED", service.stage(task, new ByteArrayInputStream(candidate), () -> true).code());
+		assertTrue(Files.isRegularFile(backup));
 	}
 
 	@Test void cancellationDuringCopyDoesNotPublish() throws Exception {

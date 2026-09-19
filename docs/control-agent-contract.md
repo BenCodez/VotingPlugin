@@ -176,11 +176,11 @@ X-Deployment-Attempt: <attemptId>
 
 The node independently verifies the exact size and SHA-256, bounded ZIP/JAR structure, root `plugin.yml`, and
 `name: VotingPlugin` before publication. Bukkit nodes stage to the server update folder; proxy nodes atomically replace
-their discovered plugin JAR only after creating a durable `.control-backup`. Every successful deployment writes a small
-`.control-deployment` marker so a lost result acknowledgement does not apply the same deployment twice. On Bukkit, that
-marker remains authoritative after a restart consumes/removes the staged update JAR. On proxies, the target JAR must still
-match the marker's digest; an interrupted publish-before-marker window can be recovered without overwriting the previous
-backup.
+their discovered plugin JAR only after creating a durable `.control-backup`. A small durable
+`.control-deployment` marker is published before the verified target is moved into place, so a lost result
+acknowledgement does not apply the same artifact twice. On Bukkit, a consumed staged update must match the installed JAR.
+On proxies, both a safe backup and a target JAR matching the marker's digest are required for acknowledgement; a missing
+marker requires a fresh verified download and staging attempt.
 
 The result is posted to:
 

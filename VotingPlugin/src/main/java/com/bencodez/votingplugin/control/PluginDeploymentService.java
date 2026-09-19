@@ -173,7 +173,7 @@ public final class PluginDeploymentService {
 	Result stage(Task task, InputStream body, BooleanSupplier active) throws IOException {
 		validate(task);
 		if (!active.getAsBoolean()) return Result.failure("CANCELLED", "Deployment was cancelled before staging");
-		if (alreadyStaged(task) || recoverInterruptedActivation(task)) return Result.restartRequired();
+		if (alreadyStaged(task)) return Result.restartRequired();
 		activeResponse.compareAndSet(null, body);
 		Path temporary = Files.createTempFile(root, target.getFileName().toString() + ".", ".download");
 		Activation activation = null;
@@ -188,8 +188,9 @@ public final class PluginDeploymentService {
 			inspectJar(temporary);
 			if (!active.getAsBoolean()) return Result.failure("CANCELLED", "Deployment was cancelled before staging");
 			activation = new Activation();
-			activate(temporary, activation);
+			prepareProxyBackup();
 			writeMarker(task, activation);
+			activate(temporary, activation);
 			activation.discard();
 			return Result.restartRequired();
 		} catch (CancelledDeploymentException failure) {
@@ -291,7 +292,7 @@ public final class PluginDeploymentService {
 				|| (value.startsWith("'") && value.endsWith("'"))) ? value.substring(1, value.length() - 1) : value;
 	}
 
-	private void activate(Path temporary, Activation activation) throws IOException {
+	private void prepareProxyBackup() throws IOException {
 		if (replaceExisting) {
 			if (!Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(target)) {
 				throw new IOException("current proxy plugin JAR is unsafe");
@@ -309,6 +310,9 @@ public final class PluginDeploymentService {
 				forceDirectory(root);
 			} finally { Files.deleteIfExists(backupTemp); }
 		}
+	}
+
+	private void activate(Path temporary, Activation activation) throws IOException {
 		move(temporary, target);
 		activation.published = true;
 		force(target);
@@ -335,11 +339,11 @@ public final class PluginDeploymentService {
 		}
 
 		private void rollback() throws IOException {
+			if (markerPublished) DurableFiles.deleteIfExists(marker);
 			if (!published) {
 				discard();
 				return;
 			}
-			if (markerPublished) DurableFiles.deleteIfExists(marker);
 			if (previous == null) {
 				if (!Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(target)) {
 					throw new IOException("deployed target cannot be safely removed");
@@ -379,6 +383,10 @@ public final class PluginDeploymentService {
 	private boolean alreadyStaged(Task task) throws IOException {
 		if (!Files.isRegularFile(marker, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(marker)
 				|| Files.size(marker) > 256) return false;
+		if (replaceExisting) {
+			Path backup = root.resolve(target.getFileName() + ".control-backup");
+			if (!Files.isRegularFile(backup, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(backup)) return false;
+		}
 		String[] fields = Files.readString(marker, StandardCharsets.US_ASCII).split("\\R", -1);
 		// A lost acknowledgement can cause Control to issue a new deployment ID
 		// for the same verified artifact after reconnect or restart. The marker
@@ -393,18 +401,6 @@ public final class PluginDeploymentService {
 			return installedBackendJar != null && fileMatches(installedBackendJar, task);
 		}
 		return targetMatches(task);
-	}
-
-	/** Complete the durable marker half of an activation interrupted after publish. */
-	private boolean recoverInterruptedActivation(Task task) throws IOException {
-		// Proxy replacement creates a durable backup before publishing the target;
-		// that transaction shape lets a retry distinguish the activation crash window.
-		// Backend update folders have no such evidence and must consume/verify
-		// a new body unless a matching durable marker and artifact remain.
-		if (!replaceExisting) return false;
-		if (!targetMatches(task)) return false;
-		writeMarker(task);
-		return true;
 	}
 
 	private boolean targetMatches(Task task) throws IOException {
