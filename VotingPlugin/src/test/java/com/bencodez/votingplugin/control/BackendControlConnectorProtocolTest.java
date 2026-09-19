@@ -18,6 +18,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -98,7 +99,7 @@ class BackendControlConnectorProtocolTest {
 		}
 	}
 
-	@Test void missingNamedRewardIntentTerminatesWithoutMaskingOtherIoFailure() throws Exception {
+	@Test void missingOrUnsafeNamedRewardIntentTerminatesWithoutMaskingOtherIoFailure() throws Exception {
 		Path rewards = Files.createDirectory(directory.resolve("Rewards"));
 		Path daily = rewards.resolve("Daily.yml");
 		Files.writeString(daily, "Money: 1\n");
@@ -119,8 +120,41 @@ class BackendControlConnectorProtocolTest {
 		assertNull(BackendControlConnector.committedInstalledForAttempt(configurations, pending, "attempt"));
 		Files.createDirectory(rewards);
 		Files.createSymbolicLink(daily, directory.resolve("not-a-reward.yml"));
-		assertThrows(IOException.class,
-				() -> BackendControlConnector.committedInstalledForAttempt(configurations, pending, "attempt"));
+		assertNull(BackendControlConnector.committedInstalledForAttempt(configurations, pending, "attempt"));
+		Files.delete(daily);
+		Files.createDirectory(daily);
+		assertNull(BackendControlConnector.committedInstalledForAttempt(configurations, pending, "attempt"));
+		Files.delete(daily);
+		Files.writeString(daily, "x".repeat(BackendConfigurationService.MAX_CONTENT_BYTES + 1));
+		assertNull(BackendControlConnector.committedInstalledForAttempt(configurations, pending, "attempt"));
+		Files.write(daily, new byte[] {(byte) 0xC3, (byte) 0x28});
+		assertNull(BackendControlConnector.committedInstalledForAttempt(configurations, pending, "attempt"));
+		Files.writeString(daily, "Money: 1\n");
+		assertEquals(revision, BackendControlConnector.committedInstalledForAttempt(configurations,
+				pending, "attempt").result().get("revision").getAsString());
+		assertFalse(BackendConfigurationService.namedRewardCannotBeConfirmed(new IOException("transient read failure")));
+	}
+
+	@Test void fifoNamedRewardIntentTerminatesWithoutOpeningItsBody() throws Exception {
+		Assumptions.assumeTrue(System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("linux"));
+		Assumptions.assumeTrue(Files.isExecutable(Path.of("/usr/bin/mkfifo")));
+		Path rewards = Files.createDirectory(directory.resolve("Rewards"));
+		Path daily = rewards.resolve("Daily.yml");
+		Files.writeString(daily, "Money: 1\n");
+		BackendConfigurationService configurations = new BackendConfigurationService(directory, () -> { });
+		String revision = configurations.read("Rewards/Daily.yml").revision();
+		JsonObject configuration = new JsonObject();
+		configuration.addProperty("domain", "file");
+		configuration.addProperty("fileName", "Rewards/Daily.yml");
+		JsonObject intent = new JsonObject();
+		intent.addProperty("revision", revision);
+		intent.add("configuration", configuration);
+		Files.delete(daily);
+		Process create = new ProcessBuilder("/usr/bin/mkfifo", daily.toString()).start();
+		assertTrue(create.waitFor(5, TimeUnit.SECONDS));
+		assertEquals(0, create.exitValue());
+		assertNull(BackendControlConnector.committedInstalledForAttempt(configurations,
+				new StoredResult(intent, false, false, false), "attempt"));
 	}
 
 	@Test void namedRewardRecoveryIgnoresUnrelatedInvalidInventoryEntries() throws Exception {

@@ -86,11 +86,15 @@ public final class BackendConfigurationService {
 
 	/** Whether this filesystem can provide the pinned, private writes required by named rewards. */
 	synchronized boolean supportsNamedRewardFiles() {
+		return supportsNamedRewardFiles(BackendConfigurationService::privateStagingSupported);
+	}
+
+	synchronized boolean supportsNamedRewardFiles(DirectoryStagingSupport staging) {
 		return supportsNamedRewardFiles(dataDirectory, channel -> channel.force(true), directory -> {
 			Object key = rewardDirectoryKey(directory);
-			if (!key.equals(checkedStagingDirectory)) {
+			if (!key.equals(checkedStagingDirectory) || !privateStagingAvailable) {
 				try {
-					privateStagingAvailable = privateStagingSupported(directory);
+					privateStagingAvailable = staging.supports(directory);
 				} catch (IOException | UnsupportedOperationException unavailable) {
 					privateStagingAvailable = false;
 				}
@@ -151,8 +155,40 @@ public final class BackendConfigurationService {
 		return retryRead(() -> withRewardDirectory(rewards -> {
 			String name = rewardFileNamePart(fileName);
 			rejectRewardCaseAliases(rewards, name);
-			return recoveryDocument(fileName, readRaw(rewards, name, false), expectedRevision);
+			return recoveryDocument(fileName, readNamedForRecovery(rewards, name), expectedRevision);
 		}));
+	}
+
+	private static String readNamedForRecovery(java.nio.file.SecureDirectoryStream<Path> rewards, String name)
+			throws IOException {
+		requireRecoverableRewardEntry(rewards, name);
+		try {
+			return readRaw(rewards, name, false);
+		} catch (IOException failure) {
+			// A target replaced between the attribute check and open can fail as an
+			// ordinary I/O error. Reclassify only a provably missing/unsafe entry.
+			requireRecoverableRewardEntry(rewards, name);
+			if (failure.getCause() instanceof CharacterCodingException) {
+				throw new UnconfirmableNamedRewardException();
+			}
+			throw failure;
+		}
+	}
+
+	private static void requireRecoverableRewardEntry(java.nio.file.SecureDirectoryStream<Path> rewards,
+			String name) throws IOException {
+		BasicFileAttributeView view = rewards.getFileAttributeView(Path.of(name), BasicFileAttributeView.class,
+				LinkOption.NOFOLLOW_LINKS);
+		if (view == null) throw new IOException("named reward attributes are unavailable");
+		BasicFileAttributes attributes;
+		try {
+			attributes = view.readAttributes();
+		} catch (java.nio.file.NoSuchFileException missing) {
+			throw new MissingNamedRewardException(missing);
+		}
+		if (!attributes.isRegularFile() || attributes.size() > MAX_CONTENT_BYTES) {
+			throw new UnconfirmableNamedRewardException();
+		}
 	}
 
 	private static Document recoveryDocument(String fileName, String raw, String expectedRevision) {

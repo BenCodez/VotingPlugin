@@ -18,6 +18,8 @@ Paths, `.yaml`, symlinks, case-only duplicate names, files over 512 KiB, and inv
 rejected. A missing Rewards directory yields an empty inventory. Other configuration and inspection capabilities remain
 independent, so an older peer simply leaves named reward files unavailable. The connector advertises this optional
 capability only when the local filesystem supports secure directory handles and private POSIX staging files.
+An unsuccessful private-staging probe is retried on a later registration or heartbeat; only a successful probe is
+cached for the current Rewards directory identity.
 
 Inventory is the read-only `reward-file-inventory` inspection with empty filters and a names-only `result.files` array.
 It requires both `data.inspect.v1` and `config.reward-files.v1` to be accepted. A named file READ/PREVIEW/APPLY uses the
@@ -35,8 +37,9 @@ more than 1,024 total Rewards directory entries, including ignored entries, and 
 capability does not create or delete reward files or grant access outside Rewards.
 
 Recovery of a pending named-file result checks that exact file and bounded case-only aliases, without validating
-unrelated Rewards entries. A case ambiguity cannot be confirmed as a successful apply; unrelated invalid entries do not
-stall the whole configuration lane. Recovery compares the raw revision before parsing YAML, so a later malformed edit
+unrelated Rewards entries. A missing, case-ambiguous, or permanently unsafe target (symlink, directory, FIFO, or
+oversized file) cannot be confirmed as a successful apply and terminates that pending intent; transient I/O failures
+remain retryable. Unrelated invalid entries do not stall the whole configuration lane. Recovery compares the raw revision before parsing YAML, so a later malformed edit
 with a different revision aborts that pending intent without blocking new work. Inventory accepts regular files;
 subsequent named-file reads require a writable, seekable handle. A raced FIFO or other non-seekable replacement is
 rejected before body reading rather than blocking

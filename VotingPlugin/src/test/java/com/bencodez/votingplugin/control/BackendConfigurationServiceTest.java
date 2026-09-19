@@ -440,6 +440,20 @@ class BackendConfigurationServiceTest {
 		}
 	}
 
+	@Test void namedRewardCapabilityReprobesAfterTransientStagingFailure() throws Exception {
+		Files.createDirectory(directory.resolve("Rewards"));
+		BackendConfigurationService service = new BackendConfigurationService(directory, () -> { });
+		AtomicInteger attempts = new AtomicInteger();
+		BackendConfigurationService.DirectoryStagingSupport probe = ignored -> {
+			if (attempts.incrementAndGet() == 1) throw new IOException("temporary staging failure");
+			return true;
+		};
+		assertFalse(service.supportsNamedRewardFiles(probe));
+		assertTrue(service.supportsNamedRewardFiles(probe));
+		assertTrue(service.supportsNamedRewardFiles(probe));
+		assertEquals(2, attempts.get(), "only a successful probe may be cached for this directory");
+	}
+
 	@Test void namedRewardApplyKeepsPublishedAndBackupFilesPrivate() throws Exception {
 		Assumptions.assumeTrue(Files.getFileStore(directory).supportsFileAttributeView("posix"));
 		Path rewards = Files.createDirectories(directory.resolve("Rewards"));
