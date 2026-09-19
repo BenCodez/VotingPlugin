@@ -660,7 +660,7 @@ public final class BackendControlConnector implements AutoCloseable {
 			String fileName = string(configuration, "fileName");
 			BackendConfigurationService.Document installed;
 			try {
-				installed = configurations.readForRecovery(fileName);
+				installed = configurations.readForRecovery(fileName, revision);
 			} catch (IOException unavailable) {
 				// A missing or case-ambiguous named reward cannot be confirmed after
 				// restart. Abort only that intent; unrelated I/O remains retryable.
@@ -668,7 +668,7 @@ public final class BackendControlConnector implements AutoCloseable {
 						&& BackendConfigurationService.namedRewardCannotBeConfirmed(unavailable)) return null;
 				throw unavailable;
 			}
-			if (!revision.equals(installed.revision())) return null;
+			if (installed == null) return null;
 			result = result.deepCopy();
 			result.getAsJsonObject("configuration").addProperty("content", installed.content());
 			result.addProperty("attemptId", attemptId);

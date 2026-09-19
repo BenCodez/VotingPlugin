@@ -35,7 +35,9 @@ create or delete reward files or grant access outside Rewards.
 
 Recovery of a pending named-file result checks that exact file and bounded case-only aliases, without validating
 unrelated Rewards entries. A case ambiguity cannot be confirmed as a successful apply; unrelated invalid entries do not
-stall the whole configuration lane. Inventory accepts regular files; subsequent named-file reads require a writable,
+stall the whole configuration lane. Recovery compares the raw revision before parsing YAML, so a later malformed edit
+with a different revision aborts that pending intent without blocking new work. Inventory accepts regular files;
+subsequent named-file reads require a writable,
 seekable handle. A raced FIFO or other non-seekable replacement is rejected before body reading rather than blocking
 the single connector worker on supported Unix providers.
 

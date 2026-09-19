@@ -143,14 +143,22 @@ public final class BackendConfigurationService {
 	}
 
 	/** Recovery checks the intended file and bounded case aliases, without validating unrelated inventory entries. */
-	Document readForRecovery(String fileName) throws IOException {
-		if (!managedRewardFile(fileName)) return read(fileName);
+	Document readForRecovery(String fileName, String expectedRevision) throws IOException {
+		if (!managedRewardFile(fileName)) {
+			Path path = resolve(fileName);
+			return retryRead(() -> recoveryDocument(fileName, readRaw(path, false), expectedRevision));
+		}
 		return retryRead(() -> withRewardDirectory(rewards -> {
 			String name = rewardFileNamePart(fileName);
 			rejectRewardCaseAliases(rewards, name);
-			String raw = readRaw(rewards, name, false);
-			return new Document(fileName, mask(parse(raw)), revision(raw));
+			return recoveryDocument(fileName, readRaw(rewards, name, false), expectedRevision);
 		}));
+	}
+
+	private static Document recoveryDocument(String fileName, String raw, String expectedRevision) {
+		String actualRevision = revision(raw);
+		if (!actualRevision.equals(expectedRevision)) return null;
+		return new Document(fileName, mask(parse(raw)), actualRevision);
 	}
 
 	private static void rejectRewardCaseAliases(java.nio.file.SecureDirectoryStream<Path> rewards, String name)

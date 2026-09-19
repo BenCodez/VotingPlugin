@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -70,6 +71,31 @@ class BackendControlConnectorProtocolTest {
 		String content = recovered.result().getAsJsonObject("configuration").get("content").getAsString();
 		assertFalse(content.contains("keep-me"));
 		assertTrue(content.contains(BackendConfigurationService.REDACTED));
+	}
+
+	@Test void changedMalformedFilesAbortPendingRecoveryBeforeYamlParsing() throws Exception {
+		BackendConfigurationService configurations = new BackendConfigurationService(directory, () -> { });
+		for (String fileName : List.of("Config.yml", "Rewards/Daily.yml")) {
+			Path file = directory.resolve(fileName);
+			Files.createDirectories(file.getParent());
+			Files.writeString(file, "Money: 1\n");
+			String revision = configurations.read(fileName).revision();
+			JsonObject configuration = new JsonObject();
+			configuration.addProperty("domain", "file");
+			configuration.addProperty("fileName", fileName);
+			JsonObject intent = new JsonObject();
+			intent.addProperty("attemptId", "00000000-0000-0000-0000-000000000196");
+			intent.addProperty("revision", revision);
+			intent.add("configuration", configuration);
+			StoredResult pending = new StoredResult(intent, false, false, false);
+			Files.writeString(file, "Money: [\n");
+			assertThrows(IOException.class, () -> configurations.read(fileName));
+			assertNull(BackendControlConnector.committedInstalledForAttempt(configurations, pending, "attempt"));
+			assertTrue(BackendControlConnector.abortedIntent(pending).committed());
+			Files.writeString(file, "Money: 1\n");
+			assertEquals(revision, BackendControlConnector.committedInstalledForAttempt(configurations,
+					pending, "attempt").result().get("revision").getAsString());
+		}
 	}
 
 	@Test void missingNamedRewardIntentTerminatesWithoutMaskingOtherIoFailure() throws Exception {
