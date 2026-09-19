@@ -110,6 +110,9 @@ public final class ControlConnector implements AutoCloseable {
 	private volatile ScheduledFuture<?> operationPolling;
 	private volatile ScheduledFuture<?> deploymentPolling;
 	private volatile CompletableFuture<?> activeRequest;
+	/* The deployment executor may discard queued AsyncSupply work during shutdown.
+	 * Retain its future so close() can complete the dependent operation chain. */
+	private volatile CompletableFuture<?> activeDeploymentWork;
 	private volatile CompletableFuture<Void> activeOperation;
 	private volatile Status status = Status.STARTING;
 
@@ -337,22 +340,31 @@ public final class ControlConnector implements AutoCloseable {
 		}
 		requireSuccess(response);
 		PluginDeploymentService.Task task = deploymentTask(parseObject(response.body));
-		return CompletableFuture.supplyAsync(() -> deployments.deploy(task, settings.endpoint(),
-				directLocalDeploymentEndpoint, settings.nodeId(), sessionId, deploymentCredential, deploymentHttp,
-				Duration.ofMillis(settings.requestTimeoutMillis()), () -> !closed),
-				deploymentExecutor).thenCompose(result -> {
-					if (closed) return CompletableFuture.completedFuture(null);
-					JsonObject body = new JsonObject();
-					body.addProperty("sessionId", sessionId.toString());
-					body.addProperty("success", result.success());
-					body.addProperty("code", result.code());
-					body.addProperty("message", boundedResultMessage(result.message()));
-					body.addProperty("attemptId", task.attemptId().toString());
-					CompletableFuture<Response> submitted = transport.send(new Request("POST", "/api/v1/nodes/"
-							+ settings.nodeId() + "/deployments/" + task.deploymentId() + "/result", body.toString()));
-					activeRequest = submitted;
-					return submitted.thenAccept(ControlConnector::requireSuccess);
-				});
+		final CompletableFuture<PluginDeploymentService.Result> deploymentWork;
+		synchronized (operationLifecycle) {
+			if (closed) return CompletableFuture.completedFuture(null);
+			deploymentWork = CompletableFuture.supplyAsync(() -> deployments.deploy(task, settings.endpoint(),
+					directLocalDeploymentEndpoint, settings.nodeId(), sessionId, deploymentCredential, deploymentHttp,
+					Duration.ofMillis(settings.requestTimeoutMillis()), () -> !closed), deploymentExecutor);
+			activeDeploymentWork = deploymentWork;
+		}
+		return deploymentWork.thenCompose(result -> {
+			if (closed) return CompletableFuture.completedFuture(null);
+			JsonObject body = new JsonObject();
+			body.addProperty("sessionId", sessionId.toString());
+			body.addProperty("success", result.success());
+			body.addProperty("code", result.code());
+			body.addProperty("message", boundedResultMessage(result.message()));
+			body.addProperty("attemptId", task.attemptId().toString());
+			CompletableFuture<Response> submitted = transport.send(new Request("POST", "/api/v1/nodes/"
+					+ settings.nodeId() + "/deployments/" + task.deploymentId() + "/result", body.toString()));
+			activeRequest = submitted;
+			return submitted.thenAccept(ControlConnector::requireSuccess);
+		}).whenComplete((ignored, failure) -> {
+			synchronized (operationLifecycle) {
+				if (activeDeploymentWork == deploymentWork) activeDeploymentWork = null;
+			}
+		});
 	}
 
 	private static PluginDeploymentService.Task deploymentTask(JsonObject task) {
@@ -1299,6 +1311,8 @@ public final class ControlConnector implements AutoCloseable {
 		ScheduledFuture<?> deployment = deploymentPolling;
 		if (deployment != null) deployment.cancel(false);
 		if (deployments != null) deployments.cancel();
+		CompletableFuture<?> deploymentWork = activeDeploymentWork;
+		if (deploymentWork != null) deploymentWork.cancel(true);
 		if (deploymentExecutor != null) deploymentExecutor.shutdownNow();
 		CompletableFuture<?> request = activeRequest;
 		if (request != null) {
