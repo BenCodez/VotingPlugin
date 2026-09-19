@@ -60,6 +60,12 @@ class SharedMysqlPurchaseJournalTest {
 		verify(insert).setLong(9, 3L);
 		verify(insert).setString(10, "PENDING");
 		verify(debit).setInt(1, 10);
+		org.mockito.ArgumentCaptor<String> sql = org.mockito.ArgumentCaptor.forClass(String.class);
+		verify(fixture.work, org.mockito.Mockito.times(4)).prepareStatement(sql.capture());
+		String conditionalDebit = sql.getAllValues().get(3);
+		assertTrue(conditionalDebit.contains("`Points` = COALESCE(`Points`, 0) - ?"));
+		assertTrue(conditionalDebit.contains("COALESCE(`Points`, 0) >= ?"));
+		assertTrue(conditionalDebit.contains("COALESCE(`VoteShopLimitdaily`, 0) < ?"));
 		verify(fixture.work).commit();
 	}
 

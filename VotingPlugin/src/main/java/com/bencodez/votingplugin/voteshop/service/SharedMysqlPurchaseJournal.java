@@ -126,13 +126,13 @@ final class SharedMysqlPurchaseJournal {
 				+ ", " + qi("created_at") + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 		String points = qi(pointsColumn);
 		StringBuilder debit = new StringBuilder("UPDATE ").append(qi(table.getTableName())).append(" SET ")
-				.append(points).append(" = ").append(points).append(" - ?");
+				.append(points).append(" = COALESCE(").append(points).append(", 0) - ?");
 		if (limitColumn != null) {
 			debit.append(", ").append(qi(limitColumn)).append(" = COALESCE(").append(qi(limitColumn))
 					.append(", 0) + 1");
 		}
-		debit.append(" WHERE ").append(qi("uuid")).append(uuidCast()).append(" AND ").append(points)
-				.append(" >= ?");
+		debit.append(" WHERE ").append(qi("uuid")).append(uuidCast()).append(" AND COALESCE(").append(points)
+				.append(", 0) >= ?");
 		if (limitColumn != null) {
 			debit.append(" AND COALESCE(").append(qi(limitColumn)).append(", 0) < ?");
 		}

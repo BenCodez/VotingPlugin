@@ -194,9 +194,9 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public void addPoints() {
 		int points = plugin.getConfigFile().getPointsOnVote();
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
-		boolean sharedMysql = sharedPoints.applies();
+		boolean mysqlPoints = sharedPoints.usesMysqlPointMutations();
 		int limit = plugin.getConfigFile().getLimitVotePoints();
-		if (sharedMysql && points != 0 && limit > 0) {
+		if (mysqlPoints && points != 0 && limit > 0) {
 			// Keep the receive hook semantics of addPoints(int, boolean), while
 			// accepting the addition and upper bound as one persistence task.
 			PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, points);
@@ -212,10 +212,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			// Vote processing runs on the server lane. Shared MySQL arithmetic must
 			// use the lifecycle persistence executor instead of blocking a tick on
 			// connection acquisition and the committed-balance read.
-			addPoints(points, sharedMysql);
+			addPoints(points, mysqlPoints);
 		}
 		if (limit > 0) {
-			if (sharedMysql) {
+			if (mysqlPoints) {
 				sharedPoints.cap(this, limit, true);
 			} else if (getPoints() > limit) {
 				setPoints(limit);
@@ -261,7 +261,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * arithmetic onto the persistence executor.
 	 */
 	public int addPointsStorageAware(int value) {
-		return addPoints(value, new SharedMysqlPointMutator(plugin).applies());
+		return addPoints(value, new SharedMysqlPointMutator(plugin).usesMysqlPointMutations());
 	}
 
 	/**
@@ -287,11 +287,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public synchronized CompletionStage<Integer> addPointsStorageAwareAsync(int value, String operationId) {
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
-		if (!sharedPoints.applies()) {
-			if (operationId != null && !operationId.isEmpty()
-					&& SharedMysqlPointMutator.canRecoverSharedMysqlPointJournals(plugin)) {
-				return addPerServerPointsWithReplayClaim(sharedPoints, value, operationId);
-			}
+		if (!sharedPoints.applies() && operationId != null && !operationId.isEmpty()
+				&& SharedMysqlPointMutator.canRecoverSharedMysqlPointJournals(plugin)) {
+			return addPerServerPointsWithReplayClaim(sharedPoints, value, operationId);
+		}
+		if (!sharedPoints.usesMysqlPointMutations()) {
 			PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, value);
 			Bukkit.getPluginManager().callEvent(event);
 			if (event.isCancelled()) return CompletableFuture.completedFuture(getPoints());
@@ -299,7 +299,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			setPoints(newTotal, false);
 			return CompletableFuture.completedFuture(newTotal);
 		}
-		if (operationId != null && !operationId.isEmpty()) {
+		if (sharedPoints.applies() && operationId != null && !operationId.isEmpty()) {
 			return addSharedPointsWithReplayLookup(sharedPoints, value, operationId);
 		}
 
@@ -636,7 +636,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public static void addPointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users, int value,
 			String batchOperationId, BiConsumer<VotingPluginUser, Boolean> completion) {
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
-		if (!sharedPoints.applies()) {
+		if (!sharedPoints.usesMysqlPointMutations()) {
 			for (VotingPluginUser user : users) {
 				user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 				user.addPointsStorageAware(value, (success, ignored) -> completion.accept(user, success));
@@ -693,7 +693,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public void setPointsStorageAware(int value, Consumer<Boolean> completion) {
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
-		if (!sharedPoints.applies()) {
+		if (!sharedPoints.usesMysqlPointMutations()) {
 			setPoints(value);
 			completion.accept(true);
 			return;
@@ -756,7 +756,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			BiConsumer<VotingPluginUser, Boolean> completion, SharedPointMutation sharedMutation,
 			OrdinaryPointMutation ordinaryMutation, boolean authoritativeReadRequired) {
 		if (users.isEmpty()) return;
-		if (!new SharedMysqlPointMutator(plugin).applies()) {
+		if (!new SharedMysqlPointMutator(plugin).usesMysqlPointMutations()) {
 			for (VotingPluginUser user : users) {
 				if (authoritativeReadRequired) user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 				ordinaryMutation.apply(user, success -> completion.accept(user, success));
@@ -827,7 +827,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			return;
 		}
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
-		if (!sharedPoints.applies()) {
+		if (!sharedPoints.usesMysqlPointMutations()) {
 			int newTotal = getPoints() + event.getPoints();
 			setPoints(newTotal, false);
 			completion.accept(true, newTotal);
@@ -1938,7 +1938,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public boolean removePoints(int points) {
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
-		if (sharedPoints.applies()) return sharedPoints.remove(this, points);
+		if (sharedPoints.usesMysqlPointMutations()) return sharedPoints.remove(this, points);
 		if (getPoints() >= points) {
 			setPoints(getPoints() - points);
 			return true;
@@ -1955,7 +1955,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public boolean removePoints(int points, boolean async) {
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
-		if (sharedPoints.applies()) return sharedPoints.remove(this, points, async);
+		if (sharedPoints.usesMysqlPointMutations()) return sharedPoints.remove(this, points, async);
 		if (getPoints() >= points) {
 			setPoints(getPoints() - points, async);
 			return true;
@@ -1970,7 +1970,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	void removePointsOutcome(int points, Consumer<SharedMysqlPointMutator.MutationOutcome> completion) {
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
-		if (!sharedPoints.applies()) {
+		if (!sharedPoints.usesMysqlPointMutations()) {
 			completion.accept(removePoints(points) ? SharedMysqlPointMutator.MutationOutcome.CONFIRMED
 					: SharedMysqlPointMutator.MutationOutcome.REJECTED);
 			return;
@@ -2301,7 +2301,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public void setPoints(int value) {
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
-		if (sharedPoints.applies()) {
+		if (sharedPoints.usesMysqlPointMutations()) {
 			sharedPoints.set(this, value, false);
 		} else {
 			getUserData().setInt(getPointsPath(), value, false);
@@ -2316,7 +2316,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public void setPoints(int value, boolean async) {
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
-		if (sharedPoints.applies()) {
+		if (sharedPoints.usesMysqlPointMutations()) {
 			sharedPoints.set(this, value, async);
 		} else {
 			getUserData().setInt(getPointsPath(), value, false, async);

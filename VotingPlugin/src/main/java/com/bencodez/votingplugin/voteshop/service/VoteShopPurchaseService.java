@@ -627,17 +627,19 @@ public class VoteShopPurchaseService {
 		MySQL table = plugin.getMysql();
 		String pointsColumn = user.getPointsPath();
 		String limitColumn = item.getLimit() > 0 ? "VoteShopLimit" + item.getIdentifier() : null;
+		ensurePerServerPointsColumn(table, pointsColumn);
 		drainPurchaseCache(user, pointsColumn);
 		if (limitColumn != null) table.checkColumn(limitColumn, DataType.INTEGER);
 		StringBuilder sql = new StringBuilder("UPDATE ").append(table.qi(table.getTableName())).append(" SET ")
-				.append(table.qi(pointsColumn)).append(" = ").append(table.qi(pointsColumn)).append(" - ?");
+				.append(table.qi(pointsColumn)).append(" = COALESCE(").append(table.qi(pointsColumn))
+				.append(", 0) - ?");
 		if (limitColumn != null) {
 			sql.append(", ").append(table.qi(limitColumn)).append(" = COALESCE(")
 					.append(table.qi(limitColumn)).append(", 0) + 1");
 		}
 		sql.append(" WHERE ").append(table.qi("uuid"))
 				.append(table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?")
-				.append(" AND ").append(table.qi(pointsColumn)).append(" >= ?");
+				.append(" AND COALESCE(").append(table.qi(pointsColumn)).append(", 0) >= ?");
 		if (limitColumn != null) sql.append(" AND COALESCE(").append(table.qi(limitColumn)).append(", 0) < ?");
 
 		boolean debited = false;
@@ -677,6 +679,7 @@ public class VoteShopPurchaseService {
 		MySQL table = plugin.getMysql();
 		String pointsColumn = user.getPointsPath();
 		String limitColumn = item.getLimit() > 0 ? "VoteShopLimit" + item.getIdentifier() : null;
+		ensurePerServerPointsColumn(table, pointsColumn);
 		drainPurchaseCache(user, pointsColumn);
 		if (limitColumn != null) {
 			table.checkColumn(limitColumn, DataType.INTEGER);
@@ -704,6 +707,11 @@ public class VoteShopPurchaseService {
 			return new SharedPurchaseDebit(VoteShopPurchaseResult.FAILED, null, null, null, null);
 		}
 		return new SharedPurchaseDebit(sharedMysqlFailure(user, item, limitColumn), null, null, null, null);
+	}
+
+	/** The legacy cache path created server-suffixed points columns before direct SQL used them. */
+	private void ensurePerServerPointsColumn(MySQL table, String pointsColumn) {
+		if (plugin.getBungeeSettings().isPerServerPoints()) table.checkColumn(pointsColumn, DataType.INTEGER);
 	}
 
 	private void drainPurchaseCache(VotingPluginUser user, String pointsColumn) {

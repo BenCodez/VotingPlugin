@@ -301,7 +301,7 @@ class VotingPluginUserPointSchedulingTest {
 		assertFalse(values.containsKey("Points"));
 
 		verify(fixture.connection).prepareStatement(org.mockito.ArgumentMatchers.argThat(
-				query -> query.contains("`Points` = LEAST(`Points` + ?, ?)")));
+				query -> query.contains("`Points` = LEAST(COALESCE(`Points`, 0) + ?, ?)")));
 		verify(fixture.statement).setInt(1, 5);
 		verify(fixture.statement).setInt(2, 100);
 	}
@@ -999,6 +999,24 @@ class VotingPluginUserPointSchedulingTest {
 
 		verify(fixture.statement).setInt(1, 42);
 		verify(fixture.statement).executeUpdate();
+		verify(userData, never()).setInt(anyString(), eq(42), eq(false));
+	}
+
+	@Test
+	void perServerMysqlAbsoluteSetBypassesQueuedUserDataWrites() throws Exception {
+		PointFixture fixture = pointFixture();
+		when(fixture.plugin.getBungeeSettings().isPerServerPoints()).thenReturn(true);
+		doReturn("hub_Points").when(fixture.user).getPointsPath();
+		UserData userData = mock(UserData.class);
+		doReturn(userData).when(fixture.user).getUserData();
+
+		fixture.user.setPoints(42);
+
+		verify(fixture.table).checkColumn("hub_Points", com.bencodez.simpleapi.sql.DataType.INTEGER);
+		ArgumentCaptor<String> query = ArgumentCaptor.forClass(String.class);
+		verify(fixture.connection).prepareStatement(query.capture());
+		assertTrue(query.getValue().contains("SET `hub_Points` = ?"));
+		verify(fixture.statement).setInt(1, 42);
 		verify(userData, never()).setInt(anyString(), eq(42), eq(false));
 	}
 

@@ -35,6 +35,7 @@ import com.bencodez.advancedcore.api.user.UserData;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
+import com.bencodez.simpleapi.sql.DataType;
 import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.simpleapi.sql.data.DataValueInt;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -566,7 +567,7 @@ class SharedMysqlPointMutatorTest {
 
 		ArgumentCaptor<String> query = ArgumentCaptor.forClass(String.class);
 		verify(connection, times(2)).prepareStatement(query.capture());
-		assertTrue(query.getAllValues().get(0).contains("`Points` = `Points` + ?"));
+		assertTrue(query.getAllValues().get(0).contains("`Points` = COALESCE(`Points`, 0) + ?"));
 		assertTrue(query.getAllValues().get(1).contains("SELECT `Points`"));
 		verify(statement).setInt(1, 10);
 		verify(statement).executeUpdate();
@@ -663,7 +664,7 @@ class SharedMysqlPointMutatorTest {
 
 		ArgumentCaptor<String> query = ArgumentCaptor.forClass(String.class);
 		verify(connection).prepareStatement(query.capture());
-		assertTrue(query.getValue().contains("`Points` = LEAST(`Points`, ?)"));
+		assertTrue(query.getValue().contains("`Points` = LEAST(COALESCE(`Points`, 0), ?)"));
 	}
 
 	@Test
@@ -710,12 +711,59 @@ class SharedMysqlPointMutatorTest {
 
 		ArgumentCaptor<String> query = ArgumentCaptor.forClass(String.class);
 		verify(connection).prepareStatement(query.capture());
-		assertTrue(query.getValue().contains("`Points` = LEAST(`Points` + ?, ?)"));
+		assertTrue(query.getValue().contains("`Points` = LEAST(COALESCE(`Points`, 0) + ?, ?)"));
 		verify(statement).setInt(1, 10);
 		verify(statement).setInt(2, 100);
 		verify(statement).setString(3, "00000000-0000-0000-0000-000000000001");
 		verify(statement).executeUpdate();
 		assertFalse(values.containsKey("Points"));
+	}
+
+	@Test
+	void perServerMysqlMutationsUsePhysicalColumnWithAtomicArithmetic() throws Exception {
+		MySQL table = mock(MySQL.class);
+		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
+				org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		Connection connection = mock(Connection.class);
+		PreparedStatement add = mock(PreparedStatement.class);
+		PreparedStatement read = mock(PreparedStatement.class);
+		PreparedStatement remove = mock(PreparedStatement.class);
+		PreparedStatement cap = mock(PreparedStatement.class);
+		java.sql.ResultSet result = mock(java.sql.ResultSet.class);
+		when(table.getTableName()).thenReturn("VotingPlugin_Users");
+		when(table.qi(anyString())).thenAnswer(invocation -> "`" + invocation.getArgument(0) + "`");
+		when(table.getMysql()).thenReturn(sql);
+		when(sql.getConnectionManager().getConnection()).thenReturn(connection);
+		when(connection.prepareStatement(anyString())).thenReturn(add, read, remove, cap);
+		when(add.executeUpdate()).thenReturn(1);
+		when(read.executeQuery()).thenReturn(result);
+		when(result.next()).thenReturn(true);
+		when(result.getInt(1)).thenReturn(15);
+		when(remove.executeUpdate()).thenReturn(1);
+
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		when(plugin.getStorageType()).thenReturn(UserStorage.MYSQL);
+		when(plugin.getBungeeSettings().isPerServerPoints()).thenReturn(true);
+		when(plugin.getMysql()).thenReturn(table);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		when(user.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
+		when(user.getPointsPath()).thenReturn("hub_Points");
+
+		SharedMysqlPointMutator mutator = new SharedMysqlPointMutator(plugin);
+		assertEquals(15, mutator.add(user, 5, false));
+		assertTrue(mutator.remove(user, 3));
+		mutator.cap(user, 10, false);
+
+		verify(table, times(3)).checkColumn("hub_Points", DataType.INTEGER);
+		ArgumentCaptor<String> query = ArgumentCaptor.forClass(String.class);
+		verify(connection, times(4)).prepareStatement(query.capture());
+		assertTrue(query.getAllValues().get(0).contains("`hub_Points` = COALESCE(`hub_Points`, 0) + ?"));
+		assertTrue(query.getAllValues().stream()
+				.anyMatch(sqlText -> sqlText.contains("`hub_Points` = COALESCE(`hub_Points`, 0) + ?")));
+		assertTrue(query.getAllValues().stream()
+				.anyMatch(sqlText -> sqlText.contains("COALESCE(`hub_Points`, 0) >= ?")));
+		assertTrue(query.getAllValues().stream()
+				.anyMatch(sqlText -> sqlText.contains("`hub_Points` = LEAST(COALESCE(`hub_Points`, 0), ?)")));
 	}
 
 	@Test

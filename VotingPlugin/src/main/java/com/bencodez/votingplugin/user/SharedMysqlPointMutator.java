@@ -17,6 +17,7 @@ import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 import com.bencodez.simpleapi.sql.mysql.DbType;
+import com.bencodez.simpleapi.sql.DataType;
 import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.simpleapi.sql.data.DataValueInt;
 import com.bencodez.simpleapi.folialib.enums.EntityTaskResult;
@@ -41,6 +42,16 @@ final class SharedMysqlPointMutator {
 
 	boolean applies() {
 		return usesSharedMysqlPoints(plugin);
+	}
+
+	/**
+	 * Point columns live in the MySQL user row for both shared and PerServerPoints
+	 * deployments. Ordinary point mutations must therefore bypass queued UserData
+	 * writes in either mode; {@link #applies()} remains the narrower shared-points
+	 * check used by cross-server journals and transfers.
+	 */
+	boolean usesMysqlPointMutations() {
+		return plugin != null && UserStorage.MYSQL.equals(plugin.getStorageType());
 	}
 
 	static boolean usesSharedMysqlPoints(VotingPluginMain plugin) {
@@ -863,10 +874,10 @@ final class SharedMysqlPointMutator {
 		MySQL table = plugin.getMysql();
 		String points = user.getPointsPath();
 		StringBuilder sql = new StringBuilder("UPDATE ").append(table.qi(table.getTableName())).append(" SET ")
-				.append(table.qi(points)).append(" = ").append(table.qi(points)).append(" + ? WHERE ")
+				.append(table.qi(points)).append(" = COALESCE(").append(table.qi(points)).append(", 0) + ? WHERE ")
 				.append(table.qi("uuid")).append(table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
 		if (requireNonnegative) {
-			sql.append(" AND ").append(table.qi(points)).append(" >= ?");
+			sql.append(" AND COALESCE(").append(table.qi(points)).append(", 0) >= ?");
 		}
 		try (Connection connection = requireConnection(table);
 				PreparedStatement statement = connection.prepareStatement(sql.toString())) {
@@ -896,8 +907,8 @@ final class SharedMysqlPointMutator {
 		MySQL table = plugin.getMysql();
 		String points = user.getPointsPath();
 		String uuidMatch = table.qi("uuid") + (table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
-		String update = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(points) + " = "
-				+ table.qi(points) + " + ? WHERE " + uuidMatch;
+		String update = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(points) + " = COALESCE("
+				+ table.qi(points) + ", 0) + ? WHERE " + uuidMatch;
 		String read = "SELECT " + table.qi(points) + " FROM " + table.qi(table.getTableName()) + " WHERE " + uuidMatch;
 		boolean updateCommitted = false;
 		Integer committedTotal = null;
@@ -964,8 +975,8 @@ final class SharedMysqlPointMutator {
 		drainCache(user);
 		MySQL table = plugin.getMysql();
 		String points = user.getPointsPath();
-		String sql = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(points) + " = LEAST("
-				+ table.qi(points) + ", ?) WHERE " + table.qi("uuid")
+		String sql = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(points) + " = LEAST(COALESCE("
+				+ table.qi(points) + ", 0), ?) WHERE " + table.qi("uuid")
 				+ (table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
 		try (Connection connection = requireConnection(table);
 				PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -983,8 +994,8 @@ final class SharedMysqlPointMutator {
 		drainCache(user);
 		MySQL table = plugin.getMysql();
 		String points = user.getPointsPath();
-		String sql = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(points) + " = LEAST("
-				+ table.qi(points) + " + ?, ?) WHERE " + table.qi("uuid")
+		String sql = "UPDATE " + table.qi(table.getTableName()) + " SET " + table.qi(points) + " = LEAST(COALESCE("
+				+ table.qi(points) + ", 0) + ?, ?) WHERE " + table.qi("uuid")
 				+ (table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?");
 		try (Connection connection = requireConnection(table);
 				PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -1004,6 +1015,9 @@ final class SharedMysqlPointMutator {
 	}
 
 	private void drainCache(VotingPluginUser user, String pointsColumn) {
+		if (plugin.getBungeeSettings().isPerServerPoints()) {
+			plugin.getMysql().checkColumn(pointsColumn, DataType.INTEGER);
+		}
 		SharedMysqlCacheReconciler.withCacheDumpFence(() -> {
 			if (!user.isCached()) return;
 			UserDataCache cache = user.getCache();
