@@ -391,7 +391,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 							claimOwner, completion);
 					return;
 				}
-				PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, value);
+				PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, value, false);
 				hookStarted = true;
 				Bukkit.getPluginManager().callEvent(event);
 				// Capture the local key and listener-adjusted delta while still on the

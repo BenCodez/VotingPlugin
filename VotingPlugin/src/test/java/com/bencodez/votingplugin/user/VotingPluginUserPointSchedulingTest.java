@@ -572,11 +572,16 @@ class VotingPluginUserPointSchedulingTest {
 
 			bukkitWork.getValue().run();
 			assertFalse(completion.isDone());
+			verify(fixture.table, never()).checkColumn("1Lobby West_Points", com.bencodez.simpleapi.sql.DataType.INTEGER);
 			ArgumentCaptor<Runnable> settlementWork = ArgumentCaptor.forClass(Runnable.class);
 			verify(fixture.persistence, org.mockito.Mockito.times(2)).execute(settlementWork.capture());
 			settlementWork.getAllValues().get(1).run();
 			assertEquals(15, completion.join());
-			verify(pluginManager).callEvent(any(PlayerReceivePointsEvent.class));
+			verify(pluginManager).callEvent(org.mockito.ArgumentMatchers.argThat(event ->
+					event instanceof PlayerReceivePointsEvent && !event.isAsynchronous()));
+			org.mockito.InOrder settlementOrder = org.mockito.Mockito.inOrder(fixture.table, settleCredit);
+			settlementOrder.verify(fixture.table).checkColumn("1Lobby West_Points", com.bencodez.simpleapi.sql.DataType.INTEGER);
+			settlementOrder.verify(settleCredit).executeUpdate();
 			verify(settleCredit).setInt(1, 5);
 			verify(settleCredit).setString(2, "00000000-0000-0000-0000-000000000001");
 			verify(claimInsert).setString(3, "Points");

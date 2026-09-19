@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
+import com.bencodez.simpleapi.sql.DataType;
 import com.bencodez.simpleapi.sql.mysql.DbType;
 
 /**
@@ -240,6 +241,10 @@ final class SharedPointAdditionJournal {
 		if (!isSafeColumn(journalPointsColumn) || !isSafeColumn(creditPointsColumn)) {
 			throw new SQLException("Unsafe shared point column");
 		}
+		// The legacy UserData write created a PerServerPoints column on first use.
+		// Direct settlement bypasses that path, so create the local integer column
+		// before opening the atomic credit-and-journal transaction.
+		if (!journalPointsColumn.equals(creditPointsColumn)) table.checkColumn(creditPointsColumn, DataType.INTEGER);
 		String select = "SELECT " + qi("player_uuid") + ", " + qi("points_column") + ", " + qi("amount")
 				+ ", " + qi("state") + ", " + qi("total_points") + ", " + qi("requested_amount") + ", "
 				+ qi("hook_owner") + ", " + qi("created_at") + " FROM " + qiJournal() + " WHERE "
