@@ -69,6 +69,7 @@ public final class ControlConnector implements AutoCloseable {
 	private static final String PROXY_METHOD_PRESET = "proxy-method";
 	private static final String INTERNAL_OPERATION_TYPE = "_controlOperationType";
 	private static final String INTERNAL_REQUIRED_CAPABILITY = "_controlRequiredCapability";
+	private static final Set<String> DEPLOYMENT_TASK_FIELDS = Set.of("deploymentId", "artifactId", "sha256", "size", "attemptId");
 	private static final long OPERATION_POLL_MILLIS = 1000;
 	private static final long MAX_BACKOFF_MILLIS = TimeUnit.MINUTES.toMillis(5);
 	private static final long OPERATION_SHUTDOWN_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(65);
@@ -367,8 +368,10 @@ public final class ControlConnector implements AutoCloseable {
 		});
 	}
 
-	private static PluginDeploymentService.Task deploymentTask(JsonObject task) {
+	static PluginDeploymentService.Task deploymentTask(JsonObject task) {
 		try {
+			if (task == null || task.size() != DEPLOYMENT_TASK_FIELDS.size()
+					|| !DEPLOYMENT_TASK_FIELDS.containsAll(task.keySet())) throw new IllegalArgumentException();
 			return new PluginDeploymentService.Task(UUID.fromString(requireString(task, "deploymentId")),
 					requireString(task, "artifactId"), requireString(task, "sha256"),
 					Long.parseLong(requireString(task, "size")), UUID.fromString(requireString(task, "attemptId")));

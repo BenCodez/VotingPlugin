@@ -51,6 +51,17 @@ class ControlConnectorTest {
 	@Test void responseBudgetCanCarryTheLargestEscapedManagedFileTask() {
 		assertTrue(ControlConnector.MAX_RESPONSE_BYTES >= ProxyConfigurationFileService.MAX_BYTES * 6);
 	}
+
+	@Test void deploymentTaskRejectsUnknownV1Fields() {
+		JsonObject task = new JsonObject();
+		task.addProperty("deploymentId", "00000000-0000-0000-0000-000000000001");
+		task.addProperty("artifactId", "VotingPlugin.jar");
+		task.addProperty("sha256", "a".repeat(64));
+		task.addProperty("size", "1");
+		task.addProperty("attemptId", "00000000-0000-0000-0000-000000000002");
+		task.addProperty("unexpected", "value");
+		assertThrows(RuntimeException.class, () -> ControlConnector.deploymentTask(task));
+	}
 	private ControlConnector connector;
 
 	@BeforeEach void setUp() {

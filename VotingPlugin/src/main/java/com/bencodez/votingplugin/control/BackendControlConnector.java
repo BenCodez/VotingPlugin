@@ -54,6 +54,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	private static final Set<String> CAPABILITIES = Set.of("config.files.v1", "config.file-comments.v1",
 			"config.quick-setup.v1", "config.quick-setup.v2", "config.vote-sites-sync.v1",
 			"config.proxy-method.v1", "config.reward-files.v1", "data.inspect.v1");
+	private static final Set<String> DEPLOYMENT_TASK_FIELDS = Set.of("deploymentId", "artifactId", "sha256", "size", "attemptId");
 
 	private final VotingPluginMain plugin;
 	private final Path dataDirectory;
@@ -349,8 +350,10 @@ public final class BackendControlConnector implements AutoCloseable {
 				+ "/result", submitted), 200);
 	}
 
-	private static PluginDeploymentService.Task deploymentTask(JsonObject task) {
+	static PluginDeploymentService.Task deploymentTask(JsonObject task) {
 		try {
+			if (task == null || task.size() != DEPLOYMENT_TASK_FIELDS.size()
+					|| !DEPLOYMENT_TASK_FIELDS.containsAll(task.keySet())) throw new IllegalArgumentException();
 			return new PluginDeploymentService.Task(UUID.fromString(string(task, "deploymentId")),
 					string(task, "artifactId"), string(task, "sha256"), Long.parseLong(string(task, "size")),
 					UUID.fromString(string(task, "attemptId")));

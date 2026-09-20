@@ -56,6 +56,11 @@ class PluginDeploymentServiceTest {
 		assertFalse(Files.exists(update.resolve("VotingPlugin.jar")));
 	}
 
+	@Test void backendRejectsAnEmptyOrDisabledBukkitUpdateFolderThatResolvesToTheLoadedJar() {
+		assertThrows(IOException.class,
+				() -> PluginDeploymentService.backend(Path.of(""), Path.of("VotingPlugin.jar")));
+	}
+
 	@Test void backendMatchingMarkerSurvivesBukkitConsumingTheStagedJar() throws Exception {
 		byte[] artifact = jar("name: VotingPlugin\nversion: candidate\n");
 		Path update = directory.resolve("update");

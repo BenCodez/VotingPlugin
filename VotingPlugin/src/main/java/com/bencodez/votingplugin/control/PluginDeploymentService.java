@@ -87,8 +87,15 @@ public final class PluginDeploymentService {
 				|| !currentPluginJar.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".jar")) {
 			throw new IOException("Bukkit plugin JAR is unavailable");
 		}
-		return new PluginDeploymentService(updateDirectory.resolve(currentPluginJar.getFileName().toString()),
-				currentPluginJar, false);
+		Path target = updateDirectory.resolve(currentPluginJar.getFileName().toString()).toAbsolutePath().normalize();
+		Path installed = currentPluginJar.toAbsolutePath().normalize();
+		// An empty/disabled Bukkit update folder can resolve to the loaded JAR's
+		// directory. Staging there would overwrite a file that Bukkit currently has open.
+		if (target.equals(installed) || Files.exists(target, LinkOption.NOFOLLOW_LINKS)
+				&& Files.exists(installed, LinkOption.NOFOLLOW_LINKS) && Files.isSameFile(target, installed)) {
+			throw new IOException("Bukkit update folder resolves to the loaded plugin JAR");
+		}
+		return new PluginDeploymentService(target, currentPluginJar, false);
 	}
 
 	/** Proxies atomically replace their discovered plugin JAR only after a durable backup. */
