@@ -16,7 +16,10 @@ import com.bencodez.advancedcore.api.bedrock.BedrockNameResolver;
 import com.bencodez.advancedcore.api.user.validation.UserValidationResult;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.core.vote.SharedVoteAccounting;
 import com.bencodez.votingplugin.core.vote.SharedVoteDelivery;
+import com.bencodez.votingplugin.core.vote.SharedVoteIdentity;
+import com.bencodez.votingplugin.core.vote.SharedVoteInput;
 import com.bencodez.votingplugin.core.vote.SharedVotePolicy;
 import com.bencodez.votingplugin.events.PlayerPostVoteEvent;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
@@ -206,12 +209,14 @@ public class PlayerVoteListener implements Listener {
 
 		if (event.isBroadcast()) {
 			if (plugin.getBroadcastHandler() != null) {
-				boolean online = user.isOnline();
+				boolean currentOnline = user.isOnline();
+				boolean online = currentOnline;
 				if (event.isBungee()) {
 					online = event.isWasOnline();
 				}
 				if (!user.isVanished()) {
-					plugin.getBroadcastHandler().broadcastVote(user.getJavaUUID(), playerName,
+					SharedVoteIdentity identity = new SharedVoteIdentity(user.getJavaUUID(), playerName, currentOnline);
+					plugin.getBroadcastHandler().broadcastVote(identity.uuid(), identity.playerName(),
 							voteSite.getDisplayName(), online);
 				} else {
 					plugin.debug("Not broadcasting vote for vanished user: " + user.getPlayerName());
@@ -259,7 +264,8 @@ public class PlayerVoteListener implements Listener {
 		// add to total votes
 		SharedVotePolicy countingPolicy = new SharedVotePolicy(plugin.getConfigFile().isCountFakeVotes(),
 				plugin.getConfigFile().isAddTotals(), plugin.getConfigFile().isAddTotalsOffline(), false, false);
-		applyAcceptedVoteCounts(user, countingPolicy, event.isRealVote(), event.isAddTotals());
+		SharedVoteInput acceptedVote = acceptedVoteInput(event, playerName, voteUUID, voteTime);
+		applyAcceptedVoteCounts(user, countingPolicy, acceptedVote);
 
 		user.checkDayVoteStreak(event.isForceBungee());
 
@@ -304,15 +310,15 @@ public class PlayerVoteListener implements Listener {
 		plugin.extraDebug("Finished vote processing: " + playerName + "/" + uuid);
 	}
 
+	/** Snapshot accepted event fields at the existing accounting boundary. */
+	static SharedVoteInput acceptedVoteInput(PlayerVoteEvent event, String creditedName, UUID voteId, long voteTime) {
+		return new SharedVoteInput(voteId, creditedName, event.getServiceSite(), voteTime,
+				event.isRealVote(), event.isAddTotals(), event.isBungee(), event.isForceBungee(), event.isWasOnline());
+	}
+
 	/** Keep the production count/points calls in their existing order. */
-	static void applyAcceptedVoteCounts(VotingPluginUser user, SharedVotePolicy policy,
-			boolean realVote, boolean voteAddsTotals) {
-		if (!policy.shouldApplyConfiguredVoteMutation(realVote, voteAddsTotals)) return;
-		if (policy.shouldCountTotals(realVote, voteAddsTotals, user::isOnline)) {
-			user.addTotal();
-			user.addTotalDaily();
-			user.addTotalWeekly();
-		}
-		user.addPoints();
+	static void applyAcceptedVoteCounts(VotingPluginUser user, SharedVotePolicy policy, SharedVoteInput input) {
+		SharedVoteAccounting.apply(input, policy, user::isOnline, user::addTotal, user::addTotalDaily,
+				user::addTotalWeekly, user::addPoints);
 	}
 }
