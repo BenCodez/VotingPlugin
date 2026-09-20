@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.core;
+package com.bencodez.votingplugin.core.vote;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

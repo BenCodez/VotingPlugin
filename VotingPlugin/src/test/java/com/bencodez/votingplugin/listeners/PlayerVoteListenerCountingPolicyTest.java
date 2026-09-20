@@ -8,7 +8,7 @@ import static org.mockito.Mockito.when;
 
 import org.junit.jupiter.api.Test;
 
-import com.bencodez.votingplugin.core.SharedVotePolicy;
+import com.bencodez.votingplugin.core.vote.SharedVotePolicy;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 class PlayerVoteListenerCountingPolicyTest {

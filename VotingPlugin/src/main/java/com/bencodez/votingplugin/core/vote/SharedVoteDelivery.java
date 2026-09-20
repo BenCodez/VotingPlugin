@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.core;
+package com.bencodez.votingplugin.core.vote;
 
 import java.util.Objects;
 import java.util.function.BooleanSupplier;

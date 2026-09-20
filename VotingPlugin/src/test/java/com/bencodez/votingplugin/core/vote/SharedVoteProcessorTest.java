@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.core;
+package com.bencodez.votingplugin.core.vote;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -14,7 +14,7 @@ import java.util.concurrent.CompletionStage;
 
 import org.junit.jupiter.api.Test;
 
-import com.bencodez.votingplugin.core.SharedVoteProcessingResult.RewardDisposition;
+import com.bencodez.votingplugin.core.vote.SharedVoteProcessingResult.RewardDisposition;
 
 class SharedVoteProcessorTest {
     private static final UUID PLAYER = UUID.fromString("9837d441-a4d6-461f-aa86-17958c01bc8c");

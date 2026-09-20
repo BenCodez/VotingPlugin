@@ -1,11 +1,11 @@
-package com.bencodez.votingplugin.core;
+package com.bencodez.votingplugin.core.vote;
 
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Supplier;
 
-import com.bencodez.votingplugin.core.SharedVoteProcessingResult.RewardDisposition;
+import com.bencodez.votingplugin.core.vote.SharedVoteProcessingResult.RewardDisposition;
 
 /**
  * Coordinates one accepted vote through the supplied user and reward adapters.
