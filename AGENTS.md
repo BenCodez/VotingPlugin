@@ -25,6 +25,7 @@ automation because it copies a JAR into a developer-specific server directory.
 ## Architecture and file map
 
 - `VotingPluginMain` is the Bukkit entry point and lifecycle owner.
+- `com.bencodez.votingplugin.core` and its subpackages are platform-independent. Classes there must not import Bukkit, Paper, Fabric, Forge, or NeoForge APIs. Keep loader-specific adapters outside this package and enforce the boundary with `CorePlatformIsolationTest`.
 - `proxy/VotingPluginProxy` and the Bungee/Velocity platform packages own proxy lifecycle and vote routing.
 - `listeners/` receives Bukkit-side vote/player events; `proxy/cache/` owns proxy pending-vote queues.
 - `votesites/` resolves configured service names. Be alert to the distinction between read-only resolution and paths that

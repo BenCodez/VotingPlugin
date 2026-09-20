@@ -16,7 +16,8 @@ import com.bencodez.advancedcore.api.bedrock.BedrockNameResolver;
 import com.bencodez.advancedcore.api.user.validation.UserValidationResult;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
-import com.bencodez.votingplugin.core.vote.SharedVotePolicy;
+import com.bencodez.votingplugin.core.SharedVoteDelivery;
+import com.bencodez.votingplugin.core.SharedVotePolicy;
 import com.bencodez.votingplugin.events.PlayerPostVoteEvent;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.topvoter.TopVoter;
@@ -230,8 +231,8 @@ public class PlayerVoteListener implements Listener {
 
 		boolean cached = false;
 		// check if player has voted on all sites in one day
-		if (((user.isOnline() || voteSite.isGiveOffline()) && plugin.getOptions().isProcessRewards())
-				|| event.isBungee()) {
+		if (SharedVoteDelivery.shouldDeliverNow(event::isBungee, user::isOnline, voteSite::isGiveOffline,
+				() -> plugin.getOptions().isProcessRewards())) {
 			boolean online = true;
 			if (event.isBungee()) {
 				online = event.isWasOnline();

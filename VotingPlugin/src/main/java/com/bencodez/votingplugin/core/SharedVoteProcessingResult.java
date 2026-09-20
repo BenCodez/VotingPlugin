@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.core.vote;
+package com.bencodez.votingplugin.core;
 
 import java.util.Objects;
 

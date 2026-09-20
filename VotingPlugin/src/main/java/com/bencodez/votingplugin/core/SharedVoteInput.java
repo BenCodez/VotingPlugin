@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.core.vote;
+package com.bencodez.votingplugin.core;
 
 import java.util.Objects;
 import java.util.UUID;
@@ -30,7 +30,7 @@ public record SharedVoteInput(UUID voteId, String playerName, String serviceSite
                 proxyVote, proxyVote, wasOnline);
     }
 
-    /** PlayerVoteEvent uses zero as "now"; normalize before durable mutation/receipt creation. */
+    /** PlayerVoteEvent uses zero as "now"; normalize before mutating the user. */
     public SharedVoteInput normalizedVoteTime(long nowEpochMillis) {
         if (voteTime != 0) return this;
         if (nowEpochMillis <= 0) throw new IllegalArgumentException("normalized vote time must be positive");
@@ -38,17 +38,4 @@ public record SharedVoteInput(UUID voteId, String playerName, String serviceSite
                 realVote, addTotals, proxyVote, forceProxyRouting, wasOnline);
     }
 
-    /** A retry carrying the zero sentinel still identifies its already-normalized persisted receipt. */
-    public boolean matchesPersisted(SharedVoteInput persisted) {
-        if (persisted == null) return false;
-        return voteId.equals(persisted.voteId())
-                && playerName.equals(persisted.playerName())
-                && serviceSite.equals(persisted.serviceSite())
-                && (voteTime == 0 || voteTime == persisted.voteTime())
-                && realVote == persisted.realVote()
-                && addTotals == persisted.addTotals()
-                && proxyVote == persisted.proxyVote()
-                && forceProxyRouting == persisted.forceProxyRouting()
-                && wasOnline == persisted.wasOnline();
-    }
 }

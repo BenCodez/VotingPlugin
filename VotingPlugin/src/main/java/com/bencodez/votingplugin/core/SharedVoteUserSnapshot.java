@@ -1,4 +1,4 @@
-package com.bencodez.votingplugin.core.vote;
+package com.bencodez.votingplugin.core;
 
 /** Durable state returned after the vote mutation has been applied. */
 public record SharedVoteUserSnapshot(int allTimeTotal, int monthTotal, int weeklyTotal,
