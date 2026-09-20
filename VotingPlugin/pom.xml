@@ -213,7 +213,6 @@
                                     <artifact>com.bencodez:simpleapi</artifact>
                                     <excludes>
                                         <exclude>org/bouncycastle/**</exclude>
-                                        <exclude>com/bencodez/simpleapi/servercomm/http/**</exclude>
                                         <exclude>redis/clients/**</exclude>
                                         <exclude>org/eclipse/paho/**</exclude>
                                         <exclude>META-INF/versions/**</exclude>

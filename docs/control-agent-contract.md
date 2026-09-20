@@ -166,6 +166,65 @@ redacted-editor task; turning `useMainMySQL` off alone does not invent credentia
 unknown fields. `READ` returns current typed state and its revision, `PREVIEW` computes changes and produces an approval,
 and only the approved `APPLY` writes atomically, reloads, and rolls back on reload failure, like every other quick setup.
 
+## Verified plugin staging (`plugin.deploy.v1`)
+
+This optional capability stages one verified VotingPlugin JAR for the node's next process restart. It is never a hot reload
+and never restarts a proxy or backend automatically. A node advertises it only when all of the following are true:
+
+- the connector is the currently enabled Control route, not a recovery-only connector draining an older durable result;
+- a safe local staging target was prepared;
+- the Control endpoint is HTTPS, or it is the already-proven direct same-node hosted HTTP listener.
+
+Arbitrary private-network HTTP does not qualify for deployment because the artifact request carries the node bearer
+credential. The shared staging service enforces the same transport rule again before sending that credential.
+
+Control leases deployment work separately from configuration operations:
+
+```http
+POST /api/v1/nodes/{nodeId}/deployments
+Content-Type: application/json
+
+{"sessionId":"<connector-session-uuid>"}
+```
+
+A `204` means no work. A `200` task contains `deploymentId`, `artifactId`, lowercase SHA-256 `sha256`, byte
+`size`, and `attemptId`. Artifact size is limited to 64 MiB. The node downloads the exact leased artifact with:
+
+```http
+GET /api/v1/nodes/{nodeId}/deployments/{deploymentId}/artifact
+Authorization: Bearer <node credential>
+X-Node-Session: <connector-session-uuid>
+X-Deployment-Attempt: <attemptId>
+```
+
+The node independently verifies the exact size and SHA-256, bounded ZIP/JAR structure, root `plugin.yml`, and
+`name: VotingPlugin` before publication. Bukkit nodes stage to the server update folder; proxy nodes atomically replace
+their discovered plugin JAR only after creating a durable `.control-backup`. A small durable
+`.control-deployment` marker is published before the verified target is moved into place, so a lost result
+acknowledgement does not apply the same artifact twice. On Bukkit, a consumed staged update must match the installed JAR.
+On proxies, both a safe backup and a target JAR matching the marker's digest are required for acknowledgement; a missing
+marker requires a fresh verified download and staging attempt.
+
+The result is posted to:
+
+```http
+POST /api/v1/nodes/{nodeId}/deployments/{deploymentId}/result
+Content-Type: application/json
+
+{
+  "sessionId":"<connector-session-uuid>",
+  "attemptId":"<same attempt id>",
+  "success":true,
+  "code":"RESTART_REQUIRED",
+  "message":"Plugin update staged; restart is required"
+}
+```
+
+Failure codes include `CANCELLED`, `DOWNLOAD_FAILED`, `SIZE_MISMATCH`, `HASH_MISMATCH`,
+`INVALID_ARTIFACT`, `STAGING_FAILED`, `DEPLOYMENT_FAILED`, and `INSECURE_ENDPOINT`. Deployment polling is
+serialized with the connector lifecycle, uses the normal bounded failure backoff, and is cancelled during shutdown before
+transport teardown.
+
 ## Inspection transport
 
 An enrolled Bukkit node advertises `data.inspect.v1`. Once Control includes it in `acceptedCapabilities`, the node polls:

@@ -41,6 +41,22 @@ class BackendControlConnectorProtocolTest {
 				"{\"error\":{\"code\":\"NODE_NOT_FOUND\"}}")));
 	}
 
+	@Test void deploymentTaskRejectsUnknownV1Fields() {
+		JsonObject task = deploymentTask();
+		task.addProperty("unexpected", "value");
+		assertThrows(IllegalArgumentException.class, () -> BackendControlConnector.deploymentTask(task));
+	}
+
+	private static JsonObject deploymentTask() {
+		JsonObject task = new JsonObject();
+		task.addProperty("deploymentId", "00000000-0000-0000-0000-000000000001");
+		task.addProperty("artifactId", "VotingPlugin.jar");
+		task.addProperty("sha256", "a".repeat(64));
+		task.addProperty("size", "1");
+		task.addProperty("attemptId", "00000000-0000-0000-0000-000000000002");
+		return task;
+	}
+
 	@Test void abandonedBackendIntentBecomesATerminalRecoveryResult() {
 		JsonObject anticipated = new JsonObject();
 		anticipated.addProperty("attemptId", "00000000-0000-0000-0000-000000000199");

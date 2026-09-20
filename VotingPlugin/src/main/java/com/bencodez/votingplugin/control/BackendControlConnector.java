@@ -37,6 +37,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.control.BackendControlResultStore.Route;
 import com.bencodez.votingplugin.control.BackendControlResultStore.StoredResult;
+import com.bencodez.votingplugin.proxy.control.HostedControlManager;
 import com.bencodez.votingplugin.proxy.control.HostedControlManager.HostConfiguration;
 import com.bencodez.votingplugin.util.BoundedHttpBodyHandler;
 import com.bencodez.votingplugin.util.ControlCredentialFile;
@@ -56,6 +57,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	private static final Set<String> CAPABILITIES = Set.of("config.files.v1", "config.file-comments.v1",
 			"config.quick-setup.v1", "config.quick-setup.v2", "config.vote-sites-sync.v1",
 			"config.proxy-method.v1", "config.proxy-method.v2", "config.reward-files.v1", "data.inspect.v1");
+	private static final Set<String> DEPLOYMENT_TASK_FIELDS = Set.of("deploymentId", "artifactId", "sha256", "size", "attemptId");
 
 	private final VotingPluginMain plugin;
 	private final Path dataDirectory;
@@ -69,6 +71,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	private final BackendConfigurationService configurations;
 	private final ControlInspectionService inspections;
 	private final PluginDeploymentService deployments;
+	private final boolean directLocalDeploymentEndpoint;
 	private final UUID sessionId = UUID.randomUUID();
 	private final Map<UUID, StoredResult> completed = new LinkedHashMap<>();
 	private final boolean recovering;
@@ -135,11 +138,20 @@ public final class BackendControlConnector implements AutoCloseable {
 					}
 				});
 		inspections = new ControlInspectionService(plugin);
+		directLocalDeploymentEndpoint = HostedControlManager.isDirectLocalEndpoint(
+				settings.endpoint().toString(), hostedConfiguration);
 		PluginDeploymentService prepared = null;
-		try {
-			prepared = PluginDeploymentService.backend(plugin.getServer().getUpdateFolderFile().toPath());
-		} catch (Exception failure) {
-			plugin.getLogger().warning("[Control] Plugin deployment staging is unavailable; capability not advertised");
+		boolean deploymentEndpointAllowed = PluginDeploymentService.credentialEndpointAllowed(
+				settings.endpoint(), directLocalDeploymentEndpoint);
+		if (!recovering && deploymentEndpointAllowed) {
+			try {
+				prepared = PluginDeploymentService.backend(plugin.getServer().getUpdateFolderFile().toPath(),
+						plugin.getLoadedPluginJarFile().toPath());
+			} catch (Exception failure) {
+				plugin.getLogger().warning("[Control] Plugin deployment staging is unavailable; capability not advertised");
+			}
+		} else if (!recovering && !deploymentEndpointAllowed) {
+			plugin.getLogger().warning("[Control] Plugin deployment staging requires HTTPS unless Control is hosted directly on this node");
 		}
 		deployments = prepared;
 	}
@@ -425,17 +437,22 @@ public final class BackendControlConnector implements AutoCloseable {
 				OPERATION_POLL_MILLIS, OPERATION_POLL_MILLIS, TimeUnit.MILLISECONDS);
 		inspectionPolling = inspectionExecutor.scheduleWithFixedDelay(this::pollInspections,
 				OPERATION_POLL_MILLIS, OPERATION_POLL_MILLIS, TimeUnit.MILLISECONDS);
-		deploymentPolling = executor.scheduleWithFixedDelay(this::pollDeployments,
-				OPERATION_POLL_MILLIS, OPERATION_POLL_MILLIS, TimeUnit.MILLISECONDS);
+		if (deployments != null) {
+			deploymentPolling = executor.scheduleWithFixedDelay(this::pollDeployments,
+					OPERATION_POLL_MILLIS, OPERATION_POLL_MILLIS, TimeUnit.MILLISECONDS);
+		}
 	}
 
-	/** Deployment is a separate leased lane; its 64 MiB I/O never runs on Bukkit's primary thread. */
+	/** Deployment is a separate leased lane; its large I/O never runs on Bukkit's primary thread. */
 	private void pollDeployments() {
 		if (closed || deployments == null || !registered || failures != 0 || !deploymentsAccepted
 				|| !running.compareAndSet(false, true)) return;
 		CompletableFuture<Void> operation = new CompletableFuture<>();
 		synchronized (operationLifecycle) {
-			if (closed) { running.set(false); return; }
+			if (closed) {
+				running.set(false);
+				return;
+			}
 			activeOperation = operation;
 		}
 		try {
@@ -448,10 +465,13 @@ public final class BackendControlConnector implements AutoCloseable {
 			}
 			ScheduledFuture<?> heartbeat = scheduled;
 			if (heartbeat != null) heartbeat.cancel(false);
-			if (!closed) schedule(Math.min(TimeUnit.MINUTES.toMillis(5), 1000L << Math.min(failures - 1, 8)));
+			if (!closed) schedule(Math.min(TimeUnit.MINUTES.toMillis(5),
+					1000L << Math.min(failures - 1, 8)));
 		} finally {
 			operation.complete(null);
-			synchronized (operationLifecycle) { if (activeOperation == operation) activeOperation = null; }
+			synchronized (operationLifecycle) {
+				if (activeOperation == operation) activeOperation = null;
+			}
 			running.set(false);
 		}
 	}
@@ -463,8 +483,9 @@ public final class BackendControlConnector implements AutoCloseable {
 		if (response.status() == 204 || closed) return;
 		JsonObject claimed = requireObject(response, 200);
 		PluginDeploymentService.Task task = deploymentTask(claimed);
-		PluginDeploymentService.Result result = deployments.deploy(task, settings.endpoint(), settings.nodeId(), sessionId,
-				credential, http, Duration.ofMillis(settings.requestTimeoutMillis()), () -> !closed);
+		PluginDeploymentService.Result result = deployments.deploy(task, settings.endpoint(), directLocalDeploymentEndpoint,
+				settings.nodeId(), sessionId, credential, http, Duration.ofMillis(settings.requestTimeoutMillis()),
+				() -> !closed);
 		if (closed) return;
 		JsonObject submitted = new JsonObject();
 		submitted.addProperty("sessionId", sessionId.toString());
@@ -476,10 +497,13 @@ public final class BackendControlConnector implements AutoCloseable {
 				+ "/result", submitted), 200);
 	}
 
-	private static PluginDeploymentService.Task deploymentTask(JsonObject task) {
+	static PluginDeploymentService.Task deploymentTask(JsonObject task) {
 		try {
-			return new PluginDeploymentService.Task(UUID.fromString(string(task, "deploymentId")), string(task, "artifactId"),
-					string(task, "sha256"), Long.parseLong(string(task, "size")), UUID.fromString(string(task, "attemptId")));
+			if (task == null || task.size() != DEPLOYMENT_TASK_FIELDS.size()
+					|| !DEPLOYMENT_TASK_FIELDS.containsAll(task.keySet())) throw new IllegalArgumentException();
+			return new PluginDeploymentService.Task(UUID.fromString(string(task, "deploymentId")),
+					string(task, "artifactId"), string(task, "sha256"), Long.parseLong(string(task, "size")),
+					UUID.fromString(string(task, "attemptId")));
 		} catch (RuntimeException failure) {
 			throw new IllegalArgumentException("deployment task is invalid");
 		}
@@ -607,9 +631,9 @@ public final class BackendControlConnector implements AutoCloseable {
 			rewardFilesAccepted = configurations.supportsNamedRewardFiles()
 					&& negotiatedCapability(node, "config.reward-files.v1", rewardFilesAccepted);
 			boolean inspectionsWereAccepted = inspectionsAccepted;
-		inspectionsAccepted = negotiatedCapability(node, "data.inspect.v1", inspectionsAccepted);
-		deploymentsAccepted = deployments != null
-				&& negotiatedCapability(node, PluginDeploymentService.CAPABILITY, deploymentsAccepted);
+			inspectionsAccepted = negotiatedCapability(node, "data.inspect.v1", inspectionsAccepted);
+			deploymentsAccepted = deployments != null
+					&& negotiatedCapability(node, PluginDeploymentService.CAPABILITY, deploymentsAccepted);
 			if (inspectionsAccepted && !inspectionsWereAccepted) {
 				inspectionFailures = 0;
 				inspectionRetryAtNanos = 0;
@@ -1147,7 +1171,9 @@ public final class BackendControlConnector implements AutoCloseable {
 		return body;
 	}
 
-	static void addCapabilities(JsonObject body) { addCapabilities(body, false, false); }
+	static void addCapabilities(JsonObject body) {
+		addCapabilities(body, false, false);
+	}
 
 	static void addCapabilities(JsonObject body, boolean rewardFilesSupported, boolean deploymentReady) {
 		JsonArray capabilities = new JsonArray();
