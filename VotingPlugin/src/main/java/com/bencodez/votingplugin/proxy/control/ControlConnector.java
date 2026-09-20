@@ -1177,7 +1177,8 @@ public final class ControlConnector implements AutoCloseable {
 
 	private static String proxyMethodCapability(JsonObject configuration) {
 		JsonObject options = configuration == null ? null : configuration.getAsJsonObject("options");
-		return options != null && options.has("method") && "HTTP".equals(options.get("method").getAsString())
+		return options != null && options.has("method")
+				&& "HTTP".equalsIgnoreCase(options.get("method").getAsString().trim())
 				? PROXY_METHOD_HTTP_CAPABILITY : PROXY_METHOD_CAPABILITY;
 	}
 
