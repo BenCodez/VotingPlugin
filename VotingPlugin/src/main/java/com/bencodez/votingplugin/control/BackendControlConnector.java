@@ -84,6 +84,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	private volatile boolean registered;
 	private volatile boolean operationsAccepted;
 	private volatile boolean quickSetupsAccepted;
+	private volatile boolean proxyMethodV2Accepted;
 	private volatile boolean votePartySetupsAccepted;
 	private volatile boolean voteSitesSyncAccepted;
 	private volatile boolean rewardFilesAccepted;
@@ -626,6 +627,7 @@ public final class BackendControlConnector implements AutoCloseable {
 			}
 			operationsAccepted = negotiatedCapability(node, "config.files.v1", operationsAccepted);
 			quickSetupsAccepted = negotiatedCapability(node, "config.quick-setup.v1", quickSetupsAccepted);
+			proxyMethodV2Accepted = negotiatedCapability(node, "config.proxy-method.v2", proxyMethodV2Accepted);
 			votePartySetupsAccepted = negotiatedCapability(node, "config.quick-setup.v2", votePartySetupsAccepted);
 			voteSitesSyncAccepted = negotiatedCapability(node, "config.vote-sites-sync.v1", voteSitesSyncAccepted);
 			rewardFilesAccepted = configurations.supportsNamedRewardFiles()
@@ -1079,6 +1081,11 @@ public final class BackendControlConnector implements AutoCloseable {
 			throws IOException {
 		String preset = string(configuration, "preset");
 		Map<String, String> options = options(configuration.getAsJsonObject("options"));
+		if ("APPLY".equals(type) && "proxy-method".equals(preset)
+				&& !proxyMethodApplyCapabilityAccepted(options.getOrDefault("method", "PLUGINMESSAGING"),
+						proxyMethodV2Accepted)) {
+			return TaskResult.failure("UNSUPPORTED_TASK", "The HTTP proxy method capability was not negotiated");
+		}
 		if (!quickSetupCapabilityAccepted(preset, quickSetupsAccepted, votePartySetupsAccepted,
 				voteSitesSyncAccepted, options)) {
 			return TaskResult.failure("UNSUPPORTED_TASK", "The required quick setup capability was not negotiated");
@@ -1142,6 +1149,10 @@ public final class BackendControlConnector implements AutoCloseable {
 		}
 		return quickSetupCapabilityAccepted(preset, quickSetupsAccepted, votePartySetupsAccepted,
 			voteSitesSyncAccepted);
+	}
+
+	static boolean proxyMethodApplyCapabilityAccepted(String method, boolean proxyMethodV2Accepted) {
+		return !"HTTP".equalsIgnoreCase(method) || proxyMethodV2Accepted;
 	}
 
 	private Response send(String method, String path, JsonObject body) throws Exception {
