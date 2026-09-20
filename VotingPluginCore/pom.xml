@@ -1,0 +1,73 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.bencodez</groupId>
+    <artifactId>votingplugin-vote-core</artifactId>
+    <version>7.1.2-SNAPSHOT</version>
+    <packaging>jar</packaging>
+    <name>VotingPlugin Vote Core</name>
+
+    <properties>
+        <maven.compiler.release>21</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <build>
+        <!-- Compile the same sources the Bukkit plugin compiles; do not fork vote behavior. -->
+        <sourceDirectory>${project.basedir}/../VotingPlugin/src/main/java</sourceDirectory>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <release>21</release>
+                    <includes>
+                        <include>com/bencodez/votingplugin/core/vote/**/*.java</include>
+                    </includes>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.4</version>
+                <executions>
+                    <execution>
+                        <id>default-test</id>
+                        <configuration>
+                            <excludes><exclude>**/VoteCoreArtifactTest.java</exclude></excludes>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>packaged-artifact-test</id>
+                        <phase>package</phase>
+                        <goals><goal>test</goal></goals>
+                        <configuration>
+                            <includes><include>**/VoteCoreArtifactTest.java</include></includes>
+                            <reportsDirectory>${project.build.directory}/packaged-artifact-reports</reportsDirectory>
+                            <systemPropertyVariables>
+                                <votingplugin.voteCoreJar>${project.build.directory}/${project.build.finalName}.jar</votingplugin.voteCoreJar>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <version>5.12.2</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <version>5.12.2</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>
