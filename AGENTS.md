@@ -160,7 +160,7 @@ limit:
 Prefer one cohesive PR per repository for a paired feature, keeping its implementation, tests, and docs together. Split
 further only when a part is independently deployable or has materially different review/rollback risk.
 
-`config.proxy-method.v1` covers plugin messaging and Redis; `config.proxy-method.v2` adds HTTP. Dispatch and validate the
+`config.proxy-method.v1` covers plugin messaging, Redis, MQTT, sockets, and MySQL; `config.proxy-method.v2` adds HTTP. Dispatch and validate the
 exact capability for the requested method. `config.quick-setup.v2` adds `VoteParty.Enabled`; keep legacy Vote Party
 payloads on v1, preserve the installed Enabled value when they omit it, and reject the `enabled` field unless v2 was
 accepted. The VotingPlugin connector may deploy first and
