@@ -9,7 +9,6 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.charset.CodingErrorAction;
 import java.nio.channels.FileChannel;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -431,9 +430,10 @@ public final class PluginDeploymentService {
 		}
 	}
 
-	private static void move(Path source, Path destination) throws IOException {
-		try { Files.move(source, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING); }
-		catch (AtomicMoveNotSupportedException ignored) { Files.move(source, destination, StandardCopyOption.REPLACE_EXISTING); }
+	static void move(Path source, Path destination) throws IOException {
+		// The proxy target is executable on its next startup. A copy/delete fallback
+		// can leave it missing or partial after a crash, even with a durable backup.
+		Files.move(source, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
 	}
 
 	private static void force(Path file) throws IOException {

@@ -19,6 +19,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.FileSystems;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.HexFormat;
@@ -31,6 +33,21 @@ import org.junit.jupiter.api.io.TempDir;
 
 class PluginDeploymentServiceTest {
 	@TempDir Path directory;
+
+	@Test void publicationRefusesAProviderWithoutAtomicMoves() throws Exception {
+		Path source = directory.resolve("VotingPlugin.jar");
+		byte[] original = jar("name: VotingPlugin\nversion: old\n");
+		Files.write(source, original);
+		Path archive = directory.resolve("non-atomic.zip");
+		try (var zip = FileSystems.newFileSystem(java.net.URI.create("jar:" + archive.toUri()),
+				java.util.Map.of("create", "true"))) {
+			Path destination = zip.getPath("/VotingPlugin.jar");
+			assertThrows(AtomicMoveNotSupportedException.class,
+					() -> PluginDeploymentService.move(source, destination));
+			assertArrayEquals(original, Files.readAllBytes(source));
+			assertFalse(Files.exists(destination));
+		}
+	}
 
 	@Test void backendStagesOnlyAnExactVerifiedVotingPluginJarAndIsIdempotent() throws Exception {
 		byte[] artifact = jar("name: VotingPlugin\nmain: example.Main\n");
