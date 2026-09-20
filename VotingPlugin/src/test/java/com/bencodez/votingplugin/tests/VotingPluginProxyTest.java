@@ -324,7 +324,7 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
-	void liveVoteRetryDoesNotApplyVotePartyTwice() {
+	void liveVoteRetryKeepsTimestampAndDoesNotApplyVotePartyTwice() throws Exception {
 		VoteCacheHandler voteCache = Mockito.mock(VoteCacheHandler.class);
 		Mockito.when(votingPluginProxy.getConfig().getSendVotesToAllServers()).thenReturn(true);
 		votingPluginProxy.setMethod(BungeeMethod.HTTP);
@@ -340,12 +340,19 @@ public class VotingPluginProxyTest {
 		java.util.UUID voteId = java.util.UUID.randomUUID();
 
 		assertThrows(VotingPluginProxy.VoteRetryException.class,
-				() -> spyProxy.vote("Player", "Service", true, false, 100L, null,
+				() -> spyProxy.vote("Player", "Service", true, false, 0L, null,
 						"00000000-0000-0000-0000-000000000001", voteId));
+		java.lang.reflect.Field retriesField = VotingPluginProxy.class.getDeclaredField("liveVoteRetries");
+		retriesField.setAccessible(true);
+		Object retryState = ((java.util.Map<?, ?>) retriesField.get(spyProxy)).get(voteId);
+		java.lang.reflect.Field timeField = retryState.getClass().getDeclaredField("time");
+		timeField.setAccessible(true);
+		timeField.setLong(retryState, 123456789L);
 		spyProxy.setAvailableServers("Server1", "Server2", "Server3");
-		spyProxy.vote("Player", "Service", true, false, 100L, null,
+		spyProxy.vote("Player", "Service", true, false, 0L, null,
 				"00000000-0000-0000-0000-000000000001", voteId);
 
+		assertEquals("123456789", spyProxy.getLastVoteEnvelope().getFields().get(VotingPluginWire.K_TIME));
 		verify(spyProxy).addVoteParty();
 		verify(voteCache, Mockito.times(3)).addServerVoteDurably(Mockito.anyString(), Mockito.any());
 	}

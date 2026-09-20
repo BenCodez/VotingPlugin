@@ -5066,8 +5066,9 @@ public abstract class VotingPluginProxy {
 			// Cache online state/server once (IMPORTANT for broadcast logic correctness)
 			final boolean playerOnline = isPlayerOnlineForVoteRouting(player);
 			final String playerServer = playerOnline ? getCurrentPlayerServerForVoteRouting(player) : null;
-			long time = queueTime != 0 ? queueTime
-					: LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+			long time = retryState != null ? retryState.time
+					: (queueTime != 0 ? queueTime
+							: LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
 
 			Set<String> broadcastTargets = queuedVote == null ? new LinkedHashSet<>()
 					: new LinkedHashSet<>(queuedVote.getBroadcastTargets());
