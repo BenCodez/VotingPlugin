@@ -1250,6 +1250,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	public static final class BackendProxyRestart {
 		private final BackendProxyHandler previous;
 		private final BackendProxyHandler replacement;
+		private BungeeMethod replacementMethod;
 		private final boolean disabled;
 		private final boolean previousRequiresPreparation;
 		private volatile boolean previousPrepared;
@@ -1277,9 +1278,14 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		/** Only exclusive same-method transports may be restored by the Control worker. */
 		public boolean requiresWorkerRollback() {
 			return previousPrepared && previous != null && replacement != null
-					&& ((previous.getMethod() == BungeeMethod.SOCKETS && replacement.getMethod() == BungeeMethod.SOCKETS)
+					&& ((previous.getMethod() == BungeeMethod.SOCKETS && effectiveReplacementMethod() == BungeeMethod.SOCKETS)
 							|| (previous.getMethod() == BungeeMethod.MQTT
-									&& replacement.getMethod() == BungeeMethod.MQTT));
+									&& effectiveReplacementMethod() == BungeeMethod.MQTT));
+		}
+
+		private BungeeMethod effectiveReplacementMethod() {
+			BungeeMethod loadedMethod = replacement.getMethod();
+			return loadedMethod != null ? loadedMethod : replacementMethod;
 		}
 	}
 
@@ -1324,6 +1330,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 		}
 		BackendProxyRestart restart = new BackendProxyRestart(previous, replacement, false, previousRequiresPreparation);
+		restart.replacementMethod = replacementMethod;
 		restart.replacementLoadDeferred = deferredReplacementLoad;
 		return restart;
 	}
@@ -1343,7 +1350,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			// worker join fails. Mark the restart first so abort/await still owns the
 			// restoration path after a partially completed preparation.
 			restart.previousPrepared = true;
-			BungeeMethod replacementMethod = restart.replacement == null ? null : restart.replacement.getMethod();
+			BungeeMethod replacementMethod = restart.replacement == null ? null : restart.effectiveReplacementMethod();
 			if (restart.replacement != null) restart.replacement.beginPreparedHttpHandoff();
 			if (!restart.previous.prepareForReplacement(replacementMethod, validationDeadlineNanos))
 				throw new IllegalStateException("Previous proxy transport could not be prepared for replacement");

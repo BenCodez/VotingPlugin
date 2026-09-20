@@ -1081,7 +1081,7 @@ public final class BackendControlConnector implements AutoCloseable {
 			throws IOException {
 		String preset = string(configuration, "preset");
 		Map<String, String> options = options(configuration.getAsJsonObject("options"));
-		if ("APPLY".equals(type) && "proxy-method".equals(preset)
+		if ("proxy-method".equals(preset)
 				&& !proxyMethodApplyCapabilityAccepted(options.getOrDefault("method", "PLUGINMESSAGING"),
 						proxyMethodV2Accepted)) {
 			return TaskResult.failure("UNSUPPORTED_TASK", "The HTTP proxy method capability was not negotiated");

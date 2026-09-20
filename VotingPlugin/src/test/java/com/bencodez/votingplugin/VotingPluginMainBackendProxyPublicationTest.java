@@ -32,6 +32,32 @@ import com.bencodez.votingplugin.proxy.BungeeMethod;
 
 class VotingPluginMainBackendProxyPublicationTest {
 	@Test
+	void deferredSameMethodRestartPreparesBeforeLoadingReplacement() throws Exception {
+		for (BungeeMethod method : new BungeeMethod[] { BungeeMethod.SOCKETS, BungeeMethod.MQTT }) {
+			VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+			BackendProxyHandler previous = mock(BackendProxyHandler.class);
+			BungeeSettings settings = mock(BungeeSettings.class);
+			setBackendProxyHandler(plugin, previous);
+			setField(plugin, "bungeeSettings", settings);
+			when(settings.isUseBungeecoord()).thenReturn(true);
+			when(settings.getBungeeMethod()).thenReturn(method.name());
+			when(previous.getMethod()).thenReturn(method);
+			when(previous.prepareForReplacement(org.mockito.ArgumentMatchers.eq(method),
+					org.mockito.ArgumentMatchers.anyLong())).thenReturn(true);
+			try (var constructed = org.mockito.Mockito.mockConstruction(BackendProxyHandler.class)) {
+				VotingPluginMain.BackendProxyRestart restart = plugin.prepareBackendProxyHandlerRestart();
+				BackendProxyHandler replacement = constructed.constructed().get(0);
+				verify(replacement, never()).loadForReplacement();
+				plugin.validateBackendProxyHandlerRestart(restart, System.nanoTime() + 1_000_000_000L);
+				verify(previous).prepareForReplacement(org.mockito.ArgumentMatchers.eq(method),
+						org.mockito.ArgumentMatchers.anyLong());
+				verify(replacement).loadForReplacement();
+				assertTrue(restart.requiresWorkerRollback());
+			}
+		}
+	}
+
+	@Test
 	void proxyMethodControlPreparationReloadsOnlyNarrowSettingsBeforeReturningTheStagedRestart() throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		doCallRealMethod().when(plugin).prepareBackendProxyMethodRestartFromControl();

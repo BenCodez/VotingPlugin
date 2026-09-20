@@ -304,7 +304,7 @@ class BackendControlConnectorProtocolTest {
 		assertTrue(BackendControlConnector.proxyMethodApplyCapabilityAccepted("PLUGINMESSAGING", false));
 	}
 
-	@Test void httpQuickApplyRejectsMissingV2BeforeTouchingConfiguration() throws Exception {
+	@Test void httpQuickRequestsRejectMissingV2BeforeTouchingConfiguration() throws Exception {
 		BackendControlConnector connector = org.mockito.Mockito.mock(BackendControlConnector.class,
 				org.mockito.Mockito.CALLS_REAL_METHODS);
 		var quick = BackendControlConnector.class.getDeclaredField("quickSetupsAccepted");
@@ -316,13 +316,15 @@ class BackendControlConnectorProtocolTest {
 		var execute = BackendControlConnector.class.getDeclaredMethod("executeQuick", java.util.UUID.class,
 				String.class, JsonObject.class, JsonObject.class);
 		execute.setAccessible(true);
-		Object result = execute.invoke(connector, java.util.UUID.randomUUID(), "APPLY", configuration,
-				new JsonObject());
-		var json = result.getClass().getDeclaredMethod("json");
-		json.setAccessible(true);
-		JsonObject response = (JsonObject) json.invoke(result);
-		assertFalse(response.get("success").getAsBoolean());
-		assertEquals("UNSUPPORTED_TASK", response.get("code").getAsString());
+		for (String type : new String[] { "READ", "PREVIEW", "APPLY" }) {
+			Object result = execute.invoke(connector, java.util.UUID.randomUUID(), type, configuration,
+					new JsonObject());
+			var json = result.getClass().getDeclaredMethod("json");
+			json.setAccessible(true);
+			JsonObject response = (JsonObject) json.invoke(result);
+			assertFalse(response.get("success").getAsBoolean());
+			assertEquals("UNSUPPORTED_TASK", response.get("code").getAsString());
+		}
 	}
 
 	@Test void votePartyRequiresItsVersionedCapability() {
