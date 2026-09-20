@@ -189,7 +189,8 @@ The Bukkit connector owns separate single-thread daemon executors for presence/c
 inspections, and performs no Control I/O on the server thread. The inspection worker is cancelled on shutdown with a
 bounded five-second wait, so a slow database read does not hold the configuration lane or shutdown indefinitely. The
 connector reports a bounded list of installed plugin names for WebUI command suggestions and negotiates
-`config.files.v1`, `config.quick-setup.v1`, and the separate read-only `data.inspect.v1` capability. It polls configuration
+`config.files.v1`, `config.quick-setup.v1`, the Vote Party Enabled extension `config.quick-setup.v2`, and the separate
+read-only `data.inspect.v1` capability. It polls configuration
 operations and inspections over distinct outbound queues. Repeated inspection transport or protocol failures use bounded
 exponential backoff from one second to five minutes, while the configuration and voting paths remain available. File apply
 schedules the VotingPlugin reload on the Bukkit thread and waits only on the connector worker. Control failure never blocks votes,
@@ -235,6 +236,13 @@ exact SHA-256 revision, stages and atomically installs the file, retains `.contr
 if reload fails. Returned YAML is normalized and masks password/secret/token/API-key/authorization/webhook-secret paths
 with `__VOTINGPLUGIN_CONTROL_REDACTED__`; leaving the marker unchanged preserves the local value. A replacement secret may
 be submitted through the authenticated preview, but is never returned or audited.
+
+The separate `config.reward-files.v1` capability permits bounded inventory and the same READ/PREVIEW/approved APPLY
+workflow for existing, directly contained `Rewards/<name>.yml` files. It is not a general file browser or file-creation
+API. Names are restricted to simple ASCII basenames, case-only ambiguity is rejected, and symlinked reward paths are
+not followed. The inventory exposes names only. The optional capability is advertised only on filesystems with secure
+directory handles, pinned directory-force support and private POSIX staging-file support. An older Control or connector can continue using the other negotiated
+capabilities without named reward-file editing; see [the agent contract](control-agent-contract.md#named-reward-files-configreward-filesv1).
 
 Control configuration snapshots store the redacted managed-file content returned by this read path, not raw credentials.
 Restore resolves unchanged markers against each target's current secrets during preview/apply. Protect Control's data

@@ -610,6 +610,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		voteTester = new VoteTester(plugin);
 
 		loadVoteTimer();
+		getVotingPluginUserManager().startSharedPointTransferRecovery();
 
 		if (bungeeSettings.isUseBungeecoord()) {
 			loadBungeeHandler();
@@ -1902,6 +1903,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		updateAdvancedCoreHook();
 
 		reloadAdvancedCore(userStorage);
+		// PerServerPoints can switch shared point storage on during a live reload.
+		// Re-evaluate after storage has reloaded; UserManager keeps this lifecycle task unique.
+		getVotingPluginUserManager().startSharedPointTransferRecovery();
 
 		if (bungeeSettings.isUseBungeecoord()) {
 			BackendProxyHandler handler = getBackendProxyHandler();
