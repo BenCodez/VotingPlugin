@@ -44,6 +44,7 @@ public record SharedVotePolicy(boolean countFakeVotes, boolean addTotals,
     boolean shouldExecuteRewardsNow(SharedVoteInput input, boolean online) {
         // Proxy votes preserve the existing force-processing behavior. For native
         // votes, ProcessRewards and per-site offline eligibility remain authoritative.
-        return input.proxyVote() || (processRewards && (online || giveOfflineRewards));
+        return SharedVoteDelivery.shouldDeliverNow(input::proxyVote, () -> online,
+                () -> giveOfflineRewards, () -> processRewards);
     }
 }
