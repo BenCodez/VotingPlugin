@@ -16,6 +16,7 @@ import com.bencodez.advancedcore.api.bedrock.BedrockNameResolver;
 import com.bencodez.advancedcore.api.user.validation.UserValidationResult;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.core.vote.SharedVotePolicy;
 import com.bencodez.votingplugin.events.PlayerPostVoteEvent;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.topvoter.TopVoter;
@@ -255,16 +256,10 @@ public class PlayerVoteListener implements Listener {
 		}
 
 		// add to total votes
-		if ((plugin.getConfigFile().isCountFakeVotes() || event.isRealVote()) && event.isAddTotals()) {
-			if (plugin.getConfigFile().isAddTotals()) {
-				if (plugin.getConfigFile().isAddTotalsOffline() || user.isOnline()) {
-					user.addTotal();
-					user.addTotalDaily();
-					user.addTotalWeekly();
-				}
-			}
-			user.addPoints();
-		}
+		SharedVotePolicy countingPolicy = new SharedVotePolicy(plugin.getConfigFile().isCountFakeVotes(),
+				plugin.getConfigFile().isAddTotals(), plugin.getConfigFile().isAddTotalsOffline(), false, false);
+		applyAcceptedVoteCounts(user, countingPolicy, event.isRealVote(), event.isAddTotals());
+
 		user.checkDayVoteStreak(event.isForceBungee());
 
 		if (plugin.getConfigFile().isLimitMonthlyVotes()) {
@@ -308,4 +303,15 @@ public class PlayerVoteListener implements Listener {
 		plugin.extraDebug("Finished vote processing: " + playerName + "/" + uuid);
 	}
 
+	/** Keep the production count/points calls in their existing order. */
+	static void applyAcceptedVoteCounts(VotingPluginUser user, SharedVotePolicy policy,
+			boolean realVote, boolean voteAddsTotals) {
+		if (!policy.shouldApplyConfiguredVoteMutation(realVote, voteAddsTotals)) return;
+		if (policy.shouldCountTotals(realVote, voteAddsTotals, user::isOnline)) {
+			user.addTotal();
+			user.addTotalDaily();
+			user.addTotalWeekly();
+		}
+		user.addPoints();
+	}
 }
