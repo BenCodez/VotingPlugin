@@ -1,0 +1,10 @@
+{
+  "setupMode": "code-repo",
+  "aiTools": [
+    "codex"
+  ],
+  "scaffold_id": "054c39c7-d95c-449e-bdad-6ff84f6d3ebd",
+  "scaffold_name": "VotingPlugin",
+  "origin": null,
+  "upstream": null
+}
