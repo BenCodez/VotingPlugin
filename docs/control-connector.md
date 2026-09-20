@@ -201,6 +201,29 @@ with the new settings. This prevents the old and new children from racing for th
 the currently running Control child unchanged. If the backend restarts with a pending result, the durable journal also
 restores the previous hosted settings until that result is acknowledged, preserving the recovery connector's endpoint.
 
+## Verified VotingPlugin updates
+
+Nodes that negotiate `plugin.deploy.v1` can stage a VotingPlugin JAR supplied by Control for the next normal process
+restart. This capability is deliberately separate from configuration control and from hosted-Control self-updates.
+VotingPlugin never hot-reloads itself and never restarts the server or proxy automatically.
+
+Deployment is available only on the currently enabled Control route. Recovery-only connectors that exist solely to
+acknowledge an older durable result never advertise or poll this capability. The node also requires a credential-safe
+artifact transport: HTTPS is accepted generally; HTTP is accepted only when the existing hosted-Control checks prove the
+endpoint is the direct same-node listener. A LAN/private HTTP endpoint may still be used for ordinary Control operations,
+but it is intentionally ineligible for credentialed plugin-JAR staging.
+
+Control leases deployment work through `POST /api/v1/nodes/{nodeId}/deployments`. The node downloads the artifact through
+the matching deployment artifact endpoint with its bearer credential plus exact session and attempt headers, then
+independently verifies the 64 MiB size bound, SHA-256, JAR structure, and root `plugin.yml` identity. Bukkit stages the
+verified JAR in the configured update folder; BungeeCord/Velocity retain a durable backup before atomically replacing the
+running plugin JAR on disk. A durable deployment marker makes lost result acknowledgements idempotent, including the
+post-restart Bukkit state where the server has already consumed the staged update JAR.
+
+Successful staging reports `RESTART_REQUIRED`. The administrator chooses when to restart. See
+[the Control agent contract](control-agent-contract.md#verified-plugin-staging-plugindeployv1) for the exact task, download,
+result, transport, and failure-code contract.
+
 ## Discovery semantics
 
 Both platforms use the same connector implementation and protocol version `1`. Each proxy process creates a new session

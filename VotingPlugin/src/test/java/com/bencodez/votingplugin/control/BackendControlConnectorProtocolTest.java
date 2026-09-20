@@ -41,6 +41,22 @@ class BackendControlConnectorProtocolTest {
 				"{\"error\":{\"code\":\"NODE_NOT_FOUND\"}}")));
 	}
 
+	@Test void deploymentTaskRejectsUnknownV1Fields() {
+		JsonObject task = deploymentTask();
+		task.addProperty("unexpected", "value");
+		assertThrows(IllegalArgumentException.class, () -> BackendControlConnector.deploymentTask(task));
+	}
+
+	private static JsonObject deploymentTask() {
+		JsonObject task = new JsonObject();
+		task.addProperty("deploymentId", "00000000-0000-0000-0000-000000000001");
+		task.addProperty("artifactId", "VotingPlugin.jar");
+		task.addProperty("sha256", "a".repeat(64));
+		task.addProperty("size", "1");
+		task.addProperty("attemptId", "00000000-0000-0000-0000-000000000002");
+		return task;
+	}
+
 	@Test void abandonedBackendIntentBecomesATerminalRecoveryResult() {
 		JsonObject anticipated = new JsonObject();
 		anticipated.addProperty("attemptId", "00000000-0000-0000-0000-000000000199");
@@ -207,7 +223,7 @@ class BackendControlConnectorProtocolTest {
 
 	@Test void registrationAdvertisesCommentPreservingFilesAsAnOptionalCapability() {
 		JsonObject registration = new JsonObject();
-		BackendControlConnector.addCapabilities(registration, true);
+		BackendControlConnector.addCapabilities(registration, true, false);
 
 		JsonArray advertised = registration.getAsJsonArray("capabilities");
 		assertTrue(advertised.asList().stream()
@@ -229,13 +245,29 @@ class BackendControlConnectorProtocolTest {
 				.anyMatch(value -> "data.inspect.v1".equals(value.getAsString())));
 	}
 
+	@Test void deploymentCapabilityIsOnlyAddedWhenStagingWasPrepared() {
+		JsonObject unavailable = new JsonObject();
+		BackendControlConnector.addCapabilities(unavailable, true, false);
+		assertFalse(unavailable.getAsJsonArray("capabilities").asList().stream()
+				.anyMatch(value -> PluginDeploymentService.CAPABILITY.equals(value.getAsString())));
+
+		JsonObject ready = new JsonObject();
+		BackendControlConnector.addCapabilities(ready, true, true);
+		assertTrue(ready.getAsJsonArray("capabilities").asList().stream()
+				.anyMatch(value -> PluginDeploymentService.CAPABILITY.equals(value.getAsString())));
+		assertTrue(ready.getAsJsonArray("capabilities").asList().stream()
+				.anyMatch(value -> "config.reward-files.v1".equals(value.getAsString())));
+	}
+
 	@Test void unsupportedFilesystemDoesNotAdvertiseNamedRewards() {
 		JsonObject registration = new JsonObject();
-		BackendControlConnector.addCapabilities(registration, false);
+		BackendControlConnector.addCapabilities(registration, false, true);
 		assertFalse(registration.getAsJsonArray("capabilities").asList().stream()
 				.anyMatch(value -> "config.reward-files.v1".equals(value.getAsString())));
 		assertTrue(registration.getAsJsonArray("capabilities").asList().stream()
 				.anyMatch(value -> "config.files.v1".equals(value.getAsString())));
+		assertTrue(registration.getAsJsonArray("capabilities").asList().stream()
+				.anyMatch(value -> PluginDeploymentService.CAPABILITY.equals(value.getAsString())));
 	}
 
 	@Test void heartbeatRetainsOmittedCapabilitiesAndHonorsExplicitReplacement() {

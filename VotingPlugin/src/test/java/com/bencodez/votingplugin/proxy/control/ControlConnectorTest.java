@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.proxy.control;
 
+import com.bencodez.votingplugin.control.PluginDeploymentService;
 import com.bencodez.votingplugin.proxy.control.ControlConnector.ObservedBackend;
 import com.bencodez.votingplugin.proxy.control.ControlConnector.Request;
 import com.bencodez.votingplugin.proxy.control.ControlConnector.Response;
@@ -12,6 +13,7 @@ import com.google.gson.JsonParser;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.net.http.HttpClient;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -23,6 +25,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -47,6 +50,17 @@ class ControlConnectorTest {
 
 	@Test void responseBudgetCanCarryTheLargestEscapedManagedFileTask() {
 		assertTrue(ControlConnector.MAX_RESPONSE_BYTES >= ProxyConfigurationFileService.MAX_BYTES * 6);
+	}
+
+	@Test void deploymentTaskRejectsUnknownV1Fields() {
+		JsonObject task = new JsonObject();
+		task.addProperty("deploymentId", "00000000-0000-0000-0000-000000000001");
+		task.addProperty("artifactId", "VotingPlugin.jar");
+		task.addProperty("sha256", "a".repeat(64));
+		task.addProperty("size", "1");
+		task.addProperty("attemptId", "00000000-0000-0000-0000-000000000002");
+		task.addProperty("unexpected", "value");
+		assertThrows(RuntimeException.class, () -> ControlConnector.deploymentTask(task));
 	}
 	private ControlConnector connector;
 
@@ -86,6 +100,18 @@ class ControlConnectorTest {
 		assertEquals("/api/v1/nodes/proxy-a/heartbeat", transport.requests.get(2).path());
 		JsonObject secondSnapshot = JsonParser.parseString(transport.requests.get(3).body()).getAsJsonObject();
 		assertEquals(1, secondSnapshot.get("sequence").getAsLong());
+	}
+
+	@Test void deploymentCapabilityIsAdvertisedOnlyWhenProxyStagingIsReady() {
+		JsonObject unavailable = new JsonObject();
+		ControlConnector.addCapabilities(unavailable, true, true, true, true, false);
+		assertFalse(unavailable.getAsJsonArray("capabilities").asList().stream()
+				.anyMatch(value -> "plugin.deploy.v1".equals(value.getAsString())));
+
+		JsonObject ready = new JsonObject();
+		ControlConnector.addCapabilities(ready, true, true, true, true, true);
+		assertTrue(ready.getAsJsonArray("capabilities").asList().stream()
+				.anyMatch(value -> "plugin.deploy.v1".equals(value.getAsString())));
 	}
 
 	@Test void unavailableAuthenticationProtocolAndMalformedResponsesOnlyChangeConnectorState() {
@@ -879,6 +905,51 @@ class ControlConnectorTest {
 		assertEquals(Status.STOPPED, connector.status());
 	}
 
+	@Test void closeCancelsARealQueuedDeploymentBeforeAwaitingItsOperation() throws Exception {
+		connector.close();
+		Path update = dataDirectory.resolve("update");
+		connector = deploymentConnector(PluginDeploymentService.backend(update, dataDirectory.resolve("VotingPlugin.jar")));
+		setConnectorField("registered", true);
+		setConnectorField("deploymentsAccepted", true);
+		setConnectorField("status", Status.CONNECTED);
+		Field executorField = ControlConnector.class.getDeclaredField("deploymentExecutor");
+		executorField.setAccessible(true);
+		ExecutorService deploymentExecutor = (ExecutorService) executorField.get(connector);
+		CountDownLatch workerStarted = new CountDownLatch(1);
+		deploymentExecutor.submit(() -> {
+			workerStarted.countDown();
+			try {
+				new CountDownLatch(1).await();
+			} catch (InterruptedException interrupted) {
+				Thread.currentThread().interrupt();
+			}
+		});
+		assertTrue(workerStarted.await(2, TimeUnit.SECONDS));
+		UUID deploymentId = UUID.randomUUID();
+		transport.nextPrimary = new Response(200, "{\"deploymentId\":\"" + deploymentId
+				+ "\",\"artifactId\":\"VotingPlugin.jar\",\"sha256\":\"" + "a".repeat(64)
+				+ "\",\"size\":\"1\",\"attemptId\":\"" + UUID.randomUUID() + "\"}");
+		Method poll = ControlConnector.class.getDeclaredMethod("pollDeployments");
+		poll.setAccessible(true);
+		poll.invoke(connector);
+		Field operationField = ControlConnector.class.getDeclaredField("activeOperation");
+		operationField.setAccessible(true);
+		CompletableFuture<?> operation = (CompletableFuture<?>) operationField.get(connector);
+		assertNotNull(operation, "the actual deployment polling path must own the queued operation");
+
+		connector.close();
+
+		assertTrue(operation.isDone(), "shutdown must complete a deployment discarded before its executor starts it");
+		assertFalse(Files.exists(update.resolve("VotingPlugin.jar")), "queued deployment work must not stage an artifact");
+	}
+
+	@Test void proxyDeploymentIsNotAdvertisedOnWindowsWhereTheLiveJarCannotBeReplaced() {
+		assertFalse(ControlConnector.proxyDeploymentSupported("Windows 11"));
+		assertFalse(ControlConnector.proxyDeploymentSupported("Windows Server 2022"));
+		assertTrue(ControlConnector.proxyDeploymentSupported("Linux"));
+		assertTrue(ControlConnector.proxyDeploymentSupported("Darwin"));
+	}
+
 	@Test void backoffIsBoundedExponentialAndJitteredWithoutSleeping() {
 		assertEquals(1000, ControlConnector.backoffMillis(1, 0));
 		assertEquals(2000, ControlConnector.backoffMillis(2, 0));
@@ -907,6 +978,25 @@ class ControlConnectorTest {
 	private Settings settings() {
 		return new Settings("proxy-a", "Proxy A", "VELOCITY", "7.1.2",
 				URI.create("http://127.0.0.1:8080"), 30, 3000, 5000);
+	}
+
+	private ControlConnector deploymentConnector(PluginDeploymentService deployments) throws Exception {
+		Constructor<ControlConnector> constructor = ControlConnector.class.getDeclaredConstructor(Settings.class,
+				ScheduledExecutorService.class, Transport.class, Supplier.class, Consumer.class, UUID.class,
+				LongSupplier.class, ProxyRoutingConfigurationService.class, Path.class, ProxyControlResultStore.Route.class,
+				boolean.class, Runnable.class, Function.class, ProxyMethodConfigurationService.class, Runnable.class,
+				ProxyConfigurationFileService.class, PluginDeploymentService.class, HttpClient.class, String.class,
+				boolean.class);
+		constructor.setAccessible(true);
+		return constructor.newInstance(settings(), scheduler, transport, (Supplier<List<ObservedBackend>>) List::of,
+				(Consumer<String>) logs::add, UUID.randomUUID(), (LongSupplier) () -> 0L, null, null, null, false,
+				null, null, null, null, null, deployments, HttpClient.newHttpClient(), "credential", false);
+	}
+
+	private void setConnectorField(String name, Object value) throws Exception {
+		Field field = ControlConnector.class.getDeclaredField(name);
+		field.setAccessible(true);
+		field.set(connector, value);
 	}
 
 	private JsonObject submittedResult() {

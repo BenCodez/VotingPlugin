@@ -152,6 +152,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	public static VotingPluginMain plugin;
 
+	/** Exact backend plugin file name Bukkit uses when consuming its update folder. */
+	public File getLoadedPluginJarFile() {
+		return getFile();
+	}
+
 	@Getter
 	@Setter
 	private ArrayList<CommandHandler> adminVoteCommand;
