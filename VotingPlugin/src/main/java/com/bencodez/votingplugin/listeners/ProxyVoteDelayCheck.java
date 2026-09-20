@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.listeners;
 
+import com.bencodez.votingplugin.core.vote.SharedVoteProcessor;
+
 /**
  * Handles the WaitUntilVoteDelay exception for votes queued by a proxy.
  */
@@ -19,6 +21,6 @@ public final class ProxyVoteDelayCheck {
 	 * @return true when the delay check should allow the queued delivery
 	 */
 	public static boolean isQueuedVoteAlreadyRecorded(boolean proxyVote, long messageVoteTime, long storedVoteTime) {
-		return proxyVote && messageVoteTime > 0L && messageVoteTime == storedVoteTime;
+		return SharedVoteProcessor.isQueuedVoteAlreadyRecorded(proxyVote, messageVoteTime, storedVoteTime);
 	}
 }
