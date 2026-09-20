@@ -11,12 +11,15 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.simpleapi.sql.data.DataValue;
@@ -34,6 +37,26 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 class ControlInspectionServiceTest {
+	@TempDir Path directory;
+
+	@Test void rewardFileInventoryReturnsOnlySafeLogicalNames() throws Exception {
+		Path rewards = Files.createDirectories(directory.resolve("Rewards"));
+		Files.writeString(rewards.resolve("Daily.yml"), "Commands: []\n");
+		Files.createDirectories(rewards.resolve("DirectlyDefined"));
+		Files.writeString(rewards.resolve("DirectlyDefined.snapshot.yml"), "generated: true\n");
+		Files.writeString(rewards.resolve("ignore.yaml"), "not: supported\n");
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		when(plugin.getDataFolder()).thenReturn(directory.toFile());
+
+		JsonObject result = new ControlInspectionService(plugin).inspect(JsonParser.parseString(
+				"{\"kind\":\"reward-file-inventory\",\"filters\":{}}")
+				.getAsJsonObject()).getAsJsonObject("result");
+
+		assertEquals(List.of("Daily.yml"), result.getAsJsonArray("files").asList().stream()
+				.map(element -> element.getAsString()).toList());
+		assertTrue(ControlInspectionService.rewardFileInventoryQuery(JsonParser.parseString(
+				"{\"kind\":\"reward-file-inventory\"}").getAsJsonObject()));
+	}
 	@Test void overviewIncludesSafeStorageAndVoteLogReadiness() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
 		org.bukkit.configuration.file.YamlConfiguration config = new org.bukkit.configuration.file.YamlConfiguration();

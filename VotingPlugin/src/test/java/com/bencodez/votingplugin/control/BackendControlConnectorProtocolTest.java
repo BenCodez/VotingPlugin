@@ -3,12 +3,14 @@ package com.bencodez.votingplugin.control;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -16,12 +18,14 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.bencodez.votingplugin.control.BackendControlResultStore.StoredResult;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 class BackendControlConnectorProtocolTest {
 	@TempDir Path directory;
@@ -70,6 +74,132 @@ class BackendControlConnectorProtocolTest {
 		assertTrue(content.contains(BackendConfigurationService.REDACTED));
 	}
 
+	@Test void changedMalformedFilesAbortPendingRecoveryBeforeYamlParsing() throws Exception {
+		BackendConfigurationService configurations = new BackendConfigurationService(directory, () -> { });
+		for (String fileName : List.of("Config.yml", "Rewards/Daily.yml")) {
+			Path file = directory.resolve(fileName);
+			Files.createDirectories(file.getParent());
+			Files.writeString(file, "Money: 1\n");
+			String revision = configurations.read(fileName).revision();
+			JsonObject configuration = new JsonObject();
+			configuration.addProperty("domain", "file");
+			configuration.addProperty("fileName", fileName);
+			JsonObject intent = new JsonObject();
+			intent.addProperty("attemptId", "00000000-0000-0000-0000-000000000196");
+			intent.addProperty("revision", revision);
+			intent.add("configuration", configuration);
+			StoredResult pending = new StoredResult(intent, false, false, false);
+			Files.writeString(file, "Money: [\n");
+			assertThrows(IOException.class, () -> configurations.read(fileName));
+			assertNull(BackendControlConnector.committedInstalledForAttempt(configurations, pending, "attempt"));
+			assertTrue(BackendControlConnector.abortedIntent(pending).committed());
+			Files.writeString(file, "Money: 1\n");
+			assertEquals(revision, BackendControlConnector.committedInstalledForAttempt(configurations,
+					pending, "attempt").result().get("revision").getAsString());
+		}
+	}
+
+	@Test void missingOrUnsafeNamedRewardIntentTerminatesWithoutMaskingOtherIoFailure() throws Exception {
+		Path rewards = Files.createDirectory(directory.resolve("Rewards"));
+		Path daily = rewards.resolve("Daily.yml");
+		Files.writeString(daily, "Money: 1\n");
+		BackendConfigurationService configurations = new BackendConfigurationService(directory, () -> { });
+		String revision = configurations.read("Rewards/Daily.yml").revision();
+		JsonObject configuration = new JsonObject();
+		configuration.addProperty("domain", "file");
+		configuration.addProperty("fileName", "Rewards/Daily.yml");
+		JsonObject intent = new JsonObject();
+		intent.addProperty("attemptId", "00000000-0000-0000-0000-000000000197");
+		intent.addProperty("revision", revision);
+		intent.add("configuration", configuration);
+		StoredResult pending = new StoredResult(intent, false, false, false);
+		Files.delete(daily);
+		assertNull(BackendControlConnector.committedInstalledForAttempt(configurations, pending, "attempt"));
+		assertTrue(BackendControlConnector.abortedIntent(pending).committed());
+		Files.delete(rewards);
+		assertNull(BackendControlConnector.committedInstalledForAttempt(configurations, pending, "attempt"));
+		Files.createDirectory(rewards);
+		Files.createSymbolicLink(daily, directory.resolve("not-a-reward.yml"));
+		assertNull(BackendControlConnector.committedInstalledForAttempt(configurations, pending, "attempt"));
+		Files.delete(daily);
+		Files.createDirectory(daily);
+		assertNull(BackendControlConnector.committedInstalledForAttempt(configurations, pending, "attempt"));
+		Files.delete(daily);
+		Files.writeString(daily, "x".repeat(BackendConfigurationService.MAX_CONTENT_BYTES + 1));
+		assertNull(BackendControlConnector.committedInstalledForAttempt(configurations, pending, "attempt"));
+		Files.write(daily, new byte[] {(byte) 0xC3, (byte) 0x28});
+		assertNull(BackendControlConnector.committedInstalledForAttempt(configurations, pending, "attempt"));
+		Files.writeString(daily, "Money: 1\n");
+		assertEquals(revision, BackendControlConnector.committedInstalledForAttempt(configurations,
+				pending, "attempt").result().get("revision").getAsString());
+		assertFalse(BackendConfigurationService.namedRewardCannotBeConfirmed(new IOException("transient read failure")));
+	}
+
+	@Test void fifoNamedRewardIntentTerminatesWithoutOpeningItsBody() throws Exception {
+		Assumptions.assumeTrue(System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("linux"));
+		Assumptions.assumeTrue(Files.isExecutable(Path.of("/usr/bin/mkfifo")));
+		Path rewards = Files.createDirectory(directory.resolve("Rewards"));
+		Path daily = rewards.resolve("Daily.yml");
+		Files.writeString(daily, "Money: 1\n");
+		BackendConfigurationService configurations = new BackendConfigurationService(directory, () -> { });
+		String revision = configurations.read("Rewards/Daily.yml").revision();
+		JsonObject configuration = new JsonObject();
+		configuration.addProperty("domain", "file");
+		configuration.addProperty("fileName", "Rewards/Daily.yml");
+		JsonObject intent = new JsonObject();
+		intent.addProperty("revision", revision);
+		intent.add("configuration", configuration);
+		Files.delete(daily);
+		Process create = new ProcessBuilder("/usr/bin/mkfifo", daily.toString()).start();
+		assertTrue(create.waitFor(5, TimeUnit.SECONDS));
+		assertEquals(0, create.exitValue());
+		assertNull(BackendControlConnector.committedInstalledForAttempt(configurations,
+				new StoredResult(intent, false, false, false), "attempt"));
+	}
+
+	@Test void namedRewardRecoveryIgnoresUnrelatedInvalidInventoryEntries() throws Exception {
+		Path rewards = Files.createDirectory(directory.resolve("Rewards"));
+		Files.writeString(rewards.resolve("Daily.yml"), "Money: 1\n");
+		BackendConfigurationService configurations = new BackendConfigurationService(directory, () -> { });
+		String revision = configurations.read("Rewards/Daily.yml").revision();
+		JsonObject configuration = new JsonObject();
+		configuration.addProperty("domain", "file");
+		configuration.addProperty("fileName", "Rewards/Daily.yml");
+		JsonObject intent = new JsonObject();
+		intent.addProperty("attemptId", "00000000-0000-0000-0000-000000000198");
+		intent.addProperty("revision", revision);
+		intent.add("configuration", configuration);
+		StoredResult pending = new StoredResult(intent, false, false, false);
+
+		Path unsafe = rewards.resolve("Unrelated.yml");
+		Files.createSymbolicLink(unsafe, directory.resolve("outside.yml"));
+		assertThrows(IOException.class, () -> configurations.read("Rewards/Daily.yml"));
+		assertEquals(revision, BackendControlConnector.committedInstalledForAttempt(configurations,
+				pending, "attempt").result().get("revision").getAsString());
+		Files.delete(unsafe);
+
+		Path ambiguous = rewards.resolve("daily.yml");
+		Files.writeString(ambiguous, "Money: 2\n");
+		assertThrows(IOException.class, () -> configurations.read("Rewards/Daily.yml"));
+		assertNull(BackendControlConnector.committedInstalledForAttempt(configurations, pending, "attempt"));
+		assertTrue(BackendControlConnector.abortedIntent(pending).committed());
+		Files.delete(ambiguous);
+
+		Path oversized = rewards.resolve("Oversized.yml");
+		Files.writeString(oversized, "x".repeat(BackendConfigurationService.MAX_CONTENT_BYTES + 1));
+		assertThrows(IOException.class, () -> configurations.read("Rewards/Daily.yml"));
+		assertEquals(revision, BackendControlConnector.committedInstalledForAttempt(configurations,
+				pending, "attempt").result().get("revision").getAsString());
+		Files.delete(oversized);
+
+		for (int index = 0; index < BackendConfigurationService.MAX_REWARD_FILES; index++) {
+			Files.writeString(rewards.resolve("Extra" + index + ".yml"), "Money: 0\n");
+		}
+		assertThrows(IOException.class, () -> configurations.read("Rewards/Daily.yml"));
+		assertEquals(revision, BackendControlConnector.committedInstalledForAttempt(configurations,
+				pending, "attempt").result().get("revision").getAsString());
+	}
+
 	@Test void registrationRequiresFileControlButAllowsQuickSetupToRemainOptional() {
 		assertThrows(RuntimeException.class, () -> BackendControlConnector.requireFileCapability(false));
 		assertDoesNotThrow(() -> BackendControlConnector.requireFileCapability(true));
@@ -77,13 +207,17 @@ class BackendControlConnectorProtocolTest {
 
 	@Test void registrationAdvertisesCommentPreservingFilesAsAnOptionalCapability() {
 		JsonObject registration = new JsonObject();
-		BackendControlConnector.addCapabilities(registration);
+		BackendControlConnector.addCapabilities(registration, true);
 
 		JsonArray advertised = registration.getAsJsonArray("capabilities");
 		assertTrue(advertised.asList().stream()
 				.anyMatch(value -> "config.file-comments.v1".equals(value.getAsString())));
 		assertTrue(advertised.asList().stream()
 				.anyMatch(value -> "config.vote-sites-sync.v1".equals(value.getAsString())));
+		assertTrue(advertised.asList().stream()
+				.anyMatch(value -> "config.quick-setup.v2".equals(value.getAsString())));
+		assertTrue(advertised.asList().stream()
+				.anyMatch(value -> "config.reward-files.v1".equals(value.getAsString())));
 		assertTrue(advertised.asList().stream()
 				.anyMatch(value -> "data.inspect.v1".equals(value.getAsString())));
 		JsonArray required = registration.getAsJsonArray("requiredCapabilities");
@@ -93,6 +227,15 @@ class BackendControlConnectorProtocolTest {
 				.anyMatch(value -> "config.file-comments.v1".equals(value.getAsString())));
 		assertFalse(required.asList().stream()
 				.anyMatch(value -> "data.inspect.v1".equals(value.getAsString())));
+	}
+
+	@Test void unsupportedFilesystemDoesNotAdvertiseNamedRewards() {
+		JsonObject registration = new JsonObject();
+		BackendControlConnector.addCapabilities(registration, false);
+		assertFalse(registration.getAsJsonArray("capabilities").asList().stream()
+				.anyMatch(value -> "config.reward-files.v1".equals(value.getAsString())));
+		assertTrue(registration.getAsJsonArray("capabilities").asList().stream()
+				.anyMatch(value -> "config.files.v1".equals(value.getAsString())));
 	}
 
 	@Test void heartbeatRetainsOmittedCapabilitiesAndHonorsExplicitReplacement() {
@@ -117,10 +260,32 @@ class BackendControlConnectorProtocolTest {
 	}
 
 	@Test void voteSitesSyncRequiresBothNegotiatedCapabilities() {
-		assertFalse(BackendControlConnector.quickSetupCapabilityAccepted("sync-vote-sites", true, false));
-		assertFalse(BackendControlConnector.quickSetupCapabilityAccepted("sync-vote-sites", false, true));
-		assertTrue(BackendControlConnector.quickSetupCapabilityAccepted("sync-vote-sites", true, true));
-		assertTrue(BackendControlConnector.quickSetupCapabilityAccepted("common-settings", true, false));
+		assertFalse(BackendControlConnector.quickSetupCapabilityAccepted("sync-vote-sites", true, false, false));
+		assertFalse(BackendControlConnector.quickSetupCapabilityAccepted("sync-vote-sites", false, false, true));
+		assertTrue(BackendControlConnector.quickSetupCapabilityAccepted("sync-vote-sites", true, false, true));
+		assertTrue(BackendControlConnector.quickSetupCapabilityAccepted("common-settings", true, false, false));
+	}
+
+	@Test void votePartyRequiresItsVersionedCapability() {
+		assertFalse(BackendControlConnector.quickSetupCapabilityAccepted("vote-party", true, false, false));
+		assertFalse(BackendControlConnector.quickSetupCapabilityAccepted("vote-party", false, true, false));
+		assertTrue(BackendControlConnector.quickSetupCapabilityAccepted("vote-party", true, true, false));
+	}
+
+	@Test void legacyVotePartyOptionsUseV1ButEnabledRequiresV2() {
+		assertTrue(BackendControlConnector.quickSetupCapabilityAccepted("vote-party", true, false, false,
+				Map.of("threshold", "10")));
+		assertFalse(BackendControlConnector.quickSetupCapabilityAccepted("vote-party", true, false, false,
+				Map.of("enabled", "true")));
+		assertFalse(BackendControlConnector.quickSetupCapabilityAccepted("vote-party", false, true, false,
+				Map.of("enabled", "true")));
+		assertTrue(BackendControlConnector.quickSetupCapabilityAccepted("vote-party", true, true, false,
+				Map.of("enabled", "true")));
+		Map<String, String> state = Map.of("enabled", "false", "votesRequired", "20");
+		assertEquals(Map.of("votesRequired", "20"),
+				BackendControlConnector.resultQuickReadOptions("vote-party", state, Map.of()));
+		assertEquals(state, BackendControlConnector.resultQuickReadOptions("vote-party", state,
+				Map.of("enabled", "false")));
 	}
 
 	@Test void rewardBuilderResultsKeepOnlyTheSafeRecoveryTarget() {
@@ -146,6 +311,26 @@ class BackendControlConnectorProtocolTest {
 				BackendControlConnector.reloadFailureMessage(failure));
 		assertFalse(BackendControlConnector.operationFailureMessage("READ", failure).contains("/srv"));
 		assertFalse(BackendControlConnector.reloadFailureMessage(failure).contains("secret"));
+	}
+
+	@Test void unavailableConfigurationReadsPreserveV1CodeAndUseASafeReason() {
+		// Existing config.files.v1 peers retain the negotiated code while the
+		// message gives a useful reason without exposing sensitive paths.
+		assertEquals("READ_FAILED", BackendControlConnector.operationFailureCode("READ",
+				new IOException("/srv/private/Config.yml")));
+		assertEquals("Configuration file is unavailable or unreadable",
+				BackendControlConnector.operationFailureMessage("READ", new IOException("/srv/private/Config.yml")));
+	}
+
+	@Test void namedRewardInventoryRequiresItsExplicitCapability() {
+		assertTrue(ControlInspectionService.rewardFileInventoryQuery(JsonParser.parseString(
+				"{\"kind\":\"reward-file-inventory\"}").getAsJsonObject()));
+		assertFalse(ControlInspectionService.rewardFileInventoryQuery(JsonParser.parseString(
+				"{\"kind\":\"overview\"}").getAsJsonObject()));
+		BackendControlConnector connector = org.mockito.Mockito.mock(BackendControlConnector.class,
+				org.mockito.Mockito.CALLS_REAL_METHODS);
+		assertEquals("UNAVAILABLE", connector.executeInspection(JsonParser.parseString(
+				"{\"kind\":\"reward-file-inventory\"}").getAsJsonObject()).code());
 	}
 
 	@Test void unexpectedInspectionFailureMessagesNeverExposeTheCause() {
