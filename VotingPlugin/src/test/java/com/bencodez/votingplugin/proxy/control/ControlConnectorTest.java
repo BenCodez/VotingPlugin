@@ -320,6 +320,31 @@ class ControlConnectorTest {
 		assertFalse(ControlConnector.requiresRuntimeReplacement(new StoredResult(result, true, false)));
 	}
 
+	@Test void lowercaseHttpProxyMethodRequiresV2ForEveryOperationPhase() throws Exception {
+		Field accepted = ControlConnector.class.getDeclaredField("acceptedCapabilities");
+		accepted.setAccessible(true);
+		Method execute = ControlConnector.class.getDeclaredMethod("executeTask", UUID.class, JsonObject.class);
+		execute.setAccessible(true);
+		for (String method : List.of("http", " HTTP ")) {
+			for (String type : List.of("READ", "PREVIEW", "APPLY")) {
+				JsonObject task = JsonParser.parseString("{\"configuration\":{\"domain\":\"quick-setup\","
+						+ "\"preset\":\"proxy-method\",\"options\":{\"method\":\"" + method + "\"}}}")
+						.getAsJsonObject();
+				task.addProperty("type", type);
+				accepted.set(connector, Set.of("config.proxy-method.v1"));
+				Object rejected = ((CompletableFuture<?>) execute.invoke(connector, UUID.randomUUID(), task)).join();
+				Method json = rejected.getClass().getDeclaredMethod("json");
+				json.setAccessible(true);
+				assertTrue(((JsonObject) json.invoke(rejected)).get("message").getAsString()
+						.contains("not negotiated"));
+				accepted.set(connector, Set.of("config.proxy-method.v2"));
+				Object acceptedResult = ((CompletableFuture<?>) execute.invoke(connector, UUID.randomUUID(), task)).join();
+				assertTrue(((JsonObject) json.invoke(acceptedResult)).get("message").getAsString()
+						.contains("unavailable"));
+			}
+		}
+	}
+
 	@Test void proxyFileCapabilityAdvertisesAndDispatchesMaskedReadResults() throws Exception {
 		Path file = dataDirectory.resolve(ProxyConfigurationFileService.FILE_NAME);
 		Files.writeString(file, "Database:\n  Password: local-secret\nProxy:\n  Enabled: true\n");

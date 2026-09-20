@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
@@ -23,6 +24,8 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.regex.Pattern;
 
@@ -53,7 +56,7 @@ public final class BackendControlConnector implements AutoCloseable {
 	private static final Pattern NODE_ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,63}");
 	private static final Set<String> CAPABILITIES = Set.of("config.files.v1", "config.file-comments.v1",
 			"config.quick-setup.v1", "config.quick-setup.v2", "config.vote-sites-sync.v1",
-			"config.proxy-method.v1", "config.reward-files.v1", "data.inspect.v1");
+			"config.proxy-method.v1", "config.proxy-method.v2", "config.reward-files.v1", "data.inspect.v1");
 	private static final Set<String> DEPLOYMENT_TASK_FIELDS = Set.of("deploymentId", "artifactId", "sha256", "size", "attemptId");
 
 	private final VotingPluginMain plugin;
@@ -75,11 +78,13 @@ public final class BackendControlConnector implements AutoCloseable {
 	private final AtomicBoolean running = new AtomicBoolean();
 	private final AtomicBoolean inspecting = new AtomicBoolean();
 	private final Object operationLifecycle = new Object();
+	private final AtomicReference<PendingBackendProxyRollback> pendingBackendProxyRollback = new AtomicReference<>();
 	private final Object journalLifecycle = new Object();
 	private volatile boolean closed;
 	private volatile boolean registered;
 	private volatile boolean operationsAccepted;
 	private volatile boolean quickSetupsAccepted;
+	private volatile boolean proxyMethodV2Accepted;
 	private volatile boolean votePartySetupsAccepted;
 	private volatile boolean voteSitesSyncAccepted;
 	private volatile boolean rewardFilesAccepted;
@@ -153,20 +158,149 @@ public final class BackendControlConnector implements AutoCloseable {
 	}
 
 	private void reloadConfiguration(String fileName, String expectedContent) throws Exception {
-		reloadConfiguration(fileName, expectedContent, null);
+		reloadConfiguration(fileName, expectedContent, null, false);
 	}
 
 	private void reloadConfiguration(String fileName, String expectedContent,
 			BackendConfigurationService.NamedRewardGuard guard) throws Exception {
-		reloadOnServerThread(() -> {
-			// Publication happens off-thread, but the plugin reads Rewards by path
-			// on this owner thread. Recheck the pinned identity at that boundary.
-			if (guard != null) guard.verify();
-			plugin.reloadFromControl();
-			if (guard != null) guard.verify();
-			if (BackendConfigurationService.managedRewardFile(fileName)) verifyNamedRewardLoaded(fileName, expectedContent);
-			if ("BungeeSettings.yml".equals(fileName)) plugin.restartBackendProxyHandler();
-		});
+		reloadConfiguration(fileName, expectedContent, guard, false);
+	}
+
+	/** Reuses the split restart lifecycle while retaining proxy-method's narrow reload scope. */
+	private void reloadConfiguration(String fileName, String expectedContent,
+			BackendConfigurationService.NamedRewardGuard guard, boolean proxyMethodOnly) throws Exception {
+		finishPendingBackendProxyRollback();
+		long validationDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(29);
+		AtomicBoolean preparationAbandoned = new AtomicBoolean();
+		AtomicInteger preparationState = new AtomicInteger();
+		CountDownLatch preparationSettled = new CountDownLatch(1);
+		CountDownLatch rollbackAbortSettled = new CountDownLatch(1);
+		AtomicReference<VotingPluginMain.BackendProxyRestart> preparedRestart = new AtomicReference<>();
+		Future<VotingPluginMain.BackendProxyRestart> preparation;
+		synchronized (operationLifecycle) {
+			if (closed) throw new IllegalStateException("Bukkit Control connector is stopping");
+			preparation = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+				try {
+					if (!preparationState.compareAndSet(0, 1)) return null;
+					if (guard != null) guard.verify();
+					if (!proxyMethodOnly) plugin.reloadFromControl();
+					if (guard != null) guard.verify();
+					if (BackendConfigurationService.managedRewardFile(fileName)) {
+						verifyNamedRewardLoaded(fileName, expectedContent);
+					}
+					VotingPluginMain.BackendProxyRestart prepared;
+					try {
+						if (!"BungeeSettings.yml".equals(fileName)) prepared = null;
+						else if (proxyMethodOnly) prepared = plugin.prepareBackendProxyMethodRestartFromControl();
+						else prepared = plugin.prepareBackendProxyHandlerRestart();
+					} catch (VotingPluginMain.BackendProxyRestartPreparationException failure) {
+						preparedRestart.set(failure.restart());
+						throw failure;
+					}
+					preparedRestart.set(prepared);
+					return prepared;
+				} finally {
+					try {
+						VotingPluginMain.BackendProxyRestart prepared = preparedRestart.get();
+						if (preparationAbandoned.get()) {
+							// The Control worker performs transport restoration after this
+							// Bukkit callback has marked the staged handler unavailable.
+							if (prepared != null && prepared.requiresWorkerRollback()) {
+								plugin.requestBackendProxyHandlerRestartAbandonment(prepared);
+							} else if (prepared != null) {
+								try {
+									plugin.abortBackendProxyHandlerRestart(prepared);
+								} finally { rollbackAbortSettled.countDown(); }
+							}
+						}
+					} finally {
+						preparationState.set(2);
+						preparationSettled.countDown();
+					}
+				}
+			});
+			activeReload = preparation;
+		}
+		VotingPluginMain.BackendProxyRestart restart = null;
+		Future<?> publication = null;
+		try {
+			restart = preparation.get(remaining(validationDeadline), TimeUnit.NANOSECONDS);
+			if (restart == null) return;
+			// Network enrollment/readiness is deliberately awaited on this Control worker,
+			// never on Bukkit's primary thread.
+			plugin.validateBackendProxyHandlerRestart(restart, validationDeadline);
+			VotingPluginMain.BackendProxyRestart prepared = restart;
+			publication = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+				plugin.completeBackendProxyHandlerRestart(prepared);
+				return null;
+			});
+			synchronized (operationLifecycle) {
+				if (closed) publication.cancel(true);
+				activeReload = publication;
+			}
+			publication.get(remaining(validationDeadline), TimeUnit.NANOSECONDS);
+		} catch (Exception failure) {
+			// Timed-out Bukkit work must not remain queued ahead of configuration rollback.
+			preparationAbandoned.set(true);
+			boolean abandonedBeforePreparation = preparationState.compareAndSet(0, 3);
+			preparation.cancel(false);
+			boolean publicationCommitted = publication != null && restart != null
+					&& !plugin.requestBackendProxyHandlerRestartAbandonment(restart);
+			if (publication != null) publication.cancel(false);
+			// A publication that won the synchronized commit race is the successful
+			// runtime state; rolling its YAML back would create a split-brain config.
+			if (publicationCommitted) return;
+			PendingBackendProxyRollback pendingRollback = null;
+			if (restart == null && !abandonedBeforePreparation) {
+				pendingRollback = new PendingBackendProxyRollback(preparationSettled, rollbackAbortSettled, preparedRestart);
+				pendingBackendProxyRollback.set(pendingRollback);
+				try {
+					if (!preparationSettled.await(40, TimeUnit.SECONDS))
+						throw new java.util.concurrent.TimeoutException(
+								"Bukkit configuration preparation did not settle during rollback");
+				} catch (Exception preparationFailure) {
+					failure.addSuppressed(preparationFailure);
+					throw failure;
+				}
+			}
+			if (restart == null) restart = preparedRestart.get();
+			if (restart != null) {
+				if (pendingRollback == null) {
+					pendingRollback = new PendingBackendProxyRollback(
+							preparationSettled, rollbackAbortSettled, preparedRestart);
+					pendingBackendProxyRollback.set(pendingRollback);
+				}
+				VotingPluginMain.BackendProxyRestart prepared = restart;
+				try {
+					if (prepared.requiresWorkerRollback()) {
+						// This worker owns the exclusive socket/MQTT teardown and restoration.
+						// Bukkit state was already fenced by requestBackendProxyHandlerRestartAbandonment.
+						plugin.abortBackendProxyHandlerRestart(prepared);
+						rollbackAbortSettled.countDown();
+					} else {
+						Future<?> abort = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+							try { plugin.abortBackendProxyHandlerRestart(prepared); }
+							finally { rollbackAbortSettled.countDown(); }
+							return null;
+						});
+						abort.get(5, TimeUnit.SECONDS);
+					}
+					finishPendingBackendProxyRollback();
+				} catch (Exception cleanupFailure) {
+					rollbackAbortSettled.countDown();
+					failure.addSuppressed(cleanupFailure);
+				}
+			}
+			if (pendingRollback != null && restart == null) {
+				rollbackAbortSettled.countDown();
+				pendingBackendProxyRollback.compareAndSet(pendingRollback, null);
+			}
+			throw failure;
+		} finally {
+			synchronized (operationLifecycle) {
+				if (activeReload == preparation || activeReload == publication) activeReload = null;
+			}
+		}
 	}
 
 	private void reloadConfiguration(String fileName) throws Exception {
@@ -216,26 +350,40 @@ public final class BackendControlConnector implements AutoCloseable {
 	}
 
 	private void reloadProxyMethod(String ignored) throws Exception {
-		reloadOnServerThread(plugin::reloadBackendProxyMethodFromControl);
+		// Proxy-method APPLY can select HTTP or Redis. Reuse the BungeeSettings
+		// split lifecycle so Bukkit only prepares/publishes while validation and
+		// bounded transport handoff waits remain on this connector worker.
+		reloadConfiguration("BungeeSettings.yml", null, null, true);
 	}
 
-	private void reloadOnServerThread(ThrowingRunnable action) throws Exception {
-		Future<?> reload;
-		synchronized (operationLifecycle) {
-			if (closed) throw new IllegalStateException("Bukkit Control connector is stopping");
-			reload = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> { action.run(); return null; });
-			activeReload = reload;
+	private void finishPendingBackendProxyRollback() throws Exception {
+		PendingBackendProxyRollback pending = pendingBackendProxyRollback.get();
+		if (pending == null) return;
+		if (!pending.preparationSettled().await(40, TimeUnit.SECONDS))
+			throw new java.util.concurrent.TimeoutException(
+					"Previous Bukkit configuration preparation is still rolling back");
+		VotingPluginMain.BackendProxyRestart restart = pending.preparedRestart().get();
+		if (restart != null) {
+			if (!pending.rollbackAbortSettled().await(40, TimeUnit.SECONDS))
+				throw new java.util.concurrent.TimeoutException(
+						"Previous Bukkit configuration abort is still pending");
+			// Keep credential-journal I/O off Bukkit's primary thread and finish it
+			// before the configuration service starts its automatic backup reload.
+			plugin.awaitBackendProxyHandlerRollback(restart,
+					System.nanoTime() + TimeUnit.SECONDS.toNanos(40));
 		}
-		try {
-			reload.get(30, TimeUnit.SECONDS);
-		} finally {
-			synchronized (operationLifecycle) {
-				if (activeReload == reload) activeReload = null;
-			}
-		}
+		pendingBackendProxyRollback.compareAndSet(pending, null);
 	}
 
-	@FunctionalInterface private interface ThrowingRunnable { void run() throws Exception; }
+	private record PendingBackendProxyRollback(CountDownLatch preparationSettled,
+			CountDownLatch rollbackAbortSettled,
+			AtomicReference<VotingPluginMain.BackendProxyRestart> preparedRestart) { }
+
+	private static long remaining(long deadlineNanos) throws java.util.concurrent.TimeoutException {
+		long remaining = deadlineNanos - System.nanoTime();
+		if (remaining <= 0L) throw new java.util.concurrent.TimeoutException("Bukkit configuration reload timed out");
+		return remaining;
+	}
 
 	public static BackendControlConnector create(VotingPluginMain plugin) throws IOException {
 		Path root = plugin.getDataFolder().toPath().toAbsolutePath().normalize();
@@ -479,6 +627,7 @@ public final class BackendControlConnector implements AutoCloseable {
 			}
 			operationsAccepted = negotiatedCapability(node, "config.files.v1", operationsAccepted);
 			quickSetupsAccepted = negotiatedCapability(node, "config.quick-setup.v1", quickSetupsAccepted);
+			proxyMethodV2Accepted = negotiatedCapability(node, "config.proxy-method.v2", proxyMethodV2Accepted);
 			votePartySetupsAccepted = negotiatedCapability(node, "config.quick-setup.v2", votePartySetupsAccepted);
 			voteSitesSyncAccepted = negotiatedCapability(node, "config.vote-sites-sync.v1", voteSitesSyncAccepted);
 			rewardFilesAccepted = configurations.supportsNamedRewardFiles()
@@ -806,8 +955,9 @@ public final class BackendControlConnector implements AutoCloseable {
 		} catch (BackendConfigurationService.StaleRevisionException e) {
 			return TaskResult.failure("STALE_REVISION", "Configuration changed after preview");
 		} catch (BackendConfigurationService.ApplyFailureException e) {
-			logConfigurationFailure("reload", e);
-			return TaskResult.failure("RELOAD_FAILED", reloadFailureMessage(e), e.rolledBack());
+			logConfigurationFailure(e.reloadAttempted() ? "reload" : "write", e);
+			return TaskResult.failure(e.reloadAttempted() ? "RELOAD_FAILED" : "WRITE_FAILED",
+					applyFailureMessage(e), e.rolledBack());
 		} catch (IllegalArgumentException e) {
 			return TaskResult.failure("VALIDATION_ERROR", e.getMessage());
 		} catch (Exception e) {
@@ -827,16 +977,41 @@ public final class BackendControlConnector implements AutoCloseable {
 	}
 
 	static String operationFailureMessage(String type, Throwable failure) {
-		if ("READ".equals(type) && failure instanceof IOException) {
+		if ("READ".equals(type)) {
+			if (hasCause(failure, java.nio.file.NoSuchFileException.class)) {
+				return "The managed configuration file does not exist on this backend";
+			}
+			if (hasCause(failure, java.nio.file.AccessDeniedException.class)
+					|| hasCause(failure, SecurityException.class)) {
+				return "The managed configuration file is not readable by the backend";
+			}
+			BackendConfigurationService.ConfigurationReadException readFailure = cause(
+					failure, BackendConfigurationService.ConfigurationReadException.class);
+			if (readFailure != null) return switch (readFailure.failure()) {
+			case TOO_LARGE -> "The managed configuration file exceeds the 512 KiB limit";
+			case INVALID_ENCODING -> "The managed configuration file is not valid UTF-8";
+			case UNSAFE -> "The managed configuration path is not a safe regular file";
+			};
 			return "Configuration file is unavailable or unreadable";
 		}
-		if ("READ".equals(type)) return "Configuration read failed; see the backend log";
-		if ("PREVIEW".equals(type)) return "Configuration preview failed; see the backend log";
-		return "Configuration apply failed; see the backend log";
+		if ("PREVIEW".equals(type)) return "The backend could not prepare a configuration preview";
+		return "The backend could not apply the managed configuration";
 	}
 
-	static String reloadFailureMessage(Throwable ignored) {
-		return "Configuration reload failed; see the backend log";
+	static String applyFailureMessage(BackendConfigurationService.ApplyFailureException failure) {
+		if (!failure.reloadAttempted()) {
+			return failure.rolledBack() ? "Configuration write failed; the previous file was restored"
+					: "Configuration write failed before runtime reload";
+		}
+		String reason = hasCause(failure, java.util.concurrent.TimeoutException.class)
+				|| hasCause(failure, java.net.SocketTimeoutException.class)
+				? "the configured transport did not become ready before its deadline"
+				: hasCause(failure, java.net.ConnectException.class)
+				? "the configured transport endpoint was unavailable"
+				: "the backend runtime rejected the new configuration";
+		return failure.rolledBack()
+				? "Runtime reload failed because " + reason + "; the previous file was restored"
+				: "Runtime reload failed because " + reason + "; automatic rollback did not complete";
 	}
 
 	static String operationFailureCode(String type) {
@@ -844,9 +1019,32 @@ public final class BackendControlConnector implements AutoCloseable {
 	}
 
 	static String operationFailureCode(String type, Throwable failure) {
+		if ("READ".equals(type) && hasCause(failure, java.nio.file.NoSuchFileException.class)) {
+			return "CONFIGURATION_MISSING";
+		}
+		if ("READ".equals(type) && (hasCause(failure, java.nio.file.AccessDeniedException.class)
+				|| hasCause(failure, SecurityException.class))) return "CONFIGURATION_UNREADABLE";
+		BackendConfigurationService.ConfigurationReadException readFailure = cause(
+				failure, BackendConfigurationService.ConfigurationReadException.class);
+		if ("READ".equals(type) && readFailure != null) return switch (readFailure.failure()) {
+		case TOO_LARGE -> "CONFIGURATION_TOO_LARGE";
+		case INVALID_ENCODING -> "CONFIGURATION_INVALID_ENCODING";
+		case UNSAFE -> "CONFIGURATION_UNSAFE";
+		};
 		if ("READ".equals(type)) return "READ_FAILED";
 		if ("PREVIEW".equals(type)) return "PREVIEW_FAILED";
 		return "APPLY_FAILED";
+	}
+
+	private static boolean hasCause(Throwable failure, Class<? extends Throwable> type) {
+		return cause(failure, type) != null;
+	}
+
+	private static <T extends Throwable> T cause(Throwable failure, Class<T> type) {
+		for (Throwable current = failure; current != null; current = current.getCause()) {
+			if (type.isInstance(current)) return type.cast(current);
+		}
+		return null;
 	}
 
 	private TaskResult executeFile(UUID operationId, String type, JsonObject configuration, JsonObject task)
@@ -883,6 +1081,11 @@ public final class BackendControlConnector implements AutoCloseable {
 			throws IOException {
 		String preset = string(configuration, "preset");
 		Map<String, String> options = options(configuration.getAsJsonObject("options"));
+		if ("proxy-method".equals(preset)
+				&& !proxyMethodApplyCapabilityAccepted(options.getOrDefault("method", "PLUGINMESSAGING"),
+						proxyMethodV2Accepted)) {
+			return TaskResult.failure("UNSUPPORTED_TASK", "The HTTP proxy method capability was not negotiated");
+		}
 		if (!quickSetupCapabilityAccepted(preset, quickSetupsAccepted, votePartySetupsAccepted,
 				voteSitesSyncAccepted, options)) {
 			return TaskResult.failure("UNSUPPORTED_TASK", "The required quick setup capability was not negotiated");
@@ -946,6 +1149,10 @@ public final class BackendControlConnector implements AutoCloseable {
 		}
 		return quickSetupCapabilityAccepted(preset, quickSetupsAccepted, votePartySetupsAccepted,
 			voteSitesSyncAccepted);
+	}
+
+	static boolean proxyMethodApplyCapabilityAccepted(String method, boolean proxyMethodV2Accepted) {
+		return !"HTTP".equalsIgnoreCase(method) || proxyMethodV2Accepted;
 	}
 
 	private Response send(String method, String path, JsonObject body) throws Exception {

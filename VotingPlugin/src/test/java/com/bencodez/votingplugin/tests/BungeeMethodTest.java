@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.tests;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -21,5 +22,13 @@ public class BungeeMethodTest {
 				assertTrue(method.supportsBackendPresence(), method.toString());
 			}
 		}
+	}
+
+	@Test
+	public void httpMethodNameIsCaseInsensitive() {
+		assertEquals(BungeeMethod.HTTP, BungeeMethod.getByName("http"));
+		assertEquals(BungeeMethod.HTTP, BungeeMethod.getByName("HTTP"));
+		assertFalse(BungeeMethod.HTTP.requiresPlayerOnline());
+		assertTrue(BungeeMethod.HTTP.supportsBackendPresence());
 	}
 }

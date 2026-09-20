@@ -157,6 +157,10 @@
                                 ${project.groupId}.votingplugin.bstats</shadedPattern>
                         </relocation>
                         <relocation>
+                            <pattern>org.bouncycastle</pattern>
+                            <shadedPattern>${project.groupId}.votingplugin.bouncycastle</shadedPattern>
+                        </relocation>
+                        <relocation>
                             <pattern>xyz.upperlevel.spigot</pattern>
                             <shadedPattern>
                                 ${project.groupId}.votingplugin.advancedcore.xyz.upperlevel.spigot</shadedPattern>
@@ -209,10 +213,15 @@
                                     <artifact>com.bencodez:simpleapi</artifact>
                                     <excludes>
                                         <exclude>org/bouncycastle/**</exclude>
-                                        <exclude>com/bencodez/simpleapi/servercomm/http/**</exclude>
                                         <exclude>redis/clients/**</exclude>
                                         <exclude>org/eclipse/paho/**</exclude>
                                         <exclude>META-INF/versions/**</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>org.bouncycastle:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/versions/25/**</exclude>
                                     </excludes>
                                 </filter>
                                 <filter>
@@ -432,6 +441,12 @@
             <artifactId>gson</artifactId>
             <version>2.14.0</version>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.bencodez</groupId>
+            <artifactId>simpleapi</artifactId>
+            <version>1.0.2-SNAPSHOT</version>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>

@@ -65,6 +65,7 @@ public final class ControlConnector implements AutoCloseable {
 	private static final String COMMUNICATION_TEST_CAPABILITY = "config.transport-test.v1";
 	private static final String COMMUNICATION_TEST_PRESET = "communication-test";
 	private static final String PROXY_METHOD_CAPABILITY = "config.proxy-method.v1";
+	private static final String PROXY_METHOD_HTTP_CAPABILITY = "config.proxy-method.v2";
 	private static final String PROXY_FILE_CAPABILITY = "config.proxy-files.v1";
 	private static final String PROXY_METHOD_PRESET = "proxy-method";
 	private static final String INTERNAL_OPERATION_TYPE = "_controlOperationType";
@@ -603,7 +604,8 @@ public final class ControlConnector implements AutoCloseable {
 			}
 			acceptedCapabilities = Set.copyOf(negotiated);
 			configurationAccepted = acceptedCapabilities.stream().anyMatch(Set.of(CONFIGURATION_CAPABILITY,
-					COMMUNICATION_TEST_CAPABILITY, PROXY_METHOD_CAPABILITY, PROXY_FILE_CAPABILITY)::contains);
+					COMMUNICATION_TEST_CAPABILITY, PROXY_METHOD_CAPABILITY, PROXY_METHOD_HTTP_CAPABILITY,
+					PROXY_FILE_CAPABILITY)::contains);
 			deploymentsAccepted = deployments != null
 					&& acceptedCapabilities.contains(PluginDeploymentService.CAPABILITY);
 		}
@@ -982,7 +984,7 @@ public final class ControlConnector implements AutoCloseable {
 		if (isCommunicationTest(requested)) return acceptedCapabilities.contains(COMMUNICATION_TEST_CAPABILITY)
 				? executeCommunicationTest(task, requested)
 				: completed(TaskResult.failure("UNSUPPORTED", "Communication testing was not negotiated"));
-		if (isProxyMethod(requested)) return acceptedCapabilities.contains(PROXY_METHOD_CAPABILITY)
+		if (isProxyMethod(requested)) return acceptedCapabilities.contains(proxyMethodCapability(requested))
 				? executeProxyMethod(operationId, task, requested)
 				: completed(TaskResult.failure("UNSUPPORTED", "Proxy method control was not negotiated"));
 		if (!acceptedCapabilities.contains(CONFIGURATION_CAPABILITY)) {
@@ -1169,8 +1171,15 @@ public final class ControlConnector implements AutoCloseable {
 	private static String requiredCapability(JsonObject configuration) {
 		if (isProxyFile(configuration)) return PROXY_FILE_CAPABILITY;
 		if (isCommunicationTest(configuration)) return COMMUNICATION_TEST_CAPABILITY;
-		if (isProxyMethod(configuration)) return PROXY_METHOD_CAPABILITY;
+		if (isProxyMethod(configuration)) return proxyMethodCapability(configuration);
 		return CONFIGURATION_CAPABILITY;
+	}
+
+	private static String proxyMethodCapability(JsonObject configuration) {
+		JsonObject options = configuration == null ? null : configuration.getAsJsonObject("options");
+		return options != null && options.has("method")
+				&& "HTTP".equalsIgnoreCase(options.get("method").getAsString().trim())
+				? PROXY_METHOD_HTTP_CAPABILITY : PROXY_METHOD_CAPABILITY;
 	}
 
 	private static CompletableFuture<TaskResult> completed(TaskResult result) {
@@ -1269,7 +1278,10 @@ public final class ControlConnector implements AutoCloseable {
 		BASE_CAPABILITIES.stream().sorted().forEach(advertised::add);
 		if (configurationReady) advertised.add(CONFIGURATION_CAPABILITY);
 		if (communicationReady) advertised.add(COMMUNICATION_TEST_CAPABILITY);
-		if (methodReady) advertised.add(PROXY_METHOD_CAPABILITY);
+		if (methodReady) {
+			advertised.add(PROXY_METHOD_CAPABILITY);
+			advertised.add(PROXY_METHOD_HTTP_CAPABILITY);
+		}
 		if (fileReady) advertised.add(PROXY_FILE_CAPABILITY);
 		if (deploymentReady) advertised.add(PluginDeploymentService.CAPABILITY);
 		body.add("capabilities", advertised);

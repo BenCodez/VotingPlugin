@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -228,6 +229,20 @@ public class ServiceSiteHandler {
 					throw new java.io.UncheckedIOException(e);
 				}
 			});
+			AtomicBoolean finished = new AtomicBoolean();
+			Thread deadline = new Thread(() -> {
+				try {
+					TimeUnit.NANOSECONDS.sleep(unit.toNanos(timeout));
+					if (finished.compareAndSet(false, true)) input.close();
+				} catch (InterruptedException ignored) {
+					Thread.currentThread().interrupt();
+				} catch (IOException ignored) {
+					// The reader will report the resulting failure to the caller.
+				}
+			}, "VotingPlugin-ServiceSite-ReadDeadline");
+			deadline.setDaemon(true);
+			deadline.setContextClassLoader(ClassLoader.getPlatformClassLoader());
+			deadline.start();
 			try {
 				return read.get(timeout, unit);
 			} catch (TimeoutException e) {
@@ -242,6 +257,9 @@ public class ServiceSiteHandler {
 				read.cancel(true);
 				Thread.currentThread().interrupt();
 				throw new IOException("Interrupted while reading service site response", e);
+			} finally {
+				finished.set(true);
+				deadline.interrupt();
 			}
 		}
 	}

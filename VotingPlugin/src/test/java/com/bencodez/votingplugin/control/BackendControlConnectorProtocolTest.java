@@ -298,6 +298,35 @@ class BackendControlConnectorProtocolTest {
 		assertTrue(BackendControlConnector.quickSetupCapabilityAccepted("common-settings", true, false, false));
 	}
 
+	@Test void httpProxyMethodApplyRequiresNegotiatedV2Capability() {
+		assertFalse(BackendControlConnector.proxyMethodApplyCapabilityAccepted("HTTP", false));
+		assertTrue(BackendControlConnector.proxyMethodApplyCapabilityAccepted("HTTP", true));
+		assertTrue(BackendControlConnector.proxyMethodApplyCapabilityAccepted("PLUGINMESSAGING", false));
+	}
+
+	@Test void httpQuickRequestsRejectMissingV2BeforeTouchingConfiguration() throws Exception {
+		BackendControlConnector connector = org.mockito.Mockito.mock(BackendControlConnector.class,
+				org.mockito.Mockito.CALLS_REAL_METHODS);
+		var quick = BackendControlConnector.class.getDeclaredField("quickSetupsAccepted");
+		quick.setAccessible(true);
+		quick.setBoolean(connector, true);
+		JsonObject configuration = JsonParser.parseString(
+				"{\"preset\":\"proxy-method\",\"options\":{\"method\":\"HTTP\"}}")
+				.getAsJsonObject();
+		var execute = BackendControlConnector.class.getDeclaredMethod("executeQuick", java.util.UUID.class,
+				String.class, JsonObject.class, JsonObject.class);
+		execute.setAccessible(true);
+		for (String type : new String[] { "READ", "PREVIEW", "APPLY" }) {
+			Object result = execute.invoke(connector, java.util.UUID.randomUUID(), type, configuration,
+					new JsonObject());
+			var json = result.getClass().getDeclaredMethod("json");
+			json.setAccessible(true);
+			JsonObject response = (JsonObject) json.invoke(result);
+			assertFalse(response.get("success").getAsBoolean());
+			assertEquals("UNSUPPORTED_TASK", response.get("code").getAsString());
+		}
+	}
+
 	@Test void votePartyRequiresItsVersionedCapability() {
 		assertFalse(BackendControlConnector.quickSetupCapabilityAccepted("vote-party", true, false, false));
 		assertFalse(BackendControlConnector.quickSetupCapabilityAccepted("vote-party", false, true, false));
@@ -333,16 +362,17 @@ class BackendControlConnectorProtocolTest {
 		IllegalStateException failure = new IllegalStateException(
 				"/srv/private/VoteSites.yml jdbc:mysql://database.internal user=secret");
 
-		assertEquals("Configuration read failed; see the backend log",
+		assertEquals("Configuration file is unavailable or unreadable",
 				BackendControlConnector.operationFailureMessage("READ", failure));
-		assertEquals("Configuration preview failed; see the backend log",
+		assertEquals("The backend could not prepare a configuration preview",
 				BackendControlConnector.operationFailureMessage("PREVIEW", failure));
-		assertEquals("Configuration apply failed; see the backend log",
+		assertEquals("The backend could not apply the managed configuration",
 				BackendControlConnector.operationFailureMessage("APPLY", failure));
-		assertEquals("Configuration reload failed; see the backend log",
-				BackendControlConnector.reloadFailureMessage(failure));
 		assertFalse(BackendControlConnector.operationFailureMessage("READ", failure).contains("/srv"));
-		assertFalse(BackendControlConnector.reloadFailureMessage(failure).contains("secret"));
+		assertEquals("CONFIGURATION_MISSING", BackendControlConnector.operationFailureCode("READ",
+				new java.nio.file.NoSuchFileException("/srv/private/Config.yml")));
+		assertEquals("CONFIGURATION_UNREADABLE", BackendControlConnector.operationFailureCode("READ",
+				new java.nio.file.AccessDeniedException("/srv/private/Config.yml")));
 	}
 
 	@Test void unavailableConfigurationReadsPreserveV1CodeAndUseASafeReason() {

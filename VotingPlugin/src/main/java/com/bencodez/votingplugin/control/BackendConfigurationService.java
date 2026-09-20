@@ -36,6 +36,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 
+import com.bencodez.votingplugin.backendproxy.transport.HttpBackendProxyTransport;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.util.DurableFiles;
 
@@ -59,7 +60,7 @@ public final class BackendConfigurationService {
 			"WaitUntilVoteDelay", "PermissionToView", "IgnoreCanVote", "VoteDelayDailyHour", "VoteDelayMin",
 			"GiveOffline");
 	private static final Pattern COMMENT_SECRET = Pattern.compile(
-			"(?i)([\"']?\\b(?:[\\w-]*(?:password|secret|user(?:name)?)[\\w-]*|token|api[ _.-]?key|authorization|[\\w.-]*webhook[ _.-]?url)"
+			"(?i)([\"']?\\b(?:[\\w-]*(?:password|secret|user(?:name)?)[\\w-]*|token|connection[ _.-]?code|api[ _.-]?key|authorization|[\\w.-]*webhook[ _.-]?url)"
 					+ "\\b[\"']?\\s*[:=]\\s*)(.*)$");
 	private static final Pattern SECRET_PATH_URL = Pattern.compile("(?i)([\"']?\\burl\\b[\"']?\\s*[:=]\\s*)(.*)$");
 	private static final Pattern BLOCK_SCALAR_INDICATOR = Pattern.compile("[|>](?:[+-][1-9]?|[1-9][+-]?)?");
@@ -289,6 +290,7 @@ public final class BackendConfigurationService {
 		Path staging = Files.createTempFile(target.getParent(), ".control-", ".yml");
 		Path backupStaging = Files.createTempFile(target.getParent(), ".control-backup-", ".yml");
 		boolean installed = false;
+		boolean reloadAttempted = false;
 		try {
 			Files.writeString(staging, preview.resolvedContent(), StandardCharsets.UTF_8,
 					StandardOpenOption.TRUNCATE_EXISTING);
@@ -305,6 +307,7 @@ public final class BackendConfigurationService {
 				installed = true;
 				throw published;
 			}
+			reloadAttempted = true;
 			applyAction.run(fileName);
 			String applied = readRaw(target, false);
 			String installedRevision = revision(preview.resolvedContent());
@@ -337,7 +340,7 @@ public final class BackendConfigurationService {
 					failure.addSuppressed(rollbackFailure);
 				}
 			}
-			throw new ApplyFailureException(rolledBack, failure);
+			throw new ApplyFailureException(rolledBack, reloadAttempted, failure);
 		} finally {
 			Files.deleteIfExists(staging);
 			Files.deleteIfExists(backupStaging);
@@ -374,6 +377,7 @@ public final class BackendConfigurationService {
 			String rollbackStaging = null;
 			String backup = name + ".control-backup";
 			boolean installed = false;
+			boolean reloadAttempted = false;
 			try {
 				writeRaw(rewards, staging, preview.resolvedContent(), true);
 				rejectSymbolicBackup(rewards, backup);
@@ -385,6 +389,7 @@ public final class BackendConfigurationService {
 				rewards.move(Path.of(staging), rewards, Path.of(name));
 				installed = true;
 				forcePinnedRewardDirectory(rewards, directoryKey);
+				reloadAttempted = true;
 				applyAction.runNamedReward(fileName, preview.resolvedContent(),
 						() -> requireCurrentRewardDirectory(directoryKey));
 				requireCurrentRewardDirectory(directoryKey);
@@ -408,9 +413,10 @@ public final class BackendConfigurationService {
 						if (!revision(readRaw(rewards, name, false)).equals(revision(preview.resolvedContent()))) {
 							throw new IOException("Managed configuration changed while rollback was staged");
 						}
-						rewards.move(Path.of(rollbackStaging), rewards, Path.of(name));
-						forcePinnedRewardDirectory(rewards, directoryKey);
-						applyAction.runNamedReward(fileName, current,
+					rewards.move(Path.of(rollbackStaging), rewards, Path.of(name));
+					forcePinnedRewardDirectory(rewards, directoryKey);
+					reloadAttempted = true;
+					applyAction.runNamedReward(fileName, current,
 								() -> requireCurrentRewardDirectory(directoryKey));
 						requireCurrentRewardDirectory(directoryKey);
 						rolledBack = true;
@@ -418,7 +424,7 @@ public final class BackendConfigurationService {
 						failure.addSuppressed(rollbackFailure);
 					}
 				}
-				throw new ApplyFailureException(rolledBack, failure);
+				throw new ApplyFailureException(rolledBack, reloadAttempted, failure);
 			} finally {
 				deleteIfPresent(rewards, staging);
 				deleteIfPresent(rewards, backupStaging);
@@ -1061,6 +1067,11 @@ public final class BackendConfigurationService {
 		case SOCKETS:
 			configuredHostAndPort(settings, "BungeeServer.Host", "BungeeServer.Port", 1297, "BungeeServer");
 			break;
+		case HTTP:
+			String connectionCode = settings.getString("HTTP.ConnectionCode", "");
+			try { HttpBackendProxyTransport.validateConfiguration(dataDirectory.resolve("http"), server, connectionCode); }
+			catch (IllegalStateException invalid) { throw new IllegalArgumentException(invalid.getMessage(), invalid); }
+			break;
 		case MYSQL:
 			try {
 				YamlConfiguration main = parse(readRaw(resolve("Config.yml"), false));
@@ -1275,24 +1286,31 @@ public final class BackendConfigurationService {
 	}
 
 	private static String readRaw(Path path, boolean allowMissing) throws IOException {
-		if (allowMissing && !Files.exists(path, LinkOption.NOFOLLOW_LINKS)) return "";
+		if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
+			if (allowMissing) return "";
+			throw new java.nio.file.NoSuchFileException(path.toString());
+		}
 		if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
-			throw new IOException("configuration file is missing or too large");
+			throw new ConfigurationReadException(ConfigurationReadFailure.UNSAFE,
+					"configuration file is not a regular file");
 		}
 		byte[] bytes;
 		// Keep the no-follow check attached to the opened file. A separate Files.size/readAllBytes
 		// would follow a link swapped in after the regular-file check.
 		try (SeekableByteChannel channel = Files.newByteChannel(path,
 				Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS))) {
-			if (channel.size() > MAX_CONTENT_BYTES) throw new IOException("configuration file is missing or too large");
+			if (channel.size() > MAX_CONTENT_BYTES) throw new ConfigurationReadException(
+					ConfigurationReadFailure.TOO_LARGE, "configuration file exceeds the managed size limit");
 			bytes = Channels.newInputStream(channel).readNBytes(MAX_CONTENT_BYTES + 1);
-			if (bytes.length > MAX_CONTENT_BYTES) throw new IOException("configuration file is missing or too large");
+			if (bytes.length > MAX_CONTENT_BYTES) throw new ConfigurationReadException(
+					ConfigurationReadFailure.TOO_LARGE, "configuration file exceeds the managed size limit");
 		}
 		try {
 			return StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
 					.onUnmappableCharacter(CodingErrorAction.REPORT).decode(java.nio.ByteBuffer.wrap(bytes)).toString();
 		} catch (CharacterCodingException e) {
-			throw new IOException("configuration file is not valid UTF-8", e);
+			throw new ConfigurationReadException(ConfigurationReadFailure.INVALID_ENCODING,
+					"configuration file is not valid UTF-8", e);
 		}
 	}
 
@@ -1478,7 +1496,7 @@ public final class BackendConfigurationService {
 	private static boolean secret(String path) {
 		String key = path.substring(path.lastIndexOf('.') + 1).replace("-", "").replace("_", "")
 				.toLowerCase(Locale.ROOT);
-		return key.contains("password") || key.contains("secret") || key.equals("token")
+		return key.contains("password") || key.contains("secret") || key.equals("token") || key.equals("connectioncode")
 				|| key.equals("apikey") || key.equals("authorization") || key.equals("webhookurl") || key.equals("url")
 				&& path.toLowerCase(Locale.ROOT).contains("webhook");
 	}
@@ -1651,10 +1669,29 @@ public final class BackendConfigurationService {
 		}
 	}
 	@FunctionalInterface interface MoveAction { void move(Path source, Path target) throws IOException; }
+	public enum ConfigurationReadFailure { UNSAFE, TOO_LARGE, INVALID_ENCODING }
+	@SuppressWarnings("serial") public static final class ConfigurationReadException extends IOException {
+		private final ConfigurationReadFailure failure;
+		private ConfigurationReadException(ConfigurationReadFailure failure, String message) {
+			super(message);
+			this.failure = failure;
+		}
+		private ConfigurationReadException(ConfigurationReadFailure failure, String message, Throwable cause) {
+			super(message, cause);
+			this.failure = failure;
+		}
+		public ConfigurationReadFailure failure() { return failure; }
+	}
 	@SuppressWarnings("serial") public static final class StaleRevisionException extends RuntimeException { }
 	@SuppressWarnings("serial") public static final class ApplyFailureException extends IOException {
 		private final boolean rolledBack;
-		private ApplyFailureException(boolean rolledBack, Throwable cause) { super(cause); this.rolledBack = rolledBack; }
+		private final boolean reloadAttempted;
+		private ApplyFailureException(boolean rolledBack, boolean reloadAttempted, Throwable cause) {
+			super(cause);
+			this.rolledBack = rolledBack;
+			this.reloadAttempted = reloadAttempted;
+		}
 		public boolean rolledBack() { return rolledBack; }
+		public boolean reloadAttempted() { return reloadAttempted; }
 	}
 }
