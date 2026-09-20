@@ -3409,10 +3409,10 @@ public abstract class VotingPluginProxy {
 				}
 				VoteTotalsSnapshot queuedTotals = forwardedTotals[1].isEmpty() ? null
 						: VoteTotalsSnapshot.parseStorage(forwardedTotals[1]);
-				QueuedVoteResult result = vote(vote.getName(), vote.getService(), queuedRealVote, false, vote.getTime(), queuedTotals,
-						vote.getUuid(), vote);
-				if (result == QueuedVoteResult.RETRY) {
+				QueuedVoteResult result = replayQueuedVote(vote, queuedTotals, queuedRealVote);
+				if (result == QueuedVoteResult.RETRY || result == QueuedVoteResult.RETRY_NONBLOCKING) {
 					scheduleTimeVoteRetry();
+					if (result == QueuedVoteResult.RETRY_NONBLOCKING) continue;
 					return;
 				}
 				if ((result == QueuedVoteResult.SUCCESS || result == QueuedVoteResult.TERMINAL)
@@ -4950,8 +4950,12 @@ public abstract class VotingPluginProxy {
 		if (voteId != null) liveVoteRetries.remove(voteId);
 	}
 
-	private enum QueuedVoteResult {
-		SUCCESS, RETRY, TERMINAL
+	enum QueuedVoteResult {
+		SUCCESS, RETRY, RETRY_NONBLOCKING, TERMINAL
+	}
+
+	protected QueuedVoteResult replayQueuedVote(VoteTimeQueue vote, VoteTotalsSnapshot totals, boolean realVote) {
+		return vote(vote.getName(), vote.getService(), realVote, false, vote.getTime(), totals, vote.getUuid(), vote);
 	}
 
 	private synchronized QueuedVoteResult vote(String player, String service, boolean realVote, boolean timeQueue, long queueTime,
@@ -5460,7 +5464,8 @@ public abstract class VotingPluginProxy {
 								String deliveryId = stableLiveHttpBroadcastDeliveryId(voteId, targetServer);
 								if (!sendStableHttpEnvelope(targetServer, deliveryId, broadcast)) {
 									retryState.broadcastForwardedServers.addAll(broadcastForwardedServers);
-									return QueuedVoteResult.RETRY;
+									return queuedVote == null ? QueuedVoteResult.RETRY
+											: QueuedVoteResult.RETRY_NONBLOCKING;
 								}
 								broadcastForwardedServers.add(targetServer);
 								retryState.broadcastForwardedServers.add(targetServer);
