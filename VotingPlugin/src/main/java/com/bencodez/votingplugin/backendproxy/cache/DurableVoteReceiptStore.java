@@ -84,8 +84,8 @@ final class DurableVoteReceiptStore {
 		long now = System.currentTimeMillis();
 		cleanupReleasedTombstones(now);
 		Long current = receipts.get(voteId);
-		if (current == null && releaseTombstones >= maxReleaseTombstones) return 0L;
 		if (current != null && current != Long.MAX_VALUE) return current;
+		if (releaseTombstones >= maxReleaseTombstones) return 0L;
 		long expiresAt = now + RELEASE_TOMBSTONE_TTL_MILLIS;
 		String record = RELEASE + '\t' + voteId + '\t' + expiresAt + '\n';
 		synchronized (fileLock) {

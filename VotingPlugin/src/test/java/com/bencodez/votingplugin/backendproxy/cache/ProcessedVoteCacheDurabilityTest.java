@@ -122,6 +122,19 @@ class ProcessedVoteCacheDurabilityTest {
 	}
 
 	@Test
+	void activeReceiptWaitsWhenTombstoneCapacityIsFull() throws Exception {
+		Path receipts = directory.resolve("receipts.dat");
+		DurableVoteReceiptStore store = new DurableVoteReceiptStore(receipts, 1, 0, 1);
+		UUID active = UUID.randomUUID();
+		assertTrue(store.complete(active) > 0L);
+		assertTrue(store.release(UUID.randomUUID()) > 0L);
+
+		assertFalse(store.release(active) > 0L);
+
+		new DurableVoteReceiptStore(receipts, 1, 0, 1);
+	}
+
+	@Test
 	void expiredReleaseTombstoneIsReclaimedOnRestart() throws Exception {
 		Path receipts = directory.resolve("receipts.dat");
 		UUID voteId = UUID.randomUUID();
