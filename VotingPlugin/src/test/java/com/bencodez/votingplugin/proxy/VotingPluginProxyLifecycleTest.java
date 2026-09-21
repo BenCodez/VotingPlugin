@@ -89,6 +89,31 @@ class VotingPluginProxyLifecycleTest {
 	}
 
 	@Test
+	void capableHttpVoteRemainsInOutboxWhenImmediateTransportSendIsRejected(@TempDir Path directory)
+			throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		proxy.setMethod(BungeeMethod.HTTP);
+		proxy.setVoteEnvelopeDeliveryResult(false);
+		ReliableVoteDeliveryOutbox outbox = new ReliableVoteDeliveryOutbox(directory.resolve("outbox.dat"));
+		Field outboxField = VotingPluginProxy.class.getDeclaredField("reliableVoteDeliveryOutbox");
+		outboxField.setAccessible(true);
+		outboxField.set(proxy, outbox);
+		Field reliableServers = VotingPluginProxy.class.getDeclaredField("reliableVoteDeliveryServers");
+		reliableServers.setAccessible(true);
+		@SuppressWarnings("unchecked")
+		Set<String> reliable = (Set<String>) reliableServers.get(proxy);
+		reliable.add("survival");
+		JsonEnvelope vote = VotingPluginWire.vote("Player", UUID.randomUUID().toString(), "site", 10L,
+				true, true, "", UUID.randomUUID(), false, false, 1, 1);
+
+		org.junit.jupiter.api.Assertions.assertTrue(proxy.sendVoteEnvelopeAcceptedForTest("survival", 1, vote));
+
+		assertEquals(1, outbox.size());
+		org.junit.jupiter.api.Assertions.assertTrue(
+				VotingPluginWire.requestsVoteDeliveryAcknowledgement(proxy.getLastVoteEnvelope()));
+	}
+
+	@Test
 	void retainsConnectorWhenOperationShutdownFails() throws Exception {
 		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
 		ControlConnector connector = mock(ControlConnector.class);

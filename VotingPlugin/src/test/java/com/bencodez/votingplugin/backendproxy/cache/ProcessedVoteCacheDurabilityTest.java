@@ -52,4 +52,17 @@ class ProcessedVoteCacheDurabilityTest {
 		assertFalse(restarted.reserve(firstId));
 		assertFalse(restarted.reserve(secondId));
 	}
+
+	@Test
+	void receiptFailureFencesCompletedVotePastReservationExpiry() throws Exception {
+		Path unusableParent = directory.resolve("not-a-directory");
+		Files.writeString(unusableParent, "file");
+		UUID voteId = UUID.randomUUID();
+		ProcessedVoteCache cache = new ProcessedVoteCache(1L, unusableParent.resolve("receipts.dat"));
+
+		assertTrue(cache.reserve(voteId));
+		assertFalse(cache.complete(voteId));
+		Thread.sleep(5L);
+		assertFalse(cache.reserve(voteId));
+	}
 }

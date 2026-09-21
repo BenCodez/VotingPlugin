@@ -13,8 +13,10 @@ proxy writes the exact target server and envelope to
 capability discovery. The backend acknowledges only after its ordered vote lane
 reports completion. A spilled message is acknowledged after removal from the
 durable backend overflow queue. Before acknowledgement, the backend journals the
-completed vote ID for seven days so a lost acknowledgement followed by backend
-restart does not repeat normal completed processing. The proxy then durably
+completed vote ID without time expiry so a delayed or lost acknowledgement
+followed by backend restart does not repeat normal completed processing. The
+bounded receipt journal fails closed at its capacity instead of evicting an ID
+that may still have a proxy outbox entry. The proxy then durably
 removes the matching server, vote ID, and subchannel entry from its outbox.
 If a backend generation stops advertising acknowledgements, the proxy drains
 already-journaled entries once through the existing legacy send path and removes
@@ -30,6 +32,7 @@ attempt because reward execution and the receipt cannot be committed atomically.
 Stronger exactly once reward execution would require a separate reward API and
 storage design.
 
-HTTP keeps its existing request recovery and acknowledgement path. The generic
-outbox covers plugin messaging, Redis, MQTT, MySQL, and sockets after capability
-discovery. No reward data model or Bukkit vote ordering changes.
+HTTP retains its existing request recovery and also uses the completion outbox
+after capability discovery. The generic outbox covers plugin messaging, Redis,
+MQTT, MySQL, sockets, and HTTP. No reward data model or Bukkit vote ordering
+changes.

@@ -23,6 +23,7 @@ public class ProcessedVoteCache {
 
 	@Getter
 	private final ConcurrentHashMap<UUID, Long> processedVotes = new ConcurrentHashMap<>();
+	private final java.util.Set<UUID> completedAwaitingReceipt = ConcurrentHashMap.newKeySet();
 	private final long ttlMillis;
 	private final DurableVoteReceiptStore durableReceipts;
 	private final LinkedHashMap<String, Long> processedRedisDeliveries = new LinkedHashMap<>();
@@ -33,15 +34,19 @@ public class ProcessedVoteCache {
 	private Object standbyRedisSubscriber;
 
 	public ProcessedVoteCache() {
-		this(DEFAULT_TTL_MILLIS, null);
+		this(DEFAULT_TTL_MILLIS, (DurableVoteReceiptStore) null);
 	}
 
 	public ProcessedVoteCache(long ttlMillis) {
-		this(ttlMillis, null);
+		this(ttlMillis, (DurableVoteReceiptStore) null);
 	}
 
 	public ProcessedVoteCache(Path receiptFile) {
 		this(DEFAULT_TTL_MILLIS, loadReceipts(receiptFile));
+	}
+
+	ProcessedVoteCache(long ttlMillis, Path receiptFile) {
+		this(ttlMillis, loadReceipts(receiptFile));
 	}
 
 	private ProcessedVoteCache(long ttlMillis, DurableVoteReceiptStore durableReceipts) {
@@ -67,6 +72,7 @@ public class ProcessedVoteCache {
 		long expiresAt = now + ttlMillis;
 
 		while (true) {
+			if (completedAwaitingReceipt.contains(voteId)) return false;
 			Long currentExpiry = processedVotes.get(voteId);
 			if (currentExpiry == null) {
 				if (processedVotes.putIfAbsent(voteId, expiresAt) == null) {
@@ -90,9 +96,11 @@ public class ProcessedVoteCache {
 	/** Persists successful processing before the backend emits a delivery acknowledgement. */
 	public boolean complete(UUID voteId) {
 		if (voteId == null || durableReceipts == null) return true;
+		completedAwaitingReceipt.add(voteId);
 		long expiresAt = durableReceipts.complete(voteId);
 		if (expiresAt <= 0L) return false;
 		processedVotes.put(voteId, expiresAt);
+		completedAwaitingReceipt.remove(voteId);
 		return true;
 	}
 

@@ -10,13 +10,11 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 
 import com.bencodez.votingplugin.util.DurableFiles;
 
 /** Bounded append journal for backend vote IDs completed before acknowledgement. */
 final class DurableVoteReceiptStore {
-	static final long RECEIPT_TTL_MILLIS = TimeUnit.DAYS.toMillis(7);
 	private static final int MAX_RECEIPTS = 262144;
 	private static final long MAX_FILE_BYTES = 16L * 1024L * 1024L;
 	private static final String HEADER = "VP-VOTE-RECEIPTS-1";
@@ -36,18 +34,15 @@ final class DurableVoteReceiptStore {
 	}
 
 	synchronized Map<UUID, Long> snapshot() {
-		cleanup(System.currentTimeMillis());
 		return new LinkedHashMap<>(receipts);
 	}
 
 	synchronized long complete(UUID voteId) {
 		if (voteId == null) return 0L;
-		long now = System.currentTimeMillis();
-		cleanup(now);
 		Long current = receipts.get(voteId);
-		if (current != null && current > now) return current;
+		if (current != null) return current;
 		if (receipts.size() >= MAX_RECEIPTS) return 0L;
-		long expiresAt = now + RECEIPT_TTL_MILLIS;
+		long expiresAt = Long.MAX_VALUE;
 		String record = voteId + "\t" + expiresAt + '\n';
 		synchronized (fileLock) {
 			if (!prepareAppend(record) || !append(record)) return 0L;
@@ -66,7 +61,6 @@ final class DurableVoteReceiptStore {
 		String content = Files.readString(file, StandardCharsets.UTF_8);
 		String[] lines = content.split("\\n", -1);
 		if (lines.length == 0 || !HEADER.equals(lines[0])) throw new IOException("Unsupported vote receipt journal");
-		long now = System.currentTimeMillis();
 		for (int index = 1; index < lines.length; index++) {
 			if (lines[index].isBlank()) continue;
 			try {
@@ -74,7 +68,7 @@ final class DurableVoteReceiptStore {
 				if (fields.length != 2) throw new IllegalArgumentException("Malformed receipt");
 				UUID voteId = UUID.fromString(fields[0]);
 				long expiresAt = Long.parseLong(fields[1]);
-				if (expiresAt > now) receipts.put(voteId, expiresAt);
+				receipts.put(voteId, expiresAt);
 			} catch (RuntimeException malformed) {
 				if (index == lines.length - 1 && !content.endsWith("\n")) {
 					if (!compact()) throw new IOException("Unable to repair vote receipt journal", malformed);
@@ -135,9 +129,5 @@ final class DurableVoteReceiptStore {
 		} catch (IOException failure) {
 			return false;
 		}
-	}
-
-	private void cleanup(long now) {
-		receipts.entrySet().removeIf(entry -> entry.getValue() <= now);
 	}
 }

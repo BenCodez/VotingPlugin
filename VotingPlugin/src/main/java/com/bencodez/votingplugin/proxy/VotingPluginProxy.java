@@ -860,27 +860,31 @@ public abstract class VotingPluginProxy {
 
 	protected boolean sendVoteEnvelopeAccepted(String server, int delay, JsonEnvelope envelope,
 			OfflineBungeeVote cachedVote) {
-		if (method == BungeeMethod.HTTP) {
-			return sendHttpEnvelopeWithRecovery(server, envelope, cachedVote);
-		}
-		GlobalMessageProxyHandler handler = globalMessageProxyHandler;
-		if (handler == null) {
-			return false;
-		}
 		if (supportsReliableVoteDelivery(server)) {
 			ReliableVoteDeliveryOutbox outbox = reliableVoteDeliveryOutbox;
 			if (outbox == null || !outbox.offer(server, envelope)) {
 				logSevere("Unable to durably queue vote delivery for " + server);
 				return false;
 			}
-			try {
-				handler.sendMessage(server, delay,
-						VotingPluginWire.requestVoteDeliveryAcknowledgement(envelope));
-			} catch (RuntimeException failure) {
-				debug("Vote delivery remains queued after the immediate send failed for " + server);
+			JsonEnvelope requested = VotingPluginWire.requestVoteDeliveryAcknowledgement(envelope);
+			if (method == BungeeMethod.HTTP) sendGenericHttpEnvelope(server, requested);
+			else {
+				GlobalMessageProxyHandler handler = globalMessageProxyHandler;
+				if (handler != null) {
+					try {
+						handler.sendMessage(server, delay, requested);
+					} catch (RuntimeException failure) {
+						debug("Vote delivery remains queued after the immediate send failed for " + server);
+					}
+				}
 			}
 			return true;
 		}
+		if (method == BungeeMethod.HTTP) {
+			return sendHttpEnvelopeWithRecovery(server, envelope, cachedVote);
+		}
+		GlobalMessageProxyHandler handler = globalMessageProxyHandler;
+		if (handler == null) return false;
 		handler.sendMessage(server, delay, envelope);
 		return true;
 	}

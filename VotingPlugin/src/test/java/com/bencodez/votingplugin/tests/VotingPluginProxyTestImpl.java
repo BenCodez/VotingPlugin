@@ -437,10 +437,11 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	@Override
 	protected boolean sendVoteEnvelopeAccepted(String server, int delay, JsonEnvelope envelope) {
 		lastVoteEnvelope = envelope;
-		if (getMethod() == com.bencodez.votingplugin.proxy.BungeeMethod.HTTP) {
-			return voteEnvelopeDeliveryResult;
-		}
 		return super.sendVoteEnvelopeAccepted(server, delay, envelope);
+	}
+
+	public boolean sendVoteEnvelopeAcceptedForTest(String server, int delay, JsonEnvelope envelope) {
+		return sendVoteEnvelopeAccepted(server, delay, envelope);
 	}
 
 	public void setVoteEnvelopeDeliveryResult(boolean voteEnvelopeDeliveryResult) {
