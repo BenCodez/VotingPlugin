@@ -199,6 +199,7 @@ public abstract class VotingPluginProxy {
 		}
 	}
 	private static final long PRESENCE_MAINTENANCE_INTERVAL_SECONDS = 30L;
+	private static final long VOTE_DELIVERY_CAPABILITY_PROBE_SECONDS = 60L;
 	private static final long PRESENCE_BACKEND_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(90);
 	private static final long CONTROL_ENROLLMENT_MIN_INTERVAL_NANOS = TimeUnit.SECONDS.toNanos(10);
 	private static final long CONTROL_ENROLLMENT_CHALLENGE_TTL_NANOS = TimeUnit.MINUTES.toNanos(1);
@@ -915,10 +916,15 @@ public abstract class VotingPluginProxy {
 			if (onlyServer != null && !entry.server().equalsIgnoreCase(onlyServer)) continue;
 			try {
 				if (supportsReliableVoteDelivery(entry.server())) {
-					handler.sendMessage(entry.server(), delay++,
+						handler.sendMessage(entry.server(), delay++,
 							VotingPluginWire.requestVoteDeliveryAcknowledgement(entry.envelope()));
 				} else if (legacyVoteDeliveryServers.contains(entry.server().trim().toLowerCase(Locale.ROOT))) {
-					handler.sendMessage(entry.server(), delay++, entry.envelope());
+					if (!sendProxyBroadcastEnvelopeNow(entry.server(), entry.envelope())) {
+						debug("Legacy vote delivery remains queued because the transport rejected it for "
+								+ entry.server());
+						continue;
+					}
+					delay++;
 					String voteId = entry.envelope().getFields().get(VotingPluginWire.K_VOTE_ID);
 					if (!outbox.acknowledge(entry.server(), UUID.fromString(voteId),
 							entry.envelope().getSubChannel())) {
@@ -931,6 +937,14 @@ public abstract class VotingPluginProxy {
 			} catch (RuntimeException failure) {
 				debug("Vote delivery retry remains queued for " + entry.server());
 			}
+		}
+	}
+
+	private void probeReliableVoteDeliveryCapabilities() {
+		if (method != BungeeMethod.PLUGINMESSAGING || globalMessageProxyHandler == null) return;
+		int delay = 1;
+		for (String server : getAllAvailableServers()) {
+			globalMessageProxyHandler.sendMessage(server, delay++, VotingPluginWire.status(server));
 		}
 	}
 
@@ -1950,10 +1964,11 @@ public abstract class VotingPluginProxy {
 		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_BACKEND_STARTED) {
 			@Override
 			public void onReceive(JsonEnvelope message) {
+				String server = message.getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
 				if (!method.supportsBackendPresence()) {
+					updateReliableVoteDeliveryCapability(server, message);
 					return;
 				}
-				String server = message.getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
 				UUID backendIncarnationId = VotingPluginWire.readBackendIncarnationId(message);
 				long backendStartedAt = VotingPluginWire.readBackendStartedAt(message);
 				long presenceTimestamp = VotingPluginWire.readPresenceTimestamp(message);
@@ -2088,6 +2103,8 @@ public abstract class VotingPluginProxy {
 					PRESENCE_MAINTENANCE_INTERVAL_SECONDS);
 		}
 		loadTaskTimer(this::retryReliableVoteDeliveries, 10L, 10L);
+		loadTaskTimer(this::probeReliableVoteDeliveryCapabilities, 1L,
+				VOTE_DELIVERY_CAPABILITY_PROBE_SECONDS);
 		startControlServices();
 		// Open the listener last: backend callbacks can immediately reach routing,
 		// presence, vote-log, multi-proxy, and Control-adjacent runtime helpers.

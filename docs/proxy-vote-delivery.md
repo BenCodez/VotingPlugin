@@ -4,6 +4,8 @@ Reward-bearing `Vote` and `VoteOnline` messages use an additive, versioned
 acknowledgement protocol when both the proxy and backend support it. The backend
 advertises `voteDeliveryAckVersion` through presence or status replies. Older
 backends ignore the extra fields and retain the existing transport behavior.
+Plugin messaging probes each available backend every minute because that
+transport does not use backend presence heartbeats.
 
 Before a capable route reports acceptance to the existing vote pipeline, the
 proxy writes the exact target server and envelope to
@@ -16,7 +18,7 @@ restart does not repeat normal completed processing. The proxy then durably
 removes the matching server, vote ID, and subchannel entry from its outbox.
 If a backend generation stops advertising acknowledgements, the proxy drains
 already-journaled entries once through the existing legacy send path and removes
-each entry only after that send is accepted. This keeps rolling downgrades from
+each entry only after the selected transport reports acceptance. This keeps rolling downgrades from
 stranding accepted votes while retaining at-least-once behavior.
 
 This is an **at least once delivery guarantee**. Proxy shutdown, restart, a lost

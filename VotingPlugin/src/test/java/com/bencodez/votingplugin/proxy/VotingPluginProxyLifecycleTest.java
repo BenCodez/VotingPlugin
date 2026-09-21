@@ -34,6 +34,7 @@ class VotingPluginProxyLifecycleTest {
 	@Test
 	void drainsPersistedVoteThroughLegacyPathAfterCapabilityDisappears(@TempDir Path directory) throws Exception {
 		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		proxy.setMethod(BungeeMethod.PLUGINMESSAGING);
 		GlobalMessageProxyHandler messages = mock(GlobalMessageProxyHandler.class);
 		UUID voteId = UUID.randomUUID();
 		JsonEnvelope vote = VotingPluginWire.vote("Player", UUID.randomUUID().toString(), "site", 10L,
@@ -57,10 +58,34 @@ class VotingPluginProxyLifecycleTest {
 		org.mockito.Mockito.verifyNoInteractions(messages);
 
 		legacy.add("survival");
+		proxy.setPluginMessageDeliveryResult(false);
+		retry.invoke(proxy, "survival");
+		assertEquals(1, outbox.size());
+
+		proxy.setPluginMessageDeliveryResult(true);
 		retry.invoke(proxy, "survival");
 
-		verify(messages).sendMessage("survival", 1, vote);
 		assertEquals(0, outbox.size());
+	}
+
+	@Test
+	void probesPluginMessagingBackendsForDeliveryCapability() throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		proxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		proxy.setAvailableServers("survival");
+		GlobalMessageProxyHandler messages = mock(GlobalMessageProxyHandler.class);
+		Field messagesField = VotingPluginProxy.class.getDeclaredField("globalMessageProxyHandler");
+		messagesField.setAccessible(true);
+		messagesField.set(proxy, messages);
+		Method probe = VotingPluginProxy.class.getDeclaredMethod("probeReliableVoteDeliveryCapabilities");
+		probe.setAccessible(true);
+
+		probe.invoke(proxy);
+
+		org.mockito.ArgumentCaptor<JsonEnvelope> envelope = org.mockito.ArgumentCaptor.forClass(JsonEnvelope.class);
+		verify(messages).sendMessage(org.mockito.ArgumentMatchers.eq("survival"),
+				org.mockito.ArgumentMatchers.eq(1), envelope.capture());
+		assertEquals(VotingPluginWire.SUB_STATUS, envelope.getValue().getSubChannel());
 	}
 
 	@Test
