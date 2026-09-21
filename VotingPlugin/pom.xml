@@ -230,7 +230,19 @@
                                 <filter>
                                     <artifact>org.bouncycastle:*</artifact>
                                     <excludes>
-                                        <exclude>META-INF/versions/25/**</exclude>
+                                        <!-- Base implementations support the plugin's Java 21 runtime;
+                                             omit duplicate multi-release optimizations. -->
+                                        <exclude>META-INF/versions/**</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>redis.clients:jedis</artifact>
+                                    <excludes>
+                                        <!-- Proxy messaging uses core Redis commands, not optional modules. -->
+                                        <exclude>redis/clients/jedis/bloom/**</exclude>
+                                        <exclude>redis/clients/jedis/json/**</exclude>
+                                        <exclude>redis/clients/jedis/search/**</exclude>
+                                        <exclude>redis/clients/jedis/timeseries/**</exclude>
                                     </excludes>
                                 </filter>
                                 <filter>

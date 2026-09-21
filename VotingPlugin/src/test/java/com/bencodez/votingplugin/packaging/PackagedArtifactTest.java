@@ -11,6 +11,7 @@ import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.Provider;
 import java.util.jar.JarFile;
 
 import org.junit.jupiter.api.Test;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 /** Package-phase checks for the actual downloadable plugin artifact. */
 public class PackagedArtifactTest {
+    private static final long MAX_DOWNLOAD_BYTES = 31L * 1024L * 1024L;
 
     @Test
     void containsOneRelocatedRuntimeWithoutUnusedHttpCrypto() throws Exception {
@@ -54,8 +56,14 @@ public class PackagedArtifactTest {
             assertNull(artifact.getEntry("com/zaxxer/hikari/HikariDataSource.class"));
             assertNull(artifact.getEntry("com/tcoded/folialib/FoliaLib.class"));
             assertFalse(artifact.stream().anyMatch(entry -> entry.getName().startsWith("org/bouncycastle/")));
-            assertFalse(artifact.stream().anyMatch(entry -> entry.getName().startsWith("META-INF/versions/25/")));
+            assertFalse(artifact.stream().anyMatch(entry -> entry.getName().startsWith("META-INF/versions/")
+                    && entry.getName().contains("/bouncycastle/")));
+            assertFalse(artifact.stream().anyMatch(entry -> entry.getName()
+                    .startsWith("redis/clients/jedis/search/")));
         }
+        long artifactBytes = Files.size(artifactPath);
+        assertTrue(artifactBytes <= MAX_DOWNLOAD_BYTES,
+                () -> "VotingPlugin downloadable artifact exceeded 31 MiB: " + artifactBytes);
         System.out.printf("VotingPlugin downloadable artifact: %,d bytes; duplicate Rhino and unused HTTP crypto absent%n",
                 Files.size(artifactPath));
     }
@@ -70,6 +78,22 @@ public class PackagedArtifactTest {
             try (AutoCloseable instance = (AutoCloseable) runtime.getMethod("start", Path.class).invoke(null, directory)) {
                 assertTrue(Files.isRegularFile(directory.resolve("VotingPlugin.db")));
             }
+        }
+    }
+
+    @Test
+    void packagedBaseCryptoProviderLoadsWithoutMultiReleasePayload(@TempDir Path directory) throws Exception {
+        URL jar = packagedJar().toUri().toURL();
+        try (URLClassLoader loader = new URLClassLoader(new URL[] { jar }, ClassLoader.getPlatformClassLoader())) {
+            Class<?> providerType = Class.forName(
+                    "com.bencodez.votingplugin.bouncycastle.jce.provider.BouncyCastleProvider", true, loader);
+            Provider provider = (Provider) providerType.getConstructor().newInstance();
+            assertNotNull(provider.getService("Signature", "SHA256WITHRSA"));
+            Class<?> identityType = Class.forName(
+                    "com.bencodez.votingplugin.simpleapi.servercomm.http.HttpTlsIdentity", true, loader);
+            Object identity = identityType.getMethod("loadOrCreate", Path.class, String.class)
+                    .invoke(null, directory, "localhost");
+            assertNotNull(identityType.getMethod("serverContext").invoke(identity));
         }
     }
 

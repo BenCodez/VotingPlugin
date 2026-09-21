@@ -15,6 +15,15 @@ AdvancedCore artifact to provide them.
 
 The package phase runs `PackagedArtifactTest` after shading. It opens the actual
 downloadable JAR, checks plugin resources and required relocated classes, and
-rejects duplicate Rhino, raw Hikari/Folia, unused Bouncy Castle, and unsupported
-Java 25 versioned payload. Release/deployment profiles reuse this Shade setup;
-the artifact check follows their configured JAR name.
+rejects duplicate Rhino, raw Hikari/Folia, unused multi-release crypto payloads,
+and optional Jedis module clients. SQLite keeps its complete
+native platform set so packaging changes do not narrow existing installations.
+The test also caps the downloadable artifact at 31 MiB so dependency growth must
+be reviewed explicitly. Release/deployment profiles
+reuse this Shade setup; the artifact check follows their configured JAR name.
+
+Keep the downloadable VotingPlugin JAR as small as practical. Before adding a
+runtime dependency, inspect the shaded artifact and assign one owner for each
+embedded package. Prefer platform-provided APIs where every supported loader
+supplies them, and filter unused native targets or duplicate transitive classes
+only when the retained runtime paths are covered by packaging and startup tests.
