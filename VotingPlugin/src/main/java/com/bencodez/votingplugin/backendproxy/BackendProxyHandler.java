@@ -65,6 +65,7 @@ public class BackendProxyHandler implements Listener {
 	private boolean inboundAborted;
 	private BackendProxyHandler inboundRollbackTarget;
 	private BackendVotePartySync votePartySync;
+	private boolean persistVotePartyOnClose = true;
 	private BackendProxyMessageRouter messageRouter;
 
 	@Getter
@@ -161,7 +162,7 @@ public class BackendProxyHandler implements Listener {
 			presenceReportingActivated = false;
 		}
 		transportManager.close();
-		if (votePartySync != null) {
+		if (votePartySync != null && persistVotePartyOnClose) {
 			votePartySync.persist();
 		}
 		globalDataSync.close();
@@ -259,10 +260,10 @@ public class BackendProxyHandler implements Listener {
 
 	private boolean spillOrderedVote(JsonEnvelope envelope) {
 		if (orderedVoteOverflow != null
-				&& orderedVoteOverflow.enqueue(envelope, orderedVoteDispatchQueue.size())) {
+				&& orderedVoteOverflow.enqueueAsync(envelope, orderedVoteDispatchQueue.size(), this::completeOverflowAdmission)) {
 			if (!orderedVoteOverflowWarningLogged && plugin != null && plugin.getLogger() != null) {
 				orderedVoteOverflowWarningLogged = true;
-				plugin.getLogger().warning("Ordered proxy vote lane is saturated; spilling accepted messages to durable overflow");
+				plugin.getLogger().warning("Ordered proxy vote lane is saturated; queueing messages for durable overflow");
 			}
 			return true;
 		}
@@ -270,6 +271,18 @@ public class BackendProxyHandler implements Listener {
 			plugin.getLogger().severe("Ordered proxy vote lane and durable overflow are full; delivery was rejected");
 		}
 		return false;
+	}
+
+	private void completeOverflowAdmission(boolean stored) {
+		if (stored) return;
+		synchronized (orderedVoteDispatch) {
+			orderedVoteQuarantineFailed = true;
+			orderedVoteDispatchPaused = true;
+			orderedVoteDispatch.notifyAll();
+		}
+		if (plugin != null && plugin.getLogger() != null) {
+			plugin.getLogger().severe("Unable to persist an admitted ordered proxy vote; processing has stopped");
+		}
 	}
 
 	private void activateOrderedVoteDispatch() {
@@ -498,8 +511,22 @@ public class BackendProxyHandler implements Listener {
 		if (orderedVoteOverflow != null) orderedVoteOverflow.bindWakeup(this, this::onOrderedVoteOverflowDurable);
 		synchronized (orderedVoteDispatch) {
 			if (orderedVoteHandoffTarget != null) return;
+			persistVotePartyOnClose = true;
 			orderedVoteDispatchPaused = false;
 			scheduleOrderedVoteDispatchLocked();
+		}
+	}
+
+	/** Transfers the quiesced vote-party snapshot and fences stale predecessor persistence. */
+	public void completeVotePartyHandoff(BackendProxyHandler replacement) {
+		if (replacement == null) return;
+		synchronized (orderedVoteDispatch) {
+			if (!orderedVoteDispatchPaused || orderedVoteDispatchActive || votePartySync == null
+					|| replacement.votePartySync == null) {
+				throw new IllegalStateException("Vote-party state was not quiesced before handoff");
+			}
+			replacement.votePartySync.replace(votePartySync.getCurrent(), votePartySync.getRequired());
+			persistVotePartyOnClose = false;
 		}
 	}
 

@@ -197,6 +197,55 @@ class BackendProxyHandlerLifecycleTest {
 	}
 
 	@Test
+	void saturatedIngressQueuesDurableAdmissionWithoutBlockingCaller(@TempDir Path tempDir) throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ordered-async-admission-test"));
+		BackendOrderedVoteOverflowQueue overflow = new BackendOrderedVoteOverflowQueue(plugin);
+		Object persistenceLock = getField(overflow, "persistenceWriteLock");
+		CountDownLatch locked = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		Thread blocker = new Thread(() -> {
+			synchronized (persistenceLock) {
+				locked.countDown();
+				try {
+					release.await();
+				} catch (InterruptedException interrupted) {
+					Thread.currentThread().interrupt();
+				}
+			}
+		});
+		blocker.start();
+		assertTrue(locked.await(3, TimeUnit.SECONDS));
+		try {
+			BackendProxyHandler handler = new BackendProxyHandler(plugin, new ProcessedVoteCache(), overflow);
+			setField(handler, "messageRouter", mock(BackendProxyMessageRouter.class));
+			handler.activateInboundMessages();
+			for (int index = 0; index < BackendProxyHandler.MAX_ORDERED_VOTE_QUEUE; index++) {
+				handler.dispatchIncomingAfterPublication(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE)
+						.put("sequence", Integer.toString(index)).build(), mock(Runnable.class));
+			}
+			CompletableFuture<Void> admission = CompletableFuture.runAsync(() -> handler.dispatchIncomingAfterPublication(
+					JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).put("sequence", "overflow").build(),
+					mock(Runnable.class)));
+			admission.get(500, TimeUnit.MILLISECONDS);
+			assertEquals(1, overflow.size());
+		} finally {
+			release.countDown();
+			blocker.join(3_000L);
+			overflow.close();
+		}
+		BackendOrderedVoteOverflowQueue recovered = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			assertEquals(1, recovered.size());
+		} finally {
+			recovered.close();
+		}
+	}
+
+	@Test
 	void unreadableOverflowCannotBeOverwritten(@TempDir Path tempDir) throws Exception {
 		Path queueFile = tempDir.resolve("BackendProxyVoteQueue.yml");
 		Files.createDirectory(queueFile);
@@ -826,6 +875,37 @@ class BackendProxyHandlerLifecycleTest {
 		}
 
 		assertEquals(java.util.List.of("1", "2", "3"), sequences);
+	}
+
+	@Test
+	void votePartyHandoffFencesStalePredecessorCloseAndRollbackRestoresIt() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BackendProxyHandler previous = new BackendProxyHandler(plugin);
+		BackendProxyHandler replacement = new BackendProxyHandler(plugin);
+		com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync previousState =
+				mock(com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync.class);
+		com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync replacementState =
+				mock(com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync.class);
+		when(previousState.getCurrent()).thenReturn(7);
+		when(previousState.getRequired()).thenReturn(25);
+		setField(previous, "votePartySync", previousState);
+		setField(replacement, "votePartySync", replacementState);
+		setField(previous, "orderedVoteDispatchPaused", true);
+
+		previous.completeVotePartyHandoff(replacement);
+		verify(replacementState).replace(7, 25);
+		previous.close();
+		verify(previousState, never()).persist();
+
+		BackendProxyHandler rolledBack = new BackendProxyHandler(plugin);
+		com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync rolledBackState =
+				mock(com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync.class);
+		setField(rolledBack, "votePartySync", rolledBackState);
+		setField(rolledBack, "orderedVoteDispatchPaused", true);
+		rolledBack.completeVotePartyHandoff(replacement);
+		rolledBack.resumeOrderedVoteDispatchAfterFailedReplacement();
+		rolledBack.close();
+		verify(rolledBackState).persist();
 	}
 
 

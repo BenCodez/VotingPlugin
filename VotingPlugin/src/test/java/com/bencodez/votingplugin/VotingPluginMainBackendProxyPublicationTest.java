@@ -126,6 +126,7 @@ class VotingPluginMainBackendProxyPublicationTest {
 		order.verify(previous).pauseOrderedVoteDispatchForReplacement(org.mockito.ArgumentMatchers.anyLong());
 		order.verify(replacement).activatePresenceReporting();
 		order.verify(previous).completeHttpHandoff(replacement);
+		order.verify(previous).completeVotePartyHandoff(replacement);
 		order.verify(previous).completeOrderedVoteHandoff(replacement);
 		order.verify(replacement).activateInboundMessages();
 	}

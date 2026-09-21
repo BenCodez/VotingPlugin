@@ -1455,6 +1455,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			try {
 				if (restart.previous != null) restart.previous.completeHttpHandoff(restart.replacement);
 				if (restart.previous != null && restart.orderedVoteHandoffPrepared) {
+					restart.previous.completeVotePartyHandoff(restart.replacement);
 					restart.previous.completeOrderedVoteHandoff(restart.replacement);
 				}
 			} catch (RuntimeException handoffFailure) {

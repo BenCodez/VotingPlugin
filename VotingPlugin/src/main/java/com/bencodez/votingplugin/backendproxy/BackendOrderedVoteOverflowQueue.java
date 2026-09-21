@@ -48,7 +48,9 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 	private final Object lock = new Object();
 	private final Object persistenceWriteLock = new Object();
 	private final ArrayDeque<PendingEnvelope> entries = new ArrayDeque<>();
+	private final ArrayDeque<PendingAdmission> admissions = new ArrayDeque<>();
 	private final ArrayDeque<String> failedEntries = new ArrayDeque<>();
+	private boolean admissionPersistenceScheduled;
 	private boolean persistenceScheduled;
 	private boolean persistenceDirty;
 	private boolean closed;
@@ -87,7 +89,7 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 			synchronized (lock) {
 				// Admission returns only after the overflow snapshot reaches disk.
 				// Keep older in-memory work's shutdown capacity reserved as well.
-				if (closeRequested.get() || closed || loadFailed
+				if (closeRequested.get() || closed || loadFailed || !admissions.isEmpty()
 						|| entries.size() + reservedPrefixEntries >= MAX_ENTRIES) return false;
 				List<String> snapshot = payloadSnapshotLocked();
 				snapshot.add(pending.payload);
@@ -106,6 +108,81 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 		return true;
 	}
 
+	/** Reserves bounded FIFO capacity and persists it on the overflow worker. */
+	boolean enqueueAsync(JsonEnvelope envelope, int reservedPrefixEntries, Consumer<Boolean> completion) {
+		PendingEnvelope pending = pending(envelope);
+		if (pending == null || completion == null || reservedPrefixEntries < 0
+				|| reservedPrefixEntries > BackendProxyHandler.MAX_ORDERED_VOTE_QUEUE) return false;
+		PendingAdmission admission = new PendingAdmission(pending, completion);
+		boolean schedulePersistence;
+		synchronized (lock) {
+			if (closeRequested.get() || closed || loadFailed
+					|| entries.size() + admissions.size() + reservedPrefixEntries >= MAX_ENTRIES) return false;
+			admissions.addLast(admission);
+			schedulePersistence = !admissionPersistenceScheduled;
+			admissionPersistenceScheduled = true;
+		}
+		if (!schedulePersistence) return true;
+		try {
+			worker.execute(this::persistAdmissions);
+			return true;
+		} catch (RejectedExecutionException rejected) {
+			synchronized (lock) {
+				admissions.removeLastOccurrence(admission);
+				admissionPersistenceScheduled = false;
+			}
+			return false;
+		}
+	}
+
+	private void persistAdmissions() {
+		while (true) {
+			List<PendingAdmission> batch;
+			List<PendingAdmission> admitted = new ArrayList<>();
+			List<String> snapshot;
+			List<String> failures;
+			long snapshotVersion;
+			Runnable notify = null;
+			synchronized (persistenceWriteLock) {
+				synchronized (lock) {
+					if (closed || loadFailed || admissions.isEmpty()) {
+						admissionPersistenceScheduled = false;
+						return;
+					}
+					batch = new ArrayList<>(admissions);
+					snapshot = payloadSnapshotLocked();
+					failures = failedSnapshotLocked();
+					snapshotVersion = stateVersion;
+				}
+				try {
+					writeSnapshotLocked(snapshot, failures);
+				} catch (IOException failure) {
+					warn("Unable to admit ordered proxy vote overflow", failure);
+					try {
+						worker.schedule(this::persistAdmissions, RETRY_DELAY_MILLIS, TimeUnit.MILLISECONDS);
+					} catch (RejectedExecutionException ignored) {
+						synchronized (lock) {
+							admissionPersistenceScheduled = false;
+						}
+					}
+					return;
+				}
+				synchronized (lock) {
+					for (PendingAdmission candidate : batch) {
+						if (admissions.peekFirst() != candidate) break;
+						admissions.removeFirst();
+						entries.addLast(candidate.pending);
+						admitted.add(candidate);
+					}
+					durableVersion = Math.max(durableVersion, snapshotVersion);
+					if (durableVersion == stateVersion && wakeup != null) notify = wakeup;
+				}
+			}
+			for (PendingAdmission admission : admitted) admission.complete(true);
+			runWakeup(notify);
+		}
+	}
+
 	/** Adds older in-memory work ahead of already spilled newer messages. */
 	public boolean prepend(List<JsonEnvelope> envelopes) {
 		if (envelopes == null || envelopes.isEmpty()) return true;
@@ -116,7 +193,8 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 			pending.add(value);
 		}
 		synchronized (lock) {
-			if (closeRequested.get() || closed || loadFailed || entries.size() + pending.size() > MAX_ENTRIES) return false;
+			if (closeRequested.get() || closed || loadFailed
+					|| entries.size() + admissions.size() + pending.size() > MAX_ENTRIES) return false;
 			for (int index = pending.size() - 1; index >= 0; index--) {
 				entries.addFirst(pending.get(index));
 			}
@@ -128,7 +206,7 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 
 	public int size() {
 		synchronized (lock) {
-			return entries.size();
+			return entries.size() + admissions.size();
 		}
 	}
 
@@ -468,8 +546,9 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 	}
 
 	private List<String> payloadSnapshotLocked() {
-		List<String> snapshot = new ArrayList<>(entries.size());
+		List<String> snapshot = new ArrayList<>(entries.size() + admissions.size());
 		for (PendingEnvelope pending : entries) snapshot.add(pending.payload);
+		for (PendingAdmission admission : admissions) snapshot.add(admission.pending.payload);
 		return snapshot;
 	}
 
@@ -634,6 +713,21 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 		private PendingFailure(PendingEnvelope expected, PendingEnvelope failed, Consumer<Boolean> completion) {
 			this.expected = expected;
 			this.failed = failed;
+			this.completion = completion;
+		}
+
+		private void complete(boolean success) {
+			if (completed.compareAndSet(false, true)) completion.accept(success);
+		}
+	}
+
+	private static final class PendingAdmission {
+		private final PendingEnvelope pending;
+		private final Consumer<Boolean> completion;
+		private final AtomicBoolean completed = new AtomicBoolean();
+
+		private PendingAdmission(PendingEnvelope pending, Consumer<Boolean> completion) {
+			this.pending = pending;
 			this.completion = completion;
 		}
 
