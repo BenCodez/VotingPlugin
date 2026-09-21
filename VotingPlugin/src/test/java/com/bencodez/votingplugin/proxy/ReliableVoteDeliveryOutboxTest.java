@@ -79,6 +79,10 @@ class ReliableVoteDeliveryOutboxTest {
 				"site", 10L, true, true, "", UUID.randomUUID(), false, false, 1, 1)));
 		Files.writeString(file, "A\ttruncated", StandardOpenOption.APPEND);
 
-		assertEquals(1, new ReliableVoteDeliveryOutbox(file).size());
+		ReliableVoteDeliveryOutbox repaired = new ReliableVoteDeliveryOutbox(file);
+		assertEquals(1, repaired.size());
+		assertTrue(repaired.offer("survival", VotingPluginWire.vote("Two", UUID.randomUUID().toString(),
+				"site", 11L, true, true, "", UUID.randomUUID(), false, false, 1, 1)));
+		assertEquals(2, new ReliableVoteDeliveryOutbox(file).size());
 	}
 }

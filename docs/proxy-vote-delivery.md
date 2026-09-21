@@ -14,6 +14,10 @@ durable backend overflow queue. Before acknowledgement, the backend journals the
 completed vote ID for seven days so a lost acknowledgement followed by backend
 restart does not repeat normal completed processing. The proxy then durably
 removes the matching server, vote ID, and subchannel entry from its outbox.
+If a backend generation stops advertising acknowledgements, the proxy drains
+already-journaled entries once through the existing legacy send path and removes
+each entry only after that send is accepted. This keeps rolling downgrades from
+stranding accepted votes while retaining at-least-once behavior.
 
 This is an **at least once delivery guarantee**. Proxy shutdown, restart, a lost
 send, or a lost acknowledgement leaves the outbox entry available for retry.

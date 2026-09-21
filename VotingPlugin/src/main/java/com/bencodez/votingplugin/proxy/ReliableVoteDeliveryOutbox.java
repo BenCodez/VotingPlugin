@@ -103,7 +103,10 @@ final class ReliableVoteDeliveryOutbox {
 				// An append interrupted before force may leave only the final record
 				// truncated. Its caller never observed durable acceptance, so replaying
 				// the preceding journal is safe and keeps startup available.
-				if (index == lines.length - 1 && !content.endsWith("\n")) return;
+				if (index == lines.length - 1 && !content.endsWith("\n")) {
+					if (!compact()) throw new IOException("Unable to repair vote delivery outbox", malformed);
+					return;
+				}
 				throw new IOException("Malformed vote delivery outbox entry", malformed);
 			}
 			journalRecords++;

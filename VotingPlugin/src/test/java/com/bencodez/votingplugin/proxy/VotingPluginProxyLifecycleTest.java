@@ -1,30 +1,67 @@
 package com.bencodez.votingplugin.proxy;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
+import com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler;
 import com.bencodez.simpleapi.servercomm.sockets.ClientHandler;
-import com.bencodez.votingplugin.tests.VotingPluginProxyTestImpl;
-import com.bencodez.votingplugin.proxy.control.HostedControlManager;
 import com.bencodez.votingplugin.proxy.control.ControlConnector;
+import com.bencodez.votingplugin.proxy.control.HostedControlManager;
+import com.bencodez.votingplugin.tests.VotingPluginProxyTestImpl;
 
 class VotingPluginProxyLifecycleTest {
+	@Test
+	void drainsPersistedVoteThroughLegacyPathAfterCapabilityDisappears(@TempDir Path directory) throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		GlobalMessageProxyHandler messages = mock(GlobalMessageProxyHandler.class);
+		UUID voteId = UUID.randomUUID();
+		JsonEnvelope vote = VotingPluginWire.vote("Player", UUID.randomUUID().toString(), "site", 10L,
+				true, true, "", voteId, false, false, 1, 1);
+		ReliableVoteDeliveryOutbox outbox = new ReliableVoteDeliveryOutbox(directory.resolve("outbox.dat"));
+		org.junit.jupiter.api.Assertions.assertTrue(outbox.offer("survival", vote));
+		Field outboxField = VotingPluginProxy.class.getDeclaredField("reliableVoteDeliveryOutbox");
+		outboxField.setAccessible(true);
+		outboxField.set(proxy, outbox);
+		Field messagesField = VotingPluginProxy.class.getDeclaredField("globalMessageProxyHandler");
+		messagesField.setAccessible(true);
+		messagesField.set(proxy, messages);
+		Field legacyServers = VotingPluginProxy.class.getDeclaredField("legacyVoteDeliveryServers");
+		legacyServers.setAccessible(true);
+		@SuppressWarnings("unchecked")
+		Set<String> legacy = (Set<String>) legacyServers.get(proxy);
+		Method retry = VotingPluginProxy.class.getDeclaredMethod("retryReliableVoteDeliveries", String.class);
+		retry.setAccessible(true);
+		retry.invoke(proxy, "survival");
+		assertEquals(1, outbox.size());
+		org.mockito.Mockito.verifyNoInteractions(messages);
+
+		legacy.add("survival");
+		retry.invoke(proxy, "survival");
+
+		verify(messages).sendMessage("survival", 1, vote);
+		assertEquals(0, outbox.size());
+	}
 
 	@Test
 	void retainsConnectorWhenOperationShutdownFails() throws Exception {

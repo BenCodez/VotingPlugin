@@ -76,7 +76,10 @@ final class DurableVoteReceiptStore {
 				long expiresAt = Long.parseLong(fields[1]);
 				if (expiresAt > now) receipts.put(voteId, expiresAt);
 			} catch (RuntimeException malformed) {
-				if (index == lines.length - 1 && !content.endsWith("\n")) return;
+				if (index == lines.length - 1 && !content.endsWith("\n")) {
+					if (!compact()) throw new IOException("Unable to repair vote receipt journal", malformed);
+					return;
+				}
 				throw new IOException("Malformed vote receipt journal", malformed);
 			}
 			journalRecords++;

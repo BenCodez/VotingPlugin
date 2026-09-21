@@ -130,6 +130,7 @@ public abstract class VotingPluginProxy {
 	private final Map<UUID, MultiProxyVoteRetry> multiProxyVoteRetries = new LinkedHashMap<>();
 	private final LinkedHashMap<UUID, Boolean> completedMultiProxyVotes = new LinkedHashMap<>();
 	private final Set<String> reliableVoteDeliveryServers = ConcurrentHashMap.newKeySet();
+	private final Set<String> legacyVoteDeliveryServers = ConcurrentHashMap.newKeySet();
 	private ReliableVoteDeliveryOutbox reliableVoteDeliveryOutbox;
 	// Set only after all replacement gates have succeeded. Vote entry points are
 	// synchronized, so no new side-effecting vote can race the handoff window.
@@ -891,10 +892,13 @@ public abstract class VotingPluginProxy {
 		if (server == null || server.isBlank() || !isServerValid(server)) return;
 		String key = server.trim().toLowerCase(Locale.ROOT);
 		if (VotingPluginWire.advertisesVoteDeliveryAcknowledgement(message)) {
+			legacyVoteDeliveryServers.remove(key);
 			reliableVoteDeliveryServers.add(key);
 			retryReliableVoteDeliveries(server);
 		} else {
 			reliableVoteDeliveryServers.remove(key);
+			legacyVoteDeliveryServers.add(key);
+			retryReliableVoteDeliveries(server);
 		}
 	}
 
@@ -909,10 +913,21 @@ public abstract class VotingPluginProxy {
 		int delay = 1;
 		for (ReliableVoteDeliveryOutbox.Entry entry : outbox.snapshot()) {
 			if (onlyServer != null && !entry.server().equalsIgnoreCase(onlyServer)) continue;
-			if (!supportsReliableVoteDelivery(entry.server())) continue;
 			try {
-				handler.sendMessage(entry.server(), delay++,
-						VotingPluginWire.requestVoteDeliveryAcknowledgement(entry.envelope()));
+				if (supportsReliableVoteDelivery(entry.server())) {
+					handler.sendMessage(entry.server(), delay++,
+							VotingPluginWire.requestVoteDeliveryAcknowledgement(entry.envelope()));
+				} else if (legacyVoteDeliveryServers.contains(entry.server().trim().toLowerCase(Locale.ROOT))) {
+					handler.sendMessage(entry.server(), delay++, entry.envelope());
+					String voteId = entry.envelope().getFields().get(VotingPluginWire.K_VOTE_ID);
+					if (!outbox.acknowledge(entry.server(), UUID.fromString(voteId),
+							entry.envelope().getSubChannel())) {
+						debug("Legacy vote delivery was accepted but remains queued until its removal is durable for "
+								+ entry.server());
+					}
+				} else {
+					continue;
+				}
 			} catch (RuntimeException failure) {
 				debug("Vote delivery retry remains queued for " + entry.server());
 			}
@@ -1973,6 +1988,7 @@ public abstract class VotingPluginProxy {
 							presenceTimestamp, System.currentTimeMillis())) {
 						discardPendingPresenceHandoffs(server);
 						reliableVoteDeliveryServers.remove(server.trim().toLowerCase(Locale.ROOT));
+						legacyVoteDeliveryServers.remove(server.trim().toLowerCase(Locale.ROOT));
 						pendingBackendRecoverySnapshots.remove(presenceServerKey(server));
 					}
 				}
