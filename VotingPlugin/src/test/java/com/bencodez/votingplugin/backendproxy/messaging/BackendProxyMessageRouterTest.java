@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.backendproxy.messaging;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -262,6 +263,7 @@ class BackendProxyMessageRouterTest {
 	void receiptReleaseRunsInOrderedLaneAndAcknowledgesDurableRemoval() {
 		UUID voteId = UUID.randomUUID();
 		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
+		when(cache.hasDurableReceipt(voteId)).thenReturn(true);
 		when(cache.releaseCompletedReceipt(voteId)).thenReturn(true);
 		AdvancedCoreConfigOptions options = mock(AdvancedCoreConfigOptions.class);
 		when(options.getServer()).thenReturn("survival");
@@ -273,8 +275,10 @@ class BackendProxyMessageRouterTest {
 		voteRouter.register(messages, BungeeMethod.REDIS);
 		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
 
-		voteRouter.handleOrderedVote(VotingPluginWire.voteDeliveryReceiptRelease(
-				"survival", voteId, VotingPluginWire.SUB_VOTE), outcome::set);
+		JsonEnvelope release = VotingPluginWire.voteDeliveryReceiptRelease(
+				"survival", voteId, VotingPluginWire.SUB_VOTE);
+		assertTrue(voteRouter.hasDurableReceiptForRelease(release));
+		voteRouter.handleOrderedVote(release, outcome::set);
 
 		assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
 		verify(cache).releaseCompletedReceipt(voteId);

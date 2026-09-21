@@ -23,6 +23,7 @@ class ProcessedVoteCacheDurabilityTest {
 
 		assertTrue(first.reserve(voteId));
 		assertTrue(first.complete(voteId));
+		assertTrue(first.hasDurableReceipt(voteId));
 		assertFalse(new ProcessedVoteCache(receipts).reserve(voteId));
 	}
 
@@ -89,6 +90,35 @@ class ProcessedVoteCacheDurabilityTest {
 		assertTrue(cache.releaseCompletedReceipt(voteId));
 
 		assertFalse(new ProcessedVoteCache(receipts).reserve(voteId));
+	}
+
+	@Test
+	void unknownReceiptReleaseLeavesRestartSafeTombstone() {
+		Path receipts = directory.resolve("receipts.dat");
+		UUID voteId = UUID.randomUUID();
+		ProcessedVoteCache cache = new ProcessedVoteCache(receipts);
+
+		assertFalse(cache.hasDurableReceipt(voteId));
+		assertTrue(cache.releaseCompletedReceipt(voteId));
+		assertTrue(cache.hasDurableReceipt(voteId));
+
+		assertFalse(new ProcessedVoteCache(receipts).reserve(voteId));
+	}
+
+	@Test
+	void completionHeadroomAllowsPrecedingVotesBeforeRelease() throws Exception {
+		DurableVoteReceiptStore store = new DurableVoteReceiptStore(directory.resolve("receipts.dat"), 1, 2, 1);
+		UUID first = UUID.randomUUID();
+		UUID second = UUID.randomUUID();
+		UUID third = UUID.randomUUID();
+		UUID fourth = UUID.randomUUID();
+
+		assertTrue(store.complete(first) > 0L);
+		assertTrue(store.complete(second) > 0L);
+		assertTrue(store.complete(third) > 0L);
+		assertFalse(store.complete(fourth) > 0L);
+		assertTrue(store.release(first) > 0L);
+		assertTrue(store.complete(fourth) > 0L);
 	}
 
 	@Test

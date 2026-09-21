@@ -56,6 +56,7 @@ public class BackendProxyHandler implements Listener {
 	private boolean orderedVoteDispatchPaused = true;
 	private boolean orderedVoteDispatchClosing;
 	private boolean orderedVoteQuarantineFailed;
+	private final AtomicBoolean durableReceiptReleaseActive = new AtomicBoolean();
 	private JsonEnvelope orderedVoteDispatchInFlight;
 	private BackendOrderedVoteOverflowQueue.PendingEnvelope orderedVoteOverflowInFlight;
 	private JsonEnvelope orderedVoteShutdownQuarantined;
@@ -237,6 +238,42 @@ public class BackendProxyHandler implements Listener {
 	}
 
 	private void dispatchOrderedVote(JsonEnvelope envelope, Runnable ignoredLocalDispatch) {
+		BackendProxyMessageRouter router = messageRouter;
+		if (router != null && router.hasDurableReceiptForRelease(envelope)
+				&& durableReceiptReleaseActive.compareAndSet(false, true)) {
+			try {
+				plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
+						() -> processDurableReceiptRelease(router, envelope, ignoredLocalDispatch));
+				return;
+			} catch (RuntimeException schedulingFailure) {
+				plugin.debug(schedulingFailure);
+				processDurableReceiptRelease(router, envelope, ignoredLocalDispatch);
+				return;
+			}
+		}
+		enqueueOrderedVote(envelope, ignoredLocalDispatch);
+	}
+
+	private void processDurableReceiptRelease(BackendProxyMessageRouter router, JsonEnvelope envelope,
+			Runnable ignoredLocalDispatch) {
+		AtomicBoolean completed = new AtomicBoolean();
+		java.util.function.Consumer<OrderedVoteOutcome> completion = outcome -> {
+			if (!completed.compareAndSet(false, true)) return;
+			durableReceiptReleaseActive.set(false);
+			if (outcome != OrderedVoteOutcome.COMPLETE) enqueueOrderedVote(envelope, ignoredLocalDispatch);
+		};
+		try {
+			router.handleOrderedVote(envelope, completion);
+		} catch (RuntimeException | Error failure) {
+			if (completed.compareAndSet(false, true)) {
+				durableReceiptReleaseActive.set(false);
+				enqueueOrderedVote(envelope, ignoredLocalDispatch);
+			}
+			throw failure;
+		}
+	}
+
+	private void enqueueOrderedVote(JsonEnvelope envelope, Runnable ignoredLocalDispatch) {
 		BackendProxyHandler handoffTarget;
 		synchronized (orderedVoteDispatch) {
 			handoffTarget = orderedVoteHandoffTarget;

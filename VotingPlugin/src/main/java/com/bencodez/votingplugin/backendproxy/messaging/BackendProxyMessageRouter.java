@@ -159,6 +159,12 @@ public class BackendProxyMessageRouter {
 		throw new IllegalArgumentException("Unsupported ordered proxy vote message: " + subChannel);
 	}
 
+	/** Allows a durable receipt release to bypass a capacity-blocked ordered vote. */
+	public boolean hasDurableReceiptForRelease(JsonEnvelope msg) {
+		UUID voteId = validReceiptReleaseVoteId(msg);
+		return voteId != null && processedVoteCache.hasDurableReceipt(voteId);
+	}
+
 	/**
 	 * Processes one ordered VoteUpdate. User identity and shared cache population
 	 * are allowed to leave the platform thread, while offline reward/Bukkit work
@@ -428,16 +434,11 @@ public class BackendProxyMessageRouter {
 	}
 
 	private OrderedVoteOutcome handleVoteDeliveryReceiptRelease(GlobalMessageHandler messages, JsonEnvelope msg) {
-		if (messages == null || !VotingPluginWire.requestsVoteDeliveryAcknowledgement(msg)) {
-			return OrderedVoteOutcome.QUARANTINE;
-		}
-		String server = nvl(msg.getFields().get(VotingPluginWire.K_SERVER));
-		if (!plugin.getOptions().getServer().equalsIgnoreCase(server)) return OrderedVoteOutcome.QUARANTINE;
+		if (messages == null) return OrderedVoteOutcome.QUARANTINE;
+		UUID voteId = validReceiptReleaseVoteId(msg);
+		if (voteId == null) return OrderedVoteOutcome.QUARANTINE;
 		String subChannel = nvl(msg.getFields().get(VotingPluginWire.K_VOTE_DELIVERY_SUBCHANNEL));
-		if (!VotingPluginWire.SUB_VOTE.equals(subChannel)
-				&& !VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)) return OrderedVoteOutcome.QUARANTINE;
 		try {
-			UUID voteId = UUID.fromString(nvl(msg.getFields().get(VotingPluginWire.K_VOTE_ID)));
 			if (processedVoteCache.releaseCompletedReceipt(voteId)) {
 				messages.sendMessage(VotingPluginWire.voteDeliveryReceiptReleaseAcknowledgement(
 						plugin.getOptions().getServer(), voteId, subChannel));
@@ -447,6 +448,21 @@ public class BackendProxyMessageRouter {
 		} catch (IllegalArgumentException invalidVoteId) {
 			plugin.debug("Ignored vote receipt release with invalid vote ID");
 			return OrderedVoteOutcome.QUARANTINE;
+		}
+	}
+
+	private UUID validReceiptReleaseVoteId(JsonEnvelope msg) {
+		if (msg == null || !VotingPluginWire.SUB_VOTE_DELIVERY_RECEIPT_RELEASE.equals(msg.getSubChannel())
+				|| !VotingPluginWire.requestsVoteDeliveryAcknowledgement(msg)) return null;
+		String server = nvl(msg.getFields().get(VotingPluginWire.K_SERVER));
+		if (!plugin.getOptions().getServer().equalsIgnoreCase(server)) return null;
+		String subChannel = nvl(msg.getFields().get(VotingPluginWire.K_VOTE_DELIVERY_SUBCHANNEL));
+		if (!VotingPluginWire.SUB_VOTE.equals(subChannel)
+				&& !VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)) return null;
+		try {
+			return UUID.fromString(nvl(msg.getFields().get(VotingPluginWire.K_VOTE_ID)));
+		} catch (IllegalArgumentException invalidVoteId) {
+			return null;
 		}
 	}
 

@@ -121,6 +121,11 @@ public class ProcessedVoteCache {
 		return voteId != null && (completedVotes.contains(voteId) || completedAwaitingReceipt.contains(voteId));
 	}
 
+	/** Returns whether an acknowledgement-safe receipt is already durable. */
+	public boolean hasDurableReceipt(UUID voteId) {
+		return durableReceipts != null && durableReceipts.contains(voteId);
+	}
+
 	/** Durably retires a completed receipt after the proxy confirms outbox removal. */
 	public boolean releaseCompletedReceipt(UUID voteId) {
 		if (voteId == null) return false;
@@ -131,13 +136,8 @@ public class ProcessedVoteCache {
 		}
 		long expiresAt = durableReceipts.release(voteId);
 		if (expiresAt <= 0L) return false;
-		if (expiresAt == Long.MAX_VALUE) {
-			completedVotes.remove(voteId);
-			processedVotes.remove(voteId);
-		} else {
-			completedVotes.add(voteId);
-			processedVotes.put(voteId, expiresAt);
-		}
+		completedVotes.add(voteId);
+		processedVotes.put(voteId, expiresAt);
 		return true;
 	}
 

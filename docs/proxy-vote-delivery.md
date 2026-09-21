@@ -16,7 +16,11 @@ durable backend overflow queue. Before acknowledgement, the backend journals the
 completed vote ID without time expiry so a delayed or lost acknowledgement
 followed by backend restart does not repeat normal completed processing. The
 bounded receipt journal fails closed at its capacity instead of evicting an ID
-that may still have a proxy outbox entry. The proxy then durably transitions the
+that may still have a proxy outbox entry. It reserves completion headroom larger
+than the bounded ordered lane and separate space for release tombstones. A
+release for an already-durable receipt may run independently of a
+capacity-blocked vote because that receipt proves the vote effects completed;
+unknown releases remain ordered. The proxy then durably transitions the
 matching server, vote ID, and subchannel entry into a receipt-release phase. The
 backend durably converts its completed receipt into a 24-hour post-release
 tombstone and acknowledges that release;
@@ -24,10 +28,9 @@ only then does the proxy remove the outbox entry. Lost release messages and
 acknowledgements remain retryable across either process restarting, so completed
 receipts can be reclaimed without turning the journal bound into a lifetime cap.
 If a backend generation stops advertising acknowledgements, the proxy drains
-already-journaled entries once through the existing legacy send path and removes
-each entry only after the selected transport reports acceptance. This keeps rolling downgrades from
-stranding accepted votes while retaining at-least-once behavior. The accepted
-entry transitions into receipt release in case the previous capable backend
+already-journaled entries once through the existing legacy send path and moves
+each accepted entry into receipt release. This keeps rolling downgrades from
+stranding accepted votes while retaining at-least-once behavior in case the previous capable backend
 journaled completion before its acknowledgement was lost. Receipt-release
 entries remain until a capable backend confirms retirement.
 

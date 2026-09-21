@@ -16,7 +16,11 @@ import com.bencodez.votingplugin.util.DurableFiles;
 
 /** Bounded append journal for backend vote IDs completed before acknowledgement. */
 final class DurableVoteReceiptStore {
-	private static final int MAX_RECEIPTS = 262144;
+	private static final int MAX_ACTIVE_RECEIPTS = 262144;
+	/* Larger than the complete in-memory and durable ordered lane (256 + 512). */
+	private static final int COMPLETION_HEADROOM = 1024;
+	/* One proxy cannot retain more release markers than its bounded outbox. */
+	private static final int MAX_RELEASE_TOMBSTONES = 4096;
 	private static final long MAX_FILE_BYTES = 16L * 1024L * 1024L;
 	private static final String HEADER = "VP-VOTE-RECEIPTS-1";
 	private static final String RELEASE = "R";
@@ -25,12 +29,25 @@ final class DurableVoteReceiptStore {
 
 	private final Path file;
 	private final Object fileLock;
+	private final int maxActiveReceipts;
+	private final int completionHeadroom;
+	private final int maxReleaseTombstones;
 	private final LinkedHashMap<UUID, Long> receipts = new LinkedHashMap<>();
+	private int activeReceipts;
+	private int releaseTombstones;
 	private int journalRecords;
 
 	DurableVoteReceiptStore(Path file) throws IOException {
+		this(file, MAX_ACTIVE_RECEIPTS, COMPLETION_HEADROOM, MAX_RELEASE_TOMBSTONES);
+	}
+
+	DurableVoteReceiptStore(Path file, int maxActiveReceipts, int completionHeadroom,
+			int maxReleaseTombstones) throws IOException {
 		this.file = file.toAbsolutePath().normalize();
 		this.fileLock = FILE_LOCKS.computeIfAbsent(this.file, ignored -> new Object());
+		this.maxActiveReceipts = maxActiveReceipts;
+		this.completionHeadroom = completionHeadroom;
+		this.maxReleaseTombstones = maxReleaseTombstones;
 		synchronized (fileLock) {
 			load();
 		}
@@ -41,18 +58,23 @@ final class DurableVoteReceiptStore {
 		return new LinkedHashMap<>(receipts);
 	}
 
+	synchronized boolean contains(UUID voteId) {
+		cleanupReleasedTombstones(System.currentTimeMillis());
+		return voteId != null && receipts.containsKey(voteId);
+	}
+
 	synchronized long complete(UUID voteId) {
 		if (voteId == null) return 0L;
 		cleanupReleasedTombstones(System.currentTimeMillis());
 		Long current = receipts.get(voteId);
 		if (current != null) return current;
-		if (receipts.size() >= MAX_RECEIPTS) return 0L;
+		if (activeReceipts >= maxActiveReceipts + completionHeadroom) return 0L;
 		long expiresAt = Long.MAX_VALUE;
 		String record = voteId + "\t" + expiresAt + '\n';
 		synchronized (fileLock) {
 			if (!prepareAppend(record) || !append(record)) return 0L;
 		}
-		receipts.put(voteId, expiresAt);
+		putReceipt(voteId, expiresAt);
 		journalRecords++;
 		return expiresAt;
 	}
@@ -62,14 +84,14 @@ final class DurableVoteReceiptStore {
 		long now = System.currentTimeMillis();
 		cleanupReleasedTombstones(now);
 		Long current = receipts.get(voteId);
-		if (current == null) return Long.MAX_VALUE;
-		if (current != Long.MAX_VALUE) return current;
+		if (current == null && releaseTombstones >= maxReleaseTombstones) return 0L;
+		if (current != null && current != Long.MAX_VALUE) return current;
 		long expiresAt = now + RELEASE_TOMBSTONE_TTL_MILLIS;
 		String record = RELEASE + '\t' + voteId + '\t' + expiresAt + '\n';
 		synchronized (fileLock) {
 			if (!prepareAppend(record) || !append(record)) return 0L;
 		}
-		receipts.put(voteId, expiresAt);
+		putReceipt(voteId, expiresAt);
 		journalRecords++;
 		return expiresAt;
 	}
@@ -90,24 +112,27 @@ final class DurableVoteReceiptStore {
 			try {
 				String[] fields = lines[index].split("\\t", 3);
 				if (RELEASE.equals(fields[0])) {
-					if (fields.length == 2) receipts.remove(UUID.fromString(fields[1]));
+					if (fields.length == 2) removeReceipt(UUID.fromString(fields[1]));
 					else if (fields.length == 3) {
 						UUID voteId = UUID.fromString(fields[1]);
 						long expiresAt = Long.parseLong(fields[2]);
-						if (expiresAt > System.currentTimeMillis()) receipts.put(voteId, expiresAt);
-						else receipts.remove(voteId);
+						if (expiresAt > System.currentTimeMillis()) putReceipt(voteId, expiresAt);
+						else removeReceipt(voteId);
 					} else throw new IllegalArgumentException("Malformed receipt release");
 				} else {
 					if (fields.length != 2) throw new IllegalArgumentException("Malformed receipt");
 					UUID voteId = UUID.fromString(fields[0]);
 					long expiresAt = Long.parseLong(fields[1]);
-					receipts.put(voteId, expiresAt);
+					putReceipt(voteId, expiresAt);
 				}
 			} catch (RuntimeException malformed) {
 				throw new IOException("Malformed vote receipt journal", malformed);
 			}
 			journalRecords++;
-			if (receipts.size() > MAX_RECEIPTS) throw new IOException("Vote receipt journal exceeds entry limit");
+			if (activeReceipts > maxActiveReceipts + completionHeadroom
+					|| releaseTombstones > maxReleaseTombstones) {
+				throw new IOException("Vote receipt journal exceeds entry limit");
+			}
 		}
 		if (unterminatedTail && !compact()) throw new IOException("Unable to repair vote receipt journal");
 	}
@@ -163,6 +188,25 @@ final class DurableVoteReceiptStore {
 	}
 
 	private void cleanupReleasedTombstones(long now) {
+		int before = receipts.size();
 		receipts.entrySet().removeIf(entry -> entry.getValue() != Long.MAX_VALUE && entry.getValue() <= now);
+		releaseTombstones -= before - receipts.size();
+	}
+
+	private void putReceipt(UUID voteId, long expiresAt) {
+		Long previous = receipts.put(voteId, expiresAt);
+		if (previous != null) {
+			if (previous == Long.MAX_VALUE) activeReceipts--;
+			else releaseTombstones--;
+		}
+		if (expiresAt == Long.MAX_VALUE) activeReceipts++;
+		else releaseTombstones++;
+	}
+
+	private void removeReceipt(UUID voteId) {
+		Long previous = receipts.remove(voteId);
+		if (previous == null) return;
+		if (previous == Long.MAX_VALUE) activeReceipts--;
+		else releaseTombstones--;
 	}
 }

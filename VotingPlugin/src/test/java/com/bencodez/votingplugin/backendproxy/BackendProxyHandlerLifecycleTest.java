@@ -149,6 +149,42 @@ class BackendProxyHandlerLifecycleTest {
 	}
 
 	@Test
+	void durableReceiptReleaseBypassesBlockedOrderedVote() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		BackendProxyHandler handler = new BackendProxyHandler(plugin);
+		BackendProxyMessageRouter router = mock(BackendProxyMessageRouter.class);
+		setField(handler, "messageRouter", router);
+		handler.activateInboundMessages();
+
+		ArrayDeque<Runnable> asyncTasks = new ArrayDeque<>();
+		doAnswer(invocation -> {
+			asyncTasks.addLast(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+
+		JsonEnvelope blockedVote = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).build();
+		JsonEnvelope release = VotingPluginWire.voteDeliveryReceiptRelease(
+				"survival", UUID.randomUUID(), VotingPluginWire.SUB_VOTE);
+		JsonEnvelope secondRelease = VotingPluginWire.voteDeliveryReceiptRelease(
+				"survival", UUID.randomUUID(), VotingPluginWire.SUB_VOTE);
+		when(router.hasDurableReceiptForRelease(release)).thenReturn(true);
+		when(router.hasDurableReceiptForRelease(secondRelease)).thenReturn(true);
+
+		handler.dispatchIncomingAfterPublication(blockedVote, mock(Runnable.class));
+		handler.dispatchIncomingAfterPublication(release, mock(Runnable.class));
+		handler.dispatchIncomingAfterPublication(secondRelease, mock(Runnable.class));
+
+		assertEquals(2, asyncTasks.size(), "only one known release should bypass the active ordered head");
+		asyncTasks.removeLast().run();
+		verify(router).handleOrderedVote(eq(release), any());
+		@SuppressWarnings("unchecked")
+		ArrayDeque<JsonEnvelope> queued = (ArrayDeque<JsonEnvelope>) getField(handler, "orderedVoteDispatchQueue");
+		assertEquals(java.util.List.of(blockedVote, secondRelease), java.util.List.copyOf(queued));
+	}
+
+	@Test
 	void reliableVoteIsAcknowledgedOnlyAfterOrderedCompletion() throws Exception {
 		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
 		BukkitScheduler scheduler = mock(BukkitScheduler.class);
