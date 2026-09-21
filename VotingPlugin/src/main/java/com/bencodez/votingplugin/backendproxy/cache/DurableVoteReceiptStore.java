@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 import com.bencodez.votingplugin.util.DurableFiles;
 
@@ -19,6 +20,7 @@ final class DurableVoteReceiptStore {
 	private static final long MAX_FILE_BYTES = 16L * 1024L * 1024L;
 	private static final String HEADER = "VP-VOTE-RECEIPTS-1";
 	private static final String RELEASE = "R";
+	static final long RELEASE_TOMBSTONE_TTL_MILLIS = TimeUnit.HOURS.toMillis(24);
 	private static final ConcurrentHashMap<Path, Object> FILE_LOCKS = new ConcurrentHashMap<>();
 
 	private final Path file;
@@ -35,11 +37,13 @@ final class DurableVoteReceiptStore {
 	}
 
 	synchronized Map<UUID, Long> snapshot() {
+		cleanupReleasedTombstones(System.currentTimeMillis());
 		return new LinkedHashMap<>(receipts);
 	}
 
 	synchronized long complete(UUID voteId) {
 		if (voteId == null) return 0L;
+		cleanupReleasedTombstones(System.currentTimeMillis());
 		Long current = receipts.get(voteId);
 		if (current != null) return current;
 		if (receipts.size() >= MAX_RECEIPTS) return 0L;
@@ -53,27 +57,21 @@ final class DurableVoteReceiptStore {
 		return expiresAt;
 	}
 
-	synchronized boolean release(UUID voteId) {
-		if (voteId == null || !receipts.containsKey(voteId)) return true;
-		if (receipts.size() == 1) {
-			synchronized (fileLock) {
-				try {
-					if (!DurableFiles.deleteIfExists(file) && Files.exists(file)) return false;
-				} catch (IOException failure) {
-					return false;
-				}
-			}
-			receipts.clear();
-			journalRecords = 0;
-			return true;
-		}
-		String record = RELEASE + '\t' + voteId + '\n';
+	synchronized long release(UUID voteId) {
+		if (voteId == null) return 0L;
+		long now = System.currentTimeMillis();
+		cleanupReleasedTombstones(now);
+		Long current = receipts.get(voteId);
+		if (current == null) return Long.MAX_VALUE;
+		if (current != Long.MAX_VALUE) return current;
+		long expiresAt = now + RELEASE_TOMBSTONE_TTL_MILLIS;
+		String record = RELEASE + '\t' + voteId + '\t' + expiresAt + '\n';
 		synchronized (fileLock) {
-			if (!prepareAppend(record) || !append(record)) return false;
+			if (!prepareAppend(record) || !append(record)) return 0L;
 		}
-		receipts.remove(voteId);
+		receipts.put(voteId, expiresAt);
 		journalRecords++;
-		return true;
+		return expiresAt;
 	}
 
 	private void load() throws IOException {
@@ -90,10 +88,17 @@ final class DurableVoteReceiptStore {
 		for (int index = 1; index < completeLineLimit; index++) {
 			if (lines[index].isBlank()) continue;
 			try {
-				String[] fields = lines[index].split("\\t", 2);
-				if (fields.length != 2) throw new IllegalArgumentException("Malformed receipt");
-				if (RELEASE.equals(fields[0])) receipts.remove(UUID.fromString(fields[1]));
-				else {
+				String[] fields = lines[index].split("\\t", 3);
+				if (RELEASE.equals(fields[0])) {
+					if (fields.length == 2) receipts.remove(UUID.fromString(fields[1]));
+					else if (fields.length == 3) {
+						UUID voteId = UUID.fromString(fields[1]);
+						long expiresAt = Long.parseLong(fields[2]);
+						if (expiresAt > System.currentTimeMillis()) receipts.put(voteId, expiresAt);
+						else receipts.remove(voteId);
+					} else throw new IllegalArgumentException("Malformed receipt release");
+				} else {
+					if (fields.length != 2) throw new IllegalArgumentException("Malformed receipt");
 					UUID voteId = UUID.fromString(fields[0]);
 					long expiresAt = Long.parseLong(fields[1]);
 					receipts.put(voteId, expiresAt);
@@ -155,5 +160,9 @@ final class DurableVoteReceiptStore {
 		} catch (IOException failure) {
 			return false;
 		}
+	}
+
+	private void cleanupReleasedTombstones(long now) {
+		receipts.entrySet().removeIf(entry -> entry.getValue() != Long.MAX_VALUE && entry.getValue() <= now);
 	}
 }

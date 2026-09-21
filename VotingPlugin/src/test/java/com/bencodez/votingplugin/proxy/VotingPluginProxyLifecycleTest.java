@@ -69,7 +69,7 @@ class VotingPluginProxyLifecycleTest {
 	}
 
 	@Test
-	void drainsPersistedVoteThroughLegacyPathAfterCapabilityDisappears(@TempDir Path directory) throws Exception {
+	void preservesReceiptReleaseAfterLegacyDowngradeDelivery(@TempDir Path directory) throws Exception {
 		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
 		proxy.setMethod(BungeeMethod.PLUGINMESSAGING);
 		GlobalMessageProxyHandler messages = mock(GlobalMessageProxyHandler.class);
@@ -102,7 +102,8 @@ class VotingPluginProxyLifecycleTest {
 		proxy.setPluginMessageDeliveryResult(true);
 		retry.invoke(proxy, "survival");
 
-		assertEquals(0, outbox.size());
+		assertEquals(1, outbox.size());
+		org.junit.jupiter.api.Assertions.assertTrue(outbox.snapshot().get(0).awaitingReceiptRelease());
 	}
 
 	private static void setField(Object target, String name, Object value) throws Exception {

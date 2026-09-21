@@ -70,14 +70,6 @@ final class ReliableVoteDeliveryOutbox {
 		return remove(key);
 	}
 
-	synchronized boolean acknowledgeLegacyDelivery(String server, UUID voteId, String subChannel) {
-		if (voteId == null || server == null || subChannel == null) return false;
-		String key = normalized(server) + '|' + subChannel + '|' + voteId;
-		Entry entry = entries.get(key);
-		if (entry == null || entry.awaitingReceiptRelease()) return false;
-		return remove(key);
-	}
-
 	private boolean remove(String key) {
 		if (entries.size() == 1) {
 			try {

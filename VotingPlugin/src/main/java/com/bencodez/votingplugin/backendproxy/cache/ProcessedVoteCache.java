@@ -92,6 +92,7 @@ public class ProcessedVoteCache {
 			}
 
 			if (processedVotes.replace(voteId, currentExpiry, expiresAt)) {
+				completedVotes.remove(voteId);
 				cleanup(now);
 				return true;
 			}
@@ -123,9 +124,20 @@ public class ProcessedVoteCache {
 	/** Durably retires a completed receipt after the proxy confirms outbox removal. */
 	public boolean releaseCompletedReceipt(UUID voteId) {
 		if (voteId == null) return false;
-		if (durableReceipts != null && !durableReceipts.release(voteId)) return false;
-		completedVotes.remove(voteId);
-		processedVotes.remove(voteId);
+		if (durableReceipts == null) {
+			completedVotes.remove(voteId);
+			processedVotes.remove(voteId);
+			return true;
+		}
+		long expiresAt = durableReceipts.release(voteId);
+		if (expiresAt <= 0L) return false;
+		if (expiresAt == Long.MAX_VALUE) {
+			completedVotes.remove(voteId);
+			processedVotes.remove(voteId);
+		} else {
+			completedVotes.add(voteId);
+			processedVotes.put(voteId, expiresAt);
+		}
 		return true;
 	}
 
@@ -230,7 +242,9 @@ public class ProcessedVoteCache {
 	}
 
 	private void cleanup(long now) {
-		processedVotes.entrySet().removeIf(entry -> entry.getValue() <= now);
+		processedVotes.forEach((voteId, expiresAt) -> {
+			if (expiresAt <= now && processedVotes.remove(voteId, expiresAt)) completedVotes.remove(voteId);
+		});
 	}
 
 	/** Returns an exact UTF-8 length up to the per-delivery cap, then cap + 1. */

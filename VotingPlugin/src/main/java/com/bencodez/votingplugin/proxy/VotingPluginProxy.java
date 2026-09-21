@@ -938,9 +938,9 @@ public abstract class VotingPluginProxy {
 					}
 					delay++;
 					String voteId = entry.envelope().getFields().get(VotingPluginWire.K_VOTE_ID);
-					if (!outbox.acknowledgeLegacyDelivery(entry.server(), UUID.fromString(voteId),
+					if (!outbox.acknowledgeCompletion(entry.server(), UUID.fromString(voteId),
 							entry.envelope().getSubChannel())) {
-						debug("Legacy vote delivery was accepted but remains queued until its removal is durable for "
+						debug("Legacy vote delivery was accepted but remains queued until its release state is durable for "
 								+ entry.server());
 					}
 				} else {

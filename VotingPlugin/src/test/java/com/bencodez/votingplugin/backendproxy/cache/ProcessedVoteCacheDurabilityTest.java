@@ -79,7 +79,7 @@ class ProcessedVoteCacheDurabilityTest {
 	}
 
 	@Test
-	void proxyConfirmedReleaseRetiresReceiptAcrossRestart() {
+	void proxyConfirmedReleaseLeavesRestartSafeTombstone() {
 		Path receipts = directory.resolve("receipts.dat");
 		UUID voteId = UUID.randomUUID();
 		ProcessedVoteCache cache = new ProcessedVoteCache(receipts);
@@ -87,6 +87,15 @@ class ProcessedVoteCacheDurabilityTest {
 		assertTrue(cache.complete(voteId));
 
 		assertTrue(cache.releaseCompletedReceipt(voteId));
+
+		assertFalse(new ProcessedVoteCache(receipts).reserve(voteId));
+	}
+
+	@Test
+	void expiredReleaseTombstoneIsReclaimedOnRestart() throws Exception {
+		Path receipts = directory.resolve("receipts.dat");
+		UUID voteId = UUID.randomUUID();
+		Files.writeString(receipts, "VP-VOTE-RECEIPTS-1\nR\t" + voteId + "\t1\n");
 
 		assertTrue(new ProcessedVoteCache(receipts).reserve(voteId));
 	}
