@@ -23,6 +23,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.bencodez.advancedcore.api.time.TimeChangeTransition;
 import com.bencodez.advancedcore.api.time.events.DateChangedEvent;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.data.ServerData;
@@ -46,6 +47,7 @@ class TimeQueueHandlerRejectionTest {
 		when(plugin.getServerData()).thenReturn(serverData);
 		when(plugin.getVoteTimer()).thenReturn(voteTimer);
 		when(plugin.getLogger()).thenReturn(logger);
+		when(plugin.isEnabled()).thenReturn(true);
 		when(serverData.getTimedVoteCacheKeys()).thenReturn(Set.of("0"));
 		when(serverData.getTimedVoteCacheSection("0")).thenReturn(cachedVote);
 		when(cachedVote.getString("Name")).thenReturn("Steve");
@@ -86,5 +88,32 @@ class TimeQueueHandlerRejectionTest {
 		verify(voteTimer).schedule(any(Runnable.class), org.mockito.ArgumentMatchers.eq(0L),
 				org.mockito.ArgumentMatchers.eq(TimeUnit.SECONDS));
 		assertEquals(1, handler.getTimeChangeQueue().size());
+	}
+
+	@Test
+	void disabledPluginDoesNotRegisterABukkitRetry() {
+		when(plugin.isEnabled()).thenReturn(false);
+
+		new TimeQueueHandler(plugin);
+
+		verify(plugin.getBukkitScheduler(), never()).runTaskLaterAsynchronously(
+				org.mockito.ArgumentMatchers.eq(plugin), any(Runnable.class), anyLong());
+	}
+
+	@Test
+	void cancelledDurableTransitionFailsItsLeaseWithoutScheduling() {
+		when(serverData.getTimedVoteCacheKeys()).thenReturn(Set.of());
+		TimeQueueHandler handler = new TimeQueueHandler(plugin);
+		reset(voteTimer);
+		TimeChangeTransition transition = mock(TimeChangeTransition.class);
+		TimeChangeTransition.Lease lease = mock(TimeChangeTransition.Lease.class);
+		when(transition.retain()).thenReturn(lease);
+		when(transition.isCancellationRequested()).thenReturn(true);
+
+		handler.postTimeChange(new DateChangedEvent(com.bencodez.advancedcore.api.time.TimeType.DAY, transition));
+
+		verify(voteTimer, never()).schedule(any(Runnable.class), anyLong(), any(TimeUnit.class));
+		verify(lease).fail(any(java.util.concurrent.CancellationException.class));
+		verify(lease, never()).complete();
 	}
 }

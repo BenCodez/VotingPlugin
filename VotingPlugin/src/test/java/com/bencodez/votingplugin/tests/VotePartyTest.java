@@ -26,6 +26,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
+import com.bencodez.advancedcore.api.time.TimeChangeTransition;
+import com.bencodez.advancedcore.api.time.events.DayChangeEvent;
 import com.bencodez.advancedcore.api.user.UserManager;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.Config;
@@ -110,6 +112,22 @@ public class VotePartyTest {
 	    voteParty.check(user, false);
 
 	    verify(voteParty, never()).giveRewards(any(), eq(false));
+	}
+
+	@Test
+	public void dayResetRecordsTransitionEffectBeforeCompletingLease() {
+		TimeChangeTransition transition = Mockito.mock(TimeChangeTransition.class);
+		TimeChangeTransition.Lease lease = Mockito.mock(TimeChangeTransition.Lease.class);
+		when(transition.retain()).thenReturn(lease);
+		when(transition.getType()).thenReturn(com.bencodez.advancedcore.api.time.TimeType.DAY);
+		when(transition.getId()).thenReturn("DAY:2026-09-21");
+		when(plugin.getSpecialRewardsConfig().isVotePartyResetEachDay()).thenReturn(true);
+
+		voteParty.onDayChange(new DayChangeEvent(transition));
+
+		verify(plugin.getServerData()).beginTimeChangeRecovery(transition);
+		verify(plugin.getServerData()).completeTimeChangeEffect(transition, "VotePartyDayReset");
+		verify(lease).complete();
 	}
 
 	@Test

@@ -12,6 +12,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.configuration.ConfigurationSection;
 
+import com.bencodez.advancedcore.api.time.TimeChangeTransition;
+import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.signs.SignHandler;
@@ -19,6 +21,13 @@ import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 
 public class ServerData {
+	public record TimeChangeUserProgress(String uuid, int streakTarget, boolean rewardRequired,
+			boolean rewardComplete) { }
+
+	private static final String TIME_CHANGE_RECOVERY = "TimeChangeRecovery";
+	private static final List<String> TIME_CHANGE_PHASES = List.of("START", "SNAPSHOT", "COPY_TOTALS",
+			"USER_UPDATES", "TOP_REWARDS", "VOTE_SHOP", "BUNGEE_WAIT", "TOTALS_RESET", "CACHE_CLEAR",
+			"POST_DATE", "COMPLETE");
 
 	private VotingPluginMain plugin = VotingPluginMain.plugin;
 
@@ -389,6 +398,135 @@ public class ServerData {
 	 */
 	public synchronized void saveData() {
 		plugin.getServerDataFile().saveData();
+	}
+
+	/**
+	 * Starts or resumes the compact local checkpoint for a durable core time
+	 * transition. Only the current transition for each time type is retained;
+	 * per-recipient reward receipts are bounded by the top-voter recipient list.
+	 *
+	 * @param transition the core-owned durable transition
+	 */
+	public synchronized void beginTimeChangeRecovery(TimeChangeTransition transition) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (transition.getId().equals(getData().getString(path + ".Id", ""))) return;
+		getData().set(path, null);
+		getData().set(path + ".Id", transition.getId());
+		getData().set(path + ".Period", transition.getPeriodKey());
+		getData().set(path + ".Phase", "START");
+		getData().set(path + ".Cursor", "");
+		saveData();
+	}
+
+	/** Returns whether the named phase has been durably completed. */
+	public synchronized boolean hasTimeChangePhase(TimeChangeTransition transition, String phase) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) return false;
+		int requested = TIME_CHANGE_PHASES.indexOf(phase);
+		int completed = TIME_CHANGE_PHASES.indexOf(getData().getString(path + ".Phase", "START"));
+		return requested >= 0 && completed >= requested;
+	}
+
+	/** Records the next completed recovery phase synchronously. */
+	public synchronized void completeTimeChangePhase(TimeChangeTransition transition, String phase) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		getData().set(path + ".Phase", phase);
+		saveData();
+	}
+
+	/** Returns the last durably completed UUID in sorted user processing. */
+	public synchronized String getTimeChangeCursor(TimeChangeTransition transition) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) return "";
+		return getData().getString(path + ".Cursor", "");
+	}
+
+	/** Advances the compact sorted-user cursor after that user's work is done. */
+	public synchronized void completeTimeChangeUser(TimeChangeTransition transition, String uuid) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		getData().set(path + ".Cursor", uuid);
+		getData().set(path + ".CurrentUser", null);
+		saveData();
+	}
+
+	/**
+	 * Persists the absolute streak target before changing a user. Only one user is
+	 * in flight because the period walk is ordered and synchronous.
+	 */
+	public synchronized TimeChangeUserProgress prepareTimeChangeUserStreak(TimeChangeTransition transition,
+			String uuid, int streakTarget, boolean rewardRequired) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		String userPath = path + ".CurrentUser";
+		if (!uuid.equals(getData().getString(userPath + ".Uuid", ""))) {
+			getData().set(userPath, null);
+			getData().set(userPath + ".Uuid", uuid);
+			getData().set(userPath + ".StreakTarget", streakTarget);
+			getData().set(userPath + ".RewardRequired", rewardRequired);
+			getData().set(userPath + ".RewardComplete", false);
+			saveData();
+		}
+		return new TimeChangeUserProgress(uuid, getData().getInt(userPath + ".StreakTarget"),
+				getData().getBoolean(userPath + ".RewardRequired", false),
+				getData().getBoolean(userPath + ".RewardComplete", false));
+	}
+
+	/** Marks the in-flight user's streak reward call as returned successfully. */
+	public synchronized void completeTimeChangeUserStreakReward(TimeChangeTransition transition, String uuid) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		String userPath = path + ".CurrentUser";
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))
+				|| !uuid.equals(getData().getString(userPath + ".Uuid", ""))) {
+			throw new IllegalStateException("Time change recovery user does not match");
+		}
+		getData().set(userPath + ".RewardComplete", true);
+		saveData();
+	}
+
+	/** Checks the durable receipt for one top-voter reward recipient. */
+	public synchronized boolean hasTimeChangeRewardReceipt(TimeChangeTransition transition, String uuid) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		return transition.getId().equals(getData().getString(path + ".Id", ""))
+				&& getData().getBoolean(path + ".Rewards." + uuid, false);
+	}
+
+	/** Persists a recipient receipt only after the existing reward API returns. */
+	public synchronized void completeTimeChangeReward(TimeChangeTransition transition, String uuid) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		getData().set(path + ".Rewards." + uuid, true);
+		saveData();
+	}
+
+	/** Records idempotent non-reward listener effects such as VoteParty resets. */
+	public synchronized boolean hasTimeChangeEffect(TimeChangeTransition transition, String effect) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		return transition.getId().equals(getData().getString(path + ".Id", ""))
+				&& getData().getBoolean(path + ".Effects." + effect, false);
+	}
+
+	/** Marks a completed non-reward listener effect. */
+	public synchronized void completeTimeChangeEffect(TimeChangeTransition transition, String effect) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		getData().set(path + ".Effects." + effect, true);
+		saveData();
+	}
+
+	private String timeChangeRecoveryPath(TimeType type) {
+		return TIME_CHANGE_RECOVERY + "." + type.name();
 	}
 
 	/**

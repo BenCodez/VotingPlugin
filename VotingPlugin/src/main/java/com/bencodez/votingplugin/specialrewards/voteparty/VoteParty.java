@@ -13,6 +13,7 @@ import org.bukkit.event.Listener;
 
 import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
+import com.bencodez.advancedcore.api.time.TimeChangeTransition;
 import com.bencodez.advancedcore.api.time.events.DayChangeEvent;
 import com.bencodez.advancedcore.api.time.events.MonthChangeEvent;
 import com.bencodez.advancedcore.api.time.events.WeekChangeEvent;
@@ -253,7 +254,7 @@ public class VoteParty implements Listener {
 	@EventHandler
 	public void onDayChange(DayChangeEvent event) {
 		if (plugin.getSpecialRewardsConfig().isVotePartyResetEachDay()) {
-			reset(true);
+			runRecoverableReset(event.getTransition(), "VotePartyDayReset", () -> reset(true));
 		}
 	}
 
@@ -265,11 +266,12 @@ public class VoteParty implements Listener {
 	@EventHandler
 	public void onMonthChange(MonthChangeEvent event) {
 		if (plugin.getSpecialRewardsConfig().isVotePartyResetMonthly()) {
-			reset(true);
+			runRecoverableReset(event.getTransition(), "VotePartyMonthReset", () -> reset(true));
 		}
 
 		if (plugin.getSpecialRewardsConfig().isVotePartyResetExtraVotesMonthly()) {
-			plugin.getServerData().setVotePartyExtraRequired(0);
+			runRecoverableReset(event.getTransition(), "VotePartyMonthExtraVotes",
+					() -> plugin.getServerData().setVotePartyExtraRequired(0));
 		}
 	}
 
@@ -281,11 +283,39 @@ public class VoteParty implements Listener {
 	@EventHandler
 	public void onWeekChange(WeekChangeEvent event) {
 		if (plugin.getSpecialRewardsConfig().isVotePartyResetWeekly()) {
-			reset(true);
+			runRecoverableReset(event.getTransition(), "VotePartyWeekReset", () -> reset(true));
 		}
 
 		if (plugin.getSpecialRewardsConfig().isVotePartyResetExtraVotesWeekly()) {
-			plugin.getServerData().setVotePartyExtraRequired(0);
+			runRecoverableReset(event.getTransition(), "VotePartyWeekExtraVotes",
+					() -> plugin.getServerData().setVotePartyExtraRequired(0));
+		}
+	}
+
+	private void runRecoverableReset(TimeChangeTransition transition, String effect, Runnable reset) {
+		if (transition == null) {
+			reset.run();
+			return;
+		}
+		TimeChangeTransition.Lease lease = transition.retain();
+		try {
+			if (transition.isCancellationRequested()) {
+				throw new java.util.concurrent.CancellationException("Time transition was cancelled");
+			}
+			plugin.getServerData().beginTimeChangeRecovery(transition);
+			if (!plugin.getServerData().hasTimeChangeEffect(transition, effect)) {
+				reset.run();
+				plugin.getServerData().completeTimeChangeEffect(transition, effect);
+			}
+			if (transition.isCancellationRequested()) {
+				throw new java.util.concurrent.CancellationException("Time transition was cancelled");
+			}
+			lease.complete();
+		} catch (Throwable failure) {
+			lease.fail(failure);
+			plugin.getLogger().warning("VoteParty time-change effect remains pending: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
 		}
 	}
 

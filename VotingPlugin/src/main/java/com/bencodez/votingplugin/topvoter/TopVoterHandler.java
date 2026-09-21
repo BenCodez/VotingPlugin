@@ -14,8 +14,10 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -23,6 +25,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
+import com.bencodez.advancedcore.api.time.TimeChangeTransition;
 import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.api.time.events.DateChangedEvent;
 import com.bencodez.advancedcore.api.time.events.DayChangeEvent;
@@ -37,6 +40,7 @@ import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.simpleapi.sql.Column;
 import com.bencodez.simpleapi.sql.DataType;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.data.ServerData.TimeChangeUserProgress;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseService;
 
@@ -44,9 +48,20 @@ import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseService;
  * Handles top voter rankings and statistics.
  */
 public class TopVoterHandler implements Listener {
+	private static final String SNAPSHOT = "SNAPSHOT";
+	private static final String COPY_TOTALS = "COPY_TOTALS";
+	private static final String USER_UPDATES = "USER_UPDATES";
+	private static final String TOP_REWARDS = "TOP_REWARDS";
+	private static final String VOTE_SHOP = "VOTE_SHOP";
+	private static final String BUNGEE_WAIT = "BUNGEE_WAIT";
+	private static final String TOTALS_RESET = "TOTALS_RESET";
+	private static final String CACHE_CLEAR = "CACHE_CLEAR";
+	private static final String POST_DATE = "POST_DATE";
+	private static final String COMPLETE = "COMPLETE";
 
 	private VotingPluginMain plugin;
 	private final TopVoterLoader loader;
+	private final HashMap<String, TimeChangeTransition.Lease> retainedTransitions = new HashMap<>();
 
 	/**
 	 * Constructs a new top voter handler.
@@ -152,6 +167,10 @@ public class TopVoterHandler implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onDateChanged(DateChangedEvent event) {
+		if (event.getTransition() != null) {
+			finishRecoverableDateChange(event);
+			return;
+		}
 		plugin.setUpdate(true);
 		plugin.update();
 		if (event.getTimeType().equals(TimeType.MONTH)) {
@@ -168,6 +187,10 @@ public class TopVoterHandler implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onDayChange(DayChangeEvent event) {
+		if (event.getTransition() != null) {
+			processRecoverableChange(TopVoter.Daily, event.getTransition());
+			return;
+		}
 		synchronized (VotingPluginMain.plugin) {
 			long startTime = System.currentTimeMillis();
 			if (plugin.getConfigFile().isStoreTopVotersDaily()) {
@@ -269,6 +292,10 @@ public class TopVoterHandler implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onMonthChange(MonthChangeEvent event) {
+		if (event.getTransition() != null) {
+			processRecoverableChange(TopVoter.Monthly, event.getTransition());
+			return;
+		}
 		long startTime = System.currentTimeMillis();
 		synchronized (VotingPluginMain.plugin) {
 			plugin.getLogger().info("Saving TopVoters Monthly");
@@ -391,7 +418,27 @@ public class TopVoterHandler implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onPreDateChanged(PreDateChangedEvent event) {
-		if (event.getTimeType().equals(TimeType.DAY)) {
+		TimeChangeTransition transition = event.getTransition();
+		if (transition != null) {
+			TimeChangeTransition.Lease lease = transition.retain();
+			try {
+				ensureTransitionActive(transition);
+				applyPreDateChange(event.getTimeType());
+				ensureTransitionActive(transition);
+				lease.complete();
+			} catch (Throwable failure) {
+				lease.fail(failure);
+				plugin.getLogger().warning("Pre time-change work remains pending: "
+						+ failure.getClass().getSimpleName());
+				plugin.debug(failure);
+			}
+			return;
+		}
+		applyPreDateChange(event.getTimeType());
+	}
+
+	private void applyPreDateChange(TimeType type) {
+		if (type.equals(TimeType.DAY)) {
 			plugin.getBannedPlayers().clear();
 			for (OfflinePlayer p : Bukkit.getBannedPlayers()) {
 				plugin.getBannedPlayers().add(p.getUniqueId().toString());
@@ -408,6 +455,10 @@ public class TopVoterHandler implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onWeekChange(WeekChangeEvent event) {
+		if (event.getTransition() != null) {
+			processRecoverableChange(TopVoter.Weekly, event.getTransition());
+			return;
+		}
 		long startTime = System.currentTimeMillis();
 		synchronized (VotingPluginMain.plugin) {
 			if (plugin.getConfigFile().isStoreTopVotersWeekly()) {
@@ -507,6 +558,315 @@ public class TopVoterHandler implements Listener {
 
 			long now = ((System.currentTimeMillis() - startTime) / 1000);
 			plugin.getLogger().info("Finished processing day change, took " + now + " seconds");
+		}
+	}
+
+	/**
+	 * Performs the existing period work with a durable cursor. The transition
+	 * lease is deliberately retained until DateChangedEvent has applied its post
+	 * effects, because AdvancedCore completes its marker only after that lease.
+	 */
+	private void processRecoverableChange(TopVoter top, TimeChangeTransition transition) {
+		TimeChangeTransition.Lease lease = transition.retain();
+		try {
+			synchronized (VotingPluginMain.plugin) {
+				plugin.getServerData().beginTimeChangeRecovery(transition);
+				if (!plugin.getServerData().hasTimeChangePhase(transition, COMPLETE)) {
+					runRecoverablePeriod(top, transition);
+				}
+				ensureTransitionActive(transition);
+				synchronized (retainedTransitions) {
+					retainedTransitions.put(transition.getId(), lease);
+				}
+			}
+		} catch (Throwable failure) {
+			lease.fail(failure);
+			plugin.getLogger().warning("Time change recovery for " + top + " remains pending: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+		}
+	}
+
+	private void runRecoverablePeriod(TopVoter top, TimeChangeTransition transition) {
+		if (!plugin.getServerData().hasTimeChangePhase(transition, SNAPSHOT)) {
+			ensureTransitionActive(transition);
+			if ((top == TopVoter.Daily && plugin.getConfigFile().isStoreTopVotersDaily())
+					|| (top == TopVoter.Weekly && plugin.getConfigFile().isStoreTopVotersWeekly())
+					|| top == TopVoter.Monthly) {
+				plugin.getLogger().info("Saving TopVoters " + top);
+				storeTopVoters(top);
+			}
+			plugin.getServerData().completeTimeChangePhase(transition, SNAPSHOT);
+		}
+
+		if (!plugin.getServerData().hasTimeChangePhase(transition, COPY_TOTALS)) {
+			ensureTransitionActive(transition);
+			if (top != TopVoter.Monthly || !bungeeHandleResets()) {
+				plugin.getUserManager().copyColumnData(top.getColumnName(), top.getLastColumnName());
+			}
+			plugin.getServerData().completeTimeChangePhase(transition, COPY_TOTALS);
+		}
+
+		if (!plugin.getServerData().hasTimeChangePhase(transition, USER_UPDATES)) {
+			processRecoverableUsers(top, transition);
+			plugin.getServerData().completeTimeChangePhase(transition, USER_UPDATES);
+		}
+
+		if (!plugin.getServerData().hasTimeChangePhase(transition, TOP_REWARDS)) {
+			processRecoverableTopRewards(top, transition);
+			plugin.getServerData().completeTimeChangePhase(transition, TOP_REWARDS);
+		}
+
+		if (!plugin.getServerData().hasTimeChangePhase(transition, VOTE_SHOP)) {
+			ensureTransitionActive(transition);
+			for (String shopIdent : plugin.getShopFile().getShopIdentifiers()) {
+				if (shouldResetVoteShop(top, shopIdent)) {
+					resetVoteShopLimit(shopIdent,
+							VoteShopPurchaseService.currentLimitGenerationId(plugin, shopIdent));
+				}
+			}
+			plugin.getServerData().completeTimeChangePhase(transition, VOTE_SHOP);
+		}
+
+		if (!plugin.getServerData().hasTimeChangePhase(transition, BUNGEE_WAIT)) {
+			waitForBungee(top, transition);
+			plugin.getServerData().completeTimeChangePhase(transition, BUNGEE_WAIT);
+		}
+
+		if (!plugin.getServerData().hasTimeChangePhase(transition, TOTALS_RESET)) {
+			ensureTransitionActive(transition);
+			if (!bungeeHandleResets()) resetTotals(top);
+			plugin.getServerData().completeTimeChangePhase(transition, TOTALS_RESET);
+		}
+
+		if (!plugin.getServerData().hasTimeChangePhase(transition, CACHE_CLEAR)) {
+			ensureTransitionActive(transition);
+			if (plugin.getStorageType().equals(UserStorage.MYSQL)) plugin.getMysql().clearCacheBasic();
+			plugin.getServerData().completeTimeChangePhase(transition, CACHE_CLEAR);
+		}
+	}
+
+	private void processRecoverableUsers(TopVoter top, TimeChangeTransition transition) {
+		if (!plugin.getConfigFile().isUseVoteStreaks() && !plugin.getConfigFile().isUseHighestTotals()) return;
+		AtomicReference<String> cursor = new AtomicReference<>(plugin.getServerData().getTimeChangeCursor(transition));
+		LocalDateTime lastMonthTime = top == TopVoter.Monthly ? previousMonthTime(transition) : null;
+		plugin.getUserManager().forEachUserKeys((uuid, columns) -> {
+			String value = uuid.toString();
+			if (value.compareTo(cursor.get()) <= 0) return;
+			ensureTransitionActive(transition);
+			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
+			user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
+			user.updateTempCacheWithColumns(columns);
+			try {
+				if (top == TopVoter.Daily) processDailyUser(user, transition, value);
+				else if (top == TopVoter.Weekly) processWeeklyUser(user, transition, value);
+				else processMonthlyUser(user, lastMonthTime, transition, value);
+			} finally {
+				user.clearTempCache();
+			}
+			plugin.getServerData().completeTimeChangeUser(transition, value);
+			cursor.set(value);
+		}, count -> { });
+	}
+
+	private void processDailyUser(VotingPluginUser user, TimeChangeTransition transition, String uuid) {
+		if (plugin.getConfigFile().isUseVoteStreaks()
+				&& !user.voteStreakUpdatedToday(LocalDateTime.now().minusDays(1)) && user.getDayVoteStreak() != 0) {
+			applyRecoverableStreak(user, transition, uuid, TopVoter.Daily, 0, false);
+		}
+		if (plugin.getConfigFile().isUseHighestTotals()
+				&& user.getHighestDailyTotal() < user.getTotal(TopVoter.Daily)) {
+			user.setHighestDailyTotal(user.getTotal(TopVoter.Daily));
+		}
+	}
+
+	private void processWeeklyUser(VotingPluginUser user, TimeChangeTransition transition, String uuid) {
+		if (plugin.getConfigFile().isUseVoteStreaks()) {
+			if (user.getTotal(TopVoter.Weekly) == 0 && user.getWeekVoteStreak() != 0) {
+				applyRecoverableStreak(user, transition, uuid, TopVoter.Weekly, 0, false);
+			} else if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage()
+					|| user.hasPercentageTotal(TopVoter.Weekly,
+							plugin.getSpecialRewardsConfig().getVoteStreakRequirementWeek(), null)) {
+				applyRecoverableStreak(user, transition, uuid, TopVoter.Weekly,
+						user.getWeekVoteStreak() + 1, true);
+			}
+		}
+		if (plugin.getConfigFile().isUseHighestTotals()
+				&& user.getHighestWeeklyTotal() < user.getTotal(TopVoter.Weekly)) {
+			user.setHighestWeeklyTotal(user.getTotal(TopVoter.Weekly));
+		}
+	}
+
+	private void processMonthlyUser(VotingPluginUser user, LocalDateTime lastMonthTime,
+			TimeChangeTransition transition, String uuid) {
+		if (plugin.getConfigFile().isUseVoteStreaks()) {
+			if (user.getTotal(TopVoter.Monthly, lastMonthTime) == 0 && user.getMonthVoteStreak() != 0) {
+				applyRecoverableStreak(user, transition, uuid, TopVoter.Monthly, 0, false);
+			} else if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage()
+					|| user.hasPercentageTotal(TopVoter.Monthly,
+							plugin.getSpecialRewardsConfig().getVoteStreakRequirementMonth(), lastMonthTime)) {
+				applyRecoverableStreak(user, transition, uuid, TopVoter.Monthly,
+						user.getMonthVoteStreak() + 1, true);
+			}
+		}
+		if (plugin.getConfigFile().isUseHighestTotals()
+				&& user.getHighestMonthlyTotal() < user.getTotal(TopVoter.Monthly, lastMonthTime)) {
+			user.setHighestMonthlyTotal(user.getTotal(TopVoter.Monthly, lastMonthTime));
+		}
+	}
+
+	void applyRecoverableStreak(VotingPluginUser user, TimeChangeTransition transition, String uuid,
+			TopVoter top, int proposedTarget, boolean rewardRequired) {
+		TimeChangeUserProgress progress = plugin.getServerData().prepareTimeChangeUserStreak(transition, uuid,
+				proposedTarget, rewardRequired);
+		int current = switch (top) {
+		case Daily -> user.getDayVoteStreak();
+		case Weekly -> user.getWeekVoteStreak();
+		case Monthly -> user.getMonthVoteStreak();
+		default -> proposedTarget;
+		};
+		if (current != progress.streakTarget()) {
+			switch (top) {
+			case Daily -> user.setDayVoteStreak(progress.streakTarget());
+			case Weekly -> user.setWeekVoteStreak(progress.streakTarget());
+			case Monthly -> user.setMonthVoteStreak(progress.streakTarget());
+			default -> { }
+			}
+		}
+		if (progress.rewardRequired() && !progress.rewardComplete()) {
+			plugin.getSpecialRewards().checkVoteStreak(null, user,
+					top == TopVoter.Weekly ? "Week" : "Month", plugin.getBungeeSettings().isUseBungeecoord());
+			plugin.getServerData().completeTimeChangeUserStreakReward(transition, uuid);
+		}
+	}
+
+	private void processRecoverableTopRewards(TopVoter top, TimeChangeTransition transition) {
+		if (!isTopRewardEnabled(top)) return;
+		HashMap<Integer, String> places = handlePlaces(getPossibleRewardPlaces(top));
+		int place = 0;
+		int lastTotal = -1;
+		for (Entry<TopVoterPlayer, Integer> entry : topVotersFor(top, transition)) {
+			ensureTransitionActive(transition);
+			if (plugin.getConfigFile().isTopVoterAwardsTies()) {
+				if (entry.getValue().intValue() != lastTotal) place++;
+			} else place++;
+			if (places.containsKey(place) && !plugin.getServerData().hasTimeChangeRewardReceipt(transition,
+					entry.getKey().getUuid().toString())) {
+				VotingPluginUser user = entry.getKey().getUser();
+				user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
+				if (!plugin.getConfigFile().isTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
+					giveTopVoterAward(top, user, place, places.get(place));
+					plugin.getServerData().completeTimeChangeReward(transition, entry.getKey().getUuid().toString());
+					plugin.getLogger().info("Giving " + top + " top voter reward " + place + " to "
+							+ entry.getKey().getPlayerName());
+				}
+			}
+			lastTotal = entry.getValue().intValue();
+		}
+	}
+
+	private Iterable<Entry<TopVoterPlayer, Integer>> topVotersFor(TopVoter top,
+			TimeChangeTransition transition) {
+		if (top == TopVoter.Monthly && plugin.getConfigFile().isUseMonthDateTotalsAsPrimaryTotal()) {
+			return getMonthlyTopVotersAtTime(previousMonthTime(transition)).entrySet();
+		}
+		@SuppressWarnings("unchecked")
+		LinkedHashMap<TopVoterPlayer, Integer> clone = (LinkedHashMap<TopVoterPlayer, Integer>) plugin
+				.getTopVoter(top).clone();
+		return clone.entrySet();
+	}
+
+	private LocalDateTime previousMonthTime(TimeChangeTransition transition) {
+		try {
+			return YearMonth.parse(transition.getPeriodKey()).minusMonths(1).atDay(15).atStartOfDay();
+		} catch (RuntimeException invalidPeriod) {
+			plugin.debug(invalidPeriod);
+			return plugin.getTimeChecker().getTime().minusMonths(1);
+		}
+	}
+
+	private boolean isTopRewardEnabled(TopVoter top) {
+		return switch (top) {
+		case Daily -> plugin.getSpecialRewardsConfig().isEnableDailyRewards();
+		case Weekly -> plugin.getSpecialRewardsConfig().isEnableWeeklyAwards();
+		case Monthly -> plugin.getSpecialRewardsConfig().isEnableMonthlyAwards();
+		default -> false;
+		};
+	}
+
+	private Set<String> getPossibleRewardPlaces(TopVoter top) {
+		return switch (top) {
+		case Daily -> plugin.getSpecialRewardsConfig().getDailyPossibleRewardPlaces();
+		case Weekly -> plugin.getSpecialRewardsConfig().getWeeklyPossibleRewardPlaces();
+		case Monthly -> plugin.getSpecialRewardsConfig().getMonthlyPossibleRewardPlaces();
+		default -> Collections.emptySet();
+		};
+	}
+
+	private void giveTopVoterAward(TopVoter top, VotingPluginUser user, int place, String reward) {
+		switch (top) {
+		case Daily -> user.giveDailyTopVoterAward(place, reward);
+		case Weekly -> user.giveWeeklyTopVoterAward(place, reward);
+		case Monthly -> user.giveMonthlyTopVoterAward(place, reward);
+		default -> { }
+		}
+	}
+
+	private boolean shouldResetVoteShop(TopVoter top, String shopIdent) {
+		return switch (top) {
+		case Daily -> plugin.getShopFile().getVoteShopResetDaily(shopIdent);
+		case Weekly -> plugin.getShopFile().getVoteShopResetWeekly(shopIdent);
+		case Monthly -> plugin.getShopFile().getVoteShopResetMonthly(shopIdent);
+		default -> false;
+		};
+	}
+
+	private void waitForBungee(TopVoter top, TimeChangeTransition transition) {
+		boolean wait = plugin.getBungeeSettings().isUseBungeecoord() && !bungeeHandleResets();
+		if (!wait) return;
+		ensureTransitionActive(transition);
+		plugin.debug("Delaying time change 10 seconds for other servers to catchup");
+		try {
+			Thread.sleep(10000);
+		} catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt();
+			throw new CancellationException("Time change sleep was interrupted");
+		}
+		ensureTransitionActive(transition);
+	}
+
+	private void finishRecoverableDateChange(DateChangedEvent event) {
+		TimeChangeTransition transition = event.getTransition();
+		TimeChangeTransition.Lease lease;
+		synchronized (retainedTransitions) {
+			lease = retainedTransitions.remove(transition.getId());
+		}
+		if (lease == null) {
+			return;
+		}
+		try {
+			ensureTransitionActive(transition);
+			if (!plugin.getServerData().hasTimeChangePhase(transition, POST_DATE)) {
+				plugin.setUpdate(true);
+				plugin.update();
+				if (transition.getType().equals(TimeType.MONTH)) loadLastMonth();
+				if (plugin.getStorageType().equals(UserStorage.MYSQL)) plugin.getMysql().clearCacheBasic();
+				plugin.getServerData().completeTimeChangePhase(transition, POST_DATE);
+			}
+			ensureTransitionActive(transition);
+			plugin.getServerData().completeTimeChangePhase(transition, COMPLETE);
+			lease.complete();
+		} catch (Throwable failure) {
+			lease.fail(failure);
+			plugin.getLogger().warning("Post time-change recovery remains pending: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+		}
+	}
+
+	private void ensureTransitionActive(TimeChangeTransition transition) {
+		if (transition.isCancellationRequested()) {
+			throw new CancellationException("Time transition was cancelled before recovery completed");
 		}
 	}
 

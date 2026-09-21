@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.timequeue;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Queue;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -13,6 +14,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
+import com.bencodez.advancedcore.api.time.TimeChangeTransition;
 import com.bencodez.advancedcore.api.time.events.DateChangedEvent;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
@@ -72,7 +74,23 @@ public class TimeQueueHandler implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void postTimeChange(DateChangedEvent event) {
-		scheduleQueueProcessing(5, TimeUnit.SECONDS);
+		TimeChangeTransition transition = event == null ? null : event.getTransition();
+		if (transition == null) {
+			scheduleQueueProcessing(5, TimeUnit.SECONDS);
+			return;
+		}
+		TimeChangeTransition.Lease lease = transition.retain();
+		try {
+			ensureTransitionActive(transition);
+			scheduleQueueProcessing(5, TimeUnit.SECONDS);
+			ensureTransitionActive(transition);
+			lease.complete();
+		} catch (Throwable failure) {
+			lease.fail(failure);
+			plugin.getLogger().warning("Time-queue post-period scheduling remains pending: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+		}
 	}
 
 	private void scheduleQueueProcessing(long delay, TimeUnit unit) {
@@ -92,6 +110,10 @@ public class TimeQueueHandler implements Listener {
 
 	private void scheduleRetry() {
 		if (timeChangeQueue.isEmpty() || !retryPending.compareAndSet(false, true)) return;
+		if (!plugin.isEnabled()) {
+			retryPending.set(false);
+			return;
+		}
 		int attempt = Math.min(6, retryAttempts.getAndIncrement());
 		long delaySeconds = Math.min(60L, 1L << attempt);
 		long delayTicks = delaySeconds * TICKS_PER_SECOND;
@@ -103,6 +125,12 @@ public class TimeQueueHandler implements Listener {
 		} catch (RuntimeException rejected) {
 			retryPending.set(false);
 			plugin.getLogger().warning("Unable to queue a time-queue retry; pending votes remain persisted for recovery.");
+		}
+	}
+
+	private void ensureTransitionActive(TimeChangeTransition transition) {
+		if (!plugin.isEnabled() || transition.isCancellationRequested()) {
+			throw new CancellationException("Time transition was cancelled before time-queue scheduling completed");
 		}
 	}
 
