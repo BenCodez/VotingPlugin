@@ -32,9 +32,12 @@ class ReliableVoteDeliveryOutboxTest {
 
 		ReliableVoteDeliveryOutbox restarted = new ReliableVoteDeliveryOutbox(file);
 		assertEquals(1, restarted.size());
-		assertFalse(restarted.acknowledge("creative", voteId, VotingPluginWire.SUB_VOTE));
-		assertFalse(restarted.acknowledge("survival", voteId, VotingPluginWire.SUB_VOTE_ONLINE));
-		assertTrue(restarted.acknowledge("survival", voteId, VotingPluginWire.SUB_VOTE));
+		assertFalse(restarted.acknowledgeCompletion("creative", voteId, VotingPluginWire.SUB_VOTE));
+		assertFalse(restarted.acknowledgeCompletion("survival", voteId, VotingPluginWire.SUB_VOTE_ONLINE));
+		assertTrue(restarted.acknowledgeCompletion("survival", voteId, VotingPluginWire.SUB_VOTE));
+		assertEquals(1, restarted.size());
+		assertTrue(new ReliableVoteDeliveryOutbox(file).snapshot().get(0).awaitingReceiptRelease());
+		assertTrue(restarted.acknowledgeReceiptRelease("survival", voteId, VotingPluginWire.SUB_VOTE));
 		assertEquals(0, restarted.size());
 		assertFalse(Files.exists(file));
 	}
@@ -63,7 +66,8 @@ class ReliableVoteDeliveryOutboxTest {
 				"site", 10L, true, true, "", firstId, false, false, 1, 1)));
 		assertTrue(outbox.offer("survival", VotingPluginWire.vote("Two", UUID.randomUUID().toString(),
 				"site", 11L, true, true, "", secondId, false, false, 1, 1)));
-		assertTrue(outbox.acknowledge("survival", firstId, VotingPluginWire.SUB_VOTE));
+		assertTrue(outbox.acknowledgeCompletion("survival", firstId, VotingPluginWire.SUB_VOTE));
+		assertTrue(outbox.acknowledgeReceiptRelease("survival", firstId, VotingPluginWire.SUB_VOTE));
 
 		ReliableVoteDeliveryOutbox restarted = new ReliableVoteDeliveryOutbox(file);
 		assertEquals(1, restarted.size());
@@ -77,7 +81,7 @@ class ReliableVoteDeliveryOutboxTest {
 		ReliableVoteDeliveryOutbox outbox = new ReliableVoteDeliveryOutbox(file);
 		assertTrue(outbox.offer("survival", VotingPluginWire.vote("One", UUID.randomUUID().toString(),
 				"site", 10L, true, true, "", UUID.randomUUID(), false, false, 1, 1)));
-		Files.writeString(file, "A\ttruncated", StandardOpenOption.APPEND);
+		Files.writeString(file, "R\tc3Vydml2YWw", StandardOpenOption.APPEND);
 
 		ReliableVoteDeliveryOutbox repaired = new ReliableVoteDeliveryOutbox(file);
 		assertEquals(1, repaired.size());

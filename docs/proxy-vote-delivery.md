@@ -16,12 +16,17 @@ durable backend overflow queue. Before acknowledgement, the backend journals the
 completed vote ID without time expiry so a delayed or lost acknowledgement
 followed by backend restart does not repeat normal completed processing. The
 bounded receipt journal fails closed at its capacity instead of evicting an ID
-that may still have a proxy outbox entry. The proxy then durably
-removes the matching server, vote ID, and subchannel entry from its outbox.
+that may still have a proxy outbox entry. The proxy then durably transitions the
+matching server, vote ID, and subchannel entry into a receipt-release phase. The
+backend durably removes its completed receipt and acknowledges that release;
+only then does the proxy remove the outbox entry. Lost release messages and
+acknowledgements remain retryable across either process restarting, so completed
+receipts can be reclaimed without turning the journal bound into a lifetime cap.
 If a backend generation stops advertising acknowledgements, the proxy drains
 already-journaled entries once through the existing legacy send path and removes
 each entry only after the selected transport reports acceptance. This keeps rolling downgrades from
-stranding accepted votes while retaining at-least-once behavior.
+stranding accepted votes while retaining at-least-once behavior. Entries already
+in receipt-release remain until a capable backend confirms retirement.
 
 This is an **at least once delivery guarantee**. Proxy shutdown, restart, a lost
 send, or a lost acknowledgement leaves the outbox entry available for retry.

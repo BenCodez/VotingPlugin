@@ -44,6 +44,8 @@ public final class VotingPluginWire {
 	public static final String SUB_VOTE_DELAY_REJECTED = "VoteDelayRejected";
 	public static final String SUB_VOTE_BROADCAST = "VoteBroadcast";
 	public static final String SUB_VOTE_DELIVERY_ACK = "VoteDeliveryAck";
+	public static final String SUB_VOTE_DELIVERY_RECEIPT_RELEASE = "VoteDeliveryReceiptRelease";
+	public static final String SUB_VOTE_DELIVERY_RECEIPT_RELEASE_ACK = "VoteDeliveryReceiptReleaseAck";
 	public static final String SUB_BUNGEE_TIME_CHANGE = "BungeeTimeChange";
 
 	public static final String SUB_STATUS = "Status";
@@ -113,7 +115,7 @@ public final class VotingPluginWire {
 	public static final String K_NUMBER_OF_VOTES = "numberOfVotes";
 	public static final String K_VOTE_DELIVERY_ACK_VERSION = "voteDeliveryAckVersion";
 	public static final String K_VOTE_DELIVERY_SUBCHANNEL = "voteDeliverySubchannel";
-	public static final int VOTE_DELIVERY_ACK_VERSION = 1;
+	public static final int VOTE_DELIVERY_ACK_VERSION = 2;
 	/** Origin and receiving proxy names for reliable multi-proxy delivery. */
 	public static final String K_MULTI_PROXY_ORIGIN = "multiProxyOrigin";
 	public static final String K_MULTI_PROXY_RECIPIENT = "multiProxyRecipient";
@@ -227,6 +229,23 @@ public final class VotingPluginWire {
 
 	public static JsonEnvelope voteDeliveryAcknowledgement(String server, UUID voteId, String voteSubchannel) {
 		return base(SUB_VOTE_DELIVERY_ACK).put(K_SERVER, safe(server))
+				.put(K_VOTE_ID, voteId == null ? "" : voteId.toString())
+				.put(K_VOTE_DELIVERY_SUBCHANNEL, safe(voteSubchannel))
+				.put(K_VOTE_DELIVERY_ACK_VERSION, VOTE_DELIVERY_ACK_VERSION).build();
+	}
+
+	/** Confirms durable proxy outbox completion so the backend can retire its receipt. */
+	public static JsonEnvelope voteDeliveryReceiptRelease(String server, UUID voteId, String voteSubchannel) {
+		return base(SUB_VOTE_DELIVERY_RECEIPT_RELEASE).put(K_SERVER, safe(server))
+				.put(K_VOTE_ID, voteId == null ? "" : voteId.toString())
+				.put(K_VOTE_DELIVERY_SUBCHANNEL, safe(voteSubchannel))
+				.put(K_VOTE_DELIVERY_ACK_VERSION, VOTE_DELIVERY_ACK_VERSION).build();
+	}
+
+	/** Confirms durable backend receipt retirement to the originating proxy. */
+	public static JsonEnvelope voteDeliveryReceiptReleaseAcknowledgement(String server, UUID voteId,
+			String voteSubchannel) {
+		return base(SUB_VOTE_DELIVERY_RECEIPT_RELEASE_ACK).put(K_SERVER, safe(server))
 				.put(K_VOTE_ID, voteId == null ? "" : voteId.toString())
 				.put(K_VOTE_DELIVERY_SUBCHANNEL, safe(voteSubchannel))
 				.put(K_VOTE_DELIVERY_ACK_VERSION, VOTE_DELIVERY_ACK_VERSION).build();

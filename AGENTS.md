@@ -188,8 +188,8 @@ credentials, generated JARs, dependency caches, IDE output, or unrelated formatt
 - Preserve queued votes across saturation, shutdown, and restart; overflow handling must be bounded, durable when promised, and observable rather than silently dropping work.
 - Proxy-to-backend guaranteed delivery is capability negotiated and at least once. Journal a reward-bearing envelope before
   reporting transport acceptance, retain it until the matching backend completion acknowledgement is durable, persist
-  completed IDs before acknowledgement for restart-safe deduplication, and keep legacy send behavior for backends that do
-  not advertise the capability.
+  completed IDs before acknowledgement for restart-safe deduplication, retire receipts only through the durable
+  proxy-confirmed release handshake, and keep legacy send behavior for backends that do not advertise the capability.
 - Treat scheduler units explicitly. Verify whether each delay is in ticks, milliseconds, or seconds, especially across Bukkit, Folia, BungeeCord, and Velocity adapters.
 - Register listeners and lifecycle wakeups before producers can publish work; startup/reload ordering must not strand already-persisted or newly-arriving operations.
 - Protocol-mode changes must not silently broaden legacy v1/RSA acceptance when token-only operation is configured or intended; cover downgrade behavior with tests.

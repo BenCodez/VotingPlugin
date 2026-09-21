@@ -22,6 +22,7 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
 
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler;
@@ -31,6 +32,42 @@ import com.bencodez.votingplugin.proxy.control.HostedControlManager;
 import com.bencodez.votingplugin.tests.VotingPluginProxyTestImpl;
 
 class VotingPluginProxyLifecycleTest {
+	@Test
+	void completionAckTransitionsThroughDurableReceiptRelease(@TempDir Path directory) throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		GlobalMessageProxyHandler messages = mock(GlobalMessageProxyHandler.class);
+		UUID voteId = UUID.randomUUID();
+		ReliableVoteDeliveryOutbox outbox = new ReliableVoteDeliveryOutbox(directory.resolve("outbox.dat"));
+		org.junit.jupiter.api.Assertions.assertTrue(outbox.offer("survival", VotingPluginWire.vote(
+				"Player", UUID.randomUUID().toString(), "site", 10L, true, true, "", voteId,
+				false, false, 1, 1)));
+		setField(proxy, "reliableVoteDeliveryOutbox", outbox);
+		setField(proxy, "globalMessageProxyHandler", messages);
+		@SuppressWarnings("unchecked")
+		Set<String> reliable = (Set<String>) field(proxy, "reliableVoteDeliveryServers");
+		reliable.add("survival");
+		Method completion = VotingPluginProxy.class.getDeclaredMethod(
+				"handleVoteDeliveryAcknowledgement", JsonEnvelope.class);
+		completion.setAccessible(true);
+		completion.invoke(proxy, VotingPluginWire.voteDeliveryAcknowledgement(
+				"survival", voteId, VotingPluginWire.SUB_VOTE));
+
+		assertEquals(1, outbox.size());
+		org.junit.jupiter.api.Assertions.assertTrue(outbox.snapshot().get(0).awaitingReceiptRelease());
+		ArgumentCaptor<JsonEnvelope> release = ArgumentCaptor.forClass(JsonEnvelope.class);
+		verify(messages).sendMessage(org.mockito.ArgumentMatchers.eq("survival"),
+				org.mockito.ArgumentMatchers.eq(1), release.capture());
+		assertEquals(VotingPluginWire.SUB_VOTE_DELIVERY_RECEIPT_RELEASE,
+				release.getValue().getSubChannel());
+
+		Method released = VotingPluginProxy.class.getDeclaredMethod(
+				"handleVoteDeliveryReceiptReleaseAcknowledgement", JsonEnvelope.class);
+		released.setAccessible(true);
+		released.invoke(proxy, VotingPluginWire.voteDeliveryReceiptReleaseAcknowledgement(
+				"survival", voteId, VotingPluginWire.SUB_VOTE));
+		assertEquals(0, outbox.size());
+	}
+
 	@Test
 	void drainsPersistedVoteThroughLegacyPathAfterCapabilityDisappears(@TempDir Path directory) throws Exception {
 		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
@@ -66,6 +103,18 @@ class VotingPluginProxyLifecycleTest {
 		retry.invoke(proxy, "survival");
 
 		assertEquals(0, outbox.size());
+	}
+
+	private static void setField(Object target, String name, Object value) throws Exception {
+		Field field = VotingPluginProxy.class.getDeclaredField(name);
+		field.setAccessible(true);
+		field.set(target, value);
+	}
+
+	private static Object field(Object target, String name) throws Exception {
+		Field field = VotingPluginProxy.class.getDeclaredField(name);
+		field.setAccessible(true);
+		return field.get(target);
 	}
 
 	@Test

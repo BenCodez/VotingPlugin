@@ -77,4 +77,17 @@ class ProcessedVoteCacheDurabilityTest {
 		Thread.sleep(5L);
 		assertFalse(cache.reserve(voteId));
 	}
+
+	@Test
+	void proxyConfirmedReleaseRetiresReceiptAcrossRestart() {
+		Path receipts = directory.resolve("receipts.dat");
+		UUID voteId = UUID.randomUUID();
+		ProcessedVoteCache cache = new ProcessedVoteCache(receipts);
+		assertTrue(cache.reserve(voteId));
+		assertTrue(cache.complete(voteId));
+
+		assertTrue(cache.releaseCompletedReceipt(voteId));
+
+		assertTrue(new ProcessedVoteCache(receipts).reserve(voteId));
+	}
 }

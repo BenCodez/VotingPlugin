@@ -26,14 +26,17 @@ import org.junit.jupiter.api.Test;
 
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
+import com.bencodez.advancedcore.AdvancedCoreConfigOptions;
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
+import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache;
 import com.bencodez.votingplugin.backendproxy.messaging.BackendProxyMessageRouter.OrderedVoteOutcome;
 import com.bencodez.votingplugin.backendproxy.global.BackendGlobalDataSync;
 import com.bencodez.votingplugin.backendproxy.presence.BackendPresenceManager;
 import com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync;
+import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
 import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -253,6 +256,33 @@ class BackendProxyMessageRouterTest {
 		verify(cache, never()).complete(voteId);
 		verify(user, never()).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
 				anyBoolean(), anyInt());
+	}
+
+	@Test
+	void receiptReleaseRunsInOrderedLaneAndAcknowledgesDurableRemoval() {
+		UUID voteId = UUID.randomUUID();
+		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
+		when(cache.releaseCompletedReceipt(voteId)).thenReturn(true);
+		AdvancedCoreConfigOptions options = mock(AdvancedCoreConfigOptions.class);
+		when(options.getServer()).thenReturn("survival");
+		when(plugin.getOptions()).thenReturn(options);
+		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
+		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
+				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
+				mock(BackendVotePartySync.class), cache);
+		voteRouter.register(messages, BungeeMethod.REDIS);
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+
+		voteRouter.handleOrderedVote(VotingPluginWire.voteDeliveryReceiptRelease(
+				"survival", voteId, VotingPluginWire.SUB_VOTE), outcome::set);
+
+		assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+		verify(cache).releaseCompletedReceipt(voteId);
+		org.mockito.ArgumentCaptor<JsonEnvelope> acknowledgement = org.mockito.ArgumentCaptor
+				.forClass(JsonEnvelope.class);
+		verify(messages).sendMessage(acknowledgement.capture());
+		assertEquals(VotingPluginWire.SUB_VOTE_DELIVERY_RECEIPT_RELEASE_ACK,
+				acknowledgement.getValue().getSubChannel());
 	}
 
 }

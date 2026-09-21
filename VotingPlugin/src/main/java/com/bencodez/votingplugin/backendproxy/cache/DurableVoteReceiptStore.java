@@ -18,6 +18,7 @@ final class DurableVoteReceiptStore {
 	private static final int MAX_RECEIPTS = 262144;
 	private static final long MAX_FILE_BYTES = 16L * 1024L * 1024L;
 	private static final String HEADER = "VP-VOTE-RECEIPTS-1";
+	private static final String RELEASE = "R";
 	private static final ConcurrentHashMap<Path, Object> FILE_LOCKS = new ConcurrentHashMap<>();
 
 	private final Path file;
@@ -52,6 +53,29 @@ final class DurableVoteReceiptStore {
 		return expiresAt;
 	}
 
+	synchronized boolean release(UUID voteId) {
+		if (voteId == null || !receipts.containsKey(voteId)) return true;
+		if (receipts.size() == 1) {
+			synchronized (fileLock) {
+				try {
+					if (!DurableFiles.deleteIfExists(file) && Files.exists(file)) return false;
+				} catch (IOException failure) {
+					return false;
+				}
+			}
+			receipts.clear();
+			journalRecords = 0;
+			return true;
+		}
+		String record = RELEASE + '\t' + voteId + '\n';
+		synchronized (fileLock) {
+			if (!prepareAppend(record) || !append(record)) return false;
+		}
+		receipts.remove(voteId);
+		journalRecords++;
+		return true;
+	}
+
 	private void load() throws IOException {
 		if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) return;
 		if (Files.isSymbolicLink(file) || !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
@@ -68,9 +92,12 @@ final class DurableVoteReceiptStore {
 			try {
 				String[] fields = lines[index].split("\\t", 2);
 				if (fields.length != 2) throw new IllegalArgumentException("Malformed receipt");
-				UUID voteId = UUID.fromString(fields[0]);
-				long expiresAt = Long.parseLong(fields[1]);
-				receipts.put(voteId, expiresAt);
+				if (RELEASE.equals(fields[0])) receipts.remove(UUID.fromString(fields[1]));
+				else {
+					UUID voteId = UUID.fromString(fields[0]);
+					long expiresAt = Long.parseLong(fields[1]);
+					receipts.put(voteId, expiresAt);
+				}
 			} catch (RuntimeException malformed) {
 				throw new IOException("Malformed vote receipt journal", malformed);
 			}

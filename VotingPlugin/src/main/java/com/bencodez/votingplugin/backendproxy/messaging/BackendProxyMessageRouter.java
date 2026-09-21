@@ -35,6 +35,7 @@ public class BackendProxyMessageRouter {
 	private final BackendGlobalDataSync globalDataSync;
 	private final BackendVotePartySync votePartySync;
 	private final ProcessedVoteCache processedVoteCache;
+	private GlobalMessageHandler messages;
 
 	public BackendProxyMessageRouter(VotingPluginMain plugin, BackendPresenceManager presenceManager,
 			BackendGlobalDataSync globalDataSync, BackendVotePartySync votePartySync,
@@ -47,6 +48,7 @@ public class BackendProxyMessageRouter {
 	}
 
 	public void register(GlobalMessageHandler messages, BungeeMethod method) {
+		this.messages = messages;
 		messages.addListener(new GlobalMessageListener(VotingPluginWire.SUB_VOTE) {
 			@Override public void onReceive(JsonEnvelope msg) { handleWireVote(msg); }
 		});
@@ -55,6 +57,9 @@ public class BackendProxyMessageRouter {
 		});
 		messages.addListener(new GlobalMessageListener(VotingPluginWire.SUB_VOTE_DELAY_REJECTED) {
 			@Override public void onReceive(JsonEnvelope msg) { handleWireVoteDelayRejected(msg); }
+		});
+		messages.addListener(new GlobalMessageListener(VotingPluginWire.SUB_VOTE_DELIVERY_RECEIPT_RELEASE) {
+			@Override public void onReceive(JsonEnvelope msg) { handleVoteDeliveryReceiptRelease(messages, msg); }
 		});
 		messages.addListener(new GlobalMessageListener(VotingPluginWire.SUB_CONTROL_ENROLLMENT_RESULT) {
 			@Override public void onReceive(JsonEnvelope msg) { plugin.handleBackendControlEnrollmentResult(msg); }
@@ -121,6 +126,10 @@ public class BackendProxyMessageRouter {
 	public void handleOrderedVote(JsonEnvelope msg, Consumer<OrderedVoteOutcome> completion) {
 		if (completion == null) throw new IllegalArgumentException("Ordered vote completion is required");
 		String subChannel = msg.getSubChannel();
+		if (VotingPluginWire.SUB_VOTE_DELIVERY_RECEIPT_RELEASE.equals(subChannel)) {
+			completion.accept(handleVoteDeliveryReceiptRelease(messages, msg));
+			return;
+		}
 		if (VotingPluginWire.SUB_VOTE_UPDATE.equals(subChannel)) {
 			handleVoteUpdateWithOutcome(msg, completion);
 			return;
@@ -416,6 +425,29 @@ public class BackendProxyMessageRouter {
 		plugin.getLogger().warning("Incompatible version with bungee/proxy, please update all servers: "
 				+ msg.getSchema() + " != " + VotingPluginWire.SCHEMA_VERSION);
 		return false;
+	}
+
+	private OrderedVoteOutcome handleVoteDeliveryReceiptRelease(GlobalMessageHandler messages, JsonEnvelope msg) {
+		if (messages == null || !VotingPluginWire.requestsVoteDeliveryAcknowledgement(msg)) {
+			return OrderedVoteOutcome.QUARANTINE;
+		}
+		String server = nvl(msg.getFields().get(VotingPluginWire.K_SERVER));
+		if (!plugin.getOptions().getServer().equalsIgnoreCase(server)) return OrderedVoteOutcome.QUARANTINE;
+		String subChannel = nvl(msg.getFields().get(VotingPluginWire.K_VOTE_DELIVERY_SUBCHANNEL));
+		if (!VotingPluginWire.SUB_VOTE.equals(subChannel)
+				&& !VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)) return OrderedVoteOutcome.QUARANTINE;
+		try {
+			UUID voteId = UUID.fromString(nvl(msg.getFields().get(VotingPluginWire.K_VOTE_ID)));
+			if (processedVoteCache.releaseCompletedReceipt(voteId)) {
+				messages.sendMessage(VotingPluginWire.voteDeliveryReceiptReleaseAcknowledgement(
+						plugin.getOptions().getServer(), voteId, subChannel));
+				return OrderedVoteOutcome.COMPLETE;
+			}
+			return OrderedVoteOutcome.RETRY;
+		} catch (IllegalArgumentException invalidVoteId) {
+			plugin.debug("Ignored vote receipt release with invalid vote ID");
+			return OrderedVoteOutcome.QUARANTINE;
+		}
 	}
 
 	private void sendSubChannel(GlobalMessageHandler messages, String subChannel, HashMap<String, Object> fields) {

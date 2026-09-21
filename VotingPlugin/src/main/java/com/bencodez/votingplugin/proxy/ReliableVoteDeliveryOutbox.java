@@ -23,9 +23,10 @@ final class ReliableVoteDeliveryOutbox {
 	private static final long MAX_FILE_BYTES = 16L * 1024L * 1024L;
 	private static final String HEADER = "VP-VOTE-OUTBOX-2";
 	private static final String ADD = "A";
+	private static final String COMPLETED = "C";
 	private static final String REMOVE = "R";
 
-	record Entry(String server, JsonEnvelope envelope) { }
+	record Entry(String server, JsonEnvelope envelope, boolean awaitingReceiptRelease) { }
 
 	private final Path file;
 	private final LinkedHashMap<String, Entry> entries = new LinkedHashMap<>();
@@ -43,15 +44,41 @@ final class ReliableVoteDeliveryOutbox {
 		if (entries.size() >= MAX_ENTRIES) return false;
 		String record = addRecord(server, envelope);
 		if (!prepareAppend(record) || !append(record)) return false;
-		entries.put(key, new Entry(server, envelope));
+		entries.put(key, new Entry(server, envelope, false));
 		journalRecords++;
 		return true;
 	}
 
-	synchronized boolean acknowledge(String server, UUID voteId, String subChannel) {
+	synchronized boolean acknowledgeCompletion(String server, UUID voteId, String subChannel) {
 		if (voteId == null || server == null || subChannel == null) return false;
 		String key = normalized(server) + '|' + subChannel + '|' + voteId;
-		if (!entries.containsKey(key)) return false;
+		Entry entry = entries.get(key);
+		if (entry == null) return false;
+		if (entry.awaitingReceiptRelease()) return true;
+		String record = COMPLETED + '\t' + encode(key) + '\n';
+		if (!prepareAppend(record) || !append(record)) return false;
+		entries.put(key, new Entry(entry.server(), entry.envelope(), true));
+		journalRecords++;
+		return true;
+	}
+
+	synchronized boolean acknowledgeReceiptRelease(String server, UUID voteId, String subChannel) {
+		if (voteId == null || server == null || subChannel == null) return false;
+		String key = normalized(server) + '|' + subChannel + '|' + voteId;
+		Entry entry = entries.get(key);
+		if (entry == null || !entry.awaitingReceiptRelease()) return false;
+		return remove(key);
+	}
+
+	synchronized boolean acknowledgeLegacyDelivery(String server, UUID voteId, String subChannel) {
+		if (voteId == null || server == null || subChannel == null) return false;
+		String key = normalized(server) + '|' + subChannel + '|' + voteId;
+		Entry entry = entries.get(key);
+		if (entry == null || entry.awaitingReceiptRelease()) return false;
+		return remove(key);
+	}
+
+	private boolean remove(String key) {
 		if (entries.size() == 1) {
 			try {
 				if (!DurableFiles.deleteIfExists(file) && Files.exists(file)) return false;
@@ -73,6 +100,14 @@ final class ReliableVoteDeliveryOutbox {
 		return new ArrayList<>(entries.values());
 	}
 
+	synchronized List<Entry> pendingVotes() {
+		return entries.values().stream().filter(entry -> !entry.awaitingReceiptRelease()).toList();
+	}
+
+	synchronized List<Entry> pendingReceiptReleases() {
+		return entries.values().stream().filter(Entry::awaitingReceiptRelease).toList();
+	}
+
 	synchronized int size() {
 		return entries.size();
 	}
@@ -86,7 +121,9 @@ final class ReliableVoteDeliveryOutbox {
 		String content = Files.readString(file, StandardCharsets.UTF_8);
 		String[] lines = content.split("\\n", -1);
 		if (lines.length == 0 || !HEADER.equals(lines[0])) throw new IOException("Unsupported vote delivery outbox");
-		for (int index = 1; index < lines.length; index++) {
+		boolean unterminatedTail = !content.endsWith("\n");
+		int completeLineLimit = unterminatedTail ? lines.length - 1 : lines.length;
+		for (int index = 1; index < completeLineLimit; index++) {
 			if (lines[index].isBlank()) continue;
 			String[] parts = lines[index].split("\\t", 3);
 			try {
@@ -95,23 +132,22 @@ final class ReliableVoteDeliveryOutbox {
 					JsonEnvelope envelope = JsonEnvelopeCodec.decode(decode(parts[2]));
 					String key = key(server, envelope);
 					if (key == null) throw new IllegalArgumentException("Invalid vote envelope");
-					entries.put(key, new Entry(server, envelope));
+					entries.put(key, new Entry(server, envelope, false));
+				} else if (parts.length == 2 && COMPLETED.equals(parts[0])) {
+					String key = decode(parts[1]);
+					Entry entry = entries.get(key);
+					if (entry == null) throw new IllegalArgumentException("Completion without vote");
+					entries.put(key, new Entry(entry.server(), entry.envelope(), true));
 				} else if (parts.length == 2 && REMOVE.equals(parts[0])) {
 					entries.remove(decode(parts[1]));
 				} else throw new IllegalArgumentException("Unknown journal record");
 			} catch (RuntimeException malformed) {
-				// An append interrupted before force may leave only the final record
-				// truncated. Its caller never observed durable acceptance, so replaying
-				// the preceding journal is safe and keeps startup available.
-				if (index == lines.length - 1 && !content.endsWith("\n")) {
-					if (!compact()) throw new IOException("Unable to repair vote delivery outbox", malformed);
-					return;
-				}
 				throw new IOException("Malformed vote delivery outbox entry", malformed);
 			}
 			journalRecords++;
 			if (entries.size() > MAX_ENTRIES) throw new IOException("Vote delivery outbox exceeds entry limit");
 		}
+		if (unterminatedTail && !compact()) throw new IOException("Unable to repair vote delivery outbox");
 	}
 
 	private boolean prepareAppend(String record) {
@@ -150,12 +186,18 @@ final class ReliableVoteDeliveryOutbox {
 	private boolean compact() {
 		try {
 			StringBuilder text = new StringBuilder(HEADER).append('\n');
-			for (Entry entry : entries.values()) text.append(addRecord(entry.server(), entry.envelope()));
+			for (Entry entry : entries.values()) {
+				text.append(addRecord(entry.server(), entry.envelope()));
+				if (entry.awaitingReceiptRelease()) {
+					text.append(COMPLETED).append('\t').append(encode(key(entry.server(), entry.envelope()))).append('\n');
+				}
+			}
 			Path staged = file.resolveSibling(file.getFileName() + ".tmp");
 			Files.writeString(staged, text, StandardCharsets.UTF_8, StandardOpenOption.CREATE,
 					StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
 			DurableFiles.publishStagedFile(staged, file);
-			journalRecords = entries.size();
+			journalRecords = entries.size() + (int) entries.values().stream()
+					.filter(Entry::awaitingReceiptRelease).count();
 			return true;
 		} catch (IOException failure) {
 			return false;

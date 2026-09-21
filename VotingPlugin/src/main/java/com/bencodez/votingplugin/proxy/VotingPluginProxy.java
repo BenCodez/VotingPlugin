@@ -919,6 +919,14 @@ public abstract class VotingPluginProxy {
 		for (ReliableVoteDeliveryOutbox.Entry entry : outbox.snapshot()) {
 			if (onlyServer != null && !entry.server().equalsIgnoreCase(onlyServer)) continue;
 			try {
+				if (entry.awaitingReceiptRelease()) {
+					if (supportsReliableVoteDelivery(entry.server())) {
+						String voteId = entry.envelope().getFields().get(VotingPluginWire.K_VOTE_ID);
+						handler.sendMessage(entry.server(), delay++, VotingPluginWire.voteDeliveryReceiptRelease(
+								entry.server(), UUID.fromString(voteId), entry.envelope().getSubChannel()));
+					}
+					continue;
+				}
 				if (supportsReliableVoteDelivery(entry.server())) {
 						handler.sendMessage(entry.server(), delay++,
 							VotingPluginWire.requestVoteDeliveryAcknowledgement(entry.envelope()));
@@ -930,7 +938,7 @@ public abstract class VotingPluginProxy {
 					}
 					delay++;
 					String voteId = entry.envelope().getFields().get(VotingPluginWire.K_VOTE_ID);
-					if (!outbox.acknowledge(entry.server(), UUID.fromString(voteId),
+					if (!outbox.acknowledgeLegacyDelivery(entry.server(), UUID.fromString(voteId),
 							entry.envelope().getSubChannel())) {
 						debug("Legacy vote delivery was accepted but remains queued until its removal is durable for "
 								+ entry.server());
@@ -960,11 +968,36 @@ public abstract class VotingPluginProxy {
 		try {
 			if (!supportsReliableVoteDelivery(server)) return;
 			ReliableVoteDeliveryOutbox outbox = reliableVoteDeliveryOutbox;
-			if (outbox != null && !outbox.acknowledge(server, UUID.fromString(voteId), subChannel)) {
+			UUID parsedVoteId = UUID.fromString(voteId);
+			if (outbox != null && !outbox.acknowledgeCompletion(server, parsedVoteId, subChannel)) {
 				debug("Ignored unmatched or unpersisted vote delivery acknowledgement from " + server);
+			} else if (outbox != null && globalMessageProxyHandler != null) {
+				try {
+					globalMessageProxyHandler.sendMessage(server, 1,
+							VotingPluginWire.voteDeliveryReceiptRelease(server, parsedVoteId, subChannel));
+				} catch (RuntimeException failure) {
+					debug("Vote receipt release remains queued after the immediate send failed for " + server);
+				}
 			}
 		} catch (IllegalArgumentException invalidVoteId) {
 			debug("Ignored vote delivery acknowledgement with invalid vote ID from " + server);
+		}
+	}
+
+	private void handleVoteDeliveryReceiptReleaseAcknowledgement(JsonEnvelope message) {
+		if (!VotingPluginWire.advertisesVoteDeliveryAcknowledgement(message)) return;
+		String server = message.getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
+		String voteId = message.getFields().getOrDefault(VotingPluginWire.K_VOTE_ID, "");
+		String subChannel = message.getFields().getOrDefault(VotingPluginWire.K_VOTE_DELIVERY_SUBCHANNEL, "");
+		try {
+			if (!supportsReliableVoteDelivery(server)) return;
+			ReliableVoteDeliveryOutbox outbox = reliableVoteDeliveryOutbox;
+			if (outbox != null && !outbox.acknowledgeReceiptRelease(
+					server, UUID.fromString(voteId), subChannel)) {
+				debug("Ignored unmatched or unpersisted vote receipt release acknowledgement from " + server);
+			}
+		} catch (IllegalArgumentException invalidVoteId) {
+			debug("Ignored vote receipt release acknowledgement with invalid vote ID from " + server);
 		}
 	}
 
@@ -2081,6 +2114,14 @@ public abstract class VotingPluginProxy {
 			@Override
 			public void onReceive(JsonEnvelope message) {
 				handleVoteDeliveryAcknowledgement(message);
+			}
+		});
+
+		globalMessageProxyHandler.addListener(
+				new GlobalMessageListener(VotingPluginWire.SUB_VOTE_DELIVERY_RECEIPT_RELEASE_ACK) {
+			@Override
+			public void onReceive(JsonEnvelope message) {
+				handleVoteDeliveryReceiptReleaseAcknowledgement(message);
 			}
 		});
 

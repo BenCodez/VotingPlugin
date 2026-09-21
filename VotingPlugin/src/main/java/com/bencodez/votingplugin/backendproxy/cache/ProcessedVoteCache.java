@@ -120,6 +120,15 @@ public class ProcessedVoteCache {
 		return voteId != null && (completedVotes.contains(voteId) || completedAwaitingReceipt.contains(voteId));
 	}
 
+	/** Durably retires a completed receipt after the proxy confirms outbox removal. */
+	public boolean releaseCompletedReceipt(UUID voteId) {
+		if (voteId == null) return false;
+		if (durableReceipts != null && !durableReceipts.release(voteId)) return false;
+		completedVotes.remove(voteId);
+		processedVotes.remove(voteId);
+		return true;
+	}
+
 	/** Deduplicates one Redis envelope across overlapping subscribers during a validated handoff. */
 	public synchronized boolean reserveRedisDelivery(String deliveryId) {
 		if (deliveryId == null || !deliveryId.matches("[0-9a-fA-F-]{36}")) return true;
