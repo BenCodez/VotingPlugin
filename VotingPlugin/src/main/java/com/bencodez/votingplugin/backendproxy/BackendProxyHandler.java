@@ -58,6 +58,7 @@ public class BackendProxyHandler implements Listener {
 	private boolean orderedVoteQuarantineFailed;
 	private JsonEnvelope orderedVoteDispatchInFlight;
 	private BackendOrderedVoteOverflowQueue.PendingEnvelope orderedVoteOverflowInFlight;
+	private JsonEnvelope orderedVoteShutdownQuarantined;
 	private BackendProxyHandler orderedVoteHandoffTarget;
 	private boolean orderedVoteOverflowWarningLogged;
 	private boolean inboundPublished;
@@ -289,6 +290,14 @@ public class BackendProxyHandler implements Listener {
 
 	private void scheduleOrderedVoteDispatchLocked() {
 		if (orderedVoteDispatchPaused || orderedVoteDispatchActive || orderedVoteQuarantineFailed) return;
+		if (orderedVoteOverflow != null && orderedVoteOverflow.isQuarantineCapacityExhausted()) {
+			orderedVoteQuarantineFailed = true;
+			orderedVoteDispatchPaused = true;
+			if (plugin != null && plugin.getLogger() != null) {
+				plugin.getLogger().severe("Ordered proxy vote processing is stopped because FailedEnvelopes is full");
+			}
+			return;
+		}
 		if (orderedVoteDispatchQueue.isEmpty()
 				&& (orderedVoteOverflow == null || orderedVoteOverflow.peekDurable() == null)) {
 			return;
@@ -377,6 +386,12 @@ public class BackendProxyHandler implements Listener {
 
 	private void finishOrderedVoteDispatch(BackendOrderedVoteOverflowQueue.PendingEnvelope overflowEntry,
 			JsonEnvelope envelope, OrderedVoteOutcome outcome) {
+		synchronized (orderedVoteDispatch) {
+			if (envelope == orderedVoteShutdownQuarantined) {
+				orderedVoteDispatch.notifyAll();
+				return;
+			}
+		}
 		if (outcome == OrderedVoteOutcome.QUARANTINE) {
 			if (orderedVoteOverflow == null) {
 				completeOrderedVoteQuarantine(overflowEntry, false);
@@ -427,6 +442,8 @@ public class BackendProxyHandler implements Listener {
 	private void completeOrderedVoteQuarantine(BackendOrderedVoteOverflowQueue.PendingEnvelope overflowEntry,
 			boolean stored) {
 		synchronized (orderedVoteDispatch) {
+			boolean capacityExhausted = stored && orderedVoteOverflow != null
+					&& orderedVoteOverflow.isQuarantineCapacityExhausted();
 			if (stored && overflowEntry == null
 					&& orderedVoteDispatchQueue.peekFirst() == orderedVoteDispatchInFlight) {
 				orderedVoteDispatchQueue.removeFirst();
@@ -437,15 +454,20 @@ public class BackendProxyHandler implements Listener {
 			} else {
 				orderedVoteQuarantineFailed = true;
 			}
+			if (capacityExhausted) orderedVoteQuarantineFailed = true;
 			orderedVoteDispatchActive = false;
-			if (!stored) orderedVoteDispatchPaused = true;
+			if (!stored || capacityExhausted) orderedVoteDispatchPaused = true;
 			orderedVoteDispatch.notifyAll();
 			if (plugin != null && plugin.getLogger() != null) {
-				plugin.getLogger().log(stored ? java.util.logging.Level.WARNING : java.util.logging.Level.SEVERE,
-						stored ? "Failed proxy vote retained in BackendProxyVoteQueue.yml FailedEnvelopes for manual review"
-								: "Unable to retain failed proxy vote; ordered vote processing has stopped");
+				plugin.getLogger().log(stored && !capacityExhausted ? java.util.logging.Level.WARNING
+						: java.util.logging.Level.SEVERE,
+						capacityExhausted
+								? "FailedEnvelopes is full; ordered vote processing has stopped for manual review"
+								: stored
+										? "Failed proxy vote retained in BackendProxyVoteQueue.yml FailedEnvelopes for manual review"
+										: "Unable to retain failed proxy vote; ordered vote processing has stopped");
 			}
-			if (stored) scheduleOrderedVoteDispatchLocked();
+			if (stored && !capacityExhausted) scheduleOrderedVoteDispatchLocked();
 		}
 	}
 
@@ -526,11 +548,30 @@ public class BackendProxyHandler implements Listener {
 			}
 			if (orderedVoteHandoffTarget == null && orderedVoteOverflow != null) {
 				pending.addAll(orderedVoteDispatchQueue);
-				if (orderedVoteDispatchActive && !pending.isEmpty()
-						&& pending.get(0) == orderedVoteDispatchInFlight) {
-					pending.remove(0);
+				if (orderedVoteDispatchActive && orderedVoteDispatchInFlight != null) {
+					boolean inMemory = !pending.isEmpty() && pending.get(0) == orderedVoteDispatchInFlight;
+					boolean quarantinePending = orderedVoteOverflow.hasPendingFailure(orderedVoteDispatchInFlight);
+					boolean quarantined = quarantinePending || orderedVoteOverflow.quarantineForShutdown(
+							orderedVoteOverflowInFlight, orderedVoteDispatchInFlight);
+					if (quarantined) {
+						if (inMemory) {
+							pending.remove(0);
+							orderedVoteDispatchQueue.removeFirst();
+						}
+						if (!quarantinePending) {
+							orderedVoteShutdownQuarantined = orderedVoteDispatchInFlight;
+							orderedVoteDispatchInFlight = null;
+							orderedVoteOverflowInFlight = null;
+							orderedVoteDispatchActive = false;
+							orderedVoteDispatch.notifyAll();
+						}
+					}
 					if (plugin != null && plugin.getLogger() != null) {
-						plugin.getLogger().warning("Ordered proxy vote still completing during bounded shutdown");
+						plugin.getLogger().log(quarantined ? java.util.logging.Level.WARNING
+								: java.util.logging.Level.SEVERE,
+								quarantined
+										? "Ordered proxy vote exceeded the shutdown bound and was retained for manual review"
+										: "Unable to isolate an ordered proxy vote that exceeded the shutdown bound");
 					}
 				} else if (!pending.isEmpty() && pending.get(0) == orderedVoteDispatchInFlight
 						&& orderedVoteOverflow.hasPendingFailure(orderedVoteDispatchInFlight)) {

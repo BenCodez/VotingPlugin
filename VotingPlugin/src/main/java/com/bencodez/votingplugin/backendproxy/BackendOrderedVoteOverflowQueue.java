@@ -142,6 +142,12 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 		}
 	}
 
+	boolean isQuarantineCapacityExhausted() {
+		synchronized (lock) {
+			return loadFailed || failedEntries.size() >= MAX_FAILED_ENTRIES;
+		}
+	}
+
 	/** Moves an ambiguous processing failure out of the active lane in one durable snapshot. */
 	private Boolean quarantine(PendingFailure request) {
 		synchronized (persistenceWriteLock) {
@@ -149,11 +155,11 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 				if (closed) return null; // Final close owns the pending failure.
 				if (loadFailed || pendingFailure != request
 						|| (request.expected != null && entries.peekFirst() != request.expected)) return false;
+				if (failedEntries.size() >= MAX_FAILED_ENTRIES) return false;
 				List<String> active = payloadSnapshotLocked();
 				if (request.expected != null) active.remove(0);
 				List<String> failures = failedSnapshotLocked();
 				failures.add(request.failed.payload);
-				while (failures.size() > MAX_FAILED_ENTRIES) failures.remove(0);
 				try {
 					writeSnapshotLocked(active, failures);
 				} catch (IOException failure) {
@@ -162,12 +168,32 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 				}
 				if (request.expected != null) entries.removeFirst();
 				failedEntries.addLast(request.failed.payload);
-				while (failedEntries.size() > MAX_FAILED_ENTRIES) failedEntries.removeFirst();
 				durableVersion = ++stateVersion;
 				request.stored = true;
 				pendingFailure = null;
 				return true;
 			}
+		}
+	}
+
+	/** Stages durable isolation without adding filesystem work to the lifecycle thread. */
+	boolean quarantineForShutdown(PendingEnvelope expected, JsonEnvelope envelope) {
+		PendingEnvelope failed = pending(envelope);
+		PendingFailure request;
+		synchronized (lock) {
+			if (closeRequested.get() || closed || loadFailed || failed == null || pendingFailure != null
+					|| pendingAcknowledgement != null || failedEntries.size() >= MAX_FAILED_ENTRIES) return false;
+			request = new PendingFailure(expected, failed, ignored -> { });
+			pendingFailure = request;
+		}
+		try {
+			worker.execute(() -> quarantine(request));
+			return true;
+		} catch (RejectedExecutionException rejected) {
+			synchronized (lock) {
+				if (pendingFailure == request) pendingFailure = null;
+			}
+			return false;
 		}
 	}
 
@@ -392,7 +418,10 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 			yaml.loadFromString(readQueueFile());
 			List<String> payloads = yaml.getStringList("Envelopes");
 			List<String> failures = yaml.getStringList("FailedEnvelopes");
-			for (String failed : failures.subList(Math.max(0, failures.size() - MAX_FAILED_ENTRIES), failures.size())) {
+			if (failures.size() > MAX_FAILED_ENTRIES) {
+				throw new IOException("failed envelope history exceeds configured limit");
+			}
+			for (String failed : failures) {
 				failedEntries.addLast(failed);
 			}
 			boolean skipped = false;
@@ -528,6 +557,7 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 			closingFailure = pendingFailure;
 			closingAcknowledgement = pendingAcknowledgement;
 			canStoreFailure = closingFailure != null && !closingFailure.stored
+					&& failures.size() < MAX_FAILED_ENTRIES
 					&& (closingFailure.expected == null || entries.peekFirst() == closingFailure.expected);
 			canStoreAcknowledgement = closingAcknowledgement != null && !closingAcknowledgement.stored
 					&& entries.peekFirst() == closingAcknowledgement.expected;
@@ -535,7 +565,6 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 			if (canStoreFailure) {
 				if (closingFailure.expected != null) snapshot.remove(0);
 				failures.add(closingFailure.failed.payload);
-				while (failures.size() > MAX_FAILED_ENTRIES) failures.remove(0);
 			}
 			persistenceScheduled = false;
 		}
@@ -563,7 +592,6 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 			synchronized (lock) {
 				if (closingFailure.expected != null) entries.removeFirst();
 				failedEntries.addLast(closingFailure.failed.payload);
-				while (failedEntries.size() > MAX_FAILED_ENTRIES) failedEntries.removeFirst();
 				closingFailure.stored = true;
 			}
 		}
