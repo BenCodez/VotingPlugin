@@ -388,7 +388,9 @@ public class BackendProxyHandler implements Listener {
 		}
 		boolean successful = outcome == OrderedVoteOutcome.COMPLETE;
 		if (successful && overflowEntry != null && orderedVoteOverflow != null) {
-			orderedVoteOverflow.acknowledge(overflowEntry);
+			orderedVoteOverflow.acknowledgeAsync(overflowEntry,
+					stored -> completeOrderedVoteAcknowledgement(stored));
+			return;
 		}
 		synchronized (orderedVoteDispatch) {
 			if (successful && overflowEntry == null
@@ -401,6 +403,24 @@ public class BackendProxyHandler implements Listener {
 			orderedVoteDispatch.notifyAll();
 			if (successful) scheduleOrderedVoteDispatchLocked();
 			else retryOrderedVoteDispatchLocked();
+		}
+	}
+
+	private void completeOrderedVoteAcknowledgement(boolean stored) {
+		synchronized (orderedVoteDispatch) {
+			if (stored) {
+				orderedVoteDispatchInFlight = null;
+				orderedVoteOverflowInFlight = null;
+			} else {
+				orderedVoteQuarantineFailed = true;
+				orderedVoteDispatchPaused = true;
+				if (plugin != null && plugin.getLogger() != null) {
+					plugin.getLogger().severe("Unable to persist ordered proxy vote completion; processing has stopped");
+				}
+			}
+			orderedVoteDispatchActive = false;
+			orderedVoteDispatch.notifyAll();
+			if (stored) scheduleOrderedVoteDispatchLocked();
 		}
 	}
 
@@ -493,9 +513,26 @@ public class BackendProxyHandler implements Listener {
 		synchronized (orderedVoteDispatch) {
 			orderedVoteDispatchClosing = true;
 			orderedVoteDispatchPaused = true;
+			long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(1);
+			while (orderedVoteDispatchActive) {
+				long remaining = deadline - System.nanoTime();
+				if (remaining <= 0L) break;
+				try {
+					java.util.concurrent.TimeUnit.NANOSECONDS.timedWait(orderedVoteDispatch, remaining);
+				} catch (InterruptedException interrupted) {
+					Thread.currentThread().interrupt();
+					break;
+				}
+			}
 			if (orderedVoteHandoffTarget == null && orderedVoteOverflow != null) {
 				pending.addAll(orderedVoteDispatchQueue);
-				if (!pending.isEmpty() && pending.get(0) == orderedVoteDispatchInFlight
+				if (orderedVoteDispatchActive && !pending.isEmpty()
+						&& pending.get(0) == orderedVoteDispatchInFlight) {
+					pending.remove(0);
+					if (plugin != null && plugin.getLogger() != null) {
+						plugin.getLogger().warning("Ordered proxy vote still completing during bounded shutdown");
+					}
+				} else if (!pending.isEmpty() && pending.get(0) == orderedVoteDispatchInFlight
 						&& orderedVoteOverflow.hasPendingFailure(orderedVoteDispatchInFlight)) {
 					pending.remove(0);
 				}

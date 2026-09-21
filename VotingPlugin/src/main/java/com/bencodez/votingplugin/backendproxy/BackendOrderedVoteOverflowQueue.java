@@ -37,6 +37,7 @@ import com.bencodez.votingplugin.util.DurableFiles;
 public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 	static final int MAX_NORMAL_ENTRIES = 512;
 	private static final int MAX_ENTRIES = MAX_NORMAL_ENTRIES + BackendProxyHandler.MAX_ORDERED_VOTE_QUEUE;
+	static final int MAX_FAILED_ENTRIES = 256;
 	private static final long MAX_FILE_BYTES = 8L * 1024L * 1024L;
 	private static final long RETRY_DELAY_MILLIS = 250L;
 	private static final String QUEUE_FILE = "BackendProxyVoteQueue.yml";
@@ -51,8 +52,11 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 	private boolean persistenceScheduled;
 	private boolean persistenceDirty;
 	private boolean closed;
+	private final AtomicBoolean closeRequested = new AtomicBoolean();
 	private boolean loadFailed;
 	private PendingFailure pendingFailure;
+	private PendingAcknowledgement pendingAcknowledgement;
+	private volatile Thread closeThread;
 	private long stateVersion;
 	private long durableVersion;
 	private Object wakeupOwner;
@@ -83,7 +87,8 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 			synchronized (lock) {
 				// Admission returns only after the overflow snapshot reaches disk.
 				// Keep older in-memory work's shutdown capacity reserved as well.
-				if (closed || loadFailed || entries.size() + reservedPrefixEntries >= MAX_ENTRIES) return false;
+				if (closeRequested.get() || closed || loadFailed
+						|| entries.size() + reservedPrefixEntries >= MAX_ENTRIES) return false;
 				List<String> snapshot = payloadSnapshotLocked();
 				snapshot.add(pending.payload);
 				try {
@@ -111,7 +116,7 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 			pending.add(value);
 		}
 		synchronized (lock) {
-			if (closed || loadFailed || entries.size() + pending.size() > MAX_ENTRIES) return false;
+			if (closeRequested.get() || closed || loadFailed || entries.size() + pending.size() > MAX_ENTRIES) return false;
 			for (int index = pending.size() - 1; index >= 0; index--) {
 				entries.addFirst(pending.get(index));
 			}
@@ -148,6 +153,7 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 				if (request.expected != null) active.remove(0);
 				List<String> failures = failedSnapshotLocked();
 				failures.add(request.failed.payload);
+				while (failures.size() > MAX_FAILED_ENTRIES) failures.remove(0);
 				try {
 					writeSnapshotLocked(active, failures);
 				} catch (IOException failure) {
@@ -156,8 +162,10 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 				}
 				if (request.expected != null) entries.removeFirst();
 				failedEntries.addLast(request.failed.payload);
+				while (failedEntries.size() > MAX_FAILED_ENTRIES) failedEntries.removeFirst();
 				durableVersion = ++stateVersion;
 				request.stored = true;
+				pendingFailure = null;
 				return true;
 			}
 		}
@@ -168,7 +176,8 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 		PendingEnvelope failed = pending(envelope);
 		PendingFailure request = null;
 		synchronized (lock) {
-			if (!closed && !loadFailed && failed != null && pendingFailure == null) {
+			if (!closeRequested.get() && !closed && !loadFailed && failed != null && pendingFailure == null
+					&& pendingAcknowledgement == null) {
 				request = new PendingFailure(expected, failed, completion);
 				pendingFailure = request;
 			}
@@ -211,15 +220,61 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 		}
 	}
 
-	void acknowledge(PendingEnvelope expected) {
-		if (expected == null) return;
+	/** Persists completion off the platform thread before removing the durable head. */
+	void acknowledgeAsync(PendingEnvelope expected, Consumer<Boolean> completion) {
+		PendingAcknowledgement request = null;
 		synchronized (lock) {
-			if (entries.peekFirst() != expected) {
-				throw new IllegalStateException("Ordered proxy vote overflow acknowledgement is out of order");
+			if (!closeRequested.get() && !closed && !loadFailed && expected != null && entries.peekFirst() == expected
+					&& pendingAcknowledgement == null && pendingFailure == null) {
+				request = new PendingAcknowledgement(expected, completion);
+				pendingAcknowledgement = request;
 			}
-			entries.removeFirst();
-			stateVersion++;
-			requestPersistenceLocked();
+		}
+		if (request == null) {
+			completion.accept(false);
+			return;
+		}
+		PendingAcknowledgement queued = request;
+		try {
+			worker.execute(() -> {
+				Boolean stored = acknowledge(queued);
+				if (stored == null) return;
+				try {
+					queued.complete(stored);
+				} finally {
+					if (stored) {
+						synchronized (lock) {
+							if (pendingAcknowledgement == queued) pendingAcknowledgement = null;
+						}
+					}
+				}
+			});
+		} catch (RejectedExecutionException rejected) {
+			queued.complete(false);
+		}
+	}
+
+	private Boolean acknowledge(PendingAcknowledgement request) {
+		synchronized (persistenceWriteLock) {
+			synchronized (lock) {
+				if (closed) return null; // Final close owns the pending acknowledgement.
+				if (loadFailed || pendingAcknowledgement != request || entries.peekFirst() != request.expected) {
+					return false;
+				}
+				List<String> active = payloadSnapshotLocked();
+				active.remove(0);
+				try {
+					writeSnapshotLocked(active, failedSnapshotLocked());
+				} catch (IOException failure) {
+					warn("Unable to acknowledge ordered proxy vote overflow", failure);
+					return false;
+				}
+				entries.removeFirst();
+				durableVersion = ++stateVersion;
+				request.stored = true;
+				pendingAcknowledgement = null;
+				return true;
+			}
 		}
 	}
 
@@ -337,7 +392,7 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 			yaml.loadFromString(readQueueFile());
 			List<String> payloads = yaml.getStringList("Envelopes");
 			List<String> failures = yaml.getStringList("FailedEnvelopes");
-			for (String failed : failures) {
+			for (String failed : failures.subList(Math.max(0, failures.size() - MAX_FAILED_ENTRIES), failures.size())) {
 				failedEntries.addLast(failed);
 			}
 			boolean skipped = false;
@@ -434,10 +489,35 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 
 	@Override
 	public void close() {
+		if (!closeRequested.compareAndSet(false, true)) return;
+		Thread finalWrite = new Thread(this::closeBlocking, "VotingPlugin-BackendVote-Close");
+		finalWrite.setDaemon(true);
+		closeThread = finalWrite;
+		finalWrite.start();
+		try {
+			finalWrite.join(1_000L);
+		} catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt();
+		}
+		if (finalWrite.isAlive() && plugin != null && plugin.getLogger() != null) {
+			plugin.getLogger().severe("Ordered proxy vote overflow close exceeded one second; final write remains pending");
+		}
+	}
+
+	boolean awaitClose(long timeoutMillis) throws InterruptedException {
+		Thread active = closeThread;
+		if (active == null) return true;
+		active.join(timeoutMillis);
+		return !active.isAlive();
+	}
+
+	private void closeBlocking() {
 		List<String> snapshot;
 		List<String> failures;
 		PendingFailure closingFailure;
+		PendingAcknowledgement closingAcknowledgement;
 		boolean canStoreFailure;
+		boolean canStoreAcknowledgement;
 		synchronized (lock) {
 			if (closed) return;
 			closed = true;
@@ -446,11 +526,16 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 			snapshot = payloadSnapshotLocked();
 			failures = failedSnapshotLocked();
 			closingFailure = pendingFailure;
+			closingAcknowledgement = pendingAcknowledgement;
 			canStoreFailure = closingFailure != null && !closingFailure.stored
 					&& (closingFailure.expected == null || entries.peekFirst() == closingFailure.expected);
+			canStoreAcknowledgement = closingAcknowledgement != null && !closingAcknowledgement.stored
+					&& entries.peekFirst() == closingAcknowledgement.expected;
+			if (canStoreAcknowledgement) snapshot.remove(0);
 			if (canStoreFailure) {
 				if (closingFailure.expected != null) snapshot.remove(0);
 				failures.add(closingFailure.failed.payload);
+				while (failures.size() > MAX_FAILED_ENTRIES) failures.remove(0);
 			}
 			persistenceScheduled = false;
 		}
@@ -462,6 +547,7 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 		}
 		if (loadFailed) {
 			if (closingFailure != null) closingFailure.complete(false);
+			if (closingAcknowledgement != null) closingAcknowledgement.complete(false);
 			return;
 		}
 		boolean saved = false;
@@ -477,10 +563,37 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 			synchronized (lock) {
 				if (closingFailure.expected != null) entries.removeFirst();
 				failedEntries.addLast(closingFailure.failed.payload);
+				while (failedEntries.size() > MAX_FAILED_ENTRIES) failedEntries.removeFirst();
 				closingFailure.stored = true;
 			}
 		}
+		if (saved && canStoreAcknowledgement) {
+			synchronized (lock) {
+				entries.removeFirst();
+				closingAcknowledgement.stored = true;
+			}
+		}
 		if (closingFailure != null) closingFailure.complete(saved && (closingFailure.stored || canStoreFailure));
+		if (closingAcknowledgement != null) {
+			closingAcknowledgement.complete(saved
+					&& (closingAcknowledgement.stored || canStoreAcknowledgement));
+		}
+	}
+
+	private static final class PendingAcknowledgement {
+		private final PendingEnvelope expected;
+		private final Consumer<Boolean> completion;
+		private final AtomicBoolean completed = new AtomicBoolean();
+		private boolean stored;
+
+		private PendingAcknowledgement(PendingEnvelope expected, Consumer<Boolean> completion) {
+			this.expected = expected;
+			this.completion = completion;
+		}
+
+		private void complete(boolean success) {
+			if (completed.compareAndSet(false, true)) completion.accept(success);
+		}
 	}
 
 	private static final class PendingFailure {
