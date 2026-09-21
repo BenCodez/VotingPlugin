@@ -8,10 +8,11 @@ transports. Gson is platform-supplied and is therefore `provided`.
 
 AdvancedCore already contains the relocated Rhino implementation needed by its
 JavaScript support, so VotingPlugin excludes the second unrelocated Rhino
-dependency. The default branch has no HTTP transport and therefore does not
-bundle Bouncy Castle. Adding HTTP transport support must explicitly own its TLS
-implementation and crypto dependencies; it must not rely on the non-HTTP
-AdvancedCore artifact to provide them.
+dependency. VotingPlugin bundles the relocated Bouncy Castle base provider used
+by `BouncyCastleProvider` and `HttpTlsIdentity`, while excluding its unused
+multi-release payloads. HTTP transport support explicitly owns its TLS
+implementation and crypto dependencies; it does not rely on AdvancedCore to
+provide them.
 
 The package phase runs `PackagedArtifactTest` after shading. It opens the actual
 downloadable JAR, checks plugin resources and required relocated classes, and
