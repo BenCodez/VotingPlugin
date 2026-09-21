@@ -23,6 +23,7 @@ public class ProcessedVoteCache {
 
 	@Getter
 	private final ConcurrentHashMap<UUID, Long> processedVotes = new ConcurrentHashMap<>();
+	private final java.util.Set<UUID> completedVotes = ConcurrentHashMap.newKeySet();
 	private final java.util.Set<UUID> completedAwaitingReceipt = ConcurrentHashMap.newKeySet();
 	private final long ttlMillis;
 	private final DurableVoteReceiptStore durableReceipts;
@@ -52,7 +53,11 @@ public class ProcessedVoteCache {
 	private ProcessedVoteCache(long ttlMillis, DurableVoteReceiptStore durableReceipts) {
 		this.ttlMillis = ttlMillis;
 		this.durableReceipts = durableReceipts;
-		if (durableReceipts != null) processedVotes.putAll(durableReceipts.snapshot());
+		if (durableReceipts != null) {
+			Map<UUID, Long> receipts = durableReceipts.snapshot();
+			processedVotes.putAll(receipts);
+			completedVotes.addAll(receipts.keySet());
+		}
 	}
 
 	private static DurableVoteReceiptStore loadReceipts(Path receiptFile) {
@@ -95,13 +100,24 @@ public class ProcessedVoteCache {
 
 	/** Persists successful processing before the backend emits a delivery acknowledgement. */
 	public boolean complete(UUID voteId) {
-		if (voteId == null || durableReceipts == null) return true;
+		if (voteId == null) return true;
 		completedAwaitingReceipt.add(voteId);
+		if (durableReceipts == null) {
+			completedVotes.add(voteId);
+			completedAwaitingReceipt.remove(voteId);
+			return true;
+		}
 		long expiresAt = durableReceipts.complete(voteId);
 		if (expiresAt <= 0L) return false;
 		processedVotes.put(voteId, expiresAt);
+		completedVotes.add(voteId);
 		completedAwaitingReceipt.remove(voteId);
 		return true;
+	}
+
+	/** Returns whether vote effects completed, including a receipt append awaiting retry. */
+	public boolean hasCompletedEffects(UUID voteId) {
+		return voteId != null && (completedVotes.contains(voteId) || completedAwaitingReceipt.contains(voteId));
 	}
 
 	/** Deduplicates one Redis envelope across overlapping subscribers during a validated handoff. */

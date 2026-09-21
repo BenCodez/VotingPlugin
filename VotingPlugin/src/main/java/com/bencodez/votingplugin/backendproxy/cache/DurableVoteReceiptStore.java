@@ -61,7 +61,9 @@ final class DurableVoteReceiptStore {
 		String content = Files.readString(file, StandardCharsets.UTF_8);
 		String[] lines = content.split("\\n", -1);
 		if (lines.length == 0 || !HEADER.equals(lines[0])) throw new IOException("Unsupported vote receipt journal");
-		for (int index = 1; index < lines.length; index++) {
+		boolean unterminatedTail = !content.endsWith("\n");
+		int completeLineLimit = unterminatedTail ? lines.length - 1 : lines.length;
+		for (int index = 1; index < completeLineLimit; index++) {
 			if (lines[index].isBlank()) continue;
 			try {
 				String[] fields = lines[index].split("\\t", 2);
@@ -70,15 +72,12 @@ final class DurableVoteReceiptStore {
 				long expiresAt = Long.parseLong(fields[1]);
 				receipts.put(voteId, expiresAt);
 			} catch (RuntimeException malformed) {
-				if (index == lines.length - 1 && !content.endsWith("\n")) {
-					if (!compact()) throw new IOException("Unable to repair vote receipt journal", malformed);
-					return;
-				}
 				throw new IOException("Malformed vote receipt journal", malformed);
 			}
 			journalRecords++;
 			if (receipts.size() > MAX_RECEIPTS) throw new IOException("Vote receipt journal exceeds entry limit");
 		}
+		if (unterminatedTail && !compact()) throw new IOException("Unable to repair vote receipt journal");
 	}
 
 	private boolean prepareAppend(String record) {

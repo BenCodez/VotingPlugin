@@ -127,7 +127,13 @@ public class BackendProxyMessageRouter {
 		}
 		if (VotingPluginWire.SUB_VOTE.equals(subChannel) || VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)) {
 			try {
-				UUID completedVoteId = handleWireVote(msg);
+				WireVoteResult result = handleWireVote(msg);
+				if (VotingPluginWire.requestsVoteDeliveryAcknowledgement(msg)
+						&& (result == null || !result.effectsComplete())) {
+					completion.accept(OrderedVoteOutcome.QUARANTINE);
+					return;
+				}
+				UUID completedVoteId = result == null ? null : result.voteId();
 				if (VotingPluginWire.requestsVoteDeliveryAcknowledgement(msg)
 						&& completedVoteId != null && !processedVoteCache.complete(completedVoteId)) {
 					completion.accept(OrderedVoteOutcome.RETRY);
@@ -351,7 +357,7 @@ public class BackendProxyMessageRouter {
 		voteSite.giveWaitUntilVoteDelayRewards(user, rejected.wasOnline && user.isOnline(), true);
 	}
 
-	private UUID handleWireVote(JsonEnvelope msg) {
+	private WireVoteResult handleWireVote(JsonEnvelope msg) {
 		if (!validSchema(msg)) {
 			return null;
 		}
@@ -375,7 +381,7 @@ public class BackendProxyMessageRouter {
 			plugin.debug("Ignoring duplicate wire vote " + voteId + " for "
 					+ ServiceSiteValidator.sanitizeForLog(vote.player) + " on "
 					+ ServiceSiteValidator.sanitizeForLog(vote.service));
-			return voteId;
+			return new WireVoteResult(voteId, processedVoteCache.hasCompletedEffects(voteId));
 		}
 
 		UUID javaUuid;
@@ -384,7 +390,7 @@ public class BackendProxyMessageRouter {
 		} catch (IllegalArgumentException e) {
 			plugin.getLogger().warning("Invalid UUID in proxy vote: "
 					+ ServiceSiteValidator.sanitizeForLog(vote.uuid));
-			return voteId;
+			return new WireVoteResult(voteId, false);
 		}
 		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(javaUuid, vote.player);
 		votePartySync.replace(totals.getVotePartyCurrent(), totals.getVotePartyRequired());
@@ -397,7 +403,10 @@ public class BackendProxyMessageRouter {
 		if (vote.service != null && !vote.service.isEmpty()) {
 			plugin.getServerData().addServiceSite(vote.service);
 		}
-		return voteId;
+		return new WireVoteResult(voteId, true);
+	}
+
+	private record WireVoteResult(UUID voteId, boolean effectsComplete) {
 	}
 
 	private boolean validSchema(JsonEnvelope msg) {

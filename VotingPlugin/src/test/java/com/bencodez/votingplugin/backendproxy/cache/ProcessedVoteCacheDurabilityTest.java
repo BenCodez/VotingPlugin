@@ -54,6 +54,18 @@ class ProcessedVoteCacheDurabilityTest {
 	}
 
 	@Test
+	void discardsParseableUnterminatedReceiptTail() throws Exception {
+		Path receipts = directory.resolve("receipts.dat");
+		UUID incompleteId = UUID.randomUUID();
+		Files.writeString(receipts, "VP-VOTE-RECEIPTS-1\n" + incompleteId + "\t9");
+
+		ProcessedVoteCache repaired = new ProcessedVoteCache(receipts);
+
+		assertTrue(repaired.reserve(incompleteId));
+		assertTrue(Files.readString(receipts).endsWith("\n"));
+	}
+
+	@Test
 	void receiptFailureFencesCompletedVotePastReservationExpiry() throws Exception {
 		Path unusableParent = directory.resolve("not-a-directory");
 		Files.writeString(unusableParent, "file");
