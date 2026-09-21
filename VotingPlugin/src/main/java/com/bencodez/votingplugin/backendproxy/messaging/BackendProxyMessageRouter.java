@@ -28,6 +28,7 @@ import com.bencodez.votingplugin.votesites.VoteSite;
  * Registers and handles backend-side proxy message routes.
  */
 public class BackendProxyMessageRouter {
+	public enum OrderedVoteOutcome { COMPLETE, RETRY, QUARANTINE }
 
 	private final VotingPluginMain plugin;
 	private final BackendPresenceManager presenceManager;
@@ -112,11 +113,10 @@ public class BackendProxyMessageRouter {
 
 	/**
 	 * Handles the three ordered vote messages without routing back through the
-	 * transport-facing GlobalMessageHandler. Completion is true when the message
-	 * may be acknowledged; a transient user lookup or cache failure reports false
-	 * so the ordered lane retains it for retry.
+	 * transport-facing GlobalMessageHandler. Only transient lookup/cache failures
+	 * are retried. An exception after possible effects requires quarantine.
 	 */
-	public void handleOrderedVote(JsonEnvelope msg, Consumer<Boolean> completion) {
+	public void handleOrderedVote(JsonEnvelope msg, Consumer<OrderedVoteOutcome> completion) {
 		if (completion == null) throw new IllegalArgumentException("Ordered vote completion is required");
 		String subChannel = msg.getSubChannel();
 		if (VotingPluginWire.SUB_VOTE_UPDATE.equals(subChannel)) {
@@ -126,12 +126,14 @@ public class BackendProxyMessageRouter {
 		if (VotingPluginWire.SUB_VOTE.equals(subChannel) || VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)) {
 			try {
 				handleWireVote(msg);
-			} finally {
-				completion.accept(true);
+			} catch (RuntimeException | Error failure) {
+				completion.accept(OrderedVoteOutcome.QUARANTINE);
+				throw failure;
 			}
+			completion.accept(OrderedVoteOutcome.COMPLETE);
 			return;
 		}
-		completion.accept(true);
+		completion.accept(OrderedVoteOutcome.QUARANTINE);
 		throw new IllegalArgumentException("Unsupported ordered proxy vote message: " + subChannel);
 	}
 
@@ -145,52 +147,57 @@ public class BackendProxyMessageRouter {
 		handleVoteUpdateWithOutcome(msg, ignored -> completion.run());
 	}
 
-	private void handleVoteUpdateWithOutcome(JsonEnvelope msg, Consumer<Boolean> completion) {
+	private void handleVoteUpdateWithOutcome(JsonEnvelope msg, Consumer<OrderedVoteOutcome> completion) {
 		if (completion == null) throw new IllegalArgumentException("VoteUpdate completion is required");
 		AtomicBoolean completed = new AtomicBoolean();
-		Consumer<Boolean> complete = success -> {
-			if (completed.compareAndSet(false, true)) completion.accept(success);
+		Consumer<OrderedVoteOutcome> complete = outcome -> {
+			if (completed.compareAndSet(false, true)) completion.accept(outcome);
 		};
 
 		VotingPluginWire.VoteUpdate update;
 		try {
 			update = VotingPluginWire.readVoteUpdate(msg);
 		} catch (RuntimeException | Error failure) {
-			complete.accept(true);
+			complete.accept(OrderedVoteOutcome.QUARANTINE);
 			throw failure;
 		}
 		String playerUuid = update.uuid;
 		if (playerUuid == null || playerUuid.isEmpty()) {
-			complete.accept(true);
+			complete.accept(OrderedVoteOutcome.COMPLETE);
 			return;
 		}
 
 		try {
 			plugin.getBukkitScheduler().runTask(plugin, () -> beginVoteUpdateOnPlatform(update, complete));
 		} catch (RuntimeException | Error failure) {
-			complete.accept(false);
+			complete.accept(OrderedVoteOutcome.RETRY);
 			throw failure;
 		}
 	}
 
-	private void beginVoteUpdateOnPlatform(VotingPluginWire.VoteUpdate update, Consumer<Boolean> completion) {
+	private void beginVoteUpdateOnPlatform(VotingPluginWire.VoteUpdate update,
+			Consumer<OrderedVoteOutcome> completion) {
 		String playerUuid = update.uuid;
+		UUID uuid;
 		try {
 			plugin.debug("pluginmessaging voteupdate received for "
 					+ ServiceSiteValidator.sanitizeForLog(playerUuid) + ": " + update.votePartyCurrent + "/"
 					+ update.votePartyRequired + " on " + ServiceSiteValidator.sanitizeForLog(update.service));
 			votePartySync.update(update.votePartyCurrent, update.votePartyRequired);
 
-			UUID uuid;
 			try {
 				uuid = UUID.fromString(playerUuid);
 			} catch (IllegalArgumentException invalidUuid) {
 				plugin.getLogger().warning("Invalid UUID in VoteUpdate: "
 						+ ServiceSiteValidator.sanitizeForLog(playerUuid));
-				completion.accept(true);
+				completion.accept(OrderedVoteOutcome.COMPLETE);
 				return;
 			}
-
+		} catch (RuntimeException | Error failure) {
+			completion.accept(OrderedVoteOutcome.QUARANTINE);
+			throw failure;
+		}
+		try {
 			plugin.getUserManager().getUserAsync(uuid,
 					resolved -> cacheVoteUpdateUser(update, resolved, completion),
 					failure -> {
@@ -198,17 +205,17 @@ public class BackendProxyMessageRouter {
 							plugin.getLogger().warning("Unable to resolve UUID user in VoteUpdate: " + playerUuid);
 							plugin.debug(failure);
 						} finally {
-							completion.accept(false);
+							completion.accept(OrderedVoteOutcome.RETRY);
 						}
 					});
 		} catch (RuntimeException | Error failure) {
-			completion.accept(false);
+			completion.accept(OrderedVoteOutcome.RETRY);
 			throw failure;
 		}
 	}
 
 	private void cacheVoteUpdateUser(VotingPluginWire.VoteUpdate update, AdvancedCoreUser resolved,
-			Consumer<Boolean> completion) {
+			Consumer<OrderedVoteOutcome> completion) {
 		VotingPluginUser user;
 		try {
 			user = plugin.getVotingPluginUserManager().getVotingPluginUser(resolved);
@@ -222,7 +229,7 @@ public class BackendProxyMessageRouter {
 						plugin.getLogger().warning("Unable to cache UUID user in VoteUpdate: " + update.uuid);
 						plugin.debug(failure);
 					} finally {
-						completion.accept(false);
+						completion.accept(OrderedVoteOutcome.RETRY);
 					}
 				});
 				if (deferred) return;
@@ -230,13 +237,13 @@ public class BackendProxyMessageRouter {
 			user.cache();
 			applyVoteUpdate(update, user, completion);
 		} catch (RuntimeException | Error failure) {
-			completion.accept(false);
+			completion.accept(OrderedVoteOutcome.RETRY);
 			throw failure;
 		}
 	}
 
 	private void applyVoteUpdate(VotingPluginWire.VoteUpdate update, VotingPluginUser user,
-			Consumer<Boolean> completion) {
+			Consumer<OrderedVoteOutcome> completion) {
 		try {
 			user.offVote();
 
@@ -253,9 +260,11 @@ public class BackendProxyMessageRouter {
 				plugin.debug("Invalid last vote time received from bungee: " + update.time);
 			}
 			plugin.setUpdate(true);
-		} finally {
-			completion.accept(true);
+		} catch (RuntimeException | Error failure) {
+			completion.accept(OrderedVoteOutcome.QUARANTINE);
+			throw failure;
 		}
+		completion.accept(OrderedVoteOutcome.COMPLETE);
 	}
 
 	private void handleVoteBroadcast(JsonEnvelope msg) {

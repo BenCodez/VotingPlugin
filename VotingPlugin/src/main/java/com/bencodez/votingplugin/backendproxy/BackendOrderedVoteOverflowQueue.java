@@ -13,12 +13,13 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -34,7 +35,8 @@ import com.bencodez.votingplugin.util.DurableFiles;
  * across handler replacement and process restart.
  */
 public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
-	private static final int MAX_ENTRIES = 512;
+	static final int MAX_NORMAL_ENTRIES = 512;
+	private static final int MAX_ENTRIES = MAX_NORMAL_ENTRIES + BackendProxyHandler.MAX_ORDERED_VOTE_QUEUE;
 	private static final long MAX_FILE_BYTES = 8L * 1024L * 1024L;
 	private static final long RETRY_DELAY_MILLIS = 250L;
 	private static final String QUEUE_FILE = "BackendProxyVoteQueue.yml";
@@ -45,9 +47,12 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 	private final Object lock = new Object();
 	private final Object persistenceWriteLock = new Object();
 	private final ArrayDeque<PendingEnvelope> entries = new ArrayDeque<>();
+	private final ArrayDeque<String> failedEntries = new ArrayDeque<>();
 	private boolean persistenceScheduled;
 	private boolean persistenceDirty;
 	private boolean closed;
+	private boolean loadFailed;
+	private PendingFailure pendingFailure;
 	private long stateVersion;
 	private long durableVersion;
 	private Object wakeupOwner;
@@ -66,15 +71,34 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 	}
 
 	public boolean enqueue(JsonEnvelope envelope) {
+		return enqueue(envelope, 0);
+	}
+
+	boolean enqueue(JsonEnvelope envelope, int reservedPrefixEntries) {
 		PendingEnvelope pending = pending(envelope);
-		if (pending == null) return false;
-		synchronized (lock) {
-			if (closed || entries.size() >= MAX_ENTRIES) return false;
-			entries.addLast(pending);
-			stateVersion++;
-			requestPersistenceLocked();
-			return true;
+		if (pending == null || reservedPrefixEntries < 0
+				|| reservedPrefixEntries > BackendProxyHandler.MAX_ORDERED_VOTE_QUEUE) return false;
+		Runnable notify = null;
+		synchronized (persistenceWriteLock) {
+			synchronized (lock) {
+				// Admission returns only after the overflow snapshot reaches disk.
+				// Keep older in-memory work's shutdown capacity reserved as well.
+				if (closed || loadFailed || entries.size() + reservedPrefixEntries >= MAX_ENTRIES) return false;
+				List<String> snapshot = payloadSnapshotLocked();
+				snapshot.add(pending.payload);
+				try {
+					writeSnapshotLocked(snapshot, failedSnapshotLocked());
+				} catch (IOException failure) {
+					warn("Unable to admit ordered proxy vote overflow", failure);
+					return false;
+				}
+				entries.addLast(pending);
+				durableVersion = ++stateVersion;
+				if (wakeup != null) notify = wakeup;
+			}
 		}
+		runWakeup(notify);
+		return true;
 	}
 
 	/** Adds older in-memory work ahead of already spilled newer messages. */
@@ -87,7 +111,7 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 			pending.add(value);
 		}
 		synchronized (lock) {
-			if (closed || entries.size() + pending.size() > MAX_ENTRIES) return false;
+			if (closed || loadFailed || entries.size() + pending.size() > MAX_ENTRIES) return false;
 			for (int index = pending.size() - 1; index >= 0; index--) {
 				entries.addFirst(pending.get(index));
 			}
@@ -107,9 +131,82 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 		return size() != 0;
 	}
 
+	int failedSize() {
+		synchronized (lock) {
+			return failedEntries.size();
+		}
+	}
+
+	/** Moves an ambiguous processing failure out of the active lane in one durable snapshot. */
+	private Boolean quarantine(PendingFailure request) {
+		synchronized (persistenceWriteLock) {
+			synchronized (lock) {
+				if (closed) return null; // Final close owns the pending failure.
+				if (loadFailed || pendingFailure != request
+						|| (request.expected != null && entries.peekFirst() != request.expected)) return false;
+				List<String> active = payloadSnapshotLocked();
+				if (request.expected != null) active.remove(0);
+				List<String> failures = failedSnapshotLocked();
+				failures.add(request.failed.payload);
+				try {
+					writeSnapshotLocked(active, failures);
+				} catch (IOException failure) {
+					warn("Unable to quarantine ordered proxy vote", failure);
+					return false;
+				}
+				if (request.expected != null) entries.removeFirst();
+				failedEntries.addLast(request.failed.payload);
+				durableVersion = ++stateVersion;
+				request.stored = true;
+				return true;
+			}
+		}
+	}
+
+	/** Writes failure evidence off the Bukkit owner thread before releasing the lane. */
+	void quarantineAsync(PendingEnvelope expected, JsonEnvelope envelope, Consumer<Boolean> completion) {
+		PendingEnvelope failed = pending(envelope);
+		PendingFailure request = null;
+		synchronized (lock) {
+			if (!closed && !loadFailed && failed != null && pendingFailure == null) {
+				request = new PendingFailure(expected, failed, completion);
+				pendingFailure = request;
+			}
+		}
+		if (request == null) {
+			completion.accept(false);
+			return;
+		}
+		PendingFailure queued = request;
+		try {
+			worker.execute(() -> {
+				Boolean stored = quarantine(queued);
+				if (stored == null) return;
+				try {
+					queued.complete(stored);
+				} finally {
+					if (stored) {
+						synchronized (lock) {
+							if (pendingFailure == queued) pendingFailure = null;
+						}
+					}
+				}
+			});
+		} catch (RejectedExecutionException rejected) {
+			queued.complete(false);
+		}
+	}
+
+	boolean hasPendingFailure(JsonEnvelope envelope) {
+		synchronized (lock) {
+			return pendingFailure != null && pendingFailure.failed.envelope == envelope
+					&& !loadFailed;
+		}
+	}
+
 	PendingEnvelope peekDurable() {
 		synchronized (lock) {
-			if (closed || durableVersion != stateVersion) return null;
+			if (closed || loadFailed || durableVersion != stateVersion) return null;
 			return entries.peekFirst();
 		}
 	}
@@ -191,19 +288,23 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 
 	private void persistLoop() {
 		while (true) {
-			List<String> snapshot;
 			long snapshotVersion;
-			synchronized (lock) {
-				if (!persistenceDirty) {
-					persistenceScheduled = false;
-					return;
-				}
-				persistenceDirty = false;
-				snapshot = payloadSnapshotLocked();
-				snapshotVersion = stateVersion;
-			}
 			try {
-				writeSnapshot(snapshot);
+				synchronized (persistenceWriteLock) {
+					List<String> snapshot;
+					List<String> failures;
+					synchronized (lock) {
+						if (!persistenceDirty) {
+							persistenceScheduled = false;
+							return;
+						}
+						persistenceDirty = false;
+						snapshot = payloadSnapshotLocked();
+						failures = failedSnapshotLocked();
+						snapshotVersion = stateVersion;
+					}
+					writeSnapshotLocked(snapshot, failures);
+				}
 			} catch (IOException failure) {
 				warn("Unable to persist ordered proxy vote overflow", failure);
 				synchronized (lock) {
@@ -235,6 +336,10 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 			YamlConfiguration yaml = new YamlConfiguration();
 			yaml.loadFromString(readQueueFile());
 			List<String> payloads = yaml.getStringList("Envelopes");
+			List<String> failures = yaml.getStringList("FailedEnvelopes");
+			for (String failed : failures) {
+				failedEntries.addLast(failed);
+			}
 			boolean skipped = false;
 			for (String payload : payloads) {
 				if (entries.size() >= MAX_ENTRIES) {
@@ -259,6 +364,9 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 				}
 			}
 		} catch (Exception failure) {
+			loadFailed = true;
+			entries.clear();
+			failedEntries.clear();
 			warn("Unable to load ordered proxy vote overflow", failure);
 		}
 	}
@@ -276,21 +384,19 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 	}
 
 	private List<String> payloadSnapshotLocked() {
-		if (entries.isEmpty()) return Collections.emptyList();
 		List<String> snapshot = new ArrayList<>(entries.size());
 		for (PendingEnvelope pending : entries) snapshot.add(pending.payload);
 		return snapshot;
 	}
 
-	private void writeSnapshot(List<String> snapshot) throws IOException {
-		synchronized (persistenceWriteLock) {
-			writeSnapshotLocked(snapshot);
-		}
+	private List<String> failedSnapshotLocked() {
+		return new ArrayList<>(failedEntries);
 	}
 
-	private void writeSnapshotLocked(List<String> snapshot) throws IOException {
+	private void writeSnapshotLocked(List<String> snapshot, List<String> failures) throws IOException {
 		YamlConfiguration yaml = new YamlConfiguration();
 		yaml.set("Envelopes", snapshot);
+		yaml.set("FailedEnvelopes", failures);
 		byte[] bytes = yaml.saveToString().getBytes(StandardCharsets.UTF_8);
 		if (bytes.length > MAX_FILE_BYTES) throw new IOException("queue snapshot exceeds size limit");
 		Path parent = file.toAbsolutePath().normalize().getParent();
@@ -329,12 +435,23 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 	@Override
 	public void close() {
 		List<String> snapshot;
+		List<String> failures;
+		PendingFailure closingFailure;
+		boolean canStoreFailure;
 		synchronized (lock) {
 			if (closed) return;
 			closed = true;
 			wakeupOwner = null;
 			wakeup = null;
 			snapshot = payloadSnapshotLocked();
+			failures = failedSnapshotLocked();
+			closingFailure = pendingFailure;
+			canStoreFailure = closingFailure != null && !closingFailure.stored
+					&& (closingFailure.expected == null || entries.peekFirst() == closingFailure.expected);
+			if (canStoreFailure) {
+				if (closingFailure.expected != null) snapshot.remove(0);
+				failures.add(closingFailure.failed.payload);
+			}
 			persistenceScheduled = false;
 		}
 		worker.shutdownNow();
@@ -343,12 +460,44 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 		} catch (InterruptedException interrupted) {
 			Thread.currentThread().interrupt();
 		}
+		if (loadFailed) {
+			if (closingFailure != null) closingFailure.complete(false);
+			return;
+		}
+		boolean saved = false;
 		try {
 			synchronized (persistenceWriteLock) {
-				writeSnapshotLocked(snapshot);
+				writeSnapshotLocked(snapshot, failures);
 			}
+			saved = true;
 		} catch (IOException failure) {
 			warn("Unable to persist ordered proxy vote overflow during shutdown", failure);
+		}
+		if (saved && canStoreFailure) {
+			synchronized (lock) {
+				if (closingFailure.expected != null) entries.removeFirst();
+				failedEntries.addLast(closingFailure.failed.payload);
+				closingFailure.stored = true;
+			}
+		}
+		if (closingFailure != null) closingFailure.complete(saved && (closingFailure.stored || canStoreFailure));
+	}
+
+	private static final class PendingFailure {
+		private final PendingEnvelope expected;
+		private final PendingEnvelope failed;
+		private final Consumer<Boolean> completion;
+		private final AtomicBoolean completed = new AtomicBoolean();
+		private boolean stored;
+
+		private PendingFailure(PendingEnvelope expected, PendingEnvelope failed, Consumer<Boolean> completion) {
+			this.expected = expected;
+			this.failed = failed;
+			this.completion = completion;
+		}
+
+		private void complete(boolean success) {
+			if (completed.compareAndSet(false, true)) completion.accept(success);
 		}
 	}
 

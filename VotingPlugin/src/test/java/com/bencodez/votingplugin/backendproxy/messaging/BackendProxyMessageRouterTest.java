@@ -1,10 +1,14 @@
 package com.bencodez.votingplugin.backendproxy.messaging;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -24,6 +28,7 @@ import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache;
+import com.bencodez.votingplugin.backendproxy.messaging.BackendProxyMessageRouter.OrderedVoteOutcome;
 import com.bencodez.votingplugin.backendproxy.global.BackendGlobalDataSync;
 import com.bencodez.votingplugin.backendproxy.presence.BackendPresenceManager;
 import com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync;
@@ -32,6 +37,7 @@ import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votesites.VoteSite;
 import com.bencodez.votingplugin.votesites.VoteSiteManager;
+import com.bencodez.votingplugin.config.BungeeSettings;
 
 class BackendProxyMessageRouterTest {
 
@@ -136,24 +142,54 @@ class BackendProxyMessageRouterTest {
 			return null;
 		}).when(coreUserManager).getUserAsync(eq(PLAYER_UUID), any(), any());
 
-		AtomicReference<Boolean> successful = new AtomicReference<>();
+		AtomicReference<OrderedVoteOutcome> successful = new AtomicReference<>();
 		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
 				"known.example", LAST_VOTE_TIME, ""), successful::set);
 
-		assertEquals(false, successful.get());
+		assertEquals(OrderedVoteOutcome.RETRY, successful.get());
 		verify(user, never()).offVote();
 		verify(plugin, never()).setUpdate(true);
 	}
 
 	@Test
 	void invalidUuidWarningIsSingleLineAndTerminal() {
-		AtomicReference<Boolean> successful = new AtomicReference<>();
+		AtomicReference<OrderedVoteOutcome> successful = new AtomicReference<>();
 		router.handleOrderedVote(VotingPluginWire.voteUpdate("invalid\nforged", 1, 10,
 				"known.example", LAST_VOTE_TIME, ""), successful::set);
 
-		assertEquals(true, successful.get());
+		assertEquals(OrderedVoteOutcome.COMPLETE, successful.get());
 		verify(logger).warning("Invalid UUID in VoteUpdate: invalid?forged");
 		verify(user, never()).offVote();
+	}
+
+	@Test
+	void voteUpdateFailureAfterOfflineEffectRequestsQuarantine() {
+		doThrow(new IllegalStateException("after offline effect")).when(user).offVote();
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+		assertThrows(IllegalStateException.class, () -> router.handleOrderedVote(
+				VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
+						"known.example", LAST_VOTE_TIME, ""), outcome::set));
+		assertEquals(OrderedVoteOutcome.QUARANTINE, outcome.get());
+	}
+
+	@Test
+	void voteRewardFailureRequestsQuarantineAfterVoteIdReservation() {
+		UUID voteId = UUID.randomUUID();
+		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
+		when(cache.reserve(voteId)).thenReturn(true);
+		when(plugin.getBungeeSettings()).thenReturn(mock(BungeeSettings.class));
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser(PLAYER_UUID, "Player"))
+				.thenReturn(user);
+		doThrow(new IllegalStateException("partial reward")).when(user).bungeeVotePluginMessaging(
+				any(), anyLong(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyInt());
+		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
+				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
+				mock(BackendVotePartySync.class), cache);
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+		assertThrows(IllegalStateException.class, () -> voteRouter.handleOrderedVote(
+				VotingPluginWire.vote("Player", PLAYER_UUID.toString(), "known.example", LAST_VOTE_TIME,
+						true, true, "", voteId, false, false, 1, 1), outcome::set));
+		assertEquals(OrderedVoteOutcome.QUARANTINE, outcome.get());
 	}
 
 }
