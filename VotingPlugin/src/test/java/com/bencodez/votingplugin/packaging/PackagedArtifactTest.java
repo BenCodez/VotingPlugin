@@ -35,6 +35,14 @@ public class PackagedArtifactTest {
             assertNull(artifact.getEntry("net/neoforged/neoforge/common/NeoForge.class"));
             assertNull(artifact.getEntry("org/checkerframework/checker/nullness/qual/Nullable.class"));
             assertNull(artifact.getEntry("org/slf4j/Logger.class"));
+            assertNull(artifact.getEntry("com/bencodez/votingplugin/slf4j/Logger.class"));
+            assertNull(artifact.getEntry("META-INF/services/org.slf4j.spi.SLF4JServiceProvider"));
+            String velocityClass = new String(artifact.getInputStream(artifact.getEntry(
+                    "com/bencodez/votingplugin/proxy/velocity/VotingPluginVelocity.class")).readAllBytes(),
+                    StandardCharsets.ISO_8859_1);
+            assertTrue(velocityClass.contains("Lorg/slf4j/Logger;"),
+                    "Velocity's injected logger must retain its platform type");
+            assertFalse(velocityClass.contains("Lcom/bencodez/votingplugin/slf4j/Logger;"));
             assertNotNull(artifact.getEntry(
                     "com/bencodez/votingplugin/advancedcore/rhino/Context.class"));
             assertNotNull(artifact.getEntry(
@@ -55,11 +63,13 @@ public class PackagedArtifactTest {
     @Test
     void packagedNeoForgeRuntimeStartsAndClosesWithoutTestDependencies(@TempDir Path directory) throws Exception {
         URL jar = packagedJar().toUri().toURL();
-        try (URLClassLoader loader = new URLClassLoader(new URL[] { jar }, ClassLoader.getPlatformClassLoader())) {
+        URL platformSlf4j = org.slf4j.Logger.class.getProtectionDomain().getCodeSource().getLocation();
+        try (URLClassLoader loader = new URLClassLoader(new URL[] { jar, platformSlf4j },
+                ClassLoader.getPlatformClassLoader())) {
             Class<?> runtime = Class.forName("com.bencodez.votingplugin.neoforge.NeoForgeRuntime", true, loader);
-            AutoCloseable instance = (AutoCloseable) runtime.getMethod("start", Path.class).invoke(null, directory);
-            assertTrue(Files.isRegularFile(directory.resolve("VotingPlugin.db")));
-            instance.close();
+            try (AutoCloseable instance = (AutoCloseable) runtime.getMethod("start", Path.class).invoke(null, directory)) {
+                assertTrue(Files.isRegularFile(directory.resolve("VotingPlugin.db")));
+            }
         }
     }
 

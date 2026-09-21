@@ -181,10 +181,6 @@
                             <shadedPattern>${project.groupId}.votingplugin.snakeyaml</shadedPattern>
                         </relocation>
                         <relocation>
-                            <pattern>org.slf4j</pattern>
-                            <shadedPattern>${project.groupId}.votingplugin.slf4j</shadedPattern>
-                        </relocation>
-                        <relocation>
                             <pattern>org.checkerframework</pattern>
                             <shadedPattern>${project.groupId}.votingplugin.checkerframework</shadedPattern>
                         </relocation>
@@ -203,6 +199,8 @@
 									code in it (guava, etc) -->
                                 <excludes>
                                     <exclude>com.google.*:*</exclude>
+                                    <!-- Server platforms provide SLF4J; embedding its package conflicts with NeoForge's module layer. -->
+                                    <exclude>org.slf4j:*</exclude>
                                 </excludes>
                             </artifactSet>
                             <minimizeJar>false</minimizeJar>
@@ -238,6 +236,10 @@
                                 <filter>
                                     <artifact>*:*</artifact>
                                     <excludes>
+                                        <!-- AdvancedCore and SimpleAPI also embed these classes. -->
+                                        <exclude>org/slf4j/**</exclude>
+                                        <exclude>META-INF/services/org.slf4j.spi.SLF4JServiceProvider</exclude>
+                                        <exclude>META-INF/maven/org.slf4j/**</exclude>
                                         <exclude>META-INF/*.SF</exclude>
                                         <exclude>META-INF/*.DSA</exclude>
                                         <exclude>META-INF/*.RSA</exclude>

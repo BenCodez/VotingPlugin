@@ -23,20 +23,24 @@ class NeoForgeRuntimeTest {
     @Test
     void startsWithExistingConfigurationAndStorageThenClosesCleanly() throws IOException {
         NeoForgeRuntime runtime = NeoForgeRuntime.start(directory);
-        assertTrue(Files.isRegularFile(directory.resolve("Config.yml")));
-        assertTrue(Files.isRegularFile(directory.resolve("VoteSites.yml")));
-        assertEquals("SQLITE", runtime.config().node("DataStorage").getString());
-        assertFalse(runtime.voteSites().empty());
-        assertTrue(runtime.storage().isOpen());
-        assertTrue(Files.isRegularFile(directory.resolve("VotingPlugin.db")));
+        try {
+            assertTrue(Files.isRegularFile(directory.resolve("Config.yml")));
+            assertTrue(Files.isRegularFile(directory.resolve("VoteSites.yml")));
+            assertEquals("SQLITE", runtime.config().node("DataStorage").getString());
+            assertFalse(runtime.voteSites().empty());
+            assertTrue(runtime.storage().isOpen());
+            assertTrue(Files.isRegularFile(directory.resolve("VotingPlugin.db")));
 
-        runtime.close();
-        runtime.close();
-        assertFalse(runtime.storage().isOpen());
-        assertThrows(RejectedExecutionException.class, () -> runtime.scheduler().execute(() -> {}));
+            runtime.close();
+            runtime.close();
+            assertFalse(runtime.storage().isOpen());
+            assertThrows(RejectedExecutionException.class, () -> runtime.scheduler().execute(() -> {}));
 
-        try (NeoForgeRuntime restarted = NeoForgeRuntime.start(directory)) {
-            assertTrue(restarted.storage().isOpen());
+            try (NeoForgeRuntime restarted = NeoForgeRuntime.start(directory)) {
+                assertTrue(restarted.storage().isOpen());
+            }
+        } finally {
+            runtime.close();
         }
     }
 
