@@ -111,6 +111,9 @@ class VotingPluginMainBackendProxyPublicationTest {
 	@Test
 	void orderedVoteHandoffCommitsOnlyAfterValidationAndBeforeInboundActivation() throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+		Config config = mock(Config.class);
+		when(config.getData()).thenReturn(mock(FileConfiguration.class));
+		when(plugin.getConfigFile()).thenReturn(config);
 		BackendProxyHandler previous = mock(BackendProxyHandler.class);
 		BackendProxyHandler replacement = mock(BackendProxyHandler.class);
 		setBackendProxyHandler(plugin, previous);

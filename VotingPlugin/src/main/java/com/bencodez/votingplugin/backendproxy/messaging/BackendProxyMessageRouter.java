@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
@@ -89,7 +90,8 @@ public class BackendProxyMessageRouter {
 			@Override public void onReceive(JsonEnvelope msg) {
 				String server = nvl(msg.getFields().get("server"));
 				if (!plugin.getOptions().getServer().equals(server)) {
-					plugin.getLogger().warning("Server name doesn't match in BungeeSettings.yml, should be " + server);
+					plugin.getLogger().warning("Server name doesn't match in BungeeSettings.yml, should be "
+							+ ServiceSiteValidator.sanitizeForLog(server));
 				}
 			}
 		});
@@ -110,24 +112,26 @@ public class BackendProxyMessageRouter {
 
 	/**
 	 * Handles the three ordered vote messages without routing back through the
-	 * transport-facing GlobalMessageHandler.
+	 * transport-facing GlobalMessageHandler. Completion is true when the message
+	 * may be acknowledged; a transient user lookup or cache failure reports false
+	 * so the ordered lane retains it for retry.
 	 */
-	public void handleOrderedVote(JsonEnvelope msg, Runnable completion) {
+	public void handleOrderedVote(JsonEnvelope msg, Consumer<Boolean> completion) {
 		if (completion == null) throw new IllegalArgumentException("Ordered vote completion is required");
 		String subChannel = msg.getSubChannel();
 		if (VotingPluginWire.SUB_VOTE_UPDATE.equals(subChannel)) {
-			handleVoteUpdate(msg, completion);
+			handleVoteUpdateWithOutcome(msg, completion);
 			return;
 		}
 		if (VotingPluginWire.SUB_VOTE.equals(subChannel) || VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)) {
 			try {
 				handleWireVote(msg);
 			} finally {
-				completion.run();
+				completion.accept(true);
 			}
 			return;
 		}
-		completion.run();
+		completion.accept(true);
 		throw new IllegalArgumentException("Unsupported ordered proxy vote message: " + subChannel);
 	}
 
@@ -138,45 +142,52 @@ public class BackendProxyMessageRouter {
 	 */
 	public void handleVoteUpdate(JsonEnvelope msg, Runnable completion) {
 		if (completion == null) throw new IllegalArgumentException("VoteUpdate completion is required");
+		handleVoteUpdateWithOutcome(msg, ignored -> completion.run());
+	}
+
+	private void handleVoteUpdateWithOutcome(JsonEnvelope msg, Consumer<Boolean> completion) {
+		if (completion == null) throw new IllegalArgumentException("VoteUpdate completion is required");
 		AtomicBoolean completed = new AtomicBoolean();
-		Runnable complete = () -> {
-			if (completed.compareAndSet(false, true)) completion.run();
+		Consumer<Boolean> complete = success -> {
+			if (completed.compareAndSet(false, true)) completion.accept(success);
 		};
 
 		VotingPluginWire.VoteUpdate update;
 		try {
 			update = VotingPluginWire.readVoteUpdate(msg);
 		} catch (RuntimeException | Error failure) {
-			complete.run();
+			complete.accept(true);
 			throw failure;
 		}
 		String playerUuid = update.uuid;
 		if (playerUuid == null || playerUuid.isEmpty()) {
-			complete.run();
+			complete.accept(true);
 			return;
 		}
 
 		try {
 			plugin.getBukkitScheduler().runTask(plugin, () -> beginVoteUpdateOnPlatform(update, complete));
 		} catch (RuntimeException | Error failure) {
-			complete.run();
+			complete.accept(false);
 			throw failure;
 		}
 	}
 
-	private void beginVoteUpdateOnPlatform(VotingPluginWire.VoteUpdate update, Runnable completion) {
+	private void beginVoteUpdateOnPlatform(VotingPluginWire.VoteUpdate update, Consumer<Boolean> completion) {
 		String playerUuid = update.uuid;
 		try {
-			plugin.debug("pluginmessaging voteupdate received for " + playerUuid + ": " + update.votePartyCurrent + "/"
-					+ update.votePartyRequired + " on " + update.service);
+			plugin.debug("pluginmessaging voteupdate received for "
+					+ ServiceSiteValidator.sanitizeForLog(playerUuid) + ": " + update.votePartyCurrent + "/"
+					+ update.votePartyRequired + " on " + ServiceSiteValidator.sanitizeForLog(update.service));
 			votePartySync.update(update.votePartyCurrent, update.votePartyRequired);
 
 			UUID uuid;
 			try {
 				uuid = UUID.fromString(playerUuid);
 			} catch (IllegalArgumentException invalidUuid) {
-				plugin.getLogger().warning("Invalid UUID in VoteUpdate: " + playerUuid);
-				completion.run();
+				plugin.getLogger().warning("Invalid UUID in VoteUpdate: "
+						+ ServiceSiteValidator.sanitizeForLog(playerUuid));
+				completion.accept(true);
 				return;
 			}
 
@@ -187,17 +198,17 @@ public class BackendProxyMessageRouter {
 							plugin.getLogger().warning("Unable to resolve UUID user in VoteUpdate: " + playerUuid);
 							plugin.debug(failure);
 						} finally {
-							completion.run();
+							completion.accept(false);
 						}
 					});
 		} catch (RuntimeException | Error failure) {
-			completion.run();
+			completion.accept(false);
 			throw failure;
 		}
 	}
 
 	private void cacheVoteUpdateUser(VotingPluginWire.VoteUpdate update, AdvancedCoreUser resolved,
-			Runnable completion) {
+			Consumer<Boolean> completion) {
 		VotingPluginUser user;
 		try {
 			user = plugin.getVotingPluginUserManager().getVotingPluginUser(resolved);
@@ -211,7 +222,7 @@ public class BackendProxyMessageRouter {
 						plugin.getLogger().warning("Unable to cache UUID user in VoteUpdate: " + update.uuid);
 						plugin.debug(failure);
 					} finally {
-						completion.run();
+						completion.accept(false);
 					}
 				});
 				if (deferred) return;
@@ -219,12 +230,13 @@ public class BackendProxyMessageRouter {
 			user.cache();
 			applyVoteUpdate(update, user, completion);
 		} catch (RuntimeException | Error failure) {
-			completion.run();
+			completion.accept(false);
 			throw failure;
 		}
 	}
 
-	private void applyVoteUpdate(VotingPluginWire.VoteUpdate update, VotingPluginUser user, Runnable completion) {
+	private void applyVoteUpdate(VotingPluginWire.VoteUpdate update, VotingPluginUser user,
+			Consumer<Boolean> completion) {
 		try {
 			user.offVote();
 
@@ -242,7 +254,7 @@ public class BackendProxyMessageRouter {
 			}
 			plugin.setUpdate(true);
 		} finally {
-			completion.run();
+			completion.accept(true);
 		}
 	}
 
@@ -259,7 +271,8 @@ public class BackendProxyMessageRouter {
 		try {
 			javaUuid = UUID.fromString(uuidStr);
 		} catch (Exception e) {
-			plugin.getLogger().warning("Invalid UUID in VoteBroadcast: " + uuidStr);
+			plugin.getLogger().warning("Invalid UUID in VoteBroadcast: "
+					+ ServiceSiteValidator.sanitizeForLog(uuidStr));
 			return;
 		}
 
@@ -268,7 +281,8 @@ public class BackendProxyMessageRouter {
 		VoteSite voteSite = plugin.getVoteSiteManager()
 				.getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, service), true);
 		if (voteSite == null) {
-			plugin.getLogger().warning("No voting site with the service site: '" + service + "'");
+			plugin.getLogger().warning("No voting site with the service site: '"
+					+ ServiceSiteValidator.sanitizeForLog(service) + "'");
 			return;
 		}
 		if (!voteSite.isEnabled()) {
@@ -304,13 +318,15 @@ public class BackendProxyMessageRouter {
 		try {
 			javaUuid = UUID.fromString(rejected.uuid);
 		} catch (IllegalArgumentException e) {
-			plugin.getLogger().warning("Invalid UUID in VoteDelayRejected: " + rejected.uuid);
+			plugin.getLogger().warning("Invalid UUID in VoteDelayRejected: "
+					+ ServiceSiteValidator.sanitizeForLog(rejected.uuid));
 			return;
 		}
 		VoteSite voteSite = plugin.getVoteSiteManager()
 				.getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, rejected.service), true);
 		if (voteSite == null) {
-			plugin.getLogger().warning("No voting site with the service site: '" + rejected.service + "'");
+			plugin.getLogger().warning("No voting site with the service site: '"
+					+ ServiceSiteValidator.sanitizeForLog(rejected.service) + "'");
 			return;
 		}
 		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(javaUuid, rejected.player);
@@ -333,12 +349,16 @@ public class BackendProxyMessageRouter {
 			return;
 		}
 
-		plugin.debug("wire vote received from " + vote.player + "/" + vote.uuid + " on " + vote.service);
+		plugin.debug("wire vote received from " + ServiceSiteValidator.sanitizeForLog(vote.player) + "/"
+				+ ServiceSiteValidator.sanitizeForLog(vote.uuid) + " on "
+				+ ServiceSiteValidator.sanitizeForLog(vote.service));
 		VoteTotalsSnapshot totals = VoteTotalsSnapshot.parseStorage(vote.totals == null ? "" : vote.totals);
 		@SuppressWarnings("deprecation")
 		UUID voteId = vote.voteId != null ? vote.voteId : totals.getVoteUUID();
 		if (!processedVoteCache.reserve(voteId)) {
-			plugin.debug("Ignoring duplicate wire vote " + voteId + " for " + vote.player + " on " + vote.service);
+			plugin.debug("Ignoring duplicate wire vote " + voteId + " for "
+					+ ServiceSiteValidator.sanitizeForLog(vote.player) + " on "
+					+ ServiceSiteValidator.sanitizeForLog(vote.service));
 			return;
 		}
 
@@ -346,7 +366,8 @@ public class BackendProxyMessageRouter {
 		try {
 			javaUuid = UUID.fromString(vote.uuid);
 		} catch (IllegalArgumentException e) {
-			plugin.getLogger().warning("Invalid UUID in proxy vote: " + vote.uuid);
+			plugin.getLogger().warning("Invalid UUID in proxy vote: "
+					+ ServiceSiteValidator.sanitizeForLog(vote.uuid));
 			return;
 		}
 		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(javaUuid, vote.player);

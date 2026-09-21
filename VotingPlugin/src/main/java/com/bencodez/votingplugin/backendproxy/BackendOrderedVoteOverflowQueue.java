@@ -144,6 +144,24 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 		}
 	}
 
+	/** Retries a failed delivery without keeping the ordered lane active or spinning. */
+	boolean retryLater(Object owner, Runnable callback) {
+		synchronized (lock) {
+			if (closed || wakeupOwner != owner) return false;
+			try {
+				worker.schedule(() -> {
+					synchronized (lock) {
+						if (closed || wakeupOwner != owner) return;
+					}
+					runWakeup(callback);
+				}, 1L, TimeUnit.SECONDS);
+				return true;
+			} catch (RejectedExecutionException rejected) {
+				return false;
+			}
+		}
+	}
+
 	private PendingEnvelope pending(JsonEnvelope envelope) {
 		if (envelope == null || !isOrderedVoteMessage(envelope)) return null;
 		try {

@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 
@@ -124,6 +125,35 @@ class BackendProxyMessageRouterTest {
 		assertEquals(1, completions.get());
 		verify(user, never()).offVote();
 		verify(plugin, never()).setUpdate(true);
+	}
+
+	@Test
+	void reportsTransientResolutionFailureWithoutCompletingDurableVoteUpdate() {
+		doAnswer(invocation -> {
+			@SuppressWarnings("unchecked")
+			Consumer<Throwable> failure = invocation.getArgument(2);
+			failure.accept(new IllegalStateException("storage unavailable"));
+			return null;
+		}).when(coreUserManager).getUserAsync(eq(PLAYER_UUID), any(), any());
+
+		AtomicReference<Boolean> successful = new AtomicReference<>();
+		router.handleOrderedVote(VotingPluginWire.voteUpdate(PLAYER_UUID.toString(), 1, 10,
+				"known.example", LAST_VOTE_TIME, ""), successful::set);
+
+		assertEquals(false, successful.get());
+		verify(user, never()).offVote();
+		verify(plugin, never()).setUpdate(true);
+	}
+
+	@Test
+	void invalidUuidWarningIsSingleLineAndTerminal() {
+		AtomicReference<Boolean> successful = new AtomicReference<>();
+		router.handleOrderedVote(VotingPluginWire.voteUpdate("invalid\nforged", 1, 10,
+				"known.example", LAST_VOTE_TIME, ""), successful::set);
+
+		assertEquals(true, successful.get());
+		verify(logger).warning("Invalid UUID in VoteUpdate: invalid?forged");
+		verify(user, never()).offVote();
 	}
 
 }
