@@ -23,6 +23,10 @@ public record SharedVotePolicy(boolean countFakeVotes, boolean addTotals,
         return shouldCountTotals(input.realVote(), input.addTotals(), online);
     }
 
+    boolean shouldCountTotals(SharedVoteInput input, BooleanSupplier currentlyOnline) {
+        return shouldCountTotals(input.realVote(), input.addTotals(), currentlyOnline);
+    }
+
     /** Online means the user's current state, including for a proxy-origin vote. */
     public boolean shouldCountTotals(boolean realVote, boolean voteAddsTotals, boolean online) {
         return shouldCountTotals(realVote, voteAddsTotals, () -> online);

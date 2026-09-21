@@ -7,8 +7,5 @@ public record SharedVoteIdentity(UUID uuid, String playerName, boolean online) {
     public SharedVoteIdentity {
         Objects.requireNonNull(uuid, "uuid");
         Objects.requireNonNull(playerName, "playerName");
-        if (playerName.isBlank()) {
-            throw new IllegalArgumentException("playerName cannot be blank");
-        }
     }
 }
