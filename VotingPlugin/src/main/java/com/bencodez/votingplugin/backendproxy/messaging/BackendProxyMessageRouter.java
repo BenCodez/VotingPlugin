@@ -109,6 +109,29 @@ public class BackendProxyMessageRouter {
 	}
 
 	/**
+	 * Handles the three ordered vote messages without routing back through the
+	 * transport-facing GlobalMessageHandler.
+	 */
+	public void handleOrderedVote(JsonEnvelope msg, Runnable completion) {
+		if (completion == null) throw new IllegalArgumentException("Ordered vote completion is required");
+		String subChannel = msg.getSubChannel();
+		if (VotingPluginWire.SUB_VOTE_UPDATE.equals(subChannel)) {
+			handleVoteUpdate(msg, completion);
+			return;
+		}
+		if (VotingPluginWire.SUB_VOTE.equals(subChannel) || VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)) {
+			try {
+				handleWireVote(msg);
+			} finally {
+				completion.run();
+			}
+			return;
+		}
+		completion.run();
+		throw new IllegalArgumentException("Unsupported ordered proxy vote message: " + subChannel);
+	}
+
+	/**
 	 * Processes one ordered VoteUpdate. User identity and shared cache population
 	 * are allowed to leave the platform thread, while offline reward/Bukkit work
 	 * returns to the platform scheduler before the ordered lane is released.

@@ -98,28 +98,32 @@ class BackendProxyHandlerLifecycleTest {
 		JsonEnvelope voteEnvelope = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).build();
 		JsonEnvelope updateEnvelope = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE_UPDATE).build();
 		JsonEnvelope onlineEnvelope = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE_ONLINE).build();
-		Runnable voteDispatch = mock(Runnable.class);
-		Runnable updateDispatch = mock(Runnable.class);
-		Runnable onlineDispatch = mock(Runnable.class);
+		java.util.ArrayList<String> handled = new java.util.ArrayList<>();
 		AtomicReference<Runnable> updateCompletion = new AtomicReference<>();
 		doAnswer(invocation -> {
-			updateCompletion.set(invocation.getArgument(1));
+			JsonEnvelope envelope = invocation.getArgument(0);
+			Runnable completion = invocation.getArgument(1);
+			handled.add(envelope.getSubChannel());
+			if (VotingPluginWire.SUB_VOTE_UPDATE.equals(envelope.getSubChannel())) {
+				updateCompletion.set(completion);
+			} else {
+				completion.run();
+			}
 			return null;
-		}).when(router).handleVoteUpdate(eq(updateEnvelope), any(Runnable.class));
+		}).when(router).handleOrderedVote(any(JsonEnvelope.class), any(Runnable.class));
 
-		handler.dispatchIncomingAfterPublication(voteEnvelope, voteDispatch);
-		handler.dispatchIncomingAfterPublication(updateEnvelope, updateDispatch);
-		handler.dispatchIncomingAfterPublication(onlineEnvelope, onlineDispatch);
+		handler.dispatchIncomingAfterPublication(voteEnvelope, mock(Runnable.class));
+		handler.dispatchIncomingAfterPublication(updateEnvelope, mock(Runnable.class));
+		handler.dispatchIncomingAfterPublication(onlineEnvelope, mock(Runnable.class));
 
 		assertEquals(1, asyncTasks.size(), "only the head of the ordered vote lane should be scheduled");
 
 		asyncTasks.removeFirst().run();
-		verify(voteDispatch).run();
+		assertEquals(java.util.List.of(VotingPluginWire.SUB_VOTE), handled);
 		assertEquals(1, asyncTasks.size(), "VoteUpdate should be scheduled only after Vote completes");
 
 		asyncTasks.removeFirst().run();
-		verify(router).handleVoteUpdate(eq(updateEnvelope), any(Runnable.class));
-		verify(updateDispatch, never()).run();
+		assertEquals(java.util.List.of(VotingPluginWire.SUB_VOTE, VotingPluginWire.SUB_VOTE_UPDATE), handled);
 		assertNotNull(updateCompletion.get());
 		assertTrue(asyncTasks.isEmpty(), "later votes must wait for VoteUpdate platform work");
 
@@ -127,9 +131,90 @@ class BackendProxyHandlerLifecycleTest {
 		assertEquals(1, asyncTasks.size(), "VoteUpdate completion should release the next vote");
 
 		asyncTasks.removeFirst().run();
-		verify(onlineDispatch).run();
+		assertEquals(java.util.List.of(VotingPluginWire.SUB_VOTE, VotingPluginWire.SUB_VOTE_UPDATE,
+				VotingPluginWire.SUB_VOTE_ONLINE), handled);
 		verify(scheduler, times(3)).runTaskAsynchronously(eq(plugin), any(Runnable.class));
 	}
+
+	@Test
+	void orderedVoteBacklogSpillsPastBoundToDurableOverflow(@TempDir Path tempDir) throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ordered-overflow-test"));
+		BackendOrderedVoteOverflowQueue overflow = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			BackendProxyHandler handler = new BackendProxyHandler(plugin, new ProcessedVoteCache(), overflow);
+			setField(handler, "messageRouter", mock(BackendProxyMessageRouter.class));
+			handler.activateInboundMessages();
+
+			for (int i = 0; i < BackendProxyHandler.MAX_ORDERED_VOTE_QUEUE + 1; i++) {
+				handler.dispatchIncomingAfterPublication(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE)
+						.put(VotingPluginWire.K_VOTE_ID, new java.util.UUID(0L, i + 1L).toString()).build(),
+						mock(Runnable.class));
+			}
+
+			@SuppressWarnings("unchecked")
+			ArrayDeque<JsonEnvelope> queued = (ArrayDeque<JsonEnvelope>) getField(handler, "orderedVoteDispatchQueue");
+			assertEquals(BackendProxyHandler.MAX_ORDERED_VOTE_QUEUE, queued.size());
+			assertEquals(1, overflow.size());
+		} finally {
+			overflow.close();
+		}
+
+		BackendOrderedVoteOverflowQueue recovered = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			assertEquals(1, recovered.size(), "overflow must survive restart rather than growing memory without a bound");
+		} finally {
+			recovered.close();
+		}
+	}
+
+	@Test
+	void orderedVoteHandoffMovesPausedPrefixAndForwardsLateCallbacks() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		BackendProxyHandler previous = new BackendProxyHandler(plugin);
+		BackendProxyHandler replacement = new BackendProxyHandler(plugin);
+		BackendProxyMessageRouter replacementRouter = mock(BackendProxyMessageRouter.class);
+		setField(previous, "messageRouter", mock(BackendProxyMessageRouter.class));
+		setField(replacement, "messageRouter", replacementRouter);
+		previous.activateInboundMessages();
+		previous.pauseOrderedVoteDispatchForReplacement(System.nanoTime() + TimeUnit.SECONDS.toNanos(1));
+
+		JsonEnvelope first = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).put("sequence", "1").build();
+		JsonEnvelope second = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE_UPDATE).put("sequence", "2").build();
+		previous.dispatchIncomingAfterPublication(first, mock(Runnable.class));
+		previous.dispatchIncomingAfterPublication(second, mock(Runnable.class));
+
+		previous.completeOrderedVoteHandoff(replacement);
+		JsonEnvelope late = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE_ONLINE).put("sequence", "3").build();
+		previous.dispatchIncomingAfterPublication(late, mock(Runnable.class));
+
+		ArrayDeque<Runnable> asyncTasks = new ArrayDeque<>();
+		doAnswer(invocation -> {
+			asyncTasks.addLast(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		java.util.ArrayList<String> sequences = new java.util.ArrayList<>();
+		doAnswer(invocation -> {
+			JsonEnvelope envelope = invocation.getArgument(0);
+			sequences.add(envelope.getFields().get("sequence"));
+			invocation.<Runnable>getArgument(1).run();
+			return null;
+		}).when(replacementRouter).handleOrderedVote(any(JsonEnvelope.class), any(Runnable.class));
+
+		replacement.activateInboundMessages();
+		while (!asyncTasks.isEmpty() || sequences.size() < 3) {
+			assertFalse(asyncTasks.isEmpty(), "handoff should keep scheduling the transferred FIFO");
+			asyncTasks.removeFirst().run();
+		}
+
+		assertEquals(java.util.List.of("1", "2", "3"), sequences);
+	}
+
 
 	@Test
 	void stagedInboundWaitsForPublicationAndUsesTheBukkitScheduler() throws Exception {

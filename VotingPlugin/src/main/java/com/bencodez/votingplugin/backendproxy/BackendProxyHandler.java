@@ -1,7 +1,9 @@
 package com.bencodez.votingplugin.backendproxy;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -37,7 +39,10 @@ import lombok.Getter;
 public class BackendProxyHandler implements Listener {
 
 	private final VotingPluginMain plugin;
+	static final int MAX_ORDERED_VOTE_QUEUE = 256;
+
 	private final ProcessedVoteCache processedVoteCache;
+	private final BackendOrderedVoteOverflowQueue orderedVoteOverflow;
 	private final BackendProxyTransportManager transportManager;
 	private final BackendGlobalDataSync globalDataSync;
 
@@ -45,8 +50,13 @@ public class BackendProxyHandler implements Listener {
 	private boolean presenceReportingActivated;
 	private final Object inboundPublication = new Object();
 	private final Object orderedVoteDispatch = new Object();
-	private final ArrayDeque<OrderedVoteDispatch> orderedVoteDispatchQueue = new ArrayDeque<>();
-	private boolean orderedVoteDispatchScheduled;
+	private final ArrayDeque<JsonEnvelope> orderedVoteDispatchQueue = new ArrayDeque<>();
+	private boolean orderedVoteDispatchActive;
+	private boolean orderedVoteDispatchPaused = true;
+	private JsonEnvelope orderedVoteDispatchInFlight;
+	private BackendOrderedVoteOverflowQueue.PendingEnvelope orderedVoteOverflowInFlight;
+	private BackendProxyHandler orderedVoteHandoffTarget;
+	private boolean orderedVoteOverflowWarningLogged;
 	private boolean inboundPublished;
 	private boolean inboundAborted;
 	private BackendProxyHandler inboundRollbackTarget;
@@ -59,12 +69,18 @@ public class BackendProxyHandler implements Listener {
 	private GlobalMessageHandler globalMessageHandler;
 
 	public BackendProxyHandler(VotingPluginMain plugin) {
-		this(plugin, new ProcessedVoteCache());
+		this(plugin, new ProcessedVoteCache(), null);
 	}
 
 	public BackendProxyHandler(VotingPluginMain plugin, ProcessedVoteCache processedVoteCache) {
+		this(plugin, processedVoteCache, null);
+	}
+
+	public BackendProxyHandler(VotingPluginMain plugin, ProcessedVoteCache processedVoteCache,
+			BackendOrderedVoteOverflowQueue orderedVoteOverflow) {
 		this.plugin = plugin;
 		this.processedVoteCache = java.util.Objects.requireNonNull(processedVoteCache, "processedVoteCache");
+		this.orderedVoteOverflow = orderedVoteOverflow;
 		transportManager = new BackendProxyTransportManager(plugin, processedVoteCache);
 		globalDataSync = new BackendGlobalDataSync(plugin, this::sendEnvelope);
 	}
@@ -135,6 +151,7 @@ public class BackendProxyHandler implements Listener {
 			if (!inboundPublished && !inboundAborted) inboundAborted = true;
 			inboundPublication.notifyAll();
 		}
+		persistPendingOrderedVotesOnClose();
 		if (presenceManager != null && presenceReportingActivated) {
 			presenceManager.stop();
 			presenceReportingActivated = false;
@@ -153,6 +170,7 @@ public class BackendProxyHandler implements Listener {
 			inboundPublished = true;
 			inboundPublication.notifyAll();
 		}
+		activateOrderedVoteDispatch();
 	}
 
 	/** Routes an already accepted staged callback through the restored predecessor on rollback. */
@@ -209,75 +227,209 @@ public class BackendProxyHandler implements Listener {
 				|| VotingPluginWire.SUB_VOTE_UPDATE.equals(subChannel);
 	}
 
-	private void dispatchOrderedVote(JsonEnvelope envelope, Runnable localDispatch) {
-		OrderedVoteDispatch dispatch = new OrderedVoteDispatch(envelope, localDispatch);
+	private void dispatchOrderedVote(JsonEnvelope envelope, Runnable ignoredLocalDispatch) {
+		BackendProxyHandler handoffTarget;
 		synchronized (orderedVoteDispatch) {
-			orderedVoteDispatchQueue.addLast(dispatch);
-			if (orderedVoteDispatchScheduled) return;
-			orderedVoteDispatchScheduled = true;
-			try {
-				plugin.getBukkitScheduler().runTaskAsynchronously(plugin, this::runNextOrderedVoteDispatch);
-			} catch (RuntimeException schedulingFailure) {
-				orderedVoteDispatchQueue.removeLastOccurrence(dispatch);
-				orderedVoteDispatchScheduled = false;
-				throw schedulingFailure;
+			handoffTarget = orderedVoteHandoffTarget;
+			if (handoffTarget == null) {
+				boolean preserveOverflowOrder = orderedVoteOverflow != null && orderedVoteOverflow.hasEntries();
+				if (preserveOverflowOrder || orderedVoteDispatchQueue.size() >= MAX_ORDERED_VOTE_QUEUE) {
+					if (!spillOrderedVote(envelope)) {
+						throw new IllegalStateException("Ordered proxy vote queue and durable overflow are full");
+					}
+					return;
+				}
+				orderedVoteDispatchQueue.addLast(envelope);
+				scheduleOrderedVoteDispatchLocked();
+				return;
 			}
 		}
+		handoffTarget.dispatchOrderedVote(envelope, ignoredLocalDispatch);
+	}
+
+	private boolean spillOrderedVote(JsonEnvelope envelope) {
+		if (orderedVoteOverflow != null && orderedVoteOverflow.enqueue(envelope)) {
+			if (!orderedVoteOverflowWarningLogged && plugin != null && plugin.getLogger() != null) {
+				orderedVoteOverflowWarningLogged = true;
+				plugin.getLogger().warning("Ordered proxy vote lane is saturated; spilling accepted messages to durable overflow");
+			}
+			return true;
+		}
+		if (plugin != null && plugin.getLogger() != null) {
+			plugin.getLogger().severe("Ordered proxy vote lane and durable overflow are full; delivery was rejected");
+		}
+		return false;
+	}
+
+	private void activateOrderedVoteDispatch() {
+		if (orderedVoteOverflow != null) {
+			orderedVoteOverflow.bindWakeup(this, this::onOrderedVoteOverflowDurable);
+		}
+		synchronized (orderedVoteDispatch) {
+			orderedVoteDispatchPaused = false;
+			scheduleOrderedVoteDispatchLocked();
+		}
+	}
+
+	private void onOrderedVoteOverflowDurable() {
+		synchronized (orderedVoteDispatch) {
+			scheduleOrderedVoteDispatchLocked();
+		}
+	}
+
+	private void scheduleOrderedVoteDispatchLocked() {
+		if (orderedVoteDispatchPaused || orderedVoteDispatchActive) return;
+		if (orderedVoteDispatchQueue.isEmpty()
+				&& (orderedVoteOverflow == null || orderedVoteOverflow.peekDurable() == null)) {
+			return;
+		}
+		orderedVoteDispatchActive = true;
+		try {
+			plugin.getBukkitScheduler().runTaskAsynchronously(plugin, this::runNextOrderedVoteDispatch);
+		} catch (RuntimeException schedulingFailure) {
+			orderedVoteDispatchActive = false;
+			orderedVoteDispatch.notifyAll();
+			if (!spillPrimaryOrderedVotesLocked() && plugin != null) plugin.debug(schedulingFailure);
+		}
+	}
+
+	private boolean spillPrimaryOrderedVotesLocked() {
+		if (orderedVoteDispatchQueue.isEmpty()) return true;
+		if (orderedVoteOverflow == null) return false;
+		List<JsonEnvelope> pending = new ArrayList<>(orderedVoteDispatchQueue);
+		if (!orderedVoteOverflow.prepend(pending)) {
+			if (plugin != null && plugin.getLogger() != null) {
+				plugin.getLogger().severe("Unable to preserve ordered proxy votes after async scheduler rejection");
+			}
+			return false;
+		}
+		orderedVoteDispatchQueue.clear();
+		return true;
 	}
 
 	private void runNextOrderedVoteDispatch() {
-		OrderedVoteDispatch next;
+		JsonEnvelope next;
+		BackendOrderedVoteOverflowQueue.PendingEnvelope overflowEntry = null;
 		synchronized (orderedVoteDispatch) {
-			next = orderedVoteDispatchQueue.pollFirst();
-			if (next == null) {
-				orderedVoteDispatchScheduled = false;
+			if (orderedVoteDispatchPaused) {
+				orderedVoteDispatchActive = false;
+				orderedVoteDispatch.notifyAll();
 				return;
 			}
+			next = orderedVoteDispatchQueue.pollFirst();
+			if (next == null && orderedVoteOverflow != null) {
+				overflowEntry = orderedVoteOverflow.peekDurable();
+				if (overflowEntry != null) next = overflowEntry.envelope();
+			}
+			if (next == null) {
+				orderedVoteDispatchActive = false;
+				orderedVoteDispatch.notifyAll();
+				return;
+			}
+			orderedVoteDispatchInFlight = next;
+			orderedVoteOverflowInFlight = overflowEntry;
 		}
+		BackendOrderedVoteOverflowQueue.PendingEnvelope completingOverflowEntry = overflowEntry;
 		AtomicBoolean completed = new AtomicBoolean();
 		Runnable complete = () -> {
-			if (completed.compareAndSet(false, true)) finishOrderedVoteDispatch();
+			if (completed.compareAndSet(false, true)) finishOrderedVoteDispatch(completingOverflowEntry);
 		};
-		if (VotingPluginWire.SUB_VOTE_UPDATE.equals(next.envelope.getSubChannel())) {
-			try {
-				messageRouter.handleVoteUpdate(next.envelope, complete);
-			} catch (RuntimeException | Error failure) {
-				complete.run();
-				throw failure;
-			}
-			return;
-		}
 		try {
-			next.localDispatch.run();
-		} finally {
+			messageRouter.handleOrderedVote(next, complete);
+		} catch (RuntimeException | Error failure) {
 			complete.run();
+			throw failure;
 		}
 	}
 
-	private void finishOrderedVoteDispatch() {
+	private void finishOrderedVoteDispatch(BackendOrderedVoteOverflowQueue.PendingEnvelope overflowEntry) {
+		if (overflowEntry != null && orderedVoteOverflow != null) {
+			orderedVoteOverflow.acknowledge(overflowEntry);
+		}
 		synchronized (orderedVoteDispatch) {
-			if (orderedVoteDispatchQueue.isEmpty()) {
-				orderedVoteDispatchScheduled = false;
-				orderedVoteDispatch.notifyAll();
-				return;
-			}
-			try {
-				plugin.getBukkitScheduler().runTaskAsynchronously(plugin, this::runNextOrderedVoteDispatch);
-			} catch (RuntimeException schedulingFailure) {
-				orderedVoteDispatchScheduled = false;
-				orderedVoteDispatch.notifyAll();
-				throw schedulingFailure;
+			orderedVoteDispatchInFlight = null;
+			orderedVoteOverflowInFlight = null;
+			orderedVoteDispatchActive = false;
+			orderedVoteDispatch.notifyAll();
+			scheduleOrderedVoteDispatchLocked();
+		}
+	}
+
+	/**
+	 * Pauses the predecessor's ordered lane and waits off-thread for only its
+	 * currently running message. Pending messages stay queued for atomic handoff.
+	 */
+	public void pauseOrderedVoteDispatchForReplacement(long deadlineNanos) {
+		synchronized (orderedVoteDispatch) {
+			orderedVoteDispatchPaused = true;
+			while (orderedVoteDispatchActive) {
+				long remaining = deadlineNanos - System.nanoTime();
+				if (remaining <= 0L) {
+					throw new IllegalStateException("Ordered proxy vote lane did not quiesce before replacement");
+				}
+				try {
+					java.util.concurrent.TimeUnit.NANOSECONDS.timedWait(orderedVoteDispatch, remaining);
+				} catch (InterruptedException interrupted) {
+					Thread.currentThread().interrupt();
+					throw new IllegalStateException("Interrupted while quiescing ordered proxy votes", interrupted);
+				}
 			}
 		}
 	}
 
-	private static final class OrderedVoteDispatch {
-		private final JsonEnvelope envelope;
-		private final Runnable localDispatch;
+	/** Restores the paused predecessor when staged publication is abandoned. */
+	public void resumeOrderedVoteDispatchAfterFailedReplacement() {
+		if (orderedVoteOverflow != null) orderedVoteOverflow.bindWakeup(this, this::onOrderedVoteOverflowDurable);
+		synchronized (orderedVoteDispatch) {
+			if (orderedVoteHandoffTarget != null) return;
+			orderedVoteDispatchPaused = false;
+			scheduleOrderedVoteDispatchLocked();
+		}
+	}
 
-		private OrderedVoteDispatch(JsonEnvelope envelope, Runnable localDispatch) {
-			this.envelope = envelope;
-			this.localDispatch = localDispatch;
+	/**
+	 * Transfers the predecessor's bounded in-memory prefix after every fallible
+	 * publication step succeeds. The shared durable overflow remains in place.
+	 */
+	public void completeOrderedVoteHandoff(BackendProxyHandler replacement) {
+		if (replacement == null) return;
+		synchronized (orderedVoteDispatch) {
+			if (!orderedVoteDispatchPaused || orderedVoteDispatchActive) {
+				throw new IllegalStateException("Ordered proxy vote lane was not quiesced before handoff");
+			}
+			List<JsonEnvelope> pending = new ArrayList<>(orderedVoteDispatchQueue);
+			replacement.acceptOrderedVoteHandoff(pending);
+			orderedVoteDispatchQueue.clear();
+			orderedVoteHandoffTarget = replacement;
+			if (orderedVoteOverflow != null) orderedVoteOverflow.unbindWakeup(this);
+		}
+	}
+
+	private void acceptOrderedVoteHandoff(List<JsonEnvelope> pending) {
+		synchronized (orderedVoteDispatch) {
+			if (orderedVoteDispatchQueue.size() + pending.size() > MAX_ORDERED_VOTE_QUEUE) {
+				throw new IllegalStateException("Ordered proxy vote handoff exceeds the bounded in-memory queue");
+			}
+			orderedVoteDispatchQueue.addAll(pending);
+		}
+	}
+
+	private void persistPendingOrderedVotesOnClose() {
+		List<JsonEnvelope> pending = new ArrayList<>();
+		synchronized (orderedVoteDispatch) {
+			orderedVoteDispatchPaused = true;
+			if (orderedVoteHandoffTarget == null && orderedVoteOverflow != null) {
+				if (orderedVoteDispatchInFlight != null && orderedVoteOverflowInFlight == null) {
+					pending.add(orderedVoteDispatchInFlight);
+				}
+				pending.addAll(orderedVoteDispatchQueue);
+				if (!pending.isEmpty() && orderedVoteOverflow.prepend(pending)) {
+					orderedVoteDispatchQueue.clear();
+				} else if (!pending.isEmpty() && plugin != null && plugin.getLogger() != null) {
+					plugin.getLogger().severe("Unable to persist all pending ordered proxy votes during shutdown");
+				}
+			}
+			if (orderedVoteOverflow != null) orderedVoteOverflow.unbindWakeup(this);
 		}
 	}
 

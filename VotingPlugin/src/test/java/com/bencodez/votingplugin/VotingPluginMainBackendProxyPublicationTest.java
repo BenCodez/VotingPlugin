@@ -109,6 +109,25 @@ class VotingPluginMainBackendProxyPublicationTest {
 	}
 
 	@Test
+	void orderedVoteHandoffCommitsOnlyAfterValidationAndBeforeInboundActivation() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+		BackendProxyHandler previous = mock(BackendProxyHandler.class);
+		BackendProxyHandler replacement = mock(BackendProxyHandler.class);
+		setBackendProxyHandler(plugin, previous);
+		VotingPluginMain.BackendProxyRestart restart = restart(previous, replacement);
+
+		plugin.validateBackendProxyHandlerRestart(restart, System.nanoTime() + TimeUnit.SECONDS.toNanos(1));
+		plugin.completeBackendProxyHandlerRestart(restart);
+
+		org.mockito.InOrder order = org.mockito.Mockito.inOrder(previous, replacement);
+		order.verify(previous).pauseOrderedVoteDispatchForReplacement(org.mockito.ArgumentMatchers.anyLong());
+		order.verify(replacement).activatePresenceReporting();
+		order.verify(previous).completeHttpHandoff(replacement);
+		order.verify(previous).completeOrderedVoteHandoff(replacement);
+		order.verify(replacement).activateInboundMessages();
+	}
+
+	@Test
 	void keepsPreparedHttpQueueWithPreviousHandlerUntilPublicationSucceeds() throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
 		BackendProxyHandler previous = mock(BackendProxyHandler.class);
