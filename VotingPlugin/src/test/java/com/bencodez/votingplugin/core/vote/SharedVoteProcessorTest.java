@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.core.vote;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.inOrder;
@@ -106,6 +107,36 @@ class SharedVoteProcessorTest {
         ArgumentCaptor<UUID> id = ArgumentCaptor.forClass(UUID.class);
         verify(ops).postVote(eq(site), eq(user), eq("Ben"), eq(321L), id.capture(), eq(false));
         assertEquals(proxyId, id.getValue());
+    }
+
+    @Test
+    void proxyVoteWithoutTextTotalsSkipsMonthlyLimitEnforcement() {
+        var ops = accepted();
+        when(ops.proxyVote()).thenReturn(true);
+        when(ops.limitMonthlyVotes()).thenReturn(true);
+
+        SharedVoteProcessor.process(ops);
+
+        verify(ops, never()).proxyMonthTotal();
+        verify(ops, never()).userMonthTotal(user);
+        verify(ops, never()).setMonthTotal(any(), anyInt());
+    }
+
+    @Test
+    void proxyVoteWithTextTotalsUsesProxyMonthTotalForMonthlyLimitEnforcement() {
+        var ops = accepted();
+        when(ops.proxyVote()).thenReturn(true);
+        when(ops.hasProxyTextTotals()).thenReturn(true);
+        when(ops.limitMonthlyVotes()).thenReturn(true);
+        when(ops.proxyMonthTotal()).thenReturn(20);
+        when(ops.currentDayOfMonth()).thenReturn(1);
+        when(ops.enabledSiteCount()).thenReturn(2);
+
+        SharedVoteProcessor.process(ops);
+
+        verify(ops).proxyMonthTotal();
+        verify(ops, never()).userMonthTotal(user);
+        verify(ops).setMonthTotal(user, 2);
     }
 
     @Test

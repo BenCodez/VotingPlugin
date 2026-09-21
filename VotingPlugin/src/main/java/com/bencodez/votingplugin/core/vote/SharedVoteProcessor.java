@@ -210,7 +210,7 @@ public final class SharedVoteProcessor {
         SharedVoteAccounting.apply(input, policy, () -> ops.userOnline(user), () -> ops.addTotal(user),
                 () -> ops.addTotalDaily(user), () -> ops.addTotalWeekly(user), () -> ops.addPoints(user));
         ops.checkDayVoteStreak(user, ops.forceProxyRouting());
-        if (ops.limitMonthlyVotes()) {
+        if (ops.limitMonthlyVotes() && (!ops.proxyVote() || ops.hasProxyTextTotals())) {
             int value = ops.proxyVote() ? ops.proxyMonthTotal() : ops.userMonthTotal(user);
             int days = ops.currentDayOfMonth();
             ops.extraDebug("Current day of month: " + days + " Current total: " + value);
