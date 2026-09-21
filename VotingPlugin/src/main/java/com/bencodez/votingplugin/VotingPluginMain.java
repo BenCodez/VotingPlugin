@@ -175,7 +175,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private BackendProxyHandler backendProxyHandler;
-	private final ProcessedVoteCache backendProcessedVoteCache = new ProcessedVoteCache();
+	private ProcessedVoteCache backendProcessedVoteCache;
 	private BackendOrderedVoteOverflowQueue backendOrderedVoteOverflowQueue;
 	private final AtomicReference<GlobalMessageHandler> backendPluginMessageTarget = new AtomicReference<>();
 	private PluginMessageHandler backendPluginMessageRelay;
@@ -558,8 +558,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		return backendOrderedVoteOverflowQueue;
 	}
 
+	private synchronized ProcessedVoteCache getOrCreateBackendProcessedVoteCache() {
+		if (backendProcessedVoteCache == null) {
+			backendProcessedVoteCache = new ProcessedVoteCache(
+					new File(getDataFolder(), "BackendProcessedVotes.dat").toPath());
+		}
+		return backendProcessedVoteCache;
+	}
+
 	private void loadBungeeHandler() {
-		BackendProxyHandler candidate = new BackendProxyHandler(this, backendProcessedVoteCache,
+		BackendProxyHandler candidate = new BackendProxyHandler(this, getOrCreateBackendProcessedVoteCache(),
 				getOrCreateBackendOrderedVoteOverflowQueue());
 		try {
 			candidate.load();
@@ -1435,7 +1443,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		boolean previousRequiresPreparation = previous != null
 				&& (deferredReplacementLoad || previous.requiresPreparationForReplacement()
 						|| previous.requiresRedisRetirement());
-		BackendProxyHandler replacement = new BackendProxyHandler(this, backendProcessedVoteCache,
+		BackendProxyHandler replacement = new BackendProxyHandler(this, getOrCreateBackendProcessedVoteCache(),
 				getOrCreateBackendOrderedVoteOverflowQueue());
 		if (!deferredReplacementLoad) {
 			try {

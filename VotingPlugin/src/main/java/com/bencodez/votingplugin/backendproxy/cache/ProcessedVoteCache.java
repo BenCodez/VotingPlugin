@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.backendproxy.cache;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -22,6 +24,7 @@ public class ProcessedVoteCache {
 	@Getter
 	private final ConcurrentHashMap<UUID, Long> processedVotes = new ConcurrentHashMap<>();
 	private final long ttlMillis;
+	private final DurableVoteReceiptStore durableReceipts;
 	private final LinkedHashMap<String, Long> processedRedisDeliveries = new LinkedHashMap<>();
 	private final LinkedHashMap<String, Integer> legacyRedisDeliveries = new LinkedHashMap<>();
 	private long legacyRedisDeliveryBytes;
@@ -30,11 +33,29 @@ public class ProcessedVoteCache {
 	private Object standbyRedisSubscriber;
 
 	public ProcessedVoteCache() {
-		this(DEFAULT_TTL_MILLIS);
+		this(DEFAULT_TTL_MILLIS, null);
 	}
 
 	public ProcessedVoteCache(long ttlMillis) {
+		this(ttlMillis, null);
+	}
+
+	public ProcessedVoteCache(Path receiptFile) {
+		this(DEFAULT_TTL_MILLIS, loadReceipts(receiptFile));
+	}
+
+	private ProcessedVoteCache(long ttlMillis, DurableVoteReceiptStore durableReceipts) {
 		this.ttlMillis = ttlMillis;
+		this.durableReceipts = durableReceipts;
+		if (durableReceipts != null) processedVotes.putAll(durableReceipts.snapshot());
+	}
+
+	private static DurableVoteReceiptStore loadReceipts(Path receiptFile) {
+		try {
+			return new DurableVoteReceiptStore(receiptFile);
+		} catch (IOException failure) {
+			throw new IllegalStateException("Unable to load durable backend vote receipts", failure);
+		}
 	}
 
 	public boolean reserve(UUID voteId) {
@@ -64,6 +85,15 @@ public class ProcessedVoteCache {
 				return true;
 			}
 		}
+	}
+
+	/** Persists successful processing before the backend emits a delivery acknowledgement. */
+	public boolean complete(UUID voteId) {
+		if (voteId == null || durableReceipts == null) return true;
+		long expiresAt = durableReceipts.complete(voteId);
+		if (expiresAt <= 0L) return false;
+		processedVotes.put(voteId, expiresAt);
+		return true;
 	}
 
 	/** Deduplicates one Redis envelope across overlapping subscribers during a validated handoff. */

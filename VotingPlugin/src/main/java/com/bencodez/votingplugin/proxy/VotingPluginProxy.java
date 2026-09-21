@@ -129,6 +129,8 @@ public abstract class VotingPluginProxy {
 	private final Map<UUID, LiveVoteRetryState> liveVoteRetries = new LinkedHashMap<>();
 	private final Map<UUID, MultiProxyVoteRetry> multiProxyVoteRetries = new LinkedHashMap<>();
 	private final LinkedHashMap<UUID, Boolean> completedMultiProxyVotes = new LinkedHashMap<>();
+	private final Set<String> reliableVoteDeliveryServers = ConcurrentHashMap.newKeySet();
+	private ReliableVoteDeliveryOutbox reliableVoteDeliveryOutbox;
 	// Set only after all replacement gates have succeeded. Vote entry points are
 	// synchronized, so no new side-effecting vote can race the handoff window.
 	private boolean runtimeReplacementPrepared;
@@ -863,8 +865,74 @@ public abstract class VotingPluginProxy {
 		if (handler == null) {
 			return false;
 		}
+		if (supportsReliableVoteDelivery(server)) {
+			ReliableVoteDeliveryOutbox outbox = reliableVoteDeliveryOutbox;
+			if (outbox == null || !outbox.offer(server, envelope)) {
+				logSevere("Unable to durably queue vote delivery for " + server);
+				return false;
+			}
+			try {
+				handler.sendMessage(server, delay,
+						VotingPluginWire.requestVoteDeliveryAcknowledgement(envelope));
+			} catch (RuntimeException failure) {
+				debug("Vote delivery remains queued after the immediate send failed for " + server);
+			}
+			return true;
+		}
 		handler.sendMessage(server, delay, envelope);
 		return true;
+	}
+
+	private boolean supportsReliableVoteDelivery(String server) {
+		return server != null && reliableVoteDeliveryServers.contains(server.trim().toLowerCase(Locale.ROOT));
+	}
+
+	private void updateReliableVoteDeliveryCapability(String server, JsonEnvelope message) {
+		if (server == null || server.isBlank() || !isServerValid(server)) return;
+		String key = server.trim().toLowerCase(Locale.ROOT);
+		if (VotingPluginWire.advertisesVoteDeliveryAcknowledgement(message)) {
+			reliableVoteDeliveryServers.add(key);
+			retryReliableVoteDeliveries(server);
+		} else {
+			reliableVoteDeliveryServers.remove(key);
+		}
+	}
+
+	private void retryReliableVoteDeliveries() {
+		retryReliableVoteDeliveries(null);
+	}
+
+	private void retryReliableVoteDeliveries(String onlyServer) {
+		ReliableVoteDeliveryOutbox outbox = reliableVoteDeliveryOutbox;
+		GlobalMessageProxyHandler handler = globalMessageProxyHandler;
+		if (outbox == null || handler == null) return;
+		int delay = 1;
+		for (ReliableVoteDeliveryOutbox.Entry entry : outbox.snapshot()) {
+			if (onlyServer != null && !entry.server().equalsIgnoreCase(onlyServer)) continue;
+			if (!supportsReliableVoteDelivery(entry.server())) continue;
+			try {
+				handler.sendMessage(entry.server(), delay++,
+						VotingPluginWire.requestVoteDeliveryAcknowledgement(entry.envelope()));
+			} catch (RuntimeException failure) {
+				debug("Vote delivery retry remains queued for " + entry.server());
+			}
+		}
+	}
+
+	private void handleVoteDeliveryAcknowledgement(JsonEnvelope message) {
+		if (!VotingPluginWire.advertisesVoteDeliveryAcknowledgement(message)) return;
+		String server = message.getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
+		String voteId = message.getFields().getOrDefault(VotingPluginWire.K_VOTE_ID, "");
+		String subChannel = message.getFields().getOrDefault(VotingPluginWire.K_VOTE_DELIVERY_SUBCHANNEL, "");
+		try {
+			if (!supportsReliableVoteDelivery(server)) return;
+			ReliableVoteDeliveryOutbox outbox = reliableVoteDeliveryOutbox;
+			if (outbox != null && !outbox.acknowledge(server, UUID.fromString(voteId), subChannel)) {
+				debug("Ignored unmatched or unpersisted vote delivery acknowledgement from " + server);
+			}
+		} catch (IllegalArgumentException invalidVoteId) {
+			debug("Ignored vote delivery acknowledgement with invalid vote ID from " + server);
+		}
 	}
 
 	public synchronized void checkCachedVotes(String server) {
@@ -1676,6 +1744,12 @@ public abstract class VotingPluginProxy {
 			}
 		};
 		voteCacheHandler.load();
+		try {
+			reliableVoteDeliveryOutbox = new ReliableVoteDeliveryOutbox(
+					new File(getDataFolderPlugin(), "ProxyVoteDeliveryOutbox.dat").toPath());
+		} catch (IOException failure) {
+			throw new IllegalStateException("Unable to load durable proxy vote delivery outbox", failure);
+		}
 		method = retainHttpForPendingDeliveries(method);
 
 		nonVotedPlayersCache = new NonVotedPlayersCache(getNonVotedCacheMySQLConfig(),
@@ -1873,6 +1947,7 @@ public abstract class VotingPluginProxy {
 								VotingPluginWire.SUB_BACKEND_STARTED)) {
 					if (backendPlayerPresenceTracker.backendStarted(server, backendIncarnationId, backendStartedAt,
 							presenceTimestamp, System.currentTimeMillis())) {
+						updateReliableVoteDeliveryCapability(server, message);
 						discardPendingPresenceHandoffs(server);
 						pendingBackendRecoverySnapshots.add(presenceServerKey(server));
 						requestBackendPresenceSnapshot(server);
@@ -1897,6 +1972,7 @@ public abstract class VotingPluginProxy {
 					if (backendPlayerPresenceTracker.backendStopped(server, backendIncarnationId, backendStartedAt,
 							presenceTimestamp, System.currentTimeMillis())) {
 						discardPendingPresenceHandoffs(server);
+						reliableVoteDeliveryServers.remove(server.trim().toLowerCase(Locale.ROOT));
 						pendingBackendRecoverySnapshots.remove(presenceServerKey(server));
 					}
 				}
@@ -1916,8 +1992,10 @@ public abstract class VotingPluginProxy {
 				if (isPresenceServerValid(server, VotingPluginWire.SUB_BACKEND_HEARTBEAT)
 						&& isPresenceGenerationValid(backendIncarnationId, backendStartedAt, presenceTimestamp,
 								VotingPluginWire.SUB_BACKEND_HEARTBEAT)) {
-					backendPlayerPresenceTracker.heartbeat(server, backendIncarnationId, backendStartedAt,
-							presenceTimestamp, System.currentTimeMillis());
+					if (backendPlayerPresenceTracker.heartbeat(server, backendIncarnationId, backendStartedAt,
+							presenceTimestamp, System.currentTimeMillis())) {
+						updateReliableVoteDeliveryCapability(server, message);
+					}
 				}
 			}
 		});
@@ -1959,7 +2037,15 @@ public abstract class VotingPluginProxy {
 		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_STATUS_OKAY) {
 			@Override
 			public void onReceive(JsonEnvelope message) {
+				updateReliableVoteDeliveryCapability(message.getFields().get(VotingPluginWire.K_SERVER), message);
 				handleStatusOkay(message);
+			}
+		});
+
+		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_VOTE_DELIVERY_ACK) {
+			@Override
+			public void onReceive(JsonEnvelope message) {
+				handleVoteDeliveryAcknowledgement(message);
 			}
 		});
 
@@ -1985,6 +2071,7 @@ public abstract class VotingPluginProxy {
 			loadTaskTimer(this::maintainBackendPresence, PRESENCE_MAINTENANCE_INTERVAL_SECONDS,
 					PRESENCE_MAINTENANCE_INTERVAL_SECONDS);
 		}
+		loadTaskTimer(this::retryReliableVoteDeliveries, 10L, 10L);
 		startControlServices();
 		// Open the listener last: backend callbacks can immediately reach routing,
 		// presence, vote-log, multi-proxy, and Control-adjacent runtime helpers.

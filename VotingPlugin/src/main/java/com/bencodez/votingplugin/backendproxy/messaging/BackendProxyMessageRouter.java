@@ -82,6 +82,8 @@ public class BackendProxyMessageRouter {
 			@Override public void onReceive(JsonEnvelope msg) {
 				HashMap<String, Object> out = new HashMap<>();
 				out.put(VotingPluginWire.K_SERVER, nvl(plugin.getOptions().getServer()));
+				out.put(VotingPluginWire.K_VOTE_DELIVERY_ACK_VERSION,
+						VotingPluginWire.VOTE_DELIVERY_ACK_VERSION);
 				String requestId = nvl(msg.getFields().get(VotingPluginWire.K_REQUEST_ID));
 				if (!requestId.isEmpty()) out.put(VotingPluginWire.K_REQUEST_ID, requestId);
 				sendSubChannel(messages, VotingPluginWire.SUB_STATUS_OKAY, out);
@@ -125,7 +127,12 @@ public class BackendProxyMessageRouter {
 		}
 		if (VotingPluginWire.SUB_VOTE.equals(subChannel) || VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)) {
 			try {
-				handleWireVote(msg);
+				UUID completedVoteId = handleWireVote(msg);
+				if (VotingPluginWire.requestsVoteDeliveryAcknowledgement(msg)
+						&& completedVoteId != null && !processedVoteCache.complete(completedVoteId)) {
+					completion.accept(OrderedVoteOutcome.RETRY);
+					return;
+				}
 			} catch (RuntimeException | Error failure) {
 				completion.accept(OrderedVoteOutcome.QUARANTINE);
 				throw failure;
@@ -344,18 +351,18 @@ public class BackendProxyMessageRouter {
 		voteSite.giveWaitUntilVoteDelayRewards(user, rejected.wasOnline && user.isOnline(), true);
 	}
 
-	private void handleWireVote(JsonEnvelope msg) {
+	private UUID handleWireVote(JsonEnvelope msg) {
 		if (!validSchema(msg)) {
-			return;
+			return null;
 		}
 		VotingPluginWire.Vote vote = VotingPluginWire.readVote(msg);
 		if (vote.uuid == null || vote.uuid.isEmpty()) {
-			return;
+			return null;
 		}
 		if (!ServiceSiteValidator.isValid(vote.service)) {
 			plugin.getLogger().warning("Rejected proxy vote with invalid service site '"
 					+ ServiceSiteValidator.sanitizeForLog(vote.service) + "'");
-			return;
+			return null;
 		}
 
 		plugin.debug("wire vote received from " + ServiceSiteValidator.sanitizeForLog(vote.player) + "/"
@@ -368,7 +375,7 @@ public class BackendProxyMessageRouter {
 			plugin.debug("Ignoring duplicate wire vote " + voteId + " for "
 					+ ServiceSiteValidator.sanitizeForLog(vote.player) + " on "
 					+ ServiceSiteValidator.sanitizeForLog(vote.service));
-			return;
+			return voteId;
 		}
 
 		UUID javaUuid;
@@ -377,7 +384,7 @@ public class BackendProxyMessageRouter {
 		} catch (IllegalArgumentException e) {
 			plugin.getLogger().warning("Invalid UUID in proxy vote: "
 					+ ServiceSiteValidator.sanitizeForLog(vote.uuid));
-			return;
+			return voteId;
 		}
 		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(javaUuid, vote.player);
 		votePartySync.replace(totals.getVotePartyCurrent(), totals.getVotePartyRequired());
@@ -390,6 +397,7 @@ public class BackendProxyMessageRouter {
 		if (vote.service != null && !vote.service.isEmpty()) {
 			plugin.getServerData().addServiceSite(vote.service);
 		}
+		return voteId;
 	}
 
 	private boolean validSchema(JsonEnvelope msg) {

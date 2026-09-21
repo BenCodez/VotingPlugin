@@ -11,6 +11,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
+import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache;
 import com.bencodez.votingplugin.backendproxy.messaging.BackendProxyMessageRouter.OrderedVoteOutcome;
@@ -38,6 +40,7 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votesites.VoteSite;
 import com.bencodez.votingplugin.votesites.VoteSiteManager;
 import com.bencodez.votingplugin.config.BungeeSettings;
+import com.bencodez.votingplugin.data.ServerData;
 
 class BackendProxyMessageRouterTest {
 
@@ -190,6 +193,34 @@ class BackendProxyMessageRouterTest {
 				VotingPluginWire.vote("Player", PLAYER_UUID.toString(), "known.example", LAST_VOTE_TIME,
 						true, true, "", voteId, false, false, 1, 1), outcome::set));
 		assertEquals(OrderedVoteOutcome.QUARANTINE, outcome.get());
+	}
+
+	@Test
+	void reliableVoteRetriesReceiptPersistenceWithoutRepeatingEffectsInProcess() {
+		UUID voteId = UUID.randomUUID();
+		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
+		when(cache.reserve(voteId)).thenReturn(true, false);
+		when(cache.complete(voteId)).thenReturn(false, true);
+		when(plugin.getBungeeSettings()).thenReturn(mock(BungeeSettings.class));
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser(PLAYER_UUID, "Player"))
+				.thenReturn(user);
+		when(plugin.getServerData()).thenReturn(mock(ServerData.class));
+		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
+				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
+				mock(BackendVotePartySync.class), cache);
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+		JsonEnvelope vote = VotingPluginWire.requestVoteDeliveryAcknowledgement(
+				VotingPluginWire.vote("Player", PLAYER_UUID.toString(), "known.example", LAST_VOTE_TIME,
+						true, true, "", voteId, false, false, 1, 1));
+
+		voteRouter.handleOrderedVote(vote, outcome::set);
+		assertEquals(OrderedVoteOutcome.RETRY, outcome.get());
+
+		voteRouter.handleOrderedVote(vote, outcome::set);
+		assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+		verify(cache, times(2)).complete(voteId);
+		verify(user, times(1)).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
+				anyBoolean(), anyInt());
 	}
 
 }

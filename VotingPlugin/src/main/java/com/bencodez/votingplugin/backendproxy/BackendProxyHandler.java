@@ -420,7 +420,7 @@ public class BackendProxyHandler implements Listener {
 		boolean successful = outcome == OrderedVoteOutcome.COMPLETE;
 		if (successful && overflowEntry != null && orderedVoteOverflow != null) {
 			orderedVoteOverflow.acknowledgeAsync(overflowEntry,
-					stored -> completeOrderedVoteAcknowledgement(stored));
+					stored -> completeOrderedVoteAcknowledgement(stored, envelope));
 			return;
 		}
 		synchronized (orderedVoteDispatch) {
@@ -435,9 +435,10 @@ public class BackendProxyHandler implements Listener {
 			if (successful) scheduleOrderedVoteDispatchLocked();
 			else retryOrderedVoteDispatchLocked();
 		}
+		if (successful) sendVoteDeliveryAcknowledgement(envelope);
 	}
 
-	private void completeOrderedVoteAcknowledgement(boolean stored) {
+	private void completeOrderedVoteAcknowledgement(boolean stored, JsonEnvelope envelope) {
 		synchronized (orderedVoteDispatch) {
 			if (stored) {
 				orderedVoteDispatchInFlight = null;
@@ -452,6 +453,20 @@ public class BackendProxyHandler implements Listener {
 			orderedVoteDispatchActive = false;
 			orderedVoteDispatch.notifyAll();
 			if (stored) scheduleOrderedVoteDispatchLocked();
+		}
+		if (stored) sendVoteDeliveryAcknowledgement(envelope);
+	}
+
+	private void sendVoteDeliveryAcknowledgement(JsonEnvelope envelope) {
+		if (!VotingPluginWire.requestsVoteDeliveryAcknowledgement(envelope) || globalMessageHandler == null) return;
+		String voteId = envelope.getFields().get(VotingPluginWire.K_VOTE_ID);
+		try {
+			UUID parsed = voteId == null || voteId.isBlank() ? null : UUID.fromString(voteId);
+			if (parsed == null) return;
+			globalMessageHandler.sendMessage(VotingPluginWire.voteDeliveryAcknowledgement(
+					plugin.getBungeeSettings().getServer(), parsed, envelope.getSubChannel()));
+		} catch (IllegalArgumentException invalidVoteId) {
+			plugin.debug("Unable to acknowledge proxy vote with invalid vote ID");
 		}
 	}
 

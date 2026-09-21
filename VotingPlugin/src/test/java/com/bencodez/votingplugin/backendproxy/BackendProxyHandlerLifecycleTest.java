@@ -20,11 +20,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 
 import java.lang.reflect.Field;
 import java.net.ServerSocket;
 import java.util.ArrayDeque;
+import java.util.UUID;
 import java.nio.file.Path;
 import java.nio.file.Files;
 import java.util.concurrent.CompletableFuture;
@@ -144,6 +146,45 @@ class BackendProxyHandlerLifecycleTest {
 		assertEquals(java.util.List.of(VotingPluginWire.SUB_VOTE, VotingPluginWire.SUB_VOTE_UPDATE,
 				VotingPluginWire.SUB_VOTE_ONLINE), handled);
 		verify(scheduler, times(3)).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+	}
+
+	@Test
+	void reliableVoteIsAcknowledgedOnlyAfterOrderedCompletion() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		BungeeSettings settings = mock(BungeeSettings.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(plugin.getBungeeSettings()).thenReturn(settings);
+		when(settings.getServer()).thenReturn("survival");
+		BackendProxyHandler handler = new BackendProxyHandler(plugin);
+		BackendProxyMessageRouter router = mock(BackendProxyMessageRouter.class);
+		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
+		setField(handler, "messageRouter", router);
+		setField(handler, "globalMessageHandler", messages);
+		handler.activateInboundMessages();
+		AtomicReference<Runnable> dispatch = new AtomicReference<>();
+		AtomicReference<java.util.function.Consumer<OrderedVoteOutcome>> completion = new AtomicReference<>();
+		doAnswer(invocation -> {
+			dispatch.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		doAnswer(invocation -> {
+			completion.set(invocation.getArgument(1));
+			return null;
+		}).when(router).handleOrderedVote(any(JsonEnvelope.class), any());
+		UUID voteId = UUID.randomUUID();
+		JsonEnvelope envelope = VotingPluginWire.requestVoteDeliveryAcknowledgement(
+				VotingPluginWire.vote("Player", UUID.randomUUID().toString(), "site", 10L,
+						true, true, "", voteId, false, false, 1, 1));
+
+		handler.dispatchIncomingAfterPublication(envelope, mock(Runnable.class));
+		dispatch.get().run();
+		verifyNoInteractions(messages);
+		completion.get().accept(OrderedVoteOutcome.COMPLETE);
+
+		verify(messages).sendMessage(argThat(ack -> VotingPluginWire.SUB_VOTE_DELIVERY_ACK.equals(ack.getSubChannel())
+				&& voteId.toString().equals(ack.getFields().get(VotingPluginWire.K_VOTE_ID))
+				&& "survival".equals(ack.getFields().get(VotingPluginWire.K_SERVER))));
 	}
 
 	@Test
