@@ -16,6 +16,7 @@
         <maven.compiler.target>21</maven.compiler.target>
         <maven.compiler.release>21</maven.compiler.release>
         <velocity.version>3.4.0</velocity.version>
+        <neoforge.version>21.1.211</neoforge.version>
     </properties>
     <build>
         <resources>
@@ -26,6 +27,7 @@
                     <include>plugin.yml</include>
                     <include>bungee.yml</include>
                     <include>votingpluginversion.yml</include>
+                    <include>META-INF/neoforge.mods.toml</include>
                 </includes>
             </resource>
             <resource>
@@ -35,6 +37,7 @@
                     <exclude>plugin.yml</exclude>
                     <exclude>bungee.yml</exclude>
                     <exclude>votingpluginversion.yml</exclude>
+                    <exclude>META-INF/neoforge.mods.toml</exclude>
                 </excludes>
             </resource>
         </resources>
@@ -177,6 +180,10 @@
                             <pattern>org.yaml.snakeyaml</pattern>
                             <shadedPattern>${project.groupId}.votingplugin.snakeyaml</shadedPattern>
                         </relocation>
+                        <relocation>
+                            <pattern>org.checkerframework</pattern>
+                            <shadedPattern>${project.groupId}.votingplugin.checkerframework</shadedPattern>
+                        </relocation>
                     </relocations>
                 </configuration>
                 <executions>
@@ -192,6 +199,8 @@
 									code in it (guava, etc) -->
                                 <excludes>
                                     <exclude>com.google.*:*</exclude>
+                                    <!-- Server platforms provide SLF4J; embedding its package conflicts with NeoForge's module layer. -->
+                                    <exclude>org.slf4j:*</exclude>
                                 </excludes>
                             </artifactSet>
                             <minimizeJar>false</minimizeJar>
@@ -227,6 +236,10 @@
                                 <filter>
                                     <artifact>*:*</artifact>
                                     <excludes>
+                                        <!-- AdvancedCore and SimpleAPI also embed these classes. -->
+                                        <exclude>org/slf4j/**</exclude>
+                                        <exclude>META-INF/services/org.slf4j.spi.SLF4JServiceProvider</exclude>
+                                        <exclude>META-INF/maven/org.slf4j/**</exclude>
                                         <exclude>META-INF/*.SF</exclude>
                                         <exclude>META-INF/*.DSA</exclude>
                                         <exclude>META-INF/*.RSA</exclude>
@@ -280,6 +293,10 @@
             </snapshots>
         </repository>
         <repository>
+            <id>neoforge</id>
+            <url>https://maven.neoforged.net/releases</url>
+        </repository>
+        <repository>
             <id>spigot-repo</id>
             <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
             <releases>
@@ -321,6 +338,52 @@
         </repository>
     </repositories>
     <dependencies>
+        <dependency>
+            <groupId>net.neoforged</groupId>
+            <artifactId>neoforge</artifactId>
+            <version>${neoforge.version}</version>
+            <classifier>universal</classifier>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>net.neoforged.fancymodloader</groupId>
+            <artifactId>loader</artifactId>
+            <version>4.0.42</version>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>net.neoforged</groupId>
+            <artifactId>bus</artifactId>
+            <version>8.0.5</version>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>net.neoforged</groupId>
+            <artifactId>mergetool</artifactId>
+            <version>2.0.0</version>
+            <classifier>api</classifier>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.xerial</groupId>
+            <artifactId>sqlite-jdbc</artifactId>
+            <version>3.53.4.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.checkerframework</groupId>
+                    <artifactId>checker-qual</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
         <!-- Must precede Spigot, which embeds an older SnakeYAML API on its provided compile path. -->
         <dependency>
             <groupId>org.yaml</groupId>
@@ -378,6 +441,10 @@
                 <exclusion>
                     <groupId>com.velocitypowered</groupId>
                     <artifactId>velocity-brigadier</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.checkerframework</groupId>
+                    <artifactId>checker-qual</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
