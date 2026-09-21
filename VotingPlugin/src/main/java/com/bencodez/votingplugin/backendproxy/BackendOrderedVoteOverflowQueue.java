@@ -20,6 +20,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.logging.Level;
 
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -699,7 +700,7 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 
 	private void severe(String message, Exception failure) {
 		if (plugin != null && plugin.getLogger() != null) {
-			plugin.getLogger().severe(message + ": " + failure.getClass().getSimpleName());
+			plugin.getLogger().log(Level.SEVERE, message, failure);
 		}
 	}
 

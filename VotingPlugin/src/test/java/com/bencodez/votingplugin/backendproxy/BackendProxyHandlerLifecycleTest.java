@@ -723,6 +723,13 @@ class BackendProxyHandlerLifecycleTest {
 
 		assertEquals(BackendOrderedVoteOverflowQueue.CloseState.FAILED, overflow.closeState());
 		assertTrue(logs.hasLevel(Level.SEVERE));
+		LogRecord failure = logs.records.stream()
+				.filter(record -> record.getLevel() == Level.SEVERE)
+				.findFirst()
+				.orElseThrow();
+		assertEquals("Unable to persist ordered proxy vote overflow during shutdown", failure.getMessage());
+		assertNotNull(failure.getThrown());
+		assertNotNull(failure.getThrown().getMessage());
 		logger.removeHandler(logs);
 	}
 
