@@ -956,7 +956,8 @@ public abstract class VotingPluginProxy {
 		if (method != BungeeMethod.PLUGINMESSAGING || globalMessageProxyHandler == null) return;
 		int delay = 1;
 		for (String server : getAllAvailableServers()) {
-			globalMessageProxyHandler.sendMessage(server, delay++, VotingPluginWire.status(server));
+			globalMessageProxyHandler.sendMessage(server, delay++,
+					VotingPluginWire.status(server, UUID.randomUUID()));
 		}
 	}
 

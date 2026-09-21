@@ -135,6 +135,8 @@ class VotingPluginProxyLifecycleTest {
 		verify(messages).sendMessage(org.mockito.ArgumentMatchers.eq("survival"),
 				org.mockito.ArgumentMatchers.eq(1), envelope.capture());
 		assertEquals(VotingPluginWire.SUB_STATUS, envelope.getValue().getSubChannel());
+		org.junit.jupiter.api.Assertions.assertFalse(envelope.getValue().getFields()
+				.get(VotingPluginWire.K_REQUEST_ID).isBlank());
 	}
 
 	@Test
