@@ -22,6 +22,7 @@ import org.bukkit.configuration.ConfigurationSection;
 
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.time.TimeChecker;
+import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKey;
 import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKeyString;
 import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -74,6 +75,17 @@ public class VoteStreakHandler {
 			groups.add(def.getProgressGroup());
 		}
 		return Collections.unmodifiableSet(groups);
+	}
+
+	private void registerDataKey(VoteStreakDefinition definition) {
+		String columnName = getColumnName(definition);
+		for (UserDataKey existing : plugin.getUserManager().getDataManager().getKeys()) {
+			if (existing.getKey().equalsIgnoreCase(columnName)) {
+				return;
+			}
+		}
+		plugin.getUserManager().getDataManager()
+				.addKey(new UserDataKeyString(columnName).setColumnType("MEDIUMTEXT"));
 	}
 
 	/**
@@ -1238,8 +1250,7 @@ public class VoteStreakHandler {
 				VoteStreakDefinition definition = new VoteStreakDefinition(milestoneId, type, true, amount, 1, 0, 0,
 						recurring, groupId, rewardPath);
 
-				plugin.getUserManager().getDataManager()
-						.addKey(new UserDataKeyString(getColumnName(definition)).setColumnType("MEDIUMTEXT"));
+				registerDataKey(definition);
 
 				byId.put(milestoneId.toLowerCase(Locale.ROOT), definition);
 				byProgressGroup.putIfAbsent(groupId.toLowerCase(Locale.ROOT), definition);
@@ -1351,8 +1362,7 @@ public class VoteStreakHandler {
 				VoteStreakDefinition def = new VoteStreakDefinition(id, type, enabled, amountInterval, votesRequired,
 						allowMissedAmount, allowMissedPeriod, recurring);
 
-				plugin.getUserManager().getDataManager()
-						.addKey(new UserDataKeyString(getColumnName(def)).setColumnType("MEDIUMTEXT"));
+				registerDataKey(def);
 
 				byId.put(id.toLowerCase(Locale.ROOT), def);
 				ordered.add(def);
@@ -1462,8 +1472,7 @@ public class VoteStreakHandler {
 			VoteStreakDefinition def = new VoteStreakDefinition(milestoneId, type, enabled, amount, votesRequired,
 					allowMissedAmount, allowMissedPeriod, recurring, groupId, rewardPath);
 
-			plugin.getUserManager().getDataManager()
-					.addKey(new UserDataKeyString(getColumnName(def)).setColumnType("MEDIUMTEXT"));
+			registerDataKey(def);
 
 			byId.put(milestoneId.toLowerCase(Locale.ROOT), def);
 			byProgressGroup.putIfAbsent(groupId.toLowerCase(Locale.ROOT), def);

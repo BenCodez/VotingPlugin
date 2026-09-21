@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.doAnswer;
@@ -13,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Method;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -29,6 +31,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.bencodez.advancedcore.api.time.TimeChecker;
+import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
+import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKey;
+import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKeyString;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.specialrewards.votestreak.VoteStreakDefinition;
 import com.bencodez.votingplugin.specialrewards.votestreak.VoteStreakHandler;
@@ -284,6 +289,38 @@ class VoteStreakHandlerTest {
 		assertFalse(def.isRecurring());
 		assertEquals("VoteStreakGroup_DAILY_continuousstreak", handler.getColumnName(def));
 		assertEquals("VoteStreaks.ProgressGroups.continuousstreak.Milestones.Daily3.Rewards", def.getRewardPath());
+	}
+
+	@Test
+	void configLoader_registersSharedProgressColumnOnceAcrossMilestonesReloadsAndSqlCase() {
+		UserDataManager dataManager = mock(UserDataManager.class);
+		ArrayList<UserDataKey> keys = new ArrayList<>();
+		when(plugin.getUserManager().getDataManager()).thenReturn(dataManager);
+		when(dataManager.getKeys()).thenReturn(keys);
+		doAnswer(invocation -> {
+			keys.add(invocation.getArgument(0));
+			return null;
+		}).when(dataManager).addKey(any(UserDataKey.class));
+
+		YamlConfiguration root = new YamlConfiguration();
+		ConfigurationSection voteStreaks = root.createSection("VoteStreaks");
+		ConfigurationSection group = addProgressGroup(voteStreaks, "MchtGroup", "DAILY", 1, 0, 0);
+		addProgressGroupMilestone(group, "Daily3", 3, true, false);
+		addProgressGroupMilestone(group, "Daily7", 7, true, false);
+		setSpecialRewardsRoot(root);
+
+		handler.reload();
+		handler.reload();
+
+		assertEquals(1, keys.size());
+		assertEquals("VoteStreakGroup_DAILY_MchtGroup", keys.get(0).getKey());
+
+		keys.clear();
+		keys.add(new UserDataKeyString("votestreakgroup_daily_mchtgroup").setColumnType("MEDIUMTEXT"));
+		handler.reload();
+
+		assertEquals(1, keys.size(), "SQL-case aliases must not register a second column key");
+		assertEquals("votestreakgroup_daily_mchtgroup", keys.get(0).getKey());
 	}
 
 	@Test

@@ -24,20 +24,27 @@ import static org.mockito.ArgumentMatchers.eq;
 
 import java.lang.reflect.Field;
 import java.net.ServerSocket;
+import java.util.ArrayDeque;
 import java.nio.file.Path;
+import java.nio.file.Files;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.eclipse.paho.client.mqttv3.MqttException;
 
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
+import com.bencodez.simpleapi.servercomm.codec.JsonEnvelopeCodec;
 import com.bencodez.simpleapi.servercomm.sockets.SocketHandler;
 import com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessageHandler;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
@@ -47,6 +54,8 @@ import com.bencodez.simpleapi.servercomm.mysql.MySqlMessenger;
 import com.bencodez.simpleapi.servercomm.redis.RedisHandler;
 import com.bencodez.votingplugin.backendproxy.global.BackendGlobalDataSync;
 import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache;
+import com.bencodez.votingplugin.backendproxy.messaging.BackendProxyMessageRouter;
+import com.bencodez.votingplugin.backendproxy.messaging.BackendProxyMessageRouter.OrderedVoteOutcome;
 import com.bencodez.votingplugin.backendproxy.presence.BackendPresenceManager;
 import com.bencodez.votingplugin.config.BungeeSettings;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
@@ -76,6 +85,866 @@ class BackendProxyHandlerLifecycleTest {
 		verify(scheduler).runTaskAsynchronously(plugin, localDispatch);
 		verify(localDispatch, never()).run();
 	}
+
+	@Test
+	void voteAndVoteUpdateMessagesStayOrderedAcrossAsyncAndPlatformWork() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		BackendProxyHandler handler = new BackendProxyHandler(plugin);
+		BackendProxyMessageRouter router = mock(BackendProxyMessageRouter.class);
+		setField(handler, "messageRouter", router);
+		handler.activateInboundMessages();
+
+		ArrayDeque<Runnable> asyncTasks = new ArrayDeque<>();
+		doAnswer(invocation -> {
+			asyncTasks.addLast(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+
+		JsonEnvelope voteEnvelope = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).build();
+		JsonEnvelope updateEnvelope = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE_UPDATE).build();
+		JsonEnvelope onlineEnvelope = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE_ONLINE).build();
+		java.util.ArrayList<String> handled = new java.util.ArrayList<>();
+		AtomicReference<java.util.function.Consumer<OrderedVoteOutcome>> updateCompletion = new AtomicReference<>();
+		doAnswer(invocation -> {
+			JsonEnvelope envelope = invocation.getArgument(0);
+			java.util.function.Consumer<OrderedVoteOutcome> completion = invocation.getArgument(1);
+			handled.add(envelope.getSubChannel());
+			if (VotingPluginWire.SUB_VOTE_UPDATE.equals(envelope.getSubChannel())) {
+				updateCompletion.set(completion);
+			} else {
+				completion.accept(OrderedVoteOutcome.COMPLETE);
+			}
+			return null;
+		}).when(router).handleOrderedVote(any(JsonEnvelope.class), any());
+
+		handler.dispatchIncomingAfterPublication(voteEnvelope, mock(Runnable.class));
+		handler.dispatchIncomingAfterPublication(updateEnvelope, mock(Runnable.class));
+		handler.dispatchIncomingAfterPublication(onlineEnvelope, mock(Runnable.class));
+
+		assertEquals(1, asyncTasks.size(), "only the head of the ordered vote lane should be scheduled");
+
+		asyncTasks.removeFirst().run();
+		assertEquals(java.util.List.of(VotingPluginWire.SUB_VOTE), handled);
+		assertEquals(1, asyncTasks.size(), "VoteUpdate should be scheduled only after Vote completes");
+
+		asyncTasks.removeFirst().run();
+		assertEquals(java.util.List.of(VotingPluginWire.SUB_VOTE, VotingPluginWire.SUB_VOTE_UPDATE), handled);
+		assertNotNull(updateCompletion.get());
+		assertTrue(asyncTasks.isEmpty(), "later votes must wait for VoteUpdate platform work");
+
+		updateCompletion.get().accept(OrderedVoteOutcome.COMPLETE);
+		assertEquals(1, asyncTasks.size(), "VoteUpdate completion should release the next vote");
+
+		asyncTasks.removeFirst().run();
+		assertEquals(java.util.List.of(VotingPluginWire.SUB_VOTE, VotingPluginWire.SUB_VOTE_UPDATE,
+				VotingPluginWire.SUB_VOTE_ONLINE), handled);
+		verify(scheduler, times(3)).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+	}
+
+	@Test
+	void orderedVoteBacklogSpillsPastBoundToDurableOverflow(@TempDir Path tempDir) throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ordered-overflow-test"));
+		BackendOrderedVoteOverflowQueue overflow = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			BackendProxyHandler handler = new BackendProxyHandler(plugin, new ProcessedVoteCache(), overflow);
+			setField(handler, "messageRouter", mock(BackendProxyMessageRouter.class));
+			handler.activateInboundMessages();
+
+			for (int i = 0; i < BackendProxyHandler.MAX_ORDERED_VOTE_QUEUE + 1; i++) {
+				handler.dispatchIncomingAfterPublication(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE)
+						.put(VotingPluginWire.K_VOTE_ID, new java.util.UUID(0L, i + 1L).toString()).build(),
+						mock(Runnable.class));
+			}
+
+			@SuppressWarnings("unchecked")
+			ArrayDeque<JsonEnvelope> queued = (ArrayDeque<JsonEnvelope>) getField(handler, "orderedVoteDispatchQueue");
+			assertEquals(BackendProxyHandler.MAX_ORDERED_VOTE_QUEUE, queued.size());
+			assertEquals(1, overflow.size());
+		} finally {
+			overflow.close();
+		}
+
+		BackendOrderedVoteOverflowQueue recovered = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			assertEquals(1, recovered.size(), "overflow must survive restart rather than growing memory without a bound");
+		} finally {
+			recovered.close();
+		}
+	}
+
+	@Test
+	void overflowAdmissionIsOnDiskBeforeItReturns(@TempDir Path tempDir) {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ordered-admission-test"));
+		BackendOrderedVoteOverflowQueue first = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			assertTrue(first.enqueue(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE)
+					.put("sequence", "accepted").build()));
+			BackendOrderedVoteOverflowQueue restartBeforeClose = new BackendOrderedVoteOverflowQueue(plugin);
+			try {
+				assertEquals(1, restartBeforeClose.size());
+			} finally {
+				restartBeforeClose.close();
+			}
+		} finally {
+			first.close();
+		}
+	}
+
+	@Test
+	void saturatedIngressQueuesDurableAdmissionWithoutBlockingCaller(@TempDir Path tempDir) throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ordered-async-admission-test"));
+		BackendOrderedVoteOverflowQueue overflow = new BackendOrderedVoteOverflowQueue(plugin);
+		Object persistenceLock = getField(overflow, "persistenceWriteLock");
+		CountDownLatch locked = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		Thread blocker = new Thread(() -> {
+			synchronized (persistenceLock) {
+				locked.countDown();
+				try {
+					release.await();
+				} catch (InterruptedException interrupted) {
+					Thread.currentThread().interrupt();
+				}
+			}
+		});
+		blocker.start();
+		assertTrue(locked.await(3, TimeUnit.SECONDS));
+		try {
+			BackendProxyHandler handler = new BackendProxyHandler(plugin, new ProcessedVoteCache(), overflow);
+			setField(handler, "messageRouter", mock(BackendProxyMessageRouter.class));
+			handler.activateInboundMessages();
+			for (int index = 0; index < BackendProxyHandler.MAX_ORDERED_VOTE_QUEUE; index++) {
+				handler.dispatchIncomingAfterPublication(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE)
+						.put("sequence", Integer.toString(index)).build(), mock(Runnable.class));
+			}
+			CompletableFuture<Void> admission = CompletableFuture.runAsync(() -> handler.dispatchIncomingAfterPublication(
+					JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).put("sequence", "overflow").build(),
+					mock(Runnable.class)));
+			admission.get(500, TimeUnit.MILLISECONDS);
+			assertEquals(1, overflow.size());
+		} finally {
+			release.countDown();
+			blocker.join(3_000L);
+			overflow.close();
+		}
+		BackendOrderedVoteOverflowQueue recovered = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			assertEquals(1, recovered.size());
+		} finally {
+			recovered.close();
+		}
+	}
+
+	@Test
+	void unreadableOverflowCannotBeOverwritten(@TempDir Path tempDir) throws Exception {
+		Path queueFile = tempDir.resolve("BackendProxyVoteQueue.yml");
+		Files.createDirectory(queueFile);
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ordered-unreadable-test"));
+		BackendOrderedVoteOverflowQueue overflow = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			assertFalse(overflow.enqueue(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).build()));
+		} finally {
+			overflow.close();
+		}
+		assertTrue(Files.isDirectory(queueFile));
+	}
+
+	@Test
+	void invalidOverflowRecordsStopRecoveryWithoutRewritingEvidence(@TempDir Path tempDir) throws Exception {
+		Path queueFile = tempDir.resolve("BackendProxyVoteQueue.yml");
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ordered-invalid-record-test"));
+
+		YamlConfiguration malformedYaml = new YamlConfiguration();
+		malformedYaml.set("Envelopes", java.util.List.of("not-json"));
+		malformedYaml.set("FailedEnvelopes", java.util.List.of());
+		String malformed = malformedYaml.saveToString();
+		Files.writeString(queueFile, malformed);
+		BackendOrderedVoteOverflowQueue malformedQueue = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			assertFalse(malformedQueue.enqueue(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).build()));
+		} finally {
+			malformedQueue.close();
+		}
+		assertEquals(malformed, Files.readString(queueFile));
+
+		YamlConfiguration unsupportedYaml = new YamlConfiguration();
+		unsupportedYaml.set("Envelopes", java.util.List.of(
+				JsonEnvelopeCodec.encode(JsonEnvelope.builder("FutureOrderedVote").build())));
+		unsupportedYaml.set("FailedEnvelopes", java.util.List.of());
+		String unsupported = unsupportedYaml.saveToString();
+		Files.writeString(queueFile, unsupported);
+		BackendOrderedVoteOverflowQueue unsupportedQueue = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			assertFalse(unsupportedQueue.enqueue(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).build()));
+		} finally {
+			unsupportedQueue.close();
+		}
+		assertEquals(unsupported, Files.readString(queueFile));
+	}
+
+	@Test
+	void failedOverflowWriteDoesNotAcceptVote(@TempDir Path tempDir) throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ordered-write-failure-test"));
+		BackendOrderedVoteOverflowQueue overflow = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			Files.createDirectory(tempDir.resolve("BackendProxyVoteQueue.yml"));
+			assertFalse(overflow.enqueue(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).build()));
+			assertEquals(0, overflow.size());
+		} finally {
+			overflow.close();
+		}
+	}
+
+	@Test
+	void oversizedFailureHistoryStopsRecoveryWithoutDiscardingEvidence(@TempDir Path tempDir) throws Exception {
+		StringBuilder yaml = new StringBuilder("Envelopes: []\nFailedEnvelopes:\n");
+		for (int index = 0; index < BackendOrderedVoteOverflowQueue.MAX_FAILED_ENTRIES + 20; index++) {
+			yaml.append("- failed-").append(index).append('\n');
+		}
+		Files.writeString(tempDir.resolve("BackendProxyVoteQueue.yml"), yaml);
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ordered-failure-bound-test"));
+		BackendOrderedVoteOverflowQueue overflow = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			assertEquals(0, overflow.failedSize());
+			assertFalse(overflow.enqueue(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).build()));
+			assertTrue(Files.readString(tempDir.resolve("BackendProxyVoteQueue.yml")).contains("failed-0"));
+		} finally {
+			overflow.close();
+		}
+	}
+
+	@Test
+	void fullFailureHistoryRejectsNextQuarantineWithoutEviction(@TempDir Path tempDir) throws Exception {
+		StringBuilder yaml = new StringBuilder("Envelopes: []\nFailedEnvelopes:\n");
+		for (int index = 0; index < BackendOrderedVoteOverflowQueue.MAX_FAILED_ENTRIES; index++) {
+			yaml.append("- failed-").append(index).append('\n');
+		}
+		Files.writeString(tempDir.resolve("BackendProxyVoteQueue.yml"), yaml);
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ordered-failure-capacity-test"));
+		BackendOrderedVoteOverflowQueue overflow = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			assertFalse(overflow.quarantineForShutdown(null, JsonEnvelope.builder(VotingPluginWire.SUB_VOTE)
+					.put("sequence", "rejected").build()));
+			assertEquals(BackendOrderedVoteOverflowQueue.MAX_FAILED_ENTRIES, overflow.failedSize());
+			assertTrue(overflow.isQuarantineCapacityExhausted());
+			@SuppressWarnings("unchecked")
+			ArrayDeque<String> failures = (ArrayDeque<String>) getField(overflow, "failedEntries");
+			assertEquals("failed-0", failures.peekFirst());
+			assertEquals("failed-255", failures.peekLast());
+
+			BukkitScheduler scheduler = mock(BukkitScheduler.class);
+			when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+			BackendProxyHandler handler = new BackendProxyHandler(plugin, new ProcessedVoteCache(), overflow);
+			handler.activateInboundMessages();
+			handler.dispatchIncomingAfterPublication(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).build(),
+					mock(Runnable.class));
+			verify(scheduler, never()).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		} finally {
+			overflow.close();
+		}
+	}
+
+	@Test
+	void ambiguousHandlerFailureIsQuarantinedBeforeLaterVote(@TempDir Path tempDir) throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ordered-failure-test"));
+		LinkedBlockingQueue<Runnable> asyncTasks = new LinkedBlockingQueue<>();
+		doAnswer(invocation -> {
+			asyncTasks.add(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		BackendOrderedVoteOverflowQueue overflow = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			BackendProxyHandler handler = new BackendProxyHandler(plugin, new ProcessedVoteCache(), overflow);
+			BackendProxyMessageRouter router = mock(BackendProxyMessageRouter.class);
+			setField(handler, "messageRouter", router);
+			AtomicInteger attempts = new AtomicInteger();
+			doAnswer(invocation -> {
+				if (attempts.incrementAndGet() == 1) throw new IllegalStateException("partial reward");
+				invocation.<java.util.function.Consumer<OrderedVoteOutcome>>getArgument(1)
+						.accept(OrderedVoteOutcome.COMPLETE);
+				return null;
+			}).when(router).handleOrderedVote(any(JsonEnvelope.class), any());
+			handler.activateInboundMessages();
+			assertTrue(overflow.enqueue(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE)
+					.put("sequence", "failed").build()));
+			assertTrue(overflow.enqueue(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE)
+					.put("sequence", "next").build()));
+			Runnable first = asyncTasks.poll(3, TimeUnit.SECONDS);
+			assertNotNull(first);
+			assertThrows(IllegalStateException.class, first::run);
+			Runnable second = asyncTasks.poll(3, TimeUnit.SECONDS);
+			assertNotNull(second, "quarantine should release the next vote");
+			second.run();
+			assertEquals(2, attempts.get(), "failed reward must not be retried");
+			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+			while (overflow.size() != 0 && System.nanoTime() < deadline) Thread.sleep(10);
+			assertEquals(0, overflow.size());
+			assertEquals(1, overflow.failedSize());
+			assertTrue(Files.exists(tempDir.resolve("BackendProxyVoteQueue.yml")));
+		} finally {
+			overflow.close();
+		}
+		BackendOrderedVoteOverflowQueue recovered = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			assertEquals(0, recovered.size());
+			assertEquals(1, recovered.failedSize());
+		} finally {
+			recovered.close();
+		}
+	}
+
+	@Test
+	void inMemoryHandlerFailureIsQuarantinedWithoutRetry(@TempDir Path tempDir) throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ordered-memory-failure-test"));
+		LinkedBlockingQueue<Runnable> asyncTasks = new LinkedBlockingQueue<>();
+		doAnswer(invocation -> {
+			asyncTasks.add(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		BackendOrderedVoteOverflowQueue overflow = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			BackendProxyHandler handler = new BackendProxyHandler(plugin, new ProcessedVoteCache(), overflow);
+			BackendProxyMessageRouter router = mock(BackendProxyMessageRouter.class);
+			setField(handler, "messageRouter", router);
+			doThrow(new IllegalStateException("partial reward")).when(router)
+					.handleOrderedVote(any(JsonEnvelope.class), any());
+			handler.activateInboundMessages();
+			handler.dispatchIncomingAfterPublication(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE)
+					.put("sequence", "failed").build(), mock(Runnable.class));
+			Runnable first = asyncTasks.poll(3, TimeUnit.SECONDS);
+			assertNotNull(first);
+			assertThrows(IllegalStateException.class, first::run);
+			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+			while (overflow.failedSize() == 0 && System.nanoTime() < deadline) {
+				Thread.sleep(10);
+			}
+			assertEquals(1, overflow.failedSize());
+			assertEquals(0, overflow.size());
+			assertTrue(asyncTasks.isEmpty(), "failed reward must not be retried");
+		} finally {
+			overflow.close();
+		}
+	}
+
+	@Test
+	void shutdownPersistsQueuedQuarantineWithoutReplayingFailedVote(@TempDir Path tempDir) throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ordered-failure-shutdown-test"));
+		LinkedBlockingQueue<Runnable> asyncTasks = new LinkedBlockingQueue<>();
+		doAnswer(invocation -> {
+			asyncTasks.add(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		BackendOrderedVoteOverflowQueue overflow = new BackendOrderedVoteOverflowQueue(plugin);
+		CountDownLatch occupied = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		ScheduledThreadPoolExecutor worker = (ScheduledThreadPoolExecutor) getField(overflow, "worker");
+		worker.execute(() -> {
+			occupied.countDown();
+			try {
+				release.await();
+			} catch (InterruptedException interrupted) {
+				Thread.currentThread().interrupt();
+			}
+		});
+		assertTrue(occupied.await(3, TimeUnit.SECONDS));
+		try {
+			BackendProxyHandler handler = new BackendProxyHandler(plugin, new ProcessedVoteCache(), overflow);
+			BackendProxyMessageRouter router = mock(BackendProxyMessageRouter.class);
+			setField(handler, "messageRouter", router);
+			doThrow(new IllegalStateException("partial reward")).when(router)
+					.handleOrderedVote(any(JsonEnvelope.class), any());
+			handler.activateInboundMessages();
+			handler.dispatchIncomingAfterPublication(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE)
+					.put("sequence", "failed").build(), mock(Runnable.class));
+			Runnable first = asyncTasks.poll(3, TimeUnit.SECONDS);
+			assertNotNull(first);
+			assertThrows(IllegalStateException.class, first::run);
+			handler.close();
+		} finally {
+			overflow.close();
+			release.countDown();
+		}
+		BackendOrderedVoteOverflowQueue recovered = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			assertEquals(0, recovered.size());
+			assertEquals(1, recovered.failedSize());
+		} finally {
+			recovered.close();
+		}
+	}
+
+	@Test
+	void crowdedOverflowReservesCapacityForShutdownPrefix(@TempDir Path tempDir) throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		when(plugin.getBukkitScheduler()).thenReturn(mock(BukkitScheduler.class));
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ordered-capacity-test"));
+		BackendOrderedVoteOverflowQueue overflow = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			BackendProxyHandler handler = new BackendProxyHandler(plugin, new ProcessedVoteCache(), overflow);
+			handler.activateInboundMessages();
+			for (int index = 0; index < BackendProxyHandler.MAX_ORDERED_VOTE_QUEUE; index++) {
+				handler.dispatchIncomingAfterPublication(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE)
+						.put("sequence", Integer.toString(index)).build(), mock(Runnable.class));
+			}
+			for (int index = 0; index < BackendOrderedVoteOverflowQueue.MAX_NORMAL_ENTRIES; index++) {
+				assertTrue(overflow.enqueue(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE)
+						.put("sequence", Integer.toString(index + BackendProxyHandler.MAX_ORDERED_VOTE_QUEUE))
+						.build(), BackendProxyHandler.MAX_ORDERED_VOTE_QUEUE));
+			}
+			assertFalse(overflow.enqueue(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).build(),
+					BackendProxyHandler.MAX_ORDERED_VOTE_QUEUE));
+			handler.close();
+			assertEquals(BackendProxyHandler.MAX_ORDERED_VOTE_QUEUE
+					+ BackendOrderedVoteOverflowQueue.MAX_NORMAL_ENTRIES, overflow.size());
+		} finally {
+			overflow.close();
+		}
+		BackendOrderedVoteOverflowQueue recovered = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			assertEquals(BackendProxyHandler.MAX_ORDERED_VOTE_QUEUE
+					+ BackendOrderedVoteOverflowQueue.MAX_NORMAL_ENTRIES, recovered.size());
+		} finally {
+			recovered.close();
+		}
+	}
+
+	@Test
+	void failedVoteUpdateKeepsDurableHeadUntilRetrySucceeds(@TempDir Path tempDir) throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ordered-retry-test"));
+		LinkedBlockingQueue<Runnable> asyncTasks = new LinkedBlockingQueue<>();
+		doAnswer(invocation -> {
+			asyncTasks.add(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		BackendOrderedVoteOverflowQueue overflow = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			BackendProxyHandler handler = new BackendProxyHandler(plugin, new ProcessedVoteCache(), overflow);
+			BackendProxyMessageRouter router = mock(BackendProxyMessageRouter.class);
+			setField(handler, "messageRouter", router);
+			AtomicInteger attempts = new AtomicInteger();
+			doAnswer(invocation -> {
+				invocation.<java.util.function.Consumer<OrderedVoteOutcome>>getArgument(1)
+						.accept(attempts.incrementAndGet() > 1
+								? OrderedVoteOutcome.COMPLETE : OrderedVoteOutcome.RETRY);
+				return null;
+			}).when(router).handleOrderedVote(any(JsonEnvelope.class), any());
+			handler.activateInboundMessages();
+			assertTrue(overflow.enqueue(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE_UPDATE).build()));
+
+			Runnable first = asyncTasks.poll(3, TimeUnit.SECONDS);
+			assertNotNull(first, "durable head must wake the ordered lane");
+			first.run();
+			assertEquals(1, attempts.get());
+			assertEquals(1, overflow.size(), "failed lookup must not acknowledge the durable head");
+
+			Runnable retry = asyncTasks.poll(3, TimeUnit.SECONDS);
+			assertNotNull(retry, "failed lookup must schedule a bounded retry");
+			retry.run();
+			assertEquals(2, attempts.get());
+			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+			while (overflow.size() != 0 && System.nanoTime() < deadline) Thread.sleep(10);
+			assertEquals(0, overflow.size());
+		} finally {
+			overflow.close();
+		}
+	}
+
+	@Test
+	void durableCompletionIsPersistedBeforeNextVoteRuns(@TempDir Path tempDir) throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ordered-ack-test"));
+		LinkedBlockingQueue<Runnable> asyncTasks = new LinkedBlockingQueue<>();
+		doAnswer(invocation -> {
+			asyncTasks.add(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		BackendOrderedVoteOverflowQueue overflow = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			BackendProxyHandler handler = new BackendProxyHandler(plugin, new ProcessedVoteCache(), overflow);
+			BackendProxyMessageRouter router = mock(BackendProxyMessageRouter.class);
+			setField(handler, "messageRouter", router);
+			doAnswer(invocation -> {
+				invocation.<java.util.function.Consumer<OrderedVoteOutcome>>getArgument(1)
+						.accept(OrderedVoteOutcome.COMPLETE);
+				return null;
+			}).when(router).handleOrderedVote(any(JsonEnvelope.class), any());
+			handler.activateInboundMessages();
+			assertTrue(overflow.enqueue(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).build()));
+			asyncTasks.poll(3, TimeUnit.SECONDS).run();
+			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+			while (overflow.size() != 0 && System.nanoTime() < deadline) Thread.sleep(10);
+			assertEquals(0, overflow.size());
+
+			BackendOrderedVoteOverflowQueue restartBeforeClose = new BackendOrderedVoteOverflowQueue(plugin);
+			try {
+				assertEquals(0, restartBeforeClose.size(), "completed reward must not replay after a crash");
+			} finally {
+				restartBeforeClose.close();
+			}
+		} finally {
+			overflow.close();
+		}
+	}
+
+	@Test
+	void overflowCloseReturnsWithinBoundWhenPersistenceLockIsStuck(@TempDir Path tempDir) throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ordered-close-bound-test"));
+		BackendOrderedVoteOverflowQueue overflow = new BackendOrderedVoteOverflowQueue(plugin);
+		Object persistenceLock = getField(overflow, "persistenceWriteLock");
+		CountDownLatch locked = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		Thread blocker = new Thread(() -> {
+			synchronized (persistenceLock) {
+				locked.countDown();
+				try {
+					release.await();
+				} catch (InterruptedException interrupted) {
+					Thread.currentThread().interrupt();
+				}
+			}
+		});
+		blocker.start();
+		assertTrue(locked.await(3, TimeUnit.SECONDS));
+		long started = System.nanoTime();
+		try {
+			overflow.close();
+			assertTrue(System.nanoTime() - started < TimeUnit.SECONDS.toNanos(2));
+		} finally {
+			release.countDown();
+			blocker.join(3_000L);
+			assertTrue(overflow.awaitClose(3_000L));
+		}
+	}
+
+	@Test
+	void failedInMemoryVoteUpdateRetriesBeforeLaterVotes() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		ArrayDeque<Runnable> asyncTasks = new ArrayDeque<>();
+		AtomicReference<Runnable> delayedRetry = new AtomicReference<>();
+		doAnswer(invocation -> {
+			asyncTasks.addLast(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		doAnswer(invocation -> {
+			delayedRetry.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskLaterAsynchronously(eq(plugin), any(Runnable.class), eq(20L));
+		BackendProxyHandler handler = new BackendProxyHandler(plugin);
+		BackendProxyMessageRouter router = mock(BackendProxyMessageRouter.class);
+		setField(handler, "messageRouter", router);
+		java.util.List<String> processed = new java.util.ArrayList<>();
+		doAnswer(invocation -> {
+			String sequence = invocation.<JsonEnvelope>getArgument(0).getFields().get("sequence");
+			processed.add(sequence);
+			invocation.<java.util.function.Consumer<OrderedVoteOutcome>>getArgument(1)
+					.accept(!sequence.equals("first") || processed.size() > 1
+							? OrderedVoteOutcome.COMPLETE : OrderedVoteOutcome.RETRY);
+			return null;
+		}).when(router).handleOrderedVote(any(JsonEnvelope.class), any());
+		handler.activateInboundMessages();
+		handler.dispatchIncomingAfterPublication(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE_UPDATE)
+				.put("sequence", "first").build(), mock(Runnable.class));
+		handler.dispatchIncomingAfterPublication(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE)
+				.put("sequence", "second").build(), mock(Runnable.class));
+
+		asyncTasks.removeFirst().run();
+		assertEquals(java.util.List.of("first"), processed);
+		assertTrue(asyncTasks.isEmpty());
+		assertNotNull(delayedRetry.get());
+		delayedRetry.get().run();
+		asyncTasks.removeFirst().run();
+		asyncTasks.removeFirst().run();
+		assertEquals(java.util.List.of("first", "first", "second"), processed);
+	}
+
+	@Test
+	void shutdownSpillsTransportCallbackArrivingAfterQueueSnapshot(@TempDir Path tempDir) throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		when(plugin.getBukkitScheduler()).thenReturn(mock(BukkitScheduler.class));
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ordered-shutdown-test"));
+		BackendOrderedVoteOverflowQueue overflow = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			BackendProxyHandler handler = new BackendProxyHandler(plugin, new ProcessedVoteCache(), overflow);
+			BackendProxyTransportManager transport = mock(BackendProxyTransportManager.class);
+			setField(handler, "transportManager", transport);
+			handler.activateInboundMessages();
+			doAnswer(invocation -> {
+				handler.dispatchIncomingAfterPublication(
+						JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).build(), mock(Runnable.class));
+				return null;
+			}).when(transport).close();
+
+			handler.close();
+			assertEquals(1, overflow.size(), "callback after snapshot must be spilled before transport retirement");
+		} finally {
+			overflow.close();
+		}
+		BackendOrderedVoteOverflowQueue recovered = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			assertEquals(1, recovered.size(), "shutdown callback must survive process restart");
+		} finally {
+			recovered.close();
+		}
+	}
+
+	@Test
+	void shutdownWaitsForInFlightVoteBeforePersistingLaterVotes(@TempDir Path tempDir) throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ordered-shutdown-quiesce-test"));
+		ArrayDeque<Runnable> asyncTasks = new ArrayDeque<>();
+		doAnswer(invocation -> {
+			asyncTasks.addLast(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		BackendOrderedVoteOverflowQueue overflow = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			BackendProxyHandler handler = new BackendProxyHandler(plugin, new ProcessedVoteCache(), overflow);
+			BackendProxyMessageRouter router = mock(BackendProxyMessageRouter.class);
+			setField(handler, "messageRouter", router);
+			AtomicReference<java.util.function.Consumer<OrderedVoteOutcome>> completion = new AtomicReference<>();
+			doAnswer(invocation -> {
+				completion.set(invocation.getArgument(1));
+				return null;
+			}).when(router).handleOrderedVote(any(JsonEnvelope.class), any());
+			handler.activateInboundMessages();
+			handler.dispatchIncomingAfterPublication(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE)
+					.put("sequence", "active").build(), mock(Runnable.class));
+			handler.dispatchIncomingAfterPublication(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE)
+					.put("sequence", "later").build(), mock(Runnable.class));
+			asyncTasks.removeFirst().run();
+			CompletableFuture<Void> closing = CompletableFuture.runAsync(handler::close);
+			Thread.sleep(50L);
+			assertFalse(closing.isDone(), "shutdown must wait for normal in-flight completion");
+			completion.get().accept(OrderedVoteOutcome.COMPLETE);
+			closing.get(3, TimeUnit.SECONDS);
+			assertEquals(1, overflow.size(), "only the later vote should be persisted for restart");
+		} finally {
+			overflow.close();
+		}
+	}
+
+	@Test
+	void shutdownTimeoutQuarantinesInMemoryVoteAndIgnoresLateCompletion(@TempDir Path tempDir) throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ordered-shutdown-timeout-test"));
+		ArrayDeque<Runnable> asyncTasks = new ArrayDeque<>();
+		doAnswer(invocation -> {
+			asyncTasks.addLast(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		BackendOrderedVoteOverflowQueue overflow = new BackendOrderedVoteOverflowQueue(plugin);
+		AtomicReference<java.util.function.Consumer<OrderedVoteOutcome>> completion = new AtomicReference<>();
+		try {
+			BackendProxyHandler handler = new BackendProxyHandler(plugin, new ProcessedVoteCache(), overflow);
+			BackendProxyMessageRouter router = mock(BackendProxyMessageRouter.class);
+			setField(handler, "messageRouter", router);
+			doAnswer(invocation -> {
+				completion.set(invocation.getArgument(1));
+				return null;
+			}).when(router).handleOrderedVote(any(JsonEnvelope.class), any());
+			handler.activateInboundMessages();
+			handler.dispatchIncomingAfterPublication(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE)
+					.put("sequence", "active").build(), mock(Runnable.class));
+			handler.dispatchIncomingAfterPublication(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE)
+					.put("sequence", "later").build(), mock(Runnable.class));
+			asyncTasks.removeFirst().run();
+
+			CompletableFuture.runAsync(handler::close).get(3, TimeUnit.SECONDS);
+			long quarantineDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+			while (overflow.failedSize() != 1 && System.nanoTime() < quarantineDeadline) Thread.sleep(10L);
+			assertEquals(1, overflow.failedSize());
+			assertEquals(1, overflow.size());
+			completion.get().accept(OrderedVoteOutcome.COMPLETE);
+			assertEquals(1, overflow.failedSize());
+			assertEquals(1, overflow.size());
+		} finally {
+			overflow.close();
+		}
+		BackendOrderedVoteOverflowQueue recovered = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			assertEquals(1, recovered.failedSize());
+			assertEquals(1, recovered.size());
+		} finally {
+			recovered.close();
+		}
+	}
+
+	@Test
+	void shutdownTimeoutQuarantinesDurableHeadInsteadOfReplayingIt(@TempDir Path tempDir) throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ordered-overflow-shutdown-timeout-test"));
+		ArrayDeque<Runnable> asyncTasks = new ArrayDeque<>();
+		doAnswer(invocation -> {
+			asyncTasks.addLast(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		BackendOrderedVoteOverflowQueue overflow = new BackendOrderedVoteOverflowQueue(plugin);
+		AtomicReference<java.util.function.Consumer<OrderedVoteOutcome>> completion = new AtomicReference<>();
+		try {
+			BackendProxyHandler handler = new BackendProxyHandler(plugin, new ProcessedVoteCache(), overflow);
+			BackendProxyMessageRouter router = mock(BackendProxyMessageRouter.class);
+			setField(handler, "messageRouter", router);
+			doAnswer(invocation -> {
+				completion.set(invocation.getArgument(1));
+				return null;
+			}).when(router).handleOrderedVote(any(JsonEnvelope.class), any());
+			assertTrue(overflow.enqueue(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE)
+					.put("sequence", "active").build()));
+			handler.activateInboundMessages();
+			asyncTasks.removeFirst().run();
+
+			CompletableFuture.runAsync(handler::close).get(3, TimeUnit.SECONDS);
+			long quarantineDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+			while (overflow.failedSize() != 1 && System.nanoTime() < quarantineDeadline) Thread.sleep(10L);
+			assertEquals(1, overflow.failedSize());
+			assertEquals(0, overflow.size());
+			completion.get().accept(OrderedVoteOutcome.COMPLETE);
+			assertEquals(1, overflow.failedSize());
+			assertEquals(0, overflow.size());
+		} finally {
+			overflow.close();
+		}
+		BackendOrderedVoteOverflowQueue recovered = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			assertEquals(1, recovered.failedSize());
+			assertEquals(0, recovered.size());
+		} finally {
+			recovered.close();
+		}
+	}
+
+	@Test
+	void orderedVoteHandoffMovesPausedPrefixAndForwardsLateCallbacks() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		BackendProxyHandler previous = new BackendProxyHandler(plugin);
+		BackendProxyHandler replacement = new BackendProxyHandler(plugin);
+		BackendProxyMessageRouter replacementRouter = mock(BackendProxyMessageRouter.class);
+		setField(previous, "messageRouter", mock(BackendProxyMessageRouter.class));
+		setField(replacement, "messageRouter", replacementRouter);
+		previous.activateInboundMessages();
+		previous.pauseOrderedVoteDispatchForReplacement(System.nanoTime() + TimeUnit.SECONDS.toNanos(1));
+
+		JsonEnvelope first = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).put("sequence", "1").build();
+		JsonEnvelope second = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE_UPDATE).put("sequence", "2").build();
+		previous.dispatchIncomingAfterPublication(first, mock(Runnable.class));
+		previous.dispatchIncomingAfterPublication(second, mock(Runnable.class));
+
+		previous.completeOrderedVoteHandoff(replacement);
+		JsonEnvelope late = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE_ONLINE).put("sequence", "3").build();
+		previous.dispatchIncomingAfterPublication(late, mock(Runnable.class));
+
+		ArrayDeque<Runnable> asyncTasks = new ArrayDeque<>();
+		doAnswer(invocation -> {
+			asyncTasks.addLast(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		java.util.ArrayList<String> sequences = new java.util.ArrayList<>();
+		doAnswer(invocation -> {
+			JsonEnvelope envelope = invocation.getArgument(0);
+			sequences.add(envelope.getFields().get("sequence"));
+			invocation.<java.util.function.Consumer<OrderedVoteOutcome>>getArgument(1)
+					.accept(OrderedVoteOutcome.COMPLETE);
+			return null;
+		}).when(replacementRouter).handleOrderedVote(any(JsonEnvelope.class), any());
+
+		replacement.activateInboundMessages();
+		while (!asyncTasks.isEmpty() || sequences.size() < 3) {
+			assertFalse(asyncTasks.isEmpty(), "handoff should keep scheduling the transferred FIFO");
+			asyncTasks.removeFirst().run();
+		}
+
+		assertEquals(java.util.List.of("1", "2", "3"), sequences);
+	}
+
+	@Test
+	void votePartyHandoffFencesStalePredecessorCloseAndRollbackRestoresIt() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BackendProxyHandler previous = new BackendProxyHandler(plugin);
+		BackendProxyHandler replacement = new BackendProxyHandler(plugin);
+		com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync previousState =
+				mock(com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync.class);
+		com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync replacementState =
+				mock(com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync.class);
+		when(previousState.getCurrent()).thenReturn(7);
+		when(previousState.getRequired()).thenReturn(25);
+		setField(previous, "votePartySync", previousState);
+		setField(replacement, "votePartySync", replacementState);
+		setField(previous, "orderedVoteDispatchPaused", true);
+
+		previous.completeVotePartyHandoff(replacement);
+		verify(replacementState).replace(7, 25);
+		previous.close();
+		verify(previousState, never()).persist();
+
+		BackendProxyHandler rolledBack = new BackendProxyHandler(plugin);
+		com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync rolledBackState =
+				mock(com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync.class);
+		setField(rolledBack, "votePartySync", rolledBackState);
+		setField(rolledBack, "orderedVoteDispatchPaused", true);
+		rolledBack.completeVotePartyHandoff(replacement);
+		rolledBack.resumeOrderedVoteDispatchAfterFailedReplacement();
+		rolledBack.close();
+		verify(rolledBackState).persist();
+	}
+
 
 	@Test
 	void stagedInboundWaitsForPublicationAndUsesTheBukkitScheduler() throws Exception {

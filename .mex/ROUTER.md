@@ -30,6 +30,7 @@ Use the authority hierarchy in `.mex/AGENTS.md`. This memory adds architecture, 
 | --- | --- |
 | Architecture or package ownership | `context/architecture.md` |
 | Proxy/global vote handling | `context/proxy-voting.md`, then [proxy vote pattern](patterns/proxy-vote-change.md) |
+| Proxy delivery guarantees | `context/decision-mx_01M31068M0WJ4KB0ZD6C6BXHZK.md` |
 | Vote mutation, totals, or rewards | `context/vote-rewards.md`, then [vote behavior pattern](patterns/vote-behavior-change.md) |
 | Libraries and supported platforms | `context/stack.md` |
 | Build/environment | `context/setup.md` |

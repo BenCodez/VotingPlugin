@@ -59,6 +59,7 @@ import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigSpigot;
 import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.simpleapi.updater.Updater;
 import com.bencodez.votingplugin.broadcast.BroadcastHandler;
+import com.bencodez.votingplugin.backendproxy.BackendOrderedVoteOverflowQueue;
 import com.bencodez.votingplugin.backendproxy.BackendProxyHandler;
 import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache;
 import com.bencodez.votingplugin.backgroundtask.VotingPluginBackgroundTask;
@@ -170,6 +171,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private BackendProxyHandler backendProxyHandler;
 	private final ProcessedVoteCache backendProcessedVoteCache = new ProcessedVoteCache();
+	private BackendOrderedVoteOverflowQueue backendOrderedVoteOverflowQueue;
 	private final AtomicReference<GlobalMessageHandler> backendPluginMessageTarget = new AtomicReference<>();
 	private PluginMessageHandler backendPluginMessageRelay;
 	private com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessage backendPluginMessageRelayOwner;
@@ -478,8 +480,16 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		return voteSiteManager.isVoteSite(voteSite);
 	}
 
+	private synchronized BackendOrderedVoteOverflowQueue getOrCreateBackendOrderedVoteOverflowQueue() {
+		if (backendOrderedVoteOverflowQueue == null && getDataFolder() != null) {
+			backendOrderedVoteOverflowQueue = new BackendOrderedVoteOverflowQueue(this);
+		}
+		return backendOrderedVoteOverflowQueue;
+	}
+
 	private void loadBungeeHandler() {
-		BackendProxyHandler candidate = new BackendProxyHandler(this, backendProcessedVoteCache);
+		BackendProxyHandler candidate = new BackendProxyHandler(this, backendProcessedVoteCache,
+				getOrCreateBackendOrderedVoteOverflowQueue());
 		try {
 			candidate.load();
 			backendProxyHandler = candidate;
@@ -1254,6 +1264,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		private final boolean disabled;
 		private final boolean previousRequiresPreparation;
 		private volatile boolean previousPrepared;
+		private boolean orderedVoteHandoffPrepared;
 		private boolean presenceStoppedForDisablePreparation;
 		// Redis listener retirement can wait for callbacks and listener shutdown. It is
 		// completed by the Control worker during validation, before the final Bukkit
@@ -1320,7 +1331,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		boolean previousRequiresPreparation = previous != null
 				&& (deferredReplacementLoad || previous.requiresPreparationForReplacement()
 						|| previous.requiresRedisRetirement());
-		BackendProxyHandler replacement = new BackendProxyHandler(this, backendProcessedVoteCache);
+		BackendProxyHandler replacement = new BackendProxyHandler(this, backendProcessedVoteCache,
+				getOrCreateBackendOrderedVoteOverflowQueue());
 		if (!deferredReplacementLoad) {
 			try {
 				replacement.loadForReplacement();
@@ -1344,6 +1356,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		if (restart.disabled && restart.previous != null && !restart.presenceStoppedForDisablePreparation) {
 			restart.presenceStoppedForDisablePreparation = true;
 			restart.previous.preparePresenceForDisable(validationDeadlineNanos);
+		}
+		if (!restart.disabled && restart.previous != null && restart.replacement != null
+				&& !restart.orderedVoteHandoffPrepared) {
+			restart.orderedVoteHandoffPrepared = true;
+			restart.previous.pauseOrderedVoteDispatchForReplacement(validationDeadlineNanos);
 		}
 		if (restart.previousRequiresPreparation && !restart.previousPrepared) {
 			// Preparation can close a retrying enrollment transport before a bounded
@@ -1437,6 +1454,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			// publication step succeeds. Admission performs no network I/O.
 			try {
 				if (restart.previous != null) restart.previous.completeHttpHandoff(restart.replacement);
+				if (restart.previous != null && restart.orderedVoteHandoffPrepared) {
+					restart.previous.completeVotePartyHandoff(restart.replacement);
+					restart.previous.completeOrderedVoteHandoff(restart.replacement);
+				}
 			} catch (RuntimeException handoffFailure) {
 				backendProxyHandler = restart.previous;
 				restart.replacement.abortStagedInboundTo(restart.previous);
@@ -1475,6 +1496,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					} catch (RuntimeException restorationFailure) {
 						handoffFailure.addSuppressed(restorationFailure);
 					}
+				}
+				if (restart.previous != null && restart.orderedVoteHandoffPrepared) {
+					restart.previous.resumeOrderedVoteDispatchAfterFailedReplacement();
 				}
 				restart.finished = true;
 				throw handoffFailure;
@@ -1579,6 +1603,14 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 				&& restart.presenceStoppedForDisablePreparation) {
 			try {
 				restart.previous.restorePresenceAfterFailedDisablePreparation();
+			} catch (RuntimeException failure) {
+				if (cleanupFailure == null) cleanupFailure = failure;
+				else cleanupFailure.addSuppressed(failure);
+			}
+		}
+		if (restart.previous != null && restart.orderedVoteHandoffPrepared && backendProxyHandler == restart.previous) {
+			try {
+				restart.previous.resumeOrderedVoteDispatchAfterFailedReplacement();
 			} catch (RuntimeException failure) {
 				if (cleanupFailure == null) cleanupFailure = failure;
 				else cleanupFailure.addSuppressed(failure);
@@ -1767,6 +1799,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			} catch (Exception e) {
 				debug(e);
 			}
+		}
+		if (backendOrderedVoteOverflowQueue != null) {
+			backendOrderedVoteOverflowQueue.close();
+			backendOrderedVoteOverflowQueue = null;
 		}
 		if (webhookManager != null) {
 			webhookManager.shutdown();
