@@ -40,6 +40,7 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 	static final int MAX_FAILED_ENTRIES = 256;
 	private static final long MAX_FILE_BYTES = 8L * 1024L * 1024L;
 	private static final long RETRY_DELAY_MILLIS = 250L;
+	private static final long CLOSE_GRACE_MILLIS = 3_000L;
 	private static final String QUEUE_FILE = "BackendProxyVoteQueue.yml";
 
 	private final VotingPluginMain plugin;
@@ -59,6 +60,7 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 	private PendingFailure pendingFailure;
 	private PendingAcknowledgement pendingAcknowledgement;
 	private volatile Thread closeThread;
+	private volatile CloseState closeState = CloseState.OPEN;
 	private long stateVersion;
 	private long durableVersion;
 	private Object wakeupOwner;
@@ -549,6 +551,10 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 	}
 
 	private void writeSnapshotLocked(List<String> snapshot, List<String> failures) throws IOException {
+		writeSnapshotLocked(snapshot, failures, false);
+	}
+
+	private void writeSnapshotLocked(List<String> snapshot, List<String> failures, boolean finalWrite) throws IOException {
 		YamlConfiguration yaml = new YamlConfiguration();
 		yaml.set("Envelopes", snapshot);
 		yaml.set("FailedEnvelopes", failures);
@@ -566,6 +572,7 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 			} catch (AtomicMoveNotSupportedException unsupported) {
 				Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING);
 			}
+			if (finalWrite) closeState = CloseState.SNAPSHOT_REPLACED;
 			DurableFiles.forceDirectory(parent);
 		} finally {
 			Files.deleteIfExists(temporary);
@@ -590,17 +597,24 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 	@Override
 	public void close() {
 		if (!closeRequested.compareAndSet(false, true)) return;
+		closeState = CloseState.CLOSING;
 		Thread finalWrite = new Thread(this::closeBlocking, "VotingPlugin-BackendVote-Close");
 		finalWrite.setDaemon(true);
 		closeThread = finalWrite;
 		finalWrite.start();
 		try {
-			finalWrite.join(1_000L);
+			finalWrite.join(CLOSE_GRACE_MILLIS);
 		} catch (InterruptedException interrupted) {
 			Thread.currentThread().interrupt();
 		}
 		if (finalWrite.isAlive() && plugin != null && plugin.getLogger() != null) {
-			plugin.getLogger().severe("Ordered proxy vote overflow close exceeded one second; final write remains pending");
+			if (closeState == CloseState.SNAPSHOT_REPLACED) {
+				plugin.getLogger().warning("Ordered proxy vote overflow snapshot was replaced, but its durability tail "
+						+ "is still running after the bounded shutdown grace");
+			} else {
+				plugin.getLogger().severe("Ordered proxy vote overflow snapshot was not replaced within the bounded "
+						+ "shutdown grace; final persistence remains pending");
+			}
 		}
 	}
 
@@ -646,18 +660,21 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 			Thread.currentThread().interrupt();
 		}
 		if (loadFailed) {
+			closeState = CloseState.FAILED;
 			if (closingFailure != null) closingFailure.complete(false);
 			if (closingAcknowledgement != null) closingAcknowledgement.complete(false);
 			return;
 		}
 		boolean saved = false;
 		try {
+			closeState = CloseState.WAITING_TO_PERSIST;
 			synchronized (persistenceWriteLock) {
-				writeSnapshotLocked(snapshot, failures);
+				writeSnapshotLocked(snapshot, failures, true);
 			}
 			saved = true;
 		} catch (IOException failure) {
-			warn("Unable to persist ordered proxy vote overflow during shutdown", failure);
+			closeState = CloseState.FAILED;
+			severe("Unable to persist ordered proxy vote overflow during shutdown", failure);
 		}
 		if (saved && canStoreFailure) {
 			synchronized (lock) {
@@ -677,7 +694,18 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 			closingAcknowledgement.complete(saved
 					&& (closingAcknowledgement.stored || canStoreAcknowledgement));
 		}
+		if (saved) closeState = CloseState.COMPLETE;
 	}
+
+	private void severe(String message, Exception failure) {
+		if (plugin != null && plugin.getLogger() != null) {
+			plugin.getLogger().severe(message + ": " + failure.getClass().getSimpleName());
+		}
+	}
+
+	enum CloseState { OPEN, CLOSING, WAITING_TO_PERSIST, SNAPSHOT_REPLACED, COMPLETE, FAILED }
+
+	CloseState closeState() { return closeState; }
 
 	private static final class PendingAcknowledgement {
 		private final PendingEnvelope expected;

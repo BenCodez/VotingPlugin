@@ -3198,7 +3198,10 @@ public abstract class VotingPluginProxy {
 	public void completeRuntimeReplacementShutdown() {
 		enabled = false;
 		cancelCommunicationTests("Proxy runtime stopped before the backend replied");
-		runCleanup("vote cache", () -> getVoteCacheHandler().saveVoteCache());
+		runCleanup("vote cache", () -> {
+			VoteCacheHandler cache = getVoteCacheHandler();
+			if (cache != null) cache.saveVoteCache();
+		});
 		runCleanup("proxy MySQL messenger", () -> {
 			if (getProxyMysqlMessenger() != null) getProxyMysqlMessenger().shutdown();
 		});
@@ -3238,6 +3241,8 @@ public abstract class VotingPluginProxy {
 			cleanup.run();
 		} catch (Exception failure) {
 			logSevere("Unable to stop " + service + "; remaining proxy cleanup will continue");
+			debug("Proxy cleanup failure for " + service + ": " + failure.getClass().getName()
+					+ (failure.getMessage() == null ? "" : ": " + failure.getMessage()));
 		}
 	}
 

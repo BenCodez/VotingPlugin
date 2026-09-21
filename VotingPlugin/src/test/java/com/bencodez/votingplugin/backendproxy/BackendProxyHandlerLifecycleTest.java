@@ -35,6 +35,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
 import org.junit.jupiter.api.Test;
@@ -652,12 +655,75 @@ class BackendProxyHandlerLifecycleTest {
 		long started = System.nanoTime();
 		try {
 			overflow.close();
-			assertTrue(System.nanoTime() - started < TimeUnit.SECONDS.toNanos(2));
+			assertTrue(System.nanoTime() - started < TimeUnit.SECONDS.toNanos(4));
+			assertEquals(BackendOrderedVoteOverflowQueue.CloseState.WAITING_TO_PERSIST, overflow.closeState());
 		} finally {
 			release.countDown();
 			blocker.join(3_000L);
 			assertTrue(overflow.awaitClose(3_000L));
 		}
+	}
+
+	@Test
+	void slowFinalWriteBeyondOneSecondCompletesWithoutSevereAndSurvivesRestart(@TempDir Path tempDir)
+			throws Exception {
+		Logger logger = Logger.getLogger("ordered-close-slow-success-test");
+		RecordingLogHandler logs = new RecordingLogHandler();
+		logger.setUseParentHandlers(false);
+		logger.addHandler(logs);
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(logger);
+		BackendOrderedVoteOverflowQueue overflow = new BackendOrderedVoteOverflowQueue(plugin);
+		assertTrue(overflow.enqueue(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).put("sequence", "slow").build()));
+		Object persistenceLock = getField(overflow, "persistenceWriteLock");
+		CountDownLatch locked = new CountDownLatch(1);
+		Thread blocker = new Thread(() -> {
+			synchronized (persistenceLock) {
+				locked.countDown();
+				try {
+					Thread.sleep(1_250L);
+				} catch (InterruptedException interrupted) {
+					Thread.currentThread().interrupt();
+				}
+			}
+		});
+		blocker.start();
+		assertTrue(locked.await(3, TimeUnit.SECONDS));
+		long started = System.nanoTime();
+		overflow.close();
+		blocker.join(3_000L);
+		assertTrue(System.nanoTime() - started >= TimeUnit.SECONDS.toNanos(1));
+		assertEquals(BackendOrderedVoteOverflowQueue.CloseState.COMPLETE, overflow.closeState());
+		assertFalse(logs.hasLevel(Level.SEVERE));
+
+		BackendOrderedVoteOverflowQueue recovered = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			assertEquals(1, recovered.size());
+		} finally {
+			recovered.close();
+			logger.removeHandler(logs);
+		}
+	}
+
+	@Test
+	void finalPersistenceFailureIsReportedAsSevere(@TempDir Path tempDir) throws Exception {
+		Path dataPath = tempDir.resolve("not-a-directory");
+		Files.writeString(dataPath, "occupied");
+		Logger logger = Logger.getLogger("ordered-close-failure-test");
+		RecordingLogHandler logs = new RecordingLogHandler();
+		logger.setUseParentHandlers(false);
+		logger.addHandler(logs);
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		when(plugin.getDataFolder()).thenReturn(dataPath.toFile());
+		when(plugin.getLogger()).thenReturn(logger);
+
+		BackendOrderedVoteOverflowQueue overflow = new BackendOrderedVoteOverflowQueue(plugin);
+		overflow.close();
+
+		assertEquals(BackendOrderedVoteOverflowQueue.CloseState.FAILED, overflow.closeState());
+		assertTrue(logs.hasLevel(Level.SEVERE));
+		logger.removeHandler(logs);
 	}
 
 	@Test
@@ -2083,5 +2149,17 @@ class BackendProxyHandlerLifecycleTest {
 			}
 		}
 		throw new NoSuchFieldException(name);
+	}
+
+	private static final class RecordingLogHandler extends Handler {
+		private final java.util.List<LogRecord> records = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+		@Override public void publish(LogRecord record) { records.add(record); }
+		@Override public void flush() { }
+		@Override public void close() { }
+
+		private boolean hasLevel(Level level) {
+			return records.stream().anyMatch(record -> record.getLevel().intValue() >= level.intValue());
+		}
 	}
 }

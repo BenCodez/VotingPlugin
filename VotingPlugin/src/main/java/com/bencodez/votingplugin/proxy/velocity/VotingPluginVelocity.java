@@ -38,6 +38,7 @@ import com.bencodez.simpleapi.file.velocity.VelocityYMLFile;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigVelocity;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
+import com.bencodez.votingplugin.proxy.ProxyRuntimeReplacementLifecycle;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 import com.google.inject.Inject;
 import com.velocitypowered.api.command.CommandMeta;
@@ -365,11 +366,7 @@ public class VotingPluginVelocity {
 		} catch (Exception ignored) {
 		}
 
-		// create runtime
-		votingPluginProxy = createProxyRuntime();
-
-		// full init
-		reloadAllInternal(true);
+		initializeFirstRuntime();
 
 		// metrics (same as your original, shortened)
 		Metrics metrics = metricsFactory.make(this, 11547);
@@ -387,6 +384,11 @@ public class VotingPluginVelocity {
 		if (!"NOTSET".equals(buildNumber)) {
 			logger.info("Detected using dev build number: " + buildNumber);
 		}
+	}
+
+	void initializeFirstRuntime() {
+		// Full initialization creates the first runtime; there is no old runtime to retire.
+		reloadAllInternal(true);
 	}
 
 	/**
@@ -496,9 +498,7 @@ public class VotingPluginVelocity {
 
 				// Stop Control first; replacement must not overlap a retained hosted child/connector.
 				try {
-					if (votingPluginProxy != null) {
-						votingPluginProxy.prepareForRuntimeReplacement();
-					}
+					ProxyRuntimeReplacementLifecycle.prepare(votingPluginProxy);
 				} catch (Exception shutdownFailure) {
 					logger.error("Reload aborted because hosted Control did not stop safely", shutdownFailure);
 					try {
@@ -511,7 +511,7 @@ public class VotingPluginVelocity {
 				}
 				// Later transport/cache failures must not leave the old runtime partially disabled.
 				try {
-					if (votingPluginProxy != null) votingPluginProxy.completeRuntimeReplacementShutdown();
+					ProxyRuntimeReplacementLifecycle.complete(votingPluginProxy);
 				} catch (Exception cleanupFailure) {
 					logger.error("Old proxy runtime cleanup was incomplete; replacement will continue", cleanupFailure);
 				}
