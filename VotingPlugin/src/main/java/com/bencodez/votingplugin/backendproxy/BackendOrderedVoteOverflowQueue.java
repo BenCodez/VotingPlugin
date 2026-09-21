@@ -499,31 +499,23 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 			if (failures.size() > MAX_FAILED_ENTRIES) {
 				throw new IOException("failed envelope history exceeds configured limit");
 			}
+			if (payloads.size() > MAX_ENTRIES) {
+				throw new IOException("active envelope history exceeds configured limit");
+			}
 			for (String failed : failures) {
 				failedEntries.addLast(failed);
 			}
-			boolean skipped = false;
 			for (String payload : payloads) {
-				if (entries.size() >= MAX_ENTRIES) {
-					skipped = true;
-					break;
-				}
+				JsonEnvelope envelope;
 				try {
-					JsonEnvelope envelope = JsonEnvelopeCodec.decode(payload);
-					if (!isOrderedVoteMessage(envelope)) {
-						skipped = true;
-						continue;
-					}
-					entries.addLast(new PendingEnvelope(payload, envelope));
+					envelope = JsonEnvelopeCodec.decode(payload);
 				} catch (RuntimeException invalid) {
-					skipped = true;
+					throw new IOException("invalid ordered proxy vote envelope", invalid);
 				}
-			}
-			if (skipped) {
-				synchronized (lock) {
-					stateVersion++;
-					requestPersistenceLocked();
+				if (!isOrderedVoteMessage(envelope)) {
+					throw new IOException("unsupported ordered proxy vote envelope");
 				}
+				entries.addLast(new PendingEnvelope(payload, envelope));
 			}
 		} catch (Exception failure) {
 			loadFailed = true;

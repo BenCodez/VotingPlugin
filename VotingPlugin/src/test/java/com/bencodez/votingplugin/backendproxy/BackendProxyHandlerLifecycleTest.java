@@ -39,10 +39,12 @@ import java.util.logging.Logger;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.eclipse.paho.client.mqttv3.MqttException;
 
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
+import com.bencodez.simpleapi.servercomm.codec.JsonEnvelopeCodec;
 import com.bencodez.simpleapi.servercomm.sockets.SocketHandler;
 import com.bencodez.simpleapi.servercomm.pluginmessage.PluginMessageHandler;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
@@ -259,6 +261,41 @@ class BackendProxyHandlerLifecycleTest {
 			overflow.close();
 		}
 		assertTrue(Files.isDirectory(queueFile));
+	}
+
+	@Test
+	void invalidOverflowRecordsStopRecoveryWithoutRewritingEvidence(@TempDir Path tempDir) throws Exception {
+		Path queueFile = tempDir.resolve("BackendProxyVoteQueue.yml");
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ordered-invalid-record-test"));
+
+		YamlConfiguration malformedYaml = new YamlConfiguration();
+		malformedYaml.set("Envelopes", java.util.List.of("not-json"));
+		malformedYaml.set("FailedEnvelopes", java.util.List.of());
+		String malformed = malformedYaml.saveToString();
+		Files.writeString(queueFile, malformed);
+		BackendOrderedVoteOverflowQueue malformedQueue = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			assertFalse(malformedQueue.enqueue(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).build()));
+		} finally {
+			malformedQueue.close();
+		}
+		assertEquals(malformed, Files.readString(queueFile));
+
+		YamlConfiguration unsupportedYaml = new YamlConfiguration();
+		unsupportedYaml.set("Envelopes", java.util.List.of(
+				JsonEnvelopeCodec.encode(JsonEnvelope.builder("FutureOrderedVote").build())));
+		unsupportedYaml.set("FailedEnvelopes", java.util.List.of());
+		String unsupported = unsupportedYaml.saveToString();
+		Files.writeString(queueFile, unsupported);
+		BackendOrderedVoteOverflowQueue unsupportedQueue = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			assertFalse(unsupportedQueue.enqueue(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).build()));
+		} finally {
+			unsupportedQueue.close();
+		}
+		assertEquals(unsupported, Files.readString(queueFile));
 	}
 
 	@Test
