@@ -6,11 +6,15 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.jar.JarFile;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /** Package-phase checks for the actual downloadable plugin artifact. */
 public class PackagedArtifactTest {
@@ -21,6 +25,16 @@ public class PackagedArtifactTest {
         try (JarFile artifact = new JarFile(artifactPath.toFile())) {
             assertNotNull(artifact.getEntry("com/bencodez/votingplugin/VotingPluginMain.class"));
             assertNotNull(artifact.getEntry("plugin.yml"));
+            assertNotNull(artifact.getEntry("META-INF/neoforge.mods.toml"));
+            String modMetadata = new String(artifact.getInputStream(
+                    artifact.getEntry("META-INF/neoforge.mods.toml")).readAllBytes(), StandardCharsets.UTF_8);
+            assertTrue(modMetadata.contains("modId=\"votingplugin\""));
+            assertFalse(modMetadata.contains("${"), "NeoForge metadata must have a resolved version");
+            assertNotNull(artifact.getEntry("com/bencodez/votingplugin/neoforge/NeoForgeVotingPlugin.class"));
+            assertNotNull(artifact.getEntry("org/sqlite/JDBC.class"));
+            assertNull(artifact.getEntry("net/neoforged/neoforge/common/NeoForge.class"));
+            assertNull(artifact.getEntry("org/checkerframework/checker/nullness/qual/Nullable.class"));
+            assertNull(artifact.getEntry("org/slf4j/Logger.class"));
             assertNotNull(artifact.getEntry(
                     "com/bencodez/votingplugin/advancedcore/rhino/Context.class"));
             assertNotNull(artifact.getEntry(
@@ -36,6 +50,17 @@ public class PackagedArtifactTest {
         }
         System.out.printf("VotingPlugin downloadable artifact: %,d bytes; duplicate Rhino and unused HTTP crypto absent%n",
                 Files.size(artifactPath));
+    }
+
+    @Test
+    void packagedNeoForgeRuntimeStartsAndClosesWithoutTestDependencies(@TempDir Path directory) throws Exception {
+        URL jar = packagedJar().toUri().toURL();
+        try (URLClassLoader loader = new URLClassLoader(new URL[] { jar }, ClassLoader.getPlatformClassLoader())) {
+            Class<?> runtime = Class.forName("com.bencodez.votingplugin.neoforge.NeoForgeRuntime", true, loader);
+            AutoCloseable instance = (AutoCloseable) runtime.getMethod("start", Path.class).invoke(null, directory);
+            assertTrue(Files.isRegularFile(directory.resolve("VotingPlugin.db")));
+            instance.close();
+        }
     }
 
     private static Path packagedJar() {
