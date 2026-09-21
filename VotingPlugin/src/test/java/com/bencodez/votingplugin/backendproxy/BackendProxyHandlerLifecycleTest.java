@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.eq;
 
 import java.lang.reflect.Field;
 import java.net.ServerSocket;
+import java.util.ArrayDeque;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -47,6 +48,7 @@ import com.bencodez.simpleapi.servercomm.mysql.MySqlMessenger;
 import com.bencodez.simpleapi.servercomm.redis.RedisHandler;
 import com.bencodez.votingplugin.backendproxy.global.BackendGlobalDataSync;
 import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache;
+import com.bencodez.votingplugin.backendproxy.messaging.BackendProxyMessageRouter;
 import com.bencodez.votingplugin.backendproxy.presence.BackendPresenceManager;
 import com.bencodez.votingplugin.config.BungeeSettings;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
@@ -75,6 +77,58 @@ class BackendProxyHandlerLifecycleTest {
 
 		verify(scheduler).runTaskAsynchronously(plugin, localDispatch);
 		verify(localDispatch, never()).run();
+	}
+
+	@Test
+	void voteAndVoteUpdateMessagesStayOrderedAcrossAsyncAndPlatformWork() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		BackendProxyHandler handler = new BackendProxyHandler(plugin);
+		BackendProxyMessageRouter router = mock(BackendProxyMessageRouter.class);
+		setField(handler, "messageRouter", router);
+		handler.activateInboundMessages();
+
+		ArrayDeque<Runnable> asyncTasks = new ArrayDeque<>();
+		doAnswer(invocation -> {
+			asyncTasks.addLast(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+
+		JsonEnvelope voteEnvelope = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).build();
+		JsonEnvelope updateEnvelope = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE_UPDATE).build();
+		JsonEnvelope onlineEnvelope = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE_ONLINE).build();
+		Runnable voteDispatch = mock(Runnable.class);
+		Runnable updateDispatch = mock(Runnable.class);
+		Runnable onlineDispatch = mock(Runnable.class);
+		AtomicReference<Runnable> updateCompletion = new AtomicReference<>();
+		doAnswer(invocation -> {
+			updateCompletion.set(invocation.getArgument(1));
+			return null;
+		}).when(router).handleVoteUpdate(eq(updateEnvelope), any(Runnable.class));
+
+		handler.dispatchIncomingAfterPublication(voteEnvelope, voteDispatch);
+		handler.dispatchIncomingAfterPublication(updateEnvelope, updateDispatch);
+		handler.dispatchIncomingAfterPublication(onlineEnvelope, onlineDispatch);
+
+		assertEquals(1, asyncTasks.size(), "only the head of the ordered vote lane should be scheduled");
+
+		asyncTasks.removeFirst().run();
+		verify(voteDispatch).run();
+		assertEquals(1, asyncTasks.size(), "VoteUpdate should be scheduled only after Vote completes");
+
+		asyncTasks.removeFirst().run();
+		verify(router).handleVoteUpdate(eq(updateEnvelope), any(Runnable.class));
+		verify(updateDispatch, never()).run();
+		assertNotNull(updateCompletion.get());
+		assertTrue(asyncTasks.isEmpty(), "later votes must wait for VoteUpdate platform work");
+
+		updateCompletion.get().run();
+		assertEquals(1, asyncTasks.size(), "VoteUpdate completion should release the next vote");
+
+		asyncTasks.removeFirst().run();
+		verify(onlineDispatch).run();
+		verify(scheduler, times(3)).runTaskAsynchronously(eq(plugin), any(Runnable.class));
 	}
 
 	@Test

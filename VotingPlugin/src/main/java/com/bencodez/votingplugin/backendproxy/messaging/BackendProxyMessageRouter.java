@@ -3,6 +3,10 @@ package com.bencodez.votingplugin.backendproxy.messaging;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
+import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
 
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
@@ -100,39 +104,123 @@ public class BackendProxyMessageRouter {
 	}
 
 	void handleVoteUpdate(JsonEnvelope msg) {
-		VotingPluginWire.VoteUpdate update = VotingPluginWire.readVoteUpdate(msg);
+		handleVoteUpdate(msg, () -> {
+		});
+	}
+
+	/**
+	 * Processes one ordered VoteUpdate. User identity and shared cache population
+	 * are allowed to leave the platform thread, while offline reward/Bukkit work
+	 * returns to the platform scheduler before the ordered lane is released.
+	 */
+	public void handleVoteUpdate(JsonEnvelope msg, Runnable completion) {
+		if (completion == null) throw new IllegalArgumentException("VoteUpdate completion is required");
+		AtomicBoolean completed = new AtomicBoolean();
+		Runnable complete = () -> {
+			if (completed.compareAndSet(false, true)) completion.run();
+		};
+
+		VotingPluginWire.VoteUpdate update;
+		try {
+			update = VotingPluginWire.readVoteUpdate(msg);
+		} catch (RuntimeException | Error failure) {
+			complete.run();
+			throw failure;
+		}
 		String playerUuid = update.uuid;
 		if (playerUuid == null || playerUuid.isEmpty()) {
+			complete.run();
 			return;
 		}
 
-		plugin.debug("pluginmessaging voteupdate received for " + playerUuid + ": " + update.votePartyCurrent + "/"
-				+ update.votePartyRequired + " on " + update.service);
-		votePartySync.update(update.votePartyCurrent, update.votePartyRequired);
+		try {
+			plugin.getBukkitScheduler().runTask(plugin, () -> beginVoteUpdateOnPlatform(update, complete));
+		} catch (RuntimeException | Error failure) {
+			complete.run();
+			throw failure;
+		}
+	}
 
+	private void beginVoteUpdateOnPlatform(VotingPluginWire.VoteUpdate update, Runnable completion) {
+		String playerUuid = update.uuid;
+		try {
+			plugin.debug("pluginmessaging voteupdate received for " + playerUuid + ": " + update.votePartyCurrent + "/"
+					+ update.votePartyRequired + " on " + update.service);
+			votePartySync.update(update.votePartyCurrent, update.votePartyRequired);
+
+			UUID uuid;
+			try {
+				uuid = UUID.fromString(playerUuid);
+			} catch (IllegalArgumentException invalidUuid) {
+				plugin.getLogger().warning("Invalid UUID in VoteUpdate: " + playerUuid);
+				completion.run();
+				return;
+			}
+
+			plugin.getUserManager().getUserAsync(uuid,
+					resolved -> cacheVoteUpdateUser(update, resolved, completion),
+					failure -> {
+						try {
+							plugin.getLogger().warning("Unable to resolve UUID user in VoteUpdate: " + playerUuid);
+							plugin.debug(failure);
+						} finally {
+							completion.run();
+						}
+					});
+		} catch (RuntimeException | Error failure) {
+			completion.run();
+			throw failure;
+		}
+	}
+
+	private void cacheVoteUpdateUser(VotingPluginWire.VoteUpdate update, AdvancedCoreUser resolved,
+			Runnable completion) {
 		VotingPluginUser user;
 		try {
-			user = plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(playerUuid));
-		} catch (IllegalArgumentException e) {
-			plugin.getLogger().warning("Invalid UUID in VoteUpdate: " + playerUuid);
-			return;
-		}
-		user.cache();
-		user.offVote();
-
-		if (update.service != null && !update.service.isEmpty() && update.time > 0) {
-			VoteSite voteSite = plugin.getVoteSiteManager().getVoteSite(update.service, true);
-			if (voteSite == null) {
-				plugin.getLogger().warning("Ignoring VoteUpdate last vote time for unresolved or disabled service site: "
-						+ ServiceSiteValidator.sanitizeForLog(update.service));
-			} else {
-				user.setTime(voteSite, update.time);
+			user = plugin.getVotingPluginUserManager().getVotingPluginUser(resolved);
+			UserDataManager dataManager = plugin.getUserManager().getDataManager();
+			if (dataManager != null && dataManager.hasSharedSqlBackend()) {
+				boolean deferred = dataManager.deferSharedStorageResultFromPlatform(() -> {
+					user.cache();
+					return Boolean.TRUE;
+				}, ignored -> applyVoteUpdate(update, user, completion), failure -> {
+					try {
+						plugin.getLogger().warning("Unable to cache UUID user in VoteUpdate: " + update.uuid);
+						plugin.debug(failure);
+					} finally {
+						completion.run();
+					}
+				});
+				if (deferred) return;
 			}
-		} else if (update.service != null && !update.service.isEmpty() && update.time <= 0
-				&& plugin.getBungeeSettings().isBungeeDebug()) {
-			plugin.debug("Invalid last vote time received from bungee: " + update.time);
+			user.cache();
+			applyVoteUpdate(update, user, completion);
+		} catch (RuntimeException | Error failure) {
+			completion.run();
+			throw failure;
 		}
-		plugin.setUpdate(true);
+	}
+
+	private void applyVoteUpdate(VotingPluginWire.VoteUpdate update, VotingPluginUser user, Runnable completion) {
+		try {
+			user.offVote();
+
+			if (update.service != null && !update.service.isEmpty() && update.time > 0) {
+				VoteSite voteSite = plugin.getVoteSiteManager().getVoteSite(update.service, true);
+				if (voteSite == null) {
+					plugin.getLogger().warning("Ignoring VoteUpdate last vote time for unresolved or disabled service site: "
+							+ ServiceSiteValidator.sanitizeForLog(update.service));
+				} else {
+					user.setTime(voteSite, update.time);
+				}
+			} else if (update.service != null && !update.service.isEmpty() && update.time <= 0
+					&& plugin.getBungeeSettings().isBungeeDebug()) {
+				plugin.debug("Invalid last vote time received from bungee: " + update.time);
+			}
+			plugin.setUpdate(true);
+		} finally {
+			completion.run();
+		}
 	}
 
 	private void handleVoteBroadcast(JsonEnvelope msg) {

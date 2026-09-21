@@ -1,8 +1,10 @@
 package com.bencodez.votingplugin.backendproxy;
 
+import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.ScheduledExecutorService;
 
 import org.bukkit.event.Listener;
@@ -42,6 +44,9 @@ public class BackendProxyHandler implements Listener {
 	private BackendPresenceManager presenceManager;
 	private boolean presenceReportingActivated;
 	private final Object inboundPublication = new Object();
+	private final Object orderedVoteDispatch = new Object();
+	private final ArrayDeque<OrderedVoteDispatch> orderedVoteDispatchQueue = new ArrayDeque<>();
+	private boolean orderedVoteDispatchScheduled;
 	private boolean inboundPublished;
 	private boolean inboundAborted;
 	private BackendProxyHandler inboundRollbackTarget;
@@ -179,6 +184,14 @@ public class BackendProxyHandler implements Listener {
 			if (rollbackHandler != null) rollbackHandler.onMessage(envelope);
 			return;
 		}
+		// Reward-bearing proxy votes construct an asynchronous PlayerVoteEvent. The
+		// proxy's HTTP/Redis/MQTT/MySQL/socket transports do not preserve the numeric
+		// plugin-message delay, so Vote and VoteUpdate must also share one ordered
+		// asynchronous lane.
+		if (isOrderedVoteMessage(envelope)) {
+			dispatchOrderedVote(envelope, localDispatch);
+			return;
+		}
 		// Global-data checks perform synchronous SQL and already run on their own
 		// timer worker. Explicitly dispatch an inbound wake-up asynchronously too:
 		// plugin messaging can invoke this method on Bukkit's primary thread.
@@ -187,6 +200,85 @@ public class BackendProxyHandler implements Listener {
 			return;
 		}
 		plugin.getBukkitScheduler().executeOrScheduleSync(plugin, localDispatch);
+	}
+
+	private boolean isOrderedVoteMessage(JsonEnvelope envelope) {
+		String subChannel = envelope.getSubChannel();
+		return VotingPluginWire.SUB_VOTE.equals(subChannel)
+				|| VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)
+				|| VotingPluginWire.SUB_VOTE_UPDATE.equals(subChannel);
+	}
+
+	private void dispatchOrderedVote(JsonEnvelope envelope, Runnable localDispatch) {
+		OrderedVoteDispatch dispatch = new OrderedVoteDispatch(envelope, localDispatch);
+		synchronized (orderedVoteDispatch) {
+			orderedVoteDispatchQueue.addLast(dispatch);
+			if (orderedVoteDispatchScheduled) return;
+			orderedVoteDispatchScheduled = true;
+			try {
+				plugin.getBukkitScheduler().runTaskAsynchronously(plugin, this::runNextOrderedVoteDispatch);
+			} catch (RuntimeException schedulingFailure) {
+				orderedVoteDispatchQueue.removeLastOccurrence(dispatch);
+				orderedVoteDispatchScheduled = false;
+				throw schedulingFailure;
+			}
+		}
+	}
+
+	private void runNextOrderedVoteDispatch() {
+		OrderedVoteDispatch next;
+		synchronized (orderedVoteDispatch) {
+			next = orderedVoteDispatchQueue.pollFirst();
+			if (next == null) {
+				orderedVoteDispatchScheduled = false;
+				return;
+			}
+		}
+		AtomicBoolean completed = new AtomicBoolean();
+		Runnable complete = () -> {
+			if (completed.compareAndSet(false, true)) finishOrderedVoteDispatch();
+		};
+		if (VotingPluginWire.SUB_VOTE_UPDATE.equals(next.envelope.getSubChannel())) {
+			try {
+				messageRouter.handleVoteUpdate(next.envelope, complete);
+			} catch (RuntimeException | Error failure) {
+				complete.run();
+				throw failure;
+			}
+			return;
+		}
+		try {
+			next.localDispatch.run();
+		} finally {
+			complete.run();
+		}
+	}
+
+	private void finishOrderedVoteDispatch() {
+		synchronized (orderedVoteDispatch) {
+			if (orderedVoteDispatchQueue.isEmpty()) {
+				orderedVoteDispatchScheduled = false;
+				orderedVoteDispatch.notifyAll();
+				return;
+			}
+			try {
+				plugin.getBukkitScheduler().runTaskAsynchronously(plugin, this::runNextOrderedVoteDispatch);
+			} catch (RuntimeException schedulingFailure) {
+				orderedVoteDispatchScheduled = false;
+				orderedVoteDispatch.notifyAll();
+				throw schedulingFailure;
+			}
+		}
+	}
+
+	private static final class OrderedVoteDispatch {
+		private final JsonEnvelope envelope;
+		private final Runnable localDispatch;
+
+		private OrderedVoteDispatch(JsonEnvelope envelope, Runnable localDispatch) {
+			this.envelope = envelope;
+			this.localDispatch = localDispatch;
+		}
 	}
 
 	/** Returns whether replacement preparation must preserve accepted deliveries. */
