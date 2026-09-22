@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.user;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -10,6 +11,8 @@ import static org.mockito.Mockito.when;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
+
+import java.util.UUID;
 
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.UserData;
@@ -28,14 +31,16 @@ class VotingPluginUserVoteShopLimitTest {
 		when(base.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
 		VotingPluginUser user = spy(new VotingPluginUser(plugin, base));
 		doReturn(null).when(user).getCache();
+		doReturn(0).when(user).getDailyTotal();
+		UUID voteId = UUID.randomUUID();
 		try (MockedStatic<VoteShopPurchaseService> service = org.mockito.Mockito
 				.mockStatic(VoteShopPurchaseService.class)) {
-			service.when(() -> VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, base.getUUID(),
+			service.when(() -> VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, base.getUUID(),
 					"DailyTotal", "LastDailyTotal", java.util.List.of("DailyTotal"), null)).thenReturn(true);
 
-			user.addTotalDaily();
+			user.addTotalDaily(voteId);
 
-			service.verify(() -> VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, base.getUUID(),
+			service.verify(() -> VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, base.getUUID(),
 					"DailyTotal", "LastDailyTotal", java.util.List.of("DailyTotal"), null));
 		}
 	}
@@ -49,16 +54,68 @@ class VotingPluginUserVoteShopLimitTest {
 		when(base.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
 		VotingPluginUser user = spy(new VotingPluginUser(plugin, base));
 		doReturn(null).when(user).getCache();
+		doReturn(0).when(user).getVotePartyVotes();
+		UUID voteId = UUID.randomUUID();
 		try (MockedStatic<VoteShopPurchaseService> service = org.mockito.Mockito
 				.mockStatic(VoteShopPurchaseService.class)) {
-			service.when(() -> VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, base.getUUID(),
+			service.when(() -> VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, base.getUUID(),
 					"VotePartyVotes", "LastVotePartyVotes", java.util.List.of("VotePartyVotes"), null))
 					.thenReturn(true);
 
-			user.addVotePartyVote();
+			user.addVotePartyVote(voteId);
 
-			service.verify(() -> VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, base.getUUID(),
+			service.verify(() -> VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, base.getUUID(),
 					"VotePartyVotes", "LastVotePartyVotes", java.util.List.of("VotePartyVotes"), null));
+		}
+	}
+
+	@Test
+	void failedSharedMysqlIncrementFallsBackToTheQueuedUserMutation() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		when(plugin.getStorageType()).thenReturn(UserStorage.MYSQL);
+		AdvancedCoreUser base = mock(AdvancedCoreUser.class);
+		when(base.getUserData()).thenReturn(mock(UserData.class));
+		when(base.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
+		VotingPluginUser user = spy(new VotingPluginUser(plugin, base));
+		doReturn(null).when(user).getCache();
+		doReturn(4).when(user).getDailyTotal();
+		doNothing().when(user).setDailyTotal(org.mockito.ArgumentMatchers.anyInt());
+		UUID voteId = UUID.randomUUID();
+		try (MockedStatic<VoteShopPurchaseService> service = org.mockito.Mockito
+				.mockStatic(VoteShopPurchaseService.class)) {
+			service.when(() -> VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, base.getUUID(),
+					"DailyTotal", "LastDailyTotal", java.util.List.of("DailyTotal"), null)).thenReturn(false);
+
+			user.addTotalDaily(voteId);
+
+			verify(user).setDailyTotal(5);
+		}
+	}
+
+	@Test
+	void failedSharedMysqlMonthlyIncrementKeepsTheConfiguredCap() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		when(plugin.getStorageType()).thenReturn(UserStorage.MYSQL);
+		when(plugin.getConfigFile().isLimitMonthlyVotes()).thenReturn(true);
+		when(plugin.getTimeChecker().getTime().getDayOfMonth()).thenReturn(2);
+		when(plugin.getVoteSiteManager().getVoteSitesEnabled().size()).thenReturn(3);
+		AdvancedCoreUser base = mock(AdvancedCoreUser.class);
+		when(base.getUserData()).thenReturn(mock(UserData.class));
+		when(base.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
+		VotingPluginUser user = spy(new VotingPluginUser(plugin, base));
+		doReturn(null).when(user).getCache();
+		doReturn(6).when(user).getMonthTotal();
+		doNothing().when(user).setMonthTotal(org.mockito.ArgumentMatchers.anyInt());
+		UUID voteId = UUID.randomUUID();
+		try (MockedStatic<VoteShopPurchaseService> service = org.mockito.Mockito
+				.mockStatic(VoteShopPurchaseService.class)) {
+			service.when(() -> VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, base.getUUID(),
+					"MonthTotal", "LastMonthTotal", java.util.List.of("MonthTotal"), Integer.valueOf(6)))
+					.thenReturn(false);
+
+			user.addMonthTotal(voteId);
+
+			verify(user).setMonthTotal(6);
 		}
 	}
 

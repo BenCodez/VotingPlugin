@@ -62,17 +62,17 @@ class SharedVoteProcessorTest {
         order.verify(ops).lastVoteTime(user, site);
         order.verify(ops).cache(user);
         order.verify(ops).updateName(user);
-        order.verify(ops).voteParty(user, true, false);
+        order.verify(ops).voteParty(eq(user), eq(true), eq(false), any(UUID.class));
         order.verify(ops).broadcast(any(UUID.class), eq("Ben"), any(), eq(true));
         order.verify(ops).setTime(user, site, 123L);
         order.verify(ops).playerVote(user, site, true, false);
         order.verify(ops).sendVoteEffects(user, true);
         order.verify(ops).closeInventory(user);
-        order.verify(ops).addTotal(user);
-        order.verify(ops).addTotalDaily(user);
-        order.verify(ops).addTotalWeekly(user);
+        order.verify(ops).addTotal(eq(user), any(UUID.class));
+        order.verify(ops).addTotalDaily(eq(user), any(UUID.class));
+        order.verify(ops).addTotalWeekly(eq(user), any(UUID.class));
         order.verify(ops).addPoints(user);
-        order.verify(ops).checkDayVoteStreak(user, false);
+        order.verify(ops).checkDayVoteStreak(eq(user), eq(false), any(UUID.class));
         order.verify(ops).setMonthTotal(user, 2);
         order.verify(ops).milestones(eq(user), any(UUID.class), eq(false));
         order.verify(ops).cooldown(user, site);
@@ -102,7 +102,7 @@ class SharedVoteProcessorTest {
         verify(ops).broadcast(any(UUID.class), eq("Ben"), any(), eq(true));
         verify(ops).playerVote(user, site, true, false);
         verify(ops, never()).addOfflineVote(any(), any());
-        verify(ops, never()).addTotal(user);
+        verify(ops, never()).addTotal(eq(user), any(UUID.class));
         verify(ops).addPoints(user);
         ArgumentCaptor<UUID> id = ArgumentCaptor.forClass(UUID.class);
         verify(ops).postVote(eq(site), eq(user), eq("Ben"), eq(321L), id.capture(), eq(false));
@@ -165,7 +165,7 @@ class SharedVoteProcessorTest {
         order.verify(ops).addPoints(user);
         order.verify(ops).postVote(eq(site), eq(user), eq("Ben"), eq(456L), any(UUID.class), eq(true));
         verify(ops, never()).playerVote(any(), any(), eq(false), eq(false));
-        verify(ops, never()).addTotal(user);
+        verify(ops, never()).addTotal(eq(user), any(UUID.class));
         verify(ops).clearCache(user);
     }
 

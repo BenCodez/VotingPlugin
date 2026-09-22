@@ -61,7 +61,7 @@ public final class SharedVoteProcessor {
         UUID proxyVoteId();
         void cache(U user);
         void updateName(U user);
-        void voteParty(U user, boolean realVote, boolean forceProxyRouting);
+        void voteParty(U user, boolean realVote, boolean forceProxyRouting, UUID voteId);
         long incomingTime();
         void setTime(U user, S site, long time);
         void setTimeNow(U user, S site);
@@ -76,11 +76,11 @@ public final class SharedVoteProcessor {
         int offlineVotesLimitAmount();
         void addOfflineVote(U user, String siteKey);
         SharedVotePolicy countingPolicy();
-        void addTotal(U user);
-        void addTotalDaily(U user);
-        void addTotalWeekly(U user);
+        void addTotal(U user, UUID voteId);
+        void addTotalDaily(U user, UUID voteId);
+        void addTotalWeekly(U user, UUID voteId);
         void addPoints(U user);
-        void checkDayVoteStreak(U user, boolean forceProxyRouting);
+        void checkDayVoteStreak(U user, boolean forceProxyRouting, UUID voteId);
         boolean limitMonthlyVotes();
         int proxyMonthTotal();
         int userMonthTotal(U user);
@@ -161,15 +161,16 @@ public final class SharedVoteProcessor {
             ops.debug("Allowing queued proxy vote for " + ops.userName(user) + " on " + ops.siteKey(site)
                     + "; proxy vote time already matches LastVotes: " + ops.incomingTime());
         }
-        UUID voteId = UUID.randomUUID();
+        UUID candidateVoteId = UUID.randomUUID();
         if (ops.proxyVote() && ops.hasProxyTextTotals()) {
-            voteId = ops.proxyVoteId();
-            if (voteId == null) voteId = UUID.randomUUID();
+            candidateVoteId = ops.proxyVoteId();
+            if (candidateVoteId == null) candidateVoteId = UUID.randomUUID();
         }
+        final UUID voteId = candidateVoteId;
         String userId = ops.userId(user);
         ops.cache(user);
         ops.updateName(user);
-        ops.voteParty(user, ops.realVote(), ops.forceProxyRouting());
+        ops.voteParty(user, ops.realVote(), ops.forceProxyRouting(), voteId);
         if (ops.broadcastEnabled() && ops.hasBroadcastHandler()) {
             boolean currentOnline = ops.userOnline(user);
             boolean online = currentOnline;
@@ -207,9 +208,10 @@ public final class SharedVoteProcessor {
         SharedVotePolicy policy = ops.countingPolicy();
         SharedVoteInput input = new SharedVoteInput(voteId, playerName, ops.serviceSite(), voteTime,
                 ops.realVote(), ops.addTotals(), ops.proxyVote(), ops.forceProxyRouting(), ops.wasOnline());
-        SharedVoteAccounting.apply(input, policy, () -> ops.userOnline(user), () -> ops.addTotal(user),
-                () -> ops.addTotalDaily(user), () -> ops.addTotalWeekly(user), () -> ops.addPoints(user));
-        ops.checkDayVoteStreak(user, ops.forceProxyRouting());
+        SharedVoteAccounting.apply(input, policy, () -> ops.userOnline(user), () -> ops.addTotal(user, voteId),
+                () -> ops.addTotalDaily(user, voteId), () -> ops.addTotalWeekly(user, voteId),
+                () -> ops.addPoints(user));
+        ops.checkDayVoteStreak(user, ops.forceProxyRouting(), voteId);
         if (ops.limitMonthlyVotes() && (!ops.proxyVote() || ops.hasProxyTextTotals())) {
             int value = ops.proxyVote() ? ops.proxyMonthTotal() : ops.userMonthTotal(user);
             int days = ops.currentDayOfMonth();

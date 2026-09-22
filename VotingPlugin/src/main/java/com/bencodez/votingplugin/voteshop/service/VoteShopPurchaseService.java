@@ -617,15 +617,15 @@ public class VoteShopPurchaseService {
 	}
 
 	/** Atomically increments period totals under the cross-backend boundary lock. */
-	public static boolean incrementMysqlPeriodTotals(VotingPluginMain plugin, String uuid, String boundaryColumn,
+	public static boolean incrementMysqlPeriodTotals(VotingPluginMain plugin, UUID voteId, String uuid, String boundaryColumn,
 			String previousColumn, List<String> columns, Integer maximum) {
 		if (!canRecoverSharedMysqlPurchases(plugin) || columns == null || columns.isEmpty()) return false;
 		try {
 			MySQL table = plugin.getMysql();
 			for (String column : columns) table.checkColumn(column, DataType.INTEGER);
 			if (maximum != null) table.checkColumn(previousColumn, DataType.INTEGER);
-			SharedMysqlPurchaseJournal.forTable(table).incrementPeriodTotals(uuid, boundaryColumn, previousColumn,
-					columns, maximum);
+			SharedMysqlPurchaseJournal.forTable(table).incrementPeriodTotals(
+					voteId == null ? UUID.randomUUID() : voteId, uuid, boundaryColumn, previousColumn, columns, maximum);
 			return true;
 		} catch (SQLException failure) {
 			plugin.getLogger().severe("Unable to atomically increment MySQL period total: "
@@ -638,13 +638,15 @@ public class VoteShopPurchaseService {
 	}
 
 	/** Atomically publishes an accepted daily streak under the shared boundary lock. */
-	public static boolean updateMysqlDailyStreak(VotingPluginMain plugin, String uuid, int streak, long updatedAt) {
+	public static boolean updateMysqlDailyStreak(VotingPluginMain plugin, UUID voteId, String uuid, int streak,
+			long updatedAt) {
 		if (!canRecoverSharedMysqlPurchases(plugin)) return false;
 		try {
 			MySQL table = plugin.getMysql();
 			table.checkColumn("DayVoteStreak", DataType.INTEGER);
 			table.checkColumn("DayVoteStreakLastUpdate", DataType.STRING);
-			SharedMysqlPurchaseJournal.forTable(table).updateDailyStreak(uuid, streak, updatedAt);
+			SharedMysqlPurchaseJournal.forTable(table).updateDailyStreak(
+					voteId == null ? UUID.randomUUID() : voteId, uuid, streak, updatedAt);
 			return true;
 		} catch (SQLException failure) {
 			plugin.getLogger().severe("Unable to atomically update MySQL daily streak: "

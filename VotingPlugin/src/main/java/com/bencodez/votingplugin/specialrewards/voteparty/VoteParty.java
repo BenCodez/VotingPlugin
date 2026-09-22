@@ -4,6 +4,7 @@ package com.bencodez.votingplugin.specialrewards.voteparty;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.UUID;
 
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -47,8 +48,12 @@ public class VoteParty implements Listener {
 	 * @param user the voting plugin user
 	 */
 	public void addTotal(VotingPluginUser user) {
+		addTotal(user, null);
+	}
+
+	public void addTotal(VotingPluginUser user, UUID voteId) {
 		setTotalVotes(getTotalVotes() + 1);
-		user.addVotePartyVote();
+		user.addVotePartyVote(voteId);
 		plugin.getPlaceholders().onVotePartyUpdate();
 	}
 
@@ -406,10 +411,14 @@ public class VoteParty implements Listener {
 	 * @param forceBungee whether to force Bungee processing
 	 */
 	public synchronized void vote(VotingPluginUser user, boolean realVote, boolean forceBungee) {
+		vote(user, realVote, forceBungee, null);
+	}
+
+	public synchronized void vote(VotingPluginUser user, boolean realVote, boolean forceBungee, UUID voteId) {
 		if (plugin.getSpecialRewardsConfig().isVotePartyEnabled()) {
 			if (plugin.getSpecialRewardsConfig().isVotePartyCountFakeVotes() || realVote) {
 				if (plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes() || user.isOnline()) {
-					addTotal(user);
+					addTotal(user, voteId);
 					addVotePlayer(user);
 					check(user, forceBungee);
 					checkVoteReminder(user);

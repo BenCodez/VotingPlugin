@@ -14,6 +14,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
@@ -43,9 +44,16 @@ final class SharedMysqlPurchaseJournal {
 	private static final int MAX_IDENTIFIER_BYTES = 63;
 	private static final String JOURNAL_SUFFIX = "_VoteShopPurchases";
 	private static final String EPOCH_SUFFIX = "_VoteShopLimitEpochs";
+	private static final String ACCOUNTING_SUFFIX = "_VoteAccounting";
 	private static final String HASHED_TABLE_PREFIX = "vp_vsp_";
 	private static final String HASHED_EPOCH_TABLE_PREFIX = "vp_vse_";
+	private static final String HASHED_ACCOUNTING_TABLE_PREFIX = "vp_vsa_";
 	private static final int HASHED_TABLE_HEX_LENGTH = 32;
+	private static final int DAILY_TOTAL = 1;
+	private static final int WEEKLY_TOTAL = 2;
+	private static final int MONTH_TOTAL = 4;
+	private static final int VOTE_PARTY_TOTAL = 8;
+	private static final int DAILY_STREAK = 16;
 
 	private static final ReferenceQueue<MySQL> INITIALIZED_QUEUE = new ReferenceQueue<>();
 	private static final Set<IdentityWeakReference> INITIALIZED = new HashSet<>();
@@ -53,11 +61,13 @@ final class SharedMysqlPurchaseJournal {
 	private final MySQL table;
 	private final String journalTable;
 	private final String epochTable;
+	private final String accountingTable;
 
 	SharedMysqlPurchaseJournal(MySQL table, boolean initializeSchema) throws SQLException {
 		this.table = table;
 		journalTable = journalTableName(table.getTableName());
 		epochTable = epochTableName(table.getTableName());
+		accountingTable = accountingTableName(table.getTableName());
 		if (initializeSchema) ensureSchema();
 	}
 
@@ -72,6 +82,10 @@ final class SharedMysqlPurchaseJournal {
 
 	static String epochTableName(String sourceTable) {
 		return auxiliaryTableName(sourceTable, EPOCH_SUFFIX, HASHED_EPOCH_TABLE_PREFIX);
+	}
+
+	static String accountingTableName(String sourceTable) {
+		return auxiliaryTableName(sourceTable, ACCOUNTING_SUFFIX, HASHED_ACCOUNTING_TABLE_PREFIX);
 	}
 
 	private static String auxiliaryTableName(String sourceTable, String suffix, String hashedPrefix) {
@@ -268,10 +282,10 @@ final class SharedMysqlPurchaseJournal {
 	 * Serializes accepted-vote increments with the shared boundary marker. Every
 	 * backend therefore agrees whether an increment precedes or follows the copy.
 	 */
-	void incrementPeriodTotals(String uuid, String boundaryColumn, String previousColumn, List<String> columns,
+	void incrementPeriodTotals(UUID voteId, String uuid, String boundaryColumn, String previousColumn, List<String> columns,
 			Integer maximum)
 			throws SQLException {
-		if (uuid == null || uuid.isEmpty() || !isSafeColumn(boundaryColumn) || columns == null
+		if (voteId == null || uuid == null || uuid.isEmpty() || !isSafeColumn(boundaryColumn) || columns == null
 				|| columns.isEmpty() || columns.stream().anyMatch(column -> !isSafeColumn(column))
 				|| maximum != null && (maximum.intValue() < 0 || !isSafeColumn(previousColumn))) {
 			throw new SQLException("Invalid period total increment");
@@ -280,6 +294,12 @@ final class SharedMysqlPurchaseJournal {
 			connection.setAutoCommit(false);
 			try {
 				EpochRow copyMarker = lockLimitEpochRow(connection, "period-copy:" + boundaryColumn);
+				int operation = accountingOperation(boundaryColumn);
+				int completed = lockAccountingVote(connection, voteId);
+				if ((completed & operation) != 0) {
+					rollback(connection);
+					return;
+				}
 				boolean resetPending = maximum != null && resetPending(connection, boundaryColumn, copyMarker);
 				StringBuilder sql = new StringBuilder("UPDATE ").append(qi(table.getTableName())).append(" SET ");
 				for (int index = 0; index < columns.size(); index++) {
@@ -304,10 +324,79 @@ final class SharedMysqlPurchaseJournal {
 					update.setString(parameter, uuid);
 					if (update.executeUpdate() != 1) throw new SQLException("Period total user row is missing");
 				}
-				connection.commit();
+				markAccountingComplete(connection, voteId, completed | operation);
+				commitAndConfirmAccounting(connection, voteId, operation);
 			} catch (SQLException failure) {
 				rollback(connection);
 				throw failure;
+			}
+		}
+	}
+
+	private static int accountingOperation(String boundaryColumn) throws SQLException {
+		return switch (boundaryColumn) {
+		case "DailyTotal" -> DAILY_TOTAL;
+		case "WeeklyTotal" -> WEEKLY_TOTAL;
+		case "MonthTotal" -> MONTH_TOTAL;
+		case "VotePartyVotes" -> VOTE_PARTY_TOTAL;
+		default -> throw new SQLException("Unsupported period total boundary");
+		};
+	}
+
+	private int lockAccountingVote(Connection connection, UUID voteId) throws SQLException {
+		String insert = table.getDbType() == DbType.POSTGRESQL
+				? "INSERT INTO " + qiAccounting() + " (" + qi("vote_id") + ", " + qi("completed")
+						+ ", " + qi("created_at") + ") VALUES (?, 0, ?) ON CONFLICT DO NOTHING"
+				: "INSERT IGNORE INTO " + qiAccounting() + " (" + qi("vote_id") + ", " + qi("completed")
+						+ ", " + qi("created_at") + ") VALUES (?, 0, ?)";
+		try (PreparedStatement statement = connection.prepareStatement(insert)) {
+			statement.setString(1, voteId.toString());
+			statement.setLong(2, System.currentTimeMillis());
+			statement.executeUpdate();
+		}
+		String select = "SELECT " + qi("completed") + " FROM " + qiAccounting() + " WHERE "
+				+ qi("vote_id") + " = ? FOR UPDATE";
+		try (PreparedStatement statement = connection.prepareStatement(select)) {
+			statement.setString(1, voteId.toString());
+			try (ResultSet result = statement.executeQuery()) {
+				if (!result.next()) throw new SQLException("Vote accounting marker is missing");
+				return result.getInt(1);
+			}
+		}
+	}
+
+	private void markAccountingComplete(Connection connection, UUID voteId, int completed) throws SQLException {
+		String update = "UPDATE " + qiAccounting() + " SET " + qi("completed") + " = ? WHERE "
+				+ qi("vote_id") + " = ?";
+		try (PreparedStatement statement = connection.prepareStatement(update)) {
+			statement.setInt(1, completed);
+			statement.setString(2, voteId.toString());
+			if (statement.executeUpdate() != 1) throw new SQLException("Vote accounting marker is missing");
+		}
+	}
+
+	private void commitAndConfirmAccounting(Connection connection, UUID voteId, int operation) throws SQLException {
+		try {
+			connection.commit();
+		} catch (SQLException ambiguousCommit) {
+			closeQuietly(connection);
+			try {
+				Integer completed = findAccountingVote(voteId);
+				if (completed != null && (completed.intValue() & operation) != 0) return;
+			} catch (SQLException confirmationFailure) {
+				ambiguousCommit.addSuppressed(confirmationFailure);
+			}
+			throw ambiguousCommit;
+		}
+	}
+
+	private Integer findAccountingVote(UUID voteId) throws SQLException {
+		String select = "SELECT " + qi("completed") + " FROM " + qiAccounting() + " WHERE "
+				+ qi("vote_id") + " = ?";
+		try (Connection connection = connection(); PreparedStatement statement = connection.prepareStatement(select)) {
+			statement.setString(1, voteId.toString());
+			try (ResultSet result = statement.executeQuery()) {
+				return result.next() ? Integer.valueOf(result.getInt(1)) : null;
 			}
 		}
 	}
@@ -325,11 +414,16 @@ final class SharedMysqlPurchaseJournal {
 	}
 
 	/** Serializes the accepted daily-streak value and timestamp with its shared boundary. */
-	void updateDailyStreak(String uuid, int streak, long updatedAt) throws SQLException {
+	void updateDailyStreak(UUID voteId, String uuid, int streak, long updatedAt) throws SQLException {
 		try (Connection connection = connection()) {
 			connection.setAutoCommit(false);
 			try {
 				lockLimitEpochRow(connection, "streak-copy:DayVoteStreak");
+				int completed = lockAccountingVote(connection, voteId);
+				if ((completed & DAILY_STREAK) != 0) {
+					rollback(connection);
+					return;
+				}
 				String sql = "UPDATE " + qi(table.getTableName()) + " SET " + qi("DayVoteStreak") + " = ?, "
 						+ qi("DayVoteStreakLastUpdate") + " = ? WHERE " + qi("uuid") + uuidCast();
 				try (PreparedStatement update = connection.prepareStatement(sql)) {
@@ -338,7 +432,8 @@ final class SharedMysqlPurchaseJournal {
 					update.setString(3, uuid);
 					if (update.executeUpdate() != 1) throw new SQLException("Daily streak user row is missing");
 				}
-				connection.commit();
+				markAccountingComplete(connection, voteId, completed | DAILY_STREAK);
+				commitAndConfirmAccounting(connection, voteId, DAILY_STREAK);
 			} catch (SQLException failure) {
 				rollback(connection);
 				throw failure;
@@ -731,6 +826,7 @@ final class SharedMysqlPurchaseJournal {
 			ensureColumn(connection, "limit_generation_expires_at", "BIGINT NULL");
 			ensureColumn(connection, "limit_epoch", "BIGINT NULL");
 			ensureEpochSchema(connection);
+			ensureAccountingSchema(connection);
 			String index = "vp_vsp_" + Integer.toUnsignedString(journalTable.hashCode(), 36) + "_state_created";
 			String createIndex = "CREATE INDEX " + (table.getDbType() == DbType.POSTGRESQL ? "IF NOT EXISTS " : "")
 					+ qi(index) + " ON " + qiJournal() + " (" + qi("state") + ", " + qi("created_at") + ");";
@@ -739,6 +835,15 @@ final class SharedMysqlPurchaseJournal {
 			} catch (SQLException failure) {
 				if (failure.getErrorCode() != 1061 && !"42P07".equals(failure.getSQLState())) throw failure;
 			}
+		}
+	}
+
+	private void ensureAccountingSchema(Connection connection) throws SQLException {
+		String create = "CREATE TABLE IF NOT EXISTS " + qiAccounting() + " (" + qi("vote_id")
+				+ " VARCHAR(36) NOT NULL, " + qi("completed") + " INT NOT NULL, " + qi("created_at")
+				+ " BIGINT NOT NULL, PRIMARY KEY (" + qi("vote_id") + "));";
+		try (PreparedStatement statement = connection.prepareStatement(create)) {
+			statement.executeUpdate();
 		}
 	}
 
@@ -779,6 +884,7 @@ final class SharedMysqlPurchaseJournal {
 
 	private String qiJournal() { return table.qi(journalTable); }
 	private String qiEpoch() { return table.qi(epochTable); }
+	private String qiAccounting() { return table.qi(accountingTable); }
 	private String qi(String identifier) { return table.qi(identifier); }
 	private String uuidCast() { return table.getDbType() == DbType.POSTGRESQL ? " = ?::uuid" : " = ?"; }
 

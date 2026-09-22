@@ -130,8 +130,8 @@ public class PlayerVoteListener implements Listener {
         @Override public UUID proxyVoteId() { return event.getBungeeTextTotals().getVoteUUID(); }
         @Override public void cache(VotingPluginUser user) { user.cache(); }
         @Override public void updateName(VotingPluginUser user) { user.updateName(true); }
-        @Override public void voteParty(VotingPluginUser user, boolean realVote, boolean forceProxyRouting) {
-            plugin.getVoteParty().vote(user, realVote, forceProxyRouting);
+        @Override public void voteParty(VotingPluginUser user, boolean realVote, boolean forceProxyRouting, UUID voteId) {
+            plugin.getVoteParty().vote(user, realVote, forceProxyRouting, voteId);
         }
         @Override public long incomingTime() { return event.getTime(); }
         @Override public void setTime(VotingPluginUser user, VoteSite site, long time) { user.setTime(site, time); }
@@ -152,12 +152,12 @@ public class PlayerVoteListener implements Listener {
             return new SharedVotePolicy(plugin.getConfigFile().isCountFakeVotes(), plugin.getConfigFile().isAddTotals(),
                     plugin.getConfigFile().isAddTotalsOffline(), false, false);
         }
-        @Override public void addTotal(VotingPluginUser user) { user.addTotal(); }
-        @Override public void addTotalDaily(VotingPluginUser user) { user.addTotalDaily(); }
-        @Override public void addTotalWeekly(VotingPluginUser user) { user.addTotalWeekly(); }
+        @Override public void addTotal(VotingPluginUser user, UUID voteId) { user.addTotal(voteId); }
+        @Override public void addTotalDaily(VotingPluginUser user, UUID voteId) { user.addTotalDaily(voteId); }
+        @Override public void addTotalWeekly(VotingPluginUser user, UUID voteId) { user.addTotalWeekly(voteId); }
         @Override public void addPoints(VotingPluginUser user) { user.addPoints(); }
-        @Override public void checkDayVoteStreak(VotingPluginUser user, boolean forceProxyRouting) {
-            user.checkDayVoteStreak(forceProxyRouting);
+        @Override public void checkDayVoteStreak(VotingPluginUser user, boolean forceProxyRouting, UUID voteId) {
+            user.checkDayVoteStreak(forceProxyRouting, voteId);
         }
         @Override public boolean limitMonthlyVotes() { return plugin.getConfigFile().isLimitMonthlyVotes(); }
         @Override public int proxyMonthTotal() { return event.getBungeeTextTotals().getMonthTotal(); }

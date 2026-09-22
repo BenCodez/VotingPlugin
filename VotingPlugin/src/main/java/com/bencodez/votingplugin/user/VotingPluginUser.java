@@ -167,9 +167,21 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * Adds one to the monthly total votes.
 	 */
 	public void addMonthTotal() {
+		addMonthTotal(null);
+	}
+
+	public void addMonthTotal(UUID voteId) {
 		PeriodTotalMutationFence.withMutation(() -> {
-			if (incrementSharedMysqlMonthTotal()) return;
-			setMonthTotal(getMonthTotal() + 1);
+			int fallbackTotal = getMonthTotal() + 1;
+			if (plugin != null && UserStorage.MYSQL.equals(plugin.getStorageType())
+					&& plugin.getConfigFile().isLimitMonthlyVotes()) {
+				int maximum = plugin.getTimeChecker().getTime().getDayOfMonth()
+						* plugin.getVoteSiteManager().getVoteSitesEnabled().size();
+				fallbackTotal = Math.min(maximum, fallbackTotal);
+			}
+			int queuedFallbackTotal = fallbackTotal;
+			if (incrementSharedMysqlMonthTotal(voteId)) return;
+			setMonthTotal(queuedFallbackTotal);
 		});
 	}
 
@@ -874,7 +886,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * Adds one to the total votes.
 	 */
 	public void addTotal() {
-		addMonthTotal();
+		addTotal(null);
+	}
+
+	public void addTotal(UUID voteId) {
+		addMonthTotal(voteId);
 		addAllTimeTotal();
 	}
 
@@ -882,9 +898,14 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * Adds one to the daily total votes.
 	 */
 	public void addTotalDaily() {
+		addTotalDaily(null);
+	}
+
+	public void addTotalDaily(UUID voteId) {
 		PeriodTotalMutationFence.withMutation(() -> {
-			if (incrementSharedMysqlPeriodTotal(TopVoter.Daily, "DailyTotal")) return;
-			setDailyTotal(getDailyTotal() + 1);
+			int fallbackTotal = getDailyTotal() + 1;
+			if (incrementSharedMysqlPeriodTotal(voteId, TopVoter.Daily, "DailyTotal")) return;
+			setDailyTotal(fallbackTotal);
 		});
 	}
 
@@ -892,13 +913,18 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * Adds one to the weekly total votes.
 	 */
 	public void addTotalWeekly() {
+		addTotalWeekly(null);
+	}
+
+	public void addTotalWeekly(UUID voteId) {
 		PeriodTotalMutationFence.withMutation(() -> {
-			if (incrementSharedMysqlPeriodTotal(TopVoter.Weekly, "WeeklyTotal")) return;
-			setWeeklyTotal(getWeeklyTotal() + 1);
+			int fallbackTotal = getWeeklyTotal() + 1;
+			if (incrementSharedMysqlPeriodTotal(voteId, TopVoter.Weekly, "WeeklyTotal")) return;
+			setWeeklyTotal(fallbackTotal);
 		});
 	}
 
-	private boolean incrementSharedMysqlMonthTotal() {
+	private boolean incrementSharedMysqlMonthTotal(UUID voteId) {
 		if (plugin == null || !UserStorage.MYSQL.equals(plugin.getStorageType())) return false;
 		if (getCache() != null) getCache().clearChanges();
 		ArrayList<String> columns = new ArrayList<>();
@@ -911,21 +937,15 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			maximum = Integer.valueOf(plugin.getTimeChecker().getTime().getDayOfMonth()
 					* plugin.getVoteSiteManager().getVoteSitesEnabled().size());
 		}
-		if (!VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, getUUID(), "MonthTotal", "LastMonthTotal",
-				columns, maximum)) {
-			throw new IllegalStateException("Unable to persist shared MySQL monthly vote total");
-		}
-		return true;
+		return VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, getUUID(), "MonthTotal",
+				"LastMonthTotal", columns, maximum);
 	}
 
-	private boolean incrementSharedMysqlPeriodTotal(TopVoter top, String column) {
+	private boolean incrementSharedMysqlPeriodTotal(UUID voteId, TopVoter top, String column) {
 		if (plugin == null || !UserStorage.MYSQL.equals(plugin.getStorageType())) return false;
 		if (getCache() != null) getCache().clearChanges();
-		if (!VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, getUUID(), column, top.getLastColumnName(),
-				List.of(column), null)) {
-			throw new IllegalStateException("Unable to persist shared MySQL " + top + " vote total");
-		}
-		return true;
+		return VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, getUUID(), column,
+				top.getLastColumnName(), List.of(column), null);
 	}
 
 	/**
@@ -1103,6 +1123,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	@Deprecated
 	public void checkDayVoteStreak(boolean forceBungee) {
+		checkDayVoteStreak(forceBungee, null);
+	}
+
+	public void checkDayVoteStreak(boolean forceBungee, UUID voteId) {
 		PeriodTotalMutationFence.withMutation(() -> {
 			if (!voteStreakUpdatedToday(LocalDateTime.now())) {
 				if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage() || hasPercentageTotal(
@@ -1113,17 +1137,21 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 									plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(), null));
 					int streak = getDayVoteStreak() + 1;
 					long updatedAt = System.currentTimeMillis();
+					boolean sharedStreakPersisted = false;
 					if (UserStorage.MYSQL.equals(plugin.getStorageType())) {
 						if (getCache() != null) getCache().clearChanges();
-						if (!VoteShopPurchaseService.updateMysqlDailyStreak(plugin, getUUID(), streak, updatedAt)) {
-							throw new IllegalStateException("Unable to persist shared MySQL daily streak");
+						sharedStreakPersisted = VoteShopPurchaseService.updateMysqlDailyStreak(
+								plugin, voteId, getUUID(), streak, updatedAt);
+						if (sharedStreakPersisted) {
+							if (getBestDayVoteStreak() < streak) setBestDayVoteStreak(streak);
+						} else {
+							setDayVoteStreak(streak);
 						}
-						if (getBestDayVoteStreak() < streak) setBestDayVoteStreak(streak);
 					} else {
 						setDayVoteStreak(streak);
 					}
 					plugin.getSpecialRewards().checkVoteStreak(null, this, "Day", forceBungee);
-					if (!UserStorage.MYSQL.equals(plugin.getStorageType())) setDayVoteStreakLastUpdate(updatedAt);
+					if (!sharedStreakPersisted) setDayVoteStreakLastUpdate(updatedAt);
 				}
 			}
 		});
@@ -2524,15 +2552,17 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	/** Adds one VoteParty count using the shared period boundary when MySQL is shared. */
 	public void addVotePartyVote() {
+		addVotePartyVote(null);
+	}
+
+	public void addVotePartyVote(UUID voteId) {
+		int fallbackTotal = getVotePartyVotes() + 1;
 		if (plugin != null && UserStorage.MYSQL.equals(plugin.getStorageType())) {
 			if (getCache() != null) getCache().clearChanges();
-			if (!VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, getUUID(), "VotePartyVotes",
-					"LastVotePartyVotes", List.of("VotePartyVotes"), null)) {
-				throw new IllegalStateException("Unable to persist shared MySQL VoteParty count");
-			}
-			return;
+			if (VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, getUUID(), "VotePartyVotes",
+					"LastVotePartyVotes", List.of("VotePartyVotes"), null)) return;
 		}
-		setVotePartyVotes(getVotePartyVotes() + 1);
+		setVotePartyVotes(fallbackTotal);
 	}
 
 	/**
