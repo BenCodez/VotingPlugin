@@ -8,6 +8,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
+
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
 
@@ -15,6 +17,7 @@ import com.bencodez.advancedcore.api.time.TimeChangeTransition;
 import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.data.ServerData;
+import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardTarget;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeUserProgress;
 
 class ServerDataTimeChangeRecoveryTest {
@@ -84,6 +87,27 @@ class ServerDataTimeChangeRecoveryTest {
 		assertTrue(data.prepareTimeChangeUserStreak(transition, uuid, 9, true).rewardComplete());
 		data.completeTimeChangeUser(transition, uuid);
 		assertEquals(uuid, data.getTimeChangeCursor(transition));
+	}
+
+	@Test
+	void retryKeepsTheFirstDurableRankedRewardSelection() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
+		YamlConfiguration yaml = new YamlConfiguration();
+		when(plugin.getServerDataFile()).thenReturn(coreData);
+		when(coreData.getData()).thenReturn(yaml);
+		ServerData data = new ServerData(plugin);
+		TimeChangeTransition transition = transition("DAY:2026-09-21", "2026-09-21", TimeType.DAY);
+		data.beginTimeChangeRecovery(transition);
+		List<TimeChangeRewardTarget> original = List.of(
+				new TimeChangeRewardTarget("00000000-0000-0000-0000-000000000001", "first", 1, "1"),
+				new TimeChangeRewardTarget("00000000-0000-0000-0000-000000000002", "second", 2, "2"));
+		List<TimeChangeRewardTarget> changed = List.of(
+				new TimeChangeRewardTarget("00000000-0000-0000-0000-000000000003", "late", 1, "1"));
+
+		assertEquals(original, data.prepareTimeChangeRewardTargets(transition, original));
+		assertEquals(original, data.prepareTimeChangeRewardTargets(transition, changed));
+		assertEquals(original, new ServerData(plugin).getTimeChangeRewardTargets(transition));
 	}
 
 	private TimeChangeTransition transition(String id, String period, TimeType type) {

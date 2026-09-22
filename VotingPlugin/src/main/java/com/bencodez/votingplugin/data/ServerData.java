@@ -23,6 +23,7 @@ import com.bencodez.votingplugin.topvoter.TopVoter;
 public class ServerData {
 	public record TimeChangeUserProgress(String uuid, int streakTarget, boolean rewardRequired,
 			boolean rewardComplete) { }
+	public record TimeChangeRewardTarget(String uuid, String playerName, int place, String reward) { }
 
 	private static final String TIME_CHANGE_RECOVERY = "TimeChangeRecovery";
 	private static final List<String> TIME_CHANGE_PHASES = List.of("START", "SNAPSHOT", "COPY_TOTALS",
@@ -489,6 +490,82 @@ public class ServerData {
 		}
 		getData().set(userPath + ".RewardComplete", true);
 		saveData();
+	}
+
+	/**
+	 * Persists the ranked recipients and reward assignments selected at the period
+	 * boundary. Retries always return this first durable selection.
+	 */
+	public synchronized List<TimeChangeRewardTarget> prepareTimeChangeRewardTargets(
+			TimeChangeTransition transition, List<TimeChangeRewardTarget> proposed) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		String targetsPath = path + ".RewardTargets";
+		if (getData().getBoolean(targetsPath + ".Prepared", false)) {
+			return getTimeChangeRewardTargets(transition);
+		}
+		List<TimeChangeRewardTarget> snapshot = List.copyOf(proposed);
+		for (TimeChangeRewardTarget target : snapshot) {
+			validateRewardTarget(target);
+		}
+		getData().set(targetsPath, null);
+		getData().set(targetsPath + ".Count", snapshot.size());
+		for (int index = 0; index < snapshot.size(); index++) {
+			TimeChangeRewardTarget target = snapshot.get(index);
+			String targetPath = targetsPath + ".Entries." + index;
+			getData().set(targetPath + ".Uuid", target.uuid());
+			getData().set(targetPath + ".PlayerName", target.playerName());
+			getData().set(targetPath + ".Place", target.place());
+			getData().set(targetPath + ".Reward", target.reward());
+		}
+		getData().set(targetsPath + ".Prepared", true);
+		try {
+			saveData();
+		} catch (RuntimeException | Error failure) {
+			getData().set(targetsPath, null);
+			throw failure;
+		}
+		return snapshot;
+	}
+
+	/** Returns the durable ranked reward selection for this transition. */
+	public synchronized List<TimeChangeRewardTarget> getTimeChangeRewardTargets(TimeChangeTransition transition) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		String targetsPath = path + ".RewardTargets";
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))
+				|| !getData().getBoolean(targetsPath + ".Prepared", false)) {
+			return List.of();
+		}
+		int count = getData().getInt(targetsPath + ".Count", -1);
+		if (count < 0) {
+			throw new IllegalStateException("Invalid time change reward target count");
+		}
+		List<TimeChangeRewardTarget> targets = new ArrayList<>(count);
+		for (int index = 0; index < count; index++) {
+			String targetPath = targetsPath + ".Entries." + index;
+			TimeChangeRewardTarget target = new TimeChangeRewardTarget(
+					getData().getString(targetPath + ".Uuid", ""),
+					getData().getString(targetPath + ".PlayerName", ""),
+					getData().getInt(targetPath + ".Place", 0),
+					getData().getString(targetPath + ".Reward", ""));
+			validateRewardTarget(target);
+			targets.add(target);
+		}
+		return List.copyOf(targets);
+	}
+
+	private void validateRewardTarget(TimeChangeRewardTarget target) {
+		if (target == null || target.playerName() == null || target.place() <= 0
+				|| target.reward() == null || target.reward().isEmpty()) {
+			throw new IllegalStateException("Invalid time change reward target");
+		}
+		try {
+			UUID.fromString(target.uuid());
+		} catch (RuntimeException invalidUuid) {
+			throw new IllegalStateException("Invalid time change reward target UUID", invalidUuid);
+		}
 	}
 
 	/** Checks the durable receipt for one top-voter reward recipient. */

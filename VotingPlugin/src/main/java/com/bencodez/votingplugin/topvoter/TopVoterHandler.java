@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.topvoter;
 
 import java.io.File;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.YearMonth;
@@ -40,6 +41,7 @@ import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.simpleapi.sql.Column;
 import com.bencodez.simpleapi.sql.DataType;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardTarget;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeUserProgress;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseService;
@@ -590,6 +592,8 @@ public class TopVoterHandler implements Listener {
 	private void runRecoverablePeriod(TopVoter top, TimeChangeTransition transition) {
 		if (!plugin.getServerData().hasTimeChangePhase(transition, SNAPSHOT)) {
 			ensureTransitionActive(transition);
+			plugin.getServerData().prepareTimeChangeRewardTargets(transition,
+					buildTopRewardSnapshot(top, transition));
 			if ((top == TopVoter.Daily && plugin.getConfigFile().isStoreTopVotersDaily())
 					|| (top == TopVoter.Weekly && plugin.getConfigFile().isStoreTopVotersWeekly())
 					|| top == TopVoter.Monthly) {
@@ -671,7 +675,7 @@ public class TopVoterHandler implements Listener {
 
 	private void processDailyUser(VotingPluginUser user, TimeChangeTransition transition, String uuid) {
 		if (plugin.getConfigFile().isUseVoteStreaks()
-				&& !user.voteStreakUpdatedToday(LocalDateTime.now().minusDays(1)) && user.getDayVoteStreak() != 0) {
+				&& !user.voteStreakUpdatedToday(previousDayTime(transition)) && user.getDayVoteStreak() != 0) {
 			applyRecoverableStreak(user, transition, uuid, TopVoter.Daily, 0, false);
 		}
 		if (plugin.getConfigFile().isUseHighestTotals()
@@ -741,8 +745,25 @@ public class TopVoterHandler implements Listener {
 	}
 
 	private void processRecoverableTopRewards(TopVoter top, TimeChangeTransition transition) {
-		if (!isTopRewardEnabled(top)) return;
+		for (TimeChangeRewardTarget target : plugin.getServerData().getTimeChangeRewardTargets(transition)) {
+			ensureTransitionActive(transition);
+			if (plugin.getServerData().hasTimeChangeRewardReceipt(transition, target.uuid())) continue;
+			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(
+					UUID.fromString(target.uuid()), target.playerName());
+			user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
+			if (!plugin.getConfigFile().isTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
+				giveTopVoterAward(top, user, target.place(), target.reward());
+				plugin.getServerData().completeTimeChangeReward(transition, target.uuid());
+				plugin.getLogger().info("Giving " + top + " top voter reward " + target.place() + " to "
+						+ target.playerName());
+			}
+		}
+	}
+
+	List<TimeChangeRewardTarget> buildTopRewardSnapshot(TopVoter top, TimeChangeTransition transition) {
+		if (!isTopRewardEnabled(top)) return List.of();
 		HashMap<Integer, String> places = handlePlaces(getPossibleRewardPlaces(top));
+		List<TimeChangeRewardTarget> targets = new ArrayList<>();
 		int place = 0;
 		int lastTotal = -1;
 		for (Entry<TopVoterPlayer, Integer> entry : topVotersFor(top, transition)) {
@@ -750,19 +771,14 @@ public class TopVoterHandler implements Listener {
 			if (plugin.getConfigFile().isTopVoterAwardsTies()) {
 				if (entry.getValue().intValue() != lastTotal) place++;
 			} else place++;
-			if (places.containsKey(place) && !plugin.getServerData().hasTimeChangeRewardReceipt(transition,
-					entry.getKey().getUuid().toString())) {
-				VotingPluginUser user = entry.getKey().getUser();
-				user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
-				if (!plugin.getConfigFile().isTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
-					giveTopVoterAward(top, user, place, places.get(place));
-					plugin.getServerData().completeTimeChangeReward(transition, entry.getKey().getUuid().toString());
-					plugin.getLogger().info("Giving " + top + " top voter reward " + place + " to "
-							+ entry.getKey().getPlayerName());
-				}
+			if (places.containsKey(place)) {
+				targets.add(new TimeChangeRewardTarget(entry.getKey().getUuid().toString(),
+						entry.getKey().getPlayerName() == null ? "" : entry.getKey().getPlayerName(),
+						place, places.get(place)));
 			}
 			lastTotal = entry.getValue().intValue();
 		}
+		return List.copyOf(targets);
 	}
 
 	private Iterable<Entry<TopVoterPlayer, Integer>> topVotersFor(TopVoter top,
@@ -782,6 +798,15 @@ public class TopVoterHandler implements Listener {
 		} catch (RuntimeException invalidPeriod) {
 			plugin.debug(invalidPeriod);
 			return plugin.getTimeChecker().getTime().minusMonths(1);
+		}
+	}
+
+	LocalDateTime previousDayTime(TimeChangeTransition transition) {
+		try {
+			return LocalDate.parse(transition.getPeriodKey()).minusDays(1).atStartOfDay();
+		} catch (RuntimeException invalidPeriod) {
+			plugin.debug(invalidPeriod);
+			return plugin.getTimeChecker().getTime().minusDays(1);
 		}
 	}
 
