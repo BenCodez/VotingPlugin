@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.WeekFields;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -613,6 +614,27 @@ public class VoteShopPurchaseService {
 			SharedMysqlCacheReconciler.invalidateAll(plugin, totalColumn);
 		}
 		return reset.get();
+	}
+
+	/** Atomically increments period totals under the cross-backend boundary lock. */
+	public static boolean incrementMysqlPeriodTotals(VotingPluginMain plugin, String uuid, String boundaryColumn,
+			String previousColumn, List<String> columns, Integer maximum) {
+		if (!canRecoverSharedMysqlPurchases(plugin) || columns == null || columns.isEmpty()) return false;
+		try {
+			MySQL table = plugin.getMysql();
+			for (String column : columns) table.checkColumn(column, DataType.INTEGER);
+			if (maximum != null) table.checkColumn(previousColumn, DataType.INTEGER);
+			SharedMysqlPurchaseJournal.forTable(table).incrementPeriodTotals(uuid, boundaryColumn, previousColumn,
+					columns, maximum);
+			return true;
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to atomically increment MySQL period total: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+			return false;
+		} finally {
+			for (String column : columns) SharedMysqlCacheReconciler.invalidate(plugin, uuid, column);
+		}
 	}
 
 	/** Atomically captures one period boundary for a recoverable transition. */

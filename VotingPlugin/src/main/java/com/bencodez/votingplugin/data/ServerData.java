@@ -515,7 +515,12 @@ public class ServerData {
 		}
 		String userPath = timeChangeRecoveryPath(transition.getType()) + ".CurrentUser";
 		getData().set(userPath + ".RewardClaimed", true);
-		saveData();
+		try {
+			saveData();
+		} catch (RuntimeException failure) {
+			getData().set(userPath + ".RewardClaimed", false);
+			throw failure;
+		}
 	}
 
 	/** Marks the in-flight user's streak reward call as returned successfully. */
@@ -751,7 +756,12 @@ public class ServerData {
 		}
 		String statePath = path + ".RewardStates." + uuid;
 		getData().set(statePath, TimeChangeRewardState.CLAIMED.name());
-		saveData();
+		try {
+			saveData();
+		} catch (RuntimeException failure) {
+			getData().set(statePath, null);
+			throw failure;
+		}
 	}
 
 	/** Persists a recipient receipt only after the existing reward API returns. */

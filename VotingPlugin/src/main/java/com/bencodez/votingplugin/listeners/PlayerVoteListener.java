@@ -11,6 +11,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
 import com.bencodez.advancedcore.api.bedrock.BedrockNameResolver;
+import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.user.validation.UserValidationResult;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
@@ -163,7 +164,11 @@ public class PlayerVoteListener implements Listener {
         @Override public int userMonthTotal(VotingPluginUser user) { return user.getTotal(TopVoter.Monthly); }
         @Override public int currentDayOfMonth() { return plugin.getTimeChecker().getTime().getDayOfMonth(); }
         @Override public int enabledSiteCount() { return plugin.getVoteSiteManager().getVoteSitesEnabled().size(); }
-        @Override public void setMonthTotal(VotingPluginUser user, int total) { user.setTotal(TopVoter.Monthly, total); }
+		@Override public void setMonthTotal(VotingPluginUser user, int total) {
+			// Shared MySQL increments apply the same cap inside the boundary-serialized
+			// transaction, so an absolute cache write here could only reintroduce a stale value.
+			if (!UserStorage.MYSQL.equals(plugin.getStorageType())) user.setTotal(TopVoter.Monthly, total);
+		}
         @Override public void milestones(VotingPluginUser user, UUID voteId, boolean forceProxyRouting) {
             plugin.getVoteMilestonesManager().handleVote(user, event.getBungeeTextTotals(), forceProxyRouting,
                     voteId, new HashMap<String, String>());

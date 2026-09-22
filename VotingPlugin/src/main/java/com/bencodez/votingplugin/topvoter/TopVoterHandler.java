@@ -668,27 +668,46 @@ public class TopVoterHandler implements Listener {
 		}
 	}
 
-	private void processRecoverableUsers(TopVoter top, TimeChangeTransition transition) {
+	void processRecoverableUsers(TopVoter top, TimeChangeTransition transition) {
 		if (!plugin.getConfigFile().isUseVoteStreaks() && !plugin.getConfigFile().isUseHighestTotals()) return;
 		AtomicReference<String> cursor = new AtomicReference<>(plugin.getServerData().getTimeChangeCursor(transition));
+		AtomicReference<Throwable> failure = new AtomicReference<>();
+		CountDownLatch finished = new CountDownLatch(1);
 		LocalDateTime lastMonthTime = top == TopVoter.Monthly ? previousMonthTime(transition) : null;
 		plugin.getUserManager().forEachUserKeys((uuid, columns) -> {
+			if (failure.get() != null) return;
 			String value = uuid.toString();
 			if (value.compareTo(cursor.get()) <= 0) return;
-			ensureTransitionActive(transition);
-			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
-			user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
-			user.updateTempCacheWithColumns(columns);
 			try {
-				if (top == TopVoter.Daily) processDailyUser(user, transition, value);
-				else if (top == TopVoter.Weekly) processWeeklyUser(user, transition, value);
-				else processMonthlyUser(user, lastMonthTime, transition, value);
-			} finally {
-				user.clearTempCache();
+				ensureTransitionActive(transition);
+				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
+				user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
+				user.updateTempCacheWithColumns(columns);
+				try {
+					if (top == TopVoter.Daily) processDailyUser(user, transition, value);
+					else if (top == TopVoter.Weekly) processWeeklyUser(user, transition, value);
+					else processMonthlyUser(user, lastMonthTime, transition, value);
+					if (user.getCache() != null) user.getCache().clearChanges();
+				} finally {
+					user.clearTempCache();
+				}
+				plugin.getServerData().completeTimeChangeUser(transition, value);
+				cursor.set(value);
+			} catch (Throwable userFailure) {
+				failure.compareAndSet(null, userFailure);
 			}
-			plugin.getServerData().completeTimeChangeUser(transition, value);
-			cursor.set(value);
-		}, count -> { });
+		}, count -> finished.countDown());
+		try {
+			if (!finished.await(10, TimeUnit.MINUTES)) {
+				throw new IllegalStateException("Timed out processing time-change users");
+			}
+		} catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt();
+			throw new CancellationException("Interrupted while processing time-change users");
+		}
+		if (failure.get() != null) {
+			throw new IllegalStateException("Unable to durably process a time-change user", failure.get());
+		}
 	}
 
 	void processDailyUser(VotingPluginUser user, TimeChangeTransition transition, String uuid) {

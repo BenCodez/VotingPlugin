@@ -48,6 +48,7 @@ import com.bencodez.votingplugin.proxy.VoteTotalsSnapshot;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
 import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
+import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseService;
 import com.bencodez.votingplugin.votesites.NextSite;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
@@ -166,7 +167,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * Adds one to the monthly total votes.
 	 */
 	public void addMonthTotal() {
-		PeriodTotalMutationFence.withMutation(() -> setMonthTotal(getMonthTotal() + 1));
+		PeriodTotalMutationFence.withMutation(() -> {
+			if (incrementSharedMysqlMonthTotal()) return;
+			setMonthTotal(getMonthTotal() + 1);
+		});
 	}
 
 	/**
@@ -878,14 +882,50 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * Adds one to the daily total votes.
 	 */
 	public void addTotalDaily() {
-		PeriodTotalMutationFence.withMutation(() -> setDailyTotal(getDailyTotal() + 1));
+		PeriodTotalMutationFence.withMutation(() -> {
+			if (incrementSharedMysqlPeriodTotal(TopVoter.Daily, "DailyTotal")) return;
+			setDailyTotal(getDailyTotal() + 1);
+		});
 	}
 
 	/**
 	 * Adds one to the weekly total votes.
 	 */
 	public void addTotalWeekly() {
-		PeriodTotalMutationFence.withMutation(() -> setWeeklyTotal(getWeeklyTotal() + 1));
+		PeriodTotalMutationFence.withMutation(() -> {
+			if (incrementSharedMysqlPeriodTotal(TopVoter.Weekly, "WeeklyTotal")) return;
+			setWeeklyTotal(getWeeklyTotal() + 1);
+		});
+	}
+
+	private boolean incrementSharedMysqlMonthTotal() {
+		if (plugin == null || !UserStorage.MYSQL.equals(plugin.getStorageType())) return false;
+		if (getCache() != null) getCache().clearChanges();
+		ArrayList<String> columns = new ArrayList<>();
+		columns.add("MonthTotal");
+		if (plugin.getConfigFile().isStoreMonthTotalsWithDate()) {
+			columns.add(plugin.getVotingPluginUserManager().getMonthTotalsWithDatePath());
+		}
+		Integer maximum = null;
+		if (plugin.getConfigFile().isLimitMonthlyVotes()) {
+			maximum = Integer.valueOf(plugin.getTimeChecker().getTime().getDayOfMonth()
+					* plugin.getVoteSiteManager().getVoteSitesEnabled().size());
+		}
+		if (!VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, getUUID(), "MonthTotal", "LastMonthTotal",
+				columns, maximum)) {
+			throw new IllegalStateException("Unable to persist shared MySQL monthly vote total");
+		}
+		return true;
+	}
+
+	private boolean incrementSharedMysqlPeriodTotal(TopVoter top, String column) {
+		if (plugin == null || !UserStorage.MYSQL.equals(plugin.getStorageType())) return false;
+		if (getCache() != null) getCache().clearChanges();
+		if (!VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, getUUID(), column, top.getLastColumnName(),
+				List.of(column), null)) {
+			throw new IllegalStateException("Unable to persist shared MySQL " + top + " vote total");
+		}
+		return true;
 	}
 
 	/**

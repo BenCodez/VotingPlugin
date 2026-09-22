@@ -9,14 +9,37 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.UserData;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseService;
 
 class VotingPluginUserVoteShopLimitTest {
+	@Test
+	void sharedMysqlDailyVotesUseTheCrossBackendBoundaryMutation() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		when(plugin.getStorageType()).thenReturn(UserStorage.MYSQL);
+		AdvancedCoreUser base = mock(AdvancedCoreUser.class);
+		when(base.getUserData()).thenReturn(mock(UserData.class));
+		when(base.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
+		VotingPluginUser user = spy(new VotingPluginUser(plugin, base));
+		doReturn(null).when(user).getCache();
+		try (MockedStatic<VoteShopPurchaseService> service = org.mockito.Mockito
+				.mockStatic(VoteShopPurchaseService.class)) {
+			service.when(() -> VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, base.getUUID(),
+					"DailyTotal", "LastDailyTotal", java.util.List.of("DailyTotal"), null)).thenReturn(true);
+
+			user.addTotalDaily();
+
+			service.verify(() -> VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, base.getUUID(),
+					"DailyTotal", "LastDailyTotal", java.util.List.of("DailyTotal"), null));
+		}
+	}
+
 	@Test
 	void sharedMysqlLimitsUseNonBlockingUserCacheWhenAvailable() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);

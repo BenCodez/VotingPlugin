@@ -318,6 +318,45 @@ class SharedMysqlPurchaseJournalTest {
 	}
 
 	@Test
+	void periodIncrementLocksTheSameBoundaryRowBeforeUpdatingTheUser() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement markerInsert = mock(PreparedStatement.class);
+		PreparedStatement markerSelect = mock(PreparedStatement.class);
+		PreparedStatement resetMarkerInsert = mock(PreparedStatement.class);
+		PreparedStatement resetMarkerSelect = mock(PreparedStatement.class);
+		PreparedStatement increment = mock(PreparedStatement.class);
+		ResultSet epoch = mock(ResultSet.class);
+		ResultSet resetEpoch = mock(ResultSet.class);
+		when(epoch.next()).thenReturn(true);
+		when(epoch.getLong(1)).thenReturn(9L);
+		when(epoch.getString(2)).thenReturn("time-copy:MONTH:2026-09");
+		when(resetEpoch.next()).thenReturn(true);
+		when(resetEpoch.getString(2)).thenReturn("time-total:MONTH:2026-08");
+		when(markerSelect.executeQuery()).thenReturn(epoch);
+		when(resetMarkerSelect.executeQuery()).thenReturn(resetEpoch);
+		when(increment.executeUpdate()).thenReturn(1);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(markerInsert, markerSelect,
+				resetMarkerInsert, resetMarkerSelect, increment);
+
+		new SharedMysqlPurchaseJournal(fixture.table, false).incrementPeriodTotals(
+				"00000000-0000-0000-0000-000000000001", "MonthTotal", "LastMonthTotal",
+				java.util.List.of("MonthTotal", "MonthTotal-SEPTEMBER-2026"), Integer.valueOf(42));
+
+		org.mockito.ArgumentCaptor<String> sql = org.mockito.ArgumentCaptor.forClass(String.class);
+		verify(fixture.work, org.mockito.Mockito.times(5)).prepareStatement(sql.capture());
+		assertTrue(sql.getAllValues().get(1).contains("FOR UPDATE"));
+		assertTrue(sql.getAllValues().get(4).contains(
+				"`MonthTotal` = LEAST(COALESCE(`LastMonthTotal`, 0) + ?, COALESCE(`MonthTotal`, 0) + 1)"));
+		assertTrue(sql.getAllValues().get(4).contains(
+				"`MonthTotal-SEPTEMBER-2026` = LEAST(?, COALESCE(`MonthTotal-SEPTEMBER-2026`, 0) + 1)"));
+		verify(markerSelect).setString(1, "period-copy:MonthTotal");
+		verify(increment).setInt(1, 42);
+		verify(increment).setInt(2, 42);
+		verify(increment).setString(3, "00000000-0000-0000-0000-000000000001");
+		verify(fixture.work).commit();
+	}
+
+	@Test
 	void dailyStreakValueAndTimestampCopyShareOneTransaction() throws Exception {
 		Fixture fixture = fixture();
 		PreparedStatement markerInsert = mock(PreparedStatement.class);

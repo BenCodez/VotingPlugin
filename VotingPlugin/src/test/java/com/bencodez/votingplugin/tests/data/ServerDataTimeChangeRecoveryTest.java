@@ -117,7 +117,7 @@ class ServerDataTimeChangeRecoveryTest {
 	}
 
 	@Test
-	void failedRewardClaimSaveRemainsClaimedBecausePersistenceOutcomeIsAmbiguous() {
+	void failedRewardClaimSaveRollsBackToUnclaimed() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
 		YamlConfiguration yaml = new YamlConfiguration();
@@ -130,7 +130,7 @@ class ServerDataTimeChangeRecoveryTest {
 		doThrow(new IllegalStateException("disk unavailable")).when(coreData).saveData();
 
 		assertThrows(IllegalStateException.class, () -> data.claimTimeChangeReward(transition, uuid));
-		assertEquals(TimeChangeRewardState.CLAIMED, data.getTimeChangeRewardState(transition, uuid));
+		assertEquals(TimeChangeRewardState.UNCLAIMED, data.getTimeChangeRewardState(transition, uuid));
 	}
 
 	@Test

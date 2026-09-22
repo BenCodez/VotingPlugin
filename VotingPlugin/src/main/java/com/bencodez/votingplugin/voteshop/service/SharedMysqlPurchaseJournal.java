@@ -264,6 +264,66 @@ final class SharedMysqlPurchaseJournal {
 		}
 	}
 
+	/**
+	 * Serializes accepted-vote increments with the shared boundary marker. Every
+	 * backend therefore agrees whether an increment precedes or follows the copy.
+	 */
+	void incrementPeriodTotals(String uuid, String boundaryColumn, String previousColumn, List<String> columns,
+			Integer maximum)
+			throws SQLException {
+		if (uuid == null || uuid.isEmpty() || !isSafeColumn(boundaryColumn) || columns == null
+				|| columns.isEmpty() || columns.stream().anyMatch(column -> !isSafeColumn(column))
+				|| maximum != null && (maximum.intValue() < 0 || !isSafeColumn(previousColumn))) {
+			throw new SQLException("Invalid period total increment");
+		}
+		try (Connection connection = connection()) {
+			connection.setAutoCommit(false);
+			try {
+				EpochRow copyMarker = lockLimitEpochRow(connection, "period-copy:" + boundaryColumn);
+				boolean resetPending = maximum != null && resetPending(connection, boundaryColumn, copyMarker);
+				StringBuilder sql = new StringBuilder("UPDATE ").append(qi(table.getTableName())).append(" SET ");
+				for (int index = 0; index < columns.size(); index++) {
+					if (index > 0) sql.append(", ");
+					String quoted = qi(columns.get(index));
+					String increment = "COALESCE(" + quoted + ", 0) + 1";
+					sql.append(quoted).append(" = ");
+					if (maximum != null && resetPending && columns.get(index).equals(boundaryColumn)) {
+						sql.append("LEAST(COALESCE(").append(qi(previousColumn)).append(", 0) + ?, ")
+								.append(increment).append(')');
+					} else if (maximum != null) sql.append("LEAST(?, ").append(increment).append(')');
+					else sql.append(increment);
+				}
+				sql.append(" WHERE ").append(qi("uuid")).append(uuidCast());
+				try (PreparedStatement update = connection.prepareStatement(sql.toString())) {
+					int parameter = 1;
+					if (maximum != null) {
+						for (int ignored = 0; ignored < columns.size(); ignored++) {
+							update.setInt(parameter++, maximum.intValue());
+						}
+					}
+					update.setString(parameter, uuid);
+					if (update.executeUpdate() != 1) throw new SQLException("Period total user row is missing");
+				}
+				connection.commit();
+			} catch (SQLException failure) {
+				rollback(connection);
+				throw failure;
+			}
+		}
+	}
+
+	private boolean resetPending(Connection connection, String boundaryColumn, EpochRow copyMarker)
+			throws SQLException {
+		EpochRow resetMarker = lockLimitEpochRow(connection, "period-reset:" + boundaryColumn);
+		String copyTransition = generationTransition(copyMarker.lastResetGeneration(), "time-copy:");
+		String resetTransition = generationTransition(resetMarker.lastResetGeneration(), "time-total:");
+		return copyTransition != null && !copyTransition.equals(resetTransition);
+	}
+
+	private static String generationTransition(String generation, String prefix) {
+		return generation != null && generation.startsWith(prefix) ? generation.substring(prefix.length()) : null;
+	}
+
 	/** Copies the period boundary once so a phase-receipt retry cannot move it. */
 	void copyPeriodBoundary(String totalColumn, String previousColumn, String generation) throws SQLException {
 		if (!isSafeColumn(totalColumn) || !isSafeColumn(previousColumn)) {
