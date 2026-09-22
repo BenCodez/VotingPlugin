@@ -383,6 +383,27 @@ class SharedMysqlPurchaseJournalTest {
 	}
 
 	@Test
+	void dailyStreakUpdateLocksTheSameBoundaryRow() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement markerInsert = mock(PreparedStatement.class);
+		PreparedStatement markerSelect = mock(PreparedStatement.class);
+		PreparedStatement update = mock(PreparedStatement.class);
+		ResultSet epoch = mock(ResultSet.class);
+		when(epoch.next()).thenReturn(true);
+		when(markerSelect.executeQuery()).thenReturn(epoch);
+		when(update.executeUpdate()).thenReturn(1);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(markerInsert, markerSelect, update);
+
+		new SharedMysqlPurchaseJournal(fixture.table, false).updateDailyStreak(
+				"00000000-0000-0000-0000-000000000001", 7, 1234L);
+
+		verify(markerSelect).setString(1, "streak-copy:DayVoteStreak");
+		verify(update).setInt(1, 7);
+		verify(update).setString(2, "1234");
+		verify(fixture.work).commit();
+	}
+
+	@Test
 	void ambiguousResetCommitIsConfirmedAfterTheConnectionIsReleased() throws Exception {
 		Fixture fixture = fixture();
 		Connection reset = mock(Connection.class);

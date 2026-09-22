@@ -324,6 +324,28 @@ final class SharedMysqlPurchaseJournal {
 		return generation != null && generation.startsWith(prefix) ? generation.substring(prefix.length()) : null;
 	}
 
+	/** Serializes the accepted daily-streak value and timestamp with its shared boundary. */
+	void updateDailyStreak(String uuid, int streak, long updatedAt) throws SQLException {
+		try (Connection connection = connection()) {
+			connection.setAutoCommit(false);
+			try {
+				lockLimitEpochRow(connection, "streak-copy:DayVoteStreak");
+				String sql = "UPDATE " + qi(table.getTableName()) + " SET " + qi("DayVoteStreak") + " = ?, "
+						+ qi("DayVoteStreakLastUpdate") + " = ? WHERE " + qi("uuid") + uuidCast();
+				try (PreparedStatement update = connection.prepareStatement(sql)) {
+					update.setInt(1, streak);
+					update.setString(2, Long.toString(updatedAt));
+					update.setString(3, uuid);
+					if (update.executeUpdate() != 1) throw new SQLException("Daily streak user row is missing");
+				}
+				connection.commit();
+			} catch (SQLException failure) {
+				rollback(connection);
+				throw failure;
+			}
+		}
+	}
+
 	/** Copies the period boundary once so a phase-receipt retry cannot move it. */
 	void copyPeriodBoundary(String totalColumn, String previousColumn, String generation) throws SQLException {
 		if (!isSafeColumn(totalColumn) || !isSafeColumn(previousColumn)) {

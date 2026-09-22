@@ -637,6 +637,25 @@ public class VoteShopPurchaseService {
 		}
 	}
 
+	/** Atomically publishes an accepted daily streak under the shared boundary lock. */
+	public static boolean updateMysqlDailyStreak(VotingPluginMain plugin, String uuid, int streak, long updatedAt) {
+		if (!canRecoverSharedMysqlPurchases(plugin)) return false;
+		try {
+			MySQL table = plugin.getMysql();
+			table.checkColumn("DayVoteStreak", DataType.INTEGER);
+			table.checkColumn("DayVoteStreakLastUpdate", DataType.STRING);
+			SharedMysqlPurchaseJournal.forTable(table).updateDailyStreak(uuid, streak, updatedAt);
+			return true;
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to atomically update MySQL daily streak: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+			return false;
+		} finally {
+			SharedMysqlCacheReconciler.invalidate(plugin, uuid, "DayVoteStreak", "DayVoteStreakLastUpdate");
+		}
+	}
+
 	/** Atomically captures one period boundary for a recoverable transition. */
 	public static boolean copyMysqlPeriodBoundary(VotingPluginMain plugin, String totalColumn, String previousColumn,
 			String generation) {

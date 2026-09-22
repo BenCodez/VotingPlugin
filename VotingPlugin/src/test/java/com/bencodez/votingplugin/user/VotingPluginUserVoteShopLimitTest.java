@@ -41,6 +41,28 @@ class VotingPluginUserVoteShopLimitTest {
 	}
 
 	@Test
+	void sharedMysqlVotePartyCountsUseTheCrossBackendBoundaryMutation() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		when(plugin.getStorageType()).thenReturn(UserStorage.MYSQL);
+		AdvancedCoreUser base = mock(AdvancedCoreUser.class);
+		when(base.getUserData()).thenReturn(mock(UserData.class));
+		when(base.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
+		VotingPluginUser user = spy(new VotingPluginUser(plugin, base));
+		doReturn(null).when(user).getCache();
+		try (MockedStatic<VoteShopPurchaseService> service = org.mockito.Mockito
+				.mockStatic(VoteShopPurchaseService.class)) {
+			service.when(() -> VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, base.getUUID(),
+					"VotePartyVotes", "LastVotePartyVotes", java.util.List.of("VotePartyVotes"), null))
+					.thenReturn(true);
+
+			user.addVotePartyVote();
+
+			service.verify(() -> VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, base.getUUID(),
+					"VotePartyVotes", "LastVotePartyVotes", java.util.List.of("VotePartyVotes"), null));
+		}
+	}
+
+	@Test
 	void sharedMysqlLimitsUseNonBlockingUserCacheWhenAvailable() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		when(plugin.getStorageType()).thenReturn(UserStorage.MYSQL);

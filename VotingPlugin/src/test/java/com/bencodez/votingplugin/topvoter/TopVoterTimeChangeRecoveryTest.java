@@ -134,19 +134,22 @@ class TopVoterTimeChangeRecoveryTest {
 		VotingPluginUser user = mock(VotingPluginUser.class);
 		UserDataCache cache = mock(UserDataCache.class);
 		TimeChangeTransition transition = mock(TimeChangeTransition.class);
-		UUID uuid = UUID.fromString("00000000-0000-0000-0000-000000000001");
+		UUID firstUuid = UUID.fromString("00000000-0000-0000-0000-000000000001");
+		UUID secondUuid = UUID.fromString("00000000-0000-0000-0000-000000000002");
 		when(plugin.getUserManager()).thenReturn(userManager);
 		when(plugin.getVotingPluginUserManager()).thenReturn(votingUsers);
 		when(plugin.getServerData()).thenReturn(serverData);
 		when(plugin.getConfigFile().isUseHighestTotals()).thenReturn(true);
 		when(serverData.getTimeChangeCursor(transition)).thenReturn("");
-		when(votingUsers.getVotingPluginUser(uuid, false)).thenReturn(user);
+		when(votingUsers.getVotingPluginUser(org.mockito.ArgumentMatchers.any(UUID.class),
+				org.mockito.ArgumentMatchers.eq(false))).thenReturn(user);
 		when(user.getCache()).thenReturn(cache);
 		doAnswer(invocation -> {
 			java.util.function.BiConsumer<UUID, ArrayList<Column>> perUser = invocation.getArgument(0);
 			Consumer<Integer> finished = invocation.getArgument(1);
-			perUser.accept(uuid, new ArrayList<>());
-			finished.accept(1);
+			perUser.accept(secondUuid, new ArrayList<>());
+			perUser.accept(firstUuid, new ArrayList<>());
+			finished.accept(2);
 			return null;
 		}).when(userManager).forEachUserKeys(org.mockito.ArgumentMatchers.any(),
 				org.mockito.ArgumentMatchers.any());
@@ -155,7 +158,9 @@ class TopVoterTimeChangeRecoveryTest {
 
 		org.mockito.InOrder order = inOrder(cache, serverData);
 		order.verify(cache).clearChanges();
-		order.verify(serverData).completeTimeChangeUser(transition, uuid.toString());
+		order.verify(serverData).completeTimeChangeUser(transition, firstUuid.toString());
+		order.verify(cache).clearChanges();
+		order.verify(serverData).completeTimeChangeUser(transition, secondUuid.toString());
 	}
 
 	@Test

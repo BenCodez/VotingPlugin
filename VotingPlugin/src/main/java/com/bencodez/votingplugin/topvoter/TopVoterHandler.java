@@ -671,18 +671,29 @@ public class TopVoterHandler implements Listener {
 	void processRecoverableUsers(TopVoter top, TimeChangeTransition transition) {
 		if (!plugin.getConfigFile().isUseVoteStreaks() && !plugin.getConfigFile().isUseHighestTotals()) return;
 		AtomicReference<String> cursor = new AtomicReference<>(plugin.getServerData().getTimeChangeCursor(transition));
-		AtomicReference<Throwable> failure = new AtomicReference<>();
 		CountDownLatch finished = new CountDownLatch(1);
+		record BoundaryUser(UUID uuid, ArrayList<Column> columns) { }
+		List<BoundaryUser> users = Collections.synchronizedList(new ArrayList<>());
 		LocalDateTime lastMonthTime = top == TopVoter.Monthly ? previousMonthTime(transition) : null;
-		plugin.getUserManager().forEachUserKeys((uuid, columns) -> {
-			if (failure.get() != null) return;
-			String value = uuid.toString();
-			if (value.compareTo(cursor.get()) <= 0) return;
+		plugin.getUserManager().forEachUserKeys((uuid, columns) -> users.add(new BoundaryUser(uuid, columns)),
+				count -> finished.countDown());
+		try {
+			if (!finished.await(10, TimeUnit.MINUTES)) {
+				throw new IllegalStateException("Timed out loading time-change users");
+			}
+		} catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt();
+			throw new CancellationException("Interrupted while loading time-change users");
+		}
+		users.sort(Comparator.comparing(boundary -> boundary.uuid().toString()));
+		for (BoundaryUser boundary : users) {
+			String value = boundary.uuid().toString();
+			if (value.compareTo(cursor.get()) <= 0) continue;
 			try {
 				ensureTransitionActive(transition);
-				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
+				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(boundary.uuid(), false);
 				user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
-				user.updateTempCacheWithColumns(columns);
+				user.updateTempCacheWithColumns(boundary.columns());
 				try {
 					if (top == TopVoter.Daily) processDailyUser(user, transition, value);
 					else if (top == TopVoter.Weekly) processWeeklyUser(user, transition, value);
@@ -694,19 +705,8 @@ public class TopVoterHandler implements Listener {
 				plugin.getServerData().completeTimeChangeUser(transition, value);
 				cursor.set(value);
 			} catch (Throwable userFailure) {
-				failure.compareAndSet(null, userFailure);
+				throw new IllegalStateException("Unable to durably process time-change user " + value, userFailure);
 			}
-		}, count -> finished.countDown());
-		try {
-			if (!finished.await(10, TimeUnit.MINUTES)) {
-				throw new IllegalStateException("Timed out processing time-change users");
-			}
-		} catch (InterruptedException interrupted) {
-			Thread.currentThread().interrupt();
-			throw new CancellationException("Interrupted while processing time-change users");
-		}
-		if (failure.get() != null) {
-			throw new IllegalStateException("Unable to durably process a time-change user", failure.get());
 		}
 	}
 

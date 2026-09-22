@@ -48,7 +48,7 @@ public class VoteParty implements Listener {
 	 */
 	public void addTotal(VotingPluginUser user) {
 		setTotalVotes(getTotalVotes() + 1);
-		user.setVotePartyVotes(user.getVotePartyVotes() + 1);
+		user.addVotePartyVote();
 		plugin.getPlaceholders().onVotePartyUpdate();
 	}
 

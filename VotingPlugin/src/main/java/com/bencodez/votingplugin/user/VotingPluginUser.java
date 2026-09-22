@@ -1111,9 +1111,19 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 							+ plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage() + " "
 							+ hasPercentageTotal(TopVoter.Daily,
 									plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(), null));
-					addDayVoteStreak();
+					int streak = getDayVoteStreak() + 1;
+					long updatedAt = System.currentTimeMillis();
+					if (UserStorage.MYSQL.equals(plugin.getStorageType())) {
+						if (getCache() != null) getCache().clearChanges();
+						if (!VoteShopPurchaseService.updateMysqlDailyStreak(plugin, getUUID(), streak, updatedAt)) {
+							throw new IllegalStateException("Unable to persist shared MySQL daily streak");
+						}
+						if (getBestDayVoteStreak() < streak) setBestDayVoteStreak(streak);
+					} else {
+						setDayVoteStreak(streak);
+					}
 					plugin.getSpecialRewards().checkVoteStreak(null, this, "Day", forceBungee);
-					setDayVoteStreakLastUpdate(System.currentTimeMillis());
+					if (!UserStorage.MYSQL.equals(plugin.getStorageType())) setDayVoteStreakLastUpdate(updatedAt);
 				}
 			}
 		});
@@ -2510,6 +2520,19 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public void setVotePartyVotes(int value) {
 		getUserData().setInt("VotePartyVotes", value);
+	}
+
+	/** Adds one VoteParty count using the shared period boundary when MySQL is shared. */
+	public void addVotePartyVote() {
+		if (plugin != null && UserStorage.MYSQL.equals(plugin.getStorageType())) {
+			if (getCache() != null) getCache().clearChanges();
+			if (!VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, getUUID(), "VotePartyVotes",
+					"LastVotePartyVotes", List.of("VotePartyVotes"), null)) {
+				throw new IllegalStateException("Unable to persist shared MySQL VoteParty count");
+			}
+			return;
+		}
+		setVotePartyVotes(getVotePartyVotes() + 1);
 	}
 
 	/**
