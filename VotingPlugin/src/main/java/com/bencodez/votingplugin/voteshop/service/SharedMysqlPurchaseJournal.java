@@ -223,6 +223,85 @@ final class SharedMysqlPurchaseJournal {
 		}
 	}
 
+	/** Subtracts the copied boundary total once, retaining votes accepted later. */
+	void resetPeriodTotal(String totalColumn, String previousColumn, String resetGeneration) throws SQLException {
+		if (!isSafeColumn(totalColumn) || !isSafeColumn(previousColumn)) {
+			throw new SQLException("Unsafe period total column");
+		}
+		if (resetGeneration == null || resetGeneration.isEmpty() || resetGeneration.length() > 128) {
+			throw new SQLException("Invalid period total reset generation");
+		}
+		try (Connection connection = connection()) {
+			connection.setAutoCommit(false);
+			try {
+				String markerKey = "period-reset:" + totalColumn;
+				EpochRow marker = lockLimitEpochRow(connection, markerKey);
+				if (resetGeneration.equals(marker.lastResetGeneration())) {
+					rollback(connection);
+					return;
+				}
+				long oldEpoch = marker.epoch();
+				if (oldEpoch == Long.MAX_VALUE) throw new SQLException("Period total reset epoch overflow");
+				String difference = "COALESCE(" + qi(totalColumn) + ", 0) - COALESCE(" + qi(previousColumn)
+						+ ", 0)";
+				String bounded = "GREATEST(0, " + difference + ')';
+				try (PreparedStatement reset = connection.prepareStatement("UPDATE " + qi(table.getTableName())
+						+ " SET " + qi(totalColumn) + " = " + bounded);
+						PreparedStatement advance = connection.prepareStatement("UPDATE " + qiEpoch() + " SET "
+								+ qi("epoch") + " = ?, " + qi("last_reset_generation") + " = ? WHERE "
+								+ qi("limit_column") + " = ?")) {
+					reset.executeUpdate();
+					advance.setLong(1, oldEpoch + 1L);
+					advance.setString(2, resetGeneration);
+					advance.setString(3, markerKey);
+					if (advance.executeUpdate() != 1) throw new SQLException("Period total epoch marker missing");
+				}
+				connection.commit();
+			} catch (SQLException failure) {
+				rollback(connection);
+				throw failure;
+			}
+		}
+	}
+
+	/** Copies the period boundary once so a phase-receipt retry cannot move it. */
+	void copyPeriodBoundary(String totalColumn, String previousColumn, String generation) throws SQLException {
+		if (!isSafeColumn(totalColumn) || !isSafeColumn(previousColumn)) {
+			throw new SQLException("Unsafe period boundary column");
+		}
+		if (generation == null || generation.isEmpty() || generation.length() > 128) {
+			throw new SQLException("Invalid period boundary generation");
+		}
+		try (Connection connection = connection()) {
+			connection.setAutoCommit(false);
+			try {
+				String markerKey = "period-copy:" + totalColumn;
+				EpochRow marker = lockLimitEpochRow(connection, markerKey);
+				if (generation.equals(marker.lastResetGeneration())) {
+					rollback(connection);
+					return;
+				}
+				long oldEpoch = marker.epoch();
+				if (oldEpoch == Long.MAX_VALUE) throw new SQLException("Period boundary epoch overflow");
+				try (PreparedStatement copy = connection.prepareStatement("UPDATE " + qi(table.getTableName())
+						+ " SET " + qi(previousColumn) + " = COALESCE(" + qi(totalColumn) + ", 0)");
+						PreparedStatement advance = connection.prepareStatement("UPDATE " + qiEpoch() + " SET "
+								+ qi("epoch") + " = ?, " + qi("last_reset_generation") + " = ? WHERE "
+								+ qi("limit_column") + " = ?")) {
+					copy.executeUpdate();
+					advance.setLong(1, oldEpoch + 1L);
+					advance.setString(2, generation);
+					advance.setString(3, markerKey);
+					if (advance.executeUpdate() != 1) throw new SQLException("Period boundary epoch marker missing");
+				}
+				connection.commit();
+			} catch (SQLException failure) {
+				rollback(connection);
+				throw failure;
+			}
+		}
+	}
+
 	/**
 	 * A JDBC commit error does not prove that the database discarded the
 	 * transaction. Close the possibly-broken handle before looking up the same

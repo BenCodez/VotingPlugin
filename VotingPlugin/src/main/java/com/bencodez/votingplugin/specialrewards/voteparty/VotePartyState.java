@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.bencodez.simpleapi.sql.DataType;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.topvoter.TimeChangeTotalReset;
 
 /** Owns persistent VoteParty totals, participant state, and per-user counters. */
 public final class VotePartyState {
@@ -58,5 +59,9 @@ public final class VotePartyState {
 
 	public void resetUserCounts() {
 		plugin.getUserManager().removeAllKeyValues(USER_COUNT_KEY, DataType.INTEGER);
+	}
+
+	public boolean resetUserCounts(String generation) {
+		return TimeChangeTotalReset.resetToZero(plugin, USER_COUNT_KEY, generation);
 	}
 }

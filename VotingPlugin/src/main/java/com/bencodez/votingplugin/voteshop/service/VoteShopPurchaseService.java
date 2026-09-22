@@ -590,6 +590,47 @@ public class VoteShopPurchaseService {
 		return reset.get();
 	}
 
+	/** Atomically removes the copied boundary total while retaining later votes. */
+	public static boolean resetMysqlPeriodTotal(VotingPluginMain plugin, String totalColumn, String previousColumn,
+			String resetGeneration) {
+		if (!canRecoverSharedMysqlPurchases(plugin)) return false;
+		AtomicBoolean reset = new AtomicBoolean();
+		try {
+			MySQL table = plugin.getMysql();
+			table.checkColumn(totalColumn, DataType.INTEGER);
+			table.checkColumn(previousColumn, DataType.INTEGER);
+			SharedMysqlPurchaseJournal.forTable(table).resetPeriodTotal(totalColumn, previousColumn, resetGeneration);
+			reset.set(true);
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to atomically reset MySQL period total: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+		} finally {
+			SharedMysqlCacheReconciler.invalidateAll(plugin, totalColumn);
+		}
+		return reset.get();
+	}
+
+	/** Atomically captures one period boundary for a recoverable transition. */
+	public static boolean copyMysqlPeriodBoundary(VotingPluginMain plugin, String totalColumn, String previousColumn,
+			String generation) {
+		if (!canRecoverSharedMysqlPurchases(plugin)) return false;
+		try {
+			MySQL table = plugin.getMysql();
+			table.checkColumn(totalColumn, DataType.INTEGER);
+			table.checkColumn(previousColumn, DataType.INTEGER);
+			SharedMysqlPurchaseJournal.forTable(table).copyPeriodBoundary(totalColumn, previousColumn, generation);
+			return true;
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to atomically copy MySQL period boundary: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+			return false;
+		} finally {
+			SharedMysqlCacheReconciler.invalidateAll(plugin, previousColumn);
+		}
+	}
+
 	static void withSharedMysqlCacheResetFence(Runnable action) {
 		SharedMysqlCacheReconciler.withResetFence(action);
 	}

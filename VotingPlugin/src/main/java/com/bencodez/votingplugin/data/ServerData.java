@@ -720,6 +720,29 @@ public class ServerData {
 		saveData();
 	}
 
+	/** Resets YAML-backed VoteParty state and records its receipt in one save. */
+	public synchronized void completeTimeChangeVotePartyReset(TimeChangeTransition transition, String effect) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		getData().set("VoteParty.Total", 0);
+		getData().set("VoteParty.Voted", new ArrayList<>());
+		getData().set(path + ".Effects." + effect, true);
+		saveData();
+	}
+
+	/** Resets VoteParty's extra requirement and records its receipt in one save. */
+	public synchronized void completeTimeChangeVotePartyExtraReset(TimeChangeTransition transition, String effect) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		getData().set("VotePartyExtraRequired", 0);
+		getData().set(path + ".Effects." + effect, true);
+		saveData();
+	}
+
 	private String timeChangeRecoveryPath(TimeType type) {
 		return TIME_CHANGE_RECOVERY + "." + type.name();
 	}

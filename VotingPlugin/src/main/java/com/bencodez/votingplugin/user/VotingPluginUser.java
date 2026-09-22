@@ -166,7 +166,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * Adds one to the monthly total votes.
 	 */
 	public void addMonthTotal() {
-		setMonthTotal(getMonthTotal() + 1);
+		PeriodTotalMutationFence.withMutation(() -> setMonthTotal(getMonthTotal() + 1));
 	}
 
 	/**
@@ -878,14 +878,14 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * Adds one to the daily total votes.
 	 */
 	public void addTotalDaily() {
-		setDailyTotal(getDailyTotal() + 1);
+		PeriodTotalMutationFence.withMutation(() -> setDailyTotal(getDailyTotal() + 1));
 	}
 
 	/**
 	 * Adds one to the weekly total votes.
 	 */
 	public void addTotalWeekly() {
-		setWeeklyTotal(getWeeklyTotal() + 1);
+		PeriodTotalMutationFence.withMutation(() -> setWeeklyTotal(getWeeklyTotal() + 1));
 	}
 
 	/**
@@ -2403,6 +2403,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param value the total votes to set
 	 */
 	public void setTotal(TopVoter top, int value) {
+		PeriodTotalMutationFence.withMutation(() -> setTotalWithinFence(top, value));
+	}
+
+	private void setTotalWithinFence(TopVoter top, int value) {
 		switch (top) {
 		case AllTime:
 			getUserData().setInt("AllTimeTotal", value);

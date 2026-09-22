@@ -102,15 +102,37 @@ class TopVoterTimeChangeRecoveryTest {
 	void sqliteTotalResetRetryPreservesVotesAcceptedAfterTheFirstReset() throws Exception {
 		try (Connection connection = DriverManager.getConnection("jdbc:sqlite::memory:");
 				Statement statement = connection.createStatement()) {
-			statement.executeUpdate("CREATE TABLE users (uuid TEXT PRIMARY KEY, DailyTotal INTEGER)");
-			statement.executeUpdate("INSERT INTO users VALUES ('player', 20)");
+			statement.executeUpdate("CREATE TABLE users (uuid TEXT PRIMARY KEY, DailyTotal INTEGER, LastDailyTotal INTEGER)");
+			statement.executeUpdate("INSERT INTO users VALUES ('player', 20, 0)");
 
-			TimeChangeTotalReset.resetSqlite(connection, "users", "DailyTotal", "time-total:DAY:2026-09-21");
+			TimeChangeTotalReset.copyBoundarySqlite(connection, "users", "DailyTotal", "LastDailyTotal",
+					"time-copy:DAY:2026-09-21");
 			statement.executeUpdate("UPDATE users SET DailyTotal = DailyTotal + 3 WHERE uuid = 'player'");
-			TimeChangeTotalReset.resetSqlite(connection, "users", "DailyTotal", "time-total:DAY:2026-09-21");
+			TimeChangeTotalReset.copyBoundarySqlite(connection, "users", "DailyTotal", "LastDailyTotal",
+					"time-copy:DAY:2026-09-21");
+			TimeChangeTotalReset.resetSqlite(connection, "users", "DailyTotal", "LastDailyTotal",
+					"time-total:DAY:2026-09-21");
+			statement.executeUpdate("UPDATE users SET DailyTotal = DailyTotal + 2 WHERE uuid = 'player'");
+			TimeChangeTotalReset.resetSqlite(connection, "users", "DailyTotal", "LastDailyTotal",
+					"time-total:DAY:2026-09-21");
 
 			try (ResultSet result = statement.executeQuery("SELECT DailyTotal FROM users WHERE uuid = 'player'")) {
-				assertEquals(3, result.getInt(1));
+				assertEquals(5, result.getInt(1));
+			}
+		}
+	}
+
+	@Test
+	void sqliteAuxiliaryResetDoesNotRepeatAfterNewVotes() throws Exception {
+		try (Connection connection = DriverManager.getConnection("jdbc:sqlite::memory:");
+				Statement statement = connection.createStatement()) {
+			statement.executeUpdate("CREATE TABLE users (uuid TEXT PRIMARY KEY, VotePartyVotes INTEGER)");
+			statement.executeUpdate("INSERT INTO users VALUES ('player', 4)");
+			TimeChangeTotalReset.resetSqliteToZero(connection, "users", "VotePartyVotes", "vote-party:DAY");
+			statement.executeUpdate("UPDATE users SET VotePartyVotes = 2 WHERE uuid = 'player'");
+			TimeChangeTotalReset.resetSqliteToZero(connection, "users", "VotePartyVotes", "vote-party:DAY");
+			try (ResultSet result = statement.executeQuery("SELECT VotePartyVotes FROM users WHERE uuid = 'player'")) {
+				assertEquals(2, result.getInt(1));
 			}
 		}
 	}

@@ -154,6 +154,26 @@ class ServerDataTimeChangeRecoveryTest {
 		assertEquals(archive, data.getTimeChangeArchive(transition));
 	}
 
+	@Test
+	void votePartyStateAndEffectReceiptShareOneCheckpoint() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
+		YamlConfiguration yaml = new YamlConfiguration();
+		when(plugin.getServerDataFile()).thenReturn(coreData);
+		when(coreData.getData()).thenReturn(yaml);
+		ServerData data = new ServerData(plugin);
+		TimeChangeTransition transition = transition("WEEK:2026-W38", "2026-W38", TimeType.WEEK);
+		data.beginTimeChangeRecovery(transition);
+		data.getData().set("VoteParty.Total", 12);
+		data.getData().set("VoteParty.Voted", List.of("player"));
+
+		data.completeTimeChangeVotePartyReset(transition, "VotePartyWeekReset");
+
+		assertEquals(0, data.getData().getInt("VoteParty.Total"));
+		assertTrue(data.getData().getStringList("VoteParty.Voted").isEmpty());
+		assertTrue(data.hasTimeChangeEffect(transition, "VotePartyWeekReset"));
+	}
+
 	private TimeChangeTransition transition(String id, String period, TimeType type) {
 		TimeChangeTransition transition = mock(TimeChangeTransition.class);
 		when(transition.getId()).thenReturn(id);

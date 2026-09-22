@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doReturn;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -122,11 +123,13 @@ public class VotePartyTest {
 		when(transition.getType()).thenReturn(com.bencodez.advancedcore.api.time.TimeType.DAY);
 		when(transition.getId()).thenReturn("DAY:2026-09-21");
 		when(plugin.getSpecialRewardsConfig().isVotePartyResetEachDay()).thenReturn(true);
+		doReturn(true).when(voteParty).resetRecoverableUserCounts("vote-party:DAY:2026-09-21:VotePartyDayReset");
 
 		voteParty.onDayChange(new DayChangeEvent(transition));
 
 		verify(plugin.getServerData()).beginTimeChangeRecovery(transition);
-		verify(plugin.getServerData()).completeTimeChangeEffect(transition, "VotePartyDayReset");
+		verify(plugin.getServerData()).completeTimeChangeVotePartyReset(transition, "VotePartyDayReset");
+		verify(plugin.getServerData(), never()).completeTimeChangeEffect(transition, "VotePartyDayReset");
 		verify(lease).complete();
 	}
 

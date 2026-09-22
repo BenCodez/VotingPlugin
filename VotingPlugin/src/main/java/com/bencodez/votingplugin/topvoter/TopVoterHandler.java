@@ -592,6 +592,11 @@ public class TopVoterHandler implements Listener {
 	}
 
 	private void runRecoverablePeriod(TopVoter top, TimeChangeTransition transition) {
+		// Capture the boundary before any long-running phase. The database journal
+		// makes the later COPY_TOTALS retry a no-op, so votes accepted while reward
+		// or user recovery is pending remain above this boundary.
+		if (top != TopVoter.Monthly || !bungeeHandleResets()) copyTotalBoundary(top, transition);
+
 		if (!plugin.getServerData().hasTimeChangePhase(transition, SNAPSHOT)) {
 			ensureTransitionActive(transition);
 			boolean archiveRequired = (top == TopVoter.Daily && plugin.getConfigFile().isStoreTopVotersDaily())
@@ -611,7 +616,7 @@ public class TopVoterHandler implements Listener {
 		if (!plugin.getServerData().hasTimeChangePhase(transition, COPY_TOTALS)) {
 			ensureTransitionActive(transition);
 			if (top != TopVoter.Monthly || !bungeeHandleResets()) {
-				plugin.getUserManager().copyColumnData(top.getColumnName(), top.getLastColumnName());
+				copyTotalBoundary(top, transition);
 			}
 			plugin.getServerData().completeTimeChangePhase(transition, COPY_TOTALS);
 		}
@@ -652,6 +657,14 @@ public class TopVoterHandler implements Listener {
 			ensureTransitionActive(transition);
 			if (plugin.getStorageType().equals(UserStorage.MYSQL)) plugin.getMysql().clearCacheBasic();
 			plugin.getServerData().completeTimeChangePhase(transition, CACHE_CLEAR);
+		}
+	}
+
+	private void copyTotalBoundary(TopVoter top, TimeChangeTransition transition) {
+		ensureTransitionActive(transition);
+		if (!TimeChangeTotalReset.copyBoundary(plugin, top.getColumnName(), top.getLastColumnName(),
+				"time-copy:" + transition.getId())) {
+			throw new IllegalStateException("Unable to durably copy " + top + " boundary totals");
 		}
 	}
 
@@ -917,7 +930,7 @@ public class TopVoterHandler implements Listener {
 
 	void resetTotals(TopVoter topVoter, TimeChangeTransition transition) {
 		String generation = "time-total:" + transition.getId();
-		if (!TimeChangeTotalReset.reset(plugin, topVoter.getColumnName(), generation)) {
+		if (!TimeChangeTotalReset.reset(plugin, topVoter.getColumnName(), topVoter.getLastColumnName(), generation)) {
 			throw new IllegalStateException("Unable to durably reset " + topVoter + " totals");
 		}
 	}
