@@ -143,8 +143,14 @@ public class TimeQueueHandler implements Listener {
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(
 					plugin.getVoteSiteManager().getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, vote.getService()), true), vote.getName(),
 					vote.getService(), true);
-			voteEvent.setTime(voteEvent.getTime());
+			voteEvent.setTime(vote.getTime());
+			voteEvent.setVoteId(vote.getVoteId() == null ? vote.legacyTimedVoteId() : vote.getVoteId());
 			plugin.getServer().getPluginManager().callEvent(voteEvent);
+			if (voteEvent.isAccountingAdmissionFailed()) {
+				timeChangeQueue.add(vote);
+				scheduleRetry();
+				return;
+			}
 
 			if (voteEvent.isCancelled()) {
 				plugin.debug("Vote cancelled");

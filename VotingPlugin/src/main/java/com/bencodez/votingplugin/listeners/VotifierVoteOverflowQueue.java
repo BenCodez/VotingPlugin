@@ -77,7 +77,10 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	}
 
 	public VotifierVoteOverflowQueue(VotingPluginMain plugin, BiConsumer<String, String> processor) {
-		this(plugin, (serviceSite, username, voteId) -> processor.accept(serviceSite, username));
+		this(plugin, (serviceSite, username, voteId) -> {
+			processor.accept(serviceSite, username);
+			return true;
+		});
 	}
 
 	/**
@@ -161,11 +164,8 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 					// Serialize admission with enqueue so the version proven durable
 					// above cannot change in the gap before submit accepts this vote.
 					plugin.getVoteTimer().submit(() -> {
-						try {
-							processor.accept(pending.serviceSite, pending.username, pending.voteId);
-						} finally {
-							acknowledge(pending);
-						}
+						if (processor.accept(pending.serviceSite, pending.username, pending.voteId)) acknowledge(pending);
+						else retry(pending);
 					});
 				} catch (RejectedExecutionException rejected) {
 					pending.submitted = false;
@@ -178,6 +178,19 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 					}
 					return;
 				}
+			}
+		}
+	}
+
+	private void retry(PendingVote pending) {
+		synchronized (lock) {
+			if (closed || !entries.contains(pending)) return;
+			pending.submitted = false;
+			drainScheduled = false;
+			try {
+				worker.schedule(this::scheduleDrain, RETRY_DELAY_MILLIS, TimeUnit.MILLISECONDS);
+			} catch (RejectedExecutionException ignored) {
+				// The durable entry remains for restart.
 			}
 		}
 	}
@@ -391,6 +404,6 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 
 	@FunctionalInterface
 	public interface VoteProcessor {
-		void accept(String serviceSite, String username, UUID voteId);
+		boolean accept(String serviceSite, String username, UUID voteId);
 	}
 }

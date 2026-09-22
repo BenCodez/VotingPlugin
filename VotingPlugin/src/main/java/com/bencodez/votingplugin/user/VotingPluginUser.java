@@ -1159,17 +1159,25 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 					int streak = getDayVoteStreak() + 1;
 					long updatedAt = System.currentTimeMillis();
 					boolean sharedStreakPersisted = false;
+					boolean sharedStreakAlreadyUpdated = false;
 					if (UserStorage.MYSQL.equals(plugin.getStorageType())) {
 						if (getCache() != null) getCache().clearChanges();
-						sharedStreakPersisted = VoteShopPurchaseService.updateMysqlDailyStreak(
-								plugin, voteId, getUUID(), streak, updatedAt);
-						if (sharedStreakPersisted) {
-							if (getBestDayVoteStreak() < streak) setBestDayVoteStreak(streak);
-						} else throw new IllegalStateException("Unable to retain shared MySQL daily streak");
+						VoteShopPurchaseService.MysqlDailyStreakResult result = VoteShopPurchaseService
+								.updateMysqlDailyStreakResult(plugin, voteId, getUUID(), streak, updatedAt);
+						sharedStreakPersisted = result != VoteShopPurchaseService.MysqlDailyStreakResult.FAILED;
+						sharedStreakAlreadyUpdated = result == VoteShopPurchaseService.MysqlDailyStreakResult.ALREADY_UPDATED;
+						if (!sharedStreakPersisted) {
+							throw new IllegalStateException("Unable to retain shared MySQL daily streak");
+						}
+						if (!sharedStreakAlreadyUpdated && getBestDayVoteStreak() < streak) {
+							setBestDayVoteStreak(streak);
+						}
 					} else {
 						setDayVoteStreak(streak);
 					}
-					plugin.getSpecialRewards().checkVoteStreak(null, this, "Day", forceBungee);
+					if (!sharedStreakAlreadyUpdated) {
+						plugin.getSpecialRewards().checkVoteStreak(null, this, "Day", forceBungee);
+					}
 					if (!sharedStreakPersisted) setDayVoteStreakLastUpdate(updatedAt);
 				}
 			}

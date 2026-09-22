@@ -171,7 +171,8 @@ public final class SharedVoteProcessor {
         SharedVoteInput accountingInput = new SharedVoteInput(voteId, playerName, ops.serviceSite(),
                 ops.incomingTime(), ops.realVote(), ops.addTotals(), ops.proxyVote(),
                 ops.forceProxyRouting(), ops.wasOnline());
-        ops.prepareAccounting(user, voteId, policy.shouldCountTotals(accountingInput, () -> ops.userOnline(user)));
+        boolean countTotals = policy.shouldCountTotals(accountingInput, () -> ops.userOnline(user));
+        ops.prepareAccounting(user, voteId, countTotals);
         try {
             ops.cache(user);
             ops.updateName(user);
@@ -212,7 +213,7 @@ public final class SharedVoteProcessor {
             }
             SharedVoteInput input = new SharedVoteInput(voteId, playerName, ops.serviceSite(), voteTime,
                     ops.realVote(), ops.addTotals(), ops.proxyVote(), ops.forceProxyRouting(), ops.wasOnline());
-            SharedVoteAccounting.apply(input, policy, () -> ops.userOnline(user), () -> ops.addTotal(user, voteId),
+            SharedVoteAccounting.apply(input, policy, () -> countTotals, () -> ops.addTotal(user, voteId),
                     () -> ops.addTotalDaily(user, voteId), () -> ops.addTotalWeekly(user, voteId),
                     () -> ops.addPoints(user));
             ops.checkDayVoteStreak(user, ops.forceProxyRouting(), voteId);

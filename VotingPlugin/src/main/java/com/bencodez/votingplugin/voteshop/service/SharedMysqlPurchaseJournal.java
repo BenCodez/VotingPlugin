@@ -9,6 +9,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -30,6 +32,7 @@ import com.bencodez.simpleapi.sql.mysql.DbType;
  * arbitrary, non-idempotent side effects.</p>
  */
 final class SharedMysqlPurchaseJournal {
+	enum DailyStreakOutcome { APPLIED, ALREADY_UPDATED, DEFERRED }
 	private static final String PENDING = "PENDING";
 	private static final String HOOK_STARTED = "HOOK_STARTED";
 	private static final String COMPENSATING = "COMPENSATING";
@@ -546,18 +549,17 @@ final class SharedMysqlPurchaseJournal {
 	}
 
 	/** Serializes the accepted daily-streak value and timestamp with its shared boundary. */
-	boolean updateDailyStreak(UUID voteId, String uuid, int streak, long updatedAt) throws SQLException {
+	DailyStreakOutcome updateDailyStreak(UUID voteId, String uuid, int streak, long updatedAt) throws SQLException {
 		requestAccounting(voteId, uuid, DAILY_STREAK, "streak-copy:DayVoteStreak", null, null,
 				Integer.valueOf(streak), Long.valueOf(updatedAt));
 		try {
-			applyDailyStreak(voteId, uuid, streak, updatedAt);
-			return true;
+			return applyDailyStreak(voteId, uuid, streak, updatedAt);
 		} catch (SQLException deferred) {
-			return false;
+			return DailyStreakOutcome.DEFERRED;
 		}
 	}
 
-	private void applyDailyStreak(UUID voteId, String uuid, int streak, long updatedAt) throws SQLException {
+	private DailyStreakOutcome applyDailyStreak(UUID voteId, String uuid, int streak, long updatedAt) throws SQLException {
 		try (Connection connection = connection()) {
 			connection.setAutoCommit(false);
 			try {
@@ -573,7 +575,13 @@ final class SharedMysqlPurchaseJournal {
 				int completed = accounting.completed();
 				if ((completed & DAILY_STREAK) != 0) {
 					rollback(connection);
-					return;
+					return DailyStreakOutcome.ALREADY_UPDATED;
+				}
+				String persistedUpdate = findDailyStreakUpdate(connection, uuid);
+				if (sameLocalDay(persistedUpdate, updatedAt)) {
+					markAccountingComplete(connection, voteId, completed | DAILY_STREAK);
+					commitAndConfirmAccounting(connection, voteId, DAILY_STREAK);
+					return DailyStreakOutcome.ALREADY_UPDATED;
 				}
 				String sql = "UPDATE " + qi(table.getTableName()) + " SET " + qi("DayVoteStreak") + " = COALESCE("
 						+ qi("DayVoteStreak") + ", 0) + 1, " + qi("DayVoteStreakLastUpdate") + " = ? WHERE "
@@ -585,10 +593,35 @@ final class SharedMysqlPurchaseJournal {
 				}
 				markAccountingComplete(connection, voteId, completed | DAILY_STREAK);
 				commitAndConfirmAccounting(connection, voteId, DAILY_STREAK);
+				return DailyStreakOutcome.APPLIED;
 			} catch (SQLException failure) {
 				rollback(connection);
 				throw failure;
 			}
+		}
+	}
+
+	private String findDailyStreakUpdate(Connection connection, String uuid) throws SQLException {
+		String select = "SELECT " + qi("DayVoteStreakLastUpdate") + " FROM " + qi(table.getTableName())
+				+ " WHERE " + qi("uuid") + uuidCast() + " FOR UPDATE";
+		try (PreparedStatement statement = connection.prepareStatement(select)) {
+			statement.setString(1, uuid);
+			try (ResultSet result = statement.executeQuery()) {
+				if (!result.next()) throw new SQLException("Daily streak user row is missing");
+				return result.getString(1);
+			}
+		}
+	}
+
+	static boolean sameLocalDay(String persistedUpdate, long updatedAt) {
+		if (persistedUpdate == null || persistedUpdate.isEmpty()) return false;
+		try {
+			long persisted = Long.parseLong(persistedUpdate);
+			ZoneId zone = ZoneId.systemDefault();
+			return Instant.ofEpochMilli(persisted).atZone(zone).toLocalDate()
+					.equals(Instant.ofEpochMilli(updatedAt).atZone(zone).toLocalDate());
+		} catch (NumberFormatException invalidLegacyTimestamp) {
+			return false;
 		}
 	}
 
@@ -722,6 +755,10 @@ final class SharedMysqlPurchaseJournal {
 			throws SQLException {
 		if (operation == DAILY_STREAK) {
 			if (row.streakUpdatedAt() == null) throw new SQLException("Pending daily streak accounting payload is incomplete");
+			if (sameLocalDay(findDailyStreakUpdate(connection, row.uuid()), row.streakUpdatedAt().longValue())) {
+				markAccountingComplete(connection, voteId, row.completed() | operation);
+				return;
+			}
 			String sql = "UPDATE " + qi(table.getTableName()) + " SET " + qi("DayVoteStreak") + " = COALESCE("
 					+ qi("DayVoteStreak") + ", 0) + 1, " + qi("DayVoteStreakLastUpdate") + " = ? WHERE "
 					+ qi("uuid") + uuidCast();

@@ -41,6 +41,16 @@ public class VotiferEvent implements Listener {
 	}
 
 	public void processVote(String voteSite, String voteUsername, UUID voteId) {
+		if (!processVoteAttempt(voteSite, voteUsername, voteId)) {
+			retainForAccountingRetry(voteSite, voteUsername, voteId);
+		}
+	}
+
+	public boolean processQueuedVote(String voteSite, String voteUsername, UUID voteId) {
+		return processVoteAttempt(voteSite, voteUsername, voteId);
+	}
+
+	private boolean processVoteAttempt(String voteSite, String voteUsername, UUID voteId) {
 		try {
 			plugin.getServerData().addServiceSite(voteSite);
 			if (plugin.getBungeeSettings().isUseBungeecoord() && !plugin.getBungeeSettings().isVotifierBypass()
@@ -51,7 +61,7 @@ public class VotiferEvent implements Listener {
 							|| plugin.getBackendProxyHandler().getMethod().equals(BungeeMethod.REDIS))) {
 				plugin.getLogger().severe(
 						"Ignoring vote from votifier since a proxy vote transport is enabled; receive votes on the proxy or enable VotifierBypass, then check: https://github.com/BenCodez/VotingPlugin/wiki/Bungeecord-Setups");
-				return;
+				return true;
 			}
 
 			String matchSite = "";
@@ -83,7 +93,7 @@ public class VotiferEvent implements Listener {
 					&& plugin.getConfigFile().isQueueVotesDuringTimeChange()) {
 				plugin.debug("Adding vote to time queue " + voteUsername + "/" + voteSite);
 				plugin.getTimeQueueHandler().addVote(voteUsername, voteSite);
-				return;
+				return true;
 			}
 
 			String voteSiteName = plugin.getVoteSiteManager().getVoteSiteName(true, serviceSite, matchSite);
@@ -93,8 +103,7 @@ public class VotiferEvent implements Listener {
 			voteEvent.setVoteId(voteId);
 			plugin.getServer().getPluginManager().callEvent(voteEvent);
 			if (voteEvent.isAccountingAdmissionFailed()) {
-				retainForAccountingRetry(voteSite, voteUsername, voteId);
-				return;
+				return false;
 			}
 
 			if (voteEvent.isCancelled()) {
@@ -104,6 +113,7 @@ public class VotiferEvent implements Listener {
 			plugin.getLogger().severe("Error occured during vote processing");
 			e.printStackTrace();
 		}
+		return true;
 	}
 
 	private void retainForAccountingRetry(String voteSite, String voteUsername, UUID voteId) {

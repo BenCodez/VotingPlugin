@@ -51,6 +51,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class VoteShopPurchaseService {
+	public enum MysqlDailyStreakResult { APPLIED, ALREADY_UPDATED, DEFERRED, FAILED }
 	private static final ConcurrentMap<UUID, Integer> ADMITTED_ACCOUNTING = new ConcurrentHashMap<>();
 	private static final int PURCHASE_LOCK_STRIPES = 256;
 	private static final Object[] PURCHASE_LOCKS = createPurchaseLocks();
@@ -685,21 +686,30 @@ public class VoteShopPurchaseService {
 	/** Atomically publishes an accepted daily streak under the shared boundary lock. */
 	public static boolean updateMysqlDailyStreak(VotingPluginMain plugin, UUID voteId, String uuid, int streak,
 			long updatedAt) {
-		if (!canRecoverSharedMysqlPurchases(plugin)) return false;
+		return updateMysqlDailyStreakResult(plugin, voteId, uuid, streak, updatedAt) != MysqlDailyStreakResult.FAILED;
+	}
+
+	public static MysqlDailyStreakResult updateMysqlDailyStreakResult(VotingPluginMain plugin, UUID voteId, String uuid,
+			int streak, long updatedAt) {
+		if (!canRecoverSharedMysqlPurchases(plugin)) return MysqlDailyStreakResult.FAILED;
 		try {
 			MySQL table = plugin.getMysql();
 			table.checkColumn("DayVoteStreak", DataType.INTEGER);
 			table.checkColumn("DayVoteStreakLastUpdate", DataType.STRING);
-			boolean applied = SharedMysqlPurchaseJournal.forTable(table).updateDailyStreak(
+			SharedMysqlPurchaseJournal.DailyStreakOutcome outcome = SharedMysqlPurchaseJournal.forTable(table).updateDailyStreak(
 					voteId == null ? UUID.randomUUID() : voteId, uuid, streak, updatedAt);
-			if (!applied) plugin.getLogger().warning(
+			if (outcome == SharedMysqlPurchaseJournal.DailyStreakOutcome.DEFERRED) plugin.getLogger().warning(
 					"Shared MySQL daily streak was retained for retry after a persistence failure");
-			return true;
+			return switch (outcome) {
+			case APPLIED -> MysqlDailyStreakResult.APPLIED;
+			case ALREADY_UPDATED -> MysqlDailyStreakResult.ALREADY_UPDATED;
+			case DEFERRED -> MysqlDailyStreakResult.DEFERRED;
+			};
 		} catch (SQLException failure) {
 			plugin.getLogger().severe("Unable to atomically update MySQL daily streak: "
 					+ failure.getClass().getSimpleName());
 			plugin.debug(failure);
-			return false;
+			return MysqlDailyStreakResult.FAILED;
 		} finally {
 			SharedMysqlCacheReconciler.invalidate(plugin, uuid, "DayVoteStreak", "DayVoteStreakLastUpdate");
 		}

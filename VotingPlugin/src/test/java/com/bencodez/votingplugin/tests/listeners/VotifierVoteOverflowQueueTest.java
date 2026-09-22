@@ -30,6 +30,28 @@ import com.bencodez.votingplugin.listeners.VotifierVoteOverflowQueue;
 
 class VotifierVoteOverflowQueueTest {
 	@Test
+	void failedQueuedAttemptKeepsTheExistingEntry(@TempDir Path dataFolder) throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		ScheduledExecutorService voteTimer = Executors.newSingleThreadScheduledExecutor();
+		CountDownLatch attempted = new CountDownLatch(1);
+		when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+		when(plugin.getVoteTimer()).thenReturn(voteTimer);
+		VotifierVoteOverflowQueue queue = new VotifierVoteOverflowQueue(plugin, (site, user, voteId) -> {
+			attempted.countDown();
+			return false;
+		});
+		try {
+			assertTrue(queue.enqueue("Steve", "example.org", java.util.UUID.randomUUID()));
+			queue.start();
+			assertTrue(attempted.await(2, TimeUnit.SECONDS));
+			assertEquals(1, queue.size());
+		} finally {
+			queue.close();
+			voteTimer.shutdownNow();
+		}
+	}
+
+	@Test
 	void enqueueCannotChangeVersionDuringDurableAdmission(@TempDir Path dataFolder) throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
 		ScheduledExecutorService voteTimer = mock(ScheduledExecutorService.class);

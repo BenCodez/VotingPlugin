@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -27,7 +28,9 @@ import com.bencodez.advancedcore.api.time.TimeChangeTransition;
 import com.bencodez.advancedcore.api.time.events.DateChangedEvent;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.data.ServerData;
+import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.timequeue.TimeQueueHandler;
+import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
 class TimeQueueHandlerRejectionTest {
 	private VotingPluginMain plugin;
@@ -88,6 +91,25 @@ class TimeQueueHandlerRejectionTest {
 		verify(voteTimer).schedule(any(Runnable.class), org.mockito.ArgumentMatchers.eq(0L),
 				org.mockito.ArgumentMatchers.eq(TimeUnit.SECONDS));
 		assertEquals(1, handler.getTimeChangeQueue().size());
+	}
+
+	@Test
+	void accountingAdmissionFailureRetainsTheSameQueuedVote() {
+		when(serverData.getTimedVoteCacheKeys()).thenReturn(Set.of());
+		TimeQueueHandler handler = new TimeQueueHandler(plugin);
+		VoteTimeQueue vote = new VoteTimeQueue(java.util.UUID.randomUUID(), "Alex", "example.org", 123L);
+		handler.getTimeChangeQueue().add(vote);
+		org.bukkit.plugin.PluginManager pluginManager = plugin.getServer().getPluginManager();
+		doAnswer(invocation -> {
+			PlayerVoteEvent event = invocation.getArgument(0);
+			event.setAccountingAdmissionFailed(true);
+			return null;
+		}).when(pluginManager).callEvent(any(PlayerVoteEvent.class));
+
+		handler.processQueue();
+
+		assertEquals(1, handler.getTimeChangeQueue().size());
+		assertEquals(vote, handler.getTimeChangeQueue().peek());
 	}
 
 	@Test

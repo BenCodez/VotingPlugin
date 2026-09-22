@@ -1883,7 +1883,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		if (isVotifierLoaded()) {
 			VotiferEvent votifierEvent = new VotiferEvent(this);
 			votifierVoteOverflowQueue = new VotifierVoteOverflowQueue(this,
-					(serviceSite, username, voteId) -> votifierEvent.processVote(serviceSite, username, voteId));
+					(serviceSite, username, voteId) -> votifierEvent.processQueuedVote(serviceSite, username, voteId));
 			pm.registerEvents(votifierEvent, this);
 		}
 		pm.registerEvents(new PlayerVoteListener(this), this);

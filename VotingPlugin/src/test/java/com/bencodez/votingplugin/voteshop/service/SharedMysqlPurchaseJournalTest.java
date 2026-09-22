@@ -22,6 +22,16 @@ import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 
 class SharedMysqlPurchaseJournalTest {
 	@Test
+	void dailyStreakDateFenceRecognizesTheSameLocalDay() {
+		java.time.ZoneId zone = java.time.ZoneId.systemDefault();
+		long morning = java.time.LocalDate.of(2026, 9, 22).atTime(1, 0).atZone(zone).toInstant().toEpochMilli();
+		long evening = java.time.LocalDate.of(2026, 9, 22).atTime(23, 0).atZone(zone).toInstant().toEpochMilli();
+		long nextDay = java.time.LocalDate.of(2026, 9, 23).atStartOfDay(zone).toInstant().toEpochMilli();
+
+		assertTrue(SharedMysqlPurchaseJournal.sameLocalDay(Long.toString(morning), evening));
+		assertFalse(SharedMysqlPurchaseJournal.sameLocalDay(Long.toString(morning), nextDay));
+	}
+	@Test
 	void journalTableNameIsPortableAndCollisionResistantForLongSourceNames() {
 		String source = "u".repeat(80);
 		String journalTable = SharedMysqlPurchaseJournal.journalTableName(source);
@@ -482,6 +492,7 @@ class SharedMysqlPurchaseJournalTest {
 		PreparedStatement resetMarkerInsert = mock(PreparedStatement.class);
 		PreparedStatement resetMarkerSelect = mock(PreparedStatement.class);
 		PreparedStatement accountingSelect = mock(PreparedStatement.class);
+		PreparedStatement persistedUpdateSelect = mock(PreparedStatement.class);
 		PreparedStatement update = mock(PreparedStatement.class);
 		PreparedStatement accountingUpdate = mock(PreparedStatement.class);
 		ResultSet requestEpoch = mock(ResultSet.class);
@@ -489,6 +500,7 @@ class SharedMysqlPurchaseJournalTest {
 		ResultSet resetEpoch = mock(ResultSet.class);
 		ResultSet requested = accountingRow("00000000-0000-0000-0000-000000000001", 0, 0);
 		ResultSet accounting = accountingRow("00000000-0000-0000-0000-000000000001", 16, 0);
+		ResultSet persistedUpdate = mock(ResultSet.class);
 		when(requestEpoch.next()).thenReturn(true);
 		when(copyEpoch.next()).thenReturn(true);
 		when(resetEpoch.next()).thenReturn(true);
@@ -497,12 +509,15 @@ class SharedMysqlPurchaseJournalTest {
 		when(resetMarkerSelect.executeQuery()).thenReturn(resetEpoch);
 		when(requestSelect.executeQuery()).thenReturn(requested);
 		when(accountingSelect.executeQuery()).thenReturn(accounting);
+		when(persistedUpdate.next()).thenReturn(true);
+		when(persistedUpdate.getString(1)).thenReturn("");
+		when(persistedUpdateSelect.executeQuery()).thenReturn(persistedUpdate);
 		when(update.executeUpdate()).thenReturn(1);
 		when(accountingUpdate.executeUpdate()).thenReturn(1);
 		when(requestUpdate.executeUpdate()).thenReturn(1);
 		when(fixture.work.prepareStatement(anyString())).thenReturn(requestMarkerInsert, requestMarkerSelect,
 				requestInsert, requestSelect, requestUpdate, copyMarkerInsert, copyMarkerSelect,
-				resetMarkerInsert, resetMarkerSelect, accountingSelect, update, accountingUpdate);
+				resetMarkerInsert, resetMarkerSelect, accountingSelect, persistedUpdateSelect, update, accountingUpdate);
 
 		new SharedMysqlPurchaseJournal(fixture.table, false).updateDailyStreak(java.util.UUID.randomUUID(),
 				"00000000-0000-0000-0000-000000000001", 7, 1234L);
