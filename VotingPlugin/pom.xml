@@ -233,6 +233,19 @@
                                         <!-- Base implementations support the plugin's Java 21 runtime;
                                              omit duplicate multi-release optimizations. -->
                                         <exclude>META-INF/versions/**</exclude>
+                                        <!-- VotingPlugin uses BC only for its RSA/X.509 HTTP identity.
+                                             These independent protocol stacks are not reachable. -->
+                                        <exclude>org/bouncycastle/dvcs/**</exclude>
+                                        <exclude>org/bouncycastle/eac/**</exclude>
+                                        <exclude>org/bouncycastle/est/**</exclude>
+                                        <exclude>org/bouncycastle/its/**</exclude>
+                                        <exclude>org/bouncycastle/mime/**</exclude>
+                                        <exclude>org/bouncycastle/mozilla/**</exclude>
+                                        <exclude>org/bouncycastle/oer/**</exclude>
+                                        <exclude>org/bouncycastle/openssl/**</exclude>
+                                        <exclude>org/bouncycastle/pkcs/**</exclude>
+                                        <exclude>org/bouncycastle/tsp/**</exclude>
+                                        <exclude>org/bouncycastle/voms/**</exclude>
                                     </excludes>
                                 </filter>
                                 <filter>
@@ -250,6 +263,7 @@
                                     <excludes>
                                         <!-- AdvancedCore and SimpleAPI also embed these classes. -->
                                         <exclude>org/slf4j/**</exclude>
+                                        <exclude>org/checkerframework/**</exclude>
                                         <exclude>META-INF/services/org.slf4j.spi.SLF4JServiceProvider</exclude>
                                         <exclude>META-INF/maven/org.slf4j/**</exclude>
                                         <exclude>META-INF/*.SF</exclude>

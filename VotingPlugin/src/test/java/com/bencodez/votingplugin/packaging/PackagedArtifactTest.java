@@ -19,7 +19,12 @@ import org.junit.jupiter.api.io.TempDir;
 
 /** Package-phase checks for the actual downloadable plugin artifact. */
 public class PackagedArtifactTest {
-    private static final long MAX_DOWNLOAD_BYTES = 31L * 1024L * 1024L;
+    private static final long MAX_DOWNLOAD_BYTES = 30L * 1024L * 1024L;
+    private static final String RELOCATED_BOUNCY_CASTLE = "com/bencodez/votingplugin/bouncycastle/";
+    private static final String[] UNUSED_BOUNCY_CASTLE_PACKAGES = {
+            "dvcs/", "eac/", "est/", "its/", "mime/", "mozilla/",
+            "oer/", "openssl/", "pkcs/", "tsp/", "voms/"
+    };
 
     @Test
     void containsOneRelocatedRuntimeWithoutUnusedHttpCrypto() throws Exception {
@@ -35,7 +40,7 @@ public class PackagedArtifactTest {
             assertNotNull(artifact.getEntry("com/bencodez/votingplugin/neoforge/NeoForgeVotingPlugin.class"));
             assertNotNull(artifact.getEntry("org/sqlite/JDBC.class"));
             assertNull(artifact.getEntry("net/neoforged/neoforge/common/NeoForge.class"));
-            assertNull(artifact.getEntry("org/checkerframework/checker/nullness/qual/Nullable.class"));
+            assertFalse(artifact.stream().anyMatch(entry -> entry.getName().startsWith("org/checkerframework/")));
             assertNull(artifact.getEntry("org/slf4j/Logger.class"));
             assertNull(artifact.getEntry("com/bencodez/votingplugin/slf4j/Logger.class"));
             assertNull(artifact.getEntry("META-INF/services/org.slf4j.spi.SLF4JServiceProvider"));
@@ -58,12 +63,18 @@ public class PackagedArtifactTest {
             assertFalse(artifact.stream().anyMatch(entry -> entry.getName().startsWith("org/bouncycastle/")));
             assertFalse(artifact.stream().anyMatch(entry -> entry.getName().startsWith("META-INF/versions/")
                     && entry.getName().contains("/bouncycastle/")));
+            for (String packageName : UNUSED_BOUNCY_CASTLE_PACKAGES) {
+                String prefix = RELOCATED_BOUNCY_CASTLE + packageName;
+                assertFalse(artifact.stream().anyMatch(entry -> entry.getName().startsWith(prefix)),
+                        () -> "Unused Bouncy Castle package was bundled: " + prefix);
+            }
             assertFalse(artifact.stream().anyMatch(entry -> entry.getName()
                     .startsWith("redis/clients/jedis/search/")));
         }
         long artifactBytes = Files.size(artifactPath);
         assertTrue(artifactBytes <= MAX_DOWNLOAD_BYTES,
-                () -> "VotingPlugin downloadable artifact exceeded 31 MiB: " + artifactBytes);
+                () -> "VotingPlugin downloadable artifact exceeded "
+                        + (MAX_DOWNLOAD_BYTES / (1024L * 1024L)) + " MiB: " + artifactBytes);
         System.out.printf("VotingPlugin downloadable artifact: %,d bytes; duplicate Rhino and unused HTTP crypto absent%n",
                 Files.size(artifactPath));
     }
@@ -94,6 +105,16 @@ public class PackagedArtifactTest {
             Object identity = identityType.getMethod("loadOrCreate", Path.class, String.class)
                     .invoke(null, directory, "localhost");
             assertNotNull(identityType.getMethod("serverContext").invoke(identity));
+            Object issued = identityType.getMethod("issueClientCertificate", String.class)
+                    .invoke(identity, "packaged-artifact-test");
+            assertNotNull(issued.getClass().getMethod("certificate").invoke(issued));
+            assertNotNull(issued.getClass().getMethod("pkcs12").invoke(issued));
+            Class<?> credentialStoreType = Class.forName(
+                    "com.bencodez.votingplugin.simpleapi.servercomm.http.HttpClientCredentialStore", true, loader);
+            Path clientDirectory = directory.resolve("client");
+            credentialStoreType.getMethod("save", Path.class, issued.getClass())
+                    .invoke(null, clientDirectory, issued);
+            assertNotNull(credentialStoreType.getMethod("load", Path.class).invoke(null, clientDirectory));
         }
     }
 

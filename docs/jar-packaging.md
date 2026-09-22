@@ -10,16 +10,19 @@ AdvancedCore already contains the relocated Rhino implementation needed by its
 JavaScript support, so VotingPlugin excludes the second unrelocated Rhino
 dependency. VotingPlugin bundles the relocated Bouncy Castle base provider used
 by `BouncyCastleProvider` and `HttpTlsIdentity`, while excluding its unused
-multi-release payloads. HTTP transport support explicitly owns its TLS
-implementation and crypto dependencies; it does not rely on AdvancedCore to
-provide them.
+multi-release payloads and unrelated timestamping and other
+protocol stacks. HTTP transport support explicitly owns its TLS implementation
+and the remaining crypto classes; it does not rely on AdvancedCore to provide
+them.
 
 The package phase runs `PackagedArtifactTest` after shading. It opens the actual
 downloadable JAR, checks plugin resources and required relocated classes, and
 rejects duplicate Rhino, raw Hikari/Folia, unused multi-release crypto payloads,
-and optional Jedis module clients. SQLite keeps its complete
-native platform set so packaging changes do not narrow existing installations.
-The test also caps the downloadable artifact at 31 MiB so dependency growth must
+unused Bouncy Castle protocol packages, Checker Framework annotations, and
+optional Jedis module clients. It creates both server and client TLS identities
+from the packaged crypto classes. SQLite keeps its complete native platform set
+so packaging changes do not narrow existing installations.
+The test also caps the downloadable artifact at 30 MiB so dependency growth must
 be reviewed explicitly. Release/deployment profiles
 reuse this Shade setup; the artifact check follows their configured JAR name.
 
