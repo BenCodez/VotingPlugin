@@ -1323,6 +1323,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return getData().getInt("LastMonthTotal");
 	}
 
+	/** Returns the weekly total captured at the time-change boundary. */
+	public int getLastWeeklyTotal() {
+		return getData().getInt("LastWeeklyTotal");
+	}
+
 	/**
 	 * Gets the last votes for each vote site.
 	 *
@@ -1846,7 +1851,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 *         otherwise
 	 */
 	public boolean hasPercentageTotal(TopVoter top, double percentage, LocalDateTime time) {
-		int total = getTotal(top, time);
+		return hasPercentageTotal(top, percentage, time, getTotal(top, time));
+	}
+
+	/** Checks a percentage requirement against an explicitly captured total. */
+	public boolean hasPercentageTotal(TopVoter top, double percentage, LocalDateTime time, int total) {
 		switch (top) {
 		case Daily:
 			return (double) total / (double) plugin.getVoteSiteManager().getVoteSitesEnabled().size()

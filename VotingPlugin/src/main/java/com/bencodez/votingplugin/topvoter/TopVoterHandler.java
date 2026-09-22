@@ -702,13 +702,14 @@ public class TopVoterHandler implements Listener {
 		}
 	}
 
-	private void processWeeklyUser(VotingPluginUser user, TimeChangeTransition transition, String uuid) {
+	void processWeeklyUser(VotingPluginUser user, TimeChangeTransition transition, String uuid) {
+		int boundaryTotal = user.getLastWeeklyTotal();
 		if (plugin.getConfigFile().isUseVoteStreaks()) {
-			if (user.getTotal(TopVoter.Weekly) == 0 && user.getWeekVoteStreak() != 0) {
+			if (boundaryTotal == 0 && user.getWeekVoteStreak() != 0) {
 				applyRecoverableStreak(user, transition, uuid, TopVoter.Weekly, 0, false);
 			} else if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage()
 					|| user.hasPercentageTotal(TopVoter.Weekly,
-							plugin.getSpecialRewardsConfig().getVoteStreakRequirementWeek(), null)) {
+							plugin.getSpecialRewardsConfig().getVoteStreakRequirementWeek(), null, boundaryTotal)) {
 				applyRecoverableStreak(user, transition, uuid, TopVoter.Weekly,
 						user.getWeekVoteStreak() + 1, true);
 			}

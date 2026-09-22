@@ -52,6 +52,30 @@ class TopVoterTimeChangeRecoveryTest {
 	}
 
 	@Test
+	void weeklyStreakUsesBoundaryTotalInsteadOfANewWeekVote() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		ServerData serverData = mock(ServerData.class);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		TimeChangeTransition transition = mock(TimeChangeTransition.class);
+		String uuid = "00000000-0000-0000-0000-000000000001";
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(plugin.getConfigFile().isUseVoteStreaks()).thenReturn(true);
+		when(user.getLastWeeklyTotal()).thenReturn(0);
+		when(user.getTotal(TopVoter.Weekly)).thenReturn(1);
+		when(user.getWeekVoteStreak()).thenReturn(4);
+		when(serverData.prepareTimeChangeUserStreak(transition, uuid, 0, false))
+				.thenReturn(new TimeChangeUserProgress(uuid, 0, false, false));
+
+		new TopVoterHandler(plugin).processWeeklyUser(user, transition, uuid);
+
+		verify(serverData).prepareTimeChangeUserStreak(transition, uuid, 0, false);
+		verify(user).setWeekVoteStreak(0);
+		verify(user, never()).hasPercentageTotal(org.mockito.ArgumentMatchers.any(),
+				org.mockito.ArgumentMatchers.anyDouble(), org.mockito.ArgumentMatchers.any(),
+				org.mockito.ArgumentMatchers.anyInt());
+	}
+
+	@Test
 	void dailyRecoveryUsesTheDayBeforeTheStableTransitionDate() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		TimeChangeTransition transition = mock(TimeChangeTransition.class);

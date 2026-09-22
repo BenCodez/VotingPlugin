@@ -726,10 +726,21 @@ public class ServerData {
 		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
 			throw new IllegalStateException("Time change recovery transition does not match");
 		}
-		getData().set("VoteParty.Total", 0);
-		getData().set("VoteParty.Voted", new ArrayList<>());
-		getData().set(path + ".Effects." + effect, true);
-		saveData();
+		int previousTotal = getData().getInt("VoteParty.Total");
+		List<String> previousVoters = new ArrayList<>(getData().getStringList("VoteParty.Voted"));
+		String effectPath = path + ".Effects." + effect;
+		Object previousEffect = getData().get(effectPath);
+		try {
+			getData().set("VoteParty.Total", 0);
+			getData().set("VoteParty.Voted", new ArrayList<>());
+			getData().set(effectPath, true);
+			saveData();
+		} catch (RuntimeException | Error failure) {
+			getData().set("VoteParty.Total", previousTotal);
+			getData().set("VoteParty.Voted", previousVoters);
+			getData().set(effectPath, previousEffect);
+			throw failure;
+		}
 	}
 
 	/** Resets VoteParty's extra requirement and records its receipt in one save. */
@@ -738,9 +749,18 @@ public class ServerData {
 		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
 			throw new IllegalStateException("Time change recovery transition does not match");
 		}
-		getData().set("VotePartyExtraRequired", 0);
-		getData().set(path + ".Effects." + effect, true);
-		saveData();
+		int previousExtra = getData().getInt("VotePartyExtraRequired");
+		String effectPath = path + ".Effects." + effect;
+		Object previousEffect = getData().get(effectPath);
+		try {
+			getData().set("VotePartyExtraRequired", 0);
+			getData().set(effectPath, true);
+			saveData();
+		} catch (RuntimeException | Error failure) {
+			getData().set("VotePartyExtraRequired", previousExtra);
+			getData().set(effectPath, previousEffect);
+			throw failure;
+		}
 	}
 
 	private String timeChangeRecoveryPath(TimeType type) {

@@ -3,6 +3,8 @@ package com.bencodez.votingplugin.tests.data;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -172,6 +174,34 @@ class ServerDataTimeChangeRecoveryTest {
 		assertEquals(0, data.getData().getInt("VoteParty.Total"));
 		assertTrue(data.getData().getStringList("VoteParty.Voted").isEmpty());
 		assertTrue(data.hasTimeChangeEffect(transition, "VotePartyWeekReset"));
+	}
+
+	@Test
+	void failedVotePartyCheckpointKeepsTheEffectPendingInMemory() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
+		YamlConfiguration yaml = new YamlConfiguration();
+		when(plugin.getServerDataFile()).thenReturn(coreData);
+		when(coreData.getData()).thenReturn(yaml);
+		ServerData data = new ServerData(plugin);
+		TimeChangeTransition transition = transition("WEEK:2026-W38", "2026-W38", TimeType.WEEK);
+		data.beginTimeChangeRecovery(transition);
+		data.getData().set("VoteParty.Total", 12);
+		data.getData().set("VoteParty.Voted", List.of("player"));
+		doThrow(new IllegalStateException("disk unavailable")).when(coreData).saveData();
+
+		assertThrows(IllegalStateException.class,
+				() -> data.completeTimeChangeVotePartyReset(transition, "VotePartyWeekReset"));
+
+		assertEquals(12, data.getData().getInt("VoteParty.Total"));
+		assertEquals(List.of("player"), data.getData().getStringList("VoteParty.Voted"));
+		assertFalse(data.hasTimeChangeEffect(transition, "VotePartyWeekReset"));
+
+		data.getData().set("VotePartyExtraRequired", 7);
+		assertThrows(IllegalStateException.class,
+				() -> data.completeTimeChangeVotePartyExtraReset(transition, "VotePartyWeekExtraVotes"));
+		assertEquals(7, data.getData().getInt("VotePartyExtraRequired"));
+		assertFalse(data.hasTimeChangeEffect(transition, "VotePartyWeekExtraVotes"));
 	}
 
 	private TimeChangeTransition transition(String id, String period, TimeType type) {

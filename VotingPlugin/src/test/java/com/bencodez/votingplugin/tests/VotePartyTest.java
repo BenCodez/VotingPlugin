@@ -26,6 +26,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.mockito.InOrder;
 
 import com.bencodez.advancedcore.api.time.TimeChangeTransition;
 import com.bencodez.advancedcore.api.time.events.DayChangeEvent;
@@ -128,9 +129,11 @@ public class VotePartyTest {
 		voteParty.onDayChange(new DayChangeEvent(transition));
 
 		verify(plugin.getServerData()).beginTimeChangeRecovery(transition);
-		verify(plugin.getServerData()).completeTimeChangeVotePartyReset(transition, "VotePartyDayReset");
+		InOrder completionOrder = Mockito.inOrder(plugin.getServerData(), lease);
+		completionOrder.verify(plugin.getServerData())
+				.completeTimeChangeVotePartyReset(transition, "VotePartyDayReset");
+		completionOrder.verify(lease).complete();
 		verify(plugin.getServerData(), never()).completeTimeChangeEffect(transition, "VotePartyDayReset");
-		verify(lease).complete();
 	}
 
 	@Test

@@ -10,7 +10,7 @@ public final class PeriodTotalMutationFence {
 	}
 
 	public static void withMutation(Runnable action) {
-		var lock = FENCE.readLock();
+		var lock = FENCE.writeLock();
 		lock.lock();
 		try {
 			action.run();
