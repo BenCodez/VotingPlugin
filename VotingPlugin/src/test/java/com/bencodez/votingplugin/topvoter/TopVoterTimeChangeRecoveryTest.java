@@ -1,7 +1,9 @@
 package com.bencodez.votingplugin.topvoter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -18,14 +20,18 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 
 import com.bencodez.advancedcore.api.time.TimeChangeTransition;
+import com.bencodez.advancedcore.api.time.TimeType;
+import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardTarget;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeUserProgress;
 import com.bencodez.votingplugin.specialrewards.SpecialRewards;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseService;
 
 class TopVoterTimeChangeRecoveryTest {
 	@Test
@@ -73,6 +79,75 @@ class TopVoterTimeChangeRecoveryTest {
 		verify(user, never()).hasPercentageTotal(org.mockito.ArgumentMatchers.any(),
 				org.mockito.ArgumentMatchers.anyDouble(), org.mockito.ArgumentMatchers.any(),
 				org.mockito.ArgumentMatchers.anyInt());
+	}
+
+	@Test
+	void recoveredHighestTotalsUseCopiedDailyAndWeeklyBoundaries() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		TimeChangeTransition transition = mock(TimeChangeTransition.class);
+		when(plugin.getConfigFile().isUseHighestTotals()).thenReturn(true);
+		when(user.getLastDailyTotal()).thenReturn(5);
+		when(user.getTotal(TopVoter.Daily)).thenReturn(8);
+		when(user.getHighestDailyTotal()).thenReturn(2);
+		when(user.getLastWeeklyTotal()).thenReturn(6);
+		when(user.getTotal(TopVoter.Weekly)).thenReturn(9);
+		when(user.getHighestWeeklyTotal()).thenReturn(3);
+
+		TopVoterHandler handler = new TopVoterHandler(plugin);
+		handler.processDailyUser(user, transition, "player");
+		handler.processWeeklyUser(user, transition, "player");
+
+		verify(user).setHighestDailyTotal(5);
+		verify(user).setHighestWeeklyTotal(6);
+		verify(user, never()).setHighestDailyTotal(8);
+		verify(user, never()).setHighestWeeklyTotal(9);
+	}
+
+	@Test
+	void monthlyRecoveryUsesCopiedBoundaryWhenUndatedTotalsArePrimary() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		ServerData serverData = mock(ServerData.class);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		TimeChangeTransition transition = mock(TimeChangeTransition.class);
+		LocalDateTime previousMonth = LocalDateTime.of(2026, 8, 15, 0, 0);
+		String uuid = "00000000-0000-0000-0000-000000000001";
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(plugin.getConfigFile().isUseVoteStreaks()).thenReturn(true);
+		when(plugin.getConfigFile().isUseHighestTotals()).thenReturn(true);
+		when(plugin.getConfigFile().isUseMonthDateTotalsAsPrimaryTotal()).thenReturn(false);
+		when(user.getLastMonthTotal()).thenReturn(0);
+		when(user.getTotal(TopVoter.Monthly, previousMonth)).thenReturn(7);
+		when(user.getMonthVoteStreak()).thenReturn(4);
+		when(serverData.prepareTimeChangeUserStreak(transition, uuid, 0, false))
+				.thenReturn(new TimeChangeUserProgress(uuid, 0, false, false));
+
+		new TopVoterHandler(plugin).processMonthlyUser(user, previousMonth, transition, uuid);
+
+		verify(serverData).prepareTimeChangeUserStreak(transition, uuid, 0, false);
+		verify(user).setMonthVoteStreak(0);
+		verify(user, never()).setHighestMonthlyTotal(7);
+		verify(user, never()).hasPercentageTotal(org.mockito.ArgumentMatchers.any(),
+				org.mockito.ArgumentMatchers.anyDouble(), org.mockito.ArgumentMatchers.any(),
+				org.mockito.ArgumentMatchers.anyInt());
+	}
+
+	@Test
+	void monthlyRecoveryUsesDatedBoundaryWhenDateTotalsArePrimary() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		TimeChangeTransition transition = mock(TimeChangeTransition.class);
+		LocalDateTime previousMonth = LocalDateTime.of(2026, 8, 15, 0, 0);
+		when(plugin.getConfigFile().isUseHighestTotals()).thenReturn(true);
+		when(plugin.getConfigFile().isUseMonthDateTotalsAsPrimaryTotal()).thenReturn(true);
+		when(user.getTotal(TopVoter.Monthly, previousMonth)).thenReturn(5);
+		when(user.getLastMonthTotal()).thenReturn(9);
+		when(user.getHighestMonthlyTotal()).thenReturn(2);
+
+		new TopVoterHandler(plugin).processMonthlyUser(user, previousMonth, transition, "player");
+
+		verify(user).setHighestMonthlyTotal(5);
+		verify(user, never()).setHighestMonthlyTotal(9);
 	}
 
 	@Test
@@ -159,5 +234,53 @@ class TopVoterTimeChangeRecoveryTest {
 				assertEquals(2, result.getInt(1));
 			}
 		}
+	}
+
+	@Test
+	void sqliteVoteShopResetsRemainIndependentAndDoNotRepeat() throws Exception {
+		try (Connection connection = DriverManager.getConnection("jdbc:sqlite::memory:");
+				Statement statement = connection.createStatement()) {
+			statement.executeUpdate("CREATE TABLE users (uuid TEXT PRIMARY KEY, VoteShopLimitdaily INTEGER, "
+					+ "VoteShopLimitweekly INTEGER)");
+			statement.executeUpdate("INSERT INTO users VALUES ('player', 4, 6)");
+			TimeChangeTotalReset.resetSqliteToZero(connection, "users", "VoteShopLimitdaily",
+					"time-shop:DAY:2026-09-21:VoteShopLimitdaily");
+			TimeChangeTotalReset.resetSqliteToZero(connection, "users", "VoteShopLimitweekly",
+					"time-shop:DAY:2026-09-21:VoteShopLimitweekly");
+			statement.executeUpdate("UPDATE users SET VoteShopLimitdaily = 1, VoteShopLimitweekly = 2");
+			TimeChangeTotalReset.resetSqliteToZero(connection, "users", "VoteShopLimitdaily",
+					"time-shop:DAY:2026-09-21:VoteShopLimitdaily");
+			TimeChangeTotalReset.resetSqliteToZero(connection, "users", "VoteShopLimitweekly",
+					"time-shop:DAY:2026-09-21:VoteShopLimitweekly");
+			try (ResultSet result = statement.executeQuery(
+					"SELECT VoteShopLimitdaily, VoteShopLimitweekly FROM users WHERE uuid = 'player'")) {
+				assertEquals(1, result.getInt(1));
+				assertEquals(2, result.getInt(2));
+			}
+		}
+	}
+
+	@Test
+	void failedMysqlVoteShopResetLeavesPhasePending() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		ServerData serverData = mock(ServerData.class);
+		TimeChangeTransition transition = mock(TimeChangeTransition.class);
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(plugin.getStorageType()).thenReturn(UserStorage.MYSQL);
+		when(plugin.getShopFile().getShopIdentifiers()).thenReturn(Set.of("daily"));
+		when(plugin.getShopFile().getVoteShopResetDaily("daily")).thenReturn(true);
+		when(transition.getType()).thenReturn(TimeType.DAY);
+		when(transition.getPeriodKey()).thenReturn("2026-09-21");
+		try (MockedStatic<VoteShopPurchaseService> purchaseService = mockStatic(VoteShopPurchaseService.class)) {
+			purchaseService.when(() -> VoteShopPurchaseService.limitGenerationIdForTransition(transition))
+					.thenReturn("time-shop:DAY:2026-09-21");
+			purchaseService.when(() -> VoteShopPurchaseService.resetMysqlLimitWithPurchaseFence(plugin,
+					"VoteShopLimitdaily", "time-shop:DAY:2026-09-21")).thenReturn(false);
+
+			assertThrows(IllegalStateException.class,
+					() -> new TopVoterHandler(plugin).processRecoverableVoteShop(TopVoter.Daily, transition));
+		}
+
+		verify(serverData, never()).completeTimeChangePhase(transition, "VOTE_SHOP");
 	}
 }

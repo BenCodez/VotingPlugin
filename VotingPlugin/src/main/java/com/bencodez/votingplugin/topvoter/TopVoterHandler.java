@@ -46,6 +46,7 @@ import com.bencodez.votingplugin.data.ServerData.TimeChangeArchiveSnapshot;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardTarget;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeUserProgress;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.voteshop.service.VoteShopLimitMutationFence;
 import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseService;
 
 /**
@@ -631,16 +632,7 @@ public class TopVoterHandler implements Listener {
 			plugin.getServerData().completeTimeChangePhase(transition, TOP_REWARDS);
 		}
 
-		if (!plugin.getServerData().hasTimeChangePhase(transition, VOTE_SHOP)) {
-			ensureTransitionActive(transition);
-			for (String shopIdent : plugin.getShopFile().getShopIdentifiers()) {
-				if (shouldResetVoteShop(top, shopIdent)) {
-					resetVoteShopLimit(shopIdent,
-							VoteShopPurchaseService.limitGenerationIdForTransition(transition));
-				}
-			}
-			plugin.getServerData().completeTimeChangePhase(transition, VOTE_SHOP);
-		}
+		processRecoverableVoteShop(top, transition);
 
 		if (!plugin.getServerData().hasTimeChangePhase(transition, BUNGEE_WAIT)) {
 			waitForBungee(top, transition);
@@ -691,14 +683,15 @@ public class TopVoterHandler implements Listener {
 		}, count -> { });
 	}
 
-	private void processDailyUser(VotingPluginUser user, TimeChangeTransition transition, String uuid) {
+	void processDailyUser(VotingPluginUser user, TimeChangeTransition transition, String uuid) {
+		int boundaryTotal = user.getLastDailyTotal();
 		if (plugin.getConfigFile().isUseVoteStreaks()
 				&& !user.voteStreakUpdatedToday(previousDayTime(transition)) && user.getDayVoteStreak() != 0) {
 			applyRecoverableStreak(user, transition, uuid, TopVoter.Daily, 0, false);
 		}
 		if (plugin.getConfigFile().isUseHighestTotals()
-				&& user.getHighestDailyTotal() < user.getTotal(TopVoter.Daily)) {
-			user.setHighestDailyTotal(user.getTotal(TopVoter.Daily));
+				&& user.getHighestDailyTotal() < boundaryTotal) {
+			user.setHighestDailyTotal(boundaryTotal);
 		}
 	}
 
@@ -715,27 +708,42 @@ public class TopVoterHandler implements Listener {
 			}
 		}
 		if (plugin.getConfigFile().isUseHighestTotals()
-				&& user.getHighestWeeklyTotal() < user.getTotal(TopVoter.Weekly)) {
-			user.setHighestWeeklyTotal(user.getTotal(TopVoter.Weekly));
+				&& user.getHighestWeeklyTotal() < boundaryTotal) {
+			user.setHighestWeeklyTotal(boundaryTotal);
 		}
 	}
 
-	private void processMonthlyUser(VotingPluginUser user, LocalDateTime lastMonthTime,
+	void processMonthlyUser(VotingPluginUser user, LocalDateTime lastMonthTime,
 			TimeChangeTransition transition, String uuid) {
+		int boundaryTotal = plugin.getConfigFile().isUseMonthDateTotalsAsPrimaryTotal()
+				? user.getTotal(TopVoter.Monthly, lastMonthTime) : user.getLastMonthTotal();
 		if (plugin.getConfigFile().isUseVoteStreaks()) {
-			if (user.getTotal(TopVoter.Monthly, lastMonthTime) == 0 && user.getMonthVoteStreak() != 0) {
+			if (boundaryTotal == 0 && user.getMonthVoteStreak() != 0) {
 				applyRecoverableStreak(user, transition, uuid, TopVoter.Monthly, 0, false);
 			} else if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage()
 					|| user.hasPercentageTotal(TopVoter.Monthly,
-							plugin.getSpecialRewardsConfig().getVoteStreakRequirementMonth(), lastMonthTime)) {
+							plugin.getSpecialRewardsConfig().getVoteStreakRequirementMonth(), lastMonthTime,
+							boundaryTotal)) {
 				applyRecoverableStreak(user, transition, uuid, TopVoter.Monthly,
 						user.getMonthVoteStreak() + 1, true);
 			}
 		}
 		if (plugin.getConfigFile().isUseHighestTotals()
-				&& user.getHighestMonthlyTotal() < user.getTotal(TopVoter.Monthly, lastMonthTime)) {
-			user.setHighestMonthlyTotal(user.getTotal(TopVoter.Monthly, lastMonthTime));
+				&& user.getHighestMonthlyTotal() < boundaryTotal) {
+			user.setHighestMonthlyTotal(boundaryTotal);
 		}
+	}
+
+	void processRecoverableVoteShop(TopVoter top, TimeChangeTransition transition) {
+		if (plugin.getServerData().hasTimeChangePhase(transition, VOTE_SHOP)) return;
+		ensureTransitionActive(transition);
+		String generation = VoteShopPurchaseService.limitGenerationIdForTransition(transition);
+		for (String shopIdent : plugin.getShopFile().getShopIdentifiers()) {
+			if (shouldResetVoteShop(top, shopIdent) && !resetVoteShopLimit(shopIdent, generation)) {
+				throw new IllegalStateException("Unable to durably reset VoteShop limit " + shopIdent);
+			}
+		}
+		plugin.getServerData().completeTimeChangePhase(transition, VOTE_SHOP);
 	}
 
 	void applyRecoverableStreak(VotingPluginUser user, TimeChangeTransition transition, String uuid,
@@ -944,23 +952,33 @@ public class TopVoterHandler implements Listener {
 		resetVoteShopLimit(shopIdent, null);
 	}
 
-	private void resetVoteShopLimit(String shopIdent, String resetGeneration) {
+	private boolean resetVoteShopLimit(String shopIdent, String resetGeneration) {
 		String limitColumn = "VoteShopLimit" + shopIdent;
+		if (resetGeneration != null) {
+			if (UserStorage.MYSQL.equals(plugin.getStorageType())) {
+				return VoteShopPurchaseService.resetMysqlLimitWithPurchaseFence(plugin, limitColumn, resetGeneration);
+			}
+			if (UserStorage.SQLITE.equals(plugin.getStorageType())) {
+				return VoteShopLimitMutationFence.withLock(() -> TimeChangeTotalReset.resetToZero(plugin, limitColumn,
+						resetGeneration + ':' + limitColumn));
+			}
+			return false;
+		}
 		if (UserStorage.MYSQL.equals(plugin.getStorageType()) && !plugin.getBungeeSettings().isPerServerPoints()) {
-			if (resetGeneration == null) VoteShopPurchaseService.resetSharedMysqlLimit(plugin, limitColumn);
-			else VoteShopPurchaseService.resetSharedMysqlLimit(plugin, limitColumn, resetGeneration);
-			return;
+			VoteShopPurchaseService.resetSharedMysqlLimit(plugin, limitColumn);
+			return true;
 		}
 		if (UserStorage.MYSQL.equals(plugin.getStorageType())) {
 			// The limit column is still shared with backends that have not switched to
 			// per-server points.  Its wipe and epoch advance must therefore use the
 			// journal's one transaction; doing the UserManager wipe after advancing the
 			// epoch can erase a new-epoch reservation.
-			VoteShopPurchaseService.resetMysqlLimitWithPurchaseFence(plugin, limitColumn,
-					resetGeneration == null ? UUID.randomUUID().toString() : resetGeneration);
-			return;
+			return VoteShopPurchaseService.resetMysqlLimitWithPurchaseFence(plugin, limitColumn,
+					UUID.randomUUID().toString());
 		}
-		plugin.getUserManager().removeAllKeyValues(limitColumn, DataType.INTEGER);
+		VoteShopLimitMutationFence.withLock(
+				() -> plugin.getUserManager().removeAllKeyValues(limitColumn, DataType.INTEGER));
+		return true;
 	}
 
 	/**

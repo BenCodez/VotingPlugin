@@ -492,18 +492,22 @@ public class VoteShopPurchaseService {
 			if (usesSharedMysqlPoints()) {
 				return debitSharedMysql(user, item);
 			}
-			if (item.getLimit() > 0 && user.getVoteShopIdentifierLimit(item.getIdentifier()) >= item.getLimit()) {
-				return VoteShopPurchaseResult.LIMIT_REACHED;
-			}
-			if (!user.removePoints(item.getCost(), true)) {
-				return VoteShopPurchaseResult.NOT_ENOUGH_POINTS;
-			}
-			if (item.getLimit() > 0) {
-				user.setVoteShopIdentifierLimit(item.getIdentifier(),
-						user.getVoteShopIdentifierLimit(item.getIdentifier()) + 1);
-			}
-			return VoteShopPurchaseResult.SUCCESS;
+			return VoteShopLimitMutationFence.withLock(() -> debitLocal(user, item));
 		}
+	}
+
+	private VoteShopPurchaseResult debitLocal(VotingPluginUser user, VoteShopItem item) {
+		if (item.getLimit() > 0 && user.getVoteShopIdentifierLimit(item.getIdentifier()) >= item.getLimit()) {
+			return VoteShopPurchaseResult.LIMIT_REACHED;
+		}
+		if (!user.removePoints(item.getCost(), true)) {
+			return VoteShopPurchaseResult.NOT_ENOUGH_POINTS;
+		}
+		if (item.getLimit() > 0) {
+			user.setVoteShopIdentifierLimit(item.getIdentifier(),
+					user.getVoteShopIdentifierLimit(item.getIdentifier()) + 1);
+		}
+		return VoteShopPurchaseResult.SUCCESS;
 	}
 
 	private boolean usesSharedMysqlPoints() {

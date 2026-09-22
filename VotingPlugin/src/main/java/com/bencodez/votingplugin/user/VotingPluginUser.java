@@ -1323,6 +1323,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return getData().getInt("LastMonthTotal");
 	}
 
+	/** Returns the daily total captured at the time-change boundary. */
+	public int getLastDailyTotal() {
+		return getData().getInt("LastDailyTotal");
+	}
+
 	/** Returns the weekly total captured at the time-change boundary. */
 	public int getLastWeeklyTotal() {
 		return getData().getInt("LastWeeklyTotal");
