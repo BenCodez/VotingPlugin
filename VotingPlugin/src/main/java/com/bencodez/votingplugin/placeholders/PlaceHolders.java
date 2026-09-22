@@ -6,8 +6,11 @@ import java.time.LocalDateTime;
 import java.time.temporal.TemporalField;
 import java.time.temporal.WeekFields;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -49,6 +52,14 @@ public class PlaceHolders {
 	private ArrayList<String> cachedPlaceholders = new ArrayList<>();
 
 	private ConcurrentLinkedQueue<String> placeholdersToSetCacheOn = new ConcurrentLinkedQueue<>();
+	private final Set<PlaceHolder<VotingPluginUser>> platformOwnedPlaceholders =
+			Collections.newSetFromMap(new IdentityHashMap<>());
+	private final Set<PlaceHolder<VotingPluginUser>> offlineWorkerPlaceholders =
+			Collections.newSetFromMap(new IdentityHashMap<>());
+	private volatile List<PlaceHolder<VotingPluginUser>> userDataChangePlaceholders = List.of();
+	private volatile Set<PlaceHolder<VotingPluginUser>> userDataChangePlatformPlaceholders = Set.of();
+	private volatile Set<PlaceHolder<VotingPluginUser>> userDataChangeOfflineWorkerPlaceholders = Set.of();
+	private boolean userDataChangeListenerRegistered;
 
 	@Getter
 	private PlaceholderCacheLevel cacheLevel;
@@ -301,6 +312,8 @@ public class PlaceHolders {
 	public void load() {
 		placeholders.clear();
 		nonPlayerPlaceholders.clear();
+		platformOwnedPlaceholders.clear();
+		offlineWorkerPlaceholders.clear();
 
 		// older placeholders, might be removed in the future
 		placeholders.add(new PlaceHolder<VotingPluginUser>("total") {
@@ -493,13 +506,13 @@ public class PlaceHolders {
 			}
 		}.withDescription("Return true/false if player can vote on all sites").updateDataKey("LastVotes"));
 
-		placeholders.add(new PlaceHolder<VotingPluginUser>("CanVoteSites") {
+		placeholders.add(platformOwnedWithOfflineWorkerFallback(new PlaceHolder<VotingPluginUser>("CanVoteSites") {
 
 			@Override
 			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				return "" + user.getSitesNotVotedOn();
 			}
-		}.withDescription("Return number of votesites available").updateDataKey("LastVotes"));
+		}.withDescription("Return number of votesites available").updateDataKey("LastVotes")));
 
 		placeholders.add(new PlaceHolder<VotingPluginUser>("Next_AnySite") {
 
@@ -530,21 +543,21 @@ public class PlaceHolders {
 			}
 		}.withDescription("How long until user can vote on anysite").updateDataKey("LastVotes"));
 
-		placeholders.add(new PlaceHolder<VotingPluginUser>("SitesAvailable") {
+		placeholders.add(platformOwnedWithOfflineWorkerFallback(new PlaceHolder<VotingPluginUser>("SitesAvailable") {
 
 			@Override
 			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				return "" + user.getSitesNotVotedOn();
 			}
-		}.withDescription("Get number of sites available to be voted on").updateDataKey("LastVotes"));
+		}.withDescription("Get number of sites available to be voted on").updateDataKey("LastVotes")));
 
-		placeholders.add(new PlaceHolder<VotingPluginUser>("SitesAvailableTotal") {
+		placeholders.add(platformOwnedWithOfflineWorkerFallback(new PlaceHolder<VotingPluginUser>("SitesAvailableTotal") {
 
 			@Override
 			public String placeholderRequest(VotingPluginUser user, String identifier) {
 				return "" + user.getTotalNumberOfSites();
 			}
-		}.withDescription("Get total number of sites available to be voted on"));
+		}.withDescription("Get total number of sites available to be voted on")));
 
 		for (final VoteSite voteSite : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
 			placeholders.add(new CalculatingPlaceholder<VotingPluginUser>("Next_" + voteSite.getKey()) {
@@ -1174,55 +1187,175 @@ public class PlaceHolders {
 			}
 		}
 
-		plugin.getUserManager().getUserDataChange().add(new UserDataChanged() {
+		publishUserDataChangePlaceholders();
+		if (!userDataChangeListenerRegistered) {
+			plugin.getUserManager().getUserDataChange().add(new UserDataChanged() {
 
-			@Override
-			public void onChange(AdvancedCoreUser user, String... keys) {
-				VotingPluginUser vpUser = plugin.getVotingPluginUserManager().getVotingPluginUser(user);
-				if (!vpUser.isCached()) {
-					vpUser.userDataFetechMode(UserDataFetchMode.NO_CACHE);
+				@Override
+				public void onChange(AdvancedCoreUser user, String... keys) {
+					onUserDataChange(user, keys);
 				}
-				for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
-					if (placeholder.isUsesCache()) {
-						if (placeholder.isCached(placeholder.getIdentifier(), user.getJavaUUID())
-								|| !getCacheLevel().onlineOnly() || user.isOnline()) {
-							if (placeholder instanceof CalculatingPlaceholder<?>) {
-								CalculatingPlaceholder<VotingPluginUser> cPlaceholder = (CalculatingPlaceholder<VotingPluginUser>) placeholder;
-								if (placeholder.isUsesCache()) {
-									for (String key : keys) {
-										if (placeholder.getUpdateDataKey().equalsIgnoreCase(key)) {
-											for (String ident : placeholder.getCache().keySet()) {
-												String value = placeholder.placeholderRequest(vpUser, ident);
-												cPlaceholder.getCacheData().put(user.getJavaUUID(),
-														cPlaceholder.placeholderDataRequest(vpUser, ident));
-												placeholder.getCache().get(ident).put(vpUser.getJavaUUID(), value);
-												plugin.devDebug("Updated calculating placeholder cache for "
-														+ vpUser.getUUID() + " on " + key + " with " + value);
-											}
-										}
-									}
-								}
-							} else {
-								if (placeholder.isUsesCache()) {
-									for (String key : keys) {
-										if (placeholder.getUpdateDataKey().equalsIgnoreCase(key)) {
-											for (String ident : placeholder.getCache().keySet()) {
-												String value = placeholder.placeholderRequest(vpUser, ident);
-												placeholder.getCache().get(ident).put(vpUser.getJavaUUID(), value);
-												plugin.devDebug("Updated placeholder cache for " + vpUser.getUUID()
-														+ " on " + key + " with " + value);
+			});
+			userDataChangeListenerRegistered = true;
+		}
+	}
 
-											}
+	PlaceHolder<VotingPluginUser> platformOwned(PlaceHolder<VotingPluginUser> placeholder) {
+		platformOwnedPlaceholders.add(placeholder);
+		return placeholder;
+	}
 
-										}
-									}
-								}
-							}
-						}
-					}
+	PlaceHolder<VotingPluginUser> platformOwnedWithOfflineWorkerFallback(
+			PlaceHolder<VotingPluginUser> placeholder) {
+		offlineWorkerPlaceholders.add(placeholder);
+		return platformOwned(placeholder);
+	}
+
+	void publishUserDataChangePlaceholders() {
+		userDataChangePlaceholders = List.copyOf(placeholders);
+		userDataChangePlatformPlaceholders = Set.copyOf(platformOwnedPlaceholders);
+		userDataChangeOfflineWorkerPlaceholders = Set.copyOf(offlineWorkerPlaceholders);
+	}
+
+	void onUserDataChange(AdvancedCoreUser user, String... keys) {
+		if (user == null || keys == null) return;
+		VotingPluginUser vpUser = plugin.getVotingPluginUserManager().getVotingPluginUser(user);
+		if (vpUser == null) return;
+		if (!vpUser.isCached()) vpUser.userDataFetechMode(UserDataFetchMode.NO_CACHE);
+
+		UUID uuid = user.getJavaUUID();
+		List<PlaceHolder<VotingPluginUser>> platformUpdates = new ArrayList<>();
+		List<PlaceHolder<VotingPluginUser>> offlineUpdates = new ArrayList<>();
+		Set<PlaceHolder<VotingPluginUser>> platformSnapshot = userDataChangePlatformPlaceholders;
+		Set<PlaceHolder<VotingPluginUser>> offlineSnapshot = userDataChangeOfflineWorkerPlaceholders;
+		Player owner = plugin.getPlaceholderPlayerPresence().schedulerOwner(uuid);
+		for (PlaceHolder<VotingPluginUser> placeholder : userDataChangePlaceholders) {
+			if (!shouldRefresh(placeholder, uuid, keys)) continue;
+			if (platformSnapshot.contains(placeholder)) {
+				if (owner != null) platformUpdates.add(placeholder);
+				else if (offlineSnapshot.contains(placeholder)) offlineUpdates.add(placeholder);
+			}
+			else updateCachedPlaceholder(placeholder, vpUser, uuid, keys);
+		}
+
+		if (!offlineUpdates.isEmpty()) updateOfflinePlatformPlaceholders(uuid, vpUser, offlineUpdates, keys);
+		if (platformUpdates.isEmpty() || !plugin.isEnabled()) return;
+		schedulePlatformUpdates(uuid, vpUser, List.copyOf(platformUpdates), keys.clone());
+	}
+
+	private void schedulePlatformUpdates(UUID uuid, VotingPluginUser user,
+			List<PlaceHolder<VotingPluginUser>> platformUpdates, String[] keys) {
+		Player owner = plugin.getPlaceholderPlayerPresence().schedulerOwner(uuid);
+		if (owner == null) {
+			dispatchOfflinePlatformUpdates(uuid, user, platformUpdates, keys);
+			return;
+		}
+		Runnable update = () -> {
+			if (!plugin.isEnabled()) return;
+			if (plugin.getPlaceholderPlayerPresence().schedulerOwner(uuid) != owner) {
+				schedulePlatformUpdates(uuid, user, platformUpdates, keys);
+				return;
+			}
+			if (getCacheLevel().onlineOnly() && !plugin.getPlaceholderPlayerPresence().isOnline(uuid)) return;
+			for (PlaceHolder<VotingPluginUser> placeholder : platformUpdates) {
+				if (shouldRefresh(placeholder, uuid, keys)) updateCachedPlaceholder(placeholder, user, uuid, keys);
+			}
+		};
+		plugin.getBukkitScheduler().runTask(plugin, update, owner);
+	}
+
+	private void dispatchOfflinePlatformUpdates(UUID uuid, VotingPluginUser user,
+			List<PlaceHolder<VotingPluginUser>> platformUpdates, String[] keys) {
+		plugin.getUserManager().getDataManager().dispatchSharedUserDataNotification(() -> {
+			if (!plugin.isEnabled()) return;
+			if (plugin.getPlaceholderPlayerPresence().schedulerOwner(uuid) != null) {
+				schedulePlatformUpdates(uuid, user, platformUpdates, keys);
+				return;
+			}
+			if (getCacheLevel().onlineOnly()) return;
+			Set<PlaceHolder<VotingPluginUser>> offlineSnapshot = userDataChangeOfflineWorkerPlaceholders;
+			List<PlaceHolder<VotingPluginUser>> offlineUpdates = platformUpdates.stream()
+					.filter(offlineSnapshot::contains).filter(placeholder -> shouldRefresh(placeholder, uuid, keys))
+					.toList();
+			if (!offlineUpdates.isEmpty()) updateOfflinePlatformPlaceholders(uuid, user, offlineUpdates, keys);
+		});
+	}
+
+	private void updateOfflinePlatformPlaceholders(UUID uuid, VotingPluginUser user,
+			List<PlaceHolder<VotingPluginUser>> placeholdersToUpdate, String... keys) {
+		IdentityHashMap<PlaceHolder<VotingPluginUser>, String> values = new IdentityHashMap<>();
+		for (PlaceHolder<VotingPluginUser> placeholder : placeholdersToUpdate) {
+			String value = placeholder.getIdentifier().equalsIgnoreCase("SitesAvailableTotal")
+					? Integer.toString(user.getTotalNumberOfSitesWithoutOnlinePermissions())
+					: Integer.toString(user.getSitesNotVotedOnWithoutOnlinePermissions());
+			values.put(placeholder, value);
+		}
+		boolean published = plugin.getPlaceholderPlayerPresence().runIfOffline(uuid, () -> {
+			for (PlaceHolder<VotingPluginUser> placeholder : placeholdersToUpdate) {
+				for (String ident : Set.copyOf(placeholder.getCache().keySet())) {
+					ConcurrentHashMap<UUID, String> cachedValues = placeholder.getCache().get(ident);
+					if (cachedValues != null) cachedValues.put(uuid, values.get(placeholder));
 				}
 			}
 		});
+		if (published) {
+			for (PlaceHolder<VotingPluginUser> placeholder : placeholdersToUpdate) {
+				plugin.devDebug("Updated offline placeholder cache for " + user.getUUID() + " on "
+						+ matchingKey(placeholder, keys) + " with " + values.get(placeholder));
+			}
+		} else if (plugin.isEnabled()) {
+			schedulePlatformUpdates(uuid, user, List.copyOf(placeholdersToUpdate), keys.clone());
+		}
+	}
+
+	private boolean shouldRefresh(PlaceHolder<VotingPluginUser> placeholder, UUID uuid, String... keys) {
+		if (!placeholder.isUsesCache() || placeholder.getCache() == null) return false;
+		if (getCacheLevel().onlineOnly() && !plugin.getPlaceholderPlayerPresence().isOnline(uuid)) return false;
+		for (String key : keys) {
+			if (key != null && placeholder.getUpdateDataKey().equalsIgnoreCase(key)) return true;
+		}
+		return false;
+	}
+
+	@SuppressWarnings("unchecked")
+	private void updateCachedPlaceholder(PlaceHolder<VotingPluginUser> placeholder, VotingPluginUser user,
+			UUID uuid, String... keys) {
+		for (String ident : Set.copyOf(placeholder.getCache().keySet())) {
+			ConcurrentHashMap<UUID, String> values = placeholder.getCache().get(ident);
+			if (values == null) continue;
+			if (placeholder instanceof CalculatingPlaceholder<?>) {
+				CalculatingPlaceholder<VotingPluginUser> calculating =
+						(CalculatingPlaceholder<VotingPluginUser>) placeholder;
+				synchronized (calculating) {
+					calculating.getCacheData().put(uuid, calculating.placeholderDataRequest(user, ident));
+					String value = calculating.placeholderRequest(user, ident);
+					values.put(uuid, value);
+					if (getCacheLevel().onlineOnly() && !plugin.getPlaceholderPlayerPresence().isOnline(uuid)) {
+						values.remove(uuid);
+						calculating.getCacheData().remove(uuid);
+						continue;
+					}
+					plugin.devDebug("Updated calculating placeholder cache for " + user.getUUID() + " on "
+							+ matchingKey(placeholder, keys) + " with " + value);
+				}
+			} else {
+				String value = placeholder.placeholderRequest(user, ident);
+				values.put(uuid, value);
+				if (getCacheLevel().onlineOnly() && !plugin.getPlaceholderPlayerPresence().isOnline(uuid)) {
+					values.remove(uuid);
+					continue;
+				}
+				plugin.devDebug("Updated placeholder cache for " + user.getUUID() + " on "
+						+ matchingKey(placeholder, keys) + " with " + value);
+			}
+		}
+	}
+
+	private String matchingKey(PlaceHolder<VotingPluginUser> placeholder, String... keys) {
+		for (String key : keys) {
+			if (key != null && placeholder.getUpdateDataKey().equalsIgnoreCase(key)) return key;
+		}
+		return placeholder.getUpdateDataKey();
 	}
 	
 	/**
@@ -1230,10 +1363,17 @@ public class PlaceHolders {
 	 * @param user the voting plugin user
 	 */
 	public void onLogout(VotingPluginUser user) {
-		if (plugin.getPlaceholders().getCacheLevel().onlineOnly()) {
-			for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
+		if (user != null) onLogout(user.getJavaUUID());
+	}
+
+	/** Clears online-only cache entries without resolving user storage. */
+	public void onLogout(UUID uuid) {
+		if (getCacheLevel().onlineOnly()) {
+			for (PlaceHolder<VotingPluginUser> placeholder : userDataChangePlaceholders) {
 				if (placeholder.isUsesCache()) {
-					placeholder.clearCachePlayer(user.getJavaUUID());
+					if (placeholder instanceof CalculatingPlaceholder<?>) {
+						synchronized (placeholder) { placeholder.clearCachePlayer(uuid); }
+					} else placeholder.clearCachePlayer(uuid);
 				}
 			}
 		}
@@ -1264,31 +1404,30 @@ public class PlaceHolders {
 	 * @param login whether this is a login update
 	 */
 	public void onUpdate(VotingPluginUser user, boolean login) {
-		for (PlaceHolder<VotingPluginUser> placeholder : placeholders) {
-			if (placeholder.isUsesCache()) {
-				if (placeholder.isCached(placeholder.getIdentifier(), user.getJavaUUID()) || login) {
-					if (placeholder instanceof CalculatingPlaceholder<?>) {
-
-						CalculatingPlaceholder<VotingPluginUser> cPlaceholder = (CalculatingPlaceholder<VotingPluginUser>) placeholder;
-						if (placeholder.isUsesCache()) {
-							for (String ident : placeholder.getCache().keySet()) {
-								cPlaceholder.getCacheData().put(user.getJavaUUID(),
-										cPlaceholder.placeholderDataRequest(user, ident));
-								placeholder.getCache().get(ident).put(user.getJavaUUID(),
-										placeholder.placeholderRequest(user, ident));
-							}
-
-						}
-					} else {
-						if (placeholder.isUsesCache()) {
-							for (String ident : placeholder.getCache().keySet()) {
-								placeholder.getCache().get(ident).put(user.getJavaUUID(),
-										placeholder.placeholderRequest(user, ident));
-							}
-						}
-					}
+		if (user == null) return;
+		UUID uuid = user.getJavaUUID();
+		Player owner = plugin.getPlaceholderPlayerPresence().schedulerOwner(uuid);
+		Set<PlaceHolder<VotingPluginUser>> platformSnapshot = userDataChangePlatformPlaceholders;
+		Set<PlaceHolder<VotingPluginUser>> offlineSnapshot = userDataChangeOfflineWorkerPlaceholders;
+		List<PlaceHolder<VotingPluginUser>> platformUpdates = new ArrayList<>();
+		List<PlaceHolder<VotingPluginUser>> offlineUpdates = new ArrayList<>();
+		for (PlaceHolder<VotingPluginUser> placeholder : List.copyOf(placeholders)) {
+			if (!placeholder.isUsesCache() || placeholder.getCache() == null
+					|| (!placeholder.isCached(placeholder.getIdentifier(), uuid) && !login)) continue;
+			if (platformSnapshot.contains(placeholder)) {
+				if (owner != null) platformUpdates.add(placeholder);
+				else if (!getCacheLevel().onlineOnly() && offlineSnapshot.contains(placeholder)) {
+					offlineUpdates.add(placeholder);
 				}
-			}
+			} else updateCachedPlaceholder(placeholder, user, uuid, placeholder.getUpdateDataKey());
+		}
+		if (!offlineUpdates.isEmpty()) {
+			updateOfflinePlatformPlaceholders(uuid, user, offlineUpdates,
+					offlineUpdates.stream().map(PlaceHolder::getUpdateDataKey).toArray(String[]::new));
+		}
+		if (!platformUpdates.isEmpty() && plugin.isEnabled()) {
+			schedulePlatformUpdates(uuid, user, List.copyOf(platformUpdates),
+					platformUpdates.stream().map(PlaceHolder::getUpdateDataKey).toArray(String[]::new));
 		}
 	}
 
@@ -1309,6 +1448,7 @@ public class PlaceHolders {
 	 * Reload placeholders.
 	 */
 	public void reload() {
+		plugin.refreshPlaceholderPlayerPresence();
 		cacheLevel = plugin.getConfigFile().getPlaceholderCacheLevel();
 		onUpdate();
 		if (!cacheLevel.equals(PlaceholderCacheLevel.NONE)) {
@@ -1328,7 +1468,7 @@ public class PlaceHolders {
 			@Override
 			public void run() {
 				checkNonCachedPlaceholders();
-				onUpdate(user, user.isOnline());
+				onUpdate(user, plugin.getPlaceholderPlayerPresence().isOnline(user.getJavaUUID()));
 			}
 		});
 	}

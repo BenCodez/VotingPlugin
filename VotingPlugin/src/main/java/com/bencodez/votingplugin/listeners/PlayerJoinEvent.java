@@ -26,6 +26,12 @@ public class PlayerJoinEvent implements Listener {
 		this.plugin = plugin;
 	}
 
+	/** Capture the entity owner before asynchronous user notifications can need it. */
+	@EventHandler(priority = EventPriority.LOWEST)
+	public void onPlayerJoin(org.bukkit.event.player.PlayerJoinEvent event) {
+		if (event != null) plugin.getPlaceholderPlayerPresence().playerOnline(event.getPlayer());
+	}
+
 	private static boolean isBlank(String s) {
 		return s == null || s.trim().isEmpty() || "null".equalsIgnoreCase(s.trim());
 	}
@@ -94,6 +100,8 @@ public class PlayerJoinEvent implements Listener {
 		if (player == null) {
 			return;
 		}
+		plugin.getPlaceholderPlayerPresence().playerOffline(player.getUniqueId());
+		if (plugin.getPlaceholders() != null) plugin.getPlaceholders().onLogout(player.getUniqueId());
 
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			plugin.getBackendProxyHandler().playerOffline(player.getName());

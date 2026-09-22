@@ -96,6 +96,7 @@ import com.bencodez.votingplugin.listeners.VotifierVoteOverflowQueue;
 import com.bencodez.votingplugin.listeners.VotingPluginUpdateEvent;
 import com.bencodez.votingplugin.placeholders.MVdWPlaceholders;
 import com.bencodez.votingplugin.placeholders.PlaceHolders;
+import com.bencodez.votingplugin.placeholders.PlaceholderPlayerPresence;
 import com.bencodez.votingplugin.placeholders.VotingPluginExpansion;
 import com.bencodez.votingplugin.presets.VoteSitePresetSetupHandler;
 import com.bencodez.votingplugin.proxy.control.HostedControlManager;
@@ -230,6 +231,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private PlaceHolders placeholders;
+
+	@Getter
+	private final PlaceholderPlayerPresence placeholderPlayerPresence = new PlaceholderPlayerPresence();
 
 	@Getter
 	private VoteTester voteTester;
@@ -649,6 +653,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		registerCommands();
 		checkVotifier();
+		refreshPlaceholderPlayerPresence();
 		registerEvents();
 
 		loadVoteBroadcast();
@@ -1791,6 +1796,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onUnLoad() {
+		placeholderPlayerPresence.clear();
 		stopBackendHostedControlLifecycle();
 		stopBackendControlConnectorLifecycle();
 		if (getBackendProxyHandler() != null) {
@@ -1927,6 +1933,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	public void reloadAll() {
 		reloadPlugin(true, true);
+	}
+
+	/** Captures Bukkit presence while the lifecycle caller owns platform access. */
+	public void refreshPlaceholderPlayerPresence() {
+		placeholderPlayerPresence.replace(Bukkit.getOnlinePlayers());
 	}
 
 	/** Reloads configuration applied by Control before its result is acknowledged. */
