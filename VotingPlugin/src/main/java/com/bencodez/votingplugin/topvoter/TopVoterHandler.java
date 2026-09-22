@@ -594,15 +594,16 @@ public class TopVoterHandler implements Listener {
 	private void runRecoverablePeriod(TopVoter top, TimeChangeTransition transition) {
 		if (!plugin.getServerData().hasTimeChangePhase(transition, SNAPSHOT)) {
 			ensureTransitionActive(transition);
-			plugin.getServerData().prepareTimeChangeRewardTargets(transition,
-					buildTopRewardSnapshot(top, transition));
-			if ((top == TopVoter.Daily && plugin.getConfigFile().isStoreTopVotersDaily())
+			boolean archiveRequired = (top == TopVoter.Daily && plugin.getConfigFile().isStoreTopVotersDaily())
 					|| (top == TopVoter.Weekly && plugin.getConfigFile().isStoreTopVotersWeekly())
-					|| top == TopVoter.Monthly) {
+					|| top == TopVoter.Monthly;
+			TimeChangeArchiveSnapshot proposedArchive = archiveRequired
+					? buildTopVoterArchiveSnapshot() : new TimeChangeArchiveSnapshot(List.of());
+			plugin.getServerData().prepareTimeChangeSnapshot(transition,
+					buildTopRewardSnapshot(top, transition), proposedArchive);
+			if (archiveRequired) {
 				plugin.getLogger().info("Saving TopVoters " + top);
-				TimeChangeArchiveSnapshot archive = plugin.getServerData().prepareTimeChangeArchive(transition,
-						buildTopVoterArchiveSnapshot());
-				storeTopVoters(top, transition, archive);
+				storeTopVoters(top, transition, plugin.getServerData().getTimeChangeArchive(transition));
 			}
 			plugin.getServerData().completeTimeChangePhase(transition, SNAPSHOT);
 		}
@@ -630,7 +631,7 @@ public class TopVoterHandler implements Listener {
 			for (String shopIdent : plugin.getShopFile().getShopIdentifiers()) {
 				if (shouldResetVoteShop(top, shopIdent)) {
 					resetVoteShopLimit(shopIdent,
-							VoteShopPurchaseService.limitGenerationIdForTransition(plugin, shopIdent, transition));
+							VoteShopPurchaseService.limitGenerationIdForTransition(transition));
 				}
 			}
 			plugin.getServerData().completeTimeChangePhase(transition, VOTE_SHOP);
@@ -643,7 +644,7 @@ public class TopVoterHandler implements Listener {
 
 		if (!plugin.getServerData().hasTimeChangePhase(transition, TOTALS_RESET)) {
 			ensureTransitionActive(transition);
-			if (!bungeeHandleResets()) resetTotals(top);
+			if (!bungeeHandleResets()) resetTotals(top, transition);
 			plugin.getServerData().completeTimeChangePhase(transition, TOTALS_RESET);
 		}
 
@@ -912,6 +913,13 @@ public class TopVoterHandler implements Listener {
 	 */
 	public void resetTotals(TopVoter topVoter) {
 		plugin.getUserManager().removeAllKeyValues(topVoter.getColumnName(), DataType.INTEGER);
+	}
+
+	void resetTotals(TopVoter topVoter, TimeChangeTransition transition) {
+		String generation = "time-total:" + transition.getId();
+		if (!TimeChangeTotalReset.reset(plugin, topVoter.getColumnName(), generation)) {
+			throw new IllegalStateException("Unable to durably reset " + topVoter + " totals");
+		}
 	}
 
 	/**

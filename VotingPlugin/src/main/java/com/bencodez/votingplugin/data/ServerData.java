@@ -580,6 +580,52 @@ public class ServerData {
 		}
 	}
 
+	/** Persists the reward and archive boundary snapshots in one checkpoint. */
+	public synchronized void prepareTimeChangeSnapshot(TimeChangeTransition transition,
+			List<TimeChangeRewardTarget> targets, TimeChangeArchiveSnapshot archive) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		String snapshotPath = path + ".BoundarySnapshot";
+		if (getData().getBoolean(snapshotPath + ".Prepared", false)) return;
+		List<TimeChangeRewardTarget> targetSnapshot = List.copyOf(targets);
+		for (TimeChangeRewardTarget target : targetSnapshot) validateRewardTarget(target);
+		validateArchive(archive);
+		String targetsPath = path + ".RewardTargets";
+		String archivePath = path + ".Archive";
+		getData().set(targetsPath, null);
+		getData().set(targetsPath + ".Count", targetSnapshot.size());
+		for (int index = 0; index < targetSnapshot.size(); index++) {
+			TimeChangeRewardTarget target = targetSnapshot.get(index);
+			String targetPath = targetsPath + ".Entries." + index;
+			getData().set(targetPath + ".Uuid", target.uuid());
+			getData().set(targetPath + ".PlayerName", target.playerName());
+			getData().set(targetPath + ".Place", target.place());
+			getData().set(targetPath + ".Reward", target.reward());
+			getData().set(targetPath + ".Votes", target.votes());
+		}
+		getData().set(targetsPath + ".Prepared", true);
+		getData().set(archivePath, null);
+		getData().set(archivePath + ".Count", archive.sections().size());
+		for (int index = 0; index < archive.sections().size(); index++) {
+			TimeChangeArchiveSection section = archive.sections().get(index);
+			String sectionPath = archivePath + ".Sections." + index;
+			getData().set(sectionPath + ".Name", section.name());
+			getData().set(sectionPath + ".Lines", section.lines());
+		}
+		getData().set(archivePath + ".Prepared", true);
+		getData().set(snapshotPath + ".Prepared", true);
+		try {
+			saveData();
+		} catch (RuntimeException | Error failure) {
+			getData().set(targetsPath, null);
+			getData().set(archivePath, null);
+			getData().set(snapshotPath, null);
+			throw failure;
+		}
+	}
+
 	/** Persists the complete top-voter archive contents selected at the period boundary. */
 	public synchronized TimeChangeArchiveSnapshot prepareTimeChangeArchive(TimeChangeTransition transition,
 			TimeChangeArchiveSnapshot proposed) {

@@ -132,6 +132,28 @@ class ServerDataTimeChangeRecoveryTest {
 		assertEquals(original, new ServerData(plugin).getTimeChangeArchive(transition));
 	}
 
+	@Test
+	void rewardAndArchiveBoundaryDataShareOneDurableCheckpoint() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
+		YamlConfiguration yaml = new YamlConfiguration();
+		when(plugin.getServerDataFile()).thenReturn(coreData);
+		when(coreData.getData()).thenReturn(yaml);
+		ServerData data = new ServerData(plugin);
+		TimeChangeTransition transition = transition("DAY:2026-09-21", "2026-09-21", TimeType.DAY);
+		List<TimeChangeRewardTarget> targets = List.of(new TimeChangeRewardTarget(
+				"00000000-0000-0000-0000-000000000001", "first", 1, "1", 20));
+		TimeChangeArchiveSnapshot archive = new TimeChangeArchiveSnapshot(List.of(
+				new TimeChangeArchiveSection("Daily", List.of("Combined total: 20", "1: first: 20"))));
+		data.beginTimeChangeRecovery(transition);
+
+		data.prepareTimeChangeSnapshot(transition, targets, archive);
+		data.prepareTimeChangeSnapshot(transition, List.of(), new TimeChangeArchiveSnapshot(List.of()));
+
+		assertEquals(targets, data.getTimeChangeRewardTargets(transition));
+		assertEquals(archive, data.getTimeChangeArchive(transition));
+	}
+
 	private TimeChangeTransition transition(String id, String period, TimeType type) {
 		TimeChangeTransition transition = mock(TimeChangeTransition.class);
 		when(transition.getId()).thenReturn(id);

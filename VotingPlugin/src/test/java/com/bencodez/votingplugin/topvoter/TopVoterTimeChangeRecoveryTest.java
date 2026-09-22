@@ -7,6 +7,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.File;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -92,5 +96,22 @@ class TopVoterTimeChangeRecoveryTest {
 
 		assertEquals("TopVoter" + File.separator + "Weekly" + File.separator + "Weekly_2026-W38.yml", first);
 		assertEquals(first, retry);
+	}
+
+	@Test
+	void sqliteTotalResetRetryPreservesVotesAcceptedAfterTheFirstReset() throws Exception {
+		try (Connection connection = DriverManager.getConnection("jdbc:sqlite::memory:");
+				Statement statement = connection.createStatement()) {
+			statement.executeUpdate("CREATE TABLE users (uuid TEXT PRIMARY KEY, DailyTotal INTEGER)");
+			statement.executeUpdate("INSERT INTO users VALUES ('player', 20)");
+
+			TimeChangeTotalReset.resetSqlite(connection, "users", "DailyTotal", "time-total:DAY:2026-09-21");
+			statement.executeUpdate("UPDATE users SET DailyTotal = DailyTotal + 3 WHERE uuid = 'player'");
+			TimeChangeTotalReset.resetSqlite(connection, "users", "DailyTotal", "time-total:DAY:2026-09-21");
+
+			try (ResultSet result = statement.executeQuery("SELECT DailyTotal FROM users WHERE uuid = 'player'")) {
+				assertEquals(3, result.getInt(1));
+			}
+		}
 	}
 }

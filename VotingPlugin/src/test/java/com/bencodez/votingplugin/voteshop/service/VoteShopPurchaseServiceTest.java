@@ -175,26 +175,18 @@ class VoteShopPurchaseServiceTest {
 	}
 
 	@Test
-	void transitionBoundaryComesFromTheDurablePeriodInsteadOfRetryTime() {
-		TimeChangeTransition day = mock(TimeChangeTransition.class);
-		when(day.getType()).thenReturn(TimeType.DAY);
-		when(day.getPeriodKey()).thenReturn("2026-09-21");
-		TimeChangeTransition month = mock(TimeChangeTransition.class);
-		when(month.getType()).thenReturn(TimeType.MONTH);
-		when(month.getPeriodKey()).thenReturn("2026-09");
+	void transitionResetGenerationUsesThePeriodKeyWithoutLocaleInterpretation() {
 		TimeChangeTransition week = mock(TimeChangeTransition.class);
 		when(week.getType()).thenReturn(TimeType.WEEK);
 		when(week.getPeriodKey()).thenReturn("2026-W38");
-
-		assertEquals(LocalDateTime.of(2026, 9, 21, 0, 0),
-				VoteShopPurchaseService.transitionBoundary(day, 0));
-		assertEquals(LocalDateTime.of(2026, 9, 1, 0, 0),
-				VoteShopPurchaseService.transitionBoundary(month, 0));
 		Locale previous = Locale.getDefault();
 		try {
+			Locale.setDefault(Locale.US);
+			String usGeneration = VoteShopPurchaseService.limitGenerationIdForTransition(week);
 			Locale.setDefault(Locale.GERMANY);
-			assertEquals(LocalDateTime.of(2026, 9, 14, 0, 0),
-					VoteShopPurchaseService.transitionBoundary(week, 0));
+			String germanGeneration = VoteShopPurchaseService.limitGenerationIdForTransition(week);
+			assertEquals("time-shop:WEEK:2026-W38", usGeneration);
+			assertEquals(usGeneration, germanGeneration);
 		} finally {
 			Locale.setDefault(previous);
 		}

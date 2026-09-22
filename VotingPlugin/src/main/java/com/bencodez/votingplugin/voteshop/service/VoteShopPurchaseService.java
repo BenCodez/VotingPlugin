@@ -6,9 +6,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.temporal.WeekFields;
 import java.util.HashMap;
@@ -828,34 +826,8 @@ public class VoteShopPurchaseService {
 	}
 
 	/** Stable reset generation derived from the durable period transition. */
-	public static String limitGenerationIdForTransition(VotingPluginMain plugin, String identifier,
-			TimeChangeTransition transition) {
-		boolean daily = plugin.getShopFile().getVoteShopResetDaily(identifier);
-		boolean weekly = plugin.getShopFile().getVoteShopResetWeekly(identifier);
-		boolean monthly = plugin.getShopFile().getVoteShopResetMonthly(identifier);
-		LocalDateTime boundary = transitionBoundary(transition, plugin.getOptions().getTimeWeekOffSet());
-		return limitGeneration(boundary, System.currentTimeMillis(), daily, weekly, monthly,
-				plugin.getOptions().getTimeWeekOffSet(), configuredTimeZone(plugin),
-				plugin.getOptions().getTimeHourOffSet()).value();
-	}
-
-	static LocalDateTime transitionBoundary(TimeChangeTransition transition, int weekOffset) {
-		return switch (transition.getType()) {
-		case DAY -> LocalDate.parse(transition.getPeriodKey()).atStartOfDay();
-		case MONTH -> YearMonth.parse(transition.getPeriodKey()).atDay(1).atStartOfDay();
-		case WEEK -> {
-			String[] parts = transition.getPeriodKey().split("-W", -1);
-			if (parts.length != 2) throw new IllegalArgumentException("Invalid weekly transition period");
-			int year = Integer.parseInt(parts[0]);
-			int week = Integer.parseInt(parts[1]);
-			WeekFields fields = WeekFields.of(Locale.getDefault());
-			LocalDate adjustedBoundary = LocalDate.of(year, 1, 4)
-					.with(fields.weekBasedYear(), year)
-					.with(fields.weekOfWeekBasedYear(), week)
-					.with(fields.dayOfWeek(), 1);
-			yield adjustedBoundary.minusDays(weekOffset).atStartOfDay();
-		}
-		};
+	public static String limitGenerationIdForTransition(TimeChangeTransition transition) {
+		return "time-shop:" + transition.getType() + ':' + transition.getPeriodKey();
 	}
 
 	private static LimitGeneration limitGeneration(VotingPluginMain plugin, String identifier, long nowMillis) {
