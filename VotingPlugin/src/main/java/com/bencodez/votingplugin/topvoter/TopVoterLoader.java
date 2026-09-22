@@ -50,6 +50,48 @@ public class TopVoterLoader {
 		return TopVoterRanking.sortByValues(topVoters, false);
 	}
 
+	/** Loads a ranking from the immutable last-period column copied at transition admission. */
+	public LinkedHashMap<TopVoterPlayer, Integer> getBoundaryTopVoters(TopVoter top) {
+		return getBoundaryTopVoters(top, null);
+	}
+
+	/** Loads an immutable dated-month ranking without stopping when shutdown starts. */
+	public LinkedHashMap<TopVoterPlayer, Integer> getBoundaryMonthlyTopVotersAtTime(LocalDateTime atTime) {
+		return getBoundaryTopVoters(TopVoter.Monthly, atTime);
+	}
+
+	private LinkedHashMap<TopVoterPlayer, Integer> getBoundaryTopVoters(TopVoter top,
+			LocalDateTime monthlyTime) {
+		LinkedHashMap<TopVoterPlayer, Integer> topVoters = new LinkedHashMap<>();
+		CountDownLatch latch = new CountDownLatch(1);
+		plugin.getUserManager().forEachUserKeys((uuid, columns) -> {
+			if (uuid == null) return;
+			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
+			user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
+			user.updateTempCacheWithColumns(columns);
+			try {
+				int total = monthlyTime == null ? switch (top) {
+				case Daily -> user.getLastDailyTotal();
+				case Weekly -> user.getLastWeeklyTotal();
+				case Monthly -> user.getLastMonthTotal();
+				default -> 0;
+				} : user.getTotal(TopVoter.Monthly, monthlyTime);
+				if (total > 0) topVoters.put(user.getTopVoterPlayer(), total);
+			} finally {
+				user.clearTempCache();
+			}
+		}, count -> latch.countDown());
+		try {
+			if (!latch.await(10, TimeUnit.MINUTES)) {
+				throw new IllegalStateException("Timed out loading boundary top voters");
+			}
+		} catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt();
+			throw new IllegalStateException("Interrupted while loading boundary top voters", interrupted);
+		}
+		return TopVoterRanking.sortByValues(topVoters, false);
+	}
+
 	public LinkedHashMap<TopVoterPlayer, Integer> getTopVotersOfMonth(YearMonth month,
 			HashMap<UUID, ArrayList<Column>> columnsByPlayer) {
 		LinkedHashMap<TopVoterPlayer, Integer> totals = new LinkedHashMap<>();

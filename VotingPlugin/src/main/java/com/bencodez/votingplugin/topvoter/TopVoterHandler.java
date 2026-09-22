@@ -44,6 +44,7 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeArchiveSection;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeArchiveSnapshot;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardTarget;
+import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardState;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeUserProgress;
 import com.bencodez.votingplugin.user.PeriodTotalMutationFence;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -605,7 +606,7 @@ public class TopVoterHandler implements Listener {
 					|| (top == TopVoter.Weekly && plugin.getConfigFile().isStoreTopVotersWeekly())
 					|| top == TopVoter.Monthly;
 			TimeChangeArchiveSnapshot proposedArchive = archiveRequired
-					? buildTopVoterArchiveSnapshot() : new TimeChangeArchiveSnapshot(List.of());
+					? buildTopVoterArchiveSnapshot(top, transition) : new TimeChangeArchiveSnapshot(List.of());
 			plugin.getServerData().prepareTimeChangeSnapshot(transition,
 					buildTopRewardSnapshot(top, transition), proposedArchive);
 			if (archiveRequired) {
@@ -693,14 +694,16 @@ public class TopVoterHandler implements Listener {
 	void processDailyUser(VotingPluginUser user, TimeChangeTransition transition, String uuid) {
 		int boundaryTotal = user.getLastDailyTotal();
 		if (plugin.getConfigFile().isUseVoteStreaks()) {
-			int boundaryStreak = user.getLastDayVoteStreak();
-			long boundaryUpdate = user.getLastDayVoteStreakLastUpdate();
-			if (!user.voteStreakUpdatedAt(boundaryUpdate, previousDayTime(transition)) && boundaryStreak != 0) {
-				// A vote accepted after the boundary has already started the new day's
-				// streak. Preserve that contribution while removing the stale streak.
-				int target = user.getDayVoteStreakLastUpdate() == boundaryUpdate ? 0 : 1;
-				applyRecoverableStreak(user, transition, uuid, TopVoter.Daily, target, false);
-			}
+			PeriodTotalMutationFence.withReset(() -> {
+				int boundaryStreak = user.getLastDayVoteStreak();
+				long boundaryUpdate = user.getLastDayVoteStreakLastUpdate();
+				if (!user.voteStreakUpdatedAt(boundaryUpdate, previousDayTime(transition)) && boundaryStreak != 0) {
+					// A vote accepted after the boundary has already started the new day's
+					// streak. Preserve that contribution while removing the stale streak.
+					int target = user.getDayVoteStreakLastUpdate() == boundaryUpdate ? 0 : 1;
+					applyRecoverableStreak(user, transition, uuid, TopVoter.Daily, target, false);
+				}
+			});
 		}
 		if (plugin.getConfigFile().isUseHighestTotals()
 				&& user.getHighestDailyTotal() < boundaryTotal) {
@@ -778,20 +781,35 @@ public class TopVoterHandler implements Listener {
 			}
 		}
 		if (progress.rewardRequired() && !progress.rewardComplete()) {
+			TimeChangeRewardState rewardState = plugin.getServerData()
+					.getTimeChangeUserStreakRewardState(transition, uuid);
+			if (rewardState == TimeChangeRewardState.CLAIMED) {
+				throw new IllegalStateException("Streak reward for " + uuid
+						+ " may already have run and requires manual reconciliation");
+			}
+			if (rewardState == TimeChangeRewardState.COMPLETE) return;
+			plugin.getServerData().claimTimeChangeUserStreakReward(transition, uuid);
 			plugin.getSpecialRewards().checkVoteStreak(null, user,
 					top == TopVoter.Weekly ? "Week" : "Month", plugin.getBungeeSettings().isUseBungeecoord());
 			plugin.getServerData().completeTimeChangeUserStreakReward(transition, uuid);
 		}
 	}
 
-	private void processRecoverableTopRewards(TopVoter top, TimeChangeTransition transition) {
+	void processRecoverableTopRewards(TopVoter top, TimeChangeTransition transition) {
 		for (TimeChangeRewardTarget target : plugin.getServerData().getTimeChangeRewardTargets(transition)) {
 			ensureTransitionActive(transition);
-			if (plugin.getServerData().hasTimeChangeRewardReceipt(transition, target.uuid())) continue;
+			TimeChangeRewardState rewardState = plugin.getServerData()
+					.getTimeChangeRewardState(transition, target.uuid());
+			if (rewardState == TimeChangeRewardState.COMPLETE) continue;
+			if (rewardState == TimeChangeRewardState.CLAIMED) {
+				throw new IllegalStateException("Top voter reward for " + target.uuid()
+						+ " may already have run and requires manual reconciliation");
+			}
 			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(
 					UUID.fromString(target.uuid()), target.playerName());
 			user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 			if (!plugin.getConfigFile().isTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
+				plugin.getServerData().claimTimeChangeReward(transition, target.uuid());
 				giveTopVoterAward(top, user, target.place(), target.reward(), target.votes());
 				plugin.getServerData().completeTimeChangeReward(transition, target.uuid());
 				plugin.getLogger().info("Giving " + top + " top voter reward " + target.place() + " to "
@@ -806,7 +824,7 @@ public class TopVoterHandler implements Listener {
 		List<TimeChangeRewardTarget> targets = new ArrayList<>();
 		int place = 0;
 		int lastTotal = -1;
-		for (Entry<TopVoterPlayer, Integer> entry : topVotersFor(top, transition)) {
+		for (Entry<TopVoterPlayer, Integer> entry : boundaryTopVotersFor(top, transition).entrySet()) {
 			ensureTransitionActive(transition);
 			if (plugin.getConfigFile().isTopVoterAwardsTies()) {
 				if (entry.getValue().intValue() != lastTotal) place++;
@@ -821,15 +839,12 @@ public class TopVoterHandler implements Listener {
 		return List.copyOf(targets);
 	}
 
-	private Iterable<Entry<TopVoterPlayer, Integer>> topVotersFor(TopVoter top,
+	LinkedHashMap<TopVoterPlayer, Integer> boundaryTopVotersFor(TopVoter top,
 			TimeChangeTransition transition) {
 		if (top == TopVoter.Monthly && plugin.getConfigFile().isUseMonthDateTotalsAsPrimaryTotal()) {
-			return getMonthlyTopVotersAtTime(previousMonthTime(transition)).entrySet();
+			return loader.getBoundaryMonthlyTopVotersAtTime(previousMonthTime(transition));
 		}
-		@SuppressWarnings("unchecked")
-		LinkedHashMap<TopVoterPlayer, Integer> clone = (LinkedHashMap<TopVoterPlayer, Integer>) plugin
-				.getTopVoter(top).clone();
-		return clone.entrySet();
+		return loader.getBoundaryTopVoters(top);
 	}
 
 	private LocalDateTime previousMonthTime(TimeChangeTransition transition) {
@@ -1053,22 +1068,31 @@ public class TopVoterHandler implements Listener {
 		file.saveData();
 	}
 
-	TimeChangeArchiveSnapshot buildTopVoterArchiveSnapshot() {
+	TimeChangeArchiveSnapshot buildTopVoterArchiveSnapshot(TopVoter boundaryTop,
+			TimeChangeTransition transition) {
 		List<TimeChangeArchiveSection> sections = new ArrayList<>();
+		LinkedHashMap<TopVoterPlayer, Integer> boundaryRanking = boundaryTopVotersFor(boundaryTop, transition);
 		for (TopVoter current : TopVoter.values()) {
 			ArrayList<String> lines = new ArrayList<>();
 			int total = 0;
-			try {
-				for (Integer value : plugin.getUserManager().getNumbersInColumn(current.getColumnName())) {
-					total += value.intValue();
+			if (current == boundaryTop) {
+				for (Integer value : boundaryRanking.values()) total += value.intValue();
+			} else {
+				try {
+					for (Integer value : plugin.getUserManager().getNumbersInColumn(current.getColumnName())) {
+						total += value.intValue();
+					}
+				} catch (Exception failure) {
+					plugin.debug(failure);
+					throw new IllegalStateException("Unable to build " + current + " archive total", failure);
 				}
-				lines.add("Combined total: " + total);
-			} catch (Exception failure) {
-				plugin.debug(failure);
 			}
-			if (plugin.getTopVoter().containsKey(current)) {
+			lines.add("Combined total: " + total);
+			if (current == boundaryTop || plugin.getTopVoter().containsKey(current)) {
 				int place = 1;
-				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(current).entrySet()) {
+				Iterable<Entry<TopVoterPlayer, Integer>> ranking = current == boundaryTop
+						? boundaryRanking.entrySet() : plugin.getTopVoter(current).entrySet();
+				for (Entry<TopVoterPlayer, Integer> entry : ranking) {
 					lines.add(place + ": " + entry.getKey().getPlayerName() + ": " + entry.getValue());
 					place++;
 				}

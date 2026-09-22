@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -29,6 +31,7 @@ import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardTarget;
+import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardState;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeUserProgress;
 import com.bencodez.votingplugin.specialrewards.SpecialRewards;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -56,6 +59,31 @@ class TopVoterTimeChangeRecoveryTest {
 				org.mockito.ArgumentMatchers.eq(user), org.mockito.ArgumentMatchers.anyString(),
 				org.mockito.ArgumentMatchers.anyBoolean());
 		verify(serverData, never()).completeTimeChangeUserStreakReward(transition, uuid);
+	}
+
+	@Test
+	void ambiguousStreakRewardClaimStopsAutomaticReplay() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		ServerData serverData = mock(ServerData.class);
+		SpecialRewards specialRewards = mock(SpecialRewards.class);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		TimeChangeTransition transition = mock(TimeChangeTransition.class);
+		String uuid = "00000000-0000-0000-0000-000000000001";
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(plugin.getSpecialRewards()).thenReturn(specialRewards);
+		when(serverData.prepareTimeChangeUserStreak(transition, uuid, 9, true))
+				.thenReturn(new TimeChangeUserProgress(uuid, 8, true, false));
+		when(serverData.getTimeChangeUserStreakRewardState(transition, uuid))
+				.thenReturn(TimeChangeRewardState.CLAIMED);
+		when(user.getWeekVoteStreak()).thenReturn(8);
+
+		assertThrows(IllegalStateException.class,
+				() -> new TopVoterHandler(plugin).applyRecoverableStreak(
+						user, transition, uuid, TopVoter.Weekly, 9, true));
+
+		verify(specialRewards, never()).checkVoteStreak(org.mockito.ArgumentMatchers.any(),
+				org.mockito.ArgumentMatchers.eq(user), org.mockito.ArgumentMatchers.anyString(),
+				org.mockito.ArgumentMatchers.anyBoolean());
 	}
 
 	@Test
@@ -223,14 +251,32 @@ class TopVoterTimeChangeRecoveryTest {
 		ranking.put(second, 10);
 		when(plugin.getSpecialRewardsConfig().isEnableDailyRewards()).thenReturn(true);
 		when(plugin.getSpecialRewardsConfig().getDailyPossibleRewardPlaces()).thenReturn(Set.of("1", "2"));
-		when(plugin.getTopVoter(TopVoter.Daily)).thenReturn(ranking);
+		TopVoterHandler handler = spy(new TopVoterHandler(plugin));
+		doReturn(ranking).when(handler).boundaryTopVotersFor(TopVoter.Daily, transition);
 
-		List<TimeChangeRewardTarget> targets = new TopVoterHandler(plugin)
-				.buildTopRewardSnapshot(TopVoter.Daily, transition);
+		List<TimeChangeRewardTarget> targets = handler.buildTopRewardSnapshot(TopVoter.Daily, transition);
 
 		assertEquals(List.of(
 				new TimeChangeRewardTarget(first.getUuid().toString(), "first", 1, "1", 20),
 				new TimeChangeRewardTarget(second.getUuid().toString(), "second", 2, "2", 10)), targets);
+	}
+
+	@Test
+	void ambiguousTopRewardClaimStopsAutomaticReplay() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		ServerData serverData = mock(ServerData.class);
+		TimeChangeTransition transition = mock(TimeChangeTransition.class);
+		String uuid = "00000000-0000-0000-0000-000000000001";
+		TimeChangeRewardTarget target = new TimeChangeRewardTarget(uuid, "first", 1, "1", 20);
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(serverData.getTimeChangeRewardTargets(transition)).thenReturn(List.of(target));
+		when(serverData.getTimeChangeRewardState(transition, uuid)).thenReturn(TimeChangeRewardState.CLAIMED);
+
+		assertThrows(IllegalStateException.class,
+				() -> new TopVoterHandler(plugin).processRecoverableTopRewards(TopVoter.Daily, transition));
+
+		verify(plugin.getVotingPluginUserManager(), never()).getVotingPluginUser(
+				org.mockito.ArgumentMatchers.any(UUID.class), org.mockito.ArgumentMatchers.anyString());
 	}
 
 	@Test

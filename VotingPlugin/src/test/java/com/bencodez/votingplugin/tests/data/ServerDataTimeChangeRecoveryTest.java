@@ -23,6 +23,7 @@ import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeArchiveSection;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeArchiveSnapshot;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardTarget;
+import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardState;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeUserProgress;
 
 class ServerDataTimeChangeRecoveryTest {
@@ -92,6 +93,63 @@ class ServerDataTimeChangeRecoveryTest {
 		assertTrue(data.prepareTimeChangeUserStreak(transition, uuid, 9, true).rewardComplete());
 		data.completeTimeChangeUser(transition, uuid);
 		assertEquals(uuid, data.getTimeChangeCursor(transition));
+	}
+
+	@Test
+	void durableRewardClaimsPreventAmbiguousAutomaticReplay() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
+		YamlConfiguration yaml = new YamlConfiguration();
+		when(plugin.getServerDataFile()).thenReturn(coreData);
+		when(coreData.getData()).thenReturn(yaml);
+		ServerData data = new ServerData(plugin);
+		TimeChangeTransition transition = transition("WEEK:2026-W38", "2026-W38", TimeType.WEEK);
+		String uuid = "00000000-0000-0000-0000-000000000001";
+		data.beginTimeChangeRecovery(transition);
+
+		assertEquals(TimeChangeRewardState.UNCLAIMED, data.getTimeChangeRewardState(transition, uuid));
+		data.claimTimeChangeReward(transition, uuid);
+		assertEquals(TimeChangeRewardState.CLAIMED, data.getTimeChangeRewardState(transition, uuid));
+		assertThrows(IllegalStateException.class, () -> data.claimTimeChangeReward(transition, uuid));
+		data.completeTimeChangeReward(transition, uuid);
+		assertEquals(TimeChangeRewardState.COMPLETE, data.getTimeChangeRewardState(transition, uuid));
+		assertTrue(data.hasTimeChangeRewardReceipt(transition, uuid));
+	}
+
+	@Test
+	void failedRewardClaimSaveRemainsClaimedBecausePersistenceOutcomeIsAmbiguous() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
+		YamlConfiguration yaml = new YamlConfiguration();
+		when(plugin.getServerDataFile()).thenReturn(coreData);
+		when(coreData.getData()).thenReturn(yaml);
+		ServerData data = new ServerData(plugin);
+		TimeChangeTransition transition = transition("DAY:2026-09-21", "2026-09-21", TimeType.DAY);
+		String uuid = "00000000-0000-0000-0000-000000000001";
+		data.beginTimeChangeRecovery(transition);
+		doThrow(new IllegalStateException("disk unavailable")).when(coreData).saveData();
+
+		assertThrows(IllegalStateException.class, () -> data.claimTimeChangeReward(transition, uuid));
+		assertEquals(TimeChangeRewardState.CLAIMED, data.getTimeChangeRewardState(transition, uuid));
+	}
+
+	@Test
+	void failedRewardCompletionRemainsClaimed() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
+		YamlConfiguration yaml = new YamlConfiguration();
+		when(plugin.getServerDataFile()).thenReturn(coreData);
+		when(coreData.getData()).thenReturn(yaml);
+		ServerData data = new ServerData(plugin);
+		TimeChangeTransition transition = transition("DAY:2026-09-21", "2026-09-21", TimeType.DAY);
+		String uuid = "00000000-0000-0000-0000-000000000001";
+		data.beginTimeChangeRecovery(transition);
+		data.claimTimeChangeReward(transition, uuid);
+		doThrow(new IllegalStateException("disk unavailable")).when(coreData).saveData();
+
+		assertThrows(IllegalStateException.class, () -> data.completeTimeChangeReward(transition, uuid));
+		assertEquals(TimeChangeRewardState.CLAIMED, data.getTimeChangeRewardState(transition, uuid));
+		assertFalse(data.hasTimeChangeRewardReceipt(transition, uuid));
 	}
 
 	@Test

@@ -21,6 +21,10 @@ import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 
 public class ServerData {
+	public enum TimeChangeRewardState {
+		UNCLAIMED, CLAIMED, COMPLETE
+	}
+
 	public record TimeChangeUserProgress(String uuid, int streakTarget, boolean rewardRequired,
 			boolean rewardComplete) { }
 	public record TimeChangeRewardTarget(String uuid, String playerName, int place, String reward, int votes) { }
@@ -482,12 +486,36 @@ public class ServerData {
 			getData().set(userPath + ".Uuid", uuid);
 			getData().set(userPath + ".StreakTarget", streakTarget);
 			getData().set(userPath + ".RewardRequired", rewardRequired);
+			getData().set(userPath + ".RewardClaimed", false);
 			getData().set(userPath + ".RewardComplete", false);
 			saveData();
 		}
 		return new TimeChangeUserProgress(uuid, getData().getInt(userPath + ".StreakTarget"),
 				getData().getBoolean(userPath + ".RewardRequired", false),
 				getData().getBoolean(userPath + ".RewardComplete", false));
+	}
+
+	public synchronized TimeChangeRewardState getTimeChangeUserStreakRewardState(
+			TimeChangeTransition transition, String uuid) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		String userPath = path + ".CurrentUser";
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))
+				|| !uuid.equals(getData().getString(userPath + ".Uuid", ""))) {
+			throw new IllegalStateException("Time change recovery user does not match");
+		}
+		if (getData().getBoolean(userPath + ".RewardComplete", false)) return TimeChangeRewardState.COMPLETE;
+		return getData().getBoolean(userPath + ".RewardClaimed", false)
+				? TimeChangeRewardState.CLAIMED : TimeChangeRewardState.UNCLAIMED;
+	}
+
+	/** Durably claims the in-flight user's streak reward before invoking it. */
+	public synchronized void claimTimeChangeUserStreakReward(TimeChangeTransition transition, String uuid) {
+		if (getTimeChangeUserStreakRewardState(transition, uuid) != TimeChangeRewardState.UNCLAIMED) {
+			throw new IllegalStateException("Time change streak reward is already claimed");
+		}
+		String userPath = timeChangeRecoveryPath(transition.getType()) + ".CurrentUser";
+		getData().set(userPath + ".RewardClaimed", true);
+		saveData();
 	}
 
 	/** Marks the in-flight user's streak reward call as returned successfully. */
@@ -499,7 +527,12 @@ public class ServerData {
 			throw new IllegalStateException("Time change recovery user does not match");
 		}
 		getData().set(userPath + ".RewardComplete", true);
-		saveData();
+		try {
+			saveData();
+		} catch (RuntimeException failure) {
+			getData().set(userPath + ".RewardComplete", false);
+			throw failure;
+		}
 	}
 
 	/**
@@ -686,11 +719,39 @@ public class ServerData {
 		}
 	}
 
+	/** Returns the durable delivery state for one top-voter reward recipient. */
+	public synchronized TimeChangeRewardState getTimeChangeRewardState(TimeChangeTransition transition,
+			String uuid) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			return TimeChangeRewardState.UNCLAIMED;
+		}
+		if (getData().getBoolean(path + ".Rewards." + uuid, false)) return TimeChangeRewardState.COMPLETE;
+		String stored = getData().getString(path + ".RewardStates." + uuid, "");
+		try {
+			return stored.isEmpty() ? TimeChangeRewardState.UNCLAIMED : TimeChangeRewardState.valueOf(stored);
+		} catch (IllegalArgumentException invalid) {
+			throw new IllegalStateException("Invalid time change reward state for " + uuid, invalid);
+		}
+	}
+
 	/** Checks the durable receipt for one top-voter reward recipient. */
 	public synchronized boolean hasTimeChangeRewardReceipt(TimeChangeTransition transition, String uuid) {
+		return getTimeChangeRewardState(transition, uuid) == TimeChangeRewardState.COMPLETE;
+	}
+
+	/** Durably claims a top-voter reward before invoking its existing reward API. */
+	public synchronized void claimTimeChangeReward(TimeChangeTransition transition, String uuid) {
 		String path = timeChangeRecoveryPath(transition.getType());
-		return transition.getId().equals(getData().getString(path + ".Id", ""))
-				&& getData().getBoolean(path + ".Rewards." + uuid, false);
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		if (getTimeChangeRewardState(transition, uuid) != TimeChangeRewardState.UNCLAIMED) {
+			throw new IllegalStateException("Time change reward is already claimed for " + uuid);
+		}
+		String statePath = path + ".RewardStates." + uuid;
+		getData().set(statePath, TimeChangeRewardState.CLAIMED.name());
+		saveData();
 	}
 
 	/** Persists a recipient receipt only after the existing reward API returns. */
@@ -699,8 +760,19 @@ public class ServerData {
 		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
 			throw new IllegalStateException("Time change recovery transition does not match");
 		}
-		getData().set(path + ".Rewards." + uuid, true);
-		saveData();
+		String receiptPath = path + ".Rewards." + uuid;
+		String statePath = path + ".RewardStates." + uuid;
+		Object previousReceipt = getData().get(receiptPath);
+		String previousState = getData().getString(statePath, "");
+		getData().set(receiptPath, true);
+		getData().set(statePath, TimeChangeRewardState.COMPLETE.name());
+		try {
+			saveData();
+		} catch (RuntimeException failure) {
+			getData().set(receiptPath, previousReceipt);
+			getData().set(statePath, previousState.isEmpty() ? null : previousState);
+			throw failure;
+		}
 	}
 
 	/** Records idempotent non-reward listener effects such as VoteParty resets. */
