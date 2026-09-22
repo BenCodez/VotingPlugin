@@ -1726,6 +1726,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param path  the path to the reward configuration
 	 */
 	public void giveDailyTopVoterAward(int place, String path) {
+		giveDailyTopVoterAward(place, path, getTotal(TopVoter.Daily));
+	}
+
+	/** Gives a daily top-voter award using the vote total captured at the period boundary. */
+	public void giveDailyTopVoterAward(int place, String path, int votes) {
 		SpecialRewardType type = SpecialRewardType.TOPVOTER;
 		type.setType("Daily");
 		type.setAmount(1);
@@ -1737,7 +1742,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getDailyAwardRewardsPath(path)).withPlaceHolder("place", "" + place)
-				.withPlaceHolder("topvoter", "Daily").withPlaceHolder("votes", "" + getTotal(TopVoter.Daily))
+				.withPlaceHolder("topvoter", "Daily").withPlaceHolder("votes", "" + votes)
 				.setOnline(isOnline()).send(this);
 	}
 
@@ -1748,6 +1753,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param path  the path to the reward configuration
 	 */
 	public void giveMonthlyTopVoterAward(int place, String path) {
+		giveMonthlyTopVoterAward(place, path, getTotal(TopVoter.Monthly));
+	}
+
+	/** Gives a monthly top-voter award using the vote total captured at the period boundary. */
+	public void giveMonthlyTopVoterAward(int place, String path, int votes) {
 		SpecialRewardType type = SpecialRewardType.TOPVOTER;
 		type.setType("Monthly");
 		type.setAmount(1);
@@ -1759,7 +1769,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getMonthlyAwardRewardsPath(path)).withPlaceHolder("place", "" + place)
-				.withPlaceHolder("topvoter", "Monthly").withPlaceHolder("votes", "" + getTotal(TopVoter.Monthly))
+				.withPlaceHolder("topvoter", "Monthly").withPlaceHolder("votes", "" + votes)
 				.setOnline(isOnline()).send(this);
 	}
 
@@ -1770,6 +1780,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param path  the path to the reward configuration
 	 */
 	public void giveWeeklyTopVoterAward(int place, String path) {
+		giveWeeklyTopVoterAward(place, path, getTotal(TopVoter.Weekly));
+	}
+
+	/** Gives a weekly top-voter award using the vote total captured at the period boundary. */
+	public void giveWeeklyTopVoterAward(int place, String path, int votes) {
 		SpecialRewardType type = SpecialRewardType.TOPVOTER;
 		type.setType("Weekly");
 		type.setAmount(1);
@@ -1781,7 +1796,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getWeeklyAwardRewardsPath(path)).withPlaceHolder("place", "" + place)
-				.withPlaceHolder("topvoter", "Weekly").withPlaceHolder("votes", "" + getTotal(TopVoter.Weekly))
+				.withPlaceHolder("topvoter", "Weekly").withPlaceHolder("votes", "" + votes)
 				.setOnline(isOnline()).send(this);
 	}
 

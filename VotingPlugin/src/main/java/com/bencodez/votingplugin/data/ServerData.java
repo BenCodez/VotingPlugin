@@ -23,7 +23,17 @@ import com.bencodez.votingplugin.topvoter.TopVoter;
 public class ServerData {
 	public record TimeChangeUserProgress(String uuid, int streakTarget, boolean rewardRequired,
 			boolean rewardComplete) { }
-	public record TimeChangeRewardTarget(String uuid, String playerName, int place, String reward) { }
+	public record TimeChangeRewardTarget(String uuid, String playerName, int place, String reward, int votes) { }
+	public record TimeChangeArchiveSection(String name, List<String> lines) {
+		public TimeChangeArchiveSection {
+			lines = List.copyOf(lines);
+		}
+	}
+	public record TimeChangeArchiveSnapshot(List<TimeChangeArchiveSection> sections) {
+		public TimeChangeArchiveSnapshot {
+			sections = List.copyOf(sections);
+		}
+	}
 
 	private static final String TIME_CHANGE_RECOVERY = "TimeChangeRecovery";
 	private static final List<String> TIME_CHANGE_PHASES = List.of("START", "SNAPSHOT", "COPY_TOTALS",
@@ -519,6 +529,7 @@ public class ServerData {
 			getData().set(targetPath + ".PlayerName", target.playerName());
 			getData().set(targetPath + ".Place", target.place());
 			getData().set(targetPath + ".Reward", target.reward());
+			getData().set(targetPath + ".Votes", target.votes());
 		}
 		getData().set(targetsPath + ".Prepared", true);
 		try {
@@ -549,7 +560,8 @@ public class ServerData {
 					getData().getString(targetPath + ".Uuid", ""),
 					getData().getString(targetPath + ".PlayerName", ""),
 					getData().getInt(targetPath + ".Place", 0),
-					getData().getString(targetPath + ".Reward", ""));
+					getData().getString(targetPath + ".Reward", ""),
+					getData().getInt(targetPath + ".Votes", -1));
 			validateRewardTarget(target);
 			targets.add(target);
 		}
@@ -557,7 +569,7 @@ public class ServerData {
 	}
 
 	private void validateRewardTarget(TimeChangeRewardTarget target) {
-		if (target == null || target.playerName() == null || target.place() <= 0
+		if (target == null || target.playerName() == null || target.place() <= 0 || target.votes() < 0
 				|| target.reward() == null || target.reward().isEmpty()) {
 			throw new IllegalStateException("Invalid time change reward target");
 		}
@@ -565,6 +577,66 @@ public class ServerData {
 			UUID.fromString(target.uuid());
 		} catch (RuntimeException invalidUuid) {
 			throw new IllegalStateException("Invalid time change reward target UUID", invalidUuid);
+		}
+	}
+
+	/** Persists the complete top-voter archive contents selected at the period boundary. */
+	public synchronized TimeChangeArchiveSnapshot prepareTimeChangeArchive(TimeChangeTransition transition,
+			TimeChangeArchiveSnapshot proposed) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		String archivePath = path + ".Archive";
+		if (getData().getBoolean(archivePath + ".Prepared", false)) return getTimeChangeArchive(transition);
+		validateArchive(proposed);
+		getData().set(archivePath, null);
+		getData().set(archivePath + ".Count", proposed.sections().size());
+		for (int index = 0; index < proposed.sections().size(); index++) {
+			TimeChangeArchiveSection section = proposed.sections().get(index);
+			String sectionPath = archivePath + ".Sections." + index;
+			getData().set(sectionPath + ".Name", section.name());
+			getData().set(sectionPath + ".Lines", section.lines());
+		}
+		getData().set(archivePath + ".Prepared", true);
+		try {
+			saveData();
+		} catch (RuntimeException | Error failure) {
+			getData().set(archivePath, null);
+			throw failure;
+		}
+		return proposed;
+	}
+
+	/** Returns the durable top-voter archive contents for this transition. */
+	public synchronized TimeChangeArchiveSnapshot getTimeChangeArchive(TimeChangeTransition transition) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		String archivePath = path + ".Archive";
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))
+				|| !getData().getBoolean(archivePath + ".Prepared", false)) {
+			return new TimeChangeArchiveSnapshot(List.of());
+		}
+		int count = getData().getInt(archivePath + ".Count", -1);
+		if (count < 0) throw new IllegalStateException("Invalid time change archive section count");
+		List<TimeChangeArchiveSection> sections = new ArrayList<>(count);
+		for (int index = 0; index < count; index++) {
+			String sectionPath = archivePath + ".Sections." + index;
+			sections.add(new TimeChangeArchiveSection(getData().getString(sectionPath + ".Name", ""),
+					getData().getStringList(sectionPath + ".Lines")));
+		}
+		TimeChangeArchiveSnapshot snapshot = new TimeChangeArchiveSnapshot(sections);
+		validateArchive(snapshot);
+		return snapshot;
+	}
+
+	private void validateArchive(TimeChangeArchiveSnapshot snapshot) {
+		if (snapshot == null) throw new IllegalStateException("Invalid time change archive");
+		Set<String> names = new HashSet<>();
+		for (TimeChangeArchiveSection section : snapshot.sections()) {
+			if (section == null || section.name() == null || section.name().isEmpty() || section.lines() == null
+					|| !names.add(section.name()) || section.lines().stream().anyMatch(line -> line == null)) {
+				throw new IllegalStateException("Invalid time change archive section");
+			}
 		}
 	}
 

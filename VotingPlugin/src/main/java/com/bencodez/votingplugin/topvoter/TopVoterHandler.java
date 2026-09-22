@@ -41,6 +41,8 @@ import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.simpleapi.sql.Column;
 import com.bencodez.simpleapi.sql.DataType;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.data.ServerData.TimeChangeArchiveSection;
+import com.bencodez.votingplugin.data.ServerData.TimeChangeArchiveSnapshot;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardTarget;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeUserProgress;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -598,7 +600,9 @@ public class TopVoterHandler implements Listener {
 					|| (top == TopVoter.Weekly && plugin.getConfigFile().isStoreTopVotersWeekly())
 					|| top == TopVoter.Monthly) {
 				plugin.getLogger().info("Saving TopVoters " + top);
-				storeTopVoters(top);
+				TimeChangeArchiveSnapshot archive = plugin.getServerData().prepareTimeChangeArchive(transition,
+						buildTopVoterArchiveSnapshot());
+				storeTopVoters(top, transition, archive);
 			}
 			plugin.getServerData().completeTimeChangePhase(transition, SNAPSHOT);
 		}
@@ -626,7 +630,7 @@ public class TopVoterHandler implements Listener {
 			for (String shopIdent : plugin.getShopFile().getShopIdentifiers()) {
 				if (shouldResetVoteShop(top, shopIdent)) {
 					resetVoteShopLimit(shopIdent,
-							VoteShopPurchaseService.currentLimitGenerationId(plugin, shopIdent));
+							VoteShopPurchaseService.limitGenerationIdForTransition(plugin, shopIdent, transition));
 				}
 			}
 			plugin.getServerData().completeTimeChangePhase(transition, VOTE_SHOP);
@@ -752,7 +756,7 @@ public class TopVoterHandler implements Listener {
 					UUID.fromString(target.uuid()), target.playerName());
 			user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 			if (!plugin.getConfigFile().isTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
-				giveTopVoterAward(top, user, target.place(), target.reward());
+				giveTopVoterAward(top, user, target.place(), target.reward(), target.votes());
 				plugin.getServerData().completeTimeChangeReward(transition, target.uuid());
 				plugin.getLogger().info("Giving " + top + " top voter reward " + target.place() + " to "
 						+ target.playerName());
@@ -774,7 +778,7 @@ public class TopVoterHandler implements Listener {
 			if (places.containsKey(place)) {
 				targets.add(new TimeChangeRewardTarget(entry.getKey().getUuid().toString(),
 						entry.getKey().getPlayerName() == null ? "" : entry.getKey().getPlayerName(),
-						place, places.get(place)));
+						place, places.get(place), entry.getValue().intValue()));
 			}
 			lastTotal = entry.getValue().intValue();
 		}
@@ -828,11 +832,11 @@ public class TopVoterHandler implements Listener {
 		};
 	}
 
-	private void giveTopVoterAward(TopVoter top, VotingPluginUser user, int place, String reward) {
+	private void giveTopVoterAward(TopVoter top, VotingPluginUser user, int place, String reward, int votes) {
 		switch (top) {
-		case Daily -> user.giveDailyTopVoterAward(place, reward);
-		case Weekly -> user.giveWeeklyTopVoterAward(place, reward);
-		case Monthly -> user.giveMonthlyTopVoterAward(place, reward);
+		case Daily -> user.giveDailyTopVoterAward(place, reward, votes);
+		case Weekly -> user.giveWeeklyTopVoterAward(place, reward, votes);
+		case Monthly -> user.giveMonthlyTopVoterAward(place, reward, votes);
 		default -> { }
 		}
 	}
@@ -994,6 +998,47 @@ public class TopVoterHandler implements Listener {
 			}
 		}
 		file.saveData();
+	}
+
+	TimeChangeArchiveSnapshot buildTopVoterArchiveSnapshot() {
+		List<TimeChangeArchiveSection> sections = new ArrayList<>();
+		for (TopVoter current : TopVoter.values()) {
+			ArrayList<String> lines = new ArrayList<>();
+			int total = 0;
+			try {
+				for (Integer value : plugin.getUserManager().getNumbersInColumn(current.getColumnName())) {
+					total += value.intValue();
+				}
+				lines.add("Combined total: " + total);
+			} catch (Exception failure) {
+				plugin.debug(failure);
+			}
+			if (plugin.getTopVoter().containsKey(current)) {
+				int place = 1;
+				for (Entry<TopVoterPlayer, Integer> entry : plugin.getTopVoter(current).entrySet()) {
+					lines.add(place + ": " + entry.getKey().getPlayerName() + ": " + entry.getValue());
+					place++;
+				}
+				sections.add(new TimeChangeArchiveSection(current.toString(), lines));
+			}
+		}
+		return new TimeChangeArchiveSnapshot(sections);
+	}
+
+	void storeTopVoters(TopVoter top, TimeChangeTransition transition, TimeChangeArchiveSnapshot snapshot) {
+		String fileName = timeChangeArchiveFileName(top, transition);
+		YMLFileHandler file = new YMLFileHandler(plugin, new File(plugin.getDataFolder(), fileName));
+		file.setup();
+		file.header("Saving top voters for " + top + ", file also contains other top voter info as backup");
+		for (TimeChangeArchiveSection section : snapshot.sections()) {
+			file.getData().set(section.name(), section.lines());
+		}
+		file.saveData();
+	}
+
+	String timeChangeArchiveFileName(TopVoter top, TimeChangeTransition transition) {
+		String stablePeriod = transition.getPeriodKey().replaceAll("[^A-Za-z0-9_-]", "_");
+		return "TopVoter" + File.separator + top + File.separator + top + "_" + stablePeriod + ".yml";
 	}
 
 	/**

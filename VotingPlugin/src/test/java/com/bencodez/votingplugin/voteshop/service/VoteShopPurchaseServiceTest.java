@@ -52,6 +52,8 @@ import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
 import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 import com.bencodez.advancedcore.api.rewards.RewardHandler;
+import com.bencodez.advancedcore.api.time.TimeChangeTransition;
+import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.simpleapi.folialib.enums.EntityTaskResult;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.SharedMysqlCacheReconciler;
@@ -167,6 +169,32 @@ class VoteShopPurchaseServiceTest {
 
 			assertEquals(usGeneration, germanGeneration);
 			assertEquals(usLimit, germanLimit);
+		} finally {
+			Locale.setDefault(previous);
+		}
+	}
+
+	@Test
+	void transitionBoundaryComesFromTheDurablePeriodInsteadOfRetryTime() {
+		TimeChangeTransition day = mock(TimeChangeTransition.class);
+		when(day.getType()).thenReturn(TimeType.DAY);
+		when(day.getPeriodKey()).thenReturn("2026-09-21");
+		TimeChangeTransition month = mock(TimeChangeTransition.class);
+		when(month.getType()).thenReturn(TimeType.MONTH);
+		when(month.getPeriodKey()).thenReturn("2026-09");
+		TimeChangeTransition week = mock(TimeChangeTransition.class);
+		when(week.getType()).thenReturn(TimeType.WEEK);
+		when(week.getPeriodKey()).thenReturn("2026-W38");
+
+		assertEquals(LocalDateTime.of(2026, 9, 21, 0, 0),
+				VoteShopPurchaseService.transitionBoundary(day, 0));
+		assertEquals(LocalDateTime.of(2026, 9, 1, 0, 0),
+				VoteShopPurchaseService.transitionBoundary(month, 0));
+		Locale previous = Locale.getDefault();
+		try {
+			Locale.setDefault(Locale.GERMANY);
+			assertEquals(LocalDateTime.of(2026, 9, 14, 0, 0),
+					VoteShopPurchaseService.transitionBoundary(week, 0));
 		} finally {
 			Locale.setDefault(previous);
 		}

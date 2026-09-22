@@ -6,6 +6,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.File;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -57,7 +58,7 @@ class TopVoterTimeChangeRecoveryTest {
 	}
 
 	@Test
-	void rewardSnapshotFixesRecipientsAndPlacesAtThePeriodBoundary() {
+	void rewardSnapshotFixesRecipientsPlacesAndVoteTotalsAtThePeriodBoundary() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		TimeChangeTransition transition = mock(TimeChangeTransition.class);
 		TopVoterPlayer first = new TopVoterPlayer(
@@ -75,7 +76,21 @@ class TopVoterTimeChangeRecoveryTest {
 				.buildTopRewardSnapshot(TopVoter.Daily, transition);
 
 		assertEquals(List.of(
-				new TimeChangeRewardTarget(first.getUuid().toString(), "first", 1, "1"),
-				new TimeChangeRewardTarget(second.getUuid().toString(), "second", 2, "2")), targets);
+				new TimeChangeRewardTarget(first.getUuid().toString(), "first", 1, "1", 20),
+				new TimeChangeRewardTarget(second.getUuid().toString(), "second", 2, "2", 10)), targets);
+	}
+
+	@Test
+	void archiveRetryUsesOneStableTransitionFile() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		TimeChangeTransition transition = mock(TimeChangeTransition.class);
+		when(transition.getPeriodKey()).thenReturn("2026-W38");
+		TopVoterHandler handler = new TopVoterHandler(plugin);
+
+		String first = handler.timeChangeArchiveFileName(TopVoter.Weekly, transition);
+		String retry = handler.timeChangeArchiveFileName(TopVoter.Weekly, transition);
+
+		assertEquals("TopVoter" + File.separator + "Weekly" + File.separator + "Weekly_2026-W38.yml", first);
+		assertEquals(first, retry);
 	}
 }
