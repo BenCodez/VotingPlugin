@@ -17,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
+import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.simpleapi.servercomm.http.HttpProxyTransportServer;
@@ -58,6 +59,14 @@ public class VotingPluginProxyTest {
 		Mockito.when(multiProxyHandler.sendMultiProxyEnvelopeAccepted(Mockito.any(), Mockito.any())).thenReturn(true);
 		Mockito.when(multiProxyHandler.getMultiProxyVoteRecipients()).thenReturn(java.util.Set.of("Replica"));
 
+	}
+
+	@Test
+	void monthlyCompletionOnlyClearsTheBoundaryAlreadyCapturedByTheBackend() {
+		votingPluginProxy.onTimeChangedFinished(TimeType.MONTH);
+
+		verify(proxyMySQL).wipeColumnData("MonthTotal", com.bencodez.simpleapi.sql.DataType.INTEGER);
+		verify(proxyMySQL, never()).copyColumnData(Mockito.anyString(), Mockito.anyString());
 	}
 
 	@Test

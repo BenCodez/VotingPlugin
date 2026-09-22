@@ -470,9 +470,6 @@ public abstract class VotingPluginProxy {
 	}
 
 	public void onTimeChangedFinished(TimeType type) {
-		if (type.equals(TimeType.MONTH)) {
-			getProxyMySQL().copyColumnData(TopVoter.Monthly.getColumnName(), "LastMonthTotal");
-		}
 		getProxyMySQL().wipeColumnData(TopVoter.of(type).getColumnName(), DataType.INTEGER);
 
 		if (!getConfig().getGlobalDataEnabled()) {

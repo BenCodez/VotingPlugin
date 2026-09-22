@@ -18,7 +18,7 @@ public final class TimeChangeTotalReset {
 
 	private TimeChangeTotalReset() { }
 
-	static boolean reset(VotingPluginMain plugin, String column, String previousColumn, String generation) {
+	public static boolean reset(VotingPluginMain plugin, String column, String previousColumn, String generation) {
 		boolean[] reset = { false };
 		PeriodTotalMutationFence.withReset(() -> {
 			// Drain queued absolute totals while new total mutations are excluded. The
@@ -45,7 +45,7 @@ public final class TimeChangeTotalReset {
 		return reset[0];
 	}
 
-	static boolean copyBoundary(VotingPluginMain plugin, String column, String previousColumn, String generation) {
+	public static boolean copyBoundary(VotingPluginMain plugin, String column, String previousColumn, String generation) {
 		boolean[] copied = { false };
 		PeriodTotalMutationFence.withReset(() -> {
 			plugin.getUserManager().getDataManager().clearCache();

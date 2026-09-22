@@ -296,11 +296,21 @@ public class VoteParty implements Listener {
 			return;
 		}
 		runRecoverableReset(transition, effect, () -> {
-			if (!resetRecoverableUserCounts("vote-party:" + transition.getId() + ':' + effect)) {
+			String generation = transition.getId() + ':' + effect;
+			if (!copyRecoverableUserCountBoundary("vote-party-copy:" + generation)) {
+				throw new IllegalStateException("Unable to durably capture VoteParty user counts");
+			}
+			plugin.getServerData().prepareTimeChangeVotePartyReset(transition, effect);
+			if (!resetRecoverableUserCounts("vote-party-reset:" + generation)) {
 				throw new IllegalStateException("Unable to durably reset VoteParty user counts");
 			}
 			plugin.getServerData().completeTimeChangeVotePartyReset(transition, effect);
 		});
+	}
+
+	/** Storage boundary kept separate so lifecycle tests do not require a live database. */
+	public boolean copyRecoverableUserCountBoundary(String generation) {
+		return state.copyUserCountBoundary(generation);
 	}
 
 	/** Storage boundary kept separate so lifecycle tests do not require a live database. */

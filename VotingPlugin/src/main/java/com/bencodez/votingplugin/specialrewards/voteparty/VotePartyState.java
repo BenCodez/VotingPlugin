@@ -13,6 +13,7 @@ public final class VotePartyState {
 	private static final String TOTAL_PATH = "VoteParty.Total";
 	private static final String VOTED_PATH = "VoteParty.Voted";
 	private static final String USER_COUNT_KEY = "VotePartyVotes";
+	private static final String LAST_USER_COUNT_KEY = "LastVotePartyVotes";
 
 	private final VotingPluginMain plugin;
 
@@ -61,7 +62,11 @@ public final class VotePartyState {
 		plugin.getUserManager().removeAllKeyValues(USER_COUNT_KEY, DataType.INTEGER);
 	}
 
+	public boolean copyUserCountBoundary(String generation) {
+		return TimeChangeTotalReset.copyBoundary(plugin, USER_COUNT_KEY, LAST_USER_COUNT_KEY, generation);
+	}
+
 	public boolean resetUserCounts(String generation) {
-		return TimeChangeTotalReset.resetToZero(plugin, USER_COUNT_KEY, generation);
+		return TimeChangeTotalReset.reset(plugin, USER_COUNT_KEY, LAST_USER_COUNT_KEY, generation);
 	}
 }

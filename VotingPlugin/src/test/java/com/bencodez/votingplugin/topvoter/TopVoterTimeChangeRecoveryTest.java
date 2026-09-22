@@ -222,16 +222,22 @@ class TopVoterTimeChangeRecoveryTest {
 	}
 
 	@Test
-	void sqliteAuxiliaryResetDoesNotRepeatAfterNewVotes() throws Exception {
+	void sqliteVotePartyBoundaryResetPreservesVotesAcceptedAfterTheBoundary() throws Exception {
 		try (Connection connection = DriverManager.getConnection("jdbc:sqlite::memory:");
 				Statement statement = connection.createStatement()) {
-			statement.executeUpdate("CREATE TABLE users (uuid TEXT PRIMARY KEY, VotePartyVotes INTEGER)");
-			statement.executeUpdate("INSERT INTO users VALUES ('player', 4)");
-			TimeChangeTotalReset.resetSqliteToZero(connection, "users", "VotePartyVotes", "vote-party:DAY");
-			statement.executeUpdate("UPDATE users SET VotePartyVotes = 2 WHERE uuid = 'player'");
-			TimeChangeTotalReset.resetSqliteToZero(connection, "users", "VotePartyVotes", "vote-party:DAY");
+			statement.executeUpdate("CREATE TABLE users (uuid TEXT PRIMARY KEY, VotePartyVotes INTEGER, "
+					+ "LastVotePartyVotes INTEGER)");
+			statement.executeUpdate("INSERT INTO users VALUES ('player', 4, 0)");
+			TimeChangeTotalReset.copyBoundarySqlite(connection, "users", "VotePartyVotes", "LastVotePartyVotes",
+					"vote-party-copy:DAY");
+			statement.executeUpdate("UPDATE users SET VotePartyVotes = VotePartyVotes + 3 WHERE uuid = 'player'");
+			TimeChangeTotalReset.resetSqlite(connection, "users", "VotePartyVotes", "LastVotePartyVotes",
+					"vote-party-reset:DAY");
+			statement.executeUpdate("UPDATE users SET VotePartyVotes = VotePartyVotes + 2 WHERE uuid = 'player'");
+			TimeChangeTotalReset.resetSqlite(connection, "users", "VotePartyVotes", "LastVotePartyVotes",
+					"vote-party-reset:DAY");
 			try (ResultSet result = statement.executeQuery("SELECT VotePartyVotes FROM users WHERE uuid = 'player'")) {
-				assertEquals(2, result.getInt(1));
+				assertEquals(5, result.getInt(1));
 			}
 		}
 	}

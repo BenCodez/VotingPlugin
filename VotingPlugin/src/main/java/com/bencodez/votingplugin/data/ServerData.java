@@ -720,24 +720,41 @@ public class ServerData {
 		saveData();
 	}
 
-	/** Resets YAML-backed VoteParty state and records its receipt in one save. */
+	/**
+	 * Clears YAML-backed VoteParty state before the recoverable database reset.
+	 * The in-memory marker deliberately remains applied when saving fails. A later
+	 * vote will therefore persist the cleared boundary and its own new state
+	 * together, while a restart can safely retry the clear before votes resume.
+	 */
+	public synchronized void prepareTimeChangeVotePartyReset(TimeChangeTransition transition, String effect) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		String resetPath = path + ".VotePartyResets." + effect + ".StateReset";
+		if (getData().getBoolean(resetPath, false)) return;
+		getData().set("VoteParty.Total", 0);
+		getData().set("VoteParty.Voted", new ArrayList<>());
+		getData().set(resetPath, true);
+		saveData();
+	}
+
+	/** Records the VoteParty reset receipt after its database boundary is removed. */
 	public synchronized void completeTimeChangeVotePartyReset(TimeChangeTransition transition, String effect) {
 		String path = timeChangeRecoveryPath(transition.getType());
 		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
 			throw new IllegalStateException("Time change recovery transition does not match");
 		}
-		int previousTotal = getData().getInt("VoteParty.Total");
-		List<String> previousVoters = new ArrayList<>(getData().getStringList("VoteParty.Voted"));
+		String resetPath = path + ".VotePartyResets." + effect + ".StateReset";
+		if (!getData().getBoolean(resetPath, false)) {
+			throw new IllegalStateException("VoteParty state reset is not prepared");
+		}
 		String effectPath = path + ".Effects." + effect;
 		Object previousEffect = getData().get(effectPath);
 		try {
-			getData().set("VoteParty.Total", 0);
-			getData().set("VoteParty.Voted", new ArrayList<>());
 			getData().set(effectPath, true);
 			saveData();
 		} catch (RuntimeException | Error failure) {
-			getData().set("VoteParty.Total", previousTotal);
-			getData().set("VoteParty.Voted", previousVoters);
 			getData().set(effectPath, previousEffect);
 			throw failure;
 		}

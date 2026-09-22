@@ -596,7 +596,7 @@ public class TopVoterHandler implements Listener {
 		// Capture the boundary before any long-running phase. The database journal
 		// makes the later COPY_TOTALS retry a no-op, so votes accepted while reward
 		// or user recovery is pending remain above this boundary.
-		if (top != TopVoter.Monthly || !bungeeHandleResets()) copyTotalBoundary(top, transition);
+		copyTotalBoundary(top, transition);
 
 		if (!plugin.getServerData().hasTimeChangePhase(transition, SNAPSHOT)) {
 			ensureTransitionActive(transition);
@@ -616,9 +616,7 @@ public class TopVoterHandler implements Listener {
 
 		if (!plugin.getServerData().hasTimeChangePhase(transition, COPY_TOTALS)) {
 			ensureTransitionActive(transition);
-			if (top != TopVoter.Monthly || !bungeeHandleResets()) {
-				copyTotalBoundary(top, transition);
-			}
+			copyTotalBoundary(top, transition);
 			plugin.getServerData().completeTimeChangePhase(transition, COPY_TOTALS);
 		}
 

@@ -53,6 +53,7 @@ public class UserManager {
 		UserDataManager manager = plugin.getUserManager().getDataManager();
 		manager.addKey(new UserDataKeyBoolean("TopVoterIgnore"));
 		manager.addKey(new UserDataKeyInt("VotePartyVotes"));
+		manager.addKey(new UserDataKeyInt("LastVotePartyVotes"));
 		manager.addKey(new UserDataKeyString("LastVotes"));
 		manager.addKey(new UserDataKeyBoolean(getCoolDownCheckPath()));
 		manager.addKey(new UserDataKeyString("OfflineVotes").setColumnType("MEDIUMTEXT"));

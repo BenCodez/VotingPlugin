@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
@@ -157,7 +158,7 @@ class ServerDataTimeChangeRecoveryTest {
 	}
 
 	@Test
-	void votePartyStateAndEffectReceiptShareOneCheckpoint() {
+	void votePartyStateResetIsPreparedBeforeItsEffectReceipt() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
 		YamlConfiguration yaml = new YamlConfiguration();
@@ -169,6 +170,7 @@ class ServerDataTimeChangeRecoveryTest {
 		data.getData().set("VoteParty.Total", 12);
 		data.getData().set("VoteParty.Voted", List.of("player"));
 
+		data.prepareTimeChangeVotePartyReset(transition, "VotePartyWeekReset");
 		data.completeTimeChangeVotePartyReset(transition, "VotePartyWeekReset");
 
 		assertEquals(0, data.getData().getInt("VoteParty.Total"));
@@ -177,7 +179,7 @@ class ServerDataTimeChangeRecoveryTest {
 	}
 
 	@Test
-	void failedVotePartyCheckpointKeepsTheEffectPendingInMemory() {
+	void failedVotePartyStateSaveKeepsTheLogicalResetForLaterVotes() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
 		YamlConfiguration yaml = new YamlConfiguration();
@@ -191,13 +193,31 @@ class ServerDataTimeChangeRecoveryTest {
 		doThrow(new IllegalStateException("disk unavailable")).when(coreData).saveData();
 
 		assertThrows(IllegalStateException.class,
-				() -> data.completeTimeChangeVotePartyReset(transition, "VotePartyWeekReset"));
+				() -> data.prepareTimeChangeVotePartyReset(transition, "VotePartyWeekReset"));
 
-		assertEquals(12, data.getData().getInt("VoteParty.Total"));
-		assertEquals(List.of("player"), data.getData().getStringList("VoteParty.Voted"));
+		assertEquals(0, data.getData().getInt("VoteParty.Total"));
+		assertTrue(data.getData().getStringList("VoteParty.Voted").isEmpty());
 		assertFalse(data.hasTimeChangeEffect(transition, "VotePartyWeekReset"));
 
+		data.getData().set("VoteParty.Total", 2);
+		data.getData().set("VoteParty.Voted", List.of("new-player"));
+		doNothing().when(coreData).saveData();
+		data.prepareTimeChangeVotePartyReset(transition, "VotePartyWeekReset");
+		doThrow(new IllegalStateException("disk unavailable")).when(coreData).saveData();
+		assertThrows(IllegalStateException.class,
+				() -> data.completeTimeChangeVotePartyReset(transition, "VotePartyWeekReset"));
+		assertEquals(2, data.getData().getInt("VoteParty.Total"));
+		assertEquals(List.of("new-player"), data.getData().getStringList("VoteParty.Voted"));
+		assertFalse(data.hasTimeChangeEffect(transition, "VotePartyWeekReset"));
+
+		doNothing().when(coreData).saveData();
+		data.completeTimeChangeVotePartyReset(transition, "VotePartyWeekReset");
+		assertEquals(2, data.getData().getInt("VoteParty.Total"));
+		assertEquals(List.of("new-player"), data.getData().getStringList("VoteParty.Voted"));
+		assertTrue(data.hasTimeChangeEffect(transition, "VotePartyWeekReset"));
+
 		data.getData().set("VotePartyExtraRequired", 7);
+		doThrow(new IllegalStateException("disk unavailable")).when(coreData).saveData();
 		assertThrows(IllegalStateException.class,
 				() -> data.completeTimeChangeVotePartyExtraReset(transition, "VotePartyWeekExtraVotes"));
 		assertEquals(7, data.getData().getInt("VotePartyExtraRequired"));
