@@ -624,8 +624,10 @@ public class VoteShopPurchaseService {
 			MySQL table = plugin.getMysql();
 			for (String column : columns) table.checkColumn(column, DataType.INTEGER);
 			if (maximum != null) table.checkColumn(previousColumn, DataType.INTEGER);
-			SharedMysqlPurchaseJournal.forTable(table).incrementPeriodTotals(
+			boolean applied = SharedMysqlPurchaseJournal.forTable(table).incrementPeriodTotals(
 					voteId == null ? UUID.randomUUID() : voteId, uuid, boundaryColumn, previousColumn, columns, maximum);
+			if (!applied) plugin.getLogger().warning(
+					"Shared MySQL period total was retained for retry after a persistence failure");
 			return true;
 		} catch (SQLException failure) {
 			plugin.getLogger().severe("Unable to atomically increment MySQL period total: "
@@ -645,8 +647,10 @@ public class VoteShopPurchaseService {
 			MySQL table = plugin.getMysql();
 			table.checkColumn("DayVoteStreak", DataType.INTEGER);
 			table.checkColumn("DayVoteStreakLastUpdate", DataType.STRING);
-			SharedMysqlPurchaseJournal.forTable(table).updateDailyStreak(
+			boolean applied = SharedMysqlPurchaseJournal.forTable(table).updateDailyStreak(
 					voteId == null ? UUID.randomUUID() : voteId, uuid, streak, updatedAt);
+			if (!applied) plugin.getLogger().warning(
+					"Shared MySQL daily streak was retained for retry after a persistence failure");
 			return true;
 		} catch (SQLException failure) {
 			plugin.getLogger().severe("Unable to atomically update MySQL daily streak: "
@@ -655,6 +659,23 @@ public class VoteShopPurchaseService {
 			return false;
 		} finally {
 			SharedMysqlCacheReconciler.invalidate(plugin, uuid, "DayVoteStreak", "DayVoteStreakLastUpdate");
+		}
+	}
+
+	/** Resets the copied daily streak without overwriting a new-day vote from another backend. */
+	public static boolean resetMysqlDailyStreakAtBoundary(VotingPluginMain plugin, String uuid,
+			long boundaryUpdatedAt) {
+		if (!canRecoverSharedMysqlPurchases(plugin)) return false;
+		try {
+			SharedMysqlPurchaseJournal.forTable(plugin.getMysql()).resetDailyStreakAtBoundary(uuid, boundaryUpdatedAt);
+			return true;
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to atomically reset MySQL daily streak: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+			return false;
+		} finally {
+			SharedMysqlCacheReconciler.invalidate(plugin, uuid, "DayVoteStreak");
 		}
 	}
 
@@ -725,6 +746,7 @@ public class VoteShopPurchaseService {
 	static void recoverSharedMysqlPurchases(VotingPluginMain plugin, SharedMysqlPurchaseJournal journal)
 			throws SQLException {
 		retryPendingCompensationMarkers(plugin, journal);
+		journal.recoverAccounting(System.currentTimeMillis());
 		for (SharedMysqlPurchaseJournal.RefundedPurchase refund : journal.recoverAndCleanup(System.currentTimeMillis())) {
 			SharedMysqlCacheReconciler.invalidateAndRefresh(plugin, refund.uuid(), refund.pointsColumn(),
 					refund.limitColumn());

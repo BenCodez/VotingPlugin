@@ -320,16 +320,19 @@ class SharedMysqlPurchaseJournalTest {
 	@Test
 	void periodIncrementLocksTheSameBoundaryRowBeforeUpdatingTheUser() throws Exception {
 		Fixture fixture = fixture();
+		PreparedStatement requestInsert = mock(PreparedStatement.class);
+		PreparedStatement requestSelect = mock(PreparedStatement.class);
+		PreparedStatement requestUpdate = mock(PreparedStatement.class);
 		PreparedStatement markerInsert = mock(PreparedStatement.class);
 		PreparedStatement markerSelect = mock(PreparedStatement.class);
-		PreparedStatement accountingInsert = mock(PreparedStatement.class);
 		PreparedStatement accountingSelect = mock(PreparedStatement.class);
 		PreparedStatement resetMarkerInsert = mock(PreparedStatement.class);
 		PreparedStatement resetMarkerSelect = mock(PreparedStatement.class);
 		PreparedStatement increment = mock(PreparedStatement.class);
 		PreparedStatement accountingUpdate = mock(PreparedStatement.class);
 		ResultSet epoch = mock(ResultSet.class);
-		ResultSet accounting = mock(ResultSet.class);
+		ResultSet requested = accountingRow("00000000-0000-0000-0000-000000000001", 0, 0);
+		ResultSet accounting = accountingRow("00000000-0000-0000-0000-000000000001", 4, 0);
 		ResultSet resetEpoch = mock(ResultSet.class);
 		when(epoch.next()).thenReturn(true);
 		when(epoch.getLong(1)).thenReturn(9L);
@@ -337,87 +340,95 @@ class SharedMysqlPurchaseJournalTest {
 		when(resetEpoch.next()).thenReturn(true);
 		when(resetEpoch.getString(2)).thenReturn("time-total:MONTH:2026-08");
 		when(markerSelect.executeQuery()).thenReturn(epoch);
-		when(accounting.next()).thenReturn(true);
-		when(accounting.getInt(1)).thenReturn(0);
+		when(requestSelect.executeQuery()).thenReturn(requested);
 		when(accountingSelect.executeQuery()).thenReturn(accounting);
 		when(resetMarkerSelect.executeQuery()).thenReturn(resetEpoch);
 		when(increment.executeUpdate()).thenReturn(1);
 		when(accountingUpdate.executeUpdate()).thenReturn(1);
-		when(fixture.work.prepareStatement(anyString())).thenReturn(markerInsert, markerSelect,
-				accountingInsert, accountingSelect, resetMarkerInsert, resetMarkerSelect, increment, accountingUpdate);
+		when(requestUpdate.executeUpdate()).thenReturn(1);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(requestInsert, requestSelect, requestUpdate,
+				markerInsert, markerSelect,
+				accountingSelect, resetMarkerInsert, resetMarkerSelect, increment, accountingUpdate);
 
 		new SharedMysqlPurchaseJournal(fixture.table, false).incrementPeriodTotals(java.util.UUID.randomUUID(),
 				"00000000-0000-0000-0000-000000000001", "MonthTotal", "LastMonthTotal",
 				java.util.List.of("MonthTotal", "MonthTotal-SEPTEMBER-2026"), Integer.valueOf(42));
 
 		org.mockito.ArgumentCaptor<String> sql = org.mockito.ArgumentCaptor.forClass(String.class);
-		verify(fixture.work, org.mockito.Mockito.times(8)).prepareStatement(sql.capture());
-		assertTrue(sql.getAllValues().get(1).contains("FOR UPDATE"));
-		assertTrue(sql.getAllValues().get(6).contains(
+		verify(fixture.work, org.mockito.Mockito.times(10)).prepareStatement(sql.capture());
+		assertTrue(sql.getAllValues().get(4).contains("FOR UPDATE"));
+		assertTrue(sql.getAllValues().get(8).contains(
 				"`MonthTotal` = LEAST(COALESCE(`LastMonthTotal`, 0) + ?, COALESCE(`MonthTotal`, 0) + 1)"));
-		assertTrue(sql.getAllValues().get(6).contains(
+		assertTrue(sql.getAllValues().get(8).contains(
 				"`MonthTotal-SEPTEMBER-2026` = LEAST(?, COALESCE(`MonthTotal-SEPTEMBER-2026`, 0) + 1)"));
 		verify(markerSelect).setString(1, "period-copy:MonthTotal");
 		verify(increment).setInt(1, 42);
 		verify(increment).setInt(2, 42);
 		verify(increment).setString(3, "00000000-0000-0000-0000-000000000001");
-		verify(fixture.work).commit();
+		verify(fixture.work, org.mockito.Mockito.times(2)).commit();
 	}
 
 	@Test
 	void repeatedVoteOperationDoesNotIncrementThePeriodTwice() throws Exception {
 		Fixture fixture = fixture();
+		PreparedStatement requestInsert = mock(PreparedStatement.class);
+		PreparedStatement requestSelect = mock(PreparedStatement.class);
+		PreparedStatement requestUpdate = mock(PreparedStatement.class);
 		PreparedStatement markerInsert = mock(PreparedStatement.class);
 		PreparedStatement markerSelect = mock(PreparedStatement.class);
-		PreparedStatement accountingInsert = mock(PreparedStatement.class);
 		PreparedStatement accountingSelect = mock(PreparedStatement.class);
 		ResultSet epoch = mock(ResultSet.class);
-		ResultSet accounting = mock(ResultSet.class);
+		ResultSet requested = accountingRow("player", 1, 1);
+		ResultSet accounting = accountingRow("player", 1, 1);
 		when(epoch.next()).thenReturn(true);
 		when(markerSelect.executeQuery()).thenReturn(epoch);
-		when(accounting.next()).thenReturn(true);
-		when(accounting.getInt(1)).thenReturn(1);
+		when(requestSelect.executeQuery()).thenReturn(requested);
 		when(accountingSelect.executeQuery()).thenReturn(accounting);
-		when(fixture.work.prepareStatement(anyString())).thenReturn(markerInsert, markerSelect,
-				accountingInsert, accountingSelect);
+		when(requestUpdate.executeUpdate()).thenReturn(1);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(requestInsert, requestSelect, requestUpdate,
+				markerInsert, markerSelect,
+				accountingSelect);
 
 		new SharedMysqlPurchaseJournal(fixture.table, false).incrementPeriodTotals(java.util.UUID.randomUUID(),
 				"player", "DailyTotal", "LastDailyTotal", java.util.List.of("DailyTotal"), null);
 
 		verify(fixture.work).rollback();
-		verify(fixture.work, org.mockito.Mockito.never()).commit();
-		verify(fixture.work, org.mockito.Mockito.times(4)).prepareStatement(anyString());
+		verify(fixture.work).commit();
+		verify(fixture.work, org.mockito.Mockito.times(6)).prepareStatement(anyString());
 	}
 
 	@Test
 	void ambiguousPeriodIncrementCommitIsConfirmedByTheVoteMarker() throws Exception {
 		Fixture fixture = fixture();
 		Connection confirmation = mock(Connection.class);
+		PreparedStatement requestInsert = mock(PreparedStatement.class);
+		PreparedStatement requestSelect = mock(PreparedStatement.class);
+		PreparedStatement requestUpdate = mock(PreparedStatement.class);
 		PreparedStatement markerInsert = mock(PreparedStatement.class);
 		PreparedStatement markerSelect = mock(PreparedStatement.class);
-		PreparedStatement accountingInsert = mock(PreparedStatement.class);
 		PreparedStatement accountingSelect = mock(PreparedStatement.class);
 		PreparedStatement increment = mock(PreparedStatement.class);
 		PreparedStatement accountingUpdate = mock(PreparedStatement.class);
 		PreparedStatement confirm = mock(PreparedStatement.class);
 		ResultSet epoch = mock(ResultSet.class);
-		ResultSet accounting = mock(ResultSet.class);
-		ResultSet confirmed = mock(ResultSet.class);
+		ResultSet requested = accountingRow("player", 0, 0);
+		ResultSet accounting = accountingRow("player", 1, 0);
+		ResultSet confirmed = accountingRow("player", 1, 1);
 		when(epoch.next()).thenReturn(true);
 		when(markerSelect.executeQuery()).thenReturn(epoch);
-		when(accounting.next()).thenReturn(true);
-		when(accounting.getInt(1)).thenReturn(0);
+		when(requestSelect.executeQuery()).thenReturn(requested);
 		when(accountingSelect.executeQuery()).thenReturn(accounting);
 		when(increment.executeUpdate()).thenReturn(1);
 		when(accountingUpdate.executeUpdate()).thenReturn(1);
-		when(fixture.work.prepareStatement(anyString())).thenReturn(markerInsert, markerSelect,
-				accountingInsert, accountingSelect, increment, accountingUpdate);
-		doThrow(new java.sql.SQLException("commit acknowledgement lost")).when(fixture.work).commit();
-		when(confirmed.next()).thenReturn(true);
-		when(confirmed.getInt(1)).thenReturn(1);
+		when(requestUpdate.executeUpdate()).thenReturn(1);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(requestInsert, requestSelect, requestUpdate,
+				markerInsert, markerSelect,
+				accountingSelect, increment, accountingUpdate);
+		org.mockito.Mockito.doNothing().doThrow(new java.sql.SQLException("commit acknowledgement lost"))
+				.when(fixture.work).commit();
 		when(confirm.executeQuery()).thenReturn(confirmed);
 		when(confirmation.prepareStatement(anyString())).thenReturn(confirm);
-		when(fixture.sql.getConnectionManager().getConnection()).thenReturn(fixture.work, confirmation);
+		when(fixture.sql.getConnectionManager().getConnection()).thenReturn(fixture.work, fixture.work, confirmation);
 
 		new SharedMysqlPurchaseJournal(fixture.table, false).incrementPeriodTotals(java.util.UUID.randomUUID(),
 				"player", "DailyTotal", "LastDailyTotal", java.util.List.of("DailyTotal"), null);
@@ -455,31 +466,96 @@ class SharedMysqlPurchaseJournalTest {
 	@Test
 	void dailyStreakUpdateLocksTheSameBoundaryRow() throws Exception {
 		Fixture fixture = fixture();
+		PreparedStatement requestInsert = mock(PreparedStatement.class);
+		PreparedStatement requestSelect = mock(PreparedStatement.class);
+		PreparedStatement requestUpdate = mock(PreparedStatement.class);
 		PreparedStatement markerInsert = mock(PreparedStatement.class);
 		PreparedStatement markerSelect = mock(PreparedStatement.class);
-		PreparedStatement accountingInsert = mock(PreparedStatement.class);
 		PreparedStatement accountingSelect = mock(PreparedStatement.class);
 		PreparedStatement update = mock(PreparedStatement.class);
 		PreparedStatement accountingUpdate = mock(PreparedStatement.class);
 		ResultSet epoch = mock(ResultSet.class);
-		ResultSet accounting = mock(ResultSet.class);
+		ResultSet requested = accountingRow("00000000-0000-0000-0000-000000000001", 0, 0);
+		ResultSet accounting = accountingRow("00000000-0000-0000-0000-000000000001", 16, 0);
 		when(epoch.next()).thenReturn(true);
 		when(markerSelect.executeQuery()).thenReturn(epoch);
-		when(accounting.next()).thenReturn(true);
-		when(accounting.getInt(1)).thenReturn(0);
+		when(requestSelect.executeQuery()).thenReturn(requested);
 		when(accountingSelect.executeQuery()).thenReturn(accounting);
 		when(update.executeUpdate()).thenReturn(1);
 		when(accountingUpdate.executeUpdate()).thenReturn(1);
-		when(fixture.work.prepareStatement(anyString())).thenReturn(markerInsert, markerSelect,
-				accountingInsert, accountingSelect, update, accountingUpdate);
+		when(requestUpdate.executeUpdate()).thenReturn(1);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(requestInsert, requestSelect, requestUpdate,
+				markerInsert, markerSelect,
+				accountingSelect, update, accountingUpdate);
 
 		new SharedMysqlPurchaseJournal(fixture.table, false).updateDailyStreak(java.util.UUID.randomUUID(),
 				"00000000-0000-0000-0000-000000000001", 7, 1234L);
 
 		verify(markerSelect).setString(1, "streak-copy:DayVoteStreak");
-		verify(update).setInt(1, 7);
-		verify(update).setString(2, "1234");
-		verify(fixture.work).commit();
+		verify(update).setString(1, "1234");
+		verify(update).setString(2, "00000000-0000-0000-0000-000000000001");
+		verify(fixture.work, org.mockito.Mockito.times(2)).commit();
+	}
+
+	@Test
+	void dailyStreakBoundaryResetUsesTheSharedDatabaseFence() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement markerInsert = mock(PreparedStatement.class);
+		PreparedStatement markerSelect = mock(PreparedStatement.class);
+		PreparedStatement reset = mock(PreparedStatement.class);
+		ResultSet epoch = mock(ResultSet.class);
+		when(epoch.next()).thenReturn(true);
+		when(markerSelect.executeQuery()).thenReturn(epoch);
+		when(reset.executeUpdate()).thenReturn(1);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(markerInsert, markerSelect, reset);
+
+		new SharedMysqlPurchaseJournal(fixture.table, false).resetDailyStreakAtBoundary("player", 1234L);
+
+		org.mockito.ArgumentCaptor<String> sql = org.mockito.ArgumentCaptor.forClass(String.class);
+		verify(fixture.work, org.mockito.Mockito.times(3)).prepareStatement(sql.capture());
+		assertTrue(sql.getAllValues().get(2).contains("CASE WHEN COALESCE(`DayVoteStreakLastUpdate`, '') = ?"));
+		verify(markerSelect).setString(1, "streak-copy:DayVoteStreak");
+		verify(reset).setString(1, "1234");
+		verify(reset).setString(2, "player");
+	}
+
+	@Test
+	void failedApplyLeavesTheCommittedAccountingRequestForRecovery() throws Exception {
+		Fixture fixture = fixture();
+		Connection request = mock(Connection.class);
+		Connection apply = mock(Connection.class);
+		PreparedStatement insert = mock(PreparedStatement.class);
+		PreparedStatement select = mock(PreparedStatement.class);
+		PreparedStatement update = mock(PreparedStatement.class);
+		ResultSet row = accountingRow("player", 0, 0);
+		when(select.executeQuery()).thenReturn(row);
+		when(update.executeUpdate()).thenReturn(1);
+		when(request.prepareStatement(anyString())).thenReturn(insert, select, update);
+		when(apply.prepareStatement(anyString())).thenThrow(new java.sql.SQLException("database unavailable"));
+		when(fixture.sql.getConnectionManager().getConnection()).thenReturn(request, apply);
+
+		assertFalse(new SharedMysqlPurchaseJournal(fixture.table, false).incrementPeriodTotals(
+				java.util.UUID.randomUUID(), "player", "DailyTotal", "LastDailyTotal",
+				java.util.List.of("DailyTotal"), null));
+
+		verify(request).commit();
+		verify(request, org.mockito.Mockito.never()).rollback();
+	}
+
+	@Test
+	void completedAccountingRowsAreDeletedAfterTheReplayWindow() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement pending = mock(PreparedStatement.class);
+		PreparedStatement cleanup = mock(PreparedStatement.class);
+		ResultSet none = ids();
+		when(pending.executeQuery()).thenReturn(none);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(pending, cleanup);
+
+		new SharedMysqlPurchaseJournal(fixture.table, false)
+				.recoverAccounting(SharedMysqlPurchaseJournal.ACCOUNTING_RETENTION_MILLIS + 5L);
+
+		verify(cleanup).setLong(1, 5L);
+		verify(cleanup).executeUpdate();
 	}
 
 	@Test
@@ -786,6 +862,15 @@ class SharedMysqlPurchaseJournalTest {
 
 	private static ResultSet pendingRow() throws Exception {
 		return pendingRow("PENDING");
+	}
+
+	private static ResultSet accountingRow(String uuid, int requested, int completed) throws Exception {
+		ResultSet row = mock(ResultSet.class);
+		when(row.next()).thenReturn(true);
+		when(row.getString(1)).thenReturn(uuid);
+		when(row.getInt(2)).thenReturn(requested);
+		when(row.getInt(3)).thenReturn(completed);
+		return row;
 	}
 
 	private static ResultSet pendingRow(String state) throws Exception {

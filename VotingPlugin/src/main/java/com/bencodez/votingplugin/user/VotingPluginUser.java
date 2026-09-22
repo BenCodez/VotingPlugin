@@ -937,15 +937,21 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			maximum = Integer.valueOf(plugin.getTimeChecker().getTime().getDayOfMonth()
 					* plugin.getVoteSiteManager().getVoteSitesEnabled().size());
 		}
-		return VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, getUUID(), "MonthTotal",
-				"LastMonthTotal", columns, maximum);
+		if (!VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, getUUID(), "MonthTotal",
+				"LastMonthTotal", columns, maximum)) {
+			throw new IllegalStateException("Unable to retain shared MySQL monthly vote total");
+		}
+		return true;
 	}
 
 	private boolean incrementSharedMysqlPeriodTotal(UUID voteId, TopVoter top, String column) {
 		if (plugin == null || !UserStorage.MYSQL.equals(plugin.getStorageType())) return false;
 		if (getCache() != null) getCache().clearChanges();
-		return VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, getUUID(), column,
-				top.getLastColumnName(), List.of(column), null);
+		if (!VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, getUUID(), column,
+				top.getLastColumnName(), List.of(column), null)) {
+			throw new IllegalStateException("Unable to retain shared MySQL " + top + " vote total");
+		}
+		return true;
 	}
 
 	/**
@@ -1144,9 +1150,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 								plugin, voteId, getUUID(), streak, updatedAt);
 						if (sharedStreakPersisted) {
 							if (getBestDayVoteStreak() < streak) setBestDayVoteStreak(streak);
-						} else {
-							setDayVoteStreak(streak);
-						}
+						} else throw new IllegalStateException("Unable to retain shared MySQL daily streak");
 					} else {
 						setDayVoteStreak(streak);
 					}
@@ -2559,8 +2563,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		int fallbackTotal = getVotePartyVotes() + 1;
 		if (plugin != null && UserStorage.MYSQL.equals(plugin.getStorageType())) {
 			if (getCache() != null) getCache().clearChanges();
-			if (VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, getUUID(), "VotePartyVotes",
-					"LastVotePartyVotes", List.of("VotePartyVotes"), null)) return;
+			if (!VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, getUUID(), "VotePartyVotes",
+					"LastVotePartyVotes", List.of("VotePartyVotes"), null)) {
+				throw new IllegalStateException("Unable to retain shared MySQL VoteParty count");
+			}
+			return;
 		}
 		setVotePartyVotes(fallbackTotal);
 	}

@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.user;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
@@ -70,7 +71,7 @@ class VotingPluginUserVoteShopLimitTest {
 	}
 
 	@Test
-	void failedSharedMysqlIncrementFallsBackToTheQueuedUserMutation() {
+	void unretainedSharedMysqlIncrementDoesNotWriteAnUnfencedAbsoluteValue() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		when(plugin.getStorageType()).thenReturn(UserStorage.MYSQL);
 		AdvancedCoreUser base = mock(AdvancedCoreUser.class);
@@ -86,14 +87,14 @@ class VotingPluginUserVoteShopLimitTest {
 			service.when(() -> VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, base.getUUID(),
 					"DailyTotal", "LastDailyTotal", java.util.List.of("DailyTotal"), null)).thenReturn(false);
 
-			user.addTotalDaily(voteId);
+			assertThrows(IllegalStateException.class, () -> user.addTotalDaily(voteId));
 
-			verify(user).setDailyTotal(5);
+			verify(user, never()).setDailyTotal(5);
 		}
 	}
 
 	@Test
-	void failedSharedMysqlMonthlyIncrementKeepsTheConfiguredCap() {
+	void unretainedSharedMysqlMonthlyIncrementDoesNotWriteAnUnfencedCappedValue() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		when(plugin.getStorageType()).thenReturn(UserStorage.MYSQL);
 		when(plugin.getConfigFile().isLimitMonthlyVotes()).thenReturn(true);
@@ -113,9 +114,9 @@ class VotingPluginUserVoteShopLimitTest {
 					"MonthTotal", "LastMonthTotal", java.util.List.of("MonthTotal"), Integer.valueOf(6)))
 					.thenReturn(false);
 
-			user.addMonthTotal(voteId);
+			assertThrows(IllegalStateException.class, () -> user.addMonthTotal(voteId));
 
-			verify(user).setMonthTotal(6);
+			verify(user, never()).setMonthTotal(6);
 		}
 	}
 

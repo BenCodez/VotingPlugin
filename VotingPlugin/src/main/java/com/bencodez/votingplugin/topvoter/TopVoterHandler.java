@@ -791,7 +791,12 @@ public class TopVoterHandler implements Listener {
 		case Monthly -> user.getMonthVoteStreak();
 		default -> proposedTarget;
 		};
-		if (current != progress.streakTarget()) {
+		if (top == TopVoter.Daily && UserStorage.MYSQL.equals(plugin.getStorageType())) {
+			if (!VoteShopPurchaseService.resetMysqlDailyStreakAtBoundary(plugin, uuid,
+					user.getLastDayVoteStreakLastUpdate())) {
+				throw new IllegalStateException("Unable to serialize shared MySQL daily streak reset");
+			}
+		} else if (current != progress.streakTarget()) {
 			switch (top) {
 			case Daily -> user.setDayVoteStreak(progress.streakTarget());
 			case Weekly -> user.setWeekVoteStreak(progress.streakTarget());
