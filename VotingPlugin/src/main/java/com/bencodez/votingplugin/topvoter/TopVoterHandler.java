@@ -45,6 +45,7 @@ import com.bencodez.votingplugin.data.ServerData.TimeChangeArchiveSection;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeArchiveSnapshot;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardTarget;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeUserProgress;
+import com.bencodez.votingplugin.user.PeriodTotalMutationFence;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.voteshop.service.VoteShopLimitMutationFence;
 import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseService;
@@ -652,9 +653,17 @@ public class TopVoterHandler implements Listener {
 
 	private void copyTotalBoundary(TopVoter top, TimeChangeTransition transition) {
 		ensureTransitionActive(transition);
-		if (!TimeChangeTotalReset.copyBoundary(plugin, top.getColumnName(), top.getLastColumnName(),
-				"time-copy:" + transition.getId())) {
-			throw new IllegalStateException("Unable to durably copy " + top + " boundary totals");
+		boolean[] copied = { false };
+		PeriodTotalMutationFence.withReset(() -> {
+			copied[0] = TimeChangeTotalReset.copyBoundary(plugin, top.getColumnName(), top.getLastColumnName(),
+					"time-copy:" + transition.getId());
+			if (copied[0] && top == TopVoter.Daily && plugin.getConfigFile().isUseVoteStreaks()) {
+				copied[0] = TimeChangeTotalReset.copyDailyStreakBoundary(plugin,
+						"time-streak-copy:" + transition.getId());
+			}
+		});
+		if (!copied[0]) {
+			throw new IllegalStateException("Unable to durably copy " + top + " boundary state");
 		}
 	}
 
@@ -683,9 +692,15 @@ public class TopVoterHandler implements Listener {
 
 	void processDailyUser(VotingPluginUser user, TimeChangeTransition transition, String uuid) {
 		int boundaryTotal = user.getLastDailyTotal();
-		if (plugin.getConfigFile().isUseVoteStreaks()
-				&& !user.voteStreakUpdatedToday(previousDayTime(transition)) && user.getDayVoteStreak() != 0) {
-			applyRecoverableStreak(user, transition, uuid, TopVoter.Daily, 0, false);
+		if (plugin.getConfigFile().isUseVoteStreaks()) {
+			int boundaryStreak = user.getLastDayVoteStreak();
+			long boundaryUpdate = user.getLastDayVoteStreakLastUpdate();
+			if (!user.voteStreakUpdatedAt(boundaryUpdate, previousDayTime(transition)) && boundaryStreak != 0) {
+				// A vote accepted after the boundary has already started the new day's
+				// streak. Preserve that contribution while removing the stale streak.
+				int target = user.getDayVoteStreakLastUpdate() == boundaryUpdate ? 0 : 1;
+				applyRecoverableStreak(user, transition, uuid, TopVoter.Daily, target, false);
+			}
 		}
 		if (plugin.getConfigFile().isUseHighestTotals()
 				&& user.getHighestDailyTotal() < boundaryTotal) {

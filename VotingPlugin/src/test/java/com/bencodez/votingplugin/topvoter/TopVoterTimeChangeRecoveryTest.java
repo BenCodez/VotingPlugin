@@ -14,6 +14,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
@@ -79,6 +80,55 @@ class TopVoterTimeChangeRecoveryTest {
 		verify(user, never()).hasPercentageTotal(org.mockito.ArgumentMatchers.any(),
 				org.mockito.ArgumentMatchers.anyDouble(), org.mockito.ArgumentMatchers.any(),
 				org.mockito.ArgumentMatchers.anyInt());
+	}
+
+	@Test
+	void delayedDailyRecoveryPreservesAStreakStartedAfterTheBoundary() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		ServerData serverData = mock(ServerData.class);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		TimeChangeTransition transition = mock(TimeChangeTransition.class);
+		String uuid = "00000000-0000-0000-0000-000000000001";
+		long oldUpdate = LocalDateTime.of(2026, 9, 19, 12, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+		long newUpdate = LocalDateTime.of(2026, 9, 21, 12, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(plugin.getConfigFile().isUseVoteStreaks()).thenReturn(true);
+		when(transition.getPeriodKey()).thenReturn("2026-09-21");
+		when(user.getLastDayVoteStreak()).thenReturn(4);
+		when(user.getLastDayVoteStreakLastUpdate()).thenReturn(oldUpdate);
+		when(user.getDayVoteStreakLastUpdate()).thenReturn(newUpdate);
+		when(user.getDayVoteStreak()).thenReturn(5);
+		when(serverData.prepareTimeChangeUserStreak(transition, uuid, 1, false))
+				.thenReturn(new TimeChangeUserProgress(uuid, 1, false, false));
+
+		new TopVoterHandler(plugin).processDailyUser(user, transition, uuid);
+
+		verify(serverData).prepareTimeChangeUserStreak(transition, uuid, 1, false);
+		verify(user).setDayVoteStreak(1);
+	}
+
+	@Test
+	void dailyRecoveryClearsAnIneligibleBoundaryStreakWithoutANewVote() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		ServerData serverData = mock(ServerData.class);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		TimeChangeTransition transition = mock(TimeChangeTransition.class);
+		String uuid = "00000000-0000-0000-0000-000000000001";
+		long oldUpdate = LocalDateTime.of(2026, 9, 19, 12, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(plugin.getConfigFile().isUseVoteStreaks()).thenReturn(true);
+		when(transition.getPeriodKey()).thenReturn("2026-09-21");
+		when(user.getLastDayVoteStreak()).thenReturn(4);
+		when(user.getLastDayVoteStreakLastUpdate()).thenReturn(oldUpdate);
+		when(user.getDayVoteStreakLastUpdate()).thenReturn(oldUpdate);
+		when(user.getDayVoteStreak()).thenReturn(4);
+		when(serverData.prepareTimeChangeUserStreak(transition, uuid, 0, false))
+				.thenReturn(new TimeChangeUserProgress(uuid, 0, false, false));
+
+		new TopVoterHandler(plugin).processDailyUser(user, transition, uuid);
+
+		verify(serverData).prepareTimeChangeUserStreak(transition, uuid, 0, false);
+		verify(user).setDayVoteStreak(0);
 	}
 
 	@Test
@@ -238,6 +288,27 @@ class TopVoterTimeChangeRecoveryTest {
 					"vote-party-reset:DAY");
 			try (ResultSet result = statement.executeQuery("SELECT VotePartyVotes FROM users WHERE uuid = 'player'")) {
 				assertEquals(5, result.getInt(1));
+			}
+		}
+	}
+
+	@Test
+	void sqliteDailyStreakBoundaryKeepsValueAndTimestampTogether() throws Exception {
+		try (Connection connection = DriverManager.getConnection("jdbc:sqlite::memory:");
+				Statement statement = connection.createStatement()) {
+			statement.executeUpdate("CREATE TABLE users (uuid TEXT PRIMARY KEY, DayVoteStreak INTEGER, "
+					+ "LastDayVoteStreak INTEGER, DayVoteStreakLastUpdate TEXT, "
+					+ "LastDayVoteStreakLastUpdate TEXT)");
+			statement.executeUpdate("INSERT INTO users VALUES ('player', 4, 0, '100', '')");
+
+			TimeChangeTotalReset.copyDailyStreakBoundarySqlite(connection, "users", "time-streak-copy:DAY");
+			statement.executeUpdate("UPDATE users SET DayVoteStreak = 5, DayVoteStreakLastUpdate = '200'");
+			TimeChangeTotalReset.copyDailyStreakBoundarySqlite(connection, "users", "time-streak-copy:DAY");
+
+			try (ResultSet result = statement.executeQuery(
+					"SELECT LastDayVoteStreak, LastDayVoteStreakLastUpdate FROM users WHERE uuid = 'player'")) {
+				assertEquals(4, result.getInt(1));
+				assertEquals("100", result.getString(2));
 			}
 		}
 	}

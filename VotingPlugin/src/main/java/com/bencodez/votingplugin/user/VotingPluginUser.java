@@ -1063,18 +1063,20 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	@Deprecated
 	public void checkDayVoteStreak(boolean forceBungee) {
-		if (!voteStreakUpdatedToday(LocalDateTime.now())) {
-			if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage() || hasPercentageTotal(
-					TopVoter.Daily, plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(), null)) {
-				plugin.extraDebug("Adding day vote streak to " + getUUID() + " "
-						+ plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage() + " "
-						+ hasPercentageTotal(TopVoter.Daily,
-								plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(), null));
-				addDayVoteStreak();
-				plugin.getSpecialRewards().checkVoteStreak(null, this, "Day", forceBungee);
-				setDayVoteStreakLastUpdate(System.currentTimeMillis());
+		PeriodTotalMutationFence.withMutation(() -> {
+			if (!voteStreakUpdatedToday(LocalDateTime.now())) {
+				if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage() || hasPercentageTotal(
+						TopVoter.Daily, plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(), null)) {
+					plugin.extraDebug("Adding day vote streak to " + getUUID() + " "
+							+ plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage() + " "
+							+ hasPercentageTotal(TopVoter.Daily,
+									plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(), null));
+					addDayVoteStreak();
+					plugin.getSpecialRewards().checkVoteStreak(null, this, "Day", forceBungee);
+					setDayVoteStreakLastUpdate(System.currentTimeMillis());
+				}
 			}
-		}
+		});
 	}
 
 	/**
@@ -1231,7 +1233,19 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	@Deprecated
 	public long getDayVoteStreakLastUpdate() {
-		String str = getData().getString("DayVoteStreakLastUpdate");
+		return getVoteStreakUpdate("DayVoteStreakLastUpdate");
+	}
+
+	public int getLastDayVoteStreak() {
+		return getData().getInt("LastDayVoteStreak");
+	}
+
+	public long getLastDayVoteStreakLastUpdate() {
+		return getVoteStreakUpdate("LastDayVoteStreakLastUpdate");
+	}
+
+	private long getVoteStreakUpdate(String path) {
+		String str = getData().getString(path);
 		if (str == null || str.isEmpty() || str.equals("null")) {
 			return 0;
 		}
@@ -2766,7 +2780,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	@Deprecated
 	public boolean voteStreakUpdatedToday(LocalDateTime time) {
-		return MiscUtils.getInstance().getTime(getDayVoteStreakLastUpdate()).getDayOfYear() == time.getDayOfYear();
+		return voteStreakUpdatedAt(getDayVoteStreakLastUpdate(), time);
+	}
+
+	public boolean voteStreakUpdatedAt(long update, LocalDateTime time) {
+		return MiscUtils.getInstance().getTime(update).getDayOfYear() == time.getDayOfYear();
 	}
 
 	public String getVoteStreakState(String columnName) {

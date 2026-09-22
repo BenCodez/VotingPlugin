@@ -318,6 +318,32 @@ class SharedMysqlPurchaseJournalTest {
 	}
 
 	@Test
+	void dailyStreakValueAndTimestampCopyShareOneTransaction() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement markerInsert = mock(PreparedStatement.class);
+		PreparedStatement markerSelect = mock(PreparedStatement.class);
+		PreparedStatement copy = mock(PreparedStatement.class);
+		PreparedStatement advance = mock(PreparedStatement.class);
+		ResultSet epoch = mock(ResultSet.class);
+		when(epoch.next()).thenReturn(true);
+		when(epoch.getLong(1)).thenReturn(2L);
+		when(markerSelect.executeQuery()).thenReturn(epoch);
+		when(advance.executeUpdate()).thenReturn(1);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(markerInsert, markerSelect, copy, advance);
+
+		new SharedMysqlPurchaseJournal(fixture.table, false).copyDailyStreakBoundary("DayVoteStreak",
+				"LastDayVoteStreak", "DayVoteStreakLastUpdate", "LastDayVoteStreakLastUpdate",
+				"time-streak-copy:DAY:2026-09-21");
+
+		org.mockito.ArgumentCaptor<String> sql = org.mockito.ArgumentCaptor.forClass(String.class);
+		verify(fixture.work, org.mockito.Mockito.times(4)).prepareStatement(sql.capture());
+		assertTrue(sql.getAllValues().get(2).contains("`LastDayVoteStreak` = COALESCE(`DayVoteStreak`, 0), "
+				+ "`LastDayVoteStreakLastUpdate` = COALESCE(`DayVoteStreakLastUpdate`, '')"));
+		verify(advance).setString(3, "streak-copy:DayVoteStreak");
+		verify(fixture.work).commit();
+	}
+
+	@Test
 	void ambiguousResetCommitIsConfirmedAfterTheConnectionIsReleased() throws Exception {
 		Fixture fixture = fixture();
 		Connection reset = mock(Connection.class);

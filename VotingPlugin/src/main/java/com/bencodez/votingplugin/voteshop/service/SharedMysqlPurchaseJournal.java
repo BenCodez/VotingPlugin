@@ -269,13 +269,29 @@ final class SharedMysqlPurchaseJournal {
 		if (!isSafeColumn(totalColumn) || !isSafeColumn(previousColumn)) {
 			throw new SQLException("Unsafe period boundary column");
 		}
+		copyBoundary("period-copy:" + totalColumn, generation,
+				qi(previousColumn) + " = COALESCE(" + qi(totalColumn) + ", 0)");
+	}
+
+	/** Copies the daily-streak value and timestamp in one recoverable transaction. */
+	void copyDailyStreakBoundary(String streakColumn, String previousStreakColumn, String updateColumn,
+			String previousUpdateColumn, String generation) throws SQLException {
+		if (!isSafeColumn(streakColumn) || !isSafeColumn(previousStreakColumn) || !isSafeColumn(updateColumn)
+				|| !isSafeColumn(previousUpdateColumn)) {
+			throw new SQLException("Unsafe daily streak boundary column");
+		}
+		copyBoundary("streak-copy:" + streakColumn, generation,
+				qi(previousStreakColumn) + " = COALESCE(" + qi(streakColumn) + ", 0), "
+						+ qi(previousUpdateColumn) + " = COALESCE(" + qi(updateColumn) + ", '')");
+	}
+
+	private void copyBoundary(String markerKey, String generation, String assignments) throws SQLException {
 		if (generation == null || generation.isEmpty() || generation.length() > 128) {
 			throw new SQLException("Invalid period boundary generation");
 		}
 		try (Connection connection = connection()) {
 			connection.setAutoCommit(false);
 			try {
-				String markerKey = "period-copy:" + totalColumn;
 				EpochRow marker = lockLimitEpochRow(connection, markerKey);
 				if (generation.equals(marker.lastResetGeneration())) {
 					rollback(connection);
@@ -284,7 +300,7 @@ final class SharedMysqlPurchaseJournal {
 				long oldEpoch = marker.epoch();
 				if (oldEpoch == Long.MAX_VALUE) throw new SQLException("Period boundary epoch overflow");
 				try (PreparedStatement copy = connection.prepareStatement("UPDATE " + qi(table.getTableName())
-						+ " SET " + qi(previousColumn) + " = COALESCE(" + qi(totalColumn) + ", 0)");
+						+ " SET " + assignments);
 						PreparedStatement advance = connection.prepareStatement("UPDATE " + qiEpoch() + " SET "
 								+ qi("epoch") + " = ?, " + qi("last_reset_generation") + " = ? WHERE "
 								+ qi("limit_column") + " = ?")) {

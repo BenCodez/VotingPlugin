@@ -635,6 +635,30 @@ public class VoteShopPurchaseService {
 		}
 	}
 
+	/** Atomically captures the daily-streak value and timestamp boundary. */
+	public static boolean copyMysqlDailyStreakBoundary(VotingPluginMain plugin, String streakColumn,
+			String previousStreakColumn, String updateColumn, String previousUpdateColumn, String generation) {
+		if (!canRecoverSharedMysqlPurchases(plugin)) return false;
+		try {
+			MySQL table = plugin.getMysql();
+			table.checkColumn(streakColumn, DataType.INTEGER);
+			table.checkColumn(previousStreakColumn, DataType.INTEGER);
+			table.checkColumn(updateColumn, DataType.STRING);
+			table.checkColumn(previousUpdateColumn, DataType.STRING);
+			SharedMysqlPurchaseJournal.forTable(table).copyDailyStreakBoundary(streakColumn, previousStreakColumn,
+					updateColumn, previousUpdateColumn, generation);
+			return true;
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to atomically copy MySQL daily streak boundary: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+			return false;
+		} finally {
+			SharedMysqlCacheReconciler.invalidateAll(plugin, previousStreakColumn);
+			SharedMysqlCacheReconciler.invalidateAll(plugin, previousUpdateColumn);
+		}
+	}
+
 	static void withSharedMysqlCacheResetFence(Runnable action) {
 		SharedMysqlCacheReconciler.withResetFence(action);
 	}

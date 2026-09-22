@@ -69,6 +69,32 @@ public final class TimeChangeTotalReset {
 		return copied[0];
 	}
 
+	/** Captures the daily-streak value and timestamp as one recoverable boundary. */
+	public static boolean copyDailyStreakBoundary(VotingPluginMain plugin, String generation) {
+		boolean[] copied = { false };
+		PeriodTotalMutationFence.withReset(() -> {
+			plugin.getUserManager().getDataManager().clearCache();
+			if (UserStorage.MYSQL.equals(plugin.getStorageType())) {
+				copied[0] = VoteShopPurchaseService.copyMysqlDailyStreakBoundary(plugin, "DayVoteStreak",
+						"LastDayVoteStreak", "DayVoteStreakLastUpdate", "LastDayVoteStreakLastUpdate", generation);
+				return;
+			}
+			if (!UserStorage.SQLITE.equals(plugin.getStorageType())) return;
+			UserTable table = plugin.getSQLiteUserTable();
+			try {
+				String url = table.getSqLite().getSQLConnection().getMetaData().getURL();
+				try (Connection connection = DriverManager.getConnection(url)) {
+					copied[0] = copyDailyStreakBoundarySqlite(connection, table.getName(), generation);
+				}
+			} catch (SQLException failure) {
+				plugin.getLogger().severe("Unable to atomically copy daily streak boundary: "
+						+ failure.getClass().getSimpleName());
+				plugin.debug(failure);
+			}
+		});
+		return copied[0];
+	}
+
 	/** Resets an auxiliary integer column once for a recoverable listener effect. */
 	public static boolean resetToZero(VotingPluginMain plugin, String column, String generation) {
 		plugin.getUserManager().getDataManager().clearCache();
@@ -102,6 +128,14 @@ public final class TimeChangeTotalReset {
 		}
 		return resetSqliteExpression(connection, table, previousColumn, generation,
 				"COALESCE(" + quote(column) + ", 0)");
+	}
+
+	static boolean copyDailyStreakBoundarySqlite(Connection connection, String table, String generation)
+			throws SQLException {
+		if (!safeIdentifier(table)) throw new SQLException("Invalid daily streak boundary table");
+		return resetSqliteExpression(connection, table, "LastDayVoteStreak", generation,
+				"COALESCE(" + quote("DayVoteStreak") + ", 0), " + quote("LastDayVoteStreakLastUpdate")
+						+ " = COALESCE(" + quote("DayVoteStreakLastUpdate") + ", '')");
 	}
 
 	static boolean resetSqlite(Connection connection, String table, String column, String previousColumn,
