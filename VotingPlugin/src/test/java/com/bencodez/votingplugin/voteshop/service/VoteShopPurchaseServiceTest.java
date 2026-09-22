@@ -958,6 +958,8 @@ class VoteShopPurchaseServiceTest {
 				.thenThrow(new java.sql.SQLException("down"))
 				.thenThrow(new java.sql.SQLException("still down"))
 				.thenReturn(true);
+		when(journal.recoverAccounting(anyLong())).thenReturn(
+				new SharedMysqlPurchaseJournal.AccountingRecoveryBatch(false, java.util.List.of()));
 		when(journal.recoverAndCleanup(anyLong())).thenReturn(java.util.List.of());
 		VoteShopPurchaseService.SharedPurchaseDebit debit = new VoteShopPurchaseService.SharedPurchaseDebit(
 				VoteShopPurchaseResult.SUCCESS, journal, "purchase-1", "Points", null);
@@ -979,6 +981,45 @@ class VoteShopPurchaseServiceTest {
 		verify(journal, times(3)).markCompensating("purchase-1");
 		verify(journal, times(2)).recoverAndCleanup(anyLong());
 		verify(scheduler, never()).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+	}
+
+	@Test
+	void recoveredDailyStreakRunsRewardOnlyAfterThePersistedIncrement(@TempDir Path temporaryDirectory) throws Exception {
+		VotingPluginMain plugin = mockPluginForCompensation(temporaryDirectory);
+		SharedMysqlPurchaseJournal journal = mock(SharedMysqlPurchaseJournal.class);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		java.util.UUID voteId = java.util.UUID.randomUUID();
+		java.util.UUID playerId = java.util.UUID.randomUUID();
+		when(journal.recoverAccounting(anyLong())).thenReturn(
+				new SharedMysqlPurchaseJournal.AccountingRecoveryBatch(true, java.util.List.of(voteId)),
+				new SharedMysqlPurchaseJournal.AccountingRecoveryBatch(false, java.util.List.of()));
+		when(journal.claimDailyStreakReward(voteId)).thenReturn(
+				new SharedMysqlPurchaseJournal.RecoveredDailyStreak(voteId, playerId.toString(), 7, true));
+		when(journal.recoverAndCleanup(anyLong())).thenReturn(java.util.List.of());
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser(playerId, false)).thenReturn(user);
+
+		VoteShopPurchaseService.recoverSharedMysqlPurchases(plugin, journal);
+
+		org.mockito.InOrder order = org.mockito.Mockito.inOrder(journal, user);
+		order.verify(journal).claimDailyStreakReward(voteId);
+		order.verify(user).completeRecoveredDailyStreak(7, true);
+	}
+
+	@Test
+	void deferredDailyStreakRecoveryYieldsUntilTheNextRecoveryPass(@TempDir Path temporaryDirectory) throws Exception {
+		VotingPluginMain plugin = mockPluginForCompensation(temporaryDirectory);
+		SharedMysqlPurchaseJournal journal = mock(SharedMysqlPurchaseJournal.class);
+		java.util.UUID voteId = java.util.UUID.randomUUID();
+		when(journal.recoverAccounting(anyLong())).thenReturn(
+				new SharedMysqlPurchaseJournal.AccountingRecoveryBatch(true, java.util.List.of(voteId)));
+		when(journal.claimDailyStreakReward(voteId)).thenReturn(null);
+		when(journal.recoverAndCleanup(anyLong())).thenReturn(java.util.List.of());
+
+		VoteShopPurchaseService.recoverSharedMysqlPurchases(plugin, journal);
+
+		verify(journal).recoverAccounting(anyLong());
+		verify(journal).claimDailyStreakReward(voteId);
+		verify(journal).recoverAndCleanup(anyLong());
 	}
 
 	private static VotingPluginMain mockPluginForCompensation(Path dataDirectory) {

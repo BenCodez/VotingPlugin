@@ -142,7 +142,7 @@ public class PlayerVoteListener implements Listener {
                     && (plugin.getSpecialRewardsConfig().isVotePartyCountFakeVotes() || event.isRealVote())
                     && (plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes() || user.isOnline());
             if (!VoteShopPurchaseService.prepareMysqlVoteAccounting(plugin, voteId, user.getUUID(), countTotals,
-                    countVoteParty)) {
+                    countVoteParty, event.isForceBungee())) {
                 throw new SharedVoteAdmissionException("Unable to admit shared MySQL vote accounting before processing");
             }
         }

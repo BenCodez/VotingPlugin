@@ -33,6 +33,9 @@ import com.bencodez.simpleapi.sql.mysql.DbType;
  */
 final class SharedMysqlPurchaseJournal {
 	enum DailyStreakOutcome { APPLIED, ALREADY_UPDATED, DEFERRED }
+	record DailyStreakResult(DailyStreakOutcome outcome, int streak) { }
+	record RecoveredDailyStreak(UUID voteId, String uuid, int streak, boolean forceProxyRouting) { }
+	record AccountingRecoveryBatch(boolean hadRows, List<UUID> pendingRewards) { }
 	private static final String PENDING = "PENDING";
 	private static final String HOOK_STARTED = "HOOK_STARTED";
 	private static final String COMPENSATING = "COMPENSATING";
@@ -58,6 +61,8 @@ final class SharedMysqlPurchaseJournal {
 	private static final int MONTH_TOTAL = 4;
 	private static final int VOTE_PARTY_TOTAL = 8;
 	private static final int DAILY_STREAK = 16;
+	private static final int DAILY_STREAK_REWARD = 32;
+	private static final int ACCOUNTING_DECIDED = 64;
 
 	private static final ReferenceQueue<MySQL> INITIALIZED_QUEUE = new ReferenceQueue<>();
 	private static final Set<IdentityWeakReference> INITIALIZED = new HashSet<>();
@@ -328,10 +333,10 @@ final class SharedMysqlPurchaseJournal {
 	}
 
 	int prepareVoteAccounting(UUID voteId, String uuid, boolean countTotals, boolean countVoteParty,
-			String monthColumn, Integer monthMaximum) throws SQLException {
+			String monthColumn, Integer monthMaximum, boolean streakUsesPercentage, double streakPercentage,
+			int enabledSiteCount, boolean forceProxyRouting, long acceptedAt) throws SQLException {
 		int requested = (countTotals ? DAILY_TOTAL | WEEKLY_TOTAL | MONTH_TOTAL : 0)
 				| (countVoteParty ? VOTE_PARTY_TOTAL : 0);
-		if (requested == 0) return 0;
 		try (Connection connection = connection()) {
 			connection.setAutoCommit(false);
 			try {
@@ -339,29 +344,68 @@ final class SharedMysqlPurchaseJournal {
 				if ((requested & MONTH_TOTAL) != 0) lockLimitEpochRow(connection, "period-copy:MonthTotal");
 				if ((requested & VOTE_PARTY_TOTAL) != 0) lockLimitEpochRow(connection, "period-copy:VotePartyVotes");
 				if ((requested & WEEKLY_TOTAL) != 0) lockLimitEpochRow(connection, "period-copy:WeeklyTotal");
+				lockLimitEpochRow(connection, "streak-copy:DayVoteStreak");
+				lockLimitEpochRow(connection, "streak-reset:DayVoteStreak");
 				ensureAccountingVote(connection, voteId, uuid);
 				AccountingRow row = findAndLockAccountingVote(connection, voteId);
 				if (row == null || row.uuid() != null && !row.uuid().equals(uuid)) {
 					throw new SQLException("Vote accounting identity does not match");
 				}
+				boolean accountingAlreadyDecided = (row.requested() & ACCOUNTING_DECIDED) != 0;
+				DailyStreakCandidate streak = accountingAlreadyDecided ? null : findDailyStreakCandidate(connection, uuid);
+				boolean dailyAlreadyApplied = (row.completed() & DAILY_TOTAL) != 0;
+				int projectedDailyTotal = accountingAlreadyDecided ? 0
+						: streak.dailyTotal() + (countTotals && !dailyAlreadyApplied ? 1 : 0);
+				boolean percentageMet = accountingAlreadyDecided || !streakUsesPercentage || enabledSiteCount > 0
+						&& (double) projectedDailyTotal / (double) enabledSiteCount * 100 > streakPercentage;
+				boolean requestStreak = !accountingAlreadyDecided
+						&& !sameLocalDay(streak.lastUpdate(), acceptedAt) && percentageMet;
+				if (accountingAlreadyDecided) requested = row.requested();
+				else if (requestStreak) requested |= DAILY_STREAK | DAILY_STREAK_REWARD;
+				int persistedRequested = row.requested() | requested | ACCOUNTING_DECIDED;
+				int persistedCompleted = row.completed() | ACCOUNTING_DECIDED;
 				String update = "UPDATE " + qiAccounting() + " SET " + qi("player_uuid") + " = ?, "
-						+ qi("requested") + " = ?, " + qi("month_column") + " = COALESCE(?, "
+						+ qi("requested") + " = ?, " + qi("completed") + " = ?, "
+						+ qi("month_column") + " = COALESCE(?, "
 						+ qi("month_column") + "), " + qi("month_maximum") + " = COALESCE(?, "
-						+ qi("month_maximum") + ") WHERE " + qi("vote_id") + " = ?";
+						+ qi("month_maximum") + "), " + qi("streak_value") + " = COALESCE(?, "
+						+ qi("streak_value") + "), " + qi("streak_updated_at") + " = COALESCE(?, "
+						+ qi("streak_updated_at") + "), " + qi("streak_force_proxy") + " = COALESCE(?, "
+						+ qi("streak_force_proxy") + ") WHERE " + qi("vote_id") + " = ?";
 				try (PreparedStatement statement = connection.prepareStatement(update)) {
 					statement.setString(1, uuid);
-					statement.setInt(2, row.requested() | requested);
-					statement.setString(3, monthColumn);
-					if (monthMaximum == null) statement.setNull(4, java.sql.Types.INTEGER);
-					else statement.setInt(4, monthMaximum.intValue());
-					statement.setString(5, voteId.toString());
+					statement.setInt(2, persistedRequested);
+					statement.setInt(3, persistedCompleted);
+					statement.setString(4, monthColumn);
+					if (monthMaximum == null) statement.setNull(5, java.sql.Types.INTEGER);
+					else statement.setInt(5, monthMaximum.intValue());
+					if (requestStreak) statement.setInt(6, streak.streak() + 1);
+					else statement.setNull(6, java.sql.Types.INTEGER);
+					if (requestStreak) statement.setLong(7, acceptedAt);
+					else statement.setNull(7, java.sql.Types.BIGINT);
+					if (requestStreak) statement.setInt(8, forceProxyRouting ? 1 : 0);
+					else statement.setNull(8, java.sql.Types.INTEGER);
+					statement.setString(9, voteId.toString());
 					if (statement.executeUpdate() != 1) throw new SQLException("Vote accounting marker is missing");
 				}
-				commitAndConfirmRequested(connection, voteId, requested);
-				return requested;
+				commitAndConfirmRequested(connection, voteId, persistedRequested);
+				return persistedRequested & ~ACCOUNTING_DECIDED;
 			} catch (SQLException failure) {
 				rollback(connection);
 				throw failure;
+			}
+		}
+	}
+
+	private DailyStreakCandidate findDailyStreakCandidate(Connection connection, String uuid) throws SQLException {
+		String select = "SELECT COALESCE(" + qi("DailyTotal") + ", 0), COALESCE(" + qi("DayVoteStreak")
+				+ ", 0), " + qi("DayVoteStreakLastUpdate") + " FROM " + qi(table.getTableName()) + " WHERE "
+				+ qi("uuid") + uuidCast() + " FOR UPDATE";
+		try (PreparedStatement statement = connection.prepareStatement(select)) {
+			statement.setString(1, uuid);
+			try (ResultSet result = statement.executeQuery()) {
+				if (!result.next()) return new DailyStreakCandidate(0, 0, null);
+				return new DailyStreakCandidate(result.getInt(1), result.getInt(2), result.getString(3));
 			}
 		}
 	}
@@ -488,13 +532,21 @@ final class SharedMysqlPurchaseJournal {
 	}
 
 	private void markAccountingComplete(Connection connection, UUID voteId, int completed) throws SQLException {
+		markAccountingComplete(connection, voteId, completed, null);
+	}
+
+	private void markAccountingComplete(Connection connection, UUID voteId, int completed, Integer appliedStreak)
+			throws SQLException {
 		String update = "UPDATE " + qiAccounting() + " SET " + qi("completed") + " = ?, "
+				+ qi("streak_applied_value") + " = COALESCE(?, " + qi("streak_applied_value") + "), "
 				+ qi("created_at") + " = ? WHERE "
 				+ qi("vote_id") + " = ?";
 		try (PreparedStatement statement = connection.prepareStatement(update)) {
 			statement.setInt(1, completed);
-			statement.setLong(2, System.currentTimeMillis());
-			statement.setString(3, voteId.toString());
+			if (appliedStreak == null) statement.setNull(2, java.sql.Types.INTEGER);
+			else statement.setInt(2, appliedStreak.intValue());
+			statement.setLong(3, System.currentTimeMillis());
+			statement.setString(4, voteId.toString());
 			if (statement.executeUpdate() != 1) throw new SQLException("Vote accounting marker is missing");
 		}
 	}
@@ -506,7 +558,7 @@ final class SharedMysqlPurchaseJournal {
 			closeQuietly(connection);
 			try {
 				AccountingRow row = findAccountingVote(voteId);
-				if (row != null && (row.completed() & operation) != 0) return;
+				if (row != null && (row.completed() & operation) == operation) return;
 			} catch (SQLException confirmationFailure) {
 				ambiguousCommit.addSuppressed(confirmationFailure);
 			}
@@ -525,15 +577,43 @@ final class SharedMysqlPurchaseJournal {
 		}
 	}
 
+	RecoveredDailyStreak claimDailyStreakReward(UUID voteId) throws SQLException {
+		try (Connection connection = connection()) {
+			connection.setAutoCommit(false);
+			try {
+				AccountingRow row = findAndLockAccountingVote(connection, voteId);
+				if (row == null || (row.requested() & DAILY_STREAK_REWARD) == 0
+						|| (row.completed() & DAILY_STREAK) == 0
+						|| (row.completed() & DAILY_STREAK_REWARD) != 0) {
+					rollback(connection);
+					return null;
+				}
+				if (row.streakAppliedValue() == null) {
+					throw new SQLException("Applied daily streak value is missing");
+				}
+				int streak = row.streakAppliedValue().intValue();
+				markAccountingComplete(connection, voteId, row.completed() | DAILY_STREAK_REWARD);
+				commitAndConfirmAccounting(connection, voteId, DAILY_STREAK_REWARD);
+				return new RecoveredDailyStreak(voteId, row.uuid(), streak,
+						row.streakForceProxy() != null && row.streakForceProxy().intValue() != 0);
+			} catch (SQLException failure) {
+				rollback(connection);
+				throw failure;
+			}
+		}
+	}
+
 	private String accountingColumns() {
 		return qi("player_uuid") + ", " + qi("requested") + ", " + qi("completed") + ", "
 				+ qi("month_column") + ", " + qi("month_maximum") + ", " + qi("streak_value") + ", "
-				+ qi("streak_updated_at");
+				+ qi("streak_updated_at") + ", " + qi("streak_force_proxy") + ", "
+				+ qi("streak_applied_value");
 	}
 
 	private static AccountingRow accountingRow(ResultSet result) throws SQLException {
 		return new AccountingRow(result.getString(1), result.getInt(2), result.getInt(3), result.getString(4),
-				nullableInteger(result, 5), nullableInteger(result, 6), nullableLong(result, 7));
+				nullableInteger(result, 5), nullableInteger(result, 6), nullableLong(result, 7),
+				nullableInteger(result, 8), nullableInteger(result, 9));
 	}
 
 	private boolean resetPending(Connection connection, String boundaryColumn, EpochRow copyMarker)
@@ -549,17 +629,30 @@ final class SharedMysqlPurchaseJournal {
 	}
 
 	/** Serializes the accepted daily-streak value and timestamp with its shared boundary. */
-	DailyStreakOutcome updateDailyStreak(UUID voteId, String uuid, int streak, long updatedAt) throws SQLException {
-		requestAccounting(voteId, uuid, DAILY_STREAK, "streak-copy:DayVoteStreak", null, null,
-				Integer.valueOf(streak), Long.valueOf(updatedAt));
+	DailyStreakResult updateDailyStreak(UUID voteId, String uuid, int streak, long updatedAt,
+			boolean alreadyRequested) throws SQLException {
+		if (alreadyRequested) {
+			AccountingRow row = findAccountingVote(voteId);
+			if (row == null || (row.requested() & DAILY_STREAK) == 0) {
+				return new DailyStreakResult(DailyStreakOutcome.ALREADY_UPDATED, 0);
+			}
+			if (row.streakValue() == null || row.streakUpdatedAt() == null) {
+				throw new SQLException("Admitted daily streak payload is incomplete");
+			}
+			streak = row.streakValue().intValue();
+			updatedAt = row.streakUpdatedAt().longValue();
+		} else {
+			requestAccounting(voteId, uuid, DAILY_STREAK | DAILY_STREAK_REWARD,
+					"streak-copy:DayVoteStreak", null, null, Integer.valueOf(streak), Long.valueOf(updatedAt));
+		}
 		try {
 			return applyDailyStreak(voteId, uuid, streak, updatedAt);
 		} catch (SQLException deferred) {
-			return DailyStreakOutcome.DEFERRED;
+			return new DailyStreakResult(DailyStreakOutcome.DEFERRED, 0);
 		}
 	}
 
-	private DailyStreakOutcome applyDailyStreak(UUID voteId, String uuid, int streak, long updatedAt) throws SQLException {
+	private DailyStreakResult applyDailyStreak(UUID voteId, String uuid, int streak, long updatedAt) throws SQLException {
 		try (Connection connection = connection()) {
 			connection.setAutoCommit(false);
 			try {
@@ -574,14 +667,26 @@ final class SharedMysqlPurchaseJournal {
 				if (accounting == null) throw new SQLException("Vote accounting marker is missing");
 				int completed = accounting.completed();
 				if ((completed & DAILY_STREAK) != 0) {
+					Integer appliedStreak = accounting.streakAppliedValue();
 					rollback(connection);
-					return DailyStreakOutcome.ALREADY_UPDATED;
+					DailyStreakOutcome outcome = (completed & DAILY_STREAK_REWARD) == 0
+							? DailyStreakOutcome.APPLIED : DailyStreakOutcome.ALREADY_UPDATED;
+					if (outcome == DailyStreakOutcome.APPLIED && appliedStreak == null) {
+						throw new SQLException("Applied daily streak value is missing");
+					}
+					return new DailyStreakResult(outcome, appliedStreak == null ? 0 : appliedStreak.intValue());
+				}
+				if (hasEarlierPendingDailyStreak(connection, voteId, uuid, updatedAt)) {
+					throw new SQLException("An earlier daily streak is still pending");
 				}
 				String persistedUpdate = findDailyStreakUpdate(connection, uuid);
 				if (sameLocalDay(persistedUpdate, updatedAt)) {
-					markAccountingComplete(connection, voteId, completed | DAILY_STREAK);
-					commitAndConfirmAccounting(connection, voteId, DAILY_STREAK);
-					return DailyStreakOutcome.ALREADY_UPDATED;
+					int persistedStreak = findDailyStreakValue(connection, uuid);
+					markAccountingComplete(connection, voteId,
+							completed | DAILY_STREAK | (accounting.requested() & DAILY_STREAK_REWARD));
+					commitAndConfirmAccounting(connection, voteId,
+							DAILY_STREAK | (accounting.requested() & DAILY_STREAK_REWARD));
+					return new DailyStreakResult(DailyStreakOutcome.ALREADY_UPDATED, persistedStreak);
 				}
 				String sql = "UPDATE " + qi(table.getTableName()) + " SET " + qi("DayVoteStreak") + " = COALESCE("
 						+ qi("DayVoteStreak") + ", 0) + 1, " + qi("DayVoteStreakLastUpdate") + " = ? WHERE "
@@ -591,12 +696,45 @@ final class SharedMysqlPurchaseJournal {
 					update.setString(2, uuid);
 					if (update.executeUpdate() != 1) throw new SQLException("Daily streak user row is missing");
 				}
-				markAccountingComplete(connection, voteId, completed | DAILY_STREAK);
+				int persistedStreak = findDailyStreakValue(connection, uuid);
+				markAccountingComplete(connection, voteId, completed | DAILY_STREAK,
+						Integer.valueOf(persistedStreak));
 				commitAndConfirmAccounting(connection, voteId, DAILY_STREAK);
-				return DailyStreakOutcome.APPLIED;
+				return new DailyStreakResult(DailyStreakOutcome.APPLIED, persistedStreak);
 			} catch (SQLException failure) {
 				rollback(connection);
 				throw failure;
+			}
+		}
+	}
+
+	private boolean hasEarlierPendingDailyStreak(Connection connection, UUID voteId, String uuid, long updatedAt)
+			throws SQLException {
+		int streakOperations = DAILY_STREAK | DAILY_STREAK_REWARD;
+		String select = "SELECT " + qi("vote_id") + " FROM " + qiAccounting() + " WHERE "
+				+ qi("player_uuid") + " = ? AND " + qi("vote_id") + " <> ? AND " + qi("streak_updated_at")
+				+ " < ? AND (" + qi("requested") + " & ?) <> (" + qi("completed")
+				+ " & ?) LIMIT 1 FOR UPDATE";
+		try (PreparedStatement statement = connection.prepareStatement(select)) {
+			statement.setString(1, uuid);
+			statement.setString(2, voteId.toString());
+			statement.setLong(3, updatedAt);
+			statement.setInt(4, streakOperations);
+			statement.setInt(5, streakOperations);
+			try (ResultSet result = statement.executeQuery()) {
+				return result.next();
+			}
+		}
+	}
+
+	private int findDailyStreakValue(Connection connection, String uuid) throws SQLException {
+		String select = "SELECT COALESCE(" + qi("DayVoteStreak") + ", 0) FROM " + qi(table.getTableName())
+				+ " WHERE " + qi("uuid") + uuidCast();
+		try (PreparedStatement statement = connection.prepareStatement(select)) {
+			statement.setString(1, uuid);
+			try (ResultSet result = statement.executeQuery()) {
+				if (!result.next()) throw new SQLException("Daily streak user row is missing");
+				return result.getInt(1);
 			}
 		}
 	}
@@ -734,9 +872,11 @@ final class SharedMysqlPurchaseJournal {
 	}
 
 	private void drainPendingAccounting(Connection connection, int operation) throws SQLException {
+		String order = operation == DAILY_STREAK
+				? " ORDER BY " + qi("streak_updated_at") + " ASC, " + qi("created_at") + " ASC" : "";
 		String select = "SELECT " + qi("vote_id") + ", " + accountingColumns() + " FROM " + qiAccounting()
 				+ " WHERE (" + qi("requested") + " & ?) <> 0 AND (" + qi("completed")
-				+ " & ?) = 0 FOR UPDATE";
+				+ " & ?) = 0" + order + " FOR UPDATE";
 		try (PreparedStatement statement = connection.prepareStatement(select)) {
 			statement.setInt(1, operation);
 			statement.setInt(2, operation);
@@ -744,7 +884,8 @@ final class SharedMysqlPurchaseJournal {
 				while (result.next()) {
 					UUID voteId = UUID.fromString(result.getString(1));
 					AccountingRow row = new AccountingRow(result.getString(2), result.getInt(3), result.getInt(4),
-							result.getString(5), nullableInteger(result, 6), nullableInteger(result, 7), nullableLong(result, 8));
+								result.getString(5), nullableInteger(result, 6), nullableInteger(result, 7),
+								nullableLong(result, 8), nullableInteger(result, 9), nullableInteger(result, 10));
 					applyPendingAccounting(connection, voteId, row, operation);
 				}
 			}
@@ -756,7 +897,8 @@ final class SharedMysqlPurchaseJournal {
 		if (operation == DAILY_STREAK) {
 			if (row.streakUpdatedAt() == null) throw new SQLException("Pending daily streak accounting payload is incomplete");
 			if (sameLocalDay(findDailyStreakUpdate(connection, row.uuid()), row.streakUpdatedAt().longValue())) {
-				markAccountingComplete(connection, voteId, row.completed() | operation);
+				markAccountingComplete(connection, voteId,
+						row.completed() | DAILY_STREAK | (row.requested() & DAILY_STREAK_REWARD));
 				return;
 			}
 			String sql = "UPDATE " + qi(table.getTableName()) + " SET " + qi("DayVoteStreak") + " = COALESCE("
@@ -767,7 +909,9 @@ final class SharedMysqlPurchaseJournal {
 				update.setString(2, row.uuid());
 				if (update.executeUpdate() != 1) throw new SQLException("Daily streak user row is missing");
 			}
-			markAccountingComplete(connection, voteId, row.completed() | operation);
+			int persistedStreak = findDailyStreakValue(connection, row.uuid());
+			markAccountingComplete(connection, voteId, row.completed() | operation,
+					Integer.valueOf(persistedStreak));
 			return;
 		}
 		String boundary = operation == DAILY_TOTAL ? "DailyTotal"
@@ -1075,35 +1219,38 @@ final class SharedMysqlPurchaseJournal {
 		return List.copyOf(refunded);
 	}
 
-	void recoverAccounting(long now) throws SQLException {
-		while (true) {
-			List<AccountingRecovery> pending = findPendingAccounting(RECOVERY_BATCH_SIZE);
-			if (pending.isEmpty()) break;
-			for (AccountingRecovery recovery : pending) {
-				AccountingRow row = recovery.row();
-				int missing = row.requested() & ~row.completed();
-				if ((missing & DAILY_TOTAL) != 0) applyPeriodTotals(recovery.voteId(), row.uuid(), "DailyTotal",
+	AccountingRecoveryBatch recoverAccounting(long now) throws SQLException {
+		List<UUID> pendingRewards = new ArrayList<>();
+		List<AccountingRecovery> pending = findPendingAccounting(RECOVERY_BATCH_SIZE);
+		for (AccountingRecovery recovery : pending) {
+			AccountingRow row = recovery.row();
+			int missing = row.requested() & ~row.completed();
+			if ((missing & DAILY_TOTAL) != 0) applyPeriodTotals(recovery.voteId(), row.uuid(), "DailyTotal",
 						"LastDailyTotal", List.of("DailyTotal"), null, DAILY_TOTAL);
-				if ((missing & WEEKLY_TOTAL) != 0) applyPeriodTotals(recovery.voteId(), row.uuid(), "WeeklyTotal",
+			if ((missing & WEEKLY_TOTAL) != 0) applyPeriodTotals(recovery.voteId(), row.uuid(), "WeeklyTotal",
 						"LastWeeklyTotal", List.of("WeeklyTotal"), null, WEEKLY_TOTAL);
-				if ((missing & MONTH_TOTAL) != 0) {
-					List<String> columns = row.monthColumn() == null ? List.of("MonthTotal")
+			if ((missing & MONTH_TOTAL) != 0) {
+				List<String> columns = row.monthColumn() == null ? List.of("MonthTotal")
 							: List.of("MonthTotal", row.monthColumn());
-					applyPeriodTotals(recovery.voteId(), row.uuid(), "MonthTotal", "LastMonthTotal", columns,
+				applyPeriodTotals(recovery.voteId(), row.uuid(), "MonthTotal", "LastMonthTotal", columns,
 							row.monthMaximum(), MONTH_TOTAL);
-				}
-				if ((missing & VOTE_PARTY_TOTAL) != 0) applyPeriodTotals(recovery.voteId(), row.uuid(),
+			}
+			if ((missing & VOTE_PARTY_TOTAL) != 0) applyPeriodTotals(recovery.voteId(), row.uuid(),
 						"VotePartyVotes", "LastVotePartyVotes", List.of("VotePartyVotes"), null, VOTE_PARTY_TOTAL);
-				if ((missing & DAILY_STREAK) != 0) {
-					if (row.streakValue() == null || row.streakUpdatedAt() == null) {
+			if ((missing & DAILY_STREAK) != 0) {
+				if (row.streakValue() == null || row.streakUpdatedAt() == null) {
 						throw new SQLException("Pending daily streak accounting payload is incomplete");
-					}
-					applyDailyStreak(recovery.voteId(), row.uuid(), row.streakValue().intValue(),
-							row.streakUpdatedAt().longValue());
 				}
+				applyDailyStreak(recovery.voteId(), row.uuid(), row.streakValue().intValue(),
+							row.streakUpdatedAt().longValue());
+			}
+			if ((row.requested() & DAILY_STREAK_REWARD) != 0) {
+				pendingRewards.add(recovery.voteId());
+				break;
 			}
 		}
 		cleanupAccounting(now - ACCOUNTING_RETENTION_MILLIS);
+		return new AccountingRecoveryBatch(!pending.isEmpty(), List.copyOf(pendingRewards));
 	}
 
 	private List<AccountingRecovery> findPendingAccounting(int limit) throws SQLException {
@@ -1116,7 +1263,8 @@ final class SharedMysqlPurchaseJournal {
 			try (ResultSet result = statement.executeQuery()) {
 				while (result.next()) pending.add(new AccountingRecovery(UUID.fromString(result.getString(1)),
 						new AccountingRow(result.getString(2), result.getInt(3), result.getInt(4), result.getString(5),
-								nullableInteger(result, 6), nullableInteger(result, 7), nullableLong(result, 8))));
+								nullableInteger(result, 6), nullableInteger(result, 7), nullableLong(result, 8),
+								nullableInteger(result, 9), nullableInteger(result, 10))));
 			}
 		}
 		return pending;
@@ -1202,7 +1350,9 @@ final class SharedMysqlPurchaseJournal {
 				+ " VARCHAR(36) NOT NULL, " + qi("player_uuid") + " VARCHAR(37) NULL, "
 				+ qi("requested") + " INT NOT NULL DEFAULT 0, " + qi("completed") + " INT NOT NULL, "
 				+ qi("month_column") + " VARCHAR(128) NULL, " + qi("month_maximum") + " INT NULL, "
-				+ qi("streak_value") + " INT NULL, " + qi("streak_updated_at") + " BIGINT NULL, " + qi("created_at")
+				+ qi("streak_value") + " INT NULL, " + qi("streak_updated_at") + " BIGINT NULL, "
+				+ qi("streak_force_proxy") + " INT NULL, " + qi("streak_applied_value") + " INT NULL, "
+				+ qi("created_at")
 				+ " BIGINT NOT NULL, PRIMARY KEY (" + qi("vote_id") + "));";
 		try (PreparedStatement statement = connection.prepareStatement(create)) {
 			statement.executeUpdate();
@@ -1213,10 +1363,21 @@ final class SharedMysqlPurchaseJournal {
 		ensureAccountingColumn(connection, "month_maximum", "INT NULL");
 		ensureAccountingColumn(connection, "streak_value", "INT NULL");
 		ensureAccountingColumn(connection, "streak_updated_at", "BIGINT NULL");
+		ensureAccountingColumn(connection, "streak_force_proxy", "INT NULL");
+		ensureAccountingColumn(connection, "streak_applied_value", "INT NULL");
 		try (PreparedStatement migrate = connection.prepareStatement("UPDATE " + qiAccounting() + " SET "
 				+ qi("requested") + " = " + qi("completed") + " WHERE " + qi("requested") + " = 0 AND "
 				+ qi("completed") + " <> 0")) {
 			migrate.executeUpdate();
+		}
+		String index = "vp_vsa_streak_" + hash(accountingTable).substring(0, 16);
+		String createIndex = "CREATE INDEX " + (table.getDbType() == DbType.POSTGRESQL ? "IF NOT EXISTS " : "")
+				+ qi(index) + " ON " + qiAccounting() + " (" + qi("player_uuid") + ", "
+				+ qi("streak_updated_at") + ");";
+		try (PreparedStatement statement = connection.prepareStatement(createIndex)) {
+			statement.executeUpdate();
+		} catch (SQLException failure) {
+			if (failure.getErrorCode() != 1061 && !"42P07".equals(failure.getSQLState())) throw failure;
 		}
 	}
 
@@ -1331,8 +1492,11 @@ final class SharedMysqlPurchaseJournal {
 	}
 
 	private record AccountingRow(String uuid, int requested, int completed, String monthColumn,
-			Integer monthMaximum, Integer streakValue, Long streakUpdatedAt) {
+			Integer monthMaximum, Integer streakValue, Long streakUpdatedAt, Integer streakForceProxy,
+			Integer streakAppliedValue) {
 	}
+
+	private record DailyStreakCandidate(int dailyTotal, int streak, String lastUpdate) { }
 
 	private record AccountingRecovery(UUID voteId, AccountingRow row) {
 	}

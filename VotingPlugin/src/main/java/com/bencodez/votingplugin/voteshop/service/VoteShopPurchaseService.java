@@ -51,8 +51,10 @@ import lombok.Setter;
 @Getter
 @Setter
 public class VoteShopPurchaseService {
-	public enum MysqlDailyStreakResult { APPLIED, ALREADY_UPDATED, DEFERRED, FAILED }
+	public enum MysqlDailyStreakResult { APPLIED, ALREADY_UPDATED, NOT_REQUESTED, DEFERRED, FAILED }
+	public record MysqlDailyStreakUpdate(MysqlDailyStreakResult result, int streak, boolean forceProxyRouting) { }
 	private static final ConcurrentMap<UUID, Integer> ADMITTED_ACCOUNTING = new ConcurrentHashMap<>();
+	private static final int ACCOUNTING_DAILY_STREAK = 16;
 	private static final int PURCHASE_LOCK_STRIPES = 256;
 	private static final Object[] PURCHASE_LOCKS = createPurchaseLocks();
 	private static final int COMPLETION_PENDING = 0;
@@ -649,9 +651,8 @@ public class VoteShopPurchaseService {
 
 	/** Durably admits shared total mutations before vote rewards or broadcasts run. */
 	public static boolean prepareMysqlVoteAccounting(VotingPluginMain plugin, UUID voteId, String uuid,
-			boolean countTotals, boolean countVoteParty) {
+			boolean countTotals, boolean countVoteParty, boolean forceProxyRouting) {
 		if (!canRecoverSharedMysqlPurchases(plugin) || voteId == null) return true;
-		if (!countTotals && !countVoteParty) return true;
 		try {
 			MySQL table = plugin.getMysql();
 			String monthColumn = plugin.getConfigFile().isStoreMonthTotalsWithDate()
@@ -667,8 +668,15 @@ public class VoteShopPurchaseService {
 				if (maximum != null) table.checkColumn("LastMonthTotal", DataType.INTEGER);
 			}
 			if (countVoteParty) table.checkColumn("VotePartyVotes", DataType.INTEGER);
+			table.checkColumn("DailyTotal", DataType.INTEGER);
+			table.checkColumn("DayVoteStreak", DataType.INTEGER);
+			table.checkColumn("DayVoteStreakLastUpdate", DataType.STRING);
 			int bits = SharedMysqlPurchaseJournal.forTable(table).prepareVoteAccounting(voteId, uuid, countTotals,
-					countVoteParty, monthColumn, maximum);
+					countVoteParty, monthColumn, maximum,
+					plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage(),
+					plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(),
+					plugin.getVoteSiteManager().getVoteSitesEnabled().size(), forceProxyRouting,
+					System.currentTimeMillis());
 			ADMITTED_ACCOUNTING.put(voteId, Integer.valueOf(bits));
 			return true;
 		} catch (SQLException failure) {
@@ -683,33 +691,45 @@ public class VoteShopPurchaseService {
 		if (voteId != null) ADMITTED_ACCOUNTING.remove(voteId);
 	}
 
-	/** Atomically publishes an accepted daily streak under the shared boundary lock. */
-	public static boolean updateMysqlDailyStreak(VotingPluginMain plugin, UUID voteId, String uuid, int streak,
-			long updatedAt) {
-		return updateMysqlDailyStreakResult(plugin, voteId, uuid, streak, updatedAt) != MysqlDailyStreakResult.FAILED;
-	}
-
-	public static MysqlDailyStreakResult updateMysqlDailyStreakResult(VotingPluginMain plugin, UUID voteId, String uuid,
-			int streak, long updatedAt) {
-		if (!canRecoverSharedMysqlPurchases(plugin)) return MysqlDailyStreakResult.FAILED;
+	/** Applies only daily-streak work that was durably admitted before vote effects. */
+	public static MysqlDailyStreakUpdate applyPreparedMysqlDailyStreak(VotingPluginMain plugin, UUID voteId,
+			String uuid) {
+		if (!canRecoverSharedMysqlPurchases(plugin)) {
+			return new MysqlDailyStreakUpdate(MysqlDailyStreakResult.FAILED, 0, false);
+		}
+		Integer admittedBits = voteId == null ? null : ADMITTED_ACCOUNTING.get(voteId);
+		if (admittedBits == null) return new MysqlDailyStreakUpdate(MysqlDailyStreakResult.FAILED, 0, false);
+		if ((admittedBits.intValue() & ACCOUNTING_DAILY_STREAK) == 0) {
+			return new MysqlDailyStreakUpdate(MysqlDailyStreakResult.NOT_REQUESTED, 0, false);
+		}
+		boolean admitted = (admittedBits.intValue() & ACCOUNTING_DAILY_STREAK) != 0;
 		try {
 			MySQL table = plugin.getMysql();
 			table.checkColumn("DayVoteStreak", DataType.INTEGER);
 			table.checkColumn("DayVoteStreakLastUpdate", DataType.STRING);
-			SharedMysqlPurchaseJournal.DailyStreakOutcome outcome = SharedMysqlPurchaseJournal.forTable(table).updateDailyStreak(
-					voteId == null ? UUID.randomUUID() : voteId, uuid, streak, updatedAt);
-			if (outcome == SharedMysqlPurchaseJournal.DailyStreakOutcome.DEFERRED) plugin.getLogger().warning(
+			UUID accountingId = voteId;
+			SharedMysqlPurchaseJournal journal = SharedMysqlPurchaseJournal.forTable(table);
+			SharedMysqlPurchaseJournal.DailyStreakResult update = journal.updateDailyStreak(
+					accountingId, uuid, 0, 0L, true);
+			if (update.outcome() == SharedMysqlPurchaseJournal.DailyStreakOutcome.DEFERRED) plugin.getLogger().warning(
 					"Shared MySQL daily streak was retained for retry after a persistence failure");
-			return switch (outcome) {
-			case APPLIED -> MysqlDailyStreakResult.APPLIED;
-			case ALREADY_UPDATED -> MysqlDailyStreakResult.ALREADY_UPDATED;
-			case DEFERRED -> MysqlDailyStreakResult.DEFERRED;
-			};
+			if (update.outcome() == SharedMysqlPurchaseJournal.DailyStreakOutcome.APPLIED) {
+				SharedMysqlPurchaseJournal.RecoveredDailyStreak reward = journal.claimDailyStreakReward(accountingId);
+				if (reward != null) return new MysqlDailyStreakUpdate(MysqlDailyStreakResult.APPLIED,
+						reward.streak(), reward.forceProxyRouting());
+				return new MysqlDailyStreakUpdate(MysqlDailyStreakResult.ALREADY_UPDATED, update.streak(), false);
+			}
+			return new MysqlDailyStreakUpdate(
+					update.outcome() == SharedMysqlPurchaseJournal.DailyStreakOutcome.ALREADY_UPDATED
+							? MysqlDailyStreakResult.ALREADY_UPDATED : MysqlDailyStreakResult.DEFERRED,
+					update.streak(), false);
 		} catch (SQLException failure) {
-			plugin.getLogger().severe("Unable to atomically update MySQL daily streak: "
-					+ failure.getClass().getSimpleName());
+			plugin.getLogger().log(admitted ? java.util.logging.Level.WARNING : java.util.logging.Level.SEVERE,
+					admitted ? "Shared MySQL daily streak remains retained for retry"
+							: "Unable to atomically update MySQL daily streak", failure);
 			plugin.debug(failure);
-			return MysqlDailyStreakResult.FAILED;
+			return new MysqlDailyStreakUpdate(
+					admitted ? MysqlDailyStreakResult.DEFERRED : MysqlDailyStreakResult.FAILED, 0, false);
 		} finally {
 			SharedMysqlCacheReconciler.invalidate(plugin, uuid, "DayVoteStreak", "DayVoteStreakLastUpdate");
 		}
@@ -813,7 +833,23 @@ public class VoteShopPurchaseService {
 	static void recoverSharedMysqlPurchases(VotingPluginMain plugin, SharedMysqlPurchaseJournal journal)
 			throws SQLException {
 		retryPendingCompensationMarkers(plugin, journal);
-		journal.recoverAccounting(System.currentTimeMillis());
+		SharedMysqlPurchaseJournal.AccountingRecoveryBatch accounting;
+		do {
+			accounting = journal.recoverAccounting(System.currentTimeMillis());
+			boolean deferredReward = false;
+			for (UUID voteId : accounting.pendingRewards()) {
+				SharedMysqlPurchaseJournal.RecoveredDailyStreak streak = journal.claimDailyStreakReward(voteId);
+				if (streak == null) {
+					deferredReward = true;
+					continue;
+				}
+				SharedMysqlCacheReconciler.invalidate(plugin, streak.uuid(), "DayVoteStreak", "DayVoteStreakLastUpdate");
+				VotingPluginUser user = plugin.getVotingPluginUserManager()
+						.getVotingPluginUser(UUID.fromString(streak.uuid()), false);
+				user.completeRecoveredDailyStreak(streak.streak(), streak.forceProxyRouting());
+			}
+			if (deferredReward) break;
+		} while (accounting.hadRows());
 		for (SharedMysqlPurchaseJournal.RefundedPurchase refund : journal.recoverAndCleanup(System.currentTimeMillis())) {
 			SharedMysqlCacheReconciler.invalidateAndRefresh(plugin, refund.uuid(), refund.pointsColumn(),
 					refund.limitColumn());

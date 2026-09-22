@@ -1149,6 +1149,17 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public void checkDayVoteStreak(boolean forceBungee, UUID voteId) {
 		PeriodTotalMutationFence.withMutation(() -> {
+			if (UserStorage.MYSQL.equals(plugin.getStorageType())) {
+				VoteShopPurchaseService.MysqlDailyStreakUpdate update = VoteShopPurchaseService
+						.applyPreparedMysqlDailyStreak(plugin, voteId, getUUID());
+				if (update.result() == VoteShopPurchaseService.MysqlDailyStreakResult.FAILED) {
+					throw new IllegalStateException("Unable to retain shared MySQL daily streak");
+				}
+				if (update.result() == VoteShopPurchaseService.MysqlDailyStreakResult.APPLIED) {
+					completeRecoveredDailyStreak(update.streak(), update.forceProxyRouting());
+				}
+				return;
+			}
 			if (!voteStreakUpdatedToday(LocalDateTime.now())) {
 				if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage() || hasPercentageTotal(
 						TopVoter.Daily, plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(), null)) {
@@ -1158,30 +1169,17 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 									plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(), null));
 					int streak = getDayVoteStreak() + 1;
 					long updatedAt = System.currentTimeMillis();
-					boolean sharedStreakPersisted = false;
-					boolean sharedStreakAlreadyUpdated = false;
-					if (UserStorage.MYSQL.equals(plugin.getStorageType())) {
-						if (getCache() != null) getCache().clearChanges();
-						VoteShopPurchaseService.MysqlDailyStreakResult result = VoteShopPurchaseService
-								.updateMysqlDailyStreakResult(plugin, voteId, getUUID(), streak, updatedAt);
-						sharedStreakPersisted = result != VoteShopPurchaseService.MysqlDailyStreakResult.FAILED;
-						sharedStreakAlreadyUpdated = result == VoteShopPurchaseService.MysqlDailyStreakResult.ALREADY_UPDATED;
-						if (!sharedStreakPersisted) {
-							throw new IllegalStateException("Unable to retain shared MySQL daily streak");
-						}
-						if (!sharedStreakAlreadyUpdated && getBestDayVoteStreak() < streak) {
-							setBestDayVoteStreak(streak);
-						}
-					} else {
-						setDayVoteStreak(streak);
-					}
-					if (!sharedStreakAlreadyUpdated) {
-						plugin.getSpecialRewards().checkVoteStreak(null, this, "Day", forceBungee);
-					}
-					if (!sharedStreakPersisted) setDayVoteStreakLastUpdate(updatedAt);
+					setDayVoteStreak(streak);
+					plugin.getSpecialRewards().checkVoteStreak(null, this, "Day", forceBungee);
+					setDayVoteStreakLastUpdate(updatedAt);
 				}
 			}
 		});
+	}
+
+	public void completeRecoveredDailyStreak(int streak, boolean forceBungee) {
+		if (getBestDayVoteStreak() < streak) setBestDayVoteStreak(streak);
+		plugin.getSpecialRewards().checkVoteStreak(null, this, "Day", forceBungee);
 	}
 
 	/**

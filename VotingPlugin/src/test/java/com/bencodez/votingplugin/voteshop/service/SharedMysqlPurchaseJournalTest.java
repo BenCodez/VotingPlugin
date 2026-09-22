@@ -22,6 +22,106 @@ import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 
 class SharedMysqlPurchaseJournalTest {
 	@Test
+	void voteAdmissionDurablyIncludesEligibleDailyStreakAndReward() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement copyInsert = mock(PreparedStatement.class);
+		PreparedStatement copySelect = mock(PreparedStatement.class);
+		PreparedStatement resetInsert = mock(PreparedStatement.class);
+		PreparedStatement resetSelect = mock(PreparedStatement.class);
+		PreparedStatement accountingInsert = mock(PreparedStatement.class);
+		PreparedStatement accountingSelect = mock(PreparedStatement.class);
+		PreparedStatement candidateSelect = mock(PreparedStatement.class);
+		PreparedStatement accountingUpdate = mock(PreparedStatement.class);
+		ResultSet copyEpoch = mock(ResultSet.class);
+		ResultSet resetEpoch = mock(ResultSet.class);
+		ResultSet accounting = accountingRow("00000000-0000-0000-0000-000000000001", 0, 0);
+		ResultSet candidate = mock(ResultSet.class);
+		when(copyEpoch.next()).thenReturn(true);
+		when(resetEpoch.next()).thenReturn(true);
+		when(copySelect.executeQuery()).thenReturn(copyEpoch);
+		when(resetSelect.executeQuery()).thenReturn(resetEpoch);
+		when(accountingSelect.executeQuery()).thenReturn(accounting);
+		when(candidate.next()).thenReturn(true);
+		when(candidate.getInt(1)).thenReturn(0);
+		when(candidate.getInt(2)).thenReturn(4);
+		when(candidate.getString(3)).thenReturn("");
+		when(candidateSelect.executeQuery()).thenReturn(candidate);
+		when(accountingUpdate.executeUpdate()).thenReturn(1);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(copyInsert, copySelect, resetInsert, resetSelect,
+				accountingInsert, accountingSelect, candidateSelect, accountingUpdate);
+
+		int requested = new SharedMysqlPurchaseJournal(fixture.table, false).prepareVoteAccounting(
+				java.util.UUID.randomUUID(), "00000000-0000-0000-0000-000000000001", false, false,
+				null, null, false, 0.0, 1, true, 1234L);
+
+		assertEquals(48, requested);
+		verify(accountingUpdate).setInt(2, 112);
+		verify(accountingUpdate).setInt(3, 64);
+		verify(accountingUpdate).setInt(6, 5);
+		verify(accountingUpdate).setLong(7, 1234L);
+		verify(accountingUpdate).setInt(8, 1);
+		verify(fixture.work).commit();
+	}
+
+	@Test
+	void firstVoteCanBeAdmittedBeforeTheUserRowIsCreated() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement copyInsert = mock(PreparedStatement.class);
+		PreparedStatement copySelect = mock(PreparedStatement.class);
+		PreparedStatement resetInsert = mock(PreparedStatement.class);
+		PreparedStatement resetSelect = mock(PreparedStatement.class);
+		PreparedStatement accountingInsert = mock(PreparedStatement.class);
+		PreparedStatement accountingSelect = mock(PreparedStatement.class);
+		PreparedStatement candidateSelect = mock(PreparedStatement.class);
+		PreparedStatement accountingUpdate = mock(PreparedStatement.class);
+		ResultSet copyEpoch = mock(ResultSet.class);
+		ResultSet resetEpoch = mock(ResultSet.class);
+		ResultSet accounting = accountingRow("00000000-0000-0000-0000-000000000001", 0, 0);
+		ResultSet missingCandidate = mock(ResultSet.class);
+		when(copyEpoch.next()).thenReturn(true);
+		when(resetEpoch.next()).thenReturn(true);
+		when(copySelect.executeQuery()).thenReturn(copyEpoch);
+		when(resetSelect.executeQuery()).thenReturn(resetEpoch);
+		when(accountingSelect.executeQuery()).thenReturn(accounting);
+		when(missingCandidate.next()).thenReturn(false);
+		when(candidateSelect.executeQuery()).thenReturn(missingCandidate);
+		when(accountingUpdate.executeUpdate()).thenReturn(1);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(copyInsert, copySelect, resetInsert, resetSelect,
+				accountingInsert, accountingSelect, candidateSelect, accountingUpdate);
+
+		int requested = new SharedMysqlPurchaseJournal(fixture.table, false).prepareVoteAccounting(
+				java.util.UUID.randomUUID(), "00000000-0000-0000-0000-000000000001", false, false,
+				null, null, false, 0.0, 1, false, 1234L);
+
+		assertEquals(48, requested);
+		verify(accountingUpdate).setInt(6, 1);
+		verify(fixture.work).commit();
+	}
+
+	@Test
+	void completedDailyStreakCanClaimItsDeferredRewardOnce() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement accountingSelect = mock(PreparedStatement.class);
+		PreparedStatement accountingUpdate = mock(PreparedStatement.class);
+		ResultSet accounting = accountingRow("00000000-0000-0000-0000-000000000001", 48, 16);
+		when(accounting.getObject(8)).thenReturn(Integer.valueOf(1));
+		when(accounting.getObject(9)).thenReturn(Integer.valueOf(7));
+		when(accountingSelect.executeQuery()).thenReturn(accounting);
+		when(accountingUpdate.executeUpdate()).thenReturn(1);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(accountingSelect, accountingUpdate);
+		java.util.UUID voteId = java.util.UUID.randomUUID();
+
+		SharedMysqlPurchaseJournal.RecoveredDailyStreak reward =
+				new SharedMysqlPurchaseJournal(fixture.table, false).claimDailyStreakReward(voteId);
+
+		assertEquals(voteId, reward.voteId());
+		assertEquals(7, reward.streak());
+		assertTrue(reward.forceProxyRouting());
+		verify(accountingUpdate).setInt(1, 48);
+		verify(fixture.work).commit();
+	}
+
+	@Test
 	void dailyStreakDateFenceRecognizesTheSameLocalDay() {
 		java.time.ZoneId zone = java.time.ZoneId.systemDefault();
 		long morning = java.time.LocalDate.of(2026, 9, 22).atTime(1, 0).atZone(zone).toInstant().toEpochMilli();
@@ -492,15 +592,19 @@ class SharedMysqlPurchaseJournalTest {
 		PreparedStatement resetMarkerInsert = mock(PreparedStatement.class);
 		PreparedStatement resetMarkerSelect = mock(PreparedStatement.class);
 		PreparedStatement accountingSelect = mock(PreparedStatement.class);
+		PreparedStatement earlierStreakSelect = mock(PreparedStatement.class);
 		PreparedStatement persistedUpdateSelect = mock(PreparedStatement.class);
 		PreparedStatement update = mock(PreparedStatement.class);
 		PreparedStatement accountingUpdate = mock(PreparedStatement.class);
+		PreparedStatement streakValueSelect = mock(PreparedStatement.class);
 		ResultSet requestEpoch = mock(ResultSet.class);
 		ResultSet copyEpoch = mock(ResultSet.class);
 		ResultSet resetEpoch = mock(ResultSet.class);
 		ResultSet requested = accountingRow("00000000-0000-0000-0000-000000000001", 0, 0);
 		ResultSet accounting = accountingRow("00000000-0000-0000-0000-000000000001", 16, 0);
+		ResultSet noEarlierStreak = ids();
 		ResultSet persistedUpdate = mock(ResultSet.class);
+		ResultSet streakValue = mock(ResultSet.class);
 		when(requestEpoch.next()).thenReturn(true);
 		when(copyEpoch.next()).thenReturn(true);
 		when(resetEpoch.next()).thenReturn(true);
@@ -509,23 +613,29 @@ class SharedMysqlPurchaseJournalTest {
 		when(resetMarkerSelect.executeQuery()).thenReturn(resetEpoch);
 		when(requestSelect.executeQuery()).thenReturn(requested);
 		when(accountingSelect.executeQuery()).thenReturn(accounting);
+		when(earlierStreakSelect.executeQuery()).thenReturn(noEarlierStreak);
 		when(persistedUpdate.next()).thenReturn(true);
 		when(persistedUpdate.getString(1)).thenReturn("");
 		when(persistedUpdateSelect.executeQuery()).thenReturn(persistedUpdate);
+		when(streakValue.next()).thenReturn(true);
+		when(streakValue.getInt(1)).thenReturn(8);
+		when(streakValueSelect.executeQuery()).thenReturn(streakValue);
 		when(update.executeUpdate()).thenReturn(1);
 		when(accountingUpdate.executeUpdate()).thenReturn(1);
 		when(requestUpdate.executeUpdate()).thenReturn(1);
 		when(fixture.work.prepareStatement(anyString())).thenReturn(requestMarkerInsert, requestMarkerSelect,
 				requestInsert, requestSelect, requestUpdate, copyMarkerInsert, copyMarkerSelect,
-				resetMarkerInsert, resetMarkerSelect, accountingSelect, persistedUpdateSelect, update, accountingUpdate);
+				resetMarkerInsert, resetMarkerSelect, accountingSelect, earlierStreakSelect, persistedUpdateSelect, update,
+				streakValueSelect, accountingUpdate);
 
 		new SharedMysqlPurchaseJournal(fixture.table, false).updateDailyStreak(java.util.UUID.randomUUID(),
-				"00000000-0000-0000-0000-000000000001", 7, 1234L);
+				"00000000-0000-0000-0000-000000000001", 7, 1234L, false);
 
 		verify(requestMarkerSelect).setString(1, "streak-copy:DayVoteStreak");
 		verify(copyMarkerSelect).setString(1, "streak-copy:DayVoteStreak");
 		verify(update).setString(1, "1234");
 		verify(update).setString(2, "00000000-0000-0000-0000-000000000001");
+		verify(accountingUpdate).setInt(2, 8);
 		verify(fixture.work, org.mockito.Mockito.times(2)).commit();
 	}
 
