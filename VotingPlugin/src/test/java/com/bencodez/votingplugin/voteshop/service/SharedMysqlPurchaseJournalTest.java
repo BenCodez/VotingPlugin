@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.voteshop.service;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -117,8 +118,39 @@ class SharedMysqlPurchaseJournalTest {
 		assertEquals(voteId, reward.voteId());
 		assertEquals(7, reward.streak());
 		assertTrue(reward.forceProxyRouting());
+		verify(accountingUpdate).setInt(1, 144);
+		verify(fixture.work).commit();
+	}
+
+	@Test
+	void claimedDailyStreakRewardCompletesOnlyAfterDeliveryReturns() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement accountingSelect = mock(PreparedStatement.class);
+		PreparedStatement accountingUpdate = mock(PreparedStatement.class);
+		ResultSet accounting = accountingRow("00000000-0000-0000-0000-000000000001", 48, 144);
+		when(accountingSelect.executeQuery()).thenReturn(accounting);
+		when(accountingUpdate.executeUpdate()).thenReturn(1);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(accountingSelect, accountingUpdate);
+
+		new SharedMysqlPurchaseJournal(fixture.table, false)
+				.completeDailyStreakReward(java.util.UUID.randomUUID());
+
 		verify(accountingUpdate).setInt(1, 48);
 		verify(fixture.work).commit();
+	}
+
+	@Test
+	void ambiguousDailyStreakRewardIsNotClaimedAgain() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement accountingSelect = mock(PreparedStatement.class);
+		ResultSet accounting = accountingRow("00000000-0000-0000-0000-000000000001", 48, 144);
+		when(accountingSelect.executeQuery()).thenReturn(accounting);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(accountingSelect);
+
+		assertThrows(java.sql.SQLException.class, () -> new SharedMysqlPurchaseJournal(fixture.table, false)
+				.claimDailyStreakReward(java.util.UUID.randomUUID()));
+
+		verify(fixture.work).rollback();
 	}
 
 	@Test

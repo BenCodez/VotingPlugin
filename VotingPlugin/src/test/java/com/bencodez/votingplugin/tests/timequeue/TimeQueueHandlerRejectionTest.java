@@ -14,13 +14,16 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.reset;
 
+import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -98,7 +101,9 @@ class TimeQueueHandlerRejectionTest {
 		when(serverData.getTimedVoteCacheKeys()).thenReturn(Set.of());
 		TimeQueueHandler handler = new TimeQueueHandler(plugin);
 		VoteTimeQueue vote = new VoteTimeQueue(java.util.UUID.randomUUID(), "Alex", "example.org", 123L);
+		VoteTimeQueue following = new VoteTimeQueue(java.util.UUID.randomUUID(), "Steve", "second.example", 124L);
 		handler.getTimeChangeQueue().add(vote);
+		handler.getTimeChangeQueue().add(following);
 		org.bukkit.plugin.PluginManager pluginManager = plugin.getServer().getPluginManager();
 		doAnswer(invocation -> {
 			PlayerVoteEvent event = invocation.getArgument(0);
@@ -108,8 +113,67 @@ class TimeQueueHandlerRejectionTest {
 
 		handler.processQueue();
 
-		assertEquals(1, handler.getTimeChangeQueue().size());
+		assertEquals(2, handler.getTimeChangeQueue().size());
 		assertEquals(vote, handler.getTimeChangeQueue().peek());
+		@SuppressWarnings("unchecked")
+		org.mockito.ArgumentCaptor<List<VoteTimeQueue>> persisted = org.mockito.ArgumentCaptor.forClass(List.class);
+		verify(serverData).replaceTimedVoteCache(persisted.capture());
+		assertEquals(List.of(vote, following), persisted.getValue());
+	}
+
+	@Test
+	void timedVoteSnapshotPersistsStableIdsWithOneSave() {
+		VotingPluginMain snapshotPlugin = mock(VotingPluginMain.class);
+		com.bencodez.advancedcore.data.ServerData coreData =
+				mock(com.bencodez.advancedcore.data.ServerData.class);
+		YamlConfiguration yaml = new YamlConfiguration();
+		when(snapshotPlugin.getServerDataFile()).thenReturn(coreData);
+		when(coreData.getData()).thenReturn(yaml);
+		ServerData data = new ServerData(snapshotPlugin);
+		UUID firstId = UUID.randomUUID();
+		UUID secondId = UUID.randomUUID();
+
+		data.replaceTimedVoteCache(List.of(
+				new VoteTimeQueue(firstId, "Alex", "first.example", 123L),
+				new VoteTimeQueue(secondId, "Steve", "second.example", 124L)));
+
+		assertEquals(firstId.toString(), yaml.getString("VotingPlugin.TimedVoteCache.0.VoteId"));
+		assertEquals(secondId.toString(), yaml.getString("VotingPlugin.TimedVoteCache.1.VoteId"));
+		assertEquals("Alex", yaml.getString("VotingPlugin.TimedVoteCache.0.Name"));
+		verify(coreData).saveData();
+	}
+
+	@Test
+	void processingRetryWaitsForFailedSnapshotPersistence() {
+		when(serverData.getTimedVoteCacheKeys()).thenReturn(Set.of());
+		reset(voteTimer);
+		TimeQueueHandler handler = new TimeQueueHandler(plugin);
+		reset(voteTimer);
+		VoteTimeQueue vote = new VoteTimeQueue(UUID.randomUUID(), "Alex", "example.org", 123L);
+		handler.getTimeChangeQueue().add(vote);
+		doThrow(new IllegalStateException("disk unavailable")).doNothing()
+				.when(serverData).replaceTimedVoteCache(any());
+		org.bukkit.plugin.PluginManager pluginManager = plugin.getServer().getPluginManager();
+		doAnswer(invocation -> {
+			PlayerVoteEvent event = invocation.getArgument(0);
+			event.setAccountingAdmissionFailed(true);
+			return null;
+		}).when(pluginManager).callEvent(any(PlayerVoteEvent.class));
+
+		handler.processQueue();
+
+		org.mockito.ArgumentCaptor<Runnable> retry = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+		verify(plugin.getBukkitScheduler()).runTaskLaterAsynchronously(
+				org.mockito.ArgumentMatchers.eq(plugin), retry.capture(), org.mockito.ArgumentMatchers.eq(20L));
+		verify(voteTimer, never()).schedule(any(Runnable.class), org.mockito.ArgumentMatchers.eq(0L),
+				org.mockito.ArgumentMatchers.eq(TimeUnit.SECONDS));
+
+		retry.getValue().run();
+
+		org.mockito.InOrder persistedBeforeProcessing = org.mockito.Mockito.inOrder(serverData, voteTimer);
+		persistedBeforeProcessing.verify(serverData, org.mockito.Mockito.times(2)).replaceTimedVoteCache(any());
+		persistedBeforeProcessing.verify(voteTimer).schedule(any(Runnable.class),
+				org.mockito.ArgumentMatchers.eq(0L), org.mockito.ArgumentMatchers.eq(TimeUnit.SECONDS));
 	}
 
 	@Test

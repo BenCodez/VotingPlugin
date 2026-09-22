@@ -63,6 +63,7 @@ final class SharedMysqlPurchaseJournal {
 	private static final int DAILY_STREAK = 16;
 	private static final int DAILY_STREAK_REWARD = 32;
 	private static final int ACCOUNTING_DECIDED = 64;
+	private static final int DAILY_STREAK_REWARD_CLAIMED = 128;
 
 	private static final ReferenceQueue<MySQL> INITIALIZED_QUEUE = new ReferenceQueue<>();
 	private static final Set<IdentityWeakReference> INITIALIZED = new HashSet<>();
@@ -588,14 +589,40 @@ final class SharedMysqlPurchaseJournal {
 					rollback(connection);
 					return null;
 				}
+				if ((row.completed() & DAILY_STREAK_REWARD_CLAIMED) != 0) {
+					throw new SQLException("Daily streak reward may already have run and requires manual reconciliation");
+				}
 				if (row.streakAppliedValue() == null) {
 					throw new SQLException("Applied daily streak value is missing");
 				}
 				int streak = row.streakAppliedValue().intValue();
-				markAccountingComplete(connection, voteId, row.completed() | DAILY_STREAK_REWARD);
-				commitAndConfirmAccounting(connection, voteId, DAILY_STREAK_REWARD);
+				markAccountingComplete(connection, voteId, row.completed() | DAILY_STREAK_REWARD_CLAIMED);
+				commitAndConfirmAccounting(connection, voteId, DAILY_STREAK_REWARD_CLAIMED);
 				return new RecoveredDailyStreak(voteId, row.uuid(), streak,
 						row.streakForceProxy() != null && row.streakForceProxy().intValue() != 0);
+			} catch (SQLException failure) {
+				rollback(connection);
+				throw failure;
+			}
+		}
+	}
+
+	void completeDailyStreakReward(UUID voteId) throws SQLException {
+		try (Connection connection = connection()) {
+			connection.setAutoCommit(false);
+			try {
+				AccountingRow row = findAndLockAccountingVote(connection, voteId);
+				if (row == null) throw new SQLException("Vote accounting marker is missing");
+				if ((row.completed() & DAILY_STREAK_REWARD) != 0) {
+					rollback(connection);
+					return;
+				}
+				if ((row.completed() & DAILY_STREAK_REWARD_CLAIMED) == 0) {
+					throw new SQLException("Daily streak reward was not claimed");
+				}
+				int completed = (row.completed() | DAILY_STREAK_REWARD) & ~DAILY_STREAK_REWARD_CLAIMED;
+				markAccountingComplete(connection, voteId, completed);
+				commitAndConfirmAccounting(connection, voteId, DAILY_STREAK_REWARD);
 			} catch (SQLException failure) {
 				rollback(connection);
 				throw failure;

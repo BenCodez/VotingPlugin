@@ -735,6 +735,20 @@ public class VoteShopPurchaseService {
 		}
 	}
 
+	/** Completes a claimed daily-streak reward only after its existing reward API returned. */
+	public static boolean completeMysqlDailyStreakReward(VotingPluginMain plugin, UUID voteId) {
+		if (!canRecoverSharedMysqlPurchases(plugin) || voteId == null) return false;
+		try {
+			SharedMysqlPurchaseJournal.forTable(plugin.getMysql()).completeDailyStreakReward(voteId);
+			return true;
+		} catch (SQLException failure) {
+			plugin.getLogger().log(java.util.logging.Level.SEVERE,
+					"Daily streak reward may have run but its completion could not be persisted", failure);
+			plugin.debug(failure);
+			return false;
+		}
+	}
+
 	/** Resets the copied daily streak without overwriting a new-day vote from another backend. */
 	public static boolean resetMysqlDailyStreakAtBoundary(VotingPluginMain plugin, String uuid,
 			long boundaryUpdatedAt) {
@@ -847,6 +861,7 @@ public class VoteShopPurchaseService {
 				VotingPluginUser user = plugin.getVotingPluginUserManager()
 						.getVotingPluginUser(UUID.fromString(streak.uuid()), false);
 				user.completeRecoveredDailyStreak(streak.streak(), streak.forceProxyRouting());
+				journal.completeDailyStreakReward(voteId);
 			}
 			if (deferredReward) break;
 		} while (accounting.hadRows());

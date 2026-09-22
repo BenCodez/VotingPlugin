@@ -1003,6 +1003,7 @@ class VoteShopPurchaseServiceTest {
 		org.mockito.InOrder order = org.mockito.Mockito.inOrder(journal, user);
 		order.verify(journal).claimDailyStreakReward(voteId);
 		order.verify(user).completeRecoveredDailyStreak(7, true);
+		order.verify(journal).completeDailyStreakReward(voteId);
 	}
 
 	@Test

@@ -1157,6 +1157,9 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				}
 				if (update.result() == VoteShopPurchaseService.MysqlDailyStreakResult.APPLIED) {
 					completeRecoveredDailyStreak(update.streak(), update.forceProxyRouting());
+					if (!VoteShopPurchaseService.completeMysqlDailyStreakReward(plugin, voteId)) {
+						throw new IllegalStateException("Unable to complete shared MySQL daily streak reward");
+					}
 				}
 				return;
 			}

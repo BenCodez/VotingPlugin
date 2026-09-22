@@ -114,6 +114,22 @@ public class ServerData {
 		getData().set("TimedVoteCache." + num + ".Name", vote.getName());
 		getData().set("TimedVoteCache." + num + ".Service", vote.getService());
 		getData().set("TimedVoteCache." + num + ".Time", vote.getTime());
+		getData().set("TimedVoteCache." + num + ".VoteId",
+				vote.getVoteId() == null ? null : vote.getVoteId().toString());
+		saveData();
+	}
+
+	/** Replaces the durable timed-vote snapshot with one ordered in-memory queue. */
+	public synchronized void replaceTimedVoteCache(List<VoteTimeQueue> votes) {
+		getData().set("TimedVoteCache", null);
+		int index = 0;
+		for (VoteTimeQueue vote : votes) {
+			String path = "TimedVoteCache." + index++;
+			getData().set(path + ".Name", vote.getName());
+			getData().set(path + ".Service", vote.getService());
+			getData().set(path + ".Time", vote.getTime());
+			getData().set(path + ".VoteId", vote.getVoteId() == null ? null : vote.getVoteId().toString());
+		}
 		saveData();
 	}
 

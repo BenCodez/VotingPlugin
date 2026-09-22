@@ -2,9 +2,14 @@ package com.bencodez.votingplugin.timequeue;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Deque;
+import java.util.List;
 import java.util.Queue;
+import java.util.UUID;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -20,19 +25,21 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.util.VoteTaskAdmission;
 
-import lombok.Getter;
-
 /**
  * The TimeQueueHandler class manages time-based vote queue processing.
  */
 public class TimeQueueHandler implements Listener {
 	private static final long TICKS_PER_SECOND = 20L;
-	@Getter
-	private Queue<VoteTimeQueue> timeChangeQueue = new ConcurrentLinkedQueue<>();
+	private final Deque<VoteTimeQueue> timeChangeQueue = new ConcurrentLinkedDeque<>();
 
 	private VotingPluginMain plugin;
 	private final AtomicBoolean retryPending = new AtomicBoolean();
+	private final AtomicBoolean retryPersistenceRequired = new AtomicBoolean();
 	private final AtomicInteger retryAttempts = new AtomicInteger();
+
+	public Queue<VoteTimeQueue> getTimeChangeQueue() {
+		return timeChangeQueue;
+	}
 
 	/**
 	 * Constructs a new TimeQueueHandler.
@@ -59,12 +66,29 @@ public class TimeQueueHandler implements Listener {
 	 * Loads cached votes from server data and schedules queue processing.
 	 */
 	public void load() {
-		for (String str : plugin.getServerData().getTimedVoteCacheKeys()) {
+		List<String> keys = new ArrayList<>(plugin.getServerData().getTimedVoteCacheKeys());
+		keys.sort(Comparator.comparingInt(TimeQueueHandler::timedVoteCacheIndex));
+		for (String str : keys) {
 			ConfigurationSection data = plugin.getServerData().getTimedVoteCacheSection(str);
-			timeChangeQueue
-					.add(new VoteTimeQueue(data.getString("Name"), data.getString("Service"), data.getLong("Time")));
+			UUID voteId = null;
+			try {
+				String storedVoteId = data.getString("VoteId", "");
+				if (storedVoteId != null && !storedVoteId.isEmpty()) voteId = UUID.fromString(storedVoteId);
+			} catch (IllegalArgumentException invalidVoteId) {
+				plugin.debug(invalidVoteId);
+			}
+			timeChangeQueue.add(new VoteTimeQueue(voteId, data.getString("Name"), data.getString("Service"),
+					data.getLong("Time")));
 		}
 		scheduleQueueProcessing(120, TimeUnit.SECONDS);
+	}
+
+	private static int timedVoteCacheIndex(String key) {
+		try {
+			return Integer.parseInt(key);
+		} catch (NumberFormatException ignored) {
+			return Integer.MAX_VALUE;
+		}
 	}
 
 	/**
@@ -102,13 +126,14 @@ public class TimeQueueHandler implements Listener {
 		}, delay, unit);
 		if (!admitted) {
 			plugin.getLogger().warning("Unable to schedule time-queue processing because vote processing is busy; queued votes were retained.");
-			scheduleRetry();
+			scheduleRetry(false);
 		} else {
 			retryAttempts.set(0);
 		}
 	}
 
-	private void scheduleRetry() {
+	private void scheduleRetry(boolean persistenceRequired) {
+		if (persistenceRequired) retryPersistenceRequired.set(true);
 		if (timeChangeQueue.isEmpty() || !retryPending.compareAndSet(false, true)) return;
 		if (!plugin.isEnabled()) {
 			retryPending.set(false);
@@ -120,11 +145,27 @@ public class TimeQueueHandler implements Listener {
 		try {
 			plugin.getBukkitScheduler().runTaskLaterAsynchronously(plugin, () -> {
 				retryPending.set(false);
-				if (!timeChangeQueue.isEmpty()) scheduleQueueProcessing(0, TimeUnit.SECONDS);
+				if (timeChangeQueue.isEmpty()) return;
+				if (retryPersistenceRequired.getAndSet(false) && !persistQueueSnapshot()) {
+					scheduleRetry(true);
+					return;
+				}
+				scheduleQueueProcessing(0, TimeUnit.SECONDS);
 			}, delayTicks);
 		} catch (RuntimeException rejected) {
 			retryPending.set(false);
 			plugin.getLogger().warning("Unable to queue a time-queue retry; pending votes remain persisted for recovery.");
+		}
+	}
+
+	private boolean persistQueueSnapshot() {
+		try {
+			plugin.getServerData().replaceTimedVoteCache(new ArrayList<>(timeChangeQueue));
+			return true;
+		} catch (RuntimeException persistenceFailure) {
+			plugin.getLogger().severe("Unable to persist the time-queue retry; the vote remains in memory");
+			plugin.debug(persistenceFailure);
+			return false;
 		}
 	}
 
@@ -147,8 +188,8 @@ public class TimeQueueHandler implements Listener {
 			voteEvent.setVoteId(vote.getVoteId() == null ? vote.legacyTimedVoteId() : vote.getVoteId());
 			plugin.getServer().getPluginManager().callEvent(voteEvent);
 			if (voteEvent.isAccountingAdmissionFailed()) {
-				timeChangeQueue.add(vote);
-				scheduleRetry();
+				timeChangeQueue.addFirst(vote);
+				scheduleRetry(!persistQueueSnapshot());
 				return;
 			}
 
@@ -164,11 +205,7 @@ public class TimeQueueHandler implements Listener {
 	 */
 	public void save() {
 		if (!timeChangeQueue.isEmpty()) {
-			int num = 0;
-			for (VoteTimeQueue vote : timeChangeQueue) {
-				plugin.getServerData().addTimeVoted(num, vote);
-				num++;
-			}
+			plugin.getServerData().replaceTimedVoteCache(new ArrayList<>(timeChangeQueue));
 		}
 		timeChangeQueue.clear();
 	}
