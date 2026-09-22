@@ -15,6 +15,7 @@ import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.user.validation.UserValidationResult;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.core.vote.SharedVoteAdmissionException;
 import com.bencodez.votingplugin.core.vote.SharedVotePolicy;
 import com.bencodez.votingplugin.core.vote.SharedVoteProcessor;
 import com.bencodez.votingplugin.events.PlayerPostVoteEvent;
@@ -22,6 +23,7 @@ import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votesites.VoteSite;
+import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseService;
 
 /** Bukkit event entry point and platform operations for the shared vote sequence. */
 public class PlayerVoteListener implements Listener {
@@ -33,7 +35,11 @@ public class PlayerVoteListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onplayerVote(PlayerVoteEvent event) {
-        SharedVoteProcessor.process(new BukkitOperations(plugin, event));
+        try {
+            SharedVoteProcessor.process(new BukkitOperations(plugin, event));
+        } catch (SharedVoteAdmissionException admissionFailure) {
+            event.setAccountingAdmissionFailed(true);
+        }
     }
 
     private static final class BukkitOperations implements SharedVoteProcessor.Operations<VoteSite, VotingPluginUser> {
@@ -127,7 +133,22 @@ public class PlayerVoteListener implements Listener {
             plugin.getBroadcastHandler().broadcastVote(uuid, name, siteDisplayName, online);
         }
         @Override public boolean hasProxyTextTotals() { return event.getBungeeTextTotals() != null; }
-        @Override public UUID proxyVoteId() { return event.getBungeeTextTotals().getVoteUUID(); }
+        @Override public UUID incomingVoteId() {
+            if (event.getVoteId() != null) return event.getVoteId();
+            return event.getBungeeTextTotals() == null ? null : event.getBungeeTextTotals().getVoteUUID();
+        }
+        @Override public void prepareAccounting(VotingPluginUser user, UUID voteId, boolean countTotals) {
+            boolean countVoteParty = plugin.getSpecialRewardsConfig().isVotePartyEnabled()
+                    && (plugin.getSpecialRewardsConfig().isVotePartyCountFakeVotes() || event.isRealVote())
+                    && (plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes() || user.isOnline());
+            if (!VoteShopPurchaseService.prepareMysqlVoteAccounting(plugin, voteId, user.getUUID(), countTotals,
+                    countVoteParty)) {
+                throw new SharedVoteAdmissionException("Unable to admit shared MySQL vote accounting before processing");
+            }
+        }
+        @Override public void finishAccounting(UUID voteId) {
+            VoteShopPurchaseService.finishMysqlVoteAccounting(voteId);
+        }
         @Override public void cache(VotingPluginUser user) { user.cache(); }
         @Override public void updateName(VotingPluginUser user) { user.updateName(true); }
         @Override public void voteParty(VotingPluginUser user, boolean realVote, boolean forceProxyRouting, UUID voteId) {

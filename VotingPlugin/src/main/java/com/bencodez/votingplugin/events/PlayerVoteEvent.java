@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.events;
 
+import java.util.UUID;
+
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
@@ -79,6 +81,15 @@ public class PlayerVoteEvent extends Event {
 	@Getter
 	@Setter
 	private int voteNumber = 1;
+
+	/** Stable delivery identity supplied by proxy transports and durable retries. */
+	@Getter
+	@Setter
+	private UUID voteId;
+
+	@Getter
+	@Setter
+	private boolean accountingAdmissionFailed;
 
 	/**
 	 * Constructs a new PlayerVoteEvent.

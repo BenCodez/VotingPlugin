@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -49,6 +51,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class VoteShopPurchaseService {
+	private static final ConcurrentMap<UUID, Integer> ADMITTED_ACCOUNTING = new ConcurrentHashMap<>();
 	private static final int PURCHASE_LOCK_STRIPES = 256;
 	private static final Object[] PURCHASE_LOCKS = createPurchaseLocks();
 	private static final int COMPLETION_PENDING = 0;
@@ -624,8 +627,12 @@ public class VoteShopPurchaseService {
 			MySQL table = plugin.getMysql();
 			for (String column : columns) table.checkColumn(column, DataType.INTEGER);
 			if (maximum != null) table.checkColumn(previousColumn, DataType.INTEGER);
-			boolean applied = SharedMysqlPurchaseJournal.forTable(table).incrementPeriodTotals(
-					voteId == null ? UUID.randomUUID() : voteId, uuid, boundaryColumn, previousColumn, columns, maximum);
+			UUID accountingId = voteId == null ? UUID.randomUUID() : voteId;
+			int operation = "DailyTotal".equals(boundaryColumn) ? 1 : "WeeklyTotal".equals(boundaryColumn) ? 2
+					: "MonthTotal".equals(boundaryColumn) ? 4 : 8;
+			int admitted = ADMITTED_ACCOUNTING.getOrDefault(accountingId, Integer.valueOf(0)).intValue();
+			boolean applied = SharedMysqlPurchaseJournal.forTable(table).incrementPeriodTotals(accountingId, uuid,
+					boundaryColumn, previousColumn, columns, maximum, (admitted & operation) != 0);
 			if (!applied) plugin.getLogger().warning(
 					"Shared MySQL period total was retained for retry after a persistence failure");
 			return true;
@@ -637,6 +644,42 @@ public class VoteShopPurchaseService {
 		} finally {
 			for (String column : columns) SharedMysqlCacheReconciler.invalidate(plugin, uuid, column);
 		}
+	}
+
+	/** Durably admits shared total mutations before vote rewards or broadcasts run. */
+	public static boolean prepareMysqlVoteAccounting(VotingPluginMain plugin, UUID voteId, String uuid,
+			boolean countTotals, boolean countVoteParty) {
+		if (!canRecoverSharedMysqlPurchases(plugin) || voteId == null) return true;
+		if (!countTotals && !countVoteParty) return true;
+		try {
+			MySQL table = plugin.getMysql();
+			String monthColumn = plugin.getConfigFile().isStoreMonthTotalsWithDate()
+					? plugin.getVotingPluginUserManager().getMonthTotalsWithDatePath() : null;
+			Integer maximum = plugin.getConfigFile().isLimitMonthlyVotes()
+					? Integer.valueOf(plugin.getTimeChecker().getTime().getDayOfMonth()
+							* plugin.getVoteSiteManager().getVoteSitesEnabled().size()) : null;
+			if (countTotals) {
+				table.checkColumn("DailyTotal", DataType.INTEGER);
+				table.checkColumn("WeeklyTotal", DataType.INTEGER);
+				table.checkColumn("MonthTotal", DataType.INTEGER);
+				if (monthColumn != null) table.checkColumn(monthColumn, DataType.INTEGER);
+				if (maximum != null) table.checkColumn("LastMonthTotal", DataType.INTEGER);
+			}
+			if (countVoteParty) table.checkColumn("VotePartyVotes", DataType.INTEGER);
+			int bits = SharedMysqlPurchaseJournal.forTable(table).prepareVoteAccounting(voteId, uuid, countTotals,
+					countVoteParty, monthColumn, maximum);
+			ADMITTED_ACCOUNTING.put(voteId, Integer.valueOf(bits));
+			return true;
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to admit shared MySQL vote accounting: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+			return false;
+		}
+	}
+
+	public static void finishMysqlVoteAccounting(UUID voteId) {
+		if (voteId != null) ADMITTED_ACCOUNTING.remove(voteId);
 	}
 
 	/** Atomically publishes an accepted daily streak under the shared boundary lock. */
@@ -676,6 +719,20 @@ public class VoteShopPurchaseService {
 			return false;
 		} finally {
 			SharedMysqlCacheReconciler.invalidate(plugin, uuid, "DayVoteStreak");
+		}
+	}
+
+	/** Releases accepted daily streak increments after every copied user is reset. */
+	public static boolean completeMysqlDailyStreakReset(VotingPluginMain plugin, String generation) {
+		if (!canRecoverSharedMysqlPurchases(plugin)) return false;
+		try {
+			SharedMysqlPurchaseJournal.forTable(plugin.getMysql()).completeDailyStreakReset(generation);
+			return true;
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to complete the shared MySQL daily streak reset: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+			return false;
 		}
 	}
 

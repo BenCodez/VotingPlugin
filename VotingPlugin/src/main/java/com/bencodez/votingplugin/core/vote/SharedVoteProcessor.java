@@ -58,7 +58,9 @@ public final class SharedVoteProcessor {
         boolean hasBroadcastHandler();
         void broadcast(UUID uuid, String name, String siteDisplayName, boolean online);
         boolean hasProxyTextTotals();
-        UUID proxyVoteId();
+        UUID incomingVoteId();
+        void prepareAccounting(U user, UUID voteId, boolean countTotals);
+        void finishAccounting(UUID voteId);
         void cache(U user);
         void updateName(U user);
         void voteParty(U user, boolean realVote, boolean forceProxyRouting, UUID voteId);
@@ -161,74 +163,79 @@ public final class SharedVoteProcessor {
             ops.debug("Allowing queued proxy vote for " + ops.userName(user) + " on " + ops.siteKey(site)
                     + "; proxy vote time already matches LastVotes: " + ops.incomingTime());
         }
-        UUID candidateVoteId = UUID.randomUUID();
-        if (ops.proxyVote() && ops.hasProxyTextTotals()) {
-            candidateVoteId = ops.proxyVoteId();
-            if (candidateVoteId == null) candidateVoteId = UUID.randomUUID();
-        }
+        UUID candidateVoteId = ops.incomingVoteId();
+        if (candidateVoteId == null) candidateVoteId = UUID.randomUUID();
         final UUID voteId = candidateVoteId;
         String userId = ops.userId(user);
-        ops.cache(user);
-        ops.updateName(user);
-        ops.voteParty(user, ops.realVote(), ops.forceProxyRouting(), voteId);
-        if (ops.broadcastEnabled() && ops.hasBroadcastHandler()) {
-            boolean currentOnline = ops.userOnline(user);
-            boolean online = currentOnline;
-            if (ops.proxyVote()) online = ops.wasOnline();
-            if (!ops.userVanished(user)) {
-                SharedVoteIdentity identity = new SharedVoteIdentity(ops.userUuid(user), playerName, currentOnline);
-                ops.broadcast(identity.uuid(), identity.playerName(), ops.siteDisplayName(site), online);
-            } else {
-                ops.debug("Not broadcasting vote for vanished user: " + ops.userName(user));
-            }
-        }
-        long voteTime;
-        if (ops.incomingTime() != 0) {
-            ops.setTime(user, site, ops.incomingTime());
-            voteTime = ops.incomingTime();
-        } else {
-            ops.setTimeNow(user, site);
-            voteTime = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-        }
-        boolean cached = false;
-        if (SharedVoteDelivery.shouldDeliverNow(ops::proxyVote, () -> ops.userOnline(user),
-                () -> ops.giveOfflineRewards(site), ops::processRewards)) {
-            boolean online = true;
-            if (ops.proxyVote()) online = ops.wasOnline();
-            ops.playerVote(user, site, online, ops.forceProxyRouting());
-            if (ops.voteNumber() == 1) ops.sendVoteEffects(user, online);
-            if (ops.closeInventoryOnVote()) ops.closeInventory(user);
-        } else if (!ops.offlineVotesLimitEnabled() || ops.offlineVotes(user, site) <= ops.offlineVotesLimitAmount()) {
-            ops.addOfflineVote(user, ops.siteKey(site));
-            cached = true;
-            ops.debug("Offline vote set for " + playerName + " (" + ops.userId(user) + ") on " + ops.siteKey(site));
-        } else {
-            ops.debug("Not setting offline vote, offline vote limit reached");
-        }
         SharedVotePolicy policy = ops.countingPolicy();
-        SharedVoteInput input = new SharedVoteInput(voteId, playerName, ops.serviceSite(), voteTime,
-                ops.realVote(), ops.addTotals(), ops.proxyVote(), ops.forceProxyRouting(), ops.wasOnline());
-        SharedVoteAccounting.apply(input, policy, () -> ops.userOnline(user), () -> ops.addTotal(user, voteId),
-                () -> ops.addTotalDaily(user, voteId), () -> ops.addTotalWeekly(user, voteId),
-                () -> ops.addPoints(user));
-        ops.checkDayVoteStreak(user, ops.forceProxyRouting(), voteId);
-        if (ops.limitMonthlyVotes() && (!ops.proxyVote() || ops.hasProxyTextTotals())) {
-            int value = ops.proxyVote() ? ops.proxyMonthTotal() : ops.userMonthTotal(user);
-            int days = ops.currentDayOfMonth();
-            ops.extraDebug("Current day of month: " + days + " Current total: " + value);
-            if (value >= days * ops.enabledSiteCount()) {
-                ops.debug("Detected higher month total, changing. Current Total: " + value + " Days: " + days
-                        + " New Total: " + days * ops.enabledSiteCount());
-                ops.setMonthTotal(user, days * ops.enabledSiteCount());
+        SharedVoteInput accountingInput = new SharedVoteInput(voteId, playerName, ops.serviceSite(),
+                ops.incomingTime(), ops.realVote(), ops.addTotals(), ops.proxyVote(),
+                ops.forceProxyRouting(), ops.wasOnline());
+        ops.prepareAccounting(user, voteId, policy.shouldCountTotals(accountingInput, () -> ops.userOnline(user)));
+        try {
+            ops.cache(user);
+            ops.updateName(user);
+            ops.voteParty(user, ops.realVote(), ops.forceProxyRouting(), voteId);
+            if (ops.broadcastEnabled() && ops.hasBroadcastHandler()) {
+                boolean currentOnline = ops.userOnline(user);
+                boolean online = currentOnline;
+                if (ops.proxyVote()) online = ops.wasOnline();
+                if (!ops.userVanished(user)) {
+                    SharedVoteIdentity identity = new SharedVoteIdentity(ops.userUuid(user), playerName, currentOnline);
+                    ops.broadcast(identity.uuid(), identity.playerName(), ops.siteDisplayName(site), online);
+                } else {
+                    ops.debug("Not broadcasting vote for vanished user: " + ops.userName(user));
+                }
             }
+            long voteTime;
+            if (ops.incomingTime() != 0) {
+                ops.setTime(user, site, ops.incomingTime());
+                voteTime = ops.incomingTime();
+            } else {
+                ops.setTimeNow(user, site);
+                voteTime = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+            }
+            boolean cached = false;
+            if (SharedVoteDelivery.shouldDeliverNow(ops::proxyVote, () -> ops.userOnline(user),
+                    () -> ops.giveOfflineRewards(site), ops::processRewards)) {
+                boolean online = true;
+                if (ops.proxyVote()) online = ops.wasOnline();
+                ops.playerVote(user, site, online, ops.forceProxyRouting());
+                if (ops.voteNumber() == 1) ops.sendVoteEffects(user, online);
+                if (ops.closeInventoryOnVote()) ops.closeInventory(user);
+            } else if (!ops.offlineVotesLimitEnabled() || ops.offlineVotes(user, site) <= ops.offlineVotesLimitAmount()) {
+                ops.addOfflineVote(user, ops.siteKey(site));
+                cached = true;
+                ops.debug("Offline vote set for " + playerName + " (" + ops.userId(user) + ") on " + ops.siteKey(site));
+            } else {
+                ops.debug("Not setting offline vote, offline vote limit reached");
+            }
+            SharedVoteInput input = new SharedVoteInput(voteId, playerName, ops.serviceSite(), voteTime,
+                    ops.realVote(), ops.addTotals(), ops.proxyVote(), ops.forceProxyRouting(), ops.wasOnline());
+            SharedVoteAccounting.apply(input, policy, () -> ops.userOnline(user), () -> ops.addTotal(user, voteId),
+                    () -> ops.addTotalDaily(user, voteId), () -> ops.addTotalWeekly(user, voteId),
+                    () -> ops.addPoints(user));
+            ops.checkDayVoteStreak(user, ops.forceProxyRouting(), voteId);
+            if (ops.limitMonthlyVotes() && (!ops.proxyVote() || ops.hasProxyTextTotals())) {
+                int value = ops.proxyVote() ? ops.proxyMonthTotal() : ops.userMonthTotal(user);
+                int days = ops.currentDayOfMonth();
+                ops.extraDebug("Current day of month: " + days + " Current total: " + value);
+                if (value >= days * ops.enabledSiteCount()) {
+                    ops.debug("Detected higher month total, changing. Current Total: " + value + " Days: " + days
+                            + " New Total: " + days * ops.enabledSiteCount());
+                    ops.setMonthTotal(user, days * ops.enabledSiteCount());
+                }
+            }
+            ops.milestones(user, voteId, ops.forceProxyRouting());
+            ops.cooldown(user, site);
+            ops.voteStreak(user, voteTime, voteId);
+            ops.postVote(site, user, playerName, voteTime, voteId, cached);
+            if (ops.userOnline(user) || ops.placeholderCacheAlways()) ops.updatePlaceholders(user);
+            if (!ops.userOnline(user)) ops.clearCache(user);
+            ops.setUpdate();
+            ops.extraDebug("Finished vote processing: " + playerName + "/" + userId);
+        } finally {
+            ops.finishAccounting(voteId);
         }
-        ops.milestones(user, voteId, ops.forceProxyRouting());
-        ops.cooldown(user, site);
-        ops.voteStreak(user, voteTime, voteId);
-        ops.postVote(site, user, playerName, voteTime, voteId, cached);
-        if (ops.userOnline(user) || ops.placeholderCacheAlways()) ops.updatePlaceholders(user);
-        if (!ops.userOnline(user)) ops.clearCache(user);
-        ops.setUpdate();
-        ops.extraDebug("Finished vote processing: " + playerName + "/" + userId);
     }
 }

@@ -17,6 +17,7 @@ import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache;
 import com.bencodez.votingplugin.backendproxy.global.BackendGlobalDataSync;
 import com.bencodez.votingplugin.backendproxy.presence.BackendPresenceManager;
 import com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync;
+import com.bencodez.votingplugin.core.vote.SharedVoteAdmissionException;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.proxy.VoteTotalsSnapshot;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
@@ -126,6 +127,9 @@ public class BackendProxyMessageRouter {
 		if (VotingPluginWire.SUB_VOTE.equals(subChannel) || VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)) {
 			try {
 				handleWireVote(msg);
+			} catch (SharedVoteAdmissionException retryableAdmission) {
+				completion.accept(OrderedVoteOutcome.RETRY);
+				return;
 			} catch (RuntimeException | Error failure) {
 				completion.accept(OrderedVoteOutcome.QUARANTINE);
 				throw failure;
@@ -382,8 +386,11 @@ public class BackendProxyMessageRouter {
 		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(javaUuid, vote.player);
 		votePartySync.replace(totals.getVotePartyCurrent(), totals.getVotePartyRequired());
 		user.cache();
-		user.bungeeVotePluginMessaging(vote.service, vote.time, totals, !vote.manageTotals,
-				vote.wasOnline, vote.broadcast, vote.num);
+		if (!user.bungeeVotePluginMessagingAccepted(vote.service, vote.time, totals, !vote.manageTotals,
+				vote.wasOnline, vote.broadcast, vote.num, voteId)) {
+			processedVoteCache.release(voteId);
+			throw new SharedVoteAdmissionException("Proxy vote accounting admission failed");
+		}
 		if (plugin.getBungeeSettings().isPerServerPoints()) {
 			user.addPoints(plugin.getConfigFile().getPointsOnVote());
 		}

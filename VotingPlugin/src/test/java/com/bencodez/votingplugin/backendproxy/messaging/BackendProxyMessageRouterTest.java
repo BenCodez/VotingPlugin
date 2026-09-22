@@ -180,8 +180,8 @@ class BackendProxyMessageRouterTest {
 		when(plugin.getBungeeSettings()).thenReturn(mock(BungeeSettings.class));
 		when(plugin.getVotingPluginUserManager().getVotingPluginUser(PLAYER_UUID, "Player"))
 				.thenReturn(user);
-		doThrow(new IllegalStateException("partial reward")).when(user).bungeeVotePluginMessaging(
-				any(), anyLong(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyInt());
+		when(user.bungeeVotePluginMessagingAccepted(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
+				anyBoolean(), anyInt(), any())).thenThrow(new IllegalStateException("partial reward"));
 		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
 				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
 				mock(BackendVotePartySync.class), cache);
@@ -190,6 +190,27 @@ class BackendProxyMessageRouterTest {
 				VotingPluginWire.vote("Player", PLAYER_UUID.toString(), "known.example", LAST_VOTE_TIME,
 						true, true, "", voteId, false, false, 1, 1), outcome::set));
 		assertEquals(OrderedVoteOutcome.QUARANTINE, outcome.get());
+	}
+
+	@Test
+	void accountingAdmissionFailureReleasesVoteIdAndRetriesWithoutQuarantine() {
+		UUID voteId = UUID.randomUUID();
+		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
+		when(cache.reserve(voteId)).thenReturn(true);
+		when(plugin.getBungeeSettings()).thenReturn(mock(BungeeSettings.class));
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser(PLAYER_UUID, "Player")).thenReturn(user);
+		when(user.bungeeVotePluginMessagingAccepted(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
+				anyBoolean(), anyInt(), any())).thenReturn(false);
+		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
+				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
+				mock(BackendVotePartySync.class), cache);
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+
+		voteRouter.handleOrderedVote(VotingPluginWire.vote("Player", PLAYER_UUID.toString(), "known.example",
+				LAST_VOTE_TIME, true, true, "", voteId, false, false, 1, 1), outcome::set);
+
+		assertEquals(OrderedVoteOutcome.RETRY, outcome.get());
+		verify(cache).release(voteId);
 	}
 
 }

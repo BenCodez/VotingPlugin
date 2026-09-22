@@ -17,6 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -42,7 +43,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	private static final String QUEUE_FILE = "VotifierVoteQueue.yml";
 
 	private final VotingPluginMain plugin;
-	private final BiConsumer<String, String> processor;
+	private final VoteProcessor processor;
 	private final Path file;
 	private final ScheduledThreadPoolExecutor worker;
 	private final Object lock = new Object();
@@ -62,7 +63,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	 * @param plugin the owning plugin
 	 * @param processor callback receiving service site and player name
 	 */
-	public VotifierVoteOverflowQueue(VotingPluginMain plugin, BiConsumer<String, String> processor) {
+	public VotifierVoteOverflowQueue(VotingPluginMain plugin, VoteProcessor processor) {
 		this.plugin = plugin;
 		this.processor = processor;
 		this.file = new File(plugin.getDataFolder(), QUEUE_FILE).toPath();
@@ -73,6 +74,10 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 		});
 		this.worker.setRemoveOnCancelPolicy(true);
 		load();
+	}
+
+	public VotifierVoteOverflowQueue(VotingPluginMain plugin, BiConsumer<String, String> processor) {
+		this(plugin, (serviceSite, username, voteId) -> processor.accept(serviceSite, username));
 	}
 
 	/**
@@ -97,10 +102,14 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	 * @return false when the bounded overflow is full or shutting down
 	 */
 	public boolean enqueue(String username, String serviceSite) {
-		if (username == null || serviceSite == null) return false;
+		return enqueue(username, serviceSite, UUID.randomUUID());
+	}
+
+	public boolean enqueue(String username, String serviceSite, UUID voteId) {
+		if (username == null || serviceSite == null || voteId == null) return false;
 		synchronized (lock) {
 			if (closed || entries.size() >= MAX_ENTRIES) return false;
-			entries.addLast(new PendingVote(username, serviceSite, System.currentTimeMillis()));
+			entries.addLast(new PendingVote(username, serviceSite, System.currentTimeMillis(), voteId));
 			stateVersion++;
 			requestPersistenceLocked();
 			scheduleDrainLocked();
@@ -153,7 +162,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 					// above cannot change in the gap before submit accepts this vote.
 					plugin.getVoteTimer().submit(() -> {
 						try {
-							processor.accept(pending.serviceSite, pending.username);
+							processor.accept(pending.serviceSite, pending.username, pending.voteId);
 						} finally {
 							acknowledge(pending);
 						}
@@ -258,6 +267,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 				Object username = map.get("Username");
 				Object serviceSite = map.get("ServiceSite");
 				Object time = map.get("Time");
+				Object rawVoteId = map.get("VoteId");
 				if (!(username instanceof String name) || !(serviceSite instanceof String site)
 						|| !(time instanceof Number timestamp)
 						|| !MinecraftUsernameValidator.isValid(name, plugin.getOptions().getBedrockPlayerPrefix())
@@ -265,7 +275,15 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 					skipped = true;
 					continue;
 				}
-				entries.addLast(new PendingVote(name, site, timestamp.longValue()));
+				UUID voteId;
+				try {
+					voteId = rawVoteId instanceof String id ? UUID.fromString(id) : UUID.randomUUID();
+					if (!(rawVoteId instanceof String)) skipped = true;
+				} catch (IllegalArgumentException invalidVoteId) {
+					skipped = true;
+					continue;
+				}
+				entries.addLast(new PendingVote(name, site, timestamp.longValue(), voteId));
 			}
 			if (skipped) {
 				synchronized (lock) {
@@ -305,6 +323,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 			value.put("Username", pending.username);
 			value.put("ServiceSite", pending.serviceSite);
 			value.put("Time", pending.time);
+			value.put("VoteId", pending.voteId.toString());
 			values.add(value);
 		}
 		yaml.set("Votes", values);
@@ -359,12 +378,19 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 		private final String username;
 		private final String serviceSite;
 		private final long time;
+		private final UUID voteId;
 		private boolean submitted;
 
-		private PendingVote(String username, String serviceSite, long time) {
+		private PendingVote(String username, String serviceSite, long time, UUID voteId) {
 			this.username = username;
 			this.serviceSite = serviceSite;
 			this.time = time;
+			this.voteId = voteId;
 		}
+	}
+
+	@FunctionalInterface
+	public interface VoteProcessor {
+		void accept(String serviceSite, String username, UUID voteId);
 	}
 }

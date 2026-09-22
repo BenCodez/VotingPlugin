@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.listeners;
 
+import java.util.UUID;
 import java.util.concurrent.RejectedExecutionException;
 
 import org.bukkit.event.EventHandler;
@@ -36,6 +37,10 @@ public class VotiferEvent implements Listener {
 	 * @param voteUsername the validated player name
 	 */
 	public void processVote(String voteSite, String voteUsername) {
+		processVote(voteSite, voteUsername, UUID.randomUUID());
+	}
+
+	public void processVote(String voteSite, String voteUsername, UUID voteId) {
 		try {
 			plugin.getServerData().addServiceSite(voteSite);
 			if (plugin.getBungeeSettings().isUseBungeecoord() && !plugin.getBungeeSettings().isVotifierBypass()
@@ -85,7 +90,12 @@ public class VotiferEvent implements Listener {
 
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(
 					plugin.getVoteSiteManager().getVoteSite(voteSiteName, true), voteUsername, voteSite, true);
+			voteEvent.setVoteId(voteId);
 			plugin.getServer().getPluginManager().callEvent(voteEvent);
+			if (voteEvent.isAccountingAdmissionFailed()) {
+				retainForAccountingRetry(voteSite, voteUsername, voteId);
+				return;
+			}
 
 			if (voteEvent.isCancelled()) {
 				plugin.debug("Vote cancelled");
@@ -93,6 +103,15 @@ public class VotiferEvent implements Listener {
 		} catch (Exception e) {
 			plugin.getLogger().severe("Error occured during vote processing");
 			e.printStackTrace();
+		}
+	}
+
+	private void retainForAccountingRetry(String voteSite, String voteUsername, UUID voteId) {
+		VotifierVoteOverflowQueue overflow = plugin.getVotifierVoteOverflowQueue();
+		if (overflow == null || !overflow.enqueue(voteUsername, voteSite, voteId)) {
+			plugin.getLogger().severe("Unable to retain vote after shared MySQL accounting admission failed");
+		} else {
+			plugin.getLogger().warning("Shared MySQL accounting is unavailable; retained Votifier vote for retry");
 		}
 	}
 
@@ -135,11 +154,12 @@ public class VotiferEvent implements Listener {
 		plugin.debug("VoteSite: " + voteSite);
 		plugin.debug("IP: " + IP);
 
+		UUID voteId = UUID.randomUUID();
 		try {
-			plugin.getVoteTimer().submit(() -> processVote(voteSite, voteUsername));
+			plugin.getVoteTimer().submit(() -> processVote(voteSite, voteUsername, voteId));
 		} catch (RejectedExecutionException rejected) {
 			VotifierVoteOverflowQueue overflow = plugin.getVotifierVoteOverflowQueue();
-			if (overflow == null || !overflow.enqueue(voteUsername, voteSite)) {
+			if (overflow == null || !overflow.enqueue(voteUsername, voteSite, voteId)) {
 				plugin.getLogger().severe("Votifier vote queue is full; vote was not admitted for "
 						+ MinecraftUsernameValidator.sanitizeForLog(voteUsername));
 			} else {

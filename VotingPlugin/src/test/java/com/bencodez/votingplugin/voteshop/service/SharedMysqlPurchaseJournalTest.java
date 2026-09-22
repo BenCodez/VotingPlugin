@@ -296,21 +296,24 @@ class SharedMysqlPurchaseJournalTest {
 		Fixture fixture = fixture();
 		PreparedStatement markerInsert = mock(PreparedStatement.class);
 		PreparedStatement markerSelect = mock(PreparedStatement.class);
+		PreparedStatement pending = mock(PreparedStatement.class);
 		PreparedStatement copy = mock(PreparedStatement.class);
 		PreparedStatement advance = mock(PreparedStatement.class);
 		ResultSet epoch = mock(ResultSet.class);
+		ResultSet noPending = ids();
 		when(epoch.next()).thenReturn(true);
 		when(epoch.getLong(1)).thenReturn(8L);
 		when(markerSelect.executeQuery()).thenReturn(epoch);
+		when(pending.executeQuery()).thenReturn(noPending);
 		when(advance.executeUpdate()).thenReturn(1);
-		when(fixture.work.prepareStatement(anyString())).thenReturn(markerInsert, markerSelect, copy, advance);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(markerInsert, markerSelect, pending, copy, advance);
 
 		new SharedMysqlPurchaseJournal(fixture.table, false).copyPeriodBoundary(
 				"DailyTotal", "LastDailyTotal", "time-copy:DAY:2026-09-21");
 
 		org.mockito.ArgumentCaptor<String> sql = org.mockito.ArgumentCaptor.forClass(String.class);
-		verify(fixture.work, org.mockito.Mockito.times(4)).prepareStatement(sql.capture());
-		assertTrue(sql.getAllValues().get(2).contains(
+		verify(fixture.work, org.mockito.Mockito.times(5)).prepareStatement(sql.capture());
+		assertTrue(sql.getAllValues().get(3).contains(
 				"`LastDailyTotal` = COALESCE(`DailyTotal`, 0)"));
 		verify(advance).setLong(1, 9L);
 		verify(advance).setString(3, "period-copy:DailyTotal");
@@ -442,22 +445,25 @@ class SharedMysqlPurchaseJournalTest {
 		Fixture fixture = fixture();
 		PreparedStatement markerInsert = mock(PreparedStatement.class);
 		PreparedStatement markerSelect = mock(PreparedStatement.class);
+		PreparedStatement pending = mock(PreparedStatement.class);
 		PreparedStatement copy = mock(PreparedStatement.class);
 		PreparedStatement advance = mock(PreparedStatement.class);
 		ResultSet epoch = mock(ResultSet.class);
+		ResultSet noPending = ids();
 		when(epoch.next()).thenReturn(true);
 		when(epoch.getLong(1)).thenReturn(2L);
 		when(markerSelect.executeQuery()).thenReturn(epoch);
+		when(pending.executeQuery()).thenReturn(noPending);
 		when(advance.executeUpdate()).thenReturn(1);
-		when(fixture.work.prepareStatement(anyString())).thenReturn(markerInsert, markerSelect, copy, advance);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(markerInsert, markerSelect, pending, copy, advance);
 
 		new SharedMysqlPurchaseJournal(fixture.table, false).copyDailyStreakBoundary("DayVoteStreak",
 				"LastDayVoteStreak", "DayVoteStreakLastUpdate", "LastDayVoteStreakLastUpdate",
 				"time-streak-copy:DAY:2026-09-21");
 
 		org.mockito.ArgumentCaptor<String> sql = org.mockito.ArgumentCaptor.forClass(String.class);
-		verify(fixture.work, org.mockito.Mockito.times(4)).prepareStatement(sql.capture());
-		assertTrue(sql.getAllValues().get(2).contains("`LastDayVoteStreak` = COALESCE(`DayVoteStreak`, 0), "
+		verify(fixture.work, org.mockito.Mockito.times(5)).prepareStatement(sql.capture());
+		assertTrue(sql.getAllValues().get(3).contains("`LastDayVoteStreak` = COALESCE(`DayVoteStreak`, 0), "
 				+ "`LastDayVoteStreakLastUpdate` = COALESCE(`DayVoteStreakLastUpdate`, '')"));
 		verify(advance).setString(3, "streak-copy:DayVoteStreak");
 		verify(fixture.work).commit();
@@ -466,32 +472,43 @@ class SharedMysqlPurchaseJournalTest {
 	@Test
 	void dailyStreakUpdateLocksTheSameBoundaryRow() throws Exception {
 		Fixture fixture = fixture();
+		PreparedStatement requestMarkerInsert = mock(PreparedStatement.class);
+		PreparedStatement requestMarkerSelect = mock(PreparedStatement.class);
 		PreparedStatement requestInsert = mock(PreparedStatement.class);
 		PreparedStatement requestSelect = mock(PreparedStatement.class);
 		PreparedStatement requestUpdate = mock(PreparedStatement.class);
-		PreparedStatement markerInsert = mock(PreparedStatement.class);
-		PreparedStatement markerSelect = mock(PreparedStatement.class);
+		PreparedStatement copyMarkerInsert = mock(PreparedStatement.class);
+		PreparedStatement copyMarkerSelect = mock(PreparedStatement.class);
+		PreparedStatement resetMarkerInsert = mock(PreparedStatement.class);
+		PreparedStatement resetMarkerSelect = mock(PreparedStatement.class);
 		PreparedStatement accountingSelect = mock(PreparedStatement.class);
 		PreparedStatement update = mock(PreparedStatement.class);
 		PreparedStatement accountingUpdate = mock(PreparedStatement.class);
-		ResultSet epoch = mock(ResultSet.class);
+		ResultSet requestEpoch = mock(ResultSet.class);
+		ResultSet copyEpoch = mock(ResultSet.class);
+		ResultSet resetEpoch = mock(ResultSet.class);
 		ResultSet requested = accountingRow("00000000-0000-0000-0000-000000000001", 0, 0);
 		ResultSet accounting = accountingRow("00000000-0000-0000-0000-000000000001", 16, 0);
-		when(epoch.next()).thenReturn(true);
-		when(markerSelect.executeQuery()).thenReturn(epoch);
+		when(requestEpoch.next()).thenReturn(true);
+		when(copyEpoch.next()).thenReturn(true);
+		when(resetEpoch.next()).thenReturn(true);
+		when(requestMarkerSelect.executeQuery()).thenReturn(requestEpoch);
+		when(copyMarkerSelect.executeQuery()).thenReturn(copyEpoch);
+		when(resetMarkerSelect.executeQuery()).thenReturn(resetEpoch);
 		when(requestSelect.executeQuery()).thenReturn(requested);
 		when(accountingSelect.executeQuery()).thenReturn(accounting);
 		when(update.executeUpdate()).thenReturn(1);
 		when(accountingUpdate.executeUpdate()).thenReturn(1);
 		when(requestUpdate.executeUpdate()).thenReturn(1);
-		when(fixture.work.prepareStatement(anyString())).thenReturn(requestInsert, requestSelect, requestUpdate,
-				markerInsert, markerSelect,
-				accountingSelect, update, accountingUpdate);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(requestMarkerInsert, requestMarkerSelect,
+				requestInsert, requestSelect, requestUpdate, copyMarkerInsert, copyMarkerSelect,
+				resetMarkerInsert, resetMarkerSelect, accountingSelect, update, accountingUpdate);
 
 		new SharedMysqlPurchaseJournal(fixture.table, false).updateDailyStreak(java.util.UUID.randomUUID(),
 				"00000000-0000-0000-0000-000000000001", 7, 1234L);
 
-		verify(markerSelect).setString(1, "streak-copy:DayVoteStreak");
+		verify(requestMarkerSelect).setString(1, "streak-copy:DayVoteStreak");
+		verify(copyMarkerSelect).setString(1, "streak-copy:DayVoteStreak");
 		verify(update).setString(1, "1234");
 		verify(update).setString(2, "00000000-0000-0000-0000-000000000001");
 		verify(fixture.work, org.mockito.Mockito.times(2)).commit();

@@ -66,6 +66,11 @@ public class ProcessedVoteCache {
 		}
 	}
 
+	/** Releases an admission that failed before any vote side effects ran. */
+	public void release(UUID voteId) {
+		if (voteId != null) processedVotes.remove(voteId);
+	}
+
 	/** Deduplicates one Redis envelope across overlapping subscribers during a validated handoff. */
 	public synchronized boolean reserveRedisDelivery(String deliveryId) {
 		if (deliveryId == null || !deliveryId.matches("[0-9a-fA-F-]{36}")) return true;

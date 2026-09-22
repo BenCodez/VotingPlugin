@@ -975,6 +975,18 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public void bungeeVotePluginMessaging(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
 			boolean wasOnline, boolean broadcast, int num) {
+		@SuppressWarnings("deprecation")
+		UUID legacyVoteId = text == null ? null : text.getVoteUUID();
+		bungeeVotePluginMessaging(service, time, text, setTotals, wasOnline, broadcast, num, legacyVoteId);
+	}
+
+	public void bungeeVotePluginMessaging(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
+			boolean wasOnline, boolean broadcast, int num, UUID voteId) {
+		bungeeVotePluginMessagingAccepted(service, time, text, setTotals, wasOnline, broadcast, num, voteId);
+	}
+
+	public boolean bungeeVotePluginMessagingAccepted(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
+			boolean wasOnline, boolean broadcast, int num, UUID voteId) {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
 
@@ -989,8 +1001,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			voteEvent.setWasOnline(wasOnline);
 			voteEvent.setBroadcast(broadcast);
 			voteEvent.setVoteNumber(num);
+			voteEvent.setVoteId(voteId);
 			plugin.getServer().getPluginManager().callEvent(voteEvent);
+			return !voteEvent.isAccountingAdmissionFailed();
 		}
+		return false;
 	}
 
 	/**

@@ -60,6 +60,7 @@ class SharedVoteProcessorTest {
 
         InOrder order = inOrder(ops);
         order.verify(ops).lastVoteTime(user, site);
+		order.verify(ops).prepareAccounting(eq(user), any(UUID.class), eq(true));
         order.verify(ops).cache(user);
         order.verify(ops).updateName(user);
         order.verify(ops).voteParty(eq(user), eq(true), eq(false), any(UUID.class));
@@ -80,6 +81,7 @@ class SharedVoteProcessorTest {
         order.verify(ops).postVote(eq(site), eq(user), eq("Ben"), eq(123L), any(UUID.class), eq(false));
         order.verify(ops).updatePlaceholders(user);
         order.verify(ops).setUpdate();
+		order.verify(ops).finishAccounting(any(UUID.class));
     }
 
     @Test
@@ -88,7 +90,7 @@ class SharedVoteProcessorTest {
         UUID proxyId = UUID.randomUUID();
         when(ops.proxyVote()).thenReturn(true);
         when(ops.hasProxyTextTotals()).thenReturn(true);
-        when(ops.proxyVoteId()).thenReturn(proxyId);
+		when(ops.incomingVoteId()).thenReturn(proxyId);
         when(ops.wasOnline()).thenReturn(true);
         when(ops.incomingTime()).thenReturn(321L);
         when(ops.lastVoteTime(user, site)).thenReturn(321L);
