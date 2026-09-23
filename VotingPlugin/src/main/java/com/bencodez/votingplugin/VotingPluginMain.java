@@ -654,8 +654,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		registerCommands();
 		checkVotifier();
-		refreshPlaceholderPlayerPresence();
 		registerEvents();
+		refreshPlaceholderPlayerPresence();
 
 		loadVoteBroadcast();
 
