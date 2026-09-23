@@ -576,6 +576,10 @@ public class TopVoterHandler implements Listener {
 		try {
 			synchronized (VotingPluginMain.plugin) {
 				plugin.getServerData().beginTimeChangeRecovery(transition);
+				if (top == TopVoter.Daily) {
+					plugin.getServerData().prepareTimeChangeDailyStreakBoundary(transition,
+							plugin.getConfigFile().isUseVoteStreaks());
+				}
 				if (!plugin.getServerData().hasTimeChangePhase(transition, COMPLETE)) {
 					runRecoverablePeriod(top, transition);
 				}
@@ -655,13 +659,14 @@ public class TopVoterHandler implements Listener {
 		}
 	}
 
-	private void copyTotalBoundary(TopVoter top, TimeChangeTransition transition) {
+	void copyTotalBoundary(TopVoter top, TimeChangeTransition transition) {
 		ensureTransitionActive(transition);
 		boolean[] copied = { false };
 		PeriodTotalMutationFence.withReset(() -> {
 			copied[0] = TimeChangeTotalReset.copyBoundary(plugin, top.getColumnName(), top.getLastColumnName(),
 					"time-copy:" + transition.getId());
-			if (copied[0] && top == TopVoter.Daily && plugin.getConfigFile().isUseVoteStreaks()) {
+			if (copied[0] && top == TopVoter.Daily
+					&& plugin.getServerData().isTimeChangeDailyStreakBoundaryRequired(transition)) {
 				copied[0] = TimeChangeTotalReset.copyDailyStreakBoundary(plugin,
 						"time-streak-copy:" + transition.getId());
 			}
@@ -672,11 +677,10 @@ public class TopVoterHandler implements Listener {
 	}
 
 	void processRecoverableUsers(TopVoter top, TimeChangeTransition transition) {
-		boolean copiedDailyStreak = top == TopVoter.Daily && UserStorage.MYSQL.equals(plugin.getStorageType())
-				&& VoteShopPurchaseService.hasMysqlDailyStreakBoundary(plugin,
-						"time-streak-copy:" + transition.getId());
-		if (!copiedDailyStreak && !plugin.getConfigFile().isUseVoteStreaks()
-				&& !plugin.getConfigFile().isUseHighestTotals()) return;
+		boolean processVoteStreaks = top == TopVoter.Daily
+				? plugin.getServerData().isTimeChangeDailyStreakBoundaryRequired(transition)
+				: plugin.getConfigFile().isUseVoteStreaks();
+		if (!processVoteStreaks && !plugin.getConfigFile().isUseHighestTotals()) return;
 		AtomicReference<String> cursor = new AtomicReference<>(plugin.getServerData().getTimeChangeCursor(transition));
 		LocalDateTime lastMonthTime = top == TopVoter.Monthly ? previousMonthTime(transition) : null;
 		// AdvancedCore streams deterministic UUID-ordered SQL pages synchronously.
@@ -692,7 +696,7 @@ public class TopVoterHandler implements Listener {
 				user.updateTempCacheWithColumns(columns);
 				try {
 					if (top == TopVoter.Daily) processDailyUser(user, transition, value,
-							copiedDailyStreak || plugin.getConfigFile().isUseVoteStreaks());
+							processVoteStreaks);
 					else if (top == TopVoter.Weekly) processWeeklyUser(user, transition, value);
 					else processMonthlyUser(user, lastMonthTime, transition, value);
 					if (user.getCache() != null) user.getCache().flushChangesAndRun(() -> { });

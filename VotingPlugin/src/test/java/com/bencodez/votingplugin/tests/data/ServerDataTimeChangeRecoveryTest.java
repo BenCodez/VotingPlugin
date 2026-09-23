@@ -107,6 +107,42 @@ class ServerDataTimeChangeRecoveryTest {
 	}
 
 	@Test
+	void retryKeepsTheDailyStreakBoundaryDecisionFromTransitionStart() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
+		YamlConfiguration yaml = new YamlConfiguration();
+		when(plugin.getServerDataFile()).thenReturn(coreData);
+		when(coreData.getData()).thenReturn(yaml);
+		TimeChangeTransition transition = transition("DAY:2026-09-21", "2026-09-21", TimeType.DAY);
+		ServerData data = new ServerData(plugin);
+		data.beginTimeChangeRecovery(transition);
+
+		assertFalse(data.prepareTimeChangeDailyStreakBoundary(transition, false));
+		assertFalse(data.prepareTimeChangeDailyStreakBoundary(transition, true));
+		assertFalse(new ServerData(plugin).isTimeChangeDailyStreakBoundaryRequired(transition));
+	}
+
+	@Test
+	void failedDailyStreakBoundarySaveDoesNotPublishTheDecision() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
+		YamlConfiguration yaml = new YamlConfiguration();
+		when(plugin.getServerDataFile()).thenReturn(coreData);
+		when(coreData.getData()).thenReturn(yaml);
+		TimeChangeTransition transition = transition("DAY:2026-09-21", "2026-09-21", TimeType.DAY);
+		ServerData data = new ServerData(plugin);
+		data.beginTimeChangeRecovery(transition);
+		doThrow(new IllegalStateException("disk unavailable")).when(coreData).saveData();
+
+		assertThrows(IllegalStateException.class,
+				() -> data.prepareTimeChangeDailyStreakBoundary(transition, true));
+
+		assertFalse(data.isTimeChangeDailyStreakBoundaryRequired(transition));
+		doNothing().when(coreData).saveData();
+		assertTrue(data.prepareTimeChangeDailyStreakBoundary(transition, true));
+	}
+
+	@Test
 	void newPeriodReplacesOnlyThatTimeTypesOldCheckpoint() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);

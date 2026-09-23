@@ -472,6 +472,33 @@ public class ServerData {
 		saveData();
 	}
 
+	/** Fixes the daily streak-boundary policy for the lifetime of one transition. */
+	public synchronized boolean prepareTimeChangeDailyStreakBoundary(TimeChangeTransition transition,
+			boolean proposed) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		String decisionPath = path + ".DailyStreakBoundary";
+		if (!getData().contains(decisionPath)) {
+			getData().set(decisionPath, proposed);
+			try {
+				saveData();
+			} catch (RuntimeException failure) {
+				getData().set(decisionPath, null);
+				throw failure;
+			}
+		}
+		return getData().getBoolean(decisionPath);
+	}
+
+	/** Returns the daily streak-boundary policy captured when recovery began. */
+	public synchronized boolean isTimeChangeDailyStreakBoundaryRequired(TimeChangeTransition transition) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		return transition.getId().equals(getData().getString(path + ".Id", ""))
+				&& getData().getBoolean(path + ".DailyStreakBoundary", false);
+	}
+
 	/** Returns whether the named phase has been durably completed. */
 	public synchronized boolean hasTimeChangePhase(TimeChangeTransition transition, String phase) {
 		String path = timeChangeRecoveryPath(transition.getType());

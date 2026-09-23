@@ -46,6 +46,27 @@ import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseService;
 
 class TopVoterTimeChangeRecoveryTest {
 	@Test
+	void retryDoesNotCreateADailyStreakBoundaryAfterTheCapturedDecisionDisabledIt() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		ServerData serverData = mock(ServerData.class);
+		TimeChangeTransition transition = mock(TimeChangeTransition.class);
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(plugin.getConfigFile().isUseVoteStreaks()).thenReturn(true);
+		when(serverData.isTimeChangeDailyStreakBoundaryRequired(transition)).thenReturn(false);
+		when(transition.getId()).thenReturn("DAY:2026-09-21");
+		try (MockedStatic<TimeChangeTotalReset> reset = org.mockito.Mockito.mockStatic(TimeChangeTotalReset.class)) {
+			reset.when(() -> TimeChangeTotalReset.copyBoundary(plugin, "DailyTotal", "LastDailyTotal",
+					"time-copy:DAY:2026-09-21")).thenReturn(true);
+
+			new TopVoterHandler(plugin).copyTotalBoundary(TopVoter.Daily, transition);
+
+			reset.verify(() -> TimeChangeTotalReset.copyBoundary(plugin, "DailyTotal", "LastDailyTotal",
+					"time-copy:DAY:2026-09-21"));
+			reset.verifyNoMoreInteractions();
+		}
+	}
+
+	@Test
 	void retryUsesPersistedAbsoluteTargetAndDoesNotDuplicateCompletedStreakReward() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		ServerData serverData = mock(ServerData.class);
