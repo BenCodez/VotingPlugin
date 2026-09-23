@@ -1049,6 +1049,9 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			voteEvent.setVoteNumber(num);
 			voteEvent.setVoteId(voteId);
 			plugin.getServer().getPluginManager().callEvent(voteEvent);
+			if (voteEvent.isProcessingFailed() && voteEvent.isReplayUnsafe()) {
+				throw new IllegalStateException("Proxy vote reached an ambiguous post-effect failure: " + voteId);
+			}
 			return !voteEvent.isProcessingIncomplete();
 		}
 		return false;

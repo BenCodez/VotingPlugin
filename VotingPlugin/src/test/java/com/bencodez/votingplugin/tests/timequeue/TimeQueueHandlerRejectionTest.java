@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.tests.timequeue;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -149,6 +150,28 @@ class TimeQueueHandlerRejectionTest {
 
 		assertEquals(vote, handler.getTimeChangeQueue().peek());
 		verify(serverData).replaceTimedVoteCache(List.of(vote));
+	}
+
+	@Test
+	void ambiguousPostEffectFailureIsQuarantinedInsteadOfReplayed() {
+		when(serverData.getTimedVoteCacheKeys()).thenReturn(Set.of());
+		TimeQueueHandler handler = new TimeQueueHandler(plugin);
+		VoteTimeQueue vote = new VoteTimeQueue(UUID.randomUUID(), "Alex", "example.org", 123L);
+		handler.getTimeChangeQueue().add(vote);
+		org.bukkit.plugin.PluginManager pluginManager = plugin.getServer().getPluginManager();
+		doAnswer(invocation -> {
+			PlayerVoteEvent event = invocation.getArgument(0);
+			event.setProcessingFailed(true);
+			event.setReplayUnsafe(true);
+			return null;
+		}).when(pluginManager).callEvent(any(PlayerVoteEvent.class));
+
+		handler.processQueue();
+
+		assertTrue(handler.getTimeChangeQueue().isEmpty());
+		verify(serverData).quarantineTimedVote(vote);
+		verify(plugin.getBukkitScheduler(), never()).runTaskLaterAsynchronously(
+				org.mockito.ArgumentMatchers.eq(plugin), any(Runnable.class), anyLong());
 	}
 
 	@Test

@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.tests.listeners;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
@@ -182,9 +183,12 @@ public class VotiferEventDisabledVoteSiteTest {
 		doAnswer(invocation -> {
 			PlayerVoteEvent event = invocation.getArgument(0);
 			event.setProcessingFailed(true);
+			event.setReplayUnsafe(true);
 			return null;
 		}).when(pluginManager).callEvent(any(PlayerVoteEvent.class));
 
 		assertFalse(listener.processQueuedVote(SERVICE_SITE, "Steve", UUID.randomUUID()));
+		assertEquals(VotifierVoteOverflowQueue.VoteOutcome.QUARANTINE,
+				listener.processQueuedVoteOutcome(SERVICE_SITE, "Steve", UUID.randomUUID()));
 	}
 }

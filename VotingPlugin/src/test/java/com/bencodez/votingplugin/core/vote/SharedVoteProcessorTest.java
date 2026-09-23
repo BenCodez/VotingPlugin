@@ -70,6 +70,7 @@ class SharedVoteProcessorTest {
         order.verify(ops).cache(user);
         order.verify(ops).updateName(user);
         order.verify(ops).voteParty(eq(user), eq(false), any(UUID.class), eq(true));
+        order.verify(ops).markReplayUnsafe();
         order.verify(ops).broadcast(any(UUID.class), eq("Ben"), any(), eq(true));
         order.verify(ops).setTime(user, site, 123L);
         order.verify(ops).playerVote(user, site, true, false);

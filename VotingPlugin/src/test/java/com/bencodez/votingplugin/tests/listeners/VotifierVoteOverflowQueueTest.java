@@ -38,7 +38,7 @@ class VotifierVoteOverflowQueueTest {
 		when(plugin.getVoteTimer()).thenReturn(voteTimer);
 		VotifierVoteOverflowQueue queue = new VotifierVoteOverflowQueue(plugin, (site, user, voteId) -> {
 			attempted.countDown();
-			return false;
+			return VotifierVoteOverflowQueue.VoteOutcome.RETRY;
 		});
 		try {
 			assertTrue(queue.enqueue("Steve", "example.org", java.util.UUID.randomUUID()));
@@ -48,6 +48,44 @@ class VotifierVoteOverflowQueueTest {
 		} finally {
 			queue.close();
 			voteTimer.shutdownNow();
+		}
+	}
+
+	@Test
+	void ambiguousAttemptIsDurablyQuarantinedAcrossRestart(@TempDir Path dataFolder) throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		ScheduledExecutorService voteTimer = Executors.newSingleThreadScheduledExecutor();
+		CountDownLatch attempted = new CountDownLatch(1);
+		when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+		when(plugin.getVoteTimer()).thenReturn(voteTimer);
+		VotifierVoteOverflowQueue queue = new VotifierVoteOverflowQueue(plugin, (site, user, voteId) -> {
+			attempted.countDown();
+			return VotifierVoteOverflowQueue.VoteOutcome.QUARANTINE;
+		});
+		try {
+			assertTrue(queue.enqueue("Steve", "example.org", java.util.UUID.randomUUID()));
+			queue.start();
+			assertTrue(attempted.await(2, TimeUnit.SECONDS));
+			Path file = dataFolder.resolve("VotifierVoteQueue.yml");
+			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+			while ((!Files.exists(file) || !Files.readString(file).contains("Quarantined: true"))
+					&& System.nanoTime() < deadline) Thread.sleep(10L);
+			assertTrue(Files.readString(file).contains("Quarantined: true"));
+		} finally {
+			queue.close();
+			voteTimer.shutdownNow();
+		}
+
+		ScheduledExecutorService restartedTimer = mock(ScheduledExecutorService.class);
+		when(plugin.getVoteTimer()).thenReturn(restartedTimer);
+		VotifierVoteOverflowQueue restarted = new VotifierVoteOverflowQueue(plugin, (site, user) -> { });
+		try {
+			restarted.start();
+			Thread.sleep(100L);
+			assertEquals(1, restarted.size());
+			verify(restartedTimer, org.mockito.Mockito.never()).submit(any(Runnable.class));
+		} finally {
+			restarted.close();
 		}
 	}
 

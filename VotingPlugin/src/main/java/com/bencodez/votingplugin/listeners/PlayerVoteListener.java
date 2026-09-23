@@ -182,6 +182,7 @@ public class PlayerVoteListener implements Listener {
         @Override public void voteParty(VotingPluginUser user, boolean forceProxyRouting, UUID voteId, boolean eligible) {
             plugin.getVoteParty().voteAdmitted(user, forceProxyRouting, voteId, eligible);
         }
+		@Override public void markReplayUnsafe() { event.setReplayUnsafe(true); }
         @Override public long incomingTime() { return event.getTime(); }
         @Override public void setTime(VotingPluginUser user, VoteSite site, long time) { user.setTime(site, time); }
         @Override public void setTimeNow(VotingPluginUser user, VoteSite site) { user.setTime(site); }

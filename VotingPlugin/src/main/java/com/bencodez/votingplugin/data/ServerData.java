@@ -55,8 +55,6 @@ public class ServerData {
 
 	private static final String TIME_CHANGE_RECOVERY = "TimeChangeRecovery";
 	private static final String VOTE_PARTY_ACCOUNTING = "VoteParty.Accounting";
-	private static final String VOTE_PARTY_ACCOUNTING_CLEANUP = "VoteParty.AccountingCleanup";
-	private static final long VOTE_PARTY_ACCOUNTING_RETENTION_MILLIS = 30L * 24L * 60L * 60L * 1000L;
 	private static final List<String> TIME_CHANGE_PHASES = List.of("START", "SNAPSHOT", "COPY_TOTALS",
 			"USER_UPDATES", "TOP_REWARDS", "VOTE_SHOP", "BUNGEE_WAIT", "TOTALS_RESET", "CACHE_CLEAR",
 			"POST_DATE", "COMPLETE");
@@ -150,6 +148,17 @@ public class ServerData {
 			getData().set(path + ".Time", vote.getTime());
 			getData().set(path + ".VoteId", vote.getVoteId() == null ? null : vote.getVoteId().toString());
 		}
+		saveData();
+	}
+
+	/** Retains an ambiguously processed timed vote without admitting it to replay. */
+	public synchronized void quarantineTimedVote(VoteTimeQueue vote) {
+		String key = vote.getVoteId() == null ? vote.legacyTimedVoteId().toString() : vote.getVoteId().toString();
+		String path = "TimedVoteQuarantine." + key;
+		getData().set(path + ".Name", vote.getName());
+		getData().set(path + ".Service", vote.getService());
+		getData().set(path + ".Time", vote.getTime());
+		getData().set(path + ".VoteId", key);
 		saveData();
 	}
 
@@ -461,23 +470,8 @@ public class ServerData {
 		String receiptPath = VOTE_PARTY_ACCOUNTING + "." + voteId;
 		if (getData().contains(receiptPath)) return false;
 		int previousTotal = getData().getInt("VoteParty.Total");
-		long previousCleanup = getData().getLong(VOTE_PARTY_ACCOUNTING_CLEANUP);
 		long now = System.currentTimeMillis();
-		Map<String, Object> removedReceipts = new HashMap<>();
 		try {
-			if (now - previousCleanup >= 24L * 60L * 60L * 1000L) {
-				ConfigurationSection receipts = getData().getConfigurationSection(VOTE_PARTY_ACCOUNTING);
-				if (receipts != null) {
-					for (String key : receipts.getKeys(false)) {
-						String path = VOTE_PARTY_ACCOUNTING + "." + key;
-						if (getData().getLong(path) < now - VOTE_PARTY_ACCOUNTING_RETENTION_MILLIS) {
-							removedReceipts.put(path, getData().get(path));
-							getData().set(path, null);
-						}
-					}
-				}
-				getData().set(VOTE_PARTY_ACCOUNTING_CLEANUP, now);
-			}
 			getData().set("VoteParty.Total", previousTotal + 1);
 			getData().set(receiptPath, now);
 			saveData();
@@ -485,8 +479,6 @@ public class ServerData {
 		} catch (RuntimeException | Error failure) {
 			getData().set("VoteParty.Total", previousTotal);
 			getData().set(receiptPath, null);
-			getData().set(VOTE_PARTY_ACCOUNTING_CLEANUP, previousCleanup == 0L ? null : previousCleanup);
-			removedReceipts.forEach((path, value) -> getData().set(path, value));
 			throw failure;
 		}
 	}

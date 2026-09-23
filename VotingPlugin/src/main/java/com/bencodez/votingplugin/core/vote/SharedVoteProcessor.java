@@ -65,6 +65,7 @@ public final class SharedVoteProcessor {
         void cache(U user);
         void updateName(U user);
         void voteParty(U user, boolean forceProxyRouting, UUID voteId, boolean eligible);
+        void markReplayUnsafe();
         long incomingTime();
         void setTime(U user, S site, long time);
         void setTimeNow(U user, S site);
@@ -182,6 +183,9 @@ public final class SharedVoteProcessor {
             ops.cache(user);
             ops.updateName(user);
             ops.voteParty(user, ops.forceProxyRouting(), voteId, votePartyEligible);
+			// Everything before this point is protected by the vote accounting and
+			// VoteParty receipts. Later platform effects do not all have replay receipts.
+			ops.markReplayUnsafe();
             if (ops.broadcastEnabled() && ops.hasBroadcastHandler()) {
                 boolean currentOnline = ops.userOnline(user);
                 boolean online = currentOnline;

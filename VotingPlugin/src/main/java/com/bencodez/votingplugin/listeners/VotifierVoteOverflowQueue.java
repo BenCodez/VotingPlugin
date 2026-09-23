@@ -80,7 +80,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	public VotifierVoteOverflowQueue(VotingPluginMain plugin, BiConsumer<String, String> processor) {
 		this(plugin, (serviceSite, username, voteId) -> {
 			processor.accept(serviceSite, username);
-			return true;
+			return VoteOutcome.COMPLETE;
 		});
 	}
 
@@ -117,6 +117,20 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 			stateVersion++;
 			requestPersistenceLocked();
 			scheduleDrainLocked();
+			return true;
+		}
+	}
+
+	/** Durably retains an ambiguous vote without automatically replaying it. */
+	public boolean quarantine(String username, String serviceSite, UUID voteId) {
+		if (username == null || serviceSite == null || voteId == null) return false;
+		synchronized (lock) {
+			if (closed || entries.size() >= MAX_ENTRIES) return false;
+			PendingVote pending = new PendingVote(username, serviceSite, System.currentTimeMillis(), voteId);
+			pending.quarantined = true;
+			entries.addLast(pending);
+			stateVersion++;
+			requestPersistenceLocked();
 			return true;
 		}
 	}
@@ -164,7 +178,9 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 				// Serialize admission with enqueue so the version proven durable
 				// above cannot change in the gap before submit accepts this vote.
 				if (!VoteTaskAdmission.trySubmit(plugin.getVoteTimer(), () -> {
-						if (processor.accept(pending.serviceSite, pending.username, pending.voteId)) acknowledge(pending);
+						VoteOutcome outcome = processor.accept(pending.serviceSite, pending.username, pending.voteId);
+						if (outcome == VoteOutcome.COMPLETE) acknowledge(pending);
+						else if (outcome == VoteOutcome.QUARANTINE) quarantine(pending);
 						else retry(pending);
 					})) {
 					pending.submitted = false;
@@ -194,9 +210,23 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 		}
 	}
 
+	private void quarantine(PendingVote pending) {
+		synchronized (lock) {
+			if (closed || !entries.contains(pending)) return;
+			pending.submitted = false;
+			pending.quarantined = true;
+			stateVersion++;
+			requestPersistenceLocked();
+			drainScheduled = false;
+			scheduleDrainLocked();
+		}
+		plugin.getLogger().severe("Queued Votifier vote " + pending.voteId
+				+ " reached an ambiguous post-effect failure and was retained for manual review");
+	}
+
 	private PendingVote nextUnsubmittedLocked() {
 		for (PendingVote pending : entries) {
-			if (!pending.submitted) return pending;
+			if (!pending.submitted && !pending.quarantined) return pending;
 		}
 		return null;
 	}
@@ -295,7 +325,9 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 					skipped = true;
 					continue;
 				}
-				entries.addLast(new PendingVote(name, site, timestamp.longValue(), voteId));
+				PendingVote pending = new PendingVote(name, site, timestamp.longValue(), voteId);
+				pending.quarantined = Boolean.TRUE.equals(map.get("Quarantined"));
+				entries.addLast(pending);
 			}
 			if (skipped) {
 				synchronized (lock) {
@@ -336,6 +368,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 			value.put("ServiceSite", pending.serviceSite);
 			value.put("Time", pending.time);
 			value.put("VoteId", pending.voteId.toString());
+			if (pending.quarantined) value.put("Quarantined", true);
 			values.add(value);
 		}
 		yaml.set("Votes", values);
@@ -392,6 +425,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 		private final long time;
 		private final UUID voteId;
 		private boolean submitted;
+		private boolean quarantined;
 
 		private PendingVote(String username, String serviceSite, long time, UUID voteId) {
 			this.username = username;
@@ -403,6 +437,10 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 
 	@FunctionalInterface
 	public interface VoteProcessor {
-		boolean accept(String serviceSite, String username, UUID voteId);
+		VoteOutcome accept(String serviceSite, String username, UUID voteId);
+	}
+
+	public enum VoteOutcome {
+		COMPLETE, RETRY, QUARANTINE
 	}
 }

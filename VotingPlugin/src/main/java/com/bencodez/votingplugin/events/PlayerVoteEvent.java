@@ -96,6 +96,11 @@ public class PlayerVoteEvent extends Event {
 	@Setter
 	private boolean processingFailed;
 
+	/** A non-idempotent effect may already have run, so automatic replay is unsafe. */
+	@Getter
+	@Setter
+	private boolean replayUnsafe;
+
 	public boolean isProcessingIncomplete() {
 		return accountingAdmissionFailed || processingFailed;
 	}

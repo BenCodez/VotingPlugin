@@ -1,6 +1,6 @@
 package com.bencodez.votingplugin.user;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -35,15 +35,16 @@ class VotingPluginUserProxyVoteTest {
 		when(server.getPluginManager()).thenReturn(pluginManager);
 		when(base.getPlayerName()).thenReturn("Player");
 		when(base.getUserData()).thenReturn(mock(UserData.class));
-		doAnswer(invocation -> {
+			doAnswer(invocation -> {
 			PlayerVoteEvent event = invocation.getArgument(0);
 			event.setProcessingFailed(true);
+			event.setReplayUnsafe(true);
 			return null;
 		}).when(pluginManager).callEvent(any(PlayerVoteEvent.class));
 
 		VotingPluginUser user = new VotingPluginUser(plugin, base);
 
-		assertFalse(user.bungeeVotePluginMessagingAccepted("service", 100L, null, true, true,
-				true, 1, UUID.randomUUID()));
+		assertThrows(IllegalStateException.class, () -> user.bungeeVotePluginMessagingAccepted(
+				"service", 100L, null, true, true, true, 1, UUID.randomUUID()));
 	}
 }

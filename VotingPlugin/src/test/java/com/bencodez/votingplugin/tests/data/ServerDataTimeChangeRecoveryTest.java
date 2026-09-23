@@ -32,6 +32,7 @@ import com.bencodez.votingplugin.data.ServerData.TimeChangeTopPolicy;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardState;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeUserProgress;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeUserPolicy;
+import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 
 class ServerDataTimeChangeRecoveryTest {
 	@TempDir
@@ -53,6 +54,40 @@ class ServerDataTimeChangeRecoveryTest {
 
 		assertEquals(1, yaml.getInt("VotingPlugin.VoteParty.Total"));
 		assertTrue(yaml.contains("VotingPlugin.VoteParty.Accounting." + voteId));
+		verify(coreData).saveData();
+	}
+
+	@Test
+	void oldVotePartyReceiptsRemainForUnboundedQueueReplay() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
+		YamlConfiguration yaml = new YamlConfiguration();
+		when(plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
+		when(plugin.getServerDataFile()).thenReturn(coreData);
+		when(coreData.getData()).thenReturn(yaml);
+		ServerData data = new ServerData(plugin);
+		UUID oldVote = UUID.randomUUID();
+		yaml.set("VotingPlugin.VoteParty.Accounting." + oldVote, 1L);
+
+		assertTrue(data.incrementVotePartyTotal(UUID.randomUUID()));
+		assertTrue(yaml.contains("VotingPlugin.VoteParty.Accounting." + oldVote));
+	}
+
+	@Test
+	void ambiguousTimedVoteIsStoredOutsideTheAutomaticReplayQueue() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
+		YamlConfiguration yaml = new YamlConfiguration();
+		when(plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
+		when(plugin.getServerDataFile()).thenReturn(coreData);
+		when(coreData.getData()).thenReturn(yaml);
+		ServerData data = new ServerData(plugin);
+		VoteTimeQueue vote = new VoteTimeQueue(UUID.randomUUID(), "Alex", "example.org", 123L);
+
+		data.quarantineTimedVote(vote);
+
+		assertEquals("Alex", yaml.getString("VotingPlugin.TimedVoteQuarantine." + vote.getVoteId() + ".Name"));
+		assertFalse(yaml.contains("VotingPlugin.TimedVoteCache"));
 		verify(coreData).saveData();
 	}
 
