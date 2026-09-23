@@ -118,8 +118,8 @@ class ServerDataTimeChangeRecoveryTest {
 		ServerData data = new ServerData(plugin);
 		data.beginTimeChangeRecovery(transition);
 
-		TimeChangeUserPolicy original = new TimeChangeUserPolicy(false, true, false, true, 50, 60, 70);
-		TimeChangeUserPolicy changed = new TimeChangeUserPolicy(true, false, true, false, 1, 2, 3);
+		TimeChangeUserPolicy original = new TimeChangeUserPolicy(false, true, false, true, 50, 60, 70, true, false);
+		TimeChangeUserPolicy changed = new TimeChangeUserPolicy(true, false, true, false, 1, 2, 3, false, true);
 		assertEquals(original, data.prepareTimeChangeUserPolicy(transition, original));
 		assertEquals(original, data.prepareTimeChangeUserPolicy(transition, changed));
 		assertEquals(original, new ServerData(plugin).getTimeChangeUserPolicy(transition));
@@ -137,12 +137,30 @@ class ServerDataTimeChangeRecoveryTest {
 		data.beginTimeChangeRecovery(transition);
 		doThrow(new IllegalStateException("disk unavailable")).when(coreData).saveData();
 
-		TimeChangeUserPolicy policy = new TimeChangeUserPolicy(true, true, true, true, 50, 60, 70);
+		TimeChangeUserPolicy policy = new TimeChangeUserPolicy(true, true, true, true, 50, 60, 70, true, false);
 		assertThrows(IllegalStateException.class, () -> data.prepareTimeChangeUserPolicy(transition, policy));
 
 		assertThrows(IllegalStateException.class, () -> data.getTimeChangeUserPolicy(transition));
 		doNothing().when(coreData).saveData();
 		assertEquals(policy, data.prepareTimeChangeUserPolicy(transition, policy));
+	}
+
+	@Test
+	void retryKeepsTheVoteShopTargetsSelectedBeforeAnyReset() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
+		YamlConfiguration yaml = new YamlConfiguration();
+		when(plugin.getServerDataFile()).thenReturn(coreData);
+		when(coreData.getData()).thenReturn(yaml);
+		TimeChangeTransition transition = transition("WEEK:2026-W38", "2026-W38", TimeType.WEEK);
+		ServerData data = new ServerData(plugin);
+		data.beginTimeChangeRecovery(transition);
+
+		assertEquals(List.of("weekly"),
+				data.prepareTimeChangeVoteShopTargets(transition, List.of("weekly")));
+		assertEquals(List.of("weekly"),
+				data.prepareTimeChangeVoteShopTargets(transition, List.of("newly-enabled")));
+		assertEquals(List.of("weekly"), new ServerData(plugin).getTimeChangeVoteShopTargets(transition));
 	}
 
 	@Test

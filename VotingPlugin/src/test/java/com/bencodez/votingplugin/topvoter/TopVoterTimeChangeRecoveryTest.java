@@ -54,7 +54,7 @@ class TopVoterTimeChangeRecoveryTest {
 		when(plugin.getServerData()).thenReturn(serverData);
 		when(plugin.getConfigFile().isUseVoteStreaks()).thenReturn(true);
 		when(serverData.getTimeChangeUserPolicy(transition)).thenReturn(
-				new TimeChangeUserPolicy(false, true, false, false, 0, 0, 0));
+				new TimeChangeUserPolicy(false, true, false, false, 0, 0, 0, false, false));
 		when(transition.getId()).thenReturn("DAY:2026-09-21");
 		try (MockedStatic<TimeChangeTotalReset> reset = org.mockito.Mockito.mockStatic(TimeChangeTotalReset.class)) {
 			reset.when(() -> TimeChangeTotalReset.copyBoundary(plugin, "DailyTotal", "LastDailyTotal",
@@ -132,7 +132,7 @@ class TopVoterTimeChangeRecoveryTest {
 		when(plugin.getServerData()).thenReturn(serverData);
 		when(plugin.getConfigFile().isUseHighestTotals()).thenReturn(true);
 		when(serverData.getTimeChangeUserPolicy(transition)).thenReturn(
-				new TimeChangeUserPolicy(false, true, false, false, 0, 0, 0));
+				new TimeChangeUserPolicy(false, true, false, false, 0, 0, 0, false, false));
 		when(serverData.getTimeChangeCursor(transition)).thenReturn("");
 		when(votingUsers.getVotingPluginUser(uuid, false)).thenReturn(user);
 		doAnswer(invocation -> {
@@ -166,7 +166,7 @@ class TopVoterTimeChangeRecoveryTest {
 		when(plugin.getServerData()).thenReturn(serverData);
 		when(plugin.getConfigFile().isUseHighestTotals()).thenReturn(true);
 		when(serverData.getTimeChangeUserPolicy(transition)).thenReturn(
-				new TimeChangeUserPolicy(false, true, false, false, 0, 0, 0));
+				new TimeChangeUserPolicy(false, true, false, false, 0, 0, 0, false, false));
 		when(serverData.getTimeChangeCursor(transition)).thenReturn("");
 		when(votingUsers.getVotingPluginUser(org.mockito.ArgumentMatchers.any(UUID.class),
 				org.mockito.ArgumentMatchers.eq(false))).thenReturn(user);
@@ -207,7 +207,7 @@ class TopVoterTimeChangeRecoveryTest {
 		when(plugin.getServerData()).thenReturn(serverData);
 		when(plugin.getConfigFile().isUseHighestTotals()).thenReturn(true);
 		when(serverData.getTimeChangeUserPolicy(transition)).thenReturn(
-				new TimeChangeUserPolicy(false, true, false, false, 0, 0, 0));
+				new TimeChangeUserPolicy(false, true, false, false, 0, 0, 0, false, false));
 		when(serverData.getTimeChangeCursor(transition)).thenReturn("");
 		when(votingUsers.getVotingPluginUser(uuid, false)).thenReturn(user);
 		when(user.getCache()).thenReturn(cache);
@@ -258,7 +258,7 @@ class TopVoterTimeChangeRecoveryTest {
 		VotingPluginUser user = mock(VotingPluginUser.class);
 		TimeChangeTransition transition = mock(TimeChangeTransition.class);
 		String uuid = "00000000-0000-0000-0000-000000000001";
-		TimeChangeUserPolicy captured = new TimeChangeUserPolicy(true, true, false, false, 0, 0, 0);
+		TimeChangeUserPolicy captured = new TimeChangeUserPolicy(true, true, false, false, 0, 0, 0, false, false);
 		when(plugin.getServerData()).thenReturn(serverData);
 		when(plugin.getConfigFile().isUseVoteStreaks()).thenReturn(false);
 		when(plugin.getConfigFile().isUseHighestTotals()).thenReturn(false);
@@ -582,6 +582,7 @@ class TopVoterTimeChangeRecoveryTest {
 		when(plugin.getShopFile().getVoteShopResetDaily("daily")).thenReturn(true);
 		when(transition.getType()).thenReturn(TimeType.DAY);
 		when(transition.getPeriodKey()).thenReturn("2026-09-21");
+		when(serverData.getTimeChangeVoteShopTargets(transition)).thenReturn(List.of("daily"));
 		try (MockedStatic<VoteShopPurchaseService> purchaseService = mockStatic(VoteShopPurchaseService.class)) {
 			purchaseService.when(() -> VoteShopPurchaseService.limitGenerationIdForTransition(transition))
 					.thenReturn("time-shop:DAY:2026-09-21");
@@ -590,6 +591,8 @@ class TopVoterTimeChangeRecoveryTest {
 
 			assertThrows(IllegalStateException.class,
 					() -> new TopVoterHandler(plugin).processRecoverableVoteShop(TopVoter.Daily, transition));
+			purchaseService.verify(() -> VoteShopPurchaseService.resetMysqlLimitWithPurchaseFence(plugin,
+					"VoteShopLimitdaily", "time-shop:DAY:2026-09-21"));
 		}
 
 		verify(serverData, never()).completeTimeChangePhase(transition, "VOTE_SHOP");

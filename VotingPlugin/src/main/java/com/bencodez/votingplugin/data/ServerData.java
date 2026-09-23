@@ -29,7 +29,8 @@ public class ServerData {
 			boolean rewardComplete) { }
 	public record TimeChangeUserPolicy(boolean voteStreaks, boolean highestTotals,
 			boolean monthDateTotalsPrimary, boolean streakUsesPercentage,
-			double dayPercentage, double weekPercentage, double monthPercentage) { }
+			double dayPercentage, double weekPercentage, double monthPercentage,
+			boolean proxyOwnsResets, boolean waitForProxy) { }
 	public record TimeChangeRewardTarget(String uuid, String playerName, int place, String reward, int votes) { }
 	public record TimeChangeArchiveSection(String name, List<String> lines) {
 		public TimeChangeArchiveSection {
@@ -491,6 +492,8 @@ public class ServerData {
 			getData().set(policyPath + ".DayPercentage", proposed.dayPercentage());
 			getData().set(policyPath + ".WeekPercentage", proposed.weekPercentage());
 			getData().set(policyPath + ".MonthPercentage", proposed.monthPercentage());
+			getData().set(policyPath + ".ProxyOwnsResets", proposed.proxyOwnsResets());
+			getData().set(policyPath + ".WaitForProxy", proposed.waitForProxy());
 			getData().set(policyPath + ".Prepared", true);
 			try {
 				saveData();
@@ -516,7 +519,40 @@ public class ServerData {
 				getData().getBoolean(policyPath + ".StreakUsesPercentage"),
 				getData().getDouble(policyPath + ".DayPercentage"),
 				getData().getDouble(policyPath + ".WeekPercentage"),
-				getData().getDouble(policyPath + ".MonthPercentage"));
+				getData().getDouble(policyPath + ".MonthPercentage"),
+				getData().getBoolean(policyPath + ".ProxyOwnsResets"),
+				getData().getBoolean(policyPath + ".WaitForProxy"));
+	}
+
+	/** Fixes the VoteShop identifiers selected for this transition before resets begin. */
+	public synchronized List<String> prepareTimeChangeVoteShopTargets(TimeChangeTransition transition,
+			List<String> proposed) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		String targetsPath = path + ".VoteShopTargets";
+		if (!getData().getBoolean(targetsPath + ".Prepared", false)) {
+			getData().set(targetsPath + ".Identifiers", List.copyOf(proposed));
+			getData().set(targetsPath + ".Prepared", true);
+			try {
+				saveData();
+			} catch (RuntimeException failure) {
+				getData().set(targetsPath, null);
+				throw failure;
+			}
+		}
+		return List.copyOf(getData().getStringList(targetsPath + ".Identifiers"));
+	}
+
+	public synchronized List<String> getTimeChangeVoteShopTargets(TimeChangeTransition transition) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		String targetsPath = path + ".VoteShopTargets";
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))
+				|| !getData().getBoolean(targetsPath + ".Prepared", false)) {
+			throw new IllegalStateException("Time change VoteShop targets are not prepared");
+		}
+		return List.copyOf(getData().getStringList(targetsPath + ".Identifiers"));
 	}
 
 	/** Fixes whether one listener effect belongs to this transition. */

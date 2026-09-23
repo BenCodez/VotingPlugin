@@ -39,7 +39,9 @@ class SharedVoteProcessorTest {
         when(ops.siteKey(site)).thenReturn("ExampleKey");
         when(ops.userId(user)).thenReturn("user-id");
         when(ops.userUuid(user)).thenReturn(UUID.randomUUID());
-        when(ops.prepareAccounting(eq(user), any(UUID.class), anyBoolean())).thenReturn(true);
+		when(ops.prepareAccounting(eq(user), any(UUID.class), anyBoolean()))
+				.thenAnswer(invocation -> new SharedVoteProcessor.AccountingAdmission(
+						invocation.getArgument(2), true));
         return ops;
     }
 
@@ -98,6 +100,21 @@ class SharedVoteProcessorTest {
         verify(ops).addTotalDaily(eq(user), any(UUID.class));
         verify(ops).addTotalWeekly(eq(user), any(UUID.class));
     }
+
+	@Test
+	void replayUsesPersistedAccountingEligibilityInsteadOfTheCurrentProposal() {
+		var ops = accepted();
+		when(ops.addTotals()).thenReturn(false);
+		when(ops.prepareAccounting(eq(user), any(UUID.class), eq(false)))
+				.thenReturn(new SharedVoteProcessor.AccountingAdmission(true, false));
+
+		SharedVoteProcessor.process(ops);
+
+		verify(ops).addTotal(eq(user), any(UUID.class));
+		verify(ops).addTotalDaily(eq(user), any(UUID.class));
+		verify(ops).addTotalWeekly(eq(user), any(UUID.class));
+		verify(ops).voteParty(eq(user), eq(false), any(UUID.class), eq(false));
+	}
 
     @Test
     void proxyVoteUsesHistoricalOnlineForDeliveryButCurrentOnlineForTotals() {

@@ -53,6 +53,7 @@ import lombok.Setter;
 public class VoteShopPurchaseService {
 	public enum MysqlDailyStreakResult { APPLIED, ALREADY_UPDATED, NOT_REQUESTED, DEFERRED, FAILED }
 	public record MysqlDailyStreakUpdate(MysqlDailyStreakResult result, int streak, boolean forceProxyRouting) { }
+	public record VoteAccountingAdmission(boolean success, boolean countTotals, boolean countVoteParty) { }
 	private static final ConcurrentMap<UUID, Integer> ADMITTED_ACCOUNTING = new ConcurrentHashMap<>();
 	private static final int ACCOUNTING_DAILY_STREAK = 16;
 	private static final int PURCHASE_LOCK_STRIPES = 256;
@@ -653,9 +654,11 @@ public class VoteShopPurchaseService {
 	}
 
 	/** Durably admits shared total mutations before vote rewards or broadcasts run. */
-	public static boolean prepareMysqlVoteAccounting(VotingPluginMain plugin, UUID voteId, String uuid,
+	public static VoteAccountingAdmission prepareMysqlVoteAccounting(VotingPluginMain plugin, UUID voteId, String uuid,
 			boolean countTotals, boolean countVoteParty, boolean forceProxyRouting) {
-		if (!canRecoverSharedMysqlPurchases(plugin) || voteId == null) return true;
+		if (!canRecoverSharedMysqlPurchases(plugin) || voteId == null) {
+			return new VoteAccountingAdmission(true, countTotals, countVoteParty);
+		}
 		try {
 			MySQL table = plugin.getMysql();
 			String monthColumn = plugin.getConfigFile().isStoreMonthTotalsWithDate()
@@ -681,12 +684,12 @@ public class VoteShopPurchaseService {
 					plugin.getVoteSiteManager().getVoteSitesEnabled().size(), forceProxyRouting,
 					System.currentTimeMillis());
 			ADMITTED_ACCOUNTING.put(voteId, Integer.valueOf(bits));
-			return true;
+			return new VoteAccountingAdmission(true, (bits & 7) != 0, (bits & 8) != 0);
 		} catch (SQLException failure) {
 			plugin.getLogger().severe("Unable to admit shared MySQL vote accounting: "
 					+ failure.getClass().getSimpleName());
 			plugin.debug(failure);
-			return false;
+			return new VoteAccountingAdmission(false, false, false);
 		}
 	}
 

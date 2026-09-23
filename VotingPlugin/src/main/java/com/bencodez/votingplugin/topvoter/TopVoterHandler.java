@@ -578,6 +578,8 @@ public class TopVoterHandler implements Listener {
 			synchronized (VotingPluginMain.plugin) {
 				plugin.getServerData().beginTimeChangeRecovery(transition);
 				plugin.getServerData().prepareTimeChangeUserPolicy(transition, currentTimeChangeUserPolicy());
+				plugin.getServerData().prepareTimeChangeVoteShopTargets(transition,
+						currentVoteShopResetTargets(top));
 				if (!plugin.getServerData().hasTimeChangePhase(transition, COMPLETE)) {
 					runRecoverablePeriod(top, transition);
 				}
@@ -595,13 +597,20 @@ public class TopVoterHandler implements Listener {
 	}
 
 	private TimeChangeUserPolicy currentTimeChangeUserPolicy() {
+		boolean proxyOwnsResets = bungeeHandleResets();
 		return new TimeChangeUserPolicy(plugin.getConfigFile().isUseVoteStreaks(),
 				plugin.getConfigFile().isUseHighestTotals(),
 				plugin.getConfigFile().isUseMonthDateTotalsAsPrimaryTotal(),
 				plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage(),
 				plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(),
 				plugin.getSpecialRewardsConfig().getVoteStreakRequirementWeek(),
-				plugin.getSpecialRewardsConfig().getVoteStreakRequirementMonth());
+				plugin.getSpecialRewardsConfig().getVoteStreakRequirementMonth(), proxyOwnsResets,
+				plugin.getBungeeSettings().isUseBungeecoord() && !proxyOwnsResets);
+	}
+
+	private List<String> currentVoteShopResetTargets(TopVoter top) {
+		return plugin.getShopFile().getShopIdentifiers().stream()
+				.filter(identifier -> shouldResetVoteShop(top, identifier)).toList();
 	}
 
 	private void runRecoverablePeriod(TopVoter top, TimeChangeTransition transition) {
@@ -656,7 +665,9 @@ public class TopVoterHandler implements Listener {
 
 		if (!plugin.getServerData().hasTimeChangePhase(transition, TOTALS_RESET)) {
 			ensureTransitionActive(transition);
-			if (!bungeeHandleResets()) resetTotals(top, transition);
+			if (!plugin.getServerData().getTimeChangeUserPolicy(transition).proxyOwnsResets()) {
+				resetTotals(top, transition);
+			}
 			plugin.getServerData().completeTimeChangePhase(transition, TOTALS_RESET);
 		}
 
@@ -723,7 +734,7 @@ public class TopVoterHandler implements Listener {
 	void processDailyUser(VotingPluginUser user, TimeChangeTransition transition, String uuid,
 			boolean processVoteStreaks) {
 		processDailyUser(user, transition, uuid, new TimeChangeUserPolicy(processVoteStreaks,
-				plugin.getConfigFile().isUseHighestTotals(), false, false, 0, 0, 0));
+				plugin.getConfigFile().isUseHighestTotals(), false, false, 0, 0, 0, false, false));
 	}
 
 	void processDailyUser(VotingPluginUser user, TimeChangeTransition transition, String uuid,
@@ -800,8 +811,8 @@ public class TopVoterHandler implements Listener {
 		if (plugin.getServerData().hasTimeChangePhase(transition, VOTE_SHOP)) return;
 		ensureTransitionActive(transition);
 		String generation = VoteShopPurchaseService.limitGenerationIdForTransition(transition);
-		for (String shopIdent : plugin.getShopFile().getShopIdentifiers()) {
-			if (shouldResetVoteShop(top, shopIdent) && !resetVoteShopLimit(shopIdent, generation)) {
+		for (String shopIdent : plugin.getServerData().getTimeChangeVoteShopTargets(transition)) {
+			if (!resetVoteShopLimit(shopIdent, generation)) {
 				throw new IllegalStateException("Unable to durably reset VoteShop limit " + shopIdent);
 			}
 		}
@@ -954,7 +965,7 @@ public class TopVoterHandler implements Listener {
 	}
 
 	private void waitForBungee(TopVoter top, TimeChangeTransition transition) {
-		boolean wait = plugin.getBungeeSettings().isUseBungeecoord() && !bungeeHandleResets();
+		boolean wait = plugin.getServerData().getTimeChangeUserPolicy(transition).waitForProxy();
 		if (!wait) return;
 		ensureTransitionActive(transition);
 		plugin.debug("Delaying time change 10 seconds for other servers to catchup");
