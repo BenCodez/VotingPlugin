@@ -343,7 +343,10 @@ final class SharedMysqlPurchaseJournal {
 		try (Connection connection = connection()) {
 			connection.setAutoCommit(false);
 			try {
-				if ((requested & DAILY_TOTAL) != 0) lockLimitEpochRow(connection, "period-copy:DailyTotal");
+				EpochRow dailyCopyMarker = null;
+				if ((requested & DAILY_TOTAL) != 0 || streakUsesPercentage) {
+					dailyCopyMarker = lockLimitEpochRow(connection, "period-copy:DailyTotal");
+				}
 				if ((requested & MONTH_TOTAL) != 0) lockLimitEpochRow(connection, "period-copy:MonthTotal");
 				if ((requested & VOTE_PARTY_TOTAL) != 0) lockLimitEpochRow(connection, "period-copy:VotePartyVotes");
 				if ((requested & WEEKLY_TOTAL) != 0) lockLimitEpochRow(connection, "period-copy:WeeklyTotal");
@@ -355,7 +358,10 @@ final class SharedMysqlPurchaseJournal {
 					throw new SQLException("Vote accounting identity does not match");
 				}
 				boolean accountingAlreadyDecided = (row.requested() & ACCOUNTING_DECIDED) != 0;
-				DailyStreakCandidate streak = accountingAlreadyDecided ? null : findDailyStreakCandidate(connection, uuid);
+				boolean dailyResetPending = !accountingAlreadyDecided && streakUsesPercentage
+						&& resetPending(connection, "DailyTotal", dailyCopyMarker);
+				DailyStreakCandidate streak = accountingAlreadyDecided ? null
+						: findDailyStreakCandidate(connection, uuid, dailyResetPending);
 				boolean dailyAlreadyApplied = (row.completed() & DAILY_TOTAL) != 0;
 				int projectedDailyTotal = accountingAlreadyDecided || !streakUsesPercentage ? 0
 						: streak.dailyTotal() + countPendingDailyTotals(connection, voteId, uuid)
@@ -417,8 +423,12 @@ final class SharedMysqlPurchaseJournal {
 		}
 	}
 
-	private DailyStreakCandidate findDailyStreakCandidate(Connection connection, String uuid) throws SQLException {
-		String select = "SELECT COALESCE(" + qi("DailyTotal") + ", 0), COALESCE(" + qi("DayVoteStreak")
+	private DailyStreakCandidate findDailyStreakCandidate(Connection connection, String uuid, boolean resetPending)
+			throws SQLException {
+		String dailyTotal = resetPending
+				? "GREATEST(0, COALESCE(" + qi("DailyTotal") + ", 0) - COALESCE(" + qi("LastDailyTotal") + ", 0))"
+				: "COALESCE(" + qi("DailyTotal") + ", 0)";
+		String select = "SELECT " + dailyTotal + ", COALESCE(" + qi("DayVoteStreak")
 				+ ", 0), " + qi("DayVoteStreakLastUpdate") + " FROM " + qi(table.getTableName()) + " WHERE "
 				+ qi("uuid") + uuidCast() + " FOR UPDATE";
 		try (PreparedStatement statement = connection.prepareStatement(select)) {
@@ -664,8 +674,10 @@ final class SharedMysqlPurchaseJournal {
 
 	private boolean resetPending(Connection connection, String boundaryColumn, EpochRow copyMarker)
 			throws SQLException {
-		EpochRow resetMarker = lockLimitEpochRow(connection, "period-reset:" + boundaryColumn);
+		if (copyMarker == null) return false;
 		String copyTransition = generationTransition(copyMarker.lastResetGeneration(), "time-copy:");
+		if (copyTransition == null) return false;
+		EpochRow resetMarker = lockLimitEpochRow(connection, "period-reset:" + boundaryColumn);
 		String resetTransition = generationTransition(resetMarker.lastResetGeneration(), "time-total:");
 		return copyTransition != null && !copyTransition.equals(resetTransition);
 	}

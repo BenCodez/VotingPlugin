@@ -44,7 +44,7 @@ class VotingPluginUserVoteShopLimitTest {
 		org.mockito.InOrder order = org.mockito.Mockito.inOrder(user, cache, specialRewards);
 		order.verify(user).setBestDayVoteStreak(7);
 		order.verify(cache).flushChangesAndRun(org.mockito.ArgumentMatchers.any(Runnable.class));
-		order.verify(specialRewards).checkVoteStreak(null, user, "Day", true);
+		order.verify(specialRewards).checkVoteStreakAt(null, user, "Day", 7, true);
 	}
 
 	@Test

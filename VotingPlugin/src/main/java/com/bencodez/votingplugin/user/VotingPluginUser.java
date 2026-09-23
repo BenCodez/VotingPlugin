@@ -1186,7 +1186,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			UserDataCache cache = getCache();
 			if (cache != null) cache.flushChangesAndRun(() -> { });
 		}
-		plugin.getSpecialRewards().checkVoteStreak(null, this, "Day", forceBungee);
+		plugin.getSpecialRewards().checkVoteStreakAt(null, this, "Day", streak, forceBungee);
 	}
 
 	/**

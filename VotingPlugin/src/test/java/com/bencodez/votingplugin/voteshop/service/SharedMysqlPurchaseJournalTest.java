@@ -68,24 +68,36 @@ class SharedMysqlPurchaseJournalTest {
 	@Test
 	void pendingDailyTotalsContributeToPercentageStreakAdmission() throws Exception {
 		Fixture fixture = fixture();
+		PreparedStatement dailyCopyInsert = mock(PreparedStatement.class);
+		PreparedStatement dailyCopySelect = mock(PreparedStatement.class);
 		PreparedStatement copyInsert = mock(PreparedStatement.class);
 		PreparedStatement copySelect = mock(PreparedStatement.class);
 		PreparedStatement resetInsert = mock(PreparedStatement.class);
 		PreparedStatement resetSelect = mock(PreparedStatement.class);
 		PreparedStatement accountingInsert = mock(PreparedStatement.class);
 		PreparedStatement accountingSelect = mock(PreparedStatement.class);
+		PreparedStatement dailyResetInsert = mock(PreparedStatement.class);
+		PreparedStatement dailyResetSelect = mock(PreparedStatement.class);
 		PreparedStatement candidateSelect = mock(PreparedStatement.class);
 		PreparedStatement pendingTotalSelect = mock(PreparedStatement.class);
 		PreparedStatement accountingUpdate = mock(PreparedStatement.class);
+		ResultSet dailyCopyEpoch = mock(ResultSet.class);
 		ResultSet copyEpoch = mock(ResultSet.class);
 		ResultSet resetEpoch = mock(ResultSet.class);
+		ResultSet dailyResetEpoch = mock(ResultSet.class);
 		ResultSet accounting = accountingRow("00000000-0000-0000-0000-000000000001", 0, 0);
 		ResultSet candidate = mock(ResultSet.class);
 		ResultSet pendingTotals = mock(ResultSet.class);
+		when(dailyCopyEpoch.next()).thenReturn(true);
+		when(dailyCopyEpoch.getString(2)).thenReturn("time-copy:DAY:2026-09-22");
 		when(copyEpoch.next()).thenReturn(true);
 		when(resetEpoch.next()).thenReturn(true);
+		when(dailyResetEpoch.next()).thenReturn(true);
+		when(dailyResetEpoch.getString(2)).thenReturn("time-total:DAY:2026-09-21");
+		when(dailyCopySelect.executeQuery()).thenReturn(dailyCopyEpoch);
 		when(copySelect.executeQuery()).thenReturn(copyEpoch);
 		when(resetSelect.executeQuery()).thenReturn(resetEpoch);
+		when(dailyResetSelect.executeQuery()).thenReturn(dailyResetEpoch);
 		when(accountingSelect.executeQuery()).thenReturn(accounting);
 		when(candidate.next()).thenReturn(true);
 		when(candidate.getInt(1)).thenReturn(0);
@@ -96,8 +108,9 @@ class SharedMysqlPurchaseJournalTest {
 		when(pendingTotals.getInt(1)).thenReturn(1);
 		when(pendingTotalSelect.executeQuery()).thenReturn(pendingTotals);
 		when(accountingUpdate.executeUpdate()).thenReturn(1);
-		when(fixture.work.prepareStatement(anyString())).thenReturn(copyInsert, copySelect, resetInsert, resetSelect,
-				accountingInsert, accountingSelect, candidateSelect, pendingTotalSelect, accountingUpdate);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(dailyCopyInsert, dailyCopySelect,
+				copyInsert, copySelect, resetInsert, resetSelect, accountingInsert, accountingSelect,
+				dailyResetInsert, dailyResetSelect, candidateSelect, pendingTotalSelect, accountingUpdate);
 
 		int requested = new SharedMysqlPurchaseJournal(fixture.table, false).prepareVoteAccounting(
 				UUID.randomUUID(), "00000000-0000-0000-0000-000000000001", false, false,
@@ -106,6 +119,10 @@ class SharedMysqlPurchaseJournalTest {
 		assertEquals(48, requested);
 		verify(accountingUpdate).setInt(2, 112);
 		verify(pendingTotalSelect).setInt(5, 64);
+		org.mockito.ArgumentCaptor<String> sql = org.mockito.ArgumentCaptor.forClass(String.class);
+		verify(fixture.work, org.mockito.Mockito.times(13)).prepareStatement(sql.capture());
+		assertTrue(sql.getAllValues().get(10).contains("LastDailyTotal"),
+				"active daily reset must exclude the copied boundary total");
 	}
 
 	@Test
