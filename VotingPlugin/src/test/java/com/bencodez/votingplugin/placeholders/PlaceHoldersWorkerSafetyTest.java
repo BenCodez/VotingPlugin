@@ -239,6 +239,29 @@ class PlaceHoldersWorkerSafetyTest {
 	}
 
 	@Test
+	void allPlayerCacheCompletesOfflineFallbackWhenQuitPrecedesEntityTask() {
+		Fixture fixture = new Fixture(PlaceholderCacheLevel.AUTOALL);
+		when(fixture.votingUser.getSitesNotVotedOnWithoutOnlinePermissions()).thenReturn(3);
+		AtomicInteger liveRequests = new AtomicInteger();
+		PlaceHolder<VotingPluginUser> available = fixture.cachedPlaceholder(
+				"SitesAvailable", "LastVotes", liveRequests);
+		fixture.placeholders.getPlaceholders().add(
+				fixture.placeholders.platformOwnedWithOfflineWorkerFallback(available));
+		fixture.placeholders.publishUserDataChangePlaceholders();
+		fixture.presence.playerOnline(fixture.player);
+
+		fixture.placeholders.onUserDataChange(fixture.advancedUser, "LastVotes");
+		ArgumentCaptor<Runnable> task = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), task.capture(), eq(fixture.player));
+		fixture.presence.playerOffline(fixture.uuid);
+		fixture.placeholders.onLogout(fixture.uuid);
+		task.getValue().run();
+
+		assertEquals("3", available.getCache().get("sitesavailable").get(fixture.uuid));
+		assertEquals(0, liveRequests.get(), "quit fallback must not access live player permissions");
+	}
+
+	@Test
 	void playerDependentUpdateMovesToTheReplacementEntityOwner() {
 		Fixture fixture = new Fixture();
 		fixture.presence.playerOnline(fixture.player);

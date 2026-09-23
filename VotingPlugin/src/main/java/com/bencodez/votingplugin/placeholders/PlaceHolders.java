@@ -1470,8 +1470,8 @@ public class PlaceHolders {
 
 	/** Clears online-only cache entries without resolving user storage. */
 	public void onLogout(UUID uuid) {
-		platformUpdateGenerations.keySet().removeIf(key -> key.uuid().equals(uuid));
 		if (getCacheLevel().onlineOnly()) {
+			platformUpdateGenerations.keySet().removeIf(key -> key.uuid().equals(uuid));
 			PlaceholderClassification classification = userDataChangeClassification;
 			for (PlaceHolder<VotingPluginUser> placeholder : classification.all()) {
 				if (placeholder.isUsesCache()) {
