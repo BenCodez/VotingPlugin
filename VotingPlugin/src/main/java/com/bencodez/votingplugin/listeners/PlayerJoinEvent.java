@@ -46,6 +46,13 @@ public class PlayerJoinEvent implements Listener {
 		return s == null || s.trim().isEmpty() || "null".equalsIgnoreCase(s.trim());
 	}
 
+	private void clearPlaceholderCachesIfOffline(UUID uuid) {
+		PlaceHolders placeholders = plugin.getPlaceholders();
+		if (placeholders != null) {
+			plugin.getPlaceholderPlayerPresence().runIfOffline(uuid, () -> placeholders.onLogout(uuid));
+		}
+	}
+
 	/**
 	 * On AdvancedCore login event (post-auth / delayed login).
 	 *
@@ -116,7 +123,7 @@ public class PlayerJoinEvent implements Listener {
 		UUID placeholderUuid = plugin.getPlaceholderPlayerPresence().storageUuid(player);
 		if (placeholderUuid == null) placeholderUuid = placeholderUuid(player);
 		boolean retiredPresence = plugin.getPlaceholderPlayerPresence().playerOffline(placeholderUuid, player);
-		if (retiredPresence && plugin.getPlaceholders() != null) plugin.getPlaceholders().onLogout(placeholderUuid);
+		if (retiredPresence) clearPlaceholderCachesIfOffline(placeholderUuid);
 
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			plugin.getBackendProxyHandler().playerOffline(player.getName());
@@ -142,11 +149,7 @@ public class PlayerJoinEvent implements Listener {
 
 				user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 				user.logoutRewards();
-				PlaceHolders placeholders = plugin.getPlaceholders();
-				if (placeholders != null
-						&& !plugin.getPlaceholderPlayerPresence().isOnline(user.getJavaUUID())) {
-					placeholders.onLogout(user);
-				}
+				clearPlaceholderCachesIfOffline(user.getJavaUUID());
 			}
 		});
 	}

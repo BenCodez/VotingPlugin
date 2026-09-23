@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.listeners;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -129,6 +130,33 @@ class PlayerJoinEventPresenceTest {
 		new PlayerJoinEvent(plugin).onPlayerQuit(quit);
 
 		assertTrue(presence.isOnline(storageUuid));
+		verify(placeholders, never()).onLogout(storageUuid);
+	}
+
+	@Test
+	void reconnectBetweenRetirementAndCleanupPreservesReplacementCaches() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		PlaceholderPlayerPresence presence = mock(PlaceholderPlayerPresence.class);
+		when(plugin.getPlaceholderPlayerPresence()).thenReturn(presence);
+		when(plugin.isEnabled()).thenReturn(true);
+		BungeeSettings bungee = mock(BungeeSettings.class);
+		when(plugin.getBungeeSettings()).thenReturn(bungee);
+		ScheduledExecutorService loginTimer = mock(ScheduledExecutorService.class);
+		when(plugin.getLoginTimer()).thenReturn(loginTimer);
+		doAnswer(call -> null).when(loginTimer).execute(any(Runnable.class));
+		PlaceHolders placeholders = mock(PlaceHolders.class);
+		when(plugin.getPlaceholders()).thenReturn(placeholders);
+		UUID storageUuid = UUID.randomUUID();
+		Player retired = mock(Player.class);
+		when(presence.storageUuid(retired)).thenReturn(storageUuid);
+		when(presence.playerOffline(storageUuid, retired)).thenReturn(true);
+		when(presence.runIfOffline(eq(storageUuid), any(Runnable.class))).thenReturn(false);
+		PlayerQuitEvent quit = mock(PlayerQuitEvent.class);
+		when(quit.getPlayer()).thenReturn(retired);
+
+		new PlayerJoinEvent(plugin).onPlayerQuit(quit);
+
+		verify(presence).runIfOffline(eq(storageUuid), any(Runnable.class));
 		verify(placeholders, never()).onLogout(storageUuid);
 	}
 }
