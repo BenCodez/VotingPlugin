@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.UUID;
@@ -95,5 +97,38 @@ class PlayerJoinEventPresenceTest {
 		listener.onPlayerQuit(quit);
 		assertFalse(presence.isOnline(storageUuid),
 				"quit must publish the storage UUID offline before asynchronous storage cleanup");
+	}
+
+	@Test
+	void staleQuitCannotRetireOrClearAReplacementOwner() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		PlaceholderPlayerPresence presence = new PlaceholderPlayerPresence();
+		when(plugin.getPlaceholderPlayerPresence()).thenReturn(presence);
+		when(plugin.isEnabled()).thenReturn(true);
+		BungeeSettings bungee = mock(BungeeSettings.class);
+		when(plugin.getBungeeSettings()).thenReturn(bungee);
+		ScheduledExecutorService loginTimer = mock(ScheduledExecutorService.class);
+		when(plugin.getLoginTimer()).thenReturn(loginTimer);
+		doAnswer(call -> null).when(loginTimer).execute(any(Runnable.class));
+		PlaceHolders placeholders = mock(PlaceHolders.class);
+		when(plugin.getPlaceholders()).thenReturn(placeholders);
+		UserManager userManager = mock(UserManager.class);
+		when(plugin.getVotingPluginUserManager()).thenReturn(userManager);
+		UUID storageUuid = UUID.randomUUID();
+		Player retired = mock(Player.class);
+		Player replacement = mock(Player.class);
+		when(retired.getUniqueId()).thenReturn(UUID.randomUUID());
+		VotingPluginUser retiredUser = mock(VotingPluginUser.class);
+		when(retiredUser.getJavaUUID()).thenReturn(storageUuid);
+		when(userManager.getVotingPluginUser(retired)).thenReturn(retiredUser);
+		presence.playerOnline(storageUuid, retired);
+		presence.playerOnline(storageUuid, replacement);
+		PlayerQuitEvent quit = mock(PlayerQuitEvent.class);
+		when(quit.getPlayer()).thenReturn(retired);
+
+		new PlayerJoinEvent(plugin).onPlayerQuit(quit);
+
+		assertTrue(presence.isOnline(storageUuid));
+		verify(placeholders, never()).onLogout(storageUuid);
 	}
 }

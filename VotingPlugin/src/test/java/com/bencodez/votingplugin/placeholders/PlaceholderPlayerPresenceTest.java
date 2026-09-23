@@ -42,7 +42,13 @@ class PlaceholderPlayerPresenceTest {
 		assertEquals(storageId, presence.storageUuid(first));
 		presence.playerOffline(storageId, second);
 		assertTrue(presence.isOnline(storageId), "a replacement owner must not retire the captured player");
-		presence.playerOffline(storageId, first);
+		Player refreshedFirst = player(firstId);
+		presence.replace(List.of(refreshedFirst, second));
+		assertTrue(presence.isOnline(storageId), "reload must retain the authoritative storage UUID");
+		assertFalse(presence.isOnline(firstId));
+		assertSame(refreshedFirst, presence.schedulerOwner(storageId));
+		assertTrue(presence.isOnline(secondId));
+		presence.playerOffline(storageId, refreshedFirst);
 		assertFalse(presence.isOnline(storageId));
 		presence.replace(List.of(first, second));
 		assertTrue(presence.isOnline(firstId));

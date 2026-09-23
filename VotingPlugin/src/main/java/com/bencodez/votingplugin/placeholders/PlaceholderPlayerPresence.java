@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.placeholders;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
@@ -65,26 +66,39 @@ public final class PlaceholderPlayerPresence {
 	}
 
 	/** Remove only the retired scheduler owner, preserving a concurrently joined replacement. */
-	public void playerOffline(UUID uuid, Player expectedOwner) {
-		if (uuid == null || expectedOwner == null) return;
+	public boolean playerOffline(UUID uuid, Player expectedOwner) {
+		if (uuid == null || expectedOwner == null) return false;
 		synchronized (lifecycleLock) {
-			update(current -> {
-				if (current.get(uuid) != expectedOwner) return current;
-				Map<UUID, Player> next = new HashMap<>(current);
-				next.remove(uuid);
-				return Map.copyOf(next);
-			});
+			Map<UUID, Player> current = onlinePlayers.get();
+			if (current.get(uuid) != expectedOwner) return false;
+			Map<UUID, Player> next = new HashMap<>(current);
+			next.remove(uuid);
+			onlinePlayers.set(Map.copyOf(next));
+			return true;
 		}
 	}
 
+	/** Rebuild online owners while retaining storage UUIDs already established by login. */
 	public void replace(Collection<? extends Player> players) {
-		Map<UUID, Player> next = new HashMap<>();
-		if (players != null) {
-			for (Player player : players) {
-				if (player != null) next.put(player.getUniqueId(), player);
+		synchronized (lifecycleLock) {
+			Map<Player, UUID> knownStorageUuids = new IdentityHashMap<>();
+			Map<UUID, UUID> storageUuidByPlayerUuid = new HashMap<>();
+			onlinePlayers.get().forEach((uuid, player) -> {
+				knownStorageUuids.put(player, uuid);
+				storageUuidByPlayerUuid.put(player.getUniqueId(), uuid);
+			});
+			Map<UUID, Player> next = new HashMap<>();
+			if (players != null) {
+				for (Player player : players) {
+					if (player == null) continue;
+					UUID uuid = knownStorageUuids.get(player);
+					UUID playerUuid = player.getUniqueId();
+					if (uuid == null) uuid = storageUuidByPlayerUuid.get(playerUuid);
+					next.put(uuid == null ? playerUuid : uuid, player);
+				}
 			}
+			onlinePlayers.set(Map.copyOf(next));
 		}
-		synchronized (lifecycleLock) { onlinePlayers.set(Map.copyOf(next)); }
 	}
 
 	/** Replace presence with storage UUIDs resolved at a platform-owned boundary. */

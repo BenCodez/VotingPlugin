@@ -12,6 +12,7 @@ import com.bencodez.advancedcore.api.player.UuidLookup;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.listeners.AdvancedCoreLoginEvent;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.placeholders.PlaceHolders;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class PlayerJoinEvent implements Listener {
@@ -114,8 +115,8 @@ public class PlayerJoinEvent implements Listener {
 		}
 		UUID placeholderUuid = plugin.getPlaceholderPlayerPresence().storageUuid(player);
 		if (placeholderUuid == null) placeholderUuid = placeholderUuid(player);
-		plugin.getPlaceholderPlayerPresence().playerOffline(placeholderUuid);
-		if (plugin.getPlaceholders() != null) plugin.getPlaceholders().onLogout(placeholderUuid);
+		boolean retiredPresence = plugin.getPlaceholderPlayerPresence().playerOffline(placeholderUuid, player);
+		if (retiredPresence && plugin.getPlaceholders() != null) plugin.getPlaceholders().onLogout(placeholderUuid);
 
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			plugin.getBackendProxyHandler().playerOffline(player.getName());
@@ -141,7 +142,11 @@ public class PlayerJoinEvent implements Listener {
 
 				user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 				user.logoutRewards();
-				plugin.getPlaceholders().onLogout(user);
+				PlaceHolders placeholders = plugin.getPlaceholders();
+				if (placeholders != null
+						&& !plugin.getPlaceholderPlayerPresence().isOnline(user.getJavaUUID())) {
+					placeholders.onLogout(user);
+				}
 			}
 		});
 	}
