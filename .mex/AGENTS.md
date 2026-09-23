@@ -18,6 +18,12 @@ For nontrivial work where architecture, prior decisions, or failure history matt
 
 MEX 0.8.2 Code Graph does not index Java. A fresh graph with zero Java sources is not Java architecture evidence. Use Wiki for context and `rg`, source reads, and tests for Java implementation truth; do not claim a Java Code Graph finding.
 
+## User-data concurrency invariant
+
+Treat AdvancedCore/VotingPlugin user-data, cache, and storage work as worker-only unless a current API is explicitly documented as a nonblocking snapshot. Bukkit/Paper primary-thread code may capture platform state, but cache population, SQL access, flush/dump/clear/remove operations, and shared-runtime admission belong on the existing storage/persistence worker.
+
+Preserve lock ordering when touching legacy `UserDataCache`: acquire shared-runtime/per-user admission before entering the cache monitor. Never hold `synchronized (UserDataCache)` while invoking an operation that can acquire shared-runtime admission. This rule is a durable project constraint; verify it against current AdvancedCore/VotingPlugin code when changing cache or point-mutation paths.
+
 ## Knowledge updates
 
 Use `$mex-inbox` for reviewable proposals about durable discoveries or decisions, without copying root `AGENTS.md` or routine task logs. Use `$mex-relay` to hand off unfinished substantial work with progress, evidence, blockers, decisions, tests, and next actions. Keep transient details out of durable context. Review MEX changes before committing or sharing; local drafts remain checkout-only.
