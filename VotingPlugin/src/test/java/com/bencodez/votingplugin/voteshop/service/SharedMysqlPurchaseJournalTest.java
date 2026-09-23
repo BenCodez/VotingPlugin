@@ -754,6 +754,8 @@ class SharedMysqlPurchaseJournalTest {
 
 		verify(requestMarkerSelect).setString(1, "streak-copy:DayVoteStreak");
 		verify(copyMarkerSelect).setString(1, "streak-copy:DayVoteStreak");
+		verify(earlierStreakSelect).setInt(4, 16);
+		verify(earlierStreakSelect).setInt(5, 16);
 		verify(update).setString(1, "1234");
 		verify(update).setString(2, "00000000-0000-0000-0000-000000000001");
 		verify(accountingUpdate).setInt(2, 8);

@@ -10,6 +10,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -25,6 +26,7 @@ import com.bencodez.votingplugin.config.ConfigVoteSites;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.listeners.VotiferEvent;
 import com.bencodez.votingplugin.listeners.VotifierVoteOverflowQueue;
+import com.bencodez.votingplugin.timequeue.TimeQueueHandler;
 import com.bencodez.votingplugin.votesites.VoteSiteManager;
 import com.vexsoftware.votifier.model.Vote;
 
@@ -155,6 +157,20 @@ public class VotiferEventDisabledVoteSiteTest {
 
 		verify(overflowQueue).enqueue(org.mockito.ArgumentMatchers.eq("Steve"),
 				org.mockito.ArgumentMatchers.eq(SERVICE_SITE), any());
+		verify(pluginManager, never()).callEvent(any(PlayerVoteEvent.class));
+	}
+
+	@Test
+	void timeChangeQueueReceivesTheOriginalVoteId() {
+		TimeQueueHandler timeQueue = mock(TimeQueueHandler.class);
+		UUID voteId = UUID.randomUUID();
+		when(plugin.getTimeQueueHandler()).thenReturn(timeQueue);
+		when(plugin.getTimeChecker().isActiveProcessing()).thenReturn(true);
+		when(plugin.getConfigFile().isQueueVotesDuringTimeChange()).thenReturn(true);
+
+		listener.processVote(SERVICE_SITE, "Steve", voteId);
+
+		verify(timeQueue).addVote(voteId, "Steve", SERVICE_SITE);
 		verify(pluginManager, never()).callEvent(any(PlayerVoteEvent.class));
 	}
 }

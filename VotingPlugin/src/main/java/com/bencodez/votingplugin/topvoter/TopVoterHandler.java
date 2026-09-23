@@ -1097,12 +1097,13 @@ public class TopVoterHandler implements Listener {
 	TimeChangeArchiveSnapshot buildTopVoterArchiveSnapshot(TopVoter boundaryTop,
 			TimeChangeTransition transition) {
 		List<TimeChangeArchiveSection> sections = new ArrayList<>();
-		LinkedHashMap<TopVoterPlayer, Integer> boundaryRanking = boundaryTopVotersFor(boundaryTop, transition);
+		TopVoterLoader.BoundaryRanking boundary = boundaryRankingFor(boundaryTop, transition);
+		LinkedHashMap<TopVoterPlayer, Integer> boundaryRanking = boundary.players();
 		for (TopVoter current : TopVoter.values()) {
 			ArrayList<String> lines = new ArrayList<>();
 			int total = 0;
 			if (current == boundaryTop) {
-				for (Integer value : boundaryRanking.values()) total += value.intValue();
+				total = boundary.combinedTotal();
 			} else {
 				try {
 					for (Integer value : plugin.getUserManager().getNumbersInColumn(current.getColumnName())) {
@@ -1126,6 +1127,14 @@ public class TopVoterHandler implements Listener {
 			}
 		}
 		return new TimeChangeArchiveSnapshot(sections);
+	}
+
+	private TopVoterLoader.BoundaryRanking boundaryRankingFor(TopVoter top,
+			TimeChangeTransition transition) {
+		if (top == TopVoter.Monthly && plugin.getConfigFile().isUseMonthDateTotalsAsPrimaryTotal()) {
+			return loader.getBoundaryRanking(TopVoter.Monthly, previousMonthTime(transition));
+		}
+		return loader.getBoundaryRanking(top, null);
 	}
 
 	void storeTopVoters(TopVoter top, TimeChangeTransition transition, TimeChangeArchiveSnapshot snapshot) {

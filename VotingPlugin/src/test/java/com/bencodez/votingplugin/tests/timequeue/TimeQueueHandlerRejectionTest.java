@@ -82,6 +82,17 @@ class TimeQueueHandlerRejectionTest {
 	}
 
 	@Test
+	void queueAdmissionPreservesTheReceptionVoteId() {
+		when(serverData.getTimedVoteCacheKeys()).thenReturn(Set.of());
+		TimeQueueHandler handler = new TimeQueueHandler(plugin);
+		UUID voteId = UUID.randomUUID();
+
+		handler.addVote(voteId, "Alex", "example.org");
+
+		assertEquals(voteId, handler.getTimeChangeQueue().peek().getVoteId());
+	}
+
+	@Test
 	void rejectedProcessingSchedulesOneBoundedRetry() {
 		TimeQueueHandler handler = new TimeQueueHandler(plugin);
 		org.mockito.ArgumentCaptor<Runnable> retry = org.mockito.ArgumentCaptor.forClass(Runnable.class);

@@ -768,7 +768,6 @@ final class SharedMysqlPurchaseJournal {
 
 	private boolean hasEarlierPendingDailyStreak(Connection connection, UUID voteId, String uuid, long updatedAt)
 			throws SQLException {
-		int streakOperations = DAILY_STREAK | DAILY_STREAK_REWARD;
 		String select = "SELECT " + qi("vote_id") + " FROM " + qiAccounting() + " WHERE "
 				+ qi("player_uuid") + " = ? AND " + qi("vote_id") + " <> ? AND " + qi("streak_updated_at")
 				+ " < ? AND (" + qi("requested") + " & ?) <> (" + qi("completed")
@@ -777,8 +776,11 @@ final class SharedMysqlPurchaseJournal {
 			statement.setString(1, uuid);
 			statement.setString(2, voteId.toString());
 			statement.setLong(3, updatedAt);
-			statement.setInt(4, streakOperations);
-			statement.setInt(5, streakOperations);
+			// Only the ordered streak mutation blocks its successor. A reward claim can
+			// remain intentionally ambiguous forever, but its journaled streak value is
+			// independent and must not starve later-day mutations.
+			statement.setInt(4, DAILY_STREAK);
+			statement.setInt(5, DAILY_STREAK);
 			try (ResultSet result = statement.executeQuery()) {
 				return result.next();
 			}

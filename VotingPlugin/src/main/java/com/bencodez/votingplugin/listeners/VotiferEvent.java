@@ -92,7 +92,7 @@ public class VotiferEvent implements Listener {
 			if (plugin.getTimeChecker().isActiveProcessing()
 					&& plugin.getConfigFile().isQueueVotesDuringTimeChange()) {
 				plugin.debug("Adding vote to time queue " + voteUsername + "/" + voteSite);
-				plugin.getTimeQueueHandler().addVote(voteUsername, voteSite);
+				plugin.getTimeQueueHandler().addVote(voteId, voteUsername, voteSite);
 				return true;
 			}
 

@@ -58,7 +58,12 @@ public class TimeQueueHandler implements Listener {
 	 * @param voteSiteName the vote site name
 	 */
 	public void addVote(String voteUsername, String voteSiteName) {
-		timeChangeQueue.add(new VoteTimeQueue(voteUsername, voteSiteName,
+		addVote(null, voteUsername, voteSiteName);
+	}
+
+	/** Adds a vote while preserving the identity assigned at reception. */
+	public void addVote(UUID voteId, String voteUsername, String voteSiteName) {
+		timeChangeQueue.add(new VoteTimeQueue(voteId, voteUsername, voteSiteName,
 				LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()));
 	}
 

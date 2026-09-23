@@ -19,6 +19,7 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 
 /** Loads top-voter rankings from user storage. */
 public class TopVoterLoader {
+	record BoundaryRanking(LinkedHashMap<TopVoterPlayer, Integer> players, int combinedTotal) { }
 
 	private final VotingPluginMain plugin;
 
@@ -52,18 +53,23 @@ public class TopVoterLoader {
 
 	/** Loads a ranking from the immutable last-period column copied at transition admission. */
 	public LinkedHashMap<TopVoterPlayer, Integer> getBoundaryTopVoters(TopVoter top) {
-		return getBoundaryTopVoters(top, null);
+		return getBoundaryRanking(top, null).players();
 	}
 
 	/** Loads an immutable dated-month ranking without stopping when shutdown starts. */
 	public LinkedHashMap<TopVoterPlayer, Integer> getBoundaryMonthlyTopVotersAtTime(LocalDateTime atTime) {
-		return getBoundaryTopVoters(TopVoter.Monthly, atTime);
+		return getBoundaryRanking(TopVoter.Monthly, atTime).players();
 	}
 
-	private LinkedHashMap<TopVoterPlayer, Integer> getBoundaryTopVoters(TopVoter top,
+	BoundaryRanking getBoundaryRanking(TopVoter top, LocalDateTime monthlyTime) {
+		return loadBoundaryRanking(top, monthlyTime);
+	}
+
+	private BoundaryRanking loadBoundaryRanking(TopVoter top,
 			LocalDateTime monthlyTime) {
 		LinkedHashMap<TopVoterPlayer, Integer> topVoters = new LinkedHashMap<>();
-		CountDownLatch latch = new CountDownLatch(1);
+		int[] combinedTotal = { 0 };
+		int limit = plugin.getConfigFile().getMaxiumNumberOfTopVotersToLoad();
 		plugin.getUserManager().forEachUserKeys((uuid, columns) -> {
 			if (uuid == null) return;
 			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
@@ -76,20 +82,42 @@ public class TopVoterLoader {
 				case Monthly -> user.getLastMonthTotal();
 				default -> 0;
 				} : user.getTotal(TopVoter.Monthly, monthlyTime);
-				if (total > 0) topVoters.put(user.getTopVoterPlayer(), total);
+				if (total > 0) {
+					combinedTotal[0] += total;
+					addBounded(topVoters, user.getTopVoterPlayer(), total, limit);
+				}
 			} finally {
 				user.clearTempCache();
 			}
-		}, count -> latch.countDown());
-		try {
-			if (!latch.await(10, TimeUnit.MINUTES)) {
-				throw new IllegalStateException("Timed out loading boundary top voters");
-			}
-		} catch (InterruptedException interrupted) {
-			Thread.currentThread().interrupt();
-			throw new IllegalStateException("Interrupted while loading boundary top voters", interrupted);
+		}, count -> { });
+		return new BoundaryRanking(TopVoterRanking.sortByValues(topVoters, false), combinedTotal[0]);
+	}
+
+	private static void addBounded(LinkedHashMap<TopVoterPlayer, Integer> ranking,
+			TopVoterPlayer player, int total, int limit) {
+		if (limit <= 0 || ranking.size() < limit) {
+			ranking.put(player, total);
+			return;
 		}
-		return TopVoterRanking.sortByValues(topVoters, false);
+		Entry<TopVoterPlayer, Integer> worst = null;
+		for (Entry<TopVoterPlayer, Integer> entry : ranking.entrySet()) {
+			if (worst == null || compareRank(entry.getKey(), entry.getValue(),
+					worst.getKey(), worst.getValue()) > 0) worst = entry;
+		}
+		if (worst != null && compareRank(player, total, worst.getKey(), worst.getValue()) < 0) {
+			ranking.remove(worst.getKey());
+			ranking.put(player, total);
+		}
+	}
+
+	/** Negative when the first entry ranks ahead of the second. */
+	private static int compareRank(TopVoterPlayer first, int firstTotal,
+			TopVoterPlayer second, int secondTotal) {
+		int totals = Integer.compare(secondTotal, firstTotal);
+		if (totals != 0) return totals;
+		int times = first.getLastVoteTime().compareTo(second.getLastVoteTime());
+		if (times != 0) return times;
+		return first.getUuid().toString().compareTo(second.getUuid().toString());
 	}
 
 	public LinkedHashMap<TopVoterPlayer, Integer> getTopVotersOfMonth(YearMonth month,
