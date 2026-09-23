@@ -1937,7 +1937,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	/** Captures Bukkit presence while the lifecycle caller owns platform access. */
 	public void refreshPlaceholderPlayerPresence() {
-		placeholderPlayerPresence.replace(Bukkit.getOnlinePlayers());
+		HashMap<UUID, Player> online = new HashMap<>();
+		for (Player player : Bukkit.getOnlinePlayers()) {
+			VotingPluginUser user = getVotingPluginUserManager().getVotingPluginUser(player);
+			online.put(user == null || user.getJavaUUID() == null ? player.getUniqueId() : user.getJavaUUID(), player);
+		}
+		placeholderPlayerPresence.replace(online);
 	}
 
 	/** Reloads configuration applied by Control before its result is acknowledged. */

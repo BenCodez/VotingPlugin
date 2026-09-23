@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.listeners;
 
+import java.util.UUID;
+
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -29,7 +31,14 @@ public class PlayerJoinEvent implements Listener {
 	/** Capture the entity owner before asynchronous user notifications can need it. */
 	@EventHandler(priority = EventPriority.LOWEST)
 	public void onPlayerJoin(org.bukkit.event.player.PlayerJoinEvent event) {
-		if (event != null) plugin.getPlaceholderPlayerPresence().playerOnline(event.getPlayer());
+		if (event == null || event.getPlayer() == null) return;
+		Player player = event.getPlayer();
+		plugin.getPlaceholderPlayerPresence().playerOnline(placeholderUuid(player), player);
+	}
+
+	private UUID placeholderUuid(Player player) {
+		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
+		return user == null || user.getJavaUUID() == null ? player.getUniqueId() : user.getJavaUUID();
 	}
 
 	private static boolean isBlank(String s) {
@@ -100,8 +109,10 @@ public class PlayerJoinEvent implements Listener {
 		if (player == null) {
 			return;
 		}
-		plugin.getPlaceholderPlayerPresence().playerOffline(player.getUniqueId());
-		if (plugin.getPlaceholders() != null) plugin.getPlaceholders().onLogout(player.getUniqueId());
+		UUID placeholderUuid = plugin.getPlaceholderPlayerPresence().storageUuid(player);
+		if (placeholderUuid == null) placeholderUuid = placeholderUuid(player);
+		plugin.getPlaceholderPlayerPresence().playerOffline(placeholderUuid);
+		if (plugin.getPlaceholders() != null) plugin.getPlaceholders().onLogout(placeholderUuid);
 
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			plugin.getBackendProxyHandler().playerOffline(player.getName());

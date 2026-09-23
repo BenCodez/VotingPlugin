@@ -25,9 +25,23 @@ public final class PlaceholderPlayerPresence {
 		return uuid == null ? null : onlinePlayers.get().get(uuid);
 	}
 
+	/** Resolve the storage key already published for this exact scheduler owner. */
+	public UUID storageUuid(Player player) {
+		if (player == null) return null;
+		for (Map.Entry<UUID, Player> entry : onlinePlayers.get().entrySet()) {
+			if (entry.getValue() == player) return entry.getKey();
+		}
+		return null;
+	}
+
 	public void playerOnline(Player player) {
 		if (player == null) return;
-		UUID uuid = player.getUniqueId();
+		playerOnline(player.getUniqueId(), player);
+	}
+
+	/** Publish the storage UUID with the captured Bukkit scheduler owner. */
+	public void playerOnline(UUID uuid, Player player) {
+		if (uuid == null || player == null) return;
 		synchronized (lifecycleLock) {
 			update(current -> {
 				Map<UUID, Player> next = new HashMap<>(current);
@@ -49,6 +63,19 @@ public final class PlaceholderPlayerPresence {
 		}
 	}
 
+	/** Remove only the retired scheduler owner, preserving a concurrently joined replacement. */
+	public void playerOffline(UUID uuid, Player expectedOwner) {
+		if (uuid == null || expectedOwner == null) return;
+		synchronized (lifecycleLock) {
+			update(current -> {
+				if (current.get(uuid) != expectedOwner) return current;
+				Map<UUID, Player> next = new HashMap<>(current);
+				next.remove(uuid);
+				return Map.copyOf(next);
+			});
+		}
+	}
+
 	public void replace(Collection<? extends Player> players) {
 		Map<UUID, Player> next = new HashMap<>();
 		if (players != null) {
@@ -56,6 +83,15 @@ public final class PlaceholderPlayerPresence {
 				if (player != null) next.put(player.getUniqueId(), player);
 			}
 		}
+		synchronized (lifecycleLock) { onlinePlayers.set(Map.copyOf(next)); }
+	}
+
+	/** Replace presence with storage UUIDs resolved at a platform-owned boundary. */
+	public void replace(Map<UUID, ? extends Player> players) {
+		Map<UUID, Player> next = new HashMap<>();
+		if (players != null) players.forEach((uuid, player) -> {
+			if (uuid != null && player != null) next.put(uuid, player);
+		});
 		synchronized (lifecycleLock) { onlinePlayers.set(Map.copyOf(next)); }
 	}
 

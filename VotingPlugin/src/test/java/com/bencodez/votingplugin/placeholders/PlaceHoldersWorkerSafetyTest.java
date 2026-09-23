@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -17,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -30,6 +32,10 @@ import org.mockito.ArgumentCaptor;
 import com.bencodez.advancedcore.api.placeholder.CalculatingPlaceholder;
 import com.bencodez.advancedcore.api.placeholder.PlaceHolder;
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
+import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
+import com.bencodez.simpleapi.folialib.FoliaLib;
+import com.bencodez.simpleapi.folialib.enums.EntityTaskResult;
+import com.bencodez.simpleapi.folialib.impl.ServerImplementation;
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.Config;
@@ -102,6 +108,20 @@ class PlaceHoldersWorkerSafetyTest {
 	}
 
 	@Test
+	void unpublishedReloadGenerationCannotBypassPlatformClassification() {
+		Fixture fixture = new Fixture();
+		fixture.presence.playerOnline(fixture.player);
+		AtomicInteger requests = new AtomicInteger();
+		PlaceHolder<VotingPluginUser> placeholder = fixture.cachedPlaceholder("LastVotes", requests);
+		fixture.placeholders.getPlaceholders().add(fixture.placeholders.platformOwned(placeholder));
+
+		fixture.placeholders.onUpdate(fixture.votingUser, true);
+
+		assertEquals(0, requests.get(), "readers must use the last complete published classification");
+		verify(fixture.scheduler, never()).runTask(eq(fixture.plugin), any(Runnable.class), any(Player.class));
+	}
+
+	@Test
 	void offlineAllCacheUsesTheWorkerSafePlatformFallback() {
 		Fixture fixture = new Fixture(PlaceholderCacheLevel.AUTOALL);
 		when(fixture.votingUser.getSitesNotVotedOnWithoutOnlinePermissions()).thenReturn(4);
@@ -121,6 +141,35 @@ class PlaceHoldersWorkerSafetyTest {
 		assertEquals("6", total.getCache().get("sitesavailabletotal").get(fixture.uuid));
 		assertEquals(0, liveRequests.get(), "offline fallback must not resolve live player permissions");
 		verify(fixture.scheduler, never()).runTask(eq(fixture.plugin), any(Runnable.class), any(Player.class));
+	}
+
+	@Test
+	void retiredEntityFallsBackToOfflineWorkerUpdate() {
+		Fixture fixture = new Fixture(PlaceholderCacheLevel.AUTOALL);
+		when(fixture.votingUser.getSitesNotVotedOnWithoutOnlinePermissions()).thenReturn(4);
+		AtomicInteger liveRequests = new AtomicInteger();
+		PlaceHolder<VotingPluginUser> available = fixture.cachedPlaceholder(
+				"SitesAvailable", "LastVotes", liveRequests);
+		fixture.placeholders.getPlaceholders().add(
+				fixture.placeholders.platformOwnedWithOfflineWorkerFallback(available));
+		fixture.placeholders.publishUserDataChangePlaceholders();
+		fixture.presence.playerOnline(fixture.player);
+		FoliaLib folia = mock(FoliaLib.class);
+		ServerImplementation entityScheduler = mock(ServerImplementation.class);
+		when(fixture.scheduler.getFoliaLib()).thenReturn(folia);
+		when(folia.getImpl()).thenReturn(entityScheduler);
+		when(entityScheduler.runAtEntityWithFallback(eq(fixture.player), any(), any(Runnable.class)))
+				.thenAnswer(call -> {
+					call.getArgument(2, Runnable.class).run();
+					return CompletableFuture.completedFuture(EntityTaskResult.ENTITY_RETIRED);
+				});
+		doAnswer(call -> { call.getArgument(1, Runnable.class).run(); return null; })
+				.when(fixture.scheduler).runTask(eq(fixture.plugin), any(Runnable.class));
+
+		fixture.placeholders.onUserDataChange(fixture.advancedUser, "LastVotes");
+
+		assertEquals("4", available.getCache().get("sitesavailable").get(fixture.uuid));
+		assertEquals(0, liveRequests.get(), "retirement fallback must not read live player permissions");
 	}
 
 	@Test
@@ -194,6 +243,9 @@ class PlaceHoldersWorkerSafetyTest {
 		final VotingPluginMain plugin = mock(VotingPluginMain.class);
 		final Config config = mock(Config.class);
 		final UserManager userManager = mock(UserManager.class);
+		final com.bencodez.advancedcore.api.user.UserManager advancedUserManager =
+				mock(com.bencodez.advancedcore.api.user.UserManager.class);
+		final UserDataManager dataManager = mock(UserDataManager.class);
 		final VotingPluginUser votingUser = mock(VotingPluginUser.class);
 		final AdvancedCoreUser advancedUser = mock(AdvancedCoreUser.class);
 		final BukkitScheduler scheduler = mock(BukkitScheduler.class);
@@ -209,6 +261,10 @@ class PlaceHoldersWorkerSafetyTest {
 			when(plugin.getConfigFile()).thenReturn(config);
 			when(config.getPlaceholderCacheLevel()).thenReturn(level);
 			when(plugin.getVotingPluginUserManager()).thenReturn(userManager);
+			when(plugin.getUserManager()).thenReturn(advancedUserManager);
+			when(advancedUserManager.getDataManager()).thenReturn(dataManager);
+			doAnswer(call -> { call.getArgument(0, Runnable.class).run(); return null; })
+					.when(dataManager).dispatchSharedUserDataNotification(any(Runnable.class));
 			when(userManager.getVotingPluginUser(advancedUser)).thenReturn(votingUser);
 			when(votingUser.isCached()).thenReturn(true);
 			when(votingUser.getJavaUUID()).thenReturn(uuid);

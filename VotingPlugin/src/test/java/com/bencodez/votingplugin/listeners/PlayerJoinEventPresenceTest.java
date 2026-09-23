@@ -17,6 +17,8 @@ import org.junit.jupiter.api.Test;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.BungeeSettings;
 import com.bencodez.votingplugin.placeholders.PlaceholderPlayerPresence;
+import com.bencodez.votingplugin.user.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
 
 class PlayerJoinEventPresenceTest {
 	@Test
@@ -33,8 +35,14 @@ class PlayerJoinEventPresenceTest {
 		doAnswer(call -> null).when(loginTimer).execute(any(Runnable.class));
 
 		UUID uuid = UUID.randomUUID();
+		UUID storageUuid = UUID.randomUUID();
 		Player player = mock(Player.class);
 		when(player.getUniqueId()).thenReturn(uuid);
+		UserManager userManager = mock(UserManager.class);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		when(plugin.getVotingPluginUserManager()).thenReturn(userManager);
+		when(userManager.getVotingPluginUser(player)).thenReturn(user);
+		when(user.getJavaUUID()).thenReturn(storageUuid);
 		org.bukkit.event.player.PlayerJoinEvent join = mock(org.bukkit.event.player.PlayerJoinEvent.class);
 		when(join.getPlayer()).thenReturn(player);
 		PlayerQuitEvent quit = mock(PlayerQuitEvent.class);
@@ -42,8 +50,10 @@ class PlayerJoinEventPresenceTest {
 		PlayerJoinEvent listener = new PlayerJoinEvent(plugin);
 
 		listener.onPlayerJoin(join);
-		assertTrue(presence.isOnline(uuid));
+		assertTrue(presence.isOnline(storageUuid));
+		assertFalse(presence.isOnline(uuid));
 		listener.onPlayerQuit(quit);
-		assertFalse(presence.isOnline(uuid), "quit must publish offline before asynchronous storage cleanup");
+		assertFalse(presence.isOnline(storageUuid),
+				"quit must publish the storage UUID offline before asynchronous storage cleanup");
 	}
 }
