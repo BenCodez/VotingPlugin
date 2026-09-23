@@ -883,14 +883,11 @@ public class TopVoterHandler implements Listener {
 			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(
 					UUID.fromString(target.uuid()), target.playerName());
 			user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
-			if (!plugin.getServerData().getTimeChangeTopPolicy(transition).ignorePermission()
-					|| !user.isTopVoterIgnore()) {
-				plugin.getServerData().claimTimeChangeReward(transition, target.uuid());
-				giveTopVoterAward(top, user, target.place(), target.reward(), target.votes());
-				plugin.getServerData().completeTimeChangeReward(transition, target.uuid());
-				plugin.getLogger().info("Giving " + top + " top voter reward " + target.place() + " to "
-						+ target.playerName());
-			}
+			plugin.getServerData().claimTimeChangeReward(transition, target.uuid());
+			giveTopVoterAward(top, user, target.place(), target.reward(), target.votes());
+			plugin.getServerData().completeTimeChangeReward(transition, target.uuid());
+			plugin.getLogger().info("Giving " + top + " top voter reward " + target.place() + " to "
+					+ target.playerName());
 		}
 	}
 

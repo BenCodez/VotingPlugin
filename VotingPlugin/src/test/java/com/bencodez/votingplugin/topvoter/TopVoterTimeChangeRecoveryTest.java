@@ -469,6 +469,28 @@ class TopVoterTimeChangeRecoveryTest {
 	}
 
 	@Test
+	void persistedTopRewardTargetIsNotReevaluatedAgainstCurrentIgnoreState() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		ServerData serverData = mock(ServerData.class);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		TimeChangeTransition transition = mock(TimeChangeTransition.class);
+		String uuid = "00000000-0000-0000-0000-000000000001";
+		TimeChangeRewardTarget target = new TimeChangeRewardTarget(uuid, "first", 1, "1", 20);
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(serverData.getTimeChangeRewardTargets(transition)).thenReturn(List.of(target));
+		when(serverData.getTimeChangeRewardState(transition, uuid)).thenReturn(TimeChangeRewardState.UNCLAIMED);
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuid), "first"))
+				.thenReturn(user);
+		when(user.isTopVoterIgnore()).thenReturn(true);
+
+		new TopVoterHandler(plugin).processRecoverableTopRewards(TopVoter.Daily, transition);
+
+		verify(serverData).claimTimeChangeReward(transition, uuid);
+		verify(user).giveDailyTopVoterAward(1, "1", 20);
+		verify(serverData).completeTimeChangeReward(transition, uuid);
+	}
+
+	@Test
 	void archiveRetryUsesOneStableTransitionFile() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		TimeChangeTransition transition = mock(TimeChangeTransition.class);

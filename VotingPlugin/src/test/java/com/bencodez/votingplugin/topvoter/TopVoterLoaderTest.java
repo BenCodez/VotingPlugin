@@ -139,7 +139,7 @@ public class TopVoterLoaderTest {
 				TopVoter.Daily, null, true, java.util.List.of("blacklisted"));
 
 		assertEquals(0, ranking.players().size());
-		assertEquals(0, ranking.combinedTotal());
+		assertEquals(60, ranking.combinedTotal());
 	}
 
 	private VotingPluginUser boundaryUser(UUID uuid, String name, int total,

@@ -31,6 +31,7 @@ import com.bencodez.votingplugin.backendproxy.transport.BackendProxyTransportMan
 import com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
+import com.bencodez.votingplugin.util.VoteTaskAdmission;
 
 import lombok.Getter;
 
@@ -317,7 +318,8 @@ public class BackendProxyHandler implements Listener {
 		}
 		orderedVoteDispatchActive = true;
 		try {
-			plugin.getBukkitScheduler().runTaskAsynchronously(plugin, this::runNextOrderedVoteDispatch);
+			plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
+					VoteTaskAdmission.ownedTask(this::runNextOrderedVoteDispatch));
 		} catch (RuntimeException schedulingFailure) {
 			orderedVoteDispatchActive = false;
 			orderedVoteDispatch.notifyAll();

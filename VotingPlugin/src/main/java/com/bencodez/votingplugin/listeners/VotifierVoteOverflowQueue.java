@@ -29,6 +29,7 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.util.DurableFiles;
 import com.bencodez.votingplugin.util.MinecraftUsernameValidator;
 import com.bencodez.votingplugin.util.ServiceSiteValidator;
+import com.bencodez.votingplugin.util.VoteTaskAdmission;
 
 /**
  * Durable overflow for votes that cannot currently be admitted to the bounded
@@ -160,14 +161,12 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 					return;
 				}
 				pending.submitted = true;
-				try {
-					// Serialize admission with enqueue so the version proven durable
-					// above cannot change in the gap before submit accepts this vote.
-					plugin.getVoteTimer().submit(() -> {
+				// Serialize admission with enqueue so the version proven durable
+				// above cannot change in the gap before submit accepts this vote.
+				if (!VoteTaskAdmission.trySubmit(plugin.getVoteTimer(), () -> {
 						if (processor.accept(pending.serviceSite, pending.username, pending.voteId)) acknowledge(pending);
 						else retry(pending);
-					});
-				} catch (RejectedExecutionException rejected) {
+					})) {
 					pending.submitted = false;
 					drainScheduled = false;
 					try {

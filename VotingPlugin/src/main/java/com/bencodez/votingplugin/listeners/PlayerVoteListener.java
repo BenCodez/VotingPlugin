@@ -22,6 +22,7 @@ import com.bencodez.votingplugin.events.PlayerPostVoteEvent;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.util.VoteTaskAdmission;
 import com.bencodez.votingplugin.votesites.VoteSite;
 import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseService;
 
@@ -33,14 +34,31 @@ public class PlayerVoteListener implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onplayerVote(PlayerVoteEvent event) {
+	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+	public void onplayerVote(PlayerVoteEvent event) {
+		if (!VoteTaskAdmission.isVoteTask() && Bukkit.isPrimaryThread()) {
+			if (!VoteTaskAdmission.trySubmit(plugin.getVoteTimer(), () -> processVote(event))) {
+				failAdmission(event, new SharedVoteAdmissionException("Vote executor rejected accounting admission"));
+			}
+			return;
+		}
+		processVote(event);
+	}
+
+	private void processVote(PlayerVoteEvent event) {
         try {
             SharedVoteProcessor.process(new BukkitOperations(plugin, event));
         } catch (SharedVoteAdmissionException admissionFailure) {
-            event.setAccountingAdmissionFailed(true);
+			failAdmission(event, admissionFailure);
         }
     }
+
+	private void failAdmission(PlayerVoteEvent event, SharedVoteAdmissionException failure) {
+		event.setAccountingAdmissionFailed(true);
+		plugin.getLogger().severe("Vote processing aborted because shared accounting admission failed for "
+				+ event.getPlayer() + '/' + event.getServiceSite());
+		plugin.debug(failure);
+	}
 
     private static final class BukkitOperations implements SharedVoteProcessor.Operations<VoteSite, VotingPluginUser> {
         private final VotingPluginMain plugin;

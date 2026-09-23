@@ -104,6 +104,7 @@ public class VoteTester {
 
 	public void testSpam(int amount, String name, String site) {
 		AtomicBoolean rejectionLogged = new AtomicBoolean();
+		AtomicBoolean accountingFailureLogged = new AtomicBoolean();
 		for (int i = 0; i < amount; i++) {
 			plugin.getBukkitScheduler().runTaskAsynchronously(plugin, new Runnable() {
 
@@ -116,6 +117,11 @@ public class VoteTester {
 							PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSiteManager().getVoteSite(site, false), name,
 									plugin.getVoteSiteManager().getVoteSiteServiceSite(site), false);
 							plugin.getServer().getPluginManager().callEvent(voteEvent);
+							if (voteEvent.isAccountingAdmissionFailed()
+									&& accountingFailureLogged.compareAndSet(false, true)) {
+								plugin.getLogger().warning(
+										"One or more spam-test votes failed shared accounting admission.");
+							}
 						}
 					}) && rejectionLogged.compareAndSet(false, true)) {
 						plugin.getLogger().warning("One or more spam-test votes could not be submitted because vote processing is busy.");
@@ -138,6 +144,10 @@ public class VoteTester {
 					PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSiteManager().getVoteSite(site, false), name,
 							plugin.getVoteSiteManager().getVoteSiteServiceSite(site), false);
 					plugin.getServer().getPluginManager().callEvent(voteEvent);
+					if (voteEvent.isAccountingAdmissionFailed()) {
+						plugin.getLogger().warning("Vote performance test stopped after shared accounting admission failed.");
+						return;
+					}
 					long start2 = System.currentTimeMillis();
 					timesPerVote.add(start2 - start1);
 				}

@@ -1,7 +1,6 @@
 package com.bencodez.votingplugin.listeners;
 
 import java.util.UUID;
-import java.util.concurrent.RejectedExecutionException;
 
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -13,6 +12,7 @@ import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.util.MinecraftUsernameValidator;
 import com.bencodez.votingplugin.util.ServiceSiteValidator;
+import com.bencodez.votingplugin.util.VoteTaskAdmission;
 import com.vexsoftware.votifier.model.Vote;
 import com.vexsoftware.votifier.model.VotifierEvent;
 
@@ -165,9 +165,8 @@ public class VotiferEvent implements Listener {
 		plugin.debug("IP: " + IP);
 
 		UUID voteId = UUID.randomUUID();
-		try {
-			plugin.getVoteTimer().submit(() -> processVote(voteSite, voteUsername, voteId));
-		} catch (RejectedExecutionException rejected) {
+		if (!VoteTaskAdmission.trySubmit(plugin.getVoteTimer(),
+				() -> processVote(voteSite, voteUsername, voteId))) {
 			VotifierVoteOverflowQueue overflow = plugin.getVotifierVoteOverflowQueue();
 			if (overflow == null || !overflow.enqueue(voteUsername, voteSite, voteId)) {
 				plugin.getLogger().severe("Votifier vote queue is full; vote was not admitted for "

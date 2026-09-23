@@ -84,9 +84,6 @@ public class TopVoterLoader {
 			user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
 			user.updateTempCacheWithColumns(columns);
 			try {
-				String playerName = user.getPlayerName();
-				if (user.isBanned() || playerName != null && blacklist.contains(playerName)
-						|| ignorePermission && user.isTopVoterIgnore()) return;
 				int total = monthlyTime == null ? switch (top) {
 				case Daily -> user.getLastDailyTotal();
 				case Weekly -> user.getLastWeeklyTotal();
@@ -95,6 +92,9 @@ public class TopVoterLoader {
 				} : user.getTotal(TopVoter.Monthly, monthlyTime);
 				if (total > 0) {
 					combinedTotal[0] += total;
+					String playerName = user.getPlayerName();
+					if (user.isBanned() || playerName != null && blacklist.contains(playerName)
+							|| ignorePermission && user.isTopVoterIgnore()) return;
 					addBounded(topVoters, user.getTopVoterPlayer(), total, limit);
 				}
 			} finally {

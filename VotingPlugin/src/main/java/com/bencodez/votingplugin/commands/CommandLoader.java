@@ -129,6 +129,30 @@ public class CommandLoader {
 		BukkitCompletionScheduler.run(plugin, user.getPlayer(), task);
 	}
 
+	private boolean callVoteAndReport(CommandSender sender, PlayerVoteEvent event) {
+		plugin.getServer().getPluginManager().callEvent(event);
+		if (event.isAccountingAdmissionFailed()) {
+			runForCommandSender(sender,
+					() -> sender.sendMessage(MessageAPI.colorize(
+							"&cVote could not be processed because shared storage is unavailable.")));
+			return false;
+		}
+		return true;
+	}
+
+	private void submitVoteAndReport(CommandSender sender, PlayerVoteEvent event) {
+		submitVoteAndReport(sender, event, null);
+	}
+
+	private void submitVoteAndReport(CommandSender sender, PlayerVoteEvent event, Runnable success) {
+		if (!VoteTaskAdmission.trySubmit(plugin.getVoteTimer(), () -> {
+			if (callVoteAndReport(sender, event) && success != null) runForCommandSender(sender, success);
+		})) {
+			sender.sendMessage(MessageAPI.colorize(
+					"&cCould not trigger the vote because vote processing is busy; please try again later."));
+		}
+	}
+
 	String transferFailureMessage(PointTransferResult result) {
 		if (result == PointTransferResult.INSUFFICIENT_POINTS) {
 			return plugin.getConfigFile().getFormatCommandsVoteGivePointsNotEnoughPoints();
@@ -1336,7 +1360,7 @@ public class CommandLoader {
 													+ voteEvent.getServiceSite() + "?");
 								}
 							}
-							plugin.getServer().getPluginManager().callEvent(voteEvent);
+							callVoteAndReport(sender, voteEvent);
 						}
 					})) {
 						rejected++;
@@ -1375,7 +1399,7 @@ public class CommandLoader {
 
 						@Override
 						public void run() {
-							plugin.getServer().getPluginManager().callEvent(voteEvent);
+							callVoteAndReport(sender, voteEvent);
 						}
 					})) {
 						sendMessage(sender, "&cCould not trigger the vote because vote processing is busy; please try again later.");
@@ -1413,7 +1437,7 @@ public class CommandLoader {
 
 							@Override
 							public void run() {
-								plugin.getServer().getPluginManager().callEvent(voteEvent);
+								callVoteAndReport(sender, voteEvent);
 							}
 						})) {
 							sendMessage(sender, "&cCould not trigger the vote because vote processing is busy; please try again later.");
@@ -1462,7 +1486,7 @@ public class CommandLoader {
 													+ voteEvent.getServiceSite() + "?");
 								}
 							}
-							plugin.getServer().getPluginManager().callEvent(voteEvent);
+							submitVoteAndReport(sender, voteEvent);
 						}
 
 						if (plugin.isYmlError()) {
@@ -1491,7 +1515,7 @@ public class CommandLoader {
 												+ voteEvent.getServiceSite() + "?");
 							}
 						}
-						plugin.getServer().getPluginManager().callEvent(voteEvent);
+						submitVoteAndReport(sender, voteEvent);
 
 					}
 				});
@@ -3152,11 +3176,9 @@ public class CommandLoader {
 																plugin.getVoteSiteManager()
 																		.getVoteSiteServiceSite(value),
 																false);
-														plugin.getServer().getPluginManager().callEvent(voteEvent);
-
-														player.sendMessage("Forced vote for "
-																+ UserGUI.getInstance().getCurrentPlayer(player)
-																+ " on " + value);
+														String target = UserGUI.getInstance().getCurrentPlayer(player);
+														submitVoteAndReport(player, voteEvent, () -> player
+																.sendMessage("Forced vote for " + target + " on " + value));
 													}
 												});
 
