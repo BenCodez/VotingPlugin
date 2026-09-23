@@ -59,11 +59,11 @@ public final class SharedVoteProcessor {
         void broadcast(UUID uuid, String name, String siteDisplayName, boolean online);
         boolean hasProxyTextTotals();
         UUID incomingVoteId();
-        void prepareAccounting(U user, UUID voteId, boolean countTotals);
+        boolean prepareAccounting(U user, UUID voteId, boolean countTotals);
         void finishAccounting(UUID voteId);
         void cache(U user);
         void updateName(U user);
-        void voteParty(U user, boolean realVote, boolean forceProxyRouting, UUID voteId);
+        void voteParty(U user, boolean forceProxyRouting, UUID voteId, boolean eligible);
         long incomingTime();
         void setTime(U user, S site, long time);
         void setTimeNow(U user, S site);
@@ -172,11 +172,11 @@ public final class SharedVoteProcessor {
                 ops.incomingTime(), ops.realVote(), ops.addTotals(), ops.proxyVote(),
                 ops.forceProxyRouting(), ops.wasOnline());
         boolean countTotals = policy.shouldCountTotals(accountingInput, () -> ops.userOnline(user));
-        ops.prepareAccounting(user, voteId, countTotals);
+        boolean votePartyEligible = ops.prepareAccounting(user, voteId, countTotals);
         try {
             ops.cache(user);
             ops.updateName(user);
-            ops.voteParty(user, ops.realVote(), ops.forceProxyRouting(), voteId);
+            ops.voteParty(user, ops.forceProxyRouting(), voteId, votePartyEligible);
             if (ops.broadcastEnabled() && ops.hasBroadcastHandler()) {
                 boolean currentOnline = ops.userOnline(user);
                 boolean online = currentOnline;

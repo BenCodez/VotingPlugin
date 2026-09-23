@@ -415,15 +415,18 @@ public class VoteParty implements Listener {
 	}
 
 	public synchronized void vote(VotingPluginUser user, boolean realVote, boolean forceBungee, UUID voteId) {
-		if (plugin.getSpecialRewardsConfig().isVotePartyEnabled()) {
-			if (plugin.getSpecialRewardsConfig().isVotePartyCountFakeVotes() || realVote) {
-				if (plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes() || user.isOnline()) {
-					addTotal(user, voteId);
-					addVotePlayer(user);
-					check(user, forceBungee);
-					checkVoteReminder(user);
-				}
-			}
-		}
+		boolean eligible = plugin.getSpecialRewardsConfig().isVotePartyEnabled()
+				&& (plugin.getSpecialRewardsConfig().isVotePartyCountFakeVotes() || realVote)
+				&& (plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes() || user.isOnline());
+		voteAdmitted(user, forceBungee, voteId, eligible);
+	}
+
+	/** Applies the VoteParty eligibility decision captured during durable vote admission. */
+	public synchronized void voteAdmitted(VotingPluginUser user, boolean forceBungee, UUID voteId, boolean eligible) {
+		if (!eligible) return;
+		addTotal(user, voteId);
+		addVotePlayer(user);
+		check(user, forceBungee);
+		checkVoteReminder(user);
 	}
 }

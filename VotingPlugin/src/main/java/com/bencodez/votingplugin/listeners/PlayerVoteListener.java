@@ -137,7 +137,7 @@ public class PlayerVoteListener implements Listener {
             if (event.getVoteId() != null) return event.getVoteId();
             return event.getBungeeTextTotals() == null ? null : event.getBungeeTextTotals().getVoteUUID();
         }
-        @Override public void prepareAccounting(VotingPluginUser user, UUID voteId, boolean countTotals) {
+        @Override public boolean prepareAccounting(VotingPluginUser user, UUID voteId, boolean countTotals) {
             boolean countVoteParty = plugin.getSpecialRewardsConfig().isVotePartyEnabled()
                     && (plugin.getSpecialRewardsConfig().isVotePartyCountFakeVotes() || event.isRealVote())
                     && (plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes() || user.isOnline());
@@ -145,14 +145,15 @@ public class PlayerVoteListener implements Listener {
                     countVoteParty, event.isForceBungee())) {
                 throw new SharedVoteAdmissionException("Unable to admit shared MySQL vote accounting before processing");
             }
+			return countVoteParty;
         }
         @Override public void finishAccounting(UUID voteId) {
             VoteShopPurchaseService.finishMysqlVoteAccounting(voteId);
         }
         @Override public void cache(VotingPluginUser user) { user.cache(); }
         @Override public void updateName(VotingPluginUser user) { user.updateName(true); }
-        @Override public void voteParty(VotingPluginUser user, boolean realVote, boolean forceProxyRouting, UUID voteId) {
-            plugin.getVoteParty().vote(user, realVote, forceProxyRouting, voteId);
+        @Override public void voteParty(VotingPluginUser user, boolean forceProxyRouting, UUID voteId, boolean eligible) {
+            plugin.getVoteParty().voteAdmitted(user, forceProxyRouting, voteId, eligible);
         }
         @Override public long incomingTime() { return event.getTime(); }
         @Override public void setTime(VotingPluginUser user, VoteSite site, long time) { user.setTime(site, time); }

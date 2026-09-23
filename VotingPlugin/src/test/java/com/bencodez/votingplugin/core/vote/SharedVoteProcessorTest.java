@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.core.vote;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -38,6 +39,7 @@ class SharedVoteProcessorTest {
         when(ops.siteKey(site)).thenReturn("ExampleKey");
         when(ops.userId(user)).thenReturn("user-id");
         when(ops.userUuid(user)).thenReturn(UUID.randomUUID());
+        when(ops.prepareAccounting(eq(user), any(UUID.class), anyBoolean())).thenReturn(true);
         return ops;
     }
 
@@ -63,7 +65,7 @@ class SharedVoteProcessorTest {
         order.verify(ops).prepareAccounting(eq(user), any(UUID.class), eq(true));
         order.verify(ops).cache(user);
         order.verify(ops).updateName(user);
-        order.verify(ops).voteParty(eq(user), eq(true), eq(false), any(UUID.class));
+        order.verify(ops).voteParty(eq(user), eq(false), any(UUID.class), eq(true));
         order.verify(ops).broadcast(any(UUID.class), eq("Ben"), any(), eq(true));
         order.verify(ops).setTime(user, site, 123L);
         order.verify(ops).playerVote(user, site, true, false);

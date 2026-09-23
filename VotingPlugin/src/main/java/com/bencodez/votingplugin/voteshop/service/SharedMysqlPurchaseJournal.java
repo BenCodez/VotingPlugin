@@ -357,8 +357,9 @@ final class SharedMysqlPurchaseJournal {
 				boolean accountingAlreadyDecided = (row.requested() & ACCOUNTING_DECIDED) != 0;
 				DailyStreakCandidate streak = accountingAlreadyDecided ? null : findDailyStreakCandidate(connection, uuid);
 				boolean dailyAlreadyApplied = (row.completed() & DAILY_TOTAL) != 0;
-				int projectedDailyTotal = accountingAlreadyDecided ? 0
-						: streak.dailyTotal() + (countTotals && !dailyAlreadyApplied ? 1 : 0);
+				int projectedDailyTotal = accountingAlreadyDecided || !streakUsesPercentage ? 0
+						: streak.dailyTotal() + countPendingDailyTotals(connection, voteId, uuid)
+								+ (countTotals && !dailyAlreadyApplied ? 1 : 0);
 				boolean percentageMet = accountingAlreadyDecided || !streakUsesPercentage || enabledSiteCount > 0
 						&& (double) projectedDailyTotal / (double) enabledSiteCount * 100 > streakPercentage;
 				boolean requestStreak = !accountingAlreadyDecided
@@ -396,6 +397,22 @@ final class SharedMysqlPurchaseJournal {
 			} catch (SQLException failure) {
 				rollback(connection);
 				throw failure;
+			}
+		}
+	}
+
+	private int countPendingDailyTotals(Connection connection, UUID voteId, String uuid) throws SQLException {
+		String select = "SELECT COUNT(*) FROM " + qiAccounting() + " WHERE " + qi("player_uuid")
+				+ " = ? AND " + qi("vote_id") + " <> ? AND (" + qi("requested") + " & ?) <> 0 AND ("
+				+ qi("completed") + " & ?) = 0 AND (" + qi("completed") + " & ?) <> 0";
+		try (PreparedStatement statement = connection.prepareStatement(select)) {
+			statement.setString(1, uuid);
+			statement.setString(2, voteId.toString());
+			statement.setInt(3, DAILY_TOTAL);
+			statement.setInt(4, DAILY_TOTAL);
+			statement.setInt(5, ACCOUNTING_DECIDED);
+			try (ResultSet result = statement.executeQuery()) {
+				return result.next() ? result.getInt(1) : 0;
 			}
 		}
 	}

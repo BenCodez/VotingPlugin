@@ -13,6 +13,7 @@ import static org.mockito.Mockito.doReturn;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.UUID;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -93,6 +94,23 @@ public class VotePartyTest {
 		when(plugin.getServerData().getData().getInt("VoteParty.Total")).thenReturn(5);
 		voteParty.addTotal(user);
 		verify(plugin.getServerData().getData()).set("VoteParty.Total", 6);
+	}
+
+	@Test
+	public void admittedVotePartyUsesTheCapturedEligibilityWithoutRecheckingOnlineState() {
+		UUID voteId = UUID.randomUUID();
+		Mockito.doNothing().when(voteParty).addTotal(user, voteId);
+		Mockito.doNothing().when(voteParty).addVotePlayer(user);
+		Mockito.doNothing().when(voteParty).check(user, false);
+		Mockito.doNothing().when(voteParty).checkVoteReminder(user);
+
+		voteParty.voteAdmitted(user, false, voteId, true);
+
+		verify(voteParty).addTotal(user, voteId);
+		verify(voteParty).addVotePlayer(user);
+		verify(voteParty).check(user, false);
+		verify(voteParty).checkVoteReminder(user);
+		verify(user, never()).isOnline();
 	}
 
 	@Test

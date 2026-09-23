@@ -66,6 +66,49 @@ class SharedMysqlPurchaseJournalTest {
 	}
 
 	@Test
+	void pendingDailyTotalsContributeToPercentageStreakAdmission() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement copyInsert = mock(PreparedStatement.class);
+		PreparedStatement copySelect = mock(PreparedStatement.class);
+		PreparedStatement resetInsert = mock(PreparedStatement.class);
+		PreparedStatement resetSelect = mock(PreparedStatement.class);
+		PreparedStatement accountingInsert = mock(PreparedStatement.class);
+		PreparedStatement accountingSelect = mock(PreparedStatement.class);
+		PreparedStatement candidateSelect = mock(PreparedStatement.class);
+		PreparedStatement pendingTotalSelect = mock(PreparedStatement.class);
+		PreparedStatement accountingUpdate = mock(PreparedStatement.class);
+		ResultSet copyEpoch = mock(ResultSet.class);
+		ResultSet resetEpoch = mock(ResultSet.class);
+		ResultSet accounting = accountingRow("00000000-0000-0000-0000-000000000001", 0, 0);
+		ResultSet candidate = mock(ResultSet.class);
+		ResultSet pendingTotals = mock(ResultSet.class);
+		when(copyEpoch.next()).thenReturn(true);
+		when(resetEpoch.next()).thenReturn(true);
+		when(copySelect.executeQuery()).thenReturn(copyEpoch);
+		when(resetSelect.executeQuery()).thenReturn(resetEpoch);
+		when(accountingSelect.executeQuery()).thenReturn(accounting);
+		when(candidate.next()).thenReturn(true);
+		when(candidate.getInt(1)).thenReturn(0);
+		when(candidate.getInt(2)).thenReturn(4);
+		when(candidate.getString(3)).thenReturn("");
+		when(candidateSelect.executeQuery()).thenReturn(candidate);
+		when(pendingTotals.next()).thenReturn(true);
+		when(pendingTotals.getInt(1)).thenReturn(1);
+		when(pendingTotalSelect.executeQuery()).thenReturn(pendingTotals);
+		when(accountingUpdate.executeUpdate()).thenReturn(1);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(copyInsert, copySelect, resetInsert, resetSelect,
+				accountingInsert, accountingSelect, candidateSelect, pendingTotalSelect, accountingUpdate);
+
+		int requested = new SharedMysqlPurchaseJournal(fixture.table, false).prepareVoteAccounting(
+				UUID.randomUUID(), "00000000-0000-0000-0000-000000000001", false, false,
+				null, null, true, 50.0, 1, false, 1234L);
+
+		assertEquals(48, requested);
+		verify(accountingUpdate).setInt(2, 112);
+		verify(pendingTotalSelect).setInt(5, 64);
+	}
+
+	@Test
 	void firstVoteCanBeAdmittedBeforeTheUserRowIsCreated() throws Exception {
 		Fixture fixture = fixture();
 		PreparedStatement copyInsert = mock(PreparedStatement.class);
