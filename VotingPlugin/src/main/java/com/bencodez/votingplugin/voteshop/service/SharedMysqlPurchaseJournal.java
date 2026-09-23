@@ -393,7 +393,8 @@ final class SharedMysqlPurchaseJournal {
 				if (accountingAlreadyDecided) requested = row.requested();
 				else if (requestStreak) requested |= DAILY_STREAK | DAILY_STREAK_REWARD;
 				int persistedRequested = row.requested() | requested | ACCOUNTING_DECIDED;
-				int persistedCompleted = row.completed() | ACCOUNTING_DECIDED;
+				int persistedCompleted = row.completed() | ACCOUNTING_DECIDED
+						| (persistedRequested & AWARD_POINTS);
 				String update = "UPDATE " + qiAccounting() + " SET " + qi("player_uuid") + " = ?, "
 						+ qi("requested") + " = ?, " + qi("completed") + " = ?, "
 						+ qi("month_column") + " = COALESCE(?, "

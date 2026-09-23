@@ -439,7 +439,7 @@ class TopVoterTimeChangeRecoveryTest {
 		ranking.put(first, 20);
 		ranking.put(second, 20);
 		when(plugin.getServerData().getTimeChangeTopPolicy(transition)).thenReturn(
-				new TimeChangeTopPolicy(true, true, false, false, List.of("1")));
+				new TimeChangeTopPolicy(true, true, false, false, List.of("1"), List.of()));
 		TopVoterHandler handler = spy(new TopVoterHandler(plugin));
 		doReturn(ranking).when(handler).boundaryTopVotersFor(TopVoter.Daily, transition);
 

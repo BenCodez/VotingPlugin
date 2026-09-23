@@ -87,7 +87,7 @@ class SharedMysqlPurchaseJournalTest {
 
 		assertEquals(304, requested);
 		verify(accountingUpdate).setInt(2, 368);
-		verify(accountingUpdate).setInt(3, 64);
+		verify(accountingUpdate).setInt(3, 320);
 		verify(accountingUpdate).setInt(6, 5);
 		verify(accountingUpdate).setLong(7, 1234L);
 		verify(accountingUpdate).setInt(8, 1);
@@ -122,6 +122,7 @@ class SharedMysqlPurchaseJournalTest {
 
 		assertEquals(256, requested);
 		verify(accountingUpdate).setInt(2, 320);
+		verify(accountingUpdate).setInt(3, 320);
 		verify(fixture.work).commit();
 	}
 

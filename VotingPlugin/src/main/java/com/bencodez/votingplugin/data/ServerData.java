@@ -32,9 +32,11 @@ public class ServerData {
 			double dayPercentage, double weekPercentage, double monthPercentage,
 			boolean proxyOwnsResets, boolean waitForProxy) { }
 	public record TimeChangeTopPolicy(boolean rewardsEnabled, boolean awardTies,
-			boolean ignorePermission, boolean archiveRequired, List<String> rewardPlaces) {
+			boolean ignorePermission, boolean archiveRequired, List<String> rewardPlaces,
+			List<String> blacklistedPlayers) {
 		public TimeChangeTopPolicy {
 			rewardPlaces = List.copyOf(rewardPlaces);
+			blacklistedPlayers = List.copyOf(blacklistedPlayers);
 		}
 	}
 	public record TimeChangeRewardTarget(String uuid, String playerName, int place, String reward, int votes) { }
@@ -575,6 +577,7 @@ public class ServerData {
 			getData().set(policyPath + ".IgnorePermission", proposed.ignorePermission());
 			getData().set(policyPath + ".ArchiveRequired", proposed.archiveRequired());
 			getData().set(policyPath + ".RewardPlaces", proposed.rewardPlaces());
+			getData().set(policyPath + ".BlacklistedPlayers", proposed.blacklistedPlayers());
 			getData().set(policyPath + ".Prepared", true);
 			try {
 				saveData();
@@ -597,7 +600,8 @@ public class ServerData {
 				getData().getBoolean(policyPath + ".AwardTies"),
 				getData().getBoolean(policyPath + ".IgnorePermission"),
 				getData().getBoolean(policyPath + ".ArchiveRequired"),
-				getData().getStringList(policyPath + ".RewardPlaces"));
+				getData().getStringList(policyPath + ".RewardPlaces"),
+				getData().getStringList(policyPath + ".BlacklistedPlayers"));
 	}
 
 	/** Fixes whether one listener effect belongs to this transition. */

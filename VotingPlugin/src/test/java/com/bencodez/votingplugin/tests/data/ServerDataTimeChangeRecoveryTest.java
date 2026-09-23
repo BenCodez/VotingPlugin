@@ -174,8 +174,10 @@ class ServerDataTimeChangeRecoveryTest {
 		TimeChangeTransition transition = transition("WEEK:2026-W38", "2026-W38", TimeType.WEEK);
 		ServerData data = new ServerData(plugin);
 		data.beginTimeChangeRecovery(transition);
-		TimeChangeTopPolicy original = new TimeChangeTopPolicy(true, true, true, true, List.of("1", "2-4"));
-		TimeChangeTopPolicy changed = new TimeChangeTopPolicy(false, false, false, false, List.of("5"));
+		TimeChangeTopPolicy original = new TimeChangeTopPolicy(true, true, true, true,
+				List.of("1", "2-4"), List.of("blocked"));
+		TimeChangeTopPolicy changed = new TimeChangeTopPolicy(false, false, false, false,
+				List.of("5"), List.of());
 
 		assertEquals(original, data.prepareTimeChangeTopPolicy(transition, original));
 		assertEquals(original, data.prepareTimeChangeTopPolicy(transition, changed));

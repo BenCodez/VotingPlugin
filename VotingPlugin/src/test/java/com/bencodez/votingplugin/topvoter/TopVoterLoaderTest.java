@@ -106,6 +106,42 @@ public class TopVoterLoaderTest {
 		assertEquals(60, boundary.combinedTotal());
 	}
 
+	@Test
+	@SuppressWarnings("unchecked")
+	void boundaryRankingExcludesBannedBlacklistedAndIgnoredPlayers() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		UserManager userManager = mock(UserManager.class);
+		com.bencodez.votingplugin.user.UserManager votingUserManager =
+				mock(com.bencodez.votingplugin.user.UserManager.class);
+		Config config = mock(Config.class);
+		when(plugin.getUserManager()).thenReturn(userManager);
+		when(plugin.getVotingPluginUserManager()).thenReturn(votingUserManager);
+		when(plugin.getConfigFile()).thenReturn(config);
+		UUID banned = UUID.fromString("00000000-0000-0000-0000-000000000001");
+		UUID blacklisted = UUID.fromString("00000000-0000-0000-0000-000000000002");
+		UUID ignored = UUID.fromString("00000000-0000-0000-0000-000000000003");
+		VotingPluginUser bannedUser = boundaryUser(banned, "banned", 30, votingUserManager);
+		VotingPluginUser blacklistedUser = boundaryUser(blacklisted, "blacklisted", 20, votingUserManager);
+		VotingPluginUser ignoredUser = boundaryUser(ignored, "ignored", 10, votingUserManager);
+		when(bannedUser.isBanned()).thenReturn(true);
+		when(blacklistedUser.getPlayerName()).thenReturn("blacklisted");
+		when(ignoredUser.isTopVoterIgnore()).thenReturn(true);
+		doAnswer(invocation -> {
+			BiConsumer<UUID, ArrayList<Column>> perUser = invocation.getArgument(0);
+			perUser.accept(banned, new ArrayList<>());
+			perUser.accept(blacklisted, new ArrayList<>());
+			perUser.accept(ignored, new ArrayList<>());
+			return null;
+		}).when(userManager).forEachUserKeys(org.mockito.ArgumentMatchers.any(),
+				org.mockito.ArgumentMatchers.any());
+
+		TopVoterLoader.BoundaryRanking ranking = new TopVoterLoader(plugin).getBoundaryRanking(
+				TopVoter.Daily, null, true, java.util.List.of("blacklisted"));
+
+		assertEquals(0, ranking.players().size());
+		assertEquals(0, ranking.combinedTotal());
+	}
+
 	private VotingPluginUser boundaryUser(UUID uuid, String name, int total,
 			com.bencodez.votingplugin.user.UserManager users) {
 		VotingPluginUser user = mock(VotingPluginUser.class);

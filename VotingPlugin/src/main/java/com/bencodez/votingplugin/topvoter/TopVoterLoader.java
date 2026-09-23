@@ -6,6 +6,7 @@ import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -62,11 +63,18 @@ public class TopVoterLoader {
 	}
 
 	BoundaryRanking getBoundaryRanking(TopVoter top, LocalDateTime monthlyTime) {
-		return loadBoundaryRanking(top, monthlyTime);
+		List<String> blacklist = plugin.getConfigFile().getBlackList();
+		return getBoundaryRanking(top, monthlyTime, plugin.getConfigFile().isTopVoterIgnorePermission(),
+				blacklist == null ? List.of() : blacklist);
+	}
+
+	BoundaryRanking getBoundaryRanking(TopVoter top, LocalDateTime monthlyTime,
+			boolean ignorePermission, List<String> blacklist) {
+		return loadBoundaryRanking(top, monthlyTime, ignorePermission, blacklist);
 	}
 
 	private BoundaryRanking loadBoundaryRanking(TopVoter top,
-			LocalDateTime monthlyTime) {
+			LocalDateTime monthlyTime, boolean ignorePermission, List<String> blacklist) {
 		LinkedHashMap<TopVoterPlayer, Integer> topVoters = new LinkedHashMap<>();
 		int[] combinedTotal = { 0 };
 		int limit = plugin.getConfigFile().getMaxiumNumberOfTopVotersToLoad();
@@ -76,6 +84,9 @@ public class TopVoterLoader {
 			user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
 			user.updateTempCacheWithColumns(columns);
 			try {
+				String playerName = user.getPlayerName();
+				if (user.isBanned() || playerName != null && blacklist.contains(playerName)
+						|| ignorePermission && user.isTopVoterIgnore()) return;
 				int total = monthlyTime == null ? switch (top) {
 				case Daily -> user.getLastDailyTotal();
 				case Weekly -> user.getLastWeeklyTotal();

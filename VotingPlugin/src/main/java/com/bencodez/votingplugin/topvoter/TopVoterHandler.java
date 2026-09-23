@@ -622,7 +622,8 @@ public class TopVoterHandler implements Listener {
 		return new TimeChangeTopPolicy(isTopRewardEnabled(top),
 				plugin.getConfigFile().isTopVoterAwardsTies(),
 				plugin.getConfigFile().isTopVoterIgnorePermission(), archiveRequired,
-				new ArrayList<>(getPossibleRewardPlaces(top)));
+				new ArrayList<>(getPossibleRewardPlaces(top)),
+				new ArrayList<>(plugin.getConfigFile().getBlackList()));
 	}
 
 	private void runRecoverablePeriod(TopVoter top, TimeChangeTransition transition) {
@@ -915,11 +916,14 @@ public class TopVoterHandler implements Listener {
 
 	LinkedHashMap<TopVoterPlayer, Integer> boundaryTopVotersFor(TopVoter top,
 			TimeChangeTransition transition) {
+		TimeChangeTopPolicy policy = plugin.getServerData().getTimeChangeTopPolicy(transition);
 		if (top == TopVoter.Monthly
 				&& plugin.getServerData().getTimeChangeUserPolicy(transition).monthDateTotalsPrimary()) {
-			return loader.getBoundaryMonthlyTopVotersAtTime(previousMonthTime(transition));
+			return loader.getBoundaryRanking(TopVoter.Monthly, previousMonthTime(transition),
+					policy.ignorePermission(), policy.blacklistedPlayers()).players();
 		}
-		return loader.getBoundaryTopVoters(top);
+		return loader.getBoundaryRanking(top, null, policy.ignorePermission(),
+				policy.blacklistedPlayers()).players();
 	}
 
 	private LocalDateTime previousMonthTime(TimeChangeTransition transition) {
@@ -1180,11 +1184,13 @@ public class TopVoterHandler implements Listener {
 
 	private TopVoterLoader.BoundaryRanking boundaryRankingFor(TopVoter top,
 			TimeChangeTransition transition) {
+		TimeChangeTopPolicy policy = plugin.getServerData().getTimeChangeTopPolicy(transition);
 		if (top == TopVoter.Monthly
 				&& plugin.getServerData().getTimeChangeUserPolicy(transition).monthDateTotalsPrimary()) {
-			return loader.getBoundaryRanking(TopVoter.Monthly, previousMonthTime(transition));
+			return loader.getBoundaryRanking(TopVoter.Monthly, previousMonthTime(transition),
+					policy.ignorePermission(), policy.blacklistedPlayers());
 		}
-		return loader.getBoundaryRanking(top, null);
+		return loader.getBoundaryRanking(top, null, policy.ignorePermission(), policy.blacklistedPlayers());
 	}
 
 	void storeTopVoters(TopVoter top, TimeChangeTransition transition, TimeChangeArchiveSnapshot snapshot) {
