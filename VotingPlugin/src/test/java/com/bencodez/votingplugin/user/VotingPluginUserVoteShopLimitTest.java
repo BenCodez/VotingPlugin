@@ -19,10 +19,34 @@ import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.UserData;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.UserStorage;
+import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.specialrewards.SpecialRewards;
 import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseService;
 
 class VotingPluginUserVoteShopLimitTest {
+	@Test
+	void recoveredBestDailyStreakIsFlushedBeforeItsRewardRuns() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		SpecialRewards specialRewards = mock(SpecialRewards.class);
+		when(plugin.getSpecialRewards()).thenReturn(specialRewards);
+		AdvancedCoreUser base = mock(AdvancedCoreUser.class);
+		when(base.getUserData()).thenReturn(mock(UserData.class));
+		when(base.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
+		VotingPluginUser user = spy(new VotingPluginUser(plugin, base));
+		UserDataCache cache = mock(UserDataCache.class);
+		doReturn(3).when(user).getBestDayVoteStreak();
+		doNothing().when(user).setBestDayVoteStreak(7);
+		doReturn(cache).when(user).getCache();
+
+		user.completeRecoveredDailyStreak(7, true);
+
+		org.mockito.InOrder order = org.mockito.Mockito.inOrder(user, cache, specialRewards);
+		order.verify(user).setBestDayVoteStreak(7);
+		order.verify(cache).flushChangesAndRun(org.mockito.ArgumentMatchers.any(Runnable.class));
+		order.verify(specialRewards).checkVoteStreak(null, user, "Day", true);
+	}
+
 	@Test
 	void sharedMysqlDailyVotesUseTheCrossBackendBoundaryMutation() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);

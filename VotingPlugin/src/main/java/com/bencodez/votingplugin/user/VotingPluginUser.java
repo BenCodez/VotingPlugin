@@ -1181,7 +1181,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	public void completeRecoveredDailyStreak(int streak, boolean forceBungee) {
-		if (getBestDayVoteStreak() < streak) setBestDayVoteStreak(streak);
+		if (getBestDayVoteStreak() < streak) {
+			setBestDayVoteStreak(streak);
+			UserDataCache cache = getCache();
+			if (cache != null) cache.flushChangesAndRun(() -> { });
+		}
 		plugin.getSpecialRewards().checkVoteStreak(null, this, "Day", forceBungee);
 	}
 

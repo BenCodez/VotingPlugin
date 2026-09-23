@@ -64,6 +64,8 @@ final class SharedMysqlPurchaseJournal {
 	private static final int DAILY_STREAK_REWARD = 32;
 	private static final int ACCOUNTING_DECIDED = 64;
 	private static final int DAILY_STREAK_REWARD_CLAIMED = 128;
+	private static final int RECOVERABLE_NON_REWARD_ACCOUNTING = DAILY_TOTAL | WEEKLY_TOTAL | MONTH_TOTAL
+			| VOTE_PARTY_TOTAL | DAILY_STREAK;
 
 	private static final ReferenceQueue<MySQL> INITIALIZED_QUEUE = new ReferenceQueue<>();
 	private static final Set<IdentityWeakReference> INITIALIZED = new HashSet<>();
@@ -1271,7 +1273,8 @@ final class SharedMysqlPurchaseJournal {
 				applyDailyStreak(recovery.voteId(), row.uuid(), row.streakValue().intValue(),
 							row.streakUpdatedAt().longValue());
 			}
-			if ((row.requested() & DAILY_STREAK_REWARD) != 0) {
+			if ((row.requested() & DAILY_STREAK_REWARD) != 0
+					&& (row.completed() & (DAILY_STREAK_REWARD | DAILY_STREAK_REWARD_CLAIMED)) == 0) {
 				pendingRewards.add(recovery.voteId());
 				break;
 			}
@@ -1281,8 +1284,14 @@ final class SharedMysqlPurchaseJournal {
 	}
 
 	private List<AccountingRecovery> findPendingAccounting(int limit) throws SQLException {
+		String requested = qi("requested");
+		String completed = qi("completed");
 		String select = "SELECT " + qi("vote_id") + ", " + accountingColumns() + " FROM " + qiAccounting()
-				+ " WHERE " + qi("requested") + " <> " + qi("completed") + " ORDER BY " + qi("created_at")
+				+ " WHERE " + requested + " <> " + completed + " AND (((" + requested + " & "
+				+ RECOVERABLE_NON_REWARD_ACCOUNTING + ") <> (" + completed + " & "
+				+ RECOVERABLE_NON_REWARD_ACCOUNTING + ")) OR ((" + requested + " & " + DAILY_STREAK_REWARD
+				+ ") <> 0 AND (" + completed + " & " + DAILY_STREAK_REWARD + ") = 0 AND (" + completed
+				+ " & " + DAILY_STREAK_REWARD_CLAIMED + ") = 0)) ORDER BY " + qi("created_at")
 				+ " ASC LIMIT ?";
 		List<AccountingRecovery> pending = new ArrayList<>();
 		try (Connection connection = connection(); PreparedStatement statement = connection.prepareStatement(select)) {

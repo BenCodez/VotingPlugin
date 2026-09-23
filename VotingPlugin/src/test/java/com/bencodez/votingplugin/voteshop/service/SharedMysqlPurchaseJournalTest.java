@@ -15,6 +15,7 @@ import static org.mockito.Mockito.when;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.Test;
@@ -730,6 +731,32 @@ class SharedMysqlPurchaseJournalTest {
 
 		verify(cleanup).setLong(1, 5L);
 		verify(cleanup).executeUpdate();
+	}
+
+	@Test
+	void claimedRewardIsSkippedWithoutStarvingLaterRecoverableReward() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement pending = mock(PreparedStatement.class);
+		PreparedStatement cleanup = mock(PreparedStatement.class);
+		ResultSet rows = mock(ResultSet.class);
+		UUID ambiguous = UUID.randomUUID();
+		UUID recoverable = UUID.randomUUID();
+		when(rows.next()).thenReturn(true, true, false);
+		when(rows.getString(1)).thenReturn(ambiguous.toString(), recoverable.toString());
+		when(rows.getString(2)).thenReturn("player-a", "player-b");
+		when(rows.getInt(3)).thenReturn(48, 48);
+		when(rows.getInt(4)).thenReturn(144, 16);
+		when(pending.executeQuery()).thenReturn(rows);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(pending, cleanup);
+
+		SharedMysqlPurchaseJournal.AccountingRecoveryBatch batch =
+				new SharedMysqlPurchaseJournal(fixture.table, false).recoverAccounting(1L);
+
+		assertEquals(java.util.List.of(recoverable), batch.pendingRewards());
+		org.mockito.ArgumentCaptor<String> sql = org.mockito.ArgumentCaptor.forClass(String.class);
+		verify(fixture.work, org.mockito.Mockito.times(2)).prepareStatement(sql.capture());
+		assertTrue(sql.getAllValues().get(0).contains("& 128"),
+				"claimed reward rows must be excluded from the bounded recovery page");
 	}
 
 	@Test
