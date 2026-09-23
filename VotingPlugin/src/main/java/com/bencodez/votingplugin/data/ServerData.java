@@ -27,6 +27,9 @@ public class ServerData {
 
 	public record TimeChangeUserProgress(String uuid, int streakTarget, boolean rewardRequired,
 			boolean rewardComplete) { }
+	public record TimeChangeUserPolicy(boolean voteStreaks, boolean highestTotals,
+			boolean monthDateTotalsPrimary, boolean streakUsesPercentage,
+			double dayPercentage, double weekPercentage, double monthPercentage) { }
 	public record TimeChangeRewardTarget(String uuid, String playerName, int place, String reward, int votes) { }
 	public record TimeChangeArchiveSection(String name, List<String> lines) {
 		public TimeChangeArchiveSection {
@@ -472,31 +475,68 @@ public class ServerData {
 		saveData();
 	}
 
-	/** Fixes the daily streak-boundary policy for the lifetime of one transition. */
-	public synchronized boolean prepareTimeChangeDailyStreakBoundary(TimeChangeTransition transition,
+	/** Fixes per-user period processing policy for the lifetime of one transition. */
+	public synchronized TimeChangeUserPolicy prepareTimeChangeUserPolicy(TimeChangeTransition transition,
+			TimeChangeUserPolicy proposed) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		String policyPath = path + ".UserPolicy";
+		if (!getData().getBoolean(policyPath + ".Prepared", false)) {
+			getData().set(policyPath + ".VoteStreaks", proposed.voteStreaks());
+			getData().set(policyPath + ".HighestTotals", proposed.highestTotals());
+			getData().set(policyPath + ".MonthDateTotalsPrimary", proposed.monthDateTotalsPrimary());
+			getData().set(policyPath + ".StreakUsesPercentage", proposed.streakUsesPercentage());
+			getData().set(policyPath + ".DayPercentage", proposed.dayPercentage());
+			getData().set(policyPath + ".WeekPercentage", proposed.weekPercentage());
+			getData().set(policyPath + ".MonthPercentage", proposed.monthPercentage());
+			getData().set(policyPath + ".Prepared", true);
+			try {
+				saveData();
+			} catch (RuntimeException failure) {
+				getData().set(policyPath, null);
+				throw failure;
+			}
+		}
+		return getTimeChangeUserPolicy(transition);
+	}
+
+	/** Returns the per-user policy captured when recovery began. */
+	public synchronized TimeChangeUserPolicy getTimeChangeUserPolicy(TimeChangeTransition transition) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		String policyPath = path + ".UserPolicy";
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))
+				|| !getData().getBoolean(policyPath + ".Prepared", false)) {
+			throw new IllegalStateException("Time change user policy is not prepared");
+		}
+		return new TimeChangeUserPolicy(getData().getBoolean(policyPath + ".VoteStreaks"),
+				getData().getBoolean(policyPath + ".HighestTotals"),
+				getData().getBoolean(policyPath + ".MonthDateTotalsPrimary"),
+				getData().getBoolean(policyPath + ".StreakUsesPercentage"),
+				getData().getDouble(policyPath + ".DayPercentage"),
+				getData().getDouble(policyPath + ".WeekPercentage"),
+				getData().getDouble(policyPath + ".MonthPercentage"));
+	}
+
+	/** Fixes whether one listener effect belongs to this transition. */
+	public synchronized boolean prepareTimeChangeEffectPolicy(TimeChangeTransition transition, String effect,
 			boolean proposed) {
 		String path = timeChangeRecoveryPath(transition.getType());
 		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
 			throw new IllegalStateException("Time change recovery transition does not match");
 		}
-		String decisionPath = path + ".DailyStreakBoundary";
-		if (!getData().contains(decisionPath)) {
-			getData().set(decisionPath, proposed);
+		String policyPath = path + ".EffectPolicies." + effect;
+		if (!getData().contains(policyPath)) {
+			getData().set(policyPath, proposed);
 			try {
 				saveData();
 			} catch (RuntimeException failure) {
-				getData().set(decisionPath, null);
+				getData().set(policyPath, null);
 				throw failure;
 			}
 		}
-		return getData().getBoolean(decisionPath);
-	}
-
-	/** Returns the daily streak-boundary policy captured when recovery began. */
-	public synchronized boolean isTimeChangeDailyStreakBoundaryRequired(TimeChangeTransition transition) {
-		String path = timeChangeRecoveryPath(transition.getType());
-		return transition.getId().equals(getData().getString(path + ".Id", ""))
-				&& getData().getBoolean(path + ".DailyStreakBoundary", false);
+		return getData().getBoolean(policyPath);
 	}
 
 	/** Returns whether the named phase has been durably completed. */

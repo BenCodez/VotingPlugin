@@ -312,21 +312,39 @@ final class SharedMysqlPurchaseJournal {
 	boolean incrementPeriodTotals(UUID voteId, String uuid, String boundaryColumn, String previousColumn, List<String> columns,
 			Integer maximum, boolean alreadyRequested)
 			throws SQLException {
+		return incrementPeriodTotalsResolved(voteId, uuid, boundaryColumn, previousColumn, columns, maximum,
+				alreadyRequested).applied();
+	}
+
+	PeriodTotalResult incrementPeriodTotalsResolved(UUID voteId, String uuid, String boundaryColumn,
+			String previousColumn, List<String> columns, Integer maximum, boolean alreadyRequested)
+			throws SQLException {
+		int operation = accountingOperation(boundaryColumn);
+		if (alreadyRequested) {
+			AccountingRow row = findAccountingVote(voteId);
+			if (row == null || (row.requested() & operation) == 0 || !java.util.Objects.equals(row.uuid(), uuid)) {
+				throw new SQLException("Admitted period total payload is missing or does not match");
+			}
+			if (operation == MONTH_TOTAL) {
+				columns = row.monthColumn() == null ? List.of(boundaryColumn)
+						: List.of(boundaryColumn, row.monthColumn());
+				maximum = row.monthMaximum();
+			}
+		}
 		if (voteId == null || uuid == null || uuid.isEmpty() || !isSafeColumn(boundaryColumn) || columns == null
 				|| columns.isEmpty() || columns.stream().anyMatch(column -> !isSafeColumn(column))
 				|| maximum != null && (maximum.intValue() < 0 || !isSafeColumn(previousColumn))) {
 			throw new SQLException("Invalid period total increment");
 		}
-		int operation = accountingOperation(boundaryColumn);
 		if (!alreadyRequested) {
 			requestAccounting(voteId, uuid, operation, null,
 					operation == MONTH_TOTAL && columns.size() > 1 ? columns.get(1) : null, maximum, null, null);
 		}
 		try {
 			applyPeriodTotals(voteId, uuid, boundaryColumn, previousColumn, columns, maximum, operation);
-			return true;
+			return new PeriodTotalResult(true, List.copyOf(columns));
 		} catch (SQLException deferred) {
-			return false;
+			return new PeriodTotalResult(false, List.copyOf(columns));
 		}
 	}
 
@@ -1576,6 +1594,8 @@ final class SharedMysqlPurchaseJournal {
 			Integer monthMaximum, Integer streakValue, Long streakUpdatedAt, Integer streakForceProxy,
 			Integer streakAppliedValue) {
 	}
+
+	record PeriodTotalResult(boolean applied, List<String> columns) { }
 
 	private record DailyStreakCandidate(int dailyTotal, int streak, String lastUpdate) { }
 

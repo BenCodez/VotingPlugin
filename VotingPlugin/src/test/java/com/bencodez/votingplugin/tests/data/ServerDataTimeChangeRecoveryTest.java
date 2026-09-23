@@ -29,6 +29,7 @@ import com.bencodez.votingplugin.data.ServerData.TimeChangeArchiveSnapshot;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardTarget;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardState;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeUserProgress;
+import com.bencodez.votingplugin.data.ServerData.TimeChangeUserPolicy;
 
 class ServerDataTimeChangeRecoveryTest {
 	@TempDir
@@ -117,9 +118,11 @@ class ServerDataTimeChangeRecoveryTest {
 		ServerData data = new ServerData(plugin);
 		data.beginTimeChangeRecovery(transition);
 
-		assertFalse(data.prepareTimeChangeDailyStreakBoundary(transition, false));
-		assertFalse(data.prepareTimeChangeDailyStreakBoundary(transition, true));
-		assertFalse(new ServerData(plugin).isTimeChangeDailyStreakBoundaryRequired(transition));
+		TimeChangeUserPolicy original = new TimeChangeUserPolicy(false, true, false, true, 50, 60, 70);
+		TimeChangeUserPolicy changed = new TimeChangeUserPolicy(true, false, true, false, 1, 2, 3);
+		assertEquals(original, data.prepareTimeChangeUserPolicy(transition, original));
+		assertEquals(original, data.prepareTimeChangeUserPolicy(transition, changed));
+		assertEquals(original, new ServerData(plugin).getTimeChangeUserPolicy(transition));
 	}
 
 	@Test
@@ -134,12 +137,12 @@ class ServerDataTimeChangeRecoveryTest {
 		data.beginTimeChangeRecovery(transition);
 		doThrow(new IllegalStateException("disk unavailable")).when(coreData).saveData();
 
-		assertThrows(IllegalStateException.class,
-				() -> data.prepareTimeChangeDailyStreakBoundary(transition, true));
+		TimeChangeUserPolicy policy = new TimeChangeUserPolicy(true, true, true, true, 50, 60, 70);
+		assertThrows(IllegalStateException.class, () -> data.prepareTimeChangeUserPolicy(transition, policy));
 
-		assertFalse(data.isTimeChangeDailyStreakBoundaryRequired(transition));
+		assertThrows(IllegalStateException.class, () -> data.getTimeChangeUserPolicy(transition));
 		doNothing().when(coreData).saveData();
-		assertTrue(data.prepareTimeChangeDailyStreakBoundary(transition, true));
+		assertEquals(policy, data.prepareTimeChangeUserPolicy(transition, policy));
 	}
 
 	@Test

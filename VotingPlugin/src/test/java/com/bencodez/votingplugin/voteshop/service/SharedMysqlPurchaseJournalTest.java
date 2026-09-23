@@ -15,6 +15,7 @@ import static org.mockito.Mockito.when;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -629,6 +630,40 @@ class SharedMysqlPurchaseJournalTest {
 		verify(fixture.work).rollback();
 		verify(fixture.work).commit();
 		verify(fixture.work, org.mockito.Mockito.times(6)).prepareStatement(anyString());
+	}
+
+	@Test
+	void admittedMonthlyIncrementUsesItsJournaledColumnAfterConfigurationChanges() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement admittedSelect = mock(PreparedStatement.class);
+		PreparedStatement markerInsert = mock(PreparedStatement.class);
+		PreparedStatement markerSelect = mock(PreparedStatement.class);
+		PreparedStatement accountingSelect = mock(PreparedStatement.class);
+		PreparedStatement increment = mock(PreparedStatement.class);
+		PreparedStatement accountingUpdate = mock(PreparedStatement.class);
+		ResultSet admitted = accountingRow("player", 4, 0);
+		when(admitted.getString(4)).thenReturn("MonthTotal-SEPTEMBER-2026");
+		when(admitted.wasNull()).thenReturn(true);
+		ResultSet epoch = mock(ResultSet.class);
+		when(epoch.next()).thenReturn(true);
+		ResultSet accounting = accountingRow("player", 4, 0);
+		when(admittedSelect.executeQuery()).thenReturn(admitted);
+		when(markerSelect.executeQuery()).thenReturn(epoch);
+		when(accountingSelect.executeQuery()).thenReturn(accounting);
+		when(increment.executeUpdate()).thenReturn(1);
+		when(accountingUpdate.executeUpdate()).thenReturn(1);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(admittedSelect, markerInsert, markerSelect,
+				accountingSelect, increment, accountingUpdate);
+
+		SharedMysqlPurchaseJournal.PeriodTotalResult result = new SharedMysqlPurchaseJournal(fixture.table, false)
+				.incrementPeriodTotalsResolved(UUID.randomUUID(), "player", "MonthTotal", "LastMonthTotal",
+						List.of("MonthTotal", "MonthTotal-OCTOBER-2026"), Integer.valueOf(99), true);
+
+		assertEquals(List.of("MonthTotal", "MonthTotal-SEPTEMBER-2026"), result.columns());
+		org.mockito.ArgumentCaptor<String> sql = org.mockito.ArgumentCaptor.forClass(String.class);
+		verify(fixture.work, org.mockito.Mockito.times(6)).prepareStatement(sql.capture());
+		assertTrue(sql.getAllValues().get(4).contains("`MonthTotal-SEPTEMBER-2026`"));
+		assertFalse(sql.getAllValues().get(4).contains("`MonthTotal-OCTOBER-2026`"));
 	}
 
 	@Test

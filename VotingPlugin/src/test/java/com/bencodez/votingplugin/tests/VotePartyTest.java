@@ -142,6 +142,8 @@ public class VotePartyTest {
 		when(transition.getType()).thenReturn(com.bencodez.advancedcore.api.time.TimeType.DAY);
 		when(transition.getId()).thenReturn("DAY:2026-09-21");
 		when(plugin.getSpecialRewardsConfig().isVotePartyResetEachDay()).thenReturn(true);
+		when(plugin.getServerData().prepareTimeChangeEffectPolicy(transition, "VotePartyDayReset", true))
+				.thenReturn(true);
 		doReturn(true).when(voteParty)
 				.copyRecoverableUserCountBoundary("vote-party-copy:DAY:2026-09-21:VotePartyDayReset");
 		doReturn(true).when(voteParty)
@@ -150,6 +152,7 @@ public class VotePartyTest {
 		voteParty.onDayChange(new DayChangeEvent(transition));
 
 		verify(plugin.getServerData()).beginTimeChangeRecovery(transition);
+		verify(plugin.getServerData()).prepareTimeChangeEffectPolicy(transition, "VotePartyDayReset", true);
 		InOrder completionOrder = Mockito.inOrder(voteParty, plugin.getServerData(), lease);
 		completionOrder.verify(voteParty)
 				.copyRecoverableUserCountBoundary("vote-party-copy:DAY:2026-09-21:VotePartyDayReset");
@@ -161,6 +164,26 @@ public class VotePartyTest {
 				.completeTimeChangeVotePartyReset(transition, "VotePartyDayReset");
 		completionOrder.verify(lease).complete();
 		verify(plugin.getServerData(), never()).completeTimeChangeEffect(transition, "VotePartyDayReset");
+	}
+
+	@Test
+	public void dayResetResumesWhenConfigurationWasDisabledAfterAdmission() {
+		TimeChangeTransition transition = Mockito.mock(TimeChangeTransition.class);
+		TimeChangeTransition.Lease lease = Mockito.mock(TimeChangeTransition.Lease.class);
+		when(transition.retain()).thenReturn(lease);
+		when(transition.getId()).thenReturn("DAY:2026-09-21");
+		when(plugin.getSpecialRewardsConfig().isVotePartyResetEachDay()).thenReturn(false);
+		when(plugin.getServerData().prepareTimeChangeEffectPolicy(transition, "VotePartyDayReset", false))
+				.thenReturn(true);
+		doReturn(true).when(voteParty)
+				.copyRecoverableUserCountBoundary("vote-party-copy:DAY:2026-09-21:VotePartyDayReset");
+		doReturn(true).when(voteParty)
+				.resetRecoverableUserCounts("vote-party-reset:DAY:2026-09-21:VotePartyDayReset");
+
+		voteParty.onDayChange(new DayChangeEvent(transition));
+
+		verify(plugin.getServerData()).completeTimeChangeVotePartyReset(transition, "VotePartyDayReset");
+		verify(lease).complete();
 	}
 
 	@Test

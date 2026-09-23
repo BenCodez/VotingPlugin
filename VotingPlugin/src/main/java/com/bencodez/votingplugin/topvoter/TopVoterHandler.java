@@ -44,6 +44,7 @@ import com.bencodez.votingplugin.data.ServerData.TimeChangeArchiveSnapshot;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardTarget;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardState;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeUserProgress;
+import com.bencodez.votingplugin.data.ServerData.TimeChangeUserPolicy;
 import com.bencodez.votingplugin.user.PeriodTotalMutationFence;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.voteshop.service.VoteShopLimitMutationFence;
@@ -576,10 +577,7 @@ public class TopVoterHandler implements Listener {
 		try {
 			synchronized (VotingPluginMain.plugin) {
 				plugin.getServerData().beginTimeChangeRecovery(transition);
-				if (top == TopVoter.Daily) {
-					plugin.getServerData().prepareTimeChangeDailyStreakBoundary(transition,
-							plugin.getConfigFile().isUseVoteStreaks());
-				}
+				plugin.getServerData().prepareTimeChangeUserPolicy(transition, currentTimeChangeUserPolicy());
 				if (!plugin.getServerData().hasTimeChangePhase(transition, COMPLETE)) {
 					runRecoverablePeriod(top, transition);
 				}
@@ -594,6 +592,16 @@ public class TopVoterHandler implements Listener {
 					+ failure.getClass().getSimpleName());
 			plugin.debug(failure);
 		}
+	}
+
+	private TimeChangeUserPolicy currentTimeChangeUserPolicy() {
+		return new TimeChangeUserPolicy(plugin.getConfigFile().isUseVoteStreaks(),
+				plugin.getConfigFile().isUseHighestTotals(),
+				plugin.getConfigFile().isUseMonthDateTotalsAsPrimaryTotal(),
+				plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage(),
+				plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(),
+				plugin.getSpecialRewardsConfig().getVoteStreakRequirementWeek(),
+				plugin.getSpecialRewardsConfig().getVoteStreakRequirementMonth());
 	}
 
 	private void runRecoverablePeriod(TopVoter top, TimeChangeTransition transition) {
@@ -666,7 +674,7 @@ public class TopVoterHandler implements Listener {
 			copied[0] = TimeChangeTotalReset.copyBoundary(plugin, top.getColumnName(), top.getLastColumnName(),
 					"time-copy:" + transition.getId());
 			if (copied[0] && top == TopVoter.Daily
-					&& plugin.getServerData().isTimeChangeDailyStreakBoundaryRequired(transition)) {
+					&& plugin.getServerData().getTimeChangeUserPolicy(transition).voteStreaks()) {
 				copied[0] = TimeChangeTotalReset.copyDailyStreakBoundary(plugin,
 						"time-streak-copy:" + transition.getId());
 			}
@@ -677,10 +685,8 @@ public class TopVoterHandler implements Listener {
 	}
 
 	void processRecoverableUsers(TopVoter top, TimeChangeTransition transition) {
-		boolean processVoteStreaks = top == TopVoter.Daily
-				? plugin.getServerData().isTimeChangeDailyStreakBoundaryRequired(transition)
-				: plugin.getConfigFile().isUseVoteStreaks();
-		if (!processVoteStreaks && !plugin.getConfigFile().isUseHighestTotals()) return;
+		TimeChangeUserPolicy policy = plugin.getServerData().getTimeChangeUserPolicy(transition);
+		if (!policy.voteStreaks() && !policy.highestTotals()) return;
 		AtomicReference<String> cursor = new AtomicReference<>(plugin.getServerData().getTimeChangeCursor(transition));
 		LocalDateTime lastMonthTime = top == TopVoter.Monthly ? previousMonthTime(transition) : null;
 		// AdvancedCore streams deterministic UUID-ordered SQL pages synchronously.
@@ -695,10 +701,9 @@ public class TopVoterHandler implements Listener {
 				user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
 				user.updateTempCacheWithColumns(columns);
 				try {
-					if (top == TopVoter.Daily) processDailyUser(user, transition, value,
-							processVoteStreaks);
-					else if (top == TopVoter.Weekly) processWeeklyUser(user, transition, value);
-					else processMonthlyUser(user, lastMonthTime, transition, value);
+					if (top == TopVoter.Daily) processDailyUser(user, transition, value, policy);
+					else if (top == TopVoter.Weekly) processWeeklyUser(user, transition, value, policy);
+					else processMonthlyUser(user, lastMonthTime, transition, value, policy);
 					if (user.getCache() != null) user.getCache().flushChangesAndRun(() -> { });
 				} finally {
 					user.clearTempCache();
@@ -717,8 +722,14 @@ public class TopVoterHandler implements Listener {
 
 	void processDailyUser(VotingPluginUser user, TimeChangeTransition transition, String uuid,
 			boolean processVoteStreaks) {
+		processDailyUser(user, transition, uuid, new TimeChangeUserPolicy(processVoteStreaks,
+				plugin.getConfigFile().isUseHighestTotals(), false, false, 0, 0, 0));
+	}
+
+	void processDailyUser(VotingPluginUser user, TimeChangeTransition transition, String uuid,
+			TimeChangeUserPolicy policy) {
 		int boundaryTotal = user.getLastDailyTotal();
-		if (processVoteStreaks) {
+		if (policy.voteStreaks()) {
 			PeriodTotalMutationFence.withReset(() -> {
 				int boundaryStreak = user.getLastDayVoteStreak();
 				long boundaryUpdate = user.getLastDayVoteStreakLastUpdate();
@@ -730,25 +741,30 @@ public class TopVoterHandler implements Listener {
 				}
 			});
 		}
-		if (plugin.getConfigFile().isUseHighestTotals()
+		if (policy.highestTotals()
 				&& user.getHighestDailyTotal() < boundaryTotal) {
 			user.setHighestDailyTotal(boundaryTotal);
 		}
 	}
 
 	void processWeeklyUser(VotingPluginUser user, TimeChangeTransition transition, String uuid) {
+		processWeeklyUser(user, transition, uuid, currentTimeChangeUserPolicy());
+	}
+
+	void processWeeklyUser(VotingPluginUser user, TimeChangeTransition transition, String uuid,
+			TimeChangeUserPolicy policy) {
 		int boundaryTotal = user.getLastWeeklyTotal();
-		if (plugin.getConfigFile().isUseVoteStreaks()) {
+		if (policy.voteStreaks()) {
 			if (boundaryTotal == 0 && user.getWeekVoteStreak() != 0) {
 				applyRecoverableStreak(user, transition, uuid, TopVoter.Weekly, 0, false);
-			} else if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage()
+			} else if (!policy.streakUsesPercentage()
 					|| user.hasPercentageTotal(TopVoter.Weekly,
-							plugin.getSpecialRewardsConfig().getVoteStreakRequirementWeek(), null, boundaryTotal)) {
+							policy.weekPercentage(), null, boundaryTotal)) {
 				applyRecoverableStreak(user, transition, uuid, TopVoter.Weekly,
 						user.getWeekVoteStreak() + 1, true);
 			}
 		}
-		if (plugin.getConfigFile().isUseHighestTotals()
+		if (policy.highestTotals()
 				&& user.getHighestWeeklyTotal() < boundaryTotal) {
 			user.setHighestWeeklyTotal(boundaryTotal);
 		}
@@ -756,20 +772,25 @@ public class TopVoterHandler implements Listener {
 
 	void processMonthlyUser(VotingPluginUser user, LocalDateTime lastMonthTime,
 			TimeChangeTransition transition, String uuid) {
-		int boundaryTotal = plugin.getConfigFile().isUseMonthDateTotalsAsPrimaryTotal()
+		processMonthlyUser(user, lastMonthTime, transition, uuid, currentTimeChangeUserPolicy());
+	}
+
+	void processMonthlyUser(VotingPluginUser user, LocalDateTime lastMonthTime,
+			TimeChangeTransition transition, String uuid, TimeChangeUserPolicy policy) {
+		int boundaryTotal = policy.monthDateTotalsPrimary()
 				? user.getTotal(TopVoter.Monthly, lastMonthTime) : user.getLastMonthTotal();
-		if (plugin.getConfigFile().isUseVoteStreaks()) {
+		if (policy.voteStreaks()) {
 			if (boundaryTotal == 0 && user.getMonthVoteStreak() != 0) {
 				applyRecoverableStreak(user, transition, uuid, TopVoter.Monthly, 0, false);
-			} else if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage()
+			} else if (!policy.streakUsesPercentage()
 					|| user.hasPercentageTotal(TopVoter.Monthly,
-							plugin.getSpecialRewardsConfig().getVoteStreakRequirementMonth(), lastMonthTime,
+							policy.monthPercentage(), lastMonthTime,
 							boundaryTotal)) {
 				applyRecoverableStreak(user, transition, uuid, TopVoter.Monthly,
 						user.getMonthVoteStreak() + 1, true);
 			}
 		}
-		if (plugin.getConfigFile().isUseHighestTotals()
+		if (policy.highestTotals()
 				&& user.getHighestMonthlyTotal() < boundaryTotal) {
 			user.setHighestMonthlyTotal(boundaryTotal);
 		}
@@ -871,7 +892,8 @@ public class TopVoterHandler implements Listener {
 
 	LinkedHashMap<TopVoterPlayer, Integer> boundaryTopVotersFor(TopVoter top,
 			TimeChangeTransition transition) {
-		if (top == TopVoter.Monthly && plugin.getConfigFile().isUseMonthDateTotalsAsPrimaryTotal()) {
+		if (top == TopVoter.Monthly
+				&& plugin.getServerData().getTimeChangeUserPolicy(transition).monthDateTotalsPrimary()) {
 			return loader.getBoundaryMonthlyTopVotersAtTime(previousMonthTime(transition));
 		}
 		return loader.getBoundaryTopVoters(top);
@@ -1135,7 +1157,8 @@ public class TopVoterHandler implements Listener {
 
 	private TopVoterLoader.BoundaryRanking boundaryRankingFor(TopVoter top,
 			TimeChangeTransition transition) {
-		if (top == TopVoter.Monthly && plugin.getConfigFile().isUseMonthDateTotalsAsPrimaryTotal()) {
+		if (top == TopVoter.Monthly
+				&& plugin.getServerData().getTimeChangeUserPolicy(transition).monthDateTotalsPrimary()) {
 			return loader.getBoundaryRanking(TopVoter.Monthly, previousMonthTime(transition));
 		}
 		return loader.getBoundaryRanking(top, null);

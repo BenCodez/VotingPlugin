@@ -626,6 +626,7 @@ public class VoteShopPurchaseService {
 	public static boolean incrementMysqlPeriodTotals(VotingPluginMain plugin, UUID voteId, String uuid, String boundaryColumn,
 			String previousColumn, List<String> columns, Integer maximum) {
 		if (!canRecoverSharedMysqlPurchases(plugin) || columns == null || columns.isEmpty()) return false;
+		List<String> invalidatedColumns = columns;
 		try {
 			MySQL table = plugin.getMysql();
 			for (String column : columns) table.checkColumn(column, DataType.INTEGER);
@@ -634,9 +635,11 @@ public class VoteShopPurchaseService {
 			int operation = "DailyTotal".equals(boundaryColumn) ? 1 : "WeeklyTotal".equals(boundaryColumn) ? 2
 					: "MonthTotal".equals(boundaryColumn) ? 4 : 8;
 			int admitted = ADMITTED_ACCOUNTING.getOrDefault(accountingId, Integer.valueOf(0)).intValue();
-			boolean applied = SharedMysqlPurchaseJournal.forTable(table).incrementPeriodTotals(accountingId, uuid,
-					boundaryColumn, previousColumn, columns, maximum, (admitted & operation) != 0);
-			if (!applied) plugin.getLogger().warning(
+			SharedMysqlPurchaseJournal.PeriodTotalResult result = SharedMysqlPurchaseJournal.forTable(table)
+					.incrementPeriodTotalsResolved(accountingId, uuid, boundaryColumn, previousColumn, columns,
+							maximum, (admitted & operation) != 0);
+			invalidatedColumns = result.columns();
+			if (!result.applied()) plugin.getLogger().warning(
 					"Shared MySQL period total was retained for retry after a persistence failure");
 			return true;
 		} catch (SQLException failure) {
@@ -645,7 +648,7 @@ public class VoteShopPurchaseService {
 			plugin.debug(failure);
 			return false;
 		} finally {
-			for (String column : columns) SharedMysqlCacheReconciler.invalidate(plugin, uuid, column);
+			for (String column : invalidatedColumns) SharedMysqlCacheReconciler.invalidate(plugin, uuid, column);
 		}
 	}
 

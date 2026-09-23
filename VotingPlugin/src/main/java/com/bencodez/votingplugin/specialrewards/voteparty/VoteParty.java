@@ -258,9 +258,8 @@ public class VoteParty implements Listener {
 	 */
 	@EventHandler
 	public void onDayChange(DayChangeEvent event) {
-		if (plugin.getSpecialRewardsConfig().isVotePartyResetEachDay()) {
-			runRecoverableVotePartyReset(event.getTransition(), "VotePartyDayReset");
-		}
+		runRecoverableVotePartyReset(event.getTransition(), "VotePartyDayReset",
+				plugin.getSpecialRewardsConfig().isVotePartyResetEachDay());
 	}
 
 	/**
@@ -270,13 +269,10 @@ public class VoteParty implements Listener {
 	 */
 	@EventHandler
 	public void onMonthChange(MonthChangeEvent event) {
-		if (plugin.getSpecialRewardsConfig().isVotePartyResetMonthly()) {
-			runRecoverableVotePartyReset(event.getTransition(), "VotePartyMonthReset");
-		}
-
-		if (plugin.getSpecialRewardsConfig().isVotePartyResetExtraVotesMonthly()) {
-			runRecoverableExtraReset(event.getTransition(), "VotePartyMonthExtraVotes");
-		}
+		runRecoverableVotePartyReset(event.getTransition(), "VotePartyMonthReset",
+				plugin.getSpecialRewardsConfig().isVotePartyResetMonthly());
+		runRecoverableExtraReset(event.getTransition(), "VotePartyMonthExtraVotes",
+				plugin.getSpecialRewardsConfig().isVotePartyResetExtraVotesMonthly());
 	}
 
 	/**
@@ -286,21 +282,18 @@ public class VoteParty implements Listener {
 	 */
 	@EventHandler
 	public void onWeekChange(WeekChangeEvent event) {
-		if (plugin.getSpecialRewardsConfig().isVotePartyResetWeekly()) {
-			runRecoverableVotePartyReset(event.getTransition(), "VotePartyWeekReset");
-		}
-
-		if (plugin.getSpecialRewardsConfig().isVotePartyResetExtraVotesWeekly()) {
-			runRecoverableExtraReset(event.getTransition(), "VotePartyWeekExtraVotes");
-		}
+		runRecoverableVotePartyReset(event.getTransition(), "VotePartyWeekReset",
+				plugin.getSpecialRewardsConfig().isVotePartyResetWeekly());
+		runRecoverableExtraReset(event.getTransition(), "VotePartyWeekExtraVotes",
+				plugin.getSpecialRewardsConfig().isVotePartyResetExtraVotesWeekly());
 	}
 
-	private void runRecoverableVotePartyReset(TimeChangeTransition transition, String effect) {
+	private void runRecoverableVotePartyReset(TimeChangeTransition transition, String effect, boolean configured) {
 		if (transition == null) {
-			reset(true);
+			if (configured) reset(true);
 			return;
 		}
-		runRecoverableReset(transition, effect, () -> {
+		runRecoverableReset(transition, effect, configured, () -> {
 			String generation = transition.getId() + ':' + effect;
 			if (!copyRecoverableUserCountBoundary("vote-party-copy:" + generation)) {
 				throw new IllegalStateException("Unable to durably capture VoteParty user counts");
@@ -323,16 +316,17 @@ public class VoteParty implements Listener {
 		return state.resetUserCounts(generation);
 	}
 
-	private void runRecoverableExtraReset(TimeChangeTransition transition, String effect) {
+	private void runRecoverableExtraReset(TimeChangeTransition transition, String effect, boolean configured) {
 		if (transition == null) {
-			plugin.getServerData().setVotePartyExtraRequired(0);
+			if (configured) plugin.getServerData().setVotePartyExtraRequired(0);
 			return;
 		}
-		runRecoverableReset(transition, effect,
+		runRecoverableReset(transition, effect, configured,
 				() -> plugin.getServerData().completeTimeChangeVotePartyExtraReset(transition, effect));
 	}
 
-	private synchronized void runRecoverableReset(TimeChangeTransition transition, String effect, Runnable reset) {
+	private synchronized void runRecoverableReset(TimeChangeTransition transition, String effect,
+			boolean configured, Runnable reset) {
 		if (transition == null) {
 			reset.run();
 			return;
@@ -343,7 +337,8 @@ public class VoteParty implements Listener {
 				throw new java.util.concurrent.CancellationException("Time transition was cancelled");
 			}
 			plugin.getServerData().beginTimeChangeRecovery(transition);
-			if (!plugin.getServerData().hasTimeChangeEffect(transition, effect)) {
+			boolean required = plugin.getServerData().prepareTimeChangeEffectPolicy(transition, effect, configured);
+			if (required && !plugin.getServerData().hasTimeChangeEffect(transition, effect)) {
 				reset.run();
 			}
 			if (transition.isCancellationRequested()) {

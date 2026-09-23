@@ -40,6 +40,7 @@ import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardTarget;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardState;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeUserProgress;
+import com.bencodez.votingplugin.data.ServerData.TimeChangeUserPolicy;
 import com.bencodez.votingplugin.specialrewards.SpecialRewards;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseService;
@@ -52,7 +53,8 @@ class TopVoterTimeChangeRecoveryTest {
 		TimeChangeTransition transition = mock(TimeChangeTransition.class);
 		when(plugin.getServerData()).thenReturn(serverData);
 		when(plugin.getConfigFile().isUseVoteStreaks()).thenReturn(true);
-		when(serverData.isTimeChangeDailyStreakBoundaryRequired(transition)).thenReturn(false);
+		when(serverData.getTimeChangeUserPolicy(transition)).thenReturn(
+				new TimeChangeUserPolicy(false, true, false, false, 0, 0, 0));
 		when(transition.getId()).thenReturn("DAY:2026-09-21");
 		try (MockedStatic<TimeChangeTotalReset> reset = org.mockito.Mockito.mockStatic(TimeChangeTotalReset.class)) {
 			reset.when(() -> TimeChangeTotalReset.copyBoundary(plugin, "DailyTotal", "LastDailyTotal",
@@ -129,6 +131,8 @@ class TopVoterTimeChangeRecoveryTest {
 		when(plugin.getVotingPluginUserManager()).thenReturn(votingUsers);
 		when(plugin.getServerData()).thenReturn(serverData);
 		when(plugin.getConfigFile().isUseHighestTotals()).thenReturn(true);
+		when(serverData.getTimeChangeUserPolicy(transition)).thenReturn(
+				new TimeChangeUserPolicy(false, true, false, false, 0, 0, 0));
 		when(serverData.getTimeChangeCursor(transition)).thenReturn("");
 		when(votingUsers.getVotingPluginUser(uuid, false)).thenReturn(user);
 		doAnswer(invocation -> {
@@ -161,6 +165,8 @@ class TopVoterTimeChangeRecoveryTest {
 		when(plugin.getVotingPluginUserManager()).thenReturn(votingUsers);
 		when(plugin.getServerData()).thenReturn(serverData);
 		when(plugin.getConfigFile().isUseHighestTotals()).thenReturn(true);
+		when(serverData.getTimeChangeUserPolicy(transition)).thenReturn(
+				new TimeChangeUserPolicy(false, true, false, false, 0, 0, 0));
 		when(serverData.getTimeChangeCursor(transition)).thenReturn("");
 		when(votingUsers.getVotingPluginUser(org.mockito.ArgumentMatchers.any(UUID.class),
 				org.mockito.ArgumentMatchers.eq(false))).thenReturn(user);
@@ -200,6 +206,8 @@ class TopVoterTimeChangeRecoveryTest {
 		when(plugin.getVotingPluginUserManager()).thenReturn(votingUsers);
 		when(plugin.getServerData()).thenReturn(serverData);
 		when(plugin.getConfigFile().isUseHighestTotals()).thenReturn(true);
+		when(serverData.getTimeChangeUserPolicy(transition)).thenReturn(
+				new TimeChangeUserPolicy(false, true, false, false, 0, 0, 0));
 		when(serverData.getTimeChangeCursor(transition)).thenReturn("");
 		when(votingUsers.getVotingPluginUser(uuid, false)).thenReturn(user);
 		when(user.getCache()).thenReturn(cache);
@@ -241,6 +249,29 @@ class TopVoterTimeChangeRecoveryTest {
 		verify(user, never()).hasPercentageTotal(org.mockito.ArgumentMatchers.any(),
 				org.mockito.ArgumentMatchers.anyDouble(), org.mockito.ArgumentMatchers.any(),
 				org.mockito.ArgumentMatchers.anyInt());
+	}
+
+	@Test
+	void weeklyRecoveryUsesThePolicyCapturedBeforeConfigurationChanged() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		ServerData serverData = mock(ServerData.class);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		TimeChangeTransition transition = mock(TimeChangeTransition.class);
+		String uuid = "00000000-0000-0000-0000-000000000001";
+		TimeChangeUserPolicy captured = new TimeChangeUserPolicy(true, true, false, false, 0, 0, 0);
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(plugin.getConfigFile().isUseVoteStreaks()).thenReturn(false);
+		when(plugin.getConfigFile().isUseHighestTotals()).thenReturn(false);
+		when(user.getLastWeeklyTotal()).thenReturn(4);
+		when(user.getWeekVoteStreak()).thenReturn(2);
+		when(user.getHighestWeeklyTotal()).thenReturn(1);
+		when(serverData.prepareTimeChangeUserStreak(transition, uuid, 3, true))
+				.thenReturn(new TimeChangeUserProgress(uuid, 3, true, true));
+
+		new TopVoterHandler(plugin).processWeeklyUser(user, transition, uuid, captured);
+
+		verify(user).setWeekVoteStreak(3);
+		verify(user).setHighestWeeklyTotal(4);
 	}
 
 	@Test
