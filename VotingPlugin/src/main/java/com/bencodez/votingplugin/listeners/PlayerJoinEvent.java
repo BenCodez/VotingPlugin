@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.listeners;
 
+import java.util.UUID;
+
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -10,6 +12,7 @@ import com.bencodez.advancedcore.api.player.UuidLookup;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.listeners.AdvancedCoreLoginEvent;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.placeholders.PlaceHolders;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 public class PlayerJoinEvent implements Listener {
@@ -26,8 +29,28 @@ public class PlayerJoinEvent implements Listener {
 		this.plugin = plugin;
 	}
 
+	/** Capture the entity owner before asynchronous user notifications can need it. */
+	@EventHandler(priority = EventPriority.LOWEST)
+	public void onPlayerJoin(org.bukkit.event.player.PlayerJoinEvent event) {
+		if (event == null || event.getPlayer() == null) return;
+		Player player = event.getPlayer();
+		plugin.getPlaceholderPlayerPresence().playerOnline(placeholderUuid(player), player);
+	}
+
+	private UUID placeholderUuid(Player player) {
+		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
+		return user == null || user.getJavaUUID() == null ? player.getUniqueId() : user.getJavaUUID();
+	}
+
 	private static boolean isBlank(String s) {
 		return s == null || s.trim().isEmpty() || "null".equalsIgnoreCase(s.trim());
+	}
+
+	private void clearPlaceholderCachesIfOffline(UUID uuid) {
+		PlaceHolders placeholders = plugin.getPlaceholders();
+		if (placeholders != null) {
+			plugin.getPlaceholderPlayerPresence().runIfOffline(uuid, () -> placeholders.onLogout(uuid));
+		}
 	}
 
 	/**
@@ -58,6 +81,9 @@ public class PlayerJoinEvent implements Listener {
 		}
 
 		Player player = event.getPlayer();
+		if (player != null) {
+			plugin.getPlaceholderPlayerPresence().playerOnline(user.getJavaUUID(), player);
+		}
 
 		if (player != null && player.isOp() && plugin.isYmlError()) {
 			user.sendMessage("&cVotingPlugin: Detected yml error, please check console for details");
@@ -94,6 +120,10 @@ public class PlayerJoinEvent implements Listener {
 		if (player == null) {
 			return;
 		}
+		UUID placeholderUuid = plugin.getPlaceholderPlayerPresence().storageUuid(player);
+		if (placeholderUuid == null) placeholderUuid = placeholderUuid(player);
+		boolean retiredPresence = plugin.getPlaceholderPlayerPresence().playerOffline(placeholderUuid, player);
+		if (retiredPresence) clearPlaceholderCachesIfOffline(placeholderUuid);
 
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			plugin.getBackendProxyHandler().playerOffline(player.getName());
@@ -119,7 +149,7 @@ public class PlayerJoinEvent implements Listener {
 
 				user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
 				user.logoutRewards();
-				plugin.getPlaceholders().onLogout(user);
+				clearPlaceholderCachesIfOffline(user.getJavaUUID());
 			}
 		});
 	}
