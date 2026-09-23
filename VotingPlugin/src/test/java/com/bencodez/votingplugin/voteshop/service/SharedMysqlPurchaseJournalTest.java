@@ -24,6 +24,34 @@ import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 
 class SharedMysqlPurchaseJournalTest {
 	@Test
+	void dailyStreakResetCompletionFollowsThePersistedCopyMarker() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement copyInsert = mock(PreparedStatement.class);
+		PreparedStatement copySelect = mock(PreparedStatement.class);
+		PreparedStatement resetInsert = mock(PreparedStatement.class);
+		PreparedStatement resetSelect = mock(PreparedStatement.class);
+		PreparedStatement update = mock(PreparedStatement.class);
+		ResultSet copyMarker = mock(ResultSet.class);
+		ResultSet resetMarker = mock(ResultSet.class);
+		when(copyMarker.next()).thenReturn(true);
+		when(copyMarker.getString(2)).thenReturn("time-streak-copy:DAY:2026-09-22");
+		when(resetMarker.next()).thenReturn(true);
+		when(resetMarker.getLong(1)).thenReturn(3L);
+		when(copySelect.executeQuery()).thenReturn(copyMarker);
+		when(resetSelect.executeQuery()).thenReturn(resetMarker);
+		when(update.executeUpdate()).thenReturn(1);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(copyInsert, copySelect, resetInsert, resetSelect,
+				update);
+
+		new SharedMysqlPurchaseJournal(fixture.table, false)
+				.completeDailyStreakReset("time-streak-reset:DAY:2026-09-22");
+
+		verify(update).setLong(1, 4L);
+		verify(update).setString(2, "time-streak-reset:DAY:2026-09-22");
+		verify(fixture.work).commit();
+	}
+
+	@Test
 	void voteAdmissionDurablyIncludesEligibleDailyStreakAndReward() throws Exception {
 		Fixture fixture = fixture();
 		PreparedStatement copyInsert = mock(PreparedStatement.class);

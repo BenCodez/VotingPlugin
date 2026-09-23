@@ -852,9 +852,15 @@ final class SharedMysqlPurchaseJournal {
 		try (Connection connection = connection()) {
 			connection.setAutoCommit(false);
 			try {
-				lockLimitEpochRow(connection, "streak-copy:DayVoteStreak");
+				EpochRow copyMarker = lockLimitEpochRow(connection, "streak-copy:DayVoteStreak");
 				EpochRow resetMarker = lockLimitEpochRow(connection, "streak-reset:DayVoteStreak");
 				if (generation.equals(resetMarker.lastResetGeneration())) {
+					rollback(connection);
+					return;
+				}
+				String copiedTransition = generationTransition(copyMarker.lastResetGeneration(), "time-streak-copy:");
+				String resetTransition = generationTransition(generation, "time-streak-reset:");
+				if (!resetTransition.equals(copiedTransition)) {
 					rollback(connection);
 					return;
 				}

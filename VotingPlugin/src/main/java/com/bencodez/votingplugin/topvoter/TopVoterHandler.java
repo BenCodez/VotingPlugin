@@ -626,8 +626,7 @@ public class TopVoterHandler implements Listener {
 			processRecoverableUsers(top, transition);
 			plugin.getServerData().completeTimeChangePhase(transition, USER_UPDATES);
 		}
-		if (top == TopVoter.Daily && plugin.getConfigFile().isUseVoteStreaks()
-				&& plugin.getStorageType().equals(UserStorage.MYSQL)
+		if (top == TopVoter.Daily && plugin.getStorageType().equals(UserStorage.MYSQL)
 				&& !VoteShopPurchaseService.completeMysqlDailyStreakReset(plugin,
 						"time-streak-reset:" + transition.getId())) {
 			throw new IllegalStateException("Unable to publish the completed daily streak reset");
