@@ -14,6 +14,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.UUID;
 import java.nio.file.Path;
 
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -35,6 +36,25 @@ import com.bencodez.votingplugin.data.ServerData.TimeChangeUserPolicy;
 class ServerDataTimeChangeRecoveryTest {
 	@TempDir
 	Path temporaryDirectory;
+
+	@Test
+	void repeatedVotePartyIdentityIncrementsTheGlobalTotalOnlyOnce() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
+		YamlConfiguration yaml = new YamlConfiguration();
+		when(plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
+		when(plugin.getServerDataFile()).thenReturn(coreData);
+		when(coreData.getData()).thenReturn(yaml);
+		ServerData data = new ServerData(plugin);
+		UUID voteId = UUID.randomUUID();
+
+		assertTrue(data.incrementVotePartyTotal(voteId));
+		assertFalse(data.incrementVotePartyTotal(voteId));
+
+		assertEquals(1, yaml.getInt("VotingPlugin.VoteParty.Total"));
+		assertTrue(yaml.contains("VotingPlugin.VoteParty.Accounting." + voteId));
+		verify(coreData).saveData();
+	}
 
 	@Test
 	void perUserCursorUsesTheCompactDurableCheckpointWithoutRewritingServerData() {

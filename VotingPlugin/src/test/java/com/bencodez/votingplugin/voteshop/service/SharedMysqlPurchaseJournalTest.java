@@ -665,6 +665,34 @@ class SharedMysqlPurchaseJournalTest {
 	}
 
 	@Test
+	void repeatedVoteOperationDoesNotIncrementAllTimeTotalTwice() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement requestInsert = mock(PreparedStatement.class);
+		PreparedStatement requestSelect = mock(PreparedStatement.class);
+		PreparedStatement requestUpdate = mock(PreparedStatement.class);
+		PreparedStatement markerInsert = mock(PreparedStatement.class);
+		PreparedStatement markerSelect = mock(PreparedStatement.class);
+		PreparedStatement accountingSelect = mock(PreparedStatement.class);
+		ResultSet epoch = mock(ResultSet.class);
+		ResultSet requested = accountingRow("player", 512, 512);
+		ResultSet accounting = accountingRow("player", 512, 512);
+		when(epoch.next()).thenReturn(true);
+		when(markerSelect.executeQuery()).thenReturn(epoch);
+		when(requestSelect.executeQuery()).thenReturn(requested);
+		when(accountingSelect.executeQuery()).thenReturn(accounting);
+		when(requestUpdate.executeUpdate()).thenReturn(1);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(requestInsert, requestSelect, requestUpdate,
+				markerInsert, markerSelect, accountingSelect);
+
+		new SharedMysqlPurchaseJournal(fixture.table, false).incrementPeriodTotals(UUID.randomUUID(),
+				"player", "AllTimeTotal", "AllTimeTotal", List.of("AllTimeTotal"), null);
+
+		verify(fixture.work).rollback();
+		verify(fixture.work).commit();
+		verify(fixture.work, org.mockito.Mockito.times(6)).prepareStatement(anyString());
+	}
+
+	@Test
 	void admittedMonthlyIncrementUsesItsJournaledColumnAfterConfigurationChanges() throws Exception {
 		Fixture fixture = fixture();
 		PreparedStatement admittedSelect = mock(PreparedStatement.class);

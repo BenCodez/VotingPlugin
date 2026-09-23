@@ -65,8 +65,9 @@ final class SharedMysqlPurchaseJournal {
 	private static final int ACCOUNTING_DECIDED = 64;
 	private static final int DAILY_STREAK_REWARD_CLAIMED = 128;
 	private static final int AWARD_POINTS = 256;
+	private static final int ALL_TIME_TOTAL = 512;
 	private static final int RECOVERABLE_NON_REWARD_ACCOUNTING = DAILY_TOTAL | WEEKLY_TOTAL | MONTH_TOTAL
-			| VOTE_PARTY_TOTAL | DAILY_STREAK;
+			| VOTE_PARTY_TOTAL | DAILY_STREAK | ALL_TIME_TOTAL;
 
 	private static final ReferenceQueue<MySQL> INITIALIZED_QUEUE = new ReferenceQueue<>();
 	private static final Set<IdentityWeakReference> INITIALIZED = new HashSet<>();
@@ -357,7 +358,7 @@ final class SharedMysqlPurchaseJournal {
 	int prepareVoteAccounting(UUID voteId, String uuid, boolean countTotals, boolean awardPoints, boolean countVoteParty,
 			String monthColumn, Integer monthMaximum, boolean streakUsesPercentage, double streakPercentage,
 			int enabledSiteCount, boolean forceProxyRouting, long acceptedAt) throws SQLException {
-		int requested = (countTotals ? DAILY_TOTAL | WEEKLY_TOTAL | MONTH_TOTAL : 0)
+		int requested = (countTotals ? DAILY_TOTAL | WEEKLY_TOTAL | MONTH_TOTAL | ALL_TIME_TOTAL : 0)
 				| (awardPoints ? AWARD_POINTS : 0)
 				| (countVoteParty ? VOTE_PARTY_TOTAL : 0);
 		try (Connection connection = connection()) {
@@ -513,6 +514,7 @@ final class SharedMysqlPurchaseJournal {
 		case "WeeklyTotal" -> WEEKLY_TOTAL;
 		case "MonthTotal" -> MONTH_TOTAL;
 		case "VotePartyVotes" -> VOTE_PARTY_TOTAL;
+		case "AllTimeTotal" -> ALL_TIME_TOTAL;
 		default -> throw new SQLException("Unsupported period total boundary");
 		};
 	}
@@ -1011,7 +1013,8 @@ final class SharedMysqlPurchaseJournal {
 		}
 		String boundary = operation == DAILY_TOTAL ? "DailyTotal"
 				: operation == WEEKLY_TOTAL ? "WeeklyTotal"
-				: operation == MONTH_TOTAL ? "MonthTotal" : "VotePartyVotes";
+				: operation == MONTH_TOTAL ? "MonthTotal"
+				: operation == VOTE_PARTY_TOTAL ? "VotePartyVotes" : "AllTimeTotal";
 		List<String> columns = operation == MONTH_TOTAL && row.monthColumn() != null
 				? List.of(boundary, row.monthColumn()) : List.of(boundary);
 		StringBuilder sql = new StringBuilder("UPDATE ").append(qi(table.getTableName())).append(" SET ");
@@ -1332,6 +1335,8 @@ final class SharedMysqlPurchaseJournal {
 			}
 			if ((missing & VOTE_PARTY_TOTAL) != 0) applyPeriodTotals(recovery.voteId(), row.uuid(),
 						"VotePartyVotes", "LastVotePartyVotes", List.of("VotePartyVotes"), null, VOTE_PARTY_TOTAL);
+			if ((missing & ALL_TIME_TOTAL) != 0) applyPeriodTotals(recovery.voteId(), row.uuid(),
+						"AllTimeTotal", "AllTimeTotal", List.of("AllTimeTotal"), null, ALL_TIME_TOTAL);
 			if ((missing & DAILY_STREAK) != 0) {
 				if (row.streakValue() == null || row.streakUpdatedAt() == null) {
 						throw new SQLException("Pending daily streak accounting payload is incomplete");

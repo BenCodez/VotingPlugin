@@ -48,6 +48,8 @@ class SharedVoteProcessorTest {
     @Test
     void onlineVoteKeepsProductionPhaseOrderAndCounts() {
         var ops = accepted();
+		UUID voteId = UUID.randomUUID();
+		when(ops.incomingVoteId()).thenReturn(voteId);
         when(ops.userOnline(user)).thenReturn(true);
         when(ops.processRewards()).thenReturn(true);
         when(ops.broadcastEnabled()).thenReturn(true);
@@ -76,7 +78,7 @@ class SharedVoteProcessorTest {
         order.verify(ops).addTotal(eq(user), any(UUID.class));
         order.verify(ops).addTotalDaily(eq(user), any(UUID.class));
         order.verify(ops).addTotalWeekly(eq(user), any(UUID.class));
-        order.verify(ops).addPoints(user);
+        order.verify(ops).addPoints(user, voteId);
         order.verify(ops).checkDayVoteStreak(eq(user), eq(false), any(UUID.class));
         order.verify(ops).setMonthTotal(user, 2);
         order.verify(ops).milestones(eq(user), any(UUID.class), eq(false));
@@ -125,7 +127,7 @@ class SharedVoteProcessorTest {
 
 		SharedVoteProcessor.process(ops);
 
-		verify(ops).addPoints(user);
+		verify(ops).addPoints(eq(user), any(UUID.class));
 		verify(ops, never()).addTotal(eq(user), any(UUID.class));
 	}
 
@@ -150,7 +152,7 @@ class SharedVoteProcessorTest {
         verify(ops).playerVote(user, site, true, false);
         verify(ops, never()).addOfflineVote(any(), any());
         verify(ops, never()).addTotal(eq(user), any(UUID.class));
-        verify(ops).addPoints(user);
+        verify(ops).addPoints(eq(user), any(UUID.class));
         ArgumentCaptor<UUID> id = ArgumentCaptor.forClass(UUID.class);
         verify(ops).postVote(eq(site), eq(user), eq("Ben"), eq(321L), id.capture(), eq(false));
         assertEquals(proxyId, id.getValue());
@@ -209,7 +211,7 @@ class SharedVoteProcessorTest {
 
         InOrder order = inOrder(ops);
         order.verify(ops).addOfflineVote(user, "ExampleKey");
-        order.verify(ops).addPoints(user);
+        order.verify(ops).addPoints(eq(user), any(UUID.class));
         order.verify(ops).postVote(eq(site), eq(user), eq("Ben"), eq(456L), any(UUID.class), eq(true));
         verify(ops, never()).playerVote(any(), any(), eq(false), eq(false));
         verify(ops, never()).addTotal(eq(user), any(UUID.class));
@@ -253,6 +255,6 @@ class SharedVoteProcessorTest {
 
         verify(ops, never()).addOfflineVote(any(), any());
         verify(ops).postVote(eq(site), eq(user), eq("Ben"), eq(457L), any(UUID.class), eq(false));
-        verify(ops).addPoints(user);
+        verify(ops).addPoints(eq(user), any(UUID.class));
     }
 }

@@ -155,6 +155,25 @@ class VotingPluginUserVoteShopLimitTest {
 	}
 
 	@Test
+	void sqliteMonthlyIncrementAppliesTheCapInsideTheMutationFence() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		when(plugin.getStorageType()).thenReturn(UserStorage.SQLITE);
+		when(plugin.getConfigFile().isLimitMonthlyVotes()).thenReturn(true);
+		when(plugin.getTimeChecker().getTime().getDayOfMonth()).thenReturn(2);
+		when(plugin.getVoteSiteManager().getVoteSitesEnabled().size()).thenReturn(3);
+		AdvancedCoreUser base = mock(AdvancedCoreUser.class);
+		when(base.getUserData()).thenReturn(mock(UserData.class));
+		when(base.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
+		VotingPluginUser user = spy(new VotingPluginUser(plugin, base));
+		doReturn(6).when(user).getMonthTotal();
+		doNothing().when(user).setMonthTotal(org.mockito.ArgumentMatchers.anyInt());
+
+		user.addMonthTotal(UUID.randomUUID());
+
+		verify(user).setMonthTotal(6);
+	}
+
+	@Test
 	void sharedMysqlLimitsUseNonBlockingUserCacheWhenAvailable() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		when(plugin.getStorageType()).thenReturn(UserStorage.MYSQL);

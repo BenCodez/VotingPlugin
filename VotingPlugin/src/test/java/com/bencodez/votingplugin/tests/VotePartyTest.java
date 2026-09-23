@@ -91,9 +91,11 @@ public class VotePartyTest {
 
 	@Test
 	public void addTotal_IncrementsTotalVotes() {
-		when(plugin.getServerData().getData().getInt("VoteParty.Total")).thenReturn(5);
+		when(plugin.getServerData().incrementVotePartyTotal(null)).thenReturn(true);
 		voteParty.addTotal(user);
-		verify(plugin.getServerData().getData()).set("VoteParty.Total", 6);
+		verify(plugin.getServerData()).incrementVotePartyTotal(null);
+		verify(user).addVotePartyVote(null);
+		verify(plugin.getPlaceholders()).onVotePartyUpdate();
 	}
 
 	@Test

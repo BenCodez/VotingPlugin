@@ -82,7 +82,7 @@ public final class SharedVoteProcessor {
         void addTotal(U user, UUID voteId);
         void addTotalDaily(U user, UUID voteId);
         void addTotalWeekly(U user, UUID voteId);
-        void addPoints(U user);
+        void addPoints(U user, UUID voteId);
         void checkDayVoteStreak(U user, boolean forceProxyRouting, UUID voteId);
         boolean limitMonthlyVotes();
         int proxyMonthTotal();
@@ -220,7 +220,7 @@ public final class SharedVoteProcessor {
                     ops.realVote(), ops.addTotals(), ops.proxyVote(), ops.forceProxyRouting(), ops.wasOnline());
             SharedVoteAccounting.applyAdmitted(countTotals, awardPoints, () -> ops.addTotal(user, voteId),
                     () -> ops.addTotalDaily(user, voteId), () -> ops.addTotalWeekly(user, voteId),
-                    () -> ops.addPoints(user));
+                    () -> ops.addPoints(user, voteId));
             ops.checkDayVoteStreak(user, ops.forceProxyRouting(), voteId);
             if (ops.limitMonthlyVotes() && (!ops.proxyVote() || ops.hasProxyTextTotals())) {
                 int value = ops.proxyVote() ? ops.proxyMonthTotal() : ops.userMonthTotal(user);

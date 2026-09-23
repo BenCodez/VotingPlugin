@@ -155,6 +155,17 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		setAllTimeTotal(getAllTimeTotal() + 1);
 	}
 
+	public void addAllTimeTotal(UUID voteId) {
+		if (plugin != null && UserStorage.MYSQL.equals(plugin.getStorageType())) {
+			if (!VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, getUUID(), "AllTimeTotal",
+					"AllTimeTotal", List.of("AllTimeTotal"), null)) {
+				throw new IllegalStateException("Unable to retain shared MySQL all-time vote total");
+			}
+			return;
+		}
+		addAllTimeTotal();
+	}
+
 	/**
 	 * Adds one to the daily vote streak.
 	 */
@@ -173,8 +184,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public void addMonthTotal(UUID voteId) {
 		PeriodTotalMutationFence.withMutation(() -> {
 			int fallbackTotal = getMonthTotal() + 1;
-			if (plugin != null && UserStorage.MYSQL.equals(plugin.getStorageType())
-					&& plugin.getConfigFile().isLimitMonthlyVotes()) {
+			if (plugin != null && plugin.getConfigFile().isLimitMonthlyVotes()) {
 				int maximum = plugin.getTimeChecker().getTime().getDayOfMonth()
 						* plugin.getVoteSiteManager().getVoteSitesEnabled().size();
 				fallbackTotal = Math.min(maximum, fallbackTotal);
@@ -270,6 +280,43 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		int newTotal = getPoints() + event.getPoints();
 		setPoints(newTotal, async);
 		return newTotal;
+	}
+
+	/**
+	 * Adds the configured vote points under the accepted vote's durable identity.
+	 * Shared MySQL retries confirm the journalled credit before dispatching the
+	 * receive hook again, and the vote producer is not acknowledged until the
+	 * credit has committed.
+	 *
+	 * @param voteId stable identity of the accepted vote
+	 */
+	public void addVotePoints(UUID voteId) {
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		if (voteId == null || !sharedPoints.usesMysqlPointMutations()) {
+			addPoints();
+			return;
+		}
+
+		int points = plugin.getConfigFile().getPointsOnVote();
+		int limit = plugin.getConfigFile().getLimitVotePoints();
+		String pointsColumn = getPointsPath();
+		String operationId = "vote-points:" + voteId;
+		Integer completedTotal = sharedPoints.completedPointAdditionTotal(operationId, getUUID(), pointsColumn);
+		if (completedTotal == null && points != 0) {
+			PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, points);
+			Bukkit.getPluginManager().callEvent(event);
+			if (!event.isCancelled()) {
+				SharedMysqlPointMutator.AddResult result = sharedPoints.addCommittedToColumn(this,
+						event.getPoints(), operationId, pointsColumn);
+				if (!result.success()) {
+					throw new IllegalStateException("Unable to persist vote points for " + getUUID());
+				}
+				sharedPoints.acknowledgePointAdditionNow(operationId);
+			}
+		} else if (completedTotal != null) {
+			sharedPoints.acknowledgePointAdditionNow(operationId);
+		}
+		if (limit > 0) sharedPoints.cap(this, limit, false);
 	}
 
 	/**
@@ -891,7 +938,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public void addTotal(UUID voteId) {
 		addMonthTotal(voteId);
-		addAllTimeTotal();
+		addAllTimeTotal(voteId);
 	}
 
 	/**
@@ -2445,6 +2492,13 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	@Deprecated
 	public void setMonthTotal(int total) {
 		setTotal(TopVoter.Monthly, total);
+	}
+
+	/** Applies a monthly ceiling against the value read inside the period fence. */
+	public void capMonthTotal(int maximum) {
+		PeriodTotalMutationFence.withMutation(() -> {
+			if (getMonthTotal() > maximum) setTotalWithinFence(TopVoter.Monthly, maximum);
+		});
 	}
 
 	/**

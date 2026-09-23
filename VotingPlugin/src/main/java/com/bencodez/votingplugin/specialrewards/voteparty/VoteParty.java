@@ -52,9 +52,9 @@ public class VoteParty implements Listener {
 	}
 
 	public void addTotal(VotingPluginUser user, UUID voteId) {
-		setTotalVotes(getTotalVotes() + 1);
+		boolean totalAdded = plugin.getServerData().incrementVotePartyTotal(voteId);
 		user.addVotePartyVote(voteId);
-		plugin.getPlaceholders().onVotePartyUpdate();
+		if (totalAdded) plugin.getPlaceholders().onVotePartyUpdate();
 	}
 
 	/**

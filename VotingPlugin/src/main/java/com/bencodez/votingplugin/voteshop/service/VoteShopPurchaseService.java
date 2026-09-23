@@ -58,6 +58,7 @@ public class VoteShopPurchaseService {
 	private static final ConcurrentMap<UUID, Integer> ADMITTED_ACCOUNTING = new ConcurrentHashMap<>();
 	private static final int ACCOUNTING_DAILY_STREAK = 16;
 	private static final int ACCOUNTING_POINTS = 256;
+	private static final int ACCOUNTING_ALL_TIME = 512;
 	private static final int PURCHASE_LOCK_STRIPES = 256;
 	private static final Object[] PURCHASE_LOCKS = createPurchaseLocks();
 	private static final int COMPLETION_PENDING = 0;
@@ -635,8 +636,15 @@ public class VoteShopPurchaseService {
 			for (String column : columns) table.checkColumn(column, DataType.INTEGER);
 			if (maximum != null) table.checkColumn(previousColumn, DataType.INTEGER);
 			UUID accountingId = voteId == null ? UUID.randomUUID() : voteId;
-			int operation = "DailyTotal".equals(boundaryColumn) ? 1 : "WeeklyTotal".equals(boundaryColumn) ? 2
-					: "MonthTotal".equals(boundaryColumn) ? 4 : 8;
+			int operation = switch (boundaryColumn) {
+			case "DailyTotal" -> 1;
+			case "WeeklyTotal" -> 2;
+			case "MonthTotal" -> 4;
+			case "VotePartyVotes" -> 8;
+			case "AllTimeTotal" -> ACCOUNTING_ALL_TIME;
+			default -> 0;
+			};
+			if (operation == 0) return false;
 			int admitted = ADMITTED_ACCOUNTING.getOrDefault(accountingId, Integer.valueOf(0)).intValue();
 			SharedMysqlPurchaseJournal.PeriodTotalResult result = SharedMysqlPurchaseJournal.forTable(table)
 					.incrementPeriodTotalsResolved(accountingId, uuid, boundaryColumn, previousColumn, columns,
@@ -672,6 +680,7 @@ public class VoteShopPurchaseService {
 				table.checkColumn("DailyTotal", DataType.INTEGER);
 				table.checkColumn("WeeklyTotal", DataType.INTEGER);
 				table.checkColumn("MonthTotal", DataType.INTEGER);
+				table.checkColumn("AllTimeTotal", DataType.INTEGER);
 				if (monthColumn != null) table.checkColumn(monthColumn, DataType.INTEGER);
 				if (maximum != null) table.checkColumn("LastMonthTotal", DataType.INTEGER);
 			}

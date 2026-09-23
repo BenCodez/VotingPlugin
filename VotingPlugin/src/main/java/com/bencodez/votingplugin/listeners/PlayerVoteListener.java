@@ -199,7 +199,7 @@ public class PlayerVoteListener implements Listener {
         @Override public void addTotal(VotingPluginUser user, UUID voteId) { user.addTotal(voteId); }
         @Override public void addTotalDaily(VotingPluginUser user, UUID voteId) { user.addTotalDaily(voteId); }
         @Override public void addTotalWeekly(VotingPluginUser user, UUID voteId) { user.addTotalWeekly(voteId); }
-        @Override public void addPoints(VotingPluginUser user) { user.addPoints(); }
+        @Override public void addPoints(VotingPluginUser user, UUID voteId) { user.addVotePoints(voteId); }
         @Override public void checkDayVoteStreak(VotingPluginUser user, boolean forceProxyRouting, UUID voteId) {
             user.checkDayVoteStreak(forceProxyRouting, voteId);
         }
@@ -211,7 +211,7 @@ public class PlayerVoteListener implements Listener {
 		@Override public void setMonthTotal(VotingPluginUser user, int total) {
 			// Shared MySQL increments apply the same cap inside the boundary-serialized
 			// transaction, so an absolute cache write here could only reintroduce a stale value.
-			if (!UserStorage.MYSQL.equals(plugin.getStorageType())) user.setTotal(TopVoter.Monthly, total);
+			if (!UserStorage.MYSQL.equals(plugin.getStorageType())) user.capMonthTotal(total);
 		}
         @Override public void milestones(VotingPluginUser user, UUID voteId, boolean forceProxyRouting) {
             plugin.getVoteMilestonesManager().handleVote(user, event.getBungeeTextTotals(), forceProxyRouting,
