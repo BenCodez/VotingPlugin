@@ -30,7 +30,7 @@ public class ServerData {
 	public record TimeChangeUserPolicy(boolean voteStreaks, boolean highestTotals,
 			boolean monthDateTotalsPrimary, boolean streakUsesPercentage,
 			double dayPercentage, double weekPercentage, double monthPercentage,
-			boolean proxyOwnsResets, boolean waitForProxy) { }
+			boolean proxyOwnsResets, boolean waitForProxy, boolean rewardForceProxy) { }
 	public record TimeChangeTopPolicy(boolean rewardsEnabled, boolean awardTies,
 			boolean ignorePermission, boolean archiveRequired, List<String> rewardPlaces,
 			List<String> blacklistedPlayers) {
@@ -502,6 +502,7 @@ public class ServerData {
 			getData().set(policyPath + ".MonthPercentage", proposed.monthPercentage());
 			getData().set(policyPath + ".ProxyOwnsResets", proposed.proxyOwnsResets());
 			getData().set(policyPath + ".WaitForProxy", proposed.waitForProxy());
+			getData().set(policyPath + ".RewardForceProxy", proposed.rewardForceProxy());
 			getData().set(policyPath + ".Prepared", true);
 			try {
 				saveData();
@@ -529,7 +530,8 @@ public class ServerData {
 				getData().getDouble(policyPath + ".WeekPercentage"),
 				getData().getDouble(policyPath + ".MonthPercentage"),
 				getData().getBoolean(policyPath + ".ProxyOwnsResets"),
-				getData().getBoolean(policyPath + ".WaitForProxy"));
+				getData().getBoolean(policyPath + ".WaitForProxy"),
+				getData().getBoolean(policyPath + ".RewardForceProxy"));
 	}
 
 	/** Fixes the VoteShop identifiers selected for this transition before resets begin. */

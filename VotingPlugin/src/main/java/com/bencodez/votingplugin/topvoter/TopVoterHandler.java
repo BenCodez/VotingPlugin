@@ -607,7 +607,8 @@ public class TopVoterHandler implements Listener {
 				plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(),
 				plugin.getSpecialRewardsConfig().getVoteStreakRequirementWeek(),
 				plugin.getSpecialRewardsConfig().getVoteStreakRequirementMonth(), proxyOwnsResets,
-				plugin.getBungeeSettings().isUseBungeecoord() && !proxyOwnsResets);
+				plugin.getBungeeSettings().isUseBungeecoord() && !proxyOwnsResets,
+				plugin.getBungeeSettings().isUseBungeecoord());
 	}
 
 	private List<String> currentVoteShopResetTargets(TopVoter top) {
@@ -745,7 +746,7 @@ public class TopVoterHandler implements Listener {
 	void processDailyUser(VotingPluginUser user, TimeChangeTransition transition, String uuid,
 			boolean processVoteStreaks) {
 		processDailyUser(user, transition, uuid, new TimeChangeUserPolicy(processVoteStreaks,
-				plugin.getConfigFile().isUseHighestTotals(), false, false, 0, 0, 0, false, false));
+				plugin.getConfigFile().isUseHighestTotals(), false, false, 0, 0, 0, false, false, false));
 	}
 
 	void processDailyUser(VotingPluginUser user, TimeChangeTransition transition, String uuid,
@@ -863,7 +864,8 @@ public class TopVoterHandler implements Listener {
 			if (rewardState == TimeChangeRewardState.COMPLETE) return;
 			plugin.getServerData().claimTimeChangeUserStreakReward(transition, uuid);
 			plugin.getSpecialRewards().checkVoteStreak(null, user,
-					top == TopVoter.Weekly ? "Week" : "Month", plugin.getBungeeSettings().isUseBungeecoord());
+					top == TopVoter.Weekly ? "Week" : "Month",
+					plugin.getServerData().getTimeChangeUserPolicy(transition).rewardForceProxy());
 			plugin.getServerData().completeTimeChangeUserStreakReward(transition, uuid);
 		}
 	}

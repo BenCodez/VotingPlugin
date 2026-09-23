@@ -55,7 +55,7 @@ class TopVoterTimeChangeRecoveryTest {
 		when(plugin.getServerData()).thenReturn(serverData);
 		when(plugin.getConfigFile().isUseVoteStreaks()).thenReturn(true);
 		when(serverData.getTimeChangeUserPolicy(transition)).thenReturn(
-				new TimeChangeUserPolicy(false, true, false, false, 0, 0, 0, false, false));
+				new TimeChangeUserPolicy(false, true, false, false, 0, 0, 0, false, false, false));
 		when(transition.getId()).thenReturn("DAY:2026-09-21");
 		try (MockedStatic<TimeChangeTotalReset> reset = org.mockito.Mockito.mockStatic(TimeChangeTotalReset.class)) {
 			reset.when(() -> TimeChangeTotalReset.copyBoundary(plugin, "DailyTotal", "LastDailyTotal",
@@ -133,7 +133,7 @@ class TopVoterTimeChangeRecoveryTest {
 		when(plugin.getServerData()).thenReturn(serverData);
 		when(plugin.getConfigFile().isUseHighestTotals()).thenReturn(true);
 		when(serverData.getTimeChangeUserPolicy(transition)).thenReturn(
-				new TimeChangeUserPolicy(false, true, false, false, 0, 0, 0, false, false));
+				new TimeChangeUserPolicy(false, true, false, false, 0, 0, 0, false, false, false));
 		when(serverData.getTimeChangeCursor(transition)).thenReturn("");
 		when(votingUsers.getVotingPluginUser(uuid, false)).thenReturn(user);
 		doAnswer(invocation -> {
@@ -167,7 +167,7 @@ class TopVoterTimeChangeRecoveryTest {
 		when(plugin.getServerData()).thenReturn(serverData);
 		when(plugin.getConfigFile().isUseHighestTotals()).thenReturn(true);
 		when(serverData.getTimeChangeUserPolicy(transition)).thenReturn(
-				new TimeChangeUserPolicy(false, true, false, false, 0, 0, 0, false, false));
+				new TimeChangeUserPolicy(false, true, false, false, 0, 0, 0, false, false, false));
 		when(serverData.getTimeChangeCursor(transition)).thenReturn("");
 		when(votingUsers.getVotingPluginUser(org.mockito.ArgumentMatchers.any(UUID.class),
 				org.mockito.ArgumentMatchers.eq(false))).thenReturn(user);
@@ -208,7 +208,7 @@ class TopVoterTimeChangeRecoveryTest {
 		when(plugin.getServerData()).thenReturn(serverData);
 		when(plugin.getConfigFile().isUseHighestTotals()).thenReturn(true);
 		when(serverData.getTimeChangeUserPolicy(transition)).thenReturn(
-				new TimeChangeUserPolicy(false, true, false, false, 0, 0, 0, false, false));
+				new TimeChangeUserPolicy(false, true, false, false, 0, 0, 0, false, false, false));
 		when(serverData.getTimeChangeCursor(transition)).thenReturn("");
 		when(votingUsers.getVotingPluginUser(uuid, false)).thenReturn(user);
 		when(user.getCache()).thenReturn(cache);
@@ -259,7 +259,7 @@ class TopVoterTimeChangeRecoveryTest {
 		VotingPluginUser user = mock(VotingPluginUser.class);
 		TimeChangeTransition transition = mock(TimeChangeTransition.class);
 		String uuid = "00000000-0000-0000-0000-000000000001";
-		TimeChangeUserPolicy captured = new TimeChangeUserPolicy(true, true, false, false, 0, 0, 0, false, false);
+		TimeChangeUserPolicy captured = new TimeChangeUserPolicy(true, true, false, false, 0, 0, 0, false, false, false);
 		when(plugin.getServerData()).thenReturn(serverData);
 		when(plugin.getConfigFile().isUseVoteStreaks()).thenReturn(false);
 		when(plugin.getConfigFile().isUseHighestTotals()).thenReturn(false);
@@ -568,6 +568,23 @@ class TopVoterTimeChangeRecoveryTest {
 					"SELECT VoteShopLimitdaily, VoteShopLimitweekly FROM users WHERE uuid = 'player'")) {
 				assertEquals(1, result.getInt(1));
 				assertEquals(2, result.getInt(2));
+			}
+		}
+	}
+
+	@Test
+	void sqliteVoteShopResetQuotesConfiguredIdentifierCharacters() throws Exception {
+		try (Connection connection = DriverManager.getConnection("jdbc:sqlite::memory:");
+				Statement statement = connection.createStatement()) {
+			statement.executeUpdate("CREATE TABLE users (uuid TEXT PRIMARY KEY, `VoteShopLimitdaily-reward` INTEGER)");
+			statement.executeUpdate("INSERT INTO users VALUES ('player', 4)");
+
+			TimeChangeTotalReset.resetSqliteToZero(connection, "users", "VoteShopLimitdaily-reward",
+					"time-shop:DAY:2026-09-21:VoteShopLimitdaily-reward");
+
+			try (ResultSet result = statement.executeQuery(
+					"SELECT `VoteShopLimitdaily-reward` FROM users WHERE uuid = 'player'")) {
+				assertEquals(0, result.getInt(1));
 			}
 		}
 	}

@@ -119,8 +119,8 @@ class ServerDataTimeChangeRecoveryTest {
 		ServerData data = new ServerData(plugin);
 		data.beginTimeChangeRecovery(transition);
 
-		TimeChangeUserPolicy original = new TimeChangeUserPolicy(false, true, false, true, 50, 60, 70, true, false);
-		TimeChangeUserPolicy changed = new TimeChangeUserPolicy(true, false, true, false, 1, 2, 3, false, true);
+		TimeChangeUserPolicy original = new TimeChangeUserPolicy(false, true, false, true, 50, 60, 70, true, false, true);
+		TimeChangeUserPolicy changed = new TimeChangeUserPolicy(true, false, true, false, 1, 2, 3, false, true, false);
 		assertEquals(original, data.prepareTimeChangeUserPolicy(transition, original));
 		assertEquals(original, data.prepareTimeChangeUserPolicy(transition, changed));
 		assertEquals(original, new ServerData(plugin).getTimeChangeUserPolicy(transition));
@@ -138,7 +138,7 @@ class ServerDataTimeChangeRecoveryTest {
 		data.beginTimeChangeRecovery(transition);
 		doThrow(new IllegalStateException("disk unavailable")).when(coreData).saveData();
 
-		TimeChangeUserPolicy policy = new TimeChangeUserPolicy(true, true, true, true, 50, 60, 70, true, false);
+		TimeChangeUserPolicy policy = new TimeChangeUserPolicy(true, true, true, true, 50, 60, 70, true, false, true);
 		assertThrows(IllegalStateException.class, () -> data.prepareTimeChangeUserPolicy(transition, policy));
 
 		assertThrows(IllegalStateException.class, () -> data.getTimeChangeUserPolicy(transition));

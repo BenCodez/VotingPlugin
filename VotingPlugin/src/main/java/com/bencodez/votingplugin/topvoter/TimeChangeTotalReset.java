@@ -197,10 +197,10 @@ public final class TimeChangeTotalReset {
 	}
 
 	private static boolean safeIdentifier(String value) {
-		return value != null && value.matches("[A-Za-z0-9_]+");
+		return value != null && !value.isEmpty() && value.indexOf('\0') < 0;
 	}
 
 	private static String quote(String identifier) {
-		return '`' + identifier + '`';
+		return '`' + identifier.replace("`", "``") + '`';
 	}
 }
