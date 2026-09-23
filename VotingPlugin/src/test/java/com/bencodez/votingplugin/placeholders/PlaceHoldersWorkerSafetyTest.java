@@ -41,6 +41,8 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.votesites.VoteSite;
+import com.bencodez.votingplugin.votesites.VoteSiteManager;
 
 class PlaceHoldersWorkerSafetyTest {
 	@Test
@@ -105,6 +107,34 @@ class PlaceHoldersWorkerSafetyTest {
 		verify(fixture.scheduler).runTask(eq(fixture.plugin), task.capture(), eq(fixture.player));
 		task.getValue().run();
 		assertEquals(1, requests.get());
+	}
+
+	@Test
+	void backgroundWarmupCapturesVoteEligibilityBeforeTemporaryDataIsCleared() {
+		Fixture fixture = new Fixture();
+		fixture.presence.playerOnline(fixture.player);
+		VoteSite site = mock(VoteSite.class);
+		when(site.isHidden()).thenReturn(false);
+		when(site.getPermissionToView()).thenReturn("");
+		when(fixture.voteSiteManager.getVoteSitesEnabled()).thenReturn(new ArrayList<>(List.of(site)));
+		when(fixture.votingUser.canVoteSite(site)).thenReturn(true)
+				.thenThrow(new AssertionError("entity task reread cleared TEMP_ONLY vote data"));
+		AtomicInteger requests = new AtomicInteger();
+		PlaceHolder<VotingPluginUser> placeholder = fixture.cachedPlaceholder(
+				"CanVoteSites", "LastVotes", requests);
+		placeholder.setUseCache(true, "CanVoteSites");
+		placeholder.getCache().get("CanVoteSites").put(fixture.uuid, "old");
+		fixture.placeholders.getPlaceholders().add(fixture.placeholders.platformOwned(placeholder));
+		fixture.placeholders.publishUserDataChangePlaceholders();
+
+		fixture.placeholders.onUpdate(fixture.votingUser, false);
+
+		ArgumentCaptor<Runnable> task = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), task.capture(), eq(fixture.player));
+		task.getValue().run();
+		assertEquals("1", placeholder.getCache().get("CanVoteSites").get(fixture.uuid));
+		assertEquals(0, requests.get(), "the entity task must publish the captured result directly");
+		verify(fixture.votingUser).canVoteSite(site);
 	}
 
 	@Test
@@ -249,6 +279,7 @@ class PlaceHoldersWorkerSafetyTest {
 		final java.util.concurrent.ScheduledExecutorService storageWorker =
 				mock(java.util.concurrent.ScheduledExecutorService.class);
 		final VotingPluginUser votingUser = mock(VotingPluginUser.class);
+		final VoteSiteManager voteSiteManager = mock(VoteSiteManager.class);
 		final AdvancedCoreUser advancedUser = mock(AdvancedCoreUser.class);
 		final BukkitScheduler scheduler = mock(BukkitScheduler.class);
 		final PlaceholderPlayerPresence presence = new PlaceholderPlayerPresence();
@@ -263,6 +294,7 @@ class PlaceHoldersWorkerSafetyTest {
 			when(plugin.getConfigFile()).thenReturn(config);
 			when(config.getPlaceholderCacheLevel()).thenReturn(level);
 			when(plugin.getVotingPluginUserManager()).thenReturn(userManager);
+			when(plugin.getVoteSiteManager()).thenReturn(voteSiteManager);
 			when(plugin.getUserManager()).thenReturn(advancedUserManager);
 			when(advancedUserManager.getDataManager()).thenReturn(dataManager);
 			when(dataManager.getTimer()).thenReturn(storageWorker);

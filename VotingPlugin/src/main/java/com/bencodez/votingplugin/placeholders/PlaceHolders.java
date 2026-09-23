@@ -1246,6 +1246,13 @@ public class PlaceHolders {
 
 	private void schedulePlatformUpdates(UUID uuid, VotingPluginUser user,
 			List<PlaceHolder<VotingPluginUser>> platformUpdates, String[] keys) {
+		schedulePlatformUpdates(uuid, user, platformUpdates, keys,
+				capturePlatformPlaceholderSnapshot(user, platformUpdates));
+	}
+
+	private void schedulePlatformUpdates(UUID uuid, VotingPluginUser user,
+			List<PlaceHolder<VotingPluginUser>> platformUpdates, String[] keys,
+			PlatformPlaceholderSnapshot snapshot) {
 		Player owner = plugin.getPlaceholderPlayerPresence().schedulerOwner(uuid);
 		if (owner == null) {
 			dispatchOfflinePlatformUpdates(uuid, platformUpdates, keys);
@@ -1254,12 +1261,17 @@ public class PlaceHolders {
 		Runnable update = () -> {
 			if (!plugin.isEnabled()) return;
 			if (plugin.getPlaceholderPlayerPresence().schedulerOwner(uuid) != owner) {
-				schedulePlatformUpdates(uuid, user, platformUpdates, keys);
+				schedulePlatformUpdates(uuid, user, platformUpdates, keys, snapshot);
 				return;
 			}
 			if (getCacheLevel().onlineOnly() && !plugin.getPlaceholderPlayerPresence().isOnline(uuid)) return;
 			for (PlaceHolder<VotingPluginUser> placeholder : platformUpdates) {
-				if (shouldRefresh(placeholder, uuid, keys)) updateCachedPlaceholder(placeholder, user, uuid, keys);
+				if (!shouldRefresh(placeholder, uuid, keys)) continue;
+				String identifier = placeholder.getIdentifier();
+				if (identifier.equalsIgnoreCase("CanVoteSites") || identifier.equalsIgnoreCase("SitesAvailable")) {
+					publishCachedValue(placeholder, user, uuid,
+							Integer.toString(snapshot.sitesAvailable(user)), keys);
+				} else updateCachedPlaceholder(placeholder, user, uuid, keys);
 			}
 		};
 		BukkitCompletionScheduler.run(plugin, owner, update, () -> {
@@ -1267,6 +1279,33 @@ public class PlaceHolders {
 			plugin.getPlaceholderPlayerPresence().playerOffline(uuid, owner);
 			dispatchOfflinePlatformUpdates(uuid, platformUpdates, keys);
 		}, () -> { });
+	}
+
+	private PlatformPlaceholderSnapshot capturePlatformPlaceholderSnapshot(VotingPluginUser user,
+			List<PlaceHolder<VotingPluginUser>> platformUpdates) {
+		boolean needsVoteEligibility = platformUpdates.stream().map(PlaceHolder::getIdentifier)
+				.anyMatch(identifier -> identifier.equalsIgnoreCase("CanVoteSites")
+						|| identifier.equalsIgnoreCase("SitesAvailable"));
+		if (!needsVoteEligibility) return PlatformPlaceholderSnapshot.EMPTY;
+		List<String> votableSitePermissions = new ArrayList<>();
+		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
+			if (!site.isHidden() && user.canVoteSite(site)) {
+				votableSitePermissions.add(site.getPermissionToView());
+			}
+		}
+		return new PlatformPlaceholderSnapshot(List.copyOf(votableSitePermissions));
+	}
+
+	private record PlatformPlaceholderSnapshot(List<String> votableSitePermissions) {
+		private static final PlatformPlaceholderSnapshot EMPTY = new PlatformPlaceholderSnapshot(List.of());
+
+		private int sitesAvailable(VotingPluginUser user) {
+			int amount = 0;
+			for (String permission : votableSitePermissions) {
+				if (permission.isEmpty() || user.hasPermission(permission, false)) amount++;
+			}
+			return amount;
+		}
 	}
 
 	private void dispatchOfflinePlatformUpdates(UUID uuid,
@@ -1360,6 +1399,21 @@ public class PlaceHolders {
 				plugin.devDebug("Updated placeholder cache for " + user.getUUID() + " on "
 						+ matchingKey(placeholder, keys) + " with " + value);
 			}
+		}
+	}
+
+	private void publishCachedValue(PlaceHolder<VotingPluginUser> placeholder, VotingPluginUser user, UUID uuid,
+			String value, String... keys) {
+		for (String ident : Set.copyOf(placeholder.getCache().keySet())) {
+			ConcurrentHashMap<UUID, String> values = placeholder.getCache().get(ident);
+			if (values == null) continue;
+			values.put(uuid, value);
+			if (getCacheLevel().onlineOnly() && !plugin.getPlaceholderPlayerPresence().isOnline(uuid)) {
+				values.remove(uuid);
+				continue;
+			}
+			plugin.devDebug("Updated placeholder cache for " + user.getUUID() + " on "
+					+ matchingKey(placeholder, keys) + " with " + value);
 		}
 	}
 
