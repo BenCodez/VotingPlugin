@@ -11,7 +11,6 @@ import org.bukkit.scheduler.BukkitTask;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.backendproxy.BackendProxyHandler;
-import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
 import com.bencodez.votingplugin.proxy.control.HostedControlManager;
 import com.bencodez.votingplugin.proxy.control.HostedControlManager.HostConfiguration;
@@ -38,6 +37,7 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 	private boolean verifierInstalled;
 	private boolean connectorAuthenticated;
 	private long verifierAcknowledgedAt;
+	private String routeChallenge = "";
 
 	private BackendControlAutoEnrollment(VotingPluginMain plugin, String nodeId, String credentialFile,
 			String endpoint, PendingAutoEnrollment enrollment) {
@@ -59,14 +59,13 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 		return prepare(plugin, control);
 	}
 
-	/** Prepares proxy-mediated enrollment only when source-bound plugin messaging is active. */
+	/** Prepares proxy-mediated enrollment through the configured backend transport. */
 	public static BackendControlAutoEnrollment create(VotingPluginMain plugin, HostConfiguration hosted)
 			throws IOException {
 		ConfigurationSection control = control(plugin);
 		if (control == null || !control.getBoolean("Enabled", false)
 				|| HostedControlManager.isDirectLocalEndpoint(control.getString("Endpoint", ""), hosted)
-				|| !plugin.getBungeeSettings().isUseBungeecoord()
-				|| BungeeMethod.getByName(plugin.getBungeeSettings().getBungeeMethod()) != BungeeMethod.PLUGINMESSAGING) {
+				|| !plugin.getBungeeSettings().isUseBungeecoord()) {
 			return null;
 		}
 		String serverName = plugin.getOptions().getServer();
@@ -132,23 +131,36 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 			pending = enrollment;
 		}
 		BackendProxyHandler handler = plugin.getBackendProxyHandler();
-		if (handler == null || handler.getMethod() != BungeeMethod.PLUGINMESSAGING
-				|| handler.getGlobalMessageHandler() == null) return;
+		if (handler == null || handler.getGlobalMessageHandler() == null) return;
 		handler.getGlobalMessageHandler().sendMessage(VotingPluginWire.controlEnrollmentRequest(
-				nodeId, pending == null ? "" : pending.verifier(), endpoint, requestId));
+				nodeId, pending == null ? "" : pending.verifier(), endpoint, requestId, routeChallenge));
 	}
 
 	public void handle(JsonEnvelope envelope) {
 		VotingPluginWire.ControlEnrollmentResult result = VotingPluginWire.readControlEnrollmentResult(envelope);
-		boolean restartConnector = false;
+		boolean ensureConnector = false;
 		synchronized (this) {
-			if (closed.get() || !result.valid || !result.success || !requestId.equals(result.requestId)
+			if (closed.get() || !result.valid || !requestId.equals(result.requestId)
 					|| !nodeId.equals(result.nodeId)) return;
-			if (enrollment == null) {
+			if (!result.challenge.isEmpty()) {
+				routeChallenge = result.challenge;
+				if (enrollment == null) {
+					try {
+						enrollment = prepare(plugin, credentialFile, nodeId);
+						if (enrollment == null) close();
+					} catch (IOException e) {
+						plugin.getLogger().warning(
+								"[Control] Automatic backend credential could not be prepared; it will retry");
+					}
+				}
+				ensureConnector = enrollment != null;
+			} else if (!result.success) {
+				return;
+			} else if (enrollment == null) {
 				try {
 					enrollment = prepare(plugin, credentialFile, nodeId);
 					if (enrollment == null) close();
-					restartConnector = true;
+					ensureConnector = enrollment != null;
 				} catch (IOException e) {
 					plugin.getLogger().warning(
 							"[Control] Automatic backend credential could not be prepared; it will retry");
@@ -159,7 +171,7 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 				completeIfConnected();
 			}
 		}
-		if (restartConnector) plugin.restartBackendControlConnector();
+		if (ensureConnector) plugin.startBackendControlConnectorForEnrollment(this);
 	}
 
 	/** Completes durable enrollment only after this credential authenticated to the configured endpoint. */

@@ -183,19 +183,26 @@ public class VotingPluginWireTest {
 	public void controlEnrollmentRoundTripContainsVerifierIdentityAndRoute() {
 		UUID requestId = UUID.randomUUID();
 		String verifier = "a".repeat(64);
+		String challenge = UUID.randomUUID().toString();
 
 		VotingPluginWire.ControlEnrollmentRequest request = VotingPluginWire.readControlEnrollmentRequest(
-				VotingPluginWire.controlEnrollmentRequest("survival", verifier, "http://10.0.0.5:2150", requestId));
+				VotingPluginWire.controlEnrollmentRequest("survival", verifier, "http://10.0.0.5:2150", requestId,
+						challenge));
 		VotingPluginWire.ControlEnrollmentResult result = VotingPluginWire.readControlEnrollmentResult(
-				VotingPluginWire.controlEnrollmentResult("survival", requestId, true));
+				VotingPluginWire.controlEnrollmentResult("survival", requestId, false, challenge));
 
 		assertTrue(request.valid);
 		assertEquals("survival", request.nodeId);
+		assertEquals("survival", VotingPluginWire.controlEnrollmentRequest(
+				"survival", verifier, "http://10.0.0.5:2150", requestId)
+				.getFields().get(VotingPluginWire.K_SERVER));
 		assertEquals(verifier, request.verifier);
 		assertEquals("http://10.0.0.5:2150", request.endpoint);
+		assertEquals(challenge, request.challenge);
 		assertEquals(requestId, request.requestId);
 		assertTrue(result.valid);
-		assertTrue(result.success);
+		assertFalse(result.success);
+		assertEquals(challenge, result.challenge);
 		assertEquals(requestId, result.requestId);
 	}
 

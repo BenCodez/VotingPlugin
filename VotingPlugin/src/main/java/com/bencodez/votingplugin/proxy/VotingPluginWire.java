@@ -96,6 +96,7 @@ public final class VotingPluginWire {
 	public static final String K_NODE_ID = "nodeId";
 	public static final String K_VERIFIER = "verifier";
 	public static final String K_ENDPOINT = "endpoint";
+	public static final String K_CHALLENGE = "challenge";
 	public static final String K_SUCCESS = "success";
 
 	// Vote/VoteOnline extras
@@ -225,15 +226,27 @@ public final class VotingPluginWire {
 	}
 
 	public static JsonEnvelope controlEnrollmentRequest(String nodeId, String verifier, String endpoint, UUID requestId) {
-		return base(SUB_CONTROL_ENROLLMENT_REQUEST).put(K_NODE_ID, safe(nodeId))
+		return controlEnrollmentRequest(nodeId, verifier, endpoint, requestId, "");
+	}
+
+	public static JsonEnvelope controlEnrollmentRequest(String nodeId, String verifier, String endpoint, UUID requestId,
+			String challenge) {
+		return base(SUB_CONTROL_ENROLLMENT_REQUEST).put(K_NODE_ID, safe(nodeId)).put(K_SERVER, safe(nodeId))
 				.put(K_VERIFIER, safe(verifier))
 				.put(K_ENDPOINT, safe(endpoint))
+				.put(K_CHALLENGE, safe(challenge))
 				.put(K_REQUEST_ID, requestId == null ? "" : requestId.toString()).build();
 	}
 
 	public static JsonEnvelope controlEnrollmentResult(String nodeId, UUID requestId, boolean success) {
+		return controlEnrollmentResult(nodeId, requestId, success, "");
+	}
+
+	public static JsonEnvelope controlEnrollmentResult(String nodeId, UUID requestId, boolean success,
+			String challenge) {
 		return base(SUB_CONTROL_ENROLLMENT_RESULT).put(K_NODE_ID, safe(nodeId))
 				.put(K_REQUEST_ID, requestId == null ? "" : requestId.toString())
+				.put(K_CHALLENGE, safe(challenge))
 				.put(K_SUCCESS, success).build();
 	}
 
@@ -560,16 +573,20 @@ public final class VotingPluginWire {
 		public final String nodeId;
 		public final String verifier;
 		public final String endpoint;
+		public final String challenge;
 		public final UUID requestId;
 		public final boolean valid;
 
-		private ControlEnrollmentRequest(String nodeId, String verifier, String endpoint, UUID requestId) {
+		private ControlEnrollmentRequest(String nodeId, String verifier, String endpoint, UUID requestId,
+				String challenge) {
 			this.nodeId = nodeId;
 			this.verifier = verifier;
 			this.endpoint = endpoint;
+			this.challenge = challenge;
 			this.requestId = requestId;
 			this.valid = nodeId.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 					&& (verifier.isEmpty() || verifier.matches("[0-9a-f]{64}"))
+					&& (challenge.isEmpty() || challenge.matches("[0-9a-f-]{36}"))
 					&& !endpoint.isBlank() && endpoint.length() <= 2048
 					&& requestId != null;
 		}
@@ -578,27 +595,30 @@ public final class VotingPluginWire {
 	public static ControlEnrollmentRequest readControlEnrollmentRequest(JsonEnvelope env) {
 		Map<String, String> fields = env.getFields();
 		return new ControlEnrollmentRequest(safe(fields.get(K_NODE_ID)), safe(fields.get(K_VERIFIER)),
-				safe(fields.get(K_ENDPOINT)), readUuid(fields, K_REQUEST_ID));
+				safe(fields.get(K_ENDPOINT)), readUuid(fields, K_REQUEST_ID), safe(fields.get(K_CHALLENGE)));
 	}
 
 	public static final class ControlEnrollmentResult {
 		public final String nodeId;
 		public final UUID requestId;
 		public final boolean success;
+		public final String challenge;
 		public final boolean valid;
 
-		private ControlEnrollmentResult(String nodeId, UUID requestId, boolean success) {
+		private ControlEnrollmentResult(String nodeId, UUID requestId, boolean success, String challenge) {
 			this.nodeId = nodeId;
 			this.requestId = requestId;
 			this.success = success;
-			this.valid = nodeId.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,63}") && requestId != null;
+			this.challenge = challenge;
+			this.valid = nodeId.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,63}") && requestId != null
+					&& (challenge.isEmpty() || challenge.matches("[0-9a-f-]{36}"));
 		}
 	}
 
 	public static ControlEnrollmentResult readControlEnrollmentResult(JsonEnvelope env) {
 		Map<String, String> fields = env.getFields();
 		return new ControlEnrollmentResult(safe(fields.get(K_NODE_ID)), readUuid(fields, K_REQUEST_ID),
-				readBool(fields, K_SUCCESS, false));
+				readBool(fields, K_SUCCESS, false), safe(fields.get(K_CHALLENGE)));
 	}
 
 	public static final class PresencePlayer {
