@@ -43,6 +43,11 @@ automation because it copies a JAR into a developer-specific server directory.
 - `VotingPlugin/src/main/resources/` contains the default Bukkit and proxy configuration.
 - `docs/control-connector.md` explains deployment; `docs/control-agent-contract.md` is the exact agent/client contract.
 
+## Threading and user-data invariants
+
+- Treat AdvancedCore/VotingPlugin user-data, cache, and storage APIs as potentially blocking unless an API is explicitly documented as snapshot-only. Do not perform cache population, SQL-backed reads or writes, flush/dump/clear/remove operations, or shared-runtime admission on the Bukkit/Paper primary server thread. Capture platform-owned state there, hand user-data work to the existing persistence/storage worker, and schedule only the required Bukkit/Folia interaction back onto the platform owner.
+- Preserve the shared-user lock order: shared-runtime/per-user admission before the `UserDataCache` monitor. Never hold `synchronized (UserDataCache)` while calling APIs that can acquire shared-runtime admission, including `dump()`, `clearCache()`, `removeCache()`, cache population, or storage access. Keep cache-monitor sections short and cache-local.
+
 ## Runtime and security invariants
 
 1. Control connectors initiate outbound HTTP(S); do not add an inbound admin port to VotingPlugin.

@@ -39,6 +39,7 @@ import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueNu
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.javascript.JavascriptPlaceholderRequest;
 import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
+import com.bencodez.advancedcore.api.player.UuidLookup;
 import com.bencodez.advancedcore.api.rewards.DirectlyDefinedReward;
 import com.bencodez.advancedcore.api.rewards.Reward;
 import com.bencodez.advancedcore.api.rewards.RewardEditData;
@@ -96,6 +97,7 @@ import com.bencodez.votingplugin.listeners.VotifierVoteOverflowQueue;
 import com.bencodez.votingplugin.listeners.VotingPluginUpdateEvent;
 import com.bencodez.votingplugin.placeholders.MVdWPlaceholders;
 import com.bencodez.votingplugin.placeholders.PlaceHolders;
+import com.bencodez.votingplugin.placeholders.PlaceholderPlayerPresence;
 import com.bencodez.votingplugin.placeholders.VotingPluginExpansion;
 import com.bencodez.votingplugin.presets.VoteSitePresetSetupHandler;
 import com.bencodez.votingplugin.proxy.control.HostedControlManager;
@@ -230,6 +232,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Getter
 	private PlaceHolders placeholders;
+
+	@Getter
+	private final PlaceholderPlayerPresence placeholderPlayerPresence = new PlaceholderPlayerPresence();
 
 	@Getter
 	private VoteTester voteTester;
@@ -650,6 +655,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		registerCommands();
 		checkVotifier();
 		registerEvents();
+		refreshPlaceholderPlayerPresence();
 
 		loadVoteBroadcast();
 
@@ -1823,6 +1829,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onUnLoad() {
+		placeholderPlayerPresence.clear();
 		stopBackendHostedControlLifecycle();
 		stopBackendControlConnectorLifecycle();
 		if (getBackendProxyHandler() != null) {
@@ -1959,6 +1966,23 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	public void reloadAll() {
 		reloadPlugin(true, true);
+	}
+
+	/** Captures Bukkit presence while the lifecycle caller owns platform access. */
+	public void refreshPlaceholderPlayerPresence() {
+		boolean onlineMode = getOptions().isOnlineMode();
+		placeholderPlayerPresence.replace(Bukkit::getOnlinePlayers,
+				player -> placeholderStorageUuid(player, onlineMode));
+	}
+
+	static UUID placeholderStorageUuid(Player player, boolean onlineMode) {
+		if (onlineMode) return player.getUniqueId();
+		String cachedUuid = UuidLookup.getInstance().getCachedUUID(player.getName());
+		try {
+			return UUID.fromString(cachedUuid);
+		} catch (IllegalArgumentException | NullPointerException ignored) {
+			return player.getUniqueId();
+		}
 	}
 
 	/** Reloads configuration applied by Control before its result is acknowledged. */

@@ -1574,6 +1574,19 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return amount;
 	}
 
+	/**
+	 * Match the existing offline result without resolving a live Bukkit player.
+	 * Permission-gated sites are excluded because the normal call uses
+	 * {@code hasPermission(permission, false)}, which returns false offline.
+	 */
+	public int getSitesNotVotedOnWithoutOnlinePermissions() {
+		int amount = 0;
+		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
+			if (!site.isHidden() && site.getPermissionToView().isEmpty() && canVoteSite(site)) amount++;
+		}
+		return amount;
+	}
+
 	public int getTotalNumberOfSites() {
 		int amount = 0;
 		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
@@ -1582,6 +1595,19 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 					amount++;
 				}
 			}
+		}
+		return amount;
+	}
+
+	/**
+	 * Match the existing offline total without resolving a live Bukkit player.
+	 * Permission-gated sites are excluded because the normal call uses
+	 * {@code hasPermission(permission, false)}, which returns false offline.
+	 */
+	public int getTotalNumberOfSitesWithoutOnlinePermissions() {
+		int amount = 0;
+		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
+			if (!site.isHidden() && site.getPermissionToView().isEmpty()) amount++;
 		}
 		return amount;
 	}

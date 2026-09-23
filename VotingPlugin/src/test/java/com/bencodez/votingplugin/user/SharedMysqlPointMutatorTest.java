@@ -93,7 +93,7 @@ class SharedMysqlPointMutatorTest {
 	}
 
 	@Test
-	void pointMutationDumpHoldsTheSharedLimitResetFence() throws Exception {
+	void pointMutationCacheRetirementHoldsTheSharedLimitResetFence() throws Exception {
 		MySQL table = mock(MySQL.class);
 		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
 				org.mockito.Mockito.RETURNS_DEEP_STUBS);
@@ -108,38 +108,76 @@ class SharedMysqlPointMutatorTest {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		when(plugin.getMysql()).thenReturn(table);
 		VotingPluginUser user = mock(VotingPluginUser.class);
-		when(user.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
+		UUID uuid = UUID.fromString("00000000-0000-0000-0000-000000000001");
+		when(user.getUUID()).thenReturn(uuid.toString());
 		when(user.getPointsPath()).thenReturn("Points");
 		when(user.isCached()).thenReturn(true);
 		UserDataCache cache = mock(UserDataCache.class);
 		when(user.getCache()).thenReturn(cache);
+		var dataManager = plugin.getUserManager().getDataManager();
 
-		java.util.concurrent.CountDownLatch dumpEntered = new java.util.concurrent.CountDownLatch(1);
-		java.util.concurrent.CountDownLatch releaseDump = new java.util.concurrent.CountDownLatch(1);
+		java.util.concurrent.CountDownLatch removalEntered = new java.util.concurrent.CountDownLatch(1);
+		java.util.concurrent.CountDownLatch releaseRemoval = new java.util.concurrent.CountDownLatch(1);
 		java.util.concurrent.CountDownLatch resetEntered = new java.util.concurrent.CountDownLatch(1);
-		org.mockito.Mockito.doAnswer(invocation -> {
-			dumpEntered.countDown();
-			assertTrue(releaseDump.await(2, TimeUnit.SECONDS));
+		doAnswer(invocation -> {
+			removalEntered.countDown();
+			assertTrue(releaseRemoval.await(2, TimeUnit.SECONDS));
 			return null;
-		}).when(cache).dump();
+		}).when(dataManager).removeCache(eq(uuid), org.mockito.ArgumentMatchers.isNull());
 		java.util.concurrent.ExecutorService workers = java.util.concurrent.Executors.newFixedThreadPool(2);
 		try {
 			java.util.concurrent.Future<Boolean> mutation = workers.submit(
 					() -> new SharedMysqlPointMutator(plugin).setCommitted(user, 20));
-			assertTrue(dumpEntered.await(1, TimeUnit.SECONDS));
+			assertTrue(removalEntered.await(1, TimeUnit.SECONDS));
 			java.util.concurrent.Future<?> reset = workers.submit(
 					() -> SharedMysqlCacheReconciler.withResetFence(resetEntered::countDown));
 
 			assertFalse(resetEntered.await(100, TimeUnit.MILLISECONDS),
-					"a limit reset must wait for an in-flight point-mutation cache dump");
-			releaseDump.countDown();
+					"a limit reset must wait for in-flight cache retirement");
+			releaseRemoval.countDown();
 			assertTrue(mutation.get(1, TimeUnit.SECONDS));
 			reset.get(1, TimeUnit.SECONDS);
 			assertEquals(0, resetEntered.getCount());
 		} finally {
-			releaseDump.countDown();
+			releaseRemoval.countDown();
 			workers.shutdownNow();
 		}
+	}
+
+	@Test
+	void pointMutationReleasesCacheMonitorBeforeRemovingSharedCache() throws Exception {
+		MySQL table = mock(MySQL.class);
+		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
+				org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		Connection connection = mock(Connection.class);
+		PreparedStatement statement = mock(PreparedStatement.class);
+		when(table.getTableName()).thenReturn("VotingPlugin_Users");
+		when(table.qi(anyString())).thenAnswer(invocation -> "`" + invocation.getArgument(0) + "`");
+		when(table.getMysql()).thenReturn(sql);
+		when(sql.getConnectionManager().getConnection()).thenReturn(connection);
+		when(connection.prepareStatement(anyString())).thenReturn(statement);
+		when(statement.executeUpdate()).thenReturn(1);
+
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		when(plugin.getMysql()).thenReturn(table);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		UUID uuid = UUID.fromString("00000000-0000-0000-0000-000000000001");
+		when(user.getUUID()).thenReturn(uuid.toString());
+		when(user.getPointsPath()).thenReturn("Points");
+		when(user.isCached()).thenReturn(true);
+		UserDataCache cache = mock(UserDataCache.class);
+		when(user.getCache()).thenReturn(cache);
+		var dataManager = plugin.getUserManager().getDataManager();
+		doAnswer(invocation -> {
+			assertFalse(Thread.holdsLock(cache),
+					"removeCache must not run while the UserDataCache monitor is held");
+			return null;
+		}).when(dataManager).removeCache(eq(uuid), org.mockito.ArgumentMatchers.isNull());
+
+		assertTrue(new SharedMysqlPointMutator(plugin).setCommitted(user, 20));
+
+		verify(cache, never()).dump();
+		verify(dataManager).removeCache(eq(uuid), org.mockito.ArgumentMatchers.isNull());
 	}
 
 	@Test
@@ -490,11 +528,13 @@ class SharedMysqlPointMutatorTest {
 		values.put("DailyTotal", new DataValueInt(4));
 		when(user.getCache()).thenReturn(cache);
 		when(cache.getCache()).thenReturn(values);
-		org.mockito.Mockito.doAnswer(invocation -> {
-			assertFalse(values.containsKey("Points"), "the predicted value must not be persisted by dump");
-			assertTrue(values.containsKey("DailyTotal"), "unrelated pending values must still be flushed");
+		UUID uuid = UUID.fromString("00000000-0000-0000-0000-000000000001");
+		var dataManager = plugin.getUserManager().getDataManager();
+		doAnswer(invocation -> {
+			assertFalse(values.containsKey("Points"), "the optimistic prediction must be removed before retirement");
+			assertTrue(values.containsKey("DailyTotal"), "unrelated cached values must remain available to the atomic flush");
 			return null;
-		}).when(cache).dump();
+		}).when(dataManager).removeCache(eq(uuid), org.mockito.ArgumentMatchers.isNull());
 
 		assertEquals(30, new SharedMysqlPointMutator(plugin).add(user, 10, true));
 		assertEquals(30, values.get("Points").getInt());
@@ -503,7 +543,8 @@ class SharedMysqlPointMutatorTest {
 
 		task.getValue().run();
 
-		verify(cache).dump();
+		verify(cache, never()).dump();
+		verify(dataManager).removeCache(eq(uuid), org.mockito.ArgumentMatchers.isNull());
 		verify(statement).executeUpdate();
 	}
 
@@ -693,12 +734,13 @@ class SharedMysqlPointMutatorTest {
 		when(user.getCache()).thenReturn(cache);
 		when(cache.getCache()).thenReturn(values);
 		UUID uuid = UUID.fromString("00000000-0000-0000-0000-000000000001");
-		when(plugin.getUserManager().getDataManager().getUserDataCache()).thenReturn(
+		var dataManager = plugin.getUserManager().getDataManager();
+		when(dataManager.getUserDataCache()).thenReturn(
 				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(uuid, cache)));
-		org.mockito.Mockito.doAnswer(invocation -> {
-			assertFalse(values.containsKey("Points"), "the capped prediction must not be dumped before SQL caps it");
+		doAnswer(invocation -> {
+			assertFalse(values.containsKey("Points"), "the capped prediction must be removed before cache retirement");
 			return null;
-		}).when(cache).dump();
+		}).when(dataManager).removeCache(eq(uuid), org.mockito.ArgumentMatchers.isNull());
 
 		new SharedMysqlPointMutator(plugin).addAndCap(user, 10, 100, true);
 		assertEquals(100, values.get("Points").getInt());

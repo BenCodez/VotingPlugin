@@ -1073,11 +1073,12 @@ final class SharedMysqlPointMutator {
 			if (!user.isCached()) return;
 			UserDataCache cache = user.getCache();
 			if (cache == null) return;
-			synchronized (cache) {
-				SharedMysqlCacheReconciler.discardOptimisticPoint(cache, pointsColumn);
-				cache.dump();
-				plugin.getUserManager().getDataManager().removeCache(UUID.fromString(user.getUUID()), null);
-			}
+			// Strip only this operation's optimistic point prediction before handing
+			// the complete flush-and-retire sequence to AdvancedCore. removeCache()
+			// owns one exclusive per-user admission, so no writer can enter between
+			// flushing queued changes and detaching the cache.
+			SharedMysqlCacheReconciler.discardOptimisticPoint(cache, pointsColumn);
+			plugin.getUserManager().getDataManager().removeCache(UUID.fromString(user.getUUID()), null);
 		});
 	}
 
