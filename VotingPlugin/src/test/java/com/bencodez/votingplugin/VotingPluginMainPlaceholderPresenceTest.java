@@ -25,7 +25,7 @@ class VotingPluginMainPlaceholderPresenceTest {
 
 		try (var uuidLookup = mockStatic(UuidLookup.class)) {
 			uuidLookup.when(UuidLookup::getInstance).thenReturn(lookup);
-			assertEquals(storageUuid, VotingPluginMain.placeholderStorageUuid(player));
+			assertEquals(storageUuid, VotingPluginMain.placeholderStorageUuid(player, false));
 		}
 	}
 
@@ -40,7 +40,20 @@ class VotingPluginMainPlaceholderPresenceTest {
 
 		try (var uuidLookup = mockStatic(UuidLookup.class)) {
 			uuidLookup.when(UuidLookup::getInstance).thenReturn(lookup);
-			assertEquals(bukkitUuid, VotingPluginMain.placeholderStorageUuid(player));
+			assertEquals(bukkitUuid, VotingPluginMain.placeholderStorageUuid(player, false));
+		}
+	}
+
+	@Test
+	void onlineModeIgnoresAStaleCachedNameMapping() {
+		Player player = mock(Player.class);
+		UuidLookup lookup = mock(UuidLookup.class);
+		UUID bukkitUuid = UUID.randomUUID();
+		when(player.getUniqueId()).thenReturn(bukkitUuid);
+
+		try (var uuidLookup = mockStatic(UuidLookup.class)) {
+			uuidLookup.when(UuidLookup::getInstance).thenReturn(lookup);
+			assertEquals(bukkitUuid, VotingPluginMain.placeholderStorageUuid(player, true));
 		}
 	}
 }

@@ -1938,10 +1938,13 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	/** Captures Bukkit presence while the lifecycle caller owns platform access. */
 	public void refreshPlaceholderPlayerPresence() {
-		placeholderPlayerPresence.replace(Bukkit::getOnlinePlayers, VotingPluginMain::placeholderStorageUuid);
+		boolean onlineMode = getOptions().isOnlineMode();
+		placeholderPlayerPresence.replace(Bukkit::getOnlinePlayers,
+				player -> placeholderStorageUuid(player, onlineMode));
 	}
 
-	static UUID placeholderStorageUuid(Player player) {
+	static UUID placeholderStorageUuid(Player player, boolean onlineMode) {
+		if (onlineMode) return player.getUniqueId();
 		String cachedUuid = UuidLookup.getInstance().getCachedUUID(player.getName());
 		try {
 			return UUID.fromString(cachedUuid);
