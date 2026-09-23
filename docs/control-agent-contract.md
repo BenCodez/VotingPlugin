@@ -13,6 +13,27 @@ has three separate lanes:
 Do not translate an inspection request into a configuration operation. Do not add raw SQL, arbitrary commands, player
 enumeration, database browsing, filesystem paths, or generic key/value reads to either contract.
 
+## Backend automatic enrollment
+
+A backend without a completed credential sends `ControlEnrollmentRequest` through its configured proxy transport. The
+request identifies `nodeId`/`server`, `requestId`, the exact Control `endpoint`, an optional SHA-256 credential `verifier`,
+an optional proxy `challenge`, and an optional `authenticator`. The proxy replies with `ControlEnrollmentResult`, echoing
+the node and request IDs and carrying either a single-use challenge or the final success result.
+
+Plugin messaging binds the request to the proxy-observed source server. HTTP uses its authenticated backend transport
+identity. Redis, MQTT, sockets, and MySQL have no authoritative per-message source identity, so both the initial request
+and challenge response require an HMAC-SHA256 transcript authenticator derived from the deployment's shared
+`secretkey.key`. The signed transcript includes node ID, request ID, endpoint, verifier, and challenge. A proxy rejects a
+missing or invalid signature without consuming the pending challenge. These transports therefore require the same key on
+the proxy and backend; otherwise automatic enrollment remains unavailable and the administrator must install the backend
+credential manually. Raw credentials and key material never appear in the envelope.
+
+The proxy first proves that the requested endpoint is its hosted Control instance. Challenges expire after one minute
+and are single use. The backend retains its pending credential until the proxy reports verifier installation and the
+backend connector successfully authenticates to that exact endpoint. Enrollment retries may repeat the same request ID,
+verifier, and valid challenge. Non-plugin-message sends run on a dedicated daemon worker; plugin messaging alone is sent
+from the Bukkit scheduler because its transport requires the server-owned channel.
+
 ## Verified plugin deployment (`plugin.deploy.v1`)
 
 The capability is advertised only when the node can identify a safe staging target. Control assigns work through

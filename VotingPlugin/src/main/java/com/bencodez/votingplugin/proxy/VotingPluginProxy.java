@@ -76,6 +76,7 @@ import com.bencodez.simpleapi.sql.data.DataValueBoolean;
 import com.bencodez.simpleapi.sql.data.DataValueInt;
 import com.bencodez.simpleapi.sql.data.DataValueString;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
+import com.bencodez.votingplugin.control.ControlEnrollmentAuthenticator;
 import com.bencodez.votingplugin.proxy.broadcast.ProxyBroadcastDecider;
 import com.bencodez.votingplugin.proxy.cache.IVoteCache;
 import com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects;
@@ -335,6 +336,7 @@ public abstract class VotingPluginProxy {
 	private final Set<String> pendingBackendRecoverySnapshots = ConcurrentHashMap.newKeySet();
 	private final Map<String, Long> controlEnrollmentNextAllowed = new ConcurrentHashMap<>();
 	private final Map<String, ControlEnrollmentChallenge> controlEnrollmentChallenges = new ConcurrentHashMap<>();
+	private volatile ControlEnrollmentAuthenticator controlEnrollmentAuthenticator;
 	private final Map<UUID, PendingCommunicationTest> pendingCommunicationTests = new ConcurrentHashMap<>();
 	private volatile ControlConnector controlConnector;
 	private volatile HostedControlManager hostedControlManager;
@@ -3322,6 +3324,7 @@ public abstract class VotingPluginProxy {
 
 	private void handleUnboundControlEnrollmentRequest(String sourceServer, JsonEnvelope envelope,
 			VotingPluginWire.ControlEnrollmentRequest request) {
+		if (!verifyControlEnrollmentAuthenticator(request)) return;
 		if (request.verifier.isEmpty()) {
 			if (!allowControlEnrollmentAttempt(sourceServer)) return;
 			requestControlEnrollmentChallenge(sourceServer, request);
@@ -3343,6 +3346,22 @@ public abstract class VotingPluginProxy {
 			return;
 		}
 		installControlEnrollmentRequest(sourceServer, request);
+	}
+
+	private boolean verifyControlEnrollmentAuthenticator(VotingPluginWire.ControlEnrollmentRequest request) {
+		try {
+			ControlEnrollmentAuthenticator authenticator = controlEnrollmentAuthenticator;
+			if (authenticator == null) {
+				authenticator = ControlEnrollmentAuthenticator.load(
+						getDataFolderPlugin().toPath().resolve("secretkey.key"));
+				controlEnrollmentAuthenticator = authenticator;
+			}
+			return authenticator.verifies(request.authenticator, request.nodeId, request.requestId, request.endpoint,
+					request.verifier, request.challenge);
+		} catch (IOException unavailable) {
+			debug("[Control] shared enrollment key is unavailable");
+			return false;
+		}
 	}
 
 	protected void handleControlEnrollmentRequest(String sourceServer, JsonEnvelope envelope) {

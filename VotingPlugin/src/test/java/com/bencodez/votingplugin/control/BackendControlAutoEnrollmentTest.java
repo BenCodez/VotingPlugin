@@ -9,9 +9,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
 
 import java.nio.file.Path;
 import java.nio.file.Files;
+import java.util.Base64;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import org.bukkit.Server;
@@ -47,6 +51,8 @@ class BackendControlAutoEnrollmentTest {
 	private void submitEnrollment(BungeeMethod method) throws Exception {
 		Path methodDirectory = directory.resolve(method.name());
 		Files.createDirectories(methodDirectory);
+		Files.writeString(methodDirectory.resolve("secretkey.key"),
+				Base64.getEncoder().encodeToString(new byte[32]));
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		Config config = mock(Config.class);
 		BungeeSettings bungee = mock(BungeeSettings.class);
@@ -56,6 +62,11 @@ class BackendControlAutoEnrollmentTest {
 		BukkitTask task = mock(BukkitTask.class);
 		BackendProxyHandler handler = mock(BackendProxyHandler.class);
 		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
+		AtomicReference<String> sendingThread = new AtomicReference<>();
+		org.mockito.Mockito.doAnswer(invocation -> {
+			sendingThread.compareAndSet(null, Thread.currentThread().getName());
+			return null;
+		}).when(messages).sendMessage(org.mockito.ArgumentMatchers.any());
 		YamlConfiguration data = new YamlConfiguration();
 		data.set("Control.Backend.Enabled", true);
 		data.set("Control.Backend.Endpoint", "http://control.example.test:2150");
@@ -82,7 +93,11 @@ class BackendControlAutoEnrollmentTest {
 			assertNotNull(enrollment);
 			assertTrue(enrollment.isAwaitingCredential());
 			enrollment.start();
-			scheduled.getValue().run();
+			if (method == BungeeMethod.PLUGINMESSAGING) scheduled.getValue().run();
+			else verify(messages, timeout(1000)).sendMessage(org.mockito.ArgumentMatchers.any());
+			if (method != BungeeMethod.PLUGINMESSAGING) {
+				assertTrue(sendingThread.get().startsWith("VotingPlugin-ControlEnrollment"));
+			}
 
 			ArgumentCaptor<JsonEnvelope> initialRequest = ArgumentCaptor.forClass(JsonEnvelope.class);
 			verify(messages).sendMessage(initialRequest.capture());
@@ -95,7 +110,7 @@ class BackendControlAutoEnrollmentTest {
 			enrollment.handle(VotingPluginWire.controlEnrollmentResult("backend-a", requestId, false, challenge));
 			verify(plugin).startBackendControlConnectorForEnrollment(enrollment);
 			org.mockito.Mockito.clearInvocations(messages);
-			scheduled.getValue().run();
+			enrollment.send();
 
 			ArgumentCaptor<JsonEnvelope> provedRequest = ArgumentCaptor.forClass(JsonEnvelope.class);
 			verify(messages).sendMessage(provedRequest.capture());
@@ -105,13 +120,18 @@ class BackendControlAutoEnrollmentTest {
 			assertTrue(parsed.valid);
 			assertEquals(challenge, parsed.challenge);
 			assertEquals(64, parsed.verifier.length());
+			if (method == BungeeMethod.PLUGINMESSAGING || method == BungeeMethod.HTTP) {
+				assertEquals("", parsed.authenticator);
+			} else {
+				assertEquals(64, parsed.authenticator.length());
+			}
 
 			// A repeated challenge retries connector startup without replacing this enrollment,
 			// its request correlation, or the verifier that was already written.
 			enrollment.handle(VotingPluginWire.controlEnrollmentResult("backend-a", requestId, false, challenge));
 			verify(plugin, times(2)).startBackendControlConnectorForEnrollment(enrollment);
 			org.mockito.Mockito.clearInvocations(messages);
-			scheduled.getValue().run();
+			enrollment.send();
 			ArgumentCaptor<JsonEnvelope> retriedRequest = ArgumentCaptor.forClass(JsonEnvelope.class);
 			verify(messages).sendMessage(retriedRequest.capture());
 			VotingPluginWire.ControlEnrollmentRequest retried =
@@ -119,6 +139,8 @@ class BackendControlAutoEnrollmentTest {
 			assertEquals(requestId, retried.requestId);
 			assertEquals(challenge, retried.challenge);
 			assertEquals(parsed.verifier, retried.verifier);
+			if (method != BungeeMethod.PLUGINMESSAGING) verify(scheduler, never())
+					.runTaskTimer(eq(plugin), org.mockito.ArgumentMatchers.any(Runnable.class), anyLong(), anyLong());
 		}
 	}
 }
