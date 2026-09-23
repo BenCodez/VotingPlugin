@@ -140,8 +140,12 @@ class BackendGlobalDataSyncTest {
 		verify(globalDataHandler, never()).setData(eq("lobby"), any());
 		assertNotNull(asyncCompletion.get());
 		asyncCompletion.get().run();
-		verify(globalDataHandler).setBoolean("lobby", TimeType.DAY.toString(), false);
-		verify(globalDataHandler).setData(eq("lobby"), any());
+		verify(globalDataHandler).setData(eq("lobby"), org.mockito.ArgumentMatchers.argThat(values ->
+				values.containsKey(TimeType.DAY.toString()) && values.containsKey("BoundaryCapturedDAY")
+						&& !values.get(TimeType.DAY.toString()).getBoolean()
+						&& values.get("BoundaryCapturedDAY").getBoolean()));
+		verify(globalDataHandler).setData(eq("lobby"), org.mockito.ArgumentMatchers.argThat(values ->
+				values.containsKey("FinishedProcessing")));
 	}
 
 	private static void setField(Object target, String fieldName, Object value) {

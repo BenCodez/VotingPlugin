@@ -19,6 +19,7 @@ import org.mockito.MockitoAnnotations;
 
 import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
+import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.simpleapi.servercomm.http.HttpProxyTransportServer;
 import com.bencodez.simpleapi.servercomm.mysql.MySqlMessenger;
@@ -63,10 +64,28 @@ public class VotingPluginProxyTest {
 
 	@Test
 	void monthlyCompletionOnlyClearsTheBoundaryAlreadyCapturedByTheBackend() {
+		GlobalMySQL globalMysql = Mockito.mock(GlobalMySQL.class);
+		Mockito.when(globalDataHandler.getGlobalMysql()).thenReturn(globalMysql);
+		Mockito.when(globalMysql.containsKey("Server1")).thenReturn(true);
+		Mockito.when(globalDataHandler.getBoolean("Server1", "BoundaryCapturedMONTH")).thenReturn(true);
+
 		votingPluginProxy.onTimeChangedFinished(TimeType.MONTH);
 
 		verify(proxyMySQL).wipeColumnData("MonthTotal", com.bencodez.simpleapi.sql.DataType.INTEGER);
 		verify(proxyMySQL, never()).copyColumnData(Mockito.anyString(), Mockito.anyString());
+	}
+
+	@Test
+	void monthlyCompletionRetainsTotalsWhenEveryBackendFailedBeforeBoundaryCapture() {
+		GlobalMySQL globalMysql = Mockito.mock(GlobalMySQL.class);
+		Mockito.when(globalDataHandler.getGlobalMysql()).thenReturn(globalMysql);
+		Mockito.when(globalMysql.containsKey(Mockito.anyString())).thenReturn(true);
+
+		votingPluginProxy.onTimeChangedFinished(TimeType.MONTH);
+
+		verify(proxyMySQL, never()).wipeColumnData(Mockito.anyString(), Mockito.any());
+		assertTrue(votingPluginProxy.getWarnings().stream()
+				.anyMatch(message -> message.contains("no backend confirmed the time-change boundary")));
 	}
 
 	@Test

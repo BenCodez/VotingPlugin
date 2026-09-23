@@ -427,6 +427,8 @@ public abstract class VotingPluginProxy {
 				int delay = 1;
 				for (String s : getAllAvailableServers()) {
 					if (getGlobalDataHandler().getGlobalMysql().containsKey(s)) {
+						getGlobalDataHandler().setBoolean(s,
+								VotingPluginWire.timeChangeBoundaryCapturedKey(type.toString()), false);
 						String lastOnlineStr = getGlobalDataHandler().getString(s, "LastOnline");
 						long lastOnline = 0;
 						try {
@@ -470,7 +472,21 @@ public abstract class VotingPluginProxy {
 	}
 
 	public void onTimeChangedFinished(TimeType type) {
-		getProxyMySQL().wipeColumnData(TopVoter.of(type).getColumnName(), DataType.INTEGER);
+		boolean boundaryCaptured = false;
+		String boundaryCapturedKey = VotingPluginWire.timeChangeBoundaryCapturedKey(type.toString());
+		for (String server : getAllAvailableServers()) {
+			if (getGlobalDataHandler().getGlobalMysql().containsKey(server)
+					&& getGlobalDataHandler().getBoolean(server, boundaryCapturedKey)) {
+				boundaryCaptured = true;
+				break;
+			}
+		}
+		if (boundaryCaptured) {
+			getProxyMySQL().wipeColumnData(TopVoter.of(type).getColumnName(), DataType.INTEGER);
+		} else {
+			warn("Retaining " + TopVoter.of(type).getColumnName()
+					+ " because no backend confirmed the time-change boundary");
+		}
 
 		if (!getConfig().getGlobalDataEnabled()) {
 			return;
@@ -623,6 +639,10 @@ public abstract class VotingPluginProxy {
 			getGlobalDataHandler().getGlobalMysql().alterColumnType("Processing", "VARCHAR(5)");
 			getGlobalDataHandler().getGlobalMysql().alterColumnType("ForceUpdate", "VARCHAR(5)");
 			getGlobalDataHandler().getGlobalMysql().alterColumnType("LastUpdated", "MEDIUMTEXT");
+			for (TimeType type : TimeType.values()) {
+				getGlobalDataHandler().getGlobalMysql().alterColumnType(
+						VotingPluginWire.timeChangeBoundaryCapturedKey(type.toString()), "VARCHAR(5)");
+			}
 		}
 
 		// column types (unchanged from original)

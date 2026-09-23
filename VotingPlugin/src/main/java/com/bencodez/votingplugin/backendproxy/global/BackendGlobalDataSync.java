@@ -134,7 +134,11 @@ public class BackendGlobalDataSync {
 	private void finishTimeChange(TimeType type, String serverName) {
 		boolean completed = false;
 		try {
-			globalDataHandler.setBoolean(serverName, type.toString(), false);
+			HashMap<String, DataValue> completion = new HashMap<>();
+			completion.put(type.toString(), new DataValueBoolean(false));
+			completion.put(VotingPluginWire.timeChangeBoundaryCapturedKey(type.toString()),
+					new DataValueBoolean(true));
+			globalDataHandler.setData(serverName, completion);
 			JsonEnvelope.Builder builder = JsonEnvelope.builder("TimeChangeFinished")
 					.schema(VotingPluginWire.SCHEMA_VERSION);
 			builder.put("server", serverName);
@@ -213,6 +217,10 @@ public class BackendGlobalDataSync {
 				"LastUpdated", "MEDIUMTEXT",
 				"ForceUpdate", "VARCHAR(5)").entrySet()) {
 			globalDataHandler.getGlobalMysql().alterColumnType(column.getKey(), column.getValue());
+		}
+		for (TimeType type : TimeType.values()) {
+			globalDataHandler.getGlobalMysql().alterColumnType(
+					VotingPluginWire.timeChangeBoundaryCapturedKey(type.toString()), "VARCHAR(5)");
 		}
 		plugin.getTimeChecker().setProcessingEnabled(false);
 	}
