@@ -31,6 +31,12 @@ public class ServerData {
 			boolean monthDateTotalsPrimary, boolean streakUsesPercentage,
 			double dayPercentage, double weekPercentage, double monthPercentage,
 			boolean proxyOwnsResets, boolean waitForProxy) { }
+	public record TimeChangeTopPolicy(boolean rewardsEnabled, boolean awardTies,
+			boolean ignorePermission, boolean archiveRequired, List<String> rewardPlaces) {
+		public TimeChangeTopPolicy {
+			rewardPlaces = List.copyOf(rewardPlaces);
+		}
+	}
 	public record TimeChangeRewardTarget(String uuid, String playerName, int place, String reward, int votes) { }
 	public record TimeChangeArchiveSection(String name, List<String> lines) {
 		public TimeChangeArchiveSection {
@@ -553,6 +559,45 @@ public class ServerData {
 			throw new IllegalStateException("Time change VoteShop targets are not prepared");
 		}
 		return List.copyOf(getData().getStringList(targetsPath + ".Identifiers"));
+	}
+
+	/** Fixes top reward and archive selection inputs before the period boundary is copied. */
+	public synchronized TimeChangeTopPolicy prepareTimeChangeTopPolicy(TimeChangeTransition transition,
+			TimeChangeTopPolicy proposed) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		String policyPath = path + ".TopPolicy";
+		if (!getData().getBoolean(policyPath + ".Prepared", false)) {
+			getData().set(policyPath + ".RewardsEnabled", proposed.rewardsEnabled());
+			getData().set(policyPath + ".AwardTies", proposed.awardTies());
+			getData().set(policyPath + ".IgnorePermission", proposed.ignorePermission());
+			getData().set(policyPath + ".ArchiveRequired", proposed.archiveRequired());
+			getData().set(policyPath + ".RewardPlaces", proposed.rewardPlaces());
+			getData().set(policyPath + ".Prepared", true);
+			try {
+				saveData();
+			} catch (RuntimeException failure) {
+				getData().set(policyPath, null);
+				throw failure;
+			}
+		}
+		return getTimeChangeTopPolicy(transition);
+	}
+
+	public synchronized TimeChangeTopPolicy getTimeChangeTopPolicy(TimeChangeTransition transition) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		String policyPath = path + ".TopPolicy";
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))
+				|| !getData().getBoolean(policyPath + ".Prepared", false)) {
+			throw new IllegalStateException("Time change top policy is not prepared");
+		}
+		return new TimeChangeTopPolicy(getData().getBoolean(policyPath + ".RewardsEnabled"),
+				getData().getBoolean(policyPath + ".AwardTies"),
+				getData().getBoolean(policyPath + ".IgnorePermission"),
+				getData().getBoolean(policyPath + ".ArchiveRequired"),
+				getData().getStringList(policyPath + ".RewardPlaces"));
 	}
 
 	/** Fixes whether one listener effect belongs to this transition. */

@@ -43,6 +43,7 @@ import com.bencodez.votingplugin.data.ServerData.TimeChangeArchiveSection;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeArchiveSnapshot;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardTarget;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardState;
+import com.bencodez.votingplugin.data.ServerData.TimeChangeTopPolicy;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeUserProgress;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeUserPolicy;
 import com.bencodez.votingplugin.user.PeriodTotalMutationFence;
@@ -580,6 +581,7 @@ public class TopVoterHandler implements Listener {
 				plugin.getServerData().prepareTimeChangeUserPolicy(transition, currentTimeChangeUserPolicy());
 				plugin.getServerData().prepareTimeChangeVoteShopTargets(transition,
 						currentVoteShopResetTargets(top));
+				plugin.getServerData().prepareTimeChangeTopPolicy(transition, currentTimeChangeTopPolicy(top));
 				if (!plugin.getServerData().hasTimeChangePhase(transition, COMPLETE)) {
 					runRecoverablePeriod(top, transition);
 				}
@@ -613,6 +615,16 @@ public class TopVoterHandler implements Listener {
 				.filter(identifier -> shouldResetVoteShop(top, identifier)).toList();
 	}
 
+	private TimeChangeTopPolicy currentTimeChangeTopPolicy(TopVoter top) {
+		boolean archiveRequired = (top == TopVoter.Daily && plugin.getConfigFile().isStoreTopVotersDaily())
+				|| (top == TopVoter.Weekly && plugin.getConfigFile().isStoreTopVotersWeekly())
+				|| top == TopVoter.Monthly;
+		return new TimeChangeTopPolicy(isTopRewardEnabled(top),
+				plugin.getConfigFile().isTopVoterAwardsTies(),
+				plugin.getConfigFile().isTopVoterIgnorePermission(), archiveRequired,
+				new ArrayList<>(getPossibleRewardPlaces(top)));
+	}
+
 	private void runRecoverablePeriod(TopVoter top, TimeChangeTransition transition) {
 		// Capture the boundary before any long-running phase. The database journal
 		// makes the later COPY_TOTALS retry a no-op, so votes accepted while reward
@@ -621,9 +633,7 @@ public class TopVoterHandler implements Listener {
 
 		if (!plugin.getServerData().hasTimeChangePhase(transition, SNAPSHOT)) {
 			ensureTransitionActive(transition);
-			boolean archiveRequired = (top == TopVoter.Daily && plugin.getConfigFile().isStoreTopVotersDaily())
-					|| (top == TopVoter.Weekly && plugin.getConfigFile().isStoreTopVotersWeekly())
-					|| top == TopVoter.Monthly;
+			boolean archiveRequired = plugin.getServerData().getTimeChangeTopPolicy(transition).archiveRequired();
 			TimeChangeArchiveSnapshot proposedArchive = archiveRequired
 					? buildTopVoterArchiveSnapshot(top, transition) : new TimeChangeArchiveSnapshot(List.of());
 			plugin.getServerData().prepareTimeChangeSnapshot(transition,
@@ -870,7 +880,8 @@ public class TopVoterHandler implements Listener {
 			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(
 					UUID.fromString(target.uuid()), target.playerName());
 			user.userDataFetechMode(UserDataFetchMode.NO_CACHE);
-			if (!plugin.getConfigFile().isTopVoterIgnorePermission() || !user.isTopVoterIgnore()) {
+			if (!plugin.getServerData().getTimeChangeTopPolicy(transition).ignorePermission()
+					|| !user.isTopVoterIgnore()) {
 				plugin.getServerData().claimTimeChangeReward(transition, target.uuid());
 				giveTopVoterAward(top, user, target.place(), target.reward(), target.votes());
 				plugin.getServerData().completeTimeChangeReward(transition, target.uuid());
@@ -881,14 +892,15 @@ public class TopVoterHandler implements Listener {
 	}
 
 	List<TimeChangeRewardTarget> buildTopRewardSnapshot(TopVoter top, TimeChangeTransition transition) {
-		if (!isTopRewardEnabled(top)) return List.of();
-		HashMap<Integer, String> places = handlePlaces(getPossibleRewardPlaces(top));
+		TimeChangeTopPolicy policy = plugin.getServerData().getTimeChangeTopPolicy(transition);
+		if (!policy.rewardsEnabled()) return List.of();
+		HashMap<Integer, String> places = handlePlaces(Set.copyOf(policy.rewardPlaces()));
 		List<TimeChangeRewardTarget> targets = new ArrayList<>();
 		int place = 0;
 		int lastTotal = -1;
 		for (Entry<TopVoterPlayer, Integer> entry : boundaryTopVotersFor(top, transition).entrySet()) {
 			ensureTransitionActive(transition);
-			if (plugin.getConfigFile().isTopVoterAwardsTies()) {
+			if (policy.awardTies()) {
 				if (entry.getValue().intValue() != lastTotal) place++;
 			} else place++;
 			if (places.containsKey(place)) {

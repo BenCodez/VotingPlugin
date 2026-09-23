@@ -27,6 +27,7 @@ import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeArchiveSection;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeArchiveSnapshot;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardTarget;
+import com.bencodez.votingplugin.data.ServerData.TimeChangeTopPolicy;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardState;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeUserProgress;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeUserPolicy;
@@ -161,6 +162,24 @@ class ServerDataTimeChangeRecoveryTest {
 		assertEquals(List.of("weekly"),
 				data.prepareTimeChangeVoteShopTargets(transition, List.of("newly-enabled")));
 		assertEquals(List.of("weekly"), new ServerData(plugin).getTimeChangeVoteShopTargets(transition));
+	}
+
+	@Test
+	void retryKeepsTopRewardAndArchivePolicySelectedBeforeTheBoundary() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
+		YamlConfiguration yaml = new YamlConfiguration();
+		when(plugin.getServerDataFile()).thenReturn(coreData);
+		when(coreData.getData()).thenReturn(yaml);
+		TimeChangeTransition transition = transition("WEEK:2026-W38", "2026-W38", TimeType.WEEK);
+		ServerData data = new ServerData(plugin);
+		data.beginTimeChangeRecovery(transition);
+		TimeChangeTopPolicy original = new TimeChangeTopPolicy(true, true, true, true, List.of("1", "2-4"));
+		TimeChangeTopPolicy changed = new TimeChangeTopPolicy(false, false, false, false, List.of("5"));
+
+		assertEquals(original, data.prepareTimeChangeTopPolicy(transition, original));
+		assertEquals(original, data.prepareTimeChangeTopPolicy(transition, changed));
+		assertEquals(original, new ServerData(plugin).getTimeChangeTopPolicy(transition));
 	}
 
 	@Test

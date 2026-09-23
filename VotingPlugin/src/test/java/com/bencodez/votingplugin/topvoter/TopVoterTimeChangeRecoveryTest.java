@@ -39,6 +39,7 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardTarget;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardState;
+import com.bencodez.votingplugin.data.ServerData.TimeChangeTopPolicy;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeUserProgress;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeUserPolicy;
 import com.bencodez.votingplugin.specialrewards.SpecialRewards;
@@ -436,9 +437,9 @@ class TopVoterTimeChangeRecoveryTest {
 				UUID.fromString("00000000-0000-0000-0000-000000000002"), "second", 2L);
 		LinkedHashMap<TopVoterPlayer, Integer> ranking = new LinkedHashMap<>();
 		ranking.put(first, 20);
-		ranking.put(second, 10);
-		when(plugin.getSpecialRewardsConfig().isEnableDailyRewards()).thenReturn(true);
-		when(plugin.getSpecialRewardsConfig().getDailyPossibleRewardPlaces()).thenReturn(Set.of("1", "2"));
+		ranking.put(second, 20);
+		when(plugin.getServerData().getTimeChangeTopPolicy(transition)).thenReturn(
+				new TimeChangeTopPolicy(true, true, false, false, List.of("1")));
 		TopVoterHandler handler = spy(new TopVoterHandler(plugin));
 		doReturn(ranking).when(handler).boundaryTopVotersFor(TopVoter.Daily, transition);
 
@@ -446,7 +447,7 @@ class TopVoterTimeChangeRecoveryTest {
 
 		assertEquals(List.of(
 				new TimeChangeRewardTarget(first.getUuid().toString(), "first", 1, "1", 20),
-				new TimeChangeRewardTarget(second.getUuid().toString(), "second", 2, "2", 10)), targets);
+				new TimeChangeRewardTarget(second.getUuid().toString(), "second", 1, "1", 20)), targets);
 	}
 
 	@Test
