@@ -72,7 +72,7 @@ public class AdminVoteVotePlayer extends GUIHandler {
 					}
 					if (!VoteTaskAdmission.trySubmit(plugin.getVoteTimer(), () -> {
 						plugin.getServer().getPluginManager().callEvent(voteEvent);
-						if (voteEvent.isAccountingAdmissionFailed()) {
+						if (voteEvent.isProcessingIncomplete()) {
 							plugin.getBukkitScheduler().runTask(plugin,
 									() -> sendMessage(clickEvent.getPlayer(),
 											"&cVote could not be processed because shared storage is unavailable."),

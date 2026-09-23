@@ -96,6 +96,10 @@ public class PlayerVoteEvent extends Event {
 	@Setter
 	private boolean processingFailed;
 
+	public boolean isProcessingIncomplete() {
+		return accountingAdmissionFailed || processingFailed;
+	}
+
 	/**
 	 * Constructs a new PlayerVoteEvent.
 	 *

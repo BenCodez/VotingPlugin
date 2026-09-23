@@ -44,7 +44,6 @@ final class SharedMysqlPurchaseJournal {
 	static final String NO_LIMIT_RESET_GENERATION = "NONE";
 	static final long PENDING_RECOVERY_AGE_MILLIS = TimeUnit.MINUTES.toMillis(5);
 	static final long TERMINAL_RETENTION_MILLIS = TimeUnit.DAYS.toMillis(7);
-	static final long ACCOUNTING_RETENTION_MILLIS = TimeUnit.DAYS.toMillis(30);
 	private static final int RECOVERY_BATCH_SIZE = 32;
 	private static final int CLEANUP_BATCH_SIZE = 100;
 	/* PostgreSQL permits 63 bytes and is the tighter supported database limit. */
@@ -1350,7 +1349,8 @@ final class SharedMysqlPurchaseJournal {
 				break;
 			}
 		}
-		cleanupAccounting(now - ACCOUNTING_RETENTION_MILLIS);
+		// Durable Votifier and proxy queues have no age limit. Completed vote
+		// accounting receipts must therefore outlive every possible same-ID replay.
 		return new AccountingRecoveryBatch(!pending.isEmpty(), List.copyOf(pendingRewards));
 	}
 
@@ -1375,15 +1375,6 @@ final class SharedMysqlPurchaseJournal {
 			}
 		}
 		return pending;
-	}
-
-	private void cleanupAccounting(long cutoff) throws SQLException {
-		String delete = "DELETE FROM " + qiAccounting() + " WHERE " + qi("requested") + " = "
-				+ qi("completed") + " AND " + qi("created_at") + " < ?";
-		try (Connection connection = connection(); PreparedStatement statement = connection.prepareStatement(delete)) {
-			statement.setLong(1, cutoff);
-			statement.executeUpdate();
-		}
 	}
 
 	private List<String> findTransferIds(String state, int limit) throws SQLException {

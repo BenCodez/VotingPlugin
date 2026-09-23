@@ -1049,7 +1049,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			voteEvent.setVoteNumber(num);
 			voteEvent.setVoteId(voteId);
 			plugin.getServer().getPluginManager().callEvent(voteEvent);
-			return !voteEvent.isAccountingAdmissionFailed();
+			return !voteEvent.isProcessingIncomplete();
 		}
 		return false;
 	}

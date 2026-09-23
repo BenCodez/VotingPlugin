@@ -903,26 +903,23 @@ class SharedMysqlPurchaseJournalTest {
 	}
 
 	@Test
-	void completedAccountingRowsAreDeletedAfterTheReplayWindow() throws Exception {
+	void completedAccountingRowsRemainForTheUnboundedReplayWindow() throws Exception {
 		Fixture fixture = fixture();
 		PreparedStatement pending = mock(PreparedStatement.class);
-		PreparedStatement cleanup = mock(PreparedStatement.class);
 		ResultSet none = ids();
 		when(pending.executeQuery()).thenReturn(none);
-		when(fixture.work.prepareStatement(anyString())).thenReturn(pending, cleanup);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(pending);
 
 		new SharedMysqlPurchaseJournal(fixture.table, false)
-				.recoverAccounting(SharedMysqlPurchaseJournal.ACCOUNTING_RETENTION_MILLIS + 5L);
+				.recoverAccounting(java.util.concurrent.TimeUnit.DAYS.toMillis(90));
 
-		verify(cleanup).setLong(1, 5L);
-		verify(cleanup).executeUpdate();
+		verify(fixture.work).prepareStatement(org.mockito.ArgumentMatchers.contains("requested"));
 	}
 
 	@Test
 	void claimedRewardIsSkippedWithoutStarvingLaterRecoverableReward() throws Exception {
 		Fixture fixture = fixture();
 		PreparedStatement pending = mock(PreparedStatement.class);
-		PreparedStatement cleanup = mock(PreparedStatement.class);
 		ResultSet rows = mock(ResultSet.class);
 		UUID ambiguous = UUID.randomUUID();
 		UUID recoverable = UUID.randomUUID();
@@ -932,15 +929,15 @@ class SharedMysqlPurchaseJournalTest {
 		when(rows.getInt(3)).thenReturn(48, 48);
 		when(rows.getInt(4)).thenReturn(144, 16);
 		when(pending.executeQuery()).thenReturn(rows);
-		when(fixture.work.prepareStatement(anyString())).thenReturn(pending, cleanup);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(pending);
 
 		SharedMysqlPurchaseJournal.AccountingRecoveryBatch batch =
 				new SharedMysqlPurchaseJournal(fixture.table, false).recoverAccounting(1L);
 
 		assertEquals(java.util.List.of(recoverable), batch.pendingRewards());
 		org.mockito.ArgumentCaptor<String> sql = org.mockito.ArgumentCaptor.forClass(String.class);
-		verify(fixture.work, org.mockito.Mockito.times(2)).prepareStatement(sql.capture());
-		assertTrue(sql.getAllValues().get(0).contains("& 128"),
+		verify(fixture.work).prepareStatement(sql.capture());
+		assertTrue(sql.getValue().contains("& 128"),
 				"claimed reward rows must be excluded from the bounded recovery page");
 	}
 

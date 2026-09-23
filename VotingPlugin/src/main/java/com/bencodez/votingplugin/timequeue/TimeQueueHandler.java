@@ -192,7 +192,7 @@ public class TimeQueueHandler implements Listener {
 			voteEvent.setTime(vote.getTime());
 			voteEvent.setVoteId(vote.getVoteId() == null ? vote.legacyTimedVoteId() : vote.getVoteId());
 			plugin.getServer().getPluginManager().callEvent(voteEvent);
-			if (voteEvent.isAccountingAdmissionFailed() || voteEvent.isProcessingFailed()) {
+			if (voteEvent.isProcessingIncomplete()) {
 				timeChangeQueue.addFirst(vote);
 				scheduleRetry(!persistQueueSnapshot());
 				return;

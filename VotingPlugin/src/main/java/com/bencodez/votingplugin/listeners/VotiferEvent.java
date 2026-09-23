@@ -102,7 +102,7 @@ public class VotiferEvent implements Listener {
 					plugin.getVoteSiteManager().getVoteSite(voteSiteName, true), voteUsername, voteSite, true);
 			voteEvent.setVoteId(voteId);
 			plugin.getServer().getPluginManager().callEvent(voteEvent);
-			if (voteEvent.isAccountingAdmissionFailed()) {
+			if (voteEvent.isProcessingIncomplete()) {
 				return false;
 			}
 

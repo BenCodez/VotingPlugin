@@ -117,7 +117,7 @@ public class VoteTester {
 							PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSiteManager().getVoteSite(site, false), name,
 									plugin.getVoteSiteManager().getVoteSiteServiceSite(site), false);
 							plugin.getServer().getPluginManager().callEvent(voteEvent);
-							if (voteEvent.isAccountingAdmissionFailed()
+							if (voteEvent.isProcessingIncomplete()
 									&& accountingFailureLogged.compareAndSet(false, true)) {
 								plugin.getLogger().warning(
 										"One or more spam-test votes failed shared accounting admission.");
@@ -144,7 +144,7 @@ public class VoteTester {
 					PlayerVoteEvent voteEvent = new PlayerVoteEvent(plugin.getVoteSiteManager().getVoteSite(site, false), name,
 							plugin.getVoteSiteManager().getVoteSiteServiceSite(site), false);
 					plugin.getServer().getPluginManager().callEvent(voteEvent);
-					if (voteEvent.isAccountingAdmissionFailed()) {
+					if (voteEvent.isProcessingIncomplete()) {
 						plugin.getLogger().warning("Vote performance test stopped after shared accounting admission failed.");
 						return;
 					}

@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.tests.listeners;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
@@ -172,5 +173,18 @@ public class VotiferEventDisabledVoteSiteTest {
 
 		verify(timeQueue).addVote(voteId, "Steve", SERVICE_SITE);
 		verify(pluginManager, never()).callEvent(any(PlayerVoteEvent.class));
+	}
+
+	@Test
+	void queuedVoteIsNotAcknowledgedWhenPostAdmissionProcessingFails() {
+		when(voteSiteManager.getVoteSiteName(false, SERVICE_SITE, "")).thenReturn(SERVICE_SITE);
+		when(voteSiteManager.getVoteSiteName(true, SERVICE_SITE, "")).thenReturn(SERVICE_SITE);
+		doAnswer(invocation -> {
+			PlayerVoteEvent event = invocation.getArgument(0);
+			event.setProcessingFailed(true);
+			return null;
+		}).when(pluginManager).callEvent(any(PlayerVoteEvent.class));
+
+		assertFalse(listener.processQueuedVote(SERVICE_SITE, "Steve", UUID.randomUUID()));
 	}
 }

@@ -131,7 +131,7 @@ public class CommandLoader {
 
 	private boolean callVoteAndReport(CommandSender sender, PlayerVoteEvent event) {
 		plugin.getServer().getPluginManager().callEvent(event);
-		if (event.isAccountingAdmissionFailed()) {
+		if (event.isProcessingIncomplete()) {
 			runForCommandSender(sender,
 					() -> sender.sendMessage(MessageAPI.colorize(
 							"&cVote could not be processed because shared storage is unavailable.")));
