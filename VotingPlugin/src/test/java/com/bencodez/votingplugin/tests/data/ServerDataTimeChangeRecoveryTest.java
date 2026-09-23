@@ -7,14 +7,18 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.nio.file.Path;
 
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import com.bencodez.advancedcore.api.time.TimeChangeTransition;
 import com.bencodez.advancedcore.api.time.TimeType;
@@ -27,6 +31,56 @@ import com.bencodez.votingplugin.data.ServerData.TimeChangeRewardState;
 import com.bencodez.votingplugin.data.ServerData.TimeChangeUserProgress;
 
 class ServerDataTimeChangeRecoveryTest {
+	@TempDir
+	Path temporaryDirectory;
+
+	@Test
+	void perUserCursorUsesTheCompactDurableCheckpointWithoutRewritingServerData() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
+		YamlConfiguration yaml = new YamlConfiguration();
+		when(plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
+		when(plugin.getServerDataFile()).thenReturn(coreData);
+		when(coreData.getData()).thenReturn(yaml);
+		TimeChangeTransition transition = transition("WEEK:2026-W38", "2026-W38", TimeType.WEEK);
+		ServerData data = new ServerData(plugin);
+		String uuid = "00000000-0000-0000-0000-000000000002";
+
+		data.beginTimeChangeRecovery(transition);
+		clearInvocations(coreData);
+		data.completeTimeChangeUser(transition, uuid);
+		String nextUuid = "00000000-0000-0000-0000-000000000003";
+		data.prepareTimeChangeUserStreak(transition, nextUuid, 4, true);
+		data.claimTimeChangeUserStreakReward(transition, nextUuid);
+
+		verify(coreData, never()).saveData();
+		ServerData recovered = new ServerData(plugin);
+		assertEquals(uuid, recovered.getTimeChangeCursor(transition));
+		assertEquals(TimeChangeRewardState.CLAIMED,
+				recovered.getTimeChangeUserStreakRewardState(transition, nextUuid));
+		assertTrue(temporaryDirectory.resolve("TimeChangeUserCheckpoint.properties").toFile().length() < 4096L);
+	}
+
+	@Test
+	void compactCheckpointImportsAnExistingServerDataCursor() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
+		YamlConfiguration yaml = new YamlConfiguration();
+		when(plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
+		when(plugin.getServerDataFile()).thenReturn(coreData);
+		when(coreData.getData()).thenReturn(yaml);
+		TimeChangeTransition transition = transition("MONTH:2026-08", "2026-08", TimeType.MONTH);
+		String cursor = "00000000-0000-0000-0000-000000000009";
+		yaml.set("VotingPlugin.TimeChangeRecovery.MONTH.Id", transition.getId());
+		yaml.set("VotingPlugin.TimeChangeRecovery.MONTH.Cursor", cursor);
+
+		ServerData data = new ServerData(plugin);
+		data.beginTimeChangeRecovery(transition);
+
+		assertEquals(cursor, data.getTimeChangeCursor(transition));
+		assertEquals(cursor, new ServerData(plugin).getTimeChangeCursor(transition));
+	}
+
 	@Test
 	void checkpointRetainsPhaseCursorAndRewardReceiptsForTheTransition() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);

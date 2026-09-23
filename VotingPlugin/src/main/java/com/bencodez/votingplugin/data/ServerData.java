@@ -45,6 +45,7 @@ public class ServerData {
 			"POST_DATE", "COMPLETE");
 
 	private VotingPluginMain plugin = VotingPluginMain.plugin;
+	private final TimeChangeUserCheckpointStore timeChangeUsers;
 
 	/**
 	 * Constructs a new ServerData.
@@ -53,6 +54,8 @@ public class ServerData {
 	 */
 	public ServerData(VotingPluginMain plugin) {
 		this.plugin = plugin;
+		timeChangeUsers = new TimeChangeUserCheckpointStore(
+				plugin == null || plugin.getDataFolder() == null ? null : plugin.getDataFolder().toPath());
 	}
 
 	/**
@@ -440,7 +443,27 @@ public class ServerData {
 	 */
 	public synchronized void beginTimeChangeRecovery(TimeChangeTransition transition) {
 		String path = timeChangeRecoveryPath(transition.getType());
-		if (transition.getId().equals(getData().getString(path + ".Id", ""))) return;
+		boolean sameTransition = transition.getId().equals(getData().getString(path + ".Id", ""));
+		if (timeChangeUsers.isFileBacked()) {
+			TimeChangeUserProgress legacyUser = null;
+			TimeChangeRewardState legacyReward = TimeChangeRewardState.UNCLAIMED;
+			if (sameTransition) {
+				String userPath = path + ".CurrentUser";
+				String uuid = getData().getString(userPath + ".Uuid", "");
+				if (!uuid.isEmpty()) {
+					boolean complete = getData().getBoolean(userPath + ".RewardComplete", false);
+					legacyUser = new TimeChangeUserProgress(uuid,
+							getData().getInt(userPath + ".StreakTarget"),
+							getData().getBoolean(userPath + ".RewardRequired", false), complete);
+					legacyReward = complete ? TimeChangeRewardState.COMPLETE
+							: getData().getBoolean(userPath + ".RewardClaimed", false)
+									? TimeChangeRewardState.CLAIMED : TimeChangeRewardState.UNCLAIMED;
+				}
+			}
+			timeChangeUsers.begin(transition,
+					sameTransition ? getData().getString(path + ".Cursor", "") : "", legacyUser, legacyReward);
+		}
+		if (sameTransition) return;
 		getData().set(path, null);
 		getData().set(path + ".Id", transition.getId());
 		getData().set(path + ".Period", transition.getPeriodKey());
@@ -472,6 +495,7 @@ public class ServerData {
 	public synchronized String getTimeChangeCursor(TimeChangeTransition transition) {
 		String path = timeChangeRecoveryPath(transition.getType());
 		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) return "";
+		if (timeChangeUsers.isFileBacked()) return timeChangeUsers.cursor(transition);
 		return getData().getString(path + ".Cursor", "");
 	}
 
@@ -480,6 +504,10 @@ public class ServerData {
 		String path = timeChangeRecoveryPath(transition.getType());
 		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
 			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		if (timeChangeUsers.isFileBacked()) {
+			timeChangeUsers.completeUser(transition, uuid);
+			return;
 		}
 		getData().set(path + ".Cursor", uuid);
 		getData().set(path + ".CurrentUser", null);
@@ -495,6 +523,9 @@ public class ServerData {
 		String path = timeChangeRecoveryPath(transition.getType());
 		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
 			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		if (timeChangeUsers.isFileBacked()) {
+			return timeChangeUsers.prepareStreak(transition, uuid, streakTarget, rewardRequired);
 		}
 		String userPath = path + ".CurrentUser";
 		if (!uuid.equals(getData().getString(userPath + ".Uuid", ""))) {
@@ -514,6 +545,10 @@ public class ServerData {
 	public synchronized TimeChangeRewardState getTimeChangeUserStreakRewardState(
 			TimeChangeTransition transition, String uuid) {
 		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		if (timeChangeUsers.isFileBacked()) return timeChangeUsers.rewardState(transition, uuid);
 		String userPath = path + ".CurrentUser";
 		if (!transition.getId().equals(getData().getString(path + ".Id", ""))
 				|| !uuid.equals(getData().getString(userPath + ".Uuid", ""))) {
@@ -529,6 +564,10 @@ public class ServerData {
 		if (getTimeChangeUserStreakRewardState(transition, uuid) != TimeChangeRewardState.UNCLAIMED) {
 			throw new IllegalStateException("Time change streak reward is already claimed");
 		}
+		if (timeChangeUsers.isFileBacked()) {
+			timeChangeUsers.setRewardState(transition, uuid, TimeChangeRewardState.CLAIMED);
+			return;
+		}
 		String userPath = timeChangeRecoveryPath(transition.getType()) + ".CurrentUser";
 		getData().set(userPath + ".RewardClaimed", true);
 		try {
@@ -542,6 +581,16 @@ public class ServerData {
 	/** Marks the in-flight user's streak reward call as returned successfully. */
 	public synchronized void completeTimeChangeUserStreakReward(TimeChangeTransition transition, String uuid) {
 		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		if (timeChangeUsers.isFileBacked()) {
+			if (timeChangeUsers.rewardState(transition, uuid) != TimeChangeRewardState.CLAIMED) {
+				throw new IllegalStateException("Time change streak reward is not claimed");
+			}
+			timeChangeUsers.setRewardState(transition, uuid, TimeChangeRewardState.COMPLETE);
+			return;
+		}
 		String userPath = path + ".CurrentUser";
 		if (!transition.getId().equals(getData().getString(path + ".Id", ""))
 				|| !uuid.equals(getData().getString(userPath + ".Uuid", ""))) {

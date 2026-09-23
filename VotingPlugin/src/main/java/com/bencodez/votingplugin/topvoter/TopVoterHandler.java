@@ -7,7 +7,6 @@ import java.time.Month;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -16,7 +15,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -680,29 +678,18 @@ public class TopVoterHandler implements Listener {
 		if (!copiedDailyStreak && !plugin.getConfigFile().isUseVoteStreaks()
 				&& !plugin.getConfigFile().isUseHighestTotals()) return;
 		AtomicReference<String> cursor = new AtomicReference<>(plugin.getServerData().getTimeChangeCursor(transition));
-		CountDownLatch finished = new CountDownLatch(1);
-		record BoundaryUser(UUID uuid, ArrayList<Column> columns) { }
-		List<BoundaryUser> users = Collections.synchronizedList(new ArrayList<>());
 		LocalDateTime lastMonthTime = top == TopVoter.Monthly ? previousMonthTime(transition) : null;
-		plugin.getUserManager().forEachUserKeys((uuid, columns) -> users.add(new BoundaryUser(uuid, columns)),
-				count -> finished.countDown());
-		try {
-			if (!finished.await(10, TimeUnit.MINUTES)) {
-				throw new IllegalStateException("Timed out loading time-change users");
-			}
-		} catch (InterruptedException interrupted) {
-			Thread.currentThread().interrupt();
-			throw new CancellationException("Interrupted while loading time-change users");
-		}
-		users.sort(Comparator.comparing(boundary -> boundary.uuid().toString()));
-		for (BoundaryUser boundary : users) {
-			String value = boundary.uuid().toString();
-			if (value.compareTo(cursor.get()) <= 0) continue;
+		// AdvancedCore streams deterministic UUID-ordered SQL pages synchronously.
+		// Process each row as it arrives so memory stays bounded and a failure cannot
+		// leave an uncancelled enumeration running behind a falsely failed transition.
+		plugin.getUserManager().forEachUserKeys((uuid, columns) -> {
+			String value = uuid.toString();
+			if (value.compareTo(cursor.get()) <= 0) return;
 			try {
 				ensureTransitionActive(transition);
-				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(boundary.uuid(), false);
+				VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
 				user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
-				user.updateTempCacheWithColumns(boundary.columns());
+				user.updateTempCacheWithColumns(columns);
 				try {
 					if (top == TopVoter.Daily) processDailyUser(user, transition, value,
 							copiedDailyStreak || plugin.getConfigFile().isUseVoteStreaks());
@@ -717,7 +704,7 @@ public class TopVoterHandler implements Listener {
 			} catch (Throwable userFailure) {
 				throw new IllegalStateException("Unable to durably process time-change user " + value, userFailure);
 			}
-		}
+		}, count -> { });
 	}
 
 	void processDailyUser(VotingPluginUser user, TimeChangeTransition transition, String uuid) {

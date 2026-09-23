@@ -2,7 +2,6 @@ package com.bencodez.votingplugin.topvoter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -26,9 +25,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.ArrayList;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import org.junit.jupiter.api.Test;
@@ -98,29 +94,33 @@ class TopVoterTimeChangeRecoveryTest {
 	}
 
 	@Test
-	void userRecoveryWaitsForTheStorageIterationCompletionCallback() throws Exception {
+	void userRecoveryProcessesRowsDuringTheBoundedStorageWalk() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		com.bencodez.advancedcore.api.user.UserManager userManager =
 				mock(com.bencodez.advancedcore.api.user.UserManager.class);
+		com.bencodez.votingplugin.user.UserManager votingUsers =
+				mock(com.bencodez.votingplugin.user.UserManager.class);
 		ServerData serverData = mock(ServerData.class);
+		VotingPluginUser user = mock(VotingPluginUser.class);
 		TimeChangeTransition transition = mock(TimeChangeTransition.class);
-		AtomicReference<Consumer<Integer>> completion = new AtomicReference<>();
+		UUID uuid = UUID.fromString("00000000-0000-0000-0000-000000000001");
 		when(plugin.getUserManager()).thenReturn(userManager);
+		when(plugin.getVotingPluginUserManager()).thenReturn(votingUsers);
 		when(plugin.getServerData()).thenReturn(serverData);
 		when(plugin.getConfigFile().isUseHighestTotals()).thenReturn(true);
+		when(serverData.getTimeChangeCursor(transition)).thenReturn("");
+		when(votingUsers.getVotingPluginUser(uuid, false)).thenReturn(user);
 		doAnswer(invocation -> {
-			completion.set(invocation.getArgument(1));
+			java.util.function.BiConsumer<UUID, ArrayList<Column>> perUser = invocation.getArgument(0);
+			Consumer<Integer> finished = invocation.getArgument(1);
+			perUser.accept(uuid, new ArrayList<>());
+			verify(serverData).completeTimeChangeUser(transition, uuid.toString());
+			finished.accept(1);
 			return null;
 		}).when(userManager).forEachUserKeys(org.mockito.ArgumentMatchers.any(),
 				org.mockito.ArgumentMatchers.any());
 
-		CompletableFuture<Void> recovery = CompletableFuture.runAsync(
-				() -> new TopVoterHandler(plugin).processRecoverableUsers(TopVoter.Daily, transition));
-		for (int attempt = 0; attempt < 100 && completion.get() == null; attempt++) Thread.sleep(5L);
-		assertNotNull(completion.get());
-		assertFalse(recovery.isDone());
-		completion.get().accept(0);
-		recovery.get(2, TimeUnit.SECONDS);
+		new TopVoterHandler(plugin).processRecoverableUsers(TopVoter.Daily, transition);
 	}
 
 	@Test
@@ -147,8 +147,8 @@ class TopVoterTimeChangeRecoveryTest {
 		doAnswer(invocation -> {
 			java.util.function.BiConsumer<UUID, ArrayList<Column>> perUser = invocation.getArgument(0);
 			Consumer<Integer> finished = invocation.getArgument(1);
-			perUser.accept(secondUuid, new ArrayList<>());
 			perUser.accept(firstUuid, new ArrayList<>());
+			perUser.accept(secondUuid, new ArrayList<>());
 			finished.accept(2);
 			return null;
 		}).when(userManager).forEachUserKeys(org.mockito.ArgumentMatchers.any(),
