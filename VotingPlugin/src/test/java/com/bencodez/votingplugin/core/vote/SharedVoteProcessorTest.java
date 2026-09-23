@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.core.vote;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -39,9 +40,12 @@ class SharedVoteProcessorTest {
         when(ops.siteKey(site)).thenReturn("ExampleKey");
         when(ops.userId(user)).thenReturn("user-id");
         when(ops.userUuid(user)).thenReturn(UUID.randomUUID());
-		when(ops.prepareAccounting(eq(user), any(UUID.class), anyBoolean(), anyBoolean()))
+		when(ops.configuredPointAmount()).thenReturn(3);
+		when(ops.configuredPointCap()).thenReturn(100);
+		when(ops.prepareAccounting(eq(user), any(UUID.class), anyBoolean(), anyBoolean(), anyInt(), anyInt()))
 				.thenAnswer(invocation -> new SharedVoteProcessor.AccountingAdmission(
-						invocation.getArgument(2), invocation.getArgument(3), true));
+						invocation.getArgument(2), invocation.getArgument(3), true,
+						invocation.getArgument(4), invocation.getArgument(5), false));
         return ops;
     }
 
@@ -66,11 +70,11 @@ class SharedVoteProcessorTest {
 
         InOrder order = inOrder(ops);
         order.verify(ops).lastVoteTime(user, site);
-        order.verify(ops).prepareAccounting(eq(user), any(UUID.class), eq(true), eq(true));
+        order.verify(ops).prepareAccounting(eq(user), any(UUID.class), eq(true), eq(true), eq(3), eq(100));
         order.verify(ops).cache(user);
         order.verify(ops).updateName(user);
         order.verify(ops).voteParty(eq(user), eq(false), any(UUID.class), eq(true));
-        order.verify(ops).markReplayUnsafe();
+        order.verify(ops).markReplayUnsafe(voteId);
         order.verify(ops).broadcast(any(UUID.class), eq("Ben"), any(), eq(true));
         order.verify(ops).setTime(user, site, 123L);
         order.verify(ops).playerVote(user, site, true, false);
@@ -79,7 +83,7 @@ class SharedVoteProcessorTest {
         order.verify(ops).addTotal(eq(user), any(UUID.class));
         order.verify(ops).addTotalDaily(eq(user), any(UUID.class));
         order.verify(ops).addTotalWeekly(eq(user), any(UUID.class));
-        order.verify(ops).addPoints(user, voteId);
+        order.verify(ops).addPoints(user, voteId, 3, 100);
         order.verify(ops).checkDayVoteStreak(eq(user), eq(false), any(UUID.class));
         order.verify(ops).setMonthTotal(user, 2);
         order.verify(ops).milestones(eq(user), any(UUID.class), eq(false));
@@ -98,7 +102,7 @@ class SharedVoteProcessorTest {
 
         SharedVoteProcessor.process(ops);
 
-        verify(ops).prepareAccounting(eq(user), any(UUID.class), eq(true), eq(true));
+        verify(ops).prepareAccounting(eq(user), any(UUID.class), eq(true), eq(true), eq(3), eq(100));
         verify(ops).addTotal(eq(user), any(UUID.class));
         verify(ops).addTotalDaily(eq(user), any(UUID.class));
         verify(ops).addTotalWeekly(eq(user), any(UUID.class));
@@ -108,8 +112,8 @@ class SharedVoteProcessorTest {
 	void replayUsesPersistedAccountingEligibilityInsteadOfTheCurrentProposal() {
 		var ops = accepted();
 		when(ops.addTotals()).thenReturn(false);
-		when(ops.prepareAccounting(eq(user), any(UUID.class), eq(false), eq(false)))
-				.thenReturn(new SharedVoteProcessor.AccountingAdmission(true, true, false));
+		when(ops.prepareAccounting(eq(user), any(UUID.class), eq(false), eq(false), eq(3), eq(100)))
+				.thenReturn(new SharedVoteProcessor.AccountingAdmission(true, true, false, 7, 50, false));
 
 		SharedVoteProcessor.process(ops);
 
@@ -123,13 +127,29 @@ class SharedVoteProcessorTest {
 	void replayUsesPersistedPointsEligibilityWhenTotalsWereNotAdmitted() {
 		var ops = accepted();
 		when(ops.addTotals()).thenReturn(false);
-		when(ops.prepareAccounting(eq(user), any(UUID.class), eq(false), eq(false)))
-				.thenReturn(new SharedVoteProcessor.AccountingAdmission(false, true, false));
+		when(ops.prepareAccounting(eq(user), any(UUID.class), eq(false), eq(false), eq(3), eq(100)))
+				.thenReturn(new SharedVoteProcessor.AccountingAdmission(false, true, false, 7, 50, false));
 
 		SharedVoteProcessor.process(ops);
 
-		verify(ops).addPoints(eq(user), any(UUID.class));
+		verify(ops).addPoints(eq(user), any(UUID.class), eq(7), eq(50));
 		verify(ops, never()).addTotal(eq(user), any(UUID.class));
+	}
+
+	@Test
+	void recoveredReplayUnsafeVoteStopsBeforeAnyEffect() {
+		var ops = accepted();
+		UUID voteId = UUID.randomUUID();
+		when(ops.incomingVoteId()).thenReturn(voteId);
+		when(ops.prepareAccounting(eq(user), eq(voteId), anyBoolean(), anyBoolean(), anyInt(), anyInt()))
+				.thenReturn(new SharedVoteProcessor.AccountingAdmission(true, true, true, 3, 100, true));
+
+		assertThrows(SharedVoteReplayUnsafeException.class, () -> SharedVoteProcessor.process(ops));
+
+		verify(ops).restoreReplayUnsafe();
+		verify(ops, never()).cache(user);
+		verify(ops, never()).markReplayUnsafe(any(UUID.class));
+		verify(ops, never()).broadcast(any(), any(), any(), anyBoolean());
 	}
 
     @Test
@@ -153,7 +173,7 @@ class SharedVoteProcessorTest {
         verify(ops).playerVote(user, site, true, false);
         verify(ops, never()).addOfflineVote(any(), any());
         verify(ops, never()).addTotal(eq(user), any(UUID.class));
-        verify(ops).addPoints(eq(user), any(UUID.class));
+        verify(ops).addPoints(eq(user), any(UUID.class), anyInt(), anyInt());
         ArgumentCaptor<UUID> id = ArgumentCaptor.forClass(UUID.class);
         verify(ops).postVote(eq(site), eq(user), eq("Ben"), eq(321L), id.capture(), eq(false));
         assertEquals(proxyId, id.getValue());
@@ -212,7 +232,7 @@ class SharedVoteProcessorTest {
 
         InOrder order = inOrder(ops);
         order.verify(ops).addOfflineVote(user, "ExampleKey");
-        order.verify(ops).addPoints(eq(user), any(UUID.class));
+        order.verify(ops).addPoints(eq(user), any(UUID.class), anyInt(), anyInt());
         order.verify(ops).postVote(eq(site), eq(user), eq("Ben"), eq(456L), any(UUID.class), eq(true));
         verify(ops, never()).playerVote(any(), any(), eq(false), eq(false));
         verify(ops, never()).addTotal(eq(user), any(UUID.class));
@@ -256,6 +276,6 @@ class SharedVoteProcessorTest {
 
         verify(ops, never()).addOfflineVote(any(), any());
         verify(ops).postVote(eq(site), eq(user), eq("Ben"), eq(457L), any(UUID.class), eq(false));
-        verify(ops).addPoints(eq(user), any(UUID.class));
+        verify(ops).addPoints(eq(user), any(UUID.class), anyInt(), anyInt());
     }
 }

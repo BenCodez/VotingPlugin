@@ -291,14 +291,16 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param voteId stable identity of the accepted vote
 	 */
 	public void addVotePoints(UUID voteId) {
+		addVotePoints(voteId, plugin.getConfigFile().getPointsOnVote(), plugin.getConfigFile().getLimitVotePoints());
+	}
+
+	/** Applies the point policy captured when the durable vote was admitted. */
+	public void addVotePoints(UUID voteId, int points, int limit) {
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
 		if (voteId == null || !sharedPoints.usesMysqlPointMutations()) {
-			addPoints();
+			addVotePointsWithPolicy(points, limit);
 			return;
 		}
-
-		int points = plugin.getConfigFile().getPointsOnVote();
-		int limit = plugin.getConfigFile().getLimitVotePoints();
 		String pointsColumn = getPointsPath();
 		String operationId = "vote-points:" + voteId;
 		Integer completedTotal = sharedPoints.completedPointAdditionTotal(operationId, getUUID(), pointsColumn);
@@ -316,6 +318,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		// A durable vote queue has no age limit. Keep vote-point receipts in
 		// COMPLETED so a delayed replay cannot credit the same vote after cleanup.
 		if (limit > 0) sharedPoints.cap(this, limit, false);
+	}
+
+	private void addVotePointsWithPolicy(int points, int limit) {
+		if (points != 0) addPoints(points, false);
+		if (limit > 0 && getPoints() > limit) setPoints(limit);
 	}
 
 	/**

@@ -54,7 +54,7 @@ public class VoteShopPurchaseService {
 	public enum MysqlDailyStreakResult { APPLIED, ALREADY_UPDATED, NOT_REQUESTED, DEFERRED, FAILED }
 	public record MysqlDailyStreakUpdate(MysqlDailyStreakResult result, int streak, boolean forceProxyRouting) { }
 	public record VoteAccountingAdmission(boolean success, boolean countTotals, boolean awardPoints,
-			boolean countVoteParty) { }
+			boolean countVoteParty, int pointAmount, int pointCap, boolean replayUnsafe) { }
 	private static final ConcurrentMap<UUID, Integer> ADMITTED_ACCOUNTING = new ConcurrentHashMap<>();
 	private static final int ACCOUNTING_DAILY_STREAK = 16;
 	private static final int ACCOUNTING_POINTS = 256;
@@ -665,9 +665,11 @@ public class VoteShopPurchaseService {
 
 	/** Durably admits shared total mutations before vote rewards or broadcasts run. */
 	public static VoteAccountingAdmission prepareMysqlVoteAccounting(VotingPluginMain plugin, UUID voteId, String uuid,
-			boolean countTotals, boolean awardPoints, boolean countVoteParty, boolean forceProxyRouting) {
+			boolean countTotals, boolean awardPoints, boolean countVoteParty, boolean forceProxyRouting,
+			int pointAmount, int pointCap) {
 		if (!canRecoverSharedMysqlPurchases(plugin) || voteId == null) {
-			return new VoteAccountingAdmission(true, countTotals, awardPoints, countVoteParty);
+			return new VoteAccountingAdmission(true, countTotals, awardPoints, countVoteParty, pointAmount, pointCap,
+					voteId != null && plugin.getServerData().isVoteReplayUnsafe(voteId));
 		}
 		try {
 			MySQL table = plugin.getMysql();
@@ -688,20 +690,41 @@ public class VoteShopPurchaseService {
 			table.checkColumn("DailyTotal", DataType.INTEGER);
 			table.checkColumn("DayVoteStreak", DataType.INTEGER);
 			table.checkColumn("DayVoteStreakLastUpdate", DataType.STRING);
-			int bits = SharedMysqlPurchaseJournal.forTable(table).prepareVoteAccounting(voteId, uuid, countTotals,
+			SharedMysqlPurchaseJournal.VoteAccountingDecision decision = SharedMysqlPurchaseJournal.forTable(table)
+					.prepareVoteAccounting(voteId, uuid, countTotals,
 					awardPoints, countVoteParty, monthColumn, maximum,
 					plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage(),
 					plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(),
 					plugin.getVoteSiteManager().getVoteSitesEnabled().size(), forceProxyRouting,
-					System.currentTimeMillis());
+					System.currentTimeMillis(), pointAmount, pointCap);
+			int bits = decision.bits();
 			ADMITTED_ACCOUNTING.put(voteId, Integer.valueOf(bits));
 			return new VoteAccountingAdmission(true, (bits & 7) != 0,
-					(bits & ACCOUNTING_POINTS) != 0, (bits & 8) != 0);
+					(bits & ACCOUNTING_POINTS) != 0, (bits & 8) != 0, decision.pointAmount(),
+					decision.pointCap(), decision.replayUnsafe());
 		} catch (SQLException failure) {
 			plugin.getLogger().severe("Unable to admit shared MySQL vote accounting: "
 					+ failure.getClass().getSimpleName());
 			plugin.debug(failure);
-			return new VoteAccountingAdmission(false, false, false, false);
+			return new VoteAccountingAdmission(false, false, false, false, pointAmount, pointCap, false);
+		}
+	}
+
+	/** Commits the boundary before any uncheckpointed vote effect can execute. */
+	public static boolean markVoteReplayUnsafe(VotingPluginMain plugin, UUID voteId) {
+		if (voteId == null) return false;
+		if (!canRecoverSharedMysqlPurchases(plugin)) {
+			plugin.getServerData().markVoteReplayUnsafe(voteId);
+			return true;
+		}
+		try {
+			SharedMysqlPurchaseJournal.forTable(plugin.getMysql()).markVoteReplayUnsafe(voteId);
+			return true;
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to persist shared MySQL vote effect boundary: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+			return false;
 		}
 	}
 

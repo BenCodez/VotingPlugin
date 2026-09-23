@@ -55,6 +55,7 @@ public class ServerData {
 
 	private static final String TIME_CHANGE_RECOVERY = "TimeChangeRecovery";
 	private static final String VOTE_PARTY_ACCOUNTING = "VoteParty.Accounting";
+	private static final String VOTE_REPLAY_UNSAFE = "VoteDelivery.ReplayUnsafe";
 	private static final List<String> TIME_CHANGE_PHASES = List.of("START", "SNAPSHOT", "COPY_TOTALS",
 			"USER_UPDATES", "TOP_REWARDS", "VOTE_SHOP", "BUNGEE_WAIT", "TOTALS_RESET", "CACHE_CLEAR",
 			"POST_DATE", "COMPLETE");
@@ -160,6 +161,16 @@ public class ServerData {
 		getData().set(path + ".Time", vote.getTime());
 		getData().set(path + ".VoteId", key);
 		saveData();
+	}
+
+	/** Persists that a delivery crossed into effects which cannot safely be replayed. */
+	public synchronized void markVoteReplayUnsafe(UUID voteId) {
+		getData().set(VOTE_REPLAY_UNSAFE + "." + voteId, true);
+		saveData();
+	}
+
+	public synchronized boolean isVoteReplayUnsafe(UUID voteId) {
+		return voteId != null && getData().getBoolean(VOTE_REPLAY_UNSAFE + "." + voteId);
 	}
 
 	/**

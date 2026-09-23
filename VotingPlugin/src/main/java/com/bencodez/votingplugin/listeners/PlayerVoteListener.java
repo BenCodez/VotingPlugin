@@ -161,19 +161,23 @@ public class PlayerVoteListener implements Listener {
             return event.getBungeeTextTotals() == null ? null : event.getBungeeTextTotals().getVoteUUID();
         }
 		@Override public SharedVoteProcessor.AccountingAdmission prepareAccounting(
-				VotingPluginUser user, UUID voteId, boolean countTotals, boolean awardPoints) {
+				VotingPluginUser user, UUID voteId, boolean countTotals, boolean awardPoints,
+				int pointAmount, int pointCap) {
             boolean countVoteParty = plugin.getSpecialRewardsConfig().isVotePartyEnabled()
                     && (plugin.getSpecialRewardsConfig().isVotePartyCountFakeVotes() || event.isRealVote())
                     && (plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes() || user.isOnline());
             VoteShopPurchaseService.VoteAccountingAdmission admission = VoteShopPurchaseService
 					.prepareMysqlVoteAccounting(plugin, voteId, user.getUUID(), countTotals, awardPoints,
-							countVoteParty, event.isForceBungee());
+							countVoteParty, event.isForceBungee(), pointAmount, pointCap);
 			if (!admission.success()) {
                 throw new SharedVoteAdmissionException("Unable to admit shared MySQL vote accounting before processing");
             }
 			return new SharedVoteProcessor.AccountingAdmission(admission.countTotals(), admission.awardPoints(),
-					admission.countVoteParty());
+					admission.countVoteParty(), admission.pointAmount(), admission.pointCap(),
+					admission.replayUnsafe());
         }
+		@Override public int configuredPointAmount() { return plugin.getConfigFile().getPointsOnVote(); }
+		@Override public int configuredPointCap() { return plugin.getConfigFile().getLimitVotePoints(); }
 		@Override public void finishAccounting(UUID voteId) {
             VoteShopPurchaseService.finishMysqlVoteAccounting(voteId);
         }
@@ -182,7 +186,13 @@ public class PlayerVoteListener implements Listener {
         @Override public void voteParty(VotingPluginUser user, boolean forceProxyRouting, UUID voteId, boolean eligible) {
             plugin.getVoteParty().voteAdmitted(user, forceProxyRouting, voteId, eligible);
         }
-		@Override public void markReplayUnsafe() { event.setReplayUnsafe(true); }
+		@Override public void markReplayUnsafe(UUID voteId) {
+			if (!VoteShopPurchaseService.markVoteReplayUnsafe(plugin, voteId)) {
+				throw new SharedVoteAdmissionException("Unable to persist the vote effect boundary");
+			}
+			event.setReplayUnsafe(true);
+		}
+		@Override public void restoreReplayUnsafe() { event.setReplayUnsafe(true); }
         @Override public long incomingTime() { return event.getTime(); }
         @Override public void setTime(VotingPluginUser user, VoteSite site, long time) { user.setTime(site, time); }
         @Override public void setTimeNow(VotingPluginUser user, VoteSite site) { user.setTime(site); }
@@ -205,7 +215,9 @@ public class PlayerVoteListener implements Listener {
         @Override public void addTotal(VotingPluginUser user, UUID voteId) { user.addTotal(voteId); }
         @Override public void addTotalDaily(VotingPluginUser user, UUID voteId) { user.addTotalDaily(voteId); }
         @Override public void addTotalWeekly(VotingPluginUser user, UUID voteId) { user.addTotalWeekly(voteId); }
-        @Override public void addPoints(VotingPluginUser user, UUID voteId) { user.addVotePoints(voteId); }
+        @Override public void addPoints(VotingPluginUser user, UUID voteId, int amount, int cap) {
+			user.addVotePoints(voteId, amount, cap);
+		}
         @Override public void checkDayVoteStreak(VotingPluginUser user, boolean forceProxyRouting, UUID voteId) {
             user.checkDayVoteStreak(forceProxyRouting, voteId);
         }

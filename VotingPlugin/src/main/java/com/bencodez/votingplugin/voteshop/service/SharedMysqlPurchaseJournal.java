@@ -36,6 +36,7 @@ final class SharedMysqlPurchaseJournal {
 	record DailyStreakResult(DailyStreakOutcome outcome, int streak) { }
 	record RecoveredDailyStreak(UUID voteId, String uuid, int streak, boolean forceProxyRouting) { }
 	record AccountingRecoveryBatch(boolean hadRows, List<UUID> pendingRewards) { }
+	record VoteAccountingDecision(int bits, int pointAmount, int pointCap, boolean replayUnsafe) { }
 	private static final String PENDING = "PENDING";
 	private static final String HOOK_STARTED = "HOOK_STARTED";
 	private static final String COMPENSATING = "COMPENSATING";
@@ -354,9 +355,11 @@ final class SharedMysqlPurchaseJournal {
 		return incrementPeriodTotals(voteId, uuid, boundaryColumn, previousColumn, columns, maximum, false);
 	}
 
-	int prepareVoteAccounting(UUID voteId, String uuid, boolean countTotals, boolean awardPoints, boolean countVoteParty,
+	VoteAccountingDecision prepareVoteAccounting(UUID voteId, String uuid, boolean countTotals, boolean awardPoints,
+			boolean countVoteParty,
 			String monthColumn, Integer monthMaximum, boolean streakUsesPercentage, double streakPercentage,
-			int enabledSiteCount, boolean forceProxyRouting, long acceptedAt) throws SQLException {
+			int enabledSiteCount, boolean forceProxyRouting, long acceptedAt, int pointAmount, int pointCap)
+			throws SQLException {
 		int requested = (countTotals ? DAILY_TOTAL | WEEKLY_TOTAL | MONTH_TOTAL | ALL_TIME_TOTAL : 0)
 				| (awardPoints ? AWARD_POINTS : 0)
 				| (countVoteParty ? VOTE_PARTY_TOTAL : 0);
@@ -378,6 +381,10 @@ final class SharedMysqlPurchaseJournal {
 					throw new SQLException("Vote accounting identity does not match");
 				}
 				boolean accountingAlreadyDecided = (row.requested() & ACCOUNTING_DECIDED) != 0;
+				int admittedPointAmount = accountingAlreadyDecided && row.pointAmount() != null
+						? row.pointAmount().intValue() : pointAmount;
+				int admittedPointCap = accountingAlreadyDecided && row.pointCap() != null
+						? row.pointCap().intValue() : pointCap;
 				boolean dailyResetPending = !accountingAlreadyDecided && streakUsesPercentage
 						&& resetPending(connection, "DailyTotal", dailyCopyMarker);
 				DailyStreakCandidate streak = accountingAlreadyDecided ? null
@@ -402,7 +409,9 @@ final class SharedMysqlPurchaseJournal {
 						+ qi("month_maximum") + "), " + qi("streak_value") + " = COALESCE(?, "
 						+ qi("streak_value") + "), " + qi("streak_updated_at") + " = COALESCE(?, "
 						+ qi("streak_updated_at") + "), " + qi("streak_force_proxy") + " = COALESCE(?, "
-						+ qi("streak_force_proxy") + ") WHERE " + qi("vote_id") + " = ?";
+						+ qi("streak_force_proxy") + "), " + qi("point_amount") + " = COALESCE("
+						+ qi("point_amount") + ", ?), " + qi("point_cap") + " = COALESCE("
+						+ qi("point_cap") + ", ?) WHERE " + qi("vote_id") + " = ?";
 				try (PreparedStatement statement = connection.prepareStatement(update)) {
 					statement.setString(1, uuid);
 					statement.setInt(2, persistedRequested);
@@ -416,11 +425,53 @@ final class SharedMysqlPurchaseJournal {
 					else statement.setNull(7, java.sql.Types.BIGINT);
 					if (requestStreak) statement.setInt(8, forceProxyRouting ? 1 : 0);
 					else statement.setNull(8, java.sql.Types.INTEGER);
-					statement.setString(9, voteId.toString());
+					statement.setInt(9, admittedPointAmount);
+					statement.setInt(10, admittedPointCap);
+					statement.setString(11, voteId.toString());
 					if (statement.executeUpdate() != 1) throw new SQLException("Vote accounting marker is missing");
 				}
 				commitAndConfirmRequested(connection, voteId, persistedRequested);
-				return persistedRequested & ~ACCOUNTING_DECIDED;
+				return new VoteAccountingDecision(persistedRequested & ~ACCOUNTING_DECIDED,
+						admittedPointAmount, admittedPointCap, row.replayUnsafe());
+			} catch (SQLException failure) {
+				rollback(connection);
+				throw failure;
+			}
+		}
+	}
+
+	int prepareVoteAccounting(UUID voteId, String uuid, boolean countTotals, boolean awardPoints,
+			boolean countVoteParty, String monthColumn, Integer monthMaximum, boolean streakUsesPercentage,
+			double streakPercentage, int enabledSiteCount, boolean forceProxyRouting, long acceptedAt)
+			throws SQLException {
+		return prepareVoteAccounting(voteId, uuid, countTotals, awardPoints, countVoteParty, monthColumn,
+				monthMaximum, streakUsesPercentage, streakPercentage, enabledSiteCount, forceProxyRouting,
+				acceptedAt, 0, -1).bits();
+	}
+
+	void markVoteReplayUnsafe(UUID voteId) throws SQLException {
+		try (Connection connection = connection()) {
+			connection.setAutoCommit(false);
+			try {
+				AccountingRow row = findAndLockAccountingVote(connection, voteId);
+				if (row == null) throw new SQLException("Vote accounting marker is missing");
+				if (row.replayUnsafe()) {
+					rollback(connection);
+					return;
+				}
+				try (PreparedStatement statement = connection.prepareStatement("UPDATE " + qiAccounting()
+						+ " SET " + qi("replay_unsafe") + " = 1 WHERE " + qi("vote_id") + " = ?")) {
+					statement.setString(1, voteId.toString());
+					if (statement.executeUpdate() != 1) throw new SQLException("Vote accounting marker is missing");
+				}
+				try {
+					connection.commit();
+				} catch (SQLException ambiguousCommit) {
+					closeQuietly(connection);
+					AccountingRow confirmed = findAccountingVote(voteId);
+					if (confirmed != null && confirmed.replayUnsafe()) return;
+					throw ambiguousCommit;
+				}
 			} catch (SQLException failure) {
 				rollback(connection);
 				throw failure;
@@ -685,13 +736,15 @@ final class SharedMysqlPurchaseJournal {
 		return qi("player_uuid") + ", " + qi("requested") + ", " + qi("completed") + ", "
 				+ qi("month_column") + ", " + qi("month_maximum") + ", " + qi("streak_value") + ", "
 				+ qi("streak_updated_at") + ", " + qi("streak_force_proxy") + ", "
-				+ qi("streak_applied_value");
+				+ qi("streak_applied_value") + ", " + qi("point_amount") + ", " + qi("point_cap") + ", "
+				+ qi("replay_unsafe");
 	}
 
 	private static AccountingRow accountingRow(ResultSet result) throws SQLException {
 		return new AccountingRow(result.getString(1), result.getInt(2), result.getInt(3), result.getString(4),
 				nullableInteger(result, 5), nullableInteger(result, 6), nullableLong(result, 7),
-				nullableInteger(result, 8), nullableInteger(result, 9));
+				nullableInteger(result, 8), nullableInteger(result, 9), nullableInteger(result, 10),
+				nullableInteger(result, 11), result.getInt(12) != 0);
 	}
 
 	private boolean resetPending(Connection connection, String boundaryColumn, EpochRow copyMarker)
@@ -981,7 +1034,8 @@ final class SharedMysqlPurchaseJournal {
 					UUID voteId = UUID.fromString(result.getString(1));
 					AccountingRow row = new AccountingRow(result.getString(2), result.getInt(3), result.getInt(4),
 								result.getString(5), nullableInteger(result, 6), nullableInteger(result, 7),
-								nullableLong(result, 8), nullableInteger(result, 9), nullableInteger(result, 10));
+								nullableLong(result, 8), nullableInteger(result, 9), nullableInteger(result, 10),
+								nullableInteger(result, 11), nullableInteger(result, 12), result.getInt(13) != 0);
 					applyPendingAccounting(connection, voteId, row, operation);
 				}
 			}
@@ -1371,7 +1425,8 @@ final class SharedMysqlPurchaseJournal {
 				while (result.next()) pending.add(new AccountingRecovery(UUID.fromString(result.getString(1)),
 						new AccountingRow(result.getString(2), result.getInt(3), result.getInt(4), result.getString(5),
 								nullableInteger(result, 6), nullableInteger(result, 7), nullableLong(result, 8),
-								nullableInteger(result, 9), nullableInteger(result, 10))));
+								nullableInteger(result, 9), nullableInteger(result, 10), nullableInteger(result, 11),
+								nullableInteger(result, 12), result.getInt(13) != 0)));
 			}
 		}
 		return pending;
@@ -1450,6 +1505,8 @@ final class SharedMysqlPurchaseJournal {
 				+ qi("month_column") + " VARCHAR(128) NULL, " + qi("month_maximum") + " INT NULL, "
 				+ qi("streak_value") + " INT NULL, " + qi("streak_updated_at") + " BIGINT NULL, "
 				+ qi("streak_force_proxy") + " INT NULL, " + qi("streak_applied_value") + " INT NULL, "
+				+ qi("point_amount") + " INT NULL, " + qi("point_cap") + " INT NULL, "
+				+ qi("replay_unsafe") + " INT NOT NULL DEFAULT 0, "
 				+ qi("created_at")
 				+ " BIGINT NOT NULL, PRIMARY KEY (" + qi("vote_id") + "));";
 		try (PreparedStatement statement = connection.prepareStatement(create)) {
@@ -1463,6 +1520,9 @@ final class SharedMysqlPurchaseJournal {
 		ensureAccountingColumn(connection, "streak_updated_at", "BIGINT NULL");
 		ensureAccountingColumn(connection, "streak_force_proxy", "INT NULL");
 		ensureAccountingColumn(connection, "streak_applied_value", "INT NULL");
+		ensureAccountingColumn(connection, "point_amount", "INT NULL");
+		ensureAccountingColumn(connection, "point_cap", "INT NULL");
+		ensureAccountingColumn(connection, "replay_unsafe", "INT NOT NULL DEFAULT 0");
 		try (PreparedStatement migrate = connection.prepareStatement("UPDATE " + qiAccounting() + " SET "
 				+ qi("requested") + " = " + qi("completed") + " WHERE " + qi("requested") + " = 0 AND "
 				+ qi("completed") + " <> 0")) {
@@ -1591,7 +1651,7 @@ final class SharedMysqlPurchaseJournal {
 
 	private record AccountingRow(String uuid, int requested, int completed, String monthColumn,
 			Integer monthMaximum, Integer streakValue, Long streakUpdatedAt, Integer streakForceProxy,
-			Integer streakAppliedValue) {
+			Integer streakAppliedValue, Integer pointAmount, Integer pointCap, boolean replayUnsafe) {
 	}
 
 	record PeriodTotalResult(boolean applied, List<String> columns) { }

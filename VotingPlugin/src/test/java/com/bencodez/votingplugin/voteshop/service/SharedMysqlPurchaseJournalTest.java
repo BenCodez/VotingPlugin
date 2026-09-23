@@ -106,7 +106,7 @@ class SharedMysqlPurchaseJournalTest {
 		PreparedStatement accountingUpdate = mock(PreparedStatement.class);
 		ResultSet copyEpoch = mock(ResultSet.class);
 		ResultSet resetEpoch = mock(ResultSet.class);
-		ResultSet accounting = accountingRow("00000000-0000-0000-0000-000000000001", 320, 64);
+		ResultSet accounting = accountingRow("00000000-0000-0000-0000-000000000001", 320, 64, 9, 40, true);
 		when(copyEpoch.next()).thenReturn(true);
 		when(resetEpoch.next()).thenReturn(true);
 		when(copySelect.executeQuery()).thenReturn(copyEpoch);
@@ -116,11 +116,15 @@ class SharedMysqlPurchaseJournalTest {
 		when(fixture.work.prepareStatement(anyString())).thenReturn(copyInsert, copySelect, resetInsert, resetSelect,
 				accountingInsert, accountingSelect, accountingUpdate);
 
-		int requested = new SharedMysqlPurchaseJournal(fixture.table, false).prepareVoteAccounting(
+		SharedMysqlPurchaseJournal.VoteAccountingDecision decision = new SharedMysqlPurchaseJournal(fixture.table, false)
+				.prepareVoteAccounting(
 				UUID.randomUUID(), "00000000-0000-0000-0000-000000000001", false, false, false,
-				null, null, false, 0.0, 1, false, 1234L);
+				null, null, false, 0.0, 1, false, 1234L, 2, 10);
 
-		assertEquals(256, requested);
+		assertEquals(256, decision.bits());
+		assertEquals(9, decision.pointAmount());
+		assertEquals(40, decision.pointCap());
+		assertEquals(true, decision.replayUnsafe());
 		verify(accountingUpdate).setInt(2, 320);
 		verify(accountingUpdate).setInt(3, 320);
 		verify(fixture.work).commit();
@@ -1248,11 +1252,19 @@ class SharedMysqlPurchaseJournalTest {
 	}
 
 	private static ResultSet accountingRow(String uuid, int requested, int completed) throws Exception {
+		return accountingRow(uuid, requested, completed, null, null, false);
+	}
+
+	private static ResultSet accountingRow(String uuid, int requested, int completed, Integer points, Integer cap,
+			boolean replayUnsafe) throws Exception {
 		ResultSet row = mock(ResultSet.class);
 		when(row.next()).thenReturn(true);
 		when(row.getString(1)).thenReturn(uuid);
 		when(row.getInt(2)).thenReturn(requested);
 		when(row.getInt(3)).thenReturn(completed);
+		when(row.getObject(10)).thenReturn(points);
+		when(row.getObject(11)).thenReturn(cap);
+		when(row.getInt(12)).thenReturn(replayUnsafe ? 1 : 0);
 		return row;
 	}
 
