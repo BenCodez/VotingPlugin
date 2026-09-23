@@ -64,6 +64,7 @@ final class SharedMysqlPurchaseJournal {
 	private static final int DAILY_STREAK_REWARD = 32;
 	private static final int ACCOUNTING_DECIDED = 64;
 	private static final int DAILY_STREAK_REWARD_CLAIMED = 128;
+	private static final int AWARD_POINTS = 256;
 	private static final int RECOVERABLE_NON_REWARD_ACCOUNTING = DAILY_TOTAL | WEEKLY_TOTAL | MONTH_TOTAL
 			| VOTE_PARTY_TOTAL | DAILY_STREAK;
 
@@ -353,10 +354,11 @@ final class SharedMysqlPurchaseJournal {
 		return incrementPeriodTotals(voteId, uuid, boundaryColumn, previousColumn, columns, maximum, false);
 	}
 
-	int prepareVoteAccounting(UUID voteId, String uuid, boolean countTotals, boolean countVoteParty,
+	int prepareVoteAccounting(UUID voteId, String uuid, boolean countTotals, boolean awardPoints, boolean countVoteParty,
 			String monthColumn, Integer monthMaximum, boolean streakUsesPercentage, double streakPercentage,
 			int enabledSiteCount, boolean forceProxyRouting, long acceptedAt) throws SQLException {
 		int requested = (countTotals ? DAILY_TOTAL | WEEKLY_TOTAL | MONTH_TOTAL : 0)
+				| (awardPoints ? AWARD_POINTS : 0)
 				| (countVoteParty ? VOTE_PARTY_TOTAL : 0);
 		try (Connection connection = connection()) {
 			connection.setAutoCommit(false);

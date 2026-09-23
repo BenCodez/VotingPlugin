@@ -82,15 +82,46 @@ class SharedMysqlPurchaseJournalTest {
 				accountingInsert, accountingSelect, candidateSelect, accountingUpdate);
 
 		int requested = new SharedMysqlPurchaseJournal(fixture.table, false).prepareVoteAccounting(
-				java.util.UUID.randomUUID(), "00000000-0000-0000-0000-000000000001", false, false,
+				java.util.UUID.randomUUID(), "00000000-0000-0000-0000-000000000001", false, true, false,
 				null, null, false, 0.0, 1, true, 1234L);
 
-		assertEquals(48, requested);
-		verify(accountingUpdate).setInt(2, 112);
+		assertEquals(304, requested);
+		verify(accountingUpdate).setInt(2, 368);
 		verify(accountingUpdate).setInt(3, 64);
 		verify(accountingUpdate).setInt(6, 5);
 		verify(accountingUpdate).setLong(7, 1234L);
 		verify(accountingUpdate).setInt(8, 1);
+		verify(fixture.work).commit();
+	}
+
+	@Test
+	void repeatedVoteAdmissionReturnsThePersistedPointsDecision() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement copyInsert = mock(PreparedStatement.class);
+		PreparedStatement copySelect = mock(PreparedStatement.class);
+		PreparedStatement resetInsert = mock(PreparedStatement.class);
+		PreparedStatement resetSelect = mock(PreparedStatement.class);
+		PreparedStatement accountingInsert = mock(PreparedStatement.class);
+		PreparedStatement accountingSelect = mock(PreparedStatement.class);
+		PreparedStatement accountingUpdate = mock(PreparedStatement.class);
+		ResultSet copyEpoch = mock(ResultSet.class);
+		ResultSet resetEpoch = mock(ResultSet.class);
+		ResultSet accounting = accountingRow("00000000-0000-0000-0000-000000000001", 320, 64);
+		when(copyEpoch.next()).thenReturn(true);
+		when(resetEpoch.next()).thenReturn(true);
+		when(copySelect.executeQuery()).thenReturn(copyEpoch);
+		when(resetSelect.executeQuery()).thenReturn(resetEpoch);
+		when(accountingSelect.executeQuery()).thenReturn(accounting);
+		when(accountingUpdate.executeUpdate()).thenReturn(1);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(copyInsert, copySelect, resetInsert, resetSelect,
+				accountingInsert, accountingSelect, accountingUpdate);
+
+		int requested = new SharedMysqlPurchaseJournal(fixture.table, false).prepareVoteAccounting(
+				UUID.randomUUID(), "00000000-0000-0000-0000-000000000001", false, false, false,
+				null, null, false, 0.0, 1, false, 1234L);
+
+		assertEquals(256, requested);
+		verify(accountingUpdate).setInt(2, 320);
 		verify(fixture.work).commit();
 	}
 
@@ -142,7 +173,7 @@ class SharedMysqlPurchaseJournalTest {
 				dailyResetInsert, dailyResetSelect, candidateSelect, pendingTotalSelect, accountingUpdate);
 
 		int requested = new SharedMysqlPurchaseJournal(fixture.table, false).prepareVoteAccounting(
-				UUID.randomUUID(), "00000000-0000-0000-0000-000000000001", false, false,
+				UUID.randomUUID(), "00000000-0000-0000-0000-000000000001", false, false, false,
 				null, null, true, 50.0, 1, false, 1234L);
 
 		assertEquals(48, requested);
@@ -181,7 +212,7 @@ class SharedMysqlPurchaseJournalTest {
 				accountingInsert, accountingSelect, candidateSelect, accountingUpdate);
 
 		int requested = new SharedMysqlPurchaseJournal(fixture.table, false).prepareVoteAccounting(
-				java.util.UUID.randomUUID(), "00000000-0000-0000-0000-000000000001", false, false,
+				java.util.UUID.randomUUID(), "00000000-0000-0000-0000-000000000001", false, false, false,
 				null, null, false, 0.0, 1, false, 1234L);
 
 		assertEquals(48, requested);

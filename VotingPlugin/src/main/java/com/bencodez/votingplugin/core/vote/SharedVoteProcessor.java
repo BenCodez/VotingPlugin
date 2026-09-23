@@ -15,7 +15,7 @@ public final class SharedVoteProcessor {
 
     public record Validation(boolean valid, String normalizedName, String source, String reason, boolean bedrock) { }
     public record Name(String value, String rationale) { }
-    public record AccountingAdmission(boolean countTotals, boolean votePartyEligible) { }
+    public record AccountingAdmission(boolean countTotals, boolean awardPoints, boolean votePartyEligible) { }
 
     public interface Operations<S, U> {
         boolean enabled();
@@ -60,7 +60,7 @@ public final class SharedVoteProcessor {
         void broadcast(UUID uuid, String name, String siteDisplayName, boolean online);
         boolean hasProxyTextTotals();
         UUID incomingVoteId();
-        AccountingAdmission prepareAccounting(U user, UUID voteId, boolean countTotals);
+        AccountingAdmission prepareAccounting(U user, UUID voteId, boolean countTotals, boolean awardPoints);
         void finishAccounting(UUID voteId);
         void cache(U user);
         void updateName(U user);
@@ -173,8 +173,10 @@ public final class SharedVoteProcessor {
                 ops.incomingTime(), ops.realVote(), ops.addTotals(), ops.proxyVote(),
                 ops.forceProxyRouting(), ops.wasOnline());
 		boolean proposedCountTotals = policy.shouldCountTotals(accountingInput, () -> ops.userOnline(user));
-		AccountingAdmission admission = ops.prepareAccounting(user, voteId, proposedCountTotals);
+		boolean proposedAwardPoints = policy.shouldAwardConfiguredPoints(accountingInput);
+		AccountingAdmission admission = ops.prepareAccounting(user, voteId, proposedCountTotals, proposedAwardPoints);
 		boolean countTotals = admission.countTotals();
+		boolean awardPoints = admission.awardPoints();
 		boolean votePartyEligible = admission.votePartyEligible();
         try {
             ops.cache(user);
@@ -216,7 +218,7 @@ public final class SharedVoteProcessor {
             }
             SharedVoteInput input = new SharedVoteInput(voteId, playerName, ops.serviceSite(), voteTime,
                     ops.realVote(), ops.addTotals(), ops.proxyVote(), ops.forceProxyRouting(), ops.wasOnline());
-            SharedVoteAccounting.applyAdmitted(input, policy, countTotals, () -> ops.addTotal(user, voteId),
+            SharedVoteAccounting.applyAdmitted(countTotals, awardPoints, () -> ops.addTotal(user, voteId),
                     () -> ops.addTotalDaily(user, voteId), () -> ops.addTotalWeekly(user, voteId),
                     () -> ops.addPoints(user));
             ops.checkDayVoteStreak(user, ops.forceProxyRouting(), voteId);

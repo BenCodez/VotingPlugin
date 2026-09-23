@@ -39,9 +39,9 @@ class SharedVoteProcessorTest {
         when(ops.siteKey(site)).thenReturn("ExampleKey");
         when(ops.userId(user)).thenReturn("user-id");
         when(ops.userUuid(user)).thenReturn(UUID.randomUUID());
-		when(ops.prepareAccounting(eq(user), any(UUID.class), anyBoolean()))
+		when(ops.prepareAccounting(eq(user), any(UUID.class), anyBoolean(), anyBoolean()))
 				.thenAnswer(invocation -> new SharedVoteProcessor.AccountingAdmission(
-						invocation.getArgument(2), true));
+						invocation.getArgument(2), invocation.getArgument(3), true));
         return ops;
     }
 
@@ -64,7 +64,7 @@ class SharedVoteProcessorTest {
 
         InOrder order = inOrder(ops);
         order.verify(ops).lastVoteTime(user, site);
-        order.verify(ops).prepareAccounting(eq(user), any(UUID.class), eq(true));
+        order.verify(ops).prepareAccounting(eq(user), any(UUID.class), eq(true), eq(true));
         order.verify(ops).cache(user);
         order.verify(ops).updateName(user);
         order.verify(ops).voteParty(eq(user), eq(false), any(UUID.class), eq(true));
@@ -95,7 +95,7 @@ class SharedVoteProcessorTest {
 
         SharedVoteProcessor.process(ops);
 
-        verify(ops).prepareAccounting(eq(user), any(UUID.class), eq(true));
+        verify(ops).prepareAccounting(eq(user), any(UUID.class), eq(true), eq(true));
         verify(ops).addTotal(eq(user), any(UUID.class));
         verify(ops).addTotalDaily(eq(user), any(UUID.class));
         verify(ops).addTotalWeekly(eq(user), any(UUID.class));
@@ -105,8 +105,8 @@ class SharedVoteProcessorTest {
 	void replayUsesPersistedAccountingEligibilityInsteadOfTheCurrentProposal() {
 		var ops = accepted();
 		when(ops.addTotals()).thenReturn(false);
-		when(ops.prepareAccounting(eq(user), any(UUID.class), eq(false)))
-				.thenReturn(new SharedVoteProcessor.AccountingAdmission(true, false));
+		when(ops.prepareAccounting(eq(user), any(UUID.class), eq(false), eq(false)))
+				.thenReturn(new SharedVoteProcessor.AccountingAdmission(true, true, false));
 
 		SharedVoteProcessor.process(ops);
 
@@ -114,6 +114,19 @@ class SharedVoteProcessorTest {
 		verify(ops).addTotalDaily(eq(user), any(UUID.class));
 		verify(ops).addTotalWeekly(eq(user), any(UUID.class));
 		verify(ops).voteParty(eq(user), eq(false), any(UUID.class), eq(false));
+	}
+
+	@Test
+	void replayUsesPersistedPointsEligibilityWhenTotalsWereNotAdmitted() {
+		var ops = accepted();
+		when(ops.addTotals()).thenReturn(false);
+		when(ops.prepareAccounting(eq(user), any(UUID.class), eq(false), eq(false)))
+				.thenReturn(new SharedVoteProcessor.AccountingAdmission(false, true, false));
+
+		SharedVoteProcessor.process(ops);
+
+		verify(ops).addPoints(user);
+		verify(ops, never()).addTotal(eq(user), any(UUID.class));
 	}
 
     @Test

@@ -53,9 +53,11 @@ import lombok.Setter;
 public class VoteShopPurchaseService {
 	public enum MysqlDailyStreakResult { APPLIED, ALREADY_UPDATED, NOT_REQUESTED, DEFERRED, FAILED }
 	public record MysqlDailyStreakUpdate(MysqlDailyStreakResult result, int streak, boolean forceProxyRouting) { }
-	public record VoteAccountingAdmission(boolean success, boolean countTotals, boolean countVoteParty) { }
+	public record VoteAccountingAdmission(boolean success, boolean countTotals, boolean awardPoints,
+			boolean countVoteParty) { }
 	private static final ConcurrentMap<UUID, Integer> ADMITTED_ACCOUNTING = new ConcurrentHashMap<>();
 	private static final int ACCOUNTING_DAILY_STREAK = 16;
+	private static final int ACCOUNTING_POINTS = 256;
 	private static final int PURCHASE_LOCK_STRIPES = 256;
 	private static final Object[] PURCHASE_LOCKS = createPurchaseLocks();
 	private static final int COMPLETION_PENDING = 0;
@@ -655,9 +657,9 @@ public class VoteShopPurchaseService {
 
 	/** Durably admits shared total mutations before vote rewards or broadcasts run. */
 	public static VoteAccountingAdmission prepareMysqlVoteAccounting(VotingPluginMain plugin, UUID voteId, String uuid,
-			boolean countTotals, boolean countVoteParty, boolean forceProxyRouting) {
+			boolean countTotals, boolean awardPoints, boolean countVoteParty, boolean forceProxyRouting) {
 		if (!canRecoverSharedMysqlPurchases(plugin) || voteId == null) {
-			return new VoteAccountingAdmission(true, countTotals, countVoteParty);
+			return new VoteAccountingAdmission(true, countTotals, awardPoints, countVoteParty);
 		}
 		try {
 			MySQL table = plugin.getMysql();
@@ -678,18 +680,19 @@ public class VoteShopPurchaseService {
 			table.checkColumn("DayVoteStreak", DataType.INTEGER);
 			table.checkColumn("DayVoteStreakLastUpdate", DataType.STRING);
 			int bits = SharedMysqlPurchaseJournal.forTable(table).prepareVoteAccounting(voteId, uuid, countTotals,
-					countVoteParty, monthColumn, maximum,
+					awardPoints, countVoteParty, monthColumn, maximum,
 					plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage(),
 					plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(),
 					plugin.getVoteSiteManager().getVoteSitesEnabled().size(), forceProxyRouting,
 					System.currentTimeMillis());
 			ADMITTED_ACCOUNTING.put(voteId, Integer.valueOf(bits));
-			return new VoteAccountingAdmission(true, (bits & 7) != 0, (bits & 8) != 0);
+			return new VoteAccountingAdmission(true, (bits & 7) != 0,
+					(bits & ACCOUNTING_POINTS) != 0, (bits & 8) != 0);
 		} catch (SQLException failure) {
 			plugin.getLogger().severe("Unable to admit shared MySQL vote accounting: "
 					+ failure.getClass().getSimpleName());
 			plugin.debug(failure);
-			return new VoteAccountingAdmission(false, false, false);
+			return new VoteAccountingAdmission(false, false, false, false);
 		}
 	}
 

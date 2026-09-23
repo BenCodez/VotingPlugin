@@ -137,18 +137,19 @@ public class PlayerVoteListener implements Listener {
             if (event.getVoteId() != null) return event.getVoteId();
             return event.getBungeeTextTotals() == null ? null : event.getBungeeTextTotals().getVoteUUID();
         }
-        @Override public SharedVoteProcessor.AccountingAdmission prepareAccounting(
-				VotingPluginUser user, UUID voteId, boolean countTotals) {
+		@Override public SharedVoteProcessor.AccountingAdmission prepareAccounting(
+				VotingPluginUser user, UUID voteId, boolean countTotals, boolean awardPoints) {
             boolean countVoteParty = plugin.getSpecialRewardsConfig().isVotePartyEnabled()
                     && (plugin.getSpecialRewardsConfig().isVotePartyCountFakeVotes() || event.isRealVote())
                     && (plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes() || user.isOnline());
             VoteShopPurchaseService.VoteAccountingAdmission admission = VoteShopPurchaseService
-					.prepareMysqlVoteAccounting(plugin, voteId, user.getUUID(), countTotals,
+					.prepareMysqlVoteAccounting(plugin, voteId, user.getUUID(), countTotals, awardPoints,
 							countVoteParty, event.isForceBungee());
 			if (!admission.success()) {
                 throw new SharedVoteAdmissionException("Unable to admit shared MySQL vote accounting before processing");
             }
-			return new SharedVoteProcessor.AccountingAdmission(admission.countTotals(), admission.countVoteParty());
+			return new SharedVoteProcessor.AccountingAdmission(admission.countTotals(), admission.awardPoints(),
+					admission.countVoteParty());
         }
         @Override public void finishAccounting(UUID voteId) {
             VoteShopPurchaseService.finishMysqlVoteAccounting(voteId);
