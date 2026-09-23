@@ -9,6 +9,11 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.bukkit.entity.Player;
@@ -57,6 +62,50 @@ class PlaceholderPlayerPresenceTest {
 		presence.clear();
 		assertFalse(presence.isOnline(firstId));
 		assertFalse(presence.isOnline(secondId));
+	}
+
+	@Test
+	void snapshotReplacementDoesNotLoseConcurrentLifecycleChanges() throws Exception {
+		PlaceholderPlayerPresence presence = new PlaceholderPlayerPresence();
+		UUID firstId = UUID.randomUUID();
+		UUID joinedId = UUID.randomUUID();
+		Player first = player(firstId);
+		Player joined = player(joinedId);
+		CountDownLatch resolving = new CountDownLatch(1);
+		CountDownLatch releaseResolution = new CountDownLatch(1);
+		CountDownLatch joinStarted = new CountDownLatch(1);
+		ExecutorService workers = Executors.newFixedThreadPool(2);
+		try {
+			Future<?> refresh = workers.submit(() -> presence.replace(() -> {
+				resolving.countDown();
+				await(releaseResolution);
+				return List.of(first);
+			}, player -> firstId));
+			assertTrue(resolving.await(2, TimeUnit.SECONDS));
+			Future<?> join = workers.submit(() -> {
+				joinStarted.countDown();
+				presence.playerOnline(joinedId, joined);
+			});
+			assertTrue(joinStarted.await(2, TimeUnit.SECONDS));
+			assertFalse(join.isDone(), "join must wait for the atomic snapshot replacement");
+			releaseResolution.countDown();
+			refresh.get(2, TimeUnit.SECONDS);
+			join.get(2, TimeUnit.SECONDS);
+			assertSame(first, presence.schedulerOwner(firstId));
+			assertSame(joined, presence.schedulerOwner(joinedId));
+		} finally {
+			workers.shutdownNow();
+			assertTrue(workers.awaitTermination(2, TimeUnit.SECONDS));
+		}
+	}
+
+	private void await(CountDownLatch latch) {
+		try {
+			if (!latch.await(2, TimeUnit.SECONDS)) throw new AssertionError("timed out waiting for test release");
+		} catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt();
+			throw new AssertionError(interrupted);
+		}
 	}
 
 	private Player player(UUID uuid) {

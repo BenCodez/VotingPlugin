@@ -6,6 +6,8 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 import org.bukkit.entity.Player;
 
@@ -80,7 +82,19 @@ public final class PlaceholderPlayerPresence {
 
 	/** Rebuild online owners while retaining storage UUIDs already established by login. */
 	public void replace(Collection<? extends Player> players) {
+		replace(players, Player::getUniqueId);
+	}
+
+	/** Resolve and replace one presence snapshot under the same lifecycle boundary. */
+	public void replace(Collection<? extends Player> players, Function<Player, UUID> storageUuidResolver) {
+		replace(() -> players, storageUuidResolver);
+	}
+
+	/** Capture, resolve, and replace one presence snapshot under the same lifecycle boundary. */
+	public void replace(Supplier<? extends Collection<? extends Player>> playersSupplier,
+			Function<Player, UUID> storageUuidResolver) {
 		synchronized (lifecycleLock) {
+			Collection<? extends Player> players = playersSupplier == null ? null : playersSupplier.get();
 			Map<Player, UUID> knownStorageUuids = new IdentityHashMap<>();
 			Map<UUID, UUID> storageUuidByPlayerUuid = new HashMap<>();
 			onlinePlayers.get().forEach((uuid, player) -> {
@@ -94,6 +108,7 @@ public final class PlaceholderPlayerPresence {
 					UUID uuid = knownStorageUuids.get(player);
 					UUID playerUuid = player.getUniqueId();
 					if (uuid == null) uuid = storageUuidByPlayerUuid.get(playerUuid);
+					if (uuid == null && storageUuidResolver != null) uuid = storageUuidResolver.apply(player);
 					next.put(uuid == null ? playerUuid : uuid, player);
 				}
 			}

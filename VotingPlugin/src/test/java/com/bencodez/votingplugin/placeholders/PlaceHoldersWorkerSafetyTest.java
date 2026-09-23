@@ -251,6 +251,38 @@ class PlaceHoldersWorkerSafetyTest {
 	}
 
 	@Test
+	void staleEligibilityUpdateCannotOverwriteANewerReplacementOwnerUpdate() {
+		Fixture fixture = new Fixture();
+		fixture.presence.playerOnline(fixture.player);
+		Player replacement = mock(Player.class);
+		when(replacement.getUniqueId()).thenReturn(fixture.uuid);
+		VoteSite site = mock(VoteSite.class);
+		when(site.isHidden()).thenReturn(false);
+		when(site.getPermissionToView()).thenReturn("");
+		when(fixture.voteSiteManager.getVoteSitesEnabled()).thenReturn(new ArrayList<>(List.of(site)));
+		when(fixture.votingUser.canVoteSite(site)).thenReturn(true, false);
+		AtomicInteger requests = new AtomicInteger();
+		PlaceHolder<VotingPluginUser> placeholder = fixture.cachedPlaceholder(
+				"CanVoteSites", "LastVotes", requests);
+		fixture.placeholders.getPlaceholders().add(fixture.placeholders.platformOwned(placeholder));
+		fixture.placeholders.publishUserDataChangePlaceholders();
+
+		fixture.placeholders.onUserDataChange(fixture.advancedUser, "LastVotes");
+		fixture.presence.playerOffline(fixture.uuid);
+		fixture.presence.playerOnline(replacement);
+		fixture.placeholders.onUserDataChange(fixture.advancedUser, "LastVotes");
+
+		ArgumentCaptor<Runnable> tasks = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler, times(2)).runTask(eq(fixture.plugin), tasks.capture(), any(Player.class));
+		tasks.getAllValues().get(1).run();
+		assertEquals("0", placeholder.getCache().get("canvotesites").get(fixture.uuid));
+		tasks.getAllValues().get(0).run();
+		assertEquals("0", placeholder.getCache().get("canvotesites").get(fixture.uuid));
+		verify(fixture.scheduler, times(2)).runTask(eq(fixture.plugin), any(Runnable.class), any(Player.class));
+		assertEquals(0, requests.get());
+	}
+
+	@Test
 	void concurrentCalculatingUpdatesKeepBothCachesCoherent() throws Exception {
 		Fixture fixture = new Fixture();
 		fixture.presence.playerOnline(fixture.player);
