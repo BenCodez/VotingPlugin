@@ -39,6 +39,7 @@ import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueNu
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.javascript.JavascriptPlaceholderRequest;
 import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
+import com.bencodez.advancedcore.api.player.UuidLookup;
 import com.bencodez.advancedcore.api.rewards.DirectlyDefinedReward;
 import com.bencodez.advancedcore.api.rewards.Reward;
 import com.bencodez.advancedcore.api.rewards.RewardEditData;
@@ -1937,7 +1938,20 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	/** Captures Bukkit presence while the lifecycle caller owns platform access. */
 	public void refreshPlaceholderPlayerPresence() {
-		placeholderPlayerPresence.replace(Bukkit.getOnlinePlayers());
+		HashMap<UUID, Player> onlinePlayers = new HashMap<>();
+		for (Player player : Bukkit.getOnlinePlayers()) {
+			onlinePlayers.put(placeholderStorageUuid(player), player);
+		}
+		placeholderPlayerPresence.replace(onlinePlayers);
+	}
+
+	static UUID placeholderStorageUuid(Player player) {
+		String cachedUuid = UuidLookup.getInstance().getCachedUUID(player.getName());
+		try {
+			return UUID.fromString(cachedUuid);
+		} catch (IllegalArgumentException | NullPointerException ignored) {
+			return player.getUniqueId();
+		}
 	}
 
 	/** Reloads configuration applied by Control before its result is acknowledged. */
