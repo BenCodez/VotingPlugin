@@ -73,6 +73,9 @@ public class PlayerJoinEvent implements Listener {
 		}
 
 		Player player = event.getPlayer();
+		if (player != null) {
+			plugin.getPlaceholderPlayerPresence().playerOnline(user.getJavaUUID(), player);
+		}
 
 		if (player != null && player.isOp() && plugin.isYmlError()) {
 			user.sendMessage("&cVotingPlugin: Detected yml error, please check console for details");

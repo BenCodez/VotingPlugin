@@ -17,6 +17,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.RejectedExecutionException;
 
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -1247,7 +1248,7 @@ public class PlaceHolders {
 			List<PlaceHolder<VotingPluginUser>> platformUpdates, String[] keys) {
 		Player owner = plugin.getPlaceholderPlayerPresence().schedulerOwner(uuid);
 		if (owner == null) {
-			dispatchOfflinePlatformUpdates(uuid, user, platformUpdates, keys);
+			dispatchOfflinePlatformUpdates(uuid, platformUpdates, keys);
 			return;
 		}
 		Runnable update = () -> {
@@ -1264,26 +1265,32 @@ public class PlaceHolders {
 		BukkitCompletionScheduler.run(plugin, owner, update, () -> {
 			if (!plugin.isEnabled()) return;
 			plugin.getPlaceholderPlayerPresence().playerOffline(uuid, owner);
-			dispatchOfflinePlatformUpdates(uuid, user, platformUpdates, keys);
+			dispatchOfflinePlatformUpdates(uuid, platformUpdates, keys);
 		}, () -> { });
 	}
 
-	private void dispatchOfflinePlatformUpdates(UUID uuid, VotingPluginUser user,
+	private void dispatchOfflinePlatformUpdates(UUID uuid,
 			List<PlaceHolder<VotingPluginUser>> platformUpdates, String[] keys) {
-		plugin.getUserManager().getDataManager().dispatchSharedUserDataNotification(() -> {
-			if (!plugin.isEnabled()) return;
-			if (plugin.getPlaceholderPlayerPresence().schedulerOwner(uuid) != null) {
-				schedulePlatformUpdates(uuid, user, platformUpdates, keys);
-				return;
-			}
-			if (getCacheLevel().onlineOnly()) return;
-			PlaceholderClassification classification = userDataChangeClassification;
-			List<PlaceHolder<VotingPluginUser>> offlineUpdates = platformUpdates.stream()
-					.filter(classification.offlineWorker()::contains)
-					.filter(placeholder -> shouldRefresh(placeholder, uuid, keys))
-					.toList();
-			if (!offlineUpdates.isEmpty()) updateOfflinePlatformPlaceholders(uuid, user, offlineUpdates, keys);
-		});
+		try {
+			plugin.getUserManager().getDataManager().getTimer().execute(() -> {
+				if (!plugin.isEnabled()) return;
+				VotingPluginUser currentUser = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
+				if (currentUser == null) return;
+				if (plugin.getPlaceholderPlayerPresence().schedulerOwner(uuid) != null) {
+					schedulePlatformUpdates(uuid, currentUser, platformUpdates, keys);
+					return;
+				}
+				if (getCacheLevel().onlineOnly()) return;
+				PlaceholderClassification classification = userDataChangeClassification;
+				List<PlaceHolder<VotingPluginUser>> offlineUpdates = platformUpdates.stream()
+						.filter(classification.offlineWorker()::contains)
+						.filter(placeholder -> shouldRefresh(placeholder, uuid, keys))
+						.toList();
+				if (!offlineUpdates.isEmpty()) updateOfflinePlatformPlaceholders(uuid, currentUser, offlineUpdates, keys);
+			});
+		} catch (RejectedExecutionException rejected) {
+			plugin.debug(rejected);
+		}
 	}
 
 	private void updateOfflinePlatformPlaceholders(UUID uuid, VotingPluginUser user,

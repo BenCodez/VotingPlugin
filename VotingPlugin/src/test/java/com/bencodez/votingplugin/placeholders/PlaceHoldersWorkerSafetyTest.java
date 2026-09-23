@@ -246,6 +246,8 @@ class PlaceHoldersWorkerSafetyTest {
 		final com.bencodez.advancedcore.api.user.UserManager advancedUserManager =
 				mock(com.bencodez.advancedcore.api.user.UserManager.class);
 		final UserDataManager dataManager = mock(UserDataManager.class);
+		final java.util.concurrent.ScheduledExecutorService storageWorker =
+				mock(java.util.concurrent.ScheduledExecutorService.class);
 		final VotingPluginUser votingUser = mock(VotingPluginUser.class);
 		final AdvancedCoreUser advancedUser = mock(AdvancedCoreUser.class);
 		final BukkitScheduler scheduler = mock(BukkitScheduler.class);
@@ -263,9 +265,11 @@ class PlaceHoldersWorkerSafetyTest {
 			when(plugin.getVotingPluginUserManager()).thenReturn(userManager);
 			when(plugin.getUserManager()).thenReturn(advancedUserManager);
 			when(advancedUserManager.getDataManager()).thenReturn(dataManager);
+			when(dataManager.getTimer()).thenReturn(storageWorker);
 			doAnswer(call -> { call.getArgument(0, Runnable.class).run(); return null; })
-					.when(dataManager).dispatchSharedUserDataNotification(any(Runnable.class));
+					.when(storageWorker).execute(any(Runnable.class));
 			when(userManager.getVotingPluginUser(advancedUser)).thenReturn(votingUser);
+			when(userManager.getVotingPluginUser(uuid, false)).thenReturn(votingUser);
 			when(votingUser.isCached()).thenReturn(true);
 			when(votingUser.getJavaUUID()).thenReturn(uuid);
 			when(votingUser.getUUID()).thenReturn(uuid.toString());

@@ -45,6 +45,7 @@ public final class PlaceholderPlayerPresence {
 		synchronized (lifecycleLock) {
 			update(current -> {
 				Map<UUID, Player> next = new HashMap<>(current);
+				next.entrySet().removeIf(entry -> entry.getValue() == player && !entry.getKey().equals(uuid));
 				next.put(uuid, player);
 				return Map.copyOf(next);
 			});

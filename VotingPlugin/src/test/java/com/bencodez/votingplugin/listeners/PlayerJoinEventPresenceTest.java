@@ -16,11 +16,51 @@ import org.junit.jupiter.api.Test;
 
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.BungeeSettings;
+import com.bencodez.votingplugin.placeholders.PlaceHolders;
 import com.bencodez.votingplugin.placeholders.PlaceholderPlayerPresence;
 import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 
 class PlayerJoinEventPresenceTest {
+	@Test
+	void advancedCoreLoginRekeysPresenceToTheAuthoritativeStorageUuid() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		PlaceholderPlayerPresence presence = new PlaceholderPlayerPresence();
+		when(plugin.getPlaceholderPlayerPresence()).thenReturn(presence);
+		when(plugin.isMySQLOkay()).thenReturn(true);
+		BungeeSettings bungee = mock(BungeeSettings.class);
+		when(plugin.getBungeeSettings()).thenReturn(bungee);
+		Player player = mock(Player.class);
+		UUID playerUuid = UUID.randomUUID();
+		UUID storageUuid = UUID.randomUUID();
+		when(player.getUniqueId()).thenReturn(playerUuid);
+		presence.playerOnline(playerUuid, player);
+
+		UserManager userManager = mock(UserManager.class);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		when(user.getJavaUUID()).thenReturn(storageUuid);
+		when(plugin.getVotingPluginUserManager()).thenReturn(userManager);
+		when(userManager.getVotingPluginUser(storageUuid.toString())).thenReturn(user);
+		PlaceHolders placeholders = mock(PlaceHolders.class);
+		when(plugin.getPlaceholders()).thenReturn(placeholders);
+		doAnswer(call -> {
+			assertTrue(presence.isOnline(storageUuid));
+			assertFalse(presence.isOnline(playerUuid));
+			return null;
+		}).when(placeholders).onUpdate(user, true);
+
+		com.bencodez.advancedcore.listeners.AdvancedCoreLoginEvent login =
+				mock(com.bencodez.advancedcore.listeners.AdvancedCoreLoginEvent.class);
+		when(login.getUuid()).thenReturn(storageUuid.toString());
+		when(login.getPlayer()).thenReturn(player);
+		when(login.getUser()).thenReturn(mock(com.bencodez.advancedcore.api.user.AdvancedCoreUser.class));
+
+		new PlayerJoinEvent(plugin).onPlayerLogin(login);
+
+		assertTrue(presence.isOnline(storageUuid));
+		assertFalse(presence.isOnline(playerUuid));
+	}
+
 	@Test
 	void bukkitJoinAndQuitUpdatePresenceBeforeAsyncQuitCleanup() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
