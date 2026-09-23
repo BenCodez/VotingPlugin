@@ -110,6 +110,28 @@ class PlaceHoldersWorkerSafetyTest {
 	}
 
 	@Test
+	void reloadUsesThePresenceStorageUuidForReplacementPlayerWrappers() {
+		Fixture fixture = new Fixture();
+		Player replacement = mock(Player.class);
+		UUID bukkitUuid = UUID.randomUUID();
+		when(replacement.getUniqueId()).thenReturn(bukkitUuid);
+		when(replacement.isOnline()).thenReturn(true);
+		when(fixture.userManager.getVotingPluginUser(fixture.uuid)).thenReturn(fixture.votingUser);
+		fixture.presence.playerOnline(fixture.uuid, replacement);
+		AtomicInteger requests = new AtomicInteger();
+		fixture.publish(fixture.cachedPlaceholder("Points", requests));
+
+		try (var bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getOnlinePlayers).thenReturn(List.of(replacement));
+			fixture.placeholders.reload();
+		}
+
+		assertEquals(2, requests.get(), "reload updates both existing warmup passes");
+		verify(fixture.userManager, times(2)).getVotingPluginUser(fixture.uuid);
+		verify(fixture.userManager, never()).getVotingPluginUser(replacement);
+	}
+
+	@Test
 	void backgroundWarmupCapturesVoteEligibilityBeforeTemporaryDataIsCleared() {
 		Fixture fixture = new Fixture();
 		fixture.presence.playerOnline(fixture.player);

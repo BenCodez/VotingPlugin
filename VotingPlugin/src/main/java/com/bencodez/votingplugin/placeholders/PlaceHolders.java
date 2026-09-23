@@ -1452,7 +1452,7 @@ public class PlaceHolders {
 	public void onUpdate() {
 		checkNonCachedPlaceholders();
 		for (Player p : Bukkit.getOnlinePlayers()) {
-			onUpdate(plugin.getVotingPluginUserManager().getVotingPluginUser(p), true);
+			onUpdate(getPresenceUser(p), true);
 		}
 		/*
 		 * for (NonPlayerPlaceHolder<VotingPluginUser> placeholder :
@@ -1519,9 +1519,17 @@ public class PlaceHolders {
 		onUpdate();
 		if (!cacheLevel.equals(PlaceholderCacheLevel.NONE)) {
 			for (Player player : Bukkit.getOnlinePlayers()) {
-				onUpdate(plugin.getVotingPluginUserManager().getVotingPluginUser(player), player.isOnline());
+				onUpdate(getPresenceUser(player), player.isOnline());
 			}
 		}
+	}
+
+	private VotingPluginUser getPresenceUser(Player player) {
+		UUID storageUuid = plugin.getPlaceholderPlayerPresence().storageUuid(player);
+		if (storageUuid != null) {
+			return plugin.getVotingPluginUserManager().getVotingPluginUser(storageUuid);
+		}
+		return plugin.getVotingPluginUserManager().getVotingPluginUser(player);
 	}
 
 	/**
