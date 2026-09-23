@@ -132,6 +132,20 @@ class PlaceHoldersWorkerSafetyTest {
 	}
 
 	@Test
+	void cacheMissUsesThePresenceStorageUuidForAnOnlinePlayer() {
+		Fixture fixture = new Fixture();
+		Player onlinePlayer = mock(Player.class);
+		when(onlinePlayer.getUniqueId()).thenReturn(UUID.randomUUID());
+		when(fixture.userManager.getVotingPluginUser(fixture.uuid)).thenReturn(fixture.votingUser);
+		fixture.presence.playerOnline(fixture.uuid, onlinePlayer);
+
+		assertEquals(fixture.votingUser, fixture.placeholders.resolvePlaceholderUser(onlinePlayer));
+
+		verify(fixture.userManager).getVotingPluginUser(fixture.uuid);
+		verify(fixture.userManager, never()).getVotingPluginUser(onlinePlayer);
+	}
+
+	@Test
 	void backgroundWarmupCapturesVoteEligibilityBeforeTemporaryDataIsCleared() {
 		Fixture fixture = new Fixture();
 		fixture.presence.playerOnline(fixture.player);
@@ -280,6 +294,31 @@ class PlaceHoldersWorkerSafetyTest {
 		assertEquals("0", placeholder.getCache().get("canvotesites").get(fixture.uuid));
 		verify(fixture.scheduler, times(2)).runTask(eq(fixture.plugin), any(Runnable.class), any(Player.class));
 		assertEquals(0, requests.get());
+	}
+
+	@Test
+	void narrowUpdateDoesNotCancelUnrelatedWarmupPlaceholders() {
+		Fixture fixture = new Fixture();
+		fixture.presence.playerOnline(fixture.player);
+		AtomicInteger changedRequests = new AtomicInteger();
+		AtomicInteger warmupRequests = new AtomicInteger();
+		PlaceHolder<VotingPluginUser> changed = fixture.cachedPlaceholder(
+				"Changed", "LastVotes", changedRequests);
+		PlaceHolder<VotingPluginUser> warmupOnly = fixture.cachedPlaceholder(
+				"WarmupOnly", "Unrelated", warmupRequests);
+		fixture.placeholders.getPlaceholders().add(fixture.placeholders.platformOwned(changed));
+		fixture.placeholders.getPlaceholders().add(fixture.placeholders.platformOwned(warmupOnly));
+		fixture.placeholders.publishUserDataChangePlaceholders();
+
+		fixture.placeholders.onUpdate(fixture.votingUser, true);
+		fixture.placeholders.onUserDataChange(fixture.advancedUser, "LastVotes");
+
+		ArgumentCaptor<Runnable> tasks = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler, times(2)).runTask(eq(fixture.plugin), tasks.capture(), eq(fixture.player));
+		tasks.getAllValues().get(1).run();
+		tasks.getAllValues().get(0).run();
+		assertEquals(1, changedRequests.get());
+		assertEquals(1, warmupRequests.get(), "narrow changes must not cancel unrelated warmup work");
 	}
 
 	@Test
