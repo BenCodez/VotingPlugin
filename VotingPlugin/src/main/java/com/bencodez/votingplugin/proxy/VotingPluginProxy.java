@@ -424,11 +424,16 @@ public abstract class VotingPluginProxy {
 					warn("Global data not enabled, ignoring time change event");
 					return;
 				}
+				String transitionId = UUID.randomUUID().toString();
 				int delay = 1;
 				for (String s : getAllAvailableServers()) {
 					if (getGlobalDataHandler().getGlobalMysql().containsKey(s)) {
-						getGlobalDataHandler().setBoolean(s,
-								VotingPluginWire.timeChangeBoundaryCapturedKey(type.toString()), false);
+						HashMap<String, DataValue> boundary = new HashMap<>();
+						boundary.put(VotingPluginWire.timeChangeTransitionKey(type.toString()),
+								new DataValueString(transitionId));
+						boundary.put(VotingPluginWire.timeChangeBoundaryCapturedKey(type.toString()),
+								new DataValueString(""));
+						getGlobalDataHandler().setData(s, boundary);
 						String lastOnlineStr = getGlobalDataHandler().getString(s, "LastOnline");
 						long lastOnline = 0;
 						try {
@@ -474,9 +479,12 @@ public abstract class VotingPluginProxy {
 	public void onTimeChangedFinished(TimeType type) {
 		boolean boundaryCaptured = false;
 		String boundaryCapturedKey = VotingPluginWire.timeChangeBoundaryCapturedKey(type.toString());
+		String transitionKey = VotingPluginWire.timeChangeTransitionKey(type.toString());
 		for (String server : getAllAvailableServers()) {
-			if (getGlobalDataHandler().getGlobalMysql().containsKey(server)
-					&& getGlobalDataHandler().getBoolean(server, boundaryCapturedKey)) {
+			if (!getGlobalDataHandler().getGlobalMysql().containsKey(server)) continue;
+			String expected = getGlobalDataHandler().getString(server, transitionKey);
+			String captured = getGlobalDataHandler().getString(server, boundaryCapturedKey);
+			if (expected != null && !expected.isBlank() && expected.equals(captured)) {
 				boundaryCaptured = true;
 				break;
 			}
@@ -641,7 +649,9 @@ public abstract class VotingPluginProxy {
 			getGlobalDataHandler().getGlobalMysql().alterColumnType("LastUpdated", "MEDIUMTEXT");
 			for (TimeType type : TimeType.values()) {
 				getGlobalDataHandler().getGlobalMysql().alterColumnType(
-						VotingPluginWire.timeChangeBoundaryCapturedKey(type.toString()), "VARCHAR(5)");
+						VotingPluginWire.timeChangeBoundaryCapturedKey(type.toString()), "VARCHAR(36)");
+				getGlobalDataHandler().getGlobalMysql().alterColumnType(
+						VotingPluginWire.timeChangeTransitionKey(type.toString()), "VARCHAR(36)");
 			}
 		}
 

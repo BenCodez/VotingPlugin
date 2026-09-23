@@ -19,6 +19,7 @@ import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.simpleapi.sql.data.DataValueBoolean;
+import com.bencodez.simpleapi.sql.data.DataValueString;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigSpigot;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
@@ -102,6 +103,13 @@ public class BackendGlobalDataSync {
 		if (!timeChangesInProgress.add(type)) {
 			return false;
 		}
+		String transitionId = data.containsKey(VotingPluginWire.timeChangeTransitionKey(type.toString()))
+				? data.get(VotingPluginWire.timeChangeTransitionKey(type.toString())).getString() : "";
+		if (transitionId == null || transitionId.isBlank()) {
+			timeChangesInProgress.remove(type);
+			plugin.getLogger().warning("Ignoring bungee time change without a transition identity: " + type);
+			return false;
+		}
 
 		String serverName = plugin.getBungeeSettings().getServer();
 		globalDataHandler.setBoolean(serverName, "Processing", true);
@@ -117,7 +125,7 @@ public class BackendGlobalDataSync {
 				}
 				try {
 					plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
-							() -> finishTimeChange(type, serverName));
+							() -> finishTimeChange(type, serverName, transitionId));
 				} catch (RuntimeException failure) {
 					timeChangesInProgress.remove(type);
 					plugin.debug(failure);
@@ -131,13 +139,13 @@ public class BackendGlobalDataSync {
 		return true;
 	}
 
-	private void finishTimeChange(TimeType type, String serverName) {
+	private void finishTimeChange(TimeType type, String serverName, String transitionId) {
 		boolean completed = false;
 		try {
 			HashMap<String, DataValue> completion = new HashMap<>();
 			completion.put(type.toString(), new DataValueBoolean(false));
 			completion.put(VotingPluginWire.timeChangeBoundaryCapturedKey(type.toString()),
-					new DataValueBoolean(true));
+					new DataValueString(transitionId));
 			globalDataHandler.setData(serverName, completion);
 			JsonEnvelope.Builder builder = JsonEnvelope.builder("TimeChangeFinished")
 					.schema(VotingPluginWire.SCHEMA_VERSION);
@@ -220,7 +228,9 @@ public class BackendGlobalDataSync {
 		}
 		for (TimeType type : TimeType.values()) {
 			globalDataHandler.getGlobalMysql().alterColumnType(
-					VotingPluginWire.timeChangeBoundaryCapturedKey(type.toString()), "VARCHAR(5)");
+					VotingPluginWire.timeChangeBoundaryCapturedKey(type.toString()), "VARCHAR(36)");
+			globalDataHandler.getGlobalMysql().alterColumnType(
+					VotingPluginWire.timeChangeTransitionKey(type.toString()), "VARCHAR(36)");
 		}
 		plugin.getTimeChecker().setProcessingEnabled(false);
 	}

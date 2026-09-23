@@ -50,6 +50,11 @@ public class PlayerVoteListener implements Listener {
             SharedVoteProcessor.process(new BukkitOperations(plugin, event));
         } catch (SharedVoteAdmissionException admissionFailure) {
 			failAdmission(event, admissionFailure);
+		} catch (RuntimeException processingFailure) {
+			event.setProcessingFailed(true);
+			plugin.getLogger().severe("Vote processing did not complete for " + event.getPlayer() + '/'
+					+ event.getServiceSite() + "; a durable producer may retry it");
+			plugin.debug(processingFailure);
         }
     }
 
@@ -169,7 +174,7 @@ public class PlayerVoteListener implements Listener {
 			return new SharedVoteProcessor.AccountingAdmission(admission.countTotals(), admission.awardPoints(),
 					admission.countVoteParty());
         }
-        @Override public void finishAccounting(UUID voteId) {
+		@Override public void finishAccounting(UUID voteId) {
             VoteShopPurchaseService.finishMysqlVoteAccounting(voteId);
         }
         @Override public void cache(VotingPluginUser user) { user.cache(); }

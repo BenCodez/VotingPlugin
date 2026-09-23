@@ -311,11 +311,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				if (!result.success()) {
 					throw new IllegalStateException("Unable to persist vote points for " + getUUID());
 				}
-				sharedPoints.acknowledgePointAdditionNow(operationId);
 			}
-		} else if (completedTotal != null) {
-			sharedPoints.acknowledgePointAdditionNow(operationId);
 		}
+		// A durable vote queue has no age limit. Keep vote-point receipts in
+		// COMPLETED so a delayed replay cannot credit the same vote after cleanup.
 		if (limit > 0) sharedPoints.cap(this, limit, false);
 	}
 

@@ -29,6 +29,7 @@ import com.bencodez.simpleapi.sql.data.DataValueBoolean;
 import com.bencodez.simpleapi.sql.data.DataValueString;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.BungeeSettings;
+import com.bencodez.votingplugin.proxy.VotingPluginWire;
 
 class BackendGlobalDataSyncTest {
 
@@ -128,6 +129,8 @@ class BackendGlobalDataSyncTest {
 		data.put("LastUpdated", new DataValueString(
 				"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
 		data.put(TimeType.DAY.toString(), new DataValueBoolean(true));
+		data.put(VotingPluginWire.timeChangeTransitionKey(TimeType.DAY.toString()),
+				new DataValueString("transition-1"));
 
 		assertTrue(sync.checkGlobalDataTime(TimeType.DAY, data));
 
@@ -143,7 +146,7 @@ class BackendGlobalDataSyncTest {
 		verify(globalDataHandler).setData(eq("lobby"), org.mockito.ArgumentMatchers.argThat(values ->
 				values.containsKey(TimeType.DAY.toString()) && values.containsKey("BoundaryCapturedDAY")
 						&& !values.get(TimeType.DAY.toString()).getBoolean()
-						&& values.get("BoundaryCapturedDAY").getBoolean()));
+						&& "transition-1".equals(values.get("BoundaryCapturedDAY").getString())));
 		verify(globalDataHandler).setData(eq("lobby"), org.mockito.ArgumentMatchers.argThat(values ->
 				values.containsKey("FinishedProcessing")));
 	}

@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.core.vote.SharedVoteProcessor;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 
 class PlayerVoteListenerAdmissionTest {
@@ -51,5 +52,22 @@ class PlayerVoteListenerAdmissionTest {
 		}
 
 		assertTrue(event.isAccountingAdmissionFailed());
+	}
+
+	@Test
+	void postAdmissionFailureIsVisibleToDurableProducers() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		PlayerVoteEvent event = new PlayerVoteEvent(null, "player", "site", false);
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("PlayerVoteListenerAdmissionTest"));
+
+		try (MockedStatic<Bukkit> bukkit = org.mockito.Mockito.mockStatic(Bukkit.class);
+				MockedStatic<SharedVoteProcessor> processor = org.mockito.Mockito.mockStatic(SharedVoteProcessor.class)) {
+			bukkit.when(Bukkit::isPrimaryThread).thenReturn(false);
+			processor.when(() -> SharedVoteProcessor.process(any()))
+					.thenThrow(new IllegalStateException("storage failed"));
+			new PlayerVoteListener(plugin).onplayerVote(event);
+		}
+
+		assertTrue(event.isProcessingFailed());
 	}
 }

@@ -133,6 +133,25 @@ class TimeQueueHandlerRejectionTest {
 	}
 
 	@Test
+	void postAdmissionProcessingFailureRetainsTheSameQueuedVote() {
+		when(serverData.getTimedVoteCacheKeys()).thenReturn(Set.of());
+		TimeQueueHandler handler = new TimeQueueHandler(plugin);
+		VoteTimeQueue vote = new VoteTimeQueue(UUID.randomUUID(), "Alex", "example.org", 123L);
+		handler.getTimeChangeQueue().add(vote);
+		org.bukkit.plugin.PluginManager pluginManager = plugin.getServer().getPluginManager();
+		doAnswer(invocation -> {
+			PlayerVoteEvent event = invocation.getArgument(0);
+			event.setProcessingFailed(true);
+			return null;
+		}).when(pluginManager).callEvent(any(PlayerVoteEvent.class));
+
+		handler.processQueue();
+
+		assertEquals(vote, handler.getTimeChangeQueue().peek());
+		verify(serverData).replaceTimedVoteCache(List.of(vote));
+	}
+
+	@Test
 	void timedVoteSnapshotPersistsStableIdsWithOneSave() {
 		VotingPluginMain snapshotPlugin = mock(VotingPluginMain.class);
 		com.bencodez.advancedcore.data.ServerData coreData =

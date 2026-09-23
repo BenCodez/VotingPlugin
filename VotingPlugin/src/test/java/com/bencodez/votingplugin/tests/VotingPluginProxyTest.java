@@ -67,7 +67,8 @@ public class VotingPluginProxyTest {
 		GlobalMySQL globalMysql = Mockito.mock(GlobalMySQL.class);
 		Mockito.when(globalDataHandler.getGlobalMysql()).thenReturn(globalMysql);
 		Mockito.when(globalMysql.containsKey("Server1")).thenReturn(true);
-		Mockito.when(globalDataHandler.getBoolean("Server1", "BoundaryCapturedMONTH")).thenReturn(true);
+		Mockito.when(globalDataHandler.getString("Server1", "BoundaryTransitionMONTH")).thenReturn("transition-1");
+		Mockito.when(globalDataHandler.getString("Server1", "BoundaryCapturedMONTH")).thenReturn("transition-1");
 
 		votingPluginProxy.onTimeChangedFinished(TimeType.MONTH);
 
@@ -86,6 +87,21 @@ public class VotingPluginProxyTest {
 		verify(proxyMySQL, never()).wipeColumnData(Mockito.anyString(), Mockito.any());
 		assertTrue(votingPluginProxy.getWarnings().stream()
 				.anyMatch(message -> message.contains("no backend confirmed the time-change boundary")));
+	}
+
+	@Test
+	void monthlyCompletionRejectsALateConfirmationFromAnOlderTransition() {
+		GlobalMySQL globalMysql = Mockito.mock(GlobalMySQL.class);
+		Mockito.when(globalDataHandler.getGlobalMysql()).thenReturn(globalMysql);
+		Mockito.when(globalMysql.containsKey("Server1")).thenReturn(true);
+		Mockito.when(globalDataHandler.getString("Server1", "BoundaryTransitionMONTH"))
+				.thenReturn("transition-2");
+		Mockito.when(globalDataHandler.getString("Server1", "BoundaryCapturedMONTH"))
+				.thenReturn("transition-1");
+
+		votingPluginProxy.onTimeChangedFinished(TimeType.MONTH);
+
+		verify(proxyMySQL, never()).wipeColumnData(Mockito.anyString(), Mockito.any());
 	}
 
 	@Test

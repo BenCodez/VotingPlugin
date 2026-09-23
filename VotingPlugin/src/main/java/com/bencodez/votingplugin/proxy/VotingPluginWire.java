@@ -37,6 +37,10 @@ public final class VotingPluginWire {
 		return "BoundaryCaptured" + type;
 	}
 
+	public static String timeChangeTransitionKey(String type) {
+		return "BoundaryTransition" + type;
+	}
+
 	public static final int SCHEMA_VERSION = 1;
 
 	// =========================

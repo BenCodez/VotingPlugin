@@ -91,6 +91,11 @@ public class PlayerVoteEvent extends Event {
 	@Setter
 	private boolean accountingAdmissionFailed;
 
+	/** Processing began but did not reach the post-vote completion boundary. */
+	@Getter
+	@Setter
+	private boolean processingFailed;
+
 	/**
 	 * Constructs a new PlayerVoteEvent.
 	 *

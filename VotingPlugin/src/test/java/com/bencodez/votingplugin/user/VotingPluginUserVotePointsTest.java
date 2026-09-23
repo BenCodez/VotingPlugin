@@ -60,7 +60,8 @@ class VotingPluginUserVotePointsTest {
 		verify(journal).add(org.mockito.ArgumentMatchers.eq(operationId),
 				org.mockito.ArgumentMatchers.eq(uuid), org.mockito.ArgumentMatchers.eq("Points"),
 				org.mockito.ArgumentMatchers.eq(5), anyLong());
-		verify(journal, times(2)).acknowledge(org.mockito.ArgumentMatchers.eq(operationId), anyLong());
+		verify(journal, org.mockito.Mockito.never()).acknowledge(
+				org.mockito.ArgumentMatchers.eq(operationId), anyLong());
 		verify(pluginManager).callEvent(isA(PlayerReceivePointsEvent.class));
 	}
 }
