@@ -157,10 +157,45 @@ class TopVoterTimeChangeRecoveryTest {
 		new TopVoterHandler(plugin).processRecoverableUsers(TopVoter.Daily, transition);
 
 		org.mockito.InOrder order = inOrder(cache, serverData);
-		order.verify(cache).clearChanges();
+		order.verify(cache).flushChangesAndRun(org.mockito.ArgumentMatchers.any(Runnable.class));
 		order.verify(serverData).completeTimeChangeUser(transition, firstUuid.toString());
-		order.verify(cache).clearChanges();
+		order.verify(cache).flushChangesAndRun(org.mockito.ArgumentMatchers.any(Runnable.class));
 		order.verify(serverData).completeTimeChangeUser(transition, secondUuid.toString());
+	}
+
+	@Test
+	void failedUserFlushDoesNotAdvanceTheRecoveryCursor() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		com.bencodez.advancedcore.api.user.UserManager userManager =
+				mock(com.bencodez.advancedcore.api.user.UserManager.class);
+		com.bencodez.votingplugin.user.UserManager votingUsers =
+				mock(com.bencodez.votingplugin.user.UserManager.class);
+		ServerData serverData = mock(ServerData.class);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		UserDataCache cache = mock(UserDataCache.class);
+		TimeChangeTransition transition = mock(TimeChangeTransition.class);
+		UUID uuid = UUID.fromString("00000000-0000-0000-0000-000000000001");
+		when(plugin.getUserManager()).thenReturn(userManager);
+		when(plugin.getVotingPluginUserManager()).thenReturn(votingUsers);
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(plugin.getConfigFile().isUseHighestTotals()).thenReturn(true);
+		when(serverData.getTimeChangeCursor(transition)).thenReturn("");
+		when(votingUsers.getVotingPluginUser(uuid, false)).thenReturn(user);
+		when(user.getCache()).thenReturn(cache);
+		doAnswer(invocation -> {
+			java.util.function.BiConsumer<UUID, ArrayList<Column>> perUser = invocation.getArgument(0);
+			perUser.accept(uuid, new ArrayList<>());
+			return null;
+		}).when(userManager).forEachUserKeys(org.mockito.ArgumentMatchers.any(),
+				org.mockito.ArgumentMatchers.any());
+		doAnswer(invocation -> { throw new IllegalStateException("write failed"); })
+				.when(cache).flushChangesAndRun(org.mockito.ArgumentMatchers.any(Runnable.class));
+
+		assertThrows(IllegalStateException.class,
+				() -> new TopVoterHandler(plugin).processRecoverableUsers(TopVoter.Daily, transition));
+
+		verify(serverData, never()).completeTimeChangeUser(transition, uuid.toString());
+		verify(user).clearTempCache();
 	}
 
 	@Test

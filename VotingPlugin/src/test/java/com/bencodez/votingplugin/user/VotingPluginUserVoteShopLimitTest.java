@@ -55,11 +55,14 @@ class VotingPluginUserVoteShopLimitTest {
 		when(base.getUserData()).thenReturn(mock(UserData.class));
 		when(base.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
 		VotingPluginUser user = spy(new VotingPluginUser(plugin, base));
-		doReturn(null).when(user).getCache();
+		UserDataCache cache = mock(UserDataCache.class);
+		doReturn(cache).when(user).getCache();
 		doReturn(0).when(user).getDailyTotal();
 		UUID voteId = UUID.randomUUID();
 		try (MockedStatic<VoteShopPurchaseService> service = org.mockito.Mockito
-				.mockStatic(VoteShopPurchaseService.class)) {
+				.mockStatic(VoteShopPurchaseService.class);
+				MockedStatic<SharedMysqlCacheReconciler> reconciler = org.mockito.Mockito
+						.mockStatic(SharedMysqlCacheReconciler.class)) {
 			service.when(() -> VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, base.getUUID(),
 					"DailyTotal", "LastDailyTotal", java.util.List.of("DailyTotal"), null)).thenReturn(true);
 
@@ -67,6 +70,8 @@ class VotingPluginUserVoteShopLimitTest {
 
 			service.verify(() -> VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, base.getUUID(),
 					"DailyTotal", "LastDailyTotal", java.util.List.of("DailyTotal"), null));
+			reconciler.verify(() -> SharedMysqlCacheReconciler.invalidate(plugin, base.getUUID(), "DailyTotal"));
+			verify(cache, never()).clearChanges();
 		}
 	}
 
@@ -78,11 +83,14 @@ class VotingPluginUserVoteShopLimitTest {
 		when(base.getUserData()).thenReturn(mock(UserData.class));
 		when(base.getUUID()).thenReturn("00000000-0000-0000-0000-000000000001");
 		VotingPluginUser user = spy(new VotingPluginUser(plugin, base));
-		doReturn(null).when(user).getCache();
+		UserDataCache cache = mock(UserDataCache.class);
+		doReturn(cache).when(user).getCache();
 		doReturn(0).when(user).getVotePartyVotes();
 		UUID voteId = UUID.randomUUID();
 		try (MockedStatic<VoteShopPurchaseService> service = org.mockito.Mockito
-				.mockStatic(VoteShopPurchaseService.class)) {
+				.mockStatic(VoteShopPurchaseService.class);
+				MockedStatic<SharedMysqlCacheReconciler> reconciler = org.mockito.Mockito
+						.mockStatic(SharedMysqlCacheReconciler.class)) {
 			service.when(() -> VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, base.getUUID(),
 					"VotePartyVotes", "LastVotePartyVotes", java.util.List.of("VotePartyVotes"), null))
 					.thenReturn(true);
@@ -91,6 +99,8 @@ class VotingPluginUserVoteShopLimitTest {
 
 			service.verify(() -> VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, base.getUUID(),
 					"VotePartyVotes", "LastVotePartyVotes", java.util.List.of("VotePartyVotes"), null));
+			reconciler.verify(() -> SharedMysqlCacheReconciler.invalidate(plugin, base.getUUID(), "VotePartyVotes"));
+			verify(cache, never()).clearChanges();
 		}
 	}
 

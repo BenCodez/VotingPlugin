@@ -926,7 +926,6 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	private boolean incrementSharedMysqlMonthTotal(UUID voteId) {
 		if (plugin == null || !UserStorage.MYSQL.equals(plugin.getStorageType())) return false;
-		if (getCache() != null) getCache().clearChanges();
 		ArrayList<String> columns = new ArrayList<>();
 		columns.add("MonthTotal");
 		if (plugin.getConfigFile().isStoreMonthTotalsWithDate()) {
@@ -941,16 +940,17 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				"LastMonthTotal", columns, maximum)) {
 			throw new IllegalStateException("Unable to retain shared MySQL monthly vote total");
 		}
+		SharedMysqlCacheReconciler.invalidate(plugin, getUUID(), columns.toArray(String[]::new));
 		return true;
 	}
 
 	private boolean incrementSharedMysqlPeriodTotal(UUID voteId, TopVoter top, String column) {
 		if (plugin == null || !UserStorage.MYSQL.equals(plugin.getStorageType())) return false;
-		if (getCache() != null) getCache().clearChanges();
 		if (!VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, getUUID(), column,
 				top.getLastColumnName(), List.of(column), null)) {
 			throw new IllegalStateException("Unable to retain shared MySQL " + top + " vote total");
 		}
+		SharedMysqlCacheReconciler.invalidate(plugin, getUUID(), column);
 		return true;
 	}
 
@@ -2590,11 +2590,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	public void addVotePartyVote(UUID voteId) {
 		int fallbackTotal = getVotePartyVotes() + 1;
 		if (plugin != null && UserStorage.MYSQL.equals(plugin.getStorageType())) {
-			if (getCache() != null) getCache().clearChanges();
 			if (!VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, getUUID(), "VotePartyVotes",
 					"LastVotePartyVotes", List.of("VotePartyVotes"), null)) {
 				throw new IllegalStateException("Unable to retain shared MySQL VoteParty count");
 			}
+			SharedMysqlCacheReconciler.invalidate(plugin, getUUID(), "VotePartyVotes");
 			return;
 		}
 		setVotePartyVotes(fallbackTotal);

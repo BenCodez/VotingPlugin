@@ -695,7 +695,7 @@ public class TopVoterHandler implements Listener {
 							copiedDailyStreak || plugin.getConfigFile().isUseVoteStreaks());
 					else if (top == TopVoter.Weekly) processWeeklyUser(user, transition, value);
 					else processMonthlyUser(user, lastMonthTime, transition, value);
-					if (user.getCache() != null) user.getCache().clearChanges();
+					if (user.getCache() != null) user.getCache().flushChangesAndRun(() -> { });
 				} finally {
 					user.clearTempCache();
 				}
