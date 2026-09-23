@@ -767,6 +767,18 @@ public class VoteShopPurchaseService {
 	}
 
 	/** Releases accepted daily streak increments after every copied user is reset. */
+	public static boolean hasMysqlDailyStreakBoundary(VotingPluginMain plugin, String generation) {
+		if (!canRecoverSharedMysqlPurchases(plugin)) return false;
+		try {
+			return SharedMysqlPurchaseJournal.forTable(plugin.getMysql()).hasDailyStreakBoundary(generation);
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to read the shared MySQL daily streak boundary: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+			throw new IllegalStateException("Unable to read the shared MySQL daily streak boundary", failure);
+		}
+	}
+
 	public static boolean completeMysqlDailyStreakReset(VotingPluginMain plugin, String generation) {
 		if (!canRecoverSharedMysqlPurchases(plugin)) return false;
 		try {

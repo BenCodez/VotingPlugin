@@ -674,7 +674,11 @@ public class TopVoterHandler implements Listener {
 	}
 
 	void processRecoverableUsers(TopVoter top, TimeChangeTransition transition) {
-		if (!plugin.getConfigFile().isUseVoteStreaks() && !plugin.getConfigFile().isUseHighestTotals()) return;
+		boolean copiedDailyStreak = top == TopVoter.Daily && UserStorage.MYSQL.equals(plugin.getStorageType())
+				&& VoteShopPurchaseService.hasMysqlDailyStreakBoundary(plugin,
+						"time-streak-copy:" + transition.getId());
+		if (!copiedDailyStreak && !plugin.getConfigFile().isUseVoteStreaks()
+				&& !plugin.getConfigFile().isUseHighestTotals()) return;
 		AtomicReference<String> cursor = new AtomicReference<>(plugin.getServerData().getTimeChangeCursor(transition));
 		CountDownLatch finished = new CountDownLatch(1);
 		record BoundaryUser(UUID uuid, ArrayList<Column> columns) { }
@@ -700,7 +704,8 @@ public class TopVoterHandler implements Listener {
 				user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
 				user.updateTempCacheWithColumns(boundary.columns());
 				try {
-					if (top == TopVoter.Daily) processDailyUser(user, transition, value);
+					if (top == TopVoter.Daily) processDailyUser(user, transition, value,
+							copiedDailyStreak || plugin.getConfigFile().isUseVoteStreaks());
 					else if (top == TopVoter.Weekly) processWeeklyUser(user, transition, value);
 					else processMonthlyUser(user, lastMonthTime, transition, value);
 					if (user.getCache() != null) user.getCache().clearChanges();
@@ -716,8 +721,13 @@ public class TopVoterHandler implements Listener {
 	}
 
 	void processDailyUser(VotingPluginUser user, TimeChangeTransition transition, String uuid) {
+		processDailyUser(user, transition, uuid, plugin.getConfigFile().isUseVoteStreaks());
+	}
+
+	void processDailyUser(VotingPluginUser user, TimeChangeTransition transition, String uuid,
+			boolean processVoteStreaks) {
 		int boundaryTotal = user.getLastDailyTotal();
-		if (plugin.getConfigFile().isUseVoteStreaks()) {
+		if (processVoteStreaks) {
 			PeriodTotalMutationFence.withReset(() -> {
 				int boundaryStreak = user.getLastDayVoteStreak();
 				long boundaryUpdate = user.getLastDayVoteStreakLastUpdate();

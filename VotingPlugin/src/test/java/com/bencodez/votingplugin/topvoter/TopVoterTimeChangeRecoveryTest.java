@@ -213,6 +213,30 @@ class TopVoterTimeChangeRecoveryTest {
 	}
 
 	@Test
+	void copiedDailyBoundaryStillResetsStreakAfterSettingIsDisabled() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		ServerData serverData = mock(ServerData.class);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		TimeChangeTransition transition = mock(TimeChangeTransition.class);
+		String uuid = "00000000-0000-0000-0000-000000000001";
+		long oldUpdate = LocalDateTime.of(2026, 9, 19, 12, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(plugin.getConfigFile().isUseVoteStreaks()).thenReturn(false);
+		when(transition.getPeriodKey()).thenReturn("2026-09-21");
+		when(user.getLastDayVoteStreak()).thenReturn(4);
+		when(user.getLastDayVoteStreakLastUpdate()).thenReturn(oldUpdate);
+		when(user.getDayVoteStreakLastUpdate()).thenReturn(oldUpdate);
+		when(user.getDayVoteStreak()).thenReturn(4);
+		when(serverData.prepareTimeChangeUserStreak(transition, uuid, 0, false))
+				.thenReturn(new TimeChangeUserProgress(uuid, 0, false, false));
+
+		new TopVoterHandler(plugin).processDailyUser(user, transition, uuid, true);
+
+		verify(serverData).prepareTimeChangeUserStreak(transition, uuid, 0, false);
+		verify(user).setDayVoteStreak(0);
+	}
+
+	@Test
 	void dailyRecoveryClearsAnIneligibleBoundaryStreakWithoutANewVote() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		ServerData serverData = mock(ServerData.class);

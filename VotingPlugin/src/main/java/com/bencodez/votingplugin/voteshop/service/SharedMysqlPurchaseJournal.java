@@ -845,6 +845,14 @@ final class SharedMysqlPurchaseJournal {
 	}
 
 	/** Publishes that every copied daily streak has been reset for this transition. */
+	boolean hasDailyStreakBoundary(String generation) throws SQLException {
+		if (generation == null || !generation.startsWith("time-streak-copy:") || generation.length() > 128) {
+			throw new SQLException("Invalid daily streak copy generation");
+		}
+		EpochRow marker = findLimitEpoch("streak-copy:DayVoteStreak");
+		return marker != null && generation.equals(marker.lastResetGeneration());
+	}
+
 	void completeDailyStreakReset(String generation) throws SQLException {
 		if (generation == null || !generation.startsWith("time-streak-reset:") || generation.length() > 128) {
 			throw new SQLException("Invalid daily streak reset generation");
