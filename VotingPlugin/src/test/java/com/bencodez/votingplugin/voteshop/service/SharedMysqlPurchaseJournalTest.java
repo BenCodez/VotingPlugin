@@ -700,6 +700,46 @@ class SharedMysqlPurchaseJournalTest {
 	}
 
 	@Test
+	void cappedMonthlyAdmissionReservesAfterPreviouslyAdmittedVotes() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement[] statements = new PreparedStatement[16];
+		for (int index = 0; index < statements.length; index++) statements[index] = mock(PreparedStatement.class);
+		ResultSet marker = mock(ResultSet.class);
+		ResultSet accounting = accountingRow("player", 0, 0);
+		when(marker.next()).thenReturn(true);
+		when(statements[1].executeQuery()).thenReturn(marker);
+		when(statements[3].executeQuery()).thenReturn(marker);
+		when(statements[5].executeQuery()).thenReturn(marker);
+		when(statements[7].executeQuery()).thenReturn(marker);
+		when(statements[9].executeQuery()).thenReturn(marker);
+		when(statements[11].executeQuery()).thenReturn(accounting);
+		ResultSet currentTotal = mock(ResultSet.class);
+		when(currentTotal.next()).thenReturn(true);
+		when(currentTotal.getInt(1)).thenReturn(1);
+		when(statements[12].executeQuery()).thenReturn(currentTotal);
+		ResultSet pendingTotal = mock(ResultSet.class);
+		when(pendingTotal.next()).thenReturn(true);
+		when(pendingTotal.getInt(1)).thenReturn(1);
+		when(statements[13].executeQuery()).thenReturn(pendingTotal);
+		ResultSet streak = mock(ResultSet.class);
+		when(streak.next()).thenReturn(true);
+		when(statements[14].executeQuery()).thenReturn(streak);
+		when(statements[15].executeUpdate()).thenReturn(1);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(statements[0],
+				java.util.Arrays.copyOfRange(statements, 1, statements.length));
+
+		int requested = new SharedMysqlPurchaseJournal(fixture.table, false).prepareVoteAccounting(
+				UUID.randomUUID(), "player", true, false, false, "MonthTotal-SEPTEMBER-2026",
+				Integer.valueOf(3), false, 0.0, 1, false, 1234L);
+
+		assertEquals(567, requested, "the vote must retain its available monthly slot");
+		verify(statements[13]).setInt(3, 4);
+		verify(statements[15]).setInt(2, 1655);
+		verify(statements[15]).setInt(3, 1088);
+		verify(fixture.work).commit();
+	}
+
+	@Test
 	void admittedMonthlyIncrementUsesItsJournaledColumnAfterConfigurationChanges() throws Exception {
 		Fixture fixture = fixture();
 		PreparedStatement admittedSelect = mock(PreparedStatement.class);
@@ -708,12 +748,12 @@ class SharedMysqlPurchaseJournalTest {
 		PreparedStatement accountingSelect = mock(PreparedStatement.class);
 		PreparedStatement increment = mock(PreparedStatement.class);
 		PreparedStatement accountingUpdate = mock(PreparedStatement.class);
-		ResultSet admitted = accountingRow("player", 4, 0);
+		ResultSet admitted = accountingRow("player", 1028, 1024);
 		when(admitted.getString(4)).thenReturn("MonthTotal-SEPTEMBER-2026");
-		when(admitted.wasNull()).thenReturn(true);
+		when(admitted.getObject(5)).thenReturn(Integer.valueOf(2));
 		ResultSet epoch = mock(ResultSet.class);
 		when(epoch.next()).thenReturn(true);
-		ResultSet accounting = accountingRow("player", 4, 0);
+		ResultSet accounting = accountingRow("player", 1028, 1024);
 		when(admittedSelect.executeQuery()).thenReturn(admitted);
 		when(markerSelect.executeQuery()).thenReturn(epoch);
 		when(accountingSelect.executeQuery()).thenReturn(accounting);
@@ -731,6 +771,8 @@ class SharedMysqlPurchaseJournalTest {
 		verify(fixture.work, org.mockito.Mockito.times(6)).prepareStatement(sql.capture());
 		assertTrue(sql.getAllValues().get(4).contains("`MonthTotal-SEPTEMBER-2026`"));
 		assertFalse(sql.getAllValues().get(4).contains("`MonthTotal-OCTOBER-2026`"));
+		assertFalse(sql.getAllValues().get(4).contains("LEAST("),
+				"an increment reserved under an older cap must still advance after newer votes");
 	}
 
 	@Test

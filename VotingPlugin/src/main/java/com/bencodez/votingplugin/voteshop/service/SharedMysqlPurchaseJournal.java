@@ -67,6 +67,8 @@ final class SharedMysqlPurchaseJournal {
 	private static final int DAILY_STREAK_REWARD_CLAIMED = 128;
 	private static final int AWARD_POINTS = 256;
 	private static final int ALL_TIME_TOTAL = 512;
+	private static final int MONTH_TOTAL_RESERVED = 1024;
+	private static final int ACCOUNTING_METADATA = ACCOUNTING_DECIDED | MONTH_TOTAL_RESERVED;
 	private static final int RECOVERABLE_NON_REWARD_ACCOUNTING = DAILY_TOTAL | WEEKLY_TOTAL | MONTH_TOTAL
 			| VOTE_PARTY_TOTAL | DAILY_STREAK | ALL_TIME_TOTAL;
 
@@ -333,7 +335,9 @@ final class SharedMysqlPurchaseJournal {
 			if (operation == MONTH_TOTAL) {
 				columns = row.monthColumn() == null ? List.of(boundaryColumn)
 						: List.of(boundaryColumn, row.monthColumn());
-				maximum = row.monthMaximum();
+				// Capped monthly increments marked as reserved during durable admission
+				// must not re-evaluate an older cap after later votes advance the total.
+				maximum = (row.requested() & MONTH_TOTAL_RESERVED) != 0 ? null : row.monthMaximum();
 			}
 		}
 		if (voteId == null || uuid == null || uuid.isEmpty() || !isSafeColumn(boundaryColumn) || columns == null
@@ -375,7 +379,10 @@ final class SharedMysqlPurchaseJournal {
 				if ((requested & DAILY_TOTAL) != 0 || streakUsesPercentage) {
 					dailyCopyMarker = lockLimitEpochRow(connection, "period-copy:DailyTotal");
 				}
-				if ((requested & MONTH_TOTAL) != 0) lockLimitEpochRow(connection, "period-copy:MonthTotal");
+				EpochRow monthCopyMarker = null;
+				if ((requested & MONTH_TOTAL) != 0) {
+					monthCopyMarker = lockLimitEpochRow(connection, "period-copy:MonthTotal");
+				}
 				if ((requested & VOTE_PARTY_TOTAL) != 0) lockLimitEpochRow(connection, "period-copy:VotePartyVotes");
 				if ((requested & WEEKLY_TOTAL) != 0) lockLimitEpochRow(connection, "period-copy:WeeklyTotal");
 				lockLimitEpochRow(connection, "streak-copy:DayVoteStreak");
@@ -386,6 +393,14 @@ final class SharedMysqlPurchaseJournal {
 					throw new SQLException("Vote accounting identity does not match");
 				}
 				boolean accountingAlreadyDecided = (row.requested() & ACCOUNTING_DECIDED) != 0;
+				int accountingMetadata = 0;
+				if (!accountingAlreadyDecided && (requested & MONTH_TOTAL) != 0 && monthMaximum != null) {
+					boolean monthResetPending = resetPending(connection, "MonthTotal", monthCopyMarker);
+					int admittedMonthTotal = findPeriodTotal(connection, uuid, "MonthTotal", "LastMonthTotal",
+							monthResetPending) + countPendingPeriodTotals(connection, voteId, uuid, MONTH_TOTAL);
+					if (admittedMonthTotal >= monthMaximum.intValue()) requested &= ~MONTH_TOTAL;
+					else accountingMetadata |= MONTH_TOTAL_RESERVED;
+				}
 				int admittedPointAmount = accountingAlreadyDecided && row.pointAmount() != null
 						? row.pointAmount().intValue() : pointAmount;
 				int admittedPointCap = accountingAlreadyDecided && row.pointCap() != null
@@ -398,7 +413,7 @@ final class SharedMysqlPurchaseJournal {
 						: findDailyStreakCandidate(connection, uuid, dailyResetPending);
 				boolean dailyAlreadyApplied = (row.completed() & DAILY_TOTAL) != 0;
 				int projectedDailyTotal = accountingAlreadyDecided || !streakUsesPercentage ? 0
-						: streak.dailyTotal() + countPendingDailyTotals(connection, voteId, uuid)
+						: streak.dailyTotal() + countPendingPeriodTotals(connection, voteId, uuid, DAILY_TOTAL)
 								+ (countTotals && !dailyAlreadyApplied ? 1 : 0);
 				boolean percentageMet = accountingAlreadyDecided || !streakUsesPercentage || enabledSiteCount > 0
 						&& (double) projectedDailyTotal / (double) enabledSiteCount * 100 > streakPercentage;
@@ -406,9 +421,9 @@ final class SharedMysqlPurchaseJournal {
 						&& !sameLocalDay(streak.lastUpdate(), acceptedAt) && percentageMet;
 				if (accountingAlreadyDecided) requested = row.requested();
 				else if (requestStreak) requested |= DAILY_STREAK | DAILY_STREAK_REWARD;
-				int persistedRequested = row.requested() | requested | ACCOUNTING_DECIDED;
+				int persistedRequested = row.requested() | requested | ACCOUNTING_DECIDED | accountingMetadata;
 				int persistedCompleted = row.completed() | ACCOUNTING_DECIDED
-						| (persistedRequested & AWARD_POINTS);
+						| accountingMetadata | (persistedRequested & AWARD_POINTS);
 				String update = "UPDATE " + qiAccounting() + " SET " + qi("player_uuid") + " = ?, "
 						+ qi("requested") + " = ?, " + qi("completed") + " = ?, "
 						+ qi("month_column") + " = COALESCE(?, "
@@ -445,11 +460,11 @@ final class SharedMysqlPurchaseJournal {
 							|| confirmed.pointCap() == null || confirmed.pointColumn() == null) {
 						throw new SQLException("Confirmed vote accounting payload is incomplete or does not match");
 					}
-					return new VoteAccountingDecision(confirmed.requested() & ~ACCOUNTING_DECIDED,
+					return new VoteAccountingDecision(confirmed.requested() & ~ACCOUNTING_METADATA,
 							confirmed.pointAmount().intValue(), confirmed.pointCap().intValue(),
 							confirmed.pointColumn(), confirmed.replayUnsafe());
 				}
-				return new VoteAccountingDecision(persistedRequested & ~ACCOUNTING_DECIDED,
+				return new VoteAccountingDecision(persistedRequested & ~ACCOUNTING_METADATA,
 						admittedPointAmount, admittedPointCap, admittedPointColumn, row.replayUnsafe());
 			} catch (SQLException failure) {
 				rollback(connection);
@@ -497,16 +512,32 @@ final class SharedMysqlPurchaseJournal {
 		}
 	}
 
-	private int countPendingDailyTotals(Connection connection, UUID voteId, String uuid) throws SQLException {
+	private int countPendingPeriodTotals(Connection connection, UUID voteId, String uuid, int operation)
+			throws SQLException {
 		String select = "SELECT COUNT(*) FROM " + qiAccounting() + " WHERE " + qi("player_uuid")
 				+ " = ? AND " + qi("vote_id") + " <> ? AND (" + qi("requested") + " & ?) <> 0 AND ("
 				+ qi("completed") + " & ?) = 0 AND (" + qi("completed") + " & ?) <> 0";
 		try (PreparedStatement statement = connection.prepareStatement(select)) {
 			statement.setString(1, uuid);
 			statement.setString(2, voteId.toString());
-			statement.setInt(3, DAILY_TOTAL);
-			statement.setInt(4, DAILY_TOTAL);
+			statement.setInt(3, operation);
+			statement.setInt(4, operation);
 			statement.setInt(5, ACCOUNTING_DECIDED);
+			try (ResultSet result = statement.executeQuery()) {
+				return result.next() ? result.getInt(1) : 0;
+			}
+		}
+	}
+
+	private int findPeriodTotal(Connection connection, String uuid, String totalColumn, String previousColumn,
+			boolean resetPending) throws SQLException {
+		String total = resetPending
+				? "GREATEST(0, COALESCE(" + qi(totalColumn) + ", 0) - COALESCE(" + qi(previousColumn) + ", 0))"
+				: "COALESCE(" + qi(totalColumn) + ", 0)";
+		String select = "SELECT " + total + " FROM " + qi(table.getTableName()) + " WHERE " + qi("uuid")
+				+ uuidCast();
+		try (PreparedStatement statement = connection.prepareStatement(select)) {
+			statement.setString(1, uuid);
 			try (ResultSet result = statement.executeQuery()) {
 				return result.next() ? result.getInt(1) : 0;
 			}
@@ -1407,7 +1438,7 @@ final class SharedMysqlPurchaseJournal {
 				List<String> columns = row.monthColumn() == null ? List.of("MonthTotal")
 							: List.of("MonthTotal", row.monthColumn());
 				applyPeriodTotals(recovery.voteId(), row.uuid(), "MonthTotal", "LastMonthTotal", columns,
-							row.monthMaximum(), MONTH_TOTAL);
+							(row.requested() & MONTH_TOTAL_RESERVED) != 0 ? null : row.monthMaximum(), MONTH_TOTAL);
 			}
 			if ((missing & VOTE_PARTY_TOTAL) != 0) applyPeriodTotals(recovery.voteId(), row.uuid(),
 						"VotePartyVotes", "LastVotePartyVotes", List.of("VotePartyVotes"), null, VOTE_PARTY_TOTAL);

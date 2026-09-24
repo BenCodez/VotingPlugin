@@ -645,7 +645,9 @@ public class VoteShopPurchaseService {
 			default -> 0;
 			};
 			if (operation == 0) return false;
-			int admitted = ADMITTED_ACCOUNTING.getOrDefault(accountingId, Integer.valueOf(0)).intValue();
+			Integer admittedDecision = ADMITTED_ACCOUNTING.get(accountingId);
+			int admitted = admittedDecision == null ? 0 : admittedDecision.intValue();
+			if (admittedDecision != null && (admitted & operation) == 0) return true;
 			SharedMysqlPurchaseJournal.PeriodTotalResult result = SharedMysqlPurchaseJournal.forTable(table)
 					.incrementPeriodTotalsResolved(accountingId, uuid, boundaryColumn, previousColumn, columns,
 							maximum, (admitted & operation) != 0);
