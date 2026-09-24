@@ -22,6 +22,7 @@ import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
+import com.bencodez.simpleapi.messages.MessageAPI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.commands.gui.player.VoteGUI;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
@@ -98,9 +99,20 @@ public class AdminVoteTopPoints extends GUIHandler {
 						if (player.getOpenInventory().getTopInventory() != expectedTop) return;
 						openComputedChest(player, sorted);
 					}, player);
-				} catch (Throwable failure) { plugin.debug(failure); }
+				} catch (Throwable failure) { reportLoadFailure(player, "Failed to load top points", failure); }
 			});
-		} catch (RuntimeException failure) { plugin.debug(failure); }
+		} catch (RuntimeException failure) { reportLoadFailure(player, "Failed to schedule top points load", failure); }
+	}
+
+	private void reportLoadFailure(Player player, String message, Throwable failure) {
+		plugin.getLogger().log(java.util.logging.Level.WARNING, message, failure);
+		try {
+			plugin.getBukkitScheduler().runTask(plugin,
+					() -> player.sendMessage(MessageAPI.colorize("&cFailed to load top points")), player);
+		} catch (RuntimeException schedulingFailure) {
+			plugin.getLogger().log(java.util.logging.Level.WARNING,
+					"Failed to notify player about top points load failure", schedulingFailure);
+		}
 	}
 
 	private void openComputedChest(Player player, LinkedHashMap<TopVoterPlayer, Integer> topPoints) {
@@ -153,7 +165,10 @@ public class AdminVoteTopPoints extends GUIHandler {
 			if (customization == null || !customzationEnabled || !customization.getBoolean("RemoveBottomBar")) inv.setPages(true);
 			inv.setMaxInvSize(plugin.getGui().getChestVoteTopSize());
 			inv.openInventory(player);
-		} catch (Exception failure) { plugin.debug(failure); }
+		} catch (Exception failure) {
+			plugin.getLogger().log(java.util.logging.Level.WARNING, "Failed to open top points", failure);
+			player.sendMessage(MessageAPI.colorize("&cFailed to load top points"));
+		}
 	}
 
 	@Override

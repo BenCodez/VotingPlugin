@@ -156,8 +156,13 @@ public class CommandLoader {
 		}
 	}
 
+	record BulkVotingUsers(java.util.List<VotingPluginUser> users,
+			java.util.IdentityHashMap<VotingPluginUser, Player> players) {
+		Player player(VotingPluginUser user) { return players.get(user); }
+	}
+
 	void loadAllVotingUsersAsync(CommandSender sender,
-			java.util.function.Consumer<java.util.List<VotingPluginUser>> success) {
+			java.util.function.Consumer<BulkVotingUsers> success) {
 		try {
 			plugin.getUserManager().getDataManager().getTimer().execute(() -> {
 				java.util.List<VotingPluginUser> users = new java.util.ArrayList<>();
@@ -177,18 +182,36 @@ public class CommandLoader {
 					return;
 				}
 				try {
-					success.accept(users);
-				} catch (Throwable failure) {
-					plugin.debug(failure);
-					runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize(
-							"&cBulk update failed after it started; results may be indeterminate, do not rerun without reconciliation")));
-				}
+					plugin.getBukkitScheduler().runTask(plugin, () -> {
+						java.util.IdentityHashMap<VotingPluginUser, Player> players = new java.util.IdentityHashMap<>();
+						try {
+							for (VotingPluginUser user : users) players.put(user, user.getPlayer());
+						} catch (Throwable failure) {
+							plugin.debug(failure);
+							runForCommandSender(sender, () -> sender.sendMessage(
+									MessageAPI.colorize("&cUnable to prepare stored players for update")));
+							return;
+						}
+						try {
+							plugin.getUserManager().getDataManager().getTimer().execute(() -> {
+								try { success.accept(new BulkVotingUsers(users, players)); }
+								catch (Throwable failure) { reportIndeterminateBulkFailure(sender, failure); }
+							});
+						} catch (RuntimeException failure) { reportIndeterminateBulkFailure(sender, failure); }
+					});
+				} catch (RuntimeException failure) { reportIndeterminateBulkFailure(sender, failure); }
 			});
 		} catch (RuntimeException failure) {
 			plugin.debug(failure);
 			runForCommandSender(sender,
 					() -> sender.sendMessage(MessageAPI.colorize("&cUnable to schedule stored-player lookup")));
 		}
+	}
+
+	private void reportIndeterminateBulkFailure(CommandSender sender, Throwable failure) {
+		plugin.debug(failure);
+		runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize(
+				"&cBulk update failed after it started; results may be indeterminate, do not rerun without reconciliation")));
 	}
 
 	String transferFailureMessage(PointTransferResult result) {
@@ -527,14 +550,15 @@ public class CommandLoader {
 							return;
 						}
 						sender.sendMessage(MessageAPI.colorize("&cGiving all players " + args[3] + " points"));
-						loadAllVotingUsersAsync(sender, users -> {
+						loadAllVotingUsersAsync(sender, batch -> {
+							java.util.List<VotingPluginUser> users = batch.users();
 							java.util.concurrent.atomic.AtomicInteger remaining = new java.util.concurrent.atomic.AtomicInteger(users.size());
 							java.util.concurrent.atomic.AtomicInteger updated = new java.util.concurrent.atomic.AtomicInteger();
 							String batchOperationId = "admin-bulk-points/" + UUID.randomUUID();
-							VotingPluginUser.addPointsStorageAware(plugin, users, num, batchOperationId, (user, success) -> {
+							VotingPluginUser.addPointsStorageAware(plugin, users, batch.players(), num, batchOperationId, (user, success) -> {
 								if (success) {
 									updated.incrementAndGet();
-									runForVotingUser(user, () -> {
+									BukkitCompletionScheduler.run(plugin, batch.player(user), () -> {
 										if (user.isOnline()) user.sendMessage(
 												plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerGiven(), "amount", args[3]);
 									});
@@ -595,14 +619,15 @@ public class CommandLoader {
 						}
 						int num = Integer.parseInt(args[3]);
 						sender.sendMessage(MessageAPI.colorize("&cRemoving " + args[3] + " points from all players"));
-						loadAllVotingUsersAsync(sender, users -> {
+						loadAllVotingUsersAsync(sender, batch -> {
+							java.util.List<VotingPluginUser> users = batch.users();
 							java.util.concurrent.atomic.AtomicInteger remaining = new java.util.concurrent.atomic.AtomicInteger(users.size());
 							java.util.concurrent.atomic.AtomicInteger removed = new java.util.concurrent.atomic.AtomicInteger();
 							String batchOperationId = "admin-bulk-remove/" + UUID.randomUUID();
-							VotingPluginUser.removePointsStorageAware(plugin, users, num, batchOperationId, (user, success) -> {
+							VotingPluginUser.removePointsStorageAware(plugin, users, batch.players(), num, batchOperationId, (user, success) -> {
 								if (success) {
 									removed.incrementAndGet();
-									runForVotingUser(user, () -> {
+									BukkitCompletionScheduler.run(plugin, batch.player(user), () -> {
 										if (user.isOnline()) user.sendMessage(
 												plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerRemoved(), "amount", args[3]);
 									});
