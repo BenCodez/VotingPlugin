@@ -3,6 +3,7 @@ package com.bencodez.votingplugin.backendproxy.global;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -35,6 +36,9 @@ public class BackendGlobalDataSync {
 	private final Consumer<JsonEnvelope> sender;
 	private final AtomicBoolean forceUpdateInProgress = new AtomicBoolean(false);
 	private final Set<TimeType> timeChangesInProgress = ConcurrentHashMap.newKeySet();
+	private final Object timeChangeLifecycleLock = new Object();
+	private final Map<GlobalDataHandler, Integer> activeTimeChangesByHandler = new HashMap<>();
+	private final Set<GlobalDataHandler> retiredOwnedHandlers = new HashSet<>();
 
 	@Getter
 	private GlobalDataHandler globalDataHandler;
@@ -112,16 +116,13 @@ public class BackendGlobalDataSync {
 			globalDataHandler.setBoolean(plugin.getBungeeSettings().getServer(), type.toString(), false);
 			return false;
 		}
-		if (!timeChangesInProgress.add(type)) {
-			return false;
-		}
-
 		String serverName = plugin.getBungeeSettings().getServer();
-		globalDataHandler.setBoolean(serverName, "Processing", true);
+		GlobalDataHandler transitionHandler = admitTimeChange(type, serverName);
+		if (transitionHandler == null) return false;
 		plugin.debug("Detected time change from bungee: " + type.toString());
 		ScheduledExecutorService transitionExecutor = plugin.getTimeChecker().getTimer();
 		if (transitionExecutor == null) {
-			timeChangesInProgress.remove(type);
+			releaseTimeChange(transitionHandler, type, serverName, false);
 			plugin.debug("Unable to process proxy time change before the time checker is ready");
 			return false;
 		}
@@ -129,38 +130,85 @@ public class BackendGlobalDataSync {
 			transitionExecutor.execute(() -> {
 				try {
 					plugin.getTimeChecker().forceChanged(type, false, true, true);
-					finishTimeChange(type, serverName);
 				} catch (RuntimeException failure) {
-					timeChangesInProgress.remove(type);
+					releaseTimeChange(transitionHandler, type, serverName, false);
+					plugin.debug(failure);
+					return;
+				}
+				try {
+					finishTimeChange(transitionHandler, type, serverName);
+				} catch (RuntimeException failure) {
+					// finishTimeChange releases the pinned handler in its finally block.
 					plugin.debug(failure);
 				}
 			});
 		} catch (RejectedExecutionException failure) {
-			timeChangesInProgress.remove(type);
+			releaseTimeChange(transitionHandler, type, serverName, false);
 			plugin.debug(failure);
 			return false;
 		}
 		return true;
 	}
 
-	private void finishTimeChange(TimeType type, String serverName) {
+	private GlobalDataHandler admitTimeChange(TimeType type, String serverName) {
+		synchronized (timeChangeLifecycleLock) {
+			GlobalDataHandler handler = globalDataHandler;
+			if (handler == null || !timeChangesInProgress.add(type)) return null;
+			activeTimeChangesByHandler.merge(handler, 1, Integer::sum);
+			try {
+				handler.setBoolean(serverName, "Processing", true);
+				return handler;
+			} catch (RuntimeException failure) {
+				timeChangesInProgress.remove(type);
+				releaseHandlerReferenceLocked(handler);
+				throw failure;
+			}
+		}
+	}
+
+	private void finishTimeChange(GlobalDataHandler handler, TimeType type, String serverName) {
 		boolean completed = false;
 		try {
-			globalDataHandler.setBoolean(serverName, type.toString(), false);
+			handler.setBoolean(serverName, type.toString(), false);
 			JsonEnvelope.Builder builder = JsonEnvelope.builder("TimeChangeFinished")
 					.schema(VotingPluginWire.SCHEMA_VERSION);
 			builder.put("server", serverName);
 			sender.accept(builder.build());
 			completed = true;
 		} finally {
-			timeChangesInProgress.remove(type);
-			if (completed && timeChangesInProgress.isEmpty()) {
-				HashMap<String, DataValue> dataToSet = new HashMap<>();
-				dataToSet.put("FinishedProcessing", new DataValueBoolean(true));
-				dataToSet.put("Processing", new DataValueBoolean(false));
-				globalDataHandler.setData(serverName, dataToSet);
-			}
+			releaseTimeChange(handler, type, serverName, completed);
 		}
+	}
+
+	private void releaseTimeChange(GlobalDataHandler handler, TimeType type, String serverName,
+			boolean completed) {
+		GlobalMySQL closeAfterRelease = null;
+		try {
+			synchronized (timeChangeLifecycleLock) {
+				timeChangesInProgress.remove(type);
+				if (timeChangesInProgress.isEmpty()) {
+					HashMap<String, DataValue> dataToSet = new HashMap<>();
+					if (completed) dataToSet.put("FinishedProcessing", new DataValueBoolean(true));
+					dataToSet.put("Processing", new DataValueBoolean(false));
+					handler.setData(serverName, dataToSet);
+				}
+			}
+		} finally {
+			synchronized (timeChangeLifecycleLock) {
+				closeAfterRelease = releaseHandlerReferenceLocked(handler);
+			}
+			if (closeAfterRelease != null) closeAfterRelease.close();
+		}
+	}
+
+	private GlobalMySQL releaseHandlerReferenceLocked(GlobalDataHandler handler) {
+		Integer references = activeTimeChangesByHandler.get(handler);
+		if (references == null || references <= 1) {
+			activeTimeChangesByHandler.remove(handler);
+			return retiredOwnedHandlers.remove(handler) ? handler.getGlobalMysql() : null;
+		}
+		activeTimeChangesByHandler.put(handler, references - 1);
+		return null;
 	}
 
 	public boolean checkGlobalDataTimeValue(DataValue data) {
@@ -195,18 +243,20 @@ public class BackendGlobalDataSync {
 
 		closeGlobalMysql();
 
+		GlobalDataHandler loadedHandler;
+		boolean loadedHandlerOwnsMysql;
 		if (plugin.getBungeeSettings().isGloblalDataUseMainMySQL()
 				&& plugin.getStorageType().equals(UserStorage.MYSQL)) {
-			globalDataHandler = new GlobalDataHandler(new GlobalMySQL("VotingPlugin_GlobalData", plugin.getMysql().getMysql()) {
+			loadedHandler = new GlobalDataHandler(new GlobalMySQL("VotingPlugin_GlobalData", plugin.getMysql().getMysql()) {
 				@Override public void debugEx(Exception e) { plugin.debug(e); }
 				@Override public void debugLog(String text) { plugin.debug(text); }
 				@Override public void info(String text) { plugin.getLogger().info(text); }
 				@Override public void logSevere(String text) { plugin.getLogger().severe(text); }
 				@Override public void warning(String text) { plugin.getLogger().warning(text); }
 			});
-			ownsGlobalMysql = false;
+			loadedHandlerOwnsMysql = false;
 		} else {
-			globalDataHandler = new GlobalDataHandler(new GlobalMySQL("VotingPlugin_GlobalData",
+			loadedHandler = new GlobalDataHandler(new GlobalMySQL("VotingPlugin_GlobalData",
 					new MysqlConfigSpigot(plugin.getBungeeSettings().getData().getConfigurationSection("GlobalData"))) {
 				@Override public void debugEx(Exception e) { plugin.debug(e); }
 				@Override public void debugLog(String text) { plugin.debug(text); }
@@ -214,7 +264,11 @@ public class BackendGlobalDataSync {
 				@Override public void logSevere(String text) { plugin.getLogger().severe(text); }
 				@Override public void warning(String text) { plugin.getLogger().warning(text); }
 			});
-			ownsGlobalMysql = true;
+			loadedHandlerOwnsMysql = true;
+		}
+		synchronized (timeChangeLifecycleLock) {
+			globalDataHandler = loadedHandler;
+			ownsGlobalMysql = loadedHandlerOwnsMysql;
 		}
 
 		for (Map.Entry<String, String> column : Map.of(
@@ -226,7 +280,7 @@ public class BackendGlobalDataSync {
 				"Processing", "VARCHAR(5)",
 				"LastUpdated", "MEDIUMTEXT",
 				"ForceUpdate", "VARCHAR(5)").entrySet()) {
-			globalDataHandler.getGlobalMysql().alterColumnType(column.getKey(), column.getValue());
+			loadedHandler.getGlobalMysql().alterColumnType(column.getKey(), column.getValue());
 		}
 		plugin.getTimeChecker().setProcessingEnabled(false);
 	}
@@ -237,11 +291,18 @@ public class BackendGlobalDataSync {
 	}
 
 	private void closeGlobalMysql() {
-		GlobalDataHandler previous = globalDataHandler;
-		boolean closeConnection = ownsGlobalMysql;
-		globalDataHandler = null;
-		ownsGlobalMysql = false;
-		if (previous != null && closeConnection) previous.getGlobalMysql().close();
+		GlobalMySQL closeNow = null;
+		synchronized (timeChangeLifecycleLock) {
+			GlobalDataHandler previous = globalDataHandler;
+			boolean closeConnection = ownsGlobalMysql;
+			globalDataHandler = null;
+			ownsGlobalMysql = false;
+			if (previous != null && closeConnection) {
+				if (activeTimeChangesByHandler.containsKey(previous)) retiredOwnedHandlers.add(previous);
+				else closeNow = previous.getGlobalMysql();
+			}
+		}
+		if (closeNow != null) closeNow.close();
 	}
 
 	private void shutdownTimer() {

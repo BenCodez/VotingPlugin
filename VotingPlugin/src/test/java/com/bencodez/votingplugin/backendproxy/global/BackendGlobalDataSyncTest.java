@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -158,6 +159,69 @@ class BackendGlobalDataSyncTest {
 		verify(timeChecker).forceChanged(type, false, true, true);
 		verify(globalDataHandler).setBoolean("lobby", type.toString(), false);
 		verify(globalDataHandler).setData(eq("lobby"), any());
+	}
+
+	@Test
+	void rejectedTimeChangeSubmissionClearsProcessingState() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BungeeSettings bungeeSettings = mock(BungeeSettings.class);
+		TimeChecker timeChecker = mock(TimeChecker.class);
+		ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+		GlobalDataHandler handler = mock(GlobalDataHandler.class);
+		when(plugin.getBungeeSettings()).thenReturn(bungeeSettings);
+		when(bungeeSettings.getServer()).thenReturn("lobby");
+		when(plugin.getTimeChecker()).thenReturn(timeChecker);
+		when(timeChecker.getTimer()).thenReturn(executor);
+		org.mockito.Mockito.doThrow(new RejectedExecutionException()).when(executor).execute(any(Runnable.class));
+		BackendGlobalDataSync sync = new BackendGlobalDataSync(plugin, ignored -> { });
+		setField(sync, "globalDataHandler", handler);
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> data = new HashMap<>();
+		data.put("LastUpdated", new DataValueString(
+				"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
+		data.put(TimeType.DAY.toString(), new DataValueBoolean(true));
+
+		org.junit.jupiter.api.Assertions.assertFalse(sync.checkGlobalDataTime(TimeType.DAY, data));
+
+		verify(handler).setBoolean("lobby", "Processing", true);
+		verify(handler).setData(eq("lobby"), org.mockito.ArgumentMatchers.argThat(update ->
+				!update.containsKey("FinishedProcessing") && !update.get("Processing").getBoolean()));
+	}
+
+	@Test
+	void closeDefersOwnedMysqlRetirementUntilQueuedTimeChangeFinishes() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BungeeSettings bungeeSettings = mock(BungeeSettings.class);
+		TimeChecker timeChecker = mock(TimeChecker.class);
+		ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+		GlobalDataHandler handler = mock(GlobalDataHandler.class);
+		GlobalMySQL mysql = mock(GlobalMySQL.class);
+		AtomicReference<Runnable> scheduled = new AtomicReference<>();
+		when(plugin.getBungeeSettings()).thenReturn(bungeeSettings);
+		when(bungeeSettings.getServer()).thenReturn("lobby");
+		when(plugin.getTimeChecker()).thenReturn(timeChecker);
+		when(timeChecker.getTimer()).thenReturn(executor);
+		when(handler.getGlobalMysql()).thenReturn(mysql);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			scheduled.set(invocation.getArgument(0));
+			return null;
+		}).when(executor).execute(any(Runnable.class));
+		BackendGlobalDataSync sync = new BackendGlobalDataSync(plugin, ignored -> { });
+		setField(sync, "globalDataHandler", handler);
+		setField(sync, "ownsGlobalMysql", true);
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> data = new HashMap<>();
+		data.put("LastUpdated", new DataValueString(
+				"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
+		data.put(TimeType.DAY.toString(), new DataValueBoolean(true));
+
+		assertTrue(sync.checkGlobalDataTime(TimeType.DAY, data));
+		sync.close();
+		verify(mysql, never()).close();
+
+		assertNotNull(scheduled.get());
+		scheduled.get().run();
+
+		verify(handler).setBoolean("lobby", TimeType.DAY.toString(), false);
+		verify(mysql).close();
 	}
 
 	@Test
