@@ -348,7 +348,13 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 * Completion runs after every player owner callback has finished.
 	 */
 	public void captureOnlineTopVoterIgnore(java.util.function.Consumer<java.util.Map<UUID, Boolean>> completion) {
+		captureOnlineTopVoterIgnore(completion, () -> completion.accept(java.util.Map.of()));
+	}
+
+	public void captureOnlineTopVoterIgnore(java.util.function.Consumer<java.util.Map<UUID, Boolean>> completion,
+			Runnable failureCompletion) {
 		java.util.Objects.requireNonNull(completion, "completion");
+		java.util.Objects.requireNonNull(failureCompletion, "failureCompletion");
 		try {
 			getBukkitScheduler().runTask(this, () -> {
 				java.util.List<Player> players = new java.util.ArrayList<>(Bukkit.getOnlinePlayers());
@@ -375,7 +381,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			});
 		} catch (RuntimeException failure) {
 			debug(failure);
-			completion.accept(java.util.Map.of());
+			failureCompletion.run();
 		}
 	}
 

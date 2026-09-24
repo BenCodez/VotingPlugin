@@ -78,6 +78,11 @@ public final class VotingPluginBackgroundTask {
 					completion.complete(null);
 					finishRun(completion);
 				}
+			}, () -> {
+				setRequested(true);
+				snapshotPending.set(false);
+				snapshotStarted.complete(null);
+				finishRun(completion);
 			});
 		} catch (RuntimeException failure) {
 			plugin.debug(failure);

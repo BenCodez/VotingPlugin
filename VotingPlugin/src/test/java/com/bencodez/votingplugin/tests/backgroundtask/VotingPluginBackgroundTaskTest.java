@@ -44,7 +44,7 @@ public class VotingPluginBackgroundTaskTest {
 		java.util.concurrent.atomic.AtomicReference<java.util.function.Consumer<java.util.Map<java.util.UUID, Boolean>>> callback =
 				new java.util.concurrent.atomic.AtomicReference<>();
 		org.mockito.Mockito.doAnswer(call -> { callback.set(call.getArgument(0)); return null; })
-				.when(plugin).captureOnlineTopVoterIgnore(any());
+				.when(plugin).captureOnlineTopVoterIgnore(any(), any());
 		VotingPluginBackgroundTask task = new VotingPluginBackgroundTask(plugin);
 		task.setRequested(true);
 
@@ -53,7 +53,7 @@ public class VotingPluginBackgroundTaskTest {
 			bukkit.when(Bukkit::isPrimaryThread).thenReturn(true);
 			task.run();
 
-			verify(plugin).captureOnlineTopVoterIgnore(any());
+			verify(plugin).captureOnlineTopVoterIgnore(any(), any());
 			assertTrue(task.isRunning());
 			callback.get().accept(java.util.Map.of());
 			assertFalse(task.isRunning());
@@ -70,7 +70,7 @@ public class VotingPluginBackgroundTaskTest {
 		java.util.concurrent.atomic.AtomicReference<java.util.function.Consumer<java.util.Map<java.util.UUID, Boolean>>> callback =
 				new java.util.concurrent.atomic.AtomicReference<>();
 		doAnswer(call -> { callback.set(call.getArgument(0)); return null; })
-				.when(plugin).captureOnlineTopVoterIgnore(any());
+				.when(plugin).captureOnlineTopVoterIgnore(any(), any());
 		java.util.concurrent.ScheduledExecutorService storage = mock(java.util.concurrent.ScheduledExecutorService.class);
 		when(plugin.getUserManager().getDataManager().getTimer()).thenReturn(storage);
 		VotingPluginBackgroundTask task = new VotingPluginBackgroundTask(plugin);
@@ -136,7 +136,28 @@ public class VotingPluginBackgroundTaskTest {
 
 		assertFalse(task.isRunning());
 		assertTrue(task.isRequested());
-		verify(plugin).captureOnlineTopVoterIgnore(any());
+		verify(plugin).captureOnlineTopVoterIgnore(any(), any());
+	}
+
+	@Test
+	public void snapshotAdmissionFailureKeepsRefreshPending() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		Config config = mock(Config.class);
+		when(plugin.isEnabled()).thenReturn(true);
+		when(plugin.getConfigFile()).thenReturn(config);
+		doAnswer(call -> { call.getArgument(1, Runnable.class).run(); return null; })
+				.when(plugin).captureOnlineTopVoterIgnore(any(), any());
+		VotingPluginBackgroundTask task = new VotingPluginBackgroundTask(plugin);
+		task.setRequested(true);
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getServer).thenReturn(null);
+			task.run();
+		}
+
+		assertFalse(task.isRunning());
+		assertTrue(task.isRequested());
+		verify(plugin.getUserManager().getDataManager().getTimer(), never()).execute(any(Runnable.class));
 	}
 
 }
