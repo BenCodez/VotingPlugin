@@ -307,7 +307,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private DiscordHandler discordHandler;
 
-	private VotingPluginBackgroundTask backgroundTask;
+	private volatile VotingPluginBackgroundTask backgroundTask;
 	private VotingPluginVersionInfo versionInfo;
 	private VotingPluginConfigHealth configHealth;
 	private VotifierIntegration votifierIntegration;
@@ -321,10 +321,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	public void setUpdate(boolean update) {
-		if (backgroundTask == null) {
-			backgroundTask = new VotingPluginBackgroundTask(this);
-		}
-		backgroundTask.setRequested(update);
+		backgroundTask().setRequested(update);
+	}
+
+	private synchronized VotingPluginBackgroundTask backgroundTask() {
+		if (backgroundTask == null) backgroundTask = new VotingPluginBackgroundTask(this);
+		return backgroundTask;
 	}
 
 	public boolean isUpdateStarted() {
@@ -2114,11 +2116,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		plugin.debug("Loaded Files");
 	}
 
-	public synchronized void update() {
-		if (backgroundTask == null) {
-			backgroundTask = new VotingPluginBackgroundTask(this);
-		}
-		backgroundTask.run();
+	public void update() {
+		backgroundTask().run();
 	}
 
 

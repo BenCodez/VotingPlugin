@@ -6,6 +6,10 @@ import static org.mockito.Mockito.*;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
+
+import org.bukkit.Bukkit;
+import org.bukkit.Server;
 
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 
@@ -14,6 +18,11 @@ import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.backgroundtask.VotingPluginBackgroundTask;
 
 public class VotingPluginBackgroundTaskTest {
+	@Test
+	public void updateDoesNotHoldPluginMonitorWhileRefreshWaits() throws Exception {
+		assertFalse(java.lang.reflect.Modifier.isSynchronized(
+				VotingPluginMain.class.getMethod("update").getModifiers()));
+	}
 
 	@Test
 	public void requestedStateCanBeDelegated() {
@@ -38,13 +47,17 @@ public class VotingPluginBackgroundTaskTest {
 		VotingPluginBackgroundTask task = new VotingPluginBackgroundTask(plugin);
 		task.setRequested(true);
 
-		task.run();
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getServer).thenReturn(mock(Server.class));
+			bukkit.when(Bukkit::isPrimaryThread).thenReturn(true);
+			task.run();
 
-		verify(plugin).captureOnlineTopVoterIgnore(any());
-		assertTrue(task.isRunning());
-		callback.get().accept(java.util.Map.of());
-		assertFalse(task.isRunning());
-		assertTrue(task.isRequested(), "online-only skip must preserve the pending request");
+			verify(plugin).captureOnlineTopVoterIgnore(any());
+			assertTrue(task.isRunning());
+			callback.get().accept(java.util.Map.of());
+			assertFalse(task.isRunning());
+			assertTrue(task.isRequested(), "online-only skip must preserve the pending request");
+		}
 	}
 
 }

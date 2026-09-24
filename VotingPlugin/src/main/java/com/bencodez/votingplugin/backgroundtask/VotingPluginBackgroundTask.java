@@ -7,7 +7,6 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -203,6 +202,7 @@ public final class VotingPluginBackgroundTask {
 					}
 				}
 
+				plugin.getUserManager().getDataManager().clearNonNeededCachedUsers();
 				plugin.extraDebug("Current cached users: "
 						+ plugin.getUserManager().getDataManager().getUserDataCache().keySet().size());
 
