@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -25,6 +26,7 @@ import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.api.user.UserManager;
 import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandler;
+import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.simpleapi.sql.data.DataValueBoolean;
 import com.bencodez.simpleapi.sql.data.DataValueString;
@@ -107,28 +109,37 @@ class BackendGlobalDataSyncTest {
 	}
 
 	@Test
-	void bungeeTimeChangeForceChangedRunsOnTheBukkitScheduler() {
+	void bungeeDayChangeRunsOnTheTimeCheckerExecutor() {
+		assertTimeChangeRunsOnTheTimeCheckerExecutor(TimeType.DAY);
+	}
+
+	@Test
+	void bungeeWeekChangeRunsOnTheTimeCheckerExecutor() {
+		assertTimeChangeRunsOnTheTimeCheckerExecutor(TimeType.WEEK);
+	}
+
+	@Test
+	void bungeeMonthChangeRunsOnTheTimeCheckerExecutor() {
+		assertTimeChangeRunsOnTheTimeCheckerExecutor(TimeType.MONTH);
+	}
+
+	private void assertTimeChangeRunsOnTheTimeCheckerExecutor(TimeType type) {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		BungeeSettings bungeeSettings = mock(BungeeSettings.class);
-		BukkitScheduler scheduler = mock(BukkitScheduler.class);
 		TimeChecker timeChecker = mock(TimeChecker.class);
+		ScheduledExecutorService timeCheckerExecutor = mock(ScheduledExecutorService.class);
 		GlobalDataHandler globalDataHandler = mock(GlobalDataHandler.class);
 		AtomicReference<Runnable> scheduled = new AtomicReference<>();
-		AtomicReference<Runnable> asyncCompletion = new AtomicReference<>();
 
 		when(plugin.getBungeeSettings()).thenReturn(bungeeSettings);
 		when(bungeeSettings.getServer()).thenReturn("lobby");
-		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
 		when(plugin.getTimeChecker()).thenReturn(timeChecker);
+		when(timeChecker.getTimer()).thenReturn(timeCheckerExecutor);
 
 		org.mockito.Mockito.doAnswer(invocation -> {
-			scheduled.set(invocation.getArgument(1));
+			scheduled.set(invocation.getArgument(0));
 			return null;
-		}).when(scheduler).executeOrScheduleSync(eq(plugin), any(Runnable.class));
-		org.mockito.Mockito.doAnswer(invocation -> {
-			asyncCompletion.set(invocation.getArgument(1));
-			return null;
-		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		}).when(timeCheckerExecutor).execute(any(Runnable.class));
 
 		BackendGlobalDataSync sync = new BackendGlobalDataSync(plugin, ignored -> { });
 		setField(sync, "globalDataHandler", globalDataHandler);
@@ -136,21 +147,47 @@ class BackendGlobalDataSyncTest {
 		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> data = new HashMap<>();
 		data.put("LastUpdated", new DataValueString(
 				"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
-		data.put(TimeType.DAY.toString(), new DataValueBoolean(true));
+		data.put(type.toString(), new DataValueBoolean(true));
 
-		assertTrue(sync.checkGlobalDataTime(TimeType.DAY, data));
+		assertTrue(sync.checkGlobalDataTime(type, data));
 
-		verify(plugin).getBukkitScheduler();
+		verify(plugin, never()).getBukkitScheduler();
 		verify(timeChecker, never()).forceChanged(any(), any(Boolean.class), any(Boolean.class), any(Boolean.class));
 		assertNotNull(scheduled.get());
 		scheduled.get().run();
-		verify(timeChecker).forceChanged(TimeType.DAY, false, true, true);
-		verify(globalDataHandler, never()).setBoolean("lobby", TimeType.DAY.toString(), false);
-		verify(globalDataHandler, never()).setData(eq("lobby"), any());
-		assertNotNull(asyncCompletion.get());
-		asyncCompletion.get().run();
-		verify(globalDataHandler).setBoolean("lobby", TimeType.DAY.toString(), false);
+		verify(timeChecker).forceChanged(type, false, true, true);
+		verify(globalDataHandler).setBoolean("lobby", type.toString(), false);
 		verify(globalDataHandler).setData(eq("lobby"), any());
+	}
+
+	@Test
+	void closingBorrowedMainMysqlLeavesItsOwnerRunning() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		GlobalDataHandler handler = mock(GlobalDataHandler.class);
+		GlobalMySQL mysql = mock(GlobalMySQL.class);
+		when(handler.getGlobalMysql()).thenReturn(mysql);
+		BackendGlobalDataSync sync = new BackendGlobalDataSync(plugin, ignored -> { });
+		setField(sync, "globalDataHandler", handler);
+		setField(sync, "ownsGlobalMysql", false);
+
+		sync.close();
+
+		verify(mysql, never()).close();
+	}
+
+	@Test
+	void closingDedicatedGlobalMysqlClosesItsOwnedConnection() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		GlobalDataHandler handler = mock(GlobalDataHandler.class);
+		GlobalMySQL mysql = mock(GlobalMySQL.class);
+		when(handler.getGlobalMysql()).thenReturn(mysql);
+		BackendGlobalDataSync sync = new BackendGlobalDataSync(plugin, ignored -> { });
+		setField(sync, "globalDataHandler", handler);
+		setField(sync, "ownsGlobalMysql", true);
+
+		sync.close();
+
+		verify(mysql).close();
 	}
 
 	private static void setField(Object target, String fieldName, Object value) {

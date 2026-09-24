@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -37,6 +38,7 @@ public class BackendGlobalDataSync {
 
 	@Getter
 	private GlobalDataHandler globalDataHandler;
+	private boolean ownsGlobalMysql;
 	@Getter
 	private ScheduledExecutorService timer;
 
@@ -117,24 +119,23 @@ public class BackendGlobalDataSync {
 		String serverName = plugin.getBungeeSettings().getServer();
 		globalDataHandler.setBoolean(serverName, "Processing", true);
 		plugin.debug("Detected time change from bungee: " + type.toString());
+		ScheduledExecutorService transitionExecutor = plugin.getTimeChecker().getTimer();
+		if (transitionExecutor == null) {
+			timeChangesInProgress.remove(type);
+			plugin.debug("Unable to process proxy time change before the time checker is ready");
+			return false;
+		}
 		try {
-			plugin.getBukkitScheduler().executeOrScheduleSync(plugin, () -> {
+			transitionExecutor.execute(() -> {
 				try {
 					plugin.getTimeChecker().forceChanged(type, false, true, true);
-				} catch (RuntimeException failure) {
-					timeChangesInProgress.remove(type);
-					plugin.debug(failure);
-					return;
-				}
-				try {
-					plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
-							() -> finishTimeChange(type, serverName));
+					finishTimeChange(type, serverName);
 				} catch (RuntimeException failure) {
 					timeChangesInProgress.remove(type);
 					plugin.debug(failure);
 				}
 			});
-		} catch (RuntimeException failure) {
+		} catch (RejectedExecutionException failure) {
 			timeChangesInProgress.remove(type);
 			plugin.debug(failure);
 			return false;
@@ -203,6 +204,7 @@ public class BackendGlobalDataSync {
 				@Override public void logSevere(String text) { plugin.getLogger().severe(text); }
 				@Override public void warning(String text) { plugin.getLogger().warning(text); }
 			});
+			ownsGlobalMysql = false;
 		} else {
 			globalDataHandler = new GlobalDataHandler(new GlobalMySQL("VotingPlugin_GlobalData",
 					new MysqlConfigSpigot(plugin.getBungeeSettings().getData().getConfigurationSection("GlobalData"))) {
@@ -212,6 +214,7 @@ public class BackendGlobalDataSync {
 				@Override public void logSevere(String text) { plugin.getLogger().severe(text); }
 				@Override public void warning(String text) { plugin.getLogger().warning(text); }
 			});
+			ownsGlobalMysql = true;
 		}
 
 		for (Map.Entry<String, String> column : Map.of(
@@ -234,9 +237,11 @@ public class BackendGlobalDataSync {
 	}
 
 	private void closeGlobalMysql() {
-		if (globalDataHandler != null) {
-			globalDataHandler.getGlobalMysql().close();
-		}
+		GlobalDataHandler previous = globalDataHandler;
+		boolean closeConnection = ownsGlobalMysql;
+		globalDataHandler = null;
+		ownsGlobalMysql = false;
+		if (previous != null && closeConnection) previous.getGlobalMysql().close();
 	}
 
 	private void shutdownTimer() {

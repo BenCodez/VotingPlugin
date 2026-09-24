@@ -472,8 +472,11 @@ public class VoteShopPurchaseService {
 		plugin.getLogger().info("VoteShop: " + user.getPlayerName() + "/" + user.getUUID() + " bought "
 				+ item.getIdentifier() + " for " + item.getCost());
 
+		// This callback runs only after the live Player's entity task is admitted.
+		// Carry that captured presence into asynchronous reward execution so a
+		// UUID-only user wrapper cannot suppress an already committed purchase.
 		plugin.getRewardHandler().giveReward(user, shopData, item.getRewardsPath(),
-				new RewardOptions().setPlaceholders(placeholders));
+				new RewardOptions().setOnline(true).setPlaceholders(placeholders));
 
 		String purchaseMessage = item.getPurchaseMessage();
 		if (purchaseMessage == null || purchaseMessage.isEmpty()) {

@@ -873,10 +873,17 @@ public final class VoteRemindersManager {
 
 	private void giveRewardFromPath(VotingPluginUser user, ReminderPlayerSnapshot snapshot, String rewardsPath,
 			Map<String, String> placeholders) {
-		RewardBuilder rb = new RewardBuilder(plugin.getConfig(), rewardsPath).setGiveOffline(false).disableDefaultWorlds();
+		RewardBuilder rb = onlineRewardBuilder(plugin.getConfig(), rewardsPath);
 		rb.withPlaceHolder("sitesavailable", "" + sitesNotVotedOn(user, snapshot));
 		if (placeholders != null) for (Map.Entry<String, String> entry : placeholders.entrySet()) rb.withPlaceHolder(entry.getKey(), entry.getValue());
 		rb.send(user);
+	}
+
+	static RewardBuilder onlineRewardBuilder(org.bukkit.configuration.ConfigurationSection config, String rewardsPath) {
+		// The snapshot was captured only after the player-owned scheduler confirmed
+		// this player online. Preserve that fact across the worker handoff instead of
+		// resolving a UUID-only user wrapper by its potentially unloaded name.
+		return new RewardBuilder(config, rewardsPath).setOnline(true).setGiveOffline(false).disableDefaultWorlds();
 	}
 
 	private boolean passesConditions(VotingPluginUser user, ReminderPlayerSnapshot snapshot, VoteReminderConditions conditions) {

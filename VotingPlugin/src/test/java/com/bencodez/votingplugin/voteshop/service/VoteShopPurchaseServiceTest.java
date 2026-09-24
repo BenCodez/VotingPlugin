@@ -52,6 +52,7 @@ import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
 import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 import com.bencodez.advancedcore.api.rewards.RewardHandler;
+import com.bencodez.advancedcore.api.rewards.RewardOptions;
 import com.bencodez.simpleapi.folialib.enums.EntityTaskResult;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.SharedMysqlCacheReconciler;
@@ -437,7 +438,12 @@ class VoteShopPurchaseServiceTest {
 		}
 
 		verify(scheduler).runTask(eq(plugin), any(Runnable.class), eq(player));
-		verify(rewardHandler).giveReward(eq(user), any(FileConfiguration.class), eq("Shop.daily.Rewards"), any());
+		ArgumentCaptor<RewardOptions> options = ArgumentCaptor.forClass(RewardOptions.class);
+		verify(rewardHandler).giveReward(eq(user), any(FileConfiguration.class), eq("Shop.daily.Rewards"),
+				options.capture());
+		assertTrue(options.getValue().isOnlineSet());
+		assertTrue(options.getValue().isOnline());
+		verify(user, never()).isOnline();
 	}
 
 	@Test

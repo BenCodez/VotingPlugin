@@ -23,6 +23,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.bencodez.simpleapi.time.ParsedDuration;
+import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.user.VotingPluginUser;
@@ -34,6 +35,17 @@ import com.bencodez.votingplugin.votereminding.store.VoteReminderCooldownStore;
 
 @ExtendWith(MockitoExtension.class)
 public class VoteRemindersManagerTest {
+	@Test
+	void loginRewardCarriesCapturedOnlineStateIntoWorkerExecution() throws Exception {
+		Method method = VoteRemindersManager.class.getDeclaredMethod("onlineRewardBuilder",
+				org.bukkit.configuration.ConfigurationSection.class, String.class);
+		method.setAccessible(true);
+		RewardBuilder builder = (RewardBuilder) method.invoke(null, null, "VoteReminders.Login.Rewards");
+
+		assertTrue(builder.getRewardOptions().isOnlineSet());
+		assertTrue(builder.getRewardOptions().isOnline());
+		assertFalse(builder.getRewardOptions().isGiveOffline());
+	}
 
 	@Test
 	public void cooldownWrapper_tryAcquireGlobal_usesStoreWhenNonZero() {
