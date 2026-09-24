@@ -10,6 +10,8 @@ import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.UUID;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -118,6 +120,91 @@ class CommandLoaderSchedulingTest {
 
 		org.junit.jupiter.api.Assertions.assertFalse(taskRan.get());
 		org.junit.jupiter.api.Assertions.assertTrue(rejected.get());
+	}
+
+	@Test
+	void bulkStorageMutationStartsOffTheCommandThread() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		CommandSender sender = mock(CommandSender.class);
+		java.util.concurrent.ScheduledExecutorService storage = mock(java.util.concurrent.ScheduledExecutorService.class);
+		when(plugin.getUserManager().getDataManager().getTimer()).thenReturn(storage);
+		AtomicReference<Runnable> worker = new AtomicReference<>();
+		org.mockito.Mockito.doAnswer(call -> { worker.set(call.getArgument(0)); return null; })
+				.when(storage).execute(any(Runnable.class));
+		AtomicBoolean storageRan = new AtomicBoolean();
+
+		new CommandLoader(plugin).runBulkStorageMutation(sender, () -> storageRan.set(true), () -> { });
+
+		org.junit.jupiter.api.Assertions.assertFalse(storageRan.get());
+		org.junit.jupiter.api.Assertions.assertNotNull(worker.get());
+		verify(scheduler, never()).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+	}
+
+	@Test
+	void bulkUserPlayerLookupRunsOnPlatformBeforeStorageConsumer() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		CommandSender sender = mock(CommandSender.class);
+		java.util.concurrent.ScheduledExecutorService storage = mock(java.util.concurrent.ScheduledExecutorService.class);
+		when(plugin.getUserManager().getDataManager().getTimer()).thenReturn(storage);
+		java.util.List<Runnable> storageTasks = new java.util.ArrayList<>();
+		org.mockito.Mockito.doAnswer(call -> { storageTasks.add(call.getArgument(0)); return null; })
+				.when(storage).execute(any(Runnable.class));
+		UUID uuid = UUID.randomUUID();
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		Player player = mock(Player.class);
+		when(user.getPlayer()).thenReturn(player);
+		when(plugin.getUserManager().getAllUUIDs())
+				.thenReturn(new java.util.ArrayList<>(java.util.List.of(uuid.toString())));
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser(uuid)).thenReturn(user);
+		AtomicReference<Runnable> platform = new AtomicReference<>();
+		org.mockito.Mockito.doAnswer(call -> { platform.set(call.getArgument(1)); return null; })
+				.when(scheduler).runTask(eq(plugin), any(Runnable.class));
+		AtomicReference<CommandLoader.BulkVotingUsers> delivered = new AtomicReference<>();
+
+		new CommandLoader(plugin).loadAllVotingUsersAsync(sender, delivered::set);
+		storageTasks.get(0).run();
+		verify(user, never()).getPlayer();
+		platform.get().run();
+		verify(user).getPlayer();
+		storageTasks.get(1).run();
+
+		org.junit.jupiter.api.Assertions.assertNotNull(delivered.get());
+		org.junit.jupiter.api.Assertions.assertSame(player, delivered.get().player(user));
+	}
+
+	@Test
+	void bulkUserPlayerLookupYieldsBetweenBoundedPlatformBatches() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		CommandSender sender = mock(CommandSender.class);
+		java.util.concurrent.ScheduledExecutorService storage = mock(java.util.concurrent.ScheduledExecutorService.class);
+		when(plugin.getUserManager().getDataManager().getTimer()).thenReturn(storage);
+		java.util.List<Runnable> storageTasks = new java.util.ArrayList<>();
+		org.mockito.Mockito.doAnswer(call -> { storageTasks.add(call.getArgument(0)); return null; })
+				.when(storage).execute(any(Runnable.class));
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		java.util.List<String> uuids = new java.util.ArrayList<>();
+		for (int index = 0; index < 65; index++) uuids.add(UUID.randomUUID().toString());
+		when(plugin.getUserManager().getAllUUIDs()).thenReturn(new java.util.ArrayList<>(uuids));
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser(any(UUID.class))).thenReturn(user);
+		java.util.List<Runnable> platformTasks = new java.util.ArrayList<>();
+		org.mockito.Mockito.doAnswer(call -> { platformTasks.add(call.getArgument(1)); return null; })
+				.when(scheduler).runTask(eq(plugin), any(Runnable.class));
+
+		new CommandLoader(plugin).loadAllVotingUsersAsync(sender, ignored -> { });
+		storageTasks.get(0).run();
+		org.junit.jupiter.api.Assertions.assertEquals(1, platformTasks.size());
+		platformTasks.get(0).run();
+		verify(user, org.mockito.Mockito.times(64)).getPlayer();
+		org.junit.jupiter.api.Assertions.assertEquals(2, platformTasks.size());
+		platformTasks.get(1).run();
+		verify(user, org.mockito.Mockito.times(65)).getPlayer();
+		org.junit.jupiter.api.Assertions.assertEquals(2, storageTasks.size());
 	}
 
 	private static void configureEntityScheduler(BukkitScheduler scheduler) {

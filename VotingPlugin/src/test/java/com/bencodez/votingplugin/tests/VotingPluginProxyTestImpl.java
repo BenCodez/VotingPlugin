@@ -18,6 +18,7 @@ import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler;
 import com.bencodez.votingplugin.proxy.OfflineBungeeVote;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
+import com.bencodez.votingplugin.proxy.VotingPluginWire;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 import com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects;
 import com.bencodez.simpleapi.servercomm.http.HttpProxyTransportServer;
@@ -56,6 +57,11 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	private Boolean pendingHttpTransportDeliveries;
 	private volatile int reloadCoreCalls;
 	private File dataFolder = new File(".");
+	private String proxyPlatform = "VELOCITY";
+	private String controlEnrollmentSource;
+	private int controlEnrollmentInstallCount;
+	private JsonEnvelope controlEnrollmentResult;
+	private boolean controlEnrollmentRouteProved = true;
 
 	public List<String> getWarnings() {
 		return warnings;
@@ -155,7 +161,59 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	@Override
 	public String getProxyPlatform() {
-		return "VELOCITY";
+		return proxyPlatform;
+	}
+
+	public void setProxyPlatform(String proxyPlatform) {
+		this.proxyPlatform = proxyPlatform;
+	}
+
+	public void registerControlEnrollmentListenerForTest(GlobalMessageProxyHandler handler) {
+		registerControlEnrollmentListener(handler);
+	}
+
+	public String getControlEnrollmentSource() {
+		return controlEnrollmentSource;
+	}
+
+	public JsonEnvelope getControlEnrollmentResult() {
+		return controlEnrollmentResult;
+	}
+
+	public int getControlEnrollmentInstallCount() {
+		return controlEnrollmentInstallCount;
+	}
+
+	public void setControlEnrollmentRouteProved(boolean proved) {
+		controlEnrollmentRouteProved = proved;
+	}
+
+	public void handleAuthenticatedHttpEnvelopeForTest(HttpProxyTransportServer.ReceivedEnvelope received) {
+		handleHttpTransportEnvelope(received);
+	}
+
+	@Override
+	protected void handleControlEnrollmentRequest(String sourceServer, JsonEnvelope envelope) {
+		controlEnrollmentSource = sourceServer;
+	}
+
+	@Override
+	protected void installControlEnrollmentRequest(String sourceServer,
+			VotingPluginWire.ControlEnrollmentRequest request) {
+		controlEnrollmentSource = sourceServer;
+		controlEnrollmentInstallCount++;
+	}
+
+	@Override
+	protected java.util.concurrent.CompletableFuture<Boolean> proveControlEnrollmentRoute(String sourceServer,
+			String endpoint) {
+		return java.util.concurrent.CompletableFuture.completedFuture(controlEnrollmentRouteProved);
+	}
+
+	@Override
+	protected void sendControlEnrollmentResult(String server, java.util.UUID requestId, boolean success,
+			String challenge) {
+		controlEnrollmentResult = createControlEnrollmentResult(server, requestId, success, challenge);
 	}
 
 	@Override

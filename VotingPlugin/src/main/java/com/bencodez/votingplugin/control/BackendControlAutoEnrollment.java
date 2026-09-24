@@ -2,6 +2,9 @@ package com.bencodez.votingplugin.control;
 
 import java.io.IOException;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -32,20 +35,28 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 	private final String credentialFile;
 	private final String endpoint;
 	private final UUID requestId = UUID.randomUUID();
+	private final BungeeMethod method;
+	private final ControlEnrollmentAuthenticator authenticator;
 	private final AtomicBoolean closed = new AtomicBoolean();
 	private volatile BukkitTask retryTask;
+	private volatile ScheduledExecutorService retryExecutor;
+	private volatile ScheduledFuture<?> retryFuture;
 	private PendingAutoEnrollment enrollment;
 	private boolean verifierInstalled;
 	private boolean connectorAuthenticated;
 	private long verifierAcknowledgedAt;
+	private String routeChallenge = "";
 
 	private BackendControlAutoEnrollment(VotingPluginMain plugin, String nodeId, String credentialFile,
-			String endpoint, PendingAutoEnrollment enrollment) {
+			String endpoint, PendingAutoEnrollment enrollment, BungeeMethod method,
+			ControlEnrollmentAuthenticator authenticator) {
 		this.plugin = plugin;
 		this.nodeId = nodeId;
 		this.credentialFile = credentialFile;
 		this.endpoint = endpoint;
 		this.enrollment = enrollment;
+		this.method = method;
+		this.authenticator = authenticator;
 	}
 
 	/** Prepares a verifier that this Bukkit process's own hosted Control will install. */
@@ -59,14 +70,13 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 		return prepare(plugin, control);
 	}
 
-	/** Prepares proxy-mediated enrollment only when source-bound plugin messaging is active. */
+	/** Prepares proxy-mediated enrollment through the configured backend transport. */
 	public static BackendControlAutoEnrollment create(VotingPluginMain plugin, HostConfiguration hosted)
 			throws IOException {
 		ConfigurationSection control = control(plugin);
 		if (control == null || !control.getBoolean("Enabled", false)
 				|| HostedControlManager.isDirectLocalEndpoint(control.getString("Endpoint", ""), hosted)
-				|| !plugin.getBungeeSettings().isUseBungeecoord()
-				|| BungeeMethod.getByName(plugin.getBungeeSettings().getBungeeMethod()) != BungeeMethod.PLUGINMESSAGING) {
+				|| !plugin.getBungeeSettings().isUseBungeecoord()) {
 			return null;
 		}
 		String serverName = plugin.getOptions().getServer();
@@ -81,8 +91,11 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 		PendingAutoEnrollment pending = inspection.pending();
 		if (pending == null && inspection.credentialPresent()) return null;
 		if (pending != null && !nodeId.equals(pending.nodeId())) pending = null;
+		BungeeMethod method = BungeeMethod.getByName(plugin.getBungeeSettings().getBungeeMethod());
+		ControlEnrollmentAuthenticator authenticator = method == BungeeMethod.PLUGINMESSAGING || method == BungeeMethod.HTTP
+				? null : ControlEnrollmentAuthenticator.load(plugin.getDataFolder().toPath().resolve("secretkey.key"));
 		return new BackendControlAutoEnrollment(plugin, nodeId, credentialFile,
-				endpoint == null ? "" : endpoint.trim(), pending);
+				endpoint == null ? "" : endpoint.trim(), pending, method, authenticator);
 	}
 
 	public static String configuredNodeId(VotingPluginMain plugin, ConfigurationSection control) {
@@ -110,12 +123,34 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 	}
 
 	public synchronized void start() {
-		if (closed.get() || retryTask != null) return;
+		if (closed.get() || retryTask != null || retryFuture != null) return;
 		try {
-			retryTask = plugin.getServer().getScheduler().runTaskTimer(plugin, this::send, 1L, RETRY_TICKS);
+			if (method == BungeeMethod.PLUGINMESSAGING) {
+				retryTask = plugin.getServer().getScheduler().runTaskTimer(plugin, this::sendSafely, 1L, RETRY_TICKS);
+			} else {
+				retryExecutor = Executors.newSingleThreadScheduledExecutor(runnable -> {
+					Thread thread = new Thread(runnable, "VotingPlugin-ControlEnrollment");
+					thread.setDaemon(true);
+					return thread;
+				});
+				retryFuture = retryExecutor.scheduleWithFixedDelay(this::sendSafely, 0L, 15L, TimeUnit.SECONDS);
+			}
 		} catch (RuntimeException failure) {
+			ScheduledExecutorService executor = retryExecutor;
+			if (executor != null) executor.shutdownNow();
+			retryExecutor = null;
+			retryFuture = null;
 			closed.set(true);
 			plugin.getLogger().warning("[Control] Automatic backend enrollment could not be scheduled");
+		}
+	}
+
+	private void sendSafely() {
+		try {
+			send();
+		} catch (RuntimeException failure) {
+			plugin.getLogger().warning("[Control] Automatic backend enrollment send failed; it will retry");
+			plugin.debug(failure);
 		}
 	}
 
@@ -124,31 +159,52 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 		return enrollment == null;
 	}
 
-	private void send() {
+	void send() {
 		PendingAutoEnrollment pending;
+		String challenge;
 		synchronized (this) {
 			if (closed.get() || (verifierInstalled
 					&& System.nanoTime() - verifierAcknowledgedAt < VERIFIER_REFRESH_NANOS)) return;
 			pending = enrollment;
+			challenge = routeChallenge;
 		}
 		BackendProxyHandler handler = plugin.getBackendProxyHandler();
-		if (handler == null || handler.getMethod() != BungeeMethod.PLUGINMESSAGING
-				|| handler.getGlobalMessageHandler() == null) return;
+		if (handler == null || handler.getGlobalMessageHandler() == null) return;
+		String verifier = pending == null ? "" : pending.verifier();
+		String proof = authenticator == null ? ""
+				: authenticator.signRequest(nodeId, requestId, endpoint, verifier, challenge);
+		if (closed.get()) return;
 		handler.getGlobalMessageHandler().sendMessage(VotingPluginWire.controlEnrollmentRequest(
-				nodeId, pending == null ? "" : pending.verifier(), endpoint, requestId));
+				nodeId, verifier, endpoint, requestId, challenge, proof));
 	}
 
 	public void handle(JsonEnvelope envelope) {
 		VotingPluginWire.ControlEnrollmentResult result = VotingPluginWire.readControlEnrollmentResult(envelope);
-		boolean restartConnector = false;
+		if (!result.valid || (authenticator != null && !authenticator.verifiesResult(result.authenticator,
+				result.nodeId, result.requestId, result.success, result.challenge))) return;
+		boolean ensureConnector = false;
 		synchronized (this) {
-			if (closed.get() || !result.valid || !result.success || !requestId.equals(result.requestId)
+			if (closed.get() || !requestId.equals(result.requestId)
 					|| !nodeId.equals(result.nodeId)) return;
-			if (enrollment == null) {
+			if (!result.challenge.isEmpty()) {
+				routeChallenge = result.challenge;
+				if (enrollment == null) {
+					try {
+						enrollment = prepare(plugin, credentialFile, nodeId);
+						if (enrollment == null) close();
+					} catch (IOException e) {
+						plugin.getLogger().warning(
+								"[Control] Automatic backend credential could not be prepared; it will retry");
+					}
+				}
+				ensureConnector = enrollment != null;
+			} else if (!result.success) {
+				return;
+			} else if (enrollment == null) {
 				try {
 					enrollment = prepare(plugin, credentialFile, nodeId);
 					if (enrollment == null) close();
-					restartConnector = true;
+					ensureConnector = enrollment != null;
 				} catch (IOException e) {
 					plugin.getLogger().warning(
 							"[Control] Automatic backend credential could not be prepared; it will retry");
@@ -159,7 +215,7 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 				completeIfConnected();
 			}
 		}
-		if (restartConnector) plugin.restartBackendControlConnector();
+		if (ensureConnector) plugin.startBackendControlConnectorForEnrollment(this);
 	}
 
 	/** Completes durable enrollment only after this credential authenticated to the configured endpoint. */
@@ -193,5 +249,11 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 		BukkitTask task = retryTask;
 		if (task != null) task.cancel();
 		retryTask = null;
+		ScheduledFuture<?> future = retryFuture;
+		if (future != null) future.cancel(true);
+		retryFuture = null;
+		ScheduledExecutorService executor = retryExecutor;
+		if (executor != null) executor.shutdownNow();
+		retryExecutor = null;
 	}
 }

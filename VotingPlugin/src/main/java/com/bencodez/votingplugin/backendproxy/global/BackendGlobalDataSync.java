@@ -60,17 +60,28 @@ public class BackendGlobalDataSync {
 				}
 				plugin.getBukkitScheduler().executeOrScheduleSync(plugin, () -> {
 					try {
-						plugin.getUserManager().getDataManager().clearCache();
-						plugin.setUpdate(true);
-						plugin.update();
-					} catch (RuntimeException failure) {
-						forceUpdateInProgress.set(false);
-						plugin.debug(failure);
-						return;
-					}
-					try {
-						plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
-								() -> clearForceUpdateFlag(serverName));
+						plugin.getUserManager().getDataManager().clearCacheAsyncCompletion().whenComplete((ignored, failure) -> {
+							if (failure != null) {
+								forceUpdateInProgress.set(false);
+								plugin.debug(failure);
+								return;
+							}
+							try {
+								plugin.getBukkitScheduler().runTaskAsynchronously(plugin, () -> {
+									try {
+										plugin.setUpdate(true);
+										plugin.update();
+										clearForceUpdateFlag(serverName);
+									} catch (RuntimeException updateFailure) {
+										forceUpdateInProgress.set(false);
+										plugin.debug(updateFailure);
+									}
+								});
+							} catch (RuntimeException schedulingFailure) {
+								forceUpdateInProgress.set(false);
+								plugin.debug(schedulingFailure);
+							}
+						});
 					} catch (RuntimeException failure) {
 						forceUpdateInProgress.set(false);
 						plugin.debug(failure);

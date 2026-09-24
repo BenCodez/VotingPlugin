@@ -1160,7 +1160,7 @@ Webhooks:
 ###########################################
 # VotingPlugin Control backend connector
 # Optional outbound connection for full local WebUI configuration control.
-# A locally hosted Control, or a proxy-hosted Control reached with PLUGINMESSAGING,
+# A locally hosted Control, or a proxy-hosted Control reached through the configured proxy transport,
 # generates and enrolls credentials automatically. The credential never enters this YAML.
 ###########################################
 

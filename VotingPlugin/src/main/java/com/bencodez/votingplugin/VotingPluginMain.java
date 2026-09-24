@@ -17,6 +17,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -39,6 +40,7 @@ import com.bencodez.advancedcore.api.inventory.editgui.valuetypes.EditGUIValueNu
 import com.bencodez.advancedcore.api.item.ItemBuilder;
 import com.bencodez.advancedcore.api.javascript.JavascriptPlaceholderRequest;
 import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
+import com.bencodez.advancedcore.api.player.UuidLookup;
 import com.bencodez.advancedcore.api.rewards.DirectlyDefinedReward;
 import com.bencodez.advancedcore.api.rewards.Reward;
 import com.bencodez.advancedcore.api.rewards.RewardEditData;
@@ -96,11 +98,13 @@ import com.bencodez.votingplugin.listeners.VotifierVoteOverflowQueue;
 import com.bencodez.votingplugin.listeners.VotingPluginUpdateEvent;
 import com.bencodez.votingplugin.placeholders.MVdWPlaceholders;
 import com.bencodez.votingplugin.placeholders.PlaceHolders;
+import com.bencodez.votingplugin.placeholders.PlaceholderPlayerPresence;
 import com.bencodez.votingplugin.placeholders.VotingPluginExpansion;
 import com.bencodez.votingplugin.presets.VoteSitePresetSetupHandler;
 import com.bencodez.votingplugin.proxy.control.HostedControlManager;
-import com.bencodez.votingplugin.util.ControlCredentialFile.PendingAutoEnrollment;
 import com.bencodez.votingplugin.util.BoundedScheduledExecutor;
+import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
+import com.bencodez.votingplugin.util.ControlCredentialFile.PendingAutoEnrollment;
 import com.bencodez.votingplugin.rewards.VotingPluginRewardRegistrar;
 import com.bencodez.votingplugin.servicesites.ServiceSiteHandler;
 import com.bencodez.votingplugin.signs.Signs;
@@ -232,6 +236,9 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private PlaceHolders placeholders;
 
 	@Getter
+	private final PlaceholderPlayerPresence placeholderPlayerPresence = new PlaceholderPlayerPresence();
+
+	@Getter
 	private VoteTester voteTester;
 
 
@@ -302,7 +309,13 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	@Getter
 	private DiscordHandler discordHandler;
 
-	private VotingPluginBackgroundTask backgroundTask;
+	private volatile VotingPluginBackgroundTask backgroundTask;
+	private volatile AtomicBoolean basicBungeeUpdateRunning;
+
+	private synchronized AtomicBoolean basicBungeeUpdateAdmission() {
+		if (basicBungeeUpdateRunning == null) basicBungeeUpdateRunning = new AtomicBoolean();
+		return basicBungeeUpdateRunning;
+	}
 	private VotingPluginVersionInfo versionInfo;
 	private VotingPluginConfigHealth configHealth;
 	private VotifierIntegration votifierIntegration;
@@ -316,10 +329,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	public void setUpdate(boolean update) {
-		if (backgroundTask == null) {
-			backgroundTask = new VotingPluginBackgroundTask(this);
-		}
-		backgroundTask.setRequested(update);
+		backgroundTask().setRequested(update);
+	}
+
+	private synchronized VotingPluginBackgroundTask backgroundTask() {
+		if (backgroundTask == null) backgroundTask = new VotingPluginBackgroundTask(this);
+		return backgroundTask;
 	}
 
 	public boolean isUpdateStarted() {
@@ -335,15 +350,70 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 
-	public void basicBungeeUpdate() {
-		for (Player player : Bukkit.getOnlinePlayers()) {
-			VotingPluginUser user = getVotingPluginUserManager().getVotingPluginUser(player);
-			user.cache();
-			user.offVote();
-			user.checkOfflineRewards();
+	/**
+	 * Capture live player state without crossing Folia ownership boundaries.
+	 * Completion runs after every player owner callback has finished.
+	 */
+	public void captureOnlineTopVoterIgnore(java.util.function.Consumer<java.util.Map<UUID, Boolean>> completion) {
+		captureOnlineTopVoterIgnore(completion, () -> completion.accept(java.util.Map.of()));
+	}
+
+	public void captureOnlineTopVoterIgnore(java.util.function.Consumer<java.util.Map<UUID, Boolean>> completion,
+			Runnable failureCompletion) {
+		java.util.Objects.requireNonNull(completion, "completion");
+		java.util.Objects.requireNonNull(failureCompletion, "failureCompletion");
+		try {
+			getBukkitScheduler().runTask(this, () -> {
+				java.util.List<Player> players = new java.util.ArrayList<>(Bukkit.getOnlinePlayers());
+				if (players.isEmpty()) {
+					completion.accept(java.util.Map.of());
+					return;
+				}
+				java.util.concurrent.ConcurrentHashMap<UUID, Boolean> captured = new java.util.concurrent.ConcurrentHashMap<>();
+				java.util.concurrent.atomic.AtomicInteger remaining = new java.util.concurrent.atomic.AtomicInteger(players.size());
+				Runnable maybeComplete = () -> {
+					if (remaining.decrementAndGet() == 0) completion.accept(java.util.Map.copyOf(captured));
+				};
+				for (Player player : players) {
+					BukkitCompletionScheduler.run(this, player, () -> {
+							try {
+								if (!player.isOnline()) return;
+								UUID storageUuid = getPlaceholderPlayerPresence().storageUuid(player);
+								if (storageUuid == null) storageUuid = placeholderStorageUuid(player, getOptions().isOnlineMode());
+								if (storageUuid != null) captured.put(storageUuid,
+										player.hasPermission("VotingPlugin.TopVoter.Ignore"));
+							} finally { maybeComplete.run(); }
+						}, maybeComplete, maybeComplete);
+				}
+			});
+		} catch (RuntimeException failure) {
+			debug(failure);
+			failureCompletion.run();
 		}
 	}
 
+	public void basicBungeeUpdate() {
+		AtomicBoolean admission = basicBungeeUpdateAdmission();
+		if (!admission.compareAndSet(false, true)) return;
+		captureOnlineTopVoterIgnore(online -> {
+			try {
+				getUserManager().getDataManager().getTimer().execute(() -> {
+					try {
+						for (java.util.Map.Entry<UUID, Boolean> entry : online.entrySet()) {
+							VotingPluginUser user = getVotingPluginUserManager().getVotingPluginUser(entry.getKey(), false);
+							if (user == null) continue;
+							user.cache();
+							user.offVoteWithCapturedTopVoterIgnore(entry.getValue().booleanValue());
+							user.checkOfflineRewards();
+						}
+					} finally { admission.set(false); }
+				});
+			} catch (RuntimeException failure) {
+				admission.set(false);
+				debug(failure);
+			}
+		}, () -> admission.set(false));
+	}
 
 
 	/**
@@ -650,6 +720,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		registerCommands();
 		checkVotifier();
 		registerEvents();
+		refreshPlaceholderPlayerPresence();
 
 		loadVoteBroadcast();
 
@@ -1118,6 +1189,38 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		} catch (RejectedExecutionException e) {
 			backendControlConnectorReconcileQueued = false;
 			getLogger().warning("[Control] Bukkit connector settings require a server restart after lifecycle shutdown");
+		}
+	}
+
+	/** Starts the connector for an admitted enrollment without replacing its route challenge. */
+	public void startBackendControlConnectorForEnrollment(BackendControlAutoEnrollment enrollment) {
+		try {
+			backendControlConnectorLifecycle.execute(() -> {
+				BackendControlConnector replacement;
+				synchronized (this) {
+					if (backendControlConnectorStopping || backendControlAutoEnrollment != enrollment
+							|| backendControlConnector != null && !backendControlConnector.isClosed()) return;
+				}
+				try {
+					replacement = BackendControlConnector.create(this);
+				} catch (Exception e) {
+					getLogger().warning("[Control] Bukkit connector could not start after automatic enrollment: "
+							+ e.getMessage());
+					return;
+				}
+				if (replacement == null) return;
+				synchronized (this) {
+					if (backendControlConnectorStopping || backendControlAutoEnrollment != enrollment
+							|| backendControlConnector != null && !backendControlConnector.isClosed()) {
+						replacement.close();
+						return;
+					}
+					backendControlConnector = replacement;
+					replacement.start();
+				}
+			});
+		} catch (RejectedExecutionException e) {
+			getLogger().warning("[Control] Bukkit connector could not start after lifecycle shutdown");
 		}
 	}
 
@@ -1791,6 +1894,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onUnLoad() {
+		placeholderPlayerPresence.clear();
 		stopBackendHostedControlLifecycle();
 		stopBackendControlConnectorLifecycle();
 		if (getBackendProxyHandler() != null) {
@@ -1929,6 +2033,23 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		reloadPlugin(true, true);
 	}
 
+	/** Captures Bukkit presence while the lifecycle caller owns platform access. */
+	public void refreshPlaceholderPlayerPresence() {
+		boolean onlineMode = getOptions().isOnlineMode();
+		placeholderPlayerPresence.replace(Bukkit::getOnlinePlayers,
+				player -> placeholderStorageUuid(player, onlineMode));
+	}
+
+	static UUID placeholderStorageUuid(Player player, boolean onlineMode) {
+		if (onlineMode) return player.getUniqueId();
+		String cachedUuid = UuidLookup.getInstance().getCachedUUID(player.getName());
+		try {
+			return UUID.fromString(cachedUuid);
+		} catch (IllegalArgumentException | NullPointerException ignored) {
+			return player.getUniqueId();
+		}
+	}
+
 	/** Reloads configuration applied by Control before its result is acknowledged. */
 	public void reloadFromControl() {
 		reloadPlugin(false, false);
@@ -2043,11 +2164,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		plugin.debug("Loaded Files");
 	}
 
-	public synchronized void update() {
-		if (backgroundTask == null) {
-			backgroundTask = new VotingPluginBackgroundTask(this);
-		}
-		backgroundTask.run();
+	public void update() {
+		backgroundTask().run();
 	}
 
 

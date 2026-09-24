@@ -1,0 +1,454 @@
+package com.bencodez.votingplugin.placeholders;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.bukkit.entity.Player;
+import org.bukkit.Bukkit;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+
+import com.bencodez.advancedcore.api.placeholder.CalculatingPlaceholder;
+import com.bencodez.advancedcore.api.placeholder.PlaceHolder;
+import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
+import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
+import com.bencodez.simpleapi.folialib.FoliaLib;
+import com.bencodez.simpleapi.folialib.enums.EntityTaskResult;
+import com.bencodez.simpleapi.folialib.impl.ServerImplementation;
+import com.bencodez.simpleapi.scheduler.BukkitScheduler;
+import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.config.Config;
+import com.bencodez.votingplugin.user.UserManager;
+import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.votesites.VoteSite;
+import com.bencodez.votingplugin.votesites.VoteSiteManager;
+
+class PlaceHoldersWorkerSafetyTest {
+	@Test
+	void workerSafeUpdateUsesCapturedPresenceWithoutBukkitScheduling() {
+		Fixture fixture = new Fixture();
+		AtomicInteger requests = new AtomicInteger();
+		PlaceHolder<VotingPluginUser> placeholder = fixture.cachedPlaceholder("Points", requests);
+		fixture.publish(placeholder);
+
+		try (var bukkit = mockStatic(Bukkit.class)) {
+			fixture.placeholders.onUserDataChange(fixture.advancedUser, "Points");
+			assertEquals(0, requests.get(), "offline online-only users must not be refreshed");
+
+			fixture.presence.playerOnline(fixture.player);
+			fixture.placeholders.onUserDataChange(fixture.advancedUser, "Points");
+			assertEquals(1, requests.get());
+			assertEquals("value", placeholder.getCache().get("points").get(fixture.uuid));
+			verify(fixture.scheduler, never()).runTask(eq(fixture.plugin), any(Runnable.class));
+			verify(fixture.advancedUser, never()).isOnline();
+
+			fixture.presence.playerOffline(fixture.uuid);
+			fixture.placeholders.onLogout(fixture.uuid);
+			assertFalse(placeholder.getCache().get("points").containsKey(fixture.uuid));
+			fixture.placeholders.onUserDataChange(fixture.advancedUser, "Points");
+			assertEquals(1, requests.get());
+			bukkit.verifyNoInteractions();
+		}
+	}
+
+	@Test
+	void playerDependentUpdateSchedulesOnlyItsEntityOwnedWork() {
+		Fixture fixture = new Fixture();
+		fixture.presence.playerOnline(fixture.player);
+		AtomicInteger requests = new AtomicInteger();
+		PlaceHolder<VotingPluginUser> placeholder = fixture.cachedPlaceholder("LastVotes", requests);
+		fixture.placeholders.getPlaceholders().add(fixture.placeholders.platformOwned(placeholder));
+		fixture.placeholders.publishUserDataChangePlaceholders();
+
+		fixture.placeholders.onUserDataChange(fixture.advancedUser, "LastVotes");
+
+		assertEquals(0, requests.get());
+		ArgumentCaptor<Runnable> task = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), task.capture(), eq(fixture.player));
+		task.getValue().run();
+		assertEquals(1, requests.get());
+		verify(fixture.advancedUser, never()).isOnline();
+	}
+
+	@Test
+	void backgroundWarmupSchedulesPlayerDependentWorkOnTheEntityOwner() {
+		Fixture fixture = new Fixture();
+		fixture.presence.playerOnline(fixture.player);
+		AtomicInteger requests = new AtomicInteger();
+		PlaceHolder<VotingPluginUser> placeholder = fixture.cachedPlaceholder("LastVotes", requests);
+		fixture.placeholders.getPlaceholders().add(fixture.placeholders.platformOwned(placeholder));
+		fixture.placeholders.publishUserDataChangePlaceholders();
+
+		fixture.placeholders.onUpdate(fixture.votingUser, true);
+
+		assertEquals(0, requests.get());
+		ArgumentCaptor<Runnable> task = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), task.capture(), eq(fixture.player));
+		task.getValue().run();
+		assertEquals(1, requests.get());
+	}
+
+	@Test
+	void reloadUsesThePresenceStorageUuidForReplacementPlayerWrappers() {
+		Fixture fixture = new Fixture();
+		Player replacement = mock(Player.class);
+		UUID bukkitUuid = UUID.randomUUID();
+		when(replacement.getUniqueId()).thenReturn(bukkitUuid);
+		when(replacement.isOnline()).thenReturn(true);
+		when(fixture.userManager.getVotingPluginUser(fixture.uuid)).thenReturn(fixture.votingUser);
+		fixture.presence.playerOnline(fixture.uuid, replacement);
+		AtomicInteger requests = new AtomicInteger();
+		fixture.publish(fixture.cachedPlaceholder("Points", requests));
+
+		try (var bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getOnlinePlayers).thenReturn(List.of(replacement));
+			fixture.placeholders.reload();
+		}
+
+		assertEquals(2, requests.get(), "reload updates both existing warmup passes");
+		verify(fixture.userManager, times(2)).getVotingPluginUser(fixture.uuid);
+		verify(fixture.userManager, never()).getVotingPluginUser(replacement);
+	}
+
+	@Test
+	void cacheMissUsesThePresenceStorageUuidForAnOnlinePlayer() {
+		Fixture fixture = new Fixture();
+		Player onlinePlayer = mock(Player.class);
+		when(onlinePlayer.getUniqueId()).thenReturn(UUID.randomUUID());
+		when(fixture.userManager.getVotingPluginUser(fixture.uuid)).thenReturn(fixture.votingUser);
+		fixture.presence.playerOnline(fixture.uuid, onlinePlayer);
+
+		assertEquals(fixture.votingUser, fixture.placeholders.resolvePlaceholderUser(onlinePlayer));
+
+		verify(fixture.userManager).getVotingPluginUser(fixture.uuid);
+		verify(fixture.userManager, never()).getVotingPluginUser(onlinePlayer);
+	}
+
+	@Test
+	void backgroundWarmupCapturesVoteEligibilityBeforeTemporaryDataIsCleared() {
+		Fixture fixture = new Fixture();
+		fixture.presence.playerOnline(fixture.player);
+		VoteSite site = mock(VoteSite.class);
+		when(site.isHidden()).thenReturn(false);
+		when(site.getPermissionToView()).thenReturn("");
+		when(fixture.voteSiteManager.getVoteSitesEnabled()).thenReturn(new ArrayList<>(List.of(site)));
+		when(fixture.votingUser.canVoteSite(site)).thenReturn(true)
+				.thenThrow(new AssertionError("entity task reread cleared TEMP_ONLY vote data"));
+		AtomicInteger requests = new AtomicInteger();
+		PlaceHolder<VotingPluginUser> placeholder = fixture.cachedPlaceholder(
+				"CanVoteSites", "LastVotes", requests);
+		placeholder.setUseCache(true, "CanVoteSites");
+		placeholder.getCache().get("CanVoteSites").put(fixture.uuid, "old");
+		fixture.placeholders.getPlaceholders().add(fixture.placeholders.platformOwned(placeholder));
+		fixture.placeholders.publishUserDataChangePlaceholders();
+
+		fixture.placeholders.onUpdate(fixture.votingUser, false);
+
+		ArgumentCaptor<Runnable> task = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), task.capture(), eq(fixture.player));
+		task.getValue().run();
+		assertEquals("1", placeholder.getCache().get("CanVoteSites").get(fixture.uuid));
+		assertEquals(0, requests.get(), "the entity task must publish the captured result directly");
+		verify(fixture.votingUser).canVoteSite(site);
+	}
+
+	@Test
+	void unpublishedReloadGenerationCannotBypassPlatformClassification() {
+		Fixture fixture = new Fixture();
+		fixture.presence.playerOnline(fixture.player);
+		AtomicInteger requests = new AtomicInteger();
+		PlaceHolder<VotingPluginUser> placeholder = fixture.cachedPlaceholder("LastVotes", requests);
+		fixture.placeholders.getPlaceholders().add(fixture.placeholders.platformOwned(placeholder));
+
+		fixture.placeholders.onUpdate(fixture.votingUser, true);
+
+		assertEquals(0, requests.get(), "readers must use the last complete published classification");
+		verify(fixture.scheduler, never()).runTask(eq(fixture.plugin), any(Runnable.class), any(Player.class));
+	}
+
+	@Test
+	void offlineAllCacheUsesTheWorkerSafePlatformFallback() {
+		Fixture fixture = new Fixture(PlaceholderCacheLevel.AUTOALL);
+		when(fixture.votingUser.getSitesNotVotedOnWithoutOnlinePermissions()).thenReturn(4);
+		when(fixture.votingUser.getTotalNumberOfSitesWithoutOnlinePermissions()).thenReturn(6);
+		AtomicInteger liveRequests = new AtomicInteger();
+		PlaceHolder<VotingPluginUser> available = fixture.cachedPlaceholder("SitesAvailable", "LastVotes", liveRequests);
+		PlaceHolder<VotingPluginUser> total = fixture.cachedPlaceholder("SitesAvailableTotal", "LastVotes", liveRequests);
+		fixture.placeholders.getPlaceholders().add(
+				fixture.placeholders.platformOwnedWithOfflineWorkerFallback(available));
+		fixture.placeholders.getPlaceholders().add(
+				fixture.placeholders.platformOwnedWithOfflineWorkerFallback(total));
+		fixture.placeholders.publishUserDataChangePlaceholders();
+
+		fixture.placeholders.onUserDataChange(fixture.advancedUser, "LastVotes");
+
+		assertEquals("4", available.getCache().get("sitesavailable").get(fixture.uuid));
+		assertEquals("6", total.getCache().get("sitesavailabletotal").get(fixture.uuid));
+		assertEquals(0, liveRequests.get(), "offline fallback must not resolve live player permissions");
+		verify(fixture.scheduler, never()).runTask(eq(fixture.plugin), any(Runnable.class), any(Player.class));
+	}
+
+	@Test
+	void retiredEntityFallsBackToOfflineWorkerUpdate() {
+		Fixture fixture = new Fixture(PlaceholderCacheLevel.AUTOALL);
+		when(fixture.votingUser.getSitesNotVotedOnWithoutOnlinePermissions()).thenReturn(4);
+		AtomicInteger liveRequests = new AtomicInteger();
+		PlaceHolder<VotingPluginUser> available = fixture.cachedPlaceholder(
+				"SitesAvailable", "LastVotes", liveRequests);
+		fixture.placeholders.getPlaceholders().add(
+				fixture.placeholders.platformOwnedWithOfflineWorkerFallback(available));
+		fixture.placeholders.publishUserDataChangePlaceholders();
+		fixture.presence.playerOnline(fixture.player);
+		FoliaLib folia = mock(FoliaLib.class);
+		ServerImplementation entityScheduler = mock(ServerImplementation.class);
+		when(fixture.scheduler.getFoliaLib()).thenReturn(folia);
+		when(folia.getImpl()).thenReturn(entityScheduler);
+		when(entityScheduler.runAtEntityWithFallback(eq(fixture.player), any(), any(Runnable.class)))
+				.thenAnswer(call -> {
+					call.getArgument(2, Runnable.class).run();
+					return CompletableFuture.completedFuture(EntityTaskResult.ENTITY_RETIRED);
+				});
+		doAnswer(call -> { call.getArgument(1, Runnable.class).run(); return null; })
+				.when(fixture.scheduler).runTask(eq(fixture.plugin), any(Runnable.class));
+
+		fixture.placeholders.onUserDataChange(fixture.advancedUser, "LastVotes");
+
+		assertEquals("4", available.getCache().get("sitesavailable").get(fixture.uuid));
+		assertEquals(0, liveRequests.get(), "retirement fallback must not read live player permissions");
+	}
+
+	@Test
+	void allPlayerCacheCompletesOfflineFallbackWhenQuitPrecedesEntityTask() {
+		Fixture fixture = new Fixture(PlaceholderCacheLevel.AUTOALL);
+		when(fixture.votingUser.getSitesNotVotedOnWithoutOnlinePermissions()).thenReturn(3);
+		AtomicInteger liveRequests = new AtomicInteger();
+		PlaceHolder<VotingPluginUser> available = fixture.cachedPlaceholder(
+				"SitesAvailable", "LastVotes", liveRequests);
+		fixture.placeholders.getPlaceholders().add(
+				fixture.placeholders.platformOwnedWithOfflineWorkerFallback(available));
+		fixture.placeholders.publishUserDataChangePlaceholders();
+		fixture.presence.playerOnline(fixture.player);
+
+		fixture.placeholders.onUserDataChange(fixture.advancedUser, "LastVotes");
+		ArgumentCaptor<Runnable> task = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), task.capture(), eq(fixture.player));
+		fixture.presence.playerOffline(fixture.uuid);
+		fixture.placeholders.onLogout(fixture.uuid);
+		task.getValue().run();
+
+		assertEquals("3", available.getCache().get("sitesavailable").get(fixture.uuid));
+		assertEquals(0, liveRequests.get(), "quit fallback must not access live player permissions");
+	}
+
+	@Test
+	void playerDependentUpdateMovesToTheReplacementEntityOwner() {
+		Fixture fixture = new Fixture();
+		fixture.presence.playerOnline(fixture.player);
+		AtomicInteger requests = new AtomicInteger();
+		PlaceHolder<VotingPluginUser> placeholder = fixture.cachedPlaceholder("LastVotes", requests);
+		fixture.placeholders.getPlaceholders().add(fixture.placeholders.platformOwned(placeholder));
+		fixture.placeholders.publishUserDataChangePlaceholders();
+
+		fixture.placeholders.onUserDataChange(fixture.advancedUser, "LastVotes");
+		ArgumentCaptor<Runnable> tasks = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), tasks.capture(), eq(fixture.player));
+
+		Player replacement = mock(Player.class);
+		when(replacement.getUniqueId()).thenReturn(fixture.uuid);
+		fixture.presence.playerOffline(fixture.uuid);
+		fixture.presence.playerOnline(replacement);
+		tasks.getValue().run();
+		assertEquals(0, requests.get(), "the stale owner task must not touch the replacement player");
+
+		verify(fixture.scheduler).runTask(eq(fixture.plugin), tasks.capture(), eq(replacement));
+		tasks.getAllValues().get(1).run();
+		assertEquals(1, requests.get());
+		verify(fixture.scheduler, times(2)).runTask(eq(fixture.plugin), any(Runnable.class), any(Player.class));
+	}
+
+	@Test
+	void staleEligibilityUpdateCannotOverwriteANewerReplacementOwnerUpdate() {
+		Fixture fixture = new Fixture();
+		fixture.presence.playerOnline(fixture.player);
+		Player replacement = mock(Player.class);
+		when(replacement.getUniqueId()).thenReturn(fixture.uuid);
+		VoteSite site = mock(VoteSite.class);
+		when(site.isHidden()).thenReturn(false);
+		when(site.getPermissionToView()).thenReturn("");
+		when(fixture.voteSiteManager.getVoteSitesEnabled()).thenReturn(new ArrayList<>(List.of(site)));
+		when(fixture.votingUser.canVoteSite(site)).thenReturn(true, false);
+		AtomicInteger requests = new AtomicInteger();
+		PlaceHolder<VotingPluginUser> placeholder = fixture.cachedPlaceholder(
+				"CanVoteSites", "LastVotes", requests);
+		fixture.placeholders.getPlaceholders().add(fixture.placeholders.platformOwned(placeholder));
+		fixture.placeholders.publishUserDataChangePlaceholders();
+
+		fixture.placeholders.onUserDataChange(fixture.advancedUser, "LastVotes");
+		fixture.presence.playerOffline(fixture.uuid);
+		fixture.presence.playerOnline(replacement);
+		fixture.placeholders.onUserDataChange(fixture.advancedUser, "LastVotes");
+
+		ArgumentCaptor<Runnable> tasks = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler, times(2)).runTask(eq(fixture.plugin), tasks.capture(), any(Player.class));
+		tasks.getAllValues().get(1).run();
+		assertEquals("0", placeholder.getCache().get("canvotesites").get(fixture.uuid));
+		tasks.getAllValues().get(0).run();
+		assertEquals("0", placeholder.getCache().get("canvotesites").get(fixture.uuid));
+		verify(fixture.scheduler, times(2)).runTask(eq(fixture.plugin), any(Runnable.class), any(Player.class));
+		assertEquals(0, requests.get());
+	}
+
+	@Test
+	void narrowUpdateDoesNotCancelUnrelatedWarmupPlaceholders() {
+		Fixture fixture = new Fixture();
+		fixture.presence.playerOnline(fixture.player);
+		AtomicInteger changedRequests = new AtomicInteger();
+		AtomicInteger warmupRequests = new AtomicInteger();
+		PlaceHolder<VotingPluginUser> changed = fixture.cachedPlaceholder(
+				"Changed", "LastVotes", changedRequests);
+		PlaceHolder<VotingPluginUser> warmupOnly = fixture.cachedPlaceholder(
+				"WarmupOnly", "Unrelated", warmupRequests);
+		fixture.placeholders.getPlaceholders().add(fixture.placeholders.platformOwned(changed));
+		fixture.placeholders.getPlaceholders().add(fixture.placeholders.platformOwned(warmupOnly));
+		fixture.placeholders.publishUserDataChangePlaceholders();
+
+		fixture.placeholders.onUpdate(fixture.votingUser, true);
+		fixture.placeholders.onUserDataChange(fixture.advancedUser, "LastVotes");
+
+		ArgumentCaptor<Runnable> tasks = ArgumentCaptor.forClass(Runnable.class);
+		verify(fixture.scheduler, times(2)).runTask(eq(fixture.plugin), tasks.capture(), eq(fixture.player));
+		tasks.getAllValues().get(1).run();
+		tasks.getAllValues().get(0).run();
+		assertEquals(1, changedRequests.get());
+		assertEquals(1, warmupRequests.get(), "narrow changes must not cancel unrelated warmup work");
+	}
+
+	@Test
+	void concurrentCalculatingUpdatesKeepBothCachesCoherent() throws Exception {
+		Fixture fixture = new Fixture();
+		fixture.presence.playerOnline(fixture.player);
+		AtomicInteger sequence = new AtomicInteger();
+		CalculatingPlaceholder<VotingPluginUser> placeholder = new CalculatingPlaceholder<>("Next_site") {
+			@Override public String placeholderRequest(VotingPluginUser user, String identifier) {
+				return getCacheData().get(user.getJavaUUID());
+			}
+			@Override public String placeholderDataRequest(VotingPluginUser user, String identifier) {
+				return Integer.toString(sequence.incrementAndGet());
+			}
+		};
+		placeholder.updateDataKey("LastVotes").setUseCache(true, "next_site");
+		fixture.publish(placeholder);
+
+		ExecutorService workers = Executors.newFixedThreadPool(8);
+		try {
+			List<Callable<Void>> updates = new ArrayList<>();
+			for (int i = 0; i < 100; i++) {
+				boolean bulkUpdate = i % 2 == 0;
+				updates.add(() -> {
+					if (bulkUpdate) fixture.placeholders.onUpdate(fixture.votingUser, true);
+					else fixture.placeholders.onUserDataChange(fixture.advancedUser, "LastVotes");
+					return null;
+				});
+			}
+			workers.invokeAll(updates).forEach(result -> {
+				try { result.get(); }
+				catch (Exception failure) { throw new AssertionError(failure); }
+			});
+		} finally {
+			workers.shutdownNow();
+			assertTrue(workers.awaitTermination(5, TimeUnit.SECONDS));
+		}
+		assertEquals(placeholder.getCacheData().get(fixture.uuid),
+				placeholder.getCache().get("next_site").get(fixture.uuid));
+		assertEquals(1, placeholder.getCache().size());
+	}
+
+	private static final class Fixture {
+		final UUID uuid = UUID.randomUUID();
+		final VotingPluginMain plugin = mock(VotingPluginMain.class);
+		final Config config = mock(Config.class);
+		final UserManager userManager = mock(UserManager.class);
+		final com.bencodez.advancedcore.api.user.UserManager advancedUserManager =
+				mock(com.bencodez.advancedcore.api.user.UserManager.class);
+		final UserDataManager dataManager = mock(UserDataManager.class);
+		final java.util.concurrent.ScheduledExecutorService storageWorker =
+				mock(java.util.concurrent.ScheduledExecutorService.class);
+		final VotingPluginUser votingUser = mock(VotingPluginUser.class);
+		final VoteSiteManager voteSiteManager = mock(VoteSiteManager.class);
+		final AdvancedCoreUser advancedUser = mock(AdvancedCoreUser.class);
+		final BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		final PlaceholderPlayerPresence presence = new PlaceholderPlayerPresence();
+		final Player player = mock(Player.class);
+		final PlaceHolders placeholders;
+
+		Fixture() {
+			this(PlaceholderCacheLevel.AUTO);
+		}
+
+		Fixture(PlaceholderCacheLevel level) {
+			when(plugin.getConfigFile()).thenReturn(config);
+			when(config.getPlaceholderCacheLevel()).thenReturn(level);
+			when(plugin.getVotingPluginUserManager()).thenReturn(userManager);
+			when(plugin.getVoteSiteManager()).thenReturn(voteSiteManager);
+			when(plugin.getUserManager()).thenReturn(advancedUserManager);
+			when(advancedUserManager.getDataManager()).thenReturn(dataManager);
+			when(dataManager.getTimer()).thenReturn(storageWorker);
+			doAnswer(call -> { call.getArgument(0, Runnable.class).run(); return null; })
+					.when(storageWorker).execute(any(Runnable.class));
+			when(userManager.getVotingPluginUser(advancedUser)).thenReturn(votingUser);
+			when(userManager.getVotingPluginUser(uuid, false)).thenReturn(votingUser);
+			when(votingUser.isCached()).thenReturn(true);
+			when(votingUser.getJavaUUID()).thenReturn(uuid);
+			when(votingUser.getUUID()).thenReturn(uuid.toString());
+			when(advancedUser.getJavaUUID()).thenReturn(uuid);
+			doThrow(new AssertionError("worker callback accessed live Bukkit online state"))
+					.when(advancedUser).isOnline();
+			when(plugin.getPlaceholderPlayerPresence()).thenReturn(presence);
+			when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+			when(plugin.isEnabled()).thenReturn(true);
+			when(player.getUniqueId()).thenReturn(uuid);
+			placeholders = new PlaceHolders(plugin);
+		}
+
+		PlaceHolder<VotingPluginUser> cachedPlaceholder(String key, AtomicInteger requests) {
+			return cachedPlaceholder(key, key, requests);
+		}
+
+		PlaceHolder<VotingPluginUser> cachedPlaceholder(String identifier, String key, AtomicInteger requests) {
+			PlaceHolder<VotingPluginUser> placeholder = new PlaceHolder<>(identifier) {
+				@Override public String placeholderRequest(VotingPluginUser user, String identifier) {
+					requests.incrementAndGet();
+					return "value";
+				}
+			};
+			placeholder.updateDataKey(key).setUseCache(true, identifier.toLowerCase());
+			return placeholder;
+		}
+
+		void publish(PlaceHolder<VotingPluginUser> placeholder) {
+			placeholders.getPlaceholders().add(placeholder);
+			placeholders.publishUserDataChangePlaceholders();
+		}
+	}
+}
