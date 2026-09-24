@@ -630,10 +630,11 @@ class SharedMysqlPurchaseJournalTest {
 		org.mockito.ArgumentCaptor<String> sql = org.mockito.ArgumentCaptor.forClass(String.class);
 		verify(fixture.work, org.mockito.Mockito.times(10)).prepareStatement(sql.capture());
 		assertTrue(sql.getAllValues().get(4).contains("FOR UPDATE"));
-		assertTrue(sql.getAllValues().get(8).contains(
-				"`MonthTotal` = LEAST(COALESCE(`LastMonthTotal`, 0) + ?, COALESCE(`MonthTotal`, 0) + 1)"));
-		assertTrue(sql.getAllValues().get(8).contains(
-				"`MonthTotal-SEPTEMBER-2026` = LEAST(?, COALESCE(`MonthTotal-SEPTEMBER-2026`, 0) + 1)"));
+		assertTrue(sql.getAllValues().get(8).contains("`MonthTotal` = GREATEST(COALESCE(`MonthTotal`, 0), "
+				+ "LEAST(COALESCE(`LastMonthTotal`, 0) + ?, COALESCE(`MonthTotal`, 0) + 1))"));
+		assertTrue(sql.getAllValues().get(8).contains("`MonthTotal-SEPTEMBER-2026` = "
+				+ "GREATEST(COALESCE(`MonthTotal-SEPTEMBER-2026`, 0), "
+				+ "LEAST(?, COALESCE(`MonthTotal-SEPTEMBER-2026`, 0) + 1))"));
 		verify(markerSelect).setString(1, "period-copy:MonthTotal");
 		verify(increment).setInt(1, 42);
 		verify(increment).setInt(2, 42);

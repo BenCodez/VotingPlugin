@@ -551,9 +551,12 @@ final class SharedMysqlPurchaseJournal {
 					String increment = "COALESCE(" + quoted + ", 0) + 1";
 					sql.append(quoted).append(" = ");
 					if (maximum != null && resetPending && columns.get(index).equals(boundaryColumn)) {
-						sql.append("LEAST(COALESCE(").append(qi(previousColumn)).append(", 0) + ?, ")
-								.append(increment).append(')');
-					} else if (maximum != null) sql.append("LEAST(?, ").append(increment).append(')');
+						sql.append("GREATEST(COALESCE(").append(quoted).append(", 0), LEAST(COALESCE(")
+								.append(qi(previousColumn)).append(", 0) + ?, ").append(increment).append("))");
+					} else if (maximum != null) {
+						sql.append("GREATEST(COALESCE(").append(quoted).append(", 0), LEAST(?, ")
+								.append(increment).append("))");
+					}
 					else sql.append(increment);
 				}
 				sql.append(" WHERE ").append(qi("uuid")).append(uuidCast());

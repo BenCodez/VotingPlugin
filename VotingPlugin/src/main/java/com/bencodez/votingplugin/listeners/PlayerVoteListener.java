@@ -37,17 +37,18 @@ public class PlayerVoteListener implements Listener {
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onplayerVote(PlayerVoteEvent event) {
 		if (!VoteTaskAdmission.isVoteTask() && Bukkit.isPrimaryThread()) {
-			if (!VoteTaskAdmission.trySubmit(plugin.getVoteTimer(), () -> processVote(event))) {
+			PlatformVoteState platformState = PlatformVoteState.capture(plugin, event.getPlayer());
+			if (!VoteTaskAdmission.trySubmit(plugin.getVoteTimer(), () -> processVote(event, platformState))) {
 				failAdmission(event, new SharedVoteAdmissionException("Vote executor rejected accounting admission"));
 			}
 			return;
 		}
-		processVote(event);
+		processVote(event, PlatformVoteState.uncaptured());
 	}
 
-	private void processVote(PlayerVoteEvent event) {
+	private void processVote(PlayerVoteEvent event, PlatformVoteState platformState) {
         try {
-            SharedVoteProcessor.process(new BukkitOperations(plugin, event));
+            SharedVoteProcessor.process(new BukkitOperations(plugin, event, platformState));
         } catch (SharedVoteAdmissionException admissionFailure) {
 			failAdmission(event, admissionFailure);
 		} catch (RuntimeException processingFailure) {
@@ -65,13 +66,15 @@ public class PlayerVoteListener implements Listener {
 		plugin.debug(failure);
 	}
 
-    private static final class BukkitOperations implements SharedVoteProcessor.Operations<VoteSite, VotingPluginUser> {
+    static final class BukkitOperations implements SharedVoteProcessor.Operations<VoteSite, VotingPluginUser> {
         private final VotingPluginMain plugin;
         private final PlayerVoteEvent event;
+		private final PlatformVoteState platformState;
 
-        private BukkitOperations(VotingPluginMain plugin, PlayerVoteEvent event) {
+		BukkitOperations(VotingPluginMain plugin, PlayerVoteEvent event, PlatformVoteState platformState) {
             this.plugin = plugin;
             this.event = event;
+			this.platformState = platformState;
         }
 
         @Override public boolean enabled() { return plugin.isEnabled(); }
@@ -127,7 +130,10 @@ public class PlayerVoteListener implements Listener {
         @Override public String siteKey(VoteSite site) { return site.getKey(); }
         @Override public String siteDisplayName(VoteSite site) { return site.getDisplayName(); }
         @Override public VotingPluginUser resolveUser(String name) {
-            if (event.getVotingPluginUser() != null) return event.getVotingPluginUser();
+			if (event.getVotingPluginUser() != null) return event.getVotingPluginUser();
+			if (platformState.matchesName(name)) return plugin.getVotingPluginUserManager()
+					.getVotingPluginUser(platformState.uuid(), platformState.playerName());
+			if (platformState.captured()) return plugin.getVotingPluginUserManager().getVotingPluginUser(name);
             Player player = Bukkit.getPlayerExact(name);
             if (player != null) return plugin.getVotingPluginUserManager().getVotingPluginUser(player);
             return plugin.getVotingPluginUserManager().getVotingPluginUser(name);
@@ -135,12 +141,20 @@ public class PlayerVoteListener implements Listener {
         @Override public String userName(VotingPluginUser user) { return user.getPlayerName(); }
         @Override public String userId(VotingPluginUser user) { return user.getUUID(); }
         @Override public UUID userUuid(VotingPluginUser user) { return user.getJavaUUID(); }
-        @Override public boolean userOnline(VotingPluginUser user) { return user.isOnline(); }
-        @Override public boolean userVanished(VotingPluginUser user) { return user.isVanished(); }
+		@Override public boolean userOnline(VotingPluginUser user) {
+			return platformState.captured() ? platformState.matches(user) && platformState.online() : user.isOnline();
+		}
+		@Override public boolean userVanished(VotingPluginUser user) {
+			return platformState.captured() ? platformState.matches(user) && platformState.vanished() : user.isVanished();
+		}
         @Override public long lastVoteTime(VotingPluginUser user, VoteSite site) { return user.getTime(site); }
         @Override public boolean waitUntilVoteDelay(VoteSite site) { return site.isWaitUntilVoteDelay(); }
         @Override public boolean canVoteSite(VotingPluginUser user, VoteSite site) { return user.canVoteSite(site); }
-        @Override public boolean bypassWaitPermission(VotingPluginUser user) { return user.hasPermission("VotingPlugin.BypassWaitUntilVoteDelay"); }
+		@Override public boolean bypassWaitPermission(VotingPluginUser user) {
+			return platformState.captured()
+					? platformState.matches(user) && platformState.bypassWaitPermission()
+					: user.hasPermission("VotingPlugin.BypassWaitUntilVoteDelay");
+		}
         @Override public boolean processRewards() { return plugin.getOptions().isProcessRewards(); }
         @Override public void giveWaitRewards(VoteSite site, VotingPluginUser user, boolean online, boolean proxyVote) {
             site.giveWaitUntilVoteDelayRewards(user, online, proxyVote);
@@ -153,7 +167,14 @@ public class PlayerVoteListener implements Listener {
         @Override public boolean broadcastEnabled() { return event.isBroadcast(); }
         @Override public boolean hasBroadcastHandler() { return plugin.getBroadcastHandler() != null; }
         @Override public void broadcast(UUID uuid, String name, String siteDisplayName, boolean online) {
-            plugin.getBroadcastHandler().broadcastVote(uuid, name, siteDisplayName, online);
+			Runnable broadcast = () -> plugin.getBroadcastHandler().broadcastVote(uuid, name, siteDisplayName, online);
+			if (!platformState.captured()) {
+				broadcast.run();
+			} else if (platformState.owner() != null) {
+				plugin.getBukkitScheduler().runTask(plugin, broadcast, platformState.owner());
+			} else {
+				plugin.getBukkitScheduler().runTask(plugin, broadcast);
+			}
         }
         @Override public boolean hasProxyTextTotals() { return event.getBungeeTextTotals() != null; }
         @Override public UUID incomingVoteId() {
@@ -165,7 +186,7 @@ public class PlayerVoteListener implements Listener {
 				int pointAmount, int pointCap) {
             boolean countVoteParty = plugin.getSpecialRewardsConfig().isVotePartyEnabled()
                     && (plugin.getSpecialRewardsConfig().isVotePartyCountFakeVotes() || event.isRealVote())
-                    && (plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes() || user.isOnline());
+                    && (plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes() || userOnline(user));
 			VoteShopPurchaseService.VoteAccountingAdmission admission = VoteShopPurchaseService
 					.prepareMysqlVoteAccounting(plugin, voteId, user.getUUID(), countTotals, awardPoints,
 							countVoteParty, event.isForceBungee(), pointAmount, pointCap, user.getPointsPath());
@@ -254,4 +275,34 @@ public class PlayerVoteListener implements Listener {
         @Override public void clearCache(VotingPluginUser user) { user.clearCache(); }
         @Override public void setUpdate() { plugin.setUpdate(true); }
     }
+
+	/** Bukkit-owned state captured before a primary-thread event enters the storage lane. */
+	static record PlatformVoteState(boolean captured, Player owner, UUID uuid, String playerName, boolean online,
+			boolean vanished, boolean bypassWaitPermission) {
+		static PlatformVoteState uncaptured() {
+			return new PlatformVoteState(false, null, null, null, false, false, false);
+		}
+
+		static PlatformVoteState capture(VotingPluginMain plugin, String requestedName) {
+			if (requestedName == null || requestedName.isEmpty()) {
+				return new PlatformVoteState(true, null, null, null, false, false, false);
+			}
+			Player player = Bukkit.getPlayerExact(requestedName);
+			if (player == null) return new PlatformVoteState(true, null, null, null, false, false, false);
+			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
+			boolean vanished = user.isVanished();
+			boolean online = player.isOnline()
+					&& (!plugin.getOptions().isTreatVanishAsOffline() || !vanished);
+			return new PlatformVoteState(true, player, player.getUniqueId(), player.getName(), online, vanished,
+					user.hasPermission("VotingPlugin.BypassWaitUntilVoteDelay"));
+		}
+
+		boolean matchesName(String name) {
+			return uuid != null && playerName != null && name != null && playerName.equalsIgnoreCase(name);
+		}
+
+		boolean matches(VotingPluginUser user) {
+			return uuid != null && user != null && uuid.equals(user.getJavaUUID());
+		}
+	}
 }
