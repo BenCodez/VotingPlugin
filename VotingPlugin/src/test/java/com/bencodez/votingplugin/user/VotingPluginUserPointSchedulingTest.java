@@ -105,6 +105,18 @@ class VotingPluginUserPointSchedulingTest {
 	}
 
 	@Test
+	void capturedPlayerSetPointsDoesNotLookupPlayerOnStorageCaller() throws Exception {
+		PointFixture fixture = pointFixture();
+		Player captured = mock(Player.class);
+
+		VotingPluginUser.setPointsStorageAware(fixture.plugin, java.util.List.of(fixture.user),
+				java.util.Map.of(fixture.user, captured), 42, (user, success) -> { });
+
+		verify(fixture.user, never()).getPlayer();
+		verify(fixture.persistence).execute(any(Runnable.class));
+	}
+
+	@Test
 	void rejectedSharedBulkMutationCompletesEveryUserAsFailed() throws Exception {
 		PointFixture fixture = pointFixture();
 		VotingPluginUser second = mock(VotingPluginUser.class);

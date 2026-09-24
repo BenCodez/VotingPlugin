@@ -689,8 +689,14 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public static void setPointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users, int value,
 			BiConsumer<VotingPluginUser, Boolean> completion) {
+		setPointsStorageAware(plugin, users, capturePlayers(users), value, completion);
+	}
+
+	public static void setPointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users,
+			java.util.Map<VotingPluginUser, Player> players, int value,
+			BiConsumer<VotingPluginUser, Boolean> completion) {
 		java.util.IdentityHashMap<VotingPluginUser, String> pointColumns = capturePointColumns(users);
-		bulkSharedMysqlMutation(plugin, users, capturePlayers(users), completion,
+		bulkSharedMysqlMutation(plugin, users, players, completion,
 				(mutator, user) -> mutator.setCommittedInColumn(user, value, pointColumns.get(user)),
 				(user, done) -> {
 					user.setPoints(value);

@@ -419,29 +419,21 @@ public class CommandLoader {
 						int num = Integer.parseInt(args[3]);
 
 						sender.sendMessage(MessageAPI.colorize("&cSetting all players points to " + args[3]));
-						java.util.List<VotingPluginUser> users = new java.util.ArrayList<>();
-						for (String uuidStr : plugin.getUserManager().getAllUUIDs()) {
-							UUID uuid = UUID.fromString(uuidStr);
-							users.add(plugin.getVotingPluginUserManager().getVotingPluginUser(uuid));
-						}
-						if (users.isEmpty()) {
-							sender.sendMessage(MessageAPI.colorize("&cNo players were available to update"));
-							return;
-						}
-						java.util.concurrent.atomic.AtomicInteger remaining =
-								new java.util.concurrent.atomic.AtomicInteger(users.size());
-						java.util.concurrent.atomic.AtomicInteger updated = new java.util.concurrent.atomic.AtomicInteger();
-						VotingPluginUser.setPointsStorageAware(plugin, users, num, (user, success) -> {
-							if (success) updated.incrementAndGet();
-							if (remaining.decrementAndGet() == 0) {
-								runForCommandSender(sender, () -> {
+						loadAllVotingUsersAsync(sender, batch -> {
+							java.util.List<VotingPluginUser> users = batch.users();
+							java.util.concurrent.atomic.AtomicInteger remaining =
+									new java.util.concurrent.atomic.AtomicInteger(users.size());
+							java.util.concurrent.atomic.AtomicInteger updated = new java.util.concurrent.atomic.AtomicInteger();
+							VotingPluginUser.setPointsStorageAware(plugin, users, batch.players(), num, (user, success) -> {
+								if (success) updated.incrementAndGet();
+								if (remaining.decrementAndGet() == 0) runForCommandSender(sender, () -> {
 									sender.sendMessage(MessageAPI.colorize("&cSet all players points to " + args[3]
 											+ " for " + updated.get() + "/" + users.size() + " players"));
 									plugin.getPlaceholders().onUpdate();
 								});
-							}
+							});
 						});
-						}
+					}
 
 					@Override
 					public void executeSinglePlayer(CommandSender sender, String[] args) {
