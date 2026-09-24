@@ -1127,6 +1127,38 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		}
 	}
 
+	/** Starts the connector for an admitted enrollment without replacing its route challenge. */
+	public void startBackendControlConnectorForEnrollment(BackendControlAutoEnrollment enrollment) {
+		try {
+			backendControlConnectorLifecycle.execute(() -> {
+				BackendControlConnector replacement;
+				synchronized (this) {
+					if (backendControlConnectorStopping || backendControlAutoEnrollment != enrollment
+							|| backendControlConnector != null && !backendControlConnector.isClosed()) return;
+				}
+				try {
+					replacement = BackendControlConnector.create(this);
+				} catch (Exception e) {
+					getLogger().warning("[Control] Bukkit connector could not start after automatic enrollment: "
+							+ e.getMessage());
+					return;
+				}
+				if (replacement == null) return;
+				synchronized (this) {
+					if (backendControlConnectorStopping || backendControlAutoEnrollment != enrollment
+							|| backendControlConnector != null && !backendControlConnector.isClosed()) {
+						replacement.close();
+						return;
+					}
+					backendControlConnector = replacement;
+					replacement.start();
+				}
+			});
+		} catch (RejectedExecutionException e) {
+			getLogger().warning("[Control] Bukkit connector could not start after lifecycle shutdown");
+		}
+	}
+
 	private void reconcileBackendControlConnector() {
 		while (true) {
 			BackendControlConnector previous;

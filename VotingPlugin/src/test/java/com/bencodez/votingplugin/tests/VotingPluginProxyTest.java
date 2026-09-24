@@ -10,7 +10,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -58,6 +60,120 @@ public class VotingPluginProxyTest {
 		Mockito.when(multiProxyHandler.sendMultiProxyEnvelopeAccepted(Mockito.any(), Mockito.any())).thenReturn(true);
 		Mockito.when(multiProxyHandler.getMultiProxyVoteRecipients()).thenReturn(java.util.Set.of("Replica"));
 
+	}
+
+	@TestFactory
+	java.util.stream.Stream<DynamicTest> backendControlEnrollmentRequiresTransportBoundIdentityOrRouteProof() {
+		return java.util.stream.Stream.of("BUNGEECORD", "VELOCITY")
+				.flatMap(platform -> java.util.Arrays.stream(BungeeMethod.values())
+						.map(method -> DynamicTest.dynamicTest(platform + " " + method, () -> {
+							VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+							proxy.setProxyPlatform(platform);
+							proxy.setMethod(method);
+							java.nio.file.Path keyDirectory = java.nio.file.Files.createTempDirectory("vp-enrollment-");
+							java.nio.file.Files.writeString(keyDirectory.resolve("secretkey.key"),
+									java.util.Base64.getEncoder().encodeToString(new byte[32]));
+							proxy.setDataFolder(keyDirectory.toFile());
+							com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler messages =
+									new com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler() {
+								@Override public void sendMessage(String server, int delay, JsonEnvelope envelope) { }
+							};
+							proxy.registerControlEnrollmentListenerForTest(messages);
+							java.util.UUID requestId = java.util.UUID.randomUUID();
+							String endpoint = "http://control.example.test:2150";
+							com.bencodez.votingplugin.control.ControlEnrollmentAuthenticator signer =
+									com.bencodez.votingplugin.control.ControlEnrollmentAuthenticator.load(
+											keyDirectory.resolve("secretkey.key"));
+							String initialProof = signer.signRequest("Server1", requestId, endpoint, "", "");
+							messages.onMessage(VotingPluginWire.controlEnrollmentRequest("Server1", "",
+									endpoint, requestId, "", initialProof));
+							if (method == BungeeMethod.PLUGINMESSAGING || method == BungeeMethod.HTTP) {
+								assertEquals(null, proxy.getControlEnrollmentSource());
+								assertEquals(null, proxy.getControlEnrollmentResult());
+								return;
+							}
+							VotingPluginWire.ControlEnrollmentResult challenge =
+									VotingPluginWire.readControlEnrollmentResult(proxy.getControlEnrollmentResult());
+							assertTrue(challenge.valid);
+							assertFalse(challenge.challenge.isEmpty());
+							assertTrue(signer.verifiesResult(challenge.authenticator, challenge.nodeId,
+									challenge.requestId, challenge.success, challenge.challenge));
+							messages.onMessage(VotingPluginWire.controlEnrollmentRequest("Server1", "a".repeat(64),
+									endpoint, requestId));
+							assertEquals(null, proxy.getControlEnrollmentSource());
+							String responseProof = signer.signRequest("Server1", requestId, endpoint, "a".repeat(64),
+									challenge.challenge);
+							JsonEnvelope proved = VotingPluginWire.controlEnrollmentRequest("Server1", "a".repeat(64),
+									endpoint, requestId, challenge.challenge, responseProof);
+							messages.onMessage(proved);
+							assertEquals("Server1", proxy.getControlEnrollmentSource());
+							assertEquals(1, proxy.getControlEnrollmentInstallCount());
+							messages.onMessage(proved);
+							assertEquals(1, proxy.getControlEnrollmentInstallCount());
+						})));
+	}
+
+	@Test
+	void httpControlEnrollmentUsesAuthenticatedBackendIdentity() {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		proxy.setMethod(BungeeMethod.HTTP);
+		java.util.UUID requestId = java.util.UUID.randomUUID();
+		JsonEnvelope request = VotingPluginWire.controlEnrollmentRequest("Server1", "",
+				"http://control.example.test:2150", requestId);
+
+		proxy.handleAuthenticatedHttpEnvelopeForTest(new HttpProxyTransportServer.ReceivedEnvelope(
+				"Server1", "message-1", request));
+
+		assertEquals("Server1", proxy.getControlEnrollmentSource());
+	}
+
+	@Test
+	void backendControlEnrollmentRejectsMismatchedTransportIdentity() {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		proxy.setMethod(BungeeMethod.HTTP);
+		com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler messages =
+				new com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler() {
+			@Override public void sendMessage(String server, int delay, JsonEnvelope envelope) { }
+		};
+		proxy.registerControlEnrollmentListenerForTest(messages);
+		JsonEnvelope mismatched = VotingPluginWire.controlEnrollmentRequest("Server1", "",
+				"http://control.example.test:2150", java.util.UUID.randomUUID())
+				.toBuilder().put(VotingPluginWire.K_SERVER, "Server2").build();
+
+		messages.onMessage(mismatched);
+
+		assertEquals(null, proxy.getControlEnrollmentSource());
+	}
+
+	@Test
+	void backendControlEnrollmentDoesNotChallengeAnExternalControlEndpoint() throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		proxy.setMethod(BungeeMethod.REDIS);
+		java.nio.file.Files.writeString(temporaryDirectory.resolve("secretkey.key"),
+				java.util.Base64.getEncoder().encodeToString(new byte[32]));
+		proxy.setDataFolder(temporaryDirectory.toFile());
+		proxy.setControlEnrollmentRouteProved(false);
+		com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler messages =
+				new com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler() {
+			@Override public void sendMessage(String server, int delay, JsonEnvelope envelope) { }
+		};
+		proxy.registerControlEnrollmentListenerForTest(messages);
+		String endpoint = "http://external.example.test:2150";
+		java.util.UUID requestId = java.util.UUID.randomUUID();
+		com.bencodez.votingplugin.control.ControlEnrollmentAuthenticator signer =
+				com.bencodez.votingplugin.control.ControlEnrollmentAuthenticator.load(
+						temporaryDirectory.resolve("secretkey.key"));
+		messages.onMessage(VotingPluginWire.controlEnrollmentRequest("Server1", "", endpoint, requestId, "",
+				signer.signRequest("Server1", requestId, endpoint, "", "")));
+
+		VotingPluginWire.ControlEnrollmentResult result =
+				VotingPluginWire.readControlEnrollmentResult(proxy.getControlEnrollmentResult());
+		assertTrue(result.valid);
+		assertFalse(result.success);
+		assertTrue(result.challenge.isEmpty());
+		assertTrue(signer.verifiesResult(result.authenticator, result.nodeId,
+				result.requestId, result.success, result.challenge));
+		assertEquals(0, proxy.getControlEnrollmentInstallCount());
 	}
 
 	@Test
