@@ -72,113 +72,88 @@ public class AdminVoteTopPoints extends GUIHandler {
 
 	@Override
 	public void onChest(Player player) {
+		org.bukkit.inventory.Inventory expectedTop = player.getOpenInventory().getTopInventory();
 		try {
-			Set<Entry<TopVoterPlayer, Integer>> users = null;
+			plugin.getUserManager().getDataManager().getTimer().execute(() -> {
+				try {
+					LinkedHashMap<TopVoterPlayer, Integer> raw = new LinkedHashMap<>();
+					for (String uuidString : plugin.getVotingPluginUserManager().getAllUUIDs()) {
+						UUID uuid = UUID.fromString(uuidString);
+						VotingPluginUser vpUser = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid);
+						vpUser.userDataFetechMode(UserDataFetchMode.NO_CACHE);
+						int points = vpUser.getPoints();
+						if (points <= 0) continue;
+						String name = vpUser.getUserData().getString("PlayerName", UserDataFetchMode.NO_CACHE);
+						String lastOnlineValue = vpUser.getUserData().getString("LastOnline", UserDataFetchMode.NO_CACHE);
+						long lastOnline = 0L;
+						try {
+							if (lastOnlineValue != null && !lastOnlineValue.isBlank() && !"null".equalsIgnoreCase(lastOnlineValue)) {
+								lastOnline = Long.parseLong(lastOnlineValue);
+							}
+						} catch (NumberFormatException ignored) { }
+						raw.put(new TopVoterPlayer(uuid, name == null ? "" : name, lastOnline), points);
+					}
+					LinkedHashMap<TopVoterPlayer, Integer> sorted = plugin.getTopVoterHandler().sortByValues(raw, false);
+					plugin.getBukkitScheduler().runTask(plugin, () -> {
+						if (player.getOpenInventory().getTopInventory() != expectedTop) return;
+						openComputedChest(player, sorted);
+					}, player);
+				} catch (Throwable failure) { plugin.debug(failure); }
+			});
+		} catch (RuntimeException failure) { plugin.debug(failure); }
+	}
 
-			LinkedHashMap<TopVoterPlayer, Integer> topPoints1 = new LinkedHashMap<TopVoterPlayer, Integer>();
-
-			for (String uuid : plugin.getVotingPluginUserManager().getAllUUIDs()) {
-				VotingPluginUser vpUser = plugin.getVotingPluginUserManager()
-						.getVotingPluginUser(UUID.fromString(uuid));
-				vpUser.userDataFetechMode(UserDataFetchMode.NO_CACHE);
-				int points = vpUser.getPoints();
-				if (points > 0) {
-					topPoints1.put(vpUser.getTopVoterPlayer(), points);
-
-				}
-			}
-
-			LinkedHashMap<TopVoterPlayer, Integer> topPoints = plugin.getTopVoterHandler().sortByValues(topPoints1,
-					false);
-
-			users = topPoints.entrySet();
-
+	private void openComputedChest(Player player, LinkedHashMap<TopVoterPlayer, Integer> topPoints) {
+		try {
+			Set<Entry<TopVoterPlayer, Integer>> users = topPoints.entrySet();
 			ConfigurationSection customization = plugin.getGui().getChestVoteTopCustomization();
 			boolean customzationEnabled = false;
 			Queue<Integer> playerSlots = new ConcurrentLinkedQueue<>();
 			if (customization != null) {
 				customzationEnabled = customization.getBoolean("Enabled");
-				List<Integer> customizationPlayerSlots = customization.getIntegerList("PlayerSlots");
-				playerSlots.addAll(customizationPlayerSlots);
+				playerSlots.addAll(customization.getIntegerList("PlayerSlots"));
 			}
-
 			BInventory inv = new BInventory("Top Points");
-			if (!plugin.getConfigFile().isAlwaysCloseInventory()) {
-				inv.dontClose();
-			}
-
+			if (!plugin.getConfigFile().isAlwaysCloseInventory()) inv.dontClose();
 			int pos = 1;
 			for (Entry<TopVoterPlayer, Integer> entry : users) {
-
-				ItemBuilder playerItem = new ItemBuilder(Material.PAPER);
-
-				if (plugin.getGui().isChestVoteTopUseSkull()) {
-					playerItem = new ItemBuilder(entry.getKey().getPlayerHead());
-				} else {
-					playerItem = new ItemBuilder(Material.valueOf(plugin.getGui().getChestVoteTopPlayerItemMaterial()));
-				}
-
+				ItemBuilder playerItem = plugin.getGui().isChestVoteTopUseSkull()
+						? new ItemBuilder(entry.getKey().getPlayerHead())
+						: new ItemBuilder(Material.valueOf(plugin.getGui().getChestVoteTopPlayerItemMaterial()));
 				playerItem.setLore(new ArrayList<>());
-
-				BInventoryButton button = new BInventoryButton(playerItem
-						.setName(plugin.getGui().getChestVoteTopItemName())
+				BInventoryButton button = new BInventoryButton(playerItem.setName(plugin.getGui().getChestVoteTopItemName())
 						.addLoreLine(plugin.getGui().getChestVoteTopItemLore()).addPlaceholder("position", "" + pos)
-						.addPlaceholder("player", entry.getKey().getPlayerName())
-						.addPlaceholder("votes", "" + entry.getValue())) {
-
-					@Override
-					public void onClick(ClickEvent clickEvent) {
+						.addPlaceholder("player", entry.getKey().getPlayerName()).addPlaceholder("votes", "" + entry.getValue())) {
+					@Override public void onClick(ClickEvent clickEvent) {
 						if (plugin.getGui().isChestVoteTopOpenMainGUIOnClick()) {
-							TopVoterPlayer user = (TopVoterPlayer) getData("User");
-							new VoteGUI(plugin, player, user.getUser())
-									.open(GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
+							TopVoterPlayer selected = (TopVoterPlayer) getData("User");
+							new VoteGUI(plugin, player, selected.getUser()).open(GUIMethod.valueOf(plugin.getGui().getGuiMethodGUI().toUpperCase()));
 						}
 					}
 				}.addData("player", entry.getKey().getPlayerName()).addData("User", entry.getKey());
-
-				if (customzationEnabled && !playerSlots.isEmpty()) {
-					button.setSlot(playerSlots.remove());
-				}
-
+				if (customzationEnabled && !playerSlots.isEmpty()) button.setSlot(playerSlots.remove());
 				inv.setCloseInv(plugin.getGui().isChestVoteTopCloseGUIOnClick());
-
 				inv.addButton(button);
 				pos++;
 			}
-
 			if (plugin.getGui().isChestVoteTopBackButton()) {
-				if (customzationEnabled) {
-					inv.addButton(plugin.getCommandLoader().getBackButton(user)
-							.setSlot(customization.getInt("BackButtonSlot", 0)));
-				} else {
-					inv.getPageButtons().add(plugin.getCommandLoader().getBackButton(user).setSlot(1));
-				}
+				if (customzationEnabled) inv.addButton(plugin.getCommandLoader().getBackButton(user).setSlot(customization.getInt("BackButtonSlot", 0)));
+				else inv.getPageButtons().add(plugin.getCommandLoader().getBackButton(user).setSlot(1));
 			}
-
 			String guiPath = "VoteTop.Customization";
 			for (final String str : plugin.getGui().getChestGUIExtraItems(guiPath)) {
-				inv.addButton(
-						new BInventoryButton(new ItemBuilder(plugin.getGui().getChestGUIExtraItemsItem(guiPath, str))) {
-
-							@Override
-							public void onClick(ClickEvent clickEvent) {
-								plugin.getCommandLoader().processSlotClick(player, user, str);
-								new RewardBuilder(plugin.getGui().getData(),
-										"CHEST." + guiPath + ".ExtraItems." + str + ".Rewards").setGiveOffline(false)
-										.send(clickEvent.getPlayer());
-
-							}
-						});
+				inv.addButton(new BInventoryButton(new ItemBuilder(plugin.getGui().getChestGUIExtraItemsItem(guiPath, str))) {
+					@Override public void onClick(ClickEvent clickEvent) {
+						plugin.getCommandLoader().processSlotClick(player, user, str);
+						new RewardBuilder(plugin.getGui().getData(), "CHEST." + guiPath + ".ExtraItems." + str + ".Rewards")
+								.setGiveOffline(false).send(clickEvent.getPlayer());
+					}
+				});
 			}
-
-			if (customization == null || !customzationEnabled || !customization.getBoolean("RemoveBottomBar")) {
-				inv.setPages(true);
-			}
+			if (customization == null || !customzationEnabled || !customization.getBoolean("RemoveBottomBar")) inv.setPages(true);
 			inv.setMaxInvSize(plugin.getGui().getChestVoteTopSize());
 			inv.openInventory(player);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+		} catch (Exception failure) { plugin.debug(failure); }
 	}
 
 	@Override

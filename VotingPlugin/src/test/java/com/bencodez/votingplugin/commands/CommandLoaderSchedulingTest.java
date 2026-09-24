@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -118,6 +119,26 @@ class CommandLoaderSchedulingTest {
 
 		org.junit.jupiter.api.Assertions.assertFalse(taskRan.get());
 		org.junit.jupiter.api.Assertions.assertTrue(rejected.get());
+	}
+
+	@Test
+	void bulkStorageMutationStartsOffTheCommandThread() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		CommandSender sender = mock(CommandSender.class);
+		java.util.concurrent.ScheduledExecutorService storage = mock(java.util.concurrent.ScheduledExecutorService.class);
+		when(plugin.getUserManager().getDataManager().getTimer()).thenReturn(storage);
+		AtomicReference<Runnable> worker = new AtomicReference<>();
+		org.mockito.Mockito.doAnswer(call -> { worker.set(call.getArgument(0)); return null; })
+				.when(storage).execute(any(Runnable.class));
+		AtomicBoolean storageRan = new AtomicBoolean();
+
+		new CommandLoader(plugin).runBulkStorageMutation(sender, () -> storageRan.set(true), () -> { });
+
+		org.junit.jupiter.api.Assertions.assertFalse(storageRan.get());
+		org.junit.jupiter.api.Assertions.assertNotNull(worker.get());
+		verify(scheduler, never()).runTaskAsynchronously(eq(plugin), any(Runnable.class));
 	}
 
 	private static void configureEntityScheduler(BukkitScheduler scheduler) {
