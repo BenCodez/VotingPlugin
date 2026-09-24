@@ -60,4 +60,30 @@ public class VotingPluginBackgroundTaskTest {
 		}
 	}
 
+	@Test
+	public void refreshUsesUserStorageWorkerInsteadOfVoteExecutor() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		Config config = mock(Config.class);
+		when(plugin.isEnabled()).thenReturn(true);
+		when(plugin.getConfigFile()).thenReturn(config);
+		java.util.concurrent.atomic.AtomicReference<java.util.function.Consumer<java.util.Map<java.util.UUID, Boolean>>> callback =
+				new java.util.concurrent.atomic.AtomicReference<>();
+		doAnswer(call -> { callback.set(call.getArgument(0)); return null; })
+				.when(plugin).captureOnlineTopVoterIgnore(any());
+		java.util.concurrent.ScheduledExecutorService storage = mock(java.util.concurrent.ScheduledExecutorService.class);
+		when(plugin.getUserManager().getDataManager().getTimer()).thenReturn(storage);
+		VotingPluginBackgroundTask task = new VotingPluginBackgroundTask(plugin);
+		task.setRequested(true);
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getServer).thenReturn(mock(Server.class));
+			bukkit.when(Bukkit::isPrimaryThread).thenReturn(true);
+			task.run();
+			callback.get().accept(java.util.Map.of(java.util.UUID.randomUUID(), Boolean.FALSE));
+		}
+
+		verify(storage).execute(any(Runnable.class));
+		verify(plugin.getVoteTimer(), never()).execute(any(Runnable.class));
+	}
+
 }

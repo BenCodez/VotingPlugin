@@ -49,7 +49,7 @@ public final class VotingPluginBackgroundTask {
 				}
 				synchronized (VotingPluginBackgroundTask.this) { requested = false; }
 				try {
-					plugin.getVoteTimer().execute(() -> {
+					plugin.getUserManager().getDataManager().getTimer().execute(() -> {
 						try {
 							runRefresh(online);
 							completion.complete(null);
