@@ -86,6 +86,7 @@ class VotingPluginUserPointSchedulingTest {
 		verify(user).addPointsStorageAware(eq(5), org.mockito.ArgumentMatchers.<java.util.function.BiConsumer<Boolean, Integer>>any());
 		verify(user).setPoints(11);
 		verify(user).removePoints(eq(3), org.mockito.ArgumentMatchers.<java.util.function.Consumer<Boolean>>any());
+		verify(user, never()).getPlayer();
 	}
 	@Test
 	void sharedBulkPointMutationsUseOnePersistenceSubmission() throws Exception {
@@ -102,6 +103,18 @@ class VotingPluginUserPointSchedulingTest {
 
 		verify(fixture.persistence, org.mockito.Mockito.times(3)).execute(any(Runnable.class));
 		verify(fixture.sql.getConnectionManager(), never()).getConnection();
+	}
+
+	@Test
+	void capturedPlayerSetPointsDoesNotLookupPlayerOnStorageCaller() throws Exception {
+		PointFixture fixture = pointFixture();
+		Player captured = mock(Player.class);
+
+		VotingPluginUser.setPointsStorageAware(fixture.plugin, java.util.List.of(fixture.user),
+				java.util.Map.of(fixture.user, captured), 42, (user, success) -> { });
+
+		verify(fixture.user, never()).getPlayer();
+		verify(fixture.persistence).execute(any(Runnable.class));
 	}
 
 	@Test

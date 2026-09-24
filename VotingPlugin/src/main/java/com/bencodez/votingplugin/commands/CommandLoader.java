@@ -100,6 +100,7 @@ import com.bencodez.votingplugin.voteshop.shop.VoteShopItem;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
 public class CommandLoader {
+	private static final int BULK_PLAYER_CAPTURE_BATCH_SIZE = 64;
 
 	private String adminPerm = "VotingPlugin.Admin";
 
@@ -127,6 +128,115 @@ public class CommandLoader {
 
 	void runForVotingUser(VotingPluginUser user, Runnable task) {
 		BukkitCompletionScheduler.run(plugin, user.getPlayer(), task);
+	}
+
+	void runBulkStorageMutation(CommandSender sender, Runnable mutation, Runnable success) {
+		try {
+			plugin.getUserManager().getDataManager().getTimer().execute(() -> {
+				try {
+					mutation.run();
+					plugin.getUserManager().getDataManager().clearCacheAsyncCompletion().whenComplete((ignored, failure) ->
+							runForCommandSender(sender, () -> {
+								if (failure != null) {
+									plugin.debug(failure);
+									sender.sendMessage(MessageAPI.colorize("&cStorage operation failed; check console"));
+									return;
+								}
+								success.run();
+							}));
+				} catch (Throwable failure) {
+					plugin.debug(failure);
+					runForCommandSender(sender,
+							() -> sender.sendMessage(MessageAPI.colorize("&cStorage operation failed; check console")));
+				}
+			});
+		} catch (RuntimeException failure) {
+			plugin.debug(failure);
+			runForCommandSender(sender,
+					() -> sender.sendMessage(MessageAPI.colorize("&cUnable to schedule storage operation")));
+		}
+	}
+
+	record BulkVotingUsers(java.util.List<VotingPluginUser> users,
+			java.util.IdentityHashMap<VotingPluginUser, Player> players) {
+		Player player(VotingPluginUser user) { return players.get(user); }
+	}
+
+	void loadAllVotingUsersAsync(CommandSender sender,
+			java.util.function.Consumer<BulkVotingUsers> success) {
+		try {
+			plugin.getUserManager().getDataManager().getTimer().execute(() -> {
+				java.util.List<VotingPluginUser> users = new java.util.ArrayList<>();
+				try {
+					for (String uuidString : plugin.getUserManager().getAllUUIDs()) {
+						users.add(plugin.getVotingPluginUserManager().getVotingPluginUser(UUID.fromString(uuidString)));
+					}
+				} catch (Throwable failure) {
+					plugin.debug(failure);
+					runForCommandSender(sender,
+							() -> sender.sendMessage(MessageAPI.colorize("&cUnable to enumerate stored players")));
+					return;
+				}
+				if (users.isEmpty()) {
+					runForCommandSender(sender,
+							() -> sender.sendMessage(MessageAPI.colorize("&cNo players were available to update")));
+					return;
+				}
+				captureBulkPlayers(sender, users, new java.util.IdentityHashMap<>(), 0, success);
+			});
+		} catch (RuntimeException failure) {
+			plugin.debug(failure);
+			runForCommandSender(sender,
+					() -> sender.sendMessage(MessageAPI.colorize("&cUnable to schedule stored-player lookup")));
+		}
+	}
+
+	private void captureBulkPlayers(CommandSender sender, java.util.List<VotingPluginUser> users,
+			java.util.IdentityHashMap<VotingPluginUser, Player> players, int start,
+			java.util.function.Consumer<BulkVotingUsers> success) {
+		try {
+			plugin.getBukkitScheduler().runTask(plugin, () -> {
+				int end = Math.min(start + BULK_PLAYER_CAPTURE_BATCH_SIZE, users.size());
+				try {
+					for (int index = start; index < end; index++) {
+						VotingPluginUser user = users.get(index);
+						players.put(user, user.getPlayer());
+					}
+				} catch (Throwable failure) {
+					plugin.debug(failure);
+					runForCommandSender(sender, () -> sender.sendMessage(
+							MessageAPI.colorize("&cUnable to prepare stored players for update")));
+					return;
+				}
+				if (end < users.size()) {
+					captureBulkPlayers(sender, users, players, end, success);
+					return;
+				}
+				try {
+					plugin.getUserManager().getDataManager().getTimer().execute(() -> {
+						try { success.accept(new BulkVotingUsers(users, players)); }
+						catch (Throwable failure) { reportIndeterminateBulkFailure(sender, failure); }
+					});
+				} catch (RuntimeException failure) { reportIndeterminateBulkFailure(sender, failure); }
+			});
+		} catch (RuntimeException failure) {
+			plugin.debug(failure);
+			runForCommandSender(sender, () -> sender.sendMessage(
+					MessageAPI.colorize("&cUnable to prepare stored players for update")));
+		}
+	}
+
+	private void sendBulkPlayerMessage(Player player, VotingPluginUser user, String message, String amount) {
+		BukkitCompletionScheduler.run(plugin, player,
+				() -> {
+					if (user.isOnline()) user.sendMessage(message, "amount", amount);
+				}, () -> { }, () -> { });
+	}
+
+	private void reportIndeterminateBulkFailure(CommandSender sender, Throwable failure) {
+		plugin.debug(failure);
+		runForCommandSender(sender, () -> sender.sendMessage(MessageAPI.colorize(
+				"&cBulk update failed after it started; results may be indeterminate, do not rerun without reconciliation")));
 	}
 
 	String transferFailureMessage(PointTransferResult result) {
@@ -334,29 +444,21 @@ public class CommandLoader {
 						int num = Integer.parseInt(args[3]);
 
 						sender.sendMessage(MessageAPI.colorize("&cSetting all players points to " + args[3]));
-						java.util.List<VotingPluginUser> users = new java.util.ArrayList<>();
-						for (String uuidStr : plugin.getUserManager().getAllUUIDs()) {
-							UUID uuid = UUID.fromString(uuidStr);
-							users.add(plugin.getVotingPluginUserManager().getVotingPluginUser(uuid));
-						}
-						if (users.isEmpty()) {
-							sender.sendMessage(MessageAPI.colorize("&cNo players were available to update"));
-							return;
-						}
-						java.util.concurrent.atomic.AtomicInteger remaining =
-								new java.util.concurrent.atomic.AtomicInteger(users.size());
-						java.util.concurrent.atomic.AtomicInteger updated = new java.util.concurrent.atomic.AtomicInteger();
-						VotingPluginUser.setPointsStorageAware(plugin, users, num, (user, success) -> {
-							if (success) updated.incrementAndGet();
-							if (remaining.decrementAndGet() == 0) {
-								runForCommandSender(sender, () -> {
+						loadAllVotingUsersAsync(sender, batch -> {
+							java.util.List<VotingPluginUser> users = batch.users();
+							java.util.concurrent.atomic.AtomicInteger remaining =
+									new java.util.concurrent.atomic.AtomicInteger(users.size());
+							java.util.concurrent.atomic.AtomicInteger updated = new java.util.concurrent.atomic.AtomicInteger();
+							VotingPluginUser.setPointsStorageAware(plugin, users, batch.players(), num, (user, success) -> {
+								if (success) updated.incrementAndGet();
+								if (remaining.decrementAndGet() == 0) runForCommandSender(sender, () -> {
 									sender.sendMessage(MessageAPI.colorize("&cSet all players points to " + args[3]
 											+ " for " + updated.get() + "/" + users.size() + " players"));
 									plugin.getPlaceholders().onUpdate();
 								});
-							}
+							});
 						});
-						}
+					}
 
 					@Override
 					public void executeSinglePlayer(CommandSender sender, String[] args) {
@@ -445,10 +547,9 @@ public class CommandLoader {
 					@Override
 					public void execute(CommandSender sender, String[] args) {
 						sendMessage(sender, "&cStarting...");
-						plugin.getUserManager().removeAllKeyValues("Points", DataType.INTEGER);
-						plugin.getUserManager().getDataManager().clearCache();
-						sendMessage(sender, "&cFinished");
-						plugin.setUpdate(true);
+						runBulkStorageMutation(sender,
+								() -> plugin.getUserManager().removeAllKeyValues("Points", DataType.INTEGER),
+								() -> { plugin.setUpdate(true); sendMessage(sender, "&cFinished"); });
 
 					}
 				});
@@ -465,43 +566,25 @@ public class CommandLoader {
 							sender.sendMessage(MessageAPI.colorize(plugin.getConfigFile().getFormatNoPerms()));
 							return;
 						}
-
-						java.util.List<String> userIds = new java.util.ArrayList<>(plugin.getUserManager().getAllUUIDs());
-						if (userIds.isEmpty()) {
-							sender.sendMessage(MessageAPI.colorize("&cNo players were available to update"));
-							return;
-						}
-						sender.sendMessage(
-								MessageAPI.colorize("&cGiving " + "all players" + " " + args[3] + " points"));
-						java.util.List<VotingPluginUser> users = new java.util.ArrayList<>();
-						for (String uuidStr : userIds) {
-							UUID uuid = UUID.fromString(uuidStr);
-							users.add(plugin.getVotingPluginUserManager().getVotingPluginUser(uuid));
-						}
-						java.util.concurrent.atomic.AtomicInteger remaining =
-								new java.util.concurrent.atomic.AtomicInteger(users.size());
-						java.util.concurrent.atomic.AtomicInteger updated =
-								new java.util.concurrent.atomic.AtomicInteger();
-						String batchOperationId = "admin-bulk-points/" + UUID.randomUUID();
-						VotingPluginUser.addPointsStorageAware(plugin, users, num, batchOperationId, (user, success) -> {
-							try {
+						sender.sendMessage(MessageAPI.colorize("&cGiving all players " + args[3] + " points"));
+						loadAllVotingUsersAsync(sender, batch -> {
+							java.util.List<VotingPluginUser> users = batch.users();
+							java.util.concurrent.atomic.AtomicInteger remaining = new java.util.concurrent.atomic.AtomicInteger(users.size());
+							java.util.concurrent.atomic.AtomicInteger updated = new java.util.concurrent.atomic.AtomicInteger();
+							String batchOperationId = "admin-bulk-points/" + UUID.randomUUID();
+							VotingPluginUser.addPointsStorageAware(plugin, users, batch.players(), num, batchOperationId, (user, success) -> {
 								if (success) {
 									updated.incrementAndGet();
-									if (user.isOnline()) {
-										user.sendMessage(plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerGiven(),
-												"amount", args[3]);
-									}
+									sendBulkPlayerMessage(batch.player(user), user,
+											plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerGiven(), args[3]);
 								}
-							} finally {
-								if (remaining.decrementAndGet() == 0) {
-									runForCommandSender(sender, () -> {
-										sender.sendMessage(MessageAPI.colorize("&cGave all players " + args[3]
-												+ " points to " + updated.get() + "/" + users.size()
-												+ " players. Any failure may be indeterminate; do not rerun without reconciliation."));
-										plugin.getPlaceholders().onUpdate();
-									});
-								}
-							}
+								if (remaining.decrementAndGet() == 0) runForCommandSender(sender, () -> {
+									sender.sendMessage(MessageAPI.colorize("&cGave all players " + args[3] + " points to "
+											+ updated.get() + "/" + users.size()
+											+ " players. Any failure may be indeterminate; do not rerun without reconciliation."));
+									plugin.getPlaceholders().onUpdate();
+								});
+							});
 						});
 					}
 
@@ -550,41 +633,25 @@ public class CommandLoader {
 							return;
 						}
 						int num = Integer.parseInt(args[3]);
-
-						sender.sendMessage(
-								MessageAPI.colorize("&cGiving " + "all players" + " " + args[3] + " points"));
-						java.util.List<String> userIds = new java.util.ArrayList<>(plugin.getUserManager().getAllUUIDs());
-						if (userIds.isEmpty()) {
-							sender.sendMessage(MessageAPI.colorize("&cNo players were available to update"));
-							return;
-						}
-						java.util.List<VotingPluginUser> users = new java.util.ArrayList<>();
-						for (String uuidStr : userIds) {
-							UUID uuid = UUID.fromString(uuidStr);
-							users.add(plugin.getVotingPluginUserManager().getVotingPluginUser(uuid));
-						}
-						java.util.concurrent.atomic.AtomicInteger remaining =
-								new java.util.concurrent.atomic.AtomicInteger(users.size());
-						java.util.concurrent.atomic.AtomicInteger removed = new java.util.concurrent.atomic.AtomicInteger();
-						String batchOperationId = "admin-bulk-remove/" + UUID.randomUUID();
-						VotingPluginUser.removePointsStorageAware(plugin, users, num, batchOperationId, (user, success) -> {
-							try {
+						sender.sendMessage(MessageAPI.colorize("&cRemoving " + args[3] + " points from all players"));
+						loadAllVotingUsersAsync(sender, batch -> {
+							java.util.List<VotingPluginUser> users = batch.users();
+							java.util.concurrent.atomic.AtomicInteger remaining = new java.util.concurrent.atomic.AtomicInteger(users.size());
+							java.util.concurrent.atomic.AtomicInteger removed = new java.util.concurrent.atomic.AtomicInteger();
+							String batchOperationId = "admin-bulk-remove/" + UUID.randomUUID();
+							VotingPluginUser.removePointsStorageAware(plugin, users, batch.players(), num, batchOperationId, (user, success) -> {
 								if (success) {
 									removed.incrementAndGet();
-									if (user.isOnline()) user.sendMessage(
-											plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerRemoved(),
-											"amount", args[3]);
+									sendBulkPlayerMessage(batch.player(user), user,
+											plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerRemoved(), args[3]);
 								}
-							} finally {
-								if (remaining.decrementAndGet() == 0) {
-									runForCommandSender(sender, () -> {
-										sender.sendMessage(MessageAPI.colorize("&cRemoved " + args[3] + " points from "
-												+ removed.get() + "/" + userIds.size()
-												+ " players. Any failure may be indeterminate; do not rerun without reconciliation."));
-										plugin.getPlaceholders().onUpdate();
-									});
-								}
-							}
+								if (remaining.decrementAndGet() == 0) runForCommandSender(sender, () -> {
+									sender.sendMessage(MessageAPI.colorize("&cRemoved " + args[3] + " points from "
+											+ removed.get() + "/" + users.size()
+											+ " players. Any failure may be indeterminate; do not rerun without reconciliation."));
+									plugin.getPlaceholders().onUpdate();
+								});
+							});
 						});
 					}
 
@@ -951,12 +1018,9 @@ public class CommandLoader {
 					sender.sendMessage(MessageAPI.colorize("&cThis command can not be done from ingame"));
 					return;
 				}
-				for (TopVoter top : TopVoter.values()) {
-					plugin.getUserManager().removeAllKeyValues(top.getColumnName(), DataType.INTEGER);
-				}
-				plugin.getUserManager().getDataManager().clearCache();
-				plugin.setUpdate(true);
-				sender.sendMessage(MessageAPI.colorize("&cCleared totals for everyone"));
+				runBulkStorageMutation(sender, () -> {
+					for (TopVoter top : TopVoter.values()) plugin.getUserManager().removeAllKeyValues(top.getColumnName(), DataType.INTEGER);
+				}, () -> { plugin.setUpdate(true); sender.sendMessage(MessageAPI.colorize("&cCleared totals for everyone")); });
 			}
 		});
 
@@ -977,11 +1041,9 @@ public class CommandLoader {
 							sendMessage(sender, "&cCan't reset all time total or invalid argument: " + args[1]);
 							return;
 						}
-						plugin.getUserManager().removeAllKeyValues(top.getColumnName(), DataType.INTEGER);
-
-						plugin.getUserManager().getDataManager().clearCache();
-						plugin.setUpdate(true);
-						sender.sendMessage(MessageAPI.colorize("&cCleared totals of " + top.getColumnName()));
+						runBulkStorageMutation(sender,
+								() -> plugin.getUserManager().removeAllKeyValues(top.getColumnName(), DataType.INTEGER),
+								() -> { plugin.setUpdate(true); sender.sendMessage(MessageAPI.colorize("&cCleared totals of " + top.getColumnName())); });
 					}
 				});
 
@@ -994,11 +1056,10 @@ public class CommandLoader {
 					sender.sendMessage(MessageAPI.colorize("&cThis command can not be done from ingame"));
 					return;
 				}
-				plugin.getUserManager().removeAllKeyValues("OfflineVotes", DataType.STRING);
-				plugin.getUserManager().removeAllKeyValues(plugin.getUserManager().getOfflineRewardsPath(),
-						DataType.STRING);
-				plugin.getUserManager().getDataManager().clearCache();
-				sender.sendMessage(MessageAPI.colorize("&cCleared offline votes/rewards"));
+				runBulkStorageMutation(sender, () -> {
+					plugin.getUserManager().removeAllKeyValues("OfflineVotes", DataType.STRING);
+					plugin.getUserManager().removeAllKeyValues(plugin.getUserManager().getOfflineRewardsPath(), DataType.STRING);
+				}, () -> sender.sendMessage(MessageAPI.colorize("&cCleared offline votes/rewards")));
 			}
 		});
 
@@ -1729,9 +1790,9 @@ public class CommandLoader {
 
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				plugin.getUserManager().removeAllKeyValues("OfflineVotes", DataType.STRING);
-				plugin.getUserManager().getDataManager().clearCache();
-				sender.sendMessage(MessageAPI.colorize("&cOffline votes Cleared"));
+				runBulkStorageMutation(sender,
+						() -> plugin.getUserManager().removeAllKeyValues("OfflineVotes", DataType.STRING),
+						() -> sender.sendMessage(MessageAPI.colorize("&cOffline votes Cleared")));
 			}
 		});
 
