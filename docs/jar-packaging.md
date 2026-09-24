@@ -18,8 +18,8 @@ them.
 The package phase runs `PackagedArtifactTest` after shading. It opens the actual
 downloadable JAR, checks plugin resources and required relocated classes, and
 rejects duplicate Rhino, raw Hikari/Folia, unused multi-release crypto payloads,
-unused Bouncy Castle protocol packages, Checker Framework annotations, and
-optional Jedis module clients. It creates both server and client TLS identities
+unused Bouncy Castle protocol packages, and Checker Framework annotations. It
+creates both server and client TLS identities
 from the packaged crypto classes. SQLite keeps its complete native platform set
 so packaging changes do not narrow existing installations.
 The test also caps the downloadable artifact at 30 MiB so dependency growth must

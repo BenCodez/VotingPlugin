@@ -68,11 +68,6 @@ public class PackagedArtifactTest {
                 assertFalse(artifact.stream().anyMatch(entry -> entry.getName().startsWith(prefix)),
                         () -> "Unused Bouncy Castle package was bundled: " + prefix);
             }
-            for (String module : new String[] { "bloom/", "json/", "search/", "timeseries/" }) {
-                String prefix = "redis/clients/jedis/" + module;
-                assertFalse(artifact.stream().anyMatch(entry -> entry.getName().startsWith(prefix)),
-                        () -> "Unused Jedis module was bundled: " + prefix);
-            }
         }
         long artifactBytes = Files.size(artifactPath);
         assertTrue(artifactBytes <= MAX_DOWNLOAD_BYTES,
@@ -92,6 +87,18 @@ public class PackagedArtifactTest {
             try (AutoCloseable instance = (AutoCloseable) runtime.getMethod("start", Path.class).invoke(null, directory)) {
                 assertTrue(Files.isRegularFile(directory.resolve("VotingPlugin.db")));
             }
+        }
+    }
+
+    @Test
+    void packagedRedisClientLinksWithModuleApis() throws Exception {
+        URL jar = packagedJar().toUri().toURL();
+        URL platformSlf4j = org.slf4j.Logger.class.getProtectionDomain().getCodeSource().getLocation();
+        try (URLClassLoader loader = new URLClassLoader(new URL[] { jar, platformSlf4j },
+                ClassLoader.getPlatformClassLoader())) {
+            Class<?> unifiedJedis = Class.forName("redis.clients.jedis.UnifiedJedis", true, loader);
+            Object client = unifiedJedis.getConstructor().newInstance();
+            unifiedJedis.getMethod("close").invoke(client);
         }
     }
 

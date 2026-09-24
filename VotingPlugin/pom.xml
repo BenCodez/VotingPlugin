@@ -249,16 +249,6 @@
                                     </excludes>
                                 </filter>
                                 <filter>
-                                    <artifact>redis.clients:jedis</artifact>
-                                    <excludes>
-                                        <!-- Proxy messaging uses core Redis commands, not optional modules. -->
-                                        <exclude>redis/clients/jedis/bloom/**</exclude>
-                                        <exclude>redis/clients/jedis/json/**</exclude>
-                                        <exclude>redis/clients/jedis/search/**</exclude>
-                                        <exclude>redis/clients/jedis/timeseries/**</exclude>
-                                    </excludes>
-                                </filter>
-                                <filter>
                                     <artifact>*:*</artifact>
                                     <excludes>
                                         <!-- AdvancedCore and SimpleAPI also embed these classes. -->
