@@ -115,4 +115,28 @@ public class VotingPluginBackgroundTaskTest {
 		verify(scheduler, times(2)).runTask(eq(plugin), any(Runnable.class));
 	}
 
+	@Test
+	public void cancelledInitialSnapshotDoesNotBlockStorageWorkerForever() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		Config config = mock(Config.class);
+		when(plugin.isEnabled()).thenReturn(true);
+		when(plugin.getConfigFile()).thenReturn(config);
+		java.lang.reflect.Constructor<VotingPluginBackgroundTask> constructor =
+				VotingPluginBackgroundTask.class.getDeclaredConstructor(VotingPluginMain.class, long.class);
+		constructor.setAccessible(true);
+		VotingPluginBackgroundTask task = constructor.newInstance(plugin, 10L);
+		task.setRequested(true);
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getServer).thenReturn(null);
+			long started = System.nanoTime();
+			task.run();
+			assertTrue(java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started) < 1_000);
+		}
+
+		assertFalse(task.isRunning());
+		assertTrue(task.isRequested());
+		verify(plugin).captureOnlineTopVoterIgnore(any());
+	}
+
 }

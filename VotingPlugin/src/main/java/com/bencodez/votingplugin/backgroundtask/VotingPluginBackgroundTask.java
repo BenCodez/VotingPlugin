@@ -10,6 +10,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.Map.Entry;
 
 import org.bukkit.Bukkit;
@@ -27,22 +30,32 @@ import com.bencodez.votingplugin.votesites.VoteSite;
 public final class VotingPluginBackgroundTask {
 
 	private final VotingPluginMain plugin;
+	private final long snapshotWaitMillis;
 	private volatile boolean requested;
 	private volatile boolean running;
 	private volatile long lastRunTimeSeconds = -1;
 
 	public VotingPluginBackgroundTask(VotingPluginMain plugin) {
+		this(plugin, 5_000L);
+	}
+
+	VotingPluginBackgroundTask(VotingPluginMain plugin, long snapshotWaitMillis) {
 		this.plugin = plugin;
+		this.snapshotWaitMillis = snapshotWaitMillis;
 	}
 
 	public void run() {
 		CompletableFuture<Void> completion = new CompletableFuture<>();
+		CompletableFuture<Void> snapshotStarted = new CompletableFuture<>();
+		AtomicBoolean snapshotPending = new AtomicBoolean(true);
 		synchronized (this) {
 			if (!(requested || plugin.getConfigFile().isAlwaysUpdate()) || !plugin.isEnabled() || running) return;
 			running = true;
 		}
 		try {
 			plugin.captureOnlineTopVoterIgnore(online -> {
+				if (!snapshotPending.compareAndSet(true, false)) return;
+				snapshotStarted.complete(null);
 				if (plugin.getConfigFile().isUpdateWithPlayersOnlineOnly() && online.isEmpty()) {
 					finishRun(completion);
 					return;
@@ -69,10 +82,32 @@ public final class VotingPluginBackgroundTask {
 		} catch (RuntimeException failure) {
 			plugin.debug(failure);
 			setRequested(true);
+			snapshotPending.set(false);
+			snapshotStarted.complete(null);
 			completion.complete(null);
 			finishRun(completion);
 		}
-		if (!isPlatformOwnedThread()) completion.join();
+		if (!isPlatformOwnedThread()) {
+			try {
+				snapshotStarted.get(snapshotWaitMillis, TimeUnit.MILLISECONDS);
+			} catch (TimeoutException failure) {
+				if (snapshotPending.compareAndSet(true, false)) {
+					setRequested(true);
+					finishRun(completion);
+					return;
+				}
+			} catch (InterruptedException failure) {
+				Thread.currentThread().interrupt();
+				if (snapshotPending.compareAndSet(true, false)) {
+					setRequested(true);
+					finishRun(completion);
+					return;
+				}
+			} catch (java.util.concurrent.ExecutionException impossible) {
+				throw new IllegalStateException(impossible);
+			}
+			completion.join();
+		}
 	}
 
 	private synchronized void finishRun(CompletableFuture<Void> completion) {
