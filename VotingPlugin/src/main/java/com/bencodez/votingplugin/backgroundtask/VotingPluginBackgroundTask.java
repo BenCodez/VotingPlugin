@@ -7,9 +7,14 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.Map.Entry;
 
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.simpleapi.skull.SkullCache;
@@ -31,27 +36,66 @@ public final class VotingPluginBackgroundTask {
 		this.plugin = plugin;
 	}
 
-	public synchronized void run() {
-		if (!(requested || plugin.getConfigFile().isAlwaysUpdate())) {
-			return;
+	public void run() {
+		CompletableFuture<Void> completion = new CompletableFuture<>();
+		synchronized (this) {
+			if (!(requested || plugin.getConfigFile().isAlwaysUpdate()) || !plugin.isEnabled() || running) return;
+			running = true;
 		}
-		if (!plugin.isEnabled() || running) {
-			return;
-		}
-		if (plugin.getConfigFile().isUpdateWithPlayersOnlineOnly() && Bukkit.getOnlinePlayers().isEmpty()) {
-			return;
-		}
-
-		running = true;
-		requested = false;
 		try {
-			runRefresh();
-		} finally {
-			running = false;
+			plugin.captureOnlineTopVoterIgnore(online -> {
+				if (plugin.getConfigFile().isUpdateWithPlayersOnlineOnly() && online.isEmpty()) {
+					finishRun(completion);
+					return;
+				}
+				synchronized (VotingPluginBackgroundTask.this) { requested = false; }
+				try {
+					plugin.getVoteTimer().execute(() -> {
+						try {
+							runRefresh(online);
+							completion.complete(null);
+						} catch (Throwable failure) {
+							plugin.debug(failure);
+							setRequested(true);
+							completion.complete(null);
+						} finally { finishRun(completion); }
+					});
+				} catch (RuntimeException failure) {
+					plugin.debug(failure);
+					setRequested(true);
+					completion.complete(null);
+					finishRun(completion);
+				}
+			});
+		} catch (RuntimeException failure) {
+			plugin.debug(failure);
+			setRequested(true);
+			completion.complete(null);
+			finishRun(completion);
 		}
+		if (!isPlatformOwnedThread()) completion.join();
 	}
 
-	private void runRefresh() {
+	private synchronized void finishRun(CompletableFuture<Void> completion) {
+		running = false;
+		if (!completion.isDone()) completion.complete(null);
+	}
+
+	private boolean isPlatformOwnedThread() {
+		if (Bukkit.getServer() == null) return false;
+		try { if (Bukkit.isPrimaryThread()) return true; } catch (RuntimeException ignored) { }
+		try {
+			java.lang.reflect.Method method = Bukkit.getServer().getClass().getMethod("isGlobalTickThread");
+			if (Boolean.TRUE.equals(method.invoke(Bukkit.getServer()))) return true;
+		} catch (ReflectiveOperationException | RuntimeException ignored) { }
+		try {
+			Class<?> tickThread = Class.forName("ca.spottedleaf.moonrise.common.util.TickThread");
+			if (Boolean.TRUE.equals(tickThread.getMethod("isTickThread").invoke(null))) return true;
+		} catch (ReflectiveOperationException | LinkageError | RuntimeException ignored) { }
+		return false;
+	}
+
+	private void runRefresh(Map<UUID, Boolean> onlineUsers) {
 		synchronized (plugin) {
 			try {
 				if (!plugin.isEnabled()) {
@@ -123,10 +167,13 @@ public final class VotingPluginBackgroundTask {
 							}
 						}
 
-						if (extraBackgroundUpdate && user.isOnline()) {
-							user.offVote();
+						Boolean topVoterIgnore = onlineUsers.get(uuid);
+						boolean online = topVoterIgnore != null;
+						if (extraBackgroundUpdate && online) {
+							user.offVoteWithCapturedTopVoterIgnore(topVoterIgnore.booleanValue());
+							user.checkOfflineRewards();
 						}
-						if (!plugin.getPlaceholders().getCacheLevel().onlineOnly() || user.isOnline()) {
+						if (!plugin.getPlaceholders().getCacheLevel().onlineOnly() || online) {
 							plugin.getPlaceholders().onUpdate(user, false);
 						}
 					} finally {
@@ -139,7 +186,11 @@ public final class VotingPluginBackgroundTask {
 				});
 
 				plugin.getTopVoterHandler().updateTopVoters(tempTopVoter);
-				plugin.getPlaceholders().onUpdate();
+				plugin.getPlaceholders().checkNonCachedPlaceholders();
+				for (UUID onlineUuid : onlineUsers.keySet()) {
+					VotingPluginUser onlineUser = plugin.getVotingPluginUserManager().getVotingPluginUser(onlineUuid, false);
+					if (onlineUser != null) plugin.getPlaceholders().onUpdate(onlineUser, true);
+				}
 				plugin.setVoteToday(voteToday);
 				plugin.getServerData().updateValues();
 				plugin.getSigns().updateSigns();
@@ -152,7 +203,6 @@ public final class VotingPluginBackgroundTask {
 					}
 				}
 
-				plugin.getUserManager().getDataManager().clearNonNeededCachedUsers();
 				plugin.extraDebug("Current cached users: "
 						+ plugin.getUserManager().getDataManager().getUserDataCache().keySet().size());
 
@@ -166,6 +216,7 @@ public final class VotingPluginBackgroundTask {
 			}
 		}
 	}
+
 
 	public boolean isRequested() {
 		return requested;

@@ -340,15 +340,62 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 
-	public void basicBungeeUpdate() {
-		for (Player player : Bukkit.getOnlinePlayers()) {
-			VotingPluginUser user = getVotingPluginUserManager().getVotingPluginUser(player);
-			user.cache();
-			user.offVote();
-			user.checkOfflineRewards();
+	/**
+	 * Capture live player state without crossing Folia ownership boundaries.
+	 * Completion runs after every player owner callback has finished.
+	 */
+	public void captureOnlineTopVoterIgnore(java.util.function.Consumer<java.util.Map<UUID, Boolean>> completion) {
+		java.util.Objects.requireNonNull(completion, "completion");
+		try {
+			getBukkitScheduler().runTask(this, () -> {
+				java.util.List<Player> players = new java.util.ArrayList<>(Bukkit.getOnlinePlayers());
+				if (players.isEmpty()) {
+					completion.accept(java.util.Map.of());
+					return;
+				}
+				java.util.concurrent.ConcurrentHashMap<UUID, Boolean> captured = new java.util.concurrent.ConcurrentHashMap<>();
+				java.util.concurrent.atomic.AtomicInteger remaining = new java.util.concurrent.atomic.AtomicInteger(players.size());
+				Runnable maybeComplete = () -> {
+					if (remaining.decrementAndGet() == 0) completion.accept(java.util.Map.copyOf(captured));
+				};
+				for (Player player : players) {
+					try {
+						getBukkitScheduler().runTask(this, () -> {
+							try {
+								if (!player.isOnline()) return;
+								UUID storageUuid = getPlaceholderPlayerPresence().storageUuid(player);
+								if (storageUuid == null) storageUuid = placeholderStorageUuid(player, getOptions().isOnlineMode());
+								if (storageUuid != null) captured.put(storageUuid,
+										player.hasPermission("VotingPlugin.TopVoter.Ignore"));
+							} finally { maybeComplete.run(); }
+						}, player);
+					} catch (RuntimeException failure) {
+						debug(failure);
+						maybeComplete.run();
+					}
+				}
+			});
+		} catch (RuntimeException failure) {
+			debug(failure);
+			completion.accept(java.util.Map.of());
 		}
 	}
 
+	public void basicBungeeUpdate() {
+		captureOnlineTopVoterIgnore(online -> {
+			try {
+				getVoteTimer().execute(() -> {
+					for (java.util.Map.Entry<UUID, Boolean> entry : online.entrySet()) {
+						VotingPluginUser user = getVotingPluginUserManager().getVotingPluginUser(entry.getKey(), false);
+						if (user == null) continue;
+						user.cache();
+						user.offVoteWithCapturedTopVoterIgnore(entry.getValue().booleanValue());
+						user.checkOfflineRewards();
+					}
+				});
+			} catch (RuntimeException failure) { debug(failure); }
+		});
+	}
 
 
 	/**
