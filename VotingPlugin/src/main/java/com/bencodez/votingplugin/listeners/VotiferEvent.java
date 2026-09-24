@@ -42,7 +42,7 @@ public class VotiferEvent implements Listener {
 	}
 
 	public void processVote(String voteSite, String voteUsername, UUID voteId) {
-		VoteOutcome outcome = processVoteAttempt(voteSite, voteUsername, voteId);
+		VoteOutcome outcome = processVoteAttempt(voteSite, voteUsername, voteId, false);
 		if (outcome == VoteOutcome.RETRY) {
 			retainForAccountingRetry(voteSite, voteUsername, voteId);
 		} else if (outcome == VoteOutcome.QUARANTINE
@@ -55,14 +55,15 @@ public class VotiferEvent implements Listener {
 	}
 
 	public boolean processQueuedVote(String voteSite, String voteUsername, UUID voteId) {
-		return processVoteAttempt(voteSite, voteUsername, voteId) == VoteOutcome.COMPLETE;
+		return processVoteAttempt(voteSite, voteUsername, voteId, true) == VoteOutcome.COMPLETE;
 	}
 
 	public VoteOutcome processQueuedVoteOutcome(String voteSite, String voteUsername, UUID voteId) {
-		return processVoteAttempt(voteSite, voteUsername, voteId);
+		return processVoteAttempt(voteSite, voteUsername, voteId, true);
 	}
 
-	private VoteOutcome processVoteAttempt(String voteSite, String voteUsername, UUID voteId) {
+	private VoteOutcome processVoteAttempt(String voteSite, String voteUsername, UUID voteId,
+			boolean deferredDeliveryCompletion) {
 		try {
 			plugin.getServerData().addServiceSite(voteSite);
 			if (plugin.getBungeeSettings().isUseBungeecoord() && !plugin.getBungeeSettings().isVotifierBypass()
@@ -113,6 +114,7 @@ public class VotiferEvent implements Listener {
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(
 					plugin.getVoteSiteManager().getVoteSite(voteSiteName, true), voteUsername, voteSite, true);
 			voteEvent.setVoteId(voteId);
+			voteEvent.setDeferredDeliveryCompletion(deferredDeliveryCompletion);
 			plugin.getServer().getPluginManager().callEvent(voteEvent);
 			if (voteEvent.isProcessingIncomplete()) {
 				return voteEvent.isReplayUnsafe() ? VoteOutcome.QUARANTINE : VoteOutcome.RETRY;

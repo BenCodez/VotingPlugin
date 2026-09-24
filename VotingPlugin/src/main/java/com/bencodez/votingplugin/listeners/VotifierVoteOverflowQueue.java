@@ -30,6 +30,7 @@ import com.bencodez.votingplugin.util.DurableFiles;
 import com.bencodez.votingplugin.util.MinecraftUsernameValidator;
 import com.bencodez.votingplugin.util.ServiceSiteValidator;
 import com.bencodez.votingplugin.util.VoteTaskAdmission;
+import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseService;
 
 /**
  * Durable overflow for votes that cannot currently be admitted to the bounded
@@ -50,6 +51,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	private final Object lock = new Object();
 	private final Object persistenceWriteLock = new Object();
 	private final ArrayDeque<PendingVote> entries = new ArrayDeque<>();
+	private final ArrayDeque<RetiredVote> retiredVotes = new ArrayDeque<>();
 	private boolean drainScheduled;
 	private boolean persistenceScheduled;
 	private boolean persistenceDirty;
@@ -233,8 +235,9 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 
 	private void acknowledge(PendingVote pending) {
 		synchronized (lock) {
-			entries.remove(pending);
-			stateVersion++;
+			if (closed || !entries.remove(pending)) return;
+			long retirementVersion = ++stateVersion;
+			retiredVotes.addLast(new RetiredVote(pending.voteId, retirementVersion));
 			requestPersistenceLocked();
 			scheduleDrainLocked();
 		}
@@ -278,13 +281,25 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 				}
 				return;
 			}
+			List<UUID> completedRetirements = new ArrayList<>();
 			synchronized (lock) {
+				// closeBlocking owns the final snapshot and marker retirement once
+				// closed; writeSnapshot deliberately becomes a no-op in that race.
+				if (closed) return;
 				durableVersion = Math.max(durableVersion, snapshotVersion);
+				while (!retiredVotes.isEmpty() && retiredVotes.peekFirst().version <= durableVersion) {
+					completedRetirements.add(retiredVotes.removeFirst().voteId);
+				}
 				if (!persistenceDirty) {
 					persistenceScheduled = false;
 					scheduleDrainLocked();
-					return;
 				}
+			}
+			for (UUID voteId : completedRetirements) {
+				completeDelivery(voteId);
+			}
+			synchronized (lock) {
+				if (!persistenceDirty) return;
 			}
 		}
 	}
@@ -413,9 +428,26 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 			synchronized (persistenceWriteLock) {
 				writeSnapshotLocked(snapshot);
 			}
+			List<UUID> completedRetirements = new ArrayList<>();
+			synchronized (lock) {
+				while (!retiredVotes.isEmpty()) completedRetirements.add(retiredVotes.removeFirst().voteId);
+			}
+			for (UUID voteId : completedRetirements) {
+				completeDelivery(voteId);
+			}
 		} catch (IOException failure) {
 			plugin.getLogger().warning("Unable to persist queued Votifier votes during shutdown: "
 					+ failure.getClass().getSimpleName());
+		}
+	}
+
+	private void completeDelivery(UUID voteId) {
+		try {
+			VoteShopPurchaseService.completeVoteDelivery(plugin, voteId);
+		} catch (RuntimeException failure) {
+			plugin.getLogger().warning("Unable to retire acknowledged Votifier vote replay fence: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
 		}
 	}
 
@@ -434,6 +466,8 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 			this.voteId = voteId;
 		}
 	}
+
+	private record RetiredVote(UUID voteId, long version) { }
 
 	@FunctionalInterface
 	public interface VoteProcessor {

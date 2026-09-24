@@ -74,6 +74,27 @@ class ServerDataTimeChangeRecoveryTest {
 	}
 
 	@Test
+	void acknowledgedVoteRemovesOnlyItsReplayFence() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
+		YamlConfiguration yaml = new YamlConfiguration();
+		when(plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
+		when(plugin.getServerDataFile()).thenReturn(coreData);
+		when(coreData.getData()).thenReturn(yaml);
+		ServerData data = new ServerData(plugin);
+		UUID completed = UUID.randomUUID();
+		UUID pending = UUID.randomUUID();
+
+		data.markVoteReplayUnsafe(completed);
+		data.markVoteReplayUnsafe(pending);
+		data.clearVoteReplayUnsafe(completed);
+
+		assertFalse(data.isVoteReplayUnsafe(completed));
+		assertTrue(data.isVoteReplayUnsafe(pending));
+		verify(coreData, org.mockito.Mockito.times(3)).saveData();
+	}
+
+	@Test
 	void ambiguousTimedVoteIsStoredOutsideTheAutomaticReplayQueue() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);

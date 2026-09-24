@@ -32,6 +32,7 @@ import com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
 import com.bencodez.votingplugin.util.VoteTaskAdmission;
+import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseService;
 
 import lombok.Getter;
 
@@ -419,13 +420,15 @@ public class BackendProxyHandler implements Listener {
 		boolean successful = outcome == OrderedVoteOutcome.COMPLETE;
 		if (successful && overflowEntry != null && orderedVoteOverflow != null) {
 			orderedVoteOverflow.acknowledgeAsync(overflowEntry,
-					stored -> completeOrderedVoteAcknowledgement(stored));
+					stored -> completeOrderedVoteAcknowledgement(stored, envelope));
 			return;
 		}
+		boolean completedInMemory = false;
 		synchronized (orderedVoteDispatch) {
 			if (successful && overflowEntry == null
 					&& orderedVoteDispatchQueue.peekFirst() == orderedVoteDispatchInFlight) {
 				orderedVoteDispatchQueue.removeFirst();
+				completedInMemory = true;
 			}
 			orderedVoteDispatchInFlight = null;
 			orderedVoteOverflowInFlight = null;
@@ -434,9 +437,10 @@ public class BackendProxyHandler implements Listener {
 			if (successful) scheduleOrderedVoteDispatchLocked();
 			else retryOrderedVoteDispatchLocked();
 		}
+		if (completedInMemory) completeVoteDelivery(envelope);
 	}
 
-	private void completeOrderedVoteAcknowledgement(boolean stored) {
+	private void completeOrderedVoteAcknowledgement(boolean stored, JsonEnvelope envelope) {
 		synchronized (orderedVoteDispatch) {
 			if (stored) {
 				orderedVoteDispatchInFlight = null;
@@ -452,6 +456,14 @@ public class BackendProxyHandler implements Listener {
 			orderedVoteDispatch.notifyAll();
 			if (stored) scheduleOrderedVoteDispatchLocked();
 		}
+		if (stored) completeVoteDelivery(envelope);
+	}
+
+	private void completeVoteDelivery(JsonEnvelope envelope) {
+		String subChannel = envelope == null ? null : envelope.getSubChannel();
+		if (!VotingPluginWire.SUB_VOTE.equals(subChannel)
+				&& !VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)) return;
+		VoteShopPurchaseService.completeVoteDelivery(plugin, VotingPluginWire.readVote(envelope).voteId);
 	}
 
 	private void completeOrderedVoteQuarantine(BackendOrderedVoteOverflowQueue.PendingEnvelope overflowEntry,

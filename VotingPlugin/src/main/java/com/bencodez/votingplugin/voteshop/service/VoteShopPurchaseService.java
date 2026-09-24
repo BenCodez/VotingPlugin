@@ -728,6 +728,13 @@ public class VoteShopPurchaseService {
 		}
 	}
 
+	/** Retires the YAML replay fence once the delivery owner has durably acknowledged success. */
+	public static void completeVoteDelivery(VotingPluginMain plugin, UUID voteId) {
+		if (voteId != null && !canRecoverSharedMysqlPurchases(plugin)) {
+			plugin.getServerData().clearVoteReplayUnsafe(voteId);
+		}
+	}
+
 	public static void finishMysqlVoteAccounting(UUID voteId) {
 		if (voteId != null) ADMITTED_ACCOUNTING.remove(voteId);
 	}

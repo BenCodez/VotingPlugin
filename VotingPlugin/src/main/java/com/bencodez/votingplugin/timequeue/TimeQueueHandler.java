@@ -24,6 +24,7 @@ import com.bencodez.advancedcore.api.time.events.DateChangedEvent;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.util.VoteTaskAdmission;
+import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseService;
 
 /**
  * The TimeQueueHandler class manages time-based vote queue processing.
@@ -191,6 +192,7 @@ public class TimeQueueHandler implements Listener {
 					vote.getService(), true);
 			voteEvent.setTime(vote.getTime());
 			voteEvent.setVoteId(vote.getVoteId() == null ? vote.legacyTimedVoteId() : vote.getVoteId());
+			voteEvent.setDeferredDeliveryCompletion(true);
 			plugin.getServer().getPluginManager().callEvent(voteEvent);
 			if (voteEvent.isProcessingIncomplete()) {
 				if (voteEvent.isReplayUnsafe()) {
@@ -204,6 +206,7 @@ public class TimeQueueHandler implements Listener {
 				return;
 			}
 
+			VoteShopPurchaseService.completeVoteDelivery(plugin, voteEvent.getVoteId());
 			if (voteEvent.isCancelled()) {
 				plugin.debug("Vote cancelled");
 				return;

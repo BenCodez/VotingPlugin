@@ -101,6 +101,11 @@ public class PlayerVoteEvent extends Event {
 	@Setter
 	private boolean replayUnsafe;
 
+	/** The durable producer will retire the replay fence after its own acknowledgement. */
+	@Getter
+	@Setter
+	private boolean deferredDeliveryCompletion;
+
 	public boolean isProcessingIncomplete() {
 		return accountingAdmissionFailed || processingFailed;
 	}

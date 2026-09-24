@@ -173,6 +173,16 @@ public class ServerData {
 		return voteId != null && getData().getBoolean(VOTE_REPLAY_UNSAFE + "." + voteId);
 	}
 
+	/** Removes a replay fence after the delivery owner has durably retired the vote. */
+	public synchronized void clearVoteReplayUnsafe(UUID voteId) {
+		if (voteId == null) return;
+		if (!getData().contains(VOTE_REPLAY_UNSAFE + "." + voteId)) return;
+		getData().set(VOTE_REPLAY_UNSAFE + "." + voteId, null);
+		ConfigurationSection remaining = getData().getConfigurationSection(VOTE_REPLAY_UNSAFE);
+		if (remaining != null && remaining.getKeys(false).isEmpty()) getData().set(VOTE_REPLAY_UNSAFE, null);
+		saveData();
+	}
+
 	/**
 	 * Adds a vote shop purchase for the specified identifier.
 	 *

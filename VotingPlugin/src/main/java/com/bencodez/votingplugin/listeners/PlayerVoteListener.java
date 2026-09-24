@@ -192,6 +192,10 @@ public class PlayerVoteListener implements Listener {
 			}
 			event.setReplayUnsafe(true);
 		}
+		@Override public boolean deferDeliveryCompletion() { return event.isDeferredDeliveryCompletion(); }
+		@Override public void completeDelivery(UUID voteId) {
+			VoteShopPurchaseService.completeVoteDelivery(plugin, voteId);
+		}
 		@Override public void restoreReplayUnsafe() { event.setReplayUnsafe(true); }
         @Override public long incomingTime() { return event.getTime(); }
         @Override public void setTime(VotingPluginUser user, VoteSite site, long time) { user.setTime(site, time); }

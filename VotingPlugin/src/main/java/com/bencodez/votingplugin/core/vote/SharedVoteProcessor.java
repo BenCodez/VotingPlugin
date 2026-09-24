@@ -70,6 +70,8 @@ public final class SharedVoteProcessor {
         void updateName(U user);
         void voteParty(U user, boolean forceProxyRouting, UUID voteId, boolean eligible);
         void markReplayUnsafe(UUID voteId);
+        default boolean deferDeliveryCompletion() { return false; }
+        default void completeDelivery(UUID voteId) { }
         void restoreReplayUnsafe();
         long incomingTime();
         void setTime(U user, S site, long time);
@@ -192,10 +194,10 @@ public final class SharedVoteProcessor {
         try {
             ops.cache(user);
             ops.updateName(user);
+            // VoteParty can execute rewards and commands. Commit the replay fence
+            // before it, along with every later effect that lacks its own receipt.
+            ops.markReplayUnsafe(voteId);
             ops.voteParty(user, ops.forceProxyRouting(), voteId, votePartyEligible);
-			// Everything before this point is protected by the vote accounting and
-			// VoteParty receipts. Later platform effects do not all have replay receipts.
-			ops.markReplayUnsafe(voteId);
             if (ops.broadcastEnabled() && ops.hasBroadcastHandler()) {
                 boolean currentOnline = ops.userOnline(user);
                 boolean online = currentOnline;
@@ -254,6 +256,7 @@ public final class SharedVoteProcessor {
             if (!ops.userOnline(user)) ops.clearCache(user);
             ops.setUpdate();
             ops.extraDebug("Finished vote processing: " + playerName + "/" + userId);
+			if (!ops.deferDeliveryCompletion()) ops.completeDelivery(voteId);
         } finally {
             ops.finishAccounting(voteId);
         }

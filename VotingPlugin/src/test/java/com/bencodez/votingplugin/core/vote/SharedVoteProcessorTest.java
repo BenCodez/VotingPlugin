@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -73,8 +74,8 @@ class SharedVoteProcessorTest {
         order.verify(ops).prepareAccounting(eq(user), any(UUID.class), eq(true), eq(true), eq(3), eq(100));
         order.verify(ops).cache(user);
         order.verify(ops).updateName(user);
-        order.verify(ops).voteParty(eq(user), eq(false), any(UUID.class), eq(true));
         order.verify(ops).markReplayUnsafe(voteId);
+        order.verify(ops).voteParty(eq(user), eq(false), any(UUID.class), eq(true));
         order.verify(ops).broadcast(any(UUID.class), eq("Ben"), any(), eq(true));
         order.verify(ops).setTime(user, site, 123L);
         order.verify(ops).playerVote(user, site, true, false);
@@ -92,8 +93,39 @@ class SharedVoteProcessorTest {
         order.verify(ops).postVote(eq(site), eq(user), eq("Ben"), eq(123L), any(UUID.class), eq(false));
         order.verify(ops).updatePlaceholders(user);
         order.verify(ops).setUpdate();
+        order.verify(ops).completeDelivery(voteId);
         order.verify(ops).finishAccounting(any(UUID.class));
     }
+
+	@Test
+	void durableProducerRetainsReplayFenceUntilItsOwnAcknowledgement() {
+		var ops = accepted();
+		UUID voteId = UUID.randomUUID();
+		when(ops.incomingVoteId()).thenReturn(voteId);
+		when(ops.deferDeliveryCompletion()).thenReturn(true);
+
+		SharedVoteProcessor.process(ops);
+
+		verify(ops).markReplayUnsafe(voteId);
+		verify(ops, never()).completeDelivery(voteId);
+	}
+
+	@Test
+	void votePartyFailureKeepsTheFenceForQuarantine() {
+		var ops = accepted();
+		UUID voteId = UUID.randomUUID();
+		when(ops.incomingVoteId()).thenReturn(voteId);
+		doThrow(new IllegalStateException("reward failed"))
+				.when(ops).voteParty(user, false, voteId, true);
+
+		assertThrows(IllegalStateException.class, () -> SharedVoteProcessor.process(ops));
+
+		InOrder order = inOrder(ops);
+		order.verify(ops).markReplayUnsafe(voteId);
+		order.verify(ops).voteParty(user, false, voteId, true);
+		verify(ops, never()).completeDelivery(voteId);
+		verify(ops).finishAccounting(voteId);
+	}
 
     @Test
     void totalsUseTheEligibilityCapturedAtAdmission() {

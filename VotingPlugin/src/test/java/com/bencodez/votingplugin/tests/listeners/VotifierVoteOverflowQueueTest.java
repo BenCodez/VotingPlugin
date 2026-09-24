@@ -26,9 +26,49 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.advancedcore.api.user.UserStorage;
+import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.listeners.VotifierVoteOverflowQueue;
 
 class VotifierVoteOverflowQueueTest {
+	@Test
+	void successfulVoteRetiresReplayFenceAfterQueueSnapshot(@TempDir Path dataFolder) throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		ServerData serverData = mock(ServerData.class);
+		ScheduledExecutorService voteTimer = Executors.newSingleThreadScheduledExecutor();
+		CountDownLatch processed = new CountDownLatch(1);
+		java.util.UUID voteId = java.util.UUID.randomUUID();
+		when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+		when(plugin.getVoteTimer()).thenReturn(voteTimer);
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(plugin.getStorageType()).thenReturn(UserStorage.SQLITE);
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("VotifierVoteOverflowQueueTest"));
+		VotifierVoteOverflowQueue queue = new VotifierVoteOverflowQueue(plugin, (site, user, id) -> {
+			processed.countDown();
+			return VotifierVoteOverflowQueue.VoteOutcome.COMPLETE;
+		});
+		try {
+			assertTrue(queue.enqueue("Steve", "example.org", voteId));
+			queue.start();
+
+			assertTrue(processed.await(2, TimeUnit.SECONDS));
+			Path queueFile = dataFolder.resolve("VotifierVoteQueue.yml");
+			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+			while ((!Files.exists(queueFile) || Files.readString(queueFile).contains(voteId.toString()))
+					&& System.nanoTime() < deadline) Thread.sleep(10L);
+			assertTrue(Files.exists(queueFile));
+			assertTrue(!Files.readString(queueFile).contains(voteId.toString()));
+			deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+			while (org.mockito.Mockito.mockingDetails(serverData).getInvocations().isEmpty()
+					&& System.nanoTime() < deadline) Thread.sleep(10L);
+			verify(serverData).clearVoteReplayUnsafe(voteId);
+			assertEquals(0, queue.size());
+		} finally {
+			queue.close();
+			voteTimer.shutdownNow();
+		}
+	}
+
 	@Test
 	void failedQueuedAttemptKeepsTheExistingEntry(@TempDir Path dataFolder) throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
