@@ -100,6 +100,7 @@ import com.bencodez.votingplugin.voteshop.shop.VoteShopItem;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
 public class CommandLoader {
+	private static final int BULK_PLAYER_CAPTURE_BATCH_SIZE = 64;
 
 	private String adminPerm = "VotingPlugin.Admin";
 
@@ -181,31 +182,55 @@ public class CommandLoader {
 							() -> sender.sendMessage(MessageAPI.colorize("&cNo players were available to update")));
 					return;
 				}
-				try {
-					plugin.getBukkitScheduler().runTask(plugin, () -> {
-						java.util.IdentityHashMap<VotingPluginUser, Player> players = new java.util.IdentityHashMap<>();
-						try {
-							for (VotingPluginUser user : users) players.put(user, user.getPlayer());
-						} catch (Throwable failure) {
-							plugin.debug(failure);
-							runForCommandSender(sender, () -> sender.sendMessage(
-									MessageAPI.colorize("&cUnable to prepare stored players for update")));
-							return;
-						}
-						try {
-							plugin.getUserManager().getDataManager().getTimer().execute(() -> {
-								try { success.accept(new BulkVotingUsers(users, players)); }
-								catch (Throwable failure) { reportIndeterminateBulkFailure(sender, failure); }
-							});
-						} catch (RuntimeException failure) { reportIndeterminateBulkFailure(sender, failure); }
-					});
-				} catch (RuntimeException failure) { reportIndeterminateBulkFailure(sender, failure); }
+				captureBulkPlayers(sender, users, new java.util.IdentityHashMap<>(), 0, success);
 			});
 		} catch (RuntimeException failure) {
 			plugin.debug(failure);
 			runForCommandSender(sender,
 					() -> sender.sendMessage(MessageAPI.colorize("&cUnable to schedule stored-player lookup")));
 		}
+	}
+
+	private void captureBulkPlayers(CommandSender sender, java.util.List<VotingPluginUser> users,
+			java.util.IdentityHashMap<VotingPluginUser, Player> players, int start,
+			java.util.function.Consumer<BulkVotingUsers> success) {
+		try {
+			plugin.getBukkitScheduler().runTask(plugin, () -> {
+				int end = Math.min(start + BULK_PLAYER_CAPTURE_BATCH_SIZE, users.size());
+				try {
+					for (int index = start; index < end; index++) {
+						VotingPluginUser user = users.get(index);
+						players.put(user, user.getPlayer());
+					}
+				} catch (Throwable failure) {
+					plugin.debug(failure);
+					runForCommandSender(sender, () -> sender.sendMessage(
+							MessageAPI.colorize("&cUnable to prepare stored players for update")));
+					return;
+				}
+				if (end < users.size()) {
+					captureBulkPlayers(sender, users, players, end, success);
+					return;
+				}
+				try {
+					plugin.getUserManager().getDataManager().getTimer().execute(() -> {
+						try { success.accept(new BulkVotingUsers(users, players)); }
+						catch (Throwable failure) { reportIndeterminateBulkFailure(sender, failure); }
+					});
+				} catch (RuntimeException failure) { reportIndeterminateBulkFailure(sender, failure); }
+			});
+		} catch (RuntimeException failure) {
+			plugin.debug(failure);
+			runForCommandSender(sender, () -> sender.sendMessage(
+					MessageAPI.colorize("&cUnable to prepare stored players for update")));
+		}
+	}
+
+	private void sendBulkPlayerMessage(Player player, VotingPluginUser user, String message, String amount) {
+		BukkitCompletionScheduler.run(plugin, player,
+				() -> {
+					if (user.isOnline()) user.sendMessage(message, "amount", amount);
+				}, () -> { }, () -> { });
 	}
 
 	private void reportIndeterminateBulkFailure(CommandSender sender, Throwable failure) {
@@ -550,10 +575,8 @@ public class CommandLoader {
 							VotingPluginUser.addPointsStorageAware(plugin, users, batch.players(), num, batchOperationId, (user, success) -> {
 								if (success) {
 									updated.incrementAndGet();
-									BukkitCompletionScheduler.run(plugin, batch.player(user), () -> {
-										if (user.isOnline()) user.sendMessage(
-												plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerGiven(), "amount", args[3]);
-									});
+									sendBulkPlayerMessage(batch.player(user), user,
+											plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerGiven(), args[3]);
 								}
 								if (remaining.decrementAndGet() == 0) runForCommandSender(sender, () -> {
 									sender.sendMessage(MessageAPI.colorize("&cGave all players " + args[3] + " points to "
@@ -619,10 +642,8 @@ public class CommandLoader {
 							VotingPluginUser.removePointsStorageAware(plugin, users, batch.players(), num, batchOperationId, (user, success) -> {
 								if (success) {
 									removed.incrementAndGet();
-									BukkitCompletionScheduler.run(plugin, batch.player(user), () -> {
-										if (user.isOnline()) user.sendMessage(
-												plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerRemoved(), "amount", args[3]);
-									});
+									sendBulkPlayerMessage(batch.player(user), user,
+											plugin.getConfigFile().getFormatCommandsAdminVotePointsPlayerRemoved(), args[3]);
 								}
 								if (remaining.decrementAndGet() == 0) runForCommandSender(sender, () -> {
 									sender.sendMessage(MessageAPI.colorize("&cRemoved " + args[3] + " points from "

@@ -637,7 +637,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public static void addPointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users, int value,
 			String batchOperationId, BiConsumer<VotingPluginUser, Boolean> completion) {
-		addPointsStorageAware(plugin, users, capturePlayers(users), value, batchOperationId, completion);
+		addPointsStorageAware(plugin, users, capturePlayersIfNeeded(plugin, users), value, batchOperationId, completion);
 	}
 
 	public static void addPointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users,
@@ -689,7 +689,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public static void setPointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users, int value,
 			BiConsumer<VotingPluginUser, Boolean> completion) {
-		setPointsStorageAware(plugin, users, capturePlayers(users), value, completion);
+		setPointsStorageAware(plugin, users, capturePlayersIfNeeded(plugin, users), value, completion);
 	}
 
 	public static void setPointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users,
@@ -747,7 +747,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public static void removePointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users, int value,
 			String batchOperationId, BiConsumer<VotingPluginUser, Boolean> completion) {
-		removePointsStorageAware(plugin, users, capturePlayers(users), value, batchOperationId, completion);
+		removePointsStorageAware(plugin, users, capturePlayersIfNeeded(plugin, users), value, batchOperationId, completion);
 	}
 
 	public static void removePointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users,
@@ -776,6 +776,14 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		java.util.IdentityHashMap<VotingPluginUser, Player> players = new java.util.IdentityHashMap<>();
 		for (VotingPluginUser user : users) players.put(user, user.getPlayer());
 		return players;
+	}
+
+	private static java.util.IdentityHashMap<VotingPluginUser, Player> capturePlayersIfNeeded(
+			VotingPluginMain plugin, List<VotingPluginUser> users) {
+		if (!new SharedMysqlPointMutator(plugin).usesMysqlPointMutations()) {
+			return new java.util.IdentityHashMap<>();
+		}
+		return capturePlayers(users);
 	}
 
 	static String bulkPointOperationId(String prefix, String batchOperationId, String userId) {

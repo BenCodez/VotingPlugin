@@ -86,6 +86,7 @@ class VotingPluginUserPointSchedulingTest {
 		verify(user).addPointsStorageAware(eq(5), org.mockito.ArgumentMatchers.<java.util.function.BiConsumer<Boolean, Integer>>any());
 		verify(user).setPoints(11);
 		verify(user).removePoints(eq(3), org.mockito.ArgumentMatchers.<java.util.function.Consumer<Boolean>>any());
+		verify(user, never()).getPlayer();
 	}
 	@Test
 	void sharedBulkPointMutationsUseOnePersistenceSubmission() throws Exception {
