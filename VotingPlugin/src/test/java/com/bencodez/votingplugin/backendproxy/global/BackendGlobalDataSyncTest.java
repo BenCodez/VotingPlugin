@@ -160,6 +160,44 @@ class BackendGlobalDataSyncTest {
 				values.containsKey("FinishedProcessing")));
 	}
 
+	@Test
+	void legacyProxyTimeChangeStillRunsWithoutBoundaryConfirmation() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BungeeSettings bungeeSettings = mock(BungeeSettings.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		TimeChecker timeChecker = mock(TimeChecker.class);
+		GlobalDataHandler globalDataHandler = mock(GlobalDataHandler.class);
+		AtomicReference<Runnable> scheduled = new AtomicReference<>();
+		AtomicReference<Runnable> asyncCompletion = new AtomicReference<>();
+		when(plugin.getBungeeSettings()).thenReturn(bungeeSettings);
+		when(bungeeSettings.getServer()).thenReturn("lobby");
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(plugin.getTimeChecker()).thenReturn(timeChecker);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			scheduled.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).executeOrScheduleSync(eq(plugin), any(Runnable.class));
+		org.mockito.Mockito.doAnswer(invocation -> {
+			asyncCompletion.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		BackendGlobalDataSync sync = new BackendGlobalDataSync(plugin, ignored -> { });
+		setField(sync, "globalDataHandler", globalDataHandler);
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> data = new HashMap<>();
+		data.put("LastUpdated", new DataValueString(
+				"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
+		data.put(TimeType.DAY.toString(), new DataValueBoolean(true));
+
+		assertTrue(sync.checkGlobalDataTime(TimeType.DAY, data));
+		scheduled.get().run();
+		asyncCompletion.get().run();
+
+		verify(timeChecker).forceChanged(TimeType.DAY, false, true, true);
+		verify(globalDataHandler).setData(eq("lobby"), org.mockito.ArgumentMatchers.argThat(values ->
+				values.size() == 1 && values.containsKey(TimeType.DAY.toString())
+						&& !values.get(TimeType.DAY.toString()).getBoolean()));
+	}
+
 	private static void setField(Object target, String fieldName, Object value) {
 		try {
 			Field field = BackendGlobalDataSync.class.getDeclaredField(fieldName);

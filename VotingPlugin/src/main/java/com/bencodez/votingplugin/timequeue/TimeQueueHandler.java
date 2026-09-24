@@ -32,6 +32,7 @@ import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseService;
 public class TimeQueueHandler implements Listener {
 	private static final long TICKS_PER_SECOND = 20L;
 	private final Deque<VoteTimeQueue> timeChangeQueue = new ConcurrentLinkedDeque<>();
+	private final Object queuePersistenceLock = new Object();
 
 	private VotingPluginMain plugin;
 	private final AtomicBoolean retryPending = new AtomicBoolean();
@@ -66,6 +67,24 @@ public class TimeQueueHandler implements Listener {
 	public void addVote(UUID voteId, String voteUsername, String voteSiteName) {
 		timeChangeQueue.add(new VoteTimeQueue(voteId, voteUsername, voteSiteName,
 				LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()));
+	}
+
+	/** Adds and persists a vote before its previous durable owner may acknowledge it. */
+	public boolean addVoteDurably(UUID voteId, String voteUsername, String voteSiteName) {
+		VoteTimeQueue vote = new VoteTimeQueue(voteId, voteUsername, voteSiteName,
+				LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
+		synchronized (queuePersistenceLock) {
+			timeChangeQueue.add(vote);
+			try {
+				plugin.getServerData().replaceTimedVoteCache(new ArrayList<>(timeChangeQueue));
+				return true;
+			} catch (RuntimeException persistenceFailure) {
+				timeChangeQueue.remove(vote);
+				plugin.getLogger().severe("Unable to persist a vote handed to the time-change queue");
+				plugin.debug(persistenceFailure);
+				return false;
+			}
+		}
 	}
 
 	/**
@@ -165,13 +184,15 @@ public class TimeQueueHandler implements Listener {
 	}
 
 	private boolean persistQueueSnapshot() {
-		try {
-			plugin.getServerData().replaceTimedVoteCache(new ArrayList<>(timeChangeQueue));
-			return true;
-		} catch (RuntimeException persistenceFailure) {
-			plugin.getLogger().severe("Unable to persist the time-queue retry; the vote remains in memory");
-			plugin.debug(persistenceFailure);
-			return false;
+		synchronized (queuePersistenceLock) {
+			try {
+				plugin.getServerData().replaceTimedVoteCache(new ArrayList<>(timeChangeQueue));
+				return true;
+			} catch (RuntimeException persistenceFailure) {
+				plugin.getLogger().severe("Unable to persist the time-queue retry; the vote remains in memory");
+				plugin.debug(persistenceFailure);
+				return false;
+			}
 		}
 	}
 
@@ -227,9 +248,11 @@ public class TimeQueueHandler implements Listener {
 	 * Saves pending votes to server data.
 	 */
 	public void save() {
-		if (!timeChangeQueue.isEmpty()) {
-			plugin.getServerData().replaceTimedVoteCache(new ArrayList<>(timeChangeQueue));
+		synchronized (queuePersistenceLock) {
+			if (!timeChangeQueue.isEmpty()) {
+				plugin.getServerData().replaceTimedVoteCache(new ArrayList<>(timeChangeQueue));
+			}
+			timeChangeQueue.clear();
 		}
-		timeChangeQueue.clear();
 	}
 }

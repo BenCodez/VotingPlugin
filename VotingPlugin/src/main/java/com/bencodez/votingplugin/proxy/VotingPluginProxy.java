@@ -429,12 +429,12 @@ public abstract class VotingPluginProxy {
 					return;
 				}
 				String transitionId = UUID.randomUUID().toString();
-				int delay = 1;
+				List<String> activeServers = new ArrayList<>();
+				boolean allSupportBoundaryProtocol = true;
 				for (String s : getAllAvailableServers()) {
 					if (getGlobalDataHandler().getGlobalMysql().containsKey(s)) {
 						HashMap<String, DataValue> boundary = new HashMap<>();
-						boundary.put(VotingPluginWire.timeChangeTransitionKey(type.toString()),
-								new DataValueString(transitionId));
+						boundary.put(VotingPluginWire.timeChangeTransitionKey(type.toString()), new DataValueString(""));
 						boundary.put(VotingPluginWire.timeChangeBoundaryCapturedKey(type.toString()),
 								new DataValueString(""));
 						getGlobalDataHandler().setData(s, boundary);
@@ -448,21 +448,30 @@ public abstract class VotingPluginProxy {
 
 						if (LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli() - lastOnline < 1000
 								* 60 * 60 * 12) {
-							HashMap<String, DataValue> dataToSet = new HashMap<>();
-							dataToSet.put("LastUpdated", new DataValueString(
-									"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
-							dataToSet.put("FinishedProcessing", new DataValueBoolean(false));
-							dataToSet.put(type.toString(), new DataValueBoolean(true));
-							getGlobalDataHandler().setData(s, dataToSet);
-
-							globalMessageProxyHandler.sendMessage(s, delay, VotingPluginWire.bungeeTimeChange());
-							delay++;
+							activeServers.add(s);
+							allSupportBoundaryProtocol &= VotingPluginWire.supportsTimeChangeBoundaryProtocol(
+									lastOnlineStr, getGlobalDataHandler().getString(s,
+											VotingPluginWire.TIME_CHANGE_BOUNDARY_PROTOCOL_KEY));
 						} else {
 							warn("Server " + s + " hasn't been online recently");
 						}
 					} else {
 						warn("Server " + s + " global data handler disabled?");
 					}
+				}
+				String publishedTransition = allSupportBoundaryProtocol ? transitionId
+						: VotingPluginWire.LEGACY_TIME_CHANGE_TRANSITION;
+				int delay = 1;
+				for (String server : activeServers) {
+					HashMap<String, DataValue> dataToSet = new HashMap<>();
+					dataToSet.put(VotingPluginWire.timeChangeTransitionKey(type.toString()),
+							new DataValueString(publishedTransition));
+					dataToSet.put("LastUpdated", new DataValueString(
+							"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
+					dataToSet.put("FinishedProcessing", new DataValueBoolean(false));
+					dataToSet.put(type.toString(), new DataValueBoolean(true));
+					getGlobalDataHandler().setData(server, dataToSet);
+					globalMessageProxyHandler.sendMessage(server, delay++, VotingPluginWire.bungeeTimeChange());
 				}
 				globalDataHandler.onTimeChange(type);
 			}
@@ -475,25 +484,40 @@ public abstract class VotingPluginProxy {
 	}
 
 	public void onTimeChangedFailed(String srv, TimeType type) {
-		getGlobalDataHandler().setBoolean(srv, type.toString(), false);
-		getGlobalDataHandler().setBoolean(srv, "FinishedProcessing", true);
-		getGlobalDataHandler().setBoolean(srv, "Processing", false);
+		HashMap<String, DataValue> failed = new HashMap<>();
+		failed.put(type.toString(), new DataValueBoolean(false));
+		failed.put("FinishedProcessing", new DataValueBoolean(true));
+		failed.put("Processing", new DataValueBoolean(false));
+		// A participant that failed did not prove either the negotiated boundary
+		// or the legacy reset path. Remove its marker before aggregate completion.
+		failed.put(VotingPluginWire.timeChangeTransitionKey(type.toString()), new DataValueString(""));
+		failed.put(VotingPluginWire.timeChangeBoundaryCapturedKey(type.toString()), new DataValueString(""));
+		getGlobalDataHandler().setData(srv, failed);
 	}
 
 	public void onTimeChangedFinished(TimeType type) {
 		boolean boundaryCaptured = false;
+		boolean legacyBoundary = false;
 		String boundaryCapturedKey = VotingPluginWire.timeChangeBoundaryCapturedKey(type.toString());
 		String transitionKey = VotingPluginWire.timeChangeTransitionKey(type.toString());
 		for (String server : getAllAvailableServers()) {
 			if (!getGlobalDataHandler().getGlobalMysql().containsKey(server)) continue;
 			String expected = getGlobalDataHandler().getString(server, transitionKey);
 			String captured = getGlobalDataHandler().getString(server, boundaryCapturedKey);
+			if (VotingPluginWire.LEGACY_TIME_CHANGE_TRANSITION.equals(expected)) {
+				legacyBoundary = true;
+				continue;
+			}
 			if (expected != null && !expected.isBlank() && expected.equals(captured)) {
 				boundaryCaptured = true;
-				break;
 			}
 		}
-		if (boundaryCaptured) {
+		if (legacyBoundary) {
+			if (type.equals(TimeType.MONTH)) {
+				getProxyMySQL().copyColumnData(TopVoter.Monthly.getColumnName(), "LastMonthTotal");
+			}
+			getProxyMySQL().wipeColumnData(TopVoter.of(type).getColumnName(), DataType.INTEGER);
+		} else if (boundaryCaptured) {
 			getProxyMySQL().wipeColumnData(TopVoter.of(type).getColumnName(), DataType.INTEGER);
 		} else {
 			warn("Retaining " + TopVoter.of(type).getColumnName()
@@ -657,6 +681,8 @@ public abstract class VotingPluginProxy {
 				getGlobalDataHandler().getGlobalMysql().alterColumnType(
 						VotingPluginWire.timeChangeTransitionKey(type.toString()), "VARCHAR(36)");
 			}
+			getGlobalDataHandler().getGlobalMysql().alterColumnType(
+					VotingPluginWire.TIME_CHANGE_BOUNDARY_PROTOCOL_KEY, "VARCHAR(32)");
 		}
 
 		// column types (unchanged from original)

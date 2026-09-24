@@ -116,11 +116,8 @@ public class BackendGlobalDataSync {
 		}
 		String transitionId = data.containsKey(VotingPluginWire.timeChangeTransitionKey(type.toString()))
 				? data.get(VotingPluginWire.timeChangeTransitionKey(type.toString())).getString() : "";
-		if (transitionId == null || transitionId.isBlank()) {
-			timeChangesInProgress.remove(type);
-			plugin.getLogger().warning("Ignoring bungee time change without a transition identity: " + type);
-			return false;
-		}
+		boolean confirmsBoundary = transitionId != null && !transitionId.isBlank()
+				&& !VotingPluginWire.LEGACY_TIME_CHANGE_TRANSITION.equals(transitionId);
 
 		String serverName = plugin.getBungeeSettings().getServer();
 		globalDataHandler.setBoolean(serverName, "Processing", true);
@@ -136,7 +133,7 @@ public class BackendGlobalDataSync {
 				}
 				try {
 					plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
-							() -> finishTimeChange(type, serverName, transitionId));
+							() -> finishTimeChange(type, serverName, transitionId, confirmsBoundary));
 				} catch (RuntimeException failure) {
 					timeChangesInProgress.remove(type);
 					plugin.debug(failure);
@@ -150,13 +147,15 @@ public class BackendGlobalDataSync {
 		return true;
 	}
 
-	private void finishTimeChange(TimeType type, String serverName, String transitionId) {
+	private void finishTimeChange(TimeType type, String serverName, String transitionId, boolean confirmsBoundary) {
 		boolean completed = false;
 		try {
 			HashMap<String, DataValue> completion = new HashMap<>();
 			completion.put(type.toString(), new DataValueBoolean(false));
-			completion.put(VotingPluginWire.timeChangeBoundaryCapturedKey(type.toString()),
-					new DataValueString(transitionId));
+			if (confirmsBoundary) {
+				completion.put(VotingPluginWire.timeChangeBoundaryCapturedKey(type.toString()),
+						new DataValueString(transitionId));
+			}
 			globalDataHandler.setData(serverName, completion);
 			JsonEnvelope.Builder builder = JsonEnvelope.builder("TimeChangeFinished")
 					.schema(VotingPluginWire.SCHEMA_VERSION);
@@ -199,8 +198,7 @@ public class BackendGlobalDataSync {
 		timer.scheduleWithFixedDelay(this::checkGlobalData, 60, 10, TimeUnit.SECONDS);
 		timer.scheduleWithFixedDelay(() -> {
 			if (globalDataHandler != null) {
-				globalDataHandler.setString(plugin.getBungeeSettings().getServer(), "LastOnline",
-						"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli());
+				publishBoundaryProtocolHeartbeat();
 			}
 		}, 1, 60, TimeUnit.MINUTES);
 
@@ -243,7 +241,19 @@ public class BackendGlobalDataSync {
 			globalDataHandler.getGlobalMysql().alterColumnType(
 					VotingPluginWire.timeChangeTransitionKey(type.toString()), "VARCHAR(36)");
 		}
+		globalDataHandler.getGlobalMysql().alterColumnType(
+				VotingPluginWire.TIME_CHANGE_BOUNDARY_PROTOCOL_KEY, "VARCHAR(32)");
+		publishBoundaryProtocolHeartbeat();
 		plugin.getTimeChecker().setProcessingEnabled(false);
+	}
+
+	private void publishBoundaryProtocolHeartbeat() {
+		String heartbeat = "" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli();
+		HashMap<String, DataValue> state = new HashMap<>();
+		state.put("LastOnline", new DataValueString(heartbeat));
+		state.put(VotingPluginWire.TIME_CHANGE_BOUNDARY_PROTOCOL_KEY,
+				new DataValueString(VotingPluginWire.timeChangeBoundaryProtocolHeartbeat(heartbeat)));
+		globalDataHandler.setData(plugin.getBungeeSettings().getServer(), state);
 	}
 
 	public void close() {

@@ -169,10 +169,26 @@ public class VotiferEventDisabledVoteSiteTest {
 		when(plugin.getTimeQueueHandler()).thenReturn(timeQueue);
 		when(plugin.getTimeChecker().isActiveProcessing()).thenReturn(true);
 		when(plugin.getConfigFile().isQueueVotesDuringTimeChange()).thenReturn(true);
+		when(timeQueue.addVoteDurably(voteId, "Steve", SERVICE_SITE)).thenReturn(true);
 
 		listener.processVote(SERVICE_SITE, "Steve", voteId);
 
-		verify(timeQueue).addVote(voteId, "Steve", SERVICE_SITE);
+		verify(timeQueue).addVoteDurably(voteId, "Steve", SERVICE_SITE);
+		verify(pluginManager, never()).callEvent(any(PlayerVoteEvent.class));
+	}
+
+	@Test
+	void queuedVoteIsRetriedWhenTimeQueueHandoffIsNotDurable() {
+		TimeQueueHandler timeQueue = mock(TimeQueueHandler.class);
+		UUID voteId = UUID.randomUUID();
+		when(plugin.getTimeQueueHandler()).thenReturn(timeQueue);
+		when(plugin.getTimeChecker().isActiveProcessing()).thenReturn(true);
+		when(plugin.getConfigFile().isQueueVotesDuringTimeChange()).thenReturn(true);
+
+		assertEquals(VotifierVoteOverflowQueue.VoteOutcome.RETRY,
+				listener.processQueuedVoteOutcome(SERVICE_SITE, "Steve", voteId));
+
+		verify(timeQueue).addVoteDurably(voteId, "Steve", SERVICE_SITE);
 		verify(pluginManager, never()).callEvent(any(PlayerVoteEvent.class));
 	}
 

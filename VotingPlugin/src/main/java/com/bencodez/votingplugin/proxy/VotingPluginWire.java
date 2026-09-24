@@ -41,6 +41,19 @@ public final class VotingPluginWire {
 		return "BoundaryTransition" + type;
 	}
 
+	public static final String TIME_CHANGE_BOUNDARY_PROTOCOL_KEY = "BoundaryProtocol";
+	public static final String TIME_CHANGE_BOUNDARY_PROTOCOL_VERSION = "1";
+	public static final String LEGACY_TIME_CHANGE_TRANSITION = "LEGACY";
+
+	public static String timeChangeBoundaryProtocolHeartbeat(String lastOnline) {
+		return TIME_CHANGE_BOUNDARY_PROTOCOL_VERSION + ":" + lastOnline;
+	}
+
+	public static boolean supportsTimeChangeBoundaryProtocol(String lastOnline, String advertisedProtocol) {
+		return lastOnline != null && !lastOnline.isBlank()
+				&& timeChangeBoundaryProtocolHeartbeat(lastOnline).equals(advertisedProtocol);
+	}
+
 	public static final int SCHEMA_VERSION = 1;
 
 	// =========================

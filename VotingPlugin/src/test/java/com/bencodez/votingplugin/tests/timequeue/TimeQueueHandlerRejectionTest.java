@@ -95,6 +95,32 @@ class TimeQueueHandlerRejectionTest {
 	}
 
 	@Test
+	void durableAdmissionPersistsBeforeReportingSuccess() {
+		when(serverData.getTimedVoteCacheKeys()).thenReturn(Set.of());
+		TimeQueueHandler handler = new TimeQueueHandler(plugin);
+		UUID voteId = UUID.randomUUID();
+
+		assertTrue(handler.addVoteDurably(voteId, "Alex", "example.org"));
+
+		@SuppressWarnings("unchecked")
+		org.mockito.ArgumentCaptor<List<VoteTimeQueue>> persisted = org.mockito.ArgumentCaptor.forClass(List.class);
+		verify(serverData).replaceTimedVoteCache(persisted.capture());
+		assertEquals(voteId, persisted.getValue().getFirst().getVoteId());
+	}
+
+	@Test
+	void failedDurableAdmissionLeavesTheVoteWithItsSourceOwner() {
+		when(serverData.getTimedVoteCacheKeys()).thenReturn(Set.of());
+		doThrow(new IllegalStateException("disk unavailable")).when(serverData).replaceTimedVoteCache(any());
+		TimeQueueHandler handler = new TimeQueueHandler(plugin);
+
+		org.junit.jupiter.api.Assertions.assertFalse(
+				handler.addVoteDurably(UUID.randomUUID(), "Alex", "example.org"));
+
+		assertTrue(handler.getTimeChangeQueue().isEmpty());
+	}
+
+	@Test
 	void rejectedProcessingSchedulesOneBoundedRetry() {
 		TimeQueueHandler handler = new TimeQueueHandler(plugin);
 		org.mockito.ArgumentCaptor<Runnable> retry = org.mockito.ArgumentCaptor.forClass(Runnable.class);

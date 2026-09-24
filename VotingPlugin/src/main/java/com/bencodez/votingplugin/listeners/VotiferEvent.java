@@ -105,8 +105,8 @@ public class VotiferEvent implements Listener {
 			if (plugin.getTimeChecker().isActiveProcessing()
 					&& plugin.getConfigFile().isQueueVotesDuringTimeChange()) {
 				plugin.debug("Adding vote to time queue " + voteUsername + "/" + voteSite);
-				plugin.getTimeQueueHandler().addVote(voteId, voteUsername, voteSite);
-				return VoteOutcome.COMPLETE;
+				return plugin.getTimeQueueHandler().addVoteDurably(voteId, voteUsername, voteSite)
+						? VoteOutcome.COMPLETE : VoteOutcome.RETRY;
 			}
 
 			String voteSiteName = plugin.getVoteSiteManager().getVoteSiteName(true, serviceSite, matchSite);

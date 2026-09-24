@@ -19,6 +19,14 @@ import com.bencodez.votingplugin.proxy.VotingPluginWire.VoteDelayRejected;
  * Tests proxy vote wire encoding and decoding.
  */
 public class VotingPluginWireTest {
+	@Test
+	void boundaryProtocolCapabilityMustMatchTheCurrentBackendHeartbeat() {
+		assertTrue(VotingPluginWire.supportsTimeChangeBoundaryProtocol("200",
+				VotingPluginWire.timeChangeBoundaryProtocolHeartbeat("200")));
+		assertFalse(VotingPluginWire.supportsTimeChangeBoundaryProtocol("201",
+				VotingPluginWire.timeChangeBoundaryProtocolHeartbeat("200")));
+		assertFalse(VotingPluginWire.supportsTimeChangeBoundaryProtocol("200", ""));
+	}
 
 	@Test
 	public void voteRoundTripPreservesVoteId() {
