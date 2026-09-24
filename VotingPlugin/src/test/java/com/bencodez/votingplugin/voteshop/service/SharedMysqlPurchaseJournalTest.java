@@ -119,14 +119,16 @@ class SharedMysqlPurchaseJournalTest {
 		SharedMysqlPurchaseJournal.VoteAccountingDecision decision = new SharedMysqlPurchaseJournal(fixture.table, false)
 				.prepareVoteAccounting(
 				UUID.randomUUID(), "00000000-0000-0000-0000-000000000001", false, false, false,
-				null, null, false, 0.0, 1, false, 1234L, 2, 10);
+				null, null, false, 0.0, 1, false, 1234L, 2, 10, "current_Points");
 
 		assertEquals(256, decision.bits());
 		assertEquals(9, decision.pointAmount());
 		assertEquals(40, decision.pointCap());
+		assertEquals("persisted_Points", decision.pointColumn());
 		assertEquals(true, decision.replayUnsafe());
 		verify(accountingUpdate).setInt(2, 320);
 		verify(accountingUpdate).setInt(3, 320);
+		verify(accountingUpdate).setString(11, "persisted_Points");
 		verify(fixture.work).commit();
 	}
 
@@ -1252,11 +1254,16 @@ class SharedMysqlPurchaseJournalTest {
 	}
 
 	private static ResultSet accountingRow(String uuid, int requested, int completed) throws Exception {
-		return accountingRow(uuid, requested, completed, null, null, false);
+		return accountingRow(uuid, requested, completed, null, null, null, false);
 	}
 
 	private static ResultSet accountingRow(String uuid, int requested, int completed, Integer points, Integer cap,
 			boolean replayUnsafe) throws Exception {
+		return accountingRow(uuid, requested, completed, points, cap, "persisted_Points", replayUnsafe);
+	}
+
+	private static ResultSet accountingRow(String uuid, int requested, int completed, Integer points, Integer cap,
+			String pointColumn, boolean replayUnsafe) throws Exception {
 		ResultSet row = mock(ResultSet.class);
 		when(row.next()).thenReturn(true);
 		when(row.getString(1)).thenReturn(uuid);
@@ -1264,7 +1271,8 @@ class SharedMysqlPurchaseJournalTest {
 		when(row.getInt(3)).thenReturn(completed);
 		when(row.getObject(10)).thenReturn(points);
 		when(row.getObject(11)).thenReturn(cap);
-		when(row.getInt(12)).thenReturn(replayUnsafe ? 1 : 0);
+		when(row.getString(12)).thenReturn(pointColumn);
+		when(row.getInt(13)).thenReturn(replayUnsafe ? 1 : 0);
 		return row;
 	}
 

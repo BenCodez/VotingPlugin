@@ -16,7 +16,7 @@ public final class SharedVoteProcessor {
     public record Validation(boolean valid, String normalizedName, String source, String reason, boolean bedrock) { }
     public record Name(String value, String rationale) { }
     public record AccountingAdmission(boolean countTotals, boolean awardPoints, boolean votePartyEligible,
-            int pointAmount, int pointCap, boolean replayUnsafe) { }
+            int pointAmount, int pointCap, String pointColumn, boolean replayUnsafe) { }
 
     public interface Operations<S, U> {
         boolean enabled();
@@ -90,7 +90,7 @@ public final class SharedVoteProcessor {
         void addTotal(U user, UUID voteId);
         void addTotalDaily(U user, UUID voteId);
         void addTotalWeekly(U user, UUID voteId);
-        void addPoints(U user, UUID voteId, int amount, int cap);
+        void addPoints(U user, UUID voteId, int amount, int cap, String pointColumn);
         void checkDayVoteStreak(U user, boolean forceProxyRouting, UUID voteId);
         boolean limitMonthlyVotes();
         int proxyMonthTotal();
@@ -236,7 +236,8 @@ public final class SharedVoteProcessor {
                     ops.realVote(), ops.addTotals(), ops.proxyVote(), ops.forceProxyRouting(), ops.wasOnline());
             SharedVoteAccounting.applyAdmitted(countTotals, awardPoints, () -> ops.addTotal(user, voteId),
                     () -> ops.addTotalDaily(user, voteId), () -> ops.addTotalWeekly(user, voteId),
-                    () -> ops.addPoints(user, voteId, admission.pointAmount(), admission.pointCap()));
+                    () -> ops.addPoints(user, voteId, admission.pointAmount(), admission.pointCap(),
+                            admission.pointColumn()));
             ops.checkDayVoteStreak(user, ops.forceProxyRouting(), voteId);
             if (ops.limitMonthlyVotes() && (!ops.proxyVote() || ops.hasProxyTextTotals())) {
                 int value = ops.proxyVote() ? ops.proxyMonthTotal() : ops.userMonthTotal(user);

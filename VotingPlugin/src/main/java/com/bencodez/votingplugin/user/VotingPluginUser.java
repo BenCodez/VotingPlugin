@@ -291,33 +291,40 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param voteId stable identity of the accepted vote
 	 */
 	public void addVotePoints(UUID voteId) {
-		addVotePoints(voteId, plugin.getConfigFile().getPointsOnVote(), plugin.getConfigFile().getLimitVotePoints());
+		addVotePoints(voteId, plugin.getConfigFile().getPointsOnVote(), plugin.getConfigFile().getLimitVotePoints(),
+				getPointsPath());
 	}
 
 	/** Applies the point policy captured when the durable vote was admitted. */
 	public void addVotePoints(UUID voteId, int points, int limit) {
+		addVotePoints(voteId, points, limit, getPointsPath());
+	}
+
+	/** Applies the point policy and destination captured by durable vote admission. */
+	public void addVotePoints(UUID voteId, int points, int limit, String admittedPointsColumn) {
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
 		if (voteId == null || !sharedPoints.usesMysqlPointMutations()) {
 			addVotePointsWithPolicy(points, limit);
 			return;
 		}
-		String pointsColumn = getPointsPath();
+		String pointsColumn = admittedPointsColumn;
 		String operationId = "vote-points:" + voteId;
 		Integer completedTotal = sharedPoints.completedPointAdditionTotal(operationId, getUUID(), pointsColumn);
-		if (completedTotal == null && points != 0) {
-			PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, points);
-			Bukkit.getPluginManager().callEvent(event);
-			if (!event.isCancelled()) {
-				SharedMysqlPointMutator.AddResult result = sharedPoints.addCommittedToColumn(this,
-						event.getPoints(), operationId, pointsColumn);
-				if (!result.success()) {
-					throw new IllegalStateException("Unable to persist vote points for " + getUUID());
-				}
+		if (completedTotal == null && (points != 0 || limit > 0)) {
+			int admittedAmount = 0;
+			if (points != 0) {
+				PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, points);
+				Bukkit.getPluginManager().callEvent(event);
+				if (!event.isCancelled()) admittedAmount = event.getPoints();
+			}
+			SharedMysqlPointMutator.AddResult result = sharedPoints.addCommittedToColumn(this,
+					admittedAmount, operationId, pointsColumn, limit);
+			if (!result.success()) {
+				throw new IllegalStateException("Unable to persist vote points for " + getUUID());
 			}
 		}
 		// A durable vote queue has no age limit. Keep vote-point receipts in
 		// COMPLETED so a delayed replay cannot credit the same vote after cleanup.
-		if (limit > 0) sharedPoints.cap(this, limit, false);
 	}
 
 	private void addVotePointsWithPolicy(int points, int limit) {

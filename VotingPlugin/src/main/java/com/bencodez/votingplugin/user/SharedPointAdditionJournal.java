@@ -77,7 +77,13 @@ final class SharedPointAdditionJournal {
 
 	/** Applies the operation exactly once and returns the resulting durable total. */
 	AdditionResult add(String operationId, String uuid, String pointsColumn, int amount, long now) throws SQLException {
-		return mutate(operationId, uuid, pointsColumn, amount, now, false);
+		return mutate(operationId, uuid, pointsColumn, amount, null, now, false);
+	}
+
+	/** Applies one idempotent credit and upper bound in the same transaction. */
+	AdditionResult addCapped(String operationId, String uuid, String pointsColumn, int amount, int maximum, long now)
+			throws SQLException {
+		return mutate(operationId, uuid, pointsColumn, amount, Integer.valueOf(maximum), now, false);
 	}
 
 	/** Applies a durable conditional debit. A retry confirms the journal row and
@@ -85,10 +91,10 @@ final class SharedPointAdditionJournal {
 	 * rejection and is not recorded as a successful mutation. */
 	AdditionResult subtract(String operationId, String uuid, String pointsColumn, int amount, long now) throws SQLException {
 		if (amount < 0) throw new SQLException("Invalid shared point debit");
-		return mutate(operationId, uuid, pointsColumn, -amount, now, true);
+		return mutate(operationId, uuid, pointsColumn, -amount, null, now, true);
 	}
 
-	private AdditionResult mutate(String operationId, String uuid, String pointsColumn, int amount, long now,
+	private AdditionResult mutate(String operationId, String uuid, String pointsColumn, int amount, Integer maximum, long now,
 			boolean requireNonnegative) throws SQLException {
 		if (!isSafeColumn(pointsColumn)) throw new SQLException("Unsafe shared point column");
 		AdditionRow existing = find(operationId);
@@ -99,8 +105,10 @@ final class SharedPointAdditionJournal {
 				+ qi("state") + ", " + qi("total_points") + ", " + qi("created_at") + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 		String points = qi(pointsColumn);
 		String coalescedPoints = "COALESCE(" + points + ", 0)";
-		String update = "UPDATE " + qi(table.getTableName()) + " SET " + points + " = " + coalescedPoints
-				+ " + ? WHERE " + qi("uuid") + uuidCast()
+		String updatedPoints = coalescedPoints + " + ?";
+		if (maximum != null && maximum.intValue() > 0) updatedPoints = "LEAST(" + updatedPoints + ", ?)";
+		String update = "UPDATE " + qi(table.getTableName()) + " SET " + points + " = " + updatedPoints
+				+ " WHERE " + qi("uuid") + uuidCast()
 				+ (requireNonnegative ? " AND " + coalescedPoints + " >= ?" : "");
 		String read = "SELECT " + points + " FROM " + qi(table.getTableName()) + " WHERE " + qi("uuid") + uuidCast();
 		String complete = "UPDATE " + qiJournal() + " SET " + qi("state") + " = ?, " + qi("total_points")
@@ -122,8 +130,10 @@ final class SharedPointAdditionJournal {
 				insertStatement.executeUpdate();
 
 				updateStatement.setInt(1, amount);
-				updateStatement.setString(2, uuid);
-				if (requireNonnegative) updateStatement.setInt(3, -amount);
+				int parameter = 2;
+				if (maximum != null && maximum.intValue() > 0) updateStatement.setInt(parameter++, maximum.intValue());
+				updateStatement.setString(parameter++, uuid);
+				if (requireNonnegative) updateStatement.setInt(parameter, -amount);
 				if (updateStatement.executeUpdate() != 1) {
 					rollback(connection);
 					if (requireNonnegative) throw new DebitRejectedException();

@@ -54,7 +54,7 @@ public class VoteShopPurchaseService {
 	public enum MysqlDailyStreakResult { APPLIED, ALREADY_UPDATED, NOT_REQUESTED, DEFERRED, FAILED }
 	public record MysqlDailyStreakUpdate(MysqlDailyStreakResult result, int streak, boolean forceProxyRouting) { }
 	public record VoteAccountingAdmission(boolean success, boolean countTotals, boolean awardPoints,
-			boolean countVoteParty, int pointAmount, int pointCap, boolean replayUnsafe) { }
+			boolean countVoteParty, int pointAmount, int pointCap, String pointColumn, boolean replayUnsafe) { }
 	private static final ConcurrentMap<UUID, Integer> ADMITTED_ACCOUNTING = new ConcurrentHashMap<>();
 	private static final int ACCOUNTING_DAILY_STREAK = 16;
 	private static final int ACCOUNTING_POINTS = 256;
@@ -666,10 +666,10 @@ public class VoteShopPurchaseService {
 	/** Durably admits shared total mutations before vote rewards or broadcasts run. */
 	public static VoteAccountingAdmission prepareMysqlVoteAccounting(VotingPluginMain plugin, UUID voteId, String uuid,
 			boolean countTotals, boolean awardPoints, boolean countVoteParty, boolean forceProxyRouting,
-			int pointAmount, int pointCap) {
+			int pointAmount, int pointCap, String pointColumn) {
 		if (!canRecoverSharedMysqlPurchases(plugin) || voteId == null) {
 			return new VoteAccountingAdmission(true, countTotals, awardPoints, countVoteParty, pointAmount, pointCap,
-					voteId != null && plugin.getServerData().isVoteReplayUnsafe(voteId));
+					pointColumn, voteId != null && plugin.getServerData().isVoteReplayUnsafe(voteId));
 		}
 		try {
 			MySQL table = plugin.getMysql();
@@ -696,17 +696,18 @@ public class VoteShopPurchaseService {
 					plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage(),
 					plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(),
 					plugin.getVoteSiteManager().getVoteSitesEnabled().size(), forceProxyRouting,
-					System.currentTimeMillis(), pointAmount, pointCap);
+					System.currentTimeMillis(), pointAmount, pointCap, pointColumn);
 			int bits = decision.bits();
+			if ((bits & ACCOUNTING_POINTS) != 0) table.checkColumn(decision.pointColumn(), DataType.INTEGER);
 			ADMITTED_ACCOUNTING.put(voteId, Integer.valueOf(bits));
 			return new VoteAccountingAdmission(true, (bits & 7) != 0,
 					(bits & ACCOUNTING_POINTS) != 0, (bits & 8) != 0, decision.pointAmount(),
-					decision.pointCap(), decision.replayUnsafe());
+					decision.pointCap(), decision.pointColumn(), decision.replayUnsafe());
 		} catch (SQLException failure) {
 			plugin.getLogger().severe("Unable to admit shared MySQL vote accounting: "
 					+ failure.getClass().getSimpleName());
 			plugin.debug(failure);
-			return new VoteAccountingAdmission(false, false, false, false, pointAmount, pointCap, false);
+			return new VoteAccountingAdmission(false, false, false, false, pointAmount, pointCap, pointColumn, false);
 		}
 	}
 

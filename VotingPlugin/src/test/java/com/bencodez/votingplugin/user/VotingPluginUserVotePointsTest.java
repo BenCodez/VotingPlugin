@@ -30,6 +30,7 @@ class VotingPluginUserVotePointsTest {
 		when(plugin.getStorageType()).thenReturn(UserStorage.MYSQL);
 		when(plugin.getBungeeSettings().isPerServerPoints()).thenReturn(false);
 		when(plugin.getConfigFile().getPointsOnVote()).thenReturn(5);
+		when(plugin.getConfigFile().getLimitVotePoints()).thenReturn(10);
 		MySQL table = mock(MySQL.class);
 		when(plugin.getMysql()).thenReturn(table);
 		AdvancedCoreUser base = mock(AdvancedCoreUser.class);
@@ -43,8 +44,9 @@ class VotingPluginUserVotePointsTest {
 		String operationId = "vote-points:" + voteId;
 		when(journal.findCompleted(operationId, uuid, "Points"))
 				.thenReturn(null, new SharedPointAdditionJournal.AdditionResult(5));
-		when(journal.add(org.mockito.ArgumentMatchers.eq(operationId), org.mockito.ArgumentMatchers.eq(uuid),
-				org.mockito.ArgumentMatchers.eq("Points"), org.mockito.ArgumentMatchers.eq(5), anyLong()))
+		when(journal.addCapped(org.mockito.ArgumentMatchers.eq(operationId), org.mockito.ArgumentMatchers.eq(uuid),
+				org.mockito.ArgumentMatchers.eq("Points"), org.mockito.ArgumentMatchers.eq(5),
+				org.mockito.ArgumentMatchers.eq(10), anyLong()))
 				.thenReturn(new SharedPointAdditionJournal.AdditionResult(5));
 		PluginManager pluginManager = mock(PluginManager.class);
 
@@ -57,9 +59,9 @@ class VotingPluginUserVotePointsTest {
 			user.addVotePoints(voteId);
 		}
 
-		verify(journal).add(org.mockito.ArgumentMatchers.eq(operationId),
+		verify(journal).addCapped(org.mockito.ArgumentMatchers.eq(operationId),
 				org.mockito.ArgumentMatchers.eq(uuid), org.mockito.ArgumentMatchers.eq("Points"),
-				org.mockito.ArgumentMatchers.eq(5), anyLong());
+				org.mockito.ArgumentMatchers.eq(5), org.mockito.ArgumentMatchers.eq(10), anyLong());
 		verify(journal, org.mockito.Mockito.never()).acknowledge(
 				org.mockito.ArgumentMatchers.eq(operationId), anyLong());
 		verify(pluginManager).callEvent(isA(PlayerReceivePointsEvent.class));

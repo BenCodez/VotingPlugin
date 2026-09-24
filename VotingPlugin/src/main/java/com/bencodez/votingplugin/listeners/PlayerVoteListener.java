@@ -166,15 +166,15 @@ public class PlayerVoteListener implements Listener {
             boolean countVoteParty = plugin.getSpecialRewardsConfig().isVotePartyEnabled()
                     && (plugin.getSpecialRewardsConfig().isVotePartyCountFakeVotes() || event.isRealVote())
                     && (plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes() || user.isOnline());
-            VoteShopPurchaseService.VoteAccountingAdmission admission = VoteShopPurchaseService
+			VoteShopPurchaseService.VoteAccountingAdmission admission = VoteShopPurchaseService
 					.prepareMysqlVoteAccounting(plugin, voteId, user.getUUID(), countTotals, awardPoints,
-							countVoteParty, event.isForceBungee(), pointAmount, pointCap);
+							countVoteParty, event.isForceBungee(), pointAmount, pointCap, user.getPointsPath());
 			if (!admission.success()) {
                 throw new SharedVoteAdmissionException("Unable to admit shared MySQL vote accounting before processing");
             }
 			return new SharedVoteProcessor.AccountingAdmission(admission.countTotals(), admission.awardPoints(),
 					admission.countVoteParty(), admission.pointAmount(), admission.pointCap(),
-					admission.replayUnsafe());
+					admission.pointColumn(), admission.replayUnsafe());
         }
 		@Override public int configuredPointAmount() { return plugin.getConfigFile().getPointsOnVote(); }
 		@Override public int configuredPointCap() { return plugin.getConfigFile().getLimitVotePoints(); }
@@ -219,8 +219,8 @@ public class PlayerVoteListener implements Listener {
         @Override public void addTotal(VotingPluginUser user, UUID voteId) { user.addTotal(voteId); }
         @Override public void addTotalDaily(VotingPluginUser user, UUID voteId) { user.addTotalDaily(voteId); }
         @Override public void addTotalWeekly(VotingPluginUser user, UUID voteId) { user.addTotalWeekly(voteId); }
-        @Override public void addPoints(VotingPluginUser user, UUID voteId, int amount, int cap) {
-			user.addVotePoints(voteId, amount, cap);
+        @Override public void addPoints(VotingPluginUser user, UUID voteId, int amount, int cap, String pointColumn) {
+			user.addVotePoints(voteId, amount, cap, pointColumn);
 		}
         @Override public void checkDayVoteStreak(VotingPluginUser user, boolean forceProxyRouting, UUID voteId) {
             user.checkDayVoteStreak(forceProxyRouting, voteId);
