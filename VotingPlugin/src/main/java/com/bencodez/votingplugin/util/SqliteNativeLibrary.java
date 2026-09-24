@@ -1,0 +1,216 @@
+package com.bencodez.votingplugin.util;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.PosixFilePermission;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
+import java.util.Set;
+import java.util.UUID;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
+
+import org.sqlite.util.OSInfo;
+
+/** Prepares the current Xerial SQLite native without embedding every target in the plugin JAR. */
+public final class SqliteNativeLibrary {
+	static final String DRIVER_FILE = "sqlite-jdbc-3.53.4.0.jar";
+	static final String DRIVER_SHA256 = "bcb1f51e36f940867e83342f9efbf5968ac44a6bef4d397bb4af7b17b45cd2fb";
+	private static final URI DRIVER_URI = URI.create("https://maven-central.storage-download.googleapis.com/maven2/"
+			+ "org/xerial/sqlite-jdbc/3.53.4.0/" + DRIVER_FILE);
+	private static final long MAX_DRIVER_BYTES = 16L * 1024L * 1024L;
+	private static final long STALE_NATIVE_MILLIS = 24L * 60L * 60L * 1000L;
+
+	private SqliteNativeLibrary() {
+	}
+
+	/** Ensures Xerial can load the native for this operating system and architecture. */
+	public static synchronized void ensureAvailable(Path directory) throws IOException {
+		if (System.getProperty("org.sqlite.lib.path") != null) {
+			try {
+				if (!org.sqlite.core.NativeDB.load()) throw new IOException("Configured SQLite native library did not load");
+				return;
+			} catch (Exception failure) {
+				throw failure instanceof IOException io ? io
+						: new IOException("Could not load the configured SQLite native library", failure);
+			}
+		}
+		String folder = OSInfo.getNativeLibFolderPathForCurrentOS();
+		Path nativeLibrary = prepareNative(directory, folder, SqliteNativeLibrary.class.getClassLoader(),
+				SqliteNativeLibrary::download);
+		if (nativeLibrary != null) loadPreparedNative(nativeLibrary.getParent(), nativeLibrary.getFileName().toString());
+	}
+
+	static Path prepareNative(Path directory, String folder, ClassLoader resourceLoader, ArtifactFetcher fetcher)
+			throws IOException {
+		String libraryName = nativeLibraryName(folder);
+		String resource = "org/sqlite/native/" + folder + "/" + libraryName;
+		if (resourceLoader.getResource(resource) != null) return null;
+		Files.createDirectories(directory);
+		Path driver = directory.resolve(DRIVER_FILE);
+		if (!hasExpectedDigest(driver, DRIVER_SHA256)) {
+			try {
+				downloadVerified(driver, fetcher);
+			} catch (IOException failure) {
+				throw new IOException("Unable to obtain the verified SQLite driver; pre-provision " + DRIVER_FILE
+						+ " in the VotingPlugin libraries directory or configure org.sqlite.lib.path", failure);
+			}
+		}
+		Path platformDirectory = directory.resolve("sqlite-native").resolve(folder);
+		Files.createDirectories(platformDirectory);
+		cleanupStaleNativeCopies(platformDirectory);
+		Path nativeDirectory = platformDirectory.resolve("load-" + UUID.randomUUID());
+		Files.createDirectories(nativeDirectory);
+		Path nativeLibrary = nativeDirectory.resolve(libraryName);
+		extractVerifiedEntry(driver, resource, nativeLibrary);
+		nativeLibrary.toFile().deleteOnExit();
+		nativeDirectory.toFile().deleteOnExit();
+		return nativeLibrary;
+	}
+
+	private static void cleanupStaleNativeCopies(Path platformDirectory) {
+		try (var loads = Files.newDirectoryStream(platformDirectory, "load-*")) {
+			for (Path load : loads) {
+				if (!Files.isDirectory(load, LinkOption.NOFOLLOW_LINKS)) continue;
+				if (Files.getLastModifiedTime(load, LinkOption.NOFOLLOW_LINKS).toMillis()
+						> System.currentTimeMillis() - STALE_NATIVE_MILLIS) continue;
+				try (var files = Files.newDirectoryStream(load)) {
+					for (Path file : files) {
+						if (Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) Files.deleteIfExists(file);
+					}
+				}
+				Files.deleteIfExists(load);
+			}
+		} catch (IOException | SecurityException ignored) {
+			// A prior classloader may still own the native, especially on Windows.
+		}
+	}
+
+	private static void loadPreparedNative(Path nativeDirectory, String libraryName) throws IOException {
+		synchronized (System.getProperties()) {
+			String oldPath = System.getProperty("org.sqlite.lib.path");
+			String oldName = System.getProperty("org.sqlite.lib.name");
+			try {
+				System.setProperty("org.sqlite.lib.path", nativeDirectory.toAbsolutePath().normalize().toString());
+				System.setProperty("org.sqlite.lib.name", libraryName);
+				if (!org.sqlite.core.NativeDB.load()) throw new IOException("SQLite native library did not load");
+			} catch (Exception failure) {
+				throw failure instanceof IOException io ? io : new IOException("Could not load SQLite native library", failure);
+			} finally {
+				restoreProperty("org.sqlite.lib.path", oldPath);
+				restoreProperty("org.sqlite.lib.name", oldName);
+			}
+		}
+	}
+
+	private static void restoreProperty(String name, String value) {
+		if (value == null) System.clearProperty(name);
+		else System.setProperty(name, value);
+	}
+
+	private static String nativeLibraryName(String folder) throws IOException {
+		if (folder.startsWith("Windows/")) return "sqlitejdbc.dll";
+		if (folder.startsWith("Mac/")) return "libsqlitejdbc.dylib";
+		if (folder.startsWith("Linux/") || folder.startsWith("Linux-Musl/")
+				|| folder.startsWith("FreeBSD/")) return "libsqlitejdbc.so";
+		throw new IOException("SQLite does not publish a native library for " + folder);
+	}
+
+	private static void downloadVerified(Path target, ArtifactFetcher fetcher) throws IOException {
+		Path temporary = Files.createTempFile(target.getParent(), DRIVER_FILE + ".", ".download");
+		setPrivatePermissions(temporary);
+		try {
+			fetcher.fetch(DRIVER_URI, temporary);
+			if (!hasExpectedDigest(temporary, DRIVER_SHA256))
+				throw new IOException("Downloaded SQLite driver failed SHA-256 verification");
+			moveReplacing(temporary, target);
+		} finally { Files.deleteIfExists(temporary); }
+	}
+
+	private static void download(URI source, Path target) throws IOException {
+		if (!"https".equalsIgnoreCase(source.getScheme())) throw new IOException("SQLite driver source must use HTTPS");
+		HttpURLConnection connection = (HttpURLConnection) source.toURL().openConnection();
+		connection.setConnectTimeout(10_000);
+		connection.setReadTimeout(30_000);
+		connection.setInstanceFollowRedirects(false);
+		connection.setRequestProperty("User-Agent", "VotingPlugin-sqlite-native-loader");
+		try {
+			if (connection.getResponseCode() != HttpURLConnection.HTTP_OK)
+				throw new IOException("SQLite driver download returned HTTP " + connection.getResponseCode());
+			long declaredLength = connection.getContentLengthLong();
+			if (declaredLength > MAX_DRIVER_BYTES) throw new IOException("SQLite driver exceeds download limit");
+			try (InputStream input = connection.getInputStream(); var output = Files.newOutputStream(target)) {
+				byte[] buffer = new byte[8192];
+				long total = 0;
+				int read;
+				while ((read = input.read(buffer)) >= 0) {
+					total += read;
+					if (total > MAX_DRIVER_BYTES) throw new IOException("SQLite driver exceeds download limit");
+					output.write(buffer, 0, read);
+				}
+			}
+		} finally { connection.disconnect(); }
+	}
+
+	private static void extractVerifiedEntry(Path driver, String resource, Path target) throws IOException {
+		try (JarFile jar = new JarFile(driver.toFile())) {
+			JarEntry entry = jar.getJarEntry(resource);
+			if (entry == null || entry.isDirectory() || entry.getSize() <= 0 || entry.getSize() > 2L * 1024L * 1024L) {
+				throw new IOException("SQLite driver does not contain the expected native: " + resource);
+			}
+			Path temporary = Files.createTempFile(target.getParent(), target.getFileName().toString() + ".", ".extract");
+			setPrivatePermissions(temporary);
+			try {
+				try (InputStream input = jar.getInputStream(entry)) {
+					Files.copy(input, temporary, StandardCopyOption.REPLACE_EXISTING);
+				}
+				moveReplacing(temporary, target);
+			} finally {
+				Files.deleteIfExists(temporary);
+			}
+		}
+	}
+
+	private static void moveReplacing(Path source, Path target) throws IOException {
+		try {
+			Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+		} catch (AtomicMoveNotSupportedException ignored) {
+			Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
+		}
+	}
+
+	private static boolean hasExpectedDigest(Path file, String expected) throws IOException {
+		if (!Files.isRegularFile(file)) return false;
+		try (InputStream input = Files.newInputStream(file)) {
+			MessageDigest digest = MessageDigest.getInstance("SHA-256");
+			byte[] buffer = new byte[8192];
+			int read;
+			while ((read = input.read(buffer)) >= 0) digest.update(buffer, 0, read);
+			return expected.equals(HexFormat.of().formatHex(digest.digest()));
+		} catch (NoSuchAlgorithmException impossible) {
+			throw new IllegalStateException("SHA-256 is unavailable", impossible);
+		}
+	}
+
+	private static void setPrivatePermissions(Path file) {
+		try {
+			Files.setPosixFilePermissions(file, Set.of(PosixFilePermission.OWNER_READ,
+					PosixFilePermission.OWNER_WRITE));
+		} catch (IOException | UnsupportedOperationException ignored) {
+			// Non-POSIX systems retain their default file permissions.
+		}
+	}
+	@FunctionalInterface
+	interface ArtifactFetcher {
+		void fetch(URI source, Path target) throws IOException;
+	}
+
+}

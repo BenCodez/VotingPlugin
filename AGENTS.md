@@ -22,6 +22,11 @@ mvn -B -f VotingPlugin/pom.xml -Dtest=BackendControlConnectorProtocolTest,Contro
 CI runs `mvn -B -f VotingPlugin/pom.xml package`; see `.github/workflows/maven.yml`. Do not use the `dev` Maven profile in
 automation because it copies a JAR into a developer-specific server directory.
 
+Keep the downloadable VotingPlugin JAR as small as practical. Inspect the shaded
+artifact when dependencies change, avoid duplicate embedded packages, and update
+the package-phase size and runtime checks when a necessary dependency increases
+the artifact budget.
+
 ## Architecture and file map
 
 - `VotingPluginMain` is the Bukkit entry point and lifecycle owner.
