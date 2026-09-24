@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -17,6 +18,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -25,6 +27,7 @@ import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.votesites.VoteSite;
 import com.bencodez.votingplugin.votereminding.store.VoteReminderCooldownStore;
 
 /**
@@ -41,6 +44,13 @@ public final class VoteRemindersManager {
 	/*
 	 * ========================= Enums / Models =========================
 	 */
+
+	private record ReminderPlayerSnapshot(UUID uuid, String playerName, boolean basePermission,
+			boolean noRemind, boolean firstJoin, Set<String> visibleSites) {
+		boolean canSee(VoteSite site) {
+			return site.getPermissionToView().isEmpty() || visibleSites.contains(site.getKey());
+		}
+	}
 
 	public enum VoteReminderType {
 		// Player lifecycle
@@ -512,37 +522,31 @@ public final class VoteRemindersManager {
 	}
 
 	private void fireIntervalTick() {
-		long nowMs = System.currentTimeMillis();
-		long nowMinute = nowMs / 60000L;
-
+		long nowMinute = System.currentTimeMillis() / 60000L;
+		boolean due = false;
 		for (VoteReminderDefinition def : reminders) {
-			if (def.getType() != VoteReminderType.INTERVAL) {
-				continue;
-			}
-
+			if (def.getType() != VoteReminderType.INTERVAL) continue;
 			long intervalMs = safeMs(def.getInterval());
-			if (intervalMs <= 0) {
-				continue;
-			}
-
+			if (intervalMs <= 0) continue;
 			long intervalMinutes = Math.max(1L, intervalMs / 60000L);
-			if ((nowMinute % intervalMinutes) != 0) {
-				continue;
-			}
-
-			for (Player p : Bukkit.getOnlinePlayers()) {
-				VotingPluginUser u = plugin.getVotingPluginUserManager().getVotingPluginUser(p);
-				if (u == null) {
-					continue;
-				}
-				if (plugin.getOptions().isTreatVanishAsOffline() && u.isVanished()) {
-					continue;
-				}
-
-				queueTrigger(u, VoteReminderType.INTERVAL, null);
-				flushSoon(u.getJavaUUID(), u.getPlayerName());
-			}
+			if ((nowMinute % intervalMinutes) == 0) { due = true; break; }
 		}
+		if (!due) return;
+		try {
+			plugin.getBukkitScheduler().runTask(plugin, () -> {
+				for (Player player : Bukkit.getOnlinePlayers()) {
+					try {
+						plugin.getBukkitScheduler().runTask(plugin, () -> {
+							if (!player.isOnline()) return;
+							if (plugin.getOptions().isTreatVanishAsOffline() && isPlatformVanished(player)) return;
+							UUID uuid = player.getUniqueId();
+							queueTrigger(uuid, VoteReminderType.INTERVAL, null);
+							flushSoon(uuid, player.getName());
+						}, player);
+					} catch (RuntimeException failure) { plugin.debug(failure); }
+				}
+			});
+		} catch (RuntimeException failure) { plugin.debug(failure); }
 	}
 
 	/*
@@ -551,8 +555,10 @@ public final class VoteRemindersManager {
 	 */
 
 	private void queueTrigger(VotingPluginUser user, VoteReminderType type, Map<String, String> placeholders) {
-		UUID uuid = user.getJavaUUID();
+		queueTrigger(user.getJavaUUID(), type, placeholders);
+	}
 
+	private void queueTrigger(UUID uuid, VoteReminderType type, Map<String, String> placeholders) {
 		PendingTriggers pt = pending.computeIfAbsent(uuid, k -> new PendingTriggers());
 		switch (type) {
 		case LOGIN:
@@ -596,49 +602,63 @@ public final class VoteRemindersManager {
 	}
 
 	private void flush(UUID uuid, String playerName) {
-		if (!isEnabled()) {
-			return;
-		}
+		if (!isEnabled()) return;
+		PendingTriggers expected = pending.get(uuid);
+		if (expected == null) return;
+		requestPlayerSnapshot(uuid, snapshot -> flushWithSnapshot(snapshot, expected),
+				() -> pending.remove(uuid, expected));
+	}
 
-		Player player = Bukkit.getPlayer(uuid);
-		if (player == null || !player.isOnline()) {
-			pending.remove(uuid);
-			return;
-		}
-
-		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(player);
-		if (user == null) {
-			pending.remove(uuid);
-			return;
-		}
-		if (plugin.getOptions().isTreatVanishAsOffline() && user.isVanished()) {
-			pending.remove(uuid);
-			return;
-		}
-
-		PendingTriggers pt = pending.remove(uuid);
-		if (pt == null) {
-			return;
-		}
-
+	private void flushWithSnapshot(ReminderPlayerSnapshot snapshot, PendingTriggers expected) {
+		if (!pending.remove(snapshot.uuid(), expected)) return;
+		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(snapshot.uuid(), false);
+		if (user == null) return;
+		PendingTriggers pt = expected;
 		List<VoteReminderType> types = pt.snapshotTypes();
-		plugin.extraDebug("[VoteReminders] flush " + user.getPlayerName() + " triggers=" + types);
-
+		plugin.extraDebug("[VoteReminders] flush " + snapshot.playerName() + " triggers=" + types);
 		for (VoteReminderDefinition def : reminders) {
-			if (!types.contains(def.getType())) {
-				continue;
-			}
-
-			boolean matched = attemptOrSchedule(user, player, def, pt.placeholders);
-
+			if (!types.contains(def.getType())) continue;
+			boolean matched = attemptOrSchedule(user, snapshot, def, pt.placeholders);
 			if (matched) {
-				plugin.extraDebug("[VoteReminders] matched " + def.getName() + " for " + user.getPlayerName() + " type="
+				plugin.extraDebug("[VoteReminders] matched " + def.getName() + " for " + snapshot.playerName() + " type="
 						+ def.getType() + " stopAfterMatch=" + options.isStopAfterMatch());
-				if (options.isStopAfterMatch()) {
-					return;
-				}
+				if (options.isStopAfterMatch()) return;
 			}
 		}
+	}
+
+	private void submitReminderWorker(Runnable task) {
+		if (task == null || scheduler.isShutdown()) return;
+		try { scheduler.execute(task); }
+		catch (java.util.concurrent.RejectedExecutionException ignored) {
+			// Reload/disable can race an already-scheduled platform snapshot. The
+			// snapshot belongs to the retired reminder generation and is safe to drop.
+		}
+	}
+
+	private void requestPlayerSnapshot(UUID uuid, Consumer<ReminderPlayerSnapshot> success, Runnable unavailable) {
+		try {
+			plugin.getBukkitScheduler().runTask(plugin, () -> {
+				Player player = Bukkit.getPlayer(uuid);
+				if (player == null) { submitReminderWorker(unavailable); return; }
+				try {
+					plugin.getBukkitScheduler().runTask(plugin, () -> {
+						if (!player.isOnline()) { submitReminderWorker(unavailable); return; }
+						if (plugin.getOptions().isTreatVanishAsOffline() && isPlatformVanished(player)) {
+							submitReminderWorker(unavailable); return;
+						}
+						HashSet<String> visibleSites = new HashSet<>();
+						for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
+							if (hasPlatformPermission(player, site.getPermissionToView())) visibleSites.add(site.getKey());
+						}
+						ReminderPlayerSnapshot snapshot = new ReminderPlayerSnapshot(uuid, player.getName(),
+								player.hasPermission("VotingPlugin.Login.RemindVotes") || player.hasPermission("VotingPlugin.Player"),
+								player.hasPermission("VotingPlugin.NoRemind"), !player.hasPlayedBefore(), Set.copyOf(visibleSites));
+						submitReminderWorker(() -> success.accept(snapshot));
+					}, player);
+				} catch (RuntimeException failure) { plugin.debug(failure); submitReminderWorker(unavailable); }
+			});
+		} catch (RuntimeException failure) { plugin.debug(failure); submitReminderWorker(unavailable); }
 	}
 
 	/*
@@ -796,173 +816,108 @@ public final class VoteRemindersManager {
 	 * ========================= Trigger processing =========================
 	 */
 
-	private boolean attemptOrSchedule(VotingPluginUser user, Player player, VoteReminderDefinition def,
+	private boolean attemptOrSchedule(VotingPluginUser user, ReminderPlayerSnapshot snapshot, VoteReminderDefinition def,
 			Map<String, String> placeholders) {
-
-		if (!isEnabled()) {
-			return false;
-		}
-
-		plugin.extraDebug("[VoteReminders] attempt " + def.getName() + " player=" + user.getPlayerName() + " type="
-				+ def.getType());
-
-		if (!isUserReminderEnabled(user)) {
-			plugin.extraDebug("[VoteReminders] gate disabled-reminders-map for " + user.getPlayerName());
-			return false;
-		}
-		if (!hasBaseReminderPermission(user)) {
-			plugin.extraDebug("[VoteReminders] gate base-permission for " + user.getPlayerName());
-			return false;
-		}
-
+		if (!isEnabled()) return false;
+		plugin.extraDebug("[VoteReminders] attempt " + def.getName() + " player=" + snapshot.playerName() + " type=" + def.getType());
+		if (!isUserReminderEnabled(user)) return false;
+		if (!snapshot.basePermission()) return false;
 		long delayMs = safeMs(def.getDelay());
 		if (delayMs > 0) {
-			plugin.extraDebug("[VoteReminders] schedule delay " + def.getName() + " for " + user.getPlayerName()
-					+ " delayMs=" + delayMs);
-			scheduleDelayedEvaluation(user.getJavaUUID(), def.getName(), placeholders, delayMs);
+			scheduleDelayedEvaluation(snapshot.uuid(), def.getName(), placeholders, delayMs);
 			return true;
 		}
-
-		return attemptFireNow(user, player, def, placeholders);
+		return attemptFireNow(user, snapshot, def, placeholders);
 	}
 
 	private void scheduleDelayedEvaluation(UUID uuid, String reminderName, Map<String, String> placeholders,
 			long delayMs) {
 		Map<String, String> ph = placeholders == null ? null : new HashMap<>(placeholders);
-
-		scheduler.schedule(() -> {
-			Player p = Bukkit.getPlayer(uuid);
-			if (p == null || !p.isOnline()) {
-				return;
-			}
-
-			VotingPluginUser u = plugin.getVotingPluginUserManager().getVotingPluginUser(p);
-			if (u == null) {
-				return;
-			}
-			if (plugin.getOptions().isTreatVanishAsOffline() && u.isVanished()) {
-				return;
-			}
-
+		scheduler.schedule(() -> requestPlayerSnapshot(uuid, snapshot -> {
 			VoteReminderDefinition def = byName.get(reminderName);
-			if (def == null) {
-				return;
-			}
-
-			plugin.extraDebug("[VoteReminders] delayed eval " + def.getName() + " for " + u.getPlayerName());
-			attemptFireNow(u, p, def, ph);
-		}, Math.max(1L, delayMs), TimeUnit.MILLISECONDS);
+			if (def == null) return;
+			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
+			if (user == null) return;
+			attemptFireNow(user, snapshot, def, ph);
+		}, () -> {}), Math.max(1L, delayMs), TimeUnit.MILLISECONDS);
 	}
 
-	private boolean attemptFireNow(VotingPluginUser user, Player player, VoteReminderDefinition def,
+	private boolean attemptFireNow(VotingPluginUser user, ReminderPlayerSnapshot snapshot, VoteReminderDefinition def,
 			Map<String, String> placeholders) {
-		if (!isUserReminderEnabled(user)) {
-			plugin.extraDebug("[VoteReminders] gate disabled-reminders-map for " + user.getPlayerName()
-					+ " def=" + def.getName());
-			return false;
-		}
-
-		if (!user.shouldBeReminded()) {
-			plugin.extraDebug(
-					"[VoteReminders] gate shouldBeReminded=false " + user.getPlayerName() + " def=" + def.getName());
-			return false;
-		}
-
-		if (!passesConditions(user, player, def.getConditions())) {
-			plugin.extraDebug(
-					"[VoteReminders] gate conditions=false " + user.getPlayerName() + " def=" + def.getName());
-			return false;
-		}
-
+		if (!isUserReminderEnabled(user)) return false;
+		if (snapshot.noRemind() || !snapshot.basePermission()) return false;
+		if (!passesConditions(user, snapshot, def.getConditions())) return false;
 		long now = System.currentTimeMillis();
-
-		if (!cooldowns.tryAcquireGlobal(user.getJavaUUID(), now)) {
-			plugin.extraDebug("[VoteReminders] gate globalCooldown " + user.getPlayerName() + " def=" + def.getName());
-			return false;
-		}
-
-		if (!cooldowns.canFireReminder(user.getJavaUUID(), def.getName(), now, def.getCooldown(), def.getInterval())) {
-			plugin.extraDebug(
-					"[VoteReminders] gate perReminderCooldown " + user.getPlayerName() + " def=" + def.getName());
-			return false;
-		}
-
-		plugin.extraDebug("[VoteReminders] FIRE " + def.getName() + " -> rewardsPath=" + def.getRewardsPath() + " user="
-				+ user.getPlayerName());
-		giveRewardFromPath(user, def.getRewardsPath(), placeholders);
-
+		if (!cooldowns.tryAcquireGlobal(user.getJavaUUID(), now)) return false;
+		if (!cooldowns.canFireReminder(user.getJavaUUID(), def.getName(), now, def.getCooldown(), def.getInterval())) return false;
+		giveRewardFromPath(user, snapshot, def.getRewardsPath(), placeholders);
 		cooldowns.markFired(user.getJavaUUID(), def.getName(), now);
-
-		plugin.extraDebug("[VoteReminders] fired " + user.getPlayerName() + " via " + def.getName());
 		return true;
 	}
 
-	/*
-	 * ========================= Rewards =========================
-	 */
-
-	private void giveRewardFromPath(VotingPluginUser user, String rewardsPath, Map<String, String> placeholders) {
-		RewardBuilder rb = new RewardBuilder(plugin.getConfig(), rewardsPath).setGiveOffline(false)
-				.disableDefaultWorlds();
-
-		rb.withPlaceHolder("sitesavailable", "" + user.getSitesNotVotedOn());
-
-		if (placeholders != null) {
-			for (Map.Entry<String, String> e : placeholders.entrySet()) {
-				rb.withPlaceHolder(e.getKey(), e.getValue());
-			}
+	// Retained for focused compatibility tests; production paths use captured platform state.
+	@SuppressWarnings("unused")
+	private boolean attemptFireNow(VotingPluginUser user, Player player, VoteReminderDefinition def,
+			Map<String, String> placeholders) {
+		if (!isUserReminderEnabled(user)) return false;
+		if (player == null) return false;
+		HashSet<String> visible = new HashSet<>();
+		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
+			if (hasPlatformPermission(player, site.getPermissionToView())) visible.add(site.getKey());
 		}
+		ReminderPlayerSnapshot snapshot = new ReminderPlayerSnapshot(user.getJavaUUID(), player.getName(),
+				player.hasPermission("VotingPlugin.Login.RemindVotes") || player.hasPermission("VotingPlugin.Player"),
+				player.hasPermission("VotingPlugin.NoRemind"), !player.hasPlayedBefore(), Set.copyOf(visible));
+		return attemptFireNow(user, snapshot, def, placeholders);
+	}
 
+	private void giveRewardFromPath(VotingPluginUser user, ReminderPlayerSnapshot snapshot, String rewardsPath,
+			Map<String, String> placeholders) {
+		RewardBuilder rb = new RewardBuilder(plugin.getConfig(), rewardsPath).setGiveOffline(false).disableDefaultWorlds();
+		rb.withPlaceHolder("sitesavailable", "" + sitesNotVotedOn(user, snapshot));
+		if (placeholders != null) for (Map.Entry<String, String> entry : placeholders.entrySet()) rb.withPlaceHolder(entry.getKey(), entry.getValue());
 		rb.send(user);
 	}
 
-	/*
-	 * ========================= Conditions =========================
-	 */
-
-	private boolean passesConditions(VotingPluginUser user, Player player, VoteReminderConditions c) {
-		if (c.getCanVoteAny() != null) {
-			boolean canAny = user.canVoteAny();
-			if (c.getCanVoteAny().booleanValue() != canAny) {
-				plugin.extraDebug("[VoteReminders] gate CanVoteAny " + user.getPlayerName() + " required="
-						+ c.getCanVoteAny() + " actual=" + canAny);
-				return false;
-			}
-		}
-
-		if (c.getCanVoteAll() != null) {
-			boolean canAll = user.canVoteAll();
-			if (c.getCanVoteAll().booleanValue() != canAll) {
-				plugin.extraDebug("[VoteReminders] gate CanVoteAll " + user.getPlayerName() + " required="
-						+ c.getCanVoteAll() + " actual=" + canAll);
-				return false;
-			}
-		}
-
-		ParsedDuration mot = c.getMinOnlineTime();
-		if (mot != null && !mot.isEmpty()) {
+	private boolean passesConditions(VotingPluginUser user, ReminderPlayerSnapshot snapshot, VoteReminderConditions conditions) {
+		if (conditions.getCanVoteAny() != null && conditions.getCanVoteAny().booleanValue() != user.canVoteAny()) return false;
+		if (conditions.getCanVoteAll() != null && conditions.getCanVoteAll().booleanValue() != user.canVoteAll()) return false;
+		ParsedDuration minOnline = conditions.getMinOnlineTime();
+		if (minOnline != null && !minOnline.isEmpty()) {
 			Long join = joinTimes.get(user.getJavaUUID());
-			if (join != null) {
-				long onlineMs = System.currentTimeMillis() - join.longValue();
-				long need = safeMs(mot);
-				if (onlineMs < need) {
-					plugin.extraDebug("[VoteReminders] gate MinOnlineTime " + user.getPlayerName() + " onlineMs="
-							+ onlineMs + " needMs=" + need);
-					return false;
-				}
-			}
+			if (join != null && System.currentTimeMillis() - join.longValue() < safeMs(minOnline)) return false;
 		}
+		return conditions.getFirstJoin() == null || conditions.getFirstJoin().booleanValue() == snapshot.firstJoin();
+	}
 
-		if (c.getFirstJoin() != null) {
-			boolean first = !player.hasPlayedBefore();
-			if (c.getFirstJoin().booleanValue() != first) {
-				plugin.extraDebug("[VoteReminders] gate FirstJoin " + user.getPlayerName() + " required="
-						+ c.getFirstJoin() + " actual=" + first);
-				return false;
-			}
+
+
+	private boolean hasPlatformPermission(Player player, String permission) {
+		if (permission == null || permission.isEmpty()) return true;
+		boolean negate = permission.startsWith("!");
+		String node = negate ? permission.substring(1) : permission;
+		boolean allowed = player.hasPermission(node);
+		return negate ? !allowed : allowed;
+	}
+
+	private boolean isPlatformVanished(Player player) {
+		for (org.bukkit.metadata.MetadataValue meta : player.getMetadata("vanished")) {
+			if (meta.asBoolean()) return true;
 		}
+		try {
+			return plugin.getCmiHandle() != null && plugin.getCmiHandle().isVanished(player);
+		} catch (RuntimeException failure) {
+			plugin.debug(failure);
+			return false;
+		}
+	}
 
-		return true;
+	private int sitesNotVotedOn(VotingPluginUser user, ReminderPlayerSnapshot snapshot) {
+		int amount = 0;
+		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
+			if (!site.isHidden() && snapshot.canSee(site) && user.canVoteSite(site)) amount++;
+		}
+		return amount;
 	}
 
 	/*

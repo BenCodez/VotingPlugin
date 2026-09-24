@@ -151,8 +151,8 @@ response envelope remains bounded and exists so the proxy connector can receive 
 
 ### Bukkit full-configuration enrollment
 
-Each backend is separately opt-in and receives its own credential so one node cannot impersonate another. With
-`BungeeMethod: PLUGINMESSAGING`, configure each backend's `Config.yml` and point `Endpoint` at the proxy-hosted listener:
+Each backend is separately opt-in and receives its own credential so one node cannot impersonate another. Configure each
+backend's `Config.yml` and point `Endpoint` at the proxy-hosted listener:
 
 ```yaml
 Control:
@@ -174,16 +174,20 @@ rejects `localhost`, `127.0.0.0/8`, and IPv6 loopback because those addresses re
 when the processes run on different machines.
 
 Blank `NodeId` reuses `BungeeSettings.Server`. The backend generates the raw credential locally and sends only its SHA-256
-verifier over the plugin-message channel. Velocity/BungeeCord binds the request to the actual backend server connection,
-requires that identity to equal `BungeeSettings.Server`, installs the verifier in its hosted Control, and returns a
-non-secret acknowledgement. The pending marker is removed only after the backend also authenticates to its configured
-Control endpoint, so an incorrect endpoint cannot strand a newly generated credential. The raw credential never leaves the
-backend. Requests retry safely after restarts and while no player is available to carry plugin messages.
+verifier through the configured proxy transport. Plugin messaging and HTTP bind enrollment to the backend connection
+identity. Redis, MQTT, sockets, and MySQL use a short-lived, single-use challenge returned only through the configured
+backend route before the proxy accepts a verifier. Those shared transports also require every enrollment request and
+challenge response to carry an HMAC-SHA256 transcript authenticator derived from the existing `secretkey.key`; copy the
+same key to the proxy and each backend before enabling automatic enrollment. This signature covers the node ID, request
+ID, endpoint, verifier, and challenge, so a party that can read and publish broker or database messages cannot substitute
+its own Control verifier. The pending marker is removed only after the backend also authenticates
+to its configured Control endpoint, so an incorrect endpoint cannot strand a newly generated credential. The raw
+credential never leaves the backend. Requests retry safely after restarts and during temporary transport outages.
 
 If a Bukkit server hosts its own Control and its endpoint addresses that local listener, the same generation and verifier
 installation happen locally. External Control installations, custom backend node IDs that differ from
-`BungeeSettings.Server`, and non-plugin-message transports retain manual WebUI/owner-command enrollment; an existing
-nonblank credential file is always treated as manually managed and is never replaced.
+`BungeeSettings.Server` retain manual WebUI/owner-command enrollment; an existing nonblank credential file is always
+treated as manually managed and is never replaced.
 
 The Bukkit connector owns separate single-thread daemon executors for presence/configuration work and read-only
 inspections, and performs no Control I/O on the server thread. The inspection worker is cancelled on shutdown with a

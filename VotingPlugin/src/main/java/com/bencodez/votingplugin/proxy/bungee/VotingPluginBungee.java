@@ -24,6 +24,7 @@ import java.util.zip.ZipInputStream;
 
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigBungee;
+import com.bencodez.votingplugin.proxy.ProxyRuntimeReplacementLifecycle;
 import com.bencodez.votingplugin.proxy.VotingPluginProxy;
 import com.bencodez.votingplugin.proxy.VotingPluginProxyConfig;
 
@@ -207,11 +208,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 		} catch (Exception ignored) {
 		}
 
-		// Create initial runtime (fresh instance)
-		votingPluginProxy = createProxyRuntime();
-
-		// Full init using the same pathway as reloadall
-		reloadPlugin(true);
+		initializeFirstRuntime();
 
 		loadVersionFile();
 		getLogger().info("VotingPlugin loaded, using method: " + getVotingPluginProxy().getMethod().toString());
@@ -412,9 +409,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 
 			// Stop Control first; replacement must not overlap a retained hosted child/connector.
 			try {
-				if (votingPluginProxy != null) {
-					votingPluginProxy.prepareForRuntimeReplacement();
-				}
+				ProxyRuntimeReplacementLifecycle.prepare(votingPluginProxy);
 			} catch (Exception shutdownFailure) {
 				getLogger().severe("Reload aborted because hosted Control did not stop safely");
 				shutdownFailure.printStackTrace();
@@ -428,7 +423,7 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			}
 			// Later transport/cache failures must not leave the old runtime partially disabled.
 			try {
-				if (votingPluginProxy != null) votingPluginProxy.completeRuntimeReplacementShutdown();
+				ProxyRuntimeReplacementLifecycle.complete(votingPluginProxy);
 			} catch (Exception cleanupFailure) {
 				getLogger().severe("Old proxy runtime cleanup was incomplete; replacement will continue");
 				cleanupFailure.printStackTrace();
@@ -502,6 +497,11 @@ public class VotingPluginBungee extends Plugin implements Listener {
 			getVotingPluginProxy().sendServerNameMessage();
 		} catch (Exception ignored) {
 		}
+	}
+
+	void initializeFirstRuntime() {
+		// Full initialization creates the first runtime; there is no old runtime to retire.
+		reloadPlugin(true);
 	}
 
 	/** The retention branch returns from inside reloadLock; drain only after that lock is released. */

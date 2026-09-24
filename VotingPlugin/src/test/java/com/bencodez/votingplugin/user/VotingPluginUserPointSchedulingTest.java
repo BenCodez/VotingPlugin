@@ -32,6 +32,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.bukkit.entity.Player;
@@ -85,6 +86,7 @@ class VotingPluginUserPointSchedulingTest {
 		verify(user).addPointsStorageAware(eq(5), org.mockito.ArgumentMatchers.<java.util.function.BiConsumer<Boolean, Integer>>any());
 		verify(user).setPoints(11);
 		verify(user).removePoints(eq(3), org.mockito.ArgumentMatchers.<java.util.function.Consumer<Boolean>>any());
+		verify(user, never()).getPlayer();
 	}
 	@Test
 	void sharedBulkPointMutationsUseOnePersistenceSubmission() throws Exception {
@@ -101,6 +103,18 @@ class VotingPluginUserPointSchedulingTest {
 
 		verify(fixture.persistence, org.mockito.Mockito.times(3)).execute(any(Runnable.class));
 		verify(fixture.sql.getConnectionManager(), never()).getConnection();
+	}
+
+	@Test
+	void capturedPlayerSetPointsDoesNotLookupPlayerOnStorageCaller() throws Exception {
+		PointFixture fixture = pointFixture();
+		Player captured = mock(Player.class);
+
+		VotingPluginUser.setPointsStorageAware(fixture.plugin, java.util.List.of(fixture.user),
+				java.util.Map.of(fixture.user, captured), 42, (user, success) -> { });
+
+		verify(fixture.user, never()).getPlayer();
+		verify(fixture.persistence).execute(any(Runnable.class));
 	}
 
 	@Test
@@ -1627,7 +1641,9 @@ class VotingPluginUserPointSchedulingTest {
 		when(fixture.target.isCached()).thenReturn(false, true);
 		when(fixture.target.getCache()).thenReturn(targetCache);
 		when(targetCache.getCache()).thenReturn(new HashMap<>());
-		doThrow(new IllegalStateException("cache dump failed")).when(targetCache).dump();
+		var dataManager = fixture.plugin.getUserManager().getDataManager();
+		doThrow(new IllegalStateException("cache retirement failed"))
+				.when(dataManager).removeCache(any(UUID.class), org.mockito.ArgumentMatchers.isNull());
 		AtomicReference<PointTransferResult> result = new AtomicReference<>();
 
 		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
@@ -1657,7 +1673,9 @@ class VotingPluginUserPointSchedulingTest {
 		doReturn(true).when(fixture.user).isCached();
 		doReturn(sourceCache).when(fixture.user).getCache();
 		when(sourceCache.getCache()).thenReturn(new HashMap<>());
-		doThrow(new IllegalStateException("cache dump failed")).when(sourceCache).dump();
+		var dataManager = fixture.plugin.getUserManager().getDataManager();
+		doThrow(new IllegalStateException("cache retirement failed"))
+				.when(dataManager).removeCache(any(UUID.class), org.mockito.ArgumentMatchers.isNull());
 		AtomicReference<PointTransferResult> result = new AtomicReference<>();
 
 		fixture.user.transferPointsWithResult(fixture.target, 10, result::set);
@@ -1750,7 +1768,8 @@ class VotingPluginUserPointSchedulingTest {
 		recreatedValues.put("Points", mock(com.bencodez.simpleapi.sql.data.DataValue.class));
 		recreatedValues.put("DailyTotal", mock(com.bencodez.simpleapi.sql.data.DataValue.class));
 		when(recreatedCache.getCache()).thenReturn(recreatedValues);
-		when(fixture.plugin.getUserManager().getDataManager().getUserDataCache()).thenReturn(
+		var dataManager = fixture.plugin.getUserManager().getDataManager();
+		when(dataManager.getUserDataCache()).thenReturn(
 				new java.util.concurrent.ConcurrentHashMap<>(java.util.Map.of(
 						java.util.UUID.fromString("00000000-0000-0000-0000-000000000002"), recreatedCache)));
 		UserData targetData = mock(UserData.class);
@@ -1787,11 +1806,12 @@ class VotingPluginUserPointSchedulingTest {
 		}
 
 		InOrder order = org.mockito.Mockito.inOrder(fixture.reservation, fixture.claim, fixture.listenerRead,
-				recreatedCache, fixture.settlement, fixture.plugin.getUserManager().getDataManager());
+				recreatedCache, fixture.settlement, dataManager);
 		order.verify(fixture.reservation).close();
 		order.verify(fixture.claim).close();
 		order.verify(fixture.listenerRead).close();
-		order.verify(recreatedCache).dump();
+		order.verify(dataManager).removeCache(
+				java.util.UUID.fromString("00000000-0000-0000-0000-000000000002"), null);
 		order.verify(fixture.settlement).commit();
 		order.verify(recreatedCache).getCache();
 		assertFalse(recreatedValues.containsKey("Points"));

@@ -118,7 +118,6 @@ public class VoteRemindersManagerTest {
 		when(plugin.getServerData()).thenReturn(serverData);
 		when(serverData.getDisabledReminders()).thenReturn(Collections.emptyList());
 		when(user.getJavaUUID()).thenReturn(uuid);
-		when(user.getPlayerName()).thenReturn("TestPlayer");
 
 		VoteRemindersManager manager = new VoteRemindersManager(plugin, store);
 		try {
@@ -137,4 +136,25 @@ public class VoteRemindersManagerTest {
 			manager.shutdown();
 		}
 	}
+	@Test
+	public void snapshotPermissionPreservesNegatedSitePermission() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		ServerData serverData = mock(ServerData.class);
+		VoteReminderCooldownStore store = mock(VoteReminderCooldownStore.class);
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(serverData.getDisabledReminders()).thenReturn(Collections.emptyList());
+		Player player = mock(Player.class);
+		when(player.hasPermission("example.hidden")).thenReturn(false);
+		VoteRemindersManager manager = new VoteRemindersManager(plugin, store);
+		try {
+			Method method = VoteRemindersManager.class.getDeclaredMethod("hasPlatformPermission", Player.class, String.class);
+			method.setAccessible(true);
+			assertTrue((boolean) method.invoke(manager, player, "!example.hidden"));
+			when(player.hasPermission("example.hidden")).thenReturn(true);
+			assertFalse((boolean) method.invoke(manager, player, "!example.hidden"));
+		} finally {
+			manager.shutdown();
+		}
+	}
+
 }

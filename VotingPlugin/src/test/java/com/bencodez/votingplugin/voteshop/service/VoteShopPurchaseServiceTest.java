@@ -512,7 +512,9 @@ class VoteShopPurchaseServiceTest {
 		when(user.isCached()).thenReturn(true);
 		when(user.getCache()).thenReturn(cache);
 		when(cache.getCache()).thenReturn(new HashMap<>());
-		org.mockito.Mockito.doThrow(new IllegalStateException("cache dump failed")).when(cache).dump();
+		var dataManager = plugin.getUserManager().getDataManager();
+		org.mockito.Mockito.doThrow(new IllegalStateException("cache retirement failed"))
+				.when(dataManager).removeCache(any(UUID.class), org.mockito.ArgumentMatchers.isNull());
 		AtomicReference<VoteShopPurchaseResult> result = new AtomicReference<>();
 
 		new VoteShopPurchaseService(plugin, definition).purchase(player, user, item, result::set);
@@ -1058,13 +1060,13 @@ class VoteShopPurchaseServiceTest {
 		assertEquals(VoteShopPurchaseResult.SUCCESS,
 				new VoteShopPurchaseService(plugin, null).debitSharedMysql(user, item));
 
-		verify(cache).dump();
+		verify(cache, never()).dump();
 		verify(plugin.getUserManager().getDataManager()).removeCache(
 				java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"), null);
 	}
 
 	@Test
-	void sharedMysqlDebitStripsOptimisticPointsBeforeDumpingOtherCachedFields() throws Exception {
+	void sharedMysqlDebitStripsOptimisticPointsBeforeAtomicCacheRetirement() throws Exception {
 		MySQL table = mock(MySQL.class);
 		com.bencodez.simpleapi.sql.mysql.MySQL sql = mock(com.bencodez.simpleapi.sql.mysql.MySQL.class,
 				org.mockito.Mockito.RETURNS_DEEP_STUBS);
@@ -1091,11 +1093,13 @@ class VoteShopPurchaseServiceTest {
 				"recordOptimisticPoint", UserDataCache.class, String.class, DataValue.class);
 		record.setAccessible(true);
 		record.invoke(null, cache, "Points", prediction);
+		var dataManager = plugin.getUserManager().getDataManager();
 		doAnswer(invocation -> {
 			assertFalse(values.containsKey("Points"));
 			assertSame(dailyTotal, values.get("DailyTotal"));
+			assertFalse(Thread.holdsLock(cache), "cache retirement must not inherit the legacy cache monitor");
 			return null;
-		}).when(cache).dump();
+		}).when(dataManager).removeCache(any(UUID.class), org.mockito.ArgumentMatchers.isNull());
 		VoteShopItem item = mock(VoteShopItem.class);
 		when(item.getCost()).thenReturn(10);
 		when(item.getLimit()).thenReturn(0);
@@ -1103,7 +1107,8 @@ class VoteShopPurchaseServiceTest {
 		assertEquals(VoteShopPurchaseResult.SUCCESS,
 				new VoteShopPurchaseService(plugin, null).debitSharedMysql(user, item));
 
-		verify(cache).dump();
+		verify(cache, never()).dump();
+		verify(dataManager).removeCache(any(UUID.class), org.mockito.ArgumentMatchers.isNull());
 	}
 
 	@Test

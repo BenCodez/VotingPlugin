@@ -1024,13 +1024,11 @@ public class VoteShopPurchaseService {
 			if (!user.isCached()) return;
 			UserDataCache cache = user.getCache();
 			if (cache == null) return;
-			synchronized (cache) {
-				// dump() waits for a cache batch that has already left its queue. Strip an
-				// async point prediction first so it cannot be persisted ahead of this debit.
-				SharedMysqlCacheReconciler.discardOptimisticPoint(cache, pointsColumn);
-				cache.dump();
-				plugin.getUserManager().getDataManager().removeCache(UUID.fromString(user.getUUID()), null);
-			}
+			// removeCache() performs the queued-change flush and retirement under one
+			// exclusive per-user admission. Never pre-dump while holding the cache
+			// monitor; that reverses AdvancedCore's admission -> cache-monitor order.
+			SharedMysqlCacheReconciler.discardOptimisticPoint(cache, pointsColumn);
+			plugin.getUserManager().getDataManager().removeCache(UUID.fromString(user.getUUID()), null);
 		});
 	}
 

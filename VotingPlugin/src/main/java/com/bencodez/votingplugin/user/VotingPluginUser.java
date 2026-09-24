@@ -706,6 +706,12 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public static void addPointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users, int value,
 			String batchOperationId, BiConsumer<VotingPluginUser, Boolean> completion) {
+		addPointsStorageAware(plugin, users, capturePlayersIfNeeded(plugin, users), value, batchOperationId, completion);
+	}
+
+	public static void addPointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users,
+			java.util.Map<VotingPluginUser, Player> players, int value, String batchOperationId,
+			BiConsumer<VotingPluginUser, Boolean> completion) {
 		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
 		if (!sharedPoints.usesMysqlPointMutations()) {
 			for (VotingPluginUser user : users) {
@@ -724,7 +730,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 				pointColumns.put(user, user.getPointsPath());
 			}
 		}
-		bulkSharedMysqlMutation(plugin, users, completion,
+		bulkSharedMysqlMutation(plugin, users, players, completion,
 				(mutator, user) -> {
 					Integer amount = eventAmounts.get(user);
 					if (amount == null) return false;
@@ -752,8 +758,14 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public static void setPointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users, int value,
 			BiConsumer<VotingPluginUser, Boolean> completion) {
+		setPointsStorageAware(plugin, users, capturePlayersIfNeeded(plugin, users), value, completion);
+	}
+
+	public static void setPointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users,
+			java.util.Map<VotingPluginUser, Player> players, int value,
+			BiConsumer<VotingPluginUser, Boolean> completion) {
 		java.util.IdentityHashMap<VotingPluginUser, String> pointColumns = capturePointColumns(users);
-		bulkSharedMysqlMutation(plugin, users, completion,
+		bulkSharedMysqlMutation(plugin, users, players, completion,
 				(mutator, user) -> mutator.setCommittedInColumn(user, value, pointColumns.get(user)),
 				(user, done) -> {
 					user.setPoints(value);
@@ -804,8 +816,14 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	public static void removePointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users, int value,
 			String batchOperationId, BiConsumer<VotingPluginUser, Boolean> completion) {
+		removePointsStorageAware(plugin, users, capturePlayersIfNeeded(plugin, users), value, batchOperationId, completion);
+	}
+
+	public static void removePointsStorageAware(VotingPluginMain plugin, List<VotingPluginUser> users,
+			java.util.Map<VotingPluginUser, Player> players, int value, String batchOperationId,
+			BiConsumer<VotingPluginUser, Boolean> completion) {
 		java.util.IdentityHashMap<VotingPluginUser, String> pointColumns = capturePointColumns(users);
-		bulkSharedMysqlMutation(plugin, users, completion,
+		bulkSharedMysqlMutation(plugin, users, players, completion,
 				(mutator, user) -> {
 					String operationId = bulkPointOperationId("admin-bulk-remove/", batchOperationId, user.getUUID());
 					boolean success = mutator.removeCommittedFromColumn(user, value, operationId,
@@ -821,6 +839,20 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		java.util.IdentityHashMap<VotingPluginUser, String> pointColumns = new java.util.IdentityHashMap<>();
 		for (VotingPluginUser user : users) pointColumns.put(user, user.getPointsPath());
 		return pointColumns;
+	}
+
+	private static java.util.IdentityHashMap<VotingPluginUser, Player> capturePlayers(List<VotingPluginUser> users) {
+		java.util.IdentityHashMap<VotingPluginUser, Player> players = new java.util.IdentityHashMap<>();
+		for (VotingPluginUser user : users) players.put(user, user.getPlayer());
+		return players;
+	}
+
+	private static java.util.IdentityHashMap<VotingPluginUser, Player> capturePlayersIfNeeded(
+			VotingPluginMain plugin, List<VotingPluginUser> users) {
+		if (!new SharedMysqlPointMutator(plugin).usesMysqlPointMutations()) {
+			return new java.util.IdentityHashMap<>();
+		}
+		return capturePlayers(users);
 	}
 
 	static String bulkPointOperationId(String prefix, String batchOperationId, String userId) {
@@ -840,6 +872,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	}
 
 	private static void bulkSharedMysqlMutation(VotingPluginMain plugin, List<VotingPluginUser> users,
+			java.util.Map<VotingPluginUser, Player> capturedPlayers,
 			BiConsumer<VotingPluginUser, Boolean> completion, SharedPointMutation sharedMutation,
 			OrdinaryPointMutation ordinaryMutation, boolean authoritativeReadRequired) {
 		if (users.isEmpty()) return;
@@ -851,9 +884,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			return;
 		}
 		List<Player> players = new ArrayList<>(users.size());
-		for (VotingPluginUser user : users) {
-			players.add(user.getPlayer());
-		}
+		for (VotingPluginUser user : users) players.add(capturedPlayers.get(user));
 		submitSharedMysqlChunk(plugin, users, players, 0, completion, sharedMutation);
 	}
 
@@ -1764,6 +1795,19 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		return amount;
 	}
 
+	/**
+	 * Match the existing offline result without resolving a live Bukkit player.
+	 * Permission-gated sites are excluded because the normal call uses
+	 * {@code hasPermission(permission, false)}, which returns false offline.
+	 */
+	public int getSitesNotVotedOnWithoutOnlinePermissions() {
+		int amount = 0;
+		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
+			if (!site.isHidden() && site.getPermissionToView().isEmpty() && canVoteSite(site)) amount++;
+		}
+		return amount;
+	}
+
 	public int getTotalNumberOfSites() {
 		int amount = 0;
 		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
@@ -1772,6 +1816,19 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 					amount++;
 				}
 			}
+		}
+		return amount;
+	}
+
+	/**
+	 * Match the existing offline total without resolving a live Bukkit player.
+	 * Permission-gated sites are excluded because the normal call uses
+	 * {@code hasPermission(permission, false)}, which returns false offline.
+	 */
+	public int getTotalNumberOfSitesWithoutOnlinePermissions() {
+		int amount = 0;
+		for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
+			if (!site.isHidden() && site.getPermissionToView().isEmpty()) amount++;
 		}
 		return amount;
 	}
@@ -2113,20 +2170,19 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 
 		Player player = getPlayer();
-		if (!plugin.getOptions().isOnlineMode()) {
-			player = Bukkit.getPlayer(getPlayerName());
-		}
-		if (player == null) {
+		if (!plugin.getOptions().isOnlineMode()) player = Bukkit.getPlayer(getPlayerName());
+		if (player == null) return;
+		offVoteWithCapturedTopVoterIgnore(player.hasPermission("VotingPlugin.TopVoter.Ignore"));
+	}
+
+	/** Process offline-vote storage/rewards after platform-owned permission state was captured. */
+	public void offVoteWithCapturedTopVoterIgnore(boolean currentTopVoterIgnore) {
+		if (!plugin.getOptions().isProcessRewards()) {
+			plugin.debug("Processing rewards is disabled");
 			return;
 		}
-
-		plugin.extraDebug("Checking offline votes for " + player.getName() + "/" + getUUID());
-
-		// Update top voter ignore flag if needed.
-		boolean currentTopVoterIgnore = player.hasPermission("VotingPlugin.TopVoter.Ignore");
-		if (isTopVoterIgnore() != currentTopVoterIgnore) {
-			setTopVoterIgnore(currentTopVoterIgnore);
-		}
+		plugin.extraDebug("Checking offline votes for " + getPlayerName() + "/" + getUUID());
+		if (isTopVoterIgnore() != currentTopVoterIgnore) setTopVoterIgnore(currentTopVoterIgnore);
 
 		ArrayList<String> offlineVotes = getOfflineVotes();
 		if (offlineVotes.isEmpty()) {

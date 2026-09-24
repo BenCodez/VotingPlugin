@@ -14,6 +14,7 @@ import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.HashMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -44,12 +45,14 @@ class BackendGlobalDataSyncTest {
 		AtomicReference<Runnable> scheduled = new AtomicReference<>();
 		AtomicReference<Runnable> asyncWrite = new AtomicReference<>();
 		AtomicInteger schedulerRuns = new AtomicInteger();
+		CompletableFuture<Void> cacheClear = new CompletableFuture<>();
 
 		when(plugin.getBungeeSettings()).thenReturn(bungeeSettings);
 		when(bungeeSettings.getServer()).thenReturn("lobby");
 		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
 		when(plugin.getUserManager()).thenReturn(userManager);
 		when(userManager.getDataManager()).thenReturn(dataManager);
+		when(dataManager.clearCacheAsyncCompletion()).thenReturn(cacheClear);
 
 		org.mockito.Mockito.doAnswer(invocation -> {
 			scheduled.set(invocation.getArgument(1));
@@ -76,7 +79,7 @@ class BackendGlobalDataSyncTest {
 		verify(globalDataHandler, never()).setBoolean("lobby", "ForceUpdate", false);
 		verify(plugin, never()).setUpdate(anyBoolean());
 		verify(plugin, never()).update();
-		verify(dataManager, never()).clearCache();
+		verify(dataManager, never()).clearCacheAsyncCompletion();
 		assertNotNull(scheduled.get());
 		assertTrue(schedulerRuns.get() == 1);
 
@@ -84,14 +87,20 @@ class BackendGlobalDataSyncTest {
 		assertTrue(schedulerRuns.get() == 1);
 		verify(plugin, never()).setUpdate(anyBoolean());
 		verify(plugin, never()).update();
-		verify(dataManager, never()).clearCache();
+		verify(dataManager, never()).clearCacheAsyncCompletion();
 
 		scheduled.get().run();
+		verify(dataManager).clearCacheAsyncCompletion();
+		verify(plugin, never()).setUpdate(anyBoolean());
+		verify(plugin, never()).update();
+		org.junit.jupiter.api.Assertions.assertNull(asyncWrite.get());
+
+		cacheClear.complete(null);
+		assertNotNull(asyncWrite.get());
+		verify(plugin, never()).update();
+		asyncWrite.get().run();
 		verify(plugin).setUpdate(true);
 		verify(plugin).update();
-		verify(dataManager).clearCache();
-		assertNotNull(asyncWrite.get());
-		asyncWrite.get().run();
 		verify(globalDataHandler).setBoolean("lobby", "ForceUpdate", false);
 
 		sync.checkGlobalData();

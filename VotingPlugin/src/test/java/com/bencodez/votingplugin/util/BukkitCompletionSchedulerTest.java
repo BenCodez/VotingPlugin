@@ -81,6 +81,24 @@ class BukkitCompletionSchedulerTest {
 		assertEquals(1, rejected.get());
 	}
 
+	@Test
+	void retiredEntityRunsDistinctGlobalSafeFallback() {
+		Fixture fixture = fixture();
+		when(fixture.entityScheduler.runAtEntityWithFallback(eq(fixture.player), any(), any(Runnable.class)))
+				.thenAnswer(invocation -> {
+					invocation.getArgument(2, Runnable.class).run();
+					return CompletableFuture.completedFuture(EntityTaskResult.ENTITY_RETIRED);
+				});
+		AtomicInteger entity = new AtomicInteger();
+		AtomicInteger fallback = new AtomicInteger();
+
+		BukkitCompletionScheduler.run(fixture.plugin, fixture.player,
+				entity::incrementAndGet, fallback::incrementAndGet, () -> { });
+
+		assertEquals(0, entity.get());
+		assertEquals(1, fallback.get());
+	}
+
 	private static Fixture fixture() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		BukkitScheduler scheduler = mock(BukkitScheduler.class);

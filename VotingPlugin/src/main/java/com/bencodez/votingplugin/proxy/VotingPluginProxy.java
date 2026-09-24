@@ -76,6 +76,7 @@ import com.bencodez.simpleapi.sql.data.DataValueBoolean;
 import com.bencodez.simpleapi.sql.data.DataValueInt;
 import com.bencodez.simpleapi.sql.data.DataValueString;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfig;
+import com.bencodez.votingplugin.control.ControlEnrollmentAuthenticator;
 import com.bencodez.votingplugin.proxy.broadcast.ProxyBroadcastDecider;
 import com.bencodez.votingplugin.proxy.cache.IVoteCache;
 import com.bencodez.votingplugin.proxy.cache.PendingVotePartyProxyEffects;
@@ -197,6 +198,7 @@ public abstract class VotingPluginProxy {
 	private static final long PRESENCE_MAINTENANCE_INTERVAL_SECONDS = 30L;
 	private static final long PRESENCE_BACKEND_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(90);
 	private static final long CONTROL_ENROLLMENT_MIN_INTERVAL_NANOS = TimeUnit.SECONDS.toNanos(10);
+	private static final long CONTROL_ENROLLMENT_CHALLENGE_TTL_NANOS = TimeUnit.MINUTES.toNanos(1);
 	private static final int MAX_PENDING_VOTE_PARTY_REWARDS = 1024;
 	private static final long HTTP_TRANSPORT_RECONCILIATION_DELAY_MILLIS = 100L;
 	// Acks run before SimpleAPI removes an entry. Keep one bounded, single-flight
@@ -333,6 +335,8 @@ public abstract class VotingPluginProxy {
 	private final Map<UUID, PendingPresenceHandoff> pendingPresenceHandoffs = new HashMap<>();
 	private final Set<String> pendingBackendRecoverySnapshots = ConcurrentHashMap.newKeySet();
 	private final Map<String, Long> controlEnrollmentNextAllowed = new ConcurrentHashMap<>();
+	private final Map<String, ControlEnrollmentChallenge> controlEnrollmentChallenges = new ConcurrentHashMap<>();
+	private volatile ControlEnrollmentAuthenticator controlEnrollmentAuthenticator;
 	private final Map<UUID, PendingCommunicationTest> pendingCommunicationTests = new ConcurrentHashMap<>();
 	private volatile ControlConnector controlConnector;
 	private volatile HostedControlManager hostedControlManager;
@@ -1847,6 +1851,7 @@ public abstract class VotingPluginProxy {
 				}
 			}
 		};
+		registerControlEnrollmentListener(globalMessageProxyHandler);
 
 		globalMessageProxyHandler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_LOGIN) {
 			@Override
@@ -3225,7 +3230,10 @@ public abstract class VotingPluginProxy {
 	public void completeRuntimeReplacementShutdown() {
 		enabled = false;
 		cancelCommunicationTests("Proxy runtime stopped before the backend replied");
-		runCleanup("vote cache", () -> getVoteCacheHandler().saveVoteCache());
+		runCleanup("vote cache", () -> {
+			VoteCacheHandler cache = getVoteCacheHandler();
+			if (cache != null) cache.saveVoteCache();
+		});
 		runCleanup("proxy MySQL messenger", () -> {
 			if (getProxyMysqlMessenger() != null) getProxyMysqlMessenger().shutdown();
 		});
@@ -3265,6 +3273,8 @@ public abstract class VotingPluginProxy {
 			cleanup.run();
 		} catch (Exception failure) {
 			logSevere("Unable to stop " + service + "; remaining proxy cleanup will continue");
+			debug("Proxy cleanup failure for " + service + ": " + failure.getClass().getName()
+					+ (failure.getMessage() == null ? "" : ": " + failure.getMessage()));
 		}
 	}
 
@@ -3323,14 +3333,76 @@ public abstract class VotingPluginProxy {
 		});
 	}
 
-	private void handleControlEnrollmentRequest(String sourceServer, JsonEnvelope envelope) {
+	protected void registerControlEnrollmentListener(GlobalMessageProxyHandler handler) {
+		handler.addListener(new GlobalMessageListener(VotingPluginWire.SUB_CONTROL_ENROLLMENT_REQUEST) {
+			@Override
+			public void onReceive(JsonEnvelope message) {
+				if (method == BungeeMethod.PLUGINMESSAGING || method == BungeeMethod.HTTP) return;
+				VotingPluginWire.ControlEnrollmentRequest request =
+						VotingPluginWire.readControlEnrollmentRequest(message);
+				String sourceServer = message.getFields().getOrDefault(VotingPluginWire.K_SERVER, "");
+				if (!request.valid || !request.nodeId.equals(sourceServer)
+						|| !isPresenceServerValid(sourceServer,
+								VotingPluginWire.SUB_CONTROL_ENROLLMENT_REQUEST)) return;
+				handleUnboundControlEnrollmentRequest(sourceServer, message, request);
+			}
+		});
+	}
+
+	private void handleUnboundControlEnrollmentRequest(String sourceServer, JsonEnvelope envelope,
+			VotingPluginWire.ControlEnrollmentRequest request) {
+		if (!verifyControlEnrollmentAuthenticator(request)) return;
+		if (request.verifier.isEmpty()) {
+			if (!allowControlEnrollmentAttempt(sourceServer)) return;
+			requestControlEnrollmentChallenge(sourceServer, request);
+			return;
+		}
+		AtomicBoolean accepted = new AtomicBoolean();
+		long now = System.nanoTime();
+		controlEnrollmentChallenges.compute(sourceServer, (ignored, pending) -> {
+			if (pending == null || pending.expiresAtNanos <= now) return null;
+			if (pending.requestId.equals(request.requestId) && pending.endpoint.equals(request.endpoint)
+					&& pending.challenge.equals(request.challenge)) {
+				accepted.set(true);
+				return null;
+			}
+			return pending;
+		});
+		if (!accepted.get()) {
+			if (allowControlEnrollmentAttempt(sourceServer)) requestControlEnrollmentChallenge(sourceServer, request);
+			return;
+		}
+		installControlEnrollmentRequest(sourceServer, request);
+	}
+
+	private boolean verifyControlEnrollmentAuthenticator(VotingPluginWire.ControlEnrollmentRequest request) {
+		try {
+			ControlEnrollmentAuthenticator authenticator = controlEnrollmentAuthenticator;
+			if (authenticator == null) {
+				authenticator = ControlEnrollmentAuthenticator.load(
+						getDataFolderPlugin().toPath().resolve("secretkey.key"));
+				controlEnrollmentAuthenticator = authenticator;
+			}
+			return authenticator.verifiesRequest(request.authenticator, request.nodeId, request.requestId, request.endpoint,
+					request.verifier, request.challenge);
+		} catch (IOException unavailable) {
+			debug("[Control] shared enrollment key is unavailable");
+			return false;
+		}
+	}
+
+	protected void handleControlEnrollmentRequest(String sourceServer, JsonEnvelope envelope) {
 		VotingPluginWire.ControlEnrollmentRequest request = VotingPluginWire.readControlEnrollmentRequest(envelope);
 		if (!request.valid || sourceServer == null || sourceServer.isBlank()) return;
 		if (!sourceServer.equals(request.nodeId)) {
-			sendPluginMessageServer(sourceServer, 0,
-					VotingPluginWire.controlEnrollmentResult(sourceServer, request.requestId, false));
+			sendControlEnrollmentResult(sourceServer, request.requestId, false);
 			return;
 		}
+		if (!allowControlEnrollmentAttempt(sourceServer)) return;
+		installControlEnrollmentRequest(sourceServer, request);
+	}
+
+	private boolean allowControlEnrollmentAttempt(String sourceServer) {
 		long now = System.nanoTime();
 		AtomicBoolean allowed = new AtomicBoolean();
 		controlEnrollmentNextAllowed.compute(sourceServer, (ignored, nextAllowed) -> {
@@ -3340,19 +3412,80 @@ public abstract class VotingPluginProxy {
 			}
 			return nextAllowed;
 		});
-		if (!allowed.get()) return;
+		return allowed.get();
+	}
+
+	private void requestControlEnrollmentChallenge(String sourceServer,
+			VotingPluginWire.ControlEnrollmentRequest request) {
+		proveControlEnrollmentRoute(sourceServer, request.endpoint).whenComplete((proved, failure) -> {
+			if (failure != null || !Boolean.TRUE.equals(proved)) {
+				sendControlEnrollmentResult(sourceServer, request.requestId, false);
+				return;
+			}
+			sendControlEnrollmentChallenge(sourceServer, request);
+		});
+	}
+
+	protected CompletableFuture<Boolean> proveControlEnrollmentRoute(String sourceServer, String endpoint) {
+		HostedControlManager manager = hostedControlManager;
+		return manager == null ? CompletableFuture.completedFuture(false)
+				: manager.installNodeVerifier(sourceServer, "", endpoint);
+	}
+
+	private void sendControlEnrollmentChallenge(String sourceServer,
+			VotingPluginWire.ControlEnrollmentRequest request) {
+		long now = System.nanoTime();
+		ControlEnrollmentChallenge challenge = controlEnrollmentChallenges.compute(sourceServer, (ignored, current) -> {
+			if (current != null && current.expiresAtNanos > now && current.requestId.equals(request.requestId)
+					&& current.endpoint.equals(request.endpoint)) return current;
+			return new ControlEnrollmentChallenge(request.requestId, request.endpoint, UUID.randomUUID().toString(),
+					now + CONTROL_ENROLLMENT_CHALLENGE_TTL_NANOS);
+		});
+		sendControlEnrollmentResult(sourceServer, request.requestId, false, challenge.challenge);
+	}
+
+	protected void installControlEnrollmentRequest(String sourceServer,
+			VotingPluginWire.ControlEnrollmentRequest request) {
 		HostedControlManager manager = hostedControlManager;
 		if (manager == null) {
-			sendPluginMessageServer(sourceServer, 0,
-					VotingPluginWire.controlEnrollmentResult(sourceServer, request.requestId, false));
+			sendControlEnrollmentResult(sourceServer, request.requestId, false);
 			return;
 		}
 		manager.installNodeVerifier(sourceServer, request.verifier, request.endpoint).whenComplete((installed, failure) -> {
 			boolean success = failure == null && Boolean.TRUE.equals(installed);
-			sendPluginMessageServer(sourceServer, 0,
-					VotingPluginWire.controlEnrollmentResult(sourceServer, request.requestId, success));
+			sendControlEnrollmentResult(sourceServer, request.requestId, success);
 			if (success) log("[Control] automatically enrolled backend node " + sourceServer);
 		});
+	}
+
+	protected void sendControlEnrollmentResult(String server, UUID requestId, boolean success) {
+		sendControlEnrollmentResult(server, requestId, success, "");
+	}
+
+	protected void sendControlEnrollmentResult(String server, UUID requestId, boolean success, String challenge) {
+		GlobalMessageProxyHandler handler = globalMessageProxyHandler;
+		JsonEnvelope result = createControlEnrollmentResult(server, requestId, success, challenge);
+		if (handler != null && result != null) handler.sendMessage(server, 0, result);
+	}
+
+	protected JsonEnvelope createControlEnrollmentResult(String server, UUID requestId, boolean success,
+			String challenge) {
+		String proof = "";
+		if (method != BungeeMethod.PLUGINMESSAGING && method != BungeeMethod.HTTP) {
+			try {
+				ControlEnrollmentAuthenticator authenticator = controlEnrollmentAuthenticator;
+				if (authenticator == null) {
+					authenticator = ControlEnrollmentAuthenticator.load(
+							getDataFolderPlugin().toPath().resolve("secretkey.key"));
+					controlEnrollmentAuthenticator = authenticator;
+				}
+				proof = authenticator.signResult(server, requestId, success, challenge);
+			} catch (IOException unavailable) {
+				debug("[Control] shared enrollment key is unavailable");
+				return null;
+			}
+		}
+		return VotingPluginWire.controlEnrollmentResult(server, requestId, success, challenge, proof);
 	}
 
 	private UUID parseUUIDFromString(String uuidAsString) {
@@ -3928,6 +4061,10 @@ public abstract class VotingPluginProxy {
 	protected void handleHttpTransportEnvelope(HttpProxyTransportServer.ReceivedEnvelope received) {
 		if (!isAuthenticatedHttpEnvelopeAllowed(received)) {
 			debug("Ignored HTTP envelope whose player-presence claim did not match its authenticated backend");
+			return;
+		}
+		if (VotingPluginWire.SUB_CONTROL_ENROLLMENT_REQUEST.equals(received.envelope().getSubChannel())) {
+			handleControlEnrollmentRequest(received.serverId(), received.envelope());
 			return;
 		}
 		GlobalMessageProxyHandler handler = globalMessageProxyHandler;
@@ -6138,6 +6275,9 @@ public abstract class VotingPluginProxy {
 			}
 		}
 	}
+
+	private record ControlEnrollmentChallenge(UUID requestId, String endpoint, String challenge,
+			long expiresAtNanos) { }
 
 	public abstract void warn(String message);
 

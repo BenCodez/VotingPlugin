@@ -7,9 +7,16 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.Map.Entry;
 
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.simpleapi.skull.SkullCache;
@@ -23,35 +30,135 @@ import com.bencodez.votingplugin.votesites.VoteSite;
 public final class VotingPluginBackgroundTask {
 
 	private final VotingPluginMain plugin;
+	private final long snapshotWaitMillis;
 	private volatile boolean requested;
 	private volatile boolean running;
 	private volatile long lastRunTimeSeconds = -1;
 
 	public VotingPluginBackgroundTask(VotingPluginMain plugin) {
+		this(plugin, 5_000L);
+	}
+
+	VotingPluginBackgroundTask(VotingPluginMain plugin, long snapshotWaitMillis) {
 		this.plugin = plugin;
+		this.snapshotWaitMillis = snapshotWaitMillis;
 	}
 
-	public synchronized void run() {
-		if (!(requested || plugin.getConfigFile().isAlwaysUpdate())) {
-			return;
+	public void run() {
+		CompletableFuture<Void> completion = new CompletableFuture<>();
+		CompletableFuture<Void> snapshotStarted = new CompletableFuture<>();
+		CompletableFuture<Void> storageStarted = new CompletableFuture<>();
+		AtomicBoolean snapshotPending = new AtomicBoolean(true);
+		AtomicBoolean storagePending = new AtomicBoolean(false);
+		synchronized (this) {
+			if (!(requested || plugin.getConfigFile().isAlwaysUpdate()) || !plugin.isEnabled() || running) return;
+			running = true;
 		}
-		if (!plugin.isEnabled() || running) {
-			return;
-		}
-		if (plugin.getConfigFile().isUpdateWithPlayersOnlineOnly() && Bukkit.getOnlinePlayers().isEmpty()) {
-			return;
-		}
-
-		running = true;
-		requested = false;
 		try {
-			runRefresh();
-		} finally {
-			running = false;
+			plugin.captureOnlineTopVoterIgnore(online -> {
+				if (!snapshotPending.compareAndSet(true, false)) return;
+				snapshotStarted.complete(null);
+				if (plugin.getConfigFile().isUpdateWithPlayersOnlineOnly() && online.isEmpty()) {
+					storageStarted.complete(null);
+					finishRun(completion);
+					return;
+				}
+				synchronized (VotingPluginBackgroundTask.this) { requested = false; }
+				storagePending.set(true);
+				try {
+					plugin.getUserManager().getDataManager().getTimer().execute(() -> {
+						if (!storagePending.compareAndSet(true, false)) return;
+						storageStarted.complete(null);
+						try {
+							runRefresh(online);
+							completion.complete(null);
+						} catch (Throwable failure) {
+							plugin.debug(failure);
+							setRequested(true);
+							completion.complete(null);
+						} finally { finishRun(completion); }
+					});
+				} catch (RuntimeException failure) {
+					plugin.debug(failure);
+					setRequested(true);
+					storagePending.set(false);
+					storageStarted.complete(null);
+					completion.complete(null);
+					finishRun(completion);
+				}
+			}, () -> {
+				setRequested(true);
+				snapshotPending.set(false);
+				snapshotStarted.complete(null);
+				storageStarted.complete(null);
+				finishRun(completion);
+			});
+		} catch (RuntimeException failure) {
+			plugin.debug(failure);
+			setRequested(true);
+			snapshotPending.set(false);
+			snapshotStarted.complete(null);
+			storageStarted.complete(null);
+			completion.complete(null);
+			finishRun(completion);
+		}
+		if (!isPlatformOwnedThread()) {
+			try {
+				snapshotStarted.get(snapshotWaitMillis, TimeUnit.MILLISECONDS);
+			} catch (TimeoutException failure) {
+				if (snapshotPending.compareAndSet(true, false)) {
+					setRequested(true);
+					finishRun(completion);
+					return;
+				}
+			} catch (InterruptedException failure) {
+				Thread.currentThread().interrupt();
+				if (snapshotPending.compareAndSet(true, false)) {
+					setRequested(true);
+					finishRun(completion);
+					return;
+				}
+			} catch (java.util.concurrent.ExecutionException impossible) {
+				throw new IllegalStateException(impossible);
+			}
+			if (completion.isDone()) return;
+			try {
+				storageStarted.get(snapshotWaitMillis, TimeUnit.MILLISECONDS);
+			} catch (TimeoutException failure) {
+				if (storagePending.compareAndSet(true, false)) {
+					setRequested(true);
+					finishRun(completion);
+				}
+			} catch (InterruptedException failure) {
+				Thread.currentThread().interrupt();
+				if (storagePending.compareAndSet(true, false)) finishRun(completion);
+				setRequested(true);
+			} catch (java.util.concurrent.ExecutionException impossible) {
+				throw new IllegalStateException(impossible);
+			}
 		}
 	}
 
-	private void runRefresh() {
+	private synchronized void finishRun(CompletableFuture<Void> completion) {
+		running = false;
+		if (!completion.isDone()) completion.complete(null);
+	}
+
+	private boolean isPlatformOwnedThread() {
+		if (Bukkit.getServer() == null) return false;
+		try { if (Bukkit.isPrimaryThread()) return true; } catch (RuntimeException ignored) { }
+		try {
+			java.lang.reflect.Method method = Bukkit.getServer().getClass().getMethod("isGlobalTickThread");
+			if (Boolean.TRUE.equals(method.invoke(Bukkit.getServer()))) return true;
+		} catch (ReflectiveOperationException | RuntimeException ignored) { }
+		try {
+			Class<?> tickThread = Class.forName("ca.spottedleaf.moonrise.common.util.TickThread");
+			if (Boolean.TRUE.equals(tickThread.getMethod("isTickThread").invoke(null))) return true;
+		} catch (ReflectiveOperationException | LinkageError | RuntimeException ignored) { }
+		return false;
+	}
+
+	private void runRefresh(Map<UUID, Boolean> onlineUsers) {
 		synchronized (plugin) {
 			try {
 				if (!plugin.isEnabled()) {
@@ -123,10 +230,13 @@ public final class VotingPluginBackgroundTask {
 							}
 						}
 
-						if (extraBackgroundUpdate && user.isOnline()) {
-							user.offVote();
+						Boolean topVoterIgnore = onlineUsers.get(uuid);
+						boolean online = topVoterIgnore != null;
+						if (extraBackgroundUpdate && online) {
+							user.offVoteWithCapturedTopVoterIgnore(topVoterIgnore.booleanValue());
+							user.checkOfflineRewards();
 						}
-						if (!plugin.getPlaceholders().getCacheLevel().onlineOnly() || user.isOnline()) {
+						if (!plugin.getPlaceholders().getCacheLevel().onlineOnly() || online) {
 							plugin.getPlaceholders().onUpdate(user, false);
 						}
 					} finally {
@@ -139,7 +249,11 @@ public final class VotingPluginBackgroundTask {
 				});
 
 				plugin.getTopVoterHandler().updateTopVoters(tempTopVoter);
-				plugin.getPlaceholders().onUpdate();
+				plugin.getPlaceholders().checkNonCachedPlaceholders();
+				for (UUID onlineUuid : onlineUsers.keySet()) {
+					VotingPluginUser onlineUser = plugin.getVotingPluginUserManager().getVotingPluginUser(onlineUuid, false);
+					if (onlineUser != null) plugin.getPlaceholders().onUpdate(onlineUser, true);
+				}
 				plugin.setVoteToday(voteToday);
 				plugin.getServerData().updateValues();
 				plugin.getSigns().updateSigns();
@@ -166,6 +280,7 @@ public final class VotingPluginBackgroundTask {
 			}
 		}
 	}
+
 
 	public boolean isRequested() {
 		return requested;
