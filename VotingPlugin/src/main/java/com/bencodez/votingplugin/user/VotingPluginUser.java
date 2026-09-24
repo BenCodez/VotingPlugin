@@ -1961,20 +1961,19 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 
 		Player player = getPlayer();
-		if (!plugin.getOptions().isOnlineMode()) {
-			player = Bukkit.getPlayer(getPlayerName());
-		}
-		if (player == null) {
+		if (!plugin.getOptions().isOnlineMode()) player = Bukkit.getPlayer(getPlayerName());
+		if (player == null) return;
+		offVoteWithCapturedTopVoterIgnore(player.hasPermission("VotingPlugin.TopVoter.Ignore"));
+	}
+
+	/** Process offline-vote storage/rewards after platform-owned permission state was captured. */
+	public void offVoteWithCapturedTopVoterIgnore(boolean currentTopVoterIgnore) {
+		if (!plugin.getOptions().isProcessRewards()) {
+			plugin.debug("Processing rewards is disabled");
 			return;
 		}
-
-		plugin.extraDebug("Checking offline votes for " + player.getName() + "/" + getUUID());
-
-		// Update top voter ignore flag if needed.
-		boolean currentTopVoterIgnore = player.hasPermission("VotingPlugin.TopVoter.Ignore");
-		if (isTopVoterIgnore() != currentTopVoterIgnore) {
-			setTopVoterIgnore(currentTopVoterIgnore);
-		}
+		plugin.extraDebug("Checking offline votes for " + getPlayerName() + "/" + getUUID());
+		if (isTopVoterIgnore() != currentTopVoterIgnore) setTopVoterIgnore(currentTopVoterIgnore);
 
 		ArrayList<String> offlineVotes = getOfflineVotes();
 		if (offlineVotes.isEmpty()) {
