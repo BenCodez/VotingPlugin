@@ -534,6 +534,13 @@ public final class VotingPluginWire {
 				broadcast, num, numberOfVotes);
 	}
 
+	/** Resolves the current vote ID or the legacy ID carried in the totals snapshot. */
+	@SuppressWarnings("deprecation")
+	public static UUID resolveVoteId(Vote vote) {
+		if (vote == null || vote.voteId != null) return vote == null ? null : vote.voteId;
+		return VoteTotalsSnapshot.parseStorage(vote.totals).getVoteUUID();
+	}
+
 	public static final class VoteDelayRejected {
 		public final String player;
 		public final String uuid;

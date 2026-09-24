@@ -463,7 +463,8 @@ public class BackendProxyHandler implements Listener {
 		String subChannel = envelope == null ? null : envelope.getSubChannel();
 		if (!VotingPluginWire.SUB_VOTE.equals(subChannel)
 				&& !VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)) return;
-		VoteShopPurchaseService.completeVoteDelivery(plugin, VotingPluginWire.readVote(envelope).voteId);
+		VoteShopPurchaseService.completeVoteDelivery(plugin,
+				VotingPluginWire.resolveVoteId(VotingPluginWire.readVote(envelope)));
 	}
 
 	private void completeOrderedVoteQuarantine(BackendOrderedVoteOverflowQueue.PendingEnvelope overflowEntry,

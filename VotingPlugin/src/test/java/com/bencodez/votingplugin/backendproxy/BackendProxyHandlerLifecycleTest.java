@@ -24,9 +24,10 @@ import static org.mockito.ArgumentMatchers.eq;
 
 import java.lang.reflect.Field;
 import java.net.ServerSocket;
-import java.util.ArrayDeque;
-import java.nio.file.Path;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayDeque;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -61,6 +62,7 @@ import com.bencodez.votingplugin.backendproxy.messaging.BackendProxyMessageRoute
 import com.bencodez.votingplugin.backendproxy.messaging.BackendProxyMessageRouter.OrderedVoteOutcome;
 import com.bencodez.votingplugin.backendproxy.presence.BackendPresenceManager;
 import com.bencodez.votingplugin.config.BungeeSettings;
+import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
 import com.bencodez.votingplugin.backendproxy.transport.MqttBackendProxyTransport;
 import com.bencodez.votingplugin.backendproxy.transport.MysqlBackendProxyTransport;
@@ -73,6 +75,37 @@ import com.bencodez.votingplugin.backendproxy.transport.SocketBackendProxyTransp
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 
 class BackendProxyHandlerLifecycleTest {
+	@Test
+	void completedLegacyVoteRetiresTheTotalsReplayFence() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		ServerData serverData = mock(ServerData.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(plugin.getServerData()).thenReturn(serverData);
+		ArrayDeque<Runnable> asyncTasks = new ArrayDeque<>();
+		doAnswer(invocation -> {
+			asyncTasks.addLast(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		BackendProxyHandler handler = new BackendProxyHandler(plugin);
+		BackendProxyMessageRouter router = mock(BackendProxyMessageRouter.class);
+		setField(handler, "messageRouter", router);
+		doAnswer(invocation -> {
+			invocation.<java.util.function.Consumer<OrderedVoteOutcome>>getArgument(1)
+					.accept(OrderedVoteOutcome.COMPLETE);
+			return null;
+		}).when(router).handleOrderedVote(any(JsonEnvelope.class), any());
+		handler.activateInboundMessages();
+		UUID voteId = UUID.randomUUID();
+		String legacyTotals = "1//2//3//4//5//0//6//7//8//" + voteId;
+
+		handler.dispatchIncomingAfterPublication(VotingPluginWire.vote("Player", UUID.randomUUID().toString(),
+				"Service", 100L, true, true, legacyTotals, null, true, false, 1, 1), mock(Runnable.class));
+		asyncTasks.removeFirst().run();
+
+		verify(serverData).clearVoteReplayUnsafe(voteId);
+	}
+
 	@Test
 	void globalDataWakeupMovesOffTheCallingAndPrimaryThreads() {
 		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);

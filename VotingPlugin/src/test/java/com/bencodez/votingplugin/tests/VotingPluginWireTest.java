@@ -45,6 +45,16 @@ public class VotingPluginWireTest {
 	}
 
 	@Test
+	public void legacyTotalsSupplyTheVoteIdWhenTheTopLevelFieldIsMissing() {
+		UUID voteId = UUID.randomUUID();
+		String legacyTotals = "1//2//3//4//5//0//6//7//8//" + voteId;
+		JsonEnvelope envelope = VotingPluginWire.vote("Player", UUID.randomUUID().toString(), "Service", 100L,
+				true, true, legacyTotals, null, true, false, 1, 1);
+
+		assertEquals(voteId, VotingPluginWire.resolveVoteId(VotingPluginWire.readVote(envelope)));
+	}
+
+	@Test
 	public void voteDelayRejectedRoundTripPreservesContext() {
 		String uuid = UUID.randomUUID().toString();
 		JsonEnvelope envelope = VotingPluginWire.voteDelayRejected("Player", uuid, "Service", true);

@@ -196,7 +196,16 @@ public class TimeQueueHandler implements Listener {
 			plugin.getServer().getPluginManager().callEvent(voteEvent);
 			if (voteEvent.isProcessingIncomplete()) {
 				if (voteEvent.isReplayUnsafe()) {
-					plugin.getServerData().quarantineTimedVote(vote);
+					try {
+						plugin.getServerData().quarantineTimedVote(vote);
+					} catch (RuntimeException persistenceFailure) {
+						timeChangeQueue.addFirst(vote);
+						plugin.getLogger().severe("Unable to quarantine ambiguous timed vote "
+								+ voteEvent.getVoteId() + "; retained it in the durable retry queue");
+						plugin.debug(persistenceFailure);
+						scheduleRetry(!persistQueueSnapshot());
+						return;
+					}
 					plugin.getLogger().severe("Timed vote " + voteEvent.getVoteId()
 							+ " reached an ambiguous post-effect failure and was retained for manual review");
 					continue;

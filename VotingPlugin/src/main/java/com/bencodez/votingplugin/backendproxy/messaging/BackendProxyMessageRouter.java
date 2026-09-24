@@ -366,8 +366,7 @@ public class BackendProxyMessageRouter {
 				+ ServiceSiteValidator.sanitizeForLog(vote.uuid) + " on "
 				+ ServiceSiteValidator.sanitizeForLog(vote.service));
 		VoteTotalsSnapshot totals = VoteTotalsSnapshot.parseStorage(vote.totals == null ? "" : vote.totals);
-		@SuppressWarnings("deprecation")
-		UUID voteId = vote.voteId != null ? vote.voteId : totals.getVoteUUID();
+		UUID voteId = VotingPluginWire.resolveVoteId(vote);
 		if (!processedVoteCache.reserve(voteId)) {
 			plugin.debug("Ignoring duplicate wire vote " + voteId + " for "
 					+ ServiceSiteValidator.sanitizeForLog(vote.player) + " on "

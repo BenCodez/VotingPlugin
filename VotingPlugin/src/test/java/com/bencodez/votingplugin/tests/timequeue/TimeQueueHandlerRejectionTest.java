@@ -7,13 +7,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.reset;
 
 import java.util.List;
 import java.util.Set;
@@ -171,6 +172,30 @@ class TimeQueueHandlerRejectionTest {
 		assertTrue(handler.getTimeChangeQueue().isEmpty());
 		verify(serverData).quarantineTimedVote(vote);
 		verify(plugin.getBukkitScheduler(), never()).runTaskLaterAsynchronously(
+				org.mockito.ArgumentMatchers.eq(plugin), any(Runnable.class), anyLong());
+	}
+
+	@Test
+	void failedAmbiguousQuarantineReturnsVoteToDurableRetryQueue() {
+		when(serverData.getTimedVoteCacheKeys()).thenReturn(Set.of());
+		TimeQueueHandler handler = new TimeQueueHandler(plugin);
+		clearInvocations(plugin.getBukkitScheduler());
+		VoteTimeQueue vote = new VoteTimeQueue(UUID.randomUUID(), "Alex", "example.org", 123L);
+		handler.getTimeChangeQueue().add(vote);
+		doThrow(new IllegalStateException("disk unavailable")).when(serverData).quarantineTimedVote(vote);
+		org.bukkit.plugin.PluginManager pluginManager = plugin.getServer().getPluginManager();
+		doAnswer(invocation -> {
+			PlayerVoteEvent event = invocation.getArgument(0);
+			event.setProcessingFailed(true);
+			event.setReplayUnsafe(true);
+			return null;
+		}).when(pluginManager).callEvent(any(PlayerVoteEvent.class));
+
+		assertDoesNotThrow(handler::processQueue);
+
+		assertEquals(vote, handler.getTimeChangeQueue().peek());
+		verify(serverData).replaceTimedVoteCache(List.of(vote));
+		verify(plugin.getBukkitScheduler()).runTaskLaterAsynchronously(
 				org.mockito.ArgumentMatchers.eq(plugin), any(Runnable.class), anyLong());
 	}
 
