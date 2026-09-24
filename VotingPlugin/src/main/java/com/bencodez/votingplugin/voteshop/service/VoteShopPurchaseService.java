@@ -913,6 +913,13 @@ public class VoteShopPurchaseService {
 			accounting = journal.recoverAccounting(System.currentTimeMillis());
 			boolean deferredReward = false;
 			for (UUID voteId : accounting.pendingRewards()) {
+				// Startup recovery begins asynchronously. Do not claim a durable reward
+				// until the service that executes it is ready, because claimed rows are
+				// intentionally excluded from later recovery scans.
+				if (plugin.getSpecialRewards() == null) {
+					deferredReward = true;
+					break;
+				}
 				SharedMysqlPurchaseJournal.RecoveredDailyStreak streak = journal.claimDailyStreakReward(voteId);
 				if (streak == null) {
 					deferredReward = true;

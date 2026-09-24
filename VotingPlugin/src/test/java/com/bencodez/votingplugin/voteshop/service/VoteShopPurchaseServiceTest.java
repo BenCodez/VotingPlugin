@@ -988,6 +988,7 @@ class VoteShopPurchaseServiceTest {
 	@Test
 	void recoveredDailyStreakRunsRewardOnlyAfterThePersistedIncrement(@TempDir Path temporaryDirectory) throws Exception {
 		VotingPluginMain plugin = mockPluginForCompensation(temporaryDirectory);
+		when(plugin.getSpecialRewards()).thenReturn(mock(com.bencodez.votingplugin.specialrewards.SpecialRewards.class));
 		SharedMysqlPurchaseJournal journal = mock(SharedMysqlPurchaseJournal.class);
 		VotingPluginUser user = mock(VotingPluginUser.class);
 		java.util.UUID voteId = java.util.UUID.randomUUID();
@@ -1011,6 +1012,7 @@ class VoteShopPurchaseServiceTest {
 	@Test
 	void deferredDailyStreakRecoveryYieldsUntilTheNextRecoveryPass(@TempDir Path temporaryDirectory) throws Exception {
 		VotingPluginMain plugin = mockPluginForCompensation(temporaryDirectory);
+		when(plugin.getSpecialRewards()).thenReturn(mock(com.bencodez.votingplugin.specialrewards.SpecialRewards.class));
 		SharedMysqlPurchaseJournal journal = mock(SharedMysqlPurchaseJournal.class);
 		java.util.UUID voteId = java.util.UUID.randomUUID();
 		when(journal.recoverAccounting(anyLong())).thenReturn(
@@ -1022,6 +1024,23 @@ class VoteShopPurchaseServiceTest {
 
 		verify(journal).recoverAccounting(anyLong());
 		verify(journal).claimDailyStreakReward(voteId);
+		verify(journal).recoverAndCleanup(anyLong());
+	}
+
+	@Test
+	void dailyStreakRecoveryDoesNotClaimRewardBeforeRewardServiceIsReady(@TempDir Path temporaryDirectory)
+			throws Exception {
+		VotingPluginMain plugin = mockPluginForCompensation(temporaryDirectory);
+		when(plugin.getSpecialRewards()).thenReturn(null);
+		SharedMysqlPurchaseJournal journal = mock(SharedMysqlPurchaseJournal.class);
+		java.util.UUID voteId = java.util.UUID.randomUUID();
+		when(journal.recoverAccounting(anyLong())).thenReturn(
+				new SharedMysqlPurchaseJournal.AccountingRecoveryBatch(true, java.util.List.of(voteId)));
+		when(journal.recoverAndCleanup(anyLong())).thenReturn(java.util.List.of());
+
+		VoteShopPurchaseService.recoverSharedMysqlPurchases(plugin, journal);
+
+		verify(journal, never()).claimDailyStreakReward(any());
 		verify(journal).recoverAndCleanup(anyLong());
 	}
 

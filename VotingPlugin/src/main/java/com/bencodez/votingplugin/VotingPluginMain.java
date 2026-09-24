@@ -724,12 +724,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		loadVoteBroadcast();
 
+		specialRewards = new SpecialRewards(this);
 		loadVoteShopManager();
 
 		loadDirectlyDefined();
 		checkUpdate = new CheckUpdate(this);
 		checkUpdate.startUp();
-		specialRewards = new SpecialRewards(this);
 		signs = new Signs(this);
 
 		coolDownCheck.checkEnabled();

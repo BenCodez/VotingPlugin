@@ -59,6 +59,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	private boolean closed;
 	private long stateVersion;
 	private long durableVersion;
+	private long persistedSnapshotVersion;
 
 	/**
 	 * Creates and loads the overflow queue.
@@ -123,18 +124,55 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 		}
 	}
 
-	/** Durably retains an ambiguous vote without automatically replaying it. */
+	/**
+	 * Durably retains an ambiguous vote without automatically replaying it.
+	 * Success is reported only after the quarantine snapshot has been forced and
+	 * replaced on disk.
+	 */
 	public boolean quarantine(String username, String serviceSite, UUID voteId) {
 		if (username == null || serviceSite == null || voteId == null) return false;
+		PendingVote pending = new PendingVote(username, serviceSite, System.currentTimeMillis(), voteId);
+		pending.quarantined = true;
 		synchronized (lock) {
 			if (closed || entries.size() >= MAX_ENTRIES) return false;
-			PendingVote pending = new PendingVote(username, serviceSite, System.currentTimeMillis(), voteId);
-			pending.quarantined = true;
 			entries.addLast(pending);
 			stateVersion++;
-			requestPersistenceLocked();
-			return true;
 		}
+
+		List<PendingVote> snapshot;
+		long snapshotVersion;
+		try {
+			synchronized (persistenceWriteLock) {
+				// Snapshot after obtaining the write lock so an older asynchronous
+				// snapshot cannot overtake this confirmed quarantine write.
+				synchronized (lock) {
+					if (closed) return false;
+					snapshot = new ArrayList<>(entries);
+					snapshotVersion = stateVersion;
+				}
+				writeSnapshotLocked(snapshot);
+				persistedSnapshotVersion = Math.max(persistedSnapshotVersion, snapshotVersion);
+			}
+		} catch (IOException failure) {
+			plugin.getLogger().warning("Unable to persist quarantined Votifier vote: "
+					+ failure.getClass().getSimpleName());
+			synchronized (lock) {
+				if (!closed) requestPersistenceLocked();
+			}
+			return false;
+		}
+
+		List<UUID> completedRetirements = new ArrayList<>();
+		synchronized (lock) {
+			durableVersion = Math.max(durableVersion, snapshotVersion);
+			while (!retiredVotes.isEmpty() && retiredVotes.peekFirst().version <= durableVersion) {
+				completedRetirements.add(retiredVotes.removeFirst().voteId);
+			}
+			if (stateVersion != snapshotVersion) requestPersistenceLocked();
+			scheduleDrainLocked();
+		}
+		for (UUID completedVoteId : completedRetirements) completeDelivery(completedVoteId);
+		return true;
 	}
 
 	/**
@@ -268,7 +306,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 				snapshotVersion = stateVersion;
 			}
 			try {
-				writeSnapshot(snapshot);
+				writeSnapshot(snapshot, snapshotVersion);
 			} catch (IOException failure) {
 				plugin.getLogger().warning("Unable to persist queued Votifier votes: " + failure.getClass().getSimpleName());
 				synchronized (lock) {
@@ -367,10 +405,15 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 		}
 	}
 
-	private void writeSnapshot(List<PendingVote> snapshot) throws IOException {
+	private void writeSnapshot(List<PendingVote> snapshot, long snapshotVersion) throws IOException {
 		synchronized (persistenceWriteLock) {
 			if (closed) return;
+			// A confirmed synchronous quarantine snapshot may overtake a worker
+			// snapshot that was captured earlier. Never let that stale worker write
+			// replace the newer durable state afterward.
+			if (snapshotVersion < persistedSnapshotVersion) return;
 			writeSnapshotLocked(snapshot);
+			persistedSnapshotVersion = snapshotVersion;
 		}
 	}
 

@@ -130,6 +130,37 @@ class VotifierVoteOverflowQueueTest {
 	}
 
 	@Test
+	void directQuarantineReturnsOnlyAfterItsSnapshotIsDurable(@TempDir Path dataFolder) throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+		when(plugin.getVoteTimer()).thenReturn(mock(ScheduledExecutorService.class));
+		VotifierVoteOverflowQueue queue = new VotifierVoteOverflowQueue(plugin, (site, user) -> { });
+		java.lang.reflect.Field writeLockField = VotifierVoteOverflowQueue.class
+				.getDeclaredField("persistenceWriteLock");
+		writeLockField.setAccessible(true);
+		Object writeLock = writeLockField.get(queue);
+		java.util.concurrent.ExecutorService caller = Executors.newSingleThreadExecutor();
+		java.util.UUID voteId = java.util.UUID.randomUUID();
+		java.util.concurrent.Future<Boolean> stored;
+		try {
+			synchronized (writeLock) {
+				stored = caller.submit(() -> queue.quarantine("Steve", "example.org", voteId));
+				long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+				while (queue.size() == 0 && System.nanoTime() < deadline) Thread.onSpinWait();
+				assertEquals(1, queue.size());
+				assertThrows(TimeoutException.class, () -> stored.get(100, TimeUnit.MILLISECONDS));
+			}
+			assertTrue(stored.get(2, TimeUnit.SECONDS));
+			String persisted = Files.readString(dataFolder.resolve("VotifierVoteQueue.yml"));
+			assertTrue(persisted.contains(voteId.toString()));
+			assertTrue(persisted.contains("Quarantined: true"));
+		} finally {
+			caller.shutdownNow();
+			queue.close();
+		}
+	}
+
+	@Test
 	void enqueueCannotChangeVersionDuringDurableAdmission(@TempDir Path dataFolder) throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
 		ScheduledExecutorService voteTimer = mock(ScheduledExecutorService.class);
