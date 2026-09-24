@@ -382,7 +382,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	public void basicBungeeUpdate() {
 		captureOnlineTopVoterIgnore(online -> {
 			try {
-				getVoteTimer().execute(() -> {
+				getUserManager().getDataManager().getTimer().execute(() -> {
 					for (java.util.Map.Entry<UUID, Boolean> entry : online.entrySet()) {
 						VotingPluginUser user = getVotingPluginUserManager().getVotingPluginUser(entry.getKey(), false);
 						if (user == null) continue;
