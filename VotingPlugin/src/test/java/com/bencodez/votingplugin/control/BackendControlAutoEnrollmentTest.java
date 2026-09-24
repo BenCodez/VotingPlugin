@@ -107,7 +107,17 @@ class BackendControlAutoEnrollmentTest {
 			java.util.UUID requestId = java.util.UUID.fromString(
 					initial.getFields().get(VotingPluginWire.K_REQUEST_ID));
 			String challenge = java.util.UUID.randomUUID().toString();
-			enrollment.handle(VotingPluginWire.controlEnrollmentResult("backend-a", requestId, false, challenge));
+			ControlEnrollmentAuthenticator signer = ControlEnrollmentAuthenticator.load(
+					methodDirectory.resolve("secretkey.key"));
+			String resultProof = method == BungeeMethod.PLUGINMESSAGING || method == BungeeMethod.HTTP ? ""
+					: signer.signResult("backend-a", requestId, false, challenge);
+			if (!resultProof.isEmpty()) {
+				enrollment.handle(VotingPluginWire.controlEnrollmentResult(
+						"backend-a", requestId, false, challenge, "0".repeat(64)));
+				verify(plugin, never()).startBackendControlConnectorForEnrollment(enrollment);
+			}
+			enrollment.handle(VotingPluginWire.controlEnrollmentResult(
+					"backend-a", requestId, false, challenge, resultProof));
 			verify(plugin).startBackendControlConnectorForEnrollment(enrollment);
 			org.mockito.Mockito.clearInvocations(messages);
 			enrollment.send();
@@ -128,7 +138,8 @@ class BackendControlAutoEnrollmentTest {
 
 			// A repeated challenge retries connector startup without replacing this enrollment,
 			// its request correlation, or the verifier that was already written.
-			enrollment.handle(VotingPluginWire.controlEnrollmentResult("backend-a", requestId, false, challenge));
+			enrollment.handle(VotingPluginWire.controlEnrollmentResult(
+					"backend-a", requestId, false, challenge, resultProof));
 			verify(plugin, times(2)).startBackendControlConnectorForEnrollment(enrollment);
 			org.mockito.Mockito.clearInvocations(messages);
 			enrollment.send();

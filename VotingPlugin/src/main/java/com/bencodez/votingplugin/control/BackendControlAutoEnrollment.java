@@ -172,7 +172,7 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 		if (handler == null || handler.getGlobalMessageHandler() == null) return;
 		String verifier = pending == null ? "" : pending.verifier();
 		String proof = authenticator == null ? ""
-				: authenticator.sign(nodeId, requestId, endpoint, verifier, challenge);
+				: authenticator.signRequest(nodeId, requestId, endpoint, verifier, challenge);
 		if (closed.get()) return;
 		handler.getGlobalMessageHandler().sendMessage(VotingPluginWire.controlEnrollmentRequest(
 				nodeId, verifier, endpoint, requestId, challenge, proof));
@@ -180,9 +180,11 @@ public final class BackendControlAutoEnrollment implements AutoCloseable {
 
 	public void handle(JsonEnvelope envelope) {
 		VotingPluginWire.ControlEnrollmentResult result = VotingPluginWire.readControlEnrollmentResult(envelope);
+		if (!result.valid || (authenticator != null && !authenticator.verifiesResult(result.authenticator,
+				result.nodeId, result.requestId, result.success, result.challenge))) return;
 		boolean ensureConnector = false;
 		synchronized (this) {
-			if (closed.get() || !result.valid || !requestId.equals(result.requestId)
+			if (closed.get() || !requestId.equals(result.requestId)
 					|| !nodeId.equals(result.nodeId)) return;
 			if (!result.challenge.isEmpty()) {
 				routeChallenge = result.challenge;

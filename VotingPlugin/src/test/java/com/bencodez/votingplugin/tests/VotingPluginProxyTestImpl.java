@@ -213,7 +213,7 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	@Override
 	protected void sendControlEnrollmentResult(String server, java.util.UUID requestId, boolean success,
 			String challenge) {
-		controlEnrollmentResult = VotingPluginWire.controlEnrollmentResult(server, requestId, success, challenge);
+		controlEnrollmentResult = createControlEnrollmentResult(server, requestId, success, challenge);
 	}
 
 	@Override

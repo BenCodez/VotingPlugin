@@ -84,7 +84,7 @@ public class VotingPluginProxyTest {
 							com.bencodez.votingplugin.control.ControlEnrollmentAuthenticator signer =
 									com.bencodez.votingplugin.control.ControlEnrollmentAuthenticator.load(
 											keyDirectory.resolve("secretkey.key"));
-							String initialProof = signer.sign("Server1", requestId, endpoint, "", "");
+							String initialProof = signer.signRequest("Server1", requestId, endpoint, "", "");
 							messages.onMessage(VotingPluginWire.controlEnrollmentRequest("Server1", "",
 									endpoint, requestId, "", initialProof));
 							if (method == BungeeMethod.PLUGINMESSAGING || method == BungeeMethod.HTTP) {
@@ -96,10 +96,12 @@ public class VotingPluginProxyTest {
 									VotingPluginWire.readControlEnrollmentResult(proxy.getControlEnrollmentResult());
 							assertTrue(challenge.valid);
 							assertFalse(challenge.challenge.isEmpty());
+							assertTrue(signer.verifiesResult(challenge.authenticator, challenge.nodeId,
+									challenge.requestId, challenge.success, challenge.challenge));
 							messages.onMessage(VotingPluginWire.controlEnrollmentRequest("Server1", "a".repeat(64),
 									endpoint, requestId));
 							assertEquals(null, proxy.getControlEnrollmentSource());
-							String responseProof = signer.sign("Server1", requestId, endpoint, "a".repeat(64),
+							String responseProof = signer.signRequest("Server1", requestId, endpoint, "a".repeat(64),
 									challenge.challenge);
 							JsonEnvelope proved = VotingPluginWire.controlEnrollmentRequest("Server1", "a".repeat(64),
 									endpoint, requestId, challenge.challenge, responseProof);
@@ -162,13 +164,15 @@ public class VotingPluginProxyTest {
 				com.bencodez.votingplugin.control.ControlEnrollmentAuthenticator.load(
 						temporaryDirectory.resolve("secretkey.key"));
 		messages.onMessage(VotingPluginWire.controlEnrollmentRequest("Server1", "", endpoint, requestId, "",
-				signer.sign("Server1", requestId, endpoint, "", "")));
+				signer.signRequest("Server1", requestId, endpoint, "", "")));
 
 		VotingPluginWire.ControlEnrollmentResult result =
 				VotingPluginWire.readControlEnrollmentResult(proxy.getControlEnrollmentResult());
 		assertTrue(result.valid);
 		assertFalse(result.success);
 		assertTrue(result.challenge.isEmpty());
+		assertTrue(signer.verifiesResult(result.authenticator, result.nodeId,
+				result.requestId, result.success, result.challenge));
 		assertEquals(0, proxy.getControlEnrollmentInstallCount());
 	}
 

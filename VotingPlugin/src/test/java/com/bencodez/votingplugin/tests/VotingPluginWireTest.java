@@ -204,6 +204,7 @@ public class VotingPluginWireTest {
 		assertFalse(result.success);
 		assertEquals(challenge, result.challenge);
 		assertEquals(requestId, result.requestId);
+		assertEquals("", result.authenticator);
 	}
 
 	@Test

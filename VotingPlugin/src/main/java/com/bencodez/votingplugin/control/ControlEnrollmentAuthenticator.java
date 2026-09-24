@@ -15,6 +15,8 @@ import javax.crypto.spec.SecretKeySpec;
 /** Authenticates proxy-mediated enrollment over shared, unbound transports. */
 public final class ControlEnrollmentAuthenticator {
 	private static final String ALGORITHM = "HmacSHA256";
+	private static final String REQUEST_DOMAIN = "votingplugin-control-enrollment-request-v1";
+	private static final String RESULT_DOMAIN = "votingplugin-control-enrollment-result-v1";
 	private final byte[] key;
 
 	private ControlEnrollmentAuthenticator(byte[] key) {
@@ -34,10 +36,11 @@ public final class ControlEnrollmentAuthenticator {
 		}
 	}
 
-	public String sign(String nodeId, UUID requestId, String endpoint, String verifier, String challenge) {
+	public String signRequest(String nodeId, UUID requestId, String endpoint, String verifier, String challenge) {
 		try {
 			Mac mac = Mac.getInstance(ALGORITHM);
 			mac.init(new SecretKeySpec(key, ALGORITHM));
+			update(mac, REQUEST_DOMAIN);
 			update(mac, nodeId);
 			update(mac, requestId == null ? "" : requestId.toString());
 			update(mac, endpoint);
@@ -49,10 +52,33 @@ public final class ControlEnrollmentAuthenticator {
 		}
 	}
 
-	public boolean verifies(String authenticator, String nodeId, UUID requestId, String endpoint, String verifier,
+	public String signResult(String nodeId, UUID requestId, boolean success, String challenge) {
+		try {
+			Mac mac = Mac.getInstance(ALGORITHM);
+			mac.init(new SecretKeySpec(key, ALGORITHM));
+			update(mac, RESULT_DOMAIN);
+			update(mac, nodeId);
+			update(mac, requestId == null ? "" : requestId.toString());
+			update(mac, Boolean.toString(success));
+			update(mac, challenge);
+			return java.util.HexFormat.of().formatHex(mac.doFinal());
+		} catch (GeneralSecurityException impossible) {
+			throw new IllegalStateException("HMAC-SHA256 is unavailable", impossible);
+		}
+	}
+
+	public boolean verifiesRequest(String authenticator, String nodeId, UUID requestId, String endpoint, String verifier,
 			String challenge) {
 		if (authenticator == null || !authenticator.matches("[0-9a-f]{64}")) return false;
-		byte[] expected = sign(nodeId, requestId, endpoint, verifier, challenge).getBytes(StandardCharsets.US_ASCII);
+		byte[] expected = signRequest(nodeId, requestId, endpoint, verifier, challenge)
+				.getBytes(StandardCharsets.US_ASCII);
+		return MessageDigest.isEqual(expected, authenticator.getBytes(StandardCharsets.US_ASCII));
+	}
+
+	public boolean verifiesResult(String authenticator, String nodeId, UUID requestId, boolean success,
+			String challenge) {
+		if (authenticator == null || !authenticator.matches("[0-9a-f]{64}")) return false;
+		byte[] expected = signResult(nodeId, requestId, success, challenge).getBytes(StandardCharsets.US_ASCII);
 		return MessageDigest.isEqual(expected, authenticator.getBytes(StandardCharsets.US_ASCII));
 	}
 

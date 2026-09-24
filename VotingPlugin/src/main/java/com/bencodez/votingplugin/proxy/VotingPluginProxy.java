@@ -3356,7 +3356,7 @@ public abstract class VotingPluginProxy {
 						getDataFolderPlugin().toPath().resolve("secretkey.key"));
 				controlEnrollmentAuthenticator = authenticator;
 			}
-			return authenticator.verifies(request.authenticator, request.nodeId, request.requestId, request.endpoint,
+			return authenticator.verifiesRequest(request.authenticator, request.nodeId, request.requestId, request.endpoint,
 					request.verifier, request.challenge);
 		} catch (IOException unavailable) {
 			debug("[Control] shared enrollment key is unavailable");
@@ -3437,8 +3437,28 @@ public abstract class VotingPluginProxy {
 
 	protected void sendControlEnrollmentResult(String server, UUID requestId, boolean success, String challenge) {
 		GlobalMessageProxyHandler handler = globalMessageProxyHandler;
-		if (handler != null) handler.sendMessage(server, 0,
-				VotingPluginWire.controlEnrollmentResult(server, requestId, success, challenge));
+		JsonEnvelope result = createControlEnrollmentResult(server, requestId, success, challenge);
+		if (handler != null && result != null) handler.sendMessage(server, 0, result);
+	}
+
+	protected JsonEnvelope createControlEnrollmentResult(String server, UUID requestId, boolean success,
+			String challenge) {
+		String proof = "";
+		if (method != BungeeMethod.PLUGINMESSAGING && method != BungeeMethod.HTTP) {
+			try {
+				ControlEnrollmentAuthenticator authenticator = controlEnrollmentAuthenticator;
+				if (authenticator == null) {
+					authenticator = ControlEnrollmentAuthenticator.load(
+							getDataFolderPlugin().toPath().resolve("secretkey.key"));
+					controlEnrollmentAuthenticator = authenticator;
+				}
+				proof = authenticator.signResult(server, requestId, success, challenge);
+			} catch (IOException unavailable) {
+				debug("[Control] shared enrollment key is unavailable");
+				return null;
+			}
+		}
+		return VotingPluginWire.controlEnrollmentResult(server, requestId, success, challenge, proof);
 	}
 
 	private UUID parseUUIDFromString(String uuidAsString) {

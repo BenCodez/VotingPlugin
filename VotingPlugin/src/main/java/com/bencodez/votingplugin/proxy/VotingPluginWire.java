@@ -251,9 +251,15 @@ public final class VotingPluginWire {
 
 	public static JsonEnvelope controlEnrollmentResult(String nodeId, UUID requestId, boolean success,
 			String challenge) {
+		return controlEnrollmentResult(nodeId, requestId, success, challenge, "");
+	}
+
+	public static JsonEnvelope controlEnrollmentResult(String nodeId, UUID requestId, boolean success,
+			String challenge, String authenticator) {
 		return base(SUB_CONTROL_ENROLLMENT_RESULT).put(K_NODE_ID, safe(nodeId))
 				.put(K_REQUEST_ID, requestId == null ? "" : requestId.toString())
 				.put(K_CHALLENGE, safe(challenge))
+				.put(K_AUTHENTICATOR, safe(authenticator))
 				.put(K_SUCCESS, success).build();
 	}
 
@@ -614,13 +620,16 @@ public final class VotingPluginWire {
 		public final UUID requestId;
 		public final boolean success;
 		public final String challenge;
+		public final String authenticator;
 		public final boolean valid;
 
-		private ControlEnrollmentResult(String nodeId, UUID requestId, boolean success, String challenge) {
+		private ControlEnrollmentResult(String nodeId, UUID requestId, boolean success, String challenge,
+				String authenticator) {
 			this.nodeId = nodeId;
 			this.requestId = requestId;
 			this.success = success;
 			this.challenge = challenge;
+			this.authenticator = authenticator;
 			this.valid = nodeId.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,63}") && requestId != null
 					&& (challenge.isEmpty() || challenge.matches("[0-9a-f-]{36}"));
 		}
@@ -629,7 +638,8 @@ public final class VotingPluginWire {
 	public static ControlEnrollmentResult readControlEnrollmentResult(JsonEnvelope env) {
 		Map<String, String> fields = env.getFields();
 		return new ControlEnrollmentResult(safe(fields.get(K_NODE_ID)), readUuid(fields, K_REQUEST_ID),
-				readBool(fields, K_SUCCESS, false), safe(fields.get(K_CHALLENGE)));
+				readBool(fields, K_SUCCESS, false), safe(fields.get(K_CHALLENGE)),
+				safe(fields.get(K_AUTHENTICATOR)));
 	}
 
 	public static final class PresencePlayer {
