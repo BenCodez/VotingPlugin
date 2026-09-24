@@ -105,6 +105,7 @@ import com.bencodez.votingplugin.proxy.control.HostedControlManager;
 import com.bencodez.votingplugin.util.BoundedScheduledExecutor;
 import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
 import com.bencodez.votingplugin.util.ControlCredentialFile.PendingAutoEnrollment;
+import com.bencodez.votingplugin.util.SqliteNativeLibrary;
 import com.bencodez.votingplugin.rewards.VotingPluginRewardRegistrar;
 import com.bencodez.votingplugin.servicesites.ServiceSiteHandler;
 import com.bencodez.votingplugin.signs.Signs;
@@ -1859,6 +1860,13 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		plugin = this;
 
 		setupFiles();
+		if ("SQLITE".equalsIgnoreCase(configFile.getData().getString("DataStorage", "SQLITE"))) {
+			try {
+				SqliteNativeLibrary.ensureAvailable(getDataFolder().toPath().resolve("libraries"));
+			} catch (IOException failure) {
+				throw new IllegalStateException("Could not prepare the SQLite native library", failure);
+			}
+		}
 
 		loadVoteSites();
 

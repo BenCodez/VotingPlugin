@@ -2,5 +2,9 @@ name: ${project.name}
 version: ${project.version}
 main: com.bencodez.votingplugin.proxy.bungee.VotingPluginBungee
 author: BenCodez
+libraries:
+- org.bouncycastle:bcprov-jdk18on:1.85
+- org.bouncycastle:bcutil-jdk18on:1.85
+- org.bouncycastle:bcpkix-jdk18on:1.85
 softDepends:
 - RedisBungee

@@ -23,6 +23,10 @@ loadbefore:
 - MCPerks
 api-version: 1.13
 folia-supported: true
+libraries:
+- org.bouncycastle:bcprov-jdk18on:1.85
+- org.bouncycastle:bcutil-jdk18on:1.85
+- org.bouncycastle:bcpkix-jdk18on:1.85
 commands:
   vote:
     description: Vote command
