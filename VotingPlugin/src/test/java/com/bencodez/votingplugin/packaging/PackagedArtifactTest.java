@@ -11,7 +11,6 @@ import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.Provider;
 import java.util.jar.JarFile;
 
 import org.junit.jupiter.api.Test;
@@ -19,12 +18,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 /** Package-phase checks for the actual downloadable plugin artifact. */
 public class PackagedArtifactTest {
-    private static final long MAX_DOWNLOAD_BYTES = 30L * 1024L * 1024L;
-    private static final String RELOCATED_BOUNCY_CASTLE = "com/bencodez/votingplugin/bouncycastle/";
-    private static final String[] UNUSED_BOUNCY_CASTLE_PACKAGES = {
-            "dvcs/", "eac/", "est/", "its/", "mime/", "mozilla/",
-            "oer/", "openssl/", "pkcs/", "tsp/", "voms/"
-    };
+    private static final long MAX_DOWNLOAD_BYTES = 10L * 1024L * 1024L;
 
     @Test
     void containsOneRelocatedRuntimeWithoutUnusedHttpCrypto() throws Exception {
@@ -60,20 +54,19 @@ public class PackagedArtifactTest {
             assertNull(artifact.getEntry("org/mozilla/javascript/Context.class"));
             assertNull(artifact.getEntry("com/zaxxer/hikari/HikariDataSource.class"));
             assertNull(artifact.getEntry("com/tcoded/folialib/FoliaLib.class"));
-            assertFalse(artifact.stream().anyMatch(entry -> entry.getName().startsWith("org/bouncycastle/")));
-            assertFalse(artifact.stream().anyMatch(entry -> entry.getName().startsWith("META-INF/versions/")
-                    && entry.getName().contains("/bouncycastle/")));
-            for (String packageName : UNUSED_BOUNCY_CASTLE_PACKAGES) {
-                String prefix = RELOCATED_BOUNCY_CASTLE + packageName;
-                assertFalse(artifact.stream().anyMatch(entry -> entry.getName().startsWith(prefix)),
-                        () -> "Unused Bouncy Castle package was bundled: " + prefix);
-            }
+            assertFalse(artifact.stream().anyMatch(entry -> entry.getName().contains("/bouncycastle/")));
+            assertNotNull(artifact.getEntry("org/sqlite/native/Linux/x86_64/libsqlitejdbc.so"),
+                    "The common Linux x86_64 SQLite runtime must remain available offline");
+            assertFalse(artifact.stream().anyMatch(entry -> !entry.isDirectory()
+                    && entry.getName().startsWith("org/sqlite/native/")
+                    && !entry.getName().startsWith("org/sqlite/native/Linux/x86_64/")),
+                    "Only the common offline SQLite native may be embedded");
         }
         long artifactBytes = Files.size(artifactPath);
         assertTrue(artifactBytes <= MAX_DOWNLOAD_BYTES,
                 () -> "VotingPlugin downloadable artifact exceeded "
                         + (MAX_DOWNLOAD_BYTES / (1024L * 1024L)) + " MiB: " + artifactBytes);
-        System.out.printf("VotingPlugin downloadable artifact: %,d bytes; duplicate Rhino and unused HTTP crypto absent%n",
+        System.out.printf("VotingPlugin downloadable artifact: %,d bytes; duplicate Rhino, external crypto and uncommon SQLite natives absent%n",
                 Files.size(artifactPath));
     }
 
@@ -103,13 +96,9 @@ public class PackagedArtifactTest {
     }
 
     @Test
-    void packagedBaseCryptoProviderLoadsWithoutMultiReleasePayload(@TempDir Path directory) throws Exception {
+    void packagedJdkTlsIdentityWorksWithoutExternalCrypto(@TempDir Path directory) throws Exception {
         URL jar = packagedJar().toUri().toURL();
         try (URLClassLoader loader = new URLClassLoader(new URL[] { jar }, ClassLoader.getPlatformClassLoader())) {
-            Class<?> providerType = Class.forName(
-                    "com.bencodez.votingplugin.bouncycastle.jce.provider.BouncyCastleProvider", true, loader);
-            Provider provider = (Provider) providerType.getConstructor().newInstance();
-            assertNotNull(provider.getService("Signature", "SHA256WITHRSA"));
             Class<?> identityType = Class.forName(
                     "com.bencodez.votingplugin.simpleapi.servercomm.http.HttpTlsIdentity", true, loader);
             Object identity = identityType.getMethod("loadOrCreate", Path.class, String.class)

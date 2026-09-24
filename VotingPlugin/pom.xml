@@ -160,10 +160,6 @@
                                 ${project.groupId}.votingplugin.bstats</shadedPattern>
                         </relocation>
                         <relocation>
-                            <pattern>org.bouncycastle</pattern>
-                            <shadedPattern>${project.groupId}.votingplugin.bouncycastle</shadedPattern>
-                        </relocation>
-                        <relocation>
                             <pattern>xyz.upperlevel.spigot</pattern>
                             <shadedPattern>
                                 ${project.groupId}.votingplugin.advancedcore.xyz.upperlevel.spigot</shadedPattern>
@@ -201,6 +197,8 @@
                                     <exclude>com.google.*:*</exclude>
                                     <!-- Server platforms provide SLF4J; embedding its package conflicts with NeoForge's module layer. -->
                                     <exclude>org.slf4j:*</exclude>
+                                    <!-- SimpleAPI's JDK-only TLS identity does not need an external provider. -->
+                                    <exclude>org.bouncycastle:*</exclude>
                                 </excludes>
                             </artifactSet>
                             <minimizeJar>false</minimizeJar>
@@ -228,24 +226,21 @@
                                     </excludes>
                                 </filter>
                                 <filter>
-                                    <artifact>org.bouncycastle:*</artifact>
+                                    <artifact>org.xerial:sqlite-jdbc</artifact>
                                     <excludes>
-                                        <!-- Base implementations support the plugin's Java 21 runtime;
-                                             omit duplicate multi-release optimizations. -->
-                                        <exclude>META-INF/versions/**</exclude>
-                                        <!-- VotingPlugin uses BC only for its RSA/X.509 HTTP identity.
-                                             These independent protocol stacks are not reachable. -->
-                                        <exclude>org/bouncycastle/dvcs/**</exclude>
-                                        <exclude>org/bouncycastle/eac/**</exclude>
-                                        <exclude>org/bouncycastle/est/**</exclude>
-                                        <exclude>org/bouncycastle/its/**</exclude>
-                                        <exclude>org/bouncycastle/mime/**</exclude>
-                                        <exclude>org/bouncycastle/mozilla/**</exclude>
-                                        <exclude>org/bouncycastle/oer/**</exclude>
-                                        <exclude>org/bouncycastle/openssl/**</exclude>
-                                        <exclude>org/bouncycastle/pkcs/**</exclude>
-                                        <exclude>org/bouncycastle/tsp/**</exclude>
-                                        <exclude>org/bouncycastle/voms/**</exclude>
+                                        <!-- Keep the common Linux x86_64 native for offline startup. Other
+                                             targets are fetched with a pinned digest only when SQLite is selected. -->
+                                        <exclude>org/sqlite/native/FreeBSD/**</exclude>
+                                        <exclude>org/sqlite/native/Linux-Musl/**</exclude>
+                                        <exclude>org/sqlite/native/Linux/aarch64/**</exclude>
+                                        <exclude>org/sqlite/native/Linux/arm/**</exclude>
+                                        <exclude>org/sqlite/native/Linux/armv6/**</exclude>
+                                        <exclude>org/sqlite/native/Linux/armv7/**</exclude>
+                                        <exclude>org/sqlite/native/Linux/ppc64/**</exclude>
+                                        <exclude>org/sqlite/native/Linux/riscv64/**</exclude>
+                                        <exclude>org/sqlite/native/Linux/x86/**</exclude>
+                                        <exclude>org/sqlite/native/Mac/**</exclude>
+                                        <exclude>org/sqlite/native/Windows/**</exclude>
                                     </excludes>
                                 </filter>
                                 <filter>
