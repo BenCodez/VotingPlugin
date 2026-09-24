@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import com.bencodez.advancedcore.api.player.UuidLookup;
 import com.bencodez.advancedcore.api.user.UserManager;
@@ -27,12 +28,37 @@ class VotingPluginMainPlaceholderPresenceTest {
 		doAnswer(call -> {
 			call.getArgument(0, java.util.function.Consumer.class).accept(java.util.Map.of());
 			return null;
-		}).when(plugin).captureOnlineTopVoterIgnore(any());
+		}).when(plugin).captureOnlineTopVoterIgnore(any(), any());
 
 		plugin.basicBungeeUpdate();
 
 		verify(storage).execute(any(Runnable.class));
 		verify(votes, never()).execute(any(Runnable.class));
+	}
+
+	@Test
+	void periodicUserRefreshKeepsOnlyOneStorageJobInFlight() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+		java.util.concurrent.ScheduledExecutorService storage = mock(java.util.concurrent.ScheduledExecutorService.class);
+		UserManager userManager = mock(UserManager.class);
+		UserDataManager dataManager = mock(UserDataManager.class);
+		doReturn(userManager).when(plugin).getUserManager();
+		when(userManager.getDataManager()).thenReturn(dataManager);
+		when(dataManager.getTimer()).thenReturn(storage);
+		doAnswer(call -> {
+			call.getArgument(0, java.util.function.Consumer.class).accept(java.util.Map.of());
+			return null;
+		}).when(plugin).captureOnlineTopVoterIgnore(any(), any());
+		ArgumentCaptor<Runnable> refresh = ArgumentCaptor.forClass(Runnable.class);
+
+		plugin.basicBungeeUpdate();
+		plugin.basicBungeeUpdate();
+		verify(plugin, times(1)).captureOnlineTopVoterIgnore(any(), any());
+		verify(storage).execute(refresh.capture());
+
+		refresh.getValue().run();
+		plugin.basicBungeeUpdate();
+		verify(plugin, times(2)).captureOnlineTopVoterIgnore(any(), any());
 	}
 	@Test
 	void cachedStorageIdentityWinsDuringColdPresenceRefresh() {

@@ -17,6 +17,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -309,6 +310,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	private DiscordHandler discordHandler;
 
 	private volatile VotingPluginBackgroundTask backgroundTask;
+	private volatile AtomicBoolean basicBungeeUpdateRunning;
+
+	private synchronized AtomicBoolean basicBungeeUpdateAdmission() {
+		if (basicBungeeUpdateRunning == null) basicBungeeUpdateRunning = new AtomicBoolean();
+		return basicBungeeUpdateRunning;
+	}
 	private VotingPluginVersionInfo versionInfo;
 	private VotingPluginConfigHealth configHealth;
 	private VotifierIntegration votifierIntegration;
@@ -386,19 +393,26 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	public void basicBungeeUpdate() {
+		AtomicBoolean admission = basicBungeeUpdateAdmission();
+		if (!admission.compareAndSet(false, true)) return;
 		captureOnlineTopVoterIgnore(online -> {
 			try {
 				getUserManager().getDataManager().getTimer().execute(() -> {
-					for (java.util.Map.Entry<UUID, Boolean> entry : online.entrySet()) {
-						VotingPluginUser user = getVotingPluginUserManager().getVotingPluginUser(entry.getKey(), false);
-						if (user == null) continue;
-						user.cache();
-						user.offVoteWithCapturedTopVoterIgnore(entry.getValue().booleanValue());
-						user.checkOfflineRewards();
-					}
+					try {
+						for (java.util.Map.Entry<UUID, Boolean> entry : online.entrySet()) {
+							VotingPluginUser user = getVotingPluginUserManager().getVotingPluginUser(entry.getKey(), false);
+							if (user == null) continue;
+							user.cache();
+							user.offVoteWithCapturedTopVoterIgnore(entry.getValue().booleanValue());
+							user.checkOfflineRewards();
+						}
+					} finally { admission.set(false); }
 				});
-			} catch (RuntimeException failure) { debug(failure); }
-		});
+			} catch (RuntimeException failure) {
+				admission.set(false);
+				debug(failure);
+			}
+		}, () -> admission.set(false));
 	}
 
 

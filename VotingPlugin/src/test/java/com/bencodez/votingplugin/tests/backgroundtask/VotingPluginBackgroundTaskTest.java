@@ -160,4 +160,33 @@ public class VotingPluginBackgroundTaskTest {
 		verify(plugin.getUserManager().getDataManager().getTimer(), never()).execute(any(Runnable.class));
 	}
 
+	@Test
+	public void acceptedStorageTaskThatNeverStartsDoesNotBlockForever() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		Config config = mock(Config.class);
+		when(plugin.isEnabled()).thenReturn(true);
+		when(plugin.getConfigFile()).thenReturn(config);
+		doAnswer(call -> {
+			call.getArgument(0, java.util.function.Consumer.class)
+					.accept(java.util.Map.of(java.util.UUID.randomUUID(), Boolean.FALSE));
+			return null;
+		}).when(plugin).captureOnlineTopVoterIgnore(any(), any());
+		java.lang.reflect.Constructor<VotingPluginBackgroundTask> constructor =
+				VotingPluginBackgroundTask.class.getDeclaredConstructor(VotingPluginMain.class, long.class);
+		constructor.setAccessible(true);
+		VotingPluginBackgroundTask task = constructor.newInstance(plugin, 10L);
+		task.setRequested(true);
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getServer).thenReturn(null);
+			long started = System.nanoTime();
+			task.run();
+			assertTrue(java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started) < 1_000);
+		}
+
+		assertFalse(task.isRunning());
+		assertTrue(task.isRequested());
+		verify(plugin.getUserManager().getDataManager().getTimer()).execute(any(Runnable.class));
+	}
+
 }

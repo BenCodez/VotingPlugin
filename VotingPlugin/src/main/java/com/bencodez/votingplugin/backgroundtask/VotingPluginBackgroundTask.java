@@ -47,7 +47,9 @@ public final class VotingPluginBackgroundTask {
 	public void run() {
 		CompletableFuture<Void> completion = new CompletableFuture<>();
 		CompletableFuture<Void> snapshotStarted = new CompletableFuture<>();
+		CompletableFuture<Void> storageStarted = new CompletableFuture<>();
 		AtomicBoolean snapshotPending = new AtomicBoolean(true);
+		AtomicBoolean storagePending = new AtomicBoolean(false);
 		synchronized (this) {
 			if (!(requested || plugin.getConfigFile().isAlwaysUpdate()) || !plugin.isEnabled() || running) return;
 			running = true;
@@ -57,12 +59,16 @@ public final class VotingPluginBackgroundTask {
 				if (!snapshotPending.compareAndSet(true, false)) return;
 				snapshotStarted.complete(null);
 				if (plugin.getConfigFile().isUpdateWithPlayersOnlineOnly() && online.isEmpty()) {
+					storageStarted.complete(null);
 					finishRun(completion);
 					return;
 				}
 				synchronized (VotingPluginBackgroundTask.this) { requested = false; }
+				storagePending.set(true);
 				try {
 					plugin.getUserManager().getDataManager().getTimer().execute(() -> {
+						if (!storagePending.compareAndSet(true, false)) return;
+						storageStarted.complete(null);
 						try {
 							runRefresh(online);
 							completion.complete(null);
@@ -75,6 +81,8 @@ public final class VotingPluginBackgroundTask {
 				} catch (RuntimeException failure) {
 					plugin.debug(failure);
 					setRequested(true);
+					storagePending.set(false);
+					storageStarted.complete(null);
 					completion.complete(null);
 					finishRun(completion);
 				}
@@ -82,6 +90,7 @@ public final class VotingPluginBackgroundTask {
 				setRequested(true);
 				snapshotPending.set(false);
 				snapshotStarted.complete(null);
+				storageStarted.complete(null);
 				finishRun(completion);
 			});
 		} catch (RuntimeException failure) {
@@ -89,6 +98,7 @@ public final class VotingPluginBackgroundTask {
 			setRequested(true);
 			snapshotPending.set(false);
 			snapshotStarted.complete(null);
+			storageStarted.complete(null);
 			completion.complete(null);
 			finishRun(completion);
 		}
@@ -111,7 +121,21 @@ public final class VotingPluginBackgroundTask {
 			} catch (java.util.concurrent.ExecutionException impossible) {
 				throw new IllegalStateException(impossible);
 			}
-			completion.join();
+			if (completion.isDone()) return;
+			try {
+				storageStarted.get(snapshotWaitMillis, TimeUnit.MILLISECONDS);
+			} catch (TimeoutException failure) {
+				if (storagePending.compareAndSet(true, false)) {
+					setRequested(true);
+					finishRun(completion);
+				}
+			} catch (InterruptedException failure) {
+				Thread.currentThread().interrupt();
+				if (storagePending.compareAndSet(true, false)) finishRun(completion);
+				setRequested(true);
+			} catch (java.util.concurrent.ExecutionException impossible) {
+				throw new IllegalStateException(impossible);
+			}
 		}
 	}
 
