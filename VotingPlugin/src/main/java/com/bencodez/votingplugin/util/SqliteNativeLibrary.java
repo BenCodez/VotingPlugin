@@ -6,6 +6,7 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermission;
@@ -13,6 +14,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Set;
+import java.util.UUID;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
@@ -25,6 +27,7 @@ public final class SqliteNativeLibrary {
 	private static final URI DRIVER_URI = URI.create("https://maven-central.storage-download.googleapis.com/maven2/"
 			+ "org/xerial/sqlite-jdbc/3.53.4.0/" + DRIVER_FILE);
 	private static final long MAX_DRIVER_BYTES = 16L * 1024L * 1024L;
+	private static final long STALE_NATIVE_MILLIS = 24L * 60L * 60L * 1000L;
 
 	private SqliteNativeLibrary() {
 	}
@@ -53,12 +56,42 @@ public final class SqliteNativeLibrary {
 		if (resourceLoader.getResource(resource) != null) return null;
 		Files.createDirectories(directory);
 		Path driver = directory.resolve(DRIVER_FILE);
-		if (!hasExpectedDigest(driver, DRIVER_SHA256)) downloadVerified(driver, fetcher);
-		Path nativeDirectory = directory.resolve("sqlite-native").resolve(folder);
+		if (!hasExpectedDigest(driver, DRIVER_SHA256)) {
+			try {
+				downloadVerified(driver, fetcher);
+			} catch (IOException failure) {
+				throw new IOException("Unable to obtain the verified SQLite driver; pre-provision " + DRIVER_FILE
+						+ " in the VotingPlugin libraries directory or configure org.sqlite.lib.path", failure);
+			}
+		}
+		Path platformDirectory = directory.resolve("sqlite-native").resolve(folder);
+		Files.createDirectories(platformDirectory);
+		cleanupStaleNativeCopies(platformDirectory);
+		Path nativeDirectory = platformDirectory.resolve("load-" + UUID.randomUUID());
 		Files.createDirectories(nativeDirectory);
 		Path nativeLibrary = nativeDirectory.resolve(libraryName);
 		extractVerifiedEntry(driver, resource, nativeLibrary);
+		nativeLibrary.toFile().deleteOnExit();
+		nativeDirectory.toFile().deleteOnExit();
 		return nativeLibrary;
+	}
+
+	private static void cleanupStaleNativeCopies(Path platformDirectory) {
+		try (var loads = Files.newDirectoryStream(platformDirectory, "load-*")) {
+			for (Path load : loads) {
+				if (!Files.isDirectory(load, LinkOption.NOFOLLOW_LINKS)) continue;
+				if (Files.getLastModifiedTime(load, LinkOption.NOFOLLOW_LINKS).toMillis()
+						> System.currentTimeMillis() - STALE_NATIVE_MILLIS) continue;
+				try (var files = Files.newDirectoryStream(load)) {
+					for (Path file : files) {
+						if (Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) Files.deleteIfExists(file);
+					}
+				}
+				Files.deleteIfExists(load);
+			}
+		} catch (IOException | SecurityException ignored) {
+			// A prior classloader may still own the native, especially on Windows.
+		}
 	}
 
 	private static void loadPreparedNative(Path nativeDirectory, String libraryName) throws IOException {

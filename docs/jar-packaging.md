@@ -24,6 +24,17 @@ SHA-256 digest, extracts only that target's native into the plugin data folder,
 loads it, and restores the JVM-wide Xerial loader properties. MySQL installations
 and Linux x86_64 SQLite installations do not make this request.
 
+For an offline Windows, macOS, ARM, musl, or FreeBSD installation, pre-provision
+the official `sqlite-jdbc-3.53.4.0.jar` as
+`<VotingPlugin data directory>/libraries/sqlite-jdbc-3.53.4.0.jar`. Its SHA-256
+must be `bcb1f51e36f940867e83342f9efbf5968ac44a6bef4d397bb4af7b17b45cd2fb`;
+VotingPlugin rejects any other content and then extracts only the current
+platform's native without network access. Operators that already provision a
+native may instead set both `org.sqlite.lib.path` and `org.sqlite.lib.name` as
+JVM properties. Extracted natives use a unique load directory so a replacement
+plugin classloader never reuses the prior classloader's JNI path; stale copies
+are removed on a best-effort basis.
+
 The test caps the downloadable artifact at 10 MiB so dependency growth must be
 reviewed explicitly. Release/deployment profiles
 reuse this Shade setup; the artifact check follows their configured JAR name.

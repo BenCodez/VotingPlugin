@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.util;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -41,4 +42,29 @@ class SqliteNativeLibraryTest {
             }
         }
     }
+
+	@Test
+	void usesPreprovisionedVerifiedDriverWithoutFetching() throws Exception {
+		Path driver = Path.of(org.sqlite.JDBC.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+		Files.createDirectories(directory);
+		Files.copy(driver, directory.resolve(SqliteNativeLibrary.DRIVER_FILE));
+		try (URLClassLoader empty = new URLClassLoader(new URL[0], ClassLoader.getPlatformClassLoader())) {
+			Path prepared = SqliteNativeLibrary.prepareNative(directory, "Mac/x86_64", empty,
+					(source, target) -> { throw new AssertionError("verified pre-provisioned driver must be reused"); });
+			assertTrue(Files.isRegularFile(prepared));
+		}
+	}
+
+	@Test
+	void extractsEachReloadToAUniqueNativePath() throws Exception {
+		Path driver = Path.of(org.sqlite.JDBC.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+		try (URLClassLoader empty = new URLClassLoader(new URL[0], ClassLoader.getPlatformClassLoader())) {
+			SqliteNativeLibrary.ArtifactFetcher fetcher = (source, target) -> Files.copy(driver, target,
+					java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+			Path first = SqliteNativeLibrary.prepareNative(directory, "Mac/x86_64", empty, fetcher);
+			Path second = SqliteNativeLibrary.prepareNative(directory, "Mac/x86_64", empty, fetcher);
+			assertNotEquals(first, second);
+			assertTrue(Files.isRegularFile(second));
+		}
+	}
 }
