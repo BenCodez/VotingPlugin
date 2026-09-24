@@ -19,10 +19,15 @@ import org.junit.jupiter.api.io.TempDir;
 
 /** Package-phase checks for the actual downloadable plugin artifact. */
 public class PackagedArtifactTest {
-    private static final long MAX_DOWNLOAD_BYTES = 10L * 1024L * 1024L;
+    private static final long MAX_DOWNLOAD_BYTES = 30L * 1024L * 1024L;
+    private static final String RELOCATED_BOUNCY_CASTLE = "com/bencodez/votingplugin/bouncycastle/";
+    private static final String[] UNUSED_BOUNCY_CASTLE_PACKAGES = {
+            "dvcs/", "eac/", "est/", "its/", "mime/", "mozilla/",
+            "oer/", "openssl/", "pkcs/", "tsp/", "voms/"
+    };
 
     @Test
-    void containsRuntimeWithoutDownloadedHttpCrypto() throws Exception {
+    void containsOneRelocatedRuntimeWithoutUnusedHttpCrypto() throws Exception {
         Path artifactPath = packagedJar();
         try (JarFile artifact = new JarFile(artifactPath.toFile())) {
             assertNotNull(artifact.getEntry("com/bencodez/votingplugin/VotingPluginMain.class"));
@@ -56,66 +61,46 @@ public class PackagedArtifactTest {
             assertNull(artifact.getEntry("com/zaxxer/hikari/HikariDataSource.class"));
             assertNull(artifact.getEntry("com/tcoded/folialib/FoliaLib.class"));
             assertFalse(artifact.stream().anyMatch(entry -> entry.getName().startsWith("org/bouncycastle/")));
-            assertFalse(artifact.stream().anyMatch(entry -> entry.getName()
-                    .startsWith("com/bencodez/votingplugin/bouncycastle/")));
-            assertFalse(artifact.stream().anyMatch(entry -> entry.getName().startsWith("org/sqlite/native/")));
-            assertFalse(artifact.stream().anyMatch(entry -> entry.getName()
-                    .startsWith("redis/clients/jedis/search/")));
-
-            String pluginDescriptor = new String(artifact.getInputStream(artifact.getEntry("plugin.yml")).readAllBytes(),
-                    StandardCharsets.UTF_8);
-            String bungeeDescriptor = new String(artifact.getInputStream(artifact.getEntry("bungee.yml")).readAllBytes(),
-                    StandardCharsets.UTF_8);
-            for (String coordinate : new String[] { "bcprov-jdk18on:1.85", "bcutil-jdk18on:1.85",
-                    "bcpkix-jdk18on:1.85" }) {
-                assertTrue(pluginDescriptor.contains(coordinate));
-                assertTrue(bungeeDescriptor.contains(coordinate));
+            assertFalse(artifact.stream().anyMatch(entry -> entry.getName().startsWith("META-INF/versions/")
+                    && entry.getName().contains("/bouncycastle/")));
+            for (String packageName : UNUSED_BOUNCY_CASTLE_PACKAGES) {
+                String prefix = RELOCATED_BOUNCY_CASTLE + packageName;
+                assertFalse(artifact.stream().anyMatch(entry -> entry.getName().startsWith(prefix)),
+                        () -> "Unused Bouncy Castle package was bundled: " + prefix);
+            }
+            for (String module : new String[] { "bloom/", "json/", "search/", "timeseries/" }) {
+                String prefix = "redis/clients/jedis/" + module;
+                assertFalse(artifact.stream().anyMatch(entry -> entry.getName().startsWith(prefix)),
+                        () -> "Unused Jedis module was bundled: " + prefix);
             }
         }
         long artifactBytes = Files.size(artifactPath);
         assertTrue(artifactBytes <= MAX_DOWNLOAD_BYTES,
                 () -> "VotingPlugin downloadable artifact exceeded "
                         + (MAX_DOWNLOAD_BYTES / (1024L * 1024L)) + " MiB: " + artifactBytes);
-        System.out.printf("VotingPlugin downloadable artifact: %,d bytes; duplicate Rhino and downloaded HTTP crypto absent%n",
+        System.out.printf("VotingPlugin downloadable artifact: %,d bytes; duplicate Rhino and unused HTTP crypto absent%n",
                 Files.size(artifactPath));
     }
 
     @Test
-    void packagedNeoForgeRuntimeStartsWithCachedSqliteDriver(@TempDir Path directory) throws Exception {
+    void packagedNeoForgeRuntimeStartsAndClosesWithoutTestDependencies(@TempDir Path directory) throws Exception {
         URL jar = packagedJar().toUri().toURL();
         URL platformSlf4j = org.slf4j.Logger.class.getProtectionDomain().getCodeSource().getLocation();
-        Path libraries = directory.resolve("libraries");
-        Files.createDirectories(libraries);
-        Files.copy(dependency("sqlite-jdbc-3.53.4.0.jar"),
-                libraries.resolve("sqlite-jdbc-3.53.4.0.jar"));
-        String previousPath = System.clearProperty("org.sqlite.lib.path");
-        String previousName = System.clearProperty("org.sqlite.lib.name");
         try (URLClassLoader loader = new URLClassLoader(new URL[] { jar, platformSlf4j },
                 ClassLoader.getPlatformClassLoader())) {
             Class<?> runtime = Class.forName("com.bencodez.votingplugin.neoforge.NeoForgeRuntime", true, loader);
             try (AutoCloseable instance = (AutoCloseable) runtime.getMethod("start", Path.class).invoke(null, directory)) {
                 assertTrue(Files.isRegularFile(directory.resolve("VotingPlugin.db")));
-                try (var files = Files.walk(libraries.resolve("sqlite-native"))) {
-                    assertTrue(files.anyMatch(path -> Files.isRegularFile(path)
-                            && path.getFileName().toString().contains("sqlite")));
-                }
             }
-        } finally {
-            restoreProperty("org.sqlite.lib.path", previousPath);
-            restoreProperty("org.sqlite.lib.name", previousName);
         }
     }
 
     @Test
-    void packagedHttpTlsLoadsWithExternalCryptoLibraries(@TempDir Path directory) throws Exception {
+    void packagedBaseCryptoProviderLoadsWithoutMultiReleasePayload(@TempDir Path directory) throws Exception {
         URL jar = packagedJar().toUri().toURL();
-        URL bcProvider = dependency("bcprov-jdk18on-1.85.jar").toUri().toURL();
-        URL bcPkix = dependency("bcpkix-jdk18on-1.85.jar").toUri().toURL();
-        URL bcUtil = dependency("bcutil-jdk18on-1.85.jar").toUri().toURL();
-        try (URLClassLoader loader = new URLClassLoader(new URL[] { jar, bcProvider, bcPkix, bcUtil },
-                ClassLoader.getPlatformClassLoader())) {
+        try (URLClassLoader loader = new URLClassLoader(new URL[] { jar }, ClassLoader.getPlatformClassLoader())) {
             Class<?> providerType = Class.forName(
-                    "org.bouncycastle.jce.provider.BouncyCastleProvider", true, loader);
+                    "com.bencodez.votingplugin.bouncycastle.jce.provider.BouncyCastleProvider", true, loader);
             Provider provider = (Provider) providerType.getConstructor().newInstance();
             assertNotNull(provider.getService("Signature", "SHA256WITHRSA"));
             Class<?> identityType = Class.forName(
@@ -142,20 +127,5 @@ public class PackagedArtifactTest {
         Path artifact = Path.of(configured).toAbsolutePath().normalize();
         assertTrue(Files.isRegularFile(artifact), "Missing packaged artifact: " + artifact);
         return artifact;
-    }
-
-    private static Path dependency(String fileName) {
-        for (String entry : System.getProperty("java.class.path").split(java.io.File.pathSeparator)) {
-            Path candidate = Path.of(entry);
-            if (candidate.getFileName() != null && fileName.equals(candidate.getFileName().toString())) {
-                return candidate;
-            }
-        }
-        throw new IllegalStateException("Dependency was not present on the test classpath: " + fileName);
-    }
-
-    private static void restoreProperty(String key, String value) {
-        if (value == null) System.clearProperty(key);
-        else System.setProperty(key, value);
     }
 }

@@ -14,7 +14,6 @@ import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
 import com.bencodez.advancedcore.core.user.storage.sql.SqlBackendLogger;
 import com.bencodez.advancedcore.core.user.storage.sql.SqlUserBackend;
 import com.bencodez.advancedcore.core.user.storage.sql.SqlUserBackendFactory;
-import com.bencodez.votingplugin.util.SqliteNativeLibrary;
 
 /** Owns NeoForge bootstrap resources; vote and reward services are not started here. */
 public final class NeoForgeRuntime implements AutoCloseable {
@@ -44,7 +43,6 @@ public final class NeoForgeRuntime implements AutoCloseable {
         }
         SqlUserBackend storage;
         try {
-            SqliteNativeLibrary.ensureAvailable(directory.resolve("libraries"));
             // Use AdvancedCore's existing SQL backend. No vote/user mutations are enabled yet.
             storage = SqlUserBackendFactory.sqlite(directory, "VotingPlugin", "VotingPlugin_NeoForgeUsers",
                     List.of(), SqlBackendLogger.NO_OP);

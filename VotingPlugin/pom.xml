@@ -160,6 +160,10 @@
                                 ${project.groupId}.votingplugin.bstats</shadedPattern>
                         </relocation>
                         <relocation>
+                            <pattern>org.bouncycastle</pattern>
+                            <shadedPattern>${project.groupId}.votingplugin.bouncycastle</shadedPattern>
+                        </relocation>
+                        <relocation>
                             <pattern>xyz.upperlevel.spigot</pattern>
                             <shadedPattern>
                                 ${project.groupId}.votingplugin.advancedcore.xyz.upperlevel.spigot</shadedPattern>
@@ -197,9 +201,6 @@
                                     <exclude>com.google.*:*</exclude>
                                     <!-- Server platforms provide SLF4J; embedding its package conflicts with NeoForge's module layer. -->
                                     <exclude>org.slf4j:*</exclude>
-                                    <!-- Bukkit and Bungee resolve these from their descriptors;
-                                         Velocity verifies and caches them before runtime startup. -->
-                                    <exclude>org.bouncycastle:*</exclude>
                                 </excludes>
                             </artifactSet>
                             <minimizeJar>false</minimizeJar>
@@ -227,6 +228,27 @@
                                     </excludes>
                                 </filter>
                                 <filter>
+                                    <artifact>org.bouncycastle:*</artifact>
+                                    <excludes>
+                                        <!-- Base implementations support the plugin's Java 21 runtime;
+                                             omit duplicate multi-release optimizations. -->
+                                        <exclude>META-INF/versions/**</exclude>
+                                        <!-- VotingPlugin uses BC only for its RSA/X.509 HTTP identity.
+                                             These independent protocol stacks are not reachable. -->
+                                        <exclude>org/bouncycastle/dvcs/**</exclude>
+                                        <exclude>org/bouncycastle/eac/**</exclude>
+                                        <exclude>org/bouncycastle/est/**</exclude>
+                                        <exclude>org/bouncycastle/its/**</exclude>
+                                        <exclude>org/bouncycastle/mime/**</exclude>
+                                        <exclude>org/bouncycastle/mozilla/**</exclude>
+                                        <exclude>org/bouncycastle/oer/**</exclude>
+                                        <exclude>org/bouncycastle/openssl/**</exclude>
+                                        <exclude>org/bouncycastle/pkcs/**</exclude>
+                                        <exclude>org/bouncycastle/tsp/**</exclude>
+                                        <exclude>org/bouncycastle/voms/**</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
                                     <artifact>redis.clients:jedis</artifact>
                                     <excludes>
                                         <!-- Proxy messaging uses core Redis commands, not optional modules. -->
@@ -234,14 +256,6 @@
                                         <exclude>redis/clients/jedis/json/**</exclude>
                                         <exclude>redis/clients/jedis/search/**</exclude>
                                         <exclude>redis/clients/jedis/timeseries/**</exclude>
-                                    </excludes>
-                                </filter>
-                                <filter>
-                                    <artifact>org.xerial:sqlite-jdbc</artifact>
-                                    <excludes>
-                                        <!-- The versioned driver classes stay embedded. The current native is
-                                             verified and extracted into the runtime cache before SQLite starts. -->
-                                        <exclude>org/sqlite/native/**</exclude>
                                     </excludes>
                                 </filter>
                                 <filter>

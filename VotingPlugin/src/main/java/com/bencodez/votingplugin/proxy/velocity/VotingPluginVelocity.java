@@ -322,12 +322,6 @@ public class VotingPluginVelocity {
 
 	@Subscribe
 	public void onProxyInitialization(ProxyInitializeEvent event) {
-		try {
-			VelocityRuntimeLibraries.ensureAvailable(dataDirectory.resolve("libraries"), getClass().getClassLoader());
-		} catch (IOException failure) {
-			throw new IllegalStateException("Could not load VotingPlugin runtime libraries", failure);
-		}
-
 		File configFile = new File(dataDirectory.toFile(), "bungeeconfig.yml");
 		configFile.getParentFile().mkdirs();
 		if (!configFile.exists()) {
