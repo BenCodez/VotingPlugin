@@ -1,5 +1,6 @@
 package com.bencodez.votingplugin.tests.backgroundtask;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
@@ -84,6 +85,34 @@ public class VotingPluginBackgroundTaskTest {
 
 		verify(storage).execute(any(Runnable.class));
 		verify(plugin.getVoteTimer(), never()).execute(any(Runnable.class));
+	}
+
+	@Test
+	public void retiredFoliaPlayerStillCompletesOnlineSnapshot() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		com.bencodez.simpleapi.folialib.FoliaLib folia = mock(com.bencodez.simpleapi.folialib.FoliaLib.class);
+		com.bencodez.simpleapi.folialib.impl.ServerImplementation implementation =
+				mock(com.bencodez.simpleapi.folialib.impl.ServerImplementation.class);
+		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(scheduler.getFoliaLib()).thenReturn(folia);
+		when(folia.getImpl()).thenReturn(implementation);
+		when(implementation.runAtEntityWithFallback(eq(player), any(), any(Runnable.class)))
+				.thenReturn(java.util.concurrent.CompletableFuture.completedFuture(
+						com.bencodez.simpleapi.folialib.enums.EntityTaskResult.SCHEDULER_RETIRED));
+		doAnswer(call -> { call.getArgument(1, Runnable.class).run(); return null; })
+				.when(scheduler).runTask(eq(plugin), any(Runnable.class));
+		java.util.concurrent.atomic.AtomicReference<java.util.Map<java.util.UUID, Boolean>> result =
+				new java.util.concurrent.atomic.AtomicReference<>();
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getOnlinePlayers).thenReturn(java.util.List.of(player));
+			plugin.captureOnlineTopVoterIgnore(result::set);
+		}
+
+		assertEquals(java.util.Map.of(), result.get());
+		verify(scheduler, times(2)).runTask(eq(plugin), any(Runnable.class));
 	}
 
 }
