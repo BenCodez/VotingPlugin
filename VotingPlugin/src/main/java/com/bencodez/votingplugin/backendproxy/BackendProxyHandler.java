@@ -775,7 +775,7 @@ public class BackendProxyHandler implements Listener {
 	/** Routes already admitted time-change completions through the published replacement. */
 	public void completeGlobalDataHandoff(BackendProxyHandler replacement) {
 		if (replacement == null) return;
-		globalDataSync.handoffCompletionSender(replacement::sendEnvelope);
+		globalDataSync.handoffCompletionSender(replacement.globalDataSync);
 	}
 
 	public void playerOnline(String playerName, String uuid) {

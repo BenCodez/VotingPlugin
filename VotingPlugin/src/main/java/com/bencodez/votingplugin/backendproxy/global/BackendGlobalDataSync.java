@@ -38,6 +38,7 @@ public class BackendGlobalDataSync {
 	private final VotingPluginMain plugin;
 	private final Object senderLock = new Object();
 	private Consumer<JsonEnvelope> sender;
+	private BackendGlobalDataSync completionReplacement;
 	private boolean senderHandedOff;
 	private final AtomicBoolean forceUpdateInProgress = new AtomicBoolean(false);
 	private final Set<TimeType> timeChangesInProgress = ConcurrentHashMap.newKeySet();
@@ -238,19 +239,38 @@ public class BackendGlobalDataSync {
 
 	private void sendTimeChangeFinished(JsonEnvelope envelope) {
 		Consumer<JsonEnvelope> completionSender;
+		BackendGlobalDataSync replacement;
 		synchronized (senderLock) {
-			if (sender == null) {
+			replacement = completionReplacement;
+			if (replacement == null && sender == null) {
 				throw new RejectedExecutionException("Backend proxy transport retired before time-change completion");
 			}
 			completionSender = sender;
 		}
-		completionSender.accept(envelope);
+		if (replacement != null) {
+			replacement.sendTimeChangeFinished(envelope);
+			return;
+		}
+		try {
+			completionSender.accept(envelope);
+		} catch (RuntimeException sendFailure) {
+			synchronized (senderLock) {
+				replacement = completionReplacement;
+			}
+			if (replacement == null) throw sendFailure;
+			try {
+				replacement.sendTimeChangeFinished(envelope);
+			} catch (RuntimeException replacementFailure) {
+				replacementFailure.addSuppressed(sendFailure);
+				throw replacementFailure;
+			}
+		}
 	}
 
 	/** Routes an admitted transition's final notification through the published replacement. */
-	public void handoffCompletionSender(Consumer<JsonEnvelope> replacementSender) {
+	public void handoffCompletionSender(BackendGlobalDataSync replacement) {
 		synchronized (senderLock) {
-			sender = java.util.Objects.requireNonNull(replacementSender, "replacementSender");
+			completionReplacement = java.util.Objects.requireNonNull(replacement, "replacement");
 			senderHandedOff = true;
 		}
 	}

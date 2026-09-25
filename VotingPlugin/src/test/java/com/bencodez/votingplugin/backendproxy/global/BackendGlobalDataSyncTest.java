@@ -257,6 +257,7 @@ class BackendGlobalDataSyncTest {
 			return null;
 		}).when(executor).execute(any(Runnable.class));
 		BackendGlobalDataSync sync = new BackendGlobalDataSync(plugin, oldMessages::add);
+		BackendGlobalDataSync replacement = new BackendGlobalDataSync(plugin, replacementMessages::add);
 		setField(sync, "globalDataHandler", handler);
 		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> data = new HashMap<>();
 		data.put("LastUpdated", new DataValueString(
@@ -264,7 +265,7 @@ class BackendGlobalDataSyncTest {
 		data.put(TimeType.DAY.toString(), new DataValueBoolean(true));
 
 		assertTrue(sync.checkGlobalDataTime(TimeType.DAY, data));
-		sync.handoffCompletionSender(replacementMessages::add);
+		sync.handoffCompletionSender(replacement);
 		scheduled.get().run();
 
 		assertTrue(oldMessages.isEmpty());
@@ -283,6 +284,8 @@ class BackendGlobalDataSyncTest {
 		AtomicReference<Runnable> scheduled = new AtomicReference<>();
 		CountDownLatch sendStarted = new CountDownLatch(1);
 		CountDownLatch finishSend = new CountDownLatch(1);
+		CopyOnWriteArrayList<com.bencodez.simpleapi.servercomm.codec.JsonEnvelope> replacementMessages =
+				new CopyOnWriteArrayList<>();
 		when(plugin.getBungeeSettings()).thenReturn(bungeeSettings);
 		when(bungeeSettings.getServer()).thenReturn("lobby");
 		when(plugin.getTimeChecker()).thenReturn(timeChecker);
@@ -299,7 +302,9 @@ class BackendGlobalDataSyncTest {
 				Thread.currentThread().interrupt();
 				throw new AssertionError(failure);
 			}
+			throw new RejectedExecutionException("old transport retired");
 		});
+		BackendGlobalDataSync replacement = new BackendGlobalDataSync(plugin, replacementMessages::add);
 		setField(sync, "globalDataHandler", handler);
 		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> data = new HashMap<>();
 		data.put("LastUpdated", new DataValueString(
@@ -311,13 +316,55 @@ class BackendGlobalDataSyncTest {
 		assertTrue(sendStarted.await(1, TimeUnit.SECONDS));
 
 		CompletableFuture<Void> handoff = CompletableFuture.runAsync(
-				() -> sync.handoffCompletionSender(ignored -> { }));
+				() -> sync.handoffCompletionSender(replacement));
 		try {
 			handoff.get(250, TimeUnit.MILLISECONDS);
 		} finally {
 			finishSend.countDown();
 			processing.get(1, TimeUnit.SECONDS);
 		}
+		org.junit.jupiter.api.Assertions.assertEquals(1, replacementMessages.size());
+	}
+
+	@Test
+	void admittedCompletionFollowsMultipleRuntimeHandoffs() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BungeeSettings bungeeSettings = mock(BungeeSettings.class);
+		TimeChecker timeChecker = mock(TimeChecker.class);
+		ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+		GlobalDataHandler handler = mock(GlobalDataHandler.class);
+		AtomicReference<Runnable> scheduled = new AtomicReference<>();
+		CopyOnWriteArrayList<com.bencodez.simpleapi.servercomm.codec.JsonEnvelope> firstMessages =
+				new CopyOnWriteArrayList<>();
+		CopyOnWriteArrayList<com.bencodez.simpleapi.servercomm.codec.JsonEnvelope> middleMessages =
+				new CopyOnWriteArrayList<>();
+		CopyOnWriteArrayList<com.bencodez.simpleapi.servercomm.codec.JsonEnvelope> latestMessages =
+				new CopyOnWriteArrayList<>();
+		when(plugin.getBungeeSettings()).thenReturn(bungeeSettings);
+		when(bungeeSettings.getServer()).thenReturn("lobby");
+		when(plugin.getTimeChecker()).thenReturn(timeChecker);
+		when(timeChecker.getTimer()).thenReturn(executor);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			scheduled.set(invocation.getArgument(0));
+			return null;
+		}).when(executor).execute(any(Runnable.class));
+		BackendGlobalDataSync first = new BackendGlobalDataSync(plugin, firstMessages::add);
+		BackendGlobalDataSync middle = new BackendGlobalDataSync(plugin, middleMessages::add);
+		BackendGlobalDataSync latest = new BackendGlobalDataSync(plugin, latestMessages::add);
+		setField(first, "globalDataHandler", handler);
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> data = new HashMap<>();
+		data.put("LastUpdated", new DataValueString(
+				"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
+		data.put(TimeType.DAY.toString(), new DataValueBoolean(true));
+
+		assertTrue(first.checkGlobalDataTime(TimeType.DAY, data));
+		first.handoffCompletionSender(middle);
+		middle.handoffCompletionSender(latest);
+		scheduled.get().run();
+
+		assertTrue(firstMessages.isEmpty());
+		assertTrue(middleMessages.isEmpty());
+		org.junit.jupiter.api.Assertions.assertEquals(1, latestMessages.size());
 	}
 
 	@Test
