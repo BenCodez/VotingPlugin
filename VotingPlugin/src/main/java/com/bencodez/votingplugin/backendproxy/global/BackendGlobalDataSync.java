@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
@@ -32,6 +33,7 @@ import lombok.Getter;
  */
 public class BackendGlobalDataSync {
 	private static final long CLOSE_GRACE_SECONDS = 5L;
+	private static final Map<VotingPluginMain, Set<TimeType>> ACTIVE_TIME_CHANGES = new WeakHashMap<>();
 
 	private final VotingPluginMain plugin;
 	private final Object senderLock = new Object();
@@ -39,6 +41,7 @@ public class BackendGlobalDataSync {
 	private boolean senderHandedOff;
 	private final AtomicBoolean forceUpdateInProgress = new AtomicBoolean(false);
 	private final Set<TimeType> timeChangesInProgress = ConcurrentHashMap.newKeySet();
+	private final Set<TimeType> activeTimeChangeAdmissions;
 	private final Object timeChangeLifecycleLock = new Object();
 	private final Object timeChangePersistenceLock = new Object();
 	private final Map<GlobalDataHandler, Integer> activeTimeChangesByHandler = new HashMap<>();
@@ -53,6 +56,14 @@ public class BackendGlobalDataSync {
 	public BackendGlobalDataSync(VotingPluginMain plugin, Consumer<JsonEnvelope> sender) {
 		this.plugin = plugin;
 		this.sender = sender;
+		// Runtime replacements use the same plugin instance. Share admission across
+		// those generations so a replacement cannot enqueue the period transition
+		// that its predecessor is still processing. A process restart intentionally
+		// gets a fresh set so the persisted period flag remains eligible for recovery.
+		synchronized (ACTIVE_TIME_CHANGES) {
+			activeTimeChangeAdmissions = ACTIVE_TIME_CHANGES.computeIfAbsent(plugin,
+					ignored -> ConcurrentHashMap.newKeySet());
+		}
 	}
 
 	public void checkGlobalData() {
@@ -158,7 +169,11 @@ public class BackendGlobalDataSync {
 		GlobalDataHandler handler;
 		synchronized (timeChangeLifecycleLock) {
 			handler = globalDataHandler;
-			if (handler == null || !timeChangesInProgress.add(type)) return null;
+			if (handler == null || !activeTimeChangeAdmissions.add(type)) return null;
+			if (!timeChangesInProgress.add(type)) {
+				activeTimeChangeAdmissions.remove(type);
+				return null;
+			}
 			activeTimeChangesByHandler.merge(handler, 1, Integer::sum);
 		}
 		try {
@@ -210,6 +225,7 @@ public class BackendGlobalDataSync {
 				}
 			}
 		} finally {
+			activeTimeChangeAdmissions.remove(type);
 			synchronized (timeChangeLifecycleLock) {
 				closeAfterRelease = releaseHandlerReferenceLocked(handler);
 			}

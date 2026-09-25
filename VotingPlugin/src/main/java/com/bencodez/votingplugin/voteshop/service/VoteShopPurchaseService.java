@@ -811,8 +811,7 @@ public class VoteShopPurchaseService {
 
 	private boolean completeSharedMysqlPurchase(SharedPurchaseDebit debit) {
 		try {
-			debit.journal().complete(debit.purchaseId());
-			return true;
+			return debit.journal().complete(debit.purchaseId());
 		} catch (SQLException failure) {
 			// A HOOK_STARTED record is intentionally retained for reconciliation:
 			// the arbitrary reward hook may already have side effects.

@@ -881,6 +881,7 @@ class VoteShopPurchaseServiceTest {
 		when(item.getRewardsPath()).thenReturn("Shop.item.Rewards");
 		when(item.getPurchaseMessage()).thenReturn("Purchased");
 		SharedMysqlPurchaseJournal journal = mock(SharedMysqlPurchaseJournal.class);
+		when(journal.complete("purchase-1")).thenReturn(true);
 		VoteShopPurchaseService.SharedPurchaseDebit debit = new VoteShopPurchaseService.SharedPurchaseDebit(
 				VoteShopPurchaseResult.SUCCESS, journal, "purchase-1", "Points", null);
 		AtomicReference<VoteShopPurchaseResult> result = new AtomicReference<>();
@@ -933,6 +934,7 @@ class VoteShopPurchaseServiceTest {
 				.thenReturn(CompletableFuture.completedFuture(EntityTaskResult.SUCCESS),
 						CompletableFuture.completedFuture(EntityTaskResult.SCHEDULER_RETIRED));
 		SharedMysqlPurchaseJournal journal = mock(SharedMysqlPurchaseJournal.class);
+		when(journal.complete("purchase-1")).thenReturn(true);
 		VoteShopPurchaseService.SharedPurchaseDebit debit = new VoteShopPurchaseService.SharedPurchaseDebit(
 				VoteShopPurchaseResult.SUCCESS, journal, "purchase-1", "Points", null);
 		AtomicReference<VoteShopPurchaseResult> result = new AtomicReference<>();
@@ -1058,6 +1060,41 @@ class VoteShopPurchaseServiceTest {
 		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
 		SharedMysqlPurchaseJournal journal = mock(SharedMysqlPurchaseJournal.class);
 		org.mockito.Mockito.doThrow(new SQLException("settlement failed")).when(journal).complete("purchase-1");
+		VoteShopPurchaseService.SharedPurchaseDebit debit = new VoteShopPurchaseService.SharedPurchaseDebit(
+				VoteShopPurchaseResult.SUCCESS, journal, "purchase-1", "Points", null);
+		AtomicReference<VoteShopPurchaseResult> result = new AtomicReference<>();
+		VoteShopPurchaseService service = new VoteShopPurchaseService(plugin, mock(VoteShopDefinition.class));
+		java.lang.reflect.Method settlement = VoteShopPurchaseService.class.getDeclaredMethod(
+				"scheduleSharedMysqlSettlement", org.bukkit.entity.Player.class, java.util.function.Consumer.class,
+				VoteShopPurchaseService.SharedPurchaseDebit.class);
+		settlement.setAccessible(true);
+
+		settlement.invoke(service, player, (java.util.function.Consumer<VoteShopPurchaseResult>) result::set, debit);
+
+		assertEquals(VoteShopPurchaseResult.RECONCILIATION_REQUIRED, result.get());
+		verify(journal).complete("purchase-1");
+	}
+
+	@Test
+	void uncommittedJournalSettlementReportsReconciliationInsteadOfSuccess() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
+				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
+		ScheduledExecutorService persistenceExecutor = mock(ScheduledExecutorService.class);
+		when(plugin.getTimer()).thenReturn(persistenceExecutor);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(scheduler.getFoliaLib()).thenReturn(null);
+		doAnswer(invocation -> {
+			invocation.getArgument(0, Runnable.class).run();
+			return null;
+		}).when(persistenceExecutor).execute(any(Runnable.class));
+		doAnswer(invocation -> {
+			invocation.getArgument(1, Runnable.class).run();
+			return null;
+		}).when(scheduler).runTask(eq(plugin), any(Runnable.class), any(org.bukkit.entity.Player.class));
+		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
+		SharedMysqlPurchaseJournal journal = mock(SharedMysqlPurchaseJournal.class);
+		when(journal.complete("purchase-1")).thenReturn(false);
 		VoteShopPurchaseService.SharedPurchaseDebit debit = new VoteShopPurchaseService.SharedPurchaseDebit(
 				VoteShopPurchaseResult.SUCCESS, journal, "purchase-1", "Points", null);
 		AtomicReference<VoteShopPurchaseResult> result = new AtomicReference<>();
