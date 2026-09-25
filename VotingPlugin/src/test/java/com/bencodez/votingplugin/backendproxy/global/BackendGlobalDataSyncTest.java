@@ -227,6 +227,221 @@ class BackendGlobalDataSyncTest {
 	}
 
 	@Test
+	void timedOutExecutingForceUpdateKeepsItsFenceAcrossRuntimeHandoff() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BungeeSettings bungeeSettings = mock(BungeeSettings.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		GlobalDataHandler oldHandler = mock(GlobalDataHandler.class);
+		GlobalDataHandler replacementHandler = mock(GlobalDataHandler.class);
+		UserDataManager dataManager = mock(UserDataManager.class);
+		UserManager userManager = mock(UserManager.class);
+		AtomicReference<Runnable> scheduled = new AtomicReference<>();
+		AtomicReference<Runnable> asyncWrite = new AtomicReference<>();
+		AtomicInteger schedulerRuns = new AtomicInteger();
+		CountDownLatch writeStarted = new CountDownLatch(1);
+		CountDownLatch finishWrite = new CountDownLatch(1);
+		when(plugin.getBungeeSettings()).thenReturn(bungeeSettings);
+		when(bungeeSettings.getServer()).thenReturn("lobby");
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(plugin.getUserManager()).thenReturn(userManager);
+		when(userManager.getDataManager()).thenReturn(dataManager);
+		when(dataManager.clearCacheAsyncCompletion()).thenReturn(CompletableFuture.completedFuture(null));
+		org.mockito.Mockito.doAnswer(invocation -> {
+			scheduled.set(invocation.getArgument(1));
+			schedulerRuns.incrementAndGet();
+			return null;
+		}).when(scheduler).executeOrScheduleSync(eq(plugin), any(Runnable.class));
+		org.mockito.Mockito.doAnswer(invocation -> {
+			asyncWrite.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		org.mockito.Mockito.doAnswer(invocation -> {
+			writeStarted.countDown();
+			assertTrue(finishWrite.await(2, TimeUnit.SECONDS));
+			return null;
+		}).when(oldHandler).setBoolean("lobby", "ForceUpdate", false);
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> data = new HashMap<>();
+		data.put("ForceUpdate", new DataValueBoolean(true));
+		when(oldHandler.getExact("lobby")).thenReturn(data);
+		when(replacementHandler.getExact("lobby")).thenReturn(data);
+		BackendGlobalDataSync oldSync = new BackendGlobalDataSync(plugin, ignored -> { });
+		BackendGlobalDataSync replacement = new BackendGlobalDataSync(plugin, ignored -> { });
+		setField(oldSync, "globalDataHandler", oldHandler);
+		setField(replacement, "globalDataHandler", replacementHandler);
+
+		oldSync.checkGlobalData();
+		scheduled.get().run();
+		CompletableFuture<Void> execution = CompletableFuture.runAsync(asyncWrite.get());
+		assertTrue(writeStarted.await(1, TimeUnit.SECONDS));
+		oldSync.checkGlobalData();
+		org.junit.jupiter.api.Assertions.assertEquals(1, schedulerRuns.get());
+		oldSync.handoffCompletionSender(replacement);
+		oldSync.close(1, TimeUnit.MILLISECONDS);
+
+		replacement.checkGlobalData();
+		org.junit.jupiter.api.Assertions.assertEquals(1, schedulerRuns.get());
+		verify(replacementHandler).setBoolean("lobby", "ForceUpdate", false);
+		verify(plugin, org.mockito.Mockito.times(1)).update();
+
+		finishWrite.countDown();
+		execution.get(1, TimeUnit.SECONDS);
+		verify(plugin, org.mockito.Mockito.times(1)).update();
+	}
+
+	@Test
+	void failedForceUpdateAcknowledgmentRetriesWithoutRepeatingUpdate() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BungeeSettings bungeeSettings = mock(BungeeSettings.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		GlobalDataHandler handler = mock(GlobalDataHandler.class);
+		UserDataManager dataManager = mock(UserDataManager.class);
+		UserManager userManager = mock(UserManager.class);
+		AtomicReference<Runnable> scheduled = new AtomicReference<>();
+		AtomicReference<Runnable> asyncWrite = new AtomicReference<>();
+		when(plugin.getBungeeSettings()).thenReturn(bungeeSettings);
+		when(bungeeSettings.getServer()).thenReturn("lobby");
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(plugin.getUserManager()).thenReturn(userManager);
+		when(userManager.getDataManager()).thenReturn(dataManager);
+		when(dataManager.clearCacheAsyncCompletion()).thenReturn(CompletableFuture.completedFuture(null));
+		org.mockito.Mockito.doAnswer(invocation -> {
+			scheduled.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).executeOrScheduleSync(eq(plugin), any(Runnable.class));
+		org.mockito.Mockito.doAnswer(invocation -> {
+			asyncWrite.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		org.mockito.Mockito.doThrow(new IllegalStateException("write failed"))
+				.doNothing().when(handler).setBoolean("lobby", "ForceUpdate", false);
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> data = new HashMap<>();
+		data.put("ForceUpdate", new DataValueBoolean(true));
+		when(handler.getExact("lobby")).thenReturn(data);
+		BackendGlobalDataSync sync = new BackendGlobalDataSync(plugin, ignored -> { });
+		setField(sync, "globalDataHandler", handler);
+
+		sync.checkGlobalData();
+		scheduled.get().run();
+		asyncWrite.get().run();
+		sync.checkGlobalData();
+
+		verify(plugin, org.mockito.Mockito.times(1)).update();
+		verify(handler, org.mockito.Mockito.times(2)).setBoolean("lobby", "ForceUpdate", false);
+	}
+
+	@Test
+	void observedForceUpdateAcknowledgmentReleasesFenceAfterAmbiguousWriteFailure() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BungeeSettings bungeeSettings = mock(BungeeSettings.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		GlobalDataHandler handler = mock(GlobalDataHandler.class);
+		UserDataManager dataManager = mock(UserDataManager.class);
+		UserManager userManager = mock(UserManager.class);
+		AtomicReference<Runnable> scheduled = new AtomicReference<>();
+		AtomicReference<Runnable> asyncWrite = new AtomicReference<>();
+		when(plugin.getBungeeSettings()).thenReturn(bungeeSettings);
+		when(bungeeSettings.getServer()).thenReturn("lobby");
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(plugin.getUserManager()).thenReturn(userManager);
+		when(userManager.getDataManager()).thenReturn(dataManager);
+		when(dataManager.clearCacheAsyncCompletion()).thenReturn(CompletableFuture.completedFuture(null));
+		org.mockito.Mockito.doAnswer(invocation -> {
+			scheduled.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).executeOrScheduleSync(eq(plugin), any(Runnable.class));
+		org.mockito.Mockito.doAnswer(invocation -> {
+			asyncWrite.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		org.mockito.Mockito.doThrow(new IllegalStateException("ambiguous write"))
+				.doNothing().when(handler).setBoolean("lobby", "ForceUpdate", false);
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> requested = new HashMap<>();
+		requested.put("ForceUpdate", new DataValueBoolean(true));
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> acknowledged = new HashMap<>();
+		acknowledged.put("ForceUpdate", new DataValueBoolean(false));
+		when(handler.getExact("lobby")).thenReturn(requested, acknowledged, requested);
+		BackendGlobalDataSync sync = new BackendGlobalDataSync(plugin, ignored -> { });
+		setField(sync, "globalDataHandler", handler);
+
+		sync.checkGlobalData();
+		scheduled.get().run();
+		asyncWrite.get().run();
+		sync.checkGlobalData();
+		sync.checkGlobalData();
+		scheduled.get().run();
+		asyncWrite.get().run();
+
+		verify(plugin, org.mockito.Mockito.times(2)).update();
+		verify(handler, org.mockito.Mockito.times(2)).setBoolean("lobby", "ForceUpdate", false);
+	}
+
+	@Test
+	void closeWaitsForBorrowedMysqlPollingWithoutClosingTheSharedConnection() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BungeeSettings bungeeSettings = mock(BungeeSettings.class);
+		GlobalDataHandler handler = mock(GlobalDataHandler.class);
+		GlobalMySQL mysql = mock(GlobalMySQL.class);
+		CountDownLatch pollStarted = new CountDownLatch(1);
+		CountDownLatch finishPoll = new CountDownLatch(1);
+		when(plugin.getBungeeSettings()).thenReturn(bungeeSettings);
+		when(bungeeSettings.getServer()).thenReturn("lobby");
+		when(handler.getGlobalMysql()).thenReturn(mysql);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			pollStarted.countDown();
+			assertTrue(finishPoll.await(2, TimeUnit.SECONDS));
+			return new HashMap<String, com.bencodez.simpleapi.sql.data.DataValue>();
+		}).when(handler).getExact("lobby");
+		BackendGlobalDataSync sync = new BackendGlobalDataSync(plugin, ignored -> { });
+		setField(sync, "globalDataHandler", handler);
+		setField(sync, "ownsGlobalMysql", false);
+
+		CompletableFuture<Void> poll = CompletableFuture.runAsync(sync::checkGlobalData);
+		assertTrue(pollStarted.await(1, TimeUnit.SECONDS));
+		CompletableFuture<Void> close = CompletableFuture.runAsync(sync::close);
+		Thread.sleep(50L);
+		assertFalse(close.isDone());
+		verify(mysql, never()).close();
+
+		finishPoll.countDown();
+		poll.get(1, TimeUnit.SECONDS);
+		close.get(1, TimeUnit.SECONDS);
+		verify(mysql, never()).close();
+	}
+
+	@Test
+	void closeWaitsForBorrowedMysqlHeartbeatWithoutClosingTheSharedConnection() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BungeeSettings bungeeSettings = mock(BungeeSettings.class);
+		GlobalDataHandler handler = mock(GlobalDataHandler.class);
+		GlobalMySQL mysql = mock(GlobalMySQL.class);
+		CountDownLatch heartbeatStarted = new CountDownLatch(1);
+		CountDownLatch finishHeartbeat = new CountDownLatch(1);
+		when(plugin.getBungeeSettings()).thenReturn(bungeeSettings);
+		when(bungeeSettings.getServer()).thenReturn("lobby");
+		when(handler.getGlobalMysql()).thenReturn(mysql);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			heartbeatStarted.countDown();
+			assertTrue(finishHeartbeat.await(2, TimeUnit.SECONDS));
+			return null;
+		}).when(handler).setString(eq("lobby"), eq("LastOnline"), any(String.class));
+		BackendGlobalDataSync sync = new BackendGlobalDataSync(plugin, ignored -> { });
+		setField(sync, "globalDataHandler", handler);
+		setField(sync, "ownsGlobalMysql", false);
+
+		CompletableFuture<Void> heartbeat = CompletableFuture.runAsync(sync::updateLastOnline);
+		assertTrue(heartbeatStarted.await(1, TimeUnit.SECONDS));
+		CompletableFuture<Void> close = CompletableFuture.runAsync(sync::close);
+		Thread.sleep(50L);
+		assertFalse(close.isDone());
+		verify(mysql, never()).close();
+
+		finishHeartbeat.countDown();
+		heartbeat.get(1, TimeUnit.SECONDS);
+		close.get(1, TimeUnit.SECONDS);
+		verify(mysql, never()).close();
+	}
+
+	@Test
 	void bungeeDayChangeRunsOnTheTimeCheckerExecutor() {
 		assertTimeChangeRunsOnTheTimeCheckerExecutor(TimeType.DAY);
 	}

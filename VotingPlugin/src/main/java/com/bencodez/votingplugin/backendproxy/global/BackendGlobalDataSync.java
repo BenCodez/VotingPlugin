@@ -69,37 +69,42 @@ public class BackendGlobalDataSync {
 	}
 
 	public void checkGlobalData() {
-		if (globalDataHandler == null) {
-			return;
-		}
-		HashMap<String, DataValue> data = globalDataHandler.getExact(plugin.getBungeeSettings().getServer());
+		GlobalDataHandler pollingHandler = acquireHandlerReference();
+		if (pollingHandler == null) return;
+		try {
+			HashMap<String, DataValue> data = pollingHandler.getExact(plugin.getBungeeSettings().getServer());
 
-		if (data.containsKey("ForceUpdate") && checkGlobalDataTimeValue(data.get("ForceUpdate"))) {
-			String serverName = plugin.getBungeeSettings().getServer();
-			ForceUpdateAdmission admission = admitForceUpdate();
-			if (admission != null) startForceUpdate(admission, serverName);
-		}
+			if (data.containsKey("ForceUpdate")) {
+				if (checkGlobalDataTimeValue(data.get("ForceUpdate"))) {
+					String serverName = plugin.getBungeeSettings().getServer();
+					ForceUpdateAdmission admission = admitForceUpdate(pollingHandler);
+					if (admission != null) startForceUpdate(admission, serverName);
+				} else {
+					globalWorkAdmissions.releaseAcknowledgedForceUpdate();
+				}
+			}
 
-		checkGlobalDataTime(TimeType.MONTH, data);
-		checkGlobalDataTime(TimeType.WEEK, data);
-		checkGlobalDataTime(TimeType.DAY, data);
+			checkGlobalDataTime(TimeType.MONTH, data, pollingHandler);
+			checkGlobalDataTime(TimeType.WEEK, data, pollingHandler);
+			checkGlobalDataTime(TimeType.DAY, data, pollingHandler);
+		} finally {
+			releaseHandlerReference(pollingHandler);
+		}
 	}
 
-	private ForceUpdateAdmission admitForceUpdate() {
-		if (!globalWorkAdmissions.admitForceUpdate(this)) return null;
+	private ForceUpdateAdmission admitForceUpdate(GlobalDataHandler expectedHandler) {
 		GlobalDataHandler handler;
 		ForceUpdateAdmission admission = null;
 		synchronized (timeChangeLifecycleLock) {
 			handler = acceptingWork ? globalDataHandler : null;
-			if (handler != null) {
-				activeGlobalWorkByHandler.merge(handler, 1, Integer::sum);
-				admission = new ForceUpdateAdmission(handler);
-				activeForceUpdate = admission;
+			if (handler != null && handler == expectedHandler) {
+				ForceUpdateGrant grant = globalWorkAdmissions.admitForceUpdate(this);
+				if (grant != null) {
+					activeGlobalWorkByHandler.merge(handler, 1, Integer::sum);
+					admission = new ForceUpdateAdmission(handler, grant.fence(), grant.acknowledgmentOnly());
+					activeForceUpdate = admission;
+				}
 			}
-		}
-		if (handler == null) {
-			globalWorkAdmissions.releaseForceUpdate(this);
-			return null;
 		}
 		return admission;
 	}
@@ -107,6 +112,10 @@ public class BackendGlobalDataSync {
 	private void startForceUpdate(ForceUpdateAdmission admission, String serverName) {
 		try {
 			if (!admission.isPending()) return;
+			if (admission.acknowledgmentOnly()) {
+				finishForceUpdate(admission, serverName);
+				return;
+			}
 			if (UserStorage.MYSQL.equals(plugin.getStorageType())) plugin.getMysql().clearCacheBasic();
 			if (!acceptingWork || !admission.isPending()) {
 				releaseForceUpdate(admission);
@@ -151,18 +160,26 @@ public class BackendGlobalDataSync {
 
 	private void finishForceUpdate(ForceUpdateAdmission admission, String serverName) {
 		if (!acceptingWork) {
-			releaseForceUpdate(admission);
+			if (admission.acknowledgmentOnly()) retainForceUpdateAcknowledgment(admission);
+			else releaseForceUpdate(admission);
 			return;
 		}
 		if (!admission.beginExecution()) return;
 		try {
-			plugin.setUpdate(true);
-			plugin.update();
+			if (!admission.acknowledgmentOnly()) {
+				plugin.setUpdate(true);
+				plugin.update();
+				globalWorkAdmissions.markForceUpdateEffectApplied(admission.fence());
+			}
 			admission.handler().setBoolean(serverName, "ForceUpdate", false);
 		} catch (RuntimeException failure) {
 			plugin.debug(failure);
+			if (globalWorkAdmissions.isForceUpdateEffectApplied(admission.fence())) {
+				retainForceUpdateAcknowledgment(admission);
+				return;
+			}
 		} finally {
-			releaseForceUpdate(admission);
+			if (!admission.isReleased()) releaseForceUpdate(admission);
 		}
 	}
 
@@ -175,11 +192,37 @@ public class BackendGlobalDataSync {
 		synchronized (timeChangeLifecycleLock) {
 			if (activeForceUpdate == admission) activeForceUpdate = null;
 		}
-		globalWorkAdmissions.releaseForceUpdate(this);
+		globalWorkAdmissions.releaseForceUpdate(admission.fence());
 		releaseHandlerReference(admission.handler());
 	}
 
+	private void retainForceUpdateAcknowledgment(ForceUpdateAdmission admission) {
+		if (!admission.release()) return;
+		retainForceUpdateAcknowledgmentResources(admission);
+	}
+
+	private void retainForceUpdateAcknowledgmentResources(ForceUpdateAdmission admission) {
+		synchronized (timeChangeLifecycleLock) {
+			if (activeForceUpdate == admission) activeForceUpdate = null;
+		}
+		globalWorkAdmissions.retryForceUpdateAcknowledgment(admission.fence());
+		releaseHandlerReference(admission.handler());
+	}
+
+	private GlobalDataHandler acquireHandlerReference() {
+		synchronized (timeChangeLifecycleLock) {
+			GlobalDataHandler handler = acceptingWork ? globalDataHandler : null;
+			if (handler != null) activeGlobalWorkByHandler.merge(handler, 1, Integer::sum);
+			return handler;
+		}
+	}
+
 	public boolean checkGlobalDataTime(TimeType type, HashMap<String, DataValue> data) {
+		return checkGlobalDataTime(type, data, globalDataHandler);
+	}
+
+	private boolean checkGlobalDataTime(TimeType type, HashMap<String, DataValue> data,
+			GlobalDataHandler expectedHandler) {
 		if (!data.containsKey(type.toString()) || !checkGlobalDataTimeValue(data.get(type.toString()))) {
 			return false;
 		}
@@ -188,11 +231,12 @@ public class BackendGlobalDataSync {
 		plugin.debug("LastUpdated: " + lastUpdated);
 		if (LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli() - lastUpdated > 1000 * 60 * 60 * 2) {
 			plugin.getLogger().warning("Ignoring bungee time change since it was more than 2 hours ago");
-			globalDataHandler.setBoolean(plugin.getBungeeSettings().getServer(), type.toString(), false);
+			if (!isCurrentHandler(expectedHandler)) return false;
+			expectedHandler.setBoolean(plugin.getBungeeSettings().getServer(), type.toString(), false);
 			return false;
 		}
 		String serverName = plugin.getBungeeSettings().getServer();
-		GlobalDataHandler transitionHandler = admitTimeChange(type, serverName);
+		GlobalDataHandler transitionHandler = admitTimeChange(type, serverName, expectedHandler);
 		if (transitionHandler == null) return false;
 		plugin.debug("Detected time change from bungee: " + type.toString());
 		ScheduledExecutorService transitionExecutor = plugin.getTimeChecker().getTimer();
@@ -225,11 +269,19 @@ public class BackendGlobalDataSync {
 		return true;
 	}
 
-	private GlobalDataHandler admitTimeChange(TimeType type, String serverName) {
+	private boolean isCurrentHandler(GlobalDataHandler expectedHandler) {
+		synchronized (timeChangeLifecycleLock) {
+			return acceptingWork && expectedHandler != null && globalDataHandler == expectedHandler;
+		}
+	}
+
+	private GlobalDataHandler admitTimeChange(TimeType type, String serverName,
+			GlobalDataHandler expectedHandler) {
 		GlobalDataHandler handler;
 		synchronized (timeChangeLifecycleLock) {
 			handler = acceptingWork ? globalDataHandler : null;
-			if (handler == null || !globalWorkAdmissions.admitTimeChange(this, type)) return null;
+			if (handler == null || handler != expectedHandler
+					|| !globalWorkAdmissions.admitTimeChange(this, type)) return null;
 			if (!timeChangesInProgress.add(type)) {
 				globalWorkAdmissions.cancelTimeChangeAdmission(this, type);
 				return null;
@@ -355,19 +407,10 @@ public class BackendGlobalDataSync {
 		if (!plugin.getBungeeSettings().isGloblalDataEnabled()) {
 			return;
 		}
-		acceptingWork = true;
+		acceptingWork = false;
 
 		long retirementDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(CLOSE_GRACE_SECONDS);
 		shutdownTimer(retirementDeadline);
-		timer = Executors.newScheduledThreadPool(1);
-		timer.scheduleWithFixedDelay(this::checkGlobalData, 60, 10, TimeUnit.SECONDS);
-		timer.scheduleWithFixedDelay(() -> {
-			if (globalDataHandler != null) {
-				globalDataHandler.setString(plugin.getBungeeSettings().getServer(), "LastOnline",
-						"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli());
-			}
-		}, 1, 60, TimeUnit.MINUTES);
-
 		retireGlobalMysql(retirementDeadline);
 
 		GlobalDataHandler loadedHandler;
@@ -409,6 +452,14 @@ public class BackendGlobalDataSync {
 				"ForceUpdate", "VARCHAR(5)").entrySet()) {
 			loadedHandler.getGlobalMysql().alterColumnType(column.getKey(), column.getValue());
 		}
+		acceptingWork = true;
+		timer = Executors.newSingleThreadScheduledExecutor(task -> {
+			Thread thread = new Thread(task, "VotingPlugin-GlobalData");
+			thread.setDaemon(true);
+			return thread;
+		});
+		timer.scheduleWithFixedDelay(this::checkGlobalData, 60, 10, TimeUnit.SECONDS);
+		timer.scheduleWithFixedDelay(this::updateLastOnline, 1, 60, TimeUnit.MINUTES);
 		plugin.getTimeChecker().setProcessingEnabled(false);
 	}
 
@@ -419,7 +470,10 @@ public class BackendGlobalDataSync {
 	void close(long timeout, TimeUnit unit) {
 		acceptingWork = false;
 		ForceUpdateAdmission forceUpdate = activeForceUpdate;
-		if (forceUpdate != null && forceUpdate.cancelPending()) releaseForceUpdateResources(forceUpdate);
+		if (forceUpdate != null && forceUpdate.cancelPending()) {
+			if (forceUpdate.acknowledgmentOnly()) retainForceUpdateAcknowledgmentResources(forceUpdate);
+			else releaseForceUpdateResources(forceUpdate);
+		}
 		long timeoutNanos = Math.max(0L, unit.toNanos(timeout));
 		long deadline = System.nanoTime() + timeoutNanos;
 		shutdownTimer(deadline);
@@ -445,12 +499,27 @@ public class BackendGlobalDataSync {
 			}
 		}
 		if (closeNow != null) closeNow.close();
-		if (deferred != null && awaitOrForceRetiredHandlerClose(deferred, deadlineNanos)) {
-			BackendGlobalDataSync replacement;
-			synchronized (senderLock) {
-				replacement = completionReplacement;
-			}
+		boolean timedOut = deferred != null && awaitOrForceRetiredHandlerClose(deferred, deadlineNanos);
+		BackendGlobalDataSync replacement;
+		synchronized (senderLock) {
+			replacement = completionReplacement;
+		}
+		if (timedOut) {
 			globalWorkAdmissions.transferTimeChangeOwner(this, replacement);
+		}
+		// A pending acknowledgment can be cancelled and release its handler before
+		// retirement observes active SQL. Transfer that retry fence unconditionally.
+		globalWorkAdmissions.transferForceUpdateOwner(this, replacement);
+	}
+
+	void updateLastOnline() {
+		GlobalDataHandler pollingHandler = acquireHandlerReference();
+		if (pollingHandler == null) return;
+		try {
+			pollingHandler.setString(plugin.getBungeeSettings().getServer(), "LastOnline",
+					"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli());
+		} finally {
+			releaseHandlerReference(pollingHandler);
 		}
 	}
 
@@ -498,13 +567,15 @@ public class BackendGlobalDataSync {
 		timer = null;
 	}
 
-	private record ForceUpdateAdmission(GlobalDataHandler handler, AtomicInteger phase) {
+	private record ForceUpdateAdmission(GlobalDataHandler handler, ForceUpdateFence fence,
+			boolean acknowledgmentOnly, AtomicInteger phase) {
 		private static final int PENDING = 0;
 		private static final int EXECUTING = 1;
 		private static final int RELEASED = 2;
 
-		private ForceUpdateAdmission(GlobalDataHandler handler) {
-			this(handler, new AtomicInteger(PENDING));
+		private ForceUpdateAdmission(GlobalDataHandler handler, ForceUpdateFence fence,
+				boolean acknowledgmentOnly) {
+			this(handler, fence, acknowledgmentOnly, new AtomicInteger(PENDING));
 		}
 
 		private boolean beginExecution() {
@@ -522,6 +593,18 @@ public class BackendGlobalDataSync {
 		private boolean release() {
 			return phase.getAndSet(RELEASED) != RELEASED;
 		}
+
+		private boolean isReleased() {
+			return phase.get() == RELEASED;
+		}
+	}
+
+	private static final class ForceUpdateFence {
+		private boolean effectApplied;
+		private boolean acknowledgmentClaimed;
+	}
+
+	private record ForceUpdateGrant(ForceUpdateFence fence, boolean acknowledgmentOnly) {
 	}
 
 	private static final class GlobalWorkAdmissions {
@@ -529,6 +612,7 @@ public class BackendGlobalDataSync {
 		private final Object persistenceLock = new Object();
 		private BackendGlobalDataSync timeChangeOwner;
 		private BackendGlobalDataSync forceUpdateOwner;
+		private ForceUpdateFence forceUpdateFence;
 		private boolean timeChangeBatchFailed;
 		private boolean timeChangeBatchFinalizing;
 
@@ -573,14 +657,53 @@ public class BackendGlobalDataSync {
 			return persistenceLock;
 		}
 
-		private synchronized boolean admitForceUpdate(BackendGlobalDataSync requester) {
-			if (forceUpdateOwner != null) return false;
-			forceUpdateOwner = requester;
-			return true;
+		private synchronized ForceUpdateGrant admitForceUpdate(BackendGlobalDataSync requester) {
+			if (forceUpdateFence == null) {
+				forceUpdateFence = new ForceUpdateFence();
+				forceUpdateFence.acknowledgmentClaimed = true;
+				forceUpdateOwner = requester;
+				return new ForceUpdateGrant(forceUpdateFence, false);
+			}
+			if (forceUpdateFence.effectApplied && !forceUpdateFence.acknowledgmentClaimed
+					&& (forceUpdateOwner == null || forceUpdateOwner == requester)) {
+				forceUpdateOwner = requester;
+				forceUpdateFence.acknowledgmentClaimed = true;
+				return new ForceUpdateGrant(forceUpdateFence, true);
+			}
+			return null;
 		}
 
-		private synchronized void releaseForceUpdate(BackendGlobalDataSync requester) {
-			if (forceUpdateOwner == requester) forceUpdateOwner = null;
+		private synchronized void markForceUpdateEffectApplied(ForceUpdateFence fence) {
+			if (forceUpdateFence == fence) fence.effectApplied = true;
+		}
+
+		private synchronized boolean isForceUpdateEffectApplied(ForceUpdateFence fence) {
+			return forceUpdateFence == fence && fence.effectApplied;
+		}
+
+		private synchronized void retryForceUpdateAcknowledgment(ForceUpdateFence fence) {
+			if (forceUpdateFence == fence) fence.acknowledgmentClaimed = false;
+		}
+
+		private synchronized void releaseForceUpdate(ForceUpdateFence fence) {
+			if (forceUpdateFence != fence) return;
+			forceUpdateFence = null;
+			forceUpdateOwner = null;
+		}
+
+		private synchronized void releaseAcknowledgedForceUpdate() {
+			if (forceUpdateFence == null || !forceUpdateFence.effectApplied) return;
+			forceUpdateFence = null;
+			forceUpdateOwner = null;
+		}
+
+		private synchronized void transferForceUpdateOwner(BackendGlobalDataSync previous,
+				BackendGlobalDataSync replacement) {
+			if (forceUpdateOwner != previous) return;
+			forceUpdateOwner = replacement;
+			if (forceUpdateFence != null && forceUpdateFence.effectApplied) {
+				forceUpdateFence.acknowledgmentClaimed = false;
+			}
 		}
 	}
 
