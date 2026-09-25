@@ -591,6 +591,53 @@ class SharedMysqlPurchaseJournalTest {
 	}
 
 	@Test
+	void reservedMonthIncrementDrainsWithoutReapplyingItsOldCap() throws Exception {
+		Fixture fixture = fixture();
+		PreparedStatement markerInsert = mock(PreparedStatement.class);
+		PreparedStatement markerSelect = mock(PreparedStatement.class);
+		PreparedStatement pending = mock(PreparedStatement.class);
+		PreparedStatement increment = mock(PreparedStatement.class);
+		PreparedStatement complete = mock(PreparedStatement.class);
+		PreparedStatement copy = mock(PreparedStatement.class);
+		PreparedStatement advance = mock(PreparedStatement.class);
+		ResultSet epoch = mock(ResultSet.class);
+		ResultSet accounting = mock(ResultSet.class);
+		when(epoch.next()).thenReturn(true);
+		when(epoch.getLong(1)).thenReturn(8L);
+		when(markerSelect.executeQuery()).thenReturn(epoch);
+		when(accounting.next()).thenReturn(true, false);
+		when(accounting.getString(1)).thenReturn(UUID.randomUUID().toString());
+		when(accounting.getString(2)).thenReturn("player");
+		when(accounting.getInt(3)).thenReturn(4 | 1024);
+		when(accounting.getString(5)).thenReturn("September2026");
+		when(accounting.getObject(6)).thenReturn(5);
+		when(pending.executeQuery()).thenReturn(accounting);
+		when(increment.executeUpdate()).thenReturn(1);
+		when(complete.executeUpdate()).thenReturn(1);
+		when(advance.executeUpdate()).thenReturn(1);
+		when(fixture.work.prepareStatement(anyString())).thenReturn(markerInsert, markerSelect, pending,
+				increment, complete, copy, advance);
+
+		new SharedMysqlPurchaseJournal(fixture.table, false).copyPeriodBoundary(
+				"MonthTotal", "LastMonthTotal", "time-copy:MONTH:2026-09");
+
+		org.mockito.ArgumentCaptor<String> sql = org.mockito.ArgumentCaptor.forClass(String.class);
+		verify(fixture.work, org.mockito.Mockito.times(7)).prepareStatement(sql.capture());
+		String incrementSql = sql.getAllValues().get(3);
+		assertTrue(incrementSql.contains("`MonthTotal` = COALESCE(`MonthTotal`, 0) + 1"));
+		assertTrue(incrementSql.contains("`September2026` = COALESCE(`September2026`, 0) + 1"));
+		assertFalse(incrementSql.contains("LEAST"));
+		verify(increment).setString(1, "player");
+	}
+
+	@Test
+	void pendingAccountingAppliesCapsOnlyToUnreservedMonthIncrements() {
+		assertEquals(5, SharedMysqlPurchaseJournal.pendingAccountingMaximum(4, 4, 5));
+		assertEquals(null, SharedMysqlPurchaseJournal.pendingAccountingMaximum(4, 4 | 1024, 5));
+		assertEquals(null, SharedMysqlPurchaseJournal.pendingAccountingMaximum(2, 2, 5));
+	}
+
+	@Test
 	void periodIncrementLocksTheSameBoundaryRowBeforeUpdatingTheUser() throws Exception {
 		Fixture fixture = fixture();
 		PreparedStatement requestInsert = mock(PreparedStatement.class);

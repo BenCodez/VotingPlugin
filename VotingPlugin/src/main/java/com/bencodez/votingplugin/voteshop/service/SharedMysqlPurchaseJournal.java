@@ -1124,27 +1124,32 @@ final class SharedMysqlPurchaseJournal {
 				: operation == VOTE_PARTY_TOTAL ? "VotePartyVotes" : "AllTimeTotal";
 		List<String> columns = operation == MONTH_TOTAL && row.monthColumn() != null
 				? List.of(boundary, row.monthColumn()) : List.of(boundary);
+		Integer maximum = pendingAccountingMaximum(operation, row.requested(), row.monthMaximum());
 		StringBuilder sql = new StringBuilder("UPDATE ").append(qi(table.getTableName())).append(" SET ");
 		for (int index = 0; index < columns.size(); index++) {
 			if (index > 0) sql.append(", ");
 			String quoted = qi(columns.get(index));
 			sql.append(quoted).append(" = ");
-			if (row.monthMaximum() != null) sql.append("LEAST(?, ");
+			if (maximum != null) sql.append("LEAST(?, ");
 			sql.append("COALESCE(").append(quoted).append(", 0) + 1");
-			if (row.monthMaximum() != null) sql.append(')');
+			if (maximum != null) sql.append(')');
 		}
 		sql.append(" WHERE ").append(qi("uuid")).append(uuidCast());
 		try (PreparedStatement update = connection.prepareStatement(sql.toString())) {
 			int parameter = 1;
-			if (row.monthMaximum() != null) {
+			if (maximum != null) {
 				for (int ignored = 0; ignored < columns.size(); ignored++) {
-					update.setInt(parameter++, row.monthMaximum().intValue());
+					update.setInt(parameter++, maximum.intValue());
 				}
 			}
 			update.setString(parameter, row.uuid());
 			if (update.executeUpdate() != 1) throw new SQLException("Period total user row is missing");
 		}
 		markAccountingComplete(connection, voteId, row.completed() | operation);
+	}
+
+	static Integer pendingAccountingMaximum(int operation, int requested, Integer monthMaximum) {
+		return operation == MONTH_TOTAL && (requested & MONTH_TOTAL_RESERVED) == 0 ? monthMaximum : null;
 	}
 
 	/**
