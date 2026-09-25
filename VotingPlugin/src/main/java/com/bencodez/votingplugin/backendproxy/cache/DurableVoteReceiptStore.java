@@ -36,6 +36,7 @@ final class DurableVoteReceiptStore {
 	private int activeReceipts;
 	private int releaseTombstones;
 	private int journalRecords;
+	private boolean repairRequired;
 
 	DurableVoteReceiptStore(Path file) throws IOException {
 		this(file, MAX_ACTIVE_RECEIPTS, COMPLETION_HEADROOM, MAX_RELEASE_TOMBSTONES);
@@ -139,6 +140,8 @@ final class DurableVoteReceiptStore {
 
 	private boolean prepareAppend(String record) {
 		try {
+			if ((repairRequired || DurableFiles.hasUnterminatedTail(file)) && !compact()) return false;
+			repairRequired = false;
 			long projected = (Files.exists(file) ? Files.size(file) : HEADER.length() + 1L)
 					+ record.getBytes(StandardCharsets.UTF_8).length;
 			boolean shouldCompact = journalRecords > receipts.size() * 2 + 256;
@@ -147,6 +150,7 @@ final class DurableVoteReceiptStore {
 			}
 			return projected <= MAX_FILE_BYTES;
 		} catch (IOException failure) {
+			repairRequired = true;
 			return false;
 		}
 	}
@@ -166,6 +170,7 @@ final class DurableVoteReceiptStore {
 			}
 			return true;
 		} catch (IOException failure) {
+			repairRequired = true;
 			return false;
 		}
 	}
@@ -181,6 +186,7 @@ final class DurableVoteReceiptStore {
 					StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
 			DurableFiles.publishStagedFile(staged, file);
 			journalRecords = receipts.size();
+			repairRequired = false;
 			return true;
 		} catch (IOException failure) {
 			return false;

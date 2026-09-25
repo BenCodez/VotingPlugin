@@ -31,6 +31,7 @@ final class ReliableVoteDeliveryOutbox {
 	private final Path file;
 	private final LinkedHashMap<String, Entry> entries = new LinkedHashMap<>();
 	private int journalRecords;
+	private boolean repairRequired;
 
 	ReliableVoteDeliveryOutbox(Path file) throws IOException {
 		this.file = file.toAbsolutePath().normalize();
@@ -146,6 +147,8 @@ final class ReliableVoteDeliveryOutbox {
 
 	private boolean prepareAppend(String record, long remainingReserve) {
 		try {
+			if ((repairRequired || DurableFiles.hasUnterminatedTail(file)) && !compact()) return false;
+			repairRequired = false;
 			long projectedBytes = projectedBytes(record, remainingReserve);
 			boolean shouldCompact = journalRecords > entries.size() * 2 + 64;
 			if ((projectedBytes > MAX_FILE_BYTES || shouldCompact) && compact()) {
@@ -153,6 +156,7 @@ final class ReliableVoteDeliveryOutbox {
 			}
 			return projectedBytes <= MAX_FILE_BYTES;
 		} catch (IOException failure) {
+			repairRequired = true;
 			return false;
 		}
 	}
@@ -188,6 +192,7 @@ final class ReliableVoteDeliveryOutbox {
 			}
 			return true;
 		} catch (IOException failure) {
+			repairRequired = true;
 			return false;
 		}
 	}
@@ -207,6 +212,7 @@ final class ReliableVoteDeliveryOutbox {
 			DurableFiles.publishStagedFile(staged, file);
 			journalRecords = entries.size() + (int) entries.values().stream()
 					.filter(Entry::awaitingReceiptRelease).count();
+			repairRequired = false;
 			return true;
 		} catch (IOException failure) {
 			return false;

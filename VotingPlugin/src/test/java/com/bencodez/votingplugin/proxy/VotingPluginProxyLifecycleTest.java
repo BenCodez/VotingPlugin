@@ -124,11 +124,9 @@ class VotingPluginProxyLifecycleTest {
 		legacy.add("survival");
 		Method retry = VotingPluginProxy.class.getDeclaredMethod("retryReliableVoteDeliveries", String.class);
 		retry.setAccessible(true);
-		Path blockedTarget = directory.resolve("blocked-target");
-		Files.writeString(blockedTarget, "blocked");
 		byte[] journal = Files.readAllBytes(file);
 		Files.delete(file);
-		Files.createSymbolicLink(file, blockedTarget.getFileName());
+		Files.createDirectory(file);
 
 		retry.invoke(proxy, "survival");
 		retry.invoke(proxy, "survival");

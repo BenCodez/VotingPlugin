@@ -567,16 +567,19 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	private void loadBungeeHandler() {
-		BackendProxyHandler candidate = new BackendProxyHandler(this, getOrCreateBackendProcessedVoteCache(),
-				getOrCreateBackendOrderedVoteOverflowQueue());
+		BackendProxyHandler candidate = null;
 		try {
+			candidate = new BackendProxyHandler(this, getOrCreateBackendProcessedVoteCache(),
+					getOrCreateBackendOrderedVoteOverflowQueue());
 			candidate.load();
 			backendProxyHandler = candidate;
 		} catch (RuntimeException failure) {
-			try {
-				candidate.close();
-			} catch (RuntimeException closeFailure) {
-				failure.addSuppressed(closeFailure);
+			if (candidate != null) {
+				try {
+					candidate.close();
+				} catch (RuntimeException closeFailure) {
+					failure.addSuppressed(closeFailure);
+				}
 			}
 			backendProxyHandler = null;
 			getLogger().warning("Backend proxy transport was not started; it will be retried on reload: "

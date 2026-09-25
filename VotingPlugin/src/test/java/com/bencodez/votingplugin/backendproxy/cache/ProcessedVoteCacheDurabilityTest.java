@@ -55,6 +55,23 @@ class ProcessedVoteCacheDurabilityTest {
 	}
 
 	@Test
+	void repairsPartialAppendBeforeSameProcessRetry() throws Exception {
+		Path receipts = directory.resolve("receipts.dat");
+		UUID firstId = UUID.randomUUID();
+		UUID secondId = UUID.randomUUID();
+		ProcessedVoteCache cache = new ProcessedVoteCache(receipts);
+		assertTrue(cache.reserve(firstId));
+		assertTrue(cache.complete(firstId));
+		Files.writeString(receipts, "partial", StandardOpenOption.APPEND);
+
+		assertTrue(cache.reserve(secondId));
+		assertTrue(cache.complete(secondId));
+		ProcessedVoteCache restarted = new ProcessedVoteCache(receipts);
+		assertFalse(restarted.reserve(firstId));
+		assertFalse(restarted.reserve(secondId));
+	}
+
+	@Test
 	void discardsParseableUnterminatedReceiptTail() throws Exception {
 		Path receipts = directory.resolve("receipts.dat");
 		UUID incompleteId = UUID.randomUUID();

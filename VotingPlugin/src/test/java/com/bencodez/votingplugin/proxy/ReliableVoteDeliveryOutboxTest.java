@@ -93,6 +93,21 @@ class ReliableVoteDeliveryOutboxTest {
 	}
 
 	@Test
+	void repairsPartialAppendBeforeSameProcessRetry() throws Exception {
+		Path file = directory.resolve("outbox.dat");
+		UUID voteId = UUID.randomUUID();
+		ReliableVoteDeliveryOutbox outbox = new ReliableVoteDeliveryOutbox(file);
+		assertTrue(outbox.offer("survival", VotingPluginWire.vote("One", UUID.randomUUID().toString(),
+				"site", 10L, true, true, "", voteId, false, false, 1, 1)));
+		Files.writeString(file, "C\tpartial", StandardOpenOption.APPEND);
+
+		assertTrue(outbox.acknowledgeCompletion("survival", voteId, VotingPluginWire.SUB_VOTE));
+		ReliableVoteDeliveryOutbox restarted = new ReliableVoteDeliveryOutbox(file);
+		assertEquals(1, restarted.size());
+		assertTrue(restarted.snapshot().get(0).awaitingReceiptRelease());
+	}
+
+	@Test
 	void acceptedVotesReserveCapacityForCompletionAndRemovalRecords() throws Exception {
 		Path file = directory.resolve("outbox.dat");
 		ReliableVoteDeliveryOutbox outbox = new ReliableVoteDeliveryOutbox(file);

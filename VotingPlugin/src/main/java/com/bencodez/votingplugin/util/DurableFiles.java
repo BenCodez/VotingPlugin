@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.util;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
@@ -17,6 +18,18 @@ public final class DurableFiles {
 	public static void forceFile(Path file) throws IOException {
 		try (FileChannel channel = FileChannel.open(file, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)) {
 			channel.force(true);
+		}
+	}
+
+	/** Returns whether an existing journal lacks its final record terminator. */
+	public static boolean hasUnterminatedTail(Path file) throws IOException {
+		if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) return false;
+		try (FileChannel channel = FileChannel.open(file, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
+			long size = channel.size();
+			if (size == 0L) return true;
+			ByteBuffer last = ByteBuffer.allocate(1);
+			channel.position(size - 1L);
+			return channel.read(last) != 1 || last.array()[0] != '\n';
 		}
 	}
 
