@@ -445,6 +445,7 @@ class VoteShopPurchaseServiceTest {
 				options.capture());
 		assertTrue(options.getValue().isOnlineSet());
 		assertTrue(options.getValue().isOnline());
+		assertNotNull(options.getValue().getAsyncReplayCheckpointConsumer());
 		verify(user, never()).isOnline();
 	}
 
@@ -943,11 +944,48 @@ class VoteShopPurchaseServiceTest {
 				}, debit);
 
 		rewardCallback.getValue().accept(null);
+		assertEquals(0, completions.get());
+		rewardCallback.getAllValues().get(1).accept(null);
 		assertEquals(1, completions.get());
 		assertEquals(VoteShopPurchaseResult.RECONCILIATION_REQUIRED, result.get());
 		verify(journal, never()).complete(anyString());
 		verify(journal, never()).refundCompensatingReward(anyString());
 		verify(persistenceExecutor, never()).execute(any(Runnable.class));
+	}
+
+	@Test
+	void rejectedSettlementSchedulersReportReconciliationInsteadOfSuccess() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
+				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
+		ScheduledExecutorService persistenceExecutor = mock(ScheduledExecutorService.class);
+		when(plugin.getTimer()).thenReturn(persistenceExecutor);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(scheduler.getFoliaLib()).thenReturn(null);
+		when(plugin.getLogger()).thenReturn(mock(java.util.logging.Logger.class));
+		org.mockito.Mockito.doThrow(new java.util.concurrent.RejectedExecutionException("persistence stopped"))
+				.when(persistenceExecutor).execute(any(Runnable.class));
+		org.mockito.Mockito.doThrow(new java.util.concurrent.RejectedExecutionException("async stopped"))
+				.when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		doAnswer(invocation -> {
+			invocation.getArgument(1, Runnable.class).run();
+			return null;
+		}).when(scheduler).runTask(eq(plugin), any(Runnable.class), any(org.bukkit.entity.Player.class));
+		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
+		SharedMysqlPurchaseJournal journal = mock(SharedMysqlPurchaseJournal.class);
+		VoteShopPurchaseService.SharedPurchaseDebit debit = new VoteShopPurchaseService.SharedPurchaseDebit(
+				VoteShopPurchaseResult.SUCCESS, journal, "purchase-1", "Points", null);
+		AtomicReference<VoteShopPurchaseResult> result = new AtomicReference<>();
+		VoteShopPurchaseService service = new VoteShopPurchaseService(plugin, mock(VoteShopDefinition.class));
+		java.lang.reflect.Method settlement = VoteShopPurchaseService.class.getDeclaredMethod(
+				"scheduleSharedMysqlSettlement", org.bukkit.entity.Player.class, java.util.function.Consumer.class,
+				VoteShopPurchaseService.SharedPurchaseDebit.class);
+		settlement.setAccessible(true);
+
+		settlement.invoke(service, player, (java.util.function.Consumer<VoteShopPurchaseResult>) result::set, debit);
+
+		assertEquals(VoteShopPurchaseResult.RECONCILIATION_REQUIRED, result.get());
+		verify(journal, never()).complete(anyString());
 	}
 
 	@Test

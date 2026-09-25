@@ -316,7 +316,7 @@ public class VoteShopPurchaseService {
 						state.set(COMPLETION_FINISHED);
 						logClaimedRewardSchedulingFailure(debit);
 						plugin.debug(rewardFailure);
-						completeClaimedRewardFailure(completion);
+						completeClaimedRewardFailure(player, completion);
 						return;
 					}
 					finishClaimedReward(player, user, item, placeholders, completion, debit, state);
@@ -332,8 +332,14 @@ public class VoteShopPurchaseService {
 			HashMap<String, String> placeholders, FileConfiguration shopData) {
 		plugin.getLogger().info("VoteShop: " + user.getPlayerName() + "/" + user.getUUID() + " bought "
 				+ item.getIdentifier() + " for " + item.getCost());
+		RewardOptions options = new RewardOptions().setOnline(true).setPlaceholders(placeholders);
+		// A claimed purchase cannot treat a legacy synchronous injection exception as
+		// successful. The purchase journal remains the durable reconciliation record;
+		// this consumer selects AdvancedCore's strict failure-propagation path without
+		// attempting an unsafe automatic replay of external reward side effects.
+		options.setAsyncReplayCheckpointConsumer(ignored -> { });
 		return plugin.getRewardHandler().giveRewardAsync(user, shopData, item.getRewardsPath(),
-				new RewardOptions().setOnline(true).setPlaceholders(placeholders));
+				options);
 	}
 
 	private void finishClaimedReward(Player player, VotingPluginUser user, VoteShopItem item,
@@ -342,7 +348,7 @@ public class VoteShopPurchaseService {
 		Runnable rejected = () -> {
 			if (!state.compareAndSet(COMPLETION_RUNNING, COMPLETION_FINISHED)) return;
 			logClaimedRewardSchedulingFailure(debit);
-			completeClaimedRewardFailure(completion);
+			completeClaimedRewardFailure(player, completion);
 		};
 		try {
 			runPurchaseEntityTask(player, () -> {
@@ -373,7 +379,7 @@ public class VoteShopPurchaseService {
 						() -> settleSharedMysqlPurchase(player, completion, debit));
 			} catch (RuntimeException asyncSchedulingFailure) {
 				plugin.debug(asyncSchedulingFailure);
-				completeSuccessfulPurchase(player, completion);
+				completeClaimedRewardFailure(player, completion);
 			}
 		}
 	}
@@ -466,6 +472,14 @@ public class VoteShopPurchaseService {
 		} catch (RuntimeException completionFailure) {
 			plugin.debug(completionFailure);
 		}
+	}
+
+	private void completeClaimedRewardFailure(Player player,
+			Consumer<VoteShopPurchaseResult> completion) {
+		BukkitCompletionScheduler.run(plugin, player,
+				() -> completeClaimedRewardFailure(completion),
+				() -> plugin.getLogger().severe(
+						"Unable to publish vote shop reconciliation result because the server scheduler stopped"));
 	}
 
 	private void refundCompensatingMysqlDebit(VotingPluginUser user, SharedPurchaseDebit debit) {
