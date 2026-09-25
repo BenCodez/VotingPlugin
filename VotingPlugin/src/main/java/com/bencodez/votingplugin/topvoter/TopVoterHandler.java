@@ -608,7 +608,8 @@ public class TopVoterHandler implements Listener {
 				plugin.getSpecialRewardsConfig().getVoteStreakRequirementWeek(),
 				plugin.getSpecialRewardsConfig().getVoteStreakRequirementMonth(), proxyOwnsResets,
 				plugin.getBungeeSettings().isUseBungeecoord() && !proxyOwnsResets,
-				plugin.getBungeeSettings().isUseBungeecoord());
+				plugin.getBungeeSettings().isUseBungeecoord(),
+				plugin.getVoteSiteManager().getVoteSitesEnabled().size());
 	}
 
 	private List<String> currentVoteShopResetTargets(TopVoter top) {
@@ -782,7 +783,7 @@ public class TopVoterHandler implements Listener {
 				applyRecoverableStreak(user, transition, uuid, TopVoter.Weekly, 0, false);
 			} else if (!policy.streakUsesPercentage()
 					|| user.hasPercentageTotal(TopVoter.Weekly,
-							policy.weekPercentage(), null, boundaryTotal)) {
+							policy.weekPercentage(), null, boundaryTotal, policy.enabledSiteCount())) {
 				applyRecoverableStreak(user, transition, uuid, TopVoter.Weekly,
 						user.getWeekVoteStreak() + 1, true);
 			}
@@ -808,7 +809,7 @@ public class TopVoterHandler implements Listener {
 			} else if (!policy.streakUsesPercentage()
 					|| user.hasPercentageTotal(TopVoter.Monthly,
 							policy.monthPercentage(), lastMonthTime,
-							boundaryTotal)) {
+							boundaryTotal, policy.enabledSiteCount())) {
 				applyRecoverableStreak(user, transition, uuid, TopVoter.Monthly,
 						user.getMonthVoteStreak() + 1, true);
 			}

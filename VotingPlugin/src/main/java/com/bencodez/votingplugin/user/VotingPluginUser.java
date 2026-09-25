@@ -2106,15 +2106,23 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 
 	/** Checks a percentage requirement against an explicitly captured total. */
 	public boolean hasPercentageTotal(TopVoter top, double percentage, LocalDateTime time, int total) {
+		return hasPercentageTotal(top, percentage, time, total,
+				plugin.getVoteSiteManager().getVoteSitesEnabled().size());
+	}
+
+	/** Checks a percentage requirement against captured total and site-count boundaries. */
+	public boolean hasPercentageTotal(TopVoter top, double percentage, LocalDateTime time, int total,
+			int enabledSiteCount) {
+		if (enabledSiteCount <= 0) return false;
 		switch (top) {
 		case Daily:
-			return (double) total / (double) plugin.getVoteSiteManager().getVoteSitesEnabled().size()
+			return (double) total / (double) enabledSiteCount
 					* 100 > percentage;
 		case Monthly:
-			return total / ((double) plugin.getVoteSiteManager().getVoteSitesEnabled().size()
+			return total / ((double) enabledSiteCount
 					* time.getMonth().length(false)) * 100 > percentage;
 		case Weekly:
-			return total / ((double) plugin.getVoteSiteManager().getVoteSitesEnabled().size() * 7) * 100 > percentage;
+			return total / ((double) enabledSiteCount * 7) * 100 > percentage;
 		default:
 			return false;
 		}

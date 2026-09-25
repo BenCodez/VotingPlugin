@@ -32,7 +32,17 @@ public class ServerData {
 	public record TimeChangeUserPolicy(boolean voteStreaks, boolean highestTotals,
 			boolean monthDateTotalsPrimary, boolean streakUsesPercentage,
 			double dayPercentage, double weekPercentage, double monthPercentage,
-			boolean proxyOwnsResets, boolean waitForProxy, boolean rewardForceProxy) { }
+			boolean proxyOwnsResets, boolean waitForProxy, boolean rewardForceProxy,
+			int enabledSiteCount) {
+		public TimeChangeUserPolicy(boolean voteStreaks, boolean highestTotals,
+				boolean monthDateTotalsPrimary, boolean streakUsesPercentage,
+				double dayPercentage, double weekPercentage, double monthPercentage,
+				boolean proxyOwnsResets, boolean waitForProxy, boolean rewardForceProxy) {
+			this(voteStreaks, highestTotals, monthDateTotalsPrimary, streakUsesPercentage,
+					dayPercentage, weekPercentage, monthPercentage, proxyOwnsResets,
+					waitForProxy, rewardForceProxy, 0);
+		}
+	}
 	public record TimeChangeTopPolicy(boolean rewardsEnabled, boolean awardTies,
 			boolean ignorePermission, boolean archiveRequired, List<String> rewardPlaces,
 			List<String> blacklistedPlayers) {
@@ -569,6 +579,7 @@ public class ServerData {
 			getData().set(policyPath + ".DayPercentage", proposed.dayPercentage());
 			getData().set(policyPath + ".WeekPercentage", proposed.weekPercentage());
 			getData().set(policyPath + ".MonthPercentage", proposed.monthPercentage());
+			getData().set(policyPath + ".EnabledSiteCount", proposed.enabledSiteCount());
 			getData().set(policyPath + ".ProxyOwnsResets", proposed.proxyOwnsResets());
 			getData().set(policyPath + ".WaitForProxy", proposed.waitForProxy());
 			getData().set(policyPath + ".RewardForceProxy", proposed.rewardForceProxy());
@@ -600,7 +611,8 @@ public class ServerData {
 				getData().getDouble(policyPath + ".MonthPercentage"),
 				getData().getBoolean(policyPath + ".ProxyOwnsResets"),
 				getData().getBoolean(policyPath + ".WaitForProxy"),
-				getData().getBoolean(policyPath + ".RewardForceProxy"));
+				getData().getBoolean(policyPath + ".RewardForceProxy"),
+				getData().getInt(policyPath + ".EnabledSiteCount"));
 	}
 
 	/** Fixes the VoteShop identifiers selected for this transition before resets begin. */

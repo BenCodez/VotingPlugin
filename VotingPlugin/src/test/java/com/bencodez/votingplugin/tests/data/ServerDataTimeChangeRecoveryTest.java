@@ -215,8 +215,8 @@ class ServerDataTimeChangeRecoveryTest {
 		ServerData data = new ServerData(plugin);
 		data.beginTimeChangeRecovery(transition);
 
-		TimeChangeUserPolicy original = new TimeChangeUserPolicy(false, true, false, true, 50, 60, 70, true, false, true);
-		TimeChangeUserPolicy changed = new TimeChangeUserPolicy(true, false, true, false, 1, 2, 3, false, true, false);
+		TimeChangeUserPolicy original = new TimeChangeUserPolicy(false, true, false, true, 50, 60, 70, true, false, true, 4);
+		TimeChangeUserPolicy changed = new TimeChangeUserPolicy(true, false, true, false, 1, 2, 3, false, true, false, 8);
 		assertEquals(original, data.prepareTimeChangeUserPolicy(transition, original));
 		assertEquals(original, data.prepareTimeChangeUserPolicy(transition, changed));
 		assertEquals(original, new ServerData(plugin).getTimeChangeUserPolicy(transition));
