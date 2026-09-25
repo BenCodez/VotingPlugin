@@ -504,6 +504,17 @@ public class ServerData {
 		}
 	}
 
+	/** Retires a VoteParty replay receipt after its durable delivery owner completes. */
+	public synchronized void clearVotePartyAccounting(UUID voteId) {
+		if (voteId == null) return;
+		String receiptPath = VOTE_PARTY_ACCOUNTING + "." + voteId;
+		if (!getData().contains(receiptPath)) return;
+		getData().set(receiptPath, null);
+		ConfigurationSection remaining = getData().getConfigurationSection(VOTE_PARTY_ACCOUNTING);
+		if (remaining != null && remaining.getKeys(false).isEmpty()) getData().set(VOTE_PARTY_ACCOUNTING, null);
+		saveData();
+	}
+
 	/**
 	 * Starts or resumes the compact local checkpoint for a durable core time
 	 * transition. Only the current transition for each time type is retained;

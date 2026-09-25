@@ -124,6 +124,12 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 		}
 	}
 
+	/** Adds a vote and reports success only after its queue snapshot is durable. */
+	public boolean enqueueDurably(String username, String serviceSite, UUID voteId) {
+		if (username == null || serviceSite == null || voteId == null) return false;
+		return admitDurably(new PendingVote(username, serviceSite, System.currentTimeMillis(), voteId));
+	}
+
 	/**
 	 * Durably retains an ambiguous vote without automatically replaying it.
 	 * Success is reported only after the quarantine snapshot has been forced and
@@ -133,6 +139,10 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 		if (username == null || serviceSite == null || voteId == null) return false;
 		PendingVote pending = new PendingVote(username, serviceSite, System.currentTimeMillis(), voteId);
 		pending.quarantined = true;
+		return admitDurably(pending);
+	}
+
+	private boolean admitDurably(PendingVote pending) {
 		synchronized (lock) {
 			if (closed || entries.size() >= MAX_ENTRIES) return false;
 			entries.addLast(pending);

@@ -32,6 +32,22 @@ import com.bencodez.votingplugin.listeners.VotifierVoteOverflowQueue;
 
 class VotifierVoteOverflowQueueTest {
 	@Test
+	void durableEnqueuePublishesSnapshotBeforeReportingSuccess(@TempDir Path dataFolder) throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		java.util.UUID voteId = java.util.UUID.randomUUID();
+		when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("VotifierVoteOverflowQueueTest"));
+		VotifierVoteOverflowQueue queue = new VotifierVoteOverflowQueue(plugin, (site, user) -> { });
+		try {
+			assertTrue(queue.enqueueDurably("Steve", "example.org", voteId));
+
+			assertTrue(Files.readString(dataFolder.resolve("VotifierVoteQueue.yml")).contains(voteId.toString()));
+		} finally {
+			queue.close();
+		}
+	}
+
+	@Test
 	void successfulVoteRetiresReplayFenceAfterQueueSnapshot(@TempDir Path dataFolder) throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
 		ServerData serverData = mock(ServerData.class);

@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.timequeue;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Deque;
@@ -32,6 +33,7 @@ import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseService;
 public class TimeQueueHandler implements Listener {
 	private static final long TICKS_PER_SECOND = 20L;
 	private final Deque<VoteTimeQueue> timeChangeQueue = new ConcurrentLinkedDeque<>();
+	private final Deque<UUID> completedDeliveries = new ArrayDeque<>();
 	private final Object queuePersistenceLock = new Object();
 
 	private VotingPluginMain plugin;
@@ -143,12 +145,7 @@ public class TimeQueueHandler implements Listener {
 	}
 
 	private void scheduleQueueProcessing(long delay, TimeUnit unit) {
-		boolean admitted = VoteTaskAdmission.trySchedule(plugin.getVoteTimer(), () -> {
-			// Clear only after the bounded executor has admitted the task. If it is
-			// rejected, shutdown persistence can still recover the in-memory queue.
-			plugin.getServerData().clearTimedVoteCache();
-			processQueue();
-		}, delay, unit);
+		boolean admitted = VoteTaskAdmission.trySchedule(plugin.getVoteTimer(), this::processQueue, delay, unit);
 		if (!admitted) {
 			plugin.getLogger().warning("Unable to schedule time-queue processing because vote processing is busy; queued votes were retained.");
 			scheduleRetry(false);
@@ -159,7 +156,7 @@ public class TimeQueueHandler implements Listener {
 
 	private void scheduleRetry(boolean persistenceRequired) {
 		if (persistenceRequired) retryPersistenceRequired.set(true);
-		if (timeChangeQueue.isEmpty() || !retryPending.compareAndSet(false, true)) return;
+		if ((!persistenceRequired && timeChangeQueue.isEmpty()) || !retryPending.compareAndSet(false, true)) return;
 		if (!plugin.isEnabled()) {
 			retryPending.set(false);
 			return;
@@ -170,11 +167,11 @@ public class TimeQueueHandler implements Listener {
 		try {
 			plugin.getBukkitScheduler().runTaskLaterAsynchronously(plugin, () -> {
 				retryPending.set(false);
-				if (timeChangeQueue.isEmpty()) return;
 				if (retryPersistenceRequired.getAndSet(false) && !persistQueueSnapshot()) {
 					scheduleRetry(true);
 					return;
 				}
+				if (timeChangeQueue.isEmpty()) return;
 				scheduleQueueProcessing(0, TimeUnit.SECONDS);
 			}, delayTicks);
 		} catch (RuntimeException rejected) {
@@ -184,16 +181,25 @@ public class TimeQueueHandler implements Listener {
 	}
 
 	private boolean persistQueueSnapshot() {
+		return persistQueueSnapshot(null);
+	}
+
+	private boolean persistQueueSnapshot(UUID completedVoteId) {
+		List<UUID> durableCompletions;
 		synchronized (queuePersistenceLock) {
+			if (completedVoteId != null) completedDeliveries.addLast(completedVoteId);
 			try {
 				plugin.getServerData().replaceTimedVoteCache(new ArrayList<>(timeChangeQueue));
-				return true;
+				durableCompletions = new ArrayList<>(completedDeliveries);
+				completedDeliveries.clear();
 			} catch (RuntimeException persistenceFailure) {
 				plugin.getLogger().severe("Unable to persist the time-queue retry; the vote remains in memory");
 				plugin.debug(persistenceFailure);
 				return false;
 			}
 		}
+		for (UUID voteId : durableCompletions) VoteShopPurchaseService.completeVoteDelivery(plugin, voteId);
+		return true;
 	}
 
 	private void ensureTransitionActive(TimeChangeTransition transition) {
@@ -229,6 +235,10 @@ public class TimeQueueHandler implements Listener {
 					}
 					plugin.getLogger().severe("Timed vote " + voteEvent.getVoteId()
 							+ " reached an ambiguous post-effect failure and was retained for manual review");
+					if (!persistQueueSnapshot()) {
+						scheduleRetry(true);
+						return;
+					}
 					continue;
 				}
 				timeChangeQueue.addFirst(vote);
@@ -236,7 +246,10 @@ public class TimeQueueHandler implements Listener {
 				return;
 			}
 
-			VoteShopPurchaseService.completeVoteDelivery(plugin, voteEvent.getVoteId());
+			if (!persistQueueSnapshot(voteEvent.getVoteId())) {
+				scheduleRetry(true);
+				return;
+			}
 			if (voteEvent.isCancelled()) {
 				plugin.debug("Vote cancelled");
 				return;

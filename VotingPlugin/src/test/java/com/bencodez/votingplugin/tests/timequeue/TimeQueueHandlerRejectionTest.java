@@ -109,6 +109,25 @@ class TimeQueueHandlerRejectionTest {
 	}
 
 	@Test
+	void processingRetiresEachTimedVoteFromTheDurableSnapshot() {
+		when(serverData.getTimedVoteCacheKeys()).thenReturn(Set.of());
+		TimeQueueHandler handler = new TimeQueueHandler(plugin);
+		VoteTimeQueue first = new VoteTimeQueue(UUID.randomUUID(), "Alex", "first.example", 123L);
+		VoteTimeQueue second = new VoteTimeQueue(UUID.randomUUID(), "Steve", "second.example", 124L);
+		handler.getTimeChangeQueue().add(first);
+		handler.getTimeChangeQueue().add(second);
+
+		handler.processQueue();
+
+		org.mockito.InOrder retirement = org.mockito.Mockito.inOrder(serverData);
+		retirement.verify(serverData).replaceTimedVoteCache(List.of(second));
+		retirement.verify(serverData).clearVotePartyAccounting(first.getVoteId());
+		retirement.verify(serverData).replaceTimedVoteCache(List.of());
+		retirement.verify(serverData).clearVotePartyAccounting(second.getVoteId());
+		verify(serverData, never()).clearTimedVoteCache();
+	}
+
+	@Test
 	void failedDurableAdmissionLeavesTheVoteWithItsSourceOwner() {
 		when(serverData.getTimedVoteCacheKeys()).thenReturn(Set.of());
 		doThrow(new IllegalStateException("disk unavailable")).when(serverData).replaceTimedVoteCache(any());

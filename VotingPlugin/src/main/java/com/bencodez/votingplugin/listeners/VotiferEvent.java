@@ -133,7 +133,7 @@ public class VotiferEvent implements Listener {
 
 	private void retainForAccountingRetry(String voteSite, String voteUsername, UUID voteId) {
 		VotifierVoteOverflowQueue overflow = plugin.getVotifierVoteOverflowQueue();
-		if (overflow == null || !overflow.enqueue(voteUsername, voteSite, voteId)) {
+		if (overflow == null || !overflow.enqueueDurably(voteUsername, voteSite, voteId)) {
 			plugin.getLogger().severe("Unable to retain vote after shared MySQL accounting admission failed");
 		} else {
 			plugin.getLogger().warning("Shared MySQL accounting is unavailable; retained Votifier vote for retry");
@@ -183,7 +183,7 @@ public class VotiferEvent implements Listener {
 		if (!VoteTaskAdmission.trySubmit(plugin.getVoteTimer(),
 				() -> processVote(voteSite, voteUsername, voteId))) {
 			VotifierVoteOverflowQueue overflow = plugin.getVotifierVoteOverflowQueue();
-			if (overflow == null || !overflow.enqueue(voteUsername, voteSite, voteId)) {
+			if (overflow == null || !overflow.enqueueDurably(voteUsername, voteSite, voteId)) {
 				plugin.getLogger().severe("Votifier vote queue is full; vote was not admitted for "
 						+ MinecraftUsernameValidator.sanitizeForLog(voteUsername));
 			} else {

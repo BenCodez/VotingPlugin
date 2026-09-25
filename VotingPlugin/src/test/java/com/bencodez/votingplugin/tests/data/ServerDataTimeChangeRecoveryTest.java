@@ -74,6 +74,26 @@ class ServerDataTimeChangeRecoveryTest {
 	}
 
 	@Test
+	void completedDeliveryRetiresOnlyItsVotePartyReceipt() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
+		YamlConfiguration yaml = new YamlConfiguration();
+		when(plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
+		when(plugin.getServerDataFile()).thenReturn(coreData);
+		when(coreData.getData()).thenReturn(yaml);
+		ServerData data = new ServerData(plugin);
+		UUID completed = UUID.randomUUID();
+		UUID pending = UUID.randomUUID();
+		assertTrue(data.incrementVotePartyTotal(completed));
+		assertTrue(data.incrementVotePartyTotal(pending));
+
+		data.clearVotePartyAccounting(completed);
+
+		assertFalse(yaml.contains("VotingPlugin.VoteParty.Accounting." + completed));
+		assertTrue(yaml.contains("VotingPlugin.VoteParty.Accounting." + pending));
+	}
+
+	@Test
 	void acknowledgedVoteRemovesOnlyItsReplayFence() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
