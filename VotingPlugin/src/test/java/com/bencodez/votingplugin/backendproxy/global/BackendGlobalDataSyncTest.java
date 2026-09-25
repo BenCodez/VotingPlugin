@@ -303,6 +303,57 @@ class BackendGlobalDataSyncTest {
 	}
 
 	@Test
+	void staleAcknowledgedRequestCannotClearANewerForceUpdateFence() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BungeeSettings bungeeSettings = mock(BungeeSettings.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		GlobalDataHandler handler = mock(GlobalDataHandler.class);
+		GlobalMySQL mysql = mock(GlobalMySQL.class);
+		UserDataManager dataManager = mock(UserDataManager.class);
+		UserManager userManager = mock(UserManager.class);
+		when(plugin.getBungeeSettings()).thenReturn(bungeeSettings);
+		when(bungeeSettings.getServer()).thenReturn("lobby");
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(plugin.getUserManager()).thenReturn(userManager);
+		when(userManager.getDataManager()).thenReturn(dataManager);
+		when(dataManager.clearCacheAsyncCompletion()).thenReturn(CompletableFuture.completedFuture(null));
+		when(handler.getGlobalMysql()).thenReturn(mysql);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			invocation.getArgument(1, Runnable.class).run();
+			return null;
+		}).when(scheduler).executeOrScheduleSync(eq(plugin), any(Runnable.class));
+		org.mockito.Mockito.doAnswer(invocation -> {
+			invocation.getArgument(1, Runnable.class).run();
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		org.mockito.Mockito.doThrow(new IllegalStateException("first acknowledgment failed"))
+				.doNothing().when(mysql).executeQuery(any(String.class));
+
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> newerRequest = new HashMap<>();
+		newerRequest.put("ForceUpdate", new DataValueBoolean(true));
+		newerRequest.put("ForceUpdateId", new DataValueString("new-request"));
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> staleAcknowledgment = new HashMap<>();
+		staleAcknowledgment.put("ForceUpdate", new DataValueBoolean(false));
+		staleAcknowledgment.put("ForceUpdateId", new DataValueString("old-request"));
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> currentAcknowledgment = new HashMap<>();
+		currentAcknowledgment.put("ForceUpdate", new DataValueBoolean(false));
+		currentAcknowledgment.put("ForceUpdateId", new DataValueString("new-request"));
+		when(handler.getExact("lobby")).thenReturn(newerRequest, staleAcknowledgment, newerRequest,
+				currentAcknowledgment);
+
+		BackendGlobalDataSync sync = new BackendGlobalDataSync(plugin, ignored -> { });
+		setField(sync, "globalDataHandler", handler);
+
+		sync.checkGlobalData();
+		sync.checkGlobalData();
+		sync.checkGlobalData();
+
+		verify(plugin, org.mockito.Mockito.times(1)).update();
+		verify(mysql, org.mockito.Mockito.times(2)).executeQuery(org.mockito.ArgumentMatchers.argThat(query ->
+				query.contains("ForceUpdateId='new-request'")));
+	}
+
+	@Test
 	void failedForceUpdateAcknowledgmentRetriesWithoutRepeatingUpdate() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		BungeeSettings bungeeSettings = mock(BungeeSettings.class);

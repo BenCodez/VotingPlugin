@@ -6,6 +6,7 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
@@ -77,12 +78,12 @@ public class BackendGlobalDataSync {
 			retryTimeChangeFinalization(pollingHandler, serverName);
 
 			if (data.containsKey("ForceUpdate")) {
+				String requestId = forceUpdateRequestId(data);
 				if (checkGlobalDataTimeValue(data.get("ForceUpdate"))) {
-					ForceUpdateAdmission admission = admitForceUpdate(pollingHandler,
-							forceUpdateRequestId(data));
+					ForceUpdateAdmission admission = admitForceUpdate(pollingHandler, requestId);
 					if (admission != null) startForceUpdate(admission, serverName);
 				} else {
-					globalWorkAdmissions.releaseAcknowledgedForceUpdate();
+					globalWorkAdmissions.releaseAcknowledgedForceUpdate(requestId);
 				}
 			}
 
@@ -759,8 +760,9 @@ public class BackendGlobalDataSync {
 			forceUpdateOwner = null;
 		}
 
-		private synchronized void releaseAcknowledgedForceUpdate() {
-			if (forceUpdateFence == null || !forceUpdateFence.effectApplied) return;
+		private synchronized void releaseAcknowledgedForceUpdate(String requestId) {
+			if (forceUpdateFence == null || !forceUpdateFence.effectApplied
+					|| !Objects.equals(forceUpdateFence.requestId, requestId)) return;
 			forceUpdateFence = null;
 			forceUpdateOwner = null;
 		}
