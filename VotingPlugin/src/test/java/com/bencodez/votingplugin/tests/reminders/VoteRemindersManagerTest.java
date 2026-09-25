@@ -70,6 +70,49 @@ public class VoteRemindersManagerTest {
 	}
 
 	@Test
+	void failedClaimRollbackRemainsRetryable() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		ServerData serverData = mock(ServerData.class);
+		VoteReminderCooldownStore store = mock(VoteReminderCooldownStore.class);
+		AtomicInteger attempts = new AtomicInteger();
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(serverData.getDisabledReminders()).thenReturn(Collections.emptyList());
+		VoteRemindersManager manager = new VoteRemindersManager(plugin, store);
+		Method track = VoteRemindersManager.class.getDeclaredMethod("trackClaimRollback", Runnable.class);
+		track.setAccessible(true);
+		Runnable rollback = (Runnable) track.invoke(manager, (Runnable) () -> {
+			if (attempts.incrementAndGet() == 1) throw new IllegalStateException("storage unavailable");
+		});
+
+		rollback.run();
+		rollback.run();
+		manager.shutdown();
+
+		org.junit.jupiter.api.Assertions.assertEquals(2, attempts.get());
+	}
+
+	@Test
+	void shutdownForceStopsReminderExecutorAfterGraceExpires() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		ServerData serverData = mock(ServerData.class);
+		VoteReminderCooldownStore store = mock(VoteReminderCooldownStore.class);
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(serverData.getDisabledReminders()).thenReturn(Collections.emptyList());
+		VoteRemindersManager manager = new VoteRemindersManager(plugin, store);
+		Field schedulerField = VoteRemindersManager.class.getDeclaredField("scheduler");
+		schedulerField.setAccessible(true);
+		ScheduledExecutorService original = (ScheduledExecutorService) schedulerField.get(manager);
+		ScheduledExecutorService blocked = mock(ScheduledExecutorService.class);
+		when(blocked.awaitTermination(5L, TimeUnit.SECONDS)).thenReturn(false);
+		original.shutdownNow();
+		schedulerField.set(manager, blocked);
+
+		manager.shutdown();
+
+		verify(blocked).shutdownNow();
+	}
+
+	@Test
 	void shutdownCancelsDelayedReminderEvaluations() throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		ServerData serverData = mock(ServerData.class);

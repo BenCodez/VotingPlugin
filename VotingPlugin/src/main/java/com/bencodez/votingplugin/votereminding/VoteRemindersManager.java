@@ -320,6 +320,8 @@ public final class VoteRemindersManager {
 	private final Set<TrackedClaimRollback> pendingClaimRollbacks = ConcurrentHashMap.newKeySet();
 	private final Set<ScheduledFuture<?>> delayedFutures = ConcurrentHashMap.newKeySet();
 	private final AtomicInteger taskGeneration = new AtomicInteger();
+	private final AtomicBoolean closed = new AtomicBoolean();
+	private final AtomicBoolean rollbackFallbackStarted = new AtomicBoolean();
 	private volatile ScheduledFuture<?> minuteFuture;
 	private final ConcurrentHashMap<UUID, ScheduledFuture<?>> flushFutures = new ConcurrentHashMap<>();
 
@@ -394,12 +396,14 @@ public final class VoteRemindersManager {
 	}
 
 	public void shutdown() {
+		if (!closed.compareAndSet(false, true)) return;
 		stopTasks();
 
 		joinTimes.clear();
 		pending.clear();
 		flushFutures.clear();
 
+		boolean terminated = false;
 		try {
 			scheduler.execute(() -> {
 				try {
@@ -414,18 +418,39 @@ public final class VoteRemindersManager {
 		}
 		scheduler.shutdown();
 		try {
-			scheduler.awaitTermination(5L, TimeUnit.SECONDS);
+			terminated = scheduler.awaitTermination(5L, TimeUnit.SECONDS);
 		} catch (InterruptedException interrupted) {
 			Thread.currentThread().interrupt();
 		}
+		if (!terminated) scheduler.shutdownNow();
+		if (!pendingClaimRollbacks.isEmpty()) startRollbackFallback();
 	}
 
 	private void rollbackPendingClaims() {
 		for (TrackedClaimRollback rollback : List.copyOf(pendingClaimRollbacks)) rollback.run();
 	}
 
+	private void startRollbackFallback() {
+		if (!rollbackFallbackStarted.compareAndSet(false, true)) return;
+		Thread fallback = new Thread(() -> {
+			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5L);
+			while (!pendingClaimRollbacks.isEmpty() && System.nanoTime() < deadline) {
+				rollbackPendingClaims();
+				if (pendingClaimRollbacks.isEmpty()) return;
+				try {
+					Thread.sleep(100L);
+				} catch (InterruptedException interrupted) {
+					Thread.currentThread().interrupt();
+					return;
+				}
+			}
+		}, "VotingPlugin-ReminderRollback");
+		fallback.setDaemon(true);
+		fallback.start();
+	}
+
 	private boolean isEnabled() {
-		return options != null && options.isEnabled();
+		return !closed.get() && options != null && options.isEnabled();
 	}
 
 	/*
@@ -679,7 +704,7 @@ public final class VoteRemindersManager {
 	}
 
 	private boolean submitReminderWorker(Runnable task) {
-		if (task == null || scheduler.isShutdown()) return false;
+		if (task == null || closed.get() || scheduler.isShutdown()) return false;
 		try {
 			scheduler.execute(task);
 			return true;
@@ -943,7 +968,7 @@ public final class VoteRemindersManager {
 			return false;
 		}
 		return scheduleIfStillOnline(user.getJavaUUID(), () -> {
-			releaseClaims.retain();
+			if (!releaseClaims.retain()) return;
 			try {
 				reward.sendAsync(user).whenComplete((ignored, failure) -> {
 					if (failure != null) plugin.debug(failure);
@@ -963,8 +988,11 @@ public final class VoteRemindersManager {
 	}
 
 	private final class TrackedClaimRollback implements Runnable {
+		private static final int PENDING = 0;
+		private static final int RUNNING = 1;
+		private static final int RESOLVED = 2;
 		private final Runnable rollback;
-		private final AtomicBoolean pending = new AtomicBoolean(true);
+		private final AtomicInteger state = new AtomicInteger(PENDING);
 
 		private TrackedClaimRollback(Runnable rollback) {
 			this.rollback = rollback;
@@ -972,14 +1000,28 @@ public final class VoteRemindersManager {
 
 		@Override
 		public void run() {
-			if (!pending.compareAndSet(true, false)) return;
-			pendingClaimRollbacks.remove(this);
-			rollback.run();
+			if (!state.compareAndSet(PENDING, RUNNING)) return;
+			try {
+				rollback.run();
+				state.set(RESOLVED);
+				pendingClaimRollbacks.remove(this);
+			} catch (RuntimeException failure) {
+				state.compareAndSet(RUNNING, PENDING);
+				plugin.debug(failure);
+				if (!closed.get()) {
+					try {
+						scheduler.schedule(this, 1L, TimeUnit.SECONDS);
+					} catch (java.util.concurrent.RejectedExecutionException ignored) {
+						// Shutdown's bounded fallback owns any rollback still pending.
+					}
+				}
+			}
 		}
 
-		private void retain() {
-			if (!pending.compareAndSet(true, false)) return;
+		private boolean retain() {
+			if (!state.compareAndSet(PENDING, RESOLVED)) return false;
 			pendingClaimRollbacks.remove(this);
+			return true;
 		}
 	}
 
