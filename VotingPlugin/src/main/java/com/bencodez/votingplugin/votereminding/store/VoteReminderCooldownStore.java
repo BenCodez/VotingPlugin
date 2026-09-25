@@ -21,6 +21,20 @@ public interface VoteReminderCooldownStore {
 		// Optional for compatibility with custom stores that cannot roll back a claim.
 	}
 
+	/** Atomically reserves a per-reminder cooldown slot when supported. */
+	default boolean tryClaimReminder(UUID uuid, String reminderName, long nowMs, long cooldownMs) {
+		Long previous = getPerReminderMap(uuid).get(reminderName);
+		if (cooldownMs > 0 && previous != null && previous.longValue() > 0
+				&& nowMs - previous.longValue() < cooldownMs) return false;
+		setPerReminderLast(uuid, reminderName, nowMs);
+		return true;
+	}
+
+	/** Releases a still-current per-reminder claim when delivery never began. */
+	default void releaseReminderClaim(UUID uuid, String reminderName, long claimedAtMs) {
+		// Optional for compatibility with custom stores that cannot roll back a claim.
+	}
+
 	/**
 	 * Gets per-reminder cooldown map for a player.
 	 * @param uuid the player UUID

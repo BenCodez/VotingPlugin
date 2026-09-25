@@ -17,6 +17,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -27,6 +28,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
+import com.bencodez.simpleapi.folialib.FoliaLib;
+import com.bencodez.simpleapi.folialib.enums.EntityTaskResult;
+import com.bencodez.simpleapi.folialib.impl.ServerImplementation;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.data.ServerData;
@@ -82,6 +86,51 @@ public class VoteRemindersManagerTest {
 			assertTrue((boolean) schedule.invoke(manager, uuid, (Runnable) deliveries::incrementAndGet));
 			scheduled.get().run();
 			org.junit.jupiter.api.Assertions.assertEquals(0, deliveries.get());
+		} finally {
+			manager.shutdown();
+		}
+	}
+
+	@Test
+	void reminderDeliveryReleasesReservationsWhenTheEntitySchedulerRetires() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		ServerData serverData = mock(ServerData.class);
+		VoteReminderCooldownStore store = mock(VoteReminderCooldownStore.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		FoliaLib folia = mock(FoliaLib.class);
+		ServerImplementation implementation = mock(ServerImplementation.class);
+		Player player = mock(Player.class);
+		PlaceholderPlayerPresence presence = new PlaceholderPlayerPresence();
+		UUID uuid = UUID.randomUUID();
+		AtomicInteger deliveries = new AtomicInteger();
+		AtomicInteger unavailable = new AtomicInteger();
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(serverData.getDisabledReminders()).thenReturn(Collections.emptyList());
+		when(plugin.getPlaceholderPlayerPresence()).thenReturn(presence);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(scheduler.getFoliaLib()).thenReturn(folia);
+		when(folia.getImpl()).thenReturn(implementation);
+		when(implementation.runAtEntityWithFallback(eq(player), any(), any(Runnable.class)))
+				.thenAnswer(invocation -> {
+					invocation.getArgument(2, Runnable.class).run();
+					return CompletableFuture.completedFuture(EntityTaskResult.ENTITY_RETIRED);
+				});
+		org.mockito.Mockito.doAnswer(invocation -> {
+			invocation.getArgument(1, Runnable.class).run();
+			return null;
+		}).when(scheduler).runTask(eq(plugin), any(Runnable.class));
+		presence.playerOnline(uuid, player);
+		VoteRemindersManager manager = new VoteRemindersManager(plugin, store);
+		try {
+			Method schedule = VoteRemindersManager.class.getDeclaredMethod("scheduleIfStillOnline",
+					UUID.class, Runnable.class, Runnable.class);
+			schedule.setAccessible(true);
+
+			assertTrue((boolean) schedule.invoke(manager, uuid, (Runnable) deliveries::incrementAndGet,
+					(Runnable) unavailable::incrementAndGet));
+
+			org.junit.jupiter.api.Assertions.assertEquals(0, deliveries.get());
+			org.junit.jupiter.api.Assertions.assertEquals(1, unavailable.get());
 		} finally {
 			manager.shutdown();
 		}

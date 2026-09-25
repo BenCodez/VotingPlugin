@@ -18,6 +18,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import org.bukkit.Bukkit;
@@ -27,6 +28,7 @@ import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
 import com.bencodez.votingplugin.votesites.VoteSite;
 import com.bencodez.votingplugin.votereminding.store.VoteReminderCooldownStore;
 
@@ -267,6 +269,19 @@ public final class VoteRemindersManager {
 				last = v.longValue();
 			}
 			return last <= 0 || (nowMs - last) >= req;
+		}
+
+		public boolean tryAcquireReminder(UUID uuid, String reminderName, long nowMs, ParsedDuration cooldown,
+				ParsedDuration interval) {
+			long required = Math.max(ms(cooldown), ms(interval));
+			return required <= 0 || store.tryClaimReminder(uuid, reminderName, nowMs, required);
+		}
+
+		public void releaseReminder(UUID uuid, String reminderName, long claimedAtMs, ParsedDuration cooldown,
+				ParsedDuration interval) {
+			if (Math.max(ms(cooldown), ms(interval)) > 0) {
+				store.releaseReminderClaim(uuid, reminderName, claimedAtMs);
+			}
 		}
 
 		public void markFired(UUID uuid, String reminderName, long nowMs) {
@@ -854,27 +869,34 @@ public final class VoteRemindersManager {
 		if (plugin.getPlaceholderPlayerPresence().schedulerOwner(user.getJavaUUID()) == null) return false;
 		long now = System.currentTimeMillis();
 		if (!cooldowns.tryAcquireGlobal(user.getJavaUUID(), now)) return false;
-		if (!cooldowns.canFireReminder(user.getJavaUUID(), def.getName(), now, def.getCooldown(), def.getInterval())) {
+		if (!cooldowns.tryAcquireReminder(user.getJavaUUID(), def.getName(), now, def.getCooldown(), def.getInterval())) {
 			cooldowns.releaseGlobal(user.getJavaUUID(), now);
 			return false;
 		}
+		Runnable releaseClaims = () -> {
+			try {
+				cooldowns.releaseReminder(user.getJavaUUID(), def.getName(), now, def.getCooldown(), def.getInterval());
+			} finally {
+				cooldowns.releaseGlobal(user.getJavaUUID(), now);
+			}
+		};
 		RewardBuilder reward;
 		try {
 			reward = prepareRewardFromPath(user, snapshot, def.getRewardsPath(), placeholders);
 		} catch (RuntimeException failure) {
-			cooldowns.releaseGlobal(user.getJavaUUID(), now);
+			releaseClaims.run();
 			plugin.debug(failure);
 			return false;
 		}
 		return scheduleIfStillOnline(user.getJavaUUID(), () -> {
 			try {
 				reward.send(user);
-				submitReminderWorker(() -> cooldowns.markFired(user.getJavaUUID(), def.getName(), now));
 			} catch (RuntimeException failure) {
-				submitReminderWorker(() -> cooldowns.releaseGlobal(user.getJavaUUID(), now));
+				// Reward execution may have applied earlier actions before failing. Retain
+				// both reservations so a retry cannot duplicate those side effects.
 				plugin.debug(failure);
 			}
-		}, () -> submitReminderWorker(() -> cooldowns.releaseGlobal(user.getJavaUUID(), now)));
+		}, () -> submitReminderWorker(releaseClaims));
 	}
 
 	boolean scheduleIfStillOnline(UUID uuid, Runnable delivery) {
@@ -888,7 +910,12 @@ public final class VoteRemindersManager {
 			return false;
 		}
 		try {
-			plugin.getBukkitScheduler().runTask(plugin, () -> {
+			AtomicBoolean resolved = new AtomicBoolean();
+			Runnable unavailableOnce = () -> {
+				if (resolved.compareAndSet(false, true)) unavailable.run();
+			};
+			Runnable deliveryOnce = () -> {
+				if (!resolved.compareAndSet(false, true)) return;
 				if (!isEnabled() || plugin.getPlaceholderPlayerPresence().schedulerOwner(uuid) != owner
 						|| !owner.isOnline()) {
 					unavailable.run();
@@ -899,7 +926,8 @@ public final class VoteRemindersManager {
 					return;
 				}
 				delivery.run();
-			}, owner);
+			};
+			BukkitCompletionScheduler.run(plugin, owner, deliveryOnce, unavailableOnce, unavailableOnce);
 			return true;
 		} catch (RuntimeException failure) {
 			unavailable.run();

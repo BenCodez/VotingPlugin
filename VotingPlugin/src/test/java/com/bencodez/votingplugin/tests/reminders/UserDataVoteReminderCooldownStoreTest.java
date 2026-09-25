@@ -73,6 +73,38 @@ public class UserDataVoteReminderCooldownStoreTest {
 	}
 
 	@Test
+	public void perReminderClaim_reservesBeforeDeliveryAndRejectsAConcurrentAttempt() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		UUID uuid = UUID.randomUUID();
+		VotingPluginUser user = mock(VotingPluginUser.class, RETURNS_DEEP_STUBS);
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false)).thenReturn(user);
+		when(user.getUserData().getString(UserDataVoteReminderCooldownStore.KEY_MAP)).thenReturn("");
+		UserDataVoteReminderCooldownStore store = new UserDataVoteReminderCooldownStore(plugin);
+
+		assertTrue(store.tryClaimReminder(uuid, "Login", 10_000L, 5_000L));
+		assertFalse(store.tryClaimReminder(uuid, "Login", 12_000L, 5_000L));
+
+		verify(user.getUserData(), times(1)).setString(UserDataVoteReminderCooldownStore.KEY_MAP, "Login=10000");
+	}
+
+	@Test
+	public void perReminderRollback_onlyReleasesTheMatchingReservation() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		UUID uuid = UUID.randomUUID();
+		VotingPluginUser user = mock(VotingPluginUser.class, RETURNS_DEEP_STUBS);
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false)).thenReturn(user);
+		when(user.getUserData().getString(UserDataVoteReminderCooldownStore.KEY_MAP)).thenReturn("");
+		UserDataVoteReminderCooldownStore store = new UserDataVoteReminderCooldownStore(plugin);
+
+		assertTrue(store.tryClaimReminder(uuid, "Login", 10_000L, 5_000L));
+		assertTrue(store.tryClaimReminder(uuid, "Login", 16_000L, 5_000L));
+		store.releaseReminderClaim(uuid, "Login", 10_000L);
+		assertFalse(store.tryClaimReminder(uuid, "Login", 17_000L, 5_000L));
+
+		verify(user.getUserData(), never()).setString(UserDataVoteReminderCooldownStore.KEY_MAP, "");
+	}
+
+	@Test
 	public void getPerReminderMap_parsesAndCaches() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
 		UUID uuid = UUID.randomUUID();
