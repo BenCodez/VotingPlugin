@@ -942,7 +942,7 @@ public abstract class VotingPluginProxy {
 				}
 				if (entry.legacyDeliveryFenced()) {
 					if (rejectedLegacyVoteDeliveries.contains(deliveryKey)) {
-						if (outbox.resetLegacyDelivery(entry.server(), parsedVoteId,
+						if (outbox.rejectLegacyDelivery(entry.server(), parsedVoteId,
 								entry.envelope().getSubChannel())) {
 							rejectedLegacyVoteDeliveries.remove(deliveryKey);
 						}
@@ -967,10 +967,10 @@ public abstract class VotingPluginProxy {
 						continue;
 					}
 					if (!sendProxyBroadcastEnvelopeNow(entry.server(), entry.envelope())) {
-						if (!outbox.resetLegacyDelivery(entry.server(), parsedVoteId,
+						if (!outbox.rejectLegacyDelivery(entry.server(), parsedVoteId,
 								entry.envelope().getSubChannel())) {
 							rejectedLegacyVoteDeliveries.add(deliveryKey);
-							debug("Rejected legacy vote remains fenced until its retry state is durable for "
+							debug("Rejected legacy vote remains fenced until its rejected state is durable for "
 									+ entry.server());
 						}
 						debug("Legacy vote delivery remains queued because the transport rejected it for "

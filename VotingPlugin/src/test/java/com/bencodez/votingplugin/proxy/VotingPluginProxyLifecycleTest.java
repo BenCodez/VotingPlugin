@@ -110,6 +110,43 @@ class VotingPluginProxyLifecycleTest {
 	}
 
 	@Test
+	void rejectedLegacyVoteRemainsRetryableAfterRestart(@TempDir Path directory) throws Exception {
+		Path file = directory.resolve("outbox.dat");
+		UUID voteId = UUID.randomUUID();
+		JsonEnvelope vote = VotingPluginWire.vote("Player", UUID.randomUUID().toString(), "site", 10L,
+				true, true, "", voteId, false, false, 1, 1);
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		proxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		proxy.setPluginMessageDeliveryResult(false);
+		ReliableVoteDeliveryOutbox outbox = new ReliableVoteDeliveryOutbox(file);
+		org.junit.jupiter.api.Assertions.assertTrue(outbox.offer("survival", vote));
+		setField(proxy, "reliableVoteDeliveryOutbox", outbox);
+		@SuppressWarnings("unchecked")
+		Set<String> legacy = (Set<String>) field(proxy, "legacyVoteDeliveryServers");
+		legacy.add("survival");
+		Method retry = VotingPluginProxy.class.getDeclaredMethod("retryReliableVoteDeliveries", String.class);
+		retry.setAccessible(true);
+
+		retry.invoke(proxy, "survival");
+
+		assertEquals(1, proxy.getVoteEnvelopeDeliveryAttempts());
+		org.junit.jupiter.api.Assertions.assertTrue(outbox.snapshot().get(0).legacyDeliveryRejected());
+
+		VotingPluginProxyTestImpl restartedProxy = new VotingPluginProxyTestImpl();
+		restartedProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		ReliableVoteDeliveryOutbox restartedOutbox = new ReliableVoteDeliveryOutbox(file);
+		setField(restartedProxy, "reliableVoteDeliveryOutbox", restartedOutbox);
+		@SuppressWarnings("unchecked")
+		Set<String> restartedLegacy = (Set<String>) field(restartedProxy, "legacyVoteDeliveryServers");
+		restartedLegacy.add("survival");
+
+		retry.invoke(restartedProxy, "survival");
+
+		assertEquals(1, restartedProxy.getVoteEnvelopeDeliveryAttempts());
+		org.junit.jupiter.api.Assertions.assertTrue(restartedOutbox.snapshot().get(0).awaitingReceiptRelease());
+	}
+
+	@Test
 	void acceptedLegacyVoteIsNotResentWhileCompletionPersistenceRetries(@TempDir Path directory) throws Exception {
 		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
 		proxy.setMethod(BungeeMethod.PLUGINMESSAGING);
