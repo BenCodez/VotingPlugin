@@ -254,7 +254,7 @@ public class BackendProxyHandler implements Listener {
 					() -> processDurableReceiptRelease(router, envelope));
 		} catch (RuntimeException schedulingFailure) {
 			plugin.debug(schedulingFailure);
-			processDurableReceiptRelease(router, envelope);
+			durableReceiptReleaseActive.set(false);
 		}
 		return true;
 	}

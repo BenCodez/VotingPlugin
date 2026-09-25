@@ -32,6 +32,7 @@ import java.nio.file.Files;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.ScheduledExecutorService;
@@ -188,6 +189,28 @@ class BackendProxyHandlerLifecycleTest {
 		ArrayDeque<JsonEnvelope> queued = (ArrayDeque<JsonEnvelope>) getField(handler, "orderedVoteDispatchQueue");
 		assertEquals(java.util.List.of(blockedVote), java.util.List.copyOf(queued),
 				"capacity-blocked and concurrent durable releases must wait for the proxy retry outside the vote lane");
+	}
+
+	@Test
+	void rejectedReceiptReleaseSchedulingLeavesPersistenceForProxyRetry() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		BackendProxyHandler handler = new BackendProxyHandler(plugin);
+		BackendProxyMessageRouter router = mock(BackendProxyMessageRouter.class);
+		setField(handler, "messageRouter", router);
+		handler.activateInboundMessages();
+		JsonEnvelope release = VotingPluginWire.voteDeliveryReceiptRelease(
+				"survival", UUID.randomUUID(), VotingPluginWire.SUB_VOTE);
+		when(router.hasDurableReceiptForRelease(release)).thenReturn(true);
+		doThrow(new java.util.concurrent.RejectedExecutionException("stopping"))
+				.when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+
+		handler.dispatchIncomingAfterPublication(release, mock(Runnable.class));
+
+		verify(router, never()).handleOrderedVote(eq(release), any());
+		AtomicBoolean active = (AtomicBoolean) getField(handler, "durableReceiptReleaseActive");
+		assertFalse(active.get(), "the proxy retry must be able to schedule the release again");
 	}
 
 	@Test
