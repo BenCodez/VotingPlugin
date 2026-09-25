@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.backendproxy.messaging;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -286,6 +287,24 @@ class BackendProxyMessageRouterTest {
 		verify(messages).sendMessage(acknowledgement.capture());
 		assertEquals(VotingPluginWire.SUB_VOTE_DELIVERY_RECEIPT_RELEASE_ACK,
 				acknowledgement.getValue().getSubChannel());
+	}
+
+	@Test
+	void receiptReleaseBypassesOrderingOnlyAfterItsReceiptIsDurable() {
+		UUID voteId = UUID.randomUUID();
+		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
+		AdvancedCoreConfigOptions options = mock(AdvancedCoreConfigOptions.class);
+		when(options.getServer()).thenReturn("survival");
+		when(plugin.getOptions()).thenReturn(options);
+		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
+				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
+				mock(BackendVotePartySync.class), cache);
+		JsonEnvelope release = VotingPluginWire.voteDeliveryReceiptRelease(
+				"survival", voteId, VotingPluginWire.SUB_VOTE);
+		when(cache.hasDurableReceipt(voteId)).thenReturn(false, true);
+
+		assertFalse(voteRouter.hasDurableReceiptForRelease(release));
+		assertTrue(voteRouter.hasDurableReceiptForRelease(release));
 	}
 
 }

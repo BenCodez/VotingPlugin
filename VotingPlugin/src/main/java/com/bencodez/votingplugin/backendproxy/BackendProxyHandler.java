@@ -244,10 +244,10 @@ public class BackendProxyHandler implements Listener {
 	}
 
 	private boolean dispatchDurableReceiptRelease(BackendProxyMessageRouter router, JsonEnvelope envelope) {
-		if (router == null || !router.isValidReceiptRelease(envelope)) return false;
-		// The proxy durably retries unacknowledged releases. Keep every valid release
-		// outside the ordered vote lane, including a release received while this
-		// bounded single-flight worker is busy.
+		if (router == null || !router.hasDurableReceiptForRelease(envelope)) return false;
+		// A durable receipt proves the matching vote effects already completed, so
+		// its release can use the bounded single-flight lane without overtaking work.
+		// The proxy durably retries a release received while this worker is busy.
 		if (!durableReceiptReleaseActive.compareAndSet(false, true)) return true;
 		try {
 			plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
@@ -437,7 +437,10 @@ public class BackendProxyHandler implements Listener {
 				complete.accept(OrderedVoteOutcome.COMPLETE);
 				return;
 			}
-			messageRouter.handleOrderedVote(next, complete);
+			boolean validReceiptRelease = messageRouter.isValidReceiptRelease(next);
+			messageRouter.handleOrderedVote(next, outcome -> complete.accept(
+					validReceiptRelease && outcome == OrderedVoteOutcome.RETRY
+							? OrderedVoteOutcome.COMPLETE : outcome));
 		} catch (RuntimeException | Error failure) {
 			complete.accept(OrderedVoteOutcome.QUARANTINE);
 			throw failure;
