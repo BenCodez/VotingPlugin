@@ -128,6 +128,7 @@ class VotingPluginMainBackendProxyPublicationTest {
 		order.verify(previous).completeHttpHandoff(replacement);
 		order.verify(previous).completeVotePartyHandoff(replacement);
 		order.verify(previous).completeOrderedVoteHandoff(replacement);
+		order.verify(previous).completeGlobalDataHandoff(replacement);
 		order.verify(replacement).activateInboundMessages();
 	}
 

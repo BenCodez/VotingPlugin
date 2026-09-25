@@ -65,6 +65,17 @@ public final class UserDataVoteReminderCooldownStore implements VoteReminderCool
 	}
 
 	@Override
+	public void releaseGlobalClaim(UUID uuid, long claimedAtMs) {
+		Object lock = locks.computeIfAbsent(uuid, k -> new Object());
+		synchronized (lock) {
+			VotingPluginUser user = getUser(uuid);
+			if (user != null && readLong(user, KEY_GLOBAL_LAST) == claimedAtMs) {
+				writeLong(user, KEY_GLOBAL_LAST, 0L);
+			}
+		}
+	}
+
+	@Override
 	public Map<String, Long> getPerReminderMap(UUID uuid) {
 		Map<String, Long> cached = mapCache.get(uuid);
 		if (cached != null) {
@@ -84,6 +95,39 @@ public final class UserDataVoteReminderCooldownStore implements VoteReminderCool
 	}
 
 	@Override
+	public boolean tryClaimReminder(UUID uuid, String reminderName, long nowMs, long cooldownMs) {
+		if (reminderName == null || reminderName.isEmpty()) return false;
+		Object lock = locks.computeIfAbsent(uuid, k -> new Object());
+		synchronized (lock) {
+			VotingPluginUser user = getUser(uuid);
+			if (user == null) return false;
+			Map<String, Long> map = new HashMap<>(getPerReminderMap(uuid));
+			Long previous = map.get(reminderName);
+			if (cooldownMs > 0 && previous != null && previous.longValue() > 0
+					&& nowMs - previous.longValue() < cooldownMs) return false;
+			map.put(reminderName, nowMs);
+			user.getUserData().setString(KEY_MAP, encodeMap(map));
+			mapCache.put(uuid, map);
+			return true;
+		}
+	}
+
+	@Override
+	public void releaseReminderClaim(UUID uuid, String reminderName, long claimedAtMs) {
+		Object lock = locks.computeIfAbsent(uuid, k -> new Object());
+		synchronized (lock) {
+			VotingPluginUser user = getUser(uuid);
+			if (user == null) return;
+			Map<String, Long> map = new HashMap<>(getPerReminderMap(uuid));
+			Long current = map.get(reminderName);
+			if (current == null || current.longValue() != claimedAtMs) return;
+			map.remove(reminderName);
+			user.getUserData().setString(KEY_MAP, encodeMap(map));
+			mapCache.put(uuid, map);
+		}
+	}
+
+	@Override
 	public void setPerReminderLast(UUID uuid, String reminderName, long nowMs) {
 		if (reminderName == null || reminderName.isEmpty()) {
 			return;
@@ -96,16 +140,11 @@ public final class UserDataVoteReminderCooldownStore implements VoteReminderCool
 				return;
 			}
 
-			Map<String, Long> map = getPerReminderMap(uuid);
-			if (!(map instanceof HashMap)) {
-				map = new HashMap<>(map);
-				mapCache.put(uuid, map);
-			}
-
+			Map<String, Long> map = new HashMap<>(getPerReminderMap(uuid));
 			map.put(reminderName, nowMs);
-
 			String encoded = encodeMap(map);
 			user.getUserData().setString(KEY_MAP, encoded);
+			mapCache.put(uuid, map);
 		}
 	}
 

@@ -17,7 +17,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 import org.bukkit.Bukkit;
@@ -27,6 +29,7 @@ import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
 import com.bencodez.votingplugin.votesites.VoteSite;
 import com.bencodez.votingplugin.votereminding.store.VoteReminderCooldownStore;
 
@@ -246,6 +249,10 @@ public final class VoteRemindersManager {
 			return store.tryClaimGlobal(uuid, nowMs, cd);
 		}
 
+		public void releaseGlobal(UUID uuid, long claimedAtMs) {
+			if (ms(globalCooldown) > 0) store.releaseGlobalClaim(uuid, claimedAtMs);
+		}
+
 		/**
 		 * Gate per-reminder using max(cooldown, interval) in millis.
 		 */
@@ -263,6 +270,19 @@ public final class VoteRemindersManager {
 				last = v.longValue();
 			}
 			return last <= 0 || (nowMs - last) >= req;
+		}
+
+		public boolean tryAcquireReminder(UUID uuid, String reminderName, long nowMs, ParsedDuration cooldown,
+				ParsedDuration interval) {
+			long required = Math.max(ms(cooldown), ms(interval));
+			return required <= 0 || store.tryClaimReminder(uuid, reminderName, nowMs, required);
+		}
+
+		public void releaseReminder(UUID uuid, String reminderName, long claimedAtMs, ParsedDuration cooldown,
+				ParsedDuration interval) {
+			if (Math.max(ms(cooldown), ms(interval)) > 0) {
+				store.releaseReminderClaim(uuid, reminderName, claimedAtMs);
+			}
 		}
 
 		public void markFired(UUID uuid, String reminderName, long nowMs) {
@@ -298,6 +318,11 @@ public final class VoteRemindersManager {
 
 	// Scheduler (timing + coalescing + delayed eval)
 	private final ScheduledExecutorService scheduler;
+	private final Set<TrackedClaimRollback> pendingClaimRollbacks = ConcurrentHashMap.newKeySet();
+	private final Set<ScheduledFuture<?>> delayedFutures = ConcurrentHashMap.newKeySet();
+	private final AtomicInteger taskGeneration = new AtomicInteger();
+	private final AtomicBoolean closed = new AtomicBoolean();
+	private final AtomicBoolean rollbackFailureWarned = new AtomicBoolean();
 	private volatile ScheduledFuture<?> minuteFuture;
 	private final ConcurrentHashMap<UUID, ScheduledFuture<?>> flushFutures = new ConcurrentHashMap<>();
 
@@ -372,17 +397,51 @@ public final class VoteRemindersManager {
 	}
 
 	public void shutdown() {
+		if (!closed.compareAndSet(false, true)) return;
 		stopTasks();
 
 		joinTimes.clear();
 		pending.clear();
 		flushFutures.clear();
 
-		scheduler.shutdownNow();
+		boolean terminated = false;
+		try {
+			scheduler.execute(() -> {
+				try {
+					rollbackPendingClaims();
+				} finally {
+					// Delayed reminder evaluations belong to this retired generation.
+					scheduler.shutdownNow();
+				}
+			});
+		} catch (java.util.concurrent.RejectedExecutionException ignored) {
+			scheduler.shutdownNow();
+		}
+		scheduler.shutdown();
+		try {
+			terminated = scheduler.awaitTermination(5L, TimeUnit.SECONDS);
+		} catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt();
+		}
+		if (!terminated) scheduler.shutdownNow();
+		// This call only admits work to AdvancedCore's storage executor. It cannot
+		// perform user-data access on the Bukkit shutdown thread.
+		rollbackPendingClaims();
+	}
+
+	private void rollbackPendingClaims() {
+		for (TrackedClaimRollback rollback : List.copyOf(pendingClaimRollbacks)) rollback.run();
+	}
+
+	private void warnRollbackDeferredToExpiry() {
+		if (rollbackFailureWarned.compareAndSet(false, true)) {
+			plugin.getLogger().warning("Unable to complete pending vote-reminder cooldown rollbacks; "
+					+ "their conditional claims will expire normally");
+		}
 	}
 
 	private boolean isEnabled() {
-		return options != null && options.isEnabled();
+		return !closed.get() && options != null && options.isEnabled();
 	}
 
 	/*
@@ -507,6 +566,7 @@ public final class VoteRemindersManager {
 	}
 
 	private void stopTasks() {
+		taskGeneration.incrementAndGet();
 		ScheduledFuture<?> mf = minuteFuture;
 		if (mf != null) {
 			mf.cancel(false);
@@ -519,6 +579,13 @@ public final class VoteRemindersManager {
 			}
 		}
 		flushFutures.clear();
+
+		for (ScheduledFuture<?> f : delayedFutures) {
+			if (f != null) {
+				f.cancel(false);
+			}
+		}
+		delayedFutures.clear();
 	}
 
 	private void fireIntervalTick() {
@@ -611,7 +678,7 @@ public final class VoteRemindersManager {
 
 	private void flushWithSnapshot(ReminderPlayerSnapshot snapshot, PendingTriggers expected) {
 		if (!pending.remove(snapshot.uuid(), expected)) return;
-		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(snapshot.uuid(), false);
+		VotingPluginUser user = snapshotUser(plugin, snapshot.uuid(), snapshot.playerName());
 		if (user == null) return;
 		PendingTriggers pt = expected;
 		List<VoteReminderType> types = pt.snapshotTypes();
@@ -627,12 +694,16 @@ public final class VoteRemindersManager {
 		}
 	}
 
-	private void submitReminderWorker(Runnable task) {
-		if (task == null || scheduler.isShutdown()) return;
-		try { scheduler.execute(task); }
+	private boolean submitReminderWorker(Runnable task) {
+		if (task == null || closed.get() || scheduler.isShutdown()) return false;
+		try {
+			scheduler.execute(task);
+			return true;
+		}
 		catch (java.util.concurrent.RejectedExecutionException ignored) {
 			// Reload/disable can race an already-scheduled platform snapshot. The
 			// snapshot belongs to the retired reminder generation and is safe to drop.
+			return false;
 		}
 	}
 
@@ -833,13 +904,20 @@ public final class VoteRemindersManager {
 	private void scheduleDelayedEvaluation(UUID uuid, String reminderName, Map<String, String> placeholders,
 			long delayMs) {
 		Map<String, String> ph = placeholders == null ? null : new HashMap<>(placeholders);
-		scheduler.schedule(() -> requestPlayerSnapshot(uuid, snapshot -> {
-			VoteReminderDefinition def = byName.get(reminderName);
-			if (def == null) return;
-			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
-			if (user == null) return;
-			attemptFireNow(user, snapshot, def, ph);
-		}, () -> {}), Math.max(1L, delayMs), TimeUnit.MILLISECONDS);
+		int generation = taskGeneration.get();
+		delayedFutures.removeIf(future -> future.isDone() || future.isCancelled());
+		ScheduledFuture<?> future = scheduler.schedule(() -> {
+			if (generation != taskGeneration.get()) return;
+			requestPlayerSnapshot(uuid, snapshot -> {
+				VoteReminderDefinition def = byName.get(reminderName);
+				if (def == null) return;
+				VotingPluginUser user = snapshotUser(plugin, uuid, snapshot.playerName());
+				if (user == null) return;
+				attemptFireNow(user, snapshot, def, ph);
+			}, () -> {});
+		}, Math.max(1L, delayMs), TimeUnit.MILLISECONDS);
+		delayedFutures.add(future);
+		if (generation != taskGeneration.get() && delayedFutures.remove(future)) future.cancel(false);
 	}
 
 	private boolean attemptFireNow(VotingPluginUser user, ReminderPlayerSnapshot snapshot, VoteReminderDefinition def,
@@ -847,12 +925,156 @@ public final class VoteRemindersManager {
 		if (!isUserReminderEnabled(user)) return false;
 		if (snapshot.noRemind() || !snapshot.basePermission()) return false;
 		if (!passesConditions(user, snapshot, def.getConditions())) return false;
+		if (plugin.getPlaceholderPlayerPresence().schedulerOwner(user.getJavaUUID()) == null) return false;
 		long now = System.currentTimeMillis();
 		if (!cooldowns.tryAcquireGlobal(user.getJavaUUID(), now)) return false;
-		if (!cooldowns.canFireReminder(user.getJavaUUID(), def.getName(), now, def.getCooldown(), def.getInterval())) return false;
-		giveRewardFromPath(user, snapshot, def.getRewardsPath(), placeholders);
-		cooldowns.markFired(user.getJavaUUID(), def.getName(), now);
-		return true;
+		try {
+			if (!cooldowns.tryAcquireReminder(user.getJavaUUID(), def.getName(), now, def.getCooldown(),
+					def.getInterval())) {
+				cooldowns.releaseGlobal(user.getJavaUUID(), now);
+				return false;
+			}
+		} catch (RuntimeException failure) {
+			try {
+				cooldowns.releaseGlobal(user.getJavaUUID(), now);
+			} catch (RuntimeException rollbackFailure) {
+				failure.addSuppressed(rollbackFailure);
+			}
+			plugin.debug(failure);
+			return false;
+		}
+		TrackedClaimRollback releaseClaims = trackClaimRollback(() -> {
+			try {
+				cooldowns.releaseReminder(user.getJavaUUID(), def.getName(), now, def.getCooldown(), def.getInterval());
+			} finally {
+				cooldowns.releaseGlobal(user.getJavaUUID(), now);
+			}
+		});
+		RewardBuilder reward;
+		try {
+			reward = prepareRewardFromPath(user, snapshot, def.getRewardsPath(), placeholders);
+		} catch (RuntimeException failure) {
+			releaseClaims.run();
+			plugin.debug(failure);
+			return false;
+		}
+		return scheduleIfStillOnline(user.getJavaUUID(), () -> {
+			if (!releaseClaims.retain()) return;
+			try {
+				reward.sendAsync(user).whenComplete((ignored, failure) -> {
+					if (failure != null) plugin.debug(failure);
+				});
+			} catch (RuntimeException failure) {
+				// Reward execution may have applied earlier actions before failing. Retain
+				// both reservations so a retry cannot duplicate those side effects.
+				plugin.debug(failure);
+			}
+		}, () -> submitReminderWorker(releaseClaims));
+	}
+
+	private TrackedClaimRollback trackClaimRollback(Runnable rollback) {
+		TrackedClaimRollback tracked = new TrackedClaimRollback(rollback);
+		pendingClaimRollbacks.add(tracked);
+		return tracked;
+	}
+
+	private final class TrackedClaimRollback implements Runnable {
+		private static final long RESOLVED = -1L;
+		private static final long PENDING = 0L;
+		private final Runnable rollback;
+		private final AtomicLong state = new AtomicLong(PENDING);
+		private final AtomicLong attemptSequence = new AtomicLong();
+
+		private TrackedClaimRollback(Runnable rollback) {
+			this.rollback = rollback;
+		}
+
+		@Override
+		public void run() {
+			long attempt = attemptSequence.incrementAndGet();
+			if (!state.compareAndSet(PENDING, attempt)) return;
+			try {
+				plugin.getUserManager().getDataManager().getTimer().execute(() -> executeOnStorage(attempt));
+			} catch (RuntimeException rejected) {
+				boolean retryable = state.compareAndSet(attempt, PENDING);
+				plugin.debug(rejected);
+				if (retryable && !closed.get()) scheduleRetry();
+				else if (retryable) warnRollbackDeferredToExpiry();
+			}
+		}
+
+		private void executeOnStorage(long attempt) {
+			if (state.get() != attempt) return;
+			try {
+				rollback.run();
+				if (state.compareAndSet(attempt, RESOLVED)) pendingClaimRollbacks.remove(this);
+			} catch (RuntimeException failure) {
+				boolean retryable = state.compareAndSet(attempt, PENDING);
+				plugin.debug(failure);
+				if (retryable && !closed.get()) scheduleRetry();
+				else if (retryable) warnRollbackDeferredToExpiry();
+			}
+		}
+
+		private void scheduleRetry() {
+			try {
+				scheduler.schedule(this, 1L, TimeUnit.SECONDS);
+			} catch (java.util.concurrent.RejectedExecutionException ignored) {
+				// Final shutdown submits pending work directly to the storage owner.
+			}
+		}
+
+		private boolean retain() {
+			if (!state.compareAndSet(PENDING, RESOLVED)) return false;
+			pendingClaimRollbacks.remove(this);
+			return true;
+		}
+	}
+
+	boolean scheduleIfStillOnline(UUID uuid, Runnable delivery) {
+		return scheduleIfStillOnline(uuid, delivery, () -> { });
+	}
+
+	private boolean scheduleIfStillOnline(UUID uuid, Runnable delivery, Runnable unavailable) {
+		Player owner = plugin.getPlaceholderPlayerPresence().schedulerOwner(uuid);
+		if (owner == null || delivery == null) {
+			unavailable.run();
+			return false;
+		}
+		try {
+			AtomicBoolean resolved = new AtomicBoolean();
+			Runnable unavailableOnce = () -> {
+				if (resolved.compareAndSet(false, true)) unavailable.run();
+			};
+			Runnable deliveryOnce = () -> {
+				if (!resolved.compareAndSet(false, true)) return;
+				if (!isEnabled() || plugin.getPlaceholderPlayerPresence().schedulerOwner(uuid) != owner
+						|| !owner.isOnline()) {
+					unavailable.run();
+					return;
+				}
+				if (plugin.getOptions().isTreatVanishAsOffline() && isPlatformVanished(owner)) {
+					unavailable.run();
+					return;
+				}
+				if (!submitReminderWorker(() -> {
+					// A quit can race the entity-lane check while this handoff waits behind
+					// other reminder work. Recheck the captured, thread-safe presence owner
+					// before starting the asynchronous reward chain.
+					if (!isEnabled() || plugin.getPlaceholderPlayerPresence().schedulerOwner(uuid) != owner) {
+						unavailable.run();
+						return;
+					}
+					delivery.run();
+				})) unavailable.run();
+			};
+			BukkitCompletionScheduler.run(plugin, owner, deliveryOnce, unavailableOnce, unavailableOnce);
+			return true;
+		} catch (RuntimeException failure) {
+			unavailable.run();
+			plugin.debug(failure);
+			return false;
+		}
 	}
 
 	// Retained for focused compatibility tests; production paths use captured platform state.
@@ -871,12 +1093,22 @@ public final class VoteRemindersManager {
 		return attemptFireNow(user, snapshot, def, placeholders);
 	}
 
-	private void giveRewardFromPath(VotingPluginUser user, ReminderPlayerSnapshot snapshot, String rewardsPath,
+	private RewardBuilder prepareRewardFromPath(VotingPluginUser user, ReminderPlayerSnapshot snapshot, String rewardsPath,
 			Map<String, String> placeholders) {
-		RewardBuilder rb = new RewardBuilder(plugin.getConfig(), rewardsPath).setGiveOffline(false).disableDefaultWorlds();
+		RewardBuilder rb = onlineRewardBuilder(plugin.getConfig(), rewardsPath);
 		rb.withPlaceHolder("sitesavailable", "" + sitesNotVotedOn(user, snapshot));
 		if (placeholders != null) for (Map.Entry<String, String> entry : placeholders.entrySet()) rb.withPlaceHolder(entry.getKey(), entry.getValue());
-		rb.send(user);
+		return rb;
+	}
+
+	static RewardBuilder onlineRewardBuilder(org.bukkit.configuration.ConfigurationSection config, String rewardsPath) {
+		// Delivery is admitted only after a final player-owned scheduler check, so the
+		// reward may use that current online state without a worker-side Bukkit lookup.
+		return new RewardBuilder(config, rewardsPath).setOnline(true).setGiveOffline(false).disableDefaultWorlds();
+	}
+
+	static VotingPluginUser snapshotUser(VotingPluginMain plugin, UUID uuid, String playerName) {
+		return plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, playerName);
 	}
 
 	private boolean passesConditions(VotingPluginUser user, ReminderPlayerSnapshot snapshot, VoteReminderConditions conditions) {

@@ -161,11 +161,14 @@ public class BackendProxyHandler implements Listener {
 			presenceManager.stop();
 			presenceReportingActivated = false;
 		}
-		transportManager.close();
 		if (votePartySync != null && persistVotePartyOnClose) {
 			votePartySync.persist();
 		}
+		// Let an admitted period transition publish its terminal envelope while this
+		// transport is still usable. BackendGlobalDataSync bounds this drain and
+		// force-closes an owned SQL runtime when its grace expires.
 		globalDataSync.close();
+		transportManager.close();
 	}
 
 	/** Opens inbound dispatch only after the replacement and all handoffs are committed. */
@@ -767,6 +770,12 @@ public class BackendProxyHandler implements Listener {
 	public void completeHttpHandoff(BackendProxyHandler replacement) {
 		if (replacement == null) return;
 		transportManager.completePreparedTransportHandoff(replacement.transportManager);
+	}
+
+	/** Routes already admitted time-change completions through the published replacement. */
+	public void completeGlobalDataHandoff(BackendProxyHandler replacement) {
+		if (replacement == null) return;
+		globalDataSync.handoffCompletionSender(replacement.globalDataSync);
 	}
 
 	public void playerOnline(String playerName, String uuid) {

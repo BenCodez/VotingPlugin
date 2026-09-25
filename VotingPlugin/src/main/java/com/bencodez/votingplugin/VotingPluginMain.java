@@ -1562,6 +1562,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					restart.previous.completeVotePartyHandoff(restart.replacement);
 					restart.previous.completeOrderedVoteHandoff(restart.replacement);
 				}
+				if (restart.previous != null) restart.previous.completeGlobalDataHandoff(restart.replacement);
 			} catch (RuntimeException handoffFailure) {
 				backendProxyHandler = restart.previous;
 				restart.replacement.abortStagedInboundTo(restart.previous);
@@ -1898,6 +1899,22 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	}
 
 	@Override
+	public void onDisable() {
+		try {
+			shutdownVoteReminders();
+		} finally {
+			super.onDisable();
+		}
+	}
+
+	private void shutdownVoteReminders() {
+		if (voteRemindersManager != null) {
+			voteRemindersManager.shutdown();
+			voteRemindersManager = null;
+		}
+	}
+
+	@Override
 	public void onUnLoad() {
 		placeholderPlayerPresence.clear();
 		stopBackendHostedControlLifecycle();
@@ -1931,10 +1948,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			timeQueueHandler.save();
 		}
 
-		if (voteRemindersManager != null) {
-			voteRemindersManager.shutdown();
-			voteRemindersManager = null;
-		}
+		shutdownVoteReminders();
 
 		if (coolDownCheck != null) {
 			coolDownCheck.shutdown();

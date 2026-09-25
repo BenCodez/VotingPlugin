@@ -280,8 +280,8 @@ final class SharedMysqlPurchaseJournal {
 		}
 	}
 
-	void complete(String purchaseId) throws SQLException {
-		setTerminal(purchaseId, COMPLETED, 0L);
+	boolean complete(String purchaseId) throws SQLException {
+		return setTerminal(purchaseId, COMPLETED, 0L);
 	}
 
 	/** Refunds only a debit whose reward hook has not started. */
