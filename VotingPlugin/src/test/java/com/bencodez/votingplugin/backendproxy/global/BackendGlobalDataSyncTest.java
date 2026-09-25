@@ -716,6 +716,44 @@ class BackendGlobalDataSyncTest {
 	}
 
 	@Test
+	void timedOutBorrowedTransitionRelinquishesAdmissionWithoutAnImmediateSuccessor() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BungeeSettings bungeeSettings = mock(BungeeSettings.class);
+		TimeChecker timeChecker = mock(TimeChecker.class);
+		ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+		GlobalDataHandler oldHandler = mock(GlobalDataHandler.class);
+		GlobalDataHandler replacementHandler = mock(GlobalDataHandler.class);
+		CopyOnWriteArrayList<Runnable> scheduled = new CopyOnWriteArrayList<>();
+		when(plugin.getBungeeSettings()).thenReturn(bungeeSettings);
+		when(bungeeSettings.getServer()).thenReturn("lobby");
+		when(plugin.getTimeChecker()).thenReturn(timeChecker);
+		when(timeChecker.getTimer()).thenReturn(executor);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			scheduled.add(invocation.getArgument(0));
+			return null;
+		}).when(executor).execute(any(Runnable.class));
+		BackendGlobalDataSync oldSync = new BackendGlobalDataSync(plugin, ignored -> { });
+		setField(oldSync, "globalDataHandler", oldHandler);
+		setField(oldSync, "ownsGlobalMysql", false);
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> day = new HashMap<>();
+		day.put("LastUpdated", new DataValueString(
+				"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
+		day.put(TimeType.DAY.toString(), new DataValueBoolean(true));
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> week = new HashMap<>();
+		week.put("LastUpdated", day.get("LastUpdated"));
+		week.put(TimeType.WEEK.toString(), new DataValueBoolean(true));
+
+		assertTrue(oldSync.checkGlobalDataTime(TimeType.DAY, day));
+		oldSync.close(1, TimeUnit.MILLISECONDS);
+		BackendGlobalDataSync replacement = new BackendGlobalDataSync(plugin, ignored -> { });
+		setField(replacement, "globalDataHandler", replacementHandler);
+
+		assertFalse(replacement.checkGlobalDataTime(TimeType.DAY, day));
+		assertTrue(replacement.checkGlobalDataTime(TimeType.WEEK, week));
+		org.junit.jupiter.api.Assertions.assertEquals(2, scheduled.size());
+	}
+
+	@Test
 	void slowProcessingWriteDoesNotHoldLifecycleLockDuringClose() throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		BungeeSettings bungeeSettings = mock(BungeeSettings.class);

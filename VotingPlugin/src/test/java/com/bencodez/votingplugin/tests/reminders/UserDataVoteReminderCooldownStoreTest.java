@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.tests.reminders;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -18,6 +19,7 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
+import com.bencodez.advancedcore.api.user.UserData;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votereminding.store.UserDataVoteReminderCooldownStore;
@@ -30,6 +32,25 @@ public class UserDataVoteReminderCooldownStoreTest {
 		UserDataVoteReminderCooldownStore store = new UserDataVoteReminderCooldownStore(plugin);
 
 		assertTrue(store.tryClaimGlobal(UUID.randomUUID(), 1000L, 0L));
+	}
+
+	@Test
+	public void perReminderClaim_doesNotPublishCacheWhenPersistenceFails() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		UUID uuid = UUID.randomUUID();
+		VotingPluginUser user = mock(VotingPluginUser.class, RETURNS_DEEP_STUBS);
+		UserData userData = user.getUserData();
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false)).thenReturn(user);
+		when(userData.getString(UserDataVoteReminderCooldownStore.KEY_MAP)).thenReturn("");
+		org.mockito.Mockito.doThrow(new IllegalStateException("write failed")).doNothing()
+				.when(userData).setString(UserDataVoteReminderCooldownStore.KEY_MAP, "Login=10000");
+		UserDataVoteReminderCooldownStore store = new UserDataVoteReminderCooldownStore(plugin);
+
+		assertThrows(IllegalStateException.class,
+				() -> store.tryClaimReminder(uuid, "Login", 10_000L, 5_000L));
+		assertTrue(store.tryClaimReminder(uuid, "Login", 10_000L, 5_000L));
+
+		verify(userData, times(2)).setString(UserDataVoteReminderCooldownStore.KEY_MAP, "Login=10000");
 	}
 
 	@Test

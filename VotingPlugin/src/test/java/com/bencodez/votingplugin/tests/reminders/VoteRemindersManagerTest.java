@@ -18,6 +18,8 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -26,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.bencodez.advancedcore.AdvancedCoreConfigOptions;
 import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.simpleapi.folialib.FoliaLib;
@@ -86,6 +89,53 @@ public class VoteRemindersManagerTest {
 			assertTrue((boolean) schedule.invoke(manager, uuid, (Runnable) deliveries::incrementAndGet));
 			scheduled.get().run();
 			org.junit.jupiter.api.Assertions.assertEquals(0, deliveries.get());
+		} finally {
+			manager.shutdown();
+		}
+	}
+
+	@Test
+	void reminderDeliveryLeavesTheEntitySchedulerBeforeStartingRewardWork() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		ServerData serverData = mock(ServerData.class);
+		VoteReminderCooldownStore store = mock(VoteReminderCooldownStore.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		Player player = mock(Player.class);
+		AdvancedCoreConfigOptions configOptions = mock(AdvancedCoreConfigOptions.class);
+		PlaceholderPlayerPresence presence = new PlaceholderPlayerPresence();
+		UUID uuid = UUID.randomUUID();
+		AtomicReference<Runnable> scheduled = new AtomicReference<>();
+		AtomicReference<String> deliveryThread = new AtomicReference<>();
+		CountDownLatch delivered = new CountDownLatch(1);
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(serverData.getDisabledReminders()).thenReturn(Collections.emptyList());
+		when(plugin.getPlaceholderPlayerPresence()).thenReturn(presence);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(plugin.getOptions()).thenReturn(configOptions);
+		when(player.isOnline()).thenReturn(true);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			scheduled.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTask(eq(plugin), any(Runnable.class), eq(player));
+		presence.playerOnline(uuid, player);
+		VoteRemindersManager manager = new VoteRemindersManager(plugin, store);
+		try {
+			Field options = VoteRemindersManager.class.getDeclaredField("options");
+			options.setAccessible(true);
+			options.set(manager, new VoteReminderOptions(true, true, ParsedDuration.parse(""), 0,
+					ParsedDuration.parse(""), ParsedDuration.parse(""), new VoteReminderConditions(), ""));
+			Method schedule = VoteRemindersManager.class.getDeclaredMethod("scheduleIfStillOnline",
+					UUID.class, Runnable.class);
+			schedule.setAccessible(true);
+
+			assertTrue((boolean) schedule.invoke(manager, uuid, (Runnable) () -> {
+				deliveryThread.set(Thread.currentThread().getName());
+				delivered.countDown();
+			}));
+			scheduled.get().run();
+
+			assertTrue(delivered.await(1, TimeUnit.SECONDS));
+			assertTrue(deliveryThread.get().startsWith("VotingPlugin-VoteReminders-"));
 		} finally {
 			manager.shutdown();
 		}

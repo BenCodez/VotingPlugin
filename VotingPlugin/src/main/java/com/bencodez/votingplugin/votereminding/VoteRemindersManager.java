@@ -646,12 +646,16 @@ public final class VoteRemindersManager {
 		}
 	}
 
-	private void submitReminderWorker(Runnable task) {
-		if (task == null || scheduler.isShutdown()) return;
-		try { scheduler.execute(task); }
+	private boolean submitReminderWorker(Runnable task) {
+		if (task == null || scheduler.isShutdown()) return false;
+		try {
+			scheduler.execute(task);
+			return true;
+		}
 		catch (java.util.concurrent.RejectedExecutionException ignored) {
 			// Reload/disable can race an already-scheduled platform snapshot. The
 			// snapshot belongs to the retired reminder generation and is safe to drop.
+			return false;
 		}
 	}
 
@@ -869,8 +873,19 @@ public final class VoteRemindersManager {
 		if (plugin.getPlaceholderPlayerPresence().schedulerOwner(user.getJavaUUID()) == null) return false;
 		long now = System.currentTimeMillis();
 		if (!cooldowns.tryAcquireGlobal(user.getJavaUUID(), now)) return false;
-		if (!cooldowns.tryAcquireReminder(user.getJavaUUID(), def.getName(), now, def.getCooldown(), def.getInterval())) {
-			cooldowns.releaseGlobal(user.getJavaUUID(), now);
+		try {
+			if (!cooldowns.tryAcquireReminder(user.getJavaUUID(), def.getName(), now, def.getCooldown(),
+					def.getInterval())) {
+				cooldowns.releaseGlobal(user.getJavaUUID(), now);
+				return false;
+			}
+		} catch (RuntimeException failure) {
+			try {
+				cooldowns.releaseGlobal(user.getJavaUUID(), now);
+			} catch (RuntimeException rollbackFailure) {
+				failure.addSuppressed(rollbackFailure);
+			}
+			plugin.debug(failure);
 			return false;
 		}
 		Runnable releaseClaims = () -> {
@@ -890,7 +905,9 @@ public final class VoteRemindersManager {
 		}
 		return scheduleIfStillOnline(user.getJavaUUID(), () -> {
 			try {
-				reward.send(user);
+				reward.sendAsync(user).whenComplete((ignored, failure) -> {
+					if (failure != null) plugin.debug(failure);
+				});
 			} catch (RuntimeException failure) {
 				// Reward execution may have applied earlier actions before failing. Retain
 				// both reservations so a retry cannot duplicate those side effects.
@@ -925,7 +942,16 @@ public final class VoteRemindersManager {
 					unavailable.run();
 					return;
 				}
-				delivery.run();
+				if (!submitReminderWorker(() -> {
+					// A quit can race the entity-lane check while this handoff waits behind
+					// other reminder work. Recheck the captured, thread-safe presence owner
+					// before starting the asynchronous reward chain.
+					if (!isEnabled() || plugin.getPlaceholderPlayerPresence().schedulerOwner(uuid) != owner) {
+						unavailable.run();
+						return;
+					}
+					delivery.run();
+				})) unavailable.run();
 			};
 			BukkitCompletionScheduler.run(plugin, owner, deliveryOnce, unavailableOnce, unavailableOnce);
 			return true;

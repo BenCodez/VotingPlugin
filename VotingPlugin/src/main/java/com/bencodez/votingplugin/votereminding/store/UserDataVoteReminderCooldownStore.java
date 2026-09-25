@@ -106,8 +106,8 @@ public final class UserDataVoteReminderCooldownStore implements VoteReminderCool
 			if (cooldownMs > 0 && previous != null && previous.longValue() > 0
 					&& nowMs - previous.longValue() < cooldownMs) return false;
 			map.put(reminderName, nowMs);
-			mapCache.put(uuid, map);
 			user.getUserData().setString(KEY_MAP, encodeMap(map));
+			mapCache.put(uuid, map);
 			return true;
 		}
 	}
@@ -122,8 +122,8 @@ public final class UserDataVoteReminderCooldownStore implements VoteReminderCool
 			Long current = map.get(reminderName);
 			if (current == null || current.longValue() != claimedAtMs) return;
 			map.remove(reminderName);
-			mapCache.put(uuid, map);
 			user.getUserData().setString(KEY_MAP, encodeMap(map));
+			mapCache.put(uuid, map);
 		}
 	}
 
@@ -140,16 +140,11 @@ public final class UserDataVoteReminderCooldownStore implements VoteReminderCool
 				return;
 			}
 
-			Map<String, Long> map = getPerReminderMap(uuid);
-			if (!(map instanceof HashMap)) {
-				map = new HashMap<>(map);
-				mapCache.put(uuid, map);
-			}
-
+			Map<String, Long> map = new HashMap<>(getPerReminderMap(uuid));
 			map.put(reminderName, nowMs);
-
 			String encoded = encodeMap(map);
 			user.getUserData().setString(KEY_MAP, encoded);
+			mapCache.put(uuid, map);
 		}
 	}
 

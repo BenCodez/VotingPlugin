@@ -450,7 +450,7 @@ public class BackendGlobalDataSync {
 			synchronized (senderLock) {
 				replacement = completionReplacement;
 			}
-			if (replacement != null) globalWorkAdmissions.transferTimeChangeOwner(this, replacement);
+			globalWorkAdmissions.transferTimeChangeOwner(this, replacement);
 		}
 	}
 
