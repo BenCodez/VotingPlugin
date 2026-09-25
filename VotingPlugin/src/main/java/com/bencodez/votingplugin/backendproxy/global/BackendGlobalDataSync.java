@@ -771,8 +771,7 @@ public class BackendGlobalDataSync {
 				BackendGlobalDataSync replacement) {
 			if (forceUpdateOwner != previous) return;
 			forceUpdateOwner = replacement;
-			if (forceUpdateFence != null && forceUpdateFence.effectApplied
-					&& forceUpdateFence.requestId != null) {
+			if (forceUpdateFence != null && forceUpdateFence.effectApplied) {
 				forceUpdateFence.acknowledgmentClaimed = false;
 			}
 		}

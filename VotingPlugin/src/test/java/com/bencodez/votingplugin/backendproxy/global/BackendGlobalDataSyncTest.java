@@ -354,6 +354,64 @@ class BackendGlobalDataSyncTest {
 	}
 
 	@Test
+	void timedOutLegacyForceUpdateReopensAcknowledgmentOnReplacement() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BungeeSettings bungeeSettings = mock(BungeeSettings.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		GlobalDataHandler oldHandler = mock(GlobalDataHandler.class);
+		GlobalDataHandler replacementHandler = mock(GlobalDataHandler.class);
+		UserDataManager dataManager = mock(UserDataManager.class);
+		UserManager userManager = mock(UserManager.class);
+		AtomicReference<Runnable> scheduled = new AtomicReference<>();
+		AtomicReference<Runnable> asyncWrite = new AtomicReference<>();
+		CountDownLatch writeStarted = new CountDownLatch(1);
+		CountDownLatch finishWrite = new CountDownLatch(1);
+		when(plugin.getBungeeSettings()).thenReturn(bungeeSettings);
+		when(bungeeSettings.getServer()).thenReturn("lobby");
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(plugin.getUserManager()).thenReturn(userManager);
+		when(userManager.getDataManager()).thenReturn(dataManager);
+		when(dataManager.clearCacheAsyncCompletion()).thenReturn(CompletableFuture.completedFuture(null));
+		org.mockito.Mockito.doAnswer(invocation -> {
+			scheduled.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).executeOrScheduleSync(eq(plugin), any(Runnable.class));
+		org.mockito.Mockito.doAnswer(invocation -> {
+			asyncWrite.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		org.mockito.Mockito.doAnswer(invocation -> {
+			writeStarted.countDown();
+			assertTrue(finishWrite.await(2, TimeUnit.SECONDS));
+			return null;
+		}).when(oldHandler).setBoolean("lobby", "ForceUpdate", false);
+
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> requested = new HashMap<>();
+		requested.put("ForceUpdate", new DataValueBoolean(true));
+		when(oldHandler.getExact("lobby")).thenReturn(requested);
+		when(replacementHandler.getExact("lobby")).thenReturn(requested);
+		BackendGlobalDataSync oldSync = new BackendGlobalDataSync(plugin, ignored -> { });
+		BackendGlobalDataSync replacement = new BackendGlobalDataSync(plugin, ignored -> { });
+		setField(oldSync, "globalDataHandler", oldHandler);
+		setField(replacement, "globalDataHandler", replacementHandler);
+
+		oldSync.checkGlobalData();
+		scheduled.get().run();
+		CompletableFuture<Void> execution = CompletableFuture.runAsync(asyncWrite.get());
+		assertTrue(writeStarted.await(1, TimeUnit.SECONDS));
+		oldSync.handoffCompletionSender(replacement);
+		oldSync.close(1, TimeUnit.MILLISECONDS);
+
+		replacement.checkGlobalData();
+		verify(replacementHandler).setBoolean("lobby", "ForceUpdate", false);
+		verify(plugin, org.mockito.Mockito.times(1)).update();
+
+		finishWrite.countDown();
+		execution.get(1, TimeUnit.SECONDS);
+		verify(plugin, org.mockito.Mockito.times(1)).update();
+	}
+
+	@Test
 	void failedForceUpdateAcknowledgmentRetriesWithoutRepeatingUpdate() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		BungeeSettings bungeeSettings = mock(BungeeSettings.class);
