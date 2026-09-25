@@ -78,7 +78,8 @@ public class BackendGlobalDataSync {
 
 			if (data.containsKey("ForceUpdate")) {
 				if (checkGlobalDataTimeValue(data.get("ForceUpdate"))) {
-					ForceUpdateAdmission admission = admitForceUpdate(pollingHandler);
+					ForceUpdateAdmission admission = admitForceUpdate(pollingHandler,
+							forceUpdateRequestId(data));
 					if (admission != null) startForceUpdate(admission, serverName);
 				} else {
 					globalWorkAdmissions.releaseAcknowledgedForceUpdate();
@@ -93,13 +94,20 @@ public class BackendGlobalDataSync {
 		}
 	}
 
-	private ForceUpdateAdmission admitForceUpdate(GlobalDataHandler expectedHandler) {
+	private String forceUpdateRequestId(HashMap<String, DataValue> data) {
+		DataValue value = data.get("ForceUpdateId");
+		if (value == null) return null;
+		String requestId = value.getString();
+		return requestId == null || requestId.isBlank() ? null : requestId;
+	}
+
+	private ForceUpdateAdmission admitForceUpdate(GlobalDataHandler expectedHandler, String requestId) {
 		GlobalDataHandler handler;
 		ForceUpdateAdmission admission = null;
 		synchronized (timeChangeLifecycleLock) {
 			handler = acceptingWork ? globalDataHandler : null;
 			if (handler != null && handler == expectedHandler) {
-				ForceUpdateGrant grant = globalWorkAdmissions.admitForceUpdate(this);
+				ForceUpdateGrant grant = globalWorkAdmissions.admitForceUpdate(this, requestId);
 				if (grant != null) {
 					activeGlobalWorkByHandler.merge(handler, 1, Integer::sum);
 					admission = new ForceUpdateAdmission(handler, grant.fence(), grant.acknowledgmentOnly());
@@ -172,7 +180,7 @@ public class BackendGlobalDataSync {
 				plugin.update();
 				globalWorkAdmissions.markForceUpdateEffectApplied(admission.fence());
 			}
-			admission.handler().setBoolean(serverName, "ForceUpdate", false);
+			acknowledgeForceUpdate(admission.handler(), serverName, admission.fence().requestId);
 		} catch (RuntimeException failure) {
 			plugin.debug(failure);
 			if (globalWorkAdmissions.isForceUpdateEffectApplied(admission.fence())) {
@@ -181,6 +189,25 @@ public class BackendGlobalDataSync {
 			}
 		} finally {
 			if (!admission.isReleased()) releaseForceUpdate(admission);
+		}
+	}
+
+	private void acknowledgeForceUpdate(GlobalDataHandler handler, String serverName, String requestId) {
+		if (requestId == null) {
+			handler.setBoolean(serverName, "ForceUpdate", false);
+			return;
+		}
+		String escapedServer = serverName.replace("'", "''");
+		String escapedRequest = requestId.replace("'", "''");
+		handler.getGlobalMysql().executeQuery("UPDATE %tablename% SET ForceUpdate='false' WHERE server='"
+				+ escapedServer + "' AND ForceUpdateId='" + escapedRequest + "';");
+		HashMap<String, DataValue> current = handler.getExact(serverName);
+		if (!current.containsKey("ForceUpdateId") || !current.containsKey("ForceUpdate")) {
+			throw new IllegalStateException("ForceUpdate acknowledgment could not be verified");
+		}
+		String currentRequest = forceUpdateRequestId(current);
+		if (requestId.equals(currentRequest) && checkGlobalDataTimeValue(current.get("ForceUpdate"))) {
+			throw new IllegalStateException("ForceUpdate acknowledgment was not persisted");
 		}
 	}
 
@@ -468,6 +495,7 @@ public class BackendGlobalDataSync {
 				"FinishedProcessing", "VARCHAR(5)",
 				"Processing", "VARCHAR(5)",
 				"LastUpdated", "MEDIUMTEXT",
+				"ForceUpdateId", "VARCHAR(36)",
 				"ForceUpdate", "VARCHAR(5)").entrySet()) {
 			loadedHandler.getGlobalMysql().alterColumnType(column.getKey(), column.getValue());
 		}
@@ -617,8 +645,13 @@ public class BackendGlobalDataSync {
 	}
 
 	private static final class ForceUpdateFence {
+		private final String requestId;
 		private boolean effectApplied;
 		private boolean acknowledgmentClaimed;
+
+		private ForceUpdateFence(String requestId) {
+			this.requestId = requestId;
+		}
 	}
 
 	private record ForceUpdateGrant(ForceUpdateFence fence, boolean acknowledgmentOnly) {
@@ -692,9 +725,9 @@ public class BackendGlobalDataSync {
 			return persistenceLock;
 		}
 
-		private synchronized ForceUpdateGrant admitForceUpdate(BackendGlobalDataSync requester) {
+		private synchronized ForceUpdateGrant admitForceUpdate(BackendGlobalDataSync requester, String requestId) {
 			if (forceUpdateFence == null) {
-				forceUpdateFence = new ForceUpdateFence();
+				forceUpdateFence = new ForceUpdateFence(requestId);
 				forceUpdateFence.acknowledgmentClaimed = true;
 				forceUpdateOwner = requester;
 				return new ForceUpdateGrant(forceUpdateFence, false);
@@ -736,7 +769,8 @@ public class BackendGlobalDataSync {
 				BackendGlobalDataSync replacement) {
 			if (forceUpdateOwner != previous) return;
 			forceUpdateOwner = replacement;
-			if (forceUpdateFence != null && forceUpdateFence.effectApplied) {
+			if (forceUpdateFence != null && forceUpdateFence.effectApplied
+					&& forceUpdateFence.requestId != null) {
 				forceUpdateFence.acknowledgmentClaimed = false;
 			}
 		}

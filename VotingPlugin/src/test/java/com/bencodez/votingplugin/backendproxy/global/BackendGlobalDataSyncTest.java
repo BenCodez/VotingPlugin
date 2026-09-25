@@ -233,6 +233,8 @@ class BackendGlobalDataSyncTest {
 		BukkitScheduler scheduler = mock(BukkitScheduler.class);
 		GlobalDataHandler oldHandler = mock(GlobalDataHandler.class);
 		GlobalDataHandler replacementHandler = mock(GlobalDataHandler.class);
+		GlobalMySQL oldMysql = mock(GlobalMySQL.class);
+		GlobalMySQL replacementMysql = mock(GlobalMySQL.class);
 		UserDataManager dataManager = mock(UserDataManager.class);
 		UserManager userManager = mock(UserManager.class);
 		AtomicReference<Runnable> scheduled = new AtomicReference<>();
@@ -255,15 +257,24 @@ class BackendGlobalDataSyncTest {
 			asyncWrite.set(invocation.getArgument(1));
 			return null;
 		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		when(oldHandler.getGlobalMysql()).thenReturn(oldMysql);
+		when(replacementHandler.getGlobalMysql()).thenReturn(replacementMysql);
 		org.mockito.Mockito.doAnswer(invocation -> {
 			writeStarted.countDown();
 			assertTrue(finishWrite.await(2, TimeUnit.SECONDS));
 			return null;
-		}).when(oldHandler).setBoolean("lobby", "ForceUpdate", false);
-		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> data = new HashMap<>();
-		data.put("ForceUpdate", new DataValueBoolean(true));
-		when(oldHandler.getExact("lobby")).thenReturn(data);
-		when(replacementHandler.getExact("lobby")).thenReturn(data);
+		}).when(oldMysql).executeQuery(any(String.class));
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> requested = new HashMap<>();
+		requested.put("ForceUpdate", new DataValueBoolean(true));
+		requested.put("ForceUpdateId", new DataValueString("old-request"));
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> acknowledged = new HashMap<>();
+		acknowledged.put("ForceUpdate", new DataValueBoolean(false));
+		acknowledged.put("ForceUpdateId", new DataValueString("old-request"));
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> newer = new HashMap<>();
+		newer.put("ForceUpdate", new DataValueBoolean(true));
+		newer.put("ForceUpdateId", new DataValueString("new-request"));
+		when(oldHandler.getExact("lobby")).thenReturn(requested, requested, newer);
+		when(replacementHandler.getExact("lobby")).thenReturn(requested, acknowledged);
 		BackendGlobalDataSync oldSync = new BackendGlobalDataSync(plugin, ignored -> { });
 		BackendGlobalDataSync replacement = new BackendGlobalDataSync(plugin, ignored -> { });
 		setField(oldSync, "globalDataHandler", oldHandler);
@@ -280,12 +291,15 @@ class BackendGlobalDataSyncTest {
 
 		replacement.checkGlobalData();
 		org.junit.jupiter.api.Assertions.assertEquals(1, schedulerRuns.get());
-		verify(replacementHandler).setBoolean("lobby", "ForceUpdate", false);
+		verify(replacementMysql).executeQuery(org.mockito.ArgumentMatchers.argThat(query ->
+				query.contains("ForceUpdateId='old-request'") && query.contains("server='lobby'")));
 		verify(plugin, org.mockito.Mockito.times(1)).update();
 
 		finishWrite.countDown();
 		execution.get(1, TimeUnit.SECONDS);
 		verify(plugin, org.mockito.Mockito.times(1)).update();
+		verify(oldMysql).executeQuery(org.mockito.ArgumentMatchers.argThat(query ->
+				query.contains("ForceUpdateId='old-request'")));
 	}
 
 	@Test

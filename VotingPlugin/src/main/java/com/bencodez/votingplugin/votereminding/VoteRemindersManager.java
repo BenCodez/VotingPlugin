@@ -317,6 +317,7 @@ public final class VoteRemindersManager {
 
 	// Scheduler (timing + coalescing + delayed eval)
 	private final ScheduledExecutorService scheduler;
+	private final Set<TrackedClaimRollback> pendingClaimRollbacks = ConcurrentHashMap.newKeySet();
 	private volatile ScheduledFuture<?> minuteFuture;
 	private final ConcurrentHashMap<UUID, ScheduledFuture<?>> flushFutures = new ConcurrentHashMap<>();
 
@@ -397,7 +398,21 @@ public final class VoteRemindersManager {
 		pending.clear();
 		flushFutures.clear();
 
-		scheduler.shutdownNow();
+		try {
+			scheduler.execute(this::rollbackPendingClaims);
+		} catch (java.util.concurrent.RejectedExecutionException ignored) {
+			// A repeated shutdown has no newly admitted reminder work.
+		}
+		scheduler.shutdown();
+		try {
+			scheduler.awaitTermination(5L, TimeUnit.SECONDS);
+		} catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt();
+		}
+	}
+
+	private void rollbackPendingClaims() {
+		for (TrackedClaimRollback rollback : List.copyOf(pendingClaimRollbacks)) rollback.run();
 	}
 
 	private boolean isEnabled() {
@@ -888,13 +903,13 @@ public final class VoteRemindersManager {
 			plugin.debug(failure);
 			return false;
 		}
-		Runnable releaseClaims = () -> {
+		TrackedClaimRollback releaseClaims = trackClaimRollback(() -> {
 			try {
 				cooldowns.releaseReminder(user.getJavaUUID(), def.getName(), now, def.getCooldown(), def.getInterval());
 			} finally {
 				cooldowns.releaseGlobal(user.getJavaUUID(), now);
 			}
-		};
+		});
 		RewardBuilder reward;
 		try {
 			reward = prepareRewardFromPath(user, snapshot, def.getRewardsPath(), placeholders);
@@ -904,6 +919,7 @@ public final class VoteRemindersManager {
 			return false;
 		}
 		return scheduleIfStillOnline(user.getJavaUUID(), () -> {
+			releaseClaims.retain();
 			try {
 				reward.sendAsync(user).whenComplete((ignored, failure) -> {
 					if (failure != null) plugin.debug(failure);
@@ -914,6 +930,33 @@ public final class VoteRemindersManager {
 				plugin.debug(failure);
 			}
 		}, () -> submitReminderWorker(releaseClaims));
+	}
+
+	private TrackedClaimRollback trackClaimRollback(Runnable rollback) {
+		TrackedClaimRollback tracked = new TrackedClaimRollback(rollback);
+		pendingClaimRollbacks.add(tracked);
+		return tracked;
+	}
+
+	private final class TrackedClaimRollback implements Runnable {
+		private final Runnable rollback;
+		private final AtomicBoolean pending = new AtomicBoolean(true);
+
+		private TrackedClaimRollback(Runnable rollback) {
+			this.rollback = rollback;
+		}
+
+		@Override
+		public void run() {
+			if (!pending.compareAndSet(true, false)) return;
+			pendingClaimRollbacks.remove(this);
+			rollback.run();
+		}
+
+		private void retain() {
+			if (!pending.compareAndSet(true, false)) return;
+			pendingClaimRollbacks.remove(this);
+		}
 	}
 
 	boolean scheduleIfStillOnline(UUID uuid, Runnable delivery) {

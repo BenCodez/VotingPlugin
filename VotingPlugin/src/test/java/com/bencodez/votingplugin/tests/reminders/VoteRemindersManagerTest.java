@@ -50,6 +50,25 @@ import com.bencodez.votingplugin.votereminding.store.VoteReminderCooldownStore;
 @ExtendWith(MockitoExtension.class)
 public class VoteRemindersManagerTest {
 	@Test
+	void shutdownDrainsClaimRollbackBeforeLateEntityCallback() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		ServerData serverData = mock(ServerData.class);
+		VoteReminderCooldownStore store = mock(VoteReminderCooldownStore.class);
+		AtomicInteger rollbacks = new AtomicInteger();
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(serverData.getDisabledReminders()).thenReturn(Collections.emptyList());
+		VoteRemindersManager manager = new VoteRemindersManager(plugin, store);
+		Method track = VoteRemindersManager.class.getDeclaredMethod("trackClaimRollback", Runnable.class);
+		track.setAccessible(true);
+		Runnable rollback = (Runnable) track.invoke(manager, (Runnable) rollbacks::incrementAndGet);
+
+		manager.shutdown();
+		rollback.run();
+
+		org.junit.jupiter.api.Assertions.assertEquals(1, rollbacks.get());
+	}
+
+	@Test
 	void reminderDeliveryRevalidatesItsPlayerOwnerOnTheEntityScheduler() throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		ServerData serverData = mock(ServerData.class);
