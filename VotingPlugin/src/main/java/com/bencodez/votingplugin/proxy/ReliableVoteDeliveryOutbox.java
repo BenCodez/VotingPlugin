@@ -25,8 +25,10 @@ final class ReliableVoteDeliveryOutbox {
 	private static final String ADD = "A";
 	private static final String COMPLETED = "C";
 	private static final String REMOVE = "R";
+	private static final String LEGACY_FENCED = "F";
+	private static final String LEGACY_UNFENCED = "U";
 
-	record Entry(String server, JsonEnvelope envelope, boolean awaitingReceiptRelease) { }
+	record Entry(String server, JsonEnvelope envelope, boolean awaitingReceiptRelease, boolean legacyDeliveryFenced) { }
 
 	private final Path file;
 	private final LinkedHashMap<String, Entry> entries = new LinkedHashMap<>();
@@ -44,7 +46,7 @@ final class ReliableVoteDeliveryOutbox {
 		if (entries.containsKey(key)) return true;
 		if (entries.size() >= MAX_ENTRIES) return false;
 		String record = addRecord(server, envelope);
-		Entry entry = new Entry(server, envelope, false);
+		Entry entry = new Entry(server, envelope, false, false);
 		long remainingReserve = terminalRecordReserve() + terminalRecordReserve(entry);
 		if (!prepareAppend(record, remainingReserve) || !append(record)) return false;
 		entries.put(key, entry);
@@ -59,8 +61,35 @@ final class ReliableVoteDeliveryOutbox {
 		if (entry == null) return false;
 		if (entry.awaitingReceiptRelease()) return true;
 		String record = completionRecord(key);
-		if (!prepareAppend(record, terminalRecordReserve() - utf8Length(record)) || !append(record)) return false;
-		entries.put(key, new Entry(entry.server(), entry.envelope(), true));
+		Entry completed = new Entry(entry.server(), entry.envelope(), true, false);
+		long remainingReserve = terminalRecordReserve() - terminalRecordReserve(entry)
+				+ terminalRecordReserve(completed);
+		if (!prepareAppend(record, remainingReserve) || !append(record)) return false;
+		entries.put(key, completed);
+		journalRecords++;
+		return true;
+	}
+
+	synchronized boolean beginLegacyDelivery(String server, UUID voteId, String subChannel) {
+		return transitionLegacyDelivery(server, voteId, subChannel, true);
+	}
+
+	synchronized boolean resetLegacyDelivery(String server, UUID voteId, String subChannel) {
+		return transitionLegacyDelivery(server, voteId, subChannel, false);
+	}
+
+	private boolean transitionLegacyDelivery(String server, UUID voteId, String subChannel, boolean fenced) {
+		if (voteId == null || server == null || subChannel == null) return false;
+		String key = normalized(server) + '|' + subChannel + '|' + voteId;
+		Entry entry = entries.get(key);
+		if (entry == null || entry.awaitingReceiptRelease()) return false;
+		if (entry.legacyDeliveryFenced() == fenced) return true;
+		Entry transitioned = new Entry(entry.server(), entry.envelope(), false, fenced);
+		String record = (fenced ? LEGACY_FENCED : LEGACY_UNFENCED) + '\t' + encode(key) + '\n';
+		long remainingReserve = terminalRecordReserve() - terminalRecordReserve(entry)
+				+ terminalRecordReserve(transitioned);
+		if (!prepareAppend(record, remainingReserve) || !append(record)) return false;
+		entries.put(key, transitioned);
 		journalRecords++;
 		return true;
 	}
@@ -85,7 +114,8 @@ final class ReliableVoteDeliveryOutbox {
 			return true;
 		}
 		String record = removalRecord(key);
-		if (!prepareAppend(record, terminalRecordReserve() - utf8Length(record)) || !append(record)) return false;
+		Entry entry = entries.get(key);
+		if (!prepareAppend(record, terminalRecordReserve() - terminalRecordReserve(entry)) || !append(record)) return false;
 		entries.remove(key);
 		journalRecords++;
 		return true;
@@ -127,12 +157,21 @@ final class ReliableVoteDeliveryOutbox {
 					JsonEnvelope envelope = JsonEnvelopeCodec.decode(decode(parts[2]));
 					String key = key(server, envelope);
 					if (key == null) throw new IllegalArgumentException("Invalid vote envelope");
-					entries.put(key, new Entry(server, envelope, false));
+					entries.put(key, new Entry(server, envelope, false, false));
 				} else if (parts.length == 2 && COMPLETED.equals(parts[0])) {
 					String key = decode(parts[1]);
 					Entry entry = entries.get(key);
 					if (entry == null) throw new IllegalArgumentException("Completion without vote");
-					entries.put(key, new Entry(entry.server(), entry.envelope(), true));
+					entries.put(key, new Entry(entry.server(), entry.envelope(), true, false));
+				} else if (parts.length == 2
+						&& (LEGACY_FENCED.equals(parts[0]) || LEGACY_UNFENCED.equals(parts[0]))) {
+					String key = decode(parts[1]);
+					Entry entry = entries.get(key);
+					if (entry == null || entry.awaitingReceiptRelease()) {
+						throw new IllegalArgumentException("Legacy transition without pending vote");
+					}
+					entries.put(key, new Entry(entry.server(), entry.envelope(), false,
+							LEGACY_FENCED.equals(parts[0])));
 				} else if (parts.length == 2 && REMOVE.equals(parts[0])) {
 					entries.remove(decode(parts[1]));
 				} else throw new IllegalArgumentException("Unknown journal record");
@@ -173,7 +212,13 @@ final class ReliableVoteDeliveryOutbox {
 	private long terminalRecordReserve(Entry entry) {
 		String key = key(entry.server(), entry.envelope());
 		long reserve = utf8Length(removalRecord(key));
-		if (!entry.awaitingReceiptRelease()) reserve += utf8Length(completionRecord(key));
+		if (!entry.awaitingReceiptRelease()) {
+			reserve += utf8Length(completionRecord(key));
+			String fence = legacyFenceRecord(key, true);
+			String unfence = legacyFenceRecord(key, false);
+			reserve += utf8Length(fence) + utf8Length(unfence);
+			if (!entry.legacyDeliveryFenced()) reserve += utf8Length(fence);
+		}
 		return reserve;
 	}
 
@@ -204,6 +249,8 @@ final class ReliableVoteDeliveryOutbox {
 				text.append(addRecord(entry.server(), entry.envelope()));
 				if (entry.awaitingReceiptRelease()) {
 					text.append(COMPLETED).append('\t').append(encode(key(entry.server(), entry.envelope()))).append('\n');
+				} else if (entry.legacyDeliveryFenced()) {
+					text.append(legacyFenceRecord(key(entry.server(), entry.envelope()), true));
 				}
 			}
 			Path staged = file.resolveSibling(file.getFileName() + ".tmp");
@@ -211,7 +258,7 @@ final class ReliableVoteDeliveryOutbox {
 					StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
 			DurableFiles.publishStagedFile(staged, file);
 			journalRecords = entries.size() + (int) entries.values().stream()
-					.filter(Entry::awaitingReceiptRelease).count();
+					.filter(entry -> entry.awaitingReceiptRelease() || entry.legacyDeliveryFenced()).count();
 			repairRequired = false;
 			return true;
 		} catch (IOException failure) {
@@ -229,6 +276,10 @@ final class ReliableVoteDeliveryOutbox {
 
 	private static String removalRecord(String key) {
 		return REMOVE + '\t' + encode(key) + '\n';
+	}
+
+	private static String legacyFenceRecord(String key, boolean fenced) {
+		return (fenced ? LEGACY_FENCED : LEGACY_UNFENCED) + '\t' + encode(key) + '\n';
 	}
 
 	private static int utf8Length(String value) {

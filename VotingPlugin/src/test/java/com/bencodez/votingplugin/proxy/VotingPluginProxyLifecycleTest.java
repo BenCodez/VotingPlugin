@@ -21,6 +21,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -124,9 +125,16 @@ class VotingPluginProxyLifecycleTest {
 		legacy.add("survival");
 		Method retry = VotingPluginProxy.class.getDeclaredMethod("retryReliableVoteDeliveries", String.class);
 		retry.setAccessible(true);
-		byte[] journal = Files.readAllBytes(file);
-		Files.delete(file);
-		Files.createDirectory(file);
+		AtomicReference<byte[]> fencedJournal = new AtomicReference<>();
+		proxy.setAcceptedVoteEnvelopeHook(() -> {
+			try {
+				fencedJournal.set(Files.readAllBytes(file));
+				Files.delete(file);
+				Files.createDirectory(file);
+			} catch (java.io.IOException failure) {
+				throw new AssertionError(failure);
+			}
+		});
 
 		retry.invoke(proxy, "survival");
 		retry.invoke(proxy, "survival");
@@ -134,11 +142,18 @@ class VotingPluginProxyLifecycleTest {
 		assertEquals(1, proxy.getVoteEnvelopeDeliveryAttempts());
 		org.junit.jupiter.api.Assertions.assertFalse(outbox.snapshot().get(0).awaitingReceiptRelease());
 		Files.delete(file);
-		Files.write(file, journal);
-		retry.invoke(proxy, "survival");
-		assertEquals(1, proxy.getVoteEnvelopeDeliveryAttempts());
-		org.junit.jupiter.api.Assertions.assertTrue(outbox.snapshot().get(0).awaitingReceiptRelease());
-		assertEquals(Set.of(), field(proxy, "acceptedLegacyVoteDeliveries"));
+		Files.write(file, fencedJournal.get());
+
+		VotingPluginProxyTestImpl restartedProxy = new VotingPluginProxyTestImpl();
+		restartedProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		ReliableVoteDeliveryOutbox restartedOutbox = new ReliableVoteDeliveryOutbox(file);
+		setField(restartedProxy, "reliableVoteDeliveryOutbox", restartedOutbox);
+		@SuppressWarnings("unchecked")
+		Set<String> restartedLegacy = (Set<String>) field(restartedProxy, "legacyVoteDeliveryServers");
+		restartedLegacy.add("survival");
+		retry.invoke(restartedProxy, "survival");
+		assertEquals(0, restartedProxy.getVoteEnvelopeDeliveryAttempts());
+		org.junit.jupiter.api.Assertions.assertTrue(restartedOutbox.snapshot().get(0).awaitingReceiptRelease());
 	}
 
 	private static void setField(Object target, String name, Object value) throws Exception {
