@@ -159,10 +159,9 @@ public class BackendProxyMessageRouter {
 		throw new IllegalArgumentException("Unsupported ordered proxy vote message: " + subChannel);
 	}
 
-	/** Allows a durable receipt release to bypass a capacity-blocked ordered vote. */
-	public boolean hasDurableReceiptForRelease(JsonEnvelope msg) {
-		UUID voteId = validReceiptReleaseVoteId(msg);
-		return voteId != null && processedVoteCache.hasDurableReceipt(voteId);
+	/** Allows a valid receipt release to bypass a capacity-blocked ordered vote. */
+	public boolean isValidReceiptRelease(JsonEnvelope msg) {
+		return validReceiptReleaseVoteId(msg) != null;
 	}
 
 	/**

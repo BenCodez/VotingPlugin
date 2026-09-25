@@ -1,6 +1,7 @@
 package com.bencodez.votingplugin.proxy;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -163,6 +164,41 @@ class VotingPluginProxyLifecycleTest {
 		assertEquals(1, outbox.size());
 		org.junit.jupiter.api.Assertions.assertTrue(
 				VotingPluginWire.requestsVoteDeliveryAcknowledgement(proxy.getLastVoteEnvelope()));
+	}
+
+	@Test
+	void reliableHttpRetriesReuseOneStableIdPerDeliveryPhase(@TempDir Path directory) throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		proxy.setMethod(BungeeMethod.HTTP);
+		proxy.setVoteEnvelopeDeliveryResult(true);
+		ReliableVoteDeliveryOutbox outbox = new ReliableVoteDeliveryOutbox(directory.resolve("outbox.dat"));
+		setField(proxy, "reliableVoteDeliveryOutbox", outbox);
+		@SuppressWarnings("unchecked")
+		Set<String> reliable = (Set<String>) field(proxy, "reliableVoteDeliveryServers");
+		reliable.add("survival");
+		UUID voteId = UUID.randomUUID();
+		JsonEnvelope vote = VotingPluginWire.vote("Player", UUID.randomUUID().toString(), "site", 10L,
+				true, true, "", voteId, false, false, 1, 1);
+
+		org.junit.jupiter.api.Assertions.assertTrue(proxy.sendVoteEnvelopeAcceptedForTest("survival", 1, vote));
+		Method retry = VotingPluginProxy.class.getDeclaredMethod("retryReliableVoteDeliveries", String.class);
+		retry.setAccessible(true);
+		retry.invoke(proxy, "survival");
+		retry.invoke(proxy, "survival");
+
+		Method completion = VotingPluginProxy.class.getDeclaredMethod(
+				"handleVoteDeliveryAcknowledgement", JsonEnvelope.class);
+		completion.setAccessible(true);
+		completion.invoke(proxy, VotingPluginWire.voteDeliveryAcknowledgement(
+				"survival", voteId, VotingPluginWire.SUB_VOTE));
+		retry.invoke(proxy, "survival");
+
+		java.util.List<String> deliveryIds = proxy.getAttemptedVotePartyDeliveryIds();
+		assertEquals(5, deliveryIds.size());
+		assertEquals(deliveryIds.get(0), deliveryIds.get(1));
+		assertEquals(deliveryIds.get(0), deliveryIds.get(2));
+		assertEquals(deliveryIds.get(3), deliveryIds.get(4));
+		assertNotEquals(deliveryIds.get(0), deliveryIds.get(3));
 	}
 
 	@Test

@@ -239,35 +239,37 @@ public class BackendProxyHandler implements Listener {
 
 	private void dispatchOrderedVote(JsonEnvelope envelope, Runnable ignoredLocalDispatch) {
 		BackendProxyMessageRouter router = messageRouter;
-		if (router != null && router.hasDurableReceiptForRelease(envelope)
-				&& durableReceiptReleaseActive.compareAndSet(false, true)) {
-			try {
-				plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
-						() -> processDurableReceiptRelease(router, envelope, ignoredLocalDispatch));
-				return;
-			} catch (RuntimeException schedulingFailure) {
-				plugin.debug(schedulingFailure);
-				processDurableReceiptRelease(router, envelope, ignoredLocalDispatch);
-				return;
-			}
-		}
+		if (dispatchDurableReceiptRelease(router, envelope)) return;
 		enqueueOrderedVote(envelope, ignoredLocalDispatch);
 	}
 
-	private void processDurableReceiptRelease(BackendProxyMessageRouter router, JsonEnvelope envelope,
-			Runnable ignoredLocalDispatch) {
+	private boolean dispatchDurableReceiptRelease(BackendProxyMessageRouter router, JsonEnvelope envelope) {
+		if (router == null || !router.isValidReceiptRelease(envelope)) return false;
+		// The proxy durably retries unacknowledged releases. Keep every valid release
+		// outside the ordered vote lane, including a release received while this
+		// bounded single-flight worker is busy.
+		if (!durableReceiptReleaseActive.compareAndSet(false, true)) return true;
+		try {
+			plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
+					() -> processDurableReceiptRelease(router, envelope));
+		} catch (RuntimeException schedulingFailure) {
+			plugin.debug(schedulingFailure);
+			processDurableReceiptRelease(router, envelope);
+		}
+		return true;
+	}
+
+	private void processDurableReceiptRelease(BackendProxyMessageRouter router, JsonEnvelope envelope) {
 		AtomicBoolean completed = new AtomicBoolean();
 		java.util.function.Consumer<OrderedVoteOutcome> completion = outcome -> {
 			if (!completed.compareAndSet(false, true)) return;
 			durableReceiptReleaseActive.set(false);
-			if (outcome != OrderedVoteOutcome.COMPLETE) enqueueOrderedVote(envelope, ignoredLocalDispatch);
 		};
 		try {
 			router.handleOrderedVote(envelope, completion);
 		} catch (RuntimeException | Error failure) {
 			if (completed.compareAndSet(false, true)) {
 				durableReceiptReleaseActive.set(false);
-				enqueueOrderedVote(envelope, ignoredLocalDispatch);
 			}
 			throw failure;
 		}
@@ -431,6 +433,10 @@ public class BackendProxyHandler implements Listener {
 			}
 		};
 		try {
+			if (dispatchDurableReceiptRelease(messageRouter, next)) {
+				complete.accept(OrderedVoteOutcome.COMPLETE);
+				return;
+			}
 			messageRouter.handleOrderedVote(next, complete);
 		} catch (RuntimeException | Error failure) {
 			complete.accept(OrderedVoteOutcome.QUARANTINE);

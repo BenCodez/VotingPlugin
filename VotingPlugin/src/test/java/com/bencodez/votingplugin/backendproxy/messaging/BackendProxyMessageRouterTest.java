@@ -260,10 +260,9 @@ class BackendProxyMessageRouterTest {
 	}
 
 	@Test
-	void receiptReleaseRunsInOrderedLaneAndAcknowledgesDurableRemoval() {
+	void unknownReceiptReleaseIsValidAndAcknowledgesDurableTombstone() {
 		UUID voteId = UUID.randomUUID();
 		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
-		when(cache.hasDurableReceipt(voteId)).thenReturn(true);
 		when(cache.releaseCompletedReceipt(voteId)).thenReturn(true);
 		AdvancedCoreConfigOptions options = mock(AdvancedCoreConfigOptions.class);
 		when(options.getServer()).thenReturn("survival");
@@ -277,7 +276,7 @@ class BackendProxyMessageRouterTest {
 
 		JsonEnvelope release = VotingPluginWire.voteDeliveryReceiptRelease(
 				"survival", voteId, VotingPluginWire.SUB_VOTE);
-		assertTrue(voteRouter.hasDurableReceiptForRelease(release));
+		assertTrue(voteRouter.isValidReceiptRelease(release));
 		voteRouter.handleOrderedVote(release, outcome::set);
 
 		assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
