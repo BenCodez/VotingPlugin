@@ -420,10 +420,12 @@ public class BackendProxyHandler implements Listener {
 			}
 			return;
 		}
-		boolean successful = outcome == OrderedVoteOutcome.COMPLETE;
+		boolean successful = outcome == OrderedVoteOutcome.COMPLETE
+				|| outcome == OrderedVoteOutcome.COMPLETE_WITHOUT_RETIREMENT;
+		boolean retireDelivery = outcome == OrderedVoteOutcome.COMPLETE;
 		if (successful && overflowEntry != null && orderedVoteOverflow != null) {
 			orderedVoteOverflow.acknowledgeAsync(overflowEntry,
-					stored -> completeOrderedVoteAcknowledgement(stored, envelope));
+					stored -> completeOrderedVoteAcknowledgement(stored, envelope, retireDelivery));
 			return;
 		}
 		boolean completedInMemory = false;
@@ -440,10 +442,10 @@ public class BackendProxyHandler implements Listener {
 			if (successful) scheduleOrderedVoteDispatchLocked();
 			else retryOrderedVoteDispatchLocked();
 		}
-		if (completedInMemory) completeVoteDelivery(envelope);
+		if (completedInMemory && retireDelivery) completeVoteDelivery(envelope);
 	}
 
-	private void completeOrderedVoteAcknowledgement(boolean stored, JsonEnvelope envelope) {
+	private void completeOrderedVoteAcknowledgement(boolean stored, JsonEnvelope envelope, boolean retireDelivery) {
 		synchronized (orderedVoteDispatch) {
 			if (stored) {
 				orderedVoteDispatchInFlight = null;
@@ -459,7 +461,7 @@ public class BackendProxyHandler implements Listener {
 			orderedVoteDispatch.notifyAll();
 			if (stored) scheduleOrderedVoteDispatchLocked();
 		}
-		if (stored) completeVoteDelivery(envelope);
+		if (stored && retireDelivery) completeVoteDelivery(envelope);
 	}
 
 	private void completeVoteDelivery(JsonEnvelope envelope) {

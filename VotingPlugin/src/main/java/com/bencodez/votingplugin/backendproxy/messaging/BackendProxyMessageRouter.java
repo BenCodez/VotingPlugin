@@ -29,7 +29,7 @@ import com.bencodez.votingplugin.votesites.VoteSite;
  * Registers and handles backend-side proxy message routes.
  */
 public class BackendProxyMessageRouter {
-	public enum OrderedVoteOutcome { COMPLETE, RETRY, QUARANTINE }
+	public enum OrderedVoteOutcome { COMPLETE, COMPLETE_WITHOUT_RETIREMENT, RETRY, QUARANTINE }
 
 	private final VotingPluginMain plugin;
 	private final BackendPresenceManager presenceManager;
@@ -126,7 +126,9 @@ public class BackendProxyMessageRouter {
 		}
 		if (VotingPluginWire.SUB_VOTE.equals(subChannel) || VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)) {
 			try {
-				handleWireVote(msg);
+				boolean processed = handleWireVote(msg);
+				completion.accept(processed ? OrderedVoteOutcome.COMPLETE
+						: OrderedVoteOutcome.COMPLETE_WITHOUT_RETIREMENT);
 			} catch (SharedVoteAdmissionException retryableAdmission) {
 				completion.accept(OrderedVoteOutcome.RETRY);
 				return;
@@ -134,7 +136,6 @@ public class BackendProxyMessageRouter {
 				completion.accept(OrderedVoteOutcome.QUARANTINE);
 				throw failure;
 			}
-			completion.accept(OrderedVoteOutcome.COMPLETE);
 			return;
 		}
 		completion.accept(OrderedVoteOutcome.QUARANTINE);
@@ -348,18 +349,18 @@ public class BackendProxyMessageRouter {
 		voteSite.giveWaitUntilVoteDelayRewards(user, rejected.wasOnline && user.isOnline(), true);
 	}
 
-	private void handleWireVote(JsonEnvelope msg) {
+	private boolean handleWireVote(JsonEnvelope msg) {
 		if (!validSchema(msg)) {
-			return;
+			return false;
 		}
 		VotingPluginWire.Vote vote = VotingPluginWire.readVote(msg);
 		if (vote.uuid == null || vote.uuid.isEmpty()) {
-			return;
+			return false;
 		}
 		if (!ServiceSiteValidator.isValid(vote.service)) {
 			plugin.getLogger().warning("Rejected proxy vote with invalid service site '"
 					+ ServiceSiteValidator.sanitizeForLog(vote.service) + "'");
-			return;
+			return false;
 		}
 
 		plugin.debug("wire vote received from " + ServiceSiteValidator.sanitizeForLog(vote.player) + "/"
@@ -371,7 +372,7 @@ public class BackendProxyMessageRouter {
 			plugin.debug("Ignoring duplicate wire vote " + voteId + " for "
 					+ ServiceSiteValidator.sanitizeForLog(vote.player) + " on "
 					+ ServiceSiteValidator.sanitizeForLog(vote.service));
-			return;
+			return false;
 		}
 
 		UUID javaUuid;
@@ -380,7 +381,7 @@ public class BackendProxyMessageRouter {
 		} catch (IllegalArgumentException e) {
 			plugin.getLogger().warning("Invalid UUID in proxy vote: "
 					+ ServiceSiteValidator.sanitizeForLog(vote.uuid));
-			return;
+			return false;
 		}
 		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(javaUuid, vote.player);
 		votePartySync.replace(totals.getVotePartyCurrent(), totals.getVotePartyRequired());
@@ -396,6 +397,7 @@ public class BackendProxyMessageRouter {
 		if (vote.service != null && !vote.service.isEmpty()) {
 			plugin.getServerData().addServiceSite(vote.service);
 		}
+		return true;
 	}
 
 	private boolean validSchema(JsonEnvelope msg) {
