@@ -295,6 +295,10 @@ public class VoteShopPurchaseService {
 		};
 		try {
 			runPurchaseEntityTask(player, () -> {
+				if (plugin.getBukkitScheduler().getFoliaLib() == null && !player.isOnline()) {
+					rejectBeforeStart.run();
+					return;
+				}
 				if (!state.compareAndSet(COMPLETION_PENDING, COMPLETION_RUNNING)) return;
 				CompletionStage<Void> rewardCompletion;
 				try {

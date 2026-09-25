@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -66,6 +67,28 @@ public class VoteRemindersManagerTest {
 		rollback.run();
 
 		org.junit.jupiter.api.Assertions.assertEquals(1, rollbacks.get());
+	}
+
+	@Test
+	void shutdownCancelsDelayedReminderEvaluations() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		ServerData serverData = mock(ServerData.class);
+		VoteReminderCooldownStore store = mock(VoteReminderCooldownStore.class);
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(serverData.getDisabledReminders()).thenReturn(Collections.emptyList());
+		VoteRemindersManager manager = new VoteRemindersManager(plugin, store);
+		Method schedule = VoteRemindersManager.class.getDeclaredMethod("scheduleDelayedEvaluation",
+				UUID.class, String.class, Map.class, long.class);
+		schedule.setAccessible(true);
+		schedule.invoke(manager, UUID.randomUUID(), "login", Collections.emptyMap(), 60_000L);
+
+		manager.shutdown();
+
+		Field schedulerField = VoteRemindersManager.class.getDeclaredField("scheduler");
+		schedulerField.setAccessible(true);
+		ScheduledExecutorService executor = (ScheduledExecutorService) schedulerField.get(manager);
+		assertTrue(executor.isTerminated());
+		verify(plugin, never()).getBukkitScheduler();
 	}
 
 	@Test

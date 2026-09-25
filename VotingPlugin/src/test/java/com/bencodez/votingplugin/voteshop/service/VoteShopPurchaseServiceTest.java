@@ -417,6 +417,7 @@ class VoteShopPurchaseServiceTest {
 		ScheduledExecutorService persistenceExecutor = mock(ScheduledExecutorService.class);
 		when(plugin.getTimer()).thenReturn(persistenceExecutor);
 		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
+		when(player.isOnline()).thenReturn(true);
 		when(player.getUniqueId()).thenReturn(UUID.fromString("00000000-0000-0000-0000-000000000001"));
 		when(player.getName()).thenReturn("player");
 		doAnswer(invocation -> {
@@ -451,6 +452,40 @@ class VoteShopPurchaseServiceTest {
 	}
 
 	@Test
+	void legacyClaimedRewardCompensatesWhenPlayerLogsOutBeforeQueuedCallback() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
+				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
+		ScheduledExecutorService persistenceExecutor = mock(ScheduledExecutorService.class);
+		RewardHandler rewardHandler = mock(RewardHandler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(scheduler.getFoliaLib()).thenReturn(null);
+		when(plugin.getTimer()).thenReturn(persistenceExecutor);
+		when(plugin.getRewardHandler()).thenReturn(rewardHandler);
+		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
+		when(player.isOnline()).thenReturn(false);
+		ArgumentCaptor<Runnable> entityCallback = ArgumentCaptor.forClass(Runnable.class);
+		doAnswer(invocation -> null).when(scheduler).runTask(eq(plugin), entityCallback.capture(), eq(player));
+		SharedMysqlPurchaseJournal journal = mock(SharedMysqlPurchaseJournal.class);
+		when(journal.markCompensating("purchase-1")).thenReturn(true);
+		when(journal.refundCompensatingReward("purchase-1")).thenReturn(false);
+		VoteShopPurchaseService.SharedPurchaseDebit debit = new VoteShopPurchaseService.SharedPurchaseDebit(
+				VoteShopPurchaseResult.SUCCESS, journal, "purchase-1", "Points", null);
+
+		new VoteShopPurchaseService(plugin, mock(VoteShopDefinition.class)).scheduleClaimedReward(
+				player, mock(VotingPluginUser.class), mock(VoteShopItem.class), new HashMap<>(),
+				mock(FileConfiguration.class), ignored -> {}, debit);
+		entityCallback.getValue().run();
+
+		ArgumentCaptor<Runnable> compensation = ArgumentCaptor.forClass(Runnable.class);
+		verify(persistenceExecutor).execute(compensation.capture());
+		compensation.getValue().run();
+		verify(journal).markCompensating("purchase-1");
+		verify(journal).refundCompensatingReward("purchase-1");
+		verify(rewardHandler, never()).giveRewardAsync(any(), any(), anyString(), any());
+	}
+
+	@Test
 	void claimedPurchaseWaitsForRewardCompletionBeforeEventAndSettlement() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
@@ -470,6 +505,7 @@ class VoteShopPurchaseServiceTest {
 			return null;
 		}).when(scheduler).runTask(eq(plugin), any(Runnable.class), any(org.bukkit.entity.Player.class));
 		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
+		when(player.isOnline()).thenReturn(true);
 		when(player.getUniqueId()).thenReturn(UUID.fromString("00000000-0000-0000-0000-000000000001"));
 		when(player.getName()).thenReturn("player");
 		VotingPluginUser user = purchaseUser();

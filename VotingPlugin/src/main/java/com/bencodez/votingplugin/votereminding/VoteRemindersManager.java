@@ -318,6 +318,8 @@ public final class VoteRemindersManager {
 	// Scheduler (timing + coalescing + delayed eval)
 	private final ScheduledExecutorService scheduler;
 	private final Set<TrackedClaimRollback> pendingClaimRollbacks = ConcurrentHashMap.newKeySet();
+	private final Set<ScheduledFuture<?>> delayedFutures = ConcurrentHashMap.newKeySet();
+	private final AtomicInteger taskGeneration = new AtomicInteger();
 	private volatile ScheduledFuture<?> minuteFuture;
 	private final ConcurrentHashMap<UUID, ScheduledFuture<?>> flushFutures = new ConcurrentHashMap<>();
 
@@ -399,9 +401,16 @@ public final class VoteRemindersManager {
 		flushFutures.clear();
 
 		try {
-			scheduler.execute(this::rollbackPendingClaims);
+			scheduler.execute(() -> {
+				try {
+					rollbackPendingClaims();
+				} finally {
+					// Delayed reminder evaluations belong to this retired generation.
+					scheduler.shutdownNow();
+				}
+			});
 		} catch (java.util.concurrent.RejectedExecutionException ignored) {
-			// A repeated shutdown has no newly admitted reminder work.
+			scheduler.shutdownNow();
 		}
 		scheduler.shutdown();
 		try {
@@ -541,6 +550,7 @@ public final class VoteRemindersManager {
 	}
 
 	private void stopTasks() {
+		taskGeneration.incrementAndGet();
 		ScheduledFuture<?> mf = minuteFuture;
 		if (mf != null) {
 			mf.cancel(false);
@@ -553,6 +563,13 @@ public final class VoteRemindersManager {
 			}
 		}
 		flushFutures.clear();
+
+		for (ScheduledFuture<?> f : delayedFutures) {
+			if (f != null) {
+				f.cancel(false);
+			}
+		}
+		delayedFutures.clear();
 	}
 
 	private void fireIntervalTick() {
@@ -871,13 +888,20 @@ public final class VoteRemindersManager {
 	private void scheduleDelayedEvaluation(UUID uuid, String reminderName, Map<String, String> placeholders,
 			long delayMs) {
 		Map<String, String> ph = placeholders == null ? null : new HashMap<>(placeholders);
-		scheduler.schedule(() -> requestPlayerSnapshot(uuid, snapshot -> {
-			VoteReminderDefinition def = byName.get(reminderName);
-			if (def == null) return;
-			VotingPluginUser user = snapshotUser(plugin, uuid, snapshot.playerName());
-			if (user == null) return;
-			attemptFireNow(user, snapshot, def, ph);
-		}, () -> {}), Math.max(1L, delayMs), TimeUnit.MILLISECONDS);
+		int generation = taskGeneration.get();
+		delayedFutures.removeIf(future -> future.isDone() || future.isCancelled());
+		ScheduledFuture<?> future = scheduler.schedule(() -> {
+			if (generation != taskGeneration.get()) return;
+			requestPlayerSnapshot(uuid, snapshot -> {
+				VoteReminderDefinition def = byName.get(reminderName);
+				if (def == null) return;
+				VotingPluginUser user = snapshotUser(plugin, uuid, snapshot.playerName());
+				if (user == null) return;
+				attemptFireNow(user, snapshot, def, ph);
+			}, () -> {});
+		}, Math.max(1L, delayMs), TimeUnit.MILLISECONDS);
+		delayedFutures.add(future);
+		if (generation != taskGeneration.get() && delayedFutures.remove(future)) future.cancel(false);
 	}
 
 	private boolean attemptFireNow(VotingPluginUser user, ReminderPlayerSnapshot snapshot, VoteReminderDefinition def,
