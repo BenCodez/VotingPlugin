@@ -17,8 +17,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 import org.bukkit.Bukkit;
@@ -321,7 +322,7 @@ public final class VoteRemindersManager {
 	private final Set<ScheduledFuture<?>> delayedFutures = ConcurrentHashMap.newKeySet();
 	private final AtomicInteger taskGeneration = new AtomicInteger();
 	private final AtomicBoolean closed = new AtomicBoolean();
-	private final AtomicBoolean rollbackFallbackStarted = new AtomicBoolean();
+	private final AtomicBoolean rollbackFailureWarned = new AtomicBoolean();
 	private volatile ScheduledFuture<?> minuteFuture;
 	private final ConcurrentHashMap<UUID, ScheduledFuture<?>> flushFutures = new ConcurrentHashMap<>();
 
@@ -423,30 +424,20 @@ public final class VoteRemindersManager {
 			Thread.currentThread().interrupt();
 		}
 		if (!terminated) scheduler.shutdownNow();
-		if (!pendingClaimRollbacks.isEmpty()) startRollbackFallback();
+		// This call only admits work to AdvancedCore's storage executor. It cannot
+		// perform user-data access on the Bukkit shutdown thread.
+		rollbackPendingClaims();
 	}
 
 	private void rollbackPendingClaims() {
 		for (TrackedClaimRollback rollback : List.copyOf(pendingClaimRollbacks)) rollback.run();
 	}
 
-	private void startRollbackFallback() {
-		if (!rollbackFallbackStarted.compareAndSet(false, true)) return;
-		Thread fallback = new Thread(() -> {
-			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5L);
-			while (!pendingClaimRollbacks.isEmpty() && System.nanoTime() < deadline) {
-				rollbackPendingClaims();
-				if (pendingClaimRollbacks.isEmpty()) return;
-				try {
-					Thread.sleep(100L);
-				} catch (InterruptedException interrupted) {
-					Thread.currentThread().interrupt();
-					return;
-				}
-			}
-		}, "VotingPlugin-ReminderRollback");
-		fallback.setDaemon(true);
-		fallback.start();
+	private void warnRollbackDeferredToExpiry() {
+		if (rollbackFailureWarned.compareAndSet(false, true)) {
+			plugin.getLogger().warning("Unable to complete pending vote-reminder cooldown rollbacks; "
+					+ "their conditional claims will expire normally");
+		}
 	}
 
 	private boolean isEnabled() {
@@ -988,11 +979,11 @@ public final class VoteRemindersManager {
 	}
 
 	private final class TrackedClaimRollback implements Runnable {
-		private static final int PENDING = 0;
-		private static final int RUNNING = 1;
-		private static final int RESOLVED = 2;
+		private static final long RESOLVED = -1L;
+		private static final long PENDING = 0L;
 		private final Runnable rollback;
-		private final AtomicInteger state = new AtomicInteger(PENDING);
+		private final AtomicLong state = new AtomicLong(PENDING);
+		private final AtomicLong attemptSequence = new AtomicLong();
 
 		private TrackedClaimRollback(Runnable rollback) {
 			this.rollback = rollback;
@@ -1000,21 +991,36 @@ public final class VoteRemindersManager {
 
 		@Override
 		public void run() {
-			if (!state.compareAndSet(PENDING, RUNNING)) return;
+			long attempt = attemptSequence.incrementAndGet();
+			if (!state.compareAndSet(PENDING, attempt)) return;
+			try {
+				plugin.getUserManager().getDataManager().getTimer().execute(() -> executeOnStorage(attempt));
+			} catch (RuntimeException rejected) {
+				boolean retryable = state.compareAndSet(attempt, PENDING);
+				plugin.debug(rejected);
+				if (retryable && !closed.get()) scheduleRetry();
+				else if (retryable) warnRollbackDeferredToExpiry();
+			}
+		}
+
+		private void executeOnStorage(long attempt) {
+			if (state.get() != attempt) return;
 			try {
 				rollback.run();
-				state.set(RESOLVED);
-				pendingClaimRollbacks.remove(this);
+				if (state.compareAndSet(attempt, RESOLVED)) pendingClaimRollbacks.remove(this);
 			} catch (RuntimeException failure) {
-				state.compareAndSet(RUNNING, PENDING);
+				boolean retryable = state.compareAndSet(attempt, PENDING);
 				plugin.debug(failure);
-				if (!closed.get()) {
-					try {
-						scheduler.schedule(this, 1L, TimeUnit.SECONDS);
-					} catch (java.util.concurrent.RejectedExecutionException ignored) {
-						// Shutdown's bounded fallback owns any rollback still pending.
-					}
-				}
+				if (retryable && !closed.get()) scheduleRetry();
+				else if (retryable) warnRollbackDeferredToExpiry();
+			}
+		}
+
+		private void scheduleRetry() {
+			try {
+				scheduler.schedule(this, 1L, TimeUnit.SECONDS);
+			} catch (java.util.concurrent.RejectedExecutionException ignored) {
+				// Final shutdown submits pending work directly to the storage owner.
 			}
 		}
 

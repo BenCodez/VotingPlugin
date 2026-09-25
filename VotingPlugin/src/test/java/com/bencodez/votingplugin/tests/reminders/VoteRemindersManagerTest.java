@@ -58,6 +58,7 @@ public class VoteRemindersManagerTest {
 		AtomicInteger rollbacks = new AtomicInteger();
 		when(plugin.getServerData()).thenReturn(serverData);
 		when(serverData.getDisabledReminders()).thenReturn(Collections.emptyList());
+		configureInlineStorageExecutor(plugin);
 		VoteRemindersManager manager = new VoteRemindersManager(plugin, store);
 		Method track = VoteRemindersManager.class.getDeclaredMethod("trackClaimRollback", Runnable.class);
 		track.setAccessible(true);
@@ -77,6 +78,7 @@ public class VoteRemindersManagerTest {
 		AtomicInteger attempts = new AtomicInteger();
 		when(plugin.getServerData()).thenReturn(serverData);
 		when(serverData.getDisabledReminders()).thenReturn(Collections.emptyList());
+		configureInlineStorageExecutor(plugin);
 		VoteRemindersManager manager = new VoteRemindersManager(plugin, store);
 		Method track = VoteRemindersManager.class.getDeclaredMethod("trackClaimRollback", Runnable.class);
 		track.setAccessible(true);
@@ -92,13 +94,30 @@ public class VoteRemindersManagerTest {
 	}
 
 	@Test
-	void shutdownForceStopsReminderExecutorAfterGraceExpires() throws Exception {
+	void shutdownForceStopsReminderExecutorAndQueuesRollbackOnStorageOwner() throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		ServerData serverData = mock(ServerData.class);
 		VoteReminderCooldownStore store = mock(VoteReminderCooldownStore.class);
+		com.bencodez.advancedcore.api.user.UserManager coreUserManager =
+				mock(com.bencodez.advancedcore.api.user.UserManager.class);
+		com.bencodez.advancedcore.api.user.usercache.UserDataManager dataManager =
+				mock(com.bencodez.advancedcore.api.user.usercache.UserDataManager.class);
+		ScheduledExecutorService storageExecutor = mock(ScheduledExecutorService.class);
+		AtomicReference<Runnable> storageHandoff = new AtomicReference<>();
+		AtomicInteger attempts = new AtomicInteger();
 		when(plugin.getServerData()).thenReturn(serverData);
 		when(serverData.getDisabledReminders()).thenReturn(Collections.emptyList());
+		when(plugin.getUserManager()).thenReturn(coreUserManager);
+		when(coreUserManager.getDataManager()).thenReturn(dataManager);
+		when(dataManager.getTimer()).thenReturn(storageExecutor);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			storageHandoff.set(invocation.getArgument(0));
+			return null;
+		}).when(storageExecutor).execute(any(Runnable.class));
 		VoteRemindersManager manager = new VoteRemindersManager(plugin, store);
+		Method track = VoteRemindersManager.class.getDeclaredMethod("trackClaimRollback", Runnable.class);
+		track.setAccessible(true);
+		track.invoke(manager, (Runnable) attempts::incrementAndGet);
 		Field schedulerField = VoteRemindersManager.class.getDeclaredField("scheduler");
 		schedulerField.setAccessible(true);
 		ScheduledExecutorService original = (ScheduledExecutorService) schedulerField.get(manager);
@@ -110,6 +129,10 @@ public class VoteRemindersManagerTest {
 		manager.shutdown();
 
 		verify(blocked).shutdownNow();
+		assertTrue(storageHandoff.get() != null);
+		org.junit.jupiter.api.Assertions.assertEquals(0, attempts.get());
+		storageHandoff.get().run();
+		org.junit.jupiter.api.Assertions.assertEquals(1, attempts.get());
 	}
 
 	@Test
@@ -432,6 +455,21 @@ public class VoteRemindersManagerTest {
 		} finally {
 			manager.shutdown();
 		}
+	}
+
+	private static void configureInlineStorageExecutor(VotingPluginMain plugin) {
+		com.bencodez.advancedcore.api.user.UserManager coreUserManager =
+				mock(com.bencodez.advancedcore.api.user.UserManager.class);
+		com.bencodez.advancedcore.api.user.usercache.UserDataManager dataManager =
+				mock(com.bencodez.advancedcore.api.user.usercache.UserDataManager.class);
+		ScheduledExecutorService storageExecutor = mock(ScheduledExecutorService.class);
+		when(plugin.getUserManager()).thenReturn(coreUserManager);
+		when(coreUserManager.getDataManager()).thenReturn(dataManager);
+		when(dataManager.getTimer()).thenReturn(storageExecutor);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			invocation.getArgument(0, Runnable.class).run();
+			return null;
+		}).when(storageExecutor).execute(any(Runnable.class));
 	}
 
 }
