@@ -37,6 +37,7 @@ public class BackendGlobalDataSync {
 	private final AtomicBoolean forceUpdateInProgress = new AtomicBoolean(false);
 	private final Set<TimeType> timeChangesInProgress = ConcurrentHashMap.newKeySet();
 	private final Object timeChangeLifecycleLock = new Object();
+	private final Object timeChangePersistenceLock = new Object();
 	private final Map<GlobalDataHandler, Integer> activeTimeChangesByHandler = new HashMap<>();
 	private final Set<GlobalDataHandler> retiredOwnedHandlers = new HashSet<>();
 
@@ -151,18 +152,24 @@ public class BackendGlobalDataSync {
 	}
 
 	private GlobalDataHandler admitTimeChange(TimeType type, String serverName) {
+		GlobalDataHandler handler;
 		synchronized (timeChangeLifecycleLock) {
-			GlobalDataHandler handler = globalDataHandler;
+			handler = globalDataHandler;
 			if (handler == null || !timeChangesInProgress.add(type)) return null;
 			activeTimeChangesByHandler.merge(handler, 1, Integer::sum);
-			try {
+		}
+		try {
+			synchronized (timeChangePersistenceLock) {
 				handler.setBoolean(serverName, "Processing", true);
-				return handler;
-			} catch (RuntimeException failure) {
-				timeChangesInProgress.remove(type);
-				releaseHandlerReferenceLocked(handler);
-				throw failure;
 			}
+			return handler;
+		} catch (RuntimeException failure) {
+			try {
+				releaseTimeChange(handler, type, serverName, false);
+			} catch (RuntimeException cleanupFailure) {
+				failure.addSuppressed(cleanupFailure);
+			}
+			throw failure;
 		}
 	}
 
@@ -186,7 +193,13 @@ public class BackendGlobalDataSync {
 		try {
 			synchronized (timeChangeLifecycleLock) {
 				timeChangesInProgress.remove(type);
-				if (timeChangesInProgress.isEmpty()) {
+			}
+			synchronized (timeChangePersistenceLock) {
+				boolean lastTimeChange;
+				synchronized (timeChangeLifecycleLock) {
+					lastTimeChange = timeChangesInProgress.isEmpty();
+				}
+				if (lastTimeChange) {
 					HashMap<String, DataValue> dataToSet = new HashMap<>();
 					if (completed) dataToSet.put("FinishedProcessing", new DataValueBoolean(true));
 					dataToSet.put("Processing", new DataValueBoolean(false));

@@ -611,7 +611,7 @@ public final class VoteRemindersManager {
 
 	private void flushWithSnapshot(ReminderPlayerSnapshot snapshot, PendingTriggers expected) {
 		if (!pending.remove(snapshot.uuid(), expected)) return;
-		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(snapshot.uuid(), false);
+		VotingPluginUser user = snapshotUser(plugin, snapshot.uuid(), snapshot.playerName());
 		if (user == null) return;
 		PendingTriggers pt = expected;
 		List<VoteReminderType> types = pt.snapshotTypes();
@@ -836,7 +836,7 @@ public final class VoteRemindersManager {
 		scheduler.schedule(() -> requestPlayerSnapshot(uuid, snapshot -> {
 			VoteReminderDefinition def = byName.get(reminderName);
 			if (def == null) return;
-			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
+			VotingPluginUser user = snapshotUser(plugin, uuid, snapshot.playerName());
 			if (user == null) return;
 			attemptFireNow(user, snapshot, def, ph);
 		}, () -> {}), Math.max(1L, delayMs), TimeUnit.MILLISECONDS);
@@ -884,6 +884,10 @@ public final class VoteRemindersManager {
 		// this player online. Preserve that fact across the worker handoff instead of
 		// resolving a UUID-only user wrapper by its potentially unloaded name.
 		return new RewardBuilder(config, rewardsPath).setOnline(true).setGiveOffline(false).disableDefaultWorlds();
+	}
+
+	static VotingPluginUser snapshotUser(VotingPluginMain plugin, UUID uuid, String playerName) {
+		return plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, playerName);
 	}
 
 	private boolean passesConditions(VotingPluginUser user, ReminderPlayerSnapshot snapshot, VoteReminderConditions conditions) {

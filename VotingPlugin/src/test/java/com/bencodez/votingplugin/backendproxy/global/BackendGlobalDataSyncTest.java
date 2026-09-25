@@ -15,8 +15,10 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -221,6 +223,53 @@ class BackendGlobalDataSyncTest {
 		scheduled.get().run();
 
 		verify(handler).setBoolean("lobby", TimeType.DAY.toString(), false);
+		verify(mysql).close();
+	}
+
+	@Test
+	void slowProcessingWriteDoesNotHoldLifecycleLockDuringClose() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BungeeSettings bungeeSettings = mock(BungeeSettings.class);
+		TimeChecker timeChecker = mock(TimeChecker.class);
+		ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+		GlobalDataHandler handler = mock(GlobalDataHandler.class);
+		GlobalMySQL mysql = mock(GlobalMySQL.class);
+		CountDownLatch writeStarted = new CountDownLatch(1);
+		CountDownLatch releaseWrite = new CountDownLatch(1);
+		AtomicReference<Runnable> scheduled = new AtomicReference<>();
+		when(plugin.getBungeeSettings()).thenReturn(bungeeSettings);
+		when(bungeeSettings.getServer()).thenReturn("lobby");
+		when(plugin.getTimeChecker()).thenReturn(timeChecker);
+		when(timeChecker.getTimer()).thenReturn(executor);
+		when(handler.getGlobalMysql()).thenReturn(mysql);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			writeStarted.countDown();
+			assertTrue(releaseWrite.await(2, TimeUnit.SECONDS));
+			return null;
+		}).when(handler).setBoolean("lobby", "Processing", true);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			scheduled.set(invocation.getArgument(0));
+			return null;
+		}).when(executor).execute(any(Runnable.class));
+		BackendGlobalDataSync sync = new BackendGlobalDataSync(plugin, ignored -> { });
+		setField(sync, "globalDataHandler", handler);
+		setField(sync, "ownsGlobalMysql", true);
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> data = new HashMap<>();
+		data.put("LastUpdated", new DataValueString(
+				"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
+		data.put(TimeType.DAY.toString(), new DataValueBoolean(true));
+
+		CompletableFuture<Boolean> admission = CompletableFuture.supplyAsync(
+				() -> sync.checkGlobalDataTime(TimeType.DAY, data));
+		assertTrue(writeStarted.await(1, TimeUnit.SECONDS));
+		CompletableFuture<Void> close = CompletableFuture.runAsync(sync::close);
+		close.get(1, TimeUnit.SECONDS);
+		verify(mysql, never()).close();
+
+		releaseWrite.countDown();
+		assertTrue(admission.get(1, TimeUnit.SECONDS));
+		assertNotNull(scheduled.get());
+		scheduled.get().run();
 		verify(mysql).close();
 	}
 

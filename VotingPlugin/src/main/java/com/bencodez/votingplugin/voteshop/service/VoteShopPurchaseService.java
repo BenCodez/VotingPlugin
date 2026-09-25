@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -295,42 +296,85 @@ public class VoteShopPurchaseService {
 		try {
 			runPurchaseEntityTask(player, () -> {
 				if (!state.compareAndSet(COMPLETION_PENDING, COMPLETION_RUNNING)) return;
+				CompletionStage<Void> rewardCompletion;
 				try {
-					completePurchase(player, user, item, placeholders, shopData);
+					rewardCompletion = givePurchaseRewardAsync(user, item, placeholders, shopData);
 				} catch (RuntimeException | Error rewardFailure) {
 					state.set(COMPLETION_FINISHED);
 					logClaimedRewardSchedulingFailure(debit);
-					// This callback is already running on the player's entity lane. The
-					// claimed journal row must remain for reconciliation because the reward
-					// may have partially executed, but callers must not wait forever.
 					completeClaimedRewardFailure(completion);
 					throw rewardFailure;
 				}
-				try {
-					plugin.getTimer().execute(() -> settleSharedMysqlPurchase(player, completion, debit));
-				} catch (RuntimeException schedulingFailure) {
-					plugin.debug(schedulingFailure);
-					// The reward has already run, so settlement must retain the same
-					// idempotent journal operation even when the persistence executor is
-					// saturated or stopping. Bukkit's async scheduler keeps JDBC off the
-					// entity lane and is independent from that executor.
-					try {
-						plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
-								() -> settleSharedMysqlPurchase(player, completion, debit));
-					} catch (RuntimeException asyncSchedulingFailure) {
-						// A shutdown can reject both schedulers. The reward cannot be run
-						// again, so retain HOOK_STARTED for explicit reconciliation while
-						// still completing the already-successful purchase exactly once.
-						plugin.debug(asyncSchedulingFailure);
-						completeSuccessfulPurchase(player, completion);
-					}
-				} finally {
+				if (rewardCompletion == null) {
 					state.set(COMPLETION_FINISHED);
+					logClaimedRewardSchedulingFailure(debit);
+					completeClaimedRewardFailure(completion);
+					return;
 				}
+				rewardCompletion.whenComplete((ignored, rewardFailure) -> {
+					if (rewardFailure != null) {
+						state.set(COMPLETION_FINISHED);
+						logClaimedRewardSchedulingFailure(debit);
+						plugin.debug(rewardFailure);
+						completeClaimedRewardFailure(completion);
+						return;
+					}
+					finishClaimedReward(player, user, item, placeholders, completion, debit, state);
+				});
 			}, rejectBeforeStart);
 		} catch (RuntimeException schedulingFailure) {
 			rejectBeforeStart.run();
 			plugin.debug(schedulingFailure);
+		}
+	}
+
+	private CompletionStage<Void> givePurchaseRewardAsync(VotingPluginUser user, VoteShopItem item,
+			HashMap<String, String> placeholders, FileConfiguration shopData) {
+		plugin.getLogger().info("VoteShop: " + user.getPlayerName() + "/" + user.getUUID() + " bought "
+				+ item.getIdentifier() + " for " + item.getCost());
+		return plugin.getRewardHandler().giveRewardAsync(user, shopData, item.getRewardsPath(),
+				new RewardOptions().setOnline(true).setPlaceholders(placeholders));
+	}
+
+	private void finishClaimedReward(Player player, VotingPluginUser user, VoteShopItem item,
+			HashMap<String, String> placeholders, Consumer<VoteShopPurchaseResult> completion,
+			SharedPurchaseDebit debit, AtomicInteger state) {
+		Runnable rejected = () -> {
+			if (!state.compareAndSet(COMPLETION_RUNNING, COMPLETION_FINISHED)) return;
+			logClaimedRewardSchedulingFailure(debit);
+			completeClaimedRewardFailure(completion);
+		};
+		try {
+			runPurchaseEntityTask(player, () -> {
+				if (!state.compareAndSet(COMPLETION_RUNNING, COMPLETION_FINISHED)) return;
+				try {
+					completePurchasePresentation(player, user, item, placeholders);
+				} catch (RuntimeException | Error presentationFailure) {
+					logClaimedRewardSchedulingFailure(debit);
+					completeClaimedRewardFailure(completion);
+					throw presentationFailure;
+				}
+				scheduleSharedMysqlSettlement(player, completion, debit);
+			}, rejected);
+		} catch (RuntimeException schedulingFailure) {
+			rejected.run();
+			plugin.debug(schedulingFailure);
+		}
+	}
+
+	private void scheduleSharedMysqlSettlement(Player player, Consumer<VoteShopPurchaseResult> completion,
+			SharedPurchaseDebit debit) {
+		try {
+			plugin.getTimer().execute(() -> settleSharedMysqlPurchase(player, completion, debit));
+		} catch (RuntimeException schedulingFailure) {
+			plugin.debug(schedulingFailure);
+			try {
+				plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
+						() -> settleSharedMysqlPurchase(player, completion, debit));
+			} catch (RuntimeException asyncSchedulingFailure) {
+				plugin.debug(asyncSchedulingFailure);
+				completeSuccessfulPurchase(player, completion);
+			}
 		}
 	}
 
@@ -468,16 +512,15 @@ public class VoteShopPurchaseService {
 
 	private void completePurchase(Player player, VotingPluginUser user, VoteShopItem item,
 			HashMap<String, String> placeholders, FileConfiguration shopData) {
-
 		plugin.getLogger().info("VoteShop: " + user.getPlayerName() + "/" + user.getUUID() + " bought "
 				+ item.getIdentifier() + " for " + item.getCost());
-
-		// This callback runs only after the live Player's entity task is admitted.
-		// Carry that captured presence into asynchronous reward execution so a
-		// UUID-only user wrapper cannot suppress an already committed purchase.
 		plugin.getRewardHandler().giveReward(user, shopData, item.getRewardsPath(),
 				new RewardOptions().setOnline(true).setPlaceholders(placeholders));
+		completePurchasePresentation(player, user, item, placeholders);
+	}
 
+	private void completePurchasePresentation(Player player, VotingPluginUser user, VoteShopItem item,
+			HashMap<String, String> placeholders) {
 		String purchaseMessage = item.getPurchaseMessage();
 		if (purchaseMessage == null || purchaseMessage.isEmpty()) {
 			purchaseMessage = plugin.getConfigFile().getFormatShopPurchaseMsg();

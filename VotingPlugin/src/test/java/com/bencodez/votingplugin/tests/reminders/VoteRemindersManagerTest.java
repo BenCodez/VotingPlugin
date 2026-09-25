@@ -27,6 +27,7 @@ import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.user.VotingPluginUser;
+import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.votereminding.VoteRemindersManager;
 import com.bencodez.votingplugin.votereminding.VoteRemindersManager.VoteReminderConditions;
 import com.bencodez.votingplugin.votereminding.VoteRemindersManager.VoteReminderDefinition;
@@ -45,6 +46,23 @@ public class VoteRemindersManagerTest {
 		assertTrue(builder.getRewardOptions().isOnlineSet());
 		assertTrue(builder.getRewardOptions().isOnline());
 		assertFalse(builder.getRewardOptions().isGiveOffline());
+	}
+
+	@Test
+	void reminderWorkerPreservesTheCapturedPlayerName() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		UserManager manager = mock(UserManager.class);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		UUID uuid = UUID.randomUUID();
+		when(plugin.getVotingPluginUserManager()).thenReturn(manager);
+		when(manager.getVotingPluginUser(uuid, "MchtTester")).thenReturn(user);
+		Method method = VoteRemindersManager.class.getDeclaredMethod("snapshotUser",
+				VotingPluginMain.class, UUID.class, String.class);
+		method.setAccessible(true);
+
+		assertTrue(method.invoke(null, plugin, uuid, "MchtTester") == user);
+		verify(manager).getVotingPluginUser(uuid, "MchtTester");
+		verify(manager, never()).getVotingPluginUser(uuid, false);
 	}
 
 	@Test

@@ -410,6 +410,8 @@ class VoteShopPurchaseServiceTest {
 		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
 		when(scheduler.getFoliaLib()).thenReturn(null);
 		when(plugin.getRewardHandler()).thenReturn(rewardHandler);
+		when(rewardHandler.giveRewardAsync(any(), any(FileConfiguration.class), anyString(), any()))
+				.thenReturn(CompletableFuture.completedFuture(null));
 		when(plugin.getLogger()).thenReturn(mock(java.util.logging.Logger.class));
 		ScheduledExecutorService persistenceExecutor = mock(ScheduledExecutorService.class);
 		when(plugin.getTimer()).thenReturn(persistenceExecutor);
@@ -437,13 +439,61 @@ class VoteShopPurchaseServiceTest {
 					new HashMap<>(), mock(FileConfiguration.class), ignored -> { }, debit);
 		}
 
-		verify(scheduler).runTask(eq(plugin), any(Runnable.class), eq(player));
+		verify(scheduler, times(2)).runTask(eq(plugin), any(Runnable.class), eq(player));
 		ArgumentCaptor<RewardOptions> options = ArgumentCaptor.forClass(RewardOptions.class);
-		verify(rewardHandler).giveReward(eq(user), any(FileConfiguration.class), eq("Shop.daily.Rewards"),
+		verify(rewardHandler).giveRewardAsync(eq(user), any(FileConfiguration.class), eq("Shop.daily.Rewards"),
 				options.capture());
 		assertTrue(options.getValue().isOnlineSet());
 		assertTrue(options.getValue().isOnline());
 		verify(user, never()).isOnline();
+	}
+
+	@Test
+	void claimedPurchaseWaitsForRewardCompletionBeforeEventAndSettlement() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
+				mock(com.bencodez.simpleapi.scheduler.BukkitScheduler.class);
+		RewardHandler rewardHandler = mock(RewardHandler.class);
+		ScheduledExecutorService persistenceExecutor = mock(ScheduledExecutorService.class);
+		CompletableFuture<Void> rewardCompletion = new CompletableFuture<>();
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(scheduler.getFoliaLib()).thenReturn(null);
+		when(plugin.getRewardHandler()).thenReturn(rewardHandler);
+		when(plugin.getLogger()).thenReturn(mock(java.util.logging.Logger.class));
+		when(plugin.getTimer()).thenReturn(persistenceExecutor);
+		when(rewardHandler.giveRewardAsync(any(), any(FileConfiguration.class), anyString(), any()))
+				.thenReturn(rewardCompletion);
+		doAnswer(invocation -> {
+			invocation.getArgument(1, Runnable.class).run();
+			return null;
+		}).when(scheduler).runTask(eq(plugin), any(Runnable.class), any(org.bukkit.entity.Player.class));
+		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
+		when(player.getUniqueId()).thenReturn(UUID.fromString("00000000-0000-0000-0000-000000000001"));
+		when(player.getName()).thenReturn("player");
+		VotingPluginUser user = purchaseUser();
+		when(user.getPlayerName()).thenReturn("player");
+		VoteShopItem item = mock(VoteShopItem.class);
+		when(item.getIdentifier()).thenReturn("daily");
+		when(item.getCost()).thenReturn(10);
+		when(item.getRewardsPath()).thenReturn("Shop.daily.Rewards");
+		when(item.getPurchaseMessage()).thenReturn("Purchased");
+		SharedMysqlPurchaseJournal journal = mock(SharedMysqlPurchaseJournal.class);
+		VoteShopPurchaseService.SharedPurchaseDebit debit = new VoteShopPurchaseService.SharedPurchaseDebit(
+				VoteShopPurchaseResult.SUCCESS, journal, "purchase-1", "Points", "VoteShopLimitdaily");
+		org.bukkit.plugin.PluginManager pluginManager = mock(org.bukkit.plugin.PluginManager.class);
+
+		try (org.mockito.MockedStatic<org.bukkit.Bukkit> bukkit = org.mockito.Mockito.mockStatic(org.bukkit.Bukkit.class)) {
+			bukkit.when(org.bukkit.Bukkit::getPluginManager).thenReturn(pluginManager);
+			new VoteShopPurchaseService(plugin, mock(VoteShopDefinition.class)).scheduleClaimedReward(player, user, item,
+					new HashMap<>(), mock(FileConfiguration.class), ignored -> { }, debit);
+			verify(pluginManager, never()).callEvent(any());
+			verify(persistenceExecutor, never()).execute(any(Runnable.class));
+
+			rewardCompletion.complete(null);
+
+			verify(pluginManager).callEvent(any(com.bencodez.votingplugin.events.VoteShopPurchaseEvent.class));
+			verify(persistenceExecutor).execute(any(Runnable.class));
+		}
 	}
 
 	@Test
@@ -803,6 +853,8 @@ class VoteShopPurchaseServiceTest {
 		when(plugin.getTimer()).thenReturn(persistenceExecutor);
 		when(plugin.getRewardHandler()).thenReturn(rewardHandler);
 		when(plugin.getLogger()).thenReturn(mock(java.util.logging.Logger.class));
+		when(rewardHandler.giveRewardAsync(any(), any(FileConfiguration.class), anyString(), any()))
+				.thenReturn(CompletableFuture.completedFuture(null));
 		org.mockito.Mockito.doThrow(new java.util.concurrent.RejectedExecutionException("saturated"))
 				.when(persistenceExecutor).execute(any(Runnable.class));
 
@@ -836,12 +888,13 @@ class VoteShopPurchaseServiceTest {
 			new VoteShopPurchaseService(plugin, mock(VoteShopDefinition.class)).scheduleClaimedReward(player, user, item,
 					new HashMap<>(), mock(FileConfiguration.class), result::set, debit);
 			rewardCallback.getValue().accept(null);
+			rewardCallback.getAllValues().get(1).accept(null);
 		}
 
 		ArgumentCaptor<Runnable> fallback = ArgumentCaptor.forClass(Runnable.class);
 		verify(scheduler).runTaskAsynchronously(eq(plugin), fallback.capture());
 		fallback.getValue().run();
-		verify(rewardHandler).giveReward(eq(user), any(FileConfiguration.class), eq("Shop.item.Rewards"), any());
+		verify(rewardHandler).giveRewardAsync(eq(user), any(FileConfiguration.class), eq("Shop.item.Rewards"), any());
 		verify(journal).complete("purchase-1");
 		assertEquals(VoteShopPurchaseResult.SUCCESS, result.get());
 	}
@@ -862,8 +915,8 @@ class VoteShopPurchaseServiceTest {
 		when(plugin.getTimer()).thenReturn(persistenceExecutor);
 		when(plugin.getRewardHandler()).thenReturn(rewardHandler);
 		when(plugin.getLogger()).thenReturn(mock(java.util.logging.Logger.class));
-		org.mockito.Mockito.doThrow(new IllegalStateException("reward failed"))
-				.when(rewardHandler).giveReward(any(), any(), any(), any());
+		when(rewardHandler.giveRewardAsync(any(), any(FileConfiguration.class), anyString(), any()))
+				.thenReturn(CompletableFuture.failedFuture(new IllegalStateException("reward failed")));
 
 		org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
 		VotingPluginUser user = mock(VotingPluginUser.class);
@@ -889,7 +942,7 @@ class VoteShopPurchaseServiceTest {
 					completions.incrementAndGet();
 				}, debit);
 
-		assertThrows(IllegalStateException.class, () -> rewardCallback.getValue().accept(null));
+		rewardCallback.getValue().accept(null);
 		assertEquals(1, completions.get());
 		assertEquals(VoteShopPurchaseResult.RECONCILIATION_REQUIRED, result.get());
 		verify(journal, never()).complete(anyString());
@@ -1271,6 +1324,8 @@ class VoteShopPurchaseServiceTest {
 		when(plugin.isEnabled()).thenReturn(true);
 		RewardHandler rewardHandler = mock(RewardHandler.class);
 		when(plugin.getRewardHandler()).thenReturn(rewardHandler);
+		when(rewardHandler.giveRewardAsync(any(), any(FileConfiguration.class), anyString(), any()))
+				.thenReturn(CompletableFuture.completedFuture(null));
 		ScheduledExecutorService persistenceExecutor = mock(ScheduledExecutorService.class);
 		when(plugin.getTimer()).thenReturn(persistenceExecutor);
 		com.bencodez.simpleapi.scheduler.BukkitScheduler scheduler =
@@ -1343,6 +1398,8 @@ class VoteShopPurchaseServiceTest {
 					ArgumentCaptor.forClass(java.util.function.Consumer.class);
 			verify(entityScheduler, times(2)).runAtEntityWithFallback(any(), entityCallbacks.capture(), any(Runnable.class));
 			entityCallbacks.getAllValues().get(1).accept(null);
+			verify(entityScheduler, times(3)).runAtEntityWithFallback(any(), entityCallbacks.capture(), any(Runnable.class));
+			entityCallbacks.getValue().accept(null);
 			ArgumentCaptor<Runnable> scheduledWork = ArgumentCaptor.forClass(Runnable.class);
 			verify(persistenceExecutor, times(2)).execute(scheduledWork.capture());
 			scheduledWork.getAllValues().get(1).run();
@@ -1351,8 +1408,8 @@ class VoteShopPurchaseServiceTest {
 
 		assertEquals(VoteShopPurchaseResult.SUCCESS, result.get());
 		assertEquals("vote-shop-claim-worker", claimThread.get(), "the entity callback must not perform JDBC");
-		verify(rewardHandler).giveReward(eq(user), eq(oldShopData), eq("Shop.old-item.Rewards"), any());
-		verify(rewardHandler, never()).giveReward(eq(user), eq(reloadedShopData), anyString(), any());
+		verify(rewardHandler).giveRewardAsync(eq(user), eq(oldShopData), eq("Shop.old-item.Rewards"), any());
+		verify(rewardHandler, never()).giveRewardAsync(eq(user), eq(reloadedShopData), anyString(), any());
 	}
 
 	@Test
