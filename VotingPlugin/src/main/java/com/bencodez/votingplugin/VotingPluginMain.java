@@ -1562,6 +1562,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					restart.previous.completeVotePartyHandoff(restart.replacement);
 					restart.previous.completeOrderedVoteHandoff(restart.replacement);
 				}
+				if (restart.previous != null) restart.previous.completeGlobalDataHandoff(restart.replacement);
 			} catch (RuntimeException handoffFailure) {
 				backendProxyHandler = restart.previous;
 				restart.replacement.abortStagedInboundTo(restart.previous);

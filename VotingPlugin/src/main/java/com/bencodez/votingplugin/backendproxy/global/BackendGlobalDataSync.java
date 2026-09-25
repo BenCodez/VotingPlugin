@@ -31,9 +31,12 @@ import lombok.Getter;
  * Owns backend global-data polling and proxy-driven time-change processing.
  */
 public class BackendGlobalDataSync {
+	private static final long CLOSE_GRACE_SECONDS = 5L;
 
 	private final VotingPluginMain plugin;
-	private final Consumer<JsonEnvelope> sender;
+	private final Object senderLock = new Object();
+	private Consumer<JsonEnvelope> sender;
+	private boolean senderHandedOff;
 	private final AtomicBoolean forceUpdateInProgress = new AtomicBoolean(false);
 	private final Set<TimeType> timeChangesInProgress = ConcurrentHashMap.newKeySet();
 	private final Object timeChangeLifecycleLock = new Object();
@@ -180,7 +183,7 @@ public class BackendGlobalDataSync {
 			JsonEnvelope.Builder builder = JsonEnvelope.builder("TimeChangeFinished")
 					.schema(VotingPluginWire.SCHEMA_VERSION);
 			builder.put("server", serverName);
-			sender.accept(builder.build());
+			sendTimeChangeFinished(builder.build());
 			completed = true;
 		} finally {
 			releaseTimeChange(handler, type, serverName, completed);
@@ -211,6 +214,26 @@ public class BackendGlobalDataSync {
 				closeAfterRelease = releaseHandlerReferenceLocked(handler);
 			}
 			if (closeAfterRelease != null) closeAfterRelease.close();
+			synchronized (timeChangeLifecycleLock) {
+				timeChangeLifecycleLock.notifyAll();
+			}
+		}
+	}
+
+	private void sendTimeChangeFinished(JsonEnvelope envelope) {
+		synchronized (senderLock) {
+			if (sender == null) {
+				throw new RejectedExecutionException("Backend proxy transport retired before time-change completion");
+			}
+			sender.accept(envelope);
+		}
+	}
+
+	/** Routes an admitted transition's final notification through the published replacement. */
+	public void handoffCompletionSender(Consumer<JsonEnvelope> replacementSender) {
+		synchronized (senderLock) {
+			sender = java.util.Objects.requireNonNull(replacementSender, "replacementSender");
+			senderHandedOff = true;
 		}
 	}
 
@@ -244,7 +267,8 @@ public class BackendGlobalDataSync {
 			return;
 		}
 
-		shutdownTimer();
+		long retirementDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(CLOSE_GRACE_SECONDS);
+		shutdownTimer(retirementDeadline);
 		timer = Executors.newScheduledThreadPool(1);
 		timer.scheduleWithFixedDelay(this::checkGlobalData, 60, 10, TimeUnit.SECONDS);
 		timer.scheduleWithFixedDelay(() -> {
@@ -254,7 +278,7 @@ public class BackendGlobalDataSync {
 			}
 		}, 1, 60, TimeUnit.MINUTES);
 
-		closeGlobalMysql();
+		retireGlobalMysql(retirementDeadline);
 
 		GlobalDataHandler loadedHandler;
 		boolean loadedHandlerOwnsMysql;
@@ -299,32 +323,72 @@ public class BackendGlobalDataSync {
 	}
 
 	public void close() {
-		shutdownTimer();
-		closeGlobalMysql();
+		close(CLOSE_GRACE_SECONDS, TimeUnit.SECONDS);
 	}
 
-	private void closeGlobalMysql() {
+	void close(long timeout, TimeUnit unit) {
+		long timeoutNanos = Math.max(0L, unit.toNanos(timeout));
+		long deadline = System.nanoTime() + timeoutNanos;
+		shutdownTimer(deadline);
+		retireGlobalMysql(deadline);
+		synchronized (senderLock) {
+			if (!senderHandedOff) sender = null;
+		}
+	}
+
+	private void retireGlobalMysql(long deadlineNanos) {
 		GlobalMySQL closeNow = null;
+		GlobalDataHandler deferred = null;
 		synchronized (timeChangeLifecycleLock) {
 			GlobalDataHandler previous = globalDataHandler;
 			boolean closeConnection = ownsGlobalMysql;
 			globalDataHandler = null;
 			ownsGlobalMysql = false;
-			if (previous != null && closeConnection) {
-				if (activeTimeChangesByHandler.containsKey(previous)) retiredOwnedHandlers.add(previous);
-				else closeNow = previous.getGlobalMysql();
+			if (previous != null && activeTimeChangesByHandler.containsKey(previous)) {
+				deferred = previous;
+				if (closeConnection) retiredOwnedHandlers.add(previous);
+			} else if (previous != null && closeConnection) {
+				closeNow = previous.getGlobalMysql();
 			}
 		}
 		if (closeNow != null) closeNow.close();
+		if (deferred != null) awaitOrForceRetiredHandlerClose(deferred, deadlineNanos);
 	}
 
-	private void shutdownTimer() {
+	private void awaitOrForceRetiredHandlerClose(GlobalDataHandler handler, long deadlineNanos) {
+		GlobalMySQL forceClose = null;
+		boolean interrupted = false;
+		synchronized (timeChangeLifecycleLock) {
+			while (activeTimeChangesByHandler.containsKey(handler)) {
+				long remaining = deadlineNanos - System.nanoTime();
+				if (remaining <= 0L) break;
+				try {
+					TimeUnit.NANOSECONDS.timedWait(timeChangeLifecycleLock, remaining);
+				} catch (InterruptedException failure) {
+					interrupted = true;
+					break;
+				}
+			}
+			if (activeTimeChangesByHandler.containsKey(handler) && retiredOwnedHandlers.remove(handler)) {
+				forceClose = handler.getGlobalMysql();
+			}
+		}
+		if (forceClose != null) {
+			plugin.getLogger().warning(
+					"Forcing an owned global-data connection closed after its time-change shutdown grace expired");
+			forceClose.close();
+		}
+		if (interrupted) Thread.currentThread().interrupt();
+	}
+
+	private void shutdownTimer(long deadlineNanos) {
 		if (timer == null) {
 			return;
 		}
 		timer.shutdown();
 		try {
-			timer.awaitTermination(5, TimeUnit.SECONDS);
+			long remaining = Math.max(0L, deadlineNanos - System.nanoTime());
+			timer.awaitTermination(remaining, TimeUnit.NANOSECONDS);
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 		}

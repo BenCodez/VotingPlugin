@@ -14,6 +14,7 @@ import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.HashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.RejectedExecutionException;
@@ -216,14 +217,95 @@ class BackendGlobalDataSyncTest {
 		data.put(TimeType.DAY.toString(), new DataValueBoolean(true));
 
 		assertTrue(sync.checkGlobalDataTime(TimeType.DAY, data));
-		sync.close();
+		CompletableFuture<Void> close = CompletableFuture.runAsync(sync::close);
+		try {
+			Thread.sleep(50L);
+		} catch (InterruptedException failure) {
+			Thread.currentThread().interrupt();
+			throw new AssertionError(failure);
+		}
+		org.junit.jupiter.api.Assertions.assertFalse(close.isDone());
 		verify(mysql, never()).close();
 
 		assertNotNull(scheduled.get());
 		scheduled.get().run();
+		close.join();
 
 		verify(handler).setBoolean("lobby", TimeType.DAY.toString(), false);
 		verify(mysql).close();
+	}
+
+	@Test
+	void replacementReceivesCompletionFromAnAdmittedOldTransition() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BungeeSettings bungeeSettings = mock(BungeeSettings.class);
+		TimeChecker timeChecker = mock(TimeChecker.class);
+		ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+		GlobalDataHandler handler = mock(GlobalDataHandler.class);
+		AtomicReference<Runnable> scheduled = new AtomicReference<>();
+		CopyOnWriteArrayList<com.bencodez.simpleapi.servercomm.codec.JsonEnvelope> oldMessages =
+				new CopyOnWriteArrayList<>();
+		CopyOnWriteArrayList<com.bencodez.simpleapi.servercomm.codec.JsonEnvelope> replacementMessages =
+				new CopyOnWriteArrayList<>();
+		when(plugin.getBungeeSettings()).thenReturn(bungeeSettings);
+		when(bungeeSettings.getServer()).thenReturn("lobby");
+		when(plugin.getTimeChecker()).thenReturn(timeChecker);
+		when(timeChecker.getTimer()).thenReturn(executor);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			scheduled.set(invocation.getArgument(0));
+			return null;
+		}).when(executor).execute(any(Runnable.class));
+		BackendGlobalDataSync sync = new BackendGlobalDataSync(plugin, oldMessages::add);
+		setField(sync, "globalDataHandler", handler);
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> data = new HashMap<>();
+		data.put("LastUpdated", new DataValueString(
+				"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
+		data.put(TimeType.DAY.toString(), new DataValueBoolean(true));
+
+		assertTrue(sync.checkGlobalDataTime(TimeType.DAY, data));
+		sync.handoffCompletionSender(replacementMessages::add);
+		scheduled.get().run();
+
+		assertTrue(oldMessages.isEmpty());
+		org.junit.jupiter.api.Assertions.assertEquals(1, replacementMessages.size());
+		org.junit.jupiter.api.Assertions.assertEquals("TimeChangeFinished",
+				replacementMessages.get(0).getSubChannel());
+	}
+
+	@Test
+	void closeDrainsBorrowedMysqlTransitionWithoutClosingItsConnection() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BungeeSettings bungeeSettings = mock(BungeeSettings.class);
+		TimeChecker timeChecker = mock(TimeChecker.class);
+		ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+		GlobalDataHandler handler = mock(GlobalDataHandler.class);
+		GlobalMySQL mysql = mock(GlobalMySQL.class);
+		AtomicReference<Runnable> scheduled = new AtomicReference<>();
+		when(plugin.getBungeeSettings()).thenReturn(bungeeSettings);
+		when(bungeeSettings.getServer()).thenReturn("lobby");
+		when(plugin.getTimeChecker()).thenReturn(timeChecker);
+		when(timeChecker.getTimer()).thenReturn(executor);
+		when(handler.getGlobalMysql()).thenReturn(mysql);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			scheduled.set(invocation.getArgument(0));
+			return null;
+		}).when(executor).execute(any(Runnable.class));
+		BackendGlobalDataSync sync = new BackendGlobalDataSync(plugin, ignored -> { });
+		setField(sync, "globalDataHandler", handler);
+		setField(sync, "ownsGlobalMysql", false);
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> data = new HashMap<>();
+		data.put("LastUpdated", new DataValueString(
+				"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
+		data.put(TimeType.DAY.toString(), new DataValueBoolean(true));
+
+		assertTrue(sync.checkGlobalDataTime(TimeType.DAY, data));
+		CompletableFuture<Void> close = CompletableFuture.runAsync(sync::close);
+		Thread.sleep(50L);
+		org.junit.jupiter.api.Assertions.assertFalse(close.isDone());
+		scheduled.get().run();
+		close.get(1, TimeUnit.SECONDS);
+
+		verify(mysql, never()).close();
 	}
 
 	@Test
@@ -263,14 +345,63 @@ class BackendGlobalDataSyncTest {
 				() -> sync.checkGlobalDataTime(TimeType.DAY, data));
 		assertTrue(writeStarted.await(1, TimeUnit.SECONDS));
 		CompletableFuture<Void> close = CompletableFuture.runAsync(sync::close);
-		close.get(1, TimeUnit.SECONDS);
+		Thread.sleep(50L);
+		org.junit.jupiter.api.Assertions.assertFalse(close.isDone());
 		verify(mysql, never()).close();
 
 		releaseWrite.countDown();
 		assertTrue(admission.get(1, TimeUnit.SECONDS));
 		assertNotNull(scheduled.get());
 		scheduled.get().run();
+		close.get(1, TimeUnit.SECONDS);
 		verify(mysql).close();
+	}
+
+	@Test
+	void blockedAdmissionForcesOwnedMysqlClosedWithinTheConfiguredGrace() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BungeeSettings bungeeSettings = mock(BungeeSettings.class);
+		TimeChecker timeChecker = mock(TimeChecker.class);
+		ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+		GlobalDataHandler handler = mock(GlobalDataHandler.class);
+		GlobalMySQL mysql = mock(GlobalMySQL.class);
+		CountDownLatch writeStarted = new CountDownLatch(1);
+		CountDownLatch releaseWrite = new CountDownLatch(1);
+		AtomicReference<Runnable> scheduled = new AtomicReference<>();
+		when(plugin.getBungeeSettings()).thenReturn(bungeeSettings);
+		when(bungeeSettings.getServer()).thenReturn("lobby");
+		when(plugin.getTimeChecker()).thenReturn(timeChecker);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getLogger("global-data-close-test"));
+		when(timeChecker.getTimer()).thenReturn(executor);
+		when(handler.getGlobalMysql()).thenReturn(mysql);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			writeStarted.countDown();
+			assertTrue(releaseWrite.await(2, TimeUnit.SECONDS));
+			return null;
+		}).when(handler).setBoolean("lobby", "Processing", true);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			scheduled.set(invocation.getArgument(0));
+			return null;
+		}).when(executor).execute(any(Runnable.class));
+		BackendGlobalDataSync sync = new BackendGlobalDataSync(plugin, ignored -> { });
+		setField(sync, "globalDataHandler", handler);
+		setField(sync, "ownsGlobalMysql", true);
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> data = new HashMap<>();
+		data.put("LastUpdated", new DataValueString(
+				"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
+		data.put(TimeType.DAY.toString(), new DataValueBoolean(true));
+		CompletableFuture<Boolean> admission = CompletableFuture.supplyAsync(
+				() -> sync.checkGlobalDataTime(TimeType.DAY, data));
+		assertTrue(writeStarted.await(1, TimeUnit.SECONDS));
+
+		sync.close(50L, TimeUnit.MILLISECONDS);
+		verify(mysql).close();
+
+		releaseWrite.countDown();
+		assertTrue(admission.get(1, TimeUnit.SECONDS));
+		assertNotNull(scheduled.get());
+		scheduled.get().run();
+		verify(mysql, org.mockito.Mockito.times(1)).close();
 	}
 
 	@Test
