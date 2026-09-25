@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.backendproxy.global;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -12,7 +13,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import com.bencodez.advancedcore.api.time.TimeType;
@@ -33,20 +34,23 @@ import lombok.Getter;
  */
 public class BackendGlobalDataSync {
 	private static final long CLOSE_GRACE_SECONDS = 5L;
-	private static final Map<VotingPluginMain, Set<TimeType>> ACTIVE_TIME_CHANGES = new WeakHashMap<>();
+	private static final Map<VotingPluginMain, GlobalWorkAdmissions> GLOBAL_WORK_ADMISSIONS = new WeakHashMap<>();
 
 	private final VotingPluginMain plugin;
 	private final Object senderLock = new Object();
 	private Consumer<JsonEnvelope> sender;
 	private BackendGlobalDataSync completionReplacement;
 	private boolean senderHandedOff;
-	private final AtomicBoolean forceUpdateInProgress = new AtomicBoolean(false);
 	private final Set<TimeType> timeChangesInProgress = ConcurrentHashMap.newKeySet();
-	private final Set<TimeType> activeTimeChangeAdmissions;
+	private final GlobalWorkAdmissions globalWorkAdmissions;
 	private final Object timeChangeLifecycleLock = new Object();
 	private final Object timeChangePersistenceLock = new Object();
-	private final Map<GlobalDataHandler, Integer> activeTimeChangesByHandler = new HashMap<>();
+	private final Map<GlobalDataHandler, Integer> activeGlobalWorkByHandler = new HashMap<>();
 	private final Set<GlobalDataHandler> retiredOwnedHandlers = new HashSet<>();
+	private boolean timeChangeBatchFailed;
+	private boolean timeChangeBatchFinalizing;
+	private volatile boolean acceptingWork = true;
+	private volatile ForceUpdateAdmission activeForceUpdate;
 
 	@Getter
 	private GlobalDataHandler globalDataHandler;
@@ -61,9 +65,9 @@ public class BackendGlobalDataSync {
 		// those generations so a replacement cannot enqueue the period transition
 		// that its predecessor is still processing. A process restart intentionally
 		// gets a fresh set so the persisted period flag remains eligible for recovery.
-		synchronized (ACTIVE_TIME_CHANGES) {
-			activeTimeChangeAdmissions = ACTIVE_TIME_CHANGES.computeIfAbsent(plugin,
-					ignored -> ConcurrentHashMap.newKeySet());
+		synchronized (GLOBAL_WORK_ADMISSIONS) {
+			globalWorkAdmissions = GLOBAL_WORK_ADMISSIONS.computeIfAbsent(plugin,
+					ignored -> new GlobalWorkAdmissions());
 		}
 	}
 
@@ -73,51 +77,109 @@ public class BackendGlobalDataSync {
 		}
 		HashMap<String, DataValue> data = globalDataHandler.getExact(plugin.getBungeeSettings().getServer());
 
-		if (data.containsKey("ForceUpdate") && checkGlobalDataTimeValue(data.get("ForceUpdate"))
-				&& forceUpdateInProgress.compareAndSet(false, true)) {
+		if (data.containsKey("ForceUpdate") && checkGlobalDataTimeValue(data.get("ForceUpdate"))) {
 			String serverName = plugin.getBungeeSettings().getServer();
-			try {
-				if (UserStorage.MYSQL.equals(plugin.getStorageType())) {
-					plugin.getMysql().clearCacheBasic();
-				}
-				plugin.getBukkitScheduler().executeOrScheduleSync(plugin, () -> {
-					try {
-						plugin.getUserManager().getDataManager().clearCacheAsyncCompletion().whenComplete((ignored, failure) -> {
-							if (failure != null) {
-								forceUpdateInProgress.set(false);
-								plugin.debug(failure);
-								return;
-							}
-							try {
-								plugin.getBukkitScheduler().runTaskAsynchronously(plugin, () -> {
-									try {
-										plugin.setUpdate(true);
-										plugin.update();
-										clearForceUpdateFlag(serverName);
-									} catch (RuntimeException updateFailure) {
-										forceUpdateInProgress.set(false);
-										plugin.debug(updateFailure);
-									}
-								});
-							} catch (RuntimeException schedulingFailure) {
-								forceUpdateInProgress.set(false);
-								plugin.debug(schedulingFailure);
-							}
-						});
-					} catch (RuntimeException failure) {
-						forceUpdateInProgress.set(false);
-						plugin.debug(failure);
-					}
-				});
-			} catch (RuntimeException failure) {
-				forceUpdateInProgress.set(false);
-				plugin.debug(failure);
-			}
+			ForceUpdateAdmission admission = admitForceUpdate();
+			if (admission != null) startForceUpdate(admission, serverName);
 		}
 
 		checkGlobalDataTime(TimeType.MONTH, data);
 		checkGlobalDataTime(TimeType.WEEK, data);
 		checkGlobalDataTime(TimeType.DAY, data);
+	}
+
+	private ForceUpdateAdmission admitForceUpdate() {
+		if (!globalWorkAdmissions.admitForceUpdate(this)) return null;
+		GlobalDataHandler handler;
+		ForceUpdateAdmission admission = null;
+		synchronized (timeChangeLifecycleLock) {
+			handler = acceptingWork ? globalDataHandler : null;
+			if (handler != null) {
+				activeGlobalWorkByHandler.merge(handler, 1, Integer::sum);
+				admission = new ForceUpdateAdmission(handler);
+				activeForceUpdate = admission;
+			}
+		}
+		if (handler == null) {
+			globalWorkAdmissions.releaseForceUpdate(this);
+			return null;
+		}
+		return admission;
+	}
+
+	private void startForceUpdate(ForceUpdateAdmission admission, String serverName) {
+		try {
+			if (!admission.isPending()) return;
+			if (UserStorage.MYSQL.equals(plugin.getStorageType())) plugin.getMysql().clearCacheBasic();
+			if (!acceptingWork || !admission.isPending()) {
+				releaseForceUpdate(admission);
+				return;
+			}
+			plugin.getBukkitScheduler().executeOrScheduleSync(plugin, () -> continueForceUpdate(admission, serverName));
+		} catch (RuntimeException failure) {
+			releaseForceUpdate(admission);
+			plugin.debug(failure);
+		}
+	}
+
+	private void continueForceUpdate(ForceUpdateAdmission admission, String serverName) {
+		if (!acceptingWork || !admission.isPending()) {
+			releaseForceUpdate(admission);
+			return;
+		}
+		try {
+			plugin.getUserManager().getDataManager().clearCacheAsyncCompletion().whenComplete((ignored, failure) -> {
+				if (failure != null) {
+					releaseForceUpdate(admission);
+					plugin.debug(failure);
+					return;
+				}
+				if (!acceptingWork || !admission.isPending()) {
+					releaseForceUpdate(admission);
+					return;
+				}
+				try {
+					plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
+							() -> finishForceUpdate(admission, serverName));
+				} catch (RuntimeException schedulingFailure) {
+					releaseForceUpdate(admission);
+					plugin.debug(schedulingFailure);
+				}
+			});
+		} catch (RuntimeException failure) {
+			releaseForceUpdate(admission);
+			plugin.debug(failure);
+		}
+	}
+
+	private void finishForceUpdate(ForceUpdateAdmission admission, String serverName) {
+		if (!acceptingWork) {
+			releaseForceUpdate(admission);
+			return;
+		}
+		if (!admission.beginExecution()) return;
+		try {
+			plugin.setUpdate(true);
+			plugin.update();
+			admission.handler().setBoolean(serverName, "ForceUpdate", false);
+		} catch (RuntimeException failure) {
+			plugin.debug(failure);
+		} finally {
+			releaseForceUpdate(admission);
+		}
+	}
+
+	private void releaseForceUpdate(ForceUpdateAdmission admission) {
+		if (!admission.release()) return;
+		releaseForceUpdateResources(admission);
+	}
+
+	private void releaseForceUpdateResources(ForceUpdateAdmission admission) {
+		synchronized (timeChangeLifecycleLock) {
+			if (activeForceUpdate == admission) activeForceUpdate = null;
+		}
+		globalWorkAdmissions.releaseForceUpdate(this);
+		releaseHandlerReference(admission.handler());
 	}
 
 	public boolean checkGlobalDataTime(TimeType type, HashMap<String, DataValue> data) {
@@ -169,13 +231,15 @@ public class BackendGlobalDataSync {
 	private GlobalDataHandler admitTimeChange(TimeType type, String serverName) {
 		GlobalDataHandler handler;
 		synchronized (timeChangeLifecycleLock) {
-			handler = globalDataHandler;
-			if (handler == null || !activeTimeChangeAdmissions.add(type)) return null;
+			handler = acceptingWork ? globalDataHandler : null;
+			if (handler == null || timeChangeBatchFinalizing
+					|| !globalWorkAdmissions.admitTimeChange(this, type)) return null;
+			if (timeChangesInProgress.isEmpty()) timeChangeBatchFailed = false;
 			if (!timeChangesInProgress.add(type)) {
-				activeTimeChangeAdmissions.remove(type);
+				globalWorkAdmissions.releaseTimeChange(this, type);
 				return null;
 			}
-			activeTimeChangesByHandler.merge(handler, 1, Integer::sum);
+			activeGlobalWorkByHandler.merge(handler, 1, Integer::sum);
 		}
 		try {
 			synchronized (timeChangePersistenceLock) {
@@ -208,33 +272,42 @@ public class BackendGlobalDataSync {
 
 	private void releaseTimeChange(GlobalDataHandler handler, TimeType type, String serverName,
 			boolean completed) {
-		GlobalMySQL closeAfterRelease = null;
+		boolean finalizeBatch = false;
 		try {
+			boolean batchCompleted;
 			synchronized (timeChangeLifecycleLock) {
 				timeChangesInProgress.remove(type);
+				if (!completed) timeChangeBatchFailed = true;
+				finalizeBatch = timeChangesInProgress.isEmpty();
+				batchCompleted = finalizeBatch && !timeChangeBatchFailed;
+				if (finalizeBatch) timeChangeBatchFinalizing = true;
 			}
-			synchronized (timeChangePersistenceLock) {
-				boolean lastTimeChange;
-				synchronized (timeChangeLifecycleLock) {
-					lastTimeChange = timeChangesInProgress.isEmpty();
-				}
-				if (lastTimeChange) {
+			if (finalizeBatch) {
+				synchronized (timeChangePersistenceLock) {
 					HashMap<String, DataValue> dataToSet = new HashMap<>();
-					if (completed) dataToSet.put("FinishedProcessing", new DataValueBoolean(true));
+					if (batchCompleted) dataToSet.put("FinishedProcessing", new DataValueBoolean(true));
 					dataToSet.put("Processing", new DataValueBoolean(false));
 					handler.setData(serverName, dataToSet);
 				}
 			}
 		} finally {
-			activeTimeChangeAdmissions.remove(type);
-			synchronized (timeChangeLifecycleLock) {
-				closeAfterRelease = releaseHandlerReferenceLocked(handler);
+			if (finalizeBatch) {
+				synchronized (timeChangeLifecycleLock) {
+					timeChangeBatchFinalizing = false;
+				}
 			}
-			if (closeAfterRelease != null) closeAfterRelease.close();
-			synchronized (timeChangeLifecycleLock) {
-				timeChangeLifecycleLock.notifyAll();
-			}
+			globalWorkAdmissions.releaseTimeChange(this, type);
+			releaseHandlerReference(handler);
 		}
+	}
+
+	private void releaseHandlerReference(GlobalDataHandler handler) {
+		GlobalMySQL closeAfterRelease;
+		synchronized (timeChangeLifecycleLock) {
+			closeAfterRelease = releaseHandlerReferenceLocked(handler);
+			timeChangeLifecycleLock.notifyAll();
+		}
+		if (closeAfterRelease != null) closeAfterRelease.close();
 	}
 
 	private void sendTimeChangeFinished(JsonEnvelope envelope) {
@@ -276,12 +349,12 @@ public class BackendGlobalDataSync {
 	}
 
 	private GlobalMySQL releaseHandlerReferenceLocked(GlobalDataHandler handler) {
-		Integer references = activeTimeChangesByHandler.get(handler);
+		Integer references = activeGlobalWorkByHandler.get(handler);
 		if (references == null || references <= 1) {
-			activeTimeChangesByHandler.remove(handler);
+			activeGlobalWorkByHandler.remove(handler);
 			return retiredOwnedHandlers.remove(handler) ? handler.getGlobalMysql() : null;
 		}
-		activeTimeChangesByHandler.put(handler, references - 1);
+		activeGlobalWorkByHandler.put(handler, references - 1);
 		return null;
 	}
 
@@ -292,18 +365,11 @@ public class BackendGlobalDataSync {
 		return Boolean.valueOf(data.getString());
 	}
 
-	private void clearForceUpdateFlag(String serverName) {
-		try {
-			globalDataHandler.setBoolean(serverName, "ForceUpdate", false);
-		} finally {
-			forceUpdateInProgress.set(false);
-		}
-	}
-
 	public void load() {
 		if (!plugin.getBungeeSettings().isGloblalDataEnabled()) {
 			return;
 		}
+		acceptingWork = true;
 
 		long retirementDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(CLOSE_GRACE_SECONDS);
 		shutdownTimer(retirementDeadline);
@@ -365,6 +431,9 @@ public class BackendGlobalDataSync {
 	}
 
 	void close(long timeout, TimeUnit unit) {
+		acceptingWork = false;
+		ForceUpdateAdmission forceUpdate = activeForceUpdate;
+		if (forceUpdate != null && forceUpdate.cancelPending()) releaseForceUpdateResources(forceUpdate);
 		long timeoutNanos = Math.max(0L, unit.toNanos(timeout));
 		long deadline = System.nanoTime() + timeoutNanos;
 		shutdownTimer(deadline);
@@ -382,7 +451,7 @@ public class BackendGlobalDataSync {
 			boolean closeConnection = ownsGlobalMysql;
 			globalDataHandler = null;
 			ownsGlobalMysql = false;
-			if (previous != null && activeTimeChangesByHandler.containsKey(previous)) {
+			if (previous != null && activeGlobalWorkByHandler.containsKey(previous)) {
 				deferred = previous;
 				if (closeConnection) retiredOwnedHandlers.add(previous);
 			} else if (previous != null && closeConnection) {
@@ -397,7 +466,7 @@ public class BackendGlobalDataSync {
 		GlobalMySQL forceClose = null;
 		boolean interrupted = false;
 		synchronized (timeChangeLifecycleLock) {
-			while (activeTimeChangesByHandler.containsKey(handler)) {
+			while (activeGlobalWorkByHandler.containsKey(handler)) {
 				long remaining = deadlineNanos - System.nanoTime();
 				if (remaining <= 0L) break;
 				try {
@@ -407,7 +476,7 @@ public class BackendGlobalDataSync {
 					break;
 				}
 			}
-			if (activeTimeChangesByHandler.containsKey(handler) && retiredOwnedHandlers.remove(handler)) {
+			if (activeGlobalWorkByHandler.containsKey(handler) && retiredOwnedHandlers.remove(handler)) {
 				forceClose = handler.getGlobalMysql();
 			}
 		}
@@ -432,5 +501,60 @@ public class BackendGlobalDataSync {
 		}
 		timer.shutdownNow();
 		timer = null;
+	}
+
+	private record ForceUpdateAdmission(GlobalDataHandler handler, AtomicInteger phase) {
+		private static final int PENDING = 0;
+		private static final int EXECUTING = 1;
+		private static final int RELEASED = 2;
+
+		private ForceUpdateAdmission(GlobalDataHandler handler) {
+			this(handler, new AtomicInteger(PENDING));
+		}
+
+		private boolean beginExecution() {
+			return phase.compareAndSet(PENDING, EXECUTING);
+		}
+
+		private boolean isPending() {
+			return phase.get() == PENDING;
+		}
+
+		private boolean cancelPending() {
+			return phase.compareAndSet(PENDING, RELEASED);
+		}
+
+		private boolean release() {
+			return phase.getAndSet(RELEASED) != RELEASED;
+		}
+	}
+
+	private static final class GlobalWorkAdmissions {
+		private final Set<TimeType> activeTimeChanges = EnumSet.noneOf(TimeType.class);
+		private BackendGlobalDataSync timeChangeOwner;
+		private BackendGlobalDataSync forceUpdateOwner;
+
+		private synchronized boolean admitTimeChange(BackendGlobalDataSync requester, TimeType type) {
+			if (timeChangeOwner != null && timeChangeOwner != requester) return false;
+			if (!activeTimeChanges.add(type)) return false;
+			timeChangeOwner = requester;
+			return true;
+		}
+
+		private synchronized void releaseTimeChange(BackendGlobalDataSync requester, TimeType type) {
+			if (timeChangeOwner != requester) return;
+			activeTimeChanges.remove(type);
+			if (activeTimeChanges.isEmpty()) timeChangeOwner = null;
+		}
+
+		private synchronized boolean admitForceUpdate(BackendGlobalDataSync requester) {
+			if (forceUpdateOwner != null) return false;
+			forceUpdateOwner = requester;
+			return true;
+		}
+
+		private synchronized void releaseForceUpdate(BackendGlobalDataSync requester) {
+			if (forceUpdateOwner == requester) forceUpdateOwner = null;
+		}
 	}
 }
