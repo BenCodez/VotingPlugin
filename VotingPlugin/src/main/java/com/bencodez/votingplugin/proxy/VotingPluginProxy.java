@@ -528,7 +528,10 @@ public abstract class VotingPluginProxy {
 			return;
 		}
 		for (String s : getAllAvailableServers()) {
-			getGlobalDataHandler().setBoolean(s, "ForceUpdate", true);
+			HashMap<String, DataValue> forceUpdate = new HashMap<>();
+			forceUpdate.put("ForceUpdate", new DataValueBoolean(true));
+			forceUpdate.put("ForceUpdateId", new DataValueString(UUID.randomUUID().toString()));
+			getGlobalDataHandler().setData(s, forceUpdate);
 			getGlobalMessageProxyHandler().sendMessage(s, 1, VotingPluginWire.bungeeTimeChange());
 		}
 		processQueue();
@@ -674,6 +677,7 @@ public abstract class VotingPluginProxy {
 			getGlobalDataHandler().getGlobalMysql().alterColumnType("FinishedProcessing", "VARCHAR(5)");
 			getGlobalDataHandler().getGlobalMysql().alterColumnType("Processing", "VARCHAR(5)");
 			getGlobalDataHandler().getGlobalMysql().alterColumnType("ForceUpdate", "VARCHAR(5)");
+			getGlobalDataHandler().getGlobalMysql().alterColumnType("ForceUpdateId", "VARCHAR(36)");
 			getGlobalDataHandler().getGlobalMysql().alterColumnType("LastUpdated", "MEDIUMTEXT");
 			for (TimeType type : TimeType.values()) {
 				getGlobalDataHandler().getGlobalMysql().alterColumnType(

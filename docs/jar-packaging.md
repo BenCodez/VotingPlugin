@@ -8,13 +8,39 @@ transports. Gson is platform-supplied and is therefore `provided`.
 
 AdvancedCore already contains the relocated Rhino implementation needed by its
 JavaScript support, so VotingPlugin excludes the second unrelocated Rhino
-dependency. The default branch has no HTTP transport and therefore does not
-bundle Bouncy Castle. Adding HTTP transport support must explicitly own its TLS
-implementation and crypto dependencies; it must not rely on the non-HTTP
-AdvancedCore artifact to provide them.
+dependency. SimpleAPI's HTTP identity uses the JDK cryptography APIs, so the
+downloadable plugin does not bundle Bouncy Castle.
 
 The package phase runs `PackagedArtifactTest` after shading. It opens the actual
 downloadable JAR, checks plugin resources and required relocated classes, and
-rejects duplicate Rhino, raw Hikari/Folia, unused Bouncy Castle, and unsupported
-Java 25 versioned payload. Release/deployment profiles reuse this Shade setup;
-the artifact check follows their configured JAR name.
+rejects duplicate Rhino, raw Hikari/Folia, external crypto providers, uncommon
+SQLite native targets, and Checker Framework annotations. It creates both
+server and client TLS identities from the packaged JDK-only implementation.
+
+SQLite keeps the Linux x86_64 native in the plugin for offline startup on the
+common server platform. When SQLite is selected on another supported target,
+VotingPlugin downloads the pinned `sqlite-jdbc` 3.53.4.0 artifact, verifies its
+SHA-256 digest, extracts only that target's native into the plugin data folder,
+loads it, and restores the JVM-wide Xerial loader properties. MySQL installations
+and Linux x86_64 SQLite installations do not make this request.
+
+For an offline Windows, macOS, ARM, musl, or FreeBSD installation, pre-provision
+the official `sqlite-jdbc-3.53.4.0.jar` as
+`<VotingPlugin data directory>/libraries/sqlite-jdbc-3.53.4.0.jar`. Its SHA-256
+must be `bcb1f51e36f940867e83342f9efbf5968ac44a6bef4d397bb4af7b17b45cd2fb`;
+VotingPlugin rejects any other content and then extracts only the current
+platform's native without network access. Operators that already provision a
+native may instead set both `org.sqlite.lib.path` and `org.sqlite.lib.name` as
+JVM properties. Extracted natives use a unique load directory so a replacement
+plugin classloader never reuses the prior classloader's JNI path; stale copies
+are removed on a best-effort basis.
+
+The test caps the downloadable artifact at 10 MiB so dependency growth must be
+reviewed explicitly. Release/deployment profiles
+reuse this Shade setup; the artifact check follows their configured JAR name.
+
+Keep the downloadable VotingPlugin JAR as small as practical. Before adding a
+runtime dependency, inspect the shaded artifact and assign one owner for each
+embedded package. Prefer platform-provided APIs where every supported loader
+supplies them, and filter unused native targets or duplicate transitive classes
+only when the retained runtime paths are covered by packaging and startup tests.

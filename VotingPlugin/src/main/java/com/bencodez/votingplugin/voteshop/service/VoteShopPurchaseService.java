@@ -16,6 +16,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -209,7 +210,7 @@ public class VoteShopPurchaseService {
 								limitGeneration(item, System.currentTimeMillis()));
 					}
 					if (debit.result() != VoteShopPurchaseResult.SUCCESS) {
-						BukkitCompletionScheduler.run(plugin, player, () -> completion.accept(debit.result()));
+						completePurchaseResult(player, completion, debit.result());
 						return;
 					}
 					completeSharedMysqlPurchase(player, user, item, placeholders, shopData, completion, debit);
@@ -306,43 +307,98 @@ public class VoteShopPurchaseService {
 		};
 		try {
 			runPurchaseEntityTask(player, () -> {
+				if (plugin.getBukkitScheduler().getFoliaLib() == null && !player.isOnline()) {
+					rejectBeforeStart.run();
+					return;
+				}
 				if (!state.compareAndSet(COMPLETION_PENDING, COMPLETION_RUNNING)) return;
+				CompletionStage<Void> rewardCompletion;
 				try {
-					completePurchase(player, user, item, placeholders, shopData);
+					rewardCompletion = givePurchaseRewardAsync(user, item, placeholders, shopData);
 				} catch (RuntimeException | Error rewardFailure) {
 					state.set(COMPLETION_FINISHED);
 					logClaimedRewardSchedulingFailure(debit);
-					// This callback is already running on the player's entity lane. The
-					// claimed journal row must remain for reconciliation because the reward
-					// may have partially executed, but callers must not wait forever.
 					completeClaimedRewardFailure(completion);
 					throw rewardFailure;
 				}
-				try {
-					plugin.getTimer().execute(() -> settleSharedMysqlPurchase(player, completion, debit));
-				} catch (RuntimeException schedulingFailure) {
-					plugin.debug(schedulingFailure);
-					// The reward has already run, so settlement must retain the same
-					// idempotent journal operation even when the persistence executor is
-					// saturated or stopping. Bukkit's async scheduler keeps JDBC off the
-					// entity lane and is independent from that executor.
-					try {
-						plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
-								() -> settleSharedMysqlPurchase(player, completion, debit));
-					} catch (RuntimeException asyncSchedulingFailure) {
-						// A shutdown can reject both schedulers. The reward cannot be run
-						// again, so retain HOOK_STARTED for explicit reconciliation while
-						// still completing the already-successful purchase exactly once.
-						plugin.debug(asyncSchedulingFailure);
-						completeSuccessfulPurchase(player, completion);
-					}
-				} finally {
+				if (rewardCompletion == null) {
 					state.set(COMPLETION_FINISHED);
+					logClaimedRewardSchedulingFailure(debit);
+					completeClaimedRewardFailure(completion);
+					return;
 				}
+				rewardCompletion.whenComplete((ignored, rewardFailure) -> {
+					if (rewardFailure != null) {
+						state.set(COMPLETION_FINISHED);
+						logClaimedRewardSchedulingFailure(debit);
+						plugin.debug(rewardFailure);
+						completeClaimedRewardFailure(player, completion);
+						return;
+					}
+					finishClaimedReward(player, user, item, placeholders, completion, debit, state);
+				});
 			}, rejectBeforeStart);
 		} catch (RuntimeException schedulingFailure) {
 			rejectBeforeStart.run();
 			plugin.debug(schedulingFailure);
+		}
+	}
+
+	private CompletionStage<Void> givePurchaseRewardAsync(VotingPluginUser user, VoteShopItem item,
+			HashMap<String, String> placeholders, FileConfiguration shopData) {
+		plugin.getLogger().info("VoteShop: " + user.getPlayerName() + "/" + user.getUUID() + " bought "
+				+ item.getIdentifier() + " for " + item.getCost());
+		RewardOptions options = new RewardOptions().setOnline(true).setPlaceholders(placeholders);
+		// A claimed purchase cannot treat a legacy synchronous injection exception as
+		// successful. The purchase journal remains the durable reconciliation record;
+		// this consumer selects AdvancedCore's strict failure-propagation path without
+		// attempting an unsafe automatic replay of external reward side effects.
+		options.setAsyncReplayCheckpointConsumer(ignored -> { });
+		return plugin.getRewardHandler().giveRewardAsync(user, shopData, item.getRewardsPath(),
+				options);
+	}
+
+	private void finishClaimedReward(Player player, VotingPluginUser user, VoteShopItem item,
+			HashMap<String, String> placeholders, Consumer<VoteShopPurchaseResult> completion,
+			SharedPurchaseDebit debit, AtomicInteger state) {
+		Runnable rejected = () -> {
+			if (!state.compareAndSet(COMPLETION_RUNNING, COMPLETION_FINISHED)) return;
+			// The reward stage already completed. Entity retirement may suppress the
+			// best-effort message/event, but it must not strand the durable purchase.
+			scheduleSharedMysqlSettlement(player, completion, debit);
+		};
+		try {
+			runPurchaseEntityTask(player, () -> {
+				if (!state.compareAndSet(COMPLETION_RUNNING, COMPLETION_FINISHED)) return;
+				try {
+					completePurchasePresentation(player, user, item, placeholders);
+				} catch (RuntimeException | Error presentationFailure) {
+					plugin.getLogger().warning("VoteShop reward completed, but its player presentation failed");
+					plugin.debug(presentationFailure);
+					throw presentationFailure;
+				} finally {
+					scheduleSharedMysqlSettlement(player, completion, debit);
+				}
+			}, rejected);
+		} catch (RuntimeException schedulingFailure) {
+			rejected.run();
+			plugin.debug(schedulingFailure);
+		}
+	}
+
+	private void scheduleSharedMysqlSettlement(Player player, Consumer<VoteShopPurchaseResult> completion,
+			SharedPurchaseDebit debit) {
+		try {
+			plugin.getTimer().execute(() -> settleSharedMysqlPurchase(player, completion, debit));
+		} catch (RuntimeException schedulingFailure) {
+			plugin.debug(schedulingFailure);
+			try {
+				plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
+						() -> settleSharedMysqlPurchase(player, completion, debit));
+			} catch (RuntimeException asyncSchedulingFailure) {
+				plugin.debug(asyncSchedulingFailure);
+				completeClaimedRewardFailure(player, completion);
+			}
 		}
 	}
 
@@ -395,8 +451,7 @@ public class VoteShopPurchaseService {
 		// async fallback, so completing the fenced refund here cannot block an
 		// entity lane and needs no second executor admission.
 		refundCompensatingMysqlDebit(user, debit);
-		BukkitCompletionScheduler.run(plugin, player,
-				() -> completion.accept(VoteShopPurchaseResult.FAILED));
+		completePurchaseResult(player, completion, VoteShopPurchaseResult.FAILED);
 	}
 
 	private void scheduleSharedMysqlCompensation(Player player, VotingPluginUser user,
@@ -420,12 +475,7 @@ public class VoteShopPurchaseService {
 	}
 
 	private void completeFailedPurchase(Player player, Consumer<VoteShopPurchaseResult> completion) {
-		try {
-			BukkitCompletionScheduler.run(plugin, player,
-					() -> completion.accept(VoteShopPurchaseResult.FAILED));
-		} catch (RuntimeException completionFailure) {
-			plugin.debug(completionFailure);
-		}
+		completePurchaseResult(player, completion, VoteShopPurchaseResult.FAILED);
 	}
 
 	private void completeClaimedRewardFailure(Consumer<VoteShopPurchaseResult> completion) {
@@ -434,6 +484,11 @@ public class VoteShopPurchaseService {
 		} catch (RuntimeException completionFailure) {
 			plugin.debug(completionFailure);
 		}
+	}
+
+	private void completeClaimedRewardFailure(Player player,
+			Consumer<VoteShopPurchaseResult> completion) {
+		completePurchaseResult(player, completion, VoteShopPurchaseResult.RECONCILIATION_REQUIRED);
 	}
 
 	private void refundCompensatingMysqlDebit(VotingPluginUser user, SharedPurchaseDebit debit) {
@@ -456,14 +511,21 @@ public class VoteShopPurchaseService {
 
 	private void settleSharedMysqlPurchase(Player player, Consumer<VoteShopPurchaseResult> completion,
 			SharedPurchaseDebit debit) {
-		completeSharedMysqlPurchase(debit);
-		completeSuccessfulPurchase(player, completion);
+		if (completeSharedMysqlPurchase(debit)) completeSuccessfulPurchase(player, completion);
+		else completeClaimedRewardFailure(player, completion);
 	}
 
 	private void completeSuccessfulPurchase(Player player, Consumer<VoteShopPurchaseResult> completion) {
+		completePurchaseResult(player, completion, VoteShopPurchaseResult.SUCCESS);
+	}
+
+	private void completePurchaseResult(Player player, Consumer<VoteShopPurchaseResult> completion,
+			VoteShopPurchaseResult result) {
 		try {
-			BukkitCompletionScheduler.run(plugin, player,
-					() -> completion.accept(VoteShopPurchaseResult.SUCCESS));
+			BukkitCompletionScheduler.run(plugin, player, () -> completion.accept(result),
+					() -> { },
+					() -> plugin.getLogger().warning(
+							"Unable to publish vote shop result because the player scheduler stopped"));
 		} catch (RuntimeException completionFailure) {
 			plugin.debug(completionFailure);
 		}
@@ -480,13 +542,15 @@ public class VoteShopPurchaseService {
 
 	private void completePurchase(Player player, VotingPluginUser user, VoteShopItem item,
 			HashMap<String, String> placeholders, FileConfiguration shopData) {
-
 		plugin.getLogger().info("VoteShop: " + user.getPlayerName() + "/" + user.getUUID() + " bought "
 				+ item.getIdentifier() + " for " + item.getCost());
-
 		plugin.getRewardHandler().giveReward(user, shopData, item.getRewardsPath(),
-				new RewardOptions().setPlaceholders(placeholders));
+				new RewardOptions().setOnline(true).setPlaceholders(placeholders));
+		completePurchasePresentation(player, user, item, placeholders);
+	}
 
+	private void completePurchasePresentation(Player player, VotingPluginUser user, VoteShopItem item,
+			HashMap<String, String> placeholders) {
 		String purchaseMessage = item.getPurchaseMessage();
 		if (purchaseMessage == null || purchaseMessage.isEmpty()) {
 			purchaseMessage = plugin.getConfigFile().getFormatShopPurchaseMsg();
@@ -1072,15 +1136,16 @@ public class VoteShopPurchaseService {
 		return result;
 	}
 
-	private void completeSharedMysqlPurchase(SharedPurchaseDebit debit) {
+	private boolean completeSharedMysqlPurchase(SharedPurchaseDebit debit) {
 		try {
-			debit.journal().complete(debit.purchaseId());
+			return debit.journal().complete(debit.purchaseId());
 		} catch (SQLException failure) {
 			// A HOOK_STARTED record is intentionally retained for reconciliation:
 			// the arbitrary reward hook may already have side effects.
 			plugin.getLogger().severe("Unable to settle a completed vote shop purchase: "
 					+ failure.getClass().getSimpleName());
 			plugin.debug(failure);
+			return false;
 		}
 	}
 

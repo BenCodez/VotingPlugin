@@ -105,6 +105,7 @@ import com.bencodez.votingplugin.proxy.control.HostedControlManager;
 import com.bencodez.votingplugin.util.BoundedScheduledExecutor;
 import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
 import com.bencodez.votingplugin.util.ControlCredentialFile.PendingAutoEnrollment;
+import com.bencodez.votingplugin.util.SqliteNativeLibrary;
 import com.bencodez.votingplugin.rewards.VotingPluginRewardRegistrar;
 import com.bencodez.votingplugin.servicesites.ServiceSiteHandler;
 import com.bencodez.votingplugin.signs.Signs;
@@ -1561,6 +1562,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 					restart.previous.completeVotePartyHandoff(restart.replacement);
 					restart.previous.completeOrderedVoteHandoff(restart.replacement);
 				}
+				if (restart.previous != null) restart.previous.completeGlobalDataHandoff(restart.replacement);
 			} catch (RuntimeException handoffFailure) {
 				backendProxyHandler = restart.previous;
 				restart.replacement.abortStagedInboundTo(restart.previous);
@@ -1859,6 +1861,10 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		plugin = this;
 
 		setupFiles();
+		if ("SQLITE".equalsIgnoreCase(configFile.getData().getString("DataStorage", "SQLITE"))) {
+			try { SqliteNativeLibrary.ensureAvailable(getDataFolder().toPath().resolve("libraries")); }
+			catch (IOException failure) { throw new IllegalStateException("Could not prepare the SQLite native library", failure); }
+		}
 
 		loadVoteSites();
 
@@ -1890,6 +1896,22 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			}
 		});
 
+	}
+
+	@Override
+	public void onDisable() {
+		try {
+			shutdownVoteReminders();
+		} finally {
+			super.onDisable();
+		}
+	}
+
+	private void shutdownVoteReminders() {
+		if (voteRemindersManager != null) {
+			voteRemindersManager.shutdown();
+			voteRemindersManager = null;
+		}
 	}
 
 	@Override
@@ -1926,10 +1948,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 			timeQueueHandler.save();
 		}
 
-		if (voteRemindersManager != null) {
-			voteRemindersManager.shutdown();
-			voteRemindersManager = null;
-		}
+		shutdownVoteReminders();
 
 		if (coolDownCheck != null) {
 			coolDownCheck.shutdown();
