@@ -19,8 +19,8 @@ final class DurableVoteReceiptStore {
 	private static final int MAX_ACTIVE_RECEIPTS = 262144;
 	/* Larger than the complete in-memory and durable ordered lane (256 + 512). */
 	private static final int COMPLETION_HEADROOM = 1024;
-	/* One proxy cannot retain more release markers than its bounded outbox. */
-	private static final int MAX_RELEASE_TOMBSTONES = 4096;
+	/* Covers slightly more than three completed votes per second for the full 24-hour replay window. */
+	static final int MAX_RELEASE_TOMBSTONES = 262144;
 	private static final long MAX_FILE_BYTES = 16L * 1024L * 1024L;
 	private static final String HEADER = "VP-VOTE-RECEIPTS-1";
 	private static final String RELEASE = "R";

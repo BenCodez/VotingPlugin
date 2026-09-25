@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -14,6 +15,13 @@ import org.junit.jupiter.api.io.TempDir;
 class ProcessedVoteCacheDurabilityTest {
 	@TempDir
 	Path directory;
+
+	@Test
+	void releaseTombstoneCapacityCoversSustainedVoteThroughputForFullTtl() {
+		long threeVotesPerSecondForOneDay = TimeUnit.DAYS.toSeconds(1) * 3;
+
+		assertTrue(DurableVoteReceiptStore.MAX_RELEASE_TOMBSTONES >= threeVotesPerSecondForOneDay);
+	}
 
 	@Test
 	void completedVoteRemainsDeduplicatedAfterBackendRestart() {
