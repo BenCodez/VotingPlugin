@@ -57,6 +57,22 @@ public class UserDataVoteReminderCooldownStoreTest {
 	}
 
 	@Test
+	public void releaseGlobalClaim_onlyClearsTheMatchingReservation() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		UUID uuid = UUID.randomUUID();
+		VotingPluginUser user = mock(VotingPluginUser.class, RETURNS_DEEP_STUBS);
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false)).thenReturn(user);
+		when(user.getUserData().getString(UserDataVoteReminderCooldownStore.KEY_GLOBAL_LAST))
+				.thenReturn("10000", "12000");
+		UserDataVoteReminderCooldownStore store = new UserDataVoteReminderCooldownStore(plugin);
+
+		store.releaseGlobalClaim(uuid, 10_000L);
+		store.releaseGlobalClaim(uuid, 10_000L);
+
+		verify(user.getUserData(), times(1)).setString(UserDataVoteReminderCooldownStore.KEY_GLOBAL_LAST, "0");
+	}
+
+	@Test
 	public void getPerReminderMap_parsesAndCaches() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
 		UUID uuid = UUID.randomUUID();

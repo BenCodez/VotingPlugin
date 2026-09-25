@@ -246,6 +246,10 @@ public final class VoteRemindersManager {
 			return store.tryClaimGlobal(uuid, nowMs, cd);
 		}
 
+		public void releaseGlobal(UUID uuid, long claimedAtMs) {
+			if (ms(globalCooldown) > 0) store.releaseGlobalClaim(uuid, claimedAtMs);
+		}
+
 		/**
 		 * Gate per-reminder using max(cooldown, interval) in millis.
 		 */
@@ -847,12 +851,61 @@ public final class VoteRemindersManager {
 		if (!isUserReminderEnabled(user)) return false;
 		if (snapshot.noRemind() || !snapshot.basePermission()) return false;
 		if (!passesConditions(user, snapshot, def.getConditions())) return false;
+		if (plugin.getPlaceholderPlayerPresence().schedulerOwner(user.getJavaUUID()) == null) return false;
 		long now = System.currentTimeMillis();
 		if (!cooldowns.tryAcquireGlobal(user.getJavaUUID(), now)) return false;
-		if (!cooldowns.canFireReminder(user.getJavaUUID(), def.getName(), now, def.getCooldown(), def.getInterval())) return false;
-		giveRewardFromPath(user, snapshot, def.getRewardsPath(), placeholders);
-		cooldowns.markFired(user.getJavaUUID(), def.getName(), now);
-		return true;
+		if (!cooldowns.canFireReminder(user.getJavaUUID(), def.getName(), now, def.getCooldown(), def.getInterval())) {
+			cooldowns.releaseGlobal(user.getJavaUUID(), now);
+			return false;
+		}
+		RewardBuilder reward;
+		try {
+			reward = prepareRewardFromPath(user, snapshot, def.getRewardsPath(), placeholders);
+		} catch (RuntimeException failure) {
+			cooldowns.releaseGlobal(user.getJavaUUID(), now);
+			plugin.debug(failure);
+			return false;
+		}
+		return scheduleIfStillOnline(user.getJavaUUID(), () -> {
+			try {
+				reward.send(user);
+				submitReminderWorker(() -> cooldowns.markFired(user.getJavaUUID(), def.getName(), now));
+			} catch (RuntimeException failure) {
+				submitReminderWorker(() -> cooldowns.releaseGlobal(user.getJavaUUID(), now));
+				plugin.debug(failure);
+			}
+		}, () -> submitReminderWorker(() -> cooldowns.releaseGlobal(user.getJavaUUID(), now)));
+	}
+
+	boolean scheduleIfStillOnline(UUID uuid, Runnable delivery) {
+		return scheduleIfStillOnline(uuid, delivery, () -> { });
+	}
+
+	private boolean scheduleIfStillOnline(UUID uuid, Runnable delivery, Runnable unavailable) {
+		Player owner = plugin.getPlaceholderPlayerPresence().schedulerOwner(uuid);
+		if (owner == null || delivery == null) {
+			unavailable.run();
+			return false;
+		}
+		try {
+			plugin.getBukkitScheduler().runTask(plugin, () -> {
+				if (!isEnabled() || plugin.getPlaceholderPlayerPresence().schedulerOwner(uuid) != owner
+						|| !owner.isOnline()) {
+					unavailable.run();
+					return;
+				}
+				if (plugin.getOptions().isTreatVanishAsOffline() && isPlatformVanished(owner)) {
+					unavailable.run();
+					return;
+				}
+				delivery.run();
+			}, owner);
+			return true;
+		} catch (RuntimeException failure) {
+			unavailable.run();
+			plugin.debug(failure);
+			return false;
+		}
 	}
 
 	// Retained for focused compatibility tests; production paths use captured platform state.
@@ -871,18 +924,17 @@ public final class VoteRemindersManager {
 		return attemptFireNow(user, snapshot, def, placeholders);
 	}
 
-	private void giveRewardFromPath(VotingPluginUser user, ReminderPlayerSnapshot snapshot, String rewardsPath,
+	private RewardBuilder prepareRewardFromPath(VotingPluginUser user, ReminderPlayerSnapshot snapshot, String rewardsPath,
 			Map<String, String> placeholders) {
 		RewardBuilder rb = onlineRewardBuilder(plugin.getConfig(), rewardsPath);
 		rb.withPlaceHolder("sitesavailable", "" + sitesNotVotedOn(user, snapshot));
 		if (placeholders != null) for (Map.Entry<String, String> entry : placeholders.entrySet()) rb.withPlaceHolder(entry.getKey(), entry.getValue());
-		rb.send(user);
+		return rb;
 	}
 
 	static RewardBuilder onlineRewardBuilder(org.bukkit.configuration.ConfigurationSection config, String rewardsPath) {
-		// The snapshot was captured only after the player-owned scheduler confirmed
-		// this player online. Preserve that fact across the worker handoff instead of
-		// resolving a UUID-only user wrapper by its potentially unloaded name.
+		// Delivery is admitted only after a final player-owned scheduler check, so the
+		// reward may use that current online state without a worker-side Bukkit lookup.
 		return new RewardBuilder(config, rewardsPath).setOnline(true).setGiveOffline(false).disableDefaultWorlds();
 	}
 

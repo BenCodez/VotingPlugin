@@ -16,6 +16,11 @@ public interface VoteReminderCooldownStore {
 	 */
 	boolean tryClaimGlobal(UUID uuid, long nowMs, long globalCooldownMs);
 
+	/** Releases a still-current claim when delivery was not admitted. */
+	default void releaseGlobalClaim(UUID uuid, long claimedAtMs) {
+		// Optional for compatibility with custom stores that cannot roll back a claim.
+	}
+
 	/**
 	 * Gets per-reminder cooldown map for a player.
 	 * @param uuid the player UUID

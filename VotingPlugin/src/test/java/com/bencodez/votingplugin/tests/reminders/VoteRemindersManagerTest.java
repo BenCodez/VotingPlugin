@@ -12,10 +12,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
@@ -23,19 +26,67 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.bencodez.simpleapi.time.ParsedDuration;
+import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.advancedcore.api.rewards.RewardBuilder;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.data.ServerData;
+import com.bencodez.votingplugin.placeholders.PlaceholderPlayerPresence;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.votereminding.VoteRemindersManager;
 import com.bencodez.votingplugin.votereminding.VoteRemindersManager.VoteReminderConditions;
 import com.bencodez.votingplugin.votereminding.VoteRemindersManager.VoteReminderDefinition;
 import com.bencodez.votingplugin.votereminding.VoteRemindersManager.VoteReminderType;
+import com.bencodez.votingplugin.votereminding.VoteRemindersManager.VoteReminderOptions;
 import com.bencodez.votingplugin.votereminding.store.VoteReminderCooldownStore;
 
 @ExtendWith(MockitoExtension.class)
 public class VoteRemindersManagerTest {
+	@Test
+	void reminderDeliveryRevalidatesItsPlayerOwnerOnTheEntityScheduler() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		ServerData serverData = mock(ServerData.class);
+		VoteReminderCooldownStore store = mock(VoteReminderCooldownStore.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		Player player = mock(Player.class);
+		PlaceholderPlayerPresence presence = new PlaceholderPlayerPresence();
+		UUID uuid = UUID.randomUUID();
+		AtomicReference<Runnable> scheduled = new AtomicReference<>();
+		AtomicInteger deliveries = new AtomicInteger();
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(serverData.getDisabledReminders()).thenReturn(Collections.emptyList());
+		when(plugin.getPlaceholderPlayerPresence()).thenReturn(presence);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			scheduled.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTask(eq(plugin), any(Runnable.class), eq(player));
+		presence.playerOnline(uuid, player);
+		VoteRemindersManager manager = new VoteRemindersManager(plugin, store);
+		try {
+			Field options = VoteRemindersManager.class.getDeclaredField("options");
+			options.setAccessible(true);
+			options.set(manager, new VoteReminderOptions(true, true, ParsedDuration.parse(""), 0,
+					ParsedDuration.parse(""), ParsedDuration.parse(""), new VoteReminderConditions(), ""));
+			Method schedule = VoteRemindersManager.class.getDeclaredMethod("scheduleIfStillOnline",
+					UUID.class, Runnable.class);
+			schedule.setAccessible(true);
+
+			assertTrue((boolean) schedule.invoke(manager, uuid, (Runnable) deliveries::incrementAndGet));
+			presence.playerOffline(uuid, player);
+			scheduled.get().run();
+			org.junit.jupiter.api.Assertions.assertEquals(0, deliveries.get());
+
+			presence.playerOnline(uuid, player);
+			when(player.isOnline()).thenReturn(false);
+			assertTrue((boolean) schedule.invoke(manager, uuid, (Runnable) deliveries::incrementAndGet));
+			scheduled.get().run();
+			org.junit.jupiter.api.Assertions.assertEquals(0, deliveries.get());
+		} finally {
+			manager.shutdown();
+		}
+	}
+
 	@Test
 	void loginRewardCarriesCapturedOnlineStateIntoWorkerExecution() throws Exception {
 		Method method = VoteRemindersManager.class.getDeclaredMethod("onlineRewardBuilder",
@@ -109,6 +160,18 @@ public class VoteRemindersManagerTest {
 
 		cd.markFired(uuid, "Basic", 123L);
 		verify(store).setPerReminderLast(uuid, "Basic", 123L);
+	}
+
+	@Test
+	public void cooldownWrapper_releasesUndeliveredGlobalClaim() {
+		VoteReminderCooldownStore store = mock(VoteReminderCooldownStore.class);
+		UUID uuid = UUID.randomUUID();
+		VoteRemindersManager.VoteReminderCooldowns cd = new VoteRemindersManager.VoteReminderCooldowns(store,
+				ParsedDuration.parse("10s"));
+
+		cd.releaseGlobal(uuid, 123L);
+
+		verify(store).releaseGlobalClaim(uuid, 123L);
 	}
 
 	@Test

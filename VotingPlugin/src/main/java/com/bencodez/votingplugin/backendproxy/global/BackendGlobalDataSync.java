@@ -2,7 +2,7 @@ package com.bencodez.votingplugin.backendproxy.global;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.EnumSet;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -44,11 +44,8 @@ public class BackendGlobalDataSync {
 	private final Set<TimeType> timeChangesInProgress = ConcurrentHashMap.newKeySet();
 	private final GlobalWorkAdmissions globalWorkAdmissions;
 	private final Object timeChangeLifecycleLock = new Object();
-	private final Object timeChangePersistenceLock = new Object();
 	private final Map<GlobalDataHandler, Integer> activeGlobalWorkByHandler = new HashMap<>();
 	private final Set<GlobalDataHandler> retiredOwnedHandlers = new HashSet<>();
-	private boolean timeChangeBatchFailed;
-	private boolean timeChangeBatchFinalizing;
 	private volatile boolean acceptingWork = true;
 	private volatile ForceUpdateAdmission activeForceUpdate;
 
@@ -61,10 +58,10 @@ public class BackendGlobalDataSync {
 	public BackendGlobalDataSync(VotingPluginMain plugin, Consumer<JsonEnvelope> sender) {
 		this.plugin = plugin;
 		this.sender = sender;
-		// Runtime replacements use the same plugin instance. Share admission across
-		// those generations so a replacement cannot enqueue the period transition
-		// that its predecessor is still processing. A process restart intentionally
-		// gets a fresh set so the persisted period flag remains eligible for recovery.
+		// Runtime replacements use the same plugin instance. Share each period fence
+		// and the aggregate completion state across those generations. A process
+		// restart intentionally gets a fresh state so persisted flags remain eligible
+		// for recovery.
 		synchronized (GLOBAL_WORK_ADMISSIONS) {
 			globalWorkAdmissions = GLOBAL_WORK_ADMISSIONS.computeIfAbsent(plugin,
 					ignored -> new GlobalWorkAdmissions());
@@ -232,17 +229,15 @@ public class BackendGlobalDataSync {
 		GlobalDataHandler handler;
 		synchronized (timeChangeLifecycleLock) {
 			handler = acceptingWork ? globalDataHandler : null;
-			if (handler == null || timeChangeBatchFinalizing
-					|| !globalWorkAdmissions.admitTimeChange(this, type)) return null;
-			if (timeChangesInProgress.isEmpty()) timeChangeBatchFailed = false;
+			if (handler == null || !globalWorkAdmissions.admitTimeChange(this, type)) return null;
 			if (!timeChangesInProgress.add(type)) {
-				globalWorkAdmissions.releaseTimeChange(this, type);
+				globalWorkAdmissions.cancelTimeChangeAdmission(this, type);
 				return null;
 			}
 			activeGlobalWorkByHandler.merge(handler, 1, Integer::sum);
 		}
 		try {
-			synchronized (timeChangePersistenceLock) {
+			synchronized (globalWorkAdmissions.persistenceLock()) {
 				handler.setBoolean(serverName, "Processing", true);
 			}
 			return handler;
@@ -272,31 +267,22 @@ public class BackendGlobalDataSync {
 
 	private void releaseTimeChange(GlobalDataHandler handler, TimeType type, String serverName,
 			boolean completed) {
-		boolean finalizeBatch = false;
+		TimeChangeRelease release = TimeChangeRelease.NONE;
 		try {
-			boolean batchCompleted;
 			synchronized (timeChangeLifecycleLock) {
 				timeChangesInProgress.remove(type);
-				if (!completed) timeChangeBatchFailed = true;
-				finalizeBatch = timeChangesInProgress.isEmpty();
-				batchCompleted = finalizeBatch && !timeChangeBatchFailed;
-				if (finalizeBatch) timeChangeBatchFinalizing = true;
 			}
-			if (finalizeBatch) {
-				synchronized (timeChangePersistenceLock) {
+			release = globalWorkAdmissions.releaseTimeChange(this, type, completed);
+			if (release.finalizeBatch()) {
+				synchronized (globalWorkAdmissions.persistenceLock()) {
 					HashMap<String, DataValue> dataToSet = new HashMap<>();
-					if (batchCompleted) dataToSet.put("FinishedProcessing", new DataValueBoolean(true));
+					if (release.batchCompleted()) dataToSet.put("FinishedProcessing", new DataValueBoolean(true));
 					dataToSet.put("Processing", new DataValueBoolean(false));
 					handler.setData(serverName, dataToSet);
 				}
 			}
 		} finally {
-			if (finalizeBatch) {
-				synchronized (timeChangeLifecycleLock) {
-					timeChangeBatchFinalizing = false;
-				}
-			}
-			globalWorkAdmissions.releaseTimeChange(this, type);
+			if (release.finalizeBatch()) globalWorkAdmissions.finishTimeChangeRelease();
 			releaseHandlerReference(handler);
 		}
 	}
@@ -459,12 +445,19 @@ public class BackendGlobalDataSync {
 			}
 		}
 		if (closeNow != null) closeNow.close();
-		if (deferred != null) awaitOrForceRetiredHandlerClose(deferred, deadlineNanos);
+		if (deferred != null && awaitOrForceRetiredHandlerClose(deferred, deadlineNanos)) {
+			BackendGlobalDataSync replacement;
+			synchronized (senderLock) {
+				replacement = completionReplacement;
+			}
+			if (replacement != null) globalWorkAdmissions.transferTimeChangeOwner(this, replacement);
+		}
 	}
 
-	private void awaitOrForceRetiredHandlerClose(GlobalDataHandler handler, long deadlineNanos) {
+	private boolean awaitOrForceRetiredHandlerClose(GlobalDataHandler handler, long deadlineNanos) {
 		GlobalMySQL forceClose = null;
 		boolean interrupted = false;
+		boolean stillActive;
 		synchronized (timeChangeLifecycleLock) {
 			while (activeGlobalWorkByHandler.containsKey(handler)) {
 				long remaining = deadlineNanos - System.nanoTime();
@@ -479,6 +472,7 @@ public class BackendGlobalDataSync {
 			if (activeGlobalWorkByHandler.containsKey(handler) && retiredOwnedHandlers.remove(handler)) {
 				forceClose = handler.getGlobalMysql();
 			}
+			stillActive = activeGlobalWorkByHandler.containsKey(handler);
 		}
 		if (forceClose != null) {
 			plugin.getLogger().warning(
@@ -486,6 +480,7 @@ public class BackendGlobalDataSync {
 			forceClose.close();
 		}
 		if (interrupted) Thread.currentThread().interrupt();
+		return stillActive;
 	}
 
 	private void shutdownTimer(long deadlineNanos) {
@@ -530,21 +525,52 @@ public class BackendGlobalDataSync {
 	}
 
 	private static final class GlobalWorkAdmissions {
-		private final Set<TimeType> activeTimeChanges = EnumSet.noneOf(TimeType.class);
+		private final Map<TimeType, BackendGlobalDataSync> activeTimeChanges = new EnumMap<>(TimeType.class);
+		private final Object persistenceLock = new Object();
 		private BackendGlobalDataSync timeChangeOwner;
 		private BackendGlobalDataSync forceUpdateOwner;
+		private boolean timeChangeBatchFailed;
+		private boolean timeChangeBatchFinalizing;
 
 		private synchronized boolean admitTimeChange(BackendGlobalDataSync requester, TimeType type) {
+			if (timeChangeBatchFinalizing) return false;
 			if (timeChangeOwner != null && timeChangeOwner != requester) return false;
-			if (!activeTimeChanges.add(type)) return false;
+			if (activeTimeChanges.containsKey(type)) return false;
+			if (activeTimeChanges.isEmpty()) timeChangeBatchFailed = false;
+			activeTimeChanges.put(type, requester);
 			timeChangeOwner = requester;
 			return true;
 		}
 
-		private synchronized void releaseTimeChange(BackendGlobalDataSync requester, TimeType type) {
-			if (timeChangeOwner != requester) return;
+		private synchronized TimeChangeRelease releaseTimeChange(BackendGlobalDataSync requester, TimeType type,
+				boolean completed) {
+			if (activeTimeChanges.get(type) != requester) return TimeChangeRelease.NONE;
+			activeTimeChanges.remove(type);
+			if (!completed) timeChangeBatchFailed = true;
+			if (!activeTimeChanges.isEmpty()) return TimeChangeRelease.NONE;
+			timeChangeBatchFinalizing = true;
+			return new TimeChangeRelease(true, !timeChangeBatchFailed);
+		}
+
+		private synchronized void cancelTimeChangeAdmission(BackendGlobalDataSync requester, TimeType type) {
+			if (activeTimeChanges.get(type) != requester) return;
 			activeTimeChanges.remove(type);
 			if (activeTimeChanges.isEmpty()) timeChangeOwner = null;
+		}
+
+		private synchronized void finishTimeChangeRelease() {
+			if (!timeChangeBatchFinalizing || !activeTimeChanges.isEmpty()) return;
+			timeChangeBatchFinalizing = false;
+			timeChangeOwner = null;
+		}
+
+		private synchronized void transferTimeChangeOwner(BackendGlobalDataSync previous,
+				BackendGlobalDataSync replacement) {
+			if (timeChangeOwner == previous) timeChangeOwner = replacement;
+		}
+
+		private Object persistenceLock() {
+			return persistenceLock;
 		}
 
 		private synchronized boolean admitForceUpdate(BackendGlobalDataSync requester) {
@@ -556,5 +582,9 @@ public class BackendGlobalDataSync {
 		private synchronized void releaseForceUpdate(BackendGlobalDataSync requester) {
 			if (forceUpdateOwner == requester) forceUpdateOwner = null;
 		}
+	}
+
+	private record TimeChangeRelease(boolean finalizeBatch, boolean batchCompleted) {
+		private static final TimeChangeRelease NONE = new TimeChangeRelease(false, false);
 	}
 }

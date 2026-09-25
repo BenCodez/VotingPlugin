@@ -65,6 +65,17 @@ public final class UserDataVoteReminderCooldownStore implements VoteReminderCool
 	}
 
 	@Override
+	public void releaseGlobalClaim(UUID uuid, long claimedAtMs) {
+		Object lock = locks.computeIfAbsent(uuid, k -> new Object());
+		synchronized (lock) {
+			VotingPluginUser user = getUser(uuid);
+			if (user != null && readLong(user, KEY_GLOBAL_LAST) == claimedAtMs) {
+				writeLong(user, KEY_GLOBAL_LAST, 0L);
+			}
+		}
+	}
+
+	@Override
 	public Map<String, Long> getPerReminderMap(UUID uuid) {
 		Map<String, Long> cached = mapCache.get(uuid);
 		if (cached != null) {
