@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -88,5 +90,31 @@ class ReliableVoteDeliveryOutboxTest {
 		assertTrue(repaired.offer("survival", VotingPluginWire.vote("Two", UUID.randomUUID().toString(),
 				"site", 11L, true, true, "", UUID.randomUUID(), false, false, 1, 1)));
 		assertEquals(2, new ReliableVoteDeliveryOutbox(file).size());
+	}
+
+	@Test
+	void acceptedVotesReserveCapacityForCompletionAndRemovalRecords() throws Exception {
+		Path file = directory.resolve("outbox.dat");
+		ReliableVoteDeliveryOutbox outbox = new ReliableVoteDeliveryOutbox(file);
+		List<UUID> accepted = new ArrayList<>();
+		String padding = "x".repeat(16 * 1024);
+
+		while (true) {
+			UUID voteId = UUID.randomUUID();
+			JsonEnvelope vote = VotingPluginWire.vote("Player", UUID.randomUUID().toString(), "site", 10L,
+					true, true, "", voteId, false, false, 1, 1).toBuilder().put("padding", padding).build();
+			if (!outbox.offer("survival", vote)) break;
+			accepted.add(voteId);
+		}
+
+		assertFalse(accepted.isEmpty());
+		for (UUID voteId : accepted) {
+			assertTrue(outbox.acknowledgeCompletion("survival", voteId, VotingPluginWire.SUB_VOTE));
+		}
+		for (UUID voteId : accepted) {
+			assertTrue(outbox.acknowledgeReceiptRelease("survival", voteId, VotingPluginWire.SUB_VOTE));
+		}
+		assertEquals(0, outbox.size());
+		assertFalse(Files.exists(file));
 	}
 }

@@ -43,8 +43,10 @@ final class ReliableVoteDeliveryOutbox {
 		if (entries.containsKey(key)) return true;
 		if (entries.size() >= MAX_ENTRIES) return false;
 		String record = addRecord(server, envelope);
-		if (!prepareAppend(record) || !append(record)) return false;
-		entries.put(key, new Entry(server, envelope, false));
+		Entry entry = new Entry(server, envelope, false);
+		long remainingReserve = terminalRecordReserve() + terminalRecordReserve(entry);
+		if (!prepareAppend(record, remainingReserve) || !append(record)) return false;
+		entries.put(key, entry);
 		journalRecords++;
 		return true;
 	}
@@ -55,8 +57,8 @@ final class ReliableVoteDeliveryOutbox {
 		Entry entry = entries.get(key);
 		if (entry == null) return false;
 		if (entry.awaitingReceiptRelease()) return true;
-		String record = COMPLETED + '\t' + encode(key) + '\n';
-		if (!prepareAppend(record) || !append(record)) return false;
+		String record = completionRecord(key);
+		if (!prepareAppend(record, terminalRecordReserve() - utf8Length(record)) || !append(record)) return false;
 		entries.put(key, new Entry(entry.server(), entry.envelope(), true));
 		journalRecords++;
 		return true;
@@ -81,8 +83,8 @@ final class ReliableVoteDeliveryOutbox {
 			journalRecords = 0;
 			return true;
 		}
-		String record = REMOVE + '\t' + encode(key) + '\n';
-		if (!prepareAppend(record) || !append(record)) return false;
+		String record = removalRecord(key);
+		if (!prepareAppend(record, terminalRecordReserve() - utf8Length(record)) || !append(record)) return false;
 		entries.remove(key);
 		journalRecords++;
 		return true;
@@ -142,18 +144,33 @@ final class ReliableVoteDeliveryOutbox {
 		if (unterminatedTail && !compact()) throw new IOException("Unable to repair vote delivery outbox");
 	}
 
-	private boolean prepareAppend(String record) {
+	private boolean prepareAppend(String record, long remainingReserve) {
 		try {
-			long projectedBytes = (Files.exists(file) ? Files.size(file) : HEADER.length() + 1L)
-					+ record.getBytes(StandardCharsets.UTF_8).length;
+			long projectedBytes = projectedBytes(record, remainingReserve);
 			boolean shouldCompact = journalRecords > entries.size() * 2 + 64;
 			if ((projectedBytes > MAX_FILE_BYTES || shouldCompact) && compact()) {
-				projectedBytes = Files.size(file) + record.getBytes(StandardCharsets.UTF_8).length;
+				projectedBytes = projectedBytes(record, remainingReserve);
 			}
 			return projectedBytes <= MAX_FILE_BYTES;
 		} catch (IOException failure) {
 			return false;
 		}
+	}
+
+	private long projectedBytes(String record, long remainingReserve) throws IOException {
+		long existingBytes = Files.exists(file) ? Files.size(file) : utf8Length(HEADER + '\n');
+		return existingBytes + utf8Length(record) + remainingReserve;
+	}
+
+	private long terminalRecordReserve() {
+		return entries.values().stream().mapToLong(this::terminalRecordReserve).sum();
+	}
+
+	private long terminalRecordReserve(Entry entry) {
+		String key = key(entry.server(), entry.envelope());
+		long reserve = utf8Length(removalRecord(key));
+		if (!entry.awaitingReceiptRelease()) reserve += utf8Length(completionRecord(key));
+		return reserve;
 	}
 
 	private boolean append(String record) {
@@ -198,6 +215,18 @@ final class ReliableVoteDeliveryOutbox {
 
 	private static String addRecord(String server, JsonEnvelope envelope) {
 		return ADD + '\t' + encode(server) + '\t' + encode(JsonEnvelopeCodec.encode(envelope)) + '\n';
+	}
+
+	private static String completionRecord(String key) {
+		return COMPLETED + '\t' + encode(key) + '\n';
+	}
+
+	private static String removalRecord(String key) {
+		return REMOVE + '\t' + encode(key) + '\n';
+	}
+
+	private static int utf8Length(String value) {
+		return value.getBytes(StandardCharsets.UTF_8).length;
 	}
 
 	private static String key(String server, JsonEnvelope envelope) {
