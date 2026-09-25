@@ -167,6 +167,24 @@ class VotingPluginProxyLifecycleTest {
 	}
 
 	@Test
+	void unknownBackendCapabilityJournalsVoteBeforeReportingAcceptance(@TempDir Path directory)
+			throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		proxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		GlobalMessageProxyHandler messages = mock(GlobalMessageProxyHandler.class);
+		ReliableVoteDeliveryOutbox outbox = new ReliableVoteDeliveryOutbox(directory.resolve("outbox.dat"));
+		setField(proxy, "globalMessageProxyHandler", messages);
+		setField(proxy, "reliableVoteDeliveryOutbox", outbox);
+		JsonEnvelope vote = VotingPluginWire.vote("Player", UUID.randomUUID().toString(), "site", 10L,
+				true, true, "", UUID.randomUUID(), false, false, 1, 1);
+
+		org.junit.jupiter.api.Assertions.assertTrue(proxy.sendVoteEnvelopeAcceptedForTest("survival", 1, vote));
+
+		assertEquals(1, outbox.size());
+		org.mockito.Mockito.verifyNoInteractions(messages);
+	}
+
+	@Test
 	void reliableHttpRetriesReuseOneStableIdPerDeliveryPhase(@TempDir Path directory) throws Exception {
 		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
 		proxy.setMethod(BungeeMethod.HTTP);

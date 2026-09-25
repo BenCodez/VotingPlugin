@@ -850,9 +850,10 @@ public abstract class VotingPluginProxy {
 
 	/**
 	 * Sends a reward-bearing vote envelope and reports whether the selected
-	 * transport accepted it. Legacy transports retain their existing asynchronous
-	 * semantics; HTTP exposes its bounded-queue result so a vote is never discarded
-	 * when the queue is full.
+	 * transport accepted it. Known legacy backends retain their existing
+	 * asynchronous semantics. Backends whose capability is not known yet are
+	 * journaled until negotiation completes. HTTP exposes its bounded-queue result
+	 * so a vote is never discarded when the queue is full.
 	 */
 	protected boolean sendVoteEnvelopeAccepted(String server, int delay, JsonEnvelope envelope) {
 		return sendVoteEnvelopeAccepted(server, delay, envelope, null);
@@ -860,11 +861,17 @@ public abstract class VotingPluginProxy {
 
 	protected boolean sendVoteEnvelopeAccepted(String server, int delay, JsonEnvelope envelope,
 			OfflineBungeeVote cachedVote) {
-		if (supportsReliableVoteDelivery(server)) {
+		boolean reliable = supportsReliableVoteDelivery(server);
+		boolean legacy = isLegacyVoteDelivery(server);
+		if (reliable || !legacy) {
 			ReliableVoteDeliveryOutbox outbox = reliableVoteDeliveryOutbox;
 			if (outbox == null || !outbox.offer(server, envelope)) {
 				logSevere("Unable to durably queue vote delivery for " + server);
 				return false;
+			}
+			if (!reliable) {
+				debug("Vote delivery remains queued until backend capability negotiation completes for " + server);
+				return true;
 			}
 			JsonEnvelope requested = VotingPluginWire.requestVoteDeliveryAcknowledgement(envelope);
 			try {
@@ -888,6 +895,10 @@ public abstract class VotingPluginProxy {
 
 	private boolean supportsReliableVoteDelivery(String server) {
 		return server != null && reliableVoteDeliveryServers.contains(server.trim().toLowerCase(Locale.ROOT));
+	}
+
+	private boolean isLegacyVoteDelivery(String server) {
+		return server != null && legacyVoteDeliveryServers.contains(server.trim().toLowerCase(Locale.ROOT));
 	}
 
 	private void updateReliableVoteDeliveryCapability(String server, JsonEnvelope message) {

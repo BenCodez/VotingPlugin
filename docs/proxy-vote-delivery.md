@@ -36,6 +36,9 @@ entries remain until a capable backend confirms retirement.
 
 This is an **at least once delivery guarantee**. Proxy shutdown, restart, a lost
 send, or a lost acknowledgement leaves the outbox entry available for retry.
+After proxy startup, votes for a backend whose acknowledgement capability has
+not been negotiated are journaled and wait for that negotiation instead of
+being reported accepted through the legacy path.
 The backend vote ID cache and durable completion journal suppress ordinary and
 restart-spanning duplicate retries. The bounded post-release tombstone also
 fences transport retries that were already in flight when completion was
