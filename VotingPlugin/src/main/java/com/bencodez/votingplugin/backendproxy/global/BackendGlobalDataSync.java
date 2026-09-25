@@ -237,12 +237,14 @@ public class BackendGlobalDataSync {
 	}
 
 	private void sendTimeChangeFinished(JsonEnvelope envelope) {
+		Consumer<JsonEnvelope> completionSender;
 		synchronized (senderLock) {
 			if (sender == null) {
 				throw new RejectedExecutionException("Backend proxy transport retired before time-change completion");
 			}
-			sender.accept(envelope);
+			completionSender = sender;
 		}
+		completionSender.accept(envelope);
 	}
 
 	/** Routes an admitted transition's final notification through the published replacement. */

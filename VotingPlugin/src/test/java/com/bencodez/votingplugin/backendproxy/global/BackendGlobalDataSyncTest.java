@@ -274,6 +274,53 @@ class BackendGlobalDataSyncTest {
 	}
 
 	@Test
+	void completionHandoffDoesNotWaitForTransportIo() throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BungeeSettings bungeeSettings = mock(BungeeSettings.class);
+		TimeChecker timeChecker = mock(TimeChecker.class);
+		ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+		GlobalDataHandler handler = mock(GlobalDataHandler.class);
+		AtomicReference<Runnable> scheduled = new AtomicReference<>();
+		CountDownLatch sendStarted = new CountDownLatch(1);
+		CountDownLatch finishSend = new CountDownLatch(1);
+		when(plugin.getBungeeSettings()).thenReturn(bungeeSettings);
+		when(bungeeSettings.getServer()).thenReturn("lobby");
+		when(plugin.getTimeChecker()).thenReturn(timeChecker);
+		when(timeChecker.getTimer()).thenReturn(executor);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			scheduled.set(invocation.getArgument(0));
+			return null;
+		}).when(executor).execute(any(Runnable.class));
+		BackendGlobalDataSync sync = new BackendGlobalDataSync(plugin, ignored -> {
+			sendStarted.countDown();
+			try {
+				assertTrue(finishSend.await(2, TimeUnit.SECONDS));
+			} catch (InterruptedException failure) {
+				Thread.currentThread().interrupt();
+				throw new AssertionError(failure);
+			}
+		});
+		setField(sync, "globalDataHandler", handler);
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> data = new HashMap<>();
+		data.put("LastUpdated", new DataValueString(
+				"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
+		data.put(TimeType.DAY.toString(), new DataValueBoolean(true));
+
+		assertTrue(sync.checkGlobalDataTime(TimeType.DAY, data));
+		CompletableFuture<Void> processing = CompletableFuture.runAsync(scheduled.get());
+		assertTrue(sendStarted.await(1, TimeUnit.SECONDS));
+
+		CompletableFuture<Void> handoff = CompletableFuture.runAsync(
+				() -> sync.handoffCompletionSender(ignored -> { }));
+		try {
+			handoff.get(250, TimeUnit.MILLISECONDS);
+		} finally {
+			finishSend.countDown();
+			processing.get(1, TimeUnit.SECONDS);
+		}
+	}
+
+	@Test
 	void replacementDoesNotReadmitAnActiveTimeChange() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		BungeeSettings bungeeSettings = mock(BungeeSettings.class);
