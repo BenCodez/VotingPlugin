@@ -807,6 +807,48 @@ class BackendGlobalDataSyncTest {
 	}
 
 	@Test
+	void failedBatchFinalizationRetriesAfterRuntimeReplacementWithoutRepeatingPeriod() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BungeeSettings bungeeSettings = mock(BungeeSettings.class);
+		TimeChecker timeChecker = mock(TimeChecker.class);
+		ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+		GlobalDataHandler oldHandler = mock(GlobalDataHandler.class);
+		GlobalDataHandler replacementHandler = mock(GlobalDataHandler.class);
+		AtomicReference<Runnable> scheduled = new AtomicReference<>();
+		when(plugin.getBungeeSettings()).thenReturn(bungeeSettings);
+		when(bungeeSettings.getServer()).thenReturn("lobby");
+		when(plugin.getTimeChecker()).thenReturn(timeChecker);
+		when(timeChecker.getTimer()).thenReturn(executor);
+		when(replacementHandler.getExact("lobby")).thenReturn(new HashMap<>());
+		org.mockito.Mockito.doAnswer(invocation -> {
+			scheduled.set(invocation.getArgument(0));
+			return null;
+		}).when(executor).execute(any(Runnable.class));
+		org.mockito.Mockito.doThrow(new IllegalStateException("finalization failed"))
+				.when(oldHandler).setData(eq("lobby"), any());
+		BackendGlobalDataSync oldSync = new BackendGlobalDataSync(plugin, ignored -> { });
+		BackendGlobalDataSync replacement = new BackendGlobalDataSync(plugin, ignored -> { });
+		setField(oldSync, "globalDataHandler", oldHandler);
+		setField(replacement, "globalDataHandler", replacementHandler);
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> data = new HashMap<>();
+		data.put("LastUpdated", new DataValueString(
+				"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
+		data.put(TimeType.DAY.toString(), new DataValueBoolean(true));
+
+		assertTrue(oldSync.checkGlobalDataTime(TimeType.DAY, data));
+		scheduled.get().run();
+		oldSync.handoffCompletionSender(replacement);
+		oldSync.close(1, TimeUnit.MILLISECONDS);
+		replacement.checkGlobalData();
+
+		verify(timeChecker).forceChanged(TimeType.DAY, false, true, true);
+		verify(oldHandler).setData(eq("lobby"), any());
+		verify(replacementHandler).setData(eq("lobby"),
+				org.mockito.ArgumentMatchers.argThat(update -> update.containsKey("FinishedProcessing")
+						&& !update.get("Processing").getBoolean()));
+	}
+
+	@Test
 	void aNewPeriodWaitsUntilThePreviousBatchFinalizationIsPersisted() throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		BungeeSettings bungeeSettings = mock(BungeeSettings.class);

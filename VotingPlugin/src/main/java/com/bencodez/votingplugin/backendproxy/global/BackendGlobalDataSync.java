@@ -72,11 +72,12 @@ public class BackendGlobalDataSync {
 		GlobalDataHandler pollingHandler = acquireHandlerReference();
 		if (pollingHandler == null) return;
 		try {
-			HashMap<String, DataValue> data = pollingHandler.getExact(plugin.getBungeeSettings().getServer());
+			String serverName = plugin.getBungeeSettings().getServer();
+			HashMap<String, DataValue> data = pollingHandler.getExact(serverName);
+			retryTimeChangeFinalization(pollingHandler, serverName);
 
 			if (data.containsKey("ForceUpdate")) {
 				if (checkGlobalDataTimeValue(data.get("ForceUpdate"))) {
-					String serverName = plugin.getBungeeSettings().getServer();
 					ForceUpdateAdmission admission = admitForceUpdate(pollingHandler);
 					if (admission != null) startForceUpdate(admission, serverName);
 				} else {
@@ -319,23 +320,41 @@ public class BackendGlobalDataSync {
 
 	private void releaseTimeChange(GlobalDataHandler handler, TimeType type, String serverName,
 			boolean completed) {
-		TimeChangeRelease release = TimeChangeRelease.NONE;
 		try {
 			synchronized (timeChangeLifecycleLock) {
 				timeChangesInProgress.remove(type);
 			}
-			release = globalWorkAdmissions.releaseTimeChange(this, type, completed);
-			if (release.finalizeBatch()) {
-				synchronized (globalWorkAdmissions.persistenceLock()) {
-					HashMap<String, DataValue> dataToSet = new HashMap<>();
-					if (release.batchCompleted()) dataToSet.put("FinishedProcessing", new DataValueBoolean(true));
-					dataToSet.put("Processing", new DataValueBoolean(false));
-					handler.setData(serverName, dataToSet);
-				}
+			persistTimeChangeFinalization(handler, serverName,
+					globalWorkAdmissions.releaseTimeChange(this, type, completed));
+		} finally {
+			releaseHandlerReference(handler);
+		}
+	}
+
+	private void retryTimeChangeFinalization(GlobalDataHandler handler, String serverName) {
+		try {
+			persistTimeChangeFinalization(handler, serverName,
+					globalWorkAdmissions.claimTimeChangeFinalization(this));
+		} catch (RuntimeException failure) {
+			plugin.debug(failure);
+		}
+	}
+
+	private void persistTimeChangeFinalization(GlobalDataHandler handler, String serverName,
+			TimeChangeRelease release) {
+		if (!release.finalizeBatch()) return;
+		boolean persisted = false;
+		try {
+			synchronized (globalWorkAdmissions.persistenceLock()) {
+				HashMap<String, DataValue> dataToSet = new HashMap<>();
+				if (release.batchCompleted()) dataToSet.put("FinishedProcessing", new DataValueBoolean(true));
+				dataToSet.put("Processing", new DataValueBoolean(false));
+				handler.setData(serverName, dataToSet);
+				persisted = true;
 			}
 		} finally {
-			if (release.finalizeBatch()) globalWorkAdmissions.finishTimeChangeRelease();
-			releaseHandlerReference(handler);
+			if (persisted) globalWorkAdmissions.finishTimeChangeRelease();
+			else globalWorkAdmissions.retryTimeChangeFinalization();
 		}
 	}
 
@@ -499,16 +518,14 @@ public class BackendGlobalDataSync {
 			}
 		}
 		if (closeNow != null) closeNow.close();
-		boolean timedOut = deferred != null && awaitOrForceRetiredHandlerClose(deferred, deadlineNanos);
+		if (deferred != null) awaitOrForceRetiredHandlerClose(deferred, deadlineNanos);
 		BackendGlobalDataSync replacement;
 		synchronized (senderLock) {
 			replacement = completionReplacement;
 		}
-		if (timedOut) {
-			globalWorkAdmissions.transferTimeChangeOwner(this, replacement);
-		}
-		// A pending acknowledgment can be cancelled and release its handler before
-		// retirement observes active SQL. Transfer that retry fence unconditionally.
+		// Failed finalization and pending acknowledgment retries may release their SQL
+		// references before retirement observes active work. Transfer both fences.
+		globalWorkAdmissions.transferTimeChangeOwner(this, replacement);
 		globalWorkAdmissions.transferForceUpdateOwner(this, replacement);
 	}
 
@@ -615,6 +632,7 @@ public class BackendGlobalDataSync {
 		private ForceUpdateFence forceUpdateFence;
 		private boolean timeChangeBatchFailed;
 		private boolean timeChangeBatchFinalizing;
+		private boolean timeChangeFinalizationClaimed;
 
 		private synchronized boolean admitTimeChange(BackendGlobalDataSync requester, TimeType type) {
 			if (timeChangeBatchFinalizing) return false;
@@ -633,6 +651,7 @@ public class BackendGlobalDataSync {
 			if (!completed) timeChangeBatchFailed = true;
 			if (!activeTimeChanges.isEmpty()) return TimeChangeRelease.NONE;
 			timeChangeBatchFinalizing = true;
+			timeChangeFinalizationClaimed = true;
 			return new TimeChangeRelease(true, !timeChangeBatchFailed);
 		}
 
@@ -645,12 +664,28 @@ public class BackendGlobalDataSync {
 		private synchronized void finishTimeChangeRelease() {
 			if (!timeChangeBatchFinalizing || !activeTimeChanges.isEmpty()) return;
 			timeChangeBatchFinalizing = false;
+			timeChangeFinalizationClaimed = false;
+			timeChangeBatchFailed = false;
 			timeChangeOwner = null;
+		}
+
+		private synchronized TimeChangeRelease claimTimeChangeFinalization(BackendGlobalDataSync requester) {
+			if (!timeChangeBatchFinalizing || timeChangeFinalizationClaimed
+					|| (timeChangeOwner != null && timeChangeOwner != requester)) return TimeChangeRelease.NONE;
+			timeChangeOwner = requester;
+			timeChangeFinalizationClaimed = true;
+			return new TimeChangeRelease(true, !timeChangeBatchFailed);
+		}
+
+		private synchronized void retryTimeChangeFinalization() {
+			if (timeChangeBatchFinalizing) timeChangeFinalizationClaimed = false;
 		}
 
 		private synchronized void transferTimeChangeOwner(BackendGlobalDataSync previous,
 				BackendGlobalDataSync replacement) {
-			if (timeChangeOwner == previous) timeChangeOwner = replacement;
+			if (timeChangeOwner != previous) return;
+			timeChangeOwner = replacement;
+			if (timeChangeBatchFinalizing) timeChangeFinalizationClaimed = false;
 		}
 
 		private Object persistenceLock() {
