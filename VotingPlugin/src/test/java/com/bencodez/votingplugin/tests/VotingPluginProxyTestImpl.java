@@ -32,6 +32,7 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	private Boolean stableHttpDeliveryResult;
 	private final java.util.ArrayDeque<Boolean> stableHttpDeliveryResults = new java.util.ArrayDeque<>();
 	private JsonEnvelope lastVoteEnvelope;
+	private int voteEnvelopeDeliveryAttempts;
 	private boolean communicationTestDeliveryResult = true;
 	private JsonEnvelope lastCommunicationTestEnvelope;
 	private boolean playerOnline = true;
@@ -419,6 +420,7 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	@Override
 	public boolean sendPluginMessageData(String server, String channel, byte[] data, boolean queue) {
+		voteEnvelopeDeliveryAttempts++;
 		return pluginMessageDeliveryResult;
 	}
 
@@ -489,6 +491,10 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	public JsonEnvelope getLastVoteEnvelope() {
 		return lastVoteEnvelope;
+	}
+
+	public int getVoteEnvelopeDeliveryAttempts() {
+		return voteEnvelopeDeliveryAttempts;
 	}
 
 	public List<String> getAttemptedVotePartyDeliveryIds() {

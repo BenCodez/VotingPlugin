@@ -131,6 +131,7 @@ public abstract class VotingPluginProxy {
 	private final LinkedHashMap<UUID, Boolean> completedMultiProxyVotes = new LinkedHashMap<>();
 	private final Set<String> reliableVoteDeliveryServers = ConcurrentHashMap.newKeySet();
 	private final Set<String> legacyVoteDeliveryServers = ConcurrentHashMap.newKeySet();
+	private final Set<String> acceptedLegacyVoteDeliveries = ConcurrentHashMap.newKeySet();
 	private ReliableVoteDeliveryOutbox reliableVoteDeliveryOutbox;
 	// Set only after all replacement gates have succeeded. Vote entry points are
 	// synchronized, so no new side-effecting vote can race the handoff window.
@@ -928,12 +929,24 @@ public abstract class VotingPluginProxy {
 			try {
 				String voteId = entry.envelope().getFields().get(VotingPluginWire.K_VOTE_ID);
 				UUID parsedVoteId = UUID.fromString(voteId);
+				String deliveryKey = reliableDeliveryKey(entry.server(), parsedVoteId,
+						entry.envelope().getSubChannel());
 				if (entry.awaitingReceiptRelease()) {
 					if (supportsReliableVoteDelivery(entry.server())) {
 						JsonEnvelope release = VotingPluginWire.voteDeliveryReceiptRelease(
 								entry.server(), parsedVoteId, entry.envelope().getSubChannel());
 						if (sendReliableVoteDelivery(entry.server(), delay, "release", parsedVoteId,
 								entry.envelope().getSubChannel(), release)) delay++;
+					}
+					continue;
+				}
+				if (acceptedLegacyVoteDeliveries.contains(deliveryKey)) {
+					if (outbox.acknowledgeCompletion(entry.server(), parsedVoteId,
+							entry.envelope().getSubChannel())) {
+						acceptedLegacyVoteDeliveries.remove(deliveryKey);
+					} else {
+						debug("Accepted legacy vote remains fenced until its completion state is durable for "
+								+ entry.server());
 					}
 					continue;
 				}
@@ -948,10 +961,13 @@ public abstract class VotingPluginProxy {
 						continue;
 					}
 					delay++;
+					acceptedLegacyVoteDeliveries.add(deliveryKey);
 					if (!outbox.acknowledgeCompletion(entry.server(), parsedVoteId,
 							entry.envelope().getSubChannel())) {
 						debug("Legacy vote delivery was accepted but remains queued until its release state is durable for "
 								+ entry.server());
+					} else {
+						acceptedLegacyVoteDeliveries.remove(deliveryKey);
 					}
 				} else {
 					continue;
@@ -980,6 +996,10 @@ public abstract class VotingPluginProxy {
 		return UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8)).toString();
 	}
 
+	private String reliableDeliveryKey(String server, UUID voteId, String subChannel) {
+		return server.trim().toLowerCase(Locale.ROOT) + '\u0000' + subChannel + '\u0000' + voteId;
+	}
+
 	private void probeReliableVoteDeliveryCapabilities() {
 		if (method != BungeeMethod.PLUGINMESSAGING || globalMessageProxyHandler == null) return;
 		int delay = 1;
@@ -1001,6 +1021,7 @@ public abstract class VotingPluginProxy {
 			if (outbox != null && !outbox.acknowledgeCompletion(server, parsedVoteId, subChannel)) {
 				debug("Ignored unmatched or unpersisted vote delivery acknowledgement from " + server);
 			} else if (outbox != null) {
+				acceptedLegacyVoteDeliveries.remove(reliableDeliveryKey(server, parsedVoteId, subChannel));
 				try {
 					JsonEnvelope release = VotingPluginWire.voteDeliveryReceiptRelease(
 							server, parsedVoteId, subChannel);

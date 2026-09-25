@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -105,6 +106,41 @@ class VotingPluginProxyLifecycleTest {
 
 		assertEquals(1, outbox.size());
 		org.junit.jupiter.api.Assertions.assertTrue(outbox.snapshot().get(0).awaitingReceiptRelease());
+	}
+
+	@Test
+	void acceptedLegacyVoteIsNotResentWhileCompletionPersistenceRetries(@TempDir Path directory) throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		proxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		UUID voteId = UUID.randomUUID();
+		JsonEnvelope vote = VotingPluginWire.vote("Player", UUID.randomUUID().toString(), "site", 10L,
+				true, true, "", voteId, false, false, 1, 1);
+		Path file = directory.resolve("outbox.dat");
+		ReliableVoteDeliveryOutbox outbox = new ReliableVoteDeliveryOutbox(file);
+		org.junit.jupiter.api.Assertions.assertTrue(outbox.offer("survival", vote));
+		setField(proxy, "reliableVoteDeliveryOutbox", outbox);
+		@SuppressWarnings("unchecked")
+		Set<String> legacy = (Set<String>) field(proxy, "legacyVoteDeliveryServers");
+		legacy.add("survival");
+		Method retry = VotingPluginProxy.class.getDeclaredMethod("retryReliableVoteDeliveries", String.class);
+		retry.setAccessible(true);
+		Path blockedTarget = directory.resolve("blocked-target");
+		Files.writeString(blockedTarget, "blocked");
+		byte[] journal = Files.readAllBytes(file);
+		Files.delete(file);
+		Files.createSymbolicLink(file, blockedTarget.getFileName());
+
+		retry.invoke(proxy, "survival");
+		retry.invoke(proxy, "survival");
+
+		assertEquals(1, proxy.getVoteEnvelopeDeliveryAttempts());
+		org.junit.jupiter.api.Assertions.assertFalse(outbox.snapshot().get(0).awaitingReceiptRelease());
+		Files.delete(file);
+		Files.write(file, journal);
+		retry.invoke(proxy, "survival");
+		assertEquals(1, proxy.getVoteEnvelopeDeliveryAttempts());
+		org.junit.jupiter.api.Assertions.assertTrue(outbox.snapshot().get(0).awaitingReceiptRelease());
+		assertEquals(Set.of(), field(proxy, "acceptedLegacyVoteDeliveries"));
 	}
 
 	private static void setField(Object target, String name, Object value) throws Exception {
