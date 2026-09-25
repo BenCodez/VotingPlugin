@@ -542,6 +542,43 @@ class BackendProxyHandlerLifecycleTest {
 	}
 
 	@Test
+	void repeatedReliableVoteQuarantineKeepsOneFailureRecord(@TempDir Path tempDir) throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ordered-failure-deduplication-test"));
+		UUID voteId = UUID.randomUUID();
+		JsonEnvelope vote = VotingPluginWire.requestVoteDeliveryAcknowledgement(VotingPluginWire.vote("Player",
+				UUID.randomUUID().toString(), "site", 10L, true, true, "", voteId, false, false, 1, 1));
+		BackendOrderedVoteOverflowQueue overflow = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			assertTrue(overflow.quarantineForShutdown(null, vote));
+			long firstDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+			while (overflow.failedSize() != 1 && System.nanoTime() < firstDeadline) Thread.sleep(10L);
+			assertEquals(1, overflow.failedSize());
+
+			assertTrue(overflow.enqueue(vote));
+			BackendOrderedVoteOverflowQueue.PendingEnvelope retry = overflow.peekDurable();
+			assertNotNull(retry);
+			CompletableFuture<Boolean> quarantined = new CompletableFuture<>();
+			overflow.quarantineAsync(retry, vote, quarantined::complete);
+
+			assertTrue(quarantined.get(3, TimeUnit.SECONDS));
+			assertEquals(1, overflow.failedSize());
+			assertEquals(0, overflow.size());
+		} finally {
+			overflow.close();
+		}
+
+		BackendOrderedVoteOverflowQueue recovered = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			assertEquals(1, recovered.failedSize());
+			assertEquals(0, recovered.size());
+		} finally {
+			recovered.close();
+		}
+	}
+
+	@Test
 	void ambiguousHandlerFailureIsQuarantinedBeforeLaterVote(@TempDir Path tempDir) throws Exception {
 		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
 		BukkitScheduler scheduler = mock(BukkitScheduler.class);

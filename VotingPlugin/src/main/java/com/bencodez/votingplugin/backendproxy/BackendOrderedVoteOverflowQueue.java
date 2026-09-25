@@ -13,8 +13,10 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -52,6 +54,7 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 	private final ArrayDeque<PendingEnvelope> entries = new ArrayDeque<>();
 	private final ArrayDeque<PendingAdmission> admissions = new ArrayDeque<>();
 	private final ArrayDeque<String> failedEntries = new ArrayDeque<>();
+	private final Set<String> failedDeliveryIds = new HashSet<>();
 	private boolean admissionPersistenceScheduled;
 	private boolean persistenceScheduled;
 	private boolean persistenceDirty;
@@ -236,11 +239,15 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 				if (closed) return null; // Final close owns the pending failure.
 				if (loadFailed || pendingFailure != request
 						|| (request.expected != null && entries.peekFirst() != request.expected)) return false;
-				if (failedEntries.size() >= MAX_FAILED_ENTRIES) return false;
+				String deliveryId = reliableDeliveryId(request.failed);
+				boolean alreadyQuarantined = deliveryId != null
+						? failedDeliveryIds.contains(deliveryId)
+						: failedEntries.contains(request.failed.payload);
+				if (!alreadyQuarantined && failedEntries.size() >= MAX_FAILED_ENTRIES) return false;
 				List<String> active = payloadSnapshotLocked();
 				if (request.expected != null) active.remove(0);
 				List<String> failures = failedSnapshotLocked();
-				failures.add(request.failed.payload);
+				if (!alreadyQuarantined) failures.add(request.failed.payload);
 				try {
 					writeSnapshotLocked(active, failures);
 				} catch (IOException failure) {
@@ -248,7 +255,10 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 					return false;
 				}
 				if (request.expected != null) entries.removeFirst();
-				failedEntries.addLast(request.failed.payload);
+				if (!alreadyQuarantined) {
+					failedEntries.addLast(request.failed.payload);
+					if (deliveryId != null) failedDeliveryIds.add(deliveryId);
+				}
 				durableVersion = ++stateVersion;
 				request.stored = true;
 				pendingFailure = null;
@@ -262,8 +272,10 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 		PendingEnvelope failed = pending(envelope);
 		PendingFailure request;
 		synchronized (lock) {
+			boolean alreadyQuarantined = failed != null && isAlreadyQuarantined(failed);
 			if (closeRequested.get() || closed || loadFailed || failed == null || pendingFailure != null
-					|| pendingAcknowledgement != null || failedEntries.size() >= MAX_FAILED_ENTRIES) return false;
+					|| pendingAcknowledgement != null
+					|| (!alreadyQuarantined && failedEntries.size() >= MAX_FAILED_ENTRIES)) return false;
 			request = new PendingFailure(expected, failed, ignored -> { });
 			pendingFailure = request;
 		}
@@ -430,6 +442,23 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 		}
 	}
 
+	private boolean isAlreadyQuarantined(PendingEnvelope failed) {
+		String deliveryId = reliableDeliveryId(failed);
+		return deliveryId != null ? failedDeliveryIds.contains(deliveryId) : failedEntries.contains(failed.payload);
+	}
+
+	private static String reliableDeliveryId(PendingEnvelope failed) {
+		JsonEnvelope envelope = failed.envelope;
+		if ((!VotingPluginWire.SUB_VOTE.equals(envelope.getSubChannel())
+				&& !VotingPluginWire.SUB_VOTE_ONLINE.equals(envelope.getSubChannel()))
+				|| !VotingPluginWire.requestsVoteDeliveryAcknowledgement(envelope)) return null;
+		try {
+			return UUID.fromString(envelope.getFields().get(VotingPluginWire.K_VOTE_ID)).toString();
+		} catch (RuntimeException invalidVoteId) {
+			return null;
+		}
+	}
+
 	private static boolean isOrderedVoteMessage(JsonEnvelope envelope) {
 		String subChannel = envelope.getSubChannel();
 		return VotingPluginWire.SUB_VOTE.equals(subChannel)
@@ -500,14 +529,23 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 			yaml.loadFromString(readQueueFile());
 			List<String> payloads = yaml.getStringList("Envelopes");
 			List<String> failures = yaml.getStringList("FailedEnvelopes");
-			if (failures.size() > MAX_FAILED_ENTRIES) {
-				throw new IOException("failed envelope history exceeds configured limit");
-			}
 			if (payloads.size() > MAX_ENTRIES) {
 				throw new IOException("active envelope history exceeds configured limit");
 			}
 			for (String failed : failures) {
+				PendingEnvelope pending = null;
+				try {
+					JsonEnvelope envelope = JsonEnvelopeCodec.decode(failed);
+					if (isOrderedVoteMessage(envelope)) pending = new PendingEnvelope(failed, envelope);
+				} catch (RuntimeException ignored) {
+					// Preserve legacy/manual failure evidence that is not a decodable envelope.
+				}
+				String deliveryId = pending == null ? null : reliableDeliveryId(pending);
+				if (deliveryId != null ? !failedDeliveryIds.add(deliveryId) : failedEntries.contains(failed)) continue;
 				failedEntries.addLast(failed);
+				if (failedEntries.size() > MAX_FAILED_ENTRIES) {
+					throw new IOException("failed envelope history exceeds configured limit");
+				}
 			}
 			for (String payload : payloads) {
 				JsonEnvelope envelope;
@@ -525,6 +563,7 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 			loadFailed = true;
 			entries.clear();
 			failedEntries.clear();
+			failedDeliveryIds.clear();
 			warn("Unable to load ordered proxy vote overflow", failure);
 		}
 	}
@@ -633,6 +672,7 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 		PendingFailure closingFailure;
 		PendingAcknowledgement closingAcknowledgement;
 		boolean canStoreFailure;
+		boolean closingFailureAlreadyStored;
 		boolean canStoreAcknowledgement;
 		synchronized (lock) {
 			if (closed) return;
@@ -643,15 +683,16 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 			failures = failedSnapshotLocked();
 			closingFailure = pendingFailure;
 			closingAcknowledgement = pendingAcknowledgement;
+			closingFailureAlreadyStored = closingFailure != null && isAlreadyQuarantined(closingFailure.failed);
 			canStoreFailure = closingFailure != null && !closingFailure.stored
-					&& failures.size() < MAX_FAILED_ENTRIES
+					&& (closingFailureAlreadyStored || failures.size() < MAX_FAILED_ENTRIES)
 					&& (closingFailure.expected == null || entries.peekFirst() == closingFailure.expected);
 			canStoreAcknowledgement = closingAcknowledgement != null && !closingAcknowledgement.stored
 					&& entries.peekFirst() == closingAcknowledgement.expected;
 			if (canStoreAcknowledgement) snapshot.remove(0);
 			if (canStoreFailure) {
 				if (closingFailure.expected != null) snapshot.remove(0);
-				failures.add(closingFailure.failed.payload);
+				if (!closingFailureAlreadyStored) failures.add(closingFailure.failed.payload);
 			}
 			persistenceScheduled = false;
 		}
@@ -681,7 +722,11 @@ public final class BackendOrderedVoteOverflowQueue implements AutoCloseable {
 		if (saved && canStoreFailure) {
 			synchronized (lock) {
 				if (closingFailure.expected != null) entries.removeFirst();
-				failedEntries.addLast(closingFailure.failed.payload);
+				if (!closingFailureAlreadyStored) {
+					failedEntries.addLast(closingFailure.failed.payload);
+					String deliveryId = reliableDeliveryId(closingFailure.failed);
+					if (deliveryId != null) failedDeliveryIds.add(deliveryId);
+				}
 				closingFailure.stored = true;
 			}
 		}
