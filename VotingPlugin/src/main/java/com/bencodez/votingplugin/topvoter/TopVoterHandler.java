@@ -403,15 +403,15 @@ public class TopVoterHandler implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onPreDateChanged(PreDateChangedEvent event) {
-		if (event.getTransition() != null
-				&& !plugin.getConfigFile().isAutomaticTimeChangeEnabled(event.getTimeType())) {
-			return;
-		}
 		if (event.getTimeType().equals(TimeType.DAY)) {
 			plugin.getBannedPlayers().clear();
 			for (OfflinePlayer p : Bukkit.getBannedPlayers()) {
 				plugin.getBannedPlayers().add(p.getUniqueId().toString());
 			}
+		}
+		if (event.getTransition() != null
+				&& !plugin.getConfigFile().isAutomaticTimeChangeEnabled(event.getTimeType())) {
+			return;
 		}
 		plugin.setUpdate(true);
 		plugin.update();
