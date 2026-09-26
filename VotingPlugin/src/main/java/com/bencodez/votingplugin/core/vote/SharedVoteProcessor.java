@@ -8,9 +8,9 @@ import java.util.UUID;
 public final class SharedVoteProcessor {
     private SharedVoteProcessor() { }
 
-    /** A queued proxy delivery may already have written its timestamp on the backend. */
-    public static boolean isQueuedVoteAlreadyRecorded(boolean proxyVote, long messageVoteTime, long storedVoteTime) {
-        return proxyVote && messageVoteTime > 0L && messageVoteTime == storedVoteTime;
+    /** Identifies the one queued proxy occurrence by its stable transport identity. */
+    public static boolean isIdentifiedQueuedProxyVote(boolean proxyVote, boolean queuedDelivery, UUID voteId) {
+        return proxyVote && queuedDelivery && voteId != null;
     }
 
     public record Validation(boolean valid, String normalizedName, String source, String reason, boolean bedrock) { }
@@ -59,6 +59,7 @@ public final class SharedVoteProcessor {
         void broadcast(UUID uuid, String name, String siteDisplayName, boolean online);
         boolean hasProxyTextTotals();
         UUID proxyVoteId();
+        default boolean identifiedQueuedProxyVote() { return false; }
         void cache(U user);
         void updateName(U user);
         void voteParty(U user, boolean realVote, boolean forceProxyRouting, boolean onlineAtVoteTime);
@@ -140,10 +141,8 @@ public final class SharedVoteProcessor {
             return;
         }
         U user = ops.resolveUser(playerName);
-        boolean proxyForDelay = ops.proxyVote();
-        long timeForDelay = ops.incomingTime();
-        long lastTimeForDelay = ops.lastVoteTime(user, site);
-        boolean recordedProxyVote = isQueuedVoteAlreadyRecorded(proxyForDelay, timeForDelay, lastTimeForDelay);
+        boolean recordedProxyVote = isIdentifiedQueuedProxyVote(
+                ops.proxyVote(), ops.identifiedQueuedProxyVote(), ops.proxyVoteId());
         if (ops.waitUntilVoteDelay(site) && !recordedProxyVote && !ops.canVoteSite(user, site)) {
             if (!ops.realVote()) {
                 ops.info(ops.userName(user) + " did a not real vote, bypassing WaitUntilVoteDelay");
@@ -159,12 +158,11 @@ public final class SharedVoteProcessor {
         }
         if (recordedProxyVote) {
             ops.debug("Allowing queued proxy vote for " + ops.userName(user) + " on " + ops.siteKey(site)
-                    + "; proxy vote time already matches LastVotes: " + ops.incomingTime());
+                    + "; stable vote ID identifies this queued delivery: " + ops.proxyVoteId());
         }
         UUID voteId = UUID.randomUUID();
-        if (ops.proxyVote() && ops.hasProxyTextTotals()) {
+        if (ops.proxyVote() && ops.proxyVoteId() != null) {
             voteId = ops.proxyVoteId();
-            if (voteId == null) voteId = UUID.randomUUID();
         }
         String userId = ops.userId(user);
         ops.cache(user);

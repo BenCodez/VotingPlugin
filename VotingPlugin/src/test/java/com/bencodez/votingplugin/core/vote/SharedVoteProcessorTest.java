@@ -59,7 +59,6 @@ class SharedVoteProcessorTest {
         SharedVoteProcessor.process(ops);
 
         InOrder order = inOrder(ops);
-        order.verify(ops).lastVoteTime(user, site);
         order.verify(ops).cache(user);
         order.verify(ops).updateName(user);
         order.verify(ops).voteParty(user, true, false, true);
@@ -89,15 +88,16 @@ class SharedVoteProcessorTest {
         when(ops.proxyVote()).thenReturn(true);
         when(ops.hasProxyTextTotals()).thenReturn(true);
         when(ops.proxyVoteId()).thenReturn(proxyId);
+        when(ops.identifiedQueuedProxyVote()).thenReturn(true);
         when(ops.wasOnline()).thenReturn(true);
         when(ops.incomingTime()).thenReturn(321L);
-        when(ops.lastVoteTime(user, site)).thenReturn(321L);
         when(ops.waitUntilVoteDelay(site)).thenReturn(true);
         when(ops.broadcastEnabled()).thenReturn(true);
         when(ops.hasBroadcastHandler()).thenReturn(true);
 
         SharedVoteProcessor.process(ops);
 
+        verify(ops, never()).lastVoteTime(user, site);
         verify(ops, never()).canVoteSite(user, site);
         verify(ops).broadcast(any(UUID.class), eq("Ben"), any(), eq(true));
         verify(ops).playerVote(user, site, true, false);

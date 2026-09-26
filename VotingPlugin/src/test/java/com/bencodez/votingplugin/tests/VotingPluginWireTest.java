@@ -66,7 +66,8 @@ public class VotingPluginWireTest {
 	@Test
 	public void voteDelayRejectedRoundTripPreservesContext() {
 		String uuid = UUID.randomUUID().toString();
-		JsonEnvelope envelope = VotingPluginWire.voteDelayRejected("Player", uuid, "Service", true);
+		UUID voteId = UUID.randomUUID();
+		JsonEnvelope envelope = VotingPluginWire.voteDelayRejected("Player", uuid, "Service", true, voteId);
 
 		VoteDelayRejected rejected = VotingPluginWire.readVoteDelayRejected(envelope);
 
@@ -75,6 +76,15 @@ public class VotingPluginWireTest {
 		assertEquals(uuid, rejected.uuid);
 		assertEquals("Service", rejected.service);
 		assertEquals(true, rejected.wasOnline);
+		assertEquals(voteId, rejected.voteId);
+	}
+
+	@Test
+	public void legacyVoteDelayRejectedAllowsMissingVoteId() {
+		VoteDelayRejected rejected = VotingPluginWire.readVoteDelayRejected(
+				VotingPluginWire.voteDelayRejected("Player", UUID.randomUUID().toString(), "Service", true));
+
+		assertNull(rejected.voteId);
 	}
 
 	@Test

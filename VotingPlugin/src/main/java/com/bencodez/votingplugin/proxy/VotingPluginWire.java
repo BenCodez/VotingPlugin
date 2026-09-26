@@ -186,8 +186,14 @@ public final class VotingPluginWire {
 	}
 
 	public static JsonEnvelope voteDelayRejected(String player, String uuid, String service, boolean wasOnline) {
+		return voteDelayRejected(player, uuid, service, wasOnline, null);
+	}
+
+	public static JsonEnvelope voteDelayRejected(String player, String uuid, String service, boolean wasOnline,
+			UUID voteId) {
 		return base(SUB_VOTE_DELAY_REJECTED).put(K_PLAYER, safe(player)).put(K_UUID, safe(uuid))
-				.put(K_SERVICE, safe(service)).put(K_WAS_ONLINE, wasOnline).build();
+				.put(K_SERVICE, safe(service)).put(K_WAS_ONLINE, wasOnline)
+				.put(K_VOTE_ID, voteId == null ? "" : voteId.toString()).build();
 	}
 
 	public static JsonEnvelope voteBroadcast(String uuid, String player, String service, long time, String totals,
@@ -586,19 +592,21 @@ public final class VotingPluginWire {
 		public final String uuid;
 		public final String service;
 		public final boolean wasOnline;
+		public final UUID voteId;
 
-		private VoteDelayRejected(String player, String uuid, String service, boolean wasOnline) {
+		private VoteDelayRejected(String player, String uuid, String service, boolean wasOnline, UUID voteId) {
 			this.player = player;
 			this.uuid = uuid;
 			this.service = service;
 			this.wasOnline = wasOnline;
+			this.voteId = voteId;
 		}
 	}
 
 	public static VoteDelayRejected readVoteDelayRejected(JsonEnvelope env) {
 		Map<String, String> f = env.getFields();
 		return new VoteDelayRejected(safe(f.get(K_PLAYER)), safe(f.get(K_UUID)), safe(f.get(K_SERVICE)),
-				readBool(f, K_WAS_ONLINE, false));
+				readBool(f, K_WAS_ONLINE, false), readUuid(f, K_VOTE_ID));
 	}
 
 	public static final class VoteUpdate {

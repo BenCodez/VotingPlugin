@@ -5183,14 +5183,8 @@ public abstract class VotingPluginProxy {
 			return true;
 		}
 
-		JsonEnvelope envelope = VotingPluginWire.voteDelayRejected(player, uuid, service, true);
-		if (method == BungeeMethod.HTTP) {
-			String key = voteId + "\u0000vote-delay-rejected\u0000" + playerServer.toLowerCase(Locale.ROOT);
-			String deliveryId = UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8)).toString();
-			return sendStableHttpEnvelope(playerServer, deliveryId, envelope);
-		}
-		globalMessageProxyHandler.sendMessage(playerServer, 1, envelope);
-		return true;
+		JsonEnvelope envelope = VotingPluginWire.voteDelayRejected(player, uuid, service, true, voteId);
+		return sendVoteEnvelopeAccepted(playerServer, 1, envelope);
 	}
 
 	public String getWaitUntilDelaySiteFromService(String service) {

@@ -59,6 +59,26 @@ class ReliableVoteDeliveryOutboxTest {
 	}
 
 	@Test
+	void delayRejectionKeepsItsStableIdentityAcrossRestart() throws Exception {
+		Path file = directory.resolve("outbox.dat");
+		UUID voteId = UUID.randomUUID();
+		JsonEnvelope rejection = VotingPluginWire.voteDelayRejected(
+				"Player", UUID.randomUUID().toString(), "site", true, voteId);
+		ReliableVoteDeliveryOutbox outbox = new ReliableVoteDeliveryOutbox(file);
+
+		assertTrue(outbox.offer("survival", rejection));
+		ReliableVoteDeliveryOutbox restarted = new ReliableVoteDeliveryOutbox(file);
+		assertEquals(1, restarted.size());
+		assertEquals(voteId.toString(), restarted.snapshot().get(0).envelope().getFields()
+				.get(VotingPluginWire.K_VOTE_ID));
+		assertTrue(restarted.acknowledgeCompletion(
+				"survival", voteId, VotingPluginWire.SUB_VOTE_DELAY_REJECTED));
+		assertTrue(restarted.acknowledgeReceiptRelease(
+				"survival", voteId, VotingPluginWire.SUB_VOTE_DELAY_REJECTED));
+		assertEquals(0, new ReliableVoteDeliveryOutbox(file).size());
+	}
+
+	@Test
 	void removalRecordSurvivesRestartWithoutDroppingOtherVotes() throws Exception {
 		Path file = directory.resolve("outbox.dat");
 		UUID firstId = UUID.randomUUID();

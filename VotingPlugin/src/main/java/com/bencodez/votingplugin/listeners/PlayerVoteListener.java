@@ -126,7 +126,8 @@ public class PlayerVoteListener implements Listener {
             plugin.getBroadcastHandler().broadcastVote(uuid, name, siteDisplayName, online);
         }
         @Override public boolean hasProxyTextTotals() { return event.getBungeeTextTotals() != null; }
-        @Override public UUID proxyVoteId() { return event.getBungeeTextTotals().getVoteUUID(); }
+        @Override public UUID proxyVoteId() { return event.getProxyVoteId(); }
+        @Override public boolean identifiedQueuedProxyVote() { return event.isQueuedProxyVote(); }
         @Override public void cache(VotingPluginUser user) { user.cache(); }
         @Override public void updateName(VotingPluginUser user) { user.updateName(true); }
         @Override public void voteParty(VotingPluginUser user, boolean realVote, boolean forceProxyRouting,

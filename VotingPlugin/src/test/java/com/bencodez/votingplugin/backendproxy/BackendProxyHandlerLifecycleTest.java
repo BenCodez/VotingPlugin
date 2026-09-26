@@ -319,6 +319,46 @@ class BackendProxyHandlerLifecycleTest {
 	}
 
 	@Test
+	void reliableDelayRejectionIsAcknowledgedAfterOrderedCompletion() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		BungeeSettings settings = mock(BungeeSettings.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(plugin.getBungeeSettings()).thenReturn(settings);
+		when(settings.getServer()).thenReturn("survival");
+		BackendProxyHandler handler = new BackendProxyHandler(plugin);
+		BackendProxyMessageRouter router = mock(BackendProxyMessageRouter.class);
+		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
+		setField(handler, "messageRouter", router);
+		setField(handler, "globalMessageHandler", messages);
+		handler.activateInboundMessages();
+		AtomicReference<Runnable> dispatch = new AtomicReference<>();
+		AtomicReference<java.util.function.Consumer<OrderedVoteOutcome>> completion = new AtomicReference<>();
+		doAnswer(invocation -> {
+			dispatch.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		doAnswer(invocation -> {
+			completion.set(invocation.getArgument(1));
+			return null;
+		}).when(router).handleOrderedVote(any(JsonEnvelope.class), any());
+		UUID voteId = UUID.randomUUID();
+		JsonEnvelope envelope = VotingPluginWire.requestVoteDeliveryAcknowledgement(
+				VotingPluginWire.voteDelayRejected("Player", UUID.randomUUID().toString(),
+						"site", true, voteId));
+
+		handler.dispatchIncomingAfterPublication(envelope, mock(Runnable.class));
+		dispatch.get().run();
+		verifyNoInteractions(messages);
+		completion.get().accept(OrderedVoteOutcome.COMPLETE);
+
+		verify(messages).sendMessage(argThat(ack -> VotingPluginWire.SUB_VOTE_DELIVERY_ACK.equals(ack.getSubChannel())
+				&& voteId.toString().equals(ack.getFields().get(VotingPluginWire.K_VOTE_ID))
+				&& VotingPluginWire.SUB_VOTE_DELAY_REJECTED.equals(
+						ack.getFields().get(VotingPluginWire.K_VOTE_DELIVERY_SUBCHANNEL))));
+	}
+
+	@Test
 	void orderedVoteBacklogSpillsPastBoundToDurableOverflow(@TempDir Path tempDir) throws Exception {
 		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
 		BukkitScheduler scheduler = mock(BukkitScheduler.class);

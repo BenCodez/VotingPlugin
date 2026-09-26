@@ -301,7 +301,8 @@ final class ReliableVoteDeliveryOutbox {
 		if (server == null || server.isBlank() || envelope == null) return null;
 		String subChannel = envelope.getSubChannel();
 		if (!VotingPluginWire.SUB_VOTE.equals(subChannel)
-				&& !VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)) return null;
+				&& !VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)
+				&& !VotingPluginWire.SUB_VOTE_DELAY_REJECTED.equals(subChannel)) return null;
 		String voteId = envelope.getFields().get(VotingPluginWire.K_VOTE_ID);
 		try {
 			return normalized(server) + '|' + subChannel + '|' + UUID.fromString(voteId);
