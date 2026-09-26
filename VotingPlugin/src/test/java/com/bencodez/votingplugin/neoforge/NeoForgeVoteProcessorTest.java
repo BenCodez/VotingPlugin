@@ -152,17 +152,24 @@ class NeoForgeVoteProcessorTest {
     }
 
     @Test
-    void completeRewardBearingVoteIsRejectedBeforeAnyMutation() throws IOException {
+    void completeRewardBearingVoteIsDeferredBeforeAnyAccountingMutation() throws IOException {
         writeConfiguration(true, true, true, true);
         UUID uuid = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
         try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
             runtime.players().joined(new SharedVoteIdentity(uuid, "Alex", true));
-            NeoForgeVoteRequest request = new NeoForgeVoteRequest(uuid, "Alex", "Service", 100L,
+            NeoForgeVoteRequest request = new NeoForgeVoteRequest(voteId, uuid, "Alex", "Service", 100L,
                     true, true, true, NeoForgeVoteRequest.Scope.COMPLETE);
             NeoForgeVoteResult result = runtime.voteProcessor().process(request);
-            assertEquals(NeoForgeVoteResult.Status.UNSUPPORTED_COMPLETION, result.status());
-            assertFalse(result.mutated());
-            assertTrue(runtime.accounting().load(uuid).isEmpty());
+            assertEquals(NeoForgeVoteResult.Status.DEFERRED, result.status());
+            assertFalse(result.accountingMutated());
+            assertTrue(result.durablyRetained());
+            assertNoAccounting(runtime.accounting().load(uuid).orElseThrow());
+            assertEquals(voteId, runtime.deferredVotes().pending(uuid).get(0).voteId());
+        }
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            assertNoAccounting(runtime.accounting().load(uuid).orElseThrow());
+            assertEquals(voteId, runtime.deferredVotes().pending(uuid).get(0).voteId());
         }
     }
 
@@ -215,7 +222,7 @@ class NeoForgeVoteProcessorTest {
 
     private static NeoForgeVoteRequest request(UUID uuid, String name, long time,
             boolean real, boolean addTotals, boolean online, String serviceSite) {
-        return new NeoForgeVoteRequest(uuid, name, serviceSite, time, real, addTotals, online,
+        return new NeoForgeVoteRequest(UUID.randomUUID(), uuid, name, serviceSite, time, real, addTotals, online,
                 NeoForgeVoteRequest.Scope.ACCOUNTING_ONLY);
     }
 
@@ -225,5 +232,10 @@ class NeoForgeVoteProcessorTest {
         assertEquals(totals, account.dailyTotal());
         assertEquals(totals, account.weeklyTotal());
         assertEquals(points, account.points());
+    }
+
+    private static void assertNoAccounting(NeoForgeVoteAccount account) {
+        assertAccount(account, 0, 0);
+        assertTrue(account.lastVotes().isEmpty());
     }
 }

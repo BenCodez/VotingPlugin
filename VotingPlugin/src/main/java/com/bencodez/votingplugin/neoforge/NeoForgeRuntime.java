@@ -6,11 +6,14 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
 
+import com.bencodez.advancedcore.api.user.usercache.keys.UserDataKey;
 import com.bencodez.advancedcore.core.user.storage.sql.SqlBackendLogger;
 import com.bencodez.advancedcore.core.user.storage.sql.SqlUserBackend;
 import com.bencodez.advancedcore.core.user.storage.sql.SqlUserBackendFactory;
@@ -23,6 +26,7 @@ public final class NeoForgeRuntime implements AutoCloseable {
     private final NeoForgeVoteConfiguration voteConfiguration;
     private final SqlUserBackend storage;
     private final NeoForgeVoteAccountingStore accounting;
+    private final NeoForgeDeferredVoteStore deferredVotes;
     private final NeoForgeVoteProcessor voteProcessor;
     private final NeoForgeServerScheduler scheduler = new NeoForgeServerScheduler();
     private final NeoForgePlayerDirectory players = new NeoForgePlayerDirectory();
@@ -35,7 +39,8 @@ public final class NeoForgeRuntime implements AutoCloseable {
         this.voteConfiguration = voteConfiguration;
         this.storage = storage;
         accounting = new NeoForgeVoteAccountingStore(storage, voteConfiguration);
-        voteProcessor = new NeoForgeVoteProcessor(voteConfiguration, accounting, players, clock);
+        deferredVotes = new NeoForgeDeferredVoteStore(storage);
+        voteProcessor = new NeoForgeVoteProcessor(voteConfiguration, accounting, deferredVotes, players, clock);
     }
 
     public static NeoForgeRuntime start(Path directory) throws IOException {
@@ -60,11 +65,17 @@ public final class NeoForgeRuntime implements AutoCloseable {
             SqliteNativeLibrary.ensureAvailable(directory.resolve("libraries"));
             // Use AdvancedCore's existing SQL backend and its atomic user transactions.
             storage = SqlUserBackendFactory.sqlite(directory, "VotingPlugin", "VotingPlugin_NeoForgeUsers",
-                    NeoForgeVoteAccountingStore.storageKeys(), SqlBackendLogger.NO_OP);
+                    storageKeys(), SqlBackendLogger.NO_OP);
         } catch (RuntimeException failure) {
             throw new IOException("Could not initialize NeoForge user storage", failure);
         }
         return new NeoForgeRuntime(config, voteSites, voteConfiguration, storage, clock);
+    }
+
+    private static List<UserDataKey> storageKeys() {
+        ArrayList<UserDataKey> keys = new ArrayList<>(NeoForgeVoteAccountingStore.storageKeys());
+        keys.add(NeoForgeDeferredVoteStore.storageKey());
+        return List.copyOf(keys);
     }
 
     private static Path installDefault(Path directory, String name) throws IOException {
@@ -87,6 +98,7 @@ public final class NeoForgeRuntime implements AutoCloseable {
     public NeoForgeVoteConfiguration voteConfiguration() { return voteConfiguration; }
     public SqlUserBackend storage() { return storage; }
     public NeoForgeVoteAccountingStore accounting() { return accounting; }
+    public NeoForgeDeferredVoteStore deferredVotes() { return deferredVotes; }
     public NeoForgeServerScheduler scheduler() { return scheduler; }
     public NeoForgePlayerDirectory players() { return players; }
     public NeoForgeVoteProcessor voteProcessor() { return voteProcessor; }

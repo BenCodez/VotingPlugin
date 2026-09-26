@@ -3,7 +3,6 @@ package com.bencodez.votingplugin.neoforge;
 import java.time.Clock;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.UUID;
 
 import com.bencodez.votingplugin.core.vote.SharedVoteIdentity;
 import com.bencodez.votingplugin.core.vote.SharedVoteInput;
@@ -12,21 +11,24 @@ import com.bencodez.votingplugin.core.vote.SharedVoteInput;
  * Internal accepted-vote boundary for the subset NeoForge can currently finish:
  * identity/site/delay decisions and atomic persisted accounting.
  *
- * <p>Complete production votes are rejected before mutation until reward,
- * offline-queue, vote-party, broadcast, streak, milestone, cooldown, event, and
- * placeholder operations have real NeoForge implementations.</p>
+ * <p>Complete production votes are retained without accounting mutation until
+ * reward, offline-queue, vote-party, broadcast, streak, milestone, cooldown,
+ * event, and placeholder operations have real NeoForge implementations.</p>
  */
 public final class NeoForgeVoteProcessor {
     private final NeoForgeVoteConfiguration configuration;
     private final NeoForgeVoteAccountingStore accounting;
+    private final NeoForgeDeferredVoteStore deferredVotes;
     private final NeoForgePlayerDirectory players;
     private final Clock clock;
     private volatile boolean stopped;
 
     NeoForgeVoteProcessor(NeoForgeVoteConfiguration configuration,
-            NeoForgeVoteAccountingStore accounting, NeoForgePlayerDirectory players, Clock clock) {
+            NeoForgeVoteAccountingStore accounting, NeoForgeDeferredVoteStore deferredVotes,
+            NeoForgePlayerDirectory players, Clock clock) {
         this.configuration = Objects.requireNonNull(configuration, "configuration");
         this.accounting = Objects.requireNonNull(accounting, "accounting");
+        this.deferredVotes = Objects.requireNonNull(deferredVotes, "deferredVotes");
         this.players = Objects.requireNonNull(players, "players");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
@@ -52,16 +54,22 @@ public final class NeoForgeVoteProcessor {
         if (resolved.isEmpty()) {
             return result(NeoForgeVoteResult.Status.UNKNOWN_SITE, "No enabled vote site matches the service site");
         }
-        if (request.scope() == NeoForgeVoteRequest.Scope.COMPLETE) {
-            return result(NeoForgeVoteResult.Status.UNSUPPORTED_COMPLETION,
-                    "NeoForge reward and accepted-vote follow-up operations are not implemented");
-        }
-
         long now = clock.millis();
-        SharedVoteInput input = new SharedVoteInput(UUID.randomUUID(), identity.playerName(), request.serviceSite(),
+        SharedVoteInput input = new SharedVoteInput(request.voteId(), identity.playerName(), request.serviceSite(),
                 request.voteTime(), request.realVote(), request.addTotals(), false, false, identity.online())
                 .normalizedVoteTime(now);
         NeoForgeVoteSite site = resolved.get();
+        if (request.scope() == NeoForgeVoteRequest.Scope.COMPLETE) {
+            NeoForgeDeferredVoteStore.DeferralResult deferred = deferredVotes.defer(identity, input, site);
+            if (deferred.status() == NeoForgeDeferredVoteStore.Status.CAPACITY_REACHED) {
+                return result(NeoForgeVoteResult.Status.DEFERRED_CAPACITY_REACHED,
+                        "NeoForge deferred-vote capacity is exhausted; the caller must not acknowledge this vote");
+            }
+            return result(NeoForgeVoteResult.Status.DEFERRED,
+                    deferred.status() == NeoForgeDeferredVoteStore.Status.ALREADY_RETAINED
+                            ? "Vote was already retained for future complete processing"
+                            : "Vote retained for future complete processing");
+        }
         NeoForgeVoteAccountingStore.AccountingResult update = accounting.applyIfVoteDelayAllows(identity, input,
                 configuration.policyFor(site), site, configuration.pointsOnVote(), configuration.limitVotePoints(),
                 configuration.currentTime(clock), clock.getZone(), configuration.timeHourOffset());
