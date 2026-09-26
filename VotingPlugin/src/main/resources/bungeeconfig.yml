@@ -370,6 +370,14 @@ LimitVotePoints: -1
 # Must match on all servers
 TimeHourOffSet: 0
 
+# Control which calendar transitions this proxy processes automatically.
+# Manual force-time-change commands still work when an automatic transition is disabled.
+# With GlobalData enabled, manual transitions still coordinate normal per-server processing.
+AutomaticTimeChanges:
+  Day: true
+  Week: true
+  Month: true
+
 VoteParty:
   # If enabled, will trigger vote party reward
   # in BungeeSettings.yml under BungeeVotePartyReward
