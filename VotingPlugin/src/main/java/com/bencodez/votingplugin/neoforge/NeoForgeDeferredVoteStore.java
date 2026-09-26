@@ -102,7 +102,16 @@ public final class NeoForgeDeferredVoteStore {
     private int countAllPending() {
         int count = 0;
         for (UUID playerId : backend.enumerateUsers()) {
-            count += readPending(backend.user(playerId), playerId).size();
+            int retainedForUser;
+            try {
+                retainedForUser = readPending(backend.user(playerId), playerId).size();
+            } catch (MalformedDeferredVoteData malformedQueue) {
+                // Preserve the unreadable row and reserve its full per-user allowance. A
+                // corrupt user's queue must fail closed without disabling healthy users.
+                retainedForUser = perUserLimit;
+            }
+            count = (int) Math.min(totalLimit, (long) count + retainedForUser);
+            if (count == totalLimit) break;
         }
         return count;
     }
@@ -134,14 +143,14 @@ public final class NeoForgeDeferredVoteStore {
         for (String line : stored.split("\\n", -1)) {
             String[] fields = line.split("\\|", -1);
             if (fields.length != 9 || !VERSION.equals(fields[0])) {
-                throw new IllegalStateException("Unsupported or malformed deferred NeoForge vote data");
+                throw new MalformedDeferredVoteData("Unsupported or malformed deferred NeoForge vote data");
             }
             try {
                 votes.add(new NeoForgeDeferredVote(UUID.fromString(fields[1]), playerId,
                         decode(fields[2]), decode(fields[3]), decode(fields[4]), Long.parseLong(fields[5]),
                         parseBoolean(fields[6]), parseBoolean(fields[7]), parseBoolean(fields[8])));
             } catch (IllegalArgumentException failure) {
-                throw new IllegalStateException("Malformed deferred NeoForge vote data", failure);
+                throw new MalformedDeferredVoteData("Malformed deferred NeoForge vote data", failure);
             }
         }
         return votes;
@@ -182,4 +191,16 @@ public final class NeoForgeDeferredVoteStore {
 
     enum Status { RETAINED, ALREADY_RETAINED, CAPACITY_REACHED }
     record DeferralResult(Status status, List<NeoForgeDeferredVote> pending) { }
+
+    private static final class MalformedDeferredVoteData extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+
+        private MalformedDeferredVoteData(String message) {
+            super(message);
+        }
+
+        private MalformedDeferredVoteData(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
 }

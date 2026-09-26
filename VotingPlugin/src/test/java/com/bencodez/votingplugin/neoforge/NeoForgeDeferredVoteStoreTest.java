@@ -165,6 +165,32 @@ class NeoForgeDeferredVoteStoreTest {
         }
     }
 
+    @Test
+    void malformedQueueIsIsolatedDuringGlobalCapacityCount() throws IOException {
+        writeConfiguration();
+        UUID corruptPlayer = UUID.randomUUID();
+        UUID healthyPlayer = UUID.randomUUID();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.storage().user(corruptPlayer).write(UserStorage.SQLITE,
+                    NeoForgeDeferredVoteStore.DEFERRED_VOTES, new DataValueString("not-a-supported-record"));
+        }
+
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.players().joined(new SharedVoteIdentity(healthyPlayer, "Healthy", true));
+            NeoForgeDeferredVoteStore bounded = new NeoForgeDeferredVoteStore(runtime.storage(), 2, 3);
+            NeoForgeVoteProcessor processor = new NeoForgeVoteProcessor(runtime.voteConfiguration(),
+                    runtime.accounting(), bounded, runtime.players(), Clock.systemUTC());
+
+            NeoForgeVoteResult result = processor.process(
+                    complete(UUID.randomUUID(), healthyPlayer, "Healthy", 100L));
+
+            assertEquals(NeoForgeVoteResult.Status.DEFERRED, result.status());
+            assertEquals(1, bounded.pending(healthyPlayer).size());
+            assertThrows(IllegalStateException.class, () -> bounded.pending(corruptPlayer));
+            assertNoAccounting(runtime.accounting().load(healthyPlayer).orElseThrow());
+        }
+    }
+
     private void writeConfiguration() throws IOException {
         Files.writeString(directory.resolve("Config.yml"), """
                 DataStorage: SQLITE
