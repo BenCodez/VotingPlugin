@@ -2,6 +2,8 @@ package com.bencodez.votingplugin.commands.gui.player;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -69,5 +71,26 @@ class VoteGUIPermissionTest {
 
 		assertEquals("VotingPlugin.Commands.Vote.GUI.Other",
 				VoteGUI.getRequiredPermission(plugin, player, viewedUser));
+		when(player.hasPermission("VotingPlugin.Commands.Vote.GUI.Other")).thenReturn(false, true);
+		assertFalse(VoteGUI.isAuthorized(plugin, player, viewedUser));
+		assertTrue(VoteGUI.isAuthorized(plugin, player, viewedUser));
+	}
+
+	@Test
+	void permissionIsEvaluatedAgainAfterDialogWasOpened() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		UserManager userManager = mock(UserManager.class);
+		Player player = mock(Player.class);
+		VotingPluginUser viewingUser = mock(VotingPluginUser.class);
+		VotingPluginUser viewedUser = mock(VotingPluginUser.class);
+		when(plugin.getVotingPluginUserManager()).thenReturn(userManager);
+		when(userManager.getVotingPluginUser(player)).thenReturn(viewingUser);
+		when(viewingUser.getUUID()).thenReturn("viewer");
+		when(viewedUser.getUUID()).thenReturn("target");
+		when(player.hasPermission("VotingPlugin.Commands.Vote.GUI.Other")).thenReturn(true, false);
+
+		assertTrue(VoteGUI.isAuthorized(plugin, player, viewedUser), "dialog may initially open");
+		assertFalse(VoteGUI.isAuthorized(plugin, player, viewedUser),
+				"dialog action must observe a permission revoked after opening");
 	}
 }
