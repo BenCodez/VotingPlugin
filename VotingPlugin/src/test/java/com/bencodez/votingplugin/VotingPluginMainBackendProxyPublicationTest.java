@@ -17,12 +17,16 @@ import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.bukkit.configuration.file.FileConfiguration;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import com.bencodez.advancedcore.AdvancedCoreConfigOptions;
 import com.bencodez.votingplugin.backendproxy.BackendProxyHandler;
@@ -31,6 +35,22 @@ import com.bencodez.votingplugin.config.Config;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 
 class VotingPluginMainBackendProxyPublicationTest {
+	@Test
+	void malformedReceiptStoreDisablesOnlyBackendProxyTransport(@TempDir Path directory) throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, CALLS_REAL_METHODS);
+		AdvancedCoreConfigOptions options = mock(AdvancedCoreConfigOptions.class);
+		when(plugin.getDataFolder()).thenReturn(directory.toFile());
+		when(plugin.getOptions()).thenReturn(options);
+		when(options.getServer()).thenReturn("backend-1");
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getLogger("receipt-store-load-test"));
+		Files.writeString(directory.resolve("BackendProcessedVotes.dat"), "malformed");
+		Method load = VotingPluginMain.class.getDeclaredMethod("loadBungeeHandler");
+		load.setAccessible(true);
+
+		assertDoesNotThrow(() -> load.invoke(plugin));
+		assertNull(plugin.getBackendProxyHandler());
+	}
+
 	@Test
 	void deferredSameMethodRestartPreparesBeforeLoadingReplacement() throws Exception {
 		for (BungeeMethod method : new BungeeMethod[] { BungeeMethod.SOCKETS, BungeeMethod.MQTT }) {

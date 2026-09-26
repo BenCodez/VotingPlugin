@@ -32,6 +32,8 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	private Boolean stableHttpDeliveryResult;
 	private final java.util.ArrayDeque<Boolean> stableHttpDeliveryResults = new java.util.ArrayDeque<>();
 	private JsonEnvelope lastVoteEnvelope;
+	private int voteEnvelopeDeliveryAttempts;
+	private Runnable acceptedVoteEnvelopeHook;
 	private boolean communicationTestDeliveryResult = true;
 	private JsonEnvelope lastCommunicationTestEnvelope;
 	private boolean playerOnline = true;
@@ -419,6 +421,8 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	@Override
 	public boolean sendPluginMessageData(String server, String channel, byte[] data, boolean queue) {
+		voteEnvelopeDeliveryAttempts++;
+		if (pluginMessageDeliveryResult && acceptedVoteEnvelopeHook != null) acceptedVoteEnvelopeHook.run();
 		return pluginMessageDeliveryResult;
 	}
 
@@ -437,10 +441,11 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	@Override
 	protected boolean sendVoteEnvelopeAccepted(String server, int delay, JsonEnvelope envelope) {
 		lastVoteEnvelope = envelope;
-		if (getMethod() == com.bencodez.votingplugin.proxy.BungeeMethod.HTTP) {
-			return voteEnvelopeDeliveryResult;
-		}
 		return super.sendVoteEnvelopeAccepted(server, delay, envelope);
+	}
+
+	public boolean sendVoteEnvelopeAcceptedForTest(String server, int delay, JsonEnvelope envelope) {
+		return sendVoteEnvelopeAccepted(server, delay, envelope);
 	}
 
 	public void setVoteEnvelopeDeliveryResult(boolean voteEnvelopeDeliveryResult) {
@@ -488,6 +493,14 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	public JsonEnvelope getLastVoteEnvelope() {
 		return lastVoteEnvelope;
+	}
+
+	public int getVoteEnvelopeDeliveryAttempts() {
+		return voteEnvelopeDeliveryAttempts;
+	}
+
+	public void setAcceptedVoteEnvelopeHook(Runnable acceptedVoteEnvelopeHook) {
+		this.acceptedVoteEnvelopeHook = acceptedVoteEnvelopeHook;
 	}
 
 	public List<String> getAttemptedVotePartyDeliveryIds() {

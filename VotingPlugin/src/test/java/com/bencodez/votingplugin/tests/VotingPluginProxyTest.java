@@ -50,7 +50,7 @@ public class VotingPluginProxyTest {
 	private MultiProxyHandler multiProxyHandler;
 
 	@BeforeEach
-	void setUp() {
+	void setUp() throws Exception {
 		MockitoAnnotations.openMocks(this);
 		votingPluginProxy.setProxyMySQL(proxyMySQL);
 		votingPluginProxy.setGlobalDataHandler(globalDataHandler);
@@ -59,6 +59,12 @@ public class VotingPluginProxyTest {
 		Mockito.when(multiProxyHandler.sendMultiProxyEnvelopeAccepted(Mockito.any())).thenReturn(true);
 		Mockito.when(multiProxyHandler.sendMultiProxyEnvelopeAccepted(Mockito.any(), Mockito.any())).thenReturn(true);
 		Mockito.when(multiProxyHandler.getMultiProxyVoteRecipients()).thenReturn(java.util.Set.of("Replica"));
+		java.lang.reflect.Field legacyField = VotingPluginProxy.class.getDeclaredField("legacyVoteDeliveryServers");
+		legacyField.setAccessible(true);
+		@SuppressWarnings("unchecked")
+		java.util.Set<String> legacy = (java.util.Set<String>) legacyField.get(votingPluginProxy);
+		legacy.add("server1");
+		legacy.add("server2");
 
 	}
 

@@ -20,16 +20,19 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 
 import java.lang.reflect.Field;
 import java.net.ServerSocket;
 import java.util.ArrayDeque;
+import java.util.UUID;
 import java.nio.file.Path;
 import java.nio.file.Files;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.ScheduledExecutorService;
@@ -144,6 +147,175 @@ class BackendProxyHandlerLifecycleTest {
 		assertEquals(java.util.List.of(VotingPluginWire.SUB_VOTE, VotingPluginWire.SUB_VOTE_UPDATE,
 				VotingPluginWire.SUB_VOTE_ONLINE), handled);
 		verify(scheduler, times(3)).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+	}
+
+	@Test
+	void durableReceiptReleaseBypassesBlockedOrderedVote() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		BackendProxyHandler handler = new BackendProxyHandler(plugin);
+		BackendProxyMessageRouter router = mock(BackendProxyMessageRouter.class);
+		setField(handler, "messageRouter", router);
+		handler.activateInboundMessages();
+
+		ArrayDeque<Runnable> asyncTasks = new ArrayDeque<>();
+		doAnswer(invocation -> {
+			asyncTasks.addLast(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+
+		JsonEnvelope blockedVote = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).build();
+		JsonEnvelope release = VotingPluginWire.voteDeliveryReceiptRelease(
+				"survival", UUID.randomUUID(), VotingPluginWire.SUB_VOTE);
+		JsonEnvelope secondRelease = VotingPluginWire.voteDeliveryReceiptRelease(
+				"survival", UUID.randomUUID(), VotingPluginWire.SUB_VOTE);
+		when(router.hasDurableReceiptForRelease(release)).thenReturn(true);
+		when(router.hasDurableReceiptForRelease(secondRelease)).thenReturn(true);
+		doAnswer(invocation -> {
+			invocation.<java.util.function.Consumer<OrderedVoteOutcome>>getArgument(1)
+					.accept(OrderedVoteOutcome.RETRY);
+			return null;
+		}).when(router).handleOrderedVote(eq(release), any());
+
+		handler.dispatchIncomingAfterPublication(blockedVote, mock(Runnable.class));
+		handler.dispatchIncomingAfterPublication(release, mock(Runnable.class));
+		handler.dispatchIncomingAfterPublication(secondRelease, mock(Runnable.class));
+
+		assertEquals(2, asyncTasks.size(), "only one durable release should use the bounded release worker");
+		asyncTasks.removeLast().run();
+		verify(router).handleOrderedVote(eq(release), any());
+		@SuppressWarnings("unchecked")
+		ArrayDeque<JsonEnvelope> queued = (ArrayDeque<JsonEnvelope>) getField(handler, "orderedVoteDispatchQueue");
+		assertEquals(java.util.List.of(blockedVote), java.util.List.copyOf(queued),
+				"capacity-blocked and concurrent durable releases must wait for the proxy retry outside the vote lane");
+	}
+
+	@Test
+	void rejectedReceiptReleaseSchedulingLeavesPersistenceForProxyRetry() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		BackendProxyHandler handler = new BackendProxyHandler(plugin);
+		BackendProxyMessageRouter router = mock(BackendProxyMessageRouter.class);
+		setField(handler, "messageRouter", router);
+		handler.activateInboundMessages();
+		JsonEnvelope release = VotingPluginWire.voteDeliveryReceiptRelease(
+				"survival", UUID.randomUUID(), VotingPluginWire.SUB_VOTE);
+		when(router.hasDurableReceiptForRelease(release)).thenReturn(true);
+		doThrow(new java.util.concurrent.RejectedExecutionException("stopping"))
+				.when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+
+		handler.dispatchIncomingAfterPublication(release, mock(Runnable.class));
+
+		verify(router, never()).handleOrderedVote(eq(release), any());
+		AtomicBoolean active = (AtomicBoolean) getField(handler, "durableReceiptReleaseActive");
+		assertFalse(active.get(), "the proxy retry must be able to schedule the release again");
+	}
+
+	@Test
+	void queuedUnknownReceiptReleaseCannotBlockLaterVote() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		BackendProxyHandler handler = new BackendProxyHandler(plugin);
+		BackendProxyMessageRouter router = mock(BackendProxyMessageRouter.class);
+		setField(handler, "messageRouter", router);
+
+		ArrayDeque<Runnable> asyncTasks = new ArrayDeque<>();
+		doAnswer(invocation -> {
+			asyncTasks.addLast(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		JsonEnvelope release = VotingPluginWire.voteDeliveryReceiptRelease(
+				"survival", UUID.randomUUID(), VotingPluginWire.SUB_VOTE);
+		JsonEnvelope laterVote = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).build();
+		when(router.isValidReceiptRelease(release)).thenReturn(true);
+		doAnswer(invocation -> {
+			invocation.<java.util.function.Consumer<OrderedVoteOutcome>>getArgument(1)
+					.accept(OrderedVoteOutcome.RETRY);
+			return null;
+		}).when(router).handleOrderedVote(eq(release), any());
+
+		@SuppressWarnings("unchecked")
+		ArrayDeque<JsonEnvelope> queued = (ArrayDeque<JsonEnvelope>) getField(handler, "orderedVoteDispatchQueue");
+		queued.addLast(release);
+		queued.addLast(laterVote);
+		handler.activateInboundMessages();
+		asyncTasks.removeFirst().run();
+
+		assertEquals(java.util.List.of(laterVote), java.util.List.copyOf(queued));
+		assertEquals(1, asyncTasks.size(),
+				"the proxy retains the release retry while the later vote continues locally");
+	}
+
+	@Test
+	void unknownReceiptReleaseKeepsItsPositionBehindAnOlderVote() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		BackendProxyHandler handler = new BackendProxyHandler(plugin);
+		BackendProxyMessageRouter router = mock(BackendProxyMessageRouter.class);
+		setField(handler, "messageRouter", router);
+		handler.activateInboundMessages();
+
+		ArrayDeque<Runnable> asyncTasks = new ArrayDeque<>();
+		doAnswer(invocation -> {
+			asyncTasks.addLast(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		JsonEnvelope olderVote = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).build();
+		JsonEnvelope release = VotingPluginWire.voteDeliveryReceiptRelease(
+				"survival", UUID.randomUUID(), VotingPluginWire.SUB_VOTE);
+		when(router.isValidReceiptRelease(release)).thenReturn(true);
+
+		handler.dispatchIncomingAfterPublication(olderVote, mock(Runnable.class));
+		handler.dispatchIncomingAfterPublication(release, mock(Runnable.class));
+
+		@SuppressWarnings("unchecked")
+		ArrayDeque<JsonEnvelope> queued = (ArrayDeque<JsonEnvelope>) getField(handler, "orderedVoteDispatchQueue");
+		assertEquals(java.util.List.of(olderVote, release), java.util.List.copyOf(queued));
+		assertEquals(1, asyncTasks.size(), "an unknown release must not bypass its older vote");
+		verify(router, never()).handleOrderedVote(eq(release), any());
+	}
+
+	@Test
+	void reliableVoteIsAcknowledgedOnlyAfterOrderedCompletion() throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		BungeeSettings settings = mock(BungeeSettings.class);
+		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
+		when(plugin.getBungeeSettings()).thenReturn(settings);
+		when(settings.getServer()).thenReturn("survival");
+		BackendProxyHandler handler = new BackendProxyHandler(plugin);
+		BackendProxyMessageRouter router = mock(BackendProxyMessageRouter.class);
+		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
+		setField(handler, "messageRouter", router);
+		setField(handler, "globalMessageHandler", messages);
+		handler.activateInboundMessages();
+		AtomicReference<Runnable> dispatch = new AtomicReference<>();
+		AtomicReference<java.util.function.Consumer<OrderedVoteOutcome>> completion = new AtomicReference<>();
+		doAnswer(invocation -> {
+			dispatch.set(invocation.getArgument(1));
+			return null;
+		}).when(scheduler).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+		doAnswer(invocation -> {
+			completion.set(invocation.getArgument(1));
+			return null;
+		}).when(router).handleOrderedVote(any(JsonEnvelope.class), any());
+		UUID voteId = UUID.randomUUID();
+		JsonEnvelope envelope = VotingPluginWire.requestVoteDeliveryAcknowledgement(
+				VotingPluginWire.vote("Player", UUID.randomUUID().toString(), "site", 10L,
+						true, true, "", voteId, false, false, 1, 1));
+
+		handler.dispatchIncomingAfterPublication(envelope, mock(Runnable.class));
+		dispatch.get().run();
+		verifyNoInteractions(messages);
+		completion.get().accept(OrderedVoteOutcome.COMPLETE);
+
+		verify(messages).sendMessage(argThat(ack -> VotingPluginWire.SUB_VOTE_DELIVERY_ACK.equals(ack.getSubChannel())
+				&& voteId.toString().equals(ack.getFields().get(VotingPluginWire.K_VOTE_ID))
+				&& "survival".equals(ack.getFields().get(VotingPluginWire.K_SERVER))));
 	}
 
 	@Test
@@ -366,6 +538,43 @@ class BackendProxyHandlerLifecycleTest {
 			verify(scheduler, never()).runTaskAsynchronously(eq(plugin), any(Runnable.class));
 		} finally {
 			overflow.close();
+		}
+	}
+
+	@Test
+	void repeatedReliableVoteQuarantineKeepsOneFailureRecord(@TempDir Path tempDir) throws Exception {
+		com.bencodez.votingplugin.VotingPluginMain plugin = mock(com.bencodez.votingplugin.VotingPluginMain.class);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ordered-failure-deduplication-test"));
+		UUID voteId = UUID.randomUUID();
+		JsonEnvelope vote = VotingPluginWire.requestVoteDeliveryAcknowledgement(VotingPluginWire.vote("Player",
+				UUID.randomUUID().toString(), "site", 10L, true, true, "", voteId, false, false, 1, 1));
+		BackendOrderedVoteOverflowQueue overflow = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			assertTrue(overflow.quarantineForShutdown(null, vote));
+			long firstDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+			while (overflow.failedSize() != 1 && System.nanoTime() < firstDeadline) Thread.sleep(10L);
+			assertEquals(1, overflow.failedSize());
+
+			assertTrue(overflow.enqueue(vote));
+			BackendOrderedVoteOverflowQueue.PendingEnvelope retry = overflow.peekDurable();
+			assertNotNull(retry);
+			CompletableFuture<Boolean> quarantined = new CompletableFuture<>();
+			overflow.quarantineAsync(retry, vote, quarantined::complete);
+
+			assertTrue(quarantined.get(3, TimeUnit.SECONDS));
+			assertEquals(1, overflow.failedSize());
+			assertEquals(0, overflow.size());
+		} finally {
+			overflow.close();
+		}
+
+		BackendOrderedVoteOverflowQueue recovered = new BackendOrderedVoteOverflowQueue(plugin);
+		try {
+			assertEquals(1, recovered.failedSize());
+			assertEquals(0, recovered.size());
+		} finally {
+			recovered.close();
 		}
 	}
 
