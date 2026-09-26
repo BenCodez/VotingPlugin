@@ -415,8 +415,9 @@ public class BackendProxyMessageRouter {
 		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(javaUuid, vote.player);
 		votePartySync.replace(totals.getVotePartyCurrent(), totals.getVotePartyRequired());
 		user.cache();
+		boolean wasOnline = vote.wasOnlineKnown ? vote.wasOnline : user.isOnline();
 		user.bungeeVotePluginMessaging(vote.service, vote.time, totals, !vote.manageTotals,
-				vote.wasOnline, vote.broadcast, vote.num);
+				wasOnline, vote.broadcast, vote.num);
 		if (plugin.getBungeeSettings().isPerServerPoints()) {
 			user.addPoints(plugin.getConfigFile().getPointsOnVote());
 		}

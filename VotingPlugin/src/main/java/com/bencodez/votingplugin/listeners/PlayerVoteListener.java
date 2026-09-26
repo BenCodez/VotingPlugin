@@ -129,8 +129,9 @@ public class PlayerVoteListener implements Listener {
         @Override public UUID proxyVoteId() { return event.getBungeeTextTotals().getVoteUUID(); }
         @Override public void cache(VotingPluginUser user) { user.cache(); }
         @Override public void updateName(VotingPluginUser user) { user.updateName(true); }
-        @Override public void voteParty(VotingPluginUser user, boolean realVote, boolean forceProxyRouting) {
-            plugin.getVoteParty().vote(user, realVote, forceProxyRouting);
+        @Override public void voteParty(VotingPluginUser user, boolean realVote, boolean forceProxyRouting,
+                boolean onlineAtVoteTime) {
+            plugin.getVoteParty().vote(user, realVote, forceProxyRouting, onlineAtVoteTime);
         }
         @Override public long incomingTime() { return event.getTime(); }
         @Override public void setTime(VotingPluginUser user, VoteSite site, long time) { user.setTime(site, time); }

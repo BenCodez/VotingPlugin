@@ -32,6 +32,25 @@ public class VotingPluginWireTest {
 		assertEquals(voteId, vote.voteId);
 		assertEquals("Player", vote.player);
 		assertEquals("Service", vote.service);
+		assertTrue(vote.wasOnlineKnown);
+	}
+
+	@Test
+	public void legacyVoteLeavesHistoricalOnlineStateUnknown() {
+		JsonEnvelope envelope = JsonEnvelope.builder(VotingPluginWire.SUB_VOTE)
+				.schema(VotingPluginWire.SCHEMA_VERSION)
+				.put(VotingPluginWire.K_PLAYER, "Player")
+				.put(VotingPluginWire.K_UUID, UUID.randomUUID().toString())
+				.put(VotingPluginWire.K_SERVICE, "Service")
+				.put(VotingPluginWire.K_TIME, 100L)
+				.put(VotingPluginWire.K_WAS_ONLINE, true)
+				.put(VotingPluginWire.K_REAL_VOTE, true)
+				.build();
+
+		Vote vote = VotingPluginWire.readVote(envelope);
+
+		assertTrue(vote.wasOnline);
+		assertFalse(vote.wasOnlineKnown);
 	}
 
 	@Test

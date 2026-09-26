@@ -60,6 +60,8 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 		setBoolean(path + ".MultiProxyCapabilityDiscoveryPending",
 				voteTimedQueue.isMultiProxyCapabilityDiscoveryPending());
 		setBoolean(path + ".RealVote", voteTimedQueue.isRealVote());
+		setBoolean(path + ".WasOnline", voteTimedQueue.isWasOnline());
+		setBoolean(path + ".WasOnlineKnown", voteTimedQueue.isWasOnlineKnown());
 		setString(path + ".MultiProxyOrigin", voteTimedQueue.getMultiProxyOrigin());
 		setBoolean(path + ".MultiProxyCompletionPending", voteTimedQueue.isMultiProxyCompletionPending());
 		setString(path + ".MultiProxyRecipients", voteTimedQueue.encodeMultiProxyRecipients());
@@ -99,6 +101,8 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 		setString(path + ".UUID", voteData.getUuid());
 		setLong(path + ".Time", voteData.getTime());
 		setBoolean(path + ".Real", voteData.isRealVote());
+		setBoolean(path + ".WasOnline", voteData.isWasOnline());
+		setBoolean(path + ".WasOnlineKnown", voteData.isWasOnlineKnown());
 		setString(path + ".Text", voteData.getText());
 		setString(path + ".VoteId", voteData.getVoteId() != null ? voteData.getVoteId().toString() : null);
 		setBoolean(path + ".BroadcastForwarded", voteData.isBroadcastForwarded());
@@ -117,6 +121,8 @@ public class BungeeJsonVoteCache extends BungeeJsonFile implements IVoteCache {
 		setString(path + ".UUID", voteData.getUuid());
 		setLong(path + ".Time", voteData.getTime());
 		setBoolean(path + ".Real", voteData.isRealVote());
+		setBoolean(path + ".WasOnline", voteData.isWasOnline());
+		setBoolean(path + ".WasOnlineKnown", voteData.isWasOnlineKnown());
 		setString(path + ".Text", voteData.getText());
 		setString(path + ".VoteId", voteData.getVoteId() != null ? voteData.getVoteId().toString() : null);
 		setBoolean(path + ".BroadcastForwarded", voteData.isBroadcastForwarded());

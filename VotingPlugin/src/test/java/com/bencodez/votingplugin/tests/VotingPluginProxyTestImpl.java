@@ -627,7 +627,8 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	public OfflineBungeeVote createCachedRewardVoteForTest(UUID voteId, String player, String uuid, String service,
 			long time, boolean realVote, String text, boolean standaloneProxyBroadcast) {
-		return createCachedRewardVote(voteId, player, uuid, service, time, realVote, text, standaloneProxyBroadcast);
+		return createCachedRewardVote(voteId, player, uuid, service, time, realVote, text, standaloneProxyBroadcast,
+				false);
 	}
 
 	public void retryPendingTimeBroadcastsForTest(String server) {

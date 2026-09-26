@@ -342,9 +342,25 @@ public class VoteParty implements Listener {
 	 * @param forceBungee whether to force Bungee processing
 	 */
 	public synchronized void vote(VotingPluginUser user, boolean realVote, boolean forceBungee) {
+		vote(user, realVote, forceBungee, user.isOnline());
+	}
+
+	/**
+	 * Processes a vote for the vote party system using the player's online state
+	 * when the vote occurred. Proxy deliveries can be replayed after the player
+	 * joins, so current online state must not decide whether an originally offline
+	 * vote counts.
+	 *
+	 * @param user             the voting plugin user
+	 * @param realVote         whether this is a real vote
+	 * @param forceBungee      whether to force Bungee processing
+	 * @param onlineAtVoteTime whether the player was online when the vote occurred
+	 */
+	public synchronized void vote(VotingPluginUser user, boolean realVote, boolean forceBungee,
+			boolean onlineAtVoteTime) {
 		if (plugin.getSpecialRewardsConfig().isVotePartyEnabled()) {
 			if (plugin.getSpecialRewardsConfig().isVotePartyCountFakeVotes() || realVote) {
-				if (plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes() || user.isOnline()) {
+				if (plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes() || onlineAtVoteTime) {
 					addTotal(user);
 					addVotePlayer(user);
 					check(user, forceBungee);
