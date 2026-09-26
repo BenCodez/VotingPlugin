@@ -74,7 +74,7 @@ public final class NeoForgeRuntime implements AutoCloseable {
 
     private static List<UserDataKey> storageKeys() {
         ArrayList<UserDataKey> keys = new ArrayList<>(NeoForgeVoteAccountingStore.storageKeys());
-        keys.add(NeoForgeDeferredVoteStore.storageKey());
+        keys.addAll(NeoForgeDeferredVoteStore.storageKeys());
         return List.copyOf(keys);
     }
 

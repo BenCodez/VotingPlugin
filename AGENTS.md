@@ -27,12 +27,22 @@ artifact when dependencies change, avoid duplicate embedded packages, and update
 the package-phase size and runtime checks when a necessary dependency increases
 the artifact budget.
 
-Existing JAR upgrades must preserve deployed configuration and mixed-version
-network behavior by default. Do not introduce a large or breaking runtime,
-protocol, storage, or configuration change unless the maintainer explicitly
-approves that compatibility break. Use an explicit migration or compatibility
-mode for staged rollouts, document how to reach the stricter end state, and test
-both the upgrade-safe default and the final strict mode.
+## Drop-in upgrade and compatibility contract
+
+Treat compatibility as a release invariant for every new feature, refactor, fix, storage change, protocol change, and dependency change. Unless the task explicitly says otherwise, a VotingPlugin upgrade must be a **drop-in JAR replacement**: an administrator replaces the existing VotingPlugin JAR, starts/reloads as normally supported, and does not need any other deployment change.
+
+That default contract means:
+
+- Do not require manual edits, regenerated configs, deleted keys, renamed files, data resets, one-off conversion commands/scripts, or manual database changes. New keys must have safe defaults when absent and preserve established behavior.
+- Existing YAML, vote-site definitions, rewards, user data, vote totals/streaks, cached/offline votes, logged data, and supported database state must continue to load. Required migrations must be automatic, idempotent, restart-safe, and preserve existing state.
+- Do not require a simultaneous update of AdvancedCore, SimpleAPI, Votifier/VotifierPlus, PlaceholderAPI, VotingPlugin-Control, a proxy JAR, backend JARs, or every server in a network merely to keep previously working behavior working. New cross-component behavior must be additive/capability-negotiated with safe fallback for older peers.
+- Preserve existing commands, permissions, placeholders, events, public/de-facto APIs, configuration semantics, proxy methods, message/reward behavior, and supported platform behavior unless the request explicitly authorizes a break.
+- Mixed-version proxy/backend deployments must fail safe and retain legacy behavior for features not mutually supported; do not make upgrade order a hidden requirement.
+- New optional integrations and features must default to non-disruptive behavior for existing installations and must not become mandatory runtime dependencies.
+- Packaging changes must preserve the normal downloadable artifact and startup path. Do not make administrators install extra libraries or companion JARs for an upgrade unless explicitly requested.
+- When a requested implementation cannot preserve drop-in compatibility, stop and clearly surface the required compatibility break before implementing it unless the request explicitly permits that break.
+
+For compatibility-sensitive changes, add regression coverage that exercises the prior installation/state or protocol shape as well as the new behavior. Review the final diff from the perspective of an administrator upgrading only the VotingPlugin JAR on an existing installation.
 
 ## Architecture and file map
 
