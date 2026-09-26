@@ -247,6 +247,34 @@ public class VotingPluginWireTest {
 		assertEquals(requestId.toString(), request.getFields().get(VotingPluginWire.K_REQUEST_ID));
 		assertEquals(VotingPluginWire.SUB_STATUS_OKAY, response.getSubChannel());
 		assertEquals(requestId.toString(), response.getFields().get(VotingPluginWire.K_REQUEST_ID));
+		assertTrue(VotingPluginWire.advertisesVoteDeliveryAcknowledgement(response));
+	}
+
+	@Test
+	public void voteDeliveryAcknowledgementIsAdditiveAndCorrelated() {
+		UUID voteId = UUID.randomUUID();
+		JsonEnvelope vote = VotingPluginWire.vote("Player", UUID.randomUUID().toString(), "site", 10L,
+				true, true, "", voteId, false, false, 1, 1);
+		JsonEnvelope requested = VotingPluginWire.requestVoteDeliveryAcknowledgement(vote);
+
+		assertFalse(VotingPluginWire.requestsVoteDeliveryAcknowledgement(vote));
+		assertTrue(VotingPluginWire.requestsVoteDeliveryAcknowledgement(requested));
+		assertEquals(voteId.toString(), requested.getFields().get(VotingPluginWire.K_VOTE_ID));
+
+		JsonEnvelope acknowledgement = VotingPluginWire.voteDeliveryAcknowledgement(
+				"survival", voteId, VotingPluginWire.SUB_VOTE);
+		assertEquals("survival", acknowledgement.getFields().get(VotingPluginWire.K_SERVER));
+		assertEquals(voteId.toString(), acknowledgement.getFields().get(VotingPluginWire.K_VOTE_ID));
+		assertEquals(VotingPluginWire.SUB_VOTE,
+				acknowledgement.getFields().get(VotingPluginWire.K_VOTE_DELIVERY_SUBCHANNEL));
+
+		JsonEnvelope release = VotingPluginWire.voteDeliveryReceiptRelease(
+				"survival", voteId, VotingPluginWire.SUB_VOTE);
+		JsonEnvelope releaseAck = VotingPluginWire.voteDeliveryReceiptReleaseAcknowledgement(
+				"survival", voteId, VotingPluginWire.SUB_VOTE);
+		assertEquals(VotingPluginWire.SUB_VOTE_DELIVERY_RECEIPT_RELEASE, release.getSubChannel());
+		assertEquals(VotingPluginWire.SUB_VOTE_DELIVERY_RECEIPT_RELEASE_ACK, releaseAck.getSubChannel());
+		assertTrue(VotingPluginWire.requestsVoteDeliveryAcknowledgement(release));
 	}
 
 	@Test

@@ -157,6 +157,22 @@ full, case-normalized ServiceSite (up to the 2048-character validator bound); tr
 and classify unmatched logged services against every configured site rather than only the displayed page. Do not accept
 raw SQL from Control or expose the database/table configuration.
 
+## Change and PR workflow
+
+Keep changes focused and avoid unrelated formatting. Before any commit, push, PR update, review reply, or other remote change:
+
+1. run relevant focused tests;
+2. run `mvn -B -f VotingPlugin/pom.xml clean package`;
+3. verify the package invocation produced a fresh downloadable JAR and that expected tests were discovered;
+4. run `git diff --cached --check` and `git diff --check`;
+5. inspect `git diff --cached` and `git diff`, then inspect the complete base-to-HEAD diff for compatibility, concurrency, persistence, lifecycle, security, packaging, and platform regressions.
+
+Steps 1-3 may be skipped only for documentation/instruction-only changes that do not modify executable source, tests, build or dependency configuration, workflows, packaged resources, generated output, or runtime/deployment behavior. Record that exemption in the PR. Steps 4-5 and the review requirements below still apply.
+
+For substantive work, obtain a fresh source-read-only `$code-review` of the exact intended change before the first push or PR update. The implementation agent verifies and fixes accepted findings, reruns all required checks, and obtains a new review of the updated snapshot. Any substantive repository change after a clean review—including source, tests, build or dependency configuration, workflow files, resources, contracts, documentation, or instructions—invalidates the previous clean verdict. Rerun applicable validation and obtain a fresh review of the exact intended snapshot; do not reuse an earlier verdict. Hosted PR review is confirmation, not the first full review, and merge still requires explicit authorization.
+
+Do not commit server runtime data, credentials, generated JARs, dependency caches, IDE output, or unrelated formatting.
+
 ## Paired change and PR workflow
 
 The server-side peer is `BenCodez/VotingPlugin-Control`. When changing a DTO, endpoint, capability, preset, error code, or
@@ -179,13 +195,15 @@ advertise these successors without using them until Control accepts them. A newe
 v2-only actions unavailable on older nodes. Merge the VotingPlugin capability implementation before relying on the new
 Control behavior in production.
 
-Before pushing, run the focused tests, the full Maven build, and `git diff --check`. Do not commit server runtime data,
-credentials, generated JARs, dependency caches, IDE output, or unrelated formatting.
-
 ## Safe change checklist
 
 - Trace whether the code runs on the connector worker, proxy thread, Bukkit primary thread, or a SQL executor.
 - Preserve queued votes across saturation, shutdown, and restart; overflow handling must be bounded, durable when promised, and observable rather than silently dropping work.
+- Proxy-to-backend guaranteed delivery is capability negotiated and at least once. Journal a reward-bearing envelope before
+  reporting transport acceptance, retain it until the matching backend completion acknowledgement is durable, persist
+  completed IDs before acknowledgement for restart-safe deduplication, retire receipts only through the durable
+  proxy-confirmed release handshake, retain a bounded durable tombstone for in-flight retries, and keep legacy send
+  behavior for backends that do not advertise the capability.
 - Treat scheduler units explicitly. Verify whether each delay is in ticks, milliseconds, or seconds, especially across Bukkit, Folia, BungeeCord, and Velocity adapters.
 - Register listeners and lifecycle wakeups before producers can publish work; startup/reload ordering must not strand already-persisted or newly-arriving operations.
 - Protocol-mode changes must not silently broaden legacy v1/RSA acceptance when token-only operation is configured or intended; cover downgrade behavior with tests.

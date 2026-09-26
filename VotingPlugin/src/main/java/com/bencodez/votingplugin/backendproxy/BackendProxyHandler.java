@@ -58,6 +58,7 @@ public class BackendProxyHandler implements Listener {
 	private boolean orderedVoteDispatchPaused = true;
 	private boolean orderedVoteDispatchClosing;
 	private boolean orderedVoteQuarantineFailed;
+	private final AtomicBoolean durableReceiptReleaseActive = new AtomicBoolean();
 	private JsonEnvelope orderedVoteDispatchInFlight;
 	private BackendOrderedVoteOverflowQueue.PendingEnvelope orderedVoteOverflowInFlight;
 	private JsonEnvelope orderedVoteShutdownQuarantined;
@@ -234,10 +235,49 @@ public class BackendProxyHandler implements Listener {
 		String subChannel = envelope.getSubChannel();
 		return VotingPluginWire.SUB_VOTE.equals(subChannel)
 				|| VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)
-				|| VotingPluginWire.SUB_VOTE_UPDATE.equals(subChannel);
+				|| VotingPluginWire.SUB_VOTE_UPDATE.equals(subChannel)
+				|| VotingPluginWire.SUB_VOTE_DELIVERY_RECEIPT_RELEASE.equals(subChannel);
 	}
 
 	private void dispatchOrderedVote(JsonEnvelope envelope, Runnable ignoredLocalDispatch) {
+		BackendProxyMessageRouter router = messageRouter;
+		if (dispatchDurableReceiptRelease(router, envelope)) return;
+		enqueueOrderedVote(envelope, ignoredLocalDispatch);
+	}
+
+	private boolean dispatchDurableReceiptRelease(BackendProxyMessageRouter router, JsonEnvelope envelope) {
+		if (router == null || !router.hasDurableReceiptForRelease(envelope)) return false;
+		// A durable receipt proves the matching vote effects already completed, so
+		// its release can use the bounded single-flight lane without overtaking work.
+		// The proxy durably retries a release received while this worker is busy.
+		if (!durableReceiptReleaseActive.compareAndSet(false, true)) return true;
+		try {
+			plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
+					() -> processDurableReceiptRelease(router, envelope));
+		} catch (RuntimeException schedulingFailure) {
+			plugin.debug(schedulingFailure);
+			durableReceiptReleaseActive.set(false);
+		}
+		return true;
+	}
+
+	private void processDurableReceiptRelease(BackendProxyMessageRouter router, JsonEnvelope envelope) {
+		AtomicBoolean completed = new AtomicBoolean();
+		java.util.function.Consumer<OrderedVoteOutcome> completion = outcome -> {
+			if (!completed.compareAndSet(false, true)) return;
+			durableReceiptReleaseActive.set(false);
+		};
+		try {
+			router.handleOrderedVote(envelope, completion);
+		} catch (RuntimeException | Error failure) {
+			if (completed.compareAndSet(false, true)) {
+				durableReceiptReleaseActive.set(false);
+			}
+			throw failure;
+		}
+	}
+
+	private void enqueueOrderedVote(JsonEnvelope envelope, Runnable ignoredLocalDispatch) {
 		BackendProxyHandler handoffTarget;
 		synchronized (orderedVoteDispatch) {
 			handoffTarget = orderedVoteHandoffTarget;
@@ -396,7 +436,14 @@ public class BackendProxyHandler implements Listener {
 			}
 		};
 		try {
-			messageRouter.handleOrderedVote(next, complete);
+			if (dispatchDurableReceiptRelease(messageRouter, next)) {
+				complete.accept(OrderedVoteOutcome.COMPLETE);
+				return;
+			}
+			boolean validReceiptRelease = messageRouter.isValidReceiptRelease(next);
+			messageRouter.handleOrderedVote(next, outcome -> complete.accept(
+					validReceiptRelease && outcome == OrderedVoteOutcome.RETRY
+							? OrderedVoteOutcome.COMPLETE : outcome));
 		} catch (RuntimeException | Error failure) {
 			complete.accept(OrderedVoteOutcome.QUARANTINE);
 			throw failure;
@@ -470,6 +517,23 @@ public class BackendProxyHandler implements Listener {
 				&& !VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)) return;
 		VoteShopPurchaseService.completeVoteDelivery(plugin,
 				VotingPluginWire.resolveVoteId(VotingPluginWire.readVote(envelope)));
+		sendVoteDeliveryAcknowledgement(envelope);
+	}
+
+	private void sendVoteDeliveryAcknowledgement(JsonEnvelope envelope) {
+		if ((!VotingPluginWire.SUB_VOTE.equals(envelope.getSubChannel())
+				&& !VotingPluginWire.SUB_VOTE_ONLINE.equals(envelope.getSubChannel()))
+				|| !VotingPluginWire.requestsVoteDeliveryAcknowledgement(envelope)
+				|| globalMessageHandler == null) return;
+		String voteId = envelope.getFields().get(VotingPluginWire.K_VOTE_ID);
+		try {
+			UUID parsed = voteId == null || voteId.isBlank() ? null : UUID.fromString(voteId);
+			if (parsed == null) return;
+			globalMessageHandler.sendMessage(VotingPluginWire.voteDeliveryAcknowledgement(
+					plugin.getBungeeSettings().getServer(), parsed, envelope.getSubChannel()));
+		} catch (IllegalArgumentException invalidVoteId) {
+			plugin.debug("Unable to acknowledge proxy vote with invalid vote ID");
+		}
 	}
 
 	private void completeOrderedVoteQuarantine(BackendOrderedVoteOverflowQueue.PendingEnvelope overflowEntry,

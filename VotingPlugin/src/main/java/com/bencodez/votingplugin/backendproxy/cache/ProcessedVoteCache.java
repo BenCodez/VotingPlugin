@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.backendproxy.cache;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -21,7 +23,10 @@ public class ProcessedVoteCache {
 
 	@Getter
 	private final ConcurrentHashMap<UUID, Long> processedVotes = new ConcurrentHashMap<>();
+	private final java.util.Set<UUID> completedVotes = ConcurrentHashMap.newKeySet();
+	private final java.util.Set<UUID> completedAwaitingReceipt = ConcurrentHashMap.newKeySet();
 	private final long ttlMillis;
+	private final DurableVoteReceiptStore durableReceipts;
 	private final LinkedHashMap<String, Long> processedRedisDeliveries = new LinkedHashMap<>();
 	private final LinkedHashMap<String, Integer> legacyRedisDeliveries = new LinkedHashMap<>();
 	private long legacyRedisDeliveryBytes;
@@ -30,11 +35,37 @@ public class ProcessedVoteCache {
 	private Object standbyRedisSubscriber;
 
 	public ProcessedVoteCache() {
-		this(DEFAULT_TTL_MILLIS);
+		this(DEFAULT_TTL_MILLIS, (DurableVoteReceiptStore) null);
 	}
 
 	public ProcessedVoteCache(long ttlMillis) {
+		this(ttlMillis, (DurableVoteReceiptStore) null);
+	}
+
+	public ProcessedVoteCache(Path receiptFile) {
+		this(DEFAULT_TTL_MILLIS, loadReceipts(receiptFile));
+	}
+
+	ProcessedVoteCache(long ttlMillis, Path receiptFile) {
+		this(ttlMillis, loadReceipts(receiptFile));
+	}
+
+	private ProcessedVoteCache(long ttlMillis, DurableVoteReceiptStore durableReceipts) {
 		this.ttlMillis = ttlMillis;
+		this.durableReceipts = durableReceipts;
+		if (durableReceipts != null) {
+			Map<UUID, Long> receipts = durableReceipts.snapshot();
+			processedVotes.putAll(receipts);
+			completedVotes.addAll(receipts.keySet());
+		}
+	}
+
+	private static DurableVoteReceiptStore loadReceipts(Path receiptFile) {
+		try {
+			return new DurableVoteReceiptStore(receiptFile);
+		} catch (IOException failure) {
+			throw new IllegalStateException("Unable to load durable backend vote receipts", failure);
+		}
 	}
 
 	public boolean reserve(UUID voteId) {
@@ -46,6 +77,7 @@ public class ProcessedVoteCache {
 		long expiresAt = now + ttlMillis;
 
 		while (true) {
+			if (completedAwaitingReceipt.contains(voteId)) return false;
 			Long currentExpiry = processedVotes.get(voteId);
 			if (currentExpiry == null) {
 				if (processedVotes.putIfAbsent(voteId, expiresAt) == null) {
@@ -60,6 +92,7 @@ public class ProcessedVoteCache {
 			}
 
 			if (processedVotes.replace(voteId, currentExpiry, expiresAt)) {
+				completedVotes.remove(voteId);
 				cleanup(now);
 				return true;
 			}
@@ -69,6 +102,48 @@ public class ProcessedVoteCache {
 	/** Releases an admission that failed before any vote side effects ran. */
 	public void release(UUID voteId) {
 		if (voteId != null) processedVotes.remove(voteId);
+	}
+
+	/** Persists successful processing before the backend emits a delivery acknowledgement. */
+	public boolean complete(UUID voteId) {
+		if (voteId == null) return true;
+		completedAwaitingReceipt.add(voteId);
+		if (durableReceipts == null) {
+			completedVotes.add(voteId);
+			completedAwaitingReceipt.remove(voteId);
+			return true;
+		}
+		long expiresAt = durableReceipts.complete(voteId);
+		if (expiresAt <= 0L) return false;
+		processedVotes.put(voteId, expiresAt);
+		completedVotes.add(voteId);
+		completedAwaitingReceipt.remove(voteId);
+		return true;
+	}
+
+	/** Returns whether vote effects completed, including a receipt append awaiting retry. */
+	public boolean hasCompletedEffects(UUID voteId) {
+		return voteId != null && (completedVotes.contains(voteId) || completedAwaitingReceipt.contains(voteId));
+	}
+
+	/** Returns whether an acknowledgement-safe receipt is already durable. */
+	public boolean hasDurableReceipt(UUID voteId) {
+		return durableReceipts != null && durableReceipts.contains(voteId);
+	}
+
+	/** Durably retires a completed receipt after the proxy confirms outbox removal. */
+	public boolean releaseCompletedReceipt(UUID voteId) {
+		if (voteId == null) return false;
+		if (durableReceipts == null) {
+			completedVotes.remove(voteId);
+			processedVotes.remove(voteId);
+			return true;
+		}
+		long expiresAt = durableReceipts.release(voteId);
+		if (expiresAt <= 0L) return false;
+		completedVotes.add(voteId);
+		processedVotes.put(voteId, expiresAt);
+		return true;
 	}
 
 	/** Deduplicates one Redis envelope across overlapping subscribers during a validated handoff. */
@@ -172,7 +247,9 @@ public class ProcessedVoteCache {
 	}
 
 	private void cleanup(long now) {
-		processedVotes.entrySet().removeIf(entry -> entry.getValue() <= now);
+		processedVotes.forEach((voteId, expiresAt) -> {
+			if (expiresAt <= now && processedVotes.remove(voteId, expiresAt)) completedVotes.remove(voteId);
+		});
 	}
 
 	/** Returns an exact UTF-8 length up to the per-delivery cap, then cap + 1. */

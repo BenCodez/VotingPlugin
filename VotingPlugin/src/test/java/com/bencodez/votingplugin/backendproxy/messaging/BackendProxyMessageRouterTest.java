@@ -1,7 +1,9 @@
 package com.bencodez.votingplugin.backendproxy.messaging;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -11,6 +13,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -25,19 +28,24 @@ import org.junit.jupiter.api.Test;
 
 import com.bencodez.advancedcore.api.user.AdvancedCoreUser;
 import com.bencodez.advancedcore.api.user.usercache.UserDataManager;
+import com.bencodez.advancedcore.AdvancedCoreConfigOptions;
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
+import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
+import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache;
 import com.bencodez.votingplugin.backendproxy.messaging.BackendProxyMessageRouter.OrderedVoteOutcome;
 import com.bencodez.votingplugin.backendproxy.global.BackendGlobalDataSync;
 import com.bencodez.votingplugin.backendproxy.presence.BackendPresenceManager;
 import com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync;
+import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
 import com.bencodez.votingplugin.user.UserManager;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.votesites.VoteSite;
 import com.bencodez.votingplugin.votesites.VoteSiteManager;
 import com.bencodez.votingplugin.config.BungeeSettings;
+import com.bencodez.votingplugin.data.ServerData;
 
 class BackendProxyMessageRouterTest {
 
@@ -71,6 +79,8 @@ class BackendProxyMessageRouterTest {
 		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
 		when(plugin.getLogger()).thenReturn(logger);
 		when(votingUserManager.getVotingPluginUser(resolvedUser)).thenReturn(user);
+		when(user.bungeeVotePluginMessagingAccepted(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
+				anyBoolean(), anyInt(), any())).thenReturn(true);
 		doAnswer(invocation -> {
 			Runnable task = invocation.getArgument(1);
 			task.run();
@@ -176,7 +186,7 @@ class BackendProxyMessageRouterTest {
 	void voteRewardFailureRequestsQuarantineAfterVoteIdReservation() {
 		UUID voteId = UUID.randomUUID();
 		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
-		when(cache.reserve(voteId)).thenReturn(true);
+		when(cache.reserve(voteId)).thenReturn(true, false);
 		when(plugin.getBungeeSettings()).thenReturn(mock(BungeeSettings.class));
 		when(plugin.getVotingPluginUserManager().getVotingPluginUser(PLAYER_UUID, "Player"))
 				.thenReturn(user);
@@ -190,6 +200,113 @@ class BackendProxyMessageRouterTest {
 				VotingPluginWire.vote("Player", PLAYER_UUID.toString(), "known.example", LAST_VOTE_TIME,
 						true, true, "", voteId, false, false, 1, 1), outcome::set));
 		assertEquals(OrderedVoteOutcome.QUARANTINE, outcome.get());
+
+		outcome.set(null);
+		voteRouter.handleOrderedVote(
+				VotingPluginWire.requestVoteDeliveryAcknowledgement(
+						VotingPluginWire.vote("Player", PLAYER_UUID.toString(), "known.example", LAST_VOTE_TIME,
+								true, true, "", voteId, false, false, 1, 1)),
+				outcome::set);
+		assertEquals(OrderedVoteOutcome.QUARANTINE, outcome.get());
+		verify(cache, never()).complete(voteId);
+	}
+
+	@Test
+	void reliableVoteRetriesReceiptPersistenceWithoutRepeatingEffectsInProcess() {
+		UUID voteId = UUID.randomUUID();
+		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
+		when(cache.reserve(voteId)).thenReturn(true, false);
+		when(cache.complete(voteId)).thenReturn(false, true);
+		when(cache.hasCompletedEffects(voteId)).thenReturn(true);
+		when(plugin.getBungeeSettings()).thenReturn(mock(BungeeSettings.class));
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser(PLAYER_UUID, "Player"))
+				.thenReturn(user);
+		when(plugin.getServerData()).thenReturn(mock(ServerData.class));
+		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
+				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
+				mock(BackendVotePartySync.class), cache);
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+		JsonEnvelope vote = VotingPluginWire.requestVoteDeliveryAcknowledgement(
+				VotingPluginWire.vote("Player", PLAYER_UUID.toString(), "known.example", LAST_VOTE_TIME,
+						true, true, "", voteId, false, false, 1, 1));
+
+		voteRouter.handleOrderedVote(vote, outcome::set);
+		assertEquals(OrderedVoteOutcome.RETRY, outcome.get());
+
+		voteRouter.handleOrderedVote(vote, outcome::set);
+		assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+		verify(cache, times(2)).complete(voteId);
+		verify(user, times(1)).bungeeVotePluginMessagingAccepted(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
+				anyBoolean(), anyInt(), eq(voteId));
+	}
+
+	@Test
+	void malformedReliableVoteIsQuarantinedWithoutCompletionReceipt() {
+		UUID voteId = UUID.randomUUID();
+		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
+		when(cache.reserve(voteId)).thenReturn(true);
+		when(plugin.getBungeeSettings()).thenReturn(mock(BungeeSettings.class));
+		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
+				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
+				mock(BackendVotePartySync.class), cache);
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+		JsonEnvelope vote = VotingPluginWire.requestVoteDeliveryAcknowledgement(
+				VotingPluginWire.vote("Player", "invalid-uuid", "known.example", LAST_VOTE_TIME,
+						true, true, "", voteId, false, false, 1, 1));
+
+		voteRouter.handleOrderedVote(vote, outcome::set);
+
+		assertEquals(OrderedVoteOutcome.QUARANTINE, outcome.get());
+		verify(cache, never()).complete(voteId);
+		verify(user, never()).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
+				anyBoolean(), anyInt());
+	}
+
+	@Test
+	void unknownReceiptReleaseIsValidAndAcknowledgesDurableTombstone() {
+		UUID voteId = UUID.randomUUID();
+		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
+		when(cache.releaseCompletedReceipt(voteId)).thenReturn(true);
+		AdvancedCoreConfigOptions options = mock(AdvancedCoreConfigOptions.class);
+		when(options.getServer()).thenReturn("survival");
+		when(plugin.getOptions()).thenReturn(options);
+		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
+		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
+				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
+				mock(BackendVotePartySync.class), cache);
+		voteRouter.register(messages, BungeeMethod.REDIS);
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+
+		JsonEnvelope release = VotingPluginWire.voteDeliveryReceiptRelease(
+				"survival", voteId, VotingPluginWire.SUB_VOTE);
+		assertTrue(voteRouter.isValidReceiptRelease(release));
+		voteRouter.handleOrderedVote(release, outcome::set);
+
+		assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
+		verify(cache).releaseCompletedReceipt(voteId);
+		org.mockito.ArgumentCaptor<JsonEnvelope> acknowledgement = org.mockito.ArgumentCaptor
+				.forClass(JsonEnvelope.class);
+		verify(messages).sendMessage(acknowledgement.capture());
+		assertEquals(VotingPluginWire.SUB_VOTE_DELIVERY_RECEIPT_RELEASE_ACK,
+				acknowledgement.getValue().getSubChannel());
+	}
+
+	@Test
+	void receiptReleaseBypassesOrderingOnlyAfterItsReceiptIsDurable() {
+		UUID voteId = UUID.randomUUID();
+		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
+		AdvancedCoreConfigOptions options = mock(AdvancedCoreConfigOptions.class);
+		when(options.getServer()).thenReturn("survival");
+		when(plugin.getOptions()).thenReturn(options);
+		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
+				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
+				mock(BackendVotePartySync.class), cache);
+		JsonEnvelope release = VotingPluginWire.voteDeliveryReceiptRelease(
+				"survival", voteId, VotingPluginWire.SUB_VOTE);
+		when(cache.hasDurableReceipt(voteId)).thenReturn(false, true);
+
+		assertFalse(voteRouter.hasDurableReceiptForRelease(release));
+		assertTrue(voteRouter.hasDurableReceiptForRelease(release));
 	}
 
 	@Test
