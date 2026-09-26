@@ -340,6 +340,29 @@ class TimeQueueHandlerRejectionTest {
 	}
 
 	@Test
+	void retirementFailureDoesNotStopLaterTimedVotes() {
+		when(serverData.getTimedVoteCacheKeys()).thenReturn(Set.of());
+		TimeQueueHandler handler = new TimeQueueHandler(plugin);
+		clearInvocations(plugin.getBukkitScheduler());
+		VoteTimeQueue first = new VoteTimeQueue(UUID.randomUUID(), "Alex", "first.example", 123L);
+		VoteTimeQueue second = new VoteTimeQueue(UUID.randomUUID(), "Steve", "second.example", 124L);
+		handler.getTimeChangeQueue().add(first);
+		handler.getTimeChangeQueue().add(second);
+		doThrow(new IllegalStateException("disk unavailable"))
+				.doNothing()
+				.when(serverData).clearVotePartyAccounting(first.getVoteId());
+
+		handler.processQueue();
+
+		assertTrue(handler.getTimeChangeQueue().isEmpty());
+		verify(plugin.getServer().getPluginManager(), org.mockito.Mockito.times(2))
+				.callEvent(any(PlayerVoteEvent.class));
+		verify(serverData).clearVotePartyAccounting(second.getVoteId());
+		verify(plugin.getBukkitScheduler()).runTaskLaterAsynchronously(
+				org.mockito.ArgumentMatchers.eq(plugin), any(Runnable.class), anyLong());
+	}
+
+	@Test
 	void disabledPluginDoesNotRegisterABukkitRetry() {
 		when(plugin.isEnabled()).thenReturn(false);
 

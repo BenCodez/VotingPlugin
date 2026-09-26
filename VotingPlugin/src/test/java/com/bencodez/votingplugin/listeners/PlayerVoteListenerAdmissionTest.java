@@ -21,6 +21,7 @@ import org.mockito.MockedStatic;
 
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.votingplugin.core.vote.SharedVoteAdmissionException;
 import com.bencodez.votingplugin.core.vote.SharedVoteProcessor;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.user.UserManager;
@@ -40,7 +41,34 @@ class PlayerVoteListenerAdmissionTest {
 		}
 
 		verify(voteExecutor).submit(any(Runnable.class));
-		assertFalse(event.isAccountingAdmissionFailed());
+		assertTrue(event.isProcessingPending());
+		assertFalse(event.isProcessingIncomplete());
+		assertFalse(event.getProcessingCompletion().toCompletableFuture().isDone());
+	}
+
+	@Test
+	void asynchronousFailureCompletesTheProducerSignal() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		ScheduledExecutorService voteExecutor = mock(ScheduledExecutorService.class);
+		PlayerVoteEvent event = new PlayerVoteEvent(null, "player", "site", false);
+		when(plugin.getVoteTimer()).thenReturn(voteExecutor);
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("PlayerVoteListenerAdmissionTest"));
+		org.mockito.ArgumentCaptor<Runnable> submitted = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+
+		try (MockedStatic<Bukkit> bukkit = org.mockito.Mockito.mockStatic(Bukkit.class);
+				MockedStatic<SharedVoteProcessor> processor = org.mockito.Mockito.mockStatic(SharedVoteProcessor.class)) {
+			bukkit.when(Bukkit::isPrimaryThread).thenReturn(true);
+			processor.when(() -> SharedVoteProcessor.process(any()))
+					.thenThrow(new SharedVoteAdmissionException("storage unavailable"));
+			new PlayerVoteListener(plugin).onplayerVote(event);
+			verify(voteExecutor).submit(submitted.capture());
+
+			submitted.getValue().run();
+		}
+
+		assertTrue(event.isAccountingAdmissionFailed());
+		assertFalse(event.isProcessingPending());
+		assertTrue(event.getProcessingCompletion().toCompletableFuture().isDone());
 	}
 
 	@Test
@@ -58,6 +86,27 @@ class PlayerVoteListenerAdmissionTest {
 		}
 
 		assertTrue(event.isAccountingAdmissionFailed());
+		assertTrue(event.getProcessingCompletion().toCompletableFuture().isDone());
+	}
+
+	@Test
+	void primaryThreadDurableProducerIsRejectedForOwnedRetry() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		ScheduledExecutorService voteExecutor = mock(ScheduledExecutorService.class);
+		PlayerVoteEvent event = new PlayerVoteEvent(null, "player", "site", false);
+		event.setDeferredDeliveryCompletion(true);
+		when(plugin.getVoteTimer()).thenReturn(voteExecutor);
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("PlayerVoteListenerAdmissionTest"));
+
+		try (MockedStatic<Bukkit> bukkit = org.mockito.Mockito.mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::isPrimaryThread).thenReturn(true);
+			new PlayerVoteListener(plugin).onplayerVote(event);
+		}
+
+		assertTrue(event.isAccountingAdmissionFailed());
+		assertFalse(event.isProcessingPending());
+		assertTrue(event.getProcessingCompletion().toCompletableFuture().isDone());
+		verify(voteExecutor, never()).submit(any(Runnable.class));
 	}
 
 	@Test

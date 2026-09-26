@@ -203,7 +203,25 @@ public class TimeQueueHandler implements Listener {
 				return false;
 			}
 		}
-		for (UUID voteId : durableCompletions) VoteShopPurchaseService.completeVoteDelivery(plugin, voteId);
+		List<UUID> failedRetirements = new ArrayList<>();
+		for (UUID voteId : durableCompletions) {
+			try {
+				VoteShopPurchaseService.completeVoteDelivery(plugin, voteId);
+			} catch (RuntimeException persistenceFailure) {
+				failedRetirements.add(voteId);
+				plugin.getLogger().severe("Unable to retire completed timed vote " + voteId
+						+ "; its durable completion will be retried");
+				plugin.debug(persistenceFailure);
+			}
+		}
+		if (!failedRetirements.isEmpty()) {
+			synchronized (queuePersistenceLock) {
+				for (int index = failedRetirements.size() - 1; index >= 0; index--) {
+					completedDeliveries.addFirst(failedRetirements.get(index));
+				}
+			}
+			scheduleRetry(true);
+		}
 		return true;
 	}
 

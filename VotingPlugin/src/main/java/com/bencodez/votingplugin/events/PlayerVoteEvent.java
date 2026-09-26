@@ -1,6 +1,8 @@
 package com.bencodez.votingplugin.events;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
@@ -105,6 +107,31 @@ public class PlayerVoteEvent extends Event {
 	@Getter
 	@Setter
 	private boolean deferredDeliveryCompletion;
+
+	private final CompletableFuture<PlayerVoteEvent> processingCompletion = new CompletableFuture<>();
+
+	@Getter
+	private volatile boolean processingPending;
+
+	/**
+	 * Completion signal for producers that fire this event from the platform thread.
+	 * Processing is moved to the vote executor in that case, so callers must not
+	 * interpret a synchronous return from Bukkit event dispatch as vote completion.
+	 */
+	public CompletionStage<PlayerVoteEvent> getProcessingCompletion() {
+		return processingCompletion.minimalCompletionStage();
+	}
+
+	/** Marks asynchronous vote processing as admitted but not yet complete. */
+	public void markProcessingPending() {
+		processingPending = true;
+	}
+
+	/** Publishes the final processing flags to an asynchronous event producer. */
+	public void completeProcessing() {
+		processingPending = false;
+		processingCompletion.complete(this);
+	}
 
 	public boolean isProcessingIncomplete() {
 		return accountingAdmissionFailed || processingFailed;

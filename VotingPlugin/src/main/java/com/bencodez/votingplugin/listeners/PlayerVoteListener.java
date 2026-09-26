@@ -37,9 +37,17 @@ public class PlayerVoteListener implements Listener {
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onplayerVote(PlayerVoteEvent event) {
 		if (!VoteTaskAdmission.isVoteTask() && Bukkit.isPrimaryThread()) {
+			if (event.isDeferredDeliveryCompletion()) {
+				failAdmission(event, new SharedVoteAdmissionException(
+						"Durable vote producer must retry processing from the vote executor"));
+				event.completeProcessing();
+				return;
+			}
 			PlatformVoteState platformState = PlatformVoteState.capture(plugin, event.getPlayer());
+			event.markProcessingPending();
 			if (!VoteTaskAdmission.trySubmit(plugin.getVoteTimer(), () -> processVote(event, platformState))) {
 				failAdmission(event, new SharedVoteAdmissionException("Vote executor rejected accounting admission"));
+				event.completeProcessing();
 			}
 			return;
 		}
@@ -51,11 +59,13 @@ public class PlayerVoteListener implements Listener {
             SharedVoteProcessor.process(new BukkitOperations(plugin, event, platformState));
         } catch (SharedVoteAdmissionException admissionFailure) {
 			failAdmission(event, admissionFailure);
-		} catch (RuntimeException processingFailure) {
+        } catch (RuntimeException processingFailure) {
 			event.setProcessingFailed(true);
 			plugin.getLogger().severe("Vote processing did not complete for " + event.getPlayer() + '/'
 					+ event.getServiceSite() + "; a durable producer may retry it");
 			plugin.debug(processingFailure);
+		} finally {
+			event.completeProcessing();
         }
     }
 

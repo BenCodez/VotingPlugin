@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.listeners;
 
 import java.util.UUID;
 
+import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -42,6 +43,13 @@ public class VotiferEvent implements Listener {
 	}
 
 	public void processVote(String voteSite, String voteUsername, UUID voteId) {
+		if (!VoteTaskAdmission.isVoteTask() && Bukkit.getServer() != null && Bukkit.isPrimaryThread()) {
+			if (!VoteTaskAdmission.trySubmit(plugin.getVoteTimer(),
+					() -> processVote(voteSite, voteUsername, voteId))) {
+				retainForAccountingRetry(voteSite, voteUsername, voteId);
+			}
+			return;
+		}
 		VoteOutcome outcome = processVoteAttempt(voteSite, voteUsername, voteId, false);
 		if (outcome == VoteOutcome.RETRY) {
 			retainForAccountingRetry(voteSite, voteUsername, voteId);
@@ -64,6 +72,9 @@ public class VotiferEvent implements Listener {
 
 	private VoteOutcome processVoteAttempt(String voteSite, String voteUsername, UUID voteId,
 			boolean deferredDeliveryCompletion) {
+		if (!VoteTaskAdmission.isVoteTask() && Bukkit.getServer() != null && Bukkit.isPrimaryThread()) {
+			return VoteOutcome.RETRY;
+		}
 		try {
 			plugin.getServerData().addServiceSite(voteSite);
 			if (plugin.getBungeeSettings().isUseBungeecoord() && !plugin.getBungeeSettings().isVotifierBypass()
