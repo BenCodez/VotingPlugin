@@ -561,6 +561,11 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	}
 
 	@Override
+	public String getSharedTransportAuthentication() {
+		return getString(getNode("SharedTransportAuthentication"), "COMPATIBILITY");
+	}
+
+	@Override
 	public String getRedisUsername() {
 		return getString(getNode("Redis", "Username"), "");
 	}
@@ -727,6 +732,11 @@ public class VelocityConfig extends VelocityYMLFile implements VotingPluginProxy
 	@Override
 	public boolean getPluginMessageEncryption() {
 		return getBoolean(getNode("PluginMessageEncryption"), false);
+	}
+
+	@Override
+	public boolean getCommunicationEncryption() {
+		return getBoolean(getNode("CommunicationEncryption"), false);
 	}
 
 	@Override

@@ -11,6 +11,7 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
+import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator;
 
 /**
  * Selects and owns the active backend-to-proxy transport.
@@ -109,6 +110,12 @@ public class BackendProxyTransportManager {
 		} else if (preparedTransport != null) {
 			acceptPreparedSend(envelope);
 		}
+	}
+
+	public synchronized void updateSharedTransportAuthenticator(SharedTransportEnvelopeAuthenticator authenticator) {
+		if (transport instanceof RedisBackendProxyTransport redis) redis.updateAuthenticator(authenticator);
+		else if (transport instanceof MqttBackendProxyTransport mqtt) mqtt.updateAuthenticator(authenticator);
+		else throw new IllegalStateException("No active shared backend transport to update");
 	}
 
 	private void acceptPreparedSend(JsonEnvelope envelope) {

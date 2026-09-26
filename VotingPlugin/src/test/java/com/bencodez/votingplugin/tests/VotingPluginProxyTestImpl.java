@@ -63,6 +63,7 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 	private String controlEnrollmentSource;
 	private int controlEnrollmentInstallCount;
 	private JsonEnvelope controlEnrollmentResult;
+	private boolean validateControlEnrollmentRequest;
 	private boolean controlEnrollmentRouteProved = true;
 
 	public List<String> getWarnings() {
@@ -186,6 +187,10 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 		return controlEnrollmentInstallCount;
 	}
 
+	public void setValidateControlEnrollmentRequest(boolean validate) {
+		validateControlEnrollmentRequest = validate;
+	}
+
 	public void setControlEnrollmentRouteProved(boolean proved) {
 		controlEnrollmentRouteProved = proved;
 	}
@@ -196,7 +201,8 @@ public class VotingPluginProxyTestImpl extends VotingPluginProxy {
 
 	@Override
 	protected void handleControlEnrollmentRequest(String sourceServer, JsonEnvelope envelope) {
-		controlEnrollmentSource = sourceServer;
+		if (validateControlEnrollmentRequest) super.handleControlEnrollmentRequest(sourceServer, envelope);
+		else controlEnrollmentSource = sourceServer;
 	}
 
 	@Override

@@ -31,6 +31,11 @@ import com.bencodez.votingplugin.backendproxy.transport.BackendProxyTransportMan
 import com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
+import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator;
+import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode;
+import com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption;
+import com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption.Decryption;
+import com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption.Domain;
 
 import lombok.Getter;
 
@@ -68,6 +73,10 @@ public class BackendProxyHandler implements Listener {
 	private BackendVotePartySync votePartySync;
 	private boolean persistVotePartyOnClose = true;
 	private BackendProxyMessageRouter messageRouter;
+	private volatile TransportEnvelopeEncryption communicationEncryption;
+	private Mode sharedTransportMode;
+	private boolean communicationEncryptionEnabled;
+	private final AtomicBoolean encryptionFailureLogged = new AtomicBoolean();
 
 	@Getter
 	private BungeeMethod method;
@@ -107,19 +116,16 @@ public class BackendProxyHandler implements Listener {
 		plugin.debug("Loading backend proxy handler");
 		method = BungeeMethod.getByName(plugin.getBungeeSettings().getBungeeMethod());
 		plugin.getLogger().info("Using BungeeMethod: " + method.toString());
+		try {
+			communicationEncryption = TransportEnvelopeEncryption.load(
+					plugin.getDataFolder().toPath().resolve("secretkey.key"), Domain.PROXY_BACKEND,
+					plugin.getBungeeSettings().isCommunicationEncryption());
+		} catch (java.io.IOException failure) {
+			throw new IllegalStateException("Proxy communication encryption initialization failed", failure);
+		}
 
 		globalDataSync.load();
-		globalMessageHandler = new GlobalMessageHandler() {
-			@Override
-			public void onMessage(JsonEnvelope envelope) {
-				BackendProxyHandler.this.dispatchIncomingAfterPublication(envelope, () -> super.onMessage(envelope));
-			}
-
-			@Override
-			public void sendMessage(JsonEnvelope envelope) {
-				transportManager.send(envelope);
-			}
-		};
+		globalMessageHandler = new EncryptedGlobalMessageHandler();
 
 		presenceManager = new BackendPresenceManager(plugin, method, globalMessageHandler);
 		votePartySync = new BackendVotePartySync(plugin);
@@ -127,6 +133,10 @@ public class BackendProxyHandler implements Listener {
 				processedVoteCache);
 		messageRouter.register(globalMessageHandler, method);
 		transportManager.start(method, globalMessageHandler, activatePresenceReporting);
+		if (method == BungeeMethod.REDIS || method == BungeeMethod.MQTT) {
+			sharedTransportMode = Mode.parse(plugin.getBungeeSettings().getSharedTransportAuthentication());
+			communicationEncryptionEnabled = plugin.getBungeeSettings().isCommunicationEncryption();
+		}
 
 		if (plugin.getOptions().getServer().equalsIgnoreCase("pleaseset")) {
 			plugin.getLogger().warning("Server name for bungee voting is not set, please set it");
@@ -135,6 +145,33 @@ public class BackendProxyHandler implements Listener {
 			activatePresenceReporting();
 			activateInboundMessages();
 		}
+	}
+
+	private final class EncryptedGlobalMessageHandler extends GlobalMessageHandler {
+		@Override
+		public void onMessage(JsonEnvelope envelope) {
+			Decryption decrypted = communicationEncryption.decrypt(envelope);
+			if (!decrypted.accepted()) {
+				if (encryptionFailureLogged.compareAndSet(false, true)) plugin.getLogger().warning(
+						"Proxy communication message rejected by encryption policy (" + decrypted.reason() + ")");
+				return;
+			}
+			acceptDecrypted(decrypted.envelope());
+		}
+
+		private void acceptDecrypted(JsonEnvelope accepted) {
+			BackendProxyHandler.this.dispatchIncomingAfterPublication(accepted, () -> super.onMessage(accepted));
+		}
+
+		@Override
+		public void sendMessage(JsonEnvelope envelope) {
+			transportManager.send(communicationEncryption.encrypt(envelope));
+		}
+	}
+
+	private void acceptAlreadyDecrypted(JsonEnvelope envelope) {
+		if (globalMessageHandler instanceof EncryptedGlobalMessageHandler handler) handler.acceptDecrypted(envelope);
+		else if (globalMessageHandler != null) globalMessageHandler.onMessage(envelope);
 	}
 
 	/** Starts presence only after a staged handler reaches the atomic publication boundary. */
@@ -207,8 +244,7 @@ public class BackendProxyHandler implements Listener {
 			if (!inboundPublished && rollbackTarget == null) return;
 		}
 		if (rollbackTarget != null) {
-			GlobalMessageHandler rollbackHandler = rollbackTarget.globalMessageHandler;
-			if (rollbackHandler != null) rollbackHandler.onMessage(envelope);
+			rollbackTarget.acceptAlreadyDecrypted(envelope);
 			return;
 		}
 		// Reward-bearing proxy votes construct an asynchronous PlayerVoteEvent. The
@@ -858,6 +894,30 @@ public class BackendProxyHandler implements Listener {
 	public void reloadPresenceReporting() {
 		if (presenceManager != null && presenceReportingActivated) {
 			presenceManager.reload();
+		}
+	}
+
+	/** Refreshes policies captured when a Redis or MQTT transport first started. */
+	public void reloadSharedTransportSecurity() {
+		if (method != BungeeMethod.REDIS && method != BungeeMethod.MQTT) return;
+		Mode requestedMode = Mode.parse(plugin.getBungeeSettings().getSharedTransportAuthentication());
+		boolean requestedEncryption = plugin.getBungeeSettings().isCommunicationEncryption();
+		if (requestedMode == sharedTransportMode && requestedEncryption == communicationEncryptionEnabled) return;
+		try {
+			java.nio.file.Path keyFile = plugin.getDataFolder().toPath().resolve("secretkey.key");
+			TransportEnvelopeEncryption encryption = requestedEncryption == communicationEncryptionEnabled ? null
+					: TransportEnvelopeEncryption.load(keyFile, Domain.PROXY_BACKEND, requestedEncryption);
+			SharedTransportEnvelopeAuthenticator authenticator = requestedMode == sharedTransportMode ? null
+					: SharedTransportEnvelopeAuthenticator.load(keyFile, requestedMode);
+			if (authenticator != null) transportManager.updateSharedTransportAuthenticator(authenticator);
+			if (encryption != null) {
+				communicationEncryption = encryption;
+				encryptionFailureLogged.set(false);
+			}
+			sharedTransportMode = requestedMode;
+			communicationEncryptionEnabled = requestedEncryption;
+		} catch (java.io.IOException failure) {
+			throw new IllegalStateException("Shared backend transport security reload failed", failure);
 		}
 	}
 

@@ -11,15 +11,21 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.spy;
 
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Base64;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import com.bencodez.simpleapi.scheduler.BukkitScheduler;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
@@ -28,10 +34,72 @@ import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
+import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator;
+import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Domain;
+import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode;
 
 import redis.clients.jedis.DefaultJedisClientConfig;
 
 class RedisBackendProxyTransportTest {
+	@TempDir
+	Path temporaryDirectory;
+
+	@Test
+	void authenticatedVoteIsAcceptedAndUnsignedPresenceIsRejectedBeforeDispatch() throws Exception {
+		SharedTransportEnvelopeAuthenticator authenticator = authenticator();
+		RedisBackendProxyTransport transport = new RedisBackendProxyTransport(null, new ProcessedVoteCache());
+		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
+		setField(transport, "messageHandler", messages);
+		setField(transport, "authenticator", authenticator);
+		JsonEnvelope vote = VotingPluginWire.vote("Alex", "00000000-0000-0000-0000-000000000001", "Site", 1L,
+				true, true, "", java.util.UUID.randomUUID(), true, false, 1, 1);
+		JsonEnvelope signedVote = authenticator.sign(VotingPluginWire.withRedisDeliveryId(vote),
+				Domain.REDIS_PROXY_BACKEND, "proxy-a", "VotingPlugin_backend-a");
+
+		transport.acceptAuthenticatedEnvelope(signedVote, "VotingPlugin_backend-a");
+		transport.acceptAuthenticatedEnvelope(vote, "VotingPlugin_backend-a");
+		transport.acceptAuthenticatedEnvelope(VotingPluginWire.login("Alex",
+				"00000000-0000-0000-0000-000000000001", "backend-a"), "VotingPlugin_backend-a");
+
+		verify(messages).onMessage(org.mockito.ArgumentMatchers.argThat(received ->
+				VotingPluginWire.SUB_VOTE.equals(received.getSubChannel())
+						&& "Alex".equals(received.getFields().get(VotingPluginWire.K_PLAYER))
+						&& !received.getFields().containsKey(SharedTransportEnvelopeAuthenticator.K_MAC)));
+		verifyNoMoreInteractions(messages);
+	}
+
+	@Test
+	void copiedRedisVoteCannotAuthenticateOnAnotherBackendChannel() throws Exception {
+		SharedTransportEnvelopeAuthenticator authenticator = authenticator();
+		RedisBackendProxyTransport transport = new RedisBackendProxyTransport(null, new ProcessedVoteCache());
+		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
+		setField(transport, "messageHandler", messages);
+		setField(transport, "authenticator", authenticator);
+		JsonEnvelope vote = VotingPluginWire.withRedisDeliveryId(JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).build());
+		JsonEnvelope signed = authenticator.sign(vote, Domain.REDIS_PROXY_BACKEND, "proxy-a",
+				"VotingPlugin_backend-a");
+
+		transport.acceptAuthenticatedEnvelope(signed, "VotingPlugin_backend-b");
+		verifyNoInteractions(messages);
+		transport.acceptAuthenticatedEnvelope(signed, "VotingPlugin_backend-a");
+		verify(messages).onMessage(org.mockito.ArgumentMatchers.any());
+	}
+
+	@Test
+	void exactAuthenticatedRedisReplayCannotDuplicateVoteProcessing() throws Exception {
+		SharedTransportEnvelopeAuthenticator authenticator = authenticator();
+		RedisBackendProxyTransport transport = new RedisBackendProxyTransport(null, new ProcessedVoteCache());
+		GlobalMessageHandler messages = mock(GlobalMessageHandler.class);
+		setField(transport, "messageHandler", messages);
+		setField(transport, "authenticator", authenticator);
+		JsonEnvelope signed = authenticator.sign(VotingPluginWire.withRedisDeliveryId(
+				JsonEnvelope.builder(VotingPluginWire.SUB_VOTE).build()), Domain.REDIS_PROXY_BACKEND, "proxy-a", "VotingPlugin_backend-a");
+
+		transport.acceptAuthenticatedEnvelope(signed, "VotingPlugin_backend-a");
+		transport.acceptAuthenticatedEnvelope(signed, "VotingPlugin_backend-a");
+
+		verify(messages, times(1)).onMessage(org.mockito.ArgumentMatchers.any());
+	}
 
 	@Test
 	void validationHonorsTlsAndHostnameVerification() {
@@ -41,6 +109,13 @@ class RedisBackendProxyTransportTest {
 		assertTrue(config.isSsl());
 		assertEquals(3, config.getDatabase());
 		assertEquals("HTTPS", config.getSslParameters().getEndpointIdentificationAlgorithm());
+	}
+
+	private SharedTransportEnvelopeAuthenticator authenticator() throws Exception {
+		Path keyFile = temporaryDirectory.resolve("secretkey.key");
+		Files.writeString(keyFile, Base64.getEncoder().encodeToString(
+				"0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.US_ASCII)));
+		return SharedTransportEnvelopeAuthenticator.load(keyFile, Mode.REQUIRED);
 	}
 
 	@Test

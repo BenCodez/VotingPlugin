@@ -91,6 +91,11 @@ import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyServerSocketConfigur
 import com.bencodez.votingplugin.proxy.multiproxy.MultiProxyServerSocketConfigurationBungee;
 import com.bencodez.votingplugin.proxy.presence.BackendPlayerPresenceTracker;
 import com.bencodez.votingplugin.proxy.presence.PlayerPresence;
+import com.bencodez.votingplugin.proxy.redis.VotingPluginRedisChannels;
+import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator;
+import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Domain;
+import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode;
+import com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption;
 import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.util.DurableFiles;
@@ -292,6 +297,11 @@ public abstract class VotingPluginProxy {
 	@Getter
 	private RedisHandler redisHandler;
 	private JedisPool redisPublisherPool;
+	private volatile SharedTransportEnvelopeAuthenticator sharedTransportAuthenticator;
+	private TransportEnvelopeEncryption communicationEncryption;
+	private final AtomicBoolean communicationEncryptionFailureLogged = new AtomicBoolean();
+	private final AtomicBoolean sharedTransportAuthenticationFailureLogged = new AtomicBoolean();
+	private final AtomicBoolean sharedTransportCompatibilityWarningLogged = new AtomicBoolean();
 	private volatile long redisPublisherRetryAfter;
 	private boolean timeVoteRetryScheduled;
 	private boolean timeVoteDeliveryRetryScheduled;
@@ -823,16 +833,7 @@ public abstract class VotingPluginProxy {
 		case MQTT:
 			return sendMqttEnvelopeServer(server, envelope);
 		case MYSQL:
-			if (proxyMysqlMessenger == null) {
-				return false;
-			}
-			try {
-				proxyMysqlMessenger.sendToBackend(server, envelope);
-				return true;
-			} catch (SQLException e) {
-				debug(e.getMessage());
-				return false;
-			}
+			return sendMysqlEnvelopeServer(server, envelope);
 		case PLUGINMESSAGING:
 			return sendPluginMessageServerNow(server, envelope);
 		case REDIS:
@@ -1834,6 +1835,17 @@ public abstract class VotingPluginProxy {
 		if (getMethod() == null) {
 			method = BungeeMethod.PLUGINMESSAGING;
 		}
+		sharedTransportAuthenticator = createSharedTransportAuthenticator(method);
+		sharedTransportAuthenticationFailureLogged.set(false);
+		sharedTransportCompatibilityWarningLogged.set(false);
+		communicationEncryptionFailureLogged.set(false);
+		try {
+			communicationEncryption = TransportEnvelopeEncryption.load(
+					getDataFolderPlugin().toPath().resolve("secretkey.key"),
+					TransportEnvelopeEncryption.Domain.PROXY_BACKEND, getConfig().getCommunicationEncryption());
+		} catch (IOException failure) {
+			throw new IllegalStateException("Proxy communication encryption initialization failed", failure);
+		}
 		warnUnsupportedDedicatedVotingProxyMode();
 		uuidPlayerNameCache = getProxyMySQL().getRowsUUIDNameQuery();
 
@@ -1964,6 +1976,7 @@ public abstract class VotingPluginProxy {
 
 			rebuildSocketClients();
 		} else if (method.equals(BungeeMethod.REDIS)) {
+			sharedTransportAuthenticator();
 			redisHandler = new RedisHandler(getConfig().getRedisHost(), getConfig().getRedisPort(),
 					getConfig().getRedisUsername(), getConfig().getRedisPassword(), getConfig().getRedisDbIndex(),
 					getConfig().getRedisSsl()) {
@@ -1978,19 +1991,22 @@ public abstract class VotingPluginProxy {
 
 			runAsync(() -> {
 				RedisListener listener = redisHandler.createEnvelopeListener(
-						getConfig().getRedisPrefix() + "VotingPlugin",
-						(ch, env) -> globalMessageProxyHandler.onMessage(env));
+						VotingPluginRedisChannels.proxy(getConfig().getRedisPrefix()),
+						(ch, env) -> acceptSharedTransportEnvelope(env, Domain.REDIS_PROXY_BACKEND, ch,
+								globalMessageProxyHandler::onMessage));
 				redisHandler.loadListener(listener);
 			});
 
 		} else if (method.equals(BungeeMethod.MQTT)) {
+			sharedTransportAuthenticator();
 			try {
 				mqttHandler = new MqttHandler(new MqttServerComm(getConfig().getMqttClientID(),
 						getConfig().getMqttBrokerURL(), getConfig().getMqttUsername(), getConfig().getMqttPassword()),
 						2);
 
 				mqttHandler.subscribeEnvelopes(getConfig().getMqttPrefix() + "votingplugin/servers/proxy",
-						(topic, env) -> globalMessageProxyHandler.onMessage(env));
+						(topic, env) -> acceptSharedTransportEnvelope(env, Domain.MQTT_PROXY_BACKEND, topic,
+								globalMessageProxyHandler::onMessage));
 
 			} catch (MqttException e) {
 				e.printStackTrace();
@@ -2005,17 +2021,19 @@ public abstract class VotingPluginProxy {
 
 		globalMessageProxyHandler = new GlobalMessageProxyHandler() {
 			@Override
+			public void onMessage(JsonEnvelope envelope) {
+				JsonEnvelope decrypted = decryptCommunicationEnvelope(envelope);
+				if (decrypted != null) super.onMessage(decrypted);
+			}
+
+			@Override
 			public void sendMessage(String server, int delay, JsonEnvelope envelope) {
 				switch (method) {
 				case MQTT:
 					sendMqttEnvelopeServer(server, envelope);
 					break;
 				case MYSQL:
-					try {
-						proxyMysqlMessenger.sendToBackend(server, envelope);
-					} catch (SQLException e) {
-						e.printStackTrace();
-					}
+					sendMysqlEnvelopeServer(server, envelope);
 					break;
 				case PLUGINMESSAGING:
 					sendPluginMessageServer(server, delay, envelope);
@@ -2536,6 +2554,11 @@ public abstract class VotingPluginProxy {
 			}
 
 			@Override
+			public boolean getCommunicationEncryption() {
+				return getConfig().getCommunicationEncryption();
+			}
+
+			@Override
 			public EncryptionHandler getEncryptionHandler() {
 				return encryptionHandler;
 			}
@@ -2629,6 +2652,16 @@ public abstract class VotingPluginProxy {
 			@Override
 			public RedisHandler getRedisHandler() {
 				return redisHandler;
+			}
+
+			@Override
+			public String getRedisPrefix() {
+				return getConfig().getRedisPrefix();
+			}
+
+			@Override
+			public SharedTransportEnvelopeAuthenticator getSharedTransportAuthenticator() {
+				return sharedTransportAuthenticator();
 			}
 
 			@Override
@@ -3529,8 +3562,10 @@ public abstract class VotingPluginProxy {
 					return;
 				}
 
-				if (VotingPluginWire.SUB_CONTROL_ENROLLMENT_REQUEST.equals(envelope.getSubChannel())) {
-					handleControlEnrollmentRequest(sourceServer, envelope);
+				JsonEnvelope decrypted = decryptCommunicationEnvelope(envelope);
+				if (decrypted == null) return;
+				if (VotingPluginWire.SUB_CONTROL_ENROLLMENT_REQUEST.equals(decrypted.getSubChannel())) {
+					handleControlEnrollmentRequest(sourceServer, decrypted);
 					return;
 				}
 
@@ -3842,7 +3877,13 @@ public abstract class VotingPluginProxy {
 		invalidateDeferredHttpTransportReconciliation();
 		BungeeMethod configuredMethod = BungeeMethod.getByName(getConfig().getBungeeMethod());
 		if (configuredMethod == null) configuredMethod = BungeeMethod.PLUGINMESSAGING;
+		SharedTransportEnvelopeAuthenticator replacementAuthenticator = createSharedTransportAuthenticator(
+				configuredMethod);
 		method = retainHttpForPendingDeliveries(configuredMethod);
+		sharedTransportAuthenticator = replacementAuthenticator;
+		sharedTransportAuthenticationFailureLogged.set(false);
+		sharedTransportCompatibilityWarningLogged.set(false);
+		warnIfSharedTransportCompatibilityMode(replacementAuthenticator);
 		scheduleDeferredHttpTransportReconciliation();
 		warnUnsupportedDedicatedVotingProxyMode();
 		if (!restartControlServices && method == BungeeMethod.SOCKETS) {
@@ -4099,11 +4140,26 @@ public abstract class VotingPluginProxy {
 		stopSocketClients(previous);
 	}
 
+	private boolean sendMysqlEnvelopeServer(String server, JsonEnvelope envelope) {
+		if (proxyMysqlMessenger == null) return false;
+		try {
+			proxyMysqlMessenger.sendToBackend(server, encryptCommunicationEnvelope(envelope));
+			return true;
+		} catch (SQLException failure) {
+			debug(failure.getMessage());
+			return false;
+		}
+	}
+
+	private JsonEnvelope encryptCommunicationEnvelope(JsonEnvelope envelope) {
+		return communicationEncryption == null ? envelope : communicationEncryption.encrypt(envelope);
+	}
+
 	private synchronized boolean sendSocketEnvelope(String server, JsonEnvelope envelope) {
 		ClientHandler socketClient = clientHandles == null ? null : clientHandles.get(server);
 		if (socketClient == null) return false;
 		try {
-			socketClient.sendEnvelope(envelope);
+			socketClient.sendEnvelope(encryptCommunicationEnvelope(envelope));
 			return true;
 		} catch (RuntimeException e) {
 			debug(e.getMessage());
@@ -4113,7 +4169,7 @@ public abstract class VotingPluginProxy {
 
 	protected synchronized boolean sendHttpEnvelope(String server, JsonEnvelope envelope) {
 		HttpProxyTransportServer transport = httpTransportServer;
-		return transport != null && transport.send(server, envelope);
+		return transport != null && transport.send(server, encryptCommunicationEnvelope(envelope));
 	}
 
 	/**
@@ -4219,7 +4275,7 @@ public abstract class VotingPluginProxy {
 
 	protected synchronized boolean sendHttpEnvelope(String server, String deliveryId, JsonEnvelope envelope) {
 		HttpProxyTransportServer transport = httpTransportServer;
-		return transport != null && transport.send(server, deliveryId, envelope);
+		return transport != null && transport.send(server, deliveryId, encryptCommunicationEnvelope(envelope));
 	}
 
 	private void startHttpTransport() {
@@ -4267,17 +4323,31 @@ public abstract class VotingPluginProxy {
 
 	/** Keeps the authenticated mTLS backend identity attached to security-sensitive proxy routing. */
 	protected void handleHttpTransportEnvelope(HttpProxyTransportServer.ReceivedEnvelope received) {
-		if (!isAuthenticatedHttpEnvelopeAllowed(received)) {
+		if (received == null) return;
+		JsonEnvelope decrypted = decryptCommunicationEnvelope(received.envelope());
+		if (decrypted == null) return;
+		HttpProxyTransportServer.ReceivedEnvelope authenticated = new HttpProxyTransportServer.ReceivedEnvelope(
+				received.serverId(), received.messageId(), decrypted);
+		if (!isAuthenticatedHttpEnvelopeAllowed(authenticated)) {
 			debug("Ignored HTTP envelope whose player-presence claim did not match its authenticated backend");
 			return;
 		}
-		if (VotingPluginWire.SUB_CONTROL_ENROLLMENT_REQUEST.equals(received.envelope().getSubChannel())) {
-			handleControlEnrollmentRequest(received.serverId(), received.envelope());
+		if (VotingPluginWire.SUB_CONTROL_ENROLLMENT_REQUEST.equals(decrypted.getSubChannel())) {
+			handleControlEnrollmentRequest(received.serverId(), decrypted);
 			return;
 		}
 		GlobalMessageProxyHandler handler = globalMessageProxyHandler;
 		if (handler == null) throw new IllegalStateException("HTTP message router is not ready");
 		handler.onMessage(received.envelope());
+	}
+
+	private JsonEnvelope decryptCommunicationEnvelope(JsonEnvelope envelope) {
+		if (communicationEncryption == null) return envelope;
+		TransportEnvelopeEncryption.Decryption decrypted = communicationEncryption.decrypt(envelope);
+		if (decrypted.accepted()) return decrypted.envelope();
+		if (communicationEncryptionFailureLogged.compareAndSet(false, true)) logSevere(
+				"Proxy communication message rejected by encryption policy (" + decrypted.reason() + ")");
+		return null;
 	}
 
 	private boolean isAuthenticatedHttpEnvelopeAllowed(HttpProxyTransportServer.ReceivedEnvelope received) {
@@ -4584,6 +4654,7 @@ public abstract class VotingPluginProxy {
 	 * @return true when the proxy accepted the message for delivery
 	 */
 	protected boolean sendPluginMessageServerNow(String server, JsonEnvelope envelope) {
+		envelope = encryptCommunicationEnvelope(envelope);
 		final String subChannel = envelope.getSubChannel();
 		final String payload = JsonEnvelopeCodec.encode(envelope);
 
@@ -4657,6 +4728,64 @@ public abstract class VotingPluginProxy {
 		return config.build();
 	}
 
+	private synchronized SharedTransportEnvelopeAuthenticator sharedTransportAuthenticator() {
+		if (sharedTransportAuthenticator != null) {
+			warnIfSharedTransportCompatibilityMode(sharedTransportAuthenticator);
+			return sharedTransportAuthenticator;
+		}
+		sharedTransportAuthenticator = createSharedTransportAuthenticator(method);
+		if (sharedTransportAuthenticator == null)
+			throw new IllegalStateException("Shared transport authentication requested without a shared transport");
+		warnIfSharedTransportCompatibilityMode(sharedTransportAuthenticator);
+		return sharedTransportAuthenticator;
+	}
+
+	private SharedTransportEnvelopeAuthenticator createSharedTransportAuthenticator(BungeeMethod configuredMethod) {
+		MultiProxyMethod multiProxyMethod = MultiProxyMethod.getByName(getConfig().getMultiProxyMethod());
+		boolean sharedTransportConfigured = configuredMethod == BungeeMethod.REDIS || configuredMethod == BungeeMethod.MQTT
+				|| (getConfig().getMultiProxySupport() && multiProxyMethod == MultiProxyMethod.REDIS);
+		if (!sharedTransportConfigured) return null;
+		Mode mode = Mode.parse(getConfig().getSharedTransportAuthentication());
+		try {
+			return SharedTransportEnvelopeAuthenticator.load(
+					getDataFolderPlugin().toPath().resolve("secretkey.key"), mode);
+		} catch (IOException authenticationFailure) {
+			throw new IllegalStateException("Shared Redis/MQTT transport authentication initialization failed",
+					authenticationFailure);
+		}
+	}
+
+	/** Reject invalid replacement transport keys and authentication settings before retiring this runtime. */
+	public void validateReplacementTransportSecurity() {
+		BungeeMethod configuredMethod = BungeeMethod.getByName(getConfig().getBungeeMethod());
+		if (configuredMethod == null) configuredMethod = BungeeMethod.PLUGINMESSAGING;
+		createSharedTransportAuthenticator(configuredMethod);
+		try {
+			TransportEnvelopeEncryption.load(getDataFolderPlugin().toPath().resolve("secretkey.key"),
+					TransportEnvelopeEncryption.Domain.PROXY_BACKEND, getConfig().getCommunicationEncryption());
+		} catch (IOException encryptionFailure) {
+			throw new IllegalStateException("Proxy communication encryption initialization failed", encryptionFailure);
+		}
+	}
+
+	private void warnIfSharedTransportCompatibilityMode(SharedTransportEnvelopeAuthenticator authenticator) {
+		if (authenticator != null && authenticator.mode() == Mode.COMPATIBILITY
+				&& sharedTransportCompatibilityWarningLogged.compareAndSet(false, true)) log(
+				"WARNING: SharedTransportAuthentication is COMPATIBILITY; unsigned Redis/MQTT messages are accepted during this rolling upgrade");
+	}
+
+	void acceptSharedTransportEnvelope(JsonEnvelope envelope, Domain domain, String destination,
+			java.util.function.Consumer<JsonEnvelope> accepted) {
+		SharedTransportEnvelopeAuthenticator.Verification verification = sharedTransportAuthenticator().verify(envelope,
+				domain, destination);
+		if (!verification.accepted()) {
+			if (sharedTransportAuthenticationFailureLogged.compareAndSet(false, true)) log(
+					"Shared transport message rejected by envelope authentication (" + verification.rejection() + ")");
+			return;
+		}
+		accepted.accept(verification.envelope());
+	}
+
 	public boolean sendRedisEnvelopeServer(String server, JsonEnvelope envelope) {
 		return sendRedisEnvelopeServer(server, envelope, false);
 	}
@@ -4668,9 +4797,11 @@ public abstract class VotingPluginProxy {
 		}
 
 		try (Jedis jedis = publisherPool.getResource()) {
-			String channel = getConfig().getRedisPrefix() + "VotingPlugin_" + server;
-			long subscribers = jedis.publish(channel,
-					JsonEnvelopeCodec.encode(VotingPluginWire.withRedisDeliveryId(envelope)));
+			String channel = VotingPluginRedisChannels.backend(getConfig().getRedisPrefix(), server);
+			JsonEnvelope identified = VotingPluginWire.withRedisDeliveryId(encryptCommunicationEnvelope(envelope));
+			JsonEnvelope authenticated = sharedTransportAuthenticator().sign(identified, Domain.REDIS_PROXY_BACKEND,
+					getConfig().getProxyServerName(), channel);
+			long subscribers = jedis.publish(channel, JsonEnvelopeCodec.encode(authenticated));
 			redisPublisherRetryAfter = 0L;
 			return subscribers > 0;
 		} catch (Exception e) {
@@ -4688,7 +4819,10 @@ public abstract class VotingPluginProxy {
 			return false;
 		}
 		try {
-			mqttHandler.publishEnvelope(getConfig().getMqttPrefix() + "votingplugin/servers/" + server, envelope);
+			String topic = getConfig().getMqttPrefix() + "votingplugin/servers/" + server;
+			mqttHandler.publishEnvelope(topic,
+					sharedTransportAuthenticator().sign(encryptCommunicationEnvelope(envelope), Domain.MQTT_PROXY_BACKEND,
+							getConfig().getProxyServerName(), topic));
 			return true;
 		} catch (Exception e) {
 			if (getConfig().getDebug()) {
@@ -4709,7 +4843,7 @@ public abstract class VotingPluginProxy {
 			return false;
 		}
 
-		String payload = JsonEnvelopeCodec.encode(envelope);
+		String payload = JsonEnvelopeCodec.encode(encryptCommunicationEnvelope(envelope));
 		String encoded = encryptionHandler != null ? encryptionHandler.encrypt(payload) : payload;
 		try (Socket socket = new Socket()) {
 			socket.connect(new InetSocketAddress(host, port), 2000);

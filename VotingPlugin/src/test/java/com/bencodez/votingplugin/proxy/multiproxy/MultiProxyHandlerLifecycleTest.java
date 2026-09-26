@@ -10,8 +10,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +26,10 @@ import com.bencodez.simpleapi.servercomm.sockets.ClientHandler;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.votingplugin.proxy.VoteTotalsSnapshot;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
+import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator;
+import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Domain;
+import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode;
+import com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption;
 
 class MultiProxyHandlerLifecycleTest {
 
@@ -68,10 +74,14 @@ class MultiProxyHandlerLifecycleTest {
 	}
 
 	@Test
-	void redisSubsetSendPreservesConfiguredChannelCasing() throws Exception {
+	void redisSubsetSendPreservesConfiguredChannelCasingAndAppliesPrefixOnce(@TempDir Path dataDirectory) throws Exception {
 		MultiProxyHandler handler = mock(MultiProxyHandler.class, org.mockito.Mockito.CALLS_REAL_METHODS);
 		org.mockito.Mockito.when(handler.getMultiProxyMethod()).thenReturn(MultiProxyMethod.REDIS);
 		org.mockito.Mockito.when(handler.getProxyServers()).thenReturn(List.of("Proxy2"));
+		org.mockito.Mockito.when(handler.getMultiProxyServerName()).thenReturn("Proxy1");
+		org.mockito.Mockito.when(handler.getRedisPrefix()).thenReturn("network-a:");
+		SharedTransportEnvelopeAuthenticator authenticator = authenticator(dataDirectory);
+		org.mockito.Mockito.when(handler.getSharedTransportAuthenticator()).thenReturn(authenticator);
 		com.bencodez.simpleapi.servercomm.redis.RedisHandler redis =
 				mock(com.bencodez.simpleapi.servercomm.redis.RedisHandler.class);
 		java.lang.reflect.Field connection = MultiProxyHandler.class.getDeclaredField("multiProxyRedis");
@@ -82,7 +92,291 @@ class MultiProxyHandlerLifecycleTest {
 		assertEquals(java.util.Set.of("Proxy2"), handler.getConfiguredMultiProxyVoteRecipients());
 		assertTrue(handler.sendMultiProxyEnvelopeAccepted(envelope, List.of("proxy2")));
 
-		verify(redis).publishEnvelope("VotingPluginProxy_Proxy2", envelope);
+		org.mockito.ArgumentCaptor<JsonEnvelope> sent = org.mockito.ArgumentCaptor.forClass(JsonEnvelope.class);
+		verify(redis).publishEnvelope(org.mockito.ArgumentMatchers.eq("network-a:VotingPluginProxy_Proxy2"), sent.capture());
+		assertTrue(authenticator.verify(sent.getValue(), Domain.REDIS_MULTI_PROXY, "network-a:VotingPluginProxy_Proxy2").accepted());
+	}
+
+	@Test
+	void encryptedMultiProxyRedisEnvelopeIsSignedOutsideAndDecryptsToOriginal(@TempDir Path dataDirectory)
+			throws Exception {
+		MultiProxyHandler handler = mock(MultiProxyHandler.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+		org.mockito.Mockito.when(handler.getMultiProxyMethod()).thenReturn(MultiProxyMethod.REDIS);
+		org.mockito.Mockito.when(handler.getProxyServers()).thenReturn(List.of("Proxy2"));
+		org.mockito.Mockito.when(handler.getMultiProxyServerName()).thenReturn("Proxy1");
+		org.mockito.Mockito.when(handler.getRedisPrefix()).thenReturn("network-a:");
+		SharedTransportEnvelopeAuthenticator authenticator = authenticator(dataDirectory);
+		org.mockito.Mockito.when(handler.getSharedTransportAuthenticator()).thenReturn(authenticator);
+		TransportEnvelopeEncryption encryption = TransportEnvelopeEncryption.load(
+				dataDirectory.resolve("secretkey.key"), TransportEnvelopeEncryption.Domain.MULTI_PROXY, true);
+		java.lang.reflect.Field cipher = MultiProxyHandler.class.getDeclaredField("communicationEncryption");
+		cipher.setAccessible(true);
+		cipher.set(handler, encryption);
+		com.bencodez.simpleapi.servercomm.redis.RedisHandler redis =
+				mock(com.bencodez.simpleapi.servercomm.redis.RedisHandler.class);
+		java.lang.reflect.Field connection = MultiProxyHandler.class.getDeclaredField("multiProxyRedis");
+		connection.setAccessible(true);
+		connection.set(handler, redis);
+		JsonEnvelope original = JsonEnvelope.builder("vote").put("player", "Alex").build();
+
+		assertTrue(handler.sendMultiProxyEnvelopeAccepted(original, List.of("Proxy2")));
+
+		org.mockito.ArgumentCaptor<JsonEnvelope> sent = org.mockito.ArgumentCaptor.forClass(JsonEnvelope.class);
+		verify(redis).publishEnvelope(org.mockito.ArgumentMatchers.eq("network-a:VotingPluginProxy_Proxy2"), sent.capture());
+		JsonEnvelope authenticated = authenticator.verify(sent.getValue(), Domain.REDIS_MULTI_PROXY, "network-a:VotingPluginProxy_Proxy2").envelope();
+		TransportEnvelopeEncryption.Decryption decrypted = encryption.decrypt(authenticated);
+		assertTrue(decrypted.accepted());
+		assertEquals(original.getSubChannel(), decrypted.envelope().getSubChannel());
+		assertEquals(original.getFields(), decrypted.envelope().getFields());
+	}
+
+	@Test
+	void reusedRedisConnectionSubscribesToTheSameSinglePrefixedChannel(@TempDir Path dataDirectory) throws Exception {
+		MultiProxyHandler handler = mock(MultiProxyHandler.class,
+				org.mockito.Mockito.withSettings().useConstructor().defaultAnswer(org.mockito.Mockito.CALLS_REAL_METHODS));
+		com.bencodez.simpleapi.servercomm.redis.RedisHandler redis =
+				mock(com.bencodez.simpleapi.servercomm.redis.RedisHandler.class);
+		com.bencodez.simpleapi.servercomm.redis.RedisListener listener =
+				mock(com.bencodez.simpleapi.servercomm.redis.RedisListener.class);
+		org.mockito.Mockito.when(handler.getMultiProxySupportEnabled()).thenReturn(true);
+		org.mockito.Mockito.when(handler.getMultiProxyMethod()).thenReturn(MultiProxyMethod.REDIS);
+		org.mockito.Mockito.when(handler.getMultiProxyRedisUseExistingConnection()).thenReturn(true);
+		org.mockito.Mockito.when(handler.getRedisHandler()).thenReturn(redis);
+		org.mockito.Mockito.when(handler.getRedisPrefix()).thenReturn("network-a:");
+		org.mockito.Mockito.when(handler.getMultiProxyServerName()).thenReturn("Proxy1");
+		org.mockito.Mockito.when(handler.getMultiProxyServers()).thenReturn(List.of());
+		org.mockito.Mockito.when(handler.getSharedTransportAuthenticator()).thenReturn(authenticator(dataDirectory));
+		org.mockito.Mockito.when(redis.createEnvelopeListener(org.mockito.ArgumentMatchers.anyString(),
+				org.mockito.ArgumentMatchers.any())).thenReturn(listener);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			((Runnable) invocation.getArgument(0)).run();
+			return null;
+		}).when(handler).runAsnc(org.mockito.ArgumentMatchers.any());
+
+		handler.loadMultiProxySupport();
+
+		verify(redis).createEnvelopeListener(org.mockito.ArgumentMatchers.eq("network-a:VotingPluginProxy_Proxy1"),
+				org.mockito.ArgumentMatchers.any());
+		verify(redis).loadListener(listener);
+	}
+
+	@Test
+	void compatibilityModeBridgesPrefixedAndLegacyMultiProxyChannels(@TempDir Path dataDirectory) throws Exception {
+		MultiProxyHandler handler = mock(MultiProxyHandler.class,
+				org.mockito.Mockito.withSettings().useConstructor().defaultAnswer(org.mockito.Mockito.CALLS_REAL_METHODS));
+		com.bencodez.simpleapi.servercomm.redis.RedisHandler redis =
+				mock(com.bencodez.simpleapi.servercomm.redis.RedisHandler.class);
+		com.bencodez.simpleapi.servercomm.redis.RedisListener prefixed =
+				mock(com.bencodez.simpleapi.servercomm.redis.RedisListener.class);
+		com.bencodez.simpleapi.servercomm.redis.RedisListener legacy =
+				mock(com.bencodez.simpleapi.servercomm.redis.RedisListener.class);
+		org.mockito.Mockito.when(handler.getMultiProxySupportEnabled()).thenReturn(true);
+		org.mockito.Mockito.when(handler.getMultiProxyMethod()).thenReturn(MultiProxyMethod.REDIS);
+		org.mockito.Mockito.when(handler.getMultiProxyRedisUseExistingConnection()).thenReturn(true);
+		org.mockito.Mockito.when(handler.getRedisHandler()).thenReturn(redis);
+		org.mockito.Mockito.when(handler.getRedisPrefix()).thenReturn("network-a:");
+		org.mockito.Mockito.when(handler.getMultiProxyServerName()).thenReturn("Proxy1");
+		org.mockito.Mockito.when(handler.getMultiProxyServers()).thenReturn(List.of());
+		org.mockito.Mockito.when(handler.getSharedTransportAuthenticator())
+				.thenReturn(authenticator(dataDirectory, Mode.COMPATIBILITY));
+		org.mockito.Mockito.when(redis.createEnvelopeListener(org.mockito.ArgumentMatchers.anyString(),
+				org.mockito.ArgumentMatchers.any())).thenReturn(prefixed, legacy);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			((Runnable) invocation.getArgument(0)).run();
+			return null;
+		}).when(handler).runAsnc(org.mockito.ArgumentMatchers.any());
+
+		handler.loadMultiProxySupport();
+
+		verify(redis).createEnvelopeListener(org.mockito.ArgumentMatchers.eq("network-a:VotingPluginProxy_Proxy1"),
+				org.mockito.ArgumentMatchers.any());
+		verify(redis).createEnvelopeListener(org.mockito.ArgumentMatchers.eq("VotingPluginProxy_Proxy1"),
+				org.mockito.ArgumentMatchers.any());
+		verify(redis).loadListener(prefixed);
+		verify(redis).loadListener(legacy);
+	}
+
+	@Test
+	void compatibilityModeStartsBothRedisSubscriptionThreads(@TempDir Path dataDirectory) throws Exception {
+		MultiProxyHandler handler = mock(MultiProxyHandler.class,
+				org.mockito.Mockito.withSettings().useConstructor().defaultAnswer(org.mockito.Mockito.CALLS_REAL_METHODS));
+		com.bencodez.simpleapi.servercomm.redis.RedisHandler redis =
+				new com.bencodez.simpleapi.servercomm.redis.RedisHandler("127.0.0.1", 1, "", "", 0) {
+					@Override public void debug(String message) { }
+				};
+		try {
+			org.mockito.Mockito.when(handler.getMultiProxySupportEnabled()).thenReturn(true);
+			org.mockito.Mockito.when(handler.getMultiProxyMethod()).thenReturn(MultiProxyMethod.REDIS);
+			org.mockito.Mockito.when(handler.getMultiProxyRedisUseExistingConnection()).thenReturn(true);
+			org.mockito.Mockito.when(handler.getRedisHandler()).thenReturn(redis);
+			org.mockito.Mockito.when(handler.getRedisPrefix()).thenReturn("network-a:");
+			org.mockito.Mockito.when(handler.getMultiProxyServerName()).thenReturn("Proxy1");
+			org.mockito.Mockito.when(handler.getMultiProxyServers()).thenReturn(List.of());
+			org.mockito.Mockito.when(handler.getSharedTransportAuthenticator())
+					.thenReturn(authenticator(dataDirectory, Mode.COMPATIBILITY));
+			org.mockito.Mockito.doAnswer(invocation -> {
+				((Runnable) invocation.getArgument(0)).run();
+				return null;
+			}).when(handler).runAsnc(org.mockito.ArgumentMatchers.any());
+
+			handler.loadMultiProxySupport();
+
+			java.lang.reflect.Field threadsField = redis.getClass().getSuperclass().getDeclaredField("listenerThreads");
+			threadsField.setAccessible(true);
+			@SuppressWarnings("unchecked")
+			Map<com.bencodez.simpleapi.servercomm.redis.RedisListener, Thread> threads =
+					(Map<com.bencodez.simpleapi.servercomm.redis.RedisListener, Thread>) threadsField.get(redis);
+			assertEquals(java.util.Set.of("network-a:VotingPluginProxy_Proxy1", "VotingPluginProxy_Proxy1"),
+					threads.keySet().stream().map(com.bencodez.simpleapi.servercomm.redis.RedisListener::getChannel)
+							.collect(java.util.stream.Collectors.toSet()));
+			assertTrue(threads.values().stream().allMatch(Thread::isAlive));
+		} finally {
+			redis.close();
+		}
+	}
+
+	@Test
+	void compatibilityModePublishesIdenticalSignedEnvelopeOnBothChannelNames(@TempDir Path dataDirectory)
+			throws Exception {
+		MultiProxyHandler handler = mock(MultiProxyHandler.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+		org.mockito.Mockito.when(handler.getMultiProxyMethod()).thenReturn(MultiProxyMethod.REDIS);
+		org.mockito.Mockito.when(handler.getProxyServers()).thenReturn(List.of("Proxy2"));
+		org.mockito.Mockito.when(handler.getMultiProxyServerName()).thenReturn("Proxy1");
+		org.mockito.Mockito.when(handler.getRedisPrefix()).thenReturn("network-a:");
+		org.mockito.Mockito.when(handler.getSharedTransportAuthenticator())
+				.thenReturn(authenticator(dataDirectory, Mode.COMPATIBILITY));
+		com.bencodez.simpleapi.servercomm.redis.RedisHandler redis =
+				mock(com.bencodez.simpleapi.servercomm.redis.RedisHandler.class);
+		java.lang.reflect.Field connection = MultiProxyHandler.class.getDeclaredField("multiProxyRedis");
+		connection.setAccessible(true);
+		connection.set(handler, redis);
+
+		assertTrue(handler.sendMultiProxyEnvelopeAccepted(JsonEnvelope.builder("vote").build(), List.of("Proxy2")));
+
+		org.mockito.ArgumentCaptor<JsonEnvelope> sent = org.mockito.ArgumentCaptor.forClass(JsonEnvelope.class);
+		verify(redis).publishEnvelope(org.mockito.ArgumentMatchers.eq("network-a:VotingPluginProxy_Proxy2"),
+				sent.capture());
+		verify(redis).publishEnvelope(org.mockito.ArgumentMatchers.eq("VotingPluginProxy_Proxy2"), sent.capture());
+		assertEquals(sent.getAllValues().get(0).getFields(), sent.getAllValues().get(1).getFields());
+	}
+
+	@Test
+	void unsignedBridgeCopiesAreDeduplicatedWithoutSuppressingVoteIdsOrSignedTraffic(@TempDir Path dataDirectory)
+			throws Exception {
+		MultiProxyHandler handler = mock(MultiProxyHandler.class,
+				org.mockito.Mockito.withSettings().useConstructor().defaultAnswer(org.mockito.Mockito.CALLS_REAL_METHODS));
+		org.mockito.Mockito.when(handler.getSharedTransportAuthenticator())
+				.thenReturn(authenticator(dataDirectory, Mode.COMPATIBILITY));
+		org.mockito.Mockito.when(handler.getRedisPrefix()).thenReturn("network-a:");
+		org.mockito.Mockito.when(handler.getMultiProxyServerName()).thenReturn("Proxy2");
+		String prefixed = "network-a:VotingPluginProxy_Proxy2";
+		String legacy = "VotingPluginProxy_Proxy2";
+		JsonEnvelope clear = VotingPluginWire.clearVotePrimary("player-uuid", "Player", "Proxy1");
+
+		handler.acceptRedisEnvelope(clear, prefixed);
+		handler.acceptRedisEnvelope(clear, legacy);
+		verify(handler).clearVote("player-uuid");
+		handler.acceptRedisEnvelope(clear, prefixed);
+		verify(handler, org.mockito.Mockito.times(2)).clearVote("player-uuid");
+
+		JsonEnvelope withVoteId = clear.toBuilder().put(VotingPluginWire.K_VOTE_ID, UUID.randomUUID().toString()).build();
+		handler.acceptRedisEnvelope(withVoteId, prefixed);
+		handler.acceptRedisEnvelope(withVoteId, legacy);
+		verify(handler, org.mockito.Mockito.times(4)).clearVote("player-uuid");
+
+		SharedTransportEnvelopeAuthenticator signer = authenticator(dataDirectory);
+		handler.acceptRedisEnvelope(signer.sign(clear, Domain.REDIS_MULTI_PROXY, "Proxy1", "network-a:VotingPluginProxy_Proxy2"), prefixed);
+		handler.acceptRedisEnvelope(signer.sign(clear, Domain.REDIS_MULTI_PROXY, "Proxy1", legacy), legacy);
+		verify(handler, org.mockito.Mockito.times(6)).clearVote("player-uuid");
+	}
+
+	@Test
+	void unsignedBridgeWindowExpiresAndRetainsAtMostItsBound(@TempDir Path dataDirectory) throws Exception {
+		MultiProxyHandler handler = mock(MultiProxyHandler.class,
+				org.mockito.Mockito.withSettings().useConstructor().defaultAnswer(org.mockito.Mockito.CALLS_REAL_METHODS));
+		org.mockito.Mockito.when(handler.getSharedTransportAuthenticator())
+				.thenReturn(authenticator(dataDirectory, Mode.COMPATIBILITY));
+		org.mockito.Mockito.when(handler.getRedisPrefix()).thenReturn("network-a:");
+		org.mockito.Mockito.when(handler.getMultiProxyServerName()).thenReturn("Proxy2");
+		java.util.concurrent.atomic.AtomicLong now = new java.util.concurrent.atomic.AtomicLong(1L);
+		org.mockito.Mockito.doAnswer(ignored -> now.get()).when(handler).unsignedBridgeNowNanos();
+		String prefixed = "network-a:VotingPluginProxy_Proxy2";
+		String legacy = "VotingPluginProxy_Proxy2";
+		JsonEnvelope clear = VotingPluginWire.clearVotePrimary("player-uuid", "Player", "Proxy1");
+
+		handler.acceptRedisEnvelope(clear, prefixed);
+		handler.acceptRedisEnvelope(clear, legacy);
+		now.addAndGet(java.util.concurrent.TimeUnit.SECONDS.toNanos(3));
+		handler.acceptRedisEnvelope(clear, legacy);
+		verify(handler, org.mockito.Mockito.times(2)).clearVote("player-uuid");
+
+		for (int index = 0; index < 1100; index++) {
+			handler.acceptRedisEnvelope(VotingPluginWire.clearVotePrimary("player-" + index, "Player", "Proxy1"),
+					prefixed);
+		}
+		java.lang.reflect.Field entries = MultiProxyHandler.class.getDeclaredField("unsignedBridgeCopies");
+		entries.setAccessible(true);
+		assertTrue(((Map<?, ?>) entries.get(handler)).size() <= 1024);
+	}
+
+	@Test
+	void unsignedMultiProxyVoteAndForgedAcknowledgementCannotMutateState(@TempDir Path dataDirectory) throws Exception {
+		MultiProxyHandler handler = mock(MultiProxyHandler.class,
+				org.mockito.Mockito.withSettings().useConstructor().defaultAnswer(org.mockito.Mockito.CALLS_REAL_METHODS));
+		org.mockito.Mockito.when(handler.getSharedTransportAuthenticator()).thenReturn(authenticator(dataDirectory));
+		org.mockito.Mockito.when(handler.getMultiProxyServerName()).thenReturn("Primary");
+		UUID voteId = UUID.randomUUID();
+
+		handler.acceptRedisEnvelope(VotingPluginWire.multiProxyVote("Player",
+				"00000000-0000-0000-0000-000000000001", "Service", 1L, true, true, "", voteId,
+				true, false, 1, 1, "Replica"));
+		handler.acceptRedisEnvelope(VotingPluginWire.multiProxyVoteAck(voteId, "Primary", "Replica"));
+
+		verify(handler, org.mockito.Mockito.never()).triggerVote(org.mockito.ArgumentMatchers.anyString(),
+				org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyBoolean(),
+				org.mockito.ArgumentMatchers.anyBoolean(), org.mockito.ArgumentMatchers.anyLong(),
+				org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
+				org.mockito.ArgumentMatchers.any(UUID.class), org.mockito.ArgumentMatchers.anyString());
+		verify(handler, org.mockito.Mockito.never()).onMultiProxyVoteAcknowledged(
+				org.mockito.ArgumentMatchers.any(UUID.class), org.mockito.ArgumentMatchers.anyString());
+	}
+
+	@Test
+	void authenticatedMultiProxyVoteIsAcceptedOnlyOnce(@TempDir Path dataDirectory) throws Exception {
+		MultiProxyHandler handler = mock(MultiProxyHandler.class,
+				org.mockito.Mockito.withSettings().useConstructor().defaultAnswer(org.mockito.Mockito.CALLS_REAL_METHODS));
+		SharedTransportEnvelopeAuthenticator authenticator = authenticator(dataDirectory);
+		org.mockito.Mockito.when(handler.getSharedTransportAuthenticator()).thenReturn(authenticator);
+		UUID voteId = UUID.randomUUID();
+		JsonEnvelope signed = authenticator.sign(VotingPluginWire.multiProxyVote("Player",
+				"00000000-0000-0000-0000-000000000001", "Service", 1L, true, true, "", voteId,
+				true, false, 1, 1, "Replica"), Domain.REDIS_MULTI_PROXY, "Replica", "network-a:VotingPluginProxy_Proxy2");
+
+		handler.acceptRedisEnvelope(signed, "network-a:VotingPluginProxy_Proxy2");
+		handler.acceptRedisEnvelope(signed, "network-a:VotingPluginProxy_Proxy2");
+
+		verify(handler, org.mockito.Mockito.times(1)).triggerVote(org.mockito.ArgumentMatchers.eq("Player"),
+				org.mockito.ArgumentMatchers.eq("Service"), org.mockito.ArgumentMatchers.eq(true),
+				org.mockito.ArgumentMatchers.eq(true), org.mockito.ArgumentMatchers.eq(0L),
+				org.mockito.ArgumentMatchers.any(VoteTotalsSnapshot.class),
+				org.mockito.ArgumentMatchers.eq("00000000-0000-0000-0000-000000000001"),
+				org.mockito.ArgumentMatchers.eq(voteId), org.mockito.ArgumentMatchers.eq("Replica"));
+	}
+
+	@Test
+	void copiedMultiProxyMessageCannotAuthenticateOnAnotherRecipientChannel(@TempDir Path dataDirectory)
+			throws Exception {
+		MultiProxyHandler handler = mock(MultiProxyHandler.class,
+				org.mockito.Mockito.withSettings().useConstructor().defaultAnswer(org.mockito.Mockito.CALLS_REAL_METHODS));
+		SharedTransportEnvelopeAuthenticator authenticator = authenticator(dataDirectory);
+		org.mockito.Mockito.when(handler.getSharedTransportAuthenticator()).thenReturn(authenticator);
+		JsonEnvelope signed = authenticator.sign(VotingPluginWire.clearVotePrimary("player-uuid", "Player", "Proxy1"),
+				Domain.REDIS_MULTI_PROXY, "Proxy1", "network-a:VotingPluginProxy_ProxyA");
+
+		handler.acceptRedisEnvelope(signed, "network-a:VotingPluginProxy_ProxyB");
+		verify(handler, org.mockito.Mockito.never()).clearVote("player-uuid");
+		handler.acceptRedisEnvelope(signed, "network-a:VotingPluginProxy_ProxyA");
+		verify(handler).clearVote("player-uuid");
 	}
 
 	@Test
@@ -478,6 +772,17 @@ class MultiProxyHandlerLifecycleTest {
 		org.mockito.Mockito.when(handler.getMultiProxyServers()).thenReturn(List.of(peers));
 		org.mockito.Mockito.when(handler.getPluginDataFolder()).thenReturn(dataDirectory.toFile());
 		return handler;
+	}
+
+	private static SharedTransportEnvelopeAuthenticator authenticator(Path dataDirectory) throws Exception {
+		return authenticator(dataDirectory, Mode.REQUIRED);
+	}
+
+	private static SharedTransportEnvelopeAuthenticator authenticator(Path dataDirectory, Mode mode) throws Exception {
+		Path keyFile = dataDirectory.resolve("secretkey.key");
+		Files.writeString(keyFile, Base64.getEncoder().encodeToString(
+				"0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.US_ASCII)));
+		return SharedTransportEnvelopeAuthenticator.load(keyFile, mode);
 	}
 
 	private static void handleCapability(MultiProxyHandler handler, String peer) throws Exception {

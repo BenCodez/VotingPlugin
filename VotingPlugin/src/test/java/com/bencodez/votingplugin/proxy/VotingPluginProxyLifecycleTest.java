@@ -5,14 +5,19 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -22,6 +27,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -32,9 +38,81 @@ import com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler;
 import com.bencodez.simpleapi.servercomm.sockets.ClientHandler;
 import com.bencodez.votingplugin.proxy.control.ControlConnector;
 import com.bencodez.votingplugin.proxy.control.HostedControlManager;
+import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator;
+import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Domain;
+import com.bencodez.votingplugin.proxy.security.SharedTransportEnvelopeAuthenticator.Mode;
+import com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption;
 import com.bencodez.votingplugin.tests.VotingPluginProxyTestImpl;
 
 class VotingPluginProxyLifecycleTest {
+	@Test
+	void standaloneSocketPathUsesCommunicationEnvelopeEncryption(@TempDir Path dataDirectory) throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		proxy.setMethod(BungeeMethod.SOCKETS);
+		Path keyFile = dataDirectory.resolve("secretkey.key");
+		Files.writeString(keyFile, Base64.getEncoder().encodeToString(
+				"0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.US_ASCII)));
+		TransportEnvelopeEncryption encryption = TransportEnvelopeEncryption.load(keyFile,
+				TransportEnvelopeEncryption.Domain.PROXY_BACKEND, true);
+		Field encryptionField = VotingPluginProxy.class.getDeclaredField("communicationEncryption");
+		encryptionField.setAccessible(true);
+		encryptionField.set(proxy, encryption);
+		ClientHandler client = mock(ClientHandler.class);
+		Field handles = VotingPluginProxy.class.getDeclaredField("clientHandles");
+		handles.setAccessible(true);
+		handles.set(proxy, new HashMap<>(Map.of("lobby", client)));
+		JsonEnvelope original = JsonEnvelope.builder("Vote").put("player", "Alex").build();
+
+		assertTrue(proxy.sendProxyBroadcastEnvelopeNow("lobby", original));
+
+		ArgumentCaptor<JsonEnvelope> sent = ArgumentCaptor.forClass(JsonEnvelope.class);
+		verify(client).sendEnvelope(sent.capture());
+		TransportEnvelopeEncryption.Decryption decrypted = encryption.decrypt(sent.getValue());
+		assertTrue(decrypted.accepted());
+		assertEquals(original.getSubChannel(), decrypted.envelope().getSubChannel());
+		assertEquals(original.getFields(), decrypted.envelope().getFields());
+	}
+
+	@Test
+	void unsignedRedisPresenceCannotReachProxyPresenceHandling(@TempDir Path dataDirectory) throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		Path keyFile = dataDirectory.resolve("secretkey.key");
+		Files.writeString(keyFile, Base64.getEncoder().encodeToString(
+				"0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.US_ASCII)));
+		Field authentication = VotingPluginProxy.class.getDeclaredField("sharedTransportAuthenticator");
+		authentication.setAccessible(true);
+		authentication.set(proxy, SharedTransportEnvelopeAuthenticator.load(keyFile, Mode.REQUIRED));
+		@SuppressWarnings("unchecked")
+		Consumer<JsonEnvelope> accepted = mock(Consumer.class);
+
+		((VotingPluginProxy) proxy).acceptSharedTransportEnvelope(VotingPluginWire.login("Alex",
+				"00000000-0000-0000-0000-000000000001", "backend-a"), Domain.REDIS_PROXY_BACKEND,
+				"VotingPlugin", accepted);
+
+		verifyNoInteractions(accepted);
+	}
+
+	@Test
+	void softReloadAppliesRequiredSharedTransportAuthentication(@TempDir Path dataDirectory) throws Exception {
+		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
+		proxy.setDataFolder(dataDirectory.toFile());
+		Path keyFile = dataDirectory.resolve("secretkey.key");
+		Files.writeString(keyFile, Base64.getEncoder().encodeToString(
+				"0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.US_ASCII)));
+		when(proxy.getConfig().getBungeeMethod()).thenReturn("REDIS");
+		when(proxy.getConfig().getSharedTransportAuthentication()).thenReturn("REQUIRED");
+		Field authentication = VotingPluginProxy.class.getDeclaredField("sharedTransportAuthenticator");
+		authentication.setAccessible(true);
+		authentication.set(proxy, SharedTransportEnvelopeAuthenticator.load(keyFile, Mode.COMPATIBILITY));
+
+		proxy.reloadFromControl();
+
+		SharedTransportEnvelopeAuthenticator reloaded = (SharedTransportEnvelopeAuthenticator) authentication.get(proxy);
+		assertEquals(Mode.REQUIRED, reloaded.mode());
+		assertEquals(SharedTransportEnvelopeAuthenticator.Rejection.MISSING,
+				reloaded.verify(VotingPluginWire.status("backend-a"), Domain.REDIS_PROXY_BACKEND, "test-channel").rejection());
+	}
+
 	@Test
 	void completionAckTransitionsThroughDurableReceiptRelease(@TempDir Path directory) throws Exception {
 		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();

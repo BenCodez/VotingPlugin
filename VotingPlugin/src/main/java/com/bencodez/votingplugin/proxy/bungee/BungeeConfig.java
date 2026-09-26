@@ -384,6 +384,11 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 	}
 
 	@Override
+	public String getSharedTransportAuthentication() {
+		return getData().getString("SharedTransportAuthentication", "COMPATIBILITY");
+	}
+
+	@Override
 	public String getRedisUsername() {
 		return getData().getString("Redis.Username", "");
 	}
@@ -712,6 +717,11 @@ public class BungeeConfig implements VotingPluginProxyConfig {
 	@Override
 	public boolean getPluginMessageEncryption() {
 		return getData().getBoolean("PluginMessageEncryption", false);
+	}
+
+	@Override
+	public boolean getCommunicationEncryption() {
+		return getData().getBoolean("CommunicationEncryption", false);
 	}
 
 	@Override

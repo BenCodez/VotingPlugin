@@ -680,6 +680,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	@Override
 	public void onPostLoad() {
+		ensureCommunicationSecret();
 		// auto conversion for Shop.yml
 		if (plugin.getShopFile().isJustCreated()) {
 			if (!plugin.getGui().isJustCreated() && !getServerData().isVoteShopConverted()) {
@@ -879,6 +880,18 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		startBackendHostedControl();
 		startBackendControlConnector();
 
+	}
+
+	private void ensureCommunicationSecret() {
+		try {
+			boolean created = com.bencodez.votingplugin.proxy.security.SharedSecretKeyFile
+					.ensure(getDataFolder().toPath().resolve("secretkey.key"));
+			if (created) getLogger().info("Created secretkey.key for VotingPlugin communication security");
+			if (!bungeeSettings.isCommunicationEncryption()) getLogger().warning(
+					"CommunicationEncryption is disabled. Copy the proxy secretkey.key to every VotingPlugin node, enable CommunicationEncryption everywhere, and restart (recommended).");
+		} catch (java.io.IOException failure) {
+			throw new IllegalStateException("Unable to prepare VotingPlugin communication secretkey.key", failure);
+		}
 	}
 
 	private void startBackendHostedControl() {
@@ -2056,11 +2069,11 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 	 */
 	@Override
 	public void reload() {
-		reloadPlugin(false, true);
+		reloadPlugin(false, true, true);
 	}
 
 	public void reloadAll() {
-		reloadPlugin(true, true);
+		reloadPlugin(true, true, true);
 	}
 
 	/** Captures Bukkit presence while the lifecycle caller owns platform access. */
@@ -2082,10 +2095,13 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 	/** Reloads configuration applied by Control before its result is acknowledged. */
 	public void reloadFromControl() {
-		reloadPlugin(false, false);
+		// Control publishes a separately prepared handler only after validation and
+		// handoff. Keep the predecessor and its transport policy stable until then.
+		reloadPlugin(false, false, false);
 	}
 
-	private void reloadPlugin(boolean userStorage, boolean reconcileHostedControl) {
+	private void reloadPlugin(boolean userStorage, boolean reconcileHostedControl,
+			boolean updateActiveBackendRuntime) {
 		configFile.reloadData();
 		configFile.loadValues();
 
@@ -2106,20 +2122,7 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		// Re-evaluate after storage has reloaded; UserManager keeps this lifecycle task unique.
 		getVotingPluginUserManager().startSharedPointTransferRecovery();
 
-		if (bungeeSettings.isUseBungeecoord()) {
-			BackendProxyHandler handler = getBackendProxyHandler();
-			if (handler == null) {
-				loadBungeeHandler();
-				handler = getBackendProxyHandler();
-			} else {
-				handler.reloadPresenceReporting();
-			}
-			if (userStorage && handler != null) {
-				handler.loadGlobalMysql();
-			}
-		} else if (getBackendProxyHandler() != null) {
-			getBackendProxyHandler().disablePresenceReporting();
-		}
+		reloadBackendProxyRuntime(updateActiveBackendRuntime, userStorage);
 		checkYMLError();
 
 		plugin.loadVoteSites();
@@ -2149,6 +2152,34 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		if (reconcileHostedControl) restartBackendControlConnector();
 
 		setUpdate(true);
+	}
+
+	void reloadBackendProxyRuntime(boolean updateActiveRuntime, boolean userStorage) {
+		if (!updateActiveRuntime) return;
+		if (bungeeSettings.isUseBungeecoord()) {
+			BackendProxyHandler handler = getBackendProxyHandler();
+			if (handler == null) {
+				loadBungeeHandler();
+				handler = getBackendProxyHandler();
+			} else {
+				reloadActiveBackendTransportSecurity(handler);
+				handler.reloadPresenceReporting();
+			}
+			if (userStorage && handler != null) {
+				handler.loadGlobalMysql();
+			}
+		} else if (getBackendProxyHandler() != null) {
+			getBackendProxyHandler().disablePresenceReporting();
+		}
+	}
+
+	void reloadActiveBackendTransportSecurity(BackendProxyHandler handler) {
+		try {
+			handler.reloadSharedTransportSecurity();
+		} catch (RuntimeException failure) {
+			getLogger().warning("Backend transport security settings were not applied; the previous policy remains active");
+			debug(failure);
+		}
 	}
 
 	private void loadVoteBroadcast() {
