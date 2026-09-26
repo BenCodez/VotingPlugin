@@ -157,6 +157,20 @@ full, case-normalized ServiceSite (up to the 2048-character validator bound); tr
 and classify unmatched logged services against every configured site rather than only the displayed page. Do not accept
 raw SQL from Control or expose the database/table configuration.
 
+## Change and PR workflow
+
+Keep changes focused and avoid unrelated formatting. Before any commit, push, PR update, review reply, or other remote change:
+
+1. run relevant focused tests;
+2. run `mvn -B -f VotingPlugin/pom.xml clean package`;
+3. verify the package invocation produced a fresh downloadable JAR and that expected tests were discovered;
+4. run `git diff --check`;
+5. inspect the complete base-to-HEAD diff for compatibility, concurrency, persistence, lifecycle, security, packaging, and platform regressions.
+
+For substantive work, obtain a fresh source-read-only `$code-review` of the exact intended change before the first push or PR update. The implementation agent verifies and fixes accepted findings, reruns all required checks, and obtains a new review of the updated snapshot. Any source or test change invalidates the previous clean verdict; do not reuse it. Hosted PR review is confirmation, not the first full review, and merge still requires explicit authorization.
+
+Do not commit server runtime data, credentials, generated JARs, dependency caches, IDE output, or unrelated formatting.
+
 ## Paired change and PR workflow
 
 The server-side peer is `BenCodez/VotingPlugin-Control`. When changing a DTO, endpoint, capability, preset, error code, or
@@ -178,9 +192,6 @@ accepted. The VotingPlugin connector may deploy first and
 advertise these successors without using them until Control accepts them. A newer Control deployed first must leave its
 v2-only actions unavailable on older nodes. Merge the VotingPlugin capability implementation before relying on the new
 Control behavior in production.
-
-Before pushing, run the focused tests, the full Maven build, and `git diff --check`. Do not commit server runtime data,
-credentials, generated JARs, dependency caches, IDE output, or unrelated formatting.
 
 ## Safe change checklist
 
