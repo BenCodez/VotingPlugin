@@ -20,14 +20,17 @@ import com.bencodez.votingplugin.util.SqliteNativeLibrary;
 public final class NeoForgeRuntime implements AutoCloseable {
     private final ConfigurationNode config;
     private final ConfigurationNode voteSites;
+    private final NeoForgeVoteConfiguration voteConfiguration;
     private final SqlUserBackend storage;
     private final NeoForgeServerScheduler scheduler = new NeoForgeServerScheduler();
     private final NeoForgePlayerDirectory players = new NeoForgePlayerDirectory();
     private boolean closed;
 
-    private NeoForgeRuntime(ConfigurationNode config, ConfigurationNode voteSites, SqlUserBackend storage) {
+    private NeoForgeRuntime(ConfigurationNode config, ConfigurationNode voteSites,
+            NeoForgeVoteConfiguration voteConfiguration, SqlUserBackend storage) {
         this.config = config;
         this.voteSites = voteSites;
+        this.voteConfiguration = voteConfiguration;
         this.storage = storage;
     }
 
@@ -38,6 +41,7 @@ public final class NeoForgeRuntime implements AutoCloseable {
         Path voteSitesFile = installDefault(directory, "VoteSites.yml");
         ConfigurationNode config = YamlConfigurationLoader.builder().path(configFile).build().load();
         ConfigurationNode voteSites = YamlConfigurationLoader.builder().path(voteSitesFile).build().load();
+        NeoForgeVoteConfiguration voteConfiguration = NeoForgeVoteConfiguration.load(config, voteSites);
         String storageMode = config.node("DataStorage").getString("SQLITE");
         if (!"SQLITE".equalsIgnoreCase(storageMode)) {
             throw new IOException("NeoForge bootstrap currently supports only SQLITE storage; configured: " + storageMode);
@@ -51,7 +55,7 @@ public final class NeoForgeRuntime implements AutoCloseable {
         } catch (RuntimeException failure) {
             throw new IOException("Could not initialize NeoForge user storage", failure);
         }
-        return new NeoForgeRuntime(config, voteSites, storage);
+        return new NeoForgeRuntime(config, voteSites, voteConfiguration, storage);
     }
 
     private static Path installDefault(Path directory, String name) throws IOException {
@@ -71,6 +75,7 @@ public final class NeoForgeRuntime implements AutoCloseable {
 
     public ConfigurationNode config() { return config; }
     public ConfigurationNode voteSites() { return voteSites; }
+    public NeoForgeVoteConfiguration voteConfiguration() { return voteConfiguration; }
     public SqlUserBackend storage() { return storage; }
     public NeoForgeServerScheduler scheduler() { return scheduler; }
     public NeoForgePlayerDirectory players() { return players; }
