@@ -16,7 +16,8 @@ public final class ServiceSiteValidator {
 	 *
 	 * @param serviceSite service-site name supplied by a vote source
 	 * @return {@code true} for a bounded, visible service-site name that does not
-	 *         contain unsupported delimiters
+	 *         contain formatting or placeholder delimiters. Percent-encoded URL
+	 *         octets remain supported.
 	 */
 	public static boolean isValid(String serviceSite) {
 		if (serviceSite == null || serviceSite.length() > MAX_LENGTH) {
@@ -26,6 +27,14 @@ public final class ServiceSiteValidator {
 		boolean hasVisibleCharacter = false;
 		for (int offset = 0; offset < serviceSite.length();) {
 			int codePoint = serviceSite.codePointAt(offset);
+			if (codePoint == '%') {
+				if (!isPercentEncodedOctet(serviceSite, offset)) {
+					return false;
+				}
+				hasVisibleCharacter = true;
+				offset += 3;
+				continue;
+			}
 			if (isDisallowed(codePoint)) {
 				return false;
 			}
@@ -67,13 +76,22 @@ public final class ServiceSiteValidator {
 
 	private static boolean isDisallowed(int codePoint) {
 		if (codePoint == '[' || codePoint == ']' || codePoint == '\'' || codePoint == '"' || codePoint == '`'
-				|| codePoint == '\\') {
+				|| codePoint == '\\' || codePoint == '{' || codePoint == '}') {
 			return true;
 		}
 
 		int type = Character.getType(codePoint);
 		return type == Character.CONTROL || type == Character.FORMAT || type == Character.LINE_SEPARATOR
 				|| type == Character.PARAGRAPH_SEPARATOR || type == Character.SURROGATE;
+	}
+
+	private static boolean isPercentEncodedOctet(String value, int offset) {
+		return offset + 2 < value.length() && isHexDigit(value.charAt(offset + 1))
+				&& isHexDigit(value.charAt(offset + 2));
+	}
+
+	private static boolean isHexDigit(char value) {
+		return value >= '0' && value <= '9' || value >= 'a' && value <= 'f' || value >= 'A' && value <= 'F';
 	}
 
 	private static boolean isVisibleBaseCharacter(int codePoint) {
