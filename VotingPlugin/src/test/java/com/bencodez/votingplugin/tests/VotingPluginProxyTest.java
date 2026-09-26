@@ -134,6 +134,72 @@ public class VotingPluginProxyTest {
 	}
 
 	@Test
+	void encryptedHttpEnvelopeKeepsAuthenticatedSourceForRouting() throws Exception {
+		votingPluginProxy.setMethod(BungeeMethod.HTTP);
+		var handler = Mockito.mock(com.bencodez.simpleapi.servercomm.global.GlobalMessageProxyHandler.class);
+		votingPluginProxy.setGlobalMessageProxyHandlerForTest(handler);
+		var encryption = communicationEncryption();
+		JsonEnvelope status = VotingPluginWire.status("Server1");
+		JsonEnvelope encrypted = encryption.encrypt(status);
+
+		votingPluginProxy.handleHttpTransportEnvelopeForTest(new HttpProxyTransportServer.ReceivedEnvelope(
+				"Server1", "message-1", encrypted));
+		votingPluginProxy.handleHttpTransportEnvelopeForTest(new HttpProxyTransportServer.ReceivedEnvelope(
+				"Server2", "message-2", encrypted));
+
+		verify(handler).onMessage(encrypted);
+		Mockito.verifyNoMoreInteractions(handler);
+
+		JsonEnvelope enrollment = encryption.encrypt(VotingPluginWire.controlEnrollmentRequest("Server1", "",
+				"http://control.example.test:2150", java.util.UUID.randomUUID()));
+		votingPluginProxy.handleHttpTransportEnvelopeForTest(new HttpProxyTransportServer.ReceivedEnvelope(
+				"Server1", "message-3", enrollment));
+		assertEquals("Server1", votingPluginProxy.getControlEnrollmentSource());
+	}
+
+	@Test
+	void encryptedPluginEnrollmentUsesConnectionSourceValidation() throws Exception {
+		votingPluginProxy.setMethod(BungeeMethod.PLUGINMESSAGING);
+		votingPluginProxy.setValidateControlEnrollmentRequest(true);
+		java.nio.file.Files.writeString(temporaryDirectory.resolve("secretkey.key"),
+				java.util.Base64.getEncoder().encodeToString(new byte[32]));
+		JsonEnvelope enrollment = communicationEncryption().encrypt(VotingPluginWire.controlEnrollmentRequest(
+				"Server1", "a".repeat(64), "http://control.example.test:2150", java.util.UUID.randomUUID()));
+		byte[] packet = pluginMessagePacket(enrollment);
+
+		votingPluginProxy.onPluginMessageReceived(new java.io.DataInputStream(
+				new java.io.ByteArrayInputStream(packet)), "Server2");
+		assertEquals(0, votingPluginProxy.getControlEnrollmentInstallCount());
+		votingPluginProxy.onPluginMessageReceived(new java.io.DataInputStream(
+				new java.io.ByteArrayInputStream(packet)), "Server1");
+		assertEquals(1, votingPluginProxy.getControlEnrollmentInstallCount());
+		assertEquals("Server1", votingPluginProxy.getControlEnrollmentSource());
+	}
+
+	private com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption communicationEncryption()
+			throws Exception {
+		java.nio.file.Path keyFile = temporaryDirectory.resolve("secretkey.key");
+		java.nio.file.Files.writeString(keyFile, java.util.Base64.getEncoder().encodeToString(new byte[32]));
+		var encryption = com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption.load(keyFile,
+				com.bencodez.votingplugin.proxy.security.TransportEnvelopeEncryption.Domain.PROXY_BACKEND, true);
+		var field = VotingPluginProxy.class.getDeclaredField("communicationEncryption");
+		field.setAccessible(true);
+		field.set(votingPluginProxy, encryption);
+		return encryption;
+	}
+
+	private static byte[] pluginMessagePacket(JsonEnvelope envelope) throws Exception {
+		String payload = com.bencodez.simpleapi.servercomm.codec.JsonEnvelopeCodec.encode(envelope);
+		var bytes = new java.io.ByteArrayOutputStream();
+		try (var output = new java.io.DataOutputStream(bytes)) {
+			output.writeUTF(envelope.getSubChannel());
+			output.writeInt(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8).length);
+			output.writeUTF(payload);
+		}
+		return bytes.toByteArray();
+	}
+
+	@Test
 	void backendControlEnrollmentRejectsMismatchedTransportIdentity() {
 		VotingPluginProxyTestImpl proxy = new VotingPluginProxyTestImpl();
 		proxy.setMethod(BungeeMethod.HTTP);
