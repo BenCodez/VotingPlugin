@@ -150,16 +150,22 @@ public class ServerData {
 
 	/** Replaces the durable timed-vote snapshot with one ordered in-memory queue. */
 	public synchronized void replaceTimedVoteCache(List<VoteTimeQueue> votes) {
-		getData().set("TimedVoteCache", null);
-		int index = 0;
-		for (VoteTimeQueue vote : votes) {
-			String path = "TimedVoteCache." + index++;
-			getData().set(path + ".Name", vote.getName());
-			getData().set(path + ".Service", vote.getService());
-			getData().set(path + ".Time", vote.getTime());
-			getData().set(path + ".VoteId", vote.getVoteId() == null ? null : vote.getVoteId().toString());
+		Map<String, Object> previous = snapshotSection("TimedVoteCache");
+		try {
+			getData().set("TimedVoteCache", null);
+			int index = 0;
+			for (VoteTimeQueue vote : votes) {
+				String path = "TimedVoteCache." + index++;
+				getData().set(path + ".Name", vote.getName());
+				getData().set(path + ".Service", vote.getService());
+				getData().set(path + ".Time", vote.getTime());
+				getData().set(path + ".VoteId", vote.getVoteId() == null ? null : vote.getVoteId().toString());
+			}
+			saveData();
+		} catch (RuntimeException failure) {
+			restoreSection("TimedVoteCache", previous);
+			throw failure;
 		}
-		saveData();
 	}
 
 	/** Retains an ambiguously processed timed vote without admitting it to replay. */
@@ -175,8 +181,36 @@ public class ServerData {
 
 	/** Persists that a delivery crossed into effects which cannot safely be replayed. */
 	public synchronized void markVoteReplayUnsafe(UUID voteId) {
-		getData().set(VOTE_REPLAY_UNSAFE + "." + voteId, true);
-		saveData();
+		String path = VOTE_REPLAY_UNSAFE + "." + voteId;
+		boolean existed = getData().contains(path);
+		Object previous = getData().get(path);
+		try {
+			getData().set(path, true);
+			saveData();
+		} catch (RuntimeException failure) {
+			getData().set(path, existed ? previous : null);
+			ConfigurationSection remaining = getData().getConfigurationSection(VOTE_REPLAY_UNSAFE);
+			if (remaining != null && remaining.getKeys(false).isEmpty()) getData().set(VOTE_REPLAY_UNSAFE, null);
+			throw failure;
+		}
+	}
+
+	private Map<String, Object> snapshotSection(String path) {
+		ConfigurationSection section = getData().getConfigurationSection(path);
+		if (section == null) return null;
+		Map<String, Object> snapshot = new HashMap<>();
+		for (Map.Entry<String, Object> entry : section.getValues(true).entrySet()) {
+			if (!(entry.getValue() instanceof ConfigurationSection)) snapshot.put(entry.getKey(), entry.getValue());
+		}
+		return snapshot;
+	}
+
+	private void restoreSection(String path, Map<String, Object> snapshot) {
+		getData().set(path, null);
+		if (snapshot == null) return;
+		for (Map.Entry<String, Object> entry : snapshot.entrySet()) {
+			getData().set(path + "." + entry.getKey(), entry.getValue());
+		}
 	}
 
 	public synchronized boolean isVoteReplayUnsafe(UUID voteId) {

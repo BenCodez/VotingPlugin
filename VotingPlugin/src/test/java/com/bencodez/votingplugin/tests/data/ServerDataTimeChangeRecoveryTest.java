@@ -115,6 +115,49 @@ class ServerDataTimeChangeRecoveryTest {
 	}
 
 	@Test
+	void failedReplayFenceSaveRestoresThePreviousYamlState() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
+		YamlConfiguration yaml = new YamlConfiguration();
+		when(plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
+		when(plugin.getServerDataFile()).thenReturn(coreData);
+		when(coreData.getData()).thenReturn(yaml);
+		ServerData data = new ServerData(plugin);
+		UUID existing = UUID.randomUUID();
+		UUID failed = UUID.randomUUID();
+		data.markVoteReplayUnsafe(existing);
+		doThrow(new IllegalStateException("disk unavailable")).when(coreData).saveData();
+
+		assertThrows(IllegalStateException.class, () -> data.markVoteReplayUnsafe(failed));
+
+		assertTrue(data.isVoteReplayUnsafe(existing));
+		assertFalse(data.isVoteReplayUnsafe(failed));
+	}
+
+	@Test
+	void failedTimedVoteSnapshotSaveRestoresThePreviousYamlState() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
+		YamlConfiguration yaml = new YamlConfiguration();
+		when(plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
+		when(plugin.getServerDataFile()).thenReturn(coreData);
+		when(coreData.getData()).thenReturn(yaml);
+		ServerData data = new ServerData(plugin);
+		VoteTimeQueue existing = new VoteTimeQueue(UUID.randomUUID(), "Alex", "old.example", 123L);
+		VoteTimeQueue failed = new VoteTimeQueue(UUID.randomUUID(), "Steve", "new.example", 124L);
+		data.replaceTimedVoteCache(List.of(existing));
+		doThrow(new IllegalStateException("disk unavailable")).when(coreData).saveData();
+
+		assertThrows(IllegalStateException.class, () -> data.replaceTimedVoteCache(List.of(failed)));
+
+		assertEquals("Alex", yaml.getString("VotingPlugin.TimedVoteCache.0.Name"));
+		assertEquals("old.example", yaml.getString("VotingPlugin.TimedVoteCache.0.Service"));
+		assertEquals(existing.getVoteId().toString(),
+				yaml.getString("VotingPlugin.TimedVoteCache.0.VoteId"));
+		assertFalse(yaml.contains("VotingPlugin.TimedVoteCache.1"));
+	}
+
+	@Test
 	void ambiguousTimedVoteIsStoredOutsideTheAutomaticReplayQueue() {
 		VotingPluginMain plugin = mock(VotingPluginMain.class);
 		com.bencodez.advancedcore.data.ServerData coreData = mock(com.bencodez.advancedcore.data.ServerData.class);
