@@ -13,6 +13,7 @@ import org.bukkit.event.Listener;
 
 import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
+import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.api.time.events.DayChangeEvent;
 import com.bencodez.advancedcore.api.time.events.MonthChangeEvent;
 import com.bencodez.advancedcore.api.time.events.WeekChangeEvent;
@@ -252,6 +253,10 @@ public class VoteParty implements Listener {
 	 */
 	@EventHandler
 	public void onDayChange(DayChangeEvent event) {
+		if (event.getTransition() != null
+				&& !plugin.getConfigFile().isAutomaticTimeChangeEnabled(TimeType.DAY)) {
+			return;
+		}
 		if (plugin.getSpecialRewardsConfig().isVotePartyResetEachDay()) {
 			reset(true);
 		}
@@ -264,6 +269,10 @@ public class VoteParty implements Listener {
 	 */
 	@EventHandler
 	public void onMonthChange(MonthChangeEvent event) {
+		if (event.getTransition() != null
+				&& !plugin.getConfigFile().isAutomaticTimeChangeEnabled(TimeType.MONTH)) {
+			return;
+		}
 		if (plugin.getSpecialRewardsConfig().isVotePartyResetMonthly()) {
 			reset(true);
 		}
@@ -280,6 +289,10 @@ public class VoteParty implements Listener {
 	 */
 	@EventHandler
 	public void onWeekChange(WeekChangeEvent event) {
+		if (event.getTransition() != null
+				&& !plugin.getConfigFile().isAutomaticTimeChangeEnabled(TimeType.WEEK)) {
+			return;
+		}
 		if (plugin.getSpecialRewardsConfig().isVotePartyResetWeekly()) {
 			reset(true);
 		}

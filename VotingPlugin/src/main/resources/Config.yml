@@ -505,6 +505,13 @@ PerSiteCoolDownEvents: false
 # Votes will be given when time change is completed
 QueueVotesDuringTimeChange: false
 
+# Control which locally detected calendar transitions this backend processes automatically.
+# Manual /av forcetimechanged commands and proxy/GlobalData-driven time changes still work.
+AutomaticTimeChanges:
+  Day: true
+  Week: true
+  Month: true
+
 # Experimental feature
 # Uses https://github.com/BenCodez/VotingPlugin/wiki/Minecraft-Server-Lists
 # Not all voting sites use the domain name as the service sites

@@ -426,6 +426,10 @@ public abstract class VotingPluginProxy {
 
 			@Override
 			public void timeChanged(TimeType type, boolean fake, boolean pre, boolean post) {
+				if (!fake && !isAutomaticTimeChangeEnabled(type)) {
+					log("Automatic " + type + " time changes are disabled; advancing the local marker without processing");
+					return;
+				}
 				if (getConfig().getVoteCacheTime() > 0) {
 					getVoteCacheHandler().checkVoteCacheTime(getConfig().getVoteCacheTime());
 				}
@@ -469,6 +473,16 @@ public abstract class VotingPluginProxy {
 			public void warning(String text) {
 				warn(text);
 			}
+		};
+	}
+
+	public boolean isAutomaticTimeChangeEnabled(TimeType type) {
+		if (type == null) return true;
+		return switch (type) {
+		case DAY -> getConfig().getAutomaticTimeChangeDay();
+		case WEEK -> getConfig().getAutomaticTimeChangeWeek();
+		case MONTH -> getConfig().getAutomaticTimeChangeMonth();
+		default -> true;
 		};
 	}
 

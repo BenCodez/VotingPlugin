@@ -19,6 +19,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
+import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.simpleapi.servercomm.http.HttpProxyTransportServer;
@@ -2839,6 +2840,31 @@ public class VotingPluginProxyTest {
 
 		assertFalse(votingPluginProxy.sendProxyBroadcastImmediately("Server1",
 				VotingPluginWire.voteBroadcast("uuid", "Player", "Service", 100L, "", false)));
+	}
+
+	@Test
+	void automaticTimeChangeControlsAreGranular() {
+		Mockito.when(votingPluginProxy.getConfig().getAutomaticTimeChangeDay()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getAutomaticTimeChangeWeek()).thenReturn(false);
+		Mockito.when(votingPluginProxy.getConfig().getAutomaticTimeChangeMonth()).thenReturn(true);
+
+		assertTrue(votingPluginProxy.isAutomaticTimeChangeEnabled(TimeType.DAY));
+		assertFalse(votingPluginProxy.isAutomaticTimeChangeEnabled(TimeType.WEEK));
+		assertTrue(votingPluginProxy.isAutomaticTimeChangeEnabled(TimeType.MONTH));
+	}
+
+	@Test
+	void disabledAutomaticMonthChangeSkipsGlobalProcessingButManualStillRuns() {
+		Mockito.when(votingPluginProxy.getConfig().getAutomaticTimeChangeMonth()).thenReturn(false);
+		Mockito.when(votingPluginProxy.getConfig().getGlobalDataEnabled()).thenReturn(true);
+		Mockito.when(votingPluginProxy.getConfig().getVoteCacheTime()).thenReturn(-1);
+		votingPluginProxy.setAvailableServers();
+
+		votingPluginProxy.getBungeeTimeChecker().timeChanged(TimeType.MONTH, false, true, true);
+		verify(globalDataHandler, never()).onTimeChange(TimeType.MONTH);
+
+		votingPluginProxy.getBungeeTimeChecker().timeChanged(TimeType.MONTH, true, true, true);
+		verify(globalDataHandler).onTimeChange(TimeType.MONTH);
 	}
 
 	@Test

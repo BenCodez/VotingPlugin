@@ -152,6 +152,10 @@ public class TopVoterHandler implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onDateChanged(DateChangedEvent event) {
+		if (event.getTransition() != null
+				&& !plugin.getConfigFile().isAutomaticTimeChangeEnabled(event.getTimeType())) {
+			return;
+		}
 		plugin.setUpdate(true);
 		plugin.update();
 		if (event.getTimeType().equals(TimeType.MONTH)) {
@@ -168,6 +172,10 @@ public class TopVoterHandler implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onDayChange(DayChangeEvent event) {
+		if (event.getTransition() != null
+				&& !plugin.getConfigFile().isAutomaticTimeChangeEnabled(TimeType.DAY)) {
+			return;
+		}
 		synchronized (VotingPluginMain.plugin) {
 			long startTime = System.currentTimeMillis();
 			if (plugin.getConfigFile().isStoreTopVotersDaily()) {
@@ -269,6 +277,10 @@ public class TopVoterHandler implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onMonthChange(MonthChangeEvent event) {
+		if (event.getTransition() != null
+				&& !plugin.getConfigFile().isAutomaticTimeChangeEnabled(TimeType.MONTH)) {
+			return;
+		}
 		long startTime = System.currentTimeMillis();
 		synchronized (VotingPluginMain.plugin) {
 			plugin.getLogger().info("Saving TopVoters Monthly");
@@ -391,6 +403,10 @@ public class TopVoterHandler implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onPreDateChanged(PreDateChangedEvent event) {
+		if (event.getTransition() != null
+				&& !plugin.getConfigFile().isAutomaticTimeChangeEnabled(event.getTimeType())) {
+			return;
+		}
 		if (event.getTimeType().equals(TimeType.DAY)) {
 			plugin.getBannedPlayers().clear();
 			for (OfflinePlayer p : Bukkit.getBannedPlayers()) {
@@ -408,6 +424,10 @@ public class TopVoterHandler implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onWeekChange(WeekChangeEvent event) {
+		if (event.getTransition() != null
+				&& !plugin.getConfigFile().isAutomaticTimeChangeEnabled(TimeType.WEEK)) {
+			return;
+		}
 		long startTime = System.currentTimeMillis();
 		synchronized (VotingPluginMain.plugin) {
 			if (plugin.getConfigFile().isStoreTopVotersWeekly()) {
