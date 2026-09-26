@@ -54,6 +54,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	private final ArrayDeque<RetiredVote> retiredVotes = new ArrayDeque<>();
 	private boolean drainScheduled;
 	private boolean persistenceScheduled;
+	private boolean retirementRetryScheduled;
 	private boolean persistenceDirty;
 	private boolean started;
 	private boolean closed;
@@ -96,6 +97,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 		synchronized (lock) {
 			if (closed || started) return;
 			started = true;
+			scheduleRetirementRetryLocked(0L);
 			scheduleDrainLocked();
 		}
 	}
@@ -115,7 +117,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	public boolean enqueue(String username, String serviceSite, UUID voteId) {
 		if (username == null || serviceSite == null || voteId == null) return false;
 		synchronized (lock) {
-			if (closed || entries.size() >= MAX_ENTRIES) return false;
+			if (closed || ownedEntriesLocked() >= MAX_ENTRIES) return false;
 			entries.addLast(new PendingVote(username, serviceSite, System.currentTimeMillis(), voteId));
 			stateVersion++;
 			requestPersistenceLocked();
@@ -144,12 +146,12 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 
 	private boolean admitDurably(PendingVote pending) {
 		synchronized (lock) {
-			if (closed || entries.size() >= MAX_ENTRIES) return false;
+			if (closed || ownedEntriesLocked() >= MAX_ENTRIES) return false;
 			entries.addLast(pending);
 			stateVersion++;
 		}
 
-		List<PendingVote> snapshot;
+		QueueSnapshot snapshot;
 		long snapshotVersion;
 		try {
 			synchronized (persistenceWriteLock) {
@@ -157,7 +159,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 				// snapshot cannot overtake this confirmed quarantine write.
 				synchronized (lock) {
 					if (closed) return false;
-					snapshot = new ArrayList<>(entries);
+					snapshot = snapshotLocked();
 					snapshotVersion = stateVersion;
 				}
 				writeSnapshotLocked(snapshot);
@@ -172,16 +174,12 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 			return false;
 		}
 
-		List<UUID> completedRetirements = new ArrayList<>();
 		synchronized (lock) {
 			durableVersion = Math.max(durableVersion, snapshotVersion);
-			while (!retiredVotes.isEmpty() && retiredVotes.peekFirst().version <= durableVersion) {
-				completedRetirements.add(retiredVotes.removeFirst().voteId);
-			}
+			scheduleRetirementRetryLocked(0L);
 			if (stateVersion != snapshotVersion) requestPersistenceLocked();
 			scheduleDrainLocked();
 		}
-		for (UUID completedVoteId : completedRetirements) completeDelivery(completedVoteId);
 		return true;
 	}
 
@@ -192,8 +190,12 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	 */
 	public int size() {
 		synchronized (lock) {
-			return entries.size();
+			return ownedEntriesLocked();
 		}
+	}
+
+	private int ownedEntriesLocked() {
+		return entries.size() + retiredVotes.size();
 	}
 
 	private void scheduleDrain() {
@@ -302,9 +304,47 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 		}
 	}
 
+	private void scheduleRetirementRetryLocked(long delayMillis) {
+		if (closed || !started || retiredVotes.isEmpty() || retirementRetryScheduled) return;
+		boolean durableRetirement = retiredVotes.stream().anyMatch(retired -> retired.version <= durableVersion);
+		if (!durableRetirement) return;
+		retirementRetryScheduled = true;
+		try {
+			worker.schedule(this::retryRetirements, delayMillis, TimeUnit.MILLISECONDS);
+		} catch (RejectedExecutionException ignored) {
+			retirementRetryScheduled = false;
+		}
+	}
+
+	private void retryRetirements() {
+		List<RetiredVote> candidates = new ArrayList<>();
+		synchronized (lock) {
+			retirementRetryScheduled = false;
+			if (closed) return;
+			for (RetiredVote retired : retiredVotes) {
+				if (retired.version <= durableVersion) candidates.add(retired);
+			}
+		}
+		List<RetiredVote> completed = new ArrayList<>();
+		for (RetiredVote retired : candidates) {
+			if (completeDelivery(retired.voteId)) completed.add(retired);
+		}
+		synchronized (lock) {
+			if (closed) return;
+			if (!completed.isEmpty()) {
+				retiredVotes.removeAll(completed);
+				stateVersion++;
+				requestPersistenceLocked();
+			}
+			if (completed.size() != candidates.size()) {
+				scheduleRetirementRetryLocked(RETRY_DELAY_MILLIS);
+			}
+		}
+	}
+
 	private void persistLoop() {
 		while (true) {
-			List<PendingVote> snapshot;
+			QueueSnapshot snapshot;
 			long snapshotVersion;
 			synchronized (lock) {
 				if (!persistenceDirty) {
@@ -312,7 +352,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 					return;
 				}
 				persistenceDirty = false;
-				snapshot = new ArrayList<>(entries);
+				snapshot = snapshotLocked();
 				snapshotVersion = stateVersion;
 			}
 			try {
@@ -329,22 +369,16 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 				}
 				return;
 			}
-			List<UUID> completedRetirements = new ArrayList<>();
 			synchronized (lock) {
 				// closeBlocking owns the final snapshot and marker retirement once
 				// closed; writeSnapshot deliberately becomes a no-op in that race.
 				if (closed) return;
 				durableVersion = Math.max(durableVersion, snapshotVersion);
-				while (!retiredVotes.isEmpty() && retiredVotes.peekFirst().version <= durableVersion) {
-					completedRetirements.add(retiredVotes.removeFirst().voteId);
-				}
+				scheduleRetirementRetryLocked(0L);
 				if (!persistenceDirty) {
 					persistenceScheduled = false;
 					scheduleDrainLocked();
 				}
-			}
-			for (UUID voteId : completedRetirements) {
-				completeDelivery(voteId);
 			}
 			synchronized (lock) {
 				if (!persistenceDirty) return;
@@ -358,39 +392,59 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 			YamlConfiguration yaml = new YamlConfiguration();
 			yaml.loadFromString(readQueueFile());
 			Object raw = yaml.get("Votes");
-			if (!(raw instanceof List<?> values)) return;
 			boolean skipped = false;
-			for (Object value : values) {
-				if (entries.size() >= MAX_ENTRIES) {
-					skipped = true;
-					break;
+			if (raw instanceof List<?> values) {
+				for (Object value : values) {
+					if (ownedEntriesLocked() >= MAX_ENTRIES) {
+						skipped = true;
+						break;
+					}
+					if (!(value instanceof Map<?, ?> map)) {
+						skipped = true;
+						continue;
+					}
+					Object username = map.get("Username");
+					Object serviceSite = map.get("ServiceSite");
+					Object time = map.get("Time");
+					Object rawVoteId = map.get("VoteId");
+					if (!(username instanceof String name) || !(serviceSite instanceof String site)
+							|| !(time instanceof Number timestamp)
+							|| !MinecraftUsernameValidator.isValid(name, plugin.getOptions().getBedrockPlayerPrefix())
+							|| !ServiceSiteValidator.isValid(site) || timestamp.longValue() <= 0) {
+						skipped = true;
+						continue;
+					}
+					UUID voteId;
+					try {
+						voteId = rawVoteId instanceof String id ? UUID.fromString(id) : UUID.randomUUID();
+						if (!(rawVoteId instanceof String)) skipped = true;
+					} catch (IllegalArgumentException invalidVoteId) {
+						skipped = true;
+						continue;
+					}
+					PendingVote pending = new PendingVote(name, site, timestamp.longValue(), voteId);
+					pending.quarantined = Boolean.TRUE.equals(map.get("Quarantined"));
+					entries.addLast(pending);
 				}
-				if (!(value instanceof Map<?, ?> map)) {
-					skipped = true;
-					continue;
+			} else if (raw != null) {
+				skipped = true;
+			}
+			Object rawRetirements = yaml.get("Retirements");
+			if (rawRetirements instanceof List<?> values) {
+				for (Object value : values) {
+					if (ownedEntriesLocked() >= MAX_ENTRIES) {
+						skipped = true;
+						break;
+					}
+					try {
+						if (!(value instanceof String id)) throw new IllegalArgumentException("non-string retirement");
+						retiredVotes.addLast(new RetiredVote(UUID.fromString(id), 0L));
+					} catch (IllegalArgumentException invalidRetirement) {
+						skipped = true;
+					}
 				}
-				Object username = map.get("Username");
-				Object serviceSite = map.get("ServiceSite");
-				Object time = map.get("Time");
-				Object rawVoteId = map.get("VoteId");
-				if (!(username instanceof String name) || !(serviceSite instanceof String site)
-						|| !(time instanceof Number timestamp)
-						|| !MinecraftUsernameValidator.isValid(name, plugin.getOptions().getBedrockPlayerPrefix())
-						|| !ServiceSiteValidator.isValid(site) || timestamp.longValue() <= 0) {
-					skipped = true;
-					continue;
-				}
-				UUID voteId;
-				try {
-					voteId = rawVoteId instanceof String id ? UUID.fromString(id) : UUID.randomUUID();
-					if (!(rawVoteId instanceof String)) skipped = true;
-				} catch (IllegalArgumentException invalidVoteId) {
-					skipped = true;
-					continue;
-				}
-				PendingVote pending = new PendingVote(name, site, timestamp.longValue(), voteId);
-				pending.quarantined = Boolean.TRUE.equals(map.get("Quarantined"));
-				entries.addLast(pending);
+			} else if (rawRetirements != null) {
+				skipped = true;
 			}
 			if (skipped) {
 				synchronized (lock) {
@@ -415,7 +469,13 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 		}
 	}
 
-	private void writeSnapshot(List<PendingVote> snapshot, long snapshotVersion) throws IOException {
+	private QueueSnapshot snapshotLocked() {
+		List<UUID> retirements = new ArrayList<>();
+		for (RetiredVote retired : retiredVotes) retirements.add(retired.voteId);
+		return new QueueSnapshot(new ArrayList<>(entries), retirements);
+	}
+
+	private void writeSnapshot(QueueSnapshot snapshot, long snapshotVersion) throws IOException {
 		synchronized (persistenceWriteLock) {
 			if (closed) return;
 			// A confirmed synchronous quarantine snapshot may overtake a worker
@@ -427,10 +487,10 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 		}
 	}
 
-	private void writeSnapshotLocked(List<PendingVote> snapshot) throws IOException {
+	private void writeSnapshotLocked(QueueSnapshot snapshot) throws IOException {
 		YamlConfiguration yaml = new YamlConfiguration();
 		List<Map<String, Object>> values = new ArrayList<>();
-		for (PendingVote pending : snapshot) {
+		for (PendingVote pending : snapshot.votes) {
 			Map<String, Object> value = new LinkedHashMap<>();
 			value.put("Username", pending.username);
 			value.put("ServiceSite", pending.serviceSite);
@@ -440,6 +500,7 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 			values.add(value);
 		}
 		yaml.set("Votes", values);
+		yaml.set("Retirements", snapshot.retirements.stream().map(UUID::toString).toList());
 		byte[] bytes = yaml.saveToString().getBytes(StandardCharsets.UTF_8);
 		if (bytes.length > MAX_FILE_BYTES) throw new IOException("queue snapshot exceeds size limit");
 		Path parent = file.toAbsolutePath().normalize().getParent();
@@ -462,13 +523,13 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 
 	@Override
 	public void close() {
-		List<PendingVote> snapshot;
+		QueueSnapshot snapshot;
 		synchronized (lock) {
 			if (closed) return;
 			closed = true;
 			// At-least-once delivery: retain any unacknowledged callback. A callback
 			// interrupted during shutdown must be replayed rather than silently lost.
-			snapshot = new ArrayList<>(entries);
+			snapshot = snapshotLocked();
 			persistenceScheduled = false;
 		}
 		worker.shutdownNow();
@@ -481,26 +542,22 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 			synchronized (persistenceWriteLock) {
 				writeSnapshotLocked(snapshot);
 			}
-			List<UUID> completedRetirements = new ArrayList<>();
-			synchronized (lock) {
-				while (!retiredVotes.isEmpty()) completedRetirements.add(retiredVotes.removeFirst().voteId);
-			}
-			for (UUID voteId : completedRetirements) {
-				completeDelivery(voteId);
-			}
+			for (UUID voteId : snapshot.retirements) completeDelivery(voteId);
 		} catch (IOException failure) {
 			plugin.getLogger().warning("Unable to persist queued Votifier votes during shutdown: "
 					+ failure.getClass().getSimpleName());
 		}
 	}
 
-	private void completeDelivery(UUID voteId) {
+	private boolean completeDelivery(UUID voteId) {
 		try {
 			VoteShopPurchaseService.completeVoteDelivery(plugin, voteId);
+			return true;
 		} catch (RuntimeException failure) {
 			plugin.getLogger().warning("Unable to retire acknowledged Votifier vote replay fence: "
 					+ failure.getClass().getSimpleName());
 			plugin.debug(failure);
+			return false;
 		}
 	}
 
@@ -521,6 +578,8 @@ public final class VotifierVoteOverflowQueue implements AutoCloseable {
 	}
 
 	private record RetiredVote(UUID voteId, long version) { }
+
+	private record QueueSnapshot(List<PendingVote> votes, List<UUID> retirements) { }
 
 	@FunctionalInterface
 	public interface VoteProcessor {

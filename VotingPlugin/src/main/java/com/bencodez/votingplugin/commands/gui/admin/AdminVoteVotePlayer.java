@@ -12,7 +12,6 @@ import com.bencodez.advancedcore.api.inventory.BInventoryButton;
 import com.bencodez.advancedcore.api.inventory.editgui.EditGUI;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
-import com.bencodez.votingplugin.util.VoteTaskAdmission;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
 /**
@@ -70,18 +69,7 @@ public class AdminVoteVotePlayer extends GUIHandler {
 											+ voteEvent.getServiceSite() + "?");
 						}
 					}
-					if (!VoteTaskAdmission.trySubmit(plugin.getVoteTimer(), () -> {
-						plugin.getServer().getPluginManager().callEvent(voteEvent);
-						if (voteEvent.isProcessingIncomplete()) {
-							plugin.getBukkitScheduler().runTask(plugin,
-									() -> sendMessage(clickEvent.getPlayer(),
-											"&cVote could not be processed because shared storage is unavailable."),
-									clickEvent.getPlayer());
-						}
-					})) {
-						sendMessage(clickEvent.getPlayer(),
-								"&cVote could not be triggered because vote processing is busy; please try again later.");
-					}
+					dispatchVote(clickEvent.getPlayer(), voteEvent);
 
 					if (plugin.isYmlError()) {
 						sendMessage(clickEvent.getPlayer(),
@@ -92,6 +80,18 @@ public class AdminVoteVotePlayer extends GUIHandler {
 		}
 
 		inv.openInventory(player);
+	}
+
+	void dispatchVote(Player player, PlayerVoteEvent voteEvent) {
+		// Dispatch from the player-owned thread so PlayerVoteListener can capture
+		// Bukkit state before it hands storage and accounting to the vote worker.
+		plugin.getServer().getPluginManager().callEvent(voteEvent);
+		voteEvent.getProcessingCompletion().whenComplete((completed, failure) -> {
+			if (failure == null && !completed.isProcessingIncomplete()) return;
+			plugin.getBukkitScheduler().runTask(plugin,
+					() -> sendMessage("&cVote could not be processed because shared storage is unavailable."),
+					player);
+		});
 	}
 	
 	@Override

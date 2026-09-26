@@ -92,7 +92,6 @@ import com.bencodez.votingplugin.specialrewards.votestreak.VoteStreakType;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.user.VotingPluginUser;
 import com.bencodez.votingplugin.user.PointTransferResult;
-import com.bencodez.votingplugin.util.VoteTaskAdmission;
 import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
 import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseResult;
 import com.bencodez.votingplugin.voteshop.shop.VoteShopEntry;
@@ -130,15 +129,16 @@ public class CommandLoader {
 		BukkitCompletionScheduler.run(plugin, user.getPlayer(), task);
 	}
 
-	private boolean callVoteAndReport(CommandSender sender, PlayerVoteEvent event) {
+	private void callVoteAndReport(CommandSender sender, PlayerVoteEvent event, Runnable success) {
 		plugin.getServer().getPluginManager().callEvent(event);
-		if (event.isProcessingIncomplete()) {
-			runForCommandSender(sender,
-					() -> sender.sendMessage(MessageAPI.colorize(
-							"&cVote could not be processed because shared storage is unavailable.")));
-			return false;
-		}
-		return true;
+		event.getProcessingCompletion().whenComplete((completed, failure) -> runForCommandSender(sender, () -> {
+			if (failure != null || completed.isProcessingIncomplete()) {
+				sender.sendMessage(MessageAPI.colorize(
+						"&cVote could not be processed because shared storage is unavailable."));
+			} else if (success != null) {
+				success.run();
+			}
+		}));
 	}
 
 	private void submitVoteAndReport(CommandSender sender, PlayerVoteEvent event) {
@@ -146,12 +146,7 @@ public class CommandLoader {
 	}
 
 	private void submitVoteAndReport(CommandSender sender, PlayerVoteEvent event, Runnable success) {
-		if (!VoteTaskAdmission.trySubmit(plugin.getVoteTimer(), () -> {
-			if (callVoteAndReport(sender, event) && success != null) runForCommandSender(sender, success);
-		})) {
-			sender.sendMessage(MessageAPI.colorize(
-					"&cCould not trigger the vote because vote processing is busy; please try again later."));
-		}
+		callVoteAndReport(sender, event, success);
 	}
 
 	void runBulkStorageMutation(CommandSender sender, Runnable mutation, Runnable success) {
@@ -1405,31 +1400,15 @@ public class CommandLoader {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				sendMessage(sender, "&cTriggering vote for all voting sites...");
-				int rejected = 0;
 				for (VoteSite site : plugin.getVoteSiteManager().getVoteSitesEnabled()) {
-					if (!VoteTaskAdmission.trySubmit(plugin.getVoteTimer(), new Runnable() {
-
-						@Override
-						public void run() {
-							PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, args[1], site.getServiceSite(),
-									false);
-							if (voteEvent.getVoteSite() != null) {
-								if (!voteEvent.getVoteSite().isVaidServiceSite()
-										&& !plugin.getConfigFile().isDisableNoServiceSiteMessage()) {
-									sendMessage(sender,
-											"&cPossible issue with service site, has the server gotten the vote from "
-													+ voteEvent.getServiceSite() + "?");
-								}
-							}
-							callVoteAndReport(sender, voteEvent);
-						}
-					})) {
-						rejected++;
+					PlayerVoteEvent voteEvent = new PlayerVoteEvent(site, args[1], site.getServiceSite(), false);
+					if (!voteEvent.getVoteSite().isVaidServiceSite()
+							&& !plugin.getConfigFile().isDisableNoServiceSiteMessage()) {
+						sendMessage(sender,
+								"&cPossible issue with service site, has the server gotten the vote from "
+										+ voteEvent.getServiceSite() + "?");
 					}
-				}
-				if (rejected > 0) {
-					sendMessage(sender, "&cCould not trigger " + rejected
-							+ " vote(s) because vote processing is busy; please try again later.");
+					submitVoteAndReport(sender, voteEvent);
 				}
 
 				if (plugin.isYmlError()) {
@@ -1456,15 +1435,7 @@ public class CommandLoader {
 						sendMessage(sender, "&cTriggering vote...");
 					}
 
-					if (!VoteTaskAdmission.trySubmit(plugin.getVoteTimer(), new Runnable() {
-
-						@Override
-						public void run() {
-							callVoteAndReport(sender, voteEvent);
-						}
-					})) {
-						sendMessage(sender, "&cCould not trigger the vote because vote processing is busy; please try again later.");
-					}
+					submitVoteAndReport(sender, voteEvent);
 
 					if (plugin.isYmlError()) {
 						sendMessage(sender, "&3Detected yml error, please check server log for details");
@@ -1494,15 +1465,7 @@ public class CommandLoader {
 												+ voteEvent.getServiceSite() + "?");
 							}
 						}
-						if (!VoteTaskAdmission.trySubmit(plugin.getVoteTimer(), new Runnable() {
-
-							@Override
-							public void run() {
-								callVoteAndReport(sender, voteEvent);
-							}
-						})) {
-							sendMessage(sender, "&cCould not trigger the vote because vote processing is busy; please try again later.");
-						}
+						submitVoteAndReport(sender, voteEvent);
 
 						if (plugin.isYmlError()) {
 							sendMessage(sender, "&3Detected yml error, please check server log for details");

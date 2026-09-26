@@ -20,6 +20,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 import org.junit.jupiter.api.Test;
@@ -82,6 +84,69 @@ class VotifierVoteOverflowQueueTest {
 		} finally {
 			queue.close();
 			voteTimer.shutdownNow();
+		}
+	}
+
+	@Test
+	void failedReceiptRetirementSurvivesRestartWithoutReplayingVote(@TempDir Path dataFolder) throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		ServerData serverData = mock(ServerData.class);
+		ScheduledExecutorService voteTimer = Executors.newSingleThreadScheduledExecutor();
+		AtomicBoolean failRetirement = new AtomicBoolean(true);
+		AtomicInteger retirementAttempts = new AtomicInteger();
+		AtomicInteger processed = new AtomicInteger();
+		java.util.UUID voteId = java.util.UUID.randomUUID();
+		when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+		when(plugin.getVoteTimer()).thenReturn(voteTimer);
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(plugin.getStorageType()).thenReturn(UserStorage.SQLITE);
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("VotifierVoteOverflowQueueTest"));
+		doAnswer(invocation -> {
+			retirementAttempts.incrementAndGet();
+			if (failRetirement.get()) throw new IllegalStateException("storage unavailable");
+			return null;
+		}).when(serverData).clearVotePartyAccounting(voteId);
+
+		VotifierVoteOverflowQueue queue = new VotifierVoteOverflowQueue(plugin, (site, user, id) -> {
+			processed.incrementAndGet();
+			return VotifierVoteOverflowQueue.VoteOutcome.COMPLETE;
+		});
+		try {
+			assertTrue(queue.enqueue("Steve", "example.org", voteId));
+			queue.start();
+			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+			Path file = dataFolder.resolve("VotifierVoteQueue.yml");
+			while ((retirementAttempts.get() == 0 || !Files.exists(file)
+					|| !Files.readString(file).contains(voteId.toString())) && System.nanoTime() < deadline) {
+				Thread.sleep(10L);
+			}
+			assertTrue(Files.readString(file).contains(voteId.toString()));
+			assertEquals(1, processed.get());
+		} finally {
+			queue.close();
+			voteTimer.shutdownNow();
+		}
+
+		failRetirement.set(false);
+		ScheduledExecutorService restartedTimer = Executors.newSingleThreadScheduledExecutor();
+		when(plugin.getVoteTimer()).thenReturn(restartedTimer);
+		VotifierVoteOverflowQueue restarted = new VotifierVoteOverflowQueue(plugin, (site, user, id) -> {
+			processed.incrementAndGet();
+			return VotifierVoteOverflowQueue.VoteOutcome.COMPLETE;
+		});
+		try {
+			restarted.start();
+			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+			Path file = dataFolder.resolve("VotifierVoteQueue.yml");
+			while ((restarted.size() != 0 || Files.readString(file).contains(voteId.toString()))
+					&& System.nanoTime() < deadline) Thread.sleep(10L);
+			assertEquals(0, restarted.size());
+			assertTrue(!Files.readString(file).contains(voteId.toString()));
+			assertEquals(1, processed.get());
+			assertTrue(retirementAttempts.get() >= 2);
+		} finally {
+			restarted.close();
+			restartedTimer.shutdownNow();
 		}
 	}
 
