@@ -35,6 +35,8 @@ public class TimeQueueHandler implements Listener {
 	private final Deque<VoteTimeQueue> timeChangeQueue = new ConcurrentLinkedDeque<>();
 	private final Deque<UUID> completedDeliveries = new ArrayDeque<>();
 	private final Object queuePersistenceLock = new Object();
+	/** Guarded by {@link #queuePersistenceLock}. */
+	private VoteTimeQueue inFlightVote;
 
 	private VotingPluginMain plugin;
 	private final AtomicBoolean retryPending = new AtomicBoolean();
@@ -78,7 +80,7 @@ public class TimeQueueHandler implements Listener {
 		synchronized (queuePersistenceLock) {
 			timeChangeQueue.add(vote);
 			try {
-				plugin.getServerData().replaceTimedVoteCache(new ArrayList<>(timeChangeQueue));
+				plugin.getServerData().replaceTimedVoteCache(pendingVoteSnapshot());
 				return true;
 			} catch (RuntimeException persistenceFailure) {
 				timeChangeQueue.remove(vote);
@@ -187,9 +189,12 @@ public class TimeQueueHandler implements Listener {
 	private boolean persistQueueSnapshot(UUID completedVoteId) {
 		List<UUID> durableCompletions;
 		synchronized (queuePersistenceLock) {
-			if (completedVoteId != null) completedDeliveries.addLast(completedVoteId);
+			if (completedVoteId != null) {
+				inFlightVote = null;
+				completedDeliveries.addLast(completedVoteId);
+			}
 			try {
-				plugin.getServerData().replaceTimedVoteCache(new ArrayList<>(timeChangeQueue));
+				plugin.getServerData().replaceTimedVoteCache(pendingVoteSnapshot());
 				durableCompletions = new ArrayList<>(completedDeliveries);
 				completedDeliveries.clear();
 			} catch (RuntimeException persistenceFailure) {
@@ -212,8 +217,14 @@ public class TimeQueueHandler implements Listener {
 	 * Processes all votes in the queue.
 	 */
 	public void processQueue() {
-		while (getTimeChangeQueue().size() > 0) {
-			VoteTimeQueue vote = getTimeChangeQueue().remove();
+		while (true) {
+			VoteTimeQueue vote;
+			synchronized (queuePersistenceLock) {
+				if (inFlightVote != null) return;
+				vote = timeChangeQueue.pollFirst();
+				if (vote == null) return;
+				inFlightVote = vote;
+			}
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(
 					plugin.getVoteSiteManager().getVoteSite(plugin.getVoteSiteManager().getVoteSiteName(true, vote.getService()), true), vote.getName(),
 					vote.getService(), true);
@@ -226,7 +237,10 @@ public class TimeQueueHandler implements Listener {
 					try {
 						plugin.getServerData().quarantineTimedVote(vote);
 					} catch (RuntimeException persistenceFailure) {
-						timeChangeQueue.addFirst(vote);
+						synchronized (queuePersistenceLock) {
+							timeChangeQueue.addFirst(vote);
+							if (inFlightVote == vote) inFlightVote = null;
+						}
 						plugin.getLogger().severe("Unable to quarantine ambiguous timed vote "
 								+ voteEvent.getVoteId() + "; retained it in the durable retry queue");
 						plugin.debug(persistenceFailure);
@@ -235,13 +249,19 @@ public class TimeQueueHandler implements Listener {
 					}
 					plugin.getLogger().severe("Timed vote " + voteEvent.getVoteId()
 							+ " reached an ambiguous post-effect failure and was retained for manual review");
+					synchronized (queuePersistenceLock) {
+						if (inFlightVote == vote) inFlightVote = null;
+					}
 					if (!persistQueueSnapshot()) {
 						scheduleRetry(true);
 						return;
 					}
 					continue;
 				}
-				timeChangeQueue.addFirst(vote);
+				synchronized (queuePersistenceLock) {
+					timeChangeQueue.addFirst(vote);
+					if (inFlightVote == vote) inFlightVote = null;
+				}
 				scheduleRetry(!persistQueueSnapshot());
 				return;
 			}
@@ -262,10 +282,19 @@ public class TimeQueueHandler implements Listener {
 	 */
 	public void save() {
 		synchronized (queuePersistenceLock) {
-			if (!timeChangeQueue.isEmpty()) {
-				plugin.getServerData().replaceTimedVoteCache(new ArrayList<>(timeChangeQueue));
+			List<VoteTimeQueue> pending = pendingVoteSnapshot();
+			if (!pending.isEmpty()) {
+				plugin.getServerData().replaceTimedVoteCache(pending);
 			}
 			timeChangeQueue.clear();
 		}
+	}
+
+	/** Must be called while holding {@link #queuePersistenceLock}. */
+	private List<VoteTimeQueue> pendingVoteSnapshot() {
+		List<VoteTimeQueue> pending = new ArrayList<>(timeChangeQueue.size() + (inFlightVote == null ? 0 : 1));
+		if (inFlightVote != null) pending.add(inFlightVote);
+		pending.addAll(timeChangeQueue);
+		return pending;
 	}
 }

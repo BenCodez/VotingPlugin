@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.tests.timequeue;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -19,9 +20,12 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 
 import org.bukkit.configuration.ConfigurationSection;
@@ -196,6 +200,42 @@ class TimeQueueHandlerRejectionTest {
 
 		assertEquals(vote, handler.getTimeChangeQueue().peek());
 		verify(serverData).replaceTimedVoteCache(List.of(vote));
+	}
+
+	@Test
+	void shutdownSnapshotIncludesTheVoteCurrentlyBeingProcessed() throws Exception {
+		when(serverData.getTimedVoteCacheKeys()).thenReturn(Set.of());
+		TimeQueueHandler handler = new TimeQueueHandler(plugin);
+		VoteTimeQueue first = new VoteTimeQueue(UUID.randomUUID(), "Alex", "first.example", 123L);
+		VoteTimeQueue second = new VoteTimeQueue(UUID.randomUUID(), "Steve", "second.example", 124L);
+		handler.getTimeChangeQueue().add(first);
+		handler.getTimeChangeQueue().add(second);
+		CountDownLatch processing = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		org.bukkit.plugin.PluginManager pluginManager = plugin.getServer().getPluginManager();
+		doAnswer(invocation -> {
+			processing.countDown();
+			release.await();
+			throw new CancellationException("shutdown");
+		}).when(pluginManager).callEvent(any(PlayerVoteEvent.class));
+		AtomicReference<Throwable> failure = new AtomicReference<>();
+		Thread worker = new Thread(() -> {
+			try {
+				handler.processQueue();
+			} catch (Throwable thrown) {
+				failure.set(thrown);
+			}
+		});
+		worker.start();
+		assertTrue(processing.await(1, TimeUnit.SECONDS));
+
+		handler.save();
+
+		verify(serverData).replaceTimedVoteCache(List.of(first, second));
+		release.countDown();
+		worker.join(1000L);
+		assertFalse(worker.isAlive());
+		assertTrue(failure.get() instanceof CancellationException);
 	}
 
 	@Test
