@@ -298,7 +298,8 @@ public abstract class VotingPluginProxy {
 	private RedisHandler redisHandler;
 	private JedisPool redisPublisherPool;
 	private volatile SharedTransportEnvelopeAuthenticator sharedTransportAuthenticator;
-	private TransportEnvelopeEncryption communicationEncryption;
+	private volatile TransportEnvelopeEncryption communicationEncryption;
+	private final Object transportSecurityLock = new Object();
 	private final AtomicBoolean communicationEncryptionFailureLogged = new AtomicBoolean();
 	private final AtomicBoolean sharedTransportAuthenticationFailureLogged = new AtomicBoolean();
 	private final AtomicBoolean sharedTransportCompatibilityWarningLogged = new AtomicBoolean();
@@ -1835,17 +1836,11 @@ public abstract class VotingPluginProxy {
 		if (getMethod() == null) {
 			method = BungeeMethod.PLUGINMESSAGING;
 		}
-		sharedTransportAuthenticator = createSharedTransportAuthenticator(method);
+		SharedTransportEnvelopeAuthenticator initialAuthenticator = createSharedTransportAuthenticator(method);
 		sharedTransportAuthenticationFailureLogged.set(false);
 		sharedTransportCompatibilityWarningLogged.set(false);
 		communicationEncryptionFailureLogged.set(false);
-		try {
-			communicationEncryption = TransportEnvelopeEncryption.load(
-					getDataFolderPlugin().toPath().resolve("secretkey.key"),
-					TransportEnvelopeEncryption.Domain.PROXY_BACKEND, getConfig().getCommunicationEncryption());
-		} catch (IOException failure) {
-			throw new IllegalStateException("Proxy communication encryption initialization failed", failure);
-		}
+		installTransportSecurity(initialAuthenticator, createCommunicationEncryption());
 		warnUnsupportedDedicatedVotingProxyMode();
 		uuidPlayerNameCache = getProxyMySQL().getRowsUUIDNameQuery();
 
@@ -3879,8 +3874,9 @@ public abstract class VotingPluginProxy {
 		if (configuredMethod == null) configuredMethod = BungeeMethod.PLUGINMESSAGING;
 		SharedTransportEnvelopeAuthenticator replacementAuthenticator = createSharedTransportAuthenticator(
 				configuredMethod);
+		TransportEnvelopeEncryption replacementEncryption = createCommunicationEncryption();
 		method = retainHttpForPendingDeliveries(configuredMethod);
-		sharedTransportAuthenticator = replacementAuthenticator;
+		installTransportSecurity(replacementAuthenticator, replacementEncryption);
 		sharedTransportAuthenticationFailureLogged.set(false);
 		sharedTransportCompatibilityWarningLogged.set(false);
 		warnIfSharedTransportCompatibilityMode(replacementAuthenticator);
@@ -3895,6 +3891,24 @@ public abstract class VotingPluginProxy {
 		if (restartControlServices) {
 			loadMultiProxySupport();
 			restartControlServicesAsync();
+		}
+	}
+
+	private TransportEnvelopeEncryption createCommunicationEncryption() {
+		try {
+			return TransportEnvelopeEncryption.load(getDataFolderPlugin().toPath().resolve("secretkey.key"),
+					TransportEnvelopeEncryption.Domain.PROXY_BACKEND, getConfig().getCommunicationEncryption());
+		} catch (IOException failure) {
+			throw new IllegalStateException("Proxy communication encryption initialization failed", failure);
+		}
+	}
+
+	private void installTransportSecurity(SharedTransportEnvelopeAuthenticator authenticator,
+			TransportEnvelopeEncryption encryption) {
+		synchronized (transportSecurityLock) {
+			sharedTransportAuthenticator = authenticator;
+			communicationEncryption = encryption;
+			communicationEncryptionFailureLogged.set(false);
 		}
 	}
 
@@ -4152,7 +4166,9 @@ public abstract class VotingPluginProxy {
 	}
 
 	private JsonEnvelope encryptCommunicationEnvelope(JsonEnvelope envelope) {
-		return communicationEncryption == null ? envelope : communicationEncryption.encrypt(envelope);
+		synchronized (transportSecurityLock) {
+			return communicationEncryption == null ? envelope : communicationEncryption.encrypt(envelope);
+		}
 	}
 
 	private synchronized boolean sendSocketEnvelope(String server, JsonEnvelope envelope) {
@@ -4342,12 +4358,14 @@ public abstract class VotingPluginProxy {
 	}
 
 	private JsonEnvelope decryptCommunicationEnvelope(JsonEnvelope envelope) {
-		if (communicationEncryption == null) return envelope;
-		TransportEnvelopeEncryption.Decryption decrypted = communicationEncryption.decrypt(envelope);
-		if (decrypted.accepted()) return decrypted.envelope();
-		if (communicationEncryptionFailureLogged.compareAndSet(false, true)) logSevere(
-				"Proxy communication message rejected by encryption policy (" + decrypted.reason() + ")");
-		return null;
+		synchronized (transportSecurityLock) {
+			if (communicationEncryption == null) return envelope;
+			TransportEnvelopeEncryption.Decryption decrypted = communicationEncryption.decrypt(envelope);
+			if (decrypted.accepted()) return decrypted.envelope();
+			if (communicationEncryptionFailureLogged.compareAndSet(false, true)) logSevere(
+					"Proxy communication message rejected by encryption policy (" + decrypted.reason() + ")");
+			return null;
+		}
 	}
 
 	private boolean isAuthenticatedHttpEnvelopeAllowed(HttpProxyTransportServer.ReceivedEnvelope received) {
@@ -4776,14 +4794,16 @@ public abstract class VotingPluginProxy {
 
 	void acceptSharedTransportEnvelope(JsonEnvelope envelope, Domain domain, String destination,
 			java.util.function.Consumer<JsonEnvelope> accepted) {
-		SharedTransportEnvelopeAuthenticator.Verification verification = sharedTransportAuthenticator().verify(envelope,
-				domain, destination);
-		if (!verification.accepted()) {
-			if (sharedTransportAuthenticationFailureLogged.compareAndSet(false, true)) log(
-					"Shared transport message rejected by envelope authentication (" + verification.rejection() + ")");
-			return;
+		synchronized (transportSecurityLock) {
+			SharedTransportEnvelopeAuthenticator.Verification verification = sharedTransportAuthenticator().verify(envelope,
+					domain, destination);
+			if (!verification.accepted()) {
+				if (sharedTransportAuthenticationFailureLogged.compareAndSet(false, true)) log(
+						"Shared transport message rejected by envelope authentication (" + verification.rejection() + ")");
+				return;
+			}
+			accepted.accept(verification.envelope());
 		}
-		accepted.accept(verification.envelope());
 	}
 
 	public boolean sendRedisEnvelopeServer(String server, JsonEnvelope envelope) {
@@ -4797,10 +4817,14 @@ public abstract class VotingPluginProxy {
 		}
 
 		try (Jedis jedis = publisherPool.getResource()) {
-			String channel = VotingPluginRedisChannels.backend(getConfig().getRedisPrefix(), server);
-			JsonEnvelope identified = VotingPluginWire.withRedisDeliveryId(encryptCommunicationEnvelope(envelope));
-			JsonEnvelope authenticated = sharedTransportAuthenticator().sign(identified, Domain.REDIS_PROXY_BACKEND,
-					getConfig().getProxyServerName(), channel);
+			String channel;
+			JsonEnvelope authenticated;
+			synchronized (transportSecurityLock) {
+				channel = VotingPluginRedisChannels.backend(getConfig().getRedisPrefix(), server);
+				JsonEnvelope identified = VotingPluginWire.withRedisDeliveryId(encryptCommunicationEnvelope(envelope));
+				authenticated = sharedTransportAuthenticator().sign(identified, Domain.REDIS_PROXY_BACKEND,
+						getConfig().getProxyServerName(), channel);
+			}
 			long subscribers = jedis.publish(channel, JsonEnvelopeCodec.encode(authenticated));
 			redisPublisherRetryAfter = 0L;
 			return subscribers > 0;
@@ -4820,9 +4844,12 @@ public abstract class VotingPluginProxy {
 		}
 		try {
 			String topic = getConfig().getMqttPrefix() + "votingplugin/servers/" + server;
-			mqttHandler.publishEnvelope(topic,
-					sharedTransportAuthenticator().sign(encryptCommunicationEnvelope(envelope), Domain.MQTT_PROXY_BACKEND,
-							getConfig().getProxyServerName(), topic));
+			JsonEnvelope authenticated;
+			synchronized (transportSecurityLock) {
+				authenticated = sharedTransportAuthenticator().sign(encryptCommunicationEnvelope(envelope),
+						Domain.MQTT_PROXY_BACKEND, getConfig().getProxyServerName(), topic);
+			}
+			mqttHandler.publishEnvelope(topic, authenticated);
 			return true;
 		} catch (Exception e) {
 			if (getConfig().getDebug()) {

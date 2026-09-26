@@ -56,6 +56,8 @@ public class VotingPluginProxyTest {
 		votingPluginProxy.setGlobalDataHandler(globalDataHandler);
 		votingPluginProxy.setMultiProxyHandler(multiProxyHandler);
 		votingPluginProxy.setDataFolder(temporaryDirectory.toFile());
+		com.bencodez.votingplugin.proxy.security.SharedSecretKeyFile
+				.ensure(temporaryDirectory.resolve("secretkey.key"));
 		Mockito.when(multiProxyHandler.sendMultiProxyEnvelopeAccepted(Mockito.any())).thenReturn(true);
 		Mockito.when(multiProxyHandler.sendMultiProxyEnvelopeAccepted(Mockito.any(), Mockito.any())).thenReturn(true);
 		Mockito.when(multiProxyHandler.getMultiProxyVoteRecipients()).thenReturn(java.util.Set.of("Replica"));

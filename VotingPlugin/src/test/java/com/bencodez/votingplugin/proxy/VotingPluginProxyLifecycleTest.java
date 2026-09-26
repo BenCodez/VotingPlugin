@@ -101,9 +101,14 @@ class VotingPluginProxyLifecycleTest {
 				"0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.US_ASCII)));
 		when(proxy.getConfig().getBungeeMethod()).thenReturn("REDIS");
 		when(proxy.getConfig().getSharedTransportAuthentication()).thenReturn("REQUIRED");
+		when(proxy.getConfig().getCommunicationEncryption()).thenReturn(true);
 		Field authentication = VotingPluginProxy.class.getDeclaredField("sharedTransportAuthenticator");
 		authentication.setAccessible(true);
 		authentication.set(proxy, SharedTransportEnvelopeAuthenticator.load(keyFile, Mode.COMPATIBILITY));
+		Field encryption = VotingPluginProxy.class.getDeclaredField("communicationEncryption");
+		encryption.setAccessible(true);
+		encryption.set(proxy, TransportEnvelopeEncryption.load(keyFile,
+				TransportEnvelopeEncryption.Domain.PROXY_BACKEND, false));
 
 		proxy.reloadFromControl();
 
@@ -111,6 +116,7 @@ class VotingPluginProxyLifecycleTest {
 		assertEquals(Mode.REQUIRED, reloaded.mode());
 		assertEquals(SharedTransportEnvelopeAuthenticator.Rejection.MISSING,
 				reloaded.verify(VotingPluginWire.status("backend-a"), Domain.REDIS_PROXY_BACKEND, "test-channel").rejection());
+		assertTrue(((TransportEnvelopeEncryption) encryption.get(proxy)).enabled());
 	}
 
 	@Test
