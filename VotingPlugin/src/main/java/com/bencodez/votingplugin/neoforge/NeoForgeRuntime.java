@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.util.Objects;
 
 import org.spongepowered.configurate.ConfigurationNode;
@@ -22,21 +23,28 @@ public final class NeoForgeRuntime implements AutoCloseable {
     private final NeoForgeVoteConfiguration voteConfiguration;
     private final SqlUserBackend storage;
     private final NeoForgeVoteAccountingStore accounting;
+    private final NeoForgeVoteProcessor voteProcessor;
     private final NeoForgeServerScheduler scheduler = new NeoForgeServerScheduler();
     private final NeoForgePlayerDirectory players = new NeoForgePlayerDirectory();
     private boolean closed;
 
     private NeoForgeRuntime(ConfigurationNode config, ConfigurationNode voteSites,
-            NeoForgeVoteConfiguration voteConfiguration, SqlUserBackend storage) {
+            NeoForgeVoteConfiguration voteConfiguration, SqlUserBackend storage, Clock clock) {
         this.config = config;
         this.voteSites = voteSites;
         this.voteConfiguration = voteConfiguration;
         this.storage = storage;
         accounting = new NeoForgeVoteAccountingStore(storage, voteConfiguration);
+        voteProcessor = new NeoForgeVoteProcessor(voteConfiguration, accounting, players, clock);
     }
 
     public static NeoForgeRuntime start(Path directory) throws IOException {
+        return start(directory, Clock.systemDefaultZone());
+    }
+
+    static NeoForgeRuntime start(Path directory, Clock clock) throws IOException {
         Objects.requireNonNull(directory, "directory");
+        Objects.requireNonNull(clock, "clock");
         Files.createDirectories(directory);
         Path configFile = installDefault(directory, "Config.yml");
         Path voteSitesFile = installDefault(directory, "VoteSites.yml");
@@ -56,7 +64,7 @@ public final class NeoForgeRuntime implements AutoCloseable {
         } catch (RuntimeException failure) {
             throw new IOException("Could not initialize NeoForge user storage", failure);
         }
-        return new NeoForgeRuntime(config, voteSites, voteConfiguration, storage);
+        return new NeoForgeRuntime(config, voteSites, voteConfiguration, storage, clock);
     }
 
     private static Path installDefault(Path directory, String name) throws IOException {
@@ -81,10 +89,12 @@ public final class NeoForgeRuntime implements AutoCloseable {
     public NeoForgeVoteAccountingStore accounting() { return accounting; }
     public NeoForgeServerScheduler scheduler() { return scheduler; }
     public NeoForgePlayerDirectory players() { return players; }
+    public NeoForgeVoteProcessor voteProcessor() { return voteProcessor; }
 
     @Override public synchronized void close() {
         if (closed) return;
         closed = true;
+        voteProcessor.stop();
         scheduler.close();
         players.clear();
         storage.close();

@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.neoforge;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -10,6 +12,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.spongepowered.configurate.ConfigurationNode;
 
+import com.bencodez.advancedcore.api.time.TimeCalculation;
 import com.bencodez.simpleapi.time.ParsedDuration;
 import com.bencodez.votingplugin.core.vote.SharedVotePolicy;
 import com.bencodez.votingplugin.util.ServiceSiteValidator;
@@ -30,6 +33,8 @@ public final class NeoForgeVoteConfiguration {
     private final int limitVotePoints;
     private final boolean offlineVoteLimitEnabled;
     private final int offlineVoteLimitAmount;
+    private final int timeHourOffset;
+    private final String timeZone;
     private final List<NeoForgeVoteSite> voteSites;
 
     private NeoForgeVoteConfiguration(ConfigurationNode config, boolean ignoreCase,
@@ -44,6 +49,8 @@ public final class NeoForgeVoteConfiguration {
         limitVotePoints = node(config, ignoreCase, "LimitVotePoints").getInt(-1);
         offlineVoteLimitEnabled = node(config, ignoreCase, "OfflineVotesLimit", "Enabled").getBoolean(false);
         offlineVoteLimitAmount = node(config, ignoreCase, "OfflineVotesLimit", "Amount").getInt(5);
+        timeHourOffset = node(config, ignoreCase, "TimeHourOffSet").getInt(0);
+        timeZone = node(config, ignoreCase, "TimeZone").getString("");
         this.voteSites = List.copyOf(voteSites);
     }
 
@@ -132,5 +139,13 @@ public final class NeoForgeVoteConfiguration {
     public int limitVotePoints() { return limitVotePoints; }
     public boolean offlineVoteLimitEnabled() { return offlineVoteLimitEnabled; }
     public int offlineVoteLimitAmount() { return offlineVoteLimitAmount; }
+    public int timeHourOffset() { return timeHourOffset; }
+    LocalDateTime currentTime(Clock clock) {
+        try {
+            return TimeCalculation.currentTime(clock, timeZone, timeHourOffset);
+        } catch (RuntimeException invalidTimeZone) {
+            return TimeCalculation.currentTime(clock, "", timeHourOffset);
+        }
+    }
     public List<NeoForgeVoteSite> voteSites() { return voteSites; }
 }
