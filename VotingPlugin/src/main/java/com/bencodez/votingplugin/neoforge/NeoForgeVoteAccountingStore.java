@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.neoforge;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -58,10 +60,31 @@ public final class NeoForgeVoteAccountingStore {
      */
     public NeoForgeVoteAccount apply(SharedVoteIdentity identity, SharedVoteInput input,
             SharedVotePolicy policy, NeoForgeVoteSite site, int pointsOnVote, int pointLimit) {
+        return apply(identity, input, policy, site, pointsOnVote, pointLimit, votes -> true).account();
+    }
+
+    AccountingResult applyIfVoteDelayAllows(SharedVoteIdentity identity, SharedVoteInput input,
+            SharedVotePolicy policy, NeoForgeVoteSite site, int pointsOnVote, int pointLimit,
+            LocalDateTime currentTime, ZoneId storedTimestampZone, int hourOffset) {
+        Objects.requireNonNull(currentTime, "currentTime");
+        Objects.requireNonNull(storedTimestampZone, "storedTimestampZone");
+        return apply(identity, input, policy, site, pointsOnVote, pointLimit, votes -> {
+            long lastVote = votes.entrySet().stream()
+                    .filter(entry -> entry.getKey().equalsIgnoreCase(site.key()))
+                    .mapToLong(Map.Entry::getValue).findFirst().orElse(0L);
+            return !site.waitUntilVoteDelay() || !input.realVote()
+                    || site.canVote(lastVote, currentTime, storedTimestampZone, hourOffset);
+        });
+    }
+
+    private AccountingResult apply(SharedVoteIdentity identity, SharedVoteInput input,
+            SharedVotePolicy policy, NeoForgeVoteSite site, int pointsOnVote, int pointLimit,
+            DelayCheck delayCheck) {
         Objects.requireNonNull(identity, "identity");
         Objects.requireNonNull(input, "input");
         Objects.requireNonNull(policy, "policy");
         Objects.requireNonNull(site, "site");
+        Objects.requireNonNull(delayCheck, "delayCheck");
 
         AccountingDelta delta = new AccountingDelta();
         SharedVoteAccounting.apply(input, policy, identity::online,
@@ -73,6 +96,7 @@ public final class NeoForgeVoteAccountingStore {
                 Map.of(PLAYER_NAME, new DataValueString(identity.playerName())), scope -> {
                     Row current = Row.from(scope.readRow());
                     LinkedHashMap<String, Long> lastVotes = parseLastVotes(current.string(LAST_VOTES));
+                    if (!delayCheck.allows(lastVotes)) return AccountingResult.delayed();
                     replaceLastVote(lastVotes, site.key(), input.voteTime());
 
                     int allTimeTotal = current.integer(ALL_TIME_TOTAL) + delta.total;
@@ -91,8 +115,8 @@ public final class NeoForgeVoteAccountingStore {
                     updates.put(POINTS, new DataValueInt(points));
                     updates.put(LAST_VOTES, new DataValueString(serializeLastVotes(lastVotes)));
                     scope.writeValues(updates);
-                    return new NeoForgeVoteAccount(identity.uuid(), identity.playerName(), allTimeTotal,
-                            monthTotal, dailyTotal, weeklyTotal, points, lastVotes);
+                    return AccountingResult.accepted(new NeoForgeVoteAccount(identity.uuid(), identity.playerName(),
+                            allTimeTotal, monthTotal, dailyTotal, weeklyTotal, points, lastVotes));
                 });
     }
 
@@ -161,5 +185,17 @@ public final class NeoForgeVoteAccountingStore {
             DataValue value = values.get(key.toLowerCase(Locale.ROOT));
             return value == null ? "" : value.getString();
         }
+    }
+
+    record AccountingResult(boolean accepted, NeoForgeVoteAccount account) {
+        static AccountingResult accepted(NeoForgeVoteAccount account) {
+            return new AccountingResult(true, Objects.requireNonNull(account, "account"));
+        }
+        static AccountingResult delayed() { return new AccountingResult(false, null); }
+    }
+
+    @FunctionalInterface
+    private interface DelayCheck {
+        boolean allows(Map<String, Long> lastVotes);
     }
 }

@@ -2,6 +2,7 @@ package com.bencodez.votingplugin.neoforge;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -13,7 +14,11 @@ public final class NeoForgePlayerDirectory {
     private final Map<UUID, SharedVoteIdentity> online = new ConcurrentHashMap<>();
 
     public void joined(Object player) {
-        SharedVoteIdentity identity = identity(player);
+        joined(identity(player));
+    }
+
+    void joined(SharedVoteIdentity identity) {
+        Objects.requireNonNull(identity, "identity");
         online.put(identity.uuid(), identity);
     }
 
