@@ -34,6 +34,7 @@ import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.simpleapi.servercomm.global.GlobalMessageHandler;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache;
+import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache.Reservation;
 import com.bencodez.votingplugin.backendproxy.messaging.BackendProxyMessageRouter.OrderedVoteOutcome;
 import com.bencodez.votingplugin.backendproxy.global.BackendGlobalDataSync;
 import com.bencodez.votingplugin.backendproxy.presence.BackendPresenceManager;
@@ -184,7 +185,7 @@ class BackendProxyMessageRouterTest {
 	void voteRewardFailureRequestsQuarantineAfterVoteIdReservation() {
 		UUID voteId = UUID.randomUUID();
 		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
-		when(cache.reserve(voteId)).thenReturn(true, false);
+		when(cache.reserveWithOutcome(voteId)).thenReturn(Reservation.RESERVED, Reservation.DUPLICATE);
 		when(plugin.getBungeeSettings()).thenReturn(mock(BungeeSettings.class));
 		when(plugin.getVotingPluginUserManager().getVotingPluginUser(PLAYER_UUID, "Player"))
 				.thenReturn(user);
@@ -213,7 +214,7 @@ class BackendProxyMessageRouterTest {
 	void reliableVoteRetriesReceiptPersistenceWithoutRepeatingEffectsInProcess() {
 		UUID voteId = UUID.randomUUID();
 		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
-		when(cache.reserve(voteId)).thenReturn(true, false);
+		when(cache.reserveWithOutcome(voteId)).thenReturn(Reservation.RESERVED, Reservation.DUPLICATE);
 		when(cache.complete(voteId)).thenReturn(false, true);
 		when(cache.hasCompletedEffects(voteId)).thenReturn(true);
 		when(plugin.getBungeeSettings()).thenReturn(mock(BungeeSettings.class));
@@ -242,7 +243,7 @@ class BackendProxyMessageRouterTest {
 	void malformedReliableVoteIsQuarantinedWithoutCompletionReceipt() {
 		UUID voteId = UUID.randomUUID();
 		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
-		when(cache.reserve(voteId)).thenReturn(true);
+		when(cache.reserveWithOutcome(voteId)).thenReturn(Reservation.RESERVED);
 		when(plugin.getBungeeSettings()).thenReturn(mock(BungeeSettings.class));
 		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
 				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
@@ -258,6 +259,47 @@ class BackendProxyMessageRouterTest {
 		verify(cache, never()).complete(voteId);
 		verify(user, never()).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
 				anyBoolean(), anyInt());
+		verify(cache).cancelReservation(voteId);
+	}
+
+	@Test
+	void saturatedReliableVoteRequestsRetryWithoutRunningEffects() {
+		UUID voteId = UUID.randomUUID();
+		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
+		when(cache.reserveWithOutcome(voteId)).thenReturn(Reservation.SATURATED);
+		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
+				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
+				mock(BackendVotePartySync.class), cache);
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+
+		voteRouter.handleOrderedVote(VotingPluginWire.requestVoteDeliveryAcknowledgement(
+				VotingPluginWire.vote("Player", PLAYER_UUID.toString(), "known.example", LAST_VOTE_TIME,
+						true, true, "", voteId, false, false, 1, 1)), outcome::set);
+
+		assertEquals(OrderedVoteOutcome.RETRY, outcome.get());
+		verify(user, never()).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
+				anyBoolean(), anyInt());
+		verify(cache, never()).complete(voteId);
+	}
+
+	@Test
+	void duplicateRetriesDoNotResetSaturationWarningSuppression() {
+		UUID voteId = UUID.randomUUID();
+		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
+		when(cache.reserveWithOutcome(voteId)).thenReturn(Reservation.SATURATED, Reservation.DUPLICATE,
+				Reservation.SATURATED);
+		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
+				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
+				mock(BackendVotePartySync.class), cache);
+		JsonEnvelope vote = VotingPluginWire.requestVoteDeliveryAcknowledgement(
+				VotingPluginWire.vote("Player", PLAYER_UUID.toString(), "known.example", LAST_VOTE_TIME,
+						true, true, "", voteId, false, false, 1, 1));
+
+		voteRouter.handleOrderedVote(vote, ignored -> { });
+		voteRouter.handleOrderedVote(vote, ignored -> { });
+		voteRouter.handleOrderedVote(vote, ignored -> { });
+
+		verify(logger, times(1)).warning("Backend vote replay cache is full; retaining votes for retry");
 	}
 
 	@Test

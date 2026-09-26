@@ -167,4 +167,53 @@ class ProcessedVoteCacheDurabilityTest {
 
 		assertTrue(new ProcessedVoteCache(receipts).reserve(voteId));
 	}
+
+	@Test
+	void saturationDoesNotEvictLiveReplayFences() {
+		ProcessedVoteCache cache = new ProcessedVoteCache(TimeUnit.MINUTES.toMillis(30), 2);
+		UUID first = UUID.randomUUID();
+		UUID second = UUID.randomUUID();
+
+		assertTrue(cache.reserve(first));
+		assertTrue(cache.reserve(second));
+		assertTrue(cache.reserveWithOutcome(UUID.randomUUID()) == ProcessedVoteCache.Reservation.SATURATED);
+		assertFalse(cache.reserve(first));
+		assertFalse(cache.reserve(second));
+		assertTrue(cache.getProcessedVotes().size() == 2);
+	}
+
+	@Test
+	void defaultCapacityIncludesDurableCompletionHeadroom() {
+		assertTrue(ProcessedVoteCache.DEFAULT_MAX_TRACKED_VOTES
+				== DurableVoteReceiptStore.MAX_ACTIVE_RECEIPTS + DurableVoteReceiptStore.COMPLETION_HEADROOM);
+		assertTrue(ProcessedVoteCache.DEFAULT_MAX_TRACKED_VOTES <= DurableVoteReceiptStore.MAX_TOTAL_RECEIPTS);
+		assertTrue((long) DurableVoteReceiptStore.MAX_TOTAL_RECEIPTS * DurableVoteReceiptStore.MAX_RECORD_BYTES
+				+ "VP-VOTE-RECEIPTS-1\n".length() <= DurableVoteReceiptStore.MAX_FILE_BYTES);
+		assertTrue((long) (DurableVoteReceiptStore.MAX_TOTAL_RECEIPTS + 1)
+				* DurableVoteReceiptStore.MAX_RECORD_BYTES + "VP-VOTE-RECEIPTS-1\n".length()
+				> DurableVoteReceiptStore.MAX_FILE_BYTES);
+	}
+
+	@Test
+	void mixedActiveAndReleaseReceiptsRespectTheJournalByteAlignedLimit() throws Exception {
+		DurableVoteReceiptStore store = new DurableVoteReceiptStore(directory.resolve("mixed-receipts.dat"), 2, 0, 2, 2);
+		UUID released = UUID.randomUUID();
+		UUID active = UUID.randomUUID();
+
+		assertTrue(store.release(released) > 0L);
+		assertTrue(store.complete(active) > 0L);
+		assertFalse(store.complete(UUID.randomUUID()) > 0L);
+		assertFalse(store.release(UUID.randomUUID()) > 0L);
+	}
+
+	@Test
+	void cancelledValidationReservationFreesCapacity() {
+		ProcessedVoteCache cache = new ProcessedVoteCache(TimeUnit.MINUTES.toMillis(30), 1);
+		UUID invalid = UUID.randomUUID();
+
+		assertTrue(cache.reserve(invalid));
+		cache.cancelReservation(invalid);
+
+		assertTrue(cache.reserve(UUID.randomUUID()));
+	}
 }
