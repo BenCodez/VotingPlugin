@@ -5,7 +5,6 @@ import java.io.InputStream;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Objects;
 
 import org.spongepowered.configurate.ConfigurationNode;
@@ -22,6 +21,7 @@ public final class NeoForgeRuntime implements AutoCloseable {
     private final ConfigurationNode voteSites;
     private final NeoForgeVoteConfiguration voteConfiguration;
     private final SqlUserBackend storage;
+    private final NeoForgeVoteAccountingStore accounting;
     private final NeoForgeServerScheduler scheduler = new NeoForgeServerScheduler();
     private final NeoForgePlayerDirectory players = new NeoForgePlayerDirectory();
     private boolean closed;
@@ -32,6 +32,7 @@ public final class NeoForgeRuntime implements AutoCloseable {
         this.voteSites = voteSites;
         this.voteConfiguration = voteConfiguration;
         this.storage = storage;
+        accounting = new NeoForgeVoteAccountingStore(storage, voteConfiguration);
     }
 
     public static NeoForgeRuntime start(Path directory) throws IOException {
@@ -49,9 +50,9 @@ public final class NeoForgeRuntime implements AutoCloseable {
         SqlUserBackend storage;
         try {
             SqliteNativeLibrary.ensureAvailable(directory.resolve("libraries"));
-            // Use AdvancedCore's existing SQL backend. No vote/user mutations are enabled yet.
+            // Use AdvancedCore's existing SQL backend and its atomic user transactions.
             storage = SqlUserBackendFactory.sqlite(directory, "VotingPlugin", "VotingPlugin_NeoForgeUsers",
-                    List.of(), SqlBackendLogger.NO_OP);
+                    NeoForgeVoteAccountingStore.storageKeys(), SqlBackendLogger.NO_OP);
         } catch (RuntimeException failure) {
             throw new IOException("Could not initialize NeoForge user storage", failure);
         }
@@ -77,6 +78,7 @@ public final class NeoForgeRuntime implements AutoCloseable {
     public ConfigurationNode voteSites() { return voteSites; }
     public NeoForgeVoteConfiguration voteConfiguration() { return voteConfiguration; }
     public SqlUserBackend storage() { return storage; }
+    public NeoForgeVoteAccountingStore accounting() { return accounting; }
     public NeoForgeServerScheduler scheduler() { return scheduler; }
     public NeoForgePlayerDirectory players() { return players; }
 
