@@ -1,0 +1,4 @@
+# VotingPlugin currently keeps these legacy files as CRLF. Treat CR as part of the line ending
+# so git diff --check does not report their CRLF additions as trailing whitespace.
+VotingPlugin/src/main/java/com/bencodez/votingplugin/proxy/bungee/BungeeConfig.java whitespace=cr-at-eol
+VotingPlugin/src/main/resources/bungeeconfig.yml whitespace=cr-at-eol

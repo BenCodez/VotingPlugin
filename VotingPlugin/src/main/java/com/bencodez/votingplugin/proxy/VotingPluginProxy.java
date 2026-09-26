@@ -426,12 +426,12 @@ public abstract class VotingPluginProxy {
 
 			@Override
 			public void timeChanged(TimeType type, boolean fake, boolean pre, boolean post) {
+				if (getConfig().getVoteCacheTime() > 0) {
+					getVoteCacheHandler().checkVoteCacheTime(getConfig().getVoteCacheTime());
+				}
 				if (!fake && !isAutomaticTimeChangeEnabled(type)) {
 					log("Automatic " + type + " time changes are disabled; advancing the local marker without processing");
 					return;
-				}
-				if (getConfig().getVoteCacheTime() > 0) {
-					getVoteCacheHandler().checkVoteCacheTime(getConfig().getVoteCacheTime());
 				}
 				if (!getConfig().getGlobalDataEnabled()) {
 					warn("Global data not enabled, ignoring time change event");
