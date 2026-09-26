@@ -36,6 +36,11 @@ public final class NeoForgeVoteProcessor {
     public synchronized NeoForgeVoteResult process(NeoForgeVoteRequest request) {
         Objects.requireNonNull(request, "request");
         if (stopped) return result(NeoForgeVoteResult.Status.STOPPED, "NeoForge runtime is stopped");
+        if (request.scope() == NeoForgeVoteRequest.Scope.COMPLETE
+                && deferredVotes.contains(request.playerId(), request.voteId())) {
+            return result(NeoForgeVoteResult.Status.DEFERRED,
+                    "Vote was already retained for future complete processing");
+        }
 
         Optional<SharedVoteIdentity> online = players.online(request.playerId());
         Optional<NeoForgeVoteAccount> stored = accounting.load(request.playerId());

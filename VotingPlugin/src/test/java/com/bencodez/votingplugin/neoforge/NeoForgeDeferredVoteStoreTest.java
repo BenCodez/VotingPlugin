@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.util.List;
 import java.util.UUID;
 
@@ -75,6 +76,70 @@ class NeoForgeDeferredVoteStoreTest {
     }
 
     @Test
+    void globalCapacityRejectsAnotherPlayerWithoutMutatingAccounting() throws IOException {
+        writeConfiguration();
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        UUID rejected = UUID.randomUUID();
+        UUID firstVote = UUID.randomUUID();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.players().joined(new SharedVoteIdentity(first, "First", true));
+            runtime.players().joined(new SharedVoteIdentity(second, "Second", true));
+            NeoForgeDeferredVoteStore bounded = new NeoForgeDeferredVoteStore(runtime.storage(), 2, 2);
+            NeoForgeVoteProcessor processor = new NeoForgeVoteProcessor(runtime.voteConfiguration(),
+                    runtime.accounting(), bounded, runtime.players(), Clock.systemUTC());
+
+            assertEquals(NeoForgeVoteResult.Status.DEFERRED,
+                    processor.process(complete(firstVote, first, "First", 100L)).status());
+            assertEquals(NeoForgeVoteResult.Status.DEFERRED,
+                    processor.process(complete(UUID.randomUUID(), second, "Second", 200L)).status());
+        }
+
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.players().joined(new SharedVoteIdentity(rejected, "Rejected", true));
+            NeoForgeDeferredVoteStore bounded = new NeoForgeDeferredVoteStore(runtime.storage(), 2, 2);
+            NeoForgeVoteProcessor processor = new NeoForgeVoteProcessor(runtime.voteConfiguration(),
+                    runtime.accounting(), bounded, runtime.players(), Clock.systemUTC());
+            NeoForgeVoteResult full = processor.process(
+                    complete(UUID.randomUUID(), rejected, "Rejected", 300L));
+
+            assertEquals(NeoForgeVoteResult.Status.DEFERRED_CAPACITY_REACHED, full.status());
+            assertTrue(bounded.pending(rejected).isEmpty());
+            assertTrue(runtime.accounting().load(rejected).isEmpty());
+            assertTrue(bounded.complete(first, firstVote));
+            assertEquals(NeoForgeVoteResult.Status.DEFERRED,
+                    processor.process(complete(UUID.randomUUID(), rejected, "Rejected", 301L)).status());
+        }
+    }
+
+    @Test
+    void retainedRetrySurvivesLogoutAndDisabledSiteWithoutAnotherEntry() throws IOException {
+        writeConfiguration();
+        UUID playerId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.players().joined(new SharedVoteIdentity(playerId, "Alex", true));
+            assertEquals(NeoForgeVoteResult.Status.DEFERRED,
+                    runtime.voteProcessor().process(complete(voteId, playerId, 100L)).status());
+        }
+        Files.writeString(directory.resolve("VoteSites.yml"), """
+                VoteSites:
+                  Example:
+                    Enabled: false
+                    ServiceSite: renamed.test
+                """);
+
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            NeoForgeVoteResult retry = runtime.voteProcessor().process(complete(voteId, playerId, 999L));
+            assertEquals(NeoForgeVoteResult.Status.DEFERRED, retry.status());
+            assertTrue(retry.durablyRetained());
+            assertEquals(1, runtime.deferredVotes().pending(playerId).size());
+            assertEquals(100L, runtime.deferredVotes().pending(playerId).get(0).voteTime());
+            assertNoAccounting(runtime.accounting().load(playerId).orElseThrow());
+        }
+    }
+
+    @Test
     void malformedStoredQueueIsNotSilentlyOverwritten() throws IOException {
         writeConfiguration();
         UUID playerId = UUID.randomUUID();
@@ -112,7 +177,11 @@ class NeoForgeDeferredVoteStoreTest {
     }
 
     private static NeoForgeVoteRequest complete(UUID voteId, UUID playerId, long voteTime) {
-        return new NeoForgeVoteRequest(voteId, playerId, "Alex", "example.test", voteTime,
+        return complete(voteId, playerId, "Alex", voteTime);
+    }
+
+    private static NeoForgeVoteRequest complete(UUID voteId, UUID playerId, String playerName, long voteTime) {
+        return new NeoForgeVoteRequest(voteId, playerId, playerName, "example.test", voteTime,
                 true, true, true, NeoForgeVoteRequest.Scope.COMPLETE);
     }
 
