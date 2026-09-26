@@ -33,6 +33,27 @@ public final class VotingPluginWire {
 	private VotingPluginWire() {
 	}
 
+	public static String timeChangeBoundaryCapturedKey(String type) {
+		return "BoundaryCaptured" + type;
+	}
+
+	public static String timeChangeTransitionKey(String type) {
+		return "BoundaryTransition" + type;
+	}
+
+	public static final String TIME_CHANGE_BOUNDARY_PROTOCOL_KEY = "BoundaryProtocol";
+	public static final String TIME_CHANGE_BOUNDARY_PROTOCOL_VERSION = "1";
+	public static final String LEGACY_TIME_CHANGE_TRANSITION = "LEGACY";
+
+	public static String timeChangeBoundaryProtocolHeartbeat(String lastOnline) {
+		return TIME_CHANGE_BOUNDARY_PROTOCOL_VERSION + ":" + lastOnline;
+	}
+
+	public static boolean supportsTimeChangeBoundaryProtocol(String lastOnline, String advertisedProtocol) {
+		return lastOnline != null && !lastOnline.isBlank()
+				&& timeChangeBoundaryProtocolHeartbeat(lastOnline).equals(advertisedProtocol);
+	}
+
 	public static final int SCHEMA_VERSION = 1;
 
 	// =========================
@@ -575,6 +596,13 @@ public final class VotingPluginWire {
 
 		return new Vote(sub, player, uuid, service, time, wasOnline, realVote, totals, voteId, setTotals, manageTotals,
 				broadcast, num, numberOfVotes);
+	}
+
+	/** Resolves the current vote ID or the legacy ID carried in the totals snapshot. */
+	@SuppressWarnings("deprecation")
+	public static UUID resolveVoteId(Vote vote) {
+		if (vote == null || vote.voteId != null) return vote == null ? null : vote.voteId;
+		return VoteTotalsSnapshot.parseStorage(vote.totals).getVoteUUID();
 	}
 
 	public static final class VoteDelayRejected {

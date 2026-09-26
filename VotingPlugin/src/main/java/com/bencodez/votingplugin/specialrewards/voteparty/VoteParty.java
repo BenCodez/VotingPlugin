@@ -4,6 +4,7 @@ package com.bencodez.votingplugin.specialrewards.voteparty;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.UUID;
 
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -13,6 +14,7 @@ import org.bukkit.event.Listener;
 
 import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.misc.MiscUtils;
+import com.bencodez.advancedcore.api.time.TimeChangeTransition;
 import com.bencodez.advancedcore.api.time.events.DayChangeEvent;
 import com.bencodez.advancedcore.api.time.events.MonthChangeEvent;
 import com.bencodez.advancedcore.api.time.events.WeekChangeEvent;
@@ -46,9 +48,13 @@ public class VoteParty implements Listener {
 	 * @param user the voting plugin user
 	 */
 	public void addTotal(VotingPluginUser user) {
-		setTotalVotes(getTotalVotes() + 1);
-		user.setVotePartyVotes(user.getVotePartyVotes() + 1);
-		plugin.getPlaceholders().onVotePartyUpdate();
+		addTotal(user, null);
+	}
+
+	public void addTotal(VotingPluginUser user, UUID voteId) {
+		boolean totalAdded = plugin.getServerData().incrementVotePartyTotal(voteId);
+		user.addVotePartyVote(voteId);
+		if (totalAdded) plugin.getPlaceholders().onVotePartyUpdate();
 	}
 
 	/**
@@ -252,9 +258,8 @@ public class VoteParty implements Listener {
 	 */
 	@EventHandler
 	public void onDayChange(DayChangeEvent event) {
-		if (plugin.getSpecialRewardsConfig().isVotePartyResetEachDay()) {
-			reset(true);
-		}
+		runRecoverableVotePartyReset(event.getTransition(), "VotePartyDayReset",
+				plugin.getSpecialRewardsConfig().isVotePartyResetEachDay());
 	}
 
 	/**
@@ -264,13 +269,10 @@ public class VoteParty implements Listener {
 	 */
 	@EventHandler
 	public void onMonthChange(MonthChangeEvent event) {
-		if (plugin.getSpecialRewardsConfig().isVotePartyResetMonthly()) {
-			reset(true);
-		}
-
-		if (plugin.getSpecialRewardsConfig().isVotePartyResetExtraVotesMonthly()) {
-			plugin.getServerData().setVotePartyExtraRequired(0);
-		}
+		runRecoverableVotePartyReset(event.getTransition(), "VotePartyMonthReset",
+				plugin.getSpecialRewardsConfig().isVotePartyResetMonthly());
+		runRecoverableExtraReset(event.getTransition(), "VotePartyMonthExtraVotes",
+				plugin.getSpecialRewardsConfig().isVotePartyResetExtraVotesMonthly());
 	}
 
 	/**
@@ -280,12 +282,74 @@ public class VoteParty implements Listener {
 	 */
 	@EventHandler
 	public void onWeekChange(WeekChangeEvent event) {
-		if (plugin.getSpecialRewardsConfig().isVotePartyResetWeekly()) {
-			reset(true);
-		}
+		runRecoverableVotePartyReset(event.getTransition(), "VotePartyWeekReset",
+				plugin.getSpecialRewardsConfig().isVotePartyResetWeekly());
+		runRecoverableExtraReset(event.getTransition(), "VotePartyWeekExtraVotes",
+				plugin.getSpecialRewardsConfig().isVotePartyResetExtraVotesWeekly());
+	}
 
-		if (plugin.getSpecialRewardsConfig().isVotePartyResetExtraVotesWeekly()) {
-			plugin.getServerData().setVotePartyExtraRequired(0);
+	private void runRecoverableVotePartyReset(TimeChangeTransition transition, String effect, boolean configured) {
+		if (transition == null) {
+			if (configured) reset(true);
+			return;
+		}
+		runRecoverableReset(transition, effect, configured, () -> {
+			String generation = transition.getId() + ':' + effect;
+			if (!copyRecoverableUserCountBoundary("vote-party-copy:" + generation)) {
+				throw new IllegalStateException("Unable to durably capture VoteParty user counts");
+			}
+			plugin.getServerData().prepareTimeChangeVotePartyReset(transition, effect);
+			if (!resetRecoverableUserCounts("vote-party-reset:" + generation)) {
+				throw new IllegalStateException("Unable to durably reset VoteParty user counts");
+			}
+			plugin.getServerData().completeTimeChangeVotePartyReset(transition, effect);
+		});
+	}
+
+	/** Storage boundary kept separate so lifecycle tests do not require a live database. */
+	public boolean copyRecoverableUserCountBoundary(String generation) {
+		return state.copyUserCountBoundary(generation);
+	}
+
+	/** Storage boundary kept separate so lifecycle tests do not require a live database. */
+	public boolean resetRecoverableUserCounts(String generation) {
+		return state.resetUserCounts(generation);
+	}
+
+	private void runRecoverableExtraReset(TimeChangeTransition transition, String effect, boolean configured) {
+		if (transition == null) {
+			if (configured) plugin.getServerData().setVotePartyExtraRequired(0);
+			return;
+		}
+		runRecoverableReset(transition, effect, configured,
+				() -> plugin.getServerData().completeTimeChangeVotePartyExtraReset(transition, effect));
+	}
+
+	private synchronized void runRecoverableReset(TimeChangeTransition transition, String effect,
+			boolean configured, Runnable reset) {
+		if (transition == null) {
+			reset.run();
+			return;
+		}
+		TimeChangeTransition.Lease lease = transition.retain();
+		try {
+			if (transition.isCancellationRequested()) {
+				throw new java.util.concurrent.CancellationException("Time transition was cancelled");
+			}
+			plugin.getServerData().beginTimeChangeRecovery(transition);
+			boolean required = plugin.getServerData().prepareTimeChangeEffectPolicy(transition, effect, configured);
+			if (required && !plugin.getServerData().hasTimeChangeEffect(transition, effect)) {
+				reset.run();
+			}
+			if (transition.isCancellationRequested()) {
+				throw new java.util.concurrent.CancellationException("Time transition was cancelled");
+			}
+			lease.complete();
+		} catch (Throwable failure) {
+			lease.fail(failure);
+			plugin.getLogger().warning("VoteParty time-change effect remains pending: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
 		}
 	}
 
@@ -342,15 +406,22 @@ public class VoteParty implements Listener {
 	 * @param forceBungee whether to force Bungee processing
 	 */
 	public synchronized void vote(VotingPluginUser user, boolean realVote, boolean forceBungee) {
-		if (plugin.getSpecialRewardsConfig().isVotePartyEnabled()) {
-			if (plugin.getSpecialRewardsConfig().isVotePartyCountFakeVotes() || realVote) {
-				if (plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes() || user.isOnline()) {
-					addTotal(user);
-					addVotePlayer(user);
-					check(user, forceBungee);
-					checkVoteReminder(user);
-				}
-			}
-		}
+		vote(user, realVote, forceBungee, null);
+	}
+
+	public synchronized void vote(VotingPluginUser user, boolean realVote, boolean forceBungee, UUID voteId) {
+		boolean eligible = plugin.getSpecialRewardsConfig().isVotePartyEnabled()
+				&& (plugin.getSpecialRewardsConfig().isVotePartyCountFakeVotes() || realVote)
+				&& (plugin.getSpecialRewardsConfig().isVotePartyCountOfflineVotes() || user.isOnline());
+		voteAdmitted(user, forceBungee, voteId, eligible);
+	}
+
+	/** Applies the VoteParty eligibility decision captured during durable vote admission. */
+	public synchronized void voteAdmitted(VotingPluginUser user, boolean forceBungee, UUID voteId, boolean eligible) {
+		if (!eligible) return;
+		addTotal(user, voteId);
+		addVotePlayer(user);
+		check(user, forceBungee);
+		checkVoteReminder(user);
 	}
 }

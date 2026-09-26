@@ -180,11 +180,19 @@ final class SharedMysqlPointMutator {
 	}
 
 	AddResult addCommittedToColumn(VotingPluginUser user, int amount, String operationId, String pointsColumn) {
+		return addCommittedToColumn(user, amount, operationId, pointsColumn, -1);
+	}
+
+	AddResult addCommittedToColumn(VotingPluginUser user, int amount, String operationId, String pointsColumn,
+			int maximum) {
 		if (operationId == null || operationId.isEmpty()) return addCommittedToColumn(user, amount, pointsColumn);
 		drainCache(user, pointsColumn);
 		try {
-			SharedPointAdditionJournal.AdditionResult result = SharedPointAdditionJournal.forTable(plugin.getMysql())
-					.add(operationId, user.getUUID(), pointsColumn, amount, System.currentTimeMillis());
+			SharedPointAdditionJournal journal = SharedPointAdditionJournal.forTable(plugin.getMysql());
+			SharedPointAdditionJournal.AdditionResult result = maximum > 0
+					? journal.addCapped(operationId, user.getUUID(), pointsColumn, amount, maximum,
+							System.currentTimeMillis())
+					: journal.add(operationId, user.getUUID(), pointsColumn, amount, System.currentTimeMillis());
 			return new AddResult(true, result.total());
 		} catch (SQLException failure) {
 			logFailure(failure);

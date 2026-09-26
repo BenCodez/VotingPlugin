@@ -17,6 +17,7 @@ import com.bencodez.votingplugin.backendproxy.cache.ProcessedVoteCache;
 import com.bencodez.votingplugin.backendproxy.global.BackendGlobalDataSync;
 import com.bencodez.votingplugin.backendproxy.presence.BackendPresenceManager;
 import com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync;
+import com.bencodez.votingplugin.core.vote.SharedVoteAdmissionException;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.proxy.VoteTotalsSnapshot;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
@@ -28,7 +29,7 @@ import com.bencodez.votingplugin.votesites.VoteSite;
  * Registers and handles backend-side proxy message routes.
  */
 public class BackendProxyMessageRouter {
-	public enum OrderedVoteOutcome { COMPLETE, RETRY, QUARANTINE }
+	public enum OrderedVoteOutcome { COMPLETE, COMPLETE_WITHOUT_RETIREMENT, RETRY, QUARANTINE }
 
 	private final VotingPluginMain plugin;
 	private final BackendPresenceManager presenceManager;
@@ -148,11 +149,15 @@ public class BackendProxyMessageRouter {
 					completion.accept(OrderedVoteOutcome.RETRY);
 					return;
 				}
+				completion.accept(result != null && result.effectsComplete()
+						? OrderedVoteOutcome.COMPLETE : OrderedVoteOutcome.COMPLETE_WITHOUT_RETIREMENT);
+			} catch (SharedVoteAdmissionException retryableAdmission) {
+				completion.accept(OrderedVoteOutcome.RETRY);
+				return;
 			} catch (RuntimeException | Error failure) {
 				completion.accept(OrderedVoteOutcome.QUARANTINE);
 				throw failure;
 			}
-			completion.accept(OrderedVoteOutcome.COMPLETE);
 			return;
 		}
 		completion.accept(OrderedVoteOutcome.QUARANTINE);
@@ -395,8 +400,7 @@ public class BackendProxyMessageRouter {
 				+ ServiceSiteValidator.sanitizeForLog(vote.uuid) + " on "
 				+ ServiceSiteValidator.sanitizeForLog(vote.service));
 		VoteTotalsSnapshot totals = VoteTotalsSnapshot.parseStorage(vote.totals == null ? "" : vote.totals);
-		@SuppressWarnings("deprecation")
-		UUID voteId = vote.voteId != null ? vote.voteId : totals.getVoteUUID();
+		UUID voteId = VotingPluginWire.resolveVoteId(vote);
 		if (!processedVoteCache.reserve(voteId)) {
 			plugin.debug("Ignoring duplicate wire vote " + voteId + " for "
 					+ ServiceSiteValidator.sanitizeForLog(vote.player) + " on "
@@ -415,8 +419,11 @@ public class BackendProxyMessageRouter {
 		VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(javaUuid, vote.player);
 		votePartySync.replace(totals.getVotePartyCurrent(), totals.getVotePartyRequired());
 		user.cache();
-		user.bungeeVotePluginMessaging(vote.service, vote.time, totals, !vote.manageTotals,
-				vote.wasOnline, vote.broadcast, vote.num);
+		if (!user.bungeeVotePluginMessagingAccepted(vote.service, vote.time, totals, !vote.manageTotals,
+				vote.wasOnline, vote.broadcast, vote.num, voteId)) {
+			processedVoteCache.release(voteId);
+			throw new SharedVoteAdmissionException("Proxy vote accounting admission failed");
+		}
 		if (plugin.getBungeeSettings().isPerServerPoints()) {
 			user.addPoints(plugin.getConfigFile().getPointsOnVote());
 		}

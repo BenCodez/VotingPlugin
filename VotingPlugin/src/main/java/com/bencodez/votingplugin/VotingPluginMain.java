@@ -736,12 +736,12 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 
 		loadVoteBroadcast();
 
+		specialRewards = new SpecialRewards(this);
 		loadVoteShopManager();
 
 		loadDirectlyDefined();
 		checkUpdate = new CheckUpdate(this);
 		checkUpdate.startUp();
-		specialRewards = new SpecialRewards(this);
 		signs = new Signs(this);
 
 		coolDownCheck.checkEnabled();
@@ -2016,7 +2016,8 @@ public class VotingPluginMain extends AdvancedCorePlugin {
 		pm.registerEvents(new PlayerJoinEvent(this), this);
 		if (isVotifierLoaded()) {
 			VotiferEvent votifierEvent = new VotiferEvent(this);
-			votifierVoteOverflowQueue = new VotifierVoteOverflowQueue(this, votifierEvent::processVote);
+			votifierVoteOverflowQueue = new VotifierVoteOverflowQueue(this,
+					(serviceSite, username, voteId) -> votifierEvent.processQueuedVoteOutcome(serviceSite, username, voteId));
 			pm.registerEvents(votifierEvent, this);
 		}
 		pm.registerEvents(new PlayerVoteListener(this), this);

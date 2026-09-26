@@ -35,6 +35,16 @@ public class SpecialRewards {
 	 * @return true if a reward was given
 	 */
 	public boolean checkVoteStreak(UUID voteUUID, VotingPluginUser user, String type, boolean forceBungee) {
+		int currentStreak = 0;
+		if (type.equalsIgnoreCase("day")) currentStreak = user.getDayVoteStreak();
+		else if (type.equalsIgnoreCase("week")) currentStreak = user.getWeekVoteStreak();
+		else if (type.equalsIgnoreCase("month")) currentStreak = user.getMonthVoteStreak();
+		return checkVoteStreakAt(voteUUID, user, type, currentStreak, forceBungee);
+	}
+
+	/** Checks rewards against a durable streak value captured before later period changes. */
+	public boolean checkVoteStreakAt(UUID voteUUID, VotingPluginUser user, String type, int currentStreak,
+			boolean forceBungee) {
 		boolean gotReward = false;
 
 		Set<String> streaks = plugin.getSpecialRewardsConfig().getVoteStreakVotes(type);
@@ -54,25 +64,17 @@ public class SpecialRewards {
 					if (plugin.getSpecialRewardsConfig().getVoteStreakRewardEnabled(type, streak)
 							&& plugin.getRewardHandler().hasRewards(plugin.getSpecialRewardsConfig().getData(),
 									plugin.getSpecialRewardsConfig().getVoteStreakRewardsPath(type, "" + streak))) {
-						int curStreak = 0;
-						if (type.equalsIgnoreCase("day")) {
-							curStreak = user.getDayVoteStreak();
-						} else if (type.equalsIgnoreCase("week")) {
-							curStreak = user.getWeekVoteStreak();
-						} else if (type.equalsIgnoreCase("month")) {
-							curStreak = user.getMonthVoteStreak();
-						}
 						if (!multiple) {
-							if (curStreak == streakRequired) {
+							if (currentStreak == streakRequired) {
 								giveVoteStreakReward(voteUUID, user, user.isOnline(), type, "" + streakRequired,
-										curStreak, forceBungee);
+										currentStreak, forceBungee);
 								gotReward = true;
 								plugin.debug(
 										user.getPlayerName() + " got VoteStreak " + streakRequired + " for " + type);
 							}
 						} else {
-							if (curStreak != 0 && curStreak % streakRequired == 0) {
-								giveVoteStreakReward(voteUUID, user, user.isOnline(), type, streak, curStreak,
+							if (currentStreak != 0 && currentStreak % streakRequired == 0) {
+								giveVoteStreakReward(voteUUID, user, user.isOnline(), type, streak, currentStreak,
 										forceBungee);
 								gotReward = true;
 								plugin.debug(

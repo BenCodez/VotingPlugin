@@ -1,6 +1,6 @@
 package com.bencodez.votingplugin.listeners;
 
-import java.util.concurrent.RejectedExecutionException;
+import java.util.UUID;
 
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -10,8 +10,10 @@ import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
+import com.bencodez.votingplugin.listeners.VotifierVoteOverflowQueue.VoteOutcome;
 import com.bencodez.votingplugin.util.MinecraftUsernameValidator;
 import com.bencodez.votingplugin.util.ServiceSiteValidator;
+import com.bencodez.votingplugin.util.VoteTaskAdmission;
 import com.vexsoftware.votifier.model.Vote;
 import com.vexsoftware.votifier.model.VotifierEvent;
 
@@ -36,6 +38,32 @@ public class VotiferEvent implements Listener {
 	 * @param voteUsername the validated player name
 	 */
 	public void processVote(String voteSite, String voteUsername) {
+		processVote(voteSite, voteUsername, UUID.randomUUID());
+	}
+
+	public void processVote(String voteSite, String voteUsername, UUID voteId) {
+		VoteOutcome outcome = processVoteAttempt(voteSite, voteUsername, voteId, false);
+		if (outcome == VoteOutcome.RETRY) {
+			retainForAccountingRetry(voteSite, voteUsername, voteId);
+		} else if (outcome == VoteOutcome.QUARANTINE
+				&& !plugin.getVotifierVoteOverflowQueue().quarantine(voteUsername, voteSite, voteId)) {
+			plugin.getLogger().severe("Unable to retain ambiguous Votifier vote " + voteId + " for manual review");
+		} else if (outcome == VoteOutcome.QUARANTINE) {
+			plugin.getLogger().severe("Votifier vote " + voteId
+					+ " reached an ambiguous post-effect failure and was retained for manual review");
+		}
+	}
+
+	public boolean processQueuedVote(String voteSite, String voteUsername, UUID voteId) {
+		return processVoteAttempt(voteSite, voteUsername, voteId, true) == VoteOutcome.COMPLETE;
+	}
+
+	public VoteOutcome processQueuedVoteOutcome(String voteSite, String voteUsername, UUID voteId) {
+		return processVoteAttempt(voteSite, voteUsername, voteId, true);
+	}
+
+	private VoteOutcome processVoteAttempt(String voteSite, String voteUsername, UUID voteId,
+			boolean deferredDeliveryCompletion) {
 		try {
 			plugin.getServerData().addServiceSite(voteSite);
 			if (plugin.getBungeeSettings().isUseBungeecoord() && !plugin.getBungeeSettings().isVotifierBypass()
@@ -46,7 +74,7 @@ public class VotiferEvent implements Listener {
 							|| plugin.getBackendProxyHandler().getMethod().equals(BungeeMethod.REDIS))) {
 				plugin.getLogger().severe(
 						"Ignoring vote from votifier since a proxy vote transport is enabled; receive votes on the proxy or enable VotifierBypass, then check: https://github.com/BenCodez/VotingPlugin/wiki/Bungeecord-Setups");
-				return;
+				return VoteOutcome.COMPLETE;
 			}
 
 			String matchSite = "";
@@ -77,22 +105,38 @@ public class VotiferEvent implements Listener {
 			if (plugin.getTimeChecker().isActiveProcessing()
 					&& plugin.getConfigFile().isQueueVotesDuringTimeChange()) {
 				plugin.debug("Adding vote to time queue " + voteUsername + "/" + voteSite);
-				plugin.getTimeQueueHandler().addVote(voteUsername, voteSite);
-				return;
+				return plugin.getTimeQueueHandler().addVoteDurably(voteId, voteUsername, voteSite)
+						? VoteOutcome.COMPLETE : VoteOutcome.RETRY;
 			}
 
 			String voteSiteName = plugin.getVoteSiteManager().getVoteSiteName(true, serviceSite, matchSite);
 
 			PlayerVoteEvent voteEvent = new PlayerVoteEvent(
 					plugin.getVoteSiteManager().getVoteSite(voteSiteName, true), voteUsername, voteSite, true);
+			voteEvent.setVoteId(voteId);
+			voteEvent.setDeferredDeliveryCompletion(deferredDeliveryCompletion);
 			plugin.getServer().getPluginManager().callEvent(voteEvent);
+			if (voteEvent.isProcessingIncomplete()) {
+				return voteEvent.isReplayUnsafe() ? VoteOutcome.QUARANTINE : VoteOutcome.RETRY;
+			}
 
 			if (voteEvent.isCancelled()) {
 				plugin.debug("Vote cancelled");
 			}
 		} catch (Exception e) {
 			plugin.getLogger().severe("Error occured during vote processing");
-			e.printStackTrace();
+			plugin.debug(e);
+			return VoteOutcome.RETRY;
+		}
+		return VoteOutcome.COMPLETE;
+	}
+
+	private void retainForAccountingRetry(String voteSite, String voteUsername, UUID voteId) {
+		VotifierVoteOverflowQueue overflow = plugin.getVotifierVoteOverflowQueue();
+		if (overflow == null || !overflow.enqueueDurably(voteUsername, voteSite, voteId)) {
+			plugin.getLogger().severe("Unable to retain vote after shared MySQL accounting admission failed");
+		} else {
+			plugin.getLogger().warning("Shared MySQL accounting is unavailable; retained Votifier vote for retry");
 		}
 	}
 
@@ -135,11 +179,11 @@ public class VotiferEvent implements Listener {
 		plugin.debug("VoteSite: " + voteSite);
 		plugin.debug("IP: " + IP);
 
-		try {
-			plugin.getVoteTimer().submit(() -> processVote(voteSite, voteUsername));
-		} catch (RejectedExecutionException rejected) {
+		UUID voteId = UUID.randomUUID();
+		if (!VoteTaskAdmission.trySubmit(plugin.getVoteTimer(),
+				() -> processVote(voteSite, voteUsername, voteId))) {
 			VotifierVoteOverflowQueue overflow = plugin.getVotifierVoteOverflowQueue();
-			if (overflow == null || !overflow.enqueue(voteUsername, voteSite)) {
+			if (overflow == null || !overflow.enqueueDurably(voteUsername, voteSite, voteId)) {
 				plugin.getLogger().severe("Votifier vote queue is full; vote was not admitted for "
 						+ MinecraftUsernameValidator.sanitizeForLog(voteUsername));
 			} else {

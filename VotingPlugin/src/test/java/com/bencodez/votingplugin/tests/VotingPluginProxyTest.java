@@ -19,7 +19,9 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
+import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalDataHandlerProxy;
+import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.simpleapi.servercomm.http.HttpProxyTransportServer;
 import com.bencodez.simpleapi.servercomm.mysql.MySqlMessenger;
@@ -180,6 +182,74 @@ public class VotingPluginProxyTest {
 		assertTrue(signer.verifiesResult(result.authenticator, result.nodeId,
 				result.requestId, result.success, result.challenge));
 		assertEquals(0, proxy.getControlEnrollmentInstallCount());
+	}
+
+	@Test
+	void monthlyCompletionOnlyClearsTheBoundaryAlreadyCapturedByTheBackend() {
+		GlobalMySQL globalMysql = Mockito.mock(GlobalMySQL.class);
+		Mockito.when(globalDataHandler.getGlobalMysql()).thenReturn(globalMysql);
+		Mockito.when(globalMysql.containsKey("Server1")).thenReturn(true);
+		Mockito.when(globalDataHandler.getString("Server1", "BoundaryTransitionMONTH")).thenReturn("transition-1");
+		Mockito.when(globalDataHandler.getString("Server1", "BoundaryCapturedMONTH")).thenReturn("transition-1");
+
+		votingPluginProxy.onTimeChangedFinished(TimeType.MONTH);
+
+		verify(proxyMySQL).wipeColumnData("MonthTotal", com.bencodez.simpleapi.sql.DataType.INTEGER);
+		verify(proxyMySQL, never()).copyColumnData(Mockito.anyString(), Mockito.anyString());
+	}
+
+	@Test
+	void monthlyCompletionUsesLegacyBoundaryWhenAnyBackendLacksConfirmationSupport() {
+		GlobalMySQL globalMysql = Mockito.mock(GlobalMySQL.class);
+		Mockito.when(globalDataHandler.getGlobalMysql()).thenReturn(globalMysql);
+		Mockito.when(globalMysql.containsKey("Server1")).thenReturn(true);
+		Mockito.when(globalDataHandler.getString("Server1", "BoundaryTransitionMONTH"))
+				.thenReturn(VotingPluginWire.LEGACY_TIME_CHANGE_TRANSITION);
+
+		votingPluginProxy.onTimeChangedFinished(TimeType.MONTH);
+
+		org.mockito.InOrder boundaryThenReset = Mockito.inOrder(proxyMySQL);
+		boundaryThenReset.verify(proxyMySQL).copyColumnData("MonthTotal", "LastMonthTotal");
+		boundaryThenReset.verify(proxyMySQL).wipeColumnData("MonthTotal",
+				com.bencodez.simpleapi.sql.DataType.INTEGER);
+	}
+
+	@Test
+	void failedLegacyBackendCannotAuthorizeTheProxyBoundaryReset() {
+		votingPluginProxy.onTimeChangedFailed("Server1", TimeType.MONTH);
+
+		verify(globalDataHandler).setData(Mockito.eq("Server1"), Mockito.argThat(values ->
+				!values.get("MONTH").getBoolean()
+						&& values.get("BoundaryTransitionMONTH").getString().isEmpty()
+						&& values.get("BoundaryCapturedMONTH").getString().isEmpty()));
+	}
+
+	@Test
+	void monthlyCompletionRetainsTotalsWhenEveryBackendFailedBeforeBoundaryCapture() {
+		GlobalMySQL globalMysql = Mockito.mock(GlobalMySQL.class);
+		Mockito.when(globalDataHandler.getGlobalMysql()).thenReturn(globalMysql);
+		Mockito.when(globalMysql.containsKey(Mockito.anyString())).thenReturn(true);
+
+		votingPluginProxy.onTimeChangedFinished(TimeType.MONTH);
+
+		verify(proxyMySQL, never()).wipeColumnData(Mockito.anyString(), Mockito.any());
+		assertTrue(votingPluginProxy.getWarnings().stream()
+				.anyMatch(message -> message.contains("no backend confirmed the time-change boundary")));
+	}
+
+	@Test
+	void monthlyCompletionRejectsALateConfirmationFromAnOlderTransition() {
+		GlobalMySQL globalMysql = Mockito.mock(GlobalMySQL.class);
+		Mockito.when(globalDataHandler.getGlobalMysql()).thenReturn(globalMysql);
+		Mockito.when(globalMysql.containsKey("Server1")).thenReturn(true);
+		Mockito.when(globalDataHandler.getString("Server1", "BoundaryTransitionMONTH"))
+				.thenReturn("transition-2");
+		Mockito.when(globalDataHandler.getString("Server1", "BoundaryCapturedMONTH"))
+				.thenReturn("transition-1");
+
+		votingPluginProxy.onTimeChangedFinished(TimeType.MONTH);
+
+		verify(proxyMySQL, never()).wipeColumnData(Mockito.anyString(), Mockito.any());
 	}
 
 	@Test

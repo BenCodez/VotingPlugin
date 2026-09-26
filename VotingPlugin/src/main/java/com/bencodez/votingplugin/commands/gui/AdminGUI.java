@@ -330,6 +330,11 @@ public class AdminGUI {
 										@Override
 										public void run() {
 											plugin.getServer().getPluginManager().callEvent(voteEvent);
+											if (voteEvent.isProcessingIncomplete()) {
+												plugin.getBukkitScheduler().runTask(plugin,
+														() -> player.sendMessage("Vote could not be processed because shared storage is unavailable."),
+														player);
+											}
 										}
 									})) {
 										player.sendMessage(

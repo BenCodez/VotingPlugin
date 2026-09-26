@@ -37,6 +37,7 @@ import com.bencodez.simpleapi.sql.data.DataValueBoolean;
 import com.bencodez.simpleapi.sql.data.DataValueString;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.BungeeSettings;
+import com.bencodez.votingplugin.proxy.VotingPluginWire;
 
 class BackendGlobalDataSyncTest {
 
@@ -604,6 +605,8 @@ class BackendGlobalDataSyncTest {
 		data.put("LastUpdated", new DataValueString(
 				"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
 		data.put(type.toString(), new DataValueBoolean(true));
+		data.put(VotingPluginWire.timeChangeTransitionKey(type.toString()),
+				new DataValueString("transition-1"));
 
 		assertTrue(sync.checkGlobalDataTime(type, data));
 
@@ -612,8 +615,44 @@ class BackendGlobalDataSyncTest {
 		assertNotNull(scheduled.get());
 		scheduled.get().run();
 		verify(timeChecker).forceChanged(type, false, true, true);
-		verify(globalDataHandler).setBoolean("lobby", type.toString(), false);
-		verify(globalDataHandler).setData(eq("lobby"), any());
+		verify(globalDataHandler).setData(eq("lobby"), org.mockito.ArgumentMatchers.argThat(values ->
+				values.containsKey(type.toString())
+						&& values.containsKey(VotingPluginWire.timeChangeBoundaryCapturedKey(type.toString()))
+						&& !values.get(type.toString()).getBoolean()
+						&& "transition-1".equals(values.get(
+								VotingPluginWire.timeChangeBoundaryCapturedKey(type.toString())).getString())));
+		verify(globalDataHandler).setData(eq("lobby"), org.mockito.ArgumentMatchers.argThat(values ->
+				values.containsKey("FinishedProcessing")));
+	}
+
+	@Test
+	void legacyProxyTimeChangeStillRunsWithoutBoundaryConfirmation() {
+		VotingPluginMain plugin = mock(VotingPluginMain.class);
+		BungeeSettings bungeeSettings = mock(BungeeSettings.class);
+		TimeChecker timeChecker = mock(TimeChecker.class);
+		ScheduledExecutorService timeCheckerExecutor = mock(ScheduledExecutorService.class);
+		GlobalDataHandler globalDataHandler = mock(GlobalDataHandler.class);
+		AtomicReference<Runnable> scheduled = new AtomicReference<>();
+		when(plugin.getBungeeSettings()).thenReturn(bungeeSettings);
+		when(bungeeSettings.getServer()).thenReturn("lobby");
+		when(plugin.getTimeChecker()).thenReturn(timeChecker);
+		when(timeChecker.getTimer()).thenReturn(timeCheckerExecutor);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			scheduled.set(invocation.getArgument(0));
+			return null;
+		}).when(timeCheckerExecutor).execute(any(Runnable.class));
+		BackendGlobalDataSync sync = new BackendGlobalDataSync(plugin, ignored -> { });
+		setField(sync, "globalDataHandler", globalDataHandler);
+		HashMap<String, com.bencodez.simpleapi.sql.data.DataValue> data = new HashMap<>();
+		data.put("LastUpdated", new DataValueString(
+				"" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
+		data.put(TimeType.DAY.toString(), new DataValueBoolean(true));
+
+		assertTrue(sync.checkGlobalDataTime(TimeType.DAY, data));
+		scheduled.get().run();
+
+		verify(timeChecker).forceChanged(TimeType.DAY, false, true, true);
+		verify(globalDataHandler).setBoolean("lobby", TimeType.DAY.toString(), false);
 	}
 
 	@Test

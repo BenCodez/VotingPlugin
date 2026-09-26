@@ -48,6 +48,7 @@ import com.bencodez.votingplugin.proxy.VoteTotalsSnapshot;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 import com.bencodez.votingplugin.topvoter.TopVoterPlayer;
 import com.bencodez.votingplugin.util.BukkitCompletionScheduler;
+import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseService;
 import com.bencodez.votingplugin.votesites.NextSite;
 import com.bencodez.votingplugin.votesites.VoteSite;
 
@@ -154,6 +155,17 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		setAllTimeTotal(getAllTimeTotal() + 1);
 	}
 
+	public void addAllTimeTotal(UUID voteId) {
+		if (plugin != null && UserStorage.MYSQL.equals(plugin.getStorageType())) {
+			if (!VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, getUUID(), "AllTimeTotal",
+					"AllTimeTotal", List.of("AllTimeTotal"), null)) {
+				throw new IllegalStateException("Unable to retain shared MySQL all-time vote total");
+			}
+			return;
+		}
+		addAllTimeTotal();
+	}
+
 	/**
 	 * Adds one to the daily vote streak.
 	 */
@@ -166,7 +178,21 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * Adds one to the monthly total votes.
 	 */
 	public void addMonthTotal() {
-		setMonthTotal(getMonthTotal() + 1);
+		addMonthTotal(null);
+	}
+
+	public void addMonthTotal(UUID voteId) {
+		PeriodTotalMutationFence.withMutation(() -> {
+			int fallbackTotal = getMonthTotal() + 1;
+			if (plugin != null && plugin.getConfigFile().isLimitMonthlyVotes()) {
+				int maximum = plugin.getTimeChecker().getTime().getDayOfMonth()
+						* plugin.getVoteSiteManager().getVoteSitesEnabled().size();
+				fallbackTotal = Math.min(maximum, fallbackTotal);
+			}
+			int queuedFallbackTotal = fallbackTotal;
+			if (incrementSharedMysqlMonthTotal(voteId)) return;
+			setMonthTotal(queuedFallbackTotal);
+		});
 	}
 
 	/**
@@ -254,6 +280,56 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		int newTotal = getPoints() + event.getPoints();
 		setPoints(newTotal, async);
 		return newTotal;
+	}
+
+	/**
+	 * Adds the configured vote points under the accepted vote's durable identity.
+	 * Shared MySQL retries confirm the journalled credit before dispatching the
+	 * receive hook again, and the vote producer is not acknowledged until the
+	 * credit has committed.
+	 *
+	 * @param voteId stable identity of the accepted vote
+	 */
+	public void addVotePoints(UUID voteId) {
+		addVotePoints(voteId, plugin.getConfigFile().getPointsOnVote(), plugin.getConfigFile().getLimitVotePoints(),
+				getPointsPath());
+	}
+
+	/** Applies the point policy captured when the durable vote was admitted. */
+	public void addVotePoints(UUID voteId, int points, int limit) {
+		addVotePoints(voteId, points, limit, getPointsPath());
+	}
+
+	/** Applies the point policy and destination captured by durable vote admission. */
+	public void addVotePoints(UUID voteId, int points, int limit, String admittedPointsColumn) {
+		SharedMysqlPointMutator sharedPoints = new SharedMysqlPointMutator(plugin);
+		if (voteId == null || !sharedPoints.usesMysqlPointMutations()) {
+			addVotePointsWithPolicy(points, limit);
+			return;
+		}
+		String pointsColumn = admittedPointsColumn;
+		String operationId = "vote-points:" + voteId;
+		Integer completedTotal = sharedPoints.completedPointAdditionTotal(operationId, getUUID(), pointsColumn);
+		if (completedTotal == null && (points != 0 || limit > 0)) {
+			int admittedAmount = 0;
+			if (points != 0) {
+				PlayerReceivePointsEvent event = new PlayerReceivePointsEvent(this, points);
+				Bukkit.getPluginManager().callEvent(event);
+				if (!event.isCancelled()) admittedAmount = event.getPoints();
+			}
+			SharedMysqlPointMutator.AddResult result = sharedPoints.addCommittedToColumn(this,
+					admittedAmount, operationId, pointsColumn, limit);
+			if (!result.success()) {
+				throw new IllegalStateException("Unable to persist vote points for " + getUUID());
+			}
+		}
+		// A durable vote queue has no age limit. Keep vote-point receipts in
+		// COMPLETED so a delayed replay cannot credit the same vote after cleanup.
+	}
+
+	private void addVotePointsWithPolicy(int points, int limit) {
+		if (points != 0) addPoints(points, false);
+		if (limit > 0 && getPoints() > limit) setPoints(limit);
 	}
 
 	/**
@@ -901,22 +977,72 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * Adds one to the total votes.
 	 */
 	public void addTotal() {
-		addMonthTotal();
-		addAllTimeTotal();
+		addTotal(null);
+	}
+
+	public void addTotal(UUID voteId) {
+		addMonthTotal(voteId);
+		addAllTimeTotal(voteId);
 	}
 
 	/**
 	 * Adds one to the daily total votes.
 	 */
 	public void addTotalDaily() {
-		setDailyTotal(getDailyTotal() + 1);
+		addTotalDaily(null);
+	}
+
+	public void addTotalDaily(UUID voteId) {
+		PeriodTotalMutationFence.withMutation(() -> {
+			int fallbackTotal = getDailyTotal() + 1;
+			if (incrementSharedMysqlPeriodTotal(voteId, TopVoter.Daily, "DailyTotal")) return;
+			setDailyTotal(fallbackTotal);
+		});
 	}
 
 	/**
 	 * Adds one to the weekly total votes.
 	 */
 	public void addTotalWeekly() {
-		setWeeklyTotal(getWeeklyTotal() + 1);
+		addTotalWeekly(null);
+	}
+
+	public void addTotalWeekly(UUID voteId) {
+		PeriodTotalMutationFence.withMutation(() -> {
+			int fallbackTotal = getWeeklyTotal() + 1;
+			if (incrementSharedMysqlPeriodTotal(voteId, TopVoter.Weekly, "WeeklyTotal")) return;
+			setWeeklyTotal(fallbackTotal);
+		});
+	}
+
+	private boolean incrementSharedMysqlMonthTotal(UUID voteId) {
+		if (plugin == null || !UserStorage.MYSQL.equals(plugin.getStorageType())) return false;
+		ArrayList<String> columns = new ArrayList<>();
+		columns.add("MonthTotal");
+		if (plugin.getConfigFile().isStoreMonthTotalsWithDate()) {
+			columns.add(plugin.getVotingPluginUserManager().getMonthTotalsWithDatePath());
+		}
+		Integer maximum = null;
+		if (plugin.getConfigFile().isLimitMonthlyVotes()) {
+			maximum = Integer.valueOf(plugin.getTimeChecker().getTime().getDayOfMonth()
+					* plugin.getVoteSiteManager().getVoteSitesEnabled().size());
+		}
+		if (!VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, getUUID(), "MonthTotal",
+				"LastMonthTotal", columns, maximum)) {
+			throw new IllegalStateException("Unable to retain shared MySQL monthly vote total");
+		}
+		SharedMysqlCacheReconciler.invalidate(plugin, getUUID(), columns.toArray(String[]::new));
+		return true;
+	}
+
+	private boolean incrementSharedMysqlPeriodTotal(UUID voteId, TopVoter top, String column) {
+		if (plugin == null || !UserStorage.MYSQL.equals(plugin.getStorageType())) return false;
+		if (!VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, getUUID(), column,
+				top.getLastColumnName(), List.of(column), null)) {
+			throw new IllegalStateException("Unable to retain shared MySQL " + top + " vote total");
+		}
+		SharedMysqlCacheReconciler.invalidate(plugin, getUUID(), column);
+		return true;
 	}
 
 	/**
@@ -940,6 +1066,18 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public void bungeeVotePluginMessaging(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
 			boolean wasOnline, boolean broadcast, int num) {
+		@SuppressWarnings("deprecation")
+		UUID legacyVoteId = text == null ? null : text.getVoteUUID();
+		bungeeVotePluginMessaging(service, time, text, setTotals, wasOnline, broadcast, num, legacyVoteId);
+	}
+
+	public void bungeeVotePluginMessaging(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
+			boolean wasOnline, boolean broadcast, int num, UUID voteId) {
+		bungeeVotePluginMessagingAccepted(service, time, text, setTotals, wasOnline, broadcast, num, voteId);
+	}
+
+	public boolean bungeeVotePluginMessagingAccepted(String service, long time, VoteTotalsSnapshot text, boolean setTotals,
+			boolean wasOnline, boolean broadcast, int num, UUID voteId) {
 		if (plugin.getBungeeSettings().isUseBungeecoord()) {
 			plugin.debug("Pluginmessaging vote for " + getPlayerName() + " on " + service);
 
@@ -954,8 +1092,15 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 			voteEvent.setWasOnline(wasOnline);
 			voteEvent.setBroadcast(broadcast);
 			voteEvent.setVoteNumber(num);
+			voteEvent.setVoteId(voteId);
+			voteEvent.setDeferredDeliveryCompletion(true);
 			plugin.getServer().getPluginManager().callEvent(voteEvent);
+			if (voteEvent.isProcessingFailed() && voteEvent.isReplayUnsafe()) {
+				throw new IllegalStateException("Proxy vote reached an ambiguous post-effect failure: " + voteId);
+			}
+			return !voteEvent.isProcessingIncomplete();
 		}
+		return false;
 	}
 
 	/**
@@ -1094,18 +1239,49 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	@Deprecated
 	public void checkDayVoteStreak(boolean forceBungee) {
-		if (!voteStreakUpdatedToday(LocalDateTime.now())) {
-			if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage() || hasPercentageTotal(
-					TopVoter.Daily, plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(), null)) {
-				plugin.extraDebug("Adding day vote streak to " + getUUID() + " "
-						+ plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage() + " "
-						+ hasPercentageTotal(TopVoter.Daily,
-								plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(), null));
-				addDayVoteStreak();
-				plugin.getSpecialRewards().checkVoteStreak(null, this, "Day", forceBungee);
-				setDayVoteStreakLastUpdate(System.currentTimeMillis());
+		checkDayVoteStreak(forceBungee, null);
+	}
+
+	public void checkDayVoteStreak(boolean forceBungee, UUID voteId) {
+		PeriodTotalMutationFence.withMutation(() -> {
+			if (UserStorage.MYSQL.equals(plugin.getStorageType())) {
+				VoteShopPurchaseService.MysqlDailyStreakUpdate update = VoteShopPurchaseService
+						.applyPreparedMysqlDailyStreak(plugin, voteId, getUUID());
+				if (update.result() == VoteShopPurchaseService.MysqlDailyStreakResult.FAILED) {
+					throw new IllegalStateException("Unable to retain shared MySQL daily streak");
+				}
+				if (update.result() == VoteShopPurchaseService.MysqlDailyStreakResult.APPLIED) {
+					completeRecoveredDailyStreak(update.streak(), update.forceProxyRouting());
+					if (!VoteShopPurchaseService.completeMysqlDailyStreakReward(plugin, voteId)) {
+						throw new IllegalStateException("Unable to complete shared MySQL daily streak reward");
+					}
+				}
+				return;
 			}
+			if (!voteStreakUpdatedToday(LocalDateTime.now())) {
+				if (!plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage() || hasPercentageTotal(
+						TopVoter.Daily, plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(), null)) {
+					plugin.extraDebug("Adding day vote streak to " + getUUID() + " "
+							+ plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage() + " "
+							+ hasPercentageTotal(TopVoter.Daily,
+									plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(), null));
+					int streak = getDayVoteStreak() + 1;
+					long updatedAt = System.currentTimeMillis();
+					setDayVoteStreak(streak);
+					plugin.getSpecialRewards().checkVoteStreak(null, this, "Day", forceBungee);
+					setDayVoteStreakLastUpdate(updatedAt);
+				}
+			}
+		});
+	}
+
+	public void completeRecoveredDailyStreak(int streak, boolean forceBungee) {
+		if (getBestDayVoteStreak() < streak) {
+			setBestDayVoteStreak(streak);
+			UserDataCache cache = getCache();
+			if (cache != null) cache.flushChangesAndRun(() -> { });
 		}
+		plugin.getSpecialRewards().checkVoteStreakAt(null, this, "Day", streak, forceBungee);
 	}
 
 	/**
@@ -1262,7 +1438,19 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	@Deprecated
 	public long getDayVoteStreakLastUpdate() {
-		String str = getData().getString("DayVoteStreakLastUpdate");
+		return getVoteStreakUpdate("DayVoteStreakLastUpdate");
+	}
+
+	public int getLastDayVoteStreak() {
+		return getData().getInt("LastDayVoteStreak");
+	}
+
+	public long getLastDayVoteStreakLastUpdate() {
+		return getVoteStreakUpdate("LastDayVoteStreakLastUpdate");
+	}
+
+	private long getVoteStreakUpdate(String path) {
+		String str = getData().getString(path);
 		if (str == null || str.isEmpty() || str.equals("null")) {
 			return 0;
 		}
@@ -1352,6 +1540,16 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public int getLastMonthTotal() {
 		return getData().getInt("LastMonthTotal");
+	}
+
+	/** Returns the daily total captured at the time-change boundary. */
+	public int getLastDailyTotal() {
+		return getData().getInt("LastDailyTotal");
+	}
+
+	/** Returns the weekly total captured at the time-change boundary. */
+	public int getLastWeeklyTotal() {
+		return getData().getInt("LastWeeklyTotal");
 	}
 
 	/**
@@ -1783,6 +1981,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param path  the path to the reward configuration
 	 */
 	public void giveDailyTopVoterAward(int place, String path) {
+		giveDailyTopVoterAward(place, path, getTotal(TopVoter.Daily));
+	}
+
+	/** Gives a daily top-voter award using the vote total captured at the period boundary. */
+	public void giveDailyTopVoterAward(int place, String path, int votes) {
 		SpecialRewardType type = SpecialRewardType.TOPVOTER;
 		type.setType("Daily");
 		type.setAmount(1);
@@ -1794,7 +1997,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getDailyAwardRewardsPath(path)).withPlaceHolder("place", "" + place)
-				.withPlaceHolder("topvoter", "Daily").withPlaceHolder("votes", "" + getTotal(TopVoter.Daily))
+				.withPlaceHolder("topvoter", "Daily").withPlaceHolder("votes", "" + votes)
 				.setOnline(isOnline()).send(this);
 	}
 
@@ -1805,6 +2008,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param path  the path to the reward configuration
 	 */
 	public void giveMonthlyTopVoterAward(int place, String path) {
+		giveMonthlyTopVoterAward(place, path, getTotal(TopVoter.Monthly));
+	}
+
+	/** Gives a monthly top-voter award using the vote total captured at the period boundary. */
+	public void giveMonthlyTopVoterAward(int place, String path, int votes) {
 		SpecialRewardType type = SpecialRewardType.TOPVOTER;
 		type.setType("Monthly");
 		type.setAmount(1);
@@ -1816,7 +2024,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getMonthlyAwardRewardsPath(path)).withPlaceHolder("place", "" + place)
-				.withPlaceHolder("topvoter", "Monthly").withPlaceHolder("votes", "" + getTotal(TopVoter.Monthly))
+				.withPlaceHolder("topvoter", "Monthly").withPlaceHolder("votes", "" + votes)
 				.setOnline(isOnline()).send(this);
 	}
 
@@ -1827,6 +2035,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param path  the path to the reward configuration
 	 */
 	public void giveWeeklyTopVoterAward(int place, String path) {
+		giveWeeklyTopVoterAward(place, path, getTotal(TopVoter.Weekly));
+	}
+
+	/** Gives a weekly top-voter award using the vote total captured at the period boundary. */
+	public void giveWeeklyTopVoterAward(int place, String path, int votes) {
 		SpecialRewardType type = SpecialRewardType.TOPVOTER;
 		type.setType("Weekly");
 		type.setAmount(1);
@@ -1838,7 +2051,7 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		}
 		new RewardBuilder(plugin.getSpecialRewardsConfig().getData(),
 				plugin.getSpecialRewardsConfig().getWeeklyAwardRewardsPath(path)).withPlaceHolder("place", "" + place)
-				.withPlaceHolder("topvoter", "Weekly").withPlaceHolder("votes", "" + getTotal(TopVoter.Weekly))
+				.withPlaceHolder("topvoter", "Weekly").withPlaceHolder("votes", "" + votes)
 				.setOnline(isOnline()).send(this);
 	}
 
@@ -1888,16 +2101,28 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 *         otherwise
 	 */
 	public boolean hasPercentageTotal(TopVoter top, double percentage, LocalDateTime time) {
-		int total = getTotal(top, time);
+		return hasPercentageTotal(top, percentage, time, getTotal(top, time));
+	}
+
+	/** Checks a percentage requirement against an explicitly captured total. */
+	public boolean hasPercentageTotal(TopVoter top, double percentage, LocalDateTime time, int total) {
+		return hasPercentageTotal(top, percentage, time, total,
+				plugin.getVoteSiteManager().getVoteSitesEnabled().size());
+	}
+
+	/** Checks a percentage requirement against captured total and site-count boundaries. */
+	public boolean hasPercentageTotal(TopVoter top, double percentage, LocalDateTime time, int total,
+			int enabledSiteCount) {
+		if (enabledSiteCount <= 0) return false;
 		switch (top) {
 		case Daily:
-			return (double) total / (double) plugin.getVoteSiteManager().getVoteSitesEnabled().size()
+			return (double) total / (double) enabledSiteCount
 					* 100 > percentage;
 		case Monthly:
-			return total / ((double) plugin.getVoteSiteManager().getVoteSitesEnabled().size()
+			return total / ((double) enabledSiteCount
 					* time.getMonth().length(false)) * 100 > percentage;
 		case Weekly:
-			return total / ((double) plugin.getVoteSiteManager().getVoteSitesEnabled().size() * 7) * 100 > percentage;
+			return total / ((double) enabledSiteCount * 7) * 100 > percentage;
 		default:
 			return false;
 		}
@@ -2350,6 +2575,13 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 		setTotal(TopVoter.Monthly, total);
 	}
 
+	/** Applies a monthly ceiling against the value read inside the period fence. */
+	public void capMonthTotal(int maximum) {
+		PeriodTotalMutationFence.withMutation(() -> {
+			if (getMonthTotal() > maximum) setTotalWithinFence(TopVoter.Monthly, maximum);
+		});
+	}
+
 	/**
 	 * Sets the month vote streak.
 	 *
@@ -2444,6 +2676,10 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 * @param value the total votes to set
 	 */
 	public void setTotal(TopVoter top, int value) {
+		PeriodTotalMutationFence.withMutation(() -> setTotalWithinFence(top, value));
+	}
+
+	private void setTotalWithinFence(TopVoter top, int value) {
 		switch (top) {
 		case AllTime:
 			getUserData().setInt("AllTimeTotal", value);
@@ -2479,6 +2715,24 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	public void setVotePartyVotes(int value) {
 		getUserData().setInt("VotePartyVotes", value);
+	}
+
+	/** Adds one VoteParty count using the shared period boundary when MySQL is shared. */
+	public void addVotePartyVote() {
+		addVotePartyVote(null);
+	}
+
+	public void addVotePartyVote(UUID voteId) {
+		int fallbackTotal = getVotePartyVotes() + 1;
+		if (plugin != null && UserStorage.MYSQL.equals(plugin.getStorageType())) {
+			if (!VoteShopPurchaseService.incrementMysqlPeriodTotals(plugin, voteId, getUUID(), "VotePartyVotes",
+					"LastVotePartyVotes", List.of("VotePartyVotes"), null)) {
+				throw new IllegalStateException("Unable to retain shared MySQL VoteParty count");
+			}
+			SharedMysqlCacheReconciler.invalidate(plugin, getUUID(), "VotePartyVotes");
+			return;
+		}
+		setVotePartyVotes(fallbackTotal);
 	}
 
 	/**
@@ -2789,7 +3043,11 @@ public class VotingPluginUser extends com.bencodez.advancedcore.api.user.Advance
 	 */
 	@Deprecated
 	public boolean voteStreakUpdatedToday(LocalDateTime time) {
-		return MiscUtils.getInstance().getTime(getDayVoteStreakLastUpdate()).getDayOfYear() == time.getDayOfYear();
+		return voteStreakUpdatedAt(getDayVoteStreakLastUpdate(), time);
+	}
+
+	public boolean voteStreakUpdatedAt(long update, LocalDateTime time) {
+		return MiscUtils.getInstance().getTime(update).getDayOfYear() == time.getDayOfYear();
 	}
 
 	public String getVoteStreakState(String columnName) {

@@ -10,9 +10,12 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.WeekFields;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -24,6 +27,7 @@ import org.bukkit.entity.Player;
 
 import com.bencodez.advancedcore.api.messages.PlaceholderUtils;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
+import com.bencodez.advancedcore.api.time.TimeChangeTransition;
 import com.bencodez.advancedcore.api.user.UserDataFetchMode;
 import com.bencodez.advancedcore.api.user.UserStorage;
 import com.bencodez.advancedcore.api.user.usercache.UserDataCache;
@@ -48,6 +52,14 @@ import lombok.Setter;
 @Getter
 @Setter
 public class VoteShopPurchaseService {
+	public enum MysqlDailyStreakResult { APPLIED, ALREADY_UPDATED, NOT_REQUESTED, DEFERRED, FAILED }
+	public record MysqlDailyStreakUpdate(MysqlDailyStreakResult result, int streak, boolean forceProxyRouting) { }
+	public record VoteAccountingAdmission(boolean success, boolean countTotals, boolean awardPoints,
+			boolean countVoteParty, int pointAmount, int pointCap, String pointColumn, boolean replayUnsafe) { }
+	private static final ConcurrentMap<UUID, Integer> ADMITTED_ACCOUNTING = new ConcurrentHashMap<>();
+	private static final int ACCOUNTING_DAILY_STREAK = 16;
+	private static final int ACCOUNTING_POINTS = 256;
+	private static final int ACCOUNTING_ALL_TIME = 512;
 	private static final int PURCHASE_LOCK_STRIPES = 256;
 	private static final Object[] PURCHASE_LOCKS = createPurchaseLocks();
 	private static final int COMPLETION_PENDING = 0;
@@ -555,18 +567,22 @@ public class VoteShopPurchaseService {
 			if (usesSharedMysqlPoints()) {
 				return debitSharedMysql(user, item);
 			}
-			if (item.getLimit() > 0 && user.getVoteShopIdentifierLimit(item.getIdentifier()) >= item.getLimit()) {
-				return VoteShopPurchaseResult.LIMIT_REACHED;
-			}
-			if (!user.removePoints(item.getCost(), true)) {
-				return VoteShopPurchaseResult.NOT_ENOUGH_POINTS;
-			}
-			if (item.getLimit() > 0) {
-				user.setVoteShopIdentifierLimit(item.getIdentifier(),
-						user.getVoteShopIdentifierLimit(item.getIdentifier()) + 1);
-			}
-			return VoteShopPurchaseResult.SUCCESS;
+			return VoteShopLimitMutationFence.withLock(() -> debitLocal(user, item));
 		}
+	}
+
+	private VoteShopPurchaseResult debitLocal(VotingPluginUser user, VoteShopItem item) {
+		if (item.getLimit() > 0 && user.getVoteShopIdentifierLimit(item.getIdentifier()) >= item.getLimit()) {
+			return VoteShopPurchaseResult.LIMIT_REACHED;
+		}
+		if (!user.removePoints(item.getCost(), true)) {
+			return VoteShopPurchaseResult.NOT_ENOUGH_POINTS;
+		}
+		if (item.getLimit() > 0) {
+			user.setVoteShopIdentifierLimit(item.getIdentifier(),
+					user.getVoteShopIdentifierLimit(item.getIdentifier()) + 1);
+		}
+		return VoteShopPurchaseResult.SUCCESS;
 	}
 
 	private boolean usesSharedMysqlPoints() {
@@ -653,6 +669,288 @@ public class VoteShopPurchaseService {
 		return reset.get();
 	}
 
+	/** Atomically removes the copied boundary total while retaining later votes. */
+	public static boolean resetMysqlPeriodTotal(VotingPluginMain plugin, String totalColumn, String previousColumn,
+			String resetGeneration) {
+		if (!canRecoverSharedMysqlPurchases(plugin)) return false;
+		AtomicBoolean reset = new AtomicBoolean();
+		try {
+			MySQL table = plugin.getMysql();
+			table.checkColumn(totalColumn, DataType.INTEGER);
+			table.checkColumn(previousColumn, DataType.INTEGER);
+			SharedMysqlPurchaseJournal.forTable(table).resetPeriodTotal(totalColumn, previousColumn, resetGeneration);
+			reset.set(true);
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to atomically reset MySQL period total: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+		} finally {
+			SharedMysqlCacheReconciler.invalidateAll(plugin, totalColumn);
+		}
+		return reset.get();
+	}
+
+	/** Atomically increments period totals under the cross-backend boundary lock. */
+	public static boolean incrementMysqlPeriodTotals(VotingPluginMain plugin, UUID voteId, String uuid, String boundaryColumn,
+			String previousColumn, List<String> columns, Integer maximum) {
+		if (!canRecoverSharedMysqlPurchases(plugin) || columns == null || columns.isEmpty()) return false;
+		List<String> invalidatedColumns = columns;
+		try {
+			MySQL table = plugin.getMysql();
+			for (String column : columns) table.checkColumn(column, DataType.INTEGER);
+			if (maximum != null) table.checkColumn(previousColumn, DataType.INTEGER);
+			UUID accountingId = voteId == null ? UUID.randomUUID() : voteId;
+			int operation = switch (boundaryColumn) {
+			case "DailyTotal" -> 1;
+			case "WeeklyTotal" -> 2;
+			case "MonthTotal" -> 4;
+			case "VotePartyVotes" -> 8;
+			case "AllTimeTotal" -> ACCOUNTING_ALL_TIME;
+			default -> 0;
+			};
+			if (operation == 0) return false;
+			Integer admittedDecision = ADMITTED_ACCOUNTING.get(accountingId);
+			int admitted = admittedDecision == null ? 0 : admittedDecision.intValue();
+			if (admittedDecision != null && (admitted & operation) == 0) return true;
+			SharedMysqlPurchaseJournal.PeriodTotalResult result = SharedMysqlPurchaseJournal.forTable(table)
+					.incrementPeriodTotalsResolved(accountingId, uuid, boundaryColumn, previousColumn, columns,
+							maximum, (admitted & operation) != 0);
+			invalidatedColumns = result.columns();
+			if (!result.applied()) plugin.getLogger().warning(
+					"Shared MySQL period total was retained for retry after a persistence failure");
+			return true;
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to atomically increment MySQL period total: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+			return false;
+		} finally {
+			for (String column : invalidatedColumns) SharedMysqlCacheReconciler.invalidate(plugin, uuid, column);
+		}
+	}
+
+	/** Durably admits shared total mutations before vote rewards or broadcasts run. */
+	public static VoteAccountingAdmission prepareMysqlVoteAccounting(VotingPluginMain plugin, UUID voteId, String uuid,
+			boolean countTotals, boolean awardPoints, boolean countVoteParty, boolean forceProxyRouting,
+			int pointAmount, int pointCap, String pointColumn) {
+		if (!canRecoverSharedMysqlPurchases(plugin) || voteId == null) {
+			return new VoteAccountingAdmission(true, countTotals, awardPoints, countVoteParty, pointAmount, pointCap,
+					pointColumn, voteId != null && plugin.getServerData().isVoteReplayUnsafe(voteId));
+		}
+		try {
+			MySQL table = plugin.getMysql();
+			String monthColumn = plugin.getConfigFile().isStoreMonthTotalsWithDate()
+					? plugin.getVotingPluginUserManager().getMonthTotalsWithDatePath() : null;
+			Integer maximum = plugin.getConfigFile().isLimitMonthlyVotes()
+					? Integer.valueOf(plugin.getTimeChecker().getTime().getDayOfMonth()
+							* plugin.getVoteSiteManager().getVoteSitesEnabled().size()) : null;
+			if (countTotals) {
+				table.checkColumn("DailyTotal", DataType.INTEGER);
+				table.checkColumn("WeeklyTotal", DataType.INTEGER);
+				table.checkColumn("MonthTotal", DataType.INTEGER);
+				table.checkColumn("AllTimeTotal", DataType.INTEGER);
+				if (monthColumn != null) table.checkColumn(monthColumn, DataType.INTEGER);
+				if (maximum != null) table.checkColumn("LastMonthTotal", DataType.INTEGER);
+			}
+			if (countVoteParty) table.checkColumn("VotePartyVotes", DataType.INTEGER);
+			table.checkColumn("DailyTotal", DataType.INTEGER);
+			table.checkColumn("DayVoteStreak", DataType.INTEGER);
+			table.checkColumn("DayVoteStreakLastUpdate", DataType.STRING);
+			SharedMysqlPurchaseJournal.VoteAccountingDecision decision = SharedMysqlPurchaseJournal.forTable(table)
+					.prepareVoteAccounting(voteId, uuid, countTotals,
+					awardPoints, countVoteParty, monthColumn, maximum,
+					plugin.getSpecialRewardsConfig().isVoteStreakRequirementUsePercentage(),
+					plugin.getSpecialRewardsConfig().getVoteStreakRequirementDay(),
+					plugin.getVoteSiteManager().getVoteSitesEnabled().size(), forceProxyRouting,
+					System.currentTimeMillis(), pointAmount, pointCap, pointColumn);
+			int bits = decision.bits();
+			if ((bits & ACCOUNTING_POINTS) != 0) table.checkColumn(decision.pointColumn(), DataType.INTEGER);
+			ADMITTED_ACCOUNTING.put(voteId, Integer.valueOf(bits));
+			return new VoteAccountingAdmission(true, (bits & 7) != 0,
+					(bits & ACCOUNTING_POINTS) != 0, (bits & 8) != 0, decision.pointAmount(),
+					decision.pointCap(), decision.pointColumn(), decision.replayUnsafe());
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to admit shared MySQL vote accounting: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+			return new VoteAccountingAdmission(false, false, false, false, pointAmount, pointCap, pointColumn, false);
+		}
+	}
+
+	/** Commits the boundary before any uncheckpointed vote effect can execute. */
+	public static boolean markVoteReplayUnsafe(VotingPluginMain plugin, UUID voteId) {
+		if (voteId == null) return false;
+		if (!canRecoverSharedMysqlPurchases(plugin)) {
+			plugin.getServerData().markVoteReplayUnsafe(voteId);
+			return true;
+		}
+		try {
+			SharedMysqlPurchaseJournal.forTable(plugin.getMysql()).markVoteReplayUnsafe(voteId);
+			return true;
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to persist shared MySQL vote effect boundary: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+			return false;
+		}
+	}
+
+	/** Retires the YAML replay fence once the delivery owner has durably acknowledged success. */
+	public static void completeVoteDelivery(VotingPluginMain plugin, UUID voteId) {
+		if (voteId == null) return;
+		plugin.getServerData().clearVotePartyAccounting(voteId);
+		if (!canRecoverSharedMysqlPurchases(plugin)) plugin.getServerData().clearVoteReplayUnsafe(voteId);
+	}
+
+	public static void finishMysqlVoteAccounting(UUID voteId) {
+		if (voteId != null) ADMITTED_ACCOUNTING.remove(voteId);
+	}
+
+	/** Applies only daily-streak work that was durably admitted before vote effects. */
+	public static MysqlDailyStreakUpdate applyPreparedMysqlDailyStreak(VotingPluginMain plugin, UUID voteId,
+			String uuid) {
+		if (!canRecoverSharedMysqlPurchases(plugin)) {
+			return new MysqlDailyStreakUpdate(MysqlDailyStreakResult.FAILED, 0, false);
+		}
+		Integer admittedBits = voteId == null ? null : ADMITTED_ACCOUNTING.get(voteId);
+		if (admittedBits == null) return new MysqlDailyStreakUpdate(MysqlDailyStreakResult.FAILED, 0, false);
+		if ((admittedBits.intValue() & ACCOUNTING_DAILY_STREAK) == 0) {
+			return new MysqlDailyStreakUpdate(MysqlDailyStreakResult.NOT_REQUESTED, 0, false);
+		}
+		boolean admitted = (admittedBits.intValue() & ACCOUNTING_DAILY_STREAK) != 0;
+		try {
+			MySQL table = plugin.getMysql();
+			table.checkColumn("DayVoteStreak", DataType.INTEGER);
+			table.checkColumn("DayVoteStreakLastUpdate", DataType.STRING);
+			UUID accountingId = voteId;
+			SharedMysqlPurchaseJournal journal = SharedMysqlPurchaseJournal.forTable(table);
+			SharedMysqlPurchaseJournal.DailyStreakResult update = journal.updateDailyStreak(
+					accountingId, uuid, 0, 0L, true);
+			if (update.outcome() == SharedMysqlPurchaseJournal.DailyStreakOutcome.DEFERRED) plugin.getLogger().warning(
+					"Shared MySQL daily streak was retained for retry after a persistence failure");
+			if (update.outcome() == SharedMysqlPurchaseJournal.DailyStreakOutcome.APPLIED) {
+				SharedMysqlPurchaseJournal.RecoveredDailyStreak reward = journal.claimDailyStreakReward(accountingId);
+				if (reward != null) return new MysqlDailyStreakUpdate(MysqlDailyStreakResult.APPLIED,
+						reward.streak(), reward.forceProxyRouting());
+				return new MysqlDailyStreakUpdate(MysqlDailyStreakResult.ALREADY_UPDATED, update.streak(), false);
+			}
+			return new MysqlDailyStreakUpdate(
+					update.outcome() == SharedMysqlPurchaseJournal.DailyStreakOutcome.ALREADY_UPDATED
+							? MysqlDailyStreakResult.ALREADY_UPDATED : MysqlDailyStreakResult.DEFERRED,
+					update.streak(), false);
+		} catch (SQLException failure) {
+			plugin.getLogger().log(admitted ? java.util.logging.Level.WARNING : java.util.logging.Level.SEVERE,
+					admitted ? "Shared MySQL daily streak remains retained for retry"
+							: "Unable to atomically update MySQL daily streak", failure);
+			plugin.debug(failure);
+			return new MysqlDailyStreakUpdate(
+					admitted ? MysqlDailyStreakResult.DEFERRED : MysqlDailyStreakResult.FAILED, 0, false);
+		} finally {
+			SharedMysqlCacheReconciler.invalidate(plugin, uuid, "DayVoteStreak", "DayVoteStreakLastUpdate");
+		}
+	}
+
+	/** Completes a claimed daily-streak reward only after its existing reward API returned. */
+	public static boolean completeMysqlDailyStreakReward(VotingPluginMain plugin, UUID voteId) {
+		if (!canRecoverSharedMysqlPurchases(plugin) || voteId == null) return false;
+		try {
+			SharedMysqlPurchaseJournal.forTable(plugin.getMysql()).completeDailyStreakReward(voteId);
+			return true;
+		} catch (SQLException failure) {
+			plugin.getLogger().log(java.util.logging.Level.SEVERE,
+					"Daily streak reward may have run but its completion could not be persisted", failure);
+			plugin.debug(failure);
+			return false;
+		}
+	}
+
+	/** Resets the copied daily streak without overwriting a new-day vote from another backend. */
+	public static boolean resetMysqlDailyStreakAtBoundary(VotingPluginMain plugin, String uuid,
+			long boundaryUpdatedAt) {
+		if (!canRecoverSharedMysqlPurchases(plugin)) return false;
+		try {
+			SharedMysqlPurchaseJournal.forTable(plugin.getMysql()).resetDailyStreakAtBoundary(uuid, boundaryUpdatedAt);
+			return true;
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to atomically reset MySQL daily streak: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+			return false;
+		} finally {
+			SharedMysqlCacheReconciler.invalidate(plugin, uuid, "DayVoteStreak");
+		}
+	}
+
+	/** Releases accepted daily streak increments after every copied user is reset. */
+	public static boolean hasMysqlDailyStreakBoundary(VotingPluginMain plugin, String generation) {
+		if (!canRecoverSharedMysqlPurchases(plugin)) return false;
+		try {
+			return SharedMysqlPurchaseJournal.forTable(plugin.getMysql()).hasDailyStreakBoundary(generation);
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to read the shared MySQL daily streak boundary: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+			throw new IllegalStateException("Unable to read the shared MySQL daily streak boundary", failure);
+		}
+	}
+
+	public static boolean completeMysqlDailyStreakReset(VotingPluginMain plugin, String generation) {
+		if (!canRecoverSharedMysqlPurchases(plugin)) return false;
+		try {
+			SharedMysqlPurchaseJournal.forTable(plugin.getMysql()).completeDailyStreakReset(generation);
+			return true;
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to complete the shared MySQL daily streak reset: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+			return false;
+		}
+	}
+
+	/** Atomically captures one period boundary for a recoverable transition. */
+	public static boolean copyMysqlPeriodBoundary(VotingPluginMain plugin, String totalColumn, String previousColumn,
+			String generation) {
+		if (!canRecoverSharedMysqlPurchases(plugin)) return false;
+		try {
+			MySQL table = plugin.getMysql();
+			table.checkColumn(totalColumn, DataType.INTEGER);
+			table.checkColumn(previousColumn, DataType.INTEGER);
+			SharedMysqlPurchaseJournal.forTable(table).copyPeriodBoundary(totalColumn, previousColumn, generation);
+			return true;
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to atomically copy MySQL period boundary: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+			return false;
+		} finally {
+			SharedMysqlCacheReconciler.invalidateAll(plugin, previousColumn);
+		}
+	}
+
+	/** Atomically captures the daily-streak value and timestamp boundary. */
+	public static boolean copyMysqlDailyStreakBoundary(VotingPluginMain plugin, String streakColumn,
+			String previousStreakColumn, String updateColumn, String previousUpdateColumn, String generation) {
+		if (!canRecoverSharedMysqlPurchases(plugin)) return false;
+		try {
+			MySQL table = plugin.getMysql();
+			table.checkColumn(streakColumn, DataType.INTEGER);
+			table.checkColumn(previousStreakColumn, DataType.INTEGER);
+			table.checkColumn(updateColumn, DataType.STRING);
+			table.checkColumn(previousUpdateColumn, DataType.STRING);
+			SharedMysqlPurchaseJournal.forTable(table).copyDailyStreakBoundary(streakColumn, previousStreakColumn,
+					updateColumn, previousUpdateColumn, generation);
+			return true;
+		} catch (SQLException failure) {
+			plugin.getLogger().severe("Unable to atomically copy MySQL daily streak boundary: "
+					+ failure.getClass().getSimpleName());
+			plugin.debug(failure);
+			return false;
+		} finally {
+			SharedMysqlCacheReconciler.invalidateAll(plugin, previousStreakColumn);
+			SharedMysqlCacheReconciler.invalidateAll(plugin, previousUpdateColumn);
+		}
+	}
+
 	static void withSharedMysqlCacheResetFence(Runnable action) {
 		SharedMysqlCacheReconciler.withResetFence(action);
 	}
@@ -676,6 +974,31 @@ public class VoteShopPurchaseService {
 	static void recoverSharedMysqlPurchases(VotingPluginMain plugin, SharedMysqlPurchaseJournal journal)
 			throws SQLException {
 		retryPendingCompensationMarkers(plugin, journal);
+		SharedMysqlPurchaseJournal.AccountingRecoveryBatch accounting;
+		do {
+			accounting = journal.recoverAccounting(System.currentTimeMillis());
+			boolean deferredReward = false;
+			for (UUID voteId : accounting.pendingRewards()) {
+				// Startup recovery begins asynchronously. Do not claim a durable reward
+				// until the service that executes it is ready, because claimed rows are
+				// intentionally excluded from later recovery scans.
+				if (plugin.getSpecialRewards() == null) {
+					deferredReward = true;
+					break;
+				}
+				SharedMysqlPurchaseJournal.RecoveredDailyStreak streak = journal.claimDailyStreakReward(voteId);
+				if (streak == null) {
+					deferredReward = true;
+					continue;
+				}
+				SharedMysqlCacheReconciler.invalidate(plugin, streak.uuid(), "DayVoteStreak", "DayVoteStreakLastUpdate");
+				VotingPluginUser user = plugin.getVotingPluginUserManager()
+						.getVotingPluginUser(UUID.fromString(streak.uuid()), false);
+				user.completeRecoveredDailyStreak(streak.streak(), streak.forceProxyRouting());
+				journal.completeDailyStreakReward(voteId);
+			}
+			if (deferredReward) break;
+		} while (accounting.hadRows());
 		for (SharedMysqlPurchaseJournal.RefundedPurchase refund : journal.recoverAndCleanup(System.currentTimeMillis())) {
 			SharedMysqlCacheReconciler.invalidateAndRefresh(plugin, refund.uuid(), refund.pointsColumn(),
 					refund.limitColumn());
@@ -885,6 +1208,11 @@ public class VoteShopPurchaseService {
 	/** Stable identifier shared by every backend processing the same reset period. */
 	public static String currentLimitGenerationId(VotingPluginMain plugin, String identifier) {
 		return limitGeneration(plugin, identifier, System.currentTimeMillis()).value();
+	}
+
+	/** Stable reset generation derived from the durable period transition. */
+	public static String limitGenerationIdForTransition(TimeChangeTransition transition) {
+		return "time-shop:" + transition.getType() + ':' + transition.getPeriodKey();
 	}
 
 	private static LimitGeneration limitGeneration(VotingPluginMain plugin, String identifier, long nowMillis) {

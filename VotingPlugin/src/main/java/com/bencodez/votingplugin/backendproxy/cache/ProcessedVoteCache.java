@@ -99,6 +99,11 @@ public class ProcessedVoteCache {
 		}
 	}
 
+	/** Releases an admission that failed before any vote side effects ran. */
+	public void release(UUID voteId) {
+		if (voteId != null) processedVotes.remove(voteId);
+	}
+
 	/** Persists successful processing before the backend emits a delivery acknowledgement. */
 	public boolean complete(UUID voteId) {
 		if (voteId == null) return true;

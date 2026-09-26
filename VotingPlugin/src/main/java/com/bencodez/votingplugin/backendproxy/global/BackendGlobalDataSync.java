@@ -24,6 +24,7 @@ import com.bencodez.advancedcore.bungeeapi.globaldata.GlobalMySQL;
 import com.bencodez.simpleapi.servercomm.codec.JsonEnvelope;
 import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.simpleapi.sql.data.DataValueBoolean;
+import com.bencodez.simpleapi.sql.data.DataValueString;
 import com.bencodez.simpleapi.sql.mysql.config.MysqlConfigSpigot;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
@@ -264,6 +265,10 @@ public class BackendGlobalDataSync {
 			expectedHandler.setBoolean(plugin.getBungeeSettings().getServer(), type.toString(), false);
 			return false;
 		}
+		String transitionId = data.containsKey(VotingPluginWire.timeChangeTransitionKey(type.toString()))
+				? data.get(VotingPluginWire.timeChangeTransitionKey(type.toString())).getString() : "";
+		boolean confirmsBoundary = transitionId != null && !transitionId.isBlank()
+				&& !VotingPluginWire.LEGACY_TIME_CHANGE_TRANSITION.equals(transitionId);
 		String serverName = plugin.getBungeeSettings().getServer();
 		GlobalDataHandler transitionHandler = admitTimeChange(type, serverName, expectedHandler);
 		if (transitionHandler == null) return false;
@@ -284,7 +289,7 @@ public class BackendGlobalDataSync {
 					return;
 				}
 				try {
-					finishTimeChange(transitionHandler, type, serverName);
+					finishTimeChange(transitionHandler, type, serverName, transitionId, confirmsBoundary);
 				} catch (RuntimeException failure) {
 					// finishTimeChange releases the pinned handler in its finally block.
 					plugin.debug(failure);
@@ -332,10 +337,19 @@ public class BackendGlobalDataSync {
 		}
 	}
 
-	private void finishTimeChange(GlobalDataHandler handler, TimeType type, String serverName) {
+	private void finishTimeChange(GlobalDataHandler handler, TimeType type, String serverName,
+			String transitionId, boolean confirmsBoundary) {
 		boolean completed = false;
 		try {
-			handler.setBoolean(serverName, type.toString(), false);
+			if (confirmsBoundary) {
+				HashMap<String, DataValue> completion = new HashMap<>();
+				completion.put(type.toString(), new DataValueBoolean(false));
+				completion.put(VotingPluginWire.timeChangeBoundaryCapturedKey(type.toString()),
+						new DataValueString(transitionId));
+				handler.setData(serverName, completion);
+			} else {
+				handler.setBoolean(serverName, type.toString(), false);
+			}
 			JsonEnvelope.Builder builder = JsonEnvelope.builder("TimeChangeFinished")
 					.schema(VotingPluginWire.SCHEMA_VERSION);
 			builder.put("server", serverName);
@@ -500,6 +514,14 @@ public class BackendGlobalDataSync {
 				"ForceUpdate", "VARCHAR(5)").entrySet()) {
 			loadedHandler.getGlobalMysql().alterColumnType(column.getKey(), column.getValue());
 		}
+		for (TimeType type : TimeType.values()) {
+			loadedHandler.getGlobalMysql().alterColumnType(
+					VotingPluginWire.timeChangeBoundaryCapturedKey(type.toString()), "VARCHAR(36)");
+			loadedHandler.getGlobalMysql().alterColumnType(
+					VotingPluginWire.timeChangeTransitionKey(type.toString()), "VARCHAR(36)");
+		}
+		loadedHandler.getGlobalMysql().alterColumnType(
+				VotingPluginWire.TIME_CHANGE_BOUNDARY_PROTOCOL_KEY, "VARCHAR(32)");
 		acceptingWork = true;
 		timer = Executors.newSingleThreadScheduledExecutor(task -> {
 			Thread thread = new Thread(task, "VotingPlugin-GlobalData");
@@ -507,8 +529,24 @@ public class BackendGlobalDataSync {
 			return thread;
 		});
 		timer.scheduleWithFixedDelay(this::checkGlobalData, 60, 10, TimeUnit.SECONDS);
-		timer.scheduleWithFixedDelay(this::updateLastOnline, 1, 60, TimeUnit.MINUTES);
+		publishBoundaryProtocolHeartbeat();
+		timer.scheduleWithFixedDelay(this::publishBoundaryProtocolHeartbeat, 1, 60, TimeUnit.MINUTES);
 		plugin.getTimeChecker().setProcessingEnabled(false);
+	}
+
+	private void publishBoundaryProtocolHeartbeat() {
+		GlobalDataHandler pollingHandler = acquireHandlerReference();
+		if (pollingHandler == null) return;
+		try {
+			String heartbeat = "" + LocalDateTime.now().atZone(ZoneOffset.UTC).toInstant().toEpochMilli();
+			HashMap<String, DataValue> state = new HashMap<>();
+			state.put("LastOnline", new DataValueString(heartbeat));
+			state.put(VotingPluginWire.TIME_CHANGE_BOUNDARY_PROTOCOL_KEY,
+					new DataValueString(VotingPluginWire.timeChangeBoundaryProtocolHeartbeat(heartbeat)));
+			pollingHandler.setData(plugin.getBungeeSettings().getServer(), state);
+		} finally {
+			releaseHandlerReference(pollingHandler);
+		}
 	}
 
 	public void close() {

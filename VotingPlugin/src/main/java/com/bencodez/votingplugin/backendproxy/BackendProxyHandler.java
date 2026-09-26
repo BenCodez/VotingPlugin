@@ -31,6 +31,8 @@ import com.bencodez.votingplugin.backendproxy.transport.BackendProxyTransportMan
 import com.bencodez.votingplugin.backendproxy.voteparty.BackendVotePartySync;
 import com.bencodez.votingplugin.proxy.BungeeMethod;
 import com.bencodez.votingplugin.proxy.VotingPluginWire;
+import com.bencodez.votingplugin.util.VoteTaskAdmission;
+import com.bencodez.votingplugin.voteshop.service.VoteShopPurchaseService;
 
 import lombok.Getter;
 
@@ -360,7 +362,8 @@ public class BackendProxyHandler implements Listener {
 		}
 		orderedVoteDispatchActive = true;
 		try {
-			plugin.getBukkitScheduler().runTaskAsynchronously(plugin, this::runNextOrderedVoteDispatch);
+			plugin.getBukkitScheduler().runTaskAsynchronously(plugin,
+					VoteTaskAdmission.ownedTask(this::runNextOrderedVoteDispatch));
 		} catch (RuntimeException schedulingFailure) {
 			orderedVoteDispatchActive = false;
 			orderedVoteDispatch.notifyAll();
@@ -464,16 +467,20 @@ public class BackendProxyHandler implements Listener {
 			}
 			return;
 		}
-		boolean successful = outcome == OrderedVoteOutcome.COMPLETE;
+		boolean successful = outcome == OrderedVoteOutcome.COMPLETE
+				|| outcome == OrderedVoteOutcome.COMPLETE_WITHOUT_RETIREMENT;
+		boolean retireDelivery = outcome == OrderedVoteOutcome.COMPLETE;
 		if (successful && overflowEntry != null && orderedVoteOverflow != null) {
 			orderedVoteOverflow.acknowledgeAsync(overflowEntry,
-					stored -> completeOrderedVoteAcknowledgement(stored, envelope));
+					stored -> completeOrderedVoteAcknowledgement(stored, envelope, retireDelivery));
 			return;
 		}
+		boolean completedInMemory = false;
 		synchronized (orderedVoteDispatch) {
 			if (successful && overflowEntry == null
 					&& orderedVoteDispatchQueue.peekFirst() == orderedVoteDispatchInFlight) {
 				orderedVoteDispatchQueue.removeFirst();
+				completedInMemory = true;
 			}
 			orderedVoteDispatchInFlight = null;
 			orderedVoteOverflowInFlight = null;
@@ -482,10 +489,10 @@ public class BackendProxyHandler implements Listener {
 			if (successful) scheduleOrderedVoteDispatchLocked();
 			else retryOrderedVoteDispatchLocked();
 		}
-		if (successful) sendVoteDeliveryAcknowledgement(envelope);
+		if (completedInMemory && retireDelivery) completeVoteDelivery(envelope);
 	}
 
-	private void completeOrderedVoteAcknowledgement(boolean stored, JsonEnvelope envelope) {
+	private void completeOrderedVoteAcknowledgement(boolean stored, JsonEnvelope envelope, boolean retireDelivery) {
 		synchronized (orderedVoteDispatch) {
 			if (stored) {
 				orderedVoteDispatchInFlight = null;
@@ -501,7 +508,16 @@ public class BackendProxyHandler implements Listener {
 			orderedVoteDispatch.notifyAll();
 			if (stored) scheduleOrderedVoteDispatchLocked();
 		}
-		if (stored) sendVoteDeliveryAcknowledgement(envelope);
+		if (stored && retireDelivery) completeVoteDelivery(envelope);
+	}
+
+	private void completeVoteDelivery(JsonEnvelope envelope) {
+		String subChannel = envelope == null ? null : envelope.getSubChannel();
+		if (!VotingPluginWire.SUB_VOTE.equals(subChannel)
+				&& !VotingPluginWire.SUB_VOTE_ONLINE.equals(subChannel)) return;
+		VoteShopPurchaseService.completeVoteDelivery(plugin,
+				VotingPluginWire.resolveVoteId(VotingPluginWire.readVote(envelope)));
+		sendVoteDeliveryAcknowledgement(envelope);
 	}
 
 	private void sendVoteDeliveryAcknowledgement(JsonEnvelope envelope) {

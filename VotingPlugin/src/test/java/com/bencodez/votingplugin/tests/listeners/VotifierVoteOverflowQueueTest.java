@@ -26,9 +26,156 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.bencodez.votingplugin.VotingPluginMain;
+import com.bencodez.advancedcore.api.user.UserStorage;
+import com.bencodez.votingplugin.data.ServerData;
 import com.bencodez.votingplugin.listeners.VotifierVoteOverflowQueue;
 
 class VotifierVoteOverflowQueueTest {
+	@Test
+	void durableEnqueuePublishesSnapshotBeforeReportingSuccess(@TempDir Path dataFolder) throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		java.util.UUID voteId = java.util.UUID.randomUUID();
+		when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("VotifierVoteOverflowQueueTest"));
+		VotifierVoteOverflowQueue queue = new VotifierVoteOverflowQueue(plugin, (site, user) -> { });
+		try {
+			assertTrue(queue.enqueueDurably("Steve", "example.org", voteId));
+
+			assertTrue(Files.readString(dataFolder.resolve("VotifierVoteQueue.yml")).contains(voteId.toString()));
+		} finally {
+			queue.close();
+		}
+	}
+
+	@Test
+	void successfulVoteRetiresReplayFenceAfterQueueSnapshot(@TempDir Path dataFolder) throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		ServerData serverData = mock(ServerData.class);
+		ScheduledExecutorService voteTimer = Executors.newSingleThreadScheduledExecutor();
+		CountDownLatch processed = new CountDownLatch(1);
+		java.util.UUID voteId = java.util.UUID.randomUUID();
+		when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+		when(plugin.getVoteTimer()).thenReturn(voteTimer);
+		when(plugin.getServerData()).thenReturn(serverData);
+		when(plugin.getStorageType()).thenReturn(UserStorage.SQLITE);
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("VotifierVoteOverflowQueueTest"));
+		VotifierVoteOverflowQueue queue = new VotifierVoteOverflowQueue(plugin, (site, user, id) -> {
+			processed.countDown();
+			return VotifierVoteOverflowQueue.VoteOutcome.COMPLETE;
+		});
+		try {
+			assertTrue(queue.enqueue("Steve", "example.org", voteId));
+			queue.start();
+
+			assertTrue(processed.await(2, TimeUnit.SECONDS));
+			Path queueFile = dataFolder.resolve("VotifierVoteQueue.yml");
+			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+			while ((!Files.exists(queueFile) || Files.readString(queueFile).contains(voteId.toString()))
+					&& System.nanoTime() < deadline) Thread.sleep(10L);
+			assertTrue(Files.exists(queueFile));
+			assertTrue(!Files.readString(queueFile).contains(voteId.toString()));
+			deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+			while (org.mockito.Mockito.mockingDetails(serverData).getInvocations().isEmpty()
+					&& System.nanoTime() < deadline) Thread.sleep(10L);
+			verify(serverData).clearVoteReplayUnsafe(voteId);
+			assertEquals(0, queue.size());
+		} finally {
+			queue.close();
+			voteTimer.shutdownNow();
+		}
+	}
+
+	@Test
+	void failedQueuedAttemptKeepsTheExistingEntry(@TempDir Path dataFolder) throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		ScheduledExecutorService voteTimer = Executors.newSingleThreadScheduledExecutor();
+		CountDownLatch attempted = new CountDownLatch(1);
+		when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+		when(plugin.getVoteTimer()).thenReturn(voteTimer);
+		VotifierVoteOverflowQueue queue = new VotifierVoteOverflowQueue(plugin, (site, user, voteId) -> {
+			attempted.countDown();
+			return VotifierVoteOverflowQueue.VoteOutcome.RETRY;
+		});
+		try {
+			assertTrue(queue.enqueue("Steve", "example.org", java.util.UUID.randomUUID()));
+			queue.start();
+			assertTrue(attempted.await(2, TimeUnit.SECONDS));
+			assertEquals(1, queue.size());
+		} finally {
+			queue.close();
+			voteTimer.shutdownNow();
+		}
+	}
+
+	@Test
+	void ambiguousAttemptIsDurablyQuarantinedAcrossRestart(@TempDir Path dataFolder) throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		ScheduledExecutorService voteTimer = Executors.newSingleThreadScheduledExecutor();
+		CountDownLatch attempted = new CountDownLatch(1);
+		when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+		when(plugin.getVoteTimer()).thenReturn(voteTimer);
+		VotifierVoteOverflowQueue queue = new VotifierVoteOverflowQueue(plugin, (site, user, voteId) -> {
+			attempted.countDown();
+			return VotifierVoteOverflowQueue.VoteOutcome.QUARANTINE;
+		});
+		try {
+			assertTrue(queue.enqueue("Steve", "example.org", java.util.UUID.randomUUID()));
+			queue.start();
+			assertTrue(attempted.await(2, TimeUnit.SECONDS));
+			Path file = dataFolder.resolve("VotifierVoteQueue.yml");
+			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+			while ((!Files.exists(file) || !Files.readString(file).contains("Quarantined: true"))
+					&& System.nanoTime() < deadline) Thread.sleep(10L);
+			assertTrue(Files.readString(file).contains("Quarantined: true"));
+		} finally {
+			queue.close();
+			voteTimer.shutdownNow();
+		}
+
+		ScheduledExecutorService restartedTimer = mock(ScheduledExecutorService.class);
+		when(plugin.getVoteTimer()).thenReturn(restartedTimer);
+		VotifierVoteOverflowQueue restarted = new VotifierVoteOverflowQueue(plugin, (site, user) -> { });
+		try {
+			restarted.start();
+			Thread.sleep(100L);
+			assertEquals(1, restarted.size());
+			verify(restartedTimer, org.mockito.Mockito.never()).submit(any(Runnable.class));
+		} finally {
+			restarted.close();
+		}
+	}
+
+	@Test
+	void directQuarantineReturnsOnlyAfterItsSnapshotIsDurable(@TempDir Path dataFolder) throws Exception {
+		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);
+		when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
+		when(plugin.getVoteTimer()).thenReturn(mock(ScheduledExecutorService.class));
+		VotifierVoteOverflowQueue queue = new VotifierVoteOverflowQueue(plugin, (site, user) -> { });
+		java.lang.reflect.Field writeLockField = VotifierVoteOverflowQueue.class
+				.getDeclaredField("persistenceWriteLock");
+		writeLockField.setAccessible(true);
+		Object writeLock = writeLockField.get(queue);
+		java.util.concurrent.ExecutorService caller = Executors.newSingleThreadExecutor();
+		java.util.UUID voteId = java.util.UUID.randomUUID();
+		java.util.concurrent.Future<Boolean> stored;
+		try {
+			synchronized (writeLock) {
+				stored = caller.submit(() -> queue.quarantine("Steve", "example.org", voteId));
+				long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+				while (queue.size() == 0 && System.nanoTime() < deadline) Thread.onSpinWait();
+				assertEquals(1, queue.size());
+				assertThrows(TimeoutException.class, () -> stored.get(100, TimeUnit.MILLISECONDS));
+			}
+			assertTrue(stored.get(2, TimeUnit.SECONDS));
+			String persisted = Files.readString(dataFolder.resolve("VotifierVoteQueue.yml"));
+			assertTrue(persisted.contains(voteId.toString()));
+			assertTrue(persisted.contains("Quarantined: true"));
+		} finally {
+			caller.shutdownNow();
+			queue.close();
+		}
+	}
+
 	@Test
 	void enqueueCannotChangeVersionDuringDurableAdmission(@TempDir Path dataFolder) throws Exception {
 		VotingPluginMain plugin = mock(VotingPluginMain.class, RETURNS_DEEP_STUBS);

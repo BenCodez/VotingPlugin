@@ -6,6 +6,7 @@ import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -19,6 +20,7 @@ import com.bencodez.votingplugin.user.VotingPluginUser;
 
 /** Loads top-voter rankings from user storage. */
 public class TopVoterLoader {
+	record BoundaryRanking(LinkedHashMap<TopVoterPlayer, Integer> players, int combinedTotal) { }
 
 	private final VotingPluginMain plugin;
 
@@ -48,6 +50,85 @@ public class TopVoterLoader {
 			Thread.currentThread().interrupt();
 		}
 		return TopVoterRanking.sortByValues(topVoters, false);
+	}
+
+	/** Loads a ranking from the immutable last-period column copied at transition admission. */
+	public LinkedHashMap<TopVoterPlayer, Integer> getBoundaryTopVoters(TopVoter top) {
+		return getBoundaryRanking(top, null).players();
+	}
+
+	/** Loads an immutable dated-month ranking without stopping when shutdown starts. */
+	public LinkedHashMap<TopVoterPlayer, Integer> getBoundaryMonthlyTopVotersAtTime(LocalDateTime atTime) {
+		return getBoundaryRanking(TopVoter.Monthly, atTime).players();
+	}
+
+	BoundaryRanking getBoundaryRanking(TopVoter top, LocalDateTime monthlyTime) {
+		List<String> blacklist = plugin.getConfigFile().getBlackList();
+		return getBoundaryRanking(top, monthlyTime, plugin.getConfigFile().isTopVoterIgnorePermission(),
+				blacklist == null ? List.of() : blacklist);
+	}
+
+	BoundaryRanking getBoundaryRanking(TopVoter top, LocalDateTime monthlyTime,
+			boolean ignorePermission, List<String> blacklist) {
+		return loadBoundaryRanking(top, monthlyTime, ignorePermission, blacklist);
+	}
+
+	private BoundaryRanking loadBoundaryRanking(TopVoter top,
+			LocalDateTime monthlyTime, boolean ignorePermission, List<String> blacklist) {
+		LinkedHashMap<TopVoterPlayer, Integer> topVoters = new LinkedHashMap<>();
+		int[] combinedTotal = { 0 };
+		int limit = plugin.getConfigFile().getMaxiumNumberOfTopVotersToLoad();
+		plugin.getUserManager().forEachUserKeys((uuid, columns) -> {
+			if (uuid == null) return;
+			VotingPluginUser user = plugin.getVotingPluginUserManager().getVotingPluginUser(uuid, false);
+			user.userDataFetechMode(UserDataFetchMode.TEMP_ONLY);
+			user.updateTempCacheWithColumns(columns);
+			try {
+				int total = monthlyTime == null ? switch (top) {
+				case Daily -> user.getLastDailyTotal();
+				case Weekly -> user.getLastWeeklyTotal();
+				case Monthly -> user.getLastMonthTotal();
+				default -> 0;
+				} : user.getTotal(TopVoter.Monthly, monthlyTime);
+				if (total > 0) {
+					combinedTotal[0] += total;
+					String playerName = user.getPlayerName();
+					if (user.isBanned() || playerName != null && blacklist.contains(playerName)
+							|| ignorePermission && user.isTopVoterIgnore()) return;
+					addBounded(topVoters, user.getTopVoterPlayer(), total, limit);
+				}
+			} finally {
+				user.clearTempCache();
+			}
+		}, count -> { });
+		return new BoundaryRanking(TopVoterRanking.sortByValues(topVoters, false), combinedTotal[0]);
+	}
+
+	private static void addBounded(LinkedHashMap<TopVoterPlayer, Integer> ranking,
+			TopVoterPlayer player, int total, int limit) {
+		if (limit <= 0 || ranking.size() < limit) {
+			ranking.put(player, total);
+			return;
+		}
+		Entry<TopVoterPlayer, Integer> worst = null;
+		for (Entry<TopVoterPlayer, Integer> entry : ranking.entrySet()) {
+			if (worst == null || compareRank(entry.getKey(), entry.getValue(),
+					worst.getKey(), worst.getValue()) > 0) worst = entry;
+		}
+		if (worst != null && compareRank(player, total, worst.getKey(), worst.getValue()) < 0) {
+			ranking.remove(worst.getKey());
+			ranking.put(player, total);
+		}
+	}
+
+	/** Negative when the first entry ranks ahead of the second. */
+	private static int compareRank(TopVoterPlayer first, int firstTotal,
+			TopVoterPlayer second, int secondTotal) {
+		int totals = Integer.compare(secondTotal, firstTotal);
+		if (totals != 0) return totals;
+		int times = first.getLastVoteTime().compareTo(second.getLastVoteTime());
+		if (times != 0) return times;
+		return first.getUuid().toString().compareTo(second.getUuid().toString());
 	}
 
 	public LinkedHashMap<TopVoterPlayer, Integer> getTopVotersOfMonth(YearMonth month,

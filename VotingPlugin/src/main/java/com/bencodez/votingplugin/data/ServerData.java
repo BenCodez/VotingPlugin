@@ -2,9 +2,11 @@ package com.bencodez.votingplugin.data;
 
 import java.time.temporal.WeekFields;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -12,6 +14,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.configuration.ConfigurationSection;
 
+import com.bencodez.advancedcore.api.time.TimeChangeTransition;
+import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.simpleapi.array.ArrayUtils;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.signs.SignHandler;
@@ -19,8 +23,55 @@ import com.bencodez.votingplugin.timequeue.VoteTimeQueue;
 import com.bencodez.votingplugin.topvoter.TopVoter;
 
 public class ServerData {
+	public enum TimeChangeRewardState {
+		UNCLAIMED, CLAIMED, COMPLETE
+	}
+
+	public record TimeChangeUserProgress(String uuid, int streakTarget, boolean rewardRequired,
+			boolean rewardComplete) { }
+	public record TimeChangeUserPolicy(boolean voteStreaks, boolean highestTotals,
+			boolean monthDateTotalsPrimary, boolean streakUsesPercentage,
+			double dayPercentage, double weekPercentage, double monthPercentage,
+			boolean proxyOwnsResets, boolean waitForProxy, boolean rewardForceProxy,
+			int enabledSiteCount) {
+		public TimeChangeUserPolicy(boolean voteStreaks, boolean highestTotals,
+				boolean monthDateTotalsPrimary, boolean streakUsesPercentage,
+				double dayPercentage, double weekPercentage, double monthPercentage,
+				boolean proxyOwnsResets, boolean waitForProxy, boolean rewardForceProxy) {
+			this(voteStreaks, highestTotals, monthDateTotalsPrimary, streakUsesPercentage,
+					dayPercentage, weekPercentage, monthPercentage, proxyOwnsResets,
+					waitForProxy, rewardForceProxy, 0);
+		}
+	}
+	public record TimeChangeTopPolicy(boolean rewardsEnabled, boolean awardTies,
+			boolean ignorePermission, boolean archiveRequired, List<String> rewardPlaces,
+			List<String> blacklistedPlayers) {
+		public TimeChangeTopPolicy {
+			rewardPlaces = List.copyOf(rewardPlaces);
+			blacklistedPlayers = List.copyOf(blacklistedPlayers);
+		}
+	}
+	public record TimeChangeRewardTarget(String uuid, String playerName, int place, String reward, int votes) { }
+	public record TimeChangeArchiveSection(String name, List<String> lines) {
+		public TimeChangeArchiveSection {
+			lines = List.copyOf(lines);
+		}
+	}
+	public record TimeChangeArchiveSnapshot(List<TimeChangeArchiveSection> sections) {
+		public TimeChangeArchiveSnapshot {
+			sections = List.copyOf(sections);
+		}
+	}
+
+	private static final String TIME_CHANGE_RECOVERY = "TimeChangeRecovery";
+	private static final String VOTE_PARTY_ACCOUNTING = "VoteParty.Accounting";
+	private static final String VOTE_REPLAY_UNSAFE = "VoteDelivery.ReplayUnsafe";
+	private static final List<String> TIME_CHANGE_PHASES = List.of("START", "SNAPSHOT", "COPY_TOTALS",
+			"USER_UPDATES", "TOP_REWARDS", "VOTE_SHOP", "BUNGEE_WAIT", "TOTALS_RESET", "CACHE_CLEAR",
+			"POST_DATE", "COMPLETE");
 
 	private VotingPluginMain plugin = VotingPluginMain.plugin;
+	private final TimeChangeUserCheckpointStore timeChangeUsers;
 
 	/**
 	 * Constructs a new ServerData.
@@ -29,6 +80,8 @@ public class ServerData {
 	 */
 	public ServerData(VotingPluginMain plugin) {
 		this.plugin = plugin;
+		timeChangeUsers = new TimeChangeUserCheckpointStore(
+				plugin == null || plugin.getDataFolder() == null ? null : plugin.getDataFolder().toPath());
 	}
 
 	/**
@@ -90,6 +143,87 @@ public class ServerData {
 		getData().set("TimedVoteCache." + num + ".Name", vote.getName());
 		getData().set("TimedVoteCache." + num + ".Service", vote.getService());
 		getData().set("TimedVoteCache." + num + ".Time", vote.getTime());
+		getData().set("TimedVoteCache." + num + ".VoteId",
+				vote.getVoteId() == null ? null : vote.getVoteId().toString());
+		saveData();
+	}
+
+	/** Replaces the durable timed-vote snapshot with one ordered in-memory queue. */
+	public synchronized void replaceTimedVoteCache(List<VoteTimeQueue> votes) {
+		Map<String, Object> previous = snapshotSection("TimedVoteCache");
+		try {
+			getData().set("TimedVoteCache", null);
+			int index = 0;
+			for (VoteTimeQueue vote : votes) {
+				String path = "TimedVoteCache." + index++;
+				getData().set(path + ".Name", vote.getName());
+				getData().set(path + ".Service", vote.getService());
+				getData().set(path + ".Time", vote.getTime());
+				getData().set(path + ".VoteId", vote.getVoteId() == null ? null : vote.getVoteId().toString());
+			}
+			saveData();
+		} catch (RuntimeException failure) {
+			restoreSection("TimedVoteCache", previous);
+			throw failure;
+		}
+	}
+
+	/** Retains an ambiguously processed timed vote without admitting it to replay. */
+	public synchronized void quarantineTimedVote(VoteTimeQueue vote) {
+		String key = vote.getVoteId() == null ? vote.legacyTimedVoteId().toString() : vote.getVoteId().toString();
+		String path = "TimedVoteQuarantine." + key;
+		getData().set(path + ".Name", vote.getName());
+		getData().set(path + ".Service", vote.getService());
+		getData().set(path + ".Time", vote.getTime());
+		getData().set(path + ".VoteId", key);
+		saveData();
+	}
+
+	/** Persists that a delivery crossed into effects which cannot safely be replayed. */
+	public synchronized void markVoteReplayUnsafe(UUID voteId) {
+		String path = VOTE_REPLAY_UNSAFE + "." + voteId;
+		boolean existed = getData().contains(path);
+		Object previous = getData().get(path);
+		try {
+			getData().set(path, true);
+			saveData();
+		} catch (RuntimeException failure) {
+			getData().set(path, existed ? previous : null);
+			ConfigurationSection remaining = getData().getConfigurationSection(VOTE_REPLAY_UNSAFE);
+			if (remaining != null && remaining.getKeys(false).isEmpty()) getData().set(VOTE_REPLAY_UNSAFE, null);
+			throw failure;
+		}
+	}
+
+	private Map<String, Object> snapshotSection(String path) {
+		ConfigurationSection section = getData().getConfigurationSection(path);
+		if (section == null) return null;
+		Map<String, Object> snapshot = new HashMap<>();
+		for (Map.Entry<String, Object> entry : section.getValues(true).entrySet()) {
+			if (!(entry.getValue() instanceof ConfigurationSection)) snapshot.put(entry.getKey(), entry.getValue());
+		}
+		return snapshot;
+	}
+
+	private void restoreSection(String path, Map<String, Object> snapshot) {
+		getData().set(path, null);
+		if (snapshot == null) return;
+		for (Map.Entry<String, Object> entry : snapshot.entrySet()) {
+			getData().set(path + "." + entry.getKey(), entry.getValue());
+		}
+	}
+
+	public synchronized boolean isVoteReplayUnsafe(UUID voteId) {
+		return voteId != null && getData().getBoolean(VOTE_REPLAY_UNSAFE + "." + voteId);
+	}
+
+	/** Removes a replay fence after the delivery owner has durably retired the vote. */
+	public synchronized void clearVoteReplayUnsafe(UUID voteId) {
+		if (voteId == null) return;
+		if (!getData().contains(VOTE_REPLAY_UNSAFE + "." + voteId)) return;
+		getData().set(VOTE_REPLAY_UNSAFE + "." + voteId, null);
+		ConfigurationSection remaining = getData().getConfigurationSection(VOTE_REPLAY_UNSAFE);
+		if (remaining != null && remaining.getKeys(false).isEmpty()) getData().set(VOTE_REPLAY_UNSAFE, null);
 		saveData();
 	}
 
@@ -389,6 +523,681 @@ public class ServerData {
 	 */
 	public synchronized void saveData() {
 		plugin.getServerDataFile().saveData();
+	}
+
+	/** Atomically records and applies one local VoteParty total increment. */
+	public synchronized boolean incrementVotePartyTotal(UUID voteId) {
+		if (voteId == null) {
+			getData().set("VoteParty.Total", getData().getInt("VoteParty.Total") + 1);
+			saveData();
+			return true;
+		}
+		String receiptPath = VOTE_PARTY_ACCOUNTING + "." + voteId;
+		if (getData().contains(receiptPath)) return false;
+		int previousTotal = getData().getInt("VoteParty.Total");
+		long now = System.currentTimeMillis();
+		try {
+			getData().set("VoteParty.Total", previousTotal + 1);
+			getData().set(receiptPath, now);
+			saveData();
+			return true;
+		} catch (RuntimeException | Error failure) {
+			getData().set("VoteParty.Total", previousTotal);
+			getData().set(receiptPath, null);
+			throw failure;
+		}
+	}
+
+	/** Retires a VoteParty replay receipt after its durable delivery owner completes. */
+	public synchronized void clearVotePartyAccounting(UUID voteId) {
+		if (voteId == null) return;
+		String receiptPath = VOTE_PARTY_ACCOUNTING + "." + voteId;
+		if (!getData().contains(receiptPath)) return;
+		getData().set(receiptPath, null);
+		ConfigurationSection remaining = getData().getConfigurationSection(VOTE_PARTY_ACCOUNTING);
+		if (remaining != null && remaining.getKeys(false).isEmpty()) getData().set(VOTE_PARTY_ACCOUNTING, null);
+		saveData();
+	}
+
+	/**
+	 * Starts or resumes the compact local checkpoint for a durable core time
+	 * transition. Only the current transition for each time type is retained;
+	 * per-recipient reward receipts are bounded by the top-voter recipient list.
+	 *
+	 * @param transition the core-owned durable transition
+	 */
+	public synchronized void beginTimeChangeRecovery(TimeChangeTransition transition) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		boolean sameTransition = transition.getId().equals(getData().getString(path + ".Id", ""));
+		if (timeChangeUsers.isFileBacked()) {
+			TimeChangeUserProgress legacyUser = null;
+			TimeChangeRewardState legacyReward = TimeChangeRewardState.UNCLAIMED;
+			if (sameTransition) {
+				String userPath = path + ".CurrentUser";
+				String uuid = getData().getString(userPath + ".Uuid", "");
+				if (!uuid.isEmpty()) {
+					boolean complete = getData().getBoolean(userPath + ".RewardComplete", false);
+					legacyUser = new TimeChangeUserProgress(uuid,
+							getData().getInt(userPath + ".StreakTarget"),
+							getData().getBoolean(userPath + ".RewardRequired", false), complete);
+					legacyReward = complete ? TimeChangeRewardState.COMPLETE
+							: getData().getBoolean(userPath + ".RewardClaimed", false)
+									? TimeChangeRewardState.CLAIMED : TimeChangeRewardState.UNCLAIMED;
+				}
+			}
+			timeChangeUsers.begin(transition,
+					sameTransition ? getData().getString(path + ".Cursor", "") : "", legacyUser, legacyReward);
+		}
+		if (sameTransition) return;
+		getData().set(path, null);
+		getData().set(path + ".Id", transition.getId());
+		getData().set(path + ".Period", transition.getPeriodKey());
+		getData().set(path + ".Phase", "START");
+		getData().set(path + ".Cursor", "");
+		saveData();
+	}
+
+	/** Fixes per-user period processing policy for the lifetime of one transition. */
+	public synchronized TimeChangeUserPolicy prepareTimeChangeUserPolicy(TimeChangeTransition transition,
+			TimeChangeUserPolicy proposed) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		String policyPath = path + ".UserPolicy";
+		if (!getData().getBoolean(policyPath + ".Prepared", false)) {
+			getData().set(policyPath + ".VoteStreaks", proposed.voteStreaks());
+			getData().set(policyPath + ".HighestTotals", proposed.highestTotals());
+			getData().set(policyPath + ".MonthDateTotalsPrimary", proposed.monthDateTotalsPrimary());
+			getData().set(policyPath + ".StreakUsesPercentage", proposed.streakUsesPercentage());
+			getData().set(policyPath + ".DayPercentage", proposed.dayPercentage());
+			getData().set(policyPath + ".WeekPercentage", proposed.weekPercentage());
+			getData().set(policyPath + ".MonthPercentage", proposed.monthPercentage());
+			getData().set(policyPath + ".EnabledSiteCount", proposed.enabledSiteCount());
+			getData().set(policyPath + ".ProxyOwnsResets", proposed.proxyOwnsResets());
+			getData().set(policyPath + ".WaitForProxy", proposed.waitForProxy());
+			getData().set(policyPath + ".RewardForceProxy", proposed.rewardForceProxy());
+			getData().set(policyPath + ".Prepared", true);
+			try {
+				saveData();
+			} catch (RuntimeException failure) {
+				getData().set(policyPath, null);
+				throw failure;
+			}
+		}
+		return getTimeChangeUserPolicy(transition);
+	}
+
+	/** Returns the per-user policy captured when recovery began. */
+	public synchronized TimeChangeUserPolicy getTimeChangeUserPolicy(TimeChangeTransition transition) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		String policyPath = path + ".UserPolicy";
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))
+				|| !getData().getBoolean(policyPath + ".Prepared", false)) {
+			throw new IllegalStateException("Time change user policy is not prepared");
+		}
+		return new TimeChangeUserPolicy(getData().getBoolean(policyPath + ".VoteStreaks"),
+				getData().getBoolean(policyPath + ".HighestTotals"),
+				getData().getBoolean(policyPath + ".MonthDateTotalsPrimary"),
+				getData().getBoolean(policyPath + ".StreakUsesPercentage"),
+				getData().getDouble(policyPath + ".DayPercentage"),
+				getData().getDouble(policyPath + ".WeekPercentage"),
+				getData().getDouble(policyPath + ".MonthPercentage"),
+				getData().getBoolean(policyPath + ".ProxyOwnsResets"),
+				getData().getBoolean(policyPath + ".WaitForProxy"),
+				getData().getBoolean(policyPath + ".RewardForceProxy"),
+				getData().getInt(policyPath + ".EnabledSiteCount"));
+	}
+
+	/** Fixes the VoteShop identifiers selected for this transition before resets begin. */
+	public synchronized List<String> prepareTimeChangeVoteShopTargets(TimeChangeTransition transition,
+			List<String> proposed) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		String targetsPath = path + ".VoteShopTargets";
+		if (!getData().getBoolean(targetsPath + ".Prepared", false)) {
+			getData().set(targetsPath + ".Identifiers", List.copyOf(proposed));
+			getData().set(targetsPath + ".Prepared", true);
+			try {
+				saveData();
+			} catch (RuntimeException failure) {
+				getData().set(targetsPath, null);
+				throw failure;
+			}
+		}
+		return List.copyOf(getData().getStringList(targetsPath + ".Identifiers"));
+	}
+
+	public synchronized List<String> getTimeChangeVoteShopTargets(TimeChangeTransition transition) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		String targetsPath = path + ".VoteShopTargets";
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))
+				|| !getData().getBoolean(targetsPath + ".Prepared", false)) {
+			throw new IllegalStateException("Time change VoteShop targets are not prepared");
+		}
+		return List.copyOf(getData().getStringList(targetsPath + ".Identifiers"));
+	}
+
+	/** Fixes top reward and archive selection inputs before the period boundary is copied. */
+	public synchronized TimeChangeTopPolicy prepareTimeChangeTopPolicy(TimeChangeTransition transition,
+			TimeChangeTopPolicy proposed) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		String policyPath = path + ".TopPolicy";
+		if (!getData().getBoolean(policyPath + ".Prepared", false)) {
+			getData().set(policyPath + ".RewardsEnabled", proposed.rewardsEnabled());
+			getData().set(policyPath + ".AwardTies", proposed.awardTies());
+			getData().set(policyPath + ".IgnorePermission", proposed.ignorePermission());
+			getData().set(policyPath + ".ArchiveRequired", proposed.archiveRequired());
+			getData().set(policyPath + ".RewardPlaces", proposed.rewardPlaces());
+			getData().set(policyPath + ".BlacklistedPlayers", proposed.blacklistedPlayers());
+			getData().set(policyPath + ".Prepared", true);
+			try {
+				saveData();
+			} catch (RuntimeException failure) {
+				getData().set(policyPath, null);
+				throw failure;
+			}
+		}
+		return getTimeChangeTopPolicy(transition);
+	}
+
+	public synchronized TimeChangeTopPolicy getTimeChangeTopPolicy(TimeChangeTransition transition) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		String policyPath = path + ".TopPolicy";
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))
+				|| !getData().getBoolean(policyPath + ".Prepared", false)) {
+			throw new IllegalStateException("Time change top policy is not prepared");
+		}
+		return new TimeChangeTopPolicy(getData().getBoolean(policyPath + ".RewardsEnabled"),
+				getData().getBoolean(policyPath + ".AwardTies"),
+				getData().getBoolean(policyPath + ".IgnorePermission"),
+				getData().getBoolean(policyPath + ".ArchiveRequired"),
+				getData().getStringList(policyPath + ".RewardPlaces"),
+				getData().getStringList(policyPath + ".BlacklistedPlayers"));
+	}
+
+	/** Fixes whether one listener effect belongs to this transition. */
+	public synchronized boolean prepareTimeChangeEffectPolicy(TimeChangeTransition transition, String effect,
+			boolean proposed) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		String policyPath = path + ".EffectPolicies." + effect;
+		if (!getData().contains(policyPath)) {
+			getData().set(policyPath, proposed);
+			try {
+				saveData();
+			} catch (RuntimeException failure) {
+				getData().set(policyPath, null);
+				throw failure;
+			}
+		}
+		return getData().getBoolean(policyPath);
+	}
+
+	/** Returns whether the named phase has been durably completed. */
+	public synchronized boolean hasTimeChangePhase(TimeChangeTransition transition, String phase) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) return false;
+		int requested = TIME_CHANGE_PHASES.indexOf(phase);
+		int completed = TIME_CHANGE_PHASES.indexOf(getData().getString(path + ".Phase", "START"));
+		return requested >= 0 && completed >= requested;
+	}
+
+	/** Records the next completed recovery phase synchronously. */
+	public synchronized void completeTimeChangePhase(TimeChangeTransition transition, String phase) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		getData().set(path + ".Phase", phase);
+		saveData();
+	}
+
+	/** Returns the last durably completed UUID in sorted user processing. */
+	public synchronized String getTimeChangeCursor(TimeChangeTransition transition) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) return "";
+		if (timeChangeUsers.isFileBacked()) return timeChangeUsers.cursor(transition);
+		return getData().getString(path + ".Cursor", "");
+	}
+
+	/** Advances the compact sorted-user cursor after that user's work is done. */
+	public synchronized void completeTimeChangeUser(TimeChangeTransition transition, String uuid) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		if (timeChangeUsers.isFileBacked()) {
+			timeChangeUsers.completeUser(transition, uuid);
+			return;
+		}
+		getData().set(path + ".Cursor", uuid);
+		getData().set(path + ".CurrentUser", null);
+		saveData();
+	}
+
+	/**
+	 * Persists the absolute streak target before changing a user. Only one user is
+	 * in flight because the period walk is ordered and synchronous.
+	 */
+	public synchronized TimeChangeUserProgress prepareTimeChangeUserStreak(TimeChangeTransition transition,
+			String uuid, int streakTarget, boolean rewardRequired) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		if (timeChangeUsers.isFileBacked()) {
+			return timeChangeUsers.prepareStreak(transition, uuid, streakTarget, rewardRequired);
+		}
+		String userPath = path + ".CurrentUser";
+		if (!uuid.equals(getData().getString(userPath + ".Uuid", ""))) {
+			getData().set(userPath, null);
+			getData().set(userPath + ".Uuid", uuid);
+			getData().set(userPath + ".StreakTarget", streakTarget);
+			getData().set(userPath + ".RewardRequired", rewardRequired);
+			getData().set(userPath + ".RewardClaimed", false);
+			getData().set(userPath + ".RewardComplete", false);
+			saveData();
+		}
+		return new TimeChangeUserProgress(uuid, getData().getInt(userPath + ".StreakTarget"),
+				getData().getBoolean(userPath + ".RewardRequired", false),
+				getData().getBoolean(userPath + ".RewardComplete", false));
+	}
+
+	public synchronized TimeChangeRewardState getTimeChangeUserStreakRewardState(
+			TimeChangeTransition transition, String uuid) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		if (timeChangeUsers.isFileBacked()) return timeChangeUsers.rewardState(transition, uuid);
+		String userPath = path + ".CurrentUser";
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))
+				|| !uuid.equals(getData().getString(userPath + ".Uuid", ""))) {
+			throw new IllegalStateException("Time change recovery user does not match");
+		}
+		if (getData().getBoolean(userPath + ".RewardComplete", false)) return TimeChangeRewardState.COMPLETE;
+		return getData().getBoolean(userPath + ".RewardClaimed", false)
+				? TimeChangeRewardState.CLAIMED : TimeChangeRewardState.UNCLAIMED;
+	}
+
+	/** Durably claims the in-flight user's streak reward before invoking it. */
+	public synchronized void claimTimeChangeUserStreakReward(TimeChangeTransition transition, String uuid) {
+		if (getTimeChangeUserStreakRewardState(transition, uuid) != TimeChangeRewardState.UNCLAIMED) {
+			throw new IllegalStateException("Time change streak reward is already claimed");
+		}
+		if (timeChangeUsers.isFileBacked()) {
+			timeChangeUsers.setRewardState(transition, uuid, TimeChangeRewardState.CLAIMED);
+			return;
+		}
+		String userPath = timeChangeRecoveryPath(transition.getType()) + ".CurrentUser";
+		getData().set(userPath + ".RewardClaimed", true);
+		try {
+			saveData();
+		} catch (RuntimeException failure) {
+			getData().set(userPath + ".RewardClaimed", false);
+			throw failure;
+		}
+	}
+
+	/** Marks the in-flight user's streak reward call as returned successfully. */
+	public synchronized void completeTimeChangeUserStreakReward(TimeChangeTransition transition, String uuid) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		if (timeChangeUsers.isFileBacked()) {
+			if (timeChangeUsers.rewardState(transition, uuid) != TimeChangeRewardState.CLAIMED) {
+				throw new IllegalStateException("Time change streak reward is not claimed");
+			}
+			timeChangeUsers.setRewardState(transition, uuid, TimeChangeRewardState.COMPLETE);
+			return;
+		}
+		String userPath = path + ".CurrentUser";
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))
+				|| !uuid.equals(getData().getString(userPath + ".Uuid", ""))) {
+			throw new IllegalStateException("Time change recovery user does not match");
+		}
+		getData().set(userPath + ".RewardComplete", true);
+		try {
+			saveData();
+		} catch (RuntimeException failure) {
+			getData().set(userPath + ".RewardComplete", false);
+			throw failure;
+		}
+	}
+
+	/**
+	 * Persists the ranked recipients and reward assignments selected at the period
+	 * boundary. Retries always return this first durable selection.
+	 */
+	public synchronized List<TimeChangeRewardTarget> prepareTimeChangeRewardTargets(
+			TimeChangeTransition transition, List<TimeChangeRewardTarget> proposed) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		String targetsPath = path + ".RewardTargets";
+		if (getData().getBoolean(targetsPath + ".Prepared", false)) {
+			return getTimeChangeRewardTargets(transition);
+		}
+		List<TimeChangeRewardTarget> snapshot = List.copyOf(proposed);
+		for (TimeChangeRewardTarget target : snapshot) {
+			validateRewardTarget(target);
+		}
+		getData().set(targetsPath, null);
+		getData().set(targetsPath + ".Count", snapshot.size());
+		for (int index = 0; index < snapshot.size(); index++) {
+			TimeChangeRewardTarget target = snapshot.get(index);
+			String targetPath = targetsPath + ".Entries." + index;
+			getData().set(targetPath + ".Uuid", target.uuid());
+			getData().set(targetPath + ".PlayerName", target.playerName());
+			getData().set(targetPath + ".Place", target.place());
+			getData().set(targetPath + ".Reward", target.reward());
+			getData().set(targetPath + ".Votes", target.votes());
+		}
+		getData().set(targetsPath + ".Prepared", true);
+		try {
+			saveData();
+		} catch (RuntimeException | Error failure) {
+			getData().set(targetsPath, null);
+			throw failure;
+		}
+		return snapshot;
+	}
+
+	/** Returns the durable ranked reward selection for this transition. */
+	public synchronized List<TimeChangeRewardTarget> getTimeChangeRewardTargets(TimeChangeTransition transition) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		String targetsPath = path + ".RewardTargets";
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))
+				|| !getData().getBoolean(targetsPath + ".Prepared", false)) {
+			return List.of();
+		}
+		int count = getData().getInt(targetsPath + ".Count", -1);
+		if (count < 0) {
+			throw new IllegalStateException("Invalid time change reward target count");
+		}
+		List<TimeChangeRewardTarget> targets = new ArrayList<>(count);
+		for (int index = 0; index < count; index++) {
+			String targetPath = targetsPath + ".Entries." + index;
+			TimeChangeRewardTarget target = new TimeChangeRewardTarget(
+					getData().getString(targetPath + ".Uuid", ""),
+					getData().getString(targetPath + ".PlayerName", ""),
+					getData().getInt(targetPath + ".Place", 0),
+					getData().getString(targetPath + ".Reward", ""),
+					getData().getInt(targetPath + ".Votes", -1));
+			validateRewardTarget(target);
+			targets.add(target);
+		}
+		return List.copyOf(targets);
+	}
+
+	private void validateRewardTarget(TimeChangeRewardTarget target) {
+		if (target == null || target.playerName() == null || target.place() <= 0 || target.votes() < 0
+				|| target.reward() == null || target.reward().isEmpty()) {
+			throw new IllegalStateException("Invalid time change reward target");
+		}
+		try {
+			UUID.fromString(target.uuid());
+		} catch (RuntimeException invalidUuid) {
+			throw new IllegalStateException("Invalid time change reward target UUID", invalidUuid);
+		}
+	}
+
+	/** Persists the reward and archive boundary snapshots in one checkpoint. */
+	public synchronized void prepareTimeChangeSnapshot(TimeChangeTransition transition,
+			List<TimeChangeRewardTarget> targets, TimeChangeArchiveSnapshot archive) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		String snapshotPath = path + ".BoundarySnapshot";
+		if (getData().getBoolean(snapshotPath + ".Prepared", false)) return;
+		List<TimeChangeRewardTarget> targetSnapshot = List.copyOf(targets);
+		for (TimeChangeRewardTarget target : targetSnapshot) validateRewardTarget(target);
+		validateArchive(archive);
+		String targetsPath = path + ".RewardTargets";
+		String archivePath = path + ".Archive";
+		getData().set(targetsPath, null);
+		getData().set(targetsPath + ".Count", targetSnapshot.size());
+		for (int index = 0; index < targetSnapshot.size(); index++) {
+			TimeChangeRewardTarget target = targetSnapshot.get(index);
+			String targetPath = targetsPath + ".Entries." + index;
+			getData().set(targetPath + ".Uuid", target.uuid());
+			getData().set(targetPath + ".PlayerName", target.playerName());
+			getData().set(targetPath + ".Place", target.place());
+			getData().set(targetPath + ".Reward", target.reward());
+			getData().set(targetPath + ".Votes", target.votes());
+		}
+		getData().set(targetsPath + ".Prepared", true);
+		getData().set(archivePath, null);
+		getData().set(archivePath + ".Count", archive.sections().size());
+		for (int index = 0; index < archive.sections().size(); index++) {
+			TimeChangeArchiveSection section = archive.sections().get(index);
+			String sectionPath = archivePath + ".Sections." + index;
+			getData().set(sectionPath + ".Name", section.name());
+			getData().set(sectionPath + ".Lines", section.lines());
+		}
+		getData().set(archivePath + ".Prepared", true);
+		getData().set(snapshotPath + ".Prepared", true);
+		try {
+			saveData();
+		} catch (RuntimeException | Error failure) {
+			getData().set(targetsPath, null);
+			getData().set(archivePath, null);
+			getData().set(snapshotPath, null);
+			throw failure;
+		}
+	}
+
+	/** Persists the complete top-voter archive contents selected at the period boundary. */
+	public synchronized TimeChangeArchiveSnapshot prepareTimeChangeArchive(TimeChangeTransition transition,
+			TimeChangeArchiveSnapshot proposed) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		String archivePath = path + ".Archive";
+		if (getData().getBoolean(archivePath + ".Prepared", false)) return getTimeChangeArchive(transition);
+		validateArchive(proposed);
+		getData().set(archivePath, null);
+		getData().set(archivePath + ".Count", proposed.sections().size());
+		for (int index = 0; index < proposed.sections().size(); index++) {
+			TimeChangeArchiveSection section = proposed.sections().get(index);
+			String sectionPath = archivePath + ".Sections." + index;
+			getData().set(sectionPath + ".Name", section.name());
+			getData().set(sectionPath + ".Lines", section.lines());
+		}
+		getData().set(archivePath + ".Prepared", true);
+		try {
+			saveData();
+		} catch (RuntimeException | Error failure) {
+			getData().set(archivePath, null);
+			throw failure;
+		}
+		return proposed;
+	}
+
+	/** Returns the durable top-voter archive contents for this transition. */
+	public synchronized TimeChangeArchiveSnapshot getTimeChangeArchive(TimeChangeTransition transition) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		String archivePath = path + ".Archive";
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))
+				|| !getData().getBoolean(archivePath + ".Prepared", false)) {
+			return new TimeChangeArchiveSnapshot(List.of());
+		}
+		int count = getData().getInt(archivePath + ".Count", -1);
+		if (count < 0) throw new IllegalStateException("Invalid time change archive section count");
+		List<TimeChangeArchiveSection> sections = new ArrayList<>(count);
+		for (int index = 0; index < count; index++) {
+			String sectionPath = archivePath + ".Sections." + index;
+			sections.add(new TimeChangeArchiveSection(getData().getString(sectionPath + ".Name", ""),
+					getData().getStringList(sectionPath + ".Lines")));
+		}
+		TimeChangeArchiveSnapshot snapshot = new TimeChangeArchiveSnapshot(sections);
+		validateArchive(snapshot);
+		return snapshot;
+	}
+
+	private void validateArchive(TimeChangeArchiveSnapshot snapshot) {
+		if (snapshot == null) throw new IllegalStateException("Invalid time change archive");
+		Set<String> names = new HashSet<>();
+		for (TimeChangeArchiveSection section : snapshot.sections()) {
+			if (section == null || section.name() == null || section.name().isEmpty() || section.lines() == null
+					|| !names.add(section.name()) || section.lines().stream().anyMatch(line -> line == null)) {
+				throw new IllegalStateException("Invalid time change archive section");
+			}
+		}
+	}
+
+	/** Returns the durable delivery state for one top-voter reward recipient. */
+	public synchronized TimeChangeRewardState getTimeChangeRewardState(TimeChangeTransition transition,
+			String uuid) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			return TimeChangeRewardState.UNCLAIMED;
+		}
+		if (getData().getBoolean(path + ".Rewards." + uuid, false)) return TimeChangeRewardState.COMPLETE;
+		String stored = getData().getString(path + ".RewardStates." + uuid, "");
+		try {
+			return stored.isEmpty() ? TimeChangeRewardState.UNCLAIMED : TimeChangeRewardState.valueOf(stored);
+		} catch (IllegalArgumentException invalid) {
+			throw new IllegalStateException("Invalid time change reward state for " + uuid, invalid);
+		}
+	}
+
+	/** Checks the durable receipt for one top-voter reward recipient. */
+	public synchronized boolean hasTimeChangeRewardReceipt(TimeChangeTransition transition, String uuid) {
+		return getTimeChangeRewardState(transition, uuid) == TimeChangeRewardState.COMPLETE;
+	}
+
+	/** Durably claims a top-voter reward before invoking its existing reward API. */
+	public synchronized void claimTimeChangeReward(TimeChangeTransition transition, String uuid) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		if (getTimeChangeRewardState(transition, uuid) != TimeChangeRewardState.UNCLAIMED) {
+			throw new IllegalStateException("Time change reward is already claimed for " + uuid);
+		}
+		String statePath = path + ".RewardStates." + uuid;
+		getData().set(statePath, TimeChangeRewardState.CLAIMED.name());
+		try {
+			saveData();
+		} catch (RuntimeException failure) {
+			getData().set(statePath, null);
+			throw failure;
+		}
+	}
+
+	/** Persists a recipient receipt only after the existing reward API returns. */
+	public synchronized void completeTimeChangeReward(TimeChangeTransition transition, String uuid) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		String receiptPath = path + ".Rewards." + uuid;
+		String statePath = path + ".RewardStates." + uuid;
+		Object previousReceipt = getData().get(receiptPath);
+		String previousState = getData().getString(statePath, "");
+		getData().set(receiptPath, true);
+		getData().set(statePath, TimeChangeRewardState.COMPLETE.name());
+		try {
+			saveData();
+		} catch (RuntimeException failure) {
+			getData().set(receiptPath, previousReceipt);
+			getData().set(statePath, previousState.isEmpty() ? null : previousState);
+			throw failure;
+		}
+	}
+
+	/** Records idempotent non-reward listener effects such as VoteParty resets. */
+	public synchronized boolean hasTimeChangeEffect(TimeChangeTransition transition, String effect) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		return transition.getId().equals(getData().getString(path + ".Id", ""))
+				&& getData().getBoolean(path + ".Effects." + effect, false);
+	}
+
+	/** Marks a completed non-reward listener effect. */
+	public synchronized void completeTimeChangeEffect(TimeChangeTransition transition, String effect) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		getData().set(path + ".Effects." + effect, true);
+		saveData();
+	}
+
+	/**
+	 * Clears YAML-backed VoteParty state before the recoverable database reset.
+	 * The in-memory marker deliberately remains applied when saving fails. A later
+	 * vote will therefore persist the cleared boundary and its own new state
+	 * together, while a restart can safely retry the clear before votes resume.
+	 */
+	public synchronized void prepareTimeChangeVotePartyReset(TimeChangeTransition transition, String effect) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		String resetPath = path + ".VotePartyResets." + effect + ".StateReset";
+		if (getData().getBoolean(resetPath, false)) return;
+		getData().set("VoteParty.Total", 0);
+		getData().set("VoteParty.Voted", new ArrayList<>());
+		getData().set(resetPath, true);
+		saveData();
+	}
+
+	/** Records the VoteParty reset receipt after its database boundary is removed. */
+	public synchronized void completeTimeChangeVotePartyReset(TimeChangeTransition transition, String effect) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		String resetPath = path + ".VotePartyResets." + effect + ".StateReset";
+		if (!getData().getBoolean(resetPath, false)) {
+			throw new IllegalStateException("VoteParty state reset is not prepared");
+		}
+		String effectPath = path + ".Effects." + effect;
+		Object previousEffect = getData().get(effectPath);
+		try {
+			getData().set(effectPath, true);
+			saveData();
+		} catch (RuntimeException | Error failure) {
+			getData().set(effectPath, previousEffect);
+			throw failure;
+		}
+	}
+
+	/** Resets VoteParty's extra requirement and records its receipt in one save. */
+	public synchronized void completeTimeChangeVotePartyExtraReset(TimeChangeTransition transition, String effect) {
+		String path = timeChangeRecoveryPath(transition.getType());
+		if (!transition.getId().equals(getData().getString(path + ".Id", ""))) {
+			throw new IllegalStateException("Time change recovery transition does not match");
+		}
+		int previousExtra = getData().getInt("VotePartyExtraRequired");
+		String effectPath = path + ".Effects." + effect;
+		Object previousEffect = getData().get(effectPath);
+		try {
+			getData().set("VotePartyExtraRequired", 0);
+			getData().set(effectPath, true);
+			saveData();
+		} catch (RuntimeException | Error failure) {
+			getData().set("VotePartyExtraRequired", previousExtra);
+			getData().set(effectPath, previousEffect);
+			throw failure;
+		}
+	}
+
+	private String timeChangeRecoveryPath(TimeType type) {
+		return TIME_CHANGE_RECOVERY + "." + type.name();
 	}
 
 	/**

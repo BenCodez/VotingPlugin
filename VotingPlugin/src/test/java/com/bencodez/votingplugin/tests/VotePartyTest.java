@@ -8,10 +8,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doReturn;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.UUID;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -25,7 +27,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.mockito.InOrder;
 
+import com.bencodez.advancedcore.api.time.TimeChangeTransition;
+import com.bencodez.advancedcore.api.time.events.DayChangeEvent;
 import com.bencodez.advancedcore.api.user.UserManager;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.config.Config;
@@ -86,9 +91,28 @@ public class VotePartyTest {
 
 	@Test
 	public void addTotal_IncrementsTotalVotes() {
-		when(plugin.getServerData().getData().getInt("VoteParty.Total")).thenReturn(5);
+		when(plugin.getServerData().incrementVotePartyTotal(null)).thenReturn(true);
 		voteParty.addTotal(user);
-		verify(plugin.getServerData().getData()).set("VoteParty.Total", 6);
+		verify(plugin.getServerData()).incrementVotePartyTotal(null);
+		verify(user).addVotePartyVote(null);
+		verify(plugin.getPlaceholders()).onVotePartyUpdate();
+	}
+
+	@Test
+	public void admittedVotePartyUsesTheCapturedEligibilityWithoutRecheckingOnlineState() {
+		UUID voteId = UUID.randomUUID();
+		Mockito.doNothing().when(voteParty).addTotal(user, voteId);
+		Mockito.doNothing().when(voteParty).addVotePlayer(user);
+		Mockito.doNothing().when(voteParty).check(user, false);
+		Mockito.doNothing().when(voteParty).checkVoteReminder(user);
+
+		voteParty.voteAdmitted(user, false, voteId, true);
+
+		verify(voteParty).addTotal(user, voteId);
+		verify(voteParty).addVotePlayer(user);
+		verify(voteParty).check(user, false);
+		verify(voteParty).checkVoteReminder(user);
+		verify(user, never()).isOnline();
 	}
 
 	@Test
@@ -110,6 +134,58 @@ public class VotePartyTest {
 	    voteParty.check(user, false);
 
 	    verify(voteParty, never()).giveRewards(any(), eq(false));
+	}
+
+	@Test
+	public void dayResetRecordsTransitionEffectBeforeCompletingLease() {
+		TimeChangeTransition transition = Mockito.mock(TimeChangeTransition.class);
+		TimeChangeTransition.Lease lease = Mockito.mock(TimeChangeTransition.Lease.class);
+		when(transition.retain()).thenReturn(lease);
+		when(transition.getType()).thenReturn(com.bencodez.advancedcore.api.time.TimeType.DAY);
+		when(transition.getId()).thenReturn("DAY:2026-09-21");
+		when(plugin.getSpecialRewardsConfig().isVotePartyResetEachDay()).thenReturn(true);
+		when(plugin.getServerData().prepareTimeChangeEffectPolicy(transition, "VotePartyDayReset", true))
+				.thenReturn(true);
+		doReturn(true).when(voteParty)
+				.copyRecoverableUserCountBoundary("vote-party-copy:DAY:2026-09-21:VotePartyDayReset");
+		doReturn(true).when(voteParty)
+				.resetRecoverableUserCounts("vote-party-reset:DAY:2026-09-21:VotePartyDayReset");
+
+		voteParty.onDayChange(new DayChangeEvent(transition));
+
+		verify(plugin.getServerData()).beginTimeChangeRecovery(transition);
+		verify(plugin.getServerData()).prepareTimeChangeEffectPolicy(transition, "VotePartyDayReset", true);
+		InOrder completionOrder = Mockito.inOrder(voteParty, plugin.getServerData(), lease);
+		completionOrder.verify(voteParty)
+				.copyRecoverableUserCountBoundary("vote-party-copy:DAY:2026-09-21:VotePartyDayReset");
+		completionOrder.verify(plugin.getServerData())
+				.prepareTimeChangeVotePartyReset(transition, "VotePartyDayReset");
+		completionOrder.verify(voteParty)
+				.resetRecoverableUserCounts("vote-party-reset:DAY:2026-09-21:VotePartyDayReset");
+		completionOrder.verify(plugin.getServerData())
+				.completeTimeChangeVotePartyReset(transition, "VotePartyDayReset");
+		completionOrder.verify(lease).complete();
+		verify(plugin.getServerData(), never()).completeTimeChangeEffect(transition, "VotePartyDayReset");
+	}
+
+	@Test
+	public void dayResetResumesWhenConfigurationWasDisabledAfterAdmission() {
+		TimeChangeTransition transition = Mockito.mock(TimeChangeTransition.class);
+		TimeChangeTransition.Lease lease = Mockito.mock(TimeChangeTransition.Lease.class);
+		when(transition.retain()).thenReturn(lease);
+		when(transition.getId()).thenReturn("DAY:2026-09-21");
+		when(plugin.getSpecialRewardsConfig().isVotePartyResetEachDay()).thenReturn(false);
+		when(plugin.getServerData().prepareTimeChangeEffectPolicy(transition, "VotePartyDayReset", false))
+				.thenReturn(true);
+		doReturn(true).when(voteParty)
+				.copyRecoverableUserCountBoundary("vote-party-copy:DAY:2026-09-21:VotePartyDayReset");
+		doReturn(true).when(voteParty)
+				.resetRecoverableUserCounts("vote-party-reset:DAY:2026-09-21:VotePartyDayReset");
+
+		voteParty.onDayChange(new DayChangeEvent(transition));
+
+		verify(plugin.getServerData()).completeTimeChangeVotePartyReset(transition, "VotePartyDayReset");
+		verify(lease).complete();
 	}
 
 	@Test

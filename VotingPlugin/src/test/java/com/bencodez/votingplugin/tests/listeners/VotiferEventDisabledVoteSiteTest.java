@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.tests.listeners;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
@@ -10,6 +12,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -25,6 +28,7 @@ import com.bencodez.votingplugin.config.ConfigVoteSites;
 import com.bencodez.votingplugin.events.PlayerVoteEvent;
 import com.bencodez.votingplugin.listeners.VotiferEvent;
 import com.bencodez.votingplugin.listeners.VotifierVoteOverflowQueue;
+import com.bencodez.votingplugin.timequeue.TimeQueueHandler;
 import com.bencodez.votingplugin.votesites.VoteSiteManager;
 import com.vexsoftware.votifier.model.Vote;
 
@@ -148,11 +152,59 @@ public class VotiferEventDisabledVoteSiteTest {
 	public void testVoteIsQueuedWhenBoundedExecutorRejectsIt() {
 		doThrow(new RejectedExecutionException("capacity exhausted"))
 				.when(voteTimer).submit(any(Runnable.class));
-		when(overflowQueue.enqueue("Steve", SERVICE_SITE)).thenReturn(true);
+		when(overflowQueue.enqueueDurably(org.mockito.ArgumentMatchers.eq("Steve"),
+				org.mockito.ArgumentMatchers.eq(SERVICE_SITE), any())).thenReturn(true);
 
 		listener.onVotiferEvent(createVoteEvent(SERVICE_SITE));
 
-		verify(overflowQueue).enqueue("Steve", SERVICE_SITE);
+		verify(overflowQueue).enqueueDurably(org.mockito.ArgumentMatchers.eq("Steve"),
+				org.mockito.ArgumentMatchers.eq(SERVICE_SITE), any());
 		verify(pluginManager, never()).callEvent(any(PlayerVoteEvent.class));
+	}
+
+	@Test
+	void timeChangeQueueReceivesTheOriginalVoteId() {
+		TimeQueueHandler timeQueue = mock(TimeQueueHandler.class);
+		UUID voteId = UUID.randomUUID();
+		when(plugin.getTimeQueueHandler()).thenReturn(timeQueue);
+		when(plugin.getTimeChecker().isActiveProcessing()).thenReturn(true);
+		when(plugin.getConfigFile().isQueueVotesDuringTimeChange()).thenReturn(true);
+		when(timeQueue.addVoteDurably(voteId, "Steve", SERVICE_SITE)).thenReturn(true);
+
+		listener.processVote(SERVICE_SITE, "Steve", voteId);
+
+		verify(timeQueue).addVoteDurably(voteId, "Steve", SERVICE_SITE);
+		verify(pluginManager, never()).callEvent(any(PlayerVoteEvent.class));
+	}
+
+	@Test
+	void queuedVoteIsRetriedWhenTimeQueueHandoffIsNotDurable() {
+		TimeQueueHandler timeQueue = mock(TimeQueueHandler.class);
+		UUID voteId = UUID.randomUUID();
+		when(plugin.getTimeQueueHandler()).thenReturn(timeQueue);
+		when(plugin.getTimeChecker().isActiveProcessing()).thenReturn(true);
+		when(plugin.getConfigFile().isQueueVotesDuringTimeChange()).thenReturn(true);
+
+		assertEquals(VotifierVoteOverflowQueue.VoteOutcome.RETRY,
+				listener.processQueuedVoteOutcome(SERVICE_SITE, "Steve", voteId));
+
+		verify(timeQueue).addVoteDurably(voteId, "Steve", SERVICE_SITE);
+		verify(pluginManager, never()).callEvent(any(PlayerVoteEvent.class));
+	}
+
+	@Test
+	void queuedVoteIsNotAcknowledgedWhenPostAdmissionProcessingFails() {
+		when(voteSiteManager.getVoteSiteName(false, SERVICE_SITE, "")).thenReturn(SERVICE_SITE);
+		when(voteSiteManager.getVoteSiteName(true, SERVICE_SITE, "")).thenReturn(SERVICE_SITE);
+		doAnswer(invocation -> {
+			PlayerVoteEvent event = invocation.getArgument(0);
+			event.setProcessingFailed(true);
+			event.setReplayUnsafe(true);
+			return null;
+		}).when(pluginManager).callEvent(any(PlayerVoteEvent.class));
+
+		assertFalse(listener.processQueuedVote(SERVICE_SITE, "Steve", UUID.randomUUID()));
+		assertEquals(VotifierVoteOverflowQueue.VoteOutcome.QUARANTINE,
+				listener.processQueuedVoteOutcome(SERVICE_SITE, "Steve", UUID.randomUUID()));
 	}
 }

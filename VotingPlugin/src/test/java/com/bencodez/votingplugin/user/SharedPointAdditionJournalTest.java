@@ -118,6 +118,25 @@ class SharedPointAdditionJournalTest {
 	}
 
 	@Test
+	void cappedVoteCreditAppliesTheAdditionAndLimitInOneUpdate() throws Exception {
+		Fixture fixture = fixture();
+		Connection missing = missingLookup();
+		Attempt credit = successfulAttempt(10);
+		when(fixture.sql.getConnectionManager().getConnection()).thenReturn(missing, credit.connection());
+
+		assertEquals(10, new SharedPointAdditionJournal(fixture.table, false)
+				.addCapped("vote-points", "player", "hub_Points", 5, 10, 100L).total());
+
+		org.mockito.ArgumentCaptor<String> statements = org.mockito.ArgumentCaptor.forClass(String.class);
+		verify(credit.connection(), times(4)).prepareStatement(statements.capture());
+		assertTrue(statements.getAllValues().get(1)
+				.contains("SET `hub_Points` = LEAST(COALESCE(`hub_Points`, 0) + ?, ?)"));
+		verify(credit.credit()).setInt(1, 5);
+		verify(credit.credit()).setInt(2, 10);
+		verify(credit.credit()).setString(3, "player");
+	}
+
+	@Test
 	void completedOperationRejectsAConflictingRetryInsteadOfChangingPoints() throws Exception {
 		Fixture fixture = fixture();
 		PreparedStatement lookup = mock(PreparedStatement.class);

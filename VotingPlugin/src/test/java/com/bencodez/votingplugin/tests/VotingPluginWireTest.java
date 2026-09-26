@@ -19,6 +19,14 @@ import com.bencodez.votingplugin.proxy.VotingPluginWire.VoteDelayRejected;
  * Tests proxy vote wire encoding and decoding.
  */
 public class VotingPluginWireTest {
+	@Test
+	void boundaryProtocolCapabilityMustMatchTheCurrentBackendHeartbeat() {
+		assertTrue(VotingPluginWire.supportsTimeChangeBoundaryProtocol("200",
+				VotingPluginWire.timeChangeBoundaryProtocolHeartbeat("200")));
+		assertFalse(VotingPluginWire.supportsTimeChangeBoundaryProtocol("201",
+				VotingPluginWire.timeChangeBoundaryProtocolHeartbeat("200")));
+		assertFalse(VotingPluginWire.supportsTimeChangeBoundaryProtocol("200", ""));
+	}
 
 	@Test
 	public void voteRoundTripPreservesVoteId() {
@@ -42,6 +50,16 @@ public class VotingPluginWireTest {
 		Vote vote = VotingPluginWire.readVote(envelope);
 
 		assertNull(vote.voteId);
+	}
+
+	@Test
+	public void legacyTotalsSupplyTheVoteIdWhenTheTopLevelFieldIsMissing() {
+		UUID voteId = UUID.randomUUID();
+		String legacyTotals = "1//2//3//4//5//0//6//7//8//" + voteId;
+		JsonEnvelope envelope = VotingPluginWire.vote("Player", UUID.randomUUID().toString(), "Service", 100L,
+				true, true, legacyTotals, null, true, false, 1, 1);
+
+		assertEquals(voteId, VotingPluginWire.resolveVoteId(VotingPluginWire.readVote(envelope)));
 	}
 
 	@Test

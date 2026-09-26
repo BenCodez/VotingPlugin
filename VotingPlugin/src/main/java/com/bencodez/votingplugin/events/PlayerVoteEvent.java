@@ -1,5 +1,7 @@
 package com.bencodez.votingplugin.events;
 
+import java.util.UUID;
+
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
@@ -79,6 +81,34 @@ public class PlayerVoteEvent extends Event {
 	@Getter
 	@Setter
 	private int voteNumber = 1;
+
+	/** Stable delivery identity supplied by proxy transports and durable retries. */
+	@Getter
+	@Setter
+	private UUID voteId;
+
+	@Getter
+	@Setter
+	private boolean accountingAdmissionFailed;
+
+	/** Processing began but did not reach the post-vote completion boundary. */
+	@Getter
+	@Setter
+	private boolean processingFailed;
+
+	/** A non-idempotent effect may already have run, so automatic replay is unsafe. */
+	@Getter
+	@Setter
+	private boolean replayUnsafe;
+
+	/** The durable producer will retire the replay fence after its own acknowledgement. */
+	@Getter
+	@Setter
+	private boolean deferredDeliveryCompletion;
+
+	public boolean isProcessingIncomplete() {
+		return accountingAdmissionFailed || processingFailed;
+	}
 
 	/**
 	 * Constructs a new PlayerVoteEvent.

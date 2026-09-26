@@ -79,6 +79,8 @@ class BackendProxyMessageRouterTest {
 		when(plugin.getBukkitScheduler()).thenReturn(scheduler);
 		when(plugin.getLogger()).thenReturn(logger);
 		when(votingUserManager.getVotingPluginUser(resolvedUser)).thenReturn(user);
+		when(user.bungeeVotePluginMessagingAccepted(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
+				anyBoolean(), anyInt(), any())).thenReturn(true);
 		doAnswer(invocation -> {
 			Runnable task = invocation.getArgument(1);
 			task.run();
@@ -188,8 +190,8 @@ class BackendProxyMessageRouterTest {
 		when(plugin.getBungeeSettings()).thenReturn(mock(BungeeSettings.class));
 		when(plugin.getVotingPluginUserManager().getVotingPluginUser(PLAYER_UUID, "Player"))
 				.thenReturn(user);
-		doThrow(new IllegalStateException("partial reward")).when(user).bungeeVotePluginMessaging(
-				any(), anyLong(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyInt());
+		when(user.bungeeVotePluginMessagingAccepted(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
+				anyBoolean(), anyInt(), any())).thenThrow(new IllegalStateException("partial reward"));
 		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
 				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
 				mock(BackendVotePartySync.class), cache);
@@ -234,8 +236,8 @@ class BackendProxyMessageRouterTest {
 		voteRouter.handleOrderedVote(vote, outcome::set);
 		assertEquals(OrderedVoteOutcome.COMPLETE, outcome.get());
 		verify(cache, times(2)).complete(voteId);
-		verify(user, times(1)).bungeeVotePluginMessaging(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
-				anyBoolean(), anyInt());
+		verify(user, times(1)).bungeeVotePluginMessagingAccepted(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
+				anyBoolean(), anyInt(), eq(voteId));
 	}
 
 	@Test
@@ -305,6 +307,45 @@ class BackendProxyMessageRouterTest {
 
 		assertFalse(voteRouter.hasDurableReceiptForRelease(release));
 		assertTrue(voteRouter.hasDurableReceiptForRelease(release));
+	}
+
+	@Test
+	void accountingAdmissionFailureReleasesVoteIdAndRetriesWithoutQuarantine() {
+		UUID voteId = UUID.randomUUID();
+		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
+		when(cache.reserve(voteId)).thenReturn(true);
+		when(plugin.getBungeeSettings()).thenReturn(mock(BungeeSettings.class));
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser(PLAYER_UUID, "Player")).thenReturn(user);
+		when(user.bungeeVotePluginMessagingAccepted(any(), anyLong(), any(), anyBoolean(), anyBoolean(),
+				anyBoolean(), anyInt(), any())).thenReturn(false);
+		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
+				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
+				mock(BackendVotePartySync.class), cache);
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+
+		voteRouter.handleOrderedVote(VotingPluginWire.vote("Player", PLAYER_UUID.toString(), "known.example",
+				LAST_VOTE_TIME, true, true, "", voteId, false, false, 1, 1), outcome::set);
+
+		assertEquals(OrderedVoteOutcome.RETRY, outcome.get());
+		verify(cache).release(voteId);
+	}
+
+	@Test
+	void duplicateVoteCompletesLaneWithoutRetiringOriginalDeliveryFence() {
+		UUID voteId = UUID.randomUUID();
+		ProcessedVoteCache cache = mock(ProcessedVoteCache.class);
+		when(cache.reserve(voteId)).thenReturn(false);
+		BackendProxyMessageRouter voteRouter = new BackendProxyMessageRouter(plugin,
+				mock(BackendPresenceManager.class), mock(BackendGlobalDataSync.class),
+				mock(BackendVotePartySync.class), cache);
+		AtomicReference<OrderedVoteOutcome> outcome = new AtomicReference<>();
+
+		voteRouter.handleOrderedVote(VotingPluginWire.vote("Player", PLAYER_UUID.toString(), "known.example",
+				LAST_VOTE_TIME, true, true, "", voteId, false, false, 1, 1), outcome::set);
+
+		assertEquals(OrderedVoteOutcome.COMPLETE_WITHOUT_RETIREMENT, outcome.get());
+		verify(user, never()).bungeeVotePluginMessagingAccepted(any(), anyLong(), any(), anyBoolean(),
+				anyBoolean(), anyBoolean(), anyInt(), any());
 	}
 
 }

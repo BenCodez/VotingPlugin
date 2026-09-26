@@ -54,6 +54,8 @@ import com.bencodez.simpleapi.sql.data.DataValue;
 import com.bencodez.advancedcore.api.user.userstorage.mysql.MySQL;
 import com.bencodez.advancedcore.api.rewards.RewardHandler;
 import com.bencodez.advancedcore.api.rewards.RewardOptions;
+import com.bencodez.advancedcore.api.time.TimeChangeTransition;
+import com.bencodez.advancedcore.api.time.TimeType;
 import com.bencodez.simpleapi.folialib.enums.EntityTaskResult;
 import com.bencodez.votingplugin.VotingPluginMain;
 import com.bencodez.votingplugin.user.SharedMysqlCacheReconciler;
@@ -169,6 +171,24 @@ class VoteShopPurchaseServiceTest {
 
 			assertEquals(usGeneration, germanGeneration);
 			assertEquals(usLimit, germanLimit);
+		} finally {
+			Locale.setDefault(previous);
+		}
+	}
+
+	@Test
+	void transitionResetGenerationUsesThePeriodKeyWithoutLocaleInterpretation() {
+		TimeChangeTransition week = mock(TimeChangeTransition.class);
+		when(week.getType()).thenReturn(TimeType.WEEK);
+		when(week.getPeriodKey()).thenReturn("2026-W38");
+		Locale previous = Locale.getDefault();
+		try {
+			Locale.setDefault(Locale.US);
+			String usGeneration = VoteShopPurchaseService.limitGenerationIdForTransition(week);
+			Locale.setDefault(Locale.GERMANY);
+			String germanGeneration = VoteShopPurchaseService.limitGenerationIdForTransition(week);
+			assertEquals("time-shop:WEEK:2026-W38", usGeneration);
+			assertEquals(usGeneration, germanGeneration);
 		} finally {
 			Locale.setDefault(previous);
 		}
@@ -1195,6 +1215,8 @@ class VoteShopPurchaseServiceTest {
 				.thenThrow(new java.sql.SQLException("down"))
 				.thenThrow(new java.sql.SQLException("still down"))
 				.thenReturn(true);
+		when(journal.recoverAccounting(anyLong())).thenReturn(
+				new SharedMysqlPurchaseJournal.AccountingRecoveryBatch(false, java.util.List.of()));
 		when(journal.recoverAndCleanup(anyLong())).thenReturn(java.util.List.of());
 		VoteShopPurchaseService.SharedPurchaseDebit debit = new VoteShopPurchaseService.SharedPurchaseDebit(
 				VoteShopPurchaseResult.SUCCESS, journal, "purchase-1", "Points", null);
@@ -1216,6 +1238,65 @@ class VoteShopPurchaseServiceTest {
 		verify(journal, times(3)).markCompensating("purchase-1");
 		verify(journal, times(2)).recoverAndCleanup(anyLong());
 		verify(scheduler, never()).runTaskAsynchronously(eq(plugin), any(Runnable.class));
+	}
+
+	@Test
+	void recoveredDailyStreakRunsRewardOnlyAfterThePersistedIncrement(@TempDir Path temporaryDirectory) throws Exception {
+		VotingPluginMain plugin = mockPluginForCompensation(temporaryDirectory);
+		when(plugin.getSpecialRewards()).thenReturn(mock(com.bencodez.votingplugin.specialrewards.SpecialRewards.class));
+		SharedMysqlPurchaseJournal journal = mock(SharedMysqlPurchaseJournal.class);
+		VotingPluginUser user = mock(VotingPluginUser.class);
+		java.util.UUID voteId = java.util.UUID.randomUUID();
+		java.util.UUID playerId = java.util.UUID.randomUUID();
+		when(journal.recoverAccounting(anyLong())).thenReturn(
+				new SharedMysqlPurchaseJournal.AccountingRecoveryBatch(true, java.util.List.of(voteId)),
+				new SharedMysqlPurchaseJournal.AccountingRecoveryBatch(false, java.util.List.of()));
+		when(journal.claimDailyStreakReward(voteId)).thenReturn(
+				new SharedMysqlPurchaseJournal.RecoveredDailyStreak(voteId, playerId.toString(), 7, true));
+		when(journal.recoverAndCleanup(anyLong())).thenReturn(java.util.List.of());
+		when(plugin.getVotingPluginUserManager().getVotingPluginUser(playerId, false)).thenReturn(user);
+
+		VoteShopPurchaseService.recoverSharedMysqlPurchases(plugin, journal);
+
+		org.mockito.InOrder order = org.mockito.Mockito.inOrder(journal, user);
+		order.verify(journal).claimDailyStreakReward(voteId);
+		order.verify(user).completeRecoveredDailyStreak(7, true);
+		order.verify(journal).completeDailyStreakReward(voteId);
+	}
+
+	@Test
+	void deferredDailyStreakRecoveryYieldsUntilTheNextRecoveryPass(@TempDir Path temporaryDirectory) throws Exception {
+		VotingPluginMain plugin = mockPluginForCompensation(temporaryDirectory);
+		when(plugin.getSpecialRewards()).thenReturn(mock(com.bencodez.votingplugin.specialrewards.SpecialRewards.class));
+		SharedMysqlPurchaseJournal journal = mock(SharedMysqlPurchaseJournal.class);
+		java.util.UUID voteId = java.util.UUID.randomUUID();
+		when(journal.recoverAccounting(anyLong())).thenReturn(
+				new SharedMysqlPurchaseJournal.AccountingRecoveryBatch(true, java.util.List.of(voteId)));
+		when(journal.claimDailyStreakReward(voteId)).thenReturn(null);
+		when(journal.recoverAndCleanup(anyLong())).thenReturn(java.util.List.of());
+
+		VoteShopPurchaseService.recoverSharedMysqlPurchases(plugin, journal);
+
+		verify(journal).recoverAccounting(anyLong());
+		verify(journal).claimDailyStreakReward(voteId);
+		verify(journal).recoverAndCleanup(anyLong());
+	}
+
+	@Test
+	void dailyStreakRecoveryDoesNotClaimRewardBeforeRewardServiceIsReady(@TempDir Path temporaryDirectory)
+			throws Exception {
+		VotingPluginMain plugin = mockPluginForCompensation(temporaryDirectory);
+		when(plugin.getSpecialRewards()).thenReturn(null);
+		SharedMysqlPurchaseJournal journal = mock(SharedMysqlPurchaseJournal.class);
+		java.util.UUID voteId = java.util.UUID.randomUUID();
+		when(journal.recoverAccounting(anyLong())).thenReturn(
+				new SharedMysqlPurchaseJournal.AccountingRecoveryBatch(true, java.util.List.of(voteId)));
+		when(journal.recoverAndCleanup(anyLong())).thenReturn(java.util.List.of());
+
+		VoteShopPurchaseService.recoverSharedMysqlPurchases(plugin, journal);
+
+		verify(journal, never()).claimDailyStreakReward(any());
+		verify(journal).recoverAndCleanup(anyLong());
 	}
 
 	private static VotingPluginMain mockPluginForCompensation(Path dataDirectory) {
