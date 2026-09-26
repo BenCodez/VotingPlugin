@@ -155,6 +155,22 @@ class NeoForgeDeferredVoteStoreTest {
         }
     }
 
+    @Test
+    void invalidUtf8StoredQueueIsNotNormalizedOrOverwritten() throws IOException {
+        writeConfiguration();
+        UUID playerId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
+        try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
+            runtime.storage().user(playerId).write(UserStorage.SQLITE, NeoForgeDeferredVoteStore.DEFERRED_VOTES,
+                    new DataValueString("v1|" + voteId
+                            + "|_w|ZXhhbXBsZS50ZXN0|RXhhbXBsZQ|100|true|true|true"));
+
+            assertThrows(IllegalStateException.class, () -> runtime.deferredVotes().pending(playerId));
+            assertThrows(IllegalStateException.class,
+                    () -> runtime.voteProcessor().process(complete(UUID.randomUUID(), playerId, 200L)));
+        }
+    }
+
     private void writeConfiguration() throws IOException {
         Files.writeString(directory.resolve("Config.yml"), """
                 DataStorage: SQLITE

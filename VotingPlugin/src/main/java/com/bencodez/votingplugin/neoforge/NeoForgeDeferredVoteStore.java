@@ -1,5 +1,8 @@
 package com.bencodez.votingplugin.neoforge;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -171,7 +174,15 @@ public final class NeoForgeDeferredVoteStore {
     }
 
     private static String decode(String value) {
-        return new String(DECODER.decode(value), StandardCharsets.UTF_8);
+        byte[] bytes = DECODER.decode(value);
+        try {
+            return StandardCharsets.UTF_8.newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(bytes)).toString();
+        } catch (CharacterCodingException failure) {
+            throw new IllegalArgumentException("Invalid UTF-8 field", failure);
+        }
     }
 
     private static Map<String, DataValue> row(List<Column> columns) {
