@@ -11,6 +11,11 @@ import java.util.Map;
  */
 public final class WebhookDefinition {
 
+	/** Maximum number of HTTP attempts allowed for one webhook request. */
+	public static final int MAX_RETRY_ATTEMPTS = 10;
+	/** Maximum delay accepted from webhook retry configuration or Discord. */
+	public static final long MAX_RETRY_DELAY_MS = 60_000L;
+
 	private final String id;
 	private final boolean enabled;
 	private final String url;
@@ -68,9 +73,10 @@ public final class WebhookDefinition {
 		this.signature = signature;
 
 		this.retryEnabled = retryEnabled;
-		this.retryMaxAttempts = retryMaxAttempts <= 0 ? 1 : retryMaxAttempts;
-		this.retryBackoffMs = Math.max(0, retryBackoffMs);
-		this.retryMaxBackoffMs = Math.max(this.retryBackoffMs, retryMaxBackoffMs);
+		this.retryMaxAttempts = Math.min(MAX_RETRY_ATTEMPTS, Math.max(1, retryMaxAttempts));
+		this.retryBackoffMs = Math.min(MAX_RETRY_DELAY_MS, Math.max(0, retryBackoffMs));
+		this.retryMaxBackoffMs = Math.min(MAX_RETRY_DELAY_MS,
+				Math.max(this.retryBackoffMs, retryMaxBackoffMs));
 	}
 
 	/** @return definition id */

@@ -92,9 +92,10 @@ public final class WebhookConfigLoader {
 			ConfigurationSection retrySec = s.getConfigurationSection("Retry");
 			if (retrySec != null) {
 				retryEnabled = retrySec.getBoolean("Enabled", true);
-				maxAttempts = retrySec.getInt("MaxAttempts", 5);
-				backoffMs = retrySec.getLong("BackoffMs", 1500);
-				maxBackoffMs = retrySec.getLong("MaxBackoffMs", 15000);
+				maxAttempts = clamp(retrySec.getInt("MaxAttempts", 5), 1, WebhookDefinition.MAX_RETRY_ATTEMPTS);
+				backoffMs = clamp(retrySec.getLong("BackoffMs", 1500), 0, WebhookDefinition.MAX_RETRY_DELAY_MS);
+				maxBackoffMs = clamp(retrySec.getLong("MaxBackoffMs", 15000), backoffMs,
+						WebhookDefinition.MAX_RETRY_DELAY_MS);
 			}
 
 			// Signature
@@ -129,5 +130,13 @@ public final class WebhookConfigLoader {
 			}
 		}
 		return out;
+	}
+
+	private static int clamp(int value, int minimum, int maximum) {
+		return Math.min(maximum, Math.max(minimum, value));
+	}
+
+	private static long clamp(long value, long minimum, long maximum) {
+		return Math.min(maximum, Math.max(minimum, value));
 	}
 }
