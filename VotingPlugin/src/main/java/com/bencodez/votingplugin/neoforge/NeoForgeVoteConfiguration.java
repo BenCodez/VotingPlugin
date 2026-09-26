@@ -110,6 +110,12 @@ public final class NeoForgeVoteConfiguration {
                 .filter(site -> site.matches(identifier)).findFirst();
     }
 
+    boolean hasEnabledSiteKey(String key) {
+        if (key == null) return false;
+        return voteSites.stream().filter(NeoForgeVoteSite::canResolveIncomingVote)
+                .anyMatch(site -> site.key().equalsIgnoreCase(key));
+    }
+
     public SharedVotePolicy policyFor(NeoForgeVoteSite site) {
         Objects.requireNonNull(site, "site");
         return new SharedVotePolicy(countFakeVotes, addTotals, addTotalsOffline,
