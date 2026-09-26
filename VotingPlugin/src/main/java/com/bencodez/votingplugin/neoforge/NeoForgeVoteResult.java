@@ -7,9 +7,11 @@ public record NeoForgeVoteResult(Status status, NeoForgeVoteAccount account, Str
         UNKNOWN_PLAYER,
         UNKNOWN_SITE,
         VOTE_DELAY_ACTIVE,
-        UNSUPPORTED_COMPLETION,
+        DEFERRED,
+        DEFERRED_CAPACITY_REACHED,
         STOPPED
     }
 
-    public boolean mutated() { return status == Status.ACCOUNTED; }
+    public boolean accountingMutated() { return status == Status.ACCOUNTED; }
+    public boolean durablyRetained() { return status == Status.DEFERRED; }
 }
