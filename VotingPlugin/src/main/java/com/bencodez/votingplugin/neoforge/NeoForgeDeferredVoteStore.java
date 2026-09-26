@@ -99,22 +99,6 @@ public final class NeoForgeDeferredVoteStore {
                 .anyMatch(vote -> vote.voteId().equals(voteId));
     }
 
-    /** Removes one retained vote after a future processor has completed every required effect. */
-    public synchronized boolean complete(UUID playerId, UUID voteId) {
-        Objects.requireNonNull(playerId, "playerId");
-        Objects.requireNonNull(voteId, "voteId");
-        ensureRetainedCount();
-        SqlUserStorage user = backend.user(playerId);
-        boolean removed = user.transaction(backend.storageType(), Map.of(), scope -> {
-            List<NeoForgeDeferredVote> pending = parse(value(row(scope.readRow()), DEFERRED_VOTES), playerId);
-            boolean matched = pending.removeIf(vote -> vote.voteId().equals(voteId));
-            if (matched) scope.writeValues(Map.of(DEFERRED_VOTES, new DataValueString(serialize(pending))));
-            return matched;
-        });
-        if (removed) retainedCount--;
-        return removed;
-    }
-
     private int countAllPending() {
         int count = 0;
         for (UUID playerId : backend.enumerateUsers()) {

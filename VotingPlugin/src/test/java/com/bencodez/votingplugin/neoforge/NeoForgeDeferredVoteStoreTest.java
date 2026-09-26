@@ -23,7 +23,7 @@ class NeoForgeDeferredVoteStoreTest {
     @TempDir Path directory;
 
     @Test
-    void preservesOrderDeduplicatesAndCompletesOnlyTheSelectedVoteAcrossRestart() throws IOException {
+    void preservesOrderAndDeduplicatesAcrossRestart() throws IOException {
         writeConfiguration();
         UUID playerId = UUID.randomUUID();
         UUID firstId = UUID.randomUUID();
@@ -40,15 +40,13 @@ class NeoForgeDeferredVoteStoreTest {
             assertEquals(List.of(firstId, secondId), runtime.deferredVotes().pending(playerId).stream()
                     .map(NeoForgeDeferredVote::voteId).toList());
             assertEquals(100L, runtime.deferredVotes().pending(playerId).get(0).voteTime());
-            assertTrue(runtime.deferredVotes().complete(playerId, firstId));
-            assertFalse(runtime.deferredVotes().complete(playerId, firstId));
         }
 
         try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
             List<NeoForgeDeferredVote> pending = runtime.deferredVotes().pending(playerId);
-            assertEquals(1, pending.size());
-            assertEquals(secondId, pending.get(0).voteId());
-            assertEquals(200L, pending.get(0).voteTime());
+            assertEquals(List.of(firstId, secondId), pending.stream().map(NeoForgeDeferredVote::voteId).toList());
+            assertEquals(100L, pending.get(0).voteTime());
+            assertEquals(200L, pending.get(1).voteTime());
             assertNoAccounting(runtime.accounting().load(playerId).orElseThrow());
         }
     }
@@ -81,7 +79,6 @@ class NeoForgeDeferredVoteStoreTest {
         UUID first = UUID.randomUUID();
         UUID second = UUID.randomUUID();
         UUID rejected = UUID.randomUUID();
-        UUID firstVote = UUID.randomUUID();
         try (NeoForgeRuntime runtime = NeoForgeRuntime.start(directory)) {
             runtime.players().joined(new SharedVoteIdentity(first, "First", true));
             runtime.players().joined(new SharedVoteIdentity(second, "Second", true));
@@ -90,7 +87,7 @@ class NeoForgeDeferredVoteStoreTest {
                     runtime.accounting(), bounded, runtime.players(), Clock.systemUTC());
 
             assertEquals(NeoForgeVoteResult.Status.DEFERRED,
-                    processor.process(complete(firstVote, first, "First", 100L)).status());
+                    processor.process(complete(UUID.randomUUID(), first, "First", 100L)).status());
             assertEquals(NeoForgeVoteResult.Status.DEFERRED,
                     processor.process(complete(UUID.randomUUID(), second, "Second", 200L)).status());
         }
@@ -106,9 +103,6 @@ class NeoForgeDeferredVoteStoreTest {
             assertEquals(NeoForgeVoteResult.Status.DEFERRED_CAPACITY_REACHED, full.status());
             assertTrue(bounded.pending(rejected).isEmpty());
             assertTrue(runtime.accounting().load(rejected).isEmpty());
-            assertTrue(bounded.complete(first, firstVote));
-            assertEquals(NeoForgeVoteResult.Status.DEFERRED,
-                    processor.process(complete(UUID.randomUUID(), rejected, "Rejected", 301L)).status());
         }
     }
 
