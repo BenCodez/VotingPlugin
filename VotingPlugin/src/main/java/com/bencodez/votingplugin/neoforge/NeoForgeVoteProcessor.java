@@ -36,10 +36,16 @@ public final class NeoForgeVoteProcessor {
     public synchronized NeoForgeVoteResult process(NeoForgeVoteRequest request) {
         Objects.requireNonNull(request, "request");
         if (stopped) return result(NeoForgeVoteResult.Status.STOPPED, "NeoForge runtime is stopped");
-        if (request.scope() == NeoForgeVoteRequest.Scope.COMPLETE
-                && deferredVotes.contains(request.playerId(), request.voteId())) {
-            return result(NeoForgeVoteResult.Status.DEFERRED,
-                    "Vote was already retained for future complete processing");
+        if (request.scope() == NeoForgeVoteRequest.Scope.COMPLETE) {
+            NeoForgeDeferredVoteStore.OccurrenceState state = deferredVotes.state(request.playerId(), request.voteId());
+            if (state == NeoForgeDeferredVoteStore.OccurrenceState.COMPLETED) {
+                return result(NeoForgeVoteResult.Status.ALREADY_COMPLETED,
+                        "Vote was already completed and remains durably recognized");
+            }
+            if (state == NeoForgeDeferredVoteStore.OccurrenceState.PENDING) {
+                return result(NeoForgeVoteResult.Status.DEFERRED,
+                        "Vote was already retained for future complete processing");
+            }
         }
 
         Optional<SharedVoteIdentity> online = players.online(request.playerId());
@@ -69,6 +75,10 @@ public final class NeoForgeVoteProcessor {
             if (deferred.status() == NeoForgeDeferredVoteStore.Status.CAPACITY_REACHED) {
                 return result(NeoForgeVoteResult.Status.DEFERRED_CAPACITY_REACHED,
                         "NeoForge deferred-vote capacity is exhausted; the caller must not acknowledge this vote");
+            }
+            if (deferred.status() == NeoForgeDeferredVoteStore.Status.ALREADY_COMPLETED) {
+                return result(NeoForgeVoteResult.Status.ALREADY_COMPLETED,
+                        "Vote was already completed and remains durably recognized");
             }
             return result(NeoForgeVoteResult.Status.DEFERRED,
                     deferred.status() == NeoForgeDeferredVoteStore.Status.ALREADY_RETAINED
